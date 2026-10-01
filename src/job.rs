@@ -700,7 +700,7 @@ size_um = [0.5, 10.0]
         // 450 and 550 nm fall between the 25 nm grid's nodes: the edges must be put on nodes,
         // or the widths snap and the curve kinks
         let text = format!(
-            "{MODES}\n[task.sweep]\nparameter = \"width\"\nfrom = 0.4\nto = 0.6\npoints = 3\n"
+            "{MODES}\n[task.sweep]\nparameter = \"width\"\nfrom = 0.45\nto = 0.55\npoints = 3\n"
         );
         let job = Job::parse(&text.replace("modes = 2", "modes = 1")).unwrap();
         let mut run = Run::create(&root.0, &job).unwrap();
