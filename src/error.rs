@@ -27,6 +27,20 @@ pub enum Error {
         /// The longest wavelength of the material's range, in micrometres.
         longest_um: f64,
     },
+    /// A file or directory can't be read or written.
+    Io {
+        /// The path.
+        path: String,
+        /// The operating system's reason.
+        reason: String,
+    },
+    /// Text can't be read as what it should be, e.g. a job file, or an event of a run's record.
+    Parse {
+        /// What was being read, e.g. a path and a line number.
+        what: String,
+        /// Why it can't be read.
+        reason: String,
+    },
 }
 
 impl Error {
@@ -52,6 +66,8 @@ impl fmt::Display for Error {
                 f,
                 "{material} is only valid from {shortest_um} to {longest_um} um, not at {wavelength_um} um"
             ),
+            Error::Io { path, reason } => write!(f, "{path}: {reason}"),
+            Error::Parse { what, reason } => write!(f, "can't read {what}: {reason}"),
         }
     }
 }

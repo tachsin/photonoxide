@@ -101,7 +101,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
   - import from the refractiveindex.info database (CC0) with provenance;
   - validity ranges enforced.
 - [x] **Geometry and layer stacks:** polygons, extrusion, standard SOI and SiN stacks.
-- [ ] **Runs:** job TOML, run directories, `events.jsonl`, replay, hard timeouts.
+- [x] **Runs:** job TOML, run directories, `events.jsonl`, replay, hard timeouts.
 - [ ] **Studio skeleton:** open a run, show its geometry and ε cross-sections, replay events; it starts and exits by itself.
 - [ ] **Project:**
   - CI on Linux, macOS and Windows: clippy, fmt and rustdoc with `-D warnings`, plus a single-thread job.
@@ -207,7 +207,7 @@ How a design reaches a foundry. Fabrication is almost always a multi-project waf
   - sign-off with the foundry's own rule deck (KLayout, run as an external program);
   - connectivity: every port connected and no open waveguide ends.
 - [ ] **Design record** next to the layout, for us rather than the foundry: simulated spectra, process corners, the grid each number came from, and what to measure.
-- [ ] **Runs:**
+- [x] **Runs:**
   - **SiEPIC openEBL** (fabricated by Applied Nanotools; 220 nm SOI, one full etch, electron-beam lithography, oxide cladding): GDSII or OASIS submitted as a GitHub pull request, with automated DRC and functional checks, and remote testing (Hammood 2025). The first target.
   - **Cornerstone** (220/340/500 nm SOI, SiN): GDSII.
   - **Runs under NDA** (for example AMF, imec, GlobalFoundries, IHP, CEA-Leti and LioniX, through Europractice): the user loads the foundry's PDK locally in our PDK format. Their rules and cells are never in this repository.
