@@ -44,9 +44,9 @@ The validated, fabrication-ready photonics toolkit for Rust: simulation, inverse
    - Only openly licensed data is shipped; the refractiveindex.info database is CC0.
 9. **Determinism is a guarantee.** Reductions are ordered, seeds are explicit, and nothing depends on thread scheduling.
 
-### Lessons we've already paid for
+### Pitfalls ruled out by design
 
-photonoxide's prototype is an unpublished waveguide router. It is a 2D FDFD with adjoint topology optimization, plus a 3D FDTD with adjoint optimization, built to design a 1310/1550 nm demultiplexer. These are the mistakes it made, each one measured. photonoxide rules them out by design, with a test for each:
+These mistakes were each seen and measured while designing a 1310/1550 nm silicon demultiplexer by adjoint topology optimization, in 2D FDFD and 3D FDTD. photonoxide is written from scratch to this roadmap, and rules each one out by design, with a test for each:
 
 | Pitfall (measured) | photonoxide rule |
 |---|---|

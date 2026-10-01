@@ -28,10 +28,6 @@ And underneath:
 - **Reproducible:** the same input gives the same result on any number of threads.
 - **Inverse design built in:** adjoint gradients for every solver, density and level-set methods, robust and length-scale constraints. [genoxide](https://github.com/tachsin/genoxide) drives the global and discrete searches.
 
-## Where it comes from
-
-photonoxide grows out of a working, unpublished prototype: a wavelength demultiplexer designed by adjoint topology optimization in 2D and 3D, with a live egui window. The prototype reached 97–98% transmission in 2D under ±10 nm fabrication errors. In 3D the same design kept only 46–70%. That gap is why "validated" and "verified in 3D" are first-class here. The roadmap lists every pitfall it hit and the rule that rules it out.
-
 ## Status
 
 | Milestone | Scope | Status |

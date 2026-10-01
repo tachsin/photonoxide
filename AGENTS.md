@@ -22,6 +22,6 @@ photonoxide is pre-alpha: the plan is [ROADMAP.md](ROADMAP.md), and there is no 
   - headless only for batches.
 - **Commits:** no AI attribution lines (no 🤖 footer, no Co-Authored-By trailer).
 
-## The prototype
+## From scratch
 
-The prototype of photonoxide's FDFD, FDTD, adjoint and studio parts is a waveguide router in the author's private monorepo (`photonics/`: wgopt and wgopt-studio). Its AGENTS.md records what was measured. The roadmap's "Lessons we've already paid for" table lists its pitfalls; each one must have a test here.
+Everything is written from scratch to the roadmap; no code is carried over from earlier projects. The roadmap's "Pitfalls ruled out by design" table lists known mistakes, and each one must have a test here.
