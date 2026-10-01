@@ -1,9 +1,12 @@
 //! Waveguide modes: the field patterns that propagate unchanged along a waveguide, and their
 //! effective indices.
 //!
+//! - [`dispersion`]: group index, dispersion and loss from the effective index, and one mode
+//!   followed across wavelength.
 //! - [`slab`]: the modes of a three-layer slab, exactly (TE and TM).
 //! - [`vector`]: the full-vector modes of any cross-section, by finite differences.
 
+pub mod dispersion;
 pub mod slab;
 pub mod vector;
 

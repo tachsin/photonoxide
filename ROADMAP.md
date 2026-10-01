@@ -114,7 +114,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - [ ] **Dielectric corners:** high-accuracy finite-difference equations at interfaces and corners (Hadley 2002, parts I and II).
 - [ ] **Effective index method,** with its error against 3D stated.
 - [ ] **Bends:** conformal transformation; bend loss.
-- [ ] **Derived quantities:** n_eff, n_g, dispersion, loss and overlaps; modes tracked across wavelength.
+- [ ] **Derived quantities:** n_eff, n_g, dispersion, loss and overlaps; modes tracked across wavelength. *(n_g and D (Chrostowski & Hochberg Eqs. 3.5–3.6), loss, mode tracking by field overlap: done. Still to do: coupling overlaps between different waveguides' modes, which need E as well as H.)*
 - [ ] **Studio:** the mode viewer (fields, and sweeps over width and wavelength).
 - [ ] **Validation:**
   - slab modes against the analytic solution;
