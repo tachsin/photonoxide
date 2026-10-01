@@ -1,7 +1,7 @@
 ---
-title: Perfectly matched layers
+title: "Perfectly matched layers"
 module: mode::vector
-summary: Absorbing layers inside the window's edges, by complex coordinate stretching: leaky modes and their loss, and no reflections from the window.
+summary: "Absorbing layers inside the window's edges, by complex coordinate stretching: leaky modes and their loss, and no reflections from the window."
 order: 8
 papers:
   - cite: "W. C. Chew, J. M. Jin, E. Michielssen, Microw. Opt. Technol. Lett. 15, 363 (1997)"

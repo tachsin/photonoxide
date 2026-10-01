@@ -1,7 +1,7 @@
 ---
-title: Full-vector modes by finite differences
+title: "Full-vector modes by finite differences"
 module: mode::vector
-summary: The modes of any waveguide cross-section, anisotropic and lossy media included, from the transverse magnetic field on a rectilinear grid.
+summary: "The modes of any waveguide cross-section, anisotropic and lossy media included, from the transverse magnetic field on a rectilinear grid."
 order: 5
 papers:
   - cite: "A. B. Fallahkhair, K. S. Li, T. E. Murphy, J. Lightwave Technol. 26, 1423 (2008)"

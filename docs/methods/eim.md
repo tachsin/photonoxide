@@ -1,7 +1,7 @@
 ---
-title: Effective index method
+title: "Effective index method"
 module: mode::eim
-summary: A ridge waveguide's mode from two slab problems, fast and approximate, with its error against the full-vector solver measured.
+summary: "A ridge waveguide's mode from two slab problems, fast and approximate, with its error against the full-vector solver measured."
 order: 10
 papers:
   - cite: "G. B. Hocker, W. K. Burns, Appl. Opt. 16, 113 (1977)"

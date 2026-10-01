@@ -1,7 +1,7 @@
 ---
-title: Shift-and-invert Arnoldi
+title: "Shift-and-invert Arnoldi"
 module: mode::vector
-summary: The eigenvalues of a large sparse matrix nearest a shift, for the mode solvers: Arnoldi on (A − σI)⁻¹, restarted, with every answer checked against A itself.
+summary: "The eigenvalues of a large sparse matrix nearest a shift, for the mode solvers: Arnoldi on (A − σI)⁻¹, restarted, with every answer checked against A itself."
 order: 6
 papers:
   - cite: "Y. Saad, Numerical Methods for Large Eigenvalue Problems, 2nd ed., SIAM (2011)"

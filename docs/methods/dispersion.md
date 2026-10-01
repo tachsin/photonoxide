@@ -1,7 +1,7 @@
 ---
-title: Group index, dispersion and loss
+title: "Group index, dispersion and loss"
 module: mode::dispersion
-summary: What follows from a mode's effective index across wavelength: group index, dispersion, loss, and following one mode through a sweep.
+summary: "What follows from a mode's effective index across wavelength: group index, dispersion, loss, and following one mode through a sweep."
 order: 9
 papers:
   - cite: "L. Chrostowski, M. Hochberg, Silicon Photonics Design, Cambridge University Press (2015), Section 3.2.9"

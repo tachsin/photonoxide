@@ -1,7 +1,7 @@
 ---
-title: Three-layer slab, exact
+title: "Three-layer slab, exact"
 module: mode::slab
-summary: The TE and TM modes of a core between two claddings, from their characteristic equations, to the last bit.
+summary: "The TE and TM modes of a core between two claddings, from their characteristic equations, to the last bit."
 order: 3
 papers:
   - cite: "A. Yariv, P. Yeh, Photonics: Optical Electronics in Modern Communications, 6th ed., Oxford University Press (2007), Section 3.2"

@@ -1,7 +1,7 @@
 ---
-title: Units and conventions
+title: "Units and conventions"
 module: units
-summary: Micrometres, frequencies in c/µm, and one time convention, e^(−iωt), that fixes every sign in the library.
+summary: "Micrometres, frequencies in c/µm, and one time convention, e^(−iωt), that fixes every sign in the library."
 order: 1
 papers:
   - cite: "A. F. Oskooi et al., Comput. Phys. Commun. 181, 687 (2010)"

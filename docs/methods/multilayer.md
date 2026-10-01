@@ -1,7 +1,7 @@
 ---
-title: Multilayer slab, transfer matrices
+title: "Multilayer slab, transfer matrices"
 module: mode::multilayer
-summary: The bound modes and leaky waves of any planar stack, exactly, from 2 × 2 field-transfer matrices.
+summary: "The bound modes and leaky waves of any planar stack, exactly, from 2 × 2 field-transfer matrices."
 order: 4
 papers:
   - cite: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984)"

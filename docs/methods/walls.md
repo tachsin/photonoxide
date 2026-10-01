@@ -1,7 +1,7 @@
 ---
-title: Mirror walls
+title: "Mirror walls"
 module: mode::vector
-summary: Electric and magnetic walls on the window's edges: a symmetric waveguide solved on half or a quarter of its cross-section, for the modes of one symmetry.
+summary: "Electric and magnetic walls on the window's edges: a symmetric waveguide solved on half or a quarter of its cross-section, for the modes of one symmetry."
 order: 7
 papers:
   - cite: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002) (the boundary conditions of its corner test problems)"

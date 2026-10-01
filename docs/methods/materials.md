@@ -1,7 +1,7 @@
 ---
-title: Materials
+title: "Materials"
 module: material
-summary: Refractive indices with their sources: silicon (Li 1980), silica (Malitson 1965), silicon nitride (Luke 2015), and Sellmeier, Lorentz, Drude, Cauchy and tabulated models.
+summary: "Refractive indices with their sources: silicon (Li 1980), silica (Malitson 1965), silicon nitride (Luke 2015), and Sellmeier, Lorentz, Drude, Cauchy and tabulated models."
 order: 2
 papers:
   - cite: "H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980)"
