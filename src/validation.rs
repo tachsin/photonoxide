@@ -312,6 +312,13 @@ pub fn cases() -> Vec<Case> {
             source: "E. A. J. Marcatili, Bell Syst. Tech. J. 48, 2071 (1969), doi:10.1002/j.1538-7305.1969.tb01166.x, Eqs. 3, 6-7, 20-21; Fig. 6b's regime: 1e-4 apart at B = 3 and 4, 1.2e-3 at 1.5, 9e-3 at 1 near cutoff, where the corners Marcatili ignores hold field",
             run: marcatili_vector,
         },
+        Case {
+            id: "mode/slab-fd-chilwell",
+            title: "The 8 bound modes of Chilwell and Hodgkinson's four-layer guide by 1D finite differences on a 1 nm grid (largest deviation shown)",
+            tier: Tier::Published,
+            source: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Table 3: effective indices to 6 decimals; the scheme is second order (tested against the exact slab)",
+            run: slab_fd_chilwell,
+        },
     ]
 }
 
@@ -983,6 +990,35 @@ fn marcatili_vector() -> Outcome {
         expected: 0.0,
         tolerance: 5e-4,
         error: (v - m).abs(),
+    }
+}
+
+fn slab_fd_chilwell() -> Outcome {
+    let profile = crate::mode::slab_fd::chilwell_profile(0.001);
+    let w = um(0.6328);
+    let worst = [(Polarization::Te, 0), (Polarization::Tm, 4)]
+        .iter()
+        .map(|&(pol, offset)| {
+            let mut got: Vec<f64> = profile
+                .modes(pol, w, 4, Some(1.63))
+                .map(|m| m.iter().map(|m| m.effective_index.re).collect())
+                .unwrap_or_default();
+            got.sort_by(|a, b| b.total_cmp(a));
+            if got.len() < 4 {
+                return f64::NAN;
+            }
+            got.iter()
+                .zip(&CHILWELL_TABLE_3[offset..offset + 4])
+                .map(|(g, (n, _))| (g - n).abs())
+                .fold(0.0, f64::max)
+        })
+        .fold(0.0, f64::max);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // the table's 6 decimals and the grid
+        tolerance: 2e-6,
+        error: worst,
     }
 }
 
