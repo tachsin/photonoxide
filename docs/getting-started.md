@@ -89,12 +89,21 @@ See [materials](methods/materials.md).
 
 ## Runs and the studio
 
-A job file describes a run, and the studio window shows it live:
+A job file describes a run, and the studio window shows it live, starts by itself and closes
+when the run is done. Every run is recorded (`runs/<run>/events.jsonl`) and replays with
+`photonoxide view runs/<run>`.
 
 ```sh
 cargo install photonoxide --features studio
-photonoxide run jobs/strip-and-ring.toml
+photonoxide run jobs/strip-and-ring.toml        # a structure, as pictures of its permittivity
+photonoxide run jobs/strip-modes.toml           # a strip's modes, and a sweep over wavelength
+photonoxide run jobs/strip-width-sweep.toml     # ... or over its width
 ```
+
+A `"modes"` job cuts the stack and shapes at a y, solves the cross-section's modes with the
+full-vector solver, and records a picture of each mode's |E|² with its effective index and TE
+fraction. With a `[task.sweep]` over the wavelength or a rectangle's width, the studio plots
+the effective indices as the points arrive, and for a wavelength sweep the group indices too.
 
 ## Where everything is
 
