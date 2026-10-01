@@ -115,7 +115,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - [x] **Effective index method,** with its error against 3D stated. *(Hocker & Burns 1977, as Chrostowski & Hochberg describe it: the book's 2.489 reproduced; against the full-vector solver, 220 nm strips 400–600 nm wide: n_eff +3.9 to +1.0 %, n_g −6.7 to −2.2 %.)*
 - [x] **Bends:** conformal transformation; bend loss. *(Heiblum & Harris's map in the full-vector solver, with a PML; an exact bent slab (radial shooting to the outgoing Hankel function) as the reference: exact and second order for E normal to the bend plane, 1.3e-3 at R = 1 µm for E in it; Marcuse's formula reached as 1/R.)*
 - [x] **Derived quantities:** n_eff, n_g, dispersion, loss and overlaps; modes tracked across wavelength. *(n_g and D (Chrostowski & Hochberg Eqs. 3.5–3.6), loss, mode tracking by field overlap; all six field components, power, and the power coupled between two waveguides' modes, checked against exact slab fields.)*
-- [ ] **Studio:** the mode viewer (fields, and sweeps over width and wavelength).
+- [x] **Studio:** the mode viewer (fields, and sweeps over width and wavelength). *(A `"modes"` job: each mode's |E|² with its effective index and TE fraction, and sweeps over the wavelength or a width plotted live, with group indices for a wavelength sweep.)*
 - [x] **Validation:**
   - slab modes against the analytic solution;
   - Marcatili's approximation (1969) in its regime of validity;
