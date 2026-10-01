@@ -531,7 +531,8 @@ fn assemble(cs: &CrossSection, k2: f64) -> Vec<(usize, usize, c64)> {
 pub struct VectorMode {
     beta2: c64,
     k: f64,
-    nyn: usize,
+    x: Vec<f64>,
+    y: Vec<f64>,
     hx: Vec<c64>,
     hy: Vec<c64>,
 }
@@ -545,12 +546,12 @@ impl VectorMode {
 
     /// H_x at node (i, j), normalized so the largest transverse component is 1.
     pub fn hx(&self, i: usize, j: usize) -> c64 {
-        self.hx[i * self.nyn + j]
+        self.hx[i * self.y.len() + j]
     }
 
     /// H_y at node (i, j), on the same scale as [`VectorMode::hx`].
     pub fn hy(&self, i: usize, j: usize) -> c64 {
-        self.hy[i * self.nyn + j]
+        self.hy[i * self.y.len() + j]
     }
 
     /// The share of the transverse magnetic field in H_y: near 1 for a TE-like mode (E mostly
@@ -559,6 +560,36 @@ impl VectorMode {
         let x: f64 = self.hx.iter().map(|v| v.norm_sqr()).sum();
         let y: f64 = self.hy.iter().map(|v| v.norm_sqr()).sum();
         y / (x + y)
+    }
+
+    /// How alike two modes' transverse magnetic fields are, from 0 to 1:
+    /// |∫ H_a* · H_b| / (‖H_a‖ ‖H_b‖), each node weighted by the area around it. `None` unless
+    /// both modes are on the same grid. Recognizes a mode at a nearby wavelength or geometry.
+    pub fn overlap(&self, other: &VectorMode) -> Option<f64> {
+        if self.x != other.x || self.y != other.y {
+            return None;
+        }
+        // the area around a node: half of each neighbouring spacing, along each axis
+        let half = |v: &[f64], i: usize| {
+            let a = if i > 0 { v[i] - v[i - 1] } else { 0.0 };
+            let b = if i + 1 < v.len() {
+                v[i + 1] - v[i]
+            } else {
+                0.0
+            };
+            0.5 * (a + b)
+        };
+        let (mut ab, mut aa, mut bb) = (c64::new(0.0, 0.0), 0.0, 0.0);
+        for i in 0..self.x.len() {
+            for j in 0..self.y.len() {
+                let w = half(&self.x, i) * half(&self.y, j);
+                let n = i * self.y.len() + j;
+                ab += (self.hx[n].conj() * other.hx[n] + self.hy[n].conj() * other.hy[n]) * w;
+                aa += (self.hx[n].norm_sqr() + self.hy[n].norm_sqr()) * w;
+                bb += (other.hx[n].norm_sqr() + other.hy[n].norm_sqr()) * w;
+            }
+        }
+        Some(ab.norm() / (aa * bb).sqrt())
     }
 }
 
@@ -613,7 +644,8 @@ pub fn modes(
             VectorMode {
                 beta2: p.value,
                 k,
-                nyn: cs.y.len(),
+                x: cs.x.clone(),
+                y: cs.y.clone(),
                 hx: hx.iter().map(|v| v / peak).collect(),
                 hy: hy.iter().map(|v| v / peak).collect(),
             }

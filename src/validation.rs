@@ -186,6 +186,20 @@ pub fn cases() -> Vec<Case> {
             source: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 7: 2.761465320 +- 5e-9 (series expansion); ours converges at about first order at convex corners and 1.4-1.8 at concave ones",
             run: hadley_4,
         },
+        Case {
+            id: "mode/slab-group-index",
+            title: "The group index of a TE slab (220 nm of 3.473 between 1.444 and air) at 1.55 um, from differences of its effective index over +-2 nm (error shown)",
+            tier: Tier::Analytic,
+            source: "Hellmann-Feynman, no material dispersion: n_g = <eps>/n_eff, <eps> weighted by E^2 of the exact field",
+            run: slab_group_index,
+        },
+        Case {
+            id: "mode/strip-group-index-book",
+            title: "The group index of a 500 x 220 nm strip at 1.55 um, with the book's dispersive silicon and 1.444 oxide, on a 6.25 x 5 nm grid (group index shown)",
+            tier: Tier::Published,
+            source: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Fig. 3.22b: about 4.18, read off the plot to +-0.005 (Lumerical MODE, 20 nm mesh); materials from its Listing 3.1",
+            run: strip_group_index_book,
+        },
     ]
 }
 
@@ -503,6 +517,79 @@ fn hadley_3() -> Outcome {
 
 fn hadley_4() -> Outcome {
     hadley(4)
+}
+
+fn slab_group_index() -> Outcome {
+    let (differences, exact) = crate::mode::dispersion::te_slab_group_index();
+    Outcome {
+        measured: (differences - exact).abs(),
+        expected: 0.0,
+        // the five-point differences' truncation is about 1e-8
+        tolerance: 1e-6,
+        error: (differences - exact).abs(),
+    }
+}
+
+fn strip_group_index_book() -> Outcome {
+    use crate::material::{LorentzPole, Material, Model, Provenance};
+    use crate::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity};
+    use faer::c64;
+    // the book's Lorentz silicon (its Eq. 3.2 and Listing 3.1), ω₀ in rad/s as THz
+    let silicon = Material::new(
+        "Si",
+        Model::Lorentz {
+            eps_inf: 7.987_374_92,
+            poles: vec![LorentzPole {
+                strength: 3.687_991_43,
+                resonance: crate::units::Frequency::thz(3.932_824_66e15 / TAU / 1e12)
+                    .expect("a positive frequency"),
+                damping: 0.0,
+            }],
+        },
+        um(1.15),
+        um(1.8),
+        Provenance {
+            reference: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), Eq. 3.2"
+                .into(),
+            doi: "10.1017/CBO9781316084168".into(),
+            data: "Listing 3.1".into(),
+            temperature: Some(300.0),
+            notes: String::new(),
+        },
+    )
+    .expect("a valid material");
+    // the TE-like mode's quarter, behind an electric wall at x = 0 and a magnetic one at y = 0
+    let strip = |l: Wavelength| {
+        let si = silicon.permittivity(l)?;
+        CrossSection::uniform((0.0, 1.05, 168), (0.0, 0.75, 150), |x, y| {
+            Permittivity::isotropic(if x < 0.25 && y < 0.11 {
+                si
+            } else {
+                c64::new(1.444 * 1.444, 0.0)
+            })
+        })?
+        .with_boundaries(Boundaries {
+            west: Boundary::ElectricWall,
+            south: Boundary::MagneticWall,
+            ..Boundaries::default()
+        })
+    };
+    let wavelengths = [um(1.54), um(1.55), um(1.56)];
+    let ng = crate::mode::dispersion::track(strip, &wavelengths, None, 3)
+        .ok()
+        .and_then(|m| {
+            let n: Vec<f64> = m.iter().map(|m| m.effective_index().re).collect();
+            crate::mode::dispersion::group_index(&wavelengths, &n).ok()
+        })
+        .map_or(f64::NAN, |ng| ng[1]);
+    Outcome {
+        measured: ng,
+        expected: 4.18,
+        // the plot's reading (±0.005), the book's 20 nm mesh and our corners' convergence
+        // (4.1651, 4.1729 at 12.5 and 6.25 nm)
+        tolerance: 0.02,
+        error: (ng - 4.18).abs(),
+    }
 }
 
 fn um(value: f64) -> Wavelength {
