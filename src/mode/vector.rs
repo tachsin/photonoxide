@@ -361,6 +361,76 @@ impl CrossSection {
         CrossSection::new(x, y, cells)
     }
 
+    /// A waveguide bent in the x–z plane around a centre at x = −`radius` (µm). `eps` gives the
+    /// straight cross-section's permittivity at (x, y), x being the physical distance from the
+    /// reference radius, positive towards the outside of the bend: a strip at |x| < w/2 is
+    /// centred on it. The nodes are uniform in x, `nx` × `ny` cells from (x0, y0) to (x1, y1),
+    /// so interfaces placed on nodes stay on nodes.
+    ///
+    /// M. Heiblum, J. H. Harris, IEEE J. Quantum Electron. 11, 75 (1975),
+    /// [doi:10.1109/JQE.1975.1068563](https://doi.org/10.1109/JQE.1975.1068563), Eqs. (9)–(10):
+    /// the map u = R ln(1 + x/R) turns the bend into a straight guide whose permittivity is
+    /// multiplied by e^(2u/R) = (1 + x/R)². The cross-section's x coordinates are u: each node
+    /// is mapped, so the grid is uniform in x and not in u, and each cell takes `eps` at its
+    /// centre times e^(2u/R) at its centre in u. A mode's effective index is β/k with β the
+    /// propagation constant along the arc at the reference radius, and its loss per unit
+    /// length there follows from Im n_eff (see [`crate::mode::dispersion::bend_loss_db`]).
+    ///
+    /// The map is exact for the scalar wave equation (Heiblum and Harris's Eq. 3), so for the
+    /// polarization with E normal to the bend plane (E along y in a slab uniform in y). For E in
+    /// the bend plane the exact equivalent medium is anisotropic in ε and μ; scaling the
+    /// isotropic ε, as here, adds a term whose first-order effect on a bound mode vanishes, so
+    /// the error is of order 1/R². The outside of a bend radiates: give it a [`Pml`] on the
+    /// east edge, its thickness in u.
+    ///
+    /// # Errors
+    ///
+    /// As [`CrossSection::new`], and [`Error::InvalidValue`] for a radius that isn't positive
+    /// and finite, or a window reaching the centre of the bend (x0 ≤ −radius).
+    pub fn bent(
+        radius: f64,
+        (x0, x1, nx): (f64, f64, usize),
+        (y0, y1, ny): (f64, f64, usize),
+        eps: impl Fn(f64, f64) -> Permittivity,
+    ) -> Result<CrossSection> {
+        if !(radius.is_finite() && radius > 0.0) {
+            return Err(Error::invalid(
+                "bend",
+                format!("the radius must be positive, got {radius}"),
+            ));
+        }
+        if x0 <= -radius {
+            return Err(Error::invalid(
+                "bend",
+                format!(
+                    "the window starts at x = {x0}, at or beyond the bend's centre (-{radius})"
+                ),
+            ));
+        }
+        let line = |a: f64, b: f64, n: usize| -> Vec<f64> {
+            (0..=n).map(|i| a + (b - a) * i as f64 / n as f64).collect()
+        };
+        let (xs, y) = (line(x0, x1, nx), line(y0, y1, ny));
+        let u: Vec<f64> = xs.iter().map(|&x| radius * (x / radius).ln_1p()).collect();
+        let mut cells = Vec::with_capacity(nx * ny);
+        for i in 0..nx {
+            let x = 0.5 * (xs[i] + xs[i + 1]);
+            let f = (u[i] + u[i + 1]) / radius;
+            let f = f.exp();
+            for j in 0..ny {
+                let e = eps(x, 0.5 * (y[j] + y[j + 1]));
+                cells.push(Permittivity {
+                    xx: e.xx * f,
+                    xy: e.xy * f,
+                    yx: e.yx * f,
+                    yy: e.yy * f,
+                    zz: e.zz * f,
+                });
+            }
+        }
+        CrossSection::new(u, y, cells)
+    }
+
     /// The node coordinates along x, µm.
     pub fn x(&self) -> &[f64] {
         &self.x
@@ -944,6 +1014,62 @@ pub(crate) fn chilwell_leaky(h: f64, near: &[c64]) -> Vec<c64> {
         .collect()
 }
 
+/// The book's strip as a 2D slab (its slab index, 2.845, 500 nm wide, in 1.444) bent at
+/// `radius` µm, at 1.55 µm: from the full-vector solver on a bent cross-section at spacing `h`,
+/// uniform along y between walls (E along y for TE, E in the bend plane for TM), with a PML on
+/// the outside from x = 2.5 to 6 µm; and exactly ([`crate::mode::bend::SlabBend`]).
+pub(crate) fn bent_slab(
+    polarization: crate::mode::Polarization,
+    radius: f64,
+    h: f64,
+) -> (c64, c64) {
+    use crate::mode::Polarization;
+    use crate::units::Length;
+    let (core, clad, t) = (2.845, 1.444, 0.5);
+    let w = Wavelength::from_um_unchecked(1.55);
+    let (x0, x1) = ((-0.75f64).max(-0.9 * radius), 6.0);
+    let pml = radius * (x1 / radius).ln_1p() - radius * (2.5 / radius).ln_1p();
+    let wall = match polarization {
+        Polarization::Te => Boundary::ElectricWall,
+        Polarization::Tm => Boundary::MagneticWall,
+    };
+    let cs = CrossSection::bent(
+        radius,
+        (x0, x1, ((x1 - x0) / h).round() as usize),
+        (0.0, 4.0 * h, 4),
+        |x, _| {
+            let n = if x.abs() < t / 2.0 { core } else { clad };
+            Permittivity::isotropic(c64::new(n * n, 0.0))
+        },
+    )
+    .and_then(|cs| {
+        cs.with_boundaries(Boundaries {
+            south: wall,
+            north: wall,
+            ..Boundaries::default()
+        })
+    })
+    .and_then(|cs| {
+        cs.with_pml(Pml {
+            east: pml,
+            strength: 3.0,
+            ..Pml::default()
+        })
+    })
+    .expect("a valid bent slab");
+    let found = modes(&cs, w, 1, Some(core)).expect("the solver converges")[0].effective_index();
+    let exact = crate::mode::bend::SlabBend::new(
+        Length::um(radius),
+        clad,
+        &[(core, Length::um(t))],
+        clad,
+        Length::um(-t / 2.0),
+    )
+    .and_then(|b| b.mode_near(polarization, w, found))
+    .expect("the exact bend");
+    (found, exact)
+}
+
 /// The full-vector solver's error on the book's slab (220 nm of 3.473 in 1.444) turned on its
 /// side and uniform along y, against the exact slab mode of `polarization`, at spacing `h`
 /// (µm) in a 4 µm window. `te_like` picks the vector mode whose H is mostly along y.
@@ -1338,6 +1464,41 @@ mod tests {
             })
             .unwrap();
         assert!(walled.with_pml(pml(0.2, 0.0, 3.0)).is_err());
+    }
+
+    #[test]
+    fn a_bend_is_exact_for_e_normal_to_its_plane_at_second_order() {
+        // E along y, normal to the bend plane: the conformal map is exact, and the solver
+        // converges at second order onto the exact bent slab (R = 1 µm: −2.3e-4, −5.8e-5 at 10,
+        // 5 nm), its loss within 0.1 %
+        let (coarse, exact) = bent_slab(Polarization::Te, 1.0, 0.01);
+        let (fine, _) = bent_slab(Polarization::Te, 1.0, 0.005);
+        let order = ((coarse.re - exact.re) / (fine.re - exact.re)).log2();
+        assert!(
+            (order - 2.0).abs() < 0.1,
+            "order {order}: {coarse}, {fine} vs {exact}"
+        );
+        assert!((fine.im / exact.im - 1.0).abs() < 2e-3, "{fine} vs {exact}");
+    }
+
+    #[test]
+    fn a_bends_error_for_e_in_its_plane_falls_with_the_radius() {
+        // E in the bend plane: scaling the isotropic ε is an approximation; its error, measured
+        // against the exact bend, is 1.2e-3 at R = 1 µm and 1.3e-4 at 3 µm
+        let error = |r: f64| {
+            let (found, exact) = bent_slab(Polarization::Tm, r, 0.005);
+            (found.re - exact.re).abs()
+        };
+        let (e1, e3) = (error(1.0), error(3.0));
+        assert!(e1 < 2e-3 && e3 < 2e-4 && e3 < e1 / 5.0, "{e1}, {e3}");
+    }
+
+    #[test]
+    fn bad_bends_are_errors() {
+        let eps = |_: f64, _: f64| iso(2.0);
+        assert!(CrossSection::bent(0.0, (-0.5, 0.5, 10), (0.0, 0.1, 2), eps).is_err());
+        assert!(CrossSection::bent(1.0, (-1.0, 0.5, 10), (0.0, 0.1, 2), eps).is_err());
+        assert!(CrossSection::bent(1.0, (-0.9, 0.5, 10), (0.0, 0.1, 2), eps).is_ok());
     }
 
     #[test]

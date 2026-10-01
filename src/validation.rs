@@ -249,6 +249,34 @@ pub fn cases() -> Vec<Case> {
             source: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Section 3.2.5: 2.489, from the slab index rounded to 2.845 and a 10 nm 1D mesh (on that input the exact lateral slab gives 2.488558); the method: G. B. Hocker, W. K. Burns, Appl. Opt. 16, 113 (1977), doi:10.1364/AO.16.000113",
             run: eim_strip_book,
         },
+        Case {
+            id: "mode/bend-slab-te",
+            title: "A slab (2.845, 500 nm, in 1.444) bent at 1 um, E normal to the bend plane, full-vector on a conformally mapped 2.5 nm grid with a PML: effective index along the arc (error shown)",
+            tier: Tier::Analytic,
+            source: "the exact bent slab (mode::bend: radial shooting matched to the outgoing Hankel function, D. Marcuse, Bell Syst. Tech. J. 50, 2551 (1971), doi:10.1002/j.1538-7305.1971.tb02620.x, Eq. 10); the map: M. Heiblum, J. H. Harris, IEEE J. Quantum Electron. 11, 75 (1975), doi:10.1109/JQE.1975.1068563, exact for this polarization; second order",
+            run: bend_te_index,
+        },
+        Case {
+            id: "mode/bend-slab-te-loss",
+            title: "The same bend's radiation loss, Im n_eff = 9.29e-4 (relative error shown)",
+            tier: Tier::Analytic,
+            source: "the exact bent slab (mode::bend); the PML starts at 2.5 um, outside the bend's turning point",
+            run: bend_te_loss,
+        },
+        Case {
+            id: "mode/bend-slab-tm",
+            title: "The same bend with E in the bend plane, where scaling an isotropic permittivity is an approximation (error shown)",
+            tier: Tier::Analytic,
+            source: "the exact bent slab (mode::bend); the exact equivalent medium would be anisotropic in both permittivity and permeability; the error falls as the radius grows (1.3e-4 at 3 um)",
+            run: bend_tm_index,
+        },
+        Case {
+            id: "mode/bend-marcuse",
+            title: "Marcuse's bending-loss formula against the exact loss of a slab (1.6 in 1.5, 1 um, at 1 um) bent at 120 um (ratio minus one shown)",
+            tier: Tier::Published,
+            source: "D. Marcuse, Bell Syst. Tech. J. 50, 2551 (1971), doi:10.1002/j.1538-7305.1971.tb02620.x, Eqs. 32-33, an approximation for large radii: its deviation falls as 1/R, 0.14 at 80 um, 0.084 at 120 um and 0.061 at 160 um",
+            run: bend_marcuse,
+        },
     ]
 }
 
@@ -799,6 +827,64 @@ fn eim_strip_book() -> Outcome {
         // 3 printed decimals, plus the book's rounded input (1.9e-4) and mesh
         tolerance: 1e-3,
         error: (n - 2.489).abs(),
+    }
+}
+
+fn bend_te_index() -> Outcome {
+    let (found, exact) = crate::mode::vector::bent_slab(Polarization::Te, 1.0, 0.0025);
+    Outcome {
+        measured: (found.re - exact.re).abs(),
+        expected: 0.0,
+        // second order: 2.5 nm leaves 1.4e-5
+        tolerance: 3e-5,
+        error: (found.re - exact.re).abs(),
+    }
+}
+
+fn bend_te_loss() -> Outcome {
+    let (found, exact) = crate::mode::vector::bent_slab(Polarization::Te, 1.0, 0.0025);
+    let relative = (found.im / exact.im - 1.0).abs();
+    Outcome {
+        measured: relative,
+        expected: 0.0,
+        tolerance: 2e-3,
+        error: relative,
+    }
+}
+
+fn bend_tm_index() -> Outcome {
+    let (found, exact) = crate::mode::vector::bent_slab(Polarization::Tm, 1.0, 0.0025);
+    Outcome {
+        measured: (found.re - exact.re).abs(),
+        expected: 0.0,
+        // the approximation's error, 1.3e-3 at 1 um
+        tolerance: 2e-3,
+        error: (found.re - exact.re).abs(),
+    }
+}
+
+fn bend_marcuse() -> Outcome {
+    use crate::mode::bend::{SlabBend, marcuse_loss};
+    let (core, clad, t, r) = (1.6, 1.5, Length::um(1.0), Length::um(120.0));
+    let w = um(1.0);
+    let straight = Slab::new(clad, core, clad, t)
+        .ok()
+        .and_then(|s| {
+            s.modes(Polarization::Te, w)
+                .first()
+                .map(|m| m.effective_index())
+        })
+        .unwrap_or(f64::NAN);
+    let exact = SlabBend::new(r, clad, &[(core, t)], clad, Length::um(-0.5))
+        .and_then(|b| b.fundamental(Polarization::Te, w))
+        .map_or(f64::NAN, |n| n.im);
+    let deviation = marcuse_loss(core, clad, t, r, w, straight) / exact - 1.0;
+    Outcome {
+        measured: deviation.abs(),
+        expected: 0.0,
+        // an approximation of order d/R: 0.084 here; at larger radii the loss nears round-off
+        tolerance: 0.1,
+        error: deviation.abs(),
     }
 }
 
