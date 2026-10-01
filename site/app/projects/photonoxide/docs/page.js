@@ -54,7 +54,6 @@ export default async function DocsPage() {
       {html ? (
         <article
           className="proj-prose proj-rise-1 mt-10 max-w-3xl"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: Markdown rendered on the server; raw HTML in the source is escaped
           dangerouslySetInnerHTML={{ __html: html }}
         />
       ) : (

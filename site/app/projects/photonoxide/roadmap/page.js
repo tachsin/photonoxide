@@ -60,7 +60,6 @@ export default async function RoadmapPage() {
       {html ? (
         <article
           className="proj-prose mt-12 max-w-3xl"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: Markdown rendered on the server; raw HTML in the source is escaped
           dangerouslySetInnerHTML={{ __html: html }}
         />
       ) : (

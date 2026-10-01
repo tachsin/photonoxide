@@ -34,12 +34,10 @@ export default function ValidationRows({ cases }) {
                 <p className="mt-1 text-base-content/55 text-xs">
                   {withDois(c.against).map((part, i) =>
                     part.doi ? (
-                      // biome-ignore lint/suspicious/noArrayIndexKey: the pieces of one string, in order
                       <a key={i} href={`https://doi.org/${part.doi}`} target="_blank" rel="noopener noreferrer" className="link">
                         doi:{part.text}
                       </a>
                     ) : (
-                      // biome-ignore lint/suspicious/noArrayIndexKey: as above
                       <span key={i}>{part.text}</span>
                     ),
                   )}

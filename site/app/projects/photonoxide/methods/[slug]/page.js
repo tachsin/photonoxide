@@ -131,7 +131,6 @@ export default async function MethodPage({ params }) {
 
       <article
         className="proj-prose proj-rise-1 mt-10 max-w-3xl"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: Markdown and KaTeX rendered on the server; raw HTML in the source is escaped
         dangerouslySetInnerHTML={{ __html: html }}
       />
 
