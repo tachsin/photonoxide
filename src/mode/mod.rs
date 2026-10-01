@@ -4,6 +4,8 @@
 //! - [`bend`]: the exact modes of a bent slab, and their radiation loss.
 //! - [`dispersion`]: group index, dispersion and loss from the effective index, and one mode
 //!   followed across wavelength.
+//! - [`fields`]: a full-vector mode's six field components, its power, and its coupling into
+//!   another mode.
 //! - [`eim`]: the effective index method, a ridge's mode from two slab problems.
 //! - [`multilayer`]: the bound modes and leaky waves of any planar stack, exactly, by
 //!   transfer matrices.
@@ -13,6 +15,7 @@
 pub mod bend;
 pub mod dispersion;
 pub mod eim;
+pub mod fields;
 pub mod multilayer;
 pub mod slab;
 pub mod vector;

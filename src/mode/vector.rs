@@ -442,7 +442,7 @@ impl CrossSection {
     }
 
     /// The cell (i, j), clamped to the grid: outside the window the edge cells continue.
-    fn cell(&self, i: isize, j: isize) -> Permittivity {
+    pub(crate) fn cell(&self, i: isize, j: isize) -> Permittivity {
         let (nx, ny) = (self.x.len() - 1, self.y.len() - 1);
         let i = i.clamp(0, nx as isize - 1) as usize;
         let j = j.clamp(0, ny as isize - 1) as usize;
@@ -795,6 +795,93 @@ impl VectorMode {
         let x: f64 = self.hx.iter().map(|v| v.norm_sqr()).sum();
         let y: f64 = self.hy.iter().map(|v| v.norm_sqr()).sum();
         y / (x + y)
+    }
+
+    /// All six field components at the centres of `cs`'s cells (see [`crate::mode::fields`]):
+    /// H_z from ∇·H = 0, E_z = (i/kε_zz)(∂_x H_y − ∂_y H_x) from Ampère's law, and the
+    /// transverse E from Faraday's, E_x = (k/β) H_y + ∂_x E_z/(iβ) and
+    /// E_y = −(k/β) H_x + ∂_y E_z/(iβ): the large transverse field straight from H, derivatives
+    /// only in the small longitudinal correction, and E_z continuous across every interface.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] unless `cs` is the cross-section the mode was found on (the same
+    /// grid).
+    pub fn fields(&self, cs: &CrossSection) -> Result<crate::mode::fields::Fields> {
+        if cs.x != self.x || cs.y != self.y {
+            return Err(Error::invalid(
+                "fields",
+                "the mode was found on another grid",
+            ));
+        }
+        let (nx, ny) = (self.x.len(), self.y.len());
+        let (cx, cy) = (nx - 1, ny - 1);
+        let beta = self.beta2.sqrt();
+        let i = c64::new(0.0, 1.0);
+        let at = |v: &[c64], a: usize, b: usize| v[a * ny + b];
+        let xc: Vec<f64> = (0..cx).map(|a| 0.5 * (self.x[a] + self.x[a + 1])).collect();
+        let yc: Vec<f64> = (0..cy).map(|b| 0.5 * (self.y[b] + self.y[b + 1])).collect();
+        // per cell: H's average, ∂x and ∂y of H's transverse parts, and E_z
+        let mut h = Vec::with_capacity(cx * cy);
+        let mut ez = Vec::with_capacity(cx * cy);
+        let mut area = Vec::with_capacity(cx * cy);
+        for a in 0..cx {
+            let dx = self.x[a + 1] - self.x[a];
+            for b in 0..cy {
+                let dy = self.y[b + 1] - self.y[b];
+                let avg = |v: &[c64]| {
+                    0.25 * (at(v, a, b) + at(v, a + 1, b) + at(v, a, b + 1) + at(v, a + 1, b + 1))
+                };
+                let ddx = |v: &[c64]| {
+                    0.5 * ((at(v, a + 1, b) + at(v, a + 1, b + 1))
+                        - (at(v, a, b) + at(v, a, b + 1)))
+                        / dx
+                };
+                let ddy = |v: &[c64]| {
+                    0.5 * ((at(v, a, b + 1) + at(v, a + 1, b + 1))
+                        - (at(v, a, b) + at(v, a + 1, b)))
+                        / dy
+                };
+                // ∇·H = 0: ∂x Hx + ∂y Hy + iβ Hz = 0
+                let hz = i / beta * (ddx(&self.hx) + ddy(&self.hy));
+                h.push([avg(&self.hx), avg(&self.hy), hz]);
+                // Ampère, z: ∂x Hy − ∂y Hx = −ik ε_zz E_z
+                ez.push(
+                    i / (self.k * cs.cell(a as isize, b as isize).zz)
+                        * (ddx(&self.hy) - ddy(&self.hx)),
+                );
+                area.push(dx * dy);
+            }
+        }
+        // ∂x E_z, ∂y E_z at the cells' centres from their neighbours (one-sided at the edges)
+        let d = |a: usize, b: usize, along_x: bool| -> c64 {
+            let (len, centres, idx) = if along_x { (cx, &xc, a) } else { (cy, &yc, b) };
+            if len < 2 {
+                return c64::new(0.0, 0.0);
+            }
+            let (lo, hi) = (idx.saturating_sub(1), (idx + 1).min(len - 1));
+            let (vlo, vhi) = if along_x {
+                (ez[lo * cy + b], ez[hi * cy + b])
+            } else {
+                (ez[a * cy + lo], ez[a * cy + hi])
+            };
+            (vhi - vlo) / (centres[hi] - centres[lo])
+        };
+        let kb = self.k / beta;
+        let mut e = Vec::with_capacity(cx * cy);
+        for a in 0..cx {
+            for b in 0..cy {
+                let n = a * cy + b;
+                let hc = h[n];
+                // Faraday: iβ Ex − ∂x Ez = ik Hy, ∂y Ez − iβ Ey = ik Hx
+                e.push([
+                    kb * hc[1] + d(a, b, true) / (i * beta),
+                    -kb * hc[0] + d(a, b, false) / (i * beta),
+                    ez[n],
+                ]);
+            }
+        }
+        Ok(crate::mode::fields::Fields { xc, yc, area, e, h })
     }
 
     /// How alike two modes' transverse magnetic fields are, from 0 to 1:
