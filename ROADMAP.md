@@ -109,7 +109,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
   - AGENTS.md.
 
 ### 0.2: Mode solvers
-- [ ] **Slab:** an exact transfer-matrix dispersion relation, and finite differences.
+- [ ] **Slab:** an exact transfer-matrix dispersion relation, and finite differences. *(Three-layer slab, exact: done.)*
 - [ ] **2D cross-section:** a full-vector finite-difference solver (Fallahkhair 2008), with PML for leaky modes.
 - [ ] **Effective index method,** with its error against 3D stated.
 - [ ] **Bends:** conformal transformation; bend loss.
