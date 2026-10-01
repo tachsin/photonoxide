@@ -314,8 +314,9 @@ impl Stop {
 }
 
 /// The UTC date (`YYYY-MM-DD`) and time (`HH:MM:SS`) of a Unix time in seconds, by the
-/// proleptic Gregorian calendar (H. Hinnant's days-to-civil algorithm, "chrono-Compatible
-/// Low-Level Date Algorithms").
+/// proleptic Gregorian calendar: `civil_from_days` of H. Hinnant, "chrono-Compatible Low-Level
+/// Date Algorithms", <https://howardhinnant.github.io/date_algorithms.html> (checked against it
+/// line by line; `div_euclid` is its floor division).
 fn utc(unix_seconds: u64) -> (String, String) {
     let days = (unix_seconds / 86_400) as i64;
     let secs = unix_seconds % 86_400;

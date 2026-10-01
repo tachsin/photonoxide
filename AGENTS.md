@@ -8,6 +8,9 @@ photonoxide is pre-alpha: the plan is [ROADMAP.md](ROADMAP.md), and there is no 
 cargo test                                              # unit tests
 cargo clippy --all-targets --all-features -- -D warnings
 cargo run -- validate --write docs/validation.md        # rerun every validation case, rewrite the report
+cargo run --release --features studio -- run jobs/strip-and-ring.toml   # a job, live in the studio window
+cargo run --release -- run <job.toml> --headless          # the same run without a window
+cargo run --release --features studio -- view runs/<run>  # replay a finished run
 ```
 
 CI fails when a validation case fails or `docs/validation.md` isn't the report the code writes:

@@ -1,0 +1,23 @@
+# A strip waveguide and a disk on 220 nm SOI, as pictures of their permittivity.
+#   photonoxide run jobs/strip-and-ring.toml
+name = "strip-and-ring"
+timeout_minutes = 2
+
+[task]
+kind = "structure"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+x_um = [-4.0, 4.0]
+y_um = [-2.5, 2.5]
+step_nm = 20.0
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, -1.2]
+size_um = [8.0, 0.5]
+
+[[task.circle]]
+layer = "Si"
+center_um = [0.0, 0.9]
+radius_um = 1.2
