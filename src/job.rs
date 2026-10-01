@@ -697,6 +697,8 @@ size_um = [0.5, 10.0]
     #[test]
     fn a_width_sweep_records_rising_indices() {
         let root = temp("sweep");
+        // 450 and 550 nm fall between the 25 nm grid's nodes: the edges must be put on nodes,
+        // or the widths snap and the curve kinks
         let text = format!(
             "{MODES}\n[task.sweep]\nparameter = \"width\"\nfrom = 0.4\nto = 0.6\npoints = 3\n"
         );
@@ -715,6 +717,8 @@ size_um = [0.5, 10.0]
             .collect();
         assert_eq!(points.len(), 3);
         assert!(points.windows(2).all(|w| w[1] > w[0]), "{points:?}");
+        // rising ever more slowly, as a widening strip does
+        assert!(points[1] - points[0] > points[2] - points[1], "{points:?}");
     }
 
     #[test]
