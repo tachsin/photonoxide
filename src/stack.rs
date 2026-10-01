@@ -98,10 +98,14 @@ impl LayerStack {
     }
 
     /// The standard silicon photonics platform: 220 nm of silicon on 2 µm of buried oxide,
-    /// with an oxide cladding (L. Chrostowski, M. Hochberg, *Silicon Photonics Design*,
+    /// with an oxide cladding. L. Chrostowski, M. Hochberg, *Silicon Photonics Design*,
     /// Cambridge University Press (2015),
-    /// [doi:10.1017/CBO9781316084168](https://doi.org/10.1017/CBO9781316084168)). A PDK sets
-    /// its own thicknesses.
+    /// [doi:10.1017/CBO9781316084168](https://doi.org/10.1017/CBO9781316084168): "The typical
+    /// 200 mm (8") wafer consists of a 725 µm silicon substrate, 2 µm of oxide (buried oxide,
+    /// or BOX), and 220 nm of crystalline silicon" (chapter 3, p. 49, Fig. 3.1); a 2 µm BOX
+    /// couples well at both 1310 and 1550 nm and "is a common standard among silicon photonics
+    /// foundries" (chapter 5). The substrate is modelled as infinitely thick. A PDK sets its
+    /// own thicknesses.
     pub fn soi_220() -> LayerStack {
         LayerStack {
             substrate: material::silicon(),
