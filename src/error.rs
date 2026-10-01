@@ -18,6 +18,16 @@ pub enum Error {
     },
 }
 
+impl Error {
+    /// An [`Error::InvalidValue`].
+    pub(crate) fn invalid(what: &'static str, reason: impl Into<String>) -> Self {
+        Error::InvalidValue {
+            what,
+            reason: reason.into(),
+        }
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

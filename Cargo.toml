@@ -13,3 +13,4 @@ categories = ["science", "simulation", "mathematics"]
 publish = false
 
 [dependencies]
+num-complex = "0.4"
