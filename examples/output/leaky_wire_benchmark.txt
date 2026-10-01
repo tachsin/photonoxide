@@ -1,0 +1,8 @@
+Bienstman et al.'s leaky wire, TE; reference (CAMFR) 2.412372 + 2.9135e-8i
+  core grid 5.00 nm (212 x 485 nodes): 2.416406 + 2.8219e-8i, Re error +4.03e-3, Im / reference 0.9686
+  core grid 2.50 nm (318 x 640 nodes): 2.414878 + 2.8583e-8i, Re error +2.51e-3, Im / reference 0.9811
+  core grid 1.25 nm (504 x 899 nodes): 2.413917 + 2.8815e-8i, Re error +1.54e-3, Im / reference 0.9890
+  extrapolated (order 0.67): 2.412289 + 2.9207e-8i
+  Re n_eff, extrapolated                 2.412289   paper 2.412372   ± 2e-4      ok
+  Im n_eff x 1e8, extrapolated           2.920661   paper 2.9135     ± 6e-2      ok
+all 2 within tolerance of the paper
