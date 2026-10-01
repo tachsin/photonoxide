@@ -291,6 +291,13 @@ pub fn cases() -> Vec<Case> {
             source: "P. Bienstman et al., Opt. Quantum Electron. 38, 731 (2006), doi:10.1007/s11082-006-9025-9, Table 6: 2.9135 (CAMFR) and 2.91348 (aperiodic Fourier modal method); the raw results are 0.97, 0.98 and 0.99 of it",
             run: bienstman_im,
         },
+        Case {
+            id: "mode/fields-butt-coupling",
+            title: "The power a 220 nm silicon slab's TE mode launches into a 300 nm slab's (3.473 in 1.444, 1.55 um), from the full-vector fields on a 5 nm grid (error shown)",
+            tier: Tier::Analytic,
+            source: "the exact slab fields (mode::slab): for TE slabs H is proportional to E, so the coupling is (int E1 E2)^2 / (int E1^2 int E2^2) = 0.994662",
+            run: fields_butt_coupling,
+        },
     ]
 }
 
@@ -930,6 +937,17 @@ fn bienstman_im() -> Outcome {
         // 2 %: 0.25 % after extrapolation
         tolerance: 0.06,
         error: (im - 2.9135).abs(),
+    }
+}
+
+fn fields_butt_coupling() -> Outcome {
+    let (got, exact) = crate::mode::fields::slab_butt_coupling(0.005);
+    Outcome {
+        measured: (got - exact).abs(),
+        expected: 0.0,
+        // 6.8e-5 at 10 nm
+        tolerance: 5e-5,
+        error: (got - exact).abs(),
     }
 }
 
