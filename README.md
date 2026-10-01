@@ -13,12 +13,12 @@ Open-source photonics has excellent individual tools, each in its own corner:
 
 - Meep for FDTD, MPB for band structures and S4 for RCWA;
 - Ceviche and SPINS for inverse design;
-- gdsfactory and KLayout for layout.
+- KLayout for layout.
 
 Rust has oxiphoton, which is broad but has no GUI, and its README shows no comparison with published results. photonoxide aims to be one coherent toolkit with three things none of them combine:
 
 - **Validated:** every solver checked against analytic solutions, published devices and established codes, with the results in a public report. Every reported number carries its convergence.
-- **Fabricable:** foundry design rules inside the optimization, GDS output that passes an open PDK's DRC, and performance reported across process variation.
+- **Fabricable:** foundry design rules inside the optimization, and a tape-out package ready for a multi-project wafer run: GDSII or OASIS on the foundry's layers, DRC and connectivity checked, test structures included, and performance reported across process variation. The first target is SiEPIC openEBL, where photonoxide designs will be fabricated and measured.
 - **Visible:** a native studio that shows fields propagating, modes, layouts and optimizations as they run. The CLI and the studio run the same job, and every run replays.
 
 And underneath:
@@ -38,10 +38,11 @@ And underneath:
 | 0.4 FDTD | 2D and 3D Yee, CPML, subpixel smoothing, dispersive media, GPU | planned |
 | 0.5 Semi-analytic | TMM, RCWA, eigenmode expansion, BPM | planned |
 | 0.6 Inverse design | Adjoint topology and shape optimization, fabrication constraints, the 2D-to-3D pipeline | planned |
-| 0.7 Layout and PDK | GDSII, parametric cells, routing, DRC, SiEPIC EBeam and Cornerstone | planned |
-| 0.8 Fabrication realism | Process variation, lithography proxies, corners, yield | planned |
-| 0.9 Circuits and devices | S-parameter circuits, compact models, a validated device library | planned |
-| 0.10 – 0.12 | Photonic crystals, metasurfaces, plasmonics, nonlinear and fiber optics, multiphysics, quantum | planned |
+| 0.7 Layout and PDK | GDSII and OASIS, parametric cells, routing, DRC, SiEPIC EBeam and Cornerstone | planned |
+| 0.8 Tape-out | Submission packages, test structures, sign-off, openEBL and Cornerstone runs, measurements back | planned |
+| 0.9 Fabrication realism | Process variation, lithography proxies, corners, yield | planned |
+| 0.10 Circuits and devices | S-parameter circuits, compact models, a validated device library | planned |
+| 0.11 – 0.13 | Photonic crystals, metasurfaces, plasmonics, nonlinear and fiber optics, multiphysics, quantum | planned |
 | 1.0 | Stable API and the published validation report | planned |
 
 The details are in [ROADMAP.md](ROADMAP.md).
