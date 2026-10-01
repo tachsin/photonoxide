@@ -63,6 +63,12 @@ Every solver is validated on three tiers before it ships:
 
 Each result states its tolerance, grid and source. The current report is [docs/validation.md](docs/validation.md), written by `photonoxide validate` and checked by CI.
 
+The [examples](examples/README.md) each reproduce one published result, from silicon's refractive index (Li 1980) to the modes of a silicon strip waveguide (Chrostowski & Hochberg 2015), and fail when they disagree with the paper:
+
+```sh
+cargo run --release --example strip_waveguide
+```
+
 ## Contributing
 
 photonoxide is at the design stage, which is the best time to shape it. Open an issue for ideas, use cases or validation cases you'd like to see.
