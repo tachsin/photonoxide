@@ -180,7 +180,8 @@ fn image(raster: &Raster) -> egui::ColorImage {
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
         let (events, bad) = self.tail.poll();
         for e in events {
             self.take(e);
@@ -201,7 +202,7 @@ impl eframe::App for App {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
 
-        egui::TopBottomPanel::top("status").show(ctx, |ui| {
+        egui::Panel::top("status").show(ui, |ui| {
             ui.horizontal(|ui| {
                 let name = self
                     .job
@@ -229,7 +230,7 @@ impl eframe::App for App {
             }
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 if self.pictures.is_empty() {
                     ui.weak("no pictures yet");
