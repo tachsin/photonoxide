@@ -16,6 +16,7 @@ pub mod material;
 pub mod run;
 pub mod stack;
 pub mod units;
+pub mod validation;
 
 pub use error::{Error, Result};
 pub use num_complex::Complex64;
