@@ -2,8 +2,10 @@
 //! effective indices.
 //!
 //! - [`slab`]: the modes of a three-layer slab, exactly (TE and TM).
+//! - [`vector`]: the full-vector modes of any cross-section, by finite differences.
 
 pub mod slab;
+pub mod vector;
 
 /// The polarization of a slab mode.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
