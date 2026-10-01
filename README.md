@@ -1,4 +1,14 @@
-# photonoxide
+<p align="center">
+  <img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/brand/banner.svg" alt="photonoxide: validated, fabrication-ready photonics for Rust" width="100%">
+</p>
+
+[![Crates.io](https://img.shields.io/crates/v/photonoxide.svg)](https://crates.io/crates/photonoxide)
+[![Docs.rs](https://img.shields.io/docsrs/photonoxide)](https://docs.rs/photonoxide)
+[![CI](https://github.com/tachsin/photonoxide/actions/workflows/ci.yml/badge.svg)](https://github.com/tachsin/photonoxide/actions/workflows/ci.yml)
+[![MSRV](https://img.shields.io/crates/msrv/photonoxide)](Cargo.toml)
+[![License](https://img.shields.io/crates/l/photonoxide.svg)](#license)
+[![Validation](https://img.shields.io/badge/validation-report-ce422b)](docs/validation.md)
+[![Examples](https://img.shields.io/badge/examples-checked_against_papers-ce422b)](examples/README.md)
 
 **Photonics for Rust: validated, fabrication-ready, and visible while it runs.**
 

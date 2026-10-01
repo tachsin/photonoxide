@@ -9,8 +9,8 @@ repository = "https://github.com/tachsin/photonoxide"
 readme = "README.md"
 keywords = ["photonics", "fdtd", "inverse-design", "electromagnetics", "silicon-photonics"]
 categories = ["science", "simulation", "mathematics"]
-# what goes into the published crate: the library, its docs and jobs; not CI
-exclude = [".github"]
+# what goes into the published crate: the library, its docs and jobs; not CI or the brand files
+exclude = [".github", "assets"]
 
 [dependencies]
 # the studio's GUI
