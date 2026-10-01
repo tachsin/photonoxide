@@ -1,0 +1,7 @@
+Si (Li 1980, Table 1, 293 K), no grid
+  n at 1.3 µm                            3.501600   paper 3.5016     ± 5e-5      ok
+  n at 1.55 µm                           3.475700   paper 3.4757     ± 5e-5      ok
+  n at 2 µm                              3.451000   paper 3.451      ± 5e-5      ok
+  n at 5 µm                              3.419500   paper 3.4195     ± 5e-5      ok
+  n at 10 µm                             3.415000   paper 3.415      ± 5e-5      ok
+all 5 within tolerance of the paper

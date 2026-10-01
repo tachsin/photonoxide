@@ -9,6 +9,7 @@ cargo test                                              # unit tests
 cargo clippy --all-targets --all-features -- -D warnings
 cargo run -- validate --write docs/validation.md        # rerun every validation case, rewrite the report
 cargo run --release --example strip_waveguide           # an example: a published result, checked
+cargo run --release --quiet --example <name> > examples/output/<name>.txt   # its output, which CI compares
 cargo run --release --features studio -- run jobs/strip-and-ring.toml   # a job, live in the studio window
 cargo run --release -- run <job.toml> --headless          # the same run without a window
 cargo run --release --features studio -- view runs/<run>  # replay a finished run

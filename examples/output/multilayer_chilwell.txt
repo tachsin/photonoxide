@@ -1,0 +1,40 @@
+bound modes (Table 3), exact: no grid; power in cover, films 1-4, substrate (%)
+  TE bound modes                                4   paper 4                      ok
+  TE0 effective index                    1.622729   paper 1.622729   ± 5e-7      ok
+    power: 0.0 0.1 0.4 19.3 76.3 3.9  (paper [0.0, 0.1, 0.4, 19.3, 76.3, 3.9])
+  TE0 power: worst error (% points)      0.041959   paper 0          ± 6e-2      ok
+  TE1 effective index                    1.605276   paper 1.605276   ± 5e-7      ok
+    power: 1.0 87.1 11.4 0.2 0.2 0.0  (paper [1.0, 87.1, 11.4, 0.2, 0.2, 0.0])
+  TE1 power: worst error (% points)      0.042395   paper 0          ± 6e-2      ok
+  TE2 effective index                    1.557136   paper 1.557136   ± 5e-7      ok
+    power: 0.0 1.4 12.3 59.0 20.7 6.6  (paper [0.0, 1.4, 12.3, 59.0, 20.7, 6.6])
+  TE2 power: worst error (% points)      0.046849   paper 0          ± 6e-2      ok
+  TE3 effective index                    1.503587   paper 1.503587   ± 5e-7      ok
+    power: 0.3 6.3 28.0 14.7 18.6 32.1  (paper [0.3, 6.3, 28.0, 14.7, 18.6, 32.1])
+  TE3 power: worst error (% points)      0.039606   paper 0          ± 6e-2      ok
+  TM bound modes                                4   paper 4                      ok
+  TM0 effective index                    1.620031   paper 1.620031   ± 5e-7      ok
+    power: 0.0 0.0 0.5 21.4 74.3 3.8  (paper [0.0, 0.0, 0.5, 21.4, 74.3, 3.8])
+  TM0 power: worst error (% points)      0.048814   paper 0          ± 6e-2      ok
+  TM1 effective index                    1.594788   paper 1.594788   ± 5e-7      ok
+    power: 0.5 83.4 15.4 0.4 0.3 0.0  (paper [0.5, 83.4, 15.4, 0.4, 0.3, 0.0])
+  TM1 power: worst error (% points)      0.042723   paper 0          ± 6e-2      ok
+  TM2 effective index                    1.554981   paper 1.554981   ± 5e-7      ok
+    power: 0.0 2.2 12.0 57.3 21.3 7.3  (paper [0.0, 2.2, 12.0, 57.3, 21.3, 7.3])
+  TM2 power: worst error (% points)      0.042310   paper 0          ± 6e-2      ok
+  TM3 effective index                    1.501818   paper 1.501818   ± 5e-7      ok
+    power: 0.1 4.2 22.7 13.0 15.1 45.0  (paper [0.1, 4.2, 22.7, 13.0, 15.1, 45.0])
+  TM3 power: worst error (% points)      0.035751   paper 0          ± 6e-2      ok
+TE leaky waves (Table 2), exact: no grid
+  TE leaky waves below 1.5                      5   paper 5                      ok
+  TE4 Re n_eff                           1.461857   paper 1.46186    ± 1.5e-5    ok
+  TE4 Im n_eff                           0.007156   paper 0.00716    ± 5e-6      ok
+  TE5 Re n_eff                           1.382489   paper 1.3825     ± 1.5e-5    ok
+  TE5 Im n_eff                           0.018166   paper 0.01817    ± 5e-6      ok
+  TE6 Re n_eff                           1.281364   paper 1.28136    ± 1.5e-5    ok
+  TE6 Im n_eff                           0.035877   paper 0.03588    ± 5e-6      ok
+  TE7 Re n_eff                           1.142314   paper 1.14231    ± 1.5e-5    ok
+  TE7 Im n_eff                           0.052876   paper 0.05288    ± 5e-6      ok
+  TE8 Re n_eff                           1.003037   paper 1.00304    ± 1.5e-5    ok
+  TE8 Im n_eff                           0.070771   paper 0.07077    ± 5e-6      ok
+all 29 within tolerance of the paper

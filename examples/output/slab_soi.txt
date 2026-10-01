@@ -1,0 +1,4 @@
+220 nm of 3.473 in 1.444 at 1550 nm (Chrostowski & Hochberg, Section 3.2.2), exact: no grid
+  TE0 effective index                    2.844816   paper 2.845      ± 5e-4      ok
+  TM0 effective index                    2.051101   paper 2.051      ± 5e-4      ok
+all 2 within tolerance of the paper

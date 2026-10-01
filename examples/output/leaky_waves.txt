@@ -1,0 +1,12 @@
+Chilwell & Hodgkinson's guide, flat, 2.5 nm grid, PML below the substrate
+  TE4 Re n_eff                           1.461858   paper 1.46186    ± 5e-5      ok
+  TE4 Im n_eff                           0.007156   paper 0.00716    ± 5e-5      ok
+  TE5 Re n_eff                           1.382495   paper 1.3825     ± 5e-5      ok
+  TE5 Im n_eff                           0.018166   paper 0.01817    ± 5e-5      ok
+  TE6 Re n_eff                           1.281380   paper 1.28136    ± 5e-5      ok
+  TE6 Im n_eff                           0.035875   paper 0.03588    ± 5e-5      ok
+  TE7 Re n_eff                           1.142349   paper 1.14231    ± 5e-5      ok
+  TE7 Im n_eff                           0.052872   paper 0.05288    ± 5e-5      ok
+  TE8 Re n_eff                           1.003135   paper 1.00304    ± 2e-4      ok
+  TE8 Im n_eff                           0.070601   paper 0.07077    ± 2e-4      ok
+all 10 within tolerance of the paper
