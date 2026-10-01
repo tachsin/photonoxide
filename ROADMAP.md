@@ -95,7 +95,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 
 ### 0.1: Foundations
 - [x] **Units and conventions:** typed quantities; the e^(−iωt) convention documented and tested.
-- [ ] **Materials:**
+- [x] **Materials:**
   - Sellmeier, Cauchy, Drude and Lorentz models;
   - Si (Li 1980), SiO₂ (Malitson 1965) and Si₃N₄ (Luke 2015);
   - import from the refractiveindex.info database (CC0) with provenance;
@@ -339,6 +339,7 @@ Every reference below was checked against its DOI.
 - H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980). [10.1063/1.555624](https://doi.org/10.1063/1.555624)
 - I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965). [10.1364/JOSA.55.001205](https://doi.org/10.1364/JOSA.55.001205)
 - K. Luke et al., Opt. Lett. 40, 4823 (2015). [10.1364/OL.40.004823](https://doi.org/10.1364/OL.40.004823)
+- M. N. Polyanskiy, Sci. Data 11, 94 (2024), the refractiveindex.info database. [10.1038/s41597-023-02898-2](https://doi.org/10.1038/s41597-023-02898-2)
 - R. Soref, B. Bennett, IEEE J. Quantum Electron. 23, 123 (1987). [10.1109/JQE.1987.1073206](https://doi.org/10.1109/JQE.1987.1073206)
 - L. Chrostowski, M. Hochberg, *Silicon Photonics Design*, Cambridge University Press (2015). [10.1017/CBO9781316084168](https://doi.org/10.1017/CBO9781316084168)
 - W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012). [10.1002/lpor.201100017](https://doi.org/10.1002/lpor.201100017)

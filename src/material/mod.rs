@@ -9,8 +9,11 @@
 //! positive imaginary permittivity.
 //!
 //! The built-in materials ([`silicon`], [`silica`], [`silicon_nitride`], [`vacuum`]) come from
-//! the [refractiveindex.info database](https://github.com/polyanskiy/refractiveindex.info-database),
-//! which is in the public domain (CC0 1.0), and each cites its paper.
+//! the [refractiveindex.info database](https://github.com/polyanskiy/refractiveindex.info-database)
+//! (M. N. Polyanskiy, Sci. Data 11, 94 (2024),
+//! [doi:10.1038/s41597-023-02898-2](https://doi.org/10.1038/s41597-023-02898-2)), which is in the
+//! public domain (CC0 1.0), and each cites its paper. Any other file of that database can be
+//! read with [`from_refractiveindex_info`].
 
 use std::f64::consts::TAU;
 use std::fmt;
@@ -18,7 +21,11 @@ use std::fmt;
 use num_complex::Complex64;
 
 use crate::units::{Frequency, Wavelength, refractive_index};
+
+mod refractiveindex;
+
 use crate::{Error, Result};
+pub use refractiveindex::from_refractiveindex_info;
 
 /// Where a material's data comes from.
 #[derive(Clone, Debug, PartialEq)]
@@ -89,6 +96,84 @@ pub enum Model {
     },
     /// Measured n (and k) at given wavelengths, interpolated by natural cubic splines.
     Tabulated(Table),
+    /// One of the refractiveindex.info database's dispersion formulas, numbered 1 to 9 as its
+    /// document "Dispersion formulas" (refractiveindex.info, 2014-06-29) defines them: λ in
+    /// micrometres, coefficients C1, C2, … in order, the missing ones zero. Lossless.
+    Formula {
+        /// The formula's number, 1 to 9.
+        number: u8,
+        /// C1, C2, …
+        coefficients: Vec<f64>,
+    },
+    /// A lossless model for n, with a measured extinction coefficient k.
+    WithExtinction {
+        /// The model for n.
+        n: Box<Model>,
+        /// k against the wavelength.
+        k: Curve,
+    },
+}
+
+/// Values against the wavelength (micrometres), interpolated by a natural cubic spline. Build it
+/// with [`Curve::new`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct Curve(Spline);
+
+impl Curve {
+    /// A curve through `values` at `wavelengths` (micrometres, strictly increasing).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] with fewer than two points, lengths that differ, wavelengths
+    /// that aren't positive and strictly increasing, or values that aren't finite.
+    pub fn new(wavelengths: Vec<f64>, values: Vec<f64>) -> Result<Curve> {
+        check_samples(&wavelengths, "values", &values)?;
+        Ok(Curve(Spline::natural(wavelengths, values)))
+    }
+
+    /// The wavelengths of the samples, in micrometres.
+    pub fn wavelengths(&self) -> &[f64] {
+        &self.0.x
+    }
+}
+
+/// Checks a table's wavelengths and one column of values.
+fn check_samples(wavelengths: &[f64], name: &str, values: &[f64]) -> Result<()> {
+    if wavelengths.len() < 2 {
+        return Err(Error::invalid(
+            "table",
+            format!("needs at least 2 points, got {}", wavelengths.len()),
+        ));
+    }
+    if !wavelengths.iter().all(|w| w.is_finite() && *w > 0.0) {
+        return Err(Error::invalid(
+            "table",
+            "wavelengths must be positive and finite",
+        ));
+    }
+    if wavelengths.windows(2).any(|w| w[1] <= w[0]) {
+        return Err(Error::invalid(
+            "table",
+            "wavelengths must be strictly increasing",
+        ));
+    }
+    if values.len() != wavelengths.len() {
+        return Err(Error::invalid(
+            "table",
+            format!(
+                "{name} has {} values for {} wavelengths",
+                values.len(),
+                wavelengths.len()
+            ),
+        ));
+    }
+    if !values.iter().all(|x| x.is_finite()) {
+        return Err(Error::invalid(
+            "table",
+            format!("{name} values must be finite"),
+        ));
+    }
+    Ok(())
 }
 
 /// Tabulated n and k, interpolated by natural cubic splines (continuous first and second
@@ -108,46 +193,9 @@ impl Table {
     /// [`Error::InvalidValue`] with fewer than two points, lengths that differ, wavelengths
     /// that aren't positive and strictly increasing, or values that aren't finite.
     pub fn new(wavelengths: Vec<f64>, n: Vec<f64>, k: Option<Vec<f64>>) -> Result<Table> {
-        if wavelengths.len() < 2 {
-            return Err(Error::invalid(
-                "table",
-                format!("needs at least 2 points, got {}", wavelengths.len()),
-            ));
-        }
-        if !wavelengths.iter().all(|w| w.is_finite() && *w > 0.0) {
-            return Err(Error::invalid(
-                "table",
-                "wavelengths must be positive and finite",
-            ));
-        }
-        if wavelengths.windows(2).any(|w| w[1] <= w[0]) {
-            return Err(Error::invalid(
-                "table",
-                "wavelengths must be strictly increasing",
-            ));
-        }
-        let check = |name: &str, v: &[f64]| -> Result<()> {
-            if v.len() != wavelengths.len() {
-                return Err(Error::invalid(
-                    "table",
-                    format!(
-                        "{name} has {} values for {} wavelengths",
-                        v.len(),
-                        wavelengths.len()
-                    ),
-                ));
-            }
-            if !v.iter().all(|x| x.is_finite()) {
-                return Err(Error::invalid(
-                    "table",
-                    format!("{name} values must be finite"),
-                ));
-            }
-            Ok(())
-        };
-        check("n", &n)?;
+        check_samples(&wavelengths, "n", &n)?;
         if let Some(k) = &k {
-            check("k", k)?;
+            check_samples(&wavelengths, "k", k)?;
         }
         Ok(Table {
             n: Spline::natural(wavelengths.clone(), n),
@@ -267,6 +315,25 @@ impl Model {
                 let (n, _) = table.at(lam);
                 n * n
             }
+            Model::Formula {
+                number,
+                coefficients,
+            } => Complex64::new(refractiveindex::formula(*number, coefficients, lam), 0.0),
+            Model::WithExtinction { .. } => {
+                let n = self.index(lam);
+                n * n
+            }
+        }
+    }
+
+    /// The complex refractive index at λ (µm), without a range check.
+    fn index(&self, lam: f64) -> Complex64 {
+        match self {
+            Model::Tabulated(table) => table.at(lam).0,
+            Model::WithExtinction { n, k } => {
+                Complex64::new(refractive_index(n.permittivity(lam)).re, k.0.eval(lam).0)
+            }
+            model => refractive_index(model.permittivity(lam)),
         }
     }
 
@@ -274,6 +341,11 @@ impl Model {
     fn index_and_slope(&self, lam: f64) -> (Complex64, Complex64) {
         if let Model::Tabulated(table) = self {
             return table.at(lam);
+        }
+        if let Model::WithExtinction { n, k } = self {
+            let (n, dn) = n.index_and_slope(lam);
+            let (k, dk) = k.0.eval(lam);
+            return (Complex64::new(n.re, k), Complex64::new(dn.re, dk));
         }
         // central difference: the models are smooth, and an O(h²) error at h = 1e-4·λ is
         // about 1e-9 relative, well below any data's accuracy
@@ -313,18 +385,22 @@ impl Material {
                 format!("{name}: the range {shortest} to {longest} is empty"),
             ));
         }
-        if let Model::Tabulated(table) = &model {
-            let w = table.wavelengths();
-            if shortest.to_um() < w[0] || longest.to_um() > w[w.len() - 1] {
-                return Err(Error::invalid(
-                    "material",
-                    format!(
-                        "{name}: the table covers {} to {} um, not {shortest} to {longest}",
-                        w[0],
-                        w[w.len() - 1]
-                    ),
-                ));
-            }
+        let samples = match &model {
+            Model::Tabulated(table) => Some(table.wavelengths()),
+            Model::WithExtinction { k, .. } => Some(k.wavelengths()),
+            _ => None,
+        };
+        if let Some(w) = samples
+            && (shortest.to_um() < w[0] || longest.to_um() > w[w.len() - 1])
+        {
+            return Err(Error::invalid(
+                "material",
+                format!(
+                    "{name}: the table covers {} to {} um, not {shortest} to {longest}",
+                    w[0],
+                    w[w.len() - 1]
+                ),
+            ));
         }
         Ok(Material {
             name,
@@ -382,11 +458,7 @@ impl Material {
     ///
     /// [`Error::OutsideValidity`] outside the material's range.
     pub fn refractive_index(&self, wavelength: Wavelength) -> Result<Complex64> {
-        let lam = self.check(wavelength)?;
-        Ok(match &self.model {
-            Model::Tabulated(table) => table.at(lam).0,
-            model => refractive_index(model.permittivity(lam)),
-        })
+        Ok(self.model.index(self.check(wavelength)?))
     }
 
     /// The group index n_g = n − λ·dn/dλ of the bulk material (real parts), at a vacuum
@@ -417,7 +489,8 @@ const fn um(value: f64) -> Wavelength {
     Wavelength::from_um_unchecked(value)
 }
 
-const CC0: &str = "refractiveindex.info database (public domain, CC0 1.0)";
+/// The database the built-in materials come from, as its maintainer asks it to be cited.
+pub(crate) const CC0: &str = "refractiveindex.info database (CC0 1.0; M. N. Polyanskiy, Sci. Data 11, 94 (2024), doi:10.1038/s41597-023-02898-2)";
 
 /// Vacuum: n = 1 at every wavelength.
 pub fn vacuum() -> Material {
