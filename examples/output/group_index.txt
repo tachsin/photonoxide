@@ -1,0 +1,12 @@
+220 nm strips of the book's Si in 1.444 oxide, 6.25 x 5 nm grid, quarter domain
+  400 nm wide: n_eff 2.22969, TE fraction 0.969
+  n_g at 1.55 um, 400 nm wide            4.354835   paper 4.37       ± 2e-2      ok
+  450 nm wide: n_eff 2.35395, TE fraction 0.971
+  n_g at 1.55 um, 450 nm wide            4.262312   paper 4.27       ± 2e-2      ok
+  500 nm wide: n_eff 2.44506, TE fraction 0.973
+  n_g at 1.55 um, 500 nm wide            4.172901   paper 4.18       ± 2e-2      ok
+  550 nm wide: n_eff 2.51328, TE fraction 0.975
+  n_g at 1.55 um, 550 nm wide            4.098446   paper 4.1        ± 2e-2      ok
+  600 nm wide: n_eff 2.56551, TE fraction 0.978
+  n_g at 1.55 um, 600 nm wide            4.038474   paper 4.04       ± 2e-2      ok
+all 5 within tolerance of the paper

@@ -1,0 +1,21 @@
+Fig. 4: box, eps 2.25 and 1, 1 x 1 um quarter domain
+  grid 40 x 40 (25.00 nm): n_eff 1.276313516, error +3.95e-5
+  grid 80 x 80 (12.50 nm): n_eff 1.276322602, error +4.86e-5
+  grid 160 x 160 (6.25 nm): n_eff 1.276307107, error +3.31e-5
+  Fig. 4 n_eff at a 6.25 nm grid         1.276307   paper 1.27627404 ± 5e-5      ok
+Fig. 5: box, eps 8 and 1, 1 x 1 um quarter domain
+  grid 40 x 40 (25.00 nm): n_eff 2.656690596, error -1.06e-4
+  grid 80 x 80 (12.50 nm): n_eff 2.656791075, error -5.84e-6
+  grid 160 x 160 (6.25 nm): n_eff 2.656807876, error +1.10e-5
+  Fig. 5 n_eff at a 6.25 nm grid         2.656808   paper 2.65679692 ± 5e-5      ok
+Fig. 6: impinged corner, eps 2.25 and 1, 1 x 1 um quarter domain
+  grid 40 x 40 (25.00 nm): n_eff 1.387858952, error -6.75e-5
+  grid 80 x 80 (12.50 nm): n_eff 1.387900942, error -2.55e-5
+  grid 160 x 160 (6.25 nm): n_eff 1.387916086, error -1.03e-5
+  Fig. 6 n_eff at a 6.25 nm grid         1.387916   paper 1.387926425 ± 5e-5     ok
+Fig. 7: impinged corner, eps 8 and 1, 1 x 1 um quarter domain
+  grid 40 x 40 (25.00 nm): n_eff 2.761355845, error -1.09e-4
+  grid 80 x 80 (12.50 nm): n_eff 2.761431838, error -3.35e-5
+  grid 160 x 160 (6.25 nm): n_eff 2.761454442, error -1.09e-5
+  Fig. 7 n_eff at a 6.25 nm grid         2.761454   paper 2.76146532 ± 5e-5      ok
+all 4 within tolerance of the paper

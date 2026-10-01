@@ -1,0 +1,13 @@
+asymmetric slab: n = 1.0 / 2.0 / 1.7, t = λ = 1 µm (Section 3.2), exact: no grid
+  TE modes guided                               2   paper 2                      ok
+  TE0 effective index                    1.959441   paper 1.9594     ± 5e-5      ok
+  TE1 effective index                    1.837463   paper 1.8375     ± 5e-5      ok
+  TM modes guided                               2   paper 2                      ok
+symmetric slab: n = 1.5 / 1.6 / 1.5, d = 5 µm, λ = 1.55 µm (Section 3.1), exact: no grid
+  TE modes guided                               4   paper 4                      ok
+  TE0 effective index                    1.594589   paper 1.5946     ± 5e-5      ok
+  TE1 effective index                    1.578451   paper 1.5785     ± 5e-5      ok
+  TE2 effective index                    1.552058   paper 1.5521     ± 5e-5      ok
+  TE3 effective index                    1.517538   paper 1.5175     ± 5e-5      ok
+  TM modes guided                               4   paper 4                      ok
+all 10 within tolerance of the paper

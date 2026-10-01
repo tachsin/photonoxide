@@ -8,6 +8,13 @@ when they disagree. CI runs every example.
 cargo run --release --example <name>
 ```
 
+What each prints is in [`output/`](output), and CI checks that it still prints exactly that.
+After changing an example, regenerate its output:
+
+```sh
+cargo run --release --quiet --example <name> > examples/output/<name>.txt
+```
+
 | Example | What it computes | Checked against | Tolerance |
 |---|---|---|---|
 | [`silicon_index`](silicon_index.rs) | Silicon's refractive index, 1.3–10 µm | H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980), [doi:10.1063/1.555624](https://doi.org/10.1063/1.555624), Table 1 (293 K) | 5e-5 (4 printed decimals) |
@@ -26,6 +33,7 @@ cargo run --release --example <name>
 - One file per published result. Its doc comment names the paper (with its DOI), the table, figure or page, and how many digits it prints.
 - Compare with `common::Checks`, against the paper's numbers as printed. Set the tolerance from the printed digits, or from the paper's stated accuracy.
 - Print the grid for every computed number ("exact: no grid" for closed forms).
-- Add a row to the table above.
+- Add a row to the table above, and its output to `output/`.
+- Print nothing that changes between runs (timings, for instance): the output is compared.
 
 The full validation report, including analytic and convergence checks, is [docs/validation.md](../docs/validation.md).

@@ -1,0 +1,9 @@
+220 nm strips of 3.473 in 1.444, TE-like; 2D: 6.25 x 5 nm grid
+  width   EIM n_eff  2D n_eff   error    EIM n_g  2D n_g   error
+  400 nm  2.3156     2.2292    +3.87 %  3.942    4.224   -6.66 %
+  450 nm  2.4139     2.3535    +2.57 %  3.924    4.130   -4.98 %
+  500 nm  2.4884     2.4446    +1.79 %  3.889    4.040   -3.74 %
+  EIM n_eff, 500 nm strip                2.488368   paper 2.489      ± 1e-3      ok
+  550 nm  2.5455     2.5128    +1.30 %  3.854    3.967   -2.85 %
+  600 nm  2.5901     2.5651    +0.98 %  3.821    3.908   -2.21 %
+all 1 within tolerance of the paper

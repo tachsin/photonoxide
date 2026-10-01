@@ -1,0 +1,8 @@
+SiO2 (Malitson 1965, Table I), no grid
+  n at 0.546074 µm                       1.460078   paper 1.460078   ± 1e-6      ok
+  n at 0.852111 µm                       1.452466   paper 1.452465   ± 1e-6      ok
+  n at 1.01398 µm                        1.450242   paper 1.450242   ± 1e-6      ok
+  n at 1.52952 µm                        1.444268   paper 1.444268   ± 1e-6      ok
+  n at 2.0581 µm                         1.437224   paper 1.437224   ± 1e-6      ok
+  n at 3.2439 µm                         1.413117   paper 1.413118   ± 1e-6      ok
+all 6 within tolerance of the paper

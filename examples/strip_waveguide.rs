@@ -44,16 +44,14 @@ fn main() -> ExitCode {
     let mut checks = common::Checks::default();
     for h_nm in [20.0, 10.0, 5.0] {
         let cs = strip(h_nm / 1000.0);
-        let start = std::time::Instant::now();
         let modes = vector::modes(&cs, wavelength, 1, None).expect("the solver converges");
         let mode = &modes[0];
         println!(
-            "  grid {h_nm} nm ({} x {} nodes, 2.1 x 1.5 um window): n_eff {:.6}, TE fraction {:.3}, {:.1} s",
+            "  grid {h_nm} nm ({} x {} nodes, 2.1 x 1.5 um window): n_eff {:.6}, TE fraction {:.3}",
             cs.x().len(),
             cs.y().len(),
             mode.effective_index().re,
-            mode.te_fraction(),
-            start.elapsed().as_secs_f64()
+            mode.te_fraction()
         );
         if h_nm == 5.0 {
             // a TM-like mode (index near 1.8) would fail this too

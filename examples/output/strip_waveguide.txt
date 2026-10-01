@@ -1,0 +1,6 @@
+500 x 220 nm strip of 3.473 in 1.444 at 1550 nm (Chrostowski & Hochberg, Fig. 3.14)
+  grid 20 nm (106 x 76 nodes, 2.1 x 1.5 um window): n_eff 2.447067, TE fraction 0.974
+  grid 10 nm (211 x 151 nodes, 2.1 x 1.5 um window): n_eff 2.445713, TE fraction 0.973
+  grid 5 nm (421 x 301 nodes, 2.1 x 1.5 um window): n_eff 2.444396, TE fraction 0.972
+  TE-like n_eff at a 5 nm grid           2.444396   paper 2.443      ± 3e-3      ok
+all 1 within tolerance of the paper
