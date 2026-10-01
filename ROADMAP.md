@@ -100,7 +100,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
   - Si (Li 1980), SiO₂ (Malitson 1965) and Si₃N₄ (Luke 2015);
   - import from the refractiveindex.info database (CC0) with provenance;
   - validity ranges enforced.
-- [ ] **Geometry and layer stacks:** polygons, extrusion, standard SOI and SiN stacks.
+- [x] **Geometry and layer stacks:** polygons, extrusion, standard SOI and SiN stacks.
 - [ ] **Runs:** job TOML, run directories, `events.jsonl`, replay, hard timeouts.
 - [ ] **Studio skeleton:** open a run, show its geometry and ε cross-sections, replay events; it starts and exits by itself.
 - [ ] **Project:**

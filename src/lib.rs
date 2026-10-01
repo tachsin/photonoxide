@@ -11,7 +11,9 @@
 #![warn(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
 pub mod error;
+pub mod geometry;
 pub mod material;
+pub mod stack;
 pub mod units;
 
 pub use error::{Error, Result};
