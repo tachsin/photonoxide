@@ -200,6 +200,27 @@ pub fn cases() -> Vec<Case> {
             source: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Fig. 3.22b: about 4.18, read off the plot to +-0.005 (Lumerical MODE, 20 nm mesh); materials from its Listing 3.1",
             run: strip_group_index_book,
         },
+        Case {
+            id: "mode/multilayer-bound-chilwell",
+            title: "The 8 bound modes (TE and TM 0-3) of a four-layer guide, 1.0 / 1.66, 1.53, 1.60, 1.66 (500 nm each) / 1.50 at 632.8 nm, exact (largest deviation shown)",
+            tier: Tier::Published,
+            source: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Table 3: effective indices to 6 decimals",
+            run: multilayer_bound,
+        },
+        Case {
+            id: "mode/multilayer-leaky-chilwell",
+            title: "The 5 TE leaky waves (m = 4-8) of the same guide, complex effective indices, exact (largest deviation of a real or imaginary part shown)",
+            tier: Tier::Published,
+            source: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Table 2: to 5 decimals; m = 5's real part, 1.38250, is ours (1.3824892) plus 1.1e-5, one unit in the last place, the other nine our values rounded",
+            run: multilayer_leaky,
+        },
+        Case {
+            id: "mode/multilayer-power-chilwell",
+            title: "The share of each bound mode's power in the cover, each film and the substrate, 48 percentages (largest deviation shown, in percentage points)",
+            tier: Tier::Published,
+            source: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Table 3: to 0.1 %",
+            run: multilayer_power,
+        },
     ]
 }
 
@@ -589,6 +610,112 @@ fn strip_group_index_book() -> Outcome {
         // (4.1651, 4.1729 at 12.5 and 6.25 nm)
         tolerance: 0.02,
         error: (ng - 4.18).abs(),
+    }
+}
+
+/// Chilwell and Hodgkinson's Table 3: each bound mode's effective index and the % of its power
+/// in the cover, films 1–4 and the substrate; TE0, TE1, TE2, TE3, then TM0 … TM3.
+const CHILWELL_TABLE_3: [(f64, [f64; 6]); 8] = [
+    (1.622729, [0.0, 0.1, 0.4, 19.3, 76.3, 3.9]),
+    (1.605276, [1.0, 87.1, 11.4, 0.2, 0.2, 0.0]),
+    (1.557136, [0.0, 1.4, 12.3, 59.0, 20.7, 6.6]),
+    (1.503587, [0.3, 6.3, 28.0, 14.7, 18.6, 32.1]),
+    (1.620031, [0.0, 0.0, 0.5, 21.4, 74.3, 3.8]),
+    (1.594788, [0.5, 83.4, 15.4, 0.4, 0.3, 0.0]),
+    (1.554981, [0.0, 2.2, 12.0, 57.3, 21.3, 7.3]),
+    (1.501818, [0.1, 4.2, 22.7, 13.0, 15.1, 45.0]),
+];
+
+/// The four-layer guide's bound modes, TE then TM, fundamental first.
+fn chilwell_bound() -> Vec<crate::mode::multilayer::MultilayerMode> {
+    let (stack, w) = crate::mode::multilayer::chilwell_four_layer();
+    [Polarization::Te, Polarization::Tm]
+        .iter()
+        .flat_map(|&p| stack.bound_modes(p, w).unwrap_or_default())
+        .collect()
+}
+
+fn multilayer_bound() -> Outcome {
+    let modes = chilwell_bound();
+    let worst = if modes.len() == 8 {
+        modes
+            .iter()
+            .zip(CHILWELL_TABLE_3)
+            .map(|(m, (n, _))| (m.effective_index().re - n).abs())
+            .fold(0.0, f64::max)
+    } else {
+        f64::NAN
+    };
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // printed to 6 decimals
+        tolerance: 5e-7,
+        error: worst,
+    }
+}
+
+fn multilayer_leaky() -> Outcome {
+    use crate::mode::multilayer::Region;
+    let printed = [
+        (1.46186, 0.00716),
+        (1.38250, 0.01817),
+        (1.28136, 0.03588),
+        (1.14231, 0.05288),
+        (1.00304, 0.07077),
+    ];
+    let (stack, w) = crate::mode::multilayer::chilwell_four_layer();
+    let region = Region {
+        re_min: 1.0,
+        re_max: 1.499,
+        im_min: 0.0,
+        im_max: 0.1,
+    };
+    let found = stack.modes_in(Polarization::Te, w, region, 120);
+    let worst = if found.len() == 5 {
+        found
+            .iter()
+            .zip(printed)
+            .map(|(m, (a, b))| {
+                let n = m.effective_index();
+                (n.re - a).abs().max((n.im - b).abs())
+            })
+            .fold(0.0, f64::max)
+    } else {
+        f64::NAN
+    };
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // half a unit in the 5th decimal, plus the one value a unit off (see the source)
+        tolerance: 1.5e-5,
+        error: worst,
+    }
+}
+
+fn multilayer_power() -> Outcome {
+    let modes = chilwell_bound();
+    let worst = if modes.len() == 8 {
+        modes
+            .iter()
+            .zip(CHILWELL_TABLE_3)
+            .flat_map(|(m, (_, shares))| {
+                m.power_fractions()
+                    .into_iter()
+                    .zip(shares)
+                    .map(|(got, p)| (100.0 * got - p).abs())
+                    .collect::<Vec<_>>()
+            })
+            .fold(0.0, f64::max)
+    } else {
+        f64::NAN
+    };
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // printed to 0.1 %
+        tolerance: 0.06,
+        error: worst,
     }
 }
 
