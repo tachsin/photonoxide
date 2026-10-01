@@ -13,7 +13,13 @@ categories = ["science", "simulation", "mathematics"]
 publish = false
 
 [dependencies]
+# the studio's GUI; eframe 0.34 and later need a newer Rust than our 1.88
+eframe = { version = "0.33", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"], optional = true }
 num-complex = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 toml = "1"
+
+[features]
+# the studio: the native window that shows runs live (`photonoxide run`, `photonoxide view`)
+studio = ["dep:eframe"]

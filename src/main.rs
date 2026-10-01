@@ -1,22 +1,130 @@
 //! The `photonoxide` command.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::time::Duration;
+
+use photonoxide::job;
+use photonoxide::run::{Job, Run, Stop};
 
 const USAGE: &str = "usage:
-  photonoxide validate                 run every validation case, print the report
-  photonoxide validate --write <file>  ... and write it to <file>
-  photonoxide validate --check <file>  ... and fail unless <file> holds exactly this report";
+  photonoxide run <job.toml> [--out <dir>] [--headless] [--linger <seconds>]
+      run a job; the studio window shows it live and closes by itself when it's done
+      (--headless: no window; --out: where run directories go, default runs/;
+       --linger: how long the window stays after the run, default 5 s)
+  photonoxide view <run directory>
+      replay a finished run in the studio
+  photonoxide validate [--write <file> | --check <file>]
+      run every validation case and print the report; --write saves it, --check fails
+      unless <file> holds exactly this report";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
+        Some("run") => run(&args[1..]),
+        Some("view") => view(&args[1..]),
         Some("validate") => validate(&args[1..]),
-        _ => {
-            eprintln!("{USAGE}");
-            ExitCode::from(2)
+        _ => usage(),
+    }
+}
+
+fn usage() -> ExitCode {
+    eprintln!("{USAGE}");
+    ExitCode::from(2)
+}
+
+fn fail(e: impl std::fmt::Display) -> ExitCode {
+    eprintln!("error: {e}");
+    ExitCode::FAILURE
+}
+
+fn run(args: &[String]) -> ExitCode {
+    let mut job_path = None;
+    let mut out = PathBuf::from("runs");
+    let mut headless = false;
+    let mut linger = Duration::from_secs(5);
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--headless" => headless = true,
+            "--out" => match it.next() {
+                Some(dir) => out = PathBuf::from(dir),
+                None => return usage(),
+            },
+            "--linger" => match it.next().and_then(|s| s.parse::<f64>().ok()) {
+                Some(s) if s.is_finite() && s >= 0.0 => linger = Duration::from_secs_f64(s),
+                _ => return usage(),
+            },
+            _ if job_path.is_none() && !a.starts_with("--") => job_path = Some(PathBuf::from(a)),
+            _ => return usage(),
         }
     }
+    let Some(job_path) = job_path else {
+        return usage();
+    };
+    let job = match Job::load(&job_path) {
+        Ok(j) => j,
+        Err(e) => return fail(e),
+    };
+    if !headless && !cfg!(feature = "studio") {
+        return fail(
+            "this photonoxide was built without the studio: run with --headless, or build with --features studio",
+        );
+    }
+    let mut record = match Run::create(&out, &job) {
+        Ok(r) => r,
+        Err(e) => return fail(e),
+    };
+    let dir = record.dir().to_path_buf();
+    println!("{}", dir.display());
+    let stop = Stop::new(job.timeout());
+    let worker = {
+        let (job, stop) = (job.clone(), stop.clone());
+        std::thread::spawn(move || job::execute(&job, &mut record, &stop))
+    };
+    if !headless {
+        // the window runs on the main thread (some platforms require it) while the job works
+        if let Err(e) = show(&dir, true, linger, Some(stop.clone())) {
+            stop.request();
+            let _ = worker.join();
+            return fail(e);
+        }
+        // closed early: the job stops at its next check
+        stop.request();
+    }
+    match worker.join() {
+        Ok(Ok(())) => ExitCode::SUCCESS,
+        Ok(Err(e)) => fail(e),
+        Err(_) => fail("the job panicked"),
+    }
+}
+
+fn view(args: &[String]) -> ExitCode {
+    let [dir] = args else {
+        return usage();
+    };
+    let dir = Path::new(dir);
+    if !dir.join("events.jsonl").is_file() {
+        return fail(format!("{} has no events.jsonl", dir.display()));
+    }
+    match show(dir, false, Duration::ZERO, None) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => fail(e),
+    }
+}
+
+#[cfg(feature = "studio")]
+fn show(dir: &Path, live: bool, linger: Duration, stop: Option<Stop>) -> photonoxide::Result<()> {
+    photonoxide::studio::show(dir, photonoxide::studio::Options { live, linger, stop })
+}
+
+#[cfg(not(feature = "studio"))]
+fn show(_: &Path, _: bool, _: Duration, _: Option<Stop>) -> photonoxide::Result<()> {
+    Err(photonoxide::Error::InvalidValue {
+        what: "command",
+        reason: "this photonoxide was built without the studio: build with --features studio"
+            .into(),
+    })
 }
 
 fn validate(args: &[String]) -> ExitCode {
@@ -25,18 +133,14 @@ fn validate(args: &[String]) -> ExitCode {
         [flag, file] if flag == "--write" || flag == "--check" => {
             (Some(flag.as_str()), Some(PathBuf::from(file)))
         }
-        _ => {
-            eprintln!("{USAGE}");
-            return ExitCode::from(2);
-        }
+        _ => return usage(),
     };
     let (report, passed) = photonoxide::validation::report();
     print!("{report}");
     match (mode, path) {
         (Some("--write"), Some(path)) => {
             if let Err(e) = std::fs::write(&path, &report) {
-                eprintln!("{}: {e}", path.display());
-                return ExitCode::FAILURE;
+                return fail(format!("{}: {e}", path.display()));
             }
         }
         (Some("--check"), Some(path)) => {
@@ -44,12 +148,11 @@ fn validate(args: &[String]) -> ExitCode {
                 .unwrap_or_default()
                 .replace("\r\n", "\n");
             if current != report {
-                eprintln!(
+                return fail(format!(
                     "{} is out of date: run `photonoxide validate --write {}`",
                     path.display(),
                     path.display()
-                );
-                return ExitCode::FAILURE;
+                ));
             }
         }
         _ => {}
@@ -57,7 +160,6 @@ fn validate(args: &[String]) -> ExitCode {
     if passed {
         ExitCode::SUCCESS
     } else {
-        eprintln!("some validation cases failed");
-        ExitCode::FAILURE
+        fail("some validation cases failed")
     }
 }

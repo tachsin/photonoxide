@@ -102,7 +102,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
   - validity ranges enforced.
 - [x] **Geometry and layer stacks:** polygons, extrusion, standard SOI and SiN stacks.
 - [x] **Runs:** job TOML, run directories, `events.jsonl`, replay, hard timeouts.
-- [ ] **Studio skeleton:** open a run, show its geometry and ε cross-sections, replay events; it starts and exits by itself.
+- [x] **Studio skeleton:** open a run, show its geometry and ε cross-sections, replay events; it starts and exits by itself.
 - [x] **Project:**
   - CI on Linux, macOS and Windows: clippy, fmt and rustdoc with `-D warnings`, plus a single-thread job.
   - The validation harness and its report generator from day one.
