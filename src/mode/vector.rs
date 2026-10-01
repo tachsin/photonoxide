@@ -700,6 +700,67 @@ fn assemble(cs: &CrossSection, k2: f64) -> Vec<(usize, usize, c64)> {
     entries
 }
 
+/// Grid nodes from `a` to `b` (µm): spacing `h` inside the box `fine` (from, to), growing
+/// outside it by `growth` per µm of distance from the box, up to `max`. The box's ends and the
+/// points in `fixed` (interfaces) are nodes. Fine where the field changes fast (a waveguide's
+/// core), coarse where it doesn't: keep `growth` small (a few hundredths), since the scheme loses
+/// accuracy where neighbouring spacings differ much.
+pub fn graded_nodes(
+    a: f64,
+    b: f64,
+    fine: (f64, f64),
+    h: f64,
+    growth: f64,
+    max: f64,
+    fixed: &[f64],
+) -> Vec<f64> {
+    let step = |x: f64| -> f64 {
+        let d = if x < fine.0 {
+            fine.0 - x
+        } else if x > fine.1 {
+            x - fine.1
+        } else {
+            0.0
+        };
+        (h + growth * d).min(max.max(h))
+    };
+    let mut stops: Vec<f64> = [fine.0, fine.1]
+        .iter()
+        .chain(fixed)
+        .copied()
+        .filter(|&p| p > a && p < b)
+        .collect();
+    stops.push(b);
+    stops.sort_by(f64::total_cmp);
+    stops.dedup_by(|x, y| (*x - *y).abs() < 1e-12);
+    let mut nodes = vec![a];
+    for stop in stops {
+        let start = nodes.last().copied().unwrap_or(a);
+        let mut marks = vec![start];
+        while marks.last().copied().unwrap_or(stop) < stop - 1e-12 {
+            let y = marks.last().copied().unwrap_or(stop);
+            marks.push((y + step(y)).min(stop));
+        }
+        // a sliver before the stop: share the last two steps evenly
+        let n = marks.len();
+        if n > 2 && stop - marks[n - 2] < 0.5 * step(marks[n - 2]) {
+            marks[n - 2] = 0.5 * (marks[n - 3] + stop);
+        }
+        nodes.extend(marks.into_iter().skip(1));
+    }
+    nodes
+}
+
+/// Richardson extrapolation from results on three grids, each half the spacing of the last:
+/// the convergence order p is fitted from the real parts, (v₀ − v₁)/(v₁ − v₂) = 2^p, and the
+/// limit is v₂ − (v₁ − v₂)/(2^p − 1), for real and imaginary parts alike. Returns the limit and p.
+/// Meaningful once the three are in the asymptotic range (the ratio steady).
+pub fn richardson(values: [c64; 3]) -> (c64, f64) {
+    let ratio = (values[0].re - values[1].re) / (values[1].re - values[2].re);
+    let order = ratio.log2();
+    (values[2] - (values[1] - values[2]) / (ratio - 1.0), order)
+}
+
 /// A full-vector mode of a cross-section.
 #[derive(Clone, Debug, PartialEq)]
 pub struct VectorMode {
@@ -1068,6 +1129,58 @@ pub(crate) fn bent_slab(
     .and_then(|b| b.mode_near(polarization, w, found))
     .expect("the exact bend");
     (found, exact)
+}
+
+/// The benchmark leaky photonic wire of P. Bienstman et al., Opt. Quantum Electron. 38, 731
+/// (2006): 500 × 220 nm of silicon (3.5) on 1 µm of oxide (1.45) on a silicon substrate, air
+/// above, at 1.55 µm. Its right half behind an electric wall, the core's box at spacing `h`, the
+/// rest growing to 10 nm, a 1 µm PML in the substrate; the TE-like mode's effective index.
+pub(crate) fn bienstman_wire(h: f64) -> c64 {
+    let (si, ox) = (3.5, 1.45);
+    let x = graded_nodes(0.0, 1.6, (0.0, 0.35), h, 0.0125, 0.01, &[0.25]);
+    let y = graded_nodes(
+        -2.6,
+        1.5,
+        (-0.1, 0.32),
+        h,
+        0.0125,
+        0.01,
+        &[0.0, 0.22, -1.0, -1.6],
+    );
+    let mut cells = Vec::with_capacity((x.len() - 1) * (y.len() - 1));
+    for i in 0..x.len() - 1 {
+        let xc = 0.5 * (x[i] + x[i + 1]);
+        for j in 0..y.len() - 1 {
+            let yc = 0.5 * (y[j] + y[j + 1]);
+            let n: f64 = if yc > 0.22 {
+                1.0
+            } else if yc > 0.0 {
+                if xc < 0.25 { si } else { 1.0 }
+            } else if yc > -1.0 {
+                ox
+            } else {
+                si
+            };
+            cells.push(Permittivity::isotropic(c64::new(n * n, 0.0)));
+        }
+    }
+    let cs = CrossSection::new(x, y, cells)
+        .and_then(|cs| {
+            cs.with_boundaries(Boundaries {
+                west: Boundary::ElectricWall,
+                ..Boundaries::default()
+            })
+        })
+        .and_then(|cs| {
+            cs.with_pml(Pml {
+                south: 1.0,
+                strength: 3.0,
+                ..Pml::default()
+            })
+        })
+        .expect("a valid wire");
+    modes(&cs, Wavelength::from_um_unchecked(1.55), 1, Some(2.41)).expect("the solver converges")[0]
+        .effective_index()
 }
 
 /// The full-vector solver's error on the book's slab (220 nm of 3.473 in 1.444) turned on its
@@ -1491,6 +1604,39 @@ mod tests {
         };
         let (e1, e3) = (error(1.0), error(3.0));
         assert!(e1 < 2e-3 && e3 < 2e-4 && e3 < e1 / 5.0, "{e1}, {e3}");
+    }
+
+    #[test]
+    fn graded_nodes_keep_their_box_and_interfaces() {
+        let n = graded_nodes(-2.0, 3.0, (0.0, 0.5), 0.01, 0.05, 0.1, &[-1.0, 2.2]);
+        assert_eq!((n[0], n[n.len() - 1]), (-2.0, 3.0));
+        for p in [0.0, 0.5, -1.0, 2.2] {
+            assert!(n.iter().any(|&x| (x - p).abs() < 1e-12), "{p} isn't a node");
+        }
+        assert!(
+            n.windows(2)
+                .all(|w| w[1] > w[0] && w[1] - w[0] <= 0.1 + 1e-12)
+        );
+        let inside: Vec<f64> = n
+            .windows(2)
+            .filter(|w| w[0] >= 0.0 && w[1] <= 0.5)
+            .map(|w| w[1] - w[0])
+            .collect();
+        assert!(
+            inside.iter().all(|&d| (d - 0.01).abs() < 1e-9),
+            "{inside:?}"
+        );
+    }
+
+    #[test]
+    fn richardson_recovers_a_power_law() {
+        // v(h) = 2 + 3 h^0.7 at h = 1, 1/2, 1/4: the limit 2, the order 0.7
+        let v = |h: f64| c64::new(2.0 + 3.0 * h.powf(0.7), 1.0 + h.powf(0.7));
+        let (limit, order) = richardson([v(1.0), v(0.5), v(0.25)]);
+        assert!(
+            (order - 0.7).abs() < 1e-12 && (limit - c64::new(2.0, 1.0)).norm() < 1e-12,
+            "{limit}, {order}"
+        );
     }
 
     #[test]

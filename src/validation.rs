@@ -277,6 +277,20 @@ pub fn cases() -> Vec<Case> {
             source: "D. Marcuse, Bell Syst. Tech. J. 50, 2551 (1971), doi:10.1002/j.1538-7305.1971.tb02620.x, Eqs. 32-33, an approximation for large radii: its deviation falls as 1/R, 0.14 at 80 um, 0.084 at 120 um and 0.061 at 160 um",
             run: bend_marcuse,
         },
+        Case {
+            id: "mode/leaky-wire-bienstman",
+            title: "The leaky SOI wire benchmark (500 x 220 nm Si 3.5 on 1 um SiO2 1.45 on Si, air above, 1.55 um), TE: Re n_eff, Richardson-extrapolated from core grids of 5, 2.5 and 1.25 nm (order ~0.67, the corners'), with a PML in the substrate",
+            tier: Tier::Published,
+            source: "P. Bienstman et al., Opt. Quantum Electron. 38, 731 (2006), doi:10.1007/s11082-006-9025-9, Table 6: 2.412372, from CAMFR and the aperiodic Fourier modal method (7 digits); raw errors +4.0e-3, +2.5e-3, +1.5e-3",
+            run: bienstman_re,
+        },
+        Case {
+            id: "mode/leaky-wire-bienstman-loss",
+            title: "The same wire's substrate leakage, Im n_eff x 1e8, extrapolated alike",
+            tier: Tier::Published,
+            source: "P. Bienstman et al., Opt. Quantum Electron. 38, 731 (2006), doi:10.1007/s11082-006-9025-9, Table 6: 2.9135 (CAMFR) and 2.91348 (aperiodic Fourier modal method); the raw results are 0.97, 0.98 and 0.99 of it",
+            run: bienstman_im,
+        },
     ]
 }
 
@@ -885,6 +899,37 @@ fn bend_marcuse() -> Outcome {
         // an approximation of order d/R: 0.084 here; at larger radii the loss nears round-off
         tolerance: 0.1,
         error: deviation.abs(),
+    }
+}
+
+/// The leaky wire extrapolated from its three grids, computed once for both cases.
+fn bienstman() -> num_complex::Complex64 {
+    static LIMIT: std::sync::OnceLock<num_complex::Complex64> = std::sync::OnceLock::new();
+    *LIMIT.get_or_init(|| {
+        let v = [0.005, 0.0025, 0.00125].map(crate::mode::vector::bienstman_wire);
+        crate::mode::vector::richardson(v).0
+    })
+}
+
+fn bienstman_re() -> Outcome {
+    let n = bienstman().re;
+    Outcome {
+        measured: n,
+        expected: 2.412372,
+        // 8e-5 after extrapolation
+        tolerance: 2e-4,
+        error: (n - 2.412372).abs(),
+    }
+}
+
+fn bienstman_im() -> Outcome {
+    let im = bienstman().im * 1e8;
+    Outcome {
+        measured: im,
+        expected: 2.9135,
+        // 2 %: 0.25 % after extrapolation
+        tolerance: 0.06,
+        error: (im - 2.9135).abs(),
     }
 }
 
