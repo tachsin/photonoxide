@@ -112,7 +112,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - [ ] **Slab:** an exact transfer-matrix dispersion relation, and finite differences. *(Three-layer slab, exact, and any multilayer stack by transfer matrices (Chilwell & Hodgkinson 1984), bound modes and leaky waves: done. Still to do: 1D finite differences.)*
 - [x] **2D cross-section:** a full-vector finite-difference solver (Fallahkhair 2008), with PML for leaky modes. *(The solver, shift-and-invert Arnoldi (Saad 2011), mirror walls, and the PML by complex coordinate stretching (Chew 1994, 1997): leaky losses within 0.1 % of the exact transfer-matrix ones, at second order, and Chilwell & Hodgkinson's leaky waves reproduced. Second order at interfaces, about first order at convex corners and 1.4–1.8 at concave ones, measured on Hadley's four corner problems.)*
 - [ ] **Dielectric corners:** high-accuracy finite-difference equations at interfaces and corners (Hadley 2002, parts I and II).
-- [ ] **Effective index method,** with its error against 3D stated.
+- [x] **Effective index method,** with its error against 3D stated. *(Hocker & Burns 1977, as Chrostowski & Hochberg describe it: the book's 2.489 reproduced; against the full-vector solver, 220 nm strips 400–600 nm wide: n_eff +3.9 to +1.0 %, n_g −6.7 to −2.2 %.)*
 - [ ] **Bends:** conformal transformation; bend loss.
 - [ ] **Derived quantities:** n_eff, n_g, dispersion, loss and overlaps; modes tracked across wavelength. *(n_g and D (Chrostowski & Hochberg Eqs. 3.5–3.6), loss, mode tracking by field overlap: done. Still to do: coupling overlaps between different waveguides' modes, which need E as well as H.)*
 - [ ] **Studio:** the mode viewer (fields, and sweeps over width and wavelength).

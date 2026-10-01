@@ -242,6 +242,13 @@ pub fn cases() -> Vec<Case> {
             source: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Table 2, to 5 decimals; m = 8 (Re 1.00304, just above the cover's 1.0) has a slowly decaying, inward-phased field in the cover and is checked only in the leaky_waves example, within 2e-4",
             run: pml_leaky_chilwell,
         },
+        Case {
+            id: "mode/eim-strip-book",
+            title: "The effective index method on a 500 x 220 nm silicon strip (3.473 in 1.444) at 1550 nm, TE-like, exact slabs (effective index shown)",
+            tier: Tier::Published,
+            source: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Section 3.2.5: 2.489, from the slab index rounded to 2.845 and a 10 nm 1D mesh (on that input the exact lateral slab gives 2.488558); the method: G. B. Hocker, W. K. Burns, Appl. Opt. 16, 113 (1977), doi:10.1364/AO.16.000113",
+            run: eim_strip_book,
+        },
     ]
 }
 
@@ -778,6 +785,20 @@ fn pml_leaky_chilwell() -> Outcome {
         // the table's 5 decimals, the grid (3.8e-5 at 2.5 nm for m = 7) and the PML
         tolerance: 5e-5,
         error: worst,
+    }
+}
+
+fn eim_strip_book() -> Outcome {
+    let n =
+        crate::mode::eim::Ridge::strip(1.444, 3.473, 1.444, Length::nm(220.0), Length::nm(500.0))
+            .and_then(|r| r.mode(Polarization::Te, um(1.55)))
+            .map_or(f64::NAN, |m| m.effective_index);
+    Outcome {
+        measured: n,
+        expected: 2.489,
+        // 3 printed decimals, plus the book's rounded input (1.9e-4) and mesh
+        tolerance: 1e-3,
+        error: (n - 2.489).abs(),
     }
 }
 
