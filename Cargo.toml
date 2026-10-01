@@ -19,6 +19,7 @@ num-complex = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 toml = "1"
+yaml-rust2 = "0.13.0"
 
 [features]
 # the studio: the native window that shows runs live (`photonoxide run`, `photonoxide view`)
