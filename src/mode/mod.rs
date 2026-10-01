@@ -3,10 +3,13 @@
 //!
 //! - [`dispersion`]: group index, dispersion and loss from the effective index, and one mode
 //!   followed across wavelength.
+//! - [`multilayer`]: the bound modes and leaky waves of any planar stack, exactly, by
+//!   transfer matrices.
 //! - [`slab`]: the modes of a three-layer slab, exactly (TE and TM).
 //! - [`vector`]: the full-vector modes of any cross-section, by finite differences.
 
 pub mod dispersion;
+pub mod multilayer;
 pub mod slab;
 pub mod vector;
 
