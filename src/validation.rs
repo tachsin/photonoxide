@@ -221,6 +221,27 @@ pub fn cases() -> Vec<Case> {
             source: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Table 3: to 0.1 %",
             run: multilayer_power,
         },
+        Case {
+            id: "mode/pml-soi-leakage-te",
+            title: "The loss of 220 nm SOI's TE mode leaking through 0.5 um of buried oxide into the substrate, full-vector with a PML (1 um, strength 3), 2.5 nm grid (relative error in Im n_eff shown)",
+            tier: Tier::Analytic,
+            source: "the exact leaky mode of the same stack by transfer matrices (mode::multilayer); PML by complex coordinate stretching, W. C. Chew et al., Microw. Opt. Technol. Lett. 15, 363 (1997)",
+            run: pml_soi_te,
+        },
+        Case {
+            id: "mode/pml-soi-leakage-tm",
+            title: "The same for the TM mode (relative error in Im n_eff shown)",
+            tier: Tier::Analytic,
+            source: "the exact leaky mode of the same stack by transfer matrices (mode::multilayer); PML by complex coordinate stretching, W. C. Chew et al., Microw. Opt. Technol. Lett. 15, 363 (1997)",
+            run: pml_soi_tm,
+        },
+        Case {
+            id: "mode/pml-leaky-chilwell",
+            title: "Chilwell and Hodgkinson's TE leaky waves m = 4-7, full-vector with a PML (2 um, strength 5) in the substrate, 2.5 nm grid (largest deviation of a real or imaginary part shown)",
+            tier: Tier::Published,
+            source: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Table 2, to 5 decimals; m = 8 (Re 1.00304, just above the cover's 1.0) has a slowly decaying, inward-phased field in the cover and is checked only in the leaky_waves example, within 2e-4",
+            run: pml_leaky_chilwell,
+        },
     ]
 }
 
@@ -715,6 +736,47 @@ fn multilayer_power() -> Outcome {
         expected: 0.0,
         // printed to 0.1 %
         tolerance: 0.06,
+        error: worst,
+    }
+}
+
+fn pml_soi(polarization: Polarization) -> Outcome {
+    let (found, exact) = crate::mode::vector::soi_leakage(polarization, 0.5, 0.0025);
+    let relative = (found.im / exact.im - 1.0).abs();
+    Outcome {
+        measured: relative,
+        expected: 0.0,
+        // 0.1 % of the loss: at 2.5 nm the grid leaves 0.04 % (TE) and 0.01 % (TM)
+        tolerance: 1e-3,
+        error: relative,
+    }
+}
+
+fn pml_soi_te() -> Outcome {
+    pml_soi(Polarization::Te)
+}
+
+fn pml_soi_tm() -> Outcome {
+    pml_soi(Polarization::Tm)
+}
+
+fn pml_leaky_chilwell() -> Outcome {
+    let printed = [
+        num_complex::Complex64::new(1.46186, 0.00716),
+        num_complex::Complex64::new(1.38250, 0.01817),
+        num_complex::Complex64::new(1.28136, 0.03588),
+        num_complex::Complex64::new(1.14231, 0.05288),
+    ];
+    let worst = crate::mode::vector::chilwell_leaky(0.0025, &printed)
+        .iter()
+        .zip(printed)
+        .map(|(n, p)| (n.re - p.re).abs().max((n.im - p.im).abs()))
+        .fold(0.0, f64::max);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // the table's 5 decimals, the grid (3.8e-5 at 2.5 nm for m = 7) and the PML
+        tolerance: 5e-5,
         error: worst,
     }
 }

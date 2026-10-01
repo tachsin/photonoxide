@@ -106,6 +106,37 @@ pub struct Boundaries {
     pub north: Boundary,
 }
 
+/// Perfectly matched layers inside the window's edges: the last `west`, `east`, `south` and
+/// `north` micrometres of the window (0 for none) absorb the waves that reach them, so a leaky
+/// mode's loss can be found and the window's edges don't reflect.
+///
+/// W. C. Chew, J. M. Jin, E. Michielssen, "Complex coordinate stretching as a generalized
+/// absorbing boundary condition", Microw. Opt. Technol. Lett. 15, 363 (1997),
+/// [doi:10.1002/(SICI)1098-2760(19970820)15:6<363::AID-MOP8>3.0.CO;2-C](https://doi.org/10.1002/(SICI)1098-2760(19970820)15:6%3C363::AID-MOP8%3E3.0.CO;2-C),
+/// after W. C. Chew, W. H. Weedon, Microw. Opt. Technol. Lett. 7, 599 (1994),
+/// [doi:10.1002/mop.4650071304](https://doi.org/10.1002/mop.4650071304). Inside a layer of
+/// thickness d the coordinate is stretched by s = 1 + iα(u/d)², u the depth into the layer
+/// (Eq. 44), so it becomes complex, x̃ = x ± iα u³/(3d²) (Eq. 45; plus towards larger x). A
+/// wave travelling into the layer then decays without reflecting, at any angle, for both
+/// polarizations, and also where a dielectric interface runs into it. Fallahkhair et al.'s
+/// equations take the complex grid spacings as they are (their ref. 21). Both papers use
+/// e^(−iωt), as photonoxide does: the stretched coordinate's imaginary part has the sign of the
+/// outward direction. Beyond the layer the field is zero.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Pml {
+    /// The layer's thickness at the smallest x, µm.
+    pub west: f64,
+    /// At the largest x.
+    pub east: f64,
+    /// At the smallest y.
+    pub south: f64,
+    /// At the largest y.
+    pub north: f64,
+    /// The stretching's strength α: s = 1 + iα at the window's edge. A few units absorb well
+    /// over a layer about a wavelength thick.
+    pub strength: f64,
+}
+
 /// A field component, H_x or H_y.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Component {
@@ -132,6 +163,7 @@ pub struct CrossSection {
     y: Vec<f64>,
     cells: Vec<Permittivity>,
     boundaries: Boundaries,
+    pml: Pml,
 }
 
 impl CrossSection {
@@ -181,6 +213,7 @@ impl CrossSection {
             y,
             cells,
             boundaries: Boundaries::default(),
+            pml: Pml::default(),
         })
     }
 
@@ -233,6 +266,75 @@ impl CrossSection {
     /// What lies at the window's edges.
     pub fn boundaries(&self) -> Boundaries {
         self.boundaries
+    }
+
+    /// The same cross-section with perfectly matched layers inside its edges.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a thickness or strength that is negative or not finite,
+    /// layers that would meet (thicker together than the window), or a layer on an edge with a
+    /// mirror wall (a wall is a plane of symmetry, not an open boundary).
+    pub fn with_pml(mut self, pml: Pml) -> Result<CrossSection> {
+        let bad = |v: f64| !(v.is_finite() && v >= 0.0);
+        if [pml.west, pml.east, pml.south, pml.north, pml.strength]
+            .into_iter()
+            .any(bad)
+        {
+            return Err(Error::invalid(
+                "PML",
+                "thicknesses and strength must be finite and not negative",
+            ));
+        }
+        let span = |v: &[f64]| v[v.len() - 1] - v[0];
+        if pml.west + pml.east >= span(&self.x) || pml.south + pml.north >= span(&self.y) {
+            return Err(Error::invalid(
+                "PML",
+                "the layers are thicker than the window",
+            ));
+        }
+        let b = self.boundaries;
+        for (name, thickness, boundary) in [
+            ("west", pml.west, b.west),
+            ("east", pml.east, b.east),
+            ("south", pml.south, b.south),
+            ("north", pml.north, b.north),
+        ] {
+            if thickness > 0.0 && boundary != Boundary::Zero {
+                return Err(Error::invalid(
+                    "PML",
+                    format!("the {name} edge has a mirror wall; a PML needs it open"),
+                ));
+            }
+        }
+        self.pml = pml;
+        Ok(self)
+    }
+
+    /// The perfectly matched layers inside the window's edges.
+    pub fn pml(&self) -> Pml {
+        self.pml
+    }
+
+    /// The node coordinates along one axis, stretched into the complex plane inside the PML
+    /// (Chew et al., Eq. 45): x̃ = x − iα u³/(3d²) at depth u into the low edge's layer of
+    /// thickness d, and + at the high edge's.
+    fn stretched(v: &[f64], low: f64, high: f64, strength: f64) -> Vec<c64> {
+        let (start, end) = (v[0], v[v.len() - 1]);
+        v.iter()
+            .map(|&x| {
+                let mut im = 0.0;
+                if low > 0.0 && x < start + low {
+                    let u = start + low - x;
+                    im -= strength * u.powi(3) / (3.0 * low * low);
+                }
+                if high > 0.0 && x > end - high {
+                    let u = x - (end - high);
+                    im += strength * u.powi(3) / (3.0 * high * high);
+                }
+                c64::new(x, im)
+            })
+            .collect()
     }
 
     /// A uniform grid of `nx` × `ny` cells over [x0, x1] × [y0, y1] (µm), each cell taking the
@@ -431,7 +533,10 @@ fn assemble(cs: &CrossSection, k2: f64) -> Vec<(usize, usize, c64)> {
         let j = fold(j, nyn as isize - 1, b.south, b.north, Component::Y)?;
         index[c as usize][i as usize * nyn + j as usize].map(|k| (k, sign))
     };
-    let spacing = |v: &[f64], i: usize, ahead: bool| -> f64 {
+    let pml = cs.pml;
+    let xs = CrossSection::stretched(&cs.x, pml.west, pml.east, pml.strength);
+    let ys = CrossSection::stretched(&cs.y, pml.south, pml.north, pml.strength);
+    let spacing = |v: &[c64], i: usize, ahead: bool| -> c64 {
         // at the window's edge the spacing continues: to the zero beyond it, or to the mirror
         // image of the first node inside a wall
         let last = v.len() - 1;
@@ -450,9 +555,8 @@ fn assemble(cs: &CrossSection, k2: f64) -> Vec<(usize, usize, c64)> {
             let r2 = cs.cell(ii - 1, jj - 1);
             let r3 = cs.cell(ii, jj - 1);
             let r4 = cs.cell(ii, jj);
-            let c = |v: f64| c64::new(v, 0.0);
-            let (n, s) = (c(spacing(&cs.y, j, true)), c(spacing(&cs.y, j, false)));
-            let (e, w) = (c(spacing(&cs.x, i, true)), c(spacing(&cs.x, i, false)));
+            let (n, s) = (spacing(&ys, j, true), spacing(&ys, j, false));
+            let (e, w) = (spacing(&xs, i, true), spacing(&xs, i, false));
             let (axx, axy) = coefficients(r1, r2, r3, r4, n, s, e, w, k2);
             // Eq. (36): x ↔ y, so n ↔ e, s ↔ w, region 1 ↔ 3, and the tensor transposed; the
             // results are A_yy and A_yx with their neighbours mirrored back (N ↔ E, S ↔ W,
@@ -714,6 +818,130 @@ pub(crate) fn hadley_problem(problem: usize, n: usize) -> (CrossSection, f64) {
         cs.with_boundaries(boundaries).expect("isotropic cells"),
         expected,
     )
+}
+
+/// A slab lying flat (interfaces normal to y), uniform in x between two mirror walls, at grid
+/// spacing `h` (µm): `layers` from the top down, each (index, thickness µm), the first and last
+/// semi-infinite in reality and here `top` and `bottom` µm thick, a PML of `pml` µm and
+/// strength `strength` below the bottom one, and a zero wall above the top one. TE (E along x)
+/// behind electric walls, TM behind magnetic ones.
+pub(crate) fn flat_slab(
+    polarization: crate::mode::Polarization,
+    layers: &[(f64, f64)],
+    h: f64,
+    pml: f64,
+    strength: f64,
+) -> CrossSection {
+    let total: f64 = layers.iter().map(|&(_, t)| t).sum();
+    let (y0, y1) = (-(total - layers[0].1) - pml, layers[0].1);
+    let ny = ((y1 - y0) / h).round() as usize;
+    let wall = match polarization {
+        crate::mode::Polarization::Te => Boundary::ElectricWall,
+        crate::mode::Polarization::Tm => Boundary::MagneticWall,
+    };
+    let index = |y: f64| {
+        // the top layer spans (0, top]; each next one lies below the last
+        let mut top = layers[0].1;
+        for &(n, t) in layers {
+            if y > top - t {
+                return n;
+            }
+            top -= t;
+        }
+        layers[layers.len() - 1].0
+    };
+    CrossSection::uniform((0.0, 4.0 * h, 4), (y0, y1, ny), |_, y| {
+        Permittivity::isotropic(c64::new(index(y).powi(2), 0.0))
+    })
+    .and_then(|cs| {
+        cs.with_boundaries(Boundaries {
+            west: wall,
+            east: wall,
+            ..Boundaries::default()
+        })
+    })
+    .and_then(|cs| {
+        cs.with_pml(Pml {
+            south: pml,
+            strength,
+            ..Pml::default()
+        })
+    })
+    .expect("a valid flat slab")
+}
+
+/// The leaky TE mode of 220 nm of silicon (3.473) in oxide (1.444) above a buried oxide
+/// `box_um` thick on a silicon substrate, at 1.55 µm: from the full-vector solver at spacing `h`
+/// with a 1 µm PML (α = 3) in the substrate, and exactly ([`crate::mode::multilayer`]).
+pub(crate) fn soi_leakage(
+    polarization: crate::mode::Polarization,
+    box_um: f64,
+    h: f64,
+) -> (c64, c64) {
+    use crate::mode::multilayer::Multilayer;
+    use crate::units::Length;
+    let (si, ox) = (3.473, 1.444);
+    let w = Wavelength::from_um_unchecked(1.55);
+    let stack = Multilayer::new(
+        c64::new(ox, 0.0),
+        &[
+            (c64::new(si, 0.0), Length::nm(220.0)),
+            (c64::new(ox, 0.0), Length::um(box_um)),
+        ],
+        c64::new(si, 0.0),
+    )
+    .expect("a valid stack");
+    let guess = crate::mode::slab::Slab::new(ox, si, ox, Length::nm(220.0))
+        .expect("a valid slab")
+        .modes(polarization, w)[0]
+        .effective_index();
+    let exact = stack
+        .mode_near(polarization, w, c64::new(guess, 1e-6))
+        .expect("the leaky mode")
+        .effective_index();
+    let cs = flat_slab(
+        polarization,
+        &[(ox, 1.0), (si, 0.22), (ox, box_um), (si, 0.5)],
+        h,
+        1.0,
+        3.0,
+    );
+    let found =
+        modes(&cs, w, 1, Some(exact.re)).expect("the solver converges")[0].effective_index();
+    (found, exact)
+}
+
+/// Chilwell and Hodgkinson's four-layer guide lying flat (cover 1.0, 1 µm, zero wall above;
+/// films 1.66, 1.53, 1.60, 1.66 of 500 nm; substrate 1.50, 1 µm, over a 2 µm PML of α = 5) at
+/// 632.8 nm and spacing `h`: its TE leaky waves nearest each of `near`.
+pub(crate) fn chilwell_leaky(h: f64, near: &[c64]) -> Vec<c64> {
+    let cs = flat_slab(
+        crate::mode::Polarization::Te,
+        &[
+            (1.0, 1.0),
+            (1.66, 0.5),
+            (1.53, 0.5),
+            (1.60, 0.5),
+            (1.66, 0.5),
+            (1.5, 1.0),
+        ],
+        h,
+        2.0,
+        5.0,
+    );
+    let w = Wavelength::from_um_unchecked(0.6328);
+    near.iter()
+        .map(|&target| {
+            modes(&cs, w, 3, Some(target.re))
+                .ok()
+                .and_then(|m| {
+                    m.iter()
+                        .map(VectorMode::effective_index)
+                        .min_by(|a, b| (a - target).norm().total_cmp(&(b - target).norm()))
+                })
+                .unwrap_or(c64::new(f64::NAN, f64::NAN))
+        })
+        .collect()
 }
 
 /// The full-vector solver's error on the book's slab (220 nm of 3.473 in 1.444) turned on its
@@ -1055,6 +1283,61 @@ mod tests {
                 last = err;
             }
         }
+    }
+
+    #[test]
+    fn the_pml_gives_a_leaky_slabs_exact_loss_at_second_order() {
+        // 220 nm SOI on 0.5 µm of buried oxide, leaking into the substrate: the PML's loss
+        // (Im n_eff) against the transfer-matrix solution, within 0.2 % at 5 nm and converging
+        // at second order (TE: 0.68 %, 0.17 %, 0.04 % at 10, 5, 2.5 nm)
+        for pol in [Polarization::Te, Polarization::Tm] {
+            let (coarse, exact) = soi_leakage(pol, 0.5, 0.01);
+            let (fine, _) = soi_leakage(pol, 0.5, 0.005);
+            let err = |n: c64| (n.im / exact.im - 1.0).abs();
+            assert!(err(fine) < 2e-3, "{pol:?}: {fine} vs {exact}");
+            assert!(
+                err(coarse) / err(fine) > 3.0,
+                "{pol:?}: {coarse}, {fine} vs {exact}"
+            );
+            assert!(
+                (fine.re - exact.re).abs() < 2e-4,
+                "{pol:?}: {fine} vs {exact}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_pml_leaves_a_guided_mode_alone() {
+        // the book's slab in oxide alone, guided: a PML below changes its index by round-off
+        let lam = Wavelength::um(1.55).unwrap();
+        let layers = [(1.444, 1.0), (3.473, 0.22), (1.444, 1.5)];
+        let with = flat_slab(Polarization::Te, &layers, 0.01, 1.0, 3.0);
+        let without = with.clone().with_pml(Pml::default()).unwrap();
+        let a = modes(&with, lam, 1, None).unwrap()[0].effective_index();
+        let b = modes(&without, lam, 1, None).unwrap()[0].effective_index();
+        assert!((a - b).norm() < 1e-9 && a.im.abs() < 1e-9, "{a} vs {b}");
+    }
+
+    #[test]
+    fn bad_pmls_are_errors() {
+        let cs = CrossSection::uniform((0.0, 1.0, 10), (0.0, 1.0, 10), |_, _| iso(2.0)).unwrap();
+        let pml = |west: f64, east: f64, strength: f64| Pml {
+            west,
+            east,
+            strength,
+            ..Pml::default()
+        };
+        assert!(cs.clone().with_pml(pml(-0.1, 0.0, 3.0)).is_err());
+        assert!(cs.clone().with_pml(pml(0.2, 0.0, f64::NAN)).is_err());
+        assert!(cs.clone().with_pml(pml(0.5, 0.5, 3.0)).is_err());
+        assert!(cs.clone().with_pml(pml(0.2, 0.2, 3.0)).is_ok());
+        let walled = cs
+            .with_boundaries(Boundaries {
+                west: Boundary::ElectricWall,
+                ..Boundaries::default()
+            })
+            .unwrap();
+        assert!(walled.with_pml(pml(0.2, 0.0, 3.0)).is_err());
     }
 
     #[test]
