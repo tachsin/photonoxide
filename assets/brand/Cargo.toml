@@ -1,0 +1,14 @@
+# photonoxide's brand files: `cargo run --release` here writes the SVGs and PNGs (see README.md).
+# Not part of the photonoxide crate, and never published.
+[package]
+name = "photonoxide-brand"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+resvg = "0.48.1"
+ttf-parser = "0.25.1"
+
+# its own workspace: not a member of photonoxide's
+[workspace]
