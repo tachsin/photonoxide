@@ -1,0 +1,2 @@
+# what the examples print, compared byte for byte by CI and locally: LF everywhere
+examples/output/*.txt text eol=lf

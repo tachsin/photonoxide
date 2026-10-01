@@ -102,6 +102,19 @@ pub fn loss_db_per_cm(n_eff: c64, wavelength: Wavelength) -> f64 {
     10.0 * std::f64::consts::LOG10_E * 2.0 * wavelength.wavenumber() * n_eff.im * 1e4
 }
 
+/// The radiation loss of a quarter turn, in dB, of a bend of `radius` whose mode has effective
+/// index `n_eff` along the arc at that radius ([`crate::mode::vector::CrossSection::bent`],
+/// [`crate::mode::bend::SlabBend`]): the power decays as e^(−2 k₀ Im(n_eff) s) over the arc
+/// length s = πR/2.
+pub fn bend_loss_db(n_eff: c64, wavelength: Wavelength, radius: crate::units::Length) -> f64 {
+    10.0 * std::f64::consts::LOG10_E
+        * 2.0
+        * wavelength.wavenumber()
+        * n_eff.im
+        * std::f64::consts::FRAC_PI_2
+        * radius.to_um()
+}
+
 /// One mode followed across `wavelengths`: the cross-section at each wavelength from
 /// `cross_section` (on the same grid at every wavelength), and the mode with effective index
 /// nearest `near` at the first (the fundamental when `None`). At each next wavelength, of the
@@ -247,6 +260,19 @@ mod tests {
             "{db}"
         );
         assert_eq!(loss_db_per_cm(c64::new(2.4, 0.0), w), 0.0);
+    }
+
+    #[test]
+    fn a_quarter_turns_loss_follows_the_imaginary_index() {
+        // 1 dB over the arc when 2 k Im(n) πR/2 log10(e) = 0.1
+        let (w, r) = (lam(1.55), crate::units::Length::um(5.0));
+        let im = 0.1
+            / (std::f64::consts::LOG10_E
+                * 2.0
+                * w.wavenumber()
+                * std::f64::consts::FRAC_PI_2
+                * 5.0);
+        assert!((bend_loss_db(c64::new(2.5, im), w, r) - 1.0).abs() < 1e-12);
     }
 
     #[test]
