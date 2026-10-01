@@ -60,6 +60,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       # every case must pass, and docs/validation.md must be the report the code writes
       - run: cargo run --release --quiet -- validate --check docs/validation.md
+      # every example reproduces a published result and fails when it doesn't
+      - name: Examples, each against its paper
+        run: |
+          for example in examples/*.rs; do
+            cargo run --release --quiet --example "$(basename "$example" .rs)"
+          done
 
   msrv:
     name: MSRV (1.95)

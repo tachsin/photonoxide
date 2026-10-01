@@ -8,6 +8,7 @@ photonoxide is pre-alpha: the plan is [ROADMAP.md](ROADMAP.md), and there is no 
 cargo test                                              # unit tests
 cargo clippy --all-targets --all-features -- -D warnings
 cargo run -- validate --write docs/validation.md        # rerun every validation case, rewrite the report
+cargo run --release --example strip_waveguide           # an example: a published result, checked
 cargo run --release --features studio -- run jobs/strip-and-ring.toml   # a job, live in the studio window
 cargo run --release -- run <job.toml> --headless          # the same run without a window
 cargo run --release --features studio -- view runs/<run>  # replay a finished run
@@ -27,6 +28,7 @@ regenerate and commit it with any change that adds or alters a case.
   - a reproduction of a published result;
   - a convergence test.
   Adjoint gradients are checked against finite differences.
+- **Examples are published results.** Each file in `examples/` reproduces one paper's numbers, checks them with `common::Checks` and fails when they disagree; CI runs them all. See [examples/README.md](examples/README.md).
 - **Cite the source.** Every method's docs name the paper it implements, by DOI. Check a DOI before citing it.
 - **No GPL code.** Meep, MPB, KLayout and SPINS-B may be run as external programs for comparison. Never read them to port code. photonoxide is MIT OR Apache-2.0.
 - **Material data is CC0 or our own, with provenance:** source, validity range and temperature.
