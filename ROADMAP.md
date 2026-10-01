@@ -116,11 +116,12 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - [x] **Bends:** conformal transformation; bend loss. *(Heiblum & Harris's map in the full-vector solver, with a PML; an exact bent slab (radial shooting to the outgoing Hankel function) as the reference: exact and second order for E normal to the bend plane, 1.3e-3 at R = 1 µm for E in it; Marcuse's formula reached as 1/R.)*
 - [x] **Derived quantities:** n_eff, n_g, dispersion, loss and overlaps; modes tracked across wavelength. *(n_g and D (Chrostowski & Hochberg Eqs. 3.5–3.6), loss, mode tracking by field overlap; all six field components, power, and the power coupled between two waveguides' modes, checked against exact slab fields.)*
 - [ ] **Studio:** the mode viewer (fields, and sweeps over width and wavelength).
-- [ ] **Validation:**
+- [x] **Validation:**
   - slab modes against the analytic solution;
   - Marcatili's approximation (1969) in its regime of validity;
   - the published 500 × 220 nm strip;
   - the convergence order.
+  *(All four, plus Hadley's corner problems, Chilwell & Hodgkinson's multilayer and Bienstman et al.'s leaky-wire benchmark: see docs/validation.md.)*
 
 ### 0.3: Frequency-domain finite differences (FDFD)
 - [ ] **2D and 3D,** with stretched-coordinate PML.

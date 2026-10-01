@@ -1,0 +1,21 @@
+Marcatili's guide a = 2b, n1 = 1.5, n1/n4 = 1.05, at 1 um; normalized constants
+    B   mode   full-vector  Marcatili  closed form
+    1   Ex_11    0.5071      0.4983     0.4761
+    1   Ey_11    0.4936      0.4845     0.4543
+  1.5   Ex_11    0.7095      0.7083     0.7028
+  B = 1.5: closed form Ex_11, relative    -0.007816   paper 0          ± 5e-2    ok
+  1.5   Ey_11    0.7013      0.7001     0.6927
+  B = 1.5: closed form Ey_11, relative    -0.010639   paper 0          ± 5e-2    ok
+    2   Ex_11    0.8104      0.8103     0.8084
+  B = 2: closed form Ex_11, relative    -0.002315   paper 0          ± 5e-2      ok
+    2   Ey_11    0.8056      0.8054     0.8030
+  B = 2: closed form Ey_11, relative    -0.003089   paper 0          ± 5e-2      ok
+    3   Ex_11    0.9015      0.9016     0.9013
+  B = 3: closed form Ex_11, relative    -0.000404   paper 0          ± 5e-2      ok
+    3   Ey_11    0.8995      0.8996     0.8992
+  B = 3: closed form Ey_11, relative    -0.000526   paper 0          ± 5e-2      ok
+    4   Ex_11    0.9399      0.9400     0.9399
+  B = 4: closed form Ex_11, relative    -0.000113   paper 0          ± 5e-2      ok
+    4   Ey_11    0.9389      0.9390     0.9389
+  B = 4: closed form Ey_11, relative    -0.000145   paper 0          ± 5e-2      ok
+all 8 within tolerance of the paper

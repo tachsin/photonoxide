@@ -298,6 +298,20 @@ pub fn cases() -> Vec<Case> {
             source: "the exact slab fields (mode::slab): for TE slabs H is proportional to E, so the coupling is (int E1 E2)^2 / (int E1^2 int E2^2) = 0.994662",
             run: fields_butt_coupling,
         },
+        Case {
+            id: "mode/marcatili-closed-form",
+            title: "Marcatili's closed-form approximation against his transcendental equations, E^x_11 and E^y_11 of his guide a = 2b, n1/n4 = 1.05, where (kz^2 - k4^2)/(k1^2 - k4^2) >= 0.5 (largest relative difference shown)",
+            tier: Tier::Published,
+            source: "E. A. J. Marcatili, Bell Syst. Tech. J. 48, 2071 (1969), doi:10.1002/j.1538-7305.1969.tb01166.x, p. 2083: 'within a few percent of the exact value' there; 4.1 % here",
+            run: marcatili_closed_form,
+        },
+        Case {
+            id: "mode/marcatili-vector",
+            title: "Marcatili's approximation (his transcendental equations) against the full-vector solver, E^x_11 of his guide a = 2b, n1/n4 = 1.05, at 2b/lambda (n1^2 - n4^2)^1/2 = 3, far from cutoff (difference in the normalized constant shown)",
+            tier: Tier::Published,
+            source: "E. A. J. Marcatili, Bell Syst. Tech. J. 48, 2071 (1969), doi:10.1002/j.1538-7305.1969.tb01166.x, Eqs. 3, 6-7, 20-21; Fig. 6b's regime: 1e-4 apart at B = 3 and 4, 1.2e-3 at 1.5, 9e-3 at 1 near cutoff, where the corners Marcatili ignores hold field",
+            run: marcatili_vector,
+        },
     ]
 }
 
@@ -948,6 +962,27 @@ fn fields_butt_coupling() -> Outcome {
         // 6.8e-5 at 10 nm
         tolerance: 5e-5,
         error: (got - exact).abs(),
+    }
+}
+
+fn marcatili_closed_form() -> Outcome {
+    let worst = crate::mode::marcatili::closed_form_deviation(1.5, 1.5 / 1.05);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // "a few percent"
+        tolerance: 0.05,
+        error: worst,
+    }
+}
+
+fn marcatili_vector() -> Outcome {
+    let (v, m) = crate::mode::marcatili::against_vector(3.0, crate::mode::marcatili::Family::Ex);
+    Outcome {
+        measured: (v - m).abs(),
+        expected: 0.0,
+        tolerance: 5e-4,
+        error: (v - m).abs(),
     }
 }
 

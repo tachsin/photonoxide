@@ -7,6 +7,7 @@
 //! - [`fields`]: a full-vector mode's six field components, its power, and its coupling into
 //!   another mode.
 //! - [`eim`]: the effective index method, a ridge's mode from two slab problems.
+//! - [`marcatili`]: Marcatili's approximation for rectangular guides.
 //! - [`multilayer`]: the bound modes and leaky waves of any planar stack, exactly, by
 //!   transfer matrices.
 //! - [`slab`]: the modes of a three-layer slab, exactly (TE and TM).
@@ -16,6 +17,7 @@ pub mod bend;
 pub mod dispersion;
 pub mod eim;
 pub mod fields;
+pub mod marcatili;
 pub mod multilayer;
 pub mod slab;
 pub mod vector;
