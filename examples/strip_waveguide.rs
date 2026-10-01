@@ -6,8 +6,9 @@
 //! silicon 3.473, oxide 1.444, effective index 2.443 (Lumerical MODE on a 20 nm conformal mesh,
 //! accurate to about 1e-3 by the book's Fig. 3.9).
 //!
-//! The strip's corners slow photonoxide's convergence to about order 0.6–0.8 (2.4435 at a
-//! 2.5 nm grid), so the check is at 5 nm, within 3e-3; ROADMAP.md has the fix (Hadley 2002).
+//! The strip's convex corners slow photonoxide's convergence to about first order (2.4435 at a
+//! 2.5 nm grid; `hadley_corners` measures it on exact problems), so the check is at 5 nm, within
+//! 3e-3; ROADMAP.md has the fix (Hadley 2002).
 //!
 //! ```sh
 //! cargo run --release --example strip_waveguide

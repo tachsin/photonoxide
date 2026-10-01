@@ -7,8 +7,15 @@
 //! (spacing need not be uniform); the permittivity is uniform in each cell between nodes, a
 //! tensor with ε_xx, ε_xy, ε_yx, ε_yy and ε_zz (the waveguide symmetric under z → −z). The
 //! coupled equations (4a)–(4b) are discretized with the coefficients of the paper's Appendix,
-//! Eqs. (21)–(36), and their eigenvalues are β² (Eq. (8)). The fields outside the window are
-//! zero.
+//! Eqs. (21)–(36), and their eigenvalues are β² (Eq. (8)). Beyond each edge of the window the
+//! field is zero, or a [`Boundary`] wall mirrors it, so a symmetric waveguide can be solved on
+//! half or a quarter of its cross-section.
+//!
+//! The scheme converges at second order where interfaces are straight, and more slowly at
+//! dielectric corners, where the fields' derivatives are singular (G. R. Hadley, J. Lightwave
+//! Technol. 20, 1219 (2002), [doi:10.1109/JLT.2002.800371](https://doi.org/10.1109/JLT.2002.800371)):
+//! on Hadley's four corner problems, at about first order at convex corners (a high-index
+//! quadrant) and at 1.4–1.8 at concave ones, as standard finite differences do.
 //!
 //! The paper uses the e^(jωt) convention; photonoxide uses e^(−iωt) ([`crate::units`]). The
 //! eigenvalue equations hold in either, written with the permittivity of the convention in use:
@@ -64,12 +71,67 @@ impl Permittivity {
     }
 }
 
-/// A rectilinear grid over the cross-section and the permittivity of each of its cells.
+/// What lies at an edge of the window.
+///
+/// A wall lies on the edge's nodes, and the field beyond it is the mirror image of the field
+/// inside: a wall is a plane of symmetry, so a waveguide that is mirror-symmetric can be solved
+/// on half (or a quarter) of its cross-section, for the modes of one symmetry. The H component
+/// normal to a wall is odd across it under an electric wall and even under a magnetic one; the
+/// tangential component the opposite. An odd component is zero on the wall.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Boundary {
+    /// The field is zero one spacing beyond the edge's nodes.
+    #[default]
+    Zero,
+    /// A perfect electric conductor: the tangential E vanishes, so the normal H is zero on the
+    /// wall and the tangential H has zero normal derivative. For a TE-like mode (E mostly along
+    /// x), the vertical plane through a symmetric core.
+    ElectricWall,
+    /// A perfect magnetic conductor: the tangential H is zero on the wall and the normal H has
+    /// zero normal derivative. For a TE-like mode, the horizontal plane through a symmetric core.
+    MagneticWall,
+}
+
+/// The boundaries on the window's four edges: west (smallest x), east, south (smallest y) and
+/// north.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Boundaries {
+    /// At the smallest x.
+    pub west: Boundary,
+    /// At the largest x.
+    pub east: Boundary,
+    /// At the smallest y.
+    pub south: Boundary,
+    /// At the largest y.
+    pub north: Boundary,
+}
+
+/// A field component, H_x or H_y.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Component {
+    X,
+    Y,
+}
+
+/// The sign a component takes across a wall normal to `normal`: −1 if it is odd, 1 if even;
+/// `None` for [`Boundary::Zero`].
+fn parity(boundary: Boundary, normal: Component, component: Component) -> Option<f64> {
+    let is_normal = normal == component;
+    match boundary {
+        Boundary::Zero => None,
+        Boundary::ElectricWall => Some(if is_normal { -1.0 } else { 1.0 }),
+        Boundary::MagneticWall => Some(if is_normal { 1.0 } else { -1.0 }),
+    }
+}
+
+/// A rectilinear grid over the cross-section, the permittivity of each of its cells, and what
+/// lies at its edges.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CrossSection {
     x: Vec<f64>,
     y: Vec<f64>,
     cells: Vec<Permittivity>,
+    boundaries: Boundaries,
 }
 
 impl CrossSection {
@@ -114,7 +176,63 @@ impl CrossSection {
                 "every permittivity must be finite",
             ));
         }
-        Ok(CrossSection { x, y, cells })
+        Ok(CrossSection {
+            x,
+            y,
+            cells,
+            boundaries: Boundaries::default(),
+        })
+    }
+
+    /// The same cross-section with `boundaries` at its edges ([`Boundary::Zero`] on all four
+    /// by default).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a wall beside a cell with off-diagonal permittivity
+    /// (ε_xy or ε_yx): a mirror would change their sign, so the structure isn't symmetric
+    /// about the wall.
+    pub fn with_boundaries(mut self, boundaries: Boundaries) -> Result<CrossSection> {
+        let (nx, ny) = (self.x.len() - 1, self.y.len() - 1);
+        let off_diagonal = |i: usize, j: usize| {
+            let e = self.cells[i * ny + j];
+            e.xy.norm() > 0.0 || e.yx.norm() > 0.0
+        };
+        let edges = [
+            ("west", boundaries.west, (0..ny).any(|j| off_diagonal(0, j))),
+            (
+                "east",
+                boundaries.east,
+                (0..ny).any(|j| off_diagonal(nx - 1, j)),
+            ),
+            (
+                "south",
+                boundaries.south,
+                (0..nx).any(|i| off_diagonal(i, 0)),
+            ),
+            (
+                "north",
+                boundaries.north,
+                (0..nx).any(|i| off_diagonal(i, ny - 1)),
+            ),
+        ];
+        for (name, boundary, off_diagonal) in edges {
+            if boundary != Boundary::Zero && off_diagonal {
+                return Err(Error::invalid(
+                    "cross-section",
+                    format!(
+                        "a wall on the {name} edge needs the cells beside it to have ε_xy = ε_yx = 0"
+                    ),
+                ));
+            }
+        }
+        self.boundaries = boundaries;
+        Ok(self)
+    }
+
+    /// What lies at the window's edges.
+    pub fn boundaries(&self) -> Boundaries {
+        self.boundaries
     }
 
     /// A uniform grid of `nx` × `ny` cells over [x0, x1] × [y0, y1] (µm), each cell taking the
@@ -262,17 +380,60 @@ fn coefficients(
     (xx, xy)
 }
 
-/// The matrix of Eq. (8), as (row, column, value) entries over the unknowns
-/// [H_x at every node; H_y at every node], node (i, j) being i·(ny + 1) + j.
-fn assemble(cs: &CrossSection, k2: f64) -> (usize, Vec<(usize, usize, c64)>) {
+/// The unknowns: H_x and H_y at every node (i, j), numbered i·(ny + 1) + j, except a component
+/// that is odd across a wall at the wall's own nodes, where it is zero.
+fn unknowns(cs: &CrossSection) -> Vec<(Component, usize)> {
+    let (nxn, nyn) = (cs.x.len(), cs.y.len());
+    let b = cs.boundaries;
+    let odd = |boundary, normal, c| parity(boundary, normal, c) == Some(-1.0);
+    let mut out = Vec::with_capacity(2 * nxn * nyn);
+    for c in [Component::X, Component::Y] {
+        for i in 0..nxn {
+            for j in 0..nyn {
+                let zero = (i == 0 && odd(b.west, Component::X, c))
+                    || (i == nxn - 1 && odd(b.east, Component::X, c))
+                    || (j == 0 && odd(b.south, Component::Y, c))
+                    || (j == nyn - 1 && odd(b.north, Component::Y, c));
+                if !zero {
+                    out.push((c, i * nyn + j));
+                }
+            }
+        }
+    }
+    out
+}
+
+/// The matrix of Eq. (8), as (row, column, value) entries over the [`unknowns`].
+fn assemble(cs: &CrossSection, k2: f64) -> Vec<(usize, usize, c64)> {
     let (nxn, nyn) = (cs.x.len(), cs.y.len());
     let nodes = nxn * nyn;
-    let node = |i: isize, j: isize| -> Option<usize> {
-        (i >= 0 && j >= 0 && (i as usize) < nxn && (j as usize) < nyn)
-            .then(|| i as usize * nyn + j as usize)
+    let b = cs.boundaries;
+    let mut index = [vec![None; nodes], vec![None; nodes]];
+    for (k, &(c, node)) in unknowns(cs).iter().enumerate() {
+        index[c as usize][node] = Some(k);
+    }
+    // the unknown that a stencil's neighbour (i, j), of component c, stands for, with its sign:
+    // beyond a wall, its mirror image; beyond a zero boundary, or held at zero, none
+    let neighbour = |c: Component, i: isize, j: isize| -> Option<(usize, f64)> {
+        let mut sign = 1.0;
+        let mut fold = |v: isize, last: isize, low: Boundary, high: Boundary, normal| {
+            if v < 0 {
+                sign *= parity(low, normal, c)?;
+                Some(-v)
+            } else if v > last {
+                sign *= parity(high, normal, c)?;
+                Some(2 * last - v)
+            } else {
+                Some(v)
+            }
+        };
+        let i = fold(i, nxn as isize - 1, b.west, b.east, Component::X)?;
+        let j = fold(j, nyn as isize - 1, b.south, b.north, Component::Y)?;
+        index[c as usize][i as usize * nyn + j as usize].map(|k| (k, sign))
     };
     let spacing = |v: &[f64], i: usize, ahead: bool| -> f64 {
-        // at the window's edge the spacing continues, the field beyond being zero
+        // at the window's edge the spacing continues: to the zero beyond it, or to the mirror
+        // image of the first node inside a wall
         let last = v.len() - 1;
         match (ahead, i) {
             (true, i) if i < last => v[i + 1] - v[i],
@@ -307,7 +468,7 @@ fn assemble(cs: &CrossSection, k2: f64) -> (usize, Vec<(usize, usize, c64)>) {
                 s,
                 k2,
             );
-            let p = node(ii, jj).unwrap_or(0);
+            let p = i * nyn + j;
             let around = |st: &Stencil, mirrored: bool| -> [(isize, isize, c64); 9] {
                 if mirrored {
                     [
@@ -335,24 +496,34 @@ fn assemble(cs: &CrossSection, k2: f64) -> (usize, Vec<(usize, usize, c64)>) {
                     ]
                 }
             };
-            for (row, stencils) in [
-                (p, [(&axx, 0, false), (&axy, nodes, false)]),
-                (nodes + p, [(&ayx, 0, true), (&ayy, nodes, true)]),
+            for (component, stencils) in [
+                (
+                    Component::X,
+                    [(&axx, Component::X, false), (&axy, Component::Y, false)],
+                ),
+                (
+                    Component::Y,
+                    [(&ayx, Component::X, true), (&ayy, Component::Y, true)],
+                ),
             ] {
-                for (st, offset, mirrored) in stencils {
+                let Some(row) = index[component as usize][p] else {
+                    continue;
+                };
+                for (st, c, mirrored) in stencils {
                     for (di, dj, v) in around(st, mirrored) {
                         if v.re == 0.0 && v.im == 0.0 {
                             continue;
                         }
-                        if let Some(q) = node(ii + di, jj + dj) {
-                            entries.push((row, offset + q, v));
+                        // folded neighbours can repeat a column: the matrix sums them
+                        if let Some((q, sign)) = neighbour(c, ii + di, jj + dj) {
+                            entries.push((row, q, v * sign));
                         }
                     }
                 }
             }
         }
     }
-    (2 * nodes, entries)
+    entries
 }
 
 /// A full-vector mode of a cross-section.
@@ -414,14 +585,25 @@ pub fn modes(
             .map(|e| e.xx.re.max(e.yy.re).sqrt())
             .fold(1.0, f64::max)
     });
-    let (size, entries) = assemble(cs, k2);
+    let unknowns = unknowns(cs);
+    let entries = assemble(cs, k2);
     let shift = c64::new(k2 * n_max * n_max, 0.0);
-    let pairs = crate::eigen::nearest(size, &entries, shift, count, 1e-9)?;
-    let nodes = size / 2;
+    let pairs = crate::eigen::nearest(unknowns.len(), &entries, shift, count, 1e-9)?;
+    let nodes = cs.x.len() * cs.y.len();
     Ok(pairs
         .into_iter()
         .map(|p| {
-            let (hx, hy) = p.vector.split_at(nodes);
+            // the components held at zero on walls are zero
+            let (mut hx, mut hy) = (
+                vec![c64::new(0.0, 0.0); nodes],
+                vec![c64::new(0.0, 0.0); nodes],
+            );
+            for (&(c, node), &v) in unknowns.iter().zip(&p.vector) {
+                match c {
+                    Component::X => hx[node] = v,
+                    Component::Y => hy[node] = v,
+                }
+            }
             let peak = p
                 .vector
                 .iter()
@@ -453,6 +635,53 @@ pub(crate) fn strip(h: f64) -> CrossSection {
         Permittivity::isotropic(c64::new(eps, 0.0))
     })
     .expect("a valid grid")
+}
+
+/// One of Hadley's four corner test problems on a uniform grid of `n` × `n` cells over the
+/// 1 × 1 µm quarter domain, and its modal index at λ = 1.5 µm as published: G. R. Hadley,
+/// J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Figs. 4–7.
+///
+/// 1 and 2 (Figs. 4–5) are boxes, ε = 2.25 or 8 for x, y < 0.5 µm and 1 elsewhere, with H_y
+/// of zero derivative and H_x zero on all four edges; 3 and 4 (Figs. 6–7) are impinged
+/// corners, ε = 1 for x, y > 0.5 µm and 2.25 or 8 elsewhere, with H_y of zero derivative on
+/// the west and south edges and zero on the others, and H_x the opposite.
+pub(crate) fn hadley_problem(problem: usize, n: usize) -> (CrossSection, f64) {
+    use Boundary::{ElectricWall, MagneticWall};
+    let (eps, boxed, expected) = match problem {
+        1 => (2.25, true, 1.276_274_04),
+        2 => (8.0, true, 2.656_796_92),
+        3 => (2.25, false, 1.387_926_425),
+        _ => (8.0, false, 2.761_465_320),
+    };
+    let cs = CrossSection::uniform((0.0, 1.0, n), (0.0, 1.0, n), |x, y| {
+        let inside = if boxed {
+            x < 0.5 && y < 0.5
+        } else {
+            !(x > 0.5 && y > 0.5)
+        };
+        Permittivity::isotropic(c64::new(if inside { eps } else { 1.0 }, 0.0))
+    })
+    .expect("a valid grid");
+    // H_x zero on an edge normal to x is an electric wall; on an edge normal to y, a magnetic one
+    let boundaries = if boxed {
+        Boundaries {
+            west: ElectricWall,
+            east: ElectricWall,
+            south: MagneticWall,
+            north: MagneticWall,
+        }
+    } else {
+        Boundaries {
+            west: ElectricWall,
+            east: MagneticWall,
+            south: MagneticWall,
+            north: ElectricWall,
+        }
+    };
+    (
+        cs.with_boundaries(boundaries).expect("isotropic cells"),
+        expected,
+    )
 }
 
 /// The full-vector solver's error on the book's slab (220 nm of 3.473 in 1.444) turned on its
@@ -631,8 +860,9 @@ mod tests {
     #[test]
     #[ignore = "a convergence study, run by hand (cargo test --release -- --ignored --nocapture)"]
     fn strip_convergence() {
-        // 500 x 220 nm silicon in oxide at 1550 nm: the corners slow convergence to about
-        // order 0.6–0.8 (TE 2.447067, 2.445713, 2.444396, 2.443506 at 20, 10, 5, 2.5 nm)
+        // 500 x 220 nm silicon in oxide at 1550 nm (TE 2.447067, 2.445713, 2.444396, 2.443506
+        // at 20, 10, 5, 2.5 nm): the convex corners' first-order convergence, not yet
+        // asymptotic, as on Hadley's boxes (hadley_convergence)
         for h in [0.02f64, 0.01, 0.005, 0.0025] {
             let t = std::time::Instant::now();
             let m = modes(&strip(h), Wavelength::um(1.55).unwrap(), 2, None).unwrap();
@@ -645,6 +875,153 @@ mod tests {
                 m[1].te_fraction(),
                 t.elapsed().as_secs_f64()
             );
+        }
+    }
+
+    fn core(inside: bool) -> Permittivity {
+        iso(if inside {
+            3.473f64.powi(2)
+        } else {
+            1.444f64.powi(2)
+        })
+    }
+
+    #[test]
+    fn walls_give_the_exact_slab_in_either_orientation_at_second_order() {
+        // the book's slab, uniform along one axis between two walls: a mode uniform along it
+        // is exactly the slab's, with interfaces normal to x (Eqs. (21)–(35)) or to y (the
+        // transposed Eq. (36)); the errors agree to 1e-12 (TE −3.90e-5 at 2.5 nm, TM +5.26e-6)
+        let lam = Wavelength::um(1.55).unwrap();
+        let slab =
+            crate::mode::slab::Slab::new(1.444, 3.473, 1.444, crate::units::Length::nm(220.0))
+                .unwrap();
+        // TE (E along the interfaces): H tangential to the walls; TM: H normal to them
+        for (pol, wall) in [
+            (Polarization::Te, Boundary::ElectricWall),
+            (Polarization::Tm, Boundary::MagneticWall),
+        ] {
+            let exact = slab.modes(pol, lam)[0].effective_index();
+            let mut errors = [Vec::new(), Vec::new()];
+            for h in [0.02f64, 0.01, 0.005] {
+                let n = (4.02 / h).round() as usize;
+                let along_x = CrossSection::uniform((-2.01, 2.01, n), (0.0, 0.08, 4), |x, _| {
+                    core(x.abs() < 0.11)
+                })
+                .unwrap()
+                .with_boundaries(Boundaries {
+                    south: wall,
+                    north: wall,
+                    ..Default::default()
+                })
+                .unwrap();
+                let along_y = CrossSection::uniform((0.0, 0.08, 4), (-2.01, 2.01, n), |_, y| {
+                    core(y.abs() < 0.11)
+                })
+                .unwrap()
+                .with_boundaries(Boundaries {
+                    west: wall,
+                    east: wall,
+                    ..Default::default()
+                })
+                .unwrap();
+                for (k, cs) in [along_x, along_y].iter().enumerate() {
+                    errors[k].push(
+                        modes(cs, lam, 1, Some(exact)).unwrap()[0]
+                            .effective_index()
+                            .re
+                            - exact,
+                    );
+                }
+            }
+            for (a, b) in errors[0].iter().zip(&errors[1]) {
+                assert!((a - b).abs() < 1e-12, "{pol:?}: {a} vs {b}");
+            }
+            for w in errors[0].windows(2) {
+                let order = (w[0] / w[1]).abs().log2();
+                assert!(
+                    (order - 2.0).abs() < 0.1,
+                    "{pol:?}: order {order}, {errors:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn walls_fold_a_symmetric_waveguide_exactly() {
+        // a strip symmetric about x = 0 and y = 0: on the full window, on the half x ≥ 0 and on
+        // the quarter x, y ≥ 0, it is one discrete problem, and its modes agree to round-off
+        use Boundary::{ElectricWall, MagneticWall};
+        let lam = Wavelength::um(1.55).unwrap();
+        let eps = |x: f64, y: f64| core(x.abs() < 0.24 && y.abs() < 0.1);
+        let full = CrossSection::uniform((-1.0, 1.0, 100), (-0.7, 0.7, 70), eps).unwrap();
+        let folded = |west, south| {
+            let (y0, ny) = if south == Boundary::Zero {
+                (-0.7, 70)
+            } else {
+                (0.0, 35)
+            };
+            CrossSection::uniform((0.0, 1.0, 50), (y0, 0.7, ny), eps)
+                .unwrap()
+                .with_boundaries(Boundaries {
+                    west,
+                    south,
+                    ..Default::default()
+                })
+                .unwrap()
+        };
+        let both = modes(&full, lam, 2, None).unwrap();
+        let (te, tm) = (both[0].effective_index(), both[1].effective_index());
+        assert!(both[0].te_fraction() > 0.9 && both[1].te_fraction() < 0.1);
+        // TE-like: H_x odd about x = 0, H_y odd about y = 0; TM-like the opposite
+        for (cs, want) in [
+            (folded(ElectricWall, Boundary::Zero), te),
+            (folded(ElectricWall, MagneticWall), te),
+            (folded(MagneticWall, Boundary::Zero), tm),
+            (folded(MagneticWall, ElectricWall), tm),
+        ] {
+            let got = modes(&cs, lam, 1, None).unwrap()[0].effective_index();
+            assert!((got - want).norm() < 1e-10, "{got} vs {want}");
+        }
+    }
+
+    #[test]
+    fn a_wall_beside_an_off_diagonal_cell_is_an_error() {
+        let tilted = Permittivity {
+            xy: c64::new(0.1, 0.0),
+            yx: c64::new(0.1, 0.0),
+            ..iso(4.0)
+        };
+        let cs = CrossSection::uniform((0.0, 1.0, 4), (0.0, 1.0, 4), |_, _| tilted).unwrap();
+        let wall = Boundaries {
+            north: Boundary::MagneticWall,
+            ..Default::default()
+        };
+        assert!(cs.clone().with_boundaries(wall).is_err());
+        assert!(cs.with_boundaries(Boundaries::default()).is_ok());
+    }
+
+    #[test]
+    #[ignore = "a convergence study, run by hand (cargo test --release -- --ignored --nocapture)"]
+    fn hadley_convergence() {
+        // Hadley's four corner problems. Convex corners (the boxes, 1–2) converge at about
+        // first order once asymptotic, the error changing sign on the way (problem 1: −1.3e-4,
+        // +3.9e-5, +4.9e-5, +3.3e-5, +2.0e-5, +1.1e-5 at N = 20 … 640); concave corners
+        // (impinged, 3–4) at 1.8 falling towards 1.4 (problem 4: −3.7e-4 … −1.4e-6)
+        let lam = Wavelength::um(1.5).unwrap();
+        for problem in 1..=4 {
+            let mut last = f64::NAN;
+            for n in [20, 40, 80, 160, 320, 640] {
+                let (cs, expected) = hadley_problem(problem, n);
+                let m = &modes(&cs, lam, 1, None).unwrap()[0];
+                let err = m.effective_index().re - expected;
+                println!(
+                    "problem {problem} N {n:>3}: n_eff {:.9}  error {err:+.3e}  order {:.2}  TE {:.3}",
+                    m.effective_index().re,
+                    (last / err).abs().log2(),
+                    m.te_fraction()
+                );
+                last = err;
+            }
         }
     }
 

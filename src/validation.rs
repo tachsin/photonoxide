@@ -155,8 +155,36 @@ pub fn cases() -> Vec<Case> {
             id: "mode/strip-book",
             title: "The TE-like mode of a 500 x 220 nm silicon strip in oxide at 1550 nm, at a 5 nm mesh (effective index shown)",
             tier: Tier::Published,
-            source: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Fig. 3.14: 2.443 (Lumerical MODE, 20 nm conformal mesh, accurate to about 1e-3 by its Fig. 3.9); ours converges slowly at the corners, 2.4435 at 2.5 nm",
+            source: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Fig. 3.14: 2.443 (Lumerical MODE, 20 nm conformal mesh, accurate to about 1e-3 by its Fig. 3.9); ours converges at about first order at the convex corners (as on Hadley's corner problems below), 2.4435 at 2.5 nm",
             run: strip_book,
+        },
+        Case {
+            id: "mode/hadley-box-low",
+            title: "Hadley's corner problem 1: a box, eps 2.25 in a quarter of the 1 x 1 um domain, at 1.5 um, on an 80 x 80 grid (12.5 nm; effective index shown)",
+            tier: Tier::Published,
+            source: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 4: 1.27627404 +- 1e-8 (series expansion); ours converges at about first order at convex corners and 1.4-1.8 at concave ones",
+            run: hadley_1,
+        },
+        Case {
+            id: "mode/hadley-box-high",
+            title: "Hadley's corner problem 2: a box, eps 8 in a quarter of the 1 x 1 um domain, at 1.5 um, on an 80 x 80 grid (12.5 nm; effective index shown)",
+            tier: Tier::Published,
+            source: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 5: 2.65679692 +- 1e-8 (series expansion); ours converges at about first order at convex corners and 1.4-1.8 at concave ones",
+            run: hadley_2,
+        },
+        Case {
+            id: "mode/hadley-corner-low",
+            title: "Hadley's corner problem 3: an impinged corner, eps 2.25 in three quarters of the 1 x 1 um domain, at 1.5 um, on an 80 x 80 grid (12.5 nm; effective index shown)",
+            tier: Tier::Published,
+            source: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 6: 1.387926425 +- 2e-9 (series expansion); ours converges at about first order at convex corners and 1.4-1.8 at concave ones",
+            run: hadley_3,
+        },
+        Case {
+            id: "mode/hadley-corner-high",
+            title: "Hadley's corner problem 4: an impinged corner, eps 8 in three quarters of the 1 x 1 um domain, at 1.5 um, on an 80 x 80 grid (12.5 nm; effective index shown)",
+            tier: Tier::Published,
+            source: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 7: 2.761465320 +- 5e-9 (series expansion); ours converges at about first order at convex corners and 1.4-1.8 at concave ones",
+            run: hadley_4,
         },
     ]
 }
@@ -443,6 +471,38 @@ fn strip_book() -> Outcome {
         tolerance: 3e-3,
         error: (n - 2.443).abs(),
     }
+}
+
+/// Hadley's corner problem `problem` at N = 80, against his modal index.
+fn hadley(problem: usize) -> Outcome {
+    let (cs, expected) = crate::mode::vector::hadley_problem(problem, 80);
+    let n = crate::mode::vector::modes(&cs, um(1.5), 1, None)
+        .ok()
+        .and_then(|m| m.first().map(|m| m.effective_index().re))
+        .unwrap_or(f64::NAN);
+    Outcome {
+        measured: n,
+        expected,
+        // at N = 80 the errors are 4.9e-5, 5.8e-6, 2.5e-5 and 3.3e-5
+        tolerance: 1e-4,
+        error: (n - expected).abs(),
+    }
+}
+
+fn hadley_1() -> Outcome {
+    hadley(1)
+}
+
+fn hadley_2() -> Outcome {
+    hadley(2)
+}
+
+fn hadley_3() -> Outcome {
+    hadley(3)
+}
+
+fn hadley_4() -> Outcome {
+    hadley(4)
 }
 
 fn um(value: f64) -> Wavelength {
