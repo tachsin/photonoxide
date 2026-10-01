@@ -272,9 +272,9 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "mode/bend-marcuse",
-            title: "Marcuse's bending-loss formula against the exact loss of a slab (1.6 in 1.5, 1 um, at 1 um) bent at 160 um (ratio minus one shown)",
+            title: "Marcuse's bending-loss formula against the exact loss of a slab (1.6 in 1.5, 1 um, at 1 um) bent at 120 um (ratio minus one shown)",
             tier: Tier::Published,
-            source: "D. Marcuse, Bell Syst. Tech. J. 50, 2551 (1971), doi:10.1002/j.1538-7305.1971.tb02620.x, Eqs. 32-33, an approximation for large radii: its deviation falls as 1/R, 0.14 at 80 um and 0.061 at 160 um",
+            source: "D. Marcuse, Bell Syst. Tech. J. 50, 2551 (1971), doi:10.1002/j.1538-7305.1971.tb02620.x, Eqs. 32-33, an approximation for large radii: its deviation falls as 1/R, 0.14 at 80 um, 0.084 at 120 um and 0.061 at 160 um",
             run: bend_marcuse,
         },
     ]
@@ -865,7 +865,7 @@ fn bend_tm_index() -> Outcome {
 
 fn bend_marcuse() -> Outcome {
     use crate::mode::bend::{SlabBend, marcuse_loss};
-    let (core, clad, t, r) = (1.6, 1.5, Length::um(1.0), Length::um(160.0));
+    let (core, clad, t, r) = (1.6, 1.5, Length::um(1.0), Length::um(120.0));
     let w = um(1.0);
     let straight = Slab::new(clad, core, clad, t)
         .ok()
@@ -882,7 +882,7 @@ fn bend_marcuse() -> Outcome {
     Outcome {
         measured: deviation.abs(),
         expected: 0.0,
-        // an approximation of order d/R: 0.061 here
+        // an approximation of order d/R: 0.084 here; at larger radii the loss nears round-off
         tolerance: 0.1,
         error: deviation.abs(),
     }

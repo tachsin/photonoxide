@@ -6,7 +6,8 @@
 //! Eqs. 32–33: the loss of a slab bent at a large radius, from the straight slab's field. Here a
 //! slab of 1.6 in 1.5, 1 µm thick, at 1 µm, TE (E normal to the bend plane). The exact loss
 //! (`mode::bend`, Marcuse's Eq. 10 with nothing approximated) and his formula meet as the radius
-//! grows, their difference falling as 1/R; the check is at 160 µm, within 10 %.
+//! grows, their difference falling as 1/R; the check is at 120 µm, within 10 %. (Beyond, the loss
+//! nears round-off: 8e-14 at 160 µm.)
 //!
 //! Then the book's strip as a slab (2.845, 500 nm, in 1.444, at 1.55 µm) bent at 1 and 2 µm, by
 //! the full-vector solver with M. Heiblum and J. H. Harris's conformal map (IEEE J. Quantum
@@ -38,7 +39,7 @@ fn main() -> photonoxide::Result<ExitCode> {
     let straight = Slab::new(clad, core, clad, t)?.modes(Polarization::Te, w)[0].effective_index();
     println!("slab of 1.6 in 1.5, 1 um, at 1 um, TE; straight n_eff {straight:.6}; exact: no grid");
     println!("  radius   exact Im n_eff   Marcuse      ratio   exact loss per 90 deg");
-    for r in [20.0, 40.0, 80.0, 160.0] {
+    for r in [20.0, 40.0, 80.0, 120.0] {
         let exact = SlabBend::new(Length::um(r), clad, &[(core, t)], clad, Length::um(-0.5))?
             .fundamental(Polarization::Te, w)?;
         let marcuse = marcuse_loss(core, clad, t, Length::um(r), w, straight);
@@ -48,9 +49,9 @@ fn main() -> photonoxide::Result<ExitCode> {
             marcuse / exact.im,
             bend_loss_db(exact, w, Length::um(r))
         );
-        if r == 160.0 {
+        if r == 120.0 {
             checks.compare(
-                "Marcuse / exact loss at 160 um",
+                "Marcuse / exact loss at 120 um",
                 marcuse / exact.im,
                 1.0,
                 0.1,

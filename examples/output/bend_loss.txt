@@ -3,8 +3,8 @@ slab of 1.6 in 1.5, 1 um, at 1 um, TE; straight n_eff 1.569443; exact: no grid
     20 um  2.5169e-3       4.6043e-3   1.829   4.315e0 dB
     40 um  9.8715e-5       1.3462e-4   1.364   3.385e-1 dB
     80 um  1.0133e-7       1.1507e-7   1.136   6.949e-4 dB
-   160 um  7.9242e-14       8.4086e-14   1.061   1.087e-9 dB
-  Marcuse / exact loss at 160 um         1.061130   paper 1          ± 1e-1      ok
+   120 um  9.0745e-11       9.8367e-11   1.084   9.335e-7 dB
+  Marcuse / exact loss at 120 um         1.083990   paper 1          ± 1e-1      ok
 strip as a slab: 2.845, 500 nm, in 1.444, at 1.55 um; full-vector on a 5 nm grid
   E normal to the bend plane, R 1 um: exact 2.757800 + 9.295e-4i, full-vector 2.757741 + 9.297e-4i
   E normal to the bend plane, R 2 um: exact 2.661426 + 5.064e-7i, full-vector 2.661388 + 5.068e-7i

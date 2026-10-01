@@ -76,5 +76,5 @@ At R = 3 µm, E in the plane: 1.3e-4 and 1 %. Below $\operatorname{Im} n_\text{e
 eigensolver can't resolve the loss (at R = 5 µm it is $3.8 \times 10^{-17}$).
 
 **Marcuse's formula** (Eqs. 32–33), an approximation for large radii, against the exact loss of a
-slab of 1.6 in 1.5, 1 µm thick, at 1 µm: ratios 1.83, 1.36, 1.14, 1.06 at R = 20, 40, 80, 160 µm,
-the difference halving as R doubles. A large radius gives the straight slab back, at 1/R².
+slab of 1.6 in 1.5, 1 µm thick, at 1 µm: ratios 1.83, 1.36, 1.14, 1.08, 1.06 at R = 20, 40, 80, 120,
+160 µm, the difference falling as 1/R. A large radius gives the straight slab back, at 1/R².
