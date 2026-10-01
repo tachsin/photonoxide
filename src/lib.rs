@@ -10,6 +10,7 @@
 #![warn(missing_docs)]
 #![warn(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
+mod eigen;
 pub mod error;
 pub mod geometry;
 pub mod job;

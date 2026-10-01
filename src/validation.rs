@@ -137,6 +137,27 @@ pub fn cases() -> Vec<Case> {
             source: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Section 3.2.2: 2.051 (3 decimals)",
             run: slab_tm_book,
         },
+        Case {
+            id: "mode/vector-slab-limit-te",
+            title: "The full-vector solver on the book's slab, uniform along one axis, at a 2.5 nm mesh: TE (error against the exact slab shown)",
+            tier: Tier::Analytic,
+            source: "the exact slab (mode::slab); the scheme converges at second order, tested at 20, 10 and 5 nm",
+            run: vector_slab_te,
+        },
+        Case {
+            id: "mode/vector-slab-limit-tm",
+            title: "The full-vector solver on the book's slab, uniform along one axis, at a 2.5 nm mesh: TM (error against the exact slab shown)",
+            tier: Tier::Analytic,
+            source: "the exact slab (mode::slab); the scheme converges at second order, tested at 20, 10 and 5 nm",
+            run: vector_slab_tm,
+        },
+        Case {
+            id: "mode/strip-book",
+            title: "The TE-like mode of a 500 x 220 nm silicon strip in oxide at 1550 nm, at a 5 nm mesh (effective index shown)",
+            tier: Tier::Published,
+            source: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Fig. 3.14: 2.443 (Lumerical MODE, 20 nm conformal mesh, accurate to about 1e-3 by its Fig. 3.9); ours converges slowly at the corners, 2.4435 at 2.5 nm",
+            run: strip_book,
+        },
     ]
 }
 
@@ -389,6 +410,41 @@ fn slab_tm_book() -> Outcome {
     slab_book(Polarization::Tm, 2.051)
 }
 
+fn vector_slab(polarization: Polarization, te_like: bool) -> Outcome {
+    let error = crate::mode::vector::slab_limit_error(polarization, te_like, um(1.55), 0.0025);
+    Outcome {
+        measured: error.abs(),
+        expected: 0.0,
+        // second order: 2.5 nm leaves about 4e-5 (TE) and 5e-6 (TM)
+        tolerance: 1e-4,
+        error: error.abs(),
+    }
+}
+
+fn vector_slab_te() -> Outcome {
+    // the slab's TE mode has its magnetic field mostly along x here
+    vector_slab(Polarization::Te, false)
+}
+
+fn vector_slab_tm() -> Outcome {
+    vector_slab(Polarization::Tm, true)
+}
+
+fn strip_book() -> Outcome {
+    let n = crate::mode::vector::modes(&crate::mode::vector::strip(0.005), um(1.55), 1, None)
+        .ok()
+        .and_then(|m| m.first().map(|m| m.effective_index().re))
+        .unwrap_or(f64::NAN);
+    Outcome {
+        measured: n,
+        expected: 2.443,
+        // the book's value is good to about 1e-3; ours at 5 nm is within about 2e-3 of its
+        // converged value (the corner singularities)
+        tolerance: 3e-3,
+        error: (n - 2.443).abs(),
+    }
+}
+
 fn um(value: f64) -> Wavelength {
     Wavelength::from_um_unchecked(value)
 }
@@ -468,6 +524,10 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(
+        debug_assertions,
+        ignore = "runs the full-vector solves; CI's validation job runs every case in release"
+    )]
     fn every_case_passes() {
         for case in cases() {
             let o = (case.run)();
@@ -508,6 +568,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        debug_assertions,
+        ignore = "runs the full-vector solves; CI's validation job runs every case in release"
+    )]
     fn the_report_has_a_row_per_case() {
         let (text, all) = report();
         assert!(all);

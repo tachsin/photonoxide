@@ -110,7 +110,8 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 
 ### 0.2: Mode solvers
 - [ ] **Slab:** an exact transfer-matrix dispersion relation, and finite differences. *(Three-layer slab, exact: done.)*
-- [ ] **2D cross-section:** a full-vector finite-difference solver (Fallahkhair 2008), with PML for leaky modes.
+- [ ] **2D cross-section:** a full-vector finite-difference solver (Fallahkhair 2008), with PML for leaky modes. *(The solver and shift-and-invert Arnoldi (Saad 2011): done; second order at interfaces. Still to do: PML, and corners, where convergence slows to order ~0.6–0.8.)*
+- [ ] **Dielectric corners:** high-accuracy finite-difference equations at interfaces and corners (Hadley 2002, parts I and II).
 - [ ] **Effective index method,** with its error against 3D stated.
 - [ ] **Bends:** conformal transformation; bend loss.
 - [ ] **Derived quantities:** n_eff, n_g, dispersion, loss and overlaps; modes tracked across wavelength.
@@ -327,6 +328,9 @@ Every reference below was checked against its DOI.
 **Modes, periodic structures and semi-analytic methods**
 - E. A. J. Marcatili, Bell Syst. Tech. J. 48, 2071 (1969). [10.1002/j.1538-7305.1969.tb01166.x](https://doi.org/10.1002/j.1538-7305.1969.tb01166.x)
 - A. B. Fallahkhair, K. S. Li, T. E. Murphy, J. Lightwave Technol. 26, 1423 (2008). [10.1109/JLT.2008.923643](https://doi.org/10.1109/JLT.2008.923643)
+- G. R. Hadley, J. Lightwave Technol. 20, 1210 (2002), part I. [10.1109/JLT.2002.800361](https://doi.org/10.1109/JLT.2002.800361)
+- G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), part II: dielectric corners. [10.1109/JLT.2002.800371](https://doi.org/10.1109/JLT.2002.800371)
+- Y. Saad, *Numerical Methods for Large Eigenvalue Problems*, 2nd ed., SIAM (2011). [10.1137/1.9781611970739](https://doi.org/10.1137/1.9781611970739)
 - S. G. Johnson, J. D. Joannopoulos, Opt. Express 8, 173 (2001), MPB. [10.1364/OE.8.000173](https://doi.org/10.1364/OE.8.000173)
 - M. G. Moharam et al., J. Opt. Soc. Am. A 12, 1068 (1995). [10.1364/JOSAA.12.001068](https://doi.org/10.1364/JOSAA.12.001068)
 - L. Li, J. Opt. Soc. Am. A 13, 1870 (1996). [10.1364/JOSAA.13.001870](https://doi.org/10.1364/JOSAA.13.001870)
