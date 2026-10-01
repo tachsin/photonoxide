@@ -18,7 +18,9 @@ use std::fmt::Write as _;
 use num_complex::Complex64;
 
 use crate::material::{self, Model, Table};
-use crate::units::{Wavelength, refractive_index};
+use crate::mode::Polarization;
+use crate::mode::slab::Slab;
+use crate::units::{Length, Wavelength, refractive_index};
 
 /// What a case is checked against.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -120,6 +122,20 @@ pub fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: "I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965), doi:10.1364/JOSA.55.001205, Table I, computed index plus the C-D-G.E. residual",
             run: silica_measured,
+        },
+        Case {
+            id: "mode/slab-te-book",
+            title: "The TE mode of 220 nm of silicon (3.473) in oxide (1.444) at 1550 nm (effective index shown)",
+            tier: Tier::Published,
+            source: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Section 3.2.2: 2.845 (3 decimals)",
+            run: slab_te_book,
+        },
+        Case {
+            id: "mode/slab-tm-book",
+            title: "The TM mode of 220 nm of silicon (3.473) in oxide (1.444) at 1550 nm (effective index shown)",
+            tier: Tier::Published,
+            source: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Section 3.2.2: 2.051 (3 decimals)",
+            run: slab_tm_book,
         },
     ]
 }
@@ -348,6 +364,29 @@ fn silica_measured() -> Outcome {
         tolerance: 1e-4,
         error: worst,
     }
+}
+
+/// The fundamental slab mode of the book's example, against its printed effective index.
+fn slab_book(polarization: Polarization, expected: f64) -> Outcome {
+    let n = Slab::new(1.444, 3.473, 1.444, Length::nm(220.0))
+        .ok()
+        .and_then(|slab| slab.modes(polarization, um(1.55)).first().copied())
+        .map_or(f64::NAN, |m| m.effective_index());
+    Outcome {
+        measured: n,
+        expected,
+        // printed to 3 decimals
+        tolerance: 5e-4,
+        error: (n - expected).abs(),
+    }
+}
+
+fn slab_te_book() -> Outcome {
+    slab_book(Polarization::Te, 2.845)
+}
+
+fn slab_tm_book() -> Outcome {
+    slab_book(Polarization::Tm, 2.051)
 }
 
 fn um(value: f64) -> Wavelength {

@@ -14,6 +14,7 @@ pub mod error;
 pub mod geometry;
 pub mod job;
 pub mod material;
+pub mod mode;
 pub mod raster;
 pub mod run;
 pub mod stack;
