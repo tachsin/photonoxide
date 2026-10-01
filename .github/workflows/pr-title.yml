@@ -1,0 +1,34 @@
+name: PR title
+
+# The PR title becomes the squash merge commit and the changelog entry, so it must follow
+# Conventional Commits, e.g. "feat: add the slab mode solver" or "fix!: ..." for a breaking fix
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  conventional-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            docs
+            test
+            ci
+            build
+            chore
+          # the changelog line starts with the subject: a sentence, not a single word
+          subjectPattern: ^\S.{9,}$
+          subjectPatternError: |
+            The subject "{subject}" should be a sentence of at least 10 characters describing
+            the change, e.g. "add the slab mode solver with exact dispersion".

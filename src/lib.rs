@@ -3,7 +3,7 @@
 //! Validated, fabrication-ready photonics for Rust: mode solvers, FDFD, FDTD, inverse design,
 //! layout and PDKs, with a studio to watch every run live.
 //!
-//! **Pre-alpha:** the API is being built milestone by milestone. See the
+//! **Alpha:** the API is being built milestone by milestone, and will change. See the
 //! [roadmap](https://github.com/tachsin/photonoxide/blob/main/ROADMAP.md) for what is planned.
 
 #![forbid(unsafe_code)]

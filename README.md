@@ -4,8 +4,14 @@
 
 Mode solvers, FDFD, FDTD, semi-analytic methods, inverse design, layout and PDKs, in one library, with a studio to watch every simulation and optimization live.
 
-> **🚧 Pre-alpha.** There is nothing to install yet. We're designing it in the open.
-> See the [roadmap](ROADMAP.md) and share your ideas in the issues.
+> **🚧 Alpha.** 0.1 Foundations is released: units, materials with their sources, layer stacks,
+> run records, the validation harness and the studio window. The solvers come next; see the
+> [roadmap](ROADMAP.md), and share your ideas in the issues.
+
+```sh
+cargo add photonoxide                               # the library
+cargo install photonoxide --features studio         # the photonoxide command, with the studio window
+```
 
 ## Why photonoxide?
 
@@ -32,8 +38,8 @@ And underneath:
 
 | Milestone | Scope | Status |
 |---|---|---|
-| 0.1 Foundations | Units, materials with provenance, geometry, run records, studio skeleton, validation harness | 🔜 next |
-| 0.2 Mode solvers | Slab, full-vector 2D finite differences, EIM, bends, dispersion | planned |
+| 0.1 Foundations | Units, materials with provenance, geometry, run records, studio skeleton, validation harness | ✅ released |
+| 0.2 Mode solvers | Slab, full-vector 2D finite differences, EIM, bends, dispersion | 🔜 next |
 | 0.3 FDFD | 2D and 3D, mode ports, S-parameters, adjoints | planned |
 | 0.4 FDTD | 2D and 3D Yee, CPML, subpixel smoothing, dispersive media, GPU | planned |
 | 0.5 Semi-analytic | TMM, RCWA, eigenmode expansion, BPM | planned |
