@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.1](https://github.com/tachsin/photonoxide/compare/v0.1.0...v0.1.1) - 2026-10-01
+
+### <!-- 0 -->Added
+
+- check the material data against Li, Malitson and Luke, and validate silica against Malitson's Table I ([#11](https://github.com/tachsin/photonoxide/pull/11))
+
+### <!-- 4 -->Documentation
+
+- cite the book's page and words for the 220 nm on 2 um SOI stack ([#13](https://github.com/tachsin/photonoxide/pull/13))
+
 ## [0.1.0](https://github.com/tachsin/photonoxide/releases/tag/v0.1.0) - 2026-10-01
 
 0.1 Foundations (ROADMAP.md).
