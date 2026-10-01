@@ -20,6 +20,7 @@ photonoxide is pre-alpha: the plan is [ROADMAP.md](ROADMAP.md), and there is no 
   - the window takes the CLI job, starts by itself, shows the run live and exits when done;
   - a hard timeout is always set;
   - headless only for batches.
+- **Optimizers come from genoxide.** photonoxide supplies objectives, gradients and parametrizations. A missing method is added to genoxide as a general method, not written here and not made photonics-specific.
 - **Commits:** no AI attribution lines (no 🤖 footer, no Co-Authored-By trailer).
 
 ## From scratch

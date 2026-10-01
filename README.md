@@ -26,7 +26,7 @@ And underneath:
 - **Pure Rust:** no C, Fortran or Python dependencies, from the linear algebra to the GDS writer. There are no Python bindings.
 - **Fast:** parallel on the CPU, with a GPU backend for FDTD.
 - **Reproducible:** the same input gives the same result on any number of threads.
-- **Inverse design built in:** adjoint gradients for every solver, density and level-set methods, robust and length-scale constraints. [genoxide](https://github.com/tachsin/genoxide) drives the global and discrete searches.
+- **Inverse design built in:** adjoint gradients for every solver, density and level-set methods, robust and length-scale constraints. The optimizers come from [genoxide](https://github.com/tachsin/genoxide), our optimization library, which grows the general methods photonoxide needs.
 
 ## Status
 

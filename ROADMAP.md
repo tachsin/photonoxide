@@ -44,6 +44,10 @@ The validated, fabrication-ready photonics toolkit for Rust: simulation, inverse
    - Extrapolating outside the range is an error by default.
    - Only openly licensed data is shipped; the refractiveindex.info database is CC0.
 9. **Determinism is a guarantee.** Reductions are ordered, seeds are explicit, and nothing depends on thread scheduling.
+10. **Optimization lives in genoxide.**
+    - photonoxide supplies the physics: the objective, its adjoint gradient, and the parametrization (filters, projections, fabrication constraints).
+    - [genoxide](https://github.com/tachsin/genoxide), our optimization library, supplies every method that searches: gradient methods, constrained methods, evolutionary and global search.
+    - When photonoxide needs a method genoxide lacks, it is added to genoxide as a general method with its own tests and benchmarks, never as photonics-specific code.
 
 ### Pitfalls ruled out by design
 
@@ -73,7 +77,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - **`fdtd`:** the Yee scheme in 2D and 3D, CPML, sources, monitors, dispersive and nonlinear media, and a GPU backend.
 - **`semi`:** the transfer matrix method, RCWA, eigenmode expansion (EME) and the beam propagation method.
 - **`circuit`:** S-parameter netlists, and compact models fitted from solver results.
-- **`inverse`:** adjoint gradients, density and level-set parametrizations, length-scale and foundry-rule constraints, and robust formulations. genoxide drives global and discrete searches; genoxide deliberately has no gradient methods, so those live here.
+- **`inverse`:** adjoint gradients, density and level-set parametrizations, length-scale and foundry-rule constraints, and robust formulations, posed as problems for genoxide's optimizers.
 - **`layout`:** polygons and booleans, GDSII and OASIS I/O, parametric cells with ports, and waveguide routing.
 - **`pdk`:** layer stacks, layer maps, design rules, cross-sections, process corners, and DRC.
 - **`tapeout`:** submission packages for a foundry run: floorplan, test structures, checks and the design record.
@@ -157,7 +161,13 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
   - minimum length scales (Zhou 2015; Hammond 2021);
   - strict foundry rules (Schubert 2022);
   - level sets (Vercruysse 2019).
-- [ ] **Shape and parametric optimization,** with genoxide for global, discrete and hyperparameter searches.
+- [ ] **Shape and parametric optimization.**
+- [ ] **Optimizers from genoxide:**
+  - with supplied gradients: Adam and L-BFGS-B;
+  - constraints: the augmented Lagrangian;
+  - global, discrete and hyperparameter searches: CMA-ES and genetic algorithms;
+  - added to genoxide as general methods where it lacks them: the method of moving asymptotes, the standard for topology optimization (MMA: Svanberg 1987; globally convergent: Svanberg 2002), and continuation schedules that keep the optimizer's state across stages;
+  - large designs (10⁴ to 10⁶ variables) need genoxide's gradient methods to cost O(n) per step.
 - [ ] **Pipeline:** explore in 2D, then optimize and verify in 3D.
 - [ ] **Studio:** the live optimization dashboard (design, fields, figure of merit, constraints).
 - [ ] **Validation,** each in 3D and within stated tolerances:
@@ -355,6 +365,8 @@ Every reference below was checked against its DOI.
 - N. V. Vercruysse et al., Sci. Rep. 9, 8999 (2019). [10.1038/s41598-019-45026-0](https://doi.org/10.1038/s41598-019-45026-0)
 - L. Su et al., Appl. Phys. Rev. 7, 011407 (2020), SPINS. [10.1063/1.5131263](https://doi.org/10.1063/1.5131263)
 - A. Y. Piggott et al., ACS Photonics 7, 569 (2020). [10.1021/acsphotonics.9b01540](https://doi.org/10.1021/acsphotonics.9b01540)
+- K. Svanberg, Int. J. Numer. Methods Eng. 24, 359 (1987). [10.1002/nme.1620240207](https://doi.org/10.1002/nme.1620240207)
+- K. Svanberg, SIAM J. Optim. 12, 555 (2002). [10.1137/S1052623499362822](https://doi.org/10.1137/S1052623499362822)
 - R. E. Christiansen, O. Sigmund, J. Opt. Soc. Am. B 38, 496 (2021). [10.1364/JOSAB.406048](https://doi.org/10.1364/JOSAB.406048)
 - A. M. Hammond et al., Opt. Express 29, 23916 (2021). [10.1364/OE.431188](https://doi.org/10.1364/OE.431188)
 - M. F. Schubert et al., ACS Photonics 9, 2327 (2022). [10.1021/acsphotonics.2c00313](https://doi.org/10.1021/acsphotonics.2c00313)
