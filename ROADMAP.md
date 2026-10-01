@@ -93,7 +93,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 ### 0.0: Project setup ✅
 - [x] README, roadmap, licenses and crate skeleton
 
-### 0.1: Foundations
+### 0.1: Foundations ✅
 - [x] **Units and conventions:** typed quantities; the e^(−iωt) convention documented and tested.
 - [x] **Materials:**
   - Sellmeier, Cauchy, Drude and Lorentz models;

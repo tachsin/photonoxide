@@ -1,6 +1,6 @@
 [package]
 name = "photonoxide"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.95"
 description = "Validated, fabrication-ready photonics for Rust: mode solvers, FDFD, FDTD, inverse design, layout and PDKs, with a live studio"
@@ -9,8 +9,8 @@ repository = "https://github.com/tachsin/photonoxide"
 readme = "README.md"
 keywords = ["photonics", "fdtd", "inverse-design", "electromagnetics", "silicon-photonics"]
 categories = ["science", "simulation", "mathematics"]
-# pre-alpha: remove on the first real release (no placeholder crates on crates.io)
-publish = false
+# what goes into the published crate: the library, its docs and jobs; not CI
+exclude = [".github"]
 
 [dependencies]
 # the studio's GUI

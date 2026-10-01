@@ -1,0 +1,34 @@
+# Releases: see CONTRIBUTING.md ("Releases")
+[workspace]
+# merging a release PR publishes to crates.io, through trusted publishing (no stored token)
+publish = true
+# cargo-semver-checks: a breaking public API change requires a breaking version bump
+semver_check = true
+changelog_update = true
+git_release_enable = true
+git_tag_name = "v{{ version }}"
+git_release_name = "v{{ version }}"
+pr_labels = ["release"]
+# only release when the release PR is merged
+release_always = false
+
+[changelog]
+protect_breaking_commits = true
+sort_commits = "oldest"
+# link "(#12)" of squash merged PRs, in the CHANGELOG.md file as well
+commit_preprocessors = [
+  { pattern = '\(#([0-9]+)\)', replace = "([#${1}](https://github.com/tachsin/photonoxide/pull/${1}))" },
+]
+# groups are sorted by name: the invisible <!-- n --> comments set their order
+commit_parsers = [
+  { message = "^feat", group = "<!-- 0 -->Added" },
+  { message = "^fix", group = "<!-- 1 -->Fixed" },
+  { message = "^perf", group = "<!-- 2 -->Performance" },
+  { message = "^refactor", group = "<!-- 3 -->Changed" },
+  { message = "^docs", group = "<!-- 4 -->Documentation" },
+  # a breaking build change (a higher minimum Rust) is the users' business
+  { message = "^build!", group = "<!-- 3 -->Changed" },
+  { message = "^(test|ci|build|chore|style)", skip = true },
+  # PR titles are checked, so only the commits from before the checks end up here
+  { message = ".*", group = "<!-- 5 -->Project setup" },
+]
