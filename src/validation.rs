@@ -104,8 +104,22 @@ pub fn cases() -> Vec<Case> {
             id: "material/silicon-li-table",
             title: "Silicon's index passes through Li's table at all 35 points (largest deviation shown)",
             tier: Tier::Published,
-            source: "H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980), doi:10.1063/1.555624, 293 K",
+            source: "H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980), doi:10.1063/1.555624, Table 1, 293 K",
             run: silicon_table,
+        },
+        Case {
+            id: "material/silica-malitson-formula",
+            title: "Silica's index equals Malitson's computed index at his 60 wavelengths (largest deviation shown)",
+            tier: Tier::Published,
+            source: "I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965), doi:10.1364/JOSA.55.001205, Table I, computed index to 6 decimals",
+            run: silica_formula,
+        },
+        Case {
+            id: "material/silica-malitson-measured",
+            title: "Silica's index matches the measured mean of three specimens at 60 wavelengths, to five decimals (largest deviation shown)",
+            tier: Tier::Published,
+            source: "I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965), doi:10.1364/JOSA.55.001205, Table I, computed index plus the C-D-G.E. residual",
+            run: silica_measured,
         },
     ]
 }
@@ -235,6 +249,107 @@ fn silicon_table() -> Outcome {
     }
 }
 
+/// Malitson's Table I: wavelength (µm), the index computed by his Eq. (1) (6 decimals), and the
+/// residual of the measured mean of the Corning, Dynasil and General Electric specimens
+/// (measured − computed, ×10⁻⁶), as printed. The residuals' mean absolute value is the paper's
+/// 10.5 × 10⁻⁶ (tested), a check on the transcription.
+const MALITSON_TABLE_I: [(f64, f64, i32); 60] = [
+    (0.213856, 1.534307, -27),
+    (0.214438, 1.533722, -2),
+    (0.226747, 1.522750, 70),
+    (0.230209, 1.520081, -21),
+    (0.237833, 1.514729, 1),
+    (0.239938, 1.513367, 3),
+    (0.248272, 1.508398, 2),
+    (0.265204, 1.500029, -29),
+    (0.269885, 1.498047, 3),
+    (0.275278, 1.495913, -3),
+    (0.280347, 1.494039, 1),
+    (0.289360, 1.490990, 20),
+    (0.296728, 1.488734, -14),
+    (0.302150, 1.487194, -4),
+    (0.330259, 1.480539, -9),
+    (0.334148, 1.479763, -3),
+    (0.340365, 1.478584, 6),
+    (0.346620, 1.477468, 2),
+    (0.361051, 1.475129, 1),
+    (0.365015, 1.474539, -19),
+    (0.404656, 1.469618, 2),
+    (0.435835, 1.466693, -3),
+    (0.467816, 1.464292, 8),
+    (0.486133, 1.463126, 4),
+    (0.508582, 1.461863, 7),
+    (0.546074, 1.460078, 2),
+    (0.576959, 1.458846, 4),
+    (0.579065, 1.458769, 1),
+    (0.587561, 1.458464, 6),
+    (0.589262, 1.458404, -4),
+    (0.643847, 1.456704, 6),
+    (0.656272, 1.456367, 3),
+    (0.667815, 1.456067, 3),
+    (0.706519, 1.455145, 5),
+    (0.852111, 1.452465, 5),
+    (0.894350, 1.451835, 5),
+    (1.01398, 1.450242, 8),
+    (1.08297, 1.449405, -5),
+    (1.12866, 1.448869, 1),
+    (1.3622, 1.446212, -12),
+    (1.39506, 1.445836, 4),
+    (1.4695, 1.444975, -5),
+    (1.52952, 1.444268, 2),
+    (1.6606, 1.442670, -20),
+    (1.681, 1.442414, 6),
+    (1.6932, 1.442260, 0),
+    (1.70913, 1.442057, 3),
+    (1.81307, 1.440699, 21),
+    (1.97009, 1.438519, 1),
+    (2.0581, 1.437224, -4),
+    (2.1526, 1.435769, -29),
+    (2.32542, 1.432928, -18),
+    (2.4374, 1.430954, -24),
+    (3.2439, 1.413118, 32),
+    (3.2668, 1.412505, 25),
+    (3.3026, 1.411535, 25),
+    (3.422, 1.408180, 20),
+    (3.5070, 1.405676, -16),
+    (3.5564, 1.404174, -24),
+    (3.7067, 1.399389, -19),
+];
+
+/// The largest |n − reference| over Malitson's wavelengths.
+fn silica_worst(reference: impl Fn(f64, i32) -> f64) -> f64 {
+    let sio2 = material::silica();
+    MALITSON_TABLE_I
+        .iter()
+        .map(|&(l, computed, residual)| {
+            let n = sio2.refractive_index(um(l)).map_or(f64::NAN, |v| v.re);
+            (n - reference(computed, residual)).abs()
+        })
+        .fold(0.0, f64::max)
+}
+
+fn silica_formula() -> Outcome {
+    // the printed index has 6 decimals (±5e-7), and some wavelengths only 4 or 5 digits
+    let worst = silica_worst(|computed, _| computed);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-6,
+        error: worst,
+    }
+}
+
+fn silica_measured() -> Outcome {
+    // Malitson: the formula interpolates the measurements to five decimal places
+    let worst = silica_worst(|computed, residual| computed + f64::from(residual) * 1e-6);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-4,
+        error: worst,
+    }
+}
+
 fn um(value: f64) -> Wavelength {
     Wavelength::from_um_unchecked(value)
 }
@@ -330,6 +445,19 @@ mod tests {
                 case.id
             );
         }
+    }
+
+    #[test]
+    fn malitsons_table_is_transcribed_as_printed() {
+        // the paper's average of absolute residuals for the C-D-G.E. column is 10.5e-6
+        let mean = MALITSON_TABLE_I
+            .iter()
+            .map(|r| f64::from(r.2.abs()))
+            .sum::<f64>()
+            / MALITSON_TABLE_I.len() as f64;
+        assert!((mean - 10.5).abs() < 0.05, "{mean}");
+        // wavelengths increase, within the material's range
+        assert!(MALITSON_TABLE_I.windows(2).all(|w| w[1].0 > w[0].0));
     }
 
     #[test]

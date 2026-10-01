@@ -508,13 +508,15 @@ pub fn vacuum() -> Material {
     }
 }
 
-/// Crystalline silicon at 293 K, 1.2–14 µm: H. H. Li's tabulated refractive index,
+/// Crystalline silicon at 293 K, 1.2–14 µm: H. H. Li's recommended refractive index,
 /// interpolated by a natural cubic spline. Lossless (below the band gap).
 ///
 /// H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980),
-/// [doi:10.1063/1.555624](https://doi.org/10.1063/1.555624). The table is the
-/// refractiveindex.info database's `main/Si/nk/Li-293K.yml` (CC0); its reference gives the
-/// year as 1993, the DOI's record says 1980.
+/// [doi:10.1063/1.555624](https://doi.org/10.1063/1.555624), Table 1, the 293 K column. The
+/// values were taken from the refractiveindex.info database's `main/Si/nk/Li-293K.yml` (CC0)
+/// and checked against the paper: all 35 agree. Li gives their uncertainty as ±2 × 10⁻⁴ and
+/// prints a fourth decimal only for a smooth table, so differences below that mean nothing.
+/// (The database's reference gives the year as 1993; the paper is Vol. 9, No. 3, 1980.)
 pub fn silicon() -> Material {
     const DATA: [(f64, f64); 35] = [
         (1.20, 3.5167),
@@ -570,7 +572,7 @@ pub fn silicon() -> Material {
             doi: "10.1063/1.555624".into(),
             data: format!("{CC0}: main/Si/nk/Li-293K.yml"),
             temperature: Some(293.0),
-            notes: "crystalline silicon; tabulated to 4 decimals".into(),
+            notes: "crystalline silicon; Table 1, 293 K, checked against the paper; uncertainty ±2e-4 (Li)".into(),
         },
     }
 }
@@ -578,9 +580,12 @@ pub fn silicon() -> Material {
 /// Fused silica (SiO₂) at 20 °C, 0.21–3.71 µm: Malitson's three-term Sellmeier formula.
 ///
 /// I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965),
-/// [doi:10.1364/JOSA.55.001205](https://doi.org/10.1364/JOSA.55.001205). Coefficients from the
-/// refractiveindex.info database's `main/SiO2/nk/Malitson.yml` (CC0). The range is the one
-/// Malitson reports; the database extends it to 6.7 µm on a later paper's authority.
+/// [doi:10.1364/JOSA.55.001205](https://doi.org/10.1364/JOSA.55.001205), Eq. (1), fitted to
+/// measurements at 60 wavelengths from 0.2139 to 3.7067 µm with an average absolute residual of
+/// 10.5 × 10⁻⁶; the paper says it interpolates to five decimal places. The coefficients (from
+/// the refractiveindex.info database's `main/SiO2/nk/Malitson.yml`, CC0) were checked against
+/// the paper, and validation compares the formula with its Table I. The range is the one
+/// Malitson measured; the database extends it to 6.7 µm on a later paper's authority.
 pub fn silica() -> Material {
     Material {
         name: "SiO2".into(),
@@ -607,7 +612,7 @@ pub fn silica() -> Material {
             doi: "10.1364/JOSA.55.001205".into(),
             data: format!("{CC0}: main/SiO2/nk/Malitson.yml"),
             temperature: Some(293.15),
-            notes: "fused silica; thermal and deposited oxides differ slightly".into(),
+            notes: "fused silica, Eq. (1), checked against the paper; fit residual 10.5e-6 on average; thermal and deposited oxides differ slightly".into(),
         },
     }
 }
@@ -616,8 +621,11 @@ pub fn silica() -> Material {
 /// formula, for LPCVD films.
 ///
 /// K. Luke et al., Opt. Lett. 40, 4823 (2015),
-/// [doi:10.1364/OL.40.004823](https://doi.org/10.1364/OL.40.004823). Coefficients from the
-/// refractiveindex.info database's `main/Si3N4/nk/Luke.yml` (CC0).
+/// [doi:10.1364/OL.40.004823](https://doi.org/10.1364/OL.40.004823), Eq. (1), fitted to
+/// ellipsometry from 193 nm to 33 µm of a 340 nm LPCVD film annealed at 1200 °C, on 3.1 µm of
+/// thermal oxide. The paper writes it with λ in nanometres (135.3406 nm, 1 239 842 nm); the
+/// coefficients here, in micrometres, are from the refractiveindex.info database's
+/// `main/Si3N4/nk/Luke.yml` (CC0) and were checked against the paper. It states no temperature.
 pub fn silicon_nitride() -> Material {
     Material {
         name: "Si3N4".into(),
@@ -640,7 +648,7 @@ pub fn silicon_nitride() -> Material {
             doi: "10.1364/OL.40.004823".into(),
             data: format!("{CC0}: main/Si3N4/nk/Luke.yml"),
             temperature: None,
-            notes: "340 nm LPCVD Si3N4 on 3.1 um of thermal SiO2 on silicon".into(),
+            notes: "Eq. (1), checked against the paper; 340 nm LPCVD Si3N4 annealed at 1200 C, on 3.1 um of thermal SiO2 on silicon".into(),
         },
     }
 }
