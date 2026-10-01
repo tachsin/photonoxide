@@ -8,10 +8,12 @@
 //! - TE (E along y): tan(ht) = (p + q) / (h (1 − pq/h²));
 //! - TM (H along y): tan(ht) = h (p̄ + q̄) / (h² − p̄q̄), with p̄ = (n₂/n₃)² p and q̄ = (n₂/n₁)² q.
 //!
-//! These are the characteristic equations of A. Yariv, P. Yeh, *Photonics*, 6th ed. (2007),
-//! Section 3.2, as L. Chrostowski and M. Hochberg implement them in *Silicon Photonics Design*
-//! (2015), [doi:10.1017/CBO9781316084168](https://doi.org/10.1017/CBO9781316084168), Listings
-//! 3.2 and 3.3. Since tan(a + b) = (tan a + tan b)/(1 − tan a tan b), each is the same as
+//! These are the characteristic equations (3.2-5) and (3.2-11) of A. Yariv, P. Yeh, *Photonics*,
+//! 6th ed. (2007), Section 3.2, as L. Chrostowski and M. Hochberg implement them in *Silicon
+//! Photonics Design* (2015), [doi:10.1017/CBO9781316084168](https://doi.org/10.1017/CBO9781316084168),
+//! Listings 3.2 and 3.3. Yariv and Yeh put the core at −t < x < 0, with n₁ at x > 0; here x is
+//! their −x, with the same n₁, n₂, n₃, p and q. Since
+//! tan(a + b) = (tan a + tan b)/(1 − tan a tan b), each equation is the same as
 //! h t = m π + atan(q/h) + atan(p/h) (TE; with q̄, p̄ for TM), m = 0, 1, …: the left side falls
 //! and the right side rises with β, so mode m has exactly one root, found here by bisection to
 //! the last bit.
@@ -226,6 +228,35 @@ mod tests {
             (tm[0].effective_index() - 2.051).abs() < 5e-4,
             "{}",
             tm[0].effective_index()
+        );
+    }
+
+    /// Asserts the TE effective indices against values printed to 4 decimals.
+    fn assert_printed(modes: &[SlabMode], printed: &[f64]) {
+        let got: Vec<f64> = modes.iter().map(SlabMode::effective_index).collect();
+        assert_eq!(got.len(), printed.len(), "{got:?}");
+        for (n, want) in got.iter().zip(printed) {
+            assert!((n - want).abs() < 5e-5, "{n} vs the printed {want}");
+        }
+    }
+
+    #[test]
+    fn yariv_and_yehs_asymmetric_slab_gives_their_effective_indices() {
+        // Yariv & Yeh, Section 3.2, p. 123 and Figs. 3.8–3.9: n₁ = 1.0, n₂ = 2.0, n₃ = 1.7,
+        // t/λ = 1: two TE modes, n_eff = 1.9594 and 1.8375, and two TM modes
+        let slab = Slab::new(1.0, 2.0, 1.7, Length::um(1.0)).unwrap();
+        assert_printed(&slab.modes(Polarization::Te, lam(1.0)), &[1.9594, 1.8375]);
+        assert_eq!(slab.modes(Polarization::Tm, lam(1.0)).len(), 2);
+    }
+
+    #[test]
+    fn yariv_and_yehs_symmetric_slab_gives_their_effective_indices() {
+        // Yariv & Yeh, Section 3.1, pp. 117–118: n₁ = 1.5, n₂ = 1.6, d = 5 µm, λ = 1.55 µm
+        // (V = 5.6425): four TE modes, β/(ω/c) = 1.5946, 1.5785, 1.5521 and 1.5175
+        let slab = Slab::new(1.5, 1.6, 1.5, Length::um(5.0)).unwrap();
+        assert_printed(
+            &slab.modes(Polarization::Te, lam(1.55)),
+            &[1.5946, 1.5785, 1.5521, 1.5175],
         );
     }
 
