@@ -110,7 +110,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 
 ### 0.2: Mode solvers
 - [ ] **Slab:** an exact transfer-matrix dispersion relation, and finite differences. *(Three-layer slab, exact: done.)*
-- [ ] **2D cross-section:** a full-vector finite-difference solver (Fallahkhair 2008), with PML for leaky modes. *(The solver and shift-and-invert Arnoldi (Saad 2011): done; second order at interfaces. Still to do: PML, and corners, where convergence slows to order ~0.6–0.8.)*
+- [ ] **2D cross-section:** a full-vector finite-difference solver (Fallahkhair 2008), with PML for leaky modes. *(The solver, shift-and-invert Arnoldi (Saad 2011) and mirror walls: done; second order at interfaces, about first order at convex corners and 1.4–1.8 at concave ones, measured on Hadley's four corner problems. Still to do: PML.)*
 - [ ] **Dielectric corners:** high-accuracy finite-difference equations at interfaces and corners (Hadley 2002, parts I and II).
 - [ ] **Effective index method,** with its error against 3D stated.
 - [ ] **Bends:** conformal transformation; bend loss.
