@@ -2,6 +2,17 @@
 
 photonoxide is pre-alpha: the plan is [ROADMAP.md](ROADMAP.md), and there is no API yet.
 
+## Commands
+
+```sh
+cargo test                                              # unit tests
+cargo clippy --all-targets --all-features -- -D warnings
+cargo run -- validate --write docs/validation.md        # rerun every validation case, rewrite the report
+```
+
+CI fails when a validation case fails or `docs/validation.md` isn't the report the code writes:
+regenerate and commit it with any change that adds or alters a case.
+
 ## Rules
 
 - **Rust only.**

@@ -55,7 +55,7 @@ Every solver is validated on three tiers before it ships:
 - **Cross-code:** Meep, MPB, S4, Ceviche and oxiphoton on the same structures.
 - **Published devices:** inverse-designed demultiplexers, beamsplitters and grating couplers, reproduced in 3D.
 
-Each result states its tolerance, grid and source. The report will be published here.
+Each result states its tolerance, grid and source. The current report is [docs/validation.md](docs/validation.md), written by `photonoxide validate` and checked by CI.
 
 ## Contributing
 

@@ -51,6 +51,16 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  validation:
+    name: Validation report
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # every case must pass, and docs/validation.md must be the report the code writes
+      - run: cargo run --release --quiet -- validate --check docs/validation.md
+
   msrv:
     name: MSRV (1.88)
     runs-on: ubuntu-latest
