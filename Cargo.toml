@@ -2,7 +2,7 @@
 name = "photonoxide"
 version = "0.0.0"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.95"
 description = "Validated, fabrication-ready photonics for Rust: mode solvers, FDFD, FDTD, inverse design, layout and PDKs, with a live studio"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/tachsin/photonoxide"
@@ -13,8 +13,8 @@ categories = ["science", "simulation", "mathematics"]
 publish = false
 
 [dependencies]
-# the studio's GUI; eframe 0.34 and later need a newer Rust than our 1.88
-eframe = { version = "0.33", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"], optional = true }
+# the studio's GUI
+eframe = { version = "0.36", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"], optional = true }
 num-complex = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }

@@ -21,6 +21,7 @@ regenerate and commit it with any change that adds or alters a case.
 - **Rust only.**
   - No Python anywhere: no bindings, no helper scripts, no reference implementations.
   - No C or Fortran dependencies.
+- **Minimum Rust follows the dependencies.** Use a dependency's current release; when it needs a newer Rust than `rust-version`, raise `rust-version` and the CI's MSRV job to what it needs, in the same PR, and say so in the PR.
 - **Validation before features.** A solver or device isn't done without three things:
   - an analytic test;
   - a reproduction of a published result;
