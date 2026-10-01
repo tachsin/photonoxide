@@ -11,5 +11,7 @@
 #![warn(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
 pub mod error;
+pub mod units;
 
 pub use error::{Error, Result};
+pub use num_complex::Complex64;
