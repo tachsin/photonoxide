@@ -16,6 +16,17 @@ pub enum Error {
         /// Why it is invalid, e.g. `"must be positive, got -1.55 um"`.
         reason: String,
     },
+    /// A material was asked for a wavelength outside the range its data is valid for.
+    OutsideValidity {
+        /// The material's name.
+        material: String,
+        /// The wavelength asked for, in micrometres.
+        wavelength_um: f64,
+        /// The shortest wavelength of the material's range, in micrometres.
+        shortest_um: f64,
+        /// The longest wavelength of the material's range, in micrometres.
+        longest_um: f64,
+    },
 }
 
 impl Error {
@@ -32,6 +43,15 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::InvalidValue { what, reason } => write!(f, "invalid {what}: {reason}"),
+            Error::OutsideValidity {
+                material,
+                wavelength_um,
+                shortest_um,
+                longest_um,
+            } => write!(
+                f,
+                "{material} is only valid from {shortest_um} to {longest_um} um, not at {wavelength_um} um"
+            ),
         }
     }
 }

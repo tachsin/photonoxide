@@ -94,7 +94,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - [x] README, roadmap, licenses and crate skeleton
 
 ### 0.1: Foundations
-- [ ] **Units and conventions:** typed quantities; the e^(−iωt) convention documented and tested.
+- [x] **Units and conventions:** typed quantities; the e^(−iωt) convention documented and tested.
 - [ ] **Materials:**
   - Sellmeier, Cauchy, Drude and Lorentz models;
   - Si (Li 1980), SiO₂ (Malitson 1965) and Si₃N₄ (Luke 2015);
