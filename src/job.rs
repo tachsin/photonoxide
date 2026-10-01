@@ -697,8 +697,8 @@ size_um = [0.5, 10.0]
     #[test]
     fn a_width_sweep_records_rising_indices() {
         let root = temp("sweep");
-        // 450 and 550 nm fall between the 25 nm grid's nodes: the edges must be put on nodes,
-        // or the widths snap and the curve kinks
+        // 450 to 550 nm: the index rises ever more slowly (a_cross_sections_nodes_hold_its_edges
+        // checks the edges are on nodes, so the widths don't snap)
         let text = format!(
             "{MODES}\n[task.sweep]\nparameter = \"width\"\nfrom = 0.45\nto = 0.55\npoints = 3\n"
         );
@@ -719,6 +719,38 @@ size_um = [0.5, 10.0]
         assert!(points.windows(2).all(|w| w[1] > w[0]), "{points:?}");
         // rising ever more slowly, as a widening strip does
         assert!(points[1] - points[0] > points[2] - points[1], "{points:?}");
+    }
+
+    #[test]
+    fn a_cross_sections_nodes_hold_its_edges_and_interfaces() {
+        // a 450 nm strip on a 20 nm grid from −1 µm: ±0.225 µm aren't multiples of the step, so
+        // a uniform grid would snap the width; they, and the layers' interfaces, must be nodes
+        let rect = RectSpec {
+            layer: "Si".into(),
+            center_um: [0.0, 0.0],
+            size_um: [0.45, 10.0],
+        };
+        let s = draw(LayerStack::soi_220(), std::slice::from_ref(&rect), &[]).unwrap();
+        let cs = cross_section(
+            &s,
+            &[rect],
+            &[],
+            0.0,
+            [-1.0, 1.0],
+            [-1.0, 1.22],
+            0.02,
+            Wavelength::um(1.55).unwrap(),
+        )
+        .unwrap();
+        let has = |nodes: &[f64], v: f64| nodes.iter().any(|&n| (n - v).abs() < 1e-12);
+        assert!(has(cs.x(), -0.225) && has(cs.x(), 0.225), "{:?}", cs.x());
+        assert!(has(cs.y(), 0.0) && has(cs.y(), 0.22), "{:?}", cs.y());
+        // and the spacing stays about the step
+        assert!(
+            cs.x()
+                .windows(2)
+                .all(|w| w[1] - w[0] <= 0.02 + 1e-12 && w[1] - w[0] > 0.005)
+        );
     }
 
     #[test]
