@@ -13,6 +13,14 @@
 
   let home = $state<Home | null>(null);
   let changelog = $state("");
+  let report = $state<{ passed: number; total: number } | null>(null);
+  api
+    .publishedReport()
+    .then((r) => {
+      const rows = r.split("\n").filter((l) => l.startsWith("| `"));
+      report = { passed: rows.filter((l) => l.trimEnd().endsWith("| pass |")).length, total: rows.length };
+    })
+    .catch(() => {});
   let notes = $state(false);
 
   $effect(() => {
@@ -72,7 +80,7 @@
           {#each [
             { n: home?.runs.length ?? "–", label: "runs", icon: History, page: "runs" as const },
             { n: (catalog.data?.jobs.length ?? 0) + (catalog.data?.examples.length ?? 0) || "–", label: "built-in examples", icon: BookOpenCheck, page: "examples" as const },
-            { n: "✓", label: "validation report", icon: ShieldCheck, page: "validation" as const },
+            { n: report ? `${report.passed}/${report.total}` : "–", label: "validation cases pass", icon: ShieldCheck, page: "validation" as const },
           ] as stat (stat.label)}
             {@const Icon = stat.icon}
             <button class="rounded-xl border border-base-content/8 bg-base-100/70 px-5 py-4 text-left transition-colors hover:border-primary/30" onclick={() => go(stat.page)}>
@@ -102,7 +110,7 @@
               name={j.name}
               kind={j.kind}
               about={j.about}
-              model={catalog.models[j.file]}
+              text={j.text}
               onrun={() => startRun(() => api.runText(j.text), `Running ${j.name}`)}
               onedit={() => {
                 app.builderOpen = { text: j.text, path: null };

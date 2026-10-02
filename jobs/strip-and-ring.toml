@@ -1,4 +1,5 @@
-# A strip waveguide and a disk on 220 nm SOI, as pictures of their permittivity.
+# A ring resonator on 220 nm SOI: a 500 nm ring of 1.5 um radius beside a bus waveguide, 0.2 um
+# apart, as pictures of their permittivity.
 #   photonoxide run jobs/strip-and-ring.toml
 name = "strip-and-ring"
 timeout_minutes = 2
@@ -12,12 +13,14 @@ x_um = [-4.0, 4.0]
 y_um = [-2.5, 2.5]
 step_nm = 20.0
 
+# the bus: its top edge 0.2 um below the ring's outer edge (y = -1.15)
 [[task.rect]]
 layer = "Si"
-center_um = [0.0, -1.2]
+center_um = [0.0, -1.6]
 size_um = [8.0, 0.5]
 
-[[task.circle]]
+[[task.ring]]
 layer = "Si"
-center_um = [0.0, 0.9]
-radius_um = 1.2
+center_um = [0.0, 0.6]
+radius_um = 1.5
+width_um = 0.5

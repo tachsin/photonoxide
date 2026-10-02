@@ -73,7 +73,7 @@
               name={j.name}
               kind={j.kind}
               about={j.about}
-              model={catalog.models[j.file]}
+              text={j.text}
               onrun={() => startRun(() => api.runText(j.text), `Running ${j.name}`)}
               onedit={() => {
                 app.builderOpen = { text: j.text, path: null };

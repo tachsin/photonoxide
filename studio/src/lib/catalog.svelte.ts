@@ -1,5 +1,4 @@
-// What ships inside the program, loaded once: the examples and the built-in jobs, each job with
-// its model for the previews.
+// What ships inside the program, loaded once: the examples and the built-in jobs.
 
 import { api, type Catalog, type JobExample } from "./api";
 import { fromModel, type JobModel } from "./job";
@@ -7,7 +6,6 @@ import { fromModel, type JobModel } from "./job";
 export const catalog = $state({
   loaded: false,
   data: null as Catalog | null,
-  models: {} as Record<string, JobModel>,
   error: "",
 });
 
@@ -18,7 +16,6 @@ export function loadCatalog(): Promise<void> {
     try {
       const data = await api.catalog();
       catalog.data = data;
-      for (const j of data.jobs) catalog.models[j.file] = await modelOf(j.text);
     } catch (e) {
       catalog.error = String(e);
     }

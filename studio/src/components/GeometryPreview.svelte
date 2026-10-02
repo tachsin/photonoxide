@@ -4,7 +4,7 @@
   import { previewWindow, type JobModel } from "../lib/job";
   import { label, ticks } from "../lib/plot";
 
-  export type Selection = { kind: "rect" | "circle" | "port"; index: number } | null;
+  export type Selection = { kind: "rect" | "circle" | "ring" | "port"; index: number } | null;
 
   let {
     model,
@@ -91,6 +91,18 @@
           class="{fill(c.layer)} {onselect ? 'cursor-pointer' : ''} {selected?.kind === 'circle' && selected.index === k ? 'stroke-accent' : ''}"
           stroke-width={selected?.kind === "circle" && selected.index === k ? 2.5 : 1}
           onclick={(e) => pick(e, { kind: "circle", index: k })}
+        />
+      {/each}
+      {#each model.ring as r, k (k)}
+        {@const [cx, cy] = [X(r.center_um[0]), Y(r.center_um[1])]}
+        {@const [ro, ri] = [Math.max(0.5, (r.radius_um + r.width_um / 2) * scale), Math.max(0.2, (r.radius_um - r.width_um / 2) * scale)]}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <path
+          fill-rule="evenodd"
+          d="M{cx + ro},{cy} a{ro},{ro} 0 1,0 {-2 * ro},0 a{ro},{ro} 0 1,0 {2 * ro},0 z M{cx + ri},{cy} a{ri},{ri} 0 1,1 {-2 * ri},0 a{ri},{ri} 0 1,1 {2 * ri},0 z"
+          class="{fill(r.layer)} {onselect ? 'cursor-pointer' : ''} {selected?.kind === 'ring' && selected.index === k ? 'stroke-accent' : ''}"
+          stroke-width={selected?.kind === "ring" && selected.index === k ? 2.5 : 1}
+          onclick={(e) => pick(e, { kind: "ring", index: k })}
         />
       {/each}
       {#if model.kind === "modes"}

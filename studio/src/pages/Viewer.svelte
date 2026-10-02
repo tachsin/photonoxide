@@ -205,13 +205,16 @@
       {@const first = run.sparams[0]}
       <section>
         <h3 class="panel-title mb-2">Ports</h3>
-        <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+        <div class="space-y-1.5 text-sm">
           {#each first.ports as name, q (name)}
             {@const [re, im] = first.s[q][0]}
-            <dt class="faint">{name}</dt>
-            <dd class="num">{(10 * Math.log10(Math.max(re * re + im * im, 1e-30))).toFixed(2)} dB <span class="faint">from 1</span></dd>
+            <div class="flex items-baseline gap-2">
+              <span class="min-w-0 flex-1 truncate faint" title={name}>{name}</span>
+              <span class="num">{(re * re + im * im).toFixed(4)}</span>
+            </div>
           {/each}
-        </dl>
+        </div>
+        <p class="mt-1.5 text-[11px] faint">|S_q1|², the power from port 1, at {first.wavelength_um} µm</p>
         <button class="btn btn-ghost btn-xs mt-2 -ml-2" onclick={() => (view = "2d")}>Spectra in 2D →</button>
       </section>
     {/if}

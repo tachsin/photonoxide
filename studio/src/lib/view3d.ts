@@ -1,5 +1,7 @@
 // The 3D view: the run's layers and shapes as solids over its window, cut where a modes job
 // cut its cross-section, with the selected mode's |E|² on the cut. z is up; lengths are µm.
+// `structure` builds the solids; the viewer (View3D) and the cards' turning previews
+// (Preview3D) both draw them.
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -49,12 +51,44 @@ export function clip(p: Point[], x: [number, number], y: [number, number]): Poin
   return out.length >= 3 && Math.abs(area) > 1e-12 ? out : [];
 }
 
+/**
+ * A scene shape's outline as its boundary and its holes. A shape with a hole (a ring) comes as
+ * one walk: the boundary back to its first vertex, then the hole back to its own first vertex
+ * (photonoxide::job::SceneShape).
+ */
+export function rings(outline: Point[]): { boundary: Point[]; holes: Point[][] } {
+  const same = (a: Point, b: Point) => Math.abs(a[0] - b[0]) < 1e-12 && Math.abs(a[1] - b[1]) < 1e-12;
+  const back = outline.findIndex((p, k) => k > 0 && same(p, outline[0]));
+  if (back < 0) return { boundary: outline, holes: [] };
+  const holes: Point[][] = [];
+  let rest = outline.slice(back + 1);
+  while (rest.length >= 4) {
+    const close = rest.findIndex((p, k) => k > 0 && same(p, rest[0]));
+    if (close < 0) break;
+    holes.push(rest.slice(0, close));
+    rest = rest.slice(close + 1);
+  }
+  return { boundary: outline.slice(0, back), holes };
+}
+
+/** The edges' colours, for the theme. */
 const EDGE = new THREE.LineBasicMaterial({ color: "#d4d9e1", transparent: true, opacity: 0.7 });
 const FAINT_EDGE = new THREE.LineBasicMaterial({ color: "#8b95a5", transparent: true, opacity: 0.35 });
 
+export function edgeColours(dark: boolean) {
+  EDGE.color.set(dark ? "#d4d9e1" : "#3c4656");
+  FAINT_EDGE.color.set(dark ? "#8b95a5" : "#7a8494");
+}
+
+/**
+ * A medium's material. Solid ones (silicon, nitride) are drawn first and pushed a little back in
+ * depth so their edges draw cleanly over them; the clear oxides are pushed further back, so a
+ * core's face where it meets its layer's oxide (the same plane) always wins over the oxide's,
+ * whatever the view: without it, the two fought pixel by pixel as the camera turned.
+ */
 function solidMaterial(colour: string, solid: boolean): THREE.Material {
   return solid
-    ? new THREE.MeshStandardMaterial({ color: colour, roughness: 0.55, metalness: 0.05 })
+    ? new THREE.MeshStandardMaterial({ color: colour, roughness: 0.55, metalness: 0.05, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 3 })
     : new THREE.MeshStandardMaterial({
         color: colour,
         roughness: 0.9,
@@ -62,7 +96,83 @@ function solidMaterial(colour: string, solid: boolean): THREE.Material {
         opacity: 0.13,
         depthWrite: false,
         side: THREE.DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: 6,
+        polygonOffsetUnits: 12,
       });
+}
+
+/** The solids of `s` over its window, without the layers named in `hidden` ("substrate" and "cladding" included). */
+export function structure(s: Scene, hidden: Set<string> = new Set()): THREE.Group {
+  const group = new THREE.Group();
+  const [x0, x1] = s.x_um;
+  const [y0, y1] = s.y_um;
+  const [z0, z1] = s.z_um;
+  // the clear media in a fixed order, bottom to top, after every solid: the order of
+  // see-through faces then doesn't flip as the camera turns
+  let clear = 10;
+  const add = (geometry: THREE.BufferGeometry, eps: number, edges: THREE.LineBasicMaterial) => {
+    const look = mediumLook(eps);
+    if (look) {
+      const mesh = new THREE.Mesh(geometry, solidMaterial(look.colour, look.solid));
+      mesh.renderOrder = look.solid ? 0 : clear++;
+      group.add(mesh);
+    }
+    const lines = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 25), edges);
+    lines.renderOrder = 100;
+    group.add(lines);
+  };
+  // a medium over the whole window, from za to zb (clipped to the window's height)
+  const slab = (eps: number, za: number, zb: number) => {
+    const [a, b] = [Math.max(za, z0), Math.min(zb, z1)];
+    if (b <= a || !mediumLook(eps)) return;
+    const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, b - a);
+    g.translate((x0 + x1) / 2, (y0 + y1) / 2, (a + b) / 2);
+    add(g, eps, FAINT_EDGE);
+  };
+  const top = s.layers.length ? s.layers[s.layers.length - 1].z_um[1] : 0;
+  if (!hidden.has("substrate")) slab(s.substrate.eps, -Infinity, 0);
+  for (const layer of s.layers) {
+    if (hidden.has(layer.name)) continue;
+    slab(layer.background.eps, layer.z_um[0], layer.z_um[1]);
+    const [a, b] = [Math.max(layer.z_um[0], z0), Math.min(layer.z_um[1], z1)];
+    if (b <= a) continue;
+    for (const shape of s.shapes.filter((sh) => sh.layer === layer.name)) {
+      const { boundary, holes } = rings(shape.outline);
+      const p = clip(boundary, s.x_um, s.y_um);
+      if (!p.length) continue;
+      const outline = new THREE.Shape(p.map(([x, y]) => new THREE.Vector2(x, y)));
+      for (const hole of holes) {
+        const h = clip(hole, s.x_um, s.y_um);
+        if (h.length) outline.holes.push(new THREE.Path(h.map(([x, y]) => new THREE.Vector2(x, y))));
+      }
+      const g = new THREE.ExtrudeGeometry(outline, { depth: b - a, bevelEnabled: false, curveSegments: 1 });
+      g.translate(0, 0, a);
+      add(g, layer.material.eps, EDGE);
+    }
+  }
+  if (!hidden.has("cladding")) slab(s.cladding.eps, top, Infinity);
+  // the window
+  const frame = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
+  frame.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+  group.add(new THREE.LineSegments(new THREE.EdgesGeometry(frame), FAINT_EDGE));
+  frame.dispose();
+  return group;
+}
+
+/** Frees the geometries and materials of what `structure` built. */
+export function dispose(group: THREE.Object3D) {
+  group.traverse((o) => {
+    if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
+      o.geometry.dispose();
+      if (o instanceof THREE.Mesh) (o.material as THREE.Material).dispose();
+    }
+  });
+}
+
+/** The camera direction the views start from: from the front (+y), above and to the right. */
+function lookFrom(yaw: number, pitch: number): THREE.Vector3 {
+  return new THREE.Vector3(Math.cos(pitch) * Math.cos(yaw), Math.cos(pitch) * Math.sin(yaw), Math.sin(pitch));
 }
 
 export class View3D {
@@ -96,8 +206,7 @@ export class View3D {
   /** The backdrop: deep slate for the dark theme, a pale grey for the light one. */
   setDark(dark: boolean) {
     this.scene.background = new THREE.Color(dark ? "#0f1115" : "#eef1f5");
-    EDGE.color.set(dark ? "#d4d9e1" : "#3c4656");
-    FAINT_EDGE.color.set(dark ? "#8b95a5" : "#7a8494");
+    edgeColours(dark);
     this.render();
   }
 
@@ -111,58 +220,15 @@ export class View3D {
   private clearStructure() {
     for (const child of this.structure.children.slice()) {
       this.structure.remove(child);
-      child.traverse((o) => {
-        if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) o.geometry.dispose();
-      });
+      dispose(child);
     }
   }
 
   /** Draws `s`, without the layers named in `hidden` ("substrate" and "cladding" included). */
   setScene(s: Scene, hidden: Set<string>) {
     this.clearStructure();
-    const [x0, x1] = s.x_um;
-    const [y0, y1] = s.y_um;
-    const [z0, z1] = s.z_um;
-    const add = (geometry: THREE.BufferGeometry, eps: number, edges: THREE.LineBasicMaterial) => {
-      const look = mediumLook(eps);
-      if (look) this.structure.add(new THREE.Mesh(geometry, solidMaterial(look.colour, look.solid)));
-      this.structure.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 25), edges));
-    };
-    // a medium over the whole window, from za to zb (clipped to the window's height)
-    const slab = (eps: number, za: number, zb: number) => {
-      const [a, b] = [Math.max(za, z0), Math.min(zb, z1)];
-      if (b <= a || !mediumLook(eps)) return;
-      const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, b - a);
-      g.translate((x0 + x1) / 2, (y0 + y1) / 2, (a + b) / 2);
-      add(g, eps, FAINT_EDGE);
-    };
-    const top = s.layers.length ? s.layers[s.layers.length - 1].z_um[1] : 0;
-    if (!hidden.has("substrate")) slab(s.substrate.eps, -Infinity, 0);
-    for (const layer of s.layers) {
-      if (hidden.has(layer.name)) continue;
-      slab(layer.background.eps, layer.z_um[0], layer.z_um[1]);
-      const [a, b] = [Math.max(layer.z_um[0], z0), Math.min(layer.z_um[1], z1)];
-      if (b <= a) continue;
-      for (const shape of s.shapes.filter((sh) => sh.layer === layer.name)) {
-        const p = clip(shape.outline, s.x_um, s.y_um);
-        if (!p.length) continue;
-        const g = new THREE.ExtrudeGeometry(new THREE.Shape(p.map(([x, y]) => new THREE.Vector2(x, y))), {
-          depth: b - a,
-          bevelEnabled: false,
-          curveSegments: 1,
-        });
-        g.translate(0, 0, a);
-        add(g, layer.material.eps, EDGE);
-      }
-    }
-    if (!hidden.has("cladding")) slab(s.cladding.eps, top, Infinity);
-    // the window
-    const frame = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
-    frame.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
-    this.structure.add(new THREE.LineSegments(new THREE.EdgesGeometry(frame), FAINT_EDGE));
-    frame.dispose();
-
-    const box = new THREE.Box3(new THREE.Vector3(x0, y0, z0), new THREE.Vector3(x1, y1, z1));
+    this.structure.add(structure(s, hidden));
+    const box = new THREE.Box3(new THREE.Vector3(s.x_um[0], s.y_um[0], s.z_um[0]), new THREE.Vector3(s.x_um[1], s.y_um[1], s.z_um[1]));
     const reframe = !this.box || !this.box.equals(box);
     this.box = box;
     if (reframe) this.frame();
@@ -208,7 +274,7 @@ export class View3D {
           depthWrite: false,
         }),
       );
-      this.field.renderOrder = 1;
+      this.field.renderOrder = 50;
       this.scene.add(this.field);
     }
     this.render();
@@ -219,13 +285,7 @@ export class View3D {
     if (!this.box) return;
     const centre = this.box.getCenter(new THREE.Vector3());
     const size = this.box.getSize(new THREE.Vector3()).length();
-    const [yaw, pitch] = [1.1, 0.45];
-    const direction = new THREE.Vector3(
-      Math.cos(pitch) * Math.cos(yaw),
-      Math.cos(pitch) * Math.sin(yaw),
-      Math.sin(pitch),
-    );
-    this.camera.position.copy(centre).addScaledVector(direction, 1.7 * size);
+    this.camera.position.copy(centre).addScaledVector(lookFrom(1.1, 0.45), 1.7 * size);
     this.camera.near = size * 0.01;
     this.camera.far = size * 20;
     this.camera.updateProjectionMatrix();
@@ -270,5 +330,120 @@ export class View3D {
           <text x="${dx * 1.3}" y="${dy * 1.3}" fill="${colour}" text-anchor="middle" dominant-baseline="central">${name}</text>`;
       })
       .join("");
+  }
+}
+
+/**
+ * A job's structure turning slowly on a card. It draws only while on screen and while the window
+ * is visible, and lets go of its WebGL context when destroyed.
+ */
+export class Preview3D {
+  private renderer: THREE.WebGLRenderer;
+  private scene = new THREE.Scene();
+  private camera = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  private light = new THREE.DirectionalLight("#ffffff", 2.2);
+  private centre = new THREE.Vector3();
+  private size = new THREE.Vector3();
+  private distance = 1;
+  private yaw = 1.1;
+  private visible = false;
+  private frameId = 0;
+  private last = 0;
+  private observer: IntersectionObserver;
+  private resizer: ResizeObserver;
+
+  constructor(
+    private container: HTMLElement,
+    s: Scene,
+    dark: boolean,
+  ) {
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(this.renderer.domElement);
+    this.scene.add(new THREE.HemisphereLight("#e4ecf7", "#2a2e35", 1.6), this.light, this.light.target);
+    this.scene.add(structure(s));
+    this.camera.up.set(0, 0, 1);
+    const box = new THREE.Box3(new THREE.Vector3(s.x_um[0], s.y_um[0], s.z_um[0]), new THREE.Vector3(s.x_um[1], s.y_um[1], s.z_um[1]));
+    box.getCenter(this.centre);
+    box.getSize(this.size);
+    this.setDark(dark);
+    this.observer = new IntersectionObserver(([e]) => {
+      this.visible = e.isIntersecting;
+      if (this.visible) this.start();
+    });
+    this.observer.observe(container);
+    this.resizer = new ResizeObserver(() => this.resize());
+    this.resizer.observe(container);
+    document.addEventListener("visibilitychange", this.wake);
+    this.resize();
+  }
+
+  private wake = () => {
+    if (!document.hidden && this.visible) this.start();
+  };
+
+  setDark(dark: boolean) {
+    edgeColours(dark);
+    this.draw();
+  }
+
+  private resize() {
+    const { clientWidth: w, clientHeight: h } = this.container;
+    if (w === 0 || h === 0) return;
+    this.renderer.setSize(w, h);
+    this.camera.aspect = w / h;
+    this.fit();
+    this.draw();
+  }
+
+  /**
+   * The distance at which the window fills the card at any turn: its footprint's half-diagonal
+   * across, and its height plus the footprint's tilt up, at the camera's pitch.
+   */
+  private fit() {
+    const pitch = 0.5;
+    const half = 0.5 * Math.hypot(this.size.x, this.size.y);
+    const tv = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
+    const th = tv * this.camera.aspect;
+    const tall = half * Math.sin(pitch) + 0.5 * this.size.z * Math.cos(pitch);
+    // the near half of the footprint comes closer by up to `half`: allow for it
+    this.distance = 1.04 * Math.max(half / th, tall / tv) + 0.4 * half;
+    this.camera.near = this.distance * 0.01;
+    this.camera.far = this.distance * 20;
+    this.camera.updateProjectionMatrix();
+  }
+
+  private start() {
+    if (this.frameId) return;
+    this.last = performance.now();
+    const step = (t: number) => {
+      this.frameId = 0;
+      if (!this.visible || document.hidden) return;
+      // a turn in about 40 s
+      this.yaw += ((t - this.last) / 1000) * ((2 * Math.PI) / 40);
+      this.last = t;
+      this.draw();
+      this.frameId = requestAnimationFrame(step);
+    };
+    this.frameId = requestAnimationFrame(step);
+  }
+
+  private draw() {
+    this.camera.position.copy(this.centre).addScaledVector(lookFrom(this.yaw, 0.5), this.distance);
+    this.camera.lookAt(this.centre);
+    this.light.position.copy(this.camera.position).add(new THREE.Vector3(0, 0, this.distance * 0.6));
+    this.light.target.position.copy(this.centre);
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  destroy() {
+    cancelAnimationFrame(this.frameId);
+    document.removeEventListener("visibilitychange", this.wake);
+    this.observer.disconnect();
+    this.resizer.disconnect();
+    dispose(this.scene);
+    this.renderer.dispose();
+    this.renderer.forceContextLoss();
+    this.renderer.domElement.remove();
   }
 }

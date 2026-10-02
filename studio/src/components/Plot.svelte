@@ -1,6 +1,11 @@
 <script lang="ts">
   // A line plot that fills its width: hover for the values at a point, click the legend to hide
-  // a series.
+  // a series, and save its data as CSV.
+  import { Download } from "@lucide/svelte";
+  import { save } from "@tauri-apps/plugin-dialog";
+
+  import { api } from "../lib/api";
+  import { toast } from "../lib/app.svelte";
   import { label, padded, SERIES, ticks, type Series } from "../lib/plot";
 
   let {
@@ -9,7 +14,28 @@
     yLabel,
     height = 280,
     yRange,
-  }: { series: Series[]; xLabel: string; yLabel: string; height?: number; yRange?: [number, number] } = $props();
+    name = "plot",
+  }: { series: Series[]; xLabel: string; yLabel: string; height?: number; yRange?: [number, number]; name?: string } = $props();
+
+  /** The data as CSV: one row per x, one column per series (empty where a series has no point). */
+  function csv(): string {
+    const xs = [...new Set(series.flatMap((s) => s.points.map((p) => p[0])))].sort((a, b) => a - b);
+    const quote = (t: string) => `"${t.replaceAll('"', '""')}"`;
+    const head = [quote(xLabel), ...series.map((s) => quote(`${s.label}: ${yLabel}`))].join(",");
+    const rows = xs.map((x) => [x, ...series.map((s) => s.points.find((p) => p[0] === x)?.[1] ?? "")].join(","));
+    return [head, ...rows].join("\n") + "\n";
+  }
+
+  async function saveCsv() {
+    const path = await save({ title: "Save the plot's data", defaultPath: `${name}.csv`, filters: [{ name: "CSV", extensions: ["csv"] }] });
+    if (!path) return;
+    try {
+      await api.saveText(path, csv());
+      toast(`Saved ${path.split(/[\\/]/).pop()}`, "success", undefined, 2500);
+    } catch (e) {
+      toast(String(e), "error");
+    }
+  }
 
   let width = $state(640);
   let hidden = $state<string[]>([]);
@@ -38,7 +64,10 @@
   }
 </script>
 
-<div class="relative" bind:clientWidth={width}>
+<div class="group/plot relative" bind:clientWidth={width}>
+  <div class="tooltip tooltip-left absolute top-0 right-0 z-10 opacity-0 transition-opacity group-hover/plot:opacity-100" data-tip="Save the data as CSV">
+    <button class="btn btn-ghost btn-xs btn-square" aria-label="Save the data as CSV" onclick={saveCsv}><Download size={14} /></button>
+  </div>
   <svg {width} {height} class="block select-none" role="img" aria-label="{yLabel} against {xLabel}" onpointermove={move} onpointerleave={() => (hover = null)}>
     {#each ticks(xs[0], xs[1], Math.max(3, Math.floor(width / 110))) as t (t)}
       <line x1={X(t)} x2={X(t)} y1={T} y2={height - B} class="stroke-base-content/8" />

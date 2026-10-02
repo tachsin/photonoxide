@@ -14,12 +14,14 @@
     Trash2,
     Eye,
     LoaderCircle,
+    Box,
   } from "@lucide/svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
 
   import GeometryPreview, { type Selection } from "../components/GeometryPreview.svelte";
   import NumField from "../components/NumField.svelte";
   import OptField from "../components/OptField.svelte";
+  import ScenePreview from "../components/ScenePreview.svelte";
   import Tip from "../components/Tip.svelte";
   import TomlEditor from "../components/TomlEditor.svelte";
   import { ago, api, KINDS, type JobCheck, type JobItem } from "../lib/api";
@@ -34,7 +36,9 @@
   let check = $state<JobCheck | null>(null);
   let checking = $state(false);
   let selection = $state<Selection>(null);
-  let right = $state<"preview" | "toml">("preview");
+  let right = $state<"preview" | "3d" | "toml">("preview");
+  /** The text the 3D preview shows: the last one that checked out, so it doesn't rebuild on every key. */
+  let shown = $state("");
   let jobs = $state<JobItem[]>([]);
   /** The model's TOML when it was last set from the text: a form that writes back the same
    * values (a select on mount, say) leaves the text, and its comments, as they are. */
@@ -74,7 +78,10 @@
       const t = text;
       try {
         const c = await api.checkJob(t);
-        if (t === text) check = c;
+        if (t === text) {
+          check = c;
+          if (c.ok) shown = t;
+        }
       } catch {
         check = null;
       }
@@ -105,6 +112,7 @@
       if (t !== text) return;
       check = c;
       checking = false;
+      if (c?.ok) shown = t;
       if (c?.model) {
         const m = fromModel(c.model, t);
         baseline = toToml(m);
@@ -179,6 +187,10 @@
     model.circle.push({ layer: layers[0], center_um: [0, 0], radius_um: 0.5 });
     selection = { kind: "circle", index: model.circle.length - 1 };
   }
+  function addRing() {
+    model.ring.push({ layer: layers[0], center_um: [0, 0], radius_um: 1.5, width_um: 0.5 });
+    selection = { kind: "ring", index: model.ring.length - 1 };
+  }
   function addPort() {
     const right = model.port.length % 2 === 1;
     const x = right ? model.x_um[1] - 0.6 : model.x_um[0] + 0.6;
@@ -186,8 +198,21 @@
     selection = { kind: "port", index: model.port.length - 1 };
   }
 
-  const isSel = (kind: "rect" | "circle" | "port", index: number) => selection?.kind === kind && selection.index === index;
+  const isSel = (kind: "rect" | "circle" | "ring" | "port", index: number) => selection?.kind === kind && selection.index === index;
 </script>
+
+<svelte:window
+  onkeydown={(e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    if (e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      if (nameOk) save();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      runIt();
+    }
+  }}
+/>
 
 <div class="grid h-full grid-cols-[250px_minmax(420px,1fr)_minmax(380px,0.95fr)]">
   <!-- the workspace's jobs -->
@@ -243,8 +268,8 @@
           <button class="btn btn-ghost btn-sm btn-square" aria-label="Delete the job" onclick={remove}><Trash2 size={16} /></button>
         </div>
       {/if}
-      <button class="btn btn-sm gap-1.5" disabled={!nameOk} onclick={save} title="Save to jobs/{model.name}.toml in the workspace"><Save size={15} /> Save</button>
-      <button class="btn btn-primary btn-sm gap-1.5" disabled={!check?.ok} onclick={runIt} title="Run it now and watch it live"><Play size={15} /> Run</button>
+      <button class="btn btn-sm gap-1.5" disabled={!nameOk} onclick={save} title="Save to jobs/{model.name}.toml in the workspace (Ctrl+S)"><Save size={15} /> Save</button>
+      <button class="btn btn-primary btn-sm gap-1.5" disabled={!check?.ok} onclick={runIt} title="Run it now and watch it live (Ctrl+Enter)"><Play size={15} /> Run</button>
     </div>
 
     <div class="flex-1 space-y-6 overflow-x-hidden overflow-y-auto px-6 py-5">
@@ -324,6 +349,7 @@
         <NumField label="Grid step" unit="nm" bind:value={model.step_nm} step={5} min={1} hint="Smaller is more accurate and slower; the error falls as the square of the step" />
         {#if model.kind === "fdfd"}
           <OptField label="PML" unit="cells" bind:value={model.pml_cells} step={1} hint="Absorbing cells on each side, inside the window (20 by default)" placeholder="20" />
+          <OptField label="Field at" unit="µm" bind:value={model.field_um} step={0.001} hint="The field is recorded at the swept wavelength nearest this: a resonance, say. The first wavelength by default." placeholder="first" />
         {:else if model.kind === "structure"}
           <OptField label="Side view at y" unit="µm" bind:value={model.side_y_um} step={0.1} placeholder="0" hint="Where the side view cuts" />
         {/if}
@@ -367,9 +393,26 @@
             </div>
           </div>
         {/each}
+        {#each model.ring as r, k (k)}
+          <div class="rounded-xl border p-3 transition-colors {isSel('ring', k) ? 'border-accent/60 bg-accent/5' : 'border-base-content/8'}">
+            <div class="mb-2 flex items-center gap-2">
+              <button class="text-sm font-medium" onclick={() => (selection = { kind: "ring", index: k })}>Ring {k + 1}</button>
+              <span class="flex-1"></span>
+              <select class="select select-xs w-24" bind:value={r.layer}>{#each layers as l (l)}<option value={l}>{l}</option>{/each}</select>
+              <button class="btn btn-ghost btn-xs btn-square" aria-label="Remove" title="Remove" onclick={() => model.ring.splice(k, 1)}><Trash2 size={13} /></button>
+            </div>
+            <div class="grid grid-cols-4 gap-2">
+              <NumField label="centre x" unit="µm" bind:value={r.center_um[0]} step={0.05} />
+              <NumField label="centre y" unit="µm" bind:value={r.center_um[1]} step={0.05} />
+              <NumField label="radius" unit="µm" bind:value={r.radius_um} step={0.05} hint="To the waveguide's centre line, as ring resonators are specified" />
+              <NumField label="width" unit="µm" bind:value={r.width_um} step={0.05} hint="The ring waveguide's width" />
+            </div>
+          </div>
+        {/each}
         <div class="flex gap-2">
           <button class="btn btn-ghost btn-sm gap-1.5" onclick={addRect}><Plus size={14} /> Rectangle</button>
           <button class="btn btn-ghost btn-sm gap-1.5" onclick={addCircle}><Plus size={14} /> Disk</button>
+          <button class="btn btn-ghost btn-sm gap-1.5" onclick={addRing} title="A ring resonator's waveguide: a radius and a width"><Plus size={14} /> Ring</button>
         </div>
       </fieldset>
 
@@ -451,7 +494,8 @@
   <section class="flex min-h-0 flex-col border-l border-base-content/8 bg-base-100/40">
     <div class="flex items-center gap-2 border-b border-base-content/8 px-4 py-2.5">
       <div class="join">
-        <button class="btn join-item btn-sm gap-1.5 {right === 'preview' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "preview")}><Eye size={14} /> Preview</button>
+        <button class="btn join-item btn-sm gap-1.5 {right === 'preview' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "preview")} title="Seen from above: click a shape to edit it"><Eye size={14} /> Top view</button>
+        <button class="btn join-item btn-sm gap-1.5 {right === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "3d")} title="The structure as the run will draw it"><Box size={14} /> 3D</button>
         <button class="btn join-item btn-sm gap-1.5 {right === 'toml' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "toml")}><Code size={14} /> TOML</button>
       </div>
       <span class="flex-1"></span>
@@ -481,6 +525,17 @@
           {#if model.kind === "modes"}<span class="flex items-center gap-1.5"><span class="h-0.5 w-3 bg-accent"></span>cross-section</span>{/if}
           <span>seen from above, x across, y up</span>
         </div>
+      </div>
+    {:else if right === "3d"}
+      <div class="flex-1 overflow-y-auto p-4">
+        <div class="glow panel overflow-hidden">
+          {#if shown}
+            <ScenePreview text={shown} height={440} />
+          {:else}
+            <div class="grid h-[440px] place-items-center text-sm faint">The 3D view appears once the job is valid.</div>
+          {/if}
+        </div>
+        <p class="mt-3 px-1 text-xs faint">The structure as its run will draw it, over the job's window{model.kind === "modes" ? ", behind the cut" : ""}.</p>
       </div>
     {:else}
       <div class="m-4 min-h-0 flex-1 overflow-hidden rounded-xl border border-base-content/8 bg-base-300/50 py-2">

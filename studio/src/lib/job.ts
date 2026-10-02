@@ -16,6 +16,14 @@ export interface Circle {
   radius_um: number;
 }
 
+export interface Ring {
+  layer: string;
+  center_um: [number, number];
+  /** To the waveguide's centre line. */
+  radius_um: number;
+  width_um: number;
+}
+
 export interface Port {
   x_um: number;
   side: "left" | "right";
@@ -59,8 +67,11 @@ export interface JobModel {
   polarization: "te" | "tm";
   /** fdfd: PML cells on each side. */
   pml_cells: number | null;
+  /** fdfd: the field is recorded at the swept wavelength nearest this. */
+  field_um: number | null;
   rect: Rect[];
   circle: Circle[];
+  ring: Ring[];
   port: Port[];
   sweep: Sweep | null;
 }
@@ -92,8 +103,10 @@ export function template(kind: Kind): JobModel {
     modes: 2,
     polarization: "te",
     pml_cells: null,
+    field_um: null,
     rect: [],
     circle: [],
+    ring: [],
     port: [],
     sweep: null,
   };
@@ -101,11 +114,11 @@ export function template(kind: Kind): JobModel {
     case "structure":
       return {
         ...base,
-        about: "A strip waveguide beside a disk on 220 nm SOI, as pictures of their permittivity.",
+        about: "A ring resonator beside its bus waveguide on 220 nm SOI, as pictures of their permittivity.",
         x_um: [-4, 4],
         y_um: [-2.5, 2.5],
-        rect: [{ layer: "Si", center_um: [0, -1.2], size_um: [8, 0.5] }],
-        circle: [{ layer: "Si", center_um: [0, 0.9], radius_um: 1.2 }],
+        rect: [{ layer: "Si", center_um: [0, -1.6], size_um: [8, 0.5] }],
+        ring: [{ layer: "Si", center_um: [0, 0.6], radius_um: 1.5, width_um: 0.5 }],
       };
     case "modes":
       return {
@@ -162,6 +175,7 @@ export function fromModel(file: Record<string, unknown>, text: string): JobModel
     modes: num(task.modes, 2),
     polarization: task.polarization === "tm" ? "tm" : "te",
     pml_cells: opt(task.pml_cells),
+    field_um: opt(task.field_um),
     rect: list(task.rect).map((r) => ({
       layer: typeof r.layer === "string" ? r.layer : "Si",
       center_um: pair(r.center_um, [0, 0]),
@@ -171,6 +185,12 @@ export function fromModel(file: Record<string, unknown>, text: string): JobModel
       layer: typeof c.layer === "string" ? c.layer : "Si",
       center_um: pair(c.center_um, [0, 0]),
       radius_um: num(c.radius_um, 1),
+    })),
+    ring: list(task.ring).map((r) => ({
+      layer: typeof r.layer === "string" ? r.layer : "Si",
+      center_um: pair(r.center_um, [0, 0]),
+      radius_um: num(r.radius_um, 1.5),
+      width_um: num(r.width_um, 0.5),
     })),
     port: list(task.port).map((p) => ({
       x_um: num(p.x_um, 0),
@@ -246,6 +266,7 @@ export function toToml(m: JobModel): string {
   out.push(`step_nm = ${f(m.step_nm)}`);
   if (m.kind === "modes") out.push(`modes = ${Math.max(1, Math.round(m.modes))}`);
   if (m.kind === "fdfd" && m.pml_cells !== null) out.push(`pml_cells = ${Math.round(m.pml_cells)}`);
+  if (m.kind === "fdfd" && m.field_um !== null) out.push(`field_um = ${f(m.field_um)}`);
   for (const r of m.rect) {
     out.push("", "[[task.rect]]", `layer = ${str(r.layer)}`, `center_um = ${fp(r.center_um)}`, `size_um = ${fp(r.size_um)}`);
   }
@@ -253,6 +274,9 @@ export function toToml(m: JobModel): string {
     for (const c of m.circle) {
       out.push("", "[[task.circle]]", `layer = ${str(c.layer)}`, `center_um = ${fp(c.center_um)}`, `radius_um = ${f(c.radius_um)}`);
     }
+  }
+  for (const r of m.ring) {
+    out.push("", "[[task.ring]]", `layer = ${str(r.layer)}`, `center_um = ${fp(r.center_um)}`, `radius_um = ${f(r.radius_um)}`, `width_um = ${f(r.width_um)}`);
   }
   if (m.kind === "fdfd") {
     for (const p of m.port) {

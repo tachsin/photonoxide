@@ -60,6 +60,7 @@ And underneath:
 | 0.2 Mode solvers | Slab, full-vector 2D finite differences, EIM, bends, dispersion | ✅ released |
 | 0.3 FDFD | 2D and 3D, mode ports, S-parameters, adjoints, an iterative 3D solver; Hadley's high-accuracy mode solver | ✅ released |
 | 0.3.1 The studio as a workspace | Examples inside the program, the job builder, run comparison, the validation report, updates by one click | ✅ |
+| 0.3.2 The studio, polished | Rings, 3D previews of every job, a steady 3D view, a ring resonator's spectrum | ✅ |
 | 0.4 Components and circuits | Components with ports at several fidelities, chips as netlists, the circuit adjoint, compact models; the studio's component library and chip view | planned |
 | 0.5 FDTD | 2D and 3D Yee, CPML, subpixel smoothing, dispersive media, GPU | planned |
 | 0.6 Thermal and electro-optic | Heat and electrostatics, thermo-optic phase shifters, Pockels modulators (thin-film lithium niobate first), travelling-wave electrodes | planned |

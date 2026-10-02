@@ -41,7 +41,10 @@
   }
 
   async function remove(r: RunItem) {
-    if (!(await ask(`Delete the run ${r.name}, its record and pictures? This can't be undone.`, { title: "Delete the run?", kind: "warning" }))) return;
+    const open = run.info?.name === r.name;
+    const going = open && !run.finished;
+    const also = going ? " It is still running: it stops first, and the viewer closes it." : open ? " The viewer closes it." : "";
+    if (!(await ask(`Delete the run ${r.name}, its record and pictures? This can't be undone.${also}`, { title: "Delete the run?", kind: "warning" }))) return;
     try {
       await api.deleteRun(r.dir);
       app.compare = app.compare.filter((d) => d !== r.dir);
@@ -105,7 +108,7 @@
         </thead>
         <tbody>
           {#each shown as r (r.dir)}
-            {@const open = run.info?.dir === r.dir}
+            {@const open = run.info?.name === r.name}
             <tr class="group hover:bg-base-content/3 {open ? 'bg-primary/5' : ''}">
               <td><input type="checkbox" class="checkbox checkbox-xs" checked={app.compare.includes(r.dir)} aria-label="Pick for comparison" onchange={() => toggle(r.dir)} /></td>
               <td>

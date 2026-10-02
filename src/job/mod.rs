@@ -27,6 +27,12 @@
 //! layer = "Si"
 //! center_um = [1.5, 1.2]
 //! radius_um = 0.4
+//!
+//! [[task.ring]]              # a ring resonator's waveguide
+//! layer = "Si"
+//! center_um = [-1.5, 0.9]
+//! radius_um = 0.8            # to the waveguide's centre line
+//! width_um = 0.4
 //! ```
 //!
 //! - `"modes"`: the guided modes of a waveguide's cross-section, the same stack and shapes cut at
@@ -76,6 +82,7 @@
 //! layer = "Si"
 //! polarization = "te"        # the slab's TE mode, H along z in the 2D problem; or "tm"
 //! x_um = [-2.0, 12.5]        # PMLs (pml_cells, 20 by default) inside the window
+//! field_um = 1.55            # the field is recorded at the swept wavelength nearest this
 //! y_um = [-3.0, 3.0]
 //! step_nm = 20.0
 //!
@@ -243,11 +250,16 @@ pub struct SceneLayer {
 pub struct SceneShape {
     /// The layer it is drawn on.
     pub layer: String,
-    /// Its outline's vertices, (x, y), counterclockwise; a circle as a 64-gon.
+    /// Its outline's vertices, (x, y), counterclockwise; a circle as a 64-gon. A shape with a
+    /// hole (a ring) is one outline that also walks the hole: the outer boundary
+    /// counterclockwise and back to its first vertex, then the hole clockwise from its first
+    /// vertex and back to it, the two joined by a cut of zero width. Its first vertex
+    /// recurring marks where the hole starts.
     pub outline: Vec<[f64; 2]>,
 }
 
-/// A shape's outline, counterclockwise: a rectangle's corners, a circle as a 64-gon.
+/// A shape's outline, counterclockwise: a rectangle's corners, a circle as a 64-gon, a ring as
+/// its two 64-gons joined by a cut (see [`SceneShape::outline`]).
 fn outline(shape: &Shape) -> Vec<[f64; 2]> {
     match shape {
         Shape::Rect {
@@ -268,21 +280,39 @@ fn outline(shape: &Shape) -> Vec<[f64; 2]> {
                 [cx - w, cy + h],
             ]
         }
-        Shape::Circle { center, radius } => (0..64)
-            .map(|k| {
-                let a = std::f64::consts::TAU * f64::from(k) / 64.0;
-                [
-                    center.x.to_um() + radius.to_um() * a.cos(),
-                    center.y.to_um() + radius.to_um() * a.sin(),
-                ]
-            })
-            .collect(),
+        Shape::Circle { center, radius } => polygon64(*center, radius.to_um(), 1.0),
+        Shape::Ring {
+            center,
+            inner,
+            outer,
+        } => {
+            let mut o = polygon64(*center, outer.to_um(), 1.0);
+            o.push(o[0]);
+            let hole = polygon64(*center, inner.to_um(), -1.0);
+            o.extend(&hole);
+            o.push(hole[0]);
+            o
+        }
         Shape::Polygon(p) => p
             .vertices()
             .iter()
             .map(|v| [v.x.to_um(), v.y.to_um()])
             .collect(),
     }
+}
+
+/// A circle about `center` as a 64-gon from angle 0, counterclockwise for `turn` 1, clockwise for
+/// −1.
+fn polygon64(center: Point, radius: f64, turn: f64) -> Vec<[f64; 2]> {
+    (0..64)
+        .map(|k| {
+            let a = turn * std::f64::consts::TAU * f64::from(k) / 64.0;
+            [
+                center.x.to_um() + radius * a.cos(),
+                center.y.to_um() + radius * a.sin(),
+            ]
+        })
+        .collect()
 }
 
 /// The scene of a structure over a window, its permittivities at `wavelength`.
@@ -345,6 +375,16 @@ struct CircleSpec {
     radius_um: f64,
 }
 
+/// A ring: its centre line's radius and its waveguide's width ([`Shape::ring`]).
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RingSpec {
+    layer: String,
+    center_um: [f64; 2],
+    radius_um: f64,
+    width_um: f64,
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StructureTask {
@@ -364,6 +404,8 @@ struct StructureTask {
     rect: Vec<RectSpec>,
     #[serde(default)]
     circle: Vec<CircleSpec>,
+    #[serde(default)]
+    ring: Vec<RingSpec>,
 }
 
 fn task_error(reason: impl Into<String>) -> Error {
@@ -402,7 +444,12 @@ fn named_stack(
 }
 
 /// The stack with the shapes drawn on it.
-fn draw(stack: LayerStack, rects: &[RectSpec], circles: &[CircleSpec]) -> Result<Structure> {
+fn draw(
+    stack: LayerStack,
+    rects: &[RectSpec],
+    circles: &[CircleSpec],
+    rings: &[RingSpec],
+) -> Result<Structure> {
     let mut s = Structure::new(stack);
     for r in rects {
         let shape = Shape::rect(
@@ -419,6 +466,14 @@ fn draw(stack: LayerStack, rects: &[RectSpec], circles: &[CircleSpec]) -> Result
         )?;
         s.draw(&c.layer, shape)?;
     }
+    for r in rings {
+        let shape = Shape::ring(
+            Point::um(r.center_um[0], r.center_um[1]),
+            Length::um(r.radius_um),
+            Length::um(r.width_um),
+        )?;
+        s.draw(&r.layer, shape)?;
+    }
     Ok(s)
 }
 
@@ -428,6 +483,7 @@ impl StructureTask {
             named_stack(&self.stack, self.core_nm, self.bottom_oxide_um)?,
             &self.rect,
             &self.circle,
+            &self.ring,
         )
     }
 }
@@ -462,6 +518,8 @@ struct ModesTask {
     rect: Vec<RectSpec>,
     #[serde(default)]
     circle: Vec<CircleSpec>,
+    #[serde(default)]
+    ring: Vec<RingSpec>,
     sweep: Option<SweepSpec>,
 }
 
@@ -473,6 +531,7 @@ fn cross_section(
     s: &Structure,
     rects: &[RectSpec],
     circles: &[CircleSpec],
+    rings: &[RingSpec],
     cut_y: f64,
     x: [f64; 2],
     z: [f64; 2],
@@ -499,12 +558,19 @@ fn cross_section(
             ]);
         }
     }
-    for c in circles {
-        let d = cut_y - c.center_um[1];
-        if d.abs() < c.radius_um {
-            let half = (c.radius_um * c.radius_um - d * d).sqrt();
-            x_edges.extend([c.center_um[0] - half, c.center_um[0] + half]);
+    let mut circle_edges = |center: [f64; 2], radius: f64| {
+        let d = cut_y - center[1];
+        if d.abs() < radius {
+            let half = (radius * radius - d * d).sqrt();
+            x_edges.extend([center[0] - half, center[0] + half]);
         }
+    };
+    for c in circles {
+        circle_edges(c.center_um, c.radius_um);
+    }
+    for r in rings {
+        circle_edges(r.center_um, r.radius_um - r.width_um / 2.0);
+        circle_edges(r.center_um, r.radius_um + r.width_um / 2.0);
     }
     let mut z_edges = vec![0.0];
     let mut top = 0.0;
@@ -637,7 +703,7 @@ pub fn check(job: &Job) -> Result<()> {
         "modes" => {
             let task: ModesTask = job.task().clone().try_into().map_err(parse)?;
             let stack = named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
-            let s = draw(stack, &task.rect, &task.circle)?;
+            let s = draw(stack, &task.rect, &task.circle, &task.ring)?;
             (s, task.layer, task.wavelength_um)
         }
         "fdfd" => return fdfd::check(job),
@@ -658,17 +724,7 @@ fn structure(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
     let s = task.structure()?;
     let lam = Wavelength::um(task.wavelength_um)?;
-    let scene_z = match task.z_um {
-        Some(z) => z,
-        None => {
-            let (_, bottom, top) = s
-                .stack()
-                .layer(&task.layer)
-                .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
-            [bottom.to_um() - 1.0, top.to_um() + 1.0]
-        }
-    };
-    run.record(&scene(&s, task.x_um, task.y_um, scene_z, lam)?)?;
+    run.record(&structure_scene(&task, &s)?)?;
     let step = Length::nm(task.step_nm);
     let x = (Length::um(task.x_um[0]), Length::um(task.x_um[1]));
     let y = (Length::um(task.y_um[0]), Length::um(task.y_um[1]));
@@ -700,6 +756,78 @@ fn structure(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     })
 }
 
+/// A structure job's scene: the window, 1 µm above and below the layer seen from above unless
+/// `z_um` says otherwise.
+fn structure_scene(task: &StructureTask, s: &Structure) -> Result<Event> {
+    let z = match task.z_um {
+        Some(z) => z,
+        None => {
+            let (_, bottom, top) = s
+                .stack()
+                .layer(&task.layer)
+                .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
+            [bottom.to_um() - 1.0, top.to_um() + 1.0]
+        }
+    };
+    scene(
+        s,
+        task.x_um,
+        task.y_um,
+        z,
+        Wavelength::um(task.wavelength_um)?,
+    )
+}
+
+/// A modes job's window height: `z_um`, else 1 µm below and above its layer.
+fn modes_z(task: &ModesTask, s: &Structure) -> Result<[f64; 2]> {
+    match task.z_um {
+        Some(z) => Ok(z),
+        None => {
+            let (_, bottom, top) = s
+                .stack()
+                .layer(&task.layer)
+                .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
+            Ok([bottom.to_um() - 1.0, top.to_um() + 1.0])
+        }
+    }
+}
+
+/// A modes job's scene: a block behind the cut, as deep as the window is wide.
+fn modes_scene(task: &ModesTask, s: &Structure) -> Result<Event> {
+    let cut_y = task.cut_y_um.unwrap_or(0.0);
+    let depth = task.x_um[1] - task.x_um[0];
+    scene(
+        s,
+        task.x_um,
+        [cut_y - depth, cut_y],
+        modes_z(task, s)?,
+        Wavelength::um(task.wavelength_um)?,
+    )
+}
+
+/// The scene `job`'s run records first, its structure over its window, without running it: what
+/// the studio draws of a job before it runs. Checked as [`check`] does.
+///
+/// # Errors
+///
+/// The errors of [`check`].
+pub fn preview(job: &Job) -> Result<Event> {
+    check(job)?;
+    let parse = |e: toml::de::Error| task_error(e.to_string());
+    match job.task().get("kind").and_then(|k| k.as_str()) {
+        Some("structure") => {
+            let task: StructureTask = job.task().clone().try_into().map_err(parse)?;
+            structure_scene(&task, &task.structure()?)
+        }
+        Some("modes") => {
+            let task: ModesTask = job.task().clone().try_into().map_err(parse)?;
+            let stack = named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
+            modes_scene(&task, &draw(stack, &task.rect, &task.circle, &task.ring)?)
+        }
+        _ => fdfd::preview(job),
+    }
+}
+
 fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let task: ModesTask = job
         .task()
@@ -711,20 +839,9 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let lam = Wavelength::um(task.wavelength_um)?;
     let step = task.step_nm / 1000.0;
     let cut_y = task.cut_y_um.unwrap_or(0.0);
-    let s = draw(stack()?, &task.rect, &task.circle)?;
-    let z = match task.z_um {
-        Some(z) => z,
-        None => {
-            let (_, bottom, top) = s
-                .stack()
-                .layer(&task.layer)
-                .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
-            [bottom.to_um() - 1.0, top.to_um() + 1.0]
-        }
-    };
-    // the scene: a block behind the cut, as deep as the window is wide
-    let depth = task.x_um[1] - task.x_um[0];
-    run.record(&scene(&s, task.x_um, [cut_y - depth, cut_y], z, lam)?)?;
+    let s = draw(stack()?, &task.rect, &task.circle, &task.ring)?;
+    let z = modes_z(&task, &s)?;
+    run.record(&modes_scene(&task, &s)?)?;
     // the cross-section, as the structure job shows a side view
     run.record(&Event::Permittivity {
         view: format!("cross-section at y = {cut_y} um"),
@@ -738,7 +855,17 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             lam,
         )?,
     })?;
-    let cs = cross_section(&s, &task.rect, &task.circle, cut_y, task.x_um, z, step, lam)?;
+    let cs = cross_section(
+        &s,
+        &task.rect,
+        &task.circle,
+        &task.ring,
+        cut_y,
+        task.x_um,
+        z,
+        step,
+        lam,
+    )?;
     let found = crate::mode::vector::modes(&cs, lam, count, None)?;
     let mut sorted: Vec<_> = found.iter().collect();
     sorted.sort_by(|a, b| b.effective_index().re.total_cmp(&a.effective_index().re));
@@ -771,7 +898,17 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             "wavelength" => {
                 let w = Wavelength::um(value)?;
                 (
-                    cross_section(&s, &task.rect, &task.circle, cut_y, task.x_um, z, step, w)?,
+                    cross_section(
+                        &s,
+                        &task.rect,
+                        &task.circle,
+                        &task.ring,
+                        cut_y,
+                        task.x_um,
+                        z,
+                        step,
+                        w,
+                    )?,
                     w,
                 )
             }
@@ -782,9 +919,19 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                     task_error(format!("the width sweep's rect {index} isn't there"))
                 })?;
                 r.size_um[0] = value;
-                let swept = draw(stack()?, &rects, &task.circle)?;
+                let swept = draw(stack()?, &rects, &task.circle, &task.ring)?;
                 (
-                    cross_section(&swept, &rects, &task.circle, cut_y, task.x_um, z, step, lam)?,
+                    cross_section(
+                        &swept,
+                        &rects,
+                        &task.circle,
+                        &task.ring,
+                        cut_y,
+                        task.x_um,
+                        z,
+                        step,
+                        lam,
+                    )?,
                     lam,
                 )
             }
@@ -991,10 +1138,11 @@ size_um = [0.5, 10.0]
             center_um: [0.0, 0.0],
             size_um: [0.45, 10.0],
         };
-        let s = draw(LayerStack::soi_220(), std::slice::from_ref(&rect), &[]).unwrap();
+        let s = draw(LayerStack::soi_220(), std::slice::from_ref(&rect), &[], &[]).unwrap();
         let cs = cross_section(
             &s,
             &[rect],
+            &[],
             &[],
             0.0,
             [-1.0, 1.0],
@@ -1031,6 +1179,67 @@ size_um = [0.5, 10.0]
             (area - std::f64::consts::PI * 0.25).abs() < 0.01 * area,
             "{area}"
         );
+    }
+
+    #[test]
+    fn a_preview_is_the_scene_its_run_records() {
+        let root = temp("preview");
+        let ring = "
+[[task.ring]]
+layer = \"Si\"
+center_um = [0.0, 0.6]
+radius_um = 0.5
+width_um = 0.3
+";
+        for text in [
+            format!("{JOB}{ring}"),
+            format!("{MODES}{ring}"),
+            format!("{FDFD}{ring}"),
+        ] {
+            let job = Job::parse(&text).unwrap();
+            let preview = preview(&job).unwrap();
+            let mut run = Run::create(&root.0, &job).unwrap();
+            let stop = Stop::new(None);
+            stop.request(); // the scene comes first; nothing more is needed
+            let _ = execute(&job, &mut run, &stop);
+            let events: Vec<Event> = crate::run::replay(run.dir()).unwrap();
+            let recorded = events
+                .iter()
+                .find(|e| matches!(e, Event::Scene { .. }))
+                .unwrap();
+            assert_eq!(&preview, recorded);
+            let Event::Scene { shapes, .. } = preview else {
+                unreachable!()
+            };
+            assert_eq!(
+                shapes.last().unwrap().outline.len(),
+                130,
+                "the ring, with its hole"
+            );
+        }
+    }
+
+    #[test]
+    fn a_rings_outline_walks_its_hole_through_a_cut() {
+        let r = Shape::ring(Point::um(0.0, 0.0), Length::um(1.0), Length::um(0.5)).unwrap();
+        let o = outline(&r);
+        assert_eq!(o.len(), 64 + 1 + 64 + 1);
+        // the first vertex recurs where the hole starts, and the hole closes on itself
+        assert_eq!(o[64], o[0]);
+        assert_eq!(o[129], o[65]);
+        let area = |v: &[[f64; 2]]| {
+            (0..v.len())
+                .map(|k| {
+                    let (a, b) = (v[k], v[(k + 1) % v.len()]);
+                    a[0] * b[1] - b[0] * a[1]
+                })
+                .sum::<f64>()
+                / 2.0
+        };
+        // outer counterclockwise, hole clockwise, and the whole walk the ring's area
+        assert!(area(&o[..64]) > 0.0 && area(&o[65..129]) < 0.0);
+        let exact = std::f64::consts::PI * (1.25 * 1.25 - 0.75 * 0.75);
+        assert!((area(&o) - exact).abs() < 0.01 * exact, "{}", area(&o));
     }
 
     #[test]
@@ -1151,6 +1360,30 @@ points = 2
         assert!(
             matches!(&events[4], Event::SParameters { wavelength_um, .. } if *wavelength_um == 1.6)
         );
+    }
+
+    #[test]
+    fn an_fdfd_job_records_the_field_at_the_wavelength_asked() {
+        let root = temp("fdfd-field");
+        let text = FDFD.replace(
+            "step_nm = 40.0",
+            "step_nm = 40.0
+field_um = 1.58",
+        );
+        let job = Job::parse(&text).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let events: Vec<Event> = replay(run.dir()).unwrap();
+        // the swept wavelength nearest 1.58 is 1.6, the second: its field follows its S
+        let fields: Vec<f64> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::Field { wavelength_um, .. } => Some(*wavelength_um),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(fields, [1.6]);
+        assert!(matches!(&events[4], Event::Field { .. }), "{:?}", events[4]);
     }
 
     #[test]

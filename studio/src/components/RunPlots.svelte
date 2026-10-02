@@ -8,14 +8,19 @@
   import RasterView from "./RasterView.svelte";
 
   const db = (re: number, im: number) => 10 * Math.log10(Math.max(re * re + im * im, 1e-30));
+  /** Spectra as power (linear, the default: dips read as they are) or in dB (small values show). */
+  let decibels = $state(false);
 
-  /** |S_q1|² in dB against the wavelength, one series per output. */
+  /** |S_q1|² against the wavelength, one series per output. */
   const spectra = $derived.by((): Series[] => {
     if (run.sparams.length < 2) return [];
     const ports = run.sparams[0].ports.length;
     return Array.from({ length: ports }, (_, q) => ({
       label: `S${q + 1}1`,
-      points: run.sparams.map((sp) => [sp.wavelength_um, db(sp.s[q][0][0], sp.s[q][0][1])] as [number, number]),
+      points: run.sparams.map((sp) => {
+        const [re, im] = sp.s[q][0];
+        return [sp.wavelength_um, decibels ? db(re, im) : re * re + im * im] as [number, number];
+      }),
     }));
   });
 
@@ -71,9 +76,26 @@
   {#if run.sparams.length}
     {@const first = run.sparams[0]}
     <section class="panel p-5">
-      <h3 class="font-semibold">S-parameters <span class="font-normal faint">· {run.sparams.length} wavelength{run.sparams.length === 1 ? "" : "s"}</span></h3>
+      <div class="flex items-center gap-3">
+        <h3 class="font-semibold">S-parameters <span class="font-normal faint">· {run.sparams.length} wavelength{run.sparams.length === 1 ? "" : "s"}</span></h3>
+        <span class="flex-1"></span>
+        {#if spectra.length}
+          <div class="join">
+            <button class="btn join-item btn-xs {decibels ? '' : 'btn-primary btn-soft'}" onclick={() => (decibels = false)}>power</button>
+            <button class="btn join-item btn-xs {decibels ? 'btn-primary btn-soft' : ''}" onclick={() => (decibels = true)}>dB</button>
+          </div>
+        {/if}
+      </div>
       <p class="mb-3 text-xs faint">|S|², the power from port p into port q; 2D by the effective index method, an estimate rather than a device's 3D performance</p>
-      {#if spectra.length}<Plot series={spectra} xLabel="wavelength (µm)" yLabel="|S_q1|² (dB)" />{/if}
+      {#if spectra.length}
+        <Plot
+          series={spectra}
+          xLabel="wavelength (µm)"
+          yLabel={decibels ? "|S_q1|² (dB)" : "|S_q1|²"}
+          yRange={decibels ? undefined : [0, 1.02]}
+          name="{run.job?.job ?? 'run'}-spectra"
+        />
+      {/if}
       <div class="mt-4 overflow-x-auto">
         <table class="table table-xs w-auto">
           <thead><tr><th>at {first.wavelength_um} µm</th>{#each first.ports as _, p (p)}<th class="num">from {p + 1}</th>{/each}</tr></thead>
@@ -96,13 +118,13 @@
   {#if run.sweep}
     <section class="panel p-5">
       <h3 class="mb-3 font-semibold">Effective index <span class="font-normal faint">· over the {run.sweep.parameter}, {run.sweep.points.length} points</span></h3>
-      <Plot series={sweep} xLabel={unit} yLabel="n_eff" />
+      <Plot series={sweep} xLabel={unit} yLabel="n_eff" name="{run.job?.job ?? 'run'}-n_eff" />
     </section>
     {#if groups.length}
       <section class="panel p-5">
         <h3 class="mb-1 font-semibold">Group index</h3>
         <p class="mb-3 text-xs faint">n_g = n − λ dn/dλ, from the library's mode::dispersion::group_index</p>
-        <Plot series={groups} xLabel={unit} yLabel="n_g" />
+        <Plot series={groups} xLabel={unit} yLabel="n_g" name="{run.job?.job ?? 'run'}-n_g" />
       </section>
     {/if}
   {/if}

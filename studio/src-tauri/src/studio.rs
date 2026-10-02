@@ -45,6 +45,8 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        // the window opens where it was left, at the size it had
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             info,
             poll,
@@ -68,7 +70,9 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             task_output,
             stop_task,
             changelog,
-            published_report
+            published_report,
+            preview_scene,
+            save_text
         ])
         .setup(move |app| {
             let paths = app.path();
@@ -652,29 +656,65 @@ fn delete_job(state: tauri::State<'_, Studio>, path: String) -> Result<(), Strin
     std::fs::remove_file(&path).map_err(|e| format!("{}: {e}", path.display()))
 }
 
-/// Deletes a finished run of the workspace, its folder and all.
-#[tauri::command]
-fn delete_run(state: tauri::State<'_, Studio>, dir: String) -> Result<(), String> {
+/// Deletes a run of the workspace, its folder and all. A run still going is stopped first, and
+/// the window closes the run if it shows it.
+#[tauri::command(async)]
+fn delete_run(
+    state: tauri::State<'_, Studio>,
+    window: tauri::WebviewWindow,
+    dir: String,
+) -> Result<(), String> {
     let dir = inside(&state.workspace().join("runs"), Path::new(&dir))?;
     if !dir.join("events.jsonl").is_file() {
         return Err(format!("{} isn't a run", dir.display()));
     }
-    let running = lock(&state.started).iter().any(|s| {
-        s.dir.canonicalize().is_ok_and(|d| d == dir)
-            && s.worker.as_ref().is_none_or(|w| !w.is_finished())
-    });
-    if running {
-        return Err("the run is still going: stop it first".into());
+    let same = |d: &Path| d.canonicalize().is_ok_and(|d| d == dir);
+    // a run started here: stop it, and wait for its record to close
+    let running = |studio: &Studio| {
+        lock(&studio.started)
+            .iter()
+            .any(|s| same(&s.dir) && s.worker.as_ref().is_none_or(|w| !w.is_finished()))
+    };
+    if running(&state) {
+        for s in lock(&state.started).iter().filter(|s| same(&s.dir)) {
+            s.stop.request();
+        }
+        let waited = std::time::Instant::now();
+        while running(&state) {
+            if waited.elapsed() > Duration::from_secs(30) {
+                return Err(
+                    "the run is still stopping (it stops at its next check): try again in a moment"
+                        .into(),
+                );
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
     }
-    if lock(&state.current)
-        .dir
-        .as_ref()
-        .and_then(|d| d.canonicalize().ok())
-        .is_some_and(|d| d == dir)
     {
-        return Err("the run is open: open another first".into());
+        let mut current = lock(&state.current);
+        if current.dir.as_deref().is_some_and(same) {
+            current.generation += 1;
+            current.dir = None;
+            current.closes = false;
+            current.record = None;
+            let _ = window.set_title("photonoxide");
+        }
     }
+    lock(&state.started).retain(|s| !same(&s.dir));
     std::fs::remove_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))
+}
+
+/// Writes `text` to `path`, a file the user chose in a save dialog (a plot's data as CSV).
+#[tauri::command]
+fn save_text(path: String, text: String) -> Result<(), String> {
+    std::fs::write(&path, text).map_err(|e| format!("{path}: {e}"))
+}
+
+/// The scene the job in `text` records first, for the studio to draw before it runs.
+#[tauri::command]
+fn preview_scene(text: String) -> Result<Event, String> {
+    let job = Job::parse(&text).map_err(|e| e.to_string())?;
+    job::preview(&job).map_err(|e| e.to_string())
 }
 
 /// Every event of the run in `dir`, for comparing runs.
