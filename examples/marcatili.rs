@@ -30,7 +30,7 @@ use photonoxide::mode::vector::{
 };
 use photonoxide::units::{Length, Wavelength};
 
-fn main() -> photonoxide::Result<ExitCode> {
+pub fn main() -> photonoxide::Result<ExitCode> {
     let w = Wavelength::um(1.0)?;
     let (core, clad) = (1.5f64, 1.5f64 / 1.05);
     let mut checks = common::Checks::default();

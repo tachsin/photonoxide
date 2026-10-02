@@ -31,7 +31,7 @@ use photonoxide::mode::slab::Slab;
 use photonoxide::mode::vector::{self, Boundaries, Boundary, CrossSection, Permittivity, Pml};
 use photonoxide::units::{Length, Wavelength};
 
-fn main() -> photonoxide::Result<ExitCode> {
+pub fn main() -> photonoxide::Result<ExitCode> {
     let mut checks = common::Checks::default();
 
     let (core, clad, t) = (1.6, 1.5, Length::um(1.0));

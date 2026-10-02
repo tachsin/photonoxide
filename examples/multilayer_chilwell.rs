@@ -24,7 +24,7 @@ use photonoxide::mode::Polarization;
 use photonoxide::mode::multilayer::{Multilayer, Region};
 use photonoxide::units::{Length, Wavelength};
 
-fn main() -> photonoxide::Result<ExitCode> {
+pub fn main() -> photonoxide::Result<ExitCode> {
     let films: Vec<(c64, Length)> = [1.66, 1.53, 1.60, 1.66]
         .iter()
         .map(|&n| (c64::new(n, 0.0), Length::nm(500.0)))

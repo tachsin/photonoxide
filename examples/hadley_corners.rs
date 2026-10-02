@@ -67,7 +67,7 @@ fn problem(eps: f64, boxed: bool, n: usize) -> CrossSection {
     .expect("a valid problem")
 }
 
-fn main() -> ExitCode {
+pub fn main() -> ExitCode {
     let wavelength = Wavelength::um(1.5).expect("a valid wavelength");
     let mut checks = common::Checks::default();
     for (fig, eps, boxed, exact) in [

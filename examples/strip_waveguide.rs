@@ -38,7 +38,7 @@ fn strip(h: f64) -> CrossSection {
     .expect("a valid grid")
 }
 
-fn main() -> ExitCode {
+pub fn main() -> ExitCode {
     let wavelength = Wavelength::um(1.55).expect("a valid wavelength");
     println!("500 x 220 nm strip of 3.473 in 1.444 at 1550 nm (Chrostowski & Hochberg, Fig. 3.14)");
     let mut checks = common::Checks::default();

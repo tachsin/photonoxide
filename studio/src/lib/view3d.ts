@@ -82,7 +82,7 @@ export class View3D {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
     container.prepend(this.renderer.domElement);
-    this.scene.background = new THREE.Color("#121519");
+    this.scene.background = new THREE.Color("#0f1115");
     this.scene.add(new THREE.HemisphereLight("#e4ecf7", "#2a2e35", 1.6));
     this.scene.add(this.light, this.light.target, this.structure);
     this.camera.up.set(0, 0, 1);
@@ -91,6 +91,14 @@ export class View3D {
     this.renderer.domElement.addEventListener("dblclick", () => this.frame());
     new ResizeObserver(() => this.resize()).observe(container);
     this.resize();
+  }
+
+  /** The backdrop: deep slate for the dark theme, a pale grey for the light one. */
+  setDark(dark: boolean) {
+    this.scene.background = new THREE.Color(dark ? "#0f1115" : "#eef1f5");
+    EDGE.color.set(dark ? "#d4d9e1" : "#3c4656");
+    FAINT_EDGE.color.set(dark ? "#8b95a5" : "#7a8494");
+    this.render();
   }
 
   /** Draws nothing: no structure, no field, and the next scene is framed afresh. */

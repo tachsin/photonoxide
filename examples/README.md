@@ -38,5 +38,7 @@ cargo run --release --quiet --example <name> > examples/output/<name>.txt
 - Print the grid for every computed number ("exact: no grid" for closed forms).
 - Add a row to the table above, and its output to `output/`.
 - Print nothing that changes between runs (timings, for instance): the output is compared.
+- Make `main` public and add the example to `examples!` in `studio/src-tauri/src/examples.rs`: the
+  program has every example built in (`photonoxide example <name>`), and the studio runs them.
 
 The full validation report, including analytic and convergence checks, is [docs/validation.md](../docs/validation.md).

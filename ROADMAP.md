@@ -140,6 +140,14 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - [x] **Studio:** FDFD fields on a plane in the 3D view, and S-parameters as they arrive. *(An `"fdfd"` job: a device on one layer seen from above, its permittivity by the effective index method, ports with windows for guides side by side, a wavelength sweep; the field drawn on the layer in 3D, the S-matrix and |S_q1|² in 2D; `jobs/mmi-fdfd.toml`, a 1×2 splitter.)*
 - [x] **Validation:** reciprocity, energy conservation, analytic cases, agreement with the mode solvers. *(In 2D: reciprocity, energy conservation, a slab's reflection against the exact transfer matrices, the PML's reflection, the port modes against the exact slab, and the adjoint gradients against finite differences. In 3D: energy conservation, a film's reflection at oblique incidence against the exact transfer matrices, the PML's reflection, the 2D solver on a structure uniform along z, QMR against the direct solver, and Shin & Fan's Fig. 3. Reciprocity in 3D comes with 3D ports in 0.4, and agreement with FDTD in 0.5, once FDTD exists.)*
 
+### 0.3.1: The studio as a workspace
+- [x] **Everything inside the program:** the job files of `jobs/` and the thirteen published results of `examples/` built in, each run from the window, with each line of an example checked against its paper as it prints; the validation report, and running it on this machine.
+- [x] **Jobs built in the window,** with no TOML needed, moved from 0.4: a form for each kind, the device drawn from above as you type (shapes, ports, the PML, the cut), the TOML beside it and editable, and the library checking the job as it changes (`job::check`); saved to the workspace's `jobs/`.
+- [x] **Spectra and run comparison,** moved from 0.4: plots with read-outs, and the sweeps and spectra of several runs on shared axes.
+- [x] **A modern window:** Svelte, Tailwind CSS and daisyUI; dark and light themes; a home page, a tour, tips, tooltips and a Ctrl+K palette; settings, and a workspace folder.
+- [x] **Updates from inside the program:** signed releases with an update manifest; an installed copy offers a new release and installs it with one click (tested from a 0.3.0 installer to 0.3.1).
+- [x] **Code signing, ready:** Windows (Certum's open-source certificate through ssign) and macOS (Developer ID and notarization) in the release workflow, each from when its secrets are set.
+
 ### 0.4: Components and circuits
 
 The backbone of a chip: components with ports and several fidelities, connected into circuits that simulate together and are optimized at every level. It needs no new physics, because 0.2 and 0.3 already give modes and S-matrices.
@@ -151,11 +159,9 @@ The backbone of a chip: components with ports and several fidelities, connected 
 - [ ] **Compact models** fitted from solver results (rational in wavelength, polynomial in parameters), with their fit error; Touchstone (.sNp) import and export, the "measured" fidelity.
 - [ ] **3D FDFD for components:** ports, mode sources and S-matrices in 3D, with the full-vector mode solver's modes, and reciprocity checked; a preconditioner for high-contrast 3D problems (QMR takes thousands of iterations on a silicon guide), so a component's 3D fidelity takes minutes.
 - [ ] **First components:** waveguide, bend, directional coupler, MMI, Y-branch, ring (all-pass and add-drop) and MZI, from analytic models and from the 0.2 and 0.3 solvers.
-- [ ] **Studio, the workspace begins:**
-  - jobs built in the window, with no TOML needed;
+- [ ] **Studio, components and chips** (jobs built in the window, spectra and run comparison came in 0.3.1):
   - a component library;
-  - the chip view, where components are placed and connected;
-  - spectra, and run comparison.
+  - the chip view, where components are placed and connected.
 - [ ] **Validation:**
   - analytic MZI and ring responses (Bogaerts 2012), and the free spectral range from n_g;
   - reciprocity, and unitarity of lossless netlists;

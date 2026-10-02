@@ -16,7 +16,7 @@ use std::process::ExitCode;
 use photonoxide::material;
 use photonoxide::units::Wavelength;
 
-fn main() -> ExitCode {
+pub fn main() -> ExitCode {
     let si = material::silicon();
     println!("{} (Li 1980, Table 1, 293 K), no grid", si.name());
     let mut checks = common::Checks::default();

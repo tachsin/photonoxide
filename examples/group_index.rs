@@ -70,7 +70,7 @@ fn strip(si: &Material, width: f64, wavelength: Wavelength) -> photonoxide::Resu
     })
 }
 
-fn main() -> photonoxide::Result<ExitCode> {
+pub fn main() -> photonoxide::Result<ExitCode> {
     let si = silicon()?;
     let wavelengths = [1.54, 1.55, 1.56]
         .iter()

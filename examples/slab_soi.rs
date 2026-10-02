@@ -16,7 +16,7 @@ use photonoxide::mode::Polarization;
 use photonoxide::mode::slab::Slab;
 use photonoxide::units::{Length, Wavelength};
 
-fn main() -> ExitCode {
+pub fn main() -> ExitCode {
     let slab = Slab::new(1.444, 3.473, 1.444, Length::nm(220.0)).expect("a valid slab");
     let wavelength = Wavelength::um(1.55).expect("a valid wavelength");
     println!(

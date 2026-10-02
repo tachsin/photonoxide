@@ -129,6 +129,36 @@ fn plane(
     })
 }
 
+/// [`super::check`] for an `"fdfd"` job.
+pub(super) fn check(job: &Job) -> Result<()> {
+    let task: FdfdTask = job
+        .task()
+        .clone()
+        .try_into()
+        .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
+    let s = draw(
+        named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
+        &task.rect,
+        &task.circle,
+    )?;
+    s.stack()
+        .layer(&task.layer)
+        .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
+    match task.polarization.as_deref().unwrap_or("te") {
+        "te" | "tm" => {}
+        other => {
+            return Err(task_error(format!(
+                "unknown polarization \"{other}\": te or tm"
+            )));
+        }
+    }
+    if task.port.is_empty() {
+        return Err(task_error("an fdfd job needs at least one [[task.port]]"));
+    }
+    Wavelength::um(task.wavelength_um)?;
+    Ok(())
+}
+
 pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let task: FdfdTask = job
         .task()

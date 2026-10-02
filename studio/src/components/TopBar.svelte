@@ -1,0 +1,63 @@
+<script lang="ts">
+  // The top bar: where you are, the search, an update when there is one, help and the theme.
+  import { CircleHelp, Download, Moon, Search, Sun } from "@lucide/svelte";
+
+  import { app, run, updateSettings } from "../lib/app.svelte";
+  import { updater } from "../lib/updater.svelte";
+
+  const titles: Record<string, [string, string]> = {
+    home: ["Home", "Start something, or pick up where you left off"],
+    examples: ["Examples", "Built into the program: run any of them in a click"],
+    builder: ["Job builder", "Describe a simulation in a form; the TOML follows"],
+    runs: ["Runs", "Everything run in this workspace"],
+    viewer: ["Viewer", "A run as its record holds it, live or replayed"],
+    compare: ["Compare", "Runs side by side"],
+    validation: ["Validation", "Each solver against exact solutions and published results"],
+    settings: ["Settings", "Appearance, workspace, tips and updates"],
+  };
+  const title = $derived(titles[app.page] ?? ["", ""]);
+  const mac = navigator.platform.toLowerCase().includes("mac");
+</script>
+
+<header class="flex h-14 items-center gap-4 border-b border-base-content/8 bg-base-100/60 px-5 backdrop-blur">
+  <div class="min-w-0">
+    <h1 class="truncate text-[15px] font-semibold tracking-tight">
+      {title[0]}
+      {#if app.page === "viewer" && run.job}<span class="font-normal muted"> · {run.job.job}</span>{/if}
+    </h1>
+    <p class="truncate text-xs faint">{title[1]}</p>
+  </div>
+  <span class="flex-1"></span>
+
+  <button
+    class="hidden h-9 w-72 items-center gap-2 rounded-lg border border-base-content/10 bg-base-200/70 px-3 text-sm faint transition-colors hover:border-base-content/20 lg:flex"
+    onclick={() => (app.palette = true)}
+    title="Search pages, examples, jobs and runs"
+  >
+    <Search size={15} />
+    <span class="flex-1 text-left">Search or jump to…</span>
+    <kbd class="kbd kbd-xs">{mac ? "⌘" : "Ctrl"}</kbd><kbd class="kbd kbd-xs">K</kbd>
+  </button>
+
+  {#if updater.status === "available" || updater.status === "downloading" || updater.status === "installing"}
+    <button class="btn btn-sm btn-primary gap-1.5 shadow-lg shadow-primary/20" onclick={() => (updater.dialog = true)} title="A new release is out: see what's new and update">
+      <Download size={15} />
+      {updater.status === "available" ? `Update to ${updater.version}` : "Updating…"}
+    </button>
+  {/if}
+
+  <div class="flex items-center gap-1">
+    <div class="tooltip tooltip-bottom" data-tip="Take the tour again">
+      <button class="btn btn-ghost btn-sm btn-square" aria-label="Take the tour" onclick={() => (app.tour = true)}><CircleHelp size={18} /></button>
+    </div>
+    <div class="tooltip tooltip-bottom tooltip-left" data-tip={app.dark ? "Light theme" : "Dark theme"}>
+      <button
+        class="btn btn-ghost btn-sm btn-square"
+        aria-label="Switch the theme"
+        onclick={() => updateSettings((s) => (s.theme = app.dark ? "light" : "dark"))}
+      >
+        {#if app.dark}<Sun size={18} />{:else}<Moon size={18} />{/if}
+      </button>
+    </div>
+  </div>
+</header>

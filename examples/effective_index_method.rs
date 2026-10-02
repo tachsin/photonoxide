@@ -46,7 +46,7 @@ fn strip(width: f64) -> photonoxide::Result<CrossSection> {
     })
 }
 
-fn main() -> photonoxide::Result<ExitCode> {
+pub fn main() -> photonoxide::Result<ExitCode> {
     let wavelengths = [1.54, 1.55, 1.56]
         .iter()
         .map(|&l| Wavelength::um(l))

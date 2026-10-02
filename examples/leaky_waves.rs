@@ -25,7 +25,7 @@ use num_complex::Complex64 as c64;
 use photonoxide::mode::vector::{self, Boundaries, Boundary, CrossSection, Permittivity, Pml};
 use photonoxide::units::Wavelength;
 
-fn main() -> photonoxide::Result<ExitCode> {
+pub fn main() -> photonoxide::Result<ExitCode> {
     let h = 0.0025;
     // y = 0 is the cover's interface; the films and the substrate lie below it
     let index = |y: f64| match y {
