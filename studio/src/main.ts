@@ -6,10 +6,19 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { mediumLook } from "./colours";
-import { modeKind, type Event, type Mode, type Permittivity, type Scene, type SweepPoint } from "./events";
+import {
+  modeKind,
+  type Event,
+  type Field,
+  type Mode,
+  type Permittivity,
+  type Scene,
+  type SParameters,
+  type SweepPoint,
+} from "./events";
 import { renderHome, type Home } from "./home";
 import { render2d } from "./view2d";
-import { View3D } from "./view3d";
+import { View3D, type Plane } from "./view3d";
 import "./style.css";
 
 interface Info {
@@ -30,6 +39,8 @@ const state = {
   pictures: [] as Permittivity[],
   modes: [] as Mode[],
   sweep: null as { parameter: string; points: SweepPoint[] } | null,
+  fields: [] as Field[],
+  sparams: [] as SParameters[],
   finished: null as { stopped: string | null; seconds: number } | null,
   problem: null as string | null,
   count: 0,
@@ -65,6 +76,13 @@ function take(e: Event) {
       state.sweep ??= { parameter: e.parameter, points: [] };
       state.sweep.points.push(e);
       break;
+    case "field":
+      state.fields.push(e);
+      if (state.fields.length === 1) dirty.field = true;
+      break;
+    case "s_parameters":
+      state.sparams.push(e);
+      break;
     case "finished":
       state.finished = { stopped: e.stopped, seconds: e.seconds };
       break;
@@ -82,6 +100,8 @@ function reset(info: Info) {
     pictures: [],
     modes: [],
     sweep: null,
+    fields: [],
+    sparams: [],
     finished: null,
     problem: null,
     count: 0,
@@ -165,6 +185,18 @@ function sideBar() {
     html += `<details open><summary>Modes</summary>${items.join("")}
       <p class="weak small">the selected mode's |E|² is painted on the cut</p></details>`;
   }
+  if (state.sparams.length) {
+    const first = state.sparams[0];
+    const db = (v: [number, number]) => (10 * Math.log10(Math.max(v[0] * v[0] + v[1] * v[1], 1e-30))).toFixed(2);
+    const rows = first.ports.map(
+      (name, q) =>
+        `<dt>${esc(name)}</dt><dd>n_eff ${first.effective_indices[q].toFixed(4)} · from 1: ${db(first.s[q][0])} dB</dd>`,
+    );
+    const n = state.sparams.length;
+    html += `<details open><summary>Ports</summary><dl>${rows.join("")}</dl>
+      <p class="weak small">|S|² at ${first.wavelength_um} µm${n > 1 ? `; ${n} wavelengths` : ""} · 2D, effective index method</p>
+      <a href="#" data-goto="2d">S-parameters in the 2D view</a></details>`;
+  }
   if (state.sweep) {
     const { parameter, points } = state.sweep;
     const first = points[0]?.value;
@@ -184,7 +216,11 @@ function sideBar() {
 
 function overlay() {
   const m = state.modes[state.selected];
-  $("overlay").innerHTML = m
+  const f = state.fields[0];
+  $("overlay").innerHTML = f
+    ? `<strong>${esc(f.label)}</strong> at ${f.wavelength_um} µm<br/>
+       <span class="weak">drawn on the layer's top face, from zero (black) to its peak (pale yellow)</span>`
+    : m
     ? `<strong>${esc(m.label)}</strong> · ${modeKind(m)} · n_eff = ${m.effective_index[0].toFixed(6)} at ${m.wavelength_um} µm<br/>
        <span class="weak">|E|² on the cut at y = ${m.cut_y_um.toFixed(3)} µm, from zero (black) to its peak (pale yellow)</span>`
     : "";
@@ -195,6 +231,14 @@ function overlay() {
       ? `this run has no 3D scene (an older photonoxide recorded it): <a href="#" data-goto="2d">show the 2D view</a>`
       : "waiting for the structure…";
   }
+}
+
+/** The field the 3D view paints: an FDFD run's, on its layer, or the selected mode on its cut. */
+function plane(): Plane | null {
+  const f = state.fields[0];
+  if (f) return { intensity: f.intensity, normal: "z", at: f.z_um };
+  const m = state.modes[state.selected];
+  return m ? { intensity: m.intensity, normal: "y", at: m.cut_y_um } : null;
 }
 
 function setView(v: "3d" | "2d") {
@@ -246,7 +290,7 @@ function update() {
     dirty.scene = false;
   }
   if (dirty.field) {
-    view3d.setField(state.modes[state.selected] ?? null);
+    view3d.setField(plane());
     dirty.field = false;
   }
   if (dirty.side) {

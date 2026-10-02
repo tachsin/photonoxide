@@ -449,3 +449,21 @@ p {
 .panel button.pick {
   margin-top: 12px;
 }
+
+.smatrix {
+  border-collapse: collapse;
+  margin: 8px 0 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.smatrix th,
+.smatrix td {
+  padding: 3px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+}
+
+.smatrix th {
+  color: var(--weak);
+  font-weight: 500;
+}

@@ -59,6 +59,46 @@
 //! to = 1.6
 //! points = 11
 //! ```
+//!
+//! - `"fdfd"`: a device on one layer, seen from above, by 2D FDFD ([`crate::fdfd`]) with
+//!   ports: each point's permittivity is its slab's effective index squared (the effective
+//!   index method, so the results are 2D estimates, not a device's 3D performance). Recorded
+//!   as the S-parameters at each wavelength, and the field from the first port at the first.
+//!
+//! ```toml
+//! name = "mmi"
+//! timeout_minutes = 20
+//!
+//! [task]
+//! kind = "fdfd"
+//! stack = "soi_220"
+//! wavelength_um = 1.55
+//! layer = "Si"
+//! polarization = "te"        # the slab's TE mode, H along z in the 2D problem; or "tm"
+//! x_um = [-2.0, 12.5]        # PMLs (pml_cells, 20 by default) inside the window
+//! y_um = [-3.0, 3.0]
+//! step_nm = 20.0
+//!
+//! [[task.rect]]
+//! layer = "Si"
+//! center_um = [4.275, 0.0]
+//! size_um = [8.55, 3.0]
+//!
+//! [[task.port]]
+//! x_um = -1.0
+//! side = "left"              # light comes in towards +x
+//!
+//! [[task.port]]
+//! x_um = 11.0
+//! side = "right"
+//! y_um = [0.0, 3.0]          # one guide of several: the port's window
+//!
+//! [task.sweep]
+//! parameter = "wavelength"
+//! from = 1.5
+//! to = 1.6
+//! points = 11
+//! ```
 
 use serde::{Deserialize, Serialize};
 
@@ -68,6 +108,8 @@ use crate::run::{Job, Run, Stop, StopReason};
 use crate::stack::{LayerStack, Structure};
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
+
+mod fdfd;
 
 /// An event of a run's record.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -141,6 +183,29 @@ pub enum Event {
         effective_indices: Vec<[f64; 2]>,
         /// Their TE fractions, in the same order.
         te_fractions: Vec<f64>,
+    },
+    /// A field of a 2D FDFD run, seen from above.
+    Field {
+        /// What it shows, e.g. `"|H_z|^2 from port 1, 2D by the effective index method"`.
+        label: String,
+        /// The vacuum wavelength, µm.
+        wavelength_um: f64,
+        /// The height the 3D view draws it at, µm: the layer's top face.
+        z_um: f64,
+        /// |field|², its largest value 1; x across, y up.
+        intensity: Raster,
+    },
+    /// A 2D FDFD run's S-parameters at one wavelength.
+    SParameters {
+        /// The vacuum wavelength, µm.
+        wavelength_um: f64,
+        /// The ports' names, in order.
+        ports: Vec<String>,
+        /// Each port's mode's effective index.
+        effective_indices: Vec<f64>,
+        /// The power-normalized S-matrix, `s[q][p]` from port p into port q, real and
+        /// imaginary parts.
+        s: Vec<Vec<[f64; 2]>>,
     },
     /// The run ended.
     Finished {
@@ -539,6 +604,7 @@ pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     match kind.as_str() {
         "structure" => structure(job, run, stop)?,
         "modes" => modes(job, run, stop)?,
+        "fdfd" => fdfd::run(job, run, stop)?,
         other => return Err(task_error(format!("unknown kind \"{other}\""))),
     }
     let seconds = run.elapsed().as_secs_f64();
@@ -957,6 +1023,89 @@ size_um = [0.5, 10.0]
             let mut run = Run::create(&root.0, &job).unwrap();
             let e = execute(&job, &mut run, &Stop::new(None)).unwrap_err();
             assert!(e.to_string().contains(says), "{says}: {e}");
+        }
+    }
+
+    const FDFD: &str = r#"
+name = "strip-fdfd"
+
+[task]
+kind = "fdfd"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+x_um = [-1.4, 1.4]
+y_um = [-1.4, 1.4]
+step_nm = 40.0
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, 0.0]
+size_um = [4.0, 0.5]
+
+[[task.port]]
+x_um = -0.4
+side = "left"
+
+[[task.port]]
+x_um = 0.4
+side = "right"
+
+[task.sweep]
+parameter = "wavelength"
+from = 1.5
+to = 1.6
+points = 2
+"#;
+
+    #[test]
+    fn an_fdfd_job_records_s_parameters_and_a_field() {
+        let root = temp("fdfd");
+        let job = Job::parse(FDFD).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let events: Vec<Event> = replay(run.dir()).unwrap();
+        // started, the scene, S at 1.5 um, the field, S at 1.6 um, finished
+        assert_eq!(events.len(), 6, "{events:?}");
+        assert!(matches!(&events[1], Event::Scene { .. }));
+        let Event::SParameters {
+            wavelength_um,
+            ports,
+            effective_indices,
+            s,
+        } = &events[2]
+        else {
+            panic!("{:?}", events[2])
+        };
+        assert_eq!(*wavelength_um, 1.5);
+        assert_eq!(ports.len(), 2);
+        // a straight strip: everything through, in a mode between the oxide's and the slab's
+        // index (the slab's TE mode, 2.85, in oxide, 1.444)
+        let through = s[1][0][0].hypot(s[1][0][1]);
+        assert!((through - 1.0).abs() < 1e-6, "{s:?}");
+        assert!(
+            effective_indices.iter().all(|&n| n > 1.444 && n < 2.85),
+            "{effective_indices:?}"
+        );
+        let Event::Field { intensity, .. } = &events[3] else {
+            panic!("{:?}", events[3])
+        };
+        assert_eq!((intensity.nx, intensity.ny), (70, 70));
+        assert!(
+            matches!(&events[4], Event::SParameters { wavelength_um, .. } if *wavelength_um == 1.6)
+        );
+    }
+
+    #[test]
+    fn an_fdfd_job_without_ports_or_with_a_port_in_the_pml_is_an_error() {
+        let ports = "[[task.port]]\nx_um = -0.4\nside = \"left\"\n\n[[task.port]]\nx_um = 0.4\nside = \"right\"";
+        let in_pml = "[[task.port]]\nx_um = -1.35\nside = \"left\"\n\n[[task.port]]\nx_um = 0.4\nside = \"right\"";
+        for (to, error) in [("", "at least one"), (in_pml, "clear of the PMLs")] {
+            let root = temp("fdfd-bad");
+            let job = Job::parse(&FDFD.replace(ports, to)).unwrap();
+            let mut run = Run::create(&root.0, &job).unwrap();
+            let e = execute(&job, &mut run, &Stop::new(None)).unwrap_err();
+            assert!(e.to_string().contains(error), "{e}");
         }
     }
 }

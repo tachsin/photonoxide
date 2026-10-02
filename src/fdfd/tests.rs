@@ -241,3 +241,80 @@ fn time_a_reused_analysis() {
         println!("TIMING one source: {:?}", t2.elapsed());
     }
 }
+
+#[test]
+fn windowed_ports_see_one_guide_each() {
+    // two silicon slabs at y = ±0.8 µm, 1.6 µm apart, each with its own port at each end
+    let h = 0.02;
+    let pml = 20;
+    let grid = Grid {
+        nx: (2.0 / h) as usize + 2 * pml,
+        ny: (3.0 / h) as usize + 2 * pml,
+        dx: h,
+        dy: h,
+        x0: -(pml as f64) * h,
+        y0: -1.5 - pml as f64 * h,
+    };
+    let eps = |_: f64, y: f64| {
+        let n: f64 = if (y.abs() - 0.8).abs() < 0.11 {
+            3.476
+        } else {
+            1.444
+        };
+        c64::new(n * n, 0.0)
+    };
+    let solver = Solver2d::new(
+        grid,
+        Polarization::Ez,
+        Wavelength::um(1.55).unwrap(),
+        eps,
+        Boundaries::pml(pml),
+    )
+    .unwrap();
+    let row = |y: f64| ((y - grid.y0) / h).round() as usize;
+    let (bottom, top) = (row(-1.5)..row(0.0), row(0.0)..row(1.5));
+    let (a, b) = (column(&solver, 0.3), column(&solver, 1.7));
+    let port = |c: usize, rows: std::ops::Range<usize>, side: Side| Port {
+        mode: solver.port_modes_within(c, rows, 1).unwrap().remove(0),
+        side,
+    };
+    let ports = [
+        port(a, bottom.clone(), Side::Left),
+        port(a, top.clone(), Side::Left),
+        port(b, bottom, Side::Right),
+        port(b, top, Side::Right),
+    ];
+    // each window's mode is the lone guide's, but for the window's wall 0.69 µm from the core,
+    // where the field is down to about 1e-3 of its peak
+    let lone = guide(Polarization::Ez, h, 2.0, (3.476, 1.444), |_| 0.22);
+    let alone = lone.port_modes(column(&lone, 0.3), 1).unwrap().remove(0);
+    for p in &ports {
+        let d = (p.mode.effective_index() - alone.effective_index()).norm();
+        assert!(d < 1e-5, "{d}");
+    }
+    let s = solver.s_matrix(&ports).unwrap();
+    // each guide carries its mode through with the open guide's phase (the window's wall pulls
+    // the window mode's β 1.2e-5 lower, 1.7e-5 rad over the 1.4 µm); what is left is the
+    // guides' evanescent coupling across the gap, 2.5e-6, and reflections of 3e-7
+    let beta = alone.beta();
+    let through = (c64::new(0.0, 1.0) * beta * ((b - a) as f64 * h)).exp();
+    for (from, to) in [(0, 2), (1, 3)] {
+        assert!(
+            (s[to][from] - through).norm() < 1e-5,
+            "{from}->{to}: {} vs {through}",
+            s[to][from]
+        );
+        assert!(s[from][from].norm() < 1e-6, "{from}: {}", s[from][from]);
+    }
+    assert!(
+        s[3][0].norm() < 1e-5 && s[2][1].norm() < 1e-5,
+        "{} {}",
+        s[3][0],
+        s[2][1]
+    );
+    let worst = (0..4)
+        .flat_map(|q| (0..4).map(move |p| (q, p)))
+        .map(|(q, p)| (s[q][p] - s[p][q]).norm())
+        .fold(0.0, f64::max);
+    assert!(worst < 1e-10, "{worst}");
+}

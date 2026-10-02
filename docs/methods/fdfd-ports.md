@@ -36,6 +36,13 @@ Arnoldi near the column's highest index. A mode solved this way propagates along
 waveguide exactly. Launched, it neither reflects nor sheds radiation, so a port measures only
 the device. A mode taken from a continuum solver would leave a small mismatch on every grid.
 
+**Several guides side by side** each get their own port with
+`Solver2d::port_modes_within(column, rows, count)`: the mode is solved on a window of the
+column, with walls at its ends, and the projection sees only the window. The guide's field must
+have decayed at the window's ends. Two silicon slabs 1.6 µm apart, each windowed, carry their
+modes through with |S| = 1 and couple 2.5e-6 across the gap. The windows' walls pull β by 1.2e-5,
+and S stays symmetric to 3e-12.
+
 ## Sources
 
 A port launches its mode by total-field/scattered-field (Rumpf's Eq. 55). Q masks the cells of
@@ -92,6 +99,15 @@ is the effective index, and this estimate is good to 0.07 %. The step radiates 1
 transmits the rest, 0.99865. With H along z the TM mode is more weakly confined: the step
 reflects 2.1e-3 and radiates 6 %. There, Fresnel on the effective indices isn't the right
 estimate, since a TM mode's impedance isn't its index.
+
+## In the studio
+
+A job of kind `"fdfd"` runs a device on one layer, seen from above, with each point's
+permittivity its slab's effective index squared. It records the S-parameters at each wavelength
+of a sweep, and the field from the first port. The 3D view draws the field on the layer's top
+face; the 2D view has the field, the S-matrix and |S_q1|² against wavelength. `jobs/mmi-fdfd.toml`
+is a 1×2 splitter. These are 2D estimates by the effective index method, not a device's 3D
+performance.
 
 ## Limits
 
