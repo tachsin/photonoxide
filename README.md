@@ -12,13 +12,14 @@
 
 **Photonics for Rust: validated, fabrication-ready, and visible while it runs.**
 
-Mode solvers, FDFD, FDTD, semi-analytic methods, inverse design, layout and PDKs, in one library, with a studio to watch every simulation and optimization live.
+Mode solvers, FDFD, FDTD, circuits, thermal and electro-optic modulators, inverse design, layout and PDKs, in one library, with a studio to build chips and watch every simulation and optimization live.
 
 > **🚧 Alpha.** 0.2 Mode solvers is released: exact slabs and multilayers, full-vector 2D modes
 > with PML, bends, the effective index method, dispersion, fields and coupling, and the studio's
 > mode viewer, each checked against published results ([validation report](docs/validation.md),
-> [examples](examples/README.md)). FDFD comes next; see the [roadmap](ROADMAP.md), and share your
-> ideas in the issues.
+> [examples](examples/README.md)). FDFD in 2D and 3D, with ports, S-parameters and adjoint
+> gradients, is in; components and circuits come next, then FDTD and the thermal and electro-optic
+> modulators. See the [roadmap](ROADMAP.md), and share your ideas in the issues.
 
 ```sh
 cargo add photonoxide                               # the library
@@ -55,15 +56,18 @@ And underneath:
 |---|---|---|
 | 0.1 Foundations | Units, materials with provenance, geometry, run records, studio skeleton, validation harness | ✅ released |
 | 0.2 Mode solvers | Slab, full-vector 2D finite differences, EIM, bends, dispersion | ✅ released |
-| 0.3 FDFD | 2D and 3D, mode ports, S-parameters, adjoints | 🔜 next |
-| 0.4 FDTD | 2D and 3D Yee, CPML, subpixel smoothing, dispersive media, GPU | planned |
-| 0.5 Semi-analytic | TMM, RCWA, eigenmode expansion, BPM | planned |
-| 0.6 Inverse design | Adjoint topology and shape optimization, fabrication constraints, the 2D-to-3D pipeline | planned |
-| 0.7 Layout and PDK | GDSII and OASIS, parametric cells, routing, DRC, SiEPIC EBeam and Cornerstone | planned |
-| 0.8 Tape-out | Submission packages, test structures, sign-off, openEBL and Cornerstone runs, measurements back | planned |
-| 0.9 Fabrication realism | Process variation, lithography proxies, corners, yield | planned |
-| 0.10 Circuits and devices | S-parameter circuits, compact models, a validated device library | planned |
-| 0.11 – 0.13 | Photonic crystals, metasurfaces, plasmonics, nonlinear and fiber optics, multiphysics, quantum | planned |
+| 0.3 FDFD | 2D and 3D, mode ports, S-parameters, adjoints, an iterative 3D solver; Hadley's high-accuracy mode solver | 🔜 nearly done |
+| 0.4 Components and circuits | Components with ports at several fidelities, chips as netlists, the circuit adjoint, compact models; the studio becomes a workspace | planned |
+| 0.5 FDTD | 2D and 3D Yee, CPML, subpixel smoothing, dispersive media, GPU | planned |
+| 0.6 Thermal and electro-optic | Heat and electrostatics, thermo-optic phase shifters, Pockels modulators (thin-film lithium niobate first), travelling-wave electrodes | planned |
+| 0.7 Inverse design | Adjoint topology and shape optimization, fabrication constraints, the 2D-to-3D pipeline, device and circuit co-design | planned |
+| 0.8 Carrier modulators and signals | Drift-diffusion, plasma-dispersion modulators, time-domain circuits and eye diagrams, programmable meshes | planned |
+| 0.9 Layout and PDK | GDSII and OASIS, parametric cells, routing, DRC, SiEPIC EBeam and Cornerstone | planned |
+| 0.10 Tape-out | Submission packages, test structures, sign-off, openEBL and Cornerstone runs, measurements back | planned |
+| 0.11 Fabrication realism | Process variation, lithography proxies, corners, yield, circuit variability | planned |
+| 0.12 Semi-analytic | RCWA, eigenmode expansion, BPM | planned |
+| 0.13 Device library | Validated devices, each a component at several fidelities | planned |
+| 0.14 – 0.16 | Photonic crystals, metasurfaces, plasmonics, nonlinear and fiber optics, Kerr microcombs, quantum | planned |
 | 1.0 | Stable API and the published validation report | planned |
 
 The details are in [ROADMAP.md](ROADMAP.md).
