@@ -1,0 +1,130 @@
+name: Binaries
+
+# The photonoxide program (the studio, studio/) for the platforms research groups use: Linux on
+# x86_64 and ARM64 (clusters and workstations), Windows on x86_64 (lab and office PCs), and macOS
+# on Apple Silicon and Intel (laptops), attached to a release.
+#
+# - after a release: the release-plz workflow calls this with the release's tag;
+# - by hand (workflow_dispatch) with a tag: rebuilds that release's binaries;
+# - on a pull request that changes this file: a dry run, its binaries kept as workflow artifacts.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "the release's tag, e.g. v0.3.0"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "the release's tag, e.g. v0.3.0"
+        required: true
+        type: string
+  pull_request:
+    paths: [".github/workflows/binaries.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # the oldest supported Ubuntu: the binaries need its glibc or newer
+          - name: Linux x86_64
+            os: ubuntu-22.04
+            arch: x86_64
+            bundles: appimage,deb,rpm
+          - name: Linux ARM64
+            os: ubuntu-22.04-arm
+            arch: aarch64
+            bundles: appimage,deb,rpm
+          - name: Windows x86_64
+            os: windows-latest
+            arch: x86_64
+            bundles: nsis
+          - name: macOS universal
+            os: macos-latest
+            arch: universal
+            bundles: app,dmg
+            target: universal-apple-darwin
+    runs-on: ${{ matrix.os }}
+    env:
+      TAG: ${{ inputs.tag }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # a release's binaries are built from its tag
+          ref: ${{ inputs.tag || github.sha }}
+      - name: Tauri's Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf rpm
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: studio/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: studio/pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - uses: Swatinem/rust-cache@v2
+      - run: pnpm install --frozen-lockfile
+        working-directory: studio
+      - name: Build
+        working-directory: studio
+        run: |
+          # the release's version (the tag without its v), or the repository's for a dry run
+          version="${TAG#v}"
+          config="{\"bundle\":{\"active\":true}${version:+,\"version\":\"$version\"}}"
+          pnpm tauri build --bundles "${{ matrix.bundles }}" --config "$config" ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
+      - name: Collect
+        run: |
+          version="${TAG#v}"
+          version="${version:-dev}"
+          base="photonoxide-$version"
+          release=target/release
+          if [ -n "${{ matrix.target }}" ]; then release="target/${{ matrix.target }}/release"; fi
+          bundle="$release/bundle"
+          mkdir -p out
+          case "${{ runner.os }}" in
+            Linux)
+              cp "$bundle"/appimage/*.AppImage "out/$base-linux-${{ matrix.arch }}.AppImage"
+              cp "$bundle"/deb/*.deb "out/$base-linux-${{ matrix.arch }}.deb"
+              cp "$bundle"/rpm/*.rpm "out/$base-linux-${{ matrix.arch }}.rpm"
+              # the bare program; it needs the system's WebKitGTK (libwebkit2gtk-4.1)
+              tar -czf "out/$base-linux-${{ matrix.arch }}.tar.gz" -C "$release" photonoxide
+              ;;
+            Windows)
+              cp "$bundle"/nsis/*-setup.exe "out/$base-windows-${{ matrix.arch }}-setup.exe"
+              # portable: one .exe, using the WebView2 that Windows 10 and 11 have
+              7z a "out/$base-windows-${{ matrix.arch }}.zip" "./$release/photonoxide.exe"
+              ;;
+            macOS)
+              cp "$bundle"/dmg/*.dmg "out/$base-macos-${{ matrix.arch }}.dmg"
+              tar -czf "out/$base-macos-${{ matrix.arch }}.app.tar.gz" -C "$bundle/macos" photonoxide.app
+              ;;
+          esac
+          ls -l out
+      - name: Attach to the release
+        if: inputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" out/* --clobber
+      - name: Keep (dry run)
+        if: inputs.tag == ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: photonoxide-${{ runner.os }}-${{ matrix.arch }}
+          path: out/*
+          retention-days: 7

@@ -17,6 +17,9 @@ jobs:
       contents: write
       pull-requests: read
       id-token: write
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      releases: ${{ steps.release.outputs.releases }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -24,10 +27,23 @@ jobs:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
       - uses: release-plz/action@v0.5.139
+        id: release
         with:
           command: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # the photonoxide program for each platform, attached to the release just made. (A release
+  # made with GITHUB_TOKEN triggers no workflows, so it is called from here.)
+  binaries:
+    name: Binaries
+    needs: release
+    if: ${{ needs.release.outputs.releases_created == 'true' }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/binaries.yml
+    with:
+      tag: ${{ fromJSON(needs.release.outputs.releases)[0].tag }}
 
   # open or update the release PR: version bump (checked by cargo-semver-checks) and changelog
   release-pr:

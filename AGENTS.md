@@ -18,6 +18,7 @@ plain `cargo build`, which leaves the window pointing at the dev server:
 
 ```sh
 cd studio && pnpm install && pnpm tauri build           # target/release/photonoxide(.exe)
+target/release/photonoxide                                # the start page: run a job, reopen a run
 target/release/photonoxide run jobs/strip-and-ring.toml   # a job, live in the studio window
 target/release/photonoxide run jobs/strip-modes.toml      # a strip's modes and a wavelength sweep, live
 target/release/photonoxide run <job.toml> --headless      # the same run without a window

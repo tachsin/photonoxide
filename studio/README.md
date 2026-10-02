@@ -4,13 +4,20 @@
 finished run, and checks the validation report:
 
 ```sh
+photonoxide                      # the studio's start page: run a job from jobs/, reopen a run from runs/
 photonoxide run <job.toml> [--out <dir>] [--headless] [--linger <seconds>]
 photonoxide view <run directory>
 photonoxide validate [--write <file> | --check <file>]
+photonoxide --version
 ```
 
-A live window starts with the run and closes by itself a few seconds after it ends. If you
-close it first, the run stops. Every run is recorded in `runs/<run>/events.jsonl`, and the
+Started with no arguments (or from a file manager), the window opens on its start page. It
+lists the job files in `jobs/` and the newest runs in `runs/` under the folder it was started
+in, and its dialogs open any other job file or run folder. A job run from there writes its run
+to `runs/`, plays live, and leaves the window open.
+
+Started with `run`, the window starts with the run and closes by itself a few seconds after it
+ends. If you close it first, the run stops. Every run is recorded in `runs/<run>/events.jsonl`, and the
 window only follows that record, so a live run and a replay look the same.
 
 ## The window
@@ -22,6 +29,19 @@ window only follows that record, so a live run and a replay look the same.
   indices. The group indices come from the library's `mode::dispersion::group_index`.
 - **Sidebar**: the run; its layers, each of which can be hidden; its modes (pick the one shown
   on the cut); its sweep.
+
+## Downloads
+
+Each [release](https://github.com/tachsin/photonoxide/releases) from 0.3 on has the program for
+the platforms research groups use:
+
+| Platform | Files | Notes |
+|---|---|---|
+| Linux x86_64 and ARM64 (workstations, clusters) | `.AppImage`, `.deb`, `.rpm`, `.tar.gz` | The AppImage carries its libraries: `chmod +x` and run it, with `--appimage-extract-and-run` where FUSE is missing (most clusters). The `.tar.gz` holds the bare program, which needs the system's WebKitGTK (`libwebkit2gtk-4.1`), even with `--headless`. Built on Ubuntu 22.04: glibc 2.35 or newer. |
+| Windows x86_64 | `-setup.exe`, `.zip` | The installer needs no administrator rights. The zip is the portable program alone, using the WebView2 that comes with Windows 10 and 11. |
+| macOS, Apple Silicon and Intel | `.dmg`, `.app.tar.gz` | One universal app. It isn't signed yet: the first time, right-click it and choose Open, or run `xattr -dr com.apple.quarantine photonoxide.app`. From a terminal, the program is `photonoxide.app/Contents/MacOS/photonoxide`. |
+
+The release workflow, `.github/workflows/binaries.yml`, builds them from the release's tag.
 
 ## Building
 

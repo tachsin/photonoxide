@@ -86,14 +86,25 @@ export class View3D {
     this.resize();
   }
 
-  /** Draws `s`, without the layers named in `hidden` ("substrate" and "cladding" included). */
-  setScene(s: Scene, hidden: Set<string>) {
+  /** Draws nothing: no structure, no field, and the next scene is framed afresh. */
+  clear() {
+    this.clearStructure();
+    this.setField(null);
+    this.box = null;
+  }
+
+  private clearStructure() {
     for (const child of this.structure.children.slice()) {
       this.structure.remove(child);
       child.traverse((o) => {
         if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) o.geometry.dispose();
       });
     }
+  }
+
+  /** Draws `s`, without the layers named in `hidden` ("substrate" and "cladding" included). */
+  setScene(s: Scene, hidden: Set<string>) {
+    this.clearStructure();
     const [x0, x1] = s.x_um;
     const [y0, y1] = s.y_um;
     const [z0, z1] = s.z_um;

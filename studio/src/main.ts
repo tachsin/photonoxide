@@ -1,23 +1,30 @@
 // The studio window: follows the run's record (through the `poll` command) and shows it in a 3D
-// view (the default) or a 2D one, with the run, its layers, modes and sweep in the sidebar.
+// view (the default) or a 2D one, with the run, its layers, modes and sweep in the sidebar. With
+// no run open it shows the start page, where jobs are run and runs reopened.
 
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 
 import { mediumLook } from "./colours";
 import { modeKind, type Event, type Mode, type Permittivity, type Scene, type SweepPoint } from "./events";
+import { renderHome, type Home } from "./home";
 import { render2d } from "./view2d";
 import { View3D } from "./view3d";
 import "./style.css";
 
 interface Info {
-  dir: string;
-  name: string;
-  live: boolean;
-  linger_s: number;
+  generation: number;
+  /** The run's directory and name; none for the start page. */
+  dir: string | null;
+  name: string | null;
+  /** A run from the command line: the window closes after it. */
+  closes: boolean;
+  root: string;
 }
 
 const state = {
   info: null as Info | null,
+  page: "run" as "run" | "home",
   job: null as { job: string; kind: string } | null,
   scene: null as Scene | null,
   pictures: [] as Permittivity[],
@@ -66,17 +73,46 @@ function take(e: Event) {
   dirty.twoD = true;
 }
 
+/** Starts over on the run `info` describes (or none). */
+function reset(info: Info) {
+  Object.assign(state, {
+    info,
+    job: null,
+    scene: null,
+    pictures: [],
+    modes: [],
+    sweep: null,
+    finished: null,
+    problem: null,
+    count: 0,
+    hidden: new Set<string>(),
+    selected: 0,
+    opened: performance.now(),
+  });
+  view3d.clear();
+  $("view2d").replaceChildren();
+  Object.assign(dirty, { scene: false, field: false, side: true, twoD: true });
+  setPage(info.dir ? "run" : "home");
+}
+
 function topBar() {
-  $("job").textContent = state.job ? `${state.job.job} (${state.job.kind})` : "waiting for the run…";
+  const hasRun = !!state.info?.dir;
+  $("job").textContent = !hasRun ? "" : state.job ? `${state.job.job} (${state.job.kind})` : "waiting for the run…";
   const f = state.finished;
-  $("status").textContent = !f
+  $("status").textContent = !hasRun
+    ? ""
+    : !f
     ? `running · ${((performance.now() - state.opened) / 1000).toFixed(0)} s`
     : f.stopped
       ? `stopped (${f.stopped}) after ${f.seconds.toFixed(2)} s`
       : `finished in ${f.seconds.toFixed(2)} s`;
-  $("closes").hidden = !(state.info?.live && f);
+  $("closes").hidden = !(state.info?.closes && f);
+  $("switch").hidden = state.page === "home";
+  $("run-bar").hidden = !hasRun;
   $("hint").textContent =
-    state.view === "3d"
+    state.page === "home"
+      ? "run a job, or open a run"
+      : state.view === "3d"
       ? "drag: rotate · right-drag: pan · scroll: zoom · double-click: reset"
       : "pictures, modes and sweeps as the run records them";
   $("problem").textContent = state.problem ?? "";
@@ -98,7 +134,9 @@ function sideBar() {
       rows.push(`<dt>${axis}</dt><dd>${w[0].toFixed(3)} to ${w[1].toFixed(3)} µm</dd>`);
     }
   }
-  let html = `<details open><summary>Run</summary><dl>${rows.join("")}</dl></details>`;
+  let html = `<details open><summary>Run</summary>${
+    state.info?.dir ? `<dl>${rows.join("")}</dl>` : `<p class="weak small">No run open: start one, or open one.</p>`
+  }</details>`;
   if (s) {
     // top to bottom, as they stand
     const media = [
@@ -164,10 +202,41 @@ function setView(v: "3d" | "2d") {
   for (const b of document.querySelectorAll<HTMLButtonElement>(".switch button")) {
     b.classList.toggle("on", b.dataset.view === v);
   }
-  $("view3d").hidden = v !== "3d";
-  $("view2d").hidden = v !== "2d";
-  if (v === "3d") view3d.resize();
+  setPage("run");
+}
+
+function setPage(p: "run" | "home") {
+  state.page = p;
+  $("home").hidden = p !== "home";
+  $("view3d").hidden = p !== "run" || state.view !== "3d";
+  $("view2d").hidden = p !== "run" || state.view !== "2d";
+  if (p === "run" && state.view === "3d") view3d.resize();
+  if (p === "home") refreshHome();
   update();
+}
+
+async function refreshHome() {
+  try {
+    const h = await invoke<Home>("home");
+    if (state.page === "home") renderHome($("home"), h, state.info?.dir ? state.info.name : null);
+  } catch (e) {
+    state.problem = String(e);
+  }
+}
+
+/** Calls `command` (open_run or run_job), and shows the run it opens. */
+async function start(command: string, args: Record<string, string>) {
+  try {
+    const info = await invoke<Info>(command, args);
+    state.view = "3d";
+    for (const b of document.querySelectorAll<HTMLButtonElement>(".switch button")) {
+      b.classList.toggle("on", b.dataset.view === "3d");
+    }
+    reset(info);
+  } catch (e) {
+    state.problem = String(e);
+    topBar();
+  }
 }
 
 let drawing2d = false;
@@ -197,16 +266,23 @@ function update() {
 
 async function poll() {
   try {
-    const p = await invoke<{ events: Event[]; problem: string | null }>("poll", { from: state.count });
-    for (const e of p.events) take(e);
-    state.count += p.events.length;
-    state.problem = p.problem;
-    update();
+    const p = await invoke<{ generation: number; events: Event[]; problem: string | null }>("poll", {
+      from: state.count,
+    });
+    if (p.generation !== state.info?.generation) {
+      // the window moved to another run: start over on it
+      reset(await invoke<Info>("info"));
+    } else {
+      for (const e of p.events) take(e);
+      state.count += p.events.length;
+      state.problem = p.problem ?? state.problem;
+      update();
+    }
   } catch (e) {
     state.problem = `can't read the record: ${e}`;
     topBar();
   }
-  setTimeout(poll, state.finished ? 1000 : 150);
+  setTimeout(poll, state.finished || !state.info?.dir ? 1000 : 150);
 }
 
 document.addEventListener("click", (e) => {
@@ -214,9 +290,26 @@ document.addEventListener("click", (e) => {
   const view = t.closest<HTMLElement>("[data-view]")?.dataset.view;
   if (view === "3d" || view === "2d") setView(view);
   const goto = t.closest<HTMLElement>("[data-goto]")?.dataset.goto;
-  if (goto === "2d") {
+  if (goto === "2d" || goto === "run") {
     e.preventDefault();
-    setView("2d");
+    if (goto === "2d") setView("2d");
+    else setPage("run");
+  }
+  if (t.closest("#home-button")) setPage("home");
+  const run = t.closest<HTMLElement>("[data-run]")?.dataset.run;
+  if (run !== undefined) start("run_job", { path: run });
+  const dir = t.closest<HTMLElement>("[data-open]")?.dataset.open;
+  if (dir !== undefined) start("open_run", { dir });
+  const pick = t.closest<HTMLElement>("[data-pick]")?.dataset.pick;
+  if (pick === "job" || pick === "run") {
+    const root = state.info?.root ?? "";
+    const chosen =
+      pick === "job"
+        ? open({ title: "Run a job file", filters: [{ name: "photonoxide job", extensions: ["toml"] }], defaultPath: `${root}/jobs` })
+        : open({ title: "Open a run folder", directory: true, defaultPath: `${root}/runs` });
+    chosen.then((path) => {
+      if (typeof path === "string") start(pick === "job" ? "run_job" : "open_run", pick === "job" ? { path } : { dir: path });
+    });
   }
   const mode = t.closest<HTMLElement>("[data-mode]")?.dataset.mode;
   if (mode !== undefined) {
@@ -238,9 +331,6 @@ document.addEventListener("change", (e) => {
 });
 
 invoke<Info>("info")
-  .then((info) => (state.info = info))
+  .then((info) => reset(info))
   .catch(() => {})
-  .finally(() => {
-    update();
-    poll();
-  });
+  .finally(() => poll());
