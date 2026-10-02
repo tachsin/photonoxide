@@ -515,7 +515,83 @@ pub fn cases() -> Vec<Case> {
             source: "with d/dz = 0 Maxwell's equations split into the two 2D polarizations (K. S. Yee, IEEE Trans. Antennas Propag. 14, 302 (1966), doi:10.1109/TAP.1966.1138693); on the same grid and averaging the two discrete systems are the same equations, one eliminating H and the other E",
             run: fdfd3d_two_d_agreement,
         },
+        Case {
+            id: "fdfd3d/qmr-direct",
+            title: "3D FDFD by QMR, on the curl-curl operator and on Shin and Fan's (s = -1), to a relative residual of 1e-10, against the sparse direct solver: a silicon strip in oxide, 16^3 cells of 40 nm, PMLs all round (largest field difference relative to the largest field shown)",
+            tier: Tier::Analytic,
+            source: "the same system solved two ways: QMR, R. W. Freund, N. M. Nachtigal, Numer. Math. 60, 315 (1991), doi:10.1007/BF01385726, Algorithm 3.1 without look-ahead; Shin and Fan's operator, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, Eq. 7, has the same solution; measured 1.1e-11 and 1.3e-10",
+            run: fdfd3d_qmr_direct,
+        },
+        Case {
+            id: "fdfd3d/qmr-plateau",
+            title: "Shin and Fan's vacuum square (their Fig. 1: 50 x 50 cells of 2 nm, periodic, uniform along z, an x-polarized dipole at its centre, 1.55 um), QMR on the curl-curl operator (s = 0): the relative residual where it stagnates, at iteration 20 (shown)",
+            tier: Tier::Published,
+            source: "W. Shin, S. Fan, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, Section 3 and Fig. 3: the residual's part in the near-null eigenspace, 0.707, holds the residual there initially (GMRES; QMR is GMRES for this real symmetric matrix)",
+            run: fdfd3d_qmr_plateau,
+        },
+        Case {
+            id: "fdfd3d/qmr-iterations-curl-curl",
+            title: "The same square, s = 0: QMR iterations to a relative residual of 1e-6 (shown)",
+            tier: Tier::Published,
+            source: "W. Shin, S. Fan, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, Fig. 3: the s = 0 curve crosses 1e-6 at about m = 114, read off the plot to +-5",
+            run: fdfd3d_qmr_iterations_curl_curl,
+        },
+        Case {
+            id: "fdfd3d/qmr-iterations-shin-fan",
+            title: "The same square, s = -1: QMR iterations to a relative residual of 1e-6 (shown)",
+            tier: Tier::Published,
+            source: "W. Shin, S. Fan, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, Fig. 3: the s = -1 curve crosses 1e-6 at about m = 77, read off the plot to +-5",
+            run: fdfd3d_qmr_iterations_shin_fan,
+        },
     ]
+}
+
+fn fdfd3d_qmr_direct() -> Outcome {
+    use crate::fdfd::Formulation;
+    use crate::fdfd::checks3d::qmr_against_direct;
+    let worst = qmr_against_direct(Formulation::CurlCurl)
+        .0
+        .max(qmr_against_direct(Formulation::ShinFan).0);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // a residual of 1e-10 bounds the error by the condition number times 1e-10: measured
+        // 1.1e-11 (curl-curl) and 1.3e-10 (Shin and Fan)
+        tolerance: 1e-9,
+        error: worst,
+    }
+}
+
+fn fdfd3d_qmr_plateau() -> Outcome {
+    let how = crate::fdfd::checks3d::shin_fan_square(0.0, 1e-6);
+    let measured = how.history[19];
+    Outcome {
+        measured,
+        expected: 0.707,
+        // their 0.707 is the residual's projection on the eigenvalue nearest zero, an
+        // approximate floor; measured 0.709 from iteration 5 to 40
+        tolerance: 5e-3,
+        error: (measured - 0.707).abs(),
+    }
+}
+
+fn fdfd3d_qmr_iterations(s: f64, read: f64) -> Outcome {
+    let measured = crate::fdfd::checks3d::shin_fan_square(s, 1e-6).iterations as f64;
+    Outcome {
+        measured,
+        expected: read,
+        // read off the plot: 3.4 pixels per iteration at 500 dpi, the curves' width about 5
+        tolerance: 5.0,
+        error: (measured - read).abs(),
+    }
+}
+
+fn fdfd3d_qmr_iterations_curl_curl() -> Outcome {
+    fdfd3d_qmr_iterations(0.0, 114.0)
+}
+
+fn fdfd3d_qmr_iterations_shin_fan() -> Outcome {
+    fdfd3d_qmr_iterations(-1.0, 77.0)
 }
 
 fn fdfd3d_film(kind: Polarization, tolerance: f64) -> Outcome {

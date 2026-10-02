@@ -315,3 +315,324 @@ fn time_a_3d_problem() {
         nonzeros
     );
 }
+
+#[test]
+#[ignore = "a timing, for the docs: FDFD3D_LENGTH=40 cargo test --release fdfd::three::tests::time_qmr -- --ignored --nocapture"]
+fn time_qmr_on_a_silicon_guide() {
+    // Shin and Fan's Diel (their Fig. 9b), smaller: a silicon guide (400 x 300 nm, eps 12.09)
+    // along x in vacuum, 1.55 um, 10 nm grid, PMLs of 10 cells all round, a y-polarized current
+    // across the guide; 15 cells of vacuum beside it
+    use crate::fdfd::{Formulation, IterativeSolver3d, Stopping};
+    let nx: usize = std::env::var("FDFD3D_LENGTH")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(60);
+    let h = 0.01;
+    let (ny, nz) = (40 + 2 * 25, 30 + 2 * 25);
+    let grid = Grid3d {
+        nx,
+        ny,
+        nz,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: 0.0,
+        y0: -(ny as f64) * h / 2.0,
+        z0: -(nz as f64) * h / 2.0,
+    };
+    let guide = |_: f64, y: f64, z: f64| {
+        c64::new(
+            if y.abs() < 0.2 && z.abs() < 0.15 {
+                12.09
+            } else {
+                1.0
+            },
+            0.0,
+        )
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let mut source = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    for k in 0..nz {
+        for j in 0..ny {
+            let [_, y, z] = grid.e_position(Axis::Y, (15, j, k));
+            if y.abs() < 0.2 && z.abs() < 0.15 {
+                source[grid.index(Axis::Y, (15, j, k))] = c64::new(1.0, 0.0);
+            }
+        }
+    }
+    let stopping = Stopping {
+        tolerance: 1e-6,
+        max_iterations: 200_000,
+    };
+    let mut fields = Vec::new();
+    for formulation in [Formulation::CurlCurl, Formulation::ShinFan] {
+        let t0 = std::time::Instant::now();
+        let solver =
+            IterativeSolver3d::new(grid, lam, guide, Boundaries3d::pml(10), formulation).unwrap();
+        let t_build = t0.elapsed();
+        let t1 = std::time::Instant::now();
+        let (field, how) = solver.solve(&source, stopping).unwrap();
+        let t_solve = t1.elapsed();
+        println!(
+            "QMR {formulation:?}: {nx} x {ny} x {nz} cells, {} unknowns, {} nonzeros: {} \
+             iterations to {:e} in {t_solve:?} ({:?} per iteration), assembly {t_build:?}",
+            grid.unknowns(),
+            solver.nonzeros(),
+            how.iterations,
+            how.residual,
+            t_solve / how.iterations as u32
+        );
+        fields.push(field);
+    }
+    // both against the curl-curl system itself
+    let (lattice, eps) = Solver3d::setup(grid, lam, guide, Boundaries3d::pml(10)).unwrap();
+    let a = crate::fdfd::krylov::Sparse::new(
+        grid.unknowns(),
+        lattice
+            .assemble(&eps)
+            .into_iter()
+            .map(|t| (t.row, t.col, t.val)),
+    );
+    let b: Vec<c64> = source
+        .iter()
+        .map(|j| c64::new(0.0, -lattice.k0) * j)
+        .collect();
+    let norm = |v: &[c64]| v.iter().map(|x| x.norm_sqr()).sum::<f64>().sqrt();
+    for (field, name) in fields.iter().zip(["CurlCurl", "ShinFan"]) {
+        let ax = a.apply(field.values());
+        let r: Vec<c64> = ax.iter().zip(&b).map(|(p, q)| p - q).collect();
+        println!(
+            "{name}: residual in the curl-curl system {:e}",
+            norm(&r) / norm(&b)
+        );
+    }
+    let d: Vec<c64> = fields[0]
+        .values()
+        .iter()
+        .zip(fields[1].values())
+        .map(|(p, q)| p - q)
+        .collect();
+    println!(
+        "the two solutions differ by {:e} of the field",
+        norm(&d) / norm(fields[0].values())
+    );
+}
+
+#[test]
+fn the_transformed_system_has_the_same_solution() {
+    // Shin and Fan's Eq. 7 adds -s eps^-1 grad(div(eps E) - div b / k0^2), zero for the
+    // solution: with the PML's stretch in grad and div, div curl = 0 holds on the grid, so the
+    // solution is the same to round-off, here with silicon in oxide, PMLs on two axes and a
+    // Bloch-periodic third
+    let grid = Grid3d {
+        nx: 10,
+        ny: 12,
+        nz: 9,
+        dx: 0.04,
+        dy: 0.04,
+        dz: 0.04,
+        x0: -0.2,
+        y0: -0.24,
+        z0: -0.18,
+    };
+    let boundaries = Boundaries3d {
+        x: Edges::Bloch { k: 0.8 },
+        ..Boundaries3d::pml(3)
+    };
+    let strip = |_: f64, y: f64, z: f64| {
+        let n: f64 = if y.abs() < 0.1 && z.abs() < 0.06 {
+            3.476
+        } else {
+            1.444
+        };
+        c64::new(n * n, 0.0)
+    };
+    let (lattice, eps) =
+        Solver3d::setup(grid, Wavelength::um(1.55).unwrap(), strip, boundaries).unwrap();
+    let mut b = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    b[grid.index(Axis::Y, (5, 6, 4))] = c64::new(0.0, -1.0);
+    b[grid.index(Axis::Z, (2, 7, 5))] = c64::new(0.3, 0.2);
+    let solve = |s: f64| -> Vec<c64> {
+        use faer::linalg::solvers::Solve;
+        let entries = lattice.assemble_with(&eps, s);
+        let (lu, _) = crate::fdfd::factorize(&entries, grid.unknowns(), None).unwrap();
+        let rhs = lattice.transformed_rhs(&eps, &b, s);
+        let x = lu.solve(&faer::Mat::<c64>::from_fn(rhs.len(), 1, |r, _| rhs[r]));
+        (0..rhs.len()).map(|r| x[(r, 0)]).collect()
+    };
+    let plain = solve(0.0);
+    let largest = plain.iter().map(|v| v.norm()).fold(0.0, f64::max);
+    for s in [-1.0, 1.0] {
+        let d = solve(s)
+            .iter()
+            .zip(&plain)
+            .map(|(p, q)| (p - q).norm())
+            .fold(0.0, f64::max);
+        // measured 7e-15 (s = -1) and 1.1e-14 (s = +1)
+        assert!(d < 1e-12 * largest, "s {s}: {d} of {largest}");
+    }
+}
+
+#[test]
+fn qmr_converges_to_the_direct_solvers_field() {
+    use crate::fdfd::{Formulation, IterativeSolver3d, Stopping};
+    let (n, h) = (10, 0.05);
+    let grid = Grid3d {
+        nx: n,
+        ny: n,
+        nz: n,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: -0.25,
+        y0: -0.25,
+        z0: -0.25,
+    };
+    let cube = |x: f64, y: f64, z: f64| {
+        let inside = x.abs() < 0.1 && y.abs() < 0.1 && z.abs() < 0.1;
+        c64::new(if inside { 12.0 } else { 2.0 }, 0.0)
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let mut source = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    source[grid.index(Axis::Z, (5, 5, 5))] = c64::new(1.0, 0.0);
+    let direct = Solver3d::new(grid, lam, cube, Boundaries3d::pml(3))
+        .unwrap()
+        .solve(&source)
+        .unwrap();
+    let largest = direct.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+    for formulation in [Formulation::CurlCurl, Formulation::ShinFan] {
+        let solver =
+            IterativeSolver3d::new(grid, lam, cube, Boundaries3d::pml(3), formulation).unwrap();
+        let stopping = Stopping {
+            tolerance: 1e-10,
+            max_iterations: 5000,
+        };
+        let (field, how) = solver.solve(&source, stopping).unwrap();
+        assert!(how.residual <= 1e-10, "{formulation:?}: {how:?}");
+        let d = field
+            .values()
+            .iter()
+            .zip(direct.values())
+            .map(|(p, q)| (p - q).norm())
+            .fold(0.0, f64::max);
+        assert!(d < 1e-8 * largest, "{formulation:?}: {d} of {largest}");
+        assert_eq!(field.grid(), grid);
+        assert!(solver.solve(&source[1..], stopping).is_err());
+    }
+}
+
+#[test]
+fn shin_and_fans_square_converges_as_their_fig_3_shows() {
+    // s = 0 stagnates at the residual's share in the near-null eigenspace, 0.707, then drops;
+    // s = -1 doesn't stagnate; s = +1, strongly indefinite, is the slowest by far
+    let curl_curl = shin_fan_square(0.0, 1e-6);
+    let plateau = &curl_curl.history[4..40];
+    assert!(
+        plateau.iter().all(|r| (r - 0.707).abs() < 0.01),
+        "{plateau:?}"
+    );
+    let shin_fan = shin_fan_square(-1.0, 1e-6);
+    let indefinite = shin_fan_square(1.0, 1e-6);
+    // read off their Fig. 3: about 114 and 77; measured 114, 79 and 801
+    assert!(
+        (curl_curl.iterations as f64 - 114.0).abs() <= 5.0,
+        "{}",
+        curl_curl.iterations
+    );
+    assert!(
+        (shin_fan.iterations as f64 - 77.0).abs() <= 5.0,
+        "{}",
+        shin_fan.iterations
+    );
+    assert!(indefinite.iterations > 500, "{}", indefinite.iterations);
+}
+
+#[test]
+#[ignore = "iteration counts, for the docs: cargo test --release fdfd::three::tests::iteration_counts -- --ignored --nocapture"]
+fn iteration_counts_with_and_without_shin_and_fans_operator() {
+    // 40^3 cells of 10 nm (0.4 um across), 1.55 um, an x-polarized current near the centre;
+    // periodic, or PMLs of 10 cells all round; QMR to a relative residual of 1e-6 of each system
+    use crate::fdfd::krylov::{Sparse, Stopping, qmr};
+    let (n, h) = (40, 0.01);
+    let half = n as f64 * h / 2.0;
+    let grid = Grid3d {
+        nx: n,
+        ny: n,
+        nz: n,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: -half,
+        y0: -half,
+        z0: -half,
+    };
+    let per = Edges::Bloch { k: 0.0 };
+    let periodic = Boundaries3d {
+        x: per,
+        y: per,
+        z: per,
+        reflection: 1e-8,
+        order: 3.0,
+    };
+    let pml = Boundaries3d::pml(10);
+    type Eps = Box<dyn Fn(f64, f64, f64) -> c64>;
+    let block = |eps: f64, size: f64, along_x: bool| -> Eps {
+        Box::new(move |x: f64, y: f64, z: f64| {
+            let inside = (along_x || x.abs() < size) && y.abs() < size && z.abs() < size;
+            c64::new(if inside { eps } else { 1.0 }, 0.0)
+        })
+    };
+    let cases: Vec<(&str, Boundaries3d, Eps)> = vec![
+        ("vacuum, periodic", periodic, block(1.0, 0.0, false)),
+        ("vacuum, PMLs", pml, block(1.0, 0.0, false)),
+        (
+            "oxide cube 200 nm, periodic",
+            periodic,
+            block(2.085, 0.1, false),
+        ),
+        (
+            "silicon cube 200 nm, periodic",
+            periodic,
+            block(12.09, 0.1, false),
+        ),
+        (
+            "oxide guide 100 nm through the PMLs",
+            pml,
+            block(2.085, 0.05, true),
+        ),
+        ("silicon cube 100 nm, PMLs", pml, block(12.09, 0.05, false)),
+        (
+            "silicon guide 100 nm through the PMLs",
+            pml,
+            block(12.09, 0.05, true),
+        ),
+    ];
+    for (label, boundaries, eps) in cases {
+        let (lattice, e) =
+            Solver3d::setup(grid, Wavelength::um(1.55).unwrap(), eps, boundaries).unwrap();
+        let mut rhs = vec![c64::new(0.0, 0.0); grid.unknowns()];
+        rhs[grid.index(Axis::X, (n / 2 + 3, n / 2 + 3, n / 2 + 3))] = c64::new(0.0, -lattice.k0);
+        let count = |s: f64| {
+            let m = Sparse::new(
+                grid.unknowns(),
+                lattice
+                    .assemble_with(&e, s)
+                    .into_iter()
+                    .map(|t| (t.row, t.col, t.val)),
+            );
+            let stopping = Stopping {
+                tolerance: 1e-6,
+                max_iterations: 30_000,
+            };
+            match qmr(&m, &lattice.transformed_rhs(&e, &rhs, s), stopping) {
+                Ok((_, how)) => how.iterations.to_string(),
+                Err(err) => err.to_string(),
+            }
+        };
+        println!(
+            "COUNT {label}: s = 0: {}, s = -1: {}",
+            count(0.0),
+            count(-1.0)
+        );
+    }
+}
