@@ -1,4 +1,7 @@
-//! The `photonoxide` command.
+//! The `photonoxide` program: runs a job, live in the studio window or headless; replays a run in
+//! the studio; checks the validation report.
+
+mod studio;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -66,11 +69,6 @@ fn run(args: &[String]) -> ExitCode {
         Ok(j) => j,
         Err(e) => return fail(e),
     };
-    if !headless && !cfg!(feature = "studio") {
-        return fail(
-            "this photonoxide was built without the studio: run with --headless, or build with --features studio",
-        );
-    }
     let mut record = match Run::create(&out, &job) {
         Ok(r) => r,
         Err(e) => return fail(e),
@@ -78,13 +76,24 @@ fn run(args: &[String]) -> ExitCode {
     let dir = record.dir().to_path_buf();
     println!("{}", dir.display());
     let stop = Stop::new(job.timeout());
+    let (done, finished) = std::sync::mpsc::channel();
     let worker = {
         let (job, stop) = (job.clone(), stop.clone());
-        std::thread::spawn(move || job::execute(&job, &mut record, &stop))
+        std::thread::spawn(move || {
+            let result = job::execute(&job, &mut record, &stop);
+            let _ = done.send(());
+            result
+        })
     };
     if !headless {
-        // the window runs on the main thread (some platforms require it) while the job works
-        if let Err(e) = show(&dir, true, linger, Some(stop.clone())) {
+        // the window runs on the main thread (some platforms require it) while the job works,
+        // and closes `linger` after the job finished
+        let live = studio::Live {
+            linger,
+            finished,
+            stop: stop.clone(),
+        };
+        if let Err(e) = studio::show(&dir, Some(live)) {
             stop.request();
             let _ = worker.join();
             return fail(e);
@@ -107,24 +116,10 @@ fn view(args: &[String]) -> ExitCode {
     if !dir.join("events.jsonl").is_file() {
         return fail(format!("{} has no events.jsonl", dir.display()));
     }
-    match show(dir, false, Duration::ZERO, None) {
+    match studio::show(dir, None) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => fail(e),
     }
-}
-
-#[cfg(feature = "studio")]
-fn show(dir: &Path, live: bool, linger: Duration, stop: Option<Stop>) -> photonoxide::Result<()> {
-    photonoxide::studio::show(dir, photonoxide::studio::Options { live, linger, stop })
-}
-
-#[cfg(not(feature = "studio"))]
-fn show(_: &Path, _: bool, _: Duration, _: Option<Stop>) -> photonoxide::Result<()> {
-    Err(photonoxide::Error::InvalidValue {
-        what: "command",
-        reason: "this photonoxide was built without the studio: build with --features studio"
-            .into(),
-    })
 }
 
 fn validate(args: &[String]) -> ExitCode {

@@ -1,0 +1,26 @@
+# The photonoxide program: runs jobs, live in the studio window or headless, replays runs and
+# checks the validation report. Built from the repository with the Tauri CLI (see
+# studio/README.md), never published.
+[package]
+name = "photonoxide-studio"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.95"
+description = "The photonoxide program and its studio window"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/tachsin/photonoxide"
+publish = false
+default-run = "photonoxide"
+
+[[bin]]
+name = "photonoxide"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.6", features = [] }
+
+[dependencies]
+photonoxide = { path = "../.." }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2.11", features = [] }

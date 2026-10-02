@@ -84,8 +84,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - **`fab`:** process-variation models, lithography and etch proxies, and Monte Carlo and corner analysis.
 - **`validation`:** analytic solutions and published reference data, with their sources.
 - **`run`:** job descriptions (TOML), run directories, event streams and replay.
-- **`studio`** (feature): the egui + wgpu GUI.
-- **The `photonoxide` binary:** `run`, `view`, `validate`, `drc`, `tapeout` and `bench`.
+- **The studio, `studio/`:** the `photonoxide` program, a Tauri app with a three.js window: `run` (live or headless), `view`, `validate`, then `drc`, `tapeout` and `bench`.
 - **Errors:** one typed error enum, and no panics in library code.
 
 ## Milestones

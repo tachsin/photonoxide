@@ -7,13 +7,22 @@ photonoxide is pre-alpha: the plan is [ROADMAP.md](ROADMAP.md), and there is no 
 ```sh
 cargo test                                              # unit tests
 cargo clippy --all-targets --all-features -- -D warnings
-cargo run -- validate --write docs/validation.md        # rerun every validation case, rewrite the report
 cargo run --release --example strip_waveguide           # an example: a published result, checked
 cargo run --release --quiet --example <name> > examples/output/<name>.txt   # its output, which CI compares
-cargo run --release --features studio -- run jobs/strip-and-ring.toml   # a job, live in the studio window
-cargo run --release --features studio -- run jobs/strip-modes.toml      # a strip's modes and a wavelength sweep, live
-cargo run --release -- run <job.toml> --headless          # the same run without a window
-cargo run --release --features studio -- view runs/<run>  # replay a finished run
+cargo test --release --test validation_report -- --ignored   # every validation case, and the report is current
+```
+
+The `photonoxide` program is the studio, a Tauri app in `studio/` (Rust in `studio/src-tauri`,
+the window in TypeScript and three.js in `studio/src`). Build it with the Tauri CLI, never with
+plain `cargo build`, which leaves the window pointing at the dev server:
+
+```sh
+cd studio && pnpm install && pnpm tauri build           # target/release/photonoxide(.exe)
+target/release/photonoxide run jobs/strip-and-ring.toml   # a job, live in the studio window
+target/release/photonoxide run jobs/strip-modes.toml      # a strip's modes and a wavelength sweep, live
+target/release/photonoxide run <job.toml> --headless      # the same run without a window
+target/release/photonoxide view runs/<run>                # replay a finished run
+cargo run -p photonoxide-studio --release -- validate --write docs/validation.md   # rewrite the report
 ```
 
 CI fails when a validation case fails or `docs/validation.md` isn't the report the code writes:

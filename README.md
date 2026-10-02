@@ -22,8 +22,10 @@ Mode solvers, FDFD, FDTD, semi-analytic methods, inverse design, layout and PDKs
 
 ```sh
 cargo add photonoxide                               # the library
-cargo install photonoxide --features studio         # the photonoxide command, with the studio window
 ```
+
+The `photonoxide` program runs jobs live in the studio window (3D and 2D views) or headless, and
+replays runs; it is built from this repository, see [studio/README.md](studio/README.md).
 
 ## Why photonoxide?
 
@@ -37,7 +39,7 @@ Rust has oxiphoton, which is broad but has no GUI, and its README shows no compa
 
 - **Validated:** every solver checked against analytic solutions, published devices and established codes, with the results in a public report. Every reported number carries its convergence.
 - **Fabricable:** foundry design rules inside the optimization, and a tape-out package ready for a multi-project wafer run: GDSII or OASIS on the foundry's layers, DRC and connectivity checked, test structures included, and performance reported across process variation. The first target is SiEPIC openEBL, where photonoxide designs will be fabricated and measured.
-- **Visible:** a native studio that shows fields propagating, modes, layouts and optimizations as they run. The CLI and the studio run the same job, and every run replays.
+- **Visible:** a studio that shows fields propagating, modes, layouts and optimizations as they run. The CLI and the studio run the same job, and every run replays.
 
 And underneath:
 

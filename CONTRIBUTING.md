@@ -4,7 +4,7 @@ photonoxide is pre-1.0: ideas, use cases and validation cases are as welcome as 
 
 ## Pull requests
 
-- **One change per PR, with tests, and with its validation.** A solver or device comes with an analytic test, a reproduction of a published result, and a convergence test; adjoint gradients are checked against finite differences. A change that adds or alters a validation case regenerates `docs/validation.md` (`cargo run -- validate --write docs/validation.md`).
+- **One change per PR, with tests, and with its validation.** A solver or device comes with an analytic test, a reproduction of a published result, and a convergence test; adjoint gradients are checked against finite differences. A change that adds or alters a validation case regenerates `docs/validation.md` (`cargo run -p photonoxide-studio --release -- validate --write docs/validation.md`).
 - **Cite the paper.** Every method's docs name the paper it implements, by a DOI that was checked.
 - **The PR title is the changelog entry.** PRs are squash merged: the title becomes the commit message and the changelog line. Use [Conventional Commits](https://www.conventionalcommits.org/), with a short sentence as the subject:
 

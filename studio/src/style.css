@@ -1,0 +1,336 @@
+:root {
+  --bg: #121519;
+  --panel: #1a1e24;
+  --raised: #232831;
+  --line: #2c323c;
+  --text: #dfe3ea;
+  --weak: #8b94a3;
+  --accent: #3d8bd9;
+  --problem: #e0664f;
+  color-scheme: dark;
+  font: 13px/1.45 system-ui, "Segoe UI", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+#app {
+  display: grid;
+  height: 100%;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: 40px 1fr 26px;
+  grid-template-areas:
+    "top top"
+    "side main"
+    "foot foot";
+}
+
+.weak {
+  color: var(--weak);
+}
+
+.small {
+  font-size: 12px;
+}
+
+a {
+  color: var(--accent);
+}
+
+/* top bar */
+#topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.brand {
+  font-weight: 600;
+}
+
+.sep {
+  width: 1px;
+  height: 16px;
+  background: var(--line);
+}
+
+#closes {
+  display: contents;
+}
+
+#closes[hidden] {
+  display: none;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.switch {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.switch button {
+  font: inherit;
+  font-weight: 600;
+  color: var(--weak);
+  background: transparent;
+  border: 0;
+  padding: 3px 14px;
+  cursor: pointer;
+}
+
+.switch button.on {
+  color: #fff;
+  background: var(--accent);
+}
+
+/* sidebar */
+#sidebar {
+  grid-area: side;
+  width: 300px;
+  min-width: 220px;
+  max-width: 50vw;
+  resize: horizontal;
+  overflow: auto;
+  padding: 6px 12px 12px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+details {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 0 10px;
+}
+
+summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 0;
+  user-select: none;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 14px;
+  margin: 4px 0 0;
+}
+
+dt {
+  color: var(--weak);
+}
+
+dd {
+  margin: 0;
+}
+
+p {
+  margin: 4px 0;
+}
+
+.layer {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 0;
+  cursor: pointer;
+}
+
+.layer .weak {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.swatch.hollow {
+  border: 1px solid var(--weak);
+}
+
+.mode {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 5px 8px;
+  margin: 2px 0;
+  cursor: pointer;
+}
+
+.mode:hover {
+  background: var(--raised);
+}
+
+.mode.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.mode .weak {
+  font-size: 12px;
+}
+
+/* main */
+#main {
+  grid-area: main;
+  position: relative;
+  overflow: hidden;
+}
+
+#view3d {
+  position: absolute;
+  inset: 0;
+}
+
+#view3d canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#overlay {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  pointer-events: none;
+  text-shadow: 0 1px 3px #000;
+}
+
+#gizmo {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  pointer-events: none;
+  font: 600 12px system-ui, sans-serif;
+}
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--weak);
+}
+
+#view3d[hidden],
+#view2d[hidden],
+.empty[hidden] {
+  display: none;
+}
+
+#view2d {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 12px 20px 24px;
+}
+
+#view2d h2 {
+  font-size: 16px;
+  margin: 18px 0 4px;
+}
+
+#view2d h3 {
+  font-size: 13px;
+  margin: 0 0 2px;
+}
+
+.card {
+  margin: 10px 0;
+}
+
+.modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 0 20px;
+}
+
+.picture {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 6px;
+  border-radius: 4px;
+}
+
+.pixelated {
+  image-rendering: pixelated;
+}
+
+.plot {
+  max-width: 680px;
+  margin: 12px 0;
+}
+
+.plot svg {
+  width: 100%;
+  height: auto;
+  font: 11px system-ui, sans-serif;
+  fill: var(--weak);
+}
+
+.plot .frame {
+  fill: none;
+  stroke: var(--line);
+}
+
+.plot .grid {
+  stroke: var(--line);
+  stroke-dasharray: 2 3;
+}
+
+.legend {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+}
+
+/* status bar */
+#statusbar {
+  grid-area: foot;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  font-size: 12px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+#problem {
+  color: var(--problem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

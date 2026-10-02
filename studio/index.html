@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>photonoxide studio</title>
+  </head>
+  <body>
+    <div id="app">
+      <header id="topbar">
+        <span class="brand">photonoxide studio</span>
+        <span class="sep"></span>
+        <span id="job">waiting for the run…</span>
+        <span class="sep"></span>
+        <span id="status"></span>
+        <span id="closes" hidden><span class="sep"></span><span class="weak">closes by itself</span></span>
+        <span class="spacer"></span>
+        <div class="switch" role="tablist" aria-label="view">
+          <button data-view="3d" class="on" role="tab">3D</button>
+          <button data-view="2d" role="tab">2D</button>
+        </div>
+      </header>
+      <aside id="sidebar"></aside>
+      <main id="main">
+        <section id="view3d">
+          <div id="overlay"></div>
+          <svg id="gizmo" width="96" height="96" viewBox="-48 -48 96 96"></svg>
+          <div id="empty3d" class="empty" hidden></div>
+        </section>
+        <section id="view2d" hidden></section>
+      </main>
+      <footer id="statusbar">
+        <span id="hint" class="weak"></span>
+        <span id="problem"></span>
+        <span class="spacer"></span>
+        <span id="dir" class="weak"></span>
+      </footer>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

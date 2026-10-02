@@ -90,18 +90,27 @@ See [materials](methods/materials.md).
 
 A job file describes a run, and the studio window shows it live, starts by itself and closes
 when the run is done. Every run is recorded (`runs/<run>/events.jsonl`) and replays with
-`photonoxide view runs/<run>`.
+`photonoxide view runs/<run>`; `--headless` runs a job without the window.
+
+The `photonoxide` program is built from the repository with Node.js, pnpm and the Tauri CLI
+(Rust and a web view: WebView2 on Windows, WebKitGTK on Linux):
 
 ```sh
-cargo install photonoxide --features studio
-photonoxide run jobs/strip-and-ring.toml        # a structure, as pictures of its permittivity
-photonoxide run jobs/strip-modes.toml           # a strip's modes, and a sweep over wavelength
-photonoxide run jobs/strip-width-sweep.toml     # ... or over its width
+git clone https://github.com/tachsin/photonoxide && cd photonoxide/studio
+pnpm install && pnpm tauri build                # target/release/photonoxide
+cd .. && target/release/photonoxide run jobs/strip-and-ring.toml   # a structure
+target/release/photonoxide run jobs/strip-modes.toml       # a strip's modes, and a sweep over wavelength
+target/release/photonoxide run jobs/strip-width-sweep.toml # ... or over its width
 ```
+
+The studio opens in 3D: the layers and shapes as solids over the run's window, cut where a modes
+job cuts its cross-section, with the selected mode's |E|² on the cut (drag to rotate, right-drag
+to pan, scroll to zoom). The sidebar lists the run, its layers (each can be hidden), its modes
+and its sweep; the 2D view has the pictures and plots.
 
 A `"modes"` job cuts the stack and shapes at a y, solves the cross-section's modes with the
 full-vector solver, and records a picture of each mode's |E|² with its effective index and TE
-fraction. With a `[task.sweep]` over the wavelength or a rectangle's width, the studio plots
+fraction. With a `[task.sweep]` over the wavelength or a rectangle's width, the 2D view plots
 the effective indices as the points arrive, and for a wavelength sweep the group indices too.
 
 ## Where everything is

@@ -81,6 +81,26 @@ pub enum Event {
         /// The task's kind, e.g. `"structure"`.
         kind: String,
     },
+    /// The structure in 3D, for the studio's 3D view: the stack's layers and every shape's
+    /// outline, over the window the run looks at.
+    Scene {
+        /// The window along x, µm.
+        x_um: [f64; 2],
+        /// Along y, µm.
+        y_um: [f64; 2],
+        /// Along z (height), µm.
+        z_um: [f64; 2],
+        /// The vacuum wavelength the permittivities are at, µm.
+        wavelength_um: f64,
+        /// Below the stack.
+        substrate: SceneMedium,
+        /// Above it.
+        cladding: SceneMedium,
+        /// The layers, bottom to top.
+        layers: Vec<SceneLayer>,
+        /// Every shape drawn on a layer, as an outline.
+        shapes: Vec<SceneShape>,
+    },
     /// A picture of the permittivity (real part).
     Permittivity {
         /// What the picture shows, e.g. `"top view of layer Si"`.
@@ -105,6 +125,9 @@ pub enum Event {
         te_fraction: f64,
         /// |E|² at the cells' centres, its largest value 1; x across, z up.
         intensity: Raster,
+        /// The y where the cross-section was cut, µm.
+        #[serde(default)]
+        cut_y_um: f64,
     },
     /// A point of a sweep: the modes' effective indices at one value of the parameter.
     SweepPoint {
@@ -126,6 +149,119 @@ pub enum Event {
         /// Its duration, seconds.
         seconds: f64,
     },
+}
+
+/// A medium of a [`Event::Scene`]: its material and the real part of its permittivity.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SceneMedium {
+    /// The material's name, e.g. `"SiO2"`.
+    pub material: String,
+    /// Re ε at the scene's wavelength.
+    pub eps: f64,
+}
+
+/// A layer of a [`Event::Scene`].
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SceneLayer {
+    /// Its name, e.g. `"Si"`.
+    pub name: String,
+    /// Its bottom and top, µm.
+    pub z_um: [f64; 2],
+    /// What shapes on it are made of.
+    pub material: SceneMedium,
+    /// What fills it elsewhere.
+    pub background: SceneMedium,
+}
+
+/// A shape of a [`Event::Scene`]: its layer and its outline, counterclockwise, µm.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SceneShape {
+    /// The layer it is drawn on.
+    pub layer: String,
+    /// Its outline's vertices, (x, y), counterclockwise; a circle as a 64-gon.
+    pub outline: Vec<[f64; 2]>,
+}
+
+/// A shape's outline, counterclockwise: a rectangle's corners, a circle as a 64-gon.
+fn outline(shape: &Shape) -> Vec<[f64; 2]> {
+    match shape {
+        Shape::Rect {
+            center,
+            width,
+            height,
+        } => {
+            let (cx, cy, w, h) = (
+                center.x.to_um(),
+                center.y.to_um(),
+                width.to_um() / 2.0,
+                height.to_um() / 2.0,
+            );
+            vec![
+                [cx - w, cy - h],
+                [cx + w, cy - h],
+                [cx + w, cy + h],
+                [cx - w, cy + h],
+            ]
+        }
+        Shape::Circle { center, radius } => (0..64)
+            .map(|k| {
+                let a = std::f64::consts::TAU * f64::from(k) / 64.0;
+                [
+                    center.x.to_um() + radius.to_um() * a.cos(),
+                    center.y.to_um() + radius.to_um() * a.sin(),
+                ]
+            })
+            .collect(),
+        Shape::Polygon(p) => p
+            .vertices()
+            .iter()
+            .map(|v| [v.x.to_um(), v.y.to_um()])
+            .collect(),
+    }
+}
+
+/// The scene of a structure over a window, its permittivities at `wavelength`.
+fn scene(
+    s: &Structure,
+    x: [f64; 2],
+    y: [f64; 2],
+    z: [f64; 2],
+    wavelength: Wavelength,
+) -> Result<Event> {
+    let medium = |m: &crate::material::Material| -> Result<SceneMedium> {
+        Ok(SceneMedium {
+            material: m.name().to_owned(),
+            eps: m.permittivity(wavelength)?.re,
+        })
+    };
+    let stack = s.stack();
+    let mut layers = Vec::new();
+    let mut shapes = Vec::new();
+    let mut bottom = 0.0;
+    for layer in stack.layers() {
+        let top = bottom + layer.thickness.to_um();
+        layers.push(SceneLayer {
+            name: layer.name.clone(),
+            z_um: [bottom, top],
+            material: medium(&layer.material)?,
+            background: medium(&layer.background)?,
+        });
+        shapes.extend(s.shapes(&layer.name).iter().map(|shape| SceneShape {
+            layer: layer.name.clone(),
+            outline: outline(shape),
+        }));
+        bottom = top;
+    }
+    Ok(Event::Scene {
+        x_um: x,
+        y_um: y,
+        z_um: z,
+        wavelength_um: wavelength.to_um(),
+        substrate: medium(stack.substrate())?,
+        cladding: medium(stack.cladding())?,
+        layers,
+        shapes,
+    })
 }
 
 #[derive(Clone, Deserialize)]
@@ -420,6 +556,17 @@ fn structure(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
     let s = task.structure()?;
     let lam = Wavelength::um(task.wavelength_um)?;
+    let scene_z = match task.z_um {
+        Some(z) => z,
+        None => {
+            let (_, bottom, top) = s
+                .stack()
+                .layer(&task.layer)
+                .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
+            [bottom.to_um() - 1.0, top.to_um() + 1.0]
+        }
+    };
+    run.record(&scene(&s, task.x_um, task.y_um, scene_z, lam)?)?;
     let step = Length::nm(task.step_nm);
     let x = (Length::um(task.x_um[0]), Length::um(task.x_um[1]));
     let y = (Length::um(task.y_um[0]), Length::um(task.y_um[1]));
@@ -473,6 +620,9 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             [bottom.to_um() - 1.0, top.to_um() + 1.0]
         }
     };
+    // the scene: a block behind the cut, as deep as the window is wide
+    let depth = task.x_um[1] - task.x_um[0];
+    run.record(&scene(&s, task.x_um, [cut_y - depth, cut_y], z, lam)?)?;
     // the cross-section, as the structure job shows a side view
     run.record(&Event::Permittivity {
         view: format!("cross-section at y = {cut_y} um"),
@@ -501,6 +651,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             effective_index: [n.re, n.im],
             te_fraction: m.te_fraction(),
             intensity: intensity(&m.fields(&cs)?, &cs, task.x_um, z, step),
+            cut_y_um: cut_y,
         })?;
     }
     let Some(sweep) = &task.sweep else {
@@ -606,20 +757,28 @@ size_um = [2.0, 0.5]
         let mut run = Run::create(&root.0, &job).unwrap();
         execute(&job, &mut run, &Stop::new(None)).unwrap();
         let events: Vec<Event> = replay(run.dir()).unwrap();
-        assert_eq!(events.len(), 4);
+        assert_eq!(events.len(), 5);
         assert!(matches!(&events[0], Event::Started { kind, .. } if kind == "structure"));
-        let Event::Permittivity { raster, axes, .. } = &events[1] else {
+        let Event::Scene { layers, shapes, .. } = &events[1] else {
             panic!("{:?}", events[1])
+        };
+        // soi_220: the buried oxide and the silicon layer; the strip a rectangle on it
+        assert_eq!(layers.len(), 2);
+        assert_eq!(shapes.len(), 1);
+        assert_eq!(shapes[0].outline.len(), 4);
+        assert!(layers[1].material.eps > 11.0 && layers[1].background.eps < 2.2);
+        let Event::Permittivity { raster, axes, .. } = &events[2] else {
+            panic!("{:?}", events[2])
         };
         assert_eq!(axes, &["x".to_owned(), "y".to_owned()]);
         assert_eq!((raster.nx, raster.ny), (40, 40));
-        let Event::Permittivity { raster, axes, .. } = &events[2] else {
-            panic!("{:?}", events[2])
+        let Event::Permittivity { raster, axes, .. } = &events[3] else {
+            panic!("{:?}", events[3])
         };
         assert_eq!(axes[1], "z");
         // the default cut spans 1 um below and above the 220 nm layer
         assert!((raster.y1 - raster.y0 - 2.22).abs() < 1e-9);
-        assert!(matches!(&events[3], Event::Finished { stopped: None, .. }));
+        assert!(matches!(&events[4], Event::Finished { stopped: None, .. }));
     }
 
     #[test]
@@ -631,10 +790,10 @@ size_um = [2.0, 0.5]
         stop.request();
         execute(&job, &mut run, &stop).unwrap();
         let events: Vec<Event> = replay(run.dir()).unwrap();
-        // the top view, then it stops before the side view
-        assert_eq!(events.len(), 3);
+        // the scene and the top view, then it stops before the side view
+        assert_eq!(events.len(), 4);
         assert!(matches!(
-            &events[2],
+            &events[3],
             Event::Finished { stopped: Some(r), .. } if r == "requested"
         ));
     }
@@ -664,16 +823,16 @@ size_um = [0.5, 10.0]
         let mut run = Run::create(&root.0, &job).unwrap();
         execute(&job, &mut run, &Stop::new(None)).unwrap();
         let events: Vec<Event> = replay(run.dir()).unwrap();
-        // started, the cross-section, two modes, finished
-        assert_eq!(events.len(), 5, "{events:?}");
+        // started, the scene, the cross-section, two modes, finished
+        assert_eq!(events.len(), 6, "{events:?}");
         let Event::Mode {
             effective_index,
             te_fraction,
             intensity,
             ..
-        } = &events[2]
+        } = &events[3]
         else {
-            panic!("{:?}", events[2])
+            panic!("{:?}", events[3])
         };
         // the 500 x 220 nm strip's TE-like mode, first; its field peaks in the core
         assert!(
@@ -687,9 +846,9 @@ size_um = [0.5, 10.0]
             effective_index: second,
             te_fraction,
             ..
-        } = &events[3]
+        } = &events[4]
         else {
-            panic!("{:?}", events[3])
+            panic!("{:?}", events[4])
         };
         assert!(second[0] < effective_index[0] && *te_fraction < 0.1);
     }
@@ -750,6 +909,25 @@ size_um = [0.5, 10.0]
             cs.x()
                 .windows(2)
                 .all(|w| w[1] - w[0] <= 0.02 + 1e-12 && w[1] - w[0] > 0.005)
+        );
+    }
+
+    #[test]
+    fn a_circles_outline_is_a_counterclockwise_64_gon() {
+        let c = Shape::circle(Point::um(1.0, 2.0), Length::um(0.5)).unwrap();
+        let o = outline(&c);
+        assert_eq!(o.len(), 64);
+        // counterclockwise: a positive signed area, close to the disk's
+        let area: f64 = (0..64)
+            .map(|k| {
+                let (a, b) = (o[k], o[(k + 1) % 64]);
+                a[0] * b[1] - b[0] * a[1]
+            })
+            .sum::<f64>()
+            / 2.0;
+        assert!(
+            (area - std::f64::consts::PI * 0.25).abs() < 0.01 * area,
+            "{area}"
         );
     }
 
