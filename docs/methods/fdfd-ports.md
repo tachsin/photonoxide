@@ -75,8 +75,8 @@ a PML, the physical power differs from it, by about the share of the mode in the
 
 | | 10 nm | 5 nm | 2.5 nm |
 |---|---|---|---|
-| E along z (n_eff = 2.84794 exact) | 2.6e-3 | 6.5e-4 | 1.6e-4 |
-| H along z (n_eff = 2.05347 exact) | 2.5e-3 | 6.1e-4 | 1.5e-4 |
+| E along z (n_eff = 2.84778 exact) | 2.6e-3 | 6.5e-4 | 1.6e-4 |
+| H along z (n_eff = 2.05332 exact) | 2.5e-3 | 6.1e-4 | 1.5e-4 |
 
 The error falls exactly 4× per halving: second order, as the 2D scheme.
 
