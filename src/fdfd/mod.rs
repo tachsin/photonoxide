@@ -13,6 +13,10 @@
 //! field along z sits at the cells' centres and the in-plane components on the faces between
 //! them (his Fig. 1, in 2D), so every derivative is a centred difference: second order.
 //!
+//! **3D** ([`Solver3d`]): all three components of E on the edges of Yee's cells, H on their
+//! faces eliminated, one system for E (A. Christ, H. L. Hartnagel, IEEE Trans. Microw. Theory
+//! Tech. 35, 688 (1987), doi:10.1109/TMTT.1987.1133733): −∇ × ∇ × E + k₀² ε E = −i k₀ J.
+//!
 //! **Open boundaries** are stretched-coordinate PMLs (W. C. Chew, W. H. Weedon, Microw. Opt.
 //! Technol. Lett. 7, 599 (1994), doi:10.1002/mop.4650071304): ∂_w → s_w⁻¹ ∂_w, with
 //! s_w = 1 + iσ_w/(ωε₀) graded as σ_w = σ_max (l/d)^m over a layer d thick and
@@ -197,9 +201,21 @@ fn stretch(
     k0: f64,
     b: &Boundaries,
 ) -> c64 {
+    graded(pos, span, layers, h, k0, (b.reflection, b.order))
+}
+
+/// [`stretch`] for a PML graded to the target reflection `grading.0` with order `grading.1`.
+fn graded(
+    pos: f64,
+    span: (f64, f64),
+    layers: (usize, usize),
+    h: f64,
+    k0: f64,
+    (reflection, order): (f64, f64),
+) -> c64 {
     let profile = |depth: f64, d: f64| {
-        let sigma = (b.order + 1.0) * (-b.reflection.ln()) / (2.0 * k0 * d);
-        c64::new(1.0, sigma * (depth / d).clamp(0.0, 1.0).powf(b.order))
+        let sigma = (order + 1.0) * (-reflection.ln()) / (2.0 * k0 * d);
+        c64::new(1.0, sigma * (depth / d).clamp(0.0, 1.0).powf(order))
     };
     let (dl, dh) = (layers.0 as f64 * h, layers.1 as f64 * h);
     if dl > 0.0 && pos < span.0 + dl {
@@ -722,5 +738,9 @@ pub(crate) mod checks;
 mod ports;
 #[cfg(test)]
 mod tests;
+mod three;
 
 pub use ports::{Direction, Port, PortMode, Side};
+pub use three::{Axis, Boundaries3d, Field3d, Grid3d, Solver3d};
+
+pub(crate) use three::checks as checks3d;

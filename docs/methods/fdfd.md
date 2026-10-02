@@ -107,7 +107,7 @@ power, an amplitude of 3e-6.
 
 ## Limits
 
-- 2D only for now; 3D, with an iterative solver, comes later in 0.3.
+- 2D here; 3D is [its own page](fdfd-3d.md), with the sparse direct solver for now.
 - A uniform grid in each direction.
 - The averaging is exact for interfaces along the grid's axes. A curved or slanted interface is
   sampled 8 × 8 times per cell, which converges more slowly. Farjadpour et al.'s subpixel
