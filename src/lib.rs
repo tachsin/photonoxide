@@ -16,6 +16,7 @@
 
 mod eigen;
 pub mod error;
+pub mod fdfd;
 pub mod geometry;
 pub mod job;
 pub mod material;
