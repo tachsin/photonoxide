@@ -26,8 +26,8 @@ window only follows that record, so a live run and a replay look the same.
   - The thirteen published results of `examples/` each run in a process of their own. Every
     line is checked against the paper as it prints, beside what the release recorded.
 - **Job builder:** a job as a form for each kind (`modes`, `fdfd`, `structure`).
-  - The device is drawn from above as you type: rectangles, disks, rings, ports, the PML and
-    the cut. Click a shape to edit it. The 3D tab shows the structure as its run will draw it.
+  - The device is drawn in 3D as you type, as its run will draw it. The top view shows
+    rectangles, disks, rings, ports, the PML and the cut from above: click a shape to edit it.
   - The TOML sits beside the form in an editor, and edits there update the form.
   - The library checks the job as it changes (`photonoxide::job::check`). It is saved to the
     workspace's `jobs/` (Ctrl+S) and runs from the builder (Ctrl+Enter).
@@ -38,7 +38,10 @@ window only follows that record, so a live run and a replay look the same.
     Drag to orbit, right-drag to pan, scroll to zoom.
   - **2D:** fields, S-parameters and spectra, permittivity pictures, modes, and a sweep's
     effective and group indices. Hover a plot to read its values, and save its data as CSV.
-  - The side panel hides layers, picks the mode shown, and stops a running job.
+  - The side panel hides layers, picks the mode shown, and stops a running job. The field has
+    its own row (shown or not, and how strongly), apart from the layers. A layer outside the
+    run's window is greyed. Each layer's info button tells what it is made of, what fills it
+    around its shapes and what lies under and over it, and recolours it in the viewer.
 - **Compare:** the runs ticked on the Runs page, their sweeps and spectra on shared axes.
 - **Validation:** the release's report, searchable, and the same report run on this machine.
 - **Settings:** the theme (system, dark or light), the workspace folder, tips, and updates.
