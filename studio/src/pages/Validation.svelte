@@ -3,6 +3,7 @@
   // results; the release's report at once, and the same report run on this machine on request.
   import { CircleCheck, CircleX, Play, Search, ShieldCheck, Square } from "@lucide/svelte";
 
+  import MathText from "../components/MathText.svelte";
   import Tip from "../components/Tip.svelte";
   import { api, duration } from "../lib/api";
   import { toast } from "../lib/app.svelte";
@@ -136,13 +137,13 @@
             {#if c.pass}<CircleCheck size={16} class="shrink-0 text-success" />{:else}<CircleX size={16} class="shrink-0 text-error" />{/if}
             <span class="w-72 shrink-0 truncate font-mono text-[12.5px]">{c.id}</span>
             <span class="badge badge-ghost badge-sm shrink-0">{c.tier}</span>
-            <span class="min-w-0 flex-1 truncate text-sm muted">{c.what}</span>
+            <MathText text={c.what} class="min-w-0 flex-1 truncate text-sm muted" />
             <span class="shrink-0 text-xs num faint">{c.measured} vs {c.expected}</span>
           </button>
           {#if open === c.id}
             <div class="grid gap-4 bg-base-200/50 px-11 py-4 text-sm md:grid-cols-[1fr_1fr_auto]">
-              <div><p class="panel-title mb-1">What</p><p class="selectable leading-relaxed">{c.what}</p></div>
-              <div><p class="panel-title mb-1">Against</p><p class="selectable leading-relaxed">{c.against}</p></div>
+              <div><p class="panel-title mb-1">What</p><p class="selectable leading-relaxed"><MathText text={c.what} /></p></div>
+              <div><p class="panel-title mb-1">Against</p><p class="selectable leading-relaxed"><MathText text={c.against} /></p></div>
               <dl class="grid grid-cols-[auto_auto] content-start gap-x-3 gap-y-1 num text-xs">
                 <dt class="faint">measured</dt><dd>{c.measured}</dd>
                 <dt class="faint">expected</dt><dd>{c.expected}</dd>

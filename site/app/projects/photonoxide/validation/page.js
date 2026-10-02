@@ -1,3 +1,5 @@
+// The cases' math is rendered by KaTeX on the server (components/projects/photonoxide/ValidationRows.jsx).
+import "katex/dist/katex.min.css";
 import Breadcrumbs from "@/components/projects/Breadcrumbs";
 import JsonLd from "@/components/projects/JsonLd";
 import SourceUnavailable from "@/components/projects/SourceUnavailable";
