@@ -1,7 +1,7 @@
 <script lang="ts">
   // The viewer: the run the window follows, in 3D (its layers as solids, the field painted on
   // its plane) or 2D (pictures and plots), with its details at the side.
-  import { Box, ChartLine, CirclePause, FolderOpen, Info, Layers, RotateCcw, Square, Waves } from "@lucide/svelte";
+  import { Box, ChartLine, CirclePause, FolderOpen, Info, Layers, Pause, Play, RotateCcw, Square, Waves } from "@lucide/svelte";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
 
@@ -12,7 +12,7 @@
   import { app, go, run, toast } from "../lib/app.svelte";
   import { modeKind } from "../lib/events";
   import { effectiveLook, outside, rows, um } from "../lib/layers";
-  import { View3D, type Plane } from "../lib/view3d";
+  import { View3D, waveOf, type Plane } from "../lib/view3d";
 
   let view = $state<"3d" | "2d">(app.state?.settings.view ?? "3d");
   let host: HTMLDivElement;
@@ -59,8 +59,26 @@
     three?.setField(plane);
   });
 
+  // a modes run's selected mode, travelling along the guide (not an FDFD run's: its field
+  // already varies along the device)
+  const wave = $derived.by(() => {
+    const m = run.modes[run.selected];
+    if (run.fields.length || !m || !run.scene) return null;
+    return waveOf(m, run.modeFields[m.label], run.scene);
+  });
+  /** The selected mode's guided wavelength λ / n_eff, µm. */
+  const guided = $derived.by(() => {
+    const m = run.modes[run.selected];
+    return m ? m.wavelength_um / m.effective_index[0] : 0;
+  });
+
+  $effect(() => three?.setWave(wave));
+  $effect(() => three?.setWaveLook(run.wave, run.wavePlaying, run.waveSpeed));
+
   $effect(() => {
-    if (view === "3d" && app.page === "viewer") requestAnimationFrame(() => three?.resize());
+    const shown = view === "3d" && app.page === "viewer";
+    three?.setActive(shown);
+    if (shown) requestAnimationFrame(() => three?.resize());
   });
 
   const live = $derived(!!run.info?.dir && !run.finished);
@@ -135,6 +153,11 @@
           {@const m = run.modes[run.selected]}
           <p class="font-medium">{m.label} · {modeKind(m)} · <span class="num">n_eff {m.effective_index[0].toFixed(6)}</span></p>
           <p class="text-xs faint">|E|² on the cut at y = {m.cut_y_um.toFixed(3)} µm</p>
+          {#if wave && run.wave}
+            <p class="text-xs faint">
+              travelling along y, guided wavelength <span class="num">{guided.toFixed(3)}</span> µm{wave.signed ? `: ${run.modeFields[m.label]?.component}, red positive, blue negative` : " (magnitude only: an older run)"}
+            </p>
+          {/if}
         {:else if !run.scene}
           <p class="flex items-center gap-2 faint"><span class="loading loading-dots loading-xs"></span> waiting for the structure…</p>
         {:else}
@@ -200,6 +223,47 @@
               />
               <p class="mt-1 text-[11px] leading-snug faint">{painted.label}, painted {painted.where}: a picture of the field, not a layer, so hiding a layer leaves it.</p>
             </div>
+            {#if wave}
+              <div class="rounded-lg px-2 py-1.5 hover:bg-base-content/4">
+                <div class="flex items-center gap-2.5 text-sm">
+                  <label class="flex flex-1 cursor-pointer items-center gap-2.5">
+                    <input type="checkbox" class="checkbox checkbox-xs" checked={run.wave} onchange={() => (run.wave = !run.wave)} />
+                    <span class="size-3 rounded-sm border border-base-content/20" style="background:linear-gradient(90deg,#3b8eea,transparent,#ef5a3c)"></span>
+                    <span class="flex-1">Travelling wave</span>
+                  </label>
+                  <button
+                    class="btn btn-ghost btn-xs btn-square"
+                    disabled={!run.wave}
+                    aria-label={run.wavePlaying ? "Pause the wave" : "Play the wave"}
+                    title={run.wavePlaying ? "Pause" : "Play"}
+                    onclick={() => (run.wavePlaying = !run.wavePlaying)}
+                  >
+                    {#if run.wavePlaying}<Pause size={13} />{:else}<Play size={13} />{/if}
+                  </button>
+                </div>
+                <label class="mt-1.5 flex items-center gap-2">
+                  <span class="text-[11px] faint">speed</span>
+                  <input
+                    type="range"
+                    class="range range-xs range-primary flex-1"
+                    aria-label="The wave's speed"
+                    title="How fast the wave moves: 1× is a period in 1.5 s"
+                    min="0.25"
+                    max="3"
+                    step="0.25"
+                    disabled={!run.wave}
+                    value={run.waveSpeed}
+                    oninput={(e) => (run.waveSpeed = Number((e.currentTarget as HTMLInputElement).value))}
+                  />
+                  <span class="w-9 text-right text-xs faint num">{run.waveSpeed}×</span>
+                </label>
+                <p class="mt-1 text-[11px] leading-snug faint">
+                  Guided wavelength λ/n_eff = <span class="num">{guided.toFixed(3)}</span> µm. The mode's field
+                  {wave.signed ? `(${run.modeFields[run.modes[run.selected]?.label]?.component}, red positive, blue negative)` : "(its magnitude only: an older run)"}
+                  on two sheets through its peak, as it travels along y, slowed down.
+                </p>
+              </div>
+            {/if}
             <div class="mx-2 my-1 border-t border-base-content/8"></div>
           {/if}
           {#each media as r (r.name)}

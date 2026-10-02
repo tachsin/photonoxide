@@ -26,7 +26,8 @@ window only follows that record, so a live run and a replay look the same.
   - The thirteen published results of `examples/` each run in a process of their own. Every
     line is checked against the paper as it prints, beside what the release recorded.
 - **Job builder:** a job as a form for each kind (`modes`, `fdfd`, `structure`).
-  - The device is drawn in 3D as you type, as its run will draw it. The top view shows
+  - The device is drawn in 3D as you type, as its run will draw it; a modes job's whole, with
+    its cut drawn where the cross-section is taken. The top view shows
     rectangles, disks, rings, ports, the PML and the cut from above: click a shape to edit it.
   - The TOML sits beside the form in an editor, and edits there update the form.
   - The library checks the job as it changes (`photonoxide::job::check`). It is saved to the
@@ -35,6 +36,8 @@ window only follows that record, so a live run and a replay look the same.
   open run closes it; deleting one still running stops it first.
 - **Viewer:**
   - **3D** (the default): the layers and shapes as solids, with the field painted on its plane.
+    A modes run's selected mode also travels along its guide: its signed field on two sheets
+    through its peak, red where positive and blue where negative, at a speed you set.
     Drag to orbit, right-drag to pan, scroll to zoom.
   - **2D:** fields, S-parameters and spectra, permittivity pictures, modes, and a sweep's
     effective and group indices. Hover a plot to read its values, and save its data as CSV.
