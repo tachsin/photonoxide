@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### <!-- 0 -->Added
 
 - *(studio)* rings, 3D previews of every job, and a steady 3D view ([#54](https://github.com/tachsin/photonoxide/pull/54))
+- *(studio)* look for a new release every hour while the window is open ([#56](https://github.com/tachsin/photonoxide/pull/56))
 
 ## [0.3.1](https://github.com/tachsin/photonoxide/compare/v0.3.0...v0.3.1) - 2026-10-02
 
