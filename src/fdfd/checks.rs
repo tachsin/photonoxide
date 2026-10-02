@@ -3,7 +3,7 @@
 
 use num_complex::Complex64 as c64;
 
-use super::{Boundaries, Edges, Field2d, Grid, Polarization, Port, Side, Solver2d};
+use super::{Boundaries, Direction, Edges, Field2d, Grid, Polarization, Port, Side, Solver2d};
 use crate::mode::multilayer::Multilayer;
 use crate::units::{Length, Wavelength};
 
@@ -294,4 +294,67 @@ pub(crate) fn port_mode_index(polarization: Polarization, h: f64) -> (f64, f64) 
     let solver = guide(polarization, h, 0.1, (core, clad), |_| 0.22);
     let mode = &solver.port_modes(column(&solver, 0.05), 1).unwrap()[0];
     (mode.effective_index().re, exact)
+}
+
+/// The adjoint gradient of the power a straight silicon slab (220 nm of 3.476 in 1.444, with a
+/// bump of permittivity 6 beside it, 0.2 × 0.2 µm) delivers into its right port's mode, from its
+/// left port's, against fourth-order central finite differences of the same power on a cell each in the bump,
+/// the core and the oxide: the largest relative difference.
+pub(crate) fn gradient_check(polarization: Polarization) -> f64 {
+    let (h, pml) = (0.02, 20);
+    let grid = Grid {
+        nx: (2.0 / h) as usize + 2 * pml,
+        ny: (3.0 / h) as usize + 2 * pml,
+        dx: h,
+        dy: h,
+        x0: -(pml as f64) * h,
+        y0: -1.5 - pml as f64 * h,
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let cells: Vec<c64> = (0..grid.ny)
+        .flat_map(|j| (0..grid.nx).map(move |i| (i, j)))
+        .map(|(i, j)| {
+            let (x, y) = (grid.x(i), grid.y(j));
+            let e = if y.abs() < 0.11 {
+                3.476f64.powi(2)
+            } else if (0.9..1.1).contains(&x) && (0.11..0.31).contains(&y) {
+                6.0
+            } else {
+                1.444f64.powi(2)
+            };
+            c64::new(e, 0.0)
+        })
+        .collect();
+    let base = Solver2d::from_cells(grid, polarization, lam, &cells, Boundaries::pml(pml)).unwrap();
+    let ports = two_ports(&base);
+    let source = base.mode_source(&ports[0].mode, Direction::Forward);
+    let power = |solver: &Solver2d| {
+        let field = solver.solve_system(&source).unwrap();
+        field.mode_amplitudes(&ports[1].mode).0.norm_sqr()
+    };
+    let field = base.solve_system(&source).unwrap();
+    let (_, gradient) = base
+        .mode_power_gradient(&field, &ports[1].mode, Direction::Forward)
+        .unwrap();
+    let cell = |x: f64, y: f64| {
+        let i = ((x - grid.x0) / h).floor() as usize;
+        let j = ((y - grid.y0) / h).floor() as usize;
+        j * grid.nx + i
+    };
+    let probes = [cell(1.0, 0.2), cell(1.0, 0.0), cell(1.2, -0.2)];
+    // fourth-order central differences: truncation of order δ⁴, round-off of order 1e-10/δ
+    let delta = 1e-3;
+    probes
+        .iter()
+        .map(|&k| {
+            let at = |d: f64| {
+                let mut varied = cells.clone();
+                varied[k] += d;
+                power(&base.reuse_cells(lam, &varied).unwrap())
+            };
+            let fd = (-at(2.0 * delta) + 8.0 * at(delta) - 8.0 * at(-delta) + at(-2.0 * delta))
+                / (12.0 * delta);
+            (gradient[k] - fd).abs() / gradient[k].abs().max(1e-12)
+        })
+        .fold(0.0, f64::max)
 }
