@@ -2,7 +2,7 @@
 title: "FDFD in 3D"
 module: fdfd
 summary: "Maxwell's equations at one frequency on Yee's 3D grid: the electric field's curl-curl equation as one sparse system, with stretched-coordinate PMLs or Bloch-periodic sides on each axis, and the exact discrete power flux."
-order: 18
+order: 19
 papers:
   - cite: "A. Christ, H. L. Hartnagel, IEEE Trans. Microw. Theory Tech. 35, 688 (1987)"
     doi: 10.1109/TMTT.1987.1133733

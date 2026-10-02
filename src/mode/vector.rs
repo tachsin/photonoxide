@@ -15,7 +15,8 @@
 //! dielectric corners, where the fields' derivatives are singular (G. R. Hadley, J. Lightwave
 //! Technol. 20, 1219 (2002), [doi:10.1109/JLT.2002.800371](https://doi.org/10.1109/JLT.2002.800371)):
 //! on Hadley's four corner problems, at about first order at convex corners (a high-index
-//! quadrant) and at 1.4–1.8 at concave ones, as standard finite differences do.
+//! quadrant) and at 1.4–1.8 at concave ones, as standard finite differences do. Hadley's own
+//! equations, on the same unknowns, are [`crate::mode::hadley`]: about second order there.
 //!
 //! The paper uses the e^(jωt) convention; photonoxide uses e^(−iωt) ([`crate::units`]). The
 //! eigenvalue equations hold in either, written with the permittivity of the convention in use:
@@ -138,10 +139,20 @@ pub struct Pml {
 }
 
 /// A field component, H_x or H_y.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Component {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum Component {
     X,
     Y,
+}
+
+impl Component {
+    /// The other transverse component.
+    pub(crate) fn other(self) -> Component {
+        match self {
+            Component::X => Component::Y,
+            Component::Y => Component::X,
+        }
+    }
 }
 
 /// The sign a component takes across a wall normal to `normal`: −1 if it is odd, 1 if even;
@@ -575,18 +586,38 @@ fn unknowns(cs: &CrossSection) -> Vec<(Component, usize)> {
     out
 }
 
-/// The matrix of Eq. (8), as (row, column, value) entries over the [`unknowns`].
-fn assemble(cs: &CrossSection, k2: f64) -> Vec<(usize, usize, c64)> {
-    let (nxn, nyn) = (cs.x.len(), cs.y.len());
-    let nodes = nxn * nyn;
-    let b = cs.boundaries;
-    let mut index = [vec![None; nodes], vec![None; nodes]];
-    for (k, &(c, node)) in unknowns(cs).iter().enumerate() {
-        index[c as usize][node] = Some(k);
+/// The [`unknowns`] of a cross-section, and the unknown each stencil neighbour stands for.
+pub(crate) struct Numbering {
+    /// The unknowns in order: component and node.
+    pub(crate) unknowns: Vec<(Component, usize)>,
+    index: [Vec<Option<usize>>; 2],
+    nxn: usize,
+    nyn: usize,
+    boundaries: Boundaries,
+}
+
+impl Numbering {
+    pub(crate) fn new(cs: &CrossSection) -> Numbering {
+        let (nxn, nyn) = (cs.x.len(), cs.y.len());
+        let nodes = nxn * nyn;
+        let unknowns = unknowns(cs);
+        let mut index = [vec![None; nodes], vec![None; nodes]];
+        for (k, &(c, node)) in unknowns.iter().enumerate() {
+            index[c as usize][node] = Some(k);
+        }
+        Numbering {
+            unknowns,
+            index,
+            nxn,
+            nyn,
+            boundaries: cs.boundaries,
+        }
     }
-    // the unknown that a stencil's neighbour (i, j), of component c, stands for, with its sign:
-    // beyond a wall, its mirror image; beyond a zero boundary, or held at zero, none
-    let neighbour = |c: Component, i: isize, j: isize| -> Option<(usize, f64)> {
+
+    /// The unknown that a stencil's neighbour (i, j), of component c, stands for, with its sign:
+    /// beyond a wall, its mirror image; beyond a zero boundary, or held at zero, none.
+    pub(crate) fn neighbour(&self, c: Component, i: isize, j: isize) -> Option<(usize, f64)> {
+        let b = self.boundaries;
         let mut sign = 1.0;
         let mut fold = |v: isize, last: isize, low: Boundary, high: Boundary, normal| {
             if v < 0 {
@@ -599,10 +630,23 @@ fn assemble(cs: &CrossSection, k2: f64) -> Vec<(usize, usize, c64)> {
                 Some(v)
             }
         };
-        let i = fold(i, nxn as isize - 1, b.west, b.east, Component::X)?;
-        let j = fold(j, nyn as isize - 1, b.south, b.north, Component::Y)?;
-        index[c as usize][i as usize * nyn + j as usize].map(|k| (k, sign))
-    };
+        let i = fold(i, self.nxn as isize - 1, b.west, b.east, Component::X)?;
+        let j = fold(j, self.nyn as isize - 1, b.south, b.north, Component::Y)?;
+        self.index[c as usize][i as usize * self.nyn + j as usize].map(|k| (k, sign))
+    }
+
+    /// The row of component `c` at node (i, j), unless it is held at zero.
+    pub(crate) fn row(&self, c: Component, i: usize, j: usize) -> Option<usize> {
+        self.index[c as usize][i * self.nyn + j]
+    }
+}
+
+/// The matrix of Eq. (8), as (row, column, value) entries over the [`unknowns`].
+fn assemble(cs: &CrossSection, k2: f64) -> Vec<(usize, usize, c64)> {
+    let (nxn, nyn) = (cs.x.len(), cs.y.len());
+    let nodes = nxn * nyn;
+    let numbering = Numbering::new(cs);
+    let neighbour = |c, i, j| numbering.neighbour(c, i, j);
     let pml = cs.pml;
     let xs = CrossSection::stretched(&cs.x, pml.west, pml.east, pml.strength);
     let ys = CrossSection::stretched(&cs.y, pml.south, pml.north, pml.strength);
@@ -642,7 +686,6 @@ fn assemble(cs: &CrossSection, k2: f64) -> Vec<(usize, usize, c64)> {
                 s,
                 k2,
             );
-            let p = i * nyn + j;
             let around = |st: &Stencil, mirrored: bool| -> [(isize, isize, c64); 9] {
                 if mirrored {
                     [
@@ -680,7 +723,7 @@ fn assemble(cs: &CrossSection, k2: f64) -> Vec<(usize, usize, c64)> {
                     [(&ayx, Component::X, true), (&ayy, Component::Y, true)],
                 ),
             ] {
-                let Some(row) = index[component as usize][p] else {
+                let Some(row) = numbering.row(component, i, j) else {
                     continue;
                 };
                 for (st, c, mirrored) in stencils {
@@ -942,37 +985,58 @@ pub fn modes(
     let entries = assemble(cs, k2);
     let shift = c64::new(k2 * n_max * n_max, 0.0);
     let pairs = crate::eigen::nearest(unknowns.len(), &entries, shift, count, 1e-9)?;
-    let nodes = cs.x.len() * cs.y.len();
     Ok(pairs
         .into_iter()
-        .map(|p| {
-            // the components held at zero on walls are zero
-            let (mut hx, mut hy) = (
-                vec![c64::new(0.0, 0.0); nodes],
-                vec![c64::new(0.0, 0.0); nodes],
-            );
-            for (&(c, node), &v) in unknowns.iter().zip(&p.vector) {
-                match c {
-                    Component::X => hx[node] = v,
-                    Component::Y => hy[node] = v,
-                }
-            }
-            let peak = p
-                .vector
-                .iter()
-                .copied()
-                .max_by(|a, b| a.norm().total_cmp(&b.norm()))
-                .unwrap_or(c64::new(1.0, 0.0));
-            VectorMode {
-                beta2: p.value,
-                k,
-                x: cs.x.clone(),
-                y: cs.y.clone(),
-                hx: hx.iter().map(|v| v / peak).collect(),
-                hy: hy.iter().map(|v| v / peak).collect(),
-            }
-        })
+        .map(|p| VectorMode::from_unknowns(cs, k, p.value, &unknowns, &p.vector))
         .collect())
+}
+
+impl VectorMode {
+    /// The mode with eigenvalue β² whose field, over `unknowns`, is `vector`.
+    pub(crate) fn from_unknowns(
+        cs: &CrossSection,
+        k: f64,
+        beta2: c64,
+        unknowns: &[(Component, usize)],
+        vector: &[c64],
+    ) -> VectorMode {
+        let nodes = cs.x.len() * cs.y.len();
+        // the components held at zero on walls are zero
+        let (mut hx, mut hy) = (
+            vec![c64::new(0.0, 0.0); nodes],
+            vec![c64::new(0.0, 0.0); nodes],
+        );
+        for (&(c, node), &v) in unknowns.iter().zip(vector) {
+            match c {
+                Component::X => hx[node] = v,
+                Component::Y => hy[node] = v,
+            }
+        }
+        let peak = vector
+            .iter()
+            .copied()
+            .max_by(|a, b| a.norm().total_cmp(&b.norm()))
+            .unwrap_or(c64::new(1.0, 0.0));
+        VectorMode {
+            beta2,
+            k,
+            x: cs.x.clone(),
+            y: cs.y.clone(),
+            hx: hx.iter().map(|v| v / peak).collect(),
+            hy: hy.iter().map(|v| v / peak).collect(),
+        }
+    }
+
+    /// The field over `unknowns`, in their order.
+    pub(crate) fn to_unknowns(&self, unknowns: &[(Component, usize)]) -> Vec<c64> {
+        unknowns
+            .iter()
+            .map(|&(c, node)| match c {
+                Component::X => self.hx[node],
+                Component::Y => self.hy[node],
+            })
+            .collect()
+    }
 }
 
 /// The book's 500 × 220 nm silicon strip in oxide (3.473 in 1.444), on a uniform grid of
