@@ -636,3 +636,81 @@ fn iteration_counts_with_and_without_shin_and_fans_operator() {
         );
     }
 }
+
+#[test]
+#[ignore = "field errors, for the docs: cargo test --release fdfd::three::tests::field_error -- --ignored --nocapture"]
+fn field_error_against_iterations() {
+    // as iteration_counts_with_and_without_shin_and_fans_operator, with PMLs: QMR on each
+    // operator to tolerances 1e-5 to 1e-8 of its own residual, and the field's error against a
+    // reference converged to 1e-11 (checked against the curl-curl operator to 1e-8)
+    use crate::fdfd::krylov::{Sparse, Stopping, qmr};
+    let (n, h) = (40, 0.01);
+    let half = n as f64 * h / 2.0;
+    let grid = Grid3d {
+        nx: n,
+        ny: n,
+        nz: n,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: -half,
+        y0: -half,
+        z0: -half,
+    };
+    let pml = Boundaries3d::pml(10);
+    type Eps = Box<dyn Fn(f64, f64, f64) -> c64>;
+    let block = |eps: f64, size: f64, along_x: bool| -> Eps {
+        Box::new(move |x: f64, y: f64, z: f64| {
+            let inside = (along_x || x.abs() < size) && y.abs() < size && z.abs() < size;
+            c64::new(if inside { eps } else { 1.0 }, 0.0)
+        })
+    };
+    let cases: Vec<(&str, Eps)> = vec![
+        ("vacuum, PMLs", block(1.0, 0.0, false)),
+        ("silicon cube 100 nm, PMLs", block(12.09, 0.05, false)),
+        (
+            "silicon guide 100 nm through the PMLs",
+            block(12.09, 0.05, true),
+        ),
+    ];
+    for (label, eps) in cases {
+        let (lattice, e) = Solver3d::setup(grid, Wavelength::um(1.55).unwrap(), eps, pml).unwrap();
+        let mut rhs = vec![c64::new(0.0, 0.0); grid.unknowns()];
+        rhs[grid.index(Axis::X, (n / 2 + 3, n / 2 + 3, n / 2 + 3))] = c64::new(0.0, -lattice.k0);
+        let solve = |s: f64, tolerance: f64| {
+            let m = Sparse::new(
+                grid.unknowns(),
+                lattice
+                    .assemble_with(&e, s)
+                    .into_iter()
+                    .map(|t| (t.row, t.col, t.val)),
+            );
+            let stopping = Stopping {
+                tolerance,
+                max_iterations: 40_000,
+            };
+            qmr(&m, &lattice.transformed_rhs(&e, &rhs, s), stopping).unwrap()
+        };
+        let norm = |v: &[c64]| v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
+        let (reference, _) = solve(-1.0, 1e-11);
+        let error = |x: &[c64]| {
+            let d: Vec<c64> = x.iter().zip(&reference).map(|(a, b)| a - b).collect();
+            norm(&d) / norm(&reference)
+        };
+        println!(
+            "FIELD {label}: reference against s = 0 to 1e-8: {:.1e}",
+            error(&solve(0.0, 1e-8).0)
+        );
+        for tolerance in [1e-5, 1e-6, 1e-7, 1e-8] {
+            let (x0, h0) = solve(0.0, tolerance);
+            let (x1, h1) = solve(-1.0, tolerance);
+            println!(
+                "FIELD {label}: {tolerance:e}: s = 0: {} iterations, error {:.1e}; s = -1: {} iterations, error {:.1e}",
+                h0.iterations,
+                error(&x0),
+                h1.iterations,
+                error(&x1)
+            );
+        }
+    }
+}
