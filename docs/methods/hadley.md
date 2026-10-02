@@ -75,7 +75,9 @@ equation it takes:
   (Eq. 24 with ν = 2). Exchanging x and y ($\theta \to \pi/2 - \theta$) turns it into the
   companion term $((\pi/2 - \theta)\sin 2\theta - \cos 2\theta\ln\cos\theta)$, which
   Eqs. (48), (50) and (52) all print. Taking the printed form instead changes the corner
-  problems' errors by up to a third, not their order.
+  problems' errors by up to a third, not their order. Separately, Eq. (48)'s fractional terms
+  lack the factors $\sin(\pi\nu/2)$ and $\sin(\pi\mu/2)$ that Eq. (46) and the Appendix's B and D
+  (A4, A6) carry. The solver uses the Appendix, so this doesn't affect it.
 
 The coefficients depend on $\bar\varepsilon$ through ξ, so the eigenproblem
 $M(\bar\varepsilon)\,h = 0$ is nonlinear. It is solved by nonlinear inverse iteration (Güttel
