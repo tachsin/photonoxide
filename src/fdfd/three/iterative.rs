@@ -13,9 +13,11 @@ pub enum Formulation {
     /// The curl-curl equation as it is, A = −∇ × ∇ × + k₀² ε: Shin and Fan's Eq. 7 with s = 0.
     CurlCurl,
     /// Shin and Fan's Eq. 7 with s = −1: the continuity equation, ∇ · (ε E) = ∇ · J / (i k₀)
-    /// in our units, added as A + ε⁻¹ ∇(∇ · (ε ·)), with the right-hand side to match. In a
-    /// uniform medium this turns −∇ × ∇ × into the vector Laplacian, which removes the near-zero
-    /// eigenvalues of the curl-curl operator's null space (their Section 2).
+    /// in our units, added as A + ∇(ε⁻¹ ∇ · (ε ·)) with ε⁻¹ at the nodes, and the right-hand
+    /// side to match. In a uniform medium this turns −∇ × ∇ × into the vector Laplacian, which
+    /// removes the near-zero eigenvalues of the curl-curl operator's null space (their Section 2).
+    /// It converges in fewer iterations to its own residual, but not to a more accurate field:
+    /// see docs/methods/fdfd-3d.md.
     ShinFan,
 }
 

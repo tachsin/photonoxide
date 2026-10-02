@@ -369,9 +369,10 @@ impl Lattice {
         self.assemble_with(eps, 0.0)
     }
 
-    /// The matrix A − s ε⁻¹ ∇(∇ · (ε ·)): W. Shin and S. Fan's operator, Opt. Express 21, 22578
-    /// (2013), doi:10.1364/OE.21.022578, Eq. 7, times −1 (their A is ∇ × ∇ × − k₀² ε). s = 0 is
-    /// A itself, and s = −1 their choice.
+    /// The matrix A − s ∇(ε⁻¹ ∇ · (ε ·)): W. Shin and S. Fan's operator, Opt. Express 21, 22578
+    /// (2013), doi:10.1364/OE.21.022578, Eq. 7, times −1 (their A is ∇ × ∇ × − k₀² ε), with ε⁻¹
+    /// at the nodes, where the divergence lives, inside the gradient. s = 0 is A itself, and
+    /// s = −1 their choice.
     pub(crate) fn assemble_with(&self, eps: &[c64], s: f64) -> Vec<Triplet<usize, usize, c64>> {
         let k2 = self.k0 * self.k0;
         let mut t = Vec::with_capacity(if s == 0.0 { 13 } else { 15 } * eps.len());
@@ -392,9 +393,10 @@ impl Lattice {
             }
             if s != 0.0 {
                 for (node, wg) in self.gradient(r) {
+                    let inverse = 1.0 / self.node_eps(eps, node);
                     for (col, wd) in self.divergence(node) {
                         if !self.fixed(col) {
-                            row.push((col, -s * wg * wd * eps[col] / e));
+                            row.push((col, -s * wg * wd * eps[col] * inverse));
                         }
                     }
                 }
@@ -428,6 +430,25 @@ impl Lattice {
         out
     }
 
+    /// ε at node `q`, for Shin and Fan's ε⁻¹ there: the mean of the edges its divergence takes.
+    /// Their Eq. 7 needs it at the node, inside the gradient; taking ε⁻¹ at the edge instead
+    /// (outside the gradient), the same in a uniform medium, made QMR 1.6 times slower than
+    /// the curl-curl operator on a silicon guide in vacuum, where theirs is faster.
+    fn node_eps(&self, eps: &[c64], q: usize) -> c64 {
+        let (sum, count) = self
+            .divergence(q)
+            .into_iter()
+            .filter(|&(col, _)| !self.fixed(col))
+            .fold((c64::new(0.0, 0.0), 0.0), |(s, n), (col, _)| {
+                (s + eps[col], n + 1.0)
+            });
+        if count > 0.0 {
+            sum / count
+        } else {
+            c64::new(1.0, 0.0)
+        }
+    }
+
     /// ∇ at E's value `r` (component a, between two nodes along a): the difference of a
     /// potential at the nodes over the step and the stretch at the edge. The nodes it takes
     /// (indexed as [`Lattice::divergence`]'s) and their coefficients; nodes on a wall behind a
@@ -449,7 +470,7 @@ impl Lattice {
         out
     }
 
-    /// The right-hand side of Shin and Fan's Eq. 7 for A x = `b`: b − (s / k₀²) ε⁻¹ ∇(∇ · b),
+    /// The right-hand side of Shin and Fan's Eq. 7 for A x = `b`: b − (s / k₀²) ∇(ε⁻¹ ∇ · b),
     /// which leaves the solution as it is, since ∇ · (ε E) = ∇ · b / k₀² for the solution.
     pub(crate) fn transformed_rhs(&self, eps: &[c64], b: &[c64], s: f64) -> Vec<c64> {
         let k2 = self.k0 * self.k0;
@@ -472,8 +493,12 @@ impl Lattice {
                 if self.fixed(r) || s == 0.0 {
                     return b[r];
                 }
-                let grad: c64 = self.gradient(r).into_iter().map(|(q, w)| w * div[q]).sum();
-                b[r] - s / k2 * grad / eps[r]
+                let grad: c64 = self
+                    .gradient(r)
+                    .into_iter()
+                    .map(|(q, w)| w * div[q] / self.node_eps(eps, q))
+                    .sum();
+                b[r] - s / k2 * grad
             })
             .collect()
     }

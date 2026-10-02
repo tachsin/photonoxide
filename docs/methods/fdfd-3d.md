@@ -178,8 +178,8 @@ is returned as an error. None occurred in the cases below.
 
 $$
 -\nabla\times\nabla\times\mathbf E + k_0^2\varepsilon\mathbf E
-+ \varepsilon^{-1}\nabla\!\left(\nabla\cdot(\varepsilon\mathbf E)\right)
-= -i k_0\mathbf J + \frac{1}{k_0^2}\,\varepsilon^{-1}\nabla(\nabla\cdot(-i k_0\mathbf J)),
++ \nabla\!\left(\varepsilon^{-1}\nabla\cdot(\varepsilon\mathbf E)\right)
+= -i k_0\mathbf J + \frac{1}{k_0^2}\,\nabla\!\left(\varepsilon^{-1}\nabla\cdot(-i k_0\mathbf J)\right),
 $$
 
 our sign and units for their equation. The added terms vanish for the solution, by the
@@ -187,7 +187,9 @@ continuity equation $\nabla\cdot(\varepsilon\mathbf E) = \nabla\cdot\mathbf J/(i
 uniform medium they turn $-\nabla\times\nabla\times$ into the vector Laplacian, which removes the
 curl-curl operator's huge null space of near-zero eigenvalues (their Section 2).
 
-On the grid, ∇· lives at the nodes and ∇ takes the nodes' values to the edges. Inside a PML
+On the grid, ∇· lives at the nodes and ∇ takes the nodes' values to the edges. So $arepsilon^{-1}$
+sits at the nodes, between the two, as in their Eq. 7: the mean of ε on the six edges a node's
+divergence takes (the harmonic mean took up to 24% more iterations). Inside a PML
 both use the stretch where their result lives, as the curls do. Then $\nabla\cdot\nabla\times = 0$
 holds exactly on the grid, so the transformed system has exactly the curl-curl system's
 solution: by the direct solver they agree to 7e-15 of the largest field (with PMLs, a Bloch
@@ -213,34 +215,60 @@ The matrix is then real symmetric, and QMR is, in exact arithmetic, the GMRES th
 | ours: iterations to 1e-6 | 114 | 79 | 801 |
 | theirs (read off Fig. 3, ±5) | 114 | 77 | not reached in 500; about 5e-5 at 400, ours 4.4e-5 |
 
-**In 3D, with silicon, the transformation does not pay.** Shin and Fan's Fig. 9 shows s = −1
-converging 1.3–2.5× faster than s = 0 on three 3D problems, among them a silicon guide in
+**In 3D: faster by its own residual, not to the same field.** Shin and Fan's Fig. 9 shows
+s = −1 converging 1.3–2.5× faster than s = 0 on three 3D problems, among them a silicon guide in
 vacuum (their "Diel", 15 M unknowns). We measured QMR iterations to a relative residual of 1e-6
 of each system: 40³ cells of 10 nm (0.4 µm across), 1.55 µm, an x-polarized current near the
-centre, periodic sides or PMLs of 10 cells all round.
+centre, periodic sides or PMLs of 10 cells all round. The middle column is our first version,
+with $\varepsilon^{-1}$ at the edge, outside the gradient: the same in a uniform medium, but
+wrong at an interface.
 
-| Structure | s = 0 | s = −1 (Shin and Fan) |
-|---|---|---|
-| vacuum, periodic | 122 | 112 |
-| vacuum, PMLs | 1231 | 559 |
-| oxide cube 200 nm, periodic | 255 | 219 |
-| silicon cube 200 nm, periodic | 416 | 374 |
-| oxide guide 100 nm through the PMLs | 1457 | 802 |
-| silicon cube 100 nm, PMLs | 1201 | 1894 |
-| silicon guide 100 nm through the PMLs | 1976 | 3062 |
+| Structure | s = 0 | s = −1, ε⁻¹ at the edge (wrong) | s = −1 (Shin and Fan) |
+|---|---|---|---|
+| vacuum, periodic | 122 | 112 | 112 |
+| vacuum, PMLs | 1231 | 559 | 559 |
+| oxide cube 200 nm, periodic | 255 | 157 | 130 |
+| silicon cube 200 nm, periodic | 416 | 367 | 186 |
+| oxide guide 100 nm through the PMLs | 1457 | 802 | 724 |
+| silicon cube 100 nm, PMLs | 1201 | 1920 | 903 |
+| silicon guide 100 nm through the PMLs | 1976 | 3076 | 1629 |
+
+With ε⁻¹ where Eq. 7 puts it, s = −1 needs fewer iterations in every case, 1.2–2.2× fewer, which
+is Shin and Fan's result. But each count is to each system's own residual, and the two systems'
+residuals don't measure the same thing (see above). Measured instead by the field's error against
+a reference (s = −1 to 1e-11; in brackets, how far it is from s = 0 to 1e-8):
+
+| Structure (reference agreement) | tolerance | s = 0: iterations, field error | s = −1: iterations, field error |
+|---|---|---|---|
+| vacuum, PMLs (3.4e-10) | 1e-5 | 967, 1.1e-7 | 361, 1.9e-4 |
+| | 1e-6 | 1231, 8.9e-9 | 559, 2.4e-5 |
+| | 1e-7 | 1397, 1.5e-9 | 814, 1.5e-6 |
+| | 1e-8 | 1630, 3.4e-10 | 1031, 1.1e-7 |
+| silicon cube 100 nm, PMLs (1.1e-9) | 1e-5 | 964, 1.4e-6 | 685, 2.2e-4 |
+| | 1e-6 | 1201, 1.4e-7 | 903, 2.4e-5 |
+| | 1e-7 | 1398, 1.3e-8 | 1222, 1.5e-6 |
+| | 1e-8 | 1676, 1.1e-9 | 1411, 1.9e-7 |
+| silicon guide 100 nm, PMLs (5.1e-9) | 1e-5 | 1744, 1.5e-6 | 1233, 2.2e-4 |
+| | 1e-6 | 1976, 3.8e-7 | 1629, 1.2e-5 |
+| | 1e-7 | 2303, 4.7e-8 | 2098, 1.7e-6 |
+| | 1e-8 | 2739, 5.1e-9 | 2394, 2.3e-7 |
+
+At the same field error, the curl-curl operator is as fast or faster: in vacuum, s = −1 reaches
+1.1e-7 in 1031 iterations where s = 0 does in 967; on the silicon guide, 2.3e-7 takes s = −1
+2394 and s = 0 about 2000. The transformation trades the curl-curl operator's null space for a
+right-hand side dominated by $\nabla\nabla\cdot\mathbf J$, and the residual it then converges
+mostly measures that part.
 
 Their Diel at a smaller size (a 400 × 300 nm silicon guide in vacuum along x, 40 × 90 × 80 cells
-of 10 nm with PMLs of 10, a current across the guide; 864 000 unknowns) takes **2 745 iterations
-with s = 0 and 14 524 with s = −1**. The cost per iteration is the same, 38 ms on 20 threads.
-Measured in the curl-curl system, s = 0 ends at a residual of 9.9e-7 and s = −1 at 8.5e-5; the
-two solutions agree to 3.7e-5.
+of 10 nm with PMLs of 10, a current across the guide; 864 000 unknowns) takes 2 745 iterations
+with s = 0 and 4 703 with s = −1 (14 524 with ε⁻¹ at the edge), each to 1e-6 of its own residual.
+Measured in the curl-curl system, s = −1 ends at a residual of 9.1e-6, and the two solutions agree
+to 7.2e-6. Here, unlike their Fig. 9, s = −1 is slower even by its own residual; their guide is
+37 times larger, with a dipole source we don't reproduce exactly.
 
-So the transformation helps as Shin and Fan describe in vacuum and at low contrast (up to 2.2×).
-With silicon against vacuum and PMLs, though, it costs 1.6–5× more iterations, and we haven't
-found why. The added operator $\varepsilon^{-1}\nabla\nabla\cdot\varepsilon$ is not symmetric at
-an interface. Weighting it as $\varepsilon\nabla\nabla\cdot\varepsilon$, symmetric without PMLs
-and with the same solution, converged no faster in a trial, so asymmetry alone isn't it.
-`Formulation::CurlCurl` is the one to use for silicon photonics until this is understood.
+So `Formulation::CurlCurl` stays the default: by the field, the measure that matters, it is never
+slower here. `Formulation::ShinFan` is Shin and Fan's operator as published, for comparison and
+for the preconditioners of a later milestone, where the null space matters more.
 
 **Cost.** `IterativeSolver3d` keeps the matrix and its transpose (13 or 15 nonzeros per row) and
 a dozen vectors. The 864 000-unknown guide above peaked at 1.4 GB, the assembly's temporaries
