@@ -480,7 +480,106 @@ pub fn cases() -> Vec<Case> {
             source: "G. R. Hadley (2002), part II, Section IV: second order for most cases (Figs. 8-11), where the standard scheme's is about first; errors 9.1e-6, 2.1e-6, 5.2e-7 here",
             run: hadley_corners_order,
         },
+        Case {
+            id: "fdfd3d/film-reflection-te",
+            title: "3D FDFD, s (TE) polarized: the reflectance of 220 nm of silicon (3.476) on oxide (1.444) under air, 30 degrees from the normal in a plane 30 degrees from x, 1.55 um, from the fluxes on a 2.5 nm grid (shown)",
+            tier: Tier::Analytic,
+            source: "the exact stack by transfer matrices (mode::multilayer, J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Eqs. 13-16, TE); second order: 2.8e-3, 7.3e-4, 1.9e-4, 4.6e-5 at 20, 10, 5, 2.5 nm",
+            run: fdfd3d_film_te,
+        },
+        Case {
+            id: "fdfd3d/film-reflection-tm",
+            title: "The same, p (TM) polarized (shown)",
+            tier: Tier::Analytic,
+            source: "the exact stack by transfer matrices (TM); second order: 1.9e-3, 4.9e-4, 1.2e-4, 3.1e-5 at 20, 10, 5, 2.5 nm",
+            run: fdfd3d_film_tm,
+        },
+        Case {
+            id: "fdfd3d/flux-conservation",
+            title: "3D FDFD: the power through every plane from the oxide through the silicon into the air, both polarizations at 0, 30 and 60 degrees, 10 nm grid (largest relative spread shown)",
+            tier: Tier::Analytic,
+            source: "Poynting's theorem: no power is lost or made in a lossless region without sources; the scheme's own flux (tangential E averaged across the plane, H on it) keeps this exactly",
+            run: fdfd3d_flux_conservation,
+        },
+        Case {
+            id: "fdfd3d/pml-reflection",
+            title: "3D FDFD: what a 20-cell PML graded to R = 1e-8 (m = 3) sends back of a plane wave 17 degrees off its normal in a plane 30 degrees from x, in oxide on a 20 nm grid, both polarizations (largest amplitude shown)",
+            tier: Tier::Analytic,
+            source: "W. Shin, S. Fan, J. Comput. Phys. 231, 3406 (2012), doi:10.1016/j.jcp.2012.01.013, Eqs. 2.5-2.9: graded for R = 1e-8 in vacuum at normal incidence; in oxide 17 degrees off, the round trip absorbs to (1e-8)^1.38, an amplitude of 3e-6; measured 2.5e-6, as in 2D",
+            run: fdfd3d_pml_reflection,
+        },
+        Case {
+            id: "fdfd3d/two-d-agreement",
+            title: "3D FDFD on a structure invariant along z (a silicon rod in lossy oxide, Bloch-periodic in x and y, 25 nm grid, one cell along z) against the 2D solver, E along z and H along z (largest field difference relative to the largest field shown)",
+            tier: Tier::Analytic,
+            source: "with d/dz = 0 Maxwell's equations split into the two 2D polarizations (K. S. Yee, IEEE Trans. Antennas Propag. 14, 302 (1966), doi:10.1109/TAP.1966.1138693); on the same grid and averaging the two discrete systems are the same equations, one eliminating H and the other E",
+            run: fdfd3d_two_d_agreement,
+        },
     ]
+}
+
+fn fdfd3d_film(kind: Polarization, tolerance: f64) -> Outcome {
+    use crate::fdfd::checks3d::{PML, film_ratios, film_run};
+    let run = film_run(kind, 0.0025, 30f64.to_radians(), (PML, 1e-8));
+    let ((r, _), (exact, _)) = film_ratios(&run);
+    Outcome {
+        measured: r,
+        expected: exact,
+        tolerance,
+        error: (r - exact).abs(),
+    }
+}
+
+fn fdfd3d_film_te() -> Outcome {
+    // second order from 1.9e-4 at 5 nm predicts 4.6e-5, which it is
+    fdfd3d_film(Polarization::Te, 6e-5)
+}
+
+fn fdfd3d_film_tm() -> Outcome {
+    // second order from 1.2e-4 at 5 nm predicts 3.1e-5, which it is
+    fdfd3d_film(Polarization::Tm, 5e-5)
+}
+
+fn fdfd3d_flux_conservation() -> Outcome {
+    use crate::fdfd::checks3d::{PML, film_run, flux_spread};
+    let mut worst: f64 = 0.0;
+    for kind in [Polarization::Te, Polarization::Tm] {
+        for deg in [0.0, 30.0, 60.0_f64] {
+            let run = film_run(kind, 0.01, deg.to_radians(), (PML, 1e-8));
+            worst = worst.max(flux_spread(&run));
+        }
+    }
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-10,
+        error: worst,
+    }
+}
+
+fn fdfd3d_pml_reflection() -> Outcome {
+    use crate::fdfd::checks3d::pml_reflection;
+    let worst = pml_reflection(Polarization::Te).max(pml_reflection(Polarization::Tm));
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // as in 2D: the round trip keeps (1e-8)^1.38 of the power, an amplitude of 3e-6
+        tolerance: 1e-5,
+        error: worst,
+    }
+}
+
+fn fdfd3d_two_d_agreement() -> Outcome {
+    use crate::fdfd::checks3d::two_d_difference;
+    let worst = two_d_difference(crate::fdfd::Polarization::Ez)
+        .max(two_d_difference(crate::fdfd::Polarization::Hz));
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // the same equations factorized two ways: round-off, 2e-13 measured
+        tolerance: 1e-11,
+        error: worst,
+    }
 }
 
 fn fdfd_slab(polarization: crate::fdfd::Polarization) -> Outcome {
