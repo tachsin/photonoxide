@@ -179,3 +179,65 @@ fn a_step_is_reciprocal_and_a_te_mode_reflects_as_fresnel_says() {
         }
     }
 }
+
+#[test]
+fn a_reused_analysis_gives_the_same_answer_at_another_wavelength() {
+    let eps = |_: f64, y: f64| {
+        let n: f64 = if y.abs() < 0.11 { 3.476 } else { 1.444 };
+        c64::new(n * n, 0.0)
+    };
+    let first = guide(Polarization::Ez, 0.02, 2.0, (3.476, 1.444), |_| 0.22);
+    let lam = Wavelength::um(1.5).unwrap();
+    let fresh = Solver2d::new(
+        first.grid(),
+        Polarization::Ez,
+        lam,
+        eps,
+        Boundaries::pml(20),
+    )
+    .unwrap();
+    let reused = first.reuse(lam, eps).unwrap();
+    let s = |solver: &Solver2d| solver.s_matrix(&two_ports(solver)).unwrap();
+    let (a, b) = (s(&fresh), s(&reused));
+    for q in 0..2 {
+        for p in 0..2 {
+            assert!(
+                (a[q][p] - b[q][p]).norm() < 1e-12,
+                "{q}{p}: {} vs {}",
+                a[q][p],
+                b[q][p]
+            );
+        }
+    }
+}
+
+#[test]
+#[ignore = "a timing, for the docs: cargo test --release -- --ignored --nocapture"]
+fn time_a_reused_analysis() {
+    let solver = guide(Polarization::Ez, 0.01, 4.0, (3.476, 1.444), |x| {
+        if x < 2.0 { 0.22 } else { 0.3 }
+    });
+    let eps = |_: f64, y: f64| c64::new(if y.abs() < 0.11 { 12.08 } else { 2.085 }, 0.0);
+    let g = solver.grid();
+    for lam in [1.5, 1.55, 1.6] {
+        let lam = Wavelength::um(lam).unwrap();
+        let t0 = std::time::Instant::now();
+        let _ = Solver2d::new(g, Polarization::Ez, lam, eps, Boundaries::pml(20)).unwrap();
+        let fresh = t0.elapsed();
+        let t1 = std::time::Instant::now();
+        let _ = solver.reuse(lam, eps).unwrap();
+        let reused = t1.elapsed();
+        println!(
+            "TIMING {} x {} = {} unknowns: fresh {fresh:?}, reused {reused:?}",
+            g.nx,
+            g.ny,
+            g.nx * g.ny
+        );
+        let ports = two_ports(&solver);
+        let t2 = std::time::Instant::now();
+        let _ = solver
+            .solve_system(&solver.mode_source(&ports[0].mode, Direction::Forward))
+            .unwrap();
+        println!("TIMING one source: {:?}", t2.elapsed());
+    }
+}

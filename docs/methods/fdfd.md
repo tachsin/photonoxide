@@ -62,7 +62,14 @@ one period on, the field is $e^{ikL}$ times itself. That is how an infinite plan
 grid a few cells wide.
 
 The system is factorized once (faer's sparse LU). `Solver2d::solve` then gives the field for
-any source by back-substitution.
+any source by back-substitution, with one step of iterative refinement.
+
+**Cost.** The matrix's sparsity depends only on the grid and the boundaries, not on the
+wavelength or the permittivity. `Solver2d::reuse` keeps its analysis (the fill-reducing ordering
+and the symbolic factorization) for a sweep. Measured on a 440 × 340 grid (150 k unknowns), the
+analysis is 55 ms of an 800 ms factorization, and the numerical factorization is the rest: reuse
+saves about 6 %. faer orders by COLAMD, and a nested-dissection ordering, better suited to grids,
+would cut the factorization itself. Each further source on the same structure costs about 80 ms.
 
 ## The power flux
 
