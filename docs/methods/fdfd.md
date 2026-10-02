@@ -105,4 +105,4 @@ power, an amplitude of 3e-6.
 - The averaging is exact for interfaces along the grid's axes. A curved or slanted interface is
   sampled 8 × 8 times per cell, which converges more slowly. Farjadpour et al.'s subpixel
   smoothing, which follows the interface's normal, is the planned fix.
-- Sources are currents on cells. Waveguide-mode sources and ports are the next step.
+- Sources are currents on cells, or a waveguide's modes through its [ports](fdfd-ports.md).

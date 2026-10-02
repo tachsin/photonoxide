@@ -1,0 +1,103 @@
+---
+title: "FDFD ports and S-parameters"
+module: fdfd
+summary: "Waveguide modes into and out of a 2D FDFD problem: the grid's own port modes, one-way total-field/scattered-field sources, mode amplitudes, and a reciprocal S-matrix."
+order: 16
+papers:
+  - cite: "R. C. Rumpf, Prog. Electromagn. Res. B 36, 221 (2012)"
+    doi: 10.2528/PIERB11092006
+  - cite: "A. F. Oskooi et al., Comput. Phys. Commun. 181, 687 (2010) (the S-parameter conventions)"
+    doi: 10.1016/j.cpc.2009.11.008
+validation:
+  - fdfd/port-mode-te
+  - fdfd/port-mode-tm
+  - fdfd/straight-guide
+  - fdfd/reciprocity
+  - fdfd/step-reflection-te
+---
+
+A device is described by what it does to the modes of its waveguides: how much of a mode going
+in comes out in each mode, and with what phase. These are its S-parameters. A port is a column
+of the [FDFD](fdfd.md) grid that crosses a waveguide running along x, with that guide's modes.
+
+## Port modes
+
+A port's modes are the scheme's own. The 2D operator, restricted to the port's column, gives a
+1D eigenproblem along y, and the grid's difference along x turns β into
+$\beta_d = (2/\Delta x)\sin(\beta\Delta x/2)$:
+
+$$
+L_y u + k_0^2 \varepsilon_z u = \beta_d^2 u \quad (E_z), \qquad
+\varepsilon_y\,(L_y + k_0^2)\,u = \beta_d^2 u \quad (H_z),
+$$
+
+with $L_y$ the column's y-part of the operator, PML included. It is solved by shift-and-invert
+Arnoldi near the column's highest index. A mode solved this way propagates along a straight grid
+waveguide exactly. Launched, it neither reflects nor sheds radiation, so a port measures only
+the device. A mode taken from a continuum solver would leave a small mismatch on every grid.
+
+## Sources
+
+A port launches its mode by total-field/scattered-field (Rumpf's Eq. 55). Q masks the cells of
+the scattered field, f is the mode extended along x as $e^{\pm i\beta x}$ through the whole grid,
+and A is the system's matrix:
+
+$$
+b = (QA - AQ)\,f .
+$$
+
+Only the rows at the interface between the two regions are non-zero. The mode then travels one
+way only, from the interface into the total field, at unit amplitude on the port's column. The
+scattered field holds only what the device sends back.
+
+## Amplitudes and the S-matrix
+
+Two neighbouring columns c and c + 1 separate the forward and backward waves of a mode. The field
+on each column is projected onto the mode with the operator's own orthogonality,
+$\sum_j w_j \phi_m \phi_n = 0$ for m ≠ n. Here $w = s_y$ for E along z and $s_y/\varepsilon_y$ for H along z,
+the weights that make the column's operator symmetric. With each mode normalized to
+$\sum w\phi^2 = 1$ (real for a lossless guide), the two projections
+$p_c = a + b$ and $p_{c+1} = a e^{i\beta\Delta x} + b e^{-i\beta\Delta x}$ give the forward and backward
+amplitudes a and b.
+
+`Solver2d::s_matrix` runs one solve per port. In every run it measures the incoming and the
+outgoing amplitude at every port, and solves S A = B, with a column of A and of B per run. A
+trace of a mode that the PMLs send back into a port is then measured as incoming, not mistaken
+for part of S. The amplitudes are power-normalized: $|S_{qp}|^2$ is the share of power from mode p
+into mode q. Each mode is normalized by its unconjugated Lorentz form, which for
+$\sum w\phi^2 = 1$ is $\sin(\beta\Delta x)\,\Delta y/(2k_0\Delta x)$. That is the mode's power when the mode is
+real, and it keeps S exactly symmetric for a reciprocal device. Where a mode's tail reaches into
+a PML, the physical power differs from it, by about the share of the mode in the PML.
+
+## Validation
+
+**Port modes against the exact slab:** 220 nm of silicon (3.476) in oxide (1.444) at 1.55 µm.
+
+| | 10 nm | 5 nm | 2.5 nm |
+|---|---|---|---|
+| E along z (n_eff = 2.84778 exact) | 2.6e-3 | 6.5e-4 | 1.6e-4 |
+| H along z (n_eff = 2.05332 exact) | 2.5e-3 | 6.1e-4 | 1.5e-4 |
+
+The error falls exactly 4× per halving: second order, as the 2D scheme.
+
+**A straight guide:** two ports 1.4 µm apart on a straight slab. S11 and S22 are 0, and S21 and
+S12 are $e^{i\beta L}$, all to 1e-13 for both polarizations: the mode crosses the grid whole.
+
+**Reciprocity:** a slab stepping from 220 to 300 nm thick. S21 and S12 agree to 1e-14 for both
+polarizations.
+
+**The step's reflection, E along z:** 1.16424e-3, against 1.16503e-3 from Fresnel's formula on
+the two modes' effective indices (2.84742 and 3.04866). For a TE slab mode the modal impedance
+is the effective index, and this estimate is good to 0.07 %. The step radiates 1.9e-4 and
+transmits the rest, 0.99865. With H along z the TM mode is more weakly confined: the step
+reflects 2.1e-3 and radiates 6 %. There, Fresnel on the effective indices isn't the right
+estimate, since a TM mode's impedance isn't its index.
+
+## Limits
+
+- One mode per port is the common case. Several modes per port work the same way, with each a
+  port of its own in `s_matrix`.
+- A port's column and the next must be at least two cells clear of the PMLs along x, with the
+  same guide on both.
+- The projection separates the modes exactly, radiation included. Radiation itself isn't
+  reported as a port: what a lossless device loses from S is what it radiates.

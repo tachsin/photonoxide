@@ -125,12 +125,12 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 ### 0.3: Frequency-domain finite differences (FDFD)
 - [x] **2D,** with stretched-coordinate PML. *(Both polarizations on Yee's grid (Yee 1966), PMLs graded as Shin & Fan 2012 describe, Bloch-periodic sides, and the scheme's exact power flux: a plane wave on a silicon slab reflects as the exact transfer matrices say, at second order, to 3e-5 at 2.5 nm; the flux is conserved to 1e-10.)*
 - [ ] **3D,** with stretched-coordinate PML (Christ & Hartnagel 1987).
-- [ ] **Ports:** mode sources and forward/backward separation by mode projection; S-parameters and flux.
+- [x] **Ports:** mode sources and forward/backward separation by mode projection; S-parameters and flux. *(In 2D: the grid's own port modes (second order against the exact slab), one-way total-field/scattered-field sources (Rumpf 2012), mode amplitudes by projection with the operator's orthogonality, and a power-normalized S-matrix: a straight guide transmits e^(iβL) to 1e-13, and S21 = S12 to 1e-14 through a step.)*
 - [ ] **Solvers:** sparse direct (faer) with cached symbolic factorization; iterative for 3D (Shin & Fan 2013).
 - [ ] **Adjoint gradients,** checked against finite differences (Veronis 2004; Lalau-Keraly 2013; Hughes 2018).
 - [ ] **Dielectric corners** in the mode solver: high-accuracy finite-difference equations at interfaces and corners (Hadley 2002, parts I and II), moved from 0.2.
 - [ ] **Studio:** FDFD fields on a plane in the 3D view, and S-parameters as they arrive.
-- [ ] **Validation:** reciprocity, energy conservation, analytic cases, agreement with the mode solvers. *(Energy conservation and the slab's reflection against the exact transfer matrices, done in 2D. Agreement with FDTD moved to 0.4, once FDTD exists.)*
+- [ ] **Validation:** reciprocity, energy conservation, analytic cases, agreement with the mode solvers. *(In 2D: reciprocity, energy conservation, a slab's reflection against the exact transfer matrices, and the port modes against the exact slab. Agreement with FDTD moved to 0.4, once FDTD exists.)*
 
 ### 0.4: Finite-difference time-domain (FDTD)
 - [ ] **Core:**

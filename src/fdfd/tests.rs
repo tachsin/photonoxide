@@ -116,3 +116,66 @@ fn each_component_sees_its_own_average_and_bad_problems_are_errors() {
         }
     ));
 }
+
+/// The error of the fundamental port mode of a 220 nm silicon slab (3.476 in 1.444) against
+/// the exact slab mode, on an h grid.
+fn port_mode_error(polarization: Polarization, h: f64) -> f64 {
+    let (got, exact) = port_mode_index(polarization, h);
+    (got - exact).abs()
+}
+
+#[test]
+fn a_port_mode_is_the_exact_slab_mode_at_second_order() {
+    // from 10 nm down the core's faces are on the grid's faces
+    for polarization in [Polarization::Ez, Polarization::Hz] {
+        let errors: Vec<f64> = [0.01, 0.005, 0.0025]
+            .iter()
+            .map(|&h| port_mode_error(polarization, h))
+            .collect();
+        let orders: Vec<f64> = errors.windows(2).map(|e| (e[0] / e[1]).log2()).collect();
+        assert!(errors[2] < 3e-4, "{polarization:?}: {errors:?}");
+        assert!(
+            orders.iter().all(|&p| p > 1.9),
+            "{polarization:?}: {errors:?} {orders:?}"
+        );
+    }
+}
+
+#[test]
+fn a_straight_guide_transmits_everything_with_the_modes_phase() {
+    for polarization in [Polarization::Ez, Polarization::Hz] {
+        let error = straight_guide_error(polarization);
+        assert!(error < 1e-10, "{polarization:?}: {error}");
+    }
+}
+
+#[test]
+fn a_step_is_reciprocal_and_a_te_mode_reflects_as_fresnel_says() {
+    for polarization in [Polarization::Ez, Polarization::Hz] {
+        let (s, n1, n2) = step(polarization);
+        let (s21, s12) = (s[1][0], s[0][1]);
+        assert!(
+            (s21 - s12).norm() < 1e-10 * s21.norm(),
+            "{polarization:?}: S21 {s21} S12 {s12}"
+        );
+        // a lossless step: what isn't reflected or transmitted in the mode radiates. For TE the
+        // modal impedance is the effective index, and the mode reflects as Fresnel's formula on
+        // the two says (1.1642e-3 against 1.1650e-3); a TM mode's isn't, and its weaker
+        // confinement makes the step radiate 6 %
+        let (r, t) = (s[0][0].norm_sqr(), s21.norm_sqr());
+        let radiated = 1.0 - r - t;
+        let fresnel = ((n1 - n2) / (n1 + n2)).powi(2);
+        match polarization {
+            Polarization::Ez => {
+                assert!(radiated > 0.0 && radiated < 1e-3, "Ez: R {r} T {t}");
+                assert!(
+                    (r / fresnel - 1.0).abs() < 0.01,
+                    "Ez: R {r}, Fresnel {fresnel}"
+                );
+            }
+            Polarization::Hz => {
+                assert!(radiated > 0.0 && radiated < 0.1, "Hz: R {r} T {t}");
+            }
+        }
+    }
+}

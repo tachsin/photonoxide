@@ -361,6 +361,41 @@ pub fn cases() -> Vec<Case> {
             source: "W. Shin, S. Fan, J. Comput. Phys. 231, 3406 (2012), doi:10.1016/j.jcp.2012.01.013, Eqs. 2.7-2.9: graded for R = 1e-8 in vacuum at normal incidence; in oxide 17 degrees off, the round trip absorbs to (1e-8)^1.38, an amplitude of 3e-6; measured 2.5e-6",
             run: fdfd_pml_reflection,
         },
+        Case {
+            id: "fdfd/port-mode-te",
+            title: "2D FDFD ports: the fundamental mode of a 220 nm silicon slab (3.476 in 1.444) at 1.55 um, E along z, solved on a port column of a 2.5 nm grid: effective index (shown)",
+            tier: Tier::Analytic,
+            source: "the exact slab (mode::slab); the port's 1D operator is the 2D scheme's own, second order: 2.6e-3, 6.5e-4, 1.6e-4 at 10, 5, 2.5 nm",
+            run: fdfd_port_mode_te,
+        },
+        Case {
+            id: "fdfd/port-mode-tm",
+            title: "The same with H along z (shown)",
+            tier: Tier::Analytic,
+            source: "the exact slab (mode::slab); second order: 2.5e-3, 6.1e-4, 1.5e-4 at 10, 5, 2.5 nm",
+            run: fdfd_port_mode_tm,
+        },
+        Case {
+            id: "fdfd/straight-guide",
+            title: "2D FDFD ports: a straight silicon slab between two ports 1.4 um apart, both polarizations, 20 nm grid: largest of the magnitudes of S11 and S22 and of the errors of S21 and S12 against exp(i beta L) (shown)",
+            tier: Tier::Analytic,
+            source: "a uniform guide transmits its mode whole with phase beta L; the port modes are the grid's own and the source is total-field/scattered-field (R. C. Rumpf, Prog. Electromagn. Res. B 36, 221 (2012), doi:10.2528/PIERB11092006, Eq. 55)",
+            run: fdfd_straight_guide,
+        },
+        Case {
+            id: "fdfd/reciprocity",
+            title: "2D FDFD ports: a slab stepping from 220 to 300 nm, both polarizations, 10 nm grid: S21 against S12 (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: "Lorentz reciprocity: S is symmetric for a reciprocal device; the scheme keeps it with the PMLs' stretches as weights and the modes normalized by the unconjugated Lorentz form",
+            run: fdfd_reciprocity,
+        },
+        Case {
+            id: "fdfd/step-reflection-te",
+            title: "The same step's reflection of the 220 nm slab's TE mode, E along z (shown)",
+            tier: Tier::Analytic,
+            source: "Fresnel's formula on the two modes' effective indices, ((n1 - n2)/(n1 + n2))^2 = 1.16503e-3 for 2.84742 and 3.04866: the TE modal impedance is the effective index; an approximation, good here to 0.07 %",
+            run: fdfd_step_reflection_te,
+        },
     ]
 }
 
@@ -413,6 +448,66 @@ fn fdfd_pml_reflection() -> Outcome {
         // round trip keeps (1e-8)^1.38 of the power: an amplitude of 3e-6
         tolerance: 1e-5,
         error: worst,
+    }
+}
+
+fn fdfd_port_mode(polarization: crate::fdfd::Polarization) -> Outcome {
+    let (got, exact) = crate::fdfd::checks::port_mode_index(polarization, 0.0025);
+    Outcome {
+        measured: got,
+        expected: exact,
+        tolerance: 2e-4,
+        error: (got - exact).abs(),
+    }
+}
+
+fn fdfd_port_mode_te() -> Outcome {
+    fdfd_port_mode(crate::fdfd::Polarization::Ez)
+}
+
+fn fdfd_port_mode_tm() -> Outcome {
+    fdfd_port_mode(crate::fdfd::Polarization::Hz)
+}
+
+fn fdfd_straight_guide() -> Outcome {
+    use crate::fdfd::Polarization;
+    use crate::fdfd::checks::straight_guide_error;
+    let worst = straight_guide_error(Polarization::Ez).max(straight_guide_error(Polarization::Hz));
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-12,
+        error: worst,
+    }
+}
+
+fn fdfd_reciprocity() -> Outcome {
+    use crate::fdfd::Polarization;
+    use crate::fdfd::checks::step;
+    let worst = [Polarization::Ez, Polarization::Hz]
+        .into_iter()
+        .map(|p| {
+            let (s, _, _) = step(p);
+            (s[1][0] - s[0][1]).norm() / s[1][0].norm()
+        })
+        .fold(0.0, f64::max);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-12,
+        error: worst,
+    }
+}
+
+fn fdfd_step_reflection_te() -> Outcome {
+    let (s, n1, n2) = crate::fdfd::checks::step(crate::fdfd::Polarization::Ez);
+    let measured = s[0][0].norm_sqr();
+    let expected = ((n1 - n2) / (n1 + n2)).powi(2);
+    Outcome {
+        measured,
+        expected,
+        tolerance: 2e-5,
+        error: (measured - expected).abs(),
     }
 }
 
