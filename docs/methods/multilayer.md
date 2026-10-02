@@ -1,7 +1,7 @@
 ---
 title: "Multilayer slab, transfer matrices"
 module: mode::multilayer
-summary: "The bound modes and leaky waves of any planar stack, exactly, from 2 × 2 field-transfer matrices."
+summary: "The bound modes and leaky waves of any planar stack, and its reflection and transmission of a plane wave, exactly, from 2 × 2 field-transfer matrices."
 order: 4
 papers:
   - cite: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984)"
@@ -10,6 +10,8 @@ validation:
   - mode/multilayer-bound-chilwell
   - mode/multilayer-leaky-chilwell
   - mode/multilayer-power-chilwell
+  - mode/multilayer-fresnel
+  - mode/multilayer-bragg
 examples:
   - multilayer_chilwell
 ---
@@ -44,6 +46,22 @@ The paper's convention, $e^{i(k\beta y - \omega t)}$ with $\operatorname{Im}\bet
   them in a region of the complex plane, from the minima of $|\chi|$ on a grid.
 - **Fields** (Eq. 34) and each layer's **share of the power** (Eq. 42).
 
+## Reflection and transmission
+
+The same matrix answers how much of a plane wave the stack reflects. Incident from the cover at
+angle θ (so $\beta = n_c \sin\theta$), with χ the left side of Eq. 26 (Eqs. 13–16):
+
+$$
+r = \frac{\gamma_c m_{11} + \gamma_c \gamma_s m_{12} - m_{21} - \gamma_s m_{22}}{\chi}, \qquad
+t = \frac{2\gamma_c}{\chi}, \qquad
+R = |r|^2, \qquad T = \frac{\operatorname{Re}\gamma_s}{\operatorname{Re}\gamma_c}\, |t|^2 .
+$$
+
+r and t are ratios of U: the tangential E for TE, the tangential H for TM. Beyond total internal
+reflection $\gamma_s$ is imaginary and T is zero. `Multilayer::reflection` returns all four; the
+cover must be lossless, so that the incident wave is defined. This is the exact reference for
+the plane-wave checks of the FDFD solver.
+
 ## Validation
 
 The paper's four-layer guide: cover 1.0; films 1.66, 1.53, 1.60, 1.66 (500 nm each); substrate
@@ -55,6 +73,10 @@ The paper's four-layer guide: cover 1.0; films 1.66, 1.53, 1.60, 1.66 (500 nm ea
   real part is printed 1.38250 against our 1.3824892, one unit in the last place. With the
   bound modes agreeing to 7 digits, that is most likely the 1984 table's rounding.
 - One film reproduces the [three-layer slab](slab.md) to 1e-12.
+- **Reflection:** at one interface Eq. 13 is Fresnel's equations, to 1e-12 at 0–70° for TE and
+  TM, with no TM reflection at Brewster's angle. Eight quarter-wave pairs reflect as the closed
+  form, to 1e-12. A lossless stack's R + T is 1 to 1e-11 at every angle, and beyond the critical
+  angle R is 1 and T is 0.
 
 The multilayer slab is also the exact reference for the [PML](pml.md): an SOI slab's leakage
 through its buried oxide into the substrate.

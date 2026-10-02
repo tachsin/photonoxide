@@ -21,6 +21,12 @@
 //! the largest film index, found by bracketing and bisection. Leaky waves and the modes of
 //! lossy stacks are complex roots, found by secant iteration from a starting guess, or by a
 //! search over a region of the complex plane.
+//!
+//! The same matrix gives a plane wave's reflection and transmission
+//! ([`Multilayer::reflection`]): incident from the cover at angle θ, β = n_c sin θ, and
+//! r = (γ_c m₁₁ + γ_c γ_s m₁₂ − m₂₁ − γ_s m₂₂)/χ, t = 2γ_c/χ, with χ the denominator of Eq. 26
+//! (Eqs. 13–14), the ratios of U, the tangential E for TE and the tangential H for TM; and
+//! R = |r|², T = Re(γ_s)/Re(γ_c) |t|² (Eqs. 15–16).
 
 use std::f64::consts::PI;
 
@@ -46,6 +52,22 @@ pub struct MultilayerMode {
     polarization: Polarization,
     effective_index: c64,
     k: f64,
+}
+
+/// A plane wave's reflection and transmission by a [`Multilayer`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Reflection {
+    /// The reflection coefficient: the ratio of the reflected and incident tangential E (TE) or
+    /// tangential H (TM) at the cover's side of the stack.
+    pub r: c64,
+    /// The transmission coefficient: the ratio of the transmitted field at the substrate's side
+    /// to the incident one at the cover's, of the same component.
+    pub t: c64,
+    /// The share of the incident power reflected, |r|².
+    pub reflectance: f64,
+    /// The share transmitted into the substrate, Re(γ_s)/Re(γ_c) |t|²: zero beyond total
+    /// internal reflection.
+    pub transmittance: f64,
 }
 
 /// The real and imaginary parts that bound a search region in the complex β plane.
@@ -165,6 +187,45 @@ impl Multilayer {
             Self::alpha_outside(self.substrate, beta),
         );
         (m, gc, gs)
+    }
+
+    /// The reflection and transmission of a plane wave of `polarization` incident from the cover
+    /// at `angle` (radians from the normal, in the cover), Eqs. 13–16.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] if the cover is lossy (an incident plane wave in it isn't
+    /// defined), or the angle isn't in [0, π/2).
+    pub fn reflection(
+        &self,
+        polarization: Polarization,
+        wavelength: Wavelength,
+        angle: f64,
+    ) -> Result<Reflection> {
+        if self.cover.im != 0.0 {
+            return Err(Error::invalid(
+                "reflection",
+                format!("the cover must be lossless, its index is {}", self.cover),
+            ));
+        }
+        if !(angle.is_finite() && (0.0..PI / 2.0).contains(&angle)) {
+            return Err(Error::invalid(
+                "reflection",
+                format!("the angle must be in [0, pi/2) radians, got {angle}"),
+            ));
+        }
+        let k = 2.0 * PI / wavelength.to_um();
+        let beta = c64::new(self.cover.re * angle.sin(), 0.0);
+        let (m, gc, gs) = self.matrix(polarization, k, beta);
+        let chi = gc * m[0][0] + gc * gs * m[0][1] + m[1][0] + gs * m[1][1];
+        let r = (gc * m[0][0] + gc * gs * m[0][1] - m[1][0] - gs * m[1][1]) / chi;
+        let t = 2.0 * gc / chi;
+        Ok(Reflection {
+            r,
+            t,
+            reflectance: r.norm_sqr(),
+            transmittance: gs.re / gc.re * t.norm_sqr(),
+        })
     }
 
     /// The modal-dispersion function χ(β) (Eq. 26).
@@ -582,5 +643,108 @@ mod tests {
                 .bound_modes(Polarization::Te, Wavelength::um(1.0).unwrap())
                 .is_err()
         );
+    }
+
+    #[test]
+    fn one_interface_reflects_as_fresnel_says() {
+        // a film of the substrate's index: only the cover/film interface reflects
+        let (n1, n2) = (1.0, 1.5);
+        let stack = Multilayer::new(
+            c64::new(n1, 0.0),
+            &[(c64::new(n2, 0.0), Length::nm(300.0))],
+            c64::new(n2, 0.0),
+        )
+        .unwrap();
+        let lam = Wavelength::um(0.6328).unwrap();
+        for deg in [0.0, 20.0, 45.0, 70.0_f64] {
+            let t1 = deg.to_radians();
+            let t2 = (n1 * t1.sin() / n2).asin();
+            let (c1, c2) = (t1.cos(), t2.cos());
+            let rs = (n1 * c1 - n2 * c2) / (n1 * c1 + n2 * c2);
+            let rp = (n2 * c1 - n1 * c2) / (n2 * c1 + n1 * c2);
+            let te = stack.reflection(Polarization::Te, lam, t1).unwrap();
+            let tm = stack.reflection(Polarization::Tm, lam, t1).unwrap();
+            assert!((te.r - rs).norm() < 1e-12, "{deg}: {} vs {rs}", te.r);
+            assert!((tm.r - rp).norm() < 1e-12, "{deg}: {} vs {rp}", tm.r);
+            assert!((te.reflectance + te.transmittance - 1.0).abs() < 1e-12);
+            assert!((tm.reflectance + tm.transmittance - 1.0).abs() < 1e-12);
+        }
+        // nothing reflected at Brewster's angle for TM
+        let brewster = (n2 / n1).atan();
+        let tm = stack.reflection(Polarization::Tm, lam, brewster).unwrap();
+        assert!(tm.reflectance < 1e-24, "{}", tm.reflectance);
+    }
+
+    #[test]
+    fn a_lossless_stack_conserves_power_and_total_reflection_transmits_nothing() {
+        let (stack, lam) = chilwell_four_layer();
+        for pol in [Polarization::Te, Polarization::Tm] {
+            for deg in [0.0, 10.0, 35.0, 60.0, 85.0_f64] {
+                let r = stack.reflection(pol, lam, deg.to_radians()).unwrap();
+                assert!(
+                    (r.reflectance + r.transmittance - 1.0).abs() < 1e-11,
+                    "{pol:?} {deg}: {r:?}"
+                );
+            }
+        }
+        // from glass into air beyond the critical angle
+        let glass = Multilayer::new(
+            c64::new(1.5, 0.0),
+            &[(c64::new(1.0, 0.0), Length::nm(2000.0))],
+            c64::new(1.0, 0.0),
+        )
+        .unwrap();
+        let r = glass
+            .reflection(
+                Polarization::Te,
+                Wavelength::um(1.0).unwrap(),
+                60f64.to_radians(),
+            )
+            .unwrap();
+        assert!(
+            (r.reflectance - 1.0).abs() < 1e-12 && r.transmittance == 0.0,
+            "{r:?}"
+        );
+    }
+
+    #[test]
+    fn a_quarter_wave_mirror_reflects_as_its_closed_form() {
+        // N pairs of quarter-wave layers (H then L) at normal incidence:
+        // R = ((1 - q) / (1 + q))^2 with q = (n_s / n_0) (n_H / n_L)^(2N),
+        // the stack's admittance over n_0
+        let (n0, nh, nl, ns) = (1.0, 2.3, 1.38, 1.52);
+        let lam = Wavelength::um(0.55).unwrap();
+        for pairs in [1, 4, 8] {
+            let mut films = Vec::new();
+            for _ in 0..pairs {
+                films.push((c64::new(nh, 0.0), Length::um(0.55 / (4.0 * nh))));
+                films.push((c64::new(nl, 0.0), Length::um(0.55 / (4.0 * nl))));
+            }
+            let stack = Multilayer::new(c64::new(n0, 0.0), &films, c64::new(ns, 0.0)).unwrap();
+            let q = ns / n0 * (nh / nl).powi(2 * pairs);
+            let expected = ((1.0 - q) / (1.0 + q)).powi(2);
+            for pol in [Polarization::Te, Polarization::Tm] {
+                let got = stack.reflection(pol, lam, 0.0).unwrap().reflectance;
+                assert!(
+                    (got - expected).abs() < 1e-12,
+                    "{pairs} pairs: {got} vs {expected}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn bad_incidences_are_errors() {
+        let (stack, lam) = chilwell_four_layer();
+        assert!(stack.reflection(Polarization::Te, lam, -0.1).is_err());
+        assert!(stack.reflection(Polarization::Te, lam, PI / 2.0).is_err());
+        assert!(stack.reflection(Polarization::Te, lam, f64::NAN).is_err());
+        let lossy = Multilayer::new(
+            c64::new(1.0, 0.1),
+            &[(c64::new(1.5, 0.0), Length::nm(100.0))],
+            c64::new(1.5, 0.0),
+        )
+        .unwrap();
+        assert!(lossy.reflection(Polarization::Te, lam, 0.0).is_err());
     }
 }
