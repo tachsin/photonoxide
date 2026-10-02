@@ -24,7 +24,7 @@
     "homepage": "https://tachsin.gr/projects/photonoxide",
     "category": "Education",
     "shortDescription": "Validated photonics simulation, with a live studio",
-    "longDescription": "photonoxide runs photonics jobs (mode solvers, and FDFD, FDTD and inverse design to come) live in its studio window or headless, and replays their records.",
+    "longDescription": "photonoxide runs photonics jobs (mode solvers and FDFD, with FDTD and inverse design to come) live in its studio, reproduces published results, and replays their records.",
     "windows": {
       "nsis": {
         "installMode": "currentUser"
@@ -37,5 +37,16 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ4NDBFMUFGMzk5Nzg0N0UKUldSK2hKYzVyK0ZBU0xuRWtDY2RWVlJ1YzJnaGpMeS91SlJkQnQzVEpPMjBhbHFNZlRYbzhhbUcK",
+      "endpoints": [
+        "https://github.com/tachsin/photonoxide/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

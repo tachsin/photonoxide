@@ -1,0 +1,70 @@
+<script lang="ts">
+  // A picture of values on a grid (a permittivity or a field's intensity), at its true aspect,
+  // with axes, a colour bar, and the value under the pointer.
+  import { intensityColour, permittivityColour, pixels, range } from "../lib/colours";
+  import type { Raster } from "../lib/events";
+
+  let {
+    raster,
+    kind,
+    axes = ["x", "y"],
+    maxHeight = 380,
+  }: { raster: Raster; kind: "eps" | "intensity"; axes?: [string, string]; maxHeight?: number } = $props();
+
+  let canvas: HTMLCanvasElement | undefined = $state();
+  let bar: HTMLCanvasElement | undefined = $state();
+  let readout: string | null = $state(null);
+  const colour = $derived(kind === "eps" ? permittivityColour : intensityColour);
+  const span = $derived(range(raster));
+  const aspect = $derived((raster.x1 - raster.x0) / (raster.y1 - raster.y0));
+
+  $effect(() => {
+    if (!canvas) return;
+    canvas.width = raster.nx;
+    canvas.height = raster.ny;
+    canvas.getContext("2d")!.putImageData(new ImageData(pixels(raster, colour, true), raster.nx, raster.ny), 0, 0);
+  });
+
+  $effect(() => {
+    if (!bar) return;
+    const ctx = bar.getContext("2d")!;
+    for (let k = 0; k < 256; k++) {
+      const [r, g, b] = colour(1 - k / 255);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(0, k, 1, 1);
+    }
+  });
+
+  function move(e: PointerEvent) {
+    const r = canvas!.getBoundingClientRect();
+    const fx = (e.clientX - r.left) / r.width;
+    const fy = 1 - (e.clientY - r.top) / r.height;
+    const i = Math.min(raster.nx - 1, Math.max(0, Math.floor(fx * raster.nx)));
+    const j = Math.min(raster.ny - 1, Math.max(0, Math.floor(fy * raster.ny)));
+    const x = raster.x0 + (i + 0.5) * ((raster.x1 - raster.x0) / raster.nx);
+    const y = raster.y0 + (j + 0.5) * ((raster.y1 - raster.y0) / raster.ny);
+    const v = raster.values[j * raster.nx + i];
+    readout = `${axes[0]} ${x.toFixed(3)} µm · ${axes[1]} ${y.toFixed(3)} µm · ${kind === "eps" ? "ε" : "|·|²"} ${v.toPrecision(4)}`;
+  }
+</script>
+
+<div class="flex items-stretch gap-3">
+  <div class="min-w-0 flex-1">
+    <canvas
+      bind:this={canvas}
+      class="w-full rounded-md border border-base-content/10 {kind === 'eps' ? 'pixelated' : ''}"
+      style="aspect-ratio: {aspect}; max-height: {maxHeight}px; max-width: {maxHeight * aspect}px"
+      onpointermove={move}
+      onpointerleave={() => (readout = null)}
+    ></canvas>
+    <div class="mt-1.5 flex justify-between text-[11px] faint num">
+      <span>{axes[0]} {raster.x0.toFixed(2)} → {raster.x1.toFixed(2)} µm · {axes[1]} {raster.y0.toFixed(2)} → {raster.y1.toFixed(2)} µm</span>
+      <span class="text-base-content/70">{readout ?? `${raster.nx} × ${raster.ny} cells`}</span>
+    </div>
+  </div>
+  <div class="flex w-14 shrink-0 flex-col items-start gap-1 text-[10.5px] faint num">
+    <span>{kind === "eps" ? span[1].toFixed(2) : "peak"}</span>
+    <canvas bind:this={bar} width="1" height="256" class="w-3 flex-1 rounded-sm border border-base-content/10" style="max-height: {maxHeight - 40}px"></canvas>
+    <span>{kind === "eps" ? span[0].toFixed(2) : "0"}</span>
+  </div>
+</div>

@@ -74,7 +74,7 @@ fn wire(h: f64) -> photonoxide::Result<CrossSection> {
         })
 }
 
-fn main() -> photonoxide::Result<ExitCode> {
+pub fn main() -> photonoxide::Result<ExitCode> {
     let w = Wavelength::um(1.55)?;
     let reference = c64::new(2.412372, 2.9135e-8);
     println!(

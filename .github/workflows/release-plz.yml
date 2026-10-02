@@ -44,6 +44,8 @@ jobs:
     uses: ./.github/workflows/binaries.yml
     with:
       tag: ${{ fromJSON(needs.release.outputs.releases)[0].tag }}
+    # the update key and, once set, the Windows and macOS signing secrets
+    secrets: inherit
 
   # open or update the release PR: version bump (checked by cargo-semver-checks) and changelog
   release-pr:

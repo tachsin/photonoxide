@@ -21,8 +21,14 @@ path = "src/main.rs"
 tauri-build = { version = "2.6", features = [] }
 
 [dependencies]
+faer = "0.24.4"
+num-complex = "0.4"
 photonoxide = { path = "../.." }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2.11", features = [] }
 tauri-plugin-dialog = "2.7"
+tauri-plugin-opener = "2.7.0"
+tauri-plugin-process = "2.4.0"
+tauri-plugin-updater = "2.13.1"
+toml = "1"

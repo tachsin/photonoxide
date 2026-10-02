@@ -15,7 +15,7 @@ use std::process::ExitCode;
 use photonoxide::material;
 use photonoxide::units::Wavelength;
 
-fn main() -> ExitCode {
+pub fn main() -> ExitCode {
     let sio2 = material::silica();
     println!("{} (Malitson 1965, Table I), no grid", sio2.name());
     let mut checks = common::Checks::default();

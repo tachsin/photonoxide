@@ -1,7 +1,11 @@
 //! The `photonoxide` program: opens the studio; runs a job, live in the studio window or
-//! headless; replays a run in the studio; checks the validation report.
+//! headless; replays a run in the studio; runs the built-in examples; checks the validation
+//! report.
 
+mod examples;
+mod settings;
 mod studio;
+mod tasks;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -19,6 +23,9 @@ const USAGE: &str = "usage:
        --linger: how long the window stays after the run, default 5 s)
   photonoxide view <run directory>
       replay a finished run in the studio
+  photonoxide example <name>
+      run one of the built-in examples, each a published result reproduced
+      (`photonoxide example --list` lists them)
   photonoxide validate [--write <file> | --check <file>]
       run every validation case and print the report; --write saves it, --check fails
       unless <file> holds exactly this report
@@ -31,6 +38,7 @@ fn main() -> ExitCode {
         Some("run") => run(&args[1..]),
         Some("view") => view(&args[1..]),
         Some("validate") => validate(&args[1..]),
+        Some("example") => example(&args[1..]),
         Some("--version" | "-V") => {
             println!("photonoxide {}", photonoxide::VERSION);
             ExitCode::SUCCESS
@@ -135,6 +143,21 @@ fn view(args: &[String]) -> ExitCode {
     match studio::show(Some(dir), None) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => fail(e),
+    }
+}
+
+fn example(args: &[String]) -> ExitCode {
+    match args {
+        [flag] if flag == "--list" => {
+            for e in examples::list() {
+                println!("{:<24} {}", e.name, e.what);
+            }
+            ExitCode::SUCCESS
+        }
+        [name] => {
+            examples::run(name).unwrap_or_else(|| fail(format!("no example {name}: see --list")))
+        }
+        _ => usage(),
     }
 }
 

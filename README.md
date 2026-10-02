@@ -25,8 +25,10 @@ Mode solvers, FDFD, FDTD, circuits, thermal and electro-optic modulators, invers
 cargo add photonoxide                               # the library
 ```
 
-The `photonoxide` program runs jobs live in the studio window (3D and 2D views) or headless, and
-replays runs. From 0.3 on, each [release](https://github.com/tachsin/photonoxide/releases) has it
+The `photonoxide` program is a studio: the examples and published results built in, a job
+builder with a live preview of the device, runs played live in 3D and 2D, run comparison, and the
+validation report, in one window that updates itself. It also runs jobs headless and replays
+runs. From 0.3 on, each [release](https://github.com/tachsin/photonoxide/releases) has it
 for Linux (x86_64 and ARM64), Windows and macOS; see [studio/README.md](studio/README.md), which also says how to build it.
 
 ## Why photonoxide?
@@ -56,8 +58,9 @@ And underneath:
 |---|---|---|
 | 0.1 Foundations | Units, materials with provenance, geometry, run records, studio skeleton, validation harness | ✅ released |
 | 0.2 Mode solvers | Slab, full-vector 2D finite differences, EIM, bends, dispersion | ✅ released |
-| 0.3 FDFD | 2D and 3D, mode ports, S-parameters, adjoints, an iterative 3D solver; Hadley's high-accuracy mode solver | 🔜 nearly done |
-| 0.4 Components and circuits | Components with ports at several fidelities, chips as netlists, the circuit adjoint, compact models; the studio becomes a workspace | planned |
+| 0.3 FDFD | 2D and 3D, mode ports, S-parameters, adjoints, an iterative 3D solver; Hadley's high-accuracy mode solver | ✅ released |
+| 0.3.1 The studio as a workspace | Examples inside the program, the job builder, run comparison, the validation report, updates by one click | ✅ |
+| 0.4 Components and circuits | Components with ports at several fidelities, chips as netlists, the circuit adjoint, compact models; the studio's component library and chip view | planned |
 | 0.5 FDTD | 2D and 3D Yee, CPML, subpixel smoothing, dispersive media, GPU | planned |
 | 0.6 Thermal and electro-optic | Heat and electrostatics, thermo-optic phase shifters, Pockels modulators (thin-film lithium niobate first), travelling-wave electrodes | planned |
 | 0.7 Inverse design | Adjoint topology and shape optimization, fabrication constraints, the 2D-to-3D pipeline, device and circuit co-design | planned |

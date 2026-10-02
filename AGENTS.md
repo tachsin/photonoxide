@@ -13,18 +13,24 @@ cargo test --release --test validation_report -- --ignored   # every validation 
 ```
 
 The `photonoxide` program is the studio, a Tauri app in `studio/` (Rust in `studio/src-tauri`,
-the window in TypeScript and three.js in `studio/src`). Build it with the Tauri CLI, never with
+the window in Svelte 5, TypeScript, Tailwind CSS with daisyUI, and three.js in `studio/src`;
+`pnpm build` there type-checks it with svelte-check and fails on warnings). Build it with the Tauri CLI, never with
 plain `cargo build`, which leaves the window pointing at the dev server:
 
 ```sh
 cd studio && pnpm install && pnpm tauri build           # target/release/photonoxide(.exe)
-target/release/photonoxide                                # the start page: run a job, reopen a run
+target/release/photonoxide                                # the studio: examples, job builder, runs, validation
 target/release/photonoxide run jobs/strip-and-ring.toml   # a job, live in the studio window
 target/release/photonoxide run jobs/strip-modes.toml      # a strip's modes and a wavelength sweep, live
 target/release/photonoxide run <job.toml> --headless      # the same run without a window
 target/release/photonoxide view runs/<run>                # replay a finished run
+target/release/photonoxide example slab_soi               # a built-in example (--list lists them)
 cargo run -p photonoxide-studio --release -- validate --write docs/validation.md   # rewrite the report
 ```
+
+Every example in `examples/` is built into the program (`studio/src-tauri/src/examples.rs`): a
+new one needs a `pub fn main`, an entry in `examples!` and a title there; a test fails otherwise.
+Every job in `jobs/` is built in too (`jobs()` there), and must pass `job::check`.
 
 CI fails when a validation case fails or `docs/validation.md` isn't the report the code writes:
 regenerate and commit it with any change that adds or alters a case.

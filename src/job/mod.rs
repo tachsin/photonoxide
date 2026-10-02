@@ -614,6 +614,42 @@ pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     })
 }
 
+/// Checks `job` without running it: its kind is known, its task fits that kind, the stack is
+/// known, the shapes are valid, the layer is in the stack and the wavelength is valid; for an
+/// `"fdfd"` job, the polarization and that it has ports too. What only a solve finds (a port
+/// inside the PML, a material without data at a wavelength) is left to the run.
+///
+/// # Errors
+///
+/// The errors [`execute`] would return for those, before recording anything.
+pub fn check(job: &Job) -> Result<()> {
+    let kind = job
+        .task()
+        .get("kind")
+        .and_then(|k| k.as_str())
+        .ok_or_else(|| task_error("needs a kind, e.g. kind = \"structure\""))?;
+    let parse = |e: toml::de::Error| task_error(e.to_string());
+    let (s, layer, wavelength_um) = match kind {
+        "structure" => {
+            let task: StructureTask = job.task().clone().try_into().map_err(parse)?;
+            (task.structure()?, task.layer, task.wavelength_um)
+        }
+        "modes" => {
+            let task: ModesTask = job.task().clone().try_into().map_err(parse)?;
+            let stack = named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
+            let s = draw(stack, &task.rect, &task.circle)?;
+            (s, task.layer, task.wavelength_um)
+        }
+        "fdfd" => return fdfd::check(job),
+        other => return Err(task_error(format!("unknown kind \"{other}\""))),
+    };
+    s.stack()
+        .layer(&layer)
+        .ok_or_else(|| task_error(format!("the stack has no layer {layer}")))?;
+    Wavelength::um(wavelength_um)?;
+    Ok(())
+}
+
 fn structure(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let task: StructureTask = job
         .task()
@@ -1020,10 +1056,31 @@ size_um = [0.5, 10.0]
             ),
         ] {
             let job = Job::parse(&text).unwrap();
+            // found by the check, without running, as by the run
+            let e = check(&job).unwrap_err();
+            assert!(e.to_string().contains(says), "check, {says}: {e}");
             let mut run = Run::create(&root.0, &job).unwrap();
             let e = execute(&job, &mut run, &Stop::new(None)).unwrap_err();
             assert!(e.to_string().contains(says), "{says}: {e}");
         }
+    }
+
+    #[test]
+    fn the_repositorys_jobs_pass_the_check() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+        let mut count = 0;
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().is_some_and(|x| x == "toml") {
+                check(&Job::load(&path).unwrap()).unwrap_or_else(|e| panic!("{path:?}: {e}"));
+                count += 1;
+            }
+        }
+        assert!(count >= 4);
+        assert!(check(&Job::parse(FDFD).unwrap()).is_ok());
+        let portless = FDFD.split("[[task.port]]").next().unwrap();
+        let e = check(&Job::parse(portless).unwrap()).unwrap_err();
+        assert!(e.to_string().contains("port"), "{e}");
     }
 
     const FDFD: &str = r#"

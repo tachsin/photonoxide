@@ -44,7 +44,7 @@ fn check(
     checks.count("TM modes guided", tm, tm_count);
 }
 
-fn main() -> ExitCode {
+pub fn main() -> ExitCode {
     let mut checks = common::Checks::default();
 
     println!("asymmetric slab: n = 1.0 / 2.0 / 1.7, t = λ = 1 µm (Section 3.2), exact: no grid");

@@ -1,10 +1,11 @@
-//! The studio window: a web view (studio/src, three.js) on a run's record.
+//! The studio window: a web view (studio/src: Svelte, Tailwind and daisyUI, three.js) on the
+//! workspace, the built-in examples, and a run's record.
 //!
 //! The window follows the run's `events.jsonl` as it grows, so a live run and a replay are the
 //! same code path, and what the window shows is exactly what the record holds. Started on a run
 //! from the command line, it closes itself a little after the run finishes, and closing it early
-//! asks the run to stop. Started bare, it opens on its start page, where jobs are run and runs
-//! reopened; jobs started there keep the window open.
+//! asks the run to stop. Started bare, it opens on its home page; jobs started from the window
+//! keep it open.
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -20,6 +21,10 @@ use photonoxide::units::Wavelength;
 use serde::Serialize;
 use tauri::Manager;
 
+use crate::examples;
+use crate::settings::{self, Settings};
+use crate::tasks::{Progress, Tasks};
+
 /// A run started from the command line: the window closes `linger` after `finished` fires, and
 /// asks `stop` when it is closed first.
 pub struct Live {
@@ -28,46 +33,89 @@ pub struct Live {
     pub stop: Stop,
 }
 
-/// Opens the window, on the run in `dir` or on the start page, and returns when it closes.
+/// Opens the window, on the run in `dir` or on the home page, and returns when it closes.
 pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
-    let root = std::env::current_dir().map_err(|e| format!("no working directory: {e}"))?;
-    let title = dir.map_or_else(|| "photonoxide studio".to_owned(), window_title);
-    let state = Studio {
-        root,
-        current: Mutex::new(Current {
-            generation: 1,
-            dir: dir.map(Path::to_path_buf),
-            closes: live.is_some(),
-            record: dir.map(|d| Record::new(d.join("events.jsonl"))),
-        }),
-        started: Mutex::new(Vec::new()),
-    };
+    let started_in = std::env::current_dir().map_err(|e| format!("no working directory: {e}"))?;
+    let title = dir.map_or_else(|| "photonoxide".to_owned(), window_title);
+    let first = dir.map(Path::to_path_buf);
+    let closes = live.is_some();
+    let live_stop = live.as_ref().map(|l| l.stop.clone());
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .manage(state)
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             info,
             poll,
+            app_state,
+            save_settings,
             home,
+            catalog,
             open_run,
             run_job,
-            group_index
+            run_text,
+            stop_run,
+            check_job,
+            save_job,
+            read_job,
+            delete_job,
+            delete_run,
+            run_events,
+            group_index,
+            start_example,
+            start_validation,
+            task_output,
+            stop_task,
+            changelog,
+            published_report
         ])
         .setup(move |app| {
+            let paths = app.path();
+            let settings_file = paths
+                .app_config_dir()
+                .unwrap_or_else(|_| started_in.join(".photonoxide"))
+                .join("settings.json");
+            let documents = paths.document_dir().ok();
+            let settings = Settings::load(&settings_file);
+            let workspace = settings::workspace(&settings, &started_in, documents.as_deref());
+            let mut started = Vec::new();
+            if let (Some(dir), Some(stop)) = (&first, live_stop) {
+                started.push(Started {
+                    dir: dir.clone(),
+                    stop,
+                    worker: None,
+                });
+            }
+            app.manage(Studio {
+                started_in,
+                documents,
+                settings_file,
+                settings: Mutex::new(settings),
+                workspace: Mutex::new(workspace),
+                current: Mutex::new(Current {
+                    generation: 1,
+                    dir: first.clone(),
+                    closes,
+                    record: first.as_ref().map(|d| Record::new(d.join("events.jsonl"))),
+                }),
+                started: Mutex::new(started),
+                tasks: Tasks::default(),
+            });
             tauri::WebviewWindowBuilder::new(
                 app,
                 "studio",
                 tauri::WebviewUrl::App("index.html".into()),
             )
             .title(title)
-            .inner_size(1280.0, 840.0)
-            .min_inner_size(720.0, 480.0)
+            .inner_size(1440.0, 900.0)
+            .min_inner_size(960.0, 600.0)
+            .background_color(tauri::window::Color(15, 17, 21, 255))
             .build()?;
             Ok(())
         })
         .build(tauri::generate_context!())
         .map_err(|e| format!("can't open the studio window: {e}"))?;
-    let stop = live.as_ref().map(|l| l.stop.clone());
     if let Some(Live {
         linger, finished, ..
     }) = live
@@ -81,25 +129,34 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
         });
     }
     let handle = app.handle().clone();
-    app.run_return(move |_, event| {
+    app.run_return(move |app, event| {
         // closed before the run finished: ask it to stop
-        if let (tauri::RunEvent::ExitRequested { .. }, Some(stop)) = (&event, &stop) {
-            stop.request();
+        if let tauri::RunEvent::ExitRequested { .. } = &event
+            && closes
+            && let Some(studio) = app.try_state::<Studio>()
+        {
+            for s in lock(&studio.started).iter() {
+                s.stop.request();
+            }
         }
     });
     // the jobs started from the window stop at their next check, and finish their records
-    let started = std::mem::take(&mut *lock(&handle.state::<Studio>().started));
-    for (stop, _) in &started {
-        stop.request();
+    let studio = handle.state::<Studio>();
+    studio.tasks.stop_all();
+    let started = std::mem::take(&mut *lock(&studio.started));
+    for s in &started {
+        s.stop.request();
     }
-    for (_, worker) in started {
-        let _ = worker.join();
+    for s in started {
+        if let Some(worker) = s.worker {
+            let _ = worker.join();
+        }
     }
     Ok(())
 }
 
 fn window_title(dir: &Path) -> String {
-    format!("photonoxide studio: {}", name_of(dir))
+    format!("photonoxide: {}", name_of(dir))
 }
 
 fn name_of(dir: &Path) -> String {
@@ -115,11 +172,31 @@ fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 
 /// The window's state.
 struct Studio {
-    /// Where the start page looks for `jobs/` and `runs/`, and where new runs go.
-    root: PathBuf,
+    /// The folder the program was started in.
+    started_in: PathBuf,
+    documents: Option<PathBuf>,
+    settings_file: PathBuf,
+    settings: Mutex<Settings>,
+    /// Where `jobs/` and `runs/` are: see [`settings::workspace`].
+    workspace: Mutex<PathBuf>,
     current: Mutex<Current>,
-    /// The jobs started from the window, still running or finished.
-    started: Mutex<Vec<(Stop, JoinHandle<()>)>>,
+    /// The runs started here (or the one from the command line), running or finished.
+    started: Mutex<Vec<Started>>,
+    /// Examples and validation reports, each in a process of its own.
+    tasks: Tasks,
+}
+
+struct Started {
+    dir: PathBuf,
+    stop: Stop,
+    /// None for the run from the command line, which `main` waits for.
+    worker: Option<JoinHandle<()>>,
+}
+
+impl Studio {
+    fn workspace(&self) -> PathBuf {
+        lock(&self.workspace).clone()
+    }
 }
 
 /// The run the window shows, if any.
@@ -136,7 +213,7 @@ struct Current {
 #[derive(Serialize)]
 struct Info {
     generation: u64,
-    /// The run's directory and name, or none for the start page.
+    /// The run's directory and name, or none.
     dir: Option<String>,
     name: Option<String>,
     closes: bool,
@@ -150,7 +227,7 @@ fn info_of(studio: &Studio) -> Info {
         dir: current.dir.as_ref().map(|d| d.display().to_string()),
         name: current.dir.as_deref().map(name_of),
         closes: current.closes,
-        root: studio.root.display().to_string(),
+        root: studio.workspace().display().to_string(),
     }
 }
 
@@ -166,30 +243,79 @@ struct Poll {
     generation: u64,
     events: Vec<Event>,
     problem: Option<String>,
+    /// The run was started here and is still going: the window offers to stop it.
+    stoppable: bool,
 }
 
 #[tauri::command]
 fn poll(state: tauri::State<'_, Studio>, from: usize) -> Poll {
     let mut current = lock(&state.current);
     let generation = current.generation;
+    let stoppable = current.dir.as_ref().is_some_and(|d| {
+        lock(&state.started)
+            .iter()
+            .any(|s| &s.dir == d && s.worker.as_ref().is_none_or(|w| !w.is_finished()))
+    });
     match current.record.as_mut() {
         Some(record) => {
             record.refresh();
+            let finished = matches!(record.events.last(), Some(Event::Finished { .. }));
             Poll {
                 generation,
                 events: record.events.get(from..).unwrap_or_default().to_vec(),
                 problem: record.problem.clone(),
+                stoppable: stoppable && !finished,
             }
         }
         None => Poll {
             generation,
             events: Vec::new(),
             problem: None,
+            stoppable: false,
         },
     }
 }
 
-/// A job file the start page offers.
+/// What the window needs to know at the start.
+#[derive(Serialize)]
+struct AppState {
+    settings: Settings,
+    workspace: String,
+    /// The library's version, which is the program's.
+    version: String,
+    /// The platform, e.g. `"windows-x86_64"`.
+    platform: String,
+    /// This copy was installed from a release (an installer, AppImage, package or app), so it
+    /// can update itself; a build from the repository can't.
+    updatable: bool,
+}
+
+fn app_state_of(studio: &Studio) -> AppState {
+    AppState {
+        settings: lock(&studio.settings).clone(),
+        workspace: studio.workspace().display().to_string(),
+        version: photonoxide::VERSION.to_owned(),
+        platform: format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
+        updatable: !cfg!(debug_assertions) && tauri::utils::platform::bundle_type().is_some(),
+    }
+}
+
+#[tauri::command]
+fn app_state(state: tauri::State<'_, Studio>) -> AppState {
+    app_state_of(&state)
+}
+
+/// Saves `settings`, and moves to the workspace they name.
+#[tauri::command]
+fn save_settings(state: tauri::State<'_, Studio>, settings: Settings) -> Result<AppState, String> {
+    settings.save(&state.settings_file)?;
+    *lock(&state.workspace) =
+        settings::workspace(&settings, &state.started_in, state.documents.as_deref());
+    *lock(&state.settings) = settings;
+    Ok(app_state_of(&state))
+}
+
+/// A job file in the workspace.
 #[derive(Serialize)]
 struct JobItem {
     path: String,
@@ -198,18 +324,26 @@ struct JobItem {
     kind: String,
     /// The job file's opening comment.
     about: String,
+    /// When it was last changed, seconds since 1970.
+    modified: f64,
 }
 
-/// A run the start page offers.
+/// A run in the workspace.
 #[derive(Serialize)]
 struct RunItem {
     dir: String,
     name: String,
     job: String,
+    /// The task's kind, from the start of its record.
+    kind: String,
     /// When it started, UTC.
     started: String,
     /// Its record ends with the run finishing.
     finished: bool,
+    /// How long it took, from its record.
+    seconds: Option<f64>,
+    /// Why it stopped early, if it did.
+    stopped: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -219,14 +353,23 @@ struct Home {
     runs: Vec<RunItem>,
 }
 
-/// The jobs in `jobs/` and the 40 newest runs in `runs/`, under the working directory.
+/// The jobs in the workspace's `jobs/` and its 200 newest runs.
 #[tauri::command]
 fn home(state: tauri::State<'_, Studio>) -> Home {
+    let root = state.workspace();
     Home {
-        root: state.root.display().to_string(),
-        jobs: jobs_in(&state.root.join("jobs")),
-        runs: runs_in(&state.root.join("runs"), 40),
+        root: root.display().to_string(),
+        jobs: jobs_in(&root.join("jobs")),
+        runs: runs_in(&root.join("runs"), 200),
     }
+}
+
+fn kind_of(job: &Job) -> String {
+    job.task()
+        .get("kind")
+        .and_then(|k| k.as_str())
+        .unwrap_or("")
+        .to_owned()
 }
 
 fn jobs_in(dir: &Path) -> Vec<JobItem> {
@@ -243,17 +386,17 @@ fn jobs_in(dir: &Path) -> Vec<JobItem> {
         .filter_map(|path| {
             let text = std::fs::read_to_string(&path).ok()?;
             let job = Job::parse(&text).ok()?;
-            let kind = job
-                .task()
-                .get("kind")
-                .and_then(|k| k.as_str())
-                .unwrap_or("")
-                .to_owned();
+            let modified = std::fs::metadata(&path)
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map_or(0.0, |d| d.as_secs_f64());
             Some(JobItem {
                 path: path.display().to_string(),
                 name: job.name().to_owned(),
-                kind,
+                kind: kind_of(&job),
                 about: about(&text),
+                modified,
             })
         })
         .collect()
@@ -286,23 +429,66 @@ fn runs_in(dir: &Path, most: usize) -> Vec<RunItem> {
             let meta: Option<Meta> = std::fs::read_to_string(d.join("meta.json"))
                 .ok()
                 .and_then(|t| serde_json::from_str(&t).ok());
-            let finished = std::fs::read_to_string(d.join("events.jsonl"))
-                .ok()
-                .and_then(|t| {
-                    t.lines()
-                        .last()
-                        .map(|l| l.contains("\"type\":\"finished\""))
-                })
-                .unwrap_or(false);
+            let text = std::fs::read_to_string(d.join("events.jsonl")).unwrap_or_default();
+            let event =
+                |line: Option<&str>| line.and_then(|l| serde_json::from_str::<Event>(l).ok());
+            let kind = match event(text.lines().next()) {
+                Some(Event::Started { kind, .. }) => kind,
+                _ => String::new(),
+            };
+            let (finished, seconds, stopped) = match event(text.lines().last()) {
+                Some(Event::Finished { stopped, seconds }) => (true, Some(seconds), stopped),
+                _ => (false, None, None),
+            };
             RunItem {
                 dir: d.display().to_string(),
                 name: name_of(&d),
                 job: meta.as_ref().map_or_else(String::new, |m| m.job.clone()),
+                kind,
                 started: meta.map_or_else(String::new, |m| m.started),
                 finished,
+                seconds,
+                stopped,
             }
         })
         .collect()
+}
+
+/// A built-in job, as the gallery shows it.
+#[derive(Serialize)]
+struct JobExample {
+    file: String,
+    name: String,
+    kind: String,
+    about: String,
+    text: String,
+}
+
+/// What ships inside the program: the examples and the job files.
+#[derive(Serialize)]
+struct Catalog {
+    examples: Vec<examples::Example>,
+    jobs: Vec<JobExample>,
+}
+
+#[tauri::command]
+fn catalog() -> Catalog {
+    Catalog {
+        examples: examples::list(),
+        jobs: examples::jobs()
+            .into_iter()
+            .filter_map(|j| {
+                let job = Job::parse(&j.text).ok()?;
+                Some(JobExample {
+                    name: job.name().to_owned(),
+                    kind: kind_of(&job),
+                    about: about(&j.text),
+                    file: j.file,
+                    text: j.text,
+                })
+            })
+            .collect(),
+    }
 }
 
 /// Shows the run in `dir` from now on.
@@ -331,15 +517,11 @@ fn open_run(
     Ok(switch(&state, &window, &dir))
 }
 
-/// Runs the job file at `path` (its run directory in `runs/`), and shows it.
-#[tauri::command]
-fn run_job(
-    state: tauri::State<'_, Studio>,
-    window: tauri::WebviewWindow,
-    path: String,
-) -> Result<Info, String> {
-    let job = Job::load(Path::new(&path)).map_err(|e| e.to_string())?;
-    let mut record = Run::create(&state.root.join("runs"), &job).map_err(|e| e.to_string())?;
+/// Runs `job` (its run directory in the workspace's `runs/`), and shows it.
+fn start(studio: &Studio, window: &tauri::WebviewWindow, job: Job) -> Result<Info, String> {
+    job::check(&job).map_err(|e| e.to_string())?;
+    let mut record =
+        Run::create(&studio.workspace().join("runs"), &job).map_err(|e| e.to_string())?;
     let dir = record.dir().to_path_buf();
     let stop = Stop::new(job.timeout());
     let worker = {
@@ -350,8 +532,160 @@ fn run_job(
             let _ = job::execute(&job, &mut record, &stop);
         })
     };
-    lock(&state.started).push((stop, worker));
-    Ok(switch(&state, &window, &dir))
+    lock(&studio.started).push(Started {
+        dir: dir.clone(),
+        stop,
+        worker: Some(worker),
+    });
+    Ok(switch(studio, window, &dir))
+}
+
+/// Runs the job file at `path`, and shows it.
+#[tauri::command]
+fn run_job(
+    state: tauri::State<'_, Studio>,
+    window: tauri::WebviewWindow,
+    path: String,
+) -> Result<Info, String> {
+    let job = Job::load(Path::new(&path)).map_err(|e| e.to_string())?;
+    start(&state, &window, job)
+}
+
+/// Runs the job in `text` (from the builder, or a built-in one), and shows it.
+#[tauri::command]
+fn run_text(
+    state: tauri::State<'_, Studio>,
+    window: tauri::WebviewWindow,
+    text: String,
+) -> Result<Info, String> {
+    let job = Job::parse(&text).map_err(|e| e.to_string())?;
+    start(&state, &window, job)
+}
+
+/// Asks the run in `dir` to stop at its next check.
+#[tauri::command]
+fn stop_run(state: tauri::State<'_, Studio>, dir: String) {
+    let dir = PathBuf::from(dir);
+    for s in lock(&state.started).iter().filter(|s| s.dir == dir) {
+        s.stop.request();
+    }
+}
+
+/// A job's text checked: its parts for the builder's form, or why it isn't a job.
+#[derive(Serialize)]
+struct JobCheck {
+    /// The text is a job file and its task fits its kind ([`job::check`]).
+    ok: bool,
+    error: Option<String>,
+    /// The whole file as JSON, when it is TOML at all.
+    model: Option<serde_json::Value>,
+}
+
+#[tauri::command]
+fn check_job(text: String) -> JobCheck {
+    let model = toml::from_str::<toml::Table>(&text)
+        .ok()
+        .and_then(|t| serde_json::to_value(t).ok());
+    let error = Job::parse(&text)
+        .and_then(|job| job::check(&job))
+        .err()
+        .map(|e| e.to_string());
+    JobCheck {
+        ok: error.is_none(),
+        error,
+        model,
+    }
+}
+
+/// `path` inside `dir` (after resolving both), or an error.
+fn inside(dir: &Path, path: &Path) -> Result<PathBuf, String> {
+    let dir = dir
+        .canonicalize()
+        .map_err(|e| format!("{}: {e}", dir.display()))?;
+    let path = path
+        .canonicalize()
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    if path.starts_with(&dir) && path != dir {
+        Ok(path)
+    } else {
+        Err(format!(
+            "{} isn't in the workspace's {}",
+            path.display(),
+            dir.display()
+        ))
+    }
+}
+
+/// Saves the job in `text` as `jobs/<its name>.toml` in the workspace; refuses to replace
+/// another file unless `replace`.
+#[tauri::command]
+fn save_job(
+    state: tauri::State<'_, Studio>,
+    text: String,
+    replace: bool,
+) -> Result<String, String> {
+    let job = Job::parse(&text).map_err(|e| e.to_string())?;
+    let dir = state.workspace().join("jobs");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let path = dir.join(format!("{}.toml", job.name()));
+    if path.exists() && !replace {
+        return Err(format!("exists: {}", path.display()));
+    }
+    std::fs::write(&path, &text).map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok(path.display().to_string())
+}
+
+#[tauri::command]
+fn read_job(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path)
+        .map(|t| t.replace("\r\n", "\n"))
+        .map_err(|e| format!("{path}: {e}"))
+}
+
+/// Deletes a job file of the workspace.
+#[tauri::command]
+fn delete_job(state: tauri::State<'_, Studio>, path: String) -> Result<(), String> {
+    let path = inside(&state.workspace().join("jobs"), Path::new(&path))?;
+    if path.extension().is_none_or(|x| x != "toml") {
+        return Err(format!("{} isn't a job file", path.display()));
+    }
+    std::fs::remove_file(&path).map_err(|e| format!("{}: {e}", path.display()))
+}
+
+/// Deletes a finished run of the workspace, its folder and all.
+#[tauri::command]
+fn delete_run(state: tauri::State<'_, Studio>, dir: String) -> Result<(), String> {
+    let dir = inside(&state.workspace().join("runs"), Path::new(&dir))?;
+    if !dir.join("events.jsonl").is_file() {
+        return Err(format!("{} isn't a run", dir.display()));
+    }
+    let running = lock(&state.started).iter().any(|s| {
+        s.dir.canonicalize().is_ok_and(|d| d == dir)
+            && s.worker.as_ref().is_none_or(|w| !w.is_finished())
+    });
+    if running {
+        return Err("the run is still going: stop it first".into());
+    }
+    if lock(&state.current)
+        .dir
+        .as_ref()
+        .and_then(|d| d.canonicalize().ok())
+        .is_some_and(|d| d == dir)
+    {
+        return Err("the run is open: open another first".into());
+    }
+    std::fs::remove_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))
+}
+
+/// Every event of the run in `dir`, for comparing runs.
+#[tauri::command]
+fn run_events(dir: String) -> Result<Vec<Event>, String> {
+    let mut record = Record::new(Path::new(&dir).join("events.jsonl"));
+    record.refresh();
+    if record.offset == 0 {
+        return Err(format!("{dir} has no record"));
+    }
+    Ok(record.events)
 }
 
 /// Group indices n_g = n − λ dn/dλ of a mode's effective indices `n` at increasing
@@ -364,6 +698,43 @@ fn group_index(wavelengths_um: Vec<f64>, n: Vec<f64>) -> Result<Vec<f64>, String
         .collect::<photonoxide::Result<Vec<_>>>()
         .map_err(|e| e.to_string())?;
     photonoxide::mode::dispersion::group_index(&w, &n).map_err(|e| e.to_string())
+}
+
+/// Starts the built-in example `name`; returns its task.
+#[tauri::command]
+fn start_example(state: tauri::State<'_, Studio>, name: String) -> Result<u64, String> {
+    if !examples::list().iter().any(|e| e.name == name) {
+        return Err(format!("no example {name}"));
+    }
+    state.tasks.start(&["example", &name])
+}
+
+/// Starts the validation report; returns its task.
+#[tauri::command]
+fn start_validation(state: tauri::State<'_, Studio>) -> Result<u64, String> {
+    state.tasks.start(&["validate"])
+}
+
+#[tauri::command]
+fn task_output(state: tauri::State<'_, Studio>, id: u64, from: usize) -> Result<Progress, String> {
+    state.tasks.output(id, from)
+}
+
+#[tauri::command]
+fn stop_task(state: tauri::State<'_, Studio>, id: u64) {
+    state.tasks.stop(id);
+}
+
+/// The changelog of every release up to this one.
+#[tauri::command]
+fn changelog() -> &'static str {
+    include_str!("../../../CHANGELOG.md")
+}
+
+/// The validation report as this release's CI wrote it (docs/validation.md).
+#[tauri::command]
+fn published_report() -> &'static str {
+    include_str!("../../../docs/validation.md")
 }
 
 /// A run's record as it grows: the complete lines read so far, as events.

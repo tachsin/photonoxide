@@ -2,11 +2,21 @@ name: Binaries
 
 # The photonoxide program (the studio, studio/) for the platforms research groups use: Linux on
 # x86_64 and ARM64 (clusters and workstations), Windows on x86_64 (lab and office PCs), and macOS
-# on Apple Silicon and Intel (laptops), attached to a release.
+# on Apple Silicon and Intel (laptops), attached to a release, with the update manifest
+# (latest.json) the installed programs read to update themselves.
 #
 # Only for releases: the release workflow calls this with the new release's tag after
 # release-plz made it, and it can be run by hand (workflow_dispatch) with a release's tag to
 # rebuild that release's binaries.
+#
+# Signing, each step only once its secrets exist (builds stay unsigned until then):
+# - updates: TAURI_SIGNING_PRIVATE_KEY, the minisign key the programs check updates against
+#   (the public half is plugins.updater.pubkey in studio/src-tauri/tauri.conf.json);
+# - Windows code signing: CERTUM_EMAIL and CERTUM_OTP, Certum's open-source certificate in its
+#   SimplySign cloud, used through ssign (the base32 seed of SimplySign's QR code);
+# - macOS signing and notarization: APPLE_CERTIFICATE (the Developer ID Application .p12, base64)
+#   and APPLE_CERTIFICATE_PASSWORD, with APPLE_API_ISSUER, APPLE_API_KEY and APPLE_API_KEY_P8 (an
+#   App Store Connect key) for notarization.
 on:
   workflow_call:
     inputs:
@@ -14,6 +24,23 @@ on:
         description: "the release's tag, e.g. v0.3.0"
         required: true
         type: string
+    secrets:
+      TAURI_SIGNING_PRIVATE_KEY:
+        required: false
+      CERTUM_EMAIL:
+        required: false
+      CERTUM_OTP:
+        required: false
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_API_ISSUER:
+        required: false
+      APPLE_API_KEY:
+        required: false
+      APPLE_API_KEY_P8:
+        required: false
   workflow_dispatch:
     inputs:
       tag:
@@ -52,6 +79,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       TAG: ${{ inputs.tag }}
+      CERTUM_EMAIL: ${{ secrets.CERTUM_EMAIL }}
+      CERTUM_OTP: ${{ secrets.CERTUM_OTP }}
     defaults:
       run:
         shell: bash
@@ -79,13 +108,39 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: pnpm install --frozen-lockfile
         working-directory: studio
+      - name: ssign, for Windows code signing
+        if: runner.os == 'Windows' && env.CERTUM_OTP != ''
+        run: cargo install ssign --locked
       - name: Build
         working-directory: studio
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
         run: |
+          bundle='{"active":true}'
+          # Windows: Tauri signs the program and the installer with ssign, once its secrets exist
+          if [ "$RUNNER_OS" = Windows ] && [ -n "$CERTUM_OTP" ]; then
+            bundle='{"active":true,"windows":{"signCommand":{"cmd":"ssign","args":["%1"]}}}'
+          fi
+          # macOS: Tauri signs (and notarizes) when APPLE_CERTIFICATE is set; an empty one would
+          # fail, so the unset ones go
+          if [ -n "$APPLE_API_KEY_P8" ]; then
+            printf '%s' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+            export APPLE_API_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          fi
+          unset APPLE_API_KEY_P8
+          for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_API_ISSUER APPLE_API_KEY; do
+            [ -n "${!v}" ] || unset "$v"
+          done
           # the release's version: the tag without its v
-          config="{\"bundle\":{\"active\":true},\"version\":\"${TAG#v}\"}"
+          config="{\"bundle\":$bundle,\"version\":\"${TAG#v}\"}"
           pnpm tauri build --bundles "${{ matrix.bundles }}" --config "$config" ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
       - name: Collect
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
           base="photonoxide-${TAG#v}"
           release=target/release
@@ -99,19 +154,87 @@ jobs:
               cp "$bundle"/rpm/*.rpm "out/$base-linux-${{ matrix.arch }}.rpm"
               # the bare program; it needs the system's WebKitGTK (libwebkit2gtk-4.1)
               tar -czf "out/$base-linux-${{ matrix.arch }}.tar.gz" -C "$release" photonoxide
+              updates=("$base-linux-${{ matrix.arch }}.AppImage" "$base-linux-${{ matrix.arch }}.deb" "$base-linux-${{ matrix.arch }}.rpm")
               ;;
             Windows)
               cp "$bundle"/nsis/*-setup.exe "out/$base-windows-${{ matrix.arch }}-setup.exe"
               # portable: one .exe, using the WebView2 that Windows 10 and 11 have
+              if [ -n "$CERTUM_OTP" ]; then ssign "./$release/photonoxide.exe"; fi
               7z a "out/$base-windows-${{ matrix.arch }}.zip" "./$release/photonoxide.exe"
+              updates=("$base-windows-${{ matrix.arch }}-setup.exe")
               ;;
             macOS)
               cp "$bundle"/dmg/*.dmg "out/$base-macos-${{ matrix.arch }}.dmg"
               tar -czf "out/$base-macos-${{ matrix.arch }}.app.tar.gz" -C "$bundle/macos" photonoxide.app
+              updates=("$base-macos-${{ matrix.arch }}.app.tar.gz")
               ;;
           esac
+          # the updates' signatures, which the installed programs check before installing
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            for f in "${updates[@]}"; do
+              (cd studio && pnpm tauri signer sign -p "" "../out/$f" > /dev/null)
+              test -s "out/$f.sig"
+            done
+          fi
           ls -l out
+      - name: Check the Windows signatures
+        if: runner.os == 'Windows' && env.CERTUM_OTP != ''
+        shell: pwsh
+        run: |
+          Get-ChildItem target/release/photonoxide.exe, out/*-setup.exe | Get-AuthenticodeSignature | ForEach-Object {
+            if ($_.Status -ne 'Valid') { throw "$($_.Path): $($_.Status)" }
+            "$($_.Path): signed by $($_.SignerCertificate.Subject)"
+          }
       - name: Attach to the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$TAG" out/* --clobber
+
+  manifest:
+    name: Update manifest
+    needs: build
+    # the platforms that built still get their updates when another failed
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: latest.json
+        run: |
+          mkdir m && cd m
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p '*.sig'
+          if ! ls *.sig > /dev/null 2>&1; then
+            echo "no signed updates (TAURI_SIGNING_PRIVATE_KEY unset): no manifest"
+            exit 0
+          fi
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
+          v="${TAG#v}"
+          # each updater target ({os}-{arch}-{bundle type}, then {os}-{arch}) and its file
+          targets=(
+            "linux-x86_64-appimage photonoxide-$v-linux-x86_64.AppImage"
+            "linux-x86_64-deb photonoxide-$v-linux-x86_64.deb"
+            "linux-x86_64-rpm photonoxide-$v-linux-x86_64.rpm"
+            "linux-aarch64-appimage photonoxide-$v-linux-aarch64.AppImage"
+            "linux-aarch64-deb photonoxide-$v-linux-aarch64.deb"
+            "linux-aarch64-rpm photonoxide-$v-linux-aarch64.rpm"
+            "windows-x86_64-nsis photonoxide-$v-windows-x86_64-setup.exe"
+            "windows-x86_64 photonoxide-$v-windows-x86_64-setup.exe"
+            "darwin-aarch64-app photonoxide-$v-macos-universal.app.tar.gz"
+            "darwin-x86_64-app photonoxide-$v-macos-universal.app.tar.gz"
+            "darwin-aarch64 photonoxide-$v-macos-universal.app.tar.gz"
+            "darwin-x86_64 photonoxide-$v-macos-universal.app.tar.gz"
+          )
+          platforms='{}'
+          for t in "${targets[@]}"; do
+            read -r target file <<< "$t"
+            [ -f "$file.sig" ] || continue
+            platforms=$(jq -c --arg t "$target" --arg url "$base/$file" --rawfile sig "$file.sig" \
+              '. + {($t): {signature: $sig, url: $url}}' <<< "$platforms")
+          done
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json body -q .body > notes.md
+          jq -n --arg version "$v" --rawfile notes notes.md --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson platforms "$platforms" \
+            '{version: $version, notes: $notes, pub_date: $date, platforms: $platforms}' > latest.json
+          jq '.platforms | keys' latest.json
+          gh release upload "$TAG" latest.json -R "$GITHUB_REPOSITORY" --clobber

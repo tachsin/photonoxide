@@ -1,0 +1,144 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
+@plugin "daisyui" {
+  themes: false;
+}
+
+/* The studio's two themes: a deep slate for long sessions (the default), and a paper-white one. */
+@plugin "daisyui/theme" {
+  name: "photonoxide-dark";
+  default: true;
+  prefersdark: true;
+  color-scheme: dark;
+  --color-base-100: oklch(19% 0.012 260);
+  --color-base-200: oklch(16.5% 0.011 260);
+  --color-base-300: oklch(14% 0.01 260);
+  --color-base-content: oklch(92% 0.01 260);
+  --color-primary: oklch(70% 0.16 255);
+  --color-primary-content: oklch(16% 0.03 260);
+  --color-secondary: oklch(74% 0.14 195);
+  --color-secondary-content: oklch(16% 0.03 200);
+  --color-accent: oklch(80% 0.15 75);
+  --color-accent-content: oklch(20% 0.04 75);
+  --color-neutral: oklch(26% 0.014 260);
+  --color-neutral-content: oklch(88% 0.01 260);
+  --color-info: oklch(72% 0.13 230);
+  --color-info-content: oklch(18% 0.03 230);
+  --color-success: oklch(72% 0.15 155);
+  --color-success-content: oklch(18% 0.04 155);
+  --color-warning: oklch(80% 0.14 85);
+  --color-warning-content: oklch(20% 0.04 85);
+  --color-error: oklch(66% 0.19 25);
+  --color-error-content: oklch(18% 0.04 25);
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "photonoxide-light";
+  default: false;
+  prefersdark: false;
+  color-scheme: light;
+  --color-base-100: oklch(99.5% 0.002 260);
+  --color-base-200: oklch(97% 0.004 260);
+  --color-base-300: oklch(93% 0.006 260);
+  --color-base-content: oklch(25% 0.02 260);
+  --color-primary: oklch(55% 0.19 260);
+  --color-primary-content: oklch(98% 0.01 260);
+  --color-secondary: oklch(58% 0.12 195);
+  --color-secondary-content: oklch(98% 0.01 200);
+  --color-accent: oklch(70% 0.16 65);
+  --color-accent-content: oklch(20% 0.04 65);
+  --color-neutral: oklch(32% 0.02 260);
+  --color-neutral-content: oklch(96% 0.005 260);
+  --color-info: oklch(60% 0.15 235);
+  --color-info-content: oklch(98% 0.01 235);
+  --color-success: oklch(60% 0.15 155);
+  --color-success-content: oklch(98% 0.01 155);
+  --color-warning: oklch(75% 0.15 80);
+  --color-warning-content: oklch(22% 0.04 80);
+  --color-error: oklch(58% 0.21 25);
+  --color-error-content: oklch(98% 0.01 25);
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+}
+
+@layer base {
+  html,
+  body,
+  #app {
+    height: 100%;
+  }
+  body {
+    @apply bg-base-200 text-base-content font-sans antialiased;
+    font-feature-settings: "cv11", "ss01";
+    overflow: hidden;
+    user-select: none;
+  }
+  /* text the user may want to copy */
+  input,
+  textarea,
+  pre,
+  code,
+  .selectable {
+    user-select: text;
+  }
+  fieldset {
+    min-width: 0;
+  }
+  ::selection {
+    @apply bg-primary/30;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-base-100 border border-base-content/8 rounded-box;
+  }
+  .panel-title {
+    @apply text-xs font-semibold uppercase tracking-wider text-base-content/50;
+  }
+  .muted {
+    @apply text-base-content/60;
+  }
+  .faint {
+    @apply text-base-content/40;
+  }
+  .num {
+    @apply font-mono tabular-nums;
+  }
+  .glow {
+    background:
+      radial-gradient(60rem 22rem at 10% -20%, color-mix(in oklch, var(--color-primary) 22%, transparent), transparent 70%),
+      radial-gradient(40rem 18rem at 95% 0%, color-mix(in oklch, var(--color-secondary) 16%, transparent), transparent 70%);
+  }
+}
+
+/* thin scrollbars that follow the theme */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--color-base-content) 22%, transparent) transparent;
+}
+
+canvas.pixelated {
+  image-rendering: pixelated;
+}
