@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/tachsin/photonoxide/compare/v0.2.0...v0.3.0) - 2026-10-02
+
+### <!-- 0 -->Added
+
+- [**breaking**] make the studio a Tauri app with a 3D view, and the photonoxide program ([#36](https://github.com/tachsin/photonoxide/pull/36))
+- open the studio's start page with a bare photonoxide, and release binaries ([#38](https://github.com/tachsin/photonoxide/pull/38))
+- add a multilayer stack's reflection and transmission of a plane wave ([#40](https://github.com/tachsin/photonoxide/pull/40))
+- add 2D FDFD with stretched-coordinate PMLs and its exact power flux ([#41](https://github.com/tachsin/photonoxide/pull/41))
+- add 2D FDFD ports: the grid's own modes, one-way sources and a reciprocal S-matrix ([#42](https://github.com/tachsin/photonoxide/pull/42))
+- reuse an FDFD matrix's symbolic analysis across a sweep ([#43](https://github.com/tachsin/photonoxide/pull/43))
+- add an fdfd job: a device on one layer by 2D FDFD with ports, live in the studio ([#44](https://github.com/tachsin/photonoxide/pull/44))
+- add adjoint gradients for 2D FDFD, checked against finite differences ([#45](https://github.com/tachsin/photonoxide/pull/45))
+- add Hadley's high-accuracy interface and corner equations as a full-vector mode solver ([#47](https://github.com/tachsin/photonoxide/pull/47))
+- add 3D FDFD on the Yee grid with stretched-coordinate PMLs ([#46](https://github.com/tachsin/photonoxide/pull/46))
+- add a QMR iterative solver for 3D FDFD, on the curl-curl operator or Shin and Fan's ([#48](https://github.com/tachsin/photonoxide/pull/48))
+
+### <!-- 1 -->Fixed
+
+- *(fdfd)* put Shin and Fan's ε⁻¹ at the nodes, inside the gradient ([#50](https://github.com/tachsin/photonoxide/pull/50))
+
+### <!-- 4 -->Documentation
+
+- reshape the roadmap around components, circuits and active photonics ([#49](https://github.com/tachsin/photonoxide/pull/49))
+- mark 0.2 and 0.3 done in the roadmap ([#51](https://github.com/tachsin/photonoxide/pull/51))
+
 ## [0.2.0](https://github.com/tachsin/photonoxide/compare/v0.1.1...v0.2.0) - 2026-10-02
 
 ### <!-- 0 -->Added
