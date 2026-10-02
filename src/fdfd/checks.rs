@@ -3,7 +3,7 @@
 
 use num_complex::Complex64 as c64;
 
-use super::{Boundaries, Edges, Field2d, Grid, Polarization, Solver2d};
+use super::{Boundaries, Edges, Field2d, Grid, Polarization, Port, Side, Solver2d};
 use crate::mode::multilayer::Multilayer;
 use crate::units::{Length, Wavelength};
 
@@ -187,4 +187,111 @@ pub(crate) fn pml_reflection(polarization: Polarization) -> f64 {
     let a = (u1 * e2p - e1p * u2) / det;
     let b = (e1m * u2 - u1 * e2m) / det;
     (b / a).norm()
+}
+
+/// A slab waveguide along x, centred on y = 0, `thickness(x)` µm of `core` index in `clad`,
+/// on an h grid from x = 0 to `length` and y = ±1.5 µm, PMLs of 20 cells all round.
+pub(crate) fn guide(
+    polarization: Polarization,
+    h: f64,
+    length: f64,
+    (core, clad): (f64, f64),
+    thickness: impl Fn(f64) -> f64,
+) -> Solver2d {
+    let pml = 20;
+    let nx = (length / h).round() as usize + 2 * pml;
+    let ny = (3.0 / h).round() as usize + 2 * pml;
+    let grid = Grid {
+        nx,
+        ny,
+        dx: h,
+        dy: h,
+        x0: -(pml as f64) * h,
+        y0: -1.5 - pml as f64 * h,
+    };
+    let eps = move |x: f64, y: f64| {
+        let n = if y.abs() < thickness(x) / 2.0 {
+            core
+        } else {
+            clad
+        };
+        c64::new(n * n, 0.0)
+    };
+    Solver2d::new(
+        grid,
+        polarization,
+        Wavelength::um(1.55).unwrap(),
+        eps,
+        Boundaries::pml(pml),
+    )
+    .unwrap()
+}
+
+pub(crate) fn column(solver: &Solver2d, x: f64) -> usize {
+    let g = solver.grid();
+    ((x - g.x0) / g.dx).floor() as usize
+}
+
+/// The two ports of a guide: its fundamental modes at x = 0.3 (left) and 1.7 µm (right).
+pub(crate) fn two_ports(solver: &Solver2d) -> [Port; 2] {
+    let left = solver.port_modes(column(solver, 0.3), 1).unwrap().remove(0);
+    let right = solver.port_modes(column(solver, 1.7), 1).unwrap().remove(0);
+    [
+        Port {
+            mode: left,
+            side: Side::Left,
+        },
+        Port {
+            mode: right,
+            side: Side::Right,
+        },
+    ]
+}
+
+/// A straight 220 nm silicon slab (3.476 in 1.444), 2 µm long, on a 20 nm grid: the largest of
+/// |S11|, |S22|, |S21 − e^(iβL)| and |S12 − e^(iβL)|, L the ports' distance.
+pub(crate) fn straight_guide_error(polarization: Polarization) -> f64 {
+    let solver = guide(polarization, 0.02, 2.0, (3.476, 1.444), |_| 0.22);
+    let ports = two_ports(&solver);
+    let length = (ports[1].mode.column() - ports[0].mode.column()) as f64 * 0.02;
+    let expected = (c64::new(0.0, 1.0) * ports[0].mode.beta() * length).exp();
+    let s = solver.s_matrix(&ports).unwrap();
+    [
+        s[0][0].norm(),
+        s[1][1].norm(),
+        (s[1][0] - expected).norm(),
+        (s[0][1] - expected).norm(),
+    ]
+    .into_iter()
+    .fold(0.0, f64::max)
+}
+
+/// A slab (3.473 in 1.444) stepping from 220 to 300 nm at x = 1 µm, 10 nm grid: its S-matrix
+/// between the two guides' fundamental modes, and their effective indices.
+pub(crate) fn step(polarization: Polarization) -> (Vec<Vec<c64>>, f64, f64) {
+    let solver = guide(polarization, 0.01, 2.0, (3.473, 1.444), |x| {
+        if x < 1.0 { 0.22 } else { 0.30 }
+    });
+    let ports = two_ports(&solver);
+    let s = solver.s_matrix(&ports).unwrap();
+    let n = |p: &Port| p.mode.effective_index().re;
+    (s, n(&ports[0]), n(&ports[1]))
+}
+
+/// The effective index of the fundamental port mode of a 220 nm silicon slab (3.476 in
+/// 1.444) on an h grid, and the exact slab mode's.
+pub(crate) fn port_mode_index(polarization: Polarization, h: f64) -> (f64, f64) {
+    use crate::mode::slab::Slab;
+    let (core, clad) = (3.476, 1.444);
+    let kind = match polarization {
+        Polarization::Ez => crate::mode::Polarization::Te,
+        Polarization::Hz => crate::mode::Polarization::Tm,
+    };
+    let exact = Slab::new(clad, core, clad, Length::nm(220.0))
+        .unwrap()
+        .modes(kind, Wavelength::um(1.55).unwrap())[0]
+        .effective_index();
+    let solver = guide(polarization, h, 0.1, (core, clad), |_| 0.22);
+    let mode = &solver.port_modes(column(&solver, 0.05), 1).unwrap()[0];
+    (mode.effective_index().re, exact)
 }

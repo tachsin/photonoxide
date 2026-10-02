@@ -217,8 +217,15 @@ pub struct Solver2d {
     grid: Grid,
     polarization: Polarization,
     k0: f64,
-    /// Hz: ε_x on the y-faces (y0 + j dy, j = 0 … ny), `nx` × `(ny + 1)`, for the flux.
+    boundaries: Boundaries,
+    /// Ez: ε_z at the centres, `nx` × `ny`.
+    eps_z: Vec<c64>,
+    /// Hz: ε_y on the x-faces (x0 + i dx, i = 0 … nx), `(nx + 1)` × `ny`.
+    eps_y: Vec<c64>,
+    /// Hz: ε_x on the y-faces (y0 + j dy, j = 0 … ny), `nx` × `(ny + 1)`.
     eps_x: Vec<c64>,
+    /// The matrix's entries, for its products with sources.
+    entries: Vec<Triplet<usize, usize, c64>>,
     lu: Lu<usize, c64>,
 }
 
@@ -293,15 +300,17 @@ impl Solver2d {
                 }
             }
         }
-        let lu = factorize(
-            &assemble(grid, polarization, k0, &eps_z, &eps_y, &eps_x, &b),
-            nx * ny,
-        )?;
+        let entries = assemble(grid, polarization, k0, &eps_z, &eps_y, &eps_x, &b);
+        let lu = factorize(&entries, nx * ny)?;
         Ok(Solver2d {
             grid,
             polarization,
             k0,
+            boundaries,
+            eps_z,
+            eps_y,
             eps_x,
+            entries,
             lu,
         })
     }
@@ -318,23 +327,53 @@ impl Solver2d {
     ///
     /// [`Error::InvalidValue`] if the source isn't one value per cell.
     pub fn solve(&self, source: &[c64]) -> Result<Field2d> {
+        let rhs: Vec<c64> = source.iter().map(|s| c64::new(0.0, -self.k0) * s).collect();
+        self.solve_system(&rhs)
+    }
+
+    /// The field u of A u = `rhs`, A the assembled matrix: for sources already in its form,
+    /// such as [`Solver2d::mode_source`]'s.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] if `rhs` isn't one value per cell.
+    pub fn solve_system(&self, rhs: &[c64]) -> Result<Field2d> {
         use faer::linalg::solvers::Solve;
         let n = self.grid.nx * self.grid.ny;
-        if source.len() != n {
+        if rhs.len() != n {
             return Err(Error::invalid(
                 "fdfd source",
-                format!("needs {n} values, one per cell, got {}", source.len()),
+                format!("needs {n} values, one per cell, got {}", rhs.len()),
             ));
         }
-        let rhs = faer::Mat::<c64>::from_fn(n, 1, |r, _| c64::new(0.0, -self.k0) * source[r]);
-        let u = self.lu.solve(&rhs);
+        let b = faer::Mat::<c64>::from_fn(n, 1, |r, _| rhs[r]);
+        let u = self.lu.solve(&b);
+        let mut values: Vec<c64> = (0..n).map(|r| u[(r, 0)]).collect();
+        // one step of iterative refinement: the factorization's rounding, PMLs and strong
+        // contrasts make it worth it
+        let residual = self.apply(&values);
+        let r = faer::Mat::<c64>::from_fn(n, 1, |k, _| rhs[k] - residual[k]);
+        let correction = self.lu.solve(&r);
+        for (k, v) in values.iter_mut().enumerate() {
+            *v += correction[(k, 0)];
+        }
         Ok(Field2d {
             grid: self.grid,
             polarization: self.polarization,
             k0: self.k0,
-            values: (0..n).map(|r| u[(r, 0)]).collect(),
+            values,
             eps_x: self.eps_x.clone(),
+            eps_y: self.eps_y.clone(),
         })
+    }
+
+    /// A v, the assembled matrix times `v`.
+    fn apply(&self, v: &[c64]) -> Vec<c64> {
+        let mut out = vec![c64::new(0.0, 0.0); v.len()];
+        for t in &self.entries {
+            out[t.row] += t.val * v[t.col];
+        }
+        out
     }
 }
 
@@ -439,8 +478,9 @@ pub struct Field2d {
     polarization: Polarization,
     k0: f64,
     values: Vec<c64>,
-    /// Hz: ε_x on the y-faces, for the flux.
+    /// Hz: ε_x on the y-faces and ε_y on the x-faces, for the fluxes.
     eps_x: Vec<c64>,
+    eps_y: Vec<c64>,
 }
 
 impl Field2d {
@@ -509,5 +549,8 @@ impl Field2d {
 }
 
 pub(crate) mod checks;
+mod ports;
 #[cfg(test)]
 mod tests;
+
+pub use ports::{Direction, Port, PortMode, Side};
