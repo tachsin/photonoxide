@@ -108,6 +108,29 @@ impl Polygon {
         signed_area(&self.vertices)
     }
 
+    /// A ring of waveguide `width` whose centre line has `radius`: the annulus from
+    /// radius − width/2 to radius + width/2, as ring resonators are specified.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] unless everything is finite and 0 < width < 2 radius.
+    pub fn ring(center: Point, radius: Length, width: Length) -> Result<Shape> {
+        let (r, w) = (radius.to_um(), width.to_um());
+        if !center.is_finite() || !r.is_finite() || !w.is_finite() || w <= 0.0 || w >= 2.0 * r {
+            return Err(Error::invalid(
+                "ring",
+                format!(
+                    "needs a finite centre and 0 < width < 2 radius, got radius {radius} and width {width}"
+                ),
+            ));
+        }
+        Ok(Shape::Ring {
+            center,
+            inner: radius - width / 2.0,
+            outer: radius + width / 2.0,
+        })
+    }
+
     /// The bounding box.
     pub fn bounds(&self) -> Bounds {
         bounds_of(&self.vertices)
@@ -196,6 +219,16 @@ pub enum Shape {
     },
     /// A polygon.
     Polygon(Polygon),
+    /// An annulus: the region between two circles about one centre, as a ring resonator's
+    /// waveguide.
+    Ring {
+        /// Its centre.
+        center: Point,
+        /// The inner radius.
+        inner: Length,
+        /// The outer radius.
+        outer: Length,
+    },
 }
 
 impl Shape {
@@ -235,6 +268,29 @@ impl Shape {
         Ok(Shape::Circle { center, radius })
     }
 
+    /// A ring of waveguide `width` whose centre line has `radius`: the annulus from
+    /// radius − width/2 to radius + width/2, as ring resonators are specified.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] unless everything is finite and 0 < width < 2 radius.
+    pub fn ring(center: Point, radius: Length, width: Length) -> Result<Shape> {
+        let (r, w) = (radius.to_um(), width.to_um());
+        if !center.is_finite() || !r.is_finite() || !w.is_finite() || w <= 0.0 || w >= 2.0 * r {
+            return Err(Error::invalid(
+                "ring",
+                format!(
+                    "needs a finite centre and 0 < width < 2 radius, got radius {radius} and width {width}"
+                ),
+            ));
+        }
+        Ok(Shape::Ring {
+            center,
+            inner: radius - width / 2.0,
+            outer: radius + width / 2.0,
+        })
+    }
+
     /// The bounding box.
     pub fn bounds(&self) -> Bounds {
         match self {
@@ -252,7 +308,12 @@ impl Shape {
                     y: center.y + *height / 2.0,
                 },
             },
-            Shape::Circle { center, radius } => Bounds {
+            Shape::Circle { center, radius }
+            | Shape::Ring {
+                center,
+                outer: radius,
+                ..
+            } => Bounds {
                 min: Point {
                     x: center.x - *radius,
                     y: center.y - *radius,
@@ -272,6 +333,9 @@ impl Shape {
             Shape::Rect { width, height, .. } => width.to_um() * height.to_um(),
             Shape::Circle { radius, .. } => TAU / 2.0 * radius.to_um() * radius.to_um(),
             Shape::Polygon(p) => p.area(),
+            Shape::Ring { inner, outer, .. } => {
+                TAU / 2.0 * (outer.to_um() * outer.to_um() - inner.to_um() * inner.to_um())
+            }
         }
     }
 
@@ -284,6 +348,15 @@ impl Shape {
                 dx * dx + dy * dy <= radius.to_um() * radius.to_um()
             }
             Shape::Polygon(poly) => poly.contains(p),
+            Shape::Ring {
+                center,
+                inner,
+                outer,
+            } => {
+                let (dx, dy) = ((p.x - center.x).to_um(), (p.y - center.y).to_um());
+                let d2 = dx * dx + dy * dy;
+                d2 >= inner.to_um() * inner.to_um() && d2 <= outer.to_um() * outer.to_um()
+            }
         }
     }
 }
@@ -372,6 +445,23 @@ mod tests {
         assert!((c.area() - std::f64::consts::PI).abs() < 1e-15);
         assert!(Shape::rect(Point::um(0.0, 0.0), Length::um(-1.0), Length::um(1.0)).is_err());
         assert!(Shape::circle(Point::um(0.0, 0.0), Length::ZERO).is_err());
+    }
+
+    #[test]
+    fn a_ring_is_the_band_about_its_radius() {
+        // a 500 nm waveguide whose centre line has a 2 um radius: from 1.75 to 2.25 um
+        let r = Shape::ring(Point::um(1.0, -1.0), Length::um(2.0), Length::nm(500.0)).unwrap();
+        assert!(r.contains(Point::um(3.0, -1.0)));
+        assert!(r.contains(Point::um(1.0, 1.2)));
+        assert!(!r.contains(Point::um(1.0, -1.0)), "the hole");
+        assert!(!r.contains(Point::um(1.0 + 1.7, -1.0)));
+        assert!(!r.contains(Point::um(1.0 + 2.3, -1.0)));
+        let exact = std::f64::consts::PI * (2.25 * 2.25 - 1.75 * 1.75);
+        assert!((r.area() - exact).abs() < 1e-12);
+        let b = r.bounds();
+        assert!((b.max.x.to_um() - 3.25).abs() < 1e-12 && (b.min.y.to_um() + 3.25).abs() < 1e-12);
+        assert!(Shape::ring(Point::um(0.0, 0.0), Length::um(1.0), Length::um(2.0)).is_err());
+        assert!(Shape::ring(Point::um(0.0, 0.0), Length::um(1.0), Length::ZERO).is_err());
     }
 
     #[test]

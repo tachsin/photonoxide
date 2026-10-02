@@ -75,7 +75,7 @@
       for (let q = 1; q < ports; q++) {
         out.push({
           label: `${label(l)} · S${q + 1}1`,
-          points: l.sparams.map((sp) => [sp.wavelength_um, 10 * Math.log10(Math.max(sp.s[q][0][0] ** 2 + sp.s[q][0][1] ** 2, 1e-30))] as [number, number]),
+          points: l.sparams.map((sp) => [sp.wavelength_um, sp.s[q][0][0] ** 2 + sp.s[q][0][1] ** 2] as [number, number]),
           colour: colour(k),
           dashed: q > 1,
         });
@@ -125,15 +125,15 @@
         <section class="panel p-5">
           <h3 class="mb-1 font-semibold">Effective index over the {parameter}</h3>
           <p class="mb-3 text-xs faint">mode 1 solid, mode 2 dashed; one colour per run</p>
-          <Plot {series} xLabel={parameter === "wavelength" ? "wavelength (µm)" : "width (µm)"} yLabel="n_eff" />
+          <Plot {series} xLabel={parameter === "wavelength" ? "wavelength (µm)" : "width (µm)"} yLabel="n_eff" name="compare-n_eff" />
         </section>
       {/each}
 
       {#if spectra.length}
         <section class="panel p-5">
           <h3 class="mb-1 font-semibold">Transmission from port 1</h3>
-          <p class="mb-3 text-xs faint">|S_q1|² in dB; the first output solid, the others dashed; one colour per run</p>
-          <Plot series={spectra} xLabel="wavelength (µm)" yLabel="|S_q1|² (dB)" />
+          <p class="mb-3 text-xs faint">|S_q1|², the power from port 1; the first output solid, the others dashed; one colour per run</p>
+          <Plot series={spectra} xLabel="wavelength (µm)" yLabel="|S_q1|²" yRange={[0, 1.02]} name="compare-spectra" />
         </section>
       {/if}
 

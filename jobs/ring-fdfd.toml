@@ -1,0 +1,48 @@
+# An all-pass ring resonator on 220 nm SOI by 2D FDFD with the effective index method (an
+# estimate, not the device's 3D performance): a 500 nm ring of 2 um radius, 0.1 um from its bus,
+# swept from 1.50 to 1.60 um. The bus's transmission dips where the ring resonates, a free
+# spectral range of about lambda^2 / (n_g L) apart. The spectrum builds up live, a point at a time;
+# the field is the one at the first resonance, 1.5205 um, where the light circles the ring.
+#   photonoxide run jobs/ring-fdfd.toml
+name = "ring-fdfd"
+timeout_minutes = 20
+
+[task]
+kind = "fdfd"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+polarization = "te"
+x_um = [-4.5, 4.5]
+y_um = [-2.9, 3.5]
+step_nm = 25.0
+field_um = 1.5205
+
+# the bus
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, -2.0]
+size_um = [9.0, 0.5]
+
+# the ring: its outer edge 0.1 um above the bus
+[[task.ring]]
+layer = "Si"
+center_um = [0.0, 0.6]
+radius_um = 2.0
+width_um = 0.5
+
+[[task.port]]
+x_um = -3.5
+side = "left"
+y_um = [-2.9, -1.0]
+
+[[task.port]]
+x_um = 3.5
+side = "right"
+y_um = [-2.9, -1.0]
+
+[task.sweep]
+parameter = "wavelength"
+from = 1.5
+to = 1.6
+points = 201

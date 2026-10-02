@@ -148,6 +148,12 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - [x] **Updates from inside the program:** signed releases with an update manifest; an installed copy offers a new release and installs it with one click (tested from a 0.3.0 installer to 0.3.1).
 - [x] **Code signing, ready:** Windows (Certum's open-source certificate through ssign) and macOS (Developer ID and notarization) in the release workflow, each from when its secrets are set.
 
+### 0.3.2: The studio, polished
+- [x] **Rings:** `Shape::Ring` (a centre line's radius and a waveguide's width) and `[[task.ring]]` in every job kind, through the pictures, the mode solver's cut and FDFD; `strip-and-ring` is a ring resonator now, and `ring-fdfd` a new example, an all-pass ring's spectrum by 2D FDFD (two resonances 47 nm apart, as λ²/(n_g L) says).
+- [x] **3D previews:** `job::preview`, the scene a job's run records, without running it; the example cards and the builder show it turning in 3D.
+- [x] **A steady 3D view:** a core's faces no longer fight its layer's oxide for the same pixels as the camera turns (polygon offsets, and the clear media in a fixed order).
+- [x] **Smaller things:** deleting the open run closes it (and stops it if it runs); plots saved as CSV; Ctrl+S and Ctrl+Enter in the builder; the window keeps its size and place; the open run marked in the list; the validation count on the home page.
+
 ### 0.4: Components and circuits
 
 The backbone of a chip: components with ports and several fidelities, connected into circuits that simulate together and are optimized at every level. It needs no new physics, because 0.2 and 0.3 already give modes and S-matrices.

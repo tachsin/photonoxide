@@ -1,16 +1,15 @@
 <script lang="ts">
-  // A job as a card: its device from above, what it is, and what can be done with it.
+  // A job as a card: its device in 3D, turning, what it is, and what can be done with it.
   import { Pencil, Play } from "@lucide/svelte";
 
   import { KINDS } from "../lib/api";
-  import type { JobModel } from "../lib/job";
-  import GeometryPreview from "./GeometryPreview.svelte";
+  import ScenePreview from "./ScenePreview.svelte";
 
   let {
     name,
     kind,
     about,
-    model,
+    text,
     onrun,
     onedit,
     badge,
@@ -18,7 +17,7 @@
     name: string;
     kind: string;
     about: string;
-    model?: JobModel;
+    text: string;
     onrun: () => void;
     onedit: () => void;
     badge?: string;
@@ -28,12 +27,8 @@
 </script>
 
 <article class="panel group flex flex-col overflow-hidden transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-xl hover:shadow-black/10">
-  <div class="border-b border-base-content/8 bg-base-200/60 px-3 pt-3">
-    {#if model}
-      <GeometryPreview {model} compact height={132} />
-    {:else}
-      <div class="skeleton h-[132px] w-full"></div>
-    {/if}
+  <div class="glow border-b border-base-content/8 bg-base-200/60" title="What its run will draw, before it runs">
+    <ScenePreview {text} height={160} />
   </div>
   <div class="flex flex-1 flex-col gap-2 p-4">
     <div class="flex items-center gap-2">

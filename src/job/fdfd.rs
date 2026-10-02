@@ -11,7 +11,7 @@
 use num_complex::Complex64 as c64;
 use serde::Deserialize;
 
-use super::{CircleSpec, Event, RectSpec, draw, named_stack, scene, task_error};
+use super::{CircleSpec, Event, RectSpec, RingSpec, draw, named_stack, scene, task_error};
 use crate::fdfd::{Boundaries, Direction, Grid, Polarization, Port, Side, Solver2d};
 use crate::geometry::Point;
 use crate::mode::slab::Slab;
@@ -59,10 +59,14 @@ struct FdfdTask {
     step_nm: f64,
     /// PML cells on each side, inside the window: 20 by default.
     pml_cells: Option<usize>,
+    /// The field is recorded at the swept wavelength nearest this (µm): the first by default.
+    field_um: Option<f64>,
     #[serde(default)]
     rect: Vec<RectSpec>,
     #[serde(default)]
     circle: Vec<CircleSpec>,
+    #[serde(default)]
+    ring: Vec<RingSpec>,
     #[serde(default)]
     port: Vec<PortSpec>,
     sweep: Option<WavelengthSweep>,
@@ -129,6 +133,37 @@ fn plane(
     })
 }
 
+/// The scene of an `"fdfd"` job: its window, 1 µm below and above its layer.
+fn scene_of(task: &FdfdTask, s: &Structure) -> Result<Event> {
+    let (_, bottom, top) = s
+        .stack()
+        .layer(&task.layer)
+        .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
+    scene(
+        s,
+        task.x_um,
+        task.y_um,
+        [bottom.to_um() - 1.0, top.to_um() + 1.0],
+        Wavelength::um(task.wavelength_um)?,
+    )
+}
+
+/// [`super::preview`] for an `"fdfd"` job.
+pub(super) fn preview(job: &Job) -> Result<Event> {
+    let task: FdfdTask = job
+        .task()
+        .clone()
+        .try_into()
+        .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
+    let s = draw(
+        named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
+        &task.rect,
+        &task.circle,
+        &task.ring,
+    )?;
+    scene_of(&task, &s)
+}
+
 /// [`super::check`] for an `"fdfd"` job.
 pub(super) fn check(job: &Job) -> Result<()> {
     let task: FdfdTask = job
@@ -140,6 +175,7 @@ pub(super) fn check(job: &Job) -> Result<()> {
         named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
         &task.rect,
         &task.circle,
+        &task.ring,
     )?;
     s.stack()
         .layer(&task.layer)
@@ -169,6 +205,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
         &task.rect,
         &task.circle,
+        &task.ring,
     )?;
     let (_, bottom, top) = s
         .stack()
@@ -186,16 +223,9 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     if task.port.is_empty() {
         return Err(task_error("an fdfd job needs at least one [[task.port]]"));
     }
-    let lam = Wavelength::um(task.wavelength_um)?;
     // the 3D view draws the 2D field on the layer's top face
     let z_face = top.to_um();
-    run.record(&scene(
-        &s,
-        task.x_um,
-        task.y_um,
-        [bottom.to_um() - 1.0, top.to_um() + 1.0],
-        lam,
-    )?)?;
+    run.record(&scene_of(&task, &s)?)?;
 
     // the grid: cells of about step_nm filling the window, PMLs inside it
     let h = task.step_nm / 1000.0;
@@ -239,6 +269,16 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         .enumerate()
         .map(|(k, p)| format!("{} ({}, x = {} um)", k + 1, p.side, p.x_um))
         .collect();
+    // the step whose field is recorded: the wavelength nearest field_um, else the first
+    let field_step = task.field_um.map_or(0, |f| {
+        (0..wavelengths.len())
+            .min_by(|&a, &b| {
+                (wavelengths[a] - f)
+                    .abs()
+                    .total_cmp(&(wavelengths[b] - f).abs())
+            })
+            .unwrap_or(0)
+    });
     let mut solver: Option<Solver2d> = None;
     for (step, &w) in wavelengths.iter().enumerate() {
         if stop.reason().is_some() {
@@ -265,8 +305,8 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 .map(|row| row.iter().map(|v| [v.re, v.im]).collect())
                 .collect(),
         })?;
-        // the field from the first port, at the first wavelength
-        if step == 0 {
+        // the field from the first port, at the wavelength chosen
+        if step == field_step {
             let first = &ports[0];
             let direction = match first.side {
                 Side::Left => Direction::Forward,

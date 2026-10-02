@@ -21,25 +21,28 @@ window only follows that record, so a live run and a replay look the same.
 
 - **Home:** new jobs, the examples, recent runs, and what changed in this version.
 - **Examples:** everything ships inside the program.
-  - The simulations of `jobs/` run in one click or open in the builder.
+  - The simulations of `jobs/` run in one click or open in the builder. Each card shows its
+    structure in 3D, turning slowly: the scene its run will draw (`photonoxide::job::preview`).
   - The thirteen published results of `examples/` each run in a process of their own. Every
     line is checked against the paper as it prints, beside what the release recorded.
 - **Job builder:** a job as a form for each kind (`modes`, `fdfd`, `structure`).
-  - The device is drawn from above as you type: shapes, ports, the PML and the cut. Click a
-    shape to edit it.
+  - The device is drawn from above as you type: rectangles, disks, rings, ports, the PML and
+    the cut. Click a shape to edit it. The 3D tab shows the structure as its run will draw it.
   - The TOML sits beside the form in an editor, and edits there update the form.
   - The library checks the job as it changes (`photonoxide::job::check`). It is saved to the
-    workspace's `jobs/` and runs from the builder.
-- **Runs:** every run in the workspace, to open, compare, show on disk or delete.
+    workspace's `jobs/` (Ctrl+S) and runs from the builder (Ctrl+Enter).
+- **Runs:** every run in the workspace, to open, compare, show on disk or delete. Deleting the
+  open run closes it; deleting one still running stops it first.
 - **Viewer:**
   - **3D** (the default): the layers and shapes as solids, with the field painted on its plane.
     Drag to orbit, right-drag to pan, scroll to zoom.
   - **2D:** fields, S-parameters and spectra, permittivity pictures, modes, and a sweep's
-    effective and group indices. Hover a plot to read its values.
+    effective and group indices. Hover a plot to read its values, and save its data as CSV.
   - The side panel hides layers, picks the mode shown, and stops a running job.
 - **Compare:** the runs ticked on the Runs page, their sweeps and spectra on shared axes.
 - **Validation:** the release's report, searchable, and the same report run on this machine.
 - **Settings:** the theme (system, dark or light), the workspace folder, tips, and updates.
+  The window opens where it was left, at the size it had.
 
 Help is built in:
 - a tour on the first start, which the question mark brings back;

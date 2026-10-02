@@ -2,7 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 
-import type { Event } from "./events";
+import type { Event, Scene } from "./events";
 
 export interface Settings {
   theme: "system" | "dark" | "light";
@@ -123,6 +123,8 @@ export const api = {
   stopTask: (id: number) => invoke<void>("stop_task", { id }),
   changelog: () => invoke<string>("changelog"),
   publishedReport: () => invoke<string>("published_report"),
+  previewScene: (text: string) => invoke<Scene>("preview_scene", { text }),
+  saveText: (path: string, text: string) => invoke<void>("save_text", { path, text }),
 };
 
 /** "2026-10-02T09:17:32Z" as "2 Oct 2026, 09:17". */
