@@ -64,6 +64,11 @@ impl Outcome {
 }
 
 /// One validation case.
+///
+/// Its `title` and `source` are cells of the report's Markdown table: their math is inline TeX
+/// between single dollar signs, which GitHub, the studio and the project site render. A cell can't
+/// hold a `|` (an absolute value is `\lvert x \rvert`), and GitHub drops the backslash before
+/// punctuation, so `\,` and `\{` don't survive (`\thinspace`, `\lbrace` do), nor does a `>` (`\gt`).
 #[derive(Clone, Copy, Debug)]
 pub struct Case {
     /// A short, stable identifier, e.g. `"material/silicon-li-table"`.
@@ -83,16 +88,16 @@ pub fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "units/amplitude-convention",
-            title: "The amplitude of a real signal Re(A e^(-iwt)) is recovered with the kernel e^(+iwt) (magnitude shown)",
+            title: r"The amplitude of a real signal $\operatorname{Re}(A e^{-i\omega t})$ is recovered with the kernel $e^{+i\omega t}$ (magnitude shown)",
             tier: Tier::Analytic,
-            source: "the e^(-iwt) convention: (2/T) int Re(A e^(-iwt)) e^(iwt) dt = A over whole periods",
+            source: r"the $e^{-i\omega t}$ convention: $\frac{2}{T}\int_0^T \operatorname{Re}(A e^{-i\omega t})\thinspace e^{i\omega t}\thinspace dt = A$ over whole periods",
             run: amplitude_convention,
         },
         Case {
             id: "units/lossy-attenuation",
-            title: "A wave in a medium with Im(eps) > 0 decays over one wavelength by exp(-2 pi kappa) (decay shown)",
+            title: r"A wave in a medium with $\operatorname{Im}\varepsilon \gt 0$ decays over one wavelength by $\exp(-2\pi\kappa)$ (decay shown)",
             tier: Tier::Analytic,
-            source: "e^(i n k0 x) with n = n' + i kappa, kappa >= 0",
+            source: r"$e^{i n k_0 x}$ with $n = n' + i\kappa$, $\kappa \geq 0$",
             run: lossy_attenuation,
         },
         Case {
@@ -153,51 +158,51 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "mode/strip-book",
-            title: "The TE-like mode of a 500 x 220 nm silicon strip in oxide at 1550 nm, at a 5 nm mesh (effective index shown)",
+            title: r"The TE-like mode of a $500 \times 220$ nm silicon strip in oxide at 1550 nm, at a 5 nm mesh (effective index shown)",
             tier: Tier::Published,
             source: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Fig. 3.14: 2.443 (Lumerical MODE, 20 nm conformal mesh, accurate to about 1e-3 by its Fig. 3.9); ours converges at about first order at the convex corners (as on Hadley's corner problems below), 2.4435 at 2.5 nm",
             run: strip_book,
         },
         Case {
             id: "mode/hadley-box-low",
-            title: "Hadley's corner problem 1: a box, eps 2.25 in a quarter of the 1 x 1 um domain, at 1.5 um, on an 80 x 80 grid (12.5 nm; effective index shown)",
+            title: r"Hadley's corner problem 1: a box, $\varepsilon = 2.25$ in a quarter of the $1 \times 1$ µm domain, at 1.5 µm, on an $80 \times 80$ grid (12.5 nm; effective index shown)",
             tier: Tier::Published,
-            source: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 4: 1.27627404 +- 1e-8 (series expansion); ours converges at about first order at convex corners and 1.4-1.8 at concave ones",
+            source: r"G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 4: $1.27627404 \pm 10^{-8}$ (series expansion); ours converges at about first order at convex corners and 1.4-1.8 at concave ones",
             run: hadley_1,
         },
         Case {
             id: "mode/hadley-box-high",
-            title: "Hadley's corner problem 2: a box, eps 8 in a quarter of the 1 x 1 um domain, at 1.5 um, on an 80 x 80 grid (12.5 nm; effective index shown)",
+            title: r"Hadley's corner problem 2: a box, $\varepsilon = 8$ in a quarter of the $1 \times 1$ µm domain, at 1.5 µm, on an $80 \times 80$ grid (12.5 nm; effective index shown)",
             tier: Tier::Published,
-            source: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 5: 2.65679692 +- 1e-8 (series expansion); ours converges at about first order at convex corners and 1.4-1.8 at concave ones",
+            source: r"G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 5: $2.65679692 \pm 10^{-8}$ (series expansion); ours converges at about first order at convex corners and 1.4-1.8 at concave ones",
             run: hadley_2,
         },
         Case {
             id: "mode/hadley-corner-low",
-            title: "Hadley's corner problem 3: an impinged corner, eps 2.25 in three quarters of the 1 x 1 um domain, at 1.5 um, on an 80 x 80 grid (12.5 nm; effective index shown)",
+            title: r"Hadley's corner problem 3: an impinged corner, $\varepsilon = 2.25$ in three quarters of the $1 \times 1$ µm domain, at 1.5 µm, on an $80 \times 80$ grid (12.5 nm; effective index shown)",
             tier: Tier::Published,
-            source: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 6: 1.387926425 +- 2e-9 (series expansion); ours converges at about first order at convex corners and 1.4-1.8 at concave ones",
+            source: r"G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 6: $1.387926425 \pm 2 \times 10^{-9}$ (series expansion); ours converges at about first order at convex corners and 1.4-1.8 at concave ones",
             run: hadley_3,
         },
         Case {
             id: "mode/hadley-corner-high",
-            title: "Hadley's corner problem 4: an impinged corner, eps 8 in three quarters of the 1 x 1 um domain, at 1.5 um, on an 80 x 80 grid (12.5 nm; effective index shown)",
+            title: r"Hadley's corner problem 4: an impinged corner, $\varepsilon = 8$ in three quarters of the $1 \times 1$ µm domain, at 1.5 µm, on an $80 \times 80$ grid (12.5 nm; effective index shown)",
             tier: Tier::Published,
-            source: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 7: 2.761465320 +- 5e-9 (series expansion); ours converges at about first order at convex corners and 1.4-1.8 at concave ones",
+            source: r"G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 7: $2.761465320 \pm 5 \times 10^{-9}$ (series expansion); ours converges at about first order at convex corners and 1.4-1.8 at concave ones",
             run: hadley_4,
         },
         Case {
             id: "mode/slab-group-index",
-            title: "The group index of a TE slab (220 nm of 3.473 between 1.444 and air) at 1.55 um, from differences of its effective index over +-2 nm (error shown)",
+            title: r"The group index of a TE slab (220 nm of 3.473 between 1.444 and air) at 1.55 µm, from differences of its effective index over $\pm 2$ nm (error shown)",
             tier: Tier::Analytic,
-            source: "Hellmann-Feynman, no material dispersion: n_g = <eps>/n_eff, <eps> weighted by E^2 of the exact field",
+            source: r"Hellmann-Feynman, no material dispersion: $n_g = \langle\varepsilon\rangle/n_\text{eff}$, $\langle\varepsilon\rangle$ weighted by $E^2$ of the exact field",
             run: slab_group_index,
         },
         Case {
             id: "mode/strip-group-index-book",
-            title: "The group index of a 500 x 220 nm strip at 1.55 um, with the book's dispersive silicon and 1.444 oxide, on a 6.25 x 5 nm grid (group index shown)",
+            title: r"The group index of a $500 \times 220$ nm strip at 1.55 µm, with the book's dispersive silicon and 1.444 oxide, on a $6.25 \times 5$ nm grid (group index shown)",
             tier: Tier::Published,
-            source: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Fig. 3.22b: about 4.18, read off the plot to +-0.005 (Lumerical MODE, 20 nm mesh); materials from its Listing 3.1",
+            source: r"L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Fig. 3.22b: about 4.18, read off the plot to $\pm 0.005$ (Lumerical MODE, 20 nm mesh); materials from its Listing 3.1",
             run: strip_group_index_book,
         },
         Case {
@@ -209,9 +214,9 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "mode/multilayer-leaky-chilwell",
-            title: "The 5 TE leaky waves (m = 4-8) of the same guide, complex effective indices, exact (largest deviation of a real or imaginary part shown)",
+            title: r"The 5 TE leaky waves ($m = 4, \ldots, 8$) of the same guide, complex effective indices, exact (largest deviation of a real or imaginary part shown)",
             tier: Tier::Published,
-            source: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Table 2: to 5 decimals; m = 5's real part, 1.38250, is ours (1.3824892) plus 1.1e-5, one unit in the last place, the other nine our values rounded",
+            source: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Table 2: to 5 decimals; $m = 5$'s real part, 1.38250, is ours (1.3824892) plus 1.1e-5, one unit in the last place, the other nine our values rounded",
             run: multilayer_leaky,
         },
         Case {
@@ -223,107 +228,107 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "mode/multilayer-fresnel",
-            title: "A plane wave's reflection coefficient at one interface, 1.0 to 1.5, TE and TM at 0, 20, 45 and 70 degrees, by the transfer matrices (largest difference in r shown)",
+            title: "A plane wave's reflection coefficient at one interface, 1.0 to 1.5, TE and TM at 0, 20, 45 and 70 degrees, by the transfer matrices (largest difference in $r$ shown)",
             tier: Tier::Analytic,
-            source: "Fresnel's equations: r_s = (n1 cos t1 - n2 cos t2)/(n1 cos t1 + n2 cos t2), r_p = (n2 cos t1 - n1 cos t2)/(n2 cos t1 + n1 cos t2); J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, say Eq. 13 reduces to them",
+            source: r"Fresnel's equations: $r_s = (n_1\cos\theta_1 - n_2\cos\theta_2)/(n_1\cos\theta_1 + n_2\cos\theta_2)$, $r_p = (n_2\cos\theta_1 - n_1\cos\theta_2)/(n_2\cos\theta_1 + n_1\cos\theta_2)$; J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, say Eq. 13 reduces to them",
             run: multilayer_fresnel,
         },
         Case {
             id: "mode/multilayer-bragg",
             title: "The reflectance of 8 quarter-wave pairs, 2.3 / 1.38 on 1.52 at 550 nm, normal incidence, by the transfer matrices (shown)",
             tier: Tier::Analytic,
-            source: "the quarter-wave stack's closed form, R = ((1 - q)/(1 + q))^2 with q = (n_s/n_0)(n_H/n_L)^(2N), from its admittance",
+            source: r"the quarter-wave stack's closed form, $R = \left(\frac{1 - q}{1 + q}\right)^2$ with $q = (n_s/n_0)(n_H/n_L)^{2N}$, from its admittance",
             run: multilayer_bragg,
         },
         Case {
             id: "mode/pml-soi-leakage-te",
-            title: "The loss of 220 nm SOI's TE mode leaking through 0.5 um of buried oxide into the substrate, full-vector with a PML (1 um, strength 3), 2.5 nm grid (relative error in Im n_eff shown)",
+            title: r"The loss of 220 nm SOI's TE mode leaking through 0.5 µm of buried oxide into the substrate, full-vector with a PML (1 µm, strength 3), 2.5 nm grid (relative error in $\operatorname{Im} n_\text{eff}$ shown)",
             tier: Tier::Analytic,
             source: "the exact leaky mode of the same stack by transfer matrices (mode::multilayer); PML by complex coordinate stretching, W. C. Chew et al., Microw. Opt. Technol. Lett. 15, 363 (1997)",
             run: pml_soi_te,
         },
         Case {
             id: "mode/pml-soi-leakage-tm",
-            title: "The same for the TM mode (relative error in Im n_eff shown)",
+            title: r"The same for the TM mode (relative error in $\operatorname{Im} n_\text{eff}$ shown)",
             tier: Tier::Analytic,
             source: "the exact leaky mode of the same stack by transfer matrices (mode::multilayer); PML by complex coordinate stretching, W. C. Chew et al., Microw. Opt. Technol. Lett. 15, 363 (1997)",
             run: pml_soi_tm,
         },
         Case {
             id: "mode/pml-leaky-chilwell",
-            title: "Chilwell and Hodgkinson's TE leaky waves m = 4-7, full-vector with a PML (2 um, strength 5) in the substrate, 2.5 nm grid (largest deviation of a real or imaginary part shown)",
+            title: r"Chilwell and Hodgkinson's TE leaky waves $m = 4, \ldots, 7$, full-vector with a PML (2 µm, strength 5) in the substrate, 2.5 nm grid (largest deviation of a real or imaginary part shown)",
             tier: Tier::Published,
-            source: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Table 2, to 5 decimals; m = 8 (Re 1.00304, just above the cover's 1.0) has a slowly decaying, inward-phased field in the cover and is checked only in the leaky_waves example, within 2e-4",
+            source: r"J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Table 2, to 5 decimals; $m = 8$ ($\operatorname{Re} n_\text{eff} = 1.00304$, just above the cover's 1.0) has a slowly decaying, inward-phased field in the cover and is checked only in the leaky_waves example, within 2e-4",
             run: pml_leaky_chilwell,
         },
         Case {
             id: "mode/eim-strip-book",
-            title: "The effective index method on a 500 x 220 nm silicon strip (3.473 in 1.444) at 1550 nm, TE-like, exact slabs (effective index shown)",
+            title: r"The effective index method on a $500 \times 220$ nm silicon strip (3.473 in 1.444) at 1550 nm, TE-like, exact slabs (effective index shown)",
             tier: Tier::Published,
             source: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Section 3.2.5: 2.489, from the slab index rounded to 2.845 and a 10 nm 1D mesh (on that input the exact lateral slab gives 2.488558); the method: G. B. Hocker, W. K. Burns, Appl. Opt. 16, 113 (1977), doi:10.1364/AO.16.000113",
             run: eim_strip_book,
         },
         Case {
             id: "mode/bend-slab-te",
-            title: "A slab (2.845, 500 nm, in 1.444) bent at 1 um, E normal to the bend plane, full-vector on a conformally mapped 2.5 nm grid with a PML: effective index along the arc (error shown)",
+            title: "A slab (2.845, 500 nm, in 1.444) bent at 1 µm, $E$ normal to the bend plane, full-vector on a conformally mapped 2.5 nm grid with a PML: effective index along the arc (error shown)",
             tier: Tier::Analytic,
             source: "the exact bent slab (mode::bend: radial shooting matched to the outgoing Hankel function, D. Marcuse, Bell Syst. Tech. J. 50, 2551 (1971), doi:10.1002/j.1538-7305.1971.tb02620.x, Eq. 10); the map: M. Heiblum, J. H. Harris, IEEE J. Quantum Electron. 11, 75 (1975), doi:10.1109/JQE.1975.1068563, exact for this polarization; second order",
             run: bend_te_index,
         },
         Case {
             id: "mode/bend-slab-te-loss",
-            title: "The same bend's radiation loss, Im n_eff = 9.29e-4 (relative error shown)",
+            title: r"The same bend's radiation loss, $\operatorname{Im} n_\text{eff} = 9.29 \times 10^{-4}$ (relative error shown)",
             tier: Tier::Analytic,
-            source: "the exact bent slab (mode::bend); the PML starts at 2.5 um, outside the bend's turning point",
+            source: "the exact bent slab (mode::bend); the PML starts at 2.5 µm, outside the bend's turning point",
             run: bend_te_loss,
         },
         Case {
             id: "mode/bend-slab-tm",
-            title: "The same bend with E in the bend plane, where scaling an isotropic permittivity is an approximation (error shown)",
+            title: "The same bend with $E$ in the bend plane, where scaling an isotropic permittivity is an approximation (error shown)",
             tier: Tier::Analytic,
-            source: "the exact bent slab (mode::bend); the exact equivalent medium would be anisotropic in both permittivity and permeability; the error falls as the radius grows (1.3e-4 at 3 um)",
+            source: "the exact bent slab (mode::bend); the exact equivalent medium would be anisotropic in both permittivity and permeability; the error falls as the radius grows (1.3e-4 at 3 µm)",
             run: bend_tm_index,
         },
         Case {
             id: "mode/bend-marcuse",
-            title: "Marcuse's bending-loss formula against the exact loss of a slab (1.6 in 1.5, 1 um, at 1 um) bent at 120 um (ratio minus one shown)",
+            title: "Marcuse's bending-loss formula against the exact loss of a slab (1.6 in 1.5, 1 µm, at 1 µm) bent at 120 µm (ratio minus one shown)",
             tier: Tier::Published,
-            source: "D. Marcuse, Bell Syst. Tech. J. 50, 2551 (1971), doi:10.1002/j.1538-7305.1971.tb02620.x, Eqs. 32-33, an approximation for large radii: its deviation falls as 1/R, 0.14 at 80 um, 0.084 at 120 um and 0.061 at 160 um",
+            source: "D. Marcuse, Bell Syst. Tech. J. 50, 2551 (1971), doi:10.1002/j.1538-7305.1971.tb02620.x, Eqs. 32-33, an approximation for large radii: its deviation falls as $1/R$, 0.14 at 80 µm, 0.084 at 120 µm and 0.061 at 160 µm",
             run: bend_marcuse,
         },
         Case {
             id: "mode/leaky-wire-bienstman",
-            title: "The leaky SOI wire benchmark (500 x 220 nm Si 3.5 on 1 um SiO2 1.45 on Si, air above, 1.55 um), TE: Re n_eff, Richardson-extrapolated from core grids of 5, 2.5 and 1.25 nm (order ~0.67, the corners'), with a PML in the substrate",
+            title: r"The leaky SOI wire benchmark ($500 \times 220$ nm Si 3.5 on 1 µm SiO₂ 1.45 on Si, air above, 1.55 µm), TE: $\operatorname{Re} n_\text{eff}$, Richardson-extrapolated from core grids of 5, 2.5 and 1.25 nm (order $\approx 0.67$, the corners'), with a PML in the substrate",
             tier: Tier::Published,
             source: "P. Bienstman et al., Opt. Quantum Electron. 38, 731 (2006), doi:10.1007/s11082-006-9025-9, Table 6: 2.412372, from CAMFR and the aperiodic Fourier modal method (7 digits); raw errors +4.0e-3, +2.5e-3, +1.5e-3",
             run: bienstman_re,
         },
         Case {
             id: "mode/leaky-wire-bienstman-loss",
-            title: "The same wire's substrate leakage, Im n_eff x 1e8, extrapolated alike",
+            title: r"The same wire's substrate leakage, $\operatorname{Im} n_\text{eff} \times 10^8$, extrapolated alike",
             tier: Tier::Published,
             source: "P. Bienstman et al., Opt. Quantum Electron. 38, 731 (2006), doi:10.1007/s11082-006-9025-9, Table 6: 2.9135 (CAMFR) and 2.91348 (aperiodic Fourier modal method); the raw results are 0.97, 0.98 and 0.99 of it",
             run: bienstman_im,
         },
         Case {
             id: "mode/fields-butt-coupling",
-            title: "The power a 220 nm silicon slab's TE mode launches into a 300 nm slab's (3.473 in 1.444, 1.55 um), from the full-vector fields on a 5 nm grid (error shown)",
+            title: "The power a 220 nm silicon slab's TE mode launches into a 300 nm slab's (3.473 in 1.444, 1.55 µm), from the full-vector fields on a 5 nm grid (error shown)",
             tier: Tier::Analytic,
-            source: "the exact slab fields (mode::slab): for TE slabs H is proportional to E, so the coupling is (int E1 E2)^2 / (int E1^2 int E2^2) = 0.994662",
+            source: r"the exact slab fields (mode::slab): for TE slabs $H$ is proportional to $E$, so the coupling is $(\int E_1 E_2)^2 / (\int E_1^2 \int E_2^2) = 0.994662$",
             run: fields_butt_coupling,
         },
         Case {
             id: "mode/marcatili-closed-form",
-            title: "Marcatili's closed-form approximation against his transcendental equations, E^x_11 and E^y_11 of his guide a = 2b, n1/n4 = 1.05, where (kz^2 - k4^2)/(k1^2 - k4^2) >= 0.5 (largest relative difference shown)",
+            title: r"Marcatili's closed-form approximation against his transcendental equations, $E^x_{11}$ and $E^y_{11}$ of his guide $a = 2b$, $n_1/n_4 = 1.05$, where $(k_z^2 - k_4^2)/(k_1^2 - k_4^2) \geq 0.5$ (largest relative difference shown)",
             tier: Tier::Published,
             source: "E. A. J. Marcatili, Bell Syst. Tech. J. 48, 2071 (1969), doi:10.1002/j.1538-7305.1969.tb01166.x, p. 2083: 'within a few percent of the exact value' there; 4.1 % here",
             run: marcatili_closed_form,
         },
         Case {
             id: "mode/marcatili-vector",
-            title: "Marcatili's approximation (his transcendental equations) against the full-vector solver, E^x_11 of his guide a = 2b, n1/n4 = 1.05, at 2b/lambda (n1^2 - n4^2)^1/2 = 3, far from cutoff (difference in the normalized constant shown)",
+            title: r"Marcatili's approximation (his transcendental equations) against the full-vector solver, $E^x_{11}$ of his guide $a = 2b$, $n_1/n_4 = 1.05$, at $(2b/\lambda)(n_1^2 - n_4^2)^{1/2} = 3$, far from cutoff (difference in the normalized constant shown)",
             tier: Tier::Published,
-            source: "E. A. J. Marcatili, Bell Syst. Tech. J. 48, 2071 (1969), doi:10.1002/j.1538-7305.1969.tb01166.x, Eqs. 3, 6-7, 20-21; Fig. 6b's regime: 1e-4 apart at B = 3 and 4, 1.2e-3 at 1.5, 9e-3 at 1 near cutoff, where the corners Marcatili ignores hold field",
+            source: "E. A. J. Marcatili, Bell Syst. Tech. J. 48, 2071 (1969), doi:10.1002/j.1538-7305.1969.tb01166.x, Eqs. 3, 6-7, 20-21; Fig. 6b's regime: 1e-4 apart at $B = 3$ and 4, 1.2e-3 at 1.5, 9e-3 at 1 near cutoff, where the corners Marcatili ignores hold field",
             run: marcatili_vector,
         },
         Case {
@@ -335,14 +340,14 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "fdfd/slab-reflection-ez",
-            title: "2D FDFD, E along z: the reflectance of 220 nm of silicon (3.476) on oxide (1.444) under air, 30 degrees, 1.55 um, from the fluxes on a 2.5 nm grid (shown)",
+            title: "2D FDFD, $E$ along $z$: the reflectance of 220 nm of silicon (3.476) on oxide (1.444) under air, 30 degrees, 1.55 µm, from the fluxes on a 2.5 nm grid (shown)",
             tier: Tier::Analytic,
             source: "the exact stack by transfer matrices (mode::multilayer, J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Eqs. 13-16, TE); second order: 2.1e-3, 5.5e-4, 1.4e-4, 3.5e-5 at 20, 10, 5, 2.5 nm",
             run: fdfd_slab_ez,
         },
         Case {
             id: "fdfd/slab-reflection-hz",
-            title: "The same with H along z (shown)",
+            title: "The same with $H$ along $z$ (shown)",
             tier: Tier::Analytic,
             source: "the exact stack by transfer matrices (TM); second order: 1.9e-3, 4.9e-4, 1.2e-4, 3.1e-5 at 20, 10, 5, 2.5 nm",
             run: fdfd_slab_hz,
@@ -356,79 +361,79 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "fdfd/pml-reflection",
-            title: "2D FDFD: what a 20-cell PML graded to R = 1e-8 (m = 3) sends back of a plane wave 17 degrees off its normal, in oxide on a 20 nm grid, both polarizations (largest amplitude shown)",
+            title: "2D FDFD: what a 20-cell PML graded to $R = 10^{-8}$ ($m = 3$) sends back of a plane wave 17 degrees off its normal, in oxide on a 20 nm grid, both polarizations (largest amplitude shown)",
             tier: Tier::Analytic,
-            source: "W. Shin, S. Fan, J. Comput. Phys. 231, 3406 (2012), doi:10.1016/j.jcp.2012.01.013, Eqs. 2.7-2.9: graded for R = 1e-8 in vacuum at normal incidence; in oxide 17 degrees off, the round trip absorbs to (1e-8)^1.38, an amplitude of 3e-6; measured 2.5e-6",
+            source: "W. Shin, S. Fan, J. Comput. Phys. 231, 3406 (2012), doi:10.1016/j.jcp.2012.01.013, Eqs. 2.7-2.9: graded for $R = 10^{-8}$ in vacuum at normal incidence; in oxide 17 degrees off, the round trip absorbs to $(10^{-8})^{1.38}$, an amplitude of 3e-6; measured 2.5e-6",
             run: fdfd_pml_reflection,
         },
         Case {
             id: "fdfd/port-mode-te",
-            title: "2D FDFD ports: the fundamental mode of a 220 nm silicon slab (3.476 in 1.444) at 1.55 um, E along z, solved on a port column of a 2.5 nm grid: effective index (shown)",
+            title: "2D FDFD ports: the fundamental mode of a 220 nm silicon slab (3.476 in 1.444) at 1.55 µm, $E$ along $z$, solved on a port column of a 2.5 nm grid: effective index (shown)",
             tier: Tier::Analytic,
             source: "the exact slab (mode::slab); the port's 1D operator is the 2D scheme's own, second order: 2.6e-3, 6.5e-4, 1.6e-4 at 10, 5, 2.5 nm",
             run: fdfd_port_mode_te,
         },
         Case {
             id: "fdfd/port-mode-tm",
-            title: "The same with H along z (shown)",
+            title: "The same with $H$ along $z$ (shown)",
             tier: Tier::Analytic,
             source: "the exact slab (mode::slab); second order: 2.5e-3, 6.1e-4, 1.5e-4 at 10, 5, 2.5 nm",
             run: fdfd_port_mode_tm,
         },
         Case {
             id: "fdfd/straight-guide",
-            title: "2D FDFD ports: a straight silicon slab between two ports 1.4 um apart, both polarizations, 20 nm grid: largest of the magnitudes of S11 and S22 and of the errors of S21 and S12 against exp(i beta L) (shown)",
+            title: r"2D FDFD ports: a straight silicon slab between two ports 1.4 µm apart, both polarizations, 20 nm grid: largest of the magnitudes of $S_{11}$ and $S_{22}$ and of the errors of $S_{21}$ and $S_{12}$ against $\exp(i\beta L)$ (shown)",
             tier: Tier::Analytic,
-            source: "a uniform guide transmits its mode whole with phase beta L; the port modes are the grid's own and the source is total-field/scattered-field (R. C. Rumpf, Prog. Electromagn. Res. B 36, 221 (2012), doi:10.2528/PIERB11092006, Eq. 55)",
+            source: r"a uniform guide transmits its mode whole with phase $\beta L$; the port modes are the grid's own and the source is total-field/scattered-field (R. C. Rumpf, Prog. Electromagn. Res. B 36, 221 (2012), doi:10.2528/PIERB11092006, Eq. 55)",
             run: fdfd_straight_guide,
         },
         Case {
             id: "fdfd/reciprocity",
-            title: "2D FDFD ports: a slab stepping from 220 to 300 nm, both polarizations, 10 nm grid: S21 against S12 (largest relative difference shown)",
+            title: "2D FDFD ports: a slab stepping from 220 to 300 nm, both polarizations, 10 nm grid: $S_{21}$ against $S_{12}$ (largest relative difference shown)",
             tier: Tier::Analytic,
-            source: "Lorentz reciprocity: S is symmetric for a reciprocal device; the scheme keeps it with the PMLs' stretches as weights and the modes normalized by the unconjugated Lorentz form",
+            source: "Lorentz reciprocity: $S$ is symmetric for a reciprocal device; the scheme keeps it with the PMLs' stretches as weights and the modes normalized by the unconjugated Lorentz form",
             run: fdfd_reciprocity,
         },
         Case {
             id: "fdfd/step-reflection-te",
-            title: "The same step's reflection of the 220 nm slab's TE mode, E along z (shown)",
+            title: "The same step's reflection of the 220 nm slab's TE mode, $E$ along $z$ (shown)",
             tier: Tier::Analytic,
-            source: "Fresnel's formula on the two modes' effective indices, ((n1 - n2)/(n1 + n2))^2 = 1.16503e-3 for 2.84742 and 3.04866: the TE modal impedance is the effective index; an approximation, good here to 0.07 %",
+            source: r"Fresnel's formula on the two modes' effective indices, $((n_1 - n_2)/(n_1 + n_2))^2 = 1.16503 \times 10^{-3}$ for 2.84742 and 3.04866: the TE modal impedance is the effective index; an approximation, good here to 0.07 %",
             run: fdfd_step_reflection_te,
         },
         Case {
             id: "fdfd/adjoint-gradient-ez",
-            title: "2D FDFD, E along z: the adjoint gradient of the power a silicon slab with a bump beside it delivers into its right port's mode, against fourth-order central finite differences (delta 1e-3) on a cell each in the bump, the core and the oxide (largest relative difference shown)",
+            title: r"2D FDFD, $E$ along $z$: the adjoint gradient of the power a silicon slab with a bump beside it delivers into its right port's mode, against fourth-order central finite differences ($\delta = 10^{-3}$) on a cell each in the bump, the core and the oxide (largest relative difference shown)",
             tier: Tier::Analytic,
-            source: "the adjoint variable method, G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2-4: grad F = -2 Re(lambda^T dA u), A^T lambda = dF/du; the finite differences' own round-off is about 1e-10/delta",
+            source: r"the adjoint variable method, G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2-4: $\nabla F = -2\operatorname{Re}(\lambda^T \mathrm{d}A\thinspace u)$, $A^T\lambda = \mathrm{d}F/\mathrm{d}u$; the finite differences' own round-off is about $10^{-10}/\delta$",
             run: fdfd_adjoint_ez,
         },
         Case {
             id: "fdfd/adjoint-gradient-hz",
-            title: "The same with H along z, where the permittivity enters through the faces' 1/eps (shown)",
+            title: r"The same with $H$ along $z$, where the permittivity enters through the faces' $1/\varepsilon$ (shown)",
             tier: Tier::Analytic,
             source: "the adjoint variable method, as above; the faces' permittivity the mean of their two cells",
             run: fdfd_adjoint_hz,
         },
         Case {
             id: "mode/hadley-uniform-box",
-            title: "Hadley's high-accuracy equations in a uniform region: the box of Hadley I, Fig. 5 (n 3.44, 2 x 2 um, 1.15 um) on an 8 x 8 grid (250 nm; effective index shown)",
+            title: r"Hadley's high-accuracy equations in a uniform region: the box of Hadley I, Fig. 5 ($n = 3.44$, $2 \times 2$ µm, 1.15 µm) on an $8 \times 8$ grid (250 nm; effective index shown)",
             tier: Tier::Analytic,
-            source: "exact, sqrt(eps - ((pi/4)^2 + (pi/2)^2)/k^2) for H_y = cos(pi x/4) sin(pi y/2); the equations are G. R. Hadley, J. Lightwave Technol. 20, 1210 (2002), doi:10.1109/JLT.2002.800361, Eqs. 7-9; the standard scheme's error on this grid is 1.6e-4",
+            source: r"exact, $\sqrt{\varepsilon - ((\pi/4)^2 + (\pi/2)^2)/k^2}$ for $H_y = \cos(\pi x/4) \sin(\pi y/2)$; the equations are G. R. Hadley, J. Lightwave Technol. 20, 1210 (2002), doi:10.1109/JLT.2002.800361, Eqs. 7-9; the standard scheme's error on this grid is 1.6e-4",
             run: hadley_uniform_box,
         },
         Case {
             id: "mode/hadley-uniform-order",
-            title: "The same box: the order of convergence of the effective index from 4 x 4 to 8 x 8 grids (shown to two decimals)",
+            title: r"The same box: the order of convergence of the effective index from $4 \times 4$ to $8 \times 8$ grids (shown to two decimals)",
             tier: Tier::Analytic,
-            source: "sixth order: Hadley I, Fig. 5, slope 6.03; errors 1.7e-8 and 2.4e-10 here (6.03 from 8 x 8 to 16 x 16, where 3.7e-12 nears round-off)",
+            source: r"sixth order: Hadley I, Fig. 5, slope 6.03; errors 1.7e-8 and 2.4e-10 here (6.03 from $8 \times 8$ to $16 \times 16$, where 3.7e-12 nears round-off)",
             run: hadley_uniform_order,
         },
         Case {
             id: "mode/hadley-interface",
-            title: "Hadley's interface equations: the two-dielectric box of Hadley I, Fig. 6 (eps 1 over 11.8336, 1.5 um wide, 0.975 um) on a 31.25 nm grid (effective index shown)",
+            title: r"Hadley's interface equations: the two-dielectric box of Hadley I, Fig. 6 ($\varepsilon = 1$ over $\varepsilon = 11.8336$, 1.5 µm wide, 0.975 µm) on a 31.25 nm grid (effective index shown)",
             tier: Tier::Analytic,
-            source: "exact: separable, H_y = sin(pi x/W) Y(y) with Y and Y' continuous, so kb tan(kb Lb) + kt tan(kt Lt) = 0 with k^2 = k0^2 (eps - neff^2) - (pi/W)^2; the equations are Hadley I, Eqs. 20-24 and 43; the standard scheme's error on this grid is 5.4e-6",
+            source: r"exact: separable, $H_y = \sin(\pi x/W)\thinspace Y(y)$ with $Y$ and $Y'$ continuous, so $k_b \tan(k_b L_b) + k_t \tan(k_t L_t) = 0$ with $k^2 = k_0^2 (\varepsilon - n_\text{eff}^2) - (\pi/W)^2$; the equations are Hadley I, Eqs. 20-24 and 43; the standard scheme's error on this grid is 5.4e-6",
             run: hadley_interface,
         },
         Case {
@@ -440,49 +445,49 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "mode/hadley-interface-turned",
-            title: "The same box turned on its side, so that H_x is the component normal to the interface, at 62.5 nm (difference of the effective indices shown)",
+            title: "The same box turned on its side, so that $H_x$ is the component normal to the interface, at 62.5 nm (difference of the effective indices shown)",
             tier: Tier::Analytic,
-            source: "symmetry: Hadley derives the equations for a horizontal interface; a vertical one is the same with x and y exchanged",
+            source: "symmetry: Hadley derives the equations for a horizontal interface; a vertical one is the same with $x$ and $y$ exchanged",
             run: hadley_interface_turned,
         },
         Case {
             id: "mode/hadley-corners-box-low",
-            title: "Hadley's corner problem 1 (a box, eps 2.25) by his high-accuracy equations on a 128 x 128 grid (7.8 nm; effective index shown)",
+            title: r"Hadley's corner problem 1 (a box, $\varepsilon = 2.25$) by his high-accuracy equations on a $128 \times 128$ grid (7.8 nm; effective index shown)",
             tier: Tier::Published,
-            source: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 4: 1.27627404 +- 1e-8 (series expansion); the corner equations are its Eqs. 50 and 52, their misprinted theta sin theta read as theta sin 2 theta from Eq. 47; the standard scheme's error on this grid is 3.8e-5",
+            source: r"G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 4: $1.27627404 \pm 10^{-8}$ (series expansion); the corner equations are its Eqs. 50 and 52, their misprinted $\theta \sin\theta$ read as $\theta \sin 2\theta$ from Eq. 47; the standard scheme's error on this grid is 3.8e-5",
             run: hadley_corners_1,
         },
         Case {
             id: "mode/hadley-corners-box-high",
-            title: "Hadley's corner problem 2 (a box, eps 8) by his high-accuracy equations on a 128 x 128 grid (7.8 nm; effective index shown)",
+            title: r"Hadley's corner problem 2 (a box, $\varepsilon = 8$) by his high-accuracy equations on a $128 \times 128$ grid (7.8 nm; effective index shown)",
             tier: Tier::Published,
-            source: "G. R. Hadley (2002), part II, Fig. 5: 2.65679692 +- 1e-8; the standard scheme's error on this grid is 9.0e-6",
+            source: r"G. R. Hadley (2002), part II, Fig. 5: $2.65679692 \pm 10^{-8}$; the standard scheme's error on this grid is 9.0e-6",
             run: hadley_corners_2,
         },
         Case {
             id: "mode/hadley-corners-impinged-low",
-            title: "Hadley's corner problem 3 (an impinged corner, eps 2.25) by his high-accuracy equations on a 128 x 128 grid (7.8 nm; effective index shown)",
+            title: r"Hadley's corner problem 3 (an impinged corner, $\varepsilon = 2.25$) by his high-accuracy equations on a $128 \times 128$ grid (7.8 nm; effective index shown)",
             tier: Tier::Published,
-            source: "G. R. Hadley (2002), part II, Fig. 6: 1.387926425 +- 2e-9; the standard scheme's error on this grid is 1.4e-5",
+            source: r"G. R. Hadley (2002), part II, Fig. 6: $1.387926425 \pm 2 \times 10^{-9}$; the standard scheme's error on this grid is 1.4e-5",
             run: hadley_corners_3,
         },
         Case {
             id: "mode/hadley-corners-impinged-high",
-            title: "Hadley's corner problem 4 (an impinged corner, eps 8) by his high-accuracy equations on a 128 x 128 grid (7.8 nm; effective index shown)",
+            title: r"Hadley's corner problem 4 (an impinged corner, $\varepsilon = 8$) by his high-accuracy equations on a $128 \times 128$ grid (7.8 nm; effective index shown)",
             tier: Tier::Published,
-            source: "G. R. Hadley (2002), part II, Fig. 7: 2.761465320 +- 5e-9; the standard scheme's error on this grid is 1.6e-5",
+            source: r"G. R. Hadley (2002), part II, Fig. 7: $2.761465320 \pm 5 \times 10^{-9}$; the standard scheme's error on this grid is 1.6e-5",
             run: hadley_corners_4,
         },
         Case {
             id: "mode/hadley-corners-order",
-            title: "Hadley's corner problem 1 by his equations: the order of convergence of the effective index from 32 x 32 to 128 x 128 grids (shown to two decimals)",
+            title: r"Hadley's corner problem 1 by his equations: the order of convergence of the effective index from $32 \times 32$ to $128 \times 128$ grids (shown to two decimals)",
             tier: Tier::Published,
             source: "G. R. Hadley (2002), part II, Section IV: second order for most cases (Figs. 8-11), where the standard scheme's is about first; errors 9.1e-6, 2.1e-6, 5.2e-7 here",
             run: hadley_corners_order,
         },
         Case {
             id: "fdfd3d/film-reflection-te",
-            title: "3D FDFD, s (TE) polarized: the reflectance of 220 nm of silicon (3.476) on oxide (1.444) under air, 30 degrees from the normal in a plane 30 degrees from x, 1.55 um, from the fluxes on a 2.5 nm grid (shown)",
+            title: "3D FDFD, s (TE) polarized: the reflectance of 220 nm of silicon (3.476) on oxide (1.444) under air, 30 degrees from the normal in a plane 30 degrees from $x$, 1.55 µm, from the fluxes on a 2.5 nm grid (shown)",
             tier: Tier::Analytic,
             source: "the exact stack by transfer matrices (mode::multilayer, J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Eqs. 13-16, TE); second order: 2.8e-3, 7.3e-4, 1.9e-4, 4.6e-5 at 20, 10, 5, 2.5 nm",
             run: fdfd3d_film_te,
@@ -498,49 +503,49 @@ pub fn cases() -> Vec<Case> {
             id: "fdfd3d/flux-conservation",
             title: "3D FDFD: the power through every plane from the oxide through the silicon into the air, both polarizations at 0, 30 and 60 degrees, 10 nm grid (largest relative spread shown)",
             tier: Tier::Analytic,
-            source: "Poynting's theorem: no power is lost or made in a lossless region without sources; the scheme's own flux (tangential E averaged across the plane, H on it) keeps this exactly",
+            source: "Poynting's theorem: no power is lost or made in a lossless region without sources; the scheme's own flux (tangential $E$ averaged across the plane, $H$ on it) keeps this exactly",
             run: fdfd3d_flux_conservation,
         },
         Case {
             id: "fdfd3d/pml-reflection",
-            title: "3D FDFD: what a 20-cell PML graded to R = 1e-8 (m = 3) sends back of a plane wave 17 degrees off its normal in a plane 30 degrees from x, in oxide on a 20 nm grid, both polarizations (largest amplitude shown)",
+            title: "3D FDFD: what a 20-cell PML graded to $R = 10^{-8}$ ($m = 3$) sends back of a plane wave 17 degrees off its normal in a plane 30 degrees from $x$, in oxide on a 20 nm grid, both polarizations (largest amplitude shown)",
             tier: Tier::Analytic,
-            source: "W. Shin, S. Fan, J. Comput. Phys. 231, 3406 (2012), doi:10.1016/j.jcp.2012.01.013, Eqs. 2.5-2.9: graded for R = 1e-8 in vacuum at normal incidence; in oxide 17 degrees off, the round trip absorbs to (1e-8)^1.38, an amplitude of 3e-6; measured 2.5e-6, as in 2D",
+            source: "W. Shin, S. Fan, J. Comput. Phys. 231, 3406 (2012), doi:10.1016/j.jcp.2012.01.013, Eqs. 2.5-2.9: graded for $R = 10^{-8}$ in vacuum at normal incidence; in oxide 17 degrees off, the round trip absorbs to $(10^{-8})^{1.38}$, an amplitude of 3e-6; measured 2.5e-6, as in 2D",
             run: fdfd3d_pml_reflection,
         },
         Case {
             id: "fdfd3d/two-d-agreement",
-            title: "3D FDFD on a structure invariant along z (a silicon rod in lossy oxide, Bloch-periodic in x and y, 25 nm grid, one cell along z) against the 2D solver, E along z and H along z (largest field difference relative to the largest field shown)",
+            title: "3D FDFD on a structure invariant along $z$ (a silicon rod in lossy oxide, Bloch-periodic in $x$ and $y$, 25 nm grid, one cell along $z$) against the 2D solver, $E$ along $z$ and $H$ along $z$ (largest field difference relative to the largest field shown)",
             tier: Tier::Analytic,
-            source: "with d/dz = 0 Maxwell's equations split into the two 2D polarizations (K. S. Yee, IEEE Trans. Antennas Propag. 14, 302 (1966), doi:10.1109/TAP.1966.1138693); on the same grid and averaging the two discrete systems are the same equations, one eliminating H and the other E",
+            source: r"with $\partial/\partial z = 0$ Maxwell's equations split into the two 2D polarizations (K. S. Yee, IEEE Trans. Antennas Propag. 14, 302 (1966), doi:10.1109/TAP.1966.1138693); on the same grid and averaging the two discrete systems are the same equations, one eliminating $H$ and the other $E$",
             run: fdfd3d_two_d_agreement,
         },
         Case {
             id: "fdfd3d/qmr-direct",
-            title: "3D FDFD by QMR, on the curl-curl operator and on Shin and Fan's (s = -1), to a relative residual of 1e-10, against the sparse direct solver: a silicon strip in oxide, 16^3 cells of 40 nm, PMLs all round (largest field difference relative to the largest field shown)",
+            title: "3D FDFD by QMR, on the curl-curl operator and on Shin and Fan's ($s = -1$), to a relative residual of 1e-10, against the sparse direct solver: a silicon strip in oxide, $16^3$ cells of 40 nm, PMLs all round (largest field difference relative to the largest field shown)",
             tier: Tier::Analytic,
             source: "the same system solved two ways: QMR, R. W. Freund, N. M. Nachtigal, Numer. Math. 60, 315 (1991), doi:10.1007/BF01385726, Algorithm 3.1 without look-ahead; Shin and Fan's operator, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, Eq. 7, has the same solution; measured 1.1e-11 and 1.3e-10",
             run: fdfd3d_qmr_direct,
         },
         Case {
             id: "fdfd3d/qmr-plateau",
-            title: "Shin and Fan's vacuum square (their Fig. 1: 50 x 50 cells of 2 nm, periodic, uniform along z, an x-polarized dipole at its centre, 1.55 um), QMR on the curl-curl operator (s = 0): the relative residual where it stagnates, at iteration 20 (shown)",
+            title: r"Shin and Fan's vacuum square (their Fig. 1: $50 \times 50$ cells of 2 nm, periodic, uniform along $z$, an $x$-polarized dipole at its centre, 1.55 µm), QMR on the curl-curl operator ($s = 0$): the relative residual where it stagnates, at iteration 20 (shown)",
             tier: Tier::Published,
             source: "W. Shin, S. Fan, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, Section 3 and Fig. 3: the residual's part in the near-null eigenspace, 0.707, holds the residual there initially (GMRES; QMR is GMRES for this real symmetric matrix)",
             run: fdfd3d_qmr_plateau,
         },
         Case {
             id: "fdfd3d/qmr-iterations-curl-curl",
-            title: "The same square, s = 0: QMR iterations to a relative residual of 1e-6 (shown)",
+            title: "The same square, $s = 0$: QMR iterations to a relative residual of 1e-6 (shown)",
             tier: Tier::Published,
-            source: "W. Shin, S. Fan, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, Fig. 3: the s = 0 curve crosses 1e-6 at about m = 114, read off the plot to +-5",
+            source: r"W. Shin, S. Fan, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, Fig. 3: the $s = 0$ curve crosses 1e-6 at about $m = 114$, read off the plot to $\pm 5$",
             run: fdfd3d_qmr_iterations_curl_curl,
         },
         Case {
             id: "fdfd3d/qmr-iterations-shin-fan",
-            title: "The same square, s = -1: QMR iterations to a relative residual of 1e-6 (shown)",
+            title: "The same square, $s = -1$: QMR iterations to a relative residual of 1e-6 (shown)",
             tier: Tier::Published,
-            source: "W. Shin, S. Fan, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, Fig. 3: the s = -1 curve crosses 1e-6 at about m = 77, read off the plot to +-5",
+            source: r"W. Shin, S. Fan, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, Fig. 3: the $s = -1$ curve crosses 1e-6 at about $m = 77$, read off the plot to $\pm 5$",
             run: fdfd3d_qmr_iterations_shin_fan,
         },
     ]
@@ -1770,6 +1775,27 @@ mod tests {
                 "{}",
                 case.id
             );
+        }
+    }
+
+    #[test]
+    fn the_cases_math_survives_github() {
+        for case in cases() {
+            for text in [case.title, case.source] {
+                let dollars = text.matches('$').count();
+                assert!(dollars.is_multiple_of(2), "{}: an unclosed $", case.id);
+                let mut chars = text.chars().peekable();
+                while let Some(c) = chars.next() {
+                    // GitHub drops a backslash before ASCII punctuation, even in math, and
+                    // escapes a > in math twice
+                    let next = chars.peek().copied().unwrap_or(' ');
+                    assert!(
+                        !(c == '\\' && next.is_ascii_punctuation()) && c != '>' && c != '<',
+                        "{}: {c}{next} in {text}",
+                        case.id
+                    );
+                }
+            }
         }
     }
 

@@ -26,6 +26,7 @@
     "@tauri-apps/plugin-process": "^2.4.0",
     "@tauri-apps/plugin-updater": "^2.13.1",
     "codemirror": "^6.0.2",
+    "katex": "^0.19.0",
     "svelte": "^5.57.1",
     "three": "^0.185.1"
   },

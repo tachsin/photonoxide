@@ -1,9 +1,22 @@
 import { CheckCircle2, XCircle } from "lucide-react";
+import { inlineMath } from "@/lib/projects/photonoxide/markdown";
 import { withDois } from "@/lib/projects/photonoxide/validation";
+
+/** Text with its inline `$ … $` math set by KaTeX (the page imports KaTeX's stylesheet). */
+function MathText({ text }) {
+  return (
+    <span>
+      {inlineMath(text).map((part, i) =>
+        "html" in part ? <span key={i} dangerouslySetInnerHTML={{ __html: part.html }} /> : part.text,
+      )}
+    </span>
+  );
+}
 
 /**
  * Rows of the validation report (lib/projects/photonoxide/validation.js), as
- * a table: what was checked, against what (DOIs linked), and the numbers.
+ * a table: what was checked, against what (DOIs linked, math set by KaTeX),
+ * and the numbers.
  * @param {{ cases: import("@/lib/projects/photonoxide/validation").Case[] }} props
  */
 export default function ValidationRows({ cases }) {
@@ -30,7 +43,9 @@ export default function ValidationRows({ cases }) {
                 <span className="proj-tag mt-1 block w-fit text-[0.65rem]">{c.tier}</span>
               </td>
               <td className="min-w-[18rem] text-sm">
-                <p>{c.what}</p>
+                <p>
+                  <MathText text={c.what} />
+                </p>
                 <p className="mt-1 text-base-content/55 text-xs">
                   {withDois(c.against).map((part, i) =>
                     part.doi ? (
@@ -38,7 +53,7 @@ export default function ValidationRows({ cases }) {
                         doi:{part.text}
                       </a>
                     ) : (
-                      <span key={i}>{part.text}</span>
+                      <MathText key={i} text={part.text} />
                     ),
                   )}
                 </p>

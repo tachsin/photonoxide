@@ -25,7 +25,7 @@ What the pages read from the repository, at the pinned commit:
 | --- | --- |
 | `docs/methods/<slug>.md` | a method: front matter (title, module, summary, order, papers with DOIs, validation case ids, examples) and its write-up in Markdown with `$…$` and `$$…$$` math |
 | `examples/<name>.rs`, `examples/output/<name>.txt` | an example: its doc comment (the first sentence is the title), its code, and what it prints, which CI checks |
-| `docs/validation.md` | the validation report, which `photonoxide validate` writes and CI checks |
+| `docs/validation.md` | the validation report, which `photonoxide validate` writes and CI checks; its cases' math is `$…$` |
 | `docs/getting-started.md` | the docs page |
 | `ROADMAP.md` | the roadmap and the overview's milestones |
 
@@ -59,7 +59,8 @@ The contract between the two repositories: these have to exist in the app, with 
 Also from the app: the `/projects` layout around these pages, the `proj-*` classes of
 `app/projects/projects.css`, Tailwind and daisyUI utilities (the app's `app/globals.css` lists the
 three folders with `@source`), and the npm packages `next`, `react`, `lucide-react`, `react-icons`,
-`yaml` and `katex` (its stylesheet, `katex/dist/katex.min.css`, is imported by the methods' layout).
+`yaml` and `katex` (its stylesheet, `katex/dist/katex.min.css`, is imported by the methods' layout
+and the validation page).
 
 The other way, the app uses `photonoxidePaths` from `lib/projects/photonoxide/paths.js` for its
 sitemap (the registry's `extraPaths`).
