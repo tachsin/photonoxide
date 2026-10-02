@@ -333,7 +333,87 @@ pub fn cases() -> Vec<Case> {
             source: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Table 3: effective indices to 6 decimals; the scheme is second order (tested against the exact slab)",
             run: slab_fd_chilwell,
         },
+        Case {
+            id: "fdfd/slab-reflection-ez",
+            title: "2D FDFD, E along z: the reflectance of 220 nm of silicon (3.476) on oxide (1.444) under air, 30 degrees, 1.55 um, from the fluxes on a 2.5 nm grid (shown)",
+            tier: Tier::Analytic,
+            source: "the exact stack by transfer matrices (mode::multilayer, J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Eqs. 13-16, TE); second order: 2.1e-3, 5.5e-4, 1.4e-4, 3.5e-5 at 20, 10, 5, 2.5 nm",
+            run: fdfd_slab_ez,
+        },
+        Case {
+            id: "fdfd/slab-reflection-hz",
+            title: "The same with H along z (shown)",
+            tier: Tier::Analytic,
+            source: "the exact stack by transfer matrices (TM); second order: 1.9e-3, 4.9e-4, 1.2e-4, 3.1e-5 at 20, 10, 5, 2.5 nm",
+            run: fdfd_slab_hz,
+        },
+        Case {
+            id: "fdfd/flux-conservation",
+            title: "2D FDFD: the power through every row from the oxide through the silicon into the air, both polarizations at 0, 30 and 60 degrees, 10 nm grid (largest relative spread shown)",
+            tier: Tier::Analytic,
+            source: "Poynting's theorem: no power is lost or made in a lossless region without sources; the scheme's own flux keeps this exactly",
+            run: fdfd_flux_conservation,
+        },
+        Case {
+            id: "fdfd/pml-reflection",
+            title: "2D FDFD: what a 20-cell PML graded to R = 1e-8 (m = 3) sends back of a plane wave 17 degrees off its normal, in oxide on a 20 nm grid, both polarizations (largest amplitude shown)",
+            tier: Tier::Analytic,
+            source: "W. Shin, S. Fan, J. Comput. Phys. 231, 3406 (2012), doi:10.1016/j.jcp.2012.01.013, Eqs. 2.7-2.9: graded for R = 1e-8 in vacuum at normal incidence; in oxide 17 degrees off, the round trip absorbs to (1e-8)^1.38, an amplitude of 3e-6; measured 2.5e-6",
+            run: fdfd_pml_reflection,
+        },
     ]
+}
+
+fn fdfd_slab(polarization: crate::fdfd::Polarization) -> Outcome {
+    use crate::fdfd::checks::{PML, slab_ratios, slab_run};
+    let run = slab_run(polarization, 0.0025, 30f64.to_radians(), (PML, 1e-8));
+    let ((r, _), (exact, _)) = slab_ratios(&run);
+    Outcome {
+        measured: r,
+        expected: exact,
+        tolerance: 5e-5,
+        error: (r - exact).abs(),
+    }
+}
+
+fn fdfd_slab_ez() -> Outcome {
+    fdfd_slab(crate::fdfd::Polarization::Ez)
+}
+
+fn fdfd_slab_hz() -> Outcome {
+    fdfd_slab(crate::fdfd::Polarization::Hz)
+}
+
+fn fdfd_flux_conservation() -> Outcome {
+    use crate::fdfd::Polarization;
+    use crate::fdfd::checks::{PML, flux_spread, slab_run};
+    let mut worst: f64 = 0.0;
+    for polarization in [Polarization::Ez, Polarization::Hz] {
+        for deg in [0.0, 30.0, 60.0_f64] {
+            let run = slab_run(polarization, 0.01, deg.to_radians(), (PML, 1e-8));
+            worst = worst.max(flux_spread(&run));
+        }
+    }
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-10,
+        error: worst,
+    }
+}
+
+fn fdfd_pml_reflection() -> Outcome {
+    use crate::fdfd::Polarization;
+    use crate::fdfd::checks::pml_reflection;
+    let worst = pml_reflection(Polarization::Ez).max(pml_reflection(Polarization::Hz));
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // in oxide at 17 degrees the wave crosses the PML 1.38 times as fast as in vacuum, so its
+        // round trip keeps (1e-8)^1.38 of the power: an amplitude of 3e-6
+        tolerance: 1e-5,
+        error: worst,
+    }
 }
 
 fn amplitude_convention() -> Outcome {

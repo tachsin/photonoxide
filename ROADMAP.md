@@ -110,7 +110,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 ### 0.2: Mode solvers
 - [x] **Slab:** an exact transfer-matrix dispersion relation, and finite differences. *(Three-layer slab, exact; any multilayer stack by transfer matrices (Chilwell & Hodgkinson 1984), bound modes and leaky waves; any planar profile by 1D finite differences, second order, with a PML.)*
 - [x] **2D cross-section:** a full-vector finite-difference solver (Fallahkhair 2008), with PML for leaky modes. *(The solver, shift-and-invert Arnoldi (Saad 2011), mirror walls, and the PML by complex coordinate stretching (Chew 1994, 1997): leaky losses within 0.1 % of the exact transfer-matrix ones, at second order, and Chilwell & Hodgkinson's leaky waves reproduced. Second order at interfaces, about first order at convex corners and 1.4–1.8 at concave ones, measured on Hadley's four corner problems.)*
-- [ ] **Dielectric corners:** high-accuracy finite-difference equations at interfaces and corners (Hadley 2002, parts I and II).
+- [ ] **Dielectric corners:** high-accuracy finite-difference equations at interfaces and corners (Hadley 2002, parts I and II). *(Moved to 0.3: the next release is 0.3.)*
 - [x] **Effective index method,** with its error against 3D stated. *(Hocker & Burns 1977, as Chrostowski & Hochberg describe it: the book's 2.489 reproduced; against the full-vector solver, 220 nm strips 400–600 nm wide: n_eff +3.9 to +1.0 %, n_g −6.7 to −2.2 %.)*
 - [x] **Bends:** conformal transformation; bend loss. *(Heiblum & Harris's map in the full-vector solver, with a PML; an exact bent slab (radial shooting to the outgoing Hankel function) as the reference: exact and second order for E normal to the bend plane, 1.3e-3 at R = 1 µm for E in it; Marcuse's formula reached as 1/R.)*
 - [x] **Derived quantities:** n_eff, n_g, dispersion, loss and overlaps; modes tracked across wavelength. *(n_g and D (Chrostowski & Hochberg Eqs. 3.5–3.6), loss, mode tracking by field overlap; all six field components, power, and the power coupled between two waveguides' modes, checked against exact slab fields.)*
@@ -123,11 +123,14 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
   *(All four, plus Hadley's corner problems, Chilwell & Hodgkinson's multilayer and Bienstman et al.'s leaky-wire benchmark: see docs/validation.md.)*
 
 ### 0.3: Frequency-domain finite differences (FDFD)
-- [ ] **2D and 3D,** with stretched-coordinate PML.
+- [x] **2D,** with stretched-coordinate PML. *(Both polarizations on Yee's grid (Yee 1966), PMLs graded as Shin & Fan 2012 describe, Bloch-periodic sides, and the scheme's exact power flux: a plane wave on a silicon slab reflects as the exact transfer matrices say, at second order, to 3e-5 at 2.5 nm; the flux is conserved to 1e-10.)*
+- [ ] **3D,** with stretched-coordinate PML (Christ & Hartnagel 1987).
 - [ ] **Ports:** mode sources and forward/backward separation by mode projection; S-parameters and flux.
-- [ ] **Solvers:** sparse direct (faer) with cached symbolic factorization; iterative for 3D.
-- [ ] **Adjoint gradients,** checked against finite differences.
-- [ ] **Validation:** reciprocity, energy conservation, analytic cases, agreement with FDTD.
+- [ ] **Solvers:** sparse direct (faer) with cached symbolic factorization; iterative for 3D (Shin & Fan 2013).
+- [ ] **Adjoint gradients,** checked against finite differences (Veronis 2004; Lalau-Keraly 2013; Hughes 2018).
+- [ ] **Dielectric corners** in the mode solver: high-accuracy finite-difference equations at interfaces and corners (Hadley 2002, parts I and II), moved from 0.2.
+- [ ] **Studio:** FDFD fields on a plane in the 3D view, and S-parameters as they arrive.
+- [ ] **Validation:** reciprocity, energy conservation, analytic cases, agreement with the mode solvers. *(Energy conservation and the slab's reflection against the exact transfer matrices, done in 2D. Agreement with FDTD moved to 0.4, once FDTD exists.)*
 
 ### 0.4: Finite-difference time-domain (FDTD)
 - [ ] **Core:**
@@ -144,7 +147,8 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
   - Mie scattering (Mie 1908);
   - PML reflection;
   - the Yee scheme's numerical dispersion against theory;
-  - Meep on its published cases (Oskooi 2010).
+  - Meep on its published cases (Oskooi 2010);
+  - agreement with FDFD (0.3) on the same structures.
 
 ### 0.5: Semi-analytic methods
 - [ ] **Transfer matrix method:** thin films and Bragg stacks.
