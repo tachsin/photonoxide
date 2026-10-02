@@ -39,7 +39,9 @@
 //! logarithmic function r²(ln r cos 2θ − θ sin 2θ) (Eq. 24 with ν = 2), and exchanging x and y
 //! (θ → π/2 − θ) turns it into the companion term ((π/2 − θ) sin 2θ − cos 2θ ln cos θ) that
 //! Eqs. (48), (50) and (52) all print. (Taking the printed form changes the corner problems'
-//! errors by up to a third, not their order.)
+//! errors by up to a third, not their order.) Eq. (48)'s fractional terms also lack the
+//! factors sin(πν/2) and sin(πμ/2) that Eq. (46) and the Appendix's B and D carry; the
+//! Appendix is used.
 //!
 //! Hadley's derivation needs a uniform grid (Δx and Δy may differ), real isotropic media and
 //! no PML; [`modes`] checks all three. His corner equation is undefined where ε₁ε₃ = ε₂ε₄
