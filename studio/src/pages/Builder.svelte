@@ -36,7 +36,7 @@
   let check = $state<JobCheck | null>(null);
   let checking = $state(false);
   let selection = $state<Selection>(null);
-  let right = $state<"preview" | "3d" | "toml">("preview");
+  let right = $state<"preview" | "3d" | "toml">("3d");
   /** The text the 3D preview shows: the last one that checked out, so it doesn't rebuild on every key. */
   let shown = $state("");
   let jobs = $state<JobItem[]>([]);
@@ -274,7 +274,7 @@
 
     <div class="flex-1 space-y-6 overflow-x-hidden overflow-y-auto px-6 py-5">
       <Tip id="builder-intro" title="A job is a TOML file">
-        Fill the form and the device is drawn on the right as you type; the library checks the job as it changes. Click a shape in the drawing to edit it. Prefer text? Switch the right panel to TOML: edits there update the form.
+        Fill the form and the device is drawn on the right as you type, in 3D; the library checks the job as it changes. Click a shape in the top view to edit it. Prefer text? Switch the right panel to TOML: edits there update the form.
       </Tip>
 
       <fieldset class="space-y-3">
@@ -494,8 +494,8 @@
   <section class="flex min-h-0 flex-col border-l border-base-content/8 bg-base-100/40">
     <div class="flex items-center gap-2 border-b border-base-content/8 px-4 py-2.5">
       <div class="join">
-        <button class="btn join-item btn-sm gap-1.5 {right === 'preview' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "preview")} title="Seen from above: click a shape to edit it"><Eye size={14} /> Top view</button>
         <button class="btn join-item btn-sm gap-1.5 {right === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "3d")} title="The structure as the run will draw it"><Box size={14} /> 3D</button>
+        <button class="btn join-item btn-sm gap-1.5 {right === 'preview' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "preview")} title="Seen from above: click a shape to edit it"><Eye size={14} /> Top view</button>
         <button class="btn join-item btn-sm gap-1.5 {right === 'toml' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "toml")}><Code size={14} /> TOML</button>
       </div>
       <span class="flex-1"></span>
@@ -528,14 +528,28 @@
       </div>
     {:else if right === "3d"}
       <div class="flex-1 overflow-y-auto p-4">
-        <div class="glow panel overflow-hidden">
+        <div class="glow panel relative overflow-hidden">
           {#if shown}
             <ScenePreview text={shown} height={440} />
+            {#if check && !check.ok}
+              <div class="absolute inset-x-3 top-3 rounded-lg border border-warning/30 bg-base-100/85 px-3 py-1.5 text-xs backdrop-blur">
+                The job isn't valid now: this is its last valid version.
+              </div>
+            {/if}
           {:else}
-            <div class="grid h-[440px] place-items-center text-sm faint">The 3D view appears once the job is valid.</div>
+            <div class="grid h-[440px] place-items-center p-6 text-center">
+              <div class="flex flex-col items-center gap-3 text-sm faint">
+                <Box size={22} />
+                <span>The 3D view appears once the job is valid{check && !check.ok ? "; it isn't yet (see above)" : ""}.</span>
+                <button class="btn btn-sm gap-1.5" onclick={() => (right = "preview")}><Eye size={14} /> Top view</button>
+              </div>
+            </div>
           {/if}
         </div>
-        <p class="mt-3 px-1 text-xs faint">The structure as its run will draw it, over the job's window{model.kind === "modes" ? ", behind the cut" : ""}.</p>
+        <div class="mt-3 flex items-start gap-3 px-1">
+          <p class="flex-1 text-xs faint">The structure as its run will draw it, over the job's window{model.kind === "modes" ? ", behind the cut" : ""}. To pick a shape by clicking it, use the top view.</p>
+          <button class="btn btn-ghost btn-xs shrink-0 gap-1" onclick={() => (right = "preview")} title="Seen from above: click a shape to edit it"><Eye size={13} /> Top view</button>
+        </div>
       </div>
     {:else}
       <div class="m-4 min-h-0 flex-1 overflow-hidden rounded-xl border border-base-content/8 bg-base-300/50 py-2">

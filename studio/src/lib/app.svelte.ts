@@ -2,6 +2,7 @@
 
 import { api, type AppState, type Info, type Settings } from "./api";
 import type { Event, Field, Mode, Permittivity, Scene, SParameters, SweepPoint } from "./events";
+import type { Looks } from "./layers";
 
 export type Page = "home" | "examples" | "builder" | "runs" | "viewer" | "compare" | "validation" | "settings";
 
@@ -106,6 +107,11 @@ export const run = $state({
   stoppable: false,
   count: 0,
   hidden: [] as string[],
+  /** The viewer's own colours and opacities for media, by name ("substrate" and "cladding" included). */
+  looks: {} as Looks,
+  /** Whether the 3D view paints the field (a mode on its cut, an FDFD field on its layer), and how strongly, 0 to 1. */
+  fieldVisible: true,
+  fieldOpacity: 1,
   selected: 0,
   opened: performance.now(),
   /** Bumped on every new event, for views that redraw. */
@@ -157,6 +163,9 @@ function reset(info: Info) {
     stoppable: false,
     count: 0,
     hidden: [],
+    looks: {},
+    fieldVisible: true,
+    fieldOpacity: 1,
     selected: 0,
     opened: performance.now(),
     version: run.version + 1,

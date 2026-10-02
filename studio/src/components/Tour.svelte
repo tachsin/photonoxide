@@ -19,7 +19,7 @@
     {
       icon: SquarePen,
       title: "Build your own jobs",
-      text: "The job builder is a form with a live top view of your device: shapes, ports, the PML and the cut. The TOML is written for you, checked as you type, and saved into your workspace.",
+      text: "The job builder is a form with your device drawn live in 3D, and a top view of its shapes, ports, the PML and the cut. The TOML is written for you, checked as you type, and saved into your workspace.",
     },
     {
       icon: ChartSpline,

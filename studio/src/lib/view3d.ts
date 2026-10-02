@@ -8,6 +8,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 import { intensityColour, mediumLook, pixels } from "./colours";
 import type { Raster, Scene } from "./events";
+import { CLEAR_OPACITY, type Look, type Looks } from "./layers";
 
 /** A field to paint: on the vertical plane y = `at` (a mode on its cut), or the horizontal one z = `at`. */
 export interface Plane {
@@ -85,25 +86,22 @@ export function edgeColours(dark: boolean) {
  * depth so their edges draw cleanly over them; the clear oxides are pushed further back, so a
  * core's face where it meets its layer's oxide (the same plane) always wins over the oxide's,
  * whatever the view: without it, the two fought pixel by pixel as the camera turned.
+ * Fully opaque media write depth; any other opacity is drawn see-through.
  */
-function solidMaterial(colour: string, solid: boolean): THREE.Material {
-  return solid
-    ? new THREE.MeshStandardMaterial({ color: colour, roughness: 0.55, metalness: 0.05, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 3 })
-    : new THREE.MeshStandardMaterial({
-        color: colour,
-        roughness: 0.9,
-        transparent: true,
-        opacity: 0.13,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-        polygonOffset: true,
-        polygonOffsetFactor: 6,
-        polygonOffsetUnits: 12,
-      });
+function solidMaterial(colour: string, solid: boolean, opacity: number): THREE.Material {
+  const finish = solid ? { roughness: 0.55, metalness: 0.05 } : { roughness: 0.9 };
+  const offset = solid ? { polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 3 } : { polygonOffset: true, polygonOffsetFactor: 6, polygonOffsetUnits: 12 };
+  return opacity >= 0.999
+    ? new THREE.MeshStandardMaterial({ color: colour, ...finish, ...offset })
+    : new THREE.MeshStandardMaterial({ color: colour, ...finish, ...offset, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide });
 }
 
-/** The solids of `s` over its window, without the layers named in `hidden` ("substrate" and "cladding" included). */
-export function structure(s: Scene, hidden: Set<string> = new Set()): THREE.Group {
+/**
+ * The solids of `s` over its window, without the layers named in `hidden` ("substrate" and
+ * "cladding" included), each drawn with its look in `looks` if it has one: a layer's look
+ * colours its shapes, or the layer itself when it has none (lib/layers.ts, `lookTarget`).
+ */
+export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Looks = {}): THREE.Group {
   const group = new THREE.Group();
   const [x0, x1] = s.x_um;
   const [y0, y1] = s.y_um;
@@ -111,11 +109,14 @@ export function structure(s: Scene, hidden: Set<string> = new Set()): THREE.Grou
   // the clear media in a fixed order, bottom to top, after every solid: the order of
   // see-through faces then doesn't flip as the camera turns
   let clear = 10;
-  const add = (geometry: THREE.BufferGeometry, eps: number, edges: THREE.LineBasicMaterial) => {
-    const look = mediumLook(eps);
-    if (look) {
-      const mesh = new THREE.Mesh(geometry, solidMaterial(look.colour, look.solid));
-      mesh.renderOrder = look.solid ? 0 : clear++;
+  const add = (geometry: THREE.BufferGeometry, eps: number, edges: THREE.LineBasicMaterial, look?: Look) => {
+    const base = mediumLook(eps);
+    const colour = look?.colour ?? base?.colour;
+    if (colour) {
+      const solid = base?.solid ?? false;
+      const opacity = look?.opacity ?? (solid ? 1 : CLEAR_OPACITY);
+      const mesh = new THREE.Mesh(geometry, solidMaterial(colour, solid, opacity));
+      mesh.renderOrder = solid ? 0 : clear++;
       group.add(mesh);
     }
     const lines = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 25), edges);
@@ -123,21 +124,22 @@ export function structure(s: Scene, hidden: Set<string> = new Set()): THREE.Grou
     group.add(lines);
   };
   // a medium over the whole window, from za to zb (clipped to the window's height)
-  const slab = (eps: number, za: number, zb: number) => {
+  const slab = (eps: number, za: number, zb: number, look?: Look) => {
     const [a, b] = [Math.max(za, z0), Math.min(zb, z1)];
-    if (b <= a || !mediumLook(eps)) return;
+    if (b <= a || !(mediumLook(eps) || look?.colour)) return;
     const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, b - a);
     g.translate((x0 + x1) / 2, (y0 + y1) / 2, (a + b) / 2);
-    add(g, eps, FAINT_EDGE);
+    add(g, eps, FAINT_EDGE, look);
   };
   const top = s.layers.length ? s.layers[s.layers.length - 1].z_um[1] : 0;
-  if (!hidden.has("substrate")) slab(s.substrate.eps, -Infinity, 0);
+  if (!hidden.has("substrate")) slab(s.substrate.eps, -Infinity, 0, looks.substrate);
   for (const layer of s.layers) {
     if (hidden.has(layer.name)) continue;
-    slab(layer.background.eps, layer.z_um[0], layer.z_um[1]);
+    const shapes = s.shapes.filter((sh) => sh.layer === layer.name);
+    slab(layer.background.eps, layer.z_um[0], layer.z_um[1], shapes.length ? undefined : looks[layer.name]);
     const [a, b] = [Math.max(layer.z_um[0], z0), Math.min(layer.z_um[1], z1)];
     if (b <= a) continue;
-    for (const shape of s.shapes.filter((sh) => sh.layer === layer.name)) {
+    for (const shape of shapes) {
       const { boundary, holes } = rings(shape.outline);
       const p = clip(boundary, s.x_um, s.y_um);
       if (!p.length) continue;
@@ -148,10 +150,10 @@ export function structure(s: Scene, hidden: Set<string> = new Set()): THREE.Grou
       }
       const g = new THREE.ExtrudeGeometry(outline, { depth: b - a, bevelEnabled: false, curveSegments: 1 });
       g.translate(0, 0, a);
-      add(g, layer.material.eps, EDGE);
+      add(g, layer.material.eps, EDGE, looks[layer.name]);
     }
   }
-  if (!hidden.has("cladding")) slab(s.cladding.eps, top, Infinity);
+  if (!hidden.has("cladding")) slab(s.cladding.eps, top, Infinity, looks.cladding);
   // the window
   const frame = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
   frame.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
@@ -183,6 +185,8 @@ export class View3D {
   private light = new THREE.DirectionalLight("#ffffff", 2.2);
   private structure = new THREE.Group();
   private field: THREE.Mesh | null = null;
+  private fieldVisible = true;
+  private fieldOpacity = 1;
   private box: THREE.Box3 | null = null;
 
   constructor(
@@ -224,10 +228,10 @@ export class View3D {
     }
   }
 
-  /** Draws `s`, without the layers named in `hidden` ("substrate" and "cladding" included). */
-  setScene(s: Scene, hidden: Set<string>) {
+  /** Draws `s`, without the layers named in `hidden` ("substrate" and "cladding" included), with the viewer's `looks`. */
+  setScene(s: Scene, hidden: Set<string>, looks: Looks = {}) {
     this.clearStructure();
-    this.structure.add(structure(s, hidden));
+    this.structure.add(structure(s, hidden, looks));
     const box = new THREE.Box3(new THREE.Vector3(s.x_um[0], s.y_um[0], s.z_um[0]), new THREE.Vector3(s.x_um[1], s.y_um[1], s.z_um[1]));
     const reframe = !this.box || !this.box.equals(box);
     this.box = box;
@@ -276,8 +280,23 @@ export class View3D {
       );
       this.field.renderOrder = 50;
       this.scene.add(this.field);
+      this.applyFieldLook();
     }
     this.render();
+  }
+
+  /** Shows or hides the painted field, and how strongly it is painted (0 to 1); kept for the fields to come. */
+  setFieldLook(visible: boolean, opacity: number) {
+    this.fieldVisible = visible;
+    this.fieldOpacity = opacity;
+    this.applyFieldLook();
+    this.render();
+  }
+
+  private applyFieldLook() {
+    if (!this.field) return;
+    this.field.visible = this.fieldVisible;
+    (this.field.material as THREE.MeshBasicMaterial).opacity = this.fieldOpacity;
   }
 
   /** Looks at the window from the front (+y, the side a cut is on), above and to the right. */

@@ -1,16 +1,17 @@
 <script lang="ts">
   // The viewer: the run the window follows, in 3D (its layers as solids, the field painted on
   // its plane) or 2D (pictures and plots), with its details at the side.
-  import { Box, ChartLine, CirclePause, FolderOpen, Layers, Maximize, Square, Waves } from "@lucide/svelte";
+  import { Box, ChartLine, CirclePause, FolderOpen, Info, Layers, RotateCcw, Square, Waves } from "@lucide/svelte";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
 
+  import LayerDialog from "../components/LayerDialog.svelte";
   import RunPlots from "../components/RunPlots.svelte";
   import Tip from "../components/Tip.svelte";
   import { api, duration, KINDS } from "../lib/api";
   import { app, go, run, toast } from "../lib/app.svelte";
-  import { mediumLook } from "../lib/colours";
   import { modeKind } from "../lib/events";
+  import { effectiveLook, outside, rows, um } from "../lib/layers";
   import { View3D, type Plane } from "../lib/view3d";
 
   let view = $state<"3d" | "2d">(app.state?.settings.view ?? "3d");
@@ -39,12 +40,16 @@
 
   $effect(() => three?.setDark(app.dark));
 
-  // the structure, when it arrives or a layer is hidden
+  // the structure, when it arrives, a layer is hidden or a look changes
   $effect(() => {
     const scene = run.scene;
     const hidden = new Set(run.hidden);
-    if (three && scene) three.setScene(scene, hidden);
+    // read each look's fields here, so a change to any of them redraws
+    const looks = Object.fromEntries(Object.entries(run.looks).map(([name, l]) => [name, { colour: l.colour, opacity: l.opacity }]));
+    if (three && scene) three.setScene(scene, hidden, looks);
   });
+
+  $effect(() => three?.setFieldLook(run.fieldVisible, run.fieldOpacity));
 
   // the field: an FDFD run's on its layer, or the selected mode on its cut
   $effect(() => {
@@ -60,14 +65,17 @@
 
   const live = $derived(!!run.info?.dir && !run.finished);
   const elapsed = $derived(run.finished ? run.finished.seconds : (now - run.opened) / 1000);
-  const media = $derived.by(() => {
-    const s = run.scene;
-    if (!s) return [];
-    return [
-      { name: "cladding", m: s.cladding },
-      ...[...s.layers].reverse().map((l) => ({ name: l.name, m: l.material })),
-      { name: "substrate", m: s.substrate },
-    ];
+  // the media from the top down, as they stack
+  const media = $derived(run.scene ? rows(run.scene).reverse() : []);
+  /** The medium whose details are open, if any. */
+  let details = $state<string | null>(null);
+  /** The field the 3D view paints, and where. */
+  const painted = $derived.by(() => {
+    const f = run.fields[0];
+    const m = run.modes[run.selected];
+    if (f) return { label: f.label, where: `on the layer's top face (z = ${um(f.z_um)} µm)` };
+    if (m) return { label: `${m.label}, |E|²`, where: `on the cut at y = ${um(m.cut_y_um)} µm` };
+    return null;
   });
 
   function toggleLayer(name: string) {
@@ -136,7 +144,7 @@
       </div>
       <div class="absolute right-4 top-4 flex flex-col gap-1">
         <div class="tooltip tooltip-left" data-tip="Reset the camera (or double-click)">
-          <button class="btn btn-sm btn-square border-base-content/10 bg-base-100/80 backdrop-blur" aria-label="Reset the camera" onclick={() => three?.frame()}><Maximize size={15} /></button>
+          <button class="btn btn-sm btn-square border-base-content/10 bg-base-100/80 backdrop-blur" aria-label="Reset the camera" onclick={() => three?.frame()}><RotateCcw size={15} /></button>
         </div>
       </div>
       <div class="pointer-events-none absolute bottom-4 left-4 text-[11px] faint">drag to orbit · right-drag to pan · scroll to zoom</div>
@@ -147,7 +155,7 @@
   </section>
 
   <aside class="min-h-0 space-y-5 overflow-x-hidden overflow-y-auto border-l border-base-content/8 bg-base-100/40 p-4">
-    <Tip id="viewer-layers">Untick a layer to see inside the stack. For a modes run, pick a mode below to paint it on the cut.</Tip>
+    <Tip id="viewer-layers">Untick a layer to see inside the stack; the field has its own row. The info button tells what a layer is made of and what surrounds it, and recolours it. For a modes run, pick a mode below to paint it on the cut.</Tip>
     <section>
       <h3 class="panel-title mb-2">Run</h3>
       <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
@@ -165,21 +173,57 @@
       {/if}
     </section>
 
-    {#if media.length}
+    {#if media.length && run.scene}
+      {@const scene = run.scene}
       <section>
         <h3 class="panel-title mb-2 flex items-center gap-1.5"><Layers size={13} /> Layers</h3>
         <div class="space-y-0.5">
-          {#each media as { name, m } (name)}
-            {@const look = mediumLook(m.eps)}
-            <label class="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm hover:bg-base-content/4">
-              <input type="checkbox" class="checkbox checkbox-xs" checked={!run.hidden.includes(name)} onchange={() => toggleLayer(name)} />
-              <span class="size-3 rounded-sm border border-base-content/20" style={look ? `background:${look.colour};opacity:${look.solid ? 1 : 0.6}` : ""}></span>
-              <span class="flex-1">{name}</span>
-              <span class="text-xs faint num">{m.material} · ε {m.eps.toFixed(2)}</span>
-            </label>
+          {#if painted}
+            <div class="rounded-lg px-2 py-1.5 hover:bg-base-content/4">
+              <label class="flex cursor-pointer items-center gap-2.5 text-sm">
+                <input type="checkbox" class="checkbox checkbox-xs" checked={run.fieldVisible} onchange={() => (run.fieldVisible = !run.fieldVisible)} />
+                <span class="size-3 rounded-sm border border-base-content/20" style="background:linear-gradient(90deg,#000004,#781c6d,#ed6925,#fcffa4)"></span>
+                <span class="flex-1">Field</span>
+                <span class="text-xs faint num">{Math.round(100 * run.fieldOpacity)}%</span>
+              </label>
+              <input
+                type="range"
+                class="range range-xs range-primary mt-1.5 w-full"
+                aria-label="The field's strength"
+                title="How strongly the field is painted"
+                min="0"
+                max="1"
+                step="0.01"
+                disabled={!run.fieldVisible}
+                value={run.fieldOpacity}
+                oninput={(e) => (run.fieldOpacity = Number((e.currentTarget as HTMLInputElement).value))}
+              />
+              <p class="mt-1 text-[11px] leading-snug faint">{painted.label}, painted {painted.where}: a picture of the field, not a layer, so hiding a layer leaves it.</p>
+            </div>
+            <div class="mx-2 my-1 border-t border-base-content/8"></div>
+          {/if}
+          {#each media as r (r.name)}
+            {@const look = effectiveLook(r, run.looks[r.name])}
+            {@const away = outside(scene, r)}
+            <div class="group rounded-lg pr-1 hover:bg-base-content/4">
+              <div class="flex items-center gap-1">
+                <label class="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-1.5 text-sm {away ? 'cursor-default' : 'cursor-pointer'}" title={away ? `Wholly ${away} the run's window: nothing of it is drawn` : undefined}>
+                  <input type="checkbox" class="checkbox checkbox-xs" checked={!away && !run.hidden.includes(r.name)} disabled={!!away} onchange={() => toggleLayer(r.name)} />
+                  <span class="size-3 shrink-0 rounded-sm border border-base-content/20" style={look ? `background:${look.colour};opacity:${away ? 0.35 : Math.max(look.opacity, 0.6)}` : ""}></span>
+                  <span class="min-w-0 flex-1 truncate" class:opacity-50={!!away}>{r.name}</span>
+                  <span class="text-xs faint num" class:opacity-60={!!away}>{r.material.material} · ε {r.material.eps.toFixed(2)}</span>
+                </label>
+                <button class="btn btn-ghost btn-xs btn-square shrink-0 opacity-60 group-hover:opacity-100" aria-label="About {r.name}" title="What {r.name} is, and how it is drawn" onclick={() => (details = r.name)}>
+                  <Info size={13} />
+                </button>
+              </div>
+              {#if away}
+                <p class="-mt-1 pb-1.5 pl-[3.1rem] text-[11px] faint">{away} the window (z {away === "below" ? `from ${um(scene.z_um[0])}` : `to ${um(scene.z_um[1])}`} µm)</p>
+              {/if}
+            </div>
           {/each}
         </div>
-        <p class="mt-1.5 px-2 text-[11px] faint">{run.scene?.shapes.length} shape{run.scene?.shapes.length === 1 ? "" : "s"} · silicon blue, nitride teal, oxides clear</p>
+        <p class="mt-1.5 px-2 text-[11px] faint">{scene.shapes.length} shape{scene.shapes.length === 1 ? "" : "s"} · silicon blue, nitride teal, oxides clear · <Info size={10} class="inline" /> for a layer's details and colour</p>
       </section>
     {/if}
 
@@ -232,3 +276,5 @@
     {/if}
   </aside>
 </div>
+
+<LayerDialog name={details} onclose={() => (details = null)} />
