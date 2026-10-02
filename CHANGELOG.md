@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/tachsin/photonoxide/compare/v0.1.1...v0.2.0) - 2026-10-02
+
+### <!-- 0 -->Added
+
+- add the exact TE and TM modes of three-layer slabs ([#14](https://github.com/tachsin/photonoxide/pull/14))
+- add the full-vector finite-difference mode solver, with shift-and-invert Arnoldi ([#16](https://github.com/tachsin/photonoxide/pull/16))
+- add mirror walls to the vector mode solver, and validate its corners against Hadley ([#20](https://github.com/tachsin/photonoxide/pull/20))
+- add group index, dispersion, loss and mode tracking ([#21](https://github.com/tachsin/photonoxide/pull/21))
+- add exact multilayer slab modes and leaky waves by transfer matrices ([#22](https://github.com/tachsin/photonoxide/pull/22))
+- add a PML to the vector mode solver for leaky modes ([#23](https://github.com/tachsin/photonoxide/pull/23))
+- add the effective index method, with its error against the vector solver ([#24](https://github.com/tachsin/photonoxide/pull/24))
+- add bends: an exact bent slab, and bent cross-sections in the vector solver ([#26](https://github.com/tachsin/photonoxide/pull/26))
+- add a vector mode's full fields, power and coupling into another mode ([#28](https://github.com/tachsin/photonoxide/pull/28))
+- add Marcatili's approximation, validated against the vector solver in its regime ([#29](https://github.com/tachsin/photonoxide/pull/29))
+- add planar profiles by 1D finite differences, with a PML ([#30](https://github.com/tachsin/photonoxide/pull/30))
+- add the studio's mode viewer, with sweeps over wavelength and width ([#31](https://github.com/tachsin/photonoxide/pull/31))
+
+### <!-- 4 -->Documentation
+
+- add examples, each reproducing a published result ([#18](https://github.com/tachsin/photonoxide/pull/18))
+- add the banner, logo and README badges ([#19](https://github.com/tachsin/photonoxide/pull/19))
+- add the project site, method write-ups and example outputs ([#25](https://github.com/tachsin/photonoxide/pull/25))
+- describe 0.2 as released ([#35](https://github.com/tachsin/photonoxide/pull/35))
+
 ## [0.1.1](https://github.com/tachsin/photonoxide/compare/v0.1.0...v0.1.1) - 2026-10-01
 
 ### <!-- 0 -->Added
