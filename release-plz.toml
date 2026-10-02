@@ -8,6 +8,10 @@ changelog_update = true
 git_release_enable = true
 git_tag_name = "v{{ version }}"
 git_release_name = "v{{ version }}"
+# not "latest" yet: the installed programs read their update manifest from the latest release, and
+# the binaries and latest.json come minutes later (.github/workflows/binaries.yml marks the release
+# latest once they are attached). Until then "latest" stays the previous, complete release.
+git_release_latest = false
 pr_labels = ["release"]
 # only release when the release PR is merged
 release_always = false
