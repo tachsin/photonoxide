@@ -6,6 +6,8 @@
 //!   followed across wavelength.
 //! - [`fields`]: a full-vector mode's six field components, its power, and its coupling into
 //!   another mode.
+//! - [`hadley`]: the full-vector modes by Hadley's high-accuracy equations, sixth order at
+//!   interfaces and about second at dielectric corners.
 //! - [`eim`]: the effective index method, a ridge's mode from two slab problems.
 //! - [`marcatili`]: Marcatili's approximation for rectangular guides.
 //! - [`multilayer`]: the bound modes and leaky waves of any planar stack, exactly, by
@@ -18,6 +20,7 @@ pub mod bend;
 pub mod dispersion;
 pub mod eim;
 pub mod fields;
+pub mod hadley;
 pub mod marcatili;
 pub mod multilayer;
 pub mod slab;

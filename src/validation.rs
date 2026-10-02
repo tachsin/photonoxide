@@ -410,6 +410,76 @@ pub fn cases() -> Vec<Case> {
             source: "the adjoint variable method, as above; the faces' permittivity the mean of their two cells",
             run: fdfd_adjoint_hz,
         },
+        Case {
+            id: "mode/hadley-uniform-box",
+            title: "Hadley's high-accuracy equations in a uniform region: the box of Hadley I, Fig. 5 (n 3.44, 2 x 2 um, 1.15 um) on an 8 x 8 grid (250 nm; effective index shown)",
+            tier: Tier::Analytic,
+            source: "exact, sqrt(eps - ((pi/4)^2 + (pi/2)^2)/k^2) for H_y = cos(pi x/4) sin(pi y/2); the equations are G. R. Hadley, J. Lightwave Technol. 20, 1210 (2002), doi:10.1109/JLT.2002.800361, Eqs. 7-9; the standard scheme's error on this grid is 1.6e-4",
+            run: hadley_uniform_box,
+        },
+        Case {
+            id: "mode/hadley-uniform-order",
+            title: "The same box: the order of convergence of the effective index from 4 x 4 to 8 x 8 grids (shown to two decimals)",
+            tier: Tier::Analytic,
+            source: "sixth order: Hadley I, Fig. 5, slope 6.03; errors 1.7e-8 and 2.4e-10 here (6.03 from 8 x 8 to 16 x 16, where 3.7e-12 nears round-off)",
+            run: hadley_uniform_order,
+        },
+        Case {
+            id: "mode/hadley-interface",
+            title: "Hadley's interface equations: the two-dielectric box of Hadley I, Fig. 6 (eps 1 over 11.8336, 1.5 um wide, 0.975 um) on a 31.25 nm grid (effective index shown)",
+            tier: Tier::Analytic,
+            source: "exact: separable, H_y = sin(pi x/W) Y(y) with Y and Y' continuous, so kb tan(kb Lb) + kt tan(kt Lt) = 0 with k^2 = k0^2 (eps - neff^2) - (pi/W)^2; the equations are Hadley I, Eqs. 20-24 and 43; the standard scheme's error on this grid is 5.4e-6",
+            run: hadley_interface,
+        },
+        Case {
+            id: "mode/hadley-interface-order",
+            title: "The same box: the order of convergence of the effective index from 62.5 to 31.25 nm grids (shown to two decimals)",
+            tier: Tier::Analytic,
+            source: "sixth order: Hadley I, Fig. 7 (fifth-order interface equations, diluted by a line of interface nodes); errors 9.7e-8 and 1.6e-9 here",
+            run: hadley_interface_order,
+        },
+        Case {
+            id: "mode/hadley-interface-turned",
+            title: "The same box turned on its side, so that H_x is the component normal to the interface, at 62.5 nm (difference of the effective indices shown)",
+            tier: Tier::Analytic,
+            source: "symmetry: Hadley derives the equations for a horizontal interface; a vertical one is the same with x and y exchanged",
+            run: hadley_interface_turned,
+        },
+        Case {
+            id: "mode/hadley-corners-box-low",
+            title: "Hadley's corner problem 1 (a box, eps 2.25) by his high-accuracy equations on a 128 x 128 grid (7.8 nm; effective index shown)",
+            tier: Tier::Published,
+            source: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371, Fig. 4: 1.27627404 +- 1e-8 (series expansion); the corner equations are its Eqs. 50 and 52, their misprinted theta sin theta read as theta sin 2 theta from Eq. 47; the standard scheme's error on this grid is 3.8e-5",
+            run: hadley_corners_1,
+        },
+        Case {
+            id: "mode/hadley-corners-box-high",
+            title: "Hadley's corner problem 2 (a box, eps 8) by his high-accuracy equations on a 128 x 128 grid (7.8 nm; effective index shown)",
+            tier: Tier::Published,
+            source: "G. R. Hadley (2002), part II, Fig. 5: 2.65679692 +- 1e-8; the standard scheme's error on this grid is 9.0e-6",
+            run: hadley_corners_2,
+        },
+        Case {
+            id: "mode/hadley-corners-impinged-low",
+            title: "Hadley's corner problem 3 (an impinged corner, eps 2.25) by his high-accuracy equations on a 128 x 128 grid (7.8 nm; effective index shown)",
+            tier: Tier::Published,
+            source: "G. R. Hadley (2002), part II, Fig. 6: 1.387926425 +- 2e-9; the standard scheme's error on this grid is 1.4e-5",
+            run: hadley_corners_3,
+        },
+        Case {
+            id: "mode/hadley-corners-impinged-high",
+            title: "Hadley's corner problem 4 (an impinged corner, eps 8) by his high-accuracy equations on a 128 x 128 grid (7.8 nm; effective index shown)",
+            tier: Tier::Published,
+            source: "G. R. Hadley (2002), part II, Fig. 7: 2.761465320 +- 5e-9; the standard scheme's error on this grid is 1.6e-5",
+            run: hadley_corners_4,
+        },
+        Case {
+            id: "mode/hadley-corners-order",
+            title: "Hadley's corner problem 1 by his equations: the order of convergence of the effective index from 32 x 32 to 128 x 128 grids (shown to two decimals)",
+            tier: Tier::Published,
+            source: "G. R. Hadley (2002), part II, Section IV: second order for most cases (Figs. 8-11), where the standard scheme's is about first; errors 9.1e-6, 2.1e-6, 5.2e-7 here",
+            run: hadley_corners_order,
+        },
     ]
 }
 
@@ -1291,6 +1361,139 @@ fn slab_fd_chilwell() -> Outcome {
         // the table's 6 decimals and the grid
         tolerance: 2e-6,
         error: worst,
+    }
+}
+
+/// The first mode near `exact` by Hadley's high-accuracy equations: its effective index.
+fn hadley_index(cs: &crate::mode::vector::CrossSection, w: Wavelength, near: Option<f64>) -> f64 {
+    crate::mode::hadley::modes(cs, w, 1, near)
+        .ok()
+        .and_then(|m| m.first().map(|m| m.effective_index().re))
+        .unwrap_or(f64::NAN)
+}
+
+/// Hadley I's uniform box on `n` × `n` cells: (found, exact).
+fn hadley_box(n: usize) -> (f64, f64) {
+    let (cs, w, exact) = crate::mode::hadley::uniform_box(n);
+    (hadley_index(&cs, w, Some(exact)), exact)
+}
+
+fn hadley_uniform_box() -> Outcome {
+    let (n, exact) = hadley_box(8);
+    Outcome {
+        measured: n,
+        expected: exact,
+        // 2.4e-10
+        tolerance: 1e-9,
+        error: (n - exact).abs(),
+    }
+}
+
+fn hadley_uniform_order() -> Outcome {
+    let errors = [4, 8].map(|n| {
+        let (found, exact) = hadley_box(n);
+        (found - exact).abs()
+    });
+    let order = (errors[0] / errors[1]).log2();
+    Outcome {
+        // two decimals: the report reads the same on every platform
+        measured: (order * 100.0).round() / 100.0,
+        expected: 6.0,
+        tolerance: 0.2,
+        error: (order - 6.0).abs(),
+    }
+}
+
+/// Hadley I's two-dielectric box, high contrast, `n` cells across the top layer: (found, exact).
+fn hadley_slab(n: usize, vertical: bool) -> (f64, f64) {
+    let (cs, w, exact) = crate::mode::hadley::two_dielectric_box(true, n, vertical);
+    (hadley_index(&cs, w, Some(exact)), exact)
+}
+
+fn hadley_interface() -> Outcome {
+    let (n, exact) = hadley_slab(16, false);
+    Outcome {
+        measured: n,
+        expected: exact,
+        // 1.6e-9
+        tolerance: 5e-9,
+        error: (n - exact).abs(),
+    }
+}
+
+fn hadley_interface_order() -> Outcome {
+    let errors = [8, 16].map(|n| {
+        let (found, exact) = hadley_slab(n, false);
+        (found - exact).abs()
+    });
+    let order = (errors[0] / errors[1]).log2();
+    Outcome {
+        // two decimals: the report reads the same on every platform
+        measured: (order * 100.0).round() / 100.0,
+        expected: 6.0,
+        tolerance: 0.3,
+        error: (order - 6.0).abs(),
+    }
+}
+
+fn hadley_interface_turned() -> Outcome {
+    let (flat, _) = hadley_slab(8, false);
+    let (side, _) = hadley_slab(8, true);
+    let d = (flat - side).abs();
+    Outcome {
+        measured: d,
+        expected: 0.0,
+        tolerance: 1e-12,
+        error: d,
+    }
+}
+
+/// Hadley II's corner problem `problem` by his equations on `n` × `n` cells: (found, exact).
+fn hadley_corner(problem: usize, n: usize) -> (f64, f64) {
+    let (cs, exact) = crate::mode::vector::hadley_problem(problem, n);
+    (hadley_index(&cs, um(1.5), None), exact)
+}
+
+fn hadley_corners(problem: usize) -> Outcome {
+    let (n, exact) = hadley_corner(problem, 128);
+    Outcome {
+        measured: n,
+        expected: exact,
+        // 5.2e-7, 2.3e-7, 2.5e-7 and 1.9e-7
+        tolerance: 1e-6,
+        error: (n - exact).abs(),
+    }
+}
+
+fn hadley_corners_1() -> Outcome {
+    hadley_corners(1)
+}
+
+fn hadley_corners_2() -> Outcome {
+    hadley_corners(2)
+}
+
+fn hadley_corners_3() -> Outcome {
+    hadley_corners(3)
+}
+
+fn hadley_corners_4() -> Outcome {
+    hadley_corners(4)
+}
+
+fn hadley_corners_order() -> Outcome {
+    let errors = [32, 128].map(|n| {
+        let (found, exact) = hadley_corner(1, n);
+        (found - exact).abs()
+    });
+    // two halvings of the spacing
+    let order = (errors[0] / errors[1]).log2() / 2.0;
+    Outcome {
+        // two decimals: the report reads the same on every platform
+        measured: (order * 100.0).round() / 100.0,
+        expected: 2.0,
+        tolerance: 0.25,
+        error: (order - 2.0).abs(),
     }
 }
 

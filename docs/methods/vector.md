@@ -67,7 +67,9 @@ The modes nearest a guess come from [shift-and-invert Arnoldi](eigen.md).
   derivatives are singular. On Hadley's four corner problems (series-expansion indices good to
   1e-8), about **first order at convex corners** (a high-index quadrant: boxes, strips), with the
   error changing sign on the way, and **1.8 falling towards 1.4 at concave ones**. Hadley's own
-  corner equations reach about second order; they are on the roadmap.
+  equations, on the same grid and unknowns, reach about second order there and sixth at
+  straight interfaces: see [high-accuracy modes](hadley.md), for uniform grids of lossless
+  isotropic media.
 - **The book's strip** (500 × 220 nm, 3.473 in 1.444, 1550 nm): TE-like 2.447067, 2.445713,
   2.444396, 2.443506 at 20, 10, 5, 2.5 nm, against the book's 2.443 (Lumerical, 20 nm mesh,
   good to about 1e-3).

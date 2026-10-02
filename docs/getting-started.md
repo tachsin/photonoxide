@@ -69,8 +69,11 @@ fn main() -> photonoxide::Result<()> {
 
 The first is TE-like (2.4457 on this grid), the second TM-like. Halve the cell size and the
 index moves by about 1e-3: the strip's corners converge slowly, as
-[the solver's page](methods/vector.md) explains with measurements. A symmetric guide can be
-solved on a quarter of the window with [mirror walls](methods/walls.md), and a leaky one with a
+[the solver's page](methods/vector.md) explains with measurements. On a uniform grid of
+lossless media, [Hadley's equations](methods/hadley.md) (`mode::hadley::modes`) take the same
+cross-section and converge at second order: 2.44222 on this grid, 2.44218 at 5 nm. A
+symmetric guide can be solved on a quarter of the window with [mirror walls](methods/walls.md),
+and a leaky one with a
 [PML](methods/pml.md). For group index and dispersion, see
 [group index, dispersion and loss](methods/dispersion.md); for a quick estimate, the
 [effective index method](methods/eim.md).
