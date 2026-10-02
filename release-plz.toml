@@ -38,3 +38,5 @@ commit_parsers = [
 [[package]]
 name = "photonoxide-studio"
 release = false
+# overrides the workspace's publish = true, which must agree with its Cargo.toml
+publish = false

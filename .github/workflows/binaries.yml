@@ -4,9 +4,9 @@ name: Binaries
 # x86_64 and ARM64 (clusters and workstations), Windows on x86_64 (lab and office PCs), and macOS
 # on Apple Silicon and Intel (laptops), attached to a release.
 #
-# - after a release: the release-plz workflow calls this with the release's tag;
-# - by hand (workflow_dispatch) with a tag: rebuilds that release's binaries;
-# - on a pull request that changes this file: a dry run, its binaries kept as workflow artifacts.
+# Only for releases: the release workflow calls this with the new release's tag after
+# release-plz made it, and it can be run by hand (workflow_dispatch) with a release's tag to
+# rebuild that release's binaries.
 on:
   workflow_call:
     inputs:
@@ -20,8 +20,6 @@ on:
         description: "the release's tag, e.g. v0.3.0"
         required: true
         type: string
-  pull_request:
-    paths: [".github/workflows/binaries.yml"]
 
 permissions:
   contents: write
@@ -61,7 +59,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           # a release's binaries are built from its tag
-          ref: ${{ inputs.tag || github.sha }}
+          ref: ${{ inputs.tag }}
       - name: Tauri's Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -84,15 +82,12 @@ jobs:
       - name: Build
         working-directory: studio
         run: |
-          # the release's version (the tag without its v), or the repository's for a dry run
-          version="${TAG#v}"
-          config="{\"bundle\":{\"active\":true}${version:+,\"version\":\"$version\"}}"
+          # the release's version: the tag without its v
+          config="{\"bundle\":{\"active\":true},\"version\":\"${TAG#v}\"}"
           pnpm tauri build --bundles "${{ matrix.bundles }}" --config "$config" ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
       - name: Collect
         run: |
-          version="${TAG#v}"
-          version="${version:-dev}"
-          base="photonoxide-$version"
+          base="photonoxide-${TAG#v}"
           release=target/release
           if [ -n "${{ matrix.target }}" ]; then release="target/${{ matrix.target }}/release"; fi
           bundle="$release/bundle"
@@ -117,14 +112,6 @@ jobs:
           esac
           ls -l out
       - name: Attach to the release
-        if: inputs.tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$TAG" out/* --clobber
-      - name: Keep (dry run)
-        if: inputs.tag == ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: photonoxide-${{ runner.os }}-${{ matrix.arch }}
-          path: out/*
-          retention-days: 7
