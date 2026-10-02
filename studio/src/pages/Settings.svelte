@@ -87,8 +87,8 @@
       <h3 class="flex items-center gap-2 font-semibold"><Download size={17} class="text-primary" /> Updates</h3>
       <label class="mt-3 flex cursor-pointer items-center justify-between gap-4">
         <span>
-          <span class="block text-sm font-medium">Look for a new release when photonoxide opens</span>
-          <span class="block text-xs faint">When one is out, an Update button appears at the top; one click downloads, installs and restarts. Releases are signed, and the signature is checked before installing.</span>
+          <span class="block text-sm font-medium">Look for new releases</span>
+          <span class="block text-xs faint">When photonoxide opens, and every hour while it stays open. When one is out, an Update button appears at the top; one click downloads, installs and restarts. Releases are signed, and the signature is checked before installing.</span>
         </span>
         <input type="checkbox" class="toggle toggle-primary" checked={s.check_updates} onchange={() => updateSettings((x) => (x.check_updates = !x.check_updates))} />
       </label>

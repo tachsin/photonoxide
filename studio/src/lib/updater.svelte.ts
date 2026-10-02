@@ -27,6 +27,8 @@ export async function checkForUpdate(quiet: boolean) {
     return;
   }
   if (updater.status === "checking" || updater.status === "downloading" || updater.status === "installing") return;
+  // a release already found stays offered; the hourly check doesn't announce it again
+  if (quiet && updater.status === "available") return;
   updater.status = "checking";
   updater.error = "";
   try {
