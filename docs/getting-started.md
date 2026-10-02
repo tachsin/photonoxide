@@ -5,13 +5,12 @@ your first waveguide modes, and says where everything else is.
 
 ## Add it
 
-The mode solvers are on the main branch, ahead of the last release on crates.io (0.1, the
-foundations). Until 0.2 is released, depend on the repository:
-
-```toml
-[dependencies]
-photonoxide = { git = "https://github.com/tachsin/photonoxide" }
+```sh
+cargo add photonoxide
 ```
+
+This guide follows 0.2, the mode solvers. Newer work is on the main branch:
+`photonoxide = { git = "https://github.com/tachsin/photonoxide" }`.
 
 photonoxide is pure Rust: no C, Fortran or Python, so `cargo build` is all it needs.
 

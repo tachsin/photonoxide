@@ -212,8 +212,8 @@ export default async function PhotonoxidePage() {
       {/* ---------- What works today ---------- */}
       <section className="proj-container py-16" aria-labelledby="today">
         <SectionHeading id="today" eyebrow="What works today" title="Validated, one method at a time">
-          0.1, the foundations, is on crates.io; the mode solvers of 0.2 are on the main branch. Nothing ships without
-          an analytic test, a published result it reproduces, and a measured convergence order.
+          0.2, the mode solvers, is on crates.io. Nothing ships without an analytic test, a published result it
+          reproduces, and a measured convergence order.
         </SectionHeading>
         <ul className="mt-10 grid gap-4 md:grid-cols-3">
           {today.map(({ Icon, href, count, label, body }) => (

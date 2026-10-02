@@ -14,9 +14,11 @@
 
 Mode solvers, FDFD, FDTD, semi-analytic methods, inverse design, layout and PDKs, in one library, with a studio to watch every simulation and optimization live.
 
-> **🚧 Alpha.** 0.1 Foundations is released: units, materials with their sources, layer stacks,
-> run records, the validation harness and the studio window. The solvers come next; see the
-> [roadmap](ROADMAP.md), and share your ideas in the issues.
+> **🚧 Alpha.** 0.2 Mode solvers is released: exact slabs and multilayers, full-vector 2D modes
+> with PML, bends, the effective index method, dispersion, fields and coupling, and the studio's
+> mode viewer, each checked against published results ([validation report](docs/validation.md),
+> [examples](examples/README.md)). FDFD comes next; see the [roadmap](ROADMAP.md), and share your
+> ideas in the issues.
 
 ```sh
 cargo add photonoxide                               # the library
@@ -49,8 +51,8 @@ And underneath:
 | Milestone | Scope | Status |
 |---|---|---|
 | 0.1 Foundations | Units, materials with provenance, geometry, run records, studio skeleton, validation harness | ✅ released |
-| 0.2 Mode solvers | Slab, full-vector 2D finite differences, EIM, bends, dispersion | 🔜 next |
-| 0.3 FDFD | 2D and 3D, mode ports, S-parameters, adjoints | planned |
+| 0.2 Mode solvers | Slab, full-vector 2D finite differences, EIM, bends, dispersion | ✅ released |
+| 0.3 FDFD | 2D and 3D, mode ports, S-parameters, adjoints | 🔜 next |
 | 0.4 FDTD | 2D and 3D Yee, CPML, subpixel smoothing, dispersive media, GPU | planned |
 | 0.5 Semi-analytic | TMM, RCWA, eigenmode expansion, BPM | planned |
 | 0.6 Inverse design | Adjoint topology and shape optimization, fabrication constraints, the 2D-to-3D pipeline | planned |
