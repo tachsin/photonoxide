@@ -1,0 +1,62 @@
+# A 1x2 multimode interference splitter on 220 nm SOI, by 2D FDFD with the effective index
+# method (an estimate, not the device's 3D performance): a 3 um wide body, 8.55 um long
+# (3 L_pi / 8 for symmetric interference, and the best length at 1.55 um: 7.5, 8, 9 and 9.5 um
+# deliver 0.44, 0.62, 0.61 and 0.36 to the outputs), outputs at y = +-0.75 um, from 1.5 to
+# 1.6 um. The outputs have no tapers: the 0.5 um guides catch about 76 % of the self-images,
+# and the facets reflect up to a few percent, which ripples the spectrum.
+#   photonoxide run jobs/mmi-fdfd.toml
+name = "mmi-fdfd"
+timeout_minutes = 20
+
+[task]
+kind = "fdfd"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+polarization = "te"
+x_um = [-2.0, 12.5]
+y_um = [-3.0, 3.0]
+step_nm = 20.0
+
+# the input guide
+[[task.rect]]
+layer = "Si"
+center_um = [-3.0, 0.0]
+size_um = [6.0, 0.5]
+
+# the multimode body
+[[task.rect]]
+layer = "Si"
+center_um = [4.275, 0.0]
+size_um = [8.55, 3.0]
+
+# the two outputs
+[[task.rect]]
+layer = "Si"
+center_um = [12.0, 0.75]
+size_um = [7.0, 0.5]
+
+[[task.rect]]
+layer = "Si"
+center_um = [12.0, -0.75]
+size_um = [7.0, 0.5]
+
+[[task.port]]
+x_um = -1.0
+side = "left"
+
+[[task.port]]
+x_um = 11.0
+side = "right"
+y_um = [0.0, 3.0]
+
+[[task.port]]
+x_um = 11.0
+side = "right"
+y_um = [-3.0, 0.0]
+
+[task.sweep]
+parameter = "wavelength"
+from = 1.5
+to = 1.6
+points = 11

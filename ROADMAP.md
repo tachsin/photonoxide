@@ -129,7 +129,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - [ ] **Solvers:** sparse direct (faer) with cached symbolic factorization; iterative for 3D (Shin & Fan 2013). *(Sparse direct with the symbolic analysis reused across a sweep, done: at 150 k unknowns the analysis is 55 of 800 ms, the numerical factorization the rest, and a further source 80 ms. A nested-dissection ordering would cut the factorization; the iterative 3D solver is to come.)*
 - [ ] **Adjoint gradients,** checked against finite differences (Veronis 2004; Lalau-Keraly 2013; Hughes 2018).
 - [ ] **Dielectric corners** in the mode solver: high-accuracy finite-difference equations at interfaces and corners (Hadley 2002, parts I and II), moved from 0.2.
-- [ ] **Studio:** FDFD fields on a plane in the 3D view, and S-parameters as they arrive.
+- [x] **Studio:** FDFD fields on a plane in the 3D view, and S-parameters as they arrive. *(An `"fdfd"` job: a device on one layer seen from above, its permittivity by the effective index method, ports with windows for guides side by side, a wavelength sweep; the field drawn on the layer in 3D, the S-matrix and |S_q1|² in 2D; `jobs/mmi-fdfd.toml`, a 1×2 splitter.)*
 - [ ] **Validation:** reciprocity, energy conservation, analytic cases, agreement with the mode solvers. *(In 2D: reciprocity, energy conservation, a slab's reflection against the exact transfer matrices, and the port modes against the exact slab. Agreement with FDTD moved to 0.4, once FDTD exists.)*
 
 ### 0.4: Finite-difference time-domain (FDTD)

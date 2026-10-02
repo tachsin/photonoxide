@@ -72,12 +72,33 @@ export interface SweepPoint {
   te_fractions: number[];
 }
 
+export interface Field {
+  type: "field";
+  label: string;
+  wavelength_um: number;
+  /** The height the 3D view draws it at, µm. */
+  z_um: number;
+  /** |field|², its peak 1; x across, y up. */
+  intensity: Raster;
+}
+
+export interface SParameters {
+  type: "s_parameters";
+  wavelength_um: number;
+  ports: string[];
+  effective_indices: number[];
+  /** s[q][p] from port p into port q, [re, im]. */
+  s: [number, number][][];
+}
+
 export type Event =
   | { type: "started"; job: string; kind: string }
   | Scene
   | Permittivity
   | Mode
   | SweepPoint
+  | Field
+  | SParameters
   | { type: "finished"; stopped: string | null; seconds: number };
 
 export function modeKind(m: Mode): string {

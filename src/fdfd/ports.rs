@@ -159,7 +159,34 @@ impl Solver2d {
     /// [`Error::InvalidValue`] if the column isn't at least two cells clear of a PML or the
     /// grid's end along x, if y is Bloch-periodic, or if the modes don't converge.
     pub fn port_modes(&self, column: usize, count: usize) -> Result<Vec<PortMode>> {
+        self.port_modes_within(column, 0..self.grid.ny, count)
+    }
+
+    /// The modes of a port that spans only `rows` of the column: one guide of several side by
+    /// side, each its own port. The modes are solved with walls at the window's ends and are zero
+    /// outside it, and the projection sees only the window, so the guide's field must have
+    /// decayed to nothing at its ends; otherwise as [`Solver2d::port_modes`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver2d::port_modes`], and [`Error::InvalidValue`] for a window of fewer than 3 rows
+    /// or past the grid.
+    pub fn port_modes_within(
+        &self,
+        column: usize,
+        rows: std::ops::Range<usize>,
+        count: usize,
+    ) -> Result<Vec<PortMode>> {
         let g = self.grid;
+        if rows.end > g.ny || rows.len() < 3 {
+            return Err(Error::invalid(
+                "fdfd port",
+                format!(
+                    "the window, rows {} to {}, must have 3 rows or more on the grid's {}",
+                    rows.start, rows.end, g.ny
+                ),
+            ));
+        }
         let b = &self.boundaries;
         if matches!(b.y, Edges::Bloch { .. }) {
             return Err(Error::invalid(
@@ -189,9 +216,10 @@ impl Solver2d {
                 Polarization::Hz => self.eps_y[j * (g.nx + 1) + column + 1],
             })
             .collect();
-        let mut entries = Vec::with_capacity(3 * ny);
+        let (start, m) = (rows.start, rows.len());
+        let mut entries = Vec::with_capacity(3 * m);
         let mut shift_eps: f64 = 1.0;
-        for (j, &face_eps) in eps_face.iter().enumerate() {
+        for (j, &face_eps) in eps_face.iter().enumerate().skip(start).take(m) {
             let y = g.y(j);
             let (scale, mut diagonal) = match self.polarization {
                 Polarization::Ez => {
@@ -215,15 +243,24 @@ impl Solver2d {
                 let c = weight / (sy(y) * sy(face) * g.dy * g.dy);
                 diagonal -= c;
                 let n = j as i64 + dj;
-                if (0..ny as i64).contains(&n) {
-                    entries.push((j, n as usize, scale * c));
+                if rows.contains(&(n.max(0) as usize)) && n >= 0 {
+                    entries.push((j - start, n as usize - start, scale * c));
                 }
             }
-            entries.push((j, j, scale * diagonal));
+            entries.push((j - start, j - start, scale * diagonal));
         }
         let shift = c64::new(k0 * k0 * shift_eps, 0.0);
-        let pairs = crate::eigen::nearest(ny, &entries, shift, count, 1e-10)?;
-        let weights: Vec<c64> = (0..ny).map(|j| sy(g.y(j)) / eps_face[j]).collect();
+        let pairs = crate::eigen::nearest(m, &entries, shift, count, 1e-10)?;
+        // the projection sees only the window
+        let weights: Vec<c64> = (0..ny)
+            .map(|j| {
+                if rows.contains(&j) {
+                    sy(g.y(j)) / eps_face[j]
+                } else {
+                    c64::new(0.0, 0.0)
+                }
+            })
+            .collect();
         let mut modes: Vec<PortMode> = pairs
             .into_iter()
             .map(|p| {
@@ -231,10 +268,13 @@ impl Solver2d {
                 let beta_d = p.value.sqrt();
                 let beta_d = if beta_d.re < 0.0 { -beta_d } else { beta_d };
                 let beta = 2.0 / g.dx * (beta_d * g.dx / 2.0).asin();
+                // the window's values in the column, zero outside it
+                let mut profile = vec![c64::new(0.0, 0.0); ny];
+                profile[start..start + m].copy_from_slice(&p.vector);
                 // Σ w φ² = 1, which makes a lossless guide's mode real
-                let norm: c64 = weights.iter().zip(&p.vector).map(|(w, v)| w * v * v).sum();
+                let norm: c64 = weights.iter().zip(&profile).map(|(w, v)| w * v * v).sum();
                 let scale = one / norm.sqrt();
-                let mut profile: Vec<c64> = p.vector.iter().map(|v| v * scale).collect();
+                profile.iter_mut().for_each(|v| *v *= scale);
                 // the sign: the largest value positive
                 let peak = profile
                     .iter()

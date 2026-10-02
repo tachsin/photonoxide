@@ -1,11 +1,19 @@
 // The 2D view: the permittivity pictures, each mode's |E|², and a sweep's plots.
 
 import { intensityColour, permittivityColour, pixels, range } from "./colours";
-import { modeKind, type Mode, type Permittivity, type Raster, type SweepPoint } from "./events";
+import {
+  modeKind,
+  type Field,
+  type Mode,
+  type Permittivity,
+  type Raster,
+  type SParameters,
+  type SweepPoint,
+} from "./events";
 
 type Series = [number, number][];
 
-const SERIES = ["#4e9be6", "#f0803c", "#55b85f", "#a98be0"];
+const SERIES = ["#4e9be6", "#f0803c", "#55b85f", "#a98be0", "#e0c34e", "#4ec3c3", "#e06a8b", "#9aa3b0"];
 
 function picture(
   r: Raster,
@@ -51,7 +59,7 @@ export function padded(values: number[]): [number, number] {
   return [lo - 0.05 * span, hi + 0.05 * span];
 }
 
-function plot(title: string, xLabel: string, yLabel: string, series: Series[]): HTMLElement {
+function plot(title: string, xLabel: string, yLabel: string, series: Series[], labels?: string[]): HTMLElement {
   const [W, H, L, R, T, B] = [640, 260, 64, 16, 14, 40];
   const [x0, x1] = padded(series.flat().map((p) => p[0]));
   const [y0, y1] = padded(series.flat().map((p) => p[1]));
@@ -82,7 +90,8 @@ function plot(title: string, xLabel: string, yLabel: string, series: Series[]): 
   box.insertAdjacentHTML("beforeend", `<svg viewBox="0 0 ${W} ${H}">${parts.join("")}</svg>`);
   const legend = el("div", "legend");
   series.forEach((_, k) => {
-    legend.insertAdjacentHTML("beforeend", `<span style="color:${SERIES[k % SERIES.length]}">● mode ${k + 1}</span>`);
+    const label = labels?.[k] ?? `mode ${k + 1}`;
+    legend.insertAdjacentHTML("beforeend", `<span style="color:${SERIES[k % SERIES.length]}">● ${label}</span>`);
   });
   box.append(legend);
   return box;
@@ -100,6 +109,8 @@ export interface Content {
   pictures: Permittivity[];
   modes: Mode[];
   sweep: { parameter: string; points: SweepPoint[] } | null;
+  fields: Field[];
+  sparams: SParameters[];
 }
 
 /** Fills `root` with the 2D view of `c`; `groupIndex` gives a series' group indices. */
@@ -109,7 +120,40 @@ export async function render2d(
   groupIndex: (wavelengths: number[], n: number[]) => Promise<number[]>,
 ) {
   const out = document.createElement("div");
-  if (!c.pictures.length && !c.modes.length && !c.sweep) out.append(el("p", "weak", "no pictures yet"));
+  if (!c.pictures.length && !c.modes.length && !c.sweep && !c.fields.length) {
+    out.append(el("p", "weak", "no pictures yet"));
+  }
+  for (const f of c.fields) {
+    const r = f.intensity;
+    const card = el("section", "card");
+    card.append(el("h3", "", `${f.label} · ${f.wavelength_um} µm`));
+    card.append(el("p", "weak", `x from ${r.x0} to ${r.x1} µm, y from ${r.y0} to ${r.y1} µm · from zero (black) to its peak (pale yellow)`));
+    card.append(picture(r, intensityColour, true, 1000, 420));
+    out.append(card);
+  }
+  if (c.sparams.length) {
+    const ports = c.sparams[0].ports.length;
+    const series: Series[] = [];
+    const labels: string[] = [];
+    // from port 1, where the runs' light comes in
+    for (let q = 0; q < ports; q++) {
+      series.push(
+        c.sparams.map((sp) => {
+          const [re, im] = sp.s[q][0];
+          return [sp.wavelength_um, 10 * Math.log10(Math.max(re * re + im * im, 1e-30))];
+        }),
+      );
+      labels.push(`S${q + 1}1`);
+    }
+    out.append(el("h2", "", `S-parameters: ${c.sparams.length} wavelength${c.sparams.length === 1 ? "" : "s"}`));
+    out.append(el("p", "weak", "|S|², power from port p into port q, 2D by the effective index method: an estimate, not a device's 3D performance"));
+    if (c.sparams.length > 1) out.append(plot("|S_q1|², from port 1", "wavelength (µm)", "dB", series, labels));
+    const table = c.sparams[0].s
+      .map((row, q) => `<tr><th>${q + 1}</th>${row.map(([re, im]) => `<td>${(re * re + im * im).toFixed(5)}</td>`).join("")}</tr>`)
+      .join("");
+    const head = c.sparams[0].ports.map((_, p) => `<th>from ${p + 1}</th>`).join("");
+    out.insertAdjacentHTML("beforeend", `<table class="smatrix"><tr><th></th>${head}</tr>${table}</table>`);
+  }
   for (const p of c.pictures) {
     const r = p.raster;
     const [lo, hi] = range(r);

@@ -5,7 +5,14 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 import { intensityColour, mediumLook, pixels } from "./colours";
-import type { Mode, Scene } from "./events";
+import type { Raster, Scene } from "./events";
+
+/** A field to paint: on the vertical plane y = `at` (a mode on its cut), or the horizontal one z = `at`. */
+export interface Plane {
+  intensity: Raster;
+  normal: "y" | "z";
+  at: number;
+}
 
 type Point = [number, number];
 
@@ -154,8 +161,8 @@ export class View3D {
     else this.render();
   }
 
-  /** Paints `m`'s |E|² on its cut, or nothing. */
-  setField(m: Mode | null) {
+  /** Paints a field on its plane, or nothing. */
+  setField(m: Plane | null) {
     if (this.field) {
       this.scene.remove(this.field);
       this.field.geometry.dispose();
@@ -171,13 +178,14 @@ export class View3D {
       texture.magFilter = THREE.LinearFilter;
       texture.minFilter = THREE.LinearFilter;
       texture.needsUpdate = true;
-      // just in front of the cut face
-      const y = m.cut_y_um + 1e-3 * (r.x1 - r.x0);
+      // just in front of the face it lies on
+      const at = m.at + 1e-3 * (r.x1 - r.x0);
+      const corners =
+        m.normal === "y"
+          ? [r.x0, at, r.y0, r.x1, at, r.y0, r.x1, at, r.y1, r.x0, at, r.y1]
+          : [r.x0, r.y0, at, r.x1, r.y0, at, r.x1, r.y1, at, r.x0, r.y1, at];
       const g = new THREE.BufferGeometry();
-      g.setAttribute(
-        "position",
-        new THREE.Float32BufferAttribute([r.x0, y, r.y0, r.x1, y, r.y0, r.x1, y, r.y1, r.x0, y, r.y1], 3),
-      );
+      g.setAttribute("position", new THREE.Float32BufferAttribute(corners, 3));
       g.setAttribute("uv", new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2));
       g.setIndex([0, 1, 2, 0, 2, 3]);
       // added to what is under it: where the field is zero (black) the cut face shows unchanged

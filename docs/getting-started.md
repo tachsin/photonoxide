@@ -102,6 +102,7 @@ in `runs/`. From a terminal:
 photonoxide run jobs/strip-and-ring.toml        # a structure
 photonoxide run jobs/strip-modes.toml           # a strip's modes, and a sweep over wavelength
 photonoxide run jobs/strip-width-sweep.toml     # ... or over its width
+photonoxide run jobs/mmi-fdfd.toml              # a 1x2 splitter by 2D FDFD: its S-parameters
 ```
 
 The studio opens in 3D: the layers and shapes as solids over the run's window, cut where a modes
