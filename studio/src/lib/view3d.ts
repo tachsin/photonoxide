@@ -1,13 +1,13 @@
 // The 3D view: the run's layers and shapes as solids over its window, cut where a modes job
-// cut its cross-section, with the selected mode's |E|² on the cut. z is up; lengths are µm.
-// `structure` builds the solids; the viewer (View3D) and the cards' turning previews
-// (Preview3D) both draw them.
+// cut its cross-section, with the selected mode's |E|² on the cut and the mode travelling along
+// the guide. z is up; lengths are µm. `structure` builds the solids; the viewer (View3D) and the
+// turning previews of jobs (Preview3D) both draw them.
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 import { intensityColour, mediumLook, pixels } from "./colours";
-import type { Raster, Scene } from "./events";
+import type { Mode, ModeField, Raster, Scene } from "./events";
 import { CLEAR_OPACITY, type Look, type Looks } from "./layers";
 
 /** A field to paint: on the vertical plane y = `at` (a mode on its cut), or the horizontal one z = `at`. */
@@ -100,11 +100,12 @@ function solidMaterial(colour: string, solid: boolean, opacity: number): THREE.M
  * The solids of `s` over its window, without the layers named in `hidden` ("substrate" and
  * "cladding" included), each drawn with its look in `looks` if it has one: a layer's look
  * colours its shapes, or the layer itself when it has none (lib/layers.ts, `lookTarget`).
+ * `y` replaces the window's span along y: a preview shows a modes job in front of its cut too.
  */
-export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Looks = {}): THREE.Group {
+export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Looks = {}, y: [number, number] = s.y_um): THREE.Group {
   const group = new THREE.Group();
   const [x0, x1] = s.x_um;
-  const [y0, y1] = s.y_um;
+  const [y0, y1] = y;
   const [z0, z1] = s.z_um;
   // the clear media in a fixed order, bottom to top, after every solid: the order of
   // see-through faces then doesn't flip as the camera turns
@@ -141,12 +142,12 @@ export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Look
     if (b <= a) continue;
     for (const shape of shapes) {
       const { boundary, holes } = rings(shape.outline);
-      const p = clip(boundary, s.x_um, s.y_um);
+      const p = clip(boundary, s.x_um, y);
       if (!p.length) continue;
-      const outline = new THREE.Shape(p.map(([x, y]) => new THREE.Vector2(x, y)));
+      const outline = new THREE.Shape(p.map(([px, py]) => new THREE.Vector2(px, py)));
       for (const hole of holes) {
-        const h = clip(hole, s.x_um, s.y_um);
-        if (h.length) outline.holes.push(new THREE.Path(h.map(([x, y]) => new THREE.Vector2(x, y))));
+        const h = clip(hole, s.x_um, y);
+        if (h.length) outline.holes.push(new THREE.Path(h.map(([px, py]) => new THREE.Vector2(px, py))));
       }
       const g = new THREE.ExtrudeGeometry(outline, { depth: b - a, bevelEnabled: false, curveSegments: 1 });
       g.translate(0, 0, a);
@@ -162,14 +163,157 @@ export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Look
   return group;
 }
 
-/** Frees the geometries and materials of what `structure` built. */
+/** The cut a modes job takes its cross-section on: a translucent plane at y = `at` across the window, its edge outlined. */
+function cutPlane(s: Scene, at: number): THREE.Group {
+  const group = new THREE.Group();
+  const [x0, x1] = s.x_um;
+  const [z0, z1] = s.z_um;
+  const g = new THREE.PlaneGeometry(x1 - x0, z1 - z0);
+  g.rotateX(Math.PI / 2);
+  g.translate((x0 + x1) / 2, at, (z0 + z1) / 2);
+  const plane = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: CUT, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }));
+  plane.renderOrder = 90;
+  const edge = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: CUT, transparent: true, opacity: 0.9 }));
+  edge.renderOrder = 101;
+  group.add(plane, edge);
+  return group;
+}
+
+/** The cut's colour: the studio's accent, an amber that reads on both backdrops. */
+const CUT = "#e0a43a";
+
+/** Frees the geometries and materials of what `structure` built (the shared edge materials stay). */
 export function dispose(group: THREE.Object3D) {
   group.traverse((o) => {
     if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
       o.geometry.dispose();
-      if (o instanceof THREE.Mesh) (o.material as THREE.Material).dispose();
+      const m = o.material as THREE.Material;
+      if (m !== EDGE && m !== FAINT_EDGE) m.dispose();
     }
   });
+}
+
+/**
+ * A guided mode travelling along its guide (+y): its field on the cut and its propagation
+ * constant. The field along the guide is profile(x, z) · cos(β (y − cut) − ωt), decaying as
+ * e^(−decay · y) for a lossy mode.
+ */
+export interface Wave {
+  /** The field on the cut, x across and z up, from −1 to 1: the signed component, or |E| for an older run. */
+  profile: Raster;
+  /** Whether the profile is signed (false: |E| from an older run's |E|²). */
+  signed: boolean;
+  /** β = 2π Re n_eff / λ, rad/µm. */
+  beta: number;
+  /** k₀ Im n_eff, 1/µm. */
+  decay: number;
+  /** Where the cross-section was cut, µm: the window's front. */
+  cut: number;
+  /** The window along y, µm. */
+  y: [number, number];
+}
+
+/** The wave of mode `m` over scene `s`'s window, from its signed field `f`, or from |E| without one (an older run). */
+export function waveOf(m: Mode, f: ModeField | undefined, s: Scene): Wave {
+  const [re, im] = m.effective_index;
+  const k0 = (2 * Math.PI) / m.wavelength_um;
+  const profile = f ? f.values : { ...m.intensity, values: m.intensity.values.map((v) => Math.sqrt(Math.max(v, 0))) };
+  return { profile, signed: !!f, beta: k0 * re, decay: k0 * im, cut: m.cut_y_um, y: s.y_um };
+}
+
+/** A period of the wave, at speed 1, in seconds. */
+const PERIOD = 1.5;
+
+const WAVE_VERTEX = /* glsl */ `
+attribute float along;
+varying float vAlong;
+varying float vY;
+void main() {
+  vAlong = along;
+  vY = position.y;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+
+// the field at a point of the sheet: red where it is positive, blue where negative, see-through
+// where it is near zero, so the structure behind stays visible
+const WAVE_FRAGMENT = /* glsl */ `
+uniform sampler2D profile;
+uniform float beta;
+uniform float phase;
+uniform float cut;
+uniform float start;
+uniform float decay;
+uniform float opacity;
+uniform vec3 positive;
+uniform vec3 negative;
+varying float vAlong;
+varying float vY;
+void main() {
+  float p = texture2D(profile, vec2(vAlong, 0.5)).r * 2.0 - 1.0;
+  float v = p * cos(beta * (vY - cut) - phase) * exp(-decay * (vY - start));
+  float a = opacity * smoothstep(0.03, 1.0, abs(v));
+  if (a < 0.004) discard;
+  gl_FragColor = vec4(v >= 0.0 ? positive : negative, a);
+}`;
+
+/** Values from −1 to 1 as a one-row texture, each in a byte. */
+function profileTexture(values: number[]): THREE.DataTexture {
+  const data = new Uint8Array(values.length * 4);
+  values.forEach((v, k) => {
+    data[4 * k] = Math.round(((Math.max(-1, Math.min(1, v)) + 1) / 2) * 255);
+    data[4 * k + 3] = 255;
+  });
+  const t = new THREE.DataTexture(data, values.length, 1, THREE.RGBAFormat);
+  t.magFilter = THREE.LinearFilter;
+  t.minFilter = THREE.LinearFilter;
+  t.needsUpdate = true;
+  return t;
+}
+
+/** The wave's two sheets through the field's peak: across at its height, and up at its x. */
+function waveSheets(w: Wave, uniforms: Record<string, THREE.IUniform>[]): THREE.Group {
+  const r = w.profile;
+  let peak = 0;
+  r.values.forEach((v, k) => {
+    if (Math.abs(v) > Math.abs(r.values[peak])) peak = k;
+  });
+  const [ip, jp] = [peak % r.nx, Math.floor(peak / r.nx)];
+  const xp = r.x0 + ((ip + 0.5) * (r.x1 - r.x0)) / r.nx;
+  const zp = r.y0 + ((jp + 0.5) * (r.y1 - r.y0)) / r.ny;
+  const row = Array.from({ length: r.nx }, (_, i) => r.values[jp * r.nx + i]);
+  const column = Array.from({ length: r.ny }, (_, j) => r.values[j * r.nx + ip]);
+  const [y0, y1] = w.y;
+  const sheet = (corners: number[], along: number[], values: number[]) => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(corners, 3));
+    g.setAttribute("along", new THREE.Float32BufferAttribute(along, 1));
+    g.setIndex([0, 1, 2, 0, 2, 3]);
+    const u: Record<string, THREE.IUniform> = {
+      profile: { value: profileTexture(values) },
+      beta: { value: w.beta },
+      phase: { value: 0 },
+      cut: { value: w.cut },
+      start: { value: y0 },
+      decay: { value: w.decay },
+      opacity: { value: 0.9 },
+      positive: { value: new THREE.Color("#ef5a3c") },
+      negative: { value: new THREE.Color("#3b8eea") },
+    };
+    uniforms.push(u);
+    // drawn over the solids: the sheets run through the core, which would hide them
+    const mesh = new THREE.Mesh(
+      g,
+      new THREE.ShaderMaterial({ vertexShader: WAVE_VERTEX, fragmentShader: WAVE_FRAGMENT, uniforms: u, transparent: true, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),
+    );
+    mesh.renderOrder = 60;
+    return mesh;
+  };
+  const group = new THREE.Group();
+  group.add(
+    sheet([r.x0, y0, zp, r.x1, y0, zp, r.x1, y1, zp, r.x0, y1, zp], [0, 1, 1, 0], row),
+    sheet([xp, y0, r.y0, xp, y1, r.y0, xp, y1, r.y1, xp, y0, r.y1], [0, 0, 1, 1], column),
+  );
+  return group;
 }
 
 /** The camera direction the views start from: from the front (+y), above and to the right. */
@@ -187,6 +331,16 @@ export class View3D {
   private field: THREE.Mesh | null = null;
   private fieldVisible = true;
   private fieldOpacity = 1;
+  /** The travelling wave: its sheets and their uniforms, whether shown and playing, its speed and phase. */
+  private wave: { group: THREE.Group; uniforms: Record<string, THREE.IUniform>[] } | null = null;
+  private waveOn = true;
+  private playing = true;
+  private speed = 1;
+  private phase = 0;
+  /** Whether the view is on screen: the wave moves only then. */
+  private active = false;
+  private frameId = 0;
+  private last = 0;
   private box: THREE.Box3 | null = null;
 
   constructor(
@@ -204,7 +358,61 @@ export class View3D {
     this.controls.addEventListener("change", () => this.render());
     this.renderer.domElement.addEventListener("dblclick", () => this.frame());
     new ResizeObserver(() => this.resize()).observe(container);
+    document.addEventListener("visibilitychange", () => this.animate());
     this.resize();
+  }
+
+  /** Shows a guided mode travelling along the guide, or none. */
+  setWave(w: Wave | null) {
+    if (this.wave) {
+      this.scene.remove(this.wave.group);
+      for (const u of this.wave.uniforms) (u.profile.value as THREE.Texture).dispose();
+      dispose(this.wave.group);
+      this.wave = null;
+    }
+    if (w) {
+      const uniforms: Record<string, THREE.IUniform>[] = [];
+      const group = waveSheets(w, uniforms);
+      for (const u of uniforms) u.phase.value = this.phase;
+      group.visible = this.waveOn;
+      this.wave = { group, uniforms };
+      this.scene.add(group);
+    }
+    this.render();
+    this.animate();
+  }
+
+  /** Whether the wave shows, whether it moves, and how fast (1: a period in 1.5 s). */
+  setWaveLook(on: boolean, playing: boolean, speed: number) {
+    this.waveOn = on;
+    this.playing = playing;
+    this.speed = speed;
+    if (this.wave) this.wave.group.visible = on;
+    this.render();
+    this.animate();
+  }
+
+  /** Whether the view is on screen; the wave stops moving while it isn't. */
+  setActive(active: boolean) {
+    this.active = active;
+    this.animate();
+  }
+
+  /** Moves the wave on, frame by frame, while it is shown, playing and on screen. */
+  private animate() {
+    const moving = () => !!this.wave && this.waveOn && this.playing && this.active && !document.hidden;
+    if (this.frameId || !moving()) return;
+    this.last = performance.now();
+    const step = (t: number) => {
+      this.frameId = 0;
+      if (!moving()) return;
+      this.phase = (this.phase + ((t - this.last) / 1000) * ((2 * Math.PI * this.speed) / PERIOD)) % (2 * Math.PI);
+      this.last = t;
+      for (const u of this.wave!.uniforms) u.phase.value = this.phase;
+      this.render();
+      this.frameId = requestAnimationFrame(step);
+    };
+    this.frameId = requestAnimationFrame(step);
   }
 
   /** The backdrop: deep slate for the dark theme, a pale grey for the light one. */
@@ -218,6 +426,7 @@ export class View3D {
   clear() {
     this.clearStructure();
     this.setField(null);
+    this.setWave(null);
     this.box = null;
   }
 
@@ -354,15 +563,17 @@ export class View3D {
 
 /**
  * A job's structure turning slowly on a card. It draws only while on screen and while the window
- * is visible, and lets go of its WebGL context when destroyed.
+ * is visible, and lets go of its WebGL context when destroyed. A new scene (`setScene`) replaces
+ * the structure and keeps the turn where it is.
  */
 export class Preview3D {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
   private light = new THREE.DirectionalLight("#ffffff", 2.2);
+  private structure = new THREE.Group();
   private centre = new THREE.Vector3();
-  private size = new THREE.Vector3();
+  private size = new THREE.Vector3(1, 1, 1);
   private distance = 1;
   private yaw = 1.1;
   private visible = false;
@@ -373,18 +584,13 @@ export class Preview3D {
 
   constructor(
     private container: HTMLElement,
-    s: Scene,
     dark: boolean,
   ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(this.renderer.domElement);
-    this.scene.add(new THREE.HemisphereLight("#e4ecf7", "#2a2e35", 1.6), this.light, this.light.target);
-    this.scene.add(structure(s));
+    this.scene.add(new THREE.HemisphereLight("#e4ecf7", "#2a2e35", 1.6), this.light, this.light.target, this.structure);
     this.camera.up.set(0, 0, 1);
-    const box = new THREE.Box3(new THREE.Vector3(s.x_um[0], s.y_um[0], s.z_um[0]), new THREE.Vector3(s.x_um[1], s.y_um[1], s.z_um[1]));
-    box.getCenter(this.centre);
-    box.getSize(this.size);
     this.setDark(dark);
     this.observer = new IntersectionObserver(([e]) => {
       this.visible = e.isIntersecting;
@@ -400,6 +606,28 @@ export class Preview3D {
   private wake = () => {
     if (!document.hidden && this.visible) this.start();
   };
+
+  /**
+   * Shows `s`, in place of what was shown. With `cut` (a modes job's, at the y where the
+   * scene's window ends), the window reaches as far in front of the cut as behind it, and the
+   * cut is drawn as a plane, so the device shows whole and the cross-section's place on it.
+   */
+  setScene(s: Scene, options: { cut?: number } = {}) {
+    for (const child of this.structure.children.slice()) {
+      this.structure.remove(child);
+      dispose(child);
+    }
+    const cut = options.cut;
+    const depth = s.y_um[1] - s.y_um[0];
+    const y: [number, number] = cut === undefined ? s.y_um : [cut - depth, cut + depth];
+    this.structure.add(structure(s, new Set(), {}, y));
+    if (cut !== undefined) this.structure.add(cutPlane(s, cut));
+    const box = new THREE.Box3(new THREE.Vector3(s.x_um[0], y[0], s.z_um[0]), new THREE.Vector3(s.x_um[1], y[1], s.z_um[1]));
+    box.getCenter(this.centre);
+    box.getSize(this.size);
+    this.fit();
+    this.draw();
+  }
 
   setDark(dark: boolean) {
     edgeColours(dark);

@@ -1,7 +1,7 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
 import { api, type AppState, type Info, type Settings } from "./api";
-import type { Event, Field, Mode, Permittivity, Scene, SParameters, SweepPoint } from "./events";
+import type { Event, Field, Mode, ModeField, Permittivity, Scene, SParameters, SweepPoint } from "./events";
 import type { Looks } from "./layers";
 
 export type Page = "home" | "examples" | "builder" | "runs" | "viewer" | "compare" | "validation" | "settings";
@@ -99,6 +99,8 @@ export const run = $state({
   scene: null as Scene | null,
   pictures: [] as Permittivity[],
   modes: [] as Mode[],
+  /** The modes' signed fields, by the mode's label; an older run has none. */
+  modeFields: {} as Record<string, ModeField>,
   sweep: null as { parameter: string; points: SweepPoint[] } | null,
   fields: [] as Field[],
   sparams: [] as SParameters[],
@@ -112,6 +114,10 @@ export const run = $state({
   /** Whether the 3D view paints the field (a mode on its cut, an FDFD field on its layer), and how strongly, 0 to 1. */
   fieldVisible: true,
   fieldOpacity: 1,
+  /** A modes run's selected mode travelling along its guide in 3D: shown, playing, and how fast (1: a period in 1.5 s). */
+  wave: true,
+  wavePlaying: true,
+  waveSpeed: 1,
   selected: 0,
   opened: performance.now(),
   /** Bumped on every new event, for views that redraw. */
@@ -131,6 +137,9 @@ function take(e: Event) {
       break;
     case "mode":
       run.modes.push(e);
+      break;
+    case "mode_field":
+      run.modeFields[e.label] = e;
       break;
     case "sweep_point":
       run.sweep ??= { parameter: e.parameter, points: [] };
@@ -155,6 +164,7 @@ function reset(info: Info) {
     scene: null,
     pictures: [],
     modes: [],
+    modeFields: {},
     sweep: null,
     fields: [],
     sparams: [],
@@ -166,6 +176,9 @@ function reset(info: Info) {
     looks: {},
     fieldVisible: true,
     fieldOpacity: 1,
+    wave: true,
+    wavePlaying: true,
+    waveSpeed: 1,
     selected: 0,
     opened: performance.now(),
     version: run.version + 1,

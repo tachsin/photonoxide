@@ -63,6 +63,21 @@ export interface Mode {
   cut_y_um: number;
 }
 
+/**
+ * A mode's signed transverse field on its cut, recorded right after its Mode (same label): the
+ * component of E that carries most of |E|², its phase fixed so it is real and positive at its
+ * peak. Along the guide (+y) the field is this times cos(β (y − cut_y) − ωt).
+ */
+export interface ModeField {
+  type: "mode_field";
+  label: string;
+  wavelength_um: number;
+  /** "Ex" (across) or "Ez" (up). */
+  component: string;
+  /** From −1 to 1, positive at the peak; x across, z up, on the Mode's grid. */
+  values: Raster;
+}
+
 export interface SweepPoint {
   type: "sweep_point";
   parameter: string;
@@ -96,6 +111,7 @@ export type Event =
   | Scene
   | Permittivity
   | Mode
+  | ModeField
   | SweepPoint
   | Field
   | SParameters

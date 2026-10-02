@@ -38,8 +38,9 @@
 //! - `"modes"`: the guided modes of a waveguide's cross-section, the same stack and shapes cut at
 //!   y = `cut_y_um` (the modes travel along y), by the full-vector solver
 //!   ([`crate::mode::vector`]) on a uniform grid of `step_nm`; recorded as a picture of the
-//!   cross-section and one of each mode's |E|², and optionally swept over the wavelength or a
-//!   rectangle's width, each point recorded as it is solved.
+//!   cross-section and, for each mode, one of its |E|² and one of its signed transverse field,
+//!   and optionally swept over the wavelength or a rectangle's width, each point recorded as it
+//!   is solved.
 //!
 //! ```toml
 //! name = "strip-modes"
@@ -177,6 +178,25 @@ pub enum Event {
         /// The y where the cross-section was cut, µm.
         #[serde(default)]
         cut_y_um: f64,
+    },
+    /// A guided mode's signed field on its cross-section, recorded right after its
+    /// [`Event::Mode`]: the transverse component of E that carries most of |E|², with the
+    /// mode's global phase chosen to make that component real and positive where its magnitude
+    /// peaks, and then its real part. For a lossless guided mode the component is then real
+    /// everywhere up to round-off, so along the guide (the modes travel along +y) the field is
+    /// this picture times cos(β (y − cut_y) − ωt), with β = k₀ Re n_eff, and a lossy mode's
+    /// also decays as e^(−k₀ Im n_eff (y − cut_y)). Unlike |E|², it shows where a higher-order
+    /// mode changes sign.
+    ModeField {
+        /// The [`Event::Mode`]'s label, e.g. `"mode 1 of 2"`.
+        label: String,
+        /// The vacuum wavelength, µm.
+        wavelength_um: f64,
+        /// The component, in the job's axes: `"Ex"` (across) or `"Ez"` (up).
+        component: String,
+        /// Its real part at the cells' centres, scaled so that its largest magnitude is 1 (from
+        /// −1 to 1, positive at the peak); x across, z up, on the [`Event::Mode`]'s grid.
+        values: Raster,
     },
     /// A point of a sweep: the modes' effective indices at one value of the parameter.
     SweepPoint {
@@ -597,14 +617,15 @@ fn cross_section(
     crate::mode::vector::CrossSection::new(xs, zs, cells)
 }
 
-/// A mode's |E|² as a picture of about `step` per pixel over `x` × `z`, each pixel the cell it
-/// falls in (the grid needn't be uniform), its largest value 1.
-fn intensity(
-    fields: &crate::mode::fields::Fields,
+/// `value(i, j)` of the cross-section's cells as a picture of about `step` per pixel over
+/// `x` × `z`, each pixel the cell it falls in (the grid needn't be uniform), divided by its
+/// largest magnitude.
+fn picture(
     cs: &crate::mode::vector::CrossSection,
     x: [f64; 2],
     z: [f64; 2],
     step: f64,
+    value: impl Fn(usize, usize) -> f64,
 ) -> Raster {
     let (nx, ny) = (
         ((x[1] - x[0]) / step).round().max(1.0) as usize,
@@ -619,16 +640,12 @@ fn intensity(
         let cj = cell(cs.y(), zv);
         for i in 0..nx {
             let xv = x[0] + (i as f64 + 0.5) * (x[1] - x[0]) / nx as f64;
-            values[j * nx + i] = fields
-                .e(cell(cs.x(), xv), cj)
-                .iter()
-                .map(|c| c.norm_sqr())
-                .sum();
+            values[j * nx + i] = value(cell(cs.x(), xv), cj);
         }
     }
     let peak = values
         .iter()
-        .copied()
+        .map(|v| v.abs())
         .fold(0.0, f64::max)
         .max(f64::MIN_POSITIVE);
     Raster {
@@ -640,6 +657,63 @@ fn intensity(
         y1: z[1],
         values: values.iter().map(|v| (v / peak) as f32).collect(),
     }
+}
+
+/// A mode's |E|² as a [`picture`], its largest value 1.
+fn intensity(
+    fields: &crate::mode::fields::Fields,
+    cs: &crate::mode::vector::CrossSection,
+    x: [f64; 2],
+    z: [f64; 2],
+    step: f64,
+) -> Raster {
+    picture(cs, x, z, step, |i, j| {
+        fields.e(i, j).iter().map(|c| c.norm_sqr()).sum()
+    })
+}
+
+/// A mode's signed field as [`Event::ModeField`] records it: the name of the transverse
+/// component of E with the larger share of ∫|E|² dA, and the real part of that component, its
+/// global phase fixed to make it real and positive at its largest magnitude, as a [`picture`].
+fn signed_field(
+    fields: &crate::mode::fields::Fields,
+    cs: &crate::mode::vector::CrossSection,
+    x: [f64; 2],
+    z: [f64; 2],
+    step: f64,
+) -> (String, Raster) {
+    let (ni, nj) = (fields.x().len(), fields.y().len());
+    let mut share = [0.0f64; 2];
+    for i in 0..ni {
+        for j in 0..nj {
+            let (e, area) = (fields.e(i, j), fields.area[i * nj + j]);
+            share[0] += e[0].norm_sqr() * area;
+            share[1] += e[1].norm_sqr() * area;
+        }
+    }
+    // the solver's (x, y) cross-section is the job's (x, z)
+    let (c, name) = if share[0] >= share[1] {
+        (0, "Ex")
+    } else {
+        (1, "Ez")
+    };
+    let mut peak = num_complex::Complex64::new(0.0, 0.0);
+    for i in 0..ni {
+        for j in 0..nj {
+            let v = fields.e(i, j)[c];
+            if v.norm_sqr() > peak.norm_sqr() {
+                peak = v;
+            }
+        }
+    }
+    // e^(−i arg) of the peak: it, and with it the whole component, made real
+    let turn = if peak.norm() > 0.0 {
+        peak.conj() / peak.norm()
+    } else {
+        num_complex::Complex64::new(1.0, 0.0)
+    };
+    let raster = picture(cs, x, z, step, |i, j| (fields.e(i, j)[c] * turn).re);
+    (name.to_owned(), raster)
 }
 
 fn reason(stop: &Stop) -> Option<String> {
@@ -874,13 +948,22 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             return Ok(());
         }
         let n = m.effective_index();
+        let fields = m.fields(&cs)?;
+        let label = format!("mode {} of {}", k + 1, sorted.len());
         run.record(&Event::Mode {
-            label: format!("mode {} of {}", k + 1, sorted.len()),
+            label: label.clone(),
             wavelength_um: lam.to_um(),
             effective_index: [n.re, n.im],
             te_fraction: m.te_fraction(),
-            intensity: intensity(&m.fields(&cs)?, &cs, task.x_um, z, step),
+            intensity: intensity(&fields, &cs, task.x_um, z, step),
             cut_y_um: cut_y,
+        })?;
+        let (component, values) = signed_field(&fields, &cs, task.x_um, z, step);
+        run.record(&Event::ModeField {
+            label,
+            wavelength_um: lam.to_um(),
+            component,
+            values,
         })?;
     }
     let Some(sweep) = &task.sweep else {
@@ -1072,8 +1155,8 @@ size_um = [0.5, 10.0]
         let mut run = Run::create(&root.0, &job).unwrap();
         execute(&job, &mut run, &Stop::new(None)).unwrap();
         let events: Vec<Event> = replay(run.dir()).unwrap();
-        // started, the scene, the cross-section, two modes, finished
-        assert_eq!(events.len(), 6, "{events:?}");
+        // started, the scene, the cross-section, two modes and their fields, finished
+        assert_eq!(events.len(), 8, "{events:?}");
         let Event::Mode {
             effective_index,
             te_fraction,
@@ -1091,15 +1174,97 @@ size_um = [0.5, 10.0]
         assert!(*te_fraction > 0.9);
         let (lo, hi) = intensity.range();
         assert!(lo >= 0.0 && (hi - 1.0).abs() < 1e-6);
-        let Event::Mode {
-            effective_index: second,
-            te_fraction,
+        // its signed field: E_x, of one sign, on the same grid, peaking where |E|² does
+        let Event::ModeField {
+            label,
+            component,
+            values,
             ..
         } = &events[4]
         else {
             panic!("{:?}", events[4])
         };
+        assert_eq!(label, "mode 1 of 2");
+        assert_eq!(component, "Ex");
+        assert_eq!((values.nx, values.ny), (intensity.nx, intensity.ny));
+        assert!((values.range().1 - 1.0).abs() < 1e-6);
+        // of one sign, but for a cell or two at the core's corners, where E_x is singular
+        for j in 0..values.ny {
+            for i in 0..values.nx {
+                let v = values.at(i, j);
+                let x = values.x0 + (i as f64 + 0.5) * (values.x1 - values.x0) / values.nx as f64;
+                let z = values.y0 + (j as f64 + 0.5) * (values.y1 - values.y0) / values.ny as f64;
+                let corner = [-0.25, 0.25]
+                    .iter()
+                    .any(|&cx| [2.0, 2.22].iter().any(|&cz| (x - cx).hypot(z - cz) < 0.06));
+                assert!(v > -0.02 || corner, "{v} at ({x}, {z})");
+            }
+        }
+        let top = values.values.iter().position(|&v| v == 1.0).unwrap();
+        assert!(intensity.values[top] > 0.8, "{}", intensity.values[top]);
+        // E_x is most of |E|² in the fundamental TE mode: its square follows |E|² closely
+        let squares: Vec<f64> = values.values.iter().map(|&v| f64::from(v * v)).collect();
+        let total: Vec<f64> = intensity.values.iter().map(|&v| f64::from(v)).collect();
+        let mean = |a: &[f64]| a.iter().sum::<f64>() / a.len() as f64;
+        let (ma, mb) = (mean(&squares), mean(&total));
+        let (mut ab, mut aa, mut bb) = (0.0, 0.0, 0.0);
+        for (a, b) in squares.iter().zip(&total) {
+            ab += (a - ma) * (b - mb);
+            aa += (a - ma) * (a - ma);
+            bb += (b - mb) * (b - mb);
+        }
+        let correlation = ab / (aa * bb).sqrt();
+        assert!(correlation > 0.95, "{correlation}");
+        let Event::Mode {
+            effective_index: second,
+            te_fraction,
+            ..
+        } = &events[5]
+        else {
+            panic!("{:?}", events[5])
+        };
         assert!(second[0] < effective_index[0] && *te_fraction < 0.1);
+        // the TM-like mode's field is mostly vertical
+        assert!(matches!(&events[6], Event::ModeField { component, .. } if component == "Ez"));
+    }
+
+    #[test]
+    fn a_higher_order_modes_field_changes_sign_across_the_core() {
+        let root = temp("te1");
+        // a 1 µm strip guides TE0, TE1 and TM0; TE1 is odd in x
+        let text = MODES
+            .replace("size_um = [0.5, 10.0]", "size_um = [1.0, 10.0]")
+            .replace("x_um = [-1.0, 1.0]", "x_um = [-1.2, 1.2]")
+            .replace("step_nm = 25.0", "step_nm = 40.0")
+            .replace("modes = 2", "modes = 3");
+        let job = Job::parse(&text).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let events: Vec<Event> = replay(run.dir()).unwrap();
+        let fields: Vec<(&String, &Raster)> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::ModeField {
+                    component, values, ..
+                } => Some((component, values)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(fields.len(), 3);
+        // E_x along the row through the core's middle, a quarter of the width either side
+        let across = |r: &Raster, x: f64| {
+            let i = (((x - r.x0) / (r.x1 - r.x0)) * r.nx as f64) as usize;
+            // the silicon is 2 to 2.22 µm up, on the buried oxide
+            let j = (((2.11 - r.y0) / (r.y1 - r.y0)) * r.ny as f64) as usize;
+            r.values[j * r.nx + i]
+        };
+        let (_, te0) = fields[0];
+        assert!(across(te0, -0.25) > 0.3 && across(te0, 0.25) > 0.3);
+        let odd = fields.iter().any(|(c, r)| {
+            let (a, b) = (across(r, -0.25), across(r, 0.25));
+            *c == "Ex" && a * b < 0.0 && a.abs() > 0.3 && b.abs() > 0.3
+        });
+        assert!(odd, "no mode changes sign across the core");
     }
 
     #[test]
