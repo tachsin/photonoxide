@@ -1,4 +1,5 @@
-//! Four waveguides with dielectric corners, against their exact modal indices.
+//! Four waveguides with dielectric corners, against their exact modal indices, by the standard
+//! scheme and by Hadley's high-accuracy equations.
 //!
 //! G. R. Hadley, "High-accuracy finite-difference equations for dielectric waveguide analysis
 //! II: dielectric corners", J. Lightwave Technol. 20, 1219 (2002),
@@ -12,9 +13,16 @@
 //!   derivative on the west and south edges and is zero on the others, H_x the opposite.
 //!
 //! Those edges are mirror walls: H_x zero on an edge normal to x is an electric wall, on an
-//! edge normal to y a magnetic one. photonoxide's corners converge at about first order (convex)
-//! to 1.4–1.8 (concave), as standard finite differences do; Hadley's corner equations are on
-//! the roadmap.
+//! edge normal to y a magnetic one. Each problem is solved twice on each grid:
+//!
+//! - by the standard full-vector scheme (`mode::vector`, Fallahkhair et al. 2008), which
+//!   converges at about first order at the convex corners (Figs. 4–5), with the error changing
+//!   sign on the way, and at 1.3–1.8 at the concave ones (Figs. 6–7);
+//! - by Hadley's equations (`mode::hadley`: his part I at uniform and interface nodes, part
+//!   II's Eqs. 50 and 52 at the corner), about second order, as his Figs. 8–11 show for his
+//!   "Full Model". The errors follow his curves: read off the log plots, about 5e-6 at 16 grid
+//!   points per axis in Figs. 9 and 11, and about 1e-7 at 64 in Fig. 11 (5.1e-6, 4.9e-6 and
+//!   1.2e-7 here).
 //!
 //! ```sh
 //! cargo run --release --example hadley_corners
@@ -25,6 +33,7 @@ mod common;
 use std::process::ExitCode;
 
 use faer::c64;
+use photonoxide::mode::hadley;
 use photonoxide::mode::vector::{self, Boundaries, Boundary, CrossSection, Permittivity};
 use photonoxide::units::Wavelength;
 
@@ -68,23 +77,35 @@ fn main() -> ExitCode {
         (7, 8.0, false, 2.761_465_320),
     ] {
         let kind = if boxed { "box" } else { "impinged corner" };
-        println!("Fig. {fig}: {kind}, eps {eps} and 1, 1 x 1 um quarter domain");
-        let mut n_eff = f64::NAN;
-        for n in [40, 80, 160] {
-            let modes = vector::modes(&problem(eps, boxed, n), wavelength, 1, None)
-                .expect("the solver converges");
-            n_eff = modes[0].effective_index().re;
+        println!("Fig. {fig}: {kind}, eps {eps} and 1, 1 x 1 um quarter domain; relative errors");
+        println!("  grid                    standard scheme            Hadley's equations");
+        let (mut standard, mut high) = (f64::NAN, f64::NAN);
+        for n in [8, 16, 32, 64, 128] {
+            let cs = problem(eps, boxed, n);
+            standard = vector::modes(&cs, wavelength, 1, None).expect("the solver converges")[0]
+                .effective_index()
+                .re;
+            high = hadley::modes(&cs, wavelength, 1, None).expect("the solver converges")[0]
+                .effective_index()
+                .re;
             println!(
-                "  grid {n} x {n} ({:.2} nm): n_eff {n_eff:.9}, error {:+.2e}",
+                "  {n:>3} x {n:<3} ({:>6.2} nm):  {standard:.9} {:+.2e}   {high:.9} {:+.2e}",
                 1000.0 / n as f64,
-                n_eff - exact
+                (standard - exact) / exact,
+                (high - exact) / exact,
             );
         }
         checks.compare(
-            &format!("Fig. {fig} n_eff at a 6.25 nm grid"),
-            n_eff,
+            &format!("Fig. {fig}, standard, 7.8 nm grid"),
+            standard,
             exact,
             5e-5,
+        );
+        checks.compare(
+            &format!("Fig. {fig}, Hadley's, 7.8 nm grid"),
+            high,
+            exact,
+            1e-6,
         );
     }
     checks.finish()

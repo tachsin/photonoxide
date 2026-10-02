@@ -1,21 +1,37 @@
-Fig. 4: box, eps 2.25 and 1, 1 x 1 um quarter domain
-  grid 40 x 40 (25.00 nm): n_eff 1.276313516, error +3.95e-5
-  grid 80 x 80 (12.50 nm): n_eff 1.276322602, error +4.86e-5
-  grid 160 x 160 (6.25 nm): n_eff 1.276307107, error +3.31e-5
-  Fig. 4 n_eff at a 6.25 nm grid         1.276307   paper 1.27627404 ± 5e-5      ok
-Fig. 5: box, eps 8 and 1, 1 x 1 um quarter domain
-  grid 40 x 40 (25.00 nm): n_eff 2.656690596, error -1.06e-4
-  grid 80 x 80 (12.50 nm): n_eff 2.656791075, error -5.84e-6
-  grid 160 x 160 (6.25 nm): n_eff 2.656807876, error +1.10e-5
-  Fig. 5 n_eff at a 6.25 nm grid         2.656808   paper 2.65679692 ± 5e-5      ok
-Fig. 6: impinged corner, eps 2.25 and 1, 1 x 1 um quarter domain
-  grid 40 x 40 (25.00 nm): n_eff 1.387858952, error -6.75e-5
-  grid 80 x 80 (12.50 nm): n_eff 1.387900942, error -2.55e-5
-  grid 160 x 160 (6.25 nm): n_eff 1.387916086, error -1.03e-5
-  Fig. 6 n_eff at a 6.25 nm grid         1.387916   paper 1.387926425 ± 5e-5     ok
-Fig. 7: impinged corner, eps 8 and 1, 1 x 1 um quarter domain
-  grid 40 x 40 (25.00 nm): n_eff 2.761355845, error -1.09e-4
-  grid 80 x 80 (12.50 nm): n_eff 2.761431838, error -3.35e-5
-  grid 160 x 160 (6.25 nm): n_eff 2.761454442, error -1.09e-5
-  Fig. 7 n_eff at a 6.25 nm grid         2.761454   paper 2.76146532 ± 5e-5      ok
-all 4 within tolerance of the paper
+Fig. 4: box, eps 2.25 and 1, 1 x 1 um quarter domain; relative errors
+  grid                    standard scheme            Hadley's equations
+    8 x 8   (125.00 nm):  1.274534164 -1.36e-3   1.276463872 +1.49e-4
+   16 x 16  ( 62.50 nm):  1.275988768 -2.24e-4   1.276314639 +3.18e-5
+   32 x 32  ( 31.25 nm):  1.276289919 +1.24e-5   1.276283133 +7.12e-6
+   64 x 64  ( 15.62 nm):  1.276325199 +4.01e-5   1.276276184 +1.68e-6
+  128 x 128 (  7.81 nm):  1.276312326 +3.00e-5   1.276274564 +4.11e-7
+  Fig. 4, standard, 7.8 nm grid          1.276312   paper 1.27627404 ± 5e-5      ok
+  Fig. 4, Hadley's, 7.8 nm grid          1.276275   paper 1.27627404 ± 1e-6      ok
+Fig. 5: box, eps 8 and 1, 1 x 1 um quarter domain; relative errors
+  grid                    standard scheme            Hadley's equations
+    8 x 8   (125.00 nm):  2.653939134 -1.08e-3   2.656829677 +1.23e-5
+   16 x 16  ( 62.50 nm):  2.655937883 -3.23e-4   2.656810533 +5.12e-6
+   32 x 32  ( 31.25 nm):  2.656609107 -7.07e-5   2.656800255 +1.26e-6
+   64 x 64  ( 15.62 nm):  2.656774085 -8.60e-6   2.656797760 +3.16e-7
+  128 x 128 (  7.81 nm):  2.656805896 +3.38e-6   2.656797145 +8.48e-8
+  Fig. 5, standard, 7.8 nm grid          2.656806   paper 2.65679692 ± 5e-5      ok
+  Fig. 5, Hadley's, 7.8 nm grid          2.656797   paper 2.65679692 ± 1e-6      ok
+Fig. 6: impinged corner, eps 2.25 and 1, 1 x 1 um quarter domain; relative errors
+  grid                    standard scheme            Hadley's equations
+    8 x 8   (125.00 nm):  1.387030771 -6.45e-4   1.387965116 +2.79e-5
+   16 x 16  ( 62.50 nm):  1.387647491 -2.01e-4   1.387921250 -3.73e-6
+   32 x 32  ( 31.25 nm):  1.387832440 -6.77e-5   1.387923475 -2.13e-6
+   64 x 64  ( 15.62 nm):  1.387891863 -2.49e-5   1.387925499 -6.67e-7
+  128 x 128 (  7.81 nm):  1.387912693 -9.89e-6   1.387926175 -1.80e-7
+  Fig. 6, standard, 7.8 nm grid          1.387913   paper 1.387926425 ± 5e-5     ok
+  Fig. 6, Hadley's, 7.8 nm grid          1.387926   paper 1.387926425 ± 1e-6     ok
+Fig. 7: impinged corner, eps 8 and 1, 1 x 1 um quarter domain; relative errors
+  grid                    standard scheme            Hadley's equations
+    8 x 8   (125.00 nm):  2.759621399 -6.68e-4   2.761634048 +6.11e-5
+   16 x 16  ( 62.50 nm):  2.760910942 -2.01e-4   2.761478815 +4.89e-6
+   32 x 32  ( 31.25 nm):  2.761303402 -5.86e-5   2.761466605 +4.65e-7
+   64 x 64  ( 15.62 nm):  2.761416581 -1.76e-5   2.761465661 +1.24e-7
+  128 x 128 (  7.81 nm):  2.761449812 -5.62e-6   2.761465509 +6.84e-8
+  Fig. 7, standard, 7.8 nm grid          2.761450   paper 2.76146532 ± 5e-5      ok
+  Fig. 7, Hadley's, 7.8 nm grid          2.761466   paper 2.76146532 ± 1e-6      ok
+all 8 within tolerance of the paper
