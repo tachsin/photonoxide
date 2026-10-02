@@ -10,21 +10,21 @@ readme = "README.md"
 keywords = ["photonics", "fdtd", "inverse-design", "electromagnetics", "silicon-photonics"]
 categories = ["science", "simulation", "mathematics"]
 # what goes into the published crate: the library, its docs and jobs; not CI, the brand files or the project site
-exclude = [".github", "assets", "site"]
+exclude = [".github", "assets", "site", "studio"]
+
+# the studio (studio/src-tauri) is the photonoxide program: it runs jobs, live in its window or
+# headless, and is built from the repository, not published
+[workspace]
+members = ["studio/src-tauri"]
+default-members = ["."]
 
 [dependencies]
-# the studio's GUI
-eframe = { version = "0.36", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"], optional = true }
 faer = "0.24.4"
 num-complex = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 toml = "1"
 yaml-rust2 = "0.13.0"
-
-[features]
-# the studio: the native window that shows runs live (`photonoxide run`, `photonoxide view`)
-studio = ["dep:eframe"]
 
 # the solvers' heavy lifting is in dependencies (faer's sparse LU): optimize them in debug and
 # test builds too, so `cargo test` stays fast. Users' builds are unaffected.

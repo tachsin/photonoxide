@@ -23,8 +23,6 @@ pub mod mode;
 pub mod raster;
 pub mod run;
 pub mod stack;
-#[cfg(feature = "studio")]
-pub mod studio;
 pub mod units;
 pub mod validation;
 
