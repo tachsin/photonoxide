@@ -206,6 +206,7 @@ jobs:
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p '*.sig'
           if ! ls *.sig > /dev/null 2>&1; then
             echo "no signed updates (TAURI_SIGNING_PRIVATE_KEY unset): no manifest"
+            gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --latest
             exit 0
           fi
           base="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
@@ -238,3 +239,5 @@ jobs:
             '{version: $version, notes: $notes, pub_date: $date, platforms: $platforms}' > latest.json
           jq '.platforms | keys' latest.json
           gh release upload "$TAG" latest.json -R "$GITHUB_REPOSITORY" --clobber
+          # only now, with everything attached, is this the release the programs update to
+          gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --latest

@@ -65,7 +65,11 @@ key, installs it and restarts. A copy built from the repository, or the bare `.t
 update itself. They say so.
 
 - **The manifest:** the release workflow writes `latest.json` on every release, and the
-  programs read it from `releases/latest`.
+  programs read it from `releases/latest`. A release becomes "latest" only once its binaries
+  and manifest are attached, about ten minutes after it appears (release-plz creates it
+  without the mark, and the workflow's last step sets it). Until then the programs keep seeing
+  the previous release. When GitHub already lists a newer one, they say it is on its way and
+  look again every few minutes.
 - **The release key:** the updates are signed with a minisign key. The public half is
   `plugins.updater.pubkey` in `src-tauri/tauri.conf.json`. The private half is the
   `TAURI_SIGNING_PRIVATE_KEY` secret of the repository, with a copy kept by the maintainer.

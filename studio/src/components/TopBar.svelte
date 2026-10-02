@@ -39,6 +39,11 @@
     <kbd class="kbd kbd-xs">{mac ? "⌘" : "Ctrl"}</kbd><kbd class="kbd kbd-xs">K</kbd>
   </button>
 
+  {#if updater.status === "publishing"}
+    <div class="tooltip tooltip-bottom" data-tip="Its binaries are being built and signed: the Update button appears here when it is ready, in a few minutes">
+      <span class="badge badge-soft badge-info gap-1.5 py-3"><span class="loading loading-spinner loading-xs"></span> {updater.version} on the way</span>
+    </div>
+  {/if}
   {#if updater.status === "available" || updater.status === "downloading" || updater.status === "installing"}
     <button class="btn btn-sm btn-primary gap-1.5 shadow-lg shadow-primary/20" onclick={() => (updater.dialog = true)} title="A new release is out: see what's new and update">
       <Download size={15} />

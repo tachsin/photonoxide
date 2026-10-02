@@ -98,6 +98,8 @@
         </button>
         {#if updater.status === "available"}
           <button class="btn btn-primary btn-sm" onclick={() => (updater.dialog = true)}>Update to {updater.version}</button>
+        {:else if updater.status === "publishing"}
+          <span class="text-sm text-info">{updater.version} is being published: ready in a few minutes.</span>
         {:else if updater.status === "none"}
           <span class="text-sm text-success">You have the latest release.</span>
         {:else if updater.status === "error"}
