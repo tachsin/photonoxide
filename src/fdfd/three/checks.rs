@@ -324,3 +324,107 @@ pub(crate) fn two_d_difference(polarization: Polarization) -> f64 {
     }
     worst / largest
 }
+
+/// Shin and Fan's 2D test system (Opt. Express 21, 22578 (2013), their Fig. 1): a square of
+/// vacuum, 50 × 50 cells of 2 nm, periodic in x and y and uniform along z (one cell), an
+/// x-polarized dipole at its centre, 1.55 µm. QMR on their Eq. 7 with this `s`, from zero to a
+/// relative residual of `tolerance`: how it went.
+pub(crate) fn shin_fan_square(s: f64, tolerance: f64) -> crate::fdfd::Convergence {
+    use crate::fdfd::krylov::{Sparse, Stopping, qmr};
+    let h = 0.002;
+    let grid = Grid3d {
+        nx: 50,
+        ny: 50,
+        nz: 1,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: 0.0,
+        y0: 0.0,
+        z0: 0.0,
+    };
+    let periodic = Edges::Bloch { k: 0.0 };
+    let boundaries = Boundaries3d {
+        x: periodic,
+        y: periodic,
+        z: periodic,
+        reflection: 1e-8,
+        order: 3.0,
+    };
+    let (lattice, eps) = Solver3d::setup(
+        grid,
+        Wavelength::um(1.55).unwrap(),
+        |_, _, _| c64::new(1.0, 0.0),
+        boundaries,
+    )
+    .unwrap();
+    let mut b = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    b[grid.index(Axis::X, (25, 25, 0))] = c64::new(0.0, -lattice.k0);
+    let matrix = Sparse::new(
+        grid.unknowns(),
+        lattice
+            .assemble_with(&eps, s)
+            .into_iter()
+            .map(|t| (t.row, t.col, t.val)),
+    );
+    let stopping = Stopping {
+        tolerance,
+        max_iterations: 5000,
+    };
+    qmr(&matrix, &lattice.transformed_rhs(&eps, &b, s), stopping)
+        .unwrap()
+        .1
+}
+
+/// A silicon strip (0.5 × 0.22 µm) along x in oxide, 16³ cells of 40 nm with PMLs of 6 cells
+/// all round, a current on one edge at the centre, solved by QMR on `formulation` to a relative
+/// residual of 1e-10 and by the sparse direct solver: the largest difference between the two
+/// fields relative to the largest field, and the iterations QMR took.
+pub(crate) fn qmr_against_direct(formulation: super::Formulation) -> (f64, usize) {
+    use crate::fdfd::Stopping;
+    let (n, h) = (16, 0.04);
+    let half = n as f64 * h / 2.0;
+    let grid = Grid3d {
+        nx: n,
+        ny: n,
+        nz: n,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: -half,
+        y0: -half,
+        z0: -half,
+    };
+    let strip = |_: f64, y: f64, z: f64| {
+        let m: f64 = if y.abs() < 0.25 && z.abs() < 0.11 {
+            3.476
+        } else {
+            1.444
+        };
+        c64::new(m * m, 0.0)
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let boundaries = Boundaries3d::pml(6);
+    let mut source = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    source[grid.index(Axis::Y, (n / 2, n / 2, n / 2))] = c64::new(1.0, 0.0);
+    let direct = Solver3d::new(grid, lam, strip, boundaries)
+        .unwrap()
+        .solve(&source)
+        .unwrap();
+    let stopping = Stopping {
+        tolerance: 1e-10,
+        max_iterations: 10_000,
+    };
+    let (iterative, how) = super::IterativeSolver3d::new(grid, lam, strip, boundaries, formulation)
+        .unwrap()
+        .solve(&source, stopping)
+        .unwrap();
+    let largest = direct.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let worst = direct
+        .values()
+        .iter()
+        .zip(iterative.values())
+        .map(|(a, b)| (a - b).norm())
+        .fold(0.0, f64::max);
+    (worst / largest, how.iterations)
+}

@@ -1,7 +1,7 @@
 ---
 title: "FDFD in 3D"
 module: fdfd
-summary: "Maxwell's equations at one frequency on Yee's 3D grid: the electric field's curl-curl equation as one sparse system, with stretched-coordinate PMLs or Bloch-periodic sides on each axis, and the exact discrete power flux."
+summary: "Maxwell's equations at one frequency on Yee's 3D grid: the electric field's curl-curl equation as one sparse system, with stretched-coordinate PMLs or Bloch-periodic sides on each axis, the exact discrete power flux, and a sparse direct or an iterative (QMR) solver."
 order: 19
 papers:
   - cite: "A. Christ, H. L. Hartnagel, IEEE Trans. Microw. Theory Tech. 35, 688 (1987)"
@@ -12,6 +12,10 @@ papers:
     doi: 10.1016/j.jcp.2012.01.013
   - cite: "W. C. Chew, W. H. Weedon, Microw. Opt. Technol. Lett. 7, 599 (1994)"
     doi: 10.1002/mop.4650071304
+  - cite: "W. Shin, S. Fan, Opt. Express 21, 22578 (2013)"
+    doi: 10.1364/OE.21.022578
+  - cite: "R. W. Freund, N. M. Nachtigal, Numer. Math. 60, 315 (1991)"
+    doi: 10.1007/BF01385726
   - cite: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984) (the exact reference)"
     doi: 10.1364/JOSAA.1.000742
 validation:
@@ -20,6 +24,10 @@ validation:
   - fdfd3d/flux-conservation
   - fdfd3d/pml-reflection
   - fdfd3d/two-d-agreement
+  - fdfd3d/qmr-direct
+  - fdfd3d/qmr-plateau
+  - fdfd3d/qmr-iterations-curl-curl
+  - fdfd3d/qmr-iterations-shin-fan
 ---
 
 In 3D the fields no longer split into two polarizations: all six components are coupled. FDFD
@@ -139,11 +147,114 @@ side, so a device-sized problem is out of reach of a direct solver on one machin
 permittivity (512 samples per component) costs 0.9 s at 40³, and assembly 0.07 s. faer orders
 the matrix by COLAMD; a nested-dissection ordering would cut the fill.
 
+## The iterative solver
+
+`IterativeSolver3d` assembles the same system and never factorizes it, so its memory grows as
+the unknowns. It solves by the quasi-minimal residual method (QMR) of Freund and Nachtigal,
+which Shin and Fan use for their 3D problems:
+
+- **Lanczos vectors.** Their Algorithm 3.1 builds on two sequences of unit vectors from the
+  nonsymmetric Lanczos process, $v_n$ spanning $K_n(r_0, A)$ and $w_n$ spanning
+  $K_n(w_1, A^{\mathsf T})$. These are biorthogonal under the unconjugated form $w^{\mathsf T}v$,
+  with $w_1 = v_1 = b/\lVert b\rVert$ (their Algorithm 2.1, regular steps, Eq. 2.7).
+- **The iterate.** It minimizes the norm of the residual's coordinates in that basis, with
+  weights 1 (Eqs. 3.6–3.10), through Givens rotations of the tridiagonal (Eqs. 4.1–4.7) and short
+  recurrences for the iterate (Eqs. 4.8–4.9).
+- **Stopping.** The residual is updated at the cost of one vector sum per iteration (Eq. 4.12).
+  Once it is below the tolerance, the true residual $\lVert b - Ax\rVert$ is computed and checked
+  (Eq. 4.10). Freund and Nachtigal check the bound of Eq. 4.11 first. That bound is
+  $\sqrt{n+1}$ times the quasi-residual, about 10× pessimistic after 100 iterations, and would
+  add iterations.
+- **Cost per iteration.** One product with A and one with $A^{\mathsf T}$. The rows are shared
+  among threads, each summed in a fixed order, so the result is the same bit for bit on any
+  number of threads.
+
+Freund and Nachtigal's look-ahead steps (Algorithm 2.1's inner vectors, from their refs. 6–7)
+step over a breakdown of the Lanczos process, $w_n^{\mathsf T}v_n = 0$. They are not
+implemented: a breakdown or near-breakdown ($|w_n^{\mathsf T}v_n| < 10^{-14}$ for unit vectors)
+is returned as an error. None occurred in the cases below.
+
+**Shin and Fan's operator.** `Formulation::ShinFan` solves their Eq. 7 with s = −1 instead:
+
+$$
+-\nabla\times\nabla\times\mathbf E + k_0^2\varepsilon\mathbf E
++ \varepsilon^{-1}\nabla\!\left(\nabla\cdot(\varepsilon\mathbf E)\right)
+= -i k_0\mathbf J + \frac{1}{k_0^2}\,\varepsilon^{-1}\nabla(\nabla\cdot(-i k_0\mathbf J)),
+$$
+
+our sign and units for their equation. The added terms vanish for the solution, by the
+continuity equation $\nabla\cdot(\varepsilon\mathbf E) = \nabla\cdot\mathbf J/(i k_0)$. In a
+uniform medium they turn $-\nabla\times\nabla\times$ into the vector Laplacian, which removes the
+curl-curl operator's huge null space of near-zero eigenvalues (their Section 2).
+
+On the grid, ∇· lives at the nodes and ∇ takes the nodes' values to the edges. Inside a PML
+both use the stretch where their result lives, as the curls do. Then $\nabla\cdot\nabla\times = 0$
+holds exactly on the grid, so the transformed system has exactly the curl-curl system's
+solution: by the direct solver they agree to 7e-15 of the largest field (with PMLs, a Bloch
+axis and silicon in oxide). Shin and Fan don't say how they discretize ∇∇· inside a PML; this
+is our choice, the one that keeps the solution exact. Note that a relative residual of 1e-6 in
+the transformed system is a weaker test than in the curl-curl one: its right-hand side carries
+the large $\nabla\nabla\cdot\mathbf J$ of a point current. At 10 nm, 1e-6 in it is 1e-4 in the
+curl-curl system.
+
+**Against the direct solver.** For a silicon strip in oxide (16³ cells of 40 nm, PMLs all round),
+QMR to a relative residual of 1e-10 gives the direct solver's field to 1.1e-11 on the curl-curl
+operator and 1.3e-10 on Shin and Fan's (relative to the largest field).
+
+**Shin and Fan's own test.** Their Fig. 1 is a vacuum square of 50 × 50 cells of 2 nm, periodic,
+with an x-polarized dipole at the centre, at 1.55 µm. It is this solver with one cell along z.
+The matrix is then real symmetric, and QMR is, in exact arithmetic, the GMRES their Fig. 3 uses
+(their ref. 38):
+
+| | s = 0 | s = −1 | s = +1 |
+|---|---|---|---|
+| ours: stagnates at | 0.709 (iterations 5–40) | no stagnation | no stagnation |
+| theirs (text, Fig. 3) | 0.707 | | |
+| ours: iterations to 1e-6 | 114 | 79 | 801 |
+| theirs (read off Fig. 3, ±5) | 114 | 77 | not reached in 500; about 5e-5 at 400, ours 4.4e-5 |
+
+**In 3D, with silicon, the transformation does not pay.** Shin and Fan's Fig. 9 shows s = −1
+converging 1.3–2.5× faster than s = 0 on three 3D problems, among them a silicon guide in
+vacuum (their "Diel", 15 M unknowns). We measured QMR iterations to a relative residual of 1e-6
+of each system: 40³ cells of 10 nm (0.4 µm across), 1.55 µm, an x-polarized current near the
+centre, periodic sides or PMLs of 10 cells all round.
+
+| Structure | s = 0 | s = −1 (Shin and Fan) |
+|---|---|---|
+| vacuum, periodic | 122 | 112 |
+| vacuum, PMLs | 1231 | 559 |
+| oxide cube 200 nm, periodic | 255 | 219 |
+| silicon cube 200 nm, periodic | 416 | 374 |
+| oxide guide 100 nm through the PMLs | 1457 | 802 |
+| silicon cube 100 nm, PMLs | 1201 | 1894 |
+| silicon guide 100 nm through the PMLs | 1976 | 3062 |
+
+Their Diel at a smaller size (a 400 × 300 nm silicon guide in vacuum along x, 40 × 90 × 80 cells
+of 10 nm with PMLs of 10, a current across the guide; 864 000 unknowns) takes **2 745 iterations
+with s = 0 and 14 524 with s = −1**. The cost per iteration is the same, 38 ms on 20 threads.
+Measured in the curl-curl system, s = 0 ends at a residual of 9.9e-7 and s = −1 at 8.5e-5; the
+two solutions agree to 3.7e-5.
+
+So the transformation helps as Shin and Fan describe in vacuum and at low contrast (up to 2.2×).
+With silicon against vacuum and PMLs, though, it costs 1.6–5× more iterations, and we haven't
+found why. The added operator $\varepsilon^{-1}\nabla\nabla\cdot\varepsilon$ is not symmetric at
+an interface. Weighting it as $\varepsilon\nabla\nabla\cdot\varepsilon$, symmetric without PMLs
+and with the same solution, converged no faster in a trial, so asymmetry alone isn't it.
+`Formulation::CurlCurl` is the one to use for silicon photonics until this is understood.
+
+**Cost.** `IterativeSolver3d` keeps the matrix and its transpose (13 or 15 nonzeros per row) and
+a dozen vectors. The 864 000-unknown guide above peaked at 1.4 GB, the assembly's temporaries
+included, where the direct solver needs 28 GB for 192 k unknowns. The time is the iteration
+count times the cost of an iteration, about 45 ns per unknown on 20 threads here: 106 s for the
+guide with s = 0 (2 745 iterations), against the direct solver's 66 s for a problem 4.5 times
+smaller.
+
 ## Limits
 
 - No ports, mode sources or S-parameters in 3D yet, and no adjoint gradients: those are
   [2D](fdfd-ports.md) for now.
-- The direct solver's memory caps a problem at about 200 k unknowns on a 64 GB machine. The
-  iterative solver of Shin and Fan (2013) is the roadmap's answer.
+- The direct solver's memory caps a problem at about 200 k unknowns on a 64 GB machine. QMR's
+  doesn't, but it needs thousands of iterations, and nothing preconditions it yet.
+- QMR without look-ahead: a breakdown of the Lanczos process is an error, not stepped over.
 - A uniform grid along each axis, and interfaces averaged by sampling: exact for interfaces
   along the axes, slower to converge for curved or slanted ones.

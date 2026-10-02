@@ -366,9 +366,16 @@ impl Lattice {
     /// The matrix A = −∇ × ∇ × + k₀² ε, row by row, with ε at each value of E; a value fixed at
     /// zero has a row and column of its own, with 1 on the diagonal.
     pub(crate) fn assemble(&self, eps: &[c64]) -> Vec<Triplet<usize, usize, c64>> {
+        self.assemble_with(eps, 0.0)
+    }
+
+    /// The matrix A − s ε⁻¹ ∇(∇ · (ε ·)): W. Shin and S. Fan's operator, Opt. Express 21, 22578
+    /// (2013), doi:10.1364/OE.21.022578, Eq. 7, times −1 (their A is ∇ × ∇ × − k₀² ε). s = 0 is
+    /// A itself, and s = −1 their choice.
+    pub(crate) fn assemble_with(&self, eps: &[c64], s: f64) -> Vec<Triplet<usize, usize, c64>> {
         let k2 = self.k0 * self.k0;
-        let mut t = Vec::with_capacity(13 * eps.len());
-        let mut row: Vec<(usize, c64)> = Vec::with_capacity(16);
+        let mut t = Vec::with_capacity(if s == 0.0 { 13 } else { 15 } * eps.len());
+        let mut row: Vec<(usize, c64)> = Vec::with_capacity(32);
         for (r, &e) in eps.iter().enumerate() {
             if self.fixed(r) {
                 t.push(Triplet::new(r, r, c64::new(1.0, 0.0)));
@@ -383,9 +390,92 @@ impl Lattice {
                     }
                 }
             }
+            if s != 0.0 {
+                for (node, wg) in self.gradient(r) {
+                    for (col, wd) in self.divergence(node) {
+                        if !self.fixed(col) {
+                            row.push((col, -s * wg * wd * eps[col] / e));
+                        }
+                    }
+                }
+            }
             merged(&mut t, r, &mut row);
         }
         t
+    }
+
+    /// Whether node `q` (index (k ny + j) nx + i, at the cells' corner) is on a wall behind a
+    /// PML, where the potential the gradient takes is zero.
+    fn node_fixed(&self, q: usize) -> bool {
+        let (_, at) = self.grid.at(q);
+        Axis::ALL
+            .into_iter()
+            .any(|a| at[a.index()] == 0 && matches!(self.boundaries.edges(a), Edges::Pml { .. }))
+    }
+
+    /// ∇ · at node `q`: Σ_a (E_a after the node − E_a before it) over the step and the stretch
+    /// at the node. The values of E it takes and their coefficients.
+    pub(crate) fn divergence(&self, q: usize) -> Vec<(usize, c64)> {
+        let (_, at) = self.grid.at(q);
+        let mut out = Vec::with_capacity(6);
+        for a in Axis::ALL {
+            let w = 1.0 / (self.nodes[a.index()][at[a.index()]] * self.grid.step(a));
+            out.push((self.grid.index(a, (at[0], at[1], at[2])), w));
+            if let Some((col, phase)) = self.neighbour(a, at, a, -1) {
+                out.push((col, -w * phase));
+            }
+        }
+        out
+    }
+
+    /// ∇ at E's value `r` (component a, between two nodes along a): the difference of a
+    /// potential at the nodes over the step and the stretch at the edge. The nodes it takes
+    /// (indexed as [`Lattice::divergence`]'s) and their coefficients; nodes on a wall behind a
+    /// PML left out.
+    pub(crate) fn gradient(&self, r: usize) -> Vec<(usize, c64)> {
+        let (a, at) = self.grid.at(r);
+        let w = 1.0 / (self.halves[a.index()][at[a.index()]] * self.grid.step(a));
+        let mut out = Vec::with_capacity(2);
+        // node indices are component x's E indices
+        if let Some((q, phase)) = self.neighbour(Axis::X, at, a, 1)
+            && !self.node_fixed(q)
+        {
+            out.push((q, w * phase));
+        }
+        let here = self.grid.index(Axis::X, (at[0], at[1], at[2]));
+        if !self.node_fixed(here) {
+            out.push((here, -w));
+        }
+        out
+    }
+
+    /// The right-hand side of Shin and Fan's Eq. 7 for A x = `b`: b − (s / k₀²) ε⁻¹ ∇(∇ · b),
+    /// which leaves the solution as it is, since ∇ · (ε E) = ∇ · b / k₀² for the solution.
+    pub(crate) fn transformed_rhs(&self, eps: &[c64], b: &[c64], s: f64) -> Vec<c64> {
+        let k2 = self.k0 * self.k0;
+        let cells = self.grid.cells();
+        let div: Vec<c64> = (0..cells)
+            .map(|q| {
+                if self.node_fixed(q) {
+                    c64::new(0.0, 0.0)
+                } else {
+                    self.divergence(q)
+                        .into_iter()
+                        .filter(|&(col, _)| !self.fixed(col))
+                        .map(|(col, w)| w * b[col])
+                        .sum()
+                }
+            })
+            .collect();
+        (0..b.len())
+            .map(|r| {
+                if self.fixed(r) || s == 0.0 {
+                    return b[r];
+                }
+                let grad: c64 = self.gradient(r).into_iter().map(|(q, w)| w * div[q]).sum();
+                b[r] - s / k2 * grad / eps[r]
+            })
+            .collect()
     }
 }
 
@@ -744,5 +834,8 @@ impl Field3d {
 }
 
 pub(crate) mod checks;
+mod iterative;
 #[cfg(test)]
 mod tests;
+
+pub use iterative::{Formulation, IterativeSolver3d};

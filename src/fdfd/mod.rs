@@ -16,6 +16,9 @@
 //! **3D** ([`Solver3d`]): all three components of E on the edges of Yee's cells, H on their
 //! faces eliminated, one system for E (A. Christ, H. L. Hartnagel, IEEE Trans. Microw. Theory
 //! Tech. 35, 688 (1987), doi:10.1109/TMTT.1987.1133733): −∇ × ∇ × E + k₀² ε E = −i k₀ J.
+//! Factorized by the sparse direct solver, or, without factorizing ([`IterativeSolver3d`]), solved
+//! by QMR, on that operator or on W. Shin and S. Fan's (Opt. Express 21, 22578 (2013),
+//! doi:10.1364/OE.21.022578, Eq. 7).
 //!
 //! **Open boundaries** are stretched-coordinate PMLs (W. C. Chew, W. H. Weedon, Microw. Opt.
 //! Technol. Lett. 7, 599 (1994), doi:10.1002/mop.4650071304): ∂_w → s_w⁻¹ ∂_w, with
@@ -735,12 +738,14 @@ impl Field2d {
 
 mod adjoint;
 pub(crate) mod checks;
+mod krylov;
 mod ports;
 #[cfg(test)]
 mod tests;
 mod three;
 
+pub use krylov::{Convergence, Stopping};
 pub use ports::{Direction, Port, PortMode, Side};
-pub use three::{Axis, Boundaries3d, Field3d, Grid3d, Solver3d};
+pub use three::{Axis, Boundaries3d, Field3d, Formulation, Grid3d, IterativeSolver3d, Solver3d};
 
 pub(crate) use three::checks as checks3d;
