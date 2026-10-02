@@ -222,6 +222,20 @@ pub fn cases() -> Vec<Case> {
             run: multilayer_power,
         },
         Case {
+            id: "mode/multilayer-fresnel",
+            title: "A plane wave's reflection coefficient at one interface, 1.0 to 1.5, TE and TM at 0, 20, 45 and 70 degrees, by the transfer matrices (largest difference in r shown)",
+            tier: Tier::Analytic,
+            source: "Fresnel's equations: r_s = (n1 cos t1 - n2 cos t2)/(n1 cos t1 + n2 cos t2), r_p = (n2 cos t1 - n1 cos t2)/(n2 cos t1 + n1 cos t2); J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, say Eq. 13 reduces to them",
+            run: multilayer_fresnel,
+        },
+        Case {
+            id: "mode/multilayer-bragg",
+            title: "The reflectance of 8 quarter-wave pairs, 2.3 / 1.38 on 1.52 at 550 nm, normal incidence, by the transfer matrices (shown)",
+            tier: Tier::Analytic,
+            source: "the quarter-wave stack's closed form, R = ((1 - q)/(1 + q))^2 with q = (n_s/n_0)(n_H/n_L)^(2N), from its admittance",
+            run: multilayer_bragg,
+        },
+        Case {
             id: "mode/pml-soi-leakage-te",
             title: "The loss of 220 nm SOI's TE mode leaking through 0.5 um of buried oxide into the substrate, full-vector with a PML (1 um, strength 3), 2.5 nm grid (relative error in Im n_eff shown)",
             tier: Tier::Analytic,
@@ -750,6 +764,57 @@ fn multilayer_bound() -> Outcome {
         // printed to 6 decimals
         tolerance: 5e-7,
         error: worst,
+    }
+}
+
+fn multilayer_fresnel() -> Outcome {
+    use crate::mode::multilayer::Multilayer;
+    let (n1, n2) = (1.0, 1.5);
+    let one = |n: f64| Complex64::new(n, 0.0);
+    let worst = Multilayer::new(one(n1), &[(one(n2), Length::nm(300.0))], one(n2))
+        .and_then(|stack| {
+            let lam = Wavelength::um(0.6328)?;
+            let mut worst: f64 = 0.0;
+            for deg in [0.0, 20.0, 45.0, 70.0_f64] {
+                let t1 = deg.to_radians();
+                let t2 = (n1 * t1.sin() / n2).asin();
+                let (c1, c2) = (t1.cos(), t2.cos());
+                let rs = (n1 * c1 - n2 * c2) / (n1 * c1 + n2 * c2);
+                let rp = (n2 * c1 - n1 * c2) / (n2 * c1 + n1 * c2);
+                let te = stack.reflection(Polarization::Te, lam, t1)?;
+                let tm = stack.reflection(Polarization::Tm, lam, t1)?;
+                worst = worst.max((te.r - rs).norm()).max((tm.r - rp).norm());
+            }
+            Ok(worst)
+        })
+        .unwrap_or(f64::NAN);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-12,
+        error: worst,
+    }
+}
+
+fn multilayer_bragg() -> Outcome {
+    use crate::mode::multilayer::Multilayer;
+    let (n0, nh, nl, ns, pairs) = (1.0, 2.3, 1.38, 1.52, 8);
+    let one = |n: f64| Complex64::new(n, 0.0);
+    let mut films = Vec::new();
+    for _ in 0..pairs {
+        films.push((one(nh), Length::um(0.55 / (4.0 * nh))));
+        films.push((one(nl), Length::um(0.55 / (4.0 * nl))));
+    }
+    let q = ns / n0 * (nh / nl).powi(2 * pairs);
+    let expected = ((1.0 - q) / (1.0 + q)).powi(2);
+    let measured = Multilayer::new(one(n0), &films, one(ns))
+        .and_then(|stack| stack.reflection(Polarization::Te, Wavelength::um(0.55)?, 0.0))
+        .map_or(f64::NAN, |r| r.reflectance);
+    Outcome {
+        measured,
+        expected,
+        tolerance: 1e-12,
+        error: (measured - expected).abs(),
     }
 }
 
