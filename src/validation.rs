@@ -396,6 +396,20 @@ pub fn cases() -> Vec<Case> {
             source: "Fresnel's formula on the two modes' effective indices, ((n1 - n2)/(n1 + n2))^2 = 1.16503e-3 for 2.84742 and 3.04866: the TE modal impedance is the effective index; an approximation, good here to 0.07 %",
             run: fdfd_step_reflection_te,
         },
+        Case {
+            id: "fdfd/adjoint-gradient-ez",
+            title: "2D FDFD, E along z: the adjoint gradient of the power a silicon slab with a bump beside it delivers into its right port's mode, against fourth-order central finite differences (delta 1e-3) on a cell each in the bump, the core and the oxide (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: "the adjoint variable method, G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2-4: grad F = -2 Re(lambda^T dA u), A^T lambda = dF/du; the finite differences' own round-off is about 1e-10/delta",
+            run: fdfd_adjoint_ez,
+        },
+        Case {
+            id: "fdfd/adjoint-gradient-hz",
+            title: "The same with H along z, where the permittivity enters through the faces' 1/eps (shown)",
+            tier: Tier::Analytic,
+            source: "the adjoint variable method, as above; the faces' permittivity the mean of their two cells",
+            run: fdfd_adjoint_hz,
+        },
     ]
 }
 
@@ -509,6 +523,24 @@ fn fdfd_step_reflection_te() -> Outcome {
         tolerance: 2e-5,
         error: (measured - expected).abs(),
     }
+}
+
+fn fdfd_adjoint(polarization: crate::fdfd::Polarization) -> Outcome {
+    let error = crate::fdfd::checks::gradient_check(polarization);
+    Outcome {
+        measured: error,
+        expected: 0.0,
+        tolerance: 1e-6,
+        error,
+    }
+}
+
+fn fdfd_adjoint_ez() -> Outcome {
+    fdfd_adjoint(crate::fdfd::Polarization::Ez)
+}
+
+fn fdfd_adjoint_hz() -> Outcome {
+    fdfd_adjoint(crate::fdfd::Polarization::Hz)
 }
 
 fn amplitude_convention() -> Outcome {

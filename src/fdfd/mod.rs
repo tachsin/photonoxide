@@ -230,6 +230,8 @@ pub struct Solver2d {
     /// The matrix's sparsity analysed (ordering and symbolic factorization), which depends only
     /// on the grid and the boundaries: reused by [`Solver2d::reuse`].
     symbolic: SymbolicLu<usize>,
+    /// Given cell by cell ([`Solver2d::from_cells`]), so a cell's permittivity is a parameter.
+    cellwise: bool,
 }
 
 impl Solver2d {
@@ -277,34 +279,7 @@ impl Solver2d {
         boundaries: Boundaries,
         symbolic: Option<SymbolicLu<usize>>,
     ) -> Result<Solver2d> {
-        grid.check()?;
-        let b = boundaries;
-        if !(b.reflection > 0.0 && b.reflection < 1.0) || !(b.order.is_finite() && b.order >= 0.0) {
-            return Err(Error::invalid(
-                "fdfd boundaries",
-                format!(
-                    "the PML needs a target reflection in (0, 1) and an order >= 0, got {} and {}",
-                    b.reflection, b.order
-                ),
-            ));
-        }
-        for (edges, n) in [(b.x, grid.nx), (b.y, grid.ny)] {
-            match edges {
-                Edges::Pml { low, high } if low + high >= n => {
-                    return Err(Error::invalid(
-                        "fdfd boundaries",
-                        format!("PMLs of {low} and {high} cells leave nothing of {n} cells"),
-                    ));
-                }
-                Edges::Bloch { k } if !k.is_finite() => {
-                    return Err(Error::invalid(
-                        "fdfd boundaries",
-                        "the Bloch wavenumber must be finite",
-                    ));
-                }
-                _ => {}
-            }
-        }
+        check(grid, &boundaries)?;
         let k0 = 2.0 * std::f64::consts::PI / wavelength.to_um();
         let (nx, ny, h) = (grid.nx, grid.ny, (grid.dx, grid.dy));
         let samples = 8;
@@ -332,8 +307,108 @@ impl Solver2d {
                 }
             }
         }
-        let entries = assemble(grid, polarization, k0, &eps_z, &eps_y, &eps_x, &b);
-        let (lu, symbolic) = factorize(&entries, nx * ny, symbolic)?;
+        Self::finish(
+            grid,
+            polarization,
+            k0,
+            boundaries,
+            (eps_z, eps_y, eps_x),
+            (symbolic, false),
+        )
+    }
+
+    /// The problem with the relative permittivity given cell by cell, `eps[j * nx + i]` for cell
+    /// (i, j), constant over each cell: the form an optimization varies. With H along z, a face
+    /// between two cells sees their mean (the averaging rule, for constant cells), and a face on
+    /// a wall its one cell.
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver2d::new`], and [`Error::InvalidValue`] if `eps` isn't one value per cell.
+    pub fn from_cells(
+        grid: Grid,
+        polarization: Polarization,
+        wavelength: Wavelength,
+        eps: &[c64],
+        boundaries: Boundaries,
+    ) -> Result<Solver2d> {
+        Self::build_cells(grid, polarization, wavelength, eps, boundaries, None)
+    }
+
+    /// [`Solver2d::from_cells`] with this problem's grid, polarization and boundaries, reusing its
+    /// analysis of the matrix's sparsity: each step of an optimization.
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver2d::from_cells`].
+    pub fn reuse_cells(&self, wavelength: Wavelength, eps: &[c64]) -> Result<Solver2d> {
+        Self::build_cells(
+            self.grid,
+            self.polarization,
+            wavelength,
+            eps,
+            self.boundaries,
+            Some(self.symbolic.clone()),
+        )
+    }
+
+    fn build_cells(
+        grid: Grid,
+        polarization: Polarization,
+        wavelength: Wavelength,
+        eps: &[c64],
+        boundaries: Boundaries,
+        symbolic: Option<SymbolicLu<usize>>,
+    ) -> Result<Solver2d> {
+        check(grid, &boundaries)?;
+        let (nx, ny) = (grid.nx, grid.ny);
+        if eps.len() != nx * ny {
+            return Err(Error::invalid(
+                "fdfd permittivity",
+                format!("needs {} values, one per cell, got {}", nx * ny, eps.len()),
+            ));
+        }
+        let k0 = 2.0 * std::f64::consts::PI / wavelength.to_um();
+        let cell = |i: usize, j: usize| eps[j * nx + i];
+        let (mut eps_y, mut eps_x) = (Vec::new(), Vec::new());
+        if polarization == Polarization::Hz {
+            let bloch = |e: Edges| matches!(e, Edges::Bloch { .. });
+            for j in 0..ny {
+                for i in 0..=nx {
+                    eps_y.push(face_mean(i, nx, bloch(boundaries.x), |i| cell(i, j)));
+                }
+            }
+            for j in 0..=ny {
+                for i in 0..nx {
+                    eps_x.push(face_mean(j, ny, bloch(boundaries.y), |j| cell(i, j)));
+                }
+            }
+        }
+        let eps_z = if polarization == Polarization::Ez {
+            eps.to_vec()
+        } else {
+            Vec::new()
+        };
+        Self::finish(
+            grid,
+            polarization,
+            k0,
+            boundaries,
+            (eps_z, eps_y, eps_x),
+            (symbolic, true),
+        )
+    }
+
+    fn finish(
+        grid: Grid,
+        polarization: Polarization,
+        k0: f64,
+        boundaries: Boundaries,
+        (eps_z, eps_y, eps_x): (Vec<c64>, Vec<c64>, Vec<c64>),
+        (symbolic, cellwise): (Option<SymbolicLu<usize>>, bool),
+    ) -> Result<Solver2d> {
+        let entries = assemble(grid, polarization, k0, &eps_z, &eps_y, &eps_x, &boundaries);
+        let (lu, symbolic) = factorize(&entries, grid.nx * grid.ny, symbolic)?;
         Ok(Solver2d {
             grid,
             polarization,
@@ -345,9 +420,59 @@ impl Solver2d {
             entries,
             lu,
             symbolic,
+            cellwise,
         })
     }
+}
 
+/// The permittivity on the face before cell `n` along an axis of `len` cells (face `len` is the
+/// last cell's far face): the mean of the cells on its two sides, the one cell on a wall, or
+/// across the period when Bloch-periodic.
+fn face_mean(n: usize, len: usize, bloch: bool, cell: impl Fn(usize) -> c64) -> c64 {
+    if n == 0 || n == len {
+        if bloch {
+            0.5 * (cell(len - 1) + cell(0))
+        } else {
+            cell(n.min(len - 1))
+        }
+    } else {
+        0.5 * (cell(n - 1) + cell(n))
+    }
+}
+
+/// The checks every problem passes: the grid, and the boundaries on it.
+fn check(grid: Grid, b: &Boundaries) -> Result<()> {
+    grid.check()?;
+    if !(b.reflection > 0.0 && b.reflection < 1.0) || !(b.order.is_finite() && b.order >= 0.0) {
+        return Err(Error::invalid(
+            "fdfd boundaries",
+            format!(
+                "the PML needs a target reflection in (0, 1) and an order >= 0, got {} and {}",
+                b.reflection, b.order
+            ),
+        ));
+    }
+    for (edges, n) in [(b.x, grid.nx), (b.y, grid.ny)] {
+        match edges {
+            Edges::Pml { low, high } if low + high >= n => {
+                return Err(Error::invalid(
+                    "fdfd boundaries",
+                    format!("PMLs of {low} and {high} cells leave nothing of {n} cells"),
+                ));
+            }
+            Edges::Bloch { k } if !k.is_finite() => {
+                return Err(Error::invalid(
+                    "fdfd boundaries",
+                    "the Bloch wavenumber must be finite",
+                ));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+impl Solver2d {
     /// The grid.
     pub fn grid(&self) -> Grid {
         self.grid
@@ -592,6 +717,7 @@ impl Field2d {
     }
 }
 
+mod adjoint;
 pub(crate) mod checks;
 mod ports;
 #[cfg(test)]

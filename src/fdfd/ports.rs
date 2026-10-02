@@ -44,14 +44,14 @@ pub enum Direction {
 /// A mode of a port: a waveguide's cross-section along one column of the grid.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PortMode {
-    column: usize,
+    pub(super) column: usize,
     k0: f64,
-    dx: f64,
-    beta: c64,
+    pub(super) dx: f64,
+    pub(super) beta: c64,
     /// The profile along the column, one value per row, normalized to Σ w φ² = 1.
-    profile: Vec<c64>,
+    pub(super) profile: Vec<c64>,
     /// The projection's weights w.
-    weights: Vec<c64>,
+    pub(super) weights: Vec<c64>,
     /// For H along z, ε_y on the face between the column and the next; 1 for E along z.
     eps_face: Vec<c64>,
     polarization: Polarization,

@@ -318,3 +318,27 @@ fn windowed_ports_see_one_guide_each() {
         .fold(0.0, f64::max);
     assert!(worst < 1e-10, "{worst}");
 }
+
+#[test]
+#[ignore = "slow in a debug build; the validation report runs it in release (fdfd/adjoint-gradient-ez, -hz)"]
+fn the_adjoint_gradient_is_the_finite_differences() {
+    for polarization in [Polarization::Ez, Polarization::Hz] {
+        let error = gradient_check(polarization);
+        // 1.4e-7 and 8e-8: the finite differences' own round-off, about 1e-10 / δ
+        assert!(error < 1e-6, "{polarization:?}: {error}");
+    }
+}
+
+#[test]
+fn an_h_gradient_needs_a_problem_given_cell_by_cell() {
+    let solver = guide(Polarization::Hz, 0.02, 2.0, (3.476, 1.444), |_| 0.22);
+    let ports = two_ports(&solver);
+    let field = solver
+        .solve_system(&solver.mode_source(&ports[0].mode, Direction::Forward))
+        .unwrap();
+    assert!(
+        solver
+            .mode_power_gradient(&field, &ports[1].mode, Direction::Forward)
+            .is_err()
+    );
+}
