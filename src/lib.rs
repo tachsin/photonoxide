@@ -27,4 +27,7 @@ pub mod units;
 pub mod validation;
 
 pub use error::{Error, Result};
+
+/// photonoxide's version, e.g. `"0.2.0"`.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub use num_complex::Complex64;

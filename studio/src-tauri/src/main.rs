@@ -1,5 +1,5 @@
-//! The `photonoxide` program: runs a job, live in the studio window or headless; replays a run in
-//! the studio; checks the validation report.
+//! The `photonoxide` program: opens the studio; runs a job, live in the studio window or
+//! headless; replays a run in the studio; checks the validation report.
 
 mod studio;
 
@@ -11,6 +11,8 @@ use photonoxide::job;
 use photonoxide::run::{Job, Run, Stop};
 
 const USAGE: &str = "usage:
+  photonoxide
+      open the studio, to run a job from jobs/ or reopen a run from runs/
   photonoxide run <job.toml> [--out <dir>] [--headless] [--linger <seconds>]
       run a job; the studio window shows it live and closes by itself when it's done
       (--headless: no window; --out: where run directories go, default runs/;
@@ -19,15 +21,29 @@ const USAGE: &str = "usage:
       replay a finished run in the studio
   photonoxide validate [--write <file> | --check <file>]
       run every validation case and print the report; --write saves it, --check fails
-      unless <file> holds exactly this report";
+      unless <file> holds exactly this report
+  photonoxide --version";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
+        None => open(),
         Some("run") => run(&args[1..]),
         Some("view") => view(&args[1..]),
         Some("validate") => validate(&args[1..]),
+        Some("--version" | "-V") => {
+            println!("photonoxide {}", photonoxide::VERSION);
+            ExitCode::SUCCESS
+        }
         _ => usage(),
+    }
+}
+
+fn open() -> ExitCode {
+    console::release();
+    match studio::show(None, None) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => fail(e),
     }
 }
 
@@ -93,7 +109,7 @@ fn run(args: &[String]) -> ExitCode {
             finished,
             stop: stop.clone(),
         };
-        if let Err(e) = studio::show(&dir, Some(live)) {
+        if let Err(e) = studio::show(Some(&dir), Some(live)) {
             stop.request();
             let _ = worker.join();
             return fail(e);
@@ -116,7 +132,7 @@ fn view(args: &[String]) -> ExitCode {
     if !dir.join("events.jsonl").is_file() {
         return fail(format!("{} has no events.jsonl", dir.display()));
     }
-    match studio::show(dir, None) {
+    match studio::show(Some(dir), None) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => fail(e),
     }
@@ -157,4 +173,27 @@ fn validate(args: &[String]) -> ExitCode {
     } else {
         fail("some validation cases failed")
     }
+}
+
+/// The console a bare `photonoxide` was given.
+mod console {
+    /// Lets go of the console when it was made for this program alone (it was started from
+    /// Explorer, not from a terminal), so it doesn't sit open beside the window.
+    #[cfg(windows)]
+    pub fn release() {
+        unsafe extern "system" {
+            fn GetConsoleProcessList(list: *mut u32, count: u32) -> u32;
+            fn FreeConsole() -> i32;
+        }
+        let mut list = [0u32; 2];
+        // SAFETY: both are plain Win32 calls; the list is a valid buffer of the length given
+        unsafe {
+            if GetConsoleProcessList(list.as_mut_ptr(), 2) == 1 {
+                FreeConsole();
+            }
+        }
+    }
+
+    #[cfg(not(windows))]
+    pub fn release() {}
 }

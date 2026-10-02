@@ -25,7 +25,8 @@ cargo add photonoxide                               # the library
 ```
 
 The `photonoxide` program runs jobs live in the studio window (3D and 2D views) or headless, and
-replays runs; it is built from this repository, see [studio/README.md](studio/README.md).
+replays runs. From 0.3 on, each [release](https://github.com/tachsin/photonoxide/releases) has it
+for Linux (x86_64 and ARM64), Windows and macOS; see [studio/README.md](studio/README.md), which also says how to build it.
 
 ## Why photonoxide?
 

@@ -32,3 +32,9 @@ commit_parsers = [
   # PR titles are checked, so only the commits from before the checks end up here
   { message = ".*", group = "<!-- 5 -->Project setup" },
 ]
+
+# the photonoxide program (studio/) is built from the repository and attached to the releases as
+# binaries (.github/workflows/binaries.yml), never published to crates.io
+[[package]]
+name = "photonoxide-studio"
+release = false

@@ -92,15 +92,16 @@ A job file describes a run, and the studio window shows it live, starts by itsel
 when the run is done. Every run is recorded (`runs/<run>/events.jsonl`) and replays with
 `photonoxide view runs/<run>`; `--headless` runs a job without the window.
 
-The `photonoxide` program is built from the repository with Node.js, pnpm and the Tauri CLI
-(Rust and a web view: WebView2 on Windows, WebKitGTK on Linux):
+From 0.3 on, each release has the `photonoxide` program for Linux (x86_64 and ARM64), Windows
+and macOS ([downloads](https://github.com/tachsin/photonoxide/releases)); it can also be built
+from the repository ([how](https://github.com/tachsin/photonoxide/blob/main/studio/README.md)).
+Started with no arguments, it opens on a start page that lists the jobs in `jobs/` and the runs
+in `runs/`. From a terminal:
 
 ```sh
-git clone https://github.com/tachsin/photonoxide && cd photonoxide/studio
-pnpm install && pnpm tauri build                # target/release/photonoxide
-cd .. && target/release/photonoxide run jobs/strip-and-ring.toml   # a structure
-target/release/photonoxide run jobs/strip-modes.toml       # a strip's modes, and a sweep over wavelength
-target/release/photonoxide run jobs/strip-width-sweep.toml # ... or over its width
+photonoxide run jobs/strip-and-ring.toml        # a structure
+photonoxide run jobs/strip-modes.toml           # a strip's modes, and a sweep over wavelength
+photonoxide run jobs/strip-width-sweep.toml     # ... or over its width
 ```
 
 The studio opens in 3D: the layers and shapes as solids over the run's window, cut where a modes
