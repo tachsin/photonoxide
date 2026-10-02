@@ -58,9 +58,10 @@ Help is built in:
 
 ## Updates
 
-An installed copy updates itself. When a newer release is out, the studio says so, and **Update
-and restart** downloads it, checks its signature against the release key, installs it and
-restarts. A copy built from the repository, or the bare `.tar.gz` and `.zip` programs, can't
+An installed copy updates itself. It looks for a newer release when it opens and every hour
+while it stays open (Settings turns this off; **Check now** looks at once). When one is out, the
+studio says so, and **Update and restart** downloads it, checks its signature against the release
+key, installs it and restarts. A copy built from the repository, or the bare `.tar.gz` and `.zip` programs, can't
 update itself. They say so.
 
 - **The manifest:** the release workflow writes `latest.json` on every release, and the

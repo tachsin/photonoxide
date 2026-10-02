@@ -20,10 +20,16 @@
   import Validation from "./pages/Validation.svelte";
   import Viewer from "./pages/Viewer.svelte";
 
-  onMount(async () => {
-    await boot();
-    // a moment after the window opens, so the first paint isn't held up
-    if (app.state?.settings.check_updates) setTimeout(() => checkForUpdate(true), 2500);
+  onMount(() => {
+    boot().then(() => {
+      // a moment after the window opens, so the first paint isn't held up
+      if (app.state?.settings.check_updates) setTimeout(() => checkForUpdate(true), 2500);
+    });
+    // and every hour while the window stays open, as long as the setting is on
+    const hourly = setInterval(() => {
+      if (app.state?.settings.check_updates) checkForUpdate(true);
+    }, 3_600_000);
+    return () => clearInterval(hourly);
   });
 
   function keys(e: KeyboardEvent) {
