@@ -44,10 +44,15 @@ The validated, fabrication-ready photonics toolkit for Rust: simulation, inverse
    - Extrapolating outside the range is an error by default.
    - Only openly licensed data is shipped; the refractiveindex.info database is CC0.
 9. **Determinism is a guarantee.** Reductions are ordered, seeds are explicit, and nothing depends on thread scheduling.
-10. **Optimization lives in genoxide.**
-    - photonoxide supplies the physics: the objective, its adjoint gradient, and the parametrization (filters, projections, fabrication constraints).
+10. **Optimization lives in genoxide, at every level.**
+    - photonoxide supplies the physics: the objective, its adjoint gradient, and the parametrization (filters, projections, fabrication constraints), for device shapes, component parameters and whole circuits.
     - [genoxide](https://github.com/tachsin/genoxide), our optimization library, supplies every method that searches: gradient methods, constrained methods, evolutionary and global search.
     - When photonoxide needs a method genoxide lacks, it is added to genoxide as a general method with its own tests and benchmarks, never as photonics-specific code.
+
+11. **Components at every fidelity.**
+    - A device is a component with ports and parameters, and the same physics at several fidelities: analytic or compact, 2D, 3D and measured, each with its error against its source.
+    - A chip is a netlist of components that simulate together, passive and active.
+12. **The studio is a workspace,** not only a viewer: jobs, components and chips are built in it, and every run is watched and compared in it.
 
 ### Pitfalls ruled out by design
 
@@ -76,7 +81,9 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - **`fdfd`:** frequency-domain finite differences in 2D and 3D, ports, S-parameters, and adjoints.
 - **`fdtd`:** the Yee scheme in 2D and 3D, CPML, sources, monitors, dispersive and nonlinear media, and a GPU backend.
 - **`semi`:** the transfer matrix method, RCWA, eigenmode expansion (EME) and the beam propagation method.
-- **`circuit`:** S-parameter netlists, and compact models fitted from solver results.
+- **`circuit`:** components with ports and fidelities, netlists, the frequency-domain S-matrix and its adjoint, compact models and Touchstone files, time-domain models and signals, and programmable meshes.
+- **`thermal` and `electro`:** the static solver (heat conduction and electrostatics), thermo-optic and Pockels models, and RF transmission lines.
+- **`carrier`:** drift-diffusion and plasma dispersion.
 - **`inverse`:** adjoint gradients, density and level-set parametrizations, length-scale and foundry-rule constraints, and robust formulations, posed as problems for genoxide's optimizers.
 - **`layout`:** polygons and booleans, GDSII and OASIS I/O, parametric cells with ports, and waveguide routing.
 - **`pdk`:** layer stacks, layer maps, design rules, cross-sections, process corners, and DRC.
@@ -133,7 +140,28 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - [x] **Studio:** FDFD fields on a plane in the 3D view, and S-parameters as they arrive. *(An `"fdfd"` job: a device on one layer seen from above, its permittivity by the effective index method, ports with windows for guides side by side, a wavelength sweep; the field drawn on the layer in 3D, the S-matrix and |S_q1|² in 2D; `jobs/mmi-fdfd.toml`, a 1×2 splitter.)*
 - [ ] **Validation:** reciprocity, energy conservation, analytic cases, agreement with the mode solvers. *(In 2D: reciprocity, energy conservation, a slab's reflection against the exact transfer matrices, and the port modes against the exact slab. Agreement with FDTD moved to 0.4, once FDTD exists.)*
 
-### 0.4: Finite-difference time-domain (FDTD)
+### 0.4: Components and circuits
+
+The backbone of a chip: components with ports and several fidelities, connected into circuits that simulate together and are optimized at every level. It needs no new physics, because 0.2 and 0.3 already give modes and S-matrices.
+
+- [ ] **Component model:** ports (each with its mode), parameters, and several fidelities of the same physics: analytic or compact, 2D (effective index), 3D, and measured. Each carries its error against its source.
+- [ ] **Circuits:** a chip is a netlist of components. Its S-matrix comes from one global sparse solve, with Filipsson's sub-network growth (Filipsson 1981) as the reference; reciprocity and passivity are checked.
+- [ ] **Circuit adjoint:** a circuit response's gradient with respect to every component parameter, from one transposed solve, as in FDFD.
+- [ ] **Optimization at circuit level** through genoxide: couplings, phases, ring tuning, and component parameters.
+- [ ] **Compact models** fitted from solver results (rational in wavelength, polynomial in parameters), with their fit error; Touchstone (.sNp) import and export, the "measured" fidelity.
+- [ ] **First components:** waveguide, bend, directional coupler, MMI, Y-branch, ring (all-pass and add-drop) and MZI, from analytic models and from the 0.2 and 0.3 solvers.
+- [ ] **Studio, the workspace begins:**
+  - jobs built in the window, with no TOML needed;
+  - a component library;
+  - the chip view, where components are placed and connected;
+  - spectra, and run comparison.
+- [ ] **Validation:**
+  - analytic MZI and ring responses (Bogaerts 2012), and the free spectral range from n_g;
+  - reciprocity, and unitarity of lossless netlists;
+  - the global solve against sub-network growth, to round-off;
+  - Simphony's SiEPIC MZI against its published INTERCONNECT comparison (Ploeg 2021).
+
+### 0.5: Finite-difference time-domain (FDTD)
 - [ ] **Core:**
   - the Yee scheme in 2D and 3D (Yee 1966);
   - CPML (Roden 2000; the PML of Berenger 1994);
@@ -149,16 +177,38 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
   - PML reflection;
   - the Yee scheme's numerical dispersion against theory;
   - Meep on its published cases (Oskooi 2010);
-  - agreement with FDFD (0.3) on the same structures.
+  - agreement with FDFD (0.3) on the same structures;
+  - Liu & Poon 2025's six open PDK devices (MMI, directional coupler, crossing, mode converter, polarization splitter-rotator, ring), with two commercial codes' published results to compare.
 
-### 0.5: Semi-analytic methods
-- [ ] **Transfer matrix method:** thin films and Bragg stacks.
-- [ ] **RCWA:** the stable formulation (Moharam 1995) with Li's factorization rules (Li 1996); compared against S4 (Liu 2012).
-- [ ] **Eigenmode expansion,** with PML (Bienstman 2001).
-- [ ] **Beam propagation method:** wide-angle, Padé (Hadley 1992).
-- [ ] **Validation:** Bragg mirrors analytically, gratings against published results, and EME against FDTD on tapers.
+### 0.6: Thermal and electro-optic devices
 
-### 0.6: Inverse design
+The first active devices. One solver for static problems on the waveguide's cross-section serves heat, electrode fields and RF lines.
+
+- [ ] **Static solver:** Poisson and heat conduction on the cross-section, steady and transient; anisotropic tensors, conductors and contacts, and current continuity for Joule heating, on graded grids. A finite-element solver only if graded finite differences don't converge at electrode edges.
+- [ ] **Thermo-optic phase shifters:**
+  - temperature to index by dn/dT, with provenance (Komma 2012; Frey 2006), and thin-film silicon's conductivity (Ju & Goodson 1999);
+  - Pπ, the time constant, and the crosstalk between neighbours;
+  - dynamic thermal compact models for circuits (Coenen 2022), and crosstalk correction posed for genoxide (Gurses 2022).
+- [ ] **Pockels modulation:**
+  - the electro-optic tensor rotated into the waveguide's frame (x-cut and z-cut), and the index change by perturbation theory (Johnson 2002), checked against a full re-solve of the mode;
+  - one Vπ·L definition, derived and documented, since papers normalize the overlap differently;
+  - lithium niobate first (tensors: Jazbinšek & Zgonik 2002; dispersion: Zelmon 1997), then barium titanate (a domain-averaged coefficient with provenance and its spread, 200 to over 900 pm/V; Abel 2019) and lithium tantalate (Wang 2024).
+- [ ] **Travelling-wave electrodes:**
+  - quasi-TEM RF index, impedance and loss: conductors by Wheeler 1942 and Holloway & Kuester 1995, dielectrics by their loss tangent;
+  - a full-wave 2D RF mode with lossy metal, above about 100 GHz;
+  - the electro-optic frequency response (Ghione 2009; Zhang 2022);
+  - segmented and capacitively loaded electrodes by ABCD cascade (Kharel 2021; Shin 2005).
+- [ ] **Phase-change materials** (Sb₂Se₃, Sb₂S₃, GST): two-state material models with provenance, and the heat solver for switching (Delaney 2020).
+- [ ] **Components:** the thermo-optic phase shifter and the thin-film lithium niobate Mach–Zehnder modulator, each at analytic, 2D and measured fidelity.
+- [ ] **Studio:** temperature and electrode-field views on the cross-section; Vπ·L and bandwidth sweeps.
+- [ ] **Validation:**
+  - analytic: the parallel plate; coplanar lines by conformal mapping (Ghione & Naldi 1984); a line heat source above a substrate, by images; heat conduction in a slab; the uniform-field electro-optic slab;
+  - heaters: Jacques 2019 (Pπ 23.9 and 25.5 mW, time constants 10.2 and 5.8 µs, measured crosstalk) and Harris 2014 (24.77 mW, 2.69 µs);
+  - thin-film lithium niobate: Wang 2018 (1.8 V·cm), He 2019 (2.2 and 2.5 V·cm), Zhang 2022 (2.3 V·cm; RF index, impedance and loss measured to 325 GHz; 170 GHz), Kharel 2021's electrode table, Valdez 2023 (0.8 V·cm at 784 nm);
+  - barium titanate: Eltes 2019 (0.2 V·cm) and Deng 2026 (0.7 V·cm);
+  - the open codes Elmer and openEMS, run as external programs, once their licences are checked.
+
+### 0.7: Inverse design
 - [ ] **Adjoint gradients** for every solver (Lalau-Keraly 2013; nonlinear: Hughes 2018); forward-mode where it pays (Hughes 2019).
 - [ ] **Density topology optimization:**
   - filtering and projection with continuation (Wang 2011; Jensen 2011; Christiansen 2021);
@@ -167,7 +217,10 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
   - minimum length scales (Zhou 2015; Hammond 2021);
   - strict foundry rules (Schubert 2022);
   - level sets (Vercruysse 2019).
-- [ ] **Shape and parametric optimization.**
+- [ ] **Subpixel-smoothed projection** (Hammond 2025), which keeps the design differentiable at high β, and **hyperparameter-free length-scale constraints** (Arrieta 2026).
+- [ ] **Shape and parametric optimization,** with lithography models inside it (Khan 2024).
+- [ ] **The a-posteriori length-scale metric** reported for every design (Chen 2024).
+- [ ] **Device and circuit co-design** through the circuit adjoint of 0.4 (Mason 2025).
 - [ ] **Optimizers from genoxide:**
   - with supplied gradients: Adam and L-BFGS-B;
   - constraints: the augmented Lagrangian;
@@ -177,13 +230,49 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - [ ] **Pipeline:** explore in 2D, then optimize and verify in 3D.
 - [ ] **Studio:** the live optimization dashboard (design, fields, figure of merit, constraints).
 - [ ] **Validation,** each in 3D and within stated tolerances:
+  - Chen et al. 2024's benchmark suite, cross-checked across independent codes;
+  - Khan 2024's fabrication-aware Y-branch and SWG converter (measured on SiEPIC's process);
   - the wavelength demultiplexer (Piggott 2015);
   - the polarization beamsplitter (Shen 2015);
   - the mode multiplexer (Frellsen 2016);
   - the grating coupler (Su 2018);
   - foundry-ready designs (Piggott 2020).
 
-### 0.7: Layout and PDK
+### 0.8: Carrier modulators, signals and programmable circuits
+
+- [ ] **Drift-diffusion** on the cross-section: Poisson with electron and hole continuity, Scharfetter–Gummel fluxes (Scharfetter & Gummel 1969), Gummel then Newton iterations (Selberherr 1984), and doping-dependent mobility (Masetti 1983; Caughey & Thomas 1967). Steady state and small signal first; large-signal transients later.
+- [ ] **Plasma dispersion:** carriers to Δn and Δα (Soref & Bennett 1987; Nedeljkovic 2011) as a material model with provenance; the junction's C(V) and series resistance; travelling-wave lines loaded by the junction (Patel 2015).
+- [ ] **Time-domain circuits:** S-parameters turned into causal, passive pole–residue models by vector fitting (Gustavsen 1999; complex baseband: Ye 2018, 2022), and node-based time stepping (Fiers 2012). Differentiable, so genoxide can optimize end to end.
+- [ ] **Signals:**
+  - PRBS and PAM-n sources;
+  - modulator large-signal models: the travelling-wave MZM, and rings by coupled-mode theory (Sacher & Poon 2008);
+  - minimal driver and receiver models (photonoxide isn't a SPICE);
+  - eye diagrams, extinction ratio and optical modulation amplitude.
+- [ ] **Programmable meshes:** Reck, Clements and hexagonal meshes; decomposition; self-configuration (Miller 2013; Hamerly 2022) and error correction (Bandyopadhyay 2021); calibration posed for genoxide.
+- [ ] **Components:** the silicon depletion modulator (MZM and ring), and mesh cells.
+- [ ] **Studio:** eye diagrams and time traces; mesh programming.
+- [ ] **Validation:**
+  - the abrupt p–n junction's depletion width and C(V), in closed form;
+  - Yu 2012 (lateral junction, 0.44 pF/mm; Vπ·L);
+  - Patel 2015 (3.2 V·cm, 41 GHz);
+  - a ring's step response against coupled-mode theory;
+  - Ye 2022's time-domain examples;
+  - Reck and Clements decompositions to round-off; Bandyopadhyay 2021's and Hamerly 2022's error scaling;
+  - DEVSIM for drift-diffusion, run as an external program, once its licence is checked.
+
+### Decisions for the circuit and active milestones
+
+Taken with the survey of October 2026:
+
+1. **One Vπ·L definition,** from perturbation theory, checked against a full re-solve of the mode with the perturbed tensor.
+2. **Finite differences first** for the static problems, on graded grids, checked against closed forms at electrode edges; our own finite elements only if they don't converge there.
+3. **RF lines quasi-TEM first,** with a full-wave lossy-metal mode above about 100 GHz.
+4. **Drift-diffusion steady state and small signal first;** large-signal transients later.
+5. **Time-domain circuits differentiable** from the start.
+6. **Open codes as cross-code references** (Elmer, DEVSIM, openEMS, Simphony), run as external programs after their licences are checked. Commercial tools can't be run under our rules.
+7. **Variable material data ships with its spread:** barium titanate's coefficient, and the drift and relaxation of lithium niobate's response (results labelled valid above about 1 MHz until it is modelled; Holzgrafe 2024).
+
+### 0.9: Layout and PDK
 - [ ] **Layout:** polygons and booleans, cell hierarchy and references.
 - [ ] **GDSII and OASIS,** read and write (our own implementation). OASIS keeps curved, inverse-designed layouts small.
 - [ ] **Clean geometry:** curves turned into polygons within a stated tolerance, snapped to the database grid, split under the format's vertex limit, and merged.
@@ -196,7 +285,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
   - byte-for-byte GDSII and OASIS round trips;
   - our DRC results match KLayout's on the PDKs' own rule decks (KLayout run as an external program).
 
-### 0.8: Tape-out
+### 0.10: Tape-out
 
 How a design reaches a foundry. Fabrication is almost always a multi-project wafer (MPW) run: many designs share one wafer, on a fixed schedule with a submission deadline.
 
@@ -223,16 +312,22 @@ How a design reaches a foundry. Fabrication is almost always a multi-project waf
   - a submission accepted by openEBL's automated checks;
   - a fabricated device measured and compared with its prediction.
 
-### 0.9: Fabrication realism
+### 0.11: Fabrication realism
 - [ ] **Process variation:** width bias, film thickness and sidewall angle; corners and Monte Carlo; yield.
 - [ ] **Lithography and etch proxies** (blur and threshold), calibrated against published measurements where they exist. Machine-learned fabrication predictors (Gostimirovic 2022) are for comparison only.
 - [ ] **Robust design** across corners.
 - [ ] **Fabrication report** per design: nominal, corners and spread, and the design rules it was checked against.
+- [ ] **Circuit variability:** location-correlated Monte Carlo from wafer maps (Lu 2017), and polynomial chaos (Weng 2015; stochastic PDKs: Waqas 2018), which needs only deterministic solves.
 
-### 0.10: Circuits and devices
-- [ ] **Circuit simulation:** S-parameter netlists in the frequency domain (compare Simphony: Ploeg 2021).
-- [ ] **Compact models,** fitted from solver results with their error.
-- [ ] **Device library,** each device with its source paper and validation:
+### 0.12: Semi-analytic methods
+- [x] **Transfer matrix method:** thin films and Bragg stacks. *(Done in 0.3: `Multilayer::reflection`, Chilwell & Hodgkinson's Eqs. 13–16, against Fresnel and the quarter-wave mirror's closed form to 1e-12.)*
+- [ ] **RCWA:** the stable formulation (Moharam 1995) with Li's factorization rules (Li 1996); compared against S4 (Liu 2012).
+- [ ] **Eigenmode expansion,** with PML (Bienstman 2001).
+- [ ] **Beam propagation method:** wide-angle, Padé (Hadley 1992).
+- [ ] **Validation:** Bragg mirrors analytically, gratings against published results, and EME against FDTD on tapers.
+
+### 0.13: Device library
+- [ ] **Validated devices,** each a component with its source paper, its fidelities and its validation:
   - strip and rib waveguides;
   - bends and tapers;
   - Y-branch (Zhang 2013);
@@ -243,29 +338,34 @@ How a design reaches a foundry. Fabrication is almost always a multi-project waf
   - grating couplers (Vermeulen 2010; Su 2018);
   - AWGs;
   - demultiplexers.
-- [ ] **Active devices:** thermo-optic heaters; plasma-dispersion modulators (Soref 1987).
-- [ ] **Studio:** the circuit view and spectra.
+- [ ] **Studio:** the device catalogue in the component library.
 
-### 0.11: Periodic structures and nanophotonics
+### 0.14: Periodic structures and nanophotonics
 - [ ] **Photonic band structures:** plane-wave expansion, block-iterative (Johnson 2001).
 - [ ] **Photonic-crystal waveguides and cavities** (Q factors by harmonic inversion).
 - [ ] **Metasurfaces:** RCWA, and the locally periodic approximation.
 - [ ] **Plasmonics** with dispersive FDTD.
 - [ ] **Mie and T-matrix** scattering.
 
-### 0.12: Nonlinear and fiber optics
+### 0.15: Nonlinear and fiber optics
 - [ ] **χ(2) and χ(3)** in FDTD: second-harmonic generation, Kerr, four-wave mixing.
 - [ ] **Coupled-mode theory.**
 - [ ] **Fiber modes,** exact for step index; the nonlinear Schrödinger equation by split-step; supercontinuum.
+- [ ] **Kerr microcombs:** the Lugiato–Lefever equation by split-step, fed by the mode solver's dispersion (Lugiato & Lefever 1987; Kippenberg 2018); validated on the analytic soliton and Coen 2013's octave comb, against pyLLE (Moille 2019).
 
-### 0.13: Beyond
-- [ ] **Multiphysics:** heat conduction for heaters and thermo-optic tuning; carriers for electro-optics.
+### 0.16: Beyond
 - [ ] **Quantum photonics:** linear optical circuits and their statistics.
 - [ ] **Ray optics.**
 - [ ] **Further domains:** oxiphoton's 63 modules are the long-term map of the field. Each domain enters only with its validation.
 
 ### Throughout
-- **Studio:** every new solver gets its live view the same release.
+- **Studio:** every new solver gets its live view the same release, and the workspace grows a step per milestone:
+  - 0.4: jobs built in the window, the component library and the chip view;
+  - 0.5: live field propagation;
+  - 0.6: temperature and electrode-field views;
+  - 0.7: the optimization dashboard;
+  - 0.8: eye diagrams and mesh programming;
+  - 0.9: the layout view.
 - **Performance:** criterion benchmarks, with regression gating in CI.
 - **Docs:** a theory page per method.
 
@@ -288,11 +388,16 @@ Every solver is checked on three tiers. The results are collected in a report th
    - step-index fibre modes;
    - MMI self-imaging lengths;
    - ring free spectral range from n_g;
-   - Kramers–Kronig consistency of the material models.
+   - Kramers–Kronig consistency of the material models;
+   - coplanar lines by conformal mapping;
+   - the abrupt p–n junction;
+   - heat conduction from a line source.
 2. **Cross-code:** the same structure at the same resolution in Meep, MPB, S4, Ceviche and oxiphoton. GPL codes run only as external programs, in a separate harness.
 3. **Published devices:**
    - the inverse-designed devices above (Piggott 2015, Shen 2015, Frellsen 2016, Su 2018, Piggott 2020);
    - classic devices (Y-branch, MMI, rings, grating couplers);
+   - active devices: Jacques 2019's and Harris 2014's heaters, thin-film lithium niobate modulators (Wang 2018, He 2019, Zhang 2022, Kharel 2021), and Yu 2012's and Patel 2015's silicon modulators;
+   - Chen et al. 2024's inverse-design benchmark suite;
    - measured data: our own devices fabricated on openEBL, and published measurements where they exist (Hammood 2025).
 
 Each entry states its tolerance, grid, run time, and the source it is compared with.
@@ -381,3 +486,62 @@ Every reference below was checked against its DOI.
 - A. M. Hammond et al., Opt. Express 29, 23916 (2021). [10.1364/OE.431188](https://doi.org/10.1364/OE.431188)
 - M. F. Schubert et al., ACS Photonics 9, 2327 (2022). [10.1021/acsphotonics.2c00313](https://doi.org/10.1021/acsphotonics.2c00313)
 - D. Gostimirovic et al., ACS Photonics 9, 2623 (2022). [10.1021/acsphotonics.1c01973](https://doi.org/10.1021/acsphotonics.1c01973)
+
+**Active photonics, circuits and recent inverse design** (from the survey of October 2026)
+- C. Wang et al., Opt. Express 26, 1547 (2018). [10.1364/OE.26.001547](https://doi.org/10.1364/OE.26.001547)
+- M. He et al., Nat. Photon. 13, 359 (2019). [10.1038/s41566-019-0378-6](https://doi.org/10.1038/s41566-019-0378-6)
+- P. Kharel et al., Optica 8, 357 (2021). [10.1364/OPTICA.416155](https://doi.org/10.1364/OPTICA.416155)
+- Y. Zhang et al., Photon. Res. 10, 2380 (2022). [10.1364/PRJ.468518](https://doi.org/10.1364/PRJ.468518)
+- F. Valdez, V. Mere, S. Mookherjea, Optica 10, 578 (2023). [10.1364/OPTICA.484549](https://doi.org/10.1364/OPTICA.484549)
+- M. Jazbinšek, M. Zgonik, Appl. Phys. B 74, 407 (2002). [10.1007/s003400200818](https://doi.org/10.1007/s003400200818)
+- D. E. Zelmon, D. L. Small, D. Jundt, J. Opt. Soc. Am. B 14, 3319 (1997). [10.1364/JOSAB.14.003319](https://doi.org/10.1364/JOSAB.14.003319)
+- S. Abel et al., Nat. Mater. 18, 42 (2019). [10.1038/s41563-018-0208-0](https://doi.org/10.1038/s41563-018-0208-0)
+- F. Eltes et al., J. Lightwave Technol. 37, 1456 (2019). [10.1109/JLT.2019.2893500](https://doi.org/10.1109/JLT.2019.2893500)
+- C. Deng et al., Light Sci. Appl. 15, 21 (2026). [10.1038/s41377-025-02081-9](https://doi.org/10.1038/s41377-025-02081-9)
+- C. Wang et al., Nature 629, 784 (2024), lithium tantalate. [10.1038/s41586-024-07369-1](https://doi.org/10.1038/s41586-024-07369-1)
+- J. Holzgrafe et al., Opt. Express 32, 3619 (2024). [10.1364/OE.507536](https://doi.org/10.1364/OE.507536)
+- G. Ghione, *Semiconductor Devices for High-Speed Optoelectronics*, Cambridge University Press (2009). [10.1017/CBO9780511635595](https://doi.org/10.1017/CBO9780511635595)
+- G. Ghione, C. Naldi, Electron. Lett. 20, 179 (1984). [10.1049/el:19840120](https://doi.org/10.1049/el:19840120)
+- C. L. Holloway, E. F. Kuester, IEEE Trans. Microw. Theory Tech. 43, 2695 (1995). [10.1109/22.477846](https://doi.org/10.1109/22.477846)
+- H. A. Wheeler, Proc. IRE 30, 412 (1942). [10.1109/JRPROC.1942.232015](https://doi.org/10.1109/JRPROC.1942.232015)
+- J. Shin et al., IEEE Trans. Microw. Theory Tech. 53, 636 (2005). [10.1109/TMTT.2004.840735](https://doi.org/10.1109/TMTT.2004.840735)
+- S. G. Johnson et al., Phys. Rev. E 65, 066611 (2002). [10.1103/PhysRevE.65.066611](https://doi.org/10.1103/PhysRevE.65.066611)
+- M. Jacques et al., Opt. Express 27, 10456 (2019). [10.1364/OE.27.010456](https://doi.org/10.1364/OE.27.010456)
+- N. C. Harris et al., Opt. Express 22, 10487 (2014). [10.1364/OE.22.010487](https://doi.org/10.1364/OE.22.010487)
+- J. Komma et al., Appl. Phys. Lett. 101, 041905 (2012). [10.1063/1.4738989](https://doi.org/10.1063/1.4738989)
+- B. J. Frey, D. B. Leviton, T. J. Madison, Proc. SPIE 6273, 62732J (2006). [10.1117/12.672850](https://doi.org/10.1117/12.672850)
+- Y. S. Ju, K. E. Goodson, Appl. Phys. Lett. 74, 3005 (1999). [10.1063/1.123994](https://doi.org/10.1063/1.123994)
+- D. Coenen et al., IEEE Trans. Compon. Packag. Manuf. Technol. 12, 1350 (2022). [10.1109/TCPMT.2022.3195699](https://doi.org/10.1109/TCPMT.2022.3195699)
+- V. Gurses et al., IEEE J. Sel. Top. Quantum Electron. 28, 1 (2022). [10.1109/JSTQE.2022.3189965](https://doi.org/10.1109/JSTQE.2022.3189965)
+- M. Delaney et al., Adv. Funct. Mater. 30, 2002447 (2020). [10.1002/adfm.202002447](https://doi.org/10.1002/adfm.202002447)
+- D. L. Scharfetter, H. K. Gummel, IEEE Trans. Electron Devices 16, 64 (1969). [10.1109/T-ED.1969.16566](https://doi.org/10.1109/T-ED.1969.16566)
+- S. Selberherr, *Analysis and Simulation of Semiconductor Devices*, Springer (1984). [10.1007/978-3-7091-8752-4](https://doi.org/10.1007/978-3-7091-8752-4)
+- G. Masetti, M. Severi, S. Solmi, IEEE Trans. Electron Devices 30, 764 (1983). [10.1109/T-ED.1983.21207](https://doi.org/10.1109/T-ED.1983.21207)
+- D. M. Caughey, R. E. Thomas, Proc. IEEE 55, 2192 (1967). [10.1109/PROC.1967.6123](https://doi.org/10.1109/PROC.1967.6123)
+- M. Nedeljkovic, R. Soref, G. Z. Mashanovich, IEEE Photon. J. 3, 1171 (2011). [10.1109/JPHOT.2011.2171930](https://doi.org/10.1109/JPHOT.2011.2171930)
+- H. Yu et al., Opt. Express 20, 12926 (2012). [10.1364/OE.20.012926](https://doi.org/10.1364/OE.20.012926)
+- D. Patel et al., Opt. Express 23, 14263 (2015). [10.1364/OE.23.014263](https://doi.org/10.1364/OE.23.014263)
+- W. D. Sacher, J. K. S. Poon, Opt. Express 16, 15741 (2008). [10.1364/OE.16.015741](https://doi.org/10.1364/OE.16.015741)
+- B. Gustavsen, A. Semlyen, IEEE Trans. Power Deliv. 14, 1052 (1999). [10.1109/61.772353](https://doi.org/10.1109/61.772353)
+- Y. Ye et al., Photon. Res. 6, 560 (2018). [10.1364/PRJ.6.000560](https://doi.org/10.1364/PRJ.6.000560)
+- Y. Ye et al., J. Lightwave Technol. 40, 7856 (2022). [10.1109/JLT.2022.3206818](https://doi.org/10.1109/JLT.2022.3206818)
+- M. Fiers et al., J. Opt. Soc. Am. B 29, 896 (2012). [10.1364/JOSAB.29.000896](https://doi.org/10.1364/JOSAB.29.000896)
+- G. Filipsson, 11th European Microwave Conference, 700 (1981). [10.1109/EUMA.1981.332972](https://doi.org/10.1109/EUMA.1981.332972)
+- M. Reck et al., Phys. Rev. Lett. 73, 58 (1994). [10.1103/PhysRevLett.73.58](https://doi.org/10.1103/PhysRevLett.73.58)
+- W. R. Clements et al., Optica 3, 1460 (2016). [10.1364/OPTICA.3.001460](https://doi.org/10.1364/OPTICA.3.001460)
+- D. A. B. Miller, Photon. Res. 1, 1 (2013). [10.1364/PRJ.1.000001](https://doi.org/10.1364/PRJ.1.000001)
+- S. Bandyopadhyay, R. Hamerly, D. Englund, Optica 8, 1247 (2021). [10.1364/OPTICA.424052](https://doi.org/10.1364/OPTICA.424052)
+- R. Hamerly, S. Bandyopadhyay, D. Englund, Phys. Rev. Appl. 18, 024019 (2022). [10.1103/PhysRevApplied.18.024019](https://doi.org/10.1103/PhysRevApplied.18.024019)
+- Z. Lu et al., Opt. Express 25, 9712 (2017). [10.1364/OE.25.009712](https://doi.org/10.1364/OE.25.009712)
+- T.-W. Weng et al., Opt. Express 23, 4242 (2015). [10.1364/OE.23.004242](https://doi.org/10.1364/OE.23.004242)
+- A. Waqas et al., Opt. Express 26, 5894 (2018). [10.1364/OE.26.005894](https://doi.org/10.1364/OE.26.005894)
+- M. Chen et al., J. Opt. Soc. Am. B 41, A161 (2024). [10.1364/JOSAB.506412](https://doi.org/10.1364/JOSAB.506412)
+- A. M. Hammond et al., subpixel-smoothed projection, arXiv:2503.20189 (2025).
+- R. Arrieta, G. Romano, S. G. Johnson, Struct. Multidiscip. Optim. 69, 210 (2026). [10.1007/s00158-026-04388-6](https://doi.org/10.1007/s00158-026-04388-6)
+- S. Khan et al., fabrication-aware inverse design for shape optimization, arXiv:2410.07353 (2024).
+- S. Mason et al., co-optimized inverse-designed WDMs, arXiv:2509.07233 (2025).
+- Z. Liu, J. K. S. Poon, Lumerical FDTD and Tidy3D compared, arXiv:2506.16665 (2025).
+- L. A. Lugiato, R. Lefever, Phys. Rev. Lett. 58, 2209 (1987). [10.1103/PhysRevLett.58.2209](https://doi.org/10.1103/PhysRevLett.58.2209)
+- T. J. Kippenberg et al., Science 361, eaan8083 (2018). [10.1126/science.aan8083](https://doi.org/10.1126/science.aan8083)
+- S. Coen et al., Opt. Lett. 38, 37 (2013). [10.1364/OL.38.000037](https://doi.org/10.1364/OL.38.000037)
+- G. Moille et al., J. Res. NIST 124, 124012 (2019), pyLLE. [10.6028/jres.124.012](https://doi.org/10.6028/jres.124.012)
