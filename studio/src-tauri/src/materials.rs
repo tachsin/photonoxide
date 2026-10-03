@@ -145,7 +145,8 @@ mod tests {
                 assert!(c.n.iter().all(|n| n.is_finite() && *n > 1.0), "{}", m.id);
                 let mid = (c.range.0 * c.range.1).sqrt();
                 let p = material_at(e.id.clone(), m.id.clone(), None, None, mid).unwrap();
-                assert!((p[0].eps_re - p[0].n * p[0].n).abs() < 1e-9);
+                assert!((p[0].eps_re - (p[0].n * p[0].n - p[0].k * p[0].k)).abs() < 1e-9);
+                assert!((p[0].eps_im - 2.0 * p[0].n * p[0].k).abs() < 1e-9);
             }
         }
         assert!(material_at("si".into(), "li-1980".into(), None, None, 0.5).is_err());

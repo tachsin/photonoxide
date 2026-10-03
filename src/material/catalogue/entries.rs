@@ -88,6 +88,7 @@ pub(super) fn all() -> Vec<Entry> {
         ingap(),
         inp(),
         aln(),
+        algan(),
         lithium_niobate(),
         lithium_niobate_mgo(),
     ]
@@ -1051,7 +1052,7 @@ fn ingap() -> Entry {
         category: Category::Semiconductor,
         summary: "The GaAs-lattice-matched III-V of χ⁽²⁾ integrated photonics: a large d14 and a 1.9 eV gap, with no two-photon absorption at 1.55 µm.".into(),
         crystal: zincblende("disordered (a random alloy); CuPt ordering of the group-III sites lowers the symmetry to 3m about a ⟨111⟩ axis and makes the crystal slightly birefringent (Ueno et al., Eq. (1))"),
-        index: vec![tanaka],
+        index: vec![tanaka, ferrini_sellmeier_model(), ferrini_table_model()],
         tensors: vec![
             single_d14(
                 "waveguide SHG, 1.55 µm",
@@ -1083,11 +1084,21 @@ fn ingap() -> Entry {
                 "no measurement of InGaP's electro-optic coefficient is in hand",
             ),
             missing(
-                "n above 1.3 eV",
-                "Schubert et al. (1995) give n and k from 0.8 to 5 eV only as curves; Ahler et al.'s bonded-film model is a data deposit (doi:10.5281/zenodo.17748661), not printed",
+                "n between 1.8 and 1.9 eV",
+                "Ferrini et al.'s Sellmeier ends at 1.8 eV and their Table 3 starts at 1.9 eV: the band edge itself isn't covered",
+            ),
+            missing(
+                "bonded thin film",
+                "Ahler et al.'s Zenodo deposit (doi:10.5281/zenodo.17748661) holds only cut-back loss measurements, with no index data and no licence file, so there is no thin-film InGaP model",
             ),
         ],
-        references: references(&["tanaka-1986", "schubert-1995", "ueno-1997", "ahler-2026"]),
+        references: references(&[
+            "tanaka-1986",
+            "ferrini-2002",
+            "schubert-1995",
+            "ueno-1997",
+            "ahler-2026",
+        ]),
     }
 }
 
@@ -1253,9 +1264,9 @@ fn aln() -> Entry {
                 optic_axis: "z (the c axis)".into(),
             },
             centrosymmetric: false,
-            notes: "positive in bulk (Pastrňák & Roskovcová: n_e − n_o ≈ 0.05); Gräupner et al.'s sputtered film is slightly negative".into(),
+            notes: "positive: n_e − n_o ≈ 0.05 (Rigler et al. 2015, about 2.5%; Pastrňák & Roskovcová 1966 in bulk); Gräupner et al.'s sputtered film is slightly negative".into(),
         },
-        index: vec![],
+        index: vec![rigler_2015_model(0), rigler_2015_model(1)],
         tensors: vec![d, r_bulk, r_film],
         constants: vec![
             Constant {
@@ -1304,10 +1315,225 @@ fn aln() -> Entry {
                 source: majkic,
             },
         ],
-        missing: vec![missing(
-            "index model",
-            "Pastrňák & Roskovcová (1966) plot n_o and n_e from 0.22 to 0.6 µm but print neither a table nor a formula, only the values at 589 nm; Majkić et al. use Rigler et al.'s Sellmeier (Appl. Phys. Express 8, 042603 (2015)), not in hand. Gräupner et al.'s Cauchy formula is misprinted (its B makes n constant)",
+        missing: vec![],
+        references: references(&[
+            "rigler-2015",
+            "pastrnak-roskovcova-1966",
+            "majkic-2017",
+            "graupner-1992",
+            "shoji-1997",
+        ]),
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// AlN's index, AlGaN, and InGaP beyond Tanaka's range
+// ---------------------------------------------------------------------------------------------
+
+fn one_term_rows(rows: &[(&str, &str, &str)]) -> Vec<Vec<String>> {
+    rows.iter().map(|(a, b, c)| strings(&[a, b, c])).collect()
+}
+
+const ONE_TERM: &str = r"n_{o,e}^2 = 1 + \frac{A_{o,e}\,\lambda^2}{\lambda^2 - B_{o,e}^2}";
+
+fn rigler_2015_model(polarity: usize) -> IndexModel {
+    let (name, printed) = if polarity == 0 {
+        (
+            "Al-polar",
+            [
+                ("$A_o$", "3.131", "0.01"),
+                ("$B_o$ (nm)", "136", "1"),
+                ("$A_e$", "3.318", "0.01"),
+                ("$B_e$ (nm)", "138", "1"),
+            ],
+        )
+    } else {
+        (
+            "N-polar",
+            [
+                ("$A_o$", "3.110", "0.02"),
+                ("$B_o$ (nm)", "135", "1"),
+                ("$A_e$", "3.310", "0.01"),
+                ("$B_e$ (nm)", "140", "1"),
+            ],
+        )
+    };
+    IndexModel {
+        id: format!("rigler-2015-{}", if polarity == 0 { "al-polar" } else { "n-polar" }),
+        name: format!("Rigler et al. 2015, {name}"),
+        axes: vec![Axis::Ordinary, Axis::Extraordinary],
+        equation: ONE_TERM.into(),
+        symbols: r"$\lambda$ in vacuum; $B$ in nm as the paper gives it".into(),
+        coefficients: vec![table(
+            &format!("Table I, {name} AlN, spectroscopic ellipsometry"),
+            &["", "value", "±"],
+            one_term_rows(&printed),
         )],
-        references: references(&["pastrnak-roskovcova-1966", "majkic-2017", "graupner-1992", "shoji-1997"]),
+        wavelength: models::RIGLER_2015_LAMBDA,
+        temperature: None,
+        composition: None,
+        accuracy: "0.6%, the paper's estimate for its ellipsometric dispersions (and their spread against Blanc, Özgür and Shokhovets)".into(),
+        sources: vec![src("rigler-2015", "Eq. (10), Table I")],
+        default: polarity == 0,
+        notes: format!(
+            "an {name} AlN film about 240 nm thick, MOCVD on sapphire; fitted from 400 to 900 nm at room temperature (none stated). Multi-angle ellipsometry at 658 nm gives n_o and n_e within 0.006 of it (Table I)"
+        ),
+        eval: if polarity == 0 {
+            |_, _| models::rigler_2015(0)
+        } else {
+            |_, _| models::rigler_2015(1)
+        },
+    }
+}
+
+fn rigler_2013_model(sample: u8) -> IndexModel {
+    let &(s, x, metal, [ao, bo, ae, be]) = models::RIGLER_2013
+        .iter()
+        .find(|r| r.0 == sample)
+        .expect("a sample of Table II");
+    let polarity = if metal { "III-polar" } else { "N-polar" };
+    let formula = if x == 0.0 {
+        "GaN".to_owned()
+    } else {
+        format!("Al{}Ga{}N", models::short(x), models::short(1.0 - x))
+    };
+    let mut rows = vec![
+        strings(&["$A_{TE}$", &format!("{ao:.3}")]),
+        strings(&["$B_{TE}$ (nm)", &format!("{bo:.1}")]),
+    ];
+    if ae.is_finite() {
+        rows.push(strings(&["$A_{TM}$", &format!("{ae:.3}")]));
+        rows.push(strings(&["$B_{TM}$ (nm)", &format!("{be:.2}")]));
+    }
+    IndexModel {
+        id: format!("rigler-2013-sample-{s}"),
+        name: format!("{formula}, {polarity} (sample {s})"),
+        axes: if ae.is_finite() {
+            vec![Axis::Ordinary, Axis::Extraordinary]
+        } else {
+            vec![Axis::Ordinary]
+        },
+        equation: r"n_o^2 = 1 + \frac{A_{TE}\,\lambda^2}{\lambda^2 - B_{TE}^2}, \quad n_e^2 = 1 + \frac{A_{TM}\,\lambda^2}{\lambda^2 - B_{TM}^2}".into(),
+        symbols: r"$\lambda$ in vacuum, $B$ in nm; TE modes sample $n_o$ and TM modes $n_e$ of a c-axis film".into(),
+        coefficients: vec![table(
+            &format!("Table II, sample {s}: {formula}, {polarity}"),
+            &["", "value"],
+            rows,
+        )],
+        wavelength: models::RIGLER_2013_LAMBDA,
+        temperature: None,
+        composition: None,
+        accuracy: "standard uncertainty 0.1% where three or more modes were measured, 0.4% from two; the Al fraction to ±0.025 (Table I and text)".into(),
+        sources: vec![src("rigler-2013", "Eqs. (6)–(7), Table II")],
+        default: sample == 1,
+        notes: if ae.is_finite() {
+            format!("a {polarity} film on sapphire (MOCVD), prism coupling at 457.9, 532, 632.8 and 1064 nm, room temperature")
+        } else {
+            format!("a {polarity} film; too rough for n_e, which the paper doesn't give")
+        },
+        eval: match sample {
+            1 => |_, _| models::rigler_2013(1),
+            2 => |_, _| models::rigler_2013(2),
+            3 => |_, _| models::rigler_2013(3),
+            4 => |_, _| models::rigler_2013(4),
+            5 => |_, _| models::rigler_2013(5),
+            6 => |_, _| models::rigler_2013(6),
+            7 => |_, _| models::rigler_2013(7),
+            8 => |_, _| models::rigler_2013(8),
+            _ => |_, _| models::rigler_2013(9),
+        },
+    }
+}
+
+fn algan() -> Entry {
+    Entry {
+        id: "algan".into(),
+        name: "Aluminium gallium nitride".into(),
+        formula: "AlₓGa₁₋ₓN".into(),
+        category: Category::Semiconductor,
+        summary: "The GaN–AlN alloy of UV optoelectronics and of quasi-phase-matched UV frequency conversion; Rigler et al.'s films from x = 0 to 0.30, in both polarities.".into(),
+        crystal: Crystal {
+            system: CrystalSystem::Hexagonal,
+            point_group: "6mm".into(),
+            space_group: Some("P6₃mc (No. 186)".into()),
+            structure: "wurtzite".into(),
+            optical: OpticalClass::Uniaxial {
+                positive: true,
+                optic_axis: "z (the c axis, normal to the films)".into(),
+            },
+            centrosymmetric: false,
+            notes: "III-metal-polar and N-polar films differ slightly in index, more at long wavelengths".into(),
+        },
+        index: (1..=9).map(rigler_2013_model).collect(),
+        tensors: vec![],
+        constants: vec![],
+        missing: vec![
+            missing(
+                "n(x)",
+                "Rigler et al. (2013) fit each film separately (Table II) and give no model in x: the catalogue has the nine films, not an interpolation",
+            ),
+            missing(
+                "d and r",
+                "the paper quotes only literature ranges for d33; no primary measurement of AlGaN's tensors is in hand",
+            ),
+        ],
+        references: references(&["rigler-2013"]),
+    }
+}
+
+fn ferrini_sellmeier_model() -> IndexModel {
+    IndexModel {
+        id: "ferrini-2002-sellmeier".into(),
+        name: "Ferrini et al. 2002, below the gap".into(),
+        axes: vec![Axis::Isotropic],
+        equation: r"n^2 = A + B\,\frac{\lambda^2}{\lambda^2 - C^2}".into(),
+        symbols: r"$\lambda$ and $C$ in µm (Eq. (5))".into(),
+        coefficients: vec![table(
+            "Table 2, Sellmeier parameters of sample EPI 61 (undoped)",
+            &["$A$", "$B$", r"$C$ (µm)"],
+            vec![strings(&["6.058", "3.27", "0.459"])],
+        )],
+        wavelength: nominal(models::ferrini_sellmeier()),
+        temperature: None,
+        composition: None,
+        accuracy: "no number stated for n; reflectance accurate to 0.005 (far infrared) and 0.5% (0.4–6 eV); the Sellmeier and the interband (PSM) fit are 'quasi coincident' from 0.05 to 1.8 eV".into(),
+        sources: vec![src("ferrini-2002", "Eq. (5), Table 2")],
+        default: false,
+        notes: "undoped, highly disordered In₀.₄₉Ga₀.₅₁P (3.23 µm, MOVPE on GaAs), room temperature; fitted to the reflectance fringes where k = 0, from about 0.05 to 1.8 eV (0.69–24.8 µm). Doped samples (Table 2) differ by up to 0.4 in A. Against Tanaka et al. in their common range (0.95–2.07 µm) it is lower by 0.6% at 1.55 µm and 1.9% at 0.95 µm".into(),
+        eval: |_, _| one(models::ferrini_sellmeier()),
+    }
+}
+
+fn ferrini_table_model() -> IndexModel {
+    IndexModel {
+        id: "ferrini-2002-table".into(),
+        name: "Ferrini et al. 2002, above the gap".into(),
+        axes: vec![Axis::Isotropic],
+        equation: r"\tilde n(\lambda) = n + ik \text{ from Table 3, through natural cubic splines in } \lambda".into(),
+        symbols: r"$\lambda = 1.239842/E$ µm for the photon energy $E$ in eV".into(),
+        coefficients: vec![table(
+            "Table 3, sample EPI 61 (the second of the two rows printed 4.2 eV; the first is 4.1)",
+            &["$E$ (eV)", "$n$", "$k$", r"$\varepsilon_1$", r"$\varepsilon_2$"],
+            models::FERRINI_TABLE_3
+                .iter()
+                .map(|&(e, n, k, e1, e2)| {
+                    vec![
+                        format!("{e:.1}"),
+                        format!("{n:.3}"),
+                        format!("{k:.3}"),
+                        format!("{e1:.3}"),
+                        format!("{e2:.3}"),
+                    ]
+                })
+                .collect(),
+        )],
+        wavelength: nominal(models::ferrini_table()),
+        temperature: None,
+        composition: None,
+        accuracy: "ellipsometry and reflectance; their n and k agree within 5% over the ellipsometric range (Sec. 3.3); the table's ε₁ = n² − k² and ε₂ = 2nk hold to its last digit".into(),
+        sources: vec![src("ferrini-2002", "Table 3")],
+        default: false,
+        notes: "undoped In₀.₄₉Ga₀.₅₁P (EPI 61) at room temperature, 1.9 to 5.5 eV (0.225–0.653 µm), lossy: the interband region".into(),
+        eval: |_, _| one(models::ferrini_table()),
     }
 }
