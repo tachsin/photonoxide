@@ -12,6 +12,7 @@
     runs: ["Runs", "Everything run in this workspace"],
     viewer: ["Viewer", "A run as its record holds it, live or replayed"],
     compare: ["Compare", "Runs side by side"],
+    materials: ["Materials", "Refractive indices, crystals and tensors, each from its paper"],
     validation: ["Validation", "Each solver against exact solutions and published results"],
     settings: ["Settings", "Appearance, workspace, tips and updates"],
   };

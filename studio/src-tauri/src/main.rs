@@ -3,6 +3,7 @@
 //! report.
 
 mod examples;
+mod materials;
 mod settings;
 mod studio;
 mod tasks;

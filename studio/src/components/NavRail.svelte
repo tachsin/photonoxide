@@ -1,6 +1,7 @@
 <script lang="ts">
   // The navigation rail: every page, and the run being followed when there is one.
   import {
+    Atom,
     ChartSpline,
     ChevronsLeft,
     ChevronsRight,
@@ -52,6 +53,10 @@
         { page: "viewer", label: "Viewer", icon: View, hint: "The run being shown, in 3D and 2D" },
         { page: "compare", label: "Compare", icon: ChartSpline, hint: "Runs side by side: sweeps and spectra" },
       ],
+    },
+    {
+      title: "Library",
+      items: [{ page: "materials", label: "Materials", icon: Atom, hint: "Indices, crystals and tensors, each from its paper" }],
     },
     {
       title: "Trust",
