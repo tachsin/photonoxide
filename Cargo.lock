@@ -3268,6 +3268,7 @@ dependencies = [
  "faer",
  "genoxide",
  "num-complex",
+ "rayon",
  "serde",
  "serde_json",
  "toml 1.1.6+spec-1.1.0",

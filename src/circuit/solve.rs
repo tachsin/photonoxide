@@ -239,8 +239,11 @@ impl Circuit {
         self.solve(wavelength, values)
     }
 
-    /// The circuit's spectrum at `wavelengths`, one sparse solve each, the sparsity analysed
-    /// once.
+    /// The circuit's spectrum at `wavelengths`, one sparse solve each, the wavelengths in
+    /// parallel as [`Spectrum::of`] solves them. The sparsity is analysed once, when the netlist
+    /// is compiled, and every wavelength's numeric factorization shares that symbolic analysis
+    /// (read-only, behind an `Arc`); the results are the same bit for bit on any number of
+    /// threads.
     ///
     /// # Errors
     ///
@@ -328,6 +331,8 @@ impl Circuit {
         };
         let matrix = SparseColMat::<usize, c64>::try_new_from_triplets(n, n, &triplets)
             .map_err(|e| Error::invalid("circuit", format!("can't assemble its system: {e:?}")))?;
+        // the symbolic analysis is shared (faer keeps it behind an Arc), the numeric
+        // factorization this wavelength's own
         let lu = Lu::try_new_with_symbolic(self.symbolic.clone(), matrix.as_ref())
             .map_err(|_| singular())?;
         // S_b E: column c is column `external[c]` of S_b, on its instance's rows

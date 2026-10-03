@@ -21,6 +21,8 @@ default-members = ["."]
 [dependencies]
 faer = "0.24.4"
 num-complex = "0.4"
+# spectra: their wavelengths solved in parallel, each on its own, collected in order
+rayon = "1.12.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 toml = "1"
