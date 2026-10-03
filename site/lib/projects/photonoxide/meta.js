@@ -84,7 +84,7 @@ export const PHOTONOXIDE_HIGHLIGHTS = [
     icon: "fields",
     title: "FDFD",
     status: "released",
-    body: "Frequency-domain finite differences in 2D and 3D on Yee's grid: stretched-coordinate PMLs, mode ports and reciprocal S-matrices (in 3D on main), adjoint gradients in 2D, and direct and QMR solves.",
+    body: "Frequency-domain finite differences in 2D and 3D on Yee's grid: stretched-coordinate PMLs, mode ports and reciprocal S-matrices in 2D and 3D, adjoint gradients in 2D, and direct and preconditioned QMR solves.",
   },
   {
     icon: "materials",
@@ -101,13 +101,13 @@ export const PHOTONOXIDE_HIGHLIGHTS = [
   {
     icon: "circuits",
     title: "Components and circuits",
-    status: "main",
+    status: "released",
     body: "Waveguides, couplers, MMIs, rings and MZIs with ports and fidelities; netlists solved as one sparse system; the circuit adjoint and genoxide's optimizers; the studio's component library and chip view.",
   },
   {
     icon: "compact",
     title: "Compact models",
-    status: "main",
+    status: "released",
     body: "Vector fitting with its error, stability and passivity, models over parameters, and Touchstone files read and written as the measured fidelity.",
   },
   {
@@ -213,7 +213,8 @@ export const FALLBACK_MILESTONES = [
   "0.3: Frequency-domain finite differences (FDFD) ✅",
   "0.3.1: The studio as a workspace ✅",
   "0.3.2: The studio, polished ✅",
-  "0.4: Components and circuits",
+  "0.4: Components and circuits ✅",
+  "0.4.1: A preconditioner for high-contrast 3D FDFD",
   "0.5: Finite-difference time-domain (FDTD)",
   "0.6: Thermal and electro-optic devices",
   "0.7: Inverse design",

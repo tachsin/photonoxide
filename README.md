@@ -26,16 +26,16 @@ studio: a desktop window where you build jobs and chips, watch them run in 3D an
 the report. The plan goes on to FDTD, thermal and electro-optic modulators, inverse design,
 layout and tape-out; see the [roadmap](ROADMAP.md).
 
-> **Alpha.** The latest release is **0.3.3**: materials, mode solvers and FDFD, and the studio.
-> The 0.4 milestone, components and circuits, is on the main branch and nearly complete; it
-> isn't on crates.io yet. The API will change between milestones.
+> **Alpha.** The latest release is **0.4.0**: materials, mode solvers and FDFD, components and
+> circuits, compact models, and the studio. Next is 0.4.1, a stronger preconditioner for
+> high-contrast 3D FDFD. The API will change between milestones.
 
 The project's pages are at [tachsin.gr/projects/photonoxide](https://tachsin.gr/projects/photonoxide):
 the methods, the examples with their output, the validation report and the roadmap.
 
 ## What you can do today
 
-In the 0.3.3 release:
+In the 0.4.0 release:
 
 - **Materials with provenance:** Sellmeier, Cauchy, Drude and Lorentz models with their source,
   validity range and temperature, and refractiveindex.info files read with theirs
@@ -57,12 +57,9 @@ In the 0.3.3 release:
 - **FDFD:** [2D](docs/methods/fdfd.md) and [3D](docs/methods/fdfd-3d.md) on Yee's grid with
   stretched-coordinate PMLs and the scheme's exact power flux; in 2D, [mode ports and
   S-parameters](docs/methods/fdfd-ports.md) and [adjoint gradients](docs/methods/fdfd-adjoint.md);
-  sparse direct solves (faer) and QMR.
-- **Jobs and runs:** a job is a TOML file (`modes`, `fdfd` or `structure`); every run is
-  recorded as events and replays exactly.
-
-On the main branch, for the next release:
-
+  sparse direct solves (faer) and QMR, preconditioned by ILU(0) in 3D.
+- **3D FDFD ports:** the grid's own full-vector port modes, one-way sources and a reciprocal
+  S-matrix.
 - **Circuits:** [components](docs/methods/components.md) with ports, parameters, a fidelity and
   their error against their source; [netlists](docs/methods/circuits.md) solved as one sparse
   system, checked against Filipsson's sub-network growth; nested circuits; the
@@ -76,10 +73,15 @@ On the main branch, for the next release:
   error, stability and passivity; models over parameters, polynomial or piecewise linear with an
   exact test of uniform stability; Touchstone 1.1 and 2.0 files read and written, as the
   measured fidelity.
-- **3D FDFD ports:** the grid's own full-vector port modes, one-way sources and a reciprocal
-  S-matrix.
 - **More materials:** AlN's index (Rigler 2015), AlGaN films (Rigler 2013), and InGaP beyond
   Tanaka's range (Ferrini 2002).
+- **Validation against measurement:** Dwivedi et al. 2015's Mach-Zehnder interferometers,
+  predicted from their wires' measured cross-sections.
+- **Jobs and runs:** a job is a TOML file (`modes`, `fdfd` or `structure`); every run is
+  recorded as events and replays exactly.
+
+Next, in 0.4.1: a stronger preconditioner for high-contrast 3D FDFD (multigrid that copes with
+PMLs, or a sweeping one), so a component's 3D fidelity takes minutes.
 
 [Getting started](docs/getting-started.md) goes from `cargo add` to a strip waveguide's modes.
 The API is on [docs.rs](https://docs.rs/photonoxide).
@@ -103,9 +105,9 @@ and chips:
 - **Validation:** the release's report, with its math rendered, and the same report run on your
   machine.
 - **Settings:** every daisyUI theme, the workspace folder, tips and updates.
-- On the main branch: **Components**, the component library with each kind's S-parameters
-  recomputed as its parameters move and Touchstone import and export, and **Chip**, where
-  components are placed, wired port to port, checked and simulated.
+- **Components:** the component library, each kind's S-parameters recomputed as its
+  parameters move, and Touchstone import and export.
+- **Chip:** components placed, wired port to port, checked and simulated.
 
 <table>
   <tr>
@@ -206,7 +208,8 @@ and CI checks their output too.
 | 0.2 Mode solvers | Slab, multilayer, full-vector 2D finite differences, EIM, bends, dispersion | ✅ released |
 | 0.3 FDFD | 2D and 3D, mode ports, S-parameters, adjoints, an iterative 3D solver; Hadley's high-accuracy mode solver | ✅ released |
 | 0.3.1 – 0.3.3 The studio and materials | The studio as a workspace (examples inside, the job builder, run comparison, updates by one click); rings and 3D previews; the travelling mode in 3D, sweeps in the viewer, the report's math, every theme; the materials catalogue | ✅ released |
-| 0.4 Components and circuits | Components at several fidelities, netlists, the circuit adjoint, optimization through genoxide, compact models, Touchstone, 3D FDFD ports; the studio's component library and chip view | 🚧 on main; a preconditioner for high-contrast 3D FDFD is the last item |
+| 0.4 Components and circuits | Components at several fidelities, netlists, the circuit adjoint, optimization through genoxide, compact models, Touchstone, 3D FDFD ports; the studio's component library and chip view | ✅ released |
+| 0.4.1 A 3D preconditioner | A stronger preconditioner for high-contrast 3D FDFD (0.4.0 has ILU(0)), so a component's 3D fidelity takes minutes | 🚧 next |
 | 0.5 FDTD | 2D and 3D Yee, CPML, subpixel smoothing, dispersive media, GPU | planned |
 | 0.6 Thermal and electro-optic | Heat and electrostatics, thermo-optic phase shifters, Pockels modulators (thin-film lithium niobate first), travelling-wave electrodes | planned |
 | 0.7 Inverse design | Adjoint topology and shape optimization, fabrication constraints, the 2D-to-3D pipeline, device and circuit co-design | planned |
