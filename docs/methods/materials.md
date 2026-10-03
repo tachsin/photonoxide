@@ -36,7 +36,7 @@ extrapolation.
 | Sellmeier | $n^2 = A + \sum_j B_j \lambda^2 / (\lambda^2 - C_j^2)$, λ in µm |
 | Cauchy | $n = A_0 + A_1/\lambda^2 + A_2/\lambda^4 + \dots$ |
 | Drude | $\varepsilon = \varepsilon_\infty - \omega_p^2 / (\omega^2 + i\gamma\omega)$ |
-| Lorentz | $\varepsilon = \varepsilon_\infty + \sum_j \Delta\varepsilon_j\, \omega_j^2 / (\omega_j^2 - \omega^2 - i\gamma_j\omega)$ |
+| Lorentz | $\varepsilon = \varepsilon_\infty + \sum_j \Delta\varepsilon_j\thinspace\omega_j^2 / (\omega_j^2 - \omega^2 - i\gamma_j\omega)$ |
 | Tabulated | measured n and k, natural cubic splines between them |
 
 The signs of the Drude and Lorentz terms follow the [time convention](conventions.md):

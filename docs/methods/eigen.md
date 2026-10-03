@@ -26,7 +26,7 @@ author's site), in pure Rust on faer's sparse LU.
 4. A Ritz pair is accepted only when its **true residual** is small, computed with A itself:
 
 $$
-\frac{\lVert A x - \lambda x \rVert}{|\lambda|\, \lVert x \rVert} < \text{tol}.
+\frac{\lVert A x - \lambda x \rVert}{|\lambda|\thinspace\lVert x \rVert} \lt \text{tol}.
 $$
 
 So an answer the iteration only believes converged is never returned.

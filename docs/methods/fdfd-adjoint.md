@@ -22,11 +22,11 @@ all of them.
 
 ## The method
 
-The [FDFD](fdfd.md) system is $A(\varepsilon)\,u = b$, with the source b independent of ε. For an
+The [FDFD](fdfd.md) system is $A(\varepsilon)\thinspace u = b$, with the source b independent of ε. For an
 objective F(u), Veronis, Dutton and Fan's Eqs. 2–4 give
 
 $$
-\frac{\partial F}{\partial \varepsilon_k} = -2\,\operatorname{Re}\!\left(\lambda^{\mathsf T}\,\frac{\partial A}{\partial \varepsilon_k}\,u\right),
+\frac{\partial F}{\partial \varepsilon_k} = -2\thinspace\operatorname{Re}\negthinspace\left(\lambda^{\mathsf T}\thinspace\frac{\partial A}{\partial \varepsilon_k}\thinspace u\right),
 \qquad A^{\mathsf T}\lambda = \frac{\partial F}{\partial u}.
 $$
 
@@ -37,12 +37,12 @@ it from the fields' reciprocity.
 
 **The objective** is the power a [port](fdfd-ports.md) mode carries one way, $F = |a|^2$. Its
 amplitude a is linear in the field, $a = c^{\mathsf T} u$: the projection on the port's two columns.
-So $\partial F/\partial u = \bar a\, c$.
+So $\partial F/\partial u = \bar a\thinspace c$.
 
 **∂A/∂ε** for a problem given cell by cell (`Solver2d::from_cells`, the form an optimization
 varies):
 - E along z: the cell's permittivity sits on the diagonal as $k_0^2\varepsilon_k$.
-- H along z: it enters through the faces' couplings $1/(\varepsilon_f\,s\,s\,\Delta^2)$. Each face's
+- H along z: it enters through the faces' couplings $1/(\varepsilon_f\thinspace s\thinspace s\thinspace\Delta^2)$. Each face's
   $\varepsilon_f$ is the mean of its two cells, so a cell collects half of each of its faces'
   derivatives, or all of it for a face on a wall.
 

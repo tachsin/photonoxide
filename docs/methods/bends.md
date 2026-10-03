@@ -26,7 +26,7 @@ computes it two ways.
 
 ## The exact bent slab
 
-A slab bent around an axis y carries modes $\psi(\rho)\, e^{i(\nu\varphi - \omega t)}$, with complex angular
+A slab bent around an axis y carries modes $\psi(\rho)\thinspace e^{i(\nu\varphi - \omega t)}$, with complex angular
 order $\nu = k n_\text{eff} R$. In each layer of index n,
 
 $$

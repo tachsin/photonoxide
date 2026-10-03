@@ -19,12 +19,12 @@ for TM) lives on the nodes. At node i, with the cell to its left of width w and 
 $\varepsilon_w$, and to its right of width e and $\varepsilon_e$:
 
 $$
-\text{TE:}\quad \frac{2}{w+e}\left[\frac{\psi_{i+1} - \psi_i}{e} - \frac{\psi_i - \psi_{i-1}}{w}\right] + k^2 \bar\varepsilon\, \psi_i = \beta^2 \psi_i,
+\text{TE:}\quad \frac{2}{w+e}\left[\frac{\psi_{i+1} - \psi_i}{e} - \frac{\psi_i - \psi_{i-1}}{w}\right] + k^2 \bar\varepsilon\thinspace\psi_i = \beta^2 \psi_i,
 \qquad \bar\varepsilon = \frac{w \varepsilon_w + e \varepsilon_e}{w + e},
 $$
 
 $$
-\text{TM:}\quad \frac{2}{w+e}\left[\frac{\psi_{i+1} - \psi_i}{e\,\varepsilon_e} - \frac{\psi_i - \psi_{i-1}}{w\,\varepsilon_w}\right] + k^2 \psi_i = \beta^2 \left\langle \tfrac{1}{\varepsilon} \right\rangle \psi_i,
+\text{TM:}\quad \frac{2}{w+e}\left[\frac{\psi_{i+1} - \psi_i}{e\thinspace\varepsilon_e} - \frac{\psi_i - \psi_{i-1}}{w\thinspace\varepsilon_w}\right] + k^2 \psi_i = \beta^2 \left\langle \tfrac{1}{\varepsilon} \right\rangle \psi_i,
 $$
 
 which keeps ψ and ψ′/ε continuous at interfaces. These are the [full-vector](vector.md)

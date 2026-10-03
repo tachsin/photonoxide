@@ -40,7 +40,7 @@ dB/cm $10 \log_{10}(e) \cdot 2 k_0 \operatorname{Im}(n_\text{eff}) \cdot 10^4$ w
 one whose fields overlap the last mode's most:
 
 $$
-\frac{\left|\int \mathbf H_a^* \cdot \mathbf H_b\, dA\right|}{\lVert \mathbf H_a \rVert\, \lVert \mathbf H_b \rVert},
+\frac{\left|\int \mathbf H_a^* \cdot \mathbf H_b\thinspace dA\right|}{\lVert \mathbf H_a \rVert\thinspace\lVert \mathbf H_b \rVert},
 $$
 
 each node weighted by the area around it. It carries on through crossings with other modes.

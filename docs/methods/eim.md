@@ -32,7 +32,7 @@ across the lateral slab's; a TM-like mode the reverse.
 
 ## Its error
 
-The method assumes the field separates, $E(x, y) = E(x)\,E(y)$, which corners break. Against
+The method assumes the field separates, $E(x, y) = E(x)\thinspace E(y)$, which corners break. Against
 photonoxide's [full-vector solver](vector.md) (6.25 × 5 nm grid), 220 nm silicon strips in oxide
 at 1550 nm, TE-like:
 
