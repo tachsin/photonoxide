@@ -40,7 +40,7 @@
 //!   ([`crate::mode::vector`]) on a uniform grid of `step_nm`; recorded as a picture of the
 //!   cross-section and, for each mode, one of its |E|² and one of its signed transverse field,
 //!   and optionally swept over the wavelength or a rectangle's width, each point recorded as it
-//!   is solved.
+//!   is solved, with its modes' pictures and, for a width sweep, its shapes.
 //!
 //! ```toml
 //! name = "strip-modes"
@@ -211,6 +211,43 @@ pub enum Event {
         /// Their TE fractions, in the same order.
         te_fractions: Vec<f64>,
     },
+    /// The shapes at a point of a width sweep, recorded after its [`Event::SweepPoint`]: the
+    /// [`Event::Scene`]'s shapes with the swept rectangle at that width (the window and the
+    /// layers stay the scene's).
+    SweepShapes {
+        /// The point's index, from 0, in the order the points are recorded.
+        point: usize,
+        /// The parameter's value there, µm.
+        value: f64,
+        /// Every shape, as the scene lists them.
+        shapes: Vec<SceneShape>,
+    },
+    /// A mode at a point of a sweep, recorded after its [`Event::SweepPoint`] (and
+    /// [`Event::SweepShapes`]): what [`Event::Mode`] and [`Event::ModeField`] record for the job's
+    /// own configuration, on pixels twice the grid's step and to three decimals, so a sweep's
+    /// record stays small.
+    SweepMode {
+        /// The point's index, from 0, in the order the points are recorded.
+        point: usize,
+        /// The parameter's value there.
+        value: f64,
+        /// What it is, e.g. `"mode 1 of 2"`, ranked by effective index at that point.
+        label: String,
+        /// The vacuum wavelength, µm.
+        wavelength_um: f64,
+        /// The effective index, real and imaginary parts.
+        effective_index: [f64; 2],
+        /// The share of the transverse magnetic field in H_y: near 1 for a TE-like mode.
+        te_fraction: f64,
+        /// |E|², its largest value 1; x across, z up.
+        intensity: Raster,
+        /// The signed field's component, as [`Event::ModeField`] names it: `"Ex"` or `"Ez"`.
+        component: String,
+        /// That component's real part, from −1 to 1, as [`Event::ModeField`] records it.
+        field: Raster,
+        /// The y where the cross-section was cut, µm.
+        cut_y_um: f64,
+    },
     /// A field of a 2D FDFD run, seen from above.
     Field {
         /// What it shows, e.g. `"|H_z|^2 from port 1, 2D by the effective index method"`.
@@ -335,6 +372,20 @@ fn polygon64(center: Point, radius: f64, turn: f64) -> Vec<[f64; 2]> {
         .collect()
 }
 
+/// Every shape of `s`, layer by layer from the bottom, as a scene lists them.
+fn scene_shapes(s: &Structure) -> Vec<SceneShape> {
+    s.stack()
+        .layers()
+        .iter()
+        .flat_map(|layer| {
+            s.shapes(&layer.name).iter().map(|shape| SceneShape {
+                layer: layer.name.clone(),
+                outline: outline(shape),
+            })
+        })
+        .collect()
+}
+
 /// The scene of a structure over a window, its permittivities at `wavelength`.
 fn scene(
     s: &Structure,
@@ -351,7 +402,6 @@ fn scene(
     };
     let stack = s.stack();
     let mut layers = Vec::new();
-    let mut shapes = Vec::new();
     let mut bottom = 0.0;
     for layer in stack.layers() {
         let top = bottom + layer.thickness.to_um();
@@ -361,12 +411,9 @@ fn scene(
             material: medium(&layer.material)?,
             background: medium(&layer.background)?,
         });
-        shapes.extend(s.shapes(&layer.name).iter().map(|shape| SceneShape {
-            layer: layer.name.clone(),
-            outline: outline(shape),
-        }));
         bottom = top;
     }
+    let shapes = scene_shapes(s);
     Ok(Event::Scene {
         x_um: x,
         y_um: y,
@@ -977,6 +1024,8 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             return Ok(());
         }
         let value = sweep.from + (sweep.to - sweep.from) * k as f64 / (sweep.points - 1) as f64;
+        // the point's shapes, for a width sweep
+        let mut shapes = None;
         let (cs, w) = match sweep.parameter.as_str() {
             "wavelength" => {
                 let w = Wavelength::um(value)?;
@@ -1003,6 +1052,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 })?;
                 r.size_um[0] = value;
                 let swept = draw(stack()?, &rects, &task.circle, &task.ring)?;
+                shapes = Some(scene_shapes(&swept));
                 (
                     cross_section(
                         &swept,
@@ -1039,6 +1089,41 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 .map(crate::mode::vector::VectorMode::te_fraction)
                 .collect(),
         })?;
+        if let Some(shapes) = shapes {
+            run.record(&Event::SweepShapes {
+                point: k,
+                value,
+                shapes,
+            })?;
+        }
+        // each mode's pictures, coarser than the job's own: twice the step, three decimals
+        let coarse = |mut r: Raster| {
+            for v in &mut r.values {
+                // (+ 0.0 makes −0 zero)
+                *v = (*v * 1000.0).round() / 1000.0 + 0.0;
+            }
+            r
+        };
+        for (rank, m) in found.iter().enumerate() {
+            if stop.reason().is_some() {
+                return Ok(());
+            }
+            let fields = m.fields(&cs)?;
+            let (component, field) = signed_field(&fields, &cs, task.x_um, z, 2.0 * step);
+            let n = m.effective_index();
+            run.record(&Event::SweepMode {
+                point: k,
+                value,
+                label: format!("mode {} of {}", rank + 1, found.len()),
+                wavelength_um: w.to_um(),
+                effective_index: [n.re, n.im],
+                te_fraction: m.te_fraction(),
+                intensity: coarse(intensity(&fields, &cs, task.x_um, z, 2.0 * step)),
+                component,
+                field: coarse(field),
+                cut_y_um: cut_y,
+            })?;
+        }
     }
     Ok(())
 }
@@ -1292,6 +1377,115 @@ size_um = [0.5, 10.0]
         assert!(points.windows(2).all(|w| w[1] > w[0]), "{points:?}");
         // rising ever more slowly, as a widening strip does
         assert!(points[1] - points[0] > points[2] - points[1], "{points:?}");
+        // each point's structure: the strip at that width
+        let widths: Vec<(usize, f64, f64)> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::SweepShapes {
+                    point,
+                    value,
+                    shapes,
+                } => {
+                    let xs = shapes[0].outline.iter().map(|p| p[0]);
+                    let span = xs.clone().fold(f64::MIN, f64::max) - xs.fold(f64::MAX, f64::min);
+                    Some((*point, *value, span))
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(widths.len(), 3);
+        for (k, (point, value, span)) in widths.iter().enumerate() {
+            assert_eq!(*point, k);
+            assert!((value - (0.45 + 0.05 * k as f64)).abs() < 1e-9);
+            assert!((span - value).abs() < 1e-9, "{span} {value}");
+        }
+        // and its mode, with its pictures, at that point's index and n_eff
+        let modes: Vec<&Event> = events
+            .iter()
+            .filter(|e| matches!(e, Event::SweepMode { .. }))
+            .collect();
+        assert_eq!(modes.len(), 3);
+        for (k, e) in modes.iter().enumerate() {
+            let Event::SweepMode {
+                point,
+                label,
+                effective_index,
+                intensity,
+                component,
+                field,
+                ..
+            } = e
+            else {
+                unreachable!()
+            };
+            assert_eq!((*point, label.as_str()), (k, "mode 1 of 1"));
+            assert_eq!(effective_index[0], points[k]);
+            assert_eq!(component, "Ex");
+            // on pixels twice the step: the 2 µm window in 40 pixels of 50 nm
+            assert_eq!((intensity.nx, field.nx), (40, 40));
+            assert!(
+                (intensity.range().1 - 1.0).abs() < 1e-6 && (field.range().1 - 1.0).abs() < 1e-6
+            );
+            // to three decimals
+            assert!(
+                field
+                    .values
+                    .iter()
+                    .all(|v| (v * 1000.0 - (v * 1000.0).round()).abs() < 1e-3)
+            );
+        }
+        // the point's events come after its SweepPoint
+        let first = events
+            .iter()
+            .position(|e| matches!(e, Event::SweepPoint { .. }))
+            .unwrap();
+        assert!(matches!(
+            &events[first + 1],
+            Event::SweepShapes { point: 0, .. }
+        ));
+        assert!(matches!(
+            &events[first + 2],
+            Event::SweepMode { point: 0, .. }
+        ));
+    }
+
+    #[test]
+    fn a_wavelength_sweep_records_each_points_modes() {
+        let root = temp("wavelength-sweep");
+        let text = format!(
+            "{MODES}\n[task.sweep]\nparameter = \"wavelength\"\nfrom = 1.5\nto = 1.6\npoints = 2\n"
+        );
+        let job = Job::parse(&text).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let events: Vec<Event> = replay(run.dir()).unwrap();
+        // no shapes: the structure stays the job's
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, Event::SweepShapes { .. }))
+        );
+        let modes: Vec<(usize, f64, String, f64)> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::SweepMode {
+                    point,
+                    wavelength_um,
+                    label,
+                    te_fraction,
+                    ..
+                } => Some((*point, *wavelength_um, label.clone(), *te_fraction)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(modes.len(), 4, "{modes:?}");
+        for (k, (point, wavelength, label, te)) in modes.iter().enumerate() {
+            assert_eq!(*point, k / 2);
+            assert!((wavelength - [1.5, 1.6][k / 2]).abs() < 1e-12);
+            assert_eq!(label, &format!("mode {} of 2", k % 2 + 1));
+            // TE-like first, then TM-like, at both wavelengths
+            assert!(if k % 2 == 0 { *te > 0.9 } else { *te < 0.1 });
+        }
     }
 
     #[test]

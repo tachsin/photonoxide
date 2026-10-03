@@ -1,6 +1,6 @@
 <script lang="ts">
   // The run in 2D: fields, S-parameters, permittivity pictures, modes and sweeps.
-  import { run } from "../lib/app.svelte";
+  import { run, shownModes } from "../lib/app.svelte";
   import { api } from "../lib/api";
   import { modeKind } from "../lib/events";
   import type { Series } from "../lib/plot";
@@ -56,6 +56,10 @@
   });
 
   const unit = $derived(run.sweep?.parameter === "wavelength" ? "wavelength (µm)" : "width (µm)");
+
+  // the sweep point shown, if one is picked: marked on the plots, its modes below
+  const marker = $derived(run.point === null ? null : (run.sweep?.points[run.point]?.value ?? null));
+  const modes = $derived(shownModes().modes);
 </script>
 
 <div class="mx-auto max-w-6xl space-y-6 p-6">
@@ -118,22 +122,24 @@
   {#if run.sweep}
     <section class="panel p-5">
       <h3 class="mb-3 font-semibold">Effective index <span class="font-normal faint">· over the {run.sweep.parameter}, {run.sweep.points.length} points</span></h3>
-      <Plot series={sweep} xLabel={unit} yLabel="n_eff" name="{run.job?.job ?? 'run'}-n_eff" />
+      <Plot series={sweep} xLabel={unit} yLabel="n_eff" name="{run.job?.job ?? 'run'}-n_eff" {marker} />
     </section>
     {#if groups.length}
       <section class="panel p-5">
         <h3 class="mb-1 font-semibold">Group index</h3>
         <p class="mb-3 text-xs faint">n_g = n − λ dn/dλ, from the library's mode::dispersion::group_index</p>
-        <Plot series={groups} xLabel={unit} yLabel="n_g" name="{run.job?.job ?? 'run'}-n_g" />
+        <Plot series={groups} xLabel={unit} yLabel="n_g" name="{run.job?.job ?? 'run'}-n_g" {marker} />
       </section>
     {/if}
   {/if}
 
-  {#if run.modes.length}
+  {#if modes.length}
     <section>
-      <h3 class="panel-title mb-3">Modes · |E|² from zero (black) to its peak (pale yellow)</h3>
+      <h3 class="panel-title mb-3">
+        Modes · |E|² from zero (black) to its peak (pale yellow){#if marker !== null && run.sweep}<span class="text-primary normal-case tracking-normal"> · at {run.sweep.parameter} {marker} µm, point {(run.point ?? 0) + 1} of {run.sweep.points.length}</span>{/if}
+      </h3>
       <div class="grid gap-4 lg:grid-cols-2">
-        {#each run.modes as m, k (k)}
+        {#each modes as m, k (k)}
           {@const lossy = Math.abs(m.effective_index[1]) > 1e-12 * m.effective_index[0]}
           <article class="panel p-4">
             <div class="mb-2 flex items-center gap-2">

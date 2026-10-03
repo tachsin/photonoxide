@@ -15,7 +15,17 @@
     height = 280,
     yRange,
     name = "plot",
-  }: { series: Series[]; xLabel: string; yLabel: string; height?: number; yRange?: [number, number]; name?: string } = $props();
+    marker = null,
+  }: {
+    series: Series[];
+    xLabel: string;
+    yLabel: string;
+    height?: number;
+    yRange?: [number, number];
+    name?: string;
+    /** An x to mark with a line and larger points: the sweep point shown, say. */
+    marker?: number | null;
+  } = $props();
 
   /** The data as CSV: one row per x, one column per series (empty where a series has no point). */
   function csv(): string {
@@ -79,6 +89,9 @@
     {/each}
     <rect x={L} y={T} width={Math.max(0, width - L - R)} height={height - T - B} class="fill-none stroke-base-content/15" />
     <text x={(L + width - R) / 2} y={height - 6} text-anchor="middle" class="fill-base-content/70 text-[12px]">{xLabel}</text>
+    {#if marker !== null && marker >= xs[0] && marker <= xs[1]}
+      <line x1={X(marker)} x2={X(marker)} y1={T} y2={height - B} class="stroke-accent" stroke-width="1.5" />
+    {/if}
     <text x={14} y={(T + height - B) / 2} text-anchor="middle" transform="rotate(-90 14 {(T + height - B) / 2})" class="fill-base-content/70 text-[12px]">{yLabel}</text>
     {#each shown as s (s.label)}
       <polyline
@@ -90,7 +103,7 @@
         stroke-linejoin="round"
       />
       {#each s.points as [x, y], k (k)}
-        <circle cx={X(x)} cy={Y(y)} r={at === x ? 4.5 : 2.6} fill={s.colour} />
+        <circle cx={X(x)} cy={Y(y)} r={at === x || marker === x ? 4.5 : 2.6} fill={s.colour} class={marker === x ? "stroke-base-100" : ""} stroke-width={marker === x ? 1.5 : 0} />
       {/each}
     {/each}
     {#if at !== null}

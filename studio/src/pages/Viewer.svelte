@@ -1,7 +1,7 @@
 <script lang="ts">
   // The viewer: the run the window follows, in 3D (its layers as solids, the field painted on
   // its plane) or 2D (pictures and plots), with its details at the side.
-  import { Box, ChartLine, CirclePause, FolderOpen, Info, Layers, Pause, Play, RotateCcw, Square, Waves } from "@lucide/svelte";
+  import { Box, ChartLine, ChevronLeft, ChevronRight, CirclePause, FolderOpen, Info, Layers, Pause, Play, RotateCcw, Square, Waves } from "@lucide/svelte";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
 
@@ -9,7 +9,7 @@
   import RunPlots from "../components/RunPlots.svelte";
   import Tip from "../components/Tip.svelte";
   import { api, duration, KINDS } from "../lib/api";
-  import { app, go, run, themeBackdrop, toast } from "../lib/app.svelte";
+  import { app, go, run, shownModes, shownScene, themeBackdrop, toast } from "../lib/app.svelte";
   import { modeKind } from "../lib/events";
   import { effectiveLook, outside, rows, um, type Looks } from "../lib/layers";
   import { mediumLook } from "../lib/colours";
@@ -44,21 +44,28 @@
 
   $effect(() => three?.setDark(app.dark, themeBackdrop()));
 
-  // the structure, when it arrives, a layer is hidden or a look changes; while the wave shows,
-  // the solid shapes it runs through are glass (the user's own look comes back with it off)
+  // what is shown: the job's own configuration, or the sweep point picked
+  const shown = $derived(shownModes());
+  const modes = $derived(shown.modes);
+  const current = $derived(modes[run.selected] ?? modes[0]);
+  const scene = $derived(shownScene());
+
+  // the structure, when it arrives, a layer is hidden, a look changes or a sweep point is
+  // picked; while the wave shows, the solid shapes it runs through are glass (the user's own
+  // look comes back with it off)
   $effect(() => {
-    const scene = run.scene;
+    const s = scene;
     const hidden = new Set(run.hidden);
     // read each look's fields here, so a change to any of them redraws
     const looks: Looks = Object.fromEntries(Object.entries(run.looks).map(([name, l]) => [name, { colour: l.colour, opacity: l.opacity }]));
-    if (scene && wave && run.wave) {
-      for (const l of scene.layers) {
-        if (mediumLook(l.material.eps)?.solid && scene.shapes.some((s) => s.layer === l.name)) {
+    if (s && wave && run.wave) {
+      for (const l of s.layers) {
+        if (mediumLook(l.material.eps)?.solid && s.shapes.some((sh) => sh.layer === l.name)) {
           looks[l.name] = { ...looks[l.name], opacity: Math.min(looks[l.name]?.opacity ?? 1, GLASS) };
         }
       }
     }
-    if (three && scene) three.setScene(scene, hidden, looks);
+    if (three && s) three.setScene(s, hidden, looks);
   });
 
   $effect(() => three?.setFieldLook(run.fieldVisible, run.fieldOpacity));
@@ -66,7 +73,7 @@
   // the field: an FDFD run's on its layer, or the selected mode on its cut
   $effect(() => {
     const f = run.fields[0];
-    const m = run.modes[run.selected];
+    const m = current;
     const plane: Plane | null = f ? { intensity: f.intensity, normal: "z", at: f.z_um } : m ? { intensity: m.intensity, normal: "y", at: m.cut_y_um } : null;
     three?.setField(plane);
   });
@@ -74,20 +81,29 @@
   // a modes run's selected mode, travelling along the guide (not an FDFD run's: its field
   // already varies along the device)
   const wave = $derived.by(() => {
-    const m = run.modes[run.selected];
-    if (run.fields.length || !m || !run.scene) return null;
-    return waveOf(m, run.modeFields[m.label], run.scene);
+    const m = current;
+    if (run.fields.length || !m || !scene) return null;
+    return waveOf(m, shown.fields[m.label], scene);
   });
   /** The selected mode's guided wavelength λ / n_eff, µm. */
-  const guided = $derived.by(() => {
-    const m = run.modes[run.selected];
-    return m ? m.wavelength_um / m.effective_index[0] : 0;
+  const guided = $derived(current ? current.wavelength_um / current.effective_index[0] : 0);
+
+  // ---- the sweep's points ----
+  const points = $derived(run.sweep?.points.length ?? 0);
+  /** Whether the run recorded each point's pictures (an older run didn't). */
+  const perPoint = $derived(Object.keys(run.sweepModes).length > 0);
+  /** The point picked, in words: "width 0.45 µm (point 4 of 11)", or the nominal one. */
+  const pointText = $derived.by(() => {
+    if (!run.sweep) return "";
+    if (run.point === null) return "nominal: the job's own configuration";
+    const p = run.sweep.points[run.point];
+    return `${run.sweep.parameter} ${p ? um(p.value) : "?"} µm (point ${run.point + 1} of ${points})`;
   });
   /** The wave in words: what is drawn, its guided wavelength, its phase velocity, and how much slower it is shown. */
   const facts = $derived.by(() => {
-    const m = run.modes[run.selected];
+    const m = current;
     if (!m || !wave) return null;
-    const component = run.modeFields[m.label]?.component;
+    const component = shown.fields[m.label]?.component;
     const what = wave.signed && component ? `Re E_${component.slice(1)}` : "|E| (magnitude only: an older run)";
     // the light's frequency c/λ against the shown one, speed/PERIOD
     const slower = (2.998e8 / (m.wavelength_um * 1e-6)) * (PERIOD / run.waveSpeed);
@@ -97,13 +113,30 @@
     return { what, velocity: (1 / m.effective_index[0]).toFixed(2), slower: `${mantissa === 1 ? "" : `${mantissa} × `}10${sup}` };
   });
 
+  /** Moves to the next or the previous point, the nominal configuration coming before the first. */
+  function stepPoint(by: number) {
+    if (!perPoint || !points) return;
+    const k = (run.point === null ? -1 : run.point) + by;
+    run.point = k < 0 ? null : Math.min(k, points - 1);
+  }
+
+  function keys(e: KeyboardEvent) {
+    if (app.page !== "viewer" || !run.sweep || details || app.palette) return;
+    const t = e.target as HTMLElement | null;
+    if (t && (t.closest("input, textarea, select, [contenteditable]") || t.closest("dialog.modal-open"))) return;
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      e.preventDefault();
+      stepPoint(e.key === "ArrowRight" ? 1 : -1);
+    }
+  }
+
   $effect(() => three?.setWave(wave));
   $effect(() => three?.setWaveLook(run.wave, run.wavePlaying, run.waveSpeed, run.waveDensity));
 
   $effect(() => {
-    const shown = view === "3d" && app.page === "viewer";
-    three?.setActive(shown);
-    if (shown) requestAnimationFrame(() => three?.resize());
+    const onScreen = view === "3d" && app.page === "viewer";
+    three?.setActive(onScreen);
+    if (onScreen) requestAnimationFrame(() => three?.resize());
   });
 
   const live = $derived(!!run.info?.dir && !run.finished);
@@ -115,7 +148,7 @@
   /** The field the 3D view paints, and where. */
   const painted = $derived.by(() => {
     const f = run.fields[0];
-    const m = run.modes[run.selected];
+    const m = current;
     if (f) return { label: f.label, where: `on the layer's top face (z = ${um(f.z_um)} µm)` };
     if (m) return { label: `${m.label}, |E|²`, where: `on the cut at y = ${um(m.cut_y_um)} µm` };
     return null;
@@ -131,6 +164,8 @@
     toast("Asked the run to stop at its next check", "info", undefined, 2500);
   }
 </script>
+
+<svelte:window onkeydown={keys} />
 
 {#if !run.info?.dir}
   <div class="grid h-full place-items-center">
@@ -174,10 +209,11 @@
         {#if run.fields[0]}
           <p class="font-medium">{run.fields[0].label} <span class="font-normal faint">at {run.fields[0].wavelength_um} µm</span></p>
           <p class="text-xs faint">drawn on the layer's top face, from zero (black) to its peak (pale yellow)</p>
-        {:else if run.modes[run.selected]}
-          {@const m = run.modes[run.selected]}
+        {:else if current}
+          {@const m = current}
           <p class="font-medium">{m.label} · {modeKind(m)} · <span class="num">n_eff {m.effective_index[0].toFixed(6)}</span></p>
-          <p class="text-xs faint">|E|² on the cut at y = {m.cut_y_um.toFixed(3)} µm</p>
+          {#if run.point !== null}<p class="text-xs text-primary">at {pointText}</p>{/if}
+          <p class="text-xs faint">|E|² on the cut at y = {m.cut_y_um.toFixed(3)} µm, at λ = {um(m.wavelength_um)} µm</p>
           {#if facts && run.wave}
             <p class="text-xs faint">
               {facts.what}, travelling along +y · guided wavelength λ/n_eff = <span class="num">{guided.toFixed(3)}</span> µm · phase velocity c/n_eff =
@@ -222,8 +258,7 @@
       {/if}
     </section>
 
-    {#if media.length && run.scene}
-      {@const scene = run.scene}
+    {#if media.length && scene}
       <section>
         <h3 class="panel-title mb-2 flex items-center gap-1.5"><Layers size={13} /> Layers</h3>
         <div class="space-y-0.5">
@@ -335,11 +370,54 @@
       </section>
     {/if}
 
-    {#if run.modes.length}
+    {#if run.sweep}
       <section>
-        <h3 class="panel-title mb-2 flex items-center gap-1.5"><Waves size={13} /> Modes</h3>
+        <h3 class="panel-title mb-2">Sweep</h3>
+        <p class="text-sm">over the {run.sweep.parameter}: {points} point{points === 1 ? "" : "s"}{run.finished ? "" : " so far"}</p>
+        <div class="mt-2 flex items-center gap-1">
+          <button class="btn btn-ghost btn-xs btn-square" aria-label="The previous point" title="The previous point (←)" disabled={!perPoint || run.point === null} onclick={() => stepPoint(-1)}>
+            <ChevronLeft size={14} />
+          </button>
+          <input
+            type="range"
+            class="range range-xs range-primary flex-1"
+            aria-label="The sweep point shown"
+            title={perPoint ? "Pick a point of the sweep; leftmost is the job's own configuration" : undefined}
+            min="0"
+            max={points}
+            step="1"
+            disabled={!perPoint}
+            value={run.point === null ? 0 : run.point + 1}
+            oninput={(e) => {
+              const k = Number((e.currentTarget as HTMLInputElement).value);
+              run.point = k === 0 ? null : k - 1;
+            }}
+          />
+          <button class="btn btn-ghost btn-xs btn-square" aria-label="The next point" title="The next point (→)" disabled={!perPoint || run.point === points - 1} onclick={() => stepPoint(1)}>
+            <ChevronRight size={14} />
+          </button>
+        </div>
+        {#if perPoint}
+          <div class="mt-1 flex items-center gap-2">
+            <p class="flex-1 text-xs {run.point === null ? 'faint' : 'text-primary'}">{pointText}</p>
+            {#if run.point !== null}
+              <button class="btn btn-ghost btn-xs" onclick={() => (run.point = null)} title="Back to the job's own configuration">Nominal</button>
+            {/if}
+          </div>
+        {:else}
+          <p class="mt-1 text-xs faint">
+            {run.finished || points ? "(this run recorded no per-point pictures: an older run)" : "the points' pictures arrive as they are solved"}
+          </p>
+        {/if}
+        <button class="btn btn-ghost btn-xs mt-1 -ml-2" onclick={() => (view = "2d")}>Plots in 2D →</button>
+      </section>
+    {/if}
+
+    {#if modes.length}
+      <section>
+        <h3 class="panel-title mb-2 flex items-center gap-1.5"><Waves size={13} /> Modes{#if run.point !== null}<span class="font-normal normal-case tracking-normal text-primary">· point {run.point + 1}</span>{/if}</h3>
         <div class="space-y-1">
-          {#each run.modes as m, k (k)}
+          {#each modes as m, k (k)}
             <button
               class="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors {k === run.selected ? 'border-primary/40 bg-primary/8' : 'border-transparent hover:bg-base-content/4'}"
               onclick={() => (run.selected = k)}
@@ -368,14 +446,6 @@
         </div>
         <p class="mt-1.5 text-[11px] faint">|S_q1|², the power from port 1, at {first.wavelength_um} µm</p>
         <button class="btn btn-ghost btn-xs mt-2 -ml-2" onclick={() => (view = "2d")}>Spectra in 2D →</button>
-      </section>
-    {/if}
-
-    {#if run.sweep}
-      <section>
-        <h3 class="panel-title mb-2">Sweep</h3>
-        <p class="text-sm">over the {run.sweep.parameter}: {run.sweep.points.length} points</p>
-        <button class="btn btn-ghost btn-xs mt-1 -ml-2" onclick={() => (view = "2d")}>Plots in 2D →</button>
       </section>
     {/if}
 
