@@ -185,3 +185,11 @@ fn bad_inputs_are_errors() {
     };
     assert!(fit(&s, &[f], &unpaired).contains("conjugate"));
 }
+
+// Deschrijver et al. 2008, Eqs. 8, 10 and 11: the same least squares, reduced
+#[test]
+fn eliminating_each_responses_unknowns_is_the_full_least_squares() {
+    let d = crate::compact::checks::fast_vf_difference();
+
+    assert!(d < 1e-8, "{d}");
+}

@@ -7,7 +7,8 @@
 //!   evaluated at any wavelength in its band, its passivity checked; and a measured spectrum as a
 //!   component ([`Measured`]).
 //! - [`param`]: a model over the component's parameters ([`ParametricModel`]): rational in
-//!   frequency, its numerator and denominator polynomial in the parameters.
+//!   frequency, its numerator and denominator polynomial or piecewise linear in the parameters,
+//!   with an exact test of its stability over one parameter.
 //! - [`touchstone`]: Touchstone (`.sNp`) files, read and written, Version 1 and 2.0: measured
 //!   and simulated S-parameters in the format microwave and photonics tools exchange them in,
 //!   with the conversions between frequency and wavelength and between time conventions.
@@ -51,4 +52,4 @@ pub mod touchstone;
 
 pub use fit::{Delay, FitError, Options, Rational, Symmetry};
 pub use model::{CompactModel, Measured, Passivity};
-pub use param::{ParametricModel, Sample};
+pub use param::{Crossing, Interpolation, ParametricModel, Sample};
