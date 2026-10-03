@@ -1,6 +1,18 @@
 # photonoxide: notes for AI coding assistants
 
-photonoxide is pre-alpha: the plan is [ROADMAP.md](ROADMAP.md), and there is no API yet.
+photonoxide is alpha: a library with a public API that still changes between milestones, and
+the `photonoxide` program (the studio). [ROADMAP.md](ROADMAP.md) is the plan and the record of
+what is done; [CHANGELOG.md](CHANGELOG.md) has what each release changed. 0.1 to 0.3 and the
+0.3.x patches are released; the 0.4 milestone, components and circuits, is on main and not yet
+released. The library's modules, each with a write-up in `docs/methods/`:
+
+- `units`, `material` (with `material::catalogue`), `geometry`, `stack`, `raster`;
+- `mode`: slabs, multilayers, planar profiles, full-vector and Hadley cross-sections, bends,
+  the effective index method, Marcatili, dispersion and fields;
+- `fdfd`: 2D and 3D, ports and S-parameters, adjoint gradients, direct and QMR solves;
+- `circuit`: components, netlists, the circuit solve and its adjoint, objectives for genoxide;
+- `compact`: vector fitting, models over parameters, Touchstone files;
+- `job`, `run`: job files, run records and replay; `validation`: the report's cases.
 
 ## Commands
 

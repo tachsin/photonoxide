@@ -140,7 +140,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - [x] **Studio:** FDFD fields on a plane in the 3D view, and S-parameters as they arrive. *(An `"fdfd"` job: a device on one layer seen from above, its permittivity by the effective index method, ports with windows for guides side by side, a wavelength sweep; the field drawn on the layer in 3D, the S-matrix and |S_q1|² in 2D; `jobs/mmi-fdfd.toml`, a 1×2 splitter.)*
 - [x] **Validation:** reciprocity, energy conservation, analytic cases, agreement with the mode solvers. *(In 2D: reciprocity, energy conservation, a slab's reflection against the exact transfer matrices, the PML's reflection, the port modes against the exact slab, and the adjoint gradients against finite differences. In 3D: energy conservation, a film's reflection at oblique incidence against the exact transfer matrices, the PML's reflection, the 2D solver on a structure uniform along z, QMR against the direct solver, and Shin & Fan's Fig. 3. Reciprocity in 3D comes with 3D ports in 0.4, and agreement with FDTD in 0.5, once FDTD exists.)*
 
-### 0.3.1: The studio as a workspace
+### 0.3.1: The studio as a workspace ✅
 - [x] **Everything inside the program:** the job files of `jobs/` and the thirteen published results of `examples/` built in, each run from the window, with each line of an example checked against its paper as it prints; the validation report, and running it on this machine.
 - [x] **Jobs built in the window,** with no TOML needed, moved from 0.4: a form for each kind, the device drawn from above as you type (shapes, ports, the PML, the cut), the TOML beside it and editable, and the library checking the job as it changes (`job::check`); saved to the workspace's `jobs/`.
 - [x] **Spectra and run comparison,** moved from 0.4: plots with read-outs, and the sweeps and spectra of several runs on shared axes.
@@ -148,13 +148,13 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - [x] **Updates from inside the program:** signed releases with an update manifest; an installed copy offers a new release and installs it with one click (tested from a 0.3.0 installer to 0.3.1).
 - [x] **Code signing, ready:** Windows (Certum's open-source certificate through ssign) and macOS (Developer ID and notarization) in the release workflow, each from when its secrets are set.
 
-### 0.3.2: The studio, polished
+### 0.3.2: The studio, polished ✅
 - [x] **Rings:** `Shape::Ring` (a centre line's radius and a waveguide's width) and `[[task.ring]]` in every job kind, through the pictures, the mode solver's cut and FDFD; `strip-and-ring` is a ring resonator now, and `ring-fdfd` a new example, an all-pass ring's spectrum by 2D FDFD (two resonances 47 nm apart, as λ²/(n_g L) says).
 - [x] **3D previews:** `job::preview`, the scene a job's run records, without running it; the example cards and the builder show it turning in 3D.
 - [x] **A steady 3D view:** a core's faces no longer fight its layer's oxide for the same pixels as the camera turns (polygon offsets, and the clear media in a fixed order).
 - [x] **Smaller things:** deleting the open run closes it (and stops it if it runs); plots saved as CSV; Ctrl+S and Ctrl+Enter in the builder; the window keeps its size and place; the open run marked in the list; the validation count on the home page.
 
-### 0.3.x: Materials catalogue
+### 0.3.x: Materials catalogue ✅
 - [x] **`material::catalogue`:** each material's index models, crystal (system, point group, space group, optical class), d_il and r_ij tensors (Voigt, pm/V, clamped or not, at which wavelength; zeros and equalities from the point group) and constants, every number read from its primary paper and cited by table or equation. See [the catalogue](docs/methods/catalogue.md).
 - [x] **Index models, each validated against its paper's own numbers:** fused silica n(λ, T) (Leviton & Frey 2006); congruent LiNbO₃ (Zelmon 1997; Jundt 1997's n_e(λ, T)); 5% MgO:LiNbO₃ (Zelmon, whose Table 2 has its columns exchanged; Gayer 2008 with its 2010 erratum); GaAs (Skauli 2003); AlₓGa₁₋ₓAs for every x and temperature (Gehrsitz 2000, checked against Papatryfonos 2021's MBE layers too; Afromowitz 1974 as an alternative); InGaP (Tanaka 1986); InP at 298 and 77 K (Pettit & Turner 1965). Two new `Model` forms: `Pikhtin` and `Afromowitz`.
 - [x] **Tensors:** LiNbO₃'s d33, d31 (Shoji 1997), bulk r^S, r^T and ε^S (Jazbinšek & Zgonik 2002) and thin film's r33 (Chelladurai 2025); GaAs's d14 (Shoji), r41^S (Berseth 1992) and r41^T (Sugie & Tada 1976); InGaP's d14 (Ahler 2026, Ueno 1997); InP's r41^S and r41^T (Suzuki & Tada 1984); AlN's d33, d31 and bulk r (Majkić 2017) beside a sputtered film's r (Gräupner 1992).

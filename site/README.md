@@ -16,7 +16,7 @@ deployed.
 | Folder | In the app |
 | --- | --- |
 | `app/projects/photonoxide/` | the routes: the overview, `/docs` (getting started), `/methods` and `/methods/[slug]`, `/examples` and `/examples/[slug]`, `/validation`, `/roadmap`, the sub-navigation layout and the Open Graph image |
-| `lib/projects/photonoxide/` | the data: static facts (`meta.js`), and the repository's files read from GitHub at the pinned commit (`github.js`): the methods, the examples, the validation report and the roadmap, and Markdown with TeX math (`markdown.js`) |
+| `lib/projects/photonoxide/` | the data: static facts (`meta.js`), and the repository's files read from GitHub at the pinned commit (`github.js`): the methods, the examples, the validation report, the roadmap and the latest release, and Markdown with TeX math (`markdown.js`) |
 | `components/projects/photonoxide/` | the components only these pages use: `HeroLight`, the overview's light animation, and `ValidationRows`, the report's table |
 
 What the pages read from the repository, at the pinned commit:
@@ -28,6 +28,7 @@ What the pages read from the repository, at the pinned commit:
 | `docs/validation.md` | the validation report, which `photonoxide validate` writes and CI checks; its cases' math is `$…$` |
 | `docs/getting-started.md` | the docs page |
 | `ROADMAP.md` | the roadmap and the overview's milestones |
+| `CHANGELOG.md` | the latest release, its first `## [x.y.z]` heading, on the overview (`release.js`) |
 
 Links between method write-ups (`pml.md`) become links between their pages; other relative links go to GitHub.
 
