@@ -159,9 +159,19 @@
     </section>
   {/if}
 
-  {#each run.pictures as p, k (k)}
+  {#each run.pictures as nominal, k (k)}
+    <!-- a width sweep's point has its own cross-section; a wavelength sweep's stays the nominal one -->
+    {@const own = marker !== null && nominal.view.startsWith("cross-section") ? run.sweepPictures[run.point ?? -1] : undefined}
+    {@const p = own ?? nominal}
     <section class="panel p-5">
-      <h3 class="mb-3 font-semibold">{p.view} <span class="font-normal faint">· Re ε at {p.wavelength_um} µm</span></h3>
+      <h3 class="mb-3 font-semibold">
+        {p.view} <span class="font-normal faint">· Re ε at {p.wavelength_um} µm</span>
+        {#if own && run.sweep}
+          <span class="text-sm font-normal text-primary">· at {run.sweep.parameter} {own.value} µm, point {own.point + 1}</span>
+        {:else if marker !== null && run.sweep?.parameter === "wavelength" && nominal.view.startsWith("cross-section")}
+          <span class="text-sm font-normal faint">· at the nominal wavelength (ε changes along the sweep only through dispersion)</span>
+        {/if}
+      </h3>
       <RasterView raster={p.raster} kind="eps" axes={p.axes} maxHeight={340} />
     </section>
   {/each}
