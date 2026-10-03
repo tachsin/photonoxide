@@ -2,12 +2,10 @@
 
 use num_complex::Complex64 as c64;
 
+use super::multigrid::{Hierarchy, Multigrid, shifted};
 use super::{Axis, Boundaries3d, Field3d, Grid3d, Lattice, Port3d, PortMode3d, Solver3d};
 use crate::fdfd::Direction;
-use super::multigrid::{Hierarchy, Multigrid};
-use crate::fdfd::krylov::{
-    Convergence, Ilu0, Operator, Sparse, Stopping, qmr, qmr_preconditioned,
-};
+use crate::fdfd::krylov::{Convergence, Ilu0, Sparse, Stopping, qmr, qmr_preconditioned};
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -133,19 +131,8 @@ impl IterativeSolver3d {
                 "multigrid needs Shin and Fan's operator (Formulation::ShinFan)",
             ));
         }
-        let k2 = self.lattice.k0 * self.lattice.k0;
-        let shift = c64::new(0.0, options.shift * k2);
-        let operator = Sparse::new(
-            self.lattice.grid.unknowns(),
-            (0..self.matrix.size())
-                .flat_map(|r| self.matrix.row(r).map(move |(c, v)| (r, c, v)).collect::<Vec<_>>())
-                .chain(
-                    (0..self.eps.len())
-                        .filter(|&r| options.shift != 0.0 && !self.lattice.fixed(r))
-                        .map(|r| (r, r, shift * self.eps[r])),
-                ),
-        );
-        let hierarchy = Hierarchy::new(&self.lattice, operator, options)?;
+        let operator = shifted(&self.lattice, &self.eps, &self.matrix, options.shift);
+        let hierarchy = Hierarchy::new(&self.lattice, &self.eps, operator, options)?;
         self.preconditioner = Preconditioning::Multigrid(Box::new(hierarchy));
         Ok(self)
     }

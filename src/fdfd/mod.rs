@@ -750,8 +750,7 @@ pub use krylov::{Convergence, Stopping};
 pub use ports::{Direction, Port, PortMode, Side};
 pub use three::{
     Axis, Boundaries3d, CycleShape, Field3d, Formulation, Grid3d, IterativeSolver3d, Multigrid,
-    Port3d, PortMode3d,
-    Solver3d,
+    Port3d, PortMode3d, Solver3d,
 };
 
 pub(crate) use three::checks as checks3d;
