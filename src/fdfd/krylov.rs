@@ -84,6 +84,11 @@ impl Sparse {
         self.values.len()
     }
 
+    /// Row `r`'s entries, (column, value).
+    pub(crate) fn row(&self, r: usize) -> impl Iterator<Item = (usize, c64)> + '_ {
+        (self.starts[r]..self.starts[r + 1]).map(|k| (self.columns[k], self.values[k]))
+    }
+
     /// A v.
     pub(crate) fn apply(&self, v: &[c64]) -> Vec<c64> {
         product(&self.starts, &self.columns, &self.values, v)

@@ -4,7 +4,10 @@ use num_complex::Complex64 as c64;
 
 use super::{Axis, Boundaries3d, Field3d, Grid3d, Lattice, Port3d, PortMode3d, Solver3d};
 use crate::fdfd::Direction;
-use crate::fdfd::krylov::{Convergence, Ilu0, Sparse, Stopping, qmr, qmr_preconditioned};
+use super::multigrid::{Hierarchy, Multigrid};
+use crate::fdfd::krylov::{
+    Convergence, Ilu0, Operator, Sparse, Stopping, qmr, qmr_preconditioned,
+};
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -44,8 +47,15 @@ pub struct IterativeSolver3d {
     eps: Vec<c64>,
     formulation: Formulation,
     matrix: Sparse,
-    /// The matrix's ILU(0), when QMR is preconditioned.
-    ilu: Option<Ilu0>,
+    /// What preconditions QMR, if anything.
+    preconditioner: Preconditioning,
+}
+
+/// A preconditioner for QMR.
+enum Preconditioning {
+    None,
+    Ilu(Ilu0),
+    Multigrid(Box<Hierarchy>),
 }
 
 impl IterativeSolver3d {
@@ -75,7 +85,7 @@ impl IterativeSolver3d {
             eps,
             formulation,
             matrix,
-            ilu: None,
+            preconditioner: Preconditioning::None,
         })
     }
 
@@ -99,8 +109,53 @@ impl IterativeSolver3d {
                 "ILU(0) needs Shin and Fan's operator (Formulation::ShinFan): on the curl-curl \n                 one QMR doesn't converge",
             ));
         }
-        self.ilu = Some(Ilu0::new(&self.matrix)?);
+        self.preconditioner = Preconditioning::Ilu(Ilu0::new(&self.matrix)?);
         Ok(self)
+    }
+
+    /// The same problem, QMR preconditioned from the right by a multigrid cycle on Shin and Fan's
+    /// operator ([`Multigrid`]): Galerkin coarse operators, ILU(0) smoothing on every level, and a
+    /// direct solve on the coarsest (B. Reps, W. Vanroose, H. bin Zubair, J. Comput. Phys. 229,
+    /// 8384 (2010), doi:10.1016/j.jcp.2010.07.022, Section 6.1), with the complex shift of
+    /// Y. A. Erlangga, C. W. Oosterlee, C. Vuik, SIAM J. Sci. Comput. 27, 1471 (2006),
+    /// doi:10.1137/040615195, Eq. 8, if asked. For PMLs whose stretch stays within 45° of the
+    /// real axis ([`Boundaries3d::stretched_pml`]); see docs/methods/fdfd-3d.md.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for the curl-curl operator, whose near-null space of gradients no
+    /// point smoother reduces, for options without smoothing, or if a level's ILU(0) or the
+    /// coarsest factorization fails.
+    pub fn with_multigrid(mut self, options: Multigrid) -> Result<IterativeSolver3d> {
+        if self.formulation == Formulation::CurlCurl {
+            return Err(Error::invalid(
+                "fdfd preconditioner",
+                "multigrid needs Shin and Fan's operator (Formulation::ShinFan)",
+            ));
+        }
+        let k2 = self.lattice.k0 * self.lattice.k0;
+        let shift = c64::new(0.0, options.shift * k2);
+        let operator = Sparse::new(
+            self.lattice.grid.unknowns(),
+            (0..self.matrix.size())
+                .flat_map(|r| self.matrix.row(r).map(move |(c, v)| (r, c, v)).collect::<Vec<_>>())
+                .chain(
+                    (0..self.eps.len())
+                        .filter(|&r| options.shift != 0.0 && !self.lattice.fixed(r))
+                        .map(|r| (r, r, shift * self.eps[r])),
+                ),
+        );
+        let hierarchy = Hierarchy::new(&self.lattice, operator, options)?;
+        self.preconditioner = Preconditioning::Multigrid(Box::new(hierarchy));
+        Ok(self)
+    }
+
+    /// The number of the multigrid's levels, the coarsest included; 0 without one.
+    pub fn multigrid_levels(&self) -> usize {
+        match &self.preconditioner {
+            Preconditioning::Multigrid(h) => h.depth(),
+            _ => 0,
+        }
     }
 
     /// The grid.
@@ -153,9 +208,12 @@ impl IterativeSolver3d {
         let b = self
             .lattice
             .transformed_rhs(&self.eps, &b, self.formulation.s());
-        let (values, convergence) = match &self.ilu {
-            Some(ilu) => qmr_preconditioned(&self.matrix, ilu, &b, stopping)?,
-            None => qmr(&self.matrix, &b, stopping)?,
+        let (values, convergence) = match &self.preconditioner {
+            Preconditioning::Ilu(ilu) => qmr_preconditioned(&self.matrix, ilu, &b, stopping)?,
+            Preconditioning::Multigrid(h) => {
+                qmr_preconditioned(&self.matrix, h.as_ref(), &b, stopping)?
+            }
+            Preconditioning::None => qmr(&self.matrix, &b, stopping)?,
         };
         Ok((
             Field3d {
