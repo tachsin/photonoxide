@@ -24,7 +24,7 @@ use genoxide::prelude::*;
 use photonoxide::circuit::{Circuit, Netlist, SMatrix, objective};
 use photonoxide::units::Wavelength;
 
-use common::circuit::{Coupler, Waveguide};
+use photonoxide::circuit::components::{Coupler, Dispersion, Waveguide};
 
 /// The silicon wire: n_eff and n_g at λ₀ (µm).
 const INDEX: f64 = 2.4;
@@ -39,29 +39,38 @@ const TOLERANCE: [f64; 4] = [1e-8, 1e-8, 1e-5, 1e-9];
 /// Where both fits start.
 const START: [f64; 4] = [0.12, 0.03, 10.0, 10.002];
 
+/// The silicon wire, first order in λ.
+fn guide() -> photonoxide::Result<Waveguide> {
+    Ok(Waveguide::new(Dispersion::new(
+        Wavelength::um(LAMBDA)?,
+        INDEX,
+        GROUP_INDEX,
+    )))
+}
+
 /// An add-drop ring (Bogaerts et al., Fig. 2B): couplers c1 and c2 joined by two halves of the
 /// ring; ports in, through, add, drop.
 fn ring() -> photonoxide::Result<Circuit> {
     let coupler = Arc::new(Coupler::new());
-    let half = Arc::new(Waveguide::new(INDEX, GROUP_INDEX, LAMBDA));
+    let half = Arc::new(guide()?);
     let mut n = Netlist::new();
     n.add("c1", coupler.clone())?;
     n.add("c2", coupler)?;
     n.add("top", half.clone())?;
     n.add("bottom", half)?;
     for (a, b) in [
-        ("c1.b2", "top.a"),
-        ("top.b", "c2.a2"),
-        ("c2.b2", "bottom.a"),
-        ("bottom.b", "c1.a2"),
+        ("c1.o3", "top.o1"),
+        ("top.o2", "c2.o2"),
+        ("c2.o3", "bottom.o1"),
+        ("bottom.o2", "c1.o2"),
     ] {
         n.connect(a, b)?;
     }
     for (name, port) in [
-        ("in", "c1.a1"),
-        ("through", "c1.b1"),
-        ("add", "c2.a1"),
-        ("drop", "c2.b1"),
+        ("in", "c1.o1"),
+        ("through", "c1.o4"),
+        ("add", "c2.o1"),
+        ("drop", "c2.o4"),
     ] {
         n.expose(name, port)?;
     }
@@ -70,11 +79,12 @@ fn ring() -> photonoxide::Result<Circuit> {
 
 /// Bogaerts et al.'s Eqs. 5 and 6 for the ring `x` at `wavelength_um`: the through and drop
 /// intensities.
-fn bogaerts(guide: &Waveguide, x: &[f64; 4], wavelength_um: f64) -> (f64, f64) {
+fn bogaerts(guide: &Waveguide, x: &[f64; 4], wavelength: Wavelength) -> (f64, f64) {
+    let wavelength_um = wavelength.to_um();
     let (r1, r2) = ((1.0 - x[0]).sqrt(), (1.0 - x[1]).sqrt());
     let length = TAU * x[3];
     let a = 10f64.powf(-x[2] * 1e-4 * length / 20.0);
-    let phi = TAU * guide.effective_index(wavelength_um) * length / wavelength_um;
+    let phi = TAU * guide.dispersion().effective_index_at(wavelength) * length / wavelength_um;
     let denominator = 1.0 - 2.0 * r1 * r2 * a * phi.cos() + (r1 * r2 * a).powi(2);
     let through = (r2 * r2 * a * a - 2.0 * r1 * r2 * a * phi.cos() + r1 * r1) / denominator;
     let drop = (1.0 - r1 * r1) * (1.0 - r2 * r2) * a / denominator;
@@ -83,17 +93,17 @@ fn bogaerts(guide: &Waveguide, x: &[f64; 4], wavelength_um: f64) -> (f64, f64) {
 
 pub fn main() -> photonoxide::Result<ExitCode> {
     let circuit = ring()?;
-    let guide = Waveguide::new(INDEX, GROUP_INDEX, LAMBDA);
+    let guide = guide()?;
     // 1.548 to 1.556 µm in steps of 0.1 nm, across one resonance (1.5522 µm)
     let wavelengths: Vec<Wavelength> = (0..81)
         .map(|i| Wavelength::um(1.548 + 1e-4 * f64::from(i)))
         .collect::<photonoxide::Result<_>>()?;
     let (through, drop): (Vec<f64>, Vec<f64>) = wavelengths
         .iter()
-        .map(|w| bogaerts(&guide, &TRUTH, w.to_um()))
+        .map(|&w| bogaerts(&guide, &TRUTH, w))
         .unzip();
     let at = |name: &str| circuit.parameter(name).expect("a parameter");
-    let (c1, c2) = (at("c1.kappa2"), at("c2.kappa2"));
+    let (c1, c2) = (at("c1.coupling"), at("c2.coupling"));
     let (top, bottom) = (at("top.length"), at("bottom.length"));
     let (top_loss, bottom_loss) = (at("top.loss"), at("bottom.loss"));
     // the genes: κ₁², κ₂², the loss, the radius, each half of the ring πR long

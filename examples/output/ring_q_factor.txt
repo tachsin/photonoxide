@@ -1,0 +1,8 @@
+Bogaerts's Eqs. 19-22 at critical coupling, 2.7 dB/cm, exact: no grid
+  all-pass: Q peaks at 9.353 mm, 1.3413e5 with n_g 4.30
+  add-drop: Q peaks at 12.708 mm, 1.2879e5 with n_g 4.30
+  all-pass, best length (mm)             9.353197   paper 10         ± 1e0       ok
+  add-drop, best length (mm)            12.707821   paper 12.5       ± 5e-1      ok
+  peak Q, all-pass over add-drop         1.041505   paper 1.0441     ± 7.5e-3    ok
+  all-pass at 9.353 mm, its spectrum: FSR 59.74 pm, FWHM 10.760 pm (Eq. 7: 11.556), Q 1.4405e5 (Eq. 20: 1.3413e5), finesse 5.55
+all 3 within tolerance of the paper

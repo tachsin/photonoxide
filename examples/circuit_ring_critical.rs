@@ -23,7 +23,7 @@ use genoxide::prelude::*;
 use photonoxide::circuit::{Circuit, Netlist, objective};
 use photonoxide::units::Wavelength;
 
-use common::circuit::{Coupler, Waveguide};
+use photonoxide::circuit::components::{Coupler, Dispersion, Waveguide};
 
 /// The wavelength the ring is tuned to, µm.
 const LAMBDA: f64 = 1.55;
@@ -33,19 +33,26 @@ const LOSS: f64 = 3.0;
 const INDEX: f64 = 2.4;
 const GROUP_INDEX: f64 = 4.2;
 
-/// An all-pass ring (Bogaerts et al., Fig. 2A): a coupler whose output b2 returns to its input a2
+/// An all-pass ring (Bogaerts et al., Fig. 2A): a coupler whose output o3 returns to its input o2
 /// through the ring; ports in and through.
 fn ring(kappa2: f64, radius: f64) -> photonoxide::Result<Circuit> {
     let mut n = Netlist::new();
     n.add("coupler", Arc::new(Coupler::new()))?;
-    n.add("ring", Arc::new(Waveguide::new(INDEX, GROUP_INDEX, LAMBDA)))?;
-    n.set("coupler", "kappa2", kappa2)?;
+    n.add(
+        "ring",
+        Arc::new(Waveguide::new(Dispersion::new(
+            Wavelength::um(LAMBDA)?,
+            INDEX,
+            GROUP_INDEX,
+        ))),
+    )?;
+    n.set("coupler", "coupling", kappa2)?;
     n.set("ring", "length", TAU * radius)?;
     n.set("ring", "loss", LOSS)?;
-    n.connect("coupler.b2", "ring.a")?;
-    n.connect("ring.b", "coupler.a2")?;
-    n.expose("in", "coupler.a1")?;
-    n.expose("through", "coupler.b1")?;
+    n.connect("coupler.o3", "ring.o1")?;
+    n.connect("ring.o2", "coupler.o2")?;
+    n.expose("in", "coupler.o1")?;
+    n.expose("through", "coupler.o4")?;
     n.compile()
 }
 
@@ -53,7 +60,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     let (kappa2, radius) = (0.05, 9.97);
     let circuit = ring(kappa2, radius)?;
     let wavelength = [Wavelength::um(LAMBDA)?];
-    let k = circuit.parameter("coupler.kappa2").expect("a parameter");
+    let k = circuit.parameter("coupler.coupling").expect("a parameter");
     let l = circuit.parameter("ring.length").expect("a parameter");
     // the genes: κ² and the radius R, the ring's length 2πR
     let real = Real::new([1e-4..=0.5, 9.9..=10.1]).expect("valid ranges");

@@ -56,6 +56,8 @@ examples!(
     circuit_splitter: "../../../examples/circuit_splitter.rs",
     circuit_ring_critical: "../../../examples/circuit_ring_critical.rs",
     circuit_fit: "../../../examples/circuit_fit.rs",
+    directional_coupler: "../../../examples/directional_coupler.rs",
+    ring_q_factor: "../../../examples/ring_q_factor.rs",
 );
 
 /// An example's `main` returns an exit code, or a result holding one.
@@ -131,6 +133,11 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "Fitting a ring, with and without gradients",
             "Bogaerts et al. 2012",
         ),
+        "directional_coupler" => (
+            "A directional coupler's cross-over length",
+            "Chrostowski & Hochberg 2015",
+        ),
+        "ring_q_factor" => ("The best length for a ring's Q", "Bogaerts et al. 2012"),
         _ => ("", ""),
     }
 }
@@ -145,12 +152,14 @@ fn seconds(name: &str) -> f64 {
         | "silica_index"
         | "circuit_splitter"
         | "circuit_ring_critical"
+        | "ring_q_factor"
         | "slab_soi"
         | "slab_yariv_yeh"
         | "multilayer_chilwell" => 0.1,
         "marcatili" | "effective_index_method" => 5.0,
         "circuit_fit" => 2.0,
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
+        "directional_coupler" => 20.0,
         "group_index" | "hadley_corners" => 30.0,
         "leaky_wire_benchmark" => 60.0,
         _ => 10.0,

@@ -125,7 +125,8 @@ range. Writing Touchstone takes a `Spectrum`, from any component (`Spectrum::of`
 **Components (waveguide, bend, coupler, MMI, Y-branch, ring, MZI).** Each is a type implementing
 `Component`, one per model: an analytic waveguide and a 2D FDFD waveguide are two components of
 the same kind. Rings and MZIs can be components of their own (closed forms) or netlists of
-couplers and waveguides, as circuits.
+couplers and waveguides, as circuits. They are `circuit::components`, each model in
+[First components](../methods/components.md).
 
 **The circuit adjoint.** `Component::derivatives` returns ∂S/∂θ_k for each parameter, or `None`
 to have the circuit take finite differences. With M = I − S_b Γ and the incoming waves

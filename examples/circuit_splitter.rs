@@ -23,7 +23,7 @@ use genoxide::prelude::*;
 use photonoxide::circuit::{Circuit, Netlist, objective};
 use photonoxide::units::Wavelength;
 
-use common::circuit::{Coupler, PhaseShifter};
+use photonoxide::circuit::components::{Coupler, PhaseShifter};
 
 /// The bar power wanted.
 const TARGET: f64 = 0.3;
@@ -39,18 +39,18 @@ fn mzi() -> photonoxide::Result<Circuit> {
     n.add("lower", shifter)?;
     n.set("upper", "phase", 2.0)?;
     for (a, b) in [
-        ("c1.b1", "upper.a"),
-        ("upper.b", "c2.a1"),
-        ("c1.b2", "lower.a"),
-        ("lower.b", "c2.a2"),
+        ("c1.o4", "upper.o1"),
+        ("upper.o2", "c2.o1"),
+        ("c1.o3", "lower.o1"),
+        ("lower.o2", "c2.o2"),
     ] {
         n.connect(a, b)?;
     }
     for (name, port) in [
-        ("in1", "c1.a1"),
-        ("in2", "c1.a2"),
-        ("out1", "c2.b1"),
-        ("out2", "c2.b2"),
+        ("in1", "c1.o1"),
+        ("in2", "c1.o2"),
+        ("out1", "c2.o4"),
+        ("out2", "c2.o3"),
     ] {
         n.expose(name, port)?;
     }
