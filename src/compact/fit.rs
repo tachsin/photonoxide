@@ -34,8 +34,11 @@
 //! **The solve.** Stage 1's least squares holds every response's own unknowns (cₙ, d, h) and the
 //! shared c̃ₙ. Each response's own unknowns are eliminated exactly by a QR factorization of its
 //! block [A B b] = QR: what remains for c̃ is the lower-right block of R, and those blocks of every
-//! response are stacked and solved together. The columns are scaled to unit norm before every
-//! least squares.
+//! response are stacked and solved together. This is the fast vector fitting of D. Deschrijver,
+//! M. Mrozowski, T. Dhaene and D. De Zutter (IEEE Microw. Wireless Compon. Lett. 18, 383 (2008),
+//! doi:10.1109/LMWC.2008.922585, Eqs. 8, 10 and 11), the right side taken into the
+//! factorization; it gives the whole block system's c̃ to round-off. The columns are scaled to
+//! unit norm before every least squares.
 //!
 //! The Laplace variable here is the paper's s. Under photonoxide's e^(−iωt) a field goes as
 //! e^(st) for s = −iω, so a stable pole has a negative real part in either convention;
@@ -656,6 +659,54 @@ pub(crate) fn sigma_zeros(poles: &[Pole], c_tilde: &[f64]) -> Result<Vec<c64>> {
         });
         h.eigenvalues().map_err(failed)
     }
+}
+
+/// A state-space realization of σ(s) = 1 + Σ c̃ φ(s) over the basis of `poles`: A, b and c
+/// with σ(s) = 1 + cᵀ(sI − A)⁻¹ b, so that its zeros are the eigenvalues of A − b cᵀ, as in
+/// [`sigma_zeros`]: a real model's pairs as real 2 × 2 blocks (the paper's B.2), every lone
+/// complex pole as itself with c its two real unknowns as one complex number.
+pub(crate) fn sigma_realization(poles: &[Pole], c_tilde: &[f64]) -> (Mat<c64>, Vec<c64>, Vec<c64>) {
+    let n: usize = poles
+        .iter()
+        .map(|p| match p {
+            Pole::Complex(_) => 1,
+            other => other.unknowns(),
+        })
+        .sum();
+    let mut a = Mat::<c64>::zeros(n, n);
+    let mut b = vec![c64::new(0.0, 0.0); n];
+    let mut c = vec![c64::new(0.0, 0.0); n];
+    let (mut at, mut k) = (0, 0);
+    for &p in poles {
+        match p {
+            Pole::Real(x) => {
+                a[(at, at)] = c64::new(x, 0.0);
+                b[at] = c64::new(1.0, 0.0);
+                c[at] = c64::new(c_tilde[k], 0.0);
+                at += 1;
+                k += 1;
+            }
+            Pole::Pair(x) => {
+                a[(at, at)] = c64::new(x.re, 0.0);
+                a[(at, at + 1)] = c64::new(x.im, 0.0);
+                a[(at + 1, at)] = c64::new(-x.im, 0.0);
+                a[(at + 1, at + 1)] = c64::new(x.re, 0.0);
+                b[at] = c64::new(2.0, 0.0);
+                c[at] = c64::new(c_tilde[k], 0.0);
+                c[at + 1] = c64::new(c_tilde[k + 1], 0.0);
+                at += 2;
+                k += 2;
+            }
+            Pole::Complex(x) => {
+                a[(at, at)] = x;
+                b[at] = c64::new(1.0, 0.0);
+                c[at] = c64::new(c_tilde[k], c_tilde[k + 1]);
+                at += 1;
+                k += 2;
+            }
+        }
+    }
+    (a, b, c)
 }
 
 /// New poles from σ's zeros, unstable ones flipped into the left half plane (the paper's

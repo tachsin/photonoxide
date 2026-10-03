@@ -1,17 +1,19 @@
 ---
 title: "Compact models and Touchstone files"
 module: compact
-summary: "A component's S-matrix spectrum as a rational function of frequency by vector fitting, with its fit error, stability and passivity; over its parameters as a rational model whose numerator and denominator are polynomials; and Touchstone files, read and written, as the measured fidelity."
+summary: "A component's S-matrix spectrum as a rational function of frequency by vector fitting, with its fit error, stability and passivity; over its parameters as a rational model whose numerator and denominator depend on them, polynomially or piecewise linearly, with a uniform stability test; and Touchstone files, read and written, as the measured fidelity."
 order: 20
 papers:
   - cite: "B. Gustavsen, A. Semlyen, IEEE Trans. Power Deliv. 14, 1052 (1999)"
     doi: 10.1109/61.772353
+  - cite: "D. Deschrijver, M. Mrozowski, T. Dhaene, D. De Zutter, IEEE Microw. Wireless Compon. Lett. 18, 383 (2008) (fast vector fitting)"
+    doi: 10.1109/LMWC.2008.922585
+  - cite: "P. Triverio, S. Grivet-Talocia, M. S. Nakhla, IEEE Trans. Adv. Packag. 32, 205 (2009) (the parameterized form)"
+    doi: 10.1109/TADVP.2008.2007913
+  - cite: "C. K. Sanathanan, J. Koerner, IEEE Trans. Autom. Control 8, 56 (1963) (the reweighting)"
+    doi: 10.1109/TAC.1963.1105517
   - cite: "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012) (the analytic ring)"
     doi: 10.1002/lpor.201100017
-  - cite: "C. K. Sanathanan, J. Koerner, IEEE Trans. Autom. Control 8, 56 (1963) (not yet read)"
-    doi: 10.1109/TAC.1963.1105517
-  - cite: "P. Triverio, S. Grivet-Talocia, M. S. Nakhla, IEEE Trans. Adv. Packag. 32, 205 (2009) (not yet read)"
-    doi: 10.1109/TADVP.2008.2007913
   - cite: "Touchstone File Format Specification, Rev. 1.1, EIA/IBIS Open Forum (2002), ibis.org"
   - cite: "Touchstone File Format Specification, Version 2.0, IBIS Open Forum (2009), ibis.org"
 validation:
@@ -19,6 +21,7 @@ validation:
   - compact/vf-paper-poles
   - compact/vf-paper-residues
   - compact/vf-paper-real-start
+  - compact/vf-fast-equivalence
   - compact/vf-ring-allpass
   - compact/vf-ring-poles
   - compact/fdfd-ring-held-out
@@ -26,13 +29,16 @@ validation:
   - compact/param-ring-coupling
   - compact/param-ring-shift
   - compact/param-ring-stable
+  - compact/param-ring-piecewise
+  - compact/param-ring-piecewise-stable
+  - compact/param-ring-piecewise-crossings
 ---
 
 A component's S-matrix over a band is a spectrum: one matrix per wavelength, from a solver or a
 measurement. A compact model replaces it with a few numbers that can be evaluated at any
 wavelength in the band, and costs nothing to evaluate inside a circuit. The models are
-**rational in frequency**, fitted by vector fitting, and **polynomial in the component's
-parameters**. Each comes with its error against the spectrum it was fitted to. Measured and
+**rational in frequency**, fitted by vector fitting, and **polynomial (or piecewise linear) in
+the component's parameters**. Each comes with its error against the spectrum it was fitted to. Measured and
 simulated spectra travel between tools as Touchstone files, which are read and written here.
 A file read in is the **measured** fidelity of a component.
 
@@ -75,10 +81,15 @@ keeps the relocation with the smallest error.
 
 **Several responses** share σ, and so share their poles: the vector formulation of the
 discussion's reply (their Eqs. 15–21). The S-matrix model fits all n² elements this way. The
-Stage-1 least squares then holds every element's own unknowns and the shared $\tilde c$. Each
-element's own unknowns are eliminated exactly by a QR factorization of its block
-$[A\ B\ b] = QR$. What is left for $\tilde c$ is the lower-right block of R, and the blocks of
-every element are stacked and solved together. Columns are scaled to unit norm, and the least
+Stage-1 least squares then holds every element's own unknowns and the shared $\tilde c$, a
+sparse block system (Deschrijver et al. 2008, Eq. 8). Each element's own unknowns are
+eliminated exactly by a QR factorization of its block $[A\ B\ b] = QR$ (their Eq. 10, with the
+right side taken into the factorization). What is left for $\tilde c$ is the lower-right block
+of R, and the blocks of every element are stacked and solved together (their Eq. 11). This is
+their fast vector fitting; it gives the whole block system's $\tilde c$ to 1.1e-11
+(`compact/vf-fast-equivalence`). They mention two refinements, not used here: Gustavsen's
+relaxed σ, for noisy data, and solving the normal equations, faster but less accurate. Columns
+are scaled to unit norm, and the least
 squares are solved through the singular values of R, dropping those below $10^{-13}$ of the
 largest. A fit asked for more poles than its response has then has a minimum-norm solution
 instead of a singular one.
@@ -158,53 +169,101 @@ there is an error. The same rule holds for a material outside its data.
 
 ## Over a component's parameters
 
-A `ParametricModel` is a rational model whose numerator and denominator have coefficients that
-are polynomials of total degree D in the parameters p. Each parameter is scaled to [−1, 1] over
-the samples' range, and $\xi_l$ are the monomials. The model is the paper's Stage-1 pair itself:
+A `ParametricModel` has the form of Triverio, Grivet-Talocia and Nakhla (2009, Eqs. 6, 7 and 11):
+a numerator and a denominator on one set of fixed basis poles, their coefficients depending on
+the parameters p through weights $w_l(p)$:
 
 $$
 H_e(s, p) = \frac{N_e(s, p)}{D(s, p)}, \quad
-N_e = \sum_{n,l} \frac{c_{enl}\thinspace\xi_l(p)}{s - a_n} + \sum_l d_{el}\thinspace\xi_l(p), \quad
-D = 1 + \sum_{n,l} \frac{\tilde c_{nl}\thinspace\xi_l(p)}{s - a_n} .
+N_e = \sum_l w_l(p) \Big(\sum_n \frac{c_{enl}}{s - a_n} + d_{el}\Big), \quad
+D = 1 + \sum_l w_l(p) \sum_n \frac{\tilde c_{nl}}{s - a_n} .
 $$
 
-The basis poles $a_n$ are fixed: every sample's spectrum is fitted together by vector fitting,
-with common poles. They cancel between N and D. The model's poles at p are the zeros of D,
-again the eigenvalues of $A - b\tilde c(p)^T$, and they move continuously with p. Written at
-every sample and frequency, N − fD = 0 is linear in c, d and $\tilde c$: one least squares,
-eliminated element by element as in Stage 1. It weights each equation by $\lvert D \rvert$,
-which is small at resonances. So it is solved again three times, each equation divided by the
-last solve's $\lvert D \rvert$, and the best solve is kept. This is the iteration of Sanathanan
-and Koerner (1963). The parameterized form is Triverio, Grivet-Talocia and Nakhla's (2009).
-Neither paper has been read yet; this implementation follows from Gustavsen and Semlyen's Eq. 4
-with parameter-dependent coefficients, and will be checked against them.
+The basis poles cancel between N and D (their Section IV-B). The model's poles at p are the
+zeros of D, again the eigenvalues of $A - b\tilde c(p)^T$, and their residues are $N(z)/D'(z)$.
+D's constant term is fixed at 1. Their Theorem 1 leaves it free ($r_0$, "fixed at will"), and
+fixing it keeps D from vanishing at high frequency, so no pole goes to infinity. The weights
+come in two kinds, `Interpolation::PiecewiseLinear` and `Interpolation::Polynomial`.
 
-**Why not interpolate poles and residues.** A resonance moves with a device's parameters, and its
-pole moves with it. Two simpler methods were measured on the ring, with $n_\text{eff}$ swept
-from 2.39 to 2.41. Over that range the resonances shift by 0.8 of a free spectral range, about
-35 linewidths:
+**Piecewise linear, Triverio et al.'s.** The samples lie on a grid. Each is fitted on its own by
+vector fitting, with stable poles, and its pole–residue model is rewritten exactly on the basis
+poles by their Theorem 1 (Eqs. 24–26): D's coefficients come from $D(p_l) = 0$ at every local
+pole, which is a Cauchy system, and N's from $R_n = r_n H(a_n)$ and $R_0 = Q_0$. Between samples
+the coefficients are linear, or multilinear for several parameters (their Eqs. 8–9). The basis
+poles are spread linearly over the band, which their Table I shows conditions the rewriting
+best. The model is stable at every sample by construction (their Section III-D).
 
-| Method | Error at parameter values between samples |
-|---|---|
-| Common poles for every sample, residues interpolated | the common poles alone fit the samples only to 1.3 (16 poles) |
-| Each sample fitted alone, its poles and residues interpolated | 0.2 to 0.8 (measured while choosing the method): the poles in the band follow their resonances exactly, but those placed outside the band, standing for the resonances beyond it, change from sample to sample |
-| Numerator and denominator polynomial in p | 5.8e-7 (13 samples, 16 basis poles, degree 6) |
+**Polynomial.** The weights are the monomials of total degree at most D, each parameter scaled
+to [−1, 1] over the samples' range. The basis poles are every sample's common poles by vector
+fitting. Written at every sample and frequency, N − fD = 0 is linear in c, d and $\tilde c$:
+one least squares, eliminated element by element as in Stage 1. That is Sanathanan and
+Koerner's weighted error (their Eq. 3), which weights each equation by $\lvert D \rvert$, small
+at resonances. So it is solved again with each equation divided by the last solve's
+$\lvert D \rvert$, as their Eqs. 5–7 do. They ran 10 iterations. Here there are up to 10,
+stopping when three in a row don't improve the largest error at the samples, and the best is
+kept. On the shifting ring of the table below, the 10 iterations reach 1.9e-7 between samples
+where 3 reached 5.8e-7. Triverio et al. fit each sample on its own instead; a joint fit iterated this way is what they
+cite as a parametric Sanathanan–Koerner iteration (their references 20 and 21), whose least
+squares, they note, needed far more memory on their examples.
 
-On the coupling r the denominator form is exact at low degree. Eq. 1 is a ratio of functions
-linear in r, so degree 1 represents it exactly, and degree 2 from 5 samples is within 3.4e-10
-between them.
+**Which one.** A resonance moves with a device's parameters, and its pole moves with it. All of
+the following were measured on the analytic ring of the previous section. With $n_\text{eff}$
+swept from 2.39 to 2.41, the resonances shift by 0.8 of a free spectral range, about 35
+linewidths; with the self-coupling r from 0.90 to 0.97, none moves:
+
+| Method | Between samples, n_eff (13 samples) | Between samples, r (5 samples) |
+|---|---|---|
+| Common poles for every sample, residues interpolated | the common 16 poles alone fit the samples only to 1.3 | |
+| Each sample fitted alone, its poles and residues interpolated | 0.2 to 0.8 (measured while choosing the method) | |
+| Triverio et al.: each sample alone, rewritten on the basis, piecewise linear | 7, with poles crossing the axis; no better with 25 or 49 samples, or warm-started fits | 8.6e-4 |
+| Polynomial, all samples at once, reweighted | 1.9e-7 (16 basis poles, degree 6) | 2.3e-10 (12 basis poles, degree 2) |
+
+A straight line between two denominators whose zeros lie more than a linewidth apart doesn't
+move the zero; it makes new ones, some in the right half plane. That is why the piecewise-linear
+model fails on the shift however densely it is sampled. On the coupling it is a straight line's
+error, 8.6e-4. Eq. 1 is a ratio of functions linear in r, so a polynomial of degree 1 represents
+it exactly. The polynomial model is the one to use for resonant devices. The piecewise-linear
+model suits responses that change by less than a linewidth between samples, and only for it can
+stability be decided.
 
 **Errors.** `ParametricModel::error` is the model's error at its samples. `error_against` takes
-spectra at values that weren't fitted, and that is the error to quote. A polynomial says nothing
-outside the sampled range, so values there are an error.
+spectra at values that weren't fitted, and that is the error to quote. Neither model says
+anything outside the sampled range, so values there are an error.
 
-**Stability.** The denominator's zeros aren't constrained. Some fall in the right half plane
-outside the band, where they stand for the resonances beyond it: `stability(points)` reports the
-largest $\operatorname{Re} a/\lvert a \rvert$ over a grid of the parameters. This doesn't affect
-the frequency response, which is what was fitted and is what a circuit evaluates. A time-domain
-model needs stable poles. `stable_rational(values, points)` gives one at a parameter point: D's
-zeros, the unstable ones flipped as the paper does, and the residues identified again (Stage 2)
-against the model's own response. On the shifting ring this costs at most 4.2e-7 against Eq. 1.
+**Stability.** Triverio et al. test uniform stability, over the whole parameter range, by
+writing the piecewise-linear model as a descriptor system whose matrices lie in a polytope, and
+asking whether linear matrix inequalities at its corners are feasible (their Theorem 2, solved
+with SeDuMi). That needs a semidefinite solver, and the pure-Rust ones need BLAS and LAPACK for
+semidefinite cones. `uniform_stability()` decides the same question exactly, for one parameter,
+by another route:
+
+- Along a segment between samples k and k + 1, D's coefficients are $\tilde c_k + t\delta$, so the
+  poles are the eigenvalues of $H - t\thinspace b\delta^T$, with $H = A - b\tilde c_k^T$: a
+  rank-one change.
+- A pole sits on the axis at $s = j\omega$ when $1 + t\thinspace g(j\omega) = 0$, with
+  $g(s) = \delta^T(sI - H)^{-1}b$, that is, where $g(j\omega)$ is real and at most −1.
+- g is real on the axis where $F(s) = g(s) - \overline{g(-\bar s)}$ vanishes. F is realized on
+  $\operatorname{blkdiag}(H, -\bar H)$, and its zeros are the finite generalized eigenvalues of
+  its system pencil: every candidate ω at once, without sampling.
+- Each candidate's t is pinned by bisection on the sign of the nearest pole's real part.
+
+The samples' own poles are checked as well. On the coupling model it finds no crossing, and its
+poles sampled at 1001 values agree (`compact/param-ring-piecewise-stable`). On the shift model
+it finds 50. Each one's nearest pole changes sign across it, and stepping through 2001 values
+finds no change in the count of unstable poles that it didn't report
+(`compact/param-ring-piecewise-crossings`). Poles within $10^{-7}$ of the axis, relative to
+their size, are at the round-off of these non-normal eigenproblems, and can't be put on either
+side.
+
+The polynomial model's poles aren't constrained. Some fall in the right half plane outside the
+band, where they stand for the resonances beyond it. With one parameter or several,
+`stability(points)` samples them, and the rank-one argument doesn't apply to a polynomial. This
+doesn't affect the frequency response, which is what was fitted and what a circuit evaluates.
+On the coupling model the poles are stable at every sampled value, and on the shift model a few
+aren't. A time-domain model needs stable poles: `stable_rational(values, points)` gives one at
+a parameter point, flipping D's unstable zeros as Gustavsen and Semlyen do and identifying the
+residues again (Stage 2) against the model's own response. On the shifting ring this costs at
+most 1.2e-7 against Eq. 1.
 
 ## Touchstone files
 
