@@ -525,3 +525,72 @@ fn spectra_are_the_same_bit_for_bit_on_any_number_of_threads() {
         assert!(e.to_string().contains("not at 1.7 um"), "{e}");
     }
 }
+
+/// The quarter of a 470 × 211 nm silicon wire in silica on a uniform grid of `n` cells across
+/// its half-width, 0.5 µm of oxide beyond it.
+fn quarter_wire(
+    n: usize,
+    wavelength: Wavelength,
+) -> crate::Result<crate::mode::vector::CrossSection> {
+    use crate::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity};
+    let si = material::silicon().permittivity(wavelength)?;
+    let ox = material::silica().permittivity(wavelength)?;
+    let (a, b) = (0.235, 0.1055);
+    let dx = a / n as f64;
+    let ny = (b / dx).round() as usize;
+    let dy = b / ny as f64;
+    let (cx, cy) = (
+        ((a + 0.5) / dx).round() as usize,
+        ((b + 0.5) / dy).round() as usize,
+    );
+    CrossSection::uniform(
+        (0.0, cx as f64 * dx, cx),
+        (0.0, cy as f64 * dy, cy),
+        |x, y| Permittivity::isotropic(if x < a && y < b { si } else { ox }),
+    )?
+    .with_boundaries(Boundaries {
+        west: Boundary::ElectricWall,
+        south: Boundary::MagneticWall,
+        ..Boundaries::default()
+    })
+}
+
+#[test]
+fn hadleys_dispersion_converges_where_the_standard_schemes_does_not() {
+    // a 470 x 211 nm wire on 39 and 20 nm grids: Hadley's n_eff and n_g move by 6e-4 and 1e-3,
+    // the standard scheme's by 1e-3 and 3e-2
+    let at = |n: usize, hadley: bool| {
+        let cs = |w| quarter_wire(n, w);
+        let (d, residual, grid) = if hadley {
+            Dispersion::from_hadley(cs, um(1.55), 0.01, None).unwrap()
+        } else {
+            Dispersion::from_modes(cs, um(1.55), 0.01, None).unwrap()
+        };
+        assert!(residual < 1e-4, "{residual}");
+        assert!(
+            grid.starts_with(&format!(
+                "{} ×",
+                ((0.235 + 0.5) / (0.235 / n as f64)).round()
+            )),
+            "{grid}"
+        );
+        assert_eq!(d.polarization, Some(Polarization::Te));
+        assert!(d.loss_db_per_cm.abs() < 1e-6, "{}", d.loss_db_per_cm);
+        (d.effective_index, d.group_index)
+    };
+    let (coarse, fine) = (at(6, true), at(12, true));
+    let (standard_coarse, standard_fine) = (at(6, false), at(12, false));
+    assert!(
+        (coarse.0 - fine.0).abs() < 1e-3 && (coarse.1 - fine.1).abs() < 3e-3,
+        "{coarse:?} {fine:?}"
+    );
+    assert!(
+        (standard_coarse.1 - standard_fine.1).abs() > 10.0 * (coarse.1 - fine.1).abs(),
+        "{standard_coarse:?} {standard_fine:?}"
+    );
+    // both near the converged 2.3583 and 4.2330 (the mzi_dwivedi example's, at 10 nm)
+    assert!(
+        (fine.0 - 2.3583).abs() < 2e-3 && (fine.1 - 4.2330).abs() < 5e-3,
+        "{fine:?}"
+    );
+}
