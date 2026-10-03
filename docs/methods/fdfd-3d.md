@@ -24,6 +24,10 @@ papers:
     doi: 10.1109/JLT.2002.800371
   - cite: "Y. Saad, Iterative Methods for Sparse Linear Systems, 2nd ed., SIAM (2003) (ILU(0))"
     doi: 10.1137/1.9780898718003
+  - cite: "B. Reps, W. Vanroose, H. bin Zubair, J. Comput. Phys. 229, 8384 (2010) (complex-stretched layers and iterative solvers)"
+    doi: 10.1016/j.jcp.2010.07.022
+  - cite: "Y. A. Erlangga, C. W. Oosterlee, C. Vuik, SIAM J. Sci. Comput. 27, 1471 (2006) (the shifted Laplacian)"
+    doi: 10.1137/040615195
 validation:
   - fdfd3d/film-reflection-te
   - fdfd3d/film-reflection-tm
@@ -454,7 +458,14 @@ reaches $\sigma = 114$ for 10 cells of 10 nm graded to $R = 10^{-8}$.
 field outside it is the same, and only the discretization's reflection changes.
 `Boundaries3d::stretched_pml` adds as much real stretching as absorption, $s = 1 + (1 + i)\sigma$
 (`real_stretch` = 1), which keeps $s$ within 45° of the real axis and $\operatorname{Re}(1/s^2) \gt 0$.
-The real part compresses the wave inside the layer, so it wants a few more cells:
+On a grid the layer's mesh width becomes complex, $h_c = s h$, at the angle of $s$. Reps, Vanroose and bin
+Zubair bound the spectrum of the Laplacian on such a grid for angles below π/4 (their Section 3:
+$h_c/h = 1 + i\epsilon$ with $0 \lt \epsilon \lt 1$, before their Eq. 3.6), and run their
+experiments at π/6. Shin and Fan's grading takes the angle, $\arctan\sigma$, to 89.5°; the
+stretched PML keeps it below 45°. Their analysis is for a linear stretch (exterior complex
+scaling) of the scalar Helmholtz equation, not for a graded PML in Maxwell's equations; the gain
+here was found by measurement. The real part compresses the wave inside the layer, so it wants a
+few more cells:
 
 | PML, plane wave 17° off its normal in oxide | plain, $s = 1 + i\sigma$ | stretched, $s = 1 + (1 + i)\sigma$ |
 |---|---|---|
@@ -529,22 +540,32 @@ count, 19 ms on 8 threads at best at 192 k, and isn't used. So an iteration cost
 a plain one, and the iterations saved are worth 3 to 4 times in time, not 10.
 
 **What didn't pay.** Jacobi (the diagonal): 10 798 iterations instead of 1 976 on the curl-curl
-operator, 1 335 instead of 1 629 on Shin and Fan's (40³ guide, 1e-6). A geometric multigrid
-V-cycle on Shin and Fan's operator, complex-shifted or not (the shifted-Laplacian idea of
-Erlangga, Oosterlee and Vuik; doi:10.1137/040615195, not read, listed in the papers' README):
-damped Jacobi smoothing, coarse grids rediscretized over the same box, a direct solve on the
-coarsest. As a solver it cuts the residual 3 to 6 times per cycle in vacuum or on a silicon guide
-between walls, but with PMLs it stalls at 0.96 per cycle, or diverges even when they are graded
-gently ($\sigma \le 7$): point smoothing can't handle an operator that turns the wrong way along
-the normal, nor its 1/|s|² weak coupling. As a preconditioner on a 32³ guide with PMLs it cut
-QMR from 2 051 to 510 iterations but took twice the time, and ILU(0) as its smoother did worse.
-Capping σ in the cycle's PMLs, or stretching them, didn't rescue it. A sweeping preconditioner
-(Engquist and Ying's moving PMLs, doi:10.1137/100804644, known but not read) factorizes a slab
-of a few planes per layer: faer's sparse LU took 19 s for one slab of 6 planes of Diel's 90 × 80
-cross-section, so the layers alone would cost minutes and tens of GB. Complex-stretched absorbing
-layers and their effect on iterative solvers are the subject of Reps, Vanroose and bin Zubair
-(doi:10.1016/j.jcp.2010.07.022), not read yet (listed in the papers' README); the stretched PML
-here was found by measurement.
+operator, 1 335 instead of 1 629 on Shin and Fan's (40³ guide, 1e-6).
+
+A geometric multigrid V-cycle on Shin and Fan's operator, complex-shifted or not. The shift is
+Erlangga, Oosterlee and Vuik's (their Eq. 8, $M = -\Delta - (\beta_1 - \beta_2 i)k^2$ with
+$(\beta_1, \beta_2) = (1, 0.5)$, the shift on the side of the medium's loss: in photonoxide's
+$e^{-i\omega t}$, $k_0^2(1 + 0.5i)\varepsilon$). The cycle used damped Jacobi smoothing,
+coarse grids rediscretized over the same box, and a direct solve on the coarsest. As a solver it
+cuts the residual 3 to 6 times per cycle in vacuum or on a silicon guide between walls; with
+PMLs it stalls at 0.96 per cycle, or diverges even when they are graded gently
+($\sigma \le 7$). As a preconditioner on a 32³ guide with PMLs it cut QMR from 2 051 to 510
+iterations but took twice the time, and ILU(0) as its smoother did worse. Capping σ in the
+cycle's PMLs, or stretching them, didn't rescue it.
+
+This is not a test of their method with PMLs. Erlangga et al. use F-cycles with Galerkin coarse
+operators: their Section 4.3 finds V-cycles too poor, and their boundaries are second-order
+radiation conditions, not PMLs. Reps, Vanroose and bin Zubair (J. Comput. Phys. 229, 8384
+(2010), doi:10.1016/j.jcp.2010.07.022), on complex-stretched absorbing layers, choose ILU(0)
+smoothing with Galerkin coarse operators (their Section 6.1, Fig. 14) and find Jacobi and
+coarse grids discretized directly clearly worse: the components used here. They also trace the
+trouble to the indefinite operator's vanishing h-ellipticity and to coarse grids that resonate
+(their Section 5.1). Their multigrid with Galerkin coarse operators and ILU(0) smoothing, with
+stretched PMLs, is the next thing to try.
+
+A sweeping preconditioner (Engquist and Ying's moving PMLs, doi:10.1137/100804644, known but
+not read) factorizes a slab of a few planes per layer: faer's sparse LU took 19 s for one slab of
+6 planes of Diel's 90 × 80 cross-section, so the layers alone would cost minutes and tens of GB.
 
 ## Limits
 
