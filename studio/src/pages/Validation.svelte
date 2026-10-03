@@ -33,8 +33,9 @@
   const source = $derived(machine || published);
 
   function parse(md: string): Case[] {
+    // a Windows checkout embeds the report with CRLF line ends
     return md
-      .split("\n")
+      .split(/\r?\n/)
       .filter((l) => l.startsWith("| `"))
       .map((l) => {
         const c = l.slice(1, -1).split(" | ").map((x) => x.trim());
