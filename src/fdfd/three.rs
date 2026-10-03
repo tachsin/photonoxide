@@ -743,27 +743,50 @@ impl Solver3d {
         let b = faer::Mat::<c64>::from_fn(n, 1, |r, _| rhs[r]);
         let u = self.lu.solve(&b);
         let mut values: Vec<c64> = (0..n).map(|r| u[(r, 0)]).collect();
-        // iterative refinement until the correction stops shrinking: one step is enough where
-        // the factorization is accurate, but its pivots, and so its accuracy, change with the
-        // machine, and the ports' S-matrices need the field to round-off
+        // one step of iterative refinement, as in 2D, which leaves round-off where the
+        // factorization is accurate; where it isn't (on GitHub's Windows runners faer's sparse LU
+        // of the same matrix left relative residuals of 1e-2 to 1e-1 where it leaves 1e-14
+        // here, and refinement crawled or stalled), QMR preconditioned by the factorization
+        // finishes the solve
         let norm = |v: &[c64]| v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
-        let mut last = f64::INFINITY;
-        for _ in 0..10 {
-            let applied = self.apply(&values);
-            let r = faer::Mat::<c64>::from_fn(n, 1, |k, _| rhs[k] - applied[k]);
-            let correction = self.lu.solve(&r);
-            let step: Vec<c64> = (0..n).map(|k| correction[(k, 0)]).collect();
-            let size = norm(&step) / norm(&values).max(f64::MIN_POSITIVE);
-            if size >= last {
-                break;
-            }
+        let scale = norm(&rhs);
+        if scale == 0.0 {
+            return Ok(Field3d {
+                lattice: self.lattice.clone(),
+                values: vec![c64::new(0.0, 0.0); n],
+            });
+        }
+        let residual = |values: &[c64]| -> Vec<c64> {
+            let applied = self.apply(values);
+            rhs.iter().zip(&applied).map(|(b, a)| b - a).collect()
+        };
+        let r = residual(&values);
+        let correction = super::krylov::Preconditioner::solve(&LuInverse(&self.lu), &r);
+        for (v, d) in values.iter_mut().zip(&correction) {
+            *v += d;
+        }
+        let r = residual(&values);
+        let left = norm(&r) / scale;
+        if left > ACCURATE {
+            use super::krylov::{Sparse, Stopping, qmr_preconditioned};
+            let matrix = Sparse::new(n, self.entries.iter().map(|t| (t.row, t.col, t.val)));
+            let stopping = Stopping {
+                tolerance: ACCURATE / left,
+                max_iterations: 1000,
+            };
+            let (step, _) = qmr_preconditioned(&matrix, &LuInverse(&self.lu), &r, stopping)
+                .map_err(|e| {
+                    Error::invalid(
+                        "fdfd",
+                        format!(
+                            "the factorization left a residual of {left:e}, and QMR on it \
+                             failed: {e}"
+                        ),
+                    )
+                })?;
             for (v, d) in values.iter_mut().zip(&step) {
                 *v += d;
             }
-            if size < 1e-14 {
-                break;
-            }
-            last = size;
         }
         Ok(Field3d {
             lattice: self.lattice.clone(),
@@ -974,3 +997,28 @@ mod tests;
 
 pub use iterative::{Formulation, IterativeSolver3d};
 pub use ports::{Port3d, PortMode3d};
+
+/// The relative residual a direct solve guarantees: round-off, above the 1e-15 to 1e-14 that an
+/// accurate factorization and one step of refinement leave, and within what QMR reaches.
+const ACCURATE: f64 = 1e-12;
+
+/// A factorization as a preconditioner: (LU)⁻¹ and its transpose.
+struct LuInverse<'a>(&'a Lu<usize, c64>);
+
+impl super::krylov::Preconditioner for LuInverse<'_> {
+    fn solve(&self, v: &[c64]) -> Vec<c64> {
+        use faer::linalg::solvers::Solve;
+        let x = self
+            .0
+            .solve(faer::Mat::<c64>::from_fn(v.len(), 1, |r, _| v[r]));
+        (0..v.len()).map(|r| x[(r, 0)]).collect()
+    }
+
+    fn solve_transpose(&self, v: &[c64]) -> Vec<c64> {
+        use faer::linalg::solvers::Solve;
+        let x = self
+            .0
+            .solve_transpose(faer::Mat::<c64>::from_fn(v.len(), 1, |r, _| v[r]));
+        (0..v.len()).map(|r| x[(r, 0)]).collect()
+    }
+}

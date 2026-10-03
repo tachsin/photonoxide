@@ -92,7 +92,10 @@ one because it keeps the system well conditioned (their Section 4), which the it
 that large 3D problems need depend on.
 
 `Solver3d` factorizes the system once with faer's sparse LU. `Solver3d::solve` then gives the
-field for any current by back-substitution, with one step of iterative refinement.
+field for any current by back-substitution, with one step of iterative refinement. A field is
+returned only to a relative residual of 1e-12: where the factorization is less accurate than
+that (on GitHub's Windows runners faer's sparse LU of some of these matrices left 1e-2 to 1e-1,
+where it leaves 1e-14 elsewhere), QMR preconditioned by the factorization finishes the solve.
 `Solver3d::reuse` keeps the analysis of the matrix's sparsity for a sweep.
 
 ## The power flux

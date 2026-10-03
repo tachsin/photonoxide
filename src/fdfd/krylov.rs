@@ -79,11 +79,6 @@ impl Sparse {
         }
     }
 
-    /// The number of rows.
-    pub(crate) fn size(&self) -> usize {
-        self.n
-    }
-
     /// The number of stored entries.
     pub(crate) fn nonzeros(&self) -> usize {
         self.values.len()
@@ -130,6 +125,76 @@ fn product(starts: &[usize], columns: &[usize], values: &[c64], v: &[c64]) -> Ve
         }
     });
     out
+}
+
+/// A linear operator QMR can solve with: its products with vectors and its transpose's.
+pub(crate) trait Operator {
+    /// The number of rows (and columns).
+    fn size(&self) -> usize;
+    /// A v.
+    fn apply(&self, v: &[c64]) -> Vec<c64>;
+    /// Aᵀ v (the transpose, not the conjugate transpose).
+    fn apply_transpose(&self, v: &[c64]) -> Vec<c64>;
+}
+
+impl Operator for Sparse {
+    fn size(&self) -> usize {
+        self.n
+    }
+
+    fn apply(&self, v: &[c64]) -> Vec<c64> {
+        Sparse::apply(self, v)
+    }
+
+    fn apply_transpose(&self, v: &[c64]) -> Vec<c64> {
+        Sparse::apply_transpose(self, v)
+    }
+}
+
+/// An approximate inverse of a matrix M, for preconditioning: M⁻¹ v and M⁻ᵀ v.
+pub(crate) trait Preconditioner {
+    /// M⁻¹ v.
+    fn solve(&self, v: &[c64]) -> Vec<c64>;
+    /// M⁻ᵀ v (the transpose, not the conjugate transpose).
+    fn solve_transpose(&self, v: &[c64]) -> Vec<c64>;
+}
+
+/// A M⁻¹, the operator of a right-preconditioned system: A M⁻¹ y = b, x = M⁻¹ y. Its residual
+/// b − A M⁻¹ y is the original system's, b − A x.
+struct RightPreconditioned<'a, A, M> {
+    a: &'a A,
+    m: &'a M,
+}
+
+impl<A: Operator, M: Preconditioner> Operator for RightPreconditioned<'_, A, M> {
+    fn size(&self) -> usize {
+        self.a.size()
+    }
+
+    fn apply(&self, v: &[c64]) -> Vec<c64> {
+        self.a.apply(&self.m.solve(v))
+    }
+
+    fn apply_transpose(&self, v: &[c64]) -> Vec<c64> {
+        self.m.solve_transpose(&self.a.apply_transpose(v))
+    }
+}
+
+/// Solves A x = b by QMR on the right-preconditioned system A M⁻¹ y = b, x = M⁻¹ y: each
+/// iteration takes one product with A, one with Aᵀ, one M⁻¹ and one M⁻ᵀ. The residual it stops
+/// on is A x = b's own.
+///
+/// # Errors
+///
+/// As [`qmr`].
+pub(crate) fn qmr_preconditioned(
+    a: &impl Operator,
+    m: &impl Preconditioner,
+    b: &[c64],
+    stopping: Stopping,
+) -> Result<(Vec<c64>, Convergence)> {
+    let (y, convergence) = qmr(&RightPreconditioned { a, m }, b, stopping)?;
+    Ok((m.solve(&y), convergence))
 }
 
 /// When QMR stops.
@@ -186,7 +251,11 @@ fn rotate((c, s): (f64, c64), a: c64, b: c64) -> (c64, c64) {
 /// Lanczos process breaks down (|w_nᵀ v_n| below 1e-14 for unit vectors: the look-ahead steps
 /// that would step over it aren't implemented), or if the tolerance isn't reached within the
 /// iterations allowed.
-pub(crate) fn qmr(a: &Sparse, b: &[c64], stopping: Stopping) -> Result<(Vec<c64>, Convergence)> {
+pub(crate) fn qmr(
+    a: &impl Operator,
+    b: &[c64],
+    stopping: Stopping,
+) -> Result<(Vec<c64>, Convergence)> {
     let n = a.size();
     if b.len() != n {
         return Err(Error::invalid(

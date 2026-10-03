@@ -740,3 +740,62 @@ fn port_modes_against_the_mode_solvers() {
         );
     }
 }
+
+#[test]
+fn a_poor_factorization_still_gives_the_field_to_round_off() {
+    // on GitHub's Windows runners faer's sparse LU of these matrices left residuals of 1e-2 to
+    // 1e-1, and one step of refinement isn't enough: stand in for it with the factorization of
+    // a matrix 5% off, and the solve must still reach round-off, by QMR on the factorization
+    let grid = Grid3d {
+        nx: 10,
+        ny: 9,
+        nz: 8,
+        dx: 0.05,
+        dy: 0.05,
+        dz: 0.05,
+        x0: -0.25,
+        y0: -0.225,
+        z0: -0.2,
+    };
+    let strip = |_: f64, y: f64, z: f64| {
+        let n: f64 = if y.abs() < 0.1 && z.abs() < 0.06 {
+            3.476
+        } else {
+            1.444
+        };
+        c64::new(n * n, 0.0)
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let boundaries = Boundaries3d::pml(2);
+    let mut solver = Solver3d::new(grid, lam, strip, boundaries).unwrap();
+    let mut current = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    current[grid.index(Axis::Y, (5, 4, 4))] = c64::new(1.0, 0.0);
+    let exact = solver.solve(&current).unwrap();
+    let off: Vec<_> = solver
+        .entries
+        .iter()
+        .map(|t| {
+            let scale = if t.row == t.col { 1.05 } else { 1.0 };
+            faer::sparse::Triplet::new(t.row, t.col, t.val * scale)
+        })
+        .collect();
+    solver.lu = crate::fdfd::factorize(&off, grid.unknowns(), None)
+        .unwrap()
+        .0;
+    let field = solver.solve(&current).unwrap();
+    let rhs: Vec<c64> = current
+        .iter()
+        .map(|j| c64::new(0.0, -solver.lattice.k0) * j)
+        .collect();
+    let applied = solver.apply(field.values());
+    let norm = |v: &[c64]| v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
+    let r: Vec<c64> = rhs.iter().zip(&applied).map(|(b, a)| b - a).collect();
+    assert!(norm(&r) < 1e-12 * norm(&rhs), "{}", norm(&r) / norm(&rhs));
+    let d: Vec<c64> = field
+        .values()
+        .iter()
+        .zip(exact.values())
+        .map(|(a, b)| a - b)
+        .collect();
+    assert!(norm(&d) < 1e-10 * norm(exact.values()));
+}
