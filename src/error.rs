@@ -41,6 +41,8 @@ pub enum Error {
         /// Why it can't be read.
         reason: String,
     },
+    /// A circuit's netlist is invalid: see [`crate::circuit::NetlistError`].
+    Netlist(crate::circuit::NetlistError),
 }
 
 impl Error {
@@ -68,6 +70,7 @@ impl fmt::Display for Error {
             ),
             Error::Io { path, reason } => write!(f, "{path}: {reason}"),
             Error::Parse { what, reason } => write!(f, "can't read {what}: {reason}"),
+            Error::Netlist(e) => write!(f, "invalid netlist: {e}"),
         }
     }
 }
