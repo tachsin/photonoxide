@@ -4,7 +4,7 @@ The model behind 0.4's components and circuits (`photonoxide::circuit`): what a 
 the conventions every S-matrix follows, what a netlist is, and how the rest of photonoxide plugs
 in: the solvers, compact models and measurements that make components, the circuit adjoint and
 optimization, and the studio's library and chip view. The method itself, the circuit solve and
-its validation, is in [docs/methods/circuits.md](../methods/circuits.md) once it lands.
+its validation, is in [docs/methods/circuits.md](../methods/circuits.md).
 
 ## The model
 
@@ -84,7 +84,7 @@ port is caught when the circuit is solved (`SizeMismatch`).
 Every port is used exactly once. A port meant to absorb what reaches it is exposed, or
 connected to a terminator (a 1-port with S = 0); a dangling port is a mistake, not a default.
 
-## The circuit solve (next)
+## The circuit solve
 
 With all ports of all instances numbered together, S_b is the block-diagonal matrix of the
 components' S-matrices, b = S_b a. A connection between ports i and j says a_i = b_j and
@@ -100,6 +100,13 @@ sparsity depends only on the netlist's topology, so a sweep analyses it once and
 symbolic factorization, as the FDFD solver does. Filipsson's sub-network growth (Filipsson
 1981, [10.1109/EUMA.1981.332972](https://doi.org/10.1109/EUMA.1981.332972)), one connection
 at a time, is the reference it is checked against to round-off.
+
+`Netlist::compile` checks the netlist, numbers its ports and analyses the sparsity, giving a
+`Circuit`: `s_matrix(wavelength)` at its current values, `s_matrix_with(wavelength, values)` at
+others (an optimizer's call), `spectrum(&wavelengths)`, `set(instance, parameter, value)`, and
+`s_matrix_by_growth(wavelength)`, the reference. A `Circuit` is a `Component`: its ports are the
+external ports, its parameters its instances', named `instance.parameter`, in the order of
+`values()`.
 
 ## How the rest plugs in
 

@@ -1,3 +1,5 @@
+mod solve;
+
 use std::sync::Arc;
 
 use num_complex::Complex64 as c64;
@@ -239,10 +241,10 @@ fn components_with_bad_names_or_defaults_are_refused() {
         netlist_error(n.add("x", Arc::new(twice))),
         NetlistError::InvalidComponent { .. }
     ));
-    let mut dotted = Tunable::new(Polarization::Te);
-    dotted.parameters[0].name = "a.b".into();
+    let mut spaced = Tunable::new(Polarization::Te);
+    spaced.parameters[0].name = "a b".into();
     assert!(matches!(
-        netlist_error(n.add("x", Arc::new(dotted))),
+        netlist_error(n.add("x", Arc::new(spaced))),
         NetlistError::InvalidComponent { .. }
     ));
     let mut out_of_range = Tunable::new(Polarization::Te);
@@ -298,6 +300,9 @@ fn the_module_example() -> Result<()> {
         matches!(&netlist.problems()[..], [NetlistError::Dangling(p)] if p.to_string() == "second.b")
     );
     netlist.expose("out", "second.b")?;
-    netlist.validate()?;
+    let circuit = netlist.compile()?;
+
+    let s = circuit.s_matrix(Wavelength::um(1.55)?)?;
+    assert!((s[(1, 0)] - c64::new(-1.0, 0.0)).norm() < 1e-15); // a half turn
     Ok(())
 }
