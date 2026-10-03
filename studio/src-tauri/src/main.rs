@@ -2,6 +2,7 @@
 //! headless; replays a run in the studio; runs the built-in examples; checks the validation
 //! report.
 
+mod circuits;
 mod examples;
 mod materials;
 mod settings;

@@ -1,0 +1,74 @@
+# An add-drop ring from parts: two couplers and two half rings, 2π·10 µm round in all. On
+# resonance, light leaves the input bus for the drop port; off resonance, it goes through.
+format = 1
+name = "ring-add-drop"
+about = "An add-drop ring from parts, 2π·10 µm round between two buses: on resonance, light goes to the drop port."
+
+connections = [
+    ["upper.o4", "east.o1"],
+    ["east.o2", "lower.o4"],
+    ["upper.o1", "west.o1"],
+    ["west.o2", "lower.o1"],
+]
+
+[sweep]
+from_um = 1.53
+to_um = 1.57
+points = 2001
+
+[[instance]]
+name = "upper"
+kind = "coupler"
+x = 0
+y = 0
+values = { coupling = 0.1 }
+
+[[instance]]
+name = "east"
+kind = "waveguide"
+x = 70
+y = 80
+rotation = 90
+values = { length = 31.41592653589793 }
+
+[[instance]]
+name = "west"
+kind = "waveguide"
+x = -70
+y = 80
+rotation = 90
+values = { length = 31.41592653589793 }
+
+[[instance]]
+name = "lower"
+kind = "coupler"
+x = 0
+y = 160
+mirror = true
+values = { coupling = 0.1 }
+
+[[port]]
+name = "in"
+at = "upper.o2"
+x = -90
+y = -10
+
+[[port]]
+name = "through"
+at = "upper.o3"
+x = 90
+y = -10
+rotation = 180
+
+[[port]]
+name = "drop"
+at = "lower.o2"
+x = -90
+y = 170
+
+[[port]]
+name = "add"
+at = "lower.o3"
+x = 90
+y = 170
+rotation = 180

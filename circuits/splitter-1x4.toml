@@ -1,0 +1,70 @@
+# A 1×4 splitter: a tree of three Y-branches. Each output takes a quarter of the input's power,
+# less the branches' excess loss.
+format = 1
+name = "splitter-1x4"
+about = "A 1×4 splitter: a tree of three Y-branches, a quarter of the power at each output."
+
+connections = [
+    ["root.o2", "top.o1"],
+    ["root.o3", "bottom.o1"],
+]
+
+[sweep]
+from_um = 1.5
+to_um = 1.6
+points = 101
+
+[[instance]]
+name = "root"
+kind = "y-branch"
+x = 0
+y = 0
+values = { excess_loss = 0.0 }
+
+[[instance]]
+name = "top"
+kind = "y-branch"
+x = 110
+y = -40
+values = { excess_loss = 0.0 }
+
+[[instance]]
+name = "bottom"
+kind = "y-branch"
+x = 110
+y = 40
+values = { excess_loss = 0.0 }
+
+[[port]]
+name = "in"
+at = "root.o1"
+x = -80
+y = 0
+
+[[port]]
+name = "out1"
+at = "top.o2"
+x = 200
+y = -50
+rotation = 180
+
+[[port]]
+name = "out2"
+at = "top.o3"
+x = 200
+y = -30
+rotation = 180
+
+[[port]]
+name = "out3"
+at = "bottom.o2"
+x = 200
+y = 30
+rotation = 180
+
+[[port]]
+name = "out4"
+at = "bottom.o3"
+x = 200
+y = 50
+rotation = 180

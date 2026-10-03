@@ -131,6 +131,20 @@ export const api = {
     invoke<MaterialCurve[]>("material_curves", { id, modelId, temperature, composition, points }),
   materialAt: (id: string, modelId: string, temperature: number | null, composition: number | null, wavelength: number) =>
     invoke<MaterialPoint[]>("material_at", { id, modelId, temperature, composition, wavelength }),
+  componentLibrary: () => invoke<KindInfo[]>("component_library"),
+  componentSpectrum: (part: Part, values: number[], sweep: Sweep) => invoke<SpectrumData>("component_spectrum", { part, values, sweep }),
+  measuredComponent: (path: string, convention: TimeConvention) => invoke<KindInfo>("measured_component", { path, convention }),
+  circuitCheck: (chip: Chip) => invoke<Problem[]>("circuit_check", { chip }),
+  circuitSimulate: (chip: Chip) => invoke<Simulation>("circuit_simulate", { chip }),
+  circuitTouchstone: (chip: Chip, path: string) => invoke<void>("circuit_touchstone", { chip, path }),
+  componentTouchstone: (part: Part, values: number[], sweep: Sweep, path: string) => invoke<void>("component_touchstone", { part, values, sweep, path }),
+  circuitText: (chip: Chip) => invoke<string>("circuit_text", { chip }),
+  circuitParse: (text: string) => invoke<Chip>("circuit_parse", { text }),
+  circuitExamples: () => invoke<CircuitExample[]>("circuit_examples"),
+  circuits: () => invoke<CircuitItem[]>("circuits"),
+  saveCircuit: (chip: Chip, replace: boolean) => invoke<string>("save_circuit", { chip, replace }),
+  readCircuit: (path: string) => invoke<Chip>("read_circuit", { path }),
+  deleteCircuit: (path: string) => invoke<void>("delete_circuit", { path }),
 };
 
 /** "2026-10-02T09:17:32Z" as "2 Oct 2026, 09:17". */
@@ -279,4 +293,129 @@ export interface MaterialPoint {
   eps_re: number;
   eps_im: number;
   group: number;
+}
+
+// Components and circuits (studio/src-tauri/src/circuits.rs).
+
+export type Glyph = "waveguide" | "bend" | "phase-shifter" | "coupler" | "mmi" | "y-branch" | "ring-all-pass" | "ring-add-drop" | "mzi" | "terminator" | "measured" | "box";
+
+export interface Pin {
+  port: string;
+  x: number;
+  y: number;
+  /** The direction a wire leaves in, degrees: 0 along +x, 90 along +y (down). */
+  angle: number;
+}
+
+export interface Symbol {
+  glyph: Glyph;
+  width: number;
+  height: number;
+  pins: Pin[];
+}
+
+export interface KindInfo {
+  id: string;
+  title: string;
+  /** Which model of its kind it is, when the kind has several; "" otherwise. */
+  variant: string;
+  /** A measured component's Touchstone file, as a chip file names it, and its time convention. */
+  file: string | null;
+  convention: TimeConvention | null;
+  category: string;
+  about: string;
+  equation: string;
+  kind: string;
+  ports: { name: string; mode: { polarization: string; order: number; effective_index: number; group_index: number | null; wavelength_um: number } | null }[];
+  parameters: { name: string; unit: string; default: number; min: number; max: number }[];
+  provenance: { fidelity: "analytic" | "compact" | "2D" | "3D" | "measured"; source: string; error: number | null; validity: [number, number] | null };
+  reciprocal: boolean;
+  symbol: Symbol;
+}
+
+export interface Sweep {
+  from_um: number;
+  to_um: number;
+  points: number;
+}
+
+/** S-parameters over wavelength: re[q][p][k], im[q][p][k] are S_qp at the k-th wavelength. */
+export interface SpectrumData {
+  ports: string[];
+  wavelength_um: number[];
+  re: number[][][];
+  im: number[][][];
+}
+
+export interface Placed {
+  name: string;
+  kind: string;
+  x: number;
+  y: number;
+  rotation?: number;
+  mirror?: boolean;
+  values?: Record<string, number>;
+  /** A measured component's Touchstone file and its time convention. */
+  file?: string | null;
+  convention?: TimeConvention | null;
+}
+
+/** The time convention of a Touchstone file's values: photonoxide's e^(−iωt), or RF tools' e^(+jωt). */
+export type TimeConvention = "physics" | "engineering";
+
+/** What a component is built from: a library id, or a measured file. */
+export interface Part {
+  kind: string;
+  file?: string | null;
+  convention?: TimeConvention | null;
+}
+
+export interface External {
+  name: string;
+  /** The port it exposes, "instance.port", or "" while unwired. */
+  at: string;
+  x: number;
+  y: number;
+  rotation?: number;
+}
+
+/** A chip file (circuits/*.toml): a netlist and where everything sits. */
+export interface Chip {
+  format: number;
+  name: string;
+  about?: string;
+  sweep: Sweep;
+  connections: [string, string][];
+  instance: Placed[];
+  port: External[];
+}
+
+export interface Problem {
+  message: string;
+  instance?: string;
+  port?: string;
+  connection?: number;
+  external?: number;
+  parameter?: string;
+  dangling: boolean;
+}
+
+export interface Simulation {
+  spectrum: SpectrumData;
+  checks: { reciprocity: number; largest_singular_value: number; unitarity: number; reciprocal: boolean };
+  seconds: number;
+  instances: number;
+}
+
+export interface CircuitExample {
+  file: string;
+  chip: Chip;
+}
+
+export interface CircuitItem {
+  path: string;
+  name: string;
+  about: string;
+  instances: number;
+  modified: number;
 }

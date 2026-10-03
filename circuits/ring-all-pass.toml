@@ -1,0 +1,43 @@
+# An all-pass ring from parts: a bus coupled to a loop of strip 2π·10 µm round. Light that
+# couples in goes round and back out, and the bus's transmission dips at each resonance.
+format = 1
+name = "ring-all-pass"
+about = "An all-pass ring from parts: a coupler and a loop of strip 2π·10 µm round; the bus dips at each resonance."
+
+connections = [
+    ["bus.o4", "ring.o1"],
+    ["ring.o2", "bus.o1"],
+]
+
+[sweep]
+from_um = 1.53
+to_um = 1.57
+points = 2001
+
+[[instance]]
+name = "bus"
+kind = "coupler"
+x = 0
+y = 0
+values = { coupling = 0.1 }
+
+[[instance]]
+name = "ring"
+kind = "waveguide"
+x = 0
+y = 70
+rotation = 180
+values = { length = 62.83185307179586 }
+
+[[port]]
+name = "in"
+at = "bus.o2"
+x = -90
+y = -10
+
+[[port]]
+name = "through"
+at = "bus.o3"
+x = 90
+y = -10
+rotation = 180

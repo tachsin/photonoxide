@@ -75,7 +75,21 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             save_text,
             crate::materials::materials,
             crate::materials::material_curves,
-            crate::materials::material_at
+            crate::materials::material_at,
+            crate::circuits::component_library,
+            crate::circuits::component_spectrum,
+            crate::circuits::measured_component,
+            crate::circuits::circuit_check,
+            crate::circuits::circuit_simulate,
+            crate::circuits::circuit_touchstone,
+            crate::circuits::component_touchstone,
+            crate::circuits::circuit_text,
+            crate::circuits::circuit_parse,
+            crate::circuits::circuit_examples,
+            crate::circuits::circuits,
+            crate::circuits::save_circuit,
+            crate::circuits::read_circuit,
+            crate::circuits::delete_circuit
         ])
         .setup(move |app| {
             let paths = app.path();
@@ -178,7 +192,7 @@ fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 }
 
 /// The window's state.
-struct Studio {
+pub(crate) struct Studio {
     /// The folder the program was started in.
     started_in: PathBuf,
     documents: Option<PathBuf>,
@@ -201,7 +215,7 @@ struct Started {
 }
 
 impl Studio {
-    fn workspace(&self) -> PathBuf {
+    pub(crate) fn workspace(&self) -> PathBuf {
         lock(&self.workspace).clone()
     }
 }
@@ -605,7 +619,7 @@ fn check_job(text: String) -> JobCheck {
 }
 
 /// `path` inside `dir` (after resolving both), or an error.
-fn inside(dir: &Path, path: &Path) -> Result<PathBuf, String> {
+pub(crate) fn inside(dir: &Path, path: &Path) -> Result<PathBuf, String> {
     let dir = dir
         .canonicalize()
         .map_err(|e| format!("{}: {e}", dir.display()))?;

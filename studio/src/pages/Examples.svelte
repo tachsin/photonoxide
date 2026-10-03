@@ -1,17 +1,28 @@
 <script lang="ts">
   // Examples: the built-in simulations, and the published results the program reproduces, each
   // runnable here, its output checked line by line against the paper.
-  import { BookMarked, CircleCheck, CircleX, ExternalLink, Play, Search, Square, Timer } from "@lucide/svelte";
+  import { BookMarked, CircleCheck, CircleX, CircuitBoard, ExternalLink, Play, Search, Square, Timer } from "@lucide/svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
 
+  import ChipPreview from "../components/ChipPreview.svelte";
   import JobCard from "../components/JobCard.svelte";
   import Tip from "../components/Tip.svelte";
-  import { api, duration, type Example } from "../lib/api";
+  import { api, duration, type CircuitExample, type Example } from "../lib/api";
   import { app, go, startRun, toast } from "../lib/app.svelte";
   import { catalog, loadCatalog } from "../lib/catalog.svelte";
+  import { showChip, simulate } from "../lib/chip.svelte";
   import { startTask, stopTask, tasks } from "../lib/tasks.svelte";
 
-  let tab = $state<"simulations" | "published">(app.focus ? "published" : "simulations");
+  let tab = $state<"simulations" | "circuits" | "published">(app.focus ? "published" : "simulations");
+  let circuits = $state<CircuitExample[]>([]);
+  api
+    .circuitExamples()
+    .then((c) => (circuits = c))
+    .catch(() => {});
+
+  function openCircuit(c: CircuitExample, run: boolean) {
+    showChip(c.chip, null, run ? simulate : undefined);
+  }
   let query = $state("");
   let chosen = $state<string | null>(app.focus);
   let view = $state<"live" | "recorded">("recorded");
@@ -55,6 +66,9 @@
       <button role="tab" class="tab gap-2 {tab === 'simulations' ? 'tab-active' : ''}" onclick={() => (tab = "simulations")}>
         Simulations <span class="badge badge-sm">{catalog.data?.jobs.length ?? ""}</span>
       </button>
+      <button role="tab" class="tab gap-2 {tab === 'circuits' ? 'tab-active' : ''}" onclick={() => (tab = "circuits")}>
+        Circuits <span class="badge badge-sm">{circuits.length || ""}</span>
+      </button>
       <button role="tab" class="tab gap-2 {tab === 'published' ? 'tab-active' : ''}" onclick={() => (tab = "published")}>
         Published results <span class="badge badge-sm">{examples.length || ""}</span>
       </button>
@@ -80,6 +94,35 @@
                 go("builder");
               }}
             />
+          {/each}
+        </div>
+      </div>
+    </div>
+  {:else if tab === "circuits"}
+    <div class="flex-1 overflow-y-auto">
+      <div class="mx-auto max-w-7xl space-y-6 p-8">
+        <Tip id="examples-circuits">
+          Circuits are built on the chip from the library's components and solved together. <strong>Simulate</strong> opens one on the chip and solves it; change a part there, and save your version to the workspace.
+        </Tip>
+        <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {#each circuits as c (c.file)}
+            <article class="panel group flex flex-col overflow-hidden transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-xl hover:shadow-black/10">
+              <div class="glow border-b border-base-content/8 bg-base-200/60 px-3 py-2" title="Its schematic, as the chip view draws it">
+                <ChipPreview chip={c.chip} height={144} />
+              </div>
+              <div class="flex flex-1 flex-col gap-2 p-4">
+                <div class="flex items-center gap-2">
+                  <h3 class="truncate font-semibold">{c.chip.name}</h3>
+                  <span class="badge badge-soft badge-sm badge-info">circuit</span>
+                  <span class="badge badge-ghost badge-sm">{c.chip.instance.length} parts</span>
+                </div>
+                <p class="line-clamp-3 flex-1 text-[13px] leading-relaxed muted">{c.chip.about}</p>
+                <div class="mt-1 flex gap-2">
+                  <button class="btn btn-primary btn-sm flex-1 gap-1.5" onclick={() => openCircuit(c, true)} title="Open it on the chip and solve it"><Play size={14} /> Simulate</button>
+                  <button class="btn btn-ghost btn-sm gap-1.5" onclick={() => openCircuit(c, false)} title="Open it on the chip, to change it"><CircuitBoard size={14} /> Open</button>
+                </div>
+              </div>
+            </article>
           {/each}
         </div>
       </div>
