@@ -11,7 +11,10 @@
 use num_complex::Complex64 as c64;
 use serde::Deserialize;
 
-use super::{CircleSpec, Event, RectSpec, RingSpec, draw, named_stack, scene, task_error};
+use super::{
+    CircleSpec, Event, RectSpec, RingSpec, check_finite, check_step, check_sweep, check_window,
+    draw, named_stack, scene, task_error,
+};
 use crate::fdfd::{Boundaries, Direction, Grid, Polarization, Port, Side, Solver2d};
 use crate::geometry::Point;
 use crate::mode::slab::Slab;
@@ -70,6 +73,35 @@ struct FdfdTask {
     #[serde(default)]
     port: Vec<PortSpec>,
     sweep: Option<WavelengthSweep>,
+}
+
+impl FdfdTask {
+    /// What [`check`] and the run both refuse before solving anything: the window, the step,
+    /// the ports' places and the sweep.
+    fn validate(&self) -> Result<()> {
+        check_window("x_um", self.x_um)?;
+        check_window("y_um", self.y_um)?;
+        check_step(self.step_nm)?;
+        check_finite("field_um", self.field_um)?;
+        for p in &self.port {
+            check_finite("a port's x_um", Some(p.x_um))?;
+            if let Some(y) = p.y_um {
+                check_window("a port's y_um", y)?;
+            }
+        }
+        if let Some(sw) = &self.sweep {
+            if sw.parameter != "wavelength" {
+                return Err(task_error(format!(
+                    "an fdfd job sweeps the wavelength, not \"{}\"",
+                    sw.parameter
+                )));
+            }
+            check_sweep(sw.from, sw.to, sw.points)?;
+            Wavelength::um(sw.from)?;
+            Wavelength::um(sw.to)?;
+        }
+        Ok(())
+    }
 }
 
 /// The effective index of the slab at `p`: the layer's material there between what lies just
@@ -171,6 +203,7 @@ pub(super) fn check(job: &Job) -> Result<()> {
         .clone()
         .try_into()
         .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
+    task.validate()?;
     let s = draw(
         named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
         &task.rect,
@@ -201,6 +234,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         .clone()
         .try_into()
         .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
+    task.validate()?;
     let s = draw(
         named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
         &task.rect,
@@ -229,10 +263,8 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 
     // the grid: cells of about step_nm filling the window, PMLs inside it
     let h = task.step_nm / 1000.0;
+    // (the window and the step are validated above)
     let (wx, wy) = (task.x_um[1] - task.x_um[0], task.y_um[1] - task.y_um[0]);
-    if !(h > 0.0 && wx > 0.0 && wy > 0.0) {
-        return Err(task_error("the window and the step must be positive"));
-    }
     let (nx, ny) = (
         (wx / h).round().max(1.0) as usize,
         (wy / h).round().max(1.0) as usize,
@@ -248,20 +280,10 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let boundaries = Boundaries::pml(task.pml_cells.unwrap_or(20));
     let wavelengths: Vec<f64> = match &task.sweep {
         None => vec![task.wavelength_um],
-        Some(sw) => {
-            if sw.parameter != "wavelength" {
-                return Err(task_error(format!(
-                    "an fdfd job sweeps the wavelength, not \"{}\"",
-                    sw.parameter
-                )));
-            }
-            if sw.points < 2 || !(sw.from.is_finite() && sw.to.is_finite()) {
-                return Err(task_error("a sweep needs from, to and at least 2 points"));
-            }
-            (0..sw.points)
-                .map(|k| sw.from + (sw.to - sw.from) * k as f64 / (sw.points - 1) as f64)
-                .collect()
-        }
+        // (validated above: the wavelength, from 2 points between distinct ends)
+        Some(sw) => (0..sw.points)
+            .map(|k| sw.from + (sw.to - sw.from) * k as f64 / (sw.points - 1) as f64)
+            .collect(),
     };
     let names: Vec<String> = task
         .port

@@ -222,6 +222,24 @@ pub enum Event {
         /// Every shape, as the scene lists them.
         shapes: Vec<SceneShape>,
     },
+    /// The cross-section's permittivity at a point of a width sweep, recorded after its
+    /// [`Event::SweepShapes`]: what the job's own [`Event::Permittivity`] of the cross-section
+    /// shows, with the swept rectangle at that width, on pixels twice the grid's step and to
+    /// three decimals. (A wavelength sweep changes ε only through dispersion and records none.)
+    SweepPermittivity {
+        /// The point's index, from 0, in the order the points are recorded.
+        point: usize,
+        /// The parameter's value there, µm.
+        value: f64,
+        /// What the picture shows, e.g. `"cross-section at y = 0 um"`.
+        view: String,
+        /// The axis labels, `["x", "z"]`.
+        axes: [String; 2],
+        /// The vacuum wavelength, µm.
+        wavelength_um: f64,
+        /// The picture: Re ε.
+        raster: Raster,
+    },
     /// A mode at a point of a sweep, recorded after its [`Event::SweepPoint`] (and
     /// [`Event::SweepShapes`]): what [`Event::Mode`] and [`Event::ModeField`] record for the job's
     /// own configuration, on pixels twice the grid's step and to three decimals, so a sweep's
@@ -479,6 +497,107 @@ fn task_error(reason: impl Into<String>) -> Error {
     Error::Parse {
         what: "task".into(),
         reason: reason.into(),
+    }
+}
+
+/// A window along one axis, named as the job names it (`"x_um"`): finite, from a smaller to a
+/// larger value.
+fn check_window(name: &str, w: [f64; 2]) -> Result<()> {
+    if w[0].is_finite() && w[1].is_finite() && w[1] > w[0] {
+        Ok(())
+    } else {
+        Err(task_error(format!(
+            "{name} must go from a smaller to a larger number, got [{}, {}]",
+            w[0], w[1]
+        )))
+    }
+}
+
+/// The grid's step: finite and positive.
+fn check_step(step_nm: f64) -> Result<()> {
+    if step_nm.is_finite() && step_nm > 0.0 {
+        Ok(())
+    } else {
+        Err(task_error(format!(
+            "step_nm must be positive, got {step_nm}"
+        )))
+    }
+}
+
+/// An optional number the run uses as a coordinate: finite when given.
+fn check_finite(name: &str, v: Option<f64>) -> Result<()> {
+    match v {
+        Some(v) if !v.is_finite() => Err(task_error(format!("{name} must be a number, got {v}"))),
+        _ => Ok(()),
+    }
+}
+
+/// A sweep's range: finite ends that differ, and at least 2 points.
+fn check_sweep(from: f64, to: f64, points: usize) -> Result<()> {
+    if points < 2 || !(from.is_finite() && to.is_finite()) {
+        return Err(task_error("a sweep needs from, to and at least 2 points"));
+    }
+    if from == to {
+        return Err(task_error(format!(
+            "a sweep's from and to must differ, got {from} for both"
+        )));
+    }
+    Ok(())
+}
+
+impl StructureTask {
+    /// What [`check`] and the run both refuse before drawing anything: the windows and the step.
+    fn validate(&self) -> Result<()> {
+        check_window("x_um", self.x_um)?;
+        check_window("y_um", self.y_um)?;
+        if let Some(z) = self.z_um {
+            check_window("z_um", z)?;
+        }
+        check_finite("side_y_um", self.side_y_um)?;
+        check_step(self.step_nm)
+    }
+}
+
+impl ModesTask {
+    /// What [`check`] and the run both refuse before solving anything: the windows, the step, the
+    /// cut and the sweep.
+    fn validate(&self) -> Result<()> {
+        check_window("x_um", self.x_um)?;
+        if let Some(z) = self.z_um {
+            check_window("z_um", z)?;
+        }
+        check_finite("cut_y_um", self.cut_y_um)?;
+        check_step(self.step_nm)?;
+        let Some(sweep) = &self.sweep else {
+            return Ok(());
+        };
+        check_sweep(sweep.from, sweep.to, sweep.points)?;
+        match sweep.parameter.as_str() {
+            "wavelength" => {
+                Wavelength::um(sweep.from)?;
+                Wavelength::um(sweep.to)?;
+            }
+            "width" => {
+                let index = sweep.rect.unwrap_or(0);
+                if index >= self.rect.len() {
+                    return Err(task_error(format!(
+                        "the width sweep's rect {index} isn't there"
+                    )));
+                }
+                if sweep.from <= 0.0 || sweep.to <= 0.0 {
+                    return Err(task_error(format!(
+                        "a width sweep's widths must be positive, got {} to {}",
+                        sweep.from, sweep.to
+                    )));
+                }
+            }
+            other => {
+                return Err(task_error(format!(
+                    "unknown sweep parameter \"{other}\": wavelength or width"
+                )));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -802,7 +921,9 @@ pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 }
 
 /// Checks `job` without running it: its kind is known, its task fits that kind, the stack is
-/// known, the shapes are valid, the layer is in the stack and the wavelength is valid; for an
+/// known, the shapes are valid, the layer is in the stack, the wavelength is valid, the windows
+/// run from smaller to larger numbers, the step is positive, a sweep has distinct ends, at least
+/// 2 points and a parameter the kind sweeps, and the coordinates are numbers; for an
 /// `"fdfd"` job, the polarization and that it has ports too. What only a solve finds (a port
 /// inside the PML, a material without data at a wavelength) is left to the run.
 ///
@@ -819,10 +940,12 @@ pub fn check(job: &Job) -> Result<()> {
     let (s, layer, wavelength_um) = match kind {
         "structure" => {
             let task: StructureTask = job.task().clone().try_into().map_err(parse)?;
+            task.validate()?;
             (task.structure()?, task.layer, task.wavelength_um)
         }
         "modes" => {
             let task: ModesTask = job.task().clone().try_into().map_err(parse)?;
+            task.validate()?;
             let stack = named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
             let s = draw(stack, &task.rect, &task.circle, &task.ring)?;
             (s, task.layer, task.wavelength_um)
@@ -843,6 +966,7 @@ fn structure(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         .clone()
         .try_into()
         .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
+    task.validate()?;
     let s = task.structure()?;
     let lam = Wavelength::um(task.wavelength_um)?;
     run.record(&structure_scene(&task, &s)?)?;
@@ -955,6 +1079,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         .clone()
         .try_into()
         .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
+    task.validate()?;
     let stack = || named_stack(&task.stack, task.core_nm, task.bottom_oxide_um);
     let count = task.modes.unwrap_or(2).max(1);
     let lam = Wavelength::um(task.wavelength_um)?;
@@ -1013,12 +1138,10 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             values,
         })?;
     }
+    // (validated above: at least 2 points, finite and distinct ends, a known parameter)
     let Some(sweep) = &task.sweep else {
         return Ok(());
     };
-    if sweep.points < 2 || !(sweep.from.is_finite() && sweep.to.is_finite()) {
-        return Err(task_error("a sweep needs from, to and at least 2 points"));
-    }
     for k in 0..sweep.points {
         if stop.reason().is_some() {
             return Ok(());
@@ -1052,7 +1175,14 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 })?;
                 r.size_um[0] = value;
                 let swept = draw(stack()?, &rects, &task.circle, &task.ring)?;
-                shapes = Some(scene_shapes(&swept));
+                let view = swept.side_view(
+                    Length::um(cut_y),
+                    (Length::um(task.x_um[0]), Length::um(task.x_um[1])),
+                    (Length::um(z[0]), Length::um(z[1])),
+                    Length::um(2.0 * step),
+                    lam,
+                )?;
+                shapes = Some((scene_shapes(&swept), view));
                 (
                     cross_section(
                         &swept,
@@ -1089,14 +1219,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 .map(crate::mode::vector::VectorMode::te_fraction)
                 .collect(),
         })?;
-        if let Some(shapes) = shapes {
-            run.record(&Event::SweepShapes {
-                point: k,
-                value,
-                shapes,
-            })?;
-        }
-        // each mode's pictures, coarser than the job's own: twice the step, three decimals
+        // the point's pictures, coarser than the job's own: twice the step, three decimals
         let coarse = |mut r: Raster| {
             for v in &mut r.values {
                 // (+ 0.0 makes −0 zero)
@@ -1104,6 +1227,21 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             }
             r
         };
+        if let Some((shapes, view)) = shapes {
+            run.record(&Event::SweepShapes {
+                point: k,
+                value,
+                shapes,
+            })?;
+            run.record(&Event::SweepPermittivity {
+                point: k,
+                value,
+                view: format!("cross-section at y = {cut_y} um"),
+                axes: ["x".into(), "z".into()],
+                wavelength_um: w.to_um(),
+                raster: coarse(view),
+            })?;
+        }
         for (rank, m) in found.iter().enumerate() {
             if stop.reason().is_some() {
                 return Ok(());
@@ -1445,8 +1583,27 @@ size_um = [0.5, 10.0]
         ));
         assert!(matches!(
             &events[first + 2],
+            Event::SweepPermittivity { point: 0, .. }
+        ));
+        assert!(matches!(
+            &events[first + 3],
             Event::SweepMode { point: 0, .. }
         ));
+        // each point's cross-section: silicon across the strip's width, wider point by point
+        let silicon: Vec<usize> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::SweepPermittivity { raster, .. } => {
+                    // the row through the middle of the 220 nm silicon, 2 to 2.22 µm up
+                    let j =
+                        ((2.11 - raster.y0) / (raster.y1 - raster.y0) * raster.ny as f64) as usize;
+                    Some((0..raster.nx).filter(|&i| raster.at(i, j) > 11.0).count())
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(silicon.len(), 3);
+        assert!(silicon.windows(2).all(|w| w[1] > w[0]), "{silicon:?}");
     }
 
     #[test]
@@ -1621,6 +1778,75 @@ width_um = 0.3
             (
                 JOB.replace("layer = \"Si\"\ncenter", "layer = \"M1\"\ncenter"),
                 "M1",
+            ),
+            // windows that run backwards or are empty, a step that isn't positive
+            (
+                JOB.replace("x_um = [-1.0, 1.0]", "x_um = [1.0, -1.0]"),
+                "x_um must go from a smaller to a larger number",
+            ),
+            (
+                JOB.replace("y_um = [-1.0, 1.0]", "y_um = [1.0, 1.0]"),
+                "y_um must go",
+            ),
+            (
+                JOB.replace("step_nm = 50.0", "step_nm = 50.0\nz_um = [3.0, 1.0]"),
+                "z_um must go",
+            ),
+            (
+                JOB.replace("step_nm = 50.0", "step_nm = 0.0"),
+                "step_nm must be positive",
+            ),
+            (
+                MODES.replace("x_um = [-1.0, 1.0]", "x_um = [1.0, -1.0]"),
+                "x_um must go",
+            ),
+            (
+                MODES.replace("step_nm = 25.0", "step_nm = -25.0"),
+                "step_nm must be positive",
+            ),
+            (
+                MODES.replace("step_nm = 25.0", "step_nm = 25.0\ncut_y_um = nan"),
+                "cut_y_um must be a number",
+            ),
+            // sweeps the run can't take
+            (
+                format!(
+                    "{MODES}\n[task.sweep]\nparameter = \"wavelength\"\nfrom = 1.55\nto = 1.55\npoints = 3\n"
+                ),
+                "must differ",
+            ),
+            (
+                format!(
+                    "{MODES}\n[task.sweep]\nparameter = \"wavelength\"\nfrom = 1.5\nto = 1.6\npoints = 1\n"
+                ),
+                "at least 2 points",
+            ),
+            (
+                format!(
+                    "{MODES}\n[task.sweep]\nparameter = \"height\"\nfrom = 0.2\nto = 0.3\npoints = 3\n"
+                ),
+                "unknown sweep parameter",
+            ),
+            (
+                format!(
+                    "{MODES}\n[task.sweep]\nparameter = \"width\"\nfrom = 0.4\nto = 0.6\npoints = 3\nrect = 2\n"
+                ),
+                "isn't there",
+            ),
+            (
+                format!(
+                    "{MODES}\n[task.sweep]\nparameter = \"width\"\nfrom = -0.1\nto = 0.6\npoints = 3\n"
+                ),
+                "widths must be positive",
+            ),
+            (
+                FDFD.replace("y_um = [-1.4, 1.4]", "y_um = [1.4, -1.4]"),
+                "y_um must go",
+            ),
+            (FDFD.replace("to = 1.6", "to = 1.5"), "must differ"),
+            (
+                FDFD.replace("x_um = -0.4", "x_um = nan"),
+                "a port's x_um must be a number",
             ),
         ] {
             let job = Job::parse(&text).unwrap();

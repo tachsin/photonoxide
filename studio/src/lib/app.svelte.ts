@@ -1,7 +1,7 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
 import { api, type AppState, type Info, type Settings } from "./api";
-import type { Event, Field, Mode, ModeField, Permittivity, Scene, Shape, SParameters, SweepMode, SweepPoint } from "./events";
+import type { Event, Field, Mode, ModeField, Permittivity, Scene, Shape, SParameters, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
 
@@ -134,6 +134,8 @@ export const run = $state({
   sweepModes: {} as Record<number, SweepMode[]>,
   /** A width sweep's shapes at each point, by its index. */
   sweepShapes: {} as Record<number, Shape[]>,
+  /** A width sweep's cross-section picture at each point, by its index. */
+  sweepPictures: {} as Record<number, SweepPermittivity>,
   /** The sweep point shown, or null for the job's own configuration (the nominal one). */
   point: null as number | null,
   fields: [] as Field[],
@@ -200,6 +202,9 @@ function take(e: Event) {
     case "sweep_shapes":
       run.sweepShapes[e.point] = e.shapes;
       break;
+    case "sweep_permittivity":
+      run.sweepPictures[e.point] = e;
+      break;
     case "sweep_mode":
       // (in two steps: `??=` gives back the plain array, not the state's proxy of it)
       run.sweepModes[e.point] ??= [];
@@ -228,6 +233,7 @@ function reset(info: Info) {
     sweep: null,
     sweepModes: {},
     sweepShapes: {},
+    sweepPictures: {},
     point: null,
     fields: [],
     sparams: [],

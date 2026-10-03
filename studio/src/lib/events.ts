@@ -96,6 +96,18 @@ export interface SweepShapes {
   shapes: Shape[];
 }
 
+/** A width sweep's cross-section at one point: Re ε, as the job's own Permittivity of it, coarser. */
+export interface SweepPermittivity {
+  type: "sweep_permittivity";
+  /** The point's index, from 0. */
+  point: number;
+  value: number;
+  view: string;
+  axes: [string, string];
+  wavelength_um: number;
+  raster: Raster;
+}
+
 /** A mode at one point of a sweep: its Mode and ModeField together, on coarser pixels. */
 export interface SweepMode {
   type: "sweep_mode";
@@ -139,6 +151,7 @@ export type Event =
   | ModeField
   | SweepPoint
   | SweepShapes
+  | SweepPermittivity
   | SweepMode
   | Field
   | SParameters
