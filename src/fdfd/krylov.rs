@@ -243,19 +243,113 @@ fn rotate((c, s): (f64, c64), a: c64, b: c64) -> (c64, c64) {
     (c * a + s * b, -s.conj() * a + c * b)
 }
 
+/// How one run of the Lanczos process ended.
+enum Run {
+    /// At the tolerance: the solution and how it went.
+    Done(Vec<c64>, Convergence),
+    /// At a (near-)breakdown, |w_nᵀ v_n| below 1e-14 for unit vectors: the iterate so far, the
+    /// residual's history, and |w_nᵀ v_n|.
+    Broken(Vec<c64>, Vec<f64>, f64),
+}
+
+/// The most times [`qmr`] restarts after a breakdown.
+const RESTARTS: usize = 10;
+
 /// Solves A x = b by QMR from x₀ = 0.
+///
+/// The look-ahead steps that would step over a breakdown of the Lanczos process aren't
+/// implemented. Instead, at a breakdown or near-breakdown (|w_nᵀ v_n| below 1e-14 for unit
+/// vectors), QMR restarts from the iterate it has reached, on its true residual (up to 10 times):
+/// the iterate is good, only the Lanczos vectors can't go on. Seen once, on a 1.8 M-unknown
+/// silicon strip with a port's mode source, at step 609.
 ///
 /// # Errors
 ///
 /// [`Error::InvalidValue`] if `b` doesn't match A, if the tolerance isn't positive, if the
-/// Lanczos process breaks down (|w_nᵀ v_n| below 1e-14 for unit vectors: the look-ahead steps
-/// that would step over it aren't implemented), or if the tolerance isn't reached within the
-/// iterations allowed.
+/// Lanczos process breaks down at its first step, or more than 10 times, or if the tolerance
+/// isn't reached within the iterations allowed.
 pub(crate) fn qmr(
     a: &impl Operator,
     b: &[c64],
     stopping: Stopping,
 ) -> Result<(Vec<c64>, Convergence)> {
+    let rho0 = norm(b);
+    let mut x: Vec<c64> = Vec::new();
+    let mut history = Vec::new();
+    let mut residual = b.to_vec();
+    for _ in 0..=RESTARTS {
+        let scale = norm(&residual);
+        let used = history.len();
+        let left = Stopping {
+            tolerance: if rho0 == 0.0 {
+                stopping.tolerance
+            } else {
+                stopping.tolerance * rho0 / scale
+            },
+            max_iterations: stopping.max_iterations.saturating_sub(used),
+        };
+        let run = qmr_run(a, &residual, left)?;
+        let (dx, steps) = match run {
+            Run::Done(dx, how) => {
+                if x.is_empty() {
+                    return Ok((dx, how));
+                }
+                (dx, Ok(how))
+            }
+            Run::Broken(dx, steps, d) => (dx, Err((steps, d))),
+        };
+        if x.is_empty() {
+            x = dx;
+        } else {
+            for (xk, d) in x.iter_mut().zip(&dx) {
+                *xk += d;
+            }
+        }
+        match steps {
+            Ok(how) => {
+                history.extend(how.history.iter().map(|h| h * scale / rho0));
+                return Ok((
+                    x,
+                    Convergence {
+                        iterations: history.len(),
+                        residual: how.residual * scale / rho0,
+                        history,
+                    },
+                ));
+            }
+            Err((steps, d)) => {
+                if steps.is_empty() {
+                    return Err(Error::invalid(
+                        "qmr",
+                        format!(
+                            "the Lanczos process broke down at its first step (|w^T v| = {d:e}); \
+                             the look-ahead steps that step over this aren't implemented"
+                        ),
+                    ));
+                }
+                history.extend(steps.iter().map(|h| h * scale / rho0));
+                let ax = a.apply(&x);
+                residual = b.iter().zip(&ax).map(|(p, q)| p - q).collect();
+            }
+        }
+    }
+    Err(Error::invalid(
+        "qmr",
+        format!(
+            "the Lanczos process broke down {} times, at step {}",
+            RESTARTS + 1,
+            history.len()
+        ),
+    ))
+}
+
+/// One run of QMR from x₀ = 0, to a breakdown or the tolerance (see [`qmr`]).
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] if `b` doesn't match A, if the tolerance isn't positive, or if the
+/// tolerance isn't reached within the iterations allowed.
+fn qmr_run(a: &impl Operator, b: &[c64], stopping: Stopping) -> Result<Run> {
     let n = a.size();
     if b.len() != n {
         return Err(Error::invalid(
@@ -270,7 +364,7 @@ pub(crate) fn qmr(
     let mut x = vec![zero; n];
     let rho0 = norm(b);
     if rho0 == 0.0 {
-        return Ok((
+        return Ok(Run::Done(
             x,
             Convergence {
                 iterations: 0,
@@ -298,14 +392,8 @@ pub(crate) fn qmr(
     let mut history = Vec::new();
     for iteration in 1..=stopping.max_iterations {
         if d.norm() < 1e-14 {
-            return Err(Error::invalid(
-                "qmr",
-                format!(
-                    "the Lanczos process broke down at step {iteration} (|w^T v| = {:e}); the \
-                     look-ahead steps that step over this aren't implemented",
-                    d.norm()
-                ),
-            ));
+            // the iterate so far is good: its caller restarts from it
+            return Ok(Run::Broken(x, history, d.norm()));
         }
         // Algorithm 2.1, a regular step (Eq. 2.7) with blocks of one vector: the coefficient of
         // v_{n-1} is w_{n-1}^T A v_n / d_{n-1} = xi_n d_n / d_{n-1}, and of w_{n-1}, rho_n d_n /
@@ -375,7 +463,7 @@ pub(crate) fn qmr(
             let true_residual: Vec<c64> = (0..n).map(|k| b[k] - ax[k]).collect();
             let residual = norm(&true_residual) / rho0;
             if residual <= stopping.tolerance {
-                return Ok((
+                return Ok(Run::Done(
                     x,
                     Convergence {
                         iterations: iteration,
@@ -410,6 +498,175 @@ pub(crate) fn qmr(
             history.last().copied().unwrap_or(f64::NAN)
         ),
     ))
+}
+
+/// A triangular factor by rows, solved row by row: from the first row to the last (a lower
+/// triangle) or from the last to the first (an upper one). Sequential: solving by wavefronts of
+/// independent rows (level scheduling) was measured slower on every thread count, here and at
+/// 864 000 unknowns (docs/methods/fdfd-3d.md).
+struct Triangle {
+    starts: Vec<usize>,
+    columns: Vec<usize>,
+    values: Vec<c64>,
+    /// The diagonal's inverse, or `None` for a unit diagonal.
+    inverse_diagonal: Option<Vec<c64>>,
+    forward: bool,
+}
+
+impl Triangle {
+    /// The factor whose row i is `rows(i)` (off the diagonal).
+    fn new(
+        n: usize,
+        rows: impl Fn(usize) -> Vec<(usize, c64)>,
+        inverse_diagonal: Option<Vec<c64>>,
+        forward: bool,
+    ) -> Triangle {
+        let mut starts = Vec::with_capacity(n + 1);
+        let (mut columns, mut values) = (Vec::new(), Vec::new());
+        starts.push(0);
+        for i in 0..n {
+            for (j, v) in rows(i) {
+                columns.push(j);
+                values.push(v);
+            }
+            starts.push(columns.len());
+        }
+        Triangle {
+            starts,
+            columns,
+            values,
+            inverse_diagonal,
+            forward,
+        }
+    }
+
+    /// Solves in place: `x` holds the right-hand side on entry.
+    fn solve(&self, x: &mut [c64]) {
+        let n = x.len();
+        let rows: Box<dyn Iterator<Item = usize>> = if self.forward {
+            Box::new(0..n)
+        } else {
+            Box::new((0..n).rev())
+        };
+        for i in rows {
+            let mut s = x[i];
+            for k in self.starts[i]..self.starts[i + 1] {
+                s -= self.values[k] * x[self.columns[k]];
+            }
+            x[i] = match &self.inverse_diagonal {
+                Some(d) => s * d[i],
+                None => s,
+            };
+        }
+    }
+}
+
+/// An incomplete LU factorization with no fill, ILU(0) (as in Y. Saad, Iterative Methods for Sparse
+/// Linear Systems, 2nd ed., SIAM (2003), doi:10.1137/1.9780898718003): L and U
+/// on A's own sparsity, so that (LU)_ij = a_ij wherever a_ij ≠ 0. The triangular solves are
+/// sequential.
+pub(crate) struct Ilu0 {
+    /// L y = v (unit diagonal), U x = y; and for the transpose, Uᵀ y = v, Lᵀ x = y.
+    l: Triangle,
+    u: Triangle,
+    ut: Triangle,
+    lt: Triangle,
+}
+
+impl Ilu0 {
+    /// The factorization of `a` (its rows' columns sorted, as [`Sparse::new`] stores them).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a row without a diagonal entry or a zero pivot.
+    pub(crate) fn new(a: &Sparse) -> Result<Ilu0> {
+        let n = a.n;
+        let (starts, columns) = (&a.starts, &a.columns);
+        let mut values = a.values.clone();
+        let mut diagonal = vec![usize::MAX; n];
+        let mut at = vec![usize::MAX; n];
+        for i in 0..n {
+            for k in starts[i]..starts[i + 1] {
+                at[columns[k]] = k;
+                if columns[k] == i {
+                    diagonal[i] = k;
+                }
+            }
+            if diagonal[i] == usize::MAX {
+                return Err(Error::invalid("ilu", format!("row {i} has no diagonal")));
+            }
+            for kk in starts[i]..diagonal[i] {
+                let k = columns[kk];
+                let pivot = values[diagonal[k]];
+                if pivot.norm() == 0.0 {
+                    return Err(Error::invalid("ilu", format!("a zero pivot at row {k}")));
+                }
+                let factor = values[kk] / pivot;
+                values[kk] = factor;
+                for jj in diagonal[k] + 1..starts[k + 1] {
+                    let target = at[columns[jj]];
+                    if target != usize::MAX {
+                        let update = factor * values[jj];
+                        values[target] -= update;
+                    }
+                }
+            }
+            for k in starts[i]..starts[i + 1] {
+                at[columns[k]] = usize::MAX;
+            }
+        }
+        let inverse: Vec<c64> = (0..n).map(|i| 1.0 / values[diagonal[i]]).collect();
+        // the factors' transposes, by rows: the entries of each column
+        let mut lower_t: Vec<Vec<(usize, c64)>> = vec![Vec::new(); n];
+        let mut upper_t: Vec<Vec<(usize, c64)>> = vec![Vec::new(); n];
+        for i in 0..n {
+            for k in starts[i]..diagonal[i] {
+                lower_t[columns[k]].push((i, values[k]));
+            }
+            for k in diagonal[i] + 1..starts[i + 1] {
+                upper_t[columns[k]].push((i, values[k]));
+            }
+        }
+        let l = Triangle::new(
+            n,
+            |i| {
+                (starts[i]..diagonal[i])
+                    .map(|k| (columns[k], values[k]))
+                    .collect()
+            },
+            None,
+            true,
+        );
+        let u = Triangle::new(
+            n,
+            |i| {
+                (diagonal[i] + 1..starts[i + 1])
+                    .map(|k| (columns[k], values[k]))
+                    .collect()
+            },
+            Some(inverse.clone()),
+            false,
+        );
+        let ut = Triangle::new(n, |i| upper_t[i].clone(), Some(inverse), true);
+        let lt = Triangle::new(n, |i| lower_t[i].clone(), None, false);
+        Ok(Ilu0 { l, u, ut, lt })
+    }
+}
+
+impl Preconditioner for Ilu0 {
+    fn solve(&self, v: &[c64]) -> Vec<c64> {
+        let mut x = v.to_vec();
+        self.l.solve(&mut x);
+        self.u.solve(&mut x);
+        x
+    }
+
+    fn solve_transpose(&self, v: &[c64]) -> Vec<c64> {
+        let mut x = v.to_vec();
+        self.ut.solve(&mut x);
+        self.lt.solve(&mut x);
+        x
+    }
 }
 
 #[cfg(test)]
@@ -500,6 +757,33 @@ mod tests {
             })
             .collect();
         assert!(a.apply(&v) == sequential);
+    }
+
+    #[test]
+    fn ilu0_of_a_tridiagonal_matrix_is_its_lu() {
+        // no fill: ILU(0) is the exact factorization, and its inverse the matrix's
+        let a = tridiagonal(300);
+        let ilu = Ilu0::new(&a).unwrap();
+        let b: Vec<c64> = (0..300)
+            .map(|k| c64::new((k as f64 * 0.3).cos(), (k as f64 * 0.7).sin()))
+            .collect();
+        let exact = dense_solve(&a, &b);
+        let x = ilu.solve(&b);
+        let worst = x
+            .iter()
+            .zip(&exact)
+            .map(|(p, q)| (p - q).norm())
+            .fold(0.0, f64::max);
+        assert!(worst < 1e-13, "{worst}");
+        // and its transpose: Aᵀ x = b
+        let xt = ilu.solve_transpose(&b);
+        let back = a.apply_transpose(&xt);
+        let worst = back
+            .iter()
+            .zip(&b)
+            .map(|(p, q)| (p - q).norm())
+            .fold(0.0, f64::max);
+        assert!(worst < 1e-13, "{worst}");
     }
 
     #[test]

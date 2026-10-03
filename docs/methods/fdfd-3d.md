@@ -1,7 +1,7 @@
 ---
 title: "FDFD in 3D"
 module: fdfd
-summary: "Maxwell's equations at one frequency on Yee's 3D grid: the electric field's curl-curl equation as one sparse system, with stretched-coordinate PMLs or Bloch-periodic sides on each axis, the exact discrete power flux, a sparse direct or an iterative (QMR) solver, and ports: the grid's own full-vector port modes, one-way mode sources and a reciprocal S-matrix."
+summary: "Maxwell's equations at one frequency on Yee's 3D grid: the electric field's curl-curl equation as one sparse system, with stretched-coordinate PMLs or Bloch-periodic sides on each axis, the exact discrete power flux, a sparse direct or an iterative (QMR) solver, preconditioned by ILU(0) with stretched PMLs, and ports: the grid's own full-vector port modes, one-way mode sources and a reciprocal S-matrix."
 order: 19
 papers:
   - cite: "A. Christ, H. L. Hartnagel, IEEE Trans. Microw. Theory Tech. 35, 688 (1987)"
@@ -22,6 +22,12 @@ papers:
     doi: 10.2528/PIERB11092006
   - cite: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002) (the port modes' reference)"
     doi: 10.1109/JLT.2002.800371
+  - cite: "Y. Saad, Iterative Methods for Sparse Linear Systems, 2nd ed., SIAM (2003) (ILU(0))"
+    doi: 10.1137/1.9780898718003
+  - cite: "B. Reps, W. Vanroose, H. bin Zubair, J. Comput. Phys. 229, 8384 (2010) (complex-stretched layers and iterative solvers)"
+    doi: 10.1016/j.jcp.2010.07.022
+  - cite: "Y. A. Erlangga, C. W. Oosterlee, C. Vuik, SIAM J. Sci. Comput. 27, 1471 (2006) (the shifted Laplacian)"
+    doi: 10.1137/040615195
 validation:
   - fdfd3d/film-reflection-te
   - fdfd3d/film-reflection-tm
@@ -39,6 +45,8 @@ validation:
   - fdfd3d/qmr-plateau
   - fdfd3d/qmr-iterations-curl-curl
   - fdfd3d/qmr-iterations-shin-fan
+  - fdfd3d/pml-reflection-stretched
+  - fdfd3d/qmr-ilu-direct
 ---
 
 In 3D the fields no longer split into two polarizations: all six components are coupled. FDFD
@@ -89,7 +97,9 @@ at the edges for $\nabla\times\tilde{\mathbf H}$. Behind each PML is a perfectly
 the tangential E on the grid's outer faces is zero. Each axis can instead be **Bloch-periodic**:
 one period on, the field is $e^{ikL}$ times itself. Shin and Fan chose this PML over the uniaxial
 one because it keeps the system well conditioned (their Section 4), which the iterative solvers
-that large 3D problems need depend on.
+that large 3D problems need depend on. `Boundaries3d::real_stretch` adds real stretching to it,
+$s = 1 + (a + i)\sigma$: still a PML, and with $a = 1$ the one QMR's preconditioner needs (see
+[Preconditioning QMR](#preconditioning-qmr) below).
 
 `Solver3d` factorizes the system once with faer's sparse LU. `Solver3d::solve` then gives the
 field for any current by back-substitution, with one step of iterative refinement. A field is
@@ -328,7 +338,9 @@ which Shin and Fan use for their 3D problems:
 Freund and Nachtigal's look-ahead steps (Algorithm 2.1's inner vectors, from their refs. 6–7)
 step over a breakdown of the Lanczos process, $w_n^{\mathsf T}v_n = 0$. They are not
 implemented: a breakdown or near-breakdown ($|w_n^{\mathsf T}v_n| \lt 10^{-14}$ for unit vectors)
-is returned as an error. None occurred in the cases below.
+restarts QMR from the iterate it has reached, on its true residual: the iterate is good, only the
+Lanczos vectors can't go on (up to 10 times; one at the first step is an error). None occurred in
+the cases below; one did on a 1.8 M-unknown silicon strip with a port's mode source, at step 609.
 
 **Shin and Fan's operator.** `Formulation::ShinFan` solves their Eq. 7 with s = −1 instead:
 
@@ -423,8 +435,8 @@ to 7.2e-6. Here, unlike their Fig. 9, s = −1 is slower even by its own residua
 37 times larger, with a dipole source we don't reproduce exactly.
 
 So `Formulation::CurlCurl` stays the default: by the field, the measure that matters, it is never
-slower here. `Formulation::ShinFan` is Shin and Fan's operator as published, for comparison and
-for the preconditioners of a later milestone, where the null space matters more.
+slower here, without a preconditioner. `Formulation::ShinFan` is Shin and Fan's operator as
+published, and the one ILU(0) preconditions (below).
 
 **Cost.** `IterativeSolver3d` keeps the matrix and its transpose (13 or 15 nonzeros per row) and
 a dozen vectors. The 864 000-unknown guide above peaked at 1.4 GB, the assembly's temporaries
@@ -433,13 +445,138 @@ count times the cost of an iteration, about 45 ns per unknown on 20 threads here
 guide with s = 0 (2 745 iterations), against the direct solver's 66 s for a problem 4.5 times
 smaller.
 
+## Preconditioning QMR
+
+What makes QMR slow here is less the silicon than the PMLs: in vacuum the 40³ problem takes 122
+iterations with periodic sides and 1 231 with PMLs (the table above). A PML stretches its normal
+coordinate by $s = 1 + i\sigma$, and its second difference along the normal by $1/s^2$. Where
+$\sigma \gt 1$, $\operatorname{Re}(s^2) \lt 0$: the operator turns the wrong way along the normal,
+and its spectrum wraps around the origin, which no Krylov method likes. Shin and Fan's grading
+reaches $\sigma = 114$ for 10 cells of 10 nm graded to $R = 10^{-8}$.
+
+**Stretched PMLs.** Any stretch with $\operatorname{Im} s \gt 0$ is a PML (Chew and Weedon): the
+field outside it is the same, and only the discretization's reflection changes.
+`Boundaries3d::stretched_pml` adds as much real stretching as absorption, $s = 1 + (1 + i)\sigma$
+(`real_stretch` = 1), which keeps $s$ within 45° of the real axis and $\operatorname{Re}(1/s^2) \gt 0$.
+On a grid the layer's mesh width becomes complex, $h_c = s h$, at the angle of $s$. Reps, Vanroose and bin
+Zubair bound the spectrum of the Laplacian on such a grid for angles below π/4 (their Section 3:
+$h_c/h = 1 + i\epsilon$ with $0 \lt \epsilon \lt 1$, before their Eq. 3.6), and run their
+experiments at π/6. Shin and Fan's grading takes the angle, $\arctan\sigma$, to 89.5°; the
+stretched PML keeps it below 45°. Their analysis is for a linear stretch (exterior complex
+scaling) of the scalar Helmholtz equation, not for a graded PML in Maxwell's equations; the gain
+here was found by measurement. The real part compresses the wave inside the layer, so it wants a
+few more cells:
+
+| PML, plane wave 17° off its normal in oxide | plain, $s = 1 + i\sigma$ | stretched, $s = 1 + (1 + i)\sigma$ |
+|---|---|---|
+| 20 cells of 20 nm, $R = 10^{-8}$: amplitude sent back | 2.5e-6 | 3.6e-6 |
+| 10 cells of 10 nm | 4.0e-5 | 2.3e-4 |
+| 8 cells of 10 nm | 9.8e-5 | 1.9e-3 |
+
+Three times the real stretching ($s = 1 + (3 + i)\sigma$) reflects 1.4e-3 even at 20 cells.
+
+**ILU(0) on Shin and Fan's operator.** `IterativeSolver3d::with_ilu` preconditions QMR from the
+right with the incomplete LU factorization of its matrix with no fill, ILU(0), as Saad's book
+gives it: L and U on the matrix's own sparsity, so that $(LU)_{ij} = a_{ij}$ wherever
+$a_{ij} \ne 0$. From the right, the residual QMR stops on is the system's own. On Shin and Fan's
+operator, a vector Laplacian in a uniform medium, the incomplete factors are a good
+approximate inverse; on the curl-curl operator they aren't (QMR doesn't converge), and
+`with_ilu` refuses it.
+
+**Measured** on the 40³ silicon guide 100 nm across, through PMLs of 10 cells (as in the table
+above), an x-polarized current near the centre. Each solve is compared with its own problem's
+field, converged to 1e-12 with ILU(0), since the two PMLs make two problems:
+
+| PMLs | solver | tolerance | iterations | time | field error |
+|---|---|---|---|---|---|
+| plain | QMR, curl-curl | 1e-6 | 1 976 | 15.6 s | 3.8e-7 |
+| plain | QMR, curl-curl | 1e-8 | 2 739 | 21.5 s | 5.1e-9 |
+| plain | QMR, Shin and Fan | 1e-8 | 2 394 | 19.5 s | 2.3e-7 |
+| plain | QMR + ILU(0), Shin and Fan | 1e-10 | 976 | 25.8 s | 3.6e-9 |
+| stretched | QMR, curl-curl | 1e-8 | 2 583 | 20.5 s | 1.2e-8 |
+| stretched | QMR, Shin and Fan | 1e-8 | 1 308 | 10.7 s | 5.1e-7 |
+| stretched | QMR + ILU(0), Shin and Fan | 1e-8 | 195 | 5.2 s | 1.2e-6 |
+| stretched | QMR + ILU(0), Shin and Fan | 1e-10 | 254 | 6.7 s | 9.2e-9 |
+
+To the same field error, about 5e-9 to 1e-8, plain QMR takes 2 739 iterations and ILU(0) with the
+stretched PMLs 254: 10.8 times fewer, in 6.7 s against 21.5, 3.2 times faster. Each ingredient alone does far less: the stretched PMLs
+halve plain QMR's iterations on Shin and Fan's operator and leave the curl-curl one's as they
+are, and ILU(0) with the plain PMLs cuts them by 2.8 but costs more time than it saves. Shin and Fan's residual measures the field
+less well than the curl-curl one's (above), so it is solved to 1e-10, where the curl-curl
+operator needs 1e-8: still 254 iterations.
+
+**On Shin and Fan's Diel** (above: 864 000 unknowns, a 400 × 300 nm silicon guide in vacuum
+running through PMLs of 10 cells, a current across it) the gain mostly goes:
+
+| PMLs | solver | tolerance | iterations | time | field error |
+|---|---|---|---|---|---|
+| plain | QMR, curl-curl | 1e-6 | 2 717 | 97 s | 2.4e-7 |
+| plain | QMR, curl-curl | 1e-8 | 3 662 | 131 s | 1.6e-9 |
+| plain | QMR + ILU(0), Shin and Fan | 1e-8 | 3 996 | 338 s | 1.5e-6 |
+| stretched | QMR, Shin and Fan | 1e-8 | 3 795 | 140 s | 1.0e-7 |
+| stretched | QMR + ILU(0), Shin and Fan | 1e-8 | 1 386 | 117 s | 7.0e-7 |
+| stretched | QMR + ILU(0), Shin and Fan | 1e-10 | 1 869 | 158 s | 6.5e-9 |
+
+Half the iterations, and no time saved, to the same field error. Its guide's mode (n_eff ≈ 3)
+runs into PMLs of 10 cells graded to σ = 114, and the stretched layer compresses that wave far
+more than one in vacuum at normal incidence: there the PML is badly resolved, and ILU(0) of the
+matrix approximates it poorly (its own reference, to 1e-12, took 2 268 iterations against the
+guide's 337). Thicker PMLs, or a grading that stays gentler for guided waves, are the next
+thing to try.
+
+**A strip with ports** (`a_strips_s_matrix_by_qmr`: 500 × 220 nm of silicon in oxide on a 20 nm
+grid, PMLs of 16 cells, 1.8 M unknowns, a port's mode source): plain QMR on the curl-curl
+operator took 3 504 iterations and 263 s for one run to 1e-6. The same run with ILU(0) and
+stretched PMLs is still to be measured; one first attempt of the plain run met a Lanczos
+breakdown at step 609, which is why QMR now restarts there.
+
+**Cost.** ILU(0) takes the matrix's memory again and its factorization is fast (1.9 s at 192 k
+unknowns, 7.8 s at 864 k, mostly sorting the factors). An iteration takes two triangular solves
+with the factors and two with their transposes, besides the two products with the matrix. The
+solves are sequential, row by row: at 192 k unknowns the four take 15.6 ms against 2.5 ms for a
+threaded product with the matrix, at 864 k 63 ms against 9.7. Solving by wavefronts of
+independent rows (level scheduling: 120 and 210 fronts) was measured slower on every thread
+count, 19 ms on 8 threads at best at 192 k, and isn't used. So an iteration costs 2.5 to 4 times
+a plain one, and the iterations saved are worth 3 to 4 times in time, not 10.
+
+**What didn't pay.** Jacobi (the diagonal): 10 798 iterations instead of 1 976 on the curl-curl
+operator, 1 335 instead of 1 629 on Shin and Fan's (40³ guide, 1e-6).
+
+A geometric multigrid V-cycle on Shin and Fan's operator, complex-shifted or not. The shift is
+Erlangga, Oosterlee and Vuik's (their Eq. 8, $M = -\Delta - (\beta_1 - \beta_2 i)k^2$ with
+$(\beta_1, \beta_2) = (1, 0.5)$, the shift on the side of the medium's loss: in photonoxide's
+$e^{-i\omega t}$, $k_0^2(1 + 0.5i)\varepsilon$). The cycle used damped Jacobi smoothing,
+coarse grids rediscretized over the same box, and a direct solve on the coarsest. As a solver it
+cuts the residual 3 to 6 times per cycle in vacuum or on a silicon guide between walls; with
+PMLs it stalls at 0.96 per cycle, or diverges even when they are graded gently
+($\sigma \le 7$). As a preconditioner on a 32³ guide with PMLs it cut QMR from 2 051 to 510
+iterations but took twice the time, and ILU(0) as its smoother did worse. Capping σ in the
+cycle's PMLs, or stretching them, didn't rescue it.
+
+This is not a test of their method with PMLs. Erlangga et al. use F-cycles with Galerkin coarse
+operators: their Section 4.3 finds V-cycles too poor, and their boundaries are second-order
+radiation conditions, not PMLs. Reps, Vanroose and bin Zubair (J. Comput. Phys. 229, 8384
+(2010), doi:10.1016/j.jcp.2010.07.022), on complex-stretched absorbing layers, choose ILU(0)
+smoothing with Galerkin coarse operators (their Section 6.1, Fig. 14) and find Jacobi and
+coarse grids discretized directly clearly worse: the components used here. They also trace the
+trouble to the indefinite operator's vanishing h-ellipticity and to coarse grids that resonate
+(their Section 5.1). Their multigrid with Galerkin coarse operators and ILU(0) smoothing, with
+stretched PMLs, is the next thing to try.
+
+A sweeping preconditioner (Engquist and Ying's moving PMLs, doi:10.1137/100804644, known but
+not read) factorizes a slab of a few planes per layer: faer's sparse LU took 19 s for one slab of
+6 planes of Diel's 90 × 80 cross-section, so the layers alone would cost minutes and tens of GB.
+
 ## Limits
 
 - No adjoint gradients in 3D yet: those are [2D](fdfd-ports.md) for now.
 - A port's reference plane is a plane of nodes. A Bloch-periodic side of a port must be periodic
   (k = 0), and the window whole along it.
 - The direct solver's memory caps a problem at about 200 k unknowns on a 64 GB machine. QMR's
-  doesn't, but it needs thousands of iterations, and nothing preconditions it yet.
-- QMR without look-ahead: a breakdown of the Lanczos process is an error, not stepped over.
+  doesn't, and ILU(0) with stretched PMLs cuts its iterations by about ten, but its triangular
+  solves are sequential, so an iteration costs 2.5 to 4 times a plain one. A stronger
+  preconditioner (multigrid that copes with PMLs, or a sweeping one) is future work.
+- QMR without look-ahead: a breakdown of the Lanczos process restarts it, which costs the
+  Krylov space built so far, rather than being stepped over.
 - A uniform grid along each axis, and interfaces averaged by sampling: exact for interfaces
   along the axes, slower to converge for curved or slanted ones.

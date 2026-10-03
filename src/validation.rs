@@ -747,6 +747,20 @@ pub fn cases() -> Vec<Case> {
             run: fdfd3d_qmr_iterations_shin_fan,
         },
         Case {
+            id: "fdfd3d/pml-reflection-stretched",
+            title: r"3D FDFD: what a 20-cell PML graded to $R = 10^{-8}$ ($m = 3$) and stretched as much as it absorbs, $s = 1 + (1 + i)\sigma$, sends back of a plane wave 17 degrees off its normal, in oxide on a 20 nm grid, both polarizations (largest amplitude shown)",
+            tier: Tier::Analytic,
+            source: r"W. C. Chew, W. H. Weedon, Microw. Opt. Technol. Lett. 7, 599 (1994), doi:10.1002/mop.4650071304: any stretch with $\operatorname{Im} s \gt 0$ absorbs without reflecting, so the real part changes only the discretization's reflection: 3.6e-6, against 2.5e-6 without it (fdfd3d/pml-reflection); thinner, it reflects more (10 cells of 10 nm: 2.3e-4 against 4e-5)",
+            run: fdfd3d_pml_reflection_stretched,
+        },
+        Case {
+            id: "fdfd3d/qmr-ilu-direct",
+            title: r"3D FDFD by QMR on Shin and Fan's operator preconditioned by its ILU(0), to a relative residual of 1e-10, against the sparse direct solver: a silicon strip in oxide, $24 \times 20 \times 16$ cells of 40 nm, stretched PMLs of 6 cells all round (largest field difference relative to the largest field shown)",
+            tier: Tier::Analytic,
+            source: r"the same system solved two ways; ILU(0) as in Y. Saad, Iterative Methods for Sparse Linear Systems, 2nd ed., SIAM (2003), doi:10.1137/1.9780898718003, from the right, so the residual QMR stops on is the system's own; measured 2.4e-10, in 160 iterations against 548 without it",
+            run: fdfd3d_qmr_ilu_direct,
+        },
+        Case {
             id: "circuit/series-waveguides",
             title: r"Circuits: two waveguides, 12.5 and 30.25 µm, in series are one of 42.75 µm ($n_\text{eff} = 2.4$, $n_g = 4.2$, 3 dB/cm), 1.54 to 1.56 µm (largest $\lvert \Delta S \rvert$ shown)",
             tier: Tier::Analytic,
@@ -1381,6 +1395,30 @@ fn fdfd3d_qmr_iterations_curl_curl() -> Outcome {
 
 fn fdfd3d_qmr_iterations_shin_fan() -> Outcome {
     fdfd3d_qmr_iterations(-1.0, 77.0)
+}
+
+fn fdfd3d_pml_reflection_stretched() -> Outcome {
+    use crate::fdfd::checks3d::pml_reflection_stretched;
+    let worst = pml_reflection_stretched(Polarization::Te, 1.0)
+        .max(pml_reflection_stretched(Polarization::Tm, 1.0));
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // 3.6e-6 measured, as the plain PML's 2.5e-6 and the grading's 3e-6
+        tolerance: 1e-5,
+        error: worst,
+    }
+}
+
+fn fdfd3d_qmr_ilu_direct() -> Outcome {
+    let (worst, _, _) = crate::fdfd::checks3d::ilu_against_direct();
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // a residual of 1e-10 bounds the error by the condition number times 1e-10: 2.4e-10
+        tolerance: 1e-8,
+        error: worst,
+    }
 }
 
 fn fdfd3d_film(kind: Polarization, tolerance: f64) -> Outcome {

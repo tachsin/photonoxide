@@ -4,7 +4,7 @@ use num_complex::Complex64 as c64;
 
 use super::{Axis, Boundaries3d, Field3d, Grid3d, Lattice, Port3d, PortMode3d, Solver3d};
 use crate::fdfd::Direction;
-use crate::fdfd::krylov::{Convergence, Sparse, Stopping, qmr};
+use crate::fdfd::krylov::{Convergence, Ilu0, Sparse, Stopping, qmr, qmr_preconditioned};
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -44,6 +44,8 @@ pub struct IterativeSolver3d {
     eps: Vec<c64>,
     formulation: Formulation,
     matrix: Sparse,
+    /// The matrix's ILU(0), when QMR is preconditioned.
+    ilu: Option<Ilu0>,
 }
 
 impl IterativeSolver3d {
@@ -73,7 +75,32 @@ impl IterativeSolver3d {
             eps,
             formulation,
             matrix,
+            ilu: None,
         })
+    }
+
+    /// The same problem, QMR preconditioned by the incomplete LU factorization of its matrix with
+    /// no fill, ILU(0) (as in Y. Saad, Iterative Methods for Sparse Linear Systems, 2nd ed., SIAM
+    /// (2003), doi:10.1137/1.9780898718003), from the right: each iteration then
+    /// takes two triangular solves with the factors and two with their transposes. For Shin and
+    /// Fan's operator with PMLs whose stretch stays within 45° of the real axis
+    /// ([`Boundaries3d::stretched_pml`]): there it cuts QMR's iterations by 10 to 20 times
+    /// (docs/methods/fdfd-3d.md).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for the curl-curl operator, on which ILU(0) fails (QMR doesn't
+    /// converge: its near-null space of gradients makes the incomplete factors useless), or for a
+    /// zero pivot.
+    pub fn with_ilu(mut self) -> Result<IterativeSolver3d> {
+        if self.formulation == Formulation::CurlCurl {
+            return Err(Error::invalid(
+                "fdfd preconditioner",
+                "ILU(0) needs Shin and Fan's operator (Formulation::ShinFan): on the curl-curl \n                 one QMR doesn't converge",
+            ));
+        }
+        self.ilu = Some(Ilu0::new(&self.matrix)?);
+        Ok(self)
     }
 
     /// The grid.
@@ -126,7 +153,10 @@ impl IterativeSolver3d {
         let b = self
             .lattice
             .transformed_rhs(&self.eps, &b, self.formulation.s());
-        let (values, convergence) = qmr(&self.matrix, &b, stopping)?;
+        let (values, convergence) = match &self.ilu {
+            Some(ilu) => qmr_preconditioned(&self.matrix, ilu, &b, stopping)?,
+            None => qmr(&self.matrix, &b, stopping)?,
+        };
         Ok((
             Field3d {
                 lattice: self.lattice.clone(),

@@ -101,6 +101,7 @@ pub(crate) fn film_run(kind: Kind, h: f64, angle: f64, pml: (usize, f64)) -> Fil
         },
         reflection: pml_reflection,
         order: 3.0,
+        real_stretch: 0.0,
     };
     let layered = |z: f64| {
         let n = if z < 0.0 {
@@ -172,10 +173,20 @@ pub(crate) fn flux_spread(run: &FilmRun) -> f64 {
 }
 
 /// A plane wave in uniform oxide at 1.55 µm, 17° off the z axis in a plane 30° from x, launched
-/// down into a PML of 20 cells graded to R = 1e-8 on a 20 nm grid: the amplitude of what comes
+/// down into a PML of 20 cells graded to R = 1e-8 on a 20 nm grid (the grid and the PML's cells
+/// as [`pml_reflection_on`] is given): the amplitude of what comes
 /// back up, relative to what went down, in E_x.
 pub(crate) fn pml_reflection(kind: Kind) -> f64 {
-    let h = 0.02;
+    pml_reflection_stretched(kind, 0.0)
+}
+
+/// [`pml_reflection`] with the PML's real stretching per unit of absorption `real_stretch`.
+pub(crate) fn pml_reflection_stretched(kind: Kind, real_stretch: f64) -> f64 {
+    pml_reflection_on(kind, real_stretch, (0.02, PML))
+}
+
+/// [`pml_reflection_stretched`] for a PML of `cells` on an `h` grid.
+pub(crate) fn pml_reflection_on(kind: Kind, real_stretch: f64, (h, cells): (f64, usize)) -> f64 {
     let grid = Grid3d {
         nx: 1,
         ny: 1,
@@ -197,11 +208,12 @@ pub(crate) fn pml_reflection(kind: Kind) -> f64 {
         x: Edges::Bloch { k: kx },
         y: Edges::Bloch { k: ky },
         z: Edges::Pml {
-            low: PML,
-            high: PML,
+            low: cells,
+            high: cells,
         },
         reflection: 1e-8,
         order: 3.0,
+        real_stretch,
     };
     let solver = Solver3d::new(
         grid,
@@ -293,6 +305,7 @@ pub(crate) fn two_d_difference(polarization: Polarization) -> f64 {
         z: Edges::Bloch { k: 0.0 },
         reflection: 1e-8,
         order: 3.0,
+        real_stretch: 0.0,
     };
     let solver = Solver3d::new(grid3, lam, |x, y, _| rod(x, y), boundaries3).unwrap();
     let mut current = vec![c64::new(0.0, 0.0); grid3.unknowns()];
@@ -350,6 +363,7 @@ pub(crate) fn shin_fan_square(s: f64, tolerance: f64) -> crate::fdfd::Convergenc
         z: periodic,
         reflection: 1e-8,
         order: 3.0,
+        real_stretch: 0.0,
     };
     let (lattice, eps) = Solver3d::setup(
         grid,
@@ -427,4 +441,59 @@ pub(crate) fn qmr_against_direct(formulation: super::Formulation) -> (f64, usize
         .map(|(a, b)| (a - b).norm())
         .fold(0.0, f64::max);
     (worst / largest, how.iterations)
+}
+
+/// A silicon strip (0.5 × 0.22 µm) along x in oxide, 24 × 20 × 16 cells of 40 nm with PMLs of 6
+/// cells all round stretched as much as they absorb ([`Boundaries3d::stretched_pml`]), a current
+/// on one edge at the centre: QMR on Shin and Fan's operator to a relative residual of 1e-10,
+/// preconditioned by ILU(0) and not, against the sparse direct solver. The largest difference
+/// from the direct solver's field relative to the largest field, with ILU(0), and the
+/// iterations with and without it.
+pub(crate) fn ilu_against_direct() -> (f64, usize, usize) {
+    use super::{Formulation, IterativeSolver3d};
+    use crate::fdfd::Stopping;
+    let h = 0.04;
+    let (nx, ny, nz) = (24, 20, 16);
+    let grid = Grid3d {
+        nx,
+        ny,
+        nz,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: -(nx as f64) * h / 2.0,
+        y0: -(ny as f64) * h / 2.0,
+        z0: -(nz as f64) * h / 2.0,
+    };
+    let strip = |_: f64, y: f64, z: f64| {
+        let m: f64 = if y.abs() < 0.25 && z.abs() < 0.11 {
+            3.476
+        } else {
+            1.444
+        };
+        c64::new(m * m, 0.0)
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let boundaries = Boundaries3d::stretched_pml(6);
+    let mut source = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    source[grid.index(Axis::Y, (nx / 2, ny / 2, nz / 2))] = c64::new(1.0, 0.0);
+    let direct = Solver3d::new(grid, lam, strip, boundaries)
+        .unwrap()
+        .solve(&source)
+        .unwrap();
+    let stopping = Stopping {
+        tolerance: 1e-10,
+        max_iterations: 20_000,
+    };
+    let plain = IterativeSolver3d::new(grid, lam, strip, boundaries, Formulation::ShinFan).unwrap();
+    let (_, without) = plain.solve(&source, stopping).unwrap();
+    let (field, with) = plain.with_ilu().unwrap().solve(&source, stopping).unwrap();
+    let largest = direct.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let worst = direct
+        .values()
+        .iter()
+        .zip(field.values())
+        .map(|(a, b)| (a - b).norm())
+        .fold(0.0, f64::max);
+    (worst / largest, with.iterations, without.iterations)
 }
