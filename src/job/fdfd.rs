@@ -409,6 +409,53 @@ pub fn fdfd_s_parameters(job: &Job, wavelengths_um: Option<&[f64]>) -> Result<Fd
     })
 }
 
+/// The pixels a sweep's fields may take in all, over its points.
+const SWEEP_PIXELS: usize = 5_000_000;
+
+/// The side, in cells, of the blocks a sweep's fields are averaged over: 2, or the smallest
+/// that keeps the `points` pictures of an `nx` × `ny` grid within [`SWEEP_PIXELS`].
+pub(super) fn sweep_block(nx: usize, ny: usize, points: usize) -> usize {
+    let most = nx.min(ny).max(1);
+    (2..most)
+        .find(|b| (nx / b) * (ny / b) * points <= SWEEP_PIXELS)
+        .unwrap_or(most)
+        .min(most)
+}
+
+/// A sweep point's picture of `values` (|field|² on `grid`, row by row): their means over
+/// blocks of `block` × `block` cells, scaled to a peak of 1 and rounded to three decimals. The
+/// cells left over at the right and the top, fewer than a block, are left out.
+fn coarse(values: &[f64], grid: &Grid, block: usize) -> Raster {
+    let (nx, ny) = (grid.nx / block, grid.ny / block);
+    let mut means: Vec<f64> = (0..ny)
+        .flat_map(|j| (0..nx).map(move |i| (i, j)))
+        .map(|(i, j)| {
+            let sum: f64 = (0..block)
+                .flat_map(|b| (0..block).map(move |a| (a, b)))
+                .map(|(a, b)| values[(j * block + b) * grid.nx + i * block + a])
+                .sum();
+            sum / (block * block) as f64
+        })
+        .collect();
+    let peak = means
+        .iter()
+        .copied()
+        .fold(0.0, f64::max)
+        .max(f64::MIN_POSITIVE);
+    for v in &mut means {
+        *v = (*v / peak * 1000.0).round() / 1000.0;
+    }
+    Raster {
+        nx,
+        ny,
+        x0: grid.x0,
+        x1: grid.x0 + (nx * block) as f64 * grid.dx,
+        y0: grid.y0,
+        y1: grid.y0 + (ny * block) as f64 * grid.dy,
+        values: means.iter().map(|&v| v as f32).collect(),
+    }
+}
+
 pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let device = Device::new(job)?;
     let task = &device.task;
@@ -428,11 +475,29 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             })
             .unwrap_or(0)
     });
+    let label = format!(
+        "{} from port 1, 2D by the effective index method",
+        device.field_name
+    );
+    // a sweep's points each record their field, on blocks of cells
+    let block = match &task.sweep {
+        Some(sw) => {
+            run.record(&Event::Sweep {
+                parameter: "wavelength".into(),
+                from: sw.from,
+                to: sw.to,
+                points: sw.points,
+            })?;
+            Some(sweep_block(nx, ny, sw.points))
+        }
+        None => None,
+    };
     let mut solver: Option<Solver2d> = None;
     for (step, &w) in wavelengths.iter().enumerate() {
         if stop.reason().is_some() {
             return Ok(());
         }
+        let value = w;
         let w = Wavelength::um(w)?;
         let (current, ports, sm) = device.solve(w, solver.as_ref())?;
         run.record(&Event::SParameters {
@@ -444,8 +509,9 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 .map(|row| row.iter().map(|v| [v.re, v.im]).collect())
                 .collect(),
         })?;
-        // the field from the first port, at the wavelength chosen
-        if step == field_step {
+        // the field from the first port: in full at the wavelength chosen, and coarser at each
+        // point of a sweep
+        if step == field_step || block.is_some() {
             let first = &ports[0];
             let direction = match first.side {
                 Side::Left => Direction::Forward,
@@ -456,28 +522,37 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 .flat_map(|j| (0..nx).map(move |i| (i, j)))
                 .map(|(i, j)| field.at(i, j).norm_sqr())
                 .collect();
-            let peak = values
-                .iter()
-                .copied()
-                .fold(0.0, f64::max)
-                .max(f64::MIN_POSITIVE);
-            run.record(&Event::Field {
-                label: format!(
-                    "{} from port 1, 2D by the effective index method",
-                    device.field_name
-                ),
-                wavelength_um: w.to_um(),
-                z_um: z_face,
-                intensity: Raster {
-                    nx,
-                    ny,
-                    x0: task.x_um[0],
-                    x1: task.x_um[1],
-                    y0: task.y_um[0],
-                    y1: task.y_um[1],
-                    values: values.iter().map(|v| (v / peak) as f32).collect(),
-                },
-            })?;
+            if step == field_step {
+                let peak = values
+                    .iter()
+                    .copied()
+                    .fold(0.0, f64::max)
+                    .max(f64::MIN_POSITIVE);
+                run.record(&Event::Field {
+                    label: label.clone(),
+                    wavelength_um: w.to_um(),
+                    z_um: z_face,
+                    intensity: Raster {
+                        nx,
+                        ny,
+                        x0: task.x_um[0],
+                        x1: task.x_um[1],
+                        y0: task.y_um[0],
+                        y1: task.y_um[1],
+                        values: values.iter().map(|v| (v / peak) as f32).collect(),
+                    },
+                })?;
+            }
+            if let Some(block) = block {
+                run.record(&Event::SweepField {
+                    point: step,
+                    value,
+                    label: label.clone(),
+                    wavelength_um: w.to_um(),
+                    z_um: z_face,
+                    intensity: coarse(&values, &device.grid, block),
+                })?;
+            }
         }
         if solver.is_none() {
             solver = Some(current);
