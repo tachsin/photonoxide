@@ -58,6 +58,7 @@ examples!(
     circuit_fit: "../../../examples/circuit_fit.rs",
     directional_coupler: "../../../examples/directional_coupler.rs",
     ring_q_factor: "../../../examples/ring_q_factor.rs",
+    mzi_dwivedi: "../../../examples/mzi_dwivedi.rs",
 );
 
 /// An example's `main` returns an exit code, or a result holding one.
@@ -138,6 +139,7 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "Chrostowski & Hochberg 2015",
         ),
         "ring_q_factor" => ("The best length for a ring's Q", "Bogaerts et al. 2012"),
+        "mzi_dwivedi" => ("Measured MZIs: a wire's indices", "Dwivedi et al. 2015"),
         _ => ("", ""),
     }
 }
@@ -161,7 +163,7 @@ fn seconds(name: &str) -> f64 {
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
         "directional_coupler" => 20.0,
         "group_index" | "hadley_corners" => 30.0,
-        "leaky_wire_benchmark" => 60.0,
+        "leaky_wire_benchmark" | "mzi_dwivedi" => 60.0,
         _ => 10.0,
     }
 }

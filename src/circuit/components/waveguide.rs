@@ -178,29 +178,50 @@ impl Dispersion {
         near: Option<f64>,
     ) -> Result<(Dispersion, f64, String)> {
         let wavelengths = Dispersion::five(wavelength, step)?;
-        let grid = {
-            let cs = cross_section(wavelength)?;
-            let smallest = |v: &[f64]| {
-                v.windows(2)
-                    .map(|w| (w[1] - w[0]).abs())
-                    .fold(f64::INFINITY, f64::min)
-            };
-            format!(
-                "{} × {} cells, {:.3} nm",
-                cs.x().len() - 1,
-                cs.y().len() - 1,
-                1e3 * smallest(cs.x()).min(smallest(cs.y()))
-            )
-        };
+        let grid = grid(&cross_section(wavelength)?);
         let modes = track(&mut cross_section, &wavelengths, near, 3)?;
         let n: Vec<c64> = modes.iter().map(|m| m.effective_index()).collect();
         let (mut model, residual) =
             Dispersion::from_samples(wavelength, step, [n[0], n[1], n[2], n[3], n[4]]);
-        model.polarization = Some(if modes[2].te_fraction() > 0.5 {
-            Polarization::Te
-        } else {
-            Polarization::Tm
-        });
+        model.polarization = Some(polarization(&modes[2]));
+        Ok((model, residual, grid))
+    }
+
+    /// The same as [`Dispersion::from_modes`], each mode refined by Hadley's high-accuracy
+    /// equations ([`crate::mode::hadley`]), whose error falls much faster with the grid than
+    /// the standard scheme's at a waveguide's corners. The mode nearest `near` (the fundamental
+    /// when `None`) at λ₀ − 2h, then at each next wavelength the one nearest the last.
+    ///
+    /// Hadley's equations need what [`crate::mode::hadley::modes`] needs: a uniform grid, real
+    /// isotropic media and no PML, so the model is lossless.
+    ///
+    /// # Errors
+    ///
+    /// As [`Dispersion::from_modes`], and those of [`crate::mode::hadley::modes`].
+    pub fn from_hadley(
+        mut cross_section: impl FnMut(Wavelength) -> Result<CrossSection>,
+        wavelength: Wavelength,
+        step: f64,
+        near: Option<f64>,
+    ) -> Result<(Dispersion, f64, String)> {
+        let wavelengths = Dispersion::five(wavelength, step)?;
+        let grid = grid(&cross_section(wavelength)?);
+        let mut n = [c64::new(0.0, 0.0); 5];
+        let mut last = near;
+        let mut centre = None;
+        for (k, &w) in wavelengths.iter().enumerate() {
+            let mode = crate::mode::hadley::modes(&cross_section(w)?, w, 1, last)?
+                .into_iter()
+                .next()
+                .ok_or_else(|| Error::invalid("dispersion", "the solver returned no mode"))?;
+            n[k] = mode.effective_index();
+            last = Some(n[k].re);
+            if k == 2 {
+                centre = Some(polarization(&mode));
+            }
+        }
+        let (mut model, residual) = Dispersion::from_samples(wavelength, step, n);
+        model.polarization = centre;
         Ok((model, residual, grid))
     }
 
@@ -231,6 +252,30 @@ impl Dispersion {
         let (mut model, residual) = Dispersion::from_samples(wavelength, step, n);
         model.polarization = Some(super::seen_from_above(polarization));
         Ok((model, residual))
+    }
+}
+
+/// A cross-section's grid, `"nx × ny cells, h nm"` with h the smallest spacing.
+fn grid(cs: &CrossSection) -> String {
+    let smallest = |v: &[f64]| {
+        v.windows(2)
+            .map(|w| (w[1] - w[0]).abs())
+            .fold(f64::INFINITY, f64::min)
+    };
+    format!(
+        "{} × {} cells, {:.3} nm",
+        cs.x().len() - 1,
+        cs.y().len() - 1,
+        1e3 * smallest(cs.x()).min(smallest(cs.y()))
+    )
+}
+
+/// TE when the mode's TE fraction is above one half, TM otherwise.
+fn polarization(mode: &crate::mode::vector::VectorMode) -> Polarization {
+    if mode.te_fraction() > 0.5 {
+        Polarization::Te
+    } else {
+        Polarization::Tm
     }
 }
 

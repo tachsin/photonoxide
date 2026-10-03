@@ -27,6 +27,7 @@
 pub(crate) mod checks;
 mod coupler;
 mod dual;
+pub(crate) mod measured;
 mod mmi;
 mod mzi;
 mod ring;

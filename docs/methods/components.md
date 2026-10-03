@@ -14,6 +14,8 @@ papers:
     doi: 10.1002/j.1538-7305.1971.tb02620.x
   - cite: "M. Heiblum, J. H. Harris, IEEE J. Quantum Electron. 11, 75 (1975)"
     doi: 10.1109/JQE.1975.1068563
+  - cite: "S. Dwivedi et al., J. Lightwave Technol. 33, 4471 (2015)"
+    doi: 10.1109/JLT.2015.2476603
 validation:
   - components/ring-all-pass-bogaerts
   - components/ring-add-drop-bogaerts
@@ -29,6 +31,12 @@ validation:
   - components/directional-coupler-power
   - components/mmi-beat-length-soldano
   - components/mmi-fdfd
+  - components/mzi-neff-dwivedi-470
+  - components/mzi-ng-dwivedi-470
+  - components/mzi-neff-dwivedi-602
+  - components/mzi-ng-dwivedi-602
+  - components/mzi-neff-dwivedi-805
+  - components/mzi-ng-dwivedi-805
 ---
 
 The components a chip is made of, each a `Component` (`photonoxide::circuit::components`): a
@@ -90,6 +98,11 @@ $n_0$, $n_g$ and $D$ from the three in the middle by central differences, the lo
 $\operatorname{Im} n_0$, and the model's error from the outer two. A `Waveguide::from_modes`
 built so is exact for a waveguide uniform along its length, to its grid's error, so its fidelity
 is 3D; it holds over $\lambda_0 \pm 2h$.
+`Dispersion::from_hadley` does the same with each mode refined by
+[Hadley's high-accuracy equations](hadley.md), whose error at a waveguide's corners falls far
+faster with the grid (a uniform grid of lossless isotropic media, so the model is lossless): a
+470 × 211 nm wire's $n_\text{eff}$ and $n_g$ move by 4e-5 and 6e-5 from a 10 nm grid to 5 nm,
+where the standard scheme's $n_g$ still moves by 9e-3.
 
 A bend of radius $R$ is the same along its arc, $S_{21} = e^{i\gamma R\theta}$, its mode's
 effective index the propagation constant along the arc at $R$ over $k_0$ and its loss the
@@ -231,11 +244,54 @@ $C = \begin{pmatrix} t & x \\ x & t \end{pmatrix}$ in the basis (lower guide, up
 $t$ its through and $x$ its across field; the netlist matches it to 2e-16, and without loss it is
 unitary to 4e-16.
 
-Simphony's SiEPIC MZI against Lumerical INTERCONNECT (Ploeg et al., Comput. Sci. Eng. 23, 65
-(2021), doi:10.1109/MCSE.2020.3012099, Fig. 5) is not reproduced yet: the figure gives the two
-curves without their numbers, and it needs the SiEPIC EBeam PDK's grating coupler and Y-branch
-S-parameter data and the MZI's arm lengths as laid out (the listing's 50 and 150 µm don't fit
-the plotted fringes' 11 nm spacing).
+### Against measured interferometers
+
+Dwivedi et al. (J. Lightwave Technol. 33, 4471 (2015), doi:10.1109/JLT.2015.2476603; the
+accepted manuscript is open at biblio.ugent.be) measured Mach-Zehnder interferometers on imec's
+200 mm line: two 1 × 2 MMIs and silicon wires in oxide, designed 450, 600 and 800 nm wide and
+215 nm thick, three interferometers per width. Two of low order ($m$ = 15 and 16, designed to
+resonate at 1550 nm) give the effective index unambiguously, $n_\text{eff} L = m\lambda$
+(their Eq. 3), and one of high order ($M$ = 110) the group index from its free spectral range,
+$\lambda^2/(n_g L)$ (Eq. 8). Cross-section SEM puts the wires at 470 ± 4, 602 and 805 nm wide
+and 211 ± 1 nm thick, and their Table I gives $n_\text{eff}$ and $n_g$ at 1550 nm with their
+uncertainties.
+
+The `mzi_dwivedi` example and the `components/mzi-*-dwivedi-*` cases predict them with nothing
+taken from the measurement: each wire is the SEM's rectangle in photonoxide's silicon (Li 1980)
+and silica (Malitson 1965, whose 1.4440 at 1550 nm is the paper's), its mode by
+`Dispersion::from_hadley` on a quarter domain at about 10 nm; the interferometers' path
+differences are designed as the paper's were, $m\lambda/n_\text{eff}$ of the drawn 215 nm wire
+at 1550 nm; each interferometer is `mzi_y` of ideal splitters (a 1 × 2 MMI splits evenly) and
+the wire's `Waveguide`; and its spectrum is read the way the paper reads the measured one:
+$n_g$ from each pair of the $M$ = 110 interferometer's peaks,
+$\lambda_1\lambda_2/((\lambda_2 - \lambda_1)\Delta L)$, fitted by a line in $\lambda$
+(their Eq. 10), and $n_\text{eff}$ from the
+$m$ = 15 interferometer's peak, carried to 1550 nm by $d(n/\lambda)/d\lambda = -n_g/\lambda^2$.
+
+| Wire | $n_\text{eff}$ predicted | measured | $n_g$ predicted | measured |
+|---|---|---|---|---|
+| 470 × 211 nm | 2.3583 | 2.355 ± 0.002 | 4.2330 | 4.2739 ± 0.0042 |
+| 602 × 211 nm | 2.5350 | 2.534 ± 0.0035 | 4.0385 | 4.0453 ± 0.0045 |
+| 805 × 211 nm | 2.6581 | 2.67 ± 0.004 | 3.8883 | 3.8902 ± 0.005 |
+
+The tolerance is the paper's own estimate of what fabrication moves: its Eq. 5,
+$\Delta n = (dn/dw)\Delta w + (dn/dh)\Delta h$ with its Fig. 1's ±20 nm of width and ±5 nm of
+thickness, the derivatives the solver's, plus Table I's uncertainty: 0.061, 0.042 and 0.031 in
+$n_\text{eff}$, 0.049, 0.032 and 0.021 in $n_g$. Five of the six agree within 0.012. The 470 nm
+wire's $n_g$ is 0.041 low, 84 % of its tolerance; within the SEM's own ±4 and ±1 nm it would be
+allowed only 0.013. The narrowest wire feels its sidewalls most, and the model's rectangle leaves
+out their slope (the SEM shows a trapezoid, its angle not printed) and roughness. The paper's
+own simulations of the SEM geometry miss too (its Fig. 7, not tabulated), which it puts down to
+"local environmental variations, and fabricated waveguide geometrical non-idealities". Across
+the wafer the paper's standard deviations are 0.006 to 0.008 in $n_\text{eff}$ and 0.01 to 0.02
+in $n_g$. The interferometers return the wire's own $n_\text{eff}$ and $n_g$ to about 1e-6: the
+splitters, the path differences and the extraction add nothing, as they should.
+
+This replaces the comparison first planned, Simphony's SiEPIC MZI against Lumerical INTERCONNECT
+(Ploeg et al., Comput. Sci. Eng. 23, 65 (2021), doi:10.1109/MCSE.2020.3012099, Fig. 5), which
+can't be reproduced from the paper: the figure gives the two curves without their numbers, it
+needs the SiEPIC EBeam PDK's grating coupler and Y-branch data, and the MZI's arm lengths as
+laid out (the listing's 50 and 150 µm don't fit the plotted fringes' 11 nm spacing).
 
 ## Sampled spectra
 

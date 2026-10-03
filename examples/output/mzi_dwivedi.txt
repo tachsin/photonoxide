@@ -1,0 +1,17 @@
+silicon wires (Li 1980) in silica (Malitson 1965), Hadley's equations, quarter domain
+  470 x 211 nm (121 × 115 cells, 9.591 nm): n_eff 2.35831, n_g 4.23299
+    designed 450 x 215 nm: n_eff 2.33370, path differences 9.963 um (m = 15) and 73.060 um (M = 110)
+    Eq. 5: +-20 nm of width moves n_eff 0.0382, n_g 0.0372; +-5 nm of thickness 0.0200, 0.0074
+  n_eff at 1550 nm, 470 nm wide          2.358307   paper 2.355      ± 6.1e-2    ok
+  n_g at 1550 nm, 470 nm wide            4.232995   paper 4.2739     ± 4.9e-2    ok
+  602 x 211 nm (130 × 115 cells, 9.591 nm): n_eff 2.53496, n_g 4.03847
+    designed 600 x 215 nm: n_eff 2.54831, path differences 9.124 um (m = 15) and 66.907 um (M = 110)
+    Eq. 5: +-20 nm of width moves n_eff 0.0185, n_g 0.0220; +-5 nm of thickness 0.0193, 0.0055
+  n_eff at 1550 nm, 602 nm wide          2.534958   paper 2.534      ± 4.2e-2    ok
+  n_g at 1550 nm, 602 nm wide            4.038468   paper 4.0453     ± 3.2e-2    ok
+  805 x 211 nm (139 × 115 cells, 9.591 nm): n_eff 2.65810, n_g 3.88832
+    designed 800 x 215 nm: n_eff 2.67084, path differences 8.705 um (m = 15) and 63.838 um (M = 110)
+    Eq. 5: +-20 nm of width moves n_eff 0.0078, n_g 0.0097; +-5 nm of thickness 0.0187, 0.0058
+  n_eff at 1550 nm, 805 nm wide          2.658103   paper 2.67       ± 3.1e-2    ok
+  n_g at 1550 nm, 805 nm wide            3.888320   paper 3.8902     ± 2.1e-2    ok
+all 6 within tolerance of the paper

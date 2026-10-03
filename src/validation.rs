@@ -914,6 +914,48 @@ pub fn cases() -> Vec<Case> {
             source: r"L. B. Soldano, E. C. M. Pennings (1995), doi:10.1109/50.372474, Eqs. 8 to 12 with the exact slab modes, against the FDFD solver; what the guided modes leave out (radiation modes, the faces' reflections) sets the tolerance",
             run: components::mmi_fdfd,
         },
+        Case {
+            id: "components/mzi-neff-dwivedi-470",
+            title: r"Components: measured Mach-Zehnder interferometers of a 470 x 211 nm silicon wire in oxide (the SEM's cross-section, a rectangle; Hadley's equations, about 10 nm grids), $\Delta L$ designed for the drawn 450 x 215 nm wire, two ideal splitters, the spectrum read as the paper reads it: $n_\text{eff}$ at 1550 nm from the $m$ = 15 interferometer's peak, $n_\text{eff} L = m \lambda$ (Eq. 3), carried to 1550 nm by $n_g$",
+            tier: Tier::Published,
+            source: r"S. Dwivedi et al., J. Lightwave Technol. 33, 4471 (2015), doi:10.1109/JLT.2015.2476603, Table I, measured: 2.355 ± 0.002; the tolerance is their Eq. 5 with ±20 nm of width and ±5 nm of thickness (their Fig. 1's process), by the solver's derivatives, plus that uncertainty",
+            run: crate::circuit::components::measured::dwivedi_neff_470,
+        },
+        Case {
+            id: "components/mzi-ng-dwivedi-470",
+            title: r"Components: measured Mach-Zehnder interferometers of a 470 x 211 nm silicon wire in oxide (the SEM's cross-section, a rectangle; Hadley's equations, about 10 nm grids), $\Delta L$ designed for the drawn 450 x 215 nm wire, two ideal splitters, the spectrum read as the paper reads it: $n_g$ at 1550 nm from the $M$ = 110 interferometer's peaks, $\lambda_1 \lambda_2 / ((\lambda_2 - \lambda_1) \Delta L)$ (Eq. 8), fitted by a line in $\lambda$ (Eq. 10)",
+            tier: Tier::Published,
+            source: r"S. Dwivedi et al., J. Lightwave Technol. 33, 4471 (2015), doi:10.1109/JLT.2015.2476603, Table I, measured: 4.2739 ± 0.0042; the tolerance is their Eq. 5 with ±20 nm of width and ±5 nm of thickness (their Fig. 1's process), by the solver's derivatives, plus that uncertainty",
+            run: crate::circuit::components::measured::dwivedi_ng_470,
+        },
+        Case {
+            id: "components/mzi-neff-dwivedi-602",
+            title: r"Components: measured Mach-Zehnder interferometers of a 602 x 211 nm silicon wire in oxide (the SEM's cross-section, a rectangle; Hadley's equations, about 10 nm grids), $\Delta L$ designed for the drawn 600 x 215 nm wire, two ideal splitters, the spectrum read as the paper reads it: $n_\text{eff}$ at 1550 nm from the $m$ = 15 interferometer's peak, $n_\text{eff} L = m \lambda$ (Eq. 3), carried to 1550 nm by $n_g$",
+            tier: Tier::Published,
+            source: r"S. Dwivedi et al., J. Lightwave Technol. 33, 4471 (2015), doi:10.1109/JLT.2015.2476603, Table I, measured: 2.534 ± 0.0035; the tolerance is their Eq. 5 with ±20 nm of width and ±5 nm of thickness (their Fig. 1's process), by the solver's derivatives, plus that uncertainty",
+            run: crate::circuit::components::measured::dwivedi_neff_602,
+        },
+        Case {
+            id: "components/mzi-ng-dwivedi-602",
+            title: r"Components: measured Mach-Zehnder interferometers of a 602 x 211 nm silicon wire in oxide (the SEM's cross-section, a rectangle; Hadley's equations, about 10 nm grids), $\Delta L$ designed for the drawn 600 x 215 nm wire, two ideal splitters, the spectrum read as the paper reads it: $n_g$ at 1550 nm from the $M$ = 110 interferometer's peaks, $\lambda_1 \lambda_2 / ((\lambda_2 - \lambda_1) \Delta L)$ (Eq. 8), fitted by a line in $\lambda$ (Eq. 10)",
+            tier: Tier::Published,
+            source: r"S. Dwivedi et al., J. Lightwave Technol. 33, 4471 (2015), doi:10.1109/JLT.2015.2476603, Table I, measured: 4.0453 ± 0.0045; the tolerance is their Eq. 5 with ±20 nm of width and ±5 nm of thickness (their Fig. 1's process), by the solver's derivatives, plus that uncertainty",
+            run: crate::circuit::components::measured::dwivedi_ng_602,
+        },
+        Case {
+            id: "components/mzi-neff-dwivedi-805",
+            title: r"Components: measured Mach-Zehnder interferometers of a 805 x 211 nm silicon wire in oxide (the SEM's cross-section, a rectangle; Hadley's equations, about 10 nm grids), $\Delta L$ designed for the drawn 800 x 215 nm wire, two ideal splitters, the spectrum read as the paper reads it: $n_\text{eff}$ at 1550 nm from the $m$ = 15 interferometer's peak, $n_\text{eff} L = m \lambda$ (Eq. 3), carried to 1550 nm by $n_g$",
+            tier: Tier::Published,
+            source: r"S. Dwivedi et al., J. Lightwave Technol. 33, 4471 (2015), doi:10.1109/JLT.2015.2476603, Table I, measured: 2.67 ± 0.004; the tolerance is their Eq. 5 with ±20 nm of width and ±5 nm of thickness (their Fig. 1's process), by the solver's derivatives, plus that uncertainty",
+            run: crate::circuit::components::measured::dwivedi_neff_805,
+        },
+        Case {
+            id: "components/mzi-ng-dwivedi-805",
+            title: r"Components: measured Mach-Zehnder interferometers of a 805 x 211 nm silicon wire in oxide (the SEM's cross-section, a rectangle; Hadley's equations, about 10 nm grids), $\Delta L$ designed for the drawn 800 x 215 nm wire, two ideal splitters, the spectrum read as the paper reads it: $n_g$ at 1550 nm from the $M$ = 110 interferometer's peaks, $\lambda_1 \lambda_2 / ((\lambda_2 - \lambda_1) \Delta L)$ (Eq. 8), fitted by a line in $\lambda$ (Eq. 10)",
+            tier: Tier::Published,
+            source: r"S. Dwivedi et al., J. Lightwave Technol. 33, 4471 (2015), doi:10.1109/JLT.2015.2476603, Table I, measured: 3.8902 ± 0.005; the tolerance is their Eq. 5 with ±20 nm of width and ±5 nm of thickness (their Fig. 1's process), by the solver's derivatives, plus that uncertainty",
+            run: crate::circuit::components::measured::dwivedi_ng_805,
+        },
     ];
     // the compact models' cases live with them
     cases.extend(crate::compact::checks::cases());
