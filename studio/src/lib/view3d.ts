@@ -222,99 +222,126 @@ export function waveOf(m: Mode, f: ModeField | undefined, s: Scene): Wave {
 }
 
 /** A period of the wave, at speed 1, in seconds. */
-const PERIOD = 1.5;
+export const PERIOD = 1.5;
 
-const WAVE_VERTEX = /* glsl */ `
-attribute float along;
-varying float vAlong;
-varying float vY;
+const VOLUME_VERTEX = /* glsl */ `
+varying vec3 vWorld;
 void main() {
-  vAlong = along;
-  vY = position.y;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  vec4 world = modelMatrix * vec4(position, 1.0);
+  vWorld = world.xyz;
+  gl_Position = projectionMatrix * viewMatrix * world;
 }`;
 
-// the field at a point of the sheet: red where it is positive, blue where negative, see-through
-// where it is near zero, so the structure behind stays visible
-const WAVE_FRAGMENT = /* glsl */ `
-uniform sampler2D profile;
+// The mode's field in the box, ray-marched front to back: f = E(x, z) cos(β (y − cut) − ωt)
+// e^(−α (y − start)), its cross-section E from a texture and the travel along y analytic. Each
+// step emits and absorbs in proportion to |f|^γ: red where f is positive, blue where negative,
+// nothing where it is near zero. The result is premultiplied, so it glows over what is behind.
+const VOLUME_FRAGMENT = /* glsl */ `
+precision highp float;
+uniform sampler2D field;
+uniform vec2 fx;
+uniform vec2 fz;
+uniform vec3 bmin;
+uniform vec3 bmax;
 uniform float beta;
 uniform float phase;
 uniform float cut;
 uniform float start;
 uniform float decay;
-uniform float opacity;
+uniform float density;
+uniform float gamma;
+uniform float steps;
 uniform vec3 positive;
 uniform vec3 negative;
-varying float vAlong;
-varying float vY;
+varying vec3 vWorld;
 void main() {
-  float p = texture2D(profile, vec2(vAlong, 0.5)).r * 2.0 - 1.0;
-  float v = p * cos(beta * (vY - cut) - phase) * exp(-decay * (vY - start));
-  float a = opacity * smoothstep(0.03, 1.0, abs(v));
-  if (a < 0.004) discard;
-  gl_FragColor = vec4(v >= 0.0 ? positive : negative, a);
+  vec3 ro = cameraPosition;
+  vec3 rd = normalize(vWorld - cameraPosition);
+  vec3 inv = 1.0 / rd;
+  vec3 t0 = (bmin - ro) * inv;
+  vec3 t1 = (bmax - ro) * inv;
+  vec3 lo = min(t0, t1);
+  vec3 hi = max(t0, t1);
+  float tn = max(max(max(lo.x, lo.y), lo.z), 0.0);
+  float tf = min(min(hi.x, hi.y), hi.z);
+  if (tf <= tn) discard;
+  float dt = length(bmax - bmin) / steps;
+  // a step's worth of jitter per pixel, so the steps don't show as bands
+  float t = tn + dt * fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+  vec3 colour = vec3(0.0);
+  float alpha = 0.0;
+  for (int i = 0; i < 400; i++) {
+    if (t > tf || alpha > 0.97) break;
+    vec3 p = ro + rd * t;
+    vec2 uv = vec2((p.x - fx.x) / (fx.y - fx.x), (p.z - fz.x) / (fz.y - fz.x));
+    float e = texture2D(field, uv).r;
+    float f = e * cos(beta * (p.y - cut) - phase) * exp(-decay * (p.y - start));
+    float a = 1.0 - exp(-density * pow(abs(f), gamma) * dt);
+    colour += (1.0 - alpha) * a * (f >= 0.0 ? positive : negative);
+    alpha += (1.0 - alpha) * a;
+    t += dt;
+  }
+  if (alpha < 0.002) discard;
+  gl_FragColor = vec4(colour, alpha);
 }`;
 
-/** Values from −1 to 1 as a one-row texture, each in a byte. */
-function profileTexture(values: number[]): THREE.DataTexture {
-  const data = new Uint8Array(values.length * 4);
-  values.forEach((v, k) => {
-    data[4 * k] = Math.round(((Math.max(-1, Math.min(1, v)) + 1) / 2) * 255);
-    data[4 * k + 3] = 255;
-  });
-  const t = new THREE.DataTexture(data, values.length, 1, THREE.RGBAFormat);
+/** The field on the cut as a one-channel half-float texture, linearly filtered, rows from z0 up. */
+function fieldTexture(r: Raster): THREE.DataTexture {
+  const data = new Uint16Array(r.values.length);
+  r.values.forEach((v, k) => (data[k] = THREE.DataUtils.toHalfFloat(v)));
+  const t = new THREE.DataTexture(data, r.nx, r.ny, THREE.RedFormat, THREE.HalfFloatType);
   t.magFilter = THREE.LinearFilter;
   t.minFilter = THREE.LinearFilter;
   t.needsUpdate = true;
   return t;
 }
 
-/** The wave's two sheets through the field's peak: across at its height, and up at its x. */
-function waveSheets(w: Wave, uniforms: Record<string, THREE.IUniform>[]): THREE.Group {
+/**
+ * The wave as a volume: a box over where the field is more than 2·10⁻³ of its peak across the
+ * cut, along the window's depth, ray-marched by VOLUME_FRAGMENT.
+ */
+function waveVolume(w: Wave): { mesh: THREE.Mesh; uniforms: Record<string, THREE.IUniform>; box: THREE.Box3 } {
   const r = w.profile;
-  let peak = 0;
+  const [dx, dz] = [(r.x1 - r.x0) / r.nx, (r.y1 - r.y0) / r.ny];
+  let [i0, i1, j0, j1] = [r.nx, -1, r.ny, -1];
   r.values.forEach((v, k) => {
-    if (Math.abs(v) > Math.abs(r.values[peak])) peak = k;
+    if (Math.abs(v) < 2e-3) return;
+    const [i, j] = [k % r.nx, Math.floor(k / r.nx)];
+    [i0, i1, j0, j1] = [Math.min(i0, i), Math.max(i1, i), Math.min(j0, j), Math.max(j1, j)];
   });
-  const [ip, jp] = [peak % r.nx, Math.floor(peak / r.nx)];
-  const xp = r.x0 + ((ip + 0.5) * (r.x1 - r.x0)) / r.nx;
-  const zp = r.y0 + ((jp + 0.5) * (r.y1 - r.y0)) / r.ny;
-  const row = Array.from({ length: r.nx }, (_, i) => r.values[jp * r.nx + i]);
-  const column = Array.from({ length: r.ny }, (_, j) => r.values[j * r.nx + ip]);
-  const [y0, y1] = w.y;
-  const sheet = (corners: number[], along: number[], values: number[]) => {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(corners, 3));
-    g.setAttribute("along", new THREE.Float32BufferAttribute(along, 1));
-    g.setIndex([0, 1, 2, 0, 2, 3]);
-    const u: Record<string, THREE.IUniform> = {
-      profile: { value: profileTexture(values) },
-      beta: { value: w.beta },
-      phase: { value: 0 },
-      cut: { value: w.cut },
-      start: { value: y0 },
-      decay: { value: w.decay },
-      opacity: { value: 0.9 },
-      positive: { value: new THREE.Color("#ef5a3c") },
-      negative: { value: new THREE.Color("#3b8eea") },
-    };
-    uniforms.push(u);
-    // drawn over the solids: the sheets run through the core, which would hide them
-    const mesh = new THREE.Mesh(
-      g,
-      new THREE.ShaderMaterial({ vertexShader: WAVE_VERTEX, fragmentShader: WAVE_FRAGMENT, uniforms: u, transparent: true, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),
-    );
-    mesh.renderOrder = 60;
-    return mesh;
+  if (i1 < 0) [i0, i1, j0, j1] = [0, r.nx - 1, 0, r.ny - 1];
+  const box = new THREE.Box3(new THREE.Vector3(r.x0 + i0 * dx, w.y[0], r.y0 + j0 * dz), new THREE.Vector3(r.x0 + (i1 + 1) * dx, w.y[1], r.y0 + (j1 + 1) * dz));
+  const size = box.getSize(new THREE.Vector3());
+  const g = new THREE.BoxGeometry(size.x, size.y, size.z);
+  g.translate(...box.getCenter(new THREE.Vector3()).toArray());
+  const uniforms: Record<string, THREE.IUniform> = {
+    field: { value: fieldTexture(r) },
+    fx: { value: new THREE.Vector2(r.x0, r.x1) },
+    fz: { value: new THREE.Vector2(r.y0, r.y1) },
+    bmin: { value: box.min.clone() },
+    bmax: { value: box.max.clone() },
+    beta: { value: w.beta },
+    phase: { value: 0 },
+    cut: { value: w.cut },
+    start: { value: w.y[0] },
+    decay: { value: w.decay },
+    density: { value: DENSITY },
+    gamma: { value: 1.7 },
+    // a step of a twelfth of the field's thinner side, from 128 to 400 steps across the box
+    steps: { value: Math.min(400, Math.max(128, size.length() / (Math.max(Math.min(size.x, size.z), 1e-3) / 12))) },
+    positive: { value: new THREE.Color("#ff4a2e") },
+    negative: { value: new THREE.Color("#2f7dff") },
   };
-  const group = new THREE.Group();
-  group.add(
-    sheet([r.x0, y0, zp, r.x1, y0, zp, r.x1, y1, zp, r.x0, y1, zp], [0, 1, 1, 0], row),
-    sheet([xp, y0, r.y0, xp, y1, r.y0, xp, y1, r.y1, xp, y0, r.y1], [0, 0, 1, 1], column),
+  const mesh = new THREE.Mesh(
+    g,
+    new THREE.ShaderMaterial({ vertexShader: VOLUME_VERTEX, fragmentShader: VOLUME_FRAGMENT, uniforms, transparent: true, premultipliedAlpha: true, depthWrite: false }),
   );
-  return group;
+  mesh.renderOrder = 60;
+  return { mesh, uniforms, box };
 }
+
+/** How much the field absorbs and emits where it peaks, per µm, at density 1. */
+const DENSITY = 12;
 
 /** The camera direction the views start from: from the front (+y), above and to the right. */
 function lookFrom(yaw: number, pitch: number): THREE.Vector3 {
@@ -331,11 +358,12 @@ export class View3D {
   private field: THREE.Mesh | null = null;
   private fieldVisible = true;
   private fieldOpacity = 1;
-  /** The travelling wave: its sheets and their uniforms, whether shown and playing, its speed and phase. */
-  private wave: { group: THREE.Group; uniforms: Record<string, THREE.IUniform>[] } | null = null;
+  /** The travelling wave: its volume and its uniforms, whether shown and playing, its speed, density and phase. */
+  private wave: { mesh: THREE.Mesh; uniforms: Record<string, THREE.IUniform>; box: THREE.Box3 } | null = null;
   private waveOn = true;
   private playing = true;
   private speed = 1;
+  private density = 1;
   private phase = 0;
   /** Whether the view is on screen: the wave moves only then. */
   private active = false;
@@ -362,32 +390,35 @@ export class View3D {
     this.resize();
   }
 
-  /** Shows a guided mode travelling along the guide, or none. */
+  /** Shows a guided mode travelling along the guide, as a volume, or none. */
   setWave(w: Wave | null) {
     if (this.wave) {
-      this.scene.remove(this.wave.group);
-      for (const u of this.wave.uniforms) (u.profile.value as THREE.Texture).dispose();
-      dispose(this.wave.group);
+      this.scene.remove(this.wave.mesh);
+      (this.wave.uniforms.field.value as THREE.Texture).dispose();
+      dispose(this.wave.mesh);
       this.wave = null;
     }
     if (w) {
-      const uniforms: Record<string, THREE.IUniform>[] = [];
-      const group = waveSheets(w, uniforms);
-      for (const u of uniforms) u.phase.value = this.phase;
-      group.visible = this.waveOn;
-      this.wave = { group, uniforms };
-      this.scene.add(group);
+      this.wave = waveVolume(w);
+      this.wave.uniforms.phase.value = this.phase;
+      this.wave.uniforms.density.value = DENSITY * this.density;
+      this.wave.mesh.visible = this.waveOn;
+      this.scene.add(this.wave.mesh);
     }
     this.render();
     this.animate();
   }
 
-  /** Whether the wave shows, whether it moves, and how fast (1: a period in 1.5 s). */
-  setWaveLook(on: boolean, playing: boolean, speed: number) {
+  /** Whether the wave shows, whether it moves, how fast (1: a period in 1.5 s), and how dense it looks (1 by default). */
+  setWaveLook(on: boolean, playing: boolean, speed: number, density = 1) {
     this.waveOn = on;
     this.playing = playing;
     this.speed = speed;
-    if (this.wave) this.wave.group.visible = on;
+    this.density = density;
+    if (this.wave) {
+      this.wave.mesh.visible = on;
+      this.wave.uniforms.density.value = DENSITY * density;
+    }
     this.render();
     this.animate();
   }
@@ -408,7 +439,7 @@ export class View3D {
       if (!moving()) return;
       this.phase = (this.phase + ((t - this.last) / 1000) * ((2 * Math.PI * this.speed) / PERIOD)) % (2 * Math.PI);
       this.last = t;
-      for (const u of this.wave!.uniforms) u.phase.value = this.phase;
+      this.wave!.uniforms.phase.value = this.phase;
       this.render();
       this.frameId = requestAnimationFrame(step);
     };
@@ -537,6 +568,17 @@ export class View3D {
     const offset = this.camera.position.clone().sub(target);
     this.light.position.copy(target).add(offset).add(new THREE.Vector3(0, 0, offset.length() * 0.6));
     this.light.target.position.copy(target);
+    if (this.wave) {
+      // the volume is drawn on its near faces, behind whatever opaque is in front of it; from
+      // inside it, on its far faces, over everything
+      const inside = this.wave.box.containsPoint(this.camera.position);
+      const m = this.wave.mesh.material as THREE.ShaderMaterial;
+      if (m.depthTest === inside) {
+        m.side = inside ? THREE.BackSide : THREE.FrontSide;
+        m.depthTest = !inside;
+        m.needsUpdate = true;
+      }
+    }
     this.renderer.render(this.scene, this.camera);
     this.drawGizmo();
   }

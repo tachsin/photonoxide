@@ -36,8 +36,9 @@ window only follows that record, so a live run and a replay look the same.
   open run closes it; deleting one still running stops it first.
 - **Viewer:**
   - **3D** (the default): the layers and shapes as solids, with the field painted on its plane.
-    A modes run's selected mode also travels along its guide: its signed field on two sheets
-    through its peak, red where positive and blue where negative, at a speed you set.
+    A modes run's selected mode also travels along its guide: its field, Re E, as a glowing
+    volume in the guide and its evanescent tails (ray-marched), red where positive and blue
+    where negative, gliding along +y at a speed and density you set, the core turned to glass.
     Drag to orbit, right-drag to pan, scroll to zoom.
   - **2D:** fields, S-parameters and spectra, permittivity pictures, modes, and a sweep's
     effective and group indices. Hover a plot to read its values, and save its data as CSV.

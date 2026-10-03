@@ -11,8 +11,12 @@
   import { api, duration, KINDS } from "../lib/api";
   import { app, go, run, toast } from "../lib/app.svelte";
   import { modeKind } from "../lib/events";
-  import { effectiveLook, outside, rows, um } from "../lib/layers";
-  import { View3D, waveOf, type Plane } from "../lib/view3d";
+  import { effectiveLook, outside, rows, um, type Looks } from "../lib/layers";
+  import { mediumLook } from "../lib/colours";
+  import { PERIOD, View3D, waveOf, type Plane } from "../lib/view3d";
+
+  /** The opacity of the solid shapes the wave runs through, while it shows. */
+  const GLASS = 0.15;
 
   let view = $state<"3d" | "2d">(app.state?.settings.view ?? "3d");
   let host: HTMLDivElement;
@@ -40,12 +44,20 @@
 
   $effect(() => three?.setDark(app.dark));
 
-  // the structure, when it arrives, a layer is hidden or a look changes
+  // the structure, when it arrives, a layer is hidden or a look changes; while the wave shows,
+  // the solid shapes it runs through are glass (the user's own look comes back with it off)
   $effect(() => {
     const scene = run.scene;
     const hidden = new Set(run.hidden);
     // read each look's fields here, so a change to any of them redraws
-    const looks = Object.fromEntries(Object.entries(run.looks).map(([name, l]) => [name, { colour: l.colour, opacity: l.opacity }]));
+    const looks: Looks = Object.fromEntries(Object.entries(run.looks).map(([name, l]) => [name, { colour: l.colour, opacity: l.opacity }]));
+    if (scene && wave && run.wave) {
+      for (const l of scene.layers) {
+        if (mediumLook(l.material.eps)?.solid && scene.shapes.some((s) => s.layer === l.name)) {
+          looks[l.name] = { ...looks[l.name], opacity: Math.min(looks[l.name]?.opacity ?? 1, GLASS) };
+        }
+      }
+    }
     if (three && scene) three.setScene(scene, hidden, looks);
   });
 
@@ -71,9 +83,22 @@
     const m = run.modes[run.selected];
     return m ? m.wavelength_um / m.effective_index[0] : 0;
   });
+  /** The wave in words: what is drawn, its guided wavelength, its phase velocity, and how much slower it is shown. */
+  const facts = $derived.by(() => {
+    const m = run.modes[run.selected];
+    if (!m || !wave) return null;
+    const component = run.modeFields[m.label]?.component;
+    const what = wave.signed && component ? `Re E_${component.slice(1)}` : "|E| (magnitude only: an older run)";
+    // the light's frequency c/λ against the shown one, speed/PERIOD
+    const slower = (2.998e8 / (m.wavelength_um * 1e-6)) * (PERIOD / run.waveSpeed);
+    const exp = Math.floor(Math.log10(slower));
+    const mantissa = Math.round(slower / 10 ** exp);
+    const sup = String(exp).replace(/\d/g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[Number(d)]);
+    return { what, velocity: (1 / m.effective_index[0]).toFixed(2), slower: `${mantissa === 1 ? "" : `${mantissa} × `}10${sup}` };
+  });
 
   $effect(() => three?.setWave(wave));
-  $effect(() => three?.setWaveLook(run.wave, run.wavePlaying, run.waveSpeed));
+  $effect(() => three?.setWaveLook(run.wave, run.wavePlaying, run.waveSpeed, run.waveDensity));
 
   $effect(() => {
     const shown = view === "3d" && app.page === "viewer";
@@ -153,9 +178,10 @@
           {@const m = run.modes[run.selected]}
           <p class="font-medium">{m.label} · {modeKind(m)} · <span class="num">n_eff {m.effective_index[0].toFixed(6)}</span></p>
           <p class="text-xs faint">|E|² on the cut at y = {m.cut_y_um.toFixed(3)} µm</p>
-          {#if wave && run.wave}
+          {#if facts && run.wave}
             <p class="text-xs faint">
-              travelling along y, guided wavelength <span class="num">{guided.toFixed(3)}</span> µm{wave.signed ? `: ${run.modeFields[m.label]?.component}, red positive, blue negative` : " (magnitude only: an older run)"}
+              {facts.what}, travelling along +y · guided wavelength λ/n_eff = <span class="num">{guided.toFixed(3)}</span> µm · phase velocity c/n_eff =
+              <span class="num">{facts.velocity}</span> c · shown about {facts.slower} times slower
             </p>
           {/if}
         {:else if !run.scene}
@@ -257,11 +283,29 @@
                   />
                   <span class="w-9 text-right text-xs faint num">{run.waveSpeed}×</span>
                 </label>
-                <p class="mt-1 text-[11px] leading-snug faint">
-                  Guided wavelength λ/n_eff = <span class="num">{guided.toFixed(3)}</span> µm. The mode's field
-                  {wave.signed ? `(${run.modeFields[run.modes[run.selected]?.label]?.component}, red positive, blue negative)` : "(its magnitude only: an older run)"}
-                  on two sheets through its peak, as it travels along y, slowed down.
-                </p>
+                <label class="mt-1 flex items-center gap-2">
+                  <span class="text-[11px] faint">density</span>
+                  <input
+                    type="range"
+                    class="range range-xs range-primary flex-1"
+                    aria-label="The wave's density"
+                    title="How dense the field is drawn: denser hides more of what is behind it"
+                    min="0.2"
+                    max="3"
+                    step="0.1"
+                    disabled={!run.wave}
+                    value={run.waveDensity}
+                    oninput={(e) => (run.waveDensity = Number((e.currentTarget as HTMLInputElement).value))}
+                  />
+                  <span class="w-9 text-right text-xs faint num">{run.waveDensity.toFixed(1)}×</span>
+                </label>
+                {#if facts}
+                  <p class="mt-1 text-[11px] leading-snug faint">
+                    {facts.what} in the guide and its evanescent tails: red where positive, blue where negative, lobes λ/(2 n_eff) =
+                    <span class="num">{(guided / 2).toFixed(3)}</span> µm long, gliding along +y at c/n_eff = <span class="num">{facts.velocity}</span> c, shown about
+                    {facts.slower} times slower. The core turns to glass while it shows.
+                  </p>
+                {/if}
               </div>
             {/if}
             <div class="mx-2 my-1 border-t border-base-content/8"></div>
