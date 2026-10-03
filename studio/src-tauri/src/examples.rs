@@ -53,6 +53,9 @@ examples!(
     leaky_waves: "../../../examples/leaky_waves.rs",
     hadley_corners: "../../../examples/hadley_corners.rs",
     strip_waveguide: "../../../examples/strip_waveguide.rs",
+    circuit_splitter: "../../../examples/circuit_splitter.rs",
+    circuit_ring_critical: "../../../examples/circuit_ring_critical.rs",
+    circuit_fit: "../../../examples/circuit_fit.rs",
 );
 
 /// An example's `main` returns an exit code, or a result holding one.
@@ -122,6 +125,12 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "The 500 × 220 nm silicon strip",
             "Chrostowski & Hochberg 2015",
         ),
+        "circuit_splitter" => ("A tunable MZI splitter", "Clements et al. 2016"),
+        "circuit_ring_critical" => ("A ring tuned to critical coupling", "Bogaerts et al. 2012"),
+        "circuit_fit" => (
+            "Fitting a ring, with and without gradients",
+            "Bogaerts et al. 2012",
+        ),
         _ => ("", ""),
     }
 }
@@ -134,10 +143,13 @@ fn seconds(name: &str) -> f64 {
     match name {
         "silicon_index"
         | "silica_index"
+        | "circuit_splitter"
+        | "circuit_ring_critical"
         | "slab_soi"
         | "slab_yariv_yeh"
         | "multilayer_chilwell" => 0.1,
         "marcatili" | "effective_index_method" => 5.0,
+        "circuit_fit" => 2.0,
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
         "group_index" | "hadley_corners" => 30.0,
         "leaky_wire_benchmark" => 60.0,

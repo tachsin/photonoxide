@@ -22,6 +22,8 @@ tauri-build = { version = "2.6", features = [] }
 
 [dependencies]
 faer = "0.24.4"
+# the optimizers of the circuit examples, which the program builds in (examples.rs)
+genoxide = { version = "0.13.1", default-features = false }
 num-complex = "0.4"
 photonoxide = { path = "../.." }
 serde = { version = "1", features = ["derive"] }

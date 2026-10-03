@@ -19,6 +19,10 @@ validation:
   - circuit/adjoint-nested
   - circuit/adjoint-differences
   - circuit/component-differences
+examples:
+  - circuit_splitter
+  - circuit_ring_critical
+  - circuit_fit
 ---
 
 Optimizing a circuit moves its components' parameters (couplings, phases, lengths, a ring's
@@ -116,7 +120,8 @@ let (f, gradient) = circuit.gradient(&wavelengths, &values, |s| {
 distance from a target, amplitudes and phases (`matrix_error`); any closure that returns F and G
 per wavelength is an objective. `Circuit::parameter("instance.parameter")` finds a parameter's
 position in the values, and `Component::parameters` gives every range, the bounds for an
-optimizer. The optimizers are genoxide's.
+optimizer. The optimizers are genoxide's: the examples run L-BFGS-B and CMA-ES on these
+gradients.
 
 ## Validation
 

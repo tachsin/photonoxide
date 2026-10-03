@@ -26,6 +26,13 @@ serde_json = { version = "1", features = ["float_roundtrip"] }
 toml = "1"
 yaml-rust2 = "0.13.0"
 
+# the optimizers the circuit examples run on photonoxide's objectives and gradients: genoxide's
+# L-BFGS-B, Adam and CMA-ES (AGENTS.md: optimizers come from genoxide). A dev-dependency, not a
+# feature, so the library's API doesn't follow genoxide's versions; the studio, which builds the
+# examples in, depends on it too.
+[dev-dependencies]
+genoxide = { version = "0.13.1", default-features = false }
+
 # the solvers' heavy lifting runs in dependencies (faer's sparse LU) and in photonoxide itself (FDFD
 # assembly, the mode solvers, QMR): optimize both in debug and test builds too, so `cargo test`
 # stays fast. Unoptimized, a test that solves in earnest took 20 to 30 times as long, over a
