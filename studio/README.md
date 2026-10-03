@@ -167,11 +167,12 @@ simulates; a port meant to absorb what reaches it is wired to a terminator.
 An installed copy updates itself. It looks for a newer release when it opens and every hour
 while it stays open (Settings turns this off; **Check now** looks at once). When one is out, the
 studio says so, and **Update and restart** downloads it, checks its signature against the release
-key, installs it and restarts. A copy built from the repository, or the bare `.tar.gz` and `.zip` programs, can't
-update itself. They say so.
+key, installs it and restarts. Only installed copies update: builds from source can't update
+themselves, and say so.
 
 - **The manifest:** the release workflow writes `latest.json` on every release, and the
-  programs read it from `releases/latest`. A release becomes "latest" only once its binaries
+  programs read it from `releases/latest`. It carries each update's signature, so the release
+  has no separate `.sig` files. A release becomes "latest" only once its binaries
   and manifest are attached, about ten minutes after it appears (release-plz creates it
   without the mark, and the workflow's last step sets it). Until then the programs keep seeing
   the previous release. When GitHub already lists a newer one, they say it is on its way and
@@ -189,8 +190,8 @@ platforms research groups use:
 
 | Platform | Files | Notes |
 |---|---|---|
-| Linux x86_64 and ARM64 (workstations, clusters) | `.AppImage`, `.deb`, `.rpm`, `.tar.gz` | The AppImage carries its libraries: `chmod +x` and run it, with `--appimage-extract-and-run` where FUSE is missing (most clusters). The `.tar.gz` holds the bare program, which needs the system's WebKitGTK (`libwebkit2gtk-4.1`), even with `--headless`. Built on Ubuntu 22.04: glibc 2.35 or newer. |
-| Windows x86_64 | `-setup.exe`, `.zip` | The installer needs no administrator rights. The zip is the portable program alone, using the WebView2 that comes with Windows 10 and 11. |
+| Linux x86_64 and ARM64 (workstations, clusters) | `.AppImage`, `.deb`, `.rpm` | The AppImage is the one for clusters: it carries its libraries, so `chmod +x` it and run it, with `--appimage-extract-and-run` where FUSE is missing (most clusters). The `.deb` and `.rpm` install it system-wide. Built on Ubuntu 22.04: glibc 2.35 or newer. |
+| Windows x86_64 | `-setup.exe` | A per-user installer: it needs no administrator rights. |
 | macOS, Apple Silicon and Intel | `.dmg`, `.app.tar.gz` | One universal app. Until it is signed (see below), right-click it and choose Open the first time, or run `xattr -dr com.apple.quarantine photonoxide.app`. From a terminal, the program is `photonoxide.app/Contents/MacOS/photonoxide`. |
 
 The release workflow, `.github/workflows/binaries.yml`, builds them from the release's tag.
@@ -202,7 +203,7 @@ it builds unsigned.
 
 - **Windows:** Certum's open-source code-signing certificate, in its SimplySign cloud, used through
   `ssign`. Secrets: `CERTUM_EMAIL`, and `CERTUM_OTP` (the base32 seed from SimplySign's QR code).
-  - Tauri signs the program and the installer, and the workflow signs the portable `.exe`.
+  - Tauri signs the program inside the installer and the installer itself.
   - Windows SmartScreen still warns about a new publisher until downloads build its reputation.
     Signing every release with the same certificate lets that reputation carry over.
 - **macOS:** a Developer ID Application certificate, with notarization by an App Store Connect
