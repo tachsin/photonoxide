@@ -227,9 +227,8 @@ S A = B, as in 2D. With the modes normalized to N = 1, S is power-normalized, an
 reciprocal device.
 
 **Conventions.** The backward twin of a mode has the same tangential E, the usual convention of
-mode expansions, so S's reflections are the tangential E's. The 2D solver with H along z writes
-its modes in H_z, and its backward twin has the same H_z: its $S_{11}$ and $S_{22}$ are minus these.
-With E along z the two agree.
+mode expansions, so S's reflections are the tangential E's. The 2D solver takes the same twin
+(with H along z, the one with the opposite H_z), so the two agree, signs included.
 
 ### Validation
 
@@ -288,7 +287,7 @@ to 2.5e-13.
 PMLs along x and y on a 20 nm grid, by the 2D solver and by the 3D one with one periodic cell
 along z, placed as in the field comparison above. With H along z the two S-matrices agree to
 2.1e-10, the eigensolver's tolerance, once the 3D ports' planes (where E_y lies) are moved half a
-cell to the 2D columns (where H_z lies), and the 2D reflections' sign is turned to E's. With E
+cell to the 2D columns (where H_z lies), with the reflections' signs as they come. With E
 along z they agree to 8.9e-9: there the 3D grid sits half a cell off the 2D one, and so do its
 PMLs, graded from the grid's ends, which the modes' tails reach.
 

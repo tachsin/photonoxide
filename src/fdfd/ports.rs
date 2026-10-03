@@ -18,8 +18,11 @@
 //! projection with the operator's own orthogonality, Σ_j w_j φ_m φ_n = 0 for m ≠ n, where
 //! w = s_y (the PML stretch) for E along z and s_y/ε_y for H along z, the weights that make the
 //! column's operator symmetric. Each mode normalized to Σ w φ² = 1 is real where the guide is
-//! lossless. The two columns' shares p_c = a + b and p_(c+1) = a e^(iβΔx) + b e^(−iβΔx) give
-//! the forward and backward amplitudes a and b at column c.
+//! lossless. The two columns' shares p_c = a ± b and p_(c+1) = a e^(iβΔx) ± b e^(−iβΔx) give
+//! the forward and backward amplitudes a and b at column c. A mode's backward twin is the one with
+//! the same tangential E, the usual convention of mode expansions and the 3D ports': E_z itself
+//! with E along z (+), and −H_z with H along z (−), since H_z reverses with the tangential H. So
+//! S's reflections are the tangential E's with either polarization.
 //!
 //! **S-parameters** are power-normalized: S_qp = (outgoing at q) √P_q / ((incoming at p) √P_p),
 //! with P a mode's power at unit amplitude, so |S_qp|² is the share of power from mode p into
@@ -313,10 +316,16 @@ impl Solver2d {
             Direction::Backward => -1.0,
         };
         let i_beta = c64::new(0.0, sign) * mode.beta;
+        // going backward, the twin with the same tangential E: with H along z, minus the profile
+        let amplitude = match direction {
+            Direction::Forward => 1.0,
+            Direction::Backward => twin(mode.polarization),
+        };
         let incident: Vec<c64> = (0..g.ny)
             .flat_map(|j| {
-                (0..g.nx)
-                    .map(move |i| mode.profile[j] * (i_beta * ((i as i64 - c) as f64 * g.dx)).exp())
+                (0..g.nx).map(move |i| {
+                    amplitude * mode.profile[j] * (i_beta * ((i as i64 - c) as f64 * g.dx)).exp()
+                })
             })
             .collect();
         let scattered = |i: usize| match direction {
@@ -402,7 +411,9 @@ impl Solver2d {
 }
 
 impl Field2d {
-    /// The forward and backward amplitudes of `mode` at its column (see the module's docs).
+    /// The forward and backward amplitudes of `mode` at its column (see the module's docs): the
+    /// backward one is that of the mode's backward twin, which has the same tangential E (with H
+    /// along z, the opposite H_z).
     ///
     /// # Panics
     ///
@@ -413,7 +424,7 @@ impl Field2d {
         let (p0, p1) = (mode.share(column(c)), mode.share(column(c + 1)));
         let step = (c64::new(0.0, 1.0) * mode.beta * self.grid.dx).exp();
         let forward = (p1 - p0 / step) / (step - 1.0 / step);
-        (forward, p0 - forward)
+        (forward, twin(mode.polarization) * (p0 - forward))
     }
 
     /// The power crossing the face between columns `i` and `i + 1` towards +x, per unit length
@@ -445,5 +456,15 @@ impl Field2d {
                 ) * g.dy
             })
             .sum()
+    }
+}
+
+/// The field along z of a mode's backward twin, relative to the mode's, for the twin that has the
+/// same tangential E: E_z itself with E along z (1), and H_z, which reverses with the tangential
+/// H, with H along z (−1). The 3D ports' convention, the usual one of mode expansions.
+fn twin(polarization: Polarization) -> f64 {
+    match polarization {
+        Polarization::Ez => 1.0,
+        Polarization::Hz => -1.0,
     }
 }

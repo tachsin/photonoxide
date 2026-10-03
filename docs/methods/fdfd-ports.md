@@ -76,10 +76,12 @@ $\sum w\phi^2 = 1$ is $\sin(\beta\Delta x)\thinspace\Delta y/(2k_0\Delta x)$. Th
 real, and it keeps S exactly symmetric for a reciprocal device. Where a mode's tail reaches into
 a PML, the physical power differs from it, by about the share of the mode in the PML.
 
-A mode's backward twin has the same field along z. With E along z that is the tangential E, the
-usual convention of mode expansions, which the [3D ports](fdfd-3d.md) follow. With H along z it is
-H_z, so $S_{11}$ and $S_{22}$ are the reflections of H, minus those of the tangential E that the 3D
-ports give for the same structure.
+A mode's backward twin is the one with the same tangential E, the usual convention of mode
+expansions, which the [3D ports](fdfd-3d.md) follow too: E_z itself with E along z, and −H_z with
+H along z, since H_z reverses with the tangential H. So $S_{11}$ and $S_{22}$ are the tangential
+E's reflections with either polarization, and the 2D and 3D solvers give the same S-matrix for a
+structure uniform along z, signs included. (Before 0.4.0, the twin with H along z had the same
+H_z, and those reflections were minus these.)
 
 ## Validation
 
