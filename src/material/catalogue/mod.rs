@@ -27,10 +27,12 @@ mod entries;
 mod models;
 mod references;
 mod symmetry;
+mod tags;
 #[cfg(test)]
 mod tests;
 
 pub use symmetry::{Pattern, pattern};
+pub use tags::Tag;
 
 /// What kind of material an entry is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
