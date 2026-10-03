@@ -483,6 +483,43 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         device.field_name
     );
     // a sweep's points each record their field, on blocks of cells
+    run.record(&Event::Solver {
+        module: "fdfd".into(),
+        cells: [nx, ny],
+        step_um: task.step_nm / 1000.0,
+        unknowns: nx * ny,
+        details: vec![
+            [
+                "field".into(),
+                match device.kind {
+                    crate::mode::Polarization::Te => {
+                        "H along z: the slab's TE mode, E in the plane"
+                    }
+                    crate::mode::Polarization::Tm => "E along z: the slab's TM mode",
+                }
+                .into(),
+            ],
+            [
+                "permittivity".into(),
+                "the effective index method: each point's slab mode index, squared".into(),
+            ],
+            [
+                "PML".into(),
+                format!(
+                    "{} cells on each side, inside the window",
+                    task.pml_cells.unwrap_or(20)
+                ),
+            ],
+            ["ports".into(), task.port.len().to_string()],
+            [
+                "linear solve".into(),
+                "sparse LU with one step of iterative refinement; a sweep analyses the \
+                 sparsity once"
+                    .into(),
+            ],
+        ],
+    })?;
+    let pml_cells = task.pml_cells.unwrap_or(20);
     let block = match &task.sweep {
         Some(sw) => {
             run.record(&Event::Sweep {
@@ -503,6 +540,14 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         let value = w;
         let w = Wavelength::um(w)?;
         let (current, ports, sm) = device.solve(w, solver.as_ref())?;
+        let mut residual = None;
+        // how far S is from reciprocal: the largest |S_qp − S_pq|
+        let reciprocity = (0..sm.len())
+            .flat_map(|q| (0..q).map(move |p| (q, p)))
+            .map(|(q, p)| (sm[q][p] - sm[p][q]).norm())
+            .fold(None, |most: Option<f64>, d| {
+                Some(most.map_or(d, |m| m.max(d)))
+            });
         run.record(&Event::SParameters {
             wavelength_um: w.to_um(),
             ports: names.clone(),
@@ -520,7 +565,12 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 Side::Left => Direction::Forward,
                 Side::Right => Direction::Backward,
             };
-            let field = current.solve_system(&current.mode_source(&first.mode, direction))?;
+            // launched from the window's end of port 1's guide, so the picture shows the wave
+            // from where the guide comes in (S is still referred to the port's own column)
+            let launched = launch(&current, &task.port[0], &first.mode, pml_cells);
+            let source = current.mode_source(launched.as_ref().unwrap_or(&first.mode), direction);
+            let field = current.solve_system(&source)?;
+            residual = Some(current.residual(&field, &source)?);
             let values: Vec<f64> = (0..ny)
                 .flat_map(|j| (0..nx).map(move |i| (i, j)))
                 .map(|(i, j)| field.at(i, j).norm_sqr())
@@ -557,11 +607,48 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 })?;
             }
         }
+        let point = block.map(|_| step);
+        for (measure, error) in [("linear residual", residual), ("reciprocity", reciprocity)] {
+            if let Some(error) = error {
+                run.record(&Event::SolveError {
+                    point,
+                    value,
+                    measure: measure.into(),
+                    error,
+                })?;
+            }
+        }
         if solver.is_none() {
             solver = Some(current);
         }
     }
     Ok(())
+}
+
+/// The mode of `spec`'s guide at the column nearest the window's end on the port's side, two
+/// cells clear of the PML: where the recorded field is launched from, so that it shows the wave
+/// along the whole guide and not only from the port on. `None` when the guide there isn't the
+/// port's (no mode, or one of another effective index): the field is then launched at the port.
+fn launch(
+    solver: &Solver2d,
+    spec: &PortSpec,
+    at_port: &crate::fdfd::PortMode,
+    pml_cells: usize,
+) -> Option<crate::fdfd::PortMode> {
+    let g = solver.grid();
+    let column = match spec.side.as_str() {
+        "left" => pml_cells + 2,
+        _ => g.nx.checked_sub(pml_cells + 3)?,
+    };
+    let row = |y: f64| (((y - g.y0) / g.dy).round().max(0.0) as usize).min(g.ny);
+    let rows = spec.y_um.map_or(0..g.ny, |[a, b]| row(a)..row(b));
+    let mode = solver
+        .port_modes_within(column, rows, 1)
+        .ok()?
+        .into_iter()
+        .next()?;
+    let same = (mode.effective_index() - at_port.effective_index()).norm() < 1e-8;
+    same.then_some(mode)
 }
 
 /// The port a spec describes: its column, its window, its fundamental mode.

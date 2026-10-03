@@ -372,3 +372,42 @@ fn a_backward_source_launches_the_twin_with_the_same_tangential_e_at_unit_amplit
         assert!((ratio - twin).norm() < 1e-4, "{polarization:?}: {ratio}");
     }
 }
+
+#[test]
+fn a_solved_fields_residual_is_rounding_and_tells_another_source() {
+    let grid = Grid {
+        nx: 40,
+        ny: 40,
+        dx: 0.05,
+        dy: 0.05,
+        x0: -1.0,
+        y0: -1.0,
+    };
+    for polarization in [Polarization::Ez, Polarization::Hz] {
+        // a silicon square in oxide, a point source at its centre
+        let solver = Solver2d::new(
+            grid,
+            polarization,
+            Wavelength::um(1.55).unwrap(),
+            |x, y| {
+                if x.abs() < 0.25 && y.abs() < 0.25 {
+                    c64::new(12.0, 0.0)
+                } else {
+                    c64::new(2.1, 0.0)
+                }
+            },
+            Boundaries::pml(10),
+        )
+        .unwrap();
+        let mut rhs = vec![c64::new(0.0, 0.0); 1600];
+        rhs[20 * 40 + 20] = c64::new(1.0, 0.0);
+        let field = solver.solve_system(&rhs).unwrap();
+        let solved = solver.residual(&field, &rhs).unwrap();
+        assert!(solved < 1e-10, "{polarization:?}: {solved:e}");
+        // against twice the source: b − A u = 2b − b, over ‖2b‖
+        let twice: Vec<c64> = rhs.iter().map(|b| b * 2.0).collect();
+        let off = solver.residual(&field, &twice).unwrap();
+        assert!((off - 0.5).abs() < 1e-9, "{polarization:?}: {off}");
+        assert!(solver.residual(&field, &rhs[1..]).is_err());
+    }
+}

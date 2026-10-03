@@ -442,6 +442,12 @@ impl CrossSection {
         CrossSection::new(u, y, cells)
     }
 
+    /// How many unknowns the cross-section's eigenproblem has: H_x and H_y at each node, less
+    /// the components its walls hold at zero.
+    pub fn unknowns(&self) -> usize {
+        unknowns(self).len()
+    }
+
     /// The node coordinates along x, µm.
     pub fn x(&self) -> &[f64] {
         &self.x
@@ -992,6 +998,36 @@ pub fn modes(
 }
 
 impl VectorMode {
+    /// How far the mode is from solving the eigenproblem of `cs` at its wavelength:
+    /// ‖A h − β² h‖ / (|β²| ‖h‖), with A assembled afresh and h the mode's field over the
+    /// unknowns. It is the measure [`modes`] accepts an eigenpair by (see `crate::eigen`), so
+    /// for a mode it returned on `cs` it is below that tolerance, 1e-9.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] if `cs` isn't on the mode's grid.
+    pub fn residual(&self, cs: &CrossSection) -> Result<f64> {
+        if cs.x != self.x || cs.y != self.y {
+            return Err(Error::invalid(
+                "cross-section",
+                "must be the one the mode was solved on",
+            ));
+        }
+        let unknowns = unknowns(cs);
+        let h = self.to_unknowns(&unknowns);
+        let mut ah = vec![c64::new(0.0, 0.0); h.len()];
+        for (row, column, value) in assemble(cs, self.k * self.k) {
+            ah[row] += value * h[column];
+        }
+        let off: f64 = ah
+            .iter()
+            .zip(&h)
+            .map(|(a, x)| (a - self.beta2 * x).norm_sqr())
+            .sum();
+        let size: f64 = h.iter().map(|x| x.norm_sqr()).sum();
+        Ok(off.sqrt() / (self.beta2.norm() * size.sqrt()))
+    }
+
     /// The mode with eigenvalue β² whose field, over `unknowns`, is `vector`.
     pub(crate) fn from_unknowns(
         cs: &CrossSection,
@@ -1381,6 +1417,21 @@ mod tests {
 
     fn iso(eps: f64) -> Permittivity {
         Permittivity::isotropic(c64::new(eps, 0.0))
+    }
+
+    #[test]
+    fn a_modes_residual_is_within_the_solvers_tolerance_and_tells_a_wrong_eigenvalue() {
+        let cs = strip(0.05);
+        let w = Wavelength::um(1.55).unwrap();
+        let mut mode = modes(&cs, w, 1, None).unwrap().remove(0);
+        let solved = mode.residual(&cs).unwrap();
+        assert!(solved < 1e-9, "{solved:e}");
+        // the same field with β² 1 % off: A h − 1.01 β² h = −0.01 β² h, over 1.01 |β²| ‖h‖
+        mode.beta2 *= 1.01;
+        let off = mode.residual(&cs).unwrap();
+        assert!((off - 0.01 / 1.01).abs() < 1e-8, "{off}");
+        // on another grid there is nothing to measure against
+        assert!(mode.residual(&strip(0.1)).is_err());
     }
 
     #[test]

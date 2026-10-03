@@ -1,16 +1,18 @@
 <script lang="ts">
   // The viewer: the run the window follows, in 3D (its layers as solids, the field painted on
   // its plane) or 2D (pictures and plots), with its details at the side.
-  import { Box, ChartLine, ChevronLeft, ChevronRight, CirclePause, FolderOpen, Info, Layers, Pause, Play, RotateCcw, Square, Waves } from "@lucide/svelte";
+  import { Box, ChartLine, ChevronLeft, ChevronRight, CirclePause, Cpu, FolderOpen, Info, Layers, Pause, Play, RotateCcw, Square, Waves } from "@lucide/svelte";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
 
   import LayerDialog from "../components/LayerDialog.svelte";
   import RunPlots from "../components/RunPlots.svelte";
+  import SolverDialog from "../components/SolverDialog.svelte";
   import Tip from "../components/Tip.svelte";
   import { api, duration, KINDS } from "../lib/api";
   import { app, followSweep, go, perPoint as hasPerPoint, pickPoint, run, shownField, shownModes, shownScene, sweepAxis, themeBackdrop, toast } from "../lib/app.svelte";
   import { modeKind } from "../lib/events";
+  import { SOLVERS } from "../lib/methods";
   import { effectiveLook, outside, rows, um, type Looks } from "../lib/layers";
   import { mediumLook } from "../lib/colours";
   import { PERIOD, View3D, waveOf, type Plane } from "../lib/view3d";
@@ -127,7 +129,7 @@
   }
 
   function keys(e: KeyboardEvent) {
-    if (app.page !== "viewer" || !axis || details || app.palette) return;
+    if (app.page !== "viewer" || !axis || details || solving || app.palette) return;
     const t = e.target as HTMLElement | null;
     if (t && (t.closest("input, textarea, select, [contenteditable]") || t.closest("dialog.modal-open"))) return;
     if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
@@ -151,6 +153,10 @@
   const media = $derived(run.scene ? rows(run.scene).reverse() : []);
   /** The medium whose details are open, if any. */
   let details = $state<string | null>(null);
+  /** Whether the account of how the run was solved is open. */
+  let solving = $state(false);
+  /** The largest numerical error the run recorded, if it recorded any. */
+  const worstError = $derived(run.errors.length ? Math.max(...run.errors.map((e) => e.error)) : null);
   /** The field the 3D view paints, and where. */
   const painted = $derived.by(() => {
     const f = field;
@@ -220,6 +226,11 @@
         {/if}
       {/if}
       <span class="flex-1"></span>
+      {#if run.job && run.job.kind !== "structure"}
+        <button class="btn btn-ghost btn-sm gap-1.5" onclick={() => (solving = true)} title="The solver this run uses, its grid, each solve's numerical error, and the method's equations and papers">
+          <Cpu size={14} /> Solver
+        </button>
+      {/if}
       <div class="join" role="tablist" aria-label="view">
         <button class="btn join-item btn-sm gap-1.5 {view === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (view = "3d")} title="The structure as solids, with the field painted on it"><Box size={14} /> 3D</button>
         <button class="btn join-item btn-sm gap-1.5 {view === '2d' ? 'btn-primary btn-soft' : ''}" onclick={() => (view = "2d")} title="Pictures and plots"><ChartLine size={14} /> 2D</button>
@@ -275,6 +286,18 @@
       <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
         <dt class="faint">job</dt><dd class="truncate">{run.job?.job ?? "…"}</dd>
         <dt class="faint">kind</dt><dd>{KINDS[run.job?.kind ?? ""]?.label ?? run.job?.kind ?? "…"}</dd>
+        {#if run.solver}
+          <dt class="faint">solver</dt>
+          <dd>
+            <button class="link link-hover text-left" onclick={() => (solving = true)} title="How this run was solved: the method, its equations and papers, and each solve's error">
+              {SOLVERS[run.solver.module] ?? run.solver.module}
+            </button>
+          </dd>
+          <dt class="faint">grid</dt><dd class="num">{run.solver.cells[0]} × {run.solver.cells[1]} cells</dd>
+          {#if worstError !== null}
+            <dt class="faint">error</dt><dd class="num" title="The largest numerical error of the run's solves; the Solver panel has each one">≤ {worstError.toExponential(1)}</dd>
+          {/if}
+        {/if}
         {#if run.scene}
           <dt class="faint">λ</dt><dd class="num">{run.scene.wavelength_um} µm</dd>
           {#each [["x", run.scene.x_um], ["y", run.scene.y_um], ["z", run.scene.z_um]] as const as [axis, w] (axis)}
@@ -492,3 +515,4 @@
 </div>
 
 <LayerDialog name={details} onclose={() => (details = null)} />
+<SolverDialog open={solving} onclose={() => (solving = false)} />
