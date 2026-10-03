@@ -5,7 +5,9 @@
 //! measurement. A **netlist** ([`Netlist`]) is instances of components, the connections between
 //! their ports, and the ports left open to the outside; compiled ([`Netlist::compile`]) it is a
 //! [`Circuit`], whose own S-matrix comes from one sparse linear solve. A circuit is a component
-//! itself, so circuits nest.
+//! itself, so circuits nest. The [circuit adjoint](adjoint) gives a response's gradient with
+//! respect to every parameter of every instance from one more solve ([`Circuit::gradient`],
+//! with the [`objective`]s), for genoxide's optimizers.
 //!
 //! **Conventions** (docs/design/components.md has them in full, docs/methods/circuits.md the solve), the same as the FDFD solver's
 //! ([`crate::fdfd`]):
@@ -53,8 +55,10 @@
 //! # Ok::<(), photonoxide::Error>(())
 //! ```
 
+pub mod adjoint;
 pub(crate) mod ideal;
 mod netlist;
+pub mod objective;
 mod solve;
 
 #[cfg(test)]

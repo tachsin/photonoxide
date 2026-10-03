@@ -138,7 +138,8 @@ $$
 and a scalar response's gradient with respect to every parameter of every instance takes one
 solve with Mᵀ, reusing M's factorization, as the FDFD adjoint does. The netlist's values are the
 optimizer's vector: instances in order, each instance's parameters in order, each with its
-range for genoxide's bounds.
+range for genoxide's bounds. `Circuit::gradient` and `Circuit::jacobian` implement it; the
+method, its conjugation and its validation are in [circuit-adjoint.md](../methods/circuit-adjoint.md).
 
 **The studio's library and chip view.** A component lists everything the library shows: `kind`,
 its ports (and their modes), its parameters with units and ranges, its provenance. The chip

@@ -724,7 +724,89 @@ pub fn cases() -> Vec<Case> {
             source: r"a netlist of lossless components is lossless, $S^\dagger S = I$",
             run: circuit_unitarity,
         },
+        Case {
+            id: "circuit/adjoint-mzi",
+            title: r"Circuit adjoint: an MZI's bar power summed over five wavelengths, 1.549 to 1.551 µm, its gradient with respect to both couplers' $\kappa^2$ and both arms' lengths against fourth-order central finite differences of the whole circuit ($\delta$ = 1e-3 and 1e-4 µm; the largest difference relative to the largest component shown)",
+            tier: Tier::Analytic,
+            source: r"the adjoint variable method, G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2-4, on the circuit's system $M = I - S_b \Gamma$: $\partial F/\partial \theta = 2 \operatorname{Re} \operatorname{tr}(\Lambda^\mathsf{T} \thinspace \partial_\theta S_b \thinspace A)$ with $M^\mathsf{T} \Lambda = E G$; the differences' own round-off and truncation, about 1e-10",
+            run: circuit_adjoint_mzi,
+        },
+        Case {
+            id: "circuit/adjoint-ring",
+            title: r"Circuit adjoint: an add-drop ring ($\kappa^2$ = 0.1 and 0.05, 62.8 µm) on the flank of a resonance, 1.5521 µm: the gradient of $(\lvert S_{41} \rvert^2 - 0.5)^2$ with respect to its four parameters, the same way ($\delta$ = 1e-4 and 1e-5 µm; shown as above)",
+            tier: Tier::Analytic,
+            source: "the adjoint variable method, as above; the differences' round-off, about 3e-11",
+            run: circuit_adjoint_ring,
+        },
+        Case {
+            id: "circuit/adjoint-mesh",
+            title: r"Circuit adjoint: a 4 × 4 mesh of six MZIs in Clements et al.'s rectangular arrangement, 24 parameters (every coupler's $\kappa^2$ and every phase): the gradient of $\sum_{qp} \lvert S_{qp} - T_{qp} \rvert^2$ for a complex target $T$, the same way ($\delta$ = 1e-3; shown as above)",
+            tier: Tier::Analytic,
+            source: r"the adjoint variable method, as above, with a sensitivity $G = \overline{S - T}$ that depends on the phases; the mesh is W. R. Clements et al., Optica 3, 1460 (2016), doi:10.1364/OPTICA.3.001460, Fig. 1(b); the differences' round-off, about 1e-11",
+            run: circuit_adjoint_mesh,
+        },
+        Case {
+            id: "circuit/adjoint-nested",
+            title: r"Circuit adjoint: a netlist of circuits (an add-drop ring and an MZI as instances, a reflective 3-port in a loop, a waveguide), $\sum_\lambda \lvert S_{41} \rvert^2$ at three wavelengths, its 9 parameters through the inner circuits' own adjoints, the same way ($\delta$ = 1e-4 and 1e-5 µm; shown as above)",
+            tier: Tier::Analytic,
+            source: r"the adjoint variable method, as above; a circuit's derivatives are its Jacobian $\partial S/\partial \theta = Z^\mathsf{T} \partial_\theta S_b \thinspace A$, $M^\mathsf{T} Z = E$; the differences' round-off, about 5e-10",
+            run: circuit_adjoint_nested,
+        },
+        Case {
+            id: "circuit/adjoint-differences",
+            title: r"Circuit adjoint: the circuit solve's netlist of 11 instances, whose components give no derivatives, differentiated each by fourth-order differences of its S-matrix (step $\epsilon^{1/3} \max(\lvert \theta \rvert, 1)$): $\sum_\lambda \lvert S_{41} \rvert^2$ at three wavelengths, its 11 parameters, the same way ($\delta$ = 1e-4 and 1e-5 µm; shown as above)",
+            tier: Tier::Analytic,
+            source: "the adjoint variable method, as above; the components' differences add about 1e-11, the circuit's differences' round-off about 5e-10",
+            run: circuit_adjoint_differences,
+        },
+        Case {
+            id: "circuit/component-differences",
+            title: r"A component's $\partial S/\partial \theta$ by fourth-order differences (central; one-sided inwards at a bound), against its closed form: a waveguide's length at 100 µm and at 0, a coupler's $\kappa^2$ at 0.3, a phase shifter at its bounds (the largest difference relative to the largest entry shown)",
+            tier: Tier::Analytic,
+            source: r"$\partial t/\partial L = t\thinspace(i 2\pi n/\lambda - \alpha \ln 10/20)$, $\partial r/\partial \kappa^2 = -1/2r$, $\partial \kappa/\partial \kappa^2 = 1/2\kappa$, $\partial e^{i\phi}/\partial \phi = i e^{i\phi}$; the round-off of a step of $6 \times 10^{-6} \max(\lvert \theta \rvert, 1)$, about 1e-11",
+            run: circuit_component_differences,
+        },
     ]
+}
+
+fn circuit_adjoint(check: crate::circuit::adjoint::checks::Check) -> Outcome {
+    let error = check.error();
+    Outcome {
+        measured: error,
+        expected: 0.0,
+        tolerance: 1e-8,
+        error,
+    }
+}
+
+fn circuit_adjoint_mzi() -> Outcome {
+    circuit_adjoint(crate::circuit::adjoint::checks::Check::Mzi)
+}
+
+fn circuit_adjoint_ring() -> Outcome {
+    circuit_adjoint(crate::circuit::adjoint::checks::Check::Ring)
+}
+
+fn circuit_adjoint_mesh() -> Outcome {
+    circuit_adjoint(crate::circuit::adjoint::checks::Check::Mesh)
+}
+
+fn circuit_adjoint_nested() -> Outcome {
+    circuit_adjoint(crate::circuit::adjoint::checks::Check::Nested)
+}
+
+fn circuit_adjoint_differences() -> Outcome {
+    circuit_adjoint(crate::circuit::adjoint::checks::Check::Fallback)
+}
+
+fn circuit_component_differences() -> Outcome {
+    let error = crate::circuit::adjoint::checks::fallback_error();
+    Outcome {
+        measured: error,
+        expected: 0.0,
+        tolerance: 1e-9,
+        error,
+    }
 }
 
 fn circuit_series() -> Outcome {

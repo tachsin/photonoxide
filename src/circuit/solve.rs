@@ -44,6 +44,19 @@ enum Entry {
     },
 }
 
+/// The system at one wavelength, factored and solved: what [`Circuit::solved`] gives the
+/// adjoint.
+pub(super) struct Solved {
+    /// The entries of I − S_b Γ.
+    pub(super) triplets: Vec<Triplet<usize, usize, c64>>,
+    /// Its factorization.
+    pub(super) lu: Lu<usize, c64>,
+    /// The outgoing waves b, a column per external input.
+    pub(super) b: faer::Mat<c64>,
+    /// The circuit's S-matrix, Eᵀ b.
+    pub(super) s: SMatrix,
+}
+
 /// A compiled netlist: the circuit's ports, its parameters, and its system's sparsity, analysed.
 ///
 /// [`Circuit::s_matrix`] solves it at a wavelength, [`Circuit::spectrum`] at several. A circuit
@@ -54,13 +67,15 @@ enum Entry {
 pub struct Circuit {
     netlist: Netlist,
     /// Each instance's first port's number.
-    offsets: Vec<usize>,
+    pub(super) offsets: Vec<usize>,
     /// Each instance's first parameter's position in the circuit's values.
-    parameter_offsets: Vec<usize>,
+    pub(super) parameter_offsets: Vec<usize>,
     /// Every port's instance and its position there.
     owner: Vec<(usize, usize)>,
+    /// The port each port is connected to, if any: Γ.
+    pub(super) partner: Vec<Option<usize>>,
     /// The external ports' numbers, in the circuit's order.
-    external: Vec<usize>,
+    pub(super) external: Vec<usize>,
     ports: Vec<Port>,
     parameters: Vec<Parameter>,
     values: Vec<f64>,
@@ -161,6 +176,7 @@ impl Netlist {
             offsets,
             parameter_offsets,
             owner,
+            partner,
             external,
             ports,
             parameters,
@@ -270,13 +286,20 @@ impl Circuit {
 
     /// The sparse solve, its parameters at `values`.
     fn solve(&self, wavelength: Wavelength, values: &[f64]) -> Result<SMatrix> {
+        if self.external.is_empty() {
+            self.blocks(wavelength, values)?;
+            return Ok(SMatrix::zeros(0));
+        }
+        Ok(self.solved(wavelength, values)?.s)
+    }
+
+    /// The sparse solve, its parameters at `values`, with what the adjoint reuses: the system's
+    /// entries and factorization, and the outgoing waves b. For a circuit with external ports.
+    pub(super) fn solved(&self, wavelength: Wavelength, values: &[f64]) -> Result<Solved> {
         use faer::linalg::solvers::Solve;
         let blocks = self.blocks(wavelength, values)?;
         let n = self.owner.len();
         let k = self.external.len();
-        if k == 0 {
-            return Ok(SMatrix::zeros(0));
-        }
         let one = c64::new(1.0, 0.0);
         let triplets: Vec<Triplet<usize, usize, c64>> = self
             .entries
@@ -331,7 +354,7 @@ impl Circuit {
         if s.values.iter().any(|v| !v.is_finite()) {
             return Err(singular());
         }
-        Ok(s)
+        Ok(Solved { triplets, lu, b, s })
     }
 
     /// The circuit's S-matrix at `wavelength` by Filipsson's sub-network growth (see the module's
@@ -468,5 +491,11 @@ impl Component for Circuit {
             .instances()
             .iter()
             .all(|i| i.component.reciprocal())
+    }
+
+    /// ∂S/∂θ for every parameter, from the circuit adjoint: [`Circuit::jacobian`]. A circuit
+    /// nested in a larger one passes its derivatives up exactly, without finite differences.
+    fn derivatives(&self, wavelength: Wavelength, values: &[f64]) -> Result<Option<Vec<SMatrix>>> {
+        Ok(Some(self.jacobian(wavelength, values)?.1))
     }
 }
