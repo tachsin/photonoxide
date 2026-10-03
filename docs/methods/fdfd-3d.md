@@ -70,7 +70,7 @@ layers.
 $\partial_w \to s_w^{-1}\partial_w$, graded as in 2D (Shin and Fan, Eqs. 2.5–2.9):
 
 $$
-s_w = 1 + i\,\frac{(m+1)(-\ln R)}{2 k_0 d}\left(\frac{l}{d}\right)^{m}.
+s_w = 1 + i\thinspace\frac{(m+1)(-\ln R)}{2 k_0 d}\left(\frac{l}{d}\right)^{m}.
 $$
 
 Each derivative uses the stretch where its result lives: at the faces for $\nabla\times\mathbf E$,
@@ -171,15 +171,15 @@ which Shin and Fan use for their 3D problems:
 
 Freund and Nachtigal's look-ahead steps (Algorithm 2.1's inner vectors, from their refs. 6–7)
 step over a breakdown of the Lanczos process, $w_n^{\mathsf T}v_n = 0$. They are not
-implemented: a breakdown or near-breakdown ($|w_n^{\mathsf T}v_n| < 10^{-14}$ for unit vectors)
+implemented: a breakdown or near-breakdown ($|w_n^{\mathsf T}v_n| \lt 10^{-14}$ for unit vectors)
 is returned as an error. None occurred in the cases below.
 
 **Shin and Fan's operator.** `Formulation::ShinFan` solves their Eq. 7 with s = −1 instead:
 
 $$
--\nabla\times\nabla\times\mathbf E + k_0^2\varepsilon\mathbf E
-+ \nabla\!\left(\varepsilon^{-1}\nabla\cdot(\varepsilon\mathbf E)\right)
-= -i k_0\mathbf J + \frac{1}{k_0^2}\,\nabla\!\left(\varepsilon^{-1}\nabla\cdot(-i k_0\mathbf J)\right),
+-\nabla\times\nabla\times\mathbf E + k_0^2\varepsilon\mathbf E +
+\nabla\negthinspace\left(\varepsilon^{-1}\nabla\cdot(\varepsilon\mathbf E)\right)
+= -i k_0\mathbf J + \frac{1}{k_0^2}\thinspace\nabla\negthinspace\left(\varepsilon^{-1}\nabla\cdot(-i k_0\mathbf J)\right),
 $$
 
 our sign and units for their equation. The added terms vanish for the solution, by the
@@ -187,7 +187,7 @@ continuity equation $\nabla\cdot(\varepsilon\mathbf E) = \nabla\cdot\mathbf J/(i
 uniform medium they turn $-\nabla\times\nabla\times$ into the vector Laplacian, which removes the
 curl-curl operator's huge null space of near-zero eigenvalues (their Section 2).
 
-On the grid, ∇· lives at the nodes and ∇ takes the nodes' values to the edges. So $arepsilon^{-1}$
+On the grid, ∇· lives at the nodes and ∇ takes the nodes' values to the edges. So $\varepsilon^{-1}$
 sits at the nodes, between the two, as in their Eq. 7: the mean of ε on the six edges a node's
 divergence takes (the harmonic mean took up to 24% more iterations). Inside a PML
 both use the stretch where their result lives, as the curls do. Then $\nabla\cdot\nabla\times = 0$

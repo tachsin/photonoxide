@@ -17,7 +17,7 @@ examples:
 ---
 
 A core of index $n_2$ and thickness $t$ lies between a lower cladding $n_1$ and an upper cladding
-$n_3$. A guided mode has $\max(n_1, n_3)\,k < \beta < n_2 k$, with $k = 2\pi/\lambda$, and transverse
+$n_3$. A guided mode has $\max(n_1, n_3)\thinspace k \lt \beta \lt n_2 k$, with $k = 2\pi/\lambda$, and transverse
 wavenumbers
 
 $$
@@ -29,8 +29,8 @@ $$
 Yariv and Yeh's Eqs. (3.2-5) and (3.2-11):
 
 $$
-\text{TE:}\quad \tan(ht) = \frac{p + q}{h\,(1 - pq/h^2)}, \qquad
-\text{TM:}\quad \tan(ht) = \frac{h\,(\bar p + \bar q)}{h^2 - \bar p \bar q},
+\text{TE:}\quad \tan(ht) = \frac{p + q}{h\thinspace(1 - pq/h^2)}, \qquad
+\text{TM:}\quad \tan(ht) = \frac{h\thinspace(\bar p + \bar q)}{h^2 - \bar p \bar q},
 $$
 
 with $\bar p = (n_2/n_3)^2 p$ and $\bar q = (n_2/n_1)^2 q$. By the tangent's addition formula each is
@@ -44,7 +44,7 @@ $$
 has exactly one root. photonoxide brackets it and bisects to the last bit. The fields are the
 book's (3.2-3) and (3.2-10): a cosine and sine in the core, exponentials outside.
 
-Yariv and Yeh put the core at $-t < x < 0$; photonoxide's x is their −x, with the same $n_1$,
+Yariv and Yeh put the core at $-t \lt x \lt 0$; photonoxide's x is their −x, with the same $n_1$,
 $n_2$, $n_3$, $p$ and $q$.
 
 ## Validation

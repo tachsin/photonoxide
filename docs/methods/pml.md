@@ -25,13 +25,12 @@ instead of reflecting it.
 ## The method
 
 Chew and Weedon showed that Maxwell's equations with stretched coordinates,
-$\partial/\partial x \to (1/s_x)\, \partial/\partial x$, absorb without reflecting when s is complex. Chew,
+$\partial/\partial x \to (1/s_x)\thinspace\partial/\partial x$, absorb without reflecting when s is complex. Chew,
 Jin and Michielssen made it a change of variables: the coordinate itself becomes complex,
 
 $$
-\tilde x = \int_0^x s_x(x')\, dx', \qquad s_x = 1 + i\alpha \left(\frac{u}{d}\right)^2
-\;\Rightarrow\;
-\tilde x = x \pm i\alpha\, \frac{u^3}{3 d^2}
+\tilde x = \int_0^x s_x(x')\thinspace dx', \qquad s_x = 1 + i\alpha \left(\frac{u}{d}\right)^2
+\thickspace\Rightarrow\thickspace\tilde x = x \pm i\alpha\thinspace\frac{u^3}{3 d^2}
 $$
 
 (their Eqs. 34, 44 and 45), with u the depth into a layer of thickness d, plus towards larger x

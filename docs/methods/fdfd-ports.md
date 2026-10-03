@@ -28,7 +28,7 @@ $\beta_d = (2/\Delta x)\sin(\beta\Delta x/2)$:
 
 $$
 L_y u + k_0^2 \varepsilon_z u = \beta_d^2 u \quad (E_z), \qquad
-\varepsilon_y\,(L_y + k_0^2)\,u = \beta_d^2 u \quad (H_z),
+\varepsilon_y\thinspace(L_y + k_0^2)\thinspace u = \beta_d^2 u \quad (H_z),
 $$
 
 with $L_y$ the column's y-part of the operator, PML included. It is solved by shift-and-invert
@@ -50,7 +50,7 @@ the scattered field, f is the mode extended along x as $e^{\pm i\beta x}$ throug
 and A is the system's matrix:
 
 $$
-b = (QA - AQ)\,f .
+b = (QA - AQ)\thinspace f .
 $$
 
 Only the rows at the interface between the two regions are non-zero. The mode then travels one
@@ -72,7 +72,7 @@ outgoing amplitude at every port, and solves S A = B, with a column of A and of 
 trace of a mode that the PMLs send back into a port is then measured as incoming, not mistaken
 for part of S. The amplitudes are power-normalized: $|S_{qp}|^2$ is the share of power from mode p
 into mode q. Each mode is normalized by its unconjugated Lorentz form, which for
-$\sum w\phi^2 = 1$ is $\sin(\beta\Delta x)\,\Delta y/(2k_0\Delta x)$. That is the mode's power when the mode is
+$\sum w\phi^2 = 1$ is $\sin(\beta\Delta x)\thinspace\Delta y/(2k_0\Delta x)$. That is the mode's power when the mode is
 real, and it keeps S exactly symmetric for a reciprocal device. Where a mode's tail reaches into
 a PML, the physical power differs from it, by about the share of the mode in the PML.
 

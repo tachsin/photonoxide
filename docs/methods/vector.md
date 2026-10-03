@@ -42,8 +42,8 @@ interface conditions between them are built into the coefficients (Eqs. 21–36)
 a sparse eigenproblem (Eq. 8) whose eigenvalues are $\beta^2$:
 
 $$
-\begin{pmatrix} A_{xx} & A_{xy} \\ A_{yx} & A_{yy} \end{pmatrix}
-\begin{pmatrix} H_x \\ H_y \end{pmatrix} = \beta^2 \begin{pmatrix} H_x \\ H_y \end{pmatrix},
+\begin{pmatrix} A_{xx} & A_{xy} \cr A_{yx} & A_{yy} \end{pmatrix}
+\begin{pmatrix} H_x \cr H_y \end{pmatrix} = \beta^2 \begin{pmatrix} H_x \cr H_y \end{pmatrix},
 \qquad n_\text{eff} = \beta / k_0 .
 $$
 
@@ -52,7 +52,7 @@ The modes nearest a guess come from [shift-and-invert Arnoldi](eigen.md).
 - **Convention:** the paper uses $e^{+j\omega t}$. Its eigenvalue equations hold in photonoxide's
   $e^{-i\omega t}$ when written with that convention's permittivity: loss is $+i$, and a gyrotropic
   term the paper writes as $+j\Delta$ is $-i\Delta$ here.
-- **A misprint:** Eq. (31) divides by "$v_{12}$", which the paper never defines. It is $v_{21}$, as
+- **A misprint:** Eq. (31) divides by $v_{12}$, which the paper never defines. It is $v_{21}$, as
   the matching term of Eq. (30) shows under the mirror $x \to -x$. A test checks that a
   structure and its mirror image have the same modes, to 1e-10.
 - **Edges:** beyond each edge the field is zero, or a [mirror wall](walls.md) reflects it, or a

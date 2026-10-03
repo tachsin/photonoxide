@@ -15,7 +15,7 @@ grid's nodes. `VectorMode::fields` derives the rest from Maxwell's equations wit
 $e^{i(\beta z - \omega t)}$, at the centres of the cells, where each cell's permittivity is uniform:
 
 - $H_z$ from $\nabla\cdot\mathbf H = 0$: $\partial_x H_x + \partial_y H_y + i\beta H_z = 0$;
-- $E_z$ from Ampère's law: $\partial_x H_y - \partial_y H_x = -ik\,\varepsilon_{zz} E_z$;
+- $E_z$ from Ampère's law: $\partial_x H_y - \partial_y H_x = -ik\thinspace\varepsilon_{zz} E_z$;
 - the transverse E from Faraday's law:
 
 $$
@@ -31,12 +31,12 @@ to every interface, continuous across them.
 
 ## Power and coupling
 
-With $\langle a, b\rangle = \int (\mathbf E_a \times \mathbf H_b^*)\cdot\hat z\, dA$, the power is
+With $\langle a, b\rangle = \int (\mathbf E_a \times \mathbf H_b^*)\cdot\hat z\thinspace dA$, the power is
 $P = \tfrac12 \operatorname{Re}\langle a, a\rangle$, and the share of mode a's power that launches mode b, at a junction
 between two waveguides or at the start of a bend, is
 
 $$
-\eta = \frac{\operatorname{Re}\left(\langle a, b\rangle \langle b, a\rangle\right)}{\operatorname{Re}\langle a, a\rangle \, \operatorname{Re}\langle b, b\rangle}.
+\eta = \frac{\operatorname{Re}\left(\langle a, b\rangle \langle b, a\rangle\right)}{\operatorname{Re}\langle a, a\rangle \thinspace\operatorname{Re}\langle b, b\rangle}.
 $$
 
 It is 1 for a mode with itself and 0 between modes that are orthogonal. Both modes must be on the

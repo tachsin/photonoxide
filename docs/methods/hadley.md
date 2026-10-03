@@ -39,7 +39,7 @@ $\nabla^2 H + k^2(\varepsilon - \bar\varepsilon) H = 0$, with $\bar\varepsilon =
 (Hadley I, Eq. 1), so near a node
 
 $$
-H(r, \theta) = \sum_n J_n(\xi r)\,(c_n \cos n\theta + d_n \sin n\theta),
+H(r, \theta) = \sum_n J_n(\xi r)\thinspace(c_n \cos n\theta + d_n \sin n\theta),
 \qquad \xi^2 = k^2(\varepsilon - \bar\varepsilon)
 $$
 
@@ -51,11 +51,11 @@ equation it takes:
   $c_4$. Truncation error sixth order on a square grid, fourth otherwise.
 - **Interface** (two pairs alike): separate expansions on each side, joined by the interface
   conditions. The component normal to the interface keeps H and its normal derivative
-  continuous: Eq. (20), with $A_1$–$A_4$ solving Eqs. (21)–(24), fifth order. The tangential
+  continuous: Eq. (20), with $A_1, \ldots, A_4$ solving Eqs. (21)–(24), fifth order. The tangential
   one has a jump in its normal derivative set by the other component (Eq. 25,
-  $\tfrac{1}{\varepsilon_1}\partial_y H^x|_+ - \tfrac{1}{\varepsilon_2}\partial_y H^x|_- = (\tfrac{1}{\varepsilon_1} - \tfrac{1}{\varepsilon_2})\,\partial_x H^y$):
+  $\tfrac{1}{\varepsilon_1}\partial_y H^x\vert_+ - \tfrac{1}{\varepsilon_2}\partial_y H^x\vert_- = (\tfrac{1}{\varepsilon_1} - \tfrac{1}{\varepsilon_2})\thinspace\partial_x H^y$):
   Eq. (43), with the A's from Eqs. (31), (32), (23), (24) and terms on the normal component
-  through $f_1$, $f_2$ and $g_1$–$g_6$. Hadley writes them for a horizontal interface; a
+  through $f_1$, $f_2$ and $g_1, \ldots, g_6$. Hadley writes them for a horizontal interface; a
   vertical one is the same with x and y, and $H^x$ and $H^y$, exchanged (Eq. 25 is symmetric
   under that exchange).
 - **Corner** (anything else; part II, Fig. 3, quadrants $\varepsilon_1$ to $\varepsilon_4$
@@ -65,7 +65,7 @@ equation it takes:
   $\varepsilon_{ij} = (\varepsilon_i - \varepsilon_j)/(\varepsilon_i + \varepsilon_j)$ (Eq. 36), in [5/3, 7/3].
   It also adds their derivatives with respect to the order, which carry $\ln r$ (Eqs. 29–33).
   The equations are Eq. (50) for $H^y$ and Eq. (52) for $H^x$, built from the operators of
-  Eqs. (40)–(44), with $A_1$–$A_3$ and $B_1$–$B_3$ from the Appendix, Eqs. (A1)–(A14). They
+  Eqs. (40)–(44), with $A_1, \ldots, A_3$ and $B_1, \ldots, B_3$ from the Appendix, Eqs. (A1)–(A14). They
   are first order at the corner itself.
 - **A misprint:** Eqs. (50) and (52) print the term
   $(\theta\sin\theta + \cos 2\theta \ln\sin\theta)$. It is there to cancel $A_2$ (or $B_2$)
@@ -80,9 +80,9 @@ equation it takes:
   (A4, A6) carry. The solver uses the Appendix, so this doesn't affect it.
 
 The coefficients depend on $\bar\varepsilon$ through ξ, so the eigenproblem
-$M(\bar\varepsilon)\,h = 0$ is nonlinear. It is solved by nonlinear inverse iteration (Güttel
+$M(\bar\varepsilon)\thinspace h = 0$ is nonlinear. It is solved by nonlinear inverse iteration (Güttel
 and Tisseur, Algorithm 4.7: Newton's method on $M(\bar\varepsilon)h = 0$ with a normalization,
-Eqs. 4.15–4.16). Each step solves $M(\bar\varepsilon_k)\, w = M'(\bar\varepsilon_k)\, v_k$ and sets
+Eqs. 4.15–4.16). Each step solves $M(\bar\varepsilon_k)\thinspace w = M'(\bar\varepsilon_k)\thinspace v_k$ and sets
 $\bar\varepsilon_{k+1} = \bar\varepsilon_k - u^H v_k / u^H w$, with $M'$ by central differences.
 It starts from the standard scheme's mode on the same grid and converges quadratically:
 two or three steps to 1e-13 on the corner problems.

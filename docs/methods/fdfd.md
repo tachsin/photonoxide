@@ -31,8 +31,8 @@ the field along z. With $\tilde H = \eta_0 H$ and photonoxide's $e^{-i\omega t}$
 
 $$
 \nabla^2 E_z + k_0^2 \varepsilon E_z = -i k_0 J, \qquad
-\partial_x\!\left(\frac{1}{\varepsilon_y}\partial_x \tilde H_z\right)
-+ \partial_y\!\left(\frac{1}{\varepsilon_x}\partial_y \tilde H_z\right) + k_0^2 \tilde H_z = -i k_0 M,
+\partial_x\negthinspace\left(\frac{1}{\varepsilon_y}\partial_x \tilde H_z\right) +
+\partial_y\negthinspace\left(\frac{1}{\varepsilon_x}\partial_y \tilde H_z\right) + k_0^2 \tilde H_z = -i k_0 M,
 $$
 
 with J = η₀J_z the electric current and M the magnetic one. For layers normal to y, E along z
@@ -51,7 +51,7 @@ second order. For E along z, the average is arithmetic over the whole cell.
 graded as Shin and Fan describe:
 
 $$
-s_w = 1 + i\,\frac{(m+1)(-\ln R)}{2 k_0 d}\left(\frac{l}{d}\right)^{m},
+s_w = 1 + i\thinspace\frac{(m+1)(-\ln R)}{2 k_0 d}\left(\frac{l}{d}\right)^{m},
 $$
 
 for a layer d thick, depth l into it, and a target reflection R at normal incidence (their

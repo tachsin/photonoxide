@@ -25,7 +25,7 @@ Each film's field-transfer matrix (Chilwell and Hodgkinson's Eq. 10), with phase
 $\Phi_j = k \alpha_j d_j$:
 
 $$
-M_j = \begin{pmatrix} \cos\Phi_j & -\frac{i}{\gamma_j}\sin\Phi_j \\ -i\gamma_j \sin\Phi_j & \cos\Phi_j \end{pmatrix},
+M_j = \begin{pmatrix} \cos\Phi_j & -\frac{i}{\gamma_j}\sin\Phi_j \cr -i\gamma_j \sin\Phi_j & \cos\Phi_j \end{pmatrix},
 \qquad M = \prod_{j=1}^{J} M_j .
 $$
 
@@ -36,9 +36,9 @@ $$
 $$
 
 In the cover and substrate, α takes the root that decays away from the stack
-($\operatorname{Im}\alpha > 0$), except for a **leaky wave**: where $\operatorname{Re}\beta$ is below that medium's
-index, the outgoing root ($\operatorname{Re}\alpha > 0$), which grows away from the stack (Section 3.C).
-The paper's convention, $e^{i(k\beta y - \omega t)}$ with $\operatorname{Im}\beta > 0$, is photonoxide's.
+($\operatorname{Im}\alpha \gt 0$), except for a **leaky wave**: where $\operatorname{Re}\beta$ is below that medium's
+index, the outgoing root ($\operatorname{Re}\alpha \gt 0$), which grows away from the stack (Section 3.C).
+The paper's convention, $e^{i(k\beta y - \omega t)}$ with $\operatorname{Im}\beta \gt 0$, is photonoxide's.
 
 - **Bound modes** of a lossless stack: real roots between the largest bounding index and the
   largest film index, bracketed and bisected.
@@ -54,7 +54,7 @@ angle θ (so $\beta = n_c \sin\theta$), with χ the left side of Eq. 26 (Eqs. 13
 $$
 r = \frac{\gamma_c m_{11} + \gamma_c \gamma_s m_{12} - m_{21} - \gamma_s m_{22}}{\chi}, \qquad
 t = \frac{2\gamma_c}{\chi}, \qquad
-R = |r|^2, \qquad T = \frac{\operatorname{Re}\gamma_s}{\operatorname{Re}\gamma_c}\, |t|^2 .
+R = |r|^2, \qquad T = \frac{\operatorname{Re}\gamma_s}{\operatorname{Re}\gamma_c}\thinspace|t|^2 .
 $$
 
 r and t are ratios of U: the tangential E for TE, the tangential H for TM. Beyond total internal

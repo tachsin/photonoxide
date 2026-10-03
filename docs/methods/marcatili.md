@@ -24,7 +24,7 @@ with $k_x$ and $k_y$ from two slab-like equations. For the $E^y_{pq}$ modes (E m
 
 $$
 k_x a = p\pi - \tan^{-1}(k_x \xi_3) - \tan^{-1}(k_x \xi_5), \qquad
-k_y b = q\pi - \tan^{-1}\!\left(\frac{n_2^2}{n_1^2} k_y \eta_2\right) - \tan^{-1}\!\left(\frac{n_4^2}{n_1^2} k_y \eta_4\right)
+k_y b = q\pi - \tan^{-1}\negthinspace\left(\frac{n_2^2}{n_1^2} k_y \eta_2\right) - \tan^{-1}\negthinspace\left(\frac{n_4^2}{n_1^2} k_y \eta_4\right)
 $$
 
 (his Eqs. 6–7), with $\xi_j = [(k_1^2 - k_j^2) - k_x^2]^{-1/2}$ and $\eta_j$ likewise. For the $E^x_{pq}$ modes
@@ -35,7 +35,7 @@ solid curves); `Rectangle::closed_form` uses his closed-form approximations, Eqs
 ## Validation
 
 His Fig. 6b guide, a = 2b, $n_1 = 1.5$ in $n_1/1.05$, at 1 µm, in his normalized constant
-$(k_z^2 - k_4^2)/(k_1^2 - k_4^2)$ against $B = 2b/\lambda\,(n_1^2 - n_4^2)^{1/2}$:
+$(k_z^2 - k_4^2)/(k_1^2 - k_4^2)$ against $B = 2b/\lambda\thinspace(n_1^2 - n_4^2)^{1/2}$:
 
 | B | full-vector $E^x_{11}$ | Marcatili | closed form |
 |---|---|---|---|
