@@ -256,15 +256,17 @@ fn uniform_along_z_the_s_matrix_is_the_2d_solvers() {
 
 #[test]
 fn a_port_normal_to_y_or_z_is_a_port_normal_to_x_turned() {
-    // the same walled strip along each axis in turn: the same effective indices, and S21 the
-    // same
+    // the same strip along each axis in turn, PMLs all round: the same effective indices, and S21
+    // the same. (In a closed metal box with PMLs only at its ends, the box's modes near cutoff
+    // make the system ill-conditioned, and S follows the factorization's round-off: on another
+    // machine S21 moved by 4e-7.)
     let h = 0.05;
     let along = |axis: Axis| {
         let (b, c) = axis.others();
         let mut n = [0usize; 3];
         n[axis.index()] = 16;
-        n[b.index()] = 14;
-        n[c.index()] = 10;
+        n[b.index()] = 18;
+        n[c.index()] = 14;
         let mut step = [h; 3];
         step[c.index()] = 0.04;
         let grid = Grid3d {
@@ -278,9 +280,7 @@ fn a_port_normal_to_y_or_z_is_a_port_normal_to_x_turned() {
             y0: -(n[1] as f64) * step[1] / 2.0,
             z0: -(n[2] as f64) * step[2] / 2.0,
         };
-        let pml = Edges::Pml { low: 4, high: 4 };
-        let mut edges = [WALL; 3];
-        edges[axis.index()] = pml;
+        let edges = [Edges::Pml { low: 4, high: 4 }; 3];
         let boundaries = Boundaries3d {
             x: edges[0],
             y: edges[1],
