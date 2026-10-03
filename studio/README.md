@@ -30,6 +30,10 @@ window only follows that record, so a live run and a replay look the same.
   - The device is drawn in 3D as you type, as its run will draw it; a modes job's whole, with
     its cut drawn where the cross-section is taken. The top view shows
     rectangles, disks, rings, ports, the PML and the cut from above: click a shape to edit it.
+  - Light travels along x in every kind, and the top view says so. Changing a job's kind keeps
+    its device: the rectangle that is a guide in an FDFD job is the same guide in a modes job,
+    cut at an x. An older modes job, its modes along y, opens and runs as before; "Light along"
+    turns it to x, the device turning with it, so its modes stay the same.
   - The TOML sits beside the form in an editor, and edits there update the form.
   - The library checks the job as it changes (`photonoxide::job::check`). It is saved to the
     workspace's `jobs/` (Ctrl+S) and runs from the builder (Ctrl+Enter).
@@ -39,7 +43,7 @@ window only follows that record, so a live run and a replay look the same.
   - **3D** (the default): the layers and shapes as solids, with the field painted on its plane.
     A modes run's selected mode also travels along its guide: its field, Re E, as a glowing
     volume in the guide and its evanescent tails (ray-marched), red where positive and blue
-    where negative, gliding along +y at a speed and density you set, the core turned to glass.
+    where negative, gliding along the guide (+x; +y in an older job) at a speed and density you set, the core turned to glass.
     Drag to orbit, right-drag to pan, scroll to zoom.
   - **2D:** fields, S-parameters and spectra, permittivity pictures, modes, and a sweep's
     effective and group indices. Hover a plot to read its values, and save its data as CSV.

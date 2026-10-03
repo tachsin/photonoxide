@@ -127,6 +127,8 @@ export const run = $state({
   info: null as Info | null,
   job: null as { job: string; kind: string } | null,
   scene: null as Scene | null,
+  /** The axis a modes run's modes travel along, the normal of its cut: y for a run that doesn't say (an older one). */
+  along: "y" as "x" | "y",
   pictures: [] as Permittivity[],
   modes: [] as Mode[],
   /** The modes' signed fields, by the mode's label; an older run has none. */
@@ -228,6 +230,9 @@ function take(e: Event) {
     case "scene":
       run.scene = e;
       break;
+    case "cut":
+      run.along = e.normal === "x" ? "x" : "y";
+      break;
     case "permittivity":
       run.pictures.push(e);
       break;
@@ -277,6 +282,7 @@ function reset(info: Info) {
     info,
     job: null,
     scene: null,
+    along: "y",
     pictures: [],
     modes: [],
     modeFields: {},

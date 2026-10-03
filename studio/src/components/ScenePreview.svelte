@@ -20,8 +20,11 @@
   /** Scenes already built, by job text: the cards share them across pages. */
   const cache = (globalThis as { __scenes?: Map<string, Scene> }).__scenes ??= new Map();
 
-  /** A modes job's scene ends at its cut (photonoxide::job::preview). */
-  const isModes = (t: string) => /^\s*kind\s*=\s*"modes"/m.test(t);
+  /** A modes job's scene ends at its cut (photonoxide::job::preview): normal to x when the job says its modes travel along x, else to y. */
+  const cutOf = (t: string, scene: Scene): { cut?: number; normal?: "x" | "y" } => {
+    if (!/^\s*kind\s*=\s*"modes"/m.test(t)) return {};
+    return /^\s*propagation\s*=\s*"x"/m.test(t) ? { cut: scene.x_um[1], normal: "x" } : { cut: scene.y_um[1], normal: "y" };
+  };
 
   $effect(() => {
     const t = text;
@@ -34,7 +37,7 @@
         cache.set(t, scene);
         if (gone) return;
         view ??= new Preview3D(host, app.dark);
-        view.setScene(scene, isModes(t) ? { cut: scene.y_um[1] } : {});
+        view.setScene(scene, cutOf(t, scene));
         shown = true;
         loading = false;
       })

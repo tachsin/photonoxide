@@ -65,7 +65,7 @@
         }
       }
     }
-    if (three && s) three.setScene(s, hidden, looks);
+    if (three && s) three.setScene(s, hidden, looks, run.along);
   });
 
   $effect(() => three?.setFieldLook(run.fieldVisible, run.fieldOpacity));
@@ -76,7 +76,7 @@
   $effect(() => {
     const f = field;
     const m = current;
-    const plane: Plane | null = f ? { intensity: f.intensity, normal: "z", at: f.z_um } : m ? { intensity: m.intensity, normal: "y", at: m.cut_y_um } : null;
+    const plane: Plane | null = f ? { intensity: f.intensity, normal: "z", at: f.z_um } : m ? { intensity: m.intensity, normal: run.along, at: m.cut_y_um } : null;
     three?.setField(plane);
   });
 
@@ -85,7 +85,7 @@
   const wave = $derived.by(() => {
     const m = current;
     if (field || !m || !scene) return null;
-    return waveOf(m, shown.fields[m.label], scene);
+    return waveOf(m, shown.fields[m.label], scene, run.along);
   });
   /** The selected mode's guided wavelength λ / n_eff, µm. */
   const guided = $derived(current ? current.wavelength_um / current.effective_index[0] : 0);
@@ -156,7 +156,7 @@
     const f = field;
     const m = current;
     if (f) return { label: `${f.label}, at ${um(f.wavelength_um)} µm`, where: `on the layer's top face (z = ${um(f.z_um)} µm)` };
-    if (m) return { label: `${m.label}, |E|²`, where: `on the cut at y = ${um(m.cut_y_um)} µm` };
+    if (m) return { label: `${m.label}, |E|²`, where: `on the cut at ${run.along} = ${um(m.cut_y_um)} µm` };
     return null;
   });
 
@@ -242,10 +242,10 @@
           {@const m = current}
           <p class="font-medium">{m.label} · {modeKind(m)} · <span class="num">n_eff {m.effective_index[0].toFixed(6)}</span></p>
           {#if run.point !== null}<p class="text-xs text-primary">at {pointText}{live && run.following ? ", the one just solved" : ""}</p>{/if}
-          <p class="text-xs faint">|E|² on the cut at y = {m.cut_y_um.toFixed(3)} µm, at λ = {um(m.wavelength_um)} µm</p>
+          <p class="text-xs faint">|E|² on the cut at {run.along} = {m.cut_y_um.toFixed(3)} µm, at λ = {um(m.wavelength_um)} µm</p>
           {#if facts && run.wave}
             <p class="text-xs faint">
-              {facts.what}, travelling along +y · guided wavelength λ/n_eff = <span class="num">{guided.toFixed(3)}</span> µm · phase velocity c/n_eff =
+              {facts.what}, travelling along +{run.along} · guided wavelength λ/n_eff = <span class="num">{guided.toFixed(3)}</span> µm · phase velocity c/n_eff =
               <span class="num">{facts.velocity}</span> c · shown about {facts.slower} times slower
             </p>
           {/if}
@@ -366,7 +366,7 @@
                 {#if facts}
                   <p class="mt-1 text-[11px] leading-snug faint">
                     {facts.what} in the guide and its evanescent tails: red where positive, blue where negative, lobes λ/(2 n_eff) =
-                    <span class="num">{(guided / 2).toFixed(3)}</span> µm long, gliding along +y at c/n_eff = <span class="num">{facts.velocity}</span> c, shown about
+                    <span class="num">{(guided / 2).toFixed(3)}</span> µm long, gliding along +{run.along} at c/n_eff = <span class="num">{facts.velocity}</span> c, shown about
                     {facts.slower} times slower. The core turns to glass while it shows.
                   </p>
                 {/if}

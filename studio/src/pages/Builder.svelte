@@ -27,7 +27,7 @@
   import { ago, api, KINDS, type JobCheck, type JobItem } from "../lib/api";
   import { app, startRun, toast } from "../lib/app.svelte";
   import { catalog, loadCatalog, modelOf } from "../lib/catalog.svelte";
-  import { cells, fromModel, STACKS, template, toToml, type JobModel, type Kind } from "../lib/job";
+  import { along, cells, fromModel, previewWindow, STACKS, template, toToml, turn, type JobModel, type Kind } from "../lib/job";
 
   let model = $state<JobModel>(template("modes"));
   let text = $state(toToml(template("modes")));
@@ -176,11 +176,27 @@
     if (kind === "structure") model.sweep = null;
     if (kind === "fdfd" && model.sweep) model.sweep.parameter = "wavelength";
     if (kind !== "modes" && model.y_um[0] === model.y_um[1]) model.y_um = t.y_um;
+    if (kind !== "modes" && model.x_um[0] === model.x_um[1]) model.x_um = t.x_um;
+    // the same device in the same box: the light goes along x in an fdfd job, so a modes job
+    // along y turns to x on the way there (its modes stay the same), and a job that becomes a
+    // modes job cuts its cross-section inside the box it had
+    if (kind === "fdfd" && along(model) === "y") turn(model, "x");
+    if (kind === "modes") {
+      model.propagation ??= "x";
+      const [span, cut] = along(model) === "x" ? [model.x_um, model.cut_x_um] : [model.y_um, model.cut_y_um];
+      if ((cut ?? 0) < span[0] || (cut ?? 0) > span[1]) {
+        const mid = Number(((span[0] + span[1]) / 2).toFixed(3));
+        if (along(model) === "x") model.cut_x_um = mid;
+        else model.cut_y_um = mid;
+      }
+    }
   }
 
   function addRect() {
-    const c = model.x_um.map((v, k) => (v + [model.x_um[1], model.y_um[1]][k]) / 2);
-    model.rect.push({ layer: layers[0], center_um: [Number(c[0].toFixed(3)) || 0, 0], size_um: [1, 0.5] });
+    const win = previewWindow(model);
+    const cx = Number(((win.x[0] + win.x[1]) / 2).toFixed(3)) || 0;
+    // a guide along the light
+    model.rect.push({ layer: layers[0], center_um: [cx, 0], size_um: model.kind === "modes" && along(model) === "y" ? [0.5, 1] : [1, 0.5] });
     selection = { kind: "rect", index: model.rect.length - 1 };
   }
   function addCircle() {
@@ -337,13 +353,33 @@
 
       <fieldset class="grid grid-cols-2 gap-3">
         <legend class="panel-title mb-2">Window and grid</legend>
-        <NumField label="x from" unit="µm" bind:value={model.x_um[0]} step={0.1} />
-        <NumField label="x to" unit="µm" bind:value={model.x_um[1]} step={0.1} />
         {#if model.kind !== "modes"}
+          <NumField label="x from" unit="µm" bind:value={model.x_um[0]} step={0.1} />
+          <NumField label="x to" unit="µm" bind:value={model.x_um[1]} step={0.1} />
           <NumField label="y from" unit="µm" bind:value={model.y_um[0]} step={0.1} />
           <NumField label="y to" unit="µm" bind:value={model.y_um[1]} step={0.1} />
         {:else}
-          <OptField label="Cut at y" unit="µm" bind:value={model.cut_y_um} step={0.1} hint="Where the cross-section is taken; the modes travel along y" placeholder="0" />
+          <label class="col-span-2 flex flex-col gap-1">
+            <span class="text-xs font-medium text-base-content/70">Light along</span>
+            <select
+              class="select select-sm w-full"
+              value={along(model)}
+              title="The axis the modes travel along. x is the convention of every kind of job; changing it turns the device with it, so its modes stay the same"
+              onchange={(e) => turn(model, (e.currentTarget as HTMLSelectElement).value === "y" ? "y" : "x")}
+            >
+              <option value="x">x, as an FDFD job's light</option>
+              <option value="y">y, as older jobs</option>
+            </select>
+          </label>
+          {#if along(model) === "x"}
+            <NumField label="y from" unit="µm" bind:value={model.y_um[0]} step={0.1} hint="The window across the guide" />
+            <NumField label="y to" unit="µm" bind:value={model.y_um[1]} step={0.1} />
+            <OptField label="Cut at x" unit="µm" bind:value={model.cut_x_um} step={0.1} hint="Where the cross-section is taken; the modes travel along x" placeholder="0" />
+          {:else}
+            <NumField label="x from" unit="µm" bind:value={model.x_um[0]} step={0.1} hint="The window across the guide" />
+            <NumField label="x to" unit="µm" bind:value={model.x_um[1]} step={0.1} />
+            <OptField label="Cut at y" unit="µm" bind:value={model.cut_y_um} step={0.1} hint="Where the cross-section is taken; the modes travel along y" placeholder="0" />
+          {/if}
           <NumField label="Modes" bind:value={model.modes} integer step={1} min={1} hint="How many, from the highest effective index" />
         {/if}
         <NumField label="Grid step" unit="nm" bind:value={model.step_nm} step={5} min={1} hint="Smaller is more accurate and slower; the error falls as the square of the step" />
@@ -479,7 +515,7 @@
               <NumField label="to" unit="µm" bind:value={model.sweep.to} step={0.01} />
               <NumField label="points" bind:value={model.sweep.points} integer step={1} min={1} />
               {#if model.sweep.parameter === "width"}
-                <OptField label="Rectangle" bind:value={model.sweep.rect} integer step={1} hint="Which rectangle's width, counting from 0" placeholder="0" />
+                <OptField label="Rectangle" bind:value={model.sweep.rect} integer step={1} hint="Which rectangle's width (its size across the guide), counting from 0" placeholder="0" />
               {/if}
             </div>
           {:else}

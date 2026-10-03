@@ -192,9 +192,12 @@ its modes and its sweep, with a slider through the sweep's points; the 2D view h
 and plots. While a sweep runs, both views show the point just solved, named in the bar above
 them with how far the sweep is.
 
-A `"modes"` job cuts the stack and shapes at a y, solves the cross-section's modes with the
-full-vector solver, and records a picture of each mode's |E|² with its effective index and TE
-fraction. With a `[task.sweep]` over the wavelength or a rectangle's width, the 2D view plots
+Light travels along x in every kind of job. A `"modes"` job with `propagation = "x"` cuts the
+stack and shapes at an x (`cut_x_um`) over the window `y_um` across the guide, so the rectangle
+that is a guide in an `"fdfd"` job is the same guide here; a job without `propagation` is an
+older one, cut at a y with its modes along y, and runs as before. The job solves the
+cross-section's modes with the full-vector solver, and records a picture of each mode's |E|²
+with its effective index and TE fraction. With a `[task.sweep]` over the wavelength or a rectangle's width, the 2D view plots
 the effective indices as the points arrive, and for a wavelength sweep the group indices too.
 
 ## Where everything is
