@@ -176,14 +176,17 @@ export default async function PhotonoxidePage() {
       {/* ---------- Hero ---------- */}
       <section className="proj-container relative isolate pt-16 pb-12 text-center sm:pt-24">
         <div className="proj-rise flex justify-center">
-          <Link href={ROADMAP_PATH} className="proj-pill">
+          {/* the version only: with the next milestone's title it took two lines on a phone */}
+          <Link href={ROADMAP_PATH} className="proj-pill whitespace-nowrap">
             <span className="size-1.5 rounded-full bg-warning" aria-hidden />
-            <span>Alpha · {now ? `${now.version}: ${now.title.toLowerCase()} in progress` : "built in the open"}</span>
+            <span>Alpha · {release ?? (now ? `${now.version} in progress` : "built in the open")}</span>
             <ArrowRight size={13} aria-hidden />
           </Link>
         </div>
 
-        <h1 className="proj-rise proj-gradient-text mt-6 font-mono font-semibold text-6xl tracking-tighter sm:text-8xl">
+        {/* one line at any width: the name is 5.5em wide, so below sm the size follows the viewport
+            (100vw less the container's 2.5rem of padding), up to text-6xl's 3.75rem */}
+        <h1 className="proj-rise proj-gradient-text mt-6 wrap-break-word font-mono font-semibold text-[length:clamp(2rem,calc((100vw_-_2.5rem)/5.8),3.75rem)] leading-none tracking-tighter sm:text-8xl">
           photonoxide
         </h1>
         <p className="proj-rise-1 mx-auto mt-5 max-w-2xl text-balance text-base-content/80 text-lg sm:text-xl">
