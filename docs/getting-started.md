@@ -9,9 +9,8 @@ your first waveguide modes, materials and circuit, and says where everything els
 cargo add photonoxide
 ```
 
-The latest release, 0.3.3, has the materials, the mode solvers and FDFD; everything on this page
-up to [Circuits](#circuits) works with it. Components and circuits (the 0.4 milestone) are on the
-main branch and not yet released:
+The latest release, 0.4.0, has everything on this page: the materials, the mode solvers, FDFD,
+and components and circuits. For the work on the main branch since:
 `photonoxide = { git = "https://github.com/tachsin/photonoxide" }`.
 
 photonoxide is pure Rust: no C, Fortran or Python, so `cargo build` is all it needs.
@@ -115,9 +114,8 @@ or the composition of an alloy, where the model has one.
 
 ## Circuits
 
-On the main branch, for the next release. A chip is a netlist of components, each with ports
-and parameters; compiled, it is a circuit whose S-matrix comes from one sparse solve. Here a
-waveguide leads into an all-pass ring:
+A chip is a netlist of components, each with ports and parameters; compiled, it is a circuit whose
+S-matrix comes from one sparse solve. Here a waveguide leads into an all-pass ring:
 
 ```rust
 use std::sync::Arc;

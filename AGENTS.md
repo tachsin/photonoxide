@@ -2,9 +2,10 @@
 
 photonoxide is alpha: a library with a public API that still changes between milestones, and
 the `photonoxide` program (the studio). [ROADMAP.md](ROADMAP.md) is the plan and the record of
-what is done; [CHANGELOG.md](CHANGELOG.md) has what each release changed. 0.1 to 0.3 and the
-0.3.x patches are released; the 0.4 milestone, components and circuits, is on main and not yet
-released. The library's modules, each with a write-up in `docs/methods/`:
+what is done; [CHANGELOG.md](CHANGELOG.md) has what each release changed. 0.1 to 0.4 and the
+0.3.x patches are released, the latest 0.4.0 (components and circuits); next is 0.4.1, a
+stronger preconditioner for high-contrast 3D FDFD. The library's modules, each with a write-up
+in `docs/methods/`:
 
 - `units`, `material` (with `material::catalogue`), `geometry`, `stack`, `raster`;
 - `mode`: slabs, multilayers, planar profiles, full-vector and Hadley cross-sections, bends,
