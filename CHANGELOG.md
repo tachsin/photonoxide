@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/tachsin/photonoxide/compare/v0.3.3...v0.4.0) - 2026-10-03
+
+### <!-- 0 -->Added
+
+- components and netlists, the foundation of circuits ([#71](https://github.com/tachsin/photonoxide/pull/71))
+- the circuit solve: one sparse system per netlist, checked against Filipsson's sub-network growth ([#74](https://github.com/tachsin/photonoxide/pull/74))
+- read and write Touchstone files, Version 1 and 2.0 ([#72](https://github.com/tachsin/photonoxide/pull/72))
+- the circuit adjoint: every parameter's gradient from one transposed solve ([#75](https://github.com/tachsin/photonoxide/pull/75))
+- optimization at circuit level through genoxide: a splitter, a ring at critical coupling and a fit ([#76](https://github.com/tachsin/photonoxide/pull/76))
+- compact models by vector fitting, over parameters, and the measured fidelity ([#78](https://github.com/tachsin/photonoxide/pull/78))
+- 3D FDFD ports: the grid's own full-vector port modes, one-way mode sources and a reciprocal S-matrix ([#77](https://github.com/tachsin/photonoxide/pull/77))
+- the first components: waveguide, bend, couplers, MMI, Y-branch, rings and MZI ([#79](https://github.com/tachsin/photonoxide/pull/79))
+- *(studio)* a component library and a chip view ([#80](https://github.com/tachsin/photonoxide/pull/80))
+- validate against measured Mach-Zehnder interferometers (Dwivedi 2015) ([#85](https://github.com/tachsin/photonoxide/pull/85))
+- *(material)* AlN's index (Rigler 2015), AlGaN films (Rigler 2013), and InGaP beyond Tanaka's range (Ferrini 2002) ([#87](https://github.com/tachsin/photonoxide/pull/87))
+- compact models checked against their papers: Triverio's piecewise-linear model with an exact uniform stability test ([#86](https://github.com/tachsin/photonoxide/pull/86))
+- QMR preconditioned by ILU(0) on Shin and Fan's operator, with PMLs stretched as much as they absorb ([#84](https://github.com/tachsin/photonoxide/pull/84))
+
+### <!-- 1 -->Fixed
+
+- a 3D direct solve reaches round-off on any machine, finishing by QMR on an inaccurate factorization ([#82](https://github.com/tachsin/photonoxide/pull/82))
+- 0.4 follow-ups: MMI port polarization, provenance -0.000, parallel spectra, roadmap ([#83](https://github.com/tachsin/photonoxide/pull/83))
+- [**breaking**] 2D reflections with H along z by the tangential E's convention, as the 3D ports' ([#90](https://github.com/tachsin/photonoxide/pull/90))
+
+### <!-- 4 -->Documentation
+
+- bring the README up to date with 0.3.3 and the 0.4 work on main ([#88](https://github.com/tachsin/photonoxide/pull/88))
+- bring the site, getting started, the studio's README and AGENTS.md up to date ([#89](https://github.com/tachsin/photonoxide/pull/89))
+- animate the studio in the README, recorded by a script ([#91](https://github.com/tachsin/photonoxide/pull/91))
+- describe the crate as 0.4.0 has it, with FDTD, inverse design, layout and PDKs as planned ([#92](https://github.com/tachsin/photonoxide/pull/92))
+
 ## [0.3.3](https://github.com/tachsin/photonoxide/compare/v0.3.2...v0.3.3) - 2026-10-03
 
 ### <!-- 0 -->Added
