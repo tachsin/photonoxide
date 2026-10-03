@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.3](https://github.com/tachsin/photonoxide/compare/v0.3.2...v0.3.3) - 2026-10-03
+
+### <!-- 0 -->Added
+
+- the selected mode travels along its guide in the 3D viewer, and job previews show a modes job whole ([#61](https://github.com/tachsin/photonoxide/pull/61))
+- *(validation)* the cases' math as LaTeX, rendered by KaTeX in the studio and on the site ([#62](https://github.com/tachsin/photonoxide/pull/62))
+- flip through a sweep's points in the viewer, each with its structure and its modes ([#67](https://github.com/tachsin/photonoxide/pull/67))
+- a materials catalogue with provenance, and a Materials page in the studio ([#70](https://github.com/tachsin/photonoxide/pull/70))
+
+### <!-- 1 -->Fixed
+
+- *(studio)* a release in the making is announced as on its way, not as an error ([#58](https://github.com/tachsin/photonoxide/pull/58))
+- the check refuses windows that run backwards, a step that isn't positive and sweeps a run can't take; a width sweep's point shows its own cross-section ([#68](https://github.com/tachsin/photonoxide/pull/68))
+- new run events go after the old ones, so their discriminants keep their values ([#69](https://github.com/tachsin/photonoxide/pull/69))
+
+### <!-- 4 -->Documentation
+
+- method write-ups' math as GitHub renders it ([#63](https://github.com/tachsin/photonoxide/pull/63))
+
 ## [0.3.2](https://github.com/tachsin/photonoxide/compare/v0.3.1...v0.3.2) - 2026-10-02
 
 ### <!-- 0 -->Added
