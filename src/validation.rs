@@ -86,7 +86,7 @@ pub struct Case {
 
 /// Every validation case, in report order.
 pub fn cases() -> Vec<Case> {
-    vec![
+    let mut cases = vec![
         Case {
             id: "units/amplitude-convention",
             title: r"The amplitude of a real signal $\operatorname{Re}(A e^{-i\omega t})$ is recovered with the kernel $e^{+i\omega t}$ (magnitude shown)",
@@ -766,7 +766,10 @@ pub fn cases() -> Vec<Case> {
             source: r"$\partial t/\partial L = t\thinspace(i 2\pi n/\lambda - \alpha \ln 10/20)$, $\partial r/\partial \kappa^2 = -1/2r$, $\partial \kappa/\partial \kappa^2 = 1/2\kappa$, $\partial e^{i\phi}/\partial \phi = i e^{i\phi}$; the round-off of a step of $6 \times 10^{-6} \max(\lvert \theta \rvert, 1)$, about 1e-11",
             run: circuit_component_differences,
         },
-    ]
+    ];
+    // the compact models' cases live with them
+    cases.extend(crate::compact::checks::cases());
+    cases
 }
 
 fn circuit_adjoint(check: crate::circuit::adjoint::checks::Check) -> Outcome {
