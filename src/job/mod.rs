@@ -318,6 +318,38 @@ pub enum Event {
         /// Where the cross-section was cut along the guide, µm, as [`Event::Mode`] records it.
         cut_y_um: f64,
     },
+    /// A sweep is about to run, recorded before its first point: what it steps through, so that
+    /// a viewer can say how far along a running one is.
+    Sweep {
+        /// `"wavelength"` (µm) or `"width"` (µm).
+        parameter: String,
+        /// The first point's value.
+        from: f64,
+        /// The last point's value.
+        to: f64,
+        /// How many points, evenly spaced from `from` to `to`.
+        points: usize,
+    },
+    /// The field at a point of a 2D FDFD run's wavelength sweep, recorded after the point's
+    /// [`Event::SParameters`]: what [`Event::Field`] records at the one wavelength the job asks
+    /// for, averaged over blocks of cells (2 × 2, or larger for a sweep long enough that all its
+    /// pictures would pass five million pixels) and to three decimals, so a sweep's record stays
+    /// small.
+    SweepField {
+        /// The point's index, from 0, in the order the points are recorded.
+        point: usize,
+        /// The parameter's value there: the vacuum wavelength, µm.
+        value: f64,
+        /// What it shows, as [`Event::Field`]'s label.
+        label: String,
+        /// The vacuum wavelength, µm.
+        wavelength_um: f64,
+        /// The height the 3D view draws it at, µm: the layer's top face.
+        z_um: f64,
+        /// |field|², its largest value 1 (each point's own peak, so the pictures compare in
+        /// shape, not in strength); x across, y up.
+        intensity: Raster,
+    },
     /// The plane a modes job cut its cross-section on, recorded right after its
     /// [`Event::Scene`] by a job that names its `propagation`: the modes travel along the
     /// plane's normal, towards +x or +y. A modes run without one (an older job) cut normal to
@@ -1358,6 +1390,12 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let Some(sweep) = &task.sweep else {
         return Ok(());
     };
+    run.record(&Event::Sweep {
+        parameter: sweep.parameter.clone(),
+        from: sweep.from,
+        to: sweep.to,
+        points: sweep.points,
+    })?;
     for k in 0..sweep.points {
         if stop.reason().is_some() {
             return Ok(());
@@ -2097,11 +2135,16 @@ width_um = 0.3
                     .all(|v| (v * 1000.0 - (v * 1000.0).round()).abs() < 1e-3)
             );
         }
-        // the point's events come after its SweepPoint
+        // the point's events come after its SweepPoint, the first after the sweep's own
         let first = events
             .iter()
             .position(|e| matches!(e, Event::SweepPoint { .. }))
             .unwrap();
+        assert!(matches!(
+            &events[first - 1],
+            Event::Sweep { parameter, from, to, points: 3 }
+                if parameter == "width" && (*from, *to) == (0.45, 0.55)
+        ));
         assert!(matches!(
             &events[first + 1],
             Event::SweepShapes { point: 0, .. }
@@ -2471,17 +2514,23 @@ points = 2
         let mut run = Run::create(&root.0, &job).unwrap();
         execute(&job, &mut run, &Stop::new(None)).unwrap();
         let events: Vec<Event> = replay(run.dir()).unwrap();
-        // started, the scene, S at 1.5 um, the field, S at 1.6 um, finished
-        assert_eq!(events.len(), 6, "{events:?}");
+        // started, the scene, the sweep, S at 1.5 um, the field and the point's, S at 1.6 um,
+        // its point's field, finished
+        assert_eq!(events.len(), 9, "{events:?}");
         assert!(matches!(&events[1], Event::Scene { .. }));
+        assert!(matches!(
+            &events[2],
+            Event::Sweep { parameter, from, to, points: 2 }
+                if parameter == "wavelength" && (*from, *to) == (1.5, 1.6)
+        ));
         let Event::SParameters {
             wavelength_um,
             ports,
             effective_indices,
             s,
-        } = &events[2]
+        } = &events[3]
         else {
-            panic!("{:?}", events[2])
+            panic!("{:?}", events[3])
         };
         assert_eq!(*wavelength_um, 1.5);
         assert_eq!(ports.len(), 2);
@@ -2493,13 +2542,86 @@ points = 2
             effective_indices.iter().all(|&n| n > 1.444 && n < 2.85),
             "{effective_indices:?}"
         );
-        let Event::Field { intensity, .. } = &events[3] else {
-            panic!("{:?}", events[3])
+        let Event::Field { intensity, .. } = &events[4] else {
+            panic!("{:?}", events[4])
         };
         assert_eq!((intensity.nx, intensity.ny), (70, 70));
         assert!(
-            matches!(&events[4], Event::SParameters { wavelength_um, .. } if *wavelength_um == 1.6)
+            matches!(&events[6], Event::SParameters { wavelength_um, .. } if *wavelength_um == 1.6)
         );
+        // each point's field after its S: the job's own on 2 x 2 blocks, its peak 1, to three
+        // decimals, over the same window
+        for (k, at) in [(0, 5), (1, 7)] {
+            let Event::SweepField {
+                point,
+                value,
+                wavelength_um,
+                intensity: coarse,
+                ..
+            } = &events[at]
+            else {
+                panic!("{:?}", events[at])
+            };
+            assert_eq!((*point, *value, *wavelength_um), (k, [1.5, 1.6][k], *value));
+            assert_eq!((coarse.nx, coarse.ny), (35, 35));
+            assert_eq!((coarse.x0, coarse.y0), (intensity.x0, intensity.y0));
+            assert!(
+                (coarse.x1 - intensity.x1).abs() < 1e-12
+                    && (coarse.y1 - intensity.y1).abs() < 1e-12
+            );
+            assert_eq!(coarse.range().1, 1.0);
+            assert!(
+                coarse
+                    .values
+                    .iter()
+                    .all(|v| (v * 1000.0 - (v * 1000.0).round()).abs() < 1e-3)
+            );
+            // the first point is the wavelength the job's own field is at: its blocks' means
+            if k == 0 {
+                let mean = |i: usize, j: usize| {
+                    (0..2)
+                        .flat_map(|b| (0..2).map(move |a| (a, b)))
+                        .map(|(a, b)| f64::from(intensity.at(2 * i + a, 2 * j + b)))
+                        .sum::<f64>()
+                        / 4.0
+                };
+                let peak = (0..35)
+                    .flat_map(|j| (0..35).map(move |i| (i, j)))
+                    .map(|(i, j)| mean(i, j))
+                    .fold(0.0, f64::max);
+                for (i, j) in [(17, 17), (5, 17), (30, 18), (17, 3)] {
+                    let expected = mean(i, j) / peak;
+                    assert!(
+                        (f64::from(coarse.at(i, j)) - expected).abs() < 1e-3,
+                        "{i} {j}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn an_fdfd_job_at_one_wavelength_records_no_sweep() {
+        let root = temp("fdfd-single");
+        let sweep = "[task.sweep]\nparameter = \"wavelength\"\nfrom = 1.5\nto = 1.6\npoints = 2\n";
+        let job = Job::parse(&FDFD.replace(sweep, "")).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let events: Vec<Event> = replay(run.dir()).unwrap();
+        // started, the scene, S, the field, finished
+        assert_eq!(events.len(), 5, "{events:?}");
+        assert!(matches!(&events[3], Event::Field { .. }));
+    }
+
+    #[test]
+    fn a_long_sweeps_fields_are_on_larger_blocks() {
+        // the ring job's grid: 2 x 2 blocks for its 201 points, larger for ten times as many
+        assert_eq!(fdfd::sweep_block(360, 256, 201), 2);
+        let b = fdfd::sweep_block(360, 256, 2010);
+        assert!(b > 2 && (360 / b) * (256 / b) * 2010 <= 5_000_000, "{b}");
+        assert!((360 / (b - 1)) * (256 / (b - 1)) * 2010 > 5_000_000, "{b}");
+        // never more than the grid
+        assert_eq!(fdfd::sweep_block(3, 1, 10_000_000), 1);
     }
 
     #[test]
@@ -2523,7 +2645,7 @@ field_um = 1.58",
             })
             .collect();
         assert_eq!(fields, [1.6]);
-        assert!(matches!(&events[4], Event::Field { .. }), "{:?}", events[4]);
+        assert!(matches!(&events[6], Event::Field { .. }), "{:?}", events[6]);
     }
 
     #[test]

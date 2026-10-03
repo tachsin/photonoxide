@@ -1,6 +1,6 @@
 <script lang="ts">
   // The run in 2D: fields, S-parameters, permittivity pictures, modes and sweeps.
-  import { run, shownModes } from "../lib/app.svelte";
+  import { run, shownField, shownModes, sweepAxis } from "../lib/app.svelte";
   import { api } from "../lib/api";
   import { modeKind } from "../lib/events";
   import type { Series } from "../lib/plot";
@@ -58,8 +58,13 @@
   const unit = $derived(run.sweep?.parameter === "wavelength" ? "wavelength (µm)" : "width (µm)");
 
   // the sweep point shown, if one is picked: marked on the plots, its modes below
-  const marker = $derived(run.point === null ? null : (run.sweep?.points[run.point]?.value ?? null));
+  const axis = $derived(sweepAxis());
+  const marker = $derived(run.point === null ? null : (axis?.values[run.point] ?? null));
   const modes = $derived(shownModes().modes);
+  // an FDFD run's field: the sweep point's, or the one the job asks for
+  const field = $derived(shownField());
+  /** The S-matrix in the table: the sweep point's, or the first wavelength's. */
+  const tabled = $derived(run.sparams[run.point ?? 0] ?? run.sparams[0]);
 </script>
 
 <div class="mx-auto max-w-6xl space-y-6 p-6">
@@ -69,16 +74,19 @@
     </div>
   {/if}
 
-  {#each run.fields as f, k (k)}
+  {#if field}
     <section class="panel p-5">
-      <h3 class="mb-1 font-semibold">{f.label} <span class="font-normal faint">at {f.wavelength_um} µm</span></h3>
-      <p class="mb-3 text-xs faint">from zero (black) to its peak (pale yellow), seen from above</p>
-      <RasterView raster={f.intensity} kind="intensity" maxHeight={420} />
+      <h3 class="mb-1 font-semibold">
+        {field.label} <span class="font-normal faint">at {Number(field.wavelength_um.toFixed(4))} µm</span>
+        {#if marker !== null && axis}<span class="text-sm font-normal text-primary">· point {(run.point ?? 0) + 1} of {axis.total} of the sweep</span>{/if}
+      </h3>
+      <p class="mb-3 text-xs faint">from zero (black) to its peak (pale yellow), seen from above{marker !== null ? "; each point's own peak, on coarser pixels than the job's own field" : ""}</p>
+      <RasterView raster={field.intensity} kind="intensity" maxHeight={420} />
     </section>
-  {/each}
+  {/if}
 
   {#if run.sparams.length}
-    {@const first = run.sparams[0]}
+    {@const first = tabled}
     <section class="panel p-5">
       <div class="flex items-center gap-3">
         <h3 class="font-semibold">S-parameters <span class="font-normal faint">· {run.sparams.length} wavelength{run.sparams.length === 1 ? "" : "s"}</span></h3>
@@ -98,11 +106,12 @@
           yLabel={decibels ? "|S_q1|² (dB)" : "|S_q1|²"}
           yRange={decibels ? undefined : [0, 1.02]}
           name="{run.job?.job ?? 'run'}-spectra"
+          {marker}
         />
       {/if}
       <div class="mt-4 overflow-x-auto">
         <table class="table table-xs w-auto">
-          <thead><tr><th>at {first.wavelength_um} µm</th>{#each first.ports as _, p (p)}<th class="num">from {p + 1}</th>{/each}</tr></thead>
+          <thead><tr><th>at {Number(first.wavelength_um.toFixed(4))} µm</th>{#each first.ports as _, p (p)}<th class="num">from {p + 1}</th>{/each}</tr></thead>
           <tbody>
             {#each first.s as row, q (q)}
               <tr>

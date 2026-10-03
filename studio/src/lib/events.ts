@@ -124,6 +124,30 @@ export interface SweepMode {
   cut_y_um: number;
 }
 
+/** A sweep about to run, recorded before its first point: what it steps through. */
+export interface Sweep {
+  type: "sweep";
+  /** "wavelength" or "width", both in µm. */
+  parameter: string;
+  from: number;
+  to: number;
+  /** How many points, evenly spaced. */
+  points: number;
+}
+
+/** A 2D FDFD run's field at one point of its wavelength sweep: its Field there, on coarser pixels. */
+export interface SweepField {
+  type: "sweep_field";
+  /** The point's index, from 0. */
+  point: number;
+  value: number;
+  label: string;
+  wavelength_um: number;
+  z_um: number;
+  /** |field|², the point's own peak 1; x across, y up. */
+  intensity: Raster;
+}
+
 export interface Field {
   type: "field";
   label: string;
@@ -153,6 +177,8 @@ export type Event =
   | SweepShapes
   | SweepPermittivity
   | SweepMode
+  | Sweep
+  | SweepField
   | Field
   | SParameters
   | { type: "finished"; stopped: string | null; seconds: number };
