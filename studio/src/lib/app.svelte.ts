@@ -118,6 +118,8 @@ export const run = $state({
   wave: true,
   wavePlaying: true,
   waveSpeed: 1,
+  /** How dense the wave's volume looks, 1 by default. */
+  waveDensity: 1,
   selected: 0,
   opened: performance.now(),
   /** Bumped on every new event, for views that redraw. */
@@ -179,6 +181,7 @@ function reset(info: Info) {
     wave: true,
     wavePlaying: true,
     waveSpeed: 1,
+    waveDensity: 1,
     selected: 0,
     opened: performance.now(),
     version: run.version + 1,
