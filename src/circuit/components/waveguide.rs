@@ -210,6 +210,10 @@ impl Dispersion {
     /// the model and its largest |Δn_eff| against the exact modes at λ₀ ± 2h. The loss is the
     /// radiation loss along the arc.
     ///
+    /// The slab is the guide seen from above, bent in the chip's plane, so the model's
+    /// polarization, which its ports state, is the device's and not the slab's: a TM slab mode
+    /// (E in the plane) is the TE-like guide's, a TE one (E normal to it) the TM-like guide's.
+    ///
     /// # Errors
     ///
     /// As [`Dispersion::from_modes`], with those of `bend` and of the bent slab.
@@ -225,7 +229,7 @@ impl Dispersion {
             n[k] = bend(w)?.fundamental(polarization, w)?;
         }
         let (mut model, residual) = Dispersion::from_samples(wavelength, step, n);
-        model.polarization = Some(polarization);
+        model.polarization = Some(super::seen_from_above(polarization));
         Ok((model, residual))
     }
 }
@@ -316,12 +320,12 @@ impl Waveguide {
             fidelity: Fidelity::ThreeD,
             source: format!(
                 "the full-vector mode solver (Fallahkhair et al. 2008, doi:10.1109/JLT.2008.923643) \
-                 on {grid}: n_eff {:.6}, n_g {:.4}, D {:.0} ps/(nm km), {:.3} dB/cm at {l0} um; \
+                 on {grid}: n_eff {:.6}, n_g {:.4}, D {} ps/(nm km), {} dB/cm at {l0} um; \
                  n_eff second order in λ, within {residual:.1e} of the solver at ±{} um",
                 dispersion.effective_index,
                 dispersion.group_index,
-                dispersion.dispersion,
-                dispersion.loss_db_per_cm,
+                super::fixed(dispersion.dispersion, 0),
+                super::fixed(dispersion.loss_db_per_cm, 3),
                 2.0 * step
             ),
             error: None,
@@ -453,11 +457,11 @@ impl Bend {
             fidelity: Fidelity::ThreeD,
             source: format!(
                 "the full-vector mode solver on a bend of radius {radius} um by Heiblum & Harris's \
-                 conformal map (doi:10.1109/JQE.1975.1068563), on {grid}: n_eff {:.6} + {:.2e}i, \
-                 n_g {:.4} at {l0} um; within {residual:.1e} of the solver at ±{} um",
+                 conformal map (doi:10.1109/JQE.1975.1068563), on {grid}: n_eff {:.6}, n_g {:.4}, \
+                 {} dB/cm at {l0} um; within {residual:.1e} of the solver at ±{} um",
                 dispersion.effective_index,
-                dispersion.loss_db_per_cm,
                 dispersion.group_index,
+                super::fixed(dispersion.loss_db_per_cm, 3),
                 2.0 * step
             ),
             error: None,
@@ -488,11 +492,11 @@ impl Bend {
             source: format!(
                 "an exact bent slab of radius {radius} um (radial shooting to the outgoing Hankel \
                  function, Marcuse 1971, doi:10.1002/j.1538-7305.1971.tb02620.x, Eq. 10): n_eff \
-                 {:.6}, n_g {:.4}, {:.3} dB/cm at {l0} um; within {residual:.1e} of the exact modes \
+                 {:.6}, n_g {:.4}, {} dB/cm at {l0} um; within {residual:.1e} of the exact modes \
                  at ±{} um",
                 dispersion.effective_index,
                 dispersion.group_index,
-                dispersion.loss_db_per_cm,
+                super::fixed(dispersion.loss_db_per_cm, 3),
                 2.0 * step
             ),
             error: None,
