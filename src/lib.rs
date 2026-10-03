@@ -14,6 +14,7 @@
 #![warn(missing_docs)]
 #![warn(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
+pub mod circuit;
 mod eigen;
 pub mod error;
 pub mod fdfd;
