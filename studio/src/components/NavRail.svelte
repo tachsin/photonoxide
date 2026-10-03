@@ -2,9 +2,11 @@
   // The navigation rail: every page, and the run being followed when there is one.
   import {
     Atom,
+    Boxes,
     ChartSpline,
     ChevronsLeft,
     ChevronsRight,
+    CircuitBoard,
     FlaskConical,
     History,
     House,
@@ -52,11 +54,15 @@
         { page: "runs", label: "Runs", icon: History, hint: "Every run in the workspace" },
         { page: "viewer", label: "Viewer", icon: View, hint: "The run being shown, in 3D and 2D" },
         { page: "compare", label: "Compare", icon: ChartSpline, hint: "Runs side by side: sweeps and spectra" },
+        { page: "chip", label: "Chip", icon: CircuitBoard, hint: "Place components, wire them into a circuit, simulate it" },
       ],
     },
     {
       title: "Library",
-      items: [{ page: "materials", label: "Materials", icon: Atom, hint: "Indices, crystals and tensors, each from its paper" }],
+      items: [
+        { page: "materials", label: "Materials", icon: Atom, hint: "Indices, crystals and tensors, each from its paper" },
+        { page: "components", label: "Components", icon: Boxes, hint: "The parts of a chip: ports, parameters, models and spectra" },
+      ],
     },
     {
       title: "Trust",

@@ -8,11 +8,14 @@
   import Toasts from "./components/Toasts.svelte";
   import TopBar from "./components/TopBar.svelte";
   import Tour from "./components/Tour.svelte";
+  import TouchstoneImport from "./components/TouchstoneImport.svelte";
   import UpdateDialog from "./components/UpdateDialog.svelte";
   import { app, boot } from "./lib/app.svelte";
   import { checkForUpdate } from "./lib/updater.svelte";
   import Builder from "./pages/Builder.svelte";
+  import ChipPage from "./pages/Chip.svelte";
   import Compare from "./pages/Compare.svelte";
+  import Components from "./pages/Components.svelte";
   import Examples from "./pages/Examples.svelte";
   import Home from "./pages/Home.svelte";
   import Materials from "./pages/Materials.svelte";
@@ -60,6 +63,10 @@
         <Compare />
       {:else if app.page === "materials"}
         <Materials />
+      {:else if app.page === "components"}
+        <Components />
+      {:else if app.page === "chip"}
+        <ChipPage />
       {:else if app.page === "validation"}
         <Validation />
       {:else if app.page === "settings"}
@@ -72,6 +79,7 @@
   </div>
   <CommandPalette />
   <UpdateDialog />
+  <TouchstoneImport />
   <Tour />
   <Toasts />
 {:else}

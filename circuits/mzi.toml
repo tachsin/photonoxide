@@ -1,0 +1,71 @@
+# A Mach-Zehnder interferometer from parts: two ideal 3 dB couplers and two strip arms 50 µm
+# apart in length. Its outputs swap power every free spectral range, λ²/(n_g ΔL).
+format = 1
+name = "mzi"
+about = "A Mach-Zehnder interferometer from parts: two 3 dB couplers and two strip arms 50 µm apart in length."
+
+connections = [
+    ["split.o3", "upper.o1"],
+    ["split.o4", "lower.o1"],
+    ["upper.o2", "combine.o2"],
+    ["lower.o2", "combine.o1"],
+]
+
+[sweep]
+from_um = 1.5
+to_um = 1.6
+points = 1001
+
+[[instance]]
+name = "split"
+kind = "coupler"
+x = -100
+y = 0
+values = { coupling = 0.5 }
+
+[[instance]]
+name = "upper"
+kind = "waveguide"
+x = 0
+y = -40
+values = { length = 100.0 }
+
+[[instance]]
+name = "lower"
+kind = "waveguide"
+x = 0
+y = 40
+values = { length = 150.0 }
+
+[[instance]]
+name = "combine"
+kind = "coupler"
+x = 100
+y = 0
+values = { coupling = 0.5 }
+
+[[port]]
+name = "in1"
+at = "split.o2"
+x = -190
+y = -10
+
+[[port]]
+name = "in2"
+at = "split.o1"
+x = -190
+y = 10
+
+[[port]]
+name = "out1"
+at = "combine.o3"
+x = 190
+y = -10
+rotation = 180
+
+[[port]]
+name = "out2"
+at = "combine.o4"
+x = 190
+y = 10
+rotation = 180

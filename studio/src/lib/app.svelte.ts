@@ -5,7 +5,7 @@ import type { Event, Field, Mode, ModeField, Permittivity, Scene, Shape, SParame
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
 
-export type Page = "home" | "examples" | "builder" | "runs" | "viewer" | "compare" | "validation" | "materials" | "settings";
+export type Page = "home" | "examples" | "builder" | "runs" | "viewer" | "compare" | "validation" | "materials" | "components" | "chip" | "settings";
 
 export const app = $state({
   ready: false,
@@ -21,6 +21,8 @@ export const app = $state({
   builderOpen: null as { text: string; path: string | null } | null,
   /** A published-result example for the examples page to open. */
   focus: null as string | null,
+  /** The component the Components page shows, by its library id; null for the first. */
+  component: null as string | null,
   /** Runs picked for comparison. */
   compare: [] as string[],
   /** Bumped when the workspace's files change, so lists reload. */

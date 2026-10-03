@@ -3,8 +3,9 @@
   import { CornerDownLeft, Search } from "@lucide/svelte";
   import { tick } from "svelte";
 
-  import { api, type Catalog, type Home } from "../lib/api";
+  import { api, type Catalog, type CircuitExample, type CircuitItem, type Home, type KindInfo } from "../lib/api";
   import { app, go, startRun, updateSettings, type Page } from "../lib/app.svelte";
+  import { addInstance, importTouchstone, library, loadLibrary, openChipFile, partKey, saveChip, showChip, simulate } from "../lib/chip.svelte";
   import { template, toToml, type Kind } from "../lib/job";
   import { checkForUpdate } from "../lib/updater.svelte";
 
@@ -20,6 +21,8 @@
   let input: HTMLInputElement | undefined = $state();
   let catalog = $state<Catalog | null>(null);
   let home = $state<Home | null>(null);
+  let circuits = $state<CircuitItem[]>([]);
+  let circuitExamples = $state<CircuitExample[]>([]);
 
   $effect(() => {
     if (app.palette) {
@@ -28,6 +31,9 @@
       tick().then(() => input?.focus());
       api.catalog().then((c) => (catalog = c)).catch(() => {});
       api.home().then((h) => (home = h)).catch(() => {});
+      api.circuits().then((c) => (circuits = c)).catch(() => {});
+      api.circuitExamples().then((c) => (circuitExamples = c)).catch(() => {});
+      loadLibrary();
     }
   });
 
@@ -39,6 +45,8 @@
     ["viewer", "Viewer"],
     ["compare", "Compare"],
     ["materials", "Materials"],
+    ["components", "Components"],
+    ["chip", "Chip"],
     ["validation", "Validation"],
     ["settings", "Settings"],
   ];
@@ -61,12 +69,26 @@
       { group: "Actions", label: "New modes job", detail: "a waveguide's modes", run: () => newJob("modes") },
       { group: "Actions", label: "New FDFD job", detail: "a device with ports", run: () => newJob("fdfd") },
       { group: "Actions", label: "New structure job", detail: "pictures of a layout", run: () => newJob("structure") },
+      { group: "Actions", label: "New circuit", detail: "an empty chip", run: () => newChip() },
+      { group: "Actions", label: "Simulate the circuit", detail: "the chip being edited (Ctrl+Enter there)", run: () => chipAction(simulate) },
+      { group: "Actions", label: "Save the circuit", detail: "the chip being edited, to circuits/ (Ctrl+S there)", run: () => chipAction(saveChip) },
       { group: "Actions", label: "Check for updates", run: () => checkForUpdate(false) },
       { group: "Actions", label: "Switch the theme", run: () => updateSettings((s) => (s.theme = app.dark ? "light" : "dark")) },
       { group: "Actions", label: "Take the tour", run: () => (app.tour = true) },
     ];
     for (const j of catalog?.jobs ?? []) {
       all.push({ group: "Run an example", label: j.name, detail: j.about, run: () => startRun(() => api.runText(j.text), `Running ${j.name}`) });
+    }
+    for (const c of circuitExamples) {
+      all.push({ group: "Example circuits", label: c.chip.name, detail: c.chip.about, run: () => showChip(c.chip) });
+    }
+    for (const c of circuits) {
+      all.push({ group: "Your circuits", label: c.name, detail: c.about || `${c.instances} parts`, run: () => openChipFile(c.path) });
+    }
+    all.push({ group: "Actions", label: "Import a Touchstone file", detail: "S-parameters as a measured component", run: () => importTouchstone().then((k) => k && ((app.component = partKey(k)), go("components"))) });
+    for (const k of library.kinds as KindInfo[]) {
+      all.push({ group: "Components", label: k.title, detail: `${k.category}: ${k.about}`, run: () => { app.component = k.id; go("components"); } });
+      all.push({ group: "Place on the chip", label: k.title, detail: k.id, run: () => { addInstance(k.id); go("chip"); } });
     }
     for (const e of catalog?.examples ?? []) {
       all.push({
@@ -99,6 +121,13 @@
       .slice(0, 40)
       .map((x) => x.i);
   });
+
+  const newChip = () => showChip();
+
+  function chipAction(act: () => unknown) {
+    go("chip");
+    act();
+  }
 
   function choose(i: Item) {
     app.palette = false;

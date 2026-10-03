@@ -51,6 +51,36 @@ window only follows that record, so a live run and a replay look the same.
     run's window is greyed. Each layer's info button tells what it is made of, what fills it
     around its shapes and what lies under and over it, and recolours it in the viewer.
 - **Compare:** the runs ticked on the Runs page, their sweeps and spectra on shared axes.
+- **Components:** the library a chip is built from. Each kind of component with its ports,
+  its parameters (units, ranges, defaults), its model's equations and its provenance (the
+  source, its stated error against it, the wavelengths it holds for), its schematic symbol, and
+  its S-parameters over wavelength as power, dB or phase, computed again by the library as the
+  parameters move, saved as CSV or as a Touchstone file. **Place on the chip** adds one to the
+  chip being edited. **Import Touchstone** reads a `.sNp` file as a measured component, asking
+  which time convention its values are in, and interpolates it in wavelength.
+- **Chip:** components placed on a canvas and wired port to port.
+  - Drag parts from the left onto the canvas (or click one for the middle). Everything snaps
+    to a grid of 10. Drag the background to pan, scroll to zoom, F fits the chip in view.
+  - Drag from a port to another port to connect them. The library checks every connection as it
+    is made (`photonoxide::circuit::Netlist`) and refuses what it can't build, saying why: a
+    port used twice, a port connected to itself, modes that don't match. Drag from a port into
+    empty space for an external port there, named `in`, `out`, `in2`… (rename it in the side
+    panel); or drag the external port part in and wire its tip.
+  - Open ports are marked until they are connected or exposed, and the side panel lists what
+    is left to finish. Problems point at their instance, wire or port: click one to select it.
+  - The side panel edits the selection: an instance's name and parameters, an external port's
+    name; with nothing selected, the circuit's name, notes and wavelengths.
+  - **Simulate** (Ctrl+Enter) solves the whole netlist at each wavelength
+    (`Netlist::compile`, then `Circuit::spectrum`), and plots what comes out of every external
+    port for light in at one, with the checks: reciprocity (the largest |S − Sᵀ|), passivity
+    (the largest singular value) and unitarity (the largest |SᴴS − I|, zero when nothing is
+    lost). The results follow the chip: a change simulates it again. **Touchstone** saves the
+    circuit's spectrum as a `.sNp` file, in photonoxide's e^(−iωt) convention.
+  - Keys: Delete removes the selection, R rotates it (Shift+R the other way), M mirrors it top
+    to bottom, Ctrl+Z and Ctrl+Y undo and redo, Ctrl+S saves to the workspace's `circuits/`,
+    Escape lets go.
+  - **New** starts an empty chip or one of the built-in circuits (`circuits/` in the
+    repository): an MZI from parts, an all-pass and an add-drop ring, a 1×4 splitter.
 - **Validation:** the release's report, searchable, and the same report run on this machine.
 - **Settings:** the theme (photonoxide's dark or light, by the system or chosen, or any of
   daisyUI's, each shown in its own colours), the workspace folder, tips, and updates.
@@ -62,11 +92,68 @@ Help is built in:
 - tooltips on the controls;
 - **Ctrl+K** (⌘K) to jump to any page, example, job or run.
 
-**The workspace** is the folder with `jobs/` and `runs/`:
+**The workspace** is the folder with `jobs/`, `runs/` and `circuits/`:
 1. the one chosen in the settings;
 2. else the folder the program was started in, when it has a `jobs/` or `runs/` (a checkout of
    this repository);
 3. else `photonoxide` in your documents.
+
+## Chip files
+
+A chip is saved as TOML in the workspace's `circuits/<name>.toml`: the library's netlist, plus
+where the chip view draws each part. `Chip::netlist` (studio/src-tauri/src/circuits.rs) builds
+the library's `Netlist` from it, step by step, and `Chip::from_netlist` writes a netlist back
+out, so the two round-trip.
+
+```toml
+format = 1                       # files of a later format are refused
+name = "mzi"                     # also the file's name: letters, digits, - and _
+about = "A Mach-Zehnder interferometer from parts."
+
+connections = [                  # each two ports, instance.port, joined with nothing between
+    ["split.o3", "upper.o1"],
+    ["upper.o2", "combine.o2"],
+]
+
+[sweep]                          # the wavelengths Simulate solves at, evenly spaced
+from_um = 1.5
+to_um = 1.6
+points = 1001
+
+[[instance]]
+name = "split"                   # unique; no dots or spaces
+kind = "coupler"                 # a library id, as the Components page shows it
+x = -100                         # the symbol's centre on the canvas (the grid is 10)
+y = 0
+rotation = 90                    # clockwise, in degrees: 0, 90, 180 or 270 (default 0)
+mirror = true                    # top to bottom, before the rotation (default false)
+values = { coupling = 0.5 }      # a parameter left out takes its default
+
+[[port]]                         # an external port, in the circuit's order
+name = "in1"
+at = "split.o1"                  # the port it exposes; "" while it isn't wired
+x = -190
+y = -10
+rotation = 0                     # 0 points right, at a port on its right; 180 left
+```
+
+A measured component, read from a Touchstone file, is an instance of kind `touchstone` that
+names its file (relative to the workspace when it is inside it) and the file's time convention,
+which Touchstone doesn't record: `physics` for e^(−iωt), photonoxide's own, or `engineering` for
+e^(+jωt), most RF tools'. Its ports are `o1`, `o2`, … in the file's order.
+
+```toml
+[[instance]]
+name = "chip1"
+kind = "touchstone"
+file = "measured/ring.s4p"
+convention = "engineering"
+x = 0
+y = 0
+```
+
+Every port of every instance must be connected or exposed exactly once before the circuit
+simulates; a port meant to absorb what reaches it is wired to a terminator.
 
 ## Updates
 
@@ -141,6 +228,10 @@ window from Vite and reloads it as you edit.
   - `studio.rs`: the window and the commands it calls.
   - `examples.rs`: the examples and jobs built in.
   - `settings.rs`: the settings and the workspace.
+  - `materials.rs`: the Materials page's commands.
+  - `circuits.rs`: the Components and Chip pages' commands, and chip files; `circuits/library.rs`
+    is the component library the studio offers (each kind's id, title, symbol, and the
+    library's component it builds).
   - `tasks.rs`: the examples and reports running in their own processes.
 - `src/`: the window, in Svelte 5 with TypeScript, Tailwind CSS and daisyUI, and Lucide icons.
   - `pages/`: one file per page.

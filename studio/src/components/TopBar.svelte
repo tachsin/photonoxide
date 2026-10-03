@@ -3,6 +3,7 @@
   import { CircleHelp, Download, Moon, Search, Sun } from "@lucide/svelte";
 
   import { app, run, updateSettings } from "../lib/app.svelte";
+  import { editor } from "../lib/chip.svelte";
   import { updater } from "../lib/updater.svelte";
 
   const titles: Record<string, [string, string]> = {
@@ -13,6 +14,8 @@
     viewer: ["Viewer", "A run as its record holds it, live or replayed"],
     compare: ["Compare", "Runs side by side"],
     materials: ["Materials", "Refractive indices, crystals and tensors, each from its paper"],
+    components: ["Components", "The parts a chip is built from: ports, parameters, models and spectra"],
+    chip: ["Chip", "Place components, wire them port to port, and simulate the circuit"],
     validation: ["Validation", "Each solver against exact solutions and published results"],
     settings: ["Settings", "Appearance, workspace, tips and updates"],
   };
@@ -25,6 +28,7 @@
     <h1 class="truncate text-[15px] font-semibold tracking-tight">
       {title[0]}
       {#if app.page === "viewer" && run.job}<span class="font-normal muted"> · {run.job.job}</span>{/if}
+      {#if app.page === "chip"}<span class="font-normal muted"> · {editor.chip.name}</span>{/if}
     </h1>
     <p class="truncate text-xs faint">{title[1]}</p>
   </div>

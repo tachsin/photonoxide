@@ -146,5 +146,9 @@ method, its conjugation and its validation are in [circuit-adjoint.md](../method
 its ports (and their modes), its parameters with units and ranges, its provenance. The chip
 view edits a `Netlist` step by step, and each step's `NetlistError` says which instance, port or
 parameter to point at. Saving a chip needs components rebuilt from their names and parameters:
-a registry from `kind` to a constructor, which the library keeps; positions on the chip are the
-view's, not the netlist's, until layout (0.9) gives ports positions of their own.
+a registry from an id to a constructor, which the studio keeps
+(studio/src-tauri/src/circuits/library.rs: the library's components, built with the guide and
+widths the studio chooses), and a chip file that names each instance's id, values and place
+(studio/README.md, "Chip files"); a measured instance names its Touchstone file and the file's
+time convention. Positions on the chip are the view's, not the netlist's, until layout (0.9)
+gives ports positions of their own.

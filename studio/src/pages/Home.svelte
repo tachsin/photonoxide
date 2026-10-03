@@ -1,6 +1,6 @@
 <script lang="ts">
   // Home: start something new, or pick up where you left off.
-  import { ArrowRight, BookOpenCheck, FolderOpen, History, LayoutGrid, Plus, ShieldCheck, Sparkles } from "@lucide/svelte";
+  import { ArrowRight, BookOpenCheck, CircuitBoard, FolderOpen, History, LayoutGrid, Plus, ShieldCheck, Sparkles } from "@lucide/svelte";
   import { open } from "@tauri-apps/plugin-dialog";
 
   import JobCard from "../components/JobCard.svelte";
@@ -9,6 +9,7 @@
   import { ago, api, duration, KINDS, type Home } from "../lib/api";
   import { app, go, run, startRun } from "../lib/app.svelte";
   import { catalog, loadCatalog } from "../lib/catalog.svelte";
+  import { showChip } from "../lib/chip.svelte";
   import { template, toToml, type Kind } from "../lib/job";
 
   let home = $state<Home | null>(null);
@@ -38,6 +39,8 @@
     const dir = await open({ title: "Open a run folder", directory: true, defaultPath: `${app.state?.workspace}/runs` });
     if (typeof dir === "string") startRun(() => api.openRun(dir), "Opened the run");
   }
+
+  const newCircuit = () => showChip();
 
   async function whatsNew() {
     changelog ||= await api.changelog().catch(() => "");
@@ -72,6 +75,7 @@
                 {/each}
               </ul>
             </div>
+            <button class="btn gap-2" onclick={newCircuit} title="Place components on a chip and wire them into a circuit"><CircuitBoard size={17} /> New circuit</button>
             <button class="btn gap-2" onclick={() => go("examples")}><LayoutGrid size={17} /> Browse examples</button>
             <button class="btn btn-ghost gap-2" onclick={openRunFolder}><FolderOpen size={17} /> Open a run…</button>
           </div>
