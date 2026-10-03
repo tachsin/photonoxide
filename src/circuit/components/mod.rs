@@ -46,6 +46,7 @@ pub use splitter::YBranch;
 pub use waveguide::{Bend, Dispersion, PhaseShifter, Waveguide};
 
 use super::{Parameter, SMatrix};
+use crate::mode::Polarization;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 use dual::Dual;
@@ -143,4 +144,29 @@ fn check_wavelength(
 /// The amplitude attenuation of `db` decibels of power loss: 10^(−db/20).
 fn amplitude(db: Dual) -> Dual {
     (db * (-std::f64::consts::LN_10 / 20.0)).exp()
+}
+
+/// The polarization a port states for a guide modelled by its plane seen from above (the
+/// effective index method's lateral slab, an MMI's section, a bent slab), whose 2D field has
+/// `lateral` polarization. Ports follow the waveguides' convention, the full-vector solver's:
+/// TE-like when E lies mainly in the chip's plane. A lateral TM mode (H normal to the plane, E
+/// in it) is therefore the TE-like mode, and a lateral TE mode (E normal to the plane) the
+/// TM-like one.
+fn seen_from_above(lateral: Polarization) -> Polarization {
+    match lateral {
+        Polarization::Te => Polarization::Tm,
+        Polarization::Tm => Polarization::Te,
+    }
+}
+
+/// `x` to `decimals` places, for a provenance: a value that rounds to zero is printed as zero,
+/// without the sign of a tiny negative one (a solver's round-off loss would read "-0.000").
+fn fixed(x: f64, decimals: usize) -> String {
+    let s = format!("{x:.decimals$}");
+    match s.strip_prefix('-') {
+        Some(magnitude) if magnitude.bytes().all(|b| b == b'0' || b == b'.') => {
+            magnitude.to_owned()
+        }
+        _ => s,
+    }
 }

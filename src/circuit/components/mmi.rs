@@ -32,7 +32,8 @@ use crate::{Error, Result};
 #[allow(clippy::large_enum_variant)]
 pub enum Planar {
     /// Fixed indices, the same at every wavelength; `polarization` is the in-plane field's
-    /// (TE: E normal to the plane; TM: H normal to it).
+    /// (TE: E normal to the plane; TM: H normal to it). The ports state the device's mode, the
+    /// other one: a lateral TM field, E in the plane, is a TE-like guide's.
     Indices {
         /// The ridge's effective index.
         ridge: f64,
@@ -45,7 +46,8 @@ pub enum Planar {
     /// `"fdfd"` job uses it: the ridge's index is the fundamental mode of a film `thickness`
     /// thick of `core` between `cladding` above and below, of `vertical` polarization; the
     /// cladding's is the cladding material's. The lateral polarization is the other one (a
-    /// TE-like guide's light is TE in the film and TM across the ridge).
+    /// TE-like guide's light is TE in the film and TM across the ridge), and the ports state
+    /// `vertical`, the device's mode.
     Film {
         /// The film's material.
         core: Material,
@@ -82,11 +84,8 @@ impl Planar {
                     .first()
                     .map(SlabMode::effective_index)
                     .ok_or_else(|| Error::invalid("MMI", "the film guides no mode"))?;
-                let lateral = match vertical {
-                    Polarization::Te => Polarization::Tm,
-                    Polarization::Tm => Polarization::Te,
-                };
-                Ok((ridge, nc, lateral))
+                // the film's TE mode is TM across the ridge, and the other way round
+                Ok((ridge, nc, super::seen_from_above(*vertical)))
             }
         }
     }
@@ -191,7 +190,12 @@ fn junction(a: &Lateral, b: &Lateral, polarization: Polarization, breaks: &[f64]
 /// fundamental modes, with the reference planes at the multimode section's faces. Parameters `length` and `width` of the multimode section,
 /// µm; the access guides' positions scale with the width.
 ///
-/// It is reciprocal and passive, not lossless: the light the guided modes don't carry to the
+/// Its ports state the access guides' fundamental mode with the device's polarization, as a
+/// [`Waveguide`](super::Waveguide)'s do: TE-like for E in the chip's plane, which is the
+/// lateral slab's TM mode. So a TE-like waveguide connects to an MMI on 220 nm SOI with
+/// `vertical` TE.
+///
+/// It is reciprocal and passive, not lossless:the light the guided modes don't carry to the
 /// output guides (into their higher modes, the cladding, or radiation at the junctions) is
 /// lost.
 #[derive(Clone, Debug, PartialEq)]
@@ -244,10 +248,11 @@ impl Mmi {
             ],
             wavelength,
         };
-        // the access guides' mode at λ₀, for the ports
+        // the access guides' mode at λ₀, for the ports, its polarization the device's (TE-like
+        // for E in the chip's plane, as the waveguides state theirs), not the lateral slab's
         let guide = mmi.access_mode(wavelength, 0.0)?;
         let mode = PortMode {
-            polarization: lateral,
+            polarization: super::seen_from_above(lateral),
             order: 0,
             effective_index: guide.beta / wavelength.wavenumber(),
             group_index: None,

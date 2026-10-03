@@ -545,18 +545,27 @@ impl Spectrum {
 
     /// A component's spectrum at `wavelengths`, its parameters at `values`.
     ///
+    /// The wavelengths are solved in parallel on rayon's threads (`RAYON_NUM_THREADS` sets how
+    /// many): each S-matrix is computed on its own, as [`Component::s_matrix`] gives it, and
+    /// collected in order, so the spectrum is the same bit for bit on any number of threads.
+    ///
     /// # Errors
     ///
-    /// The component's, and [`Error::InvalidValue`] if it returns S-matrices of the wrong size.
+    /// The component's at the first wavelength that fails, and [`Error::InvalidValue`] if it
+    /// returns S-matrices of the wrong size.
     pub fn of(
         component: &dyn Component,
         wavelengths: &[Wavelength],
         values: &[f64],
     ) -> Result<Spectrum> {
-        let matrices = wavelengths
-            .iter()
+        use rayon::prelude::*;
+        // every wavelength solved, then the first error in wavelength order: the same error
+        // whichever thread finishes first
+        let solved: Vec<Result<SMatrix>> = wavelengths
+            .par_iter()
             .map(|&w| component.s_matrix(w, values))
-            .collect::<Result<Vec<_>>>()?;
+            .collect();
+        let matrices = solved.into_iter().collect::<Result<Vec<_>>>()?;
         let ports = component.ports().iter().map(|p| p.name.clone()).collect();
         Spectrum::new(ports, wavelengths.to_vec(), matrices)
     }

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use num_complex::Complex64 as c64;
 
 use super::*;
-use crate::circuit::{Component, Netlist};
+use crate::circuit::{Component, Netlist, SMatrix, Spectrum};
 use crate::material;
 use crate::mode::Polarization;
 use crate::units::{Length, Wavelength};
@@ -378,4 +378,150 @@ fn an_mmi_splits_at_its_self_images() {
     );
     let turn = (cross / bar).arg().abs();
     assert!((turn - PI / 2.0).abs() < 0.15, "{turn}");
+}
+
+/// Whether `a.o2` and `b.o1` can be joined in a netlist.
+fn joins(a: Arc<dyn Component>, b: Arc<dyn Component>) -> crate::Result<()> {
+    let mut n = Netlist::new();
+    n.add("a", a)?;
+    n.add("b", b)?;
+    n.connect("a.o2", "b.o1")
+}
+
+fn is_mode_mismatch(r: crate::Result<()>) -> bool {
+    matches!(
+        r,
+        Err(crate::Error::Netlist(
+            crate::circuit::NetlistError::ModeMismatch { .. }
+        ))
+    )
+}
+
+#[test]
+fn an_mmi_states_its_ports_polarization_as_a_waveguide_does() {
+    let te: Arc<dyn Component> = Arc::new(Waveguide::new(
+        wire(0.0).with_polarization(Polarization::Te),
+    ));
+    let tm: Arc<dyn Component> = Arc::new(Waveguide::new(
+        wire(0.0).with_polarization(Polarization::Tm),
+    ));
+    // 220 nm SOI's TE-like guide: TE in the film, TM across the ridge, TE at the ports
+    for mmi in [mmi_1x2(), mmi_2x2()] {
+        for port in mmi.ports() {
+            let mode = port.mode.as_ref().unwrap();
+            assert_eq!(mode.polarization, Polarization::Te, "{}", port.name);
+        }
+        let mmi: Arc<dyn Component> = Arc::new(mmi);
+        joins(te.clone(), mmi.clone()).unwrap();
+        assert!(is_mode_mismatch(joins(tm.clone(), mmi)));
+    }
+    // fixed indices: the lateral polarization given, the ports the device's, the other one
+    for (lateral, device) in [
+        (Polarization::Tm, Polarization::Te),
+        (Polarization::Te, Polarization::Tm),
+    ] {
+        let planar = Planar::Indices {
+            ridge: 2.85,
+            cladding: 1.444,
+            polarization: lateral,
+        };
+        let mmi = Mmi::new(MmiKind::OneByTwo, planar, 3.0, 0.5, um(1.55)).unwrap();
+        assert_eq!(mmi.ports()[0].mode.as_ref().unwrap().polarization, device);
+    }
+}
+
+#[test]
+fn a_bent_slab_states_the_devices_polarization() {
+    let bend = |_: Wavelength| {
+        crate::mode::bend::SlabBend::new(
+            Length::um(5.0),
+            1.444,
+            &[(2.85, Length::um(0.5))],
+            1.444,
+            Length::um(-0.25),
+        )
+    };
+    // TM across the bent slab (E in the chip's plane) is the TE-like guide
+    let (te, _) = Dispersion::from_bent_slab(bend, Polarization::Tm, um(1.55), 0.01).unwrap();
+    assert_eq!(te.polarization, Some(Polarization::Te));
+    let te: Arc<dyn Component> = Arc::new(Bend::new(5.0, te).unwrap());
+    let guide: Arc<dyn Component> = Arc::new(Waveguide::new(
+        wire(0.0).with_polarization(Polarization::Te),
+    ));
+    joins(guide, te).unwrap();
+}
+
+#[test]
+fn provenances_print_no_negative_zero() {
+    assert_eq!(fixed(-1e-9, 3), "0.000");
+    assert_eq!(fixed(-0.0, 0), "0");
+    assert_eq!(fixed(-0.4, 0), "0");
+    assert_eq!(fixed(-0.0006, 3), "-0.001");
+    assert_eq!(fixed(2.7, 3), "2.700");
+    assert_eq!(fixed(-1000.2, 0), "-1000");
+}
+
+#[test]
+fn spectra_are_the_same_bit_for_bit_on_any_number_of_threads() {
+    let wavelengths: Vec<Wavelength> = (0..12).map(|i| um(1.53 + 0.004 * f64::from(i))).collect();
+    // an MMI, which solves its modes at each wavelength, and an MZI of two of them with TE-like
+    // arms, one sparse solve per wavelength on the compiled sparsity
+    let mmi: Arc<dyn Component> = Arc::new(mmi_2x2());
+    let arm: Arc<dyn Component> = Arc::new(Waveguide::new(
+        wire(3.0).with_polarization(Polarization::Te),
+    ));
+    let mut n = mzi(mmi.clone(), mmi.clone(), arm.clone(), arm).unwrap();
+    n.set("upper", "length", 40.0).unwrap();
+    let circuit = n.compile().unwrap();
+    let one = rayon::ThreadPoolBuilder::new()
+        .num_threads(1)
+        .build()
+        .unwrap();
+    let four = rayon::ThreadPoolBuilder::new()
+        .num_threads(4)
+        .build()
+        .unwrap();
+    for (c, values) in [
+        (mmi.as_ref(), mmi.defaults()),
+        (&circuit as &dyn Component, circuit.values().to_vec()),
+    ] {
+        let serial: Vec<SMatrix> = wavelengths
+            .iter()
+            .map(|&w| c.s_matrix(w, &values).unwrap())
+            .collect();
+        let spectrum = Spectrum::of(c, &wavelengths, &values).unwrap();
+        assert_eq!(spectrum.matrices(), &serial[..], "{}", c.kind());
+        for pool in [&one, &four] {
+            let on = pool.install(|| Spectrum::of(c, &wavelengths, &values).unwrap());
+            assert_eq!(
+                on,
+                spectrum,
+                "{} on {} threads",
+                c.kind(),
+                pool.current_num_threads()
+            );
+        }
+    }
+    assert_eq!(
+        circuit.spectrum(&wavelengths).unwrap(),
+        Spectrum::of(&circuit, &wavelengths, circuit.values()).unwrap()
+    );
+    // the first failing wavelength's error, whichever thread meets one first
+    let mut outside = wavelengths.clone();
+    outside.insert(3, um(1.7));
+    outside.push(um(1.8));
+    let narrow: Arc<dyn Component> = Arc::new(Bend::new(5.0, wire(1.0)).unwrap().with_provenance(
+        crate::circuit::Provenance {
+            fidelity: crate::circuit::Fidelity::Analytic,
+            source: "a test".into(),
+            error: None,
+            validity: Some((1.5, 1.6)),
+        },
+    ));
+    for pool in [&one, &four] {
+        let e = pool
+            .install(|| Spectrum::of(narrow.as_ref(), &outside, &[90.0]))
+            .unwrap_err();
+        assert!(e.to_string().contains("not at 1.7 um"), "{e}");
+    }
 }

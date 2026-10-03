@@ -21,7 +21,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use photonoxide::Error;
-use photonoxide::circuit::{Component, Fidelity, Netlist, NetlistError, SMatrix, Spectrum};
+use photonoxide::circuit::{Component, Fidelity, Netlist, NetlistError, Spectrum};
 use photonoxide::compact::touchstone::{Convention, Precision, Touchstone};
 use photonoxide::units::Wavelength;
 use serde::{Deserialize, Serialize};
@@ -786,42 +786,8 @@ fn component(part: &Part, values: &[f64], sweep: Sweep, root: &Path) -> Result<S
             p.name, p.min, p.max
         ));
     }
-    let wavelengths = sweep.wavelengths()?;
-    let matrices = sweep_matrices(c.as_ref(), &wavelengths, values)?;
-    let ports = c.ports().iter().map(|p| p.name.clone()).collect();
-    Spectrum::new(ports, wavelengths, matrices).map_err(|e| e.to_string())
-}
-
-/// `c`'s S-matrices at every wavelength, its parameters at `values`, the wavelengths shared out
-/// among the machine's cores: each is independent of the others, and a model that solves modes
-/// at each (an MMI's) takes milliseconds apiece.
-fn sweep_matrices(
-    c: &dyn Component,
-    wavelengths: &[Wavelength],
-    values: &[f64],
-) -> Result<Vec<SMatrix>, String> {
-    let threads = std::thread::available_parallelism().map_or(1, |n| n.get());
-    let chunk = wavelengths.len().div_ceil(threads).max(1);
-    std::thread::scope(|scope| {
-        let parts: Vec<_> = wavelengths
-            .chunks(chunk)
-            .map(|part| {
-                scope.spawn(move || {
-                    part.iter()
-                        .map(|&w| c.s_matrix(w, values))
-                        .collect::<photonoxide::Result<Vec<_>>>()
-                })
-            })
-            .collect();
-        let mut matrices = Vec::with_capacity(wavelengths.len());
-        for part in parts {
-            let part = part
-                .join()
-                .map_err(|_| "a wavelength's solve panicked".to_owned())?;
-            matrices.extend(part.map_err(|e| e.to_string())?);
-        }
-        Ok(matrices)
-    })
+    // the wavelengths on every core (Spectrum::of): an MMI's model solves modes at each
+    Spectrum::of(c.as_ref(), &sweep.wavelengths()?, values).map_err(|e| e.to_string())
 }
 
 // ---- circuits ----
@@ -872,10 +838,8 @@ fn solve(chip: &Chip, root: &Path) -> Result<(Netlist, Spectrum, f64), String> {
     }
     let started = Instant::now();
     let circuit = netlist.compile().map_err(|e| e.to_string())?;
-    // Circuit::spectrum, one sparse solve per wavelength, the wavelengths on every core
-    let matrices = sweep_matrices(&circuit, &wavelengths, circuit.values())?;
-    let ports = circuit.ports().iter().map(|p| p.name.clone()).collect();
-    let spectrum = Spectrum::new(ports, wavelengths, matrices).map_err(|e| e.to_string())?;
+    // one sparse solve per wavelength, the wavelengths on every core
+    let spectrum = circuit.spectrum(&wavelengths).map_err(|e| e.to_string())?;
     Ok((netlist, spectrum, started.elapsed().as_secs_f64()))
 }
 

@@ -160,6 +160,10 @@ middle (symmetric interference) and splits at $3L_\pi/8$ (Eq. 37, $N = 2$), its 
 $\pm W/4$; a 2 × 2 3 dB coupler is fed at $\pm W/6$ (paired interference) and splits at
 $L_\pi/2$ (Eq. 33), its outputs a quarter turn apart. Each `Mmi` starts at that length.
 
+Its ports state the device's polarization, as a waveguide's do: on 220 nm SOI the TE-like
+guide is TE in the film and TM across the ridge, so the lateral slab's TM modes make ports
+stated TE, which connect to a TE-like waveguide.
+
 What the model leaves out is the light the guided modes don't carry: the radiation modes the
 junctions excite, which here is lost power, and the faces' reflections. Narrow access guides
 excite the high modes too, whose $\beta$ are far from Soldano's parabola: a 3 µm 2 × 2 coupler

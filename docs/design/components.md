@@ -45,7 +45,7 @@ components as they are.
 | Type | What it is |
 |---|---|
 | `SMatrix` | A square complex matrix, `s[(q, p)]`, with the checks above; `from_rows` takes the FDFD solver's `Vec<Vec<Complex64>>`. |
-| `Port` | A port's `name` (unique in its component, no dots) and optionally its `PortMode`: polarization (TE/TM), mode order, effective index, group index, at a reference wavelength. A multimode waveguide has a port per mode. |
+| `Port` | A port's `name` (unique in its component, no dots) and optionally its `PortMode`: polarization (TE/TM), mode order, effective index, group index, at a reference wavelength. The polarization is the device's guided mode's, as the full-vector solver labels it: TE-like when E lies mainly in the chip's plane. A model of the plane seen from above (an MMI's lateral slab, a bent slab) states the device's polarization, not its 2D field's: a lateral TM mode, E in the plane, is TE-like. A multimode waveguide has a port per mode. |
 | `Parameter` | A continuous value S depends on: `name`, `unit`, `default`, `min`, `max`. Anything that changes the ports (a splitter's number of outputs) is fixed when the component is built, not a parameter. |
 | `Fidelity` | `Analytic`, `Compact`, `TwoD`, `ThreeD`, `Measured`. |
 | `Provenance` | A component's `fidelity`, its `source` (a paper's DOI and equation, a solver and its grid, a file), its `error` against that source (largest \|ΔS_qp\|, if measured) and the wavelengths it is `validity`-limited to. |
