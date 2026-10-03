@@ -53,7 +53,8 @@ use num_complex::Complex64 as c64;
 use super::fit::{
     self, Delay, FitError, Options, Pole, Rational, Symmetry, classify, eliminate, expanded,
     least_squares, partial_fraction_slopes, partial_fractions, polynomial_terms, real_rows,
-    residues, sigma_realization, sigma_zeros, solve_stacked, stable_poles, starting_poles,
+    residues, sequential, sigma_realization, sigma_zeros, solve_stacked, stable_poles,
+    starting_poles,
 };
 use super::model::{band_of, check_band, laplace, responses_of};
 use crate::circuit::{Component, Fidelity, Parameter, Port, Provenance, SMatrix, Spectrum, ports};
@@ -313,6 +314,15 @@ impl ParametricModel {
     /// term or an estimated delay (a fixed one is allowed), or for a fit's own reasons
     /// ([`fit::vector_fit`]).
     pub fn fit(
+        parameters: Vec<Parameter>,
+        samples: &[Sample],
+        options: &Options,
+        interpolation: Interpolation,
+    ) -> Result<ParametricModel> {
+        sequential(|| Self::fit_on_one_thread(parameters, samples, options, interpolation))
+    }
+
+    fn fit_on_one_thread(
         parameters: Vec<Parameter>,
         samples: &[Sample],
         options: &Options,
@@ -930,9 +940,13 @@ impl ParametricModel {
     /// and at most −1, with t = −1/g. g is real on the axis where F(s) = g(s) − conj(g(−s̄))
     /// vanishes, a rational function realized on blkdiag(H, −H̄) whose zeros are the finite
     /// generalized eigenvalues of its system pencil: every candidate ω at once, without
-    /// sampling. Triverio et al.'s own test (their Theorem 2) solves linear matrix inequalities,
-    /// which needs a semidefinite solver photonoxide doesn't have; this one is exact for one
-    /// parameter, within round-off.
+    /// sampling. Each candidate's t, estimated from g, is pinned by bisection on the real part of
+    /// the pole nearest the axis point, on both sides of the estimate, and kept only if that pole
+    /// is on the axis there. Triverio et al.'s own test (their Theorem 2) solves linear matrix
+    /// inequalities, which needs a semidefinite solver photonoxide doesn't have; this one is
+    /// exact for one parameter in exact arithmetic, and in floating point as good as the poles:
+    /// for narrow resonances the rewriting (their Theorem 1) is ill-conditioned, and a pole
+    /// within about 1e-4 of the axis can't be placed on either side.
     ///
     /// # Errors
     ///
@@ -1018,11 +1032,11 @@ impl ParametricModel {
                     continue; // infinite
                 }
                 let z = alpha[i] / beta[i];
-                if z.re.abs() > 1e-6 * scale {
+                if z.re.abs() > 1e-4 * scale {
                     continue;
                 }
-                // t = −1/g(z), where g is nearly real and at most −1: next to a nearly marginal
-                // pole g turns fast, so this is only an estimate
+                // t ≈ −1/g(z), where g is nearly real and negative: next to a nearly marginal
+                // pole g turns fast, so this is only where to start looking
                 let g =
                     {
                         use faer::linalg::solvers::Solve;
@@ -1033,15 +1047,12 @@ impl ParametricModel {
                         .solve(Mat::<c64>::from_fn(n, 1, |r, _| b[r]));
                         (0..n).map(|r| delta[r] * x[(r, 0)]).sum::<c64>()
                     };
-                if g.im.abs() > 0.1 * g.norm() || g.re > -0.9 {
+                if !(g.re < 0.0 && g.re.is_finite()) {
                     continue;
                 }
-                let t0 = -1.0 / g.re;
-                if !(t0 > -0.05 && t0 < 1.05) {
-                    continue;
-                }
-                // pinned by bisection: the real part of the eigenvalue of H − t b δᵀ nearest
-                // the axis point must change sign
+                let t0 = (-1.0 / g.re).clamp(0.0, 1.0);
+                // pinned by bisection, on each side of the estimate: the real part of the
+                // eigenvalue of H − t b δᵀ nearest the axis point must change sign
                 let target = c64::new(0.0, z.im);
                 let nearest = |t: f64| -> Result<c64> {
                     let m = Mat::<c64>::from_fn(n, n, |r, c| h[(r, c)] - t * b[r] * delta[c]);
@@ -1053,47 +1064,51 @@ impl ParametricModel {
                         .min_by(|x, y| (x - target).norm().total_cmp(&(y - target).norm()))
                         .ok_or_else(|| failed("a segment without poles".into()))
                 };
-                let mut bracket = None;
-                for width in [1e-7, 1e-5, 1e-3, 3e-2] {
-                    let (lo, hi) = ((t0 - width).max(0.0), (t0 + width).min(1.0));
-                    if hi <= lo {
+                let f0 = nearest(t0)?.re;
+                for side in [-1.0, 1.0] {
+                    let mut bracket = None;
+                    for width in [1e-8, 1e-6, 1e-4, 1e-2, 1e-1] {
+                        let t1 = (t0 + side * width).clamp(0.0, 1.0);
+                        if t1 == t0 {
+                            break;
+                        }
+                        if nearest(t1)?.re * f0 <= 0.0 {
+                            bracket = Some((t0.min(t1), t0.max(t1)));
+                            break;
+                        }
+                    }
+                    let Some((mut lo, mut hi)) = bracket else {
+                        continue;
+                    };
+                    let f_lo = nearest(lo)?.re;
+                    for _ in 0..60 {
+                        let mid = 0.5 * (lo + hi);
+                        if nearest(mid)?.re * f_lo > 0.0 {
+                            lo = mid;
+                        } else {
+                            hi = mid;
+                        }
+                    }
+                    let t = 0.5 * (lo + hi);
+                    let pole = nearest(t)?;
+                    // a sign change of the nearest eigenvalue that isn't on the axis is two
+                    // poles trading places, not a crossing
+                    if pole.re.abs() > 1e-6 * pole.norm() {
                         continue;
                     }
-                    let (a, c) = (nearest(lo)?, nearest(hi)?);
-                    if a.re * c.re <= 0.0 && a.re != c.re {
-                        bracket = Some((lo, hi, a.re));
-                        break;
+                    let crossing = Crossing {
+                        value: axis[k] + t * (axis[k + 1] - axis[k]),
+                        omega: -pole.im,
+                    };
+                    // the same crossing found from two eigenvalues
+                    let span = axis[k + 1] - axis[k];
+                    if !crossings.iter().any(|c: &Crossing| {
+                        (c.value - crossing.value).abs() <= 1e-9 * span
+                            && (c.omega - crossing.omega).abs()
+                                <= 1e-9 * crossing.omega.abs().max(1.0)
+                    }) {
+                        crossings.push(crossing);
                     }
-                }
-                let Some((mut lo, mut hi, f_lo)) = bracket else {
-                    continue;
-                };
-                for _ in 0..60 {
-                    let mid = 0.5 * (lo + hi);
-                    if nearest(mid)?.re * f_lo > 0.0 {
-                        lo = mid;
-                    } else {
-                        hi = mid;
-                    }
-                }
-                let t = 0.5 * (lo + hi);
-                let pole = nearest(t)?;
-                // a sign change of the nearest eigenvalue that isn't on the axis is two poles
-                // trading places, not a crossing
-                if pole.re.abs() > 1e-6 * pole.norm() {
-                    continue;
-                }
-                let crossing = Crossing {
-                    value: axis[k] + t * (axis[k + 1] - axis[k]),
-                    omega: -pole.im,
-                };
-                // the same crossing found from two eigenvalues
-                let span = axis[k + 1] - axis[k];
-                if !crossings.iter().any(|c: &Crossing| {
-                    (c.value - crossing.value).abs() <= 1e-9 * span
-                        && (c.omega - crossing.omega).abs() <= 1e-9 * crossing.omega.abs().max(1.0)
-                }) {
-                    crossings.push(crossing);
                 }
             }
         }

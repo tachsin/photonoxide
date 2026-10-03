@@ -395,25 +395,24 @@ pub(crate) fn ring_parametric(
 
 /// A pole whose real part is within this of zero, relative to its magnitude, is marginal: its
 /// side of the axis is the round-off of the eigenvalues of the non-normal matrices behind it.
-pub(crate) const MARGINAL: f64 = 1e-7;
+pub(crate) const MARGINAL: f64 = 1e-4;
 
-/// Over `points` values across the range, the number of intervals where the count of poles
-/// clearly in the right half plane (beyond [`MARGINAL`]) changes with no crossing reported in
-/// or next to the interval: crossings the test missed.
+/// Over `points` values across the range, the number of steps where the count of poles in the
+/// right half plane changes with no crossing reported in or next to the step, and no pole
+/// [`MARGINAL`] at either end of it: crossings the test missed.
 pub(crate) fn crossings_missed(
     model: &super::param::ParametricModel,
     crossings: &[Crossing],
     (lo, hi): (f64, f64),
     points: usize,
 ) -> usize {
+    // the count of unstable poles, and whether a pole is within round-off of the axis
     let unstable = |v: f64| {
-        model
-            .rational(&[v])
-            .expect("in range")
-            .poles
-            .iter()
-            .filter(|a| a.re > MARGINAL * a.norm())
-            .count()
+        let poles = model.rational(&[v]).expect("in range").poles;
+        (
+            poles.iter().filter(|a| a.re > 0.0).count(),
+            poles.iter().any(|a| a.re.abs() <= MARGINAL * a.norm()),
+        )
     };
     let at = |k: usize| lo + (hi - lo) * k as f64 / (points - 1) as f64;
     let mut missed = 0;
@@ -422,7 +421,7 @@ pub(crate) fn crossings_missed(
         let now = unstable(at(k));
         let (from, to) = (at(k.saturating_sub(2)), at((k + 1).min(points - 1)));
         let near = crossings.iter().any(|c| c.value >= from && c.value <= to);
-        if now != last && !near {
+        if now.0 != last.0 && !near && !now.1 && !last.1 {
             missed += 1;
         }
         last = now;
@@ -756,9 +755,9 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "compact/param-ring-piecewise-crossings",
-            title: "The test on the piecewise-linear model of the 0.8-free-spectral-range shift, 13 samples: of the crossings it finds (50 here), those the nearest pole's sign doesn't confirm, plus the steps of 2001 sampled values whose count of unstable poles changes with no crossing reported near (shown)",
+            title: "The test on the piecewise-linear model of the 0.8-free-spectral-range shift, 13 samples: of the crossings it finds (64 here), those the nearest pole's sign doesn't confirm, plus the steps of 2001 sampled values whose count of unstable poles changes with no crossing reported near (shown)",
             tier: Tier::Analytic,
-            source: "the poles at sampled values, from their own eigenvalues; poles within 1e-7 of the axis, relative to their size, are at the round-off of the non-normal eigenproblems and not counted either way",
+            source: "the poles at sampled values, from their own eigenvalues; poles within 1e-4 of the axis, relative to their size, are at the round-off of these eigenproblems (the rewritten coefficients reach 1e5 to 1e6, the ill-conditioning of Triverio et al.'s Table I) and not counted either way",
             run: param_piecewise_crossings,
         },
     ]

@@ -245,15 +245,28 @@ by another route:
 - g is real on the axis where $F(s) = g(s) - \overline{g(-\bar s)}$ vanishes. F is realized on
   $\operatorname{blkdiag}(H, -\bar H)$, and its zeros are the finite generalized eigenvalues of
   its system pencil: every candidate ω at once, without sampling.
-- Each candidate's t is pinned by bisection on the sign of the nearest pole's real part.
+- Each candidate's t is only estimated from g. It is pinned by bisection on the sign of the
+  real part of the pole nearest the axis point, searched on both sides of the estimate, and kept
+  only if that pole is on the axis there.
 
-The samples' own poles are checked as well. On the coupling model it finds no crossing, and its
-poles sampled at 1001 values agree (`compact/param-ring-piecewise-stable`). On the shift model
-it finds 50. Each one's nearest pole changes sign across it, and stepping through 2001 values
-finds no change in the count of unstable poles that it didn't report
-(`compact/param-ring-piecewise-crossings`). Poles within $10^{-7}$ of the axis, relative to
-their size, are at the round-off of these non-normal eigenproblems, and can't be put on either
-side.
+The samples' own poles are checked as well. The test is exact in exact arithmetic. In floating
+point it decides as well as the poles are known. For the piecewise-linear models of narrow
+resonances that is not very well:
+
+- the rewriting's Cauchy systems are ill-conditioned (Triverio et al. report condition numbers
+  of $10^6$ to $10^{10}$, their Table I);
+- the rewritten coefficients reach $10^5$ to $10^6$;
+- the poles' real parts carry round-off up to about $10^{-4}$.
+
+A pole that close to the axis can't be put on either side by any method.
+
+On the coupling model it finds no crossing, and its poles sampled at 1001 values agree
+(`compact/param-ring-piecewise-stable`). On the shift model it finds 64. Each one's nearest pole
+changes sign across it, and stepping through 2001 values finds no change in the count of
+unstable poles that it didn't report, poles within $10^{-4}$ of the axis aside
+(`compact/param-ring-piecewise-crossings`). The same holds with 9 to 21 samples and 14 or 16
+basis poles. With 18 basis poles the rewriting is worse conditioned, and about one crossing in
+a hundred isn't confirmed by the sampled poles.
 
 The polynomial model's poles aren't constrained. Some fall in the right half plane outside the
 band, where they stand for the resonances beyond it. With one parameter or several,

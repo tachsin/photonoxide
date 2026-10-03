@@ -446,6 +446,23 @@ pub fn estimate_delay(s: &[c64], values: &[c64]) -> f64 {
 /// non-finite values, an odd number of poles for a real model, fewer samples than unknowns per
 /// response, or starting poles that don't match the options.
 pub fn vector_fit(s: &[c64], responses: &[Vec<c64>], options: &Options) -> Result<Rational> {
+    sequential(|| fit_responses(s, responses, options))
+}
+
+/// Runs `f` with faer's dense factorizations on one thread, so that their sums are taken in one
+/// order and the result is the same however many threads the machine has (faer splits its work
+/// over the current rayon pool).
+pub(crate) fn sequential<T: Send>(f: impl FnOnce() -> T + Send) -> T {
+    if rayon::current_num_threads() == 1 {
+        return f();
+    }
+    match rayon::ThreadPoolBuilder::new().num_threads(1).build() {
+        Ok(pool) => pool.install(f),
+        Err(_) => f(),
+    }
+}
+
+fn fit_responses(s: &[c64], responses: &[Vec<c64>], options: &Options) -> Result<Rational> {
     let bad = |reason: String| Err(Error::invalid("vector fit", reason));
     let k = s.len();
     if k == 0 || responses.is_empty() {
