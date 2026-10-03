@@ -1,0 +1,8 @@
+An all-pass ring, n_eff 2.4, n_g 4.2, 3 dB/cm, tuned at 1.55 µm (Bogaerts et al. 2012), exact: no grid
+  from κ² = 0.05, R = 9.97 µm: L-BFGS-B, 40 evaluations, each the circuit solve and one adjoint solve
+  resonance order m = 97: R = m λ/(2π n_eff), a = 0.997839, critical κ² = 1 − a² (Eqs. 3 and 2)
+  radius (µm)                            9.970394   paper 9.970394039 ± 1e-9     ok
+  κ² (× 1e-3)                            4.318071   paper 4.318071065 ± 1e-6     ok
+  r / a (Eq. 2: 1)                       1.000000   paper 1          ± 1e-9      ok
+  through power (Eq. 12: 0)              0.000000   paper 0          ± 1e-12     ok
+all 4 within tolerance of the paper

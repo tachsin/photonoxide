@@ -3,6 +3,8 @@
 // each example compiles this module on its own and uses only part of it
 #![allow(dead_code)]
 
+pub mod circuit;
+
 use std::process::ExitCode;
 
 /// The comparisons of one example. Each prints a row; [`Checks::finish`] fails the example

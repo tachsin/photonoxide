@@ -1,0 +1,8 @@
+An MZI of two 50:50 couplers, phase θ in one arm, at 1.55 µm (Clements et al. 2016, Eq. 1), exact: no grid
+  from θ = 2 rad, to 0.3 of the power in the bar port
+  L-BFGS-B: 8 evaluations, each the circuit solve and one adjoint solve
+  θ by L-BFGS-B (rad)                    1.159279   paper 1.159279481 ± 1e-6     ok
+  bar power                              0.300000   paper 0.3        ± 1e-9      ok
+  Adam (learning rate 0.02): 169 evaluations
+  θ by Adam (rad)                        1.159279   paper 1.159279481 ± 1e-6     ok
+all 3 within tolerance of the paper
