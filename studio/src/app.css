@@ -2,7 +2,7 @@
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/jetbrains-mono";
 
-/* Every daisyUI theme, to choose in Settings → Appearance, none of them a default: the studio's own two
+/* Every built-in theme of the component library, to choose in Settings → Appearance, none of them a default: the studio's own two
    below are. The list is src/lib/themes.ts's, in the same order. */
 @plugin "daisyui" {
   themes:
