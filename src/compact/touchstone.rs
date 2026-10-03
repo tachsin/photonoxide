@@ -39,7 +39,7 @@
 //! **The time convention.** The specification doesn't state one. Microwave tools follow the
 //! engineering convention, fields as e^(+jωt); photonoxide follows e^(−iωt) ([`crate::units`]).
 //! The two S-matrices of one device are complex conjugates of each other. The conversions here
-//! ([`Touchstone::from_wavelengths`], [`Touchstone::s_matrices`]) take the file's convention as
+//! ([`Touchstone::from_spectrum`], [`Touchstone::spectrum`]) take the file's convention as
 //! an argument, [`Convention`], and never guess it.
 
 use std::fmt::Write as _;
@@ -47,6 +47,7 @@ use std::path::Path;
 
 use num_complex::Complex64 as c64;
 
+use crate::circuit::{SMatrix, Spectrum};
 use crate::units::{SPEED_OF_LIGHT, Wavelength};
 use crate::{Error, Result};
 
@@ -223,31 +224,17 @@ impl Touchstone {
         Ok(t)
     }
 
-    /// An optical S-matrix spectrum, `matrices[k][q][p]` = S_qp at `wavelengths[k]` in
-    /// photonoxide's e^(−iωt) convention, as a Touchstone file in `convention` (see
-    /// [`Touchstone::s_parameters`] for the rest). The frequencies are c/λ, increasing, so a
-    /// spectrum at increasing wavelengths is reversed. The 50 Ω reference is nominal: the
-    /// matrices are power-normalized.
+    /// An optical S-matrix spectrum (photonoxide's e^(−iωt) convention) as a Touchstone file in
+    /// `convention` (see [`Touchstone::s_parameters`] for the rest). The frequencies are c/λ,
+    /// increasing, so a spectrum at increasing wavelengths is reversed. The 50 Ω reference is
+    /// nominal: the matrices are power-normalized. The ports' names aren't kept: a Touchstone
+    /// file numbers its ports.
     ///
     /// # Errors
     ///
-    /// As [`Touchstone::s_parameters`], for wavelengths that repeat or matrices of the wrong
-    /// size.
-    pub fn from_wavelengths(
-        wavelengths: &[Wavelength],
-        matrices: &[Vec<Vec<c64>>],
-        convention: Convention,
-    ) -> Result<Touchstone> {
-        if wavelengths.len() != matrices.len() {
-            return Err(Error::invalid(
-                "touchstone data",
-                format!(
-                    "needs one matrix per wavelength: {} wavelengths, {} matrices",
-                    wavelengths.len(),
-                    matrices.len()
-                ),
-            ));
-        }
+    /// As [`Touchstone::s_parameters`], for an empty spectrum or wavelengths that repeat.
+    pub fn from_spectrum(spectrum: &Spectrum, convention: Convention) -> Result<Touchstone> {
+        let wavelengths = spectrum.wavelengths();
         let mut order: Vec<usize> = (0..wavelengths.len()).collect();
         // increasing frequency: decreasing wavelength
         order.sort_by(|&a, &b| wavelengths[b].to_um().total_cmp(&wavelengths[a].to_um()));
@@ -255,9 +242,10 @@ impl Touchstone {
         let data = order
             .iter()
             .map(|&k| {
-                matrices[k]
-                    .iter()
-                    .map(|row| row.iter().map(|&v| to_file(v, convention)).collect())
+                spectrum.matrices()[k]
+                    .rows()
+                    .into_iter()
+                    .map(|row| row.into_iter().map(|v| to_file(v, convention)).collect())
                     .collect()
             })
             .collect();
@@ -282,13 +270,15 @@ impl Touchstone {
             .collect()
     }
 
-    /// The S-matrices in photonoxide's e^(−iωt) convention, the file being in `convention`, in
-    /// the file's order (see [`Touchstone::wavelengths`]).
+    /// The file's S-parameters as an optical spectrum, in photonoxide's e^(−iωt) convention, the
+    /// file being in `convention`, in the file's order (increasing frequency, so decreasing
+    /// wavelength). The ports are named `o1`, `o2`, … in the file's order.
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidValue`] unless the file holds S-parameters.
-    pub fn s_matrices(&self, convention: Convention) -> Result<Vec<Vec<Vec<c64>>>> {
+    /// [`Error::InvalidValue`] unless the file holds S-parameters, or for a frequency of zero,
+    /// which has no wavelength.
+    pub fn spectrum(&self, convention: Convention) -> Result<Spectrum> {
         if self.parameter != Parameter::S {
             return Err(Error::invalid(
                 "touchstone data",
@@ -298,15 +288,19 @@ impl Touchstone {
                 ),
             ));
         }
-        Ok(self
+        let matrices = self
             .matrices
             .iter()
             .map(|m| {
-                m.iter()
-                    .map(|row| row.iter().map(|&v| to_file(v, convention)).collect())
-                    .collect()
+                SMatrix::from_rows(
+                    m.iter()
+                        .map(|row| row.iter().map(|&v| to_file(v, convention)).collect())
+                        .collect(),
+                )
             })
-            .collect())
+            .collect::<Result<Vec<_>>>()?;
+        let names = (1..=self.ports()).map(|k| format!("o{k}")).collect();
+        Spectrum::new(names, self.wavelengths()?, matrices)
     }
 
     /// Reads a Touchstone file. A Version 1 file's number of ports comes from its extension,
@@ -349,8 +343,10 @@ impl Touchstone {
     }
 
     fn parse_named(text: &str, ports: Option<usize>, name: &str) -> Result<Touchstone> {
+        // a line ends in LF, CR+LF or CR alone (Version 2.0, general rule 2)
+        let text = text.replace("\r\n", "\n").replace('\r', "\n");
         let lines: Vec<Line> = text
-            .lines()
+            .split('\n')
             .enumerate()
             .filter_map(|(k, raw)| {
                 let content = raw.split('!').next().unwrap_or("").trim();

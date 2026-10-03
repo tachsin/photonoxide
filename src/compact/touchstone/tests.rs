@@ -49,7 +49,7 @@ fn a_one_port_z_file_over_five_frequencies() {
     assert_eq!(t.frequencies_hz, vec![1e8, 2e8, 3e8, 4e8, 5e8]);
     assert!(close(t.matrices[4][0][0], polar(0.01, -89.0), 1e-15));
     // only S-parameters become S-matrices
-    let e = t.s_matrices(Convention::Physics).unwrap_err().to_string();
+    let e = t.spectrum(Convention::Physics).unwrap_err().to_string();
     assert!(e.contains("S-parameters"), "{e}");
 }
 
@@ -209,6 +209,18 @@ fn noise_parameters_are_skipped() {
     fails_at(&bad, None, 7);
     // only 2-port files have noise data: elsewhere a falling frequency is an error
     fails_at("# GHz S RI\n2 1 0\n1 1 0\n", None, 3);
+}
+
+// Version 2.0, general rule 2: LF, CR+LF or CR alone ends a line
+#[test]
+fn lines_end_in_lf_crlf_or_cr() {
+    for ending in ["\n", "\r\n", "\r"] {
+        let text = EXAMPLE_4.replace('\n', ending);
+        let t = parse(&text);
+        assert_eq!(t.frequencies_hz, vec![1e9, 2e9, 10e9], "{ending:?}");
+        // and errors still name the right line
+        fails_at(&text.replace("10.000 0.3419", "10.000 x"), None, 6);
+    }
 }
 
 #[test]
@@ -650,49 +662,51 @@ fn writing_checks_the_data() {
 
 #[test]
 fn optical_spectra_convert_through_frequency() {
+    use crate::circuit::{SMatrix, Spectrum};
     // an S-matrix spectrum at increasing wavelengths, in photonoxide's convention
     let wavelengths: Vec<Wavelength> = [1.50, 1.55, 1.60]
         .iter()
         .map(|&w| Wavelength::um(w).unwrap())
         .collect();
-    let matrices: Vec<Vec<Vec<c64>>> = (0..3)
+    let matrices: Vec<SMatrix> = (0..3)
         .map(|k| {
-            vec![
+            SMatrix::from_rows(vec![
                 vec![c64::new(0.1, 0.01 * k as f64), c64::new(0.0, 0.9)],
                 vec![c64::new(0.0, 0.9), c64::new(0.2, -0.1)],
-            ]
+            ])
+            .unwrap()
         })
         .collect();
-    let t = Touchstone::from_wavelengths(&wavelengths, &matrices, Convention::Physics).unwrap();
+    let names = vec!["in".to_owned(), "out".to_owned()];
+    let spectrum = Spectrum::new(names, wavelengths.clone(), matrices.clone()).unwrap();
+    let t = Touchstone::from_spectrum(&spectrum, Convention::Physics).unwrap();
     // increasing frequency: the longest wavelength first, at f = c/λ
     assert!((t.frequencies_hz[0] - SPEED_OF_LIGHT / 1.60e-6).abs() <= 1e-15 * t.frequencies_hz[0]);
-    let back = t.wavelengths().unwrap();
-    for (a, b) in back.iter().zip(wavelengths.iter().rev()) {
+    let back = t.spectrum(Convention::Physics).unwrap();
+    assert_eq!(back.ports(), ["o1", "o2"]);
+    for (a, b) in back.wavelengths().iter().zip(wavelengths.iter().rev()) {
         assert!((a.to_um() - b.to_um()).abs() <= 2.0 * f64::EPSILON * b.to_um());
     }
-    assert_eq!(t.s_matrices(Convention::Physics).unwrap()[0], matrices[2]);
+    assert_eq!(back.matrices()[0], matrices[2]);
     // in the engineering convention the file holds the conjugates
-    let e = Touchstone::from_wavelengths(&wavelengths, &matrices, Convention::Engineering).unwrap();
+    let e = Touchstone::from_spectrum(&spectrum, Convention::Engineering).unwrap();
     assert_eq!(e.matrices[0][0][1], c64::new(0.0, -0.9));
     assert_eq!(
-        e.s_matrices(Convention::Engineering).unwrap()[2],
+        e.spectrum(Convention::Engineering).unwrap().matrices()[2],
         matrices[0]
     );
     // through a file and back
     let text = e.write(Precision::RoundTrip).unwrap();
     let read = Touchstone::parse(&text, None).unwrap();
     assert_eq!(
-        read.s_matrices(Convention::Engineering).unwrap()[1],
+        read.spectrum(Convention::Engineering).unwrap().matrices()[1],
         matrices[1]
     );
     // a 0 Hz point has no wavelength
     let dc =
         Touchstone::s_parameters(vec![0.0, 1.0], vec![vec![vec![c64::new(1.0, 0.0)]]; 2]).unwrap();
     assert!(dc.wavelengths().is_err());
-    // one matrix per wavelength
-    assert!(
-        Touchstone::from_wavelengths(&wavelengths[..2], &matrices, Convention::Physics).is_err()
-    );
+    assert!(dc.spectrum(Convention::Physics).is_err());
 }
 
 #[test]
