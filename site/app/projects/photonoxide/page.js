@@ -184,9 +184,11 @@ export default async function PhotonoxidePage() {
           </Link>
         </div>
 
-        {/* one line at any width: the name is 5.5em wide, so below sm the size follows the viewport
-            (100vw less the container's 2.5rem of padding), up to text-6xl's 3.75rem */}
-        <h1 className="proj-rise proj-gradient-text mt-6 wrap-break-word font-mono font-semibold text-[length:clamp(2rem,calc((100vw_-_2.5rem)/5.8),3.75rem)] leading-none tracking-tighter sm:text-8xl">
+        {/* one line at any width, never broken: in a monospace font each of its 11 letters is 0.6em,
+            less tracking-tighter's 0.05em, about 6.05em in all (a fallback monospace font when the web
+            font hasn't loaded, as on an iPhone, is as wide); below sm the size follows the viewport
+            (100vw less the container's 2.5rem of padding) over 6.4em, up to text-6xl's 3.75rem */}
+        <h1 className="proj-rise proj-gradient-text mt-6 whitespace-nowrap font-mono font-semibold text-[length:clamp(1.75rem,calc((100vw_-_2.5rem)/6.4),3.75rem)] leading-none tracking-tighter sm:text-8xl">
           photonoxide
         </h1>
         <p className="proj-rise-1 mx-auto mt-5 max-w-2xl text-balance text-base-content/80 text-lg sm:text-xl">
