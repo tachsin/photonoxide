@@ -228,69 +228,196 @@ pub(super) fn check(job: &Job) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
-    let task: FdfdTask = job
-        .task()
-        .clone()
-        .try_into()
-        .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
-    task.validate()?;
-    let s = draw(
-        named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
-        &task.rect,
-        &task.circle,
-        &task.ring,
-    )?;
-    let (_, bottom, top) = s
-        .stack()
-        .layer(&task.layer)
-        .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
-    let (polarization, kind, field_name) = match task.polarization.as_deref().unwrap_or("te") {
-        "te" => (Polarization::Hz, crate::mode::Polarization::Te, "|H_z|^2"),
-        "tm" => (Polarization::Ez, crate::mode::Polarization::Tm, "|E_z|^2"),
-        other => {
-            return Err(task_error(format!(
-                "unknown polarization \"{other}\": te or tm"
-            )));
-        }
-    };
-    if task.port.is_empty() {
-        return Err(task_error("an fdfd job needs at least one [[task.port]]"));
-    }
-    // the 3D view draws the 2D field on the layer's top face
-    let z_face = top.to_um();
-    run.record(&scene_of(&task, &s)?)?;
+/// An `"fdfd"` job's device, drawn and gridded, ready to solve at any wavelength.
+struct Device {
+    task: FdfdTask,
+    structure: Structure,
+    /// The layer's bottom and top.
+    layer: (Length, Length),
+    polarization: Polarization,
+    kind: crate::mode::Polarization,
+    field_name: &'static str,
+    grid: Grid,
+    boundaries: Boundaries,
+}
 
-    // the grid: cells of about step_nm filling the window, PMLs inside it
-    let h = task.step_nm / 1000.0;
-    // (the window and the step are validated above)
-    let (wx, wy) = (task.x_um[1] - task.x_um[0], task.y_um[1] - task.y_um[0]);
-    let (nx, ny) = (
-        (wx / h).round().max(1.0) as usize,
-        (wy / h).round().max(1.0) as usize,
-    );
-    let grid = Grid {
-        nx,
-        ny,
-        dx: wx / nx as f64,
-        dy: wy / ny as f64,
-        x0: task.x_um[0],
-        y0: task.y_um[0],
-    };
-    let boundaries = Boundaries::pml(task.pml_cells.unwrap_or(20));
-    let wavelengths: Vec<f64> = match &task.sweep {
-        None => vec![task.wavelength_um],
-        // (validated above: the wavelength, from 2 points between distinct ends)
-        Some(sw) => (0..sw.points)
-            .map(|k| sw.from + (sw.to - sw.from) * k as f64 / (sw.points - 1) as f64)
-            .collect(),
-    };
-    let names: Vec<String> = task
-        .port
-        .iter()
-        .enumerate()
-        .map(|(k, p)| format!("{} ({}, x = {} um)", k + 1, p.side, p.x_um))
-        .collect();
+impl Device {
+    /// The device `job` describes, checked: the task, the structure, the polarization and the
+    /// ports, and the grid of cells of about `step_nm` filling the window, PMLs inside it.
+    fn new(job: &Job) -> Result<Device> {
+        let task: FdfdTask = job
+            .task()
+            .clone()
+            .try_into()
+            .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
+        task.validate()?;
+        let structure = draw(
+            named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
+            &task.rect,
+            &task.circle,
+            &task.ring,
+        )?;
+        let (_, bottom, top) = structure
+            .stack()
+            .layer(&task.layer)
+            .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
+        let (polarization, kind, field_name) = match task.polarization.as_deref().unwrap_or("te") {
+            "te" => (Polarization::Hz, crate::mode::Polarization::Te, "|H_z|^2"),
+            "tm" => (Polarization::Ez, crate::mode::Polarization::Tm, "|E_z|^2"),
+            other => {
+                return Err(task_error(format!(
+                    "unknown polarization \"{other}\": te or tm"
+                )));
+            }
+        };
+        if task.port.is_empty() {
+            return Err(task_error("an fdfd job needs at least one [[task.port]]"));
+        }
+        let h = task.step_nm / 1000.0;
+        // (the window and the step are validated above)
+        let (wx, wy) = (task.x_um[1] - task.x_um[0], task.y_um[1] - task.y_um[0]);
+        let (nx, ny) = (
+            (wx / h).round().max(1.0) as usize,
+            (wy / h).round().max(1.0) as usize,
+        );
+        let grid = Grid {
+            nx,
+            ny,
+            dx: wx / nx as f64,
+            dy: wy / ny as f64,
+            x0: task.x_um[0],
+            y0: task.y_um[0],
+        };
+        let boundaries = Boundaries::pml(task.pml_cells.unwrap_or(20));
+        Ok(Device {
+            task,
+            structure,
+            layer: (bottom, top),
+            polarization,
+            kind,
+            field_name,
+            grid,
+            boundaries,
+        })
+    }
+
+    /// The job's wavelengths, µm: its sweep's, or its one wavelength.
+    fn wavelengths(&self) -> Vec<f64> {
+        match &self.task.sweep {
+            None => vec![self.task.wavelength_um],
+            // (validated: the wavelength, from 2 points between distinct ends)
+            Some(sw) => (0..sw.points)
+                .map(|k| sw.from + (sw.to - sw.from) * k as f64 / (sw.points - 1) as f64)
+                .collect(),
+        }
+    }
+
+    /// The ports' names, in the job's order.
+    fn port_names(&self) -> Vec<String> {
+        self.task
+            .port
+            .iter()
+            .enumerate()
+            .map(|(k, p)| format!("{} ({}, x = {} um)", k + 1, p.side, p.x_um))
+            .collect()
+    }
+
+    /// The problem at `wavelength`, its ports and its S-matrix; `first`, the problem at an
+    /// earlier wavelength, lends it its analysed sparsity.
+    fn solve(
+        &self,
+        wavelength: Wavelength,
+        first: Option<&Solver2d>,
+    ) -> Result<(Solver2d, Vec<Port>, Vec<Vec<c64>>)> {
+        let eps = plane(
+            &self.structure,
+            &self.grid,
+            self.layer,
+            self.kind,
+            wavelength,
+        )?;
+        let solver = match first {
+            None => Solver2d::new(
+                self.grid,
+                self.polarization,
+                wavelength,
+                eps,
+                self.boundaries,
+            )?,
+            Some(first) => first.reuse(wavelength, eps)?,
+        };
+        let ports = self
+            .task
+            .port
+            .iter()
+            .map(|p| port(&solver, p))
+            .collect::<Result<Vec<Port>>>()?;
+        let s = solver.s_matrix(&ports)?;
+        Ok((solver, ports, s))
+    }
+}
+
+/// The S-parameters of an `"fdfd"` job's device ([`fdfd_s_parameters`]): one S-matrix per
+/// wavelength, in the conventions of [`crate::fdfd`] (power-normalized, `s[q][p]` from port p
+/// into port q, the phases referred to the ports' columns).
+#[derive(Clone, Debug, PartialEq)]
+pub struct FdfdSParameters {
+    /// The ports' names, in the job's order, e.g. `"1 (left, x = -3.5 um)"`.
+    pub ports: Vec<String>,
+    /// The wavelengths, µm.
+    pub wavelengths_um: Vec<f64>,
+    /// The S-matrix at each wavelength, `s[k][q][p]`.
+    pub s: Vec<Vec<Vec<c64>>>,
+    /// Each port mode's effective index at each wavelength, `effective_indices[k][p]`.
+    pub effective_indices: Vec<Vec<f64>>,
+    /// The grid's cell, dx × dy, µm.
+    pub cell_um: (f64, f64),
+    /// The slab mode's polarization the plane's indices come from (the job's `polarization`):
+    /// TE is H along z in the plane, TM is E along z.
+    pub polarization: crate::mode::Polarization,
+}
+
+/// Solves an `"fdfd"` job's device as [`execute`](super::execute) runs it, without recording
+/// a run: its S-matrix at `wavelengths_um` (µm), or at the job's own wavelengths (its sweep, or
+/// its one wavelength) when `None`. The sparsity is analysed once.
+///
+/// # Errors
+///
+/// The errors [`check`](super::check) finds, a wavelength that isn't positive and finite, and
+/// those of the solve (a port inside the PML, a material without data at a wavelength).
+pub fn fdfd_s_parameters(job: &Job, wavelengths_um: Option<&[f64]>) -> Result<FdfdSParameters> {
+    let device = Device::new(job)?;
+    let wavelengths = wavelengths_um.map_or_else(|| device.wavelengths(), <[f64]>::to_vec);
+    let mut first: Option<Solver2d> = None;
+    let mut s = Vec::with_capacity(wavelengths.len());
+    let mut effective_indices = Vec::with_capacity(wavelengths.len());
+    for &w in &wavelengths {
+        let (solver, ports, sm) = device.solve(Wavelength::um(w)?, first.as_ref())?;
+        s.push(sm);
+        effective_indices.push(ports.iter().map(|p| p.mode.effective_index().re).collect());
+        if first.is_none() {
+            first = Some(solver);
+        }
+    }
+    Ok(FdfdSParameters {
+        ports: device.port_names(),
+        wavelengths_um: wavelengths,
+        s,
+        effective_indices,
+        cell_um: (device.grid.dx, device.grid.dy),
+        polarization: device.kind,
+    })
+}
+
+pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+    let device = Device::new(job)?;
+    let task = &device.task;
+    // the 3D view draws the 2D field on the layer's top face
+    let z_face = device.layer.1.to_um();
+    run.record(&scene_of(task, &device.structure)?)?;
+    let Grid { nx, ny, .. } = device.grid;
+    let wavelengths = device.wavelengths();
+    let names = device.port_names();
     // the step whose field is recorded: the wavelength nearest field_um, else the first
     let field_step = task.field_um.map_or(0, |f| {
         (0..wavelengths.len())
@@ -307,17 +434,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             return Ok(());
         }
         let w = Wavelength::um(w)?;
-        let eps = plane(&s, &grid, (bottom, top), kind, w)?;
-        let current = match &solver {
-            None => Solver2d::new(grid, polarization, w, eps, boundaries)?,
-            Some(first) => first.reuse(w, eps)?,
-        };
-        let ports = task
-            .port
-            .iter()
-            .map(|p| port(&current, p))
-            .collect::<Result<Vec<Port>>>()?;
-        let sm = current.s_matrix(&ports)?;
+        let (current, ports, sm) = device.solve(w, solver.as_ref())?;
         run.record(&Event::SParameters {
             wavelength_um: w.to_um(),
             ports: names.clone(),
@@ -345,7 +462,10 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 .fold(0.0, f64::max)
                 .max(f64::MIN_POSITIVE);
             run.record(&Event::Field {
-                label: format!("{field_name} from port 1, 2D by the effective index method"),
+                label: format!(
+                    "{} from port 1, 2D by the effective index method",
+                    device.field_name
+                ),
                 wavelength_um: w.to_um(),
                 z_um: z_face,
                 intensity: Raster {

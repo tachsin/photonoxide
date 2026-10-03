@@ -119,6 +119,8 @@ use crate::{Error, Result};
 
 mod fdfd;
 
+pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
+
 /// An event of a run's record.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]

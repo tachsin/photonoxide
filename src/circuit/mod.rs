@@ -56,6 +56,7 @@
 //! ```
 
 pub mod adjoint;
+pub mod components;
 pub(crate) mod ideal;
 mod netlist;
 pub mod objective;

@@ -1,0 +1,7 @@
+two 500 x 220 nm strips of the book's Si in 1.444 oxide, 200 nm apart, quarter domain
+  10 nm grid: L_x 36.740 um; at L_x/2 0.500000 of the power crosses, 0.500000 goes through
+  10 nm grid: L_x at 1.53 um 40.059 um
+  10 nm grid: L_x at 1.57 um 33.746 um
+  5 nm grid: n_eff 2.45631 (even), 2.43545 (odd), L_x 37.152 um
+  L_x at a 200 nm gap (um), 5 nm grid    37.152370   paper 37.5       ± 1e0      ok
+all 1 within tolerance of the paper

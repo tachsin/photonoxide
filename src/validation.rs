@@ -17,6 +17,7 @@ use std::fmt::Write as _;
 
 use num_complex::Complex64;
 
+use crate::circuit::components::checks as components;
 use crate::material::catalogue::checks as catalogue;
 use crate::material::{self, Model, Table};
 use crate::mode::Polarization;
@@ -765,6 +766,104 @@ pub fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: r"$\partial t/\partial L = t\thinspace(i 2\pi n/\lambda - \alpha \ln 10/20)$, $\partial r/\partial \kappa^2 = -1/2r$, $\partial \kappa/\partial \kappa^2 = 1/2\kappa$, $\partial e^{i\phi}/\partial \phi = i e^{i\phi}$; the round-off of a step of $6 \times 10^{-6} \max(\lvert \theta \rvert, 1)$, about 1e-11",
             run: circuit_component_differences,
+        },
+        Case {
+            id: "components/ring-all-pass-bogaerts",
+            title: r"Components: the all-pass ring's closed form ($\kappa^2$ = 0.1 and 0.02, 62.8 µm, $n_g = 4.2$, 3 dB/cm), 1.54 to 1.56 µm, against Bogaerts's through field and against its netlist, a coupler fed back through a waveguide, solved as a circuit (largest $\lvert \Delta S \rvert$ shown)",
+            tier: Tier::Published,
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eq. 1: $e^{i(\pi + \phi)} (a - r e^{-i\phi}) / (1 - r a e^{i\phi})$",
+            run: components::ring_all_pass,
+        },
+        Case {
+            id: "components/ring-add-drop-bogaerts",
+            title: r"Components: the add-drop ring's closed form ($\kappa_1^2 = 0.1$, $\kappa_2^2 = 0.05$, 62.8 µm), 1.54 to 1.56 µm, against Bogaerts's through and drop powers and against its netlist of two couplers and two half rings (largest difference shown)",
+            tier: Tier::Published,
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eqs. 5 and 6",
+            run: components::ring_add_drop,
+        },
+        Case {
+            id: "components/ring-extremes-bogaerts",
+            title: r"Components: the rings' through and drop powers on resonance ($\phi = 2\pi m$) and off it ($\phi = 2\pi m + \pi$), all-pass and add-drop, $\kappa^2$ = 0.05 and 0.2 (largest difference shown)",
+            tier: Tier::Published,
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eqs. 11 to 16, e.g. $R_\text{min} = (r - a)^2 / (1 - r a)^2$",
+            run: components::ring_extremes,
+        },
+        Case {
+            id: "components/ring-linewidth-bogaerts",
+            title: r"Components: the full width at half maximum measured on the rings' spectra (all-pass through, add-drop drop; $\kappa^2$ = 0.02 and 0.05, 62.8 µm, 3 dB/cm) against Bogaerts's formulas (largest relative difference shown)",
+            tier: Tier::Published,
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eqs. 7 and 8, $(1 - ra)\lambda^2 / (\pi n_g L \sqrt{ra})$: a Lorentzian line, $\cos \phi \approx 1 - \phi^2 / 2$ across it, good to about $(1 - ra)^2$, 8e-4 at most here",
+            run: components::ring_linewidth,
+        },
+        Case {
+            id: "components/ring-fsr-fdfd",
+            title: r"Components: the free spectral range of jobs/ring-fdfd.toml's all-pass ring (radius 2 µm, 2D FDFD by the effective index method, 25 nm grid), from its two resonances near 1.52 and 1.567 µm (nm shown)",
+            tier: Tier::Published,
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eq. 9, $\lambda^2 / (n_g L)$ at the resonances' midpoint, $n_g$ of the exact bent slab of the same plane (radial shooting, Marcuse 1971, doi:10.1002/j.1538-7305.1971.tb02620.x); the tolerance is the 25 nm grid's",
+            run: components::ring_fsr_fdfd,
+        },
+        Case {
+            id: "components/mzi-closed-form",
+            title: r"Components: a Mach-Zehnder interferometer netlist of two directional couplers (17 and 23 µm) and arms of 150 and 50 µm (3 dB/cm), 1.54 to 1.56 µm, against its transfer matrices (largest $\lvert \Delta S \rvert$ shown)",
+            tier: Tier::Analytic,
+            source: r"$C_2 \operatorname{diag}(t_\text{lower}, t_\text{upper})\thinspace C_1$, each coupler's $C$ its through and across fields",
+            run: components::mzi_netlist,
+        },
+        Case {
+            id: "components/mzi-unitarity",
+            title: r"Components: the same interferometer without loss, 1.54 to 1.56 µm: $S^\dagger S$ against $I$ (largest entry of the difference shown)",
+            tier: Tier::Analytic,
+            source: r"a netlist of lossless components is lossless, $S^\dagger S = I$",
+            run: components::mzi_unitarity,
+        },
+        Case {
+            id: "components/unitarity",
+            title: r"Components: the lossless waveguide, bend, coupler, directional coupler, all-pass and add-drop rings, 1.54 to 1.56 µm: $S^\dagger S$ against $I$ (largest entry of the difference shown)",
+            tier: Tier::Analytic,
+            source: r"a lossless component conserves power, $S^\dagger S = I$",
+            run: components::unitarity,
+        },
+        Case {
+            id: "components/reciprocity",
+            title: r"Components: every first component, lossy, and the 1 x 2 and 2 x 2 MMIs, 1.54 to 1.56 µm: $S$ against $S^\mathsf{T}$ (largest $\lvert S_{qp} - S_{pq} \rvert$ shown)",
+            tier: Tier::Analytic,
+            source: r"reciprocity, $S = S^\mathsf{T}$, as the circuits' conventions state it (docs/design/components.md)",
+            run: components::reciprocity,
+        },
+        Case {
+            id: "components/passivity",
+            title: r"Components: the same components: the largest singular value of $S$ (shown), at most 1",
+            tier: Tier::Analytic,
+            source: r"a passive component gains no power: every singular value of $S$ at most 1, the lossless ones exactly 1",
+            run: components::passivity,
+        },
+        Case {
+            id: "components/derivatives",
+            title: r"Components: the closed forms' exact parameter derivatives $\partial S / \partial \theta$ (by dual numbers) against central differences (largest difference relative to the derivative's largest entry shown)",
+            tier: Tier::Analytic,
+            source: r"$(S(\theta + h) - S(\theta - h)) / 2h$, the best of $h/\theta$ = 1e-5 to 1e-8: its truncation and round-off, about 1e-8",
+            run: components::derivatives,
+        },
+        Case {
+            id: "components/directional-coupler-power",
+            title: r"Components: a directional coupler's power across and through from its supermodes ($\Delta n$ from $C = 0.04$ per µm), 5 to 100 µm long, 1.54 to 1.56 µm (largest difference shown)",
+            tier: Tier::Published,
+            source: r"L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), doi:10.1017/CBO9781316084168, Eqs. 4.1 to 4.3: $\sin^2(\pi \Delta n L / \lambda)$ and $\cos^2$; the round-off of phases up to 1000 rad, about 1e-13",
+            run: components::coupler_power,
+        },
+        Case {
+            id: "components/mmi-beat-length-soldano",
+            title: r"Components: the beat length $L_\pi$ of a 3 µm wide multimode section on 220 nm SOI at 1.55 µm, seen from above (TM across it), from its two lowest exact slab modes (µm shown)",
+            tier: Tier::Published,
+            source: r"L. B. Soldano, E. C. M. Pennings, J. Lightwave Technol. 13, 615 (1995), doi:10.1109/50.372474, Eq. 6, $4 n_r W_e^2 / 3\lambda_0$ with Eq. 4's effective width; the paraxial expansion's next term is 1 %, 0.23 µm, the tolerance about twice that",
+            run: components::mmi_beat_length,
+        },
+        Case {
+            id: "components/mmi-fdfd",
+            title: r"Components: the 1 x 2 MMI of jobs/mmi-fdfd.toml (3 x 8.55 µm, 0.5 µm guides) at 1.55 µm by guided-mode propagation against 2D FDFD of the same plane (20 nm grid): the power in each output (the first shown)",
+            tier: Tier::Analytic,
+            source: r"L. B. Soldano, E. C. M. Pennings (1995), doi:10.1109/50.372474, Eqs. 8 to 12 with the exact slab modes, against the FDFD solver; what the guided modes leave out (radiation modes, the faces' reflections) sets the tolerance",
+            run: components::mmi_fdfd,
         },
     ];
     // the compact models' cases live with them
