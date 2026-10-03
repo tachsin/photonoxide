@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [0.4.0](https://github.com/tachsin/photonoxide/compare/v0.3.3...v0.4.0) - 2026-10-03
 
+### Breaking
+
+- `ParametricModel::fit` takes an `Interpolation` in place of the polynomial degree: `Interpolation::Polynomial { degree }` for the previous fit, `Interpolation::PiecewiseLinear` for Triverio's ([#86](https://github.com/tachsin/photonoxide/pull/86))
+- 2D FDFD ports: with H along z, S's reflections are the tangential E's, as the 3D ports' and mode expansions', and so minus those before 0.4.0; a mode's backward amplitude follows ([#90](https://github.com/tachsin/photonoxide/pull/90))
+- `Boundaries3d` has a new public field, `real_stretch`: struct literals need it, or `..Boundaries3d::pml(cells)` ([#84](https://github.com/tachsin/photonoxide/pull/84))
+
 ### <!-- 0 -->Added
 
 - components and netlists, the foundation of circuits ([#71](https://github.com/tachsin/photonoxide/pull/71))
@@ -21,8 +27,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(studio)* a component library and a chip view ([#80](https://github.com/tachsin/photonoxide/pull/80))
 - validate against measured Mach-Zehnder interferometers (Dwivedi 2015) ([#85](https://github.com/tachsin/photonoxide/pull/85))
 - *(material)* AlN's index (Rigler 2015), AlGaN films (Rigler 2013), and InGaP beyond Tanaka's range (Ferrini 2002) ([#87](https://github.com/tachsin/photonoxide/pull/87))
-- compact models checked against their papers: Triverio's piecewise-linear model with an exact uniform stability test ([#86](https://github.com/tachsin/photonoxide/pull/86))
-- QMR preconditioned by ILU(0) on Shin and Fan's operator, with PMLs stretched as much as they absorb ([#84](https://github.com/tachsin/photonoxide/pull/84))
+- [**breaking**] compact models checked against their papers: Triverio's piecewise-linear model with an exact uniform stability test ([#86](https://github.com/tachsin/photonoxide/pull/86))
+- [**breaking**] QMR preconditioned by ILU(0) on Shin and Fan's operator, with PMLs stretched as much as they absorb ([#84](https://github.com/tachsin/photonoxide/pull/84))
 
 ### <!-- 1 -->Fixed
 
