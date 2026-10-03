@@ -1,17 +1,21 @@
 import Link from "next/link";
 import {
+  Activity,
   ArrowRight,
   Atom,
+  AudioWaveform,
   BookOpen,
   PlayCircle,
   CircuitBoard,
   Factory,
   FlaskConical,
-  Layers,
+  Gem,
   MonitorPlay,
   Sparkles,
   Waves,
+  Waypoints,
   Wrench,
+  Zap,
 } from "lucide-react";
 import { SiGithub, SiRust } from "react-icons/si";
 import JsonLd from "@/components/projects/JsonLd";
@@ -20,6 +24,7 @@ import { breadcrumbList, WEBSITE_ID, website } from "@/lib/projects/json-ld";
 import { projectsMetadata } from "@/lib/projects/metadata";
 import { getExamples } from "@/lib/projects/photonoxide/examples";
 import { getMethods } from "@/lib/projects/photonoxide/methods";
+import { getLatestRelease } from "@/lib/projects/photonoxide/release";
 import { getReport } from "@/lib/projects/photonoxide/validation";
 import {
   DOCS_PATH,
@@ -55,13 +60,20 @@ export const metadata = projectsMetadata({
 const HIGHLIGHT_ICONS = {
   modes: Atom,
   fields: Waves,
-  layers: Layers,
+  materials: Gem,
+  circuits: Waypoints,
+  compact: Activity,
+  time: AudioWaveform,
+  active: Zap,
   inverse: Sparkles,
   layout: CircuitBoard,
   tapeout: Factory,
   studio: MonitorPlay,
   rust: SiRust,
 };
+
+// a highlight's status (meta.js), as its tag shows it
+const HIGHLIGHT_STATUS = { main: "On main", planned: "Planned" };
 
 const HERO_LINKS = [
   { label: "GitHub", href: PHOTONOXIDE_LINKS.github, Icon: SiGithub },
@@ -71,7 +83,7 @@ const HERO_LINKS = [
 
 // this site's pages first, then GitHub's
 const RESOURCES = [
-  { label: "Getting started", href: DOCS_PATH, note: "a first slab and strip waveguide" },
+  { label: "Getting started", href: DOCS_PATH, note: "first modes, materials and a circuit" },
   { label: "Methods", href: METHODS_PATH, note: "equations, papers, validation, limits" },
   { label: "Examples", href: EXAMPLES_PATH, note: "published results, reproduced and checked" },
   { label: "Validation report", href: VALIDATION_PATH, note: "every case, its tolerance and grid" },
@@ -124,11 +136,12 @@ function SectionHeading({ eyebrow, title, children, id }) {
 }
 
 export default async function PhotonoxidePage() {
-  const [{ ok: roadmapOk, milestones }, { methods }, { examples }, report] = await Promise.all([
+  const [{ ok: roadmapOk, milestones }, { methods }, { examples }, report, release] = await Promise.all([
     getMilestones(),
     getMethods(),
     getExamples(),
     getReport(),
+    getLatestRelease(),
   ]);
   const passing = report.cases.filter((c) => c.passed).length;
   const now = milestones.find((m) => m.status === "next");
@@ -138,7 +151,7 @@ export default async function PhotonoxidePage() {
       href: METHODS_PATH,
       count: methods.length || null,
       label: "methods",
-      body: "From exact slabs and transfer matrices to full-vector modes with a PML, each with its paper and its limits.",
+      body: "From exact slabs and full-vector modes to FDFD, circuits and compact models, each with its paper and its limits.",
     },
     {
       Icon: PlayCircle,
@@ -174,12 +187,12 @@ export default async function PhotonoxidePage() {
           photonoxide
         </h1>
         <p className="proj-rise-1 mx-auto mt-5 max-w-2xl text-balance text-base-content/80 text-lg sm:text-xl">
-          Photonics for Rust: mode solvers, FDFD, FDTD, inverse design, layout and tape-out in one library, with a
-          studio to watch every simulation and optimization live.
+          Photonics for Rust: mode solvers, FDFD, and components and circuits today; FDTD, inverse design, layout
+          and tape-out to come. With a studio to build jobs and chips and watch every run live.
         </p>
         <p className="proj-rise-1 mx-auto mt-3 max-w-xl text-balance text-base-content/60 text-sm">
-          Validated against analytic solutions and published devices, and fabricable: designs leave as files a
-          foundry accepts.
+          Validated against analytic solutions, published results and measured devices. Built toward fabrication:
+          designs that leave as files a foundry accepts.
         </p>
 
         <div className="proj-rise-2 mt-9 flex flex-wrap justify-center gap-3">
@@ -212,8 +225,9 @@ export default async function PhotonoxidePage() {
       {/* ---------- What works today ---------- */}
       <section className="proj-container py-16" aria-labelledby="today">
         <SectionHeading id="today" eyebrow="What works today" title="Validated, one method at a time">
-          0.2, the mode solvers, is on crates.io. Nothing ships without an analytic test, a published result it
-          reproduces, and a measured convergence order.
+          {release ? `${release} is the latest release on crates.io, and newer work is on the main branch.` : null}{" "}
+          Nothing ships without an analytic test, a published result it reproduces, and a measured convergence
+          order.
         </SectionHeading>
         <ul className="mt-10 grid gap-4 md:grid-cols-3">
           {today.map(({ Icon, href, count, label, body }) => (
@@ -238,17 +252,25 @@ export default async function PhotonoxidePage() {
 
       {/* ---------- Highlights ---------- */}
       <section className="proj-container py-16" aria-labelledby="highlights">
-        <SectionHeading id="highlights" eyebrow="What it will be" title="From Maxwell's equations to a chip">
-          Solvers, inverse design, layout and tape-out in one Rust library, built milestone by milestone.
+        <SectionHeading id="highlights" eyebrow="What it does, and what comes" title="From Maxwell's equations to a chip">
+          Solvers, circuits, inverse design, layout and tape-out in one Rust library, built milestone by milestone.
+          Some of it is here; the rest is planned.
         </SectionHeading>
         <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {PHOTONOXIDE_HIGHLIGHTS.map((h) => {
             const Icon = HIGHLIGHT_ICONS[h.icon] ?? Sparkles;
             return (
               <li key={h.title} className="proj-card p-5">
-                <span className="proj-icon-tile">
-                  <Icon size={19} aria-hidden />
-                </span>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="proj-icon-tile">
+                    <Icon size={19} aria-hidden />
+                  </span>
+                  {HIGHLIGHT_STATUS[h.status] ? (
+                    <span className="proj-tag shrink-0" data-tone={h.status === "main" ? "accent" : undefined}>
+                      {HIGHLIGHT_STATUS[h.status]}
+                    </span>
+                  ) : null}
+                </div>
                 <h3 className="mt-4 font-semibold tracking-tight">{h.title}</h3>
                 <p className="proj-lead mt-1.5 text-sm">{h.body}</p>
               </li>
@@ -340,11 +362,14 @@ export default async function PhotonoxidePage() {
             <FlaskConical size={19} aria-hidden />
           </span>
           <h2 className="mt-5 font-semibold text-2xl tracking-tight">Validation</h2>
-          <p className="proj-lead mt-2">Every solver on three tiers, before it ships:</p>
+          <p className="proj-lead mt-2">What the report checks each method against:</p>
           <ul className="mt-4 space-y-3">
             {PHOTONOXIDE_VALIDATION.map((v) => (
               <li key={v.title}>
-                <p className="font-medium text-sm">{v.title}</p>
+                <p className="font-medium text-sm">
+                  {v.title}
+                  {v.planned ? <span className="proj-tag ml-2">Planned</span> : null}
+                </p>
                 <p className="proj-lead text-sm">{v.body}</p>
               </li>
             ))}

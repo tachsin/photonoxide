@@ -24,6 +24,11 @@ const AREAS = {
   units: "Units and conventions",
   material: "Materials",
   mode: "Mode solvers",
+  fdfd: "FDFD in 2D",
+  fdfd3d: "FDFD in 3D",
+  circuit: "Circuits",
+  components: "Components",
+  compact: "Compact models",
 };
 
 /** The report's area names, for headings. */

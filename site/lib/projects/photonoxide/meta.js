@@ -30,7 +30,7 @@ export const ROADMAP_PATH = "/projects/photonoxide/roadmap";
 export const DOCS_PATH = "/projects/photonoxide/docs";
 
 export const PHOTONOXIDE_DESCRIPTION =
-  "photonoxide is a photonics library for Rust: mode solvers, FDFD, FDTD, semi-analytic methods, inverse design, layout, PDKs and tape-out in one library, with a studio to watch every simulation and optimization live. Every solver is validated against analytic solutions and published results.";
+  "photonoxide is a photonics library for Rust: materials with provenance, mode solvers, 2D and 3D FDFD, components and circuits with their adjoint, and compact models, with a studio to build jobs and chips and watch every run live. Every method is validated against analytic solutions and published results. FDTD, active devices, inverse design, layout and tape-out are planned.";
 
 export const PHOTONOXIDE_LICENSE = "MIT OR Apache-2.0";
 
@@ -68,47 +68,83 @@ export const PHOTONOXIDE_KEYWORDS = [
   "Rust",
 ];
 
-/** Landing page highlights, from ROADMAP.md's architecture. `icon` is a key of HIGHLIGHT_ICONS in the page. */
+/**
+ * Landing page highlights: what the library does now, then what the roadmap plans. `icon` is a
+ * key of HIGHLIGHT_ICONS in the page; `status` is "released" (on crates.io), "main" (on the
+ * main branch, for the next release) or "planned" (ROADMAP.md's later milestones).
+ */
 export const PHOTONOXIDE_HIGHLIGHTS = [
   {
     icon: "modes",
     title: "Mode solvers",
-    body: "Slab and full-vector cross-section modes, the effective index method, bends, dispersion and overlaps.",
+    status: "released",
+    body: "Exact slabs and multilayers, full-vector cross-sections with PMLs and Hadley's corner equations, bends, the effective index method, dispersion and overlaps.",
   },
   {
     icon: "fields",
-    title: "FDFD and FDTD",
-    body: "Frequency- and time-domain finite differences in 2D and 3D, with CPML, mode ports, subpixel smoothing, dispersive media and a GPU backend.",
+    title: "FDFD",
+    status: "released",
+    body: "Frequency-domain finite differences in 2D and 3D on Yee's grid: stretched-coordinate PMLs, mode ports and reciprocal S-matrices (in 3D on main), adjoint gradients in 2D, and direct and QMR solves.",
   },
   {
-    icon: "layers",
-    title: "Semi-analytic methods",
-    body: "Transfer matrices for thin films, RCWA for gratings, eigenmode expansion and the beam propagation method.",
-  },
-  {
-    icon: "inverse",
-    title: "Inverse design",
-    body: "Adjoint gradients for every solver, density and level-set topology optimization, robust and foundry-rule constraints, with genoxide's optimizers.",
-  },
-  {
-    icon: "layout",
-    title: "Layout and PDKs",
-    body: "Our own geometry engine, GDSII and OASIS, parametric cells with ports, routing, design-rule checks, and the open SiEPIC EBeam and Cornerstone PDKs.",
-  },
-  {
-    icon: "tapeout",
-    title: "Tape-out",
-    body: "Submission packages for multi-project wafer runs: the foundry's layers, black-box cells, test structures, sign-off and connectivity checks.",
+    icon: "materials",
+    title: "Materials catalogue",
+    status: "released",
+    body: "Silica, silicon, nitride, lithium niobate, GaAs, AlGaAs, InGaP, InP and AlN: index models, crystals, χ⁽²⁾ and Pockels tensors, every number from its paper.",
   },
   {
     icon: "studio",
     title: "The studio",
-    body: "A native window that shows fields propagating, modes, layouts and optimizations as they run. Every run replays from its record.",
+    status: "released",
+    body: "A desktop app on a workspace: the examples built in, a job builder with a 3D preview, runs live in 3D and 2D, run comparison, the materials, the validation report, and updates by one click.",
+  },
+  {
+    icon: "circuits",
+    title: "Components and circuits",
+    status: "main",
+    body: "Waveguides, couplers, MMIs, rings and MZIs with ports and fidelities; netlists solved as one sparse system; the circuit adjoint and genoxide's optimizers; the studio's component library and chip view.",
+  },
+  {
+    icon: "compact",
+    title: "Compact models",
+    status: "main",
+    body: "Vector fitting with its error, stability and passivity, models over parameters, and Touchstone files read and written as the measured fidelity.",
   },
   {
     icon: "rust",
     title: "Pure Rust",
-    body: "No C, Fortran or Python, from the linear algebra to the GDS writer. Parallel on the CPU, with the GPU through wgpu.",
+    status: "released",
+    body: "No C, Fortran or Python, from the linear algebra up, and no Python bindings. Spectra are solved in parallel on the CPU.",
+  },
+  {
+    icon: "time",
+    title: "FDTD and GPU",
+    status: "planned",
+    body: "Time-domain finite differences in 2D and 3D with CPML, subpixel smoothing and dispersive media, and a GPU backend.",
+  },
+  {
+    icon: "active",
+    title: "Active devices",
+    status: "planned",
+    body: "Thermo-optic phase shifters, Pockels modulators in thin-film lithium niobate, travelling-wave electrodes, and carrier modulators.",
+  },
+  {
+    icon: "inverse",
+    title: "Inverse design",
+    status: "planned",
+    body: "Adjoint topology and shape optimization with robust and foundry-rule constraints, on genoxide's optimizers.",
+  },
+  {
+    icon: "layout",
+    title: "Layout and PDKs",
+    status: "planned",
+    body: "GDSII and OASIS, parametric cells with ports, routing, design-rule checks, and the open SiEPIC EBeam and Cornerstone PDKs.",
+  },
+  {
+    icon: "tapeout",
+    title: "Tape-out",
+    status: "planned",
+    body: "Submission packages for multi-project wafer runs: the foundry's layers, black-box cells, test structures, sign-off and connectivity checks.",
   },
 ];
 
@@ -142,19 +178,27 @@ export const PHOTONOXIDE_PIPELINE = [
   { title: "Measure", body: "Measured spectra back into the validation report, next to the prediction." },
 ];
 
-/** ROADMAP.md's three tiers of validation. */
+/**
+ * What the validation report has, by tier, and the cross-code comparisons ROADMAP.md plans.
+ * `planned` marks a tier the report doesn't have yet.
+ */
 export const PHOTONOXIDE_VALIDATION = [
   {
     title: "Analytic",
-    body: "Fresnel coefficients, slab modes, Bragg stacks, Mie scattering, PML reflection, the Yee scheme's numerical dispersion, MMI self-imaging, ring free spectral ranges.",
+    body: "Closed forms and exact properties: the exact slab and bent slab, Fresnel and transfer-matrix reflection, PML reflection, reciprocity, energy conservation and unitarity, ring responses and free spectral ranges, and every adjoint against finite differences.",
+  },
+  {
+    title: "Published",
+    body: "Papers' tables and figures reproduced: material data (Li, Malitson, Zelmon and more), Marcatili, Hadley's corner problems, the leaky photonic-wire benchmark, Bogaerts's rings, Gustavsen and Semlyen's vector fitting.",
+  },
+  {
+    title: "Measured",
+    body: "Dwivedi et al.'s Mach-Zehnder interferometers on imec's line: three wires' effective and group indices, predicted from their measured cross-sections, within the paper's fabrication estimate.",
   },
   {
     title: "Cross-code",
-    body: "The same structures at the same resolution in Meep, MPB, S4, Ceviche and oxiphoton, run as external programs.",
-  },
-  {
-    title: "Published devices",
-    body: "Inverse-designed demultiplexers, beamsplitters, mode multiplexers and grating couplers reproduced in 3D, and our own chips measured.",
+    planned: true,
+    body: "The same structures in Meep, MPB, S4 and Ceviche, run as external programs, with the later milestones.",
   },
 ];
 
@@ -164,18 +208,23 @@ export const PHOTONOXIDE_VALIDATION = [
  */
 export const FALLBACK_MILESTONES = [
   "0.0: Project setup ✅",
-  "0.1: Foundations",
-  "0.2: Mode solvers",
-  "0.3: Frequency-domain finite differences (FDFD)",
-  "0.4: Finite-difference time-domain (FDTD)",
-  "0.5: Semi-analytic methods",
-  "0.6: Inverse design",
-  "0.7: Layout and PDK",
-  "0.8: Tape-out",
-  "0.9: Fabrication realism",
-  "0.10: Circuits and devices",
-  "0.11: Periodic structures and nanophotonics",
-  "0.12: Nonlinear and fiber optics",
-  "0.13: Beyond",
+  "0.1: Foundations ✅",
+  "0.2: Mode solvers ✅",
+  "0.3: Frequency-domain finite differences (FDFD) ✅",
+  "0.3.1: The studio as a workspace ✅",
+  "0.3.2: The studio, polished ✅",
+  "0.4: Components and circuits",
+  "0.5: Finite-difference time-domain (FDTD)",
+  "0.6: Thermal and electro-optic devices",
+  "0.7: Inverse design",
+  "0.8: Carrier modulators, signals and programmable circuits",
+  "0.9: Layout and PDK",
+  "0.10: Tape-out",
+  "0.11: Fabrication realism",
+  "0.12: Semi-analytic methods",
+  "0.13: Device library",
+  "0.14: Periodic structures and nanophotonics",
+  "0.15: Nonlinear and fiber optics",
+  "0.16: Beyond",
   "1.0: Stable",
 ];

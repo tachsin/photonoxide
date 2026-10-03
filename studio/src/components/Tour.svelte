@@ -14,7 +14,7 @@
     {
       icon: LayoutGrid,
       title: "Start from the examples",
-      text: "Everything ships inside the app: ready-made simulations (a strip's modes, a ring, an MMI splitter) and thirteen published results reproduced, from silicon's index to Hadley's corner benchmarks. One click runs any of them.",
+      text: "Everything ships inside the app: ready-made simulations (a strip's modes, a ring, an MMI splitter) and the published results of the examples reproduced, from silicon's index to measured Mach-Zehnder interferometers. One click runs any of them.",
     },
     {
       icon: SquarePen,

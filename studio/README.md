@@ -1,7 +1,8 @@
 # The photonoxide program and its studio
 
 `photonoxide` is one program. Its studio window is where photonoxide is used: examples, a job
-builder, runs played live in 3D and 2D, run comparison, and the validation report. The same
+builder, runs played live in 3D and 2D, run comparison, the component library and the chip
+view, the materials catalogue, and the validation report. The same
 program runs jobs headless, replays runs, runs the built-in examples and checks the report:
 
 ```sh
@@ -23,7 +24,7 @@ window only follows that record, so a live run and a replay look the same.
 - **Examples:** everything ships inside the program.
   - The simulations of `jobs/` run in one click or open in the builder. Each card shows its
     structure in 3D, turning slowly: the scene its run will draw (`photonoxide::job::preview`).
-  - The thirteen published results of `examples/` each run in a process of their own. Every
+  - The nineteen published results of `examples/` each run in a process of their own. Every
     line is checked against the paper as it prints, beside what the release recorded.
 - **Job builder:** a job as a form for each kind (`modes`, `fdfd`, `structure`).
   - The device is drawn in 3D as you type, as its run will draw it; a modes job's whole, with
@@ -81,7 +82,13 @@ window only follows that record, so a live run and a replay look the same.
     Escape lets go.
   - **New** starts an empty chip or one of the built-in circuits (`circuits/` in the
     repository): an MZI from parts, an all-pass and an add-drop ring, a 1×4 splitter.
-- **Validation:** the release's report, searchable, and the same report run on this machine.
+- **Materials:** the catalogue (`photonoxide::material::catalogue`), by category and
+  searchable. Each material's index models plotted over their range, with a read-out at a
+  wavelength and inputs for the temperature and composition where a model has them; each
+  model's equation and coefficients as its paper prints them; the crystal and its d and r
+  tensors as matrices; and every paper a click away.
+- **Validation:** the release's report, searchable, its math rendered, and the same report run
+  on this machine.
 - **Settings:** the theme (photonoxide's dark or light, by the system or chosen, or any of
   daisyUI's, each shown in its own colours), the workspace folder, tips, and updates.
   The window opens where it was left, at the size it had.

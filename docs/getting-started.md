@@ -1,7 +1,7 @@
 # Getting started
 
 photonoxide is a photonics library for Rust. This page takes you from adding it to a project to
-your first waveguide modes, and says where everything else is.
+your first waveguide modes, materials and circuit, and says where everything else is.
 
 ## Add it
 
@@ -9,7 +9,9 @@ your first waveguide modes, and says where everything else is.
 cargo add photonoxide
 ```
 
-This guide follows 0.2, the mode solvers. Newer work is on the main branch:
+The latest release, 0.3.3, has the materials, the mode solvers and FDFD; everything on this page
+up to [Circuits](#circuits) works with it. Components and circuits (the 0.4 milestone) are on the
+main branch and not yet released:
 `photonoxide = { git = "https://github.com/tachsin/photonoxide" }`.
 
 photonoxide is pure Rust: no C, Fortran or Python, so `cargo build` is all it needs.
@@ -87,7 +89,80 @@ let si = photonoxide::material::silicon();
 let n = si.refractive_index(photonoxide::units::Wavelength::um(1.55)?)?; // 3.4757 (Li 1980)
 ```
 
-See [materials](methods/materials.md).
+See [materials](methods/materials.md). The [catalogue](methods/catalogue.md) has more, each
+model and tensor read from its paper: silica with temperature, lithium niobate (congruent,
+MgO-doped, thin film), GaAs, AlGaAs, InGaP, InP, AlN and AlGaN, with their χ⁽²⁾ and Pockels
+tensors. A model gives one material per index:
+
+```rust
+use photonoxide::material::catalogue::{self, Conditions};
+use photonoxide::units::Wavelength;
+
+fn main() -> photonoxide::Result<()> {
+    // congruent lithium niobate, by Zelmon et al. 1997
+    let linbo3 = catalogue::entry("linbo3").expect("in the catalogue");
+    let model = linbo3.default_model().expect("a default model");
+    let wavelength = Wavelength::um(1.55)?;
+    for (axis, material) in model.axes.iter().zip(model.materials(Conditions::default())?) {
+        println!("{axis:?}: {:.4}", material.refractive_index(wavelength)?.re);
+    }
+    Ok(())
+}
+```
+
+It prints `Ordinary: 2.2111` and `Extraordinary: 2.1376`. `Conditions` sets the temperature,
+or the composition of an alloy, where the model has one.
+
+## Circuits
+
+On the main branch, for the next release. A chip is a netlist of components, each with ports
+and parameters; compiled, it is a circuit whose S-matrix comes from one sparse solve. Here a
+waveguide leads into an all-pass ring:
+
+```rust
+use std::sync::Arc;
+
+use photonoxide::circuit::Netlist;
+use photonoxide::circuit::components::{AllPassRing, Dispersion, Waveguide};
+use photonoxide::units::Wavelength;
+
+fn main() -> photonoxide::Result<()> {
+    // a strip's mode at 1550 nm: n_eff 2.44, n_g 4.2, and 3 dB/cm of loss
+    let strip = Dispersion::new(Wavelength::um(1.55)?, 2.44, 4.2).with_loss(3.0);
+
+    let mut chip = Netlist::new();
+    chip.add("lead", Arc::new(Waveguide::new(strip)))?;
+    chip.add("ring", Arc::new(AllPassRing::new(strip)?))?;
+    chip.set("lead", "length", 50.0)?; // µm
+    chip.set("ring", "length", 62.832)?; // the round trip of a 10 µm radius
+    chip.set("ring", "coupling", 0.05)?; // κ², the power crossing into the ring
+    chip.connect("lead.o2", "ring.in")?;
+    chip.expose("in", "lead.o1")?;
+    chip.expose("out", "ring.through")?;
+    let circuit = chip.compile()?;
+
+    // the through port's power from 1545 to 1555 nm, every 10 pm: its deepest dip
+    let wavelengths = (0..=1000)
+        .map(|i| Wavelength::nm(1545.0 + 0.01 * f64::from(i)))
+        .collect::<photonoxide::Result<Vec<_>>>()?;
+    let mut dip = (0.0, f64::INFINITY);
+    for &wavelength in &wavelengths {
+        let power = circuit.s_matrix(wavelength)?[(1, 0)].norm_sqr();
+        if power < dip.1 {
+            dip = (wavelength.to_um() * 1e3, power);
+        }
+    }
+    println!("a resonance at {:.2} nm, {:.3} of the power through", dip.0, dip.1);
+    Ok(())
+}
+```
+
+It prints `a resonance at 1549.18 nm, 0.710 of the power through`: the ring is under-coupled.
+The waveguide's dispersion can come from the mode solver instead (`Dispersion::from_modes`).
+[Circuits](methods/circuits.md) explains the solve, [first components](methods/components.md)
+lists the components and their models, the [circuit adjoint](methods/circuit-adjoint.md) gives
+every parameter's gradient for optimization, and [compact models](methods/compact.md) fit
+a solver's spectrum or read a Touchstone file.
 
 ## Runs and the studio
 
@@ -95,23 +170,28 @@ A job file describes a run, and the studio window shows it live, starts by itsel
 when the run is done. Every run is recorded (`runs/<run>/events.jsonl`) and replays with
 `photonoxide view runs/<run>`; `--headless` runs a job without the window.
 
-From 0.3 on, each release has the `photonoxide` program for Linux (x86_64 and ARM64), Windows
-and macOS ([downloads](https://github.com/tachsin/photonoxide/releases)); it can also be built
-from the repository ([how](https://github.com/tachsin/photonoxide/blob/main/studio/README.md)).
-Started with no arguments, it opens on a start page that lists the jobs in `jobs/` and the runs
-in `runs/`. From a terminal:
+Each release has the `photonoxide` program for Linux (x86_64 and ARM64), Windows and macOS
+([downloads](https://github.com/tachsin/photonoxide/releases)), and an installed copy updates
+itself; it can also be built from the repository
+([how](https://github.com/tachsin/photonoxide/blob/main/studio/README.md)). Started with no
+arguments, it opens the studio on a workspace: the examples and jobs built in, a job builder
+with a 3D preview, the runs, the materials catalogue and the validation report (the
+[studio's README](https://github.com/tachsin/photonoxide/blob/main/studio/README.md) describes
+every page). From a terminal:
 
 ```sh
-photonoxide run jobs/strip-and-ring.toml        # a structure
+photonoxide run jobs/strip-and-ring.toml        # a ring resonator's structure
 photonoxide run jobs/strip-modes.toml           # a strip's modes, and a sweep over wavelength
 photonoxide run jobs/strip-width-sweep.toml     # ... or over its width
 photonoxide run jobs/mmi-fdfd.toml              # a 1x2 splitter by 2D FDFD: its S-parameters
+photonoxide run jobs/ring-fdfd.toml             # an all-pass ring's spectrum by 2D FDFD
 ```
 
-The studio opens in 3D: the layers and shapes as solids over the run's window, cut where a modes
-job cuts its cross-section, with the selected mode's |E|² on the cut (drag to rotate, right-drag
-to pan, scroll to zoom). The sidebar lists the run, its layers (each can be hidden), its modes
-and its sweep; the 2D view has the pictures and plots.
+A run opens in 3D: the layers and shapes as solids over the run's window, cut where a modes
+job cuts its cross-section, and the selected mode travelling along its guide (drag to rotate,
+right-drag to pan, scroll to zoom). The sidebar lists the run, its layers (each can be hidden),
+its modes and its sweep, with a slider through the sweep's points; the 2D view has the pictures
+and plots.
 
 A `"modes"` job cuts the stack and shapes at a y, solves the cross-section's modes with the
 full-vector solver, and records a picture of each mode's |E|² with its effective index and TE
