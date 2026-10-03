@@ -189,7 +189,8 @@ A run opens in 3D: the layers and shapes as solids over the run's window, cut wh
 job cuts its cross-section, and the selected mode travelling along its guide (drag to rotate,
 right-drag to pan, scroll to zoom). The sidebar lists the run, its layers (each can be hidden),
 its modes and its sweep, with a slider through the sweep's points; the 2D view has the pictures
-and plots.
+and plots. While a sweep runs, both views show the point just solved, named in the bar above
+them with how far the sweep is.
 
 A `"modes"` job cuts the stack and shapes at a y, solves the cross-section's modes with the
 full-vector solver, and records a picture of each mode's |E|² with its effective index and TE

@@ -46,8 +46,10 @@ window only follows that record, so a live run and a replay look the same.
   - The side panel hides layers, picks the mode shown, and stops a running job. A sweep's
     slider (or ← and →) flips through its points: the structure at that point (a width
     sweep's strip widens), its modes on the cut and travelling, and the point marked on the
-    2D plots, with the job's own configuration first. It grows as a running sweep's points
-    arrive. The field has
+    2D plots, with the job's own configuration first. An FDFD sweep's points each have their
+    field. While a sweep runs, both views follow it, showing each point as it is solved, and
+    the bar above them names the point shown and how many of the sweep's are solved; picking a
+    point stays on it, and Follow goes back to the running one. The field has
     its own row (shown or not, and how strongly), apart from the layers. A layer outside the
     run's window is greyed. Each layer's info button tells what it is made of, what fills it
     around its shapes and what lies under and over it, and recolours it in the viewer.

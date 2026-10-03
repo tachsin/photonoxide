@@ -9,7 +9,7 @@
   import RunPlots from "../components/RunPlots.svelte";
   import Tip from "../components/Tip.svelte";
   import { api, duration, KINDS } from "../lib/api";
-  import { app, go, run, shownModes, shownScene, themeBackdrop, toast } from "../lib/app.svelte";
+  import { app, followSweep, go, perPoint as hasPerPoint, pickPoint, run, shownField, shownModes, shownScene, sweepAxis, themeBackdrop, toast } from "../lib/app.svelte";
   import { modeKind } from "../lib/events";
   import { effectiveLook, outside, rows, um, type Looks } from "../lib/layers";
   import { mediumLook } from "../lib/colours";
@@ -70,9 +70,11 @@
 
   $effect(() => three?.setFieldLook(run.fieldVisible, run.fieldOpacity));
 
-  // the field: an FDFD run's on its layer, or the selected mode on its cut
+  // the field: an FDFD run's on its layer (the sweep point's, when one is shown), or the
+  // selected mode on its cut
+  const field = $derived(shownField());
   $effect(() => {
-    const f = run.fields[0];
+    const f = field;
     const m = current;
     const plane: Plane | null = f ? { intensity: f.intensity, normal: "z", at: f.z_um } : m ? { intensity: m.intensity, normal: "y", at: m.cut_y_um } : null;
     three?.setField(plane);
@@ -82,22 +84,26 @@
   // already varies along the device)
   const wave = $derived.by(() => {
     const m = current;
-    if (run.fields.length || !m || !scene) return null;
+    if (field || !m || !scene) return null;
     return waveOf(m, shown.fields[m.label], scene);
   });
   /** The selected mode's guided wavelength λ / n_eff, µm. */
   const guided = $derived(current ? current.wavelength_um / current.effective_index[0] : 0);
 
   // ---- the sweep's points ----
-  const points = $derived(run.sweep?.points.length ?? 0);
+  /** The sweep, a modes run's or an FDFD run's: its solved points' values, and how many it will have. */
+  const axis = $derived(sweepAxis());
+  /** The points solved so far. */
+  const points = $derived(axis?.values.length ?? 0);
   /** Whether the run recorded each point's pictures (an older run didn't). */
-  const perPoint = $derived(Object.keys(run.sweepModes).length > 0);
-  /** The point picked, in words: "width 0.45 µm (point 4 of 11)", or the nominal one. */
+  const perPoint = $derived(hasPerPoint());
+  /** The shown point's value, if a point is shown. */
+  const pointValue = $derived(run.point === null ? null : (axis?.values[run.point] ?? null));
+  /** The point shown, in words: "width 0.45 µm (point 4 of 11)", or the nominal one. */
   const pointText = $derived.by(() => {
-    if (!run.sweep) return "";
-    if (run.point === null) return "nominal: the job's own configuration";
-    const p = run.sweep.points[run.point];
-    return `${run.sweep.parameter} ${p ? um(p.value) : "?"} µm (point ${run.point + 1} of ${points})`;
+    if (!axis) return "";
+    if (run.point === null) return run.fields[0] ? `nominal: the field the job asks for, at ${um(run.fields[0].wavelength_um)} µm` : "nominal: the job's own configuration";
+    return `${axis.parameter} ${pointValue === null ? "?" : um(pointValue)} µm (point ${run.point + 1} of ${axis.total})`;
   });
   /** The wave in words: what is drawn, its guided wavelength, its phase velocity, and how much slower it is shown. */
   const facts = $derived.by(() => {
@@ -117,11 +123,11 @@
   function stepPoint(by: number) {
     if (!perPoint || !points) return;
     const k = (run.point === null ? -1 : run.point) + by;
-    run.point = k < 0 ? null : Math.min(k, points - 1);
+    pickPoint(k < 0 ? null : Math.min(k, points - 1));
   }
 
   function keys(e: KeyboardEvent) {
-    if (app.page !== "viewer" || !run.sweep || details || app.palette) return;
+    if (app.page !== "viewer" || !axis || details || app.palette) return;
     const t = e.target as HTMLElement | null;
     if (t && (t.closest("input, textarea, select, [contenteditable]") || t.closest("dialog.modal-open"))) return;
     if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
@@ -147,9 +153,9 @@
   let details = $state<string | null>(null);
   /** The field the 3D view paints, and where. */
   const painted = $derived.by(() => {
-    const f = run.fields[0];
+    const f = field;
     const m = current;
-    if (f) return { label: f.label, where: `on the layer's top face (z = ${um(f.z_um)} µm)` };
+    if (f) return { label: `${f.label}, at ${um(f.wavelength_um)} µm`, where: `on the layer's top face (z = ${um(f.z_um)} µm)` };
     if (m) return { label: `${m.label}, |E|²`, where: `on the cut at y = ${um(m.cut_y_um)} µm` };
     return null;
   });
@@ -195,6 +201,24 @@
         <span class="badge badge-ghost">finished in {duration(run.finished.seconds)}</span>
       {/if}
       {#if run.info?.closes && run.finished}<span class="text-xs faint">the window closes by itself</span>{/if}
+      {#if axis}
+        <!-- the sweep, in both views: the point shown, and how far a running one is -->
+        <span
+          class="badge badge-soft gap-1.5 {run.point === null ? 'badge-ghost' : 'badge-primary'}"
+          title={run.point === null ? "The job's own configuration shows; the side panel's slider picks a point of the sweep" : "The sweep point the 3D and 2D views show"}
+        >
+          {#if live && run.following}<span class="status status-primary animate-pulse"></span>{/if}
+          {#if run.point === null || pointValue === null}
+            sweep over the {axis.parameter}
+          {:else}
+            {axis.parameter} <span class="num">{um(pointValue)} µm</span> · point {run.point + 1} of {axis.total}
+          {/if}
+        </span>
+        {#if live}
+          <progress class="progress progress-primary w-24" value={points} max={axis.total} title="{points} of {axis.total} points solved"></progress>
+          <span class="text-xs faint num">{points} / {axis.total}</span>
+        {/if}
+      {/if}
       <span class="flex-1"></span>
       <div class="join" role="tablist" aria-label="view">
         <button class="btn join-item btn-sm gap-1.5 {view === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (view = "3d")} title="The structure as solids, with the field painted on it"><Box size={14} /> 3D</button>
@@ -206,13 +230,18 @@
       <div bind:this={host} class="absolute inset-0"></div>
       <svg bind:this={gizmo} class="pointer-events-none absolute right-4 bottom-4 text-[11px] font-semibold" width="96" height="96" viewBox="-48 -48 96 96"></svg>
       <div class="pointer-events-none absolute top-4 left-4 max-w-md rounded-xl border border-base-content/10 bg-base-100/80 px-4 py-3 text-sm backdrop-blur">
-        {#if run.fields[0]}
-          <p class="font-medium">{run.fields[0].label} <span class="font-normal faint">at {run.fields[0].wavelength_um} µm</span></p>
-          <p class="text-xs faint">drawn on the layer's top face, from zero (black) to its peak (pale yellow)</p>
+        {#if field}
+          <p class="font-medium">{field.label} <span class="font-normal faint">at {um(field.wavelength_um)} µm</span></p>
+          {#if run.point !== null}
+            <p class="text-xs text-primary">at {pointText}{live && run.following ? ", the one just solved" : ""}</p>
+          {:else if axis}
+            <p class="text-xs faint">{pointText}</p>
+          {/if}
+          <p class="text-xs faint">drawn on the layer's top face, from zero (black) to its peak (pale yellow){run.point !== null ? ", each point's own" : ""}</p>
         {:else if current}
           {@const m = current}
           <p class="font-medium">{m.label} · {modeKind(m)} · <span class="num">n_eff {m.effective_index[0].toFixed(6)}</span></p>
-          {#if run.point !== null}<p class="text-xs text-primary">at {pointText}</p>{/if}
+          {#if run.point !== null}<p class="text-xs text-primary">at {pointText}{live && run.following ? ", the one just solved" : ""}</p>{/if}
           <p class="text-xs faint">|E|² on the cut at y = {m.cut_y_um.toFixed(3)} µm, at λ = {um(m.wavelength_um)} µm</p>
           {#if facts && run.wave}
             <p class="text-xs faint">
@@ -370,10 +399,10 @@
       </section>
     {/if}
 
-    {#if run.sweep}
+    {#if axis}
       <section>
         <h3 class="panel-title mb-2">Sweep</h3>
-        <p class="text-sm">over the {run.sweep.parameter}: {points} point{points === 1 ? "" : "s"}{run.finished ? "" : " so far"}</p>
+        <p class="text-sm">over the {axis.parameter}: {points}{run.finished && points === axis.total ? "" : ` of ${axis.total}`} point{axis.total === 1 ? "" : "s"}{run.finished ? "" : " so far"}</p>
         <div class="mt-2 flex items-center gap-1">
           <button class="btn btn-ghost btn-xs btn-square" aria-label="The previous point" title="The previous point (←)" disabled={!perPoint || run.point === null} onclick={() => stepPoint(-1)}>
             <ChevronLeft size={14} />
@@ -390,7 +419,7 @@
             value={run.point === null ? 0 : run.point + 1}
             oninput={(e) => {
               const k = Number((e.currentTarget as HTMLInputElement).value);
-              run.point = k === 0 ? null : k - 1;
+              pickPoint(k === 0 ? null : k - 1);
             }}
           />
           <button class="btn btn-ghost btn-xs btn-square" aria-label="The next point" title="The next point (→)" disabled={!perPoint || run.point === points - 1} onclick={() => stepPoint(1)}>
@@ -400,10 +429,16 @@
         {#if perPoint}
           <div class="mt-1 flex items-center gap-2">
             <p class="flex-1 text-xs {run.point === null ? 'faint' : 'text-primary'}">{pointText}</p>
+            {#if live && !run.following}
+              <button class="btn btn-ghost btn-xs" onclick={followSweep} title="Show each point as it is solved">Follow</button>
+            {/if}
             {#if run.point !== null}
-              <button class="btn btn-ghost btn-xs" onclick={() => (run.point = null)} title="Back to the job's own configuration">Nominal</button>
+              <button class="btn btn-ghost btn-xs" onclick={() => pickPoint(null)} title="Back to the job's own configuration">Nominal</button>
             {/if}
           </div>
+          {#if live && run.following}
+            <p class="mt-0.5 text-[11px] faint">following the sweep: each point shows as it is solved; pick one to stay on it</p>
+          {/if}
         {:else}
           <p class="mt-1 text-xs faint">
             {run.finished || points ? "(this run recorded no per-point pictures: an older run)" : "the points' pictures arrive as they are solved"}
@@ -432,7 +467,8 @@
     {/if}
 
     {#if run.sparams.length}
-      {@const first = run.sparams[0]}
+      <!-- at the sweep point shown, or the first wavelength -->
+      {@const first = run.sparams[run.point ?? 0] ?? run.sparams[0]}
       <section>
         <h3 class="panel-title mb-2">Ports</h3>
         <div class="space-y-1.5 text-sm">
@@ -444,7 +480,7 @@
             </div>
           {/each}
         </div>
-        <p class="mt-1.5 text-[11px] faint">|S_q1|², the power from port 1, at {first.wavelength_um} µm</p>
+        <p class="mt-1.5 text-[11px] faint">|S_q1|², the power from port 1, at {um(first.wavelength_um)} µm</p>
         <button class="btn btn-ghost btn-xs mt-2 -ml-2" onclick={() => (view = "2d")}>Spectra in 2D →</button>
       </section>
     {/if}
