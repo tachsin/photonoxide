@@ -24,7 +24,7 @@ use faer::sparse::Triplet;
 use faer::sparse::linalg::solvers::{Lu, SymbolicLu};
 use num_complex::Complex64 as c64;
 
-use super::{Edges, factorize, graded};
+use super::{Direction, Edges, factorize, graded};
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -374,36 +374,50 @@ impl Lattice {
     /// at the nodes, where the divergence lives, inside the gradient. s = 0 is A itself, and
     /// s = −1 their choice.
     pub(crate) fn assemble_with(&self, eps: &[c64], s: f64) -> Vec<Triplet<usize, usize, c64>> {
-        let k2 = self.k0 * self.k0;
         let mut t = Vec::with_capacity(if s == 0.0 { 13 } else { 15 } * eps.len());
         let mut row: Vec<(usize, c64)> = Vec::with_capacity(32);
-        for (r, &e) in eps.iter().enumerate() {
-            if self.fixed(r) {
-                t.push(Triplet::new(r, r, c64::new(1.0, 0.0)));
-                continue;
-            }
-            row.clear();
-            row.push((r, k2 * e));
-            for (face, wh) in self.curl_h(r) {
-                for (col, we) in self.curl_e(face) {
-                    if !self.fixed(col) {
-                        row.push((col, -wh * we));
-                    }
-                }
-            }
-            if s != 0.0 {
-                for (node, wg) in self.gradient(r) {
-                    let inverse = 1.0 / self.node_eps(eps, node);
-                    for (col, wd) in self.divergence(node) {
-                        if !self.fixed(col) {
-                            row.push((col, -s * wg * wd * eps[col] * inverse));
-                        }
-                    }
-                }
-            }
+        for r in 0..eps.len() {
+            self.row_into(eps, s, r, &mut row);
             merged(&mut t, r, &mut row);
         }
         t
+    }
+
+    /// Row `r` of −∇ × ∇ ×, appended to `row`: the curl-curl part of the matrix, the part that
+    /// couples values to their neighbours. Nothing for a value fixed at zero.
+    pub(crate) fn curl_curl_into(&self, r: usize, row: &mut Vec<(usize, c64)>) {
+        if self.fixed(r) {
+            return;
+        }
+        for (face, wh) in self.curl_h(r) {
+            for (col, we) in self.curl_e(face) {
+                if !self.fixed(col) {
+                    row.push((col, -wh * we));
+                }
+            }
+        }
+    }
+
+    /// Row `r` of [`Lattice::assemble_with`]'s matrix, its entries unsorted and possibly with
+    /// repeated columns, into `row` (cleared first).
+    pub(crate) fn row_into(&self, eps: &[c64], s: f64, r: usize, row: &mut Vec<(usize, c64)>) {
+        row.clear();
+        if self.fixed(r) {
+            row.push((r, c64::new(1.0, 0.0)));
+            return;
+        }
+        row.push((r, self.k0 * self.k0 * eps[r]));
+        self.curl_curl_into(r, row);
+        if s != 0.0 {
+            for (node, wg) in self.gradient(r) {
+                let inverse = 1.0 / self.node_eps(eps, node);
+                for (col, wd) in self.divergence(node) {
+                    if !self.fixed(col) {
+                        row.push((col, -s * wg * wd * eps[col] * inverse));
+                    }
+                }
+            }
+        }
     }
 
     /// Whether node `q` (index (k ny + j) nx + i, at the cells' corner) is on a wall behind a
@@ -742,6 +756,63 @@ impl Solver3d {
         })
     }
 
+    /// The `count` modes of the waveguide crossing the plane of nodes `plane` along `axis`, the
+    /// axis it runs along, highest effective index first: the scheme's own modes (see
+    /// [`PortMode3d`] and docs/methods/fdfd-3d.md). The plane and the next must be outside the
+    /// PMLs along `axis`, with the guide the same on both.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] if the plane isn't at least two cells clear of a PML or the grid's
+    /// end along `axis`, if `axis` is Bloch-periodic, if another axis is Bloch-periodic with
+    /// k ≠ 0, or if the modes don't converge.
+    pub fn port_modes(&self, axis: Axis, plane: usize, count: usize) -> Result<Vec<PortMode3d>> {
+        let (b, c) = axis.others();
+        let g = self.lattice.grid;
+        self.port_modes_within(axis, plane, (0..g.n(b), 0..g.n(c)), count)
+    }
+
+    /// The modes of a port that spans only `window`, the cells along the plane's two axes
+    /// (`axis.others()`: y and z for a plane normal to x, z and x for y, x and y for z): one
+    /// guide of several side by side, each its own port. The modes are solved with walls on the
+    /// window's edges and are zero outside it, and the projection sees only the window, so the
+    /// guide's field must have decayed to nothing there. A Bloch-periodic axis must be whole.
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver3d::port_modes`], and [`Error::InvalidValue`] for a window of fewer than 3
+    /// cells along an axis or past the grid.
+    pub fn port_modes_within(
+        &self,
+        axis: Axis,
+        plane: usize,
+        window: (std::ops::Range<usize>, std::ops::Range<usize>),
+        count: usize,
+    ) -> Result<Vec<PortMode3d>> {
+        self.lattice
+            .port_modes(&self.eps, (axis, plane), [window.0, window.1], count)
+    }
+
+    /// The right-hand side for [`Solver3d::solve_system`] that launches `mode` at unit amplitude
+    /// going `direction` along its axis, by total-field/scattered-field. Going forward the total
+    /// field is from the mode's plane on; going backward, up to the plane after it. Either way
+    /// the mode's amplitude is 1 on its plane. The guide must be the same along the axis there.
+    pub fn mode_source(&self, mode: &PortMode3d, direction: Direction) -> Vec<c64> {
+        self.lattice.mode_source(mode, direction)
+    }
+
+    /// The power-normalized S-matrix between `ports`: `s[q][p]`, from mode p going in to mode
+    /// q coming out. One solve per port, each launching that port's mode; every run's incoming
+    /// and outgoing amplitudes are measured at every port, and S solves S A = B, A the incoming
+    /// and B the outgoing ones, so what the PMLs send back is part of A, not an error in S.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] if a port's mode doesn't belong to this problem.
+    pub fn s_matrix(&self, ports: &[Port3d]) -> Result<Vec<Vec<c64>>> {
+        self.lattice.s_matrix(ports, |rhs| self.solve_system(rhs))
+    }
+
     /// A v, the assembled matrix times `v`.
     pub(crate) fn apply(&self, v: &[c64]) -> Vec<c64> {
         let mut out = vec![c64::new(0.0, 0.0); v.len()];
@@ -783,13 +854,18 @@ impl Field3d {
     }
 
     fn h_at(&self, r: usize) -> c64 {
-        let curl: c64 = self
-            .lattice
-            .curl_e(r)
-            .into_iter()
-            .map(|(col, w)| w * self.values[col])
-            .sum();
-        curl / c64::new(0.0, self.lattice.k0)
+        self.lattice.h_with(r, &|col| self.values[col])
+    }
+
+    /// The forward and backward amplitudes of `mode` in this field, across the mode's plane and
+    /// the next (see docs/methods/fdfd-3d.md): projections with the scheme's unconjugated
+    /// Lorentz form, exact for the scheme's own modes.
+    ///
+    /// # Panics
+    ///
+    /// If the mode's plane isn't on this field's grid.
+    pub fn mode_amplitudes(&self, mode: &PortMode3d) -> (c64, c64) {
+        self.lattice.mode_amplitudes(mode, &|r| self.values[r])
     }
 
     /// This field minus `other`, a field of the same problem: the scattered field, given the
@@ -827,29 +903,43 @@ impl Field3d {
     ///
     /// If node `plane + 1` isn't on the grid.
     pub fn flux(&self, axis: Axis, plane: usize) -> f64 {
-        let g = self.lattice.grid;
-        let n = g.n(axis);
+        let n = self.lattice.grid.n(axis);
         assert!(
             plane + 1 < n,
             "flux needs nodes {plane} and {} along {axis:?} on the grid",
             plane + 1
         );
+        self.lattice.flux_with(axis, plane, &|col| self.values[col])
+    }
+}
+
+impl Lattice {
+    /// H̃ = ∇ × E / (i k₀) at H's value `r`, for the field E whose value `col` is `e(col)`.
+    pub(crate) fn h_with(&self, r: usize, e: &impl Fn(usize) -> c64) -> c64 {
+        let curl: c64 = self.curl_e(r).into_iter().map(|(col, w)| w * e(col)).sum();
+        curl / c64::new(0.0, self.k0)
+    }
+
+    /// [`Field3d::flux`] for the field E whose value `col` is `e(col)`; nodes `plane` and
+    /// `plane + 1` must be on the grid.
+    pub(crate) fn flux_with(&self, axis: Axis, plane: usize, e: &impl Fn(usize) -> c64) -> f64 {
+        let g = self.grid;
         let (b, c) = axis.others();
         let mut total = 0.0;
         // S·n̂ = E_b H̃_c* − E_c H̃_b*: E_b and H̃_c share their place in the plane, and so do
         // E_c and H̃_b
-        for (e, h, sign) in [(b, c, 0.5), (c, b, -0.5)] {
+        for (component, h, sign) in [(b, c, 0.5), (c, b, -0.5)] {
             for v in 0..g.n(c) {
                 for u in 0..g.n(b) {
                     let mut at = [0; 3];
                     at[axis.index()] = plane;
                     at[b.index()] = u;
                     at[c.index()] = v;
-                    let low = self.e(e, (at[0], at[1], at[2]));
+                    let low = e(g.index(component, (at[0], at[1], at[2])));
                     at[axis.index()] = plane + 1;
-                    let high = self.e(e, (at[0], at[1], at[2]));
+                    let high = e(g.index(component, (at[0], at[1], at[2])));
                     at[axis.index()] = plane;
-                    let hv = self.h_at(g.index(h, (at[0], at[1], at[2])));
+                    let hv = self.h_with(g.index(h, (at[0], at[1], at[2])), e);
                     total += sign * (0.5 * (low + high) * hv.conj()).re;
                 }
             }
@@ -860,7 +950,12 @@ impl Field3d {
 
 pub(crate) mod checks;
 mod iterative;
+pub(crate) mod port_checks;
+#[cfg(test)]
+mod port_tests;
+mod ports;
 #[cfg(test)]
 mod tests;
 
 pub use iterative::{Formulation, IterativeSolver3d};
+pub use ports::{Port3d, PortMode3d};

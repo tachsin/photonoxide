@@ -641,6 +641,55 @@ pub fn cases() -> Vec<Case> {
             run: fdfd3d_two_d_agreement,
         },
         Case {
+            id: "fdfd3d/port-mode-slab-te",
+            title: "3D FDFD ports: the fundamental TE mode of a 220 nm silicon slab (3.476 in 1.444) at 1.55 µm, uniform along $y$, solved on a port's plane normal to $x$ on a 2.5 nm grid: effective index (shown)",
+            tier: Tier::Analytic,
+            source: "the exact slab (mode::slab); the port's eigenproblem is the 3D scheme's own on the plane, second order: 9.6e-4, 2.4e-4, 6.0e-5 at 10, 5, 2.5 nm",
+            run: fdfd3d_port_mode_slab_te,
+        },
+        Case {
+            id: "fdfd3d/port-mode-slab-tm",
+            title: "The same, the TM mode (shown)",
+            tier: Tier::Analytic,
+            source: "the exact slab (mode::slab); second order: 2.5e-3, 6.1e-4, 1.5e-4 at 10, 5, 2.5 nm, the 2D ports' errors",
+            run: fdfd3d_port_mode_slab_tm,
+        },
+        Case {
+            id: "fdfd3d/port-mode-strip",
+            title: r"3D FDFD ports: the TE-like mode of a $500 \times 220$ nm silicon strip in oxide at 1.55 µm on a port's plane of a 20 nm grid, inside walls $2.02 \times 3.5$ µm: effective index (shown)",
+            tier: Tier::CrossCode,
+            source: "Hadley's high-accuracy equations (mode::hadley, G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002), doi:10.1109/JLT.2002.800371) on 20, 10 and 5 nm grids, extrapolated: 2.445380; the port converges to it at second order (2.4e-3, 6.4e-4, 1.7e-4; its own limit 2.445387), and Fallahkhair et al.'s scheme (mode::vector) at about first, slowed by the corners",
+            run: fdfd3d_port_mode_strip,
+        },
+        Case {
+            id: "fdfd3d/straight-strip",
+            title: r"3D FDFD ports: a straight silicon strip ($500 \times 220$ nm in oxide) between two ports 0.25 µm apart, PMLs close around it, 50 nm grid: largest of the magnitudes of $S_{11}$ and $S_{22}$ and of the errors of $S_{21}$ and $S_{12}$ against $\exp(i\beta L)$ (shown)",
+            tier: Tier::Analytic,
+            source: r"a uniform guide transmits its mode whole with phase $\beta L$; the port modes are the grid's own and the source is total-field/scattered-field (R. C. Rumpf, Prog. Electromagn. Res. B 36, 221 (2012), doi:10.2528/PIERB11092006, Eq. 55)",
+            run: fdfd3d_straight_strip,
+        },
+        Case {
+            id: "fdfd3d/reciprocity",
+            title: "3D FDFD ports: a silicon strip stepping from 400 to 600 nm wide, off the grid's axis, PMLs close around it, 50 nm grid: $S_{21}$ against $S_{12}$ (relative difference shown)",
+            tier: Tier::Analytic,
+            source: "Lorentz reciprocity: $S$ is symmetric for a reciprocal device; the scheme keeps it, with the PMLs' stretches as weights and the modes normalized by the unconjugated Lorentz form",
+            run: fdfd3d_reciprocity,
+        },
+        Case {
+            id: "fdfd3d/closed-guide-energy",
+            title: r"3D FDFD ports: a silicon strip in a closed metal box of oxide ($0.6 \times 0.4$ µm), stepping from 300 to 400 nm wide, ports 1 µm from the step, 50 nm grid: the $S$-matrix between all the propagating modes on both sides (3 and 3), its distance from unitary (shown)",
+            tier: Tier::Analytic,
+            source: r"Poynting's theorem: a closed lossless guide loses no power, so $S^\dagger S = 1$ but for the power the evanescent modes carry across the ports' planes, which falls as $e^{-2\kappa d}$: 4e-4, 1e-4, 2.6e-5, 7e-6, 2e-6 for ports 0.2 to 1 µm from the step",
+            run: fdfd3d_closed_guide_energy,
+        },
+        Case {
+            id: "fdfd3d/two-d-s-matrix",
+            title: "3D FDFD ports on a structure invariant along $z$ (a silicon slab stepping from 220 to 300 nm, one periodic cell along $z$, 20 nm grid) against the 2D solver's $S$-matrix, $E$ along $z$ and $H$ along $z$ (largest difference shown)",
+            tier: Tier::Analytic,
+            source: r"with $\partial/\partial z = 0$ the 3D scheme is the 2D one (fdfd3d/two-d-agreement); with $H$ along $z$ the two agree to the eigensolver's tolerance (2e-10), with $E$ along $z$ to 9e-9, the PMLs half a cell apart in the two grids; the 2D solver's reflections with $H$ along $z$ are its $H_z$'s, minus the 3D ports' (tangential $E$)",
+            run: fdfd3d_two_d_s_matrix,
+        },
+        Case {
             id: "fdfd3d/qmr-direct",
             title: "3D FDFD by QMR, on the curl-curl operator and on Shin and Fan's ($s = -1$), to a relative residual of 1e-10, against the sparse direct solver: a silicon strip in oxide, $16^3$ cells of 40 nm, PMLs all round (largest field difference relative to the largest field shown)",
             tier: Tier::Analytic,
@@ -1030,6 +1079,89 @@ fn circuit_unitarity() -> Outcome {
         measured: worst,
         expected: 0.0,
         tolerance: 1e-13,
+        error: worst,
+    }
+}
+
+fn fdfd3d_port_mode_slab(kind: Polarization, tolerance: f64) -> Outcome {
+    let (got, exact) = crate::fdfd::port_checks3d::slab_port_index(kind, 0.0025);
+    Outcome {
+        measured: got,
+        expected: exact,
+        tolerance,
+        error: (got - exact).abs(),
+    }
+}
+
+fn fdfd3d_port_mode_slab_te() -> Outcome {
+    // second order from 2.4e-4 at 5 nm predicts 6.0e-5, which it is
+    fdfd3d_port_mode_slab(Polarization::Te, 1e-4)
+}
+
+fn fdfd3d_port_mode_slab_tm() -> Outcome {
+    // second order from 6.1e-4 at 5 nm predicts 1.5e-4, which it is
+    fdfd3d_port_mode_slab(Polarization::Tm, 2e-4)
+}
+
+fn fdfd3d_port_mode_strip() -> Outcome {
+    let [te, _] = crate::fdfd::port_checks3d::strip_port_indices(0.02);
+    // Hadley's equations on 20, 10 and 5 nm grids (2.44558833, 2.44543164, 2.44539267),
+    // extrapolated at their fitted order (2.01)
+    let limit = 2.445380;
+    Outcome {
+        measured: te,
+        expected: limit,
+        // the port's own discretization error at 20 nm, 2.4e-3, second order
+        tolerance: 3e-3,
+        error: (te - limit).abs(),
+    }
+}
+
+fn fdfd3d_straight_strip() -> Outcome {
+    let (worst, _) = crate::fdfd::port_checks3d::straight_strip();
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // round-off: 1.8e-15 measured
+        tolerance: 1e-12,
+        error: worst,
+    }
+}
+
+fn fdfd3d_reciprocity() -> Outcome {
+    let s = crate::fdfd::port_checks3d::width_step();
+    let asymmetry = (s[1][0] - s[0][1]).norm() / s[1][0].norm();
+    Outcome {
+        measured: asymmetry,
+        expected: 0.0,
+        // round-off: 2e-15 measured
+        tolerance: 1e-12,
+        error: asymmetry,
+    }
+}
+
+fn fdfd3d_closed_guide_energy() -> Outcome {
+    use crate::fdfd::port_checks3d::{closed_step, unitarity};
+    let (s, _) = closed_step(20);
+    let distance = unitarity(&s);
+    Outcome {
+        measured: distance,
+        expected: 0.0,
+        // the evanescent modes' share at 1 um from the step: 2.0e-6 measured
+        tolerance: 5e-6,
+        error: distance,
+    }
+}
+
+fn fdfd3d_two_d_s_matrix() -> Outcome {
+    use crate::fdfd::port_checks3d::two_d_s_difference;
+    let worst = two_d_s_difference(crate::fdfd::Polarization::Ez)
+        .max(two_d_s_difference(crate::fdfd::Polarization::Hz));
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // E along z: the PMLs half a cell apart, 8.9e-9 measured; H along z, 2.1e-10
+        tolerance: 5e-8,
         error: worst,
     }
 }
