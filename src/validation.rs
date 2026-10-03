@@ -17,6 +17,7 @@ use std::fmt::Write as _;
 
 use num_complex::Complex64;
 
+use crate::material::catalogue::checks as catalogue;
 use crate::material::{self, Model, Table};
 use crate::mode::Polarization;
 use crate::mode::slab::Slab;
@@ -127,6 +128,125 @@ pub fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: "I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965), doi:10.1364/JOSA.55.001205, Table I, computed index plus the C-D-G.E. residual",
             run: silica_measured,
+        },
+        Case {
+            id: "material/silica-leviton-table",
+            title: r"Fused silica's $n(\lambda, T)$ (Corning 7980) from the authors' Table 3 reproduces their Table 4: 16 wavelengths from 0.4 to 2.6 µm at 13 temperatures from 30 to 300 K (largest deviation shown)",
+            tier: Tier::Published,
+            source: "D. B. Leviton, B. J. Frey, Proc. SPIE 6273, 62732K (2006), doi:10.1117/12.672853, Table 4, printed to 5 decimals",
+            run: catalogue::leviton_table,
+        },
+        Case {
+            id: "material/linbo3-zelmon-633",
+            title: r"Congruent lithium niobate (Zelmon, Table 1) at 633 nm against the $n_o = 2.2864$ and $n_e = 2.2022$ at which Jazbinšek and Zgonik give its tensors (larger deviation shown)",
+            tier: Tier::Published,
+            source: "M. Jazbinšek, M. Zgonik, Appl. Phys. B 74, 407 (2002), doi:10.1007/s003400200818, Table 5's caption (their ref. 27); Zelmon's fit is within 2e-4 of its data",
+            run: catalogue::zelmon_633,
+        },
+        Case {
+            id: "material/linbo3-zelmon-opo",
+            title: r"Congruent lithium niobate (Zelmon, $n_e$): the idler of a 1.064 µm-pumped PPLN OPO with a 30 µm grating, from $n_p/\lambda_p - n_s/\lambda_s - n_i/\lambda_i = 1/\Lambda$ (µm, shown)",
+            tier: Tier::Published,
+            source: "D. E. Zelmon, D. L. Small, D. Jundt, J. Opt. Soc. Am. B 14, 3319 (1997), doi:10.1364/JOSAB.14.003319, Fig. 3, the predicted points: 3.35 µm, read off the plot to 0.03",
+            run: catalogue::zelmon_opo,
+        },
+        Case {
+            id: "material/linbo3-jundt-opo",
+            title: r"Congruent lithium niobate (Jundt, $n_e(\lambda, T)$): the idler of a 1.064 µm-pumped PPLN OPO at 250 °C with a 25.5 µm grating, expanded by Jundt's Eq. (3) (µm, shown)",
+            tier: Tier::Published,
+            source: "D. H. Jundt, Opt. Lett. 22, 1553 (1997), doi:10.1364/OL.22.001553, Fig. 1, the 250 °C fit at 25.5 µm: 4.755 µm, read off the plot to 0.02",
+            run: catalogue::jundt_opo,
+        },
+        Case {
+            id: "material/linbo3-shoji-miller",
+            title: r"Congruent lithium niobate: Miller's $\Delta_{33} = d_{33}/[(n_e^2(2\omega) - 1)(n_e^2(\omega) - 1)^2]$ from Shoji's $d_{33}$ and Zelmon's $n_e$ at the fundamentals 1.313, 1.064 and 0.852 µm (largest relative deviation shown)",
+            tier: Tier::Published,
+            source: "I. Shoji et al., J. Opt. Soc. Am. B 14, 2268 (1997), doi:10.1364/JOSAB.14.002268, Tables 10 and 12 (3.92, 4.73 and 4.34, in units of 1e-13 m/V), Eq. (1); the paper's own indices differ from Zelmon's",
+            run: catalogue::shoji_miller,
+        },
+        Case {
+            id: "material/linbo3-mgo-gayer-zelmon",
+            title: r"5% MgO-doped lithium niobate at 21 °C: Gayer's $n_e$ (0.5 to 3 µm) and $n_o$ (0.5 to 1.62 µm) against Zelmon's Table 2 with its columns exchanged, as Gayer et al. find they must be (largest difference shown)",
+            tier: Tier::Published,
+            source: r"O. Gayer et al., Appl. Phys. B 91, 343 (2008), doi:10.1007/s00340-008-2998-2, Sec. 4.3.1: within 3.1e-4 ($n_e$) and 2.2e-4 ($n_o$); the tolerance adds Zelmon's own 2e-4",
+            run: catalogue::gayer_zelmon,
+        },
+        Case {
+            id: "material/gaas-gehrsitz-gap",
+            title: r"The direct gap of GaAs from Gehrsitz et al.'s Eq. (11) against the $E_0^2$ of their Table II at 298, 185 and 103 K (in µm⁻², largest deviation shown)",
+            tier: Tier::Published,
+            source: "S. Gehrsitz et al., J. Appl. Phys. 87, 7825 (2000), doi:10.1063/1.373462, Table II, GaAs Fit 2, printed to 6 decimals",
+            run: catalogue::gehrsitz_gap,
+        },
+        Case {
+            id: "material/gaas-gehrsitz-n-inf",
+            title: r"GaAs: $n_\infty^2 = A + C_1/E_1^2 + C_0/E_0^2$ (Eq. (8)) from the temperature forms of Table II against its columns at 298, 185 and 103 K (largest deviation shown)",
+            tier: Tier::Published,
+            source: "S. Gehrsitz et al., J. Appl. Phys. 87, 7825 (2000), doi:10.1063/1.373462, Table II, GaAs Fit 2; the temperature forms are themselves fits to the three columns",
+            run: catalogue::gehrsitz_n_inf,
+        },
+        Case {
+            id: "material/algaas-gehrsitz-samples",
+            title: r"AlGaAs: the analytic $n(x, \lambda)$ of Table IV against each of the nine samples' own fits (Table III) from 0.73 to 0.83 µm at 23 °C, in units of the sum of the two fits' $\Delta n_\mathrm{max}$ (largest shown)",
+            tier: Tier::Published,
+            source: "S. Gehrsitz et al., J. Appl. Phys. 87, 7825 (2000), doi:10.1063/1.373462, Tables III and IV (quality of fit)",
+            run: catalogue::gehrsitz_samples,
+        },
+        Case {
+            id: "material/algaas-papatryfonos",
+            title: r"AlGaAs (Gehrsitz) against MBE layers measured by ellipsometry, $x$ from 0 to 0.452 at 825, 1300 and 1550 nm: the 17 points below the gap (largest relative deviation shown)",
+            tier: Tier::Published,
+            source: "K. Papatryfonos et al., AIP Adv. 11, 025327 (2021), doi:10.1063/5.0039631, Table III; the paper reports differences of the order of 1% from the reference models",
+            run: catalogue::gehrsitz_papatryfonos,
+        },
+        Case {
+            id: "material/algaas-afromowitz-eta",
+            title: r"GaAs in Afromowitz's model: $\eta = \pi E_d / [2E_0^3(E_0^2 - E_\Gamma^2)]$ with $E_0 = 3.65$, $E_d = 36.1$ and $E_\Gamma = 1.424$ eV (shown)",
+            tier: Tier::Published,
+            source: "M. A. Afromowitz, Solid State Commun. 15, 59 (1974), doi:10.1016/0038-1098(74)90014-3, p. 60: 0.1032",
+            run: catalogue::afromowitz_eta,
+        },
+        Case {
+            id: "material/gaas-skauli-shg",
+            title: r"GaAs (Skauli, the Pikhtin form) at 21 °C: the first-order QPM periods $\Lambda/m = \lambda_\omega / 2(n_{2\omega} - n_\omega)$ of the seven measured SHG wavelengths inside its range (largest relative deviation shown)",
+            tier: Tier::Published,
+            source: "T. Skauli et al., J. Appl. Phys. 94, 6447 (2003), doi:10.1063/1.1621740, Table I; a difference of indices is accurate to 0.2% of itself, and 61.2 µm is printed to 0.08%",
+            run: catalogue::skauli_shg,
+        },
+        Case {
+            id: "material/gaas-skauli-dndt",
+            title: r"GaAs (Skauli, the Pikhtin form): $dn/dT$ at 1.5 µm and 22 °C (in units of 1e-4 per K, shown)",
+            tier: Tier::Published,
+            source: "T. Skauli et al., J. Appl. Phys. 94, 6447 (2003), doi:10.1063/1.1621740, Sec. V: 2.33e-4 per K, from their fits",
+            run: catalogue::skauli_dndt,
+        },
+        Case {
+            id: "material/ingap-tanaka-ueno",
+            title: r"InGaP (Tanaka's single oscillator, $E_0 = 3.39$ and $E_d = 28.07$ eV) at 1.579 µm, the index Ueno et al. take from it for their $d_{14}$ (shown)",
+            tier: Tier::Published,
+            source: "Y. Ueno, V. Ricci, G. I. Stegeman, J. Opt. Soc. Am. B 14, 1428 (1997), doi:10.1364/JOSAB.14.001428, Table 2: 3.12, citing Tanaka et al. 1986",
+            run: catalogue::tanaka_ueno,
+        },
+        Case {
+            id: "material/inp-pettit-turner-suzuki",
+            title: "InP (Pettit and Turner, 298 K) at 1.064, 1.208, 1.306 and 1.50 µm against the indices Suzuki and Tada list beside their electro-optic coefficients (largest deviation shown)",
+            tier: Tier::Published,
+            source: "N. Suzuki, K. Tada, Jpn. J. Appl. Phys. 23, 291 (1984), doi:10.1143/JJAP.23.291, Table I (3.29, 3.23, 3.20, 3.17); Pettit and Turner's fit is within 0.007 of their data",
+            run: catalogue::pettit_turner_suzuki,
+        },
+        Case {
+            id: "material/inp-suzuki-tada-voltages",
+            title: r"InP: the half-wave voltages $V_{\lambda/2} = \lambda_0 / 2n_0^3 r_{41}^T$ from the catalogue's $r_{41}^T$ against those Suzuki and Tada print, at four wavelengths (largest relative deviation shown)",
+            tier: Tier::Published,
+            source: "N. Suzuki, K. Tada, Jpn. J. Appl. Phys. 23, 291 (1984), doi:10.1143/JJAP.23.291, Table I (11.4, 12.0, 12.9 and 14.4 kV); its indices and coefficients have three digits",
+            run: catalogue::suzuki_tada_voltages,
+        },
+        Case {
+            id: "material/aln-majkic-d33",
+            title: r"AlN: $d_{33}$ from the measured ratio $0.169\thinspace d_{33}(\mathrm{LiNbO_3})$ and the catalogue's $d_{33}$ of congruent lithium niobate at 1.064 µm (pm/V, shown)",
+            tier: Tier::Published,
+            source: "A. Majkić et al., Phys. Status Solidi B 254, 1700077 (2017), doi:10.1002/pssb.201700077, p. 4 and Table 1: 4.3 pm/V at 1030 nm, from Shoji et al.'s 25.2 pm/V",
+            run: catalogue::majkic_d33,
         },
         Case {
             id: "mode/slab-te-book",

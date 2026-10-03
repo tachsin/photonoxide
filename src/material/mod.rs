@@ -15,13 +15,14 @@
 //! public domain (CC0 1.0), and each cites its paper. Any other file of that database can be
 //! read with [`from_refractiveindex_info`].
 
-use std::f64::consts::TAU;
+use std::f64::consts::{PI, TAU};
 use std::fmt;
 
 use num_complex::Complex64;
 
 use crate::units::{Frequency, Wavelength, refractive_index};
 
+pub mod catalogue;
 mod refractiveindex;
 
 use crate::{Error, Result};
@@ -111,6 +112,33 @@ pub enum Model {
         n: Box<Model>,
         /// k against the wavelength.
         k: Curve,
+    },
+    /// Pikhtin and Yas'kov's form, as Skauli et al. (J. Appl. Phys. 94, 6447 (2003),
+    /// doi:10.1063/1.1621740) Eq. (12) write it, with photon energies E = 1.239842/λ in eV:
+    /// n² = 1 + (A/π) ln[(E₁² − E²)/(E₀² − E²)] + (⟨ε₂⟩/π) ln[(E₂² − E²)/(E₁² − E²)]
+    /// + G₃/(E₃² − E²). Lossless, below E₀.
+    Pikhtin {
+        /// A, dimensionless.
+        a: f64,
+        /// ⟨ε₂⟩, dimensionless.
+        eps2: f64,
+        /// G₃, in eV².
+        g3: f64,
+        /// E₀, E₁, E₂, E₃, in eV.
+        energies: [f64; 4],
+    },
+    /// Afromowitz's modified single-oscillator form (Solid State Commun. 15, 59 (1974),
+    /// doi:10.1016/0038-1098(74)90014-3, Eqs. (7)–(12)), photon energies E = 1.239842/λ in eV:
+    /// n² = 1 + M₋₁ + M₋₃E² + (η/π)E⁴ ln[(E_f² − E²)/(E_Γ² − E²)], with
+    /// E_f = (2E₀² − E_Γ²)^½, η = πE_d/[2E₀³(E₀² − E_Γ²)], M₋₁ = (η/2π)(E_f⁴ − E_Γ⁴),
+    /// M₋₃ = (η/π)(E_f² − E_Γ²). Lossless, below E_Γ.
+    Afromowitz {
+        /// The oscillator energy E₀, in eV.
+        e0: f64,
+        /// The dispersion energy E_d, in eV.
+        ed: f64,
+        /// The direct gap E_Γ, in eV.
+        gap: f64,
     },
 }
 
@@ -319,6 +347,31 @@ impl Model {
                 number,
                 coefficients,
             } => Complex64::new(refractiveindex::formula(*number, coefficients, lam), 0.0),
+            Model::Pikhtin {
+                a,
+                eps2,
+                g3,
+                energies: [e0, e1, e2, e3],
+            } => {
+                let e = PHOTON_EV_UM / lam;
+                let e_sq = e * e;
+                let ln = |hi: f64, lo: f64| ((hi * hi - e_sq) / (lo * lo - e_sq)).ln();
+                let eps =
+                    1.0 + a / PI * ln(*e1, *e0) + eps2 / PI * ln(*e2, *e1) + g3 / (e3 * e3 - e_sq);
+                Complex64::new(eps, 0.0)
+            }
+            Model::Afromowitz { e0, ed, gap } => {
+                let e = PHOTON_EV_UM / lam;
+                let e_sq = e * e;
+                let (e0_sq, g_sq) = (e0 * e0, gap * gap);
+                let ef_sq = 2.0 * e0_sq - g_sq;
+                let eta = PI * ed / (2.0 * e0 * e0_sq * (e0_sq - g_sq));
+                let m1 = eta / (2.0 * PI) * (ef_sq * ef_sq - g_sq * g_sq);
+                let m3 = eta / PI * (ef_sq - g_sq);
+                let chi =
+                    m1 + m3 * e_sq + eta / PI * e_sq * e_sq * ((ef_sq - e_sq) / (g_sq - e_sq)).ln();
+                Complex64::new(1.0 + chi, 0.0)
+            }
             Model::WithExtinction { .. } => {
                 let n = self.index(lam);
                 n * n
@@ -483,6 +536,10 @@ impl fmt::Display for Material {
         )
     }
 }
+
+/// hc in eV·µm, as Skauli et al. (2003) convert wavelengths to photon energies (Table II):
+/// E/eV = 1.239842/(λ/µm).
+pub(crate) const PHOTON_EV_UM: f64 = 1.239842;
 
 /// A built-in wavelength: positive and finite by construction.
 const fn um(value: f64) -> Wavelength {

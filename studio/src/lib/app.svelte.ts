@@ -5,7 +5,7 @@ import type { Event, Field, Mode, ModeField, Permittivity, Scene, Shape, SParame
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
 
-export type Page = "home" | "examples" | "builder" | "runs" | "viewer" | "compare" | "validation" | "settings";
+export type Page = "home" | "examples" | "builder" | "runs" | "viewer" | "compare" | "validation" | "materials" | "settings";
 
 export const app = $state({
   ready: false,

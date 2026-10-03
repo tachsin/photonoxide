@@ -72,7 +72,10 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             changelog,
             published_report,
             preview_scene,
-            save_text
+            save_text,
+            crate::materials::materials,
+            crate::materials::material_curves,
+            crate::materials::material_at
         ])
         .setup(move |app| {
             let paths = app.path();

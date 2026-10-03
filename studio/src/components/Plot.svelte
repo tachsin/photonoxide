@@ -16,6 +16,7 @@
     yRange,
     name = "plot",
     marker = null,
+    markers = true,
   }: {
     series: Series[];
     xLabel: string;
@@ -25,6 +26,8 @@
     name?: string;
     /** An x to mark with a line and larger points: the sweep point shown, say. */
     marker?: number | null;
+    /** Dots at the data points; off for dense curves, which then mark only the hovered or marked point. */
+    markers?: boolean;
   } = $props();
 
   /** The data as CSV: one row per x, one column per series (empty where a series has no point). */
@@ -103,7 +106,9 @@
         stroke-linejoin="round"
       />
       {#each s.points as [x, y], k (k)}
-        <circle cx={X(x)} cy={Y(y)} r={at === x || marker === x ? 4.5 : 2.6} fill={s.colour} class={marker === x ? "stroke-base-100" : ""} stroke-width={marker === x ? 1.5 : 0} />
+        {#if markers || at === x || marker === x}
+          <circle cx={X(x)} cy={Y(y)} r={at === x || marker === x ? 4.5 : 2.6} fill={s.colour} class={marker === x ? "stroke-base-100" : ""} stroke-width={marker === x ? 1.5 : 0} />
+        {/if}
       {/each}
     {/each}
     {#if at !== null}

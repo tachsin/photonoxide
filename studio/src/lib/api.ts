@@ -126,6 +126,11 @@ export const api = {
   publishedReport: () => invoke<string>("published_report"),
   previewScene: (text: string) => invoke<Scene>("preview_scene", { text }),
   saveText: (path: string, text: string) => invoke<void>("save_text", { path, text }),
+  materials: () => invoke<MaterialEntry[]>("materials"),
+  materialCurves: (id: string, modelId: string, temperature: number | null, composition: number | null, points: number) =>
+    invoke<MaterialCurve[]>("material_curves", { id, modelId, temperature, composition, points }),
+  materialAt: (id: string, modelId: string, temperature: number | null, composition: number | null, wavelength: number) =>
+    invoke<MaterialPoint[]>("material_at", { id, modelId, temperature, composition, wavelength }),
 };
 
 /** "2026-10-02T09:17:32Z" as "2 Oct 2026, 09:17". */
@@ -159,3 +164,119 @@ export const KINDS: Record<string, { label: string; about: string }> = {
   modes: { label: "Modes", about: "a waveguide's guided modes by the full-vector solver, optionally swept" },
   fdfd: { label: "FDFD", about: "a device seen from above by 2D FDFD with ports: S-parameters and fields" },
 };
+
+// The materials catalogue (photonoxide::material::catalogue), as the program serializes it.
+
+export type Axis = "isotropic" | "ordinary" | "extraordinary";
+
+export interface Source {
+  reference: string;
+  location: string;
+}
+
+export interface Reference {
+  key: string;
+  citation: string;
+  title: string;
+  doi: string;
+  open_access: string | null;
+}
+
+export interface Parameter {
+  symbol: string;
+  name: string;
+  unit: string;
+  min: number;
+  max: number;
+  default: number;
+}
+
+export interface CoefficientTable {
+  caption: string;
+  columns: string[];
+  rows: string[][];
+}
+
+export interface IndexModel {
+  id: string;
+  name: string;
+  axes: Axis[];
+  equation: string;
+  symbols: string;
+  coefficients: CoefficientTable[];
+  wavelength: [number, number];
+  temperature: Parameter | null;
+  composition: Parameter | null;
+  accuracy: string;
+  sources: Source[];
+  default: boolean;
+  notes: string;
+}
+
+export type Cell =
+  | { kind: "zero" }
+  | { kind: "value"; value: number; uncertainty: number | null }
+  | { kind: "unknown" }
+  | { kind: "same"; row: number; col: number; sign: number };
+
+export interface Tensor {
+  kind: "second-order" | "electro-optic";
+  label: string;
+  point_group: string;
+  cells: Cell[][];
+  wavelength: number | null;
+  clamping: "clamped" | "unclamped" | "none";
+  convention: string;
+  source: Source | null;
+  notes: string;
+}
+
+export interface Constant {
+  symbol: string;
+  name: string;
+  value: number;
+  uncertainty: number | null;
+  unit: string;
+  conditions: string;
+  source: Source;
+}
+
+export interface MaterialEntry {
+  id: string;
+  name: string;
+  formula: string;
+  category: "dielectric" | "semiconductor" | "nonlinear-crystal";
+  summary: string;
+  crystal: {
+    system: string;
+    point_group: string;
+    space_group: string | null;
+    structure: string;
+    optical: { kind: "isotropic" } | { kind: "uniaxial"; positive: boolean; optic_axis: string };
+    centrosymmetric: boolean;
+    notes: string;
+  };
+  index: IndexModel[];
+  tensors: Tensor[];
+  constants: Constant[];
+  missing: { property: string; reason: string }[];
+  references: Reference[];
+}
+
+export interface MaterialCurve {
+  axis: Axis;
+  range: [number, number];
+  wavelength: number[];
+  n: number[];
+  k: number[];
+  group: number[];
+}
+
+export interface MaterialPoint {
+  axis: Axis;
+  n: number;
+  k: number;
+  eps_re: number;
+  eps_im: number;
+  group: number;
+}

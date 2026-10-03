@@ -38,6 +38,7 @@
     ["runs", "Runs"],
     ["viewer", "Viewer"],
     ["compare", "Compare"],
+    ["materials", "Materials"],
     ["validation", "Validation"],
     ["settings", "Settings"],
   ];

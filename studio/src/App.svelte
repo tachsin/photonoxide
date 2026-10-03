@@ -15,6 +15,7 @@
   import Compare from "./pages/Compare.svelte";
   import Examples from "./pages/Examples.svelte";
   import Home from "./pages/Home.svelte";
+  import Materials from "./pages/Materials.svelte";
   import Runs from "./pages/Runs.svelte";
   import SettingsPage from "./pages/Settings.svelte";
   import Validation from "./pages/Validation.svelte";
@@ -57,6 +58,8 @@
         <Runs />
       {:else if app.page === "compare"}
         <Compare />
+      {:else if app.page === "materials"}
+        <Materials />
       {:else if app.page === "validation"}
         <Validation />
       {:else if app.page === "settings"}
