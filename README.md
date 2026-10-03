@@ -12,6 +12,11 @@
 
 **Photonics for Rust: validated, fabrication-ready, and visible while it runs.**
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/hero.gif" alt="The photonoxide studio: a silicon strip's first mode travelling along it in 3D as the camera orbits; a ring resonator's transmission spectrum building up point by point, then the ring lit at resonance in 3D; a Mach-Zehnder interferometer wired on the chip and its spectrum appearing" width="100%">
+</p>
+<p align="center"><sub>The studio: a strip's mode travelling in 3D; a ring's spectrum by 2D FDFD building up live (sped up) and the ring lit at resonance; an MZI wired on the chip and simulated.</sub></p>
+
 photonoxide is a photonics library for Rust and a program to use it with. The library computes
 waveguide modes, fields and S-parameters by frequency-domain finite differences, and connects
 components into circuits that it simulates, differentiates and optimizes. Every method is
@@ -101,6 +106,17 @@ and chips:
 - On the main branch: **Components**, the component library with each kind's S-parameters
   recomputed as its parameters move and Touchstone import and export, and **Chip**, where
   components are placed, wired port to port, checked and simulated.
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/builder.gif" alt="The job builder: the ring-fdfd job's ring radius and position changed in the form, the 3D preview following each step" width="100%"><br><sub><b>Job builder:</b> the ring's radius and place edited in the form; the 3D preview follows.</sub></td>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/materials.gif" alt="The Materials page: lithium niobate's ordinary and extraordinary indices read off the plot, then AlGaAs's index as its aluminium fraction slider moves" width="100%"><br><sub><b>Materials:</b> LiNbO₃'s n<sub>o</sub> and n<sub>e</sub> read off the plot; AlGaAs as its aluminium fraction moves.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/validation.gif" alt="The Validation page: two cases looked up and opened, showing what each computes and what it is checked against, with the math rendered" width="100%"><br><sub><b>Validation:</b> cases looked up and opened, each against its exact solution or paper.</sub></td>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/themes.gif" alt="Settings: daisyUI themes picked one after another, then the 3D viewer in the chosen theme and in photonoxide's own light and dark" width="100%"><br><sub><b>Themes:</b> any daisyUI theme, or photonoxide's light and dark; the 3D view follows.</sub></td>
+  </tr>
+</table>
 
 The same program runs a job (`photonoxide run job.toml`, live in the window or `--headless`),
 replays a run (`photonoxide view runs/<run>`), runs a built-in example and checks the report.

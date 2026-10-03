@@ -227,6 +227,31 @@ Build with the Tauri CLI, never with plain `cargo build`. Plain cargo leaves out
 window, so the window points at a dev server that isn't running. `pnpm tauri dev` serves the
 window from Vite and reloads it as you edit.
 
+## The README's GIFs
+
+The animations in the repository's README (`assets/studio/*.gif`) are recorded from the built
+program by `scripts/record-gifs.mjs`, so they can be made again when the studio changes:
+
+```sh
+cd studio
+pnpm tauri build                                  # target/release/photonoxide.exe
+node scripts/record-gifs.mjs                      # every GIF, about six minutes
+node scripts/record-gifs.mjs --only hero,themes   # some: hero, builder, materials, validation, themes
+```
+
+- **What it needs:** Windows (it drives the window's WebView2 over the DevTools protocol, on
+  port 9228; `--port` changes it), Node.js 24, and ffmpeg and gifski on the PATH
+  (`winget install ffmpeg`, `cargo install gifski`).
+- **What it touches:** it backs up the studio's settings (`%APPDATA%gr.tachsin.photonoxide`),
+  records with photonoxide dark, no tips and no tour, and puts them back as they were when it
+  ends or fails. The program runs in an empty workspace, `C:photonoxide-demo`, removed
+  afterwards, with a WebView2 profile of its own. The window shows on screen while it records.
+- **How:** each scene is played with a drawn pointer and screencast at 1280 × 760; the ring's run
+  is a time-lapse whose speed-up follows from how fast this machine solves it, and says so in a
+  badge. The frames are resampled to a steady rate, crossfaded between scenes and from the end
+  back to the start, scaled by ffmpeg and encoded by gifski. `--keep` keeps the frames, and
+  `--frames <folder>` composes kept frames again without recording.
+
 ## Layout
 
 - `src-tauri/`: the Rust side, the `photonoxide-studio` package. It is a member of the workspace
@@ -246,3 +271,4 @@ window from Vite and reloads it as you edit.
     editor (CodeMirror), the tour, the Ctrl+K palette, and the update dialog.
   - `lib/`: the shared state, the program's commands, the job model, the 3D view (three.js),
     and the updater.
+- `scripts/record-gifs.mjs`: records the README's GIFs (above).
