@@ -291,9 +291,9 @@
               <h3 class="panel-title">Refractive index</h3>
               <div class="flex-1"></div>
               {#if entry.index.length > 1}
-                <div class="join">
+                <div class="flex flex-wrap justify-end gap-1">
                   {#each entry.index as m (m.id)}
-                    <button class="btn btn-xs join-item {m.id === model.id ? 'btn-primary' : 'btn-ghost'}" onclick={() => (modelId = m.id)} title={m.notes}>
+                    <button class="btn btn-xs {m.id === model.id ? 'btn-primary' : 'btn-ghost'}" onclick={() => (modelId = m.id)} title={m.notes}>
                       {m.name}{m.default ? " ·  default" : ""}
                     </button>
                   {/each}
@@ -347,7 +347,7 @@
                   </tbody>
                 </table>
               {:else if pointProblem}
-                <p class="text-sm text-warning">{pointProblem.replace(/^.*?: /, "")}</p>
+                <p class="text-sm text-warning">{pointProblem.replace(/^.*?: /, "").replace(/(\d+\.\d{4})\d+/g, "$1")}</p>
               {/if}
             </div>
 

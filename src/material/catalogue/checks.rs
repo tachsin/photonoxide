@@ -428,3 +428,57 @@ pub(crate) fn majkic_d33() -> Outcome {
     });
     outcome(ln.map_or(f64::NAN, |d| 0.169 * d), 4.3, 0.05)
 }
+
+/// Rigler et al. 2015's Table I at 658 nm against their Sellmeier (Eq. (10)): the largest
+/// difference over n_o and n_e of both polarities, against the SE column (`maie` false) or the
+/// independent multi-angle ellipsometry column (`maie` true).
+fn rigler_2015_658(maie: bool) -> f64 {
+    // (n_o, n_e): SE, then MAIE; Al-polar, then N-polar
+    const PRINTED: [[(f64, f64); 2]; 2] = [
+        [(2.066, 2.114), (2.061, 2.113)],
+        [(2.061, 2.113), (2.063, 2.110)],
+    ];
+    let errors = (0..2).flat_map(|polarity| {
+        let (o, e) = PRINTED[polarity][usize::from(maie)];
+        let ms = models::rigler_2015(polarity).ok();
+        [(0, o), (1, e)].into_iter().map(move |(axis, v)| {
+            ms.as_ref()
+                .map_or(f64::NAN, |ms| (n(&ms[axis], 0.658) - v).abs())
+        })
+    });
+    largest(errors)
+}
+
+/// The SE column of Rigler et al. 2015's Table I, from the same fit: to its three decimals and
+/// the rounding of A and B.
+pub(crate) fn rigler_2015_se() -> Outcome {
+    deviation(rigler_2015_658(false), 1e-3)
+}
+
+/// The MAIE column of Rigler et al. 2015's Table I, an independent measurement at 658 nm,
+/// within its stated ±0.01.
+pub(crate) fn rigler_2015_maie() -> Outcome {
+    deviation(rigler_2015_658(true), 0.01)
+}
+
+/// Ferrini et al.'s Table 3 holds together: ε₁ = n² − k² and ε₂ = 2nk from its n and k
+/// against its printed ε, over all 37 rows (largest difference).
+pub(crate) fn ferrini_table_consistency() -> Outcome {
+    let errors = models::FERRINI_TABLE_3
+        .iter()
+        .flat_map(|&(_, n, k, e1, e2)| [(n * n - k * k - e1).abs(), (2.0 * n * k - e2).abs()]);
+    deviation(largest(errors), 0.01)
+}
+
+/// The catalogue's InGaP above the gap passes through Ferrini et al.'s Table 3: n and k at
+/// every printed energy (largest difference; the spline is exact at its knots).
+pub(crate) fn ferrini_table_knots() -> Outcome {
+    let errors = models::FERRINI_TABLE_3.iter().map(|&(e, n0, k0, _, _)| {
+        models::ferrini_table().map_or(f64::NAN, |m| {
+            Wavelength::um(crate::material::PHOTON_EV_UM / e)
+                .and_then(|w| m.refractive_index(w))
+                .map_or(f64::NAN, |c| (c.re - n0).abs().max((c.im - k0).abs()))
+        })
+    });
+    deviation(largest(errors), 1e-12)
+}

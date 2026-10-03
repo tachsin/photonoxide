@@ -324,6 +324,13 @@ fn every_catalogue_check_passes() {
         ("pettit_turner_suzuki", checks::pettit_turner_suzuki),
         ("suzuki_tada_voltages", checks::suzuki_tada_voltages),
         ("majkic_d33", checks::majkic_d33),
+        ("rigler_2015_se", checks::rigler_2015_se),
+        ("rigler_2015_maie", checks::rigler_2015_maie),
+        (
+            "ferrini_table_consistency",
+            checks::ferrini_table_consistency,
+        ),
+        ("ferrini_table_knots", checks::ferrini_table_knots),
     ] {
         let o = f();
         assert!(o.passed(), "{name}: {o:?}");
@@ -343,4 +350,51 @@ fn tanakas_quaternary_ends_at_its_inalp_fit() {
     let inp = models::pettit_turner(298.0).unwrap();
     assert!((n(&inp, 1.0) - 3.3265).abs() < 1e-4);
     assert!(models::pettit_turner(200.0).is_err());
+}
+
+#[test]
+fn the_nitrides_and_ferrinis_ingap_behave() {
+    // AlN is positive uniaxial in both polarities, by about 2.5% (Rigler et al. 2015)
+    for p in 0..2 {
+        let m = models::rigler_2015(p).unwrap();
+        for lam in [0.4, 0.658, 0.9] {
+            let (o, e) = (n(&m[0], lam), n(&m[1], lam));
+            assert!(e > o && (e / o - 1.0) < 0.04, "{p} {lam}");
+        }
+    }
+    // AlGaN (Rigler et al. 2013): every film is positive uniaxial, and among the III-polar
+    // films the index falls as the Al fraction grows
+    let mut last = f64::INFINITY;
+    for s in 1..=9u8 {
+        let m = models::rigler_2013(s).unwrap();
+        if m.len() == 2 {
+            assert!(n(&m[1], 0.6328) > n(&m[0], 0.6328), "sample {s}");
+        }
+        if s <= 5 {
+            let o = n(&m[0], 0.6328);
+            assert!(o < last, "sample {s}");
+            last = o;
+        }
+    }
+    assert_eq!(models::rigler_2013(8).unwrap().len(), 1);
+    assert!(models::rigler_2013(10).is_err());
+    // Ferrini's Sellmeier against Tanaka's model where both hold (0.95-2.07 um): within 2%,
+    // 0.6% at 1.55 um
+    let f = models::ferrini_sellmeier().unwrap();
+    let t = models::tanaka(0.0).unwrap();
+    let (lo, hi) = t.range();
+    for i in 0..=50 {
+        let lam = lo.to_um() + (hi.to_um() - lo.to_um()) * f64::from(i) / 50.0;
+        assert!((n(&f, lam) / n(&t, lam) - 1.0).abs() < 0.02, "{lam}");
+    }
+    assert!((n(&f, 1.55) / n(&t, 1.55) - 1.0).abs() < 0.007);
+    // the interband table is lossy, the Sellmeier lossless
+    let table = models::ferrini_table().unwrap();
+    assert!(
+        table
+            .refractive_index(Wavelength::um(0.4).unwrap())
+            .unwrap()
+            .im
+            > 0.1
+    );
 }

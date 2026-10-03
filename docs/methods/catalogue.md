@@ -48,6 +48,12 @@ papers:
     doi: 10.1002/pssb.201700077
   - cite: "P. Gräupner, J. C. Pommier, A. Cachard, J. L. Coutaz, J. Appl. Phys. 71, 4136 (1992)"
     doi: 10.1063/1.350844
+  - cite: "M. Rigler et al., Appl. Phys. Express 8, 042603 (2015)"
+    doi: 10.7567/APEX.8.042603
+  - cite: "M. Rigler et al., Appl. Phys. Lett. 102, 221106 (2013)"
+    doi: 10.1063/1.4800554
+  - cite: "R. Ferrini et al., Eur. Phys. J. B 27, 449 (2002)"
+    doi: 10.1140/epjb/e2002-00177-x
 validation:
   - material/silica-leviton-table
   - material/linbo3-zelmon-633
@@ -66,6 +72,10 @@ validation:
   - material/inp-pettit-turner-suzuki
   - material/inp-suzuki-tada-voltages
   - material/aln-majkic-d33
+  - material/aln-rigler-se
+  - material/aln-rigler-maie
+  - material/ingap-ferrini-table-consistency
+  - material/ingap-ferrini-table-knots
 ---
 
 `material::catalogue` lists materials with everything a design needs about them, each number
@@ -106,6 +116,10 @@ with the reason, rather than filled from a compilation. The studio's Materials p
 | GaAs, AlₓGa₁₋ₓAs | Gehrsitz et al. 2000 (default for AlGaAs) | Eqs. (11)–(13), (16), Tables II and IV | 30 meV below the direct gap (and above 0.47 µm) to 3 µm; 0 ≤ x ≤ 1; 103–313 K |
 | AlₓGa₁₋ₓAs | Afromowitz 1974 | modified single oscillator, Eqs. (7)–(12) | 0.039 eV below the gap (and below 2 eV) to 1.7 µm, room temperature |
 | In₀.₄₉Ga₀.₅₁₋ₓAlₓP | Tanaka et al. 1986 | single effective oscillator, Eqs. (2)–(4) | 0.95–2.07 µm (0.6–1.3 eV), 0 ≤ x ≤ 0.51, room temperature |
+| In₀.₄₉Ga₀.₅₁P | Ferrini et al. 2002, below the gap | $n^2 = A + B\lambda^2/(\lambda^2 - C^2)$, Table 2 (undoped EPI 61) | 0.69–24.8 µm (0.05–1.8 eV), room temperature |
+| In₀.₄₉Ga₀.₅₁P | Ferrini et al. 2002, above the gap | Table 3's $n$ and $k$, natural splines | 0.225–0.653 µm (1.9–5.5 eV), lossy |
+| AlN | Rigler et al. 2015, Al-polar (default) and N-polar | one-term Sellmeier for $n_o$ and $n_e$, Eq. (10), Table I | 0.4–0.9 µm, to 0.6% |
+| AlₓGa₁₋ₓN | Rigler et al. 2013, nine films (x = 0 to 0.30, both polarities) | one-term Sellmeier per film, Eqs. (6)–(7), Table II | 457.9–1064 nm, to 0.1% (0.4% from two modes) |
 | InP | Pettit & Turner 1965 | one-term Sellmeier, Table I, at 298 K (default) and 77 K | 0.60 eV to the gap |
 | LiNbO₃, congruent | Zelmon et al. 1997 (default) | three-oscillator Sellmeier, Table 1 | 0.4–5.0 µm, 21 °C |
 | LiNbO₃, congruent | Jundt 1997 | $n_e(\lambda, T)$, Eqs. (4)–(5), Table 2 | 0.4–5 µm, 20–250 °C |
@@ -157,8 +171,16 @@ congruent Table 1 is printed the right way round.
 - **AlN:** bulk $|d_{33}| = 4.3 \pm 0.3$ pm/V and $|d_{31}| = |d_{33}|/45$ at 1030 nm, and
   unclamped $|r_{33}| = 1.16$, $|r_{13}| = 0.11$ pm/V at 633 nm (Majkić et al.); a sputtered film
   gives $r_{13} = 0.67$ and $r_{33} = -0.59$ pm/V (Gräupner et al.), different in size and sign:
-  both are shipped, labelled. AlN has no index model yet: Pastrňák & Roskovcová print only
-  $n_o = 2.17$ and $n_e = 2.22$ (±0.05) at 589 nm, and their curves.
+  both are shipped, labelled. AlN's index is Rigler et al.'s (2015) ellipsometry of Al- and N-polar
+  films; Pastrňák & Roskovcová's bulk $n_o = 2.17$ and $n_e = 2.22$ (±0.05) at 589 nm stay as
+  constants.
+- **AlGaN:** Rigler et al. (2013) fit each of nine films separately and give no model in $x$, so
+  the catalogue has the nine films as models (sample 8, too rough, has no $n_e$); no tensors.
+- **InGaP beyond Tanaka:** Ferrini et al. (2002) give a Sellmeier below the gap for each sample
+  and $n$, $k$ above it for their undoped sample (Table 3, which prints its 4.1 eV row as 4.2).
+  Their Sellmeier is lower than Tanaka's by 0.6% at 1.55 µm and 1.9% near 0.95 µm. Ahler et al.'s
+  Zenodo deposit holds only cut-back loss data, no index model and no licence file, so there is
+  no bonded thin-film InGaP entry.
 - **AlGaAs:** Ohashi et al. (1993) give only $|d(x)/d(\mathrm{GaAs})|$, in a figure, and Adachi
   (1985) has no electro-optic section, so AlGaAs's tensors are missing.
 
@@ -184,3 +206,7 @@ congruent Table 1 is printed the right way round.
 - InP: Pettit & Turner's fit is within 0.004 of the indices Suzuki & Tada list, and the catalogue's
   $r_{41}^T$ gives their half-wave voltages to 1%.
 - AlN: Majkić's measured ratio times the catalogue's LiNbO₃ $d_{33}$ gives 4.26 pm/V, their 4.3.
+  Rigler's Sellmeier reproduces the 658 nm SE values of their Table I to 5.7e-4 and the
+  independent multi-angle ellipsometry to 5.6e-3 (each ±0.01).
+- InGaP: Ferrini's Table 3 is self-consistent ($\varepsilon_1 = n^2 - k^2$, $\varepsilon_2 = 2nk$
+  to 5.7e-3), and the catalogue passes through it.

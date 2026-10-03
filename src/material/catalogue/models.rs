@@ -706,3 +706,204 @@ pub(crate) fn pettit_turner(kelvin: f64) -> Result<Material> {
         },
     )
 }
+
+// ---------------------------------------------------------------------------------------------
+// AlN: Rigler et al. 2015; AlGaN: Rigler et al. 2013
+// ---------------------------------------------------------------------------------------------
+
+/// Rigler et al. 2015, Table I (spectroscopic ellipsometry): (A_o, B_o nm, A_e, B_e nm) of
+/// n² = 1 + Aλ²/(λ² − B²), for Al-polar and N-polar AlN films.
+pub(crate) const RIGLER_2015: [(&str, [f64; 4]); 2] = [
+    ("Al-polar", [3.131, 136.0, 3.318, 138.0]),
+    ("N-polar", [3.110, 135.0, 3.310, 140.0]),
+];
+/// Fitted from 400 to 900 nm.
+pub(crate) const RIGLER_2015_LAMBDA: (f64, f64) = (0.4, 0.9);
+
+/// A one-term Sellmeier n² = 1 + Aλ²/(λ² − B²), B in nm.
+fn one_term(a: f64, b_nm: f64) -> Model {
+    Model::Sellmeier {
+        a: 1.0,
+        terms: vec![SellmeierTerm {
+            b: a,
+            c: b_nm / 1000.0,
+        }],
+    }
+}
+
+/// AlN's n_o and n_e (in that order) for one polarity (0 Al-polar, 1 N-polar).
+pub(crate) fn rigler_2015(polarity: usize) -> Result<Vec<Material>> {
+    let (name, [ao, bo, ae, be]) = RIGLER_2015[polarity];
+    let provenance = Provenance {
+        reference: "M. Rigler et al., Appl. Phys. Express 8, 042603 (2015)".into(),
+        doi: "10.7567/APEX.8.042603".into(),
+        data: "our own transcription of Eq. (10) and Table I, checked against the paper".into(),
+        temperature: None,
+        notes: format!(
+            "{name} AlN film (about 240 nm, MOCVD on sapphire), spectroscopic ellipsometry from 400 to 900 nm; accurate to 0.6%"
+        ),
+    };
+    let (lo, hi) = (um(RIGLER_2015_LAMBDA.0)?, um(RIGLER_2015_LAMBDA.1)?);
+    Ok(vec![
+        Material::new("AlN (o)", one_term(ao, bo), lo, hi, provenance.clone())?,
+        Material::new("AlN (e)", one_term(ae, be), lo, hi, provenance)?,
+    ])
+}
+
+/// Rigler et al. 2013, Table II: (sample, x, III-metal-polar, [A_TE, B_TE nm, A_TM, B_TM nm])
+/// of n_o² = 1 + A_TE·λ²/(λ² − B_TE²) and n_e² = 1 + A_TM·λ²/(λ² − B_TM²); sample 8 has no n_e.
+pub(crate) const RIGLER_2013: [(u8, f64, bool, [f64; 4]); 9] = [
+    (1, 0.0, true, [4.180, 182.8, 4.300, 195.42]),
+    (2, 0.025, true, [4.132, 180.7, 4.279, 188.64]),
+    (3, 0.110, true, [4.054, 174.2, 4.204, 182.22]),
+    (4, 0.170, true, [3.990, 170.3, 4.136, 179.21]),
+    (5, 0.260, true, [3.913, 161.7, 4.039, 174.26]),
+    (6, 0.0, false, [4.116, 189.9, 4.200, 204.18]),
+    (7, 0.025, false, [4.072, 183.2, 4.198, 188.54]),
+    (8, 0.105, false, [4.056, 179.4, f64::NAN, f64::NAN]),
+    (9, 0.300, false, [3.889, 164.4, 4.015, 176.45]),
+];
+/// Prism coupling at 457.9, 532, 632.8 and 1064 nm.
+pub(crate) const RIGLER_2013_LAMBDA: (f64, f64) = (0.4579, 1.064);
+
+/// One of Rigler et al.'s AlGaN films (sample 1 to 9): n_o, and n_e when the paper gives it.
+pub(crate) fn rigler_2013(sample: u8) -> Result<Vec<Material>> {
+    let &(s, x, metal, [ao, bo, ae, be]) = RIGLER_2013
+        .iter()
+        .find(|r| r.0 == sample)
+        .ok_or_else(|| Error::invalid("sample", format!("no sample {sample}")))?;
+    let name = if x == 0.0 {
+        "GaN".to_owned()
+    } else {
+        format!("Al{}Ga{}N", short(x), short(1.0 - x))
+    };
+    let polarity = if metal { "III-metal-polar" } else { "N-polar" };
+    let provenance = Provenance {
+        reference: "M. Rigler et al., Appl. Phys. Lett. 102, 221106 (2013)".into(),
+        doi: "10.1063/1.4800554".into(),
+        data: "our own transcription of Eqs. (6)-(7) and Table II, checked against the paper"
+            .into(),
+        temperature: None,
+        notes: format!(
+            "sample {s}, a {polarity} {name} film on sapphire (MOCVD), prism coupling at 457.9, 532, 632.8 and 1064 nm; standard uncertainty 0.1% (0.4% where only two modes were measured); x to +-0.025"
+        ),
+    };
+    let (lo, hi) = (um(RIGLER_2013_LAMBDA.0)?, um(RIGLER_2013_LAMBDA.1)?);
+    let mut out = vec![Material::new(
+        format!("{name} (o)"),
+        one_term(ao, bo),
+        lo,
+        hi,
+        provenance.clone(),
+    )?];
+    if ae.is_finite() {
+        out.push(Material::new(
+            format!("{name} (e)"),
+            one_term(ae, be),
+            lo,
+            hi,
+            provenance,
+        )?);
+    }
+    Ok(out)
+}
+
+// ---------------------------------------------------------------------------------------------
+// InGaP: Ferrini et al. 2002
+// ---------------------------------------------------------------------------------------------
+
+/// Ferrini et al.'s Table 2, sample EPI 61 (undoped In₀.₄₉Ga₀.₅₁P): A, B, C (µm) of Eq. (5),
+/// n² = A + Bλ²/(λ² − C²), fitted where k = 0, from about 0.05 to 1.8 eV.
+pub(crate) const FERRINI_SELLMEIER: [f64; 3] = [6.058, 3.27, 0.459];
+pub(crate) const FERRINI_EV: (f64, f64) = (0.05, 1.8);
+
+/// Ferrini et al.'s Table 3, EPI 61: photon energy (eV), n, k, ε₁, ε₂. The paper prints the
+/// row after 4.0 eV as 4.2, like the row after it; the rows step by 0.1 eV and its n and k lie
+/// between those at 4.0 and 4.2 eV, so it is 4.1 eV.
+pub(crate) const FERRINI_TABLE_3: [(f64, f64, f64, f64, f64); 37] = [
+    (1.9, 3.588, 0.077, 12.869, 0.554),
+    (2.0, 3.612, 0.123, 13.033, 0.889),
+    (2.1, 3.643, 0.164, 13.244, 1.197),
+    (2.2, 3.680, 0.198, 13.506, 1.461),
+    (2.3, 3.727, 0.228, 13.841, 1.701),
+    (2.4, 3.788, 0.261, 14.280, 1.978),
+    (2.5, 3.853, 0.306, 14.755, 2.360),
+    (2.6, 3.918, 0.351, 15.229, 2.748),
+    (2.7, 3.999, 0.391, 15.842, 3.130),
+    (2.8, 4.107, 0.442, 16.672, 3.632),
+    (2.9, 4.244, 0.518, 17.744, 4.395),
+    (3.0, 4.416, 0.639, 19.096, 5.646),
+    (3.1, 4.604, 0.863, 20.450, 7.949),
+    (3.2, 4.677, 1.260, 20.285, 11.789),
+    (3.3, 4.574, 1.716, 17.977, 15.701),
+    (3.4, 4.263, 1.964, 14.316, 16.749),
+    (3.5, 3.982, 1.980, 11.937, 15.766),
+    (3.6, 3.836, 1.938, 10.954, 14.869),
+    (3.7, 3.760, 1.910, 10.487, 14.364),
+    (3.8, 3.723, 1.898, 10.257, 14.128),
+    (3.9, 3.713, 1.901, 10.168, 14.116),
+    (4.0, 3.722, 1.922, 10.163, 14.305),
+    (4.1, 3.750, 1.959, 10.222, 14.690),
+    (4.2, 3.795, 2.017, 10.337, 15.308),
+    (4.3, 3.861, 2.105, 10.482, 16.253),
+    (4.4, 3.945, 2.241, 10.540, 17.679),
+    (4.5, 4.027, 2.451, 10.206, 19.741),
+    (4.6, 4.061, 2.753, 8.913, 22.362),
+    (4.7, 3.981, 3.126, 6.074, 24.892),
+    (4.8, 3.741, 3.493, 1.797, 26.138),
+    (4.9, 3.352, 3.755, -2.864, 25.173),
+    (5.0, 2.914, 3.834, -6.203, 22.344),
+    (5.1, 2.528, 3.765, -7.788, 19.036),
+    (5.2, 2.255, 3.604, -7.908, 16.253),
+    (5.3, 2.098, 3.439, -7.429, 14.431),
+    (5.4, 2.009, 3.317, -6.969, 13.325),
+    (5.5, 1.943, 3.236, -6.697, 12.579),
+];
+
+fn ferrini_provenance(notes: &str) -> Provenance {
+    Provenance {
+        reference: "R. Ferrini et al., Eur. Phys. J. B 27, 449 (2002)".into(),
+        doi: "10.1140/epjb/e2002-00177-x".into(),
+        data: "our own transcription of Eq. (5) and Tables 2 and 3, checked against the paper"
+            .into(),
+        temperature: None,
+        notes: notes.into(),
+    }
+}
+
+/// Undoped In₀.₄₉Ga₀.₅₁P below the gap: Ferrini's Sellmeier fit for sample EPI 61.
+pub(crate) fn ferrini_sellmeier() -> Result<Material> {
+    let [a, b, c] = FERRINI_SELLMEIER;
+    let hc = crate::material::PHOTON_EV_UM;
+    Material::new(
+        "In0.49Ga0.51P",
+        Model::Sellmeier {
+            a,
+            terms: vec![SellmeierTerm { b, c }],
+        },
+        um(hc / FERRINI_EV.1)?,
+        um(hc / FERRINI_EV.0)?,
+        ferrini_provenance(
+            "sample EPI 61: undoped, highly disordered, 3.23 um on GaAs (MOVPE); n from reflectance fringes where k = 0, room temperature",
+        ),
+    )
+}
+
+/// Undoped In₀.₄₉Ga₀.₅₁P above the gap: Ferrini's Table 3 (1.9 to 5.5 eV), interpolated by
+/// natural splines in wavelength.
+pub(crate) fn ferrini_table() -> Result<Material> {
+    let hc = crate::material::PHOTON_EV_UM;
+    let w: Vec<f64> = FERRINI_TABLE_3.iter().rev().map(|r| hc / r.0).collect();
+    let n: Vec<f64> = FERRINI_TABLE_3.iter().rev().map(|r| r.1).collect();
+    let k: Vec<f64> = FERRINI_TABLE_3.iter().rev().map(|r| r.2).collect();
+    let (lo, hi) = (w[0], w[w.len() - 1]);
+    Material::new(
+        "In0.49Ga0.51P",
+        Model::Tabulated(crate::material::Table::new(w, n, Some(k))?),
+        um(lo)?,
+        um(hi)?,
+        ferrini_provenance(
+            "sample EPI 61; n and k from ellipsometry and reflectance in steps of 0.1 eV, room temperature, interpolated by natural splines in wavelength",
+        ),
+    )
+}

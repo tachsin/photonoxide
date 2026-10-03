@@ -221,6 +221,27 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "10.1063/1.350844",
         "",
     ),
+    (
+        "rigler-2015",
+        "M. Rigler et al., Appl. Phys. Express 8, 042603 (2015)",
+        "Optical characterization of Al- and N-polar AlN waveguides for integrated optics",
+        "10.7567/APEX.8.042603",
+        "",
+    ),
+    (
+        "rigler-2013",
+        "M. Rigler, M. Zgonik, M. P. Hoffmann, R. Kirste, M. Bobea et al., Appl. Phys. Lett. 102, 221106 (2013)",
+        "Refractive index of III-metal-polar and N-polar AlGaN waveguides grown by metal organic chemical vapor deposition",
+        "10.1063/1.4800554",
+        "",
+    ),
+    (
+        "ferrini-2002",
+        "R. Ferrini, G. Guizzetti, M. Patrini, A. Parisini, L. Tarricone, B. Valenti, Eur. Phys. J. B 27, 449 (2002)",
+        "Optical functions of InGaP/GaAs epitaxial layers from 0.01 to 5.5 eV",
+        "10.1140/epjb/e2002-00177-x",
+        "",
+    ),
 ];
 
 /// The papers with these keys.
