@@ -2,7 +2,8 @@
 
 use num_complex::Complex64 as c64;
 
-use super::{Boundaries3d, Field3d, Grid3d, Lattice, Solver3d};
+use super::{Axis, Boundaries3d, Field3d, Grid3d, Lattice, Port3d, PortMode3d, Solver3d};
+use crate::fdfd::Direction;
 use crate::fdfd::krylov::{Convergence, Sparse, Stopping, qmr};
 use crate::units::Wavelength;
 use crate::{Error, Result};
@@ -133,5 +134,51 @@ impl IterativeSolver3d {
             },
             convergence,
         ))
+    }
+}
+
+impl IterativeSolver3d {
+    /// As [`Solver3d::port_modes`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver3d::port_modes`].
+    pub fn port_modes(&self, axis: Axis, plane: usize, count: usize) -> Result<Vec<PortMode3d>> {
+        let (b, c) = axis.others();
+        let g = self.lattice.grid;
+        self.port_modes_within(axis, plane, (0..g.n(b), 0..g.n(c)), count)
+    }
+
+    /// As [`Solver3d::port_modes_within`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver3d::port_modes_within`].
+    pub fn port_modes_within(
+        &self,
+        axis: Axis,
+        plane: usize,
+        window: (std::ops::Range<usize>, std::ops::Range<usize>),
+        count: usize,
+    ) -> Result<Vec<PortMode3d>> {
+        self.lattice
+            .port_modes(&self.eps, (axis, plane), [window.0, window.1], count)
+    }
+
+    /// As [`Solver3d::mode_source`]: the right-hand side for
+    /// [`IterativeSolver3d::solve_system`].
+    pub fn mode_source(&self, mode: &PortMode3d, direction: Direction) -> Vec<c64> {
+        self.lattice.mode_source(mode, direction)
+    }
+
+    /// As [`Solver3d::s_matrix`], each run solved by QMR as `stopping` asks: S is as accurate
+    /// as the runs' fields.
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver3d::s_matrix`], and as [`IterativeSolver3d::solve`] for each run.
+    pub fn s_matrix(&self, ports: &[Port3d], stopping: Stopping) -> Result<Vec<Vec<c64>>> {
+        self.lattice
+            .s_matrix(ports, |rhs| Ok(self.solve_system(rhs, stopping)?.0))
     }
 }

@@ -714,3 +714,29 @@ fn field_error_against_iterations() {
         }
     }
 }
+
+#[test]
+#[ignore = "port modes against the mode solvers, for the docs: PORT_GRIDS=0.02,0.01,0.005 cargo test --release fdfd::three::tests::port_modes_against -- --ignored --nocapture"]
+fn port_modes_against_the_mode_solvers() {
+    use super::port_checks::{strip_port_indices, strip_solver_indices};
+    let grids: Vec<f64> = std::env::var("PORT_GRIDS")
+        .unwrap_or_else(|_| "0.02,0.01".into())
+        .split(',')
+        .map(|s| s.parse().unwrap())
+        .collect();
+    for h in grids {
+        let t = std::time::Instant::now();
+        let p = strip_port_indices(h);
+        let s = strip_solver_indices(h, true);
+        println!(
+            "STRIP {h}: port TE {:.8} TM {:.8}; vector TE {:.8} TM {:.8}; Hadley TE {:.8} TM {:.8} ({:?})",
+            p[0],
+            p[1],
+            s[0],
+            s[1],
+            s[2],
+            s[3],
+            t.elapsed()
+        );
+    }
+}

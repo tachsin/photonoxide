@@ -1,7 +1,7 @@
 ---
 title: "FDFD in 3D"
 module: fdfd
-summary: "Maxwell's equations at one frequency on Yee's 3D grid: the electric field's curl-curl equation as one sparse system, with stretched-coordinate PMLs or Bloch-periodic sides on each axis, the exact discrete power flux, and a sparse direct or an iterative (QMR) solver."
+summary: "Maxwell's equations at one frequency on Yee's 3D grid: the electric field's curl-curl equation as one sparse system, with stretched-coordinate PMLs or Bloch-periodic sides on each axis, the exact discrete power flux, a sparse direct or an iterative (QMR) solver, and ports: the grid's own full-vector port modes, one-way mode sources and a reciprocal S-matrix."
 order: 19
 papers:
   - cite: "A. Christ, H. L. Hartnagel, IEEE Trans. Microw. Theory Tech. 35, 688 (1987)"
@@ -18,12 +18,23 @@ papers:
     doi: 10.1007/BF01385726
   - cite: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984) (the exact reference)"
     doi: 10.1364/JOSAA.1.000742
+  - cite: "R. C. Rumpf, Prog. Electromagn. Res. B 36, 221 (2012) (the mode sources)"
+    doi: 10.2528/PIERB11092006
+  - cite: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002) (the port modes' reference)"
+    doi: 10.1109/JLT.2002.800371
 validation:
   - fdfd3d/film-reflection-te
   - fdfd3d/film-reflection-tm
   - fdfd3d/flux-conservation
   - fdfd3d/pml-reflection
   - fdfd3d/two-d-agreement
+  - fdfd3d/port-mode-slab-te
+  - fdfd3d/port-mode-slab-tm
+  - fdfd3d/port-mode-strip
+  - fdfd3d/straight-strip
+  - fdfd3d/reciprocity
+  - fdfd3d/closed-guide-energy
+  - fdfd3d/two-d-s-matrix
   - fdfd3d/qmr-direct
   - fdfd3d/qmr-plateau
   - fdfd3d/qmr-iterations-curl-curl
@@ -128,6 +139,148 @@ cell Bloch-periodic along x and y, on a 25 nm grid. The 2D solver's field and th
 (one cell along z) differ by 9e-15 for E along z and 2e-13 for H along z, relative to the
 largest field. The 3D grid is placed so that its E_z, or its H_z, sits at the 2D cells' centres.
 The two discrete systems are then the same equations, one eliminating H and the other E.
+
+## Ports and S-parameters
+
+A device's S-parameters say what it does to the modes of its waveguides, as in
+[2D](fdfd-ports.md). A 3D port is a plane of nodes normal to an axis a (x, y or z) that crosses
+a waveguide running along a. The tangential E, E_b and E_c ((a, b, c) cyclic), lies on the plane,
+and the normal E_a on the half-plane after it.
+
+**Port modes, the scheme's own.** A field that goes as $e^{i\beta a}$ on the grid turns every
+difference along a into $i\beta_d$, $\beta_d = (2/\Delta a)\sin(\beta\Delta a/2)$, as in 2D. The
+discrete continuity equation, $\nabla\cdot(\varepsilon\mathbf E) = 0$ at each node of the plane
+(it follows from the curl-curl equation, since $\nabla\cdot\nabla\times = 0$ holds exactly on the
+grid), then gives the normal component from the tangential ones:
+
+$$
+E_a = \frac{i\thinspace\nabla_t\cdot(\varepsilon\mathbf E_t)}{\beta_d\thinspace\varepsilon_a}.
+$$
+
+Put into the rows for E_b and E_c, $\beta_d$ drops out of the coupling to E_a, and what is left
+is an eigenproblem for the tangential field, linear in $\beta_d^2$:
+
+$$
+\left(-\nabla_t\times\nabla_t\times{} + \nabla_t\thinspace\varepsilon_a^{-1}\thinspace\nabla_t\cdot\varepsilon + k_0^2\varepsilon\right)\mathbf E_t = \beta_d^2\thinspace\mathbf E_t .
+$$
+
+Every difference is the 3D grid's own, the PMLs' stretches included, and $\varepsilon_a$ is the
+normal E's own averaged permittivity. So a mode solved this way satisfies every row of the 3D
+system along a straight grid waveguide exactly, $E_a$'s rows included: tested to 1e-13 of the
+rows' terms. This is the transverse-E formulation of a vector mode solver, on the Yee plane. It
+is solved by shift-and-invert Arnoldi near the plane's highest index, as the 2D ports are, with
+walls on the edges of a window when the port spans only part of the plane. A Bloch-periodic side
+must be periodic (k = 0) and whole.
+
+**Orthogonality, and the Lorentz form.** With V the product of the PMLs' stretches at each value
+of E, V A is symmetric (the curls' stretches make $V\thinspace\nabla\times$ on H the transpose of
+$\nabla\times$ on E, weighted on the faces). For two fields u and w, the form
+
+$$
+\Lambda(u, w) = \sum_{r \lt \text{cut} \lt s} (VA)_{rs}\thinspace(w_r u_s - u_r w_s),
+$$
+
+across the cut between the port's plane and the next, is then the same across every cut of a
+stretch of guide without sources where both solve the system. Two modes going as
+$e^{i\beta_m a}$ and $e^{i\beta_n a}$ give the same form across two cuts a step apart, times
+$e^{i(\beta_m+\beta_n)\Delta a}$, so it vanishes unless one mode is the other going the other way:
+the modes' orthogonality, exact for the scheme. Writing $\Lambda$ out with $\tilde{\mathbf H} =
+\nabla\times\mathbf E/(ik_0)$ on the half-plane gives
+
+$$
+N(u, w) = \frac{\Delta a\thinspace\Delta b\thinspace\Delta c}{4ik_0}\thinspace\Lambda(u, w), \qquad
+N(f, g) = \tfrac12\cos(\beta\Delta a/2)\sum V\thinspace(\mathbf E_t \times \tilde{\mathbf H}_t)\cdot\hat a\thinspace\Delta b\thinspace\Delta c
+$$
+
+for a mode f going forward and its twin g going backward (the same tangential E, the tangential
+H reversed). For a real mode (a lossless guide, clear of the PMLs) that is exactly its power by
+the scheme's flux. Each port mode is normalized to N(f, g) = 1: real for a lossless guide, then
+signed so that its largest value is positive, and `PortMode3d::power` is 1 to round-off.
+
+A propagating mode's forward direction is the way its power flows. In a closed guide filled
+unevenly, a mode can carry its power against its phase (a backward wave, which comes with pairs
+of complex modes); such a mode is given with Re β < 0. Modes that don't propagate go forward the
+way they decay.
+
+**Sources** are total-field/scattered-field, as in 2D (Rumpf's Eq. 55): $b = (QA - AQ)f$, with Q
+masking the values on the scattered-field side of the plane (by their place along a, the normal
+E's half a step on) and f the mode extended along a. Only the rows beside the plane are nonzero.
+
+**Amplitudes and the S-matrix.** A field's forward and backward amplitudes in a mode are N(u, g)
+and −N(u, f): projections with the operator's own orthogonality, so each sees only its mode,
+evanescent modes and radiation included, from the field on the plane, the next and the half-plane
+between. `Solver3d::s_matrix` and `IterativeSolver3d::s_matrix` run one solve per port and solve
+S A = B, as in 2D. With the modes normalized to N = 1, S is power-normalized, and symmetric for a
+reciprocal device.
+
+**Conventions.** The backward twin of a mode has the same tangential E, the usual convention of
+mode expansions, so S's reflections are the tangential E's. The 2D solver with H along z writes
+its modes in H_z, and its backward twin has the same H_z: its $S_{11}$ and $S_{22}$ are minus these.
+With E along z the two agree.
+
+### Validation
+
+**Port modes against the exact slab.** 220 nm of silicon (3.476) in oxide (1.444) at 1.55 µm,
+normal to z and uniform along y (one periodic cell), walls 2 µm away; the port normal to x:
+
+| | 10 nm | 5 nm | 2.5 nm |
+|---|---|---|---|
+| TE (n_eff = 2.84778 exact): error | 9.57e-4 | 2.39e-4 | 5.97e-5 |
+| TM (n_eff = 2.05332 exact): error | 2.46e-3 | 6.13e-4 | 1.53e-4 |
+
+Second order, the 2D ports' errors.
+
+**Port modes against the mode solvers.** A silicon strip, 500 × 220 nm in oxide at 1.55 µm,
+inside walls 2.02 × 3.5 µm (the TM-like mode reaches 1.5 µm up and down), every interface on a
+node:
+
+| | 20 nm | 10 nm | 5 nm | limit |
+|---|---|---|---|---|
+| TE-like, the 3D port | 2.447808 | 2.446023 | 2.445554 | 2.445387 (order 1.93) |
+| TE-like, Hadley's equations | 2.445588 | 2.445432 | 2.445393 | 2.445380 (order 2.01) |
+| TE-like, Fallahkhair et al. | 2.450262 | 2.448919 | 2.447606 | |
+| TM-like, the 3D port | 1.778131 | 1.772113 | 1.770552 | 1.770005 (order 1.95) |
+| TM-like, Hadley's equations | 1.770533 | 1.770125 | 1.770028 | 1.769998 (order 2.08) |
+| TM-like, Fallahkhair et al. | 1.785568 | 1.779166 | 1.775352 | |
+
+The port converges at second order to the limit of [Hadley's](hadley.md) high-accuracy equations,
+to 7e-6 for both modes. [Fallahkhair et al.'s scheme](vector.md) heads to the same limit at about
+first order or slower, held back by the strip's four convex corners, as its page says; so its
+values can't confirm the port's at second order, and Hadley's, which are built for corners, do.
+The port's own Yee grid with the averaged permittivity keeps second order here.
+
+**A straight strip** between two ports 0.25 µm apart, with PMLs close around it so that its mode
+is lossy (n_eff = 2.481 + 0.019i on a 50 nm grid): $S_{11}$ and $S_{22}$ are 0, and $S_{21}$ and
+$S_{12}$ are $e^{i\beta L}$, to 1.8e-15. The mode crosses the grid whole.
+
+**Reciprocity:** a strip stepping from 400 to 600 nm wide, 50 nm off the grid's axis so that
+nothing is symmetric, PMLs close around it: $S_{21}$ and $S_{12}$ agree to 2e-15.
+
+**Energy, in a closed guide.** A strip in a metal box of oxide (0.6 × 0.4 µm, 50 nm grid)
+stepping from 300 to 400 nm wide, with all the propagating modes on both sides as ports (three on
+each). Lossless and closed, it loses no power, so S is unitary but for the power the evanescent
+modes carry across the ports' planes: decaying from the step and growing back from the PMLs,
+they carry power together. Their share falls as $e^{-2\kappa d}$ with the ports' distance d
+from the step, κ the slowest evanescent mode's (0.757 k₀):
+
+| ports from the step | 0.25 µm | 0.45 µm | 0.65 µm | 0.85 µm | 1.05 µm |
+|---|---|---|---|---|---|
+| largest $\lvert S^\dagger S - 1\rvert$ | 4.1e-4 | 9.9e-5 | 2.6e-5 | 7.0e-6 | 2.0e-6 |
+
+It falls 4.1, 3.9, 3.7 and 3.6 times per 0.2 µm, towards $e^{2\kappa \cdot 0.2} = 3.4$. The same box with air around the strip
+guides a backward wave (n_eff = −0.337); with it among the ports, a straight guide's S is unitary
+to 2.5e-13.
+
+**Against the 2D solver.** A silicon slab stepping from 220 to 300 nm, uniform along z, with
+PMLs along x and y on a 20 nm grid, by the 2D solver and by the 3D one with one periodic cell
+along z, placed as in the field comparison above. With H along z the two S-matrices agree to
+2.1e-10, the eigensolver's tolerance, once the 3D ports' planes (where E_y lies) are moved half a
+cell to the 2D columns (where H_z lies), and the 2D reflections' sign is turned to E's. With E
+along z they agree to 8.9e-9: there the 3D grid sits half a cell off the 2D one, and so do its
+PMLs, graded from the grid's ends, which the modes' tails reach.
+
+**QMR** gives the direct solver's S-matrix to 6e-11 at a relative residual of 1e-10, on either
+operator.
 
 ## Cost
 
@@ -279,8 +432,9 @@ smaller.
 
 ## Limits
 
-- No ports, mode sources or S-parameters in 3D yet, and no adjoint gradients: those are
-  [2D](fdfd-ports.md) for now.
+- No adjoint gradients in 3D yet: those are [2D](fdfd-ports.md) for now.
+- A port's reference plane is a plane of nodes. A Bloch-periodic side of a port must be periodic
+  (k = 0), and the window whole along it.
 - The direct solver's memory caps a problem at about 200 k unknowns on a 64 GB machine. QMR's
   doesn't, but it needs thousands of iterations, and nothing preconditions it yet.
 - QMR without look-ahead: a breakdown of the Lanczos process is an error, not stepped over.

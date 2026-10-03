@@ -76,6 +76,11 @@ $\sum w\phi^2 = 1$ is $\sin(\beta\Delta x)\thinspace\Delta y/(2k_0\Delta x)$. Th
 real, and it keeps S exactly symmetric for a reciprocal device. Where a mode's tail reaches into
 a PML, the physical power differs from it, by about the share of the mode in the PML.
 
+A mode's backward twin has the same field along z. With E along z that is the tangential E, the
+usual convention of mode expansions, which the [3D ports](fdfd-3d.md) follow. With H along z it is
+H_z, so $S_{11}$ and $S_{22}$ are the reflections of H, minus those of the tangential E that the 3D
+ports give for the same structure.
+
 ## Validation
 
 **Port modes against the exact slab:** 220 nm of silicon (3.476) in oxide (1.444) at 1.55 µm.
