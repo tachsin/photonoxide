@@ -137,10 +137,11 @@ For the work on the main branch:
 `photonoxide = { git = "https://github.com/tachsin/photonoxide" }`.
 
 The program: each [release](https://github.com/tachsin/photonoxide/releases) has it for
-Linux x86_64 and ARM64 (`.AppImage`, `.deb`, `.rpm`, `.tar.gz`), Windows x86_64 (an installer
-that needs no administrator rights, and a portable `.zip`) and macOS (one universal `.dmg` for
-Apple Silicon and Intel). An installed copy looks for a new release when it opens and every
-hour, and updates itself with one click after checking the release's signature. The
+Linux x86_64 and ARM64 (`.AppImage`, `.deb`, `.rpm`; the AppImage runs on clusters too),
+Windows x86_64 (a per-user installer that needs no administrator rights) and macOS (one
+universal `.dmg` for Apple Silicon and Intel). An installed copy looks for a new release when it
+opens and every hour, and updates itself with one click after checking the release's
+signature; a build from source doesn't update itself. The
 [downloads table](studio/README.md#downloads) has the details for each platform, clusters
 included.
 

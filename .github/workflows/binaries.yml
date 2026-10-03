@@ -5,6 +5,11 @@ name: Binaries
 # on Apple Silicon and Intel (laptops), attached to a release, with the update manifest
 # (latest.json) the installed programs read to update themselves.
 #
+# A release gets, per platform, only what installs (and so updates): Linux .AppImage, .deb and
+# .rpm, the Windows installer (-setup.exe), the macOS .dmg and .app.tar.gz (the macOS update),
+# and latest.json. The updates' signatures go from the build jobs to the manifest job as
+# workflow artifacts and reach users inside latest.json, not as files on the release.
+#
 # Only for releases: the release workflow calls this with the new release's tag after
 # release-plz made it, and it can be run by hand (workflow_dispatch) with a release's tag to
 # rebuild that release's binaries.
@@ -152,15 +157,10 @@ jobs:
               cp "$bundle"/appimage/*.AppImage "out/$base-linux-${{ matrix.arch }}.AppImage"
               cp "$bundle"/deb/*.deb "out/$base-linux-${{ matrix.arch }}.deb"
               cp "$bundle"/rpm/*.rpm "out/$base-linux-${{ matrix.arch }}.rpm"
-              # the bare program; it needs the system's WebKitGTK (libwebkit2gtk-4.1)
-              tar -czf "out/$base-linux-${{ matrix.arch }}.tar.gz" -C "$release" photonoxide
               updates=("$base-linux-${{ matrix.arch }}.AppImage" "$base-linux-${{ matrix.arch }}.deb" "$base-linux-${{ matrix.arch }}.rpm")
               ;;
             Windows)
               cp "$bundle"/nsis/*-setup.exe "out/$base-windows-${{ matrix.arch }}-setup.exe"
-              # portable: one .exe, using the WebView2 that Windows 10 and 11 have
-              if [ -n "$CERTUM_OTP" ]; then ssign "./$release/photonoxide.exe"; fi
-              7z a "out/$base-windows-${{ matrix.arch }}.zip" "./$release/photonoxide.exe"
               updates=("$base-windows-${{ matrix.arch }}-setup.exe")
               ;;
             macOS)
@@ -169,18 +169,23 @@ jobs:
               updates=("$base-macos-${{ matrix.arch }}.app.tar.gz")
               ;;
           esac
-          # the updates' signatures, which the installed programs check before installing
+          # the updates' signatures, which the installed programs check before installing. They
+          # go to the manifest job (in latest.json), not to the release, so they sit beside it
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            mkdir -p sigs
             for f in "${updates[@]}"; do
               (cd studio && pnpm tauri signer sign -p "" "../out/$f" > /dev/null)
               test -s "out/$f.sig"
+              mv "out/$f.sig" sigs/
             done
+            ls -l sigs
           fi
           ls -l out
       - name: Check the Windows signatures
         if: runner.os == 'Windows' && env.CERTUM_OTP != ''
         shell: pwsh
         run: |
+          # the program Tauri signed in place before putting it in the installer, and the installer
           Get-ChildItem target/release/photonoxide.exe, out/*-setup.exe | Get-AuthenticodeSignature | ForEach-Object {
             if ($_.Status -ne 'Valid') { throw "$($_.Path): $($_.Status)" }
             "$($_.Path): signed by $($_.SignerCertificate.Subject)"
@@ -189,6 +194,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$TAG" out/* --clobber
+      # only once the files are attached, so latest.json never points at a missing one
+      - name: Hand the update signatures to the manifest
+        uses: actions/upload-artifact@v7
+        with:
+          # one per matrix entry; the manifest job merges every sigs-* artifact
+          name: sigs-${{ runner.os }}-${{ matrix.arch }}
+          path: sigs/*.sig
+          # none when TAURI_SIGNING_PRIVATE_KEY is unset
+          if-no-files-found: ignore
+          # a rerun of the job replaces its earlier signatures
+          overwrite: true
+          retention-days: 7
 
   manifest:
     name: Update manifest
@@ -200,11 +217,16 @@ jobs:
       TAG: ${{ inputs.tag }}
       GH_TOKEN: ${{ github.token }}
     steps:
+      # the signatures of the platforms that built, all in m/ (none when the update key is unset)
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: sigs-*
+          merge-multiple: true
+          path: m
       - name: latest.json
         run: |
-          mkdir m && cd m
-          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p '*.sig'
-          if ! ls *.sig > /dev/null 2>&1; then
+          mkdir -p m && cd m
+          if ! ls ./*.sig > /dev/null 2>&1; then
             echo "no signed updates (TAURI_SIGNING_PRIVATE_KEY unset): no manifest"
             gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --latest
             exit 0
