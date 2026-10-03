@@ -3,11 +3,11 @@ name = "photonoxide"
 version = "0.3.3"
 edition = "2024"
 rust-version = "1.95"
-description = "Validated, fabrication-ready photonics for Rust: mode solvers, FDFD, FDTD, inverse design, layout and PDKs, with a live studio"
+description = "Validated photonics for Rust: materials with provenance, mode solvers, 2D and 3D FDFD with S-parameters and adjoints, circuits and compact models, with a live studio"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/tachsin/photonoxide"
 readme = "README.md"
-keywords = ["photonics", "fdtd", "inverse-design", "electromagnetics", "silicon-photonics"]
+keywords = ["photonics", "fdfd", "waveguide", "electromagnetics", "silicon-photonics"]
 categories = ["science", "simulation", "mathematics"]
 # what goes into the published crate: the library, its docs and jobs; not CI, the brand files or the project site
 exclude = [".github", "assets", "site", "studio"]

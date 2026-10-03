@@ -1,10 +1,25 @@
 //! # photonoxide
 //!
-//! Validated, fabrication-ready photonics for Rust: mode solvers, FDFD, FDTD, inverse design,
-//! layout and PDKs, with a studio to watch every run live.
+//! Validated photonics for Rust: materials with provenance, mode solvers, 2D and 3D FDFD with
+//! S-parameters and adjoints, components and circuits, and compact models, with a studio to
+//! watch every run live. Every method is checked against an analytic solution or a published
+//! result ([`validation`]).
 //!
-//! **Alpha:** the API is being built milestone by milestone, and will change. See the
-//! [roadmap](https://github.com/tachsin/photonoxide/blob/main/ROADMAP.md) for what is planned.
+//! - [`material`]: dispersion models with their source, validity range and temperature, and a
+//!   catalogue of photonic materials, every number read from its paper.
+//! - [`mode`]: waveguide modes, from the exact slab and multilayers to full-vector finite
+//!   differences of a cross-section, with bends, dispersion and loss.
+//! - [`fdfd`]: frequency-domain finite differences in 2D and 3D on Yee's grid, with PMLs, mode
+//!   ports, S-parameters and adjoint gradients.
+//! - [`circuit`]: components with ports and S-matrices, connected into netlists, solved as one
+//!   sparse system and differentiated by the circuit adjoint.
+//! - [`compact`]: compact models by vector fitting, over parameters, and Touchstone files.
+//! - [`run`] and [`job`]: jobs as TOML files, and runs recorded as events that replay exactly;
+//!   the studio, the `photonoxide` program attached to each release, runs and shows them.
+//!
+//! **Alpha:** the API is being built milestone by milestone, and will change. FDTD, thermal and
+//! electro-optic devices, inverse design, layout and PDKs are planned, not here yet: see the
+//! [roadmap](https://github.com/tachsin/photonoxide/blob/main/ROADMAP.md).
 
 #![forbid(unsafe_code)]
 #![doc(
