@@ -668,7 +668,285 @@ pub fn cases() -> Vec<Case> {
             source: r"W. Shin, S. Fan, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, Fig. 3: the $s = -1$ curve crosses 1e-6 at about $m = 77$, read off the plot to $\pm 5$",
             run: fdfd3d_qmr_iterations_shin_fan,
         },
+        Case {
+            id: "circuit/series-waveguides",
+            title: r"Circuits: two waveguides, 12.5 and 30.25 µm, in series are one of 42.75 µm ($n_\text{eff} = 2.4$, $n_g = 4.2$, 3 dB/cm), 1.54 to 1.56 µm (largest $\lvert \Delta S \rvert$ shown)",
+            tier: Tier::Analytic,
+            source: r"$e^{i\phi_1} e^{i\phi_2} = e^{i(\phi_1 + \phi_2)}$: a connection joins two reference planes with nothing between them; round-off of the 400 rad phases, about $10^{-13}$",
+            run: circuit_series,
+        },
+        Case {
+            id: "circuit/mzi-closed-form",
+            title: r"Circuits: a Mach-Zehnder interferometer of two lossless couplers ($\kappa^2$ = 0.5 and 0.3) and arms of 100 and 120 µm, 1.54 to 1.56 µm: its four transmissions (largest $\lvert \Delta S \rvert$ shown)",
+            tier: Tier::Analytic,
+            source: r"the product of the transfer matrices, $C \operatorname{diag}(t_1, t_2)\thinspace C$ with $C_{11} = C_{22} = r$ and $C_{12} = C_{21} = i\kappa$, $r^2 + \kappa^2 = 1$",
+            run: circuit_mzi,
+        },
+        Case {
+            id: "circuit/ring-all-pass-bogaerts",
+            title: r"Circuits: an all-pass ring, a coupler ($\kappa^2$ = 0.1 and 0.02) with one output fed back through 62.8 µm of waveguide, 1.54 to 1.56 µm: the through field (largest error shown)",
+            tier: Tier::Published,
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eq. 1: $e^{i(\pi + \phi)} (a - r e^{-i\phi}) / (1 - r a e^{i\phi})$, and its square, Eq. 2",
+            run: circuit_ring_all_pass,
+        },
+        Case {
+            id: "circuit/ring-add-drop-bogaerts",
+            title: r"Circuits: an add-drop ring, two couplers ($\kappa^2$ = 0.1 and 0.05) joined by two halves of a 62.8 µm ring, 1.54 to 1.56 µm: the through and drop powers (largest error shown)",
+            tier: Tier::Published,
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eqs. 5 and 6",
+            run: circuit_ring_add_drop,
+        },
+        Case {
+            id: "circuit/ring-fsr-bogaerts",
+            title: r"Circuits: the all-pass ring ($\kappa^2 = 0.1$, 62.8 µm, $n_g = 4.2$): the spacing of its two resonances either side of 1.55 µm, found as minima of the through power (nm, shown)",
+            tier: Tier::Published,
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eq. 9: $\lambda^2 / (n_g L)$ at the resonances' midpoint; first order, its error here $(\Delta\lambda / 2\lambda)^2$ relative, 8e-5 nm",
+            run: circuit_ring_fsr,
+        },
+        Case {
+            id: "circuit/sub-network-growth",
+            title: r"Circuits: the sparse solve against sub-network growth on a netlist of 11 instances (two nested rings and an MZI, three reflective multiports, loops), 6 external ports, 1.54 to 1.56 µm (largest $\lvert \Delta S \rvert$ shown)",
+            tier: Tier::Analytic,
+            source: r"G. Filipsson, 11th European Microwave Conference, 700 (1981), doi:10.1109/EUMA.1981.332972, Eq. 6, one connection at a time: the same S to round-off",
+            run: circuit_growth,
+        },
+        Case {
+            id: "circuit/reciprocity",
+            title: r"Circuits: the same netlist, reciprocal parts: $S$ against $S^\mathsf{T}$ (largest $\lvert S_{qp} - S_{pq} \rvert$ shown)",
+            tier: Tier::Analytic,
+            source: r"a netlist of reciprocal components is reciprocal, $S = S^\mathsf{T}$",
+            run: circuit_reciprocity,
+        },
+        Case {
+            id: "circuit/unitarity",
+            title: r"Circuits: a lossless netlist (an add-drop ring, an all-pass ring and an MZI), 4 external ports, 1.54 to 1.56 µm: $S^\dagger S$ against $I$ (largest entry of the difference shown)",
+            tier: Tier::Analytic,
+            source: r"a netlist of lossless components is lossless, $S^\dagger S = I$",
+            run: circuit_unitarity,
+        },
     ]
+}
+
+fn circuit_series() -> Outcome {
+    use crate::circuit::{Component, Netlist, ideal};
+    use std::sync::Arc;
+    let guide = ideal::wire();
+    let mut n = Netlist::new();
+    let ok = "a valid netlist";
+    for (name, length) in [("x", 12.5), ("y", 30.25)] {
+        n.add(name, Arc::new(guide.clone())).expect(ok);
+        n.set(name, "length", length).expect(ok);
+    }
+    n.connect("x.b", "y.a").expect(ok);
+    n.expose("in", "x.a").expect(ok);
+    n.expose("out", "y.b").expect(ok);
+    let circuit = n.compile().expect(ok);
+    let worst = ideal::sweep()
+        .into_iter()
+        .map(|w| {
+            let s = circuit.s_matrix(w).expect(ok);
+            let one = guide.s_matrix(w, &[42.75]).expect(ok);
+            s.max_difference(&one).expect(ok)
+        })
+        .fold(0.0, f64::max);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-12,
+        error: worst,
+    }
+}
+
+fn circuit_mzi() -> Outcome {
+    use crate::circuit::ideal;
+    let guide = ideal::wire();
+    let mut worst: f64 = 0.0;
+    for kappa2 in [0.5, 0.3] {
+        let circuit = ideal::mzi(&guide, 100.0, 120.0, kappa2).expect("a valid netlist");
+        for w in ideal::sweep() {
+            let s = circuit.s_matrix(w).expect("a solvable netlist");
+            let t = |l| guide.transmission(w.to_um(), l);
+            for (q, p) in [(2, 0), (3, 0), (2, 1), (3, 1)] {
+                let exact = ideal::mzi_closed_form(t(100.0), t(120.0), kappa2, q - 2, p);
+                worst = worst.max((s[(q, p)] - exact).norm());
+            }
+        }
+    }
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-13,
+        error: worst,
+    }
+}
+
+/// The all-pass ring of the validation cases: 62.8 µm round (a 10 µm radius).
+const RING_LENGTH: f64 = std::f64::consts::TAU * 10.0;
+
+fn circuit_ring_all_pass() -> Outcome {
+    use crate::circuit::ideal;
+    let guide = ideal::wire();
+    let mut worst: f64 = 0.0;
+    for kappa2 in [0.1, 0.02] {
+        let circuit = ideal::all_pass(&guide, RING_LENGTH, kappa2).expect("a valid netlist");
+        let r = (1.0 - kappa2).sqrt();
+        for w in ideal::sweep() {
+            let t = guide.transmission(w.to_um(), RING_LENGTH);
+            let (a, phi) = (t.norm(), t.arg());
+            let s = circuit.s_matrix(w).expect("a solvable netlist");
+            worst = worst
+                .max((s[(1, 0)] - ideal::bogaerts_eq1(r, a, phi)).norm())
+                .max((s.power(1, 0) - ideal::bogaerts_eq2(r, a, phi)).abs());
+        }
+    }
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-12,
+        error: worst,
+    }
+}
+
+fn circuit_ring_add_drop() -> Outcome {
+    use crate::circuit::ideal;
+    let guide = ideal::wire();
+    let (k1, k2) = (0.1, 0.05);
+    let circuit = ideal::add_drop(&guide, RING_LENGTH, k1, k2).expect("a valid netlist");
+    let (r1, r2) = ((1.0 - k1).sqrt(), (1.0 - k2).sqrt());
+    let mut worst: f64 = 0.0;
+    for w in ideal::sweep() {
+        let t = guide.transmission(w.to_um(), RING_LENGTH);
+        let (a, phi) = (t.norm(), t.arg());
+        let s = circuit.s_matrix(w).expect("a solvable netlist");
+        worst = worst
+            .max((s.power(1, 0) - ideal::bogaerts_eq5(r1, r2, a, phi)).abs())
+            .max((s.power(3, 0) - ideal::bogaerts_eq6(r1, r2, a, phi)).abs());
+    }
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-12,
+        error: worst,
+    }
+}
+
+fn circuit_ring_fsr() -> Outcome {
+    use crate::circuit::ideal;
+    let guide = ideal::wire();
+    let circuit = ideal::all_pass(&guide, RING_LENGTH, 0.1).expect("a valid netlist");
+    let through = |um: f64| {
+        circuit
+            .s_matrix(ideal::um(um))
+            .expect("a solvable netlist")
+            .power(1, 0)
+    };
+    // the minima of the through power on a 0.1 nm grid, refined by golden sections
+    let grid: Vec<f64> = (0..400).map(|i| 1.53 + 1e-4 * f64::from(i)).collect();
+    let values: Vec<f64> = grid.iter().map(|&w| through(w)).collect();
+    let minima: Vec<f64> = (1..grid.len() - 1)
+        .filter(|&i| values[i] < values[i - 1] && values[i] <= values[i + 1])
+        .map(|i| golden_minimum(&through, grid[i - 1], grid[i + 1]))
+        .collect();
+    let below = minima.iter().rev().find(|&&w| w < 1.55);
+    let above = minima.iter().find(|&&w| w >= 1.55);
+    let (Some(&below), Some(&above)) = (below, above) else {
+        return Outcome {
+            measured: f64::NAN,
+            expected: 0.0,
+            tolerance: 0.0,
+            error: f64::NAN,
+        };
+    };
+    let mid = 0.5 * (below + above);
+    let expected = mid * mid / (guide.group_index * RING_LENGTH) * 1e3;
+    let measured = (above - below) * 1e3;
+    Outcome {
+        measured,
+        expected,
+        // Eq. 9's own first-order error, 7.8e-5 nm, with room for the search's
+        tolerance: 1e-4,
+        error: (measured - expected).abs(),
+    }
+}
+
+/// The minimum of `f` between `a` and `b` by golden sections, to 1e-12.
+fn golden_minimum(f: &impl Fn(f64) -> f64, mut a: f64, mut b: f64) -> f64 {
+    let g = (5f64.sqrt() - 1.0) / 2.0;
+    let (mut c, mut d) = (b - g * (b - a), a + g * (b - a));
+    let (mut fc, mut fd) = (f(c), f(d));
+    while b - a > 1e-12 {
+        if fc < fd {
+            b = d;
+            (d, fd) = (c, fc);
+            c = b - g * (b - a);
+            fc = f(c);
+        } else {
+            a = c;
+            (c, fc) = (d, fd);
+            d = a + g * (b - a);
+            fd = f(d);
+        }
+    }
+    0.5 * (a + b)
+}
+
+fn circuit_growth() -> Outcome {
+    use crate::circuit::ideal;
+    let circuit = ideal::tangle();
+    let worst = ideal::sweep()
+        .into_iter()
+        .map(|w| {
+            let s = circuit.s_matrix(w).expect("a solvable netlist");
+            let grown = circuit.s_matrix_by_growth(w).expect("a solvable netlist");
+            s.max_difference(&grown).expect("the same ports")
+        })
+        .fold(0.0, f64::max);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-13,
+        error: worst,
+    }
+}
+
+fn circuit_reciprocity() -> Outcome {
+    use crate::circuit::ideal;
+    let circuit = ideal::tangle();
+    let worst = ideal::sweep()
+        .into_iter()
+        .map(|w| {
+            circuit
+                .s_matrix(w)
+                .expect("a solvable netlist")
+                .reciprocity_error()
+        })
+        .fold(0.0, f64::max);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-13,
+        error: worst,
+    }
+}
+
+fn circuit_unitarity() -> Outcome {
+    use crate::circuit::ideal;
+    let circuit = ideal::lossless();
+    let worst = ideal::sweep()
+        .into_iter()
+        .map(|w| {
+            circuit
+                .s_matrix(w)
+                .expect("a solvable netlist")
+                .unitarity_error()
+        })
+        .fold(0.0, f64::max);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-13,
+        error: worst,
+    }
 }
 
 fn fdfd3d_qmr_direct() -> Outcome {

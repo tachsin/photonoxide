@@ -3,10 +3,11 @@
 //! A **component** ([`Component`]) is anything with ports and an S-matrix at a wavelength: a
 //! closed-form model, a compact model fitted to a solver, a 2D or 3D FDFD result, or a
 //! measurement. A **netlist** ([`Netlist`]) is instances of components, the connections between
-//! their ports, and the ports left open to the outside; solved, it is a
-//! circuit, whose own S-matrix comes from one sparse linear solve.
+//! their ports, and the ports left open to the outside; compiled ([`Netlist::compile`]) it is a
+//! [`Circuit`], whose own S-matrix comes from one sparse linear solve. A circuit is a component
+//! itself, so circuits nest.
 //!
-//! **Conventions** (docs/design/components.md has them in full), the same as the FDFD solver's
+//! **Conventions** (docs/design/components.md has them in full, docs/methods/circuits.md the solve), the same as the FDFD solver's
 //! ([`crate::fdfd`]):
 //!
 //! - fields go as e^(−iωt), so a waveguide of effective index n and length L transmits
@@ -21,11 +22,12 @@
 //!   (the unconjugated Lorentz form normalizes them); a passive one has every singular value of S
 //!   at most 1; a lossless one has SᴴS = I.
 //!
-//! A netlist, built (the unit test `circuit::tests::the_module_example` runs this):
+//! A netlist, built and solved (the unit test `circuit::tests::the_module_example` runs this):
 //!
 //! ```ignore
 //! use std::sync::Arc;
 //! use photonoxide::circuit::{Component, Fixed, Netlist, NetlistError, SMatrix};
+//! use photonoxide::units::Wavelength;
 //! use photonoxide::Complex64 as c64;
 //!
 //! // a lossless 2-port that delays the phase by a quarter turn
@@ -44,16 +46,22 @@
 //! netlist.expose("in", "first.a")?;
 //! assert!(matches!(&netlist.problems()[..], [NetlistError::Dangling(p)] if p.to_string() == "second.b"));
 //! netlist.expose("out", "second.b")?;
-//! netlist.validate()?;
+//! let circuit = netlist.compile()?;
+//!
+//! let s = circuit.s_matrix(Wavelength::um(1.55)?)?;
+//! assert!((s[(1, 0)] - c64::new(-1.0, 0.0)).norm() < 1e-15); // a half turn
 //! # Ok::<(), photonoxide::Error>(())
 //! ```
 
+pub(crate) mod ideal;
 mod netlist;
+mod solve;
 
 #[cfg(test)]
 mod tests;
 
 pub use netlist::{Instance, Netlist, NetlistError, PortRef};
+pub use solve::Circuit;
 
 use std::fmt;
 use std::ops::{Index, IndexMut};
@@ -286,7 +294,8 @@ pub fn ports(names: &[&str]) -> Vec<Port> {
 /// fixed when the component is built.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Parameter {
-    /// Its name, unique within its component, e.g. `"length"`. No dots.
+    /// Its name, unique within its component, e.g. `"length"`. No whitespace; a circuit names
+    /// its instances' parameters `instance.parameter`.
     pub name: String,
     /// Its unit, e.g. `"µm"`, `"rad"`, or `""` for a pure number.
     pub unit: String,

@@ -236,7 +236,12 @@ fn check_component(instance: &str, c: &dyn Component) -> std::result::Result<(),
     }
     let parameters = c.parameters();
     for (i, p) in parameters.iter().enumerate() {
-        check_name(&p.name).map_err(|e| invalid(format!("parameter {e}")))?;
+        if p.name.is_empty() || p.name.chars().any(char::is_whitespace) {
+            return Err(invalid(format!(
+                "a parameter's name must be non-empty, without whitespace: \"{}\"",
+                p.name
+            )));
+        }
         if parameters[..i].iter().any(|q| q.name == p.name) {
             return Err(invalid(format!("two parameters named {}", p.name)));
         }

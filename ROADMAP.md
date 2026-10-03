@@ -165,8 +165,8 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 
 The backbone of a chip: components with ports and several fidelities, connected into circuits that simulate together and are optimized at every level. It needs no new physics, because 0.2 and 0.3 already give modes and S-matrices.
 
-- [ ] **Component model:** ports (each with its mode), parameters, and several fidelities of the same physics: analytic or compact, 2D (effective index), 3D, and measured. Each carries its error against its source.
-- [ ] **Circuits:** a chip is a netlist of components. Its S-matrix comes from one global sparse solve, with Filipsson's sub-network growth (Filipsson 1981) as the reference; reciprocity and passivity are checked.
+- [x] **Component model:** ports (each with its mode), parameters, and several fidelities of the same physics: analytic or compact, 2D (effective index), 3D, and measured. Each carries its error against its source. *(`circuit::Component`, a trait: ports with their modes, parameters with units and ranges, the S-matrix at a wavelength in the FDFD solver's conventions, the fidelity, the source and the error against it, and ∂S/∂θ for the adjoint. A component is a shared model and its parameters' values live in the netlist, so an optimizer moves a flat vector. See [the design note](docs/design/components.md).)*
+- [x] **Circuits:** a chip is a netlist of components. Its S-matrix comes from one global sparse solve, with Filipsson's sub-network growth (Filipsson 1981) as the reference; reciprocity and passivity are checked. *(`Netlist`, every step checked with an error naming the instance or port; compiled, a `Circuit`: (I − S_b Γ) b = S_b E x by faer's sparse LU, the sparsity analysed once per netlist and reused across a sweep. Filipsson's Eq. 6, as printed, agrees to 1.6e-16 on a netlist with reflections, loops and nested circuits. Circuits are components, so they nest. See [Circuits](docs/methods/circuits.md).)*
 - [ ] **Circuit adjoint:** a circuit response's gradient with respect to every component parameter, from one transposed solve, as in FDFD.
 - [ ] **Optimization at circuit level** through genoxide: couplings, phases, ring tuning, and component parameters.
 - [ ] **Compact models** fitted from solver results (rational in wavelength, polynomial in parameters), with their fit error; Touchstone (.sNp) import and export, the "measured" fidelity.
@@ -180,6 +180,8 @@ The backbone of a chip: components with ports and several fidelities, connected 
   - reciprocity, and unitarity of lossless netlists;
   - the global solve against sub-network growth, to round-off;
   - Simphony's SiEPIC MZI against its published INTERCONNECT comparison (Ploeg 2021).
+
+  *(Done: the analytic MZI; Bogaerts 2012's all-pass and add-drop rings, Eqs. 1, 2, 5 and 6, to 4e-14, and the free spectral range of Eq. 9 from n_g, to its own first-order error of 7.8e-5 nm; reciprocity and unitarity; the global solve against sub-network growth. Simphony's MZI waits for the first components.)*
 
 ### 0.5: Finite-difference time-domain (FDTD)
 - [ ] **Core:**
