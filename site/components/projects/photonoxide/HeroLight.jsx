@@ -7,7 +7,9 @@ import { useEffect, useRef } from "react";
  * wavelengths share one waveguide on the left, cross a freeform design
  * region, and leave by separate outputs on the right. Decorative (hidden
  * from assistive technology, no pointer events); under reduced motion one
- * still frame. It runs only while on screen in a visible tab. It is a band
+ * still frame. It runs only while on screen in a visible tab, and pauses
+ * while the page scrolls (resuming a moment after): redrawing under the
+ * sticky bars while scrolling made them shiver on an iPhone. It is a band
  * of its own under the hero's text, full width.
  */
 
@@ -129,6 +131,8 @@ export default function HeroLight() {
     let frame = 0;
     let visible = false;
     let running = false;
+    let scrolling = false;
+    let settle = 0;
     const started = performance.now();
     const reducedQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -138,7 +142,7 @@ export default function HeroLight() {
       frame = requestAnimationFrame(loop);
     };
     const sync = () => {
-      const should = visible && !document.hidden && !reducedQuery.matches;
+      const should = visible && !scrolling && !document.hidden && !reducedQuery.matches;
       if (should && !running) {
         running = true;
         frame = requestAnimationFrame(loop);
@@ -177,11 +181,25 @@ export default function HeroLight() {
       paint();
     };
     scheme.addEventListener("change", onScheme);
+    const onScroll = () => {
+      if (!scrolling) {
+        scrolling = true;
+        sync();
+      }
+      clearTimeout(settle);
+      settle = setTimeout(() => {
+        scrolling = false;
+        sync();
+      }, 180);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
     reducedQuery.addEventListener("change", sync);
     document.addEventListener("visibilitychange", sync);
 
     return () => {
       cancelAnimationFrame(frame);
+      clearTimeout(settle);
+      window.removeEventListener("scroll", onScroll);
       resizeObserver.disconnect();
       intersection.disconnect();
       themeObserver.disconnect();
