@@ -3,6 +3,7 @@
 import { api, type AppState, type Info, type Settings } from "./api";
 import type { Event, Field, Mode, ModeField, Permittivity, Scene, SParameters, SweepPoint } from "./events";
 import type { Looks } from "./layers";
+import { themeName } from "./themes";
 
 export type Page = "home" | "examples" | "builder" | "runs" | "viewer" | "compare" | "validation" | "settings";
 
@@ -10,8 +11,10 @@ export const app = $state({
   ready: false,
   state: null as AppState | null,
   page: "home" as Page,
-  /** The theme in effect, after "system" is resolved. */
+  /** Whether the theme in effect is dark, from its own base colour. */
   dark: true,
+  /** The theme's backdrop colour (its base-200) as hex, for the 3D view; see `themeBackdrop`. */
+  backdrop: "#0f1115",
   palette: false,
   tour: false,
   /** Text for the builder to open, set by whoever sends the user there. */
@@ -50,12 +53,37 @@ export async function updateSettings(change: (s: Settings) => void) {
 
 const media = window.matchMedia("(prefers-color-scheme: dark)");
 
+/** Puts the chosen theme on the page, and reads from its colours whether it is dark and its backdrop. */
 export function applyTheme() {
-  const theme = app.state?.settings.theme ?? "system";
-  app.dark = theme === "dark" || (theme === "system" && media.matches);
-  document.documentElement.dataset.theme = app.dark ? "photonoxide-dark" : "photonoxide-light";
+  const root = document.documentElement;
+  root.dataset.theme = themeName(app.state?.settings.theme ?? "system", media.matches);
+  const style = getComputedStyle(root);
+  const base = rgb(style.getPropertyValue("--color-base-100"));
+  // WCAG's relative luminance: a base darker than about mid-grey is a dark theme
+  const lin = (c: number) => (c <= 10.31 ? c / 255 / 12.92 : ((c / 255 + 0.055) / 1.055) ** 2.4);
+  app.dark = base ? 0.2126 * lin(base[0]) + 0.7152 * lin(base[1]) + 0.0722 * lin(base[2]) < 0.2 : style.colorScheme === "dark";
+  const back = rgb(style.getPropertyValue("--color-base-200"));
+  app.backdrop = back ? "#" + back.map((c) => c.toString(16).padStart(2, "0")).join("") : app.dark ? "#0f1115" : "#eef1f5";
 }
 media.addEventListener("change", applyTheme);
+
+/** The theme's backdrop colour as hex, for a 3D view's background. It is state, so an effect that reads it follows the theme. */
+export function themeBackdrop(): string {
+  return app.backdrop;
+}
+
+let pixel: CanvasRenderingContext2D | null = null;
+
+/** A CSS colour (oklch and all) in sRGB bytes, by painting a pixel with it; null when it can't. */
+function rgb(colour: string): [number, number, number] | null {
+  pixel ??= Object.assign(document.createElement("canvas"), { width: 1, height: 1 }).getContext("2d", { willReadFrequently: true });
+  if (!pixel || !colour.trim()) return null;
+  pixel.clearRect(0, 0, 1, 1);
+  pixel.fillStyle = colour.trim();
+  pixel.fillRect(0, 0, 1, 1);
+  const [r, g, b] = pixel.getImageData(0, 0, 1, 1).data;
+  return [r, g, b];
+}
 
 export function hintShown(id: string): boolean {
   const s = app.state?.settings;

@@ -47,7 +47,8 @@ window only follows that record, so a live run and a replay look the same.
     around its shapes and what lies under and over it, and recolours it in the viewer.
 - **Compare:** the runs ticked on the Runs page, their sweeps and spectra on shared axes.
 - **Validation:** the release's report, searchable, and the same report run on this machine.
-- **Settings:** the theme (system, dark or light), the workspace folder, tips, and updates.
+- **Settings:** the theme (photonoxide's dark or light, by the system or chosen, or any of
+  daisyUI's, each shown in its own colours), the workspace folder, tips, and updates.
   The window opens where it was left, at the size it had.
 
 Help is built in:

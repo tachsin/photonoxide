@@ -415,9 +415,9 @@ export class View3D {
     this.frameId = requestAnimationFrame(step);
   }
 
-  /** The backdrop: deep slate for the dark theme, a pale grey for the light one. */
-  setDark(dark: boolean) {
-    this.scene.background = new THREE.Color(dark ? "#0f1115" : "#eef1f5");
+  /** The backdrop: `colour` (the theme's), else deep slate for a dark theme and a pale grey for a light one. */
+  setDark(dark: boolean, colour?: string) {
+    this.scene.background = new THREE.Color(colour ?? (dark ? "#0f1115" : "#eef1f5"));
     edgeColours(dark);
     this.render();
   }

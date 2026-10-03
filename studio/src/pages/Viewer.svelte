@@ -9,7 +9,7 @@
   import RunPlots from "../components/RunPlots.svelte";
   import Tip from "../components/Tip.svelte";
   import { api, duration, KINDS } from "../lib/api";
-  import { app, go, run, toast } from "../lib/app.svelte";
+  import { app, go, run, themeBackdrop, toast } from "../lib/app.svelte";
   import { modeKind } from "../lib/events";
   import { effectiveLook, outside, rows, um } from "../lib/layers";
   import { View3D, waveOf, type Plane } from "../lib/view3d";
@@ -38,7 +38,7 @@
     }
   });
 
-  $effect(() => three?.setDark(app.dark));
+  $effect(() => three?.setDark(app.dark, themeBackdrop()));
 
   // the structure, when it arrives, a layer is hidden or a look changes
   $effect(() => {

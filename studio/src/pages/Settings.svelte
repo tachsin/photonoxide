@@ -1,13 +1,15 @@
 <script lang="ts">
   // Settings: appearance, the workspace, tips, updates, and what this copy is.
-  import { Download, ExternalLink, FolderOpen, Lightbulb, Monitor, Moon, RefreshCw, RotateCcw, Sun } from "@lucide/svelte";
+  import { Check, Download, ExternalLink, FolderOpen, Lightbulb, Monitor, Moon, RefreshCw, RotateCcw, Search, Sun } from "@lucide/svelte";
   import { open } from "@tauri-apps/plugin-dialog";
   import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 
   import { app, toast, updateSettings } from "../lib/app.svelte";
+  import { DAISY_THEMES } from "../lib/themes";
   import { checkForUpdate, updater } from "../lib/updater.svelte";
 
   const s = $derived(app.state!.settings);
+  let query = $state("");
 
   async function chooseWorkspace() {
     const dir = await open({ title: "Choose the workspace folder", directory: true, defaultPath: app.state?.workspace });
@@ -25,19 +27,60 @@
       <p class="mb-4 text-sm faint">The 3D view and the plots follow the theme.</p>
       <div class="grid grid-cols-3 gap-3">
         {#each [
-          { v: "system" as const, label: "System", icon: Monitor },
-          { v: "dark" as const, label: "Dark", icon: Moon },
-          { v: "light" as const, label: "Light", icon: Sun },
+          { v: "system", label: "System", icon: Monitor, tip: "photonoxide dark or light, as the system is" },
+          { v: "dark", label: "photonoxide dark", icon: Moon, tip: "The studio's deep slate, for long sessions" },
+          { v: "light", label: "photonoxide light", icon: Sun, tip: "The studio's paper white" },
         ] as t (t.v)}
           {@const Icon = t.icon}
           <button
             class="flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm transition-colors {s.theme === t.v ? 'border-primary bg-primary/8 text-primary' : 'border-base-content/10 hover:border-base-content/25'}"
+            title={t.tip}
             onclick={() => updateSettings((x) => (x.theme = t.v))}
           >
             <Icon size={17} />{t.label}
           </button>
         {/each}
       </div>
+
+      <div class="mt-5 flex items-center justify-between gap-4">
+        <div>
+          <p class="text-sm font-medium">daisyUI's themes</p>
+          <p class="text-xs faint">Each card is drawn in its theme. The sun and moon at the top go back to photonoxide's.</p>
+        </div>
+        <label class="input input-sm w-48 shrink-0">
+          <Search size={14} class="opacity-50" />
+          <input type="search" placeholder="Search the themes" bind:value={query} />
+        </label>
+      </div>
+      {#each [{ label: "Light", dark: false }, { label: "Dark", dark: true }] as group (group.label)}
+        {@const themes = DAISY_THEMES.filter((t) => t.dark === group.dark && t.name.includes(query.trim().toLowerCase()))}
+        {#if themes.length}
+          <p class="panel-title mt-4 mb-2">{group.label}</p>
+          <div class="grid grid-cols-4 gap-2.5">
+            {#each themes as t (t.name)}
+              {@const chosen = s.theme === t.setting}
+              <button
+                class="rounded-[calc(var(--radius-box)+3px)] p-0.5 text-left outline-2 transition-colors {chosen ? 'outline-primary' : 'outline-transparent hover:outline-base-content/25'}"
+                aria-pressed={chosen}
+                title="Use daisyUI's {t.name} theme"
+                onclick={() => updateSettings((x) => (x.theme = t.setting))}
+              >
+                <div data-theme={t.name} class="rounded-box border border-base-content/10 bg-base-100 px-3 py-2.5 text-base-content">
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="truncate text-[13px] font-medium">{t.name}</span>
+                    {#if chosen}<Check size={14} class="shrink-0 text-primary" />{/if}
+                  </div>
+                  <div class="mt-2 flex gap-1">
+                    {#each ["bg-base-100 border border-base-content/20", "bg-primary", "bg-secondary", "bg-accent", "bg-neutral"] as swatch, k (k)}
+                      <span class="h-4 flex-1 rounded-selector {swatch}"></span>
+                    {/each}
+                  </div>
+                </div>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      {/each}
       <div class="mt-5 flex items-center justify-between">
         <div>
           <p class="text-sm font-medium">Runs open in</p>
