@@ -79,6 +79,60 @@ impl Sparse {
         }
     }
 
+    /// The n × n matrix whose row r is `rows[r]`, its columns sorted and distinct. The
+    /// transpose is laid out by counting, without sorting.
+    pub(crate) fn from_rows(rows: Vec<Vec<(usize, c64)>>) -> Sparse {
+        let n = rows.len();
+        let mut starts = Vec::with_capacity(n + 1);
+        starts.push(0);
+        let mut columns = Vec::with_capacity(rows.iter().map(Vec::len).sum());
+        let mut values = Vec::with_capacity(columns.capacity());
+        let mut t_starts = vec![0usize; n + 1];
+        for row in &rows {
+            for &(c, v) in row {
+                columns.push(c);
+                values.push(v);
+                t_starts[c + 1] += 1;
+            }
+            starts.push(columns.len());
+        }
+        for r in 0..n {
+            t_starts[r + 1] += t_starts[r];
+        }
+        // the transpose's rows filled in order of the original rows, so each is sorted
+        let mut next = t_starts.clone();
+        let mut t_columns = vec![0; columns.len()];
+        let mut t_values = vec![c64::new(0.0, 0.0); columns.len()];
+        for r in 0..n {
+            for k in starts[r]..starts[r + 1] {
+                let at = &mut next[columns[k]];
+                t_columns[*at] = r;
+                t_values[*at] = values[k];
+                *at += 1;
+            }
+        }
+        Sparse {
+            n,
+            starts,
+            columns,
+            values,
+            t_starts,
+            t_columns,
+            t_values,
+        }
+    }
+
+    /// The diagonal.
+    pub(crate) fn diagonal(&self) -> Vec<c64> {
+        (0..self.n)
+            .map(|r| {
+                self.row(r)
+                    .find(|&(c, _)| c == r)
+                    .map_or(c64::new(0.0, 0.0), |(_, v)| v)
+            })
+            .collect()
+    }
+
     /// The number of stored entries.
     pub(crate) fn nonzeros(&self) -> usize {
         self.values.len()
@@ -100,35 +154,21 @@ impl Sparse {
     }
 }
 
-/// A matrix-vector product by rows, the rows shared among the machine's threads: each row is
-/// summed in the same order whatever the threads, so the result is the same bit for bit.
+/// A matrix-vector product by rows, the rows shared among rayon's threads: each row is summed
+/// in the same order whatever the threads, so the result is the same bit for bit.
 fn product(starts: &[usize], columns: &[usize], values: &[c64], v: &[c64]) -> Vec<c64> {
+    use rayon::prelude::*;
     let n = starts.len() - 1;
-    let mut out = vec![c64::new(0.0, 0.0); n];
     let row = |r: usize| -> c64 {
         (starts[r]..starts[r + 1])
             .map(|k| values[k] * v[columns[k]])
             .sum()
     };
-    let threads = std::thread::available_parallelism().map_or(1, |t| t.get());
-    // below some 10^4 rows a thread costs more than it saves
-    if threads == 1 || n < 16_384 {
-        for (r, o) in out.iter_mut().enumerate() {
-            *o = row(r);
-        }
-        return out;
-    }
-    let chunk = n.div_ceil(threads);
-    std::thread::scope(|scope| {
-        for (c, block) in out.chunks_mut(chunk).enumerate() {
-            let row = &row;
-            scope.spawn(move || {
-                for (k, o) in block.iter_mut().enumerate() {
-                    *o = row(c * chunk + k);
-                }
-            });
-        }
-    });
+    let mut out = vec![c64::new(0.0, 0.0); n];
+    out.par_iter_mut()
+        .with_min_len(4096)
+        .enumerate()
+        .for_each(|(r, o)| *o = row(r));
     out
 }
 
@@ -671,6 +711,88 @@ impl Preconditioner for Ilu0 {
         self.ut.solve(&mut x);
         self.lt.solve(&mut x);
         x
+    }
+}
+
+/// ILU(0) of a matrix's diagonal blocks, each block a set of rows and the same columns: a
+/// block-Jacobi preconditioner whose blocks are solved by their incomplete factors, all at once
+/// on rayon's threads. The blocks are fixed by the caller, not by the threads, so the result is
+/// the same bit for bit on any number of them.
+pub(crate) struct BlockIlu0 {
+    n: usize,
+    /// Each block's rows, ascending, and its factors.
+    blocks: Vec<(Vec<usize>, Ilu0)>,
+}
+
+impl BlockIlu0 {
+    /// The factors of `a`'s diagonal blocks `blocks`, which share out its rows.
+    ///
+    /// # Errors
+    ///
+    /// As [`Ilu0::new`], for any block.
+    pub(crate) fn new(a: &Sparse, blocks: Vec<Vec<usize>>) -> Result<BlockIlu0> {
+        use rayon::prelude::*;
+        let n = a.n;
+        let factors: Vec<Result<Ilu0>> = blocks
+            .par_iter()
+            .map(|rows| {
+                // the block's own numbering
+                let local: std::collections::HashMap<usize, usize> =
+                    rows.iter().enumerate().map(|(l, &r)| (r, l)).collect();
+                let sub = Sparse::from_rows(
+                    rows.iter()
+                        .map(|&r| {
+                            a.row(r)
+                                .filter_map(|(c, v)| local.get(&c).map(|&l| (l, v)))
+                                .collect::<Vec<_>>()
+                        })
+                        .map(|mut row| {
+                            row.sort_unstable_by_key(|&(c, _)| c);
+                            row
+                        })
+                        .collect(),
+                );
+                Ilu0::new(&sub)
+            })
+            .collect();
+        let mut out = Vec::with_capacity(blocks.len());
+        for (rows, ilu) in blocks.into_iter().zip(factors) {
+            out.push((rows, ilu?));
+        }
+        Ok(BlockIlu0 { n, blocks: out })
+    }
+
+    fn solve_with(&self, v: &[c64], transpose: bool) -> Vec<c64> {
+        use rayon::prelude::*;
+        let parts: Vec<Vec<c64>> = self
+            .blocks
+            .par_iter()
+            .map(|(rows, ilu)| {
+                let local: Vec<c64> = rows.iter().map(|&r| v[r]).collect();
+                if transpose {
+                    ilu.solve_transpose(&local)
+                } else {
+                    ilu.solve(&local)
+                }
+            })
+            .collect();
+        let mut out = vec![c64::new(0.0, 0.0); self.n];
+        for ((rows, _), x) in self.blocks.iter().zip(parts) {
+            for (&r, xr) in rows.iter().zip(x) {
+                out[r] = xr;
+            }
+        }
+        out
+    }
+}
+
+impl Preconditioner for BlockIlu0 {
+    fn solve(&self, v: &[c64]) -> Vec<c64> {
+        self.solve_with(v, false)
+    }
+
+    fn solve_transpose(&self, v: &[c64]) -> Vec<c64> {
+        self.solve_with(v, true)
     }
 }
 

@@ -139,7 +139,7 @@ fn experiment() {
     let shift: f64 = var("MG_SHIFT", "0.5").parse().unwrap();
     let pre: usize = var("MG_PRE", "0").parse().unwrap();
     let post: usize = var("MG_POST", "1").parse().unwrap();
-    let coarsest: usize = var("MG_COARSEST", "20000").parse().unwrap();
+    let coarsest: usize = var("MG_COARSEST", "2000").parse().unwrap();
     let shape = match var("MG_SHAPE", "V").as_str() {
         "F" => CycleShape::F,
         "W" => CycleShape::W,
@@ -261,6 +261,17 @@ fn experiment() {
             error(&x)
         );
     }
+    if var("MG_GMRES", "0") == "1" {
+        for tolerance in [1e-6, 1e-8, 1e-10] {
+            let t = std::time::Instant::now();
+            let (x, iterations) = gmres(&matrix, &h, &b, tolerance, 200);
+            println!(
+                "MG {case}: GMRES + MG, {tolerance:e}: {iterations} iterations, {:?}, error {:.1e}",
+                t.elapsed(),
+                error(&x)
+            );
+        }
+    }
     if var("MG_PLAIN", "0") == "1" {
         let t = std::time::Instant::now();
         let (x, how) = qmr(&matrix, &b, stop(1e-8)).unwrap();
@@ -270,5 +281,82 @@ fn experiment() {
             t.elapsed(),
             error(&x)
         );
+    }
+}
+
+/// Right-preconditioned GMRES(m) by modified Gram-Schmidt, for comparison: the iterations (one
+/// preconditioner solve each) to a relative residual of `tolerance`, and the solution.
+fn gmres(
+    a: &Sparse,
+    m: &Hierarchy,
+    b: &[c64],
+    tolerance: f64,
+    restart: usize,
+) -> (Vec<c64>, usize) {
+    let n = b.len();
+    let dot = |u: &[c64], v: &[c64]| -> c64 { u.iter().zip(v).map(|(p, q)| p.conj() * q).sum() };
+    let mut x = vec![c64::new(0.0, 0.0); n];
+    let beta0 = norm(b);
+    let mut iterations = 0;
+    loop {
+        let ax = a.apply(&x);
+        let r: Vec<c64> = b.iter().zip(&ax).map(|(p, q)| p - q).collect();
+        let beta = norm(&r);
+        if beta <= tolerance * beta0 || iterations > 2000 {
+            return (x, iterations);
+        }
+        let mut v: Vec<Vec<c64>> = vec![r.iter().map(|z| z / beta).collect()];
+        let mut z: Vec<Vec<c64>> = Vec::new();
+        let mut h = vec![vec![c64::new(0.0, 0.0); restart]; restart + 1];
+        let mut g = vec![c64::new(0.0, 0.0); restart + 1];
+        g[0] = c64::new(beta, 0.0);
+        let mut rot: Vec<(c64, c64)> = Vec::new();
+        let mut k = 0;
+        while k < restart {
+            let zk = m.solve(&v[k]);
+            let mut w = a.apply(&zk);
+            z.push(zk);
+            for i in 0..=k {
+                h[i][k] = dot(&v[i], &w);
+                for (wj, vj) in w.iter_mut().zip(&v[i]) {
+                    *wj -= h[i][k] * vj;
+                }
+            }
+            let hn = norm(&w);
+            h[k + 1][k] = c64::new(hn, 0.0);
+            for (i, &(c, s)) in rot.iter().enumerate() {
+                let (p, q) = (h[i][k], h[i + 1][k]);
+                h[i][k] = c.conj() * p + s.conj() * q;
+                h[i + 1][k] = -s * p + c * q;
+            }
+            let (p, q) = (h[k][k], h[k + 1][k]);
+            let d = (p.norm_sqr() + q.norm_sqr()).sqrt();
+            let (c, s) = (p / d, q / d);
+            h[k][k] = c64::new(d, 0.0);
+            h[k + 1][k] = c64::new(0.0, 0.0);
+            g[k + 1] = -s * g[k];
+            g[k] = c.conj() * g[k];
+            rot.push((c, s));
+            v.push(w.iter().map(|q| q / hn).collect());
+            k += 1;
+            iterations += 1;
+            if g[k].norm() <= tolerance * beta0 {
+                break;
+            }
+        }
+        // y from the triangle, x += Z y
+        let mut y = vec![c64::new(0.0, 0.0); k];
+        for i in (0..k).rev() {
+            let mut sum = g[i];
+            for j in i + 1..k {
+                sum -= h[i][j] * y[j];
+            }
+            y[i] = sum / h[i][i];
+        }
+        for (j, yj) in y.iter().enumerate() {
+            for (xi, zi) in x.iter_mut().zip(&z[j]) {
+                *xi += yj * zi;
+            }
+        }
     }
 }

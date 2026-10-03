@@ -17,7 +17,7 @@ use num_complex::Complex64 as c64;
 
 use super::{Axis, Grid3d, Lattice};
 use crate::fdfd::Edges;
-use crate::fdfd::krylov::{Ilu0, Operator, Preconditioner, Sparse};
+use crate::fdfd::krylov::{BlockIlu0, Operator, Preconditioner, Sparse};
 use crate::{Error, Result};
 
 /// The shape of a multigrid cycle.
@@ -60,14 +60,92 @@ impl Default for Multigrid {
     }
 }
 
-/// One level: its operator, its smoother, and the prolongation from the next.
+/// A rectangular sparse matrix by rows, for the transfers between levels: its products with
+/// vectors on rayon's threads, each row summed in order, the same bit for bit on any number.
+struct Transfer {
+    starts: Vec<usize>,
+    columns: Vec<usize>,
+    values: Vec<c64>,
+}
+
+impl Transfer {
+    fn from_rows(rows: &[Vec<(usize, c64)>]) -> Transfer {
+        let mut starts = Vec::with_capacity(rows.len() + 1);
+        starts.push(0);
+        let (mut columns, mut values) = (Vec::new(), Vec::new());
+        for row in rows {
+            for &(c, v) in row {
+                columns.push(c);
+                values.push(v);
+            }
+            starts.push(columns.len());
+        }
+        Transfer {
+            starts,
+            columns,
+            values,
+        }
+    }
+
+    /// The transpose, `columns` rows of it, each row's entries in order of the original rows.
+    fn transpose(&self, columns: usize) -> Transfer {
+        let mut starts = vec![0usize; columns + 1];
+        for &c in &self.columns {
+            starts[c + 1] += 1;
+        }
+        for c in 0..columns {
+            starts[c + 1] += starts[c];
+        }
+        let mut next = starts.clone();
+        let mut cols = vec![0; self.columns.len()];
+        let mut values = vec![c64::new(0.0, 0.0); self.columns.len()];
+        for r in 0..self.starts.len() - 1 {
+            for k in self.starts[r]..self.starts[r + 1] {
+                let at = &mut next[self.columns[k]];
+                cols[*at] = r;
+                values[*at] = self.values[k];
+                *at += 1;
+            }
+        }
+        Transfer {
+            starts,
+            columns: cols,
+            values,
+        }
+    }
+
+    fn row(&self, r: usize) -> impl Iterator<Item = (usize, c64)> + '_ {
+        (self.starts[r]..self.starts[r + 1]).map(|k| (self.columns[k], self.values[k]))
+    }
+
+    fn apply(&self, v: &[c64]) -> Vec<c64> {
+        use rayon::prelude::*;
+        let mut out = vec![c64::new(0.0, 0.0); self.starts.len() - 1];
+        out.par_iter_mut()
+            .with_min_len(4096)
+            .enumerate()
+            .for_each(|(r, o)| *o = self.row(r).map(|(c, w)| w * v[c]).sum());
+        out
+    }
+}
+
+/// x += d, on rayon's threads.
+fn add_to(x: &mut [c64], d: &[c64]) {
+    use rayon::prelude::*;
+    x.par_iter_mut()
+        .with_min_len(16_384)
+        .zip(d)
+        .for_each(|(xk, dk)| *xk += dk);
+}
+
+/// One level: its operator, its smoother, and the transfers to and from the next.
 struct Level {
     matrix: Sparse,
-    smoother: Ilu0,
+    smoother: BlockIlu0,
     /// P by rows: for each value here, the next level's values and their weights.
-    prolongation: Vec<Vec<(usize, c64)>>,
-    /// The next level's size.
-    coarse: usize,
+    prolongation: Transfer,
+    /// Pᵀ by rows.
+    restriction: Transfer,
 }
 
 /// The cycle's levels, finest first, and the coarsest's factorization.
@@ -76,8 +154,42 @@ pub(crate) struct Hierarchy {
     /// Each level's cells along x, y and z, the coarsest's included.
     shapes: Vec<[usize; 3]>,
     lu: Lu<usize, c64>,
+    /// One thread, for faer's solves with the coarsest factors: their sums then come in one
+    /// order whatever the machine.
+    one: rayon::ThreadPool,
     options: Multigrid,
 }
+
+/// The smoother's blocks on a level of `cells` along x, y and z: slabs of [`PLANES`] planes
+/// across z, each with all three components' values in them (the last slab takes what is left).
+/// Fixed by the grid, not by the machine's threads.
+fn slabs(cells: [usize; 3]) -> Vec<Vec<usize>> {
+    #[cfg(test)]
+    let planes = std::env::var("MG_PLANES")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(PLANES);
+    #[cfg(not(test))]
+    let planes = PLANES;
+    let [nx, ny, nz] = cells;
+    let plane = nx * ny;
+    let count = (nz / planes).max(1);
+    (0..count)
+        .map(|b| {
+            let first = b * planes;
+            let last = if b + 1 == count { nz } else { first + planes };
+            (0..3)
+                .flat_map(|c| {
+                    let start = c * plane * nz;
+                    (start + first * plane)..(start + last * plane)
+                })
+                .collect()
+        })
+        .collect()
+}
+
+/// The planes across z in each of the smoother's blocks.
+const PLANES: usize = 8;
 
 /// The operator the cycle is built on: `matrix` with k₀² i β ε added on the diagonal of every
 /// value not fixed at zero, Erlangga, Oosterlee and Vuik's shift (their Eq. 8 with
@@ -346,7 +458,10 @@ fn prolongation(
     let flux = std::env::var("MG_PLAIN_INTERP").is_err();
     #[cfg(not(test))]
     let flux = true;
+    use rayon::prelude::*;
     (0..gf.unknowns())
+        .into_par_iter()
+        .with_min_len(4096)
         .map(|r| {
             if fine.fixed(r) {
                 return Vec::new();
@@ -381,70 +496,44 @@ fn prolongation(
         .collect()
 }
 
-/// Sorts `row` by column and sums repeated columns.
-fn merge(row: &mut Vec<(usize, c64)>) {
-    row.sort_unstable_by_key(|&(c, _)| c);
-    let mut out: Vec<(usize, c64)> = Vec::with_capacity(row.len());
-    for &(c, v) in row.iter() {
-        match out.last_mut() {
-            Some((last, acc)) if *last == c => *acc += v,
-            _ => out.push((c, v)),
-        }
-    }
-    *row = out;
-}
-
-/// Pᵀ A P, coarse row by coarse row, the rows shared among threads; each row is summed in the
-/// same order whatever the threads. A coarse value no fine one reaches gets an identity row.
-fn galerkin(a: &Sparse, p: &[Vec<(usize, c64)>], coarse: usize) -> Sparse {
-    // Pᵀ by rows: for each coarse value, the fine values it reaches
-    let mut pt: Vec<Vec<(usize, c64)>> = vec![Vec::new(); coarse];
-    for (r, row) in p.iter().enumerate() {
-        for &(c, w) in row {
-            pt[c].push((r, w));
-        }
-    }
-    let row_of = |c: usize| -> Vec<(usize, c64)> {
-        let mut acc: Vec<(usize, c64)> = Vec::new();
-        for &(r, w) in &pt[c] {
-            for (s, v) in a.row(r) {
-                for &(cc, u) in &p[s] {
-                    acc.push((cc, w * v * u));
+/// Pᵀ A P, coarse row by coarse row on rayon's threads, each row accumulated in one order
+/// whatever the threads. A coarse value no fine one reaches gets an identity row.
+fn galerkin(a: &Sparse, p: &Transfer, pt: &Transfer) -> Sparse {
+    use rayon::prelude::*;
+    let coarse = pt.starts.len() - 1;
+    let zero = c64::new(0.0, 0.0);
+    let rows: Vec<Vec<(usize, c64)>> = (0..coarse)
+        .into_par_iter()
+        // a few dozen jobs, each with its own accumulator
+        .with_min_len((coarse / 64).max(256))
+        .map_init(
+            || (vec![zero; coarse], vec![usize::MAX; coarse], Vec::new()),
+            |(sums, seen, touched), c| {
+                touched.clear();
+                for (r, w) in pt.row(c) {
+                    for (s, v) in a.row(r) {
+                        let wv = w * v;
+                        for (cc, u) in p.row(s) {
+                            if seen[cc] != c {
+                                seen[cc] = c;
+                                sums[cc] = zero;
+                                touched.push(cc);
+                            }
+                            sums[cc] += wv * u;
+                        }
+                    }
                 }
-            }
-        }
-        merge(&mut acc);
-        if acc.iter().all(|&(cc, _)| cc != c) {
-            acc.push((c, c64::new(1.0, 0.0)));
-            merge(&mut acc);
-        }
-        acc
-    };
-    let threads = std::thread::available_parallelism().map_or(1, |t| t.get());
-    let chunk = coarse.div_ceil(threads).max(1);
-    let rows: Vec<Vec<(usize, c64)>> = std::thread::scope(|scope| {
-        let handles: Vec<_> = (0..coarse)
-            .step_by(chunk)
-            .map(|start| {
-                let row_of = &row_of;
-                scope.spawn(move || {
-                    (start..(start + chunk).min(coarse))
-                        .map(row_of)
-                        .collect::<Vec<_>>()
-                })
-            })
-            .collect();
-        handles
-            .into_iter()
-            .flat_map(|h| h.join().unwrap_or_default())
-            .collect()
-    });
-    Sparse::new(
-        coarse,
-        rows.into_iter()
-            .enumerate()
-            .flat_map(|(c, row)| row.into_iter().map(move |(cc, v)| (c, cc, v))),
-    )
+                if seen[c] != c {
+                    seen[c] = c;
+                    sums[c] = c64::new(1.0, 0.0);
+                    touched.push(c);
+                }
+                touched.sort_unstable();
+                touched.iter().map(|&cc| (cc, sums[cc])).collect()
+            },
+        )
+        .collect();
+    Sparse::from_rows(rows)
 }
 
 impl Hierarchy {
@@ -491,13 +580,17 @@ impl Hierarchy {
                             .collect::<Vec<_>>()
                     })
                     .collect();
-                let (lu, _) =
-                    crate::compact::fit::sequential(|| crate::fdfd::factorize(&entries, n, None))?;
+                let one = rayon::ThreadPoolBuilder::new()
+                    .num_threads(1)
+                    .build()
+                    .map_err(|e| Error::invalid("multigrid", e.to_string()))?;
+                let (lu, _) = one.install(|| crate::fdfd::factorize(&entries, n, None))?;
                 shapes.push([0, 1, 2].map(|a| lines[a].cells()));
                 return Ok(Hierarchy {
                     levels,
                     shapes,
                     lu,
+                    one,
                     options,
                 });
             }
@@ -516,14 +609,17 @@ impl Hierarchy {
                 (&lines, &next_lines),
                 &stretched,
             );
-            let next = galerkin(&a, &prolongation, gc.unknowns());
-            let smoother = Ilu0::new(&a)?;
-            shapes.push([0, 1, 2].map(|a| lines[a].cells()));
+            let prolongation = Transfer::from_rows(&prolongation);
+            let restriction = prolongation.transpose(gc.unknowns());
+            let next = galerkin(&a, &prolongation, &restriction);
+            let shape = [0, 1, 2].map(|a| lines[a].cells());
+            let smoother = BlockIlu0::new(&a, slabs(shape))?;
+            shapes.push(shape);
             levels.push(Level {
                 matrix: a,
                 smoother,
                 prolongation,
-                coarse: gc.unknowns(),
+                restriction,
             });
             a = next;
             fine = coarse;
@@ -548,7 +644,7 @@ impl Hierarchy {
         use faer::linalg::solvers::Solve;
         if level == self.levels.len() {
             let rhs = faer::Mat::<c64>::from_fn(b.len(), 1, |r, _| b[r]);
-            let x = crate::compact::fit::sequential(|| {
+            let x = self.one.install(|| {
                 if transpose {
                     self.lu.solve_transpose(&rhs)
                 } else {
@@ -563,12 +659,17 @@ impl Hierarchy {
             match x {
                 None => b.to_vec(),
                 Some(x) => {
-                    let ax = if transpose {
+                    let mut r = if transpose {
                         l.matrix.apply_transpose(x)
                     } else {
                         l.matrix.apply(x)
                     };
-                    b.iter().zip(&ax).map(|(p, q)| p - q).collect()
+                    use rayon::prelude::*;
+                    r.par_iter_mut()
+                        .with_min_len(16_384)
+                        .zip(b)
+                        .for_each(|(rk, bk)| *rk = bk - *rk);
+                    r
                 }
             }
         };
@@ -581,11 +682,7 @@ impl Hierarchy {
             };
             match x {
                 None => *x = Some(d),
-                Some(x) => {
-                    for (xk, dk) in x.iter_mut().zip(&d) {
-                        *xk += dk;
-                    }
-                }
+                Some(x) => add_to(x, &d),
             }
         };
         // the transposed cycle is the cycle's transpose: its steps in reverse order, each
@@ -609,43 +706,18 @@ impl Hierarchy {
         }
         for inner in corrections {
             let r = residual(x.as_deref());
-            let coarse = l.restrict(&r);
+            let coarse = l.restriction.apply(&r);
             let correction = self.cycle(level + 1, &coarse, transpose, inner);
-            let fine = l.prolong(&correction);
+            let fine = l.prolongation.apply(&correction);
             match &mut x {
                 None => x = Some(fine),
-                Some(x) => {
-                    for (xk, dk) in x.iter_mut().zip(&fine) {
-                        *xk += dk;
-                    }
-                }
+                Some(x) => add_to(x, &fine),
             }
         }
         for _ in 0..post {
             smooth(&mut x);
         }
         x.unwrap_or_else(|| vec![c64::new(0.0, 0.0); b.len()])
-    }
-}
-
-impl Level {
-    /// Pᵀ r: the residual restricted to the next level.
-    fn restrict(&self, r: &[c64]) -> Vec<c64> {
-        let mut coarse = vec![c64::new(0.0, 0.0); self.coarse];
-        for (rk, weights) in r.iter().zip(&self.prolongation) {
-            for &(c, w) in weights {
-                coarse[c] += w * rk;
-            }
-        }
-        coarse
-    }
-
-    /// P e: the next level's correction interpolated to this one.
-    fn prolong(&self, e: &[c64]) -> Vec<c64> {
-        self.prolongation
-            .iter()
-            .map(|weights| weights.iter().map(|&(c, w)| w * e[c]).sum())
-            .collect()
     }
 }
 
