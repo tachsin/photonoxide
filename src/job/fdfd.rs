@@ -12,8 +12,8 @@ use num_complex::Complex64 as c64;
 use serde::Deserialize;
 
 use super::{
-    CircleSpec, Event, RectSpec, RingSpec, check_finite, check_step, check_sweep, check_window,
-    draw, named_stack, scene, task_error,
+    CircleSpec, Event, RectSpec, RingSpec, check_finite, check_materials, check_step, check_sweep,
+    check_window, draw, named_stack, scene, task_error,
 };
 use crate::fdfd::{Boundaries, Direction, Grid, Polarization, Port, Side, Solver2d};
 use crate::geometry::Point;
@@ -224,8 +224,11 @@ pub(super) fn check(job: &Job) -> Result<()> {
     if task.port.is_empty() {
         return Err(task_error("an fdfd job needs at least one [[task.port]]"));
     }
-    Wavelength::um(task.wavelength_um)?;
-    Ok(())
+    let mut wavelengths = vec![task.wavelength_um];
+    if let Some(sw) = &task.sweep {
+        wavelengths.extend([sw.from, sw.to]);
+    }
+    check_materials(s.stack(), &wavelengths)
 }
 
 /// An `"fdfd"` job's device, drawn and gridded, ready to solve at any wavelength.

@@ -568,6 +568,24 @@ fn check_finite(name: &str, v: Option<f64>) -> Result<()> {
     }
 }
 
+/// Every material of `stack` (its substrate, its cladding, each layer's and what surrounds it)
+/// must have data at each of `wavelengths_um`; for a sweep, its two ends, a material's validity
+/// being one range.
+fn check_materials(stack: &LayerStack, wavelengths_um: &[f64]) -> Result<()> {
+    let mut materials = vec![stack.substrate(), stack.cladding()];
+    for layer in stack.layers() {
+        materials.push(&layer.material);
+        materials.push(&layer.background);
+    }
+    for &w in wavelengths_um {
+        let w = Wavelength::um(w)?;
+        for m in &materials {
+            m.permittivity(w)?;
+        }
+    }
+    Ok(())
+}
+
 /// A sweep's range: finite ends that differ, and at least 2 points.
 fn check_sweep(from: f64, to: f64, points: usize) -> Result<()> {
     if points < 2 || !(from.is_finite() && to.is_finite()) {
@@ -761,15 +779,7 @@ fn cross_section(
     wavelength: Wavelength,
 ) -> Result<crate::mode::vector::CrossSection> {
     // every material the cut can meet must know this wavelength
-    let stack = s.stack();
-    let mut materials = vec![stack.substrate(), stack.cladding()];
-    for layer in stack.layers() {
-        materials.push(&layer.material);
-        materials.push(&layer.background);
-    }
-    for m in materials {
-        m.permittivity(wavelength)?;
-    }
+    check_materials(s.stack(), &[wavelength.to_um()])?;
     // the edges the cut crosses, and the layers' interfaces
     let mut x_edges = Vec::new();
     for r in rects {
@@ -796,7 +806,7 @@ fn cross_section(
     }
     let mut z_edges = vec![0.0];
     let mut top = 0.0;
-    for layer in stack.layers() {
+    for layer in s.stack().layers() {
         top += layer.thickness.to_um();
         z_edges.push(top);
     }
@@ -959,9 +969,10 @@ pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 /// Checks `job` without running it: its kind is known, its task fits that kind, the stack is
 /// known, the shapes are valid, the layer is in the stack, the wavelength is valid, the windows
 /// run from smaller to larger numbers, the step is positive, a sweep has distinct ends, at least
-/// 2 points and a parameter the kind sweeps, and the coordinates are numbers; for an
+/// 2 points and a parameter the kind sweeps, the coordinates are numbers, and every material of
+/// the stack has data at the wavelength and at both ends of a wavelength sweep; for an
 /// `"fdfd"` job, the polarization and that it has ports too. What only a solve finds (a port
-/// inside the PML, a material without data at a wavelength) is left to the run.
+/// inside the PML) is left to the run.
 ///
 /// # Errors
 ///
@@ -973,6 +984,7 @@ pub fn check(job: &Job) -> Result<()> {
         .and_then(|k| k.as_str())
         .ok_or_else(|| task_error("needs a kind, e.g. kind = \"structure\""))?;
     let parse = |e: toml::de::Error| task_error(e.to_string());
+    let mut wavelengths = Vec::new();
     let (s, layer, wavelength_um) = match kind {
         "structure" => {
             let task: StructureTask = job.task().clone().try_into().map_err(parse)?;
@@ -984,6 +996,9 @@ pub fn check(job: &Job) -> Result<()> {
             task.validate()?;
             let stack = named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
             let s = draw(stack, &task.rect, &task.circle, &task.ring)?;
+            if let Some(sw) = task.sweep.iter().find(|sw| sw.parameter == "wavelength") {
+                wavelengths.extend([sw.from, sw.to]);
+            }
             (s, task.layer, task.wavelength_um)
         }
         "fdfd" => return fdfd::check(job),
@@ -992,8 +1007,8 @@ pub fn check(job: &Job) -> Result<()> {
     s.stack()
         .layer(&layer)
         .ok_or_else(|| task_error(format!("the stack has no layer {layer}")))?;
-    Wavelength::um(wavelength_um)?;
-    Ok(())
+    wavelengths.insert(0, wavelength_um);
+    check_materials(s.stack(), &wavelengths)
 }
 
 fn structure(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
@@ -1803,6 +1818,69 @@ width_um = 0.3
         assert!(area(&o[..64]) > 0.0 && area(&o[65..129]) < 0.0);
         let exact = std::f64::consts::PI * (1.25 * 1.25 - 0.75 * 0.75);
         assert!((area(&o) - exact).abs() < 0.01 * exact, "{}", area(&o));
+    }
+
+    #[test]
+    fn the_check_refuses_a_wavelength_a_material_has_no_data_at() {
+        // 5 µm is beyond the stack's oxide: the check says what the run would
+        let sweep = |from: f64, to: f64| {
+            format!(
+                "[task.sweep]
+parameter = \"wavelength\"
+from = {from}
+to = {to}
+points = 2
+"
+            )
+        };
+        let fdfd_sweep = sweep(1.5, 1.6);
+        assert!(FDFD.contains(&fdfd_sweep));
+        for (what, text) in [
+            (
+                "structure",
+                JOB.replace("wavelength_um = 1.55", "wavelength_um = 5.0"),
+            ),
+            (
+                "modes",
+                MODES.replace("wavelength_um = 1.55", "wavelength_um = 5.0"),
+            ),
+            (
+                "modes sweep",
+                format!(
+                    "{MODES}
+{}",
+                    sweep(1.5, 5.0)
+                ),
+            ),
+            (
+                "fdfd",
+                FDFD.replace("wavelength_um = 1.55", "wavelength_um = 5.0"),
+            ),
+            ("fdfd sweep", FDFD.replace(&fdfd_sweep, &sweep(5.0, 1.6))),
+        ] {
+            let job = Job::parse(&text).unwrap();
+            let refused = check(&job).unwrap_err();
+            assert!(
+                matches!(&refused, Error::OutsideValidity { wavelength_um, .. } if *wavelength_um == 5.0),
+                "{what}: {refused}"
+            );
+            // the run's own words
+            let root = temp("range");
+            let mut run = Run::create(&root.0, &job).unwrap();
+            let failed = execute(&job, &mut run, &Stop::new(None)).unwrap_err();
+            assert_eq!(refused.to_string(), failed.to_string(), "{what}");
+        }
+        // a width sweep's ends are widths, not wavelengths
+        let width = format!(
+            "{MODES}
+[task.sweep]
+parameter = \"width\"
+from = 0.4
+to = 5.0
+points = 2
+"
+        );
+        check(&Job::parse(&width).unwrap()).unwrap();
     }
 
     #[test]
