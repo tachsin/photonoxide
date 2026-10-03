@@ -55,7 +55,7 @@
     <div class="tooltip tooltip-bottom" data-tip="Take the tour again">
       <button class="btn btn-ghost btn-sm btn-square" aria-label="Take the tour" onclick={() => (app.tour = true)}><CircleHelp size={18} /></button>
     </div>
-    <div class="tooltip tooltip-bottom tooltip-left" data-tip={app.dark ? "Light theme" : "Dark theme"}>
+    <div class="tooltip tooltip-bottom tooltip-left" data-tip={app.dark ? "Switch to photonoxide light" : "Switch to photonoxide dark"}>
       <button
         class="btn btn-ghost btn-sm btn-square"
         aria-label="Switch the theme"

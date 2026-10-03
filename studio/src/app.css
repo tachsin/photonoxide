@@ -2,8 +2,13 @@
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/jetbrains-mono";
 
+/* Every daisyUI theme, to choose in Settings → Appearance, none of them a default: the studio's own two
+   below are. The list is src/lib/themes.ts's, in the same order. */
 @plugin "daisyui" {
-  themes: false;
+  themes:
+    light, dark, cupcake, bumblebee, emerald, corporate, synthwave, retro, cyberpunk, valentine, halloween, garden,
+    forest, aqua, lofi, pastel, fantasy, wireframe, black, luxury, dracula, cmyk, autumn, business, acid, lemonade,
+    night, coffee, winter, dim, nord, sunset, caramellatte, abyss, silk;
 }
 
 /* The studio's two themes: a deep slate for long sessions (the default), and a paper-white one. */

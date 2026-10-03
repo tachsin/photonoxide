@@ -10,7 +10,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    /// `"system"`, `"dark"` or `"light"`.
+    /// The studio's own themes, `"system"` (dark or light, as the system is), `"dark"` or
+    /// `"light"`; or a daisyUI theme by its name (`"nord"`, `"dracula"`, ...), with
+    /// `"daisyui-light"` and `"daisyui-dark"` for daisyUI's own light and dark. The window
+    /// reads it (`studio/src/lib/themes.ts`), and takes a name it doesn't know as `"system"`.
     pub theme: String,
     /// The workspace, if chosen; see [`workspace`].
     pub workspace: Option<String>,
@@ -92,6 +95,8 @@ mod tests {
         let old = Settings::load(&file);
         assert_eq!(old.theme, "dark");
         assert!(old.check_updates && old.hints);
+        std::fs::write(&file, r#"{"theme":"nord"}"#).unwrap();
+        assert_eq!(Settings::load(&file).theme, "nord");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

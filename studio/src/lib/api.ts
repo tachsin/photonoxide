@@ -5,7 +5,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Event, Scene } from "./events";
 
 export interface Settings {
-  theme: "system" | "dark" | "light";
+  /** "system", "dark" or "light" (the studio's own themes), or a daisyUI theme's name. */
+  theme: string;
   workspace: string | null;
   check_updates: boolean;
   hints: boolean;

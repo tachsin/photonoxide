@@ -9,7 +9,7 @@
   import RunPlots from "../components/RunPlots.svelte";
   import Tip from "../components/Tip.svelte";
   import { api, duration, KINDS } from "../lib/api";
-  import { app, go, run, toast } from "../lib/app.svelte";
+  import { app, go, run, themeBackdrop, toast } from "../lib/app.svelte";
   import { modeKind } from "../lib/events";
   import { effectiveLook, outside, rows, um, type Looks } from "../lib/layers";
   import { mediumLook } from "../lib/colours";
@@ -42,7 +42,7 @@
     }
   });
 
-  $effect(() => three?.setDark(app.dark));
+  $effect(() => three?.setDark(app.dark, themeBackdrop()));
 
   // the structure, when it arrives, a layer is hidden or a look changes; while the wave shows,
   // the solid shapes it runs through are glass (the user's own look comes back with it off)
