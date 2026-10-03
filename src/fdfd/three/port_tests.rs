@@ -50,6 +50,7 @@ fn walled_strip(n: (usize, usize, usize)) -> (Lattice, Vec<c64>, Grid3d) {
         z: WALL,
         reflection: 1e-8,
         order: 3.0,
+        real_stretch: 0.0,
     };
     let strip = |_: f64, y: f64, z: f64| {
         let n: f64 = if y.abs() < 0.25 && z.abs() < 0.11 {
@@ -206,6 +207,7 @@ fn a_backward_wave_is_forward_by_its_power() {
         z: WALL,
         reflection: 1e-8,
         order: 3.0,
+        real_stretch: 0.0,
     };
     let strip = |_: f64, y: f64, z: f64| {
         let n: f64 = if (y - 0.05).abs() < 0.2 && z.abs() < 0.1 {
@@ -287,6 +289,7 @@ fn a_port_normal_to_y_or_z_is_a_port_normal_to_x_turned() {
             z: edges[2],
             reflection: 1e-8,
             order: 3.0,
+            real_stretch: 0.0,
         };
         let eps = move |x: f64, y: f64, z: f64| {
             let p = [x, y, z];
@@ -343,6 +346,7 @@ fn qmr_gives_the_direct_solvers_s_matrix() {
         z: WALL,
         reflection: 1e-8,
         order: 3.0,
+        real_stretch: 0.0,
     };
     let eps = |x: f64, y: f64, z: f64| {
         let half = if x < 0.5 { 0.15 } else { 0.2 };

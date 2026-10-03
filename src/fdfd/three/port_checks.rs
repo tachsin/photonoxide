@@ -64,6 +64,7 @@ pub(crate) fn slab_port_index(kind: Kind, h: f64) -> (f64, f64) {
         z: WALL,
         reflection: 1e-8,
         order: 3.0,
+        real_stretch: 0.0,
     };
     let slab = |_: f64, _: f64, z: f64| index(if z.abs() < 0.11 { SILICON } else { OXIDE });
     let (lattice, eps) = Solver3d::setup(grid, lam(), slab, boundaries).unwrap();
@@ -120,6 +121,7 @@ pub(crate) fn strip_port_indices(h: f64) -> [f64; 2] {
         z: WALL,
         reflection: 1e-8,
         order: 3.0,
+        real_stretch: 0.0,
     };
     let (lattice, eps) = Solver3d::setup(grid, lam(), strip, boundaries).unwrap();
     let ports = lattice
@@ -279,6 +281,7 @@ pub(crate) fn closed_step(gap: usize) -> (Vec<Vec<c64>>, usize) {
         z: WALL,
         reflection: 1e-8,
         order: 3.0,
+        real_stretch: 0.0,
     };
     let solver = Solver3d::new(grid, lam(), eps, boundaries).unwrap();
     let propagating = |plane: usize| -> Vec<PortMode3d> {
@@ -386,6 +389,7 @@ pub(crate) fn two_d_s_difference(polarization: Polarization) -> f64 {
         z: Edges::Bloch { k: 0.0 },
         reflection: 1e-8,
         order: 3.0,
+        real_stretch: 0.0,
     };
     let deep = Solver3d::new(grid3, lam(), |x, y, _| slab(x, y), boundaries3).unwrap();
     // E along z: the mode with E_z; H along z: the one with E_y

@@ -185,6 +185,12 @@ pub struct Boundaries3d {
     pub reflection: f64,
     /// The polynomial grading's order m.
     pub order: f64,
+    /// The PMLs' real stretching per unit of their absorption, a: s = 1 + (a + i)σ instead of
+    /// 1 + iσ. Any s with Im s > 0 is a PML (Chew and Weedon), so the solution outside them
+    /// is the same; a = 0 is Shin and Fan's, and a ≥ 1 keeps s within 45° of the real axis,
+    /// where Re(1/s²) > 0 and the operator in the PMLs doesn't turn the wrong way along their
+    /// normal: what QMR with [`IterativeSolver3d::with_ilu`] needs (see docs/methods/fdfd-3d.md).
+    pub real_stretch: f64,
 }
 
 impl Boundaries3d {
@@ -200,6 +206,16 @@ impl Boundaries3d {
             z: edges,
             reflection: 1e-8,
             order: 3.0,
+            real_stretch: 0.0,
+        }
+    }
+
+    /// [`Boundaries3d::pml`] with as much real stretching as absorption (a = 1): the PMLs for
+    /// QMR with [`IterativeSolver3d::with_ilu`].
+    pub fn stretched_pml(cells: usize) -> Boundaries3d {
+        Boundaries3d {
+            real_stretch: 1.0,
+            ..Boundaries3d::pml(cells)
         }
     }
 
@@ -210,12 +226,13 @@ impl Boundaries3d {
     fn check(&self, grid: &Grid3d) -> Result<()> {
         if !(self.reflection > 0.0 && self.reflection < 1.0)
             || !(self.order.is_finite() && self.order >= 0.0)
+            || !(self.real_stretch.is_finite() && self.real_stretch >= 0.0)
         {
             return Err(Error::invalid(
                 "fdfd boundaries",
                 format!(
-                    "the PML needs a target reflection in (0, 1) and an order >= 0, got {} and {}",
-                    self.reflection, self.order
+                    "the PML needs a target reflection in (0, 1), an order >= 0 and a real stretch \n                     >= 0, got {}, {} and {}",
+                    self.reflection, self.order, self.real_stretch
                 ),
             ));
         }
@@ -266,14 +283,15 @@ impl Lattice {
             (0..n)
                 .map(|m| {
                     let pos = grid.node(axis, m) + offset * h;
-                    graded(
+                    let s = graded(
                         pos,
                         span,
                         layers,
                         h,
                         k0,
                         (boundaries.reflection, boundaries.order),
-                    )
+                    );
+                    c64::new(s.re + boundaries.real_stretch * s.im, s.im)
                 })
                 .collect()
         };

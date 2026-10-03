@@ -145,6 +145,7 @@ fn each_component_sees_its_own_average_and_walls_hold_no_field() {
         z: Edges::Pml { low: 0, high: 0 },
         reflection: 1e-8,
         order: 3.0,
+        real_stretch: 0.0,
     };
     let solver = Solver3d::new(grid, lam, eps, walls).unwrap();
     let at = (2, 2, 2);
@@ -573,6 +574,7 @@ fn iteration_counts_with_and_without_shin_and_fans_operator() {
         z: per,
         reflection: 1e-8,
         order: 3.0,
+        real_stretch: 0.0,
     };
     let pml = Boundaries3d::pml(10);
     type Eps = Box<dyn Fn(f64, f64, f64) -> c64>;
@@ -798,4 +800,325 @@ fn a_poor_factorization_still_gives_the_field_to_round_off() {
         .map(|(a, b)| a - b)
         .collect();
     assert!(norm(&d) < 1e-10 * norm(exact.values()));
+}
+
+#[test]
+fn a_pml_stretched_as_much_as_it_absorbs_barely_reflects_too() {
+    // s = 1 + (1 + i) sigma: the same absorption, and the discretization's reflection about as
+    // small as the plain PML's: 3.6e-6 against 2.5e-6 (and 2.3e-4 against 4e-5 for 10 cells of
+    // 10 nm, 1.9e-3 against 1e-4 for 8, 1.4e-3 with three times the real stretching)
+    for kind in [Kind::Te, Kind::Tm] {
+        let stretched = pml_reflection_stretched(kind, 1.0);
+        assert!(stretched < 1e-5, "{kind:?}: {stretched}");
+        // thinner, the stretched PML reflects more than the plain one
+        let (plain, thin) = (
+            pml_reflection_on(kind, 0.0, (0.01, 10)),
+            pml_reflection_on(kind, 1.0, (0.01, 10)),
+        );
+        assert!(
+            plain < 1e-4 && thin < 1e-3 && thin > plain,
+            "{plain} {thin}"
+        );
+    }
+}
+
+#[test]
+#[ignore = "QMR with and without ILU(0), for the docs: PRECONDITION_CASE=guide|diel cargo test --release fdfd::three::tests::qmr_with_ilu -- --ignored --nocapture"]
+fn qmr_with_ilu_against_plain_qmr() {
+    // each solve against its own problem's reference (ILU(0) on Shin and Fan's operator to
+    // 1e-12), at several tolerances: iterations, time, and the field's error
+    use crate::fdfd::{Formulation, IterativeSolver3d, Stopping};
+    let case = std::env::var("PRECONDITION_CASE").unwrap_or_else(|_| "guide".into());
+    let pml: usize = std::env::var("PRECONDITION_PML")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(10);
+    let h = 0.01;
+    // the 40^3 silicon guide 100 nm across through the PMLs, or Shin and Fan's Diel, smaller: a
+    // 400 x 300 nm silicon guide in vacuum along x, 40 x 90 x 80 cells
+    let (n, square): ([usize; 3], f64) = if case == "diel" {
+        ([40, 70 + 2 * pml, 60 + 2 * pml], 0.0)
+    } else {
+        ([20 + 2 * pml; 3], 0.05)
+    };
+    let grid = Grid3d {
+        nx: n[0],
+        ny: n[1],
+        nz: n[2],
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: -(n[0] as f64) * h / 2.0,
+        y0: -(n[1] as f64) * h / 2.0,
+        z0: -(n[2] as f64) * h / 2.0,
+    };
+    let (wy, wz) = if case == "diel" {
+        (0.2, 0.15)
+    } else {
+        (square, square)
+    };
+    let guide = move |_: f64, y: f64, z: f64| {
+        c64::new(
+            if y.abs() < wy && z.abs() < wz {
+                12.09
+            } else {
+                1.0
+            },
+            0.0,
+        )
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let mut source = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    if case == "diel" {
+        // a y-polarized current across the guide, 15 cells in
+        for k in 0..grid.nz {
+            for j in 0..grid.ny {
+                let [_, y, z] = grid.e_position(Axis::Y, (15, j, k));
+                if y.abs() < wy && z.abs() < wz {
+                    source[grid.index(Axis::Y, (15, j, k))] = c64::new(1.0, 0.0);
+                }
+            }
+        }
+    } else {
+        source[grid.index(Axis::X, (n[0] / 2 + 3, n[1] / 2 + 3, n[2] / 2 + 3))] =
+            c64::new(1.0, 0.0);
+    }
+    let norm = |v: &[c64]| v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
+    println!(
+        "ILU {case}: {} x {} x {} cells, {} unknowns, PMLs of {pml}",
+        n[0],
+        n[1],
+        n[2],
+        grid.unknowns()
+    );
+    for (label, boundaries) in [
+        ("plain PMLs", Boundaries3d::pml(pml)),
+        ("stretched PMLs", Boundaries3d::stretched_pml(pml)),
+    ] {
+        let t = std::time::Instant::now();
+        let ilu = IterativeSolver3d::new(grid, lam, guide, boundaries, Formulation::ShinFan)
+            .unwrap()
+            .with_ilu()
+            .unwrap();
+        println!("ILU {case} {label}: assembly and ILU(0) {:?}", t.elapsed());
+        let stop = |tolerance: f64| Stopping {
+            tolerance,
+            max_iterations: 40_000,
+        };
+        let t = std::time::Instant::now();
+        let reference = ilu.solve(&source, stop(1e-12)).unwrap();
+        println!(
+            "ILU {case} {label}: reference, {} iterations, {:?}",
+            reference.1.iterations,
+            t.elapsed()
+        );
+        let reference = reference.0.values().to_vec();
+        let error = |x: &[c64]| {
+            let d: Vec<c64> = x.iter().zip(&reference).map(|(a, b)| a - b).collect();
+            norm(&d) / norm(&reference)
+        };
+        let skip = std::env::var("PRECONDITION_SKIP").unwrap_or_default();
+        let skipped = |part: &str| skip.split(',').any(|s| s == format!("{label} {part}"));
+        for tolerance in [1e-6, 1e-8, 1e-10] {
+            if skipped("ilu") {
+                break;
+            }
+            let t = std::time::Instant::now();
+            let (x, how) = ilu.solve(&source, stop(tolerance)).unwrap();
+            println!(
+                "ILU {case} {label}: ILU(0), Shin and Fan, {tolerance:e}: {} iterations, {:?}, error {:.1e}",
+                how.iterations,
+                t.elapsed(),
+                error(x.values())
+            );
+        }
+        drop(ilu);
+        for formulation in [Formulation::CurlCurl, Formulation::ShinFan] {
+            if skipped(&format!("{formulation:?}")) {
+                continue;
+            }
+            let plain = IterativeSolver3d::new(grid, lam, guide, boundaries, formulation).unwrap();
+            for tolerance in [1e-6, 1e-8] {
+                let t = std::time::Instant::now();
+                match plain.solve(&source, stop(tolerance)) {
+                    Ok((x, how)) => println!(
+                        "ILU {case} {label}: plain, {formulation:?}, {tolerance:e}: {} iterations, {:?}, error {:.1e}",
+                        how.iterations,
+                        t.elapsed(),
+                        error(x.values())
+                    ),
+                    Err(err) => println!("ILU {case} {label}: plain, {formulation:?}: {err}"),
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn qmr_with_ilu_gives_the_direct_solvers_field_in_fewer_iterations() {
+    // measured 2.4e-10, in 160 iterations against 548 (both on Shin and Fan's operator with
+    // stretched PMLs, which alone halve plain QMR's iterations on it)
+    let (error, with, without) = ilu_against_direct();
+    assert!(error < 1e-8, "{error}");
+    assert!(with * 3 < without, "{with} against {without}");
+}
+
+#[test]
+fn ilu_on_the_curl_curl_operator_is_an_error() {
+    use crate::fdfd::{Formulation, IterativeSolver3d};
+    let grid = Grid3d {
+        nx: 6,
+        ny: 6,
+        nz: 6,
+        dx: 0.05,
+        dy: 0.05,
+        dz: 0.05,
+        x0: 0.0,
+        y0: 0.0,
+        z0: 0.0,
+    };
+    let solver = IterativeSolver3d::new(
+        grid,
+        Wavelength::um(1.55).unwrap(),
+        |_, _, _| c64::new(2.0, 0.0),
+        Boundaries3d::stretched_pml(1),
+        Formulation::CurlCurl,
+    )
+    .unwrap();
+    assert!(solver.with_ilu().is_err());
+    // and a negative real stretch is an error
+    let bad = Boundaries3d {
+        real_stretch: -1.0,
+        ..Boundaries3d::pml(1)
+    };
+    assert!(
+        Solver3d::new(
+            grid,
+            Wavelength::um(1.55).unwrap(),
+            |_, _, _| c64::new(2.0, 0.0),
+            bad
+        )
+        .is_err()
+    );
+}
+
+#[test]
+#[ignore = "a strip's S-matrix by QMR, for the docs: cargo test --release fdfd::three::tests::a_strips_s_matrix_by_qmr -- --ignored --nocapture"]
+fn a_strips_s_matrix_by_qmr() {
+    // a straight silicon strip (0.5 x 0.22 um) in oxide on a 20 nm grid, ports 0.6 um apart:
+    // S21 must be e^(i beta L) and S11 zero, whatever the PMLs, so their errors measure the
+    // solve; plain QMR with plain PMLs against QMR + ILU(0) with stretched ones
+    use crate::fdfd::{Formulation, IterativeSolver3d, Side, Stopping};
+    let h = 0.02;
+    let pml: usize = std::env::var("STRIP_PML")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(16);
+    let (nx, ny, nz) = (40 + 2 * pml, 70 + 2 * pml, 50 + 2 * pml);
+    let grid = Grid3d {
+        nx,
+        ny,
+        nz,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: 0.0,
+        y0: -(ny as f64) * h / 2.0,
+        z0: -(nz as f64) * h / 2.0,
+    };
+    let strip = |_: f64, y: f64, z: f64| {
+        let n: f64 = if y.abs() < 0.25 && z.abs() < 0.11 {
+            3.476
+        } else {
+            1.444
+        };
+        c64::new(n * n, 0.0)
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    println!(
+        "STRIP {nx} x {ny} x {nz} cells, {} unknowns, PMLs of {pml}",
+        grid.unknowns()
+    );
+    let (left, right) = (pml + 5, pml + 35);
+    for (label, boundaries, formulation, ilu, tolerance) in [
+        (
+            "plain PMLs, QMR, curl-curl",
+            Boundaries3d::pml(pml),
+            Formulation::CurlCurl,
+            false,
+            1e-6,
+        ),
+        (
+            "plain PMLs, QMR, curl-curl",
+            Boundaries3d::pml(pml),
+            Formulation::CurlCurl,
+            false,
+            1e-8,
+        ),
+        (
+            "stretched PMLs, QMR + ILU(0), Shin and Fan",
+            Boundaries3d::stretched_pml(pml),
+            Formulation::ShinFan,
+            true,
+            1e-8,
+        ),
+        (
+            "stretched PMLs, QMR + ILU(0), Shin and Fan",
+            Boundaries3d::stretched_pml(pml),
+            Formulation::ShinFan,
+            true,
+            1e-10,
+        ),
+    ] {
+        let t = std::time::Instant::now();
+        let mut solver = IterativeSolver3d::new(grid, lam, strip, boundaries, formulation).unwrap();
+        if ilu {
+            solver = solver.with_ilu().unwrap();
+        }
+        let mode = |p: usize| solver.port_modes(Axis::X, p, 1).unwrap().remove(0);
+        let ports = [
+            Port3d {
+                mode: mode(left),
+                side: Side::Left,
+            },
+            Port3d {
+                mode: mode(right),
+                side: Side::Right,
+            },
+        ];
+        let setup = t.elapsed();
+        let beta = ports[0].mode.beta();
+        let expected = (c64::new(0.0, 1.0) * beta * (right - left) as f64 * h).exp();
+        let t = std::time::Instant::now();
+        let stopping = Stopping {
+            tolerance,
+            max_iterations: 40_000,
+        };
+        let (_, how) = solver
+            .solve_system(
+                &solver.mode_source(&ports[0].mode, crate::fdfd::Direction::Forward),
+                stopping,
+            )
+            .unwrap();
+        println!(
+            "STRIP {label}, {tolerance:e}: one run, {} iterations, {:?}",
+            how.iterations,
+            t.elapsed()
+        );
+        let t = std::time::Instant::now();
+        let s = solver.s_matrix(&ports, stopping).unwrap();
+        let error = [
+            s[0][0].norm(),
+            s[1][1].norm(),
+            (s[1][0] - expected).norm(),
+            (s[0][1] - expected).norm(),
+        ]
+        .into_iter()
+        .fold(0.0, f64::max);
+        println!(
+            "STRIP {label}, {tolerance:e}: n_eff {:.6}, S in {:?} (setup {setup:?}), error {error:.1e}",
+            ports[0].mode.effective_index(),
+            t.elapsed()
+        );
+    }
 }
