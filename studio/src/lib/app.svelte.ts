@@ -1,7 +1,7 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
 import { api, type AppState, type Info, type Settings } from "./api";
-import type { Event, Field, Mode, ModeField, Permittivity, Scene, SParameters, SweepPoint } from "./events";
+import type { Event, Field, Mode, ModeField, Permittivity, Scene, Shape, SParameters, SweepMode, SweepPoint } from "./events";
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
 
@@ -130,6 +130,12 @@ export const run = $state({
   /** The modes' signed fields, by the mode's label; an older run has none. */
   modeFields: {} as Record<string, ModeField>,
   sweep: null as { parameter: string; points: SweepPoint[] } | null,
+  /** Each sweep point's modes, by the point's index; an older run has none. */
+  sweepModes: {} as Record<number, SweepMode[]>,
+  /** A width sweep's shapes at each point, by its index. */
+  sweepShapes: {} as Record<number, Shape[]>,
+  /** The sweep point shown, or null for the job's own configuration (the nominal one). */
+  point: null as number | null,
   fields: [] as Field[],
   sparams: [] as SParameters[],
   finished: null as { stopped: string | null; seconds: number } | null,
@@ -154,6 +160,22 @@ export const run = $state({
   version: 0,
 });
 
+/** The modes shown, and their signed fields by label: the sweep point's, or the job's own. */
+export function shownModes(): { modes: Mode[]; fields: Record<string, ModeField> } {
+  const at = run.point === null ? null : run.sweepModes[run.point];
+  if (!at) return { modes: run.modes, fields: run.modeFields };
+  return {
+    modes: at.map((m) => ({ type: "mode", label: m.label, wavelength_um: m.wavelength_um, effective_index: m.effective_index, te_fraction: m.te_fraction, intensity: m.intensity, cut_y_um: m.cut_y_um })),
+    fields: Object.fromEntries(at.map((m) => [m.label, { type: "mode_field", label: m.label, wavelength_um: m.wavelength_um, component: m.component, values: m.field }])),
+  };
+}
+
+/** The structure shown: the scene, with a width sweep point's shapes when one is picked. */
+export function shownScene(): Scene | null {
+  const shapes = run.point === null ? undefined : run.sweepShapes[run.point];
+  return run.scene && shapes ? { ...run.scene, shapes } : run.scene;
+}
+
 function take(e: Event) {
   switch (e.type) {
     case "started":
@@ -174,6 +196,14 @@ function take(e: Event) {
     case "sweep_point":
       run.sweep ??= { parameter: e.parameter, points: [] };
       run.sweep.points.push(e);
+      break;
+    case "sweep_shapes":
+      run.sweepShapes[e.point] = e.shapes;
+      break;
+    case "sweep_mode":
+      // (in two steps: `??=` gives back the plain array, not the state's proxy of it)
+      run.sweepModes[e.point] ??= [];
+      run.sweepModes[e.point].push(e);
       break;
     case "field":
       run.fields.push(e);
@@ -196,6 +226,9 @@ function reset(info: Info) {
     modes: [],
     modeFields: {},
     sweep: null,
+    sweepModes: {},
+    sweepShapes: {},
+    point: null,
     fields: [],
     sparams: [],
     finished: null,

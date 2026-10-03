@@ -42,7 +42,11 @@ window only follows that record, so a live run and a replay look the same.
     Drag to orbit, right-drag to pan, scroll to zoom.
   - **2D:** fields, S-parameters and spectra, permittivity pictures, modes, and a sweep's
     effective and group indices. Hover a plot to read its values, and save its data as CSV.
-  - The side panel hides layers, picks the mode shown, and stops a running job. The field has
+  - The side panel hides layers, picks the mode shown, and stops a running job. A sweep's
+    slider (or ← and →) flips through its points: the structure at that point (a width
+    sweep's strip widens), its modes on the cut and travelling, and the point marked on the
+    2D plots, with the job's own configuration first. It grows as a running sweep's points
+    arrive. The field has
     its own row (shown or not, and how strongly), apart from the layers. A layer outside the
     run's window is greyed. Each layer's info button tells what it is made of, what fills it
     around its shapes and what lies under and over it, and recolours it in the viewer.

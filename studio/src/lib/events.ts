@@ -87,6 +87,31 @@ export interface SweepPoint {
   te_fractions: number[];
 }
 
+/** A width sweep's shapes at one point: the scene's, with the swept rectangle at that width. */
+export interface SweepShapes {
+  type: "sweep_shapes";
+  /** The point's index, from 0. */
+  point: number;
+  value: number;
+  shapes: Shape[];
+}
+
+/** A mode at one point of a sweep: its Mode and ModeField together, on coarser pixels. */
+export interface SweepMode {
+  type: "sweep_mode";
+  /** The point's index, from 0. */
+  point: number;
+  value: number;
+  label: string;
+  wavelength_um: number;
+  effective_index: [number, number];
+  te_fraction: number;
+  intensity: Raster;
+  component: string;
+  field: Raster;
+  cut_y_um: number;
+}
+
 export interface Field {
   type: "field";
   label: string;
@@ -113,6 +138,8 @@ export type Event =
   | Mode
   | ModeField
   | SweepPoint
+  | SweepShapes
+  | SweepMode
   | Field
   | SParameters
   | { type: "finished"; stopped: string | null; seconds: number };
