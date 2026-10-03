@@ -179,6 +179,49 @@ pub enum Event {
         #[serde(default)]
         cut_y_um: f64,
     },
+    /// A point of a sweep: the modes' effective indices at one value of the parameter.
+    SweepPoint {
+        /// `"wavelength"` (µm) or `"width"` (µm).
+        parameter: String,
+        /// The parameter's value.
+        value: f64,
+        /// The vacuum wavelength, µm.
+        wavelength_um: f64,
+        /// The modes' effective indices, highest first, real and imaginary parts.
+        effective_indices: Vec<[f64; 2]>,
+        /// Their TE fractions, in the same order.
+        te_fractions: Vec<f64>,
+    },
+    /// A field of a 2D FDFD run, seen from above.
+    Field {
+        /// What it shows, e.g. `"|H_z|^2 from port 1, 2D by the effective index method"`.
+        label: String,
+        /// The vacuum wavelength, µm.
+        wavelength_um: f64,
+        /// The height the 3D view draws it at, µm: the layer's top face.
+        z_um: f64,
+        /// |field|², its largest value 1; x across, y up.
+        intensity: Raster,
+    },
+    /// A 2D FDFD run's S-parameters at one wavelength.
+    SParameters {
+        /// The vacuum wavelength, µm.
+        wavelength_um: f64,
+        /// The ports' names, in order.
+        ports: Vec<String>,
+        /// Each port's mode's effective index.
+        effective_indices: Vec<f64>,
+        /// The power-normalized S-matrix, `s[q][p]` from port p into port q, real and
+        /// imaginary parts.
+        s: Vec<Vec<[f64; 2]>>,
+    },
+    /// The run ended.
+    Finished {
+        /// Why it ended early, if it did: `"timeout"` or `"requested"`.
+        stopped: Option<String>,
+        /// Its duration, seconds.
+        seconds: f64,
+    },
     /// A guided mode's signed field on its cross-section, recorded right after its
     /// [`Event::Mode`]: the transverse component of E that carries most of |E|², with the
     /// mode's global phase chosen to make that component real and positive where its magnitude
@@ -197,19 +240,6 @@ pub enum Event {
         /// Its real part at the cells' centres, scaled so that its largest magnitude is 1 (from
         /// −1 to 1, positive at the peak); x across, z up, on the [`Event::Mode`]'s grid.
         values: Raster,
-    },
-    /// A point of a sweep: the modes' effective indices at one value of the parameter.
-    SweepPoint {
-        /// `"wavelength"` (µm) or `"width"` (µm).
-        parameter: String,
-        /// The parameter's value.
-        value: f64,
-        /// The vacuum wavelength, µm.
-        wavelength_um: f64,
-        /// The modes' effective indices, highest first, real and imaginary parts.
-        effective_indices: Vec<[f64; 2]>,
-        /// Their TE fractions, in the same order.
-        te_fractions: Vec<f64>,
     },
     /// The shapes at a point of a width sweep, recorded after its [`Event::SweepPoint`]: the
     /// [`Event::Scene`]'s shapes with the swept rectangle at that width (the window and the
@@ -266,36 +296,8 @@ pub enum Event {
         /// The y where the cross-section was cut, µm.
         cut_y_um: f64,
     },
-    /// A field of a 2D FDFD run, seen from above.
-    Field {
-        /// What it shows, e.g. `"|H_z|^2 from port 1, 2D by the effective index method"`.
-        label: String,
-        /// The vacuum wavelength, µm.
-        wavelength_um: f64,
-        /// The height the 3D view draws it at, µm: the layer's top face.
-        z_um: f64,
-        /// |field|², its largest value 1; x across, y up.
-        intensity: Raster,
-    },
-    /// A 2D FDFD run's S-parameters at one wavelength.
-    SParameters {
-        /// The vacuum wavelength, µm.
-        wavelength_um: f64,
-        /// The ports' names, in order.
-        ports: Vec<String>,
-        /// Each port's mode's effective index.
-        effective_indices: Vec<f64>,
-        /// The power-normalized S-matrix, `s[q][p]` from port p into port q, real and
-        /// imaginary parts.
-        s: Vec<Vec<[f64; 2]>>,
-    },
-    /// The run ended.
-    Finished {
-        /// Why it ended early, if it did: `"timeout"` or `"requested"`.
-        stopped: Option<String>,
-        /// Its duration, seconds.
-        seconds: f64,
-    },
+    // New variants go here, at the end after the last one, so that the earlier variants keep
+    // their discriminants (inserting one in between renumbers every variant after it).
 }
 
 /// A medium of a [`Event::Scene`]: its material and the real part of its permittivity.
