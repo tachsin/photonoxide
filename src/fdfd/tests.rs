@@ -342,3 +342,33 @@ fn an_h_gradient_needs_a_problem_given_cell_by_cell() {
             .is_err()
     );
 }
+
+#[test]
+fn a_backward_source_launches_the_twin_with_the_same_tangential_e_at_unit_amplitude() {
+    // the backward twin of a mode has the same tangential E: with H along z, the opposite H_z;
+    // launched backward, its amplitude is 1 at the mode's column, and the field's H_z there is
+    // minus the profile, its E_z (E along z) the profile itself
+    for (polarization, twin) in [(Polarization::Ez, 1.0), (Polarization::Hz, -1.0)] {
+        let solver = guide(polarization, 0.02, 2.0, (3.476, 1.444), |_| 0.22);
+        let ports = two_ports(&solver);
+        let mode = &ports[1].mode;
+        let field = solver
+            .solve_system(&solver.mode_source(mode, Direction::Backward))
+            .unwrap();
+        let (forward, backward) = field.mode_amplitudes(mode);
+        assert!(
+            // forward: what the far PML sends back, 5e-6
+            (backward - 1.0).norm() < 1e-9 && forward.norm() < 1e-4,
+            "{polarization:?}: {forward} {backward}"
+        );
+        let peak = (0..solver.grid().ny)
+            .max_by(|&a, &b| {
+                mode.profile()[a]
+                    .norm()
+                    .total_cmp(&mode.profile()[b].norm())
+            })
+            .unwrap();
+        let ratio = field.at(mode.column(), peak) / mode.profile()[peak];
+        assert!((ratio - twin).norm() < 1e-4, "{polarization:?}: {ratio}");
+    }
+}

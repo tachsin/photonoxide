@@ -33,6 +33,10 @@ components as they are.
   input. The ports are in the order the component lists them.
 - **Reference planes:** each port's phase is measured at its reference plane, where the
   component ends. Connecting two components joins their reference planes.
+- **Reflections:** a port's backward wave is its mode's twin with the same tangential E, the usual
+  convention of mode expansions, so S_qq is the tangential E's reflection, in the 2D solver with
+  either polarization and in the 3D ports alike (since 0.4.0: before, the 2D solver's with H along
+  z, the `"fdfd"` jobs' `"te"`, were H_z's, of the opposite sign).
 - **Reciprocity:** a reciprocal component has S = Sᵀ, exactly in the FDFD solver, whose
   S-matrices are normalized by the unconjugated Lorentz form for that reason. Everything up to
   magneto-optics is reciprocal; `Component::reciprocal` says so, and defaults to true.

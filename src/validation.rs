@@ -715,7 +715,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdfd3d/two-d-s-matrix",
             title: "3D FDFD ports on a structure invariant along $z$ (a silicon slab stepping from 220 to 300 nm, one periodic cell along $z$, 20 nm grid) against the 2D solver's $S$-matrix, $E$ along $z$ and $H$ along $z$ (largest difference shown)",
             tier: Tier::Analytic,
-            source: r"with $\partial/\partial z = 0$ the 3D scheme is the 2D one (fdfd3d/two-d-agreement); with $H$ along $z$ the two agree to the eigensolver's tolerance (2e-10), with $E$ along $z$ to 9e-9, the PMLs half a cell apart in the two grids; the 2D solver's reflections with $H$ along $z$ are its $H_z$'s, minus the 3D ports' (tangential $E$)",
+            source: r"with $\partial/\partial z = 0$ the 3D scheme is the 2D one (fdfd3d/two-d-agreement); with $H$ along $z$ the two agree to the eigensolver's tolerance (2e-10), with $E$ along $z$ to 9e-9, the PMLs half a cell apart in the two grids; both take a mode's backward twin with the same tangential $E$, so the reflections agree in sign",
             run: fdfd3d_two_d_s_matrix,
         },
         Case {

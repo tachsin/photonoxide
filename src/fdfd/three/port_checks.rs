@@ -331,6 +331,8 @@ pub(crate) fn unitarity(s: &[Vec<c64>]) -> f64 {
 /// systems are the same equations. For H along z, the 3D port planes (nodes, where E_y lies)
 /// are half a cell before the 2D columns (where H_z lies), and S's reference planes move by
 /// e^(iβ_q δ_q + iβ_p δ_p), δ the outward shift.
+/// Both solvers take a mode's backward twin with the same tangential E, so S's reflections agree
+/// in sign as well as in size.
 pub(crate) fn two_d_s_difference(polarization: Polarization) -> f64 {
     let (h, pml) = (0.02, 10);
     let (nx, ny) = (60 + 2 * pml, 100 + 2 * pml);
@@ -421,19 +423,14 @@ pub(crate) fn two_d_s_difference(polarization: Polarization) -> f64 {
         Polarization::Ez => [0.0, 0.0],
         Polarization::Hz => [0.5 * h, -0.5 * h],
     };
-    // and with H along z, the 2D solver's backward mode has the forward one's H_z, where the 3D
-    // one has its tangential E: its backward amplitudes, and so its reflections, are minus these
-    let sign = match polarization {
-        Polarization::Ez => 1.0,
-        Polarization::Hz => -1.0,
-    };
     let beta = [ports3[0].mode.beta(), ports3[1].mode.beta()];
     let mut worst: f64 = 0.0;
     for q in 0..2 {
         for p in 0..2 {
             let turn = c64::new(0.0, -1.0) * (beta[q] * delta[q] + beta[p] * delta[p]);
-            let flip = if q == p { sign } else { 1.0 };
-            worst = worst.max((flip * s3[q][p] * turn.exp() - s2[q][p]).norm());
+            // both solvers' backward modes have the forward ones' tangential E, so the reflections
+            // agree in sign too
+            worst = worst.max((s3[q][p] * turn.exp() - s2[q][p]).norm());
         }
     }
     worst
