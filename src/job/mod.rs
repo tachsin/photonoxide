@@ -35,12 +35,22 @@
 //! width_um = 0.4
 //! ```
 //!
-//! - `"modes"`: the guided modes of a waveguide's cross-section, the same stack and shapes cut at
-//!   y = `cut_y_um` (the modes travel along y), by the full-vector solver
+//! - `"modes"`: the guided modes of a waveguide's cross-section, by the full-vector solver
 //!   ([`crate::mode::vector`]) on a uniform grid of `step_nm`; recorded as a picture of the
 //!   cross-section and, for each mode, one of its |E|² and one of its signed transverse field,
 //!   and optionally swept over the wavelength or a rectangle's width, each point recorded as it
 //!   is solved, with its modes' pictures and, for a width sweep, its shapes.
+//!
+//!   Light travels along x in every kind of job: a modes job with `propagation = "x"` cuts the
+//!   stack and shapes at x = `cut_x_um` (0 by default) over the window `y_um` across the guide,
+//!   as an `"fdfd"` job's ports are columns normal to x, so the same rectangle is the same guide
+//!   in both. A job without `propagation` is an older one, its modes travelling along y: it is
+//!   cut at y = `cut_y_um` over the window `x_um`, as `propagation = "y"` says, and runs exactly
+//!   as before. Either way the cross-section's pictures have the axis across the guide (y for
+//!   modes along x, x for modes along y) across and z up, and a width sweep's `"width"` is the
+//!   swept rectangle's size across the guide: along y for modes along x, along x for modes along
+//!   y. A job that names its `propagation` records an [`Event::Cut`] after its scene, naming
+//!   the cut's plane.
 //!
 //! ```toml
 //! name = "strip-modes"
@@ -51,17 +61,19 @@
 //! stack = "soi_220"
 //! wavelength_um = 1.55
 //! layer = "Si"               # the window's height defaults to 1 µm around it
-//! x_um = [-1.2, 1.2]
+//! propagation = "x"          # the modes travel along x; "y" (the default) for an older job
+//! y_um = [-1.2, 1.2]         # the window across the guide (x_um for "y")
+//! cut_x_um = 0.0             # where the cross-section is cut (cut_y_um for "y")
 //! step_nm = 20.0
 //! modes = 2                  # how many, from the highest effective index
 //!
 //! [[task.rect]]
 //! layer = "Si"
 //! center_um = [0.0, 0.0]
-//! size_um = [0.5, 10.0]      # 500 nm wide, along y
+//! size_um = [10.0, 0.5]      # 500 nm wide, along x
 //!
 //! [task.sweep]
-//! parameter = "wavelength"   # or "width": rect `rect`'s size along x
+//! parameter = "wavelength"   # or "width": rect `rect`'s size across the guide (along y here)
 //! from = 1.5
 //! to = 1.6
 //! points = 11
@@ -71,6 +83,7 @@
 //!   ports: each point's permittivity is its slab's effective index squared (the effective
 //!   index method, so the results are 2D estimates, not a device's 3D performance). Recorded
 //!   as the S-parameters at each wavelength, and the field from the first port at the first.
+//!   The ports are columns normal to x, so the light travels along x.
 //!
 //! ```toml
 //! name = "mmi"
@@ -175,9 +188,11 @@ pub enum Event {
         /// The share of the transverse magnetic field in H_y (see
         /// [`crate::mode::vector::VectorMode::te_fraction`]): near 1 for a TE-like mode.
         te_fraction: f64,
-        /// |E|² at the cells' centres, its largest value 1; x across, z up.
+        /// |E|² at the cells' centres, its largest value 1; across the guide (x, or y for modes
+        /// travelling along x: see [`Event::Cut`]) and z up.
         intensity: Raster,
-        /// The y where the cross-section was cut, µm.
+        /// Where the cross-section was cut along the guide, µm: the y of the cut, or its x when
+        /// the run's [`Event::Cut`] is normal to x (the modes travel along x).
         #[serde(default)]
         cut_y_um: f64,
     },
@@ -228,19 +243,22 @@ pub enum Event {
     /// [`Event::Mode`]: the transverse component of E that carries most of |E|², with the
     /// mode's global phase chosen to make that component real and positive where its magnitude
     /// peaks, and then its real part. For a lossless guided mode the component is then real
-    /// everywhere up to round-off, so along the guide (the modes travel along +y) the field is
-    /// this picture times cos(β (y − cut_y) − ωt), with β = k₀ Re n_eff, and a lossy mode's
-    /// also decays as e^(−k₀ Im n_eff (y − cut_y)). Unlike |E|², it shows where a higher-order
-    /// mode changes sign.
+    /// everywhere up to round-off, so along the guide (the modes travel along +y, or +x when the
+    /// run's [`Event::Cut`] is normal to x; s below is that coordinate) the field is this
+    /// picture times cos(β (s − cut) − ωt), with β = k₀ Re n_eff and the cut at
+    /// [`Event::Mode`]'s `cut_y_um`, and a lossy mode's also decays as e^(−k₀ Im n_eff (s − cut)).
+    /// Unlike |E|², it shows where a higher-order mode changes sign.
     ModeField {
         /// The [`Event::Mode`]'s label, e.g. `"mode 1 of 2"`.
         label: String,
         /// The vacuum wavelength, µm.
         wavelength_um: f64,
-        /// The component, in the job's axes: `"Ex"` (across) or `"Ez"` (up).
+        /// The component, in the job's axes: `"Ex"` or `"Ey"` (across the guide, for modes
+        /// travelling along y or x) or `"Ez"` (up).
         component: String,
         /// Its real part at the cells' centres, scaled so that its largest magnitude is 1 (from
-        /// −1 to 1, positive at the peak); x across, z up, on the [`Event::Mode`]'s grid.
+        /// −1 to 1, positive at the peak); across the guide and z up, on the [`Event::Mode`]'s
+        /// grid.
         values: Raster,
     },
     /// The shapes at a point of a width sweep, recorded after its [`Event::SweepPoint`]: the
@@ -263,9 +281,10 @@ pub enum Event {
         point: usize,
         /// The parameter's value there, µm.
         value: f64,
-        /// What the picture shows, e.g. `"cross-section at y = 0 um"`.
+        /// What the picture shows, e.g. `"cross-section at x = 0 um"`.
         view: String,
-        /// The axis labels, `["x", "z"]`.
+        /// The axis labels: across the guide and up, `["y", "z"]` for modes travelling along x
+        /// and `["x", "z"]` along y.
         axes: [String; 2],
         /// The vacuum wavelength, µm.
         wavelength_um: f64,
@@ -289,13 +308,14 @@ pub enum Event {
         effective_index: [f64; 2],
         /// The share of the transverse magnetic field in H_y: near 1 for a TE-like mode.
         te_fraction: f64,
-        /// |E|², its largest value 1; x across, z up.
+        /// |E|², its largest value 1; across the guide, z up.
         intensity: Raster,
-        /// The signed field's component, as [`Event::ModeField`] names it: `"Ex"` or `"Ez"`.
+        /// The signed field's component, as [`Event::ModeField`] names it: `"Ex"`, `"Ey"` or
+        /// `"Ez"`.
         component: String,
         /// That component's real part, from −1 to 1, as [`Event::ModeField`] records it.
         field: Raster,
-        /// The y where the cross-section was cut, µm.
+        /// Where the cross-section was cut along the guide, µm, as [`Event::Mode`] records it.
         cut_y_um: f64,
     },
     /// A sweep is about to run, recorded before its first point: what it steps through, so that
@@ -329,6 +349,16 @@ pub enum Event {
         /// |field|², its largest value 1 (each point's own peak, so the pictures compare in
         /// shape, not in strength); x across, y up.
         intensity: Raster,
+    },
+    /// The plane a modes job cut its cross-section on, recorded right after its
+    /// [`Event::Scene`] by a job that names its `propagation`: the modes travel along the
+    /// plane's normal, towards +x or +y. A modes run without one (an older job) cut normal to
+    /// y, at its [`Event::Mode`]s' `cut_y_um`.
+    Cut {
+        /// The axis the plane is normal to and the modes travel along: `"x"` or `"y"`.
+        normal: String,
+        /// Where the plane crosses that axis, µm.
+        at_um: f64,
     },
     // New variants go here, at the end after the last one, so that the earlier variants keep
     // their discriminants (inserting one in between renumbers every variant after it).
@@ -613,13 +643,78 @@ impl StructureTask {
 }
 
 impl ModesTask {
-    /// What [`check`] and the run both refuse before solving anything: the windows, the step, the
-    /// cut and the sweep.
+    /// The axis the modes travel along: `propagation`, y when it isn't given (an older job).
+    fn along(&self) -> Result<Along> {
+        match self.propagation.as_deref() {
+            None | Some("y") => Ok(Along::Y),
+            Some("x") => Ok(Along::X),
+            Some(other) => Err(task_error(format!(
+                "unknown propagation \"{other}\": x or y"
+            ))),
+        }
+    }
+
+    /// The window across the guide, µm: `y_um` for modes along x, `x_um` along y.
+    fn across(&self) -> Result<[f64; 2]> {
+        let (window, name) = match self.along()? {
+            Along::X => (self.y_um, "y_um"),
+            Along::Y => (self.x_um, "x_um"),
+        };
+        window.ok_or_else(|| {
+            task_error(format!(
+                "a modes job along {} needs {name}, its window across the guide",
+                self.along().map_or("y", Along::name)
+            ))
+        })
+    }
+
+    /// Where the cross-section is cut along the guide, µm: `cut_x_um` or `cut_y_um`, 0 by default.
+    fn cut(&self) -> Result<f64> {
+        Ok(match self.along()? {
+            Along::X => self.cut_x_um,
+            Along::Y => self.cut_y_um,
+        }
+        .unwrap_or(0.0))
+    }
+
+    /// What [`check`] and the run both refuse before solving anything: the propagation, the
+    /// windows, the step, the cut and the sweep.
     fn validate(&self) -> Result<()> {
-        check_window("x_um", self.x_um)?;
+        let along = self.along()?;
+        // the other propagation's fields would be read as nothing: refused, not ignored
+        let (window, cut, other) = match along {
+            Along::X => (
+                ("x_um", self.x_um.is_some()),
+                ("cut_y_um", self.cut_y_um.is_some()),
+                "y",
+            ),
+            Along::Y => (
+                ("y_um", self.y_um.is_some()),
+                ("cut_x_um", self.cut_x_um.is_some()),
+                "x",
+            ),
+        };
+        for (name, given) in [window, cut] {
+            if given {
+                return Err(task_error(format!(
+                    "{name} is for a modes job along {other}; this one's modes travel along {} \
+                     (propagation = \"{}\")",
+                    along.name(),
+                    along.name()
+                )));
+            }
+        }
+        check_window(
+            match along {
+                Along::X => "y_um",
+                Along::Y => "x_um",
+            },
+            self.across()?,
+        )?;
         if let Some(z) = self.z_um {
             check_window("z_um", z)?;
         }
+        check_finite("cut_x_um", self.cut_x_um)?;
         check_finite("cut_y_um", self.cut_y_um)?;
         check_step(self.step_nm)?;
         let Some(sweep) = &self.sweep else {
@@ -749,8 +844,16 @@ struct ModesTask {
     bottom_oxide_um: Option<f64>,
     wavelength_um: f64,
     layer: String,
-    x_um: [f64; 2],
+    /// `"x"` or `"y"` (the default, an older job): the axis the modes travel along.
+    propagation: Option<String>,
+    /// Along y: the window across the guide.
+    x_um: Option<[f64; 2]>,
+    /// Along x: the window across the guide.
+    y_um: Option<[f64; 2]>,
     z_um: Option<[f64; 2]>,
+    /// Along x: where the cross-section is cut.
+    cut_x_um: Option<f64>,
+    /// Along y: where the cross-section is cut.
     cut_y_um: Option<f64>,
     step_nm: f64,
     modes: Option<usize>,
@@ -761,6 +864,96 @@ struct ModesTask {
     #[serde(default)]
     ring: Vec<RingSpec>,
     sweep: Option<SweepSpec>,
+}
+
+/// The axis a modes job's modes travel along.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Along {
+    X,
+    Y,
+}
+
+impl Along {
+    fn name(self) -> &'static str {
+        match self {
+            Along::X => "x",
+            Along::Y => "y",
+        }
+    }
+
+    /// The axis across the guide, in the plane.
+    fn across(self) -> &'static str {
+        match self {
+            Along::X => "y",
+            Along::Y => "x",
+        }
+    }
+}
+
+/// A modes job's shapes and cut in the frame the cross-section is solved in, where the modes
+/// travel along y and x is across the guide. Along y that is the job's own frame; along x it is
+/// the job's turned a quarter turn clockwise, (x, y) → (y, −x): the job's y is the frame's x, so
+/// the pictures have the job's y across, and its cut x = c is the frame's y = −c. The turn is
+/// exact (a swap and a sign), so a guide along x has the modes of the same guide along y.
+struct Frame {
+    rect: Vec<RectSpec>,
+    circle: Vec<CircleSpec>,
+    ring: Vec<RingSpec>,
+    cut: f64,
+}
+
+impl Frame {
+    fn new(
+        along: Along,
+        rects: &[RectSpec],
+        circles: &[CircleSpec],
+        rings: &[RingSpec],
+        cut: f64,
+    ) -> Frame {
+        let turn = |c: [f64; 2]| match along {
+            Along::X => [c[1], -c[0]],
+            Along::Y => c,
+        };
+        Frame {
+            rect: rects
+                .iter()
+                .map(|r| RectSpec {
+                    layer: r.layer.clone(),
+                    center_um: turn(r.center_um),
+                    size_um: match along {
+                        Along::X => [r.size_um[1], r.size_um[0]],
+                        Along::Y => r.size_um,
+                    },
+                })
+                .collect(),
+            circle: circles
+                .iter()
+                .map(|c| CircleSpec {
+                    layer: c.layer.clone(),
+                    center_um: turn(c.center_um),
+                    radius_um: c.radius_um,
+                })
+                .collect(),
+            ring: rings
+                .iter()
+                .map(|r| RingSpec {
+                    layer: r.layer.clone(),
+                    center_um: turn(r.center_um),
+                    radius_um: r.radius_um,
+                    width_um: r.width_um,
+                })
+                .collect(),
+            cut: match along {
+                Along::X => -cut,
+                Along::Y => cut,
+            },
+        }
+    }
+
+    /// The frame's structure: the stack with its shapes drawn on it.
+    fn draw(&self, stack: LayerStack) -> Result<Structure> {
+        draw(stack, &self.rect, &self.circle, &self.ring)
+    }
 }
 
 /// The cross-section of `s` cut at y over `x` × `z` (µm) on a grid of about `step`, with every
@@ -893,6 +1086,7 @@ fn signed_field(
     x: [f64; 2],
     z: [f64; 2],
     step: f64,
+    across: &str,
 ) -> (String, Raster) {
     let (ni, nj) = (fields.x().len(), fields.y().len());
     let mut share = [0.0f64; 2];
@@ -903,11 +1097,11 @@ fn signed_field(
             share[1] += e[1].norm_sqr() * area;
         }
     }
-    // the solver's (x, y) cross-section is the job's (x, z)
+    // the solver's (x, y) cross-section is the job's (across, z)
     let (c, name) = if share[0] >= share[1] {
-        (0, "Ex")
+        (0, format!("E{across}"))
     } else {
-        (1, "Ez")
+        (1, "Ez".to_owned())
     };
     let mut peak = num_complex::Complex64::new(0.0, 0.0);
     for i in 0..ni {
@@ -925,7 +1119,7 @@ fn signed_field(
         num_complex::Complex64::new(1.0, 0.0)
     };
     let raster = picture(cs, x, z, step, |i, j| (fields.e(i, j)[c] * turn).re);
-    (name.to_owned(), raster)
+    (name, raster)
 }
 
 fn reason(stop: &Stop) -> Option<String> {
@@ -1088,14 +1282,20 @@ fn modes_z(task: &ModesTask, s: &Structure) -> Result<[f64; 2]> {
     }
 }
 
-/// A modes job's scene: a block behind the cut, as deep as the window is wide.
+/// A modes job's scene: a block behind the cut along the guide, as deep as the window across it
+/// is wide.
 fn modes_scene(task: &ModesTask, s: &Structure) -> Result<Event> {
-    let cut_y = task.cut_y_um.unwrap_or(0.0);
-    let depth = task.x_um[1] - task.x_um[0];
+    let cut = task.cut()?;
+    let across = task.across()?;
+    let behind = [cut - (across[1] - across[0]), cut];
+    let (x, y) = match task.along()? {
+        Along::X => (behind, across),
+        Along::Y => (across, behind),
+    };
     scene(
         s,
-        task.x_um,
-        [cut_y - depth, cut_y],
+        x,
+        y,
         modes_z(task, s)?,
         Wavelength::um(task.wavelength_um)?,
     )
@@ -1135,30 +1335,42 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let count = task.modes.unwrap_or(2).max(1);
     let lam = Wavelength::um(task.wavelength_um)?;
     let step = task.step_nm / 1000.0;
-    let cut_y = task.cut_y_um.unwrap_or(0.0);
+    let (along, across, cut) = (task.along()?, task.across()?, task.cut()?);
+    // the pictures' axes, across the guide and up, and how they name the cut
+    let axes = || [along.across().to_owned(), "z".to_owned()];
+    let view = format!("cross-section at {} = {cut} um", along.name());
     let s = draw(stack()?, &task.rect, &task.circle, &task.ring)?;
     let z = modes_z(&task, &s)?;
     run.record(&modes_scene(&task, &s)?)?;
+    if task.propagation.is_some() {
+        run.record(&Event::Cut {
+            normal: along.name().to_owned(),
+            at_um: cut,
+        })?;
+    }
+    // the structure the cross-section is solved in, the modes travelling along its y
+    let frame = Frame::new(along, &task.rect, &task.circle, &task.ring, cut);
+    let fs = frame.draw(stack()?)?;
     // the cross-section, as the structure job shows a side view
     run.record(&Event::Permittivity {
-        view: format!("cross-section at y = {cut_y} um"),
-        axes: ["x".into(), "z".into()],
+        view: view.clone(),
+        axes: axes(),
         wavelength_um: lam.to_um(),
-        raster: s.side_view(
-            Length::um(cut_y),
-            (Length::um(task.x_um[0]), Length::um(task.x_um[1])),
+        raster: fs.side_view(
+            Length::um(frame.cut),
+            (Length::um(across[0]), Length::um(across[1])),
             (Length::um(z[0]), Length::um(z[1])),
             Length::um(step),
             lam,
         )?,
     })?;
     let cs = cross_section(
-        &s,
-        &task.rect,
-        &task.circle,
-        &task.ring,
-        cut_y,
-        task.x_um,
+        &fs,
+        &frame.rect,
+        &frame.circle,
+        &frame.ring,
+        frame.cut,
+        across,
         z,
         step,
         lam,
@@ -1178,10 +1390,10 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             wavelength_um: lam.to_um(),
             effective_index: [n.re, n.im],
             te_fraction: m.te_fraction(),
-            intensity: intensity(&fields, &cs, task.x_um, z, step),
-            cut_y_um: cut_y,
+            intensity: intensity(&fields, &cs, across, z, step),
+            cut_y_um: cut,
         })?;
-        let (component, values) = signed_field(&fields, &cs, task.x_um, z, step);
+        let (component, values) = signed_field(&fields, &cs, across, z, step, along.across());
         run.record(&Event::ModeField {
             label,
             wavelength_um: lam.to_um(),
@@ -1211,12 +1423,12 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 let w = Wavelength::um(value)?;
                 (
                     cross_section(
-                        &s,
-                        &task.rect,
-                        &task.circle,
-                        &task.ring,
-                        cut_y,
-                        task.x_um,
+                        &fs,
+                        &frame.rect,
+                        &frame.circle,
+                        &frame.ring,
+                        frame.cut,
+                        across,
                         z,
                         step,
                         w,
@@ -1230,24 +1442,30 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 let r = rects.get_mut(index).ok_or_else(|| {
                     task_error(format!("the width sweep's rect {index} isn't there"))
                 })?;
-                r.size_um[0] = value;
+                // its size across the guide
+                match along {
+                    Along::X => r.size_um[1] = value,
+                    Along::Y => r.size_um[0] = value,
+                }
                 let swept = draw(stack()?, &rects, &task.circle, &task.ring)?;
-                let view = swept.side_view(
-                    Length::um(cut_y),
-                    (Length::um(task.x_um[0]), Length::um(task.x_um[1])),
+                let swept_frame = Frame::new(along, &rects, &task.circle, &task.ring, cut);
+                let swept_fs = swept_frame.draw(stack()?)?;
+                let picture = swept_fs.side_view(
+                    Length::um(swept_frame.cut),
+                    (Length::um(across[0]), Length::um(across[1])),
                     (Length::um(z[0]), Length::um(z[1])),
                     Length::um(2.0 * step),
                     lam,
                 )?;
-                shapes = Some((scene_shapes(&swept), view));
+                shapes = Some((scene_shapes(&swept), picture));
                 (
                     cross_section(
-                        &swept,
-                        &rects,
-                        &task.circle,
-                        &task.ring,
-                        cut_y,
-                        task.x_um,
+                        &swept_fs,
+                        &swept_frame.rect,
+                        &swept_frame.circle,
+                        &swept_frame.ring,
+                        swept_frame.cut,
+                        across,
                         z,
                         step,
                         lam,
@@ -1284,7 +1502,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             }
             r
         };
-        if let Some((shapes, view)) = shapes {
+        if let Some((shapes, picture)) = shapes {
             run.record(&Event::SweepShapes {
                 point: k,
                 value,
@@ -1293,10 +1511,10 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             run.record(&Event::SweepPermittivity {
                 point: k,
                 value,
-                view: format!("cross-section at y = {cut_y} um"),
-                axes: ["x".into(), "z".into()],
+                view: view.clone(),
+                axes: axes(),
                 wavelength_um: w.to_um(),
-                raster: coarse(view),
+                raster: coarse(picture),
             })?;
         }
         for (rank, m) in found.iter().enumerate() {
@@ -1304,7 +1522,8 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 return Ok(());
             }
             let fields = m.fields(&cs)?;
-            let (component, field) = signed_field(&fields, &cs, task.x_um, z, 2.0 * step);
+            let (component, field) =
+                signed_field(&fields, &cs, across, z, 2.0 * step, along.across());
             let n = m.effective_index();
             run.record(&Event::SweepMode {
                 point: k,
@@ -1313,10 +1532,10 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 wavelength_um: w.to_um(),
                 effective_index: [n.re, n.im],
                 te_fraction: m.te_fraction(),
-                intensity: coarse(intensity(&fields, &cs, task.x_um, z, 2.0 * step)),
+                intensity: coarse(intensity(&fields, &cs, across, z, 2.0 * step)),
                 component,
                 field: coarse(field),
-                cut_y_um: cut_y,
+                cut_y_um: cut,
             })?;
         }
     }
@@ -1506,6 +1725,308 @@ size_um = [0.5, 10.0]
         assert!(second[0] < effective_index[0] && *te_fraction < 0.1);
         // the TM-like mode's field is mostly vertical
         assert!(matches!(&events[6], Event::ModeField { component, .. } if component == "Ez"));
+    }
+
+    /// MODES, its modes travelling along x: the same strip turned a quarter turn.
+    const MODES_X: &str = r#"
+name = "strip-modes-x"
+
+[task]
+kind = "modes"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+propagation = "x"
+y_um = [-1.0, 1.0]
+step_nm = 25.0
+modes = 2
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, 0.0]
+size_um = [10.0, 0.5]
+"#;
+
+    fn run_events(tag: &str, text: &str) -> Vec<Event> {
+        let root = temp(tag);
+        let job = Job::parse(text).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        replay(run.dir()).unwrap()
+    }
+
+    /// Every mode's effective index, TE fraction and pictures, in the order recorded.
+    fn modes_of(events: &[Event]) -> Vec<([f64; 2], f64, Raster, String, Raster)> {
+        let mut out = Vec::new();
+        for (k, e) in events.iter().enumerate() {
+            if let Event::Mode {
+                effective_index,
+                te_fraction,
+                intensity,
+                ..
+            } = e
+            {
+                let Event::ModeField {
+                    component, values, ..
+                } = &events[k + 1]
+                else {
+                    panic!("{:?}", events[k + 1])
+                };
+                out.push((
+                    *effective_index,
+                    *te_fraction,
+                    intensity.clone(),
+                    component.clone(),
+                    values.clone(),
+                ));
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn a_guide_along_x_has_the_modes_of_the_same_guide_along_y() {
+        // an asymmetric pair of strips, a ring off to one side, a cut off the middle; along y it
+        // is the same structure turned a quarter turn: (x, y) along x is (y, −x) along y
+        let along_x = r#"
+name = "pair-x"
+
+[task]
+kind = "modes"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+propagation = "x"
+y_um = [-1.2, 1.0]
+cut_x_um = 0.7
+step_nm = 40.0
+modes = 3
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, 0.1]
+size_um = [10.0, 0.5]
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.5, -0.55]
+size_um = [6.0, 0.3]
+
+[[task.ring]]
+layer = "Si"
+center_um = [2.5, 0.0]
+radius_um = 2.0
+width_um = 0.3
+"#;
+        let along_y = r#"
+name = "pair-y"
+
+[task]
+kind = "modes"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+x_um = [-1.2, 1.0]
+cut_y_um = -0.7
+step_nm = 40.0
+modes = 3
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.1, 0.0]
+size_um = [0.5, 10.0]
+
+[[task.rect]]
+layer = "Si"
+center_um = [-0.55, -0.5]
+size_um = [0.3, 6.0]
+
+[[task.ring]]
+layer = "Si"
+center_um = [0.0, -2.5]
+radius_um = 2.0
+width_um = 0.3
+"#;
+        let (x, y) = (
+            run_events("along-x", along_x),
+            run_events("along-y", along_y),
+        );
+        let (mx, my) = (modes_of(&x), modes_of(&y));
+        assert_eq!(mx.len(), 3);
+        assert_eq!(my.len(), 3);
+        for (a, b) in mx.iter().zip(&my) {
+            for c in 0..2 {
+                assert!((a.0[c] - b.0[c]).abs() < 1e-12, "{:?} {:?}", a.0, b.0);
+            }
+            assert!((a.1 - b.1).abs() < 1e-12);
+            // the same pictures, across the guide (y along x, x along y) and up
+            assert_eq!(a.2, b.2);
+            assert_eq!(a.4, b.4);
+            // the component across the guide is E_y along x and E_x along y
+            match a.3.as_str() {
+                "Ey" => assert_eq!(b.3, "Ex"),
+                other => assert_eq!((other, b.3.as_str()), ("Ez", "Ez")),
+            }
+        }
+        // the cut: named along x, where the job says; the pictures' axes and the scene follow
+        assert!(x.iter().any(|e| matches!(
+            e,
+            Event::Cut { normal, at_um } if normal == "x" && *at_um == 0.7
+        )));
+        assert!(!y.iter().any(|e| matches!(e, Event::Cut { .. })));
+        assert!(x.iter().any(|e| matches!(
+            e,
+            Event::Mode { cut_y_um, .. } if *cut_y_um == 0.7
+        )));
+        let Some(Event::Permittivity { view, axes, .. }) =
+            x.iter().find(|e| matches!(e, Event::Permittivity { .. }))
+        else {
+            panic!("no cross-section")
+        };
+        assert_eq!(view, "cross-section at x = 0.7 um");
+        assert_eq!(axes, &["y".to_owned(), "z".to_owned()]);
+        let Event::Scene { x_um, y_um, .. } = &x[1] else {
+            panic!("{:?}", x[1])
+        };
+        // a block behind the cut along x, as deep as the window across is wide
+        assert!(
+            (x_um[0] - (0.7 - 2.2)).abs() < 1e-12 && x_um[1] == 0.7,
+            "{x_um:?}"
+        );
+        assert_eq!(y_um, &[-1.2, 1.0]);
+    }
+
+    #[test]
+    fn an_older_job_runs_as_before() {
+        // a job without `propagation` is along y, as it always was: naming it changes nothing
+        // but the cut it records
+        let old = run_events("old", MODES);
+        let named = run_events(
+            "named-y",
+            &MODES.replace(
+                "layer = \"Si\"\nx_um",
+                "layer = \"Si\"\npropagation = \"y\"\nx_um",
+            ),
+        );
+        assert!(!old.iter().any(|e| matches!(e, Event::Cut { .. })));
+        let same = |events: &[Event]| -> Vec<Event> {
+            events
+                .iter()
+                .filter(|e| !matches!(e, Event::Cut { .. } | Event::Finished { .. }))
+                .cloned()
+                .collect()
+        };
+        assert_eq!(same(&old), same(&named));
+        assert!(named.iter().any(|e| matches!(
+            e,
+            Event::Cut { normal, at_um } if normal == "y" && *at_um == 0.0
+        )));
+        // and the pictures name their axes as before
+        assert!(old.iter().any(|e| matches!(
+            e,
+            Event::Permittivity { view, axes, .. }
+                if view == "cross-section at y = 0 um" && axes[0] == "x"
+        )));
+        assert!(
+            old.iter()
+                .any(|e| matches!(e, Event::ModeField { component, .. } if component == "Ex"))
+        );
+    }
+
+    #[test]
+    fn the_strip_jobs_along_x_find_what_they_found_along_y() {
+        // jobs/strip-modes.toml and jobs/strip-width-sweep.toml as they were before light
+        // travelled along x, and their effective indices then (0.4.0, this machine's last
+        // digits aside): the jobs along x find the same
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+        let file = |name: &str| std::fs::read_to_string(dir.join(name)).unwrap();
+        let older = |text: &str| {
+            text.replace("propagation = \"x\"", "")
+                .replace("y_um = [", "x_um = [")
+                .replace("size_um = [10.0, 0.5]", "size_um = [0.5, 10.0]")
+        };
+        for (name, first, last) in [
+            (
+                "strip-modes.toml",
+                [2.4497971939172727, 1.7853122219332593],
+                [2.394612987693227, 1.7260069902533284],
+            ),
+            (
+                "strip-width-sweep.toml",
+                [2.4497972033509092, 1.7853414527523084],
+                [2.68762994950837, 2.1757624280681673],
+            ),
+        ] {
+            let text = file(name);
+            assert!(text.contains("propagation = \"x\""), "{name}");
+            // a short sweep: its first and last points only
+            let short = |t: String| t.replace("points = 11", "points = 2");
+            for (tag, events) in [
+                ("now", run_events("jobs-now", &short(text.clone()))),
+                ("then", run_events("jobs-then", &short(older(&text)))),
+            ] {
+                let indices: Vec<f64> = modes_of(&events).iter().map(|m| m.0[0]).collect();
+                let points: Vec<Vec<f64>> = events
+                    .iter()
+                    .filter_map(|e| match e {
+                        Event::SweepPoint {
+                            effective_indices, ..
+                        } => Some(effective_indices.iter().map(|n| n[0]).collect()),
+                        _ => None,
+                    })
+                    .collect();
+                let close = |a: &[f64], b: &[f64]| {
+                    a.len() == b.len() && a.iter().zip(b).all(|(x, y)| (x - y).abs() < 1e-9)
+                };
+                assert!(close(&indices, &first), "{name}, {tag}: {indices:?}");
+                assert!(close(&points[1], &last), "{name}, {tag}: {points:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_width_sweep_along_x_widens_the_strip_along_y() {
+        let text = format!(
+            "{MODES_X}\n[task.sweep]\nparameter = \"width\"\nfrom = 0.45\nto = 0.55\npoints = 2\n"
+        );
+        let events = run_events("sweep-x", &text.replace("modes = 2", "modes = 1"));
+        let spans: Vec<(f64, f64, f64)> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::SweepShapes { value, shapes, .. } => {
+                    let span = |c: usize| {
+                        let v = shapes[0].outline.iter().map(|p| p[c]);
+                        v.clone().fold(f64::MIN, f64::max) - v.fold(f64::MAX, f64::min)
+                    };
+                    Some((*value, span(0), span(1)))
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(spans.len(), 2);
+        for (value, along, across) in spans {
+            // still 10 µm long, its width across the guide the sweep's
+            assert!((along - 10.0).abs() < 1e-9 && (across - value).abs() < 1e-9);
+        }
+        let points: Vec<f64> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::SweepPoint {
+                    effective_indices, ..
+                } => Some(effective_indices[0][0]),
+                _ => None,
+            })
+            .collect();
+        assert!(points[1] > points[0], "{points:?}");
+        assert!(events.iter().any(|e| matches!(
+            e,
+            Event::SweepPermittivity { view, axes, .. }
+                if view == "cross-section at x = 0 um" && axes[0] == "y"
+        )));
+        assert!(events.iter().any(|e| matches!(
+            e,
+            Event::SweepMode { component, .. } if component == "Ey"
+        )));
     }
 
     #[test]
@@ -1772,6 +2293,7 @@ width_um = 0.3
         for text in [
             format!("{JOB}{ring}"),
             format!("{MODES}{ring}"),
+            format!("{MODES_X}{ring}"),
             format!("{FDFD}{ring}"),
         ] {
             let job = Job::parse(&text).unwrap();
@@ -1932,6 +2454,35 @@ points = 2
             (
                 MODES.replace("step_nm = 25.0", "step_nm = 25.0\ncut_y_um = nan"),
                 "cut_y_um must be a number",
+            ),
+            // the propagation, and the other propagation's window or cut
+            (
+                MODES_X.replace("propagation = \"x\"", "propagation = \"z\""),
+                "unknown propagation \"z\"",
+            ),
+            (
+                MODES_X.replace("step_nm = 25.0", "step_nm = 25.0\nx_um = [-1.0, 1.0]"),
+                "x_um is for a modes job along y",
+            ),
+            (
+                MODES_X.replace("step_nm = 25.0", "step_nm = 25.0\ncut_y_um = 0.5"),
+                "cut_y_um is for a modes job along y",
+            ),
+            (
+                MODES.replace("step_nm = 25.0", "step_nm = 25.0\ncut_x_um = 0.5"),
+                "cut_x_um is for a modes job along x",
+            ),
+            (
+                MODES_X.replace("y_um = [-1.0, 1.0]\n", ""),
+                "a modes job along x needs y_um",
+            ),
+            (
+                MODES_X.replace("y_um = [-1.0, 1.0]", "y_um = [1.0, -1.0]"),
+                "y_um must go",
+            ),
+            (
+                MODES_X.replace("step_nm = 25.0", "step_nm = 25.0\ncut_x_um = inf"),
+                "cut_x_um must be a number",
             ),
             // sweeps the run can't take
             (

@@ -161,7 +161,7 @@
               n_eff = {m.effective_index[0].toFixed(6)}{lossy ? ` + ${m.effective_index[1].toExponential(3)}i` : ""}
               <span class="faint">at {m.wavelength_um} µm</span>
             </p>
-            <RasterView raster={m.intensity} kind="intensity" axes={["x", "z"]} maxHeight={260} />
+            <RasterView raster={m.intensity} kind="intensity" axes={[run.along === "x" ? "y" : "x", "z"]} maxHeight={260} />
           </article>
         {/each}
       </div>

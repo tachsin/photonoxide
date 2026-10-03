@@ -57,10 +57,17 @@ export interface Mode {
   wavelength_um: number;
   effective_index: [number, number];
   te_fraction: number;
-  /** |E|², its peak 1; x across, z up. */
+  /** |E|², its peak 1; across the guide (x, or y for a run cut normal to x) and z up. */
   intensity: Raster;
-  /** Where the cross-section was cut, µm. */
+  /** Where the cross-section was cut along the guide, µm: its y, or its x for a run cut normal to x (see Cut). */
   cut_y_um: number;
+}
+
+/** The plane a modes run cut its cross-section on: its modes travel along the normal. An older run has none: normal to y. */
+export interface Cut {
+  type: "cut";
+  normal: "x" | "y";
+  at_um: number;
 }
 
 /**
@@ -179,6 +186,7 @@ export type Event =
   | SweepMode
   | Sweep
   | SweepField
+  | Cut
   | Field
   | SParameters
   | { type: "finished"; stopped: string | null; seconds: number };

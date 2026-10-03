@@ -1,7 +1,7 @@
 <script lang="ts">
   // A job's device seen from above, as the solver will see its window: the shapes, the ports
   // and their windows, the PML, and where a modes job cuts its cross-section.
-  import { previewWindow, type JobModel } from "../lib/job";
+  import { along, cutAt, previewWindow, type JobModel } from "../lib/job";
   import { label, ticks } from "../lib/plot";
 
   export type Selection = { kind: "rect" | "circle" | "ring" | "port"; index: number } | null;
@@ -39,6 +39,8 @@
   const fill = (layer: string) =>
     layer === "SiN" ? "fill-secondary/70 stroke-secondary" : layer === "BOX" ? "fill-base-content/10 stroke-base-content/40" : "fill-primary/65 stroke-primary";
   const pml = $derived(model.kind === "fdfd" ? ((model.pml_cells ?? 20) * model.step_nm) / 1000 : 0);
+  /** The axis the light travels along: x, but y for an older modes job; none for a structure. */
+  const light = $derived(model.kind === "structure" ? null : model.kind === "modes" ? along(model) : "x");
   const sweptRect = $derived(model.kind === "modes" && model.sweep?.parameter === "width" ? (model.sweep.rect ?? 0) : -1);
   const clipId = `clip-${Math.random().toString(36).slice(2)}`;
 
@@ -106,9 +108,14 @@
         />
       {/each}
       {#if model.kind === "modes"}
-        {@const y = model.cut_y_um ?? 0}
-        <line x1={X(win.x[0])} x2={X(win.x[1])} y1={Y(y)} y2={Y(y)} class="stroke-accent" stroke-width="1.5" stroke-dasharray="6 4" />
-        {#if !compact}<text x={X(win.x[1]) - 6} y={Y(y) - 6} text-anchor="end" class="fill-accent text-[11px] font-medium">cross-section</text>{/if}
+        {@const c = cutAt(model)}
+        {#if light === "x"}
+          <line x1={X(c)} x2={X(c)} y1={Y(win.y[0])} y2={Y(win.y[1])} class="stroke-accent" stroke-width="1.5" stroke-dasharray="6 4" />
+          {#if !compact}<text x={X(c) + 6} y={Y(win.y[1]) + 14} class="fill-accent text-[11px] font-medium">cross-section</text>{/if}
+        {:else}
+          <line x1={X(win.x[0])} x2={X(win.x[1])} y1={Y(c)} y2={Y(c)} class="stroke-accent" stroke-width="1.5" stroke-dasharray="6 4" />
+          {#if !compact}<text x={X(win.x[1]) - 6} y={Y(c) - 6} text-anchor="end" class="fill-accent text-[11px] font-medium">cross-section</text>{/if}
+        {/if}
       {/if}
     </g>
     {#if model.kind === "fdfd"}
@@ -143,6 +150,10 @@
         <text x={X(win.x[0]) - 7} y={Y(t)} text-anchor="end" dominant-baseline="central" class="fill-base-content/50 text-[10.5px]">{label(t)}</text>
       {/each}
       <text x={X(win.x[1])} y={Y(win.y[0]) + 32} text-anchor="end" class="fill-base-content/45 text-[10.5px]">x (µm)</text>
+      {#if light}
+        <!-- which way the light goes -->
+        <text x={X(win.x[0])} y={Y(win.y[0]) + 32} class="fill-base-content/60 text-[10.5px] font-medium">light {light === "x" ? "→ along x" : "↑ along y"}</text>
+      {/if}
     {/if}
   </svg>
 </div>
