@@ -743,12 +743,27 @@ impl Solver3d {
         let b = faer::Mat::<c64>::from_fn(n, 1, |r, _| rhs[r]);
         let u = self.lu.solve(&b);
         let mut values: Vec<c64> = (0..n).map(|r| u[(r, 0)]).collect();
-        // one step of iterative refinement, as in 2D
-        let applied = self.apply(&values);
-        let r = faer::Mat::<c64>::from_fn(n, 1, |k, _| rhs[k] - applied[k]);
-        let correction = self.lu.solve(&r);
-        for (k, v) in values.iter_mut().enumerate() {
-            *v += correction[(k, 0)];
+        // iterative refinement until the correction stops shrinking: one step is enough where
+        // the factorization is accurate, but its pivots, and so its accuracy, change with the
+        // machine, and the ports' S-matrices need the field to round-off
+        let norm = |v: &[c64]| v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
+        let mut last = f64::INFINITY;
+        for _ in 0..10 {
+            let applied = self.apply(&values);
+            let r = faer::Mat::<c64>::from_fn(n, 1, |k, _| rhs[k] - applied[k]);
+            let correction = self.lu.solve(&r);
+            let step: Vec<c64> = (0..n).map(|k| correction[(k, 0)]).collect();
+            let size = norm(&step) / norm(&values).max(f64::MIN_POSITIVE);
+            if size >= last {
+                break;
+            }
+            for (v, d) in values.iter_mut().zip(&step) {
+                *v += d;
+            }
+            if size < 1e-14 {
+                break;
+            }
+            last = size;
         }
         Ok(Field3d {
             lattice: self.lattice.clone(),
