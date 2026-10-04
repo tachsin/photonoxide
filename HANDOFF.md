@@ -73,3 +73,9 @@ built or tested since the last edits.
 5. Check the Materials page in the app (tags with hover details, Coming chips, both themes, nm/µm);
    the µm/nm switch (#107) is on main: keep the page's lengths converting.
 6. Delete this HANDOFF.md, PR, CI green, merge.
+
+**Added after the pause:** the owner's rule: cite Boyd's *Nonlinear Optics* **4th edition** (2020,
+`boyd-2020.pdf`, DOI 10.1016/C2015-0-05510-1) instead of the 3rd (2008) wherever possible: tags.rs
+and coming.rs cite "Boyd 2008, Sec. 1.5–1.6": re-check the section numbers in the 4th edition and
+update. Bertaccini & Durastante 2018 (`chapman-2018.pdf`) is in the folder too (iterative methods
+and preconditioning; for the 3D preconditioner work, not this branch).
