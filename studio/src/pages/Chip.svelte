@@ -27,6 +27,7 @@
   import Glyph from "../components/Glyph.svelte";
   import SpectrumPlot from "../components/SpectrumPlot.svelte";
   import Tip from "../components/Tip.svelte";
+  import UnitChip from "../components/UnitChip.svelte";
   import { ago, api, type Chip, type CircuitExample, type CircuitItem, type KindInfo, type Problem } from "../lib/api";
   import { app, go, toast } from "../lib/app.svelte";
   import {
@@ -69,6 +70,7 @@
     type WorldPin,
   } from "../lib/circuit";
   import { label } from "../lib/plot";
+  import { isMicrometres, len, lenUnit, showIn, shown, storeIn, stored, unitOf } from "../lib/units";
 
   loadLibrary();
 
@@ -484,6 +486,9 @@
     }
   }
 
+  /** A measured component's wavelengths, "1.5 to 1.6 µm", in the unit shown. */
+  const range = (v: [number, number] | null | undefined) => (v ? `${len(v[0])} to ${lenUnit(v[1])}` : "?");
+
   function setValue(name: string, k: KindInfo, i: number, v: number, record: boolean) {
     if (!Number.isFinite(v)) return;
     const p = k.parameters[i];
@@ -579,7 +584,7 @@
         <button
           class="flex w-full cursor-grab items-center gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-base-content/5 active:cursor-grabbing"
           onpointerdown={(e) => grab(e, partKey(k))}
-          title="{k.title}: {k.ports.length} ports, measured from {k.provenance.validity?.[0]} to {k.provenance.validity?.[1]} µm. Drag it onto the chip."
+          title="{k.title}: {k.ports.length} ports, measured from {range(k.provenance.validity)}. Drag it onto the chip."
         >
           <svg width="36" height="22" viewBox="{-k.symbol.width / 2 - 4} {-k.symbol.height / 2 - 4} {k.symbol.width + 8} {k.symbol.height + 8}" class="shrink-0">
             <Glyph symbol={k.symbol} />
@@ -877,7 +882,7 @@
         <p class="mt-1 text-xs faint">{k.about}</p>
         {#if k.file}
           <p class="mt-1 truncate text-xs num muted" title={k.provenance.source}>{k.file}</p>
-          <p class="text-xs faint">{k.convention === "engineering" ? "e^(+jωt), as RF tools write" : "e^(−iωt), as photonoxide writes"}; measured from {k.provenance.validity?.[0]} to {k.provenance.validity?.[1]} µm</p>
+          <p class="text-xs faint">{k.convention === "engineering" ? "e^(+jωt), as RF tools write" : "e^(−iωt), as photonoxide writes"}; measured from {range(k.provenance.validity)}</p>
         {/if}
         <div class="mt-3 flex items-center gap-1 text-xs muted">
           <span class="num">({inst.x}, {inst.y})</span>
@@ -895,9 +900,9 @@
           <div class="mt-3">
             <div class="flex items-baseline gap-1.5 text-xs">
               <span class="font-medium num">{p.name}</span>
-              {#if p.unit}<span class="faint">{p.unit}</span>{/if}
+              {#if isMicrometres(p.unit)}<span class="faint"><UnitChip /></span>{:else if p.unit}<span class="faint">{p.unit}</span>{/if}
               <span class="flex-1"></span>
-              <span class="faint num" title="Its range; default {label(p.default)}">{label(p.min)} – {label(p.max)}</span>
+              <span class="faint num" title="Its range; default {label(showIn(p.unit, p.default))}">{label(showIn(p.unit, p.min))} – {label(showIn(p.unit, p.max))}</span>
             </div>
             <div class="mt-1 flex items-center gap-2">
               <input
@@ -915,11 +920,11 @@
                 class="input input-xs w-24 num"
                 type="number"
                 step="any"
-                min={p.min}
-                max={p.max}
-                value={v}
-                onchange={(e) => setValue(inst.name, k, i, Number(e.currentTarget.value), true)}
-                aria-label="{p.name} in {p.unit || 'its units'}"
+                min={showIn(p.unit, p.min)}
+                max={showIn(p.unit, p.max)}
+                value={showIn(p.unit, v)}
+                onchange={(e) => setValue(inst.name, k, i, storeIn(p.unit, Number(e.currentTarget.value)), true)}
+                aria-label="{p.name} in {unitOf(p.unit) || 'its units'}"
               />
             </div>
             {#if wrong}<p class="mt-1 text-xs text-error">{wrong.message}</p>{/if}
@@ -1003,8 +1008,8 @@
       </label>
       <p class="panel-title mt-5">Wavelengths</p>
       <div class="mt-2 grid grid-cols-3 gap-2 text-xs">
-        <label class="flex flex-col gap-1"><span class="muted">From (µm)</span><input class="input input-xs num" type="number" step="0.01" value={chip.sweep.from_um} onchange={(e) => change((c) => (c.sweep.from_um = Number(e.currentTarget.value)))} /></label>
-        <label class="flex flex-col gap-1"><span class="muted">To (µm)</span><input class="input input-xs num" type="number" step="0.01" value={chip.sweep.to_um} onchange={(e) => change((c) => (c.sweep.to_um = Number(e.currentTarget.value)))} /></label>
+        <label class="flex flex-col gap-1"><span class="muted">From (<UnitChip />)</span><input class="input input-xs num" type="number" step={shown(0.01)} value={shown(chip.sweep.from_um)} onchange={(e) => change((c) => (c.sweep.from_um = stored(Number(e.currentTarget.value))))} /></label>
+        <label class="flex flex-col gap-1"><span class="muted">To (<UnitChip />)</span><input class="input input-xs num" type="number" step={shown(0.01)} value={shown(chip.sweep.to_um)} onchange={(e) => change((c) => (c.sweep.to_um = stored(Number(e.currentTarget.value))))} /></label>
         <label class="flex flex-col gap-1"><span class="muted">Points</span><input class="input input-xs num" type="number" step="100" value={chip.sweep.points} onchange={(e) => change((c) => (c.sweep.points = Math.round(Number(e.currentTarget.value))))} /></label>
       </div>
       {#if sweepProblem(chip.sweep)}<p class="mt-1 text-xs text-warning">{sweepProblem(chip.sweep)}</p>{/if}

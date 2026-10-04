@@ -41,7 +41,7 @@
 </div>
 <div class="mt-2">
   {#if series.length}
-    <Plot {series} xLabel="wavelength (µm)" {yLabel} {height} {yRange} markers={false} name="{name}-{quantity}" />
+    <Plot {series} xLabel="wavelength" xLength {yLabel} {height} {yRange} markers={false} name="{name}-{quantity}" />
   {:else}
     <p class="py-10 text-center text-sm faint">Nothing comes out for light in at {data.ports[p]}: every S-parameter from it is zero.</p>
   {/if}

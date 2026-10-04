@@ -10,11 +10,13 @@
   import MathText from "../components/MathText.svelte";
   import SpectrumPlot from "../components/SpectrumPlot.svelte";
   import Tip from "../components/Tip.svelte";
+  import UnitChip from "../components/UnitChip.svelte";
   import { api, type KindInfo, type Part, type SpectrumData, type Sweep } from "../lib/api";
   import { app, go } from "../lib/app.svelte";
   import { addInstance, exportTouchstone, importTouchstone, library, loadLibrary, partKey, partOf } from "../lib/chip.svelte";
   import { sweepProblem, type Quantity } from "../lib/circuit";
   import { label } from "../lib/plot";
+  import { isMicrometres, len, showIn, shown as inUnit, storeIn, stored, unitOf } from "../lib/units";
 
   loadLibrary();
 
@@ -47,6 +49,12 @@
   const kind = $derived(everything.find((k) => partKey(k) === (app.component ?? library.kinds[0]?.id)));
   const familyOf = (k: KindInfo) => families.get(k.file ? partKey(k) : k.kind) ?? [k];
   const now = $derived(kind ? (values[partKey(kind)] ?? kind.parameters.map((p) => p.default)) : []);
+
+  /** A wavelength typed in the unit shown, kept in µm; an empty or partial number leaves it. */
+  function typed(e: Event, set: (um: number) => void) {
+    const raw = (e.currentTarget as HTMLInputElement).value;
+    if (raw !== "" && Number.isFinite(Number(raw))) set(stored(Number(raw)));
+  }
 
   function setValue(k: KindInfo, i: number, v: number) {
     if (!Number.isFinite(v)) return;
@@ -233,12 +241,12 @@
             </div>
             <div class="mt-3 flex flex-wrap items-end gap-4">
               <label class="flex flex-col gap-1 text-xs">
-                <span class="muted">From (µm)</span>
-                <input class="input input-xs w-24 num" type="number" step="0.01" min="0.1" bind:value={sweep.from_um} />
+                <span class="muted">From (<UnitChip />)</span>
+                <input class="input input-xs w-24 num" type="number" step={inUnit(0.01)} min={inUnit(0.1)} value={inUnit(sweep.from_um)} oninput={(e) => typed(e, (v) => (sweep.from_um = v))} />
               </label>
               <label class="flex flex-col gap-1 text-xs">
-                <span class="muted">To (µm)</span>
-                <input class="input input-xs w-24 num" type="number" step="0.01" min="0.1" bind:value={sweep.to_um} />
+                <span class="muted">To (<UnitChip />)</span>
+                <input class="input input-xs w-24 num" type="number" step={inUnit(0.01)} min={inUnit(0.1)} value={inUnit(sweep.to_um)} oninput={(e) => typed(e, (v) => (sweep.to_um = v))} />
               </label>
               <label class="flex flex-col gap-1 text-xs">
                 <span class="muted">Points</span>
@@ -300,9 +308,9 @@
                   <div>
                     <div class="flex items-baseline gap-2 text-sm">
                       <span class="font-medium num">{p.name}</span>
-                      {#if p.unit}<span class="text-xs faint">{p.unit}</span>{/if}
+                      {#if isMicrometres(p.unit)}<span class="text-xs faint"><UnitChip /></span>{:else if p.unit}<span class="text-xs faint">{p.unit}</span>{/if}
                       <span class="flex-1"></span>
-                      <span class="text-xs faint num" title="Its range, and its default">{label(p.min)} – {label(p.max)} · default {label(p.default)}</span>
+                      <span class="text-xs faint num" title="Its range, and its default">{label(showIn(p.unit, p.min))} – {label(showIn(p.unit, p.max))} · default {label(showIn(p.unit, p.default))}</span>
                     </div>
                     <div class="mt-1.5 flex items-center gap-3">
                       <input
@@ -318,12 +326,12 @@
                       <input
                         class="input input-xs w-28 num"
                         type="number"
-                        min={p.min}
-                        max={p.max}
+                        min={showIn(p.unit, p.min)}
+                        max={showIn(p.unit, p.max)}
                         step="any"
-                        value={now[i]}
-                        onchange={(e) => setValue(kind, i, Number(e.currentTarget.value))}
-                        aria-label="{p.name} in {p.unit || 'its units'}"
+                        value={showIn(p.unit, now[i])}
+                        onchange={(e) => setValue(kind, i, storeIn(p.unit, Number(e.currentTarget.value)))}
+                        aria-label="{p.name} in {unitOf(p.unit) || 'its units'}"
                       />
                     </div>
                   </div>
@@ -356,7 +364,7 @@
               <dt class="faint">Valid</dt>
               <dd>
                 {#if kind.provenance.validity}
-                  from <span class="num">{kind.provenance.validity[0]}</span> to <span class="num">{kind.provenance.validity[1]}</span> µm
+                  from <span class="num">{len(kind.provenance.validity[0])}</span> to <span class="num">{len(kind.provenance.validity[1])}</span> <UnitChip />
                 {:else}
                   <span class="muted">at any wavelength</span>
                 {/if}
@@ -390,7 +398,7 @@
                     <td class="muted">{pin ? (["right", "down", "left", "up"][Math.round(pin.angle / 90) % 4]) : ""}</td>
                     <td class="muted">
                       {#if p.mode}
-                        {p.mode.polarization}{p.mode.order} at <span class="num">{p.mode.wavelength_um}</span> µm, n<sub>eff</sub> <span class="num">{p.mode.effective_index.toFixed(4)}</span>{#if p.mode.group_index !== null}, n<sub>g</sub> <span class="num">{p.mode.group_index.toFixed(4)}</span>{/if}
+                        {p.mode.polarization}{p.mode.order} at <span class="num">{len(p.mode.wavelength_um)}</span> <UnitChip />, n<sub>eff</sub> <span class="num">{p.mode.effective_index.toFixed(4)}</span>{#if p.mode.group_index !== null}, n<sub>g</sub> <span class="num">{p.mode.group_index.toFixed(4)}</span>{/if}
                       {:else}
                         not stated: any mode connects
                       {/if}

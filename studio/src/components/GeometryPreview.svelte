@@ -3,6 +3,7 @@
   // and their windows, the PML, and where a modes job cuts its cross-section.
   import { along, cutAt, previewWindow, type JobModel } from "../lib/job";
   import { label, ticks } from "../lib/plot";
+  import { shown, stored, unitText } from "../lib/units";
 
   export type Selection = { kind: "rect" | "circle" | "ring" | "port"; index: number } | null;
 
@@ -141,15 +142,16 @@
       {/each}
     {/if}
     {#if !compact}
-      {#each ticks(win.x[0], win.x[1], Math.max(3, Math.floor(w / 80))) as t (t)}
-        <line x1={X(t)} x2={X(t)} y1={Y(win.y[0])} y2={Y(win.y[0]) + 4} class="stroke-base-content/40" />
-        <text x={X(t)} y={Y(win.y[0]) + 16} text-anchor="middle" class="fill-base-content/50 text-[10.5px]">{label(t)}</text>
+      <!-- the ticks fall on round numbers of the unit shown -->
+      {#each ticks(shown(win.x[0]), shown(win.x[1]), Math.max(3, Math.floor(w / 80))) as t (t)}
+        <line x1={X(stored(t))} x2={X(stored(t))} y1={Y(win.y[0])} y2={Y(win.y[0]) + 4} class="stroke-base-content/40" />
+        <text x={X(stored(t))} y={Y(win.y[0]) + 16} text-anchor="middle" class="fill-base-content/50 text-[10.5px]">{label(t)}</text>
       {/each}
-      {#each ticks(win.y[0], win.y[1], Math.max(3, Math.floor(h / 60))) as t (t)}
-        <line x1={X(win.x[0]) - 4} x2={X(win.x[0])} y1={Y(t)} y2={Y(t)} class="stroke-base-content/40" />
-        <text x={X(win.x[0]) - 7} y={Y(t)} text-anchor="end" dominant-baseline="central" class="fill-base-content/50 text-[10.5px]">{label(t)}</text>
+      {#each ticks(shown(win.y[0]), shown(win.y[1]), Math.max(3, Math.floor(h / 60))) as t (t)}
+        <line x1={X(win.x[0]) - 4} x2={X(win.x[0])} y1={Y(stored(t))} y2={Y(stored(t))} class="stroke-base-content/40" />
+        <text x={X(win.x[0]) - 7} y={Y(stored(t))} text-anchor="end" dominant-baseline="central" class="fill-base-content/50 text-[10.5px]">{label(t)}</text>
       {/each}
-      <text x={X(win.x[1])} y={Y(win.y[0]) + 32} text-anchor="end" class="fill-base-content/45 text-[10.5px]">x (µm)</text>
+      <text x={X(win.x[1])} y={Y(win.y[0]) + 32} text-anchor="end" class="fill-base-content/45 text-[10.5px]">x ({unitText()})</text>
       {#if light}
         <!-- which way the light goes -->
         <text x={X(win.x[0])} y={Y(win.y[0]) + 32} class="fill-base-content/60 text-[10.5px] font-medium">light {light === "x" ? "→ along x" : "↑ along y"}</text>

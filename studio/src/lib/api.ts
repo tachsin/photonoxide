@@ -13,6 +13,8 @@ export interface Settings {
   tour_done: boolean;
   dismissed: string[];
   view: "3d" | "2d";
+  /** The unit lengths are shown and edited in, app-wide: "um" (µm) or "nm" (lib/units.ts). */
+  length_unit: string;
 }
 
 export interface AppState {
