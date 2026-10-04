@@ -697,10 +697,23 @@ fn place(
     let refused =
         |reason: String| task_error(format!("the port at x = {} um: {reason}", spec.x_um));
     if rows.len() < 3 {
-        return Err(refused(format!(
-            "the window, rows {} to {}, must have 3 rows or more on the grid's {}",
-            rows.start, rows.end, g.ny
-        )));
+        return Err(refused(match spec.y_um {
+            // in the job's own terms: its y_um against the window's
+            Some([a, b]) => format!(
+                "its y_um [{a}, {b}] covers {} {} of the window (y from {} to {} um, {} rows); \
+                 a port needs 3 rows or more",
+                rows.len(),
+                if rows.len() == 1 { "row" } else { "rows" },
+                // to the picometre, without the grid's rounding
+                (g.y0 * 1e6).round() / 1e6,
+                ((g.y0 + g.dy * g.ny as f64) * 1e6).round() / 1e6,
+                g.ny
+            ),
+            None => format!(
+                "the window, rows {} to {}, must have 3 rows or more on the grid's {}",
+                rows.start, rows.end, g.ny
+            ),
+        }));
     }
     let (low, high) = boundaries.x.pml();
     if !(column >= low + 2 && column + 3 + high <= g.nx) {

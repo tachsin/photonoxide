@@ -306,3 +306,13 @@ fn the_module_example() -> Result<()> {
     assert!((s[(1, 0)] - c64::new(-1.0, 0.0)).norm() < 1e-15); // a half turn
     Ok(())
 }
+
+#[test]
+fn an_s_matrix_of_nans_is_an_error() {
+    // it was accepted, and is_passive then failed with "its singular values: NoConvergence"
+    let e = SMatrix::from_rows(vec![vec![c64::new(f64::NAN, 0.0)]])
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("every value must be finite"), "{e}");
+    assert!(SMatrix::from_rows(vec![vec![c64::new(0.5, f64::INFINITY)]]).is_err());
+}

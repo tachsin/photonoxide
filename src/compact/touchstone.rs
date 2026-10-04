@@ -756,7 +756,17 @@ impl Reader<'_> {
                 "H- and G-parameters are defined for 2 ports only",
             );
         }
-        let per_frequency = 2 * n * n; // values after the frequency
+        // values after the frequency
+        let per_frequency = n
+            .checked_mul(n)
+            .and_then(|q| q.checked_mul(2))
+            .ok_or_else(|| Error::Parse {
+                what: self.name.to_owned(),
+                reason: format!("{n} ports is more than any file can hold"),
+            })?;
+        // no more room set aside than the file holds: a number of ports far beyond its data is
+        // refused for running out of it, not allocated
+        let held: usize = data.iter().map(|(_, v)| v.len()).sum();
         let mut frequencies = Vec::new();
         let mut matrices = Vec::new();
         let mut noise = 0;
@@ -799,7 +809,7 @@ impl Reader<'_> {
                 );
             }
             // the data of one frequency, line by line, checked against the layout rules
-            let mut values_of: Vec<f64> = Vec::with_capacity(per_frequency);
+            let mut values_of: Vec<f64> = Vec::with_capacity(per_frequency.min(held));
             let mut at = 0; // pairs read so far
             let mut j = k;
             while values_of.len() < per_frequency {
@@ -1136,12 +1146,17 @@ impl Reader<'_> {
             _ => TwoPortOrder::N21N12,
         };
         let pairs_per = match matrix_format {
-            MatrixFormat::Full => n * n,
-            _ => n * (n + 1) / 2,
-        };
-        // the network data: values stream across lines; each frequency starts a line
-        let mut freqs: Vec<f64> = Vec::with_capacity(count_f);
-        let mut matrices = Vec::with_capacity(count_f);
+            MatrixFormat::Full => n.checked_mul(n),
+            _ => n.checked_mul(n + 1).map(|q| q / 2),
+        }
+        .ok_or_else(|| Error::Parse {
+            what: self.name.to_owned(),
+            reason: format!("[Number of Ports] {n} is more than any file can hold"),
+        })?;
+        // the network data: values stream across lines; each frequency starts a line (no more
+        // room set aside than there are lines, whatever [Number of Frequencies] says)
+        let mut freqs: Vec<f64> = Vec::with_capacity(count_f.min(self.lines.len()));
+        let mut matrices = Vec::with_capacity(count_f.min(self.lines.len()));
         let mut current: Vec<f64> = Vec::new();
         while freqs.len() < count_f {
             let Some(l) = lines.next() else {

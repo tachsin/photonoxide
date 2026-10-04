@@ -262,8 +262,8 @@ impl Solver2d {
     /// # Errors
     ///
     /// [`Error::InvalidValue`] for an empty grid, PMLs that fill an axis, a target reflection
-    /// outside (0, 1), a negative order or a non-finite Bloch wavenumber, or a system that can't
-    /// be factorized.
+    /// outside (0, 1), a negative order or a non-finite Bloch wavenumber, a permittivity that
+    /// isn't finite (or, with H along z, is 0 on a face), or a system that can't be factorized.
     pub fn new(
         grid: Grid,
         polarization: Polarization,
@@ -428,6 +428,25 @@ impl Solver2d {
         (eps_z, eps_y, eps_x): (Vec<c64>, Vec<c64>, Vec<c64>),
         (symbolic, cellwise): (Option<SymbolicLu<usize>>, bool),
     ) -> Result<Solver2d> {
+        // a NaN would only surface as a field of NaNs, and with H along z the operator divides
+        // by the faces' permittivity
+        if eps_z
+            .iter()
+            .chain(&eps_y)
+            .chain(&eps_x)
+            .any(|e| !(e.re.is_finite() && e.im.is_finite()))
+        {
+            return Err(Error::invalid(
+                "fdfd permittivity",
+                "every value must be finite",
+            ));
+        }
+        if eps_y.iter().chain(&eps_x).any(|e| e.norm() == 0.0) {
+            return Err(Error::invalid(
+                "fdfd permittivity",
+                "with H along z, the permittivity on a face between cells can't be 0",
+            ));
+        }
         let entries = assemble(grid, polarization, k0, &eps_z, &eps_y, &eps_x, &boundaries);
         let (lu, symbolic) = factorize(&entries, grid.nx * grid.ny, symbolic)?;
         Ok(Solver2d {
@@ -504,7 +523,7 @@ impl Solver2d {
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidValue`] if the source isn't one value per cell.
+    /// [`Error::InvalidValue`] if the source isn't one value per cell, or isn't finite.
     pub fn solve(&self, source: &[c64]) -> Result<Field2d> {
         let rhs: Vec<c64> = source.iter().map(|s| c64::new(0.0, -self.k0) * s).collect();
         self.solve_system(&rhs)
@@ -515,7 +534,7 @@ impl Solver2d {
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidValue`] if `rhs` isn't one value per cell.
+    /// [`Error::InvalidValue`] if `rhs` isn't one value per cell, or isn't finite.
     pub fn solve_system(&self, rhs: &[c64]) -> Result<Field2d> {
         use faer::linalg::solvers::Solve;
         let n = self.grid.nx * self.grid.ny;
@@ -524,6 +543,9 @@ impl Solver2d {
                 "fdfd source",
                 format!("needs {n} values, one per cell, got {}", rhs.len()),
             ));
+        }
+        if !rhs.iter().all(|v| v.re.is_finite() && v.im.is_finite()) {
+            return Err(Error::invalid("fdfd source", "every value must be finite"));
         }
         let b = faer::Mat::<c64>::from_fn(n, 1, |r, _| rhs[r]);
         let u = self.lu.solve(&b);
