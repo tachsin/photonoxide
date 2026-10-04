@@ -1011,6 +1011,25 @@ pub fn modes(
     count: usize,
     near: Option<f64>,
 ) -> Result<Vec<VectorMode>> {
+    // (never asked to stop, it always has its modes or an error)
+    Ok(modes_until(cs, wavelength, count, near, || false)?.unwrap_or_default())
+}
+
+/// As [`modes`], giving up when `stop` says so: `None` then. A solve for many modes on a fine
+/// grid takes minutes, and a job's time limit or its stop must be able to end it: `stop` is
+/// asked before each step of the eigensolver (one solve with the shifted matrix's factors
+/// each). The factorization itself, before the first step, isn't interrupted.
+///
+/// # Errors
+///
+/// As [`modes`].
+pub fn modes_until(
+    cs: &CrossSection,
+    wavelength: Wavelength,
+    count: usize,
+    near: Option<f64>,
+    stop: impl Fn() -> bool,
+) -> Result<Option<Vec<VectorMode>>> {
     if count == 0 {
         return Err(Error::invalid("mode count", "must be at least 1"));
     }
@@ -1026,11 +1045,17 @@ pub fn modes(
     let unknowns = unknowns(cs);
     let entries = assemble(cs, k2);
     let shift = c64::new(k2 * n_max * n_max, 0.0);
-    let pairs = crate::eigen::nearest(unknowns.len(), &entries, shift, count, 1e-9)?;
-    Ok(pairs
-        .into_iter()
-        .map(|p| VectorMode::from_unknowns(cs, k, p.value, &unknowns, &p.vector))
-        .collect())
+    let Some(pairs) =
+        crate::eigen::nearest_until(unknowns.len(), &entries, shift, count, 1e-9, &stop)?
+    else {
+        return Ok(None);
+    };
+    Ok(Some(
+        pairs
+            .into_iter()
+            .map(|p| VectorMode::from_unknowns(cs, k, p.value, &unknowns, &p.vector))
+            .collect(),
+    ))
 }
 
 impl VectorMode {
@@ -1468,6 +1493,30 @@ mod tests {
         assert!((off - 0.01 / 1.01).abs() < 1e-8, "{off}");
         // on another grid there is nothing to measure against
         assert!(mode.residual(&strip(0.1)).is_err());
+    }
+
+    #[test]
+    fn a_solve_asked_to_stop_gives_up_at_its_next_step() {
+        let cs = strip(0.05);
+        let w = Wavelength::um(1.55).unwrap();
+        // asked to stop from the third question on: no modes, and no more than that was asked
+        let asked = std::cell::Cell::new(0);
+        let stopped = modes_until(&cs, w, 2, None, || {
+            asked.set(asked.get() + 1);
+            asked.get() >= 3
+        })
+        .unwrap();
+        assert!(stopped.is_none());
+        assert_eq!(asked.get(), 3);
+        // not asked to stop: the modes `modes` finds
+        let whole = modes(&cs, w, 2, None).unwrap();
+        let until = modes_until(&cs, w, 2, None, || false).unwrap().unwrap();
+        assert_eq!(whole.len(), 2);
+        for (a, b) in whole.iter().zip(&until) {
+            assert_eq!(a.effective_index(), b.effective_index());
+        }
+        // and a count of 0 is still an error
+        assert!(modes_until(&cs, w, 0, None, || false).is_err());
     }
 
     #[test]
