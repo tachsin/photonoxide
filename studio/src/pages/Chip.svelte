@@ -619,35 +619,36 @@
 
   <!-- the canvas -->
   <div class="flex min-h-0 min-w-0 flex-col">
-    <div class="flex items-center gap-1 border-b border-base-content/8 bg-base-100/60 px-3 py-1.5">
-      <div class="tooltip tooltip-bottom" data-tip="Undo (Ctrl+Z)">
+    <!-- too narrow for its buttons, the bar scrolls sideways (so the hints are the window's own: a drawn one would be clipped) -->
+    <div class="flex items-center gap-1 overflow-x-auto border-b border-base-content/8 bg-base-100/60 px-3 py-1.5 whitespace-nowrap [scrollbar-width:thin] [&>*]:shrink-0">
+      <div title="Undo (Ctrl+Z)">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Undo" disabled={!editor.undoable} onclick={undo}><Undo2 size={16} /></button>
       </div>
-      <div class="tooltip tooltip-bottom" data-tip="Redo (Ctrl+Y)">
+      <div title="Redo (Ctrl+Y)">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Redo" disabled={!editor.redoable} onclick={redo}><Redo2 size={16} /></button>
       </div>
       <span class="mx-1 h-5 border-l border-base-content/10"></span>
-      <div class="tooltip tooltip-bottom" data-tip="Rotate (R; Shift+R the other way)">
+      <div title="Rotate (R; Shift+R the other way)">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Rotate" disabled={editor.selection?.kind !== "instance" && editor.selection?.kind !== "port"} onclick={() => rotateSelection(90)}><RotateCw size={16} /></button>
       </div>
-      <div class="tooltip tooltip-bottom" data-tip="Mirror top to bottom (M)">
+      <div title="Mirror top to bottom (M)">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Mirror" disabled={editor.selection?.kind !== "instance"} onclick={mirrorSelection}><FlipVertical2 size={16} /></button>
       </div>
-      <div class="tooltip tooltip-bottom" data-tip="Delete (Del)">
+      <div title="Delete (Del)">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Delete" disabled={!editor.selection} onclick={deleteSelection}><Trash2 size={16} /></button>
       </div>
       <span class="mx-1 h-5 border-l border-base-content/10"></span>
-      <div class="tooltip tooltip-bottom" data-tip="Zoom out">
+      <div title="Zoom out">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Zoom out" onclick={() => zoom(1 / 1.25)}><ZoomOut size={16} /></button>
       </div>
       <span class="w-12 text-center text-xs faint num">{Math.round(view.k * 62.5)}%</span>
-      <div class="tooltip tooltip-bottom" data-tip="Zoom in">
+      <div title="Zoom in">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Zoom in" onclick={() => zoom(1.25)}><ZoomIn size={16} /></button>
       </div>
-      <div class="tooltip tooltip-bottom" data-tip="Fit the chip in view (F)">
+      <div title="Fit the chip in view (F)">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Fit" onclick={fit}><Maximize size={16} /></button>
       </div>
-      <span class="flex-1"></span>
+      <span class="min-w-2 flex-1"></span>
       {#if mistakes.length}
         <span class="badge badge-sm badge-error badge-soft gap-1" title={mistakes.map((p) => p.message).join("\n")}><CircleAlert size={12} /> {mistakes.length} {mistakes.length === 1 ? "problem" : "problems"}</span>
       {/if}
@@ -658,10 +659,10 @@
         <span class="badge badge-sm badge-success badge-soft">complete</span>
       {/if}
       <span class="mx-1 h-5 border-l border-base-content/10"></span>
-      <div class="tooltip tooltip-bottom" data-tip="Save to circuits/{chip.name}.toml (Ctrl+S)">
+      <div title="Save to circuits/{chip.name}.toml (Ctrl+S)">
         <button class="btn btn-ghost btn-sm gap-1.5" onclick={saveChip}><Save size={15} /> Save{#if dirty()}<span class="status status-warning"></span>{/if}</button>
       </div>
-      <div class="tooltip tooltip-bottom tooltip-left" data-tip="The circuit's S-parameters over its wavelengths (Ctrl+Enter)">
+      <div title="The circuit's S-parameters over its wavelengths (Ctrl+Enter)">
         <button class="btn btn-primary btn-sm gap-1.5" disabled={editor.simulating} onclick={runSimulation}>
           {#if editor.simulating}<span class="loading loading-spinner loading-xs"></span>{:else}<CirclePlay size={15} />{/if} Simulate
         </button>

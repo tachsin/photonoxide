@@ -195,7 +195,8 @@
 
 <div class="grid h-full grid-cols-[1fr_300px]" class:hidden={!run.info?.dir}>
   <section class="flex min-h-0 min-w-0 flex-col">
-    <div class="flex items-center gap-3 border-b border-base-content/8 px-5 py-2.5">
+    <!-- too narrow for what it holds, the bar scrolls sideways instead of spilling over the side panel -->
+    <div class="flex items-center gap-3 overflow-x-auto border-b border-base-content/8 px-5 py-2.5 whitespace-nowrap [scrollbar-width:thin] [&>*]:shrink-0">
       {#if live}
         <span class="badge badge-success badge-soft gap-1.5"><span class="status status-success animate-pulse"></span> running · {duration(elapsed)}</span>
         {#if run.stoppable}
