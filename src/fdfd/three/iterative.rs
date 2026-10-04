@@ -54,7 +54,7 @@ pub struct IterativeSolver3d {
 /// A preconditioner for QMR.
 enum Preconditioning {
     None,
-    Ilu(Ilu0),
+    Ilu(Box<Ilu0>),
     Multigrid(Box<Hierarchy>),
 }
 
@@ -109,7 +109,7 @@ impl IterativeSolver3d {
                 "ILU(0) needs Shin and Fan's operator (Formulation::ShinFan): on the curl-curl \n                 one QMR doesn't converge",
             ));
         }
-        self.preconditioner = Preconditioning::Ilu(Ilu0::new(&self.matrix)?);
+        self.preconditioner = Preconditioning::Ilu(Box::new(Ilu0::new(&self.matrix)?));
         Ok(self)
     }
 
@@ -207,7 +207,9 @@ impl IterativeSolver3d {
             .lattice
             .transformed_rhs(&self.eps, &b, self.formulation.s());
         let (values, convergence) = match &self.preconditioner {
-            Preconditioning::Ilu(ilu) => qmr_preconditioned(&self.matrix, ilu, &b, stopping)?,
+            Preconditioning::Ilu(ilu) => {
+                qmr_preconditioned(&self.matrix, ilu.as_ref(), &b, stopping)?
+            }
             // a cycle is worth many products with A, and GMRES takes one per iteration where
             // QMR takes two (the cycle and its transpose)
             Preconditioning::Multigrid(h) => {

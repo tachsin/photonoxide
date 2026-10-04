@@ -497,3 +497,58 @@ pub(crate) fn ilu_against_direct() -> (f64, usize, usize) {
         .fold(0.0, f64::max);
     (worst / largest, with.iterations, without.iterations)
 }
+
+/// The problem of [`ilu_against_direct`] by GMRES preconditioned by the default multigrid, to a
+/// relative residual of 1e-10, against the sparse direct solver: the largest difference from the
+/// direct solver's field relative to the largest field, and GMRES's iterations.
+pub(crate) fn multigrid_against_direct() -> (f64, usize) {
+    use super::{Formulation, IterativeSolver3d, Multigrid};
+    use crate::fdfd::Stopping;
+    let h = 0.04;
+    let (nx, ny, nz) = (24, 20, 16);
+    let grid = Grid3d {
+        nx,
+        ny,
+        nz,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: -(nx as f64) * h / 2.0,
+        y0: -(ny as f64) * h / 2.0,
+        z0: -(nz as f64) * h / 2.0,
+    };
+    let strip = |_: f64, y: f64, z: f64| {
+        let m: f64 = if y.abs() < 0.25 && z.abs() < 0.11 {
+            3.476
+        } else {
+            1.444
+        };
+        c64::new(m * m, 0.0)
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let boundaries = Boundaries3d::stretched_pml(6);
+    let mut source = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    source[grid.index(Axis::Y, (nx / 2, ny / 2, nz / 2))] = c64::new(1.0, 0.0);
+    let direct = Solver3d::new(grid, lam, strip, boundaries)
+        .unwrap()
+        .solve(&source)
+        .unwrap();
+    let stopping = Stopping {
+        tolerance: 1e-10,
+        max_iterations: 20_000,
+    };
+    let (field, how) = IterativeSolver3d::new(grid, lam, strip, boundaries, Formulation::ShinFan)
+        .unwrap()
+        .with_multigrid(Multigrid::default())
+        .unwrap()
+        .solve(&source, stopping)
+        .unwrap();
+    let largest = direct.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let worst = direct
+        .values()
+        .iter()
+        .zip(field.values())
+        .map(|(a, b)| (a - b).norm())
+        .fold(0.0, f64::max);
+    (worst / largest, how.iterations)
+}

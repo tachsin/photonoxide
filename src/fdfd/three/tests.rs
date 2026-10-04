@@ -1174,3 +1174,11 @@ fn a_strips_s_matrix_by_qmr() {
         );
     }
 }
+
+#[test]
+fn gmres_with_the_multigrid_gives_the_direct_solvers_field() {
+    let (error, iterations) = crate::fdfd::checks3d::multigrid_against_direct();
+    assert!(error < 1e-8, "{error}");
+    // measured 2.0e-10 in 24 iterations, against 160 for QMR with ILU(0) on the same problem
+    assert!(iterations < 40, "{iterations}");
+}

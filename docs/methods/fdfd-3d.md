@@ -1,7 +1,7 @@
 ---
 title: "FDFD in 3D"
 module: fdfd
-summary: "Maxwell's equations at one frequency on Yee's 3D grid: the electric field's curl-curl equation as one sparse system, with stretched-coordinate PMLs or Bloch-periodic sides on each axis, the exact discrete power flux, a sparse direct or an iterative (QMR) solver, preconditioned by ILU(0) with stretched PMLs, and ports: the grid's own full-vector port modes, one-way mode sources and a reciprocal S-matrix."
+summary: "Maxwell's equations at one frequency on Yee's 3D grid: the electric field's curl-curl equation as one sparse system, with stretched-coordinate PMLs or Bloch-periodic sides on each axis, the exact discrete power flux, a sparse direct or an iterative solver (QMR, preconditioned by ILU(0), or GMRES preconditioned by a multigrid cycle, with stretched PMLs), and ports: the grid's own full-vector port modes, one-way mode sources and a reciprocal S-matrix."
 order: 19
 papers:
   - cite: "A. Christ, H. L. Hartnagel, IEEE Trans. Microw. Theory Tech. 35, 688 (1987)"
@@ -22,9 +22,9 @@ papers:
     doi: 10.2528/PIERB11092006
   - cite: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002) (the port modes' reference)"
     doi: 10.1109/JLT.2002.800371
-  - cite: "Y. Saad, Iterative Methods for Sparse Linear Systems, 2nd ed., SIAM (2003) (ILU(0))"
+  - cite: "Y. Saad, Iterative Methods for Sparse Linear Systems, 2nd ed., SIAM (2003) (ILU(0) and GMRES)"
     doi: 10.1137/1.9780898718003
-  - cite: "B. Reps, W. Vanroose, H. bin Zubair, J. Comput. Phys. 229, 8384 (2010) (complex-stretched layers and iterative solvers)"
+  - cite: "B. Reps, W. Vanroose, H. bin Zubair, J. Comput. Phys. 229, 8384 (2010) (complex-stretched layers, and the multigrid cycle)"
     doi: 10.1016/j.jcp.2010.07.022
   - cite: "Y. A. Erlangga, C. W. Oosterlee, C. Vuik, SIAM J. Sci. Comput. 27, 1471 (2006) (the shifted Laplacian)"
     doi: 10.1137/040615195
@@ -47,6 +47,7 @@ validation:
   - fdfd3d/qmr-iterations-shin-fan
   - fdfd3d/pml-reflection-stretched
   - fdfd3d/qmr-ilu-direct
+  - fdfd3d/gmres-multigrid-direct
 ---
 
 In 3D the fields no longer split into two polarizations: all six components are coupled. FDFD
@@ -525,9 +526,9 @@ thing to try.
 
 **A strip with ports** (`a_strips_s_matrix_by_qmr`: 500 × 220 nm of silicon in oxide on a 20 nm
 grid, PMLs of 16 cells, 1.8 M unknowns, a port's mode source): plain QMR on the curl-curl
-operator took 3 504 iterations and 263 s for one run to 1e-6. The same run with ILU(0) and
-stretched PMLs is still to be measured; one first attempt of the plain run met a Lanczos
-breakdown at step 609, which is why QMR now restarts there.
+operator took 3 504 iterations and 263 s for one run to 1e-6. With ILU(0) and stretched PMLs, the
+two runs of its S-matrix to 1e-8 take 1 965 iterations and 369 s (below). One first attempt of
+the plain run met a Lanczos breakdown at step 609, which is why QMR now restarts there.
 
 **Cost.** ILU(0) takes the matrix's memory again and its factorization is fast (1.9 s at 192 k
 unknowns, 7.8 s at 864 k, mostly sorting the factors). An iteration takes two triangular solves
@@ -538,29 +539,64 @@ independent rows (level scheduling: 120 and 210 fronts) was measured slower on e
 count, 19 ms on 8 threads at best at 192 k, and isn't used. So an iteration costs 2.5 to 4 times
 a plain one, and the iterations saved are worth 3 to 4 times in time, not 10.
 
+**A multigrid cycle as GMRES's preconditioner.** `IterativeSolver3d::with_multigrid` builds
+Reps, Vanroose and bin Zubair's multigrid for complex-stretched absorbing layers (J. Comput.
+Phys. 229, 8384 (2010), doi:10.1016/j.jcp.2010.07.022, Section 6.1 and Fig. 14) on Shin and
+Fan's operator with stretched PMLs:
+
+- **Galerkin coarse operators,** $A_{2h} = P^\mathsf{T} A_h P$, with each component of E
+  interpolated on its own staggered points of Yee's grid, εE along the component's axis;
+- **ILU(0) smoothing,** V(0, 1), the smoother in slabs of 8 planes on rayon's threads, fixed by
+  the grid, so the cycle is the same bit for bit on any number of threads;
+- **semicoarsening that respects the PMLs:** a PML's cells merge later than the others, so a grid
+  with PMLs coarsens by less than two a level along their axes;
+- **Erlangga, Oosterlee and Vuik's complex shift** in the cycle's operator (SIAM J. Sci. Comput.
+  27, 1471 (2006), doi:10.1137/040615195, their Eq. 8, $(\beta_1, \beta_2) = (1, 0.5)$, on the side
+  of the medium's loss: in photonoxide's $e^{-i\omega t}$, $k_0^2(1 + 0.5i)\varepsilon$);
+- the **coarsest grid** of at most 2 000 unknowns, factorized;
+- **restarted GMRES** (Saad 2003, Algorithms 9.5 and 6.11) from the right, one cycle an iteration,
+  restarted every 40 steps, which bounds its memory to 16 bytes per unknown and step. QMR takes the
+  cycle and its transpose each iteration, twice the work for the same iterations.
+
+`Multigrid::default()` is what was measured. On the 40³ guide the shift doesn't matter (0, 0.5
+and 1 take 16 to 18 iterations to 1e-8); on Diel and the strip with ports, without it GMRES
+didn't converge in 20 minutes, and with a shift of 1 it takes as many iterations as with 0.5 to a
+less accurate field (Diel to 1e-8: 3.1e-6 against 1.8e-6). A coarsest grid of 20 000 unknowns
+saves one or two iterations and takes four times as long to build. Validated against the direct
+solver on the strip of `fdfd3d/qmr-ilu-direct` (`fdfd3d/gmres-multigrid-direct`): 2.0e-10 at a
+residual of 1e-10, in 24 iterations against ILU(0)'s 160.
+
+**Measured** by `photonoxide bench fdfd3d` (docs/benchmarks.md) on a Core Ultra 7 265K, 20
+threads, in one run; stretched PMLs, the field's error against the same problem solved by GMRES
+and the multigrid to 1e-12, the strip's against its exact S-matrix:
+
+| problem | solver | to | iterations | build | solve | error | peak memory |
+|---|---|---|---|---|---|---|---|
+| 40³ guide, 10 nm, PMLs of 10, 192 k unknowns | QMR + ILU(0) | 1e-8 | 195 | 1.5 s | 5.6 s | 1.2e-6 | 460 MB |
+| | GMRES + multigrid | 1e-8 | 16 | 2.0 s | 0.5 s | 1.6e-6 | 1.07 GB |
+| Diel, 40 × 90 × 80 cells of 10 nm, 864 k | QMR + ILU(0) | 1e-8 | 1 386 | 6.8 s | 114.8 s | 7.0e-7 | 2.05 GB |
+| | GMRES + multigrid | 1e-8 | 46 | 9.9 s | 5.2 s | 1.8e-6 | 4.67 GB |
+| strip with ports, 72 × 102 × 82 cells of 20 nm, PMLs of 16, 1.8 M; S, two runs | QMR + ILU(0) | 1e-8 | 1 965 | 14.7 s | 369.1 s | 8.6e-4 | 4.27 GB |
+| | GMRES + multigrid | 1e-8 | 54 | 17.2 s | 10.7 s | 6.2e-4 | 9.48 GB |
+
+The solve is 11 to 34 times faster, and with the build 3 to 13 times; the hierarchy takes about
+twice ILU(0)'s memory. The strip's S-matrix errors are the 20 nm grid's: to 1e-10, its runs reach
+7.6e-6. At equal residual the multigrid's field is a little less accurate than ILU(0)'s (Diel:
+1.8e-6 against 7.0e-7 at 1e-8), as for Shin and Fan's residual above, so it is solved one decade
+further for the same field. Plain QMR on the guide ran 35.2 s in this run, against 24.7 s alone
+(docs/benchmarks.md): the machine was busier, so compare within the table.
+
 **What didn't pay.** Jacobi (the diagonal): 10 798 iterations instead of 1 976 on the curl-curl
 operator, 1 335 instead of 1 629 on Shin and Fan's (40³ guide, 1e-6).
 
-A geometric multigrid V-cycle on Shin and Fan's operator, complex-shifted or not. The shift is
-Erlangga, Oosterlee and Vuik's (their Eq. 8, $M = -\Delta - (\beta_1 - \beta_2 i)k^2$ with
-$(\beta_1, \beta_2) = (1, 0.5)$, the shift on the side of the medium's loss: in photonoxide's
-$e^{-i\omega t}$, $k_0^2(1 + 0.5i)\varepsilon$). The cycle used damped Jacobi smoothing,
-coarse grids rediscretized over the same box, and a direct solve on the coarsest. As a solver it
-cuts the residual 3 to 6 times per cycle in vacuum or on a silicon guide between walls; with
-PMLs it stalls at 0.96 per cycle, or diverges even when they are graded gently
-($\sigma \le 7$). As a preconditioner on a 32³ guide with PMLs it cut QMR from 2 051 to 510
-iterations but took twice the time, and ILU(0) as its smoother did worse. Capping σ in the
-cycle's PMLs, or stretching them, didn't rescue it.
-
-This is not a test of their method with PMLs. Erlangga et al. use F-cycles with Galerkin coarse
-operators: their Section 4.3 finds V-cycles too poor, and their boundaries are second-order
-radiation conditions, not PMLs. Reps, Vanroose and bin Zubair (J. Comput. Phys. 229, 8384
-(2010), doi:10.1016/j.jcp.2010.07.022), on complex-stretched absorbing layers, choose ILU(0)
-smoothing with Galerkin coarse operators (their Section 6.1, Fig. 14) and find Jacobi and
-coarse grids discretized directly clearly worse: the components used here. They also trace the
-trouble to the indefinite operator's vanishing h-ellipticity and to coarse grids that resonate
-(their Section 5.1). Their multigrid with Galerkin coarse operators and ILU(0) smoothing, with
-stretched PMLs, is the next thing to try.
+A first multigrid, before this one: damped Jacobi smoothing and coarse grids rediscretized over
+the same box, with plain PMLs. As a solver it cut the residual 3 to 6 times per cycle in vacuum or
+on a silicon guide between walls; with PMLs it stalled at 0.96 per cycle, or diverged even when
+they were graded gently ($\sigma \le 7$). As a preconditioner on a 32³ guide with PMLs it cut QMR
+from 2 051 to 510 iterations but took twice the time. Reps et al. find Jacobi and coarse grids
+discretized directly clearly worse, and trace the trouble to the indefinite operator's vanishing
+h-ellipticity and to coarse grids that resonate (their Section 5.1); their Galerkin operators and
+ILU(0) smoothing, with the stretched PMLs, are what made the difference above.
 
 A sweeping preconditioner (Engquist and Ying's moving PMLs, doi:10.1137/100804644, known but
 not read) factorizes a slab of a few planes per layer: faer's sparse LU took 19 s for one slab of
@@ -572,9 +608,9 @@ not read) factorizes a slab of a few planes per layer: faer's sparse LU took 19 
 - A port's reference plane is a plane of nodes. A Bloch-periodic side of a port must be periodic
   (k = 0), and the window whole along it.
 - The direct solver's memory caps a problem at about 200 k unknowns on a 64 GB machine. QMR's
-  doesn't, and ILU(0) with stretched PMLs cuts its iterations by about ten, but its triangular
-  solves are sequential, so an iteration costs 2.5 to 4 times a plain one. A stronger
-  preconditioner (multigrid that copes with PMLs, or a sweeping one) is future work.
+  doesn't. With stretched PMLs, GMRES and the multigrid cycle take tens of iterations where
+  plain QMR takes thousands, at about twice ILU(0)'s memory (9.5 GB for 1.8 M unknowns). The
+  multigrid was measured with stretched PMLs only, and on silicon in vacuum and in oxide.
 - QMR without look-ahead: a breakdown of the Lanczos process restarts it, which costs the
   Krylov space built so far, rather than being stepped over.
 - A uniform grid along each axis, and interfaces averaged by sampling: exact for interfaces

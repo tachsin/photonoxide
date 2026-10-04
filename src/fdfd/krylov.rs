@@ -291,7 +291,7 @@ pub(crate) fn gmres_preconditioned(
             format!("the right-hand side needs {n} values, got {}", b.len()),
         ));
     }
-    if !(stopping.tolerance > 0.0) || restart == 0 {
+    if stopping.tolerance.is_nan() || stopping.tolerance <= 0.0 || restart == 0 {
         return Err(Error::invalid(
             "gmres",
             "needs a positive tolerance and a restart of at least 1",

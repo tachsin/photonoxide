@@ -51,15 +51,18 @@ pub struct Multigrid {
 }
 
 impl Default for Multigrid {
-    /// Reps et al.'s V(0, 1) with no shift, the coarsest grid at most 20 000 unknowns, and
-    /// GMRES restarted every 40 steps.
+    /// Reps et al.'s V(0, 1) with a shift of 0.5, the coarsest grid at most 2 000 unknowns, and
+    /// GMRES restarted every 40 steps: what was measured (docs/methods/fdfd-3d.md). Without the
+    /// shift neither Diel nor the strip with ports converged in 20 minutes; a shift of 1 takes
+    /// as many iterations to a less accurate field; a coarsest grid of 20 000 saves one or two
+    /// iterations and takes four times as long to build.
     fn default() -> Multigrid {
         Multigrid {
-            shift: 0.0,
+            shift: 0.5,
             shape: CycleShape::V,
             pre: 0,
             post: 1,
-            coarsest: 20_000,
+            coarsest: 2_000,
             restart: 40,
         }
     }
@@ -160,8 +163,9 @@ pub(crate) struct Hierarchy {
     shapes: Vec<[usize; 3]>,
     lu: Lu<usize, c64>,
     /// One thread, for faer's solves with the coarsest factors: their sums then come in one
-    /// order whatever the machine.
-    one: rayon::ThreadPool,
+    /// order whatever the machine. A pool isn't `RefUnwindSafe`, but one that a panic left stays
+    /// usable, so this keeps `IterativeSolver3d` unwind-safe, as it was before the multigrid.
+    one: std::panic::AssertUnwindSafe<rayon::ThreadPool>,
     options: Multigrid,
 }
 
@@ -311,7 +315,7 @@ impl Stretched {
             let mut x = vec![c64::new(0.0, 0.0); 2 * n + 1];
             for p in 0..2 * n {
                 let s = if along {
-                    lattice.nodes[a][((p + 1) / 2).min(n - 1)]
+                    lattice.nodes[a][p.div_ceil(2).min(n - 1)]
                 } else {
                     lattice.halves[a][p / 2]
                 };
@@ -427,6 +431,9 @@ fn coarse_eps(gf: &Grid3d, gc: &Grid3d, eps: &[c64], nodes: &[Vec<usize>; 3]) ->
         .collect()
 }
 
+/// One axis's 1D interpolation weights: for each fine point, its coarse points and weights.
+type Weights = Vec<Vec<(usize, c64)>>;
+
 /// The prolongation from the coarse lattice to the fine one, by rows: each component of E
 /// interpolated on its own staggered points, linearly along each axis in the stretched
 /// coordinate (trilinearly), values fixed at zero left out. Along its own axis a component is
@@ -442,7 +449,7 @@ fn prolongation(
     let (gf, gc) = (fine.grid, coarse.grid);
     let nodes = [0, 1, 2].map(|a| lines.0[a].nodes_of(&lines.1[a]));
     // for each component and axis, the 1D weights
-    let tables: Vec<[Vec<Vec<(usize, c64)>>; 3]> = Axis::ALL
+    let tables: Vec<[Weights; 3]> = Axis::ALL
         .iter()
         .map(|&component| {
             Axis::ALL.map(|axis| {
@@ -612,7 +619,7 @@ impl Hierarchy {
                     levels,
                     shapes,
                     lu,
-                    one,
+                    one: std::panic::AssertUnwindSafe(one),
                     options,
                 });
             }
