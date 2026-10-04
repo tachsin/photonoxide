@@ -124,6 +124,8 @@ export const api = {
   stopTask: (id: number) => invoke<void>("stop_task", { id }),
   changelog: () => invoke<string>("changelog"),
   publishedReport: () => invoke<string>("published_report"),
+  /** The methods' write-ups (docs/methods), as the program was built with them. */
+  methodDocs: () => invoke<{ file: string; text: string }[]>("method_docs"),
   previewScene: (text: string) => invoke<Scene>("preview_scene", { text }),
   saveText: (path: string, text: string) => invoke<void>("save_text", { path, text }),
   materials: () => invoke<MaterialEntry[]>("materials"),

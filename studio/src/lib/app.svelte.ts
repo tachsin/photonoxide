@@ -1,7 +1,7 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
 import { api, type AppState, type Info, type Settings } from "./api";
-import type { Event, Field, Mode, ModeField, Permittivity, Scene, Shape, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
+import type { Event, Field, Mode, ModeField, Permittivity, Scene, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
 
@@ -150,6 +150,10 @@ export const run = $state({
   following: true,
   fields: [] as Field[],
   sparams: [] as SParameters[],
+  /** How the run solves, as it recorded it; an older run has none. */
+  solver: null as Solver | null,
+  /** Each solve's numerical error, in the order recorded. */
+  errors: [] as SolveError[],
   finished: null as { stopped: string | null; seconds: number } | null,
   problem: null as string | null,
   stoppable: false,
@@ -271,6 +275,12 @@ function take(e: Event) {
     case "s_parameters":
       run.sparams.push(e);
       break;
+    case "solver":
+      run.solver = e;
+      break;
+    case "solve_error":
+      run.errors.push(e);
+      break;
     case "finished":
       run.finished = { stopped: e.stopped, seconds: e.seconds };
       break;
@@ -296,6 +306,8 @@ function reset(info: Info) {
     following: true,
     fields: [],
     sparams: [],
+    solver: null,
+    errors: [],
     finished: null,
     problem: null,
     stoppable: false,

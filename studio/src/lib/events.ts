@@ -155,6 +155,31 @@ export interface SweepField {
   intensity: Raster;
 }
 
+/** How the run solves, recorded once before its first solve. */
+export interface Solver {
+  type: "solver";
+  /** The library module that solves: "mode::vector" or "fdfd". */
+  module: string;
+  /** The grid's cells along its two axes. */
+  cells: [number, number];
+  step_um: number;
+  /** The unknowns of one solve. */
+  unknowns: number;
+  /** Further facts, each a name and its value. */
+  details: [string, string][];
+}
+
+/** A measure of a solve's numerical error: a mode's eigen-residual, a field's linear residual, an S-matrix's distance from reciprocal. */
+export interface SolveError {
+  type: "solve_error";
+  /** The sweep point's index, or null for the job's own configuration. */
+  point: number | null;
+  /** The swept parameter's value there, or the job's wavelength, µm. */
+  value: number;
+  measure: string;
+  error: number;
+}
+
 export interface Field {
   type: "field";
   label: string;
@@ -187,6 +212,8 @@ export type Event =
   | Sweep
   | SweepField
   | Cut
+  | Solver
+  | SolveError
   | Field
   | SParameters
   | { type: "finished"; stopped: string | null; seconds: number };

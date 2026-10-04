@@ -3,13 +3,25 @@
   // with axes, a colour bar, and the value under the pointer.
   import { intensityColour, permittivityColour, pixels, range } from "../lib/colours";
   import type { Raster } from "../lib/events";
+  import type { Outline } from "../lib/outline";
 
   let {
     raster,
     kind,
     axes = ["x", "y"],
     maxHeight = 380,
-  }: { raster: Raster; kind: "eps" | "intensity"; axes?: [string, string]; maxHeight?: number } = $props();
+    outline,
+  }: {
+    raster: Raster;
+    kind: "eps" | "intensity";
+    axes?: [string, string];
+    maxHeight?: number;
+    /** The structure's edges to draw over the picture, in its coordinates. */
+    outline?: Outline;
+  } = $props();
+
+  /** A line's points for the overlay, whose y runs down. */
+  const path = (line: [number, number][]) => line.map(([x, y]) => `${x},${-y}`).join(" ");
 
   let canvas: HTMLCanvasElement | undefined = $state();
   let bar: HTMLCanvasElement | undefined = $state();
@@ -50,13 +62,31 @@
 
 <div class="flex items-stretch gap-3">
   <div class="min-w-0 flex-1">
-    <canvas
-      bind:this={canvas}
-      class="w-full rounded-md border border-base-content/10 {kind === 'eps' ? 'pixelated' : ''}"
-      style="aspect-ratio: {aspect}; max-height: {maxHeight}px; max-width: {maxHeight * aspect}px"
-      onpointermove={move}
-      onpointerleave={() => (readout = null)}
-    ></canvas>
+    <div class="relative w-full" style="aspect-ratio: {aspect}; max-height: {maxHeight}px; max-width: {maxHeight * aspect}px">
+      <canvas
+        bind:this={canvas}
+        class="block h-full w-full rounded-md border border-base-content/10 {kind === 'eps' ? 'pixelated' : ''}"
+        onpointermove={move}
+        onpointerleave={() => (readout = null)}
+      ></canvas>
+      {#if outline}
+        <!-- the structure's edges: a dark line under a pale one, so they read on the field's black and on its peak -->
+        <svg
+          class="pointer-events-none absolute inset-0 h-full w-full overflow-hidden rounded-md"
+          viewBox="{raster.x0} {-raster.y1} {raster.x1 - raster.x0} {raster.y1 - raster.y0}"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          {#each outline.interfaces as line, k (k)}
+            <polyline points={path(line)} fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1" stroke-dasharray="4 4" vector-effect="non-scaling-stroke" />
+          {/each}
+          {#each outline.shapes as line, k (k)}
+            <polyline points={path(line)} fill="none" stroke="#000000" stroke-opacity="0.55" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+            <polyline points={path(line)} fill="none" stroke="#ffffff" stroke-opacity="0.9" stroke-width="1.25" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+          {/each}
+        </svg>
+      {/if}
+    </div>
     <div class="mt-1.5 flex justify-between text-[11px] faint num">
       <span>{axes[0]} {raster.x0.toFixed(2)} → {raster.x1.toFixed(2)} µm · {axes[1]} {raster.y0.toFixed(2)} → {raster.y1.toFixed(2)} µm</span>
       <span class="text-base-content/70">{readout ?? `${raster.nx} × ${raster.ny} cells`}</span>

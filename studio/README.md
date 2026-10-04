@@ -47,6 +47,15 @@ window only follows that record, so a live run and a replay look the same.
     Drag to orbit, right-drag to pan, scroll to zoom.
   - **2D:** fields, S-parameters and spectra, permittivity pictures, modes, and a sweep's
     effective and group indices. Hover a plot to read its values, and save its data as CSV.
+    The pictures of fields and modes carry the structure's outline (the shapes' edges, and a
+    cross-section's layer interfaces), so a dark region can be told inside from outside; a
+    tick turns it off.
+  - **Solver** (the bar's button, or the solver's name in the side panel): how the run was
+    solved. The solver, its grid and its unknowns as the run recorded them; each solve's
+    numerical error (a mode's eigen-residual, an FDFD field's linear residual, an S-matrix's
+    distance from reciprocal), charted over a sweep; and the methods' write-ups from
+    `docs/methods` with their equations, the papers they implement by DOI, and the module
+    that implements each.
   - The side panel hides layers, picks the mode shown, and stops a running job. A sweep's
     slider (or ← and →) flips through its points: the structure at that point (a width
     sweep's strip widens), its modes on the cut and travelling, and the point marked on the
