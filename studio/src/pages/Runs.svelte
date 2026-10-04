@@ -95,7 +95,9 @@
                 class="checkbox checkbox-xs"
                 checked={all}
                 aria-label="Pick every run shown"
-                onchange={() => (app.compare = all ? app.compare.filter((d) => !shown.some((r) => r.dir === d)) : [...new Set([...app.compare, ...shown.map((r) => r.dir)])])}
+                onchange={() => {
+                  app.compare = all ? app.compare.filter((d) => !shown.some((r) => r.dir === d)) : [...new Set([...app.compare, ...shown.map((r) => r.dir)])];
+                }}
               />
             </th>
             <th>Job</th>

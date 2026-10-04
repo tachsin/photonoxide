@@ -161,7 +161,9 @@
     const timer = setTimeout(() => {
       api
         .circuitCheck(snapshot)
-        .then((p) => (editor.problems = p))
+        .then((p) => {
+          editor.problems = p;
+        })
         .catch(() => {});
     }, 90);
     return () => clearTimeout(timer);
@@ -543,7 +545,7 @@
 
 <svelte:window onkeydown={keys} onpointermove={placeMove} onpointerup={placeUp} />
 
-<div class="grid h-full grid-cols-[16rem_minmax(0,1fr)_19rem]">
+<div class="grid h-full grid-cols-[16rem_minmax(0,1fr)_19rem] max-xl:grid-cols-[13rem_minmax(0,1fr)_16rem]">
   <!-- the parts and the circuits -->
   <aside class="flex min-h-0 flex-col border-r border-base-content/8 bg-base-100/40">
     <div class="flex gap-2 p-3">

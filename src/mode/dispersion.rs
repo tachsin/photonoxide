@@ -60,6 +60,12 @@ fn checked(wavelengths: &[Wavelength], n_eff: &[f64]) -> Result<Vec<f64>> {
             "the wavelengths must be strictly increasing",
         ));
     }
+    if let Some(n) = n_eff.iter().find(|n| !n.is_finite()) {
+        return Err(Error::invalid(
+            "dispersion",
+            format!("the effective indices must be finite, got {n}"),
+        ));
+    }
     Ok(um)
 }
 
@@ -68,8 +74,8 @@ fn checked(wavelengths: &[Wavelength], n_eff: &[f64]) -> Result<Vec<f64>> {
 ///
 /// # Errors
 ///
-/// [`Error::InvalidValue`] for fewer than 3 wavelengths, a different number of indices, or
-/// wavelengths that don't increase.
+/// [`Error::InvalidValue`] for fewer than 3 wavelengths, a different number of indices,
+/// wavelengths that don't increase, or an index that isn't finite.
 pub fn group_index(wavelengths: &[Wavelength], n_eff: &[f64]) -> Result<Vec<f64>> {
     let um = checked(wavelengths, n_eff)?;
     Ok(derivatives(&um, n_eff)
@@ -282,6 +288,12 @@ mod tests {
         assert!(group_index(&w, &[2.0, 2.1]).is_err());
         let backwards = [w[2], w[1], w[0]];
         assert!(dispersion(&backwards, &[2.0, 2.1, 2.2]).is_err());
+        // a NaN index made every group index NaN, silently
+        let e = group_index(&w, &[2.0, f64::NAN, 2.2])
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("must be finite"), "{e}");
+        assert!(dispersion(&w, &[2.0, f64::INFINITY, 2.2]).is_err());
     }
 
     #[test]

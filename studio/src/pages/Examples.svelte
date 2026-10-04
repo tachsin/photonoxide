@@ -128,7 +128,7 @@
       </div>
     </div>
   {:else}
-    <div class="grid min-h-0 flex-1 grid-cols-[360px_1fr]">
+    <div class="grid min-h-0 flex-1 grid-cols-[360px_minmax(0,1fr)] max-xl:grid-cols-[280px_minmax(0,1fr)]">
       <aside class="flex min-h-0 flex-col border-r border-base-content/8 bg-base-100/40">
         <label class="input input-sm m-4 mb-2 flex items-center gap-2">
           <Search size={14} class="faint" />
@@ -163,7 +163,8 @@
         <section class="flex min-h-0 flex-col overflow-y-auto">
           <div class="space-y-5 p-8">
             <div class="flex flex-wrap items-start gap-4">
-              <div class="min-w-0 flex-1">
+              <!-- at least 16rem wide: narrower, the button goes under it -->
+              <div class="min-w-[16rem] flex-1">
                 <h2 class="text-2xl font-semibold tracking-tight">{title(current.name)}</h2>
                 <p class="mt-2 max-w-3xl leading-relaxed muted">{current.what}</p>
               </div>

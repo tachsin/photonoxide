@@ -179,7 +179,10 @@
         <input type="checkbox" class="toggle toggle-primary" checked={s.hints} onchange={() => updateSettings((x) => (x.hints = !x.hints))} />
       </label>
       <div class="mt-4 flex gap-2">
-        <button class="btn btn-sm" disabled={!s.dismissed.length} onclick={() => updateSettings((x) => (x.dismissed = []))}>Bring back the {s.dismissed.length} closed tip{s.dismissed.length === 1 ? "" : "s"}</button>
+        <button class="btn btn-sm" disabled={!s.dismissed.length} onclick={() =>
+            updateSettings((x) => {
+              x.dismissed = [];
+            })}>Bring back the {s.dismissed.length} closed tip{s.dismissed.length === 1 ? "" : "s"}</button>
         <button class="btn btn-ghost btn-sm" onclick={() => (app.tour = true)}>Take the tour</button>
       </div>
     </section>

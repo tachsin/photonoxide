@@ -69,6 +69,12 @@ fn check_guide(guide: &Dispersion) -> Result<()> {
 /// The wavelength nearest `near` where the round trip's phase is a whole number of turns,
 /// n(λ)L = mλ (Bogaerts Eq. 3), by Newton's method on n(λ)L/λ − m.
 fn resonance(guide: &Dispersion, near: Wavelength, length: f64) -> Result<Wavelength> {
+    if !(length.is_finite() && length > 0.0) {
+        return Err(Error::invalid(
+            "ring",
+            format!("the round trip must be a positive length, got {length} um"),
+        ));
+    }
     let order = (guide.effective_index_at(near) * length / near.to_um()).round();
     let mut w = near.to_um();
     for _ in 0..50 {
@@ -169,7 +175,8 @@ impl AllPassRing {
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidValue`] if Newton's method doesn't converge.
+    /// [`Error::InvalidValue`] for a length that isn't positive and finite, or if Newton's
+    /// method doesn't converge.
     pub fn resonance(&self, near: Wavelength, length: f64) -> Result<Wavelength> {
         resonance(&self.guide, near, length)
     }

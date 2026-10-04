@@ -631,14 +631,40 @@ fn check_step(step_nm: f64) -> Result<()> {
 /// ([`crate::raster`]), and far beyond what a solve can take.
 const MOST_CELLS: f64 = 10_000.0;
 
+/// The fewest cells a job's grid may have along one side: a cross-section needs 3 nodes, and a
+/// picture of one cell shows nothing.
+const FEWEST_CELLS: f64 = 2.0;
+
 /// A window's cells at the job's step: at most [`MOST_CELLS`], so that a step mistyped a
-/// thousand times too small is refused instead of filling the memory.
+/// thousand times too small is refused instead of filling the memory, and at least
+/// [`FEWEST_CELLS`], so that one a thousand times too large is refused instead of solving a
+/// window of one cell.
 fn check_cells(name: &str, window: [f64; 2], step_nm: f64) -> Result<()> {
-    let cells = ((window[1] - window[0]) / (step_nm / 1000.0)).round();
+    let exact = (window[1] - window[0]) / (step_nm / 1000.0);
+    let cells = exact.round();
     if cells > MOST_CELLS {
+        // a number, not a line of three hundred digits
+        let shown = if cells < 1e12 {
+            cells.to_string()
+        } else {
+            format!("{cells:.1e}")
+        };
         return Err(task_error(format!(
-            "{name} at a step of {step_nm} nm is {cells} cells, more than {MOST_CELLS}: take a \
+            "{name} at a step of {step_nm} nm is {shown} cells, more than {MOST_CELLS}: take a \
              larger step_nm or a smaller window"
+        )));
+    }
+    if exact < FEWEST_CELLS {
+        // to the picometre, without the subtraction's rounding
+        let width = window[1] - window[0];
+        let shown = if width >= 1e-3 {
+            ((width * 1e6).round() / 1e6).to_string()
+        } else {
+            format!("{width:.1e}")
+        };
+        return Err(task_error(format!(
+            "{name} is {shown} um across, less than {FEWEST_CELLS} cells at a step of {step_nm} \
+             nm: take a smaller step_nm or a larger window"
         )));
     }
     Ok(())
@@ -692,6 +718,21 @@ impl StructureTask {
             check_window("z_um", z)?;
         }
         check_finite("side_y_um", self.side_y_um)?;
+        // the side view is cut inside the window, or it shows what isn't drawn
+        let side = self.side_y_um.unwrap_or(0.0);
+        if !(self.y_um[0]..=self.y_um[1]).contains(&side) {
+            return Err(task_error(format!(
+                "the side view's cut, side_y_um = {side}{}, is outside y_um [{}, {}]: give a \
+                 side_y_um inside it",
+                if self.side_y_um.is_some() {
+                    ""
+                } else {
+                    " by default"
+                },
+                self.y_um[0],
+                self.y_um[1]
+            )));
+        }
         check_step(self.step_nm)?;
         check_cells("x_um", self.x_um, self.step_nm)?;
         check_cells("y_um", self.y_um, self.step_nm)?;
@@ -776,6 +817,9 @@ impl ModesTask {
         }
         check_finite("cut_x_um", self.cut_x_um)?;
         check_finite("cut_y_um", self.cut_y_um)?;
+        if self.modes == Some(0) {
+            return Err(task_error("modes must be at least 1, got 0"));
+        }
         check_step(self.step_nm)?;
         check_cells(
             match along {
@@ -800,8 +844,12 @@ impl ModesTask {
             "width" => {
                 let index = sweep.rect.unwrap_or(0);
                 if index >= self.rect.len() {
+                    // the studio numbers the rectangles from 1, the job from 0: say both
                     return Err(task_error(format!(
-                        "the width sweep's rect {index} isn't there"
+                        "the width sweep's rect {index} isn't there: rect counts from 0, so it is \
+                         rectangle {} of the job's {}",
+                        index + 1,
+                        self.rect.len()
                     )));
                 }
                 if sweep.from <= 0.0 || sweep.to <= 0.0 {
@@ -1238,7 +1286,9 @@ pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 /// the stack has data at the wavelength and at both ends of a wavelength sweep; for an
 /// `"fdfd"` job, the polarization, that the PMLs leave room, and each port's place: a known
 /// side, a column inside the window and clear of the PMLs, a window of rows on the grid. No
-/// window may be more than 10 000 cells of the step across. What only a solve finds (a port
+/// window, the default height (1 µm below and above the layer) included, may be more than
+/// 10 000 cells of the step across or fewer than 2; a modes job asks for at least one mode, and
+/// a structure job's side view is cut inside its window. What only a solve finds (a port
 /// whose column guides no mode, modes that don't converge) is left to the run.
 ///
 /// # Errors
@@ -1256,13 +1306,17 @@ pub fn check(job: &Job) -> Result<()> {
         "structure" => {
             let task: StructureTask = job.task().clone().try_into().map_err(parse)?;
             task.validate()?;
-            (task.structure()?, task.layer, task.wavelength_um)
+            let s = task.structure()?;
+            window_z(task.z_um, &task.layer, &s, task.step_nm)?;
+            (s, task.layer, task.wavelength_um)
         }
         "modes" => {
             let task: ModesTask = job.task().clone().try_into().map_err(parse)?;
             task.validate()?;
             let stack = named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
             let s = draw(stack, &task.rect, &task.circle, &task.ring)?;
+            let z = modes_z(&task, &s)?;
+            modes_guide(&task, &s, z)?;
             if let Some(sw) = task.sweep.iter().find(|sw| sw.parameter == "wavelength") {
                 wavelengths.extend([sw.from, sw.to]);
             }
@@ -1301,14 +1355,8 @@ fn structure(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     if stop.reason().is_some() {
         return Ok(());
     }
-    let (_, bottom, top_z) = s
-        .stack()
-        .layer(&task.layer)
-        .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
-    let z = match task.z_um {
-        Some([a, b]) => (Length::um(a), Length::um(b)),
-        None => (bottom - Length::um(1.0), top_z + Length::um(1.0)),
-    };
+    let [z0, z1] = window_z(task.z_um, &task.layer, &s, task.step_nm)?;
+    let z = (Length::um(z0), Length::um(z1));
     let side_y = Length::um(task.side_y_um.unwrap_or(0.0));
     let side = s.side_view(side_y, x, z, step, lam)?;
     run.record(&Event::Permittivity {
@@ -1322,16 +1370,7 @@ fn structure(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 /// A structure job's scene: the window, 1 µm above and below the layer seen from above unless
 /// `z_um` says otherwise.
 fn structure_scene(task: &StructureTask, s: &Structure) -> Result<Event> {
-    let z = match task.z_um {
-        Some(z) => z,
-        None => {
-            let (_, bottom, top) = s
-                .stack()
-                .layer(&task.layer)
-                .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
-            [bottom.to_um() - 1.0, top.to_um() + 1.0]
-        }
-    };
+    let z = window_z(task.z_um, &task.layer, s, task.step_nm)?;
     scene(
         s,
         task.x_um,
@@ -1341,18 +1380,74 @@ fn structure_scene(task: &StructureTask, s: &Structure) -> Result<Event> {
     )
 }
 
+/// What a modes job needs for there to be a guide in its cross-section: a z window that
+/// reaches its layer, and a cut that meets a shape within the window across. Without either
+/// the solver would find the modes of bare cladding in a box, and call them the job's.
+fn modes_guide(task: &ModesTask, s: &Structure, z: [f64; 2]) -> Result<()> {
+    let (_, bottom, top) = s
+        .stack()
+        .layer(&task.layer)
+        .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
+    let (bottom, top) = (bottom.to_um(), top.to_um());
+    if z[1] <= bottom || z[0] >= top {
+        return Err(task_error(format!(
+            "z_um, {} to {}, doesn't reach the layer {} ({bottom} to {top} um): the \
+             cross-section would hold no guide",
+            z[0], z[1], task.layer
+        )));
+    }
+    let (along, across, cut) = (task.along()?, task.across()?, task.cut()?);
+    // along the cut, across the window, a quarter of the step apart
+    let step = task.step_nm / 4000.0;
+    let count = ((across[1] - across[0]) / step).ceil() as usize;
+    let meets = (0..=count).any(|k| {
+        let a = (across[0] + k as f64 * step).min(across[1]);
+        let p = match along {
+            Along::X => Point::um(cut, a),
+            Along::Y => Point::um(a, cut),
+        };
+        s.stack()
+            .layers()
+            .iter()
+            .any(|l| s.shapes(&l.name).iter().any(|shape| shape.contains(p)))
+    });
+    if !meets {
+        return Err(task_error(format!(
+            "the cross-section at {} = {cut} um meets no shape between {} = {} and {} um: there \
+             is no guide there to solve",
+            along.name(),
+            along.across(),
+            across[0],
+            across[1]
+        )));
+    }
+    Ok(())
+}
+
 /// A modes job's window height: `z_um`, else 1 µm below and above its layer.
 fn modes_z(task: &ModesTask, s: &Structure) -> Result<[f64; 2]> {
-    match task.z_um {
-        Some(z) => Ok(z),
-        None => {
-            let (_, bottom, top) = s
-                .stack()
-                .layer(&task.layer)
-                .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
-            Ok([bottom.to_um() - 1.0, top.to_um() + 1.0])
-        }
+    window_z(task.z_um, &task.layer, s, task.step_nm)
+}
+
+/// A job's window height: `z_um`, else 1 µm below and above its layer, of as many cells as
+/// [`check_cells`] allows a window the job gives (a layer a metre thick is refused here, not
+/// as a picture too large to draw).
+fn window_z(z_um: Option<[f64; 2]>, layer: &str, s: &Structure, step_nm: f64) -> Result<[f64; 2]> {
+    if let Some(z) = z_um {
+        // (checked with the job's other windows)
+        return Ok(z);
     }
+    let (_, bottom, top) = s
+        .stack()
+        .layer(layer)
+        .ok_or_else(|| task_error(format!("the stack has no layer {layer}")))?;
+    let z = [bottom.to_um() - 1.0, top.to_um() + 1.0];
+    check_cells(
+        "the height, 1 um below and above the layer as z_um isn't given,",
+        z,
+        step_nm,
+    )?;
+    Ok(z)
 }
 
 /// A modes job's scene: a block behind the cut along the guide, as deep as the window across it
@@ -1414,6 +1509,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let view = format!("cross-section at {} = {cut} um", along.name());
     let s = draw(stack()?, &task.rect, &task.circle, &task.ring)?;
     let z = modes_z(&task, &s)?;
+    modes_guide(&task, &s, z)?;
     run.record(&modes_scene(&task, &s)?)?;
     if task.propagation.is_some() {
         run.record(&Event::Cut {
@@ -1462,8 +1558,10 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                     .into(),
             ],
             [
-                "grid".into(),
-                "nodes on every shape's edge and layer interface, cells of about the step".into(),
+                "nodes".into(),
+                "on every shape's edge and layer interface, cells of about the step between \
+                 them"
+                    .into(),
             ],
         ],
     })?;
@@ -2674,7 +2772,7 @@ points = 2
             ),
             (
                 FDFD.replace("step_nm = 40.0", "step_nm = 3000.0"),
-                "leave nothing of 1 cells",
+                "x_um is 2.8 um across, less than 2 cells at a step of 3000 nm",
             ),
             (
                 with_port("[[task.port]]\nx_um = -9.0\nside = \"left\""),
@@ -2690,11 +2788,12 @@ points = 2
             ),
             (
                 with_port("[[task.port]]\nx_um = -0.4\nside = \"left\"\ny_um = [0.0, 0.04]"),
-                "the window, rows 35 to 36, must have 3 rows or more",
+                "its y_um [0, 0.04] covers 1 row of the window (y from -1.4 to 1.4 um, 70 rows); a \
+                 port needs 3 rows or more",
             ),
             (
                 with_port("[[task.port]]\nx_um = -0.4\nside = \"left\"\ny_um = [5.0, 6.0]"),
-                "the window, rows 70 to 70, must have 3 rows or more",
+                "its y_um, 5 to 6, must lie inside the window's, -1.4 to 1.4",
             ),
             // a step a thousand times too small, in each kind: refused, not allocated
             (
@@ -2713,6 +2812,46 @@ points = 2
                 FDFD.replace("step_nm = 40.0", "step_nm = 0.04"),
                 "x_um at a step of 0.04 nm is 70000 cells",
             ),
+            // a window as wide as a thousand of the step: a number, not three hundred digits
+            (
+                JOB.replace("x_um = [-1.0, 1.0]", "x_um = [-1e300, 1e300]"),
+                "x_um at a step of 50 nm is 4.0e301 cells, more than 10000",
+            ),
+            // a step a thousand times too large: refused, not solved on a window of one cell
+            (
+                MODES.replace("step_nm = 25.0", "step_nm = 5000.0"),
+                "x_um is 2 um across, less than 2 cells at a step of 5000 nm",
+            ),
+            (
+                MODES.replace("modes = 2", "modes = 2\nz_um = [1.0, 1.01]"),
+                "z_um is 0.01 um across, less than 2 cells at a step of 25 nm",
+            ),
+            (
+                JOB.replace("step_nm = 50.0", "step_nm = 3000.0"),
+                "x_um is 2 um across, less than 2 cells at a step of 3000 nm",
+            ),
+            // the height the job doesn't give, of a layer a metre thick
+            (
+                MODES.replace(
+                    "stack = \"soi_220\"",
+                    "stack = \"soi\"\ncore_nm = 1e9\nbottom_oxide_um = 2.0",
+                ),
+                "the height, 1 um below and above the layer as z_um isn't given, at a step of 25 \
+                 nm is",
+            ),
+            (
+                MODES.replace("modes = 2", "modes = 0"),
+                "modes must be at least 1, got 0",
+            ),
+            // a side view cut outside the window, given or by default
+            (
+                JOB.replace("step_nm = 50.0", "step_nm = 50.0\nside_y_um = 5.0"),
+                "the side view's cut, side_y_um = 5, is outside y_um [-1, 1]",
+            ),
+            (
+                JOB.replace("y_um = [-1.0, 1.0]", "y_um = [2.0, 4.0]"),
+                "the side view's cut, side_y_um = 0 by default, is outside y_um [2, 4]",
+            ),
         ];
         for (text, says) in cases {
             let job = Job::parse(&text).unwrap();
@@ -2723,9 +2862,72 @@ points = 2
             let failed = execute(&job, &mut run, &Stop::new(None)).unwrap_err();
             assert_eq!(refused, failed.to_string());
         }
-        // the largest grid allowed still passes: 10 000 cells across
-        let job = Job::parse(&JOB.replace("step_nm = 50.0", "step_nm = 0.2")).unwrap();
+        // the largest grid allowed still passes: 10 000 cells across, and as many up (the
+        // default height, 1 um below and above the layer, would be 11 100: its side view was
+        // refused only when the run drew it)
+        let job =
+            Job::parse(&JOB.replace("step_nm = 50.0", "step_nm = 0.2\nz_um = [1.0, 3.0]")).unwrap();
         check(&job).unwrap();
+        let job = Job::parse(&JOB.replace("step_nm = 50.0", "step_nm = 0.2")).unwrap();
+        let refused = check(&job).unwrap_err().to_string();
+        assert!(refused.contains("is 11100 cells"), "{refused}");
+    }
+
+    #[test]
+    fn the_check_refuses_jobs_that_ran_on_something_other_than_what_they_say() {
+        // each of these ran, on a clipped port, a port counted twice, a closed box, or bare
+        // cladding: the check and the run now refuse them, in the same words
+        let left = "[[task.port]]\nx_um = -0.4\nside = \"left\"";
+        let right = "[[task.port]]\nx_um = 0.4\nside = \"right\"";
+        assert!(FDFD.contains(left) && FDFD.contains(right));
+        let cases = [
+            (
+                FDFD.replace(left, &format!("{left}\ny_um = [0.0, 5.0]")),
+                "the port at x = -0.4 um: its y_um, 0 to 5, must lie inside the window's, -1.4 to 1.4",
+            ),
+            (
+                FDFD.replace(right, left),
+                "ports 1 and 2 are the same (x = -0.4 um, left)",
+            ),
+            (
+                FDFD.replace("step_nm = 40.0", "step_nm = 40.0\npml_cells = 0"),
+                "pml_cells must be at least 1",
+            ),
+            (
+                MODES.replace("step_nm = 25.0", "step_nm = 25.0\ncut_y_um = 50.0"),
+                "the cross-section at y = 50 um meets no shape between x = -1 and 1 um",
+            ),
+            (
+                MODES.split("[[task.rect]]").next().unwrap().to_owned(),
+                "the cross-section at y = 0 um meets no shape",
+            ),
+            (
+                MODES.replace("step_nm = 25.0", "step_nm = 25.0\nz_um = [5.0, 6.0]"),
+                "z_um, 5 to 6, doesn't reach the layer Si (2 to 2.22 um)",
+            ),
+            (
+                MODES_X.replace("step_nm = 25.0", "step_nm = 25.0\ncut_x_um = 50.0"),
+                "the cross-section at x = 50 um meets no shape between y = -1 and 1 um",
+            ),
+        ];
+        for (text, says) in cases {
+            let job = Job::parse(&text).unwrap();
+            let refused = check(&job).unwrap_err().to_string();
+            assert!(refused.contains(says), "{refused}");
+            let root = temp("guideless");
+            let mut run = Run::create(&root.0, &job).unwrap();
+            let failed = execute(&job, &mut run, &Stop::new(None)).unwrap_err();
+            assert_eq!(refused, failed.to_string());
+        }
+        // what is still a job: a port's window that is the window's own, a z window that
+        // holds the layer and nothing else, a strip narrower than a cell of the sampling
+        for text in [
+            FDFD.replace(left, &format!("{left}\ny_um = [-1.4, 1.4]")),
+            MODES.replace("step_nm = 25.0", "step_nm = 25.0\nz_um = [1.9, 2.3]"),
+            MODES.replace("size_um = [0.5, 10.0]", "size_um = [0.01, 10.0]"),
+        ] {
+            check(&Job::parse(&text).unwrap()).unwrap();
+        }
     }
 
     #[test]
@@ -2830,7 +3032,8 @@ points = 2
                 format!(
                     "{MODES}\n[task.sweep]\nparameter = \"width\"\nfrom = 0.4\nto = 0.6\npoints = 3\nrect = 2\n"
                 ),
-                "isn't there",
+                "the width sweep's rect 2 isn't there: rect counts from 0, so it is rectangle 3 of \
+                 the job's 1",
             ),
             (
                 format!(

@@ -174,6 +174,10 @@ export function redo() {
 
 export const dirty = () => snapshot() !== editor.saved;
 
+/** The chip as it was opened: an example opened and left as it is has nothing to lose, though
+ * it isn't saved in the workspace. */
+let opened = snapshot();
+
 /** Opens `chip` in the editor, from `path` if it is a file of the workspace. */
 export function openChip(chip: Chip, path: string | null) {
   editor.chip = JSON.parse(JSON.stringify(chip));
@@ -182,6 +186,7 @@ export function openChip(chip: Chip, path: string | null) {
   editor.chip.port ??= [];
   editor.path = path;
   editor.saved = path ? snapshot() : "";
+  opened = snapshot();
   editor.selection = null;
   editor.sim = null;
   editor.simulated = "";
@@ -197,7 +202,7 @@ export function openChip(chip: Chip, path: string | null) {
 /** Whether the chip being edited may be replaced: it has no unsaved work, or the user says so. */
 export async function discardOk(): Promise<boolean> {
   const c = editor.chip;
-  if (!dirty() || (!c.instance.length && !c.port.length)) return true;
+  if (!dirty() || snapshot() === opened || (!c.instance.length && !c.port.length)) return true;
   return ask(`${c.name} has changes that aren't saved. Discard them?`, { title: "Discard the changes?", kind: "warning" });
 }
 

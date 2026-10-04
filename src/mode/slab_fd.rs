@@ -133,7 +133,8 @@ impl Profile {
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidValue`] for a count of 0, or if the eigenproblem doesn't converge.
+    /// [`Error::InvalidValue`] for a count of 0, a `near` that isn't finite, or if the
+    /// eigenproblem doesn't converge.
     pub fn modes(
         &self,
         polarization: Polarization,
@@ -144,6 +145,7 @@ impl Profile {
         if count == 0 {
             return Err(Error::invalid("mode count", "must be at least 1"));
         }
+        crate::mode::vector::check_near(near)?;
         let k = wavelength.wavenumber();
         let k2 = k * k;
         let (start, end) = (self.nodes[0], self.nodes[self.nodes.len() - 1]);
@@ -337,5 +339,11 @@ mod tests {
         assert!(Profile::new(vec![0.0, 1.0, 1.0], vec![c64::new(1.0, 0.0); 2]).is_err());
         assert!(Profile::new(vec![0.0, 1.0, 2.0], vec![c64::new(1.0, 0.0)]).is_err());
         assert!(book(0.01).with_pml(3.0, 2.0, 3.0).is_err());
+        let w = Wavelength::um(1.55).unwrap();
+        let e = book(0.01)
+            .modes(Polarization::Te, w, 1, Some(f64::NAN))
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("must be finite"), "{e}");
     }
 }

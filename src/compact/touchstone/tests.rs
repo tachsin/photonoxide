@@ -737,3 +737,18 @@ fn files_take_their_ports_from_the_extension() {
     ));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_port_or_frequency_count_beyond_the_data_is_refused_not_allocated() {
+    // 100 000 ports set aside 2 × 10^10 values for the first frequency: 160 GB, and the
+    // process aborted
+    assert!(Touchstone::parse("# GHz S MA R 50\n1 0.5 0\n", Some(100_000)).is_err());
+    assert!(Touchstone::parse("# GHz S MA R 50\n1 0.5 0\n", Some(usize::MAX)).is_err());
+    let v2 = "[Version] 2.0\n# GHz S MA R 50\n[Number of Ports] 1\n\
+              [Number of Frequencies] 1000000000000\n[Network Data]\n1 0.5 0\n[End]\n";
+    let e = Touchstone::parse(v2, None).unwrap_err().to_string();
+    assert!(e.contains("[Number of Frequencies]"), "{e}");
+    let v2 = "[Version] 2.0\n# GHz S MA R 50\n[Number of Ports] 18446744073709551615\n\
+              [Number of Frequencies] 1\n[Network Data]\n1 0.5 0\n[End]\n";
+    assert!(Touchstone::parse(v2, None).is_err());
+}
