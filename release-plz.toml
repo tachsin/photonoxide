@@ -44,3 +44,10 @@ name = "photonoxide-studio"
 release = false
 # overrides the workspace's publish = true, which must agree with its Cargo.toml
 publish = false
+
+# the library's changelog is the release notes, and each release carries the program's binaries
+# too: commits that only touch studio/ are left out of the crate's files (Cargo.toml's exclude),
+# so release-plz would skip them without this
+[[package]]
+name = "photonoxide"
+changelog_include = ["photonoxide-studio"]
