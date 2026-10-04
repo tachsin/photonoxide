@@ -590,6 +590,23 @@ fn check_step(step_nm: f64) -> Result<()> {
     }
 }
 
+/// The most cells a job's grid may have along one side: what a picture may have
+/// ([`crate::raster`]), and far beyond what a solve can take.
+const MOST_CELLS: f64 = 10_000.0;
+
+/// A window's cells at the job's step: at most [`MOST_CELLS`], so that a step mistyped a
+/// thousand times too small is refused instead of filling the memory.
+fn check_cells(name: &str, window: [f64; 2], step_nm: f64) -> Result<()> {
+    let cells = ((window[1] - window[0]) / (step_nm / 1000.0)).round();
+    if cells > MOST_CELLS {
+        return Err(task_error(format!(
+            "{name} at a step of {step_nm} nm is {cells} cells, more than {MOST_CELLS}: take a \
+             larger step_nm or a smaller window"
+        )));
+    }
+    Ok(())
+}
+
 /// An optional number the run uses as a coordinate: finite when given.
 fn check_finite(name: &str, v: Option<f64>) -> Result<()> {
     match v {
@@ -638,7 +655,13 @@ impl StructureTask {
             check_window("z_um", z)?;
         }
         check_finite("side_y_um", self.side_y_um)?;
-        check_step(self.step_nm)
+        check_step(self.step_nm)?;
+        check_cells("x_um", self.x_um, self.step_nm)?;
+        check_cells("y_um", self.y_um, self.step_nm)?;
+        match self.z_um {
+            Some(z) => check_cells("z_um", z, self.step_nm),
+            None => Ok(()),
+        }
     }
 }
 
@@ -717,6 +740,17 @@ impl ModesTask {
         check_finite("cut_x_um", self.cut_x_um)?;
         check_finite("cut_y_um", self.cut_y_um)?;
         check_step(self.step_nm)?;
+        check_cells(
+            match along {
+                Along::X => "y_um",
+                Along::Y => "x_um",
+            },
+            self.across()?,
+            self.step_nm,
+        )?;
+        if let Some(z) = self.z_um {
+            check_cells("z_um", z, self.step_nm)?;
+        }
         let Some(sweep) = &self.sweep else {
             return Ok(());
         };
@@ -1165,8 +1199,10 @@ pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 /// run from smaller to larger numbers, the step is positive, a sweep has distinct ends, at least
 /// 2 points and a parameter the kind sweeps, the coordinates are numbers, and every material of
 /// the stack has data at the wavelength and at both ends of a wavelength sweep; for an
-/// `"fdfd"` job, the polarization and that it has ports too. What only a solve finds (a port
-/// inside the PML) is left to the run.
+/// `"fdfd"` job, the polarization, that the PMLs leave room, and each port's place: a known
+/// side, a column inside the window and clear of the PMLs, a window of rows on the grid. No
+/// window may be more than 10 000 cells of the step across. What only a solve finds (a port
+/// whose column guides no mode, modes that don't converge) is left to the run.
 ///
 /// # Errors
 ///
@@ -2403,6 +2439,73 @@ points = 2
 "
         );
         check(&Job::parse(&width).unwrap()).unwrap();
+    }
+
+    #[test]
+    fn the_check_refuses_what_the_run_would_before_it_solves() {
+        // each of these passed the check and failed in the run: the check now says what the
+        // run says, and the run still says it
+        let port = "[[task.port]]\nx_um = -0.4\nside = \"left\"";
+        let with_port = |to: &str| FDFD.replace(port, to);
+        let cases = [
+            (
+                FDFD.replace("step_nm = 40.0", "step_nm = 40.0\npml_cells = 60"),
+                "PMLs of 60 and 60 cells leave nothing of 70 cells",
+            ),
+            (
+                FDFD.replace("step_nm = 40.0", "step_nm = 3000.0"),
+                "leave nothing of 1 cells",
+            ),
+            (
+                with_port("[[task.port]]\nx_um = -9.0\nside = \"left\""),
+                "the port at x = -9 um is outside the window",
+            ),
+            (
+                with_port("[[task.port]]\nx_um = -1.4\nside = \"left\""),
+                "column 0 must be two cells clear of the PMLs (20 and 20 cells)",
+            ),
+            (
+                with_port("[[task.port]]\nx_um = -0.4\nside = \"up\""),
+                "unknown port side \"up\": left or right",
+            ),
+            (
+                with_port("[[task.port]]\nx_um = -0.4\nside = \"left\"\ny_um = [0.0, 0.04]"),
+                "the window, rows 35 to 36, must have 3 rows or more",
+            ),
+            (
+                with_port("[[task.port]]\nx_um = -0.4\nside = \"left\"\ny_um = [5.0, 6.0]"),
+                "the window, rows 70 to 70, must have 3 rows or more",
+            ),
+            // a step a thousand times too small, in each kind: refused, not allocated
+            (
+                JOB.replace("step_nm = 50.0", "step_nm = 0.05"),
+                "x_um at a step of 0.05 nm is 40000 cells, more than 10000",
+            ),
+            (
+                JOB.replace("step_nm = 50.0", "step_nm = 50.0\nz_um = [0.0, 600.0]"),
+                "z_um at a step of 50 nm is 12000 cells",
+            ),
+            (
+                MODES.replace("step_nm = 25.0", "step_nm = 0.025"),
+                "x_um at a step of 0.025 nm is 80000 cells",
+            ),
+            (
+                FDFD.replace("step_nm = 40.0", "step_nm = 0.04"),
+                "x_um at a step of 0.04 nm is 70000 cells",
+            ),
+        ];
+        for (text, says) in cases {
+            let job = Job::parse(&text).unwrap();
+            let refused = check(&job).unwrap_err().to_string();
+            assert!(refused.contains(says), "{refused}");
+            let root = temp("refused");
+            let mut run = Run::create(&root.0, &job).unwrap();
+            let failed = execute(&job, &mut run, &Stop::new(None)).unwrap_err();
+            assert_eq!(refused, failed.to_string());
+        }
+        // the largest grid allowed still passes: 10 000 cells across
+        let job = Job::parse(&JOB.replace("step_nm = 50.0", "step_nm = 0.2")).unwrap();
+        check(&job).unwrap();
     }
 
     #[test]

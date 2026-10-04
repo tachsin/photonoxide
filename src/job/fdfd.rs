@@ -12,8 +12,8 @@ use num_complex::Complex64 as c64;
 use serde::Deserialize;
 
 use super::{
-    CircleSpec, Event, RectSpec, RingSpec, check_finite, check_materials, check_step, check_sweep,
-    check_window, draw, named_stack, scene, task_error,
+    CircleSpec, Event, RectSpec, RingSpec, check_cells, check_finite, check_materials, check_step,
+    check_sweep, check_window, draw, named_stack, scene, task_error,
 };
 use crate::fdfd::{Boundaries, Direction, Grid, Polarization, Port, Side, Solver2d};
 use crate::geometry::Point;
@@ -82,6 +82,8 @@ impl FdfdTask {
         check_window("x_um", self.x_um)?;
         check_window("y_um", self.y_um)?;
         check_step(self.step_nm)?;
+        check_cells("x_um", self.x_um, self.step_nm)?;
+        check_cells("y_um", self.y_um, self.step_nm)?;
         check_finite("field_um", self.field_um)?;
         for p in &self.port {
             check_finite("a port's x_um", Some(p.x_um))?;
@@ -198,37 +200,20 @@ pub(super) fn preview(job: &Job) -> Result<Event> {
 
 /// [`super::check`] for an `"fdfd"` job.
 pub(super) fn check(job: &Job) -> Result<()> {
-    let task: FdfdTask = job
-        .task()
-        .clone()
-        .try_into()
-        .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
-    task.validate()?;
-    let s = draw(
-        named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
-        &task.rect,
-        &task.circle,
-        &task.ring,
-    )?;
-    s.stack()
-        .layer(&task.layer)
-        .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
-    match task.polarization.as_deref().unwrap_or("te") {
-        "te" | "tm" => {}
-        other => {
-            return Err(task_error(format!(
-                "unknown polarization \"{other}\": te or tm"
-            )));
-        }
-    }
-    if task.port.is_empty() {
-        return Err(task_error("an fdfd job needs at least one [[task.port]]"));
+    // the task, the structure, the layer, the polarization, that there are ports, and the grid
+    let device = Device::new(job)?;
+    let task = &device.task;
+    // what the solver would refuse before solving anything: PMLs that leave no room, and each
+    // port's place
+    crate::fdfd::check(device.grid, &device.boundaries)?;
+    for p in &task.port {
+        place(&device.grid, &device.boundaries, p)?;
     }
     let mut wavelengths = vec![task.wavelength_um];
     if let Some(sw) = &task.sweep {
         wavelengths.extend([sw.from, sw.to]);
     }
-    check_materials(s.stack(), &wavelengths)
+    check_materials(device.structure.stack(), &wavelengths)
 }
 
 /// An `"fdfd"` job's device, drawn and gridded, ready to solve at any wavelength.
@@ -353,7 +338,7 @@ impl Device {
             .task
             .port
             .iter()
-            .map(|p| port(&solver, p))
+            .map(|p| port(&solver, &self.boundaries, p))
             .collect::<Result<Vec<Port>>>()?;
         let s = solver.s_matrix(&ports)?;
         Ok((solver, ports, s))
@@ -564,9 +549,15 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     Ok(())
 }
 
-/// The port a spec describes: its column, its window, its fundamental mode.
-fn port(solver: &Solver2d, spec: &PortSpec) -> Result<Port> {
-    let g = solver.grid();
+/// Where a spec puts its port on the grid: its column, its rows and its side. Refused as the
+/// solve would refuse it ([`Solver2d::port_modes_within`]), in the same words, before any
+/// solve: a column outside the window or less than two cells clear of the PMLs, an unknown
+/// side, a window of fewer than 3 rows.
+fn place(
+    g: &Grid,
+    boundaries: &Boundaries,
+    spec: &PortSpec,
+) -> Result<(usize, std::ops::Range<usize>, Side)> {
     let column = ((spec.x_um - g.x0) / g.dx).floor();
     if !(column >= 0.0 && column < g.nx as f64) {
         return Err(task_error(format!(
@@ -583,10 +574,33 @@ fn port(solver: &Solver2d, spec: &PortSpec) -> Result<Port> {
             )));
         }
     };
+    let column = column as usize;
     let row = |y: f64| (((y - g.y0) / g.dy).round().max(0.0) as usize).min(g.ny);
     let rows = spec.y_um.map_or(0..g.ny, |[a, b]| row(a)..row(b));
+    let refused =
+        |reason: String| task_error(format!("the port at x = {} um: {reason}", spec.x_um));
+    if rows.len() < 3 {
+        return Err(refused(format!(
+            "the window, rows {} to {}, must have 3 rows or more on the grid's {}",
+            rows.start, rows.end, g.ny
+        )));
+    }
+    let (low, high) = boundaries.x.pml();
+    if !(column >= low + 2 && column + 3 + high <= g.nx) {
+        return Err(refused(format!(
+            "column {column} must be two cells clear of the PMLs ({low} and {high} cells) and \
+             the ends of {} columns",
+            g.nx
+        )));
+    }
+    Ok((column, rows, side))
+}
+
+/// The port a spec describes: its column, its window, its fundamental mode.
+fn port(solver: &Solver2d, boundaries: &Boundaries, spec: &PortSpec) -> Result<Port> {
+    let (column, rows, side) = place(&solver.grid(), boundaries, spec)?;
     let mut modes = solver
-        .port_modes_within(column as usize, rows, 1)
+        .port_modes_within(column, rows, 1)
         .map_err(|e| match e {
             Error::InvalidValue { reason, .. } => {
                 task_error(format!("the port at x = {} um: {reason}", spec.x_um))
