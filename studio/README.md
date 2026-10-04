@@ -30,6 +30,10 @@ window only follows that record, so a live run and a replay look the same.
   - The device is drawn in 3D as you type, as its run will draw it; a modes job's whole, with
     its cut drawn where the cross-section is taken. The top view shows
     rectangles, disks, rings, ports, the PML and the cut from above: click a shape to edit it.
+  - Light travels along x in every kind, and the top view says so. Changing a job's kind keeps
+    its device: the rectangle that is a guide in an FDFD job is the same guide in a modes job,
+    cut at an x. An older modes job, its modes along y, opens and runs as before; "Light along"
+    turns it to x, the device turning with it, so its modes stay the same.
   - The TOML sits beside the form in an editor, and edits there update the form.
   - The library checks the job as it changes (`photonoxide::job::check`). It is saved to the
     workspace's `jobs/` (Ctrl+S) and runs from the builder (Ctrl+Enter).
@@ -39,15 +43,26 @@ window only follows that record, so a live run and a replay look the same.
   - **3D** (the default): the layers and shapes as solids, with the field painted on its plane.
     A modes run's selected mode also travels along its guide: its field, Re E, as a glowing
     volume in the guide and its evanescent tails (ray-marched), red where positive and blue
-    where negative, gliding along +y at a speed and density you set, the core turned to glass.
+    where negative, gliding along the guide (+x; +y in an older job) at a speed and density you set, the core turned to glass.
     Drag to orbit, right-drag to pan, scroll to zoom.
   - **2D:** fields, S-parameters and spectra, permittivity pictures, modes, and a sweep's
     effective and group indices. Hover a plot to read its values, and save its data as CSV.
+    The pictures of fields and modes carry the structure's outline (the shapes' edges, and a
+    cross-section's layer interfaces), so a dark region can be told inside from outside; a
+    tick turns it off.
+  - **Solver** (the bar's button, or the solver's name in the side panel): how the run was
+    solved. The solver, its grid and its unknowns as the run recorded them; each solve's
+    numerical error (a mode's eigen-residual, an FDFD field's linear residual, an S-matrix's
+    distance from reciprocal), charted over a sweep; and the methods' write-ups from
+    `docs/methods` with their equations, the papers they implement by DOI, and the module
+    that implements each.
   - The side panel hides layers, picks the mode shown, and stops a running job. A sweep's
     slider (or ← and →) flips through its points: the structure at that point (a width
     sweep's strip widens), its modes on the cut and travelling, and the point marked on the
-    2D plots, with the job's own configuration first. It grows as a running sweep's points
-    arrive. The field has
+    2D plots, with the job's own configuration first. An FDFD sweep's points each have their
+    field. While a sweep runs, both views follow it, showing each point as it is solved, and
+    the bar above them names the point shown and how many of the sweep's are solved; picking a
+    point stays on it, and Follow goes back to the running one. The field has
     its own row (shown or not, and how strongly), apart from the layers. A layer outside the
     run's window is greyed. Each layer's info button tells what it is made of, what fills it
     around its shapes and what lies under and over it, and recolours it in the viewer.
@@ -89,9 +104,16 @@ window only follows that record, so a live run and a replay look the same.
   tensors as matrices; and every paper a click away.
 - **Validation:** the release's report, searchable, its math rendered, and the same report run
   on this machine.
-- **Settings:** the theme (photonoxide's dark or light, by the system or chosen, or any of
-  daisyUI's, each shown in its own colours), the workspace folder, tips, and updates.
+- **Settings:** the theme (photonoxide's dark or light, by the system or chosen, with a
+  preview of the one in use; "More themes" opens some thirty others, each shown in its own
+  colours), the unit of lengths, the workspace folder, tips, and updates.
   The window opens where it was left, at the size it had.
+- **Lengths in µm or nm:** every length and wavelength the studio shows or asks for (the
+  builder's fields, a component's or an instance's parameters, the chip's wavelengths, the
+  viewer's readouts, the plots' axes, hover values and CSV files, the Materials page) is in one
+  unit, µm or nm, app-wide. Click the unit beside any value to switch it everywhere, or choose
+  it in the settings. Only the window converts, exactly: job and chip files keep their units
+  (µm, and nm where a field's name says so).
 
 Help is built in:
 - a tour on the first start, which the question mark brings back;

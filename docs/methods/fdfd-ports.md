@@ -111,8 +111,19 @@ estimate, since a TM mode's impedance isn't its index.
 
 A job of kind `"fdfd"` runs a device on one layer, seen from above, with each point's
 permittivity its slab's effective index squared. It records the S-parameters at each wavelength
-of a sweep, and the field from the first port. The 3D view draws the field on the layer's top
-face; the 2D view has the field, the S-matrix and |S_q1|² against wavelength. `jobs/mmi-fdfd.toml`
+of a sweep, and the field from the first port: in full at the wavelength the job asks for
+(`field_um`), and at every point of a sweep averaged over 2 × 2 cells (or larger blocks, for a
+sweep long enough that its pictures would pass five million pixels in all), each scaled to its
+own peak. The run's pictures, the scene and the fields, cover the window without its PMLs and
+the two cells beside them: the PMLs absorb the light and aren't part of the device, so a guide
+drawn into them would look as if the light started late and ended early. The field is launched
+from the window's end of port 1's guide, two cells inside the PML's edge, the pictures' first
+column, when the guide there is the port's (the same mode index), so the picture shows the
+wave along the whole guide; S stays referred to the ports' own columns. The 3D view draws the field on the layer's top face; the 2D view has the field, the
+S-matrix and |S_q1|² against wavelength. Both follow a running sweep, showing each wavelength's
+field as it is solved. The run also records, at each wavelength, the field's linear residual
+$\lVert b - A u\rVert / \lVert b\rVert$ (`Solver2d::residual`) and how far the S-matrix is from
+reciprocal, $\max |S_{qp} - S_{pq}|$; the viewer's Solver panel charts them. `jobs/mmi-fdfd.toml`
 is a 1×2 splitter. These are 2D estimates by the effective index method, not a device's 3D
 performance.
 

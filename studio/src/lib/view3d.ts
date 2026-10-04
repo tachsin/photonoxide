@@ -10,10 +10,13 @@ import { intensityColour, mediumLook, pixels } from "./colours";
 import type { Mode, ModeField, Raster, Scene } from "./events";
 import { CLEAR_OPACITY, type Look, type Looks } from "./layers";
 
-/** A field to paint: on the vertical plane y = `at` (a mode on its cut), or the horizontal one z = `at`. */
+/**
+ * A field to paint: on the vertical plane x = `at` or y = `at` (a mode on its cut, the
+ * picture's first axis the other of x and y, its second z), or the horizontal one z = `at`.
+ */
 export interface Plane {
   intensity: Raster;
-  normal: "y" | "z";
+  normal: "x" | "y" | "z";
   at: number;
 }
 
@@ -100,11 +103,11 @@ function solidMaterial(colour: string, solid: boolean, opacity: number): THREE.M
  * The solids of `s` over its window, without the layers named in `hidden` ("substrate" and
  * "cladding" included), each drawn with its look in `looks` if it has one: a layer's look
  * colours its shapes, or the layer itself when it has none (lib/layers.ts, `lookTarget`).
- * `y` replaces the window's span along y: a preview shows a modes job in front of its cut too.
+ * `x` and `y` replace the window's spans: a preview shows a modes job in front of its cut too.
  */
-export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Looks = {}, y: [number, number] = s.y_um): THREE.Group {
+export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Looks = {}, x: [number, number] = s.x_um, y: [number, number] = s.y_um): THREE.Group {
   const group = new THREE.Group();
-  const [x0, x1] = s.x_um;
+  const [x0, x1] = x;
   const [y0, y1] = y;
   const [z0, z1] = s.z_um;
   // the clear media in a fixed order, bottom to top, after every solid: the order of
@@ -142,11 +145,11 @@ export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Look
     if (b <= a) continue;
     for (const shape of shapes) {
       const { boundary, holes } = rings(shape.outline);
-      const p = clip(boundary, s.x_um, y);
+      const p = clip(boundary, x, y);
       if (!p.length) continue;
       const outline = new THREE.Shape(p.map(([px, py]) => new THREE.Vector2(px, py)));
       for (const hole of holes) {
-        const h = clip(hole, s.x_um, y);
+        const h = clip(hole, x, y);
         if (h.length) outline.holes.push(new THREE.Path(h.map(([px, py]) => new THREE.Vector2(px, py))));
       }
       const g = new THREE.ExtrudeGeometry(outline, { depth: b - a, bevelEnabled: false, curveSegments: 1 });
@@ -163,14 +166,19 @@ export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Look
   return group;
 }
 
-/** The cut a modes job takes its cross-section on: a translucent plane at y = `at` across the window, its edge outlined. */
-function cutPlane(s: Scene, at: number): THREE.Group {
+/** The cut a modes job takes its cross-section on: a translucent plane at x or y (`normal`) = `at` across the window, its edge outlined. */
+function cutPlane(s: Scene, at: number, normal: "x" | "y"): THREE.Group {
   const group = new THREE.Group();
-  const [x0, x1] = s.x_um;
+  const [a0, a1] = normal === "x" ? s.y_um : s.x_um;
   const [z0, z1] = s.z_um;
-  const g = new THREE.PlaneGeometry(x1 - x0, z1 - z0);
+  const g = new THREE.PlaneGeometry(a1 - a0, z1 - z0);
   g.rotateX(Math.PI / 2);
-  g.translate((x0 + x1) / 2, at, (z0 + z1) / 2);
+  if (normal === "x") {
+    g.rotateZ(Math.PI / 2);
+    g.translate(at, (a0 + a1) / 2, (z0 + z1) / 2);
+  } else {
+    g.translate((a0 + a1) / 2, at, (z0 + z1) / 2);
+  }
   const plane = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: CUT, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }));
   plane.renderOrder = 90;
   const edge = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: CUT, transparent: true, opacity: 0.9 }));
@@ -194,12 +202,14 @@ export function dispose(group: THREE.Object3D) {
 }
 
 /**
- * A guided mode travelling along its guide (+y): its field on the cut and its propagation
- * constant. The field along the guide is profile(x, z) · cos(β (y − cut) − ωt), decaying as
- * e^(−decay · y) for a lossy mode.
+ * A guided mode travelling along its guide (+x or +y, `along`; s below is that coordinate): its
+ * field on the cut and its propagation constant. The field along the guide is
+ * profile(across, z) · cos(β (s − cut) − ωt), decaying as e^(−decay · s) for a lossy mode.
  */
 export interface Wave {
-  /** The field on the cut, x across and z up, from −1 to 1: the signed component, or |E| for an older run. */
+  /** The axis the mode travels along. */
+  along: "x" | "y";
+  /** The field on the cut, across the guide and z up, from −1 to 1: the signed component, or |E| for an older run. */
   profile: Raster;
   /** Whether the profile is signed (false: |E| from an older run's |E|²). */
   signed: boolean;
@@ -209,16 +219,16 @@ export interface Wave {
   decay: number;
   /** Where the cross-section was cut, µm: the window's front. */
   cut: number;
-  /** The window along y, µm. */
-  y: [number, number];
+  /** The window along the guide, µm. */
+  span: [number, number];
 }
 
-/** The wave of mode `m` over scene `s`'s window, from its signed field `f`, or from |E| without one (an older run). */
-export function waveOf(m: Mode, f: ModeField | undefined, s: Scene): Wave {
+/** The wave of mode `m`, travelling along `along` over scene `s`'s window, from its signed field `f`, or from |E| without one (an older run). */
+export function waveOf(m: Mode, f: ModeField | undefined, s: Scene, along: "x" | "y" = "y"): Wave {
   const [re, im] = m.effective_index;
   const k0 = (2 * Math.PI) / m.wavelength_um;
   const profile = f ? f.values : { ...m.intensity, values: m.intensity.values.map((v) => Math.sqrt(Math.max(v, 0))) };
-  return { profile, signed: !!f, beta: k0 * re, decay: k0 * im, cut: m.cut_y_um, y: s.y_um };
+  return { along, profile, signed: !!f, beta: k0 * re, decay: k0 * im, cut: m.cut_y_um, span: along === "x" ? s.x_um : s.y_um };
 }
 
 /** A period of the wave, at speed 1, in seconds. */
@@ -232,8 +242,9 @@ void main() {
   gl_Position = projectionMatrix * viewMatrix * world;
 }`;
 
-// The mode's field in the box, ray-marched front to back: f = E(x, z) cos(β (y − cut) − ωt)
-// e^(−α (y − start)), its cross-section E from a texture and the travel along y analytic. Each
+// The mode's field in the box, ray-marched front to back: f = E(a, z) cos(β (s − cut) − ωt)
+// e^(−α (s − start)), a across the guide and s along it (x and y, either way round: `guide` is
+// the unit vector along it), its cross-section E from a texture and the travel analytic. Each
 // step emits and absorbs in proportion to |f|^γ: red where f is positive, blue where negative,
 // nothing where it is near zero. The result is premultiplied, so it glows over what is behind.
 const VOLUME_FRAGMENT = /* glsl */ `
@@ -241,6 +252,7 @@ precision highp float;
 uniform sampler2D field;
 uniform vec2 fx;
 uniform vec2 fz;
+uniform vec2 guide;
 uniform vec3 bmin;
 uniform vec3 bmax;
 uniform float beta;
@@ -273,9 +285,11 @@ void main() {
   for (int i = 0; i < 400; i++) {
     if (t > tf || alpha > 0.97) break;
     vec3 p = ro + rd * t;
-    vec2 uv = vec2((p.x - fx.x) / (fx.y - fx.x), (p.z - fz.x) / (fz.y - fz.x));
+    float s = dot(p.xy, guide);
+    float across = dot(p.xy, guide.yx);
+    vec2 uv = vec2((across - fx.x) / (fx.y - fx.x), (p.z - fz.x) / (fz.y - fz.x));
     float e = texture2D(field, uv).r;
-    float f = e * cos(beta * (p.y - cut) - phase) * exp(-decay * (p.y - start));
+    float f = e * cos(beta * (s - cut) - phase) * exp(-decay * (s - start));
     float a = 1.0 - exp(-density * pow(abs(f), gamma) * dt);
     colour += (1.0 - alpha) * a * (f >= 0.0 ? positive : negative);
     alpha += (1.0 - alpha) * a;
@@ -310,7 +324,14 @@ function waveVolume(w: Wave): { mesh: THREE.Mesh; uniforms: Record<string, THREE
     [i0, i1, j0, j1] = [Math.min(i0, i), Math.max(i1, i), Math.min(j0, j), Math.max(j1, j)];
   });
   if (i1 < 0) [i0, i1, j0, j1] = [0, r.nx - 1, 0, r.ny - 1];
-  const box = new THREE.Box3(new THREE.Vector3(r.x0 + i0 * dx, w.y[0], r.y0 + j0 * dz), new THREE.Vector3(r.x0 + (i1 + 1) * dx, w.y[1], r.y0 + (j1 + 1) * dz));
+  const [a0, a1] = [r.x0 + i0 * dx, r.x0 + (i1 + 1) * dx];
+  const [zb, zt] = [r.y0 + j0 * dz, r.y0 + (j1 + 1) * dz];
+  const box =
+    w.along === "x"
+      ? new THREE.Box3(new THREE.Vector3(w.span[0], a0, zb), new THREE.Vector3(w.span[1], a1, zt))
+      : new THREE.Box3(new THREE.Vector3(a0, w.span[0], zb), new THREE.Vector3(a1, w.span[1], zt));
+  // the field's thinner side, across the guide or up
+  const thin = Math.min(a1 - a0, zt - zb);
   const size = box.getSize(new THREE.Vector3());
   const g = new THREE.BoxGeometry(size.x, size.y, size.z);
   g.translate(...box.getCenter(new THREE.Vector3()).toArray());
@@ -318,17 +339,18 @@ function waveVolume(w: Wave): { mesh: THREE.Mesh; uniforms: Record<string, THREE
     field: { value: fieldTexture(r) },
     fx: { value: new THREE.Vector2(r.x0, r.x1) },
     fz: { value: new THREE.Vector2(r.y0, r.y1) },
+    guide: { value: w.along === "x" ? new THREE.Vector2(1, 0) : new THREE.Vector2(0, 1) },
     bmin: { value: box.min.clone() },
     bmax: { value: box.max.clone() },
     beta: { value: w.beta },
     phase: { value: 0 },
     cut: { value: w.cut },
-    start: { value: w.y[0] },
+    start: { value: w.span[0] },
     decay: { value: w.decay },
     density: { value: DENSITY },
     gamma: { value: 1.7 },
     // a step of a twelfth of the field's thinner side, from 128 to 400 steps across the box
-    steps: { value: Math.min(400, Math.max(128, size.length() / (Math.max(Math.min(size.x, size.z), 1e-3) / 12))) },
+    steps: { value: Math.min(400, Math.max(128, size.length() / (Math.max(thin, 1e-3) / 12))) },
     positive: { value: new THREE.Color("#ff4a2e") },
     negative: { value: new THREE.Color("#2f7dff") },
   };
@@ -370,6 +392,8 @@ export class View3D {
   private frameId = 0;
   private last = 0;
   private box: THREE.Box3 | null = null;
+  /** The side the camera starts in front of: the one a modes job's cut is on. */
+  private front: "x" | "y" = "y";
 
   constructor(
     private container: HTMLElement,
@@ -468,12 +492,17 @@ export class View3D {
     }
   }
 
-  /** Draws `s`, without the layers named in `hidden` ("substrate" and "cladding" included), with the viewer's `looks`. */
-  setScene(s: Scene, hidden: Set<string>, looks: Looks = {}) {
+  /**
+   * Draws `s`, without the layers named in `hidden` ("substrate" and "cladding" included), with
+   * the viewer's `looks`. `front` is the side the camera starts in front of: +x for a run cut
+   * normal to x.
+   */
+  setScene(s: Scene, hidden: Set<string>, looks: Looks = {}, front: "x" | "y" = "y") {
     this.clearStructure();
     this.structure.add(structure(s, hidden, looks));
     const box = new THREE.Box3(new THREE.Vector3(s.x_um[0], s.y_um[0], s.z_um[0]), new THREE.Vector3(s.x_um[1], s.y_um[1], s.z_um[1]));
-    const reframe = !this.box || !this.box.equals(box);
+    const reframe = !this.box || !this.box.equals(box) || front !== this.front;
+    this.front = front;
     this.box = box;
     if (reframe) this.frame();
     else this.render();
@@ -501,7 +530,9 @@ export class View3D {
       const corners =
         m.normal === "y"
           ? [r.x0, at, r.y0, r.x1, at, r.y0, r.x1, at, r.y1, r.x0, at, r.y1]
-          : [r.x0, r.y0, at, r.x1, r.y0, at, r.x1, r.y1, at, r.x0, r.y1, at];
+          : m.normal === "x"
+            ? [at, r.x0, r.y0, at, r.x1, r.y0, at, r.x1, r.y1, at, r.x0, r.y1]
+            : [r.x0, r.y0, at, r.x1, r.y0, at, r.x1, r.y1, at, r.x0, r.y1, at];
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.Float32BufferAttribute(corners, 3));
       g.setAttribute("uv", new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2));
@@ -539,12 +570,12 @@ export class View3D {
     (this.field.material as THREE.MeshBasicMaterial).opacity = this.fieldOpacity;
   }
 
-  /** Looks at the window from the front (+y, the side a cut is on), above and to the right. */
+  /** Looks at the window from the front (+y or +x, the side a cut is on), above and to the side. */
   frame() {
     if (!this.box) return;
     const centre = this.box.getCenter(new THREE.Vector3());
     const size = this.box.getSize(new THREE.Vector3()).length();
-    this.camera.position.copy(centre).addScaledVector(lookFrom(1.1, 0.45), 1.7 * size);
+    this.camera.position.copy(centre).addScaledVector(lookFrom(this.front === "x" ? Math.PI / 2 - 1.1 : 1.1, 0.45), 1.7 * size);
     this.camera.near = size * 0.01;
     this.camera.far = size * 20;
     this.camera.updateProjectionMatrix();
@@ -650,21 +681,23 @@ export class Preview3D {
   };
 
   /**
-   * Shows `s`, in place of what was shown. With `cut` (a modes job's, at the y where the
-   * scene's window ends), the window reaches as far in front of the cut as behind it, and the
-   * cut is drawn as a plane, so the device shows whole and the cross-section's place on it.
+   * Shows `s`, in place of what was shown. With `cut` (a modes job's, at the x or y, `normal`,
+   * where the scene's window ends), the window reaches as far in front of the cut as behind it,
+   * and the cut is drawn as a plane, so the device shows whole and the cross-section's place on it.
    */
-  setScene(s: Scene, options: { cut?: number } = {}) {
+  setScene(s: Scene, options: { cut?: number; normal?: "x" | "y" } = {}) {
     for (const child of this.structure.children.slice()) {
       this.structure.remove(child);
       dispose(child);
     }
     const cut = options.cut;
-    const depth = s.y_um[1] - s.y_um[0];
-    const y: [number, number] = cut === undefined ? s.y_um : [cut - depth, cut + depth];
-    this.structure.add(structure(s, new Set(), {}, y));
-    if (cut !== undefined) this.structure.add(cutPlane(s, cut));
-    const box = new THREE.Box3(new THREE.Vector3(s.x_um[0], y[0], s.z_um[0]), new THREE.Vector3(s.x_um[1], y[1], s.z_um[1]));
+    const normal = options.normal ?? "y";
+    const about = (w: [number, number]): [number, number] => (cut === undefined ? w : [cut - (w[1] - w[0]), cut + (w[1] - w[0])]);
+    const x = normal === "x" ? about(s.x_um) : s.x_um;
+    const y = normal === "y" ? about(s.y_um) : s.y_um;
+    this.structure.add(structure(s, new Set(), {}, x, y));
+    if (cut !== undefined) this.structure.add(cutPlane(s, cut, normal));
+    const box = new THREE.Box3(new THREE.Vector3(x[0], y[0], s.z_um[0]), new THREE.Vector3(x[1], y[1], s.z_um[1]));
     box.getCenter(this.centre);
     box.getSize(this.size);
     this.fit();

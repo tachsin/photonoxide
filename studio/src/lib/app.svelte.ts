@@ -1,7 +1,7 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
 import { api, type AppState, type Info, type Settings } from "./api";
-import type { Event, Field, Mode, ModeField, Permittivity, Scene, Shape, SParameters, SweepMode, SweepPermittivity, SweepPoint } from "./events";
+import type { Event, Field, Mode, ModeField, Permittivity, Scene, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
 
@@ -127,21 +127,33 @@ export const run = $state({
   info: null as Info | null,
   job: null as { job: string; kind: string } | null,
   scene: null as Scene | null,
+  /** The axis a modes run's modes travel along, the normal of its cut: y for a run that doesn't say (an older one). */
+  along: "y" as "x" | "y",
   pictures: [] as Permittivity[],
   modes: [] as Mode[],
   /** The modes' signed fields, by the mode's label; an older run has none. */
   modeFields: {} as Record<string, ModeField>,
   sweep: null as { parameter: string; points: SweepPoint[] } | null,
+  /** What the sweep steps through, as the run announced it; an older run has none. */
+  plan: null as Sweep | null,
   /** Each sweep point's modes, by the point's index; an older run has none. */
   sweepModes: {} as Record<number, SweepMode[]>,
   /** A width sweep's shapes at each point, by its index. */
   sweepShapes: {} as Record<number, Shape[]>,
   /** A width sweep's cross-section picture at each point, by its index. */
   sweepPictures: {} as Record<number, SweepPermittivity>,
+  /** An FDFD sweep's field at each point, by its index; an older run has none. */
+  sweepFields: {} as Record<number, SweepField>,
   /** The sweep point shown, or null for the job's own configuration (the nominal one). */
   point: null as number | null,
+  /** Whether the point shown follows a running sweep: each point as it is solved, until the user picks one. */
+  following: true,
   fields: [] as Field[],
   sparams: [] as SParameters[],
+  /** How the run solves, as it recorded it; an older run has none. */
+  solver: null as Solver | null,
+  /** Each solve's numerical error, in the order recorded. */
+  errors: [] as SolveError[],
   finished: null as { stopped: string | null; seconds: number } | null,
   problem: null as string | null,
   stoppable: false,
@@ -180,6 +192,40 @@ export function shownScene(): Scene | null {
   return run.scene && shapes ? { ...run.scene, shapes } : run.scene;
 }
 
+/** The sweep the run steps through, whichever kind of job recorded it: each solved point's value, and how many there will be. */
+export function sweepAxis(): { parameter: string; values: number[]; total: number } | null {
+  const spectrum = run.sparams.length > 1 || Object.keys(run.sweepFields).length > 0;
+  if (!run.sweep && !run.plan && !spectrum) return null;
+  // a modes sweep's points, or an FDFD sweep's wavelengths
+  const values = run.sweep ? run.sweep.points.map((p) => p.value) : run.sparams.map((s) => s.wavelength_um);
+  return { parameter: run.sweep?.parameter ?? run.plan?.parameter ?? "wavelength", values, total: Math.max(run.plan?.points ?? 0, values.length) };
+}
+
+/** Whether the run recorded each sweep point's pictures (an older run didn't). */
+export function perPoint(): boolean {
+  return Object.keys(run.sweepModes).length > 0 || Object.keys(run.sweepFields).length > 0;
+}
+
+/** The FDFD field shown: the sweep point's, or the one the job asks for. */
+export function shownField(): Field | null {
+  const at = run.point === null ? undefined : run.sweepFields[run.point];
+  if (at) return { type: "field", label: at.label, wavelength_um: at.wavelength_um, z_um: at.z_um, intensity: at.intensity };
+  return run.fields[0] ?? null;
+}
+
+/** Shows sweep point `point` (null: the job's own configuration), which stops following a running sweep. */
+export function pickPoint(point: number | null) {
+  run.following = false;
+  run.point = point;
+}
+
+/** Follows a running sweep again, from the last point with pictures. */
+export function followSweep() {
+  run.following = true;
+  const solved = [...Object.keys(run.sweepModes), ...Object.keys(run.sweepFields)].map(Number);
+  if (solved.length) run.point = Math.max(...solved);
+}
+
 function take(e: Event) {
   switch (e.type) {
     case "started":
@@ -187,6 +233,9 @@ function take(e: Event) {
       break;
     case "scene":
       run.scene = e;
+      break;
+    case "cut":
+      run.along = e.normal === "x" ? "x" : "y";
       break;
     case "permittivity":
       run.pictures.push(e);
@@ -211,12 +260,26 @@ function take(e: Event) {
       // (in two steps: `??=` gives back the plain array, not the state's proxy of it)
       run.sweepModes[e.point] ??= [];
       run.sweepModes[e.point].push(e);
+      if (run.following) run.point = e.point;
+      break;
+    case "sweep":
+      run.plan = e;
+      break;
+    case "sweep_field":
+      run.sweepFields[e.point] = e;
+      if (run.following) run.point = e.point;
       break;
     case "field":
       run.fields.push(e);
       break;
     case "s_parameters":
       run.sparams.push(e);
+      break;
+    case "solver":
+      run.solver = e;
+      break;
+    case "solve_error":
+      run.errors.push(e);
       break;
     case "finished":
       run.finished = { stopped: e.stopped, seconds: e.seconds };
@@ -229,6 +292,7 @@ function reset(info: Info) {
     info,
     job: null,
     scene: null,
+    along: "y",
     pictures: [],
     modes: [],
     modeFields: {},
@@ -236,9 +300,14 @@ function reset(info: Info) {
     sweepModes: {},
     sweepShapes: {},
     sweepPictures: {},
+    plan: null,
+    sweepFields: {},
     point: null,
+    following: true,
     fields: [],
     sparams: [],
+    solver: null,
+    errors: [],
     finished: null,
     problem: null,
     stoppable: false,
@@ -272,10 +341,12 @@ export async function follow() {
       if (p.generation !== run.info?.generation) {
         reset(await api.info());
       } else if (p.events.length || p.stoppable !== run.stoppable || p.problem !== run.problem) {
+        const ended = p.events.some((e) => e.type === "finished");
+        // a finished run, opened: it starts at the job's own configuration, not at its last point
+        if (run.count === 0 && ended) run.following = false;
         for (const e of p.events) take(e);
         run.count += p.events.length;
         run.problem = p.problem ?? run.problem;
-        const ended = p.events.some((e) => e.type === "finished");
         run.stoppable = p.stoppable;
         run.version++;
         if (ended) app.workspaceVersion++;
@@ -305,7 +376,7 @@ export async function boot() {
     app.state = await api.appState();
   } catch {
     app.state = {
-      settings: { theme: "system", workspace: null, check_updates: false, hints: true, tour_done: true, dismissed: [], view: "3d" },
+      settings: { theme: "system", workspace: null, check_updates: false, hints: true, tour_done: true, dismissed: [], view: "3d", length_unit: "um" },
       workspace: "",
       version: "dev",
       platform: "browser",

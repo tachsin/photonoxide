@@ -27,6 +27,7 @@
   import Glyph from "../components/Glyph.svelte";
   import SpectrumPlot from "../components/SpectrumPlot.svelte";
   import Tip from "../components/Tip.svelte";
+  import UnitChip from "../components/UnitChip.svelte";
   import { ago, api, type Chip, type CircuitExample, type CircuitItem, type KindInfo, type Problem } from "../lib/api";
   import { app, go, toast } from "../lib/app.svelte";
   import {
@@ -69,6 +70,7 @@
     type WorldPin,
   } from "../lib/circuit";
   import { label } from "../lib/plot";
+  import { isMicrometres, len, lenUnit, showIn, shown, storeIn, stored, unitOf } from "../lib/units";
 
   loadLibrary();
 
@@ -484,6 +486,9 @@
     }
   }
 
+  /** A measured component's wavelengths, "1.5 to 1.6 µm", in the unit shown. */
+  const range = (v: [number, number] | null | undefined) => (v ? `${len(v[0])} to ${lenUnit(v[1])}` : "?");
+
   function setValue(name: string, k: KindInfo, i: number, v: number, record: boolean) {
     if (!Number.isFinite(v)) return;
     const p = k.parameters[i];
@@ -579,7 +584,7 @@
         <button
           class="flex w-full cursor-grab items-center gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-base-content/5 active:cursor-grabbing"
           onpointerdown={(e) => grab(e, partKey(k))}
-          title="{k.title}: {k.ports.length} ports, measured from {k.provenance.validity?.[0]} to {k.provenance.validity?.[1]} µm. Drag it onto the chip."
+          title="{k.title}: {k.ports.length} ports, measured from {range(k.provenance.validity)}. Drag it onto the chip."
         >
           <svg width="36" height="22" viewBox="{-k.symbol.width / 2 - 4} {-k.symbol.height / 2 - 4} {k.symbol.width + 8} {k.symbol.height + 8}" class="shrink-0">
             <Glyph symbol={k.symbol} />
@@ -619,35 +624,38 @@
 
   <!-- the canvas -->
   <div class="flex min-h-0 min-w-0 flex-col">
-    <div class="flex items-center gap-1 border-b border-base-content/8 bg-base-100/60 px-3 py-1.5">
-      <div class="tooltip tooltip-bottom" data-tip="Undo (Ctrl+Z)">
+    <!-- Save and Simulate stay in view; too narrow for the rest, the tools beside them scroll
+         sideways (so their hints are the window's own: a drawn one would be clipped) -->
+    <div class="flex items-center gap-1 border-b border-base-content/8 bg-base-100/60 px-3 py-1.5 whitespace-nowrap">
+      <div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:thin] [&>*]:shrink-0">
+      <div title="Undo (Ctrl+Z)">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Undo" disabled={!editor.undoable} onclick={undo}><Undo2 size={16} /></button>
       </div>
-      <div class="tooltip tooltip-bottom" data-tip="Redo (Ctrl+Y)">
+      <div title="Redo (Ctrl+Y)">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Redo" disabled={!editor.redoable} onclick={redo}><Redo2 size={16} /></button>
       </div>
       <span class="mx-1 h-5 border-l border-base-content/10"></span>
-      <div class="tooltip tooltip-bottom" data-tip="Rotate (R; Shift+R the other way)">
+      <div title="Rotate (R; Shift+R the other way)">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Rotate" disabled={editor.selection?.kind !== "instance" && editor.selection?.kind !== "port"} onclick={() => rotateSelection(90)}><RotateCw size={16} /></button>
       </div>
-      <div class="tooltip tooltip-bottom" data-tip="Mirror top to bottom (M)">
+      <div title="Mirror top to bottom (M)">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Mirror" disabled={editor.selection?.kind !== "instance"} onclick={mirrorSelection}><FlipVertical2 size={16} /></button>
       </div>
-      <div class="tooltip tooltip-bottom" data-tip="Delete (Del)">
+      <div title="Delete (Del)">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Delete" disabled={!editor.selection} onclick={deleteSelection}><Trash2 size={16} /></button>
       </div>
       <span class="mx-1 h-5 border-l border-base-content/10"></span>
-      <div class="tooltip tooltip-bottom" data-tip="Zoom out">
+      <div title="Zoom out">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Zoom out" onclick={() => zoom(1 / 1.25)}><ZoomOut size={16} /></button>
       </div>
       <span class="w-12 text-center text-xs faint num">{Math.round(view.k * 62.5)}%</span>
-      <div class="tooltip tooltip-bottom" data-tip="Zoom in">
+      <div title="Zoom in">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Zoom in" onclick={() => zoom(1.25)}><ZoomIn size={16} /></button>
       </div>
-      <div class="tooltip tooltip-bottom" data-tip="Fit the chip in view (F)">
+      <div title="Fit the chip in view (F)">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Fit" onclick={fit}><Maximize size={16} /></button>
       </div>
-      <span class="flex-1"></span>
+      <span class="min-w-2 flex-1"></span>
       {#if mistakes.length}
         <span class="badge badge-sm badge-error badge-soft gap-1" title={mistakes.map((p) => p.message).join("\n")}><CircleAlert size={12} /> {mistakes.length} {mistakes.length === 1 ? "problem" : "problems"}</span>
       {/if}
@@ -657,11 +665,12 @@
       {#if !editor.problems.length && chip.instance.length}
         <span class="badge badge-sm badge-success badge-soft">complete</span>
       {/if}
-      <span class="mx-1 h-5 border-l border-base-content/10"></span>
-      <div class="tooltip tooltip-bottom" data-tip="Save to circuits/{chip.name}.toml (Ctrl+S)">
+      </div>
+      <span class="mx-1 h-5 shrink-0 border-l border-base-content/10"></span>
+      <div class="shrink-0" title="Save to circuits/{chip.name}.toml (Ctrl+S)">
         <button class="btn btn-ghost btn-sm gap-1.5" onclick={saveChip}><Save size={15} /> Save{#if dirty()}<span class="status status-warning"></span>{/if}</button>
       </div>
-      <div class="tooltip tooltip-bottom tooltip-left" data-tip="The circuit's S-parameters over its wavelengths (Ctrl+Enter)">
+      <div class="shrink-0" title="The circuit's S-parameters over its wavelengths (Ctrl+Enter)">
         <button class="btn btn-primary btn-sm gap-1.5" disabled={editor.simulating} onclick={runSimulation}>
           {#if editor.simulating}<span class="loading loading-spinner loading-xs"></span>{:else}<CirclePlay size={15} />{/if} Simulate
         </button>
@@ -877,7 +886,7 @@
         <p class="mt-1 text-xs faint">{k.about}</p>
         {#if k.file}
           <p class="mt-1 truncate text-xs num muted" title={k.provenance.source}>{k.file}</p>
-          <p class="text-xs faint">{k.convention === "engineering" ? "e^(+jωt), as RF tools write" : "e^(−iωt), as photonoxide writes"}; measured from {k.provenance.validity?.[0]} to {k.provenance.validity?.[1]} µm</p>
+          <p class="text-xs faint">{k.convention === "engineering" ? "e^(+jωt), as RF tools write" : "e^(−iωt), as photonoxide writes"}; measured from {range(k.provenance.validity)}</p>
         {/if}
         <div class="mt-3 flex items-center gap-1 text-xs muted">
           <span class="num">({inst.x}, {inst.y})</span>
@@ -895,9 +904,9 @@
           <div class="mt-3">
             <div class="flex items-baseline gap-1.5 text-xs">
               <span class="font-medium num">{p.name}</span>
-              {#if p.unit}<span class="faint">{p.unit}</span>{/if}
+              {#if isMicrometres(p.unit)}<span class="faint"><UnitChip /></span>{:else if p.unit}<span class="faint">{p.unit}</span>{/if}
               <span class="flex-1"></span>
-              <span class="faint num" title="Its range; default {label(p.default)}">{label(p.min)} – {label(p.max)}</span>
+              <span class="faint num" title="Its range; default {label(showIn(p.unit, p.default))}">{label(showIn(p.unit, p.min))} – {label(showIn(p.unit, p.max))}</span>
             </div>
             <div class="mt-1 flex items-center gap-2">
               <input
@@ -915,11 +924,11 @@
                 class="input input-xs w-24 num"
                 type="number"
                 step="any"
-                min={p.min}
-                max={p.max}
-                value={v}
-                onchange={(e) => setValue(inst.name, k, i, Number(e.currentTarget.value), true)}
-                aria-label="{p.name} in {p.unit || 'its units'}"
+                min={showIn(p.unit, p.min)}
+                max={showIn(p.unit, p.max)}
+                value={showIn(p.unit, v)}
+                onchange={(e) => setValue(inst.name, k, i, storeIn(p.unit, Number(e.currentTarget.value)), true)}
+                aria-label="{p.name} in {unitOf(p.unit) || 'its units'}"
               />
             </div>
             {#if wrong}<p class="mt-1 text-xs text-error">{wrong.message}</p>{/if}
@@ -1003,8 +1012,8 @@
       </label>
       <p class="panel-title mt-5">Wavelengths</p>
       <div class="mt-2 grid grid-cols-3 gap-2 text-xs">
-        <label class="flex flex-col gap-1"><span class="muted">From (µm)</span><input class="input input-xs num" type="number" step="0.01" value={chip.sweep.from_um} onchange={(e) => change((c) => (c.sweep.from_um = Number(e.currentTarget.value)))} /></label>
-        <label class="flex flex-col gap-1"><span class="muted">To (µm)</span><input class="input input-xs num" type="number" step="0.01" value={chip.sweep.to_um} onchange={(e) => change((c) => (c.sweep.to_um = Number(e.currentTarget.value)))} /></label>
+        <label class="flex flex-col gap-1"><span class="muted">From (<UnitChip />)</span><input class="input input-xs num" type="number" step={shown(0.01)} value={shown(chip.sweep.from_um)} onchange={(e) => change((c) => (c.sweep.from_um = stored(Number(e.currentTarget.value))))} /></label>
+        <label class="flex flex-col gap-1"><span class="muted">To (<UnitChip />)</span><input class="input input-xs num" type="number" step={shown(0.01)} value={shown(chip.sweep.to_um)} onchange={(e) => change((c) => (c.sweep.to_um = stored(Number(e.currentTarget.value))))} /></label>
         <label class="flex flex-col gap-1"><span class="muted">Points</span><input class="input input-xs num" type="number" step="100" value={chip.sweep.points} onchange={(e) => change((c) => (c.sweep.points = Math.round(Number(e.currentTarget.value))))} /></label>
       </div>
       {#if sweepProblem(chip.sweep)}<p class="mt-1 text-xs text-warning">{sweepProblem(chip.sweep)}</p>{/if}

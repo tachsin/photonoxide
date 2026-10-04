@@ -51,14 +51,22 @@ export interface JobModel {
   bottom_oxide_um: number | null;
   wavelength_um: number;
   layer: string;
+  /**
+   * modes: the axis the modes travel along. "x" as an fdfd job's light does; "y" for an older
+   * job; null for a file that doesn't say, which the library reads as "y" and runs as before.
+   */
+  propagation: "x" | "y" | null;
+  /** The window along x; for modes along y, the window across the guide. */
   x_um: [number, number];
-  /** structure and fdfd: the window along y. */
+  /** The window along y; for modes along x, the window across the guide. */
   y_um: [number, number];
   /** structure and modes: the window's height, default 1 µm around the layer. */
   z_um: [number, number] | null;
   /** structure: where the side view cuts. */
   side_y_um: number | null;
-  /** modes: where the cross-section is cut. */
+  /** modes along x: where the cross-section is cut. */
+  cut_x_um: number | null;
+  /** modes along y: where the cross-section is cut. */
   cut_y_um: number | null;
   step_nm: number;
   /** modes: how many. */
@@ -94,10 +102,12 @@ export function template(kind: Kind): JobModel {
     bottom_oxide_um: null,
     wavelength_um: 1.55,
     layer: "Si",
+    propagation: "x",
     x_um: [-2, 2],
     y_um: [-2, 2],
     z_um: null,
     side_y_um: null,
+    cut_x_um: null,
     cut_y_um: null,
     step_nm: 20,
     modes: 2,
@@ -124,8 +134,8 @@ export function template(kind: Kind): JobModel {
       return {
         ...base,
         about: "The modes of a 500 x 220 nm silicon strip, swept over the wavelength.",
-        x_um: [-1.2, 1.2],
-        rect: [{ layer: "Si", center_um: [0, 0], size_um: [0.5, 10] }],
+        y_um: [-1.2, 1.2],
+        rect: [{ layer: "Si", center_um: [0, 0], size_um: [10, 0.5] }],
         sweep: { parameter: "wavelength", from: 1.5, to: 1.6, points: 11, rect: null },
       };
     case "fdfd":
@@ -166,10 +176,13 @@ export function fromModel(file: Record<string, unknown>, text: string): JobModel
     bottom_oxide_um: opt(task.bottom_oxide_um),
     wavelength_um: num(task.wavelength_um, 1.55),
     layer: typeof task.layer === "string" ? task.layer : "Si",
+    // a modes file that doesn't say is an older one, along y; the other kinds' light goes along x
+    propagation: task.propagation === "x" || task.propagation === "y" ? task.propagation : kind === "modes" ? null : "x",
     x_um: pair(task.x_um, t.x_um),
     y_um: pair(task.y_um, t.y_um),
     z_um: task.z_um === undefined ? null : pair(task.z_um, [-1, 1]),
     side_y_um: opt(task.side_y_um),
+    cut_x_um: opt(task.cut_x_um),
     cut_y_um: opt(task.cut_y_um),
     step_nm: num(task.step_nm, 20),
     modes: num(task.modes, 2),
@@ -258,11 +271,21 @@ export function toToml(m: JobModel): string {
   }
   out.push(`wavelength_um = ${f(m.wavelength_um)}`, `layer = ${str(m.layer)}`);
   if (m.kind === "fdfd") out.push(`polarization = ${str(m.polarization)}`);
-  out.push(`x_um = ${fp(m.x_um)}`);
-  if (m.kind !== "modes") out.push(`y_um = ${fp(m.y_um)}`);
+  if (m.kind === "modes") {
+    // only the window across the guide and the cut along it: the library refuses the other axis's
+    if (m.propagation) out.push(`propagation = ${str(m.propagation)}`);
+    if (along(m) === "x") {
+      out.push(`y_um = ${fp(m.y_um)}`);
+      if (m.cut_x_um !== null) out.push(`cut_x_um = ${f(m.cut_x_um)}`);
+    } else {
+      out.push(`x_um = ${fp(m.x_um)}`);
+      if (m.cut_y_um !== null) out.push(`cut_y_um = ${f(m.cut_y_um)}`);
+    }
+  } else {
+    out.push(`x_um = ${fp(m.x_um)}`, `y_um = ${fp(m.y_um)}`);
+  }
   if (m.kind !== "fdfd" && m.z_um) out.push(`z_um = ${fp(m.z_um)}`);
   if (m.kind === "structure" && m.side_y_um !== null) out.push(`side_y_um = ${f(m.side_y_um)}`);
-  if (m.kind === "modes" && m.cut_y_um !== null) out.push(`cut_y_um = ${f(m.cut_y_um)}`);
   out.push(`step_nm = ${f(m.step_nm)}`);
   if (m.kind === "modes") out.push(`modes = ${Math.max(1, Math.round(m.modes))}`);
   if (m.kind === "fdfd" && m.pml_cells !== null) out.push(`pml_cells = ${Math.round(m.pml_cells)}`);
@@ -293,22 +316,68 @@ export function toToml(m: JobModel): string {
   return out.join("\n") + "\n";
 }
 
-/** The window the preview draws, µm: x across, y up. */
+/** The axis a modes job's modes travel along: its `propagation`, y for a file that doesn't say. */
+export function along(m: JobModel): "x" | "y" {
+  return m.propagation ?? "y";
+}
+
+/** A modes job's window across the guide, µm: along y for modes along x, along x for modes along y. */
+export function across(m: JobModel): [number, number] {
+  return along(m) === "x" ? m.y_um : m.x_um;
+}
+
+/** Where a modes job cuts its cross-section along the guide, µm. */
+export function cutAt(m: JobModel): number {
+  return (along(m) === "x" ? m.cut_x_um : m.cut_y_um) ?? 0;
+}
+
+/**
+ * Turns a modes job to travel along `to`, the device turning with it, so its modes stay the
+ * same: a quarter turn, (x, y) → (−y, x) from y to x and back (x, y) → (y, −x), the turn the
+ * library solves a job along x by (photonoxide::job, `Frame`).
+ */
+export function turn(m: JobModel, to: "x" | "y") {
+  if (along(m) === to) {
+    m.propagation = to;
+    return;
+  }
+  // (+ 0 makes −0 zero)
+  const centre = (c: [number, number]): [number, number] => (to === "x" ? [-c[1] + 0, c[0]] : [c[1], -c[0] + 0]);
+  for (const r of m.rect) {
+    r.center_um = centre(r.center_um);
+    r.size_um = [r.size_um[1], r.size_um[0]];
+  }
+  for (const s of [...m.circle, ...m.ring]) s.center_um = centre(s.center_um);
+  if (to === "x") {
+    m.y_um = [m.x_um[0], m.x_um[1]];
+    m.cut_x_um = m.cut_y_um === null ? null : -m.cut_y_um + 0;
+    m.cut_y_um = null;
+  } else {
+    m.x_um = [m.y_um[0], m.y_um[1]];
+    m.cut_y_um = m.cut_x_um === null ? null : -m.cut_x_um + 0;
+    m.cut_x_um = null;
+  }
+  m.propagation = to;
+}
+
+/** The window the preview draws, µm: x across, y up. A modes job's reaches along its guide, about its cut. */
 export function previewWindow(m: JobModel): { x: [number, number]; y: [number, number] } {
   if (m.kind !== "modes") return { x: m.x_um, y: m.y_um };
-  const half = (m.x_um[1] - m.x_um[0]) / 2;
-  const c = m.cut_y_um ?? 0;
-  return { x: m.x_um, y: [c - half * 0.6, c + half * 0.6] };
+  const span = across(m);
+  const half = (span[1] - span[0]) / 2;
+  const c = cutAt(m);
+  return along(m) === "x" ? { x: [c - half * 1.5, c + half * 1.5], y: span } : { x: span, y: [c - half * 0.6, c + half * 0.6] };
 }
 
 /** How many cells the job's grid has, roughly, for the estimate the builder shows. */
 export function cells(m: JobModel): number {
   const h = m.step_nm / 1000;
   if (h <= 0) return 0;
-  const nx = Math.max(1, Math.round((m.x_um[1] - m.x_um[0]) / h));
   if (m.kind === "modes") {
+    const span = across(m);
     const z = m.z_um ? m.z_um[1] - m.z_um[0] : 2.22;
-    return nx * Math.max(1, Math.round(z / h));
+    return Math.max(1, Math.round((span[1] - span[0]) / h)) * Math.max(1, Math.round(z / h));
   }
+  const nx = Math.max(1, Math.round((m.x_um[1] - m.x_um[0]) / h));
   return nx * Math.max(1, Math.round((m.y_um[1] - m.y_um[0]) / h));
 }

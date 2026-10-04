@@ -3,6 +3,7 @@
 
 import { mediumLook } from "./colours";
 import type { Medium, Scene } from "./events";
+import { lenUnit } from "./units";
 
 /** A viewer-only change to how a medium is drawn: its colour and its opacity, 0 to 1. */
 export interface Look {
@@ -48,11 +49,6 @@ export function outside(s: Scene, r: Row): "below" | "above" | null {
   if (r.z[1] <= z0 + 1e-9) return "below";
   if (r.z[0] >= z1 - 1e-9) return "above";
   return null;
-}
-
-/** A length in µm, without trailing zeros. */
-export function um(v: number): string {
-  return String(Number(v.toFixed(4)));
 }
 
 /** The refractive index n = √ε, or a dash for ε ≤ 0. */
@@ -102,7 +98,7 @@ export function explain(all: Row[], k: number): string {
   if (r.kind === "substrate") {
     parts.push(`The substrate is ${named(r.material)}, from z = 0 down without end.`);
   } else if (r.kind === "cladding") {
-    parts.push(`The cladding is ${named(r.material)}, from the top of the stack (z = ${um(r.z[0])} µm) up without end.`);
+    parts.push(`The cladding is ${named(r.material)}, from the top of the stack (z = ${lenUnit(r.z[0])}) up without end.`);
   } else {
     const bg = r.background ?? r.material;
     const same = bg.material === r.material.material;

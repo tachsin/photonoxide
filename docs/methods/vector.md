@@ -48,6 +48,9 @@ $$
 $$
 
 The modes nearest a guess come from [shift-and-invert Arnoldi](eigen.md).
+`VectorMode::residual` measures a mode against the matrix assembled afresh,
+$\lVert A h - \beta^2 h\rVert / (|\beta^2|\thinspace\lVert h\rVert)$; a `"modes"` job records it for every mode, and
+the studio's Solver panel shows it.
 
 - **Convention:** the paper uses $e^{+j\omega t}$. Its eigenvalue equations hold in photonoxide's
   $e^{-i\omega t}$ when written with that convention's permittivity: loss is $+i$, and a gyrotropic

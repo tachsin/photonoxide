@@ -57,10 +57,17 @@ export interface Mode {
   wavelength_um: number;
   effective_index: [number, number];
   te_fraction: number;
-  /** |E|², its peak 1; x across, z up. */
+  /** |E|², its peak 1; across the guide (x, or y for a run cut normal to x) and z up. */
   intensity: Raster;
-  /** Where the cross-section was cut, µm. */
+  /** Where the cross-section was cut along the guide, µm: its y, or its x for a run cut normal to x (see Cut). */
   cut_y_um: number;
+}
+
+/** The plane a modes run cut its cross-section on: its modes travel along the normal. An older run has none: normal to y. */
+export interface Cut {
+  type: "cut";
+  normal: "x" | "y";
+  at_um: number;
 }
 
 /**
@@ -124,6 +131,55 @@ export interface SweepMode {
   cut_y_um: number;
 }
 
+/** A sweep about to run, recorded before its first point: what it steps through. */
+export interface Sweep {
+  type: "sweep";
+  /** "wavelength" or "width", both in µm. */
+  parameter: string;
+  from: number;
+  to: number;
+  /** How many points, evenly spaced. */
+  points: number;
+}
+
+/** A 2D FDFD run's field at one point of its wavelength sweep: its Field there, on coarser pixels. */
+export interface SweepField {
+  type: "sweep_field";
+  /** The point's index, from 0. */
+  point: number;
+  value: number;
+  label: string;
+  wavelength_um: number;
+  z_um: number;
+  /** |field|², the point's own peak 1; x across, y up. */
+  intensity: Raster;
+}
+
+/** How the run solves, recorded once before its first solve. */
+export interface Solver {
+  type: "solver";
+  /** The library module that solves: "mode::vector" or "fdfd". */
+  module: string;
+  /** The grid's cells along its two axes. */
+  cells: [number, number];
+  step_um: number;
+  /** The unknowns of one solve. */
+  unknowns: number;
+  /** Further facts, each a name and its value. */
+  details: [string, string][];
+}
+
+/** A measure of a solve's numerical error: a mode's eigen-residual, a field's linear residual, an S-matrix's distance from reciprocal. */
+export interface SolveError {
+  type: "solve_error";
+  /** The sweep point's index, or null for the job's own configuration. */
+  point: number | null;
+  /** The swept parameter's value there, or the job's wavelength, µm. */
+  value: number;
+  measure: string;
+  error: number;
+}
+
 export interface Field {
   type: "field";
   label: string;
@@ -153,6 +209,11 @@ export type Event =
   | SweepShapes
   | SweepPermittivity
   | SweepMode
+  | Sweep
+  | SweepField
+  | Cut
+  | Solver
+  | SolveError
   | Field
   | SParameters
   | { type: "finished"; stopped: string | null; seconds: number };

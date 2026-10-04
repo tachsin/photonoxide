@@ -118,7 +118,7 @@ pub enum Edges {
 }
 
 impl Edges {
-    fn pml(self) -> (usize, usize) {
+    pub(crate) fn pml(self) -> (usize, usize) {
         match self {
             Edges::Pml { low, high } => (low, high),
             Edges::Bloch { .. } => (0, 0),
@@ -462,7 +462,7 @@ fn face_mean(n: usize, len: usize, bloch: bool, cell: impl Fn(usize) -> c64) -> 
 }
 
 /// The checks every problem passes: the grid, and the boundaries on it.
-fn check(grid: Grid, b: &Boundaries) -> Result<()> {
+pub(crate) fn check(grid: Grid, b: &Boundaries) -> Result<()> {
     grid.check()?;
     if !(b.reflection > 0.0 && b.reflection < 1.0) || !(b.order.is_finite() && b.order >= 0.0) {
         return Err(Error::invalid(
@@ -544,6 +544,27 @@ impl Solver2d {
             eps_x: self.eps_x.clone(),
             eps_y: self.eps_y.clone(),
         })
+    }
+
+    /// How far `field` is from solving A u = `rhs`: ‖rhs − A u‖ / ‖rhs‖, with A the assembled
+    /// matrix. For a field [`Solver2d::solve_system`] returned for `rhs` it is the direct
+    /// solve's rounding, after its step of refinement.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] if `rhs` or the field isn't one value per cell of this problem.
+    pub fn residual(&self, field: &Field2d, rhs: &[c64]) -> Result<f64> {
+        let n = self.grid.nx * self.grid.ny;
+        if rhs.len() != n || field.values.len() != n {
+            return Err(Error::invalid(
+                "fdfd residual",
+                format!("needs {n} values, one per cell"),
+            ));
+        }
+        let au = self.apply(&field.values);
+        let off: f64 = rhs.iter().zip(&au).map(|(b, a)| (b - a).norm_sqr()).sum();
+        let size: f64 = rhs.iter().map(|b| b.norm_sqr()).sum();
+        Ok(off.sqrt() / size.sqrt().max(f64::MIN_POSITIVE))
     }
 
     /// A v, the assembled matrix times `v`.

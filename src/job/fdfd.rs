@@ -12,8 +12,8 @@ use num_complex::Complex64 as c64;
 use serde::Deserialize;
 
 use super::{
-    CircleSpec, Event, RectSpec, RingSpec, check_finite, check_step, check_sweep, check_window,
-    draw, named_stack, scene, task_error,
+    CircleSpec, Event, RectSpec, RingSpec, check_cells, check_finite, check_materials, check_step,
+    check_sweep, check_window, draw, named_stack, scene, task_error,
 };
 use crate::fdfd::{Boundaries, Direction, Grid, Polarization, Port, Side, Solver2d};
 use crate::geometry::Point;
@@ -82,6 +82,8 @@ impl FdfdTask {
         check_window("x_um", self.x_um)?;
         check_window("y_um", self.y_um)?;
         check_step(self.step_nm)?;
+        check_cells("x_um", self.x_um, self.step_nm)?;
+        check_cells("y_um", self.y_um, self.step_nm)?;
         check_finite("field_um", self.field_um)?;
         for p in &self.port {
             check_finite("a port's x_um", Some(p.x_um))?;
@@ -165,16 +167,57 @@ fn plane(
     })
 }
 
-/// The scene of an `"fdfd"` job: its window, 1 µm below and above its layer.
+/// The grid of cells of about `step_nm` filling the task's window (validated before).
+fn grid_of(task: &FdfdTask) -> Grid {
+    let h = task.step_nm / 1000.0;
+    let (wx, wy) = (task.x_um[1] - task.x_um[0], task.y_um[1] - task.y_um[0]);
+    let (nx, ny) = (
+        (wx / h).round().max(1.0) as usize,
+        (wy / h).round().max(1.0) as usize,
+    );
+    Grid {
+        nx,
+        ny,
+        dx: wx / nx as f64,
+        dy: wy / ny as f64,
+        x0: task.x_um[0],
+        y0: task.y_um[0],
+    }
+}
+
+/// The part of the grid the run's pictures show, and how many cells it leaves out on each side
+/// along x and y: the window without its PMLs and the two cells beside them, where the field
+/// is launched. The PMLs are where the solver absorbs the light, not part of the device, so a
+/// guide drawn into them would look as if the light started late and ended early. A grid too
+/// small to leave anything is shown whole.
+fn pictured(grid: &Grid, pml_cells: usize) -> (Grid, [usize; 2]) {
+    let margin = pml_cells + 2;
+    let mx = if grid.nx > 2 * margin { margin } else { 0 };
+    let my = if grid.ny > 2 * margin { margin } else { 0 };
+    (
+        Grid {
+            nx: grid.nx - 2 * mx,
+            ny: grid.ny - 2 * my,
+            x0: grid.x0 + mx as f64 * grid.dx,
+            y0: grid.y0 + my as f64 * grid.dy,
+            ..*grid
+        },
+        [mx, my],
+    )
+}
+
+/// The scene of an `"fdfd"` job: the part of its window the pictures show ([`pictured`]),
+/// 1 µm below and above its layer.
 fn scene_of(task: &FdfdTask, s: &Structure) -> Result<Event> {
+    let (inner, _) = pictured(&grid_of(task), task.pml_cells.unwrap_or(20));
     let (_, bottom, top) = s
         .stack()
         .layer(&task.layer)
         .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
     scene(
         s,
-        task.x_um,
-        task.y_um,
+        [inner.x0, inner.x0 + inner.nx as f64 * inner.dx],
+        [inner.y0, inner.y0 + inner.ny as f64 * inner.dy],
         [bottom.to_um() - 1.0, top.to_um() + 1.0],
         Wavelength::um(task.wavelength_um)?,
     )
@@ -198,34 +241,20 @@ pub(super) fn preview(job: &Job) -> Result<Event> {
 
 /// [`super::check`] for an `"fdfd"` job.
 pub(super) fn check(job: &Job) -> Result<()> {
-    let task: FdfdTask = job
-        .task()
-        .clone()
-        .try_into()
-        .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
-    task.validate()?;
-    let s = draw(
-        named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
-        &task.rect,
-        &task.circle,
-        &task.ring,
-    )?;
-    s.stack()
-        .layer(&task.layer)
-        .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
-    match task.polarization.as_deref().unwrap_or("te") {
-        "te" | "tm" => {}
-        other => {
-            return Err(task_error(format!(
-                "unknown polarization \"{other}\": te or tm"
-            )));
-        }
+    // the task, the structure, the layer, the polarization, that there are ports, and the grid
+    let device = Device::new(job)?;
+    let task = &device.task;
+    // what the solver would refuse before solving anything: PMLs that leave no room, and each
+    // port's place
+    crate::fdfd::check(device.grid, &device.boundaries)?;
+    for p in &task.port {
+        place(&device.grid, &device.boundaries, p)?;
     }
-    if task.port.is_empty() {
-        return Err(task_error("an fdfd job needs at least one [[task.port]]"));
+    let mut wavelengths = vec![task.wavelength_um];
+    if let Some(sw) = &task.sweep {
+        wavelengths.extend([sw.from, sw.to]);
     }
-    Wavelength::um(task.wavelength_um)?;
-    Ok(())
+    check_materials(device.structure.stack(), &wavelengths)
 }
 
 /// An `"fdfd"` job's device, drawn and gridded, ready to solve at any wavelength.
@@ -273,21 +302,8 @@ impl Device {
         if task.port.is_empty() {
             return Err(task_error("an fdfd job needs at least one [[task.port]]"));
         }
-        let h = task.step_nm / 1000.0;
         // (the window and the step are validated above)
-        let (wx, wy) = (task.x_um[1] - task.x_um[0], task.y_um[1] - task.y_um[0]);
-        let (nx, ny) = (
-            (wx / h).round().max(1.0) as usize,
-            (wy / h).round().max(1.0) as usize,
-        );
-        let grid = Grid {
-            nx,
-            ny,
-            dx: wx / nx as f64,
-            dy: wy / ny as f64,
-            x0: task.x_um[0],
-            y0: task.y_um[0],
-        };
+        let grid = grid_of(&task);
         let boundaries = Boundaries::pml(task.pml_cells.unwrap_or(20));
         Ok(Device {
             task,
@@ -350,7 +366,7 @@ impl Device {
             .task
             .port
             .iter()
-            .map(|p| port(&solver, p))
+            .map(|p| port(&solver, &self.boundaries, p))
             .collect::<Result<Vec<Port>>>()?;
         let s = solver.s_matrix(&ports)?;
         Ok((solver, ports, s))
@@ -409,6 +425,53 @@ pub fn fdfd_s_parameters(job: &Job, wavelengths_um: Option<&[f64]>) -> Result<Fd
     })
 }
 
+/// The pixels a sweep's fields may take in all, over its points.
+const SWEEP_PIXELS: usize = 5_000_000;
+
+/// The side, in cells, of the blocks a sweep's fields are averaged over: 2, or the smallest
+/// that keeps the `points` pictures of an `nx` × `ny` grid within [`SWEEP_PIXELS`].
+pub(super) fn sweep_block(nx: usize, ny: usize, points: usize) -> usize {
+    let most = nx.min(ny).max(1);
+    (2..most)
+        .find(|b| (nx / b) * (ny / b) * points <= SWEEP_PIXELS)
+        .unwrap_or(most)
+        .min(most)
+}
+
+/// A sweep point's picture of `values` (|field|² on `grid`, row by row): their means over
+/// blocks of `block` × `block` cells, scaled to a peak of 1 and rounded to three decimals. The
+/// cells left over at the right and the top, fewer than a block, are left out.
+fn coarse(values: &[f64], grid: &Grid, block: usize) -> Raster {
+    let (nx, ny) = (grid.nx / block, grid.ny / block);
+    let mut means: Vec<f64> = (0..ny)
+        .flat_map(|j| (0..nx).map(move |i| (i, j)))
+        .map(|(i, j)| {
+            let sum: f64 = (0..block)
+                .flat_map(|b| (0..block).map(move |a| (a, b)))
+                .map(|(a, b)| values[(j * block + b) * grid.nx + i * block + a])
+                .sum();
+            sum / (block * block) as f64
+        })
+        .collect();
+    let peak = means
+        .iter()
+        .copied()
+        .fold(0.0, f64::max)
+        .max(f64::MIN_POSITIVE);
+    for v in &mut means {
+        *v = (*v / peak * 1000.0).round() / 1000.0;
+    }
+    Raster {
+        nx,
+        ny,
+        x0: grid.x0,
+        x1: grid.x0 + (nx * block) as f64 * grid.dx,
+        y0: grid.y0,
+        y1: grid.y0 + (ny * block) as f64 * grid.dy,
+        values: means.iter().map(|&v| v as f32).collect(),
+    }
+}
+
 pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let device = Device::new(job)?;
     let task = &device.task;
@@ -428,13 +491,78 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             })
             .unwrap_or(0)
     });
+    let label = format!(
+        "{} from port 1, 2D by the effective index method",
+        device.field_name
+    );
+    // a sweep's points each record their field, on blocks of cells
+    run.record(&Event::Solver {
+        module: "fdfd".into(),
+        cells: [nx, ny],
+        step_um: task.step_nm / 1000.0,
+        unknowns: nx * ny,
+        details: vec![
+            [
+                "field".into(),
+                match device.kind {
+                    crate::mode::Polarization::Te => {
+                        "H along z: the slab's TE mode, E in the plane"
+                    }
+                    crate::mode::Polarization::Tm => "E along z: the slab's TM mode",
+                }
+                .into(),
+            ],
+            [
+                "permittivity".into(),
+                "the effective index method: each point's slab mode index, squared".into(),
+            ],
+            [
+                "PML".into(),
+                format!(
+                    "{} cells on each side, inside the window",
+                    task.pml_cells.unwrap_or(20)
+                ),
+            ],
+            ["ports".into(), task.port.len().to_string()],
+            [
+                "linear solve".into(),
+                "sparse LU with one step of iterative refinement; a sweep analyses the \
+                 sparsity once"
+                    .into(),
+            ],
+        ],
+    })?;
+    let pml_cells = task.pml_cells.unwrap_or(20);
+    // the pictures show the window without its PMLs
+    let (inner, [mx, my]) = pictured(&device.grid, pml_cells);
+    let block = match &task.sweep {
+        Some(sw) => {
+            run.record(&Event::Sweep {
+                parameter: "wavelength".into(),
+                from: sw.from,
+                to: sw.to,
+                points: sw.points,
+            })?;
+            Some(sweep_block(inner.nx, inner.ny, sw.points))
+        }
+        None => None,
+    };
     let mut solver: Option<Solver2d> = None;
     for (step, &w) in wavelengths.iter().enumerate() {
         if stop.reason().is_some() {
             return Ok(());
         }
+        let value = w;
         let w = Wavelength::um(w)?;
         let (current, ports, sm) = device.solve(w, solver.as_ref())?;
+        let mut residual = None;
+        // how far S is from reciprocal: the largest |S_qp − S_pq|
+        let reciprocity = (0..sm.len())
+            .flat_map(|q| (0..q).map(move |p| (q, p)))
+            .map(|(q, p)| (sm[q][p] - sm[p][q]).norm())
+            .fold(None, |most: Option<f64>, d| {
+                Some(most.map_or(d, |m| m.max(d)))
+            });
         run.record(&Event::SParameters {
             wavelength_um: w.to_um(),
             ports: names.clone(),
@@ -444,40 +572,66 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 .map(|row| row.iter().map(|v| [v.re, v.im]).collect())
                 .collect(),
         })?;
-        // the field from the first port, at the wavelength chosen
-        if step == field_step {
+        // the field from the first port: in full at the wavelength chosen, and coarser at each
+        // point of a sweep
+        if step == field_step || block.is_some() {
             let first = &ports[0];
             let direction = match first.side {
                 Side::Left => Direction::Forward,
                 Side::Right => Direction::Backward,
             };
-            let field = current.solve_system(&current.mode_source(&first.mode, direction))?;
-            let values: Vec<f64> = (0..ny)
-                .flat_map(|j| (0..nx).map(move |i| (i, j)))
-                .map(|(i, j)| field.at(i, j).norm_sqr())
+            // launched from the window's end of port 1's guide, so the picture shows the wave
+            // from where the guide comes in (S is still referred to the port's own column)
+            let launched = launch(&current, &task.port[0], &first.mode, pml_cells);
+            let source = current.mode_source(launched.as_ref().unwrap_or(&first.mode), direction);
+            let field = current.solve_system(&source)?;
+            residual = Some(current.residual(&field, &source)?);
+            let values: Vec<f64> = (0..inner.ny)
+                .flat_map(|j| (0..inner.nx).map(move |i| (i, j)))
+                .map(|(i, j)| field.at(mx + i, my + j).norm_sqr())
                 .collect();
-            let peak = values
-                .iter()
-                .copied()
-                .fold(0.0, f64::max)
-                .max(f64::MIN_POSITIVE);
-            run.record(&Event::Field {
-                label: format!(
-                    "{} from port 1, 2D by the effective index method",
-                    device.field_name
-                ),
-                wavelength_um: w.to_um(),
-                z_um: z_face,
-                intensity: Raster {
-                    nx,
-                    ny,
-                    x0: task.x_um[0],
-                    x1: task.x_um[1],
-                    y0: task.y_um[0],
-                    y1: task.y_um[1],
-                    values: values.iter().map(|v| (v / peak) as f32).collect(),
-                },
-            })?;
+            if step == field_step {
+                let peak = values
+                    .iter()
+                    .copied()
+                    .fold(0.0, f64::max)
+                    .max(f64::MIN_POSITIVE);
+                run.record(&Event::Field {
+                    label: label.clone(),
+                    wavelength_um: w.to_um(),
+                    z_um: z_face,
+                    intensity: Raster {
+                        nx: inner.nx,
+                        ny: inner.ny,
+                        x0: inner.x0,
+                        x1: inner.x0 + inner.nx as f64 * inner.dx,
+                        y0: inner.y0,
+                        y1: inner.y0 + inner.ny as f64 * inner.dy,
+                        values: values.iter().map(|v| (v / peak) as f32).collect(),
+                    },
+                })?;
+            }
+            if let Some(block) = block {
+                run.record(&Event::SweepField {
+                    point: step,
+                    value,
+                    label: label.clone(),
+                    wavelength_um: w.to_um(),
+                    z_um: z_face,
+                    intensity: coarse(&values, &inner, block),
+                })?;
+            }
+        }
+        let point = block.map(|_| step);
+        for (measure, error) in [("linear residual", residual), ("reciprocity", reciprocity)] {
+            if let Some(error) = error {
+                run.record(&Event::SolveError {
+                    point,
+                    value,
+                    measure: measure.into(),
+                    error,
+                })?;
+            }
         }
         if solver.is_none() {
             solver = Some(current);
@@ -486,9 +640,41 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     Ok(())
 }
 
-/// The port a spec describes: its column, its window, its fundamental mode.
-fn port(solver: &Solver2d, spec: &PortSpec) -> Result<Port> {
+/// The mode of `spec`'s guide at the column nearest the window's end on the port's side, two
+/// cells clear of the PML: where the recorded field is launched from, so that it shows the wave
+/// along the whole guide and not only from the port on. `None` when the guide there isn't the
+/// port's (no mode, or one of another effective index): the field is then launched at the port.
+fn launch(
+    solver: &Solver2d,
+    spec: &PortSpec,
+    at_port: &crate::fdfd::PortMode,
+    pml_cells: usize,
+) -> Option<crate::fdfd::PortMode> {
     let g = solver.grid();
+    let column = match spec.side.as_str() {
+        "left" => pml_cells + 2,
+        _ => g.nx.checked_sub(pml_cells + 3)?,
+    };
+    let row = |y: f64| (((y - g.y0) / g.dy).round().max(0.0) as usize).min(g.ny);
+    let rows = spec.y_um.map_or(0..g.ny, |[a, b]| row(a)..row(b));
+    let mode = solver
+        .port_modes_within(column, rows, 1)
+        .ok()?
+        .into_iter()
+        .next()?;
+    let same = (mode.effective_index() - at_port.effective_index()).norm() < 1e-8;
+    same.then_some(mode)
+}
+
+/// Where a spec puts its port on the grid: its column, its rows and its side. Refused as the
+/// solve would refuse it ([`Solver2d::port_modes_within`]), in the same words, before any
+/// solve: a column outside the window or less than two cells clear of the PMLs, an unknown
+/// side, a window of fewer than 3 rows.
+fn place(
+    g: &Grid,
+    boundaries: &Boundaries,
+    spec: &PortSpec,
+) -> Result<(usize, std::ops::Range<usize>, Side)> {
     let column = ((spec.x_um - g.x0) / g.dx).floor();
     if !(column >= 0.0 && column < g.nx as f64) {
         return Err(task_error(format!(
@@ -505,10 +691,33 @@ fn port(solver: &Solver2d, spec: &PortSpec) -> Result<Port> {
             )));
         }
     };
+    let column = column as usize;
     let row = |y: f64| (((y - g.y0) / g.dy).round().max(0.0) as usize).min(g.ny);
     let rows = spec.y_um.map_or(0..g.ny, |[a, b]| row(a)..row(b));
+    let refused =
+        |reason: String| task_error(format!("the port at x = {} um: {reason}", spec.x_um));
+    if rows.len() < 3 {
+        return Err(refused(format!(
+            "the window, rows {} to {}, must have 3 rows or more on the grid's {}",
+            rows.start, rows.end, g.ny
+        )));
+    }
+    let (low, high) = boundaries.x.pml();
+    if !(column >= low + 2 && column + 3 + high <= g.nx) {
+        return Err(refused(format!(
+            "column {column} must be two cells clear of the PMLs ({low} and {high} cells) and \
+             the ends of {} columns",
+            g.nx
+        )));
+    }
+    Ok((column, rows, side))
+}
+
+/// The port a spec describes: its column, its window, its fundamental mode.
+fn port(solver: &Solver2d, boundaries: &Boundaries, spec: &PortSpec) -> Result<Port> {
+    let (column, rows, side) = place(&solver.grid(), boundaries, spec)?;
     let mut modes = solver
-        .port_modes_within(column as usize, rows, 1)
+        .port_modes_within(column, rows, 1)
         .map_err(|e| match e {
             Error::InvalidValue { reason, .. } => {
                 task_error(format!("the port at x = {} um: {reason}", spec.x_um))

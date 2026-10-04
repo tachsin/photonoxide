@@ -2,7 +2,7 @@
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/jetbrains-mono";
 
-/* Every daisyUI theme, to choose in Settings → Appearance, none of them a default: the studio's own two
+/* Every built-in theme of the component library, to choose in Settings → Appearance, none of them a default: the studio's own two
    below are. The list is src/lib/themes.ts's, in the same order. */
 @plugin "daisyui" {
   themes:
@@ -146,4 +146,12 @@
 
 canvas.pixelated {
   image-rendering: pixelated;
+}
+
+/* a length's unit as a button (UnitChip): it flips every length between µm and nm */
+.unit-chip {
+  @apply z-30 -mx-0.5 cursor-pointer rounded-sm px-0.5 font-[inherit] whitespace-nowrap underline decoration-current/35 decoration-dotted underline-offset-2 transition-colors;
+}
+.unit-chip:hover {
+  @apply bg-base-content/10 text-primary;
 }

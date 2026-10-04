@@ -1,18 +1,22 @@
 <script lang="ts">
   // The viewer: the run the window follows, in 3D (its layers as solids, the field painted on
   // its plane) or 2D (pictures and plots), with its details at the side.
-  import { Box, ChartLine, ChevronLeft, ChevronRight, CirclePause, FolderOpen, Info, Layers, Pause, Play, RotateCcw, Square, Waves } from "@lucide/svelte";
+  import { Box, ChartLine, ChevronLeft, ChevronRight, CirclePause, Cpu, FolderOpen, Info, Layers, Pause, Play, RotateCcw, Square, Waves } from "@lucide/svelte";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
 
   import LayerDialog from "../components/LayerDialog.svelte";
   import RunPlots from "../components/RunPlots.svelte";
+  import SolverDialog from "../components/SolverDialog.svelte";
   import Tip from "../components/Tip.svelte";
+  import UnitChip from "../components/UnitChip.svelte";
   import { api, duration, KINDS } from "../lib/api";
-  import { app, go, run, shownModes, shownScene, themeBackdrop, toast } from "../lib/app.svelte";
+  import { app, followSweep, go, perPoint as hasPerPoint, pickPoint, run, shownField, shownModes, shownScene, sweepAxis, themeBackdrop, toast } from "../lib/app.svelte";
   import { modeKind } from "../lib/events";
-  import { effectiveLook, outside, rows, um, type Looks } from "../lib/layers";
+  import { SOLVERS } from "../lib/methods";
+  import { effectiveLook, outside, rows, type Looks } from "../lib/layers";
   import { mediumLook } from "../lib/colours";
+  import { len, lenUnit, unitText } from "../lib/units";
   import { PERIOD, View3D, waveOf, type Plane } from "../lib/view3d";
 
   /** The opacity of the solid shapes the wave runs through, while it shows. */
@@ -65,16 +69,18 @@
         }
       }
     }
-    if (three && s) three.setScene(s, hidden, looks);
+    if (three && s) three.setScene(s, hidden, looks, run.along);
   });
 
   $effect(() => three?.setFieldLook(run.fieldVisible, run.fieldOpacity));
 
-  // the field: an FDFD run's on its layer, or the selected mode on its cut
+  // the field: an FDFD run's on its layer (the sweep point's, when one is shown), or the
+  // selected mode on its cut
+  const field = $derived(shownField());
   $effect(() => {
-    const f = run.fields[0];
+    const f = field;
     const m = current;
-    const plane: Plane | null = f ? { intensity: f.intensity, normal: "z", at: f.z_um } : m ? { intensity: m.intensity, normal: "y", at: m.cut_y_um } : null;
+    const plane: Plane | null = f ? { intensity: f.intensity, normal: "z", at: f.z_um } : m ? { intensity: m.intensity, normal: run.along, at: m.cut_y_um } : null;
     three?.setField(plane);
   });
 
@@ -82,22 +88,26 @@
   // already varies along the device)
   const wave = $derived.by(() => {
     const m = current;
-    if (run.fields.length || !m || !scene) return null;
-    return waveOf(m, shown.fields[m.label], scene);
+    if (field || !m || !scene) return null;
+    return waveOf(m, shown.fields[m.label], scene, run.along);
   });
   /** The selected mode's guided wavelength λ / n_eff, µm. */
   const guided = $derived(current ? current.wavelength_um / current.effective_index[0] : 0);
 
   // ---- the sweep's points ----
-  const points = $derived(run.sweep?.points.length ?? 0);
+  /** The sweep, a modes run's or an FDFD run's: its solved points' values, and how many it will have. */
+  const axis = $derived(sweepAxis());
+  /** The points solved so far. */
+  const points = $derived(axis?.values.length ?? 0);
   /** Whether the run recorded each point's pictures (an older run didn't). */
-  const perPoint = $derived(Object.keys(run.sweepModes).length > 0);
-  /** The point picked, in words: "width 0.45 µm (point 4 of 11)", or the nominal one. */
+  const perPoint = $derived(hasPerPoint());
+  /** The shown point's value, if a point is shown. */
+  const pointValue = $derived(run.point === null ? null : (axis?.values[run.point] ?? null));
+  /** The point shown, in words: "width 0.45 µm (point 4 of 11)", in the unit chosen, or the nominal one. */
   const pointText = $derived.by(() => {
-    if (!run.sweep) return "";
-    if (run.point === null) return "nominal: the job's own configuration";
-    const p = run.sweep.points[run.point];
-    return `${run.sweep.parameter} ${p ? um(p.value) : "?"} µm (point ${run.point + 1} of ${points})`;
+    if (!axis) return "";
+    if (run.point === null) return run.fields[0] ? `nominal: the field the job asks for, at ${lenUnit(run.fields[0].wavelength_um)}` : "nominal: the job's own configuration";
+    return `${axis.parameter} ${pointValue === null ? "?" : lenUnit(pointValue)} (point ${run.point + 1} of ${axis.total})`;
   });
   /** The wave in words: what is drawn, its guided wavelength, its phase velocity, and how much slower it is shown. */
   const facts = $derived.by(() => {
@@ -117,11 +127,11 @@
   function stepPoint(by: number) {
     if (!perPoint || !points) return;
     const k = (run.point === null ? -1 : run.point) + by;
-    run.point = k < 0 ? null : Math.min(k, points - 1);
+    pickPoint(k < 0 ? null : Math.min(k, points - 1));
   }
 
   function keys(e: KeyboardEvent) {
-    if (app.page !== "viewer" || !run.sweep || details || app.palette) return;
+    if (app.page !== "viewer" || !axis || details || solving || app.palette) return;
     const t = e.target as HTMLElement | null;
     if (t && (t.closest("input, textarea, select, [contenteditable]") || t.closest("dialog.modal-open"))) return;
     if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
@@ -140,17 +150,25 @@
   });
 
   const live = $derived(!!run.info?.dir && !run.finished);
+  /** The time a running run has taken, as a clock (0:07, 12:40): digits of one width, so the bar keeps still as it counts. */
+  const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+  /** The width, in digits, of a count up to the sweep's length. */
+  const digits = $derived(String(sweepAxis()?.total ?? 0).length);
   const elapsed = $derived(run.finished ? run.finished.seconds : (now - run.opened) / 1000);
   // the media from the top down, as they stack
   const media = $derived(run.scene ? rows(run.scene).reverse() : []);
   /** The medium whose details are open, if any. */
   let details = $state<string | null>(null);
+  /** Whether the account of how the run was solved is open. */
+  let solving = $state(false);
+  /** The largest numerical error the run recorded, if it recorded any. */
+  const worstError = $derived(run.errors.length ? Math.max(...run.errors.map((e) => e.error)) : null);
   /** The field the 3D view paints, and where. */
   const painted = $derived.by(() => {
-    const f = run.fields[0];
+    const f = field;
     const m = current;
-    if (f) return { label: f.label, where: `on the layer's top face (z = ${um(f.z_um)} µm)` };
-    if (m) return { label: `${m.label}, |E|²`, where: `on the cut at y = ${um(m.cut_y_um)} µm` };
+    if (f) return { label: `${f.label}, at ${lenUnit(f.wavelength_um)}`, where: `on the layer's top face (z = ${lenUnit(f.z_um)})` };
+    if (m) return { label: `${m.label}, |E|²`, where: `on the cut at ${run.along} = ${lenUnit(m.cut_y_um)}` };
     return null;
   });
 
@@ -183,20 +201,61 @@
 
 <div class="grid h-full grid-cols-[1fr_300px]" class:hidden={!run.info?.dir}>
   <section class="flex min-h-0 min-w-0 flex-col">
-    <div class="flex items-center gap-3 border-b border-base-content/8 px-5 py-2.5">
-      {#if live}
-        <span class="badge badge-success badge-soft gap-1.5"><span class="status status-success animate-pulse"></span> running · {duration(elapsed)}</span>
-        {#if run.stoppable}
-          <button class="btn btn-ghost btn-xs gap-1" onclick={stop} title="Stop the run at its next check; what it recorded stays"><Square size={12} /> Stop</button>
+    <!-- The run's state on the left, the views on the right. Nothing in it moves while a run goes:
+         what changes (the clock, the point, the count) sits in a slot as wide as its longest text,
+         in digits of one width; Stop comes and goes inside the state's slot; the sweep's
+         progress is a line along the bar's foot, which takes no room. In a window too narrow for
+         it, the left side scrolls and the views stay in reach. -->
+    <div class="relative flex items-center gap-3 border-b border-base-content/8 px-5 py-2.5 whitespace-nowrap">
+      <div class="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto [scrollbar-width:thin] [&>*]:shrink-0">
+        <!-- the state and, while it can be stopped, Stop: one slot, so Stop's coming and going moves nothing -->
+        <span class="inline-flex min-w-44 items-center justify-start gap-1">
+          {#if live}
+            <span class="badge badge-success badge-soft gap-1.5"><span class="status status-success animate-pulse"></span> running · <span class="inline-block min-w-[5ch] text-right tabular-nums">{clock(elapsed)}</span></span>
+            {#if run.stoppable}
+              <button class="btn btn-ghost btn-xs btn-square" onclick={stop} aria-label="Stop the run" title="Stop the run at its next check; what it recorded stays"><Square size={12} /></button>
+            {/if}
+          {:else if run.finished?.stopped}
+            <span class="badge badge-warning badge-soft gap-1"><CirclePause size={13} /> stopped: {run.finished.stopped}</span>
+          {:else if run.finished}
+            <span class="badge badge-ghost">finished in {duration(run.finished.seconds)}</span>
+          {/if}
+        </span>
+        {#if axis}
+          <!-- the sweep, in both views: the point shown. The badge is as wide as its longest text
+               (the unseen copy below), whichever of the two it shows. -->
+          <span
+            class="badge badge-soft inline-grid justify-items-start {run.point === null ? 'badge-ghost' : 'badge-primary'}"
+            title={run.point === null ? "The job's own configuration shows; the side panel's slider picks a point of the sweep" : `The sweep point the 3D and 2D views show: point ${run.point + 1} of ${axis.total}`}
+          >
+            <span class="invisible col-start-1 row-start-1 flex items-center gap-1.5" aria-hidden="true">
+              <span class="status"></span>{axis.parameter} <span class="num">{len(axis.values[0] ?? 0, 4, true)}</span> <UnitChip tip="bottom" /> · <span class="tabular-nums">{axis.total}</span> of {axis.total}
+            </span>
+            <span class="col-start-1 row-start-1 flex items-center gap-1.5">
+              <span class="status status-primary animate-pulse" class:invisible={!(live && run.following)}></span>
+              {#if run.point === null || pointValue === null}
+                sweep over the {axis.parameter}
+              {:else}
+                {axis.parameter} <span class="num">{len(pointValue, 4, true)}</span> <UnitChip tip="bottom" /> · <span class="inline-block text-right tabular-nums" style="min-width: {digits}ch">{run.point + 1}</span> of {axis.total}
+              {/if}
+            </span>
+          </span>
+          {#if live}
+            <span class="text-xs faint num" title="{points} of {axis.total} points solved"><span class="inline-block text-right" style="min-width: {digits}ch">{points}</span> / {axis.total}</span>
+          {/if}
         {/if}
-      {:else if run.finished?.stopped}
-        <span class="badge badge-warning badge-soft gap-1"><CirclePause size={13} /> stopped: {run.finished.stopped}</span>
-      {:else if run.finished}
-        <span class="badge badge-ghost">finished in {duration(run.finished.seconds)}</span>
+        {#if run.info?.closes && run.finished}<span class="text-xs faint">the window closes by itself</span>{/if}
+      </div>
+      {#if live && axis}
+        <!-- how far the sweep is -->
+        <div class="absolute bottom-0 left-0 h-0.5 bg-primary transition-[width] duration-300" style="width: {(100 * points) / Math.max(axis.total, 1)}%" role="progressbar" aria-valuenow={points} aria-valuemin={0} aria-valuemax={axis.total} aria-label="The sweep's points solved"></div>
       {/if}
-      {#if run.info?.closes && run.finished}<span class="text-xs faint">the window closes by itself</span>{/if}
-      <span class="flex-1"></span>
-      <div class="join" role="tablist" aria-label="view">
+      {#if run.job && run.job.kind !== "structure"}
+        <button class="btn btn-ghost btn-sm shrink-0 gap-1.5" onclick={() => (solving = true)} title="The solver this run uses, its grid, each solve's numerical error, and the method's equations and papers">
+          <Cpu size={14} /> Solver
+        </button>
+      {/if}
+      <div class="join shrink-0" role="tablist" aria-label="view">
         <button class="btn join-item btn-sm gap-1.5 {view === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (view = "3d")} title="The structure as solids, with the field painted on it"><Box size={14} /> 3D</button>
         <button class="btn join-item btn-sm gap-1.5 {view === '2d' ? 'btn-primary btn-soft' : ''}" onclick={() => (view = "2d")} title="Pictures and plots"><ChartLine size={14} /> 2D</button>
       </div>
@@ -206,17 +265,22 @@
       <div bind:this={host} class="absolute inset-0"></div>
       <svg bind:this={gizmo} class="pointer-events-none absolute right-4 bottom-4 text-[11px] font-semibold" width="96" height="96" viewBox="-48 -48 96 96"></svg>
       <div class="pointer-events-none absolute top-4 left-4 max-w-md rounded-xl border border-base-content/10 bg-base-100/80 px-4 py-3 text-sm backdrop-blur">
-        {#if run.fields[0]}
-          <p class="font-medium">{run.fields[0].label} <span class="font-normal faint">at {run.fields[0].wavelength_um} µm</span></p>
-          <p class="text-xs faint">drawn on the layer's top face, from zero (black) to its peak (pale yellow)</p>
+        {#if field}
+          <p class="font-medium">{field.label} <span class="font-normal faint">at {lenUnit(field.wavelength_um)}</span></p>
+          {#if run.point !== null}
+            <p class="text-xs text-primary">at {pointText}{live && run.following ? ", the one just solved" : ""}</p>
+          {:else if axis}
+            <p class="text-xs faint">{pointText}</p>
+          {/if}
+          <p class="text-xs faint">drawn on the layer's top face, from zero (black) to its peak (pale yellow){run.point !== null ? ", each point's own" : ""}</p>
         {:else if current}
           {@const m = current}
           <p class="font-medium">{m.label} · {modeKind(m)} · <span class="num">n_eff {m.effective_index[0].toFixed(6)}</span></p>
-          {#if run.point !== null}<p class="text-xs text-primary">at {pointText}</p>{/if}
-          <p class="text-xs faint">|E|² on the cut at y = {m.cut_y_um.toFixed(3)} µm, at λ = {um(m.wavelength_um)} µm</p>
+          {#if run.point !== null}<p class="text-xs text-primary">at {pointText}{live && run.following ? ", the one just solved" : ""}</p>{/if}
+          <p class="text-xs faint">|E|² on the cut at {run.along} = {lenUnit(m.cut_y_um, 3, true)}, at λ = {lenUnit(m.wavelength_um)}</p>
           {#if facts && run.wave}
             <p class="text-xs faint">
-              {facts.what}, travelling along +y · guided wavelength λ/n_eff = <span class="num">{guided.toFixed(3)}</span> µm · phase velocity c/n_eff =
+              {facts.what}, travelling along +{run.along} · guided wavelength λ/n_eff = <span class="num">{len(guided, 3, true)}</span> {unitText()} · phase velocity c/n_eff =
               <span class="num">{facts.velocity}</span> c · shown about {facts.slower} times slower
             </p>
           {/if}
@@ -246,10 +310,22 @@
       <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
         <dt class="faint">job</dt><dd class="truncate">{run.job?.job ?? "…"}</dd>
         <dt class="faint">kind</dt><dd>{KINDS[run.job?.kind ?? ""]?.label ?? run.job?.kind ?? "…"}</dd>
+        {#if run.solver}
+          <dt class="faint">solver</dt>
+          <dd>
+            <button class="link link-hover text-left" onclick={() => (solving = true)} title="How this run was solved: the method, its equations and papers, and each solve's error">
+              {SOLVERS[run.solver.module] ?? run.solver.module}
+            </button>
+          </dd>
+          <dt class="faint">grid</dt><dd class="num">{run.solver.cells[0]} × {run.solver.cells[1]} cells</dd>
+          {#if worstError !== null}
+            <dt class="faint">error</dt><dd class="num" title="The largest numerical error of the run's solves; the Solver panel has each one">≤ {worstError.toExponential(1)}</dd>
+          {/if}
+        {/if}
         {#if run.scene}
-          <dt class="faint">λ</dt><dd class="num">{run.scene.wavelength_um} µm</dd>
+          <dt class="faint">λ</dt><dd class="num">{len(run.scene.wavelength_um)} <UnitChip tip="left" /></dd>
           {#each [["x", run.scene.x_um], ["y", run.scene.y_um], ["z", run.scene.z_um]] as const as [axis, w] (axis)}
-            <dt class="faint">{axis}</dt><dd class="num">{w[0].toFixed(2)} → {w[1].toFixed(2)} µm</dd>
+            <dt class="faint">{axis}</dt><dd class="num">{len(w[0], 2, true)} → {len(w[1], 2, true)} <UnitChip tip="left" /></dd>
           {/each}
         {/if}
       </dl>
@@ -337,7 +413,7 @@
                 {#if facts}
                   <p class="mt-1 text-[11px] leading-snug faint">
                     {facts.what} in the guide and its evanescent tails: red where positive, blue where negative, lobes λ/(2 n_eff) =
-                    <span class="num">{(guided / 2).toFixed(3)}</span> µm long, gliding along +y at c/n_eff = <span class="num">{facts.velocity}</span> c, shown about
+                    <span class="num">{len(guided / 2, 3, true)}</span> <UnitChip tip="left" /> long, gliding along +{run.along} at c/n_eff = <span class="num">{facts.velocity}</span> c, shown about
                     {facts.slower} times slower. The core turns to glass while it shows.
                   </p>
                 {/if}
@@ -361,7 +437,7 @@
                 </button>
               </div>
               {#if away}
-                <p class="-mt-1 pb-1.5 pl-[3.1rem] text-[11px] faint">{away} the window (z {away === "below" ? `from ${um(scene.z_um[0])}` : `to ${um(scene.z_um[1])}`} µm)</p>
+                <p class="-mt-1 pb-1.5 pl-[3.1rem] text-[11px] faint">{away} the window (z {away === "below" ? `from ${len(scene.z_um[0])}` : `to ${len(scene.z_um[1])}`} <UnitChip tip="left" />)</p>
               {/if}
             </div>
           {/each}
@@ -370,10 +446,10 @@
       </section>
     {/if}
 
-    {#if run.sweep}
+    {#if axis}
       <section>
         <h3 class="panel-title mb-2">Sweep</h3>
-        <p class="text-sm">over the {run.sweep.parameter}: {points} point{points === 1 ? "" : "s"}{run.finished ? "" : " so far"}</p>
+        <p class="text-sm">over the {axis.parameter}: {points}{run.finished && points === axis.total ? "" : ` of ${axis.total}`} point{axis.total === 1 ? "" : "s"}{run.finished ? "" : " so far"}</p>
         <div class="mt-2 flex items-center gap-1">
           <button class="btn btn-ghost btn-xs btn-square" aria-label="The previous point" title="The previous point (←)" disabled={!perPoint || run.point === null} onclick={() => stepPoint(-1)}>
             <ChevronLeft size={14} />
@@ -390,7 +466,7 @@
             value={run.point === null ? 0 : run.point + 1}
             oninput={(e) => {
               const k = Number((e.currentTarget as HTMLInputElement).value);
-              run.point = k === 0 ? null : k - 1;
+              pickPoint(k === 0 ? null : k - 1);
             }}
           />
           <button class="btn btn-ghost btn-xs btn-square" aria-label="The next point" title="The next point (→)" disabled={!perPoint || run.point === points - 1} onclick={() => stepPoint(1)}>
@@ -400,10 +476,16 @@
         {#if perPoint}
           <div class="mt-1 flex items-center gap-2">
             <p class="flex-1 text-xs {run.point === null ? 'faint' : 'text-primary'}">{pointText}</p>
+            {#if live && !run.following}
+              <button class="btn btn-ghost btn-xs" onclick={followSweep} title="Show each point as it is solved">Follow</button>
+            {/if}
             {#if run.point !== null}
-              <button class="btn btn-ghost btn-xs" onclick={() => (run.point = null)} title="Back to the job's own configuration">Nominal</button>
+              <button class="btn btn-ghost btn-xs" onclick={() => pickPoint(null)} title="Back to the job's own configuration">Nominal</button>
             {/if}
           </div>
+          {#if live && run.following}
+            <p class="mt-0.5 text-[11px] faint">following the sweep: each point shows as it is solved; pick one to stay on it</p>
+          {/if}
         {:else}
           <p class="mt-1 text-xs faint">
             {run.finished || points ? "(this run recorded no per-point pictures: an older run)" : "the points' pictures arrive as they are solved"}
@@ -432,7 +514,8 @@
     {/if}
 
     {#if run.sparams.length}
-      {@const first = run.sparams[0]}
+      <!-- at the sweep point shown, or the first wavelength -->
+      {@const first = run.sparams[run.point ?? 0] ?? run.sparams[0]}
       <section>
         <h3 class="panel-title mb-2">Ports</h3>
         <div class="space-y-1.5 text-sm">
@@ -444,7 +527,7 @@
             </div>
           {/each}
         </div>
-        <p class="mt-1.5 text-[11px] faint">|S_q1|², the power from port 1, at {first.wavelength_um} µm</p>
+        <p class="mt-1.5 text-[11px] faint">|S_q1|², the power from port 1, at {len(first.wavelength_um)} <UnitChip tip="left" /></p>
         <button class="btn btn-ghost btn-xs mt-2 -ml-2" onclick={() => (view = "2d")}>Spectra in 2D →</button>
       </section>
     {/if}
@@ -456,3 +539,4 @@
 </div>
 
 <LayerDialog name={details} onclose={() => (details = null)} />
+<SolverDialog open={solving} onclose={() => (solving = false)} />

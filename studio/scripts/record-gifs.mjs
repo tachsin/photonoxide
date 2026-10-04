@@ -105,7 +105,7 @@ function restoreSettings() {
   for (const [name, bytes] of backup.files) fs.writeFileSync(path.join(CONFIG, name), bytes);
 }
 
-const RECORDING_SETTINGS = { theme: "dark", workspace: null, check_updates: false, hints: false, tour_done: true, dismissed: [], view: "3d" };
+const RECORDING_SETTINGS = { theme: "dark", workspace: null, check_updates: false, hints: false, tour_done: true, dismissed: [], view: "3d", length_unit: "um" };
 
 // ---- the run's own folders ----
 
@@ -741,10 +741,12 @@ const SCENES = {
     await cursor(false);
   },
 
-  /** Settings: daisyUI's themes, one after another. */
+  /** Settings: the further themes, opened and picked one after another. */
   async "themes-grid"() {
     await goTo("Settings");
-    await until(`return __rec.find("p", "daisyUI's themes");`, "the settings");
+    await until(`return __rec.find("button", "More themes");`, "the settings");
+    await click("button", "More themes", { ms: 400 });
+    await until(`return __rec.find("p.panel-title", "Light");`, "the themes");
     await js(
       `const p = __rec.find("p.panel-title", "Light");
        const box = p.closest(".overflow-y-auto");
@@ -756,7 +758,7 @@ const SCENES = {
     await rec.begin("themes-grid");
     await sleep(300);
     for (const name of ["nord", "dracula", "synthwave"]) {
-      await click('button[title^="Use daisyUI"]', name, { ms: 550 });
+      await click('button[title^="Use the "]', name, { ms: 550 });
       await sleep(850);
     }
     await click("nav button", "Viewer", { ms: 650 });

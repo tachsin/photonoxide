@@ -71,6 +71,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             stop_task,
             changelog,
             published_report,
+            method_docs,
             preview_scene,
             save_text,
             crate::materials::materials,
@@ -792,6 +793,37 @@ fn changelog() -> &'static str {
 #[tauri::command]
 fn published_report() -> &'static str {
     include_str!("../../../docs/validation.md")
+}
+
+/// A method's write-up: its file in docs/methods and its text, front matter included.
+#[derive(Serialize)]
+struct MethodDoc {
+    file: &'static str,
+    text: &'static str,
+}
+
+/// The write-ups of the methods the jobs solve by (docs/methods), for the viewer's account of
+/// how a run was solved.
+#[tauri::command]
+fn method_docs() -> Vec<MethodDoc> {
+    macro_rules! docs {
+        ($($file:literal),* $(,)?) => {
+            vec![$(MethodDoc {
+                file: $file,
+                text: include_str!(concat!("../../../docs/methods/", $file)),
+            }),*]
+        };
+    }
+    docs![
+        "vector.md",
+        "eigen.md",
+        "walls.md",
+        "fdfd.md",
+        "fdfd-ports.md",
+        "eim.md",
+        "slab.md",
+        "pml.md",
+    ]
 }
 
 /// A run's record as it grows: the complete lines read so far, as events.

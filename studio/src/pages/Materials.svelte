@@ -10,6 +10,7 @@
   import MathText from "../components/MathText.svelte";
   import Plot from "../components/Plot.svelte";
   import Tip from "../components/Tip.svelte";
+  import UnitChip from "../components/UnitChip.svelte";
   import {
     api,
     type Axis,
@@ -22,6 +23,7 @@
     type Tensor,
   } from "../lib/api";
   import type { Series } from "../lib/plot";
+  import { len, lenUnit, shown as inUnit, stored } from "../lib/units";
 
   let entries = $state<MaterialEntry[]>([]);
   let problem = $state("");
@@ -184,6 +186,15 @@
     return c.kind === "zero" ? 0 : null;
   }
 
+  /** The library's complaint, its wavelengths (in um) in the unit shown. */
+  function complaint(text: string): string {
+    const n = String.raw`(-?\d+(?:\.\d+)?(?:e-?\d+)?)`;
+    return text
+      .replace(/^.*?: /, "")
+      .replace(new RegExp(`${n} to ${n} um\\b`, "g"), (_, a, b) => `${len(Number(a))} to ${lenUnit(Number(b))}`)
+      .replace(new RegExp(`${n} um\\b`, "g"), (_, a) => lenUnit(Number(a)));
+  }
+
   function fmt(v: number, digits = 6): string {
     return Number(v.toPrecision(digits)).toString();
   }
@@ -303,8 +314,18 @@
 
             <div class="mt-4 flex flex-wrap items-end gap-5">
               <label class="flex flex-col gap-1 text-xs">
-                <span class="muted">Wavelength (µm)</span>
-                <input class="input input-sm w-32 num" type="number" step="0.01" min="0.01" bind:value={wavelength} />
+                <span class="muted">Wavelength (<UnitChip />)</span>
+                <input
+                  class="input input-sm w-32 num"
+                  type="number"
+                  step={inUnit(0.01)}
+                  min={inUnit(0.01)}
+                  value={inUnit(wavelength)}
+                  oninput={(e) => {
+                    const raw = e.currentTarget.value;
+                    if (raw !== "" && Number.isFinite(Number(raw))) wavelength = stored(Number(raw));
+                  }}
+                />
               </label>
               {#if model.temperature}
                 {@const p = model.temperature}
@@ -347,7 +368,7 @@
                   </tbody>
                 </table>
               {:else if pointProblem}
-                <p class="text-sm text-warning">{pointProblem.replace(/^.*?: /, "").replace(/(\d+\.\d{4})\d+/g, "$1")}</p>
+                <p class="text-sm text-warning">{complaint(pointProblem)}</p>
               {/if}
             </div>
 
@@ -357,13 +378,13 @@
               {:else if quantity === "k" && lossless}
                 <p class="py-10 text-center text-sm faint">This model is lossless across its range: k = 0.</p>
               {:else if series.length}
-                <Plot {series} xLabel="wavelength (µm)" {yLabel} height={300} markers={false} name="{entry.id}-{model.id}-{quantity}" />
+                <Plot {series} xLabel="wavelength" xLength {yLabel} height={300} markers={false} name="{entry.id}-{model.id}-{quantity}" />
               {/if}
             </div>
             {#if curves.length}
               <p class="mt-1 text-xs faint">
-                Valid from <span class="num">{fmt(curves[0].range[0], 4)}</span> to <span class="num">{fmt(curves[0].range[1], 4)}</span> µm{#if curves.length > 1 && (curves[1].range[0] !== curves[0].range[0] || curves[1].range[1] !== curves[0].range[1])}
-                  ({AXIS_PLAIN[curves[0].axis]}), <span class="num">{fmt(curves[1].range[0], 4)}</span> to <span class="num">{fmt(curves[1].range[1], 4)}</span> µm ({AXIS_PLAIN[curves[1].axis]}){/if}{#if temperature !== null}, at {kelvin(temperature)}{/if}.
+                Valid from <span class="num">{fmt(inUnit(curves[0].range[0]), 4)}</span> to <span class="num">{fmt(inUnit(curves[0].range[1]), 4)}</span> <UnitChip />{#if curves.length > 1 && (curves[1].range[0] !== curves[0].range[0] || curves[1].range[1] !== curves[0].range[1])}
+                  ({AXIS_PLAIN[curves[0].axis]}), <span class="num">{fmt(inUnit(curves[1].range[0]), 4)}</span> to <span class="num">{fmt(inUnit(curves[1].range[1]), 4)}</span> <UnitChip /> ({AXIS_PLAIN[curves[1].axis]}){/if}{#if temperature !== null}, at {kelvin(temperature)}{/if}.
               </p>
             {/if}
           </section>
@@ -376,7 +397,7 @@
             <dl class="mt-4 grid grid-cols-[9rem_1fr] gap-x-4 gap-y-2 text-sm">
               <dt class="faint">Range</dt>
               <dd>
-                <span class="num">{fmt(model.wavelength[0], 4)}–{fmt(model.wavelength[1], 4)}</span> µm{#if model.temperature}; <span class="num">{model.temperature.min}–{model.temperature.max}</span> K{/if}{#if model.composition}; {model.composition.symbol} from <span class="num">{model.composition.min}</span> to <span class="num">{model.composition.max}</span>{/if}
+                <span class="num">{fmt(inUnit(model.wavelength[0]), 4)}–{fmt(inUnit(model.wavelength[1]), 4)}</span> <UnitChip />{#if model.temperature}; <span class="num">{model.temperature.min}–{model.temperature.max}</span> K{/if}{#if model.composition}; {model.composition.symbol} from <span class="num">{model.composition.min}</span> to <span class="num">{model.composition.max}</span>{/if}
               </dd>
               <dt class="faint">Accuracy</dt>
               <dd>{model.accuracy}</dd>

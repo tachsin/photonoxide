@@ -1,11 +1,14 @@
 <script lang="ts">
   // The run in 2D: fields, S-parameters, permittivity pictures, modes and sweeps.
-  import { run, shownModes } from "../lib/app.svelte";
+  import { run, shownField, shownModes, shownScene, sweepAxis } from "../lib/app.svelte";
+  import { cutOutline, topOutline } from "../lib/outline";
   import { api } from "../lib/api";
   import { modeKind } from "../lib/events";
   import type { Series } from "../lib/plot";
+  import { len } from "../lib/units";
   import Plot from "./Plot.svelte";
   import RasterView from "./RasterView.svelte";
+  import UnitChip from "./UnitChip.svelte";
 
   const db = (re: number, im: number) => 10 * Math.log10(Math.max(re * re + im * im, 1e-30));
   /** Spectra as power (linear, the default: dips read as they are) or in dB (small values show). */
@@ -55,11 +58,24 @@
     ).then((g) => (groups = g.filter((x): x is Series => x !== null)));
   });
 
-  const unit = $derived(run.sweep?.parameter === "wavelength" ? "wavelength (µm)" : "width (µm)");
+  const unit = $derived(run.sweep?.parameter === "wavelength" ? "wavelength" : "width");
 
   // the sweep point shown, if one is picked: marked on the plots, its modes below
-  const marker = $derived(run.point === null ? null : (run.sweep?.points[run.point]?.value ?? null));
+  const axis = $derived(sweepAxis());
+  const marker = $derived(run.point === null ? null : (axis?.values[run.point] ?? null));
   const modes = $derived(shownModes().modes);
+  // an FDFD run's field: the sweep point's, or the one the job asks for
+  const field = $derived(shownField());
+  // the structure's edges over the pictures of fields: the shapes at the sweep point shown
+  /** Whether the pictures of fields show the structure's outline. */
+  let outlined = $state(true);
+  const scene = $derived(shownScene());
+  const above = $derived(outlined && scene ? topOutline(scene) : undefined);
+  const cut = (m: { cut_y_um: number; intensity: { x0: number; x1: number } }) =>
+    outlined && scene ? cutOutline(scene, run.along, m.cut_y_um, [m.intensity.x0, m.intensity.x1]) : undefined;
+
+  /** The S-matrix in the table: the sweep point's, or the first wavelength's. */
+  const tabled = $derived(run.sparams[run.point ?? 0] ?? run.sparams[0]);
 </script>
 
 <div class="mx-auto max-w-6xl space-y-6 p-6">
@@ -69,16 +85,26 @@
     </div>
   {/if}
 
-  {#each run.fields as f, k (k)}
+  {#if field || modes.length}
+    <label class="flex cursor-pointer items-center justify-end gap-2 text-xs faint" title="Draw the shapes' edges over the pictures of fields, to tell inside from outside where the field is dark">
+      <input type="checkbox" class="checkbox checkbox-xs" bind:checked={outlined} />
+      structure outline on the fields
+    </label>
+  {/if}
+
+  {#if field}
     <section class="panel p-5">
-      <h3 class="mb-1 font-semibold">{f.label} <span class="font-normal faint">at {f.wavelength_um} µm</span></h3>
-      <p class="mb-3 text-xs faint">from zero (black) to its peak (pale yellow), seen from above</p>
-      <RasterView raster={f.intensity} kind="intensity" maxHeight={420} />
+      <h3 class="mb-1 font-semibold">
+        {field.label} <span class="font-normal faint">at {len(field.wavelength_um)} <UnitChip /></span>
+        {#if marker !== null && axis}<span class="text-sm font-normal text-primary">· point {(run.point ?? 0) + 1} of {axis.total} of the sweep</span>{/if}
+      </h3>
+      <p class="mb-3 text-xs faint">from zero (black) to its peak (pale yellow), seen from above{marker !== null ? "; each point's own peak, on coarser pixels than the job's own field" : ""}</p>
+      <RasterView raster={field.intensity} kind="intensity" maxHeight={420} outline={above} />
     </section>
-  {/each}
+  {/if}
 
   {#if run.sparams.length}
-    {@const first = run.sparams[0]}
+    {@const first = tabled}
     <section class="panel p-5">
       <div class="flex items-center gap-3">
         <h3 class="font-semibold">S-parameters <span class="font-normal faint">· {run.sparams.length} wavelength{run.sparams.length === 1 ? "" : "s"}</span></h3>
@@ -94,15 +120,17 @@
       {#if spectra.length}
         <Plot
           series={spectra}
-          xLabel="wavelength (µm)"
+          xLabel="wavelength"
+          xLength
           yLabel={decibels ? "|S_q1|² (dB)" : "|S_q1|²"}
           yRange={decibels ? undefined : [0, 1.02]}
           name="{run.job?.job ?? 'run'}-spectra"
+          {marker}
         />
       {/if}
       <div class="mt-4 overflow-x-auto">
         <table class="table table-xs w-auto">
-          <thead><tr><th>at {first.wavelength_um} µm</th>{#each first.ports as _, p (p)}<th class="num">from {p + 1}</th>{/each}</tr></thead>
+          <thead><tr><th>at {len(first.wavelength_um)} <UnitChip tip="right" /></th>{#each first.ports as _, p (p)}<th class="num">from {p + 1}</th>{/each}</tr></thead>
           <tbody>
             {#each first.s as row, q (q)}
               <tr>
@@ -122,13 +150,13 @@
   {#if run.sweep}
     <section class="panel p-5">
       <h3 class="mb-3 font-semibold">Effective index <span class="font-normal faint">· over the {run.sweep.parameter}, {run.sweep.points.length} points</span></h3>
-      <Plot series={sweep} xLabel={unit} yLabel="n_eff" name="{run.job?.job ?? 'run'}-n_eff" {marker} />
+      <Plot series={sweep} xLabel={unit} xLength yLabel="n_eff" name="{run.job?.job ?? 'run'}-n_eff" {marker} />
     </section>
     {#if groups.length}
       <section class="panel p-5">
         <h3 class="mb-1 font-semibold">Group index</h3>
         <p class="mb-3 text-xs faint">n_g = n − λ dn/dλ, from the library's mode::dispersion::group_index</p>
-        <Plot series={groups} xLabel={unit} yLabel="n_g" name="{run.job?.job ?? 'run'}-n_g" {marker} />
+        <Plot series={groups} xLabel={unit} xLength yLabel="n_g" name="{run.job?.job ?? 'run'}-n_g" {marker} />
       </section>
     {/if}
   {/if}
@@ -136,7 +164,7 @@
   {#if modes.length}
     <section>
       <h3 class="panel-title mb-3">
-        Modes · |E|² from zero (black) to its peak (pale yellow){#if marker !== null && run.sweep}<span class="text-primary normal-case tracking-normal"> · at {run.sweep.parameter} {marker} µm, point {(run.point ?? 0) + 1} of {run.sweep.points.length}</span>{/if}
+        Modes · |E|² from zero (black) to its peak (pale yellow){#if marker !== null && run.sweep}<span class="text-primary normal-case tracking-normal"> · at {run.sweep.parameter} {len(marker)} <UnitChip />, point {(run.point ?? 0) + 1} of {run.sweep.points.length}</span>{/if}
       </h3>
       <div class="grid gap-4 lg:grid-cols-2">
         {#each modes as m, k (k)}
@@ -150,9 +178,9 @@
             </div>
             <p class="mb-3 text-sm num">
               n_eff = {m.effective_index[0].toFixed(6)}{lossy ? ` + ${m.effective_index[1].toExponential(3)}i` : ""}
-              <span class="faint">at {m.wavelength_um} µm</span>
+              <span class="faint">at {len(m.wavelength_um)} <UnitChip /></span>
             </p>
-            <RasterView raster={m.intensity} kind="intensity" axes={["x", "z"]} maxHeight={260} />
+            <RasterView raster={m.intensity} kind="intensity" axes={[run.along === "x" ? "y" : "x", "z"]} maxHeight={260} outline={cut(m)} />
           </article>
         {/each}
       </div>
@@ -165,9 +193,9 @@
     {@const p = own ?? nominal}
     <section class="panel p-5">
       <h3 class="mb-3 font-semibold">
-        {p.view} <span class="font-normal faint">· Re ε at {p.wavelength_um} µm</span>
+        {p.view} <span class="font-normal faint">· Re ε at {len(p.wavelength_um)} <UnitChip /></span>
         {#if own && run.sweep}
-          <span class="text-sm font-normal text-primary">· at {run.sweep.parameter} {own.value} µm, point {own.point + 1}</span>
+          <span class="text-sm font-normal text-primary">· at {run.sweep.parameter} {len(own.value)} <UnitChip />, point {own.point + 1}</span>
         {:else if marker !== null && run.sweep?.parameter === "wavelength" && nominal.view.startsWith("cross-section")}
           <span class="text-sm font-normal faint">· at the nominal wavelength (ε changes along the sweep only through dispersion)</span>
         {/if}

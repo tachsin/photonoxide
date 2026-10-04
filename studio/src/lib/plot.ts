@@ -25,7 +25,7 @@ export function padded(values: number[], margin = 0.05): [number, number] {
 export function label(v: number): string {
   if (v === 0) return "0";
   const a = Math.abs(v);
-  if (a >= 1e4 || a < 1e-3) return v.toExponential(1);
+  if (a >= 1e6 || a < 1e-3) return v.toExponential(1);
   return String(Number(v.toPrecision(6)));
 }
 

@@ -104,7 +104,7 @@ and chips:
   coefficients and tensors, and its papers.
 - **Validation:** the release's report, with its math rendered, and the same report run on your
   machine.
-- **Settings:** every daisyUI theme, the workspace folder, tips and updates.
+- **Settings:** the theme, photonoxide's own or one of some thirty others, the workspace folder, tips and updates.
 - **Components:** the component library, each kind's S-parameters recomputed as its
   parameters move, and Touchstone import and export.
 - **Chip:** components placed, wired port to port, checked and simulated.
@@ -116,7 +116,7 @@ and chips:
   </tr>
   <tr>
     <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/validation.gif" alt="The Validation page: two cases looked up and opened, showing what each computes and what it is checked against, with the math rendered" width="100%"><br><sub><b>Validation:</b> cases looked up and opened, each against its exact solution or paper.</sub></td>
-    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/themes.gif" alt="Settings: daisyUI themes picked one after another, then the 3D viewer in the chosen theme and in photonoxide's own light and dark" width="100%"><br><sub><b>Themes:</b> any daisyUI theme, or photonoxide's light and dark; the 3D view follows.</sub></td>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/themes.gif" alt="Settings: themes picked one after another, then the 3D viewer in the chosen theme and in photonoxide's own light and dark" width="100%"><br><sub><b>Themes:</b> photonoxide's light and dark, or one of some thirty others; the 3D view follows.</sub></td>
   </tr>
 </table>
 
