@@ -27,6 +27,10 @@ pub struct Settings {
     pub dismissed: Vec<String>,
     /// The view a run opens in: `"3d"` or `"2d"`.
     pub view: String,
+    /// The unit the window shows and edits every length in, app-wide: `"um"` (µm) or `"nm"`.
+    /// Job files, runs and chips keep their own units; only the window converts. The window
+    /// takes a value it doesn't know as `"um"`.
+    pub length_unit: String,
 }
 
 impl Default for Settings {
@@ -39,6 +43,7 @@ impl Default for Settings {
             tour_done: false,
             dismissed: Vec::new(),
             view: "3d".into(),
+            length_unit: "um".into(),
         }
     }
 }
@@ -98,6 +103,22 @@ mod tests {
         std::fs::write(&file, r#"{"theme":"nord"}"#).unwrap();
         assert_eq!(Settings::load(&file).theme, "nord");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_length_unit_defaults_to_micrometres_and_round_trips() {
+        assert_eq!(Settings::default().length_unit, "um");
+        // a settings file from before the unit existed loads with µm, keeping the rest
+        let old: Settings = serde_json::from_str(r#"{"theme":"light","view":"2d"}"#).unwrap();
+        assert_eq!(old.length_unit, "um");
+        assert_eq!((old.theme.as_str(), old.view.as_str()), ("light", "2d"));
+        let nm = Settings {
+            length_unit: "nm".into(),
+            ..Settings::default()
+        };
+        let json = serde_json::to_string(&nm).unwrap();
+        assert!(json.contains(r#""length_unit":"nm""#));
+        assert_eq!(serde_json::from_str::<Settings>(&json).unwrap(), nm);
     }
 
     #[test]

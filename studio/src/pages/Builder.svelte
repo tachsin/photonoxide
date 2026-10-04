@@ -28,6 +28,7 @@
   import { app, startRun, toast } from "../lib/app.svelte";
   import { catalog, loadCatalog, modelOf } from "../lib/catalog.svelte";
   import { along, cells, fromModel, previewWindow, STACKS, template, toToml, turn, type JobModel, type Kind } from "../lib/job";
+  import { lenUnit } from "../lib/units";
 
   let model = $state<JobModel>(template("modes"));
   let text = $state(toToml(template("modes")));
@@ -288,7 +289,7 @@
       <button class="btn btn-primary btn-sm gap-1.5" disabled={!check?.ok} onclick={runIt} title="Run it now and watch it live (Ctrl+Enter)"><Play size={15} /> Run</button>
     </div>
 
-    <div class="flex-1 space-y-6 overflow-x-hidden overflow-y-auto px-6 py-5">
+    <div class="@container flex-1 space-y-6 overflow-x-hidden overflow-y-auto px-6 py-5">
       <Tip id="builder-intro" title="A job is a TOML file">
         Fill the form and the device is drawn on the right as you type, in 3D; the library checks the job as it changes. Click a shape in the top view to edit it. Prefer text? Switch the right panel to TOML: edits there update the form.
       </Tip>
@@ -336,10 +337,10 @@
           </select>
         </label>
         {#if model.stack !== "soi_220"}
-          <OptField label="Core" unit="nm" bind:value={model.core_nm} step={10} hint="The guiding layer's thickness" />
-          <OptField label="Bottom oxide" unit="µm" bind:value={model.bottom_oxide_um} step={0.1} hint="The buried oxide under the core" />
+          <OptField label="Core" length="nm" bind:value={model.core_nm} step={10} hint="The guiding layer's thickness" />
+          <OptField label="Bottom oxide" length="um" bind:value={model.bottom_oxide_um} step={0.1} hint="The buried oxide under the core" />
         {/if}
-        <NumField label="Wavelength" unit="µm" bind:value={model.wavelength_um} step={0.01} hint="In vacuum; 1.55 µm is the C band" />
+        <NumField label="Wavelength" length="um" bind:value={model.wavelength_um} step={0.01} hint="In vacuum; {lenUnit(1.55)} is the C band" />
         {#if model.kind === "fdfd"}
           <label class="flex flex-col gap-1">
             <span class="text-xs font-medium text-base-content/70">Polarization</span>
@@ -354,10 +355,10 @@
       <fieldset class="grid grid-cols-2 gap-3">
         <legend class="panel-title mb-2">Window and grid</legend>
         {#if model.kind !== "modes"}
-          <NumField label="x from" unit="µm" bind:value={model.x_um[0]} step={0.1} />
-          <NumField label="x to" unit="µm" bind:value={model.x_um[1]} step={0.1} />
-          <NumField label="y from" unit="µm" bind:value={model.y_um[0]} step={0.1} />
-          <NumField label="y to" unit="µm" bind:value={model.y_um[1]} step={0.1} />
+          <NumField label="x from" length="um" bind:value={model.x_um[0]} step={0.1} />
+          <NumField label="x to" length="um" bind:value={model.x_um[1]} step={0.1} />
+          <NumField label="y from" length="um" bind:value={model.y_um[0]} step={0.1} />
+          <NumField label="y to" length="um" bind:value={model.y_um[1]} step={0.1} />
         {:else}
           <label class="col-span-2 flex flex-col gap-1">
             <span class="text-xs font-medium text-base-content/70">Light along</span>
@@ -372,22 +373,22 @@
             </select>
           </label>
           {#if along(model) === "x"}
-            <NumField label="y from" unit="µm" bind:value={model.y_um[0]} step={0.1} hint="The window across the guide" />
-            <NumField label="y to" unit="µm" bind:value={model.y_um[1]} step={0.1} />
-            <OptField label="Cut at x" unit="µm" bind:value={model.cut_x_um} step={0.1} hint="Where the cross-section is taken; the modes travel along x" placeholder="0" />
+            <NumField label="y from" length="um" bind:value={model.y_um[0]} step={0.1} hint="The window across the guide" />
+            <NumField label="y to" length="um" bind:value={model.y_um[1]} step={0.1} />
+            <OptField label="Cut at x" length="um" bind:value={model.cut_x_um} step={0.1} hint="Where the cross-section is taken; the modes travel along x" placeholder="0" />
           {:else}
-            <NumField label="x from" unit="µm" bind:value={model.x_um[0]} step={0.1} hint="The window across the guide" />
-            <NumField label="x to" unit="µm" bind:value={model.x_um[1]} step={0.1} />
-            <OptField label="Cut at y" unit="µm" bind:value={model.cut_y_um} step={0.1} hint="Where the cross-section is taken; the modes travel along y" placeholder="0" />
+            <NumField label="x from" length="um" bind:value={model.x_um[0]} step={0.1} hint="The window across the guide" />
+            <NumField label="x to" length="um" bind:value={model.x_um[1]} step={0.1} />
+            <OptField label="Cut at y" length="um" bind:value={model.cut_y_um} step={0.1} hint="Where the cross-section is taken; the modes travel along y" placeholder="0" />
           {/if}
           <NumField label="Modes" bind:value={model.modes} integer step={1} min={1} hint="How many, from the highest effective index" />
         {/if}
-        <NumField label="Grid step" unit="nm" bind:value={model.step_nm} step={5} min={1} hint="Smaller is more accurate and slower; the error falls as the square of the step" />
+        <NumField label="Grid step" length="nm" bind:value={model.step_nm} step={5} min={1} hint="Smaller is more accurate and slower; the error falls as the square of the step" />
         {#if model.kind === "fdfd"}
           <OptField label="PML" unit="cells" bind:value={model.pml_cells} step={1} hint="Absorbing cells on each side, inside the window (20 by default)" placeholder="20" />
-          <OptField label="Field at" unit="µm" bind:value={model.field_um} step={0.001} hint="The field is recorded at the swept wavelength nearest this: a resonance, say. The first wavelength by default." placeholder="first" />
+          <OptField label="Field at" length="um" bind:value={model.field_um} step={0.001} hint="The field is recorded at the swept wavelength nearest this: a resonance, say. The first wavelength by default." placeholder="first" />
         {:else if model.kind === "structure"}
-          <OptField label="Side view at y" unit="µm" bind:value={model.side_y_um} step={0.1} placeholder="0" hint="Where the side view cuts" />
+          <OptField label="Side view at y" length="um" bind:value={model.side_y_um} step={0.1} placeholder="0" hint="Where the side view cuts" />
         {/if}
         <div class="col-span-2 flex items-center gap-2 text-xs faint">
           about <span class="num text-base-content/80">{grid.toLocaleString()}</span> cells
@@ -406,11 +407,11 @@
               <select class="select select-xs w-24" bind:value={r.layer}>{#each layers as l (l)}<option value={l}>{l}</option>{/each}</select>
               <button class="btn btn-ghost btn-xs btn-square" aria-label="Remove" title="Remove" onclick={() => model.rect.splice(k, 1)}><Trash2 size={13} /></button>
             </div>
-            <div class="grid grid-cols-4 gap-2">
-              <NumField label="centre x" unit="µm" bind:value={r.center_um[0]} step={0.05} />
-              <NumField label="centre y" unit="µm" bind:value={r.center_um[1]} step={0.05} />
-              <NumField label="width (x)" unit="µm" bind:value={r.size_um[0]} step={0.05} />
-              <NumField label="length (y)" unit="µm" bind:value={r.size_um[1]} step={0.05} />
+            <div class="grid grid-cols-2 gap-2 @xl:grid-cols-4">
+              <NumField label="centre x" length="um" bind:value={r.center_um[0]} step={0.05} />
+              <NumField label="centre y" length="um" bind:value={r.center_um[1]} step={0.05} />
+              <NumField label="width (x)" length="um" bind:value={r.size_um[0]} step={0.05} />
+              <NumField label="length (y)" length="um" bind:value={r.size_um[1]} step={0.05} />
             </div>
           </div>
         {/each}
@@ -423,9 +424,9 @@
               <button class="btn btn-ghost btn-xs btn-square" aria-label="Remove" title="Remove" onclick={() => model.circle.splice(k, 1)}><Trash2 size={13} /></button>
             </div>
             <div class="grid grid-cols-3 gap-2">
-              <NumField label="centre x" unit="µm" bind:value={c.center_um[0]} step={0.05} />
-              <NumField label="centre y" unit="µm" bind:value={c.center_um[1]} step={0.05} />
-              <NumField label="radius" unit="µm" bind:value={c.radius_um} step={0.05} />
+              <NumField label="centre x" length="um" bind:value={c.center_um[0]} step={0.05} />
+              <NumField label="centre y" length="um" bind:value={c.center_um[1]} step={0.05} />
+              <NumField label="radius" length="um" bind:value={c.radius_um} step={0.05} />
             </div>
           </div>
         {/each}
@@ -437,11 +438,11 @@
               <select class="select select-xs w-24" bind:value={r.layer}>{#each layers as l (l)}<option value={l}>{l}</option>{/each}</select>
               <button class="btn btn-ghost btn-xs btn-square" aria-label="Remove" title="Remove" onclick={() => model.ring.splice(k, 1)}><Trash2 size={13} /></button>
             </div>
-            <div class="grid grid-cols-4 gap-2">
-              <NumField label="centre x" unit="µm" bind:value={r.center_um[0]} step={0.05} />
-              <NumField label="centre y" unit="µm" bind:value={r.center_um[1]} step={0.05} />
-              <NumField label="radius" unit="µm" bind:value={r.radius_um} step={0.05} hint="To the waveguide's centre line, as ring resonators are specified" />
-              <NumField label="width" unit="µm" bind:value={r.width_um} step={0.05} hint="The ring waveguide's width" />
+            <div class="grid grid-cols-2 gap-2 @xl:grid-cols-4">
+              <NumField label="centre x" length="um" bind:value={r.center_um[0]} step={0.05} />
+              <NumField label="centre y" length="um" bind:value={r.center_um[1]} step={0.05} />
+              <NumField label="radius" length="um" bind:value={r.radius_um} step={0.05} hint="To the waveguide's centre line, as ring resonators are specified" />
+              <NumField label="width" length="um" bind:value={r.width_um} step={0.05} hint="The ring waveguide's width" />
             </div>
           </div>
         {/each}
@@ -471,15 +472,15 @@
                 </label>
                 <button class="btn btn-ghost btn-xs btn-square" aria-label="Remove" title="Remove" onclick={() => model.port.splice(k, 1)}><Trash2 size={13} /></button>
               </div>
-              <div class="grid grid-cols-4 gap-2">
-                <NumField label="at x" unit="µm" bind:value={p.x_um} step={0.05} />
+              <div class="grid grid-cols-2 gap-2 @xl:grid-cols-4">
+                <NumField label="at x" length="um" bind:value={p.x_um} step={0.05} />
                 <label class="flex flex-col gap-1">
                   <span class="text-xs font-medium text-base-content/70">Side</span>
                   <select class="select select-sm w-full" bind:value={p.side}><option value="left">left</option><option value="right">right</option></select>
                 </label>
                 {#if p.y_um}
-                  <NumField label="y from" unit="µm" bind:value={p.y_um[0]} step={0.05} hint="One guide of several: the port's window" />
-                  <NumField label="y to" unit="µm" bind:value={p.y_um[1]} step={0.05} />
+                  <NumField label="y from" length="um" bind:value={p.y_um[0]} step={0.05} hint="One guide of several: the port's window" />
+                  <NumField label="y to" length="um" bind:value={p.y_um[1]} step={0.05} />
                 {/if}
               </div>
             </div>
@@ -503,7 +504,7 @@
             />
           </legend>
           {#if model.sweep}
-            <div class="grid grid-cols-4 gap-2">
+            <div class="grid grid-cols-2 gap-2 @xl:grid-cols-4">
               <label class="flex flex-col gap-1">
                 <span class="text-xs font-medium text-base-content/70">Over</span>
                 <select class="select select-sm w-full" bind:value={model.sweep.parameter} disabled={model.kind === "fdfd"}>
@@ -511,8 +512,8 @@
                   {#if model.kind === "modes"}<option value="width">a width</option>{/if}
                 </select>
               </label>
-              <NumField label="from" unit="µm" bind:value={model.sweep.from} step={0.01} />
-              <NumField label="to" unit="µm" bind:value={model.sweep.to} step={0.01} />
+              <NumField label="from" length="um" bind:value={model.sweep.from} step={0.01} />
+              <NumField label="to" length="um" bind:value={model.sweep.to} step={0.01} />
               <NumField label="points" bind:value={model.sweep.points} integer step={1} min={1} />
               {#if model.sweep.parameter === "width"}
                 <OptField label="Rectangle" bind:value={model.sweep.rect} integer step={1} hint="Which rectangle's width (its size across the guide), counting from 0" placeholder="0" />

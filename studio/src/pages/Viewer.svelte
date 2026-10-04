@@ -9,12 +9,14 @@
   import RunPlots from "../components/RunPlots.svelte";
   import SolverDialog from "../components/SolverDialog.svelte";
   import Tip from "../components/Tip.svelte";
+  import UnitChip from "../components/UnitChip.svelte";
   import { api, duration, KINDS } from "../lib/api";
   import { app, followSweep, go, perPoint as hasPerPoint, pickPoint, run, shownField, shownModes, shownScene, sweepAxis, themeBackdrop, toast } from "../lib/app.svelte";
   import { modeKind } from "../lib/events";
   import { SOLVERS } from "../lib/methods";
-  import { effectiveLook, outside, rows, um, type Looks } from "../lib/layers";
+  import { effectiveLook, outside, rows, type Looks } from "../lib/layers";
   import { mediumLook } from "../lib/colours";
+  import { len, lenUnit, unitText } from "../lib/units";
   import { PERIOD, View3D, waveOf, type Plane } from "../lib/view3d";
 
   /** The opacity of the solid shapes the wave runs through, while it shows. */
@@ -101,11 +103,11 @@
   const perPoint = $derived(hasPerPoint());
   /** The shown point's value, if a point is shown. */
   const pointValue = $derived(run.point === null ? null : (axis?.values[run.point] ?? null));
-  /** The point shown, in words: "width 0.45 µm (point 4 of 11)", or the nominal one. */
+  /** The point shown, in words: "width 0.45 µm (point 4 of 11)", in the unit chosen, or the nominal one. */
   const pointText = $derived.by(() => {
     if (!axis) return "";
-    if (run.point === null) return run.fields[0] ? `nominal: the field the job asks for, at ${um(run.fields[0].wavelength_um)} µm` : "nominal: the job's own configuration";
-    return `${axis.parameter} ${pointValue === null ? "?" : um(pointValue)} µm (point ${run.point + 1} of ${axis.total})`;
+    if (run.point === null) return run.fields[0] ? `nominal: the field the job asks for, at ${lenUnit(run.fields[0].wavelength_um)}` : "nominal: the job's own configuration";
+    return `${axis.parameter} ${pointValue === null ? "?" : lenUnit(pointValue)} (point ${run.point + 1} of ${axis.total})`;
   });
   /** The wave in words: what is drawn, its guided wavelength, its phase velocity, and how much slower it is shown. */
   const facts = $derived.by(() => {
@@ -165,8 +167,8 @@
   const painted = $derived.by(() => {
     const f = field;
     const m = current;
-    if (f) return { label: `${f.label}, at ${um(f.wavelength_um)} µm`, where: `on the layer's top face (z = ${um(f.z_um)} µm)` };
-    if (m) return { label: `${m.label}, |E|²`, where: `on the cut at ${run.along} = ${um(m.cut_y_um)} µm` };
+    if (f) return { label: `${f.label}, at ${lenUnit(f.wavelength_um)}`, where: `on the layer's top face (z = ${lenUnit(f.z_um)})` };
+    if (m) return { label: `${m.label}, |E|²`, where: `on the cut at ${run.along} = ${lenUnit(m.cut_y_um)}` };
     return null;
   });
 
@@ -227,14 +229,14 @@
             title={run.point === null ? "The job's own configuration shows; the side panel's slider picks a point of the sweep" : `The sweep point the 3D and 2D views show: point ${run.point + 1} of ${axis.total}`}
           >
             <span class="invisible col-start-1 row-start-1 flex items-center gap-1.5" aria-hidden="true">
-              <span class="status"></span>{axis.parameter} <span class="num">{(0).toFixed(4)} µm</span> · <span class="tabular-nums">{axis.total}</span> of {axis.total}
+              <span class="status"></span>{axis.parameter} <span class="num">{len(axis.values[0] ?? 0, 4, true)}</span> <UnitChip tip="bottom" /> · <span class="tabular-nums">{axis.total}</span> of {axis.total}
             </span>
             <span class="col-start-1 row-start-1 flex items-center gap-1.5">
               <span class="status status-primary animate-pulse" class:invisible={!(live && run.following)}></span>
               {#if run.point === null || pointValue === null}
                 sweep over the {axis.parameter}
               {:else}
-                {axis.parameter} <span class="num">{pointValue.toFixed(4)} µm</span> · <span class="inline-block text-right tabular-nums" style="min-width: {digits}ch">{run.point + 1}</span> of {axis.total}
+                {axis.parameter} <span class="num">{len(pointValue, 4, true)}</span> <UnitChip tip="bottom" /> · <span class="inline-block text-right tabular-nums" style="min-width: {digits}ch">{run.point + 1}</span> of {axis.total}
               {/if}
             </span>
           </span>
@@ -264,7 +266,7 @@
       <svg bind:this={gizmo} class="pointer-events-none absolute right-4 bottom-4 text-[11px] font-semibold" width="96" height="96" viewBox="-48 -48 96 96"></svg>
       <div class="pointer-events-none absolute top-4 left-4 max-w-md rounded-xl border border-base-content/10 bg-base-100/80 px-4 py-3 text-sm backdrop-blur">
         {#if field}
-          <p class="font-medium">{field.label} <span class="font-normal faint">at {um(field.wavelength_um)} µm</span></p>
+          <p class="font-medium">{field.label} <span class="font-normal faint">at {lenUnit(field.wavelength_um)}</span></p>
           {#if run.point !== null}
             <p class="text-xs text-primary">at {pointText}{live && run.following ? ", the one just solved" : ""}</p>
           {:else if axis}
@@ -275,10 +277,10 @@
           {@const m = current}
           <p class="font-medium">{m.label} · {modeKind(m)} · <span class="num">n_eff {m.effective_index[0].toFixed(6)}</span></p>
           {#if run.point !== null}<p class="text-xs text-primary">at {pointText}{live && run.following ? ", the one just solved" : ""}</p>{/if}
-          <p class="text-xs faint">|E|² on the cut at {run.along} = {m.cut_y_um.toFixed(3)} µm, at λ = {um(m.wavelength_um)} µm</p>
+          <p class="text-xs faint">|E|² on the cut at {run.along} = {lenUnit(m.cut_y_um, 3, true)}, at λ = {lenUnit(m.wavelength_um)}</p>
           {#if facts && run.wave}
             <p class="text-xs faint">
-              {facts.what}, travelling along +{run.along} · guided wavelength λ/n_eff = <span class="num">{guided.toFixed(3)}</span> µm · phase velocity c/n_eff =
+              {facts.what}, travelling along +{run.along} · guided wavelength λ/n_eff = <span class="num">{len(guided, 3, true)}</span> {unitText()} · phase velocity c/n_eff =
               <span class="num">{facts.velocity}</span> c · shown about {facts.slower} times slower
             </p>
           {/if}
@@ -321,9 +323,9 @@
           {/if}
         {/if}
         {#if run.scene}
-          <dt class="faint">λ</dt><dd class="num">{run.scene.wavelength_um} µm</dd>
+          <dt class="faint">λ</dt><dd class="num">{len(run.scene.wavelength_um)} <UnitChip tip="left" /></dd>
           {#each [["x", run.scene.x_um], ["y", run.scene.y_um], ["z", run.scene.z_um]] as const as [axis, w] (axis)}
-            <dt class="faint">{axis}</dt><dd class="num">{w[0].toFixed(2)} → {w[1].toFixed(2)} µm</dd>
+            <dt class="faint">{axis}</dt><dd class="num">{len(w[0], 2, true)} → {len(w[1], 2, true)} <UnitChip tip="left" /></dd>
           {/each}
         {/if}
       </dl>
@@ -411,7 +413,7 @@
                 {#if facts}
                   <p class="mt-1 text-[11px] leading-snug faint">
                     {facts.what} in the guide and its evanescent tails: red where positive, blue where negative, lobes λ/(2 n_eff) =
-                    <span class="num">{(guided / 2).toFixed(3)}</span> µm long, gliding along +{run.along} at c/n_eff = <span class="num">{facts.velocity}</span> c, shown about
+                    <span class="num">{len(guided / 2, 3, true)}</span> <UnitChip tip="left" /> long, gliding along +{run.along} at c/n_eff = <span class="num">{facts.velocity}</span> c, shown about
                     {facts.slower} times slower. The core turns to glass while it shows.
                   </p>
                 {/if}
@@ -435,7 +437,7 @@
                 </button>
               </div>
               {#if away}
-                <p class="-mt-1 pb-1.5 pl-[3.1rem] text-[11px] faint">{away} the window (z {away === "below" ? `from ${um(scene.z_um[0])}` : `to ${um(scene.z_um[1])}`} µm)</p>
+                <p class="-mt-1 pb-1.5 pl-[3.1rem] text-[11px] faint">{away} the window (z {away === "below" ? `from ${len(scene.z_um[0])}` : `to ${len(scene.z_um[1])}`} <UnitChip tip="left" />)</p>
               {/if}
             </div>
           {/each}
@@ -525,7 +527,7 @@
             </div>
           {/each}
         </div>
-        <p class="mt-1.5 text-[11px] faint">|S_q1|², the power from port 1, at {um(first.wavelength_um)} µm</p>
+        <p class="mt-1.5 text-[11px] faint">|S_q1|², the power from port 1, at {len(first.wavelength_um)} <UnitChip tip="left" /></p>
         <button class="btn btn-ghost btn-xs mt-2 -ml-2" onclick={() => (view = "2d")}>Spectra in 2D →</button>
       </section>
     {/if}

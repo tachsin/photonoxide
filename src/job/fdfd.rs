@@ -167,16 +167,57 @@ fn plane(
     })
 }
 
-/// The scene of an `"fdfd"` job: its window, 1 µm below and above its layer.
+/// The grid of cells of about `step_nm` filling the task's window (validated before).
+fn grid_of(task: &FdfdTask) -> Grid {
+    let h = task.step_nm / 1000.0;
+    let (wx, wy) = (task.x_um[1] - task.x_um[0], task.y_um[1] - task.y_um[0]);
+    let (nx, ny) = (
+        (wx / h).round().max(1.0) as usize,
+        (wy / h).round().max(1.0) as usize,
+    );
+    Grid {
+        nx,
+        ny,
+        dx: wx / nx as f64,
+        dy: wy / ny as f64,
+        x0: task.x_um[0],
+        y0: task.y_um[0],
+    }
+}
+
+/// The part of the grid the run's pictures show, and how many cells it leaves out on each side
+/// along x and y: the window without its PMLs and the two cells beside them, where the field
+/// is launched. The PMLs are where the solver absorbs the light, not part of the device, so a
+/// guide drawn into them would look as if the light started late and ended early. A grid too
+/// small to leave anything is shown whole.
+fn pictured(grid: &Grid, pml_cells: usize) -> (Grid, [usize; 2]) {
+    let margin = pml_cells + 2;
+    let mx = if grid.nx > 2 * margin { margin } else { 0 };
+    let my = if grid.ny > 2 * margin { margin } else { 0 };
+    (
+        Grid {
+            nx: grid.nx - 2 * mx,
+            ny: grid.ny - 2 * my,
+            x0: grid.x0 + mx as f64 * grid.dx,
+            y0: grid.y0 + my as f64 * grid.dy,
+            ..*grid
+        },
+        [mx, my],
+    )
+}
+
+/// The scene of an `"fdfd"` job: the part of its window the pictures show ([`pictured`]),
+/// 1 µm below and above its layer.
 fn scene_of(task: &FdfdTask, s: &Structure) -> Result<Event> {
+    let (inner, _) = pictured(&grid_of(task), task.pml_cells.unwrap_or(20));
     let (_, bottom, top) = s
         .stack()
         .layer(&task.layer)
         .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
     scene(
         s,
-        task.x_um,
-        task.y_um,
+        [inner.x0, inner.x0 + inner.nx as f64 * inner.dx],
+        [inner.y0, inner.y0 + inner.ny as f64 * inner.dy],
         [bottom.to_um() - 1.0, top.to_um() + 1.0],
         Wavelength::um(task.wavelength_um)?,
     )
@@ -261,21 +302,8 @@ impl Device {
         if task.port.is_empty() {
             return Err(task_error("an fdfd job needs at least one [[task.port]]"));
         }
-        let h = task.step_nm / 1000.0;
         // (the window and the step are validated above)
-        let (wx, wy) = (task.x_um[1] - task.x_um[0], task.y_um[1] - task.y_um[0]);
-        let (nx, ny) = (
-            (wx / h).round().max(1.0) as usize,
-            (wy / h).round().max(1.0) as usize,
-        );
-        let grid = Grid {
-            nx,
-            ny,
-            dx: wx / nx as f64,
-            dy: wy / ny as f64,
-            x0: task.x_um[0],
-            y0: task.y_um[0],
-        };
+        let grid = grid_of(&task);
         let boundaries = Boundaries::pml(task.pml_cells.unwrap_or(20));
         Ok(Device {
             task,
@@ -505,6 +533,8 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         ],
     })?;
     let pml_cells = task.pml_cells.unwrap_or(20);
+    // the pictures show the window without its PMLs
+    let (inner, [mx, my]) = pictured(&device.grid, pml_cells);
     let block = match &task.sweep {
         Some(sw) => {
             run.record(&Event::Sweep {
@@ -513,7 +543,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 to: sw.to,
                 points: sw.points,
             })?;
-            Some(sweep_block(nx, ny, sw.points))
+            Some(sweep_block(inner.nx, inner.ny, sw.points))
         }
         None => None,
     };
@@ -556,9 +586,9 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             let source = current.mode_source(launched.as_ref().unwrap_or(&first.mode), direction);
             let field = current.solve_system(&source)?;
             residual = Some(current.residual(&field, &source)?);
-            let values: Vec<f64> = (0..ny)
-                .flat_map(|j| (0..nx).map(move |i| (i, j)))
-                .map(|(i, j)| field.at(i, j).norm_sqr())
+            let values: Vec<f64> = (0..inner.ny)
+                .flat_map(|j| (0..inner.nx).map(move |i| (i, j)))
+                .map(|(i, j)| field.at(mx + i, my + j).norm_sqr())
                 .collect();
             if step == field_step {
                 let peak = values
@@ -571,12 +601,12 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                     wavelength_um: w.to_um(),
                     z_um: z_face,
                     intensity: Raster {
-                        nx,
-                        ny,
-                        x0: task.x_um[0],
-                        x1: task.x_um[1],
-                        y0: task.y_um[0],
-                        y1: task.y_um[1],
+                        nx: inner.nx,
+                        ny: inner.ny,
+                        x0: inner.x0,
+                        x1: inner.x0 + inner.nx as f64 * inner.dx,
+                        y0: inner.y0,
+                        y1: inner.y0 + inner.ny as f64 * inner.dy,
                         values: values.iter().map(|v| (v / peak) as f32).collect(),
                     },
                 })?;
@@ -588,7 +618,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                     label: label.clone(),
                     wavelength_um: w.to_um(),
                     z_um: z_face,
-                    intensity: coarse(&values, &device.grid, block),
+                    intensity: coarse(&values, &inner, block),
                 })?;
             }
         }

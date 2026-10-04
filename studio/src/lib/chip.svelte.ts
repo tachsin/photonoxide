@@ -7,6 +7,7 @@ import { ask, open, save } from "@tauri-apps/plugin-dialog";
 import { api, type Part, type TimeConvention, type Chip, type KindInfo, type Problem, type Simulation } from "./api";
 import { app, go, toast } from "./app.svelte";
 import { emptyChip, freshName, snap } from "./circuit";
+import { len, lenUnit } from "./units";
 
 export type Selection = { kind: "instance"; name: string } | { kind: "port"; index: number } | { kind: "wire"; index: number } | { kind: "exposure"; index: number } | null;
 
@@ -79,7 +80,7 @@ export async function finishImport(go: boolean) {
     const k = await api.measuredComponent(job.path, job.convention);
     library.measured = [...library.measured.filter((m) => partKey(m) !== partKey(k)), k];
     library.importing = null;
-    toast(`Imported ${k.title}: ${k.ports.length} ports, from ${k.provenance.validity?.[0]} to ${k.provenance.validity?.[1]} µm`, "success");
+    toast(`Imported ${k.title}: ${k.ports.length} ports, from ${len(k.provenance.validity?.[0] ?? NaN)} to ${lenUnit(k.provenance.validity?.[1] ?? NaN)}`, "success");
     importDone?.(k);
   } catch (e) {
     job.busy = false;
