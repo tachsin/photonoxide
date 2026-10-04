@@ -6,6 +6,7 @@
 
   import { app, toast, updateSettings } from "../lib/app.svelte";
   import { MORE_THEMES } from "../lib/themes";
+  import { lengthUnit } from "../lib/units";
   import { checkForUpdate, updater } from "../lib/updater.svelte";
 
   const s = $derived(app.state!.settings);
@@ -129,6 +130,23 @@
         <div class="join">
           <button class="btn join-item btn-sm {s.view === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => updateSettings((x) => (x.view = "3d"))}>3D</button>
           <button class="btn join-item btn-sm {s.view === '2d' ? 'btn-primary btn-soft' : ''}" onclick={() => updateSettings((x) => (x.view = "2d"))}>2D</button>
+        </div>
+      </div>
+      <div class="mt-5 flex items-center justify-between gap-4">
+        <div>
+          <p class="text-sm font-medium">Lengths in</p>
+          <p class="text-xs faint">Every length and wavelength the studio shows or asks for, on every page. A unit beside a value switches it too, wherever it is. Job and chip files keep their own units.</p>
+        </div>
+        <div class="join shrink-0" role="radiogroup" aria-label="The unit of lengths">
+          {#each [["um", "µm", "Micrometres: 1.55 µm, 0.22 µm"], ["nm", "nm", "Nanometres: 1550 nm, 220 nm"]] as [v, text, tip] (v)}
+            <button
+              class="btn join-item btn-sm {lengthUnit() === v ? 'btn-primary btn-soft' : ''}"
+              role="radio"
+              aria-checked={lengthUnit() === v}
+              title={tip}
+              onclick={() => updateSettings((x) => (x.length_unit = v))}>{text}</button
+            >
+          {/each}
         </div>
       </div>
     </section>

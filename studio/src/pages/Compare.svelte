@@ -125,7 +125,7 @@
         <section class="panel p-5">
           <h3 class="mb-1 font-semibold">Effective index over the {parameter}</h3>
           <p class="mb-3 text-xs faint">mode 1 solid, mode 2 dashed; one colour per run</p>
-          <Plot {series} xLabel={parameter === "wavelength" ? "wavelength (µm)" : "width (µm)"} yLabel="n_eff" name="compare-n_eff" />
+          <Plot {series} xLabel={parameter === "wavelength" ? "wavelength" : "width"} xLength yLabel="n_eff" name="compare-n_eff" />
         </section>
       {/each}
 
@@ -133,7 +133,7 @@
         <section class="panel p-5">
           <h3 class="mb-1 font-semibold">Transmission from port 1</h3>
           <p class="mb-3 text-xs faint">|S_q1|², the power from port 1; the first output solid, the others dashed; one colour per run</p>
-          <Plot series={spectra} xLabel="wavelength (µm)" yLabel="|S_q1|²" yRange={[0, 1.02]} name="compare-spectra" />
+          <Plot series={spectra} xLabel="wavelength" xLength yLabel="|S_q1|²" yRange={[0, 1.02]} name="compare-spectra" />
         </section>
       {/if}
 

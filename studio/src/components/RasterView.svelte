@@ -4,6 +4,8 @@
   import { intensityColour, permittivityColour, pixels, range } from "../lib/colours";
   import type { Raster } from "../lib/events";
   import type { Outline } from "../lib/outline";
+  import { len, lenUnit } from "../lib/units";
+  import UnitChip from "./UnitChip.svelte";
 
   let {
     raster,
@@ -56,7 +58,7 @@
     const x = raster.x0 + (i + 0.5) * ((raster.x1 - raster.x0) / raster.nx);
     const y = raster.y0 + (j + 0.5) * ((raster.y1 - raster.y0) / raster.ny);
     const v = raster.values[j * raster.nx + i];
-    readout = `${axes[0]} ${x.toFixed(3)} µm · ${axes[1]} ${y.toFixed(3)} µm · ${kind === "eps" ? "ε" : "|·|²"} ${v.toPrecision(4)}`;
+    readout = `${axes[0]} ${lenUnit(x, 3, true)} · ${axes[1]} ${lenUnit(y, 3, true)} · ${kind === "eps" ? "ε" : "|·|²"} ${v.toPrecision(4)}`;
   }
 </script>
 
@@ -88,7 +90,7 @@
       {/if}
     </div>
     <div class="mt-1.5 flex justify-between text-[11px] faint num">
-      <span>{axes[0]} {raster.x0.toFixed(2)} → {raster.x1.toFixed(2)} µm · {axes[1]} {raster.y0.toFixed(2)} → {raster.y1.toFixed(2)} µm</span>
+      <span>{axes[0]} {len(raster.x0, 2, true)} → {len(raster.x1, 2, true)} <UnitChip /> · {axes[1]} {len(raster.y0, 2, true)} → {len(raster.y1, 2, true)} <UnitChip /></span>
       <span class="text-base-content/70">{readout ?? `${raster.nx} × ${raster.ny} cells`}</span>
     </div>
   </div>

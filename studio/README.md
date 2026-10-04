@@ -106,8 +106,14 @@ window only follows that record, so a live run and a replay look the same.
   on this machine.
 - **Settings:** the theme (photonoxide's dark or light, by the system or chosen, with a
   preview of the one in use; "More themes" opens some thirty others, each shown in its own
-  colours), the workspace folder, tips, and updates.
+  colours), the unit of lengths, the workspace folder, tips, and updates.
   The window opens where it was left, at the size it had.
+- **Lengths in µm or nm:** every length and wavelength the studio shows or asks for (the
+  builder's fields, a component's or an instance's parameters, the chip's wavelengths, the
+  viewer's readouts, the plots' axes, hover values and CSV files, the Materials page) is in one
+  unit, µm or nm, app-wide. Click the unit beside any value to switch it everywhere, or choose
+  it in the settings. Only the window converts, exactly: job and chip files keep their units
+  (µm, and nm where a field's name says so).
 
 Help is built in:
 - a tour on the first start, which the question mark brings back;

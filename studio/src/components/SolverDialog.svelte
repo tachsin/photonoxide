@@ -8,10 +8,11 @@
 
   import { api, KINDS } from "../lib/api";
   import { run, sweepAxis } from "../lib/app.svelte";
-  import { um } from "../lib/layers";
   import { methodHtml, METHODS, parseMethod, SOLVERS, type MethodDoc } from "../lib/methods";
   import type { Series } from "../lib/plot";
+  import { len } from "../lib/units";
   import Plot from "./Plot.svelte";
+  import UnitChip from "./UnitChip.svelte";
 
   let { open, onclose }: { open: boolean; onclose: () => void } = $props();
 
@@ -91,7 +92,7 @@
               <dt class="faint">method</dt>
               <dd>{SOLVERS[s.module] ?? s.module} <code class="ml-1 rounded bg-base-content/8 px-1 font-mono text-xs">photonoxide::{s.module}</code></dd>
               <dt class="faint">grid</dt>
-              <dd class="num">{s.cells[0]} × {s.cells[1]} cells of about {um(s.step_um * 1000)} nm</dd>
+              <dd class="num">{s.cells[0]} × {s.cells[1]} cells of about {len(s.step_um, 7)} <UnitChip /></dd>
               <dt class="faint">unknowns</dt>
               <dd class="num">{s.unknowns.toLocaleString("en-US")} in each solve</dd>
               {#each s.details as [name, value] (name)}
@@ -113,7 +114,7 @@
               How well each discrete problem was solved, measured after the solve. It is not the grid's error: how the answer changes with the step is in each method's validation, below.
             </p>
             {#if series.length && axis}
-              <Plot {series} xLabel="{axis.parameter} (µm)" yLabel="log₁₀ of the error" height={220} name="{run.job?.job ?? 'run'}-solve-error" marker={run.point === null ? null : (axis.values[run.point] ?? null)} markers={series[0].points.length <= 40} />
+              <Plot {series} xLabel={axis.parameter} xLength yLabel="log₁₀ of the error" height={220} name="{run.job?.job ?? 'run'}-solve-error" marker={run.point === null ? null : (axis.values[run.point] ?? null)} markers={series[0].points.length <= 40} />
             {/if}
             <div class="mt-3 overflow-x-auto">
               <table class="table table-xs">

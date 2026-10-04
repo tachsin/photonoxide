@@ -4,7 +4,9 @@
   import { Eye, Layers, RotateCcw } from "@lucide/svelte";
 
   import { run } from "../lib/app.svelte";
-  import { defaultLook, effectiveLook, explain, index, lookTarget, neighbours, outside, rows, um } from "../lib/layers";
+  import { defaultLook, effectiveLook, explain, index, lookTarget, neighbours, outside, rows } from "../lib/layers";
+  import { len } from "../lib/units";
+  import UnitChip from "./UnitChip.svelte";
 
   let { name, onclose }: { name: string | null; onclose: () => void } = $props();
 
@@ -37,7 +39,7 @@
   }
 
   const span = (z: [number, number]) =>
-    z[0] === -Infinity ? `below ${um(z[1])}` : z[1] === Infinity ? `above ${um(z[0])}` : `${um(z[0])} → ${um(z[1])}`;
+    z[0] === -Infinity ? `below ${len(z[1])}` : z[1] === Infinity ? `above ${len(z[0])}` : `${len(z[0])} → ${len(z[1])}`;
 </script>
 
 <dialog class="modal" class:modal-open={!!row}>
@@ -50,7 +52,7 @@
             <h3 class="text-lg font-semibold">{title}</h3>
             <p class="text-sm muted">
               {row.material.material}{row.background && row.background.material !== row.material.material ? ` in ${row.background.material}` : ""} ·
-              <span class="num">z {span(row.z)} µm</span>
+              <span class="num">z {span(row.z)} <UnitChip /></span>
             </p>
           </div>
         </div>
@@ -69,9 +71,9 @@
               <dd class="num">{row.background.material} · ε {row.background.eps.toFixed(3)} · n {index(row.background.eps)}</dd>
             {/if}
             <dt class="faint">thickness</dt>
-            <dd class="num">{Number.isFinite(row.z[1] - row.z[0]) ? `${um(row.z[1] - row.z[0])} µm` : "without end (modelled as infinitely thick)"}</dd>
+            <dd class="num">{#if Number.isFinite(row.z[1] - row.z[0])}{len(row.z[1] - row.z[0])} <UnitChip />{:else}without end (modelled as infinitely thick){/if}</dd>
             <dt class="faint">z</dt>
-            <dd class="num">{span(row.z)} µm</dd>
+            <dd class="num">{span(row.z)} <UnitChip /></dd>
             {#if row.kind === "layer"}
               <dt class="faint">shapes</dt>
               <dd>{row.shapes === 0 ? "none drawn" : `${row.shapes} drawn on it`}</dd>
@@ -81,14 +83,14 @@
             <dt class="faint">above</dt>
             <dd>{near.above ? near.above.name : "nothing: the stack's top"}</dd>
           </dl>
-          <p class="mt-2 text-[11px] faint">ε is the real part of the permittivity at the scene's wavelength, {run.scene.wavelength_um} µm, and n = √ε.</p>
+          <p class="mt-2 text-[11px] faint">ε is the real part of the permittivity at the scene's wavelength, {len(run.scene.wavelength_um)} <UnitChip />, and n = √ε.</p>
         </section>
 
         <section>
           <h4 class="panel-title mb-2 flex items-center gap-1.5"><Eye size={13} /> In the 3D view</h4>
           {#if away}
             <p class="mb-2 rounded-lg border border-base-content/10 bg-base-content/4 px-3 py-2 text-xs muted">
-              It lies wholly {away} the run's window (z {um(run.scene.z_um[0])} → {um(run.scene.z_um[1])} µm), so nothing of it is drawn.
+              It lies wholly {away} the run's window (z {len(run.scene.z_um[0])} → {len(run.scene.z_um[1])} <UnitChip />), so nothing of it is drawn.
             </p>
           {/if}
           <label class="flex items-center gap-2.5 text-sm" class:opacity-50={!!away}>
