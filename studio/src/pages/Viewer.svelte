@@ -201,14 +201,18 @@
   <section class="flex min-h-0 min-w-0 flex-col">
     <!-- The run's state on the left, the views on the right. Nothing in it moves while a run goes:
          what changes (the clock, the point, the count) sits in a slot as wide as its longest text,
-         in digits of one width; what comes and goes (Stop) is last on its side; the sweep's
+         in digits of one width; Stop comes and goes inside the state's slot; the sweep's
          progress is a line along the bar's foot, which takes no room. In a window too narrow for
          it, the left side scrolls and the views stay in reach. -->
     <div class="relative flex items-center gap-3 border-b border-base-content/8 px-5 py-2.5 whitespace-nowrap">
       <div class="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto [scrollbar-width:thin] [&>*]:shrink-0">
-        <span class="inline-flex min-w-40 justify-start">
+        <!-- the state and, while it can be stopped, Stop: one slot, so Stop's coming and going moves nothing -->
+        <span class="inline-flex min-w-44 items-center justify-start gap-1">
           {#if live}
             <span class="badge badge-success badge-soft gap-1.5"><span class="status status-success animate-pulse"></span> running · <span class="inline-block min-w-[5ch] text-right tabular-nums">{clock(elapsed)}</span></span>
+            {#if run.stoppable}
+              <button class="btn btn-ghost btn-xs btn-square" onclick={stop} aria-label="Stop the run" title="Stop the run at its next check; what it recorded stays"><Square size={12} /></button>
+            {/if}
           {:else if run.finished?.stopped}
             <span class="badge badge-warning badge-soft gap-1"><CirclePause size={13} /> stopped: {run.finished.stopped}</span>
           {:else if run.finished}
@@ -235,11 +239,8 @@
             </span>
           </span>
           {#if live}
-            <span class="text-xs faint num" title="{points} of {axis.total} points solved"><span class="inline-block text-right" style="min-width: {digits}ch">{points}</span> / {axis.total} solved</span>
+            <span class="text-xs faint num" title="{points} of {axis.total} points solved"><span class="inline-block text-right" style="min-width: {digits}ch">{points}</span> / {axis.total}</span>
           {/if}
-        {/if}
-        {#if live && run.stoppable}
-          <button class="btn btn-ghost btn-xs gap-1" onclick={stop} title="Stop the run at its next check; what it recorded stays"><Square size={12} /> Stop</button>
         {/if}
         {#if run.info?.closes && run.finished}<span class="text-xs faint">the window closes by itself</span>{/if}
       </div>
