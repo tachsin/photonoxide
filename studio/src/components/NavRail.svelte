@@ -82,16 +82,26 @@
   function show(e: Event, label: string, about: string) {
     if (!collapsed) return;
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    hint = { label, about, top: r.top + r.height / 2, left: r.right + 10 };
+    const [top, left] = [r.top + r.height / 2, r.right + 10];
+    // already this item's, in place: left as it is, so it isn't drawn (and faded in) again
+    if (hint?.label === label && hint.top === top && hint.left === left) return;
+    hint = { label, about, top, left };
   }
-  const hide = () => (hint = null);
+  /**
+   * Takes `label`'s hint away, if it is the one showing. A click moves the focus: the item
+   * that had it loses it just before the clicked one gains it, and must not take the clicked
+   * item's hint with it (it would vanish and come back: a flicker).
+   */
+  function hide(label: string) {
+    if (hint?.label === label) hint = null;
+  }
 
   /** What an item's button listens to for its hint. */
   const hinted = (label: string, about: string) => ({
     onpointerenter: (e: Event) => show(e, label, about),
-    onpointerleave: hide,
+    onpointerleave: () => hide(label),
     onfocus: (e: Event) => show(e, label, about),
-    onblur: hide,
+    onblur: () => hide(label),
   });
 
   // a label: clipped by the rail as it narrows, and faded, never taken out of the layout
