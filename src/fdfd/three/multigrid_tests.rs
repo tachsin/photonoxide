@@ -360,3 +360,204 @@ fn gmres(
         }
     }
 }
+
+/// A small box for the tests CI runs: `n`³ cells of 20 nm at 1.55 µm, a silicon core 120 nm
+/// across along x if `silicon`, and a point current off its centre.
+fn small(n: usize, silicon: bool) -> (Grid3d, impl Fn(f64, f64, f64) -> c64 + Copy, Vec<c64>) {
+    let h = 0.02;
+    let grid = Grid3d {
+        nx: n,
+        ny: n,
+        nz: n,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: -(n as f64) * h / 2.0,
+        y0: -(n as f64) * h / 2.0,
+        z0: -(n as f64) * h / 2.0,
+    };
+    let eps = move |_: f64, y: f64, z: f64| {
+        c64::new(
+            if silicon && y.abs() < 0.06 && z.abs() < 0.06 {
+                12.09
+            } else {
+                1.0
+            },
+            0.0,
+        )
+    };
+    let mut current = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    current[grid.index(Axis::X, (n / 2 + 1, n / 2 + 1, n / 2))] = c64::new(1.0, 0.0);
+    (grid, eps, current)
+}
+
+/// Values to multiply by, the same on every run: a linear congruential sequence in the unit
+/// square of the complex plane, about its centre.
+fn sequence(n: usize, seed: u64) -> Vec<c64> {
+    let mut s = seed;
+    let mut next = move || {
+        s = s
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        (s >> 11) as f64 / (1u64 << 53) as f64 - 0.5
+    };
+    (0..n).map(|_| c64::new(next(), next())).collect()
+}
+
+/// uᵀ v, without conjugation: the product a matrix's transpose is defined by.
+fn bilinear(u: &[c64], v: &[c64]) -> c64 {
+    u.iter().zip(v).map(|(p, q)| p * q).sum()
+}
+
+fn options(shape: CycleShape, pre: usize, post: usize) -> Multigrid {
+    Multigrid {
+        shift: 0.5,
+        shape,
+        pre,
+        post,
+        coarsest: 300,
+    }
+}
+
+#[test]
+fn each_coarse_operator_is_pt_a_p() {
+    // silicon and stretched PMLs: every part of the transfer is in play
+    let (grid, eps, current) = small(12, true);
+    let (lattice, eps, matrix, _) = system(grid, eps, Boundaries3d::stretched_pml(3), &current);
+    let h = Hierarchy::new(&lattice, &eps, matrix, options(CycleShape::V, 0, 1)).unwrap();
+    assert!(h.shapes().len() >= 3, "{:?}", h.shapes());
+    for (fine, coarse) in h.levels.iter().zip(&h.levels[1..]) {
+        let v = sequence(coarse.matrix.size(), 7);
+        let direct = coarse.matrix.apply(&v);
+        let through = fine
+            .restriction
+            .apply(&fine.matrix.apply(&fine.prolongation.apply(&v)));
+        // a coarse value no fine one reaches has an identity row in place of Pᵀ A P's empty one
+        let reached = |c: usize| fine.restriction.row(c).next().is_some();
+        let mut off = 0.0f64;
+        for c in 0..v.len() {
+            let expected = if reached(c) { through[c] } else { v[c] };
+            off = off.max((direct[c] - expected).norm());
+        }
+        let scale = direct.iter().map(|z| z.norm()).fold(0.0, f64::max);
+        assert!(off < 1e-12 * scale, "{off:e} of {scale:e}");
+    }
+}
+
+#[test]
+fn the_transposed_cycle_is_the_cycles_transpose() {
+    // QMR needs M⁻ᵀ: uᵀ (M⁻¹ v) = vᵀ (M⁻ᵀ u) for any u and v, whatever the cycle
+    let (grid, eps, current) = small(12, true);
+    let (lattice, eps, matrix, _) = system(grid, eps, Boundaries3d::stretched_pml(3), &current);
+    let (u, v) = (sequence(matrix.size(), 1), sequence(matrix.size(), 2));
+    for (shape, pre, post) in [
+        (CycleShape::V, 0, 1),
+        (CycleShape::V, 2, 1),
+        (CycleShape::F, 1, 1),
+        (CycleShape::W, 1, 0),
+    ] {
+        let operator = shifted(&lattice, &eps, &matrix, 0.5);
+        let h = Hierarchy::new(&lattice, &eps, operator, options(shape, pre, post)).unwrap();
+        let forward = bilinear(&u, &h.solve(&v));
+        let backward = bilinear(&v, &h.solve_transpose(&u));
+        assert!(
+            (forward - backward).norm() < 1e-10 * forward.norm(),
+            "{shape:?}({pre}, {post}): {forward} against {backward}"
+        );
+    }
+}
+
+#[test]
+fn the_cycle_reduces_the_residual_of_its_own_operator() {
+    // as a solver of the operator it is built on, per cycle of V(1, 1): vacuum with periodic
+    // sides, with walls, and silicon in stretched PMLs
+    let periodic = {
+        let k = crate::fdfd::Edges::Bloch { k: 0.0 };
+        Boundaries3d {
+            x: k,
+            y: k,
+            z: k,
+            ..Boundaries3d::pml(0)
+        }
+    };
+    for (what, silicon, boundaries, bound) in [
+        ("vacuum, periodic", false, periodic, 0.15),
+        ("vacuum, walls", false, Boundaries3d::pml(0), 0.15),
+        (
+            "silicon, stretched PMLs",
+            true,
+            Boundaries3d::stretched_pml(4),
+            0.65,
+        ),
+    ] {
+        let (grid, eps, current) = small(16, silicon);
+        let (lattice, eps, matrix, b) = system(grid, eps, boundaries, &current);
+        let operator = shifted(&lattice, &eps, &matrix, 0.5);
+        let h = Hierarchy::new(&lattice, &eps, operator, options(CycleShape::V, 1, 1)).unwrap();
+        let operator = shifted(&lattice, &eps, &matrix, 0.5);
+        for transpose in [false, true] {
+            let history = as_solver(&h, &operator, &b, 8, transpose);
+            let per_cycle = factor(&history, 5);
+            assert!(
+                per_cycle < bound,
+                "{what}: {per_cycle} per cycle, {history:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn the_cycle_is_the_same_bit_for_bit_on_any_number_of_threads() {
+    let (grid, eps, current) = small(14, true);
+    let run = |threads: usize| -> Vec<c64> {
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap();
+        pool.install(|| {
+            let (lattice, eps, matrix, b) =
+                system(grid, eps, Boundaries3d::stretched_pml(3), &current);
+            let operator = shifted(&lattice, &eps, &matrix, 0.5);
+            let h = Hierarchy::new(&lattice, &eps, operator, options(CycleShape::F, 1, 1)).unwrap();
+            let mut out = h.solve(&b);
+            out.extend(h.solve_transpose(&b));
+            out
+        })
+    };
+    let one = run(1);
+    for threads in [2, 5] {
+        let many = run(threads);
+        let same = one
+            .iter()
+            .zip(&many)
+            .all(|(p, q)| p.re.to_bits() == q.re.to_bits() && p.im.to_bits() == q.im.to_bits());
+        assert!(same, "{threads} threads differ from one");
+    }
+}
+
+#[test]
+fn qmr_with_the_cycle_takes_fewer_iterations_than_with_ilu0_and_agrees() {
+    let (grid, eps, current) = small(16, true);
+    let (lattice, eps, matrix, b) = system(grid, eps, Boundaries3d::stretched_pml(4), &current);
+    let stop = Stopping {
+        tolerance: 1e-10,
+        max_iterations: 5000,
+    };
+    let operator = shifted(&lattice, &eps, &matrix, 0.5);
+    let h = Hierarchy::new(&lattice, &eps, operator, options(CycleShape::V, 0, 1)).unwrap();
+    let (with_cycle, cycle) = qmr_preconditioned(&matrix, &h, &b, stop).unwrap();
+    let ilu = crate::fdfd::krylov::Ilu0::new(&matrix).unwrap();
+    let (with_ilu, ilu) = qmr_preconditioned(&matrix, &ilu, &b, stop).unwrap();
+    let d: Vec<c64> = with_cycle
+        .iter()
+        .zip(&with_ilu)
+        .map(|(p, q)| p - q)
+        .collect();
+    assert!(
+        cycle.iterations < ilu.iterations,
+        "{} against {}",
+        cycle.iterations,
+        ilu.iterations
+    );
+    assert!(norm(&d) < 1e-7 * norm(&with_ilu));
+}

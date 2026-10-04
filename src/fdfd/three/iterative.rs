@@ -139,9 +139,16 @@ impl IterativeSolver3d {
 
     /// The number of the multigrid's levels, the coarsest included; 0 without one.
     pub fn multigrid_levels(&self) -> usize {
+        self.multigrid_grids().len()
+    }
+
+    /// Each of the multigrid's levels, finest first, the coarsest included: its cells along x,
+    /// y and z. A PML's cells are merged later than the others ([`Multigrid`]), so a grid with
+    /// PMLs coarsens by less than two a level along their axes. Empty without a multigrid.
+    pub fn multigrid_grids(&self) -> Vec<[usize; 3]> {
         match &self.preconditioner {
-            Preconditioning::Multigrid(h) => h.depth(),
-            _ => 0,
+            Preconditioning::Multigrid(h) => h.shapes().to_vec(),
+            _ => Vec::new(),
         }
     }
 

@@ -633,11 +633,6 @@ impl Hierarchy {
         &self.shapes
     }
 
-    /// The number of levels, the coarsest included.
-    pub(crate) fn depth(&self) -> usize {
-        self.levels.len() + 1
-    }
-
     /// One cycle from `level` down, for A x = b (or Aᵀ x = b, the transposed cycle), from
     /// x = 0.
     fn cycle(&self, level: usize, b: &[c64], transpose: bool, shape: CycleShape) -> Vec<c64> {

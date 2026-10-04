@@ -122,17 +122,6 @@ impl Sparse {
         }
     }
 
-    /// The diagonal.
-    pub(crate) fn diagonal(&self) -> Vec<c64> {
-        (0..self.n)
-            .map(|r| {
-                self.row(r)
-                    .find(|&(c, _)| c == r)
-                    .map_or(c64::new(0.0, 0.0), |(_, v)| v)
-            })
-            .collect()
-    }
-
     /// The number of stored entries.
     pub(crate) fn nonzeros(&self) -> usize {
         self.values.len()
