@@ -266,7 +266,21 @@ impl IterativeSolver3d {
     ///
     /// As [`Solver3d::s_matrix`], and as [`IterativeSolver3d::solve`] for each run.
     pub fn s_matrix(&self, ports: &[Port3d], stopping: Stopping) -> Result<Vec<Vec<c64>>> {
-        self.lattice
-            .s_matrix(ports, |rhs| Ok(self.solve_system(rhs, stopping)?.0))
+        Ok(self.s_matrix_with_convergence(ports, stopping)?.0)
+    }
+
+    /// As [`IterativeSolver3d::s_matrix`], with how each run's QMR went, in the ports' order.
+    pub(crate) fn s_matrix_with_convergence(
+        &self,
+        ports: &[Port3d],
+        stopping: Stopping,
+    ) -> Result<(Vec<Vec<c64>>, Vec<Convergence>)> {
+        let mut runs = Vec::with_capacity(ports.len());
+        let s = self.lattice.s_matrix(ports, |rhs| {
+            let (field, convergence) = self.solve_system(rhs, stopping)?;
+            runs.push(convergence);
+            Ok(field)
+        })?;
+        Ok((s, runs))
     }
 }
