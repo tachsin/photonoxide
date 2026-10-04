@@ -13,7 +13,7 @@ in `docs/methods/`:
 - `fdfd`: 2D and 3D, ports and S-parameters, adjoint gradients, direct and QMR solves;
 - `circuit`: components, netlists, the circuit solve and its adjoint, objectives for genoxide;
 - `compact`: vector fitting, models over parameters, Touchstone files;
-- `job`, `run`: job files, run records and replay; `validation`: the report's cases.
+- `job`, `run`: job files, run records and replay; `validation`: the report's cases; `bench`: the benchmark problems.
 
 ## Commands
 
@@ -39,6 +39,7 @@ target/release/photonoxide run <job.toml> --headless      # the same run without
 target/release/photonoxide view runs/<run>                # replay a finished run
 target/release/photonoxide example slab_soi               # a built-in example (--list lists them)
 cargo run -p photonoxide-studio --release -- validate --write docs/validation.md   # rewrite the report
+target/release/photonoxide bench --threads 1,20 --write docs/benchmarks.md   # time the benchmark problems (--all: heavy too)
 ```
 
 Every example in `examples/` is built into the program (`studio/src-tauri/src/examples.rs`): a

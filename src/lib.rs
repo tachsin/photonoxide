@@ -16,6 +16,8 @@
 //! - [`compact`]: compact models by vector fitting, over parameters, and Touchstone files.
 //! - [`run`] and [`job`]: jobs as TOML files, and runs recorded as events that replay exactly;
 //!   the studio, the `photonoxide` program attached to each release, runs and shows them.
+//! - [`bench`]: fixed problems that time the solvers at a stated accuracy, which
+//!   `photonoxide bench` runs.
 //!
 //! **Alpha:** the API is being built milestone by milestone, and will change. FDTD, thermal and
 //! electro-optic devices, inverse design, layout and PDKs are planned, not here yet: see the
@@ -29,6 +31,7 @@
 #![warn(missing_docs)]
 #![warn(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
+pub mod bench;
 pub mod circuit;
 pub mod compact;
 mod eigen;

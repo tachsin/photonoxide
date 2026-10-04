@@ -1,7 +1,8 @@
 //! The `photonoxide` program: opens the studio; runs a job, live in the studio window or
 //! headless; replays a run in the studio; runs the built-in examples; checks the validation
-//! report.
+//! report; times the benchmark problems.
 
+mod bench;
 mod circuits;
 mod examples;
 mod materials;
@@ -31,6 +32,10 @@ const USAGE: &str = "usage:
   photonoxide validate [--write <file> | --check <file>]
       run every validation case and print the report; --write saves it, --check fails
       unless <file> holds exactly this report
+  photonoxide bench [--all] [--threads <n,n,...>] [--write <file>] [--json <file>] [<id>...]
+      time the benchmark problems and the slowest examples, each in its own process, and
+      print the report (--all: the heavy ones too; <id>: only those whose id starts with it;
+      --threads: the thread counts, default all the machine's; `--list` lists them)
   photonoxide --version";
 
 fn main() -> ExitCode {
@@ -41,6 +46,7 @@ fn main() -> ExitCode {
         Some("view") => view(&args[1..]),
         Some("validate") => validate(&args[1..]),
         Some("example") => example(&args[1..]),
+        Some("bench") => bench::run(&args[1..]),
         Some("--version" | "-V") => {
             println!("photonoxide {}", photonoxide::VERSION);
             ExitCode::SUCCESS
