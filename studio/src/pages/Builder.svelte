@@ -41,6 +41,10 @@
   /** The text the 3D preview shows: the last one that checked out, so it doesn't rebuild on every key. */
   let shown = $state("");
   let jobs = $state<JobItem[]>([]);
+  /** The page's width: the form and the device side by side need about 1050 px; narrower, the
+   * device and its TOML go under the form instead of being cut off at the window's edge. */
+  let width = $state(0);
+  const stacked = $derived(width > 0 && width < 1060);
   /** The model's TOML when it was last set from the text: a form that writes back the same
    * values (a select on mount, say) leaves the text, and its comments, as they are. */
   let baseline = toToml(template("modes"));
@@ -175,7 +179,12 @@
     model.kind = kind;
     if (kind === "fdfd" && !model.port.length) model.port = t.port;
     if (kind === "structure") model.sweep = null;
-    if (kind === "fdfd" && model.sweep) model.sweep.parameter = "wavelength";
+    // an fdfd job sweeps only the wavelength: a width sweep's widths aren't wavelengths, so it
+    // becomes a sweep of ±50 nm about the job's own
+    if (kind === "fdfd" && model.sweep && model.sweep.parameter !== "wavelength") {
+      const w = model.wavelength_um;
+      model.sweep = { ...model.sweep, parameter: "wavelength", from: Number((w - 0.05).toFixed(4)), to: Number((w + 0.05).toFixed(4)), rect: null };
+    }
     if (kind !== "modes" && model.y_um[0] === model.y_um[1]) model.y_um = t.y_um;
     if (kind !== "modes" && model.x_um[0] === model.x_um[1]) model.x_um = t.x_um;
     // the same device in the same box: the light goes along x in an fdfd job, so a modes job
@@ -231,7 +240,10 @@
   }}
 />
 
-<div class="grid h-full grid-cols-[250px_minmax(420px,1fr)_minmax(380px,0.95fr)]">
+<div
+  class="grid h-full {stacked ? 'grid-cols-[220px_minmax(0,1fr)]' : 'grid-cols-[250px_minmax(420px,1fr)_minmax(380px,0.95fr)]'}"
+  bind:clientWidth={width}
+>
   <!-- the workspace's jobs -->
   <aside class="flex min-h-0 flex-col border-r border-base-content/8 bg-base-100/40">
     <div class="p-3">
@@ -280,6 +292,7 @@
         <p class="truncate font-semibold">{model.name}{dirty ? " •" : ""}</p>
         <p class="truncate text-xs faint">{path ? path : "not saved yet"}</p>
       </div>
+      {#if stacked}{@render status()}{/if}
       {#if path}
         <div class="tooltip tooltip-bottom" data-tip="Delete this job file">
           <button class="btn btn-ghost btn-sm btn-square" aria-label="Delete the job" onclick={remove}><Trash2 size={16} /></button>
@@ -289,9 +302,13 @@
       <button class="btn btn-primary btn-sm gap-1.5" disabled={!check?.ok} onclick={runIt} title="Run it now and watch it live (Ctrl+Enter)"><Play size={15} /> Run</button>
     </div>
 
+    {#if stacked && check && !check.ok && check.error}
+      <div class="border-b border-base-content/8 px-6 py-2.5">{@render problem()}</div>
+    {/if}
+
     <div class="@container flex-1 space-y-6 overflow-x-hidden overflow-y-auto px-6 py-5">
       <Tip id="builder-intro" title="A job is a TOML file">
-        Fill the form and the device is drawn on the right as you type, in 3D; the library checks the job as it changes. Click a shape in the top view to edit it. Prefer text? Switch the right panel to TOML: edits there update the form.
+        Fill the form and the device is drawn {stacked ? "under it" : "on the right"} as you type, in 3D; the library checks the job as it changes. Click a shape in the top view to edit it. Prefer text? Switch {stacked ? "that panel" : "the right panel"} to TOML: edits there update the form.
       </Tip>
 
       <fieldset class="space-y-3">
@@ -381,7 +398,7 @@
             <NumField label="x to" length="um" bind:value={model.x_um[1]} step={0.1} />
             <OptField label="Cut at y" length="um" bind:value={model.cut_y_um} step={0.1} hint="Where the cross-section is taken; the modes travel along y" placeholder="0" />
           {/if}
-          <NumField label="Modes" bind:value={model.modes} integer step={1} min={1} hint="How many, from the highest effective index" />
+          <NumField label="Modes" bind:value={model.modes} integer step={1} min={1} hint="How many, from the highest effective index: 1 to 50" />
         {/if}
         <NumField label="Grid step" length="nm" bind:value={model.step_nm} step={5} min={1} hint="Smaller is more accurate and slower; the error falls as the square of the step" />
         {#if model.kind === "fdfd"}
@@ -467,7 +484,9 @@
                     type="checkbox"
                     class="toggle toggle-xs"
                     checked={p.y_um !== null}
-                    onchange={(e) => (p.y_um = (e.currentTarget as HTMLInputElement).checked ? [0, model.y_um[1]] : null)}
+                    onchange={(e) => {
+                      p.y_um = (e.currentTarget as HTMLInputElement).checked ? [0, model.y_um[1]] : null;
+                    }}
                   /> own window
                 </label>
                 <button class="btn btn-ghost btn-xs btn-square" aria-label="Remove" title="Remove" onclick={() => model.port.splice(k, 1)}><Trash2 size={13} /></button>
@@ -516,7 +535,21 @@
               <NumField label="to" length="um" bind:value={model.sweep.to} step={0.01} />
               <NumField label="points" bind:value={model.sweep.points} integer step={1} min={1} />
               {#if model.sweep.parameter === "width"}
-                <OptField label="Rectangle" bind:value={model.sweep.rect} integer step={1} hint="Which rectangle's width (its size across the guide), counting from 0" placeholder="0" />
+                <!-- numbered as the shapes above are, from 1; the job counts from 0 -->
+                <OptField
+                  label="Rectangle"
+                  bind:value={
+                    () => (model.sweep?.rect == null ? null : model.sweep.rect + 1),
+                    (v) => {
+                      if (model.sweep) model.sweep.rect = v == null ? null : Math.max(0, v - 1);
+                    }
+                  }
+                  integer
+                  step={1}
+                  min={1}
+                  hint="Which rectangle's width (its size across the guide): Rectangle 1, 2, … as numbered under Shapes"
+                  placeholder="1"
+                />
               {/if}
             </div>
           {:else}
@@ -524,74 +557,97 @@
           {/if}
         </fieldset>
       {/if}
+
+      {#if stacked}
+        <!-- too narrow for a third column: the device and its TOML follow the form -->
+        <div class="border-t border-base-content/8">{@render device()}</div>
+      {/if}
     </div>
   </section>
 
-  <!-- the device, and the TOML -->
-  <section class="flex min-h-0 flex-col border-l border-base-content/8 bg-base-100/40">
-    <div class="flex items-center gap-2 border-b border-base-content/8 px-4 py-2.5">
-      <div class="join">
-        <button class="btn join-item btn-sm gap-1.5 {right === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "3d")} title="The structure as the run will draw it"><Box size={14} /> 3D</button>
-        <button class="btn join-item btn-sm gap-1.5 {right === 'preview' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "preview")} title="Seen from above: click a shape to edit it"><Eye size={14} /> Top view</button>
-        <button class="btn join-item btn-sm gap-1.5 {right === 'toml' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "toml")}><Code size={14} /> TOML</button>
-      </div>
-      <span class="flex-1"></span>
-      {#if checking}
-        <span class="flex items-center gap-1.5 text-xs faint"><LoaderCircle size={14} class="animate-spin" /> checking</span>
-      {:else if check?.ok}
-        <span class="flex items-center gap-1.5 text-xs text-success"><CircleCheck size={14} /> ready to run</span>
-      {:else if check}
-        <span class="flex items-center gap-1.5 text-xs text-error"><CircleAlert size={14} /> not valid</span>
-      {/if}
+  <!-- the device, and the TOML: beside the form when there's room for both -->
+  {#if !stacked}
+    <section class="flex min-h-0 flex-col border-l border-base-content/8 bg-base-100/40">
+      {@render device()}
+    </section>
+  {/if}
+</div>
+
+{#snippet status()}
+  {#if checking}
+    <span class="flex shrink-0 items-center gap-1.5 text-xs faint"><LoaderCircle size={14} class="animate-spin" /> checking</span>
+  {:else if check?.ok}
+    <span class="flex shrink-0 items-center gap-1.5 text-xs text-success"><CircleCheck size={14} /> ready to run</span>
+  {:else if check}
+    <span class="flex shrink-0 items-center gap-1.5 text-xs text-error"><CircleAlert size={14} /> not valid</span>
+  {/if}
+{/snippet}
+
+{#snippet problem()}
+  {#if check && !check.ok && check.error}
+    <div class="rounded-lg border border-error/30 bg-error/8 px-3 py-2 text-xs text-error selectable">{check.error}</div>
+  {/if}
+{/snippet}
+
+{#snippet device()}
+  <div class="flex items-center gap-2 border-b border-base-content/8 {stacked ? 'py-2.5' : 'px-4 py-2.5'}">
+    <div class="join">
+      <button class="btn join-item btn-sm gap-1.5 {right === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "3d")} title="The structure as the run will draw it"><Box size={14} /> 3D</button>
+      <button class="btn join-item btn-sm gap-1.5 {right === 'preview' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "preview")} title="Seen from above: click a shape to edit it"><Eye size={14} /> Top view</button>
+      <button class="btn join-item btn-sm gap-1.5 {right === 'toml' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "toml")}><Code size={14} /> TOML</button>
     </div>
-    {#if check && !check.ok && check.error}
-      <div class="mx-4 mt-3 rounded-lg border border-error/30 bg-error/8 px-3 py-2 text-xs text-error selectable">{check.error}</div>
+    {#if !stacked}
+      <span class="flex-1"></span>
+      {@render status()}
     {/if}
-    {#if right === "preview"}
-      <div class="flex-1 overflow-y-auto p-4">
-        <div class="panel p-3">
-          <GeometryPreview {model} height={420} selected={selection} onselect={(s) => (selection = s)} />
-        </div>
-        <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 px-1 text-xs faint">
-          <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-primary/65"></span>silicon</span>
-          <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-secondary/70"></span>nitride</span>
-          {#if model.kind === "fdfd"}
-            <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-success"></span>ports</span>
-            <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm border border-warning/50 bg-warning/20"></span>PML</span>
-          {/if}
-          {#if model.kind === "modes"}<span class="flex items-center gap-1.5"><span class="h-0.5 w-3 bg-accent"></span>cross-section</span>{/if}
-          <span>seen from above, x across, y up</span>
-        </div>
+  </div>
+  {#if !stacked && check && !check.ok && check.error}
+    <div class="mx-4 mt-3">{@render problem()}</div>
+  {/if}
+  {#if right === "preview"}
+    <div class={stacked ? "pt-4" : "flex-1 overflow-y-auto p-4"}>
+      <div class="panel p-3">
+        <GeometryPreview {model} height={420} selected={selection} onselect={(s) => (selection = s)} />
       </div>
-    {:else if right === "3d"}
-      <div class="flex-1 overflow-y-auto p-4">
-        <div class="glow panel relative overflow-hidden">
-          {#if shown}
-            <ScenePreview text={shown} height={440} />
-            {#if check && !check.ok}
-              <div class="absolute inset-x-3 top-3 rounded-lg border border-warning/30 bg-base-100/85 px-3 py-1.5 text-xs backdrop-blur">
-                The job isn't valid now: this is its last valid version.
-              </div>
-            {/if}
-          {:else}
-            <div class="grid h-[440px] place-items-center p-6 text-center">
-              <div class="flex flex-col items-center gap-3 text-sm faint">
-                <Box size={22} />
-                <span>The 3D view appears once the job is valid{check && !check.ok ? "; it isn't yet (see above)" : ""}.</span>
-                <button class="btn btn-sm gap-1.5" onclick={() => (right = "preview")}><Eye size={14} /> Top view</button>
-              </div>
+      <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 px-1 text-xs faint">
+        <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-primary/65"></span>silicon</span>
+        <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-secondary/70"></span>nitride</span>
+        {#if model.kind === "fdfd"}
+          <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-success"></span>ports</span>
+          <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm border border-warning/50 bg-warning/20"></span>PML</span>
+        {/if}
+        {#if model.kind === "modes"}<span class="flex items-center gap-1.5"><span class="h-0.5 w-3 bg-accent"></span>cross-section</span>{/if}
+        <span>seen from above, x across, y up</span>
+      </div>
+    </div>
+  {:else if right === "3d"}
+    <div class={stacked ? "pt-4" : "flex-1 overflow-y-auto p-4"}>
+      <div class="glow panel relative overflow-hidden">
+        {#if shown}
+          <ScenePreview text={shown} height={440} />
+          {#if check && !check.ok}
+            <div class="absolute inset-x-3 top-3 rounded-lg border border-warning/30 bg-base-100/85 px-3 py-1.5 text-xs backdrop-blur">
+              The job isn't valid now: this is its last valid version.
             </div>
           {/if}
-        </div>
-        <div class="mt-3 flex items-start gap-3 px-1">
-          <p class="flex-1 text-xs faint">The structure as its run will draw it, over the job's window{model.kind === "modes" ? ", behind the cut" : ""}. To pick a shape by clicking it, use the top view.</p>
-          <button class="btn btn-ghost btn-xs shrink-0 gap-1" onclick={() => (right = "preview")} title="Seen from above: click a shape to edit it"><Eye size={13} /> Top view</button>
-        </div>
+        {:else}
+          <div class="grid h-[440px] place-items-center p-6 text-center">
+            <div class="flex flex-col items-center gap-3 text-sm faint">
+              <Box size={22} />
+              <span>The 3D view appears once the job is valid{check && !check.ok ? "; it isn't yet (see above)" : ""}.</span>
+              <button class="btn btn-sm gap-1.5" onclick={() => (right = "preview")}><Eye size={14} /> Top view</button>
+            </div>
+          </div>
+        {/if}
       </div>
-    {:else}
-      <div class="m-4 min-h-0 flex-1 overflow-hidden rounded-xl border border-base-content/8 bg-base-300/50 py-2">
-        <TomlEditor value={text} onchange={edited} />
+      <div class="mt-3 flex items-start gap-3 px-1">
+        <p class="flex-1 text-xs faint">The structure as its run will draw it, over the job's window{model.kind === "modes" ? ", behind the cut" : ""}. To pick a shape by clicking it, use the top view.</p>
+        <button class="btn btn-ghost btn-xs shrink-0 gap-1" onclick={() => (right = "preview")} title="Seen from above: click a shape to edit it"><Eye size={13} /> Top view</button>
       </div>
-    {/if}
-  </section>
-</div>
+    </div>
+  {:else}
+    <div class="{stacked ? 'mt-4 h-[440px]' : 'm-4 min-h-0 flex-1'} overflow-hidden rounded-xl border border-base-content/8 bg-base-300/50 py-2">
+      <TomlEditor value={text} onchange={edited} />
+    </div>
+  {/if}
+{/snippet}

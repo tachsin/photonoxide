@@ -12,7 +12,7 @@ The validated, fabrication-ready photonics toolkit for Rust: simulation, inverse
 - **Fabricated:** at least one photonoxide-designed device made on an open multi-project wafer run (SiEPIC openEBL), with its measured spectrum compared against the prediction and both published.
 - **Visible:** every solver and every optimization can be watched live in the studio, and every run replays from its record. Headless runs give identical results.
 - **Fast:** at least as fast per core as the reference open-source codes (Meep, MPB, S4) on our benchmark suite, measured as time to a converged answer at equal accuracy, with every result published, losses included.
-- **Reproducible:** the same input gives bit-for-bit the same result on any number of threads.
+- **Reproducible:** the same input gives bit-for-bit the same result on any number of threads and processes. A GPU run repeats bit-for-bit on the same device and driver, and agrees with the CPU to a stated tolerance.
 - **Documented:** every method has a theory page with its derivation and references, and 100% of the public API is documented.
 
 ## Design principles
@@ -37,13 +37,15 @@ The validated, fabrication-ready photonics toolkit for Rust: simulation, inverse
    - The window starts the job by itself, exits when it's done, and honours a hard timeout.
 6. **Pure Rust.**
    - No C, Fortran or Python dependencies, and no Python bindings.
-   - Linear algebra is faer, parallelism is rayon, and the GPU is wgpu.
+   - Linear algebra is faer, parallelism is rayon, the GPU is wgpu (f64 through Vulkan), and processes talk through a communicator in pure Rust (in-process and TCP).
+   - One exception, written only when a cluster needs it: an optional `mpi` feature, off by default, documented as the one C dependency. No CUDA.
+   - PETSc, SLEPc, MKL/PARDISO and MUMPS are inspiration and benchmarks: their methods are implemented from their papers, specific to our solvers, and the libraries themselves run only as external programs on exported problems, never linked.
 7. **Units are types.** Lengths, wavelengths and frequencies can't be mixed up silently. The time convention is e^(−iωt) everywhere and is documented once.
 8. **Material data has provenance.**
    - Every material model carries its source, validity range and temperature.
    - Extrapolating outside the range is an error by default.
    - Only openly licensed data is shipped; the refractiveindex.info database is CC0.
-9. **Determinism is a guarantee.** Reductions are ordered, seeds are explicit, and nothing depends on thread scheduling.
+9. **Determinism is a guarantee.** Reductions are ordered, seeds are explicit, and nothing depends on thread scheduling or on the number of processes: a distributed problem is split by the problem, not by the machines it runs on. GPU compilers may fuse and reorder arithmetic, so a GPU run is held to bit-for-bit repeats on the same device and driver, and to agreement with the CPU within a tolerance stated per quantity.
 10. **Optimization lives in genoxide, at every level.**
     - photonoxide supplies the physics: the objective, its adjoint gradient, and the parametrization (filters, projections, fabrication constraints), for device shapes, component parameters and whole circuits.
     - [genoxide](https://github.com/tachsin/genoxide), our optimization library, supplies every method that searches: gradient methods, constrained methods, evolutionary and global search.
@@ -160,7 +162,8 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - [x] **Tensors:** LiNbO₃'s d33, d31 (Shoji 1997), bulk r^S, r^T and ε^S (Jazbinšek & Zgonik 2002) and thin film's r33 (Chelladurai 2025); GaAs's d14 (Shoji), r41^S (Berseth 1992) and r41^T (Sugie & Tada 1976); InGaP's d14 (Ahler 2026, Ueno 1997); InP's r41^S and r41^T (Suzuki & Tada 1984); AlN's d33, d31 and bulk r (Majkić 2017) beside a sputtered film's r (Gräupner 1992).
 - [x] **Studio:** a Materials page: the catalogue by category, each model plotted over its range with a wavelength read-out, temperature and composition inputs, the equation (KaTeX) and coefficients as printed, the tensors as matrices, and every paper a click away.
 - [x] **More materials:** AlN's n_o and n_e (Rigler 2015, Al- and N-polar); AlGaN, nine films from x = 0 to 0.30 in both polarities (Rigler 2013); InGaP below the gap to 24.8 µm and above it to 5.5 eV with k (Ferrini 2002).
-- [ ] **Waiting:** AlGaAs's d14(x) and r41(x) (no primary absolute measurement in hand: Ohashi 1993 is relative and in a figure, Adachi 1985 has no electro-optic section); LiNbO₃'s d22, d15; MgO:LiNbO₃'s r_ij; InGaP's r41; InP's absolute d14 (Lee & Fan 1974 is relative to GaAs); AlGaN as a function of x (Rigler 2013 fits each film separately); InGaP between 1.8 and 1.9 eV and as a bonded thin film (Ahler's Zenodo deposit has loss data only).
+- [x] **Crystal tags and what is coming:** `Entry::tags`, statements with their physics, caveats and sources (point groups in Hermann–Mauguin with overbars and Schoenflies, space groups, what the symmetry allows, written from the same table as the tensors); `Entry::coming`, each property without a number named with the paper it will come from and what the papers in hand say, shown in the studio as hover cards and calm "coming" chips. Re-reading the papers in hand in full added AlGaAs's d14 at x = 0.15 (Ulsig 2024, open access) and InP's Faust–Henry analysis (Suzuki & Tada 1984, Table II).
+- [ ] **Coming:** AlGaAs's d14(x) (Shoji 2002) and r41(x) (Glick 1988); LiNbO₃'s d22 (Miller 1971) and d15; MgO:LiNbO₃'s r13, r33 (Akiyama 2017) and r22 (Yonekura 2007); InGaP's r41; InP's absolute d14 from SHG; AlGaN's n(x) (Brunner 1997) and d (Sanford 2005); InGaP from 1.8 to 1.9 eV (Kato 1994) and as a bonded thin film. Each is in `Entry::coming`.
 
 ### 0.4: Components and circuits ✅
 
@@ -186,9 +189,30 @@ The backbone of a chip: components with ports and several fidelities, connected 
 
   *(Done: the analytic MZI, as ideal couplers and as directional couplers' netlist (2e-16); Bogaerts 2012's all-pass and add-drop rings, Eqs. 1, 2, 5 and 6, to 4e-14, the components' closed forms against their netlists to 2e-14, his Eqs. 11 to 16 exactly and his FWHM within its Lorentzian approximation (6e-4), and the free spectral range of Eq. 9 from n_g, to its own first-order error of 7.8e-5 nm, and against a 2D FDFD ring: 46.70 nm against 46.95 from the exact bent slab's n_g, the 25 nm grid's error; reciprocity, passivity and unitarity of every component and the lossless MZI; the global solve against sub-network growth, to 1e-13 on 11 instances with reflections, loops and nested circuits. Beyond the list: the circuit adjoint against fourth-order differences of whole circuits (an MZI, a ring on a resonance's flank, a 24-parameter Clements mesh, nested circuits, components without derivatives), 7e-12 to 5e-10, and the closed forms' exact derivatives; Soldano & Pennings's beat length (22.60 µm against Eq. 6's 22.81) and the 1 × 2 MMI within 0.017 of 2D FDFD in each output; compact models, Gustavsen & Semlyen's test (RMS 1.4e-11 against their 3.8e-12, poles and residues to their tables), a ring's exact poles, a 2D FDFD ring's spectrum held out (4.5e-5) and passive, and models over parameters; 3D FDFD ports, the port modes against the exact slab and Hadley's strip, a straight strip and reciprocity to 1e-12, a closed guide's unitarity to its evanescent modes' 5e-6, and the 2D solver's S-matrix on a structure uniform along z, the direct solve finishing at round-off on any machine. Measured: Dwivedi et al. 2015's Mach-Zehnder interferometers on imec's line (Table I, n_eff and n_g at 1550 nm of wires 470, 602 and 805 nm wide and 211 nm thick by cross-section SEM), predicted with nothing taken from the measurement: each wire's mode by Hadley's equations at the SEM's rectangle in photonoxide's silicon and silica, the interferometers (m = 15 and M = 110) designed for the drawn 215 nm wires as the paper's were, and their spectra read as the paper reads the measured ones: n_eff 2.3583, 2.5350, 2.6581 against 2.355, 2.534, 2.67 and n_g 4.2330, 4.0385, 3.8883 against 4.2739, 4.0453, 3.8902, within the paper's own fabrication estimate (its Eq. 5 with ±20 nm of width and ±5 nm of thickness: 0.021 to 0.061), five of six within 0.012 and the narrowest wire's n_g 0.041 low, its sidewalls' slope and roughness left out. Simphony's SiEPIC MZI (Ploeg 2021) was dropped: its Fig. 5 gives no numbers, the SiEPIC EBeam PDK data's licence is unclear, and the plotted fringe spacing doesn't match the listed arm lengths.)*
 
-### 0.4.1: A preconditioner for high-contrast 3D FDFD
+### 0.4.1: Polish ✅
 
-- [ ] **A preconditioner for high-contrast 3D problems** (QMR takes thousands of iterations on a silicon guide), so a component's 3D fidelity takes minutes. *(Begun in 0.4.0: QMR preconditioned by ILU(0) on Shin and Fan's operator, with PMLs stretched as much as they absorb (`IterativeSolver3d::with_ilu`): 254 iterations against 2 739 and 3.2 times faster on a 40³ silicon guide, but no faster on Diel. Next, a stronger one: multigrid that copes with PMLs, or a sweeping preconditioner. See [FDFD in 3D](docs/methods/fdfd-3d.md#preconditioning-qmr).)*
+Released without the preconditioner, which moved to 0.4.2.
+
+- [x] **Light along x in every kind of job,** so switching a job's kind keeps its device (#102).
+- [x] **The studio:** live sweeps in the viewer (#100), the structure's outline on 2D fields and how a run was solved (#104), every length in µm or nm by clicking its unit (#107), a menu that folds (#108), theme previews (#103), and every page fitting a 960 × 600 window (#111, #121).
+- [x] **The job check refuses what the run would refuse:** wavelengths outside a material's data, badly placed ports and PMLs, degenerate windows and steps, more than 50 modes (#101, #105, #110, #121, #125).
+- [x] **Clear errors for degenerate inputs** that hung, filled the memory or gave NaNs (#110).
+- [x] **Materials:** crystal tags from the point group, and the catalogue's gaps named with the paper each comes from (#123); five filled from their papers (#124).
+- [x] **Mode solvers:** a long solve heeds the stop and the time limit (#125); a bent slab solved in milliseconds at any radius (#126); six or more modes of a cross-section converge.
+
+### 0.4.2: A preconditioner for high-contrast 3D FDFD, and the whole machine (CPU)
+
+- [ ] **A preconditioner for high-contrast 3D problems** (QMR takes thousands of iterations on a silicon guide), so a component's 3D fidelity takes minutes. *(Begun in 0.4.0: QMR preconditioned by ILU(0) on Shin and Fan's operator, with PMLs stretched as much as they absorb (`IterativeSolver3d::with_ilu`): 254 iterations against 2 739 and 3.2 times faster on a 40³ silicon guide, but no faster on Diel. Next, a stronger one: multigrid that copes with PMLs, or a sweeping preconditioner. See [FDFD in 3D](docs/methods/fdfd-3d.md#preconditioning-qmr). Multigrid after Reps et al. 2010 and Erlangga et al. 2006 is on its branch: 18 QMR iterations on the 40³ guide and 52 on Diel.)*
+
+Measured on 0.4.0 (Core Ultra 7 265K): most mode solvers run slower on 20 threads than on one (Hadley's corners 13.2 s against 8.0 s), an FDFD job's wavelengths are solved one after another, and the 3D iterative solver reaches about a fifth of the memory bandwidth (an estimate). See [the performance plan](docs/plans/performance.md), Phase A.
+
+- [ ] **A benchmark harness first:** a `bench` command with fixed problems (2D FDFD, the 3D silicon guide, Diel, the strip with ports, the mode-solver examples), recording wall time, iterations, the field's error against a converged reference, peak memory, and bandwidth against the machine's measured roofline (Williams 2009). The same matrices exported and solved by PARDISO (Schenk & Gärtner 2004) and MUMPS (Amestoy 2001) as external programs: the MKL-class baseline, never linked.
+- [ ] **Sweeps side by side:** the points of an FDFD wavelength sweep and of the mode solvers' sweeps solved in parallel, each on one thread when there are enough points, collected in order, so events and results are unchanged.
+- [ ] **QMR's kernels:** a persistent thread pool, no allocation inside the iteration, fused vector updates, dot products over fixed-size chunks summed in order, then a matrix-free Yee operator (the stencil Malas 2016 optimize).
+- [ ] **Symmetric QMR** for the complex-symmetric curl-curl system (Freund 1992; COCG, van der Vorst & Melissen 1990, to compare): one product per iteration and no Aᵀ, with an unconjugated incomplete LDLᵀ (Saad 2003). Whether the 0.4.1 multigrid moves to it is decided after.
+- [ ] **Nested dissection** (George 1973) as the ordering of faer's sparse LU on our structured grids.
+- [ ] **Deterministic parallel ILU:** the factorization by fixed synchronous sweeps (Chow & Patel 2015) and the triangular solves by Jacobi sweeps (Anzt 2015), the same bits on any thread count.
+- [ ] **Validation:** every existing case unchanged; each parallel kernel bit-identical on 1, 4 and 20 threads; symmetric QMR against the direct solver to 1e-10; nested dissection's solutions equal to round-off.
 
 ### 0.5: Finite-difference time-domain (FDTD)
 - [ ] **Core:**
@@ -198,7 +222,11 @@ The backbone of a chip: components with ports and several fidelities, connected 
 - [ ] **Sources:** total-field/scattered-field, mode sources, Gaussian beams and dipoles.
 - [ ] **Monitors:** DFT on planes and volumes, flux, mode overlaps; resonances by harmonic inversion (Mandelshtam 1997).
 - [ ] **Media:** Bloch-periodic boundaries, and dispersive media by auxiliary differential equations (Drude, Lorentz).
-- [ ] **Performance:** a GPU backend (wgpu compute, single precision), with the CPU results as its reference.
+- [ ] **Performance** (the performance plan's Phase B):
+  - the CPU kernel in f32 and f64, SIMD along the fastest axis, CPML only in its slabs, no allocation in the loop, then spatial and temporal (wavefront diamond) blocking (Malas 2015, 2016);
+  - a GPU backend on wgpu compute in f32 (slice by slice with workgroup memory, Micikevicius 2009), DFT monitors accumulated per cell in time order, no floating-point atomics; f64 on Vulkan for checking;
+  - judged against the blocked CPU kernel, not a naive one (the RTX 4060 has about 2.7× this CPU's memory bandwidth), and against Meep per core;
+  - GPU tests on the owner's machine before each release, recorded in the validation report (GitHub's runners have no GPU); a self-hosted runner if regressions slip through.
 - [ ] **Adjoint gradients** in 3D, the imaginary part of the mode included.
 - [ ] **Studio:** live field propagation in planes and slices, with monitors.
 - [ ] **Validation:**
@@ -208,6 +236,16 @@ The backbone of a chip: components with ports and several fidelities, connected 
   - Meep on its published cases (Oskooi 2010);
   - agreement with FDFD (0.3) on the same structures;
   - Liu & Poon 2025's six open PDK devices (MMI, directional coupler, crossing, mode converter, polarization splitter-rotator, ring), with two commercial codes' published results to compare.
+
+### 0.5.1: Many solves at once
+
+Wavelengths, ports, modes and candidates multiply every solve; do fewer, and spread the rest. The performance plan's Phase C.
+
+- [ ] **Ports as a block:** block QMR (Freund & Malhotra 1997; Jolivet & Tournier 2016) for all of a 3D S-matrix's ports.
+- [ ] **Recycling** Krylov subspaces across a 3D wavelength sweep and between a forward solve and its adjoint (Parks 2006; Bertaccini & Durastante 2018).
+- [ ] **Many modes,** after SLEPc's methods, implemented from their papers: contour-integral eigensolvers (Sakurai & Sugiura 2003; FEAST, Polizzi 2009; non-Hermitian with PMLs, Kestyn 2016) with their quadrature points farmed, and "every guided mode above an n_eff threshold"; Krylov–Schur restarts (Stewart 2002) for shift-invert; Hadley's nonlinear problem by Beyn's contour method (Beyn 2012) and NLEIGS (Güttel 2014; Güttel & Tisseur 2017).
+- [ ] **Farming across processes:** independent evaluations (genoxide populations, sweeps, corners, Monte Carlo) sent to worker processes on this machine or others over TCP, in pure Rust, gathered by index.
+- [ ] **Validation:** block and recycled solves give the single solves' S-matrices to 1e-10; the contour solver finds shift-invert's modes, and every eigenvalue in its region of a small problem against a dense solve; a farmed sweep is bit-identical for any number of workers. SLEPc runs as an external program on exported problems for comparison.
 
 ### 0.6: Thermal and electro-optic devices
 
@@ -257,6 +295,9 @@ The first active devices. One solver for static problems on the waveguide's cros
   - added to genoxide as general methods where it lacks them: the method of moving asymptotes, the standard for topology optimization (MMA: Svanberg 1987; globally convergent: Svanberg 2002), and continuation schedules that keep the optimizer's state across stages;
   - large designs (10⁴ to 10⁶ variables) need genoxide's gradient methods to cost O(n) per step.
 - [ ] **Pipeline:** explore in 2D, then optimize and verify in 3D.
+- [ ] **Performance for 3D design** (the performance plan's Phase D):
+  - a single-precision sparse LU refined in double (Carson & Higham 2018; Amestoy 2023), failing loudly where the condition number is too large for it (Higham & Mary 2022);
+  - the matrix-free QMR on the GPU, f32 refined in f64 on the CPU (f64 throughout on Vulkan), with ILU and smoothing by sweeps; Ginkgo's and PETSc's GPU designs as references (Anzt 2022; Mills 2021).
 - [ ] **Studio:** the live optimization dashboard (design, fields, figure of merit, constraints).
 - [ ] **Validation,** each in 3D and within stated tolerances:
   - Chen et al. 2024's benchmark suite, cross-checked across independent codes;
@@ -266,6 +307,18 @@ The first active devices. One solver for static problems on the waveguide's cros
   - the mode multiplexer (Frellsen 2016);
   - the grating coupler (Su 2018);
   - foundry-ready designs (Piggott 2020).
+
+### 0.7.1: Distributed memory
+
+3D devices larger than one machine's memory, and fewer hours per 3D solve, with the answer independent of the number of processes. The performance plan's Phase E.
+
+- [ ] **A communicator:** in-process and TCP back ends in pure Rust; the optional `mpi` feature (rsmpi), off by default, only when a cluster needs it.
+- [ ] **Domain decomposition,** after PETSc's PCHPDDM, implemented from the papers: optimized restricted additive Schwarz as QMR's preconditioner (St-Cyr 2007; RAS, Cai & Sarkis 1999), Maxwell's transmission conditions (Dolean 2009; Gander 2002) or the PML itself, and a coarse space (GenEO, Spillane 2014; Bootland 2021; Bonazzoli 2019; Jolivet 2021). Read Gander & Zhang 2019 and Dolean, Jolivet & Nataf 2015 first.
+- [ ] **Sweeping, as the alternative for long devices:** moving PMLs (Engquist & Ying 2011; Poulson 2013), for Maxwell (Tsuji 2012), layered (Stolk 2013), L-sweeps (Taus 2020). Small prototypes of both decide between them on the strip with ports.
+- [ ] **Determinism:** subdomains fixed by the problem, owned whole by processes, reductions in subdomain order; reproducible summation (Demmel & Nguyen 2015; Ahrens 2020) where a reduction can't be ordered; pipelined Krylov (Ghysels & Vanroose 2014; Cools & Vanroose 2017) only if reductions' latency is measured to matter.
+- [ ] **Distributed FDTD:** halo exchange overlapped with computation, across processes and GPUs (Micikevicius 2009; Nagaoka & Watanabe 2011).
+- [ ] **Validation:** bit-identical on 1, 2 and 4 processes; the field against a one-machine solve; iterations flat in the number of subdomains with a working coarse space; strong and weak scaling over processes, then machines.
+- [ ] **Research, optional:** compressed direct solvers (block low-rank: Amestoy 2015, 2019; Shantsev 2017 for 3D EM; HSS: Ghysels 2016), only if a first measurement shows low ranks in a 3D FDFD factorization at optical frequencies; otherwise that measurement is published and the item closes.
 
 ### 0.8: Carrier modulators, signals and programmable circuits
 
@@ -395,7 +448,7 @@ How a design reaches a foundry. Fabrication is almost always a multi-project waf
   - 0.7: the optimization dashboard;
   - 0.8: eye diagrams and mesh programming;
   - 0.9: the layout view.
-- **Performance:** criterion benchmarks, with regression gating in CI.
+- **Performance:** criterion benchmarks and the `bench` command (0.4.2), with regression gating in CI; every speed-up measured as time to equal accuracy. See [the performance plan](docs/plans/performance.md).
 - **Docs:** a theory page per method.
 
 ### 1.0: Stable
@@ -440,7 +493,10 @@ Each entry states its tolerance, grid, run time, and the source it is compared w
   - throughput (cell-updates per second for FDTD, solves per second for FDFD);
   - scaling with threads;
   - peak memory;
-  - for the GPU, speedup over the CPU at equal results.
+  - for the GPU, speedup over the CPU at equal results;
+  - bandwidth reached against the machine's measured roofline;
+  - scaling with processes and machines (0.7.1).
+- **Baselines for the kernels:** PARDISO (MKL), MUMPS, PETSc and SLEPc, run as external programs on matrices photonoxide exports, after their licences are checked; never linked.
 
 ## Not planned
 
@@ -452,7 +508,7 @@ Each entry states its tolerance, grid, run time, and the source it is compared w
 
 ## References
 
-Every reference below was checked against its DOI.
+Every reference below was checked against its DOI. The performance work's references (GPU, kernels, preconditioners, eigensolvers, domain decomposition) are listed with their DOIs in [the performance plan](docs/plans/performance.md#references).
 
 **FDTD and boundaries**
 - K. Yee, IEEE Trans. Antennas Propag. 14, 302 (1966). [10.1109/TAP.1966.1138693](https://doi.org/10.1109/TAP.1966.1138693)

@@ -120,8 +120,8 @@ impl Structure {
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidValue`] for an empty range or a bad step, and
-    /// [`Error::OutsideValidity`] if a material has no data at `wavelength`.
+    /// [`Error::InvalidValue`] for a cut at a `y` that isn't finite, an empty range or a bad
+    /// step, and [`Error::OutsideValidity`] if a material has no data at `wavelength`.
     pub fn side_view(
         &self,
         y: Length,
@@ -130,6 +130,12 @@ impl Structure {
         step: Length,
         wavelength: Wavelength,
     ) -> Result<Raster> {
+        if !y.to_um().is_finite() {
+            return Err(Error::invalid(
+                "raster",
+                format!("the cut must be at a finite y, got {y}"),
+            ));
+        }
         let xs = centres(x.0.to_um(), x.1.to_um(), step.to_um())?;
         let zs = centres(z.0.to_um(), z.1.to_um(), step.to_um())?;
         let mut values = Vec::with_capacity(xs.len() * zs.len());
@@ -243,5 +249,12 @@ mod tests {
             .top_view("Si", range, range, step, Wavelength::um(1.0).unwrap())
             .unwrap_err();
         assert!(matches!(e, Error::OutsideValidity { .. }), "{e}");
+        // a cut at y = NaN drew the cladding everywhere, as if it were a cut
+        let z = (Length::um(0.0), Length::um(3.0));
+        let e = s
+            .side_view(Length::um(f64::NAN), range, z, step, lam())
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("finite y"), "{e}");
     }
 }

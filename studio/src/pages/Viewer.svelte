@@ -23,6 +23,9 @@
   const GLASS = 0.15;
 
   let view = $state<"3d" | "2d">(app.state?.settings.view ?? "3d");
+  /** The page's width, and whether it is too narrow for the bar's full text and a 300 px side panel (a 960 px window is): as the builder judges it. */
+  let width = $state(0);
+  const narrow = $derived(width > 0 && width < 1060);
   let host: HTMLDivElement;
   let gizmo: SVGSVGElement;
   let three: View3D | null = null;
@@ -199,19 +202,21 @@
   </div>
 {/if}
 
-<div class="grid h-full grid-cols-[1fr_300px]" class:hidden={!run.info?.dir}>
+<div class="grid h-full {narrow ? 'grid-cols-[minmax(0,1fr)_220px]' : 'grid-cols-[minmax(0,1fr)_300px]'}" class:hidden={!run.info?.dir} bind:clientWidth={width}>
   <section class="flex min-h-0 min-w-0 flex-col">
     <!-- The run's state on the left, the views on the right. Nothing in it moves while a run goes:
          what changes (the clock, the point, the count) sits in a slot as wide as its longest text,
          in digits of one width; Stop comes and goes inside the state's slot; the sweep's
          progress is a line along the bar's foot, which takes no room. In a window too narrow for
-         it, the left side scrolls and the views stay in reach. -->
-    <div class="relative flex items-center gap-3 border-b border-base-content/8 px-5 py-2.5 whitespace-nowrap">
-      <div class="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto [scrollbar-width:thin] [&>*]:shrink-0">
+         it, the left side scrolls and the views stay in reach. On a narrow page (a 960 px
+         window) the bar says less so that it still fits: the sweep's value and point without the
+         parameter's name or the count, the clock without "running", and shorter buttons. -->
+    <div class="relative flex items-center gap-3 border-b border-base-content/8 py-2.5 whitespace-nowrap {narrow ? 'px-3' : 'px-5'}">
+      <div class="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto overflow-y-hidden [scrollbar-width:thin] [&>*]:shrink-0">
         <!-- the state and, while it can be stopped, Stop: one slot, so Stop's coming and going moves nothing -->
-        <span class="inline-flex min-w-44 items-center justify-start gap-1">
+        <span class="inline-flex items-center justify-start gap-1 {narrow ? '' : 'min-w-44'}">
           {#if live}
-            <span class="badge badge-success badge-soft gap-1.5"><span class="status status-success animate-pulse"></span> running · <span class="inline-block min-w-[5ch] text-right tabular-nums">{clock(elapsed)}</span></span>
+            <span class="badge badge-success badge-soft gap-1.5"><span class="status status-success animate-pulse"></span>{#if !narrow} running ·{/if} <span class="inline-block min-w-[5ch] text-right tabular-nums" title="Running for this long">{clock(elapsed)}</span></span>
             {#if run.stoppable}
               <button class="btn btn-ghost btn-xs btn-square" onclick={stop} aria-label="Stop the run" title="Stop the run at its next check; what it recorded stays"><Square size={12} /></button>
             {/if}
@@ -226,21 +231,21 @@
                (the unseen copy below), whichever of the two it shows. -->
           <span
             class="badge badge-soft inline-grid justify-items-start {run.point === null ? 'badge-ghost' : 'badge-primary'}"
-            title={run.point === null ? "The job's own configuration shows; the side panel's slider picks a point of the sweep" : `The sweep point the 3D and 2D views show: point ${run.point + 1} of ${axis.total}`}
+            title={run.point === null ? `A sweep over the ${axis.parameter}: the job's own configuration shows; the side panel's slider picks a point` : `The sweep point the 3D and 2D views show: ${axis.parameter}, point ${run.point + 1} of ${axis.total}`}
           >
             <span class="invisible col-start-1 row-start-1 flex items-center gap-1.5" aria-hidden="true">
-              <span class="status"></span>{axis.parameter} <span class="num">{len(axis.values[0] ?? 0, 4, true)}</span> <UnitChip tip="bottom" /> · <span class="tabular-nums">{axis.total}</span> of {axis.total}
+              <span class="status"></span>{narrow ? "" : axis.parameter} <span class="num">{len(axis.values[0] ?? 0, 4, true)}</span> <UnitChip tip="bottom" /> · <span class="tabular-nums">{axis.total}</span> of {axis.total}
             </span>
             <span class="col-start-1 row-start-1 flex items-center gap-1.5">
               <span class="status status-primary animate-pulse" class:invisible={!(live && run.following)}></span>
               {#if run.point === null || pointValue === null}
-                sweep over the {axis.parameter}
+                {narrow ? "sweep" : `sweep over the ${axis.parameter}`}
               {:else}
-                {axis.parameter} <span class="num">{len(pointValue, 4, true)}</span> <UnitChip tip="bottom" /> · <span class="inline-block text-right tabular-nums" style="min-width: {digits}ch">{run.point + 1}</span> of {axis.total}
+                {narrow ? "" : axis.parameter} <span class="num">{len(pointValue, 4, true)}</span> <UnitChip tip="bottom" /> · <span class="inline-block text-right tabular-nums" style="min-width: {digits}ch">{run.point + 1}</span> of {axis.total}
               {/if}
             </span>
           </span>
-          {#if live}
+          {#if live && !narrow}
             <span class="text-xs faint num" title="{points} of {axis.total} points solved"><span class="inline-block text-right" style="min-width: {digits}ch">{points}</span> / {axis.total}</span>
           {/if}
         {/if}
@@ -251,13 +256,13 @@
         <div class="absolute bottom-0 left-0 h-0.5 bg-primary transition-[width] duration-300" style="width: {(100 * points) / Math.max(axis.total, 1)}%" role="progressbar" aria-valuenow={points} aria-valuemin={0} aria-valuemax={axis.total} aria-label="The sweep's points solved"></div>
       {/if}
       {#if run.job && run.job.kind !== "structure"}
-        <button class="btn btn-ghost btn-sm shrink-0 gap-1.5" onclick={() => (solving = true)} title="The solver this run uses, its grid, each solve's numerical error, and the method's equations and papers">
-          <Cpu size={14} /> Solver
+        <button class="btn btn-ghost btn-sm shrink-0 gap-1.5 {narrow ? 'btn-square' : ''}" aria-label="Solver" onclick={() => (solving = true)} title="The solver this run uses, its grid, each solve's numerical error, and the method's equations and papers">
+          <Cpu size={14} />{#if !narrow} Solver{/if}
         </button>
       {/if}
       <div class="join shrink-0" role="tablist" aria-label="view">
-        <button class="btn join-item btn-sm gap-1.5 {view === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (view = "3d")} title="The structure as solids, with the field painted on it"><Box size={14} /> 3D</button>
-        <button class="btn join-item btn-sm gap-1.5 {view === '2d' ? 'btn-primary btn-soft' : ''}" onclick={() => (view = "2d")} title="Pictures and plots"><ChartLine size={14} /> 2D</button>
+        <button class="btn join-item btn-sm gap-1.5 {view === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (view = "3d")} title="The structure as solids, with the field painted on it">{#if !narrow}<Box size={14} />{/if} 3D</button>
+        <button class="btn join-item btn-sm gap-1.5 {view === '2d' ? 'btn-primary btn-soft' : ''}" onclick={() => (view = "2d")} title="Pictures and plots">{#if !narrow}<ChartLine size={14} />{/if} 2D</button>
       </div>
     </div>
 

@@ -85,10 +85,37 @@ impl FdfdTask {
         check_cells("x_um", self.x_um, self.step_nm)?;
         check_cells("y_um", self.y_um, self.step_nm)?;
         check_finite("field_um", self.field_um)?;
-        for p in &self.port {
+        if self.pml_cells == Some(0) {
+            return Err(task_error(
+                "pml_cells must be at least 1: without PMLs the window's walls send everything \
+                 back, and the S-parameters are a closed box's",
+            ));
+        }
+        for (k, p) in self.port.iter().enumerate() {
             check_finite("a port's x_um", Some(p.x_um))?;
             if let Some(y) = p.y_um {
                 check_window("a port's y_um", y)?;
+                // (a hair's slack for a bound typed as the window's own)
+                let slack = 1e-9;
+                if y[0] < self.y_um[0] - slack || y[1] > self.y_um[1] + slack {
+                    return Err(task_error(format!(
+                        "the port at x = {} um: its y_um, {} to {}, must lie inside the window's, \
+                         {} to {}",
+                        p.x_um, y[0], y[1], self.y_um[0], self.y_um[1]
+                    )));
+                }
+            }
+            if let Some(same) = self.port[..k]
+                .iter()
+                .position(|q| q.x_um == p.x_um && q.side == p.side && q.y_um == p.y_um)
+            {
+                return Err(task_error(format!(
+                    "ports {} and {} are the same (x = {} um, {}): each port needs its own place",
+                    same + 1,
+                    k + 1,
+                    p.x_um,
+                    p.side
+                )));
             }
         }
         if let Some(sw) = &self.sweep {
@@ -697,10 +724,23 @@ fn place(
     let refused =
         |reason: String| task_error(format!("the port at x = {} um: {reason}", spec.x_um));
     if rows.len() < 3 {
-        return Err(refused(format!(
-            "the window, rows {} to {}, must have 3 rows or more on the grid's {}",
-            rows.start, rows.end, g.ny
-        )));
+        return Err(refused(match spec.y_um {
+            // in the job's own terms: its y_um against the window's
+            Some([a, b]) => format!(
+                "its y_um [{a}, {b}] covers {} {} of the window (y from {} to {} um, {} rows); \
+                 a port needs 3 rows or more",
+                rows.len(),
+                if rows.len() == 1 { "row" } else { "rows" },
+                // to the picometre, without the grid's rounding
+                (g.y0 * 1e6).round() / 1e6,
+                ((g.y0 + g.dy * g.ny as f64) * 1e6).round() / 1e6,
+                g.ny
+            ),
+            None => format!(
+                "the window, rows {} to {}, must have 3 rows or more on the grid's {}",
+                rows.start, rows.end, g.ny
+            ),
+        }));
     }
     let (low, high) = boundaries.x.pml();
     if !(column >= low + 2 && column + 3 + high <= g.nx) {

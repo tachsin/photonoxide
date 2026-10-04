@@ -54,6 +54,14 @@ papers:
     doi: 10.1063/1.4800554
   - cite: "R. Ferrini et al., Eur. Phys. J. B 27, 449 (2002)"
     doi: 10.1140/epjb/e2002-00177-x
+  - cite: "E. Z. Ulsig et al., Opt. Express 32, 36986 (2024)"
+    doi: 10.1364/OE.523615
+  - cite: "International Tables for Crystallography, Vol. A (2016)"
+    doi: 10.1107/97809553602060000114
+  - cite: "G. Sinatkas, T. Christopoulos, O. Tsilipakos, E. E. Kriezis, J. Appl. Phys. 130, 010901 (2021)"
+    doi: 10.1063/5.0048712
+  - cite: "E. Timurdogan, C. V. Poulton, M. J. Byrd, M. R. Watts, Nat. Photonics 11, 200 (2017)"
+    doi: 10.1038/nphoton.2017.14
 validation:
   - material/silica-leviton-table
   - material/linbo3-zelmon-633
@@ -71,6 +79,7 @@ validation:
   - material/ingap-tanaka-ueno
   - material/inp-pettit-turner-suzuki
   - material/inp-suzuki-tada-voltages
+  - material/inp-suzuki-tada-faust-henry
   - material/aln-majkic-d33
   - material/aln-rigler-se
   - material/aln-rigler-maie
@@ -82,8 +91,36 @@ validation:
 traced to the paper it comes from: the refractive index (one or more models, each a `Material`
 for given conditions), the crystal, the second-order nonlinear tensor $d_{il}$, the linear
 electro-optic tensor $r_{ij}$, and a few constants such as static permittivities. Every value was
-read from its primary paper; a property with no primary number in hand is listed as missing,
-with the reason, rather than filled from a compilation. The studio's Materials page shows it all.
+read from its primary paper; a property with no primary number in hand is listed as coming, with
+the paper it will come from (`Entry::coming`), rather than filled from a compilation. Each entry
+also has tags (`Entry::tags`): what the crystal is and what its symmetry allows, each a statement
+with its physics, caveats and sources. The studio's Materials page shows it all, the tags and what
+is coming as hover cards.
+
+## Tags
+
+The point group is written in both notations, Hermann–Mauguin with overbars and Schoenflies:
+silicon $m\bar 3m$ ($O_h$), space group $Fd\bar 3m$; GaAs, AlGaAs, InGaP and InP $\bar 4 3m$
+($T_d$), $F\bar 4 3m$; lithium niobate $3m$ ($C_{3v}$), $R3c$; AlN and AlGaN $6mm$ ($C_{6v}$),
+$P6_3mc$; the glasses the limiting group $\infty\infty m$ ($K_h$), on average (J. F. Nye,
+*Physical Properties of Crystals*, Oxford, 1957; the International Tables, Vol. A).
+
+**Centrosymmetric (inversion centre)** states a consequence and its limits. Under the inversion
+a polar tensor of rank 3 changes sign, $T_{ijk} = -T_{ijk}$, so the bulk $\chi^{(2)}$ and Pockels
+$r$ vanish (Neumann's principle). That holds in the electric-dipole approximation: the bulk keeps
+weak electric-quadrupole and magnetic-dipole terms; surfaces and interfaces break the inversion;
+inhomogeneous strain gives an effective $\chi^{(2)}$ (a few pm/V in simulations of strained
+silicon, Sinatkas et al. 2021, p. 010901-12); a static field gives one too,
+$\chi^{(2)}_\mathrm{eff} \propto \chi^{(3)} E_0$ (electric-field-induced second harmonics, used
+in silicon p–n junctions, Timurdogan et al. 2017); and $\chi^{(3)}$, the Kerr effect, is allowed.
+
+**Non-centrosymmetric** tags state what the point group allows, read from the same table the
+tensors follow (`pattern`), so the tags and the tensors can't disagree: $\bar 4 3m$ has
+$d_{14} = d_{25} = d_{36}$ and $r_{41} = r_{52} = r_{63}$; $3m$ has $d_{15} = d_{24}$,
+$d_{22} = -d_{16} = -d_{21}$, $d_{31} = d_{32}$, $d_{33}$ and $r_{13} = r_{23}$,
+$r_{22} = -r_{12} = -r_{61}$, $r_{33}$, $r_{51} = r_{42}$; $6mm$ has $d_{15} = d_{24}$,
+$d_{31} = d_{32}$, $d_{33}$ and $r_{13} = r_{23}$, $r_{33}$, $r_{51} = r_{42}$. A test checks that
+every value a tensor gives is an element its tag names.
 
 ## Conventions
 
@@ -148,7 +185,13 @@ congruent Table 1 is printed the right way round.
   1.064 and 0.852 µm, congruent and 5% MgO; magnitudes, to better than 10%. Shoji finds many older
   values too large for neglecting multiple reflections in the plates: Choy & Byer's scale (on
   $d_{36}(\mathrm{KDP}) = 0.63$ pm/V) gives $d_{33} = 34.4$ pm/V at 1.06 µm, Miller et al.'s
-  27.2, Shoji's 25.2. $d_{22}$ and $d_{15}$ aren't measured there and stay unknown. The bulk
+  27.2, Shoji's 25.2. $d_{22}$ isn't measured there; it is Miller, Nordland and Bridenbaugh's
+  (1971, Table I): on a crystal from the congruent melt, $d_{22} = 5.6$ and $d_{33} = -72.4$
+  times $d_{36}(\mathrm{KDP})$ at 1.06 µm, each to ±10%. The catalogue puts that ratio on Shoji's
+  $d_{33}$, as it does AlN's: $|d_{22}| = (5.6/72.4) \cdot 25.2 = 1.9 \pm 0.3$ pm/V, opposite in
+  sign to $d_{31}$ and $d_{33}$. Roberts (1992, Table VI) lists the same measurement as 2.1 pm/V
+  on $d_{36}(\mathrm{KDP}) = 0.39$ pm/V. Miller's $d_{22}$ doesn't change with the melt's
+  composition within the error. No direct measurement of $d_{15}$ was found. The bulk
   clamped $r^S$ and $\varepsilon^S$ are Jazbinšek & Zgonik's fitted set (Table 5, 633 nm,
   25 °C), the unclamped $r^T$ their Table 4's fitted values. The thin film (x-cut LNOI) has
   $r_{33} = 26.9$ pm/V and $\tfrac12(r_{13} + 2r_{42}) = 15.0$ pm/V at 1550 nm, flat from 100 MHz
@@ -163,11 +206,15 @@ congruent Table 1 is printed the right way round.
 - **InGaP:** $d_{14} = 106 \pm 4$ pm/V at 1.55 µm from waveguide SHG (Ahler et al., an absolute
   determination on MBE and MOCVD films) and 110 pm/V at 1.579 µm from Maker fringes against the
   GaAs substrate (Ueno et al., assuming GaAs's 130 pm/V). CuPt ordering makes the crystal $3m$
-  about a ⟨111⟩ axis (Ueno's Eq. (1)); the entry is the disordered $ar 4 3m$ alloy. No
-  measurement of $r_{41}$ is in hand.
+  about a ⟨111⟩ axis (Ueno's Eq. (1)); the entry is the disordered $\bar 4 3m$ alloy. No
+  measurement of InGaP's $r_{41}$ was found; it is coming.
 - **InP:** $r_{41}^T$ and $r_{41}^S$ at 1.064, 1.208, 1.306 and 1.50 µm (Suzuki & Tada, Table I,
-  the sign assumed negative); $d_{14}$ only relative to GaAs at 10.6 µm (Lee & Fan,
-  0.78 ± 0.08), so no absolute value.
+  the sign assumed negative); $d_{14}$ relative to GaAs at 10.6 µm (Lee & Fan,
+  0.78 ± 0.08). Suzuki & Tada's Table II splits the clamped Pockels nonlinearity at 1.064 µm,
+  $d_{41}^{EO} = -n_0^4 r_{41}^S/4 = 39$ pm/V, with the Faust–Henry coefficient $C = -0.53$ (from
+  the LO and TO Raman intensities) into an electronic part $d_{41}^E = 83$ pm/V and a lattice part
+  $-44$ pm/V. The electronic part equals the SHG $d_{14}$ only where dispersion is negligible
+  (p. 293), so it is a constant here, not a $d$ tensor; an absolute SHG measurement is coming.
 - **AlN:** bulk $|d_{33}| = 4.3 \pm 0.3$ pm/V and $|d_{31}| = |d_{33}|/45$ at 1030 nm, and
   unclamped $|r_{33}| = 1.16$, $|r_{13}| = 0.11$ pm/V at 633 nm (Majkić et al.); a sputtered film
   gives $r_{13} = 0.67$ and $r_{33} = -0.59$ pm/V (Gräupner et al.), different in size and sign:
@@ -175,14 +222,39 @@ congruent Table 1 is printed the right way round.
   films; Pastrňák & Roskovcová's bulk $n_o = 2.17$ and $n_e = 2.22$ (±0.05) at 589 nm stay as
   constants.
 - **AlGaN:** Rigler et al. (2013) fit each of nine films separately and give no model in $x$, so
-  the catalogue has the nine films as models (sample 8, too rough, has no $n_e$); no tensors.
+  the catalogue has the nine films as models (sample 8, too rough, has no $n_e$). A model in $x$
+  (Brunner et al. 1997) is coming. The $d$ coefficients are Sanford et al.'s (2005, Table I), by
+  Maker fringes at 1064 nm on films from $x = 0$ to 0.666, as half the $\chi^{(2)}$ the table
+  prints: $d_{31}$ from 2.65 pm/V at $x = 0$ to 0.8 at 0.666 (±8%), and $d_{33}$ from $-3.7$ to
+  $+1.95$ (±40%), the two taking the same sign near $x = 0.66$ as in AlN. $d_{33} = -2 d_{31}$,
+  a perfect wurtzite lattice's, isn't obeyed.
 - **InGaP beyond Tanaka:** Ferrini et al. (2002) give a Sellmeier below the gap for each sample
   and $n$, $k$ above it for their undoped sample (Table 3, which prints its 4.1 eV row as 4.2).
-  Their Sellmeier is lower than Tanaka's by 0.6% at 1.55 µm and 1.9% near 0.95 µm. Ahler et al.'s
-  Zenodo deposit holds only cut-back loss data, no index model and no licence file, so there is
-  no bonded thin-film InGaP entry.
-- **AlGaAs:** Ohashi et al. (1993) give only $|d(x)/d(\mathrm{GaAs})|$, in a figure, and Adachi
-  (1985) has no electro-optic section, so AlGaAs's tensors are missing.
+  Their Sellmeier is lower than Tanaka's by 0.6% at 1.55 µm and 1.9% near 0.95 µm. Between 1.8 and 1.9 eV
+  neither covers the band edge, and Schubert et al. (1995) show it only as plots; Kato et al.
+  (1994) is coming. Ahler et al. measure the bonded film's index (Supplement 1, Fig. S4(b)) but
+  publish it only as a plot, and their Zenodo deposit holds only cut-back loss data, with no
+  licence file; a bonded thin-film model comes when that index is published.
+- **AlGaAs:** $d_{14} = 105 \pm 11$ pm/V at $x = 0.15$ and 1.94 µm (Ulsig et al. 2024, Table 1,
+  open access), from waveguide SHG over several lengths in AlGaAs on insulator, with
+  $d = \chi^{(2)}/2$ (their Eq. (S1)); the same method gives GaAs 119 ± 36 pm/V, Shoji's value.
+  Ohashi et al. (1993) give only $|d(x)/d(\mathrm{GaAs})|$, plotted; Ulsig's Table 1 quotes
+  $x = 0.20$ and 0.42 from it on Shoji's absolute scale (Shoji, Kondo, Ito 2002, coming). Adachi
+  (1985) has no electro-optic section; Berseth et al. (1992, p. 2823) take $r_{41}$ linear in $x$
+  with AlAs's equal to GaP's, an assumption. Glick, Reinhart and Martin (1988, Table I) measure
+  one solid solution: $r_{41} = -1.43$ pm/V for $x = 0.17$ at 1.1523 µm, from the TE–TM phase
+  difference in a p-i-n guide against its junction field, with no uncertainty given (their three
+  structures agree within 6%). Averaging GaAs's $-1.50$ and GaP's $-1.1$ pm/V by composition
+  gives the same number, which is their proposal for other $x$; no measurement against $x$ was
+  found.
+- **Lithium niobate with 5% MgO:** Shoji's $d$ coefficients; Jazbinšek & Zgonik's fit is for
+  undoped crystals and doping changes $r$ (p. 411), so the tensor isn't carried over. At constant
+  stress: $r_{33} = 30.1 \pm 0.2$ and $r_{13} = 9.3 \pm 0.04$ pm/V at 633 nm (Akiyama, Nakano and
+  Shoji 2017, Table 2; the same table has undoped congruent crystals at $30.3 \pm 0.6$ and
+  $9.5 \pm 0.6$, so the doping changes them by less than the error), and $r_{22}$ from Yonekura,
+  Jin and Takizawa (2007, Table 4): 6.20, 5.12 and 4.82 pm/V at 632.8, 1064 and 1550 nm, of 18
+  wavelengths from 409 to 1580 nm, with their fit in the tensor's notes. $r_{51}$ and the clamped
+  tensor of doped crystals weren't found measured.
 
 ## Validation
 
@@ -204,7 +276,8 @@ congruent Table 1 is printed the right way round.
 - Afromowitz: $\eta$ of GaAs as printed (0.1032).
 - InGaP: Tanaka's model gives the 3.12 Ueno et al. take from it at 1.579 µm (3.1224).
 - InP: Pettit & Turner's fit is within 0.004 of the indices Suzuki & Tada list, and the catalogue's
-  $r_{41}^T$ gives their half-wave voltages to 1%.
+  $r_{41}^T$ gives their half-wave voltages to 1%; its $r_{41}^S$ at 1.064 µm gives their Table II
+  (39, 83 and −44 pm/V) to 0.7%.
 - AlN: Majkić's measured ratio times the catalogue's LiNbO₃ $d_{33}$ gives 4.26 pm/V, their 4.3.
   Rigler's Sellmeier reproduces the 658 nm SE values of their Table I to 5.7e-4 and the
   independent multi-angle ellipsometry to 5.6e-3 (each ±0.01).

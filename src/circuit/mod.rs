@@ -107,7 +107,7 @@ impl SMatrix {
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidValue`] unless the rows make a square matrix.
+    /// [`Error::InvalidValue`] unless the rows make a square matrix of finite values.
     pub fn from_rows(rows: Vec<Vec<c64>>) -> Result<SMatrix> {
         let n = rows.len();
         if let Some(row) = rows.iter().find(|r| r.len() != n) {
@@ -117,6 +117,16 @@ impl SMatrix {
                     "must be square: {n} rows, but a row of {} values",
                     row.len()
                 ),
+            ));
+        }
+        if let Some(v) = rows
+            .iter()
+            .flatten()
+            .find(|v| !(v.re.is_finite() && v.im.is_finite()))
+        {
+            return Err(Error::invalid(
+                "S-matrix",
+                format!("every value must be finite, got {v}"),
             ));
         }
         Ok(SMatrix {

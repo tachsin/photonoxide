@@ -7,5 +7,13 @@ export default defineConfig({
   plugins: [tailwindcss(), svelte()],
   clearScreen: false,
   server: { port: 1430, strictPort: true },
-  build: { target: "es2022", outDir: "dist", emptyOutDir: true, chunkSizeWarningLimit: 2500 },
+  build: {
+    target: "es2022",
+    outDir: "dist",
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 2500,
+    // not the "[PLUGIN_TIMINGS]" warning on every build: compiling Svelte is JavaScript's work,
+    // and most of the build is that whatever we do
+    rolldownOptions: { checks: { bundlerTimings: false } },
+  },
 });

@@ -594,3 +594,15 @@ fn hadleys_dispersion_converges_where_the_standard_schemes_does_not() {
         "{fine:?}"
     );
 }
+
+#[test]
+fn a_ring_of_no_length_has_no_resonance_and_says_why() {
+    // it used to say "wavelength: must be positive and finite, got NaN um"
+    let ring = AllPassRing::new(wire(3.0)).unwrap();
+    for length in [0.0, -10.0, f64::NAN] {
+        let e = ring.resonance(um(1.55), length).unwrap_err().to_string();
+        assert!(e.contains("round trip must be a positive length"), "{e}");
+    }
+    let drop = AddDropRing::new(wire(3.0)).unwrap();
+    assert!(drop.resonance(um(1.55), 0.0).is_err());
+}

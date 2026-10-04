@@ -279,6 +279,27 @@ export interface MaterialEntry {
   constants: Constant[];
   missing: { property: string; reason: string }[];
   references: Reference[];
+  /** What the crystal is and what its symmetry allows; label and detail are text with $…$ TeX. */
+  tags: MaterialTag[];
+  /** What has no number yet, with the paper it will come from. */
+  coming: Coming[];
+}
+
+export interface MaterialTag {
+  kind: "category" | "system" | "point-group" | "space-group" | "symmetry" | "optical";
+  label: string;
+  detail: string;
+  source: string;
+}
+
+export interface Coming {
+  property: string;
+  /** Short, e.g. "Glick, Reinhart & Martin 1988"; empty when no measurement was found. */
+  source: string;
+  citation: string;
+  doi: string;
+  open: boolean;
+  detail: string;
 }
 
 export interface MaterialCurve {

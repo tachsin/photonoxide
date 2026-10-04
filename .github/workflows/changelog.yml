@@ -1,0 +1,86 @@
+name: Changelog
+
+# The release PR's new CHANGELOG.md section must list every PR merged since the last release.
+# release-plz gives the crate's changelog only the commits that touch the crate's files, and
+# Cargo.toml excludes studio/ and site/, so a PR that changed only those is left out although the
+# release carries the program built from it. This lists such PRs, with their lines ready to paste,
+# and reports a "Changelog" status on the release PR's head commit.
+#
+# Called after release-plz opens or updates the release PR (release-plz.yml: its commits, pushed
+# with GITHUB_TOKEN, start no CI) and when someone pushes to the release PR (ci.yml).
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: the release PR's branch
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  check:
+    name: Every PR since the last release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check the new section
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          base=$(git merge-base HEAD origin/main)
+          tag=$(git describe --tags --abbrev=0 --match 'v*' "$base")
+          # the section release-plz wrote: from the first version heading to the next
+          section=$(awk '/^## \[Unreleased\]/ { next } /^## \[/ { n++ } n == 1' CHANGELOG.md)
+          pull="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull"
+          # release-plz.toml's commit_parsers: these types are skipped, except a breaking build
+          skipped='^(test|ci|build|chore|style)[(:!]'
+          title='^([a-z]+)(\(([^)]*)\))?!?: (.*) \(#[0-9]+\)$'
+          missing=()
+          lines=""
+          while IFS= read -r subject; do
+            [[ $subject =~ \(#([0-9]+)\)$ ]] || continue
+            n=${BASH_REMATCH[1]}
+            if [[ $subject =~ $skipped && ! $subject =~ ^build! ]]; then continue; fi
+            grep -qF "[#$n]($pull/$n)" <<<"$section" && continue
+            missing+=("#$n")
+            if [[ $subject =~ $title ]]; then
+              case ${BASH_REMATCH[1]} in
+                feat) group=Added ;; fix) group=Fixed ;; perf) group=Performance ;;
+                refactor | build) group=Changed ;; docs) group=Documentation ;; *) group="Project setup" ;;
+              esac
+              scope=${BASH_REMATCH[3]:+*(${BASH_REMATCH[3]})* }
+              lines+="$group: - $scope${BASH_REMATCH[4]} ([#$n]($pull/$n))"$'\n'
+            else
+              lines+="Project setup: - ${subject% (#*} ([#$n]($pull/$n))"$'\n'
+            fi
+          done < <(git log --reverse --format=%s "$tag..$base")
+
+          if (( ${#missing[@]} == 0 )); then
+            state=success
+            description="Every PR since $tag is in the new section"
+            echo "$description." >> "$GITHUB_STEP_SUMMARY"
+          else
+            state=failure
+            description="Missing since $tag: ${missing[*]}"
+            {
+              echo "The new CHANGELOG.md section leaves out ${#missing[@]} PRs merged since $tag."
+              echo "Add each line to its group, push to the release PR, then merge it:"
+              echo
+              echo '```markdown'
+              printf '%s' "$lines"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            printf '%s' "$lines"
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$(git rev-parse HEAD)" \
+            -f state="$state" -f context=Changelog -f description="${description:0:140}" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > /dev/null
+          [[ $state == success ]]

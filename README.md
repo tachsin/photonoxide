@@ -26,16 +26,16 @@ studio: a desktop window where you build jobs and chips, watch them run in 3D an
 the report. The plan goes on to FDTD, thermal and electro-optic modulators, inverse design,
 layout and tape-out; see the [roadmap](ROADMAP.md).
 
-> **Alpha.** The latest release is **0.4.0**: materials, mode solvers and FDFD, components and
-> circuits, compact models, and the studio. Next is 0.4.1, a stronger preconditioner for
-> high-contrast 3D FDFD. The API will change between milestones.
+> **Alpha.** The latest release is **0.4.1**: materials, mode solvers and FDFD, components and
+> circuits, compact models, and the studio. Next is 0.4.2, a stronger preconditioner for
+> high-contrast 3D FDFD and the whole CPU put to use. The API will change between milestones.
 
 The project's pages are at [tachsin.gr/projects/photonoxide](https://tachsin.gr/projects/photonoxide):
 the methods, the examples with their output, the validation report and the roadmap.
 
 ## What you can do today
 
-In the 0.4.0 release:
+In the 0.4.1 release:
 
 - **Materials with provenance:** Sellmeier, Cauchy, Drude and Lorentz models with their source,
   validity range and temperature, and refractiveindex.info files read with theirs
@@ -77,11 +77,14 @@ In the 0.4.0 release:
   Tanaka's range (Ferrini 2002).
 - **Validation against measurement:** Dwivedi et al. 2015's Mach-Zehnder interferometers,
   predicted from their wires' measured cross-sections.
-- **Jobs and runs:** a job is a TOML file (`modes`, `fdfd` or `structure`); every run is
+- **Jobs and runs:** a job is a TOML file (`modes`, `fdfd` or `structure`), with light along x
+  in every kind; the check refuses what the run would refuse, before it starts; every run is
   recorded as events and replays exactly.
 
-Next, in 0.4.1: a stronger preconditioner for high-contrast 3D FDFD (multigrid that copes with
-PMLs, or a sweeping one), so a component's 3D fidelity takes minutes.
+Next, in 0.4.2: a stronger preconditioner for high-contrast 3D FDFD (multigrid that copes with
+PMLs), so a component's 3D fidelity takes minutes, and the whole CPU put to use (sweeps side by
+side, faster QMR kernels, nested dissection), as the [performance plan](docs/plans/performance.md)
+sets out.
 
 [Getting started](docs/getting-started.md) goes from `cargo add` to a strip waveguide's modes.
 The API is on [docs.rs](https://docs.rs/photonoxide).
@@ -210,10 +213,13 @@ and CI checks their output too.
 | 0.3 FDFD | 2D and 3D, mode ports, S-parameters, adjoints, an iterative 3D solver; Hadley's high-accuracy mode solver | ✅ released |
 | 0.3.1 – 0.3.3 The studio and materials | The studio as a workspace (examples inside, the job builder, run comparison, updates by one click); rings and 3D previews; the travelling mode in 3D, sweeps in the viewer, the report's math, every theme; the materials catalogue | ✅ released |
 | 0.4 Components and circuits | Components at several fidelities, netlists, the circuit adjoint, optimization through genoxide, compact models, Touchstone, 3D FDFD ports; the studio's component library and chip view | ✅ released |
-| 0.4.1 A 3D preconditioner | A stronger preconditioner for high-contrast 3D FDFD (0.4.0 has ILU(0)), so a component's 3D fidelity takes minutes | 🚧 next |
-| 0.5 FDTD | 2D and 3D Yee, CPML, subpixel smoothing, dispersive media, GPU | planned |
+| 0.4.1 Polish | Light along x in every job, µm/nm, live sweeps, every page at 960 × 600, a job check that matches the run, bends at any radius, crystal tags and five catalogue gaps filled | ✅ released |
+| 0.4.2 A 3D preconditioner and the whole CPU | A stronger preconditioner for high-contrast 3D FDFD (multigrid), and the CPU's cores and bandwidth put to use | 🚧 next |
+| 0.5 FDTD | 2D and 3D Yee, CPML, subpixel smoothing, dispersive media, a GPU backend (wgpu) | planned |
+| 0.5.1 Many solves at once | Block solves for ports, recycling across sweeps, contour-integral mode solvers, farming across processes | planned |
 | 0.6 Thermal and electro-optic | Heat and electrostatics, thermo-optic phase shifters, Pockels modulators (thin-film lithium niobate first), travelling-wave electrodes | planned |
 | 0.7 Inverse design | Adjoint topology and shape optimization, fabrication constraints, the 2D-to-3D pipeline, device and circuit co-design | planned |
+| 0.7.1 Distributed memory | Domain decomposition across processes and machines, results independent of their number | planned |
 | 0.8 Carrier modulators and signals | Drift-diffusion, plasma-dispersion modulators, time-domain circuits and eye diagrams, programmable meshes | planned |
 | 0.9 Layout and PDK | GDSII and OASIS, parametric cells, routing, DRC, SiEPIC EBeam and Cornerstone | planned |
 | 0.10 Tape-out | Submission packages, test structures, sign-off, openEBL and Cornerstone runs, measurements back | planned |

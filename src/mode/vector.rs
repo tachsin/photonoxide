@@ -569,6 +569,18 @@ fn coefficients(
     (xx, xy)
 }
 
+/// A mode search's `near`, an effective index to look about: finite when given (a NaN would
+/// only surface as an eigensolver that doesn't converge).
+pub(crate) fn check_near(near: Option<f64>) -> Result<()> {
+    match near {
+        Some(n) if !n.is_finite() => Err(Error::invalid(
+            "mode search",
+            format!("the effective index to look near must be finite, got {n}"),
+        )),
+        _ => Ok(()),
+    }
+}
+
 /// The unknowns: H_x and H_y at every node (i, j), numbered i·(ny + 1) + j, except a component
 /// that is odd across a wall at the wall's own nodes, where it is zero.
 fn unknowns(cs: &CrossSection) -> Vec<(Component, usize)> {
@@ -754,6 +766,12 @@ fn assemble(cs: &CrossSection, k2: f64) -> Vec<(usize, usize, c64)> {
 /// points in `fixed` (interfaces) are nodes. Fine where the field changes fast (a waveguide's
 /// core), coarse where it doesn't: keep `growth` small (a few hundredths), since the scheme loses
 /// accuracy where neighbouring spacings differ much.
+///
+/// # Panics
+///
+/// Unless `a` and `b` are finite with `a` < `b`, `h` is positive and finite, `growth` is finite
+/// and at least 0, and `max`, the box and `fixed` hold no NaN: the nodes would otherwise never
+/// reach `b`.
 pub fn graded_nodes(
     a: f64,
     b: f64,
@@ -763,6 +781,22 @@ pub fn graded_nodes(
     max: f64,
     fixed: &[f64],
 ) -> Vec<f64> {
+    assert!(
+        a.is_finite() && b.is_finite() && a < b,
+        "graded_nodes needs finite ends a < b, got {a} and {b}"
+    );
+    assert!(
+        h.is_finite() && h > 0.0 && growth.is_finite() && growth >= 0.0,
+        "graded_nodes needs a positive, finite spacing h and a finite growth of at least 0, got \
+         h = {h} and growth = {growth}"
+    );
+    assert!(
+        ![max, fine.0, fine.1]
+            .iter()
+            .chain(fixed)
+            .any(|p| p.is_nan()),
+        "graded_nodes needs a maximum, a box and fixed points that are numbers"
+    );
     let step = |x: f64| -> f64 {
         let d = if x < fine.0 {
             fine.0 - x
@@ -969,16 +1003,37 @@ impl VectorMode {
 ///
 /// # Errors
 ///
-/// [`Error::InvalidValue`] for a count of 0, or if the eigenproblem fails to converge.
+/// [`Error::InvalidValue`] for a count of 0, a `near` that isn't finite, or if the eigenproblem
+/// fails to converge.
 pub fn modes(
     cs: &CrossSection,
     wavelength: Wavelength,
     count: usize,
     near: Option<f64>,
 ) -> Result<Vec<VectorMode>> {
+    // (never asked to stop, it always has its modes or an error)
+    Ok(modes_until(cs, wavelength, count, near, || false)?.unwrap_or_default())
+}
+
+/// As [`modes`], giving up when `stop` says so: `None` then. A solve for many modes on a fine
+/// grid takes minutes, and a job's time limit or its stop must be able to end it: `stop` is
+/// asked before each step of the eigensolver (one solve with the shifted matrix's factors
+/// each). The factorization itself, before the first step, isn't interrupted.
+///
+/// # Errors
+///
+/// As [`modes`].
+pub fn modes_until(
+    cs: &CrossSection,
+    wavelength: Wavelength,
+    count: usize,
+    near: Option<f64>,
+    stop: impl Fn() -> bool,
+) -> Result<Option<Vec<VectorMode>>> {
     if count == 0 {
         return Err(Error::invalid("mode count", "must be at least 1"));
     }
+    check_near(near)?;
     let k = wavelength.wavenumber();
     let k2 = k * k;
     let n_max = near.unwrap_or_else(|| {
@@ -990,11 +1045,17 @@ pub fn modes(
     let unknowns = unknowns(cs);
     let entries = assemble(cs, k2);
     let shift = c64::new(k2 * n_max * n_max, 0.0);
-    let pairs = crate::eigen::nearest(unknowns.len(), &entries, shift, count, 1e-9)?;
-    Ok(pairs
-        .into_iter()
-        .map(|p| VectorMode::from_unknowns(cs, k, p.value, &unknowns, &p.vector))
-        .collect())
+    let Some(pairs) =
+        crate::eigen::nearest_until(unknowns.len(), &entries, shift, count, 1e-9, &stop)?
+    else {
+        return Ok(None);
+    };
+    Ok(Some(
+        pairs
+            .into_iter()
+            .map(|p| VectorMode::from_unknowns(cs, k, p.value, &unknowns, &p.vector))
+            .collect(),
+    ))
 }
 
 impl VectorMode {
@@ -1435,6 +1496,30 @@ mod tests {
     }
 
     #[test]
+    fn a_solve_asked_to_stop_gives_up_at_its_next_step() {
+        let cs = strip(0.05);
+        let w = Wavelength::um(1.55).unwrap();
+        // asked to stop from the third question on: no modes, and no more than that was asked
+        let asked = std::cell::Cell::new(0);
+        let stopped = modes_until(&cs, w, 2, None, || {
+            asked.set(asked.get() + 1);
+            asked.get() >= 3
+        })
+        .unwrap();
+        assert!(stopped.is_none());
+        assert_eq!(asked.get(), 3);
+        // not asked to stop: the modes `modes` finds
+        let whole = modes(&cs, w, 2, None).unwrap();
+        let until = modes_until(&cs, w, 2, None, || false).unwrap().unwrap();
+        assert_eq!(whole.len(), 2);
+        for (a, b) in whole.iter().zip(&until) {
+            assert_eq!(a.effective_index(), b.effective_index());
+        }
+        // and a count of 0 is still an error
+        assert!(modes_until(&cs, w, 0, None, || false).is_err());
+    }
+
+    #[test]
     fn a_uniform_box_has_its_exact_discrete_modes() {
         // homogeneous ε, H = 0 one spacing beyond the window: the modes are sines with
         // β² = k²ε − (4/hx²) sin²(pπ/(2(Nx+1))) − (4/hy²) sin²(qπ/(2(Ny+1))), Nx nodes along x
@@ -1861,5 +1946,29 @@ mod tests {
         );
         let bad = Permittivity::isotropic(c64::new(f64::NAN, 0.0));
         assert!(CrossSection::new(vec![0.0, 1.0, 2.0], vec![0.0, 1.0, 2.0], vec![bad; 4]).is_err());
+    }
+
+    #[test]
+    fn a_search_near_a_nan_is_an_error_that_says_so() {
+        // it used to reach the eigensolver and come back as "NoConvergence"
+        let w = Wavelength::um(1.55).unwrap();
+        let e = modes(&strip(0.05), w, 1, Some(f64::NAN))
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("must be finite"), "{e}");
+        assert!(modes(&strip(0.05), w, 1, Some(f64::INFINITY)).is_err());
+    }
+
+    #[test]
+    #[should_panic(expected = "graded_nodes needs a positive, finite spacing h")]
+    fn graded_nodes_with_no_spacing_panic_instead_of_filling_the_memory() {
+        // h = 0 never reached b: it looped, allocating, until the memory ran out
+        graded_nodes(-1.0, 1.0, (-0.2, 0.2), 0.0, 0.05, 0.1, &[]);
+    }
+
+    #[test]
+    #[should_panic(expected = "graded_nodes needs finite ends a < b")]
+    fn graded_nodes_to_infinity_panic() {
+        graded_nodes(-1.0, f64::INFINITY, (-0.2, 0.2), 0.01, 0.05, 0.1, &[]);
     }
 }
