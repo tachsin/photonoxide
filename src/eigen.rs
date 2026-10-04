@@ -5,7 +5,8 @@
 //! author's site): Arnoldi's method with modified Gram–Schmidt (Algorithm 6.2) and a second
 //! orthogonalization when cancellation is severe (Section 6.2.2), applied to (A − σI)⁻¹ so that
 //! the eigenvalues nearest σ converge first (Section 8.1.3), restarted from the wanted Ritz
-//! vectors until they converge (Algorithm 6.3, with several vectors combined). A Ritz pair is
+//! vectors until they converge (Algorithm 6.3, with several vectors combined), each restart
+//! with a larger Krylov space than the last. A Ritz pair is
 //! accepted only when its true residual ‖Ax − λx‖ / (|λ| ‖x‖) is small, computed with A itself.
 
 use faer::linalg::solvers::Solve;
@@ -100,7 +101,8 @@ pub(crate) fn nearest_until(
         (0..n).map(|i| rhs[(i, 0)]).collect()
     };
 
-    let m = n.min((2 * count + 20).max(40));
+    // the Krylov space of the first run; each restart that follows takes one as large again
+    let first = (2 * count + 20).max(40);
     // a fixed start vector: results don't depend on chance
     let mut start: Vec<c64> = (0..n)
         .map(|i| {
@@ -111,7 +113,11 @@ pub(crate) fn nearest_until(
         })
         .collect();
     let mut best: Vec<Pair> = Vec::new();
-    for _restart in 0..20 {
+    for restart in 0..20 {
+        // a restart keeps one vector, the wanted Ritz vectors combined, so a space of the
+        // first run's size finds a few modes and stalls on more (six, on a strip's
+        // cross-section, whose cladding modes lie close together): it grows instead
+        let m = n.min(first * (restart + 1));
         let s = norm(&start);
         let mut v: Vec<Vec<c64>> = vec![start.iter().map(|x| x / s).collect()];
         let mut h = Mat::<c64>::zeros(m + 1, m);
@@ -199,6 +205,54 @@ pub(crate) fn nearest_until(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn finds_many_eigenvalues_among_close_ones() {
+        // the 2D Laplacian on a 24 x 20 grid, whose eigenvalues are known and lie close
+        // together: 6, 12 and 30 of them, each the exact one. (The case that needed the
+        // restarts' Krylov space to grow is a waveguide's cross-section: see
+        // job's a_modes_job_finds_eight_modes.)
+        let (nx, ny) = (24, 20);
+        let n = nx * ny;
+        let mut entries = Vec::new();
+        for j in 0..ny {
+            for i in 0..nx {
+                let r = j * nx + i;
+                entries.push((r, r, c64::new(4.0, 0.0)));
+                if i > 0 {
+                    entries.push((r, r - 1, c64::new(-1.0, 0.0)));
+                }
+                if i + 1 < nx {
+                    entries.push((r, r + 1, c64::new(-1.0, 0.0)));
+                }
+                if j > 0 {
+                    entries.push((r, r - nx, c64::new(-1.0, 0.0)));
+                }
+                if j + 1 < ny {
+                    entries.push((r, r + nx, c64::new(-1.0, 0.0)));
+                }
+            }
+        }
+        // exactly: 4 − 2cos(pπ/(nx+1)) − 2cos(qπ/(ny+1))
+        let mut exact: Vec<f64> = (1..=nx)
+            .flat_map(|p| (1..=ny).map(move |q| (p, q)))
+            .map(|(p, q)| {
+                let pi = std::f64::consts::PI;
+                4.0 - 2.0 * (p as f64 * pi / (nx + 1) as f64).cos()
+                    - 2.0 * (q as f64 * pi / (ny + 1) as f64).cos()
+            })
+            .collect();
+        exact.sort_by(f64::total_cmp);
+        for count in [6, 12, 30] {
+            let pairs = nearest(n, &entries, c64::new(0.0, 0.0), count, 1e-10)
+                .unwrap_or_else(|e| panic!("{count}: {e}"));
+            let mut found: Vec<f64> = pairs.iter().map(|p| p.value.re).collect();
+            found.sort_by(f64::total_cmp);
+            for (f, e) in found.iter().zip(&exact) {
+                assert!((f - e).abs() < 1e-8, "{count}: {f} vs {e}");
+            }
+        }
+    }
 
     #[test]
     fn gives_up_when_asked_and_is_the_same_when_not() {
