@@ -58,6 +58,9 @@ jobs:
     concurrency:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
+    outputs:
+      prs_created: ${{ steps.release-pr.outputs.prs_created }}
+      pr: ${{ steps.release-pr.outputs.pr }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -65,7 +68,21 @@ jobs:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
       - uses: release-plz/action@v0.5.139
+        id: release-pr
         with:
           command: release-pr
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # the release PR's changelog lists every PR since the last release (release-plz leaves out those
+  # that changed only studio/ or site/). Its commits start no CI, so the check runs from here.
+  changelog:
+    name: Changelog
+    needs: release-pr
+    if: ${{ needs.release-pr.outputs.prs_created == 'true' }}
+    permissions:
+      contents: read
+      statuses: write
+    uses: ./.github/workflows/changelog.yml
+    with:
+      branch: ${{ fromJSON(needs.release-pr.outputs.pr).head_branch }}
