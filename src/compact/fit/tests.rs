@@ -170,6 +170,21 @@ fn bad_inputs_are_errors() {
     };
     assert!(fit(&s, std::slice::from_ref(&f), &real).contains("pairs"));
     assert!(fit(&s, std::slice::from_ref(&f), &Options::new(12)).contains("more samples"));
+    // every sample at one point: ten samples, and one thing known
+    let same = vec![c64::new(0.0, 2.0); 10];
+    let said = fit(&same, std::slice::from_ref(&f), &Options::new(2));
+    assert!(
+        said.contains("10 samples at 1 distinct points can't determine"),
+        "{said}"
+    );
+    // three points, each sampled several times, are three: not enough for 4 poles, enough for 1
+    let thrice: Vec<c64> = (0..9)
+        .map(|k| c64::new(0.0, 1.0 + (k % 3) as f64))
+        .collect();
+    let g = vec![c64::new(1.0, 0.0); 9];
+    let said = fit(&thrice, std::slice::from_ref(&g), &Options::new(4));
+    assert!(said.contains("9 samples at 3 distinct points"), "{said}");
+    assert!(vector_fit(&thrice, std::slice::from_ref(&g), &Options::new(1)).is_ok());
     let mut nan = f.clone();
     nan[3] = c64::new(f64::NAN, 0.0);
     assert!(fit(&s, &[nan], &Options::new(2)).contains("finite"));

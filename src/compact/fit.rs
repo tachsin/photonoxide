@@ -443,8 +443,9 @@ pub fn estimate_delay(s: &[c64], values: &[c64]) -> f64 {
 /// # Errors
 ///
 /// [`Error::InvalidValue`] for no samples or responses, responses of different lengths,
-/// non-finite values, an odd number of poles for a real model, fewer samples than unknowns per
-/// response, or starting poles that don't match the options.
+/// non-finite values, an odd number of poles for a real model, fewer distinct sample points
+/// than a response's unknowns need (samples repeated at one point count once), or starting
+/// poles that don't match the options.
 pub fn vector_fit(s: &[c64], responses: &[Vec<c64>], options: &Options) -> Result<Rational> {
     sequential(|| fit_responses(s, responses, options))
 }
@@ -506,10 +507,21 @@ fn fit_responses(s: &[c64], responses: &[Vec<c64>], options: &Options) -> Result
     polynomial_terms(options, c64::new(1.0, 0.0), &mut terms);
     // (a real model has one real unknown per pole; a complex model two)
     let own = poles.iter().map(|p| p.unknowns()).sum::<usize>() + terms.len();
-    if 2 * k < own + 1 {
-        return bad(format!(
-            "{k} samples can't determine {own} real unknowns per response: use more samples or fewer poles"
-        ));
+    // samples at the same point say the same thing twice: what counts is how many differ
+    let mut points: Vec<c64> = s.to_vec();
+    points.sort_by(|a, b| a.re.total_cmp(&b.re).then(a.im.total_cmp(&b.im)));
+    points.dedup();
+    let distinct = points.len();
+    if 2 * distinct < own + 1 {
+        return bad(if distinct == k {
+            format!(
+                "{k} samples can't determine {own} real unknowns per response: use more samples or fewer poles"
+            )
+        } else {
+            format!(
+                "{k} samples at {distinct} distinct points can't determine {own} real unknowns per response: use more points or fewer poles"
+            )
+        });
     }
     // the delays, taken out
     let delays: Vec<f64> = match &options.delay {

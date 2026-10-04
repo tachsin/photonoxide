@@ -1315,7 +1315,8 @@ pub fn check(job: &Job) -> Result<()> {
             task.validate()?;
             let stack = named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
             let s = draw(stack, &task.rect, &task.circle, &task.ring)?;
-            modes_z(&task, &s)?;
+            let z = modes_z(&task, &s)?;
+            modes_guide(&task, &s, z)?;
             if let Some(sw) = task.sweep.iter().find(|sw| sw.parameter == "wavelength") {
                 wavelengths.extend([sw.from, sw.to]);
             }
@@ -1377,6 +1378,50 @@ fn structure_scene(task: &StructureTask, s: &Structure) -> Result<Event> {
         z,
         Wavelength::um(task.wavelength_um)?,
     )
+}
+
+/// What a modes job needs for there to be a guide in its cross-section: a z window that
+/// reaches its layer, and a cut that meets a shape within the window across. Without either
+/// the solver would find the modes of bare cladding in a box, and call them the job's.
+fn modes_guide(task: &ModesTask, s: &Structure, z: [f64; 2]) -> Result<()> {
+    let (_, bottom, top) = s
+        .stack()
+        .layer(&task.layer)
+        .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
+    let (bottom, top) = (bottom.to_um(), top.to_um());
+    if z[1] <= bottom || z[0] >= top {
+        return Err(task_error(format!(
+            "z_um, {} to {}, doesn't reach the layer {} ({bottom} to {top} um): the \
+             cross-section would hold no guide",
+            z[0], z[1], task.layer
+        )));
+    }
+    let (along, across, cut) = (task.along()?, task.across()?, task.cut()?);
+    // along the cut, across the window, a quarter of the step apart
+    let step = task.step_nm / 4000.0;
+    let count = ((across[1] - across[0]) / step).ceil() as usize;
+    let meets = (0..=count).any(|k| {
+        let a = (across[0] + k as f64 * step).min(across[1]);
+        let p = match along {
+            Along::X => Point::um(cut, a),
+            Along::Y => Point::um(a, cut),
+        };
+        s.stack()
+            .layers()
+            .iter()
+            .any(|l| s.shapes(&l.name).iter().any(|shape| shape.contains(p)))
+    });
+    if !meets {
+        return Err(task_error(format!(
+            "the cross-section at {} = {cut} um meets no shape between {} = {} and {} um: there \
+             is no guide there to solve",
+            along.name(),
+            along.across(),
+            across[0],
+            across[1]
+        )));
+    }
+    Ok(())
 }
 
 /// A modes job's window height: `z_um`, else 1 µm below and above its layer.
@@ -1464,6 +1509,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let view = format!("cross-section at {} = {cut} um", along.name());
     let s = draw(stack()?, &task.rect, &task.circle, &task.ring)?;
     let z = modes_z(&task, &s)?;
+    modes_guide(&task, &s, z)?;
     run.record(&modes_scene(&task, &s)?)?;
     if task.propagation.is_some() {
         run.record(&Event::Cut {
@@ -1512,8 +1558,10 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                     .into(),
             ],
             [
-                "grid".into(),
-                "nodes on every shape's edge and layer interface, cells of about the step".into(),
+                "nodes".into(),
+                "on every shape's edge and layer interface, cells of about the step between \
+                 them"
+                    .into(),
             ],
         ],
     })?;
@@ -2745,7 +2793,7 @@ points = 2
             ),
             (
                 with_port("[[task.port]]\nx_um = -0.4\nside = \"left\"\ny_um = [5.0, 6.0]"),
-                "its y_um [5, 6] covers 0 rows of the window",
+                "its y_um, 5 to 6, must lie inside the window's, -1.4 to 1.4",
             ),
             // a step a thousand times too small, in each kind: refused, not allocated
             (
@@ -2823,6 +2871,63 @@ points = 2
         let job = Job::parse(&JOB.replace("step_nm = 50.0", "step_nm = 0.2")).unwrap();
         let refused = check(&job).unwrap_err().to_string();
         assert!(refused.contains("is 11100 cells"), "{refused}");
+    }
+
+    #[test]
+    fn the_check_refuses_jobs_that_ran_on_something_other_than_what_they_say() {
+        // each of these ran, on a clipped port, a port counted twice, a closed box, or bare
+        // cladding: the check and the run now refuse them, in the same words
+        let left = "[[task.port]]\nx_um = -0.4\nside = \"left\"";
+        let right = "[[task.port]]\nx_um = 0.4\nside = \"right\"";
+        assert!(FDFD.contains(left) && FDFD.contains(right));
+        let cases = [
+            (
+                FDFD.replace(left, &format!("{left}\ny_um = [0.0, 5.0]")),
+                "the port at x = -0.4 um: its y_um, 0 to 5, must lie inside the window's, -1.4 to 1.4",
+            ),
+            (
+                FDFD.replace(right, left),
+                "ports 1 and 2 are the same (x = -0.4 um, left)",
+            ),
+            (
+                FDFD.replace("step_nm = 40.0", "step_nm = 40.0\npml_cells = 0"),
+                "pml_cells must be at least 1",
+            ),
+            (
+                MODES.replace("step_nm = 25.0", "step_nm = 25.0\ncut_y_um = 50.0"),
+                "the cross-section at y = 50 um meets no shape between x = -1 and 1 um",
+            ),
+            (
+                MODES.split("[[task.rect]]").next().unwrap().to_owned(),
+                "the cross-section at y = 0 um meets no shape",
+            ),
+            (
+                MODES.replace("step_nm = 25.0", "step_nm = 25.0\nz_um = [5.0, 6.0]"),
+                "z_um, 5 to 6, doesn't reach the layer Si (2 to 2.22 um)",
+            ),
+            (
+                MODES_X.replace("step_nm = 25.0", "step_nm = 25.0\ncut_x_um = 50.0"),
+                "the cross-section at x = 50 um meets no shape between y = -1 and 1 um",
+            ),
+        ];
+        for (text, says) in cases {
+            let job = Job::parse(&text).unwrap();
+            let refused = check(&job).unwrap_err().to_string();
+            assert!(refused.contains(says), "{refused}");
+            let root = temp("guideless");
+            let mut run = Run::create(&root.0, &job).unwrap();
+            let failed = execute(&job, &mut run, &Stop::new(None)).unwrap_err();
+            assert_eq!(refused, failed.to_string());
+        }
+        // what is still a job: a port's window that is the window's own, a z window that
+        // holds the layer and nothing else, a strip narrower than a cell of the sampling
+        for text in [
+            FDFD.replace(left, &format!("{left}\ny_um = [-1.4, 1.4]")),
+            MODES.replace("step_nm = 25.0", "step_nm = 25.0\nz_um = [1.9, 2.3]"),
+            MODES.replace("size_um = [0.5, 10.0]", "size_um = [0.01, 10.0]"),
+        ] {
+            check(&Job::parse(&text).unwrap()).unwrap();
+        }
     }
 
     #[test]
