@@ -47,7 +47,7 @@
 <svelte:window onkeydown={keys} />
 
 {#if app.ready}
-  <div class="grid h-full grid-cols-[auto_1fr] grid-rows-[auto_1fr_auto]">
+  <div class="grid h-full grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_1fr_auto]">
     <div class="row-span-3"><NavRail /></div>
     <TopBar />
     <main class="min-h-0 min-w-0 overflow-hidden">
