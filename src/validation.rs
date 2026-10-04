@@ -243,6 +243,13 @@ pub fn cases() -> Vec<Case> {
             run: catalogue::suzuki_tada_voltages,
         },
         Case {
+            id: "material/inp-suzuki-tada-faust-henry",
+            title: r"InP: the Pockels nonlinearity $d_{41}^{EO} = -n_0^4 r_{41}^S / 4$ from the catalogue's $r_{41}^S$ at 1.064 µm, and its electronic and lattice parts through the Faust–Henry coefficient $C = -0.53$, against the 39, 83 and −44 pm/V Suzuki and Tada print (largest relative deviation shown)",
+            tier: Tier::Published,
+            source: "N. Suzuki, K. Tada, Jpn. J. Appl. Phys. 23, 291 (1984), doi:10.1143/JJAP.23.291, Eqs. (6)–(7) and Table II (n₀ = 3.29); the printed values have two digits",
+            run: catalogue::suzuki_tada_faust_henry,
+        },
+        Case {
             id: "material/aln-majkic-d33",
             title: r"AlN: $d_{33}$ from the measured ratio $0.169\thinspace d_{33}(\mathrm{LiNbO_3})$ and the catalogue's $d_{33}$ of congruent lithium niobate at 1.064 µm (pm/V, shown)",
             tier: Tier::Published,

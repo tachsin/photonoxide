@@ -152,6 +152,13 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "",
     ),
     (
+        "ulsig-2024",
+        "E. Z. Ulsig, M. L. Madsen, E. J. Stanton et al., Opt. Express 32, 36986 (2024)",
+        "Efficient and widely tunable mid-infrared sources using GaAs and AlGaAs integrated platforms for second-order frequency conversion",
+        "10.1364/OE.523615",
+        "https://doi.org/10.1364/opticaopen.25540030.v1",
+    ),
+    (
         "tanaka-1986",
         "H. Tanaka, Y. Kawamura, H. Asahi, J. Appl. Phys. 59, 985 (1986)",
         "Refractive indices of In0.49Ga0.51-xAlxP lattice matched to GaAs",

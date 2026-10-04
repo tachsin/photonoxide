@@ -1,11 +1,12 @@
 //! The catalogue's entries.
 
+use super::coming;
 use super::models::{self, ZelmonColumn};
 use super::references::references;
 use super::symmetry::cells;
 use super::{
     Axis, Category, Clamping, CoefficientTable, Constant, Crystal, CrystalSystem, Entry,
-    IndexModel, Missing, OpticalClass, Parameter, Source, Tensor, TensorKind,
+    IndexModel, OpticalClass, Parameter, Source, Tensor, TensorKind,
 };
 use crate::Result;
 use crate::material::{self, Material};
@@ -38,13 +39,6 @@ fn temperature(min: f64, max: f64, default: f64) -> Option<Parameter> {
         max,
         default,
     })
-}
-
-fn missing(property: &str, reason: &str) -> Missing {
-    Missing {
-        property: property.into(),
-        reason: reason.into(),
-    }
 }
 
 const D_CONVENTION: &str =
@@ -190,7 +184,7 @@ fn silica() -> Entry {
                 eval: |t, _| one(models::leviton_frey(t)),
             },
         ],
-        tensors: centrosymmetric("∞∞m", "a glass has a centre of inversion: χ⁽²⁾ and r vanish"),
+        tensors: centrosymmetric("∞∞m", "isotropic on average, with the inversion among its symmetries: the bulk χ⁽²⁾ and r vanish in the electric-dipole approximation (the symmetry tag has what remains)"),
         constants: vec![],
         missing: vec![],
         references: references(&["malitson-1965", "leviton-frey-2006"]),
@@ -241,7 +235,7 @@ fn silicon() -> Entry {
         name: "Silicon".into(),
         formula: "Si".into(),
         category: Category::Semiconductor,
-        summary: "Crystalline silicon, the core of silicon photonics; centrosymmetric, so it has no bulk χ⁽²⁾ or Pockels effect.".into(),
+        summary: "Crystalline silicon, the core of silicon photonics; centrosymmetric, so its bulk has no χ⁽²⁾ or Pockels effect in the electric-dipole approximation.".into(),
         crystal: Crystal {
             system: CrystalSystem::Cubic,
             point_group: "m-3m".into(),
@@ -249,7 +243,7 @@ fn silicon() -> Entry {
             structure: "diamond".into(),
             optical: OpticalClass::Isotropic,
             centrosymmetric: true,
-            notes: "strain breaks the inversion symmetry and gives a small Pockels effect, which depends on the device".into(),
+            notes: "inhomogeneous strain, surfaces and a static field each give an effective χ⁽²⁾ that depends on the device (the symmetry tag)".into(),
         },
         index: vec![IndexModel {
             id: "li-1980".into(),
@@ -267,7 +261,7 @@ fn silicon() -> Entry {
             notes: "293 K; 35 recommended values".into(),
             eval: |_, _| Ok(vec![material::silicon()]),
         }],
-        tensors: centrosymmetric("m-3m", "diamond structure has a centre of inversion: χ⁽²⁾ and r vanish"),
+        tensors: centrosymmetric("m-3m", "the diamond structure has a centre of inversion: the bulk χ⁽²⁾ and r vanish in the electric-dipole approximation (the symmetry tag has what remains: surfaces, strain gradients, a static field)"),
         constants: vec![],
         missing: vec![],
         references: references(&["li-1980"]),
@@ -580,7 +574,7 @@ fn afromowitz_model() -> IndexModel {
         accuracy: "within 0.004 of GaAs data from 0.895 to 1.7 µm; of AlAs within 0.004 to 1.5 eV and 0.014 to 2 eV; compared with alloy data up to x = 0.38".into(),
         sources: vec![src("afromowitz-1974", "Eqs. (7)–(12), appendix")],
         default: false,
-        notes: "room temperature. The range starts 0.039 eV below the gap (where GaAs was checked, 0.895 µm) but not above 2 eV (where AlAs was), and ends at 1.7 µm. An older model kept for comparison; Gehrsitz et al. is the default".into(),
+        notes: "room temperature. The range starts 0.039 eV below the gap (where GaAs was checked, 0.895 µm) but not above 2 eV (where AlAs was), and ends at 1.7 µm. An older model kept for comparison; Gehrsitz et al. is the default. Adachi (1985, Eqs. (73)–(78), p. R24) gives a further model, fitted to Casey et al.'s indices for x ≤ 0.38 and Fern & Onton's AlAs; it states no range or accuracy, so it isn't one of the models here".into(),
         eval: |_, x| one(models::afromowitz(x)),
     }
 }
@@ -594,26 +588,24 @@ fn algaas() -> Entry {
         summary: "The GaAs-lattice-matched alloy of III-V photonics: its gap and index set by the Al fraction x.".into(),
         crystal: zincblende("a random alloy; lattice matched to GaAs for every x"),
         index: vec![gehrsitz_model(false), afromowitz_model()],
-        tensors: vec![],
+        tensors: vec![Tensor {
+            kind: TensorKind::SecondOrder,
+            label: "x = 0.15, SHG, 1.94 µm".into(),
+            point_group: "-43m".into(),
+            cells: cells(TensorKind::SecondOrder, "-43m", &[(1, 4, 105.0, Some(11.0))]),
+            wavelength: Some(1.94),
+            clamping: Clamping::None,
+            convention: D_CONVENTION.into(),
+            source: Some(src("ulsig-2024", "Table 1; Supplement 1, Eq. (S1)")),
+            notes: "magnitude, for Al₀.₁₅Ga₀.₈₅As only: an MBE film bonded to oxidized silicon (AlGaAs on insulator), from the second harmonic of 1.94 µm in waveguides of several lengths, with the measured losses and simulated mode overlaps (the coupled-amplitude equations, Eqs. (S4)–(S5)); d = χ⁽²⁾/2 as here (Eq. (S1)). The same method gives 119 ± 36 pm/V for GaAs at 1.96 µm, Shoji et al.'s value. Other compositions: see what is coming".into(),
+        }],
         constants: vec![],
-        missing: vec![
-            missing(
-                "d14(x)",
-                "Ohashi et al. 1993 measure only |d(x)/d(GaAs)| at 1.064 µm, plotted in Fig. 6 (±20%), with no table and no absolute value: no number to ship",
-            ),
-            missing(
-                "r41(x)",
-                "Adachi 1985 has no electro-optic section; no primary measurement of AlGaAs's r41 is in hand",
-            ),
-            missing(
-                "Adachi's index model",
-                "Adachi 1985, Eqs. (73)–(78), states no range or accuracy, so it isn't shipped",
-            ),
-        ],
+        missing: coming::missing("algaas"),
         references: references(&[
             "gehrsitz-2000",
             "papatryfonos-2021",
             "afromowitz-1974",
+            "ulsig-2024",
             "ohashi-1993",
             "adachi-1985",
         ]),
@@ -846,10 +838,7 @@ fn lithium_niobate() -> Entry {
                 source: src("chelladurai-2025", "main text, Fig. 4(a)"),
             },
         ],
-        missing: vec![missing(
-            "d22, d15",
-            "Shoji et al. measure d33 and d31 only; no other primary absolute measurement is in hand",
-        )],
+        missing: coming::missing("linbo3"),
         references: references(&[
             "zelmon-1997",
             "jundt-1997",
@@ -982,10 +971,7 @@ fn lithium_niobate_mgo() -> Entry {
             shoji_d(0.852, 28.4, 4.9, "Table 10"),
         ],
         constants: vec![],
-        missing: vec![missing(
-            "r_ij",
-            "no primary measurement of MgO-doped lithium niobate's electro-optic tensor is in hand",
-        )],
+        missing: coming::missing("linbo3-mgo"),
         references: references(&["zelmon-1997", "gayer-2008", "shoji-1997", "roberts-1992"]),
     }
 }
@@ -1078,20 +1064,7 @@ fn ingap() -> Entry {
             conditions: "room temperature (Table I; the text says ±0.03)".into(),
             source: src("schubert-1995", "Table I"),
         }],
-        missing: vec![
-            missing(
-                "r41",
-                "no measurement of InGaP's electro-optic coefficient is in hand",
-            ),
-            missing(
-                "n between 1.8 and 1.9 eV",
-                "Ferrini et al.'s Sellmeier ends at 1.8 eV and their Table 3 starts at 1.9 eV: the band edge itself isn't covered",
-            ),
-            missing(
-                "bonded thin film",
-                "Ahler et al.'s Zenodo deposit (doi:10.5281/zenodo.17748661) holds only cut-back loss measurements, with no index data and no licence file, so there is no thin-film InGaP model",
-            ),
-        ],
+        missing: coming::missing("ingap"),
         references: references(&[
             "tanaka-1986",
             "ferrini-2002",
@@ -1141,6 +1114,25 @@ fn pettit_turner_model(kelvin: f64) -> IndexModel {
     }
 }
 
+/// Suzuki & Tada's Table II (pm/V): the Pockels nonlinearity of InP at 1.064 µm and its
+/// electronic and lattice parts, from r₄₁ˢ and the Faust–Henry coefficient C.
+pub(super) const SUZUKI_TADA_DEO: f64 = 39.0;
+pub(super) const SUZUKI_TADA_DE: f64 = 83.0;
+pub(super) const SUZUKI_TADA_DL: f64 = -44.0;
+pub(super) const SUZUKI_TADA_C: f64 = -0.53;
+
+fn faust_henry(symbol: &str, name: &str, value: f64) -> Constant {
+    Constant {
+        symbol: symbol.into(),
+        name: name.into(),
+        value,
+        uncertainty: None,
+        unit: "pm/V".into(),
+        conditions: "1.064 µm, room temperature; d = χ⁽²⁾/2".into(),
+        source: src("suzuki-tada-1984", "Eqs. (6)–(7), Table II"),
+    }
+}
+
 fn inp() -> Entry {
     let r = |wavelength: f64, clamping: Clamping, value: f64| Tensor {
         kind: TensorKind::ElectroOptic,
@@ -1184,19 +1176,42 @@ fn inp() -> Entry {
             r(1.208, Clamping::Unclamped, -1.49),
             r(1.064, Clamping::Unclamped, -1.32),
         ],
-        constants: vec![Constant {
-            symbol: r"d_{14}(\mathrm{InP}) / d_{14}(\mathrm{GaAs})".into(),
-            name: "the ratio of the d coefficients, SHG in wedges against GaAs".into(),
-            value: 0.78,
-            uncertainty: Some(0.08),
-            unit: String::new(),
-            conditions: "fundamental 10.55 µm, room temperature".into(),
-            source: src("lee-fan-1974", "Table I"),
-        }],
-        missing: vec![missing(
-            "d14",
-            "Lee & Fan (1974) measure it only relative to GaAs at 10.6 µm (0.78 ± 0.08), against a GaAs value of (3.2 ± 1)e-7 esu they take from another paper: no absolute value is printed",
-        )],
+        constants: vec![
+            Constant {
+                symbol: r"d_{14}(\mathrm{InP}) / d_{14}(\mathrm{GaAs})".into(),
+                name: "the ratio of the d coefficients, SHG in wedges against GaAs (Lee & Fan print no absolute value: they quote GaAs's as (3.2 ± 1)×10⁻⁷ esu from another paper)".into(),
+                value: 0.78,
+                uncertainty: Some(0.08),
+                unit: String::new(),
+                conditions: "fundamental 10.55 µm, room temperature".into(),
+                source: src("lee-fan-1974", "Table I"),
+            },
+            faust_henry(
+                r"d_{41}^{EO}",
+                "the nonlinearity of the clamped Pockels effect, −n⁴r₄₁ˢ/4 with n = 3.29",
+                SUZUKI_TADA_DEO,
+            ),
+            faust_henry(
+                r"d_{41}^{E}",
+                "its electronic part, d^EO/(1 + C); it equals the SHG coefficient d₁₄ only where dispersion is negligible (p. 293)",
+                SUZUKI_TADA_DE,
+            ),
+            faust_henry(
+                r"d_{41}^{L}",
+                "its lattice (ionic) part, d^EO − d^E",
+                SUZUKI_TADA_DL,
+            ),
+            Constant {
+                symbol: r"C_{41}".into(),
+                name: "the Faust–Henry coefficient d^L/d^E, from the LO/TO Raman intensity ratio (1.99) and r₄₁ˢ".into(),
+                value: SUZUKI_TADA_C,
+                uncertainty: None,
+                unit: String::new(),
+                conditions: "1.064 µm, undoped InP, room temperature".into(),
+                source: src("suzuki-tada-1984", "Eqs. (6)–(8), Table II"),
+            },
+        ],
+        missing: coming::missing("inp"),
         references: references(&["pettit-turner-1965", "suzuki-tada-1984", "lee-fan-1974"]),
     }
 }
@@ -1467,16 +1482,7 @@ fn algan() -> Entry {
         index: (1..=9).map(rigler_2013_model).collect(),
         tensors: vec![],
         constants: vec![],
-        missing: vec![
-            missing(
-                "n(x)",
-                "Rigler et al. (2013) fit each film separately (Table II) and give no model in x: the catalogue has the nine films, not an interpolation",
-            ),
-            missing(
-                "d and r",
-                "the paper quotes only literature ranges for d33; no primary measurement of AlGaN's tensors is in hand",
-            ),
-        ],
+        missing: coming::missing("algan"),
         references: references(&["rigler-2013"]),
     }
 }

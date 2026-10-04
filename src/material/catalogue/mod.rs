@@ -14,8 +14,9 @@
 //! whether it is clamped (at constant strain, r^S) or unclamped (at constant stress, r^T). Which
 //! elements vanish or are equal comes from the point group ([`Pattern`]), never from the source.
 //!
-//! Every value comes from its primary paper, read from the paper itself; where a number isn't
-//! known the entry says so instead of quoting a secondary source.
+//! Every value comes from its primary paper, read from the paper itself. A property without a
+//! number yet is listed with the paper it will come from ([`Entry::coming`]) instead of being
+//! filled from a secondary source. [`Entry::tags`] states what the crystal's symmetry allows.
 
 use serde::Serialize;
 
@@ -23,6 +24,7 @@ use super::Material;
 use crate::Result;
 
 pub(crate) mod checks;
+mod coming;
 mod entries;
 mod models;
 mod references;
@@ -31,6 +33,7 @@ mod tags;
 #[cfg(test)]
 mod tests;
 
+pub use coming::Coming;
 pub use symmetry::{Pattern, pattern};
 pub use tags::Tag;
 
@@ -92,7 +95,8 @@ pub struct Crystal {
     pub structure: String,
     /// The optical class.
     pub optical: OpticalClass,
-    /// Whether the point group has a centre of inversion (then χ⁽²⁾ and r vanish).
+    /// Whether the point group has a centre of inversion (then the bulk χ⁽²⁾ and r vanish in the
+    /// electric-dipole approximation; [`Entry::tags`] says what remains).
     pub centrosymmetric: bool,
     /// Anything else, e.g. an ordering that lowers the symmetry.
     pub notes: String,
@@ -336,12 +340,13 @@ pub struct Constant {
     pub source: Source,
 }
 
-/// A property the catalogue doesn't have a number for, and why.
+/// A property the catalogue doesn't have a number for yet, in short; [`Entry::coming`] has the
+/// paper it will come from and what the papers in hand say.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Missing {
-    /// The property, e.g. `"r41"`.
+    /// The property, e.g. `"r₄₁(x)"`.
     pub property: String,
-    /// Why, or which paper it waits for (by key).
+    /// Where it will come from, e.g. `"from Glick, Reinhart & Martin 1988, coming"`.
     pub reason: String,
 }
 
@@ -366,7 +371,7 @@ pub struct Entry {
     pub tensors: Vec<Tensor>,
     /// Other properties: permittivities, combinations of coefficients.
     pub constants: Vec<Constant>,
-    /// What isn't known, and why.
+    /// What has no number yet, in short (see [`Entry::coming`]).
     pub missing: Vec<Missing>,
     /// Every paper the entry cites.
     pub references: Vec<Reference>,

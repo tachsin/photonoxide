@@ -2,7 +2,7 @@
   // Materials: the catalogue. Each material's index models (plotted over their range, evaluated
   // at a wavelength, with their equation and coefficients as the paper prints them), its crystal,
   // its d and r tensors, and the paper every number comes from.
-  import { Atom, BookOpen, CircleAlert, ExternalLink, FileText, Search, Thermometer } from "@lucide/svelte";
+  import { Atom, BookOpen, Clock, ExternalLink, FileText, Search, Thermometer } from "@lucide/svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import katex from "katex";
   import "katex/dist/katex.min.css";
@@ -19,6 +19,7 @@
     type MaterialCurve,
     type MaterialEntry,
     type MaterialPoint,
+    type MaterialTag,
     type Source,
     type Tensor,
   } from "../lib/api";
@@ -199,6 +200,22 @@
     return Number(v.toPrecision(digits)).toString();
   }
 
+  const TAG_KIND: Record<MaterialTag["kind"], string> = {
+    category: "Category",
+    system: "Crystal system",
+    "point-group": "Point group (Hermann–Mauguin, Schoenflies)",
+    "space-group": "Space group",
+    symmetry: "What the symmetry allows",
+    optical: "Optical class",
+  };
+
+  /** The category outlined, a symmetry that allows χ⁽²⁾ in the accent colour, the rest quiet. */
+  function tagStyle(t: MaterialTag): string {
+    if (t.kind === "category") return "badge-outline";
+    if (t.kind === "symmetry" && t.label.startsWith("non-")) return "badge-secondary badge-soft";
+    return "badge-ghost";
+  }
+
   const opticalLabel = (e: MaterialEntry) =>
     e.crystal.optical.kind === "isotropic" ? "isotropic" : `uniaxial, ${e.crystal.optical.positive ? "positive" : "negative"}`;
 </script>
@@ -244,15 +261,34 @@
           <div class="min-w-0 flex-1">
             <h2 class="text-2xl font-semibold tracking-tight">{entry.formula} <span class="ml-1 text-base font-normal muted">{entry.name}</span></h2>
             <p class="mt-1 max-w-3xl text-sm muted">{entry.summary}</p>
-            <div class="mt-3 flex flex-wrap gap-1.5 text-xs">
-              <span class="badge badge-sm badge-outline">{entry.category.replace("-", " ")}</span>
-              <span class="badge badge-sm badge-ghost">{entry.crystal.system}</span>
-              <span class="badge badge-sm badge-ghost" title="point group">{@html inline(entry.crystal.point_group.replace(/^-(\d)/, "\\bar{$1}").replace("∞∞m", "\\infty\\infty m"))}</span>
-              {#if entry.crystal.space_group}<span class="badge badge-sm badge-ghost" title="space group">{entry.crystal.space_group}</span>{/if}
-              {#if entry.crystal.structure !== entry.crystal.system}<span class="badge badge-sm badge-ghost">{entry.crystal.structure}</span>{/if}
-              <span class="badge badge-sm {entry.crystal.centrosymmetric ? 'badge-ghost' : 'badge-secondary badge-soft'}">
-                {entry.crystal.centrosymmetric ? "centrosymmetric: no χ⁽²⁾, no Pockels" : "non-centrosymmetric"}
-              </span>
+            <!-- the tags: each a statement, its physics and caveats on hover -->
+            <div class="mt-3 flex flex-wrap gap-1.5 text-xs" data-tags>
+              {#each entry.tags as t (t.kind + t.label)}
+                <span class="group relative">
+                  <span
+                    class="badge badge-sm h-auto cursor-help py-0.5 {tagStyle(t)}"
+                    tabindex="0"
+                    role="button"
+                    aria-label="{TAG_KIND[t.kind]}: {t.label}"
+                    data-tag={t.kind}
+                  >
+                    <MathText text={t.label} />
+                  </span>
+                  <span
+                    role="tooltip"
+                    class="invisible absolute top-full left-0 z-30 w-[26rem] max-w-[70vw] pt-1.5 opacity-0 transition-opacity duration-100 group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100"
+                  >
+                    <span class="block rounded-box border border-base-content/10 bg-base-100 p-3.5 text-left text-xs leading-relaxed font-normal shadow-xl">
+                      <span class="block text-[10.5px] font-semibold tracking-wider uppercase faint">{TAG_KIND[t.kind]}</span>
+                      <span class="mt-1 block text-sm font-medium"><MathText text={t.label} /></span>
+                      <span class="mt-1.5 block muted selectable"><MathText text={t.detail} /></span>
+                      {#if t.source}
+                        <span class="mt-2 flex gap-1.5 border-t border-base-content/8 pt-2 faint selectable"><BookOpen size={12} class="mt-0.5 shrink-0" /><span>{t.source}</span></span>
+                      {/if}
+                    </span>
+                  </span>
+                </span>
+              {/each}
             </div>
           </div>
           <!-- the index ellipsoid's cross-section through the optic axis -->
@@ -287,10 +323,35 @@
           The references at the bottom open the papers.
         </Tip>
 
-        {#if entry.missing.length}
-          <div class="flex flex-wrap gap-2">
-            {#each entry.missing as m (m.property)}
-              <span class="badge badge-warning badge-soft h-auto gap-1.5 py-1 text-left" title={m.reason}><CircleAlert size={13} /> {m.property}: {m.reason}</span>
+        {#if entry.coming.length}
+          <!-- what has no number yet: calm chips, the paper and what is in hand on hover -->
+          <div class="flex flex-wrap items-center gap-2" data-coming>
+            <span class="text-xs faint">Coming</span>
+            {#each entry.coming as c (c.property)}
+              <span class="group relative">
+                <span class="badge badge-ghost h-auto cursor-help gap-1.5 py-1 text-left text-xs" tabindex="0" role="button" data-coming-chip>
+                  <Clock size={12} class="faint" />
+                  <span>{c.property}: {c.source ? `from ${c.source}, coming` : "coming"}</span>
+                </span>
+                <span
+                  role="tooltip"
+                  class="invisible absolute top-full left-0 z-30 w-[28rem] max-w-[70vw] pt-1.5 opacity-0 transition-opacity duration-100 group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100"
+                >
+                  <span class="block rounded-box border border-base-content/10 bg-base-100 p-3.5 text-left text-xs leading-relaxed shadow-xl">
+                    <span class="block text-sm font-medium">{c.property}</span>
+                    {#if c.citation}
+                      <span class="mt-1 block selectable">From {c.citation}</span>
+                      <span class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <button class="btn btn-ghost btn-xs gap-1 text-primary" onclick={() => doi(c.doi)}><ExternalLink size={12} /> doi:{c.doi}</button>
+                        <span class="badge badge-xs badge-ghost">{c.open ? "open access" : "subscription"}</span>
+                      </span>
+                    {:else}
+                      <span class="mt-1 block muted">No published measurement found yet.</span>
+                    {/if}
+                    <span class="mt-2 block border-t border-base-content/8 pt-2 muted selectable"><MathText text={c.detail} /></span>
+                  </span>
+                </span>
+              </span>
             {/each}
           </div>
         {/if}

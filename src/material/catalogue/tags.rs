@@ -7,9 +7,7 @@
 
 use serde::Serialize;
 
-use super::{
-    Category, Crystal, CrystalSystem, Entry, OpticalClass, Pattern, TensorKind, pattern,
-};
+use super::{Category, Crystal, CrystalSystem, Entry, OpticalClass, Pattern, TensorKind, pattern};
 
 /// One tag of an entry: a short statement and what it means.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -36,8 +34,10 @@ fn tag(kind: &str, label: impl Into<String>, detail: impl Into<String>, source: 
 }
 
 const NYE: &str = "J. F. Nye, Physical Properties of Crystals (Oxford, 1957): the 32 classes in both notations and the forms of their tensors";
-const ROBERTS: &str = "D. A. Roberts, IEEE J. Quantum Electron. 28, 2057 (1992), doi:10.1109/3.159516";
-const ITA: &str = "International Tables for Crystallography, Vol. A (2016), doi:10.1107/97809553602060000114";
+const ROBERTS: &str =
+    "D. A. Roberts, IEEE J. Quantum Electron. 28, 2057 (1992), doi:10.1109/3.159516";
+const ITA: &str =
+    "International Tables for Crystallography, Vol. A (2016), doi:10.1107/97809553602060000114";
 const BOYD: &str = "R. W. Boyd, Nonlinear Optics, 3rd ed. (Academic, 2008), Ch. 1, doi:10.1016/B978-0-12-369470-6.00001-0";
 const SINATKAS: &str = "G. Sinatkas, T. Christopoulos, O. Tsilipakos, E. E. Kriezis, J. Appl. Phys. 130, 010901 (2021), doi:10.1063/5.0048712, pp. 010901-3 and -12";
 const TIMURDOGAN: &str = "E. Timurdogan, C. V. Poulton, M. J. Byrd, M. R. Watts, Nat. Photonics 11, 200 (2017), doi:10.1038/nphoton.2017.14";
@@ -150,7 +150,11 @@ fn word(n: usize) -> String {
 }
 
 fn count(n: usize, one: &str) -> String {
-    format!("{} independent {one}{}", word(n), if n == 1 { "" } else { "s" })
+    format!(
+        "{} independent {one}{}",
+        word(n),
+        if n == 1 { "" } else { "s" }
+    )
 }
 
 const CAVEATS: &str = "This holds in the electric-dipole approximation; what remains: electric-quadrupole and magnetic-dipole terms of the bulk (weak); surfaces and interfaces, which break the inversion (surface second-harmonic generation); inhomogeneous strain, which gives an effective $\\chi^{(2)}$ (strained-silicon waveguides; a few pm/V in simulations, Sinatkas et al.); a static field $E_0$, which gives an effective $\\chi^{(2)} \\propto \\chi^{(3)} E_0$ (electric-field-induced second-harmonic generation, used in silicon p–n junction devices, Timurdogan et al.). The third-order $\\chi^{(3)}$ (the Kerr effect) is allowed.";
@@ -160,8 +164,10 @@ fn symmetry(crystal: &Crystal) -> Tag {
     if crystal.system == CrystalSystem::Amorphous {
         return tag(
             "symmetry",
-            r"isotropic on average ($\infty\infty m$)",
-            format!("An amorphous solid has no long-range order: averaged over it, every rotation and the inversion are symmetries ($\\infty\\infty m$, a centrosymmetric group). Under the inversion each polar index changes sign, so a polar tensor of rank 3 obeys $T_{{ijk}} = -T_{{ijk}}$ and vanishes (Neumann's principle): the bulk $\\chi^{{(2)}}_{{ijk}}$ and Pockels $r_{{ijk}}$ are zero, as in a centrosymmetric crystal. {CAVEATS} Poling or a frozen-in field can also leave a glass with an effective $\\chi^{{(2)}}$."),
+            "centrosymmetric on average",
+            format!(
+                "An amorphous solid has no long-range order: averaged over it, every rotation and the inversion are symmetries ($\\infty\\infty m$, a centrosymmetric group). Under the inversion each polar index changes sign, so a polar tensor of rank 3 obeys $T_{{ijk}} = -T_{{ijk}}$ and vanishes (Neumann's principle): the bulk $\\chi^{{(2)}}_{{ijk}}$ and Pockels $r_{{ijk}}$ are zero, as in a centrosymmetric crystal. {CAVEATS} Poling or a frozen-in field can also leave a glass with an effective $\\chi^{{(2)}}$."
+            ),
             &format!("{BOYD}; {SINATKAS}; {TIMURDOGAN}; {NYE}"),
         );
     }
@@ -169,7 +175,9 @@ fn symmetry(crystal: &Crystal) -> Tag {
         return tag(
             "symmetry",
             "centrosymmetric (inversion centre)",
-            format!("The point group contains the inversion. Under it each polar index changes sign, so a polar tensor of rank 3 obeys $T_{{ijk}} = -T_{{ijk}}$ and vanishes (Neumann's principle): no bulk $\\chi^{{(2)}}_{{ijk}}$ and no Pockels $r_{{ijk}}$. {CAVEATS}"),
+            format!(
+                "The point group contains the inversion. Under it each polar index changes sign, so a polar tensor of rank 3 obeys $T_{{ijk}} = -T_{{ijk}}$ and vanishes (Neumann's principle): no bulk $\\chi^{{(2)}}_{{ijk}}$ and no Pockels $r_{{ijk}}$. {CAVEATS}"
+            ),
             &format!("{BOYD}; {SINATKAS}; {TIMURDOGAN}; {NYE}"),
         );
     }
@@ -177,7 +185,12 @@ fn symmetry(crystal: &Crystal) -> Tag {
         allowed(TensorKind::SecondOrder, pg),
         allowed(TensorKind::ElectroOptic, pg),
     ) else {
-        return tag("symmetry", "non-centrosymmetric", "The point group has no inversion: $\\chi^{(2)}$ and the Pockels effect are allowed.", NYE);
+        return tag(
+            "symmetry",
+            "non-centrosymmetric",
+            "The point group has no inversion: $\\chi^{(2)}$ and the Pockels effect are allowed.",
+            NYE,
+        );
     };
     let axes = if pg == "3m" {
         " The axes: $z$ along the threefold axis, $x$ perpendicular to a mirror plane, as the catalogue's sources use them (Roberts 1992); Kleinman's symmetry, when a source shows it holds, adds $d_{15} = d_{31}$, which the catalogue doesn't assume."
@@ -188,7 +201,7 @@ fn symmetry(crystal: &Crystal) -> Tag {
     };
     tag(
         "symmetry",
-        format!("non-centrosymmetric: {} $d$, {} $r$", word(nd), word(nr)),
+        r"non-centrosymmetric: $\chi^{(2)}$ and Pockels allowed",
         format!(
             "The point group has no inversion, so $\\chi^{{(2)}}$ and the Pockels effect are allowed. It leaves {}: {}; and {}: {} (Voigt notation, $d = \\chi^{{(2)}}/2$, $\\Delta(1/n^2)_i = \\sum_k r_{{ik}} E_k$); every other element is zero.{axes} The tensors below follow this pattern.",
             count(nd, "second-order coefficient"),
@@ -287,7 +300,7 @@ impl Entry {
             tags.push(if c.system == CrystalSystem::Amorphous {
                 tag(
                     "point-group",
-                    format!("isotropic: ${hm}$ (${schoenflies}$)"),
+                    format!("${hm}$ (${schoenflies}$), on average"),
                     format!("Not a crystallographic point group: the limiting group ${hm}$ (Schoenflies ${schoenflies}$), {what}, which an amorphous solid has on average."),
                     NYE,
                 )
