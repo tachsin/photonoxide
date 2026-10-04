@@ -209,7 +209,10 @@ pub enum Event {
         /// Their TE fractions, in the same order.
         te_fractions: Vec<f64>,
     },
-    /// A field of a 2D FDFD run, seen from above: the one port 1's mode excites, launched from
+    /// A field of a 2D FDFD run, seen from above, over the window without its PMLs (as the
+    /// run's [`Event::Scene`] is: the PMLs absorb the light and aren't part of the device, so
+    /// the pictures leave them and the two cells beside them out). It is the field port 1's
+    /// mode excites, launched from
     /// the window's end of port 1's guide (just inside the PML) when the guide is the same
     /// there as at the port, else from the port's column, so that the picture shows the wave
     /// along the whole guide. The S-parameters are referred to the ports' own columns either
@@ -2915,7 +2918,19 @@ points = 2
         // started, the scene, the sweep, S at 1.5 um, the field and the point's, S at 1.6 um,
         // its point's field, finished
         assert_eq!(events.len(), 9, "{events:?}");
-        assert!(matches!(&events[1], Event::Scene { .. }));
+        // the scene and the pictures leave out the PMLs (20 cells of 40 nm) and the two cells
+        // beside them: the 2.8 µm window's middle 1.04 µm, 26 cells
+        let Event::Scene { x_um, y_um, .. } = &events[1] else {
+            panic!("{:?}", events[1])
+        };
+        for (shown, edge) in [
+            (x_um[0], -0.52),
+            (x_um[1], 0.52),
+            (y_um[0], -0.52),
+            (y_um[1], 0.52),
+        ] {
+            assert!((shown - edge).abs() < 1e-12, "{x_um:?} {y_um:?}");
+        }
         assert!(matches!(
             &events[2],
             Event::Sweep { parameter, from, to, points: 2 }
@@ -2943,7 +2958,8 @@ points = 2
         let Event::Field { intensity, .. } = &events[4] else {
             panic!("{:?}", events[4])
         };
-        assert_eq!((intensity.nx, intensity.ny), (70, 70));
+        assert_eq!((intensity.nx, intensity.ny), (26, 26));
+        assert!((intensity.x0 - x_um[0]).abs() < 1e-12 && (intensity.x1 - x_um[1]).abs() < 1e-12);
         assert!(
             matches!(&events[6], Event::SParameters { wavelength_um, .. } if *wavelength_um == 1.6)
         );
@@ -2961,7 +2977,7 @@ points = 2
                 panic!("{:?}", events[at])
             };
             assert_eq!((*point, *value, *wavelength_um), (k, [1.5, 1.6][k], *value));
-            assert_eq!((coarse.nx, coarse.ny), (35, 35));
+            assert_eq!((coarse.nx, coarse.ny), (13, 13));
             assert_eq!((coarse.x0, coarse.y0), (intensity.x0, intensity.y0));
             assert!(
                 (coarse.x1 - intensity.x1).abs() < 1e-12
@@ -2983,11 +2999,11 @@ points = 2
                         .sum::<f64>()
                         / 4.0
                 };
-                let peak = (0..35)
-                    .flat_map(|j| (0..35).map(move |i| (i, j)))
+                let peak = (0..13)
+                    .flat_map(|j| (0..13).map(move |i| (i, j)))
                     .map(|(i, j)| mean(i, j))
                     .fold(0.0, f64::max);
-                for (i, j) in [(17, 17), (5, 17), (30, 18), (17, 3)] {
+                for (i, j) in [(6, 6), (0, 6), (12, 7), (6, 1)] {
                     let expected = mean(i, j) / peak;
                     assert!(
                         (f64::from(coarse.at(i, j)) - expected).abs() < 1e-3,
@@ -3001,8 +3017,10 @@ points = 2
     #[test]
     fn an_fdfd_jobs_field_starts_where_its_guide_comes_in() {
         // the strip crosses the whole window, its port 1 at x = −0.4 (column 25); the PML is the
-        // first 20 columns. The field is launched at column 22, so between there and the port
-        // the guide is as bright as beyond the port (a straight, lossless guide)
+        // first 20 columns. The field is launched at column 22, the picture's first, so from
+        // the picture's left edge to the port the guide is as bright as beyond the port (a
+        // straight, lossless guide), and as bright at the picture's right edge: the light
+        // starts where the picture does and ends where it does
         let root = temp("fdfd-launch");
         let sweep = "[task.sweep]\nparameter = \"wavelength\"\nfrom = 1.5\nto = 1.6\npoints = 2\n";
         let single = FDFD.replace(sweep, "");
@@ -3021,10 +3039,12 @@ points = 2
         };
         let field = field_of(&single);
         // along the guide's axis, y = 0
-        let on_axis = |i: usize| f64::from(field.at(i, 35));
-        let beyond = on_axis(40);
+        assert_eq!((field.nx, field.ny), (26, 26));
+        // along the guide's axis, y = 0: row 35 of the grid, 13 of the picture
+        let on_axis = |i: usize| f64::from(field.at(i, 13));
+        let beyond = on_axis(18);
         assert!(beyond > 0.5, "{beyond}");
-        for i in [23, 24] {
+        for i in [0, 1, 2, 25] {
             assert!(
                 (on_axis(i) - beyond).abs() < 0.05 * beyond,
                 "column {i}: {} against {beyond}",
@@ -3040,8 +3060,8 @@ points = 2
         assert_ne!(short, single);
         let field = field_of(&short);
         assert_eq!(field.range().1, 1.0);
-        assert!(f64::from(field.at(40, 35)) > 0.5);
-        assert!(f64::from(field.at(23, 35)) < 0.05, "{}", field.at(23, 35));
+        assert!(f64::from(field.at(18, 13)) > 0.5);
+        assert!(f64::from(field.at(1, 13)) < 0.05, "{}", field.at(1, 13));
     }
 
     #[test]
