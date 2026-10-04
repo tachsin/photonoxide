@@ -1108,8 +1108,19 @@ fn a_strips_s_matrix_by_qmr() {
             With::Nothing => {}
             With::Ilu => solver = solver.with_ilu().unwrap(),
             With::Multigrid => {
-                solver = solver.with_multigrid(Multigrid::default()).unwrap();
-                println!("STRIP {label}: levels {:?}", solver.multigrid_grids());
+                // MG_SHIFT and MG_COARSEST as the multigrid experiment takes them, and its defaults
+                let var = |k: &str, d: &str| std::env::var(k).unwrap_or_else(|_| d.into());
+                let options = Multigrid {
+                    shift: var("MG_SHIFT", "0.5").parse().unwrap(),
+                    coarsest: var("MG_COARSEST", "2000").parse().unwrap(),
+                    ..Multigrid::default()
+                };
+                solver = solver.with_multigrid(options).unwrap();
+                println!(
+                    "STRIP {label}: {options:?}, levels {:?}, built in {:?}",
+                    solver.multigrid_grids(),
+                    t.elapsed()
+                );
             }
         }
         let mode = |p: usize| solver.port_modes(Axis::X, p, 1).unwrap().remove(0);
@@ -1142,6 +1153,10 @@ fn a_strips_s_matrix_by_qmr() {
             how.iterations,
             t.elapsed()
         );
+        let every: Vec<String> = (how.history.iter().step_by(10))
+            .map(|r| format!("{r:.1e}"))
+            .collect();
+        println!("STRIP {label}: residual every 10 iterations {every:?}");
         let t = std::time::Instant::now();
         let s = solver.s_matrix(&ports, stopping).unwrap();
         let error = [
