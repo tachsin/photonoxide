@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.1](https://github.com/tachsin/photonoxide/compare/v0.4.0...v0.4.1) - 2026-10-04
+
+### <!-- 0 -->Added
+
+- light travels along x in every kind of job ([#102](https://github.com/tachsin/photonoxide/pull/102))
+- *(studio)* the settings preview the theme in use and keep the other themes behind "More themes" ([#103](https://github.com/tachsin/photonoxide/pull/103))
+- *(studio)* the structure's outline on 2D fields, how a run was solved, and the field from the guide's start ([#104](https://github.com/tachsin/photonoxide/pull/104))
+
+### <!-- 1 -->Fixed
+
+- *(studio)* the viewer follows a running sweep, and an FDFD sweep's points each have their field ([#100](https://github.com/tachsin/photonoxide/pull/100))
+- *(job)* the check refuses a wavelength a material has no data at, as the run does ([#101](https://github.com/tachsin/photonoxide/pull/101))
+- *(job)* the check refuses badly placed fdfd ports, PMLs that leave no room and a grid too fine, as the run does ([#105](https://github.com/tachsin/photonoxide/pull/105))
+- *(job)* an fdfd run's pictures leave out the PMLs, so the light starts and ends where the device is drawn ([#106](https://github.com/tachsin/photonoxide/pull/106))
+
+### <!-- 4 -->Documentation
+
+- 0.4.0 is released, and 0.4.1's preconditioner is next ([#93](https://github.com/tachsin/photonoxide/pull/93))
+
 ## [0.4.0](https://github.com/tachsin/photonoxide/compare/v0.3.3...v0.4.0) - 2026-10-03
 
 ### Breaking
