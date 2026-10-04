@@ -84,7 +84,7 @@ pub(crate) fn slab_port_index(kind: Kind, h: f64) -> (f64, f64) {
 }
 
 /// The strip of these checks: 0.5 × 0.22 µm of silicon in oxide, along x, centred on y = z = 0.
-fn strip(_: f64, y: f64, z: f64) -> c64 {
+pub(crate) fn strip(_: f64, y: f64, z: f64) -> c64 {
     index(if y.abs() < 0.25 && z.abs() < 0.11 {
         SILICON
     } else {

@@ -247,6 +247,45 @@ fn a_backward_wave_is_forward_by_its_power() {
 }
 
 #[test]
+fn a_guided_mode_whose_plane_crosses_pmls_goes_forward() {
+    // the strip in oxide with PMLs of 8 cells around a port's plane: its guided mode takes a small
+    // Im β from them, of either sign (measured: 7.8e-6 of |β| with plain PMLs on a 40 nm grid,
+    // 4.5e-5 on a 20 nm one, 6e-8 with stretched ones), and took it as decaying the wrong way:
+    // n_eff -2.45, carrying its unit power backward
+    let pml = 8;
+    for h in [0.04_f64, 0.02] {
+        for boundaries in [Boundaries3d::pml(pml), Boundaries3d::stretched_pml(pml)] {
+            let (ny, nz) = (
+                (1.4 / h).round() as usize + 2 * pml,
+                (1.0 / h).round() as usize + 2 * pml,
+            );
+            let grid = Grid3d {
+                nx: 6 + 2 * pml,
+                ny,
+                nz,
+                dx: h,
+                dy: h,
+                dz: h,
+                x0: 0.0,
+                y0: -(ny as f64) * h / 2.0,
+                z0: -(nz as f64) * h / 2.0,
+            };
+            let (lattice, eps) = Solver3d::setup(grid, lam(), strip, boundaries).unwrap();
+            let mode = lattice
+                .port_modes(&eps, (Axis::X, pml + 2), [0..ny, 0..nz], 1)
+                .unwrap()
+                .remove(0);
+            let n = mode.effective_index();
+            assert!(
+                (n.re - 2.45).abs() < 0.01 && (mode.power() - 1.0).abs() < 1e-3,
+                "{h} {boundaries:?}: n_eff {n}, power {}",
+                mode.power()
+            );
+        }
+    }
+}
+
+#[test]
 fn uniform_along_z_the_s_matrix_is_the_2d_solvers() {
     // H along z: the same equations, to the eigensolver's tolerance (measured 2.1e-10); E along
     // z: the PMLs half a cell apart in the two grids (measured 8.9e-9)

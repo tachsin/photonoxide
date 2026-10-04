@@ -212,8 +212,13 @@ signed so that its largest value is positive, and `PortMode3d::power` is 1 to ro
 
 A propagating mode's forward direction is the way its power flows. In a closed guide filled
 unevenly, a mode can carry its power against its phase (a backward wave, which comes with pairs
-of complex modes); such a mode is given with Re β < 0. Modes that don't propagate go forward the
-way they decay.
+of complex modes); such a mode is given with Re β < 0. A mode propagates when it oscillates more
+than it decays, $\lvert \mathrm{Im}\thinspace\beta \rvert \lt \lvert \mathrm{Re}\thinspace\beta \rvert$; the others go
+forward the way they decay. A guided mode whose plane crosses PMLs takes a small Im β from them,
+of either sign, since a PML doesn't absorb an evanescent tail (the 500 × 220 nm strip with PMLs of
+8 cells around its plane: 7.8e-6 of |β| on a 40 nm grid, 4.5e-5 on a 20 nm one): it still
+propagates, and its power sets its direction. (Before 0.4.2 such a mode was taken as decaying,
+and went backward when Im β came out negative.)
 
 **Sources** are total-field/scattered-field, as in 2D (Rumpf's Eq. 55): $b = (QA - AQ)f$, with Q
 masking the values on the scattered-field side of the plane (by their place along a, the normal

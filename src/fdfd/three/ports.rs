@@ -460,10 +460,14 @@ impl Lattice {
                     self.flux_with(axis, plane, &|r| mode.value(self, r, Direction::Forward));
                 mode
             };
-            // forward is the way the mode decays; for one that doesn't, the way its power goes,
-            // which a backward wave (in a closed, inhomogeneous guide) takes against its phase
+            // forward, for a mode that propagates more than it decays, is the way its power
+            // goes, which a backward wave (in a closed, inhomogeneous guide) takes against its
+            // phase; for one that decays more, the way it decays. A guided mode whose plane
+            // crosses PMLs has a small Im β from them, of either sign (a PML doesn't absorb an
+            // evanescent tail): it propagates all the same, and taken as decaying, half of them
+            // went backward
             let beta_d = pair.value.sqrt();
-            let propagating = beta_d.im.abs() <= 1e-9 * beta_d.norm();
+            let propagating = propagates(beta_d);
             let beta_d = if !propagating && beta_d.im < 0.0 || propagating && beta_d.re < 0.0 {
                 -beta_d
             } else {
@@ -477,7 +481,7 @@ impl Lattice {
         }
         // propagating modes first, by effective index, then the others by their decay
         modes.sort_by(|p, q| {
-            let key = |m: &PortMode3d| (m.beta.im.abs() > 1e-9 * m.beta.norm(), m.beta.im);
+            let key = |m: &PortMode3d| (!propagates(m.beta), m.beta.im);
             let (kp, kq) = (key(p), key(q));
             kp.0.cmp(&kq.0)
                 .then(q.beta.re.abs().total_cmp(&p.beta.re.abs()))
@@ -596,4 +600,9 @@ impl Lattice {
             .map(|q| (0..n).map(|p| st[(p, q)]).collect())
             .collect())
     }
+}
+
+/// Whether a mode with this β propagates more than it decays: |Im β| < |Re β|.
+fn propagates(beta: c64) -> bool {
+    beta.im.abs() < beta.re.abs()
 }
