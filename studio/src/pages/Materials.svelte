@@ -38,6 +38,8 @@
   let curves = $state<MaterialCurve[]>([]);
   let point = $state<MaterialPoint[] | null>(null);
   let pointProblem = $state("");
+  /** The wavelength field holds nothing a number can be read from (it is empty, or half typed). */
+  let blank = $state(false);
   /** Which of a material's tensor sets of each kind is shown. */
   let picked = $state<Record<string, number>>({});
   const KINDS = ["second-order", "electro-optic"] as const;
@@ -107,8 +109,10 @@
     const t = temperature;
     const x = composition;
     const w = wavelength;
-    if (!e || !m || !(w > 0)) {
+    if (!e || !m || blank || !(w > 0)) {
+      // nothing to ask the library: what it said of the wavelength before isn't about this one
       point = null;
+      pointProblem = "";
       return;
     }
     api
@@ -383,8 +387,11 @@
                   min={inUnit(0.01)}
                   value={inUnit(wavelength)}
                   oninput={(e) => {
+                    // (an empty or half-typed field reads ""; the wavelength then stays what it
+                    // was, so that the field isn't written back over what is being typed)
                     const raw = e.currentTarget.value;
-                    if (raw !== "" && Number.isFinite(Number(raw))) wavelength = stored(Number(raw));
+                    blank = raw === "" || !Number.isFinite(Number(raw));
+                    if (!blank) wavelength = stored(Number(raw));
                   }}
                 />
               </label>
@@ -430,6 +437,10 @@
                 </table>
               {:else if pointProblem}
                 <p class="text-sm text-warning">{complaint(pointProblem)}</p>
+              {:else if blank}
+                <p class="text-sm faint">Type a wavelength to read the index there.</p>
+              {:else if !(wavelength > 0)}
+                <p class="text-sm faint">A wavelength is above zero: type one inside the model's range.</p>
               {/if}
             </div>
 

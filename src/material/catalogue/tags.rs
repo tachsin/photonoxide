@@ -38,7 +38,9 @@ const ROBERTS: &str =
     "D. A. Roberts, IEEE J. Quantum Electron. 28, 2057 (1992), doi:10.1109/3.159516";
 const ITA: &str =
     "International Tables for Crystallography, Vol. A (2016), doi:10.1107/97809553602060000114";
-const BOYD: &str = "R. W. Boyd, Nonlinear Optics, 3rd ed. (Academic, 2008), Ch. 1, doi:10.1016/B978-0-12-369470-6.00001-0";
+// (the 4th edition: its Section 1.5.10 is the inversion argument, Eqs. 1.5.33–1.5.37; the 3rd
+// edition numbers its sections otherwise)
+const BOYD: &str = "R. W. Boyd, Nonlinear Optics, 4th ed. (Academic, 2020), Section 1.5.10, doi:10.1016/C2015-0-05510-1";
 const SINATKAS: &str = "G. Sinatkas, T. Christopoulos, O. Tsilipakos, E. E. Kriezis, J. Appl. Phys. 130, 010901 (2021), doi:10.1063/5.0048712, pp. 010901-3 and -12";
 const TIMURDOGAN: &str = "E. Timurdogan, C. V. Poulton, M. J. Byrd, M. R. Watts, Nat. Photonics 11, 200 (2017), doi:10.1038/nphoton.2017.14";
 
