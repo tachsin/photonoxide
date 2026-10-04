@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Event, Scene } from "./events";
 
 export interface Settings {
-  /** "system", "dark" or "light" (the studio's own themes), or a daisyUI theme's name. */
+  /** "system", "dark" or "light" (the studio's own themes), or a further theme's name (lib/themes.ts). */
   theme: string;
   workspace: string | null;
   check_updates: boolean;
@@ -124,6 +124,8 @@ export const api = {
   stopTask: (id: number) => invoke<void>("stop_task", { id }),
   changelog: () => invoke<string>("changelog"),
   publishedReport: () => invoke<string>("published_report"),
+  /** The methods' write-ups (docs/methods), as the program was built with them. */
+  methodDocs: () => invoke<{ file: string; text: string }[]>("method_docs"),
   previewScene: (text: string) => invoke<Scene>("preview_scene", { text }),
   saveText: (path: string, text: string) => invoke<void>("save_text", { path, text }),
   materials: () => invoke<MaterialEntry[]>("materials"),

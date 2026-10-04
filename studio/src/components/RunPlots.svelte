@@ -1,6 +1,7 @@
 <script lang="ts">
   // The run in 2D: fields, S-parameters, permittivity pictures, modes and sweeps.
-  import { run, shownField, shownModes, sweepAxis } from "../lib/app.svelte";
+  import { run, shownField, shownModes, shownScene, sweepAxis } from "../lib/app.svelte";
+  import { cutOutline, topOutline } from "../lib/outline";
   import { api } from "../lib/api";
   import { modeKind } from "../lib/events";
   import type { Series } from "../lib/plot";
@@ -63,6 +64,14 @@
   const modes = $derived(shownModes().modes);
   // an FDFD run's field: the sweep point's, or the one the job asks for
   const field = $derived(shownField());
+  // the structure's edges over the pictures of fields: the shapes at the sweep point shown
+  /** Whether the pictures of fields show the structure's outline. */
+  let outlined = $state(true);
+  const scene = $derived(shownScene());
+  const above = $derived(outlined && scene ? topOutline(scene) : undefined);
+  const cut = (m: { cut_y_um: number; intensity: { x0: number; x1: number } }) =>
+    outlined && scene ? cutOutline(scene, run.along, m.cut_y_um, [m.intensity.x0, m.intensity.x1]) : undefined;
+
   /** The S-matrix in the table: the sweep point's, or the first wavelength's. */
   const tabled = $derived(run.sparams[run.point ?? 0] ?? run.sparams[0]);
 </script>
@@ -74,6 +83,13 @@
     </div>
   {/if}
 
+  {#if field || modes.length}
+    <label class="flex cursor-pointer items-center justify-end gap-2 text-xs faint" title="Draw the shapes' edges over the pictures of fields, to tell inside from outside where the field is dark">
+      <input type="checkbox" class="checkbox checkbox-xs" bind:checked={outlined} />
+      structure outline on the fields
+    </label>
+  {/if}
+
   {#if field}
     <section class="panel p-5">
       <h3 class="mb-1 font-semibold">
@@ -81,7 +97,7 @@
         {#if marker !== null && axis}<span class="text-sm font-normal text-primary">· point {(run.point ?? 0) + 1} of {axis.total} of the sweep</span>{/if}
       </h3>
       <p class="mb-3 text-xs faint">from zero (black) to its peak (pale yellow), seen from above{marker !== null ? "; each point's own peak, on coarser pixels than the job's own field" : ""}</p>
-      <RasterView raster={field.intensity} kind="intensity" maxHeight={420} />
+      <RasterView raster={field.intensity} kind="intensity" maxHeight={420} outline={above} />
     </section>
   {/if}
 
@@ -161,7 +177,7 @@
               n_eff = {m.effective_index[0].toFixed(6)}{lossy ? ` + ${m.effective_index[1].toExponential(3)}i` : ""}
               <span class="faint">at {m.wavelength_um} µm</span>
             </p>
-            <RasterView raster={m.intensity} kind="intensity" axes={[run.along === "x" ? "y" : "x", "z"]} maxHeight={260} />
+            <RasterView raster={m.intensity} kind="intensity" axes={[run.along === "x" ? "y" : "x", "z"]} maxHeight={260} outline={cut(m)} />
           </article>
         {/each}
       </div>

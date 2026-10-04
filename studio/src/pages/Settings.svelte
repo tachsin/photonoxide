@@ -1,15 +1,23 @@
 <script lang="ts">
   // Settings: appearance, the workspace, tips, updates, and what this copy is.
-  import { Check, Download, ExternalLink, FolderOpen, Lightbulb, Monitor, Moon, RefreshCw, RotateCcw, Search, Sun } from "@lucide/svelte";
+  import { Check, ChevronDown, Download, ExternalLink, FolderOpen, Lightbulb, Monitor, Moon, RefreshCw, RotateCcw, Search, Sun } from "@lucide/svelte";
   import { open } from "@tauri-apps/plugin-dialog";
   import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 
   import { app, toast, updateSettings } from "../lib/app.svelte";
-  import { DAISY_THEMES } from "../lib/themes";
+  import { MORE_THEMES } from "../lib/themes";
   import { checkForUpdate, updater } from "../lib/updater.svelte";
 
   const s = $derived(app.state!.settings);
   let query = $state("");
+  /** Whether the further themes are listed: closed until asked for. */
+  let more = $state(false);
+  /** The theme in use, by name: the studio's own, or one of the further ones. */
+  const themeLabel = $derived(
+    s.theme === "dark" || s.theme === "light"
+      ? `photonoxide ${s.theme}`
+      : (MORE_THEMES.find((t) => t.setting === s.theme)?.name ?? `photonoxide ${app.dark ? "dark" : "light"}, as the system is`),
+  );
 
   async function chooseWorkspace() {
     const dir = await open({ title: "Choose the workspace folder", directory: true, defaultPath: app.state?.workspace });
@@ -42,18 +50,50 @@
         {/each}
       </div>
 
-      <div class="mt-5 flex items-center justify-between gap-4">
-        <div>
-          <p class="text-sm font-medium">daisyUI's themes</p>
-          <p class="text-xs faint">Each card is drawn in its theme. The sun and moon at the top go back to photonoxide's.</p>
+      <!-- the theme in use, as it looks: its surfaces, its text and its colours -->
+      <div class="mt-4 overflow-hidden rounded-box border border-base-content/10" aria-label="The theme in use">
+        <div class="flex items-center gap-2 border-b border-base-content/10 bg-base-200 px-4 py-2">
+          <span class="size-2.5 rounded-full bg-error/70"></span><span class="size-2.5 rounded-full bg-warning/70"></span><span class="size-2.5 rounded-full bg-success/70"></span>
+          <span class="ml-2 text-xs faint">In use</span>
+          <span class="text-xs font-medium">{themeLabel}</span>
         </div>
-        <label class="input input-sm w-48 shrink-0">
-          <Search size={14} class="opacity-50" />
-          <input type="search" placeholder="Search the themes" bind:value={query} />
-        </label>
+        <div class="grid grid-cols-[1fr_auto] gap-5 bg-base-100 px-4 py-4">
+          <div class="min-w-0 space-y-2.5">
+            <p class="text-sm font-semibold">A strip waveguide's modes</p>
+            <p class="text-xs leading-relaxed muted">Text, panels, buttons and plots take these colours; the 3D view's backdrop is the darker surface.</p>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="btn btn-primary btn-xs">Run</span>
+              <span class="btn btn-xs">Edit</span>
+              <span class="badge badge-soft badge-primary badge-sm">modes</span>
+              <span class="badge badge-soft badge-secondary badge-sm">TM-like</span>
+              <span class="badge badge-soft badge-success badge-sm">passed</span>
+            </div>
+          </div>
+          <div class="grid grid-cols-4 content-start gap-1.5">
+            {#each [["bg-base-100", "surface"], ["bg-base-200", "backdrop"], ["bg-base-300", "inset"], ["bg-neutral", "neutral"], ["bg-primary", "primary"], ["bg-secondary", "secondary"], ["bg-accent", "accent"], ["bg-info", "info"]] as [swatch, name] (name)}
+              <span class="size-7 rounded-selector border border-base-content/15 {swatch}" title={name}></span>
+            {/each}
+          </div>
+        </div>
       </div>
-      {#each [{ label: "Light", dark: false }, { label: "Dark", dark: true }] as group (group.label)}
-        {@const themes = DAISY_THEMES.filter((t) => t.dark === group.dark && t.name.includes(query.trim().toLowerCase()))}
+
+      <div class="mt-4 flex items-center justify-between gap-4">
+        <button class="btn btn-ghost btn-sm -ml-2 gap-1.5" aria-expanded={more} onclick={() => (more = !more)} title="Further themes to choose from; the three at the top are photonoxide's own">
+          <ChevronDown size={15} class="transition-transform {more ? 'rotate-180' : ''}" />
+          {more ? "Hide the other themes" : `More themes (${MORE_THEMES.length})`}
+        </button>
+        {#if more}
+          <label class="input input-sm w-48 shrink-0">
+            <Search size={14} class="opacity-50" />
+            <input type="search" placeholder="Search the themes" bind:value={query} />
+          </label>
+        {/if}
+      </div>
+      {#if more}
+        <p class="mt-1 text-xs faint">Each card is drawn in its theme. The sun and moon at the top go back to photonoxide's.</p>
+      {/if}
+      {#each more ? [{ label: "Light", dark: false }, { label: "Dark", dark: true }] : [] as group (group.label)}
+        {@const themes = MORE_THEMES.filter((t) => t.dark === group.dark && t.name.includes(query.trim().toLowerCase()))}
         {#if themes.length}
           <p class="panel-title mt-4 mb-2">{group.label}</p>
           <div class="grid grid-cols-4 gap-2.5">
@@ -62,7 +102,7 @@
               <button
                 class="rounded-[calc(var(--radius-box)+3px)] p-0.5 text-left outline-2 transition-colors {chosen ? 'outline-primary' : 'outline-transparent hover:outline-base-content/25'}"
                 aria-pressed={chosen}
-                title="Use daisyUI's {t.name} theme"
+                title="Use the {t.name} theme"
                 onclick={() => updateSettings((x) => (x.theme = t.setting))}
               >
                 <div data-theme={t.name} class="rounded-box border border-base-content/10 bg-base-100 px-3 py-2.5 text-base-content">

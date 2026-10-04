@@ -209,7 +209,11 @@ pub enum Event {
         /// Their TE fractions, in the same order.
         te_fractions: Vec<f64>,
     },
-    /// A field of a 2D FDFD run, seen from above.
+    /// A field of a 2D FDFD run, seen from above: the one port 1's mode excites, launched from
+    /// the window's end of port 1's guide (just inside the PML) when the guide is the same
+    /// there as at the port, else from the port's column, so that the picture shows the wave
+    /// along the whole guide. The S-parameters are referred to the ports' own columns either
+    /// way.
     Field {
         /// What it shows, e.g. `"|H_z|^2 from port 1, 2D by the effective index method"`.
         label: String,
@@ -359,6 +363,36 @@ pub enum Event {
         normal: String,
         /// Where the plane crosses that axis, µm.
         at_um: f64,
+    },
+    /// How the run solves, recorded once before its first solve: the method and its grid.
+    Solver {
+        /// The library module that solves, e.g. `"mode::vector"` or `"fdfd"`.
+        module: String,
+        /// The grid's cells along its two axes: across the guide and up for a modes job, x and
+        /// y for an fdfd job.
+        cells: [usize; 2],
+        /// The grid's step as the job asks for it, µm.
+        step_um: f64,
+        /// The unknowns of one solve.
+        unknowns: usize,
+        /// Further facts, each a name and its value, e.g. `["PML", "20 cells on each side"]`.
+        details: Vec<[String; 2]>,
+    },
+    /// A measure of a solve's numerical error, recorded after what the solve gave: a mode's
+    /// eigen-residual ([`crate::mode::vector::VectorMode::residual`]), an FDFD field's linear
+    /// residual ([`crate::fdfd::Solver2d::residual`]), or how far an S-matrix is from
+    /// reciprocal (the largest |S_qp − S_pq|). These say how well the discrete problem is
+    /// solved, not how well the grid resolves the device.
+    SolveError {
+        /// The sweep point's index, from 0, or `None` for the job's own configuration.
+        point: Option<usize>,
+        /// The swept parameter's value there, or the job's wavelength, µm.
+        value: f64,
+        /// What is measured, e.g. `"eigen-residual, mode 1 of 2"`, `"linear residual"` or
+        /// `"reciprocity"`.
+        measure: String,
+        /// Its value: smaller is better.
+        error: f64,
     },
     // New variants go here, at the end after the last one, so that the earlier variants keep
     // their discriminants (inserting one in between renumbers every variant after it).
@@ -1411,6 +1445,25 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         step,
         lam,
     )?;
+    run.record(&Event::Solver {
+        module: "mode::vector".into(),
+        cells: [cs.x().len() - 1, cs.y().len() - 1],
+        step_um: step,
+        unknowns: cs.unknowns(),
+        details: vec![
+            ["modes asked for".into(), count.to_string()],
+            [
+                "eigen-solver".into(),
+                "shift-and-invert Arnoldi about the highest index, sparse LU of the shifted \
+                 matrix; an eigenpair is accepted at a residual of 1e-9"
+                    .into(),
+            ],
+            [
+                "grid".into(),
+                "nodes on every shape's edge and layer interface, cells of about the step".into(),
+            ],
+        ],
+    })?;
     let found = crate::mode::vector::modes(&cs, lam, count, None)?;
     let mut sorted: Vec<_> = found.iter().collect();
     sorted.sort_by(|a, b| b.effective_index().re.total_cmp(&a.effective_index().re));
@@ -1435,6 +1488,14 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             wavelength_um: lam.to_um(),
             component,
             values,
+        })?;
+    }
+    for (k, m) in sorted.iter().enumerate() {
+        run.record(&Event::SolveError {
+            point: None,
+            value: lam.to_um(),
+            measure: format!("eigen-residual, mode {} of {}", k + 1, sorted.len()),
+            error: m.residual(&cs)?,
         })?;
     }
     // (validated above: at least 2 points, finite and distinct ends, a known parameter)
@@ -1574,6 +1635,14 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 cut_y_um: cut,
             })?;
         }
+        for (rank, m) in found.iter().enumerate() {
+            run.record(&Event::SolveError {
+                point: Some(k),
+                value,
+                measure: format!("eigen-residual, mode {} of {}", rank + 1, found.len()),
+                error: m.residual(&cs)?,
+            })?;
+        }
     }
     Ok(())
 }
@@ -1689,7 +1758,7 @@ size_um = [0.5, 10.0]
         let job = Job::parse(MODES).unwrap();
         let mut run = Run::create(&root.0, &job).unwrap();
         execute(&job, &mut run, &Stop::new(None)).unwrap();
-        let events: Vec<Event> = replay(run.dir()).unwrap();
+        let events: Vec<Event> = found(&run);
         // started, the scene, the cross-section, two modes and their fields, finished
         assert_eq!(events.len(), 8, "{events:?}");
         let Event::Mode {
@@ -2441,6 +2510,154 @@ points = 2
         check(&Job::parse(&width).unwrap()).unwrap();
     }
 
+    /// The run's events without how it solved ([`Event::Solver`], [`Event::SolveError`]):
+    /// what it found, for the tests that read events by position.
+    fn found(run: &Run) -> Vec<Event> {
+        replay(run.dir())
+            .unwrap()
+            .into_iter()
+            .filter(|e| !matches!(e, Event::Solver { .. } | Event::SolveError { .. }))
+            .collect()
+    }
+
+    #[test]
+    fn a_modes_job_records_its_solver_and_each_modes_residual() {
+        let root = temp("modes-solver");
+        let text = format!(
+            "{MODES}\n[task.sweep]\nparameter = \"wavelength\"\nfrom = 1.5\nto = 1.6\npoints = 2\n"
+        );
+        let job = Job::parse(&text).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let events: Vec<Event> = replay(run.dir()).unwrap();
+        // the solver, once, before the first mode: the 2 µm window in cells of 25 nm
+        let at = events
+            .iter()
+            .position(|e| matches!(e, Event::Solver { .. }))
+            .unwrap();
+        let first_mode = events
+            .iter()
+            .position(|e| matches!(e, Event::Mode { .. }))
+            .unwrap();
+        assert!(at < first_mode);
+        let Event::Solver {
+            module,
+            cells,
+            step_um,
+            unknowns,
+            details,
+        } = &events[at]
+        else {
+            unreachable!()
+        };
+        assert_eq!((module.as_str(), *step_um), ("mode::vector", 0.025));
+        assert!(cells[0] >= 80 && cells[1] >= 80, "{cells:?}");
+        // H_x and H_y at each node, less the walls'
+        let nodes = (cells[0] + 1) * (cells[1] + 1);
+        assert!(*unknowns <= 2 * nodes && *unknowns > nodes, "{unknowns}");
+        assert!(details.iter().any(|[name, _]| name == "eigen-solver"));
+        // each mode's residual, the job's own and each point's: within the solver's tolerance
+        let errors: Vec<(Option<usize>, f64, String, f64)> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::SolveError {
+                    point,
+                    value,
+                    measure,
+                    error,
+                } => Some((*point, *value, measure.clone(), *error)),
+                _ => None,
+            })
+            .collect();
+        let places: Vec<(Option<usize>, f64)> = errors.iter().map(|e| (e.0, e.1)).collect();
+        assert_eq!(
+            places,
+            [
+                (None, 1.55),
+                (None, 1.55),
+                (Some(0), 1.5),
+                (Some(0), 1.5),
+                (Some(1), 1.6),
+                (Some(1), 1.6)
+            ]
+        );
+        for (k, (_, _, measure, error)) in errors.iter().enumerate() {
+            assert_eq!(*measure, format!("eigen-residual, mode {} of 2", k % 2 + 1));
+            assert!(*error > 0.0 && *error < 1e-9, "{measure}: {error:e}");
+        }
+    }
+
+    #[test]
+    fn an_fdfd_job_records_its_solver_and_each_solves_errors() {
+        let root = temp("fdfd-solver");
+        let job = Job::parse(FDFD).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let events: Vec<Event> = replay(run.dir()).unwrap();
+        // the solver right after the scene: the 2.8 µm window in cells of 40 nm
+        let Event::Solver {
+            module,
+            cells,
+            step_um,
+            unknowns,
+            details,
+        } = &events[2]
+        else {
+            panic!("{:?}", events[2])
+        };
+        assert_eq!(
+            (module.as_str(), *cells, *step_um, *unknowns),
+            ("fdfd", [70, 70], 0.04, 4900)
+        );
+        assert!(
+            details
+                .iter()
+                .any(|[name, value]| name == "PML" && value.starts_with("20 cells"))
+        );
+        // at each of the two wavelengths, the field's residual and S's reciprocity: a direct
+        // solve's rounding, and a straight strip's S symmetric to it
+        let errors: Vec<(Option<usize>, f64, &str, f64)> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::SolveError {
+                    point,
+                    value,
+                    measure,
+                    error,
+                } => Some((*point, *value, measure.as_str(), *error)),
+                _ => None,
+            })
+            .collect();
+        let places: Vec<(Option<usize>, f64, &str)> =
+            errors.iter().map(|e| (e.0, e.1, e.2)).collect();
+        assert_eq!(
+            places,
+            [
+                (Some(0), 1.5, "linear residual"),
+                (Some(0), 1.5, "reciprocity"),
+                (Some(1), 1.6, "linear residual"),
+                (Some(1), 1.6, "reciprocity")
+            ]
+        );
+        for (_, _, measure, error) in &errors {
+            assert!(*error >= 0.0 && *error < 1e-9, "{measure}: {error:e}");
+        }
+        // a job at one wavelength: the errors are the job's own
+        let sweep = "[task.sweep]\nparameter = \"wavelength\"\nfrom = 1.5\nto = 1.6\npoints = 2\n";
+        let job = Job::parse(&FDFD.replace(sweep, "")).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let single: Vec<(Option<usize>, f64)> = replay(run.dir())
+            .unwrap()
+            .iter()
+            .filter_map(|e| match e {
+                Event::SolveError { point, value, .. } => Some((*point, *value)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(single, [(None, 1.55), (None, 1.55)]);
+    }
+
     #[test]
     fn the_check_refuses_what_the_run_would_before_it_solves() {
         // each of these passed the check and failed in the run: the check now says what the
@@ -2694,7 +2911,7 @@ points = 2
         let job = Job::parse(FDFD).unwrap();
         let mut run = Run::create(&root.0, &job).unwrap();
         execute(&job, &mut run, &Stop::new(None)).unwrap();
-        let events: Vec<Event> = replay(run.dir()).unwrap();
+        let events: Vec<Event> = found(&run);
         // started, the scene, the sweep, S at 1.5 um, the field and the point's, S at 1.6 um,
         // its point's field, finished
         assert_eq!(events.len(), 9, "{events:?}");
@@ -2782,13 +2999,59 @@ points = 2
     }
 
     #[test]
+    fn an_fdfd_jobs_field_starts_where_its_guide_comes_in() {
+        // the strip crosses the whole window, its port 1 at x = −0.4 (column 25); the PML is the
+        // first 20 columns. The field is launched at column 22, so between there and the port
+        // the guide is as bright as beyond the port (a straight, lossless guide)
+        let root = temp("fdfd-launch");
+        let sweep = "[task.sweep]\nparameter = \"wavelength\"\nfrom = 1.5\nto = 1.6\npoints = 2\n";
+        let single = FDFD.replace(sweep, "");
+        let field_of = |text: &str| {
+            let job = Job::parse(text).unwrap();
+            let mut run = Run::create(&root.0, &job).unwrap();
+            execute(&job, &mut run, &Stop::new(None)).unwrap();
+            replay(run.dir())
+                .unwrap()
+                .into_iter()
+                .find_map(|e| match e {
+                    Event::Field { intensity, .. } => Some(intensity),
+                    _ => None,
+                })
+                .unwrap()
+        };
+        let field = field_of(&single);
+        // along the guide's axis, y = 0
+        let on_axis = |i: usize| f64::from(field.at(i, 35));
+        let beyond = on_axis(40);
+        assert!(beyond > 0.5, "{beyond}");
+        for i in [23, 24] {
+            assert!(
+                (on_axis(i) - beyond).abs() < 0.05 * beyond,
+                "column {i}: {} against {beyond}",
+                on_axis(i)
+            );
+        }
+        // a strip that starts just before the port: at column 22 there is no guide, so the
+        // field is launched at the port, and before it only what the device reflects shows
+        let short = single.replace(
+            "center_um = [0.0, 0.0]\nsize_um = [4.0, 0.5]",
+            "center_um = [1.5, 0.0]\nsize_um = [3.9, 0.5]",
+        );
+        assert_ne!(short, single);
+        let field = field_of(&short);
+        assert_eq!(field.range().1, 1.0);
+        assert!(f64::from(field.at(40, 35)) > 0.5);
+        assert!(f64::from(field.at(23, 35)) < 0.05, "{}", field.at(23, 35));
+    }
+
+    #[test]
     fn an_fdfd_job_at_one_wavelength_records_no_sweep() {
         let root = temp("fdfd-single");
         let sweep = "[task.sweep]\nparameter = \"wavelength\"\nfrom = 1.5\nto = 1.6\npoints = 2\n";
         let job = Job::parse(&FDFD.replace(sweep, "")).unwrap();
         let mut run = Run::create(&root.0, &job).unwrap();
         execute(&job, &mut run, &Stop::new(None)).unwrap();
-        let events: Vec<Event> = replay(run.dir()).unwrap();
+        let events: Vec<Event> = found(&run);
         // started, the scene, S, the field, finished
         assert_eq!(events.len(), 5, "{events:?}");
         assert!(matches!(&events[3], Event::Field { .. }));
@@ -2816,7 +3079,7 @@ field_um = 1.58",
         let job = Job::parse(&text).unwrap();
         let mut run = Run::create(&root.0, &job).unwrap();
         execute(&job, &mut run, &Stop::new(None)).unwrap();
-        let events: Vec<Event> = replay(run.dir()).unwrap();
+        let events: Vec<Event> = found(&run);
         // the swept wavelength nearest 1.58 is 1.6, the second: its field follows its S
         let fields: Vec<f64> = events
             .iter()
