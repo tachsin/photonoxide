@@ -619,8 +619,10 @@
 
   <!-- the canvas -->
   <div class="flex min-h-0 min-w-0 flex-col">
-    <!-- too narrow for its buttons, the bar scrolls sideways (so the hints are the window's own: a drawn one would be clipped) -->
-    <div class="flex items-center gap-1 overflow-x-auto border-b border-base-content/8 bg-base-100/60 px-3 py-1.5 whitespace-nowrap [scrollbar-width:thin] [&>*]:shrink-0">
+    <!-- Save and Simulate stay in view; too narrow for the rest, the tools beside them scroll
+         sideways (so their hints are the window's own: a drawn one would be clipped) -->
+    <div class="flex items-center gap-1 border-b border-base-content/8 bg-base-100/60 px-3 py-1.5 whitespace-nowrap">
+      <div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:thin] [&>*]:shrink-0">
       <div title="Undo (Ctrl+Z)">
         <button class="btn btn-ghost btn-sm btn-square" aria-label="Undo" disabled={!editor.undoable} onclick={undo}><Undo2 size={16} /></button>
       </div>
@@ -658,11 +660,12 @@
       {#if !editor.problems.length && chip.instance.length}
         <span class="badge badge-sm badge-success badge-soft">complete</span>
       {/if}
-      <span class="mx-1 h-5 border-l border-base-content/10"></span>
-      <div title="Save to circuits/{chip.name}.toml (Ctrl+S)">
+      </div>
+      <span class="mx-1 h-5 shrink-0 border-l border-base-content/10"></span>
+      <div class="shrink-0" title="Save to circuits/{chip.name}.toml (Ctrl+S)">
         <button class="btn btn-ghost btn-sm gap-1.5" onclick={saveChip}><Save size={15} /> Save{#if dirty()}<span class="status status-warning"></span>{/if}</button>
       </div>
-      <div title="The circuit's S-parameters over its wavelengths (Ctrl+Enter)">
+      <div class="shrink-0" title="The circuit's S-parameters over its wavelengths (Ctrl+Enter)">
         <button class="btn btn-primary btn-sm gap-1.5" disabled={editor.simulating} onclick={runSimulation}>
           {#if editor.simulating}<span class="loading loading-spinner loading-xs"></span>{:else}<CirclePlay size={15} />{/if} Simulate
         </button>
