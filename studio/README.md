@@ -95,8 +95,9 @@ window only follows that record, so a live run and a replay look the same.
   tensors as matrices; and every paper a click away.
 - **Validation:** the release's report, searchable, its math rendered, and the same report run
   on this machine.
-- **Settings:** the theme (photonoxide's dark or light, by the system or chosen, or any of
-  daisyUI's, each shown in its own colours), the workspace folder, tips, and updates.
+- **Settings:** the theme (photonoxide's dark or light, by the system or chosen, with a
+  preview of the one in use; "More themes" opens some thirty others, each shown in its own
+  colours), the workspace folder, tips, and updates.
   The window opens where it was left, at the size it had.
 
 Help is built in:
