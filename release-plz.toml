@@ -45,9 +45,7 @@ release = false
 # overrides the workspace's publish = true, which must agree with its Cargo.toml
 publish = false
 
-# the library's changelog is the release notes, and each release carries the program's binaries
-# too: commits that only touch studio/ are left out of the crate's files (Cargo.toml's exclude),
-# so release-plz would skip them without this
-[[package]]
-name = "photonoxide"
-changelog_include = ["photonoxide-studio"]
+# release-plz gives the changelog only the commits that touch the crate's files, and Cargo.toml
+# excludes studio/ and site/: PRs that changed only those are added to the release PR by hand, and
+# .github/workflows/changelog.yml lists them. (changelog_include = ["photonoxide-studio"] didn't
+# bring them in for 0.4.1: the studio isn't released.)
