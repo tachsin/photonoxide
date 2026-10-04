@@ -1,7 +1,7 @@
 //! The Materials page's commands: the catalogue, and a model's indices over its range or at
 //! one wavelength.
 
-use photonoxide::material::catalogue::{self, Axis, Conditions, Entry, IndexModel};
+use photonoxide::material::catalogue::{self, Axis, Coming, Conditions, Entry, IndexModel, Tag};
 use photonoxide::units::Wavelength;
 use serde::Serialize;
 
@@ -45,10 +45,26 @@ fn conditions(temperature: Option<f64>, composition: Option<f64>) -> Conditions 
     }
 }
 
+/// A material as the Materials page shows it: the entry, its tags, and what is coming.
+#[derive(Serialize)]
+pub struct MaterialView {
+    #[serde(flatten)]
+    entry: Entry,
+    tags: Vec<Tag>,
+    coming: Vec<Coming>,
+}
+
 /// Every material of the catalogue.
 #[tauri::command]
-pub fn materials() -> Vec<Entry> {
+pub fn materials() -> Vec<MaterialView> {
     catalogue::catalogue()
+        .into_iter()
+        .map(|entry| MaterialView {
+            tags: entry.tags(),
+            coming: entry.coming(),
+            entry,
+        })
+        .collect()
 }
 
 /// A model's indices at `points` wavelengths across each material's range.
@@ -136,7 +152,10 @@ mod tests {
 
     #[test]
     fn every_model_gives_curves_and_a_point() {
-        for e in materials() {
+        for v in materials() {
+            assert!(!v.tags.is_empty());
+            assert_eq!(v.coming.len(), v.entry.missing.len());
+            let e = v.entry;
             for m in &e.index {
                 let curves = material_curves(e.id.clone(), m.id.clone(), None, None, 50).unwrap();
                 assert_eq!(curves.len(), m.axes.len());

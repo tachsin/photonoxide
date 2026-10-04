@@ -416,6 +416,35 @@ pub(crate) fn suzuki_tada_voltages() -> Outcome {
     deviation(largest(errors), 0.015)
 }
 
+/// Suzuki & Tada's Faust–Henry analysis (Table II) from the catalogue's clamped r₄₁ at
+/// 1.064 µm: d^EO = −n₀⁴r₄₁ˢ/4 with their n₀ = 3.29, d^E = d^EO/(1 + C) with C = −0.53, and
+/// d^L = d^EO − d^E, against the printed 39, 83 and −44 pm/V (the catalogue's constants): the
+/// largest relative difference.
+pub(crate) fn suzuki_tada_faust_henry() -> Outcome {
+    let r = super::entry("inp").and_then(|e| {
+        e.tensors
+            .iter()
+            .find(|t| t.clamping == super::Clamping::Clamped && t.wavelength == Some(1.064))
+            .and_then(|t| t.value(4, 1))
+    });
+    let constant = |symbol: &str| {
+        super::entry("inp")
+            .and_then(|e| e.constants.into_iter().find(|c| c.symbol == symbol))
+            .map_or(f64::NAN, |c| c.value)
+    };
+    let c = constant(r"C_{41}");
+    let d_eo = r.map_or(f64::NAN, |r| -3.29_f64.powi(4) * r / 4.0);
+    let d_e = d_eo / (1.0 + c);
+    let errors = [
+        (d_eo, constant(r"d_{41}^{EO}")),
+        (d_e, constant(r"d_{41}^{E}")),
+        (d_eo - d_e, constant(r"d_{41}^{L}")),
+    ]
+    .into_iter()
+    .map(|(computed, printed)| (computed / printed - 1.0).abs());
+    deviation(largest(errors), 0.015)
+}
+
 /// AlN's |d33| (Majkić et al.: 4.3 pm/V at 1030 nm) from the ratio they measure,
 /// (0.169 ± 0.009)·d33(LiNbO₃), and the catalogue's Shoji d33 of congruent LiNbO₃ at 1.064 µm,
 /// 25.2 pm/V, which they use.

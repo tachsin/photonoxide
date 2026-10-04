@@ -323,6 +323,7 @@ fn every_catalogue_check_passes() {
         ("tanaka_ueno", checks::tanaka_ueno),
         ("pettit_turner_suzuki", checks::pettit_turner_suzuki),
         ("suzuki_tada_voltages", checks::suzuki_tada_voltages),
+        ("suzuki_tada_faust_henry", checks::suzuki_tada_faust_henry),
         ("majkic_d33", checks::majkic_d33),
         ("rigler_2015_se", checks::rigler_2015_se),
         ("rigler_2015_maie", checks::rigler_2015_maie),
@@ -397,4 +398,190 @@ fn the_nitrides_and_ferrinis_ingap_behave() {
             .im
             > 0.1
     );
+}
+
+fn tag<'a>(tags: &'a [Tag], kind: &str) -> &'a Tag {
+    tags.iter()
+        .find(|t| t.kind == kind)
+        .unwrap_or_else(|| panic!("no {kind} tag"))
+}
+
+#[test]
+fn every_entry_has_its_symmetry_tags_with_both_notations() {
+    for e in catalogue() {
+        let tags = e.tags();
+        for kind in ["category", "system", "point-group", "symmetry", "optical"] {
+            let t = tag(&tags, kind);
+            assert!(
+                !t.label.is_empty() && !t.detail.is_empty(),
+                "{} {kind}",
+                e.id
+            );
+            // LaTeX between an even number of $s
+            assert_eq!(t.label.matches('$').count() % 2, 0, "{} {kind}", e.id);
+            assert_eq!(t.detail.matches('$').count() % 2, 0, "{} {kind}", e.id);
+        }
+        assert_eq!(
+            tags.iter().any(|t| t.kind == "space-group"),
+            e.crystal.space_group.is_some(),
+            "{}",
+            e.id
+        );
+        let symmetry = tag(&tags, "symmetry");
+        assert!(!symmetry.source.is_empty(), "{}", e.id);
+        if e.crystal.centrosymmetric {
+            for caveat in [
+                "Neumann",
+                "dipole",
+                "surface",
+                "strain",
+                "static field",
+                "Kerr",
+            ] {
+                assert!(symmetry.detail.contains(caveat), "{}: {caveat}", e.id);
+            }
+        }
+    }
+    let labels = |id: &str| -> Vec<String> {
+        entry(id)
+            .unwrap()
+            .tags()
+            .into_iter()
+            .map(|t| t.label)
+            .collect()
+    };
+    let si = labels("si");
+    assert!(si.contains(&r"$m\bar{3}m$ ($O_h$)".to_owned()), "{si:?}");
+    assert!(si.contains(&r"$Fd\bar{3}m$ (No. 227)".to_owned()), "{si:?}");
+    assert!(si.contains(&"centrosymmetric (inversion centre)".to_owned()));
+    let gaas = labels("gaas");
+    assert!(
+        gaas.contains(&r"$\bar{4}3m$ ($T_d$)".to_owned()),
+        "{gaas:?}"
+    );
+    assert!(
+        gaas.contains(&r"$F\bar{4}3m$ (No. 216)".to_owned()),
+        "{gaas:?}"
+    );
+    let ln = labels("linbo3");
+    assert!(ln.contains(&r"$3m$ ($C_{3v}$)".to_owned()), "{ln:?}");
+    assert!(ln.contains(&"$R3c$ (No. 161)".to_owned()), "{ln:?}");
+    let aln = labels("aln");
+    assert!(aln.contains(&r"$6mm$ ($C_{6v}$)".to_owned()), "{aln:?}");
+    assert!(aln.contains(&"$P6_3mc$ (No. 186)".to_owned()), "{aln:?}");
+    let silica = labels("sio2");
+    assert!(
+        silica.contains(&r"$\infty\infty m$ ($K_h$), on average".to_owned()),
+        "{silica:?}"
+    );
+    assert!(silica.contains(&"centrosymmetric on average".to_owned()));
+}
+
+#[test]
+fn the_symmetry_tags_state_what_the_tensors_follow() {
+    let detail = |id: &str| tag(&entry(id).unwrap().tags(), "symmetry").detail.clone();
+    let gaas = detail("gaas");
+    for s in [
+        r"$d_{14} = d_{25} = d_{36}$",
+        r"$r_{41} = r_{52} = r_{63}$",
+        "one independent",
+    ] {
+        assert!(gaas.contains(s), "{s}: {gaas}");
+    }
+    let ln = detail("linbo3");
+    for s in [
+        r"$d_{15} = d_{24}$",
+        r"$d_{22} = -d_{16} = -d_{21}$",
+        r"$d_{31} = d_{32}$",
+        r"$d_{33}$",
+        r"$r_{13} = r_{23}$",
+        r"$r_{22} = -r_{12} = -r_{61}$",
+        r"$r_{51} = r_{42}$",
+        "four independent",
+        "Kleinman",
+    ] {
+        assert!(ln.contains(s), "{s}: {ln}");
+    }
+    // every element a tensor gives a value for is one the tag names as independent
+    for e in catalogue() {
+        let d = tag(&e.tags(), "symmetry").detail.clone();
+        for t in &e.tensors {
+            for (i, row) in t.cells.iter().enumerate() {
+                for (j, c) in row.iter().enumerate() {
+                    if matches!(c, Cell::Value { .. }) {
+                        let letter = if t.kind == TensorKind::SecondOrder {
+                            'd'
+                        } else {
+                            'r'
+                        };
+                        let name = format!("${letter}_{{{}{}}}", i + 1, j + 1);
+                        assert!(d.contains(&name), "{}: {name} not in {d}", e.id);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn what_is_coming_names_its_paper_and_matches_missing() {
+    let ids: Vec<String> = catalogue().into_iter().map(|e| e.id).collect();
+    for id in coming::entries() {
+        assert!(ids.iter().any(|i| i == id), "{id}");
+    }
+    for e in catalogue() {
+        let coming = e.coming();
+        assert_eq!(coming.len(), e.missing.len(), "{}", e.id);
+        for (c, m) in coming.iter().zip(&e.missing) {
+            assert_eq!(c.property, m.property);
+            assert!(m.reason.ends_with("coming") || m.reason.starts_with("coming"));
+            assert!(!c.detail.is_empty() && c.detail.matches('$').count() % 2 == 0);
+            assert_eq!(c.source.is_empty(), c.doi.is_empty(), "{}", c.property);
+            assert_eq!(c.source.is_empty(), c.citation.is_empty(), "{}", c.property);
+            if !c.doi.is_empty() {
+                assert!(c.doi.starts_with("10."), "{}", c.doi);
+                assert!(m.reason.contains(&c.source));
+            }
+            // neutral wording: no "missing", no "unknown"
+            for word in ["missing", "unknown", "no number to ship"] {
+                assert!(
+                    !c.detail.to_lowercase().contains(word),
+                    "{}: {word}",
+                    c.property
+                );
+                assert!(
+                    !m.reason.to_lowercase().contains(word),
+                    "{}: {word}",
+                    c.property
+                );
+            }
+        }
+    }
+    let algaas = entry("algaas").unwrap().coming();
+    assert!(
+        algaas
+            .iter()
+            .any(|c| c.property == "r₄₁(x)" && c.doi == "10.1063/1.340279")
+    );
+}
+
+#[test]
+fn algaas_d14_is_ulsigs_printed_value() {
+    let e = entry("algaas").unwrap();
+    let t = e
+        .tensors
+        .iter()
+        .find(|t| t.kind == TensorKind::SecondOrder)
+        .unwrap();
+    assert_eq!(t.value(1, 4), Some(105.0));
+    assert_eq!(t.value(2, 5), Some(105.0));
+    assert_eq!(t.value(3, 6), Some(105.0));
+    assert!(matches!(
+        t.cells[0][3],
+        Cell::Value {
+            uncertainty: Some(u),
+            ..
+        } if u == 11.0
+    ));
+    assert_eq!(t.wavelength, Some(1.94));
 }
