@@ -309,3 +309,327 @@ threads"):
 
 The GPU row needs the owner's wording (Section 5, decision 1): principle 9 as written can't hold
 across a CPU and a GPU.
+
+## 4. The plan in phases
+
+Ordered by what pays most for the least. Each phase states its goal, its methods and papers, how
+it is validated and benchmarked (the roadmap's Benchmarks section: time to a converged answer at
+equal accuracy, throughput, scaling with threads, peak memory, the GPU's speedup at equal results),
+and what it needs from the owner.
+
+| Phase | Goal | Payoff | Effort | Milestone |
+|---|---|---|---|---|
+| A | CPU foundations: kernels, task farming, nested dissection, deterministic threads | high | low to medium | 0.4.1's follow-up, proposed as 0.4.2 |
+| B | FDTD on the CPU and the GPU | high | medium | 0.5 (its GPU item already planned) |
+| C | sweeps, ports and many modes; farming across processes | medium to high | medium | 0.5.x to 0.6 |
+| D | mixed precision, and 3D FDFD on the GPU | medium | medium to high | with 0.7 (3D inverse design) |
+| E | distributed memory: domain decomposition and a communicator | high for the largest 3D devices only | high | a new milestone after 0.7 |
+| F | compressed direct solvers (BLR, HSS) | unknown until measured | high (research) | optional, after a go/no-go measurement |
+
+### Phase A: CPU foundations (with 0.4.1, then a proposed 0.4.2)
+
+**Goal.** Use the machine photonoxide already runs on: the iterative solver near the memory
+bandwidth's roof, sweeps run side by side, direct solvers with less fill, and every parallel
+result bit-identical on any number of threads.
+
+**Work and methods.**
+
+- **A0, the benchmark harness first.** A `bench` command (the roadmap's studio already lists one)
+  with fixed problems: the 2D 440 × 340 FDFD, the 3D 40³ silicon guide, Diel at 864 k unknowns,
+  the strip with ports at 1.8 M, and the mode-solver examples above. Each records wall time,
+  iterations, the field's error against a converged reference, peak memory, and the bandwidth it
+  reached against a measured triad bandwidth of the machine (the roofline, Williams et al. 2009).
+  The same matrices exported (Matrix Market) and solved by PARDISO (Schenk & Gärtner 2004) and
+  MUMPS (Amestoy et al. 2001), run as external programs: the "MKL-class" baseline, never linked.
+- **A1, task farming.** The FDFD job's wavelength loop and the mode solvers' sweeps run their
+  points in parallel, each on one thread when there are at least as many points as cores (the
+  measured mode solves are fastest single-threaded), collected in order, so events and results
+  are the same as today's.
+- **A2, QMR's kernels.** Threads from a persistent pool instead of new OS threads per product; no
+  allocation inside the iteration (the roadmap's pitfall about allocation in solve loops);
+  vector updates fused into single passes; dot products and norms over fixed-size chunks summed in
+  index order; then a matrix-free Yee operator that reads the averaged permittivity and the
+  stretches instead of a stored matrix and its transpose (the stencil structure Malas et al. 2016
+  optimize).
+- **A3, symmetric QMR.** Freund's QMR for complex symmetric matrices (Freund 1992) on V A x = V b,
+  with COCG (van der Vorst & Melissen 1990) as a comparison: one product per iteration, no Aᵀ
+  stored. It needs a symmetric preconditioner: an incomplete factorization of the symmetric V A
+  (an unconjugated incomplete LDLᵀ, the symmetric form of Saad 2003's incomplete factorizations),
+  or a multigrid cycle with restriction Pᵀ and symmetric smoothing. Shin and Fan's operator, on
+  which ILU(0) and the 0.4.1 multigrid work, isn't known to become symmetric under a diagonal
+  scaling (its added term carries ε on the right of the divergence); whether one exists is a
+  question for A3, decided by the 0.4.1 branch's owner, not here.
+- **A4, nested dissection.** A geometric nested-dissection ordering for structured grids (George
+  1973), passed to faer's supernodal LU as its column permutation; a multilevel partitioner
+  (Karypis & Kumar 1998) only if irregular sparsity ever appears.
+- **A5, deterministic parallel preconditioning.** ILU(0)'s factorization by a fixed number of
+  synchronous fixed-point sweeps (Chow & Patel 2015) and its triangular solves by a fixed number
+  of Jacobi sweeps (Anzt et al. 2015), each sweep's values computed from the previous one only, so
+  any thread count gives the same bits; and, once 0.4.1 merges, the multigrid's Galerkin products
+  row by row and its smoothing by the same sweeps or a multicolour ordering of the grid (Saad
+  2003). This is the 0.4.1 branch's own step 3; this plan only supplies the papers.
+
+**Validation.** Every existing validation case passes unchanged. A test runs each parallel kernel
+on 1, 4 and 20 threads and compares bits (CI's single-thread job stays). Symmetric QMR gives the
+direct solver's field to 1e-10, like `fdfd3d/qmr-direct`. Nested dissection gives the same
+solutions to round-off.
+
+**Benchmarks.** Nanoseconds per unknown per iteration and GB/s against the measured triad; time
+to a field error of 1e-8 on the 40³ guide and on Diel; sweep throughput (points per second) by
+thread count; fill and factorization time with nested dissection against COLAMD in 2D (150 k) and
+3D (32³, 40³); faer against PARDISO and MUMPS on the same matrices.
+
+*(Estimates, to be replaced by the benchmarks.)* QMR's iteration 3 to 8 times faster (A2 + A3);
+sweeps 10 to 20 times faster on 20 cores (A1); fill and factorization time down by a factor to be
+measured (A4).
+
+**From the owner.** Approval of the phase and of a 0.4.2 for it; a licence check before MKL and
+MUMPS are run as external programs (decision 4).
+
+### Phase B: FDTD on the CPU and the GPU (0.5)
+
+**Goal.** 0.5's FDTD as fast per core as Meep (the 1.0 "Fast" criterion), and its GPU backend
+(already planned: "wgpu compute, single precision, with the CPU results as its reference").
+
+**Work and methods.**
+
+- The CPU kernel first, in f32 and f64: the Yee update with SIMD over the fastest axis, CPML only
+  in its slabs, no allocation in the loop; then spatial and temporal (wavefront diamond) blocking
+  (Malas et al. 2015, 2016).
+- The GPU kernel on wgpu in f32: the slice-by-slice traversal with workgroup memory (Micikevicius
+  2009); DFT monitors accumulated per cell on the GPU, in time order, with no cross-thread
+  reduction; fluxes reduced by fixed-order trees or on the CPU; no floating-point atomics.
+- Multi-GPU halo exchange is Phase E's.
+
+**Validation.** Every 0.5 validation case on both backends. GPU against CPU at the same precision,
+within a tolerance set per quantity after measuring how rounding grows over a run; a repeated GPU
+run on the same device is bit-identical.
+
+**Benchmarks.** Cell-updates per second by thread count and on the GPU, against the roofline
+estimate (≈ 1.4 G/s streaming on this CPU, ≈ 3.8 G/s on the RTX 4060 in f32, *estimates* from
+vendor bandwidths and ≥ 70 B per update); Meep per core on its published cases (Oskooi et al.
+2010); the GPU's speedup over the blocked CPU kernel, not a naive one; Hughes et al. 2021's
+metalens figure as an outside reference point.
+
+**From the owner.** The wording of principle 9 for GPUs (decision 1); which GPUs are supported
+(f32 on any wgpu backend; f64, for checking, on Vulkan only); where GPU tests run, since GitHub's
+hosted runners have no GPU (decision 7).
+
+### Phase C: sweeps, ports and many modes (0.5.x to 0.6)
+
+**Goal.** The work that multiplies a solve, wavelengths, ports, modes and candidates, at the cost
+of fewer solves, and spread over processes and machines.
+
+**Work and methods.**
+
+- **Ports as a block.** Block QMR (Freund & Malhotra 1997; Jolivet & Tournier 2016) for all of a
+  3D S-matrix's ports, the matrix read once per block of right-hand sides.
+- **Recycling** across a 3D wavelength sweep and between a forward solve and its adjoint (Parks
+  et al. 2006; preconditioning sequences of systems, Bertaccini & Durastante 2018, Section 3.6).
+- **Many modes.** A contour-integral mode solver (Sakurai & Sugiura 2003; Polizzi 2009; for
+  non-Hermitian operators with PMLs, Kestyn et al. 2016), its quadrature points farmed; "every
+  guided mode" as a threshold on n_eff (the question SLEPc 3.23's threshold test answers); for
+  Hadley's nonlinear problem, Beyn's contour method (Beyn 2012) and NLEIGS (Güttel et al. 2014;
+  Güttel & Tisseur 2017). Krylov–Schur restarts (Stewart 2002) for the shift-invert solver.
+- **Farming across processes.** A job runner that sends independent evaluations (a genoxide
+  population, a Monte Carlo of 0.11, corners, a sweep) to worker processes on this machine or
+  others over TCP, in pure Rust, and gathers results by index.
+
+**Validation.** Block QMR and recycling give the same S-matrices as single solves to 1e-10. The
+contour solver finds the same modes as shift-invert, and every eigenvalue of a small problem in
+its region against a dense eigensolve. A farmed sweep is bit-identical for any number of workers.
+
+**Benchmarks.** S-matrix time against ports; a 3D sweep's time against its points; modes per
+second; a population's wall time against workers.
+
+**From the owner.** Whether a second machine is available for farming tests. genoxide must be
+able to hand a whole population to photonoxide's evaluator at once; if it can't, that is a
+general need to describe to genoxide's owner, not a change made here.
+
+### Phase D: mixed precision and 3D FDFD on the GPU (with 0.7)
+
+**Goal.** 3D inverse design needs many 3D solves: halve the direct solver's memory, and move the
+iterative solver to the GPU.
+
+**Work and methods.**
+
+- A single-precision sparse LU (faer is generic over the scalar) as the preconditioner of a
+  double-precision refinement or GMRES (Carson & Higham 2018; Amestoy et al. 2023), with the
+  limits Higham & Mary 2022 set out: when the condition number is too large for the low
+  precision, the refinement fails and must say so.
+- The matrix-free QMR of Phase A on wgpu: f32 inner solves refined in f64 on the CPU, or f64
+  throughout on Vulkan; smoothing and ILU by sweeps (Chow & Patel 2015; Anzt et al. 2015); stored
+  formats (Bell & Garland 2009) only where the operator isn't a stencil; Ginkgo's and PETSc's GPU
+  designs as references (Anzt et al. 2022; Mills et al. 2021).
+
+**Validation.** The same field error as the CPU in f64 on every 3D validation case; the
+refinement's convergence tested, and its failure reported, on an ill-conditioned case.
+
+**Benchmarks.** Time to a field error of 1e-8, CPU f64 against mixed and GPU; memory.
+*(Estimate)* Shin and Fan's full Diel (15 M unknowns) stores A and Aᵀ in about 10 GB; matrix-free
+in single precision its vectors and permittivity take under 2 GB, so it would fit the RTX 4060's
+8 GB only matrix-free.
+
+**From the owner.** Whether f32 on the GPU with f64 refinement is acceptable as the default GPU
+path (decision 6).
+
+### Phase E: distributed memory (a new milestone after 0.7)
+
+**Goal.** 3D devices larger than one machine's memory, and fewer hours per 3D solve, with the
+answer independent of the number of processes.
+
+**Work and methods.**
+
+- **A communicator trait** with an in-process back end and a TCP back end in pure Rust, and an
+  optional MPI back end (rsmpi) off by default (decision 2).
+- **Optimized restricted additive Schwarz** as QMR's preconditioner (St-Cyr et al. 2007; RAS:
+  Cai & Sarkis 1999), with transmission conditions from optimized Schwarz for Maxwell (Dolean et
+  al. 2009; Gander et al. 2002) or the PML itself, and a coarse space (GenEO, Spillane et al. 2014;
+  the comparison of Bootland et al. 2021; Maxwell's two-level analysis, Bonazzoli et al. 2019),
+  designed after HPDDM (Jolivet et al. 2021). Subdomain solves by faer's LU with Phase A's
+  ordering, or by local multigrid. Read Gander & Zhang 2019 and Dolean et al. 2015 first.
+- **Sweeping as the alternative** for long devices: moving PMLs (Engquist & Ying 2011; Poulson et
+  al. 2013), Maxwell's version (Tsuji et al. 2012), layered decomposition (Stolk 2013), L-sweeps
+  for parallelism (Taus et al. 2020). A small prototype of both decides between them on the strip
+  with ports.
+- **Determinism:** subdomains fixed by the problem, owned whole by ranks, reductions in subdomain
+  order; reproducible summation (Demmel & Nguyen 2015; Ahrens et al. 2020) where a reduction can't
+  be ordered. Pipelined Krylov (Ghysels & Vanroose 2014; Cools & Vanroose 2017) only if reductions'
+  latency is measured to matter.
+- **Distributed FDTD:** halo exchange overlapped with computation (Micikevicius 2009; Nagaoka &
+  Watanabe 2011).
+
+**Validation.** Bit-identical results on 1, 2 and 4 processes; the field against a one-machine
+solve; iteration counts against the number of subdomains (flat with a working coarse space).
+
+**Benchmarks.** Strong and weak scaling over processes on one machine, then over machines; time to
+a field error of 1e-8 against Phase A's single-machine solver; memory per process.
+
+**From the owner.** Machines to test on; the MPI decision; where the milestone goes (decision 5).
+
+### Phase F: compressed direct solvers (research, optional)
+
+**Goal.** Find out whether block low-rank or hierarchical compression makes 3D direct solves
+practical at optical frequencies, before building either.
+
+**Work.** A measurement first: the numerical ranks of the off-diagonal blocks of the fronts of a
+3D FDFD factorization (silicon in oxide at 1550 nm, Phase A's ordering), against the frequency and
+the grid. If ranks stay low, a BLR front (Amestoy et al. 2015, 2019) as in Shantsev et al. 2017,
+or HSS (Ghysels et al. 2016); if not, the phase stops with its measurement published.
+
+**From the owner.** Whether to spend research time here at all.
+
+## 5. Decisions for the owner
+
+1. **Principle 9 and GPUs.** WGSL allows fused and reassociated arithmetic, so a GPU result can't
+   equal the CPU's bit for bit.
+   - (a) Keep principle 9 strict, and treat GPU results as previews, never reported numbers.
+   - (b) Reword: bit-for-bit on any number of CPU threads and processes; a GPU run repeats
+     bit-for-bit on the same device and driver, and agrees with the CPU to a stated tolerance.
+   - *Recommended: (b).* It is what 0.5 already implies.
+2. **Principle 6 and MPI.**
+   - (a) No MPI ever; pure-Rust transports only.
+   - (b) A communicator trait with pure-Rust back ends by default and an optional `mpi` feature,
+     off by default, documented as the one C dependency.
+   - (c) MPI as the main transport.
+   - *Recommended: (b),* with the MPI back end written only when someone needs a cluster.
+3. **CUDA.** (a) Never: wgpu only, with Vulkan's f64. (b) An optional cudarc feature for cuSPARSE
+   and cuSOLVER. *Recommended: (a).*
+4. **MKL, PARDISO, MUMPS, PETSc and SLEPc** as external benchmarks, run as programs on exported
+   matrices, never linked, after their licences are checked. *Recommended: yes.*
+5. **Where distributed memory goes.** (a) A new milestone after 0.7. (b) Inside 0.7. (c) After
+   1.0. *Recommended: (a),* with Phase C's process farming earlier, since it is cheap and serves
+   0.7's populations.
+6. **Precision on the GPU.** (a) f32 only (0.5 as planned). (b) f32 with f64 refinement on the
+   CPU for FDFD, f64 on Vulkan for checking. (c) f64 everywhere. *Recommended: (b).*
+7. **Where GPU tests run.** GitHub's hosted runners have no GPU. (a) On the owner's machine before
+   a release, recorded in the validation report. (b) A self-hosted runner with the RTX 4060.
+   *Recommended: (a) first, (b) if GPU regressions slip through.*
+8. **A 0.4.2 for Phase A.** (a) A patch release after 0.4.1. (b) Folded into 0.5. *Recommended:
+   (a),* since Phase A speeds up what users run today.
+9. **Symmetric QMR and the multigrid branch.** The symmetric solver needs a symmetric
+   preconditioner; the 0.4.1 multigrid is built on Shin and Fan's operator with a transposed
+   cycle. *Recommended:* leave 0.4.1 as it is; try symmetric QMR first on the curl-curl operator
+   with an incomplete LDLᵀ, and decide afterwards whether the multigrid moves.
+
+## References
+
+Every DOI below was checked on Crossref on 2026-10-04. "Folder" marks a copy in the papers
+folder; the others are listed there as needed. Gaps: 33 of the 61 new papers have no copy yet.
+23 have no open copy that OpenAlex, Unpaywall or arXiv know of; 10 have one behind a bot check or
+a publisher's block on scripts, and the folder's README gives each one's link.
+
+**Already in the folder before this plan**
+
+- Y. Saad, *Iterative Methods for Sparse Linear Systems*, 2nd ed., SIAM (2003). [10.1137/1.9780898718003](https://doi.org/10.1137/1.9780898718003)
+- Y. Saad, *Numerical Methods for Large Eigenvalue Problems*, revised ed., SIAM (2011). [10.1137/1.9781611970739](https://doi.org/10.1137/1.9781611970739)
+- D. Bertaccini, F. Durastante, *Iterative Methods and Preconditioning for Large and Sparse Linear Systems with Applications*, Chapman and Hall/CRC (2018). [10.1201/9781315153575](https://doi.org/10.1201/9781315153575)
+- B. Engquist, L. Ying, Multiscale Model. Simul. 9, 686 (2011). [10.1137/100804644](https://doi.org/10.1137/100804644)
+- Y. A. Erlangga, C. W. Oosterlee, C. Vuik, SIAM J. Sci. Comput. 27, 1471 (2006). [10.1137/040615195](https://doi.org/10.1137/040615195)
+- B. Reps, W. Vanroose, H. bin Zubair, J. Comput. Phys. 229, 8384 (2010). [10.1016/j.jcp.2010.07.022](https://doi.org/10.1016/j.jcp.2010.07.022)
+- W. Shin, S. Fan, Opt. Express 21, 22578 (2013). [10.1364/OE.21.022578](https://doi.org/10.1364/OE.21.022578)
+- A. F. Oskooi et al., Comput. Phys. Commun. 181, 687 (2010). [10.1016/j.cpc.2009.11.008](https://doi.org/10.1016/j.cpc.2009.11.008)
+
+**New with this plan** (folder file names as in its README)
+
+- `ahrens-2020`: W. Ahrens, J. Demmel, H. D. Nguyen, ACM Trans. Math. Softw. 46, 22 (2020), "Algorithms for Efficient Reproducible Floating Point Summation". [10.1145/3389360](https://doi.org/10.1145/3389360)
+- `amestoy-2001`: P. R. Amestoy, I. S. Duff, J.-Y. L'Excellent, J. Koster, SIAM J. Matrix Anal. Appl. 23, 15 (2001), "A Fully Asynchronous Multifrontal Solver Using Distributed Dynamic Scheduling". [10.1137/S0895479899358194](https://doi.org/10.1137/S0895479899358194)
+- `amestoy-2015`: P. Amestoy, C. Ashcraft, O. Boiteau, A. Buttari, J.-Y. L'Excellent, C. Weisbecker, SIAM J. Sci. Comput. 37, A1451 (2015), "Improving Multifrontal Methods by Means of Block Low-Rank Representations". [10.1137/120903476](https://doi.org/10.1137/120903476)
+- `amestoy-2019`: P. R. Amestoy, A. Buttari, J.-Y. L'Excellent, T. Mary, ACM Trans. Math. Softw. 45, 1 (2019), "Performance and Scalability of the Block Low-Rank Multifrontal Factorization on Multicore Architectures". [10.1145/3242094](https://doi.org/10.1145/3242094)
+- `amestoy-2023` (folder): P. Amestoy, A. Buttari, N. J. Higham, J.-Y. L’Excellent, T. Mary, B. Vieublé, ACM Trans. Math. Softw. 49, 4 (2023), "Combining Sparse Approximate Factorizations with Mixed-precision Iterative Refinement". [10.1145/3582493](https://doi.org/10.1145/3582493)
+- `anzt-2015`: H. Anzt, E. Chow, J. Dongarra, Euro-Par 2015, Lect. Notes Comput. Sci. 9233, 650 (2015), "Iterative Sparse Triangular Solves for Preconditioning". [10.1007/978-3-662-48096-0_50](https://doi.org/10.1007/978-3-662-48096-0_50)
+- `anzt-2022` (folder): H. Anzt, T. Cojean, G. Flegar, F. Göbel, T. Grützmacher, P. Nayak, T. Ribizel, Y. M. Tsai, E. S. Quintana-Ortí, ACM Trans. Math. Softw. 48, 2 (2022), "Ginkgo: A modern linear operator algebra framework for high performance computing". [10.1145/3480935](https://doi.org/10.1145/3480935)
+- `bell-garland-2009` (folder): N. Bell, M. Garland, Proc. SC09, article 18 (2009), "Implementing sparse matrix-vector multiplication on throughput-oriented processors". [10.1145/1654059.1654078](https://doi.org/10.1145/1654059.1654078)
+- `beyn-2012` (folder): W.-J. Beyn, Linear Algebra Appl. 436, 3839 (2012), "An integral method for solving nonlinear eigenvalue problems". [10.1016/j.laa.2011.03.030](https://doi.org/10.1016/j.laa.2011.03.030)
+- `bonazzoli-2019` (folder): M. Bonazzoli, V. Dolean, I. G. Graham, E. A. Spence, P.-H. Tournier, Math. Comp. 88, 2559 (2019), "Domain decomposition preconditioning for the high-frequency time-harmonic Maxwell equations with absorption". [10.1090/mcom/3447](https://doi.org/10.1090/mcom/3447)
+- `bootland-2021` (folder): N. Bootland, V. Dolean, P. Jolivet, P.-H. Tournier, Comput. Math. Appl. 98, 239 (2021), "A comparison of coarse spaces for Helmholtz problems in the high frequency regime". [10.1016/j.camwa.2021.07.011](https://doi.org/10.1016/j.camwa.2021.07.011)
+- `cai-sarkis-1999`: X.-C. Cai, M. Sarkis, SIAM J. Sci. Comput. 21, 792 (1999), "A Restricted Additive Schwarz Preconditioner for General Sparse Linear Systems". [10.1137/S106482759732678X](https://doi.org/10.1137/S106482759732678X)
+- `campos-roman-2021` (folder): C. Campos, J. E. Roman, ACM Trans. Math. Softw. 47, 23 (2021), "NEP: A module for the parallel solution of nonlinear eigenvalue problems in SLEPc". [10.1145/3447544](https://doi.org/10.1145/3447544)
+- `carson-higham-2018`: E. Carson, N. J. Higham, SIAM J. Sci. Comput. 40, A817 (2018), "Accelerating the Solution of Linear Systems by Iterative Refinement in Three Precisions". [10.1137/17M1140819](https://doi.org/10.1137/17M1140819)
+- `chow-patel-2015` (folder): E. Chow, A. Patel, SIAM J. Sci. Comput. 37, C169 (2015), "Fine-Grained Parallel Incomplete LU Factorization". [10.1137/140968896](https://doi.org/10.1137/140968896)
+- `cools-vanroose-2017` (folder): S. Cools, W. Vanroose, Parallel Comput. 65, 1 (2017), "The communication-hiding pipelined BiCGstab method for the parallel solution of large unsymmetric linear systems". [10.1016/j.parco.2017.04.005](https://doi.org/10.1016/j.parco.2017.04.005)
+- `demmel-nguyen-2015`: J. Demmel, H. D. Nguyen, IEEE Trans. Comput. 64, 2060 (2015), "Parallel Reproducible Summation". [10.1109/TC.2014.2345391](https://doi.org/10.1109/TC.2014.2345391)
+- `dolean-2009` (folder): V. Dolean, M. J. Gander, L. Gerardo-Giorda, SIAM J. Sci. Comput. 31, 2193 (2009), "Optimized Schwarz Methods for Maxwell's Equations". [10.1137/080728536](https://doi.org/10.1137/080728536)
+- `dolean-2015`: V. Dolean, P. Jolivet, F. Nataf, SIAM (2015), a book, "An Introduction to Domain Decomposition Methods: Algorithms, Theory, and Parallel Implementation". [10.1137/1.9781611974065](https://doi.org/10.1137/1.9781611974065)
+- `freund-1992`: R. W. Freund, SIAM J. Sci. Stat. Comput. 13, 425 (1992), "Conjugate Gradient-Type Methods for Linear Systems with Complex Symmetric Coefficient Matrices". [10.1137/0913023](https://doi.org/10.1137/0913023)
+- `freund-malhotra-1997`: R. W. Freund, M. Malhotra, Linear Algebra Appl. 254, 119 (1997), "A block QMR algorithm for non-Hermitian linear systems with multiple right-hand sides". [10.1016/S0024-3795(96)00529-0](https://doi.org/10.1016/S0024-3795(96)00529-0)
+- `frommer-glassner-1998`: A. Frommer, U. Glässner, SIAM J. Sci. Comput. 19, 15 (1998), "Restarted GMRES for Shifted Linear Systems". [10.1137/S1064827596304563](https://doi.org/10.1137/S1064827596304563)
+- `gander-2002` (folder): M. J. Gander, F. Magoulès, F. Nataf, SIAM J. Sci. Comput. 24, 38 (2002), "Optimized Schwarz Methods without Overlap for the Helmholtz Equation". [10.1137/S1064827501387012](https://doi.org/10.1137/S1064827501387012)
+- `gander-zhang-2019` (folder): M. J. Gander, H. Zhang, SIAM Rev. 61, 3 (2019), "A Class of Iterative Solvers for the Helmholtz Equation: Factorizations, Sweeping Preconditioners, Source Transfer, Single Layer Potentials, Polarized Traces, and Optimized Schwarz Methods". [10.1137/16M109781X](https://doi.org/10.1137/16M109781X)
+- `george-1973`: A. George, SIAM J. Numer. Anal. 10, 345 (1973), "Nested Dissection of a Regular Finite Element Mesh". [10.1137/0710032](https://doi.org/10.1137/0710032)
+- `ghysels-2016` (folder): P. Ghysels, X. S. Li, F.-H. Rouet, S. Williams, A. Napov, SIAM J. Sci. Comput. 38, S358 (2016), "An Efficient Multicore Implementation of a Novel HSS-Structured Multifrontal Solver Using Randomized Sampling". [10.1137/15M1010117](https://doi.org/10.1137/15M1010117)
+- `ghysels-vanroose-2014`: P. Ghysels, W. Vanroose, Parallel Comput. 40, 224 (2014), "Hiding global synchronization latency in the preconditioned Conjugate Gradient algorithm". [10.1016/j.parco.2013.06.001](https://doi.org/10.1016/j.parco.2013.06.001)
+- `guttel-2014`: S. Güttel, R. Van Beeumen, K. Meerbergen, W. Michiels, SIAM J. Sci. Comput. 36, A2842 (2014), "NLEIGS: A Class of Fully Rational Krylov Methods for Nonlinear Eigenvalue Problems". [10.1137/130935045](https://doi.org/10.1137/130935045)
+- `guttel-tisseur-2017`: S. Güttel, F. Tisseur, Acta Numerica 26, 1 (2017), "The nonlinear eigenvalue problem". [10.1017/S0962492917000034](https://doi.org/10.1017/S0962492917000034)
+- `henson-yang-2002`: V. E. Henson, U. M. Yang, Appl. Numer. Math. 41, 155 (2002), "BoomerAMG: A parallel algebraic multigrid solver and preconditioner". [10.1016/S0168-9274(01)00115-5](https://doi.org/10.1016/S0168-9274(01)00115-5)
+- `hernandez-2005`: V. Hernandez, J. E. Roman, V. Vidal, ACM Trans. Math. Softw. 31, 351 (2005), "SLEPc: A scalable and flexible toolkit for the solution of eigenvalue problems". [10.1145/1089014.1089019](https://doi.org/10.1145/1089014.1089019)
+- `higham-mary-2022` (folder): N. J. Higham, T. Mary, Acta Numerica 31, 347 (2022), "Mixed precision algorithms in numerical linear algebra". [10.1017/S0962492922000022](https://doi.org/10.1017/S0962492922000022)
+- `hiptmair-1998`: R. Hiptmair, SIAM J. Numer. Anal. 36, 204 (1998), "Multigrid Method for Maxwell's Equations". [10.1137/S0036142997326203](https://doi.org/10.1137/S0036142997326203)
+- `hiptmair-xu-2007`: R. Hiptmair, J. Xu, SIAM J. Numer. Anal. 45, 2483 (2007), "Nodal Auxiliary Space Preconditioning in H(curl) and H(div) Spaces". [10.1137/060660588](https://doi.org/10.1137/060660588)
+- `hughes-2021`: T. W. Hughes, M. Minkov, V. Liu, Z. Yu, S. Fan, Appl. Phys. Lett. 119, 150502 (2021), "A perspective on the pathway toward full wave simulation of large area metalenses". [10.1063/5.0071245](https://doi.org/10.1063/5.0071245)
+- `jolivet-2021`: P. Jolivet, J. E. Roman, S. Zampini, Comput. Math. Appl. 84, 277 (2021), "KSPHPDDM and PCHPDDM: Extending PETSc with advanced Krylov methods and robust multilevel overlapping Schwarz preconditioners". [10.1016/j.camwa.2021.01.003](https://doi.org/10.1016/j.camwa.2021.01.003)
+- `jolivet-tournier-2016`: P. Jolivet, P.-H. Tournier, SC16: Proc. Int. Conf. High Performance Computing, Networking, Storage and Analysis, 190 (2016), "Block Iterative Methods and Recycling for Improved Scalability of Linear Solvers". [10.1109/SC.2016.16](https://doi.org/10.1109/SC.2016.16)
+- `karypis-kumar-1998`: G. Karypis, V. Kumar, SIAM J. Sci. Comput. 20, 359 (1998), "A Fast and High Quality Multilevel Scheme for Partitioning Irregular Graphs". [10.1137/S1064827595287997](https://doi.org/10.1137/S1064827595287997)
+- `kestyn-2016` (folder): J. Kestyn, E. Polizzi, P. T. P. Tang, SIAM J. Sci. Comput. 38, S772 (2016), "Feast Eigensolver for Non-Hermitian Problems". [10.1137/15M1026572](https://doi.org/10.1137/15M1026572)
+- `kolev-vassilevski-2009` (folder): T. V. Kolev, P. S. Vassilevski, J. Comput. Math. 27, 604 (2009), "Parallel auxiliary space AMG for H(curl) problems". [10.4208/jcm.2009.27.5.013](https://doi.org/10.4208/jcm.2009.27.5.013)
+- `malas-2015` (folder): T. Malas, G. Hager, H. Ltaief, H. Stengel, G. Wellein, D. Keyes, SIAM J. Sci. Comput. 37, C439 (2015), "Multicore-Optimized Wavefront Diamond Blocking for Optimizing Stencil Updates". [10.1137/140991133](https://doi.org/10.1137/140991133)
+- `malas-2016` (folder): T. M. Malas, J. Hornich, G. Hager, H. Ltaief, C. Pflaum, D. E. Keyes, Proc. IEEE IPDPS 2016, 142, "Optimization of an Electromagnetics Code with Multicore Wavefront Diamond Blocking and Multi-dimensional Intra-Tile Parallelization". [10.1109/IPDPS.2016.87](https://doi.org/10.1109/IPDPS.2016.87)
+- `micikevicius-2009` (folder): P. Micikevicius, Proc. 2nd Workshop on General Purpose Processing on Graphics Processing Units (GPGPU-2), 79 (2009), "3D finite difference computation on GPUs using CUDA". [10.1145/1513895.1513905](https://doi.org/10.1145/1513895.1513905)
+- `mills-2021` (folder): R. T. Mills, M. F. Adams, S. Balay, J. Brown, A. Dener, M. Knepley, S. E. Kruger, H. Morgan, T. Munson, K. Rupp, B. F. Smith, S. Zampini, H. Zhang, J. Zhang, Parallel Comput. 108, 102831 (2021), "Toward performance-portable PETSc for GPU-based exascale systems". [10.1016/j.parco.2021.102831](https://doi.org/10.1016/j.parco.2021.102831)
+- `nagaoka-watanabe-2011`: T. Nagaoka, S. Watanabe, Proc. IEEE EMBC 2011, 401, "Multi-GPU accelerated three-dimensional FDTD method for electromagnetic simulation". [10.1109/IEMBS.2011.6090128](https://doi.org/10.1109/IEMBS.2011.6090128)
+- `parks-2006` (folder): M. L. Parks, E. de Sturler, G. Mackey, D. D. Johnson, S. Maiti, SIAM J. Sci. Comput. 28, 1651 (2006), "Recycling Krylov Subspaces for Sequences of Linear Systems". [10.1137/040607277](https://doi.org/10.1137/040607277)
+- `polizzi-2009` (folder): E. Polizzi, Phys. Rev. B 79, 115112 (2009), "Density-matrix-based algorithm for solving eigenvalue problems". [10.1103/PhysRevB.79.115112](https://doi.org/10.1103/PhysRevB.79.115112)
+- `poulson-2013` (folder): J. Poulson, B. Engquist, S. Li, L. Ying, SIAM J. Sci. Comput. 35, C194 (2013), "A Parallel Sweeping Preconditioner for Heterogeneous 3D Helmholtz Equations". [10.1137/120871985](https://doi.org/10.1137/120871985)
+- `sakurai-sugiura-2003`: T. Sakurai, H. Sugiura, J. Comput. Appl. Math. 159, 119 (2003), "A projection method for generalized eigenvalue problems using numerical integration". [10.1016/S0377-0427(03)00565-X](https://doi.org/10.1016/S0377-0427(03)00565-X)
+- `schenk-gartner-2004`: O. Schenk, K. Gärtner, Future Gener. Comput. Syst. 20, 475 (2004), "Solving unsymmetric sparse systems of linear equations with PARDISO". [10.1016/j.future.2003.07.011](https://doi.org/10.1016/j.future.2003.07.011)
+- `shantsev-2017`: D. V. Shantsev, P. Jaysaval, S. de la Kethulle de Ryhove, P. R. Amestoy, A. Buttari, J.-Y. L’Excellent, T. Mary, Geophys. J. Int. 209, 1558 (2017), "Large-scale 3-D EM modelling with a Block Low-Rank multifrontal direct solver". [10.1093/gji/ggx106](https://doi.org/10.1093/gji/ggx106)
+- `sonneveld-vangijzen-2008`: P. Sonneveld, M. B. van Gijzen, SIAM J. Sci. Comput. 31, 1035 (2008), "IDR(s): A family of simple and fast algorithms for solving large nonsymmetric systems of linear equations". [10.1137/070685804](https://doi.org/10.1137/070685804)
+- `spillane-2014` (folder): N. Spillane, V. Dolean, P. Hauret, F. Nataf, C. Pechstein, R. Scheichl, Numer. Math. 126, 741 (2014), "Abstract robust coarse spaces for systems of PDEs via generalized eigenproblems in the overlaps". [10.1007/s00211-013-0576-y](https://doi.org/10.1007/s00211-013-0576-y)
+- `st-cyr-2007` (folder): A. St-Cyr, M. J. Gander, S. J. Thomas, SIAM J. Sci. Comput. 29, 2402 (2007), "Optimized Multiplicative, Additive, and Restricted Additive Schwarz Preconditioning". [10.1137/060652610](https://doi.org/10.1137/060652610)
+- `stewart-2002`: G. W. Stewart, SIAM J. Matrix Anal. Appl. 23, 601 (2002), "A Krylov--Schur Algorithm for Large Eigenproblems". [10.1137/S0895479800371529](https://doi.org/10.1137/S0895479800371529)
+- `stolk-2013` (folder): C. C. Stolk, J. Comput. Phys. 241, 240 (2013), "A rapidly converging domain decomposition method for the Helmholtz equation". [10.1016/j.jcp.2013.01.039](https://doi.org/10.1016/j.jcp.2013.01.039)
+- `taus-2020` (folder): M. Taus, L. Zepeda-Núñez, R. J. Hewett, L. Demanet, J. Comput. Phys. 420, 109706 (2020), "L-Sweeps: A scalable, parallel preconditioner for the high-frequency Helmholtz equation". [10.1016/j.jcp.2020.109706](https://doi.org/10.1016/j.jcp.2020.109706)
+- `tsuji-2012`: P. Tsuji, B. Engquist, L. Ying, J. Comput. Phys. 231, 3770 (2012), "A sweeping preconditioner for time-harmonic Maxwell’s equations with finite elements". [10.1016/j.jcp.2012.01.025](https://doi.org/10.1016/j.jcp.2012.01.025)
+- `vandervorst-melissen-1990`: H. van der Vorst, J. Melissen, IEEE Trans. Magn. 26, 706 (1990), "A Petrov-Galerkin type method for solving Ax = b, where A is symmetric complex". [10.1109/20.106415](https://doi.org/10.1109/20.106415)
+- `vangijzen-sonneveld-2011`: M. B. van Gijzen, P. Sonneveld, ACM Trans. Math. Softw. 38, 5 (2011), "Algorithm 913: An elegant IDR(s) variant that efficiently exploits biorthogonality properties". [10.1145/2049662.2049667](https://doi.org/10.1145/2049662.2049667)
+- `williams-2009` (folder): S. Williams, A. Waterman, D. Patterson, Commun. ACM 52, 65 (2009), "Roofline: an insightful visual performance model for multicore architectures". [10.1145/1498765.1498785](https://doi.org/10.1145/1498765.1498785)
