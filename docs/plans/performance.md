@@ -234,3 +234,78 @@ The candidates the owner named, and a few more, each checked against photonoxide
 | Method | Paper | Fit |
 |---|---|---|
 | Reproducible summation | Demmel & Nguyen 2015; Ahrens et al. 2020 | sums bit-identical in any order, at about 7n to 9n flops instead of n: one option for principle 9 across ranks (Section 3) |
+
+## 3. The Rust side, checked 2026-10-04
+
+Versions and licences from crates.io's API; capabilities from each project's README or docs, and
+for faer from its 0.24.4 source.
+
+### GPU
+
+| Crate | Version (date) | Licence | Pure Rust? | f64 | Complex | Platforms, status |
+|---|---|---|---|---|---|---|
+| wgpu | 30.0.1 (2026-08-22) | MIT OR Apache-2.0 | yes (it calls the system's Vulkan, DX12 or Metal drivers) | `SHADER_F64` on **Vulkan only**, native only (not DX12, Metal or WebGPU); its docs warn f64 is "frequently between 16 and 64 times slower" than f32 | none: two floats (`vec2<f32>`) by hand | Windows, Linux, macOS, web; stable and maintained. `SHADER_F16` everywhere; subgroups on Vulkan, DX12, Metal |
+| CubeCL | 0.10.0 (2026-09-22) | MIT OR Apache-2.0 | the language is; its CUDA and HIP back ends compile through the vendors' toolchains, its CPU back end through MLIR | not stated in its README | not stated | targets WGSL (wgpu), CUDA, SPIR-V, HIP, Metal, CPU; alpha, "expect breaking changes between minor versions" |
+| cudarc | 0.19.10 (2026-09-24) | MIT OR Apache-2.0 | no: bindings to NVIDIA's C libraries (driver, NVRTC, cuBLAS, cuSPARSE, cuSOLVER, NCCL, cuFFT…), loaded at run time by default, so no C at build time | yes | through cuBLAS and friends | NVIDIA only, CUDA 11.4 to 13.x |
+| rust-gpu | spirv-builder 0.10.0 (2026-10-01) | MIT OR Apache-2.0 | yes: Rust compiled to SPIR-V | as SPIR-V allows, on Vulkan | none | "still heavily in development"; a pinned nightly toolchain |
+| Rust-CUDA | cust 0.3.2 on crates.io (2022); the project is "being rebooted" on GitHub | MIT OR Apache-2.0 | no: NVIDIA's NVVM, the CUDA toolkit ≥ 12 and LLVM 7 (or an `llvm21` feature) | yes | none | "early development"; a pinned nightly |
+
+**What this means for photonoxide.** wgpu, which principle 6 already names, is right for FDTD in
+single precision, as 0.5 plans. Double precision on the GPU exists only through Vulkan: on this
+machine's NVIDIA card it works (Vulkan runs on Windows), on a Mac it doesn't, and on a consumer
+GPU it runs at a fraction of the single-precision rate. A double-precision GPU FDFD is therefore a
+Vulkan-only feature, or single precision on the GPU refined in double on the CPU (Phase D). And
+WGSL allows "reassociation and fusion" of floating-point operations, so results "may differ
+between implementations" (the WGSL specification, §15.7): a GPU can't promise bit-for-bit equality
+with the CPU, which matters for principle 9 below.
+
+### Distributed memory
+
+| Option | Version (date) | Licence | Pure Rust? | Notes |
+|---|---|---|---|---|
+| rsmpi (`mpi`) | 0.8.2 (2026-07-09) | MIT OR Apache-2.0 | no: links a C MPI (the MPI-3.1 C interface) and needs a C compiler and libclang to build | tested with Open MPI, MPICH and MS-MPI on Windows; no one-sided communication or parallel I/O |
+| MPI 5.0's standard ABI | approved 2025-06; MPICH 5.0.0 (2026-02) implements it | — | still a C library | a future binding could load any conforming MPI at run time without compiling C, but it would still call C |
+| Lamellar | 0.8.1 (2026-07-30) | BSD (by its README; crates.io lists it as non-standard) | its single-node back ends (local, shared memory) are; its network back ends need libfabric, UCX, ROFI or PMIx, all C | PNNL's asynchronous PGAS runtime: distributed arrays and active messages; Linux-centred; alpha |
+| timely | 0.31.0 (2026-07-14) | MIT | yes, over TCP | a dataflow system, not the SPMD halo exchange a solver wants; proof that a pure-Rust TCP transport is practical |
+| photonoxide's own communicator | — | photonoxide's | yes | a trait with send, receive and ordered all-reduce; an in-process back end (threads) and a TCP back end; an MPI back end optional (Section 5, decision 2) |
+
+### Kernels: faer against MKL and PARDISO
+
+| | faer 0.24.4 (MIT, pure Rust) | Intel MKL / PARDISO |
+|---|---|---|
+| Dense | SIMD through pulp (AVX2; AVX-512 behind faer's `nightly` feature), threads through rayon (`Par`) | hand-tuned for Intel CPUs |
+| Sparse direct | supernodal and simplicial LU (COLAMD by default; the low-level API takes a column permutation), Cholesky LLᴴ, LDLᴴ and Bunch–Kaufman LBLᴴ (AMD or a custom ordering) | PARDISO (Schenk & Gärtner 2004), with nested-dissection orderings, a parallel factorization and, by MKL's documentation, complex symmetric matrix types |
+| Missing in faer, as read in its source | nested dissection; low-rank compression; distributed memory; an unconjugated LDLᵀ for complex symmetric matrices (its symmetric factorizations are Hermitian, which V A is not); to confirm with faer's author | — |
+| Iterative and eigen | CG, BiCGSTAB, LSMR; a restarted partial eigensolver (largest magnitude) | MKL's iterative solvers (reverse communication) |
+| Licence | MIT: a dependency | proprietary: a benchmark only |
+
+How fast faer's sparse LU is against PARDISO on photonoxide's matrices hasn't been measured; that
+is benchmark A0 of Phase A, run with MKL as an external program, never linked.
+
+### Where this meets principles 6 and 9
+
+**Principle 6, pure Rust** ("no C, Fortran or Python dependencies; linear algebra is faer,
+parallelism is rayon, and the GPU is wgpu"):
+
+| Item | Conflict? | Options | Recommendation |
+|---|---|---|---|
+| wgpu | none | — | the only GPU dependency |
+| CubeCL (wgpu back end only) | none in its wgpu back end; it is alpha | adopt for kernel authoring in Rust instead of WGSL, or write WGSL by hand | hand-written WGSL first (few kernels: a stencil, a few vector operations); revisit CubeCL when it leaves alpha |
+| cudarc, Rust-CUDA, CubeCL's CUDA back end | yes: NVIDIA's C libraries or toolchain | (a) never; (b) an optional feature, off by default, outside CI's default build | (a): wgpu with Vulkan's f64 covers what photonoxide needs |
+| rsmpi | yes: a C MPI | (a) never; (b) a communicator trait, pure-Rust back ends by default, MPI an optional feature; (c) MPI as the main back end | (b), and the MPI back end only when a cluster user asks for it |
+| MKL, PARDISO, MUMPS, PETSc, SLEPc | yes (C, Fortran) | (a) external benchmarks only, run as programs like Meep; (b) optional back ends | (a). Their licences (MKL's proprietary licence, MUMPS's CeCILL-C, PETSc's BSD-2) are checked before the benchmark harness runs them |
+
+**Principle 9, determinism** ("reductions are ordered, seeds are explicit, and nothing depends on
+thread scheduling"; and in the 1.0 criteria, "bit-for-bit the same result on any number of
+threads"):
+
+| Situation | What breaks it | Options |
+|---|---|---|
+| Threads | reductions whose order follows the thread count (rayon's `sum` over a parallel iterator splits adaptively) | **chunks fixed by the problem, not the thread count**: dot products over fixed blocks of, say, 4 096 entries, the blocks' partial sums added in index order. Products by rows, each row summed in order, as `krylov::product` already does. Cheap, and exact on any thread count |
+| Iterative preconditioners in parallel | Gauss–Seidel or ILU sweeps whose result depends on the order rows are processed | Jacobi-type sweeps (each value from the previous sweep only, Chow & Patel 2015; Anzt et al. 2015), or a multicolour ordering fixed by the grid (Saad 2003): the same answer on any thread count |
+| Distributed ranks | the partition, and so the subdomains and reductions, follow the number of ranks | **over-decomposition fixed by the problem**: the problem is cut into a fixed set of blocks (subdomains) from its size alone; ranks own whole blocks; every reduction runs block by block in block order. Or reproducible summation (Demmel & Nguyen 2015; Ahrens et al. 2020) at 7 to 9 times the flops of a plain sum. The first is free and fits Schwarz preconditioners, whose subdomains are part of the method anyway |
+| GPU | WGSL permits reassociation and fusion (§15.7), so the GPU's arithmetic isn't the CPU's; floating-point atomics add order dependence | no float atomics in any kernel; fixed workgroup sizes and fixed-order tree reductions, so a run repeats bit-for-bit **on the same device and driver**; against the CPU, agreement **to a stated tolerance**, as 0.5 already says ("with the CPU results as its reference") |
+| Pipelined Krylov | different rounding from the standard recurrence | deterministic, just different iterates: allowed, documented as a different method |
+
+The GPU row needs the owner's wording (Section 5, decision 1): principle 9 as written can't hold
+across a CPU and a GPU.
