@@ -12,7 +12,7 @@ The validated, fabrication-ready photonics toolkit for Rust: simulation, inverse
 - **Fabricated:** at least one photonoxide-designed device made on an open multi-project wafer run (SiEPIC openEBL), with its measured spectrum compared against the prediction and both published.
 - **Visible:** every solver and every optimization can be watched live in the studio, and every run replays from its record. Headless runs give identical results.
 - **Fast:** at least as fast per core as the reference open-source codes (Meep, MPB, S4) on our benchmark suite, measured as time to a converged answer at equal accuracy, with every result published, losses included.
-- **Reproducible:** the same input gives bit-for-bit the same result on any number of threads.
+- **Reproducible:** the same input gives bit-for-bit the same result on any number of threads and processes. A GPU run repeats bit-for-bit on the same device and driver, and agrees with the CPU to a stated tolerance.
 - **Documented:** every method has a theory page with its derivation and references, and 100% of the public API is documented.
 
 ## Design principles
@@ -37,13 +37,15 @@ The validated, fabrication-ready photonics toolkit for Rust: simulation, inverse
    - The window starts the job by itself, exits when it's done, and honours a hard timeout.
 6. **Pure Rust.**
    - No C, Fortran or Python dependencies, and no Python bindings.
-   - Linear algebra is faer, parallelism is rayon, and the GPU is wgpu.
+   - Linear algebra is faer, parallelism is rayon, the GPU is wgpu (f64 through Vulkan), and processes talk through a communicator in pure Rust (in-process and TCP).
+   - One exception, written only when a cluster needs it: an optional `mpi` feature, off by default, documented as the one C dependency. No CUDA.
+   - PETSc, SLEPc, MKL/PARDISO and MUMPS are inspiration and benchmarks: their methods are implemented from their papers, specific to our solvers, and the libraries themselves run only as external programs on exported problems, never linked.
 7. **Units are types.** Lengths, wavelengths and frequencies can't be mixed up silently. The time convention is e^(−iωt) everywhere and is documented once.
 8. **Material data has provenance.**
    - Every material model carries its source, validity range and temperature.
    - Extrapolating outside the range is an error by default.
    - Only openly licensed data is shipped; the refractiveindex.info database is CC0.
-9. **Determinism is a guarantee.** Reductions are ordered, seeds are explicit, and nothing depends on thread scheduling.
+9. **Determinism is a guarantee.** Reductions are ordered, seeds are explicit, and nothing depends on thread scheduling or on the number of processes: a distributed problem is split by the problem, not by the machines it runs on. GPU compilers may fuse and reorder arithmetic, so a GPU run is held to bit-for-bit repeats on the same device and driver, and to agreement with the CPU within a tolerance stated per quantity.
 10. **Optimization lives in genoxide, at every level.**
     - photonoxide supplies the physics: the objective, its adjoint gradient, and the parametrization (filters, projections, fabrication constraints), for device shapes, component parameters and whole circuits.
     - [genoxide](https://github.com/tachsin/genoxide), our optimization library, supplies every method that searches: gradient methods, constrained methods, evolutionary and global search.
@@ -190,6 +192,18 @@ The backbone of a chip: components with ports and several fidelities, connected 
 
 - [ ] **A preconditioner for high-contrast 3D problems** (QMR takes thousands of iterations on a silicon guide), so a component's 3D fidelity takes minutes. *(Begun in 0.4.0: QMR preconditioned by ILU(0) on Shin and Fan's operator, with PMLs stretched as much as they absorb (`IterativeSolver3d::with_ilu`): 254 iterations against 2 739 and 3.2 times faster on a 40³ silicon guide, but no faster on Diel. Next, a stronger one: multigrid that copes with PMLs, or a sweeping preconditioner. See [FDFD in 3D](docs/methods/fdfd-3d.md#preconditioning-qmr).)*
 
+### 0.4.2: Using the whole machine (CPU)
+
+Measured on 0.4.0 (Core Ultra 7 265K): most mode solvers run slower on 20 threads than on one (Hadley's corners 13.2 s against 8.0 s), an FDFD job's wavelengths are solved one after another, and the 3D iterative solver reaches about a fifth of the memory bandwidth (an estimate). See [the performance plan](docs/plans/performance.md), Phase A.
+
+- [ ] **A benchmark harness first:** a `bench` command with fixed problems (2D FDFD, the 3D silicon guide, Diel, the strip with ports, the mode-solver examples), recording wall time, iterations, the field's error against a converged reference, peak memory, and bandwidth against the machine's measured roofline (Williams 2009). The same matrices exported and solved by PARDISO (Schenk & Gärtner 2004) and MUMPS (Amestoy 2001) as external programs: the MKL-class baseline, never linked.
+- [ ] **Sweeps side by side:** the points of an FDFD wavelength sweep and of the mode solvers' sweeps solved in parallel, each on one thread when there are enough points, collected in order, so events and results are unchanged.
+- [ ] **QMR's kernels:** a persistent thread pool, no allocation inside the iteration, fused vector updates, dot products over fixed-size chunks summed in order, then a matrix-free Yee operator (the stencil Malas 2016 optimize).
+- [ ] **Symmetric QMR** for the complex-symmetric curl-curl system (Freund 1992; COCG, van der Vorst & Melissen 1990, to compare): one product per iteration and no Aᵀ, with an unconjugated incomplete LDLᵀ (Saad 2003). Whether the 0.4.1 multigrid moves to it is decided after.
+- [ ] **Nested dissection** (George 1973) as the ordering of faer's sparse LU on our structured grids.
+- [ ] **Deterministic parallel ILU:** the factorization by fixed synchronous sweeps (Chow & Patel 2015) and the triangular solves by Jacobi sweeps (Anzt 2015), the same bits on any thread count.
+- [ ] **Validation:** every existing case unchanged; each parallel kernel bit-identical on 1, 4 and 20 threads; symmetric QMR against the direct solver to 1e-10; nested dissection's solutions equal to round-off.
+
 ### 0.5: Finite-difference time-domain (FDTD)
 - [ ] **Core:**
   - the Yee scheme in 2D and 3D (Yee 1966);
@@ -198,7 +212,11 @@ The backbone of a chip: components with ports and several fidelities, connected 
 - [ ] **Sources:** total-field/scattered-field, mode sources, Gaussian beams and dipoles.
 - [ ] **Monitors:** DFT on planes and volumes, flux, mode overlaps; resonances by harmonic inversion (Mandelshtam 1997).
 - [ ] **Media:** Bloch-periodic boundaries, and dispersive media by auxiliary differential equations (Drude, Lorentz).
-- [ ] **Performance:** a GPU backend (wgpu compute, single precision), with the CPU results as its reference.
+- [ ] **Performance** (the performance plan's Phase B):
+  - the CPU kernel in f32 and f64, SIMD along the fastest axis, CPML only in its slabs, no allocation in the loop, then spatial and temporal (wavefront diamond) blocking (Malas 2015, 2016);
+  - a GPU backend on wgpu compute in f32 (slice by slice with workgroup memory, Micikevicius 2009), DFT monitors accumulated per cell in time order, no floating-point atomics; f64 on Vulkan for checking;
+  - judged against the blocked CPU kernel, not a naive one (the RTX 4060 has about 2.7× this CPU's memory bandwidth), and against Meep per core;
+  - GPU tests on the owner's machine before each release, recorded in the validation report (GitHub's runners have no GPU); a self-hosted runner if regressions slip through.
 - [ ] **Adjoint gradients** in 3D, the imaginary part of the mode included.
 - [ ] **Studio:** live field propagation in planes and slices, with monitors.
 - [ ] **Validation:**
@@ -208,6 +226,16 @@ The backbone of a chip: components with ports and several fidelities, connected 
   - Meep on its published cases (Oskooi 2010);
   - agreement with FDFD (0.3) on the same structures;
   - Liu & Poon 2025's six open PDK devices (MMI, directional coupler, crossing, mode converter, polarization splitter-rotator, ring), with two commercial codes' published results to compare.
+
+### 0.5.1: Many solves at once
+
+Wavelengths, ports, modes and candidates multiply every solve; do fewer, and spread the rest. The performance plan's Phase C.
+
+- [ ] **Ports as a block:** block QMR (Freund & Malhotra 1997; Jolivet & Tournier 2016) for all of a 3D S-matrix's ports.
+- [ ] **Recycling** Krylov subspaces across a 3D wavelength sweep and between a forward solve and its adjoint (Parks 2006; Bertaccini & Durastante 2018).
+- [ ] **Many modes,** after SLEPc's methods, implemented from their papers: contour-integral eigensolvers (Sakurai & Sugiura 2003; FEAST, Polizzi 2009; non-Hermitian with PMLs, Kestyn 2016) with their quadrature points farmed, and "every guided mode above an n_eff threshold"; Krylov–Schur restarts (Stewart 2002) for shift-invert; Hadley's nonlinear problem by Beyn's contour method (Beyn 2012) and NLEIGS (Güttel 2014; Güttel & Tisseur 2017).
+- [ ] **Farming across processes:** independent evaluations (genoxide populations, sweeps, corners, Monte Carlo) sent to worker processes on this machine or others over TCP, in pure Rust, gathered by index.
+- [ ] **Validation:** block and recycled solves give the single solves' S-matrices to 1e-10; the contour solver finds shift-invert's modes, and every eigenvalue in its region of a small problem against a dense solve; a farmed sweep is bit-identical for any number of workers. SLEPc runs as an external program on exported problems for comparison.
 
 ### 0.6: Thermal and electro-optic devices
 
@@ -257,6 +285,9 @@ The first active devices. One solver for static problems on the waveguide's cros
   - added to genoxide as general methods where it lacks them: the method of moving asymptotes, the standard for topology optimization (MMA: Svanberg 1987; globally convergent: Svanberg 2002), and continuation schedules that keep the optimizer's state across stages;
   - large designs (10⁴ to 10⁶ variables) need genoxide's gradient methods to cost O(n) per step.
 - [ ] **Pipeline:** explore in 2D, then optimize and verify in 3D.
+- [ ] **Performance for 3D design** (the performance plan's Phase D):
+  - a single-precision sparse LU refined in double (Carson & Higham 2018; Amestoy 2023), failing loudly where the condition number is too large for it (Higham & Mary 2022);
+  - the matrix-free QMR on the GPU, f32 refined in f64 on the CPU (f64 throughout on Vulkan), with ILU and smoothing by sweeps; Ginkgo's and PETSc's GPU designs as references (Anzt 2022; Mills 2021).
 - [ ] **Studio:** the live optimization dashboard (design, fields, figure of merit, constraints).
 - [ ] **Validation,** each in 3D and within stated tolerances:
   - Chen et al. 2024's benchmark suite, cross-checked across independent codes;
@@ -266,6 +297,18 @@ The first active devices. One solver for static problems on the waveguide's cros
   - the mode multiplexer (Frellsen 2016);
   - the grating coupler (Su 2018);
   - foundry-ready designs (Piggott 2020).
+
+### 0.7.1: Distributed memory
+
+3D devices larger than one machine's memory, and fewer hours per 3D solve, with the answer independent of the number of processes. The performance plan's Phase E.
+
+- [ ] **A communicator:** in-process and TCP back ends in pure Rust; the optional `mpi` feature (rsmpi), off by default, only when a cluster needs it.
+- [ ] **Domain decomposition,** after PETSc's PCHPDDM, implemented from the papers: optimized restricted additive Schwarz as QMR's preconditioner (St-Cyr 2007; RAS, Cai & Sarkis 1999), Maxwell's transmission conditions (Dolean 2009; Gander 2002) or the PML itself, and a coarse space (GenEO, Spillane 2014; Bootland 2021; Bonazzoli 2019; Jolivet 2021). Read Gander & Zhang 2019 and Dolean, Jolivet & Nataf 2015 first.
+- [ ] **Sweeping, as the alternative for long devices:** moving PMLs (Engquist & Ying 2011; Poulson 2013), for Maxwell (Tsuji 2012), layered (Stolk 2013), L-sweeps (Taus 2020). Small prototypes of both decide between them on the strip with ports.
+- [ ] **Determinism:** subdomains fixed by the problem, owned whole by processes, reductions in subdomain order; reproducible summation (Demmel & Nguyen 2015; Ahrens 2020) where a reduction can't be ordered; pipelined Krylov (Ghysels & Vanroose 2014; Cools & Vanroose 2017) only if reductions' latency is measured to matter.
+- [ ] **Distributed FDTD:** halo exchange overlapped with computation, across processes and GPUs (Micikevicius 2009; Nagaoka & Watanabe 2011).
+- [ ] **Validation:** bit-identical on 1, 2 and 4 processes; the field against a one-machine solve; iterations flat in the number of subdomains with a working coarse space; strong and weak scaling over processes, then machines.
+- [ ] **Research, optional:** compressed direct solvers (block low-rank: Amestoy 2015, 2019; Shantsev 2017 for 3D EM; HSS: Ghysels 2016), only if a first measurement shows low ranks in a 3D FDFD factorization at optical frequencies; otherwise that measurement is published and the item closes.
 
 ### 0.8: Carrier modulators, signals and programmable circuits
 
@@ -395,7 +438,7 @@ How a design reaches a foundry. Fabrication is almost always a multi-project waf
   - 0.7: the optimization dashboard;
   - 0.8: eye diagrams and mesh programming;
   - 0.9: the layout view.
-- **Performance:** criterion benchmarks, with regression gating in CI.
+- **Performance:** criterion benchmarks and the `bench` command (0.4.2), with regression gating in CI; every speed-up measured as time to equal accuracy. See [the performance plan](docs/plans/performance.md).
 - **Docs:** a theory page per method.
 
 ### 1.0: Stable
@@ -440,7 +483,10 @@ Each entry states its tolerance, grid, run time, and the source it is compared w
   - throughput (cell-updates per second for FDTD, solves per second for FDFD);
   - scaling with threads;
   - peak memory;
-  - for the GPU, speedup over the CPU at equal results.
+  - for the GPU, speedup over the CPU at equal results;
+  - bandwidth reached against the machine's measured roofline;
+  - scaling with processes and machines (0.7.1).
+- **Baselines for the kernels:** PARDISO (MKL), MUMPS, PETSc and SLEPc, run as external programs on matrices photonoxide exports, after their licences are checked; never linked.
 
 ## Not planned
 
@@ -452,7 +498,7 @@ Each entry states its tolerance, grid, run time, and the source it is compared w
 
 ## References
 
-Every reference below was checked against its DOI.
+Every reference below was checked against its DOI. The performance work's references (GPU, kernels, preconditioners, eigensolvers, domain decomposition) are listed with their DOIs in [the performance plan](docs/plans/performance.md#references).
 
 **FDTD and boundaries**
 - K. Yee, IEEE Trans. Antennas Propag. 14, 302 (1966). [10.1109/TAP.1966.1138693](https://doi.org/10.1109/TAP.1966.1138693)
