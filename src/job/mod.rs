@@ -1934,6 +1934,43 @@ size_um = [0.5, 10.0]
     }
 
     /// MODES, its modes travelling along x: the same strip turned a quarter turn.
+    #[test]
+    fn a_modes_job_finds_eight_modes() {
+        // a strip guides two or three modes; the ones after them are the window's, close
+        // together. Asking for six or more failed ("didn't converge in 20 restarts") while
+        // each restart of the eigensolver kept a Krylov space of one size
+        let events = run_events("modes-eight", &MODES.replace("modes = 2", "modes = 8"));
+        let indices: Vec<f64> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::Mode {
+                    effective_index, ..
+                } => Some(effective_index[0]),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(indices.len(), 8, "{indices:?}");
+        // from the highest index down, each a different mode, the first two the strip's own
+        assert!(
+            indices.windows(2).all(|p| p[0] - p[1] > 1e-9),
+            "{indices:?}"
+        );
+        let two = run_events("modes-eight-two", MODES);
+        let first: Vec<f64> = two
+            .iter()
+            .filter_map(|e| match e {
+                Event::Mode {
+                    effective_index, ..
+                } => Some(effective_index[0]),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(first.len(), 2);
+        for (a, b) in first.iter().zip(&indices) {
+            assert!((a - b).abs() < 1e-8, "{a} vs {b}");
+        }
+    }
+
     const MODES_X: &str = r#"
 name = "strip-modes-x"
 
