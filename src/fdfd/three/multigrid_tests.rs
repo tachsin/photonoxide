@@ -1,5 +1,7 @@
 use super::*;
-use crate::fdfd::krylov::{Preconditioner, Sparse, Stopping, qmr, qmr_preconditioned};
+use crate::fdfd::krylov::{
+    Preconditioner, Sparse, Stopping, gmres_preconditioned, qmr, qmr_preconditioned,
+};
 use crate::fdfd::three::{Boundaries3d, Grid3d, Solver3d};
 use crate::units::Wavelength;
 
@@ -172,6 +174,7 @@ fn experiment() {
         pre,
         post,
         coarsest,
+        restart: var("MG_RESTART", "40").parse().unwrap(),
     };
     let t = std::time::Instant::now();
     let operator = shifted(&lattice, &eps, &matrix, shift);
@@ -261,12 +264,28 @@ fn experiment() {
             error(&x)
         );
     }
-    if var("MG_GMRES", "0") == "1" {
-        for tolerance in [1e-6, 1e-8, 1e-10] {
+    for tolerance in [1e-6, 1e-8, 1e-10] {
+        let t = std::time::Instant::now();
+        let (x, how) =
+            gmres_preconditioned(&matrix, &h, &b, stop(tolerance), options.restart).unwrap();
+        println!(
+            "MG {case}: GMRES({}) + MG, {tolerance:e}: {} iterations, {:?}, error {:.1e}",
+            options.restart,
+            how.iterations,
+            t.elapsed(),
+            error(&x)
+        );
+    }
+    if var("MG_ILU", "0") == "1" {
+        let t = std::time::Instant::now();
+        let ilu = crate::fdfd::krylov::Ilu0::new(&matrix).unwrap();
+        let built = t.elapsed();
+        for tolerance in [1e-8, 1e-10] {
             let t = std::time::Instant::now();
-            let (x, iterations) = gmres(&matrix, &h, &b, tolerance, 200);
+            let (x, how) = qmr_preconditioned(&matrix, &ilu, &b, stop(tolerance)).unwrap();
             println!(
-                "MG {case}: GMRES + MG, {tolerance:e}: {iterations} iterations, {:?}, error {:.1e}",
+                "MG {case}: QMR + ILU(0) (built in {built:?}), {tolerance:e}: {} iterations, {:?}, error {:.1e}",
+                how.iterations,
                 t.elapsed(),
                 error(&x)
             );
@@ -281,83 +300,6 @@ fn experiment() {
             t.elapsed(),
             error(&x)
         );
-    }
-}
-
-/// Right-preconditioned GMRES(m) by modified Gram-Schmidt, for comparison: the iterations (one
-/// preconditioner solve each) to a relative residual of `tolerance`, and the solution.
-fn gmres(
-    a: &Sparse,
-    m: &Hierarchy,
-    b: &[c64],
-    tolerance: f64,
-    restart: usize,
-) -> (Vec<c64>, usize) {
-    let n = b.len();
-    let dot = |u: &[c64], v: &[c64]| -> c64 { u.iter().zip(v).map(|(p, q)| p.conj() * q).sum() };
-    let mut x = vec![c64::new(0.0, 0.0); n];
-    let beta0 = norm(b);
-    let mut iterations = 0;
-    loop {
-        let ax = a.apply(&x);
-        let r: Vec<c64> = b.iter().zip(&ax).map(|(p, q)| p - q).collect();
-        let beta = norm(&r);
-        if beta <= tolerance * beta0 || iterations > 2000 {
-            return (x, iterations);
-        }
-        let mut v: Vec<Vec<c64>> = vec![r.iter().map(|z| z / beta).collect()];
-        let mut z: Vec<Vec<c64>> = Vec::new();
-        let mut h = vec![vec![c64::new(0.0, 0.0); restart]; restart + 1];
-        let mut g = vec![c64::new(0.0, 0.0); restart + 1];
-        g[0] = c64::new(beta, 0.0);
-        let mut rot: Vec<(c64, c64)> = Vec::new();
-        let mut k = 0;
-        while k < restart {
-            let zk = m.solve(&v[k]);
-            let mut w = a.apply(&zk);
-            z.push(zk);
-            for i in 0..=k {
-                h[i][k] = dot(&v[i], &w);
-                for (wj, vj) in w.iter_mut().zip(&v[i]) {
-                    *wj -= h[i][k] * vj;
-                }
-            }
-            let hn = norm(&w);
-            h[k + 1][k] = c64::new(hn, 0.0);
-            for (i, &(c, s)) in rot.iter().enumerate() {
-                let (p, q) = (h[i][k], h[i + 1][k]);
-                h[i][k] = c.conj() * p + s.conj() * q;
-                h[i + 1][k] = -s * p + c * q;
-            }
-            let (p, q) = (h[k][k], h[k + 1][k]);
-            let d = (p.norm_sqr() + q.norm_sqr()).sqrt();
-            let (c, s) = (p / d, q / d);
-            h[k][k] = c64::new(d, 0.0);
-            h[k + 1][k] = c64::new(0.0, 0.0);
-            g[k + 1] = -s * g[k];
-            g[k] = c.conj() * g[k];
-            rot.push((c, s));
-            v.push(w.iter().map(|q| q / hn).collect());
-            k += 1;
-            iterations += 1;
-            if g[k].norm() <= tolerance * beta0 {
-                break;
-            }
-        }
-        // y from the triangle, x += Z y
-        let mut y = vec![c64::new(0.0, 0.0); k];
-        for i in (0..k).rev() {
-            let mut sum = g[i];
-            for j in i + 1..k {
-                sum -= h[i][j] * y[j];
-            }
-            y[i] = sum / h[i][i];
-        }
-        for (j, yj) in y.iter().enumerate() {
-            for (xi, zi) in x.iter_mut().zip(&z[j]) {
-                *xi += yj * zi;
-            }
-        }
     }
 }
 
@@ -416,6 +358,7 @@ fn options(shape: CycleShape, pre: usize, post: usize) -> Multigrid {
         pre,
         post,
         coarsest: 300,
+        restart: 40,
     }
 }
 
@@ -536,7 +479,7 @@ fn the_cycle_is_the_same_bit_for_bit_on_any_number_of_threads() {
 }
 
 #[test]
-fn qmr_with_the_cycle_takes_fewer_iterations_than_with_ilu0_and_agrees() {
+fn gmres_with_the_cycle_takes_fewer_iterations_than_qmr_with_ilu0_and_agrees() {
     let (grid, eps, current) = small(16, true);
     let (lattice, eps, matrix, b) = system(grid, eps, Boundaries3d::stretched_pml(4), &current);
     let stop = Stopping {
@@ -545,7 +488,14 @@ fn qmr_with_the_cycle_takes_fewer_iterations_than_with_ilu0_and_agrees() {
     };
     let operator = shifted(&lattice, &eps, &matrix, 0.5);
     let h = Hierarchy::new(&lattice, &eps, operator, options(CycleShape::V, 0, 1)).unwrap();
-    let (with_cycle, cycle) = qmr_preconditioned(&matrix, &h, &b, stop).unwrap();
+    // GMRES with the cycle, as the solver runs it, and QMR with it: the same field, GMRES in
+    // no more iterations (it minimizes the residual QMR only nearly does), each with one cycle
+    // where QMR's take two
+    let (with_cycle, cycle) = gmres_preconditioned(&matrix, &h, &b, stop, 40).unwrap();
+    let (by_qmr, qmr_cycle) = qmr_preconditioned(&matrix, &h, &b, stop).unwrap();
+    assert!(cycle.iterations <= qmr_cycle.iterations);
+    let d: Vec<c64> = with_cycle.iter().zip(&by_qmr).map(|(p, q)| p - q).collect();
+    assert!(norm(&d) < 1e-7 * norm(&by_qmr));
     let ilu = crate::fdfd::krylov::Ilu0::new(&matrix).unwrap();
     let (with_ilu, ilu) = qmr_preconditioned(&matrix, &ilu, &b, stop).unwrap();
     let d: Vec<c64> = with_cycle

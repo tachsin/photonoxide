@@ -5,7 +5,9 @@ use num_complex::Complex64 as c64;
 use super::multigrid::{Hierarchy, Multigrid, shifted};
 use super::{Axis, Boundaries3d, Field3d, Grid3d, Lattice, Port3d, PortMode3d, Solver3d};
 use crate::fdfd::Direction;
-use crate::fdfd::krylov::{Convergence, Ilu0, Sparse, Stopping, qmr, qmr_preconditioned};
+use crate::fdfd::krylov::{
+    Convergence, Ilu0, Sparse, Stopping, gmres_preconditioned, qmr, qmr_preconditioned,
+};
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -111,8 +113,10 @@ impl IterativeSolver3d {
         Ok(self)
     }
 
-    /// The same problem, QMR preconditioned from the right by a multigrid cycle on Shin and Fan's
-    /// operator ([`Multigrid`]): Galerkin coarse operators, ILU(0) smoothing on every level, and a
+    /// The same problem, solved by GMRES preconditioned from the right by a multigrid cycle on
+    /// Shin and Fan's operator ([`Multigrid`]; GMRES, restarted, as Y. Saad, *Iterative Methods
+    /// for Sparse Linear Systems*, 2nd ed., SIAM (2003), doi:10.1137/1.9780898718003, Algorithms
+    /// 9.5 and 6.11: one cycle an iteration, where QMR would take the cycle and its transpose): Galerkin coarse operators, ILU(0) smoothing on every level, and a
     /// direct solve on the coarsest (B. Reps, W. Vanroose, H. bin Zubair, J. Comput. Phys. 229,
     /// 8384 (2010), doi:10.1016/j.jcp.2010.07.022, Section 6.1), with the complex shift of
     /// Y. A. Erlangga, C. W. Oosterlee, C. Vuik, SIAM J. Sci. Comput. 27, 1471 (2006),
@@ -204,8 +208,10 @@ impl IterativeSolver3d {
             .transformed_rhs(&self.eps, &b, self.formulation.s());
         let (values, convergence) = match &self.preconditioner {
             Preconditioning::Ilu(ilu) => qmr_preconditioned(&self.matrix, ilu, &b, stopping)?,
+            // a cycle is worth many products with A, and GMRES takes one per iteration where
+            // QMR takes two (the cycle and its transpose)
             Preconditioning::Multigrid(h) => {
-                qmr_preconditioned(&self.matrix, h.as_ref(), &b, stopping)?
+                gmres_preconditioned(&self.matrix, h.as_ref(), &b, stopping, h.restart())?
             }
             Preconditioning::None => qmr(&self.matrix, &b, stopping)?,
         };

@@ -231,6 +231,178 @@ pub(crate) fn qmr_preconditioned(
     Ok((m.solve(&y), convergence))
 }
 
+/// The values a sum is taken over at once, in [`dot_conj`] and [`combine`]: fixed, so that the
+/// sums come out the same bit for bit on any number of threads.
+const CHUNK: usize = 16_384;
+
+/// (u, v) = Σ conj(u_k) v_k, the inner product of Cⁿ: chunk by chunk on rayon's threads, each
+/// chunk summed in order and the chunks' sums added in order.
+fn dot_conj(u: &[c64], v: &[c64]) -> c64 {
+    use rayon::prelude::*;
+    let parts: Vec<c64> = u
+        .par_chunks(CHUNK)
+        .zip(v.par_chunks(CHUNK))
+        .map(|(p, q)| p.iter().zip(q).map(|(x, y)| x.conj() * y).sum())
+        .collect();
+    parts.into_iter().sum()
+}
+
+/// w += Σ_j c_j v_j, value by value on rayon's threads, each value's terms in order.
+fn combine(w: &mut [c64], coefficients: &[c64], vectors: &[Vec<c64>]) {
+    use rayon::prelude::*;
+    w.par_iter_mut()
+        .with_min_len(CHUNK)
+        .enumerate()
+        .for_each(|(k, wk)| {
+            for (c, v) in coefficients.iter().zip(vectors) {
+                *wk += c * v[k];
+            }
+        });
+}
+
+/// Solves A x = b from x₀ = 0 by restarted GMRES on the right-preconditioned system
+/// A M⁻¹ u = b, x = M⁻¹ u: Y. Saad, *Iterative Methods for Sparse Linear Systems*, 2nd ed., SIAM
+/// (2003), doi:10.1137/1.9780898718003, Algorithm 9.5 (GMRES with right preconditioning),
+/// restarted every `restart` steps (Algorithm 6.11), its Arnoldi basis by modified Gram–Schmidt
+/// (Algorithm 6.2) and its least-squares problem by Givens rotations as each column comes
+/// (Section 6.5.3; complex ones, Section 6.5.9, Eqs. 6.80–6.81), which gives the residual's norm
+/// at every step without forming x.
+///
+/// Each iteration takes one product with A and one M⁻¹, where QMR takes two of each (it needs
+/// the transposes too), and keeps one more vector: `restart` + 1 of them in all. The residual
+/// it stops on is A x = b's own, as right preconditioning leaves it, and is computed afresh at
+/// each restart and at the end.
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] if `b` doesn't match A, if the tolerance isn't positive, if
+/// `restart` is 0, or if the tolerance isn't reached within the iterations allowed.
+pub(crate) fn gmres_preconditioned(
+    a: &impl Operator,
+    m: &impl Preconditioner,
+    b: &[c64],
+    stopping: Stopping,
+    restart: usize,
+) -> Result<(Vec<c64>, Convergence)> {
+    let n = a.size();
+    if b.len() != n {
+        return Err(Error::invalid(
+            "gmres",
+            format!("the right-hand side needs {n} values, got {}", b.len()),
+        ));
+    }
+    if !(stopping.tolerance > 0.0) || restart == 0 {
+        return Err(Error::invalid(
+            "gmres",
+            "needs a positive tolerance and a restart of at least 1",
+        ));
+    }
+    let zero = c64::new(0.0, 0.0);
+    let rho0 = norm(b);
+    let mut x = vec![zero; n];
+    let mut history = Vec::new();
+    if rho0 == 0.0 {
+        return Ok((
+            x,
+            Convergence {
+                iterations: 0,
+                residual: 0.0,
+                history,
+            },
+        ));
+    }
+    let target = stopping.tolerance * rho0;
+    let mut residual = b.to_vec();
+    loop {
+        // line 1: r₀ = b − A x₀, β = ‖r₀‖, v₁ = r₀ / β
+        let beta = norm(&residual);
+        if beta <= target || history.len() >= stopping.max_iterations {
+            break;
+        }
+        let mut v: Vec<Vec<c64>> = vec![residual.iter().map(|z| z / beta).collect()];
+        // the Hessenberg matrix's columns as the rotations leave them (upper triangular), the
+        // rotations (c_i, s_i), and β e₁ as they turn it
+        let mut columns: Vec<Vec<c64>> = Vec::new();
+        let mut rotations: Vec<(c64, f64)> = Vec::new();
+        let mut g = vec![c64::new(beta, 0.0)];
+        while columns.len() < restart && history.len() < stopping.max_iterations {
+            let j = columns.len();
+            // lines 3–8: w = A M⁻¹ v_j, orthogonalized against the basis
+            let mut w = a.apply(&m.solve(&v[j]));
+            let mut h = Vec::with_capacity(j + 2);
+            for vi in &v {
+                let hij = dot_conj(vi, &w);
+                combine(&mut w, &[-hij], std::slice::from_ref(vi));
+                h.push(hij);
+            }
+            let next = norm(&w);
+            // the earlier rotations on the new column, then the one that zeroes h_{j+1,j}
+            for (i, &(c, s)) in rotations.iter().enumerate() {
+                let (p, q) = (h[i], h[i + 1]);
+                h[i] = c.conj() * p + s * q;
+                h[i + 1] = -s * p + c * q;
+            }
+            let size = (h[j].norm_sqr() + next * next).sqrt();
+            if size == 0.0 {
+                // A M⁻¹ v_j lies in the basis and adds nothing: the residual can't fall further
+                break;
+            }
+            let (c, s) = (h[j] / size, next / size);
+            h[j] = c64::new(size, 0.0);
+            g.push(-s * g[j]);
+            g[j] = c.conj() * g[j];
+            rotations.push((c, s));
+            h.truncate(j + 1);
+            columns.push(h);
+            history.push(g[j + 1].norm() / rho0);
+            if g[j + 1].norm() <= target || next == 0.0 {
+                break;
+            }
+            v.push(w.iter().map(|z| z / next).collect());
+        }
+        // line 11: y from the triangle, x = x₀ + M⁻¹ V y
+        let steps = columns.len();
+        if steps == 0 {
+            break;
+        }
+        let mut y = vec![zero; steps];
+        for i in (0..steps).rev() {
+            let mut sum = g[i];
+            for (jj, column) in columns.iter().enumerate().skip(i + 1) {
+                sum -= column[i] * y[jj];
+            }
+            y[i] = sum / columns[i][i];
+        }
+        let mut u = vec![zero; n];
+        combine(&mut u, &y, &v[..steps]);
+        let dx = m.solve(&u);
+        for (xk, d) in x.iter_mut().zip(&dx) {
+            *xk += d;
+        }
+        // line 12: the true residual, to stop on or to restart from
+        let ax = a.apply(&x);
+        residual = b.iter().zip(&ax).map(|(p, q)| p - q).collect();
+    }
+    let reached = norm(&residual) / rho0;
+    if reached > stopping.tolerance {
+        return Err(Error::invalid(
+            "gmres",
+            format!(
+                "no convergence to {:e} in {} iterations (the residual is at {reached:e})",
+                stopping.tolerance, stopping.max_iterations
+            ),
+        ));
+    }
+    Ok((
+        x,
+        Convergence {
+            iterations: history.len(),
+            residual: reached,
+            history,
+        },
+    ))
+}
+
 /// When QMR stops.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Stopping {
@@ -725,19 +897,14 @@ impl BlockIlu0 {
         let factors: Vec<Result<Ilu0>> = blocks
             .par_iter()
             .map(|rows| {
-                // the block's own numbering
-                let local: std::collections::HashMap<usize, usize> =
-                    rows.iter().enumerate().map(|(l, &r)| (r, l)).collect();
+                // the block's own numbering: a row's place among the block's rows, which are
+                // ascending, so a row of `a` keeps its columns' order and needs no sorting
                 let sub = Sparse::from_rows(
                     rows.iter()
                         .map(|&r| {
                             a.row(r)
-                                .filter_map(|(c, v)| local.get(&c).map(|&l| (l, v)))
+                                .filter_map(|(c, v)| rows.binary_search(&c).ok().map(|l| (l, v)))
                                 .collect::<Vec<_>>()
-                        })
-                        .map(|mut row| {
-                            row.sort_unstable_by_key(|&(c, _)| c);
-                            row
                         })
                         .collect(),
                 );
@@ -788,6 +955,104 @@ impl Preconditioner for BlockIlu0 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A complex, nonsymmetric, diagonally dominant matrix of n rows with a few entries off the
+    /// diagonal, and a right-hand side: the same on every run.
+    fn gmres_case(n: usize) -> (Sparse, Vec<c64>) {
+        let mut entries = Vec::new();
+        for r in 0..n {
+            entries.push((r, r, c64::new(4.0 + 0.1 * (r % 7) as f64, 1.0)));
+            entries.push((r, (r + 1) % n, c64::new(-1.0, 0.3)));
+            entries.push((r, (r + n - 1) % n, c64::new(-0.7, -0.2)));
+            entries.push((r, (r * 7 + 3) % n, c64::new(0.4, 0.25)));
+        }
+        let b = (0..n)
+            .map(|r| c64::new((r % 5) as f64 - 2.0, (r % 3) as f64))
+            .collect();
+        (Sparse::new(n, entries), b)
+    }
+
+    #[test]
+    fn gmres_solves_a_system_to_its_tolerance_restarted_or_not() {
+        let (a, b) = gmres_case(400);
+        let ilu = Ilu0::new(&a).unwrap();
+        let stop = Stopping {
+            tolerance: 1e-11,
+            max_iterations: 500,
+        };
+        let residual = |x: &[c64]| {
+            let ax = a.apply(x);
+            let r: Vec<c64> = b.iter().zip(&ax).map(|(p, q)| p - q).collect();
+            norm(&r) / norm(&b)
+        };
+        // in one run of the Arnoldi process, and restarted every 3 steps: the same solution
+        let (whole, how) = gmres_preconditioned(&a, &ilu, &b, stop, 200).unwrap();
+        assert!(residual(&whole) <= 1e-11 && how.residual <= 1e-11);
+        assert!(how.iterations < 40, "{}", how.iterations);
+        // the residual it reports at each step is the true one's estimate: it falls, and ends
+        // where the true one is
+        assert!(how.history.windows(2).all(|w| w[1] <= w[0] * (1.0 + 1e-12)));
+        assert!((how.history[how.iterations - 1] - how.residual).abs() < 1e-12);
+        let (restarted, more) = gmres_preconditioned(&a, &ilu, &b, stop, 3).unwrap();
+        assert!(residual(&restarted) <= 1e-11);
+        assert!(more.iterations >= how.iterations);
+        let d: Vec<c64> = whole.iter().zip(&restarted).map(|(p, q)| p - q).collect();
+        assert!(norm(&d) < 1e-9 * norm(&whole));
+        // and QMR's, with the same preconditioner
+        let (by_qmr, _) = qmr_preconditioned(&a, &ilu, &b, stop).unwrap();
+        let d: Vec<c64> = whole.iter().zip(&by_qmr).map(|(p, q)| p - q).collect();
+        assert!(norm(&d) < 1e-9 * norm(&whole));
+    }
+
+    #[test]
+    fn gmres_refuses_what_it_cant_solve_and_says_when_it_doesnt_converge() {
+        let (a, b) = gmres_case(50);
+        let ilu = Ilu0::new(&a).unwrap();
+        let stop = |tolerance: f64, max_iterations: usize| Stopping {
+            tolerance,
+            max_iterations,
+        };
+        assert!(gmres_preconditioned(&a, &ilu, &b[1..], stop(1e-8, 100), 10).is_err());
+        assert!(gmres_preconditioned(&a, &ilu, &b, stop(0.0, 100), 10).is_err());
+        assert!(gmres_preconditioned(&a, &ilu, &b, stop(1e-8, 100), 0).is_err());
+        let e = gmres_preconditioned(&a, &ilu, &b, stop(1e-12, 2), 10).unwrap_err();
+        assert!(
+            e.to_string()
+                .contains("no convergence to 1e-12 in 2 iterations"),
+            "{e}"
+        );
+        // nothing to solve: zero, in no iterations
+        let zero = vec![c64::new(0.0, 0.0); 50];
+        let (x, how) = gmres_preconditioned(&a, &ilu, &zero, stop(1e-8, 100), 10).unwrap();
+        assert!(how.iterations == 0 && x == zero);
+    }
+
+    #[test]
+    fn gmres_is_the_same_bit_for_bit_on_any_number_of_threads() {
+        // more values than one chunk of its sums, so the chunks are in play
+        let (a, b) = gmres_case(3 * CHUNK + 17);
+        let ilu = Ilu0::new(&a).unwrap();
+        let stop = Stopping {
+            tolerance: 1e-10,
+            max_iterations: 200,
+        };
+        let run = |threads: usize| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| gmres_preconditioned(&a, &ilu, &b, stop, 20).unwrap().0)
+        };
+        let one = run(1);
+        for threads in [2, 5] {
+            let many = run(threads);
+            let same = one
+                .iter()
+                .zip(&many)
+                .all(|(p, q)| p.re.to_bits() == q.re.to_bits() && p.im.to_bits() == q.im.to_bits());
+            assert!(same, "{threads} threads differ from one");
+        }
+    }
 
     /// A non-Hermitian, non-symmetric tridiagonal matrix: −1 − 0.3, 4 + i, −1 + 0.3 (a
     /// convection–diffusion operator with a complex shift), n × n.

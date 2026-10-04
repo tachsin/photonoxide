@@ -45,10 +45,14 @@ pub struct Multigrid {
     pub post: usize,
     /// The coarsest grid's largest number of unknowns, solved directly.
     pub coarsest: usize,
+    /// The steps of GMRES between restarts: it keeps one vector of the grid's size per step,
+    /// so this bounds its memory (16 bytes per unknown and step).
+    pub restart: usize,
 }
 
 impl Default for Multigrid {
-    /// Reps et al.'s V(0, 1) with no shift, the coarsest grid at most 20 000 unknowns.
+    /// Reps et al.'s V(0, 1) with no shift, the coarsest grid at most 20 000 unknowns, and
+    /// GMRES restarted every 40 steps.
     fn default() -> Multigrid {
         Multigrid {
             shift: 0.0,
@@ -56,6 +60,7 @@ impl Default for Multigrid {
             pre: 0,
             post: 1,
             coarsest: 20_000,
+            restart: 40,
         }
     }
 }
@@ -195,23 +200,27 @@ const PLANES: usize = 8;
 /// value not fixed at zero, Erlangga, Oosterlee and Vuik's shift (their Eq. 8 with
 /// (β₁, β₂) = (1, β), in our e^(−iωt) on the side of the medium's loss and the PMLs').
 pub(crate) fn shifted(lattice: &Lattice, eps: &[c64], matrix: &Sparse, shift: f64) -> Sparse {
+    use rayon::prelude::*;
     let k2 = lattice.k0 * lattice.k0;
     let add = c64::new(0.0, shift * k2);
-    Sparse::new(
-        matrix.size(),
-        (0..matrix.size())
-            .flat_map(|r| {
-                matrix
-                    .row(r)
-                    .map(move |(c, v)| (r, c, v))
-                    .collect::<Vec<_>>()
-            })
-            .chain(
-                (0..eps.len())
-                    .filter(|&r| shift != 0.0 && !lattice.fixed(r))
-                    .map(|r| (r, r, add * eps[r])),
-            ),
-    )
+    // row by row, each row's columns in the order they are in (sorted), so nothing is sorted
+    // again: the shift goes on the diagonal entry, or in its place if the row has none
+    let rows: Vec<Vec<(usize, c64)>> = (0..matrix.size())
+        .into_par_iter()
+        .with_min_len(4096)
+        .map(|r| {
+            let mut row: Vec<(usize, c64)> = matrix.row(r).collect();
+            if shift != 0.0 && !lattice.fixed(r) {
+                let extra = add * eps[r];
+                match row.binary_search_by_key(&r, |&(c, _)| c) {
+                    Ok(k) => row[k].1 += extra,
+                    Err(k) => row.insert(k, (r, extra)),
+                }
+            }
+            row
+        })
+        .collect();
+    Sparse::from_rows(rows)
 }
 
 /// A level's nodes along one axis: where each lies, in half-steps of the finest grid, the far
@@ -552,6 +561,9 @@ impl Hierarchy {
         if options.pre + options.post == 0 {
             return Err(Error::invalid("multigrid", "needs some smoothing"));
         }
+        if options.restart == 0 {
+            return Err(Error::invalid("multigrid", "needs a restart of at least 1"));
+        }
         let mut levels = Vec::new();
         let mut fine = lattice.clone();
         let g = lattice.grid;
@@ -584,7 +596,17 @@ impl Hierarchy {
                     .num_threads(1)
                     .build()
                     .map_err(|e| Error::invalid("multigrid", e.to_string()))?;
+                #[cfg(test)]
+                let clock = std::time::Instant::now();
                 let (lu, _) = one.install(|| crate::fdfd::factorize(&entries, n, None))?;
+                #[cfg(test)]
+                if std::env::var("MG_TIMES").is_ok() {
+                    println!(
+                        "MG times: coarsest, {n} rows, {} entries: factorized in {:?}",
+                        a.nonzeros(),
+                        clock.elapsed()
+                    );
+                }
                 shapes.push([0, 1, 2].map(|a| lines[a].cells()));
                 return Ok(Hierarchy {
                     levels,
@@ -600,6 +622,8 @@ impl Hierarchy {
                 nz: next_lines[2].cells(),
                 ..fine.grid
             };
+            #[cfg(test)]
+            let clock = std::time::Instant::now();
             let coarse = Lattice::new(gc, fine.boundaries, fine.k0);
             let nodes = [0, 1, 2].map(|a| lines[a].nodes_of(&next_lines[a]));
             let eps_c = coarse_eps(&fine.grid, &gc, &eps, &nodes);
@@ -611,9 +635,24 @@ impl Hierarchy {
             );
             let prolongation = Transfer::from_rows(&prolongation);
             let restriction = prolongation.transpose(gc.unknowns());
+            #[cfg(test)]
+            let t_transfer = clock.elapsed();
             let next = galerkin(&a, &prolongation, &restriction);
+            #[cfg(test)]
+            let t_galerkin = clock.elapsed();
             let shape = [0, 1, 2].map(|a| lines[a].cells());
             let smoother = BlockIlu0::new(&a, slabs(shape))?;
+            #[cfg(test)]
+            if std::env::var("MG_TIMES").is_ok() {
+                println!(
+                    "MG times: level {shape:?}, {} rows, {} entries: transfer {:?}, galerkin {:?}, smoother {:?}",
+                    a.size(),
+                    a.nonzeros(),
+                    t_transfer,
+                    t_galerkin - t_transfer,
+                    clock.elapsed() - t_galerkin
+                );
+            }
             shapes.push(shape);
             levels.push(Level {
                 matrix: a,
@@ -631,6 +670,11 @@ impl Hierarchy {
     /// Each level's cells along x, y and z, finest first.
     pub(crate) fn shapes(&self) -> &[[usize; 3]] {
         &self.shapes
+    }
+
+    /// The steps of GMRES between restarts.
+    pub(crate) fn restart(&self) -> usize {
+        self.options.restart
     }
 
     /// One cycle from `level` down, for A x = b (or Aᵀ x = b, the transposed cycle), from
