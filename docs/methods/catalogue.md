@@ -185,9 +185,13 @@ congruent Table 1 is printed the right way round.
   1.064 and 0.852 µm, congruent and 5% MgO; magnitudes, to better than 10%. Shoji finds many older
   values too large for neglecting multiple reflections in the plates: Choy & Byer's scale (on
   $d_{36}(\mathrm{KDP}) = 0.63$ pm/V) gives $d_{33} = 34.4$ pm/V at 1.06 µm, Miller et al.'s
-  27.2, Shoji's 25.2. $d_{22}$ isn't measured there; it comes from Miller, Nordland and Bridenbaugh (1971), whose
-  value Roberts (1992, Table VI) lists rescaled ($d_{22} = 2.1$ pm/V at 1.064 µm, a compilation,
-  so not shipped). No direct measurement of $d_{15}$ was found. The bulk
+  27.2, Shoji's 25.2. $d_{22}$ isn't measured there; it is Miller, Nordland and Bridenbaugh's
+  (1971, Table I): on a crystal from the congruent melt, $d_{22} = 5.6$ and $d_{33} = -72.4$
+  times $d_{36}(\mathrm{KDP})$ at 1.06 µm, each to ±10%. The catalogue puts that ratio on Shoji's
+  $d_{33}$, as it does AlN's: $|d_{22}| = (5.6/72.4) \cdot 25.2 = 1.9 \pm 0.3$ pm/V, opposite in
+  sign to $d_{31}$ and $d_{33}$. Roberts (1992, Table VI) lists the same measurement as 2.1 pm/V
+  on $d_{36}(\mathrm{KDP}) = 0.39$ pm/V. Miller's $d_{22}$ doesn't change with the melt's
+  composition within the error. No direct measurement of $d_{15}$ was found. The bulk
   clamped $r^S$ and $\varepsilon^S$ are Jazbinšek & Zgonik's fitted set (Table 5, 633 nm,
   25 °C), the unclamped $r^T$ their Table 4's fitted values. The thin film (x-cut LNOI) has
   $r_{33} = 26.9$ pm/V and $\tfrac12(r_{13} + 2r_{42}) = 15.0$ pm/V at 1550 nm, flat from 100 MHz
@@ -219,7 +223,11 @@ congruent Table 1 is printed the right way round.
   constants.
 - **AlGaN:** Rigler et al. (2013) fit each of nine films separately and give no model in $x$, so
   the catalogue has the nine films as models (sample 8, too rough, has no $n_e$). A model in $x$
-  (Brunner et al. 1997) and the $d$ coefficients (Sanford et al. 2005) are coming.
+  (Brunner et al. 1997) is coming. The $d$ coefficients are Sanford et al.'s (2005, Table I), by
+  Maker fringes at 1064 nm on films from $x = 0$ to 0.666, as half the $\chi^{(2)}$ the table
+  prints: $d_{31}$ from 2.65 pm/V at $x = 0$ to 0.8 at 0.666 (±8%), and $d_{33}$ from $-3.7$ to
+  $+1.95$ (±40%), the two taking the same sign near $x = 0.66$ as in AlN. $d_{33} = -2 d_{31}$,
+  a perfect wurtzite lattice's, isn't obeyed.
 - **InGaP beyond Tanaka:** Ferrini et al. (2002) give a Sellmeier below the gap for each sample
   and $n$, $k$ above it for their undoped sample (Table 3, which prints its 4.1 eV row as 4.2).
   Their Sellmeier is lower than Tanaka's by 0.6% at 1.55 µm and 1.9% near 0.95 µm. Between 1.8 and 1.9 eV
@@ -233,11 +241,20 @@ congruent Table 1 is printed the right way round.
   Ohashi et al. (1993) give only $|d(x)/d(\mathrm{GaAs})|$, plotted; Ulsig's Table 1 quotes
   $x = 0.20$ and 0.42 from it on Shoji's absolute scale (Shoji, Kondo, Ito 2002, coming). Adachi
   (1985) has no electro-optic section; Berseth et al. (1992, p. 2823) take $r_{41}$ linear in $x$
-  with AlAs's equal to GaP's, an assumption; Glick, Reinhart and Martin (1988) measure an AlGaAs
-  solid solution (coming).
+  with AlAs's equal to GaP's, an assumption. Glick, Reinhart and Martin (1988, Table I) measure
+  one solid solution: $r_{41} = -1.43$ pm/V for $x = 0.17$ at 1.1523 µm, from the TE–TM phase
+  difference in a p-i-n guide against its junction field, with no uncertainty given (their three
+  structures agree within 6%). Averaging GaAs's $-1.50$ and GaP's $-1.1$ pm/V by composition
+  gives the same number, which is their proposal for other $x$; no measurement against $x$ was
+  found.
 - **Lithium niobate with 5% MgO:** Shoji's $d$ coefficients; Jazbinšek & Zgonik's fit is for
-  undoped crystals and doping changes $r$ (p. 411), so the tensor isn't carried over: $r_{13}$ and
-  $r_{33}$ (Akiyama et al. 2017) and $r_{22}$ (Yonekura et al. 2007) are coming.
+  undoped crystals and doping changes $r$ (p. 411), so the tensor isn't carried over. At constant
+  stress: $r_{33} = 30.1 \pm 0.2$ and $r_{13} = 9.3 \pm 0.04$ pm/V at 633 nm (Akiyama, Nakano and
+  Shoji 2017, Table 2; the same table has undoped congruent crystals at $30.3 \pm 0.6$ and
+  $9.5 \pm 0.6$, so the doping changes them by less than the error), and $r_{22}$ from Yonekura,
+  Jin and Takizawa (2007, Table 4): 6.20, 5.12 and 4.82 pm/V at 632.8, 1064 and 1550 nm, of 18
+  wavelengths from 409 to 1580 nm, with their fit in the tensor's notes. $r_{51}$ and the clamped
+  tensor of doped crystals weren't found measured.
 
 ## Validation
 

@@ -557,12 +557,112 @@ fn what_is_coming_names_its_paper_and_matches_missing() {
             }
         }
     }
+    // a paper that has been read is a number in the entry, no longer an item here
     let algaas = entry("algaas").unwrap().coming();
+    assert!(algaas.iter().all(|c| c.doi != "10.1063/1.340279"));
     assert!(
         algaas
             .iter()
-            .any(|c| c.property == "r₄₁(x)" && c.doi == "10.1063/1.340279")
+            .any(|c| c.property == "d₁₄(x)" && c.doi == "10.1023/A:1016545417478")
     );
+}
+
+/// The value and uncertainty of cell (row, column), counted from 1, of an entry's tensor with
+/// this label.
+fn cell(id: &str, label: &str, row: usize, column: usize) -> (f64, Option<f64>) {
+    let e = entry(id).unwrap();
+    let t = e
+        .tensors
+        .iter()
+        .find(|t| t.label == label)
+        .unwrap_or_else(|| panic!("{id} has no tensor {label}"));
+    match &t.cells[row - 1][column - 1] {
+        Cell::Value { value, uncertainty } => (*value, *uncertainty),
+        // equal by symmetry to another element, up to a sign
+        Cell::Same {
+            row: r,
+            col: c,
+            sign,
+        } => {
+            let (value, uncertainty) = cell(id, label, usize::from(*r), usize::from(*c));
+            (f64::from(*sign) * value, uncertainty)
+        }
+        other => panic!("{id} {label} ({row}, {column}) is {other:?}"),
+    }
+}
+
+#[test]
+fn the_pockels_coefficients_read_from_their_papers_are_the_printed_ones() {
+    // Akiyama, Nakano & Shoji 2017, Table 2, MgO-doped CLN: r33 = 30.1 ± 0.2, r13 = 9.3 ± 0.04
+    let label = "r₁₃ and r₃₃, bulk, unclamped, 633 nm";
+    assert_eq!(cell("linbo3-mgo", label, 3, 3), (30.1, Some(0.2)));
+    assert_eq!(cell("linbo3-mgo", label, 1, 3), (9.3, Some(0.04)));
+    // 3m: r23 = r13
+    assert_eq!(cell("linbo3-mgo", label, 2, 3).0, 9.3);
+    // Yonekura, Jin & Takizawa 2007, Table 4, 5% MgO-doped CLN: 6.20, 5.12 and 4.82 pm/V at
+    // 632.8, 1064 and 1550 nm, and their fit (Table 5) within its own scatter of them
+    for (label, lam, printed) in [
+        ("r₂₂, bulk, unclamped, 632.8 nm", 0.6328, 6.20),
+        ("r₂₂, bulk, unclamped, 1064 nm", 1.064, 5.12),
+        ("r₂₂, bulk, unclamped, 1550 nm", 1.55, 4.82),
+    ] {
+        assert_eq!(cell("linbo3-mgo", label, 2, 2).0, printed);
+        // 3m: r12 = −r22, r61 = −r22
+        assert_eq!(cell("linbo3-mgo", label, 1, 2).0, -printed);
+        assert_eq!(cell("linbo3-mgo", label, 6, 1).0, -printed);
+        let (a, b, c, d, e) = (4.55966, 0.47994, 0.04544, 0.11774, 0.04544);
+        let fitted = a + b / (lam * lam - c) + d / (lam * lam - e);
+        assert!((fitted - printed).abs() < 0.05, "{lam}: {fitted}");
+    }
+    // Glick, Reinhart & Martin 1988, Table I, structure 1: −1.43 × 10⁻¹⁰ cm/V = −1.43 pm/V,
+    // which is what the paper's own average of GaAs's and GaP's gives at x = 0.17
+    let (r41, uncertainty) = cell("algaas", "x = 0.17, 1.1523 µm", 4, 1);
+    assert_eq!((r41, uncertainty), (-1.43, None));
+    assert!(((0.83 * -1.50_f64 + 0.17 * -1.1) - r41).abs() < 0.005);
+}
+
+#[test]
+fn the_second_order_coefficients_read_from_their_papers_are_the_printed_ones() {
+    // Miller, Nordland & Bridenbaugh 1971, Table I, the congruent melt: d22 = 5.6 and
+    // d33 = −72.4 relative to d36(KDP); on Shoji's d33 = 25.2 pm/V
+    let (d22, uncertainty) = cell("linbo3", "d₂₂, SHG, 1.064 µm", 2, 2);
+    assert!((d22 - 5.6 / 72.4 * 25.2).abs() < 0.05, "{d22}");
+    // ±10% on each of the two coefficients
+    assert!((uncertainty.unwrap() / d22 - 0.14).abs() < 0.03);
+    // 3m: d21 = d16 = −d22
+    assert_eq!(cell("linbo3", "d₂₂, SHG, 1.064 µm", 2, 1).0, -d22);
+    assert_eq!(cell("linbo3", "d₂₂, SHG, 1.064 µm", 1, 6).0, -d22);
+    // Sanford et al. 2005, Table I: χ31 (o-e) and χ33 in pm/V, d = χ/2
+    for (x, chi31, chi33) in [
+        (0.0, 5.3, -7.4),
+        (0.419, 3.0, -6.4),
+        (0.507, 2.4, -1.8),
+        (0.593, 1.9, -0.9),
+        (0.618, 1.8, -0.7),
+        (0.660, 1.7, -0.6),
+        (0.666, 1.6, 3.9),
+    ] {
+        let label = format!("x = {x}, Maker fringes, 1064 nm");
+        let (d31, u31) = cell("algan", &label, 3, 1);
+        let (d33, u33) = cell("algan", &label, 3, 3);
+        assert!((2.0 * d31 - chi31).abs() < 1e-12 && (2.0 * d33 - chi33).abs() < 1e-12);
+        assert!((u31.unwrap() / d31 - 0.08).abs() < 1e-12);
+        assert!((u33.unwrap() / d33.abs() - 0.4).abs() < 1e-12);
+        // 6mm: d32 = d31
+        assert_eq!(cell("algan", &label, 3, 2).0, d31);
+    }
+    // the abstract's trend: d31 falls with x throughout, and d33 changes sign by x = 0.666
+    let d31: Vec<f64> = entry("algan")
+        .unwrap()
+        .tensors
+        .iter()
+        .map(|t| match &t.cells[2][0] {
+            Cell::Value { value, .. } => *value,
+            other => panic!("{other:?}"),
+        })
+        .collect();
+    assert!(d31.windows(2).all(|w| w[1] < w[0]), "{d31:?}");
+    assert!(cell("algan", "x = 0.666, Maker fringes, 1064 nm", 3, 3).0 > 0.0);
 }
 
 #[test]
