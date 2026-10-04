@@ -13,16 +13,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - light travels along x in every kind of job ([#102](https://github.com/tachsin/photonoxide/pull/102))
 - *(studio)* the settings preview the theme in use and keep the other themes behind "More themes" ([#103](https://github.com/tachsin/photonoxide/pull/103))
 - *(studio)* the structure's outline on 2D fields, how a run was solved, and the field from the guide's start ([#104](https://github.com/tachsin/photonoxide/pull/104))
+- *(studio)* every length in µm or nm, app-wide, switched by clicking its unit ([#107](https://github.com/tachsin/photonoxide/pull/107))
+- *(studio)* a menu that folds without anything in it moving, hints beside folded items, and bars that keep still ([#108](https://github.com/tachsin/photonoxide/pull/108))
 - *(material)* crystal tags from the point group, what is coming and from which paper, and the Materials page's stale error ([#123](https://github.com/tachsin/photonoxide/pull/123))
 - *(material)* five gaps filled from their papers: MgO:LiNbO3's r13, r33 and r22, LiNbO3's d22, AlGaAs's r41 and AlGaN's d31 and d33 ([#124](https://github.com/tachsin/photonoxide/pull/124))
 
 ### <!-- 1 -->Fixed
 
+- *(site)* the overview's version pill shows the release number only, and the title fits a 320 px phone ([#96](https://github.com/tachsin/photonoxide/pull/96))
+- *(site)* the hero's name on one line on an iPhone, sized for its monospace width ([#97](https://github.com/tachsin/photonoxide/pull/97))
+- *(site)* the hero's animation pauses while the page scrolls, so the sticky bar doesn't shiver on an iPhone ([#98](https://github.com/tachsin/photonoxide/pull/98))
 - *(studio)* the viewer follows a running sweep, and an FDFD sweep's points each have their field ([#100](https://github.com/tachsin/photonoxide/pull/100))
 - *(job)* the check refuses a wavelength a material has no data at, as the run does ([#101](https://github.com/tachsin/photonoxide/pull/101))
 - *(job)* the check refuses badly placed fdfd ports, PMLs that leave no room and a grid too fine, as the run does ([#105](https://github.com/tachsin/photonoxide/pull/105))
 - *(job)* an fdfd run's pictures leave out the PMLs, so the light starts and ends where the device is drawn ([#106](https://github.com/tachsin/photonoxide/pull/106))
+- *(studio)* the builder's four-column rows drop to two on a narrow form, so a 5-digit nm value isn't clipped ([#109](https://github.com/tachsin/photonoxide/pull/109))
 - clear errors for degenerate inputs that hung, filled the memory or gave NaNs ([#110](https://github.com/tachsin/photonoxide/pull/110))
+- *(studio)* a 960-wide window fits every page, and the console and the build are quiet ([#111](https://github.com/tachsin/photonoxide/pull/111))
 - the check refuses jobs that ran on something else, vector_fit refuses repeated samples, and the viewer fits 960 px ([#121](https://github.com/tachsin/photonoxide/pull/121))
 - *(mode)* a bent slab is solved in milliseconds whatever its radius ([#126](https://github.com/tachsin/photonoxide/pull/126))
 - a long mode solve heeds the stop and the time limit, and a modes job asks for at most 50 modes ([#125](https://github.com/tachsin/photonoxide/pull/125))
