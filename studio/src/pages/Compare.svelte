@@ -106,11 +106,13 @@
                 <td><span class="block h-1 w-5 rounded" style="background:{colour(k)}"></span></td>
                 <td><span class="block font-medium">{l.job || "—"}</span><span class="text-[11px] faint num">{l.name}</span></td>
                 <td>{KINDS[l.kind]?.label ?? l.kind}</td>
-                <td class="num text-xs">{l.seconds !== null ? duration(l.seconds) : "—"}</td>
+                <td class="num text-xs whitespace-nowrap">{l.seconds !== null ? duration(l.seconds) : "—"}</td>
                 <td class="num text-xs">{l.first !== null ? l.first.toFixed(6) : "—"}</td>
                 <td class="text-xs">{l.sweep ? `${l.sweep.parameter}, ${l.sweep.points.length} points` : l.sparams.length > 1 ? `${l.sparams.length} wavelengths` : "—"}</td>
                 <td>
-                  <button class="btn btn-ghost btn-xs btn-square" aria-label="Take it out" title="Take it out of the comparison" onclick={() => (app.compare = app.compare.filter((d) => d !== l.dir))}><X size={14} /></button>
+                  <button class="btn btn-ghost btn-xs btn-square" aria-label="Take it out" title="Take it out of the comparison" onclick={() => {
+                    app.compare = app.compare.filter((d) => d !== l.dir);
+                  }}><X size={14} /></button>
                 </td>
               </tr>
               {#if l.error}<tr><td></td><td colspan="6" class="text-xs text-error">{l.error}</td></tr>{/if}

@@ -192,7 +192,8 @@
       <div class="glow border-b border-base-content/8 px-8 py-6">
         <div class="flex flex-wrap items-start gap-6">
           <div class="grid size-14 place-items-center rounded-2xl bg-primary/12 text-primary"><Boxes size={28} /></div>
-          <div class="min-w-0 flex-1">
+          <!-- at least 16rem wide: narrower, the button goes under it -->
+          <div class="min-w-[16rem] flex-1">
             <h2 class="text-2xl font-semibold tracking-tight">{kind.title} <span class="ml-1 text-base font-normal muted num">{kind.id}</span></h2>
             <p class="mt-1 max-w-3xl text-sm muted">{kind.about}</p>
             {#if familyOf(kind).length > 1}
@@ -224,7 +225,7 @@
           Place it on the chip to connect it into a circuit.
         </Tip>
 
-        <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <!-- the spectrum -->
           <section class="panel p-5">
             <div class="flex flex-wrap items-center gap-3">
@@ -291,7 +292,7 @@
           </section>
         </div>
 
-        <div class="grid gap-6 xl:grid-cols-2">
+        <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <!-- the parameters -->
           <section class="panel p-5">
             <div class="flex items-center gap-2">
