@@ -28,7 +28,8 @@ five parts:
   their reasoning; none of them is a result until a benchmark of [Section 4](#4-the-plan-in-phases)
   measures it.
 
-**The machine** behind every measurement here: an Intel Core Ultra 7 265K (20 cores), 64 GB of
+**The machine** behind this survey's measurements (the 3D cost table in docs/methods/fdfd-3d.md
+names the same CPU): an Intel Core Ultra 7 265K (20 cores), 64 GB of
 memory, and an NVIDIA GeForce RTX 4060 with 8 GB (driver 616.56), read with `nvidia-smi` on
 2026-10-04. Two vendor figures are used in estimates and labelled so: the CPU's rated memory is
 dual-channel DDR5-6400, about 100 GB/s in theory (the installed modules' speed wasn't checked),
@@ -43,8 +44,8 @@ The largest gains for the least work are on the CPU, in code photonoxide already
    from the measured 45 ns per unknown per QMR iteration, below)*. A matrix-free Yee operator,
    threads that persist, no allocation inside the iteration, and reductions in a fixed order would
    cut an iteration's time several-fold before any new algorithm.
-2. **QMR does twice the work it needs.** The 3D system scaled by the PML stretches, V A, is
-   complex symmetric (docs/methods/fdfd-3d.md). With the code's own start (w₁ = v₁), QMR's two
+2. **QMR does twice the work it needs** on the curl-curl formulation, the default. The 3D system
+   scaled by the PML stretches, V A, is complex symmetric (docs/methods/fdfd-3d.md). With the code's own start (w₁ = v₁), QMR's two
    Lanczos sequences then coincide, so Freund's QMR for complex symmetric matrices (Freund 1992)
    gives the same kind of iterates with one product per iteration instead of two, and no
    transposed matrix to store.
