@@ -411,3 +411,44 @@ fn a_solved_fields_residual_is_rounding_and_tells_another_source() {
         assert!(solver.residual(&field, &rhs[1..]).is_err());
     }
 }
+
+#[test]
+fn a_permittivity_or_a_source_that_isnt_finite_is_an_error() {
+    // each of these used to factorize, or solve, into a field of NaNs
+    let grid = Grid {
+        nx: 40,
+        ny: 30,
+        dx: 0.05,
+        dy: 0.05,
+        x0: -1.0,
+        y0: -0.75,
+    };
+    let w = Wavelength::um(1.55).unwrap();
+    let nan = |_: f64, _: f64| c64::new(f64::NAN, 0.0);
+    for polarization in [Polarization::Ez, Polarization::Hz] {
+        let e = Solver2d::new(grid, polarization, w, nan, Boundaries::pml(8))
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(e.contains("every value must be finite"), "{e}");
+    }
+    // with H along z the operator divides by the faces' permittivity
+    let zero = |_: f64, _: f64| c64::new(0.0, 0.0);
+    let e = Solver2d::new(grid, Polarization::Hz, w, zero, Boundaries::pml(8))
+        .err()
+        .unwrap()
+        .to_string();
+    assert!(e.contains("fdfd permittivity"), "{e}");
+    let solver = Solver2d::new(
+        grid,
+        Polarization::Ez,
+        w,
+        |_, _| c64::new(2.1, 0.0),
+        Boundaries::pml(8),
+    )
+    .unwrap();
+    let mut source = vec![c64::new(0.0, 0.0); 40 * 30];
+    source[600] = c64::new(f64::NAN, 0.0);
+    let e = solver.solve(&source).err().unwrap().to_string();
+    assert!(e.contains("every value must be finite"), "{e}");
+}
