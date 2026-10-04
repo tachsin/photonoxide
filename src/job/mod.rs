@@ -65,7 +65,7 @@
 //! y_um = [-1.2, 1.2]         # the window across the guide (x_um for "y")
 //! cut_x_um = 0.0             # where the cross-section is cut (cut_y_um for "y")
 //! step_nm = 20.0
-//! modes = 2                  # how many, from the highest effective index
+//! modes = 2                  # how many (1 to 50), from the highest effective index
 //!
 //! [[task.rect]]
 //! layer = "Si"
@@ -670,6 +670,11 @@ fn check_cells(name: &str, window: [f64; 2], step_nm: f64) -> Result<()> {
     Ok(())
 }
 
+/// The most modes a modes job may ask for. The eigensolver keeps twice as many vectors of the
+/// grid's size and 20 more, and its time grows with them: 500 modes ran six minutes past a
+/// one-minute limit before the solve heeded it.
+const MOST_MODES: usize = 50;
+
 /// An optional number the run uses as a coordinate: finite when given.
 fn check_finite(name: &str, v: Option<f64>) -> Result<()> {
     match v {
@@ -779,8 +784,17 @@ impl ModesTask {
     }
 
     /// What [`check`] and the run both refuse before solving anything: the propagation, the
-    /// windows, the step, the cut and the sweep.
+    /// windows, the step, the cut, the number of modes and the sweep.
     fn validate(&self) -> Result<()> {
+        // (none is refused below)
+        if let Some(modes) = self.modes
+            && modes > MOST_MODES
+        {
+            return Err(task_error(format!(
+                "modes must be at most {MOST_MODES}, got {modes}: the solve's time and memory \
+                 grow with the modes asked for, and a guide has a few"
+            )));
+        }
         let along = self.along()?;
         // the other propagation's fields would be read as nothing: refused, not ignored
         let (window, cut, other) = match along {
@@ -1500,7 +1514,8 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
     task.validate()?;
     let stack = || named_stack(&task.stack, task.core_nm, task.bottom_oxide_um);
-    let count = task.modes.unwrap_or(2).max(1);
+    // (validated: at least 1 and at most MOST_MODES)
+    let count = task.modes.unwrap_or(2);
     let lam = Wavelength::um(task.wavelength_um)?;
     let step = task.step_nm / 1000.0;
     let (along, across, cut) = (task.along()?, task.across()?, task.cut()?);
@@ -1565,7 +1580,11 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             ],
         ],
     })?;
-    let found = crate::mode::vector::modes(&cs, lam, count, None)?;
+    // the solve itself heeds the stop and the time limit, at each of its steps
+    let stopped = || stop.reason().is_some();
+    let Some(found) = crate::mode::vector::modes_until(&cs, lam, count, None, stopped)? else {
+        return Ok(());
+    };
     let mut sorted: Vec<_> = found.iter().collect();
     sorted.sort_by(|a, b| b.effective_index().re.total_cmp(&a.effective_index().re));
     for (k, m) in sorted.iter().enumerate() {
@@ -1677,7 +1696,10 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 )));
             }
         };
-        let mut found = crate::mode::vector::modes(&cs, w, count, None)?;
+        let Some(mut found) = crate::mode::vector::modes_until(&cs, w, count, None, stopped)?
+        else {
+            return Ok(());
+        };
         found.sort_by(|a, b| b.effective_index().re.total_cmp(&a.effective_index().re));
         run.record(&Event::SweepPoint {
             parameter: sweep.parameter.clone(),
@@ -2927,6 +2949,27 @@ points = 2
             MODES.replace("size_um = [0.5, 10.0]", "size_um = [0.01, 10.0]"),
         ] {
             check(&Job::parse(&text).unwrap()).unwrap();
+        }
+    }
+
+    #[test]
+    fn a_modes_job_asks_for_at_most_50_modes() {
+        // hundreds ran minutes past a job's time limit: refused by the check and the run, in
+        // the same words (none is refused too, by the_check_refuses_what_the_run_would…)
+        for (modes, says) in [
+            ("modes = 51", "modes must be at most 50, got 51"),
+            ("modes = 500", "modes must be at most 50, got 500"),
+        ] {
+            let job = Job::parse(&MODES.replace("modes = 2", modes)).unwrap();
+            let refused = check(&job).unwrap_err().to_string();
+            assert!(refused.contains(says), "{refused}");
+            let root = temp("many-modes");
+            let mut run = Run::create(&root.0, &job).unwrap();
+            let failed = execute(&job, &mut run, &Stop::new(None)).unwrap_err();
+            assert_eq!(refused, failed.to_string());
+        }
+        for modes in ["modes = 1", "modes = 50"] {
+            check(&Job::parse(&MODES.replace("modes = 2", modes)).unwrap()).unwrap();
         }
     }
 

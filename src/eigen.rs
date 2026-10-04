@@ -50,8 +50,31 @@ pub(crate) fn nearest(
     count: usize,
     tolerance: f64,
 ) -> Result<Vec<Pair>> {
+    // (never asked to stop, it always has an answer or an error)
+    Ok(nearest_until(n, entries, shift, count, tolerance, &|| false)?.unwrap_or_default())
+}
+
+/// As [`nearest`], giving up when `stop` says so: `None` then. It is asked before each step of
+/// the Arnoldi process (one solve with the factors each) and each restart; the factorization of
+/// the shifted matrix, before the first step, and the small dense eigenproblem at the end of a
+/// run of steps can't be interrupted.
+///
+/// # Errors
+///
+/// As [`nearest`].
+pub(crate) fn nearest_until(
+    n: usize,
+    entries: &[(usize, usize, c64)],
+    shift: c64,
+    count: usize,
+    tolerance: f64,
+    stop: &dyn Fn() -> bool,
+) -> Result<Option<Vec<Pair>>> {
     if count == 0 || n == 0 {
-        return Ok(Vec::new());
+        return Ok(Some(Vec::new()));
+    }
+    if stop() {
+        return Ok(None);
     }
     let count = count.min(n);
     let mut rows = vec![Vec::new(); n];
@@ -94,6 +117,9 @@ pub(crate) fn nearest(
         let mut h = Mat::<c64>::zeros(m + 1, m);
         let mut steps = m;
         for j in 0..m {
+            if stop() {
+                return Ok(None);
+            }
             let mut w = solve(&v[j]);
             let before = norm(&w);
             for pass in 0..2 {
@@ -152,7 +178,7 @@ pub(crate) fn nearest(
             pairs.push(Pair { value, vector: x });
         }
         if all {
-            return Ok(pairs);
+            return Ok(Some(pairs));
         }
         // restart from the wanted Ritz vectors, combined
         start = vec![c64::new(0.0, 0.0); n];
@@ -173,6 +199,43 @@ pub(crate) fn nearest(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gives_up_when_asked_and_is_the_same_when_not() {
+        let n = 200;
+        let entries: Vec<(usize, usize, c64)> = (0..n)
+            .map(|i| (i, i, c64::new(i as f64 + 1.0, 0.0)))
+            .collect();
+        let shift = c64::new(50.3, 0.0);
+        // asked before the factorization: nothing is done
+        assert!(
+            nearest_until(n, &entries, shift, 3, 1e-10, &|| true)
+                .unwrap()
+                .is_none()
+        );
+        // asked to stop at the fourth question: it stops there, three steps in, not after the
+        // forty or so a run of the process takes
+        let asked = std::cell::Cell::new(0);
+        let stop = || {
+            asked.set(asked.get() + 1);
+            asked.get() > 4
+        };
+        assert!(
+            nearest_until(n, &entries, shift, 3, 1e-10, &stop)
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(asked.get(), 5);
+        // never asked to stop: the pairs `nearest` gives
+        let whole = nearest(n, &entries, shift, 3, 1e-10).unwrap();
+        let until = nearest_until(n, &entries, shift, 3, 1e-10, &|| false)
+            .unwrap()
+            .unwrap();
+        assert_eq!(whole.len(), until.len());
+        for (a, b) in whole.iter().zip(&until) {
+            assert_eq!((a.value, &a.vector), (b.value, &b.vector));
+        }
+    }
 
     #[test]
     fn finds_the_eigenvalues_nearest_the_shift() {
