@@ -199,55 +199,60 @@
 
 <div class="grid h-full grid-cols-[1fr_300px]" class:hidden={!run.info?.dir}>
   <section class="flex min-h-0 min-w-0 flex-col">
-    <!-- too narrow for what it holds, the bar scrolls sideways instead of spilling over the side panel -->
-    <div class="flex items-center gap-3 overflow-x-auto border-b border-base-content/8 px-5 py-2.5 whitespace-nowrap [scrollbar-width:thin] [&>*]:shrink-0">
-      <!-- Nothing here moves while a run goes: what changes (the clock, the point, the count)
-           sits in a slot as wide as its longest text, in digits of one width, and what comes
-           and goes (Stop, the progress) is last, with nothing after it to push. -->
-      <span class="inline-flex min-w-48 justify-start">
-        {#if live}
-          <span class="badge badge-success badge-soft gap-1.5"><span class="status status-success animate-pulse"></span> running · <span class="inline-block min-w-[5ch] text-right tabular-nums">{clock(elapsed)}</span></span>
-        {:else if run.finished?.stopped}
-          <span class="badge badge-warning badge-soft gap-1"><CirclePause size={13} /> stopped: {run.finished.stopped}</span>
-        {:else if run.finished}
-          <span class="badge badge-ghost">finished in {duration(run.finished.seconds)}</span>
-        {/if}
-      </span>
-      {#if axis}
-        <!-- the sweep, in both views: the point shown, and how far a running one is. The badge is as
-             wide as its longest text (the unseen copy below), whichever of the two it shows. -->
-        <span
-          class="badge badge-soft inline-grid justify-items-start {run.point === null ? 'badge-ghost' : 'badge-primary'}"
-          title={run.point === null ? "The job's own configuration shows; the side panel's slider picks a point of the sweep" : "The sweep point the 3D and 2D views show"}
-        >
-          <span class="invisible col-start-1 row-start-1 flex items-center gap-1.5" aria-hidden="true">
-            <span class="status"></span>{axis.parameter} <span class="num">{(0).toFixed(4)} µm</span> · point <span class="tabular-nums">{axis.total}</span> of {axis.total}
-          </span>
-          <span class="col-start-1 row-start-1 flex items-center gap-1.5">
-            <span class="status status-primary animate-pulse" class:invisible={!(live && run.following)}></span>
-            {#if run.point === null || pointValue === null}
-              sweep over the {axis.parameter}
-            {:else}
-              {axis.parameter} <span class="num">{pointValue.toFixed(4)} µm</span> · point <span class="inline-block text-right tabular-nums" style="min-width: {digits}ch">{run.point + 1}</span> of {axis.total}
-            {/if}
-          </span>
+    <!-- The run's state on the left, the views on the right. Nothing in it moves while a run goes:
+         what changes (the clock, the point, the count) sits in a slot as wide as its longest text,
+         in digits of one width; what comes and goes (Stop) is last on its side; the sweep's
+         progress is a line along the bar's foot, which takes no room. In a window too narrow for
+         it, the left side scrolls and the views stay in reach. -->
+    <div class="relative flex items-center gap-3 border-b border-base-content/8 px-5 py-2.5 whitespace-nowrap">
+      <div class="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto [scrollbar-width:thin] [&>*]:shrink-0">
+        <span class="inline-flex min-w-40 justify-start">
+          {#if live}
+            <span class="badge badge-success badge-soft gap-1.5"><span class="status status-success animate-pulse"></span> running · <span class="inline-block min-w-[5ch] text-right tabular-nums">{clock(elapsed)}</span></span>
+          {:else if run.finished?.stopped}
+            <span class="badge badge-warning badge-soft gap-1"><CirclePause size={13} /> stopped: {run.finished.stopped}</span>
+          {:else if run.finished}
+            <span class="badge badge-ghost">finished in {duration(run.finished.seconds)}</span>
+          {/if}
         </span>
-        {#if live}
-          <progress class="progress progress-primary w-24" value={points} max={axis.total} title="{points} of {axis.total} points solved"></progress>
-          <span class="text-xs faint num"><span class="inline-block text-right" style="min-width: {digits}ch">{points}</span> / {axis.total}</span>
+        {#if axis}
+          <!-- the sweep, in both views: the point shown. The badge is as wide as its longest text
+               (the unseen copy below), whichever of the two it shows. -->
+          <span
+            class="badge badge-soft inline-grid justify-items-start {run.point === null ? 'badge-ghost' : 'badge-primary'}"
+            title={run.point === null ? "The job's own configuration shows; the side panel's slider picks a point of the sweep" : `The sweep point the 3D and 2D views show: point ${run.point + 1} of ${axis.total}`}
+          >
+            <span class="invisible col-start-1 row-start-1 flex items-center gap-1.5" aria-hidden="true">
+              <span class="status"></span>{axis.parameter} <span class="num">{(0).toFixed(4)} µm</span> · <span class="tabular-nums">{axis.total}</span> of {axis.total}
+            </span>
+            <span class="col-start-1 row-start-1 flex items-center gap-1.5">
+              <span class="status status-primary animate-pulse" class:invisible={!(live && run.following)}></span>
+              {#if run.point === null || pointValue === null}
+                sweep over the {axis.parameter}
+              {:else}
+                {axis.parameter} <span class="num">{pointValue.toFixed(4)} µm</span> · <span class="inline-block text-right tabular-nums" style="min-width: {digits}ch">{run.point + 1}</span> of {axis.total}
+              {/if}
+            </span>
+          </span>
+          {#if live}
+            <span class="text-xs faint num" title="{points} of {axis.total} points solved"><span class="inline-block text-right" style="min-width: {digits}ch">{points}</span> / {axis.total} solved</span>
+          {/if}
         {/if}
+        {#if live && run.stoppable}
+          <button class="btn btn-ghost btn-xs gap-1" onclick={stop} title="Stop the run at its next check; what it recorded stays"><Square size={12} /> Stop</button>
+        {/if}
+        {#if run.info?.closes && run.finished}<span class="text-xs faint">the window closes by itself</span>{/if}
+      </div>
+      {#if live && axis}
+        <!-- how far the sweep is -->
+        <div class="absolute bottom-0 left-0 h-0.5 bg-primary transition-[width] duration-300" style="width: {(100 * points) / Math.max(axis.total, 1)}%" role="progressbar" aria-valuenow={points} aria-valuemin={0} aria-valuemax={axis.total} aria-label="The sweep's points solved"></div>
       {/if}
-      {#if live && run.stoppable}
-        <button class="btn btn-ghost btn-xs gap-1" onclick={stop} title="Stop the run at its next check; what it recorded stays"><Square size={12} /> Stop</button>
-      {/if}
-      {#if run.info?.closes && run.finished}<span class="text-xs faint">the window closes by itself</span>{/if}
-      <span class="flex-1"></span>
       {#if run.job && run.job.kind !== "structure"}
-        <button class="btn btn-ghost btn-sm gap-1.5" onclick={() => (solving = true)} title="The solver this run uses, its grid, each solve's numerical error, and the method's equations and papers">
+        <button class="btn btn-ghost btn-sm shrink-0 gap-1.5" onclick={() => (solving = true)} title="The solver this run uses, its grid, each solve's numerical error, and the method's equations and papers">
           <Cpu size={14} /> Solver
         </button>
       {/if}
-      <div class="join" role="tablist" aria-label="view">
+      <div class="join shrink-0" role="tablist" aria-label="view">
         <button class="btn join-item btn-sm gap-1.5 {view === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (view = "3d")} title="The structure as solids, with the field painted on it"><Box size={14} /> 3D</button>
         <button class="btn join-item btn-sm gap-1.5 {view === '2d' ? 'btn-primary btn-soft' : ''}" onclick={() => (view = "2d")} title="Pictures and plots"><ChartLine size={14} /> 2D</button>
       </div>
