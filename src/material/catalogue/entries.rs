@@ -598,10 +598,21 @@ fn algaas() -> Entry {
             convention: D_CONVENTION.into(),
             source: Some(src("ulsig-2024", "Table 1; Supplement 1, Eq. (S1)")),
             notes: "magnitude, for Al₀.₁₅Ga₀.₈₅As only: an MBE film bonded to oxidized silicon (AlGaAs on insulator), from the second harmonic of 1.94 µm in waveguides of several lengths, with the measured losses and simulated mode overlaps (the coupled-amplitude equations, Eqs. (S4)–(S5)); d = χ⁽²⁾/2 as here (Eq. (S1)). The same method gives 119 ± 36 pm/V for GaAs at 1.96 µm, Shoji et al.'s value. Other compositions: see what is coming".into(),
+        }, Tensor {
+            kind: TensorKind::ElectroOptic,
+            label: "x = 0.17, 1.1523 µm".into(),
+            point_group: "-43m".into(),
+            cells: cells(TensorKind::ElectroOptic, "-43m", &[(4, 1, -1.43, None)]),
+            wavelength: Some(1.1523),
+            clamping: Clamping::Unclamped,
+            convention: R_CONVENTION.into(),
+            source: Some(src("glick-1988", "Table I, structure 1")),
+            notes: "the solid solution Al₀.₁₇Ga₀.₈₃As, the guide of a p-i-n diode grown by MBE on (100) GaAs: the phase difference between the TE and TM modes against the junction's static field along [001], for light along [110] and [1-10], with the field's overlap with the mode calculated (0.66). Strictly r63, equal to r41 in the bulk. The paper gives no uncertainty; its three structures (this one and two multi-quantum wells of 14% Al, −1.52 and −1.47) agree within 6%. Averaging GaAs's −1.50 and GaP's −1.1 pm/V by composition gives the same −1.43, which is how the paper proposes to estimate other x. The sign is the paper's: the phase is ±πn³r41ΓEl/λ for light along [110] and [1-10]".into(),
         }],
         constants: vec![],
         missing: coming::missing("algaas"),
         references: references(&[
+            "glick-1988",
             "gehrsitz-2000",
             "papatryfonos-2021",
             "afromowitz-1974",
@@ -771,6 +782,19 @@ fn lithium_niobate() -> Entry {
         )),
         notes: "flat from 100 MHz to 330 GHz; the film's other elements are resolved only as ½(r13 + 2r42) (see the constants); the paper ascribes the difference from bulk to the wavelength (1550 nm, not 633 nm)".into(),
     };
+    // d22 from the one paper that measures it, relative to the same crystal's d33, on Shoji's
+    // absolute d33 (as AlN's d33 is put on it): 5.6 / 72.4 of 25.2 pm/V
+    let miller_d22 = Tensor {
+        kind: TensorKind::SecondOrder,
+        label: "d₂₂, SHG, 1.064 µm".into(),
+        point_group: "3m".into(),
+        cells: cells(TensorKind::SecondOrder, "3m", &[(2, 2, 1.9, Some(0.3))]),
+        wavelength: Some(1.064),
+        clamping: Clamping::None,
+        convention: D_CONVENTION.into(),
+        source: Some(src("miller-1971", "Table I, the melt of (Li/Nb) = 0.946")),
+        notes: "magnitude; |d22/d33| = 5.6/72.4 by Maker fringes at 1.06 µm on a crystal pulled from the congruent melt, each coefficient to ±10% relative to d36 of KDP (so the ratio to ±14%), with Shoji et al.'s d33 = 25.2 pm/V. Its sign is opposite to d31's and d33's (Table I). d22 doesn't change with the melt's composition within the error: 4.7, 5.6 and 5.2 times d36(KDP) for Li/Nb = 1.083, 0.946 and 0.852. Roberts (1992, Table VI) lists the same measurement as 2.1 pm/V on d36(KDP) = 0.39 pm/V".into(),
+    };
     Entry {
         id: "linbo3".into(),
         name: "Lithium niobate (congruent)".into(),
@@ -805,6 +829,7 @@ fn lithium_niobate() -> Entry {
             shoji_d(1.064, 25.2, 4.6, "Table 10"),
             shoji_d(1.313, 19.5, 3.2, "Table 10"),
             shoji_d(0.852, 25.7, 4.8, "Table 10"),
+            miller_d22,
             r_s,
             r_t,
             thin_film,
@@ -843,11 +868,32 @@ fn lithium_niobate() -> Entry {
             "zelmon-1997",
             "jundt-1997",
             "shoji-1997",
+            "miller-1971",
             "roberts-1992",
             "choy-byer-1976",
             "jazbinsek-zgonik-2002",
             "chelladurai-2025",
         ]),
+    }
+}
+
+/// r22 of 5% MgO-doped congruent lithium niobate at one of the wavelengths of Yonekura et
+/// al.'s Table 4, with the standard deviation of its ten measurements.
+fn yonekura_r22(wavelength: f64, value: f64, deviation: f64) -> Tensor {
+    Tensor {
+        kind: TensorKind::ElectroOptic,
+        label: format!("r₂₂, bulk, unclamped, {} nm", (wavelength * 1e4_f64).round() / 10.0),
+        point_group: "3m".into(),
+        cells: cells(
+            TensorKind::ElectroOptic,
+            "3m",
+            &[(2, 2, value, Some(deviation))],
+        ),
+        wavelength: Some(wavelength),
+        clamping: Clamping::Unclamped,
+        convention: R_CONVENTION.into(),
+        source: Some(src("yonekura-2007", "Table 4, 5% MgO-doped CLN")),
+        notes: "magnitude, at constant stress and 25 °C, by the interference of the light reflected many times inside the crystal (no antireflection coating needed); the mean of ten measurements, their standard deviation given here, the method's error below 0.5% up to 1064 nm (a null method) and about 1% from 1340 nm (amplitude comparison). Table 4 has 18 wavelengths from 409 nm (9.40 pm/V) to 1580 nm (4.80 pm/V), fitted by r22 = A + B/(λ² − C) + D/(λ² − E), λ in µm, with A = 4.55966, B = 0.47994, C = 0.04544, D = 0.11774, E = 0.04544 (Table 5). Undoped congruent crystals have 6.54, 5.45 and 5.13 pm/V at 632.8, 1064 and 1550 nm in the same table".into(),
     }
 }
 
@@ -969,10 +1015,36 @@ fn lithium_niobate_mgo() -> Entry {
             shoji_d(1.064, 25.0, 4.4, "Table 10"),
             shoji_d(1.313, 20.3, 3.4, "Table 10"),
             shoji_d(0.852, 28.4, 4.9, "Table 10"),
+            Tensor {
+                kind: TensorKind::ElectroOptic,
+                label: "r₁₃ and r₃₃, bulk, unclamped, 633 nm".into(),
+                point_group: "3m".into(),
+                cells: cells(
+                    TensorKind::ElectroOptic,
+                    "3m",
+                    &[(1, 3, 9.3, Some(0.04)), (3, 3, 30.1, Some(0.2))],
+                ),
+                wavelength: Some(0.6328),
+                clamping: Clamping::Unclamped,
+                convention: R_CONVENTION.into(),
+                source: Some(src("akiyama-2017", "Table 2, MgO-doped CLN")),
+                notes: "5 mol% MgO, congruent; a Mach–Zehnder interferometer with an alternating field along z, the ratio of the signal's second harmonic to its fundamental giving the half-wave voltage; the piezoelectric d32 of undoped congruent crystals is taken for the length's change (a 10% error in it moves r by 0.07%). The field is at 1 kHz in the method's own paper (Nakano et al. 2017), below the acoustic resonances; that paper puts the method's accuracy at under 2%. The same table gives undoped congruent crystals 9.5 ± 0.6 and 30.3 ± 0.6: the doping changes them by less than the error".into(),
+            },
+            yonekura_r22(0.6328, 6.20, 0.02),
+            yonekura_r22(1.064, 5.12, 0.02),
+            yonekura_r22(1.55, 4.82, 0.05),
         ],
         constants: vec![],
         missing: coming::missing("linbo3-mgo"),
-        references: references(&["zelmon-1997", "gayer-2008", "shoji-1997", "roberts-1992"]),
+        references: references(&[
+            "zelmon-1997",
+            "gayer-2008",
+            "shoji-1997",
+            "roberts-1992",
+            "akiyama-2017",
+            "nakano-2017",
+            "yonekura-2007",
+        ]),
     }
 }
 
@@ -1460,6 +1532,29 @@ fn rigler_2013_model(sample: u8) -> IndexModel {
     }
 }
 
+/// d31 and d33 of an AlₓGa₁₋ₓN film at 1064 nm from Sanford et al.'s Table I, which prints
+/// χ⁽²⁾₃₁ (its o-e column) and χ⁽²⁾₃₃ in pm/V: d = χ⁽²⁾/2, χ₃₁ to ±8% and χ₃₃ to ±40%.
+fn sanford_d(x: f64, chi31: f64, chi33: f64) -> Tensor {
+    Tensor {
+        kind: TensorKind::SecondOrder,
+        label: format!("x = {x}, Maker fringes, 1064 nm"),
+        point_group: "6mm".into(),
+        cells: cells(
+            TensorKind::SecondOrder,
+            "6mm",
+            &[
+                (3, 1, chi31 / 2.0, Some(0.08 * chi31 / 2.0)),
+                (3, 3, chi33 / 2.0, Some(0.4 * chi33.abs() / 2.0)),
+            ],
+        ),
+        wavelength: Some(1.064),
+        clamping: Clamping::None,
+        convention: D_CONVENTION.into(),
+        source: Some(src("sanford-2005", "Table I")),
+        notes: "half the χ⁽²⁾ the table prints (the paper's χ⁽²⁾ = 2d), on χ⁽²⁾₁₁ = 0.64 pm/V of quartz; films of 0.4 to 2.1 µm on (0001) sapphire, by MOCVD (HVPE for x = 0.593), fitted with the film's Fabry–Pérot resonances of the pump and the harmonic. d31 is taken as positive, and only d33's sign relative to it is measured: opposite, until both have the same sign near x = 0.66, as in AlN. d31 falls roughly linearly with x; d33 = −2 d31, which a perfect wurtzite lattice would give, isn't obeyed. d15 = d31 is assumed in the fits, not measured. Two more films (x = 0.279 and 0.363, HVPE) have only d31: 2.0 and 1.5 pm/V".into(),
+    }
+}
+
 fn algan() -> Entry {
     Entry {
         id: "algan".into(),
@@ -1480,10 +1575,19 @@ fn algan() -> Entry {
             notes: "III-metal-polar and N-polar films differ slightly in index, more at long wavelengths".into(),
         },
         index: (1..=9).map(rigler_2013_model).collect(),
-        tensors: vec![],
+        // each thin film of Sanford et al.'s Table I for which both coefficients were found
+        tensors: vec![
+            sanford_d(0.0, 5.3, -7.4),
+            sanford_d(0.419, 3.0, -6.4),
+            sanford_d(0.507, 2.4, -1.8),
+            sanford_d(0.593, 1.9, -0.9),
+            sanford_d(0.618, 1.8, -0.7),
+            sanford_d(0.660, 1.7, -0.6),
+            sanford_d(0.666, 1.6, 3.9),
+        ],
         constants: vec![],
         missing: coming::missing("algan"),
-        references: references(&["rigler-2013"]),
+        references: references(&["rigler-2013", "sanford-2005"]),
     }
 }
 
