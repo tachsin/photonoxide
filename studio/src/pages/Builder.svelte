@@ -289,7 +289,7 @@
       <button class="btn btn-primary btn-sm gap-1.5" disabled={!check?.ok} onclick={runIt} title="Run it now and watch it live (Ctrl+Enter)"><Play size={15} /> Run</button>
     </div>
 
-    <div class="flex-1 space-y-6 overflow-x-hidden overflow-y-auto px-6 py-5">
+    <div class="@container flex-1 space-y-6 overflow-x-hidden overflow-y-auto px-6 py-5">
       <Tip id="builder-intro" title="A job is a TOML file">
         Fill the form and the device is drawn on the right as you type, in 3D; the library checks the job as it changes. Click a shape in the top view to edit it. Prefer text? Switch the right panel to TOML: edits there update the form.
       </Tip>
@@ -407,7 +407,7 @@
               <select class="select select-xs w-24" bind:value={r.layer}>{#each layers as l (l)}<option value={l}>{l}</option>{/each}</select>
               <button class="btn btn-ghost btn-xs btn-square" aria-label="Remove" title="Remove" onclick={() => model.rect.splice(k, 1)}><Trash2 size={13} /></button>
             </div>
-            <div class="grid grid-cols-4 gap-2">
+            <div class="grid grid-cols-2 gap-2 @xl:grid-cols-4">
               <NumField label="centre x" length="um" bind:value={r.center_um[0]} step={0.05} />
               <NumField label="centre y" length="um" bind:value={r.center_um[1]} step={0.05} />
               <NumField label="width (x)" length="um" bind:value={r.size_um[0]} step={0.05} />
@@ -438,7 +438,7 @@
               <select class="select select-xs w-24" bind:value={r.layer}>{#each layers as l (l)}<option value={l}>{l}</option>{/each}</select>
               <button class="btn btn-ghost btn-xs btn-square" aria-label="Remove" title="Remove" onclick={() => model.ring.splice(k, 1)}><Trash2 size={13} /></button>
             </div>
-            <div class="grid grid-cols-4 gap-2">
+            <div class="grid grid-cols-2 gap-2 @xl:grid-cols-4">
               <NumField label="centre x" length="um" bind:value={r.center_um[0]} step={0.05} />
               <NumField label="centre y" length="um" bind:value={r.center_um[1]} step={0.05} />
               <NumField label="radius" length="um" bind:value={r.radius_um} step={0.05} hint="To the waveguide's centre line, as ring resonators are specified" />
@@ -472,7 +472,7 @@
                 </label>
                 <button class="btn btn-ghost btn-xs btn-square" aria-label="Remove" title="Remove" onclick={() => model.port.splice(k, 1)}><Trash2 size={13} /></button>
               </div>
-              <div class="grid grid-cols-4 gap-2">
+              <div class="grid grid-cols-2 gap-2 @xl:grid-cols-4">
                 <NumField label="at x" length="um" bind:value={p.x_um} step={0.05} />
                 <label class="flex flex-col gap-1">
                   <span class="text-xs font-medium text-base-content/70">Side</span>
@@ -504,7 +504,7 @@
             />
           </legend>
           {#if model.sweep}
-            <div class="grid grid-cols-4 gap-2">
+            <div class="grid grid-cols-2 gap-2 @xl:grid-cols-4">
               <label class="flex flex-col gap-1">
                 <span class="text-xs font-medium text-base-content/70">Over</span>
                 <select class="select select-sm w-full" bind:value={model.sweep.parameter} disabled={model.kind === "fdfd"}>
