@@ -1007,8 +1007,16 @@ fn ilu_on_the_curl_curl_operator_is_an_error() {
 fn a_strips_s_matrix_by_qmr() {
     // a straight silicon strip (0.5 x 0.22 um) in oxide on a 20 nm grid, ports 0.6 um apart:
     // S21 must be e^(i beta L) and S11 zero, whatever the PMLs, so their errors measure the
-    // solve; plain QMR with plain PMLs against QMR + ILU(0) with stretched ones
-    use crate::fdfd::{Formulation, IterativeSolver3d, Side, Stopping};
+    // solve; plain QMR with plain PMLs against QMR + ILU(0) and GMRES + multigrid with stretched
+    // ones. STRIP_ONLY=multigrid (or ILU, or plain) runs only the rows whose label has it.
+    use crate::fdfd::{Formulation, IterativeSolver3d, Multigrid, Side, Stopping};
+    #[derive(Clone, Copy, PartialEq)]
+    enum With {
+        Nothing,
+        Ilu,
+        Multigrid,
+    }
+    let only = std::env::var("STRIP_ONLY").unwrap_or_default();
     let h = 0.02;
     let pml: usize = std::env::var("STRIP_PML")
         .ok()
@@ -1040,40 +1048,69 @@ fn a_strips_s_matrix_by_qmr() {
         grid.unknowns()
     );
     let (left, right) = (pml + 5, pml + 35);
-    for (label, boundaries, formulation, ilu, tolerance) in [
+    for (label, boundaries, formulation, with, tolerance) in [
         (
             "plain PMLs, QMR, curl-curl",
             Boundaries3d::pml(pml),
             Formulation::CurlCurl,
-            false,
+            With::Nothing,
             1e-6,
         ),
         (
             "plain PMLs, QMR, curl-curl",
             Boundaries3d::pml(pml),
             Formulation::CurlCurl,
-            false,
+            With::Nothing,
             1e-8,
         ),
         (
             "stretched PMLs, QMR + ILU(0), Shin and Fan",
             Boundaries3d::stretched_pml(pml),
             Formulation::ShinFan,
-            true,
+            With::Ilu,
             1e-8,
         ),
         (
             "stretched PMLs, QMR + ILU(0), Shin and Fan",
             Boundaries3d::stretched_pml(pml),
             Formulation::ShinFan,
-            true,
+            With::Ilu,
+            1e-10,
+        ),
+        (
+            "stretched PMLs, GMRES + multigrid, Shin and Fan",
+            Boundaries3d::stretched_pml(pml),
+            Formulation::ShinFan,
+            With::Multigrid,
+            1e-6,
+        ),
+        (
+            "stretched PMLs, GMRES + multigrid, Shin and Fan",
+            Boundaries3d::stretched_pml(pml),
+            Formulation::ShinFan,
+            With::Multigrid,
+            1e-8,
+        ),
+        (
+            "stretched PMLs, GMRES + multigrid, Shin and Fan",
+            Boundaries3d::stretched_pml(pml),
+            Formulation::ShinFan,
+            With::Multigrid,
             1e-10,
         ),
     ] {
+        if !label.contains(&only) {
+            continue;
+        }
         let t = std::time::Instant::now();
         let mut solver = IterativeSolver3d::new(grid, lam, strip, boundaries, formulation).unwrap();
-        if ilu {
-            solver = solver.with_ilu().unwrap();
+        match with {
+            With::Nothing => {}
+            With::Ilu => solver = solver.with_ilu().unwrap(),
+            With::Multigrid => {
+                solver = solver.with_multigrid(Multigrid::default()).unwrap();
+                println!("STRIP {label}: levels {:?}", solver.multigrid_grids());
+            }
         }
         let mode = |p: usize| solver.port_modes(Axis::X, p, 1).unwrap().remove(0);
         let ports = [
