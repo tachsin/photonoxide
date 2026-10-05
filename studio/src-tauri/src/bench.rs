@@ -277,6 +277,7 @@ fn single(name: &str, seconds: f64, grid: String) -> Measurement {
             name: name.into(),
             seconds,
             iterations: None,
+            bytes: None,
         }],
         accuracy: None,
     }
@@ -291,8 +292,13 @@ fn markdown(chosen: &[Entry], bandwidth: &[(usize, f64)], runs: &[Timed]) -> Str
          `photonoxide::bench` and the slowest examples, each in a process of its own. Times depend \
          on the machine and on what else ran on it; the errors don't. Peak memory is the process's \
          peak resident set (its peak working set on Windows); ns per unknown per iteration is the \
-         QMR phases' time over the unknowns and the iterations. See the performance plan, \
-         docs/plans/performance.md.\n"
+         QMR phases' time over the unknowns and the iterations. Bandwidth is the iterating phases' \
+         bytes over their time, the bytes counted by the kernels themselves (each nonzero's value \
+         and index, each row pointer, each vector read or written once: src/traffic.rs), from \
+         memory or from cache; beside it, its share of the triad on the same threads, the roof \
+         (Williams et al., Commun. ACM 52(4), 65 (2009)). A problem whose vectors fit in the \
+         last-level cache can count above it: the 40³ guide's do. See the performance \
+         plan, docs/plans/performance.md.\n"
     );
     let _ = writeln!(s, "- photonoxide {}, {}", photonoxide::VERSION, machine());
     if !bandwidth.is_empty() {
@@ -308,17 +314,27 @@ fn markdown(chosen: &[Entry], bandwidth: &[(usize, f64)], runs: &[Timed]) -> Str
     }
     let _ = writeln!(
         s,
-        "\n| Problem | Grid | Unknowns | Threads | Time | Iterations | ns/unknown/iteration | Error | Peak memory |"
+        "\n| Problem | Grid | Unknowns | Threads | Time | Iterations | ns/unknown/iteration | Bandwidth (of the triad) | Error | Peak memory |"
     );
-    let _ = writeln!(s, "|---|---|---:|---:|---:|---:|---:|---|---:|");
+    let _ = writeln!(s, "|---|---|---:|---:|---:|---:|---:|---:|---|---:|");
     for r in runs {
         match &r.outcome {
             Ok(report) => {
                 let m = &report.measurement;
                 let dash = || "—".to_string();
+                let roof = bandwidth
+                    .iter()
+                    .find(|(t, _)| *t == r.threads)
+                    .map(|&(_, gb_s)| gb_s);
+                let reached = m
+                    .gigabytes_per_second()
+                    .map_or_else(dash, |gb_s| match roof {
+                        Some(roof) => format!("{gb_s:.1} GB/s ({:.0}%)", 100.0 * gb_s / roof),
+                        None => format!("{gb_s:.1} GB/s"),
+                    });
                 let _ = writeln!(
                     s,
-                    "| `{}` | {} | {} | {} | {:.2} s | {} | {} | {} | {} |",
+                    "| `{}` | {} | {} | {} | {:.2} s | {} | {} | {reached} | {} | {} |",
                     r.id,
                     m.grid,
                     if m.unknowns > 0 {
@@ -340,7 +356,7 @@ fn markdown(chosen: &[Entry], bandwidth: &[(usize, f64)], runs: &[Timed]) -> Str
             Err(e) => {
                 let _ = writeln!(
                     s,
-                    "| `{}` | | | {} | failed: {} | | | | |",
+                    "| `{}` | | | {} | failed: {} | | | | | |",
                     r.id,
                     r.threads,
                     e.replace('|', "/")

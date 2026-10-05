@@ -48,6 +48,7 @@ pub mod raster;
 pub mod run;
 mod sparse;
 pub mod stack;
+mod traffic;
 pub mod units;
 pub mod validation;
 

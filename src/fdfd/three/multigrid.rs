@@ -128,7 +128,9 @@ impl Transfer {
 
     fn apply(&self, v: &[c64]) -> Vec<c64> {
         use rayon::prelude::*;
-        let mut out = vec![c64::new(0.0, 0.0); self.starts.len() - 1];
+        let rows = self.starts.len() - 1;
+        crate::traffic::add(crate::traffic::product(rows, v.len(), self.values.len()));
+        let mut out = vec![c64::new(0.0, 0.0); rows];
         out.par_iter_mut()
             .with_min_len(4096)
             .enumerate()
@@ -140,6 +142,7 @@ impl Transfer {
 /// x += d, on rayon's threads.
 fn add_to(x: &mut [c64], d: &[c64]) {
     use rayon::prelude::*;
+    crate::traffic::add(crate::traffic::vectors(x.len(), 2, 1));
     x.par_iter_mut()
         .with_min_len(16_384)
         .zip(d)

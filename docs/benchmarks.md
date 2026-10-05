@@ -1,51 +1,51 @@
 # Benchmarks
 
-What `photonoxide bench` measured on one machine: the fixed problems of `photonoxide::bench` and the slowest examples, each in a process of its own. Times depend on the machine and on what else ran on it; the errors don't. Peak memory is the process's peak resident set (its peak working set on Windows); ns per unknown per iteration is the QMR phases' time over the unknowns and the iterations. See the performance plan, docs/plans/performance.md.
+What `photonoxide bench` measured on one machine: the fixed problems of `photonoxide::bench` and the slowest examples, each in a process of its own. Times depend on the machine and on what else ran on it; the errors don't. Peak memory is the process's peak resident set (its peak working set on Windows); ns per unknown per iteration is the QMR phases' time over the unknowns and the iterations. Bandwidth is the iterating phases' bytes over their time, the bytes counted by the kernels themselves (each nonzero's value and index, each row pointer, each vector read or written once: src/traffic.rs), from memory or from cache; beside it, its share of the triad on the same threads, the roof (Williams et al., Commun. ACM 52(4), 65 (2009)). A problem whose vectors fit in the last-level cache can count above it: the 40³ guide's do. See the performance plan, docs/plans/performance.md.
 
 - photonoxide 0.4.1, Intel(R) Core(TM) Ultra 7 265K, 20 logical processors, Windows
-- memory bandwidth, the STREAM triad over three arrays of 128 MiB: 33.2 GB/s on 1 thread, 52.5 GB/s on 20 threads
+- memory bandwidth, the STREAM triad over three arrays of 128 MiB: 32.9 GB/s on 1 thread, 56.3 GB/s on 20 threads
 
-| Problem | Grid | Unknowns | Threads | Time | Iterations | ns/unknown/iteration | Error | Peak memory |
-|---|---|---:|---:|---:|---:|---:|---|---:|
-| `fdfd2d/slab-lu` | 440 × 340 cells of 10 nm, PMLs of 20 | 149 600 | 1 | 0.90 s | — | — | 2.6e-13 (S21 = exp(iβL), S11 = 0) | 690 MB |
-| `fdfd3d/guide-qmr` | 40 × 40 × 40 cells of 10 nm, PMLs of 10 | 192 000 | 1 | 12.17 s | 2 077 | 27.3 | 1.5e-7 (QMR + ILU(0) to 1e-12, relative) | 320 MB |
-| `fdfd3d/guide-ilu` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 1 | 5.82 s | 195 | 116.6 | 1.2e-6 (GMRES + multigrid to 1e-12, relative) | 460 MB |
-| `fdfd3d/guide-multigrid` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 1 | 3.35 s | 16 | 271.4 | 1.6e-6 (GMRES + multigrid to 1e-12, relative) | 1.03 GB |
-| `fdfd3d/diel-multigrid` | 40 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 864 000 | 1 | 22.61 s | 46 | 282.1 | 1.8e-6 (GMRES + multigrid to 1e-12, relative) | 4.64 GB |
-| `fdfd3d/strip-ports-multigrid` | 72 × 102 × 82 cells of 20 nm, stretched PMLs of 16 | 1 806 624 | 1 | 52.65 s | 56 | 273.4 | 4.1e-9 (S21 = exp(iβL), S11 = 0) | 9.43 GB |
-| `job/strip-modes` | 121 × 111 cells of 20 nm, 11 points | 27 328 | 1 | 4.17 s | — | — | — | 138 MB |
-| `job/mmi-fdfd` | 725 × 300 cells of 20 nm, 11 points | 217 500 | 1 | 24.42 s | — | — | — | 1.42 GB |
-| `example/strip_waveguide` | examples/strip_waveguide.rs | — | 1 | 6.17 s | — | — | — | 1.45 GB |
-| `example/hadley_corners` | examples/hadley_corners.rs | — | 1 | 7.49 s | — | — | — | 235 MB |
-| `example/group_index` | examples/group_index.rs | — | 1 | 10.81 s | — | — | — | 258 MB |
-| `example/circuit_fit` | examples/circuit_fit.rs | — | 1 | 0.46 s | — | — | — | 11 MB |
-| `fdfd2d/slab-lu` | 440 × 340 cells of 10 nm, PMLs of 20 | 149 600 | 20 | 1.88 s | — | — | 2.6e-13 (S21 = exp(iβL), S11 = 0) | 691 MB |
-| `fdfd3d/guide-qmr` | 40 × 40 × 40 cells of 10 nm, PMLs of 10 | 192 000 | 20 | 4.12 s | 2 077 | 7.1 | 1.5e-7 (QMR + ILU(0) to 1e-12, relative) | 320 MB |
-| `fdfd3d/guide-ilu` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 20 | 4.76 s | 195 | 88.3 | 1.2e-6 (GMRES + multigrid to 1e-12, relative) | 460 MB |
-| `fdfd3d/guide-multigrid` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 20 | 2.49 s | 16 | 166.7 | 1.6e-6 (GMRES + multigrid to 1e-12, relative) | 1.08 GB |
-| `fdfd3d/diel-multigrid` | 40 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 864 000 | 20 | 12.64 s | 46 | 113.8 | 1.8e-6 (GMRES + multigrid to 1e-12, relative) | 4.67 GB |
-| `fdfd3d/strip-ports-multigrid` | 72 × 102 × 82 cells of 20 nm, stretched PMLs of 16 | 1 806 624 | 20 | 29.60 s | 56 | 115.4 | 4.1e-9 (S21 = exp(iβL), S11 = 0) | 9.46 GB |
-| `job/strip-modes` | 121 × 111 cells of 20 nm, 11 points | 27 328 | 20 | 1.16 s | — | — | — | 1.09 GB |
-| `job/mmi-fdfd` | 725 × 300 cells of 20 nm, 11 points | 217 500 | 20 | 8.50 s | — | — | — | 6.90 GB |
-| `example/strip_waveguide` | examples/strip_waveguide.rs | — | 20 | 5.60 s | — | — | — | 1.46 GB |
-| `example/hadley_corners` | examples/hadley_corners.rs | — | 20 | 2.49 s | — | — | — | 732 MB |
-| `example/group_index` | examples/group_index.rs | — | 20 | 2.98 s | — | — | — | 1.01 GB |
-| `example/circuit_fit` | examples/circuit_fit.rs | — | 20 | 0.42 s | — | — | — | 11 MB |
+| Problem | Grid | Unknowns | Threads | Time | Iterations | ns/unknown/iteration | Bandwidth (of the triad) | Error | Peak memory |
+|---|---|---:|---:|---:|---:|---:|---:|---|---:|
+| `fdfd2d/slab-lu` | 440 × 340 cells of 10 nm, PMLs of 20 | 149 600 | 1 | 0.92 s | — | — | — | 2.6e-13 (S21 = exp(iβL), S11 = 0) | 690 MB |
+| `fdfd3d/guide-qmr` | 40 × 40 × 40 cells of 10 nm, PMLs of 10 | 192 000 | 1 | 13.39 s | 2 077 | 30.3 | 19.4 GB/s (59%) | 1.5e-7 (QMR + ILU(0) to 1e-12, relative) | 320 MB |
+| `fdfd3d/guide-ilu` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 1 | 6.27 s | 195 | 126.0 | 15.3 GB/s (46%) | 1.2e-6 (GMRES + multigrid to 1e-12, relative) | 460 MB |
+| `fdfd3d/guide-multigrid` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 1 | 3.52 s | 16 | 288.5 | 12.7 GB/s (39%) | 1.6e-6 (GMRES + multigrid to 1e-12, relative) | 1.03 GB |
+| `fdfd3d/diel-multigrid` | 40 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 864 000 | 1 | 23.72 s | 46 | 303.6 | 13.9 GB/s (42%) | 1.8e-6 (GMRES + multigrid to 1e-12, relative) | 4.65 GB |
+| `fdfd3d/strip-ports-multigrid` | 72 × 102 × 82 cells of 20 nm, stretched PMLs of 16 | 1 806 624 | 1 | 55.66 s | 56 | 296.6 | 13.3 GB/s (40%) | 4.1e-9 (S21 = exp(iβL), S11 = 0) | 9.39 GB |
+| `job/strip-modes` | 121 × 111 cells of 20 nm, 11 points | 27 328 | 1 | 4.19 s | — | — | — | — | 138 MB |
+| `job/mmi-fdfd` | 725 × 300 cells of 20 nm, 11 points | 217 500 | 1 | 24.63 s | — | — | — | — | 1.42 GB |
+| `example/strip_waveguide` | examples/strip_waveguide.rs | — | 1 | 6.09 s | — | — | — | — | 1.45 GB |
+| `example/hadley_corners` | examples/hadley_corners.rs | — | 1 | 7.51 s | — | — | — | — | 235 MB |
+| `example/group_index` | examples/group_index.rs | — | 1 | 10.77 s | — | — | — | — | 258 MB |
+| `example/circuit_fit` | examples/circuit_fit.rs | — | 1 | 0.47 s | — | — | — | — | 11 MB |
+| `fdfd2d/slab-lu` | 440 × 340 cells of 10 nm, PMLs of 20 | 149 600 | 20 | 1.02 s | — | — | — | 2.6e-13 (S21 = exp(iβL), S11 = 0) | 692 MB |
+| `fdfd3d/guide-qmr` | 40 × 40 × 40 cells of 10 nm, PMLs of 10 | 192 000 | 20 | 4.07 s | 2 077 | 7.0 | 84.4 GB/s (150%) | 1.5e-7 (QMR + ILU(0) to 1e-12, relative) | 320 MB |
+| `fdfd3d/guide-ilu` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 20 | 4.82 s | 195 | 89.2 | 21.6 GB/s (38%) | 1.2e-6 (GMRES + multigrid to 1e-12, relative) | 460 MB |
+| `fdfd3d/guide-multigrid` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 20 | 2.52 s | 16 | 169.6 | 21.6 GB/s (38%) | 1.6e-6 (GMRES + multigrid to 1e-12, relative) | 1.07 GB |
+| `fdfd3d/diel-multigrid` | 40 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 864 000 | 20 | 12.63 s | 46 | 113.6 | 37.1 GB/s (66%) | 1.8e-6 (GMRES + multigrid to 1e-12, relative) | 4.67 GB |
+| `fdfd3d/strip-ports-multigrid` | 72 × 102 × 82 cells of 20 nm, stretched PMLs of 16 | 1 806 624 | 20 | 29.45 s | 56 | 114.6 | 34.3 GB/s (61%) | 4.1e-9 (S21 = exp(iβL), S11 = 0) | 9.51 GB |
+| `job/strip-modes` | 121 × 111 cells of 20 nm, 11 points | 27 328 | 20 | 1.27 s | — | — | — | — | 1.09 GB |
+| `job/mmi-fdfd` | 725 × 300 cells of 20 nm, 11 points | 217 500 | 20 | 9.28 s | — | — | — | — | 6.02 GB |
+| `example/strip_waveguide` | examples/strip_waveguide.rs | — | 20 | 5.70 s | — | — | — | — | 1.46 GB |
+| `example/hadley_corners` | examples/hadley_corners.rs | — | 20 | 2.48 s | — | — | — | — | 695 MB |
+| `example/group_index` | examples/group_index.rs | — | 20 | 3.01 s | — | — | — | — | 990 MB |
+| `example/circuit_fit` | examples/circuit_fit.rs | — | 20 | 0.43 s | — | — | — | — | 11 MB |
 
 ## Phases
 
-- `fdfd2d/slab-lu` on 1 thread: assembly and LU 0.75 s; port modes 0.00 s; S-matrix, 2 runs 0.14 s
-- `fdfd3d/guide-qmr` on 1 thread: assembly 1.27 s; QMR to 1e-6 10.90 s (2 077 iterations)
-- `fdfd3d/guide-ilu` on 1 thread: assembly and ILU(0) 1.45 s; QMR to 1e-8 4.36 s (195 iterations)
-- `fdfd3d/guide-multigrid` on 1 thread: assembly and multigrid 2.52 s; GMRES to 1e-8 0.83 s (16 iterations)
-- `fdfd3d/diel-multigrid` on 1 thread: assembly and multigrid 11.39 s; GMRES to 1e-8 11.21 s (46 iterations)
-- `fdfd3d/strip-ports-multigrid` on 1 thread: assembly and multigrid 24.34 s; port modes 0.65 s; S-matrix, 2 runs of GMRES to 1e-8 27.66 s (56 iterations)
-- `fdfd2d/slab-lu` on 20 threads: assembly and LU 1.72 s; port modes 0.00 s; S-matrix, 2 runs 0.16 s
-- `fdfd3d/guide-qmr` on 20 threads: assembly 1.30 s; QMR to 1e-6 2.82 s (2 077 iterations)
-- `fdfd3d/guide-ilu` on 20 threads: assembly and ILU(0) 1.46 s; QMR to 1e-8 3.31 s (195 iterations)
-- `fdfd3d/guide-multigrid` on 20 threads: assembly and multigrid 1.98 s; GMRES to 1e-8 0.51 s (16 iterations)
-- `fdfd3d/diel-multigrid` on 20 threads: assembly and multigrid 8.11 s; GMRES to 1e-8 4.52 s (46 iterations)
-- `fdfd3d/strip-ports-multigrid` on 20 threads: assembly and multigrid 17.13 s; port modes 0.80 s; S-matrix, 2 runs of GMRES to 1e-8 11.67 s (56 iterations)
+- `fdfd2d/slab-lu` on 1 thread: assembly and LU 0.78 s; port modes 0.00 s; S-matrix, 2 runs 0.14 s
+- `fdfd3d/guide-qmr` on 1 thread: assembly 1.29 s; QMR to 1e-6 12.10 s (2 077 iterations)
+- `fdfd3d/guide-ilu` on 1 thread: assembly and ILU(0) 1.55 s; QMR to 1e-8 4.72 s (195 iterations)
+- `fdfd3d/guide-multigrid` on 1 thread: assembly and multigrid 2.63 s; GMRES to 1e-8 0.89 s (16 iterations)
+- `fdfd3d/diel-multigrid` on 1 thread: assembly and multigrid 11.65 s; GMRES to 1e-8 12.07 s (46 iterations)
+- `fdfd3d/strip-ports-multigrid` on 1 thread: assembly and multigrid 24.99 s; port modes 0.66 s; S-matrix, 2 runs of GMRES to 1e-8 30.01 s (56 iterations)
+- `fdfd2d/slab-lu` on 20 threads: assembly and LU 0.86 s; port modes 0.00 s; S-matrix, 2 runs 0.16 s
+- `fdfd3d/guide-qmr` on 20 threads: assembly 1.30 s; QMR to 1e-6 2.77 s (2 077 iterations)
+- `fdfd3d/guide-ilu` on 20 threads: assembly and ILU(0) 1.48 s; QMR to 1e-8 3.34 s (195 iterations)
+- `fdfd3d/guide-multigrid` on 20 threads: assembly and multigrid 2.00 s; GMRES to 1e-8 0.52 s (16 iterations)
+- `fdfd3d/diel-multigrid` on 20 threads: assembly and multigrid 8.12 s; GMRES to 1e-8 4.51 s (46 iterations)
+- `fdfd3d/strip-ports-multigrid` on 20 threads: assembly and multigrid 16.93 s; port modes 0.93 s; S-matrix, 2 runs of GMRES to 1e-8 11.60 s (56 iterations)
 
 ## Problems
 
