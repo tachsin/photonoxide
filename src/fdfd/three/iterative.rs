@@ -129,6 +129,21 @@ impl IterativeSolver3d {
         Ok(self)
     }
 
+    /// As [`IterativeSolver3d::with_ilu`], each of the factors' triangular solves taken as
+    /// `sweeps` Jacobi sweeps, in parallel, where the exact ones are sequential.
+    ///
+    /// # Errors
+    ///
+    /// As [`IterativeSolver3d::with_ilu`].
+    #[cfg(test)]
+    pub(crate) fn with_ilu_sweeps(self, sweeps: usize) -> Result<IterativeSolver3d> {
+        let mut solver = self.with_ilu()?;
+        if let Preconditioning::Ilu(ilu) = solver.preconditioner {
+            solver.preconditioner = Preconditioning::Ilu(Box::new(ilu.with_sweeps(sweeps)));
+        }
+        Ok(solver)
+    }
+
     /// The same problem, solved by GMRES preconditioned from the right by a multigrid cycle on
     /// Shin and Fan's operator ([`Multigrid`]; GMRES, restarted, as Y. Saad, *Iterative Methods
     /// for Sparse Linear Systems*, 2nd ed., SIAM (2003), doi:10.1137/1.9780898718003, Algorithms
