@@ -14,10 +14,12 @@
 //! - [`circuit`]: components with ports and S-matrices, connected into netlists, solved as one
 //!   sparse system and differentiated by the circuit adjoint.
 //! - [`compact`]: compact models by vector fitting, over parameters, and Touchstone files.
-//! - [`run`] and [`job`]: jobs as TOML files, and runs recorded as events that replay exactly;
-//!   the studio, the `photonoxide` program attached to each release, runs and shows them.
+//! - [`run`] and [`job`]: jobs as TOML, JSON or YAML files, and runs recorded as events that
+//!   replay exactly; the studio, the `photonoxide` program attached to each release, runs and
+//!   shows them.
 //! - [`bench`](mod@bench): fixed problems that time the solvers at a stated accuracy, which
 //!   `photonoxide bench` runs.
+//! - [`parallel`]: independent problems (a sweep's points) side by side, collected in order.
 //!
 //! **Alpha:** the API is being built milestone by milestone, and will change. FDTD, thermal and
 //! electro-optic devices, inverse design, layout and PDKs are planned, not here yet: see the
@@ -41,6 +43,7 @@ pub mod geometry;
 pub mod job;
 pub mod material;
 pub mod mode;
+pub mod parallel;
 pub mod raster;
 pub mod run;
 mod sparse;
