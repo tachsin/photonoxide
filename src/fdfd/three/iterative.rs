@@ -2,9 +2,12 @@
 
 use num_complex::Complex64 as c64;
 
+use super::multigrid::{Hierarchy, Multigrid, shifted};
 use super::{Axis, Boundaries3d, Field3d, Grid3d, Lattice, Port3d, PortMode3d, Solver3d};
 use crate::fdfd::Direction;
-use crate::fdfd::krylov::{Convergence, Ilu0, Sparse, Stopping, qmr, qmr_preconditioned};
+use crate::fdfd::krylov::{
+    Convergence, Ilu0, Sparse, Stopping, gmres_preconditioned, qmr, qmr_preconditioned,
+};
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -44,8 +47,15 @@ pub struct IterativeSolver3d {
     eps: Vec<c64>,
     formulation: Formulation,
     matrix: Sparse,
-    /// The matrix's ILU(0), when QMR is preconditioned.
-    ilu: Option<Ilu0>,
+    /// What preconditions QMR, if anything.
+    preconditioner: Preconditioning,
+}
+
+/// A preconditioner for QMR.
+enum Preconditioning {
+    None,
+    Ilu(Box<Ilu0>),
+    Multigrid(Box<Hierarchy>),
 }
 
 impl IterativeSolver3d {
@@ -75,7 +85,7 @@ impl IterativeSolver3d {
             eps,
             formulation,
             matrix,
-            ilu: None,
+            preconditioner: Preconditioning::None,
         })
     }
 
@@ -99,8 +109,51 @@ impl IterativeSolver3d {
                 "ILU(0) needs Shin and Fan's operator (Formulation::ShinFan): on the curl-curl \n                 one QMR doesn't converge",
             ));
         }
-        self.ilu = Some(Ilu0::new(&self.matrix)?);
+        self.preconditioner = Preconditioning::Ilu(Box::new(Ilu0::new(&self.matrix)?));
         Ok(self)
+    }
+
+    /// The same problem, solved by GMRES preconditioned from the right by a multigrid cycle on
+    /// Shin and Fan's operator ([`Multigrid`]; GMRES, restarted, as Y. Saad, *Iterative Methods
+    /// for Sparse Linear Systems*, 2nd ed., SIAM (2003), doi:10.1137/1.9780898718003, Algorithms
+    /// 9.5 and 6.11: one cycle an iteration, where QMR would take the cycle and its transpose): Galerkin coarse operators, ILU(0) smoothing on every level, and a
+    /// direct solve on the coarsest (B. Reps, W. Vanroose, H. bin Zubair, J. Comput. Phys. 229,
+    /// 8384 (2010), doi:10.1016/j.jcp.2010.07.022, Section 6.1), with the complex shift of
+    /// Y. A. Erlangga, C. W. Oosterlee, C. Vuik, SIAM J. Sci. Comput. 27, 1471 (2006),
+    /// doi:10.1137/040615195, Eq. 8, if asked. For PMLs whose stretch stays within 45° of the
+    /// real axis ([`Boundaries3d::stretched_pml`]); see docs/methods/fdfd-3d.md.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for the curl-curl operator, whose near-null space of gradients no
+    /// point smoother reduces, for options without smoothing, or if a level's ILU(0) or the
+    /// coarsest factorization fails.
+    pub fn with_multigrid(mut self, options: Multigrid) -> Result<IterativeSolver3d> {
+        if self.formulation == Formulation::CurlCurl {
+            return Err(Error::invalid(
+                "fdfd preconditioner",
+                "multigrid needs Shin and Fan's operator (Formulation::ShinFan)",
+            ));
+        }
+        let operator = shifted(&self.lattice, &self.eps, &self.matrix, options.shift);
+        let hierarchy = Hierarchy::new(&self.lattice, &self.eps, operator, options)?;
+        self.preconditioner = Preconditioning::Multigrid(Box::new(hierarchy));
+        Ok(self)
+    }
+
+    /// The number of the multigrid's levels, the coarsest included; 0 without one.
+    pub fn multigrid_levels(&self) -> usize {
+        self.multigrid_grids().len()
+    }
+
+    /// Each of the multigrid's levels, finest first, the coarsest included: its cells along x,
+    /// y and z. A PML's cells are merged later than the others ([`Multigrid`]), so a grid with
+    /// PMLs coarsens by less than two a level along their axes. Empty without a multigrid.
+    pub fn multigrid_grids(&self) -> Vec<[usize; 3]> {
+        match &self.preconditioner {
+            Preconditioning::Multigrid(h) => h.shapes().to_vec(),
+            _ => Vec::new(),
+        }
     }
 
     /// The grid.
@@ -153,9 +206,16 @@ impl IterativeSolver3d {
         let b = self
             .lattice
             .transformed_rhs(&self.eps, &b, self.formulation.s());
-        let (values, convergence) = match &self.ilu {
-            Some(ilu) => qmr_preconditioned(&self.matrix, ilu, &b, stopping)?,
-            None => qmr(&self.matrix, &b, stopping)?,
+        let (values, convergence) = match &self.preconditioner {
+            Preconditioning::Ilu(ilu) => {
+                qmr_preconditioned(&self.matrix, ilu.as_ref(), &b, stopping)?
+            }
+            // a cycle is worth many products with A, and GMRES takes one per iteration where
+            // QMR takes two (the cycle and its transpose)
+            Preconditioning::Multigrid(h) => {
+                gmres_preconditioned(&self.matrix, h.as_ref(), &b, stopping, h.restart())?
+            }
+            Preconditioning::None => qmr(&self.matrix, &b, stopping)?,
         };
         Ok((
             Field3d {

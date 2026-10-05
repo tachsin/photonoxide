@@ -1006,6 +1006,7 @@ impl Lattice {
 
 pub(crate) mod checks;
 mod iterative;
+mod multigrid;
 pub(crate) mod port_checks;
 #[cfg(test)]
 mod port_tests;
@@ -1014,6 +1015,7 @@ mod ports;
 mod tests;
 
 pub use iterative::{Formulation, IterativeSolver3d};
+pub use multigrid::{CycleShape, Multigrid};
 pub use ports::{Port3d, PortMode3d};
 
 /// The relative residual a direct solve guarantees: round-off, above the 1e-15 to 1e-14 that an

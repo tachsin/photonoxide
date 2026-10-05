@@ -22,8 +22,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::Result;
 use crate::fdfd::{
-    Axis, Boundaries, Boundaries3d, Formulation, Grid, Grid3d, IterativeSolver3d, Polarization,
-    Port, Port3d, Side, Solver2d, Stopping,
+    Axis, Boundaries, Boundaries3d, Formulation, Grid, Grid3d, IterativeSolver3d, Multigrid,
+    Polarization, Port, Port3d, Side, Solver2d, Stopping,
 };
 use crate::units::Wavelength;
 
@@ -145,6 +145,35 @@ pub fn problems() -> Vec<Problem> {
             run: |timed| guide_3d(Guide::Cube { core: 10 }, 10, Solve::Ilu, 1e-8, timed),
         },
         Problem {
+            id: "fdfd3d/guide-multigrid",
+            title: "3D FDFD by GMRES + multigrid on Shin and Fan's operator, stretched PMLs: the \
+                    same guide, to a residual of 1e-8",
+            heavy: false,
+            run: |timed| guide_3d(Guide::Cube { core: 10 }, 10, Solve::Multigrid, 1e-8, timed),
+        },
+        Problem {
+            id: "fdfd3d/diel-multigrid",
+            title: "3D FDFD by GMRES + multigrid, stretched PMLs: Shin and Fan's Diel, smaller \
+                    (a 400 × 300 nm silicon guide in vacuum, a current across it), to 1e-8",
+            heavy: false,
+            run: |timed| {
+                guide_3d(
+                    Guide::Diel { length: 40 },
+                    10,
+                    Solve::Multigrid,
+                    1e-8,
+                    timed,
+                )
+            },
+        },
+        Problem {
+            id: "fdfd3d/strip-ports-multigrid",
+            title: "3D FDFD by GMRES + multigrid, stretched PMLs: a straight 500 × 220 nm silicon \
+                    strip in oxide, its two ports' S-matrix, to 1e-8",
+            heavy: false,
+            run: |timed| strip_ports_3d(0.02, 16, Solve::Multigrid, 1e-8, timed),
+        },
+        Problem {
             id: "fdfd3d/diel-ilu",
             title: "3D FDFD by QMR + ILU(0), stretched PMLs: Shin and Fan's Diel, smaller (a \
                     400 × 300 nm silicon guide in vacuum, a current across it), to 1e-8",
@@ -156,7 +185,7 @@ pub fn problems() -> Vec<Problem> {
             title: "3D FDFD by QMR + ILU(0), stretched PMLs: a straight 500 × 220 nm silicon \
                     strip in oxide, its two ports' S-matrix, to 1e-8",
             heavy: true,
-            run: |timed| strip_ports_3d(0.02, 16, 1e-8, timed),
+            run: |timed| strip_ports_3d(0.02, 16, Solve::Ilu, 1e-8, timed),
         },
     ]
 }
@@ -285,11 +314,47 @@ enum Solve {
     Qmr,
     /// QMR + ILU(0) on Shin and Fan's operator, stretched PMLs.
     Ilu,
+    /// GMRES preconditioned by the default multigrid on Shin and Fan's operator, stretched PMLs.
+    Multigrid,
+}
+
+impl Solve {
+    fn boundaries(self, pml: usize) -> Boundaries3d {
+        match self {
+            Solve::Qmr => Boundaries3d::pml(pml),
+            Solve::Ilu | Solve::Multigrid => Boundaries3d::stretched_pml(pml),
+        }
+    }
+
+    /// The solver, timed as a phase of its own.
+    fn build(
+        self,
+        phases: &mut Vec<Phase>,
+        new: impl FnOnce(Formulation) -> Result<IterativeSolver3d>,
+    ) -> Result<IterativeSolver3d> {
+        match self {
+            Solve::Qmr => timed("assembly", phases, || new(Formulation::CurlCurl)),
+            Solve::Ilu => timed("assembly and ILU(0)", phases, || {
+                new(Formulation::ShinFan)?.with_ilu()
+            }),
+            Solve::Multigrid => timed("assembly and multigrid", phases, || {
+                new(Formulation::ShinFan)?.with_multigrid(Multigrid::default())
+            }),
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Solve::Qmr | Solve::Ilu => "QMR",
+            Solve::Multigrid => "GMRES",
+        }
+    }
 }
 
 /// A guide's field from one source, solved to `tolerance`; its error is against the same
-/// problem (the same PMLs) solved by QMR + ILU(0) on Shin and Fan's operator to 1e-12, which
-/// isn't timed. Both operators have the same solution.
+/// problem (the same PMLs) solved to 1e-12, which isn't timed: by GMRES + multigrid with
+/// stretched PMLs, and by QMR + ILU(0) with plain ones, on which the multigrid wasn't measured.
+/// Both operators have the same solution.
 fn guide_3d(
     guide: Guide,
     pml: usize,
@@ -344,36 +409,35 @@ fn guide_3d(
             }
         }
     }
-    let boundaries = match solve {
-        Solve::Qmr => Boundaries3d::pml(pml),
-        Solve::Ilu => Boundaries3d::stretched_pml(pml),
-    };
+    let boundaries = solve.boundaries(pml);
     let stopping = |tolerance: f64| Stopping {
         tolerance,
         max_iterations: 100_000,
     };
+    let new = |formulation| IterativeSolver3d::new(grid, lam, eps, boundaries, formulation);
     let mut phases = Vec::new();
     let field = {
-        let solver = match solve {
-            Solve::Qmr => timed("assembly", &mut phases, || {
-                IterativeSolver3d::new(grid, lam, eps, boundaries, Formulation::CurlCurl)
-            })?,
-            Solve::Ilu => timed("assembly and ILU(0)", &mut phases, || {
-                IterativeSolver3d::new(grid, lam, eps, boundaries, Formulation::ShinFan)?.with_ilu()
-            })?,
-        };
+        let solver = solve.build(&mut phases, new)?;
         let t = Instant::now();
         let (field, convergence) = solver.solve(&source, stopping(tolerance))?;
         phases.push(Phase {
-            name: format!("QMR to {tolerance:e}"),
+            name: format!("{} to {tolerance:e}", solve.label()),
             seconds: t.elapsed().as_secs_f64(),
             iterations: Some(convergence.iterations),
         });
         field
     };
     timed_done();
-    let reference =
-        IterativeSolver3d::new(grid, lam, eps, boundaries, Formulation::ShinFan)?.with_ilu()?;
+    let (reference, against) = match solve {
+        Solve::Qmr => (
+            new(Formulation::ShinFan)?.with_ilu()?,
+            "QMR + ILU(0) to 1e-12, relative",
+        ),
+        Solve::Ilu | Solve::Multigrid => (
+            new(Formulation::ShinFan)?.with_multigrid(Multigrid::default())?,
+            "GMRES + multigrid to 1e-12, relative",
+        ),
+    };
     let (reference, _) = reference.solve(&source, stopping(1e-12))?;
     let difference: f64 = (field.values().iter())
         .zip(reference.values())
@@ -390,24 +454,26 @@ fn guide_3d(
             nm(h),
             match solve {
                 Solve::Qmr => "PMLs",
-                Solve::Ilu => "stretched PMLs",
+                Solve::Ilu | Solve::Multigrid => "stretched PMLs",
             }
         ),
         unknowns: grid.unknowns(),
         phases,
         accuracy: Some(Accuracy {
             error,
-            against: "QMR + ILU(0) to 1e-12, relative".into(),
+            against: against.into(),
         }),
     })
 }
 
 /// A straight strip (500 × 220 nm of 3.476 in 1.444) along x on an h grid, 40 × 70 × 50 cells
-/// inside stretched PMLs of `pml` cells, at 1.55 µm; ports 5 cells in from the left PML and 35.
-/// Its exact S-matrix is S21 = S12 = exp(iβL), L the ports' distance, and S11 = S22 = 0.
+/// inside stretched PMLs of `pml` cells, at 1.55 µm, solved by ILU(0) or the multigrid; ports 5
+/// cells in from the left PML and 35. Its exact S-matrix is S21 = S12 = exp(iβL), L the ports'
+/// distance, and S11 = S22 = 0.
 fn strip_ports_3d(
     h: f64,
     pml: usize,
+    solve: Solve,
     tolerance: f64,
     timed_done: &mut dyn FnMut(),
 ) -> Result<Measurement> {
@@ -433,15 +499,8 @@ fn strip_ports_3d(
     };
     let lam = Wavelength::um(1.55)?;
     let mut phases = Vec::new();
-    let solver = timed("assembly and ILU(0)", &mut phases, || {
-        IterativeSolver3d::new(
-            grid,
-            lam,
-            strip,
-            Boundaries3d::stretched_pml(pml),
-            Formulation::ShinFan,
-        )?
-        .with_ilu()
+    let solver = solve.build(&mut phases, |formulation| {
+        IterativeSolver3d::new(grid, lam, strip, solve.boundaries(pml), formulation)
     })?;
     let (left, right) = (pml + 5, pml + 35);
     let ports = timed("port modes", &mut phases, || {
@@ -464,7 +523,11 @@ fn strip_ports_3d(
     let t = Instant::now();
     let (s, runs) = solver.s_matrix_with_convergence(&ports, stopping)?;
     phases.push(Phase {
-        name: format!("S-matrix, {} runs of QMR to {tolerance:e}", runs.len()),
+        name: format!(
+            "S-matrix, {} runs of {} to {tolerance:e}",
+            runs.len(),
+            solve.label()
+        ),
         seconds: t.elapsed().as_secs_f64(),
         iterations: Some(runs.iter().map(|c| c.iterations).sum()),
     });

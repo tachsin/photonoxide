@@ -768,6 +768,13 @@ pub fn cases() -> Vec<Case> {
             run: fdfd3d_qmr_ilu_direct,
         },
         Case {
+            id: "fdfd3d/gmres-multigrid-direct",
+            title: r"3D FDFD by GMRES on Shin and Fan's operator preconditioned by a multigrid cycle, to a relative residual of 1e-10, against the sparse direct solver: the same strip, $24 \times 20 \times 16$ cells of 40 nm, stretched PMLs of 6 cells all round (largest field difference relative to the largest field shown)",
+            tier: Tier::Analytic,
+            source: r"the same system solved two ways; the cycle after B. Reps, W. Vanroose, H. bin Zubair, J. Comput. Phys. 229, 8384 (2010), doi:10.1016/j.jcp.2010.07.022 (V(0, 1), ILU(0) smoothing, Galerkin coarse operators) with the complex shift of Y. A. Erlangga, C. W. Oosterlee, C. Vuik, SIAM J. Sci. Comput. 27, 1471 (2006), doi:10.1137/040615195; GMRES as in Y. Saad, Iterative Methods for Sparse Linear Systems, 2nd ed., SIAM (2003), doi:10.1137/1.9780898718003, from the right; measured 2.0e-10, in 24 iterations against ILU(0)'s 160",
+            run: fdfd3d_gmres_multigrid_direct,
+        },
+        Case {
             id: "circuit/series-waveguides",
             title: r"Circuits: two waveguides, 12.5 and 30.25 µm, in series are one of 42.75 µm ($n_\text{eff} = 2.4$, $n_g = 4.2$, 3 dB/cm), 1.54 to 1.56 µm (largest $\lvert \Delta S \rvert$ shown)",
             tier: Tier::Analytic,
@@ -1423,6 +1430,18 @@ fn fdfd3d_qmr_ilu_direct() -> Outcome {
         measured: worst,
         expected: 0.0,
         // a residual of 1e-10 bounds the error by the condition number times 1e-10: 2.4e-10
+        tolerance: 1e-8,
+        error: worst,
+    }
+}
+
+fn fdfd3d_gmres_multigrid_direct() -> Outcome {
+    let (worst, _) = crate::fdfd::checks3d::multigrid_against_direct();
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // as QMR + ILU(0)'s: a residual of 1e-10 bounds the error by the condition number times
+        // 1e-10, 2.0e-10 measured
         tolerance: 1e-8,
         error: worst,
     }
