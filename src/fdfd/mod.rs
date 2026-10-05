@@ -783,7 +783,7 @@ impl Field2d {
 
 mod adjoint;
 pub(crate) mod checks;
-mod krylov;
+pub(crate) mod krylov;
 mod ports;
 #[cfg(test)]
 mod tests;

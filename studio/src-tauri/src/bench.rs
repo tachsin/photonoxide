@@ -84,6 +84,7 @@ pub fn run(args: &[String]) -> ExitCode {
     let mut counts = Vec::new();
     let mut write = None;
     let mut json = None;
+    let mut export = None;
     let mut wanted = Vec::new();
     let mut it = args.iter();
     while let Some(a) = it.next() {
@@ -115,9 +116,16 @@ pub fn run(args: &[String]) -> ExitCode {
                 Some(f) => json = Some(PathBuf::from(f)),
                 None => return crate::usage(),
             },
+            "--export" => match it.next() {
+                Some(d) => export = Some(PathBuf::from(d)),
+                None => return crate::usage(),
+            },
             _ if !a.starts_with("--") => wanted.push(a.clone()),
             _ => return crate::usage(),
         }
+    }
+    if let Some(dir) = export {
+        return export_systems(&dir, &wanted);
     }
     if counts.is_empty() {
         counts.push(std::thread::available_parallelism().map_or(1, |n| n.get()));
@@ -196,6 +204,39 @@ pub fn run(args: &[String]) -> ExitCode {
     } else {
         crate::fail("some benchmark problems failed")
     }
+}
+
+/// Writes the direct solvers' systems (`photonoxide::bench::export`) into `dir`, each with its
+/// solution, for other solvers to factorize: those whose id starts with one of `wanted`, or all.
+fn export_systems(dir: &Path, wanted: &[String]) -> ExitCode {
+    use photonoxide::bench::export;
+    for id in export::IDS {
+        if !wanted.is_empty() && !wanted.iter().any(|w| id.starts_with(w.as_str())) {
+            continue;
+        }
+        eprint!("{id}: ");
+        let t = std::time::Instant::now();
+        let written = export::system(id).and_then(|system| {
+            let x = export::solve(&system)?;
+            let symmetric = export::write(dir, &system, &x)?;
+            Ok((system, symmetric))
+        });
+        match written {
+            Ok((system, symmetric)) => eprintln!(
+                "{} unknowns, {} nonzeros, in {:.1} s{}",
+                grouped(system.n),
+                grouped(system.entries.len()),
+                t.elapsed().as_secs_f64(),
+                if symmetric {
+                    ", and its complex symmetric form"
+                } else {
+                    ""
+                }
+            ),
+            Err(e) => return crate::fail(e),
+        }
+    }
+    ExitCode::SUCCESS
 }
 
 /// Runs `id` in a child process on `threads` threads, and reads what it reports.

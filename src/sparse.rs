@@ -174,6 +174,7 @@ pub(crate) fn nested_dissection(
 pub(crate) struct OrderedSymbolic {
     columns: (Vec<usize>, Vec<usize>),
     symbolic: SymbolicSupernodalLu<usize>,
+    entries: usize,
 }
 
 impl OrderedSymbolic {
@@ -242,10 +243,20 @@ impl OrderedSymbolic {
             SymbolicSupernodalParams::default(),
         )
         .map_err(|e| failed("the analysis", format!("{e:?}")))?;
+        let entries = 2 * col_counts.iter().sum::<usize>() - n;
         Ok(OrderedSymbolic {
             columns: (forward, inverse),
             symbolic,
+            entries,
         })
+    }
+
+    /// The entries of L and U the factorization makes room for: the structure of the Cholesky
+    /// factor of AᵀA in this column order, once for L and once for U, the diagonal shared. Partial
+    /// pivoting by rows stays inside it (A. George, E. Ng, SIAM J. Sci. Stat. Comput. 8, 877
+    /// (1987), doi:10.1137/0908072), and faer's supernodal LU allocates it.
+    pub(crate) fn factor_entries(&self) -> usize {
+        self.entries
     }
 
     fn columns(&self) -> PermRef<'_, usize> {
@@ -448,5 +459,49 @@ mod tests {
             .map(|(y, z)| (y / 2.0 - z).norm())
             .fold(0.0, f64::max);
         assert!(half < 1e-12, "{half}");
+    }
+
+    #[test]
+    fn the_factors_entries_are_counted_exactly() {
+        // tridiagonal: AᵀA is pentadiagonal and its Cholesky factor in the natural order has no
+        // fill, 3 entries a column but 2 and 1 in the last two, so L and U together hold 5n − 6
+        let n = 50;
+        let mut triplets = Vec::new();
+        for k in 0..n {
+            triplets.push(faer::sparse::Triplet::new(k, k, c64::new(2.0, 0.1)));
+            if k + 1 < n {
+                triplets.push(faer::sparse::Triplet::new(k, k + 1, c64::new(-1.0, 0.0)));
+                triplets.push(faer::sparse::Triplet::new(k + 1, k, c64::new(-1.0, 0.2)));
+            }
+        }
+        let a = SparseColMat::<usize, c64>::try_new_from_triplets(n, n, &triplets).unwrap();
+        let natural: Vec<usize> = (0..n).collect();
+        let counted = OrderedSymbolic::new(a.as_ref(), &natural).unwrap();
+        assert_eq!(counted.factor_entries(), 5 * n - 6);
+        // and the 2D Laplacian: nested dissection fills less than the natural (banded) order
+        let (nx, ny) = (40, 30);
+        let (starts, neighbours, positions) = grid(nx, ny);
+        let mut triplets = Vec::new();
+        for (k, w) in starts.windows(2).enumerate() {
+            triplets.push(faer::sparse::Triplet::new(k, k, c64::new(4.0, 0.3)));
+            for &l in &neighbours[w[0]..w[1]] {
+                triplets.push(faer::sparse::Triplet::new(k, l, c64::new(-1.0, 0.1)));
+            }
+        }
+        let n = nx * ny;
+        let a = SparseColMat::<usize, c64>::try_new_from_triplets(n, n, &triplets).unwrap();
+        let natural: Vec<usize> = (0..n).collect();
+        let banded = OrderedSymbolic::new(a.as_ref(), &natural).unwrap();
+        let dissected = OrderedSymbolic::new(
+            a.as_ref(),
+            &nested_dissection(&starts, &neighbours, &positions),
+        )
+        .unwrap();
+        assert!(
+            dissected.factor_entries() < banded.factor_entries(),
+            "{} {}",
+            dissected.factor_entries(),
+            banded.factor_entries()
+        );
     }
 }

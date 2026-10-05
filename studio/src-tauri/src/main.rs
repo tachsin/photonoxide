@@ -36,6 +36,9 @@ const USAGE: &str = "usage:
       time the benchmark problems and the slowest examples, each in its own process, and
       print the report (--all: the heavy ones too; <id>: only those whose id starts with it;
       --threads: the thread counts, default all the machine's; `--list` lists them)
+  photonoxide bench --export <dir> [<id>...]
+      write the direct solvers' systems (slab-2d, strip-24, strip-32, strip-40) as Matrix
+      Market files with their solutions, for other solvers to factorize
   photonoxide --version";
 
 fn main() -> ExitCode {
