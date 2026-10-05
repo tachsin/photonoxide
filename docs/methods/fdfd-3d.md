@@ -16,6 +16,10 @@ papers:
     doi: 10.1364/OE.21.022578
   - cite: "R. W. Freund, N. M. Nachtigal, Numer. Math. 60, 315 (1991)"
     doi: 10.1007/BF01385726
+  - cite: "R. W. Freund, SIAM J. Sci. Stat. Comput. 13, 425 (1992) (QMR for complex symmetric matrices)"
+    doi: 10.1137/0913023
+  - cite: "H. A. van der Vorst, J. B. M. Melissen, IEEE Trans. Magn. 26, 706 (1990) (COCG, compared)"
+    doi: 10.1109/20.106415
   - cite: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984) (the exact reference)"
     doi: 10.1364/JOSAA.1.000742
   - cite: "R. C. Rumpf, Prog. Electromagn. Res. B 36, 221 (2012) (the mode sources)"
@@ -44,6 +48,7 @@ validation:
   - fdfd3d/closed-guide-energy
   - fdfd3d/two-d-s-matrix
   - fdfd3d/qmr-direct
+  - fdfd3d/qmr-symmetric-direct
   - fdfd3d/qmr-plateau
   - fdfd3d/qmr-iterations-curl-curl
   - fdfd3d/qmr-iterations-shin-fan
@@ -369,6 +374,42 @@ which Shin and Fan use for their 3D problems:
   for bit on any number of threads. On the 40³ guide below (192 000 unknowns, plain PMLs, 20
   threads) an iteration takes 2.6 ms, 13 ns per unknown, against 8.2 ms when the vector work
   ran on one thread; on one thread it takes 11.4 ms.
+
+**QMR for complex symmetric matrices.** The curl-curl operator with PMLs is similar to a complex
+symmetric matrix: there is a diagonal $D$ with $d_i a_{ij} = d_j a_{ji}$, the cells' stretch
+factors, and $B = S A S^{-1}$ with $S^2 = D$ is symmetric, $B = B^{\mathsf T}$, though not
+Hermitian. Freund (SIAM J. Sci. Stat. Comput. 13, 425 (1992), doi:10.1137/0913023) gives QMR
+for such matrices on his complex symmetric Lanczos process: it is the QMR above with its left
+vectors equal to its right ones, $w = v$, which they stay when $A = A^{\mathsf T}$ and $w_1 = v_1$.
+So it needs neither the left vectors nor the products with $A^{\mathsf T}$: one product an
+iteration. On an exactly symmetric matrix it gives the general QMR's iterates to the last bit
+(a test). `IterativeSolver3d` on the curl-curl operator without a preconditioner finds $S$ by
+walking the matrix's graph ($d = 1$ at a start, $d_j = d_i a_{ij}/a_{ji}$ along each entry),
+checks every entry to 1e-12, keeps $B$ in place of $A$, and solves $B(Sx) = Sb$. It stops on
+$A x = b$'s own residual, $S^{-1}(Sb - By)$, carrying on with a tighter tolerance where $B$'s is
+met and $A$'s isn't.
+
+A similarity, not a scaling: $DA$ is symmetric too, but has other eigenvalues, and QMR on it
+didn't converge on the guide (a residual of 0.24 after 100 000 iterations). Which matrices are
+symmetrizable was measured on a strip, 14 × 12 × 10 cells (`symmetrizable` in
+src/fdfd/three/tests.rs): the curl-curl operator with plain or stretched PMLs, to 7e-15; not
+Shin and Fan's operator (mismatches of order 1), on which ILU(0) and the multigrid work, nor a
+Bloch side's phases. So the preconditioned solvers keep the general QMR and GMRES.
+
+On the 40³ guide (curl-curl, plain PMLs, 20 threads; `symmetric_solvers`), each to a residual of
+1e-6 of its own system, the field's error against QMR to 1e-10:
+
+| Solver | Iterations | Time | Residual of $Ax = b$ | Field error |
+|---|---|---|---|---|
+| QMR on $A$ | 2 059 | 5.69 s | 9.3e-7 | 1.5e-7 |
+| QMR for symmetric matrices on $B$ | 2 077 | 2.83 s | 6.0e-7 | 1.5e-7 |
+| COCG on $B$ | 2 167 | | 7.3e-7 | 8.9e-8 |
+
+Twice as fast for the same field. COCG (van der Vorst and Melissen, IEEE Trans. Magn. 26, 706
+(1990), doi:10.1109/20.106415: conjugate gradients with $x^{\mathsf T}y$ in place of
+$x^{\mathsf H}y$) takes as many iterations, with no minimization behind its residual, which wanders
+as BiCG's does; it isn't used (its time, from a plain test loop, isn't comparable). Finding $S$
+and $B$ took 0.12 s.
 
 Freund and Nachtigal's look-ahead steps (Algorithm 2.1's inner vectors, from their refs. 6–7)
 step over a breakdown of the Lanczos process, $w_n^{\mathsf T}v_n = 0$. They are not

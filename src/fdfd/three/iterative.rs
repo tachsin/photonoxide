@@ -6,7 +6,7 @@ use super::multigrid::{Hierarchy, Multigrid, shifted};
 use super::{Axis, Boundaries3d, Field3d, Grid3d, Lattice, Port3d, PortMode3d, Solver3d};
 use crate::fdfd::Direction;
 use crate::fdfd::krylov::{
-    Convergence, Ilu0, Sparse, Stopping, gmres_preconditioned, qmr, qmr_preconditioned,
+    Convergence, Ilu0, Sparse, Stopping, gmres_preconditioned, qmr, qmr_preconditioned, qmr_similar,
 };
 use crate::units::Wavelength;
 use crate::{Error, Result};
@@ -46,7 +46,12 @@ pub struct IterativeSolver3d {
     lattice: Lattice,
     eps: Vec<c64>,
     formulation: Formulation,
+    /// The matrix QMR multiplies by: A, or, when `similarity` is S, B = S A S⁻¹.
     matrix: Sparse,
+    /// The curl-curl operator with PMLs or periodic sides is similar to a complex symmetric
+    /// matrix by a diagonal S ([`Sparse::symmetrized`]): then `matrix` is that matrix, and QMR
+    /// for complex symmetric matrices (Freund 1992) solves with one product an iteration.
+    similarity: Option<Vec<c64>>,
     /// What preconditions QMR, if anything.
     preconditioner: Preconditioning,
 }
@@ -73,18 +78,29 @@ impl IterativeSolver3d {
         formulation: Formulation,
     ) -> Result<IterativeSolver3d> {
         let (lattice, eps) = Solver3d::setup(grid, wavelength, eps, boundaries)?;
-        let matrix = Sparse::new(
+        let mut matrix = Sparse::new(
             grid.unknowns(),
             lattice
                 .assemble_with(&eps, formulation.s())
                 .into_iter()
                 .map(|t| (t.row, t.col, t.val)),
         );
+        // the curl-curl operator, unpreconditioned (neither preconditioner takes it), by QMR
+        // for symmetric matrices where it can be: twice as fast on the 40³ guide
+        // (docs/methods/fdfd-3d.md); Shin and Fan's operator, and a Bloch side's, can't
+        let mut similarity = None;
+        if formulation == Formulation::CurlCurl
+            && let Some((s, b)) = matrix.symmetrized()
+        {
+            matrix = b;
+            similarity = Some(s);
+        }
         Ok(IterativeSolver3d {
             lattice,
             eps,
             formulation,
             matrix,
+            similarity,
             preconditioner: Preconditioning::None,
         })
     }
@@ -215,7 +231,10 @@ impl IterativeSolver3d {
             Preconditioning::Multigrid(h) => {
                 gmres_preconditioned(&self.matrix, h.as_ref(), &b, stopping, h.restart())?
             }
-            Preconditioning::None => qmr(&self.matrix, &b, stopping)?,
+            Preconditioning::None => match &self.similarity {
+                Some(s) => qmr_similar(&self.matrix, s, &b, stopping)?,
+                None => qmr(&self.matrix, &b, stopping)?,
+            },
         };
         Ok((
             Field3d {

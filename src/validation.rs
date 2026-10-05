@@ -729,8 +729,15 @@ pub fn cases() -> Vec<Case> {
             id: "fdfd3d/qmr-direct",
             title: "3D FDFD by QMR, on the curl-curl operator and on Shin and Fan's ($s = -1$), to a relative residual of 1e-10, against the sparse direct solver: a silicon strip in oxide, $16^3$ cells of 40 nm, PMLs all round (largest field difference relative to the largest field shown)",
             tier: Tier::Analytic,
-            source: "the same system solved two ways: QMR, R. W. Freund, N. M. Nachtigal, Numer. Math. 60, 315 (1991), doi:10.1007/BF01385726, Algorithm 3.1 without look-ahead; Shin and Fan's operator, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, Eq. 7, has the same solution; measured 1.1e-11 and 1.3e-10",
+            source: "the same system solved two ways: QMR, R. W. Freund, N. M. Nachtigal, Numer. Math. 60, 315 (1991), doi:10.1007/BF01385726, Algorithm 3.1 without look-ahead (on the curl-curl operator, its form for complex symmetric matrices: fdfd3d/qmr-symmetric-direct); Shin and Fan's operator, Opt. Express 21, 22578 (2013), doi:10.1364/OE.21.022578, Eq. 7, has the same solution; measured 6.9e-12 and 1.3e-10",
             run: fdfd3d_qmr_direct,
+        },
+        Case {
+            id: "fdfd3d/qmr-symmetric-direct",
+            title: "3D FDFD on the curl-curl operator by QMR for complex symmetric matrices, on its diagonal similarity $B = S A S^{-1}$, which is complex symmetric, to a relative residual of 1e-10 of $A x = b$, against the sparse direct solver: the strip of fdfd3d/qmr-direct (largest field difference relative to the largest field shown)",
+            tier: Tier::Analytic,
+            source: r"the same system solved two ways: R. W. Freund, SIAM J. Sci. Stat. Comput. 13, 425 (1992), doi:10.1137/0913023, Algorithm 3.2 on his complex symmetric Lanczos process (Algorithm 2.1): one product with $B$ an iteration where QMR takes one with $A$ and one with $A^\mathsf{T}$; measured 6.9e-12 in 498 iterations",
+            run: fdfd3d_qmr_symmetric_direct,
         },
         Case {
             id: "fdfd3d/qmr-plateau",
@@ -1373,7 +1380,21 @@ fn fdfd3d_qmr_direct() -> Outcome {
         measured: worst,
         expected: 0.0,
         // a residual of 1e-10 bounds the error by the condition number times 1e-10: measured
-        // 1.1e-11 (curl-curl) and 1.3e-10 (Shin and Fan)
+        // 6.9e-12 (curl-curl) and 1.3e-10 (Shin and Fan)
+        tolerance: 1e-9,
+        error: worst,
+    }
+}
+
+fn fdfd3d_qmr_symmetric_direct() -> Outcome {
+    use crate::fdfd::Formulation;
+    use crate::fdfd::checks3d::qmr_against_direct;
+    // the curl-curl operator with PMLs is solved by QMR for symmetric matrices
+    let worst = qmr_against_direct(Formulation::CurlCurl).0;
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // as fdfd3d/qmr-direct's: measured 6.9e-12
         tolerance: 1e-9,
         error: worst,
     }

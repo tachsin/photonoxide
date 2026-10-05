@@ -1386,3 +1386,230 @@ fn nested_dissection_gives_colamds_solution() {
         norm(&d) / norm(&reference)
     );
 }
+
+#[test]
+#[ignore = "whether a diagonal scaling makes the 3D matrices symmetric: cargo test --release fdfd::three::tests::symmetrizable -- --ignored --nocapture"]
+fn symmetrizable() {
+    // for each matrix A, a diagonal d with d_i A_ij = d_j A_ji, found by walking A's graph from
+    // each unvisited unknown, and the largest relative mismatch over all entries
+    use crate::fdfd::Edges;
+    use std::collections::HashMap;
+    let h = 0.04;
+    let grid = Grid3d {
+        nx: 14,
+        ny: 12,
+        nz: 10,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: -0.28,
+        y0: -0.24,
+        z0: -0.2,
+    };
+    let strip = |_: f64, y: f64, z: f64| {
+        let m: f64 = if y.abs() < 0.12 && z.abs() < 0.06 {
+            3.476
+        } else {
+            1.444
+        };
+        c64::new(m * m, 0.0)
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let bloch = Boundaries3d {
+        x: Edges::Bloch { k: 0.7 },
+        ..Boundaries3d::pml(3)
+    };
+    for (label, boundaries) in [
+        ("plain PMLs", Boundaries3d::pml(3)),
+        ("stretched PMLs", Boundaries3d::stretched_pml(3)),
+        ("Bloch along x", bloch),
+    ] {
+        let (lattice, eps) = Solver3d::setup(grid, lam, strip, boundaries).unwrap();
+        for (operator, s) in [("curl-curl", 0.0), ("Shin and Fan", -1.0)] {
+            let n = grid.unknowns();
+            let mut a: HashMap<(usize, usize), c64> = HashMap::new();
+            for t in lattice.assemble_with(&eps, s) {
+                *a.entry((t.row, t.col)).or_insert(c64::new(0.0, 0.0)) += t.val;
+            }
+            let mut rows: Vec<Vec<usize>> = vec![Vec::new(); n];
+            for &(r, c) in a.keys() {
+                if r != c {
+                    rows[r].push(c);
+                }
+            }
+            let mut d: Vec<Option<c64>> = vec![None; n];
+            let mut unpaired = 0;
+            for start in 0..n {
+                if d[start].is_some() {
+                    continue;
+                }
+                d[start] = Some(c64::new(1.0, 0.0));
+                let mut stack = vec![start];
+                while let Some(i) = stack.pop() {
+                    for &j in &rows[i] {
+                        let (Some(&aij), Some(&aji)) = (a.get(&(i, j)), a.get(&(j, i))) else {
+                            unpaired += 1;
+                            continue;
+                        };
+                        if d[j].is_none() && aji.norm() > 0.0 {
+                            d[j] = Some(d[i].unwrap() * aij / aji);
+                            stack.push(j);
+                        }
+                    }
+                }
+            }
+            let worst = a
+                .iter()
+                .filter(|((r, c), _)| r < c)
+                .filter_map(|(&(r, c), &arc)| {
+                    let acr = *a.get(&(c, r))?;
+                    let (left, right) = (d[r]? * arc, d[c]? * acr);
+                    Some((left - right).norm() / left.norm().max(right.norm()).max(1e-300))
+                })
+                .fold(0.0, f64::max);
+            let spread = d
+                .iter()
+                .flatten()
+                .map(|z| z.norm())
+                .fold((f64::MAX, 0.0f64), |m, v| (m.0.min(v), m.1.max(v)));
+            println!(
+                "SYM {label}, {operator}: largest mismatch {worst:.1e}, entries without a twin {unpaired}, |d| from {:.3e} to {:.3e}",
+                spread.0, spread.1
+            );
+        }
+    }
+}
+
+#[test]
+#[ignore = "symmetric QMR and COCG against QMR, for the docs: SYM_CELLS=40 cargo test --release fdfd::three::tests::symmetric_solvers -- --ignored --nocapture"]
+fn symmetric_solvers() {
+    // the 40^3 guide of the benchmark (100 nm of silicon in vacuum, a dipole beside it, cells of
+    // 10 nm, plain PMLs of 10), on the curl-curl operator: QMR on A, QMR for complex symmetric
+    // matrices on S = D A, and COCG on S (H. A. van der Vorst, J. B. M. Melissen, IEEE Trans.
+    // Magn. 26, 706 (1990), doi:10.1109/20.106415: conjugate gradients with x^T y in place of
+    // x^H y), each to a relative residual of 1e-6 of its own system
+    use crate::fdfd::krylov::{Sparse, Stopping, qmr, qmr_symmetric};
+    use std::time::Instant;
+    let core: usize = std::env::var("SYM_CELLS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .map_or(10, |n: usize| (n - 20) / 2);
+    let (h, pml) = (0.01, 10);
+    let cells = 2 * core + 2 * pml;
+    let grid = Grid3d {
+        nx: cells,
+        ny: cells,
+        nz: cells,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: -(cells as f64) * h / 2.0,
+        y0: -(cells as f64) * h / 2.0,
+        z0: -(cells as f64) * h / 2.0,
+    };
+    let half = core as f64 * h / 2.0;
+    let guide = move |_: f64, y: f64, z: f64| {
+        c64::new(
+            if y.abs() < half && z.abs() < half {
+                12.09
+            } else {
+                1.0
+            },
+            0.0,
+        )
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let (lattice, eps) = Solver3d::setup(grid, lam, guide, Boundaries3d::pml(pml)).unwrap();
+    let n = grid.unknowns();
+    let a = Sparse::new(
+        n,
+        lattice
+            .assemble(&eps)
+            .into_iter()
+            .map(|t| (t.row, t.col, t.val)),
+    );
+    let mut b = vec![c64::new(0.0, 0.0); n];
+    b[grid.index(Axis::X, (cells / 2 + 3, cells / 2 + 3, cells / 2 + 3))] =
+        c64::new(0.0, -lattice.k0);
+    let norm = |v: &[c64]| v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
+    let true_residual = |x: &[c64]| {
+        let ax = a.apply(x);
+        let r: Vec<c64> = b.iter().zip(&ax).map(|(p, q)| p - q).collect();
+        norm(&r) / norm(&b)
+    };
+    let t = Instant::now();
+    let (s_diag, s) = a
+        .symmetrized()
+        .expect("the curl-curl operator with PMLs is symmetrizable");
+    println!(
+        "SYMQ {cells}^3, {n} unknowns: symmetrized in {:?}",
+        t.elapsed()
+    );
+    let db: Vec<c64> = b.iter().zip(&s_diag).map(|(x, y)| x * y).collect();
+    let unscaled = |y: &[c64]| -> Vec<c64> { y.iter().zip(&s_diag).map(|(p, q)| p / q).collect() };
+    // the reference: QMR on A to 1e-10 (on this operator it stalls between 1e-11 and 4e-12)
+    let stop = |tolerance| Stopping {
+        tolerance,
+        max_iterations: 100_000,
+    };
+    let (reference, _) = qmr(&a, &b, stop(1e-10)).unwrap();
+    let error = |x: &[c64]| {
+        let d: Vec<c64> = x.iter().zip(&reference).map(|(p, q)| p - q).collect();
+        norm(&d) / norm(&reference)
+    };
+    let t = Instant::now();
+    let (x, how) = qmr(&a, &b, stop(1e-6)).unwrap();
+    println!(
+        "SYMQ QMR on A: {} iterations, {:?}, true residual {:.1e}, error {:.1e}",
+        how.iterations,
+        t.elapsed(),
+        true_residual(&x),
+        error(&x)
+    );
+    for tolerance in [1e-6, 1e-7, 1e-8] {
+        let t = Instant::now();
+        let (y, how) = qmr_symmetric(&s, &db, stop(tolerance)).unwrap();
+        let x = unscaled(&y);
+        println!(
+            "SYMQ symmetric QMR on S A S^-1 to {tolerance:e}: {} iterations, {:?}, true residual {:.1e}, error {:.1e}",
+            how.iterations,
+            t.elapsed(),
+            true_residual(&x),
+            error(&x)
+        );
+    }
+    // COCG on S, as van der Vorst and Melissen give it without a preconditioner
+    let t = Instant::now();
+    let dotu = |p: &[c64], q: &[c64]| -> c64 { p.iter().zip(q).map(|(x, y)| x * y).sum() };
+    let mut x = vec![c64::new(0.0, 0.0); n];
+    let mut r = db.clone();
+    let mut p = r.clone();
+    let mut rho = dotu(&r, &r);
+    let scale = norm(&db);
+    let mut iterations = 0;
+    for _ in 0..100_000 {
+        let u = s.apply(&p);
+        let alpha = rho / dotu(&p, &u);
+        for k in 0..n {
+            x[k] += alpha * p[k];
+            r[k] -= alpha * u[k];
+        }
+        iterations += 1;
+        if norm(&r) <= 1e-6 * scale {
+            break;
+        }
+        let rho_next = dotu(&r, &r);
+        let beta = rho_next / rho;
+        rho = rho_next;
+        for k in 0..n {
+            p[k] = r[k] + beta * p[k];
+        }
+    }
+    let x = unscaled(&x);
+    println!(
+        "SYMQ COCG on S A S^-1 to 1e-6: {iterations} iterations, {:?}, true residual {:.1e}, error {:.1e}",
+        t.elapsed(),
+        true_residual(&x),
+        error(&x)
+    );
+}
