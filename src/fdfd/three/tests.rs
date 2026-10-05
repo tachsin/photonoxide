@@ -1313,9 +1313,26 @@ fn nested_dissection_against_colamd() {
 
 #[test]
 fn nested_dissection_gives_colamds_solution() {
-    // the 3D solver's own factors (nested dissection) against faer's (COLAMD) on the same
-    // matrix: a silicon strip in oxide, 14 x 12 x 10 cells of 40 nm, PMLs of 3
+    // the 3D solver's solve (its factors in nested-dissection order) against QMR preconditioned
+    // by faer's own factors (COLAMD), each to a relative residual of 1e-12, on a silicon strip
+    // in oxide, 14 x 12 x 10 cells of 40 nm, PMLs of 3. Both are solved to round-off, not taken
+    // from the factors alone: on GitHub's Windows runners faer's factors of the same matrix are
+    // inaccurate, whichever the order (see Solver3d::solve)
+    use crate::fdfd::krylov::{Preconditioner, Sparse, Stopping, qmr_preconditioned};
     use faer::linalg::solvers::Solve;
+    struct Colamd(faer::sparse::linalg::solvers::Lu<usize, c64>);
+    impl Preconditioner for Colamd {
+        fn solve(&self, v: &[c64]) -> Vec<c64> {
+            let x = Solve::solve(&self.0, faer::Mat::<c64>::from_fn(v.len(), 1, |r, _| v[r]));
+            (0..v.len()).map(|r| x[(r, 0)]).collect()
+        }
+        fn solve_transpose(&self, v: &[c64]) -> Vec<c64> {
+            let x = self
+                .0
+                .solve_transpose(faer::Mat::<c64>::from_fn(v.len(), 1, |r, _| v[r]));
+            (0..v.len()).map(|r| x[(r, 0)]).collect()
+        }
+    }
     let grid = Grid3d {
         nx: 14,
         ny: 12,
@@ -1338,22 +1355,34 @@ fn nested_dissection_gives_colamds_solution() {
     let lam = Wavelength::um(1.55).unwrap();
     let solver = Solver3d::new(grid, lam, strip, Boundaries3d::pml(3)).unwrap();
     let n = grid.unknowns();
-    let rhs: Vec<c64> = (0..n)
-        .map(|r| c64::new(((r * 31) % 17) as f64 - 8.0, ((r * 7) % 5) as f64))
+    let mut current = vec![c64::new(0.0, 0.0); n];
+    current[grid.index(Axis::Y, (7, 6, 5))] = c64::new(1.0, 0.0);
+    current[grid.index(Axis::Z, (4, 3, 2))] = c64::new(0.0, -0.5);
+    let ordered = solver.solve(&current).unwrap();
+    let rhs: Vec<c64> = current
+        .iter()
+        .map(|j| c64::new(0.0, -solver.lattice.k0) * j)
         .collect();
-    let ordered = solver.lu.solve(&rhs);
+    let norm = |v: &[c64]| v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
+    let applied = solver.apply(ordered.values());
+    let r: Vec<c64> = rhs.iter().zip(&applied).map(|(b, a)| b - a).collect();
+    assert!(norm(&r) < 1e-12 * norm(&rhs), "{}", norm(&r) / norm(&rhs));
     let (colamd, _) = crate::fdfd::factorize(&solver.entries, n, None).unwrap();
-    let x = colamd.solve(faer::Mat::<c64>::from_fn(n, 1, |r, _| rhs[r]));
-    let largest = ordered.iter().map(|v| v.norm()).fold(0.0, f64::max);
-    let worst = (0..n)
-        .map(|r| (ordered[r] - x[(r, 0)]).norm())
-        .fold(0.0, f64::max);
-    assert!(worst / largest < 1e-10, "{}", worst / largest);
-    // and transposed
-    let ordered = solver.lu.solve_transpose(&rhs);
-    let x = colamd.solve_transpose(faer::Mat::<c64>::from_fn(n, 1, |r, _| rhs[r]));
-    let worst = (0..n)
-        .map(|r| (ordered[r] - x[(r, 0)]).norm())
-        .fold(0.0, f64::max);
-    assert!(worst / largest < 1e-10, "transposed: {}", worst / largest);
+    let matrix = Sparse::new(n, solver.entries.iter().map(|t| (t.row, t.col, t.val)));
+    let stopping = Stopping {
+        tolerance: 1e-12,
+        max_iterations: 1000,
+    };
+    let (reference, _) = qmr_preconditioned(&matrix, &Colamd(colamd), &rhs, stopping).unwrap();
+    let d: Vec<c64> = ordered
+        .values()
+        .iter()
+        .zip(&reference)
+        .map(|(a, b)| a - b)
+        .collect();
+    assert!(
+        norm(&d) < 1e-10 * norm(&reference),
+        "{}",
+        norm(&d) / norm(&reference)
+    );
 }
