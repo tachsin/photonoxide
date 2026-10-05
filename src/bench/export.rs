@@ -240,9 +240,6 @@ pub struct Factorized {
     /// factor in the column order, for L and for U): the fill to set against PARDISO's and MUMPS's
     /// counts of their factors' entries.
     pub factor_entries: usize,
-    /// The real floating-point operations that structure implies (at least what faer does): with
-    /// the time, the rate its kernels reach, to set against PARDISO's own count.
-    pub factor_flops: f64,
 }
 
 /// Factorizes `system` as photonoxide's solvers do (faer's supernodal LU, ordered by COLAMD for
@@ -299,7 +296,7 @@ pub fn factorize(system: &System) -> Result<Factorized> {
         let order = crate::sparse::nested_dissection(&starts, &neighbours, &positions);
         let symbolic = crate::sparse::OrderedSymbolic::new(matrix.as_ref(), &order)?;
         let analysis_seconds = t.elapsed().as_secs_f64();
-        let (factor_entries, factor_flops) = (symbolic.factor_entries(), symbolic.factor_flops());
+        let factor_entries = symbolic.factor_entries();
         let t = Instant::now();
         let lu = crate::sparse::OrderedLu::new(matrix.as_ref(), symbolic, par)?;
         let factorization_seconds = t.elapsed().as_secs_f64();
@@ -313,7 +310,6 @@ pub fn factorize(system: &System) -> Result<Factorized> {
             solve_seconds,
             residual: residual(&x),
             factor_entries,
-            factor_flops,
         });
     }
     use faer::linalg::solvers::Solve;
@@ -344,7 +340,7 @@ pub fn factorize(system: &System) -> Result<Factorized> {
     )
     .map_err(|e| failed(format!("{e:?}")))?;
     let counted = crate::sparse::OrderedSymbolic::new(matrix.as_ref(), &order)?;
-    let (factor_entries, factor_flops) = (counted.factor_entries(), counted.factor_flops());
+    let factor_entries = counted.factor_entries();
     Ok(Factorized {
         ordering: "COLAMD",
         analysis_seconds,
@@ -352,7 +348,6 @@ pub fn factorize(system: &System) -> Result<Factorized> {
         solve_seconds,
         residual: residual(&x),
         factor_entries,
-        factor_flops,
     })
 }
 
