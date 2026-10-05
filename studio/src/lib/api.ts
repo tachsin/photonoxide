@@ -90,6 +90,15 @@ export interface Catalog {
   jobs: JobExample[];
 }
 
+/** A job file's format, as `photonoxide::run::Format` names it. */
+export type JobFormat = "toml" | "json" | "yaml";
+
+/** The format a job file's extension names: `.toml`, `.json`, `.yaml` or `.yml`. */
+export function formatOf(path: string): JobFormat {
+  const ext = path.toLowerCase().split(".").pop();
+  return ext === "json" ? "json" : ext === "yaml" || ext === "yml" ? "yaml" : "toml";
+}
+
 export interface JobCheck {
   ok: boolean;
   error: string | null;
@@ -111,10 +120,12 @@ export const api = {
   catalog: () => invoke<Catalog>("catalog"),
   openRun: (dir: string) => invoke<Info>("open_run", { dir }),
   runJob: (path: string) => invoke<Info>("run_job", { path }),
-  runText: (text: string) => invoke<Info>("run_text", { text }),
+  runText: (text: string, format: JobFormat = "toml") => invoke<Info>("run_text", { text, format }),
   stopRun: (dir: string) => invoke<void>("stop_run", { dir }),
-  checkJob: (text: string) => invoke<JobCheck>("check_job", { text }),
-  saveJob: (text: string, replace: boolean) => invoke<string>("save_job", { text, replace }),
+  checkJob: (text: string, format: JobFormat = "toml") => invoke<JobCheck>("check_job", { text, format }),
+  saveJob: (text: string, format: JobFormat, replace: boolean) => invoke<string>("save_job", { text, format, replace }),
+  /** The same job written in another format; a TOML or YAML file's opening comment goes along. */
+  convertJob: (text: string, from: JobFormat, to: JobFormat) => invoke<string>("convert_job", { text, from, to }),
   readJob: (path: string) => invoke<string>("read_job", { path }),
   deleteJob: (path: string) => invoke<void>("delete_job", { path }),
   deleteRun: (dir: string) => invoke<void>("delete_run", { dir }),

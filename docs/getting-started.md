@@ -185,6 +185,41 @@ photonoxide run jobs/mmi-fdfd.toml              # a 1x2 splitter by 2D FDFD: its
 photonoxide run jobs/ring-fdfd.toml             # an all-pass ring's spectrum by 2D FDFD
 ```
 
+A job file is TOML, JSON or YAML, by its extension (`.toml`, `.json`, `.yaml` or `.yml`), the
+same fields in each; the builder switches between them. The same job three ways (shortened: a
+modes job needs its stack, window and shapes too, as in `jobs/strip-modes.toml`):
+
+```toml
+# A strip's modes at 1.55 um.
+name = "strip"
+timeout_minutes = 10
+
+[task]
+kind = "modes"
+wavelength_um = 1.55
+```
+
+```json
+{
+  "name": "strip",
+  "timeout_minutes": 10,
+  "task": { "kind": "modes", "wavelength_um": 1.55 }
+}
+```
+
+```yaml
+# A strip's modes at 1.55 um.
+name: strip
+timeout_minutes: 10
+task:
+  kind: modes
+  wavelength_um: 1.55
+```
+
+JSON has no comments, so a JSON job has no description. YAML is read as YAML 1.2: `no`, `yes`,
+`on` and `off` are strings, as `1:30` is, and only `true` and `false` are booleans. A run keeps
+its job as it was given (`job.toml`, `job.json` or `job.yaml`).
+
 A run opens in 3D: the layers and shapes as solids over the run's window, cut where a modes
 job cuts its cross-section, and the selected mode travelling along its guide (drag to rotate,
 right-drag to pan, scroll to zoom). The sidebar lists the run, its layers (each can be hidden),
