@@ -27,6 +27,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 toml = "1"
 yaml-rust2 = "0.13.0"
+# job files in YAML (run::Format): serde, YAML 1.2, pure Rust with no unsafe code
+serde-saphyr = "1.3"
 
 # the optimizers the circuit examples run on photonoxide's objectives and gradients: genoxide's
 # L-BFGS-B, Adam and CMA-ES (AGENTS.md: optimizers come from genoxide). A dev-dependency, not a

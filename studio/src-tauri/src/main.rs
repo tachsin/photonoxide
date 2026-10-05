@@ -20,7 +20,7 @@ use photonoxide::run::{Job, Run, Stop};
 const USAGE: &str = "usage:
   photonoxide
       open the studio, to run a job from jobs/ or reopen a run from runs/
-  photonoxide run <job.toml> [--out <dir>] [--headless] [--linger <seconds>]
+  photonoxide run <job.toml|.json|.yaml> [--out <dir>] [--headless] [--linger <seconds>]
       run a job; the studio window shows it live and closes by itself when it's done
       (--headless: no window; --out: where run directories go, default runs/;
        --linger: how long the window stays after the run, default 5 s)

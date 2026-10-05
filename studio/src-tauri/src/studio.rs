@@ -16,7 +16,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use photonoxide::job::{self, Event};
-use photonoxide::run::{Job, Meta, Run, Stop};
+use photonoxide::run::{Format, Job, Meta, Run, Stop};
 use photonoxide::units::Wavelength;
 use serde::Serialize;
 use tauri::Manager;
@@ -60,6 +60,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             stop_run,
             check_job,
             save_job,
+            convert_job,
             read_job,
             delete_job,
             delete_run,
@@ -400,14 +401,14 @@ fn jobs_in(dir: &Path) -> Vec<JobItem> {
         .flatten()
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.extension().is_some_and(|x| x == "toml"))
+        .filter(|p| Format::from_path(p).is_some())
         .collect();
     paths.sort();
     paths
         .into_iter()
         .filter_map(|path| {
-            let text = std::fs::read_to_string(&path).ok()?;
-            let job = Job::parse(&text).ok()?;
+            let job = Job::load(&path).ok()?;
+            let text = job.text();
             let modified = std::fs::metadata(&path)
                 .and_then(|m| m.modified())
                 .ok()
@@ -417,14 +418,15 @@ fn jobs_in(dir: &Path) -> Vec<JobItem> {
                 path: path.display().to_string(),
                 name: job.name().to_owned(),
                 kind: kind_of(&job),
-                about: about(&text),
+                about: about(text),
                 modified,
             })
         })
         .collect()
 }
 
-/// A job file's opening comment, as one paragraph, without its usage lines.
+/// A job file's opening comment, as one paragraph, without its usage lines: TOML's and YAML's
+/// comments both start with `#`; JSON has none.
 fn about(text: &str) -> String {
     text.lines()
         .map_while(|l| l.strip_prefix('#'))
@@ -573,14 +575,16 @@ fn run_job(
     start(&state, &window, job)
 }
 
-/// Runs the job in `text` (from the builder, or a built-in one), and shows it.
+/// Runs the job in `text`, written in `format` (from the builder, or a built-in one), and shows
+/// it.
 #[tauri::command]
 fn run_text(
     state: tauri::State<'_, Studio>,
     window: tauri::WebviewWindow,
     text: String,
+    format: Format,
 ) -> Result<Info, String> {
-    let job = Job::parse(&text).map_err(|e| e.to_string())?;
+    let job = Job::parse_as(&text, format).map_err(|e| e.to_string())?;
     start(&state, &window, job)
 }
 
@@ -599,16 +603,25 @@ struct JobCheck {
     /// The text is a job file and its task fits its kind ([`job::check`]).
     ok: bool,
     error: Option<String>,
-    /// The whole file as JSON, when it is TOML at all.
+    /// The whole file as JSON, when it is TOML, JSON or YAML (as `format` says) at all.
     model: Option<serde_json::Value>,
 }
 
 #[tauri::command]
-fn check_job(text: String) -> JobCheck {
-    let model = toml::from_str::<toml::Table>(&text)
-        .ok()
-        .and_then(|t| serde_json::to_value(t).ok());
-    let error = Job::parse(&text)
+fn check_job(text: String, format: Format) -> JobCheck {
+    let model = match format {
+        Format::Toml => toml::from_str::<toml::Table>(&text)
+            .ok()
+            .and_then(|t| serde_json::to_value(t).ok()),
+        Format::Json => serde_json::from_str::<serde_json::Value>(&text).ok(),
+        Format::Yaml => serde_saphyr::from_str_with_options::<serde_json::Value>(
+            &text,
+            serde_saphyr::options! { strict_booleans: true },
+        )
+        .ok(),
+    }
+    .filter(serde_json::Value::is_object);
+    let error = Job::parse_as(&text, format)
         .and_then(|job| job::check(&job))
         .err()
         .map(|e| e.to_string());
@@ -638,23 +651,51 @@ pub(crate) fn inside(dir: &Path, path: &Path) -> Result<PathBuf, String> {
     }
 }
 
-/// Saves the job in `text` as `jobs/<its name>.toml` in the workspace; refuses to replace
-/// another file unless `replace`.
+/// Saves the job in `text`, written in `format`, as `jobs/<its name>.<the format's extension>`
+/// in the workspace; refuses to replace another file unless `replace`.
 #[tauri::command]
 fn save_job(
     state: tauri::State<'_, Studio>,
     text: String,
+    format: Format,
     replace: bool,
 ) -> Result<String, String> {
-    let job = Job::parse(&text).map_err(|e| e.to_string())?;
+    let job = Job::parse_as(&text, format).map_err(|e| e.to_string())?;
     let dir = state.workspace().join("jobs");
     std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    let path = dir.join(format!("{}.toml", job.name()));
+    let path = dir.join(format!("{}.{}", job.name(), format.extension()));
     if path.exists() && !replace {
         return Err(format!("exists: {}", path.display()));
     }
     std::fs::write(&path, &text).map_err(|e| format!("{}: {e}", path.display()))?;
     Ok(path.display().to_string())
+}
+
+/// The job in `text`, written in `from`, written in `to`: the same job, every float to the last
+/// bit ([`Job::to_text`]). A TOML or YAML file's opening comment, its description and usage line,
+/// goes along to the other; JSON has no comments.
+#[tauri::command]
+fn convert_job(text: String, from: Format, to: Format) -> Result<String, String> {
+    if from == to {
+        return Ok(text);
+    }
+    let job = Job::parse_as(&text, from).map_err(|e| e.to_string())?;
+    let body = job.to_text(to).map_err(|e| e.to_string())?;
+    if to == Format::Json {
+        return Ok(body);
+    }
+    let usage = |l: &str| {
+        l.replace(
+            &format!("{}.{}", job.name(), from.extension()),
+            &format!("{}.{}", job.name(), to.extension()),
+        )
+    };
+    let comment: String = text
+        .lines()
+        .take_while(|l| l.starts_with('#'))
+        .map(|l| usage(l) + "\n")
+        .collect();
+    Ok(comment + &body)
 }
 
 #[tauri::command]
@@ -668,7 +709,7 @@ fn read_job(path: String) -> Result<String, String> {
 #[tauri::command]
 fn delete_job(state: tauri::State<'_, Studio>, path: String) -> Result<(), String> {
     let path = inside(&state.workspace().join("jobs"), Path::new(&path))?;
-    if path.extension().is_none_or(|x| x != "toml") {
+    if Format::from_path(&path).is_none() {
         return Err(format!("{} isn't a job file", path.display()));
     }
     std::fs::remove_file(&path).map_err(|e| format!("{}: {e}", path.display()))
@@ -935,6 +976,65 @@ mod tests {
             modes.about
         );
         assert!(!modes.about.contains("photonoxide run"));
+    }
+
+    #[test]
+    fn a_job_converts_between_formats_and_keeps_its_description_but_in_json() {
+        let toml = std::fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../jobs/strip-modes.toml"),
+        )
+        .unwrap();
+        let yaml = convert_job(toml.clone(), Format::Toml, Format::Yaml).unwrap();
+        assert!(yaml.starts_with("# The modes of a 500 x 220 nm silicon strip"));
+        assert!(yaml.contains("photonoxide run jobs/strip-modes.yaml"));
+        assert!(!yaml.contains("strip-modes.toml"));
+        let json = convert_job(yaml.clone(), Format::Yaml, Format::Json).unwrap();
+        assert!(json.starts_with('{'), "{json}");
+        let back = convert_job(json, Format::Json, Format::Toml).unwrap();
+        let (a, b) = (
+            Job::parse(&toml).unwrap(),
+            Job::parse_as(&back, Format::Toml).unwrap(),
+        );
+        assert_eq!(
+            (a.name(), a.timeout(), a.task()),
+            (b.name(), b.timeout(), b.task())
+        );
+        // the same text in, the same text out
+        assert_eq!(
+            convert_job(yaml.clone(), Format::Yaml, Format::Yaml).unwrap(),
+            yaml
+        );
+    }
+
+    #[test]
+    fn the_workspace_lists_jobs_in_every_format() {
+        let dir = scratch("job-formats");
+        let toml = "name = \"a\"\n\n[task]\nkind = \"modes\"\n";
+        std::fs::write(dir.join("a.toml"), toml).unwrap();
+        std::fs::write(
+            dir.join("b.json"),
+            r#"{"name": "b", "task": {"kind": "fdfd"}}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("c.yml"),
+            "# The third.\nname: c\ntask:\n  kind: structure\n",
+        )
+        .unwrap();
+        std::fs::write(dir.join("d.txt"), toml).unwrap();
+        let jobs = jobs_in(&dir);
+        let names: Vec<(&str, &str)> = jobs
+            .iter()
+            .map(|j| (j.name.as_str(), j.kind.as_str()))
+            .collect();
+        assert_eq!(names, [("a", "modes"), ("b", "fdfd"), ("c", "structure")]);
+        assert_eq!(jobs[2].about, "The third.");
+        let check = check_job(
+            std::fs::read_to_string(dir.join("c.yml")).unwrap(),
+            Format::Yaml,
+        );
+        assert_eq!(check.model.unwrap()["task"]["kind"], "structure");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

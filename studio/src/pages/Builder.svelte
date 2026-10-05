@@ -1,6 +1,7 @@
 <script lang="ts">
-  // The job builder: a job as a form, with its device drawn as you type and its TOML beside it,
-  // checked by the library as it changes; saved to the workspace's jobs/ and run from here.
+  // The job builder: a job as a form, with its device drawn as you type and its text beside it
+  // (TOML, JSON or YAML), checked by the library as it changes; saved to the workspace's jobs/ and
+  // run from here.
   import {
     ChevronDown,
     CircleAlert,
@@ -24,7 +25,7 @@
   import ScenePreview from "../components/ScenePreview.svelte";
   import Tip from "../components/Tip.svelte";
   import TomlEditor from "../components/TomlEditor.svelte";
-  import { ago, api, KINDS, type JobCheck, type JobItem } from "../lib/api";
+  import { ago, api, formatOf, KINDS, type JobCheck, type JobFormat, type JobItem } from "../lib/api";
   import { app, startRun, toast } from "../lib/app.svelte";
   import { catalog, loadCatalog, modelOf } from "../lib/catalog.svelte";
   import { along, cells, fromModel, previewWindow, STACKS, template, toToml, turn, type JobModel, type Kind } from "../lib/job";
@@ -32,6 +33,9 @@
 
   let model = $state<JobModel>(template("modes"));
   let text = $state(toToml(template("modes")));
+  /** The format `text` is written in, and its file saved in: the form's TOML, converted by the
+   * library for the others, so every float comes back to the last bit. */
+  let format = $state<JobFormat>("toml");
   let path = $state<string | null>(null);
   let saved = $state(toToml(template("modes")));
   let check = $state<JobCheck | null>(null);
@@ -66,14 +70,31 @@
     }
   });
 
-  // the form changed: the text follows
+  // the form changed: the text follows, in its format
   $effect(() => {
     const t = toToml($state.snapshot(model) as JobModel);
     if (t === baseline) return;
     baseline = t;
-    text = t;
-    validate();
+    const f = format;
+    if (f === "toml") {
+      text = t;
+      validate();
+      return;
+    }
+    // a job the library can't read yet (a name half typed) keeps its last text until it can
+    api
+      .convertJob(t, "toml", f)
+      .then((x) => {
+        if (baseline === t && format === f) {
+          text = x;
+          validate();
+        }
+      })
+      .catch(() => {});
   });
+
+  /** The 3D preview reads TOML: the text itself, or the form's TOML of it. */
+  const asToml = (t: string) => (format === "toml" ? t : toToml($state.snapshot(model) as JobModel));
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   function validate() {
@@ -82,10 +103,10 @@
     timer = setTimeout(async () => {
       const t = text;
       try {
-        const c = await api.checkJob(t);
+        const c = await api.checkJob(t, format);
         if (t === text) {
           check = c;
-          if (c.ok) shown = t;
+          if (c.ok) shown = asToml(t);
         }
       } catch {
         check = null;
@@ -96,8 +117,10 @@
 
   async function load(t: string, p: string | null) {
     if (dirty && !(await ask("Discard the changes to this job?", { title: "Unsaved changes", kind: "warning" }))) return;
-    const m = await modelOf(t);
+    const f = p ? formatOf(p) : "toml";
+    const m = await modelOf(t, f);
     baseline = toToml(m);
+    format = f;
     model = m;
     text = t;
     path = p;
@@ -106,25 +129,41 @@
     validate();
   }
 
-  /** The TOML was edited: the form follows, when it parses. */
+  /** The text was edited: the form follows, when it parses. */
   let editTimer: ReturnType<typeof setTimeout> | undefined;
   function edited(t: string) {
     text = t;
     clearTimeout(editTimer);
     checking = true;
     editTimer = setTimeout(async () => {
-      const c = await api.checkJob(t).catch(() => null);
+      const c = await api.checkJob(t, format).catch(() => null);
       if (t !== text) return;
       check = c;
       checking = false;
-      if (c?.ok) shown = t;
       if (c?.model) {
         const m = fromModel(c.model, t);
         baseline = toToml(m);
         model = m;
       }
+      if (c?.ok) shown = asToml(t);
     }, 300);
   }
+
+  /** The same job in another format: converted by the library, the description kept but in JSON. */
+  async function setFormat(f: JobFormat) {
+    if (f === format) return;
+    try {
+      const x = await api.convertJob(text, format, f);
+      format = f;
+      text = x;
+      validate();
+    } catch (e) {
+      toast(`Fix the job before switching it to ${f.toUpperCase()}: ${e}`, "error");
+    }
+  }
+
+  /** Where the job is saved: jobs/<name>.<its format's extension>. */
+  const file = $derived(`jobs/${model.name}.${format}`);
 
   const dirty = $derived(text !== saved);
   const nameOk = $derived(/^[A-Za-z0-9._-]+$/.test(model.name));
@@ -133,19 +172,19 @@
 
   async function save() {
     try {
-      const same = path !== null && path.replace(/\\/g, "/").endsWith(`/${model.name}.toml`);
+      const same = path !== null && path.replace(/\\/g, "/").endsWith(`/${model.name}.${format}`);
       let where: string;
       try {
-        where = await api.saveJob(text, same);
+        where = await api.saveJob(text, format, same);
       } catch (e) {
         if (!String(e).startsWith("exists:")) throw e;
-        if (!(await ask(`jobs/${model.name}.toml exists. Replace it?`, { title: "Replace the job?", kind: "warning" }))) return;
-        where = await api.saveJob(text, true);
+        if (!(await ask(`${file} exists. Replace it?`, { title: "Replace the job?", kind: "warning" }))) return;
+        where = await api.saveJob(text, format, true);
       }
       path = where;
       saved = text;
       app.workspaceVersion++;
-      toast(`Saved jobs/${model.name}.toml`, "success", undefined, 2500);
+      toast(`Saved ${file}`, "success", undefined, 2500);
     } catch (e) {
       toast(String(e), "error");
     }
@@ -156,12 +195,13 @@
       toast(check?.error ?? "The job isn't valid yet.", "error");
       return;
     }
-    startRun(() => api.runText(text), `Running ${model.name}`);
+    startRun(() => api.runText(text, format), `Running ${model.name}`);
   }
 
   async function remove() {
     if (!path) return;
-    if (!(await ask(`Delete jobs/${model.name}.toml from the workspace? Its runs stay.`, { title: "Delete the job?", kind: "warning" }))) return;
+    const name = path.replace(/\\/g, "/").split("/").pop();
+    if (!(await ask(`Delete jobs/${name} from the workspace? Its runs stay.`, { title: "Delete the job?", kind: "warning" }))) return;
     try {
       await api.deleteJob(path);
       app.workspaceVersion++;
@@ -298,7 +338,7 @@
           <button class="btn btn-ghost btn-sm btn-square" aria-label="Delete the job" onclick={remove}><Trash2 size={16} /></button>
         </div>
       {/if}
-      <button class="btn btn-sm gap-1.5" disabled={!nameOk} onclick={save} title="Save to jobs/{model.name}.toml in the workspace (Ctrl+S)"><Save size={15} /> Save</button>
+      <button class="btn btn-sm gap-1.5" disabled={!nameOk} onclick={save} title="Save to {file} in the workspace (Ctrl+S)"><Save size={15} /> Save</button>
       <button class="btn btn-primary btn-sm gap-1.5" disabled={!check?.ok} onclick={runIt} title="Run it now and watch it live (Ctrl+Enter)"><Play size={15} /> Run</button>
     </div>
 
@@ -307,8 +347,8 @@
     {/if}
 
     <div class="@container flex-1 space-y-6 overflow-x-hidden overflow-y-auto px-6 py-5">
-      <Tip id="builder-intro" title="A job is a TOML file">
-        Fill the form and the device is drawn {stacked ? "under it" : "on the right"} as you type, in 3D; the library checks the job as it changes. Click a shape in the top view to edit it. Prefer text? Switch {stacked ? "that panel" : "the right panel"} to TOML: edits there update the form.
+      <Tip id="builder-intro" title="A job is a text file">
+        Fill the form and the device is drawn {stacked ? "under it" : "on the right"} as you type, in 3D; the library checks the job as it changes. Click a shape in the top view to edit it. Prefer text? Switch {stacked ? "that panel" : "the right panel"} to the job's text, in TOML, JSON or YAML: edits there update the form.
       </Tip>
 
       <fieldset class="space-y-3">
@@ -335,7 +375,12 @@
         <OptField label="Time limit" unit="min" bind:value={model.timeout_minutes} hint="The run stops after this long; empty for no limit" step={1} />
         <label class="col-span-2 flex flex-col gap-1">
           <span class="text-xs font-medium text-base-content/70">What it is</span>
-          <textarea class="textarea textarea-sm min-h-16 w-full" bind:value={model.about} placeholder="One or two sentences: the device and what the run shows"></textarea>
+          <textarea
+            class="textarea textarea-sm min-h-16 w-full"
+            bind:value={model.about}
+            disabled={format === "json"}
+            placeholder={format === "json" ? "JSON has no comments, so a JSON job has no description" : "One or two sentences: the device and what the run shows"}
+          ></textarea>
         </label>
       </fieldset>
 
@@ -594,7 +639,7 @@
     <div class="join">
       <button class="btn join-item btn-sm gap-1.5 {right === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "3d")} title="The structure as the run will draw it"><Box size={14} /> 3D</button>
       <button class="btn join-item btn-sm gap-1.5 {right === 'preview' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "preview")} title="Seen from above: click a shape to edit it"><Eye size={14} /> Top view</button>
-      <button class="btn join-item btn-sm gap-1.5 {right === 'toml' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "toml")}><Code size={14} /> TOML</button>
+      <button class="btn join-item btn-sm gap-1.5 {right === 'toml' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "toml")} title="The job's text"><Code size={14} /> {format.toUpperCase()}</button>
     </div>
     {#if !stacked}
       <span class="flex-1"></span>
@@ -646,8 +691,16 @@
       </div>
     </div>
   {:else}
-    <div class="{stacked ? 'mt-4 h-[440px]' : 'm-4 min-h-0 flex-1'} overflow-hidden rounded-xl border border-base-content/8 bg-base-300/50 py-2">
-      <TomlEditor value={text} onchange={edited} />
+    <div class="{stacked ? 'mt-4' : 'mx-4 mt-3'} flex flex-wrap items-center gap-2">
+      <div class="join" role="group" aria-label="The job's format">
+        {#each ["toml", "json", "yaml"] as const as f (f)}
+          <button class="btn join-item btn-xs {format === f ? 'btn-primary btn-soft' : ''}" onclick={() => setFormat(f)} title="The same job in {f.toUpperCase()}, saved as jobs/{model.name}.{f}">{f.toUpperCase()}</button>
+        {/each}
+      </div>
+      {#if format === "json"}<span class="text-[11px] faint">JSON has no comments: the description isn't kept.</span>{/if}
+    </div>
+    <div class="{stacked ? 'mt-2 h-[440px]' : 'mx-4 mt-2 mb-4 min-h-0 flex-1'} overflow-hidden rounded-xl border border-base-content/8 bg-base-300/50 py-2">
+      <TomlEditor value={text} onchange={edited} {format} />
     </div>
   {/if}
 {/snippet}

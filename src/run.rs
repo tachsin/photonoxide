@@ -1,8 +1,9 @@
 //! Runs: job descriptions, run directories, event records and replay.
 //!
-//! A [`Job`] is read from a TOML file: a name, an optional hard timeout, and the task, which
-//! each solver reads in its own way. [`Run::create`] makes the run's directory,
-//! `<root>/<UTC time>-<name>/`, with a copy of the job (`job.toml`), what ran it (`meta.json`),
+//! A [`Job`] is read from a TOML, JSON or YAML file ([`Format`]): a name, an optional hard
+//! timeout, and the task, which each solver reads in its own way. [`Run::create`] makes the
+//! run's directory, `<root>/<UTC time>-<name>/`, with a copy of the job as it was given
+//! (`job.toml`, `job.json` or `job.yaml`), what ran it (`meta.json`),
 //! and the record of what happened (`events.jsonl`, one JSON event per line, written as it
 //! happens so a window can follow a run live). [`replay`] reads the events back: a replayed run
 //! is the same run, to the last bit of every float.
@@ -22,27 +23,68 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
 
-/// The job file's layout.
-#[derive(Deserialize)]
+/// The job file's layout, the same in every [`Format`].
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct JobFile {
     name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     timeout_minutes: Option<f64>,
     #[serde(default)]
     task: toml::Table,
+}
+
+/// The format of a job file: TOML, JSON or YAML, the same job in each.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Format {
+    /// TOML, the format of every built-in job.
+    Toml,
+    /// JSON. It has no comments, so a JSON job has no description.
+    Json,
+    /// YAML 1.2: `no`, `on` and the other YAML 1.1 booleans are strings, as `1:30` is.
+    Yaml,
+}
+
+impl Format {
+    /// The three formats.
+    pub const ALL: [Format; 3] = [Format::Toml, Format::Json, Format::Yaml];
+
+    /// The format a file's extension names: `.toml`, `.json`, `.yaml` or `.yml`; none for
+    /// another.
+    pub fn from_path(path: &Path) -> Option<Format> {
+        let ext = path.extension()?.to_str()?.to_ascii_lowercase();
+        match ext.as_str() {
+            "toml" => Some(Format::Toml),
+            "json" => Some(Format::Json),
+            "yaml" | "yml" => Some(Format::Yaml),
+            _ => None,
+        }
+    }
+
+    /// The extension a job in this format is saved with: `toml`, `json` or `yaml`.
+    pub fn extension(self) -> &'static str {
+        match self {
+            Format::Toml => "toml",
+            Format::Json => "json",
+            Format::Yaml => "yaml",
+        }
+    }
 }
 
 /// A job: what to run, under which name, for at most how long.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Job {
     name: String,
+    timeout_minutes: Option<f64>,
     timeout: Option<Duration>,
     task: toml::Table,
     text: String,
+    format: Format,
 }
 
 impl Job {
-    /// A job from the text of a job file:
+    /// A job from the text of a TOML job file:
     ///
     /// ```toml
     /// name = "strip-modes"     # letters, digits, '-', '_' and '.'
@@ -57,10 +99,27 @@ impl Job {
     /// [`Error::Parse`] if the text isn't such a file, and [`Error::InvalidValue`] for an empty
     /// name, a name with other characters, or a timeout that isn't positive and finite.
     pub fn parse(text: &str) -> Result<Job> {
-        let file: JobFile = toml::from_str(text).map_err(|e| Error::Parse {
+        Job::parse_as(text, Format::Toml)
+    }
+
+    /// A job from the text of a job file in `format`: the same fields as [`Job::parse`] takes,
+    /// as a JSON object or a YAML mapping. Unknown fields are refused in every format, and a
+    /// value TOML can't hold (a JSON or YAML null) is an error.
+    ///
+    /// # Errors
+    ///
+    /// As [`Job::parse`]; a parse error names the line where the format gives one.
+    pub fn parse_as(text: &str, format: Format) -> Result<Job> {
+        let parse = |reason: String| Error::Parse {
             what: "job".into(),
-            reason: e.to_string(),
-        })?;
+            reason,
+        };
+        let file: JobFile = match format {
+            Format::Toml => toml::from_str(text).map_err(|e| parse(e.to_string()))?,
+            Format::Json => serde_json::from_str(text).map_err(|e| parse(e.to_string()))?,
+            Format::Yaml => serde_saphyr::from_str_with_options(text, yaml_options())
+                .map_err(|e| parse(e.to_string()))?,
+        };
         let valid = |c: char| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.');
         if file.name.is_empty() || !file.name.chars().all(valid) {
             return Err(Error::invalid(
@@ -83,20 +142,24 @@ impl Job {
         };
         Ok(Job {
             name: file.name,
+            timeout_minutes: file.timeout_minutes,
             timeout,
             task: file.task,
             text: text.to_owned(),
+            format,
         })
     }
 
-    /// The job in the file at `path`.
+    /// The job in the file at `path`, in the format its extension names ([`Format::from_path`]);
+    /// TOML for any other extension, as before there were others.
     ///
     /// # Errors
     ///
-    /// [`Error::Io`] if the file can't be read, and the errors of [`Job::parse`].
+    /// [`Error::Io`] if the file can't be read, and the errors of [`Job::parse_as`].
     pub fn load(path: &Path) -> Result<Job> {
         let text = fs::read_to_string(path).map_err(|e| io(path, &e))?;
-        Job::parse(&text).map_err(|e| match e {
+        let format = Format::from_path(path).unwrap_or(Format::Toml);
+        Job::parse_as(&text, format).map_err(|e| match e {
             Error::Parse { reason, .. } => Error::Parse {
                 what: path.display().to_string(),
                 reason,
@@ -118,6 +181,49 @@ impl Job {
     /// The task, for the solver to read.
     pub fn task(&self) -> &toml::Table {
         &self.task
+    }
+
+    /// The format the job was read in.
+    pub fn format(&self) -> Format {
+        self.format
+    }
+
+    /// The text the job was read from.
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    /// The job written in `format`: its name, timeout and task, which [`Job::parse_as`] reads
+    /// back to the same job, every float to the last bit. Comments aren't kept.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Parse`] if the format can't write the task (TOML can't write every table JSON
+    /// and YAML can, e.g. a value after a table in an array).
+    pub fn to_text(&self, format: Format) -> Result<String> {
+        let file = JobFile {
+            name: self.name.clone(),
+            timeout_minutes: self.timeout_minutes,
+            task: self.task.clone(),
+        };
+        let write = |reason: String| Error::Parse {
+            what: format!("job as {}", format.extension()),
+            reason,
+        };
+        match format {
+            Format::Toml => toml::to_string_pretty(&file).map_err(|e| write(e.to_string())),
+            Format::Json => serde_json::to_string_pretty(&file)
+                .map(|s| s + "\n")
+                .map_err(|e| write(e.to_string())),
+            Format::Yaml => serde_saphyr::to_string(&file).map_err(|e| write(e.to_string())),
+        }
+    }
+}
+
+/// YAML 1.2's booleans only: `no`, `yes`, `on` and `off` stay strings.
+fn yaml_options() -> serde_saphyr::Options {
+    serde_saphyr::options! {
+        strict_booleans: true,
     }
 }
 
@@ -151,8 +257,8 @@ pub struct Run {
 
 impl Run {
     /// Creates the run's directory under `root`, named after the current UTC time and the job
-    /// (`20261001-120000-strip-modes`, with `-2`, `-3`, … if that exists), and writes `job.toml`
-    /// and `meta.json` into it.
+    /// (`20261001-120000-strip-modes`, with `-2`, `-3`, … if that exists), and writes the job's
+    /// text as it was given (`job.toml`, `job.json` or `job.yaml`) and `meta.json` into it.
     ///
     /// # Errors
     ///
@@ -185,7 +291,7 @@ impl Run {
             let path = dir.join(name);
             fs::write(&path, text).map_err(|e| io(&path, &e))
         };
-        write("job.toml", &job.text)?;
+        write(&format!("job.{}", job.format.extension()), &job.text)?;
         let meta = Meta {
             photonoxide: env!("CARGO_PKG_VERSION").into(),
             job: job.name.clone(),
@@ -474,5 +580,165 @@ mod tests {
         assert_eq!(utc(951_782_400), ("2000-02-29".into(), "00:00:00".into()));
         assert_eq!(utc(1_700_000_000), ("2023-11-14".into(), "22:13:20".into()));
         assert_eq!(utc(4_107_542_399), ("2100-02-28".into(), "23:59:59".into()));
+    }
+
+    /// The parts of a job that the run reads: not its text, nor its format.
+    fn content(job: &Job) -> (&str, Option<f64>, &toml::Table) {
+        (job.name(), job.timeout_minutes, job.task())
+    }
+
+    #[test]
+    fn every_built_in_job_is_the_same_job_in_json_and_yaml() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+        let mut count = 0;
+        for entry in fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            if Format::from_path(&path) != Some(Format::Toml) {
+                continue;
+            }
+            let job = Job::load(&path).unwrap();
+            for format in Format::ALL {
+                let text = job.to_text(format).unwrap();
+                let again = Job::parse_as(&text, format)
+                    .unwrap_or_else(|e| panic!("{} as {format:?}: {e}\n{text}", path.display()));
+                assert_eq!(content(&again), content(&job), "{}", path.display());
+                assert_eq!(again.format(), format);
+            }
+            count += 1;
+        }
+        assert!(count >= 5, "{count} jobs");
+    }
+
+    #[test]
+    fn floats_come_back_to_the_last_bit_in_every_format() {
+        let values = [
+            0.1,
+            1.55,
+            1.0 / 3.0,
+            -2.5e-300,
+            f64::MIN_POSITIVE,
+            5e-324,
+            f64::MAX,
+            1e21,
+            123_456_789.123_456_78,
+        ];
+        let mut task = toml::Table::new();
+        for (i, v) in values.iter().enumerate() {
+            task.insert(format!("v{i}"), toml::Value::Float(*v));
+        }
+        task.insert("count".into(), toml::Value::Integer(20));
+        task.insert("whole".into(), toml::Value::Float(20.0));
+        let job = Job {
+            name: "floats".into(),
+            timeout_minutes: Some(0.1),
+            timeout: Some(Duration::from_secs_f64(6.0)),
+            task,
+            text: String::new(),
+            format: Format::Toml,
+        };
+        for format in Format::ALL {
+            let again = Job::parse_as(&job.to_text(format).unwrap(), format).unwrap();
+            for (i, v) in values.iter().enumerate() {
+                let got = again.task()[&format!("v{i}")].as_float().unwrap();
+                assert_eq!(got.to_bits(), v.to_bits(), "{format:?} v{i}: {got:e}");
+            }
+            // an integer stays an integer, and 20.0 a float
+            assert_eq!(
+                again.task()["count"],
+                toml::Value::Integer(20),
+                "{format:?}"
+            );
+            assert_eq!(
+                again.task()["whole"],
+                toml::Value::Float(20.0),
+                "{format:?}"
+            );
+            assert_eq!(again.timeout_minutes, Some(0.1), "{format:?}");
+        }
+    }
+
+    #[test]
+    fn json_and_yaml_jobs_read_as_the_toml_one() {
+        let json = r#"{"name": "strip-modes", "timeout_minutes": 1.5, "task": {"width_um": 0.5}}"#;
+        let yaml = "# a comment\nname: strip-modes\ntimeout_minutes: 1.5\ntask:\n  width_um: 0.5\n";
+        let toml = Job::parse(JOB).unwrap();
+        for (text, format) in [(json, Format::Json), (yaml, Format::Yaml)] {
+            let job = Job::parse_as(text, format).unwrap();
+            assert_eq!(content(&job), content(&toml), "{format:?}");
+            assert_eq!(job.timeout(), Some(Duration::from_secs(90)));
+        }
+    }
+
+    #[test]
+    fn yaml_keeps_yaml_1_1_words_as_strings() {
+        let yaml = "name: words\ntask:\n  a: no\n  b: on\n  c: yes\n  d: off\n  e: 1:30\n  f: false\n  g: 1e3\n";
+        let job = Job::parse_as(yaml, Format::Yaml).unwrap();
+        let task = job.task();
+        for (key, word) in [
+            ("a", "no"),
+            ("b", "on"),
+            ("c", "yes"),
+            ("d", "off"),
+            ("e", "1:30"),
+        ] {
+            assert_eq!(task[key], toml::Value::String(word.into()), "{key}");
+        }
+        assert_eq!(task["f"], toml::Value::Boolean(false));
+        assert_eq!(task["g"].as_float(), Some(1000.0));
+    }
+
+    #[test]
+    fn every_format_refuses_unknown_fields_and_nulls_and_says_where() {
+        for (text, format) in [
+            ("name = \"a\"\nspeed = 3\n", Format::Toml),
+            ("{\n  \"name\": \"a\",\n  \"speed\": 3\n}", Format::Json),
+            ("name: a\nspeed: 3\n", Format::Yaml),
+        ] {
+            let e = Job::parse_as(text, format).unwrap_err().to_string();
+            assert!(e.contains("speed"), "{format:?}: {e}");
+        }
+        for (text, format) in [
+            ("{\"name\": \"a\", \"task\": {\"x\": null}}", Format::Json),
+            ("name: a\ntask:\n  x: null\n", Format::Yaml),
+            ("name: a\ntask:\n  x: ~\n", Format::Yaml),
+        ] {
+            assert!(Job::parse_as(text, format).is_err(), "{format:?}: {text}");
+        }
+        // the line of the mistake: JSON's third line, YAML's second
+        let e = Job::parse_as("{\n  \"name\": \"a\",\n  \"task\": [}\n", Format::Json)
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("line 3"), "{e}");
+        let e = Job::parse_as("name: a\ntask: [1, 2\n", Format::Yaml)
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("line 2"), "{e}");
+    }
+
+    #[test]
+    fn a_files_extension_names_its_format() {
+        for (name, format) in [
+            ("a.toml", Some(Format::Toml)),
+            ("a.json", Some(Format::Json)),
+            ("a.yaml", Some(Format::Yaml)),
+            ("a.YML", Some(Format::Yaml)),
+            ("a.txt", None),
+            ("toml", None),
+        ] {
+            assert_eq!(Format::from_path(Path::new(name)), format, "{name}");
+        }
+    }
+
+    #[test]
+    fn a_run_keeps_the_job_in_its_own_format() {
+        let root = TempDir::new();
+        let json = r#"{"name": "strip-modes", "task": {"width_um": 0.5}}"#;
+        let job = Job::parse_as(json, Format::Json).unwrap();
+        let run = Run::create(&root.0, &job).unwrap();
+        assert_eq!(
+            fs::read_to_string(run.dir().join("job.json")).unwrap(),
+            json
+        );
+        assert!(!run.dir().join("job.toml").exists());
     }
 }
