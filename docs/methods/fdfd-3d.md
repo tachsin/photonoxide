@@ -351,6 +351,10 @@ take to round-off. On the 2D solver's 440 × 340 grid COLAMD wins (0.84 s and 0.
 (`nested_dissection_against_colamd` in src/fdfd/three/tests.rs measures it: `ND_CASES`,
 `ND_ONLY`.)
 
+PARDISO and MUMPS factorize the same strip 4.6 to 7 times faster on one thread, with 4.2 to 5.0
+times fewer entries: they keep their pivots inside the structure of A + Aᵀ, where faer reserves
+AᵀA's. See [the comparison with PARDISO and MUMPS](../baselines.md).
+
 ## The iterative solver
 
 `IterativeSolver3d` assembles the same system and never factorizes it, so its memory grows as
