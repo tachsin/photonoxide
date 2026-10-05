@@ -214,6 +214,7 @@ impl Sparse {
 /// is summed in the same order whatever the threads, so the result is the same bit for bit.
 fn product(starts: &[usize], columns: &[usize], values: &[c64], v: &[c64], out: &mut [c64]) {
     use rayon::prelude::*;
+    crate::traffic::add(crate::traffic::product(out.len(), v.len(), values.len()));
     let row = |r: usize| -> c64 {
         (starts[r]..starts[r + 1])
             .map(|k| values[k] * v[columns[k]])
@@ -319,6 +320,7 @@ const CHUNK: usize = 16_384;
 /// chunk summed in order and the chunks' sums added in order.
 fn dot_conj(u: &[c64], v: &[c64]) -> c64 {
     use rayon::prelude::*;
+    crate::traffic::add(crate::traffic::vectors(u.len(), 2, 0));
     let parts: Vec<c64> = u
         .par_chunks(CHUNK)
         .zip(v.par_chunks(CHUNK))
@@ -330,6 +332,7 @@ fn dot_conj(u: &[c64], v: &[c64]) -> c64 {
 /// w += Σ_j c_j v_j, value by value on rayon's threads, each value's terms in order.
 fn combine(w: &mut [c64], coefficients: &[c64], vectors: &[Vec<c64>]) {
     use rayon::prelude::*;
+    crate::traffic::add(crate::traffic::vectors(w.len(), 1 + vectors.len(), 1));
     w.par_iter_mut()
         .with_min_len(CHUNK)
         .enumerate()
@@ -552,6 +555,7 @@ impl Sums {
     /// Σ a_k b_k, unconjugated (Freund and Nachtigal's bilinear form).
     fn dot(&mut self, a: &[c64], b: &[c64]) -> c64 {
         use rayon::prelude::*;
+        crate::traffic::add(crate::traffic::vectors(a.len(), 2, 0));
         a.par_chunks(CHUNK)
             .zip(b.par_chunks(CHUNK))
             .map(|(p, q)| p.iter().zip(q).map(|(x, y)| x * y).sum::<c64>())
@@ -571,6 +575,8 @@ impl Sums {
         left: Option<Left<'_>>,
     ) -> (f64, f64) {
         use rayon::prelude::*;
+        let (read, written) = if left.is_some() { (6, 2) } else { (3, 1) };
+        crate::traffic::add(crate::traffic::vectors(v_next.len(), read, written));
         let right = |k: usize| av[k] - alpha * v[k] - beta_v * v_old[k];
         match left {
             Some(Left {
@@ -636,6 +642,9 @@ impl Sums {
             w_next,
             r,
         } = out;
+        // v, p_{n−1}, p_{n−2} read; x, v_{n+1}, r read and written; p written; and w_{n+1}
+        let left = usize::from(w_next.is_some());
+        crate::traffic::add(crate::traffic::vectors(p.len(), 6 + left, 4 + left));
         // the value k's update, but for w; its share of ‖r‖², and v_{n+1}'s value
         let update = |k: usize, pk: &mut c64, xk: &mut c64, vk: &mut c64, rk: &mut c64| {
             *pk = (v[k] - epsilon * p_old[k] - theta * p_older[k]) / delta;
@@ -1127,7 +1136,13 @@ impl Triangle {
         };
         let mut x: Vec<c64> = (0..b.len()).map(|i| scale(i, b[i])).collect();
         let mut next = vec![c64::new(0.0, 0.0); b.len()];
+        let diagonal = self.inverse_diagonal.is_some();
         for _ in 1..sweeps {
+            // a product with the factor's off-diagonal part, and b read
+            crate::traffic::add(
+                crate::traffic::triangular(b.len(), self.values.len(), diagonal)
+                    + crate::traffic::vectors(b.len(), 1, 0),
+            );
             next.par_iter_mut()
                 .with_min_len(4096)
                 .enumerate()
@@ -1146,6 +1161,8 @@ impl Triangle {
     /// Solves in place: `x` holds the right-hand side on entry.
     fn solve(&self, x: &mut [c64]) {
         let n = x.len();
+        let diagonal = self.inverse_diagonal.is_some();
+        crate::traffic::add(crate::traffic::triangular(n, self.values.len(), diagonal));
         let rows: Box<dyn Iterator<Item = usize>> = if self.forward {
             Box::new(0..n)
         } else {
@@ -1549,6 +1566,22 @@ mod tests {
         let mut odd = complex_symmetric(n);
         odd.push((0, 1, c64::new(0.0, 0.5)));
         assert!(Sparse::new(n, odd).symmetrized().is_none());
+    }
+
+    #[test]
+    fn a_product_and_a_triangular_solve_count_their_bytes() {
+        // other tests' kernels may add to the counter meanwhile, never take from it
+        let a = tridiagonal(100);
+        let before = crate::traffic::moved();
+        let _ = a.apply(&vec![c64::new(1.0, 0.0); 100]);
+        assert!(crate::traffic::moved() - before >= crate::traffic::product(100, 100, 298) as u64);
+        let ilu = Ilu0::new(&a).unwrap();
+        let before = crate::traffic::moved();
+        let _ = ilu.solve(&vec![c64::new(1.0, 0.0); 100]);
+        // L (unit) and U (with its inverse diagonal), 99 off-diagonal entries each
+        let both =
+            crate::traffic::triangular(100, 99, false) + crate::traffic::triangular(100, 99, true);
+        assert!(crate::traffic::moved() - before >= both as u64);
     }
 
     #[test]

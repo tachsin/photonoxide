@@ -98,6 +98,23 @@ impl Measurement {
             .fold((0.0, 0), |(s, n), (t, i)| (s + t, n + i));
         (iterations > 0).then(|| seconds * 1e9 / (self.unknowns as f64 * iterations as f64))
     }
+
+    /// The memory bandwidth the counted phases reached, in GB/s: their bytes over their time.
+    /// The kernels' traffic from memory or cache, each byte counted once (src/traffic.rs).
+    pub fn gigabytes_per_second(&self) -> Option<f64> {
+        let (bytes, seconds) = self
+            .phases
+            .iter()
+            .filter_map(|p| p.bytes.map(|b| (b, p.seconds)))
+            .fold((0.0, 0.0), |(b, s), (pb, ps)| (b + pb, s + ps));
+        (seconds > 0.0).then(|| bytes / seconds / 1e9)
+    }
+}
+
+/// The bytes the kernels have moved so far in this process ([`Phase::bytes`]): what a phase's
+/// bytes are the difference of.
+pub fn bytes_moved() -> f64 {
+    crate::traffic::moved() as f64
 }
 
 /// One timed phase of a problem.
@@ -109,6 +126,10 @@ pub struct Phase {
     pub seconds: f64,
     /// QMR's iterations in it, if it iterated.
     pub iterations: Option<usize>,
+    /// The bytes its kernels moved, by the model of `traffic` (src/traffic.rs: each nonzero's
+    /// value and index, each row pointer, each vector read or written once), if counted.
+    #[serde(default)]
+    pub bytes: Option<f64>,
 }
 
 /// The error of what a problem computed.
@@ -243,6 +264,7 @@ fn timed<T>(name: &str, phases: &mut Vec<Phase>, f: impl FnOnce() -> Result<T>) 
         name: name.into(),
         seconds: t.elapsed().as_secs_f64(),
         iterations: None,
+        bytes: None,
     });
     Ok(value)
 }
@@ -439,12 +461,13 @@ fn guide_3d(
     let mut phases = Vec::new();
     let field = {
         let solver = solve.build(&mut phases, new)?;
-        let t = Instant::now();
+        let (t, moved) = (Instant::now(), bytes_moved());
         let (field, convergence) = solver.solve(&source, stopping(tolerance))?;
         phases.push(Phase {
             name: format!("{} to {tolerance:e}", solve.label()),
             seconds: t.elapsed().as_secs_f64(),
             iterations: Some(convergence.iterations),
+            bytes: Some(bytes_moved() - moved),
         });
         field
     };
@@ -541,7 +564,7 @@ fn strip_ports_3d(
         tolerance,
         max_iterations: 100_000,
     };
-    let t = Instant::now();
+    let (t, moved) = (Instant::now(), bytes_moved());
     let (s, runs) = solver.s_matrix_with_convergence(&ports, stopping)?;
     phases.push(Phase {
         name: format!(
@@ -551,6 +574,7 @@ fn strip_ports_3d(
         ),
         seconds: t.elapsed().as_secs_f64(),
         iterations: Some(runs.iter().map(|c| c.iterations).sum()),
+        bytes: Some(bytes_moved() - moved),
     });
     timed_done();
     let through = (c64::new(0.0, 1.0) * ports[0].mode.beta() * ((right - left) as f64 * h)).exp();
@@ -627,6 +651,7 @@ fn built_in_job(text: &str, timed_done: &mut dyn FnMut()) -> Result<Measurement>
                 name: format!("the job, {points} points"),
                 seconds,
                 iterations: None,
+                bytes: None,
             }],
             accuracy: None,
         })
@@ -658,16 +683,19 @@ mod tests {
                     name: "assembly".into(),
                     seconds: 1.0,
                     iterations: None,
+                    bytes: None,
                 },
                 Phase {
                     name: "QMR".into(),
                     seconds: 2.0,
                     iterations: Some(100),
+                    bytes: None,
                 },
                 Phase {
                     name: "QMR".into(),
                     seconds: 2.0,
                     iterations: Some(300),
+                    bytes: None,
                 },
             ],
             accuracy: None,
