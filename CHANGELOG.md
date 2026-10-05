@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.3](https://github.com/tachsin/photonoxide/compare/v0.4.2...v0.4.3) - 2026-10-05
+
+### <!-- 0 -->Added
+
+- the direct solves by a multifrontal LU and L D Lᵀ with static pivoting, at PARDISO's fill, 2 to 9 times faster than faer's LU ([#157](https://github.com/tachsin/photonoxide/pull/157))
+
 ## [0.4.2](https://github.com/tachsin/photonoxide/compare/v0.4.1...v0.4.2) - 2026-10-05
 
 ### <!-- 0 -->Added

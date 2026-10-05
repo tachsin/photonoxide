@@ -1,6 +1,6 @@
 [package]
 name = "photonoxide"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2024"
 rust-version = "1.95"
 description = "Validated photonics for Rust: materials with provenance, mode solvers, 2D and 3D FDFD with S-parameters and adjoints, circuits and compact models, with a live studio"
