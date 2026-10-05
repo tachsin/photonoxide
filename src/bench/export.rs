@@ -235,6 +235,10 @@ pub struct Factorized {
     pub solve_seconds: f64,
     /// ‖b − A x‖ / ‖b‖ for that solve, unrefined.
     pub residual: f64,
+    /// The entries of L and U the factorization makes room for (the structure of AᵀA's Cholesky
+    /// factor in the column order, for L and for U): the fill to set against PARDISO's and MUMPS's
+    /// counts of their factors' entries.
+    pub factor_entries: usize,
 }
 
 /// Factorizes `system` as photonoxide's solvers do (faer's supernodal LU, ordered by COLAMD for
@@ -291,6 +295,7 @@ pub fn factorize(system: &System) -> Result<Factorized> {
         let order = crate::sparse::nested_dissection(&starts, &neighbours, &positions);
         let symbolic = crate::sparse::OrderedSymbolic::new(matrix.as_ref(), &order)?;
         let analysis_seconds = t.elapsed().as_secs_f64();
+        let factor_entries = symbolic.factor_entries();
         let t = Instant::now();
         let lu = crate::sparse::OrderedLu::new(matrix.as_ref(), symbolic, par)?;
         let factorization_seconds = t.elapsed().as_secs_f64();
@@ -303,6 +308,7 @@ pub fn factorize(system: &System) -> Result<Factorized> {
             factorization_seconds,
             solve_seconds,
             residual: residual(&x),
+            factor_entries,
         });
     }
     use faer::linalg::solvers::Solve;
@@ -318,12 +324,29 @@ pub fn factorize(system: &System) -> Result<Factorized> {
     let x = lu.solve(faer::Mat::<c64>::from_fn(n, 1, |r, _| system.rhs[r]));
     let solve_seconds = t.elapsed().as_secs_f64();
     let x: Vec<c64> = (0..n).map(|r| x[(r, 0)]).collect();
+    // the same count in COLAMD's order, which faer keeps to itself: the order again, as faer
+    // computes it, and an analysis of our own (neither timed)
+    let mut order = vec![0usize; n];
+    let mut inverse = vec![0usize; n];
+    faer::sparse::linalg::colamd::order(
+        &mut order,
+        &mut inverse,
+        matrix.symbolic(),
+        Default::default(),
+        faer::dyn_stack::MemStack::new(&mut faer::dyn_stack::MemBuffer::new(
+            faer::sparse::linalg::colamd::order_scratch::<usize>(n, n, system.entries.len()),
+        )),
+    )
+    .map_err(|e| failed(format!("{e:?}")))?;
+    let factor_entries =
+        crate::sparse::OrderedSymbolic::new(matrix.as_ref(), &order)?.factor_entries();
     Ok(Factorized {
         ordering: "COLAMD",
         analysis_seconds,
         factorization_seconds,
         solve_seconds,
         residual: residual(&x),
+        factor_entries,
     })
 }
 
@@ -469,5 +492,12 @@ mod tests {
         let slab = factorize(&system("slab-2d").unwrap()).unwrap();
         assert_eq!(slab.ordering, "COLAMD");
         assert!(slab.residual < 1e-10, "{}", slab.residual);
+        // the fill: more than the matrix, less than dense
+        for (f, s) in [(&strip, 3 * 24 * 24 * 24), (&slab, 149_600)] {
+            assert!(
+                f.factor_entries > 5 * s && f.factor_entries < s * s / 10,
+                "{s}"
+            );
+        }
     }
 }
