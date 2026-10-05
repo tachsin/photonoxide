@@ -1481,7 +1481,7 @@ mod tests {
                 .install(|| gmres_preconditioned(&a, &ilu, &b, stop, 20).unwrap().0)
         };
         let one = run(1);
-        for threads in [2, 5] {
+        for threads in [2, 4, 5, 20] {
             let many = run(threads);
             let same = one
                 .iter()
@@ -1597,6 +1597,11 @@ mod tests {
         let bits = |v: &[c64]| -> Vec<(u64, u64)> {
             v.iter().map(|z| (z.re.to_bits(), z.im.to_bits())).collect()
         };
+        // and QMR for complex symmetric matrices, on A + Aᵀ
+        let symmetric = Sparse::new(
+            a.n,
+            (0..a.n).flat_map(|r| a.row(r).flat_map(move |(c, v)| [(r, c, v), (c, r, v)])),
+        );
         let run = |threads: usize| {
             rayon::ThreadPoolBuilder::new()
                 .num_threads(threads)
@@ -1605,12 +1610,17 @@ mod tests {
                 .install(|| {
                     let (x, how) = qmr(&a, &b, stop).unwrap();
                     let (y, how_y) = qmr_preconditioned(&a, &ilu, &b, stop).unwrap();
-                    (bits(&x), how.history, bits(&y), how_y.history)
+                    let (z, how_z) = qmr_symmetric(&symmetric, &b, stop).unwrap();
+                    (
+                        (bits(&x), how.history),
+                        (bits(&y), how_y.history),
+                        (bits(&z), how_z.history),
+                    )
                 })
         };
         let one = run(1);
-        assert!(!one.1.is_empty() && !one.3.is_empty());
-        for threads in [2, 5] {
+        assert!(!one.0.1.is_empty() && !one.1.1.is_empty() && !one.2.1.is_empty());
+        for threads in [2, 4, 5, 20] {
             assert!(run(threads) == one, "{threads} threads differ from one");
         }
     }

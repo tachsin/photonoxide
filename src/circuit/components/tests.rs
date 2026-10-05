@@ -477,10 +477,12 @@ fn spectra_are_the_same_bit_for_bit_on_any_number_of_threads() {
         .num_threads(1)
         .build()
         .unwrap();
-    let four = rayon::ThreadPoolBuilder::new()
-        .num_threads(4)
-        .build()
-        .unwrap();
+    let [four, twenty] = [4, 20].map(|threads| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+    });
     for (c, values) in [
         (mmi.as_ref(), mmi.defaults()),
         (&circuit as &dyn Component, circuit.values().to_vec()),
@@ -491,7 +493,7 @@ fn spectra_are_the_same_bit_for_bit_on_any_number_of_threads() {
             .collect();
         let spectrum = Spectrum::of(c, &wavelengths, &values).unwrap();
         assert_eq!(spectrum.matrices(), &serial[..], "{}", c.kind());
-        for pool in [&one, &four] {
+        for pool in [&one, &four, &twenty] {
             let on = pool.install(|| Spectrum::of(c, &wavelengths, &values).unwrap());
             assert_eq!(
                 on,
@@ -518,7 +520,7 @@ fn spectra_are_the_same_bit_for_bit_on_any_number_of_threads() {
             validity: Some((1.5, 1.6)),
         },
     ));
-    for pool in [&one, &four] {
+    for pool in [&one, &four, &twenty] {
         let e = pool
             .install(|| Spectrum::of(narrow.as_ref(), &outside, &[90.0]))
             .unwrap_err();
