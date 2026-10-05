@@ -251,10 +251,10 @@ impl OrderedSymbolic {
         })
     }
 
-    /// The entries of L and U the factorization makes room for: the structure of the Cholesky
-    /// factor of AᵀA in this column order, once for L and once for U, the diagonal shared. Partial
-    /// pivoting by rows stays inside it (A. George, E. Ng, SIAM J. Sci. Stat. Comput. 8, 877
-    /// (1987), doi:10.1137/0908072), and faer's supernodal LU allocates it.
+    /// The entries of L and U in the structure the factorization works in: the Cholesky factor of
+    /// AᵀA in this column order, once for L and once for U, the diagonal shared. Partial pivoting
+    /// by rows stays inside it (A. George, E. Ng, SIAM J. Sci. Stat. Comput. 8, 877 (1987),
+    /// doi:10.1137/0908072). faer's supernodal LU stores about as many.
     pub(crate) fn factor_entries(&self) -> usize {
         self.entries
     }

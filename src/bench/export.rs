@@ -236,7 +236,7 @@ pub struct Factorized {
     pub solve_seconds: f64,
     /// ‖b − A x‖ / ‖b‖ for that solve, unrefined.
     pub residual: f64,
-    /// The entries of L and U the factorization makes room for (the structure of AᵀA's Cholesky
+    /// The entries of L and U in the structure the factorization works in (AᵀA's Cholesky
     /// factor in the column order, for L and for U): the fill to set against PARDISO's and MUMPS's
     /// counts of their factors' entries.
     pub factor_entries: usize,

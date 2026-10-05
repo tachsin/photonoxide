@@ -280,8 +280,11 @@ with the CPU, which matters for principle 9 below.
 | Iterative and eigen | CG, BiCGSTAB, LSMR; a restarted partial eigensolver (largest magnitude) | MKL's iterative solvers (reverse communication) |
 | Licence | MIT: a dependency | proprietary: a benchmark only |
 
-How fast faer's sparse LU is against PARDISO on photonoxide's matrices hasn't been measured; that
-is benchmark A0 of Phase A, run with MKL as an external program, never linked.
+Measured (benchmark A0, PARDISO and MUMPS run as external programs on the exported systems): on one
+thread faer's dense LU is within 10% of MKL's at large supernodes, but its sparse LU reserves the
+structure of AᵀA, 3.3 to 4.9 times PARDISO's entries, and is 1.8 to 7 times slower; on 20 threads
+its dense LU reaches 13 to 40% of MKL's. And PARDISO and MUMPS factorize the complex symmetric form
+in half the entries. See [the comparison](../baselines.md).
 
 ### Where this meets principles 6 and 9
 
