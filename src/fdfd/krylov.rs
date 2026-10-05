@@ -134,31 +134,32 @@ impl Sparse {
 
     /// A v.
     pub(crate) fn apply(&self, v: &[c64]) -> Vec<c64> {
-        product(&self.starts, &self.columns, &self.values, v)
+        let mut out = vec![c64::new(0.0, 0.0); self.n];
+        product(&self.starts, &self.columns, &self.values, v, &mut out);
+        out
     }
 
     /// Aᵀ v (the transpose, not the conjugate transpose).
     pub(crate) fn apply_transpose(&self, v: &[c64]) -> Vec<c64> {
-        product(&self.t_starts, &self.t_columns, &self.t_values, v)
+        let mut out = vec![c64::new(0.0, 0.0); self.n];
+        product(&self.t_starts, &self.t_columns, &self.t_values, v, &mut out);
+        out
     }
 }
 
-/// A matrix-vector product by rows, the rows shared among rayon's threads: each row is summed
-/// in the same order whatever the threads, so the result is the same bit for bit.
-fn product(starts: &[usize], columns: &[usize], values: &[c64], v: &[c64]) -> Vec<c64> {
+/// A matrix-vector product by rows into `out`, the rows shared among rayon's threads: each row
+/// is summed in the same order whatever the threads, so the result is the same bit for bit.
+fn product(starts: &[usize], columns: &[usize], values: &[c64], v: &[c64], out: &mut [c64]) {
     use rayon::prelude::*;
-    let n = starts.len() - 1;
     let row = |r: usize| -> c64 {
         (starts[r]..starts[r + 1])
             .map(|k| values[k] * v[columns[k]])
             .sum()
     };
-    let mut out = vec![c64::new(0.0, 0.0); n];
     out.par_iter_mut()
         .with_min_len(4096)
         .enumerate()
         .for_each(|(r, o)| *o = row(r));
-    out
 }
 
 /// A linear operator QMR can solve with: its products with vectors and its transpose's.
@@ -169,6 +170,14 @@ pub(crate) trait Operator {
     fn apply(&self, v: &[c64]) -> Vec<c64>;
     /// Aᵀ v (the transpose, not the conjugate transpose).
     fn apply_transpose(&self, v: &[c64]) -> Vec<c64>;
+    /// A v into `out`, which an operator that can writes without allocating.
+    fn apply_into(&self, v: &[c64], out: &mut [c64]) {
+        out.copy_from_slice(&self.apply(v));
+    }
+    /// Aᵀ v into `out`.
+    fn apply_transpose_into(&self, v: &[c64], out: &mut [c64]) {
+        out.copy_from_slice(&self.apply_transpose(v));
+    }
 }
 
 impl Operator for Sparse {
@@ -182,6 +191,14 @@ impl Operator for Sparse {
 
     fn apply_transpose(&self, v: &[c64]) -> Vec<c64> {
         Sparse::apply_transpose(self, v)
+    }
+
+    fn apply_into(&self, v: &[c64], out: &mut [c64]) {
+        product(&self.starts, &self.columns, &self.values, v, out);
+    }
+
+    fn apply_transpose_into(&self, v: &[c64], out: &mut [c64]) {
+        product(&self.t_starts, &self.t_columns, &self.t_values, v, out);
     }
 }
 
@@ -439,6 +456,114 @@ fn dot(a: &[c64], b: &[c64]) -> c64 {
     a.iter().zip(b).map(|(x, y)| x * y).sum()
 }
 
+/// QMR's vector work, fused into passes on rayon's threads chunk by chunk ([`CHUNK`] values),
+/// each chunk's sums taken in order and the chunks' added in order: the same bits on any number
+/// of threads. Holds the chunks' partial sums, so that an iteration allocates nothing.
+#[derive(Default)]
+struct Sums {
+    complex: Vec<c64>,
+    pairs: Vec<(f64, f64)>,
+    step: Vec<(f64, c64)>,
+}
+
+/// The vectors QMR's step writes.
+struct Step<'a> {
+    p: &'a mut [c64],
+    x: &'a mut [c64],
+    v_next: &'a mut [c64],
+    w_next: &'a mut [c64],
+    r: &'a mut [c64],
+}
+
+impl Sums {
+    /// Σ a_k b_k, unconjugated (Freund and Nachtigal's bilinear form).
+    fn dot(&mut self, a: &[c64], b: &[c64]) -> c64 {
+        use rayon::prelude::*;
+        a.par_chunks(CHUNK)
+            .zip(b.par_chunks(CHUNK))
+            .map(|(p, q)| p.iter().zip(q).map(|(x, y)| x * y).sum::<c64>())
+            .collect_into_vec(&mut self.complex);
+        self.complex.iter().sum()
+    }
+
+    /// The next Lanczos vectors before their scaling (Eq. 2.7), v = A v_n − α v_n − β_v v_{n−1}
+    /// and w = Aᵀ w_n − α w_n − β_w w_{n−1}, into `next`; and their squared norms.
+    fn next_lanczos(
+        &mut self,
+        [v_next, w_next]: [&mut [c64]; 2],
+        [av, atw]: [&[c64]; 2],
+        [v, w]: [&[c64]; 2],
+        [v_old, w_old]: [&[c64]; 2],
+        alpha: c64,
+        [beta_v, beta_w]: [c64; 2],
+    ) -> (f64, f64) {
+        use rayon::prelude::*;
+        v_next
+            .par_chunks_mut(CHUNK)
+            .zip(w_next.par_chunks_mut(CHUNK))
+            .enumerate()
+            .map(|(chunk, (vs, ws))| {
+                let start = chunk * CHUNK;
+                let mut sums = (0.0, 0.0);
+                for (i, (vk, wk)) in vs.iter_mut().zip(ws.iter_mut()).enumerate() {
+                    let k = start + i;
+                    *vk = av[k] - alpha * v[k] - beta_v * v_old[k];
+                    *wk = atw[k] - alpha * w[k] - beta_w * w_old[k];
+                    sums.0 += vk.norm_sqr();
+                    sums.1 += wk.norm_sqr();
+                }
+                sums
+            })
+            .collect_into_vec(&mut self.pairs);
+        (self.pairs.iter()).fold((0.0, 0.0), |s, p| (s.0 + p.0, s.1 + p.1))
+    }
+
+    /// The rest of an iteration (Eqs. 4.8–4.9, 2.9, 4.12): p = (v_n − ε p_{n−1} − θ p_{n−2}) / δ
+    /// and x += τ_n p; then, unless the process ended (`next` none), v_{n+1} and w_{n+1} scaled
+    /// by 1/ρ_{n+1} and 1/ξ_{n+1} and r = keep r + add v_{n+1}. Returns ‖r‖² and w_{n+1}ᵀ v_{n+1}.
+    fn step(
+        &mut self,
+        out: Step<'_>,
+        [v, p_old, p_older]: [&[c64]; 3],
+        [epsilon, theta, delta, tau_n]: [c64; 4],
+        next: Option<([f64; 2], f64, c64)>,
+    ) -> (f64, c64) {
+        use rayon::prelude::*;
+        let Step {
+            p,
+            x,
+            v_next,
+            w_next,
+            r,
+        } = out;
+        p.par_chunks_mut(CHUNK)
+            .zip(x.par_chunks_mut(CHUNK))
+            .zip(v_next.par_chunks_mut(CHUNK))
+            .zip(w_next.par_chunks_mut(CHUNK))
+            .zip(r.par_chunks_mut(CHUNK))
+            .enumerate()
+            .map(|(chunk, ((((ps, xs), vs), ws), rs))| {
+                let start = chunk * CHUNK;
+                let (mut r2, mut d) = (0.0, c64::new(0.0, 0.0));
+                for i in 0..ps.len() {
+                    let k = start + i;
+                    ps[i] = (v[k] - epsilon * p_old[k] - theta * p_older[k]) / delta;
+                    xs[i] += tau_n * ps[i];
+                    if let Some(([rho_next, xi_next], keep, add)) = next {
+                        vs[i] /= rho_next;
+                        ws[i] /= xi_next;
+                        rs[i] = keep * rs[i] + add * vs[i];
+                        d += ws[i] * vs[i];
+                    }
+                    r2 += rs[i].norm_sqr();
+                }
+                (r2, d)
+            })
+            .collect_into_vec(&mut self.step);
+        (self.step.iter()).fold((0.0, c64::new(0.0, 0.0)), |s, p| (s.0 + p.0, s.1 + p.1))
+    }
+}
+
 fn norm(a: &[c64]) -> f64 {
     a.iter().map(|x| x.norm_sqr()).sum::<f64>().sqrt()
 }
@@ -596,6 +721,10 @@ fn qmr_run(a: &impl Operator, b: &[c64], stopping: Stopping) -> Result<Run> {
     // the residual r_n, updated by Eq. 4.12 from r0 = b
     let mut r = b.to_vec();
     let mut history = Vec::new();
+    // the work vectors, made once: an iteration allocates nothing
+    let (mut av, mut atw) = (vec![zero; n], vec![zero; n]);
+    let (mut v_next, mut w_next, mut p) = (vec![zero; n], vec![zero; n], vec![zero; n]);
+    let mut sums = Sums::default();
     for iteration in 1..=stopping.max_iterations {
         if d.norm() < 1e-14 {
             // the iterate so far is good: its caller restarts from it
@@ -604,18 +733,21 @@ fn qmr_run(a: &impl Operator, b: &[c64], stopping: Stopping) -> Result<Run> {
         // Algorithm 2.1, a regular step (Eq. 2.7) with blocks of one vector: the coefficient of
         // v_{n-1} is w_{n-1}^T A v_n / d_{n-1} = xi_n d_n / d_{n-1}, and of w_{n-1}, rho_n d_n /
         // d_{n-1}, by biorthogonality
-        let av = a.apply(&v);
-        let atw = a.apply_transpose(&w);
-        let alpha = dot(&w, &av) / d;
+        a.apply_into(&v, &mut av);
+        a.apply_transpose_into(&w, &mut atw);
+        let alpha = sums.dot(&w, &av) / d;
         let beta_v = xi * d / d_old;
         let beta_w = rho * d / d_old;
-        let mut v_next: Vec<c64> = (0..n)
-            .map(|k| av[k] - alpha * v[k] - beta_v * v_old[k])
-            .collect();
-        let mut w_next: Vec<c64> = (0..n)
-            .map(|k| atw[k] - alpha * w[k] - beta_w * w_old[k])
-            .collect();
-        let (rho_next, xi_next) = (norm(&v_next), norm(&w_next));
+        // v_{n+1} and w_{n+1} before their scaling, with their norms, in one pass
+        let (rho2, xi2) = sums.next_lanczos(
+            [&mut v_next, &mut w_next],
+            [&av, &atw],
+            [&v, &w],
+            [&v_old, &w_old],
+            alpha,
+            [beta_v, beta_w],
+        );
+        let (rho_next, xi_next) = (rho2.sqrt(), xi2.sqrt());
         // the new column of H_e (Eq. 2.14): beta_v in row n-1, alpha in row n, rho_{n+1} in
         // row n+1; the previous rotations bring it to (theta_n, epsilon_n, mu), Eq. 4.4
         let (mut theta, mut epsilon, mut mu) =
@@ -640,28 +772,25 @@ fn qmr_run(a: &impl Operator, b: &[c64], stopping: Stopping) -> Result<Run> {
         let tau_n = c * tau;
         tau = -s.conj() * tau;
         // Eqs. 4.8-4.9: p_n = (v_n - epsilon_n p_{n-1} - theta_n p_{n-2}) / delta_n, and
-        // x_n = x_{n-1} + tau_n p_n
-        let p: Vec<c64> = (0..n)
-            .map(|k| (v[k] - epsilon * p_old[k] - theta * p_older[k]) / delta)
-            .collect();
-        for k in 0..n {
-            x[k] += tau_n * p[k];
-        }
-        p_older = std::mem::replace(&mut p_old, p);
-        // Eq. 2.9: the next unit vectors
+        // x_n = x_{n-1} + tau_n p_n; Eq. 2.9, the next unit vectors; Eq. 4.12 with omega = 1,
+        // r_n = |s_n|^2 r_{n-1} + c_n tau-tilde_{n+1} v_{n+1}: in one pass, with ‖r_n‖² and the
+        // next w^T v
         let ended = rho_next == 0.0 || xi_next == 0.0;
-        if !ended {
-            for k in 0..n {
-                v_next[k] /= rho_next;
-                w_next[k] /= xi_next;
-            }
-            // Eq. 4.12 with omega = 1: r_n = |s_n|^2 r_{n-1} + c_n tau-tilde_{n+1} v_{n+1}
-            let (keep, add) = (s.norm_sqr(), c * tau);
-            for k in 0..n {
-                r[k] = keep * r[k] + add * v_next[k];
-            }
-        }
-        let updated = norm(&r) / rho0;
+        let (r2, d_next) = sums.step(
+            Step {
+                p: &mut p,
+                x: &mut x,
+                v_next: &mut v_next,
+                w_next: &mut w_next,
+                r: &mut r,
+            },
+            [&v, &p_old, &p_older],
+            [epsilon, theta, delta, tau_n],
+            (!ended).then_some(([rho_next, xi_next], s.norm_sqr(), c * tau)),
+        );
+        std::mem::swap(&mut p_older, &mut p_old);
+        std::mem::swap(&mut p_old, &mut p);
+        let updated = r2.sqrt() / rho0;
         history.push(updated);
         if updated <= stopping.tolerance || ended {
             // Eq. 4.10, on the true residual
@@ -689,11 +818,13 @@ fn qmr_run(a: &impl Operator, b: &[c64], stopping: Stopping) -> Result<Run> {
             // the updated residual has drifted from the true one: carry on from the true one
             r = true_residual;
         }
-        v_old = std::mem::replace(&mut v, v_next);
-        w_old = std::mem::replace(&mut w, w_next);
+        std::mem::swap(&mut v_old, &mut v);
+        std::mem::swap(&mut v, &mut v_next);
+        std::mem::swap(&mut w_old, &mut w);
+        std::mem::swap(&mut w, &mut w_next);
         (rho, xi) = (rho_next, xi_next);
         d_old = d;
-        d = dot(&w, &v);
+        d = d_next;
     }
     Err(Error::invalid(
         "qmr",
@@ -1051,6 +1182,37 @@ mod tests {
                 .zip(&many)
                 .all(|(p, q)| p.re.to_bits() == q.re.to_bits() && p.im.to_bits() == q.im.to_bits());
             assert!(same, "{threads} threads differ from one");
+        }
+    }
+
+    #[test]
+    fn qmr_is_the_same_bit_for_bit_on_any_number_of_threads() {
+        // plain and preconditioned, on more values than one chunk of its sums, with its history
+        // as well as its solution
+        let (a, b) = gmres_case(3 * CHUNK + 17);
+        let ilu = Ilu0::new(&a).unwrap();
+        let stop = Stopping {
+            tolerance: 1e-10,
+            max_iterations: 400,
+        };
+        let bits = |v: &[c64]| -> Vec<(u64, u64)> {
+            v.iter().map(|z| (z.re.to_bits(), z.im.to_bits())).collect()
+        };
+        let run = |threads: usize| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| {
+                    let (x, how) = qmr(&a, &b, stop).unwrap();
+                    let (y, how_y) = qmr_preconditioned(&a, &ilu, &b, stop).unwrap();
+                    (bits(&x), how.history, bits(&y), how_y.history)
+                })
+        };
+        let one = run(1);
+        assert!(!one.1.is_empty() && !one.3.is_empty());
+        for threads in [2, 5] {
+            assert!(run(threads) == one, "{threads} threads differ from one");
         }
     }
 

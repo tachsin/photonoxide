@@ -360,9 +360,15 @@ which Shin and Fan use for their 3D problems:
   (Eq. 4.10). Freund and Nachtigal check the bound of Eq. 4.11 first. That bound is
   $\sqrt{n+1}$ times the quasi-residual, about 10× pessimistic after 100 iterations, and would
   add iterations.
-- **Cost per iteration.** One product with A and one with $A^{\mathsf T}$. The rows are shared
-  among threads, each summed in a fixed order, so the result is the same bit for bit on any
-  number of threads.
+- **Cost per iteration.** One product with A and one with $A^{\mathsf T}$, and the vector work
+  fused into two more passes: one builds $v_{n+1}$ and $w_{n+1}$ with their norms, the other
+  $p_n$, $x_n$, the scaled $v_{n+1}$ and $w_{n+1}$ and the residual with its norm and the next
+  $w^{\mathsf T}v$. All four run on rayon's threads, into vectors made once per solve. The
+  products' rows are each summed in a fixed order, and every other sum over fixed chunks of
+  16 384 values, each chunk in order and the chunks' sums in order, so the result is the same bit
+  for bit on any number of threads. On the 40³ guide below (192 000 unknowns, plain PMLs, 20
+  threads) an iteration takes 2.6 ms, 13 ns per unknown, against 8.2 ms when the vector work
+  ran on one thread; on one thread it takes 11.4 ms.
 
 Freund and Nachtigal's look-ahead steps (Algorithm 2.1's inner vectors, from their refs. 6–7)
 step over a breakdown of the Lanczos process, $w_n^{\mathsf T}v_n = 0$. They are not
@@ -470,9 +476,10 @@ published, and the one ILU(0) preconditions (below).
 **Cost.** `IterativeSolver3d` keeps the matrix and its transpose (13 or 15 nonzeros per row) and
 a dozen vectors. The 864 000-unknown guide above peaked at 1.4 GB, the assembly's temporaries
 included, where the direct solver needs 28 GB for 192 k unknowns. The time is the iteration
-count times the cost of an iteration, about 45 ns per unknown on 20 threads here: 106 s for the
-guide with s = 0 (2 745 iterations), against the direct solver's 66 s for a problem 4.5 times
-smaller.
+count times the cost of an iteration, about 45 ns per unknown on 20 threads when this was
+measured: 106 s for the guide with s = 0 (2 745 iterations), against the direct solver's 66 s for
+a problem 4.5 times smaller. Since QMR's vector work runs on every thread (above), an iteration
+costs about 13 ns per unknown.
 
 ## Preconditioning QMR
 
