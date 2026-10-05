@@ -31,7 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### <!-- 4 -->Documentation
 
 - *(fdfd)* parallel ILU(0) measured on our matrices, both halves, and not used ([#150](https://github.com/tachsin/photonoxide/pull/150))
-- photonoxide's direct solvers against PARDISO and MUMPS, where the difference comes from, and what would close it in pure Rust ([#143](https://github.com/tachsin/photonoxide/pull/143)) ([#155](https://github.com/tachsin/photonoxide/pull/155))
+- photonoxide's direct solvers against PARDISO and MUMPS, where the difference comes from, and what would close it in pure Rust ([#155](https://github.com/tachsin/photonoxide/pull/155))
 
 ## [0.4.1](https://github.com/tachsin/photonoxide/compare/v0.4.0...v0.4.1) - 2026-10-04
 
