@@ -28,6 +28,16 @@ papers:
     doi: 10.1109/JLT.2002.800371
   - cite: "A. George, SIAM J. Numer. Anal. 10, 345 (1973) (nested dissection)"
     doi: 10.1137/0710032
+  - cite: "I. S. Duff, J. K. Reid, ACM Trans. Math. Softw. 9, 302 (1983) (the multifrontal method)"
+    doi: 10.1145/356044.356047
+  - cite: "J. W. H. Liu, SIAM J. Matrix Anal. Appl. 11, 134 (1990) (elimination trees)"
+    doi: 10.1137/0611010
+  - cite: "I. S. Duff, J. Koster, SIAM J. Matrix Anal. Appl. 22, 973 (2001) (the matching and scaling)"
+    doi: 10.1137/S0895479899358443
+  - cite: "X. S. Li, J. W. Demmel, ACM Trans. Math. Softw. 29, 110 (2003) (static pivoting)"
+    doi: 10.1145/779359.779361
+  - cite: "A. George, E. Ng, SIAM J. Sci. Stat. Comput. 8, 877 (1987) (partial pivoting's structure, before 0.4.3)"
+    doi: 10.1137/0908072
   - cite: "E. Chow, A. Patel, SIAM J. Sci. Comput. 37, C169 (2015) (parallel ILU, measured and not used)"
     doi: 10.1137/140968896
   - cite: "H. Anzt, E. Chow, J. Dongarra, Euro-Par 2015, LNCS 9233, 650 (iterative triangular solves, measured and not used)"
@@ -53,6 +63,7 @@ validation:
   - fdfd3d/two-d-s-matrix
   - fdfd3d/qmr-direct
   - fdfd3d/qmr-symmetric-direct
+  - fdfd3d/ldlt-lu
   - fdfd3d/qmr-plateau
   - fdfd3d/qmr-iterations-curl-curl
   - fdfd3d/qmr-iterations-shin-fan
@@ -113,12 +124,16 @@ that large 3D problems need depend on. `Boundaries3d::real_stretch` adds real st
 $s = 1 + (a + i)\sigma$: still a PML, and with $a = 1$ the one QMR's preconditioner needs (see
 [Preconditioning QMR](#preconditioning-qmr) below).
 
-`Solver3d` factorizes the system once with faer's sparse LU. `Solver3d::solve` then gives the
-field for any current by back-substitution, with one step of iterative refinement. A field is
-returned only to a relative residual of 1e-12: where the factorization is less accurate than
-that (on GitHub's Windows runners faer's sparse LU of some of these matrices left 1e-2 to 1e-1,
-where it leaves 1e-14 elsewhere), QMR preconditioned by the factorization finishes the solve.
-`Solver3d::reuse` keeps the analysis of the matrix's sparsity for a sweep.
+`Solver3d` factorizes the system once, with photonoxide's own multifrontal factorization (see
+[Cost](#cost)). The curl-curl operator with PMLs is similar to a complex symmetric matrix,
+$B = S A S^{-1}$ (see [the iterative solver](#the-iterative-solver)), so it factorizes $B$ as
+$L D L^\mathsf{T}$, half the storage of an LU; a system without that similarity (a Bloch side's
+phases) is factorized as LU. `Solver3d::solve` then gives the field for any current by
+back-substitution, with one step of iterative refinement. A field is returned only to a relative
+residual of 1e-12: where the factorization is less accurate than that, QMR preconditioned by the
+factorization finishes the solve (on GitHub's Windows runners faer's sparse LU, which the solver
+used before 0.4.3, left 1e-2 to 1.6 on some of these matrices). `Solver3d::reuse` keeps the
+analysis of the matrix's sparsity for a sweep.
 
 ## The power flux
 
@@ -313,47 +328,55 @@ operator.
 
 ## Cost
 
-The sparse direct solver is exact, but in 3D its fill-in grows fast. Below is a silicon strip
-(0.5 × 0.22 µm) in oxide on a 40 nm grid, PMLs of 6 cells all round, one current, on an Intel
-Core Ultra 7 265K (20 threads, faer's default). The peak memory is the process's working set.
+The sparse direct solver is exact, but in 3D its fill-in grows fast. It is photonoxide's own
+(`crate::sparse`, since 0.4.3), a multifrontal factorization on the structure of A + Aᵀ:
 
-| Cells | Unknowns | Nonzeros | Analysis | Factorization | One source | Peak memory |
-|---|---|---|---|---|---|---|
-| 16³ | 12 288 | 134 k | 0.02 s | 0.42 s | 0.02 s | 0.36 GB |
-| 24³ | 41 472 | 479 k | 0.09 s | 3.5 s | 0.11 s | 2.6 GB |
-| 32³ | 98 304 | 1.17 M | 0.25 s | 19 s | 0.37 s | 10 GB |
-| 40³ | 192 000 | 2.33 M | 0.55 s | 66 s | 0.89 s | 28 GB |
+- **The order:** George's nested dissection (SIAM J. Numer. Anal. 10, 345 (1973),
+  doi:10.1137/0710032), each part of the grid numbered before the set that separates it from its
+  neighbours, recursively. The parts are cut at the median of their longest axis on Yee's grid,
+  and the separator is the smallest set of unknowns that touches every edge of the matrix's
+  graph across the cut: a minimum vertex cover of the edges between the two sides (König's
+  theorem, from a maximum bipartite matching), which took the factors from 1.3 times PARDISO's
+  entries (one side's boundary) to 0.9 times.
+- **The fronts** (I. S. Duff, J. K. Reid, ACM Trans. Math. Softw. 9, 302 (1983),
+  doi:10.1145/356044.356047): each supernode's dense front sums the matrix's entries and its
+  children's Schur complements, eliminates its columns with faer's dense kernels, and passes
+  its own Schur complement up. The supernodes and their rows are faer's symbolic supernodal
+  Cholesky of A + Aᵀ in our order; independent subtrees (J. W. H. Liu, SIAM J. Matrix Anal.
+  Appl. 11, 134 (1990), doi:10.1137/0611010) are factorized on separate threads, the same bits on
+  any number of them.
+- **Static pivoting** (X. S. Li, J. W. Demmel, ACM Trans. Math. Softw. 29, 110 (2003),
+  doi:10.1145/779359.779361): large entries are permuted onto the diagonal and the matrix
+  scaled first (I. S. Duff, J. Koster, SIAM J. Matrix Anal. Appl. 22, 973 (2001),
+  doi:10.1137/S0895479899358443, MC64's option 5), the pivots are then taken inside each
+  supernode's own block, a pivot below √ε ‖A‖₁ would be set to that, and the solve is refined.
+  On these matrices the matching keeps the diagonal where it is and no pivot is perturbed.
+- **L D Lᵀ:** the curl-curl operator's complex symmetric similarity B = S A S⁻¹ is factorized
+  without its upper half, the scaling made symmetric; its Schur complements' lower halves by
+  faer's triangular products. Half the entries of the LU, and 1.6 to 1.8 times faster on one
+  thread.
 
-Time grows about as unknowns^1.9 and memory as unknowns^1.6. The 40³ grid is a cube 1.6 µm on a
-side, so a device-sized problem is out of reach of a direct solver on one machine. Averaging the
-permittivity (512 samples per component) costs 0.9 s at 40³, and assembly 0.07 s.
+Below is a silicon strip (0.5 × 0.22 µm) in oxide on a 40 nm grid, PMLs of 6 cells all round,
+the systems `photonoxide bench --export` writes, by L D Lᵀ, on an Intel Core Ultra 7 265K
+(under WSL 2, each in a process of its own). The peak memory is the process's peak resident set
+on 20 threads.
 
-**Nested dissection.** The table is faer's own ordering, COLAMD. The 3D solver now orders the
-columns itself: George's nested dissection (SIAM J. Numer. Anal. 10, 345 (1973),
-doi:10.1137/0710032), each part of the grid numbered before the set that separates it from its
-neighbours, recursively, passed to faer's supernodal LU as its column permutation. The parts are
-cut at the median of their longest axis on Yee's grid, and the separator is taken from the
-matrix's graph, two steps wide: faer pivots rows, so the factors' structure follows AᵀA's, whose
-graph joins two columns that share a row. One step, George's separator for a factorization
-without pivoting, separates A but not AᵀA, and made the factorization 4 to 16 times slower than
-COLAMD's. The same strip, each ordering in a process of its own, in one session:
+| Cells | Unknowns | Nonzeros | Analysis | Factorization, 1 thread | 20 threads | One solve | Factor entries | Peak memory |
+|---|---|---|---|---|---|---|---|---|
+| 24³ | 41 472 | 479 k | 0.08 s | 0.85 s | 0.27 s | 0.03 s | 11.0 M | 0.84 GB |
+| 32³ | 98 304 | 1.17 M | 0.27 s | 4.6 s | 1.01 s | 0.12 s | 37.9 M | 2.0 GB |
+| 40³ | 192 000 | 2.33 M | 0.58 s | 17.6 s | 3.2 s | 0.31 s | 97.4 M | 3.8 GB |
 
-| Cells | COLAMD | Nested dissection | Relative residual (COLAMD, ND) |
-|---|---|---|---|
-| 24³ | 3.2 s | 2.4 s | 1.2e-12, 3.0e-13 |
-| 32³ | 19.6 s, 10.5 GB | 10.1 s, 8.6 GB | 2.9e-12, 3.0e-11 |
-| 40³ | 62.1 s, 29.7 GB | 33.0 s, 22.8 GB | 2.3e-11, 2.0e-10 |
+Time grows about as unknowns^2 and the factors as unknowns^1.4. The 40³ grid is a cube 1.6 µm
+on a side, so a device-sized problem is still out of reach of a direct solver on one machine.
+Averaging the permittivity (512 samples per component) costs 0.9 s at 40³, and assembly 0.07 s.
 
-Twice as fast at 40³, with a quarter less memory, and the gain grows with the grid. Its factors
-leave a larger residual, which the solve's step of refinement, and QMR where it isn't enough,
-take to round-off. On the 2D solver's 440 × 340 grid COLAMD wins (0.84 s and 0.69 GB against
-1.26 s and 1.03 GB), so the 2D solver, the mode solvers and the circuits keep faer's ordering.
-(`nested_dissection_against_colamd` in src/fdfd/three/tests.rs measures it: `ND_CASES`,
-`ND_ONLY`.)
-
-PARDISO and MUMPS factorize the same strip 4.6 to 7 times faster on one thread, with 4.2 to 5.0
-times fewer entries: they keep their pivots inside the structure of A + Aᵀ, where faer reserves
-AᵀA's. See [the comparison with PARDISO and MUMPS](../baselines.md).
+Before 0.4.3 the solver was faer's supernodal LU, which pivots by rows anywhere in a column and
+so works in the structure of AᵀA's Cholesky factor (A. George, E. Ng, SIAM J. Sci. Stat. Comput.
+8, 877 (1987), doi:10.1137/0908072): 4.9 times PARDISO's entries at 40³, and 33 s and 22.8 GB
+there on 20 threads (Windows). The same matrices by PARDISO and MUMPS, and the dense kernels, are
+compared in [the comparison with PARDISO and MUMPS](../baselines.md): the multifrontal LU now
+needs fewer entries than either on the strips and is faster than both there on one thread.
 
 ## The iterative solver
 

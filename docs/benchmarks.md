@@ -2,54 +2,59 @@
 
 What `photonoxide bench` measured on one machine: the fixed problems of `photonoxide::bench` and the slowest examples, each in a process of its own. Times depend on the machine and on what else ran on it; the errors don't. Peak memory is the process's peak resident set (its peak working set on Windows); ns per unknown per iteration is the QMR phases' time over the unknowns and the iterations. Bandwidth is the iterating phases' bytes over their time, the bytes counted by the kernels themselves (each nonzero's value and index, each row pointer, each vector read or written once: src/traffic.rs), from memory or from cache; beside it, its share of the triad on the same threads, the roof (Williams et al., Commun. ACM 52(4), 65 (2009)). A problem whose vectors fit in the last-level cache can count above it: the 40³ guide's do. See the performance plan, docs/plans/performance.md.
 
-- photonoxide 0.4.1, Intel(R) Core(TM) Ultra 7 265K, 20 logical processors, Windows
-- memory bandwidth, the STREAM triad over three arrays of 128 MiB: 32.9 GB/s on 1 thread, 56.3 GB/s on 20 threads
+- photonoxide 0.4.2, Intel(R) Core(TM) Ultra 7 265K, 20 logical processors, Windows
+- memory bandwidth, the STREAM triad over three arrays of 128 MiB: 32.8 GB/s on 1 thread, 55.3 GB/s on 20 threads
 
 | Problem | Grid | Unknowns | Threads | Time | Iterations | ns/unknown/iteration | Bandwidth (of the triad) | Error | Peak memory |
 |---|---|---:|---:|---:|---:|---:|---:|---|---:|
-| `fdfd2d/slab-lu` | 440 × 340 cells of 10 nm, PMLs of 20 | 149 600 | 1 | 0.92 s | — | — | — | 2.6e-13 (S21 = exp(iβL), S11 = 0) | 690 MB |
-| `fdfd3d/guide-qmr` | 40 × 40 × 40 cells of 10 nm, PMLs of 10 | 192 000 | 1 | 13.39 s | 2 077 | 30.3 | 19.4 GB/s (59%) | 1.5e-7 (QMR + ILU(0) to 1e-12, relative) | 320 MB |
-| `fdfd3d/guide-ilu` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 1 | 6.27 s | 195 | 126.0 | 15.3 GB/s (46%) | 1.2e-6 (GMRES + multigrid to 1e-12, relative) | 460 MB |
-| `fdfd3d/guide-multigrid` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 1 | 3.52 s | 16 | 288.5 | 12.7 GB/s (39%) | 1.6e-6 (GMRES + multigrid to 1e-12, relative) | 1.03 GB |
-| `fdfd3d/diel-multigrid` | 40 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 864 000 | 1 | 23.72 s | 46 | 303.6 | 13.9 GB/s (42%) | 1.8e-6 (GMRES + multigrid to 1e-12, relative) | 4.65 GB |
-| `fdfd3d/strip-ports-multigrid` | 72 × 102 × 82 cells of 20 nm, stretched PMLs of 16 | 1 806 624 | 1 | 55.66 s | 56 | 296.6 | 13.3 GB/s (40%) | 4.1e-9 (S21 = exp(iβL), S11 = 0) | 9.39 GB |
-| `job/strip-modes` | 121 × 111 cells of 20 nm, 11 points | 27 328 | 1 | 4.19 s | — | — | — | — | 138 MB |
-| `job/mmi-fdfd` | 725 × 300 cells of 20 nm, 11 points | 217 500 | 1 | 24.63 s | — | — | — | — | 1.42 GB |
-| `example/strip_waveguide` | examples/strip_waveguide.rs | — | 1 | 6.09 s | — | — | — | — | 1.45 GB |
-| `example/hadley_corners` | examples/hadley_corners.rs | — | 1 | 7.51 s | — | — | — | — | 235 MB |
-| `example/group_index` | examples/group_index.rs | — | 1 | 10.77 s | — | — | — | — | 258 MB |
-| `example/circuit_fit` | examples/circuit_fit.rs | — | 1 | 0.47 s | — | — | — | — | 11 MB |
-| `fdfd2d/slab-lu` | 440 × 340 cells of 10 nm, PMLs of 20 | 149 600 | 20 | 1.02 s | — | — | — | 2.6e-13 (S21 = exp(iβL), S11 = 0) | 692 MB |
-| `fdfd3d/guide-qmr` | 40 × 40 × 40 cells of 10 nm, PMLs of 10 | 192 000 | 20 | 4.07 s | 2 077 | 7.0 | 84.4 GB/s (150%) | 1.5e-7 (QMR + ILU(0) to 1e-12, relative) | 320 MB |
-| `fdfd3d/guide-ilu` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 20 | 4.82 s | 195 | 89.2 | 21.6 GB/s (38%) | 1.2e-6 (GMRES + multigrid to 1e-12, relative) | 460 MB |
-| `fdfd3d/guide-multigrid` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 20 | 2.52 s | 16 | 169.6 | 21.6 GB/s (38%) | 1.6e-6 (GMRES + multigrid to 1e-12, relative) | 1.07 GB |
-| `fdfd3d/diel-multigrid` | 40 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 864 000 | 20 | 12.63 s | 46 | 113.6 | 37.1 GB/s (66%) | 1.8e-6 (GMRES + multigrid to 1e-12, relative) | 4.67 GB |
-| `fdfd3d/strip-ports-multigrid` | 72 × 102 × 82 cells of 20 nm, stretched PMLs of 16 | 1 806 624 | 20 | 29.45 s | 56 | 114.6 | 34.3 GB/s (61%) | 4.1e-9 (S21 = exp(iβL), S11 = 0) | 9.51 GB |
-| `job/strip-modes` | 121 × 111 cells of 20 nm, 11 points | 27 328 | 20 | 1.27 s | — | — | — | — | 1.09 GB |
-| `job/mmi-fdfd` | 725 × 300 cells of 20 nm, 11 points | 217 500 | 20 | 9.28 s | — | — | — | — | 6.02 GB |
-| `example/strip_waveguide` | examples/strip_waveguide.rs | — | 20 | 5.70 s | — | — | — | — | 1.46 GB |
-| `example/hadley_corners` | examples/hadley_corners.rs | — | 20 | 2.48 s | — | — | — | — | 695 MB |
-| `example/group_index` | examples/group_index.rs | — | 20 | 3.01 s | — | — | — | — | 990 MB |
-| `example/circuit_fit` | examples/circuit_fit.rs | — | 20 | 0.43 s | — | — | — | — | 11 MB |
+| `fdfd2d/slab-lu` | 440 × 340 cells of 10 nm, PMLs of 20 | 149 600 | 1 | 0.81 s | — | — | — | 2.7e-13 (S21 = exp(iβL), S11 = 0) | 373 MB |
+| `fdfd3d/guide-direct` | 40 × 40 × 40 cells of 10 nm, PMLs of 10 | 192 000 | 1 | 19.68 s | — | — | — | 2.2e-14 (its relative residual) | 2.92 GB |
+| `fdfd3d/guide-qmr` | 40 × 40 × 40 cells of 10 nm, PMLs of 10 | 192 000 | 1 | 13.24 s | 2 077 | 29.9 | 19.7 GB/s (60%) | 1.5e-7 (QMR + ILU(0) to 1e-12, relative) | 320 MB |
+| `fdfd3d/guide-ilu` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 1 | 6.54 s | 195 | 134.4 | 14.3 GB/s (44%) | 1.2e-6 (GMRES + multigrid to 1e-12, relative) | 460 MB |
+| `fdfd3d/guide-multigrid` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 1 | 3.50 s | 16 | 284.6 | 12.9 GB/s (39%) | 1.6e-6 (GMRES + multigrid to 1e-12, relative) | 1.02 GB |
+| `fdfd3d/diel-multigrid` | 40 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 864 000 | 1 | 23.35 s | 46 | 293.4 | 14.4 GB/s (44%) | 1.8e-6 (GMRES + multigrid to 1e-12, relative) | 4.65 GB |
+| `fdfd3d/strip-ports-multigrid` | 72 × 102 × 82 cells of 20 nm, stretched PMLs of 16 | 1 806 624 | 1 | 55.06 s | 56 | 289.6 | 13.6 GB/s (41%) | 4.1e-9 (S21 = exp(iβL), S11 = 0) | 9.39 GB |
+| `job/strip-modes` | 121 × 111 cells of 20 nm, 11 points | 27 328 | 1 | 4.19 s | — | — | — | — | 137 MB |
+| `job/mmi-fdfd` | 725 × 300 cells of 20 nm, 11 points | 217 500 | 1 | 22.56 s | — | — | — | — | 831 MB |
+| `example/strip_waveguide` | examples/strip_waveguide.rs | — | 1 | 6.21 s | — | — | — | — | 1.45 GB |
+| `example/hadley_corners` | examples/hadley_corners.rs | — | 1 | 7.44 s | — | — | — | — | 235 MB |
+| `example/group_index` | examples/group_index.rs | — | 1 | 10.81 s | — | — | — | — | 258 MB |
+| `example/circuit_fit` | examples/circuit_fit.rs | — | 1 | 0.48 s | — | — | — | — | 11 MB |
+| `fdfd2d/slab-lu` | 440 × 340 cells of 10 nm, PMLs of 20 | 149 600 | 20 | 0.62 s | — | — | — | 2.7e-13 (S21 = exp(iβL), S11 = 0) | 423 MB |
+| `fdfd3d/guide-direct` | 40 × 40 × 40 cells of 10 nm, PMLs of 10 | 192 000 | 20 | 5.27 s | — | — | — | 2.2e-14 (its relative residual) | 3.46 GB |
+| `fdfd3d/guide-qmr` | 40 × 40 × 40 cells of 10 nm, PMLs of 10 | 192 000 | 20 | 3.99 s | 2 077 | 6.8 | 86.3 GB/s (156%) | 1.5e-7 (QMR + ILU(0) to 1e-12, relative) | 320 MB |
+| `fdfd3d/guide-ilu` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 20 | 4.67 s | 195 | 86.0 | 22.4 GB/s (40%) | 1.2e-6 (GMRES + multigrid to 1e-12, relative) | 460 MB |
+| `fdfd3d/guide-multigrid` | 40 × 40 × 40 cells of 10 nm, stretched PMLs of 10 | 192 000 | 20 | 2.48 s | 16 | 155.2 | 23.6 GB/s (43%) | 1.6e-6 (GMRES + multigrid to 1e-12, relative) | 1.06 GB |
+| `fdfd3d/diel-multigrid` | 40 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 864 000 | 20 | 12.39 s | 46 | 110.5 | 38.1 GB/s (69%) | 1.8e-6 (GMRES + multigrid to 1e-12, relative) | 4.67 GB |
+| `fdfd3d/strip-ports-multigrid` | 72 × 102 × 82 cells of 20 nm, stretched PMLs of 16 | 1 806 624 | 20 | 29.41 s | 56 | 114.9 | 34.3 GB/s (62%) | 4.1e-9 (S21 = exp(iβL), S11 = 0) | 9.46 GB |
+| `job/strip-modes` | 121 × 111 cells of 20 nm, 11 points | 27 328 | 20 | 1.15 s | — | — | — | — | 1.11 GB |
+| `job/mmi-fdfd` | 725 × 300 cells of 20 nm, 11 points | 217 500 | 20 | 8.47 s | — | — | — | — | 4.01 GB |
+| `example/strip_waveguide` | examples/strip_waveguide.rs | — | 20 | 5.60 s | — | — | — | — | 1.46 GB |
+| `example/hadley_corners` | examples/hadley_corners.rs | — | 20 | 2.46 s | — | — | — | — | 764 MB |
+| `example/group_index` | examples/group_index.rs | — | 20 | 3.03 s | — | — | — | — | 999 MB |
+| `example/circuit_fit` | examples/circuit_fit.rs | — | 20 | 0.44 s | — | — | — | — | 11 MB |
 
 ## Phases
 
-- `fdfd2d/slab-lu` on 1 thread: assembly and LU 0.78 s; port modes 0.00 s; S-matrix, 2 runs 0.14 s
-- `fdfd3d/guide-qmr` on 1 thread: assembly 1.29 s; QMR to 1e-6 12.10 s (2 077 iterations)
-- `fdfd3d/guide-ilu` on 1 thread: assembly and ILU(0) 1.55 s; QMR to 1e-8 4.72 s (195 iterations)
-- `fdfd3d/guide-multigrid` on 1 thread: assembly and multigrid 2.63 s; GMRES to 1e-8 0.89 s (16 iterations)
-- `fdfd3d/diel-multigrid` on 1 thread: assembly and multigrid 11.65 s; GMRES to 1e-8 12.07 s (46 iterations)
-- `fdfd3d/strip-ports-multigrid` on 1 thread: assembly and multigrid 24.99 s; port modes 0.66 s; S-matrix, 2 runs of GMRES to 1e-8 30.01 s (56 iterations)
-- `fdfd2d/slab-lu` on 20 threads: assembly and LU 0.86 s; port modes 0.00 s; S-matrix, 2 runs 0.16 s
-- `fdfd3d/guide-qmr` on 20 threads: assembly 1.30 s; QMR to 1e-6 2.77 s (2 077 iterations)
-- `fdfd3d/guide-ilu` on 20 threads: assembly and ILU(0) 1.48 s; QMR to 1e-8 3.34 s (195 iterations)
-- `fdfd3d/guide-multigrid` on 20 threads: assembly and multigrid 2.00 s; GMRES to 1e-8 0.52 s (16 iterations)
-- `fdfd3d/diel-multigrid` on 20 threads: assembly and multigrid 8.12 s; GMRES to 1e-8 4.51 s (46 iterations)
-- `fdfd3d/strip-ports-multigrid` on 20 threads: assembly and multigrid 16.93 s; port modes 0.93 s; S-matrix, 2 runs of GMRES to 1e-8 11.60 s (56 iterations)
+- `fdfd2d/slab-lu` on 1 thread: assembly and factorization 0.64 s; port modes 0.00 s; S-matrix, 2 runs 0.16 s
+- `fdfd3d/guide-direct` on 1 thread: assembly, analysis and L D Lᵀ 19.08 s; one solve, refined 0.60 s
+- `fdfd3d/guide-qmr` on 1 thread: assembly 1.33 s; QMR to 1e-6 11.91 s (2 077 iterations)
+- `fdfd3d/guide-ilu` on 1 thread: assembly and ILU(0) 1.51 s; QMR to 1e-8 5.03 s (195 iterations)
+- `fdfd3d/guide-multigrid` on 1 thread: assembly and multigrid 2.63 s; GMRES to 1e-8 0.87 s (16 iterations)
+- `fdfd3d/diel-multigrid` on 1 thread: assembly and multigrid 11.69 s; GMRES to 1e-8 11.66 s (46 iterations)
+- `fdfd3d/strip-ports-multigrid` on 1 thread: assembly and multigrid 25.10 s; port modes 0.65 s; S-matrix, 2 runs of GMRES to 1e-8 29.30 s (56 iterations)
+- `fdfd2d/slab-lu` on 20 threads: assembly and factorization 0.47 s; port modes 0.00 s; S-matrix, 2 runs 0.16 s
+- `fdfd3d/guide-direct` on 20 threads: assembly, analysis and L D Lᵀ 4.66 s; one solve, refined 0.61 s
+- `fdfd3d/guide-qmr` on 20 threads: assembly 1.28 s; QMR to 1e-6 2.71 s (2 077 iterations)
+- `fdfd3d/guide-ilu` on 20 threads: assembly and ILU(0) 1.45 s; QMR to 1e-8 3.22 s (195 iterations)
+- `fdfd3d/guide-multigrid` on 20 threads: assembly and multigrid 2.00 s; GMRES to 1e-8 0.48 s (16 iterations)
+- `fdfd3d/diel-multigrid` on 20 threads: assembly and multigrid 8.00 s; GMRES to 1e-8 4.39 s (46 iterations)
+- `fdfd3d/strip-ports-multigrid` on 20 threads: assembly and multigrid 16.95 s; port modes 0.83 s; S-matrix, 2 runs of GMRES to 1e-8 11.63 s (56 iterations)
 
 ## Problems
 
-- `fdfd2d/slab-lu`: 2D FDFD by sparse LU: a straight 220 nm silicon slab in oxide, E along z, its two ports' S-matrix
+- `fdfd2d/slab-lu`: 2D FDFD by the sparse direct solver: a straight 220 nm silicon slab in oxide, E along z, its two ports' S-matrix
+- `fdfd3d/guide-direct`: 3D FDFD by the direct solver (L D Lᵀ of the curl-curl operator's symmetric similarity), plain PMLs: a 100 nm silicon guide through a 40³ grid, a dipole beside it
 - `fdfd3d/guide-qmr`: 3D FDFD by QMR on the curl-curl operator, plain PMLs: a 100 nm silicon guide through a 40³ grid, a dipole beside it, to a residual of 1e-6
 - `fdfd3d/guide-ilu`: 3D FDFD by QMR + ILU(0) on Shin and Fan's operator, stretched PMLs: the same guide, to a residual of 1e-8
 - `fdfd3d/guide-multigrid`: 3D FDFD by GMRES + multigrid on Shin and Fan's operator, stretched PMLs: the same guide, to a residual of 1e-8

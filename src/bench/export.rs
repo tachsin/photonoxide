@@ -225,10 +225,9 @@ pub fn solve(system: &System) -> Result<Vec<c64>> {
 /// How photonoxide's own sparse LU did on a system, factorized as its solvers factorize it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Factorized {
-    /// The column ordering: `"COLAMD"` (faer's own, the 2D solver's) or `"nested dissection"`
-    /// (the 3D direct solver's).
+    /// The column ordering: `"nested dissection"`, on the grid, as the 2D and 3D solvers order.
     pub ordering: &'static str,
-    /// The ordering and the symbolic analysis, seconds.
+    /// The matching, the ordering and the symbolic analysis, seconds.
     pub analysis_seconds: f64,
     /// The numeric factorization, seconds.
     pub factorization_seconds: f64,
@@ -236,23 +235,24 @@ pub struct Factorized {
     pub solve_seconds: f64,
     /// ‖b − A x‖ / ‖b‖ for that solve, unrefined.
     pub residual: f64,
-    /// The entries of L and U in the structure the factorization works in (AᵀA's Cholesky
-    /// factor in the column order, for L and for U): the fill to set against PARDISO's and MUMPS's
+    /// The factors' entries, each front's diagonal block and its panels: L and U, or for a
+    /// complex symmetric system L alone (with D). The fill to set against PARDISO's and MUMPS's
     /// counts of their factors' entries.
     pub factor_entries: usize,
 }
 
-/// Factorizes `system` as photonoxide's solvers do (faer's supernodal LU, ordered by COLAMD for
-/// the 2D slab and by nested dissection for the 3D strips), solves once, and times each step: the
-/// baseline that PARDISO and MUMPS are compared with on the same matrix.
+/// Factorizes `system` as photonoxide's solvers do (the multifrontal factorization with static
+/// pivoting, ordered by nested dissection on the grid: L D Lᵀ if the system is complex
+/// symmetric, as [`symmetric`]'s form is, LU otherwise), solves once, and times each step: what
+/// PARDISO and MUMPS are compared with on the same matrix.
 ///
 /// # Errors
 ///
 /// The analysis' and the factorization's.
 pub fn factorize(system: &System) -> Result<Factorized> {
+    use std::sync::Arc;
     use std::time::Instant;
     let n = system.n;
-    let failed = |e: String| Error::invalid("bench export", e);
     let matrix = faer::sparse::SparseColMat::<usize, c64>::try_new_from_triplets(
         n,
         n,
@@ -262,7 +262,7 @@ pub fn factorize(system: &System) -> Result<Factorized> {
             .map(|&(r, c, v)| faer::sparse::Triplet::new(r, c, v))
             .collect::<Vec<_>>(),
     )
-    .map_err(|e| failed(format!("{e:?}")))?;
+    .map_err(|e| Error::invalid("bench export", format!("{e:?}")))?;
     let residual = |x: &[c64]| {
         let mut r = system.rhs.clone();
         for &(i, j, v) in &system.entries {
@@ -271,12 +271,38 @@ pub fn factorize(system: &System) -> Result<Factorized> {
         let norm = |v: &[c64]| v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
         norm(&r) / norm(&system.rhs)
     };
-    let par = faer::get_global_parallelism();
+    let t = Instant::now();
+    let positions = positions(system);
+    let analysis = Arc::new(
+        match crate::sparse::Analysis::new_symmetric(matrix.as_ref(), positions.as_deref())? {
+            Some(symmetric) => symmetric,
+            None => crate::sparse::Analysis::new(matrix.as_ref(), positions.as_deref())?,
+        },
+    );
+    let analysis_seconds = t.elapsed().as_secs_f64();
+    let t = Instant::now();
+    let lu = crate::sparse::Multifrontal::new(analysis.clone(), matrix.as_ref())?;
+    let factorization_seconds = t.elapsed().as_secs_f64();
+    let t = Instant::now();
+    let x = lu.solve(&system.rhs);
+    let solve_seconds = t.elapsed().as_secs_f64();
+    Ok(Factorized {
+        ordering: "nested dissection",
+        analysis_seconds,
+        factorization_seconds,
+        solve_seconds,
+        residual: residual(&x),
+        factor_entries: analysis.factor_entries(),
+    })
+}
+
+/// Each unknown's place on its grid, for nested dissection: Yee's edges for a strip, the cells'
+/// centres (by index) for the slab.
+pub(crate) fn positions(system: &System) -> Option<Vec<[f64; 3]>> {
     if let Some(cells) = system.id.strip_prefix("strip-") {
-        let cells: usize = cells.parse().unwrap_or(24);
-        let (grid, _) = strip_grid(cells)?;
-        let t = Instant::now();
-        let mut positions = vec![[0.0; 3]; n];
+        let cells: usize = cells.parse().ok()?;
+        let (grid, _) = strip_grid(cells).ok()?;
+        let mut positions = vec![[0.0; 3]; system.n];
         for component in [
             crate::fdfd::Axis::X,
             crate::fdfd::Axis::Y,
@@ -291,63 +317,13 @@ pub fn factorize(system: &System) -> Result<Factorized> {
                 }
             }
         }
-        let pairs: Vec<(usize, usize)> = system.entries.iter().map(|&(r, c, _)| (r, c)).collect();
-        let (starts, neighbours) = crate::sparse::adjacency(n, &pairs);
-        let order = crate::sparse::nested_dissection(&starts, &neighbours, &positions);
-        let symbolic = crate::sparse::OrderedSymbolic::new(matrix.as_ref(), &order)?;
-        let analysis_seconds = t.elapsed().as_secs_f64();
-        let factor_entries = symbolic.factor_entries();
-        let t = Instant::now();
-        let lu = crate::sparse::OrderedLu::new(matrix.as_ref(), symbolic, par)?;
-        let factorization_seconds = t.elapsed().as_secs_f64();
-        let t = Instant::now();
-        let x = lu.solve(&system.rhs);
-        let solve_seconds = t.elapsed().as_secs_f64();
-        return Ok(Factorized {
-            ordering: "nested dissection",
-            analysis_seconds,
-            factorization_seconds,
-            solve_seconds,
-            residual: residual(&x),
-            factor_entries,
-        });
+        return Some(positions);
     }
-    use faer::linalg::solvers::Solve;
-    use faer::sparse::linalg::solvers::{Lu, SymbolicLu};
-    let t = Instant::now();
-    let symbolic = SymbolicLu::try_new(matrix.symbolic()).map_err(|e| failed(format!("{e:?}")))?;
-    let analysis_seconds = t.elapsed().as_secs_f64();
-    let t = Instant::now();
-    let lu = Lu::try_new_with_symbolic(symbolic, matrix.as_ref())
-        .map_err(|e| failed(format!("{e:?}")))?;
-    let factorization_seconds = t.elapsed().as_secs_f64();
-    let t = Instant::now();
-    let x = lu.solve(faer::Mat::<c64>::from_fn(n, 1, |r, _| system.rhs[r]));
-    let solve_seconds = t.elapsed().as_secs_f64();
-    let x: Vec<c64> = (0..n).map(|r| x[(r, 0)]).collect();
-    // the same count in COLAMD's order, which faer keeps to itself: the order again, as faer
-    // computes it, and an analysis of our own (neither timed)
-    let mut order = vec![0usize; n];
-    let mut inverse = vec![0usize; n];
-    faer::sparse::linalg::colamd::order(
-        &mut order,
-        &mut inverse,
-        matrix.symbolic(),
-        Default::default(),
-        faer::dyn_stack::MemStack::new(&mut faer::dyn_stack::MemBuffer::new(
-            faer::sparse::linalg::colamd::order_scratch::<usize>(n, n, system.entries.len()),
-        )),
-    )
-    .map_err(|e| failed(format!("{e:?}")))?;
-    let counted = crate::sparse::OrderedSymbolic::new(matrix.as_ref(), &order)?;
-    let factor_entries = counted.factor_entries();
-    Ok(Factorized {
-        ordering: "COLAMD",
-        analysis_seconds,
-        factorization_seconds,
-        solve_seconds,
-        residual: residual(&x),
-        factor_entries,
+    // the slab: row-major cells, 440 a row
+    (system.id == "slab-2d").then(|| {
+        (0..system.n)
+            .map(|k| [(k % 440) as f64, (k / 440) as f64, 0.0])
+            .collect()
     })
 }
 
@@ -541,10 +517,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(
-        windows,
-        ignore = "faer's LU on GitHub's Windows runners leaves this strip a residual of 1.6 (#154)"
-    )]
     fn the_exported_solution_solves_the_system() {
         let exported = system("strip-24").unwrap();
         let x = solve(&exported).unwrap();
@@ -564,19 +536,16 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(
-        windows,
-        ignore = "faer's LU on GitHub's Windows runners leaves these systems residuals far from round-off (#154)"
-    )]
     fn photonoxides_factorization_is_timed_with_its_own_ordering() {
-        // the residual is the raw factors': at round-off here, but not on every machine (GitHub's
-        // Windows runners leave 1e-2 to 1.6 on such matrices, #82 and #154)
+        // the residual is the raw factors', unrefined: static pivoting on the matched and scaled
+        // matrix leaves round-off
         let strip = factorize(&system("strip-24").unwrap()).unwrap();
         assert_eq!(strip.ordering, "nested dissection");
-        assert!(strip.factorization_seconds > 0.0 && strip.residual.is_finite());
+        assert!(strip.factorization_seconds > 0.0);
+        assert!(strip.residual < 1e-11, "{}", strip.residual);
         let slab = factorize(&system("slab-2d").unwrap()).unwrap();
-        assert_eq!(slab.ordering, "COLAMD");
-        assert!(slab.residual < 1e-10, "{}", slab.residual);
+        assert_eq!(slab.ordering, "nested dissection");
+        assert!(slab.residual < 1e-11, "{}", slab.residual);
         // the fill: more than the matrix, less than dense
         for (f, s) in [(&strip, 3 * 24 * 24 * 24), (&slab, 149_600)] {
             assert!(
@@ -584,5 +553,13 @@ mod tests {
                 "{s}"
             );
         }
+        // the strip's complex symmetric form, by L D Lᵀ: half the entries
+        let a = system("strip-24").unwrap();
+        let zero = vec![c64::new(0.0, 0.0); a.n];
+        let (b, _) = symmetric(&a, &zero).unwrap();
+        let half = factorize(&b).unwrap();
+        assert!(half.residual < 1e-11, "{}", half.residual);
+        let ratio = half.factor_entries as f64 / strip.factor_entries as f64;
+        assert!((0.45..0.55).contains(&ratio), "{ratio}");
     }
 }

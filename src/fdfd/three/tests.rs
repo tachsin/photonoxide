@@ -454,12 +454,15 @@ fn the_transformed_system_has_the_same_solution() {
     b[grid.index(Axis::Y, (5, 6, 4))] = c64::new(0.0, -1.0);
     b[grid.index(Axis::Z, (2, 7, 5))] = c64::new(0.3, 0.2);
     let solve = |s: f64| -> Vec<c64> {
-        use faer::linalg::solvers::Solve;
+        use crate::sparse::{Analysis, Multifrontal};
         let entries = lattice.assemble_with(&eps, s);
-        let (lu, _) = crate::fdfd::factorize(&entries, grid.unknowns(), None).unwrap();
-        let rhs = lattice.transformed_rhs(&eps, &b, s);
-        let x = lu.solve(&faer::Mat::<c64>::from_fn(rhs.len(), 1, |r, _| rhs[r]));
-        (0..rhs.len()).map(|r| x[(r, 0)]).collect()
+        let n = grid.unknowns();
+        let matrix =
+            faer::sparse::SparseColMat::<usize, c64>::try_new_from_triplets(n, n, &entries)
+                .unwrap();
+        let analysis = std::sync::Arc::new(Analysis::new(matrix.as_ref(), None).unwrap());
+        let lu = Multifrontal::new(analysis, matrix.as_ref()).unwrap();
+        lu.solve(&lattice.transformed_rhs(&eps, &b, s))
     };
     let plain = solve(0.0);
     let largest = plain.iter().map(|v| v.norm()).fold(0.0, f64::max);
@@ -781,7 +784,7 @@ fn a_poor_factorization_still_gives_the_field_to_round_off() {
             faer::sparse::Triplet::new(t.row, t.col, t.val * scale)
         })
         .collect();
-    solver.lu = super::factorize_ordered(&grid, &off, Some(solver.lu.symbolic().clone())).unwrap();
+    solver.lu = super::factorize(&grid, &off, Some(solver.lu.analysis().clone())).unwrap();
     let field = solver.solve(&current).unwrap();
     let rhs: Vec<c64> = current
         .iter()
@@ -1182,138 +1185,8 @@ fn gmres_with_the_multigrid_gives_the_direct_solvers_field() {
 }
 
 #[test]
-#[ignore = "nested dissection against COLAMD, for the docs: ND_CASES=2d,3d24,3d32 cargo test --release fdfd::three::tests::nested_dissection_against_colamd -- --ignored --nocapture"]
-fn nested_dissection_against_colamd() {
-    use crate::sparse::{OrderedLu, OrderedSymbolic, adjacency, nested_dissection};
-    use faer::sparse::SparseColMat;
-    use faer::sparse::linalg::solvers::{Lu, SymbolicLu};
-    use std::time::Instant;
-    let cases = std::env::var("ND_CASES").unwrap_or_else(|_| "2d,3d24".into());
-    let lam = Wavelength::um(1.55).unwrap();
-    // the matrix, as triplets, and each unknown's place on its grid
-    type Problem = (
-        usize,
-        Vec<faer::sparse::Triplet<usize, usize, c64>>,
-        Vec<[f64; 3]>,
-    );
-    for case in cases.split(',') {
-        let (n, triplets, positions): Problem = if case == "2d" {
-            // the benchmark's slab: 440 x 340 cells of 10 nm, PMLs of 20, E along z
-            use crate::fdfd::{Boundaries, Grid, Polarization};
-            let (h, pml) = (0.01, 20);
-            let g = Grid {
-                nx: 400 + 2 * pml,
-                ny: 300 + 2 * pml,
-                dx: h,
-                dy: h,
-                x0: -(pml as f64) * h,
-                y0: -1.5 - pml as f64 * h,
-            };
-            let eps_z: Vec<c64> = (0..g.nx * g.ny)
-                .map(|k| {
-                    let y = g.y0 + ((k / g.nx) as f64 + 0.5) * h;
-                    c64::new(if y.abs() < 0.11 { 12.08 } else { 2.085 }, 0.0)
-                })
-                .collect();
-            let faces = vec![c64::new(1.0, 0.0); (g.nx + 1) * (g.ny + 1)];
-            let k0 = std::f64::consts::TAU / 1.55;
-            let t = crate::fdfd::assemble(
-                g,
-                Polarization::Ez,
-                k0,
-                &eps_z,
-                &faces,
-                &faces,
-                &Boundaries::pml(pml),
-            );
-            let positions = (0..g.nx * g.ny)
-                .map(|k| [(k % g.nx) as f64, (k / g.nx) as f64, 0.0])
-                .collect();
-            (g.nx * g.ny, t, positions)
-        } else {
-            // the 3D timing test's strip: n^3 cells of 40 nm, PMLs of 6
-            let cells: usize = case.trim_start_matches("3d").parse().unwrap();
-            let h = 0.04;
-            let half = cells as f64 * h / 2.0;
-            let grid = Grid3d {
-                nx: cells,
-                ny: cells,
-                nz: cells,
-                dx: h,
-                dy: h,
-                dz: h,
-                x0: -half,
-                y0: -half,
-                z0: -half,
-            };
-            let strip = |_: f64, y: f64, z: f64| {
-                let m: f64 = if y.abs() < 0.25 && z.abs() < 0.11 {
-                    3.476
-                } else {
-                    1.444
-                };
-                c64::new(m * m, 0.0)
-            };
-            let (lattice, eps) = Solver3d::setup(grid, lam, strip, Boundaries3d::pml(6)).unwrap();
-            let t = lattice.assemble(&eps);
-            let mut positions = vec![[0.0; 3]; grid.unknowns()];
-            for component in [Axis::X, Axis::Y, Axis::Z] {
-                for k in 0..cells {
-                    for j in 0..cells {
-                        for i in 0..cells {
-                            positions[grid.index(component, (i, j, k))] =
-                                grid.e_position(component, (i, j, k));
-                        }
-                    }
-                }
-            }
-            (grid.unknowns(), t, positions)
-        };
-        let matrix = SparseColMat::<usize, c64>::try_new_from_triplets(n, n, &triplets).unwrap();
-        let b = faer::Mat::<c64>::from_fn(n, 1, |i, _| c64::new(((i * 7919) % 13) as f64, 1.0));
-        let residual = |x: &faer::Mat<c64>| (&matrix * x - &b).norm_max() / b.norm_max();
-        println!("ND {case}: {n} unknowns, {} nonzeros", matrix.compute_nnz());
-        // ND_ONLY=colamd or nd runs one, for its peak memory alone
-        let only = std::env::var("ND_ONLY").unwrap_or_default();
-        // faer's own path: COLAMD
-        if only != "nd" {
-            let t = Instant::now();
-            let symbolic = SymbolicLu::try_new(matrix.symbolic()).unwrap();
-            let t_analysis = t.elapsed();
-            let t = Instant::now();
-            let lu = Lu::try_new_with_symbolic(symbolic, matrix.as_ref()).unwrap();
-            let t_factor = t.elapsed();
-            let x = faer::linalg::solvers::Solve::solve(&lu, &b);
-            println!(
-                "ND {case}: COLAMD: analysis {t_analysis:?}, factorization {t_factor:?}, residual {:.1e}",
-                residual(&x)
-            );
-        }
-        if only == "colamd" {
-            continue;
-        }
-        // nested dissection
-        let t = Instant::now();
-        let pairs: Vec<(usize, usize)> = triplets.iter().map(|e| (e.row, e.col)).collect();
-        let (starts, neighbours) = adjacency(n, &pairs);
-        let order = nested_dissection(&starts, &neighbours, &positions);
-        let t_order = t.elapsed();
-        let t = Instant::now();
-        let symbolic = OrderedSymbolic::new(matrix.as_ref(), &order).unwrap();
-        let lu = OrderedLu::new(matrix.as_ref(), symbolic, faer::get_global_parallelism()).unwrap();
-        let t_factor = t.elapsed();
-        let x = lu.solve(b.col(0).try_as_col_major().unwrap().as_slice());
-        let x = faer::Mat::<c64>::from_fn(n, 1, |r, _| x[r]);
-        println!(
-            "ND {case}: nested dissection: ordering {t_order:?}, analysis and factorization {t_factor:?}, residual {:.1e}",
-            residual(&x)
-        );
-    }
-}
-
-#[test]
 fn nested_dissection_gives_colamds_solution() {
-    // the 3D solver's solve (its factors in nested-dissection order) against QMR preconditioned
+    // the 3D solver's solve (its multifrontal factors) against QMR preconditioned
     // by faer's own factors (COLAMD), each to a relative residual of 1e-12, on a silicon strip
     // in oxide, 14 x 12 x 10 cells of 40 nm, PMLs of 3. Both are solved to round-off, not taken
     // from the factors alone: on GitHub's Windows runners faer's factors of the same matrix are
@@ -1367,7 +1240,11 @@ fn nested_dissection_gives_colamds_solution() {
     let applied = solver.apply(ordered.values());
     let r: Vec<c64> = rhs.iter().zip(&applied).map(|(b, a)| b - a).collect();
     assert!(norm(&r) < 1e-12 * norm(&rhs), "{}", norm(&r) / norm(&rhs));
-    let (colamd, _) = crate::fdfd::factorize(&solver.entries, n, None).unwrap();
+    let colamd =
+        faer::sparse::SparseColMat::<usize, c64>::try_new_from_triplets(n, n, &solver.entries)
+            .unwrap()
+            .sp_lu()
+            .unwrap();
     let matrix = Sparse::new(n, solver.entries.iter().map(|t| (t.row, t.col, t.val)));
     let stopping = Stopping {
         tolerance: 1e-12,
@@ -1713,4 +1590,11 @@ fn ilu_sweeps() {
             Err(e) => println!("SWEEP {case} {sweeps} sweeps: {e}"),
         }
     }
+}
+
+#[test]
+fn the_direct_solvers_l_d_lt_gives_the_lus_field() {
+    let (worst, symmetric) = super::checks::ldlt_against_lu();
+    assert!(symmetric, "the solver took L D Lᵀ, and with_lu LU");
+    assert!(worst < 1e-10, "{worst}");
 }

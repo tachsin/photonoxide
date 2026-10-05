@@ -20,7 +20,10 @@
 //! over its own cell of the dual grid, harmonically along the component and arithmetically
 //! across it, as in 2D.
 
-use crate::sparse::{OrderedLu, OrderedSymbolic, adjacency, nested_dissection};
+use std::sync::Arc;
+
+use super::direct::Direct;
+use crate::sparse::Analysis;
 use faer::sparse::Triplet;
 use num_complex::Complex64 as c64;
 
@@ -594,9 +597,10 @@ pub struct Solver3d {
     eps: Vec<c64>,
     /// The matrix's entries, for its products with fields.
     entries: Vec<Triplet<usize, usize, c64>>,
-    /// The factors, the columns in nested-dissection order; their analysis depends only on the
-    /// grid and the boundaries, and [`Solver3d::reuse`] reuses it.
-    lu: OrderedLu,
+    /// The factors ([`super::direct::Direct`]: L D Lᵀ of the complex symmetric similarity, or
+    /// LU); their analysis depends on the grid, the boundaries and, through its scaling, roughly
+    /// on the values, and [`Solver3d::reuse`] reuses it.
+    lu: Direct,
 }
 
 impl Solver3d {
@@ -633,7 +637,7 @@ impl Solver3d {
             wavelength,
             eps,
             self.lattice.boundaries,
-            Some(self.lu.symbolic().clone()),
+            Some(self.lu.analysis().clone()),
         )
     }
 
@@ -642,11 +646,11 @@ impl Solver3d {
         wavelength: Wavelength,
         eps: impl Fn(f64, f64, f64) -> c64,
         boundaries: Boundaries3d,
-        symbolic: Option<OrderedSymbolic>,
+        analysis: Option<Arc<Analysis>>,
     ) -> Result<Solver3d> {
         let (lattice, eps) = Self::setup(grid, wavelength, eps, boundaries)?;
         let entries = lattice.assemble(&eps);
-        let lu = factorize_ordered(&lattice.grid, &entries, symbolic)?;
+        let lu = factorize(&lattice.grid, &entries, analysis)?;
         Ok(Solver3d {
             lattice,
             eps,
@@ -757,10 +761,10 @@ impl Solver3d {
             .collect();
         let mut values = self.lu.solve(&rhs);
         // one step of iterative refinement, as in 2D, which leaves round-off where the
-        // factorization is accurate; where it isn't (on GitHub's Windows runners faer's sparse LU
-        // of the same matrix left relative residuals of 1e-2 to 1e-1 where it leaves 1e-14
-        // here, and refinement crawled or stalled), QMR preconditioned by the factorization
-        // finishes the solve
+        // factorization is accurate; where it isn't (static pivoting's perturbed pivots; before
+        // 0.4.3, faer's sparse LU on GitHub's Windows runners, which left 1e-2 to 1.6 where it
+        // leaves 1e-14 here, and refinement crawled or stalled), QMR preconditioned by the
+        // factorization finishes the solve
         let norm = |v: &[c64]| v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
         let scale = norm(&rhs);
         if scale == 0.0 {
@@ -862,6 +866,22 @@ impl Solver3d {
     /// [`Error::InvalidValue`] if a port's mode doesn't belong to this problem.
     pub fn s_matrix(&self, ports: &[Port3d]) -> Result<Vec<Vec<c64>>> {
         self.lattice.s_matrix(ports, |rhs| self.solve_system(rhs))
+    }
+
+    /// The same problem factorized by LU, where [`Solver3d::new`] takes L D Lᵀ of the complex
+    /// symmetric similarity: to check one against the other.
+    pub(crate) fn with_lu(&self) -> Result<Solver3d> {
+        Ok(Solver3d {
+            lattice: self.lattice.clone(),
+            eps: self.eps.clone(),
+            entries: self.entries.clone(),
+            lu: Direct::lu(&self.entries, &positions(&self.lattice.grid))?,
+        })
+    }
+
+    /// Whether the factors are L D Lᵀ of the complex symmetric similarity.
+    pub(crate) fn symmetric_factors(&self) -> bool {
+        self.lu.symmetric()
     }
 
     /// A v, the assembled matrix times `v`.
@@ -1018,7 +1038,7 @@ pub use ports::{Port3d, PortMode3d};
 const ACCURATE: f64 = 1e-12;
 
 /// A factorization as a preconditioner: (LU)⁻¹ and its transpose.
-struct LuInverse<'a>(&'a OrderedLu);
+struct LuInverse<'a>(&'a Direct);
 
 impl super::krylov::Preconditioner for LuInverse<'_> {
     fn solve(&self, v: &[c64]) -> Vec<c64> {
@@ -1030,39 +1050,30 @@ impl super::krylov::Preconditioner for LuInverse<'_> {
     }
 }
 
-/// The 3D system's factors, its columns eliminated in nested-dissection order on Yee's grid
-/// ([`crate::sparse`]): measured against faer's COLAMD on a silicon strip in oxide (cells of
-/// 40 nm, PMLs of 6), 32³ cells in 10.1 s and 8.6 GB against 19.6 s and 10.5 GB, 40³ in 33.0 s
-/// and 22.8 GB against 62.1 s and 29.7 GB (docs/methods/fdfd-3d.md, "Cost"). `symbolic`, if
-/// given, is the analysis of a matrix of the same structure.
-fn factorize_ordered(
+/// The 3D system's factors ([`super::direct::Direct`]): the multifrontal L D Lᵀ of its complex
+/// symmetric similarity, or its LU, with static pivoting, the columns in nested-dissection order
+/// on Yee's grid (docs/methods/fdfd-3d.md, "Cost"). `analysis`, if given, is that of a matrix
+/// of the same structure.
+fn factorize(
     grid: &Grid3d,
     triplets: &[Triplet<usize, usize, c64>],
-    symbolic: Option<OrderedSymbolic>,
-) -> Result<OrderedLu> {
-    let n = grid.unknowns();
-    let matrix = faer::sparse::SparseColMat::<usize, c64>::try_new_from_triplets(n, n, triplets)
-        .map_err(|e| Error::invalid("fdfd", format!("can't assemble the matrix: {e:?}")))?;
-    let symbolic = match symbolic {
-        Some(s) => s,
-        None => {
-            // each value of E at its place on the grid, and the matrix's graph
-            let mut positions = vec![[0.0; 3]; n];
-            for component in Axis::ALL {
-                for k in 0..grid.nz {
-                    for j in 0..grid.ny {
-                        for i in 0..grid.nx {
-                            positions[grid.index(component, (i, j, k))] =
-                                grid.e_position(component, (i, j, k));
-                        }
-                    }
+    analysis: Option<Arc<Analysis>>,
+) -> Result<Direct> {
+    Direct::new(triplets, &positions(grid), analysis)
+}
+
+/// Each value of E at its place on the grid, for nested dissection.
+fn positions(grid: &Grid3d) -> Vec<[f64; 3]> {
+    let mut positions = vec![[0.0; 3]; grid.unknowns()];
+    for component in Axis::ALL {
+        for k in 0..grid.nz {
+            for j in 0..grid.ny {
+                for i in 0..grid.nx {
+                    positions[grid.index(component, (i, j, k))] =
+                        grid.e_position(component, (i, j, k));
                 }
             }
-            let pairs: Vec<(usize, usize)> = triplets.iter().map(|t| (t.row, t.col)).collect();
-            let (starts, neighbours) = adjacency(n, &pairs);
-            let order = nested_dissection(&starts, &neighbours, &positions);
-            OrderedSymbolic::new(matrix.as_ref(), &order)?
         }
-    };
-    OrderedLu::new(matrix.as_ref(), symbolic, faer::get_global_parallelism())
+    }
+    positions
 }

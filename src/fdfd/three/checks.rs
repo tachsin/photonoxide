@@ -443,6 +443,54 @@ pub(crate) fn qmr_against_direct(formulation: super::Formulation) -> (f64, usize
     (worst / largest, how.iterations)
 }
 
+/// The strip of [`qmr_against_direct`] solved by the direct solver two ways: L D Lᵀ of the
+/// curl-curl operator's complex symmetric similarity (the solver's own choice) and LU of the
+/// operator itself, each refined to a relative residual of 1e-12: the largest difference between
+/// the two fields relative to the largest field, and whether the solver did choose L D Lᵀ.
+pub(crate) fn ldlt_against_lu() -> (f64, bool) {
+    let (n, h) = (16, 0.04);
+    let half = n as f64 * h / 2.0;
+    let grid = Grid3d {
+        nx: n,
+        ny: n,
+        nz: n,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: -half,
+        y0: -half,
+        z0: -half,
+    };
+    let strip = |_: f64, y: f64, z: f64| {
+        let m: f64 = if y.abs() < 0.25 && z.abs() < 0.11 {
+            3.476
+        } else {
+            1.444
+        };
+        c64::new(m * m, 0.0)
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let mut source = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    source[grid.index(Axis::Y, (n / 2, n / 2, n / 2))] = c64::new(1.0, 0.0);
+    let symmetric = Solver3d::new(grid, lam, strip, Boundaries3d::pml(6)).unwrap();
+    let lu = symmetric.with_lu().unwrap();
+    let (a, b) = (
+        symmetric.solve(&source).unwrap(),
+        lu.solve(&source).unwrap(),
+    );
+    let largest = a.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let worst = a
+        .values()
+        .iter()
+        .zip(b.values())
+        .map(|(x, y)| (x - y).norm())
+        .fold(0.0, f64::max);
+    (
+        worst / largest,
+        symmetric.symmetric_factors() && !lu.symmetric_factors(),
+    )
+}
+
 /// A silicon strip (0.5 × 0.22 µm) along x in oxide, 24 × 20 × 16 cells of 40 nm with PMLs of 6
 /// cells all round stretched as much as they absorb ([`Boundaries3d::stretched_pml`]), a current
 /// on one edge at the centre: QMR on Shin and Fan's operator to a relative residual of 1e-10,

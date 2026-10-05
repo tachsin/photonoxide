@@ -35,12 +35,15 @@
 //! grid, harmonically along the component and arithmetically across it, which is what a
 //! layered medium is for a field along or across its layers.
 
-use faer::sparse::linalg::solvers::{Lu, SymbolicLu};
-use faer::sparse::{SparseColMat, Triplet};
+use std::sync::Arc;
+
+use faer::sparse::Triplet;
 use num_complex::Complex64 as c64;
 
+use crate::sparse::Analysis;
 use crate::units::Wavelength;
 use crate::{Error, Result};
+use direct::Direct;
 
 /// The field along z, which fixes the polarization of a 2D problem.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -247,10 +250,10 @@ pub struct Solver2d {
     eps_x: Vec<c64>,
     /// The matrix's entries, for its products with sources.
     entries: Vec<Triplet<usize, usize, c64>>,
-    lu: Lu<usize, c64>,
-    /// The matrix's sparsity analysed (ordering and symbolic factorization), which depends only
-    /// on the grid and the boundaries: reused by [`Solver2d::reuse`].
-    symbolic: SymbolicLu<usize>,
+    /// The factors ([`direct::Direct`]: L D Lᵀ of the complex symmetric similarity, or LU);
+    /// their analysis (matching, ordering and symbolic factorization) depends on the grid, the
+    /// boundaries and roughly on the values, and [`Solver2d::reuse`] reuses it.
+    lu: Direct,
     /// Given cell by cell ([`Solver2d::from_cells`]), so a cell's permittivity is a parameter.
     cellwise: bool,
 }
@@ -288,7 +291,7 @@ impl Solver2d {
             wavelength,
             eps,
             self.boundaries,
-            Some(self.symbolic.clone()),
+            Some(self.lu.analysis().clone()),
         )
     }
 
@@ -298,7 +301,7 @@ impl Solver2d {
         wavelength: Wavelength,
         eps: impl Fn(f64, f64) -> c64,
         boundaries: Boundaries,
-        symbolic: Option<SymbolicLu<usize>>,
+        symbolic: Option<Arc<Analysis>>,
     ) -> Result<Solver2d> {
         check(grid, &boundaries)?;
         let k0 = 2.0 * std::f64::consts::PI / wavelength.to_um();
@@ -369,7 +372,7 @@ impl Solver2d {
             wavelength,
             eps,
             self.boundaries,
-            Some(self.symbolic.clone()),
+            Some(self.lu.analysis().clone()),
         )
     }
 
@@ -379,7 +382,7 @@ impl Solver2d {
         wavelength: Wavelength,
         eps: &[c64],
         boundaries: Boundaries,
-        symbolic: Option<SymbolicLu<usize>>,
+        symbolic: Option<Arc<Analysis>>,
     ) -> Result<Solver2d> {
         check(grid, &boundaries)?;
         let (nx, ny) = (grid.nx, grid.ny);
@@ -426,7 +429,7 @@ impl Solver2d {
         k0: f64,
         boundaries: Boundaries,
         (eps_z, eps_y, eps_x): (Vec<c64>, Vec<c64>, Vec<c64>),
-        (symbolic, cellwise): (Option<SymbolicLu<usize>>, bool),
+        (symbolic, cellwise): (Option<Arc<Analysis>>, bool),
     ) -> Result<Solver2d> {
         // a NaN would only surface as a field of NaNs, and with H along z the operator divides
         // by the faces' permittivity
@@ -448,7 +451,7 @@ impl Solver2d {
             ));
         }
         let entries = assemble(grid, polarization, k0, &eps_z, &eps_y, &eps_x, &boundaries);
-        let (lu, symbolic) = factorize(&entries, grid.nx * grid.ny, symbolic)?;
+        let lu = factorize(&entries, grid.nx, grid.ny, symbolic)?;
         Ok(Solver2d {
             grid,
             polarization,
@@ -459,7 +462,6 @@ impl Solver2d {
             eps_x,
             entries,
             lu,
-            symbolic,
             cellwise,
         })
     }
@@ -536,7 +538,6 @@ impl Solver2d {
     ///
     /// [`Error::InvalidValue`] if `rhs` isn't one value per cell, or isn't finite.
     pub fn solve_system(&self, rhs: &[c64]) -> Result<Field2d> {
-        use faer::linalg::solvers::Solve;
         let n = self.grid.nx * self.grid.ny;
         if rhs.len() != n {
             return Err(Error::invalid(
@@ -547,16 +548,13 @@ impl Solver2d {
         if !rhs.iter().all(|v| v.re.is_finite() && v.im.is_finite()) {
             return Err(Error::invalid("fdfd source", "every value must be finite"));
         }
-        let b = faer::Mat::<c64>::from_fn(n, 1, |r, _| rhs[r]);
-        let u = self.lu.solve(&b);
-        let mut values: Vec<c64> = (0..n).map(|r| u[(r, 0)]).collect();
+        let mut values = self.lu.solve(rhs);
         // one step of iterative refinement: the factorization's rounding, PMLs and strong
         // contrasts make it worth it
-        let residual = self.apply(&values);
-        let r = faer::Mat::<c64>::from_fn(n, 1, |k, _| rhs[k] - residual[k]);
-        let correction = self.lu.solve(&r);
-        for (k, v) in values.iter_mut().enumerate() {
-            *v += correction[(k, 0)];
+        let applied = self.apply(&values);
+        let r: Vec<c64> = rhs.iter().zip(&applied).map(|(b, a)| b - a).collect();
+        for (v, d) in values.iter_mut().zip(self.lu.solve(&r)) {
+            *v += d;
         }
         Ok(Field2d {
             grid: self.grid,
@@ -684,24 +682,19 @@ pub(crate) fn assemble(
     t
 }
 
-/// The matrix's LU factorization, and its symbolic part: `symbolic` if given (a matrix with the
-/// same sparsity), analysed afresh otherwise.
+/// The matrix's factors ([`direct::Direct`]: the multifrontal L D Lᵀ of its complex symmetric
+/// similarity, or its LU) in nested dissection order on the nx × ny grid: with `analysis` if
+/// given (a matrix with the same sparsity), analysed afresh otherwise.
 fn factorize(
     triplets: &[Triplet<usize, usize, c64>],
-    n: usize,
-    symbolic: Option<SymbolicLu<usize>>,
-) -> Result<(Lu<usize, c64>, SymbolicLu<usize>)> {
-    let numerical = |reason: String| Error::invalid("fdfd", reason);
-    let matrix = SparseColMat::<usize, c64>::try_new_from_triplets(n, n, triplets)
-        .map_err(|e| numerical(format!("can't assemble the matrix: {e:?}")))?;
-    let symbolic = match symbolic {
-        Some(s) => s,
-        None => SymbolicLu::try_new(matrix.symbolic())
-            .map_err(|e| numerical(format!("can't analyse the matrix: {e:?}")))?,
-    };
-    let lu = Lu::try_new_with_symbolic(symbolic.clone(), matrix.as_ref())
-        .map_err(|e| numerical(format!("can't factorize the matrix: {e:?}")))?;
-    Ok((lu, symbolic))
+    nx: usize,
+    ny: usize,
+    analysis: Option<Arc<Analysis>>,
+) -> Result<Direct> {
+    let positions: Vec<[f64; 3]> = (0..nx * ny)
+        .map(|k| [(k % nx) as f64, (k / nx) as f64, 0.0])
+        .collect();
+    Direct::new(triplets, &positions, analysis)
 }
 
 /// A 2D FDFD solution: the field along z at the cells' centres.
@@ -783,6 +776,7 @@ impl Field2d {
 
 mod adjoint;
 pub(crate) mod checks;
+mod direct;
 pub(crate) mod krylov;
 mod ports;
 #[cfg(test)]

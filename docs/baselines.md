@@ -1,18 +1,73 @@
 # Direct solvers: photonoxide against PARDISO and MUMPS
 
-photonoxide's sparse direct solves are faer's supernodal LU, ordered by COLAMD in 2D and by our
-nested dissection in 3D. This page compares them with the two direct solvers most used in
+This page compares photonoxide's sparse direct solves with the two direct solvers most used in
 practice, MKL's PARDISO (O. Schenk, K. Gärtner, Future Gener. Comput. Syst. 20, 475 (2004),
 doi:10.1016/j.future.2003.07.011) and MUMPS (P. R. Amestoy, I. S. Duff, J.-Y. L'Excellent,
 J. Koster, SIAM J. Matrix Anal. Appl. 23, 15 (2001), doi:10.1137/S0895479899358194; P. R.
 Amestoy, A. Buttari, J.-Y. L'Excellent, T. Mary, ACM Trans. Math. Softw. 45, 1 (2019),
-doi:10.1145/3242094). All three solve the same matrices, on the same machine. It then says where
-the difference comes from, and what pure-Rust work would close it.
+doi:10.1145/3242094). All three solve the same matrices, on the same machine.
+
+It was first made for 0.4.2, when photonoxide's solves were faer's supernodal LU, and said where
+the difference came from and what pure-Rust work would close it. 0.4.3 did that work: since then
+the solves are photonoxide's own multifrontal factorization with static pivoting, as LU or as
+L D Lᵀ of a complex symmetric similarity (see [FDFD in 3D](methods/fdfd-3d.md#cost)). The
+first section below is 0.4.3's comparison; the rest is 0.4.2's, as it was measured.
 
 PARDISO and MUMPS were run as external programs. Neither is linked, built or shipped with
 photonoxide (the performance plan's decision 4).
 
-## Summary
+## 0.4.3: the multifrontal factorization
+
+The same four systems, the same machine and the same runs of PARDISO and MUMPS as the 0.4.2
+results below; photonoxide 0.4.3's `bench::export::factorize`, each in a process of its own,
+on 2026-10-05. Numeric factorization in seconds on 1 / 20 threads, the factors' entries, and peak
+memory on 20 threads.
+
+**The general LU** (PARDISO `mtype` 13, MUMPS `sym` 0):
+
+| System | photonoxide 0.4.3 | PARDISO | MUMPS | photonoxide 0.4.2 (faer) |
+|---|---|---|---|---|
+| `slab-2d` | 0.33 / 0.105 s, 15.7 M, 0.54 GB | 0.31 / 0.077 s, 9.2 M, 0.39 GB | 0.36 / 0.29 s, 15.8 M, 0.35 GB | 0.64 / 0.85 s, 30.2 M, 0.63 GB |
+| `strip-24` | 1.41 / 0.36 s, 22.0 M, 1.04 GB | 1.82 / 0.28 s, 23.7 M, 0.56 GB | 1.53 / 1.98 s, 25.5 M, 0.53 GB | 8.56 / 2.69 s, 107.4 M, 1.83 GB |
+| `strip-32` | 7.64 / 1.36 s, 75.7 M, 2.32 GB | 11.1 / 1.67 s, 82.4 M, 1.65 GB | 7.89 / 2.64 s, 84.5 M, 1.76 GB | 55.4 / 10.9 s, 393.5 M, 6.34 GB |
+| `strip-40` | 28.0 / 3.75 s, 194.6 M, 5.42 GB | 43.8 / 8.45 s, 219.2 M, 4.07 GB | 29.3 / 9.23 s, 214.3 M, 4.29 GB | 199.6 / 35.0 s, 1 064.8 M, 16.80 GB |
+
+**As complex symmetric matrices** (photonoxide's L D Lᵀ, PARDISO `mtype` 6, MUMPS `sym` 2; L's
+entries):
+
+| System | photonoxide 0.4.3 | PARDISO | MUMPS |
+|---|---|---|---|
+| `slab-2d` | 0.19 / 0.059 s, 7.9 M, 0.45 GB | 0.20 / 0.047 s, 5.0 M, 0.29 GB | 0.31 / 0.34 s, 9.7 M, 0.26 GB |
+| `strip-24` | 0.85 / 0.27 s, 11.0 M, 0.84 GB | 1.05 / 0.15 s, 12.3 M, 0.33 GB | 1.09 / 0.65 s, 13.1 M, 0.34 GB |
+| `strip-32` | 4.56 / 1.01 s, 37.9 M, 2.03 GB | 5.98 / 0.82 s, 42.3 M, 0.97 GB | 5.38 / 2.39 s, 44.5 M, 1.05 GB |
+| `strip-40` | 17.6 / 3.23 s, 97.4 M, 3.76 GB | 24.0 / 3.50 s, 112.0 M, 2.27 GB | 17.8 / 7.98 s, 111.8 M, 2.50 GB |
+
+Every solve's residual was at most 5e-13, unrefined, and no pivot was perturbed.
+
+- **The fill is PARDISO's and MUMPS's, or less, in 3D:** 0.89 to 0.93 times PARDISO's entries on
+  the strips, from 4.5 to 4.9 times with faer's LU. The separators are what did it: the smallest
+  vertex set across each cut (König's theorem) took the entries from 1.3 times PARDISO's to 0.9.
+  In 2D, METIS's ordering still beats our geometric one (1.7 times PARDISO's entries, MUMPS's
+  own).
+- **One thread:** faster than PARDISO on every strip (1.2 to 1.6 times) and level with MUMPS or
+  faster, as LU and as L D Lᵀ; level with PARDISO on the slab. From faer's LU: 2 to 7 times
+  faster.
+- **20 threads:** faster than PARDISO on the two larger strips as LU (1.2 and 2.3 times) and on
+  `strip-40` as L D Lᵀ; slower on the slab, on `strip-24`, and on `strip-32` as L D Lᵀ (1.2 to
+  1.8 times PARDISO's time), where the fronts are small and faer's threaded dense kernels are
+  least efficient (below). From faer's LU: 7.5 to 9.3 times faster.
+- **Memory:** the factors are fewer than PARDISO's, but the peak on 20 threads is 1.3 to 2.5
+  times PARDISO's: each front is assembled as a full dense matrix, its factors and Schur
+  complement copied out, and the fronts on separate threads are in memory at once. On one thread
+  the peak on `strip-40` is 4.0 GB as LU (PARDISO 3.8 GB) and 2.8 GB as L D Lᵀ (2.1 GB).
+
+What is left, in order: the peak memory (assembling a front in place of its children's updates,
+the update stack of Duff and Reid), the 20-thread efficiency on small fronts (faer's threaded
+dense LU, item 4 below), and METIS-quality separators in 2D.
+
+## 0.4.2: faer's LU (as measured then)
+
+### Summary
 
 - **On one thread, the gap is the fill, not the arithmetic.** faer's LU makes room for 3.3 to 4.9
   times as many entries as PARDISO stores (1.9 to 5.0 times MUMPS's), and is 1.8 to 7 times
@@ -86,7 +141,7 @@ which is Rust only. Each one:
 **Every solve was accurate.** Every residual was at most 1.5e-12, and every solution was within
 5.1e-13 of photonoxide's refined one, relative.
 
-## Results: the general LU
+## 0.4.2 results: the general LU
 
 Numeric factorization in seconds on 1 and on 20 threads, the factors' entries (L and U), and peak
 memory on 20 threads:
@@ -110,7 +165,7 @@ The analysis took 0.2 to 0.7 s for PARDISO and MUMPS, and 0.03 to 0.09 s for pho
 solve took 0.01 to 0.3 s for all three. PARDISO's factorization of `strip-32` is 477 Gflop by its
 own count: 44 Gflop/s on one thread, 283 on 20.
 
-## Results: as complex symmetric matrices
+## 0.4.2 results: as complex symmetric matrices
 
 The same matrices made symmetric by S, factorized as such. The entries counted are L's (with D):
 
@@ -125,7 +180,7 @@ The same matrices made symmetric by S, factorized as such. The entries counted a
 | `strip-40` | PARDISO | 24.0 s | 3.50 s | 112.0 M | 2.27 GB | 1.8 × |
 | | MUMPS | 17.8 s | 7.98 s | 111.8 M | 2.50 GB | 1.6 × |
 
-## Results: the dense kernel
+## Results: the dense kernel (faer against MKL)
 
 Each supernode is factorized by a dense LU, so the dense kernel sets the speed for a given fill.
 The table compares faer's `partial_piv_lu` with MKL's `zgetrf` on a random complex n × n matrix,
@@ -139,7 +194,7 @@ the best of three runs, rated by 8n³/3 real flops in Gflop/s. PARDISO's largest
 | 2 500 | 67.1 | 61.0 (91%) | 696 | 161 (23%) |
 | 4 000 | 70.3 | 64.5 (92%) | 716 | 287 (40%) |
 
-## Where the difference comes from
+## Where the difference came from (0.4.2)
 
 **The fill.** faer's sparse LU pivots by rows, choosing any row of a column. Wherever the pivot
 lands, L and U stay inside the structure of the Cholesky factor of AᵀA (A. George, E. Ng, SIAM J.
@@ -175,10 +230,16 @@ almost all fill.
   `strip-24` it speeds up 3.2 times, against PARDISO's 6.5.
 - On the 2D slab, whose supernodes are small, photonoxide is slower on 20 threads than on one.
 
-## What would close it, in pure Rust
+## What would close it, in pure Rust (0.4.2), and what 0.4.3 did
 
 In order of gain. The first two are about fill and help on any number of threads; the last two
 are about threads.
+
+**What 0.4.3 did:** items 1, 2 and 3, in photonoxide's own `sparse` module ([the 0.4.3
+comparison](#043-the-multifrontal-factorization) above). Item 2 is written here, not in faer: an
+unconjugated L D Lᵀ is a front's dense kernel, built on faer's triangular products, and it takes
+its pivots on the diagonal, as static pivoting does, falling back to the LU if a pivot would
+need perturbing, so it needed no Bunch–Kaufman pivoting. Item 4 is still to do.
 
 1. **An LU on the symmetric structure.** Order A + Aᵀ by nested dissection on its own graph: our
    `sparse::nested_dissection` with one-step separators, which lost to COLAMD only because faer
