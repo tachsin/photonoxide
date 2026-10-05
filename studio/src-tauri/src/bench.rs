@@ -218,15 +218,20 @@ fn export_systems(dir: &Path, wanted: &[String]) -> ExitCode {
         let t = std::time::Instant::now();
         let written = export::system(id).and_then(|system| {
             let x = export::solve(&system)?;
-            export::write(dir, &system, &x)?;
-            Ok(system)
+            let symmetric = export::write(dir, &system, &x)?;
+            Ok((system, symmetric))
         });
         match written {
-            Ok(system) => eprintln!(
-                "{} unknowns, {} nonzeros, in {:.1} s",
+            Ok((system, symmetric)) => eprintln!(
+                "{} unknowns, {} nonzeros, in {:.1} s{}",
                 grouped(system.n),
                 grouped(system.entries.len()),
-                t.elapsed().as_secs_f64()
+                t.elapsed().as_secs_f64(),
+                if symmetric {
+                    ", and its complex symmetric form"
+                } else {
+                    ""
+                }
             ),
             Err(e) => return crate::fail(e),
         }

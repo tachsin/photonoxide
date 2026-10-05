@@ -22,6 +22,7 @@ use crate::units::Wavelength;
 use crate::{Error, Result};
 
 /// A system to export: its id, its grid, its matrix and right-hand side, and its solution.
+#[derive(Clone, Debug)]
 pub struct System {
     /// A short, stable identifier, e.g. `"strip-32"`.
     pub id: &'static str,
@@ -239,6 +240,9 @@ pub struct Factorized {
     /// factor in the column order, for L and for U): the fill to set against PARDISO's and MUMPS's
     /// counts of their factors' entries.
     pub factor_entries: usize,
+    /// The real floating-point operations that structure implies (at least what faer does): with
+    /// the time, the rate its kernels reach, to set against PARDISO's own count.
+    pub factor_flops: f64,
 }
 
 /// Factorizes `system` as photonoxide's solvers do (faer's supernodal LU, ordered by COLAMD for
@@ -295,7 +299,7 @@ pub fn factorize(system: &System) -> Result<Factorized> {
         let order = crate::sparse::nested_dissection(&starts, &neighbours, &positions);
         let symbolic = crate::sparse::OrderedSymbolic::new(matrix.as_ref(), &order)?;
         let analysis_seconds = t.elapsed().as_secs_f64();
-        let factor_entries = symbolic.factor_entries();
+        let (factor_entries, factor_flops) = (symbolic.factor_entries(), symbolic.factor_flops());
         let t = Instant::now();
         let lu = crate::sparse::OrderedLu::new(matrix.as_ref(), symbolic, par)?;
         let factorization_seconds = t.elapsed().as_secs_f64();
@@ -309,6 +313,7 @@ pub fn factorize(system: &System) -> Result<Factorized> {
             solve_seconds,
             residual: residual(&x),
             factor_entries,
+            factor_flops,
         });
     }
     use faer::linalg::solvers::Solve;
@@ -338,8 +343,8 @@ pub fn factorize(system: &System) -> Result<Factorized> {
         )),
     )
     .map_err(|e| failed(format!("{e:?}")))?;
-    let factor_entries =
-        crate::sparse::OrderedSymbolic::new(matrix.as_ref(), &order)?.factor_entries();
+    let counted = crate::sparse::OrderedSymbolic::new(matrix.as_ref(), &order)?;
+    let (factor_entries, factor_flops) = (counted.factor_entries(), counted.factor_flops());
     Ok(Factorized {
         ordering: "COLAMD",
         analysis_seconds,
@@ -347,6 +352,7 @@ pub fn factorize(system: &System) -> Result<Factorized> {
         solve_seconds,
         residual: residual(&x),
         factor_entries,
+        factor_flops,
     })
 }
 
@@ -373,26 +379,74 @@ pub fn matrix_market_vector(v: &[c64]) -> String {
     s
 }
 
+/// The system made complex symmetric, when it can be: B = S A S⁻¹, with S² = D the diagonal for
+/// which D A is symmetric (the cells' stretch factors, for the 3D curl-curl operator with PMLs;
+/// see `fdfd-3d.md`, "QMR for complex symmetric matrices"), and B (S x) = S b. With `solution`'s
+/// image, S x. `None` if no diagonal makes `system` symmetric.
+///
+/// A solver for complex symmetric matrices (an LDLᵀ) stores half of B's factors: the gain this
+/// form measures, against the general LU of A.
+pub fn symmetric(system: &System, solution: &[c64]) -> Option<(System, Vec<c64>)> {
+    let a = crate::fdfd::krylov::Sparse::new(system.n, system.entries.iter().copied());
+    let (s, b) = a.symmetrized()?;
+    let mut entries: Vec<(usize, usize, c64)> = (0..system.n)
+        .flat_map(|r| b.row(r).map(move |(c, v)| (r, c, v)))
+        .collect();
+    entries.sort_by_key(|&(r, c, _)| (c, r));
+    let scaled = |v: &[c64]| -> Vec<c64> { v.iter().zip(&s).map(|(x, s)| x * s).collect() };
+    Some((
+        System {
+            id: system.id,
+            grid: system.grid.clone(),
+            n: system.n,
+            entries,
+            rhs: scaled(&system.rhs),
+        },
+        scaled(solution),
+    ))
+}
+
 /// Writes `system` and its solution into `dir/<id>/`: `A.mtx`, `b.mtx`, `x.mtx` and `about.json`
-/// (the id, the grid, the unknowns and the nonzeros).
+/// (the id, the grid, the unknowns and the nonzeros); and when the system can be made complex
+/// symmetric ([`symmetric`]), the same four files for B = S A S⁻¹, S b and S x in
+/// `dir/<id>/symmetric/`. Returns whether it could.
 ///
 /// # Errors
 ///
 /// [`Error::Io`] if a file can't be written.
-pub fn write(dir: &Path, system: &System, solution: &[c64]) -> Result<()> {
+pub fn write(dir: &Path, system: &System, solution: &[c64]) -> Result<bool> {
     let at = dir.join(system.id);
+    write_into(&at, system, solution, None)?;
+    match symmetric(system, solution) {
+        Some((b, sx)) => {
+            write_into(
+                &at.join("symmetric"),
+                &b,
+                &sx,
+                Some("B = S A S⁻¹, S² = D, D A symmetric"),
+            )?;
+            Ok(true)
+        }
+        None => Ok(false),
+    }
+}
+
+fn write_into(at: &Path, system: &System, solution: &[c64], form: Option<&str>) -> Result<()> {
     let io = |path: &Path, e: std::io::Error| Error::Io {
         path: path.display().to_string(),
         reason: e.to_string(),
     };
-    std::fs::create_dir_all(&at).map_err(|e| io(&at, e))?;
-    let about = serde_json::json!({
+    std::fs::create_dir_all(at).map_err(|e| io(at, e))?;
+    let mut about = serde_json::json!({
         "id": system.id,
         "grid": system.grid,
         "unknowns": system.n,
         "nonzeros": system.entries.len(),
         "photonoxide": crate::VERSION,
     });
+    if let Some(form) = form {
+        about["form"] = form.into();
+    }
     for (name, text) in [
         ("A.mtx", matrix_market(system.n, &system.entries)),
         ("b.mtx", matrix_market_vector(&system.rhs)),
@@ -453,6 +507,42 @@ mod tests {
             assert_eq!(a.2.re.to_bits(), b.2.re.to_bits());
             assert_eq!(a.2.im.to_bits(), b.2.im.to_bits());
         }
+    }
+
+    #[test]
+    fn the_strips_symmetric_form_is_symmetric_and_similar() {
+        let a = system("strip-24").unwrap();
+        // any x: B (S x) = S (A x), with S x and S (A x) from `symmetric`'s scaling of x and A x
+        let x: Vec<c64> = (0..a.n)
+            .map(|i| c64::new((i % 11) as f64 - 5.0, (i % 7) as f64))
+            .collect();
+        let mut ax = vec![c64::new(0.0, 0.0); a.n];
+        for &(r, c, v) in &a.entries {
+            ax[r] += v * x[c];
+        }
+        let with_ax = System {
+            rhs: ax,
+            ..a.clone()
+        };
+        let (b, sx) = symmetric(&with_ax, &x).expect("the curl-curl operator with PMLs");
+        let mut bsx = vec![c64::new(0.0, 0.0); b.n];
+        for &(r, c, v) in &b.entries {
+            bsx[r] += v * sx[c];
+        }
+        let norm = |v: &[c64]| v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
+        let r: Vec<c64> = bsx.iter().zip(&b.rhs).map(|(p, q)| p - q).collect();
+        assert!(
+            norm(&r) < 1e-13 * norm(&b.rhs),
+            "{}",
+            norm(&r) / norm(&b.rhs)
+        );
+        // and B is its own transpose, to the last bit
+        let mut by: std::collections::HashMap<(usize, usize), c64> = Default::default();
+        for &(r, c, v) in &b.entries {
+            by.insert((r, c), v);
+        }
+        assert!(b.entries.iter().all(|&(r, c, v)| by[&(c, r)] == v));
+        assert_eq!(b.entries.len(), a.entries.len());
     }
 
     #[test]

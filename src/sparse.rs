@@ -175,6 +175,7 @@ pub(crate) struct OrderedSymbolic {
     columns: (Vec<usize>, Vec<usize>),
     symbolic: SymbolicSupernodalLu<usize>,
     entries: usize,
+    flops: f64,
 }
 
 impl OrderedSymbolic {
@@ -244,18 +245,32 @@ impl OrderedSymbolic {
         )
         .map_err(|e| failed("the analysis", format!("{e:?}")))?;
         let entries = 2 * col_counts.iter().sum::<usize>() - n;
+        let flops = 8.0
+            * col_counts
+                .iter()
+                .map(|&c| ((c - 1) as f64).powi(2))
+                .sum::<f64>();
         Ok(OrderedSymbolic {
             columns: (forward, inverse),
             symbolic,
             entries,
+            flops,
         })
     }
 
     /// The entries of L and U the factorization makes room for: the structure of the Cholesky
     /// factor of AᵀA in this column order, once for L and once for U, the diagonal shared. Partial
-    /// pivoting by rows stays inside it (George & Ng 1987), and faer's supernodal LU fills it.
+    /// pivoting by rows stays inside it (A. George, E. Ng, SIAM J. Sci. Stat. Comput. 8, 877
+    /// (1987), doi:10.1137/0908072), and faer's supernodal LU fills it.
     pub(crate) fn factor_entries(&self) -> usize {
         self.entries
+    }
+
+    /// The real floating-point operations of the factorization in that structure: each column's
+    /// update of the rest, its L column times its U row, (c − 1)² complex multiply-adds of 8 real
+    /// operations each, c the column's count. At least what faer does: its supernodes add zeros.
+    pub(crate) fn factor_flops(&self) -> f64 {
+        self.flops
     }
 
     fn columns(&self) -> PermRef<'_, usize> {
@@ -477,6 +492,8 @@ mod tests {
         let natural: Vec<usize> = (0..n).collect();
         let counted = OrderedSymbolic::new(a.as_ref(), &natural).unwrap();
         assert_eq!(counted.factor_entries(), 5 * n - 6);
+        // and 2 × 2 multiply-adds a column but 1 and 0 in the last two
+        assert_eq!(counted.factor_flops(), 8.0 * (4 * (n - 2) + 1) as f64);
         // and the 2D Laplacian: nested dissection fills less than the natural (banded) order
         let (nx, ny) = (40, 30);
         let (starts, neighbours, positions) = grid(nx, ny);
