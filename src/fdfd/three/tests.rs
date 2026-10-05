@@ -1613,3 +1613,104 @@ fn symmetric_solvers() {
         error(&x)
     );
 }
+
+#[test]
+#[ignore = "ILU(0) with triangular solves by Jacobi sweeps, for the docs: SWEEP_CASE=guide|diel cargo test --release fdfd::three::tests::ilu_sweeps -- --ignored --nocapture"]
+fn ilu_sweeps() {
+    // the benchmark's guide (40^3 cells of 10 nm, stretched PMLs of 10) or Diel (40 x 90 x 80),
+    // by QMR + ILU(0) on Shin and Fan's operator to 1e-8, its triangular solves exact or by k
+    // Jacobi sweeps (Anzt, Chow and Dongarra 2015); the field's error against the exact solves
+    // to 1e-10
+    use crate::fdfd::{Formulation, IterativeSolver3d, Stopping};
+    use std::time::Instant;
+    let case = std::env::var("SWEEP_CASE").unwrap_or_else(|_| "guide".into());
+    let (h, pml) = (0.01, 10);
+    let (n, (wy, wz)): ([usize; 3], (f64, f64)) = if case == "diel" {
+        ([40, 70 + 2 * pml, 60 + 2 * pml], (0.2, 0.15))
+    } else {
+        ([20 + 2 * pml; 3], (0.05, 0.05))
+    };
+    let grid = Grid3d {
+        nx: n[0],
+        ny: n[1],
+        nz: n[2],
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: -(n[0] as f64) * h / 2.0,
+        y0: -(n[1] as f64) * h / 2.0,
+        z0: -(n[2] as f64) * h / 2.0,
+    };
+    let eps = move |_: f64, y: f64, z: f64| {
+        c64::new(
+            if y.abs() < wy && z.abs() < wz {
+                12.09
+            } else {
+                1.0
+            },
+            0.0,
+        )
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let mut source = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    if case == "diel" {
+        for k in 0..grid.nz {
+            for j in 0..grid.ny {
+                let [_, y, z] = grid.e_position(Axis::Y, (15, j, k));
+                if y.abs() < wy && z.abs() < wz {
+                    source[grid.index(Axis::Y, (15, j, k))] = c64::new(1.0, 0.0);
+                }
+            }
+        }
+    } else {
+        source[grid.index(Axis::X, (n[0] / 2 + 3, n[1] / 2 + 3, n[2] / 2 + 3))] =
+            c64::new(1.0, 0.0);
+    }
+    let new = || {
+        IterativeSolver3d::new(
+            grid,
+            lam,
+            eps,
+            Boundaries3d::stretched_pml(pml),
+            Formulation::ShinFan,
+        )
+        .unwrap()
+    };
+    let stop = |tolerance| Stopping {
+        tolerance,
+        max_iterations: 20_000,
+    };
+    let exact = new().with_ilu().unwrap();
+    let (reference, _) = exact.solve(&source, stop(1e-10)).unwrap();
+    let norm = |v: &[c64]| v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
+    let error = |x: &[c64]| {
+        let d: Vec<c64> = x
+            .iter()
+            .zip(reference.values())
+            .map(|(p, q)| p - q)
+            .collect();
+        norm(&d) / norm(reference.values())
+    };
+    let t = Instant::now();
+    let (x, how) = exact.solve(&source, stop(1e-8)).unwrap();
+    println!(
+        "SWEEP {case} exact: {} iterations, {:?}, error {:.1e}",
+        how.iterations,
+        t.elapsed(),
+        error(x.values())
+    );
+    drop(exact);
+    for sweeps in [1, 2, 3, 4, 6, 8] {
+        let solver = new().with_ilu_sweeps(sweeps).unwrap();
+        let t = Instant::now();
+        match solver.solve(&source, stop(1e-8)) {
+            Ok((x, how)) => println!(
+                "SWEEP {case} {sweeps} sweeps: {} iterations, {:?}, error {:.1e}",
+                how.iterations,
+                t.elapsed(),
+                error(x.values())
+            ),
+            Err(e) => println!("SWEEP {case} {sweeps} sweeps: {e}"),
+        }
+    }
+}

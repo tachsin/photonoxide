@@ -28,6 +28,10 @@ papers:
     doi: 10.1109/JLT.2002.800371
   - cite: "A. George, SIAM J. Numer. Anal. 10, 345 (1973) (nested dissection)"
     doi: 10.1137/0710032
+  - cite: "E. Chow, A. Patel, SIAM J. Sci. Comput. 37, C169 (2015) (parallel ILU, measured and not used)"
+    doi: 10.1137/140968896
+  - cite: "H. Anzt, E. Chow, J. Dongarra, Euro-Par 2015, LNCS 9233, 650 (iterative triangular solves, measured and not used)"
+    doi: 10.1007/978-3-662-48096-0_50
   - cite: "Y. Saad, Iterative Methods for Sparse Linear Systems, 2nd ed., SIAM (2003) (ILU(0) and GMRES)"
     doi: 10.1137/1.9780898718003
   - cite: "B. Reps, W. Vanroose, H. bin Zubair, J. Comput. Phys. 229, 8384 (2010) (complex-stretched layers, and the multigrid cycle)"
@@ -665,6 +669,27 @@ further for the same field. Plain QMR on the guide ran 35.2 s in this run, again
 
 **What didn't pay.** Jacobi (the diagonal): 10 798 iterations instead of 1 976 on the curl-curl
 operator, 1 335 instead of 1 629 on Shin and Fan's (40³ guide, 1e-6).
+
+ILU(0) in parallel, both halves. **Its factorization** by Chow and Patel's fixed-point sweeps
+(SIAM J. Sci. Comput. 37, C169 (2015), doi:10.1137/140968896) wasn't built: measured, it isn't
+where the time goes. The multigrid's smoothers already factorize slab by slab in parallel, about
+1.3 s of Diel's hierarchy, and QMR + ILU(0) on the guide spends 4.0 of its 5.6 s in its
+iterations, not its factorization; and Chow and Patel find that matrices far from diagonally
+dominant need 3 to 5 synchronous sweeps (their Section 4.2, Table 3). **Its triangular solves**
+by k Jacobi sweeps each (Anzt, Chow and Dongarra, Euro-Par 2015, LNCS 9233, 650,
+doi:10.1007/978-3-662-48096-0_50: the truncated Neumann series of the factor, all rows at once,
+the same bits on any number of threads, and on the transposed factors exactly its transpose, so
+QMR stays consistent), on the guide to 1e-8, 20 threads (`ilu_sweeps` in src/fdfd/three/tests.rs):
+
+| Triangular solves | Exact | 1 sweep | 2 | 3 | 4 | 6 | 8 |
+|---|---|---|---|---|---|---|---|
+| QMR iterations | 195 | 1 163 | 747 | 730 | 929 | 1 782 | 2 322 |
+| Time | 3.3 s | 12.9 s | 10.4 s | 11.5 s | 15.5 s | 32.7 s | 48.1 s |
+
+Three and a half times slower at best, and worse with more sweeps: the factors of an indefinite
+matrix with PMLs are far from diagonally dominant, and the sweeps' non-normal iteration grows
+before it converges, as Anzt et al. warn (their Section 1). Neither half is used; the exact
+triangular solves stay, sequential.
 
 A first multigrid, before this one: damped Jacobi smoothing and coarse grids rediscretized over
 the same box, with plain PMLs. As a solver it cut the residual 3 to 6 times per cycle in vacuum or

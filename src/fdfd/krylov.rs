@@ -1112,6 +1112,37 @@ impl Triangle {
         }
     }
 
+    /// `sweeps` synchronous Jacobi sweeps from x = 0 for T x = `b`, x ← D⁻¹(b − (T − D) x), each
+    /// row from the previous sweep's values only, all rows at once on rayon's threads: the same
+    /// bits on any number of them. The truncated Neumann series Σ_{j<sweeps} Mʲ D⁻¹, M = I −
+    /// D⁻¹T strictly triangular (H. Anzt, E. Chow, J. Dongarra, "Iterative sparse triangular
+    /// solves for preconditioning", Euro-Par 2015, LNCS 9233, 650, doi:10.1007/978-3-662-48096-0_50,
+    /// their Eqs. 1–2). On the transposed factor it is exactly the transpose of the same series,
+    /// D⁻¹(I − TᵀD⁻¹)ʲ = (I − D⁻¹Tᵀ)ʲD⁻¹, so QMR's two products stay each other's transposes.
+    fn sweeps(&self, b: &[c64], sweeps: usize) -> Vec<c64> {
+        use rayon::prelude::*;
+        let scale = |i: usize, s: c64| match &self.inverse_diagonal {
+            Some(d) => s * d[i],
+            None => s,
+        };
+        let mut x: Vec<c64> = (0..b.len()).map(|i| scale(i, b[i])).collect();
+        let mut next = vec![c64::new(0.0, 0.0); b.len()];
+        for _ in 1..sweeps {
+            next.par_iter_mut()
+                .with_min_len(4096)
+                .enumerate()
+                .for_each(|(i, out)| {
+                    let mut s = b[i];
+                    for k in self.starts[i]..self.starts[i + 1] {
+                        s -= self.values[k] * x[self.columns[k]];
+                    }
+                    *out = scale(i, s);
+                });
+            std::mem::swap(&mut x, &mut next);
+        }
+        x
+    }
+
     /// Solves in place: `x` holds the right-hand side on entry.
     fn solve(&self, x: &mut [c64]) {
         let n = x.len();
@@ -1143,6 +1174,8 @@ pub(crate) struct Ilu0 {
     u: Triangle,
     ut: Triangle,
     lt: Triangle,
+    /// Each triangular solve as this many Jacobi sweeps ([`Triangle::sweeps`]), or exact.
+    sweeps: Option<usize>,
 }
 
 impl Ilu0 {
@@ -1221,12 +1254,30 @@ impl Ilu0 {
         );
         let ut = Triangle::new(n, |i| upper_t[i].clone(), Some(inverse), true);
         let lt = Triangle::new(n, |i| lower_t[i].clone(), None, false);
-        Ok(Ilu0 { l, u, ut, lt })
+        Ok(Ilu0 {
+            l,
+            u,
+            ut,
+            lt,
+            sweeps: None,
+        })
+    }
+
+    /// The same factors, each triangular solve taken as `sweeps` Jacobi sweeps instead of
+    /// exactly: in parallel where the exact solves are sequential, and a fixed linear operator,
+    /// so QMR can use it as its preconditioner.
+    #[cfg(test)]
+    pub(crate) fn with_sweeps(mut self, sweeps: usize) -> Ilu0 {
+        self.sweeps = Some(sweeps.max(1));
+        self
     }
 }
 
 impl Preconditioner for Ilu0 {
     fn solve(&self, v: &[c64]) -> Vec<c64> {
+        if let Some(k) = self.sweeps {
+            return self.u.sweeps(&self.l.sweeps(v, k), k);
+        }
         let mut x = v.to_vec();
         self.l.solve(&mut x);
         self.u.solve(&mut x);
@@ -1234,6 +1285,9 @@ impl Preconditioner for Ilu0 {
     }
 
     fn solve_transpose(&self, v: &[c64]) -> Vec<c64> {
+        if let Some(k) = self.sweeps {
+            return self.lt.sweeps(&self.ut.sweeps(v, k), k);
+        }
         let mut x = v.to_vec();
         self.ut.solve(&mut x);
         self.lt.solve(&mut x);
@@ -1612,6 +1666,36 @@ mod tests {
             })
             .collect();
         assert!(a.apply(&v) == sequential);
+    }
+
+    #[test]
+    fn jacobi_swept_ilu_is_its_own_transpose_and_converges_to_the_exact_solves() {
+        // M⁻¹ applied by k sweeps and M⁻ᵀ by k sweeps on the transposed factors are each
+        // other's transposes, uᵀ(M⁻¹v) = (M⁻ᵀu)ᵀv, for any k; and with enough sweeps (a factor
+        // of n rows needs at most n) they are the exact solves
+        let n = 2 * CHUNK + 9;
+        let (a, _) = gmres_case(n);
+        let u: Vec<c64> = (0..n).map(|r| c64::new((r % 7) as f64, 1.0)).collect();
+        let v: Vec<c64> = (0..n)
+            .map(|r| c64::new(1.0, (r % 5) as f64 - 2.0))
+            .collect();
+        for sweeps in [1, 2, 5] {
+            let ilu = Ilu0::new(&a).unwrap().with_sweeps(sweeps);
+            let (left, right) = (dot(&u, &ilu.solve(&v)), dot(&ilu.solve_transpose(&u), &v));
+            assert!(
+                (left - right).norm() < 1e-12 * left.norm(),
+                "{sweeps}: {left} {right}"
+            );
+        }
+        // the tridiagonal case's factors are bidiagonal: n sweeps are exact, and far fewer are
+        // within round-off of it for this diagonally dominant matrix
+        let t = tridiagonal(64);
+        let exact = Ilu0::new(&t).unwrap();
+        let swept = Ilu0::new(&t).unwrap().with_sweeps(64);
+        let v: Vec<c64> = (0..64).map(|r| c64::new(1.0, r as f64)).collect();
+        let (x, y) = (exact.solve(&v), swept.solve(&v));
+        let d: Vec<c64> = x.iter().zip(&y).map(|(p, q)| p - q).collect();
+        assert!(norm(&d) < 1e-12 * norm(&x), "{}", norm(&d) / norm(&x));
     }
 
     #[test]
