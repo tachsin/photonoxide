@@ -42,25 +42,22 @@ pub fn main() -> ExitCode {
     let wavelength = Wavelength::um(1.55).expect("a valid wavelength");
     println!("500 x 220 nm strip of 3.473 in 1.444 at 1550 nm (Chrostowski & Hochberg, Fig. 3.14)");
     let mut checks = common::Checks::default();
-    for h_nm in [20.0, 10.0, 5.0] {
+    // the three grids solved side by side, then printed in order
+    let grids = [20.0, 10.0, 5.0];
+    let solved = photonoxide::parallel::map_in_order(&grids, |&h_nm| {
         let cs = strip(h_nm / 1000.0);
         let modes = vector::modes(&cs, wavelength, 1, None).expect("the solver converges");
         let mode = &modes[0];
+        let nodes = (cs.x().len(), cs.y().len());
+        (nodes, mode.effective_index().re, mode.te_fraction())
+    });
+    for (&h_nm, &((nx, ny), n_eff, te)) in grids.iter().zip(&solved) {
         println!(
-            "  grid {h_nm} nm ({} x {} nodes, 2.1 x 1.5 um window): n_eff {:.6}, TE fraction {:.3}",
-            cs.x().len(),
-            cs.y().len(),
-            mode.effective_index().re,
-            mode.te_fraction()
+            "  grid {h_nm} nm ({nx} x {ny} nodes, 2.1 x 1.5 um window): n_eff {n_eff:.6}, TE fraction {te:.3}",
         );
         if h_nm == 5.0 {
             // a TM-like mode (index near 1.8) would fail this too
-            checks.compare(
-                "TE-like n_eff at a 5 nm grid",
-                mode.effective_index().re,
-                2.443,
-                3e-3,
-            );
+            checks.compare("TE-like n_eff at a 5 nm grid", n_eff, 2.443, 3e-3);
         }
     }
     checks.finish()

@@ -78,21 +78,26 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         .collect::<photonoxide::Result<Vec<_>>>()?;
     println!("220 nm strips of the book's Si in 1.444 oxide, 6.25 x 5 nm grid, quarter domain");
     let mut checks = common::Checks::default();
-    for (width, printed) in [
+    let strips = [
         (0.40, 4.37),
         (0.45, 4.27),
         (0.50, 4.18),
         (0.55, 4.10),
         (0.60, 4.04),
-    ] {
+    ];
+    // each width's mode tracked over the wavelengths, the widths side by side, then printed in
+    // order
+    let tracked = photonoxide::parallel::map_in_order(&strips, |&(width, _)| {
         let modes = track(|l| strip(&si, width, l), &wavelengths, None, 3)?;
         let n: Vec<f64> = modes.iter().map(|m| m.effective_index().re).collect();
         let ng = group_index(&wavelengths, &n)?[1];
+        Ok::<_, photonoxide::Error>((n[1], modes[1].te_fraction(), ng))
+    });
+    for (&(width, printed), result) in strips.iter().zip(tracked) {
+        let (n_eff, te, ng) = result?;
         println!(
-            "  {:.0} nm wide: n_eff {:.5}, TE fraction {:.3}",
+            "  {:.0} nm wide: n_eff {n_eff:.5}, TE fraction {te:.3}",
             width * 1000.0,
-            n[1],
-            modes[1].te_fraction()
         );
         // read off a plot to ±0.005, the book's 20 nm mesh, and our corners' convergence
         checks.compare(

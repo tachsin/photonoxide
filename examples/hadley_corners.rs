@@ -70,24 +70,35 @@ fn problem(eps: f64, boxed: bool, n: usize) -> CrossSection {
 pub fn main() -> ExitCode {
     let wavelength = Wavelength::um(1.5).expect("a valid wavelength");
     let mut checks = common::Checks::default();
-    for (fig, eps, boxed, exact) in [
+    let figures = [
         (4, 2.25, true, 1.276_274_04),
         (5, 8.0, true, 2.656_796_92),
         (6, 2.25, false, 1.387_926_425),
         (7, 8.0, false, 2.761_465_320),
-    ] {
+    ];
+    let grids = [8, 16, 32, 64, 128];
+    // every figure's grids solved side by side, both ways, then printed in order
+    let problems: Vec<(f64, bool, usize)> = figures
+        .iter()
+        .flat_map(|&(_, eps, boxed, _)| grids.map(|n| (eps, boxed, n)))
+        .collect();
+    let solved = photonoxide::parallel::map_in_order(&problems, |&(eps, boxed, n)| {
+        let cs = problem(eps, boxed, n);
+        let standard = vector::modes(&cs, wavelength, 1, None).expect("the solver converges")[0]
+            .effective_index()
+            .re;
+        let high = hadley::modes(&cs, wavelength, 1, None).expect("the solver converges")[0]
+            .effective_index()
+            .re;
+        (standard, high)
+    });
+    for (f, &(fig, eps, boxed, exact)) in figures.iter().enumerate() {
         let kind = if boxed { "box" } else { "impinged corner" };
         println!("Fig. {fig}: {kind}, eps {eps} and 1, 1 x 1 um quarter domain; relative errors");
         println!("  grid                    standard scheme            Hadley's equations");
         let (mut standard, mut high) = (f64::NAN, f64::NAN);
-        for n in [8, 16, 32, 64, 128] {
-            let cs = problem(eps, boxed, n);
-            standard = vector::modes(&cs, wavelength, 1, None).expect("the solver converges")[0]
-                .effective_index()
-                .re;
-            high = hadley::modes(&cs, wavelength, 1, None).expect("the solver converges")[0]
-                .effective_index()
-                .re;
+        for (g, &n) in grids.iter().enumerate() {
+            (standard, high) = solved[f * grids.len() + g];
             println!(
                 "  {n:>3} x {n:<3} ({:>6.2} nm):  {standard:.9} {:+.2e}   {high:.9} {:+.2e}",
                 1000.0 / n as f64,
