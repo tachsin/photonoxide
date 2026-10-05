@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.2](https://github.com/tachsin/photonoxide/compare/v0.4.1...v0.4.2) - 2026-10-05
+
+### <!-- 0 -->Added
+
+- *(bench)* a benchmark harness: fixed problems timed at a stated accuracy, and `photonoxide bench` ([#135](https://github.com/tachsin/photonoxide/pull/135))
+- *(fdfd)* GMRES preconditioned by a multigrid cycle for high-contrast 3D problems ([#144](https://github.com/tachsin/photonoxide/pull/144))
+- *(job)* job files in JSON and YAML as well as TOML, the same job in each ([#145](https://github.com/tachsin/photonoxide/pull/145))
+- *(fdfd)* QMR for complex symmetric matrices on the curl-curl operator's symmetric similarity, twice as fast ([#149](https://github.com/tachsin/photonoxide/pull/149))
+- *(bench)* the bandwidth each iterative solve reaches, its bytes counted by the kernels, against the triad ([#152](https://github.com/tachsin/photonoxide/pull/152))
+- *(bench)* the direct solvers' systems exported as Matrix Market files, and photonoxide's factorization timed on them ([#153](https://github.com/tachsin/photonoxide/pull/153))
+
+### <!-- 1 -->Fixed
+
+- *(fdfd)* a 3D port's guided mode whose plane crosses PMLs goes forward, not backward ([#136](https://github.com/tachsin/photonoxide/pull/136))
+
+### <!-- 2 -->Performance
+
+- *(job)* a sweep's points solved side by side on rayon's threads, recorded in order ([#146](https://github.com/tachsin/photonoxide/pull/146))
+- *(fdfd)* the 3D direct solver orders its LU by nested dissection, twice as fast as COLAMD at 40³ cells ([#147](https://github.com/tachsin/photonoxide/pull/147))
+- *(fdfd)* QMR's vector work fused into two passes on rayon's threads, deterministic sums, nothing allocated an iteration ([#148](https://github.com/tachsin/photonoxide/pull/148))
+- the examples that sweep by hand solve their points side by side, through parallel::map_in_order ([#151](https://github.com/tachsin/photonoxide/pull/151))
+
+### <!-- 4 -->Documentation
+
+- *(fdfd)* parallel ILU(0) measured on our matrices, both halves, and not used ([#150](https://github.com/tachsin/photonoxide/pull/150))
+- photonoxide's direct solvers against PARDISO and MUMPS, where the difference comes from, and what would close it in pure Rust ([#143](https://github.com/tachsin/photonoxide/pull/143)) ([#155](https://github.com/tachsin/photonoxide/pull/155))
+
 ## [0.4.1](https://github.com/tachsin/photonoxide/compare/v0.4.0...v0.4.1) - 2026-10-04
 
 ### <!-- 0 -->Added
