@@ -22,6 +22,8 @@ papers:
     doi: 10.2528/PIERB11092006
   - cite: "G. R. Hadley, J. Lightwave Technol. 20, 1219 (2002) (the port modes' reference)"
     doi: 10.1109/JLT.2002.800371
+  - cite: "A. George, SIAM J. Numer. Anal. 10, 345 (1973) (nested dissection)"
+    doi: 10.1137/0710032
   - cite: "Y. Saad, Iterative Methods for Sparse Linear Systems, 2nd ed., SIAM (2003) (ILU(0) and GMRES)"
     doi: 10.1137/1.9780898718003
   - cite: "B. Reps, W. Vanroose, H. bin Zubair, J. Comput. Phys. 229, 8384 (2010) (complex-stretched layers, and the multigrid cycle)"
@@ -315,8 +317,30 @@ Core Ultra 7 265K (20 threads, faer's default). The peak memory is the process's
 
 Time grows about as unknowns^1.9 and memory as unknowns^1.6. The 40³ grid is a cube 1.6 µm on a
 side, so a device-sized problem is out of reach of a direct solver on one machine. Averaging the
-permittivity (512 samples per component) costs 0.9 s at 40³, and assembly 0.07 s. faer orders
-the matrix by COLAMD; a nested-dissection ordering would cut the fill.
+permittivity (512 samples per component) costs 0.9 s at 40³, and assembly 0.07 s.
+
+**Nested dissection.** The table is faer's own ordering, COLAMD. The 3D solver now orders the
+columns itself: George's nested dissection (SIAM J. Numer. Anal. 10, 345 (1973),
+doi:10.1137/0710032), each part of the grid numbered before the set that separates it from its
+neighbours, recursively, passed to faer's supernodal LU as its column permutation. The parts are
+cut at the median of their longest axis on Yee's grid, and the separator is taken from the
+matrix's graph, two steps wide: faer pivots rows, so the factors' structure follows AᵀA's, whose
+graph joins two columns that share a row. One step, George's separator for a factorization
+without pivoting, separates A but not AᵀA, and made the factorization 4 to 16 times slower than
+COLAMD's. The same strip, each ordering in a process of its own, in one session:
+
+| Cells | COLAMD | Nested dissection | Relative residual (COLAMD, ND) |
+|---|---|---|---|
+| 24³ | 3.2 s | 2.4 s | 1.2e-12, 3.0e-13 |
+| 32³ | 19.6 s, 10.5 GB | 10.1 s, 8.6 GB | 2.9e-12, 3.0e-11 |
+| 40³ | 62.1 s, 29.7 GB | 33.0 s, 22.8 GB | 2.3e-11, 2.0e-10 |
+
+Twice as fast at 40³, with a quarter less memory, and the gain grows with the grid. Its factors
+leave a larger residual, which the solve's step of refinement, and QMR where it isn't enough,
+take to round-off. On the 2D solver's 440 × 340 grid COLAMD wins (0.84 s and 0.69 GB against
+1.26 s and 1.03 GB), so the 2D solver, the mode solvers and the circuits keep faer's ordering.
+(`nested_dissection_against_colamd` in src/fdfd/three/tests.rs measures it: `ND_CASES`,
+`ND_ONLY`.)
 
 ## The iterative solver
 
