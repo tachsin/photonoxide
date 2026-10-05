@@ -3492,7 +3492,9 @@ field_um = 1.58",
                 .filter(|e| matches!(e, Event::SweepPoint { .. } | Event::SParameters { .. }))
                 .count();
             assert_eq!(points, 5, "{tag}");
-            assert_eq!(events_on(4, text, tag), one, "{tag}");
+            for threads in [4, 20] {
+                assert_eq!(events_on(threads, text, tag), one, "{tag} on {threads}");
+            }
         }
     }
 
@@ -3507,8 +3509,9 @@ field_um = 1.58",
                 .install(|| fdfd_s_parameters(&job, None))
                 .unwrap()
         };
-        let (one, four) = (on(1), on(4));
+        let one = on(1);
         assert_eq!(one.s.len(), 5);
-        assert_eq!(four, one);
+        assert_eq!(on(4), one);
+        assert_eq!(on(20), one);
     }
 }

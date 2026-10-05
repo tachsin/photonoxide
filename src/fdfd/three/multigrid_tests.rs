@@ -468,7 +468,7 @@ fn the_cycle_is_the_same_bit_for_bit_on_any_number_of_threads() {
         })
     };
     let one = run(1);
-    for threads in [2, 5] {
+    for threads in [2, 4, 5, 20] {
         let many = run(threads);
         let same = one
             .iter()
