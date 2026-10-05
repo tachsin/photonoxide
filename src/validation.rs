@@ -740,6 +740,13 @@ pub fn cases() -> Vec<Case> {
             run: fdfd3d_qmr_symmetric_direct,
         },
         Case {
+            id: "fdfd3d/ldlt-lu",
+            title: "3D FDFD by the sparse direct solver two ways: $L D L^\\mathsf{T}$ of the curl-curl operator's complex symmetric similarity $B = S A S^{-1}$ (the solver's own choice) and $LU$ of $A$, both multifrontal with static pivoting after a maximum-product matching and scaling, each refined to a relative residual of 1e-12: the strip of fdfd3d/qmr-direct (largest field difference relative to the largest field shown)",
+            tier: Tier::Analytic,
+            source: r"the same system solved two ways: static pivoting after X. S. Li, J. W. Demmel, ACM Trans. Math. Softw. 29, 110 (2003), doi:10.1145/779359.779361, on I. S. Duff, J. Koster, SIAM J. Matrix Anal. Appl. 22, 973 (2001), doi:10.1137/S0895479899358443's matching and scaling; the fronts after I. S. Duff, J. K. Reid, ACM Trans. Math. Softw. 9, 302 (1983), doi:10.1145/356044.356047; measured 1.2e-15",
+            run: fdfd3d_ldlt_lu,
+        },
+        Case {
             id: "fdfd3d/qmr-plateau",
             title: r"Shin and Fan's vacuum square (their Fig. 1: $50 \times 50$ cells of 2 nm, periodic, uniform along $z$, an $x$-polarized dipole at its centre, 1.55 µm), QMR on the curl-curl operator ($s = 0$): the relative residual where it stagnates, at iteration 20 (shown)",
             tier: Tier::Published,
@@ -1397,6 +1404,20 @@ fn fdfd3d_qmr_symmetric_direct() -> Outcome {
         // as fdfd3d/qmr-direct's: measured 6.9e-12
         tolerance: 1e-9,
         error: worst,
+    }
+}
+
+fn fdfd3d_ldlt_lu() -> Outcome {
+    let (worst, symmetric) = crate::fdfd::checks3d::ldlt_against_lu();
+    // the solver must have taken L D Lᵀ for the comparison to mean anything
+    let measured = if symmetric { worst } else { f64::INFINITY };
+    Outcome {
+        measured,
+        expected: 0.0,
+        // both refined to a residual of 1e-12: their difference is bounded by the condition
+        // number times that; measured 1.2e-15
+        tolerance: 1e-10,
+        error: measured,
     }
 }
 

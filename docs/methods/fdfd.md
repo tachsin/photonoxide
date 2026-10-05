@@ -12,6 +12,12 @@ papers:
     doi: 10.1002/mop.4650071304
   - cite: "J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984) (the exact reference)"
     doi: 10.1364/JOSAA.1.000742
+  - cite: "A. George, SIAM J. Numer. Anal. 10, 345 (1973) (nested dissection)"
+    doi: 10.1137/0710032
+  - cite: "I. S. Duff, J. K. Reid, ACM Trans. Math. Softw. 9, 302 (1983) (the multifrontal method)"
+    doi: 10.1145/356044.356047
+  - cite: "X. S. Li, J. W. Demmel, ACM Trans. Math. Softw. 29, 110 (2003) (static pivoting)"
+    doi: 10.1145/779359.779361
 validation:
   - fdfd/slab-reflection-ez
   - fdfd/slab-reflection-hz
@@ -61,15 +67,19 @@ it matters most for the iterative solvers 3D needs. An axis can instead be **Blo
 one period on, the field is $e^{ikL}$ times itself. That is how an infinite plane wave fits in a
 grid a few cells wide.
 
-The system is factorized once (faer's sparse LU). `Solver2d::solve` then gives the field for
-any source by back-substitution, with one step of iterative refinement.
+The system is factorized once, by photonoxide's multifrontal factorization with static pivoting,
+ordered by nested dissection on the grid (see [FDFD in 3D](fdfd-3d.md#cost)). The operator with
+PMLs is similar to a complex symmetric matrix, $B = S A S^{-1}$, so $B$ is factorized as
+$L D L^\mathsf{T}$; a Bloch side's phases break the similarity, and that system is factorized as
+LU. `Solver2d::solve` then gives the field for any source by back-substitution, with one step of
+iterative refinement.
 
 **Cost.** The matrix's sparsity depends only on the grid and the boundaries, not on the
-wavelength or the permittivity. `Solver2d::reuse` keeps its analysis (the fill-reducing ordering
-and the symbolic factorization) for a sweep. Measured on a 440 × 340 grid (150 k unknowns), the
-analysis is 55 ms of an 800 ms factorization, and the numerical factorization is the rest: reuse
-saves about 6 %. faer orders by COLAMD, and a nested-dissection ordering, better suited to grids,
-would cut the factorization itself. Each further source on the same structure costs about 80 ms.
+wavelength or the permittivity. `Solver2d::reuse` keeps its analysis (the matching and scaling,
+the ordering and the symbolic factorization) for a sweep. Measured on a 440 × 340 grid (150 k
+unknowns, Intel Core Ultra 7 265K), the analysis takes 0.18 s and $L D L^\mathsf{T}$ 0.27 s on one
+thread, 0.11 s on 20 (faer's LU, before 0.4.3: 0.58 s and 0.85 s), and each further source about
+80 ms (two solves with the factors, for the step of refinement).
 
 ## The power flux
 

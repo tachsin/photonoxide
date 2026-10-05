@@ -3,9 +3,9 @@
 photonoxide is alpha: a library with a public API that still changes between milestones, and
 the `photonoxide` program (the studio). [ROADMAP.md](ROADMAP.md) is the plan and the record of
 what is done; [CHANGELOG.md](CHANGELOG.md) has what each release changed. 0.1 to 0.4 and their
-patches are released, the latest 0.4.2 (a preconditioner for high-contrast 3D FDFD, and the
-whole machine); next is 0.4.3, direct solves at PARDISO's fill ([docs/baselines.md](docs/baselines.md)).
-The library's modules, each with a write-up in `docs/methods/`:
+patches are released, the latest 0.4.3 (direct solves at PARDISO's fill,
+[docs/baselines.md](docs/baselines.md)); next is 0.5, finite-difference time-domain (FDTD). The
+library's modules, each with a write-up in `docs/methods/`:
 
 - `units`, `material` (with `material::catalogue`), `geometry`, `stack`, `raster`;
 - `mode`: slabs, multilayers, planar profiles, full-vector and Hadley cross-sections, bends,

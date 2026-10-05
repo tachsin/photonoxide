@@ -27,19 +27,13 @@ use crate::{Error, Result};
 impl Solver2d {
     /// u of Aᵀ u = `rhs`, with one step of iterative refinement.
     fn solve_transposed(&self, rhs: &[c64]) -> Vec<c64> {
-        use faer::linalg::solvers::Solve;
-        let n = rhs.len();
-        let b = faer::Mat::<c64>::from_fn(n, 1, |r, _| rhs[r]);
-        let u = self.lu.solve_transpose(&b);
-        let mut values: Vec<c64> = (0..n).map(|r| u[(r, 0)]).collect();
+        let mut values = self.lu.solve_transpose(rhs);
         let mut residual = rhs.to_vec();
         for t in &self.entries {
             residual[t.col] -= t.val * values[t.row];
         }
-        let r = faer::Mat::<c64>::from_fn(n, 1, |k, _| residual[k]);
-        let correction = self.lu.solve_transpose(&r);
-        for (k, v) in values.iter_mut().enumerate() {
-            *v += correction[(k, 0)];
+        for (v, d) in values.iter_mut().zip(self.lu.solve_transpose(&residual)) {
+            *v += d;
         }
         values
     }

@@ -12,12 +12,14 @@
 //! its own staggered points, trilinearly (P), restricted by Pᵀ, and each coarse operator is
 //! Pᵀ A P.
 
-use faer::sparse::linalg::solvers::Lu;
+use std::sync::Arc;
+
 use num_complex::Complex64 as c64;
 
 use super::{Axis, Grid3d, Lattice};
 use crate::fdfd::Edges;
 use crate::fdfd::krylov::{BlockIlu0, Operator, Preconditioner, Sparse};
+use crate::sparse::{Analysis, Multifrontal};
 use crate::{Error, Result};
 
 /// The shape of a multigrid cycle.
@@ -164,8 +166,8 @@ pub(crate) struct Hierarchy {
     levels: Vec<Level>,
     /// Each level's cells along x, y and z, the coarsest's included.
     shapes: Vec<[usize; 3]>,
-    lu: Lu<usize, c64>,
-    /// One thread, for faer's solves with the coarsest factors: their sums then come in one
+    lu: Multifrontal,
+    /// One thread, for the solves with the coarsest factors: their sums then come in one
     /// order whatever the machine. A pool isn't `RefUnwindSafe`, but one that a panic left stays
     /// usable, so this keeps `IterativeSolver3d` unwind-safe, as it was before the multigrid.
     one: std::panic::AssertUnwindSafe<rayon::ThreadPool>,
@@ -608,7 +610,16 @@ impl Hierarchy {
                     .map_err(|e| Error::invalid("multigrid", e.to_string()))?;
                 #[cfg(test)]
                 let clock = std::time::Instant::now();
-                let (lu, _) = one.install(|| crate::fdfd::factorize(&entries, n, None))?;
+                let lu = one.install(|| -> Result<Multifrontal> {
+                    let matrix = faer::sparse::SparseColMat::<usize, c64>::try_new_from_triplets(
+                        n, n, &entries,
+                    )
+                    .map_err(|e| Error::invalid("multigrid", format!("{e:?}")))?;
+                    Multifrontal::new(
+                        Arc::new(Analysis::new(matrix.as_ref(), None)?),
+                        matrix.as_ref(),
+                    )
+                })?;
                 #[cfg(test)]
                 if std::env::var("MG_TIMES").is_ok() {
                     println!(
@@ -690,17 +701,14 @@ impl Hierarchy {
     /// One cycle from `level` down, for A x = b (or Aᵀ x = b, the transposed cycle), from
     /// x = 0.
     fn cycle(&self, level: usize, b: &[c64], transpose: bool, shape: CycleShape) -> Vec<c64> {
-        use faer::linalg::solvers::Solve;
         if level == self.levels.len() {
-            let rhs = faer::Mat::<c64>::from_fn(b.len(), 1, |r, _| b[r]);
-            let x = self.one.install(|| {
+            return self.one.install(|| {
                 if transpose {
-                    self.lu.solve_transpose(&rhs)
+                    self.lu.solve_transpose(b)
                 } else {
-                    self.lu.solve(&rhs)
+                    self.lu.solve(b)
                 }
             });
-            return (0..b.len()).map(|r| x[(r, 0)]).collect();
         }
         let l = &self.levels[level];
         // b − A x, or b itself while x is still zero

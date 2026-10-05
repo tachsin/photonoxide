@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use crate::Result;
 use crate::fdfd::{
     Axis, Boundaries, Boundaries3d, Formulation, Grid, Grid3d, IterativeSolver3d, Multigrid,
-    Polarization, Port, Port3d, Side, Solver2d, Stopping,
+    Polarization, Port, Port3d, Side, Solver2d, Solver3d, Stopping,
 };
 use crate::units::Wavelength;
 
@@ -148,10 +148,18 @@ pub fn problems() -> Vec<Problem> {
     vec![
         Problem {
             id: "fdfd2d/slab-lu",
-            title: "2D FDFD by sparse LU: a straight 220 nm silicon slab in oxide, E along z, \
-                    its two ports' S-matrix",
+            title: "2D FDFD by the sparse direct solver: a straight 220 nm silicon slab in oxide, \
+                    E along z, its two ports' S-matrix",
             heavy: false,
             run: |timed| slab_2d(0.01, 4.0, timed),
+        },
+        Problem {
+            id: "fdfd3d/guide-direct",
+            title: "3D FDFD by the direct solver (L D Lᵀ of the curl-curl operator's symmetric \
+                    similarity), plain PMLs: a 100 nm silicon guide through a 40³ grid, a \
+                    dipole beside it",
+            heavy: false,
+            run: guide_direct,
         },
         Problem {
             id: "fdfd3d/guide-qmr",
@@ -294,7 +302,7 @@ fn slab_2d(h: f64, length: f64, timed_done: &mut dyn FnMut()) -> Result<Measurem
     };
     let lam = Wavelength::um(1.55)?;
     let mut phases = Vec::new();
-    let solver = timed("assembly and LU", &mut phases, || {
+    let solver = timed("assembly and factorization", &mut phases, || {
         Solver2d::new(grid, Polarization::Ez, lam, eps, Boundaries::pml(pml))
     })?;
     let column = |x: f64| ((x - grid.x0) / h).floor() as usize;
@@ -400,6 +408,58 @@ impl Solve {
 /// problem (the same PMLs) solved to 1e-12, which isn't timed: by GMRES + multigrid with
 /// stretched PMLs, and by QMR + ILU(0) with plain ones, on which the multigrid wasn't measured.
 /// Both operators have the same solution.
+/// The guide of [`guide_3d`]'s `Guide::Cube { core: 10 }` with PMLs of 10, by the direct solver.
+fn guide_direct(timed_done: &mut dyn FnMut()) -> Result<Measurement> {
+    let (h, core, pml) = (0.01, 10, 10);
+    let n = 2 * core + 2 * pml;
+    let half = core as f64 * h / 2.0;
+    let grid = Grid3d {
+        nx: n,
+        ny: n,
+        nz: n,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: -(n as f64) * h / 2.0,
+        y0: -(n as f64) * h / 2.0,
+        z0: -(n as f64) * h / 2.0,
+    };
+    let eps = move |_: f64, y: f64, z: f64| {
+        c64::new(
+            if y.abs() < half && z.abs() < half {
+                12.09
+            } else {
+                1.0
+            },
+            0.0,
+        )
+    };
+    let lam = Wavelength::um(1.55)?;
+    let mut source = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    source[grid.index(Axis::X, (n / 2 + 3, n / 2 + 3, n / 2 + 3))] = c64::new(1.0, 0.0);
+    let mut phases = Vec::new();
+    let solver = timed("assembly, analysis and L D Lᵀ", &mut phases, || {
+        Solver3d::new(grid, lam, eps, Boundaries3d::pml(pml))
+    })?;
+    let field = timed("one solve, refined", &mut phases, || solver.solve(&source))?;
+    timed_done();
+    // the relative residual of A E = −i k₀ J
+    let k0 = std::f64::consts::TAU / lam.to_um();
+    let rhs: Vec<c64> = source.iter().map(|j| c64::new(0.0, -k0) * j).collect();
+    let applied = solver.apply(field.values());
+    let norm = |v: &[c64]| v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
+    let r: Vec<c64> = rhs.iter().zip(&applied).map(|(b, a)| b - a).collect();
+    Ok(Measurement {
+        grid: format!("{n} × {n} × {n} cells of {} nm, PMLs of {pml}", nm(h)),
+        unknowns: grid.unknowns(),
+        phases,
+        accuracy: Some(Accuracy {
+            error: norm(&r) / norm(&rhs),
+            against: "its relative residual".into(),
+        }),
+    })
+}
+
 fn guide_3d(
     guide: Guide,
     pml: usize,
