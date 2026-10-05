@@ -210,7 +210,7 @@ Measured on 0.4.0 (Core Ultra 7 265K): most mode solvers run slower on 20 thread
 - [ ] **Sweeps side by side:** the points of an FDFD wavelength sweep and of the mode solvers' sweeps solved in parallel, each on one thread when there are enough points, collected in order, so events and results are unchanged.
 - [ ] **QMR's kernels:** a persistent thread pool, no allocation inside the iteration, fused vector updates, dot products over fixed-size chunks summed in order, then a matrix-free Yee operator (the stencil Malas 2016 optimize).
 - [ ] **Symmetric QMR** for the complex-symmetric curl-curl system (Freund 1992; COCG, van der Vorst & Melissen 1990, to compare): one product per iteration and no Aᵀ, with an unconjugated incomplete LDLᵀ (Saad 2003). Whether the 0.4.1 multigrid moves to it is decided after.
-- [ ] **Nested dissection** (George 1973) as the ordering of faer's sparse LU on our structured grids.
+- [x] **Nested dissection** (George 1973) as the ordering of faer's sparse LU on our structured grids. *(The 3D direct solver: twice as fast at 40³, 33 s against 62 s, with a quarter less memory, its separators two steps wide since faer pivots rows. In 2D COLAMD wins, and the 2D solver, the mode solvers and the circuits keep it. See [FDFD in 3D](docs/methods/fdfd-3d.md#cost).)*
 - [ ] **Deterministic parallel ILU:** the factorization by fixed synchronous sweeps (Chow & Patel 2015) and the triangular solves by Jacobi sweeps (Anzt 2015), the same bits on any thread count.
 - [ ] **Validation:** every existing case unchanged; each parallel kernel bit-identical on 1, 4 and 20 threads; symmetric QMR against the direct solver to 1e-10; nested dissection's solutions equal to round-off.
 

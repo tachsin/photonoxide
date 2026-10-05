@@ -600,7 +600,7 @@ impl Solver2d {
 }
 
 /// The matrix: at each cell, the four faces' couplings and the diagonal.
-fn assemble(
+pub(crate) fn assemble(
     g: Grid,
     polarization: Polarization,
     k0: f64,

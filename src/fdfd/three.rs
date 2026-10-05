@@ -20,11 +20,11 @@
 //! over its own cell of the dual grid, harmonically along the component and arithmetically
 //! across it, as in 2D.
 
+use crate::sparse::{OrderedLu, OrderedSymbolic, adjacency, nested_dissection};
 use faer::sparse::Triplet;
-use faer::sparse::linalg::solvers::{Lu, SymbolicLu};
 use num_complex::Complex64 as c64;
 
-use super::{Direction, Edges, factorize, graded};
+use super::{Direction, Edges, graded};
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -594,10 +594,9 @@ pub struct Solver3d {
     eps: Vec<c64>,
     /// The matrix's entries, for its products with fields.
     entries: Vec<Triplet<usize, usize, c64>>,
-    lu: Lu<usize, c64>,
-    /// The matrix's sparsity analysed, which depends only on the grid and the boundaries:
-    /// reused by [`Solver3d::reuse`].
-    symbolic: SymbolicLu<usize>,
+    /// The factors, the columns in nested-dissection order; their analysis depends only on the
+    /// grid and the boundaries, and [`Solver3d::reuse`] reuses it.
+    lu: OrderedLu,
 }
 
 impl Solver3d {
@@ -634,7 +633,7 @@ impl Solver3d {
             wavelength,
             eps,
             self.lattice.boundaries,
-            Some(self.symbolic.clone()),
+            Some(self.lu.symbolic().clone()),
         )
     }
 
@@ -643,17 +642,16 @@ impl Solver3d {
         wavelength: Wavelength,
         eps: impl Fn(f64, f64, f64) -> c64,
         boundaries: Boundaries3d,
-        symbolic: Option<SymbolicLu<usize>>,
+        symbolic: Option<OrderedSymbolic>,
     ) -> Result<Solver3d> {
         let (lattice, eps) = Self::setup(grid, wavelength, eps, boundaries)?;
         let entries = lattice.assemble(&eps);
-        let (lu, symbolic) = factorize(&entries, grid.unknowns(), symbolic)?;
+        let lu = factorize_ordered(&lattice.grid, &entries, symbolic)?;
         Ok(Solver3d {
             lattice,
             eps,
             entries,
             lu,
-            symbolic,
         })
     }
 
@@ -739,7 +737,6 @@ impl Solver3d {
     ///
     /// [`Error::InvalidValue`] if `rhs` isn't one value per value of E.
     pub fn solve_system(&self, rhs: &[c64]) -> Result<Field3d> {
-        use faer::linalg::solvers::Solve;
         let n = self.lattice.grid.unknowns();
         if rhs.len() != n {
             return Err(Error::invalid(
@@ -758,9 +755,7 @@ impl Solver3d {
                 }
             })
             .collect();
-        let b = faer::Mat::<c64>::from_fn(n, 1, |r, _| rhs[r]);
-        let u = self.lu.solve(&b);
-        let mut values: Vec<c64> = (0..n).map(|r| u[(r, 0)]).collect();
+        let mut values = self.lu.solve(&rhs);
         // one step of iterative refinement, as in 2D, which leaves round-off where the
         // factorization is accurate; where it isn't (on GitHub's Windows runners faer's sparse LU
         // of the same matrix left relative residuals of 1e-2 to 1e-1 where it leaves 1e-14
@@ -1023,22 +1018,51 @@ pub use ports::{Port3d, PortMode3d};
 const ACCURATE: f64 = 1e-12;
 
 /// A factorization as a preconditioner: (LU)⁻¹ and its transpose.
-struct LuInverse<'a>(&'a Lu<usize, c64>);
+struct LuInverse<'a>(&'a OrderedLu);
 
 impl super::krylov::Preconditioner for LuInverse<'_> {
     fn solve(&self, v: &[c64]) -> Vec<c64> {
-        use faer::linalg::solvers::Solve;
-        let x = self
-            .0
-            .solve(faer::Mat::<c64>::from_fn(v.len(), 1, |r, _| v[r]));
-        (0..v.len()).map(|r| x[(r, 0)]).collect()
+        self.0.solve(v)
     }
 
     fn solve_transpose(&self, v: &[c64]) -> Vec<c64> {
-        use faer::linalg::solvers::Solve;
-        let x = self
-            .0
-            .solve_transpose(faer::Mat::<c64>::from_fn(v.len(), 1, |r, _| v[r]));
-        (0..v.len()).map(|r| x[(r, 0)]).collect()
+        self.0.solve_transpose(v)
     }
+}
+
+/// The 3D system's factors, its columns eliminated in nested-dissection order on Yee's grid
+/// ([`crate::sparse`]): measured against faer's COLAMD on a silicon strip in oxide (cells of
+/// 40 nm, PMLs of 6), 32³ cells in 10.1 s and 8.6 GB against 19.6 s and 10.5 GB, 40³ in 33.0 s
+/// and 22.8 GB against 62.1 s and 29.7 GB (docs/methods/fdfd-3d.md, "Cost"). `symbolic`, if
+/// given, is the analysis of a matrix of the same structure.
+fn factorize_ordered(
+    grid: &Grid3d,
+    triplets: &[Triplet<usize, usize, c64>],
+    symbolic: Option<OrderedSymbolic>,
+) -> Result<OrderedLu> {
+    let n = grid.unknowns();
+    let matrix = faer::sparse::SparseColMat::<usize, c64>::try_new_from_triplets(n, n, triplets)
+        .map_err(|e| Error::invalid("fdfd", format!("can't assemble the matrix: {e:?}")))?;
+    let symbolic = match symbolic {
+        Some(s) => s,
+        None => {
+            // each value of E at its place on the grid, and the matrix's graph
+            let mut positions = vec![[0.0; 3]; n];
+            for component in Axis::ALL {
+                for k in 0..grid.nz {
+                    for j in 0..grid.ny {
+                        for i in 0..grid.nx {
+                            positions[grid.index(component, (i, j, k))] =
+                                grid.e_position(component, (i, j, k));
+                        }
+                    }
+                }
+            }
+            let pairs: Vec<(usize, usize)> = triplets.iter().map(|t| (t.row, t.col)).collect();
+            let (starts, neighbours) = adjacency(n, &pairs);
+            let order = nested_dissection(&starts, &neighbours, &positions);
+            OrderedSymbolic::new(matrix.as_ref(), &order)?
+        }
+    };
+    OrderedLu::new(matrix.as_ref(), symbolic, faer::get_global_parallelism())
 }

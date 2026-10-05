@@ -43,6 +43,7 @@ pub mod material;
 pub mod mode;
 pub mod raster;
 pub mod run;
+mod sparse;
 pub mod stack;
 pub mod units;
 pub mod validation;

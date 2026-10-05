@@ -781,9 +781,7 @@ fn a_poor_factorization_still_gives_the_field_to_round_off() {
             faer::sparse::Triplet::new(t.row, t.col, t.val * scale)
         })
         .collect();
-    solver.lu = crate::fdfd::factorize(&off, grid.unknowns(), None)
-        .unwrap()
-        .0;
+    solver.lu = super::factorize_ordered(&grid, &off, Some(solver.lu.symbolic().clone())).unwrap();
     let field = solver.solve(&current).unwrap();
     let rhs: Vec<c64> = current
         .iter()
@@ -1181,4 +1179,181 @@ fn gmres_with_the_multigrid_gives_the_direct_solvers_field() {
     assert!(error < 1e-8, "{error}");
     // measured 2.0e-10 in 24 iterations, against 160 for QMR with ILU(0) on the same problem
     assert!(iterations < 40, "{iterations}");
+}
+
+#[test]
+#[ignore = "nested dissection against COLAMD, for the docs: ND_CASES=2d,3d24,3d32 cargo test --release fdfd::three::tests::nested_dissection_against_colamd -- --ignored --nocapture"]
+fn nested_dissection_against_colamd() {
+    use crate::sparse::{OrderedLu, OrderedSymbolic, adjacency, nested_dissection};
+    use faer::sparse::SparseColMat;
+    use faer::sparse::linalg::solvers::{Lu, SymbolicLu};
+    use std::time::Instant;
+    let cases = std::env::var("ND_CASES").unwrap_or_else(|_| "2d,3d24".into());
+    let lam = Wavelength::um(1.55).unwrap();
+    // the matrix, as triplets, and each unknown's place on its grid
+    type Problem = (
+        usize,
+        Vec<faer::sparse::Triplet<usize, usize, c64>>,
+        Vec<[f64; 3]>,
+    );
+    for case in cases.split(',') {
+        let (n, triplets, positions): Problem = if case == "2d" {
+            // the benchmark's slab: 440 x 340 cells of 10 nm, PMLs of 20, E along z
+            use crate::fdfd::{Boundaries, Grid, Polarization};
+            let (h, pml) = (0.01, 20);
+            let g = Grid {
+                nx: 400 + 2 * pml,
+                ny: 300 + 2 * pml,
+                dx: h,
+                dy: h,
+                x0: -(pml as f64) * h,
+                y0: -1.5 - pml as f64 * h,
+            };
+            let eps_z: Vec<c64> = (0..g.nx * g.ny)
+                .map(|k| {
+                    let y = g.y0 + ((k / g.nx) as f64 + 0.5) * h;
+                    c64::new(if y.abs() < 0.11 { 12.08 } else { 2.085 }, 0.0)
+                })
+                .collect();
+            let faces = vec![c64::new(1.0, 0.0); (g.nx + 1) * (g.ny + 1)];
+            let k0 = std::f64::consts::TAU / 1.55;
+            let t = crate::fdfd::assemble(
+                g,
+                Polarization::Ez,
+                k0,
+                &eps_z,
+                &faces,
+                &faces,
+                &Boundaries::pml(pml),
+            );
+            let positions = (0..g.nx * g.ny)
+                .map(|k| [(k % g.nx) as f64, (k / g.nx) as f64, 0.0])
+                .collect();
+            (g.nx * g.ny, t, positions)
+        } else {
+            // the 3D timing test's strip: n^3 cells of 40 nm, PMLs of 6
+            let cells: usize = case.trim_start_matches("3d").parse().unwrap();
+            let h = 0.04;
+            let half = cells as f64 * h / 2.0;
+            let grid = Grid3d {
+                nx: cells,
+                ny: cells,
+                nz: cells,
+                dx: h,
+                dy: h,
+                dz: h,
+                x0: -half,
+                y0: -half,
+                z0: -half,
+            };
+            let strip = |_: f64, y: f64, z: f64| {
+                let m: f64 = if y.abs() < 0.25 && z.abs() < 0.11 {
+                    3.476
+                } else {
+                    1.444
+                };
+                c64::new(m * m, 0.0)
+            };
+            let (lattice, eps) = Solver3d::setup(grid, lam, strip, Boundaries3d::pml(6)).unwrap();
+            let t = lattice.assemble(&eps);
+            let mut positions = vec![[0.0; 3]; grid.unknowns()];
+            for component in [Axis::X, Axis::Y, Axis::Z] {
+                for k in 0..cells {
+                    for j in 0..cells {
+                        for i in 0..cells {
+                            positions[grid.index(component, (i, j, k))] =
+                                grid.e_position(component, (i, j, k));
+                        }
+                    }
+                }
+            }
+            (grid.unknowns(), t, positions)
+        };
+        let matrix = SparseColMat::<usize, c64>::try_new_from_triplets(n, n, &triplets).unwrap();
+        let b = faer::Mat::<c64>::from_fn(n, 1, |i, _| c64::new(((i * 7919) % 13) as f64, 1.0));
+        let residual = |x: &faer::Mat<c64>| (&matrix * x - &b).norm_max() / b.norm_max();
+        println!("ND {case}: {n} unknowns, {} nonzeros", matrix.compute_nnz());
+        // ND_ONLY=colamd or nd runs one, for its peak memory alone
+        let only = std::env::var("ND_ONLY").unwrap_or_default();
+        // faer's own path: COLAMD
+        if only != "nd" {
+            let t = Instant::now();
+            let symbolic = SymbolicLu::try_new(matrix.symbolic()).unwrap();
+            let t_analysis = t.elapsed();
+            let t = Instant::now();
+            let lu = Lu::try_new_with_symbolic(symbolic, matrix.as_ref()).unwrap();
+            let t_factor = t.elapsed();
+            let x = faer::linalg::solvers::Solve::solve(&lu, &b);
+            println!(
+                "ND {case}: COLAMD: analysis {t_analysis:?}, factorization {t_factor:?}, residual {:.1e}",
+                residual(&x)
+            );
+        }
+        if only == "colamd" {
+            continue;
+        }
+        // nested dissection
+        let t = Instant::now();
+        let pairs: Vec<(usize, usize)> = triplets.iter().map(|e| (e.row, e.col)).collect();
+        let (starts, neighbours) = adjacency(n, &pairs);
+        let order = nested_dissection(&starts, &neighbours, &positions);
+        let t_order = t.elapsed();
+        let t = Instant::now();
+        let symbolic = OrderedSymbolic::new(matrix.as_ref(), &order).unwrap();
+        let lu = OrderedLu::new(matrix.as_ref(), symbolic, faer::get_global_parallelism()).unwrap();
+        let t_factor = t.elapsed();
+        let x = lu.solve(b.col(0).try_as_col_major().unwrap().as_slice());
+        let x = faer::Mat::<c64>::from_fn(n, 1, |r, _| x[r]);
+        println!(
+            "ND {case}: nested dissection: ordering {t_order:?}, analysis and factorization {t_factor:?}, residual {:.1e}",
+            residual(&x)
+        );
+    }
+}
+
+#[test]
+fn nested_dissection_gives_colamds_solution() {
+    // the 3D solver's own factors (nested dissection) against faer's (COLAMD) on the same
+    // matrix: a silicon strip in oxide, 14 x 12 x 10 cells of 40 nm, PMLs of 3
+    use faer::linalg::solvers::Solve;
+    let grid = Grid3d {
+        nx: 14,
+        ny: 12,
+        nz: 10,
+        dx: 0.04,
+        dy: 0.04,
+        dz: 0.04,
+        x0: -0.28,
+        y0: -0.24,
+        z0: -0.2,
+    };
+    let strip = |_: f64, y: f64, z: f64| {
+        let m: f64 = if y.abs() < 0.12 && z.abs() < 0.06 {
+            3.476
+        } else {
+            1.444
+        };
+        c64::new(m * m, 0.0)
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let solver = Solver3d::new(grid, lam, strip, Boundaries3d::pml(3)).unwrap();
+    let n = grid.unknowns();
+    let rhs: Vec<c64> = (0..n)
+        .map(|r| c64::new(((r * 31) % 17) as f64 - 8.0, ((r * 7) % 5) as f64))
+        .collect();
+    let ordered = solver.lu.solve(&rhs);
+    let (colamd, _) = crate::fdfd::factorize(&solver.entries, n, None).unwrap();
+    let x = colamd.solve(faer::Mat::<c64>::from_fn(n, 1, |r, _| rhs[r]));
+    let largest = ordered.iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let worst = (0..n)
+        .map(|r| (ordered[r] - x[(r, 0)]).norm())
+        .fold(0.0, f64::max);
+    assert!(worst / largest < 1e-10, "{}", worst / largest);
+    // and transposed
+    let ordered = solver.lu.solve_transpose(&rhs);
+    let x = colamd.solve_transpose(faer::Mat::<c64>::from_fn(n, 1, |r, _| rhs[r]));
+    let worst = (0..n)
+        .map(|r| (ordered[r] - x[(r, 0)]).norm())
+        .fold(0.0, f64::max);
+    assert!(worst / largest < 1e-10, "transposed: {}", worst / largest);
 }
