@@ -422,24 +422,40 @@ pub struct FdfdSParameters {
 
 /// Solves an `"fdfd"` job's device as [`execute`](super::execute) runs it, without recording
 /// a run: its S-matrix at `wavelengths_um` (µm), or at the job's own wavelengths (its sweep, or
-/// its one wavelength) when `None`. The sparsity is analysed once.
+/// its one wavelength) when `None`. The sparsity is analysed once, at the first wavelength; the
+/// others are solved side by side on rayon's threads, and come out in order, the same whatever
+/// the threads.
 ///
 /// # Errors
 ///
 /// The errors [`check`](super::check) finds, a wavelength that isn't positive and finite, and
 /// those of the solve (a port inside the PML, a material without data at a wavelength).
 pub fn fdfd_s_parameters(job: &Job, wavelengths_um: Option<&[f64]>) -> Result<FdfdSParameters> {
+    use rayon::prelude::*;
     let device = Device::new(job)?;
     let wavelengths = wavelengths_um.map_or_else(|| device.wavelengths(), <[f64]>::to_vec);
-    let mut first: Option<Solver2d> = None;
     let mut s = Vec::with_capacity(wavelengths.len());
     let mut effective_indices = Vec::with_capacity(wavelengths.len());
-    for &w in &wavelengths {
-        let (solver, ports, sm) = device.solve(Wavelength::um(w)?, first.as_ref())?;
+    let indices = |ports: &[Port]| ports.iter().map(|p| p.mode.effective_index().re).collect();
+    if let Some((&w, rest)) = wavelengths.split_first() {
+        let (first, ports, sm) = device.solve(Wavelength::um(w)?, None)?;
         s.push(sm);
-        effective_indices.push(ports.iter().map(|p| p.mode.effective_index().re).collect());
-        if first.is_none() {
-            first = Some(solver);
+        effective_indices.push(indices(&ports));
+        // as the run's sweep: about 5 kB a cell for each point in flight
+        let batch = super::in_flight((device.grid.nx * device.grid.ny) as f64 * 5e3);
+        for ws in rest.chunks(batch) {
+            let done: Vec<Result<_>> = ws
+                .par_iter()
+                .map(|&w| {
+                    let (_, ports, sm) = device.solve(Wavelength::um(w)?, Some(&first))?;
+                    Ok((sm, indices(&ports)))
+                })
+                .collect();
+            for point in done {
+                let (sm, n) = point?;
+                s.push(sm);
+                effective_indices.push(n);
+            }
         }
     }
     Ok(FdfdSParameters {
@@ -574,14 +590,14 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         }
         None => None,
     };
-    let mut solver: Option<Solver2d> = None;
-    for (step, &w) in wavelengths.iter().enumerate() {
-        if stop.reason().is_some() {
-            return Ok(());
-        }
+    // one point's events, and its solver: the first point's is reused by the others, whose
+    // sparsity it has analysed
+    let solve_point = |step: usize, reuse: Option<&Solver2d>| -> Result<(Vec<Event>, Solver2d)> {
+        let mut events = Vec::new();
+        let w = wavelengths[step];
         let value = w;
         let w = Wavelength::um(w)?;
-        let (current, ports, sm) = device.solve(w, solver.as_ref())?;
+        let (current, ports, sm) = device.solve(w, reuse)?;
         let mut residual = None;
         // how far S is from reciprocal: the largest |S_qp − S_pq|
         let reciprocity = (0..sm.len())
@@ -590,7 +606,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             .fold(None, |most: Option<f64>, d| {
                 Some(most.map_or(d, |m| m.max(d)))
             });
-        run.record(&Event::SParameters {
+        events.push(Event::SParameters {
             wavelength_um: w.to_um(),
             ports: names.clone(),
             effective_indices: ports.iter().map(|p| p.mode.effective_index().re).collect(),
@@ -598,7 +614,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 .iter()
                 .map(|row| row.iter().map(|v| [v.re, v.im]).collect())
                 .collect(),
-        })?;
+        });
         // the field from the first port: in full at the wavelength chosen, and coarser at each
         // point of a sweep
         if step == field_step || block.is_some() {
@@ -623,7 +639,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                     .copied()
                     .fold(0.0, f64::max)
                     .max(f64::MIN_POSITIVE);
-                run.record(&Event::Field {
+                events.push(Event::Field {
                     label: label.clone(),
                     wavelength_um: w.to_um(),
                     z_um: z_face,
@@ -636,35 +652,45 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                         y1: inner.y0 + inner.ny as f64 * inner.dy,
                         values: values.iter().map(|v| (v / peak) as f32).collect(),
                     },
-                })?;
+                });
             }
             if let Some(block) = block {
-                run.record(&Event::SweepField {
+                events.push(Event::SweepField {
                     point: step,
                     value,
                     label: label.clone(),
                     wavelength_um: w.to_um(),
                     z_um: z_face,
                     intensity: coarse(&values, &inner, block),
-                })?;
+                });
             }
         }
         let point = block.map(|_| step);
         for (measure, error) in [("linear residual", residual), ("reciprocity", reciprocity)] {
             if let Some(error) = error {
-                run.record(&Event::SolveError {
+                events.push(Event::SolveError {
                     point,
                     value,
                     measure: measure.into(),
                     error,
-                })?;
+                });
             }
         }
-        if solver.is_none() {
-            solver = Some(current);
-        }
+        Ok((events, current))
+    };
+    if wavelengths.is_empty() || stop.reason().is_some() {
+        return Ok(());
     }
-    Ok(())
+    let (events, first) = solve_point(0, None)?;
+    for e in &events {
+        run.record(e)?;
+    }
+    // the others side by side: a point takes about 5 kB a cell (measured: 690 MB at 149 600
+    // cells, `photonoxide bench`'s fdfd2d/slab-lu)
+    let batch = super::in_flight((nx * ny) as f64 * 5e3);
+    super::sweep_points(run, stop, 1..wavelengths.len(), batch, |k| {
+        Ok(Some(solve_point(k, Some(&first))?.0))
+    })
 }
 
 /// The mode of `spec`'s guide at the column nearest the window's end on the port's side, two

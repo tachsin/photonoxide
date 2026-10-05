@@ -134,6 +134,48 @@ mod fdfd;
 
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 
+/// The memory a sweep's points in flight may take in all, by their estimate: what bounds them
+/// when the machine has more threads than a sweep's points can share it with.
+const IN_FLIGHT_BYTES: f64 = 8e9;
+
+/// How many of a sweep's points to solve at once: one per thread of rayon's pool, but no more
+/// than [`IN_FLIGHT_BYTES`] holds at `bytes_per_point` each, and at least one.
+fn in_flight(bytes_per_point: f64) -> usize {
+    let by_memory = (IN_FLIGHT_BYTES / bytes_per_point.max(1.0)).floor() as usize;
+    rayon::current_num_threads().min(by_memory).max(1)
+}
+
+/// A sweep's points solved side by side, `batch` at a time on rayon's threads, and recorded in
+/// their order: `point(k)` makes point k's events without the run (`None` when the stop came
+/// first), and each batch's events go into `run` point by point, so the record is the one a loop
+/// over the points writes, whatever the threads. A stop ends the sweep at its first point not
+/// done; an error at a point ends it there, after the points before it.
+fn sweep_points(
+    run: &mut Run,
+    stop: &Stop,
+    points: std::ops::Range<usize>,
+    batch: usize,
+    point: impl Fn(usize) -> Result<Option<Vec<Event>>> + Sync,
+) -> Result<()> {
+    use rayon::prelude::*;
+    let all: Vec<usize> = points.collect();
+    for ks in all.chunks(batch.max(1)) {
+        if stop.reason().is_some() {
+            return Ok(());
+        }
+        let done: Vec<Result<Option<Vec<Event>>>> = ks.par_iter().map(|&k| point(k)).collect();
+        for events in done {
+            let Some(events) = events? else {
+                return Ok(());
+            };
+            for e in &events {
+                run.record(e)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 /// An event of a run's record.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -1628,10 +1670,11 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         to: sweep.to,
         points: sweep.points,
     })?;
-    for k in 0..sweep.points {
+    let point = |k: usize| -> Result<Option<Vec<Event>>> {
         if stop.reason().is_some() {
-            return Ok(());
+            return Ok(None);
         }
+        let mut events = Vec::new();
         let value = sweep.from + (sweep.to - sweep.from) * k as f64 / (sweep.points - 1) as f64;
         // the point's shapes, for a width sweep
         let mut shapes = None;
@@ -1698,10 +1741,10 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         };
         let Some(mut found) = crate::mode::vector::modes_until(&cs, w, count, None, stopped)?
         else {
-            return Ok(());
+            return Ok(None);
         };
         found.sort_by(|a, b| b.effective_index().re.total_cmp(&a.effective_index().re));
-        run.record(&Event::SweepPoint {
+        events.push(Event::SweepPoint {
             parameter: sweep.parameter.clone(),
             value,
             wavelength_um: w.to_um(),
@@ -1713,7 +1756,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 .iter()
                 .map(crate::mode::vector::VectorMode::te_fraction)
                 .collect(),
-        })?;
+        });
         // the point's pictures, coarser than the job's own: twice the step, three decimals
         let coarse = |mut r: Raster| {
             for v in &mut r.values {
@@ -1723,29 +1766,29 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             r
         };
         if let Some((shapes, picture)) = shapes {
-            run.record(&Event::SweepShapes {
+            events.push(Event::SweepShapes {
                 point: k,
                 value,
                 shapes,
-            })?;
-            run.record(&Event::SweepPermittivity {
+            });
+            events.push(Event::SweepPermittivity {
                 point: k,
                 value,
                 view: view.clone(),
                 axes: axes(),
                 wavelength_um: w.to_um(),
                 raster: coarse(picture),
-            })?;
+            });
         }
         for (rank, m) in found.iter().enumerate() {
             if stop.reason().is_some() {
-                return Ok(());
+                return Ok(None);
             }
             let fields = m.fields(&cs)?;
             let (component, field) =
                 signed_field(&fields, &cs, across, z, 2.0 * step, along.across());
             let n = m.effective_index();
-            run.record(&Event::SweepMode {
+            events.push(Event::SweepMode {
                 point: k,
                 value,
                 label: format!("mode {} of {}", rank + 1, found.len()),
@@ -1756,18 +1799,22 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 component,
                 field: coarse(field),
                 cut_y_um: cut,
-            })?;
+            });
         }
         for (rank, m) in found.iter().enumerate() {
-            run.record(&Event::SolveError {
+            events.push(Event::SolveError {
                 point: Some(k),
                 value,
                 measure: format!("eigen-residual, mode {} of {}", rank + 1, found.len()),
                 error: m.residual(&cs)?,
-            })?;
+            });
         }
-    }
-    Ok(())
+        Ok(Some(events))
+    };
+    // a point takes about 6 kB per unknown of its cross-section (measured: 1.45 GB at 253 k
+    // unknowns, examples/strip_waveguide.rs on its 5 nm grid)
+    let batch = in_flight(cs.unknowns() as f64 * 6e3);
+    sweep_points(run, stop, 0..sweep.points, batch, point)
 }
 
 #[cfg(test)]
@@ -3406,5 +3453,62 @@ field_um = 1.58",
             let e = execute(&job, &mut run, &Stop::new(None)).unwrap_err();
             assert!(e.to_string().contains(error), "{e}");
         }
+    }
+
+    /// The job's events on a pool of `threads`, without the time it took.
+    fn events_on(threads: usize, text: &str, tag: &str) -> Vec<Event> {
+        let root = temp(&format!("{tag}-{threads}"));
+        let job = Job::parse(text).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap();
+        pool.install(|| execute(&job, &mut run, &Stop::new(None)))
+            .unwrap();
+        replay(run.dir())
+            .unwrap()
+            .into_iter()
+            .filter(|e| !matches!(e, Event::Finished { .. }))
+            .collect()
+    }
+
+    #[test]
+    fn a_sweep_records_the_same_events_on_any_number_of_threads() {
+        // one thread solves the points one after another, as a loop over them does; four solve
+        // them four at a time, and record them in the same order, to the last bit
+        let modes = format!(
+            "{MODES}\n[task.sweep]\nparameter = \"wavelength\"\nfrom = 1.5\nto = 1.6\npoints = 5\n"
+        );
+        let fdfd = FDFD.replace("points = 2", "points = 5");
+        assert_ne!(fdfd, FDFD);
+        for (text, tag) in [
+            (modes.as_str(), "sweep-modes"),
+            (fdfd.as_str(), "sweep-fdfd"),
+        ] {
+            let one = events_on(1, text, tag);
+            let points = one
+                .iter()
+                .filter(|e| matches!(e, Event::SweepPoint { .. } | Event::SParameters { .. }))
+                .count();
+            assert_eq!(points, 5, "{tag}");
+            assert_eq!(events_on(4, text, tag), one, "{tag}");
+        }
+    }
+
+    #[test]
+    fn fdfd_s_parameters_are_the_same_on_any_number_of_threads() {
+        let job = Job::parse(&FDFD.replace("points = 2", "points = 5")).unwrap();
+        let on = |threads| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| fdfd_s_parameters(&job, None))
+                .unwrap()
+        };
+        let (one, four) = (on(1), on(4));
+        assert_eq!(one.s.len(), 5);
+        assert_eq!(four, one);
     }
 }

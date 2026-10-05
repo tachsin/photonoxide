@@ -174,6 +174,27 @@ pub fn problems() -> Vec<Problem> {
             run: |timed| strip_ports_3d(0.02, 16, Solve::Multigrid, 1e-8, timed),
         },
         Problem {
+            id: "job/strip-modes",
+            title: "The built-in job jobs/strip-modes.toml, run headless: a strip's modes by the \
+                    full-vector solver, and a sweep of 11 wavelengths",
+            heavy: false,
+            run: |timed| built_in_job(include_str!("../jobs/strip-modes.toml"), timed),
+        },
+        Problem {
+            id: "job/mmi-fdfd",
+            title: "The built-in job jobs/mmi-fdfd.toml, run headless: a 1 × 2 MMI's S-parameters \
+                    by 2D FDFD over a sweep of 11 wavelengths",
+            heavy: false,
+            run: |timed| built_in_job(include_str!("../jobs/mmi-fdfd.toml"), timed),
+        },
+        Problem {
+            id: "job/ring-fdfd",
+            title: "The built-in job jobs/ring-fdfd.toml, run headless: an all-pass ring's \
+                    spectrum by 2D FDFD, a sweep of 201 wavelengths",
+            heavy: true,
+            run: |timed| built_in_job(include_str!("../jobs/ring-fdfd.toml"), timed),
+        },
+        Problem {
             id: "fdfd3d/diel-ilu",
             title: "3D FDFD by QMR + ILU(0), stretched PMLs: Shin and Fan's Diel, smaller (a \
                     400 × 300 nm silicon guide in vacuum, a current across it), to 1e-8",
@@ -553,6 +574,65 @@ fn strip_ports_3d(
             against: "S21 = exp(iβL), S11 = 0".into(),
         }),
     })
+}
+
+/// A built-in job run as `photonoxide run --headless` runs it, into a run directory under the
+/// system's temporary directory that is removed after: the whole run timed, its grid read from
+/// its solver's event.
+fn built_in_job(text: &str, timed_done: &mut dyn FnMut()) -> Result<Measurement> {
+    use crate::job::{Event, execute};
+    use crate::run::{Job, Run, Stop, replay};
+    let job = Job::parse(text)?;
+    let root = std::env::temp_dir().join(format!(
+        "photonoxide-bench-{}-{}",
+        std::process::id(),
+        job.name()
+    ));
+    let _ = std::fs::remove_dir_all(&root);
+    let measured = (|| {
+        let mut run = Run::create(&root, &job)?;
+        let t = Instant::now();
+        execute(&job, &mut run, &Stop::new(None))?;
+        let seconds = t.elapsed().as_secs_f64();
+        timed_done();
+        let events: Vec<Event> = replay(run.dir())?;
+        let points = events
+            .iter()
+            .find_map(|e| match e {
+                Event::Sweep { points, .. } => Some(*points),
+                _ => None,
+            })
+            .unwrap_or(1);
+        let (cells, step_um, unknowns) = events
+            .iter()
+            .find_map(|e| match e {
+                Event::Solver {
+                    cells,
+                    step_um,
+                    unknowns,
+                    ..
+                } => Some((*cells, *step_um, *unknowns)),
+                _ => None,
+            })
+            .unwrap_or(([0, 0], 0.0, 0));
+        Ok(Measurement {
+            grid: format!(
+                "{} × {} cells of {} nm, {points} points",
+                cells[0],
+                cells[1],
+                nm(step_um)
+            ),
+            unknowns,
+            phases: vec![Phase {
+                name: format!("the job, {points} points"),
+                seconds,
+                iterations: None,
+            }],
+            accuracy: None,
+        })
+    })();
+    let _ = std::fs::remove_dir_all(&root);
+    measured
 }
 
 #[cfg(test)]
