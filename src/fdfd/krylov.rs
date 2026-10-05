@@ -147,6 +147,69 @@ impl Sparse {
     }
 }
 
+impl Sparse {
+    /// A diagonal S whose similarity B = S A S⁻¹ is complex symmetric, and B, symmetric to the
+    /// last bit; or none if there is no such S. S² = D with d_i a_ij = d_j a_ji for every entry
+    /// to within 1e-12 of it: D is found by walking A's graph from each unknown not yet reached
+    /// (d = 1 there, d_j = d_i a_ij / a_ji along each entry), scaled to a largest |d_i| of 1, and
+    /// s_i = √d_i; then b_ij = a_ij s_i/s_j and b_ji = a_ji s_j/s_i agree, and their mean is
+    /// kept. A similarity keeps A's eigenvalues, which D A (symmetric too) doesn't: QMR for
+    /// symmetric matrices on D A didn't converge on the 3D guide where QMR on A takes 2 000
+    /// iterations. A x = b is B (S x) = S b. The 3D curl-curl operator with PMLs is symmetric so,
+    /// D its cells' stretch factors (measured: to 7e-15); Shin and Fan's operator, and a Bloch
+    /// side's phases, aren't.
+    pub(crate) fn symmetrized(&self) -> Option<(Vec<c64>, Sparse)> {
+        let n = self.n;
+        let entry = |r: usize, c: usize| -> Option<c64> {
+            let row = &self.columns[self.starts[r]..self.starts[r + 1]];
+            row.binary_search(&c)
+                .ok()
+                .map(|k| self.values[self.starts[r] + k])
+        };
+        let mut d: Vec<Option<c64>> = vec![None; n];
+        for start in 0..n {
+            if d[start].is_some() {
+                continue;
+            }
+            d[start] = Some(c64::new(1.0, 0.0));
+            let mut stack = vec![start];
+            while let Some(i) = stack.pop() {
+                for (j, aij) in self.row(i) {
+                    if d[j].is_some() || i == j {
+                        continue;
+                    }
+                    let aji = entry(j, i)?;
+                    if aji.norm() == 0.0 || aij.norm() == 0.0 {
+                        return None;
+                    }
+                    d[j] = Some(d[i]? * aij / aji);
+                    stack.push(j);
+                }
+            }
+        }
+        let d: Vec<c64> = d.into_iter().collect::<Option<_>>()?;
+        let largest = d.iter().map(|z| z.norm()).fold(0.0, f64::max);
+        let d: Vec<c64> = d.iter().map(|z| z / largest).collect();
+        let s: Vec<c64> = d.iter().map(|z| z.sqrt()).collect();
+        let mut rows = Vec::with_capacity(n);
+        for i in 0..n {
+            let mut row = Vec::with_capacity(self.starts[i + 1] - self.starts[i]);
+            for (j, aij) in self.row(i) {
+                let aji = entry(j, i)?;
+                if (d[i] * aij - d[j] * aji).norm()
+                    > 1e-12 * (d[i] * aij).norm().max((d[j] * aji).norm())
+                {
+                    return None;
+                }
+                let (upper, lower) = (aij * s[i] / s[j], aji * s[j] / s[i]);
+                row.push((j, (upper + lower) / 2.0));
+            }
+            rows.push(row);
+        }
+        Some((s, Sparse::from_rows(rows)))
+    }
+}
+
 /// A matrix-vector product by rows into `out`, the rows shared among rayon's threads: each row
 /// is summed in the same order whatever the threads, so the result is the same bit for bit.
 fn product(starts: &[usize], columns: &[usize], values: &[c64], v: &[c64], out: &mut [c64]) {
@@ -466,13 +529,23 @@ struct Sums {
     step: Vec<(f64, c64)>,
 }
 
-/// The vectors QMR's step writes.
+/// The vectors QMR's step writes; `w_next` none for a complex symmetric A, whose w is v.
 struct Step<'a> {
     p: &'a mut [c64],
     x: &'a mut [c64],
     v_next: &'a mut [c64],
-    w_next: &'a mut [c64],
+    w_next: Option<&'a mut [c64]>,
     r: &'a mut [c64],
+}
+
+/// The left Lanczos vectors' part of [`Sums::next_lanczos`]: w_{n+1} written from Aᵀ w_n, w_n,
+/// w_{n−1} and β_w.
+struct Left<'a> {
+    w_next: &'a mut [c64],
+    atw: &'a [c64],
+    w: &'a [c64],
+    w_old: &'a [c64],
+    beta_w: c64,
 }
 
 impl Sums {
@@ -487,40 +560,67 @@ impl Sums {
     }
 
     /// The next Lanczos vectors before their scaling (Eq. 2.7), v = A v_n − α v_n − β_v v_{n−1}
-    /// and w = Aᵀ w_n − α w_n − β_w w_{n−1}, into `next`; and their squared norms.
+    /// into `v_next` and, unless A is complex symmetric (`left` none, w = v), w = Aᵀ w_n −
+    /// α w_n − β_w w_{n−1}; and their squared norms (v's twice for a symmetric A).
     fn next_lanczos(
         &mut self,
-        [v_next, w_next]: [&mut [c64]; 2],
-        [av, atw]: [&[c64]; 2],
-        [v, w]: [&[c64]; 2],
-        [v_old, w_old]: [&[c64]; 2],
+        v_next: &mut [c64],
+        [av, v, v_old]: [&[c64]; 3],
         alpha: c64,
-        [beta_v, beta_w]: [c64; 2],
+        beta_v: c64,
+        left: Option<Left<'_>>,
     ) -> (f64, f64) {
         use rayon::prelude::*;
-        v_next
-            .par_chunks_mut(CHUNK)
-            .zip(w_next.par_chunks_mut(CHUNK))
-            .enumerate()
-            .map(|(chunk, (vs, ws))| {
-                let start = chunk * CHUNK;
-                let mut sums = (0.0, 0.0);
-                for (i, (vk, wk)) in vs.iter_mut().zip(ws.iter_mut()).enumerate() {
-                    let k = start + i;
-                    *vk = av[k] - alpha * v[k] - beta_v * v_old[k];
-                    *wk = atw[k] - alpha * w[k] - beta_w * w_old[k];
-                    sums.0 += vk.norm_sqr();
-                    sums.1 += wk.norm_sqr();
-                }
-                sums
-            })
-            .collect_into_vec(&mut self.pairs);
+        let right = |k: usize| av[k] - alpha * v[k] - beta_v * v_old[k];
+        match left {
+            Some(Left {
+                w_next,
+                atw,
+                w,
+                w_old,
+                beta_w,
+            }) => {
+                v_next
+                    .par_chunks_mut(CHUNK)
+                    .zip(w_next.par_chunks_mut(CHUNK))
+                    .enumerate()
+                    .map(|(chunk, (vs, ws))| {
+                        let start = chunk * CHUNK;
+                        let mut sums = (0.0, 0.0);
+                        for (i, (vk, wk)) in vs.iter_mut().zip(ws.iter_mut()).enumerate() {
+                            let k = start + i;
+                            *vk = right(k);
+                            *wk = atw[k] - alpha * w[k] - beta_w * w_old[k];
+                            sums.0 += vk.norm_sqr();
+                            sums.1 += wk.norm_sqr();
+                        }
+                        sums
+                    })
+                    .collect_into_vec(&mut self.pairs);
+            }
+            None => {
+                v_next
+                    .par_chunks_mut(CHUNK)
+                    .enumerate()
+                    .map(|(chunk, vs)| {
+                        let start = chunk * CHUNK;
+                        let mut sum = 0.0;
+                        for (i, vk) in vs.iter_mut().enumerate() {
+                            *vk = right(start + i);
+                            sum += vk.norm_sqr();
+                        }
+                        (sum, sum)
+                    })
+                    .collect_into_vec(&mut self.pairs);
+            }
+        }
         (self.pairs.iter()).fold((0.0, 0.0), |s, p| (s.0 + p.0, s.1 + p.1))
     }
 
     /// The rest of an iteration (Eqs. 4.8–4.9, 2.9, 4.12): p = (v_n − ε p_{n−1} − θ p_{n−2}) / δ
     /// and x += τ_n p; then, unless the process ended (`next` none), v_{n+1} and w_{n+1} scaled
-    /// by 1/ρ_{n+1} and 1/ξ_{n+1} and r = keep r + add v_{n+1}. Returns ‖r‖² and w_{n+1}ᵀ v_{n+1}.
+    /// by 1/ρ_{n+1} and 1/ξ_{n+1} and r = keep r + add v_{n+1}. Returns ‖r‖² and w_{n+1}ᵀ v_{n+1}
+    /// (v_{n+1}ᵀ v_{n+1} for a complex symmetric A, whose w is v).
     fn step(
         &mut self,
         out: Step<'_>,
@@ -536,30 +636,52 @@ impl Sums {
             w_next,
             r,
         } = out;
-        p.par_chunks_mut(CHUNK)
+        // the value k's update, but for w; its share of ‖r‖², and v_{n+1}'s value
+        let update = |k: usize, pk: &mut c64, xk: &mut c64, vk: &mut c64, rk: &mut c64| {
+            *pk = (v[k] - epsilon * p_old[k] - theta * p_older[k]) / delta;
+            *xk += tau_n * *pk;
+            if let Some(([rho_next, _], keep, add)) = next {
+                *vk /= rho_next;
+                *rk = keep * *rk + add * *vk;
+            }
+            rk.norm_sqr()
+        };
+        let chunks = p
+            .par_chunks_mut(CHUNK)
             .zip(x.par_chunks_mut(CHUNK))
             .zip(v_next.par_chunks_mut(CHUNK))
-            .zip(w_next.par_chunks_mut(CHUNK))
             .zip(r.par_chunks_mut(CHUNK))
-            .enumerate()
-            .map(|(chunk, ((((ps, xs), vs), ws), rs))| {
-                let start = chunk * CHUNK;
-                let (mut r2, mut d) = (0.0, c64::new(0.0, 0.0));
-                for i in 0..ps.len() {
-                    let k = start + i;
-                    ps[i] = (v[k] - epsilon * p_old[k] - theta * p_older[k]) / delta;
-                    xs[i] += tau_n * ps[i];
-                    if let Some(([rho_next, xi_next], keep, add)) = next {
-                        vs[i] /= rho_next;
-                        ws[i] /= xi_next;
-                        rs[i] = keep * rs[i] + add * vs[i];
-                        d += ws[i] * vs[i];
+            .enumerate();
+        match w_next {
+            Some(w_next) => chunks
+                .zip(w_next.par_chunks_mut(CHUNK))
+                .map(|((chunk, (((ps, xs), vs), rs)), ws)| {
+                    let start = chunk * CHUNK;
+                    let (mut r2, mut d) = (0.0, c64::new(0.0, 0.0));
+                    for i in 0..ps.len() {
+                        r2 += update(start + i, &mut ps[i], &mut xs[i], &mut vs[i], &mut rs[i]);
+                        if let Some(([_, xi_next], _, _)) = next {
+                            ws[i] /= xi_next;
+                            d += ws[i] * vs[i];
+                        }
                     }
-                    r2 += rs[i].norm_sqr();
-                }
-                (r2, d)
-            })
-            .collect_into_vec(&mut self.step);
+                    (r2, d)
+                })
+                .collect_into_vec(&mut self.step),
+            None => chunks
+                .map(|(chunk, (((ps, xs), vs), rs))| {
+                    let start = chunk * CHUNK;
+                    let (mut r2, mut d) = (0.0, c64::new(0.0, 0.0));
+                    for i in 0..ps.len() {
+                        r2 += update(start + i, &mut ps[i], &mut xs[i], &mut vs[i], &mut rs[i]);
+                        if next.is_some() {
+                            d += vs[i] * vs[i];
+                        }
+                    }
+                    (r2, d)
+                })
+                .collect_into_vec(&mut self.step),
+        }
         (self.step.iter()).fold((0.0, c64::new(0.0, 0.0)), |s, p| (s.0 + p.0, s.1 + p.1))
     }
 }
@@ -604,6 +726,110 @@ pub(crate) fn qmr(
     b: &[c64],
     stopping: Stopping,
 ) -> Result<(Vec<c64>, Convergence)> {
+    restarted(a, b, stopping, false)
+}
+
+/// Solves A x = b by QMR from x₀ = 0 for a complex symmetric A (A = Aᵀ, not Hermitian):
+/// R. W. Freund, "Conjugate gradient-type methods for linear systems with complex symmetric
+/// coefficient matrices", SIAM J. Sci. Stat. Comput. 13, 425 (1992), doi:10.1137/0913023, his
+/// Algorithm 3.2 on the complex symmetric Lanczos process (his Algorithm 2.1). It is [`qmr`]
+/// with its left Lanczos vectors equal to its right ones: started with w₁ = v₁, they stay equal
+/// when A = Aᵀ, so neither they nor Aᵀ's products are taken. One product with A an iteration,
+/// where [`qmr`] takes one with A and one with Aᵀ; Freund's weights ω_j = ‖v_j‖ (his Eq. 3.11)
+/// are the unit vectors [`qmr`] already keeps. A must be symmetric: nothing checks it.
+///
+/// # Errors
+///
+/// As [`qmr`].
+pub(crate) fn qmr_symmetric(
+    a: &impl Operator,
+    b: &[c64],
+    stopping: Stopping,
+) -> Result<(Vec<c64>, Convergence)> {
+    restarted(a, b, stopping, true)
+}
+
+/// Solves A x = b for an A whose similarity B = S A S⁻¹ is complex symmetric, given B and the
+/// diagonal S ([`Sparse::symmetrized`]): [`qmr_symmetric`] on B y = S b, x = S⁻¹ y, to the
+/// relative residual of A x = b itself that `stopping` asks, b − A x = S⁻¹ (S b − B y). S
+/// weights B's residual unevenly (by up to 300 times on a 3D guide's PMLs), so where B's
+/// residual is at the tolerance and A's isn't yet, QMR carries on from y to a tolerance tightened
+/// by as much, up to 5 times. Its convergence history is B's residual, relative to ‖S b‖.
+///
+/// # Errors
+///
+/// As [`qmr`], and [`Error::InvalidValue`] if A's residual is still above the tolerance after
+/// 5 rounds.
+pub(crate) fn qmr_similar(
+    b_matrix: &Sparse,
+    s: &[c64],
+    b: &[c64],
+    stopping: Stopping,
+) -> Result<(Vec<c64>, Convergence)> {
+    let n = b.len();
+    if s.len() != n || b_matrix.n != n {
+        return Err(Error::invalid(
+            "qmr",
+            format!("the right-hand side needs {} values, got {n}", b_matrix.n),
+        ));
+    }
+    let rho0 = norm(b);
+    let c: Vec<c64> = b.iter().zip(s).map(|(x, y)| x * y).collect();
+    let scale = norm(&c);
+    let mut y = vec![c64::new(0.0, 0.0); n];
+    let mut history = Vec::new();
+    let mut tolerance = stopping.tolerance;
+    for _ in 0..5 {
+        let by = b_matrix.apply(&y);
+        let rc: Vec<c64> = c.iter().zip(&by).map(|(p, q)| p - q).collect();
+        let ra: Vec<c64> = rc.iter().zip(s).map(|(r, w)| r / w).collect();
+        let residual = if rho0 == 0.0 { 0.0 } else { norm(&ra) / rho0 };
+        if residual <= stopping.tolerance {
+            let x = y.iter().zip(s).map(|(p, w)| p / w).collect();
+            return Ok((
+                x,
+                Convergence {
+                    iterations: history.len(),
+                    residual,
+                    history,
+                },
+            ));
+        }
+        if !history.is_empty() {
+            // B's residual reached its tolerance before A's: tighten it by the shortfall
+            tolerance *= 0.5 * stopping.tolerance / residual;
+        }
+        let left = norm(&rc);
+        let (dy, how) = qmr_symmetric(
+            b_matrix,
+            &rc,
+            Stopping {
+                tolerance: tolerance * scale / left,
+                max_iterations: stopping.max_iterations.saturating_sub(history.len()),
+            },
+        )?;
+        for (yk, d) in y.iter_mut().zip(&dy) {
+            *yk += d;
+        }
+        history.extend(how.history.iter().map(|h| h * left / scale));
+    }
+    Err(Error::invalid(
+        "qmr",
+        format!(
+            "QMR on the symmetric similar matrix reached its tolerance 5 times without \
+             A's residual reaching {:e}",
+            stopping.tolerance
+        ),
+    ))
+}
+
+/// [`qmr`], restarted from its iterate at a breakdown, its left vectors kept unless `symmetric`.
+fn restarted(
+    a: &impl Operator,
+    b: &[c64],
+    stopping: Stopping,
+    symmetric: bool,
+) -> Result<(Vec<c64>, Convergence)> {
     let rho0 = norm(b);
     let mut x: Vec<c64> = Vec::new();
     let mut history = Vec::new();
@@ -619,7 +845,7 @@ pub(crate) fn qmr(
             },
             max_iterations: stopping.max_iterations.saturating_sub(used),
         };
-        let run = qmr_run(a, &residual, left)?;
+        let run = qmr_run(a, &residual, left, symmetric)?;
         let (dx, steps) = match run {
             Run::Done(dx, how) => {
                 if x.is_empty() {
@@ -680,7 +906,7 @@ pub(crate) fn qmr(
 ///
 /// [`Error::InvalidValue`] if `b` doesn't match A, if the tolerance isn't positive, or if the
 /// tolerance isn't reached within the iterations allowed.
-fn qmr_run(a: &impl Operator, b: &[c64], stopping: Stopping) -> Result<Run> {
+fn qmr_run(a: &impl Operator, b: &[c64], stopping: Stopping, symmetric: bool) -> Result<Run> {
     let n = a.size();
     if b.len() != n {
         return Err(Error::invalid(
@@ -704,12 +930,16 @@ fn qmr_run(a: &impl Operator, b: &[c64], stopping: Stopping) -> Result<Run> {
             },
         ));
     }
-    // Algorithm 3.1, step 0: r0 = b, v1 = w1 = r0 / rho0
+    // Algorithm 3.1, step 0: r0 = b, v1 = w1 = r0 / rho0. For a complex symmetric A the left
+    // vectors are the right ones (Freund 1992), and aren't kept
     let mut v: Vec<c64> = b.iter().map(|z| z / rho0).collect();
-    let mut w = v.clone();
+    let (mut w, mut w_old) = if symmetric {
+        (Vec::new(), Vec::new())
+    } else {
+        (v.clone(), vec![zero; n])
+    };
     let mut v_old = vec![zero; n];
-    let mut w_old = vec![zero; n];
-    let mut d = dot(&w, &v);
+    let mut d = dot(if symmetric { &v } else { &w }, &v);
     let mut d_old = c64::new(1.0, 0.0);
     // rho_n and xi_n, the norms that made v_n and w_n unit vectors (rho_1 = xi_1 = 1)
     let (mut rho, mut xi) = (1.0, 1.0);
@@ -722,8 +952,9 @@ fn qmr_run(a: &impl Operator, b: &[c64], stopping: Stopping) -> Result<Run> {
     let mut r = b.to_vec();
     let mut history = Vec::new();
     // the work vectors, made once: an iteration allocates nothing
-    let (mut av, mut atw) = (vec![zero; n], vec![zero; n]);
-    let (mut v_next, mut w_next, mut p) = (vec![zero; n], vec![zero; n], vec![zero; n]);
+    let left_size = if symmetric { 0 } else { n };
+    let (mut av, mut atw) = (vec![zero; n], vec![zero; left_size]);
+    let (mut v_next, mut w_next, mut p) = (vec![zero; n], vec![zero; left_size], vec![zero; n]);
     let mut sums = Sums::default();
     for iteration in 1..=stopping.max_iterations {
         if d.norm() < 1e-14 {
@@ -734,19 +965,21 @@ fn qmr_run(a: &impl Operator, b: &[c64], stopping: Stopping) -> Result<Run> {
         // v_{n-1} is w_{n-1}^T A v_n / d_{n-1} = xi_n d_n / d_{n-1}, and of w_{n-1}, rho_n d_n /
         // d_{n-1}, by biorthogonality
         a.apply_into(&v, &mut av);
-        a.apply_transpose_into(&w, &mut atw);
-        let alpha = sums.dot(&w, &av) / d;
+        if !symmetric {
+            a.apply_transpose_into(&w, &mut atw);
+        }
+        let alpha = sums.dot(if symmetric { &v } else { &w }, &av) / d;
         let beta_v = xi * d / d_old;
         let beta_w = rho * d / d_old;
         // v_{n+1} and w_{n+1} before their scaling, with their norms, in one pass
-        let (rho2, xi2) = sums.next_lanczos(
-            [&mut v_next, &mut w_next],
-            [&av, &atw],
-            [&v, &w],
-            [&v_old, &w_old],
-            alpha,
-            [beta_v, beta_w],
-        );
+        let left = (!symmetric).then_some(Left {
+            w_next: &mut w_next,
+            atw: &atw,
+            w: &w,
+            w_old: &w_old,
+            beta_w,
+        });
+        let (rho2, xi2) = sums.next_lanczos(&mut v_next, [&av, &v, &v_old], alpha, beta_v, left);
         let (rho_next, xi_next) = (rho2.sqrt(), xi2.sqrt());
         // the new column of H_e (Eq. 2.14): beta_v in row n-1, alpha in row n, rho_{n+1} in
         // row n+1; the previous rotations bring it to (theta_n, epsilon_n, mu), Eq. 4.4
@@ -781,7 +1014,7 @@ fn qmr_run(a: &impl Operator, b: &[c64], stopping: Stopping) -> Result<Run> {
                 p: &mut p,
                 x: &mut x,
                 v_next: &mut v_next,
-                w_next: &mut w_next,
+                w_next: (!symmetric).then_some(&mut w_next),
                 r: &mut r,
             },
             [&v, &p_old, &p_older],
@@ -820,8 +1053,10 @@ fn qmr_run(a: &impl Operator, b: &[c64], stopping: Stopping) -> Result<Run> {
         }
         std::mem::swap(&mut v_old, &mut v);
         std::mem::swap(&mut v, &mut v_next);
-        std::mem::swap(&mut w_old, &mut w);
-        std::mem::swap(&mut w, &mut w_next);
+        if !symmetric {
+            std::mem::swap(&mut w_old, &mut w);
+            std::mem::swap(&mut w, &mut w_next);
+        }
         (rho, xi) = (rho_next, xi_next);
         d_old = d;
         d = d_next;
@@ -1183,6 +1418,83 @@ mod tests {
                 .all(|(p, q)| p.re.to_bits() == q.re.to_bits() && p.im.to_bits() == q.im.to_bits());
             assert!(same, "{threads} threads differ from one");
         }
+    }
+
+    /// A complex symmetric matrix (not Hermitian): a shifted Laplacian on a ring with a complex
+    /// diagonal and a few long-range symmetric couplings, n × n.
+    fn complex_symmetric(n: usize) -> Vec<(usize, usize, c64)> {
+        let mut entries = Vec::new();
+        for r in 0..n {
+            entries.push((r, r, c64::new(3.0 + 0.2 * (r % 5) as f64, 0.4)));
+            let c = (r + 1) % n;
+            let v = c64::new(-1.0, 0.15 * (r % 3) as f64);
+            entries.push((r, c, v));
+            entries.push((c, r, v));
+            if r % 4 == 0 {
+                let c = (r * 13 + 7) % n;
+                if c != r {
+                    let v = c64::new(0.3, -0.2);
+                    entries.push((r, c, v));
+                    entries.push((c, r, v));
+                }
+            }
+        }
+        entries
+    }
+
+    #[test]
+    fn symmetric_qmr_is_qmr_without_its_left_vectors() {
+        // on an exactly symmetric A, QMR's left vectors are its right ones bit for bit, so
+        // dropping them and Aᵀ changes nothing: the same solution and history, to the last bit
+        let n = 2 * CHUNK + 5;
+        let a = Sparse::new(n, complex_symmetric(n));
+        let b: Vec<c64> = (0..n)
+            .map(|r| c64::new((r % 5) as f64 - 2.0, (r % 3) as f64))
+            .collect();
+        let stop = Stopping {
+            tolerance: 1e-10,
+            max_iterations: 400,
+        };
+        let bits = |v: &[c64]| -> Vec<(u64, u64)> {
+            v.iter().map(|z| (z.re.to_bits(), z.im.to_bits())).collect()
+        };
+        let (x, how) = qmr(&a, &b, stop).unwrap();
+        let (y, how_y) = qmr_symmetric(&a, &b, stop).unwrap();
+        assert!(how.iterations > 10);
+        assert_eq!(bits(&x), bits(&y));
+        assert_eq!(how.history, how_y.history);
+    }
+
+    #[test]
+    fn a_scaled_symmetric_matrix_is_found_symmetric_and_solved() {
+        // A = D⁻¹ S₀, S₀ complex symmetric and D a complex diagonal: S² = D is found again (up
+        // to a factor), and QMR for symmetric matrices on B = S A S⁻¹, B (S x) = S b, solves
+        // A x = b
+        let n = 300;
+        let s0 = complex_symmetric(n);
+        let scale = |r: usize| c64::new(1.0 + (r % 7) as f64, 0.5 * (r % 3) as f64);
+        let a = Sparse::new(n, s0.iter().map(|&(r, c, v)| (r, c, v / scale(r))));
+        let (s, b_matrix) = a.symmetrized().expect("A is similar to a symmetric matrix");
+        let ratio = s[0] * s[0] / scale(0);
+        for (r, sr) in s.iter().enumerate() {
+            let off = (sr * sr / scale(r) - ratio).norm() / ratio.norm();
+            assert!(off < 1e-12, "{r}: {off}");
+        }
+        let b: Vec<c64> = (0..n).map(|r| c64::new(1.0, (r % 4) as f64)).collect();
+        let sb: Vec<c64> = b.iter().zip(&s).map(|(x, y)| x * y).collect();
+        let stop = Stopping {
+            tolerance: 1e-12,
+            max_iterations: 1000,
+        };
+        let (y, _) = qmr_symmetric(&b_matrix, &sb, stop).unwrap();
+        let x: Vec<c64> = y.iter().zip(&s).map(|(p, q)| p / q).collect();
+        let ax = a.apply(&x);
+        let r: Vec<c64> = b.iter().zip(&ax).map(|(p, q)| p - q).collect();
+        assert!(norm(&r) < 1e-10 * norm(&b), "{}", norm(&r) / norm(&b));
+        // a cycle whose ratios don't close (a Bloch side's phase does this) has no such D
+        let mut odd = complex_symmetric(n);
+        odd.push((0, 1, c64::new(0.0, 0.5)));
+        assert!(Sparse::new(n, odd).symmetrized().is_none());
     }
 
     #[test]
