@@ -149,15 +149,15 @@ pub(crate) fn ring_extremes() -> Outcome {
         // compared at its own length
         let v_on = [on, kappa2];
         let v_off = [off, kappa2];
-        let (top, _) = all_pass.extremes(w, &v_off);
-        let (_, bottom) = all_pass.extremes(w, &v_on);
+        let (top, _) = all_pass.extremes(w, &v_off).expect(OK);
+        let (_, bottom) = all_pass.extremes(w, &v_on).expect(OK);
         worst = worst
             .max((all_pass.s_matrix(w, &v_off).expect(OK).power(1, 0) - top).abs())
             .max((all_pass.s_matrix(w, &v_on).expect(OK).power(1, 0) - bottom).abs());
         let v_on = [on, kappa2, 0.1];
         let v_off = [off, kappa2, 0.1];
-        let [t_off, _, _, d_off] = add_drop.extremes(w, &v_off);
-        let [_, r_on, d_on, _] = add_drop.extremes(w, &v_on);
+        let [t_off, _, _, d_off] = add_drop.extremes(w, &v_off).expect(OK);
+        let [_, r_on, d_on, _] = add_drop.extremes(w, &v_on).expect(OK);
         let (s_on, s_off) = (
             add_drop.s_matrix(w, &v_on).expect(OK),
             add_drop.s_matrix(w, &v_off).expect(OK),
@@ -202,16 +202,16 @@ pub(crate) fn ring_linewidth() -> Outcome {
     for kappa2 in [0.02, 0.05] {
         let v = [RING, kappa2];
         let centre = all_pass.resonance(um(1.55), RING).expect(OK);
-        let fsr = all_pass.fsr(centre, RING);
-        let (top, _) = all_pass.extremes(centre, &v);
+        let fsr = all_pass.fsr(centre, RING).expect(OK);
+        let (top, _) = all_pass.extremes(centre, &v).expect(OK);
         let power = |x: f64| all_pass.s_matrix(um(x), &v).expect(OK).power(1, 0);
         let measured = width_at_half(power, centre.to_um(), top, fsr / 4.0);
-        worst = worst.max((measured / all_pass.fwhm(centre, &v) - 1.0).abs());
+        worst = worst.max((measured / all_pass.fwhm(centre, &v).expect(OK) - 1.0).abs());
         let v = [RING, kappa2, kappa2];
         let drop = |x: f64| add_drop.s_matrix(um(x), &v).expect(OK).power(3, 0);
-        let [_, _, _, low] = add_drop.extremes(centre, &v);
+        let [_, _, _, low] = add_drop.extremes(centre, &v).expect(OK);
         let measured = width_at_half(drop, centre.to_um(), low, fsr / 4.0);
-        worst = worst.max((measured / add_drop.fwhm(centre, &v) - 1.0).abs());
+        worst = worst.max((measured / add_drop.fwhm(centre, &v).expect(OK) - 1.0).abs());
     }
     exact(worst, 1e-3)
 }

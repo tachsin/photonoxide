@@ -42,7 +42,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     for r in [20.0, 40.0, 80.0, 120.0] {
         let exact = SlabBend::new(Length::um(r), clad, &[(core, t)], clad, Length::um(-0.5))?
             .fundamental(Polarization::Te, w)?;
-        let marcuse = marcuse_loss(core, clad, t, Length::um(r), w, straight);
+        let marcuse = marcuse_loss(core, clad, t, Length::um(r), w, straight)?;
         println!(
             "  {r:>4} um  {:.4e}       {marcuse:.4e}   {:.3}   {:.3e} dB",
             exact.im,

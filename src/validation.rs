@@ -2332,7 +2332,7 @@ fn bend_marcuse() -> Outcome {
     let exact = SlabBend::new(r, clad, &[(core, t)], clad, Length::um(-0.5))
         .and_then(|b| b.fundamental(Polarization::Te, w))
         .map_or(f64::NAN, |n| n.im);
-    let deviation = marcuse_loss(core, clad, t, r, w, straight) / exact - 1.0;
+    let deviation = marcuse_loss(core, clad, t, r, w, straight).unwrap_or(f64::NAN) / exact - 1.0;
     Outcome {
         measured: deviation.abs(),
         expected: 0.0,

@@ -66,15 +66,59 @@ fn check_guide(guide: &Dispersion) -> Result<()> {
     Ok(())
 }
 
-/// The wavelength nearest `near` where the round trip's phase is a whole number of turns,
-/// n(λ)L = mλ (Bogaerts Eq. 3), by Newton's method on n(λ)L/λ − m.
-fn resonance(guide: &Dispersion, near: Wavelength, length: f64) -> Result<Wavelength> {
+/// Refuses a round trip that isn't a positive, finite length.
+fn check_length(length: f64) -> Result<()> {
     if !(length.is_finite() && length > 0.0) {
         return Err(Error::invalid(
             "ring",
             format!("the round trip must be a positive length, got {length} um"),
         ));
     }
+    Ok(())
+}
+
+/// Refuses values that aren't a ring's for its closed forms: `count` of them, the round trip
+/// a positive length and each power coupling from 0 to 1.
+fn check_values(values: &[f64], count: usize) -> Result<()> {
+    if values.len() != count {
+        let names = if count == 2 {
+            "length and coupling"
+        } else {
+            "length, coupling and coupling_drop"
+        };
+        return Err(Error::invalid(
+            "ring",
+            format!("it takes {count} values, {names}, got {}", values.len()),
+        ));
+    }
+    check_length(values[0])?;
+    for &kappa2 in &values[1..] {
+        if !(0.0..=1.0).contains(&kappa2) {
+            return Err(Error::invalid(
+                "ring",
+                format!("a power coupling must be from 0 to 1, got {kappa2}"),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// `value` if it is finite: a closed form that divided by zero is an error, not an infinity.
+fn finite(what: &str, value: f64) -> Result<f64> {
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err(Error::invalid(
+            "ring",
+            format!("{what} isn't finite for these values ({value})"),
+        ))
+    }
+}
+
+/// The wavelength nearest `near` where the round trip's phase is a whole number of turns,
+/// n(λ)L = mλ (Bogaerts Eq. 3), by Newton's method on n(λ)L/λ − m.
+fn resonance(guide: &Dispersion, near: Wavelength, length: f64) -> Result<Wavelength> {
+    check_length(length)?;
     let order = (guide.effective_index_at(near) * length / near.to_um()).round();
     let mut w = near.to_um();
     for _ in 0..50 {
@@ -182,8 +226,16 @@ impl AllPassRing {
     }
 
     /// The free spectral range at λ, µm: λ²/(n_g L) (Bogaerts Eq. 9).
-    pub fn fsr(&self, wavelength: Wavelength, length: f64) -> f64 {
-        wavelength.to_um().powi(2) / (self.guide.group_index_at(wavelength) * length)
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a length that isn't positive and finite.
+    pub fn fsr(&self, wavelength: Wavelength, length: f64) -> Result<f64> {
+        check_length(length)?;
+        finite(
+            "the free spectral range",
+            wavelength.to_um().powi(2) / (self.guide.group_index_at(wavelength) * length),
+        )
     }
 
     /// r a: the round trip's amplitude, coupling included.
@@ -194,34 +246,70 @@ impl AllPassRing {
 
     /// The full width at half maximum of the resonance at λ, µm: (1 − ra)λ²/(π n_g L √(ra))
     /// (Bogaerts Eq. 7). `values` are the parameters', `[length, coupling]`.
-    pub fn fwhm(&self, wavelength: Wavelength, values: &[f64]) -> f64 {
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] unless `values` are a positive, finite length and a coupling
+    /// from 0 to 1, or if the width isn't finite: a ring that couples all its light out
+    /// (ra = 0) has no resonance.
+    pub fn fwhm(&self, wavelength: Wavelength, values: &[f64]) -> Result<f64> {
+        check_values(values, 2)?;
         let ra = self.ra(wavelength, values);
-        (1.0 - ra) * wavelength.to_um().powi(2)
-            / (PI * self.guide.group_index_at(wavelength) * values[0] * ra.sqrt())
+        finite(
+            "the resonance's width",
+            (1.0 - ra) * wavelength.to_um().powi(2)
+                / (PI * self.guide.group_index_at(wavelength) * values[0] * ra.sqrt()),
+        )
     }
 
     /// The finesse, FSR/FWHM = π√(ra)/(1 − ra) (Bogaerts Eqs. 17 and 21).
-    pub fn finesse(&self, wavelength: Wavelength, values: &[f64]) -> f64 {
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for `values` as in [`AllPassRing::fwhm`], or if the finesse
+    /// isn't finite: a ring without loss or coupling (ra = 1) has no linewidth.
+    pub fn finesse(&self, wavelength: Wavelength, values: &[f64]) -> Result<f64> {
+        check_values(values, 2)?;
         let ra = self.ra(wavelength, values);
-        PI * ra.sqrt() / (1.0 - ra)
+        finite("the finesse", PI * ra.sqrt() / (1.0 - ra))
     }
 
     /// The loaded Q, λ/FWHM = π n_g L √(ra)/(λ(1 − ra)) (Bogaerts Eqs. 18 and 20).
-    pub fn q_factor(&self, wavelength: Wavelength, values: &[f64]) -> f64 {
+    ///
+    /// # Errors
+    ///
+    /// As [`AllPassRing::finesse`].
+    pub fn q_factor(&self, wavelength: Wavelength, values: &[f64]) -> Result<f64> {
+        check_values(values, 2)?;
         let ra = self.ra(wavelength, values);
-        PI * self.guide.group_index_at(wavelength) * values[0] * ra.sqrt()
-            / (wavelength.to_um() * (1.0 - ra))
+        finite(
+            "the Q factor",
+            PI * self.guide.group_index_at(wavelength) * values[0] * ra.sqrt()
+                / (wavelength.to_um() * (1.0 - ra)),
+        )
     }
 
     /// The through power off resonance, T_t = (r + a)²/(1 + ra)², and on it, R_min =
     /// (r − a)²/(1 − ra)² (Bogaerts Eqs. 11 and 12); their ratio is the extinction.
-    pub fn extremes(&self, wavelength: Wavelength, values: &[f64]) -> (f64, f64) {
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for `values` as in [`AllPassRing::fwhm`], or if a power isn't
+    /// finite (ra = 1).
+    pub fn extremes(&self, wavelength: Wavelength, values: &[f64]) -> Result<(f64, f64)> {
+        check_values(values, 2)?;
         let r = (1.0 - values[1]).sqrt();
         let a = single_pass(&self.guide, wavelength, values[0], self.round_trip_loss);
-        (
-            (r + a).powi(2) / (1.0 + r * a).powi(2),
-            (r - a).powi(2) / (1.0 - r * a).powi(2),
-        )
+        Ok((
+            finite(
+                "the power off resonance",
+                (r + a).powi(2) / (1.0 + r * a).powi(2),
+            )?,
+            finite(
+                "the power on resonance",
+                (r - a).powi(2) / (1.0 - r * a).powi(2),
+            )?,
+        ))
     }
 }
 
@@ -356,8 +444,16 @@ impl AddDropRing {
     }
 
     /// The free spectral range at λ, µm (Bogaerts Eq. 9).
-    pub fn fsr(&self, wavelength: Wavelength, length: f64) -> f64 {
-        wavelength.to_um().powi(2) / (self.guide.group_index_at(wavelength) * length)
+    ///
+    /// # Errors
+    ///
+    /// As [`AllPassRing::fsr`].
+    pub fn fsr(&self, wavelength: Wavelength, length: f64) -> Result<f64> {
+        check_length(length)?;
+        finite(
+            "the free spectral range",
+            wavelength.to_um().powi(2) / (self.guide.group_index_at(wavelength) * length),
+        )
     }
 
     /// r₁r₂a.
@@ -369,39 +465,73 @@ impl AddDropRing {
 
     /// The FWHM at λ, µm: (1 − r₁r₂a)λ²/(π n_g L √(r₁r₂a)) (Bogaerts Eq. 8). `values` are the
     /// parameters', `[length, coupling, coupling_drop]`.
-    pub fn fwhm(&self, wavelength: Wavelength, values: &[f64]) -> f64 {
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] unless `values` are a positive, finite length and two couplings
+    /// from 0 to 1, or if the width isn't finite: a ring that couples all its light out
+    /// (r₁r₂a = 0) has no resonance.
+    pub fn fwhm(&self, wavelength: Wavelength, values: &[f64]) -> Result<f64> {
+        check_values(values, 3)?;
         let x = self.rra(wavelength, values);
-        (1.0 - x) * wavelength.to_um().powi(2)
-            / (PI * self.guide.group_index_at(wavelength) * values[0] * x.sqrt())
+        finite(
+            "the resonance's width",
+            (1.0 - x) * wavelength.to_um().powi(2)
+                / (PI * self.guide.group_index_at(wavelength) * values[0] * x.sqrt()),
+        )
     }
 
     /// The finesse, π√(r₁r₂a)/(1 − r₁r₂a) (Bogaerts Eq. 23).
-    pub fn finesse(&self, wavelength: Wavelength, values: &[f64]) -> f64 {
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for `values` as in [`AddDropRing::fwhm`], or if the finesse
+    /// isn't finite: a ring without loss or coupling (r₁r₂a = 1) has no linewidth.
+    pub fn finesse(&self, wavelength: Wavelength, values: &[f64]) -> Result<f64> {
+        check_values(values, 3)?;
         let x = self.rra(wavelength, values);
-        PI * x.sqrt() / (1.0 - x)
+        finite("the finesse", PI * x.sqrt() / (1.0 - x))
     }
 
     /// The loaded Q, π n_g L √(r₁r₂a)/(λ(1 − r₁r₂a)) (Bogaerts Eq. 22).
-    pub fn q_factor(&self, wavelength: Wavelength, values: &[f64]) -> f64 {
+    ///
+    /// # Errors
+    ///
+    /// As [`AddDropRing::finesse`].
+    pub fn q_factor(&self, wavelength: Wavelength, values: &[f64]) -> Result<f64> {
+        check_values(values, 3)?;
         let x = self.rra(wavelength, values);
-        PI * self.guide.group_index_at(wavelength) * values[0] * x.sqrt()
-            / (wavelength.to_um() * (1.0 - x))
+        finite(
+            "the Q factor",
+            PI * self.guide.group_index_at(wavelength) * values[0] * x.sqrt()
+                / (wavelength.to_um() * (1.0 - x)),
+        )
     }
 
     /// The through power off and on resonance, T_t and R_min, and the drop power on and off
     /// resonance, T_max and T_d (Bogaerts Eqs. 13–16).
-    pub fn extremes(&self, wavelength: Wavelength, values: &[f64]) -> [f64; 4] {
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for `values` as in [`AddDropRing::fwhm`], or if a power isn't
+    /// finite (r₁r₂a = 1).
+    pub fn extremes(&self, wavelength: Wavelength, values: &[f64]) -> Result<[f64; 4]> {
+        check_values(values, 3)?;
         let r1 = (1.0 - values[1]).sqrt();
         let r2 = (1.0 - values[2]).sqrt();
         let a = single_pass(&self.guide, wavelength, values[0], self.round_trip_loss);
         let x = r1 * r2 * a;
         let k = (1.0 - r1 * r1) * (1.0 - r2 * r2) * a;
-        [
+        let powers = [
             (r2 * a + r1).powi(2) / (1.0 + x).powi(2),
             (r2 * r2 * a * a - 2.0 * r1 * r2 * a + r1 * r1) / (1.0 - x).powi(2),
             k / (1.0 - x).powi(2),
             k / (1.0 + x).powi(2),
-        ]
+        ];
+        for p in powers {
+            finite("a power at the extremes", p)?;
+        }
+        Ok(powers)
     }
 }
 
