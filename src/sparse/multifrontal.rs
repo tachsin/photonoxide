@@ -930,6 +930,52 @@ fn pivot_block(mut a: MatMut<'_, c64>, tiny: f64, par: Par) -> (Vec<usize>, usiz
 mod tests {
     use super::*;
 
+    #[test]
+    fn the_threaded_product_of_a_fronts_update_is_the_plain_one() {
+        // S = F₂₂ − L₂₁ U₁₂ in the shapes of a 3D solve's last fronts, by faer's threaded
+        // product as the fronts take it, against the sum written out. faer's x86 kernel
+        // (private-gemm-x86 0.1.20) got 140 of 369² entries wrong, by as much as the entries
+        // themselves, on GitHub's Windows runners with an AMD EPYC 7763, and only threaded:
+        // 3D direct solves there were wrong (a residual of 0.02). 0.1.22 is right, and
+        // Cargo.toml asks for it
+        let random = |m: usize, n: usize, seed: u64| {
+            let mut s = seed;
+            let mut next = move || {
+                s = s
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                ((s >> 11) as f64) / ((1u64 << 53) as f64) - 0.5
+            };
+            Mat::from_fn(m, n, |_, _| c64::new(next(), next()))
+        };
+        for (k, p) in [(145, 369), (140, 417), (37, 150)] {
+            let f0 = random(k + p, k + p, (1000 * k + p) as u64);
+            for par in [Par::Seq, Par::rayon(0), Par::rayon(2), Par::rayon(4)] {
+                let mut f = f0.clone();
+                let (top, bottom) = f.as_mut().split_at_row_mut(k);
+                let (_, u12) = top.split_at_col_mut(k);
+                let (l21, mut f22) = bottom.split_at_col_mut(k);
+                matmul(
+                    f22.as_mut(),
+                    Accum::Add,
+                    l21.as_ref(),
+                    u12.as_ref(),
+                    c64::new(-1.0, 0.0),
+                    par,
+                );
+                let mut worst: f64 = 0.0;
+                for j in 0..p {
+                    for i in 0..p {
+                        let sum: c64 = (0..k).map(|t| f0[(k + i, t)] * f0[(t, k + j)]).sum();
+                        let want = f0[(k + i, k + j)] - sum;
+                        worst = worst.max((f[(k + i, k + j)] - want).norm());
+                    }
+                }
+                assert!(worst < 1e-12, "k {k}, p {p}, {par:?}: {worst}");
+            }
+        }
+    }
+
     fn residual(a: SparseColMatRef<'_, usize, c64>, x: &[c64], b: &[c64], transpose: bool) -> f64 {
         let n = b.len();
         let mut r = b.to_vec();
