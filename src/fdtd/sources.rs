@@ -186,7 +186,35 @@ impl Simulation {
         Wavelength::um(std::f64::consts::TAU / self.leapfrog_wavenumber(frequency))
     }
 
-    /// Adds a current over many values.
+    /// Adds a distributed current, and in a complex run the imaginary part of its values a w(t),
+    /// Im(a w) = Re(−i a w), to the imaginary part.
+    fn push_current(&mut self, applied: Applied) {
+        if let Some(b) = &mut self.bloch {
+            let minus_i = c64::new(0.0, -1.0);
+            b.twin.currents.push(Applied {
+                values: applied
+                    .values
+                    .iter()
+                    .map(|&(c, r, a)| (c, r, minus_i * a))
+                    .collect(),
+                ..applied.clone()
+            });
+        }
+        self.currents.push(applied);
+    }
+
+    /// Refuses a total-field/scattered-field source in a complex run: its incident field would
+    /// need the Bloch phase across the box, which isn't there yet.
+    fn real_run(&self, what: &str) -> Result<()> {
+        if self.bloch.is_some() {
+            return Err(invalid(format!(
+                "{what} needs real fields: with a Bloch phase, launch a Current with it instead"
+            )));
+        }
+        Ok(())
+    }
+
+    /// Adds a current over many values. In a complex run its values are a w(t), complex.
     ///
     /// # Errors
     ///
@@ -202,7 +230,7 @@ impl Simulation {
             }
             values.push((component.index(), self.index(at), a));
         }
-        self.currents.push(Applied {
+        self.push_current(Applied {
             field: current.field,
             values,
             waveform: current.waveform,
@@ -223,13 +251,14 @@ impl Simulation {
         {
             return Err(invalid(format!("a dipole must be finite, got {dipole:?}")));
         }
-        // along each axis: the two nearest values and their weights
-        let mut along: Vec<[(usize, f64); 2]> = Vec::with_capacity(3);
+        // along each axis: the two nearest values and their weights, with the Bloch phase of a
+        // value beyond a periodic end, where its image on the grid is
+        let mut along: Vec<[(usize, c64); 2]> = Vec::with_capacity(3);
         let mut volume = 1.0;
         for axis in Axis::ALL {
             let n = g.n(axis);
             if !self.varies[axis.index()] {
-                along.push([(0, 1.0), (0, 0.0)]);
+                along.push([(0, c64::new(1.0, 0.0)), (0, c64::new(0.0, 0.0))]);
                 continue;
             }
             volume *= g.step(axis);
@@ -248,28 +277,35 @@ impl Simulation {
             }
             let m = s.floor();
             let f = s - m;
-            let wrap = |m: f64| -> usize { (m as i64).rem_euclid(n as i64) as usize };
-            let low = if periodic { wrap(m) } else { m as usize };
-            let high = if periodic {
-                wrap(m + 1.0)
-            } else {
-                (m as usize + 1).min(n - 1)
+            let wrap = |m: f64| -> (usize, c64) {
+                let turns = (m as i64).div_euclid(n as i64);
+                let image = self
+                    .bloch
+                    .as_ref()
+                    .map_or(c64::new(1.0, 0.0), |b| b.image(axis, turns));
+                ((m as i64).rem_euclid(n as i64) as usize, image)
             };
-            along.push([(low, 1.0 - f), (high, f)]);
+            let (low, high) = if periodic {
+                (wrap(m), wrap(m + 1.0))
+            } else {
+                let one = c64::new(1.0, 0.0);
+                ((m as usize, one), ((m as usize + 1).min(n - 1), one))
+            };
+            along.push([(low.0, low.1 * (1.0 - f)), (high.0, high.1 * f)]);
         }
         let mut values: BTreeMap<usize, c64> = BTreeMap::new();
         for &(i, wx) in &along[0] {
             for &(j, wy) in &along[1] {
                 for &(k, wz) in &along[2] {
                     let w = wx * wy * wz;
-                    if w != 0.0 {
+                    if w != c64::new(0.0, 0.0) {
                         *values.entry(self.index((i, j, k))).or_default() += a * (w / volume);
                     }
                 }
             }
         }
         let c = dipole.component.index();
-        self.currents.push(Applied {
+        self.push_current(Applied {
             field: dipole.field,
             values: values.into_iter().map(|(r, v)| (c, r, v)).collect(),
             waveform: dipole.waveform,
@@ -478,7 +514,9 @@ impl Simulation {
                 Field::E => (l.component, l.r),
                 Field::H => (l.from_component.index(), index_of(&self.grid, l.from)),
             };
-            (self.cb[c][r] - expected).abs() <= 1e-12 * expected && self.ca[c][r] == 1.0
+            (self.cb[c][r] - expected).abs() <= 1e-12 * expected
+                && self.ca[c][r] == 1.0
+                && !self.media.contains(c, r)
         })
     }
 
@@ -514,6 +552,7 @@ impl Simulation {
         direction: Direction,
         waveform: Waveform,
     ) -> Result<()> {
+        self.real_run("a mode source")?;
         let g = self.grid;
         let axis = mode.axis();
         let p = mode.plane();
@@ -576,6 +615,7 @@ impl Simulation {
     /// the permittivity positive), if the waveform has no carrier, or if the medium where the
     /// beam enters isn't uniform with the beam's permittivity.
     pub fn add_beam(&mut self, beam: &GaussianBeam, waveform: Waveform) -> Result<()> {
+        self.real_run("a beam")?;
         let g = self.grid;
         let axis = beam.axis;
         let p = beam.plane;
@@ -673,6 +713,7 @@ impl Simulation {
     /// cell between them) and the walls, if the polarization has nothing across the direction,
     /// or if the medium on the box's surface isn't uniform with the permittivity `eps`.
     pub fn add_plane_wave(&mut self, wave: PlaneWave) -> Result<usize> {
+        self.real_run("a plane wave")?;
         let run = PlaneWaveRun::new(self, &wave)?;
         self.plane_waves.push(run);
         Ok(self.plane_waves.len() - 1)

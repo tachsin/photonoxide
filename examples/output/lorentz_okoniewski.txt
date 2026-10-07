@@ -1,0 +1,43 @@
+Okoniewski, Mrozowski and Stuchly's two-term Lorentz half-space, normal incidence:
+the reflection coefficient against the analytic one (e^(-iwt): the phase error's
+sign is the opposite of the paper's, whose e^(+jwt) conjugates r)
+dz = 37.5 um, C = 1
+  f (GHz)   |r|        analytic   d|r|        d phase (rad)
+    2.5     0.268837   0.268836   +1.48e-7   -7.80e-8
+   10.0     0.284879   0.284873   +5.87e-6   -2.59e-7
+   20.0     0.401394   0.401353   +4.11e-5   +1.84e-5
+   30.0     0.221811   0.221783   +2.78e-5   +1.08e-5
+   40.0     0.312472   0.312379   +9.28e-5   +2.14e-5
+   50.0     0.491602   0.491372   +2.30e-4   +2.76e-4
+   55.0     0.536557   0.536387   +1.71e-4   +3.48e-4
+   60.0     0.466940   0.466835   +1.06e-4   +3.10e-4
+  largest |d|r|| 2.30e-4 (0.24 of the paper's curve), |d phase| 3.48e-4 rad (0.34)
+dz = 37.5 um, C = 0.5
+  f (GHz)   |r|        analytic   d|r|        d phase (rad)
+    2.5     0.268837   0.268836   +2.32e-7   -7.80e-8
+   10.0     0.284881   0.284873   +7.36e-6   +4.02e-8
+   20.0     0.401397   0.401353   +4.39e-5   +4.45e-5
+   30.0     0.221826   0.221783   +4.28e-5   +1.49e-5
+   40.0     0.312510   0.312379   +1.31e-4   +5.30e-5
+   50.0     0.491678   0.491372   +3.06e-4   +4.43e-4
+   55.0     0.536598   0.536387   +2.11e-4   +5.07e-4
+   60.0     0.466978   0.466835   +1.44e-4   +3.77e-4
+  largest |d|r|| 3.06e-4 (0.33 of the paper's curve), |d phase| 5.24e-4 rad (0.52)
+dz = 18.75 um, C = 1
+  f (GHz)   |r|        analytic   d|r|        d phase (rad)
+    2.5     0.268836   0.268836   +7.25e-8   -6.78e-9
+   10.0     0.284875   0.284873   +1.47e-6   +2.34e-8
+   20.0     0.401363   0.401353   +1.03e-5   +4.54e-6
+   30.0     0.221790   0.221783   +6.99e-6   +2.70e-6
+   40.0     0.312402   0.312379   +2.32e-5   +5.34e-6
+   50.0     0.491429   0.491372   +5.76e-5   +6.91e-5
+   55.0     0.536430   0.536387   +4.26e-5   +8.70e-5
+   60.0     0.466861   0.466835   +2.64e-5   +7.74e-5
+  largest |d|r|| 5.76e-5 (0.06 of the paper's curve), |d phase| 8.70e-5 rad (0.09)
+  C = 1: |d|r|| over the curve           0.241714   within it 0.000000   ± 1e0   ok
+  C = 1: |d phase| over the curve        0.343748   within it 0.000000   ± 1e0   ok
+  C = 0.5: |d|r|| over the curve         0.331110   within it 0.000000   ± 1e0   ok
+  C = 0.5: |d phase| over the curve      0.524389   within it 0.000000   ± 1e0   ok
+  |d|r||, dz/2 over dz                   0.250138   second order 0.250000   ± 5e-2 ok
+  |d phase|, dz/2 over dz                0.250096   second order 0.250000   ± 5e-2 ok
+all 6 within tolerance of the paper

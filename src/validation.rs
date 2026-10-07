@@ -887,6 +887,69 @@ pub fn cases() -> Vec<Case> {
             run: fdtd_beam_tilt,
         },
         Case {
+            id: "fdtd/ade-fdfd",
+            title: r"FDTD's dispersive media against FDFD: a continuous current in a closed box filled with a Drude term and a Lorentz term ($\varepsilon_\infty = 2$, $f_p = 1.2$ c/µm; $\Delta\varepsilon = 1.5$ at $f_0 = 0.9$ c/µm; dampings 0.3 c/µm) and $\sigma = 2$/µm ($16 \times 14 \times 12$ cells of 50 nm, 1.55 µm, 64 steps a period), its steady amplitude against `Solver3d`'s field for the same current at the leapfrog's frequency with the leapfrog's permittivity (largest field difference relative to the largest field shown)",
+            tier: Tier::Analytic,
+            source: r"the same equations: M. Okoniewski, M. Mrozowski, M. A. Stuchly, IEEE Microw. Guided Wave Lett. 7, 121 (1997), doi:10.1109/75.569723 (their synchronized Lorentz scheme) solves FDFD's equations at $\tilde\omega$ with each term's $\chi$ replaced by $(i\cos(\omega\Delta t/2)/\tilde\omega)\thinspace\gamma(z - 1/z)/(2\Delta t(z - \alpha - \xi/z))$, $z = e^{-i\omega\Delta t}$; with the medium's own $\varepsilon(\tilde\omega)$ the difference is 2.4e-3, the scheme's second-order error; measured 3.3e-14",
+            run: fdtd_ade_fdfd,
+        },
+        Case {
+            id: "fdtd/drude-fresnel",
+            title: r"FDTD's Drude metal: a pulse at normal incidence on a half-space of $\varepsilon = 1 - \omega_p^2/(\omega^2 + i\gamma\omega)$ ($f_p = 1$ c/µm, $\gamma/2\pi = 0.05$ c/µm) in a column of 5 nm cells, its face between two values of E: the reflection coefficient from the runs with and without the metal at 0.4 to 1.6 c/µm, below and above the plasma frequency, against Fresnel's (largest $\lvert \Delta r \rvert$ shown)",
+            tier: Tier::Analytic,
+            source: r"Fresnel's $r = (1 - n)/(1 + n)$, $n = \sqrt{\varepsilon(\omega)}$, the phase referred to the face with the grid's own wavenumber; second order in the cells: 6.9e-3 at 20 nm, 1.6e-3 at 10, 3.0e-4 at 5 (measured)",
+            run: fdtd_drude_fresnel,
+        },
+        Case {
+            id: "fdtd/lorentz-group-delay",
+            title: r"FDTD's Lorentz medium: a pulse through a slab 10 µm thick of $\varepsilon = 2.25 + \omega_0^2/(\omega_0^2 - \omega^2 - i\gamma\omega)$ ($f_0 = 2$ c/µm, $\gamma/2\pi = 0.02$ c/µm) in a column of 2.5 nm cells: the first pass's group delay, $d \arg/d\omega$ of its DFT less the empty run's, as a group index $1 + \tau/d$, at 0.8 to 1.2 c/µm, against the first pass's exact delay (largest difference shown)",
+            tier: Tier::Analytic,
+            source: r"the delay of $t_{12} t_{21} e^{i(n - 1)\omega d}$, which is $(n_g - 1)d$ with $n_g = \operatorname{Re} d(n\omega)/d\omega$ to 3e-5: $n_g$ from 1.977 to 2.402; second order in the cells to a floor of about 1e-4: 3.0e-3 at 10 nm, 8.8e-4 at 5, 3.6e-4 at 2.5 (measured)",
+            run: fdtd_lorentz_group_delay,
+        },
+        Case {
+            id: "fdtd/bloch-fdfd",
+            title: r"FDTD with Bloch-periodic sides against FDFD: a continuous current and a dipole restricted across two Bloch sides ($k_x = 1.3$, $k_y = -2.1$ rad/µm, walls along z, $16 \times 14 \times 12$ cells of 50 nm, 1.55 µm, 64 steps a period), in a lossy medium ($\varepsilon = 2.1$, $\sigma = 2$/µm) and in the Drude and Lorentz medium of `fdtd/ade-fdfd`, the complex run's steady amplitude against `Solver3d`'s Bloch field at the leapfrog's frequency (largest field difference relative to the largest field shown)",
+            tier: Tier::Analytic,
+            source: r"the same equations: the real and imaginary parts step with Yee's real update, coupled across the Bloch sides by $e^{\pm ikL}$, as FDFD's differences are; measured 2.9e-14",
+            run: fdtd_bloch_fdfd,
+        },
+        Case {
+            id: "fdtd/bloch-multilayer",
+            title: r"FDTD at oblique incidence through Bloch sides: a pulse at a fixed $k_x = 2\pi \times 0.2$ rad/µm on 4 pairs of $n = 2$ (0.12 µm) and $n = 1.5$ (0.16 µm) in vacuum, in a column one cell across of 5 nm cells, TE and TM: the transmittance at 0.7 to 1.3 c/µm, each at its own angle $\sin\theta = k_x/\omega$ (16.6° to 8.8°), against the transfer matrices' (largest difference shown)",
+            tier: Tier::Analytic,
+            source: r"the exact stack by transfer matrices (mode::multilayer, J. Chilwell, I. Hodgkinson, J. Opt. Soc. Am. A 1, 742 (1984), doi:10.1364/JOSAA.1.000742, Eqs. 13-16); second order in the cells: TE 2.0e-2, 4.9e-3, 1.2e-3 and TM 2.0e-2, 5.0e-3, 1.3e-3 at 20, 10 and 5 nm (measured)",
+            run: fdtd_bloch_multilayer,
+        },
+        Case {
+            id: "fdtd/bloch-bands",
+            title: r"FDTD's band structure of a 1D photonic crystal: one period (0.2 µm of $n = 2$, 0.3 µm of vacuum) between Bloch sides at $k = 0.3\pi/\Lambda$, 80 cells a period, its three bands below 2 c/µm from a complex run's probe (a broadband run's peaks, then each band alone by a narrow pulse and the probe's recurrence), against the analytic ones (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"$\cos k\Lambda = \cos k_1 d_1 \cos k_2 d_2 - \tfrac12(n_1/n_2 + n_2/n_1)\sin k_1 d_1 \sin k_2 d_2$, half the trace of a period's transfer matrix: 0.20139, 1.21847, 1.64523 c/µm; second order in the cells: 5.0e-3, 1.2e-3, 3.1e-4 at 20, 40, 80 cells a period (measured)",
+            run: fdtd_bloch_bands,
+        },
+        Case {
+            id: "fdtd/fit-lossless",
+            title: r"Catalogue fits for FDTD where the material is transparent: silicon (Li 1980's table) over 1.2 to 1.7 µm and silica (Malitson 1965's Sellmeier formula) over 0.4 to 1.6 µm, each fitted by $\varepsilon_\infty \ge 1$ and undamped Lorentz terms of nonnegative strength (largest relative error in $\varepsilon$ over the band shown)",
+            tier: Tier::Analytic,
+            source: r"the catalogue's own $\varepsilon(\lambda)$ at 256 wavelengths across the band; nonnegative least squares (C. L. Lawson, R. J. Hanson, Solving Least Squares Problems, SIAM (1995), doi:10.1137/1.9781611971217, Ch. 23); two terms each; measured 6.0e-5 and 6.0e-5",
+            run: fdtd_fit_lossless,
+        },
+        Case {
+            id: "fdtd/fit-lossy",
+            title: r"A catalogue fit for FDTD where the material absorbs: In$_{0.49}$Ga$_{0.51}$P above its gap (Ferrini 2002's table of n and k) over 0.4 to 0.6 µm, fitted by $\varepsilon_\infty \ge 1$ and damped Lorentz terms of nonnegative strength (largest relative error in $\varepsilon$ over the band shown)",
+            tier: Tier::Analytic,
+            source: r"the catalogue's own $\varepsilon(\lambda)$ at 256 wavelengths across the band; nonnegative least squares over resonances from half the band's lowest frequency to twice its highest at three dampings each; 8 terms; measured 8.1e-3",
+            run: fdtd_fit_lossy,
+        },
+        Case {
+            id: "fdtd/fitted-slab",
+            title: r"FDTD with a catalogue fit: a slab of silicon 0.4 µm thick in vacuum, Li 1980's table fitted over 1.2 to 1.7 µm, lit by a pulse at normal incidence in a column of 5 nm cells: the power reflection at 1.3, 1.45 and 1.6 µm against Airy's formula with the catalogue's index (largest difference shown)",
+            tier: Tier::Analytic,
+            source: r"the slab's exact reflection, $r = r_{12}(1 - e^{2i\delta})/(1 - r_{12}^2 e^{2i\delta})$, $\delta = n k_0 d$, $n$ the catalogue's; second order in the cells toward the fit's 6e-5: 2.9e-2 at 20 nm, 7.3e-3 at 10, 2.0e-3 at 5 (measured)",
+            run: fdtd_fitted_slab,
+        },
+        Case {
             id: "circuit/series-waveguides",
             title: r"Circuits: two waveguides, 12.5 and 30.25 µm, in series are one of 42.75 µm ($n_\text{eff} = 2.4$, $n_g = 4.2$, 3 dB/cm), 1.54 to 1.56 µm (largest $\lvert \Delta S \rvert$ shown)",
             tier: Tier::Analytic,
@@ -1695,6 +1758,118 @@ fn fdtd_beam_tilt() -> Outcome {
         expected: 0.0,
         // measured 1.5e-4
         tolerance: 1e-3,
+        error: measured,
+    }
+}
+
+fn fdtd_ade_fdfd() -> Outcome {
+    let measured = crate::fdtd::media_checks::against_fdfd().0;
+    Outcome {
+        measured,
+        expected: 0.0,
+        // the solve's rounding: measured 3.3e-14
+        tolerance: 1e-10,
+        error: measured,
+    }
+}
+
+fn fdtd_drude_fresnel() -> Outcome {
+    let measured = crate::fdtd::media_checks::drude_reflection(0.005).0;
+    Outcome {
+        measured,
+        expected: 0.0,
+        // second order in the cells: measured 3.0e-4 at 5 nm
+        tolerance: 1e-3,
+        error: measured,
+    }
+}
+
+fn fdtd_lorentz_group_delay() -> Outcome {
+    let measured = crate::fdtd::media_checks::lorentz_delay(0.0025).0;
+    Outcome {
+        measured,
+        expected: 0.0,
+        // second order to a floor near 1e-4: measured 3.6e-4 at 2.5 nm
+        tolerance: 1e-3,
+        error: measured,
+    }
+}
+
+fn fdtd_bloch_fdfd() -> Outcome {
+    use crate::fdtd::bloch_checks::against_fdfd;
+    let measured = against_fdfd(false).max(against_fdfd(true));
+    Outcome {
+        measured,
+        expected: 0.0,
+        // the solves' rounding: measured 2.9e-14
+        tolerance: 1e-10,
+        error: measured,
+    }
+}
+
+fn fdtd_bloch_multilayer() -> Outcome {
+    use crate::fdtd::bloch_checks::multilayer;
+    let measured = multilayer(0.005, false).0.max(multilayer(0.005, true).0);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // second order in the cells: measured 1.3e-3 at 5 nm
+        tolerance: 3e-3,
+        error: measured,
+    }
+}
+
+fn fdtd_bloch_bands() -> Outcome {
+    use crate::fdtd::bloch_checks::{analytic_bands, bands};
+    let k = 0.3 * std::f64::consts::PI / 0.5;
+    let exact = analytic_bands(k, 2.0);
+    let got = bands(0.00625, k);
+    let measured = if got.len() == exact.len() {
+        got.iter()
+            .zip(&exact)
+            .fold(0.0f64, |m, (a, b)| m.max((a - b).abs() / b))
+    } else {
+        f64::INFINITY
+    };
+    Outcome {
+        measured,
+        expected: 0.0,
+        // second order in the cells: measured 3.1e-4 at 80 cells a period
+        tolerance: 1e-3,
+        error: measured,
+    }
+}
+
+fn fdtd_fit_lossless() -> Outcome {
+    let fits = crate::fdtd::media_checks::fits();
+    let measured = fits[0].0.max(fits[1].0);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // measured 6.0e-5
+        tolerance: 1e-4,
+        error: measured,
+    }
+}
+
+fn fdtd_fit_lossy() -> Outcome {
+    let measured = crate::fdtd::media_checks::fits()[2].0;
+    Outcome {
+        measured,
+        expected: 0.0,
+        // measured 8.1e-3
+        tolerance: 1e-2,
+        error: measured,
+    }
+}
+
+fn fdtd_fitted_slab() -> Outcome {
+    let measured = crate::fdtd::media_checks::fitted_slab(0.005).0;
+    Outcome {
+        measured,
+        expected: 0.0,
+        // second order in the cells: measured 2.0e-3 at 5 nm
+        tolerance: 5e-3,
         error: measured,
     }
 }

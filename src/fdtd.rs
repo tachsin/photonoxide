@@ -13,8 +13,9 @@
 //!   leapfrog's own frequency.
 //! - **Stability:** Δt = C / √(Σ 1/Δ²) with the Courant number C ≤ 1 (A. Taflove, M. E. Brodwin,
 //!   IEEE Trans. Microw. Theory Tech. 23, 623 (1975), doi:10.1109/TMTT.1975.1128640), the sum
-//!   over the axes the field varies along (an axis one cell long and periodic doesn't count). The
-//!   scheme's numerical dispersion, their relation
+//!   over the axes the field varies along (an axis one cell long and periodic doesn't count, or
+//!   counts sin²(kΔ/2) for a Bloch phase k across it). The scheme's numerical dispersion, their
+//!   relation
 //!   sin²(ωΔt/2)/Δt² = Σ sin²(k_i Δ_i/2)/Δ_i², holds exactly.
 //! - **Open boundaries:** the convolutional PML (J. A. Roden, S. D. Gedney, Microw. Opt.
 //!   Technol. Lett. 27, 334 (2000), doi:10.1002/1098-2760(20001205)27:5<334::AID-MOP14>3.0.CO;2-A),
@@ -25,11 +26,15 @@
 //!   α = 0 it is FDFD's stretched-coordinate PML, s = 1 + iσ/ω, graded the same way. Its
 //!   auxiliary fields live only in the PML slabs.
 //! - **Walls** (a PML of zero cells): the field's tangential E is zero on the wall, as in FDFD.
-//!   **Periodic** sides (a Bloch boundary with k = 0) wrap; k ≠ 0 needs complex fields (#164).
-//!   A 2D problem is a grid one cell thick along z, periodic there.
+//!   **Periodic** sides (a Bloch boundary with k = 0) wrap. **Bloch** sides with k ≠ 0 make the
+//!   fields complex: the imaginary part runs alongside the real one, the two coupled where a
+//!   difference reaches across the side. A 2D problem is a grid one cell thick along z,
+//!   periodic there.
 //! - **Media:** a real permittivity per E component, averaged over its cell as FDFD averages it
 //!   (harmonically along the component, arithmetically across), and a conductivity σ, sampled at
-//!   the component. Dispersive media are #164's.
+//!   the component. [`Dispersive`] media, Drude and Lorentz terms by auxiliary differential
+//!   equations (M. Okoniewski, M. Mrozowski, M. A. Stuchly, IEEE Microw. Guided Wave Lett. 7,
+//!   121 (1997), doi:10.1109/75.569723), sampled at the component.
 //! - **Sources:** point currents, [`Current`]s over many values and [`Dipole`]s anywhere
 //!   (restricted to the grid as A. F. Oskooi et al., Comput. Phys. Commun. 181, 687 (2010),
 //!   doi:10.1016/j.cpc.2009.11.008, restrict them); [`PlaneWave`]s on
@@ -388,6 +393,10 @@ pub struct Simulation {
     probes: Vec<Probe>,
     /// The axes the field varies along: all but those one cell long and periodic.
     varies: [bool; 3],
+    /// The dispersive media's polarization currents.
+    media: media::Media,
+    /// With a Bloch phase on a side, the fields' imaginary part.
+    bloch: Option<Box<bloch::Bloch>>,
 }
 
 /// The permittivity's samples per axis in a cell, as FDFD's 3D solver averages it.
@@ -397,11 +406,13 @@ impl Simulation {
     /// The problem on `grid` with relative permittivity `eps(x, y, z)` (real, µm), inside
     /// `boundaries`, stepped at the Courant number `courant` (0 < C ≤ 1).
     ///
+    /// A Bloch boundary with k ≠ 0 makes the fields complex: [`Simulation::is_complex`].
+    ///
     /// # Errors
     ///
     /// [`Error::InvalidValue`] for an empty grid, a step that isn't positive, CPMLs that fill an
     /// axis, CPML parameters out of range (R outside (0, 1), an order below 0, κ below 1, α or σ
-    /// negative), a Bloch boundary with k ≠ 0 (#164), a Courant number outside (0, 1], or a
+    /// negative), a Bloch wavenumber that isn't finite, a Courant number outside (0, 1], or a
     /// permittivity that isn't finite and positive.
     pub fn new(
         grid: Grid3d,
@@ -435,10 +446,10 @@ impl Simulation {
                         "CPMLs of {low} and {high} cells leave nothing of {n} cells"
                     )));
                 }
-                Edges::Bloch { k } if k != 0.0 => {
-                    return Err(invalid(
-                        "a Bloch boundary with k != 0 needs complex fields: not yet (#164)",
-                    ));
+                Edges::Bloch { k } if !k.is_finite() => {
+                    return Err(invalid(format!(
+                        "the Bloch wavenumber must be finite, got {k}"
+                    )));
                 }
                 _ => {}
             }
@@ -450,11 +461,7 @@ impl Simulation {
         }
         // the axes the field varies along: not one cell long and periodic
         let varies = |axis: Axis| !(grid.n(axis) == 1 && boundaries.periodic(axis));
-        let sum: f64 = Axis::ALL
-            .into_iter()
-            .filter(|&a| varies(a))
-            .map(|a| grid.step(a).powi(-2))
-            .sum();
+        let sum = bloch::curl_bound(&grid, &boundaries);
         if sum == 0.0 {
             return Err(invalid("the field varies along no axis"));
         }
@@ -523,8 +530,11 @@ impl Simulation {
             plane_waves: Vec::new(),
             probes: Vec::new(),
             varies: Axis::ALL.map(varies),
+            media: media::Media::default(),
+            bloch: None,
         };
         s.build_cpml(&eps_e);
+        s.bloch = bloch::Bloch::new(&s).map(Box::new);
         Ok(s)
     }
 
@@ -643,13 +653,54 @@ impl Simulation {
         &mut self.h[component.index()]
     }
 
+    /// Whether the fields are complex: a Bloch phase on a side. [`Simulation::e`],
+    /// [`Simulation::h`] and [`Simulation::probe`] are then the real parts.
+    pub fn is_complex(&self) -> bool {
+        self.bloch.is_some()
+    }
+
+    /// E's `component`'s imaginary part, if the fields are complex.
+    pub fn e_imaginary(&self, component: Axis) -> Option<&[f64]> {
+        self.bloch.as_ref().map(|b| b.twin.e(component))
+    }
+
+    /// H̃'s `component`'s imaginary part, if the fields are complex.
+    pub fn h_imaginary(&self, component: Axis) -> Option<&[f64]> {
+        self.bloch.as_ref().map(|b| b.twin.h(component))
+    }
+
+    /// E's `component`'s imaginary part to change, if the fields are complex.
+    pub fn e_imaginary_mut(&mut self, component: Axis) -> Option<&mut [f64]> {
+        self.bloch.as_mut().map(|b| b.twin.e_mut(component))
+    }
+
+    /// H̃'s `component`'s imaginary part to change, if the fields are complex.
+    pub fn h_imaginary_mut(&mut self, component: Axis) -> Option<&mut [f64]> {
+        self.bloch.as_mut().map(|b| b.twin.h_mut(component))
+    }
+
     /// The conductivity σ(x, y, z) (in 1/µm with η₀ = 1: σ[S/m] × 376.73 Ω × 1e-6 m/µm), sampled
     /// at each value of E, for a lossy medium.
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidValue`] for a conductivity that isn't finite and nonnegative.
-    pub fn with_conductivity(mut self, sigma: impl Fn(f64, f64, f64) -> f64) -> Result<Simulation> {
+    /// [`Error::InvalidValue`] for a conductivity that isn't finite and nonnegative, or after
+    /// [`Simulation::with_medium`] (the conductivity comes first).
+    pub fn with_conductivity(self, sigma: impl Fn(f64, f64, f64) -> f64) -> Result<Simulation> {
+        self.conductivity(&sigma)
+    }
+
+    fn conductivity(mut self, sigma: &dyn Fn(f64, f64, f64) -> f64) -> Result<Simulation> {
+        if !self.media.is_empty() {
+            return Err(invalid(
+                "the conductivity comes before the dispersive media: with_conductivity, then \
+                 with_medium",
+            ));
+        }
+        if let Some(mut b) = self.bloch.take() {
+            b.twin = b.twin.conductivity(sigma)?;
+            self.bloch = Some(b);
+        }
         let grid = self.grid;
         for component in Axis::ALL {
             let c = component.index();
@@ -685,6 +736,10 @@ impl Simulation {
         self.ca[c][r] = 0.0;
         self.cb[c][r] = 0.0;
         self.e[c][r] = 0.0;
+        self.media.remove(c, r);
+        if let Some(b) = &mut self.bloch {
+            b.twin.conductor(component, at);
+        }
     }
 
     /// A perfectly conducting plate normal to `normal` on its node `node`, covering the cells
@@ -756,6 +811,9 @@ impl Simulation {
             index: self.index(at),
             values: Vec::new(),
         });
+        if let Some(b) = &mut self.bloch {
+            b.twin.add_probe(field, component, at)?;
+        }
         Ok(self.probes.len() - 1)
     }
 
@@ -766,6 +824,24 @@ impl Simulation {
     /// If there is no probe `n`.
     pub fn probe(&self, n: usize) -> &[f64] {
         &self.probes[n].values
+    }
+
+    /// Probe `n`'s values as complex numbers: the real part [`Simulation::probe`], the
+    /// imaginary part zero unless the fields are complex.
+    ///
+    /// # Panics
+    ///
+    /// If there is no probe `n`.
+    pub fn probe_complex(&self, n: usize) -> Vec<c64> {
+        let re = &self.probes[n].values;
+        match &self.bloch {
+            Some(b) => re
+                .iter()
+                .zip(b.twin.probe(n))
+                .map(|(&a, &b)| c64::new(a, b))
+                .collect(),
+            None => re.iter().map(|&a| c64::new(a, 0.0)).collect(),
+        }
     }
 
     fn inside(&self, (i, j, k): (usize, usize, usize)) -> Result<()> {
@@ -803,9 +879,31 @@ impl Simulation {
     /// The magnetic currents M enter H̃'s update at t, the electric ones J E's at t + Δt/2. A
     /// plane wave's auxiliary grid steps alongside: its E at t gives the boxes' M, then its H̃
     /// steps to t + Δt/2 and gives their J, then its E steps to t + Δt.
+    ///
+    /// With a Bloch phase, the imaginary part steps alongside, each half step followed by the
+    /// two parts' coupling across the Bloch sides; the dispersive media's currents step last,
+    /// from E at t + Δt.
     pub fn step(&mut self) {
         let t = self.time();
         let half = t + 0.5 * self.dt;
+        let mut bloch = self.bloch.take();
+        self.step_h(t);
+        if let Some(b) = &mut bloch {
+            b.twin.step_h(t);
+            b.wrap(Field::H, self);
+        }
+        self.step_e(half);
+        if let Some(b) = &mut bloch {
+            b.twin.step_e(half);
+            b.wrap(Field::E, self);
+            b.twin.finish_step();
+        }
+        self.bloch = bloch;
+        self.finish_step();
+    }
+
+    /// H̃ from t − Δt/2 to t + Δt/2, with its sources at t.
+    fn step_h(&mut self, t: f64) {
         self.update_h();
         for s in &self.sources {
             if s.field == Field::H {
@@ -823,6 +921,12 @@ impl Simulation {
             p.correct(Field::H, &mut self.h, &self.cb, self.dt);
             p.step_h();
         }
+    }
+
+    /// E from t to t + Δt but for the dispersive media's currents, with its sources at
+    /// `half` = t + Δt/2.
+    fn step_e(&mut self, half: f64) {
+        self.media.save(&self.e);
         self.update_e();
         for s in &self.sources {
             if s.field == Field::E {
@@ -841,6 +945,11 @@ impl Simulation {
             p.correct(Field::E, &mut self.e, &self.cb, self.dt);
             p.step_e(half);
         }
+    }
+
+    /// The dispersive media's part of E's update and their currents' step, then the probes.
+    fn finish_step(&mut self) {
+        self.media.update(&mut self.e, self.dt);
         self.steps += 1;
         for p in &mut self.probes {
             let v = match p.field {
@@ -1071,8 +1180,15 @@ impl Simulation {
     }
 }
 
+mod bloch;
+pub(crate) mod bloch_checks;
 pub(crate) mod checks;
+mod media;
+pub(crate) mod media_checks;
 mod sources;
+pub use media::{Dispersive, Fit, Pole};
 pub use sources::{BeamPolarization, Current, Dipole, GaussianBeam, PlaneWave};
+#[cfg(test)]
+mod media_tests;
 #[cfg(test)]
 mod tests;
