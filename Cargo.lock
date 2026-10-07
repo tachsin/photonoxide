@@ -3353,6 +3353,7 @@ dependencies = [
  "genoxide",
  "num-complex",
  "photonoxide",
+ "photonoxide-native",
  "serde",
  "serde-saphyr",
  "serde_json",
