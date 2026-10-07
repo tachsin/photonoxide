@@ -1,0 +1,7 @@
+Roden and Gedney's plate in soil: 1 mm cells, CPML of 10 cells 3 cells from it
+126 x 51 x 26 cells; reference 206 x 131 x 106 (40 more on every side), 2000 steps
+sigma_opt = 3.8163 S/m (their Eq. 15)
+  alpha = 0: largest error, dB         -48.620087   paper -48        ± 5e0       ok
+  alpha = 0.05 S/m: largest error, dB   -70.474859   paper -67        ± 5e0      ok
+  the CFS-PML's gain, dB                21.854773   paper 19         ± 5e0       ok
+all 3 within tolerance of the paper

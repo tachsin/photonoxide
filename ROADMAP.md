@@ -229,7 +229,8 @@ What the comparison with PARDISO and MUMPS found ([docs/baselines.md](docs/basel
   - the Yee scheme in 2D and 3D (Yee 1966);
   - CPML (Roden 2000; the PML of Berenger 1994);
   - subpixel smoothing (Farjadpour 2006; Kottke 2008; anisotropic: Oskooi 2009).
-- [ ] **Sources:** total-field/scattered-field, mode sources, Gaussian beams and dipoles.
+  *(The Yee scheme and the CPML are in, #160: `photonoxide::fdtd` on FDFD's grid, the leapfrog at a Courant number up to 1 (Taflove & Brodwin 1975), the convolutional PML in its slabs (κ, α, graded σ; FDFD's PML when κ = 1 and α = 0), walls, periodic sides, conductors, conductivity, point sources and probes, the same bits on any number of threads. Subpixel smoothing is #161.)*
+- [ ] **Sources:** total-field/scattered-field, mode sources, Gaussian beams and dipoles. *(Dipoles with Gaussian, differentiated Gaussian and ramped continuous waveforms are in, #160.)*
 - [ ] **Monitors:** DFT on planes and volumes, flux, mode overlaps; resonances by harmonic inversion (Mandelshtam 1997).
 - [ ] **Media:** Bloch-periodic boundaries, and dispersive media by auxiliary differential equations (Drude, Lorentz).
 - [ ] **Performance** (the performance plan's Phase B):
@@ -242,10 +243,10 @@ What the comparison with PARDISO and MUMPS found ([docs/baselines.md](docs/basel
 - [ ] **Studio:** live field propagation in planes and slices, with monitors.
 - [ ] **Validation:**
   - Mie scattering (Mie 1908);
-  - PML reflection;
-  - the Yee scheme's numerical dispersion against theory;
+  - PML reflection; *(done, #160: 6.1e-6 from a CPML of 16 cells in 2D, `fdtd/cpml-thickness`; Roden and Gedney's plate in soil, −48.6 and −70.5 dB against their −48 and −67, the `cpml_roden_gedney` example)*
+  - the Yee scheme's numerical dispersion against theory; *(done, #160: Taflove and Brodwin's relation to 3.6e-15, `fdtd/dispersion`; the leapfrog's energy to 2.4e-15, `fdtd/energy`)*
   - Meep on its published cases (Oskooi 2010);
-  - agreement with FDFD (0.3) on the same structures;
+  - agreement with FDFD (0.3) on the same structures; *(begun, #160: a lossy box's steady state is FDFD's field at the leapfrog's frequency to 2.3e-14, `fdtd/fdfd-lossy`; with CPMLs, 3.5e-4 at 128 steps a period and falling with the step, `fdtd/fdfd-cpml`)*
   - Liu & Poon 2025's six open PDK devices (MMI, directional coupler, crossing, mode converter, polarization splitter-rotator, ring), with two commercial codes' published results to compare.
 
 ### 0.5.1: Many solves at once
