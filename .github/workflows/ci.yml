@@ -9,8 +9,64 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # What a push or a pull request changed, so that a change to the docs alone runs only the docs'
+  # check. Markdown the program reads (the validation report, the methods' write-ups, the
+  # examples' table and outputs, the changelog) still runs the jobs that read it; anything that
+  # isn't Markdown or the site runs everything.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+      validation: ${{ steps.classify.outputs.validation }}
+      studio: ${{ steps.classify.outputs.studio }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: classify
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            range="$PR_BASE...$GITHUB_SHA"
+            base="$PR_BASE"
+          else
+            range="$PUSH_BEFORE..$GITHUB_SHA"
+            base="$PUSH_BEFORE"
+          fi
+          code=false validation=false studio=false
+          if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            # no base to compare with (a new branch): run everything
+            code=true
+          else
+            while IFS= read -r f; do
+              case "$f" in
+                docs/validation.md) validation=true ;;
+                examples/output/*) validation=true; studio=true ;;
+                docs/methods/*|examples/README.md|CHANGELOG.md) studio=true ;;
+                site/*|*.md) ;;
+                *) code=true ;;
+              esac
+            done < <(git diff --name-only "$range")
+          fi
+          echo "code=$code validation=$validation studio=$studio"
+          { echo "code=$code"; echo "validation=$validation"; echo "studio=$studio"; } >> "$GITHUB_OUTPUT"
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # every relative link in the Markdown points at something that exists
+      - run: bash .github/scripts/check-links.sh
+
   test:
     name: Test (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -25,6 +81,8 @@ jobs:
 
   single-thread:
     name: Single thread
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -38,6 +96,8 @@ jobs:
 
   lint:
     name: Lint
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -53,6 +113,8 @@ jobs:
 
   validation:
     name: Validation report
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.validation == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -72,6 +134,8 @@ jobs:
 
   studio:
     name: Studio
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.studio == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -103,6 +167,8 @@ jobs:
 
   msrv:
     name: MSRV (1.95)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
