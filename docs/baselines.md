@@ -222,7 +222,7 @@ almost all fill.
 
 **The threads.** On 20 threads the picture changes:
 
-- faer's dense LU reaches only 13 to 40% of MKL's speed, and at n = 500 it is slower than on one
+- faer's dense LU reaches 13 to 40% of MKL's speed, and at n = 500 it is slower than on one
   thread.
 - The penalty falls on small fronts. From 1 to 20 threads photonoxide's factorization speeds up
   5.1 times on `strip-32` and 5.7 on `strip-40`, against PARDISO's 6.6 and 5.2: on the largest

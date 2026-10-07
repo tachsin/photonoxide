@@ -234,13 +234,9 @@ changed is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Why photonoxide?
 
-Open-source photonics has excellent individual tools, each in its own corner:
-
-- Meep for FDTD, MPB for band structures and S4 for RCWA;
-- Ceviche and SPINS for inverse design;
-- KLayout for layout.
-
-Rust has oxiphoton, which is broad but has no GUI, and its README shows no comparison with published results. photonoxide aims to be one coherent toolkit with three things none of them combine:
+Open-source photonics has excellent tools, each focused on its task: Meep for FDTD, MPB for band
+structures, S4 for RCWA, Ceviche and SPINS for inverse design, KLayout for layout. photonoxide
+brings these tasks together in one toolkit, built around three things:
 
 - **Validated:** every solver checked against analytic solutions, published devices and established codes, with the results in a public report. Every reported number carries its convergence.
 - **Fabricable:** foundry design rules inside the optimization, and a tape-out package ready for a multi-project wafer run: GDSII or OASIS on the foundry's layers, DRC and connectivity checked, test structures included, and performance reported across process variation. The first target is SiEPIC openEBL, where photonoxide designs will be fabricated and measured.
@@ -248,7 +244,7 @@ Rust has oxiphoton, which is broad but has no GUI, and its README shows no compa
 
 And underneath:
 
-- **Pure Rust:** no C, Fortran or Python dependencies, from the linear algebra to the GDS writer. There are no Python bindings.
+- **Pure Rust:** no C, Fortran or Python dependencies, from the linear algebra to the GDS writer. There are no Python bindings. Libraries you install yourself (Intel MKL, MUMPS, SuperLU, your CPU or GPU vendor's math libraries) can be used as optional backends where they help, loaded at run time and never required ([the plan](docs/plans/backends.md)).
 - **Fast:** parallel on the CPU, with a GPU backend planned for FDTD.
 - **Reproducible:** the same input gives the same result on any number of threads.
 - **Inverse design built in:** adjoint gradients for every solver, and the optimizers from [genoxide](https://github.com/tachsin/genoxide), our optimization library, which grows the general methods photonoxide needs.
