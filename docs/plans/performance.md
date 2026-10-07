@@ -71,7 +71,8 @@ The largest gains for the least work are on the CPU, in code photonoxide already
    in-process and a TCP backend), with MPI as an optional backend, and subdomains fixed by the
    problem so that the answer doesn't depend on the number of ranks.
 8. **MKL, PARDISO, MUMPS and PETSc as external benchmarks only,** run the way Meep is: never a
-   dependency.
+   dependency. *(Superseded on 2026-10-05: external libraries become optional backends loaded at
+   run time, never linked, in [the backends plan](backends.md); PETSc is out.)*
 
 ## 1. Where the time goes
 
@@ -295,9 +296,9 @@ parallelism is rayon, and the GPU is wgpu"):
 |---|---|---|---|
 | wgpu | none | — | the only GPU dependency |
 | CubeCL (wgpu back end only) | none in its wgpu back end; it is alpha | adopt for kernel authoring in Rust instead of WGSL, or write WGSL by hand | hand-written WGSL first (few kernels: a stencil, a few vector operations); revisit CubeCL when it leaves alpha |
-| cudarc, Rust-CUDA, CubeCL's CUDA back end | yes: NVIDIA's C libraries or toolchain | (a) never; (b) an optional feature, off by default, outside CI's default build | (a): wgpu with Vulkan's f64 covers what photonoxide needs |
+| cudarc, Rust-CUDA, CubeCL's CUDA back end | yes: NVIDIA's C libraries or toolchain | (a) never; (b) an optional feature, off by default, outside CI's default build | (a) for photonoxide's own kernels: wgpu with Vulkan's f64 covers what photonoxide needs; NVIDIA's libraries as optional run-time backends ([the backends plan](backends.md)) |
 | rsmpi | yes: a C MPI | (a) never; (b) a communicator trait, pure-Rust back ends by default, MPI an optional feature; (c) MPI as the main back end | (b), and the MPI back end only when a cluster user asks for it |
-| MKL, PARDISO, MUMPS, PETSc, SLEPc | yes (C, Fortran) | (a) external benchmarks only, run as programs like Meep; (b) optional back ends | (a). Their licences (MKL's proprietary licence, MUMPS's CeCILL-C, PETSc's BSD-2) are checked before the benchmark harness runs them |
+| MKL, PARDISO, MUMPS, PETSc, SLEPc | yes (C, Fortran) | (a) external benchmarks only, run as programs like Meep; (b) optional back ends | (b), decided 2026-10-05: loaded at run time, never linked, through `photonoxide-native` ([the backends plan](backends.md)); PETSc and SLEPc dropped. Formerly (a). Their licences (MKL's proprietary licence, MUMPS's CeCILL-C, PETSc's BSD-2) are checked before the benchmark harness runs them |
 
 **Principle 9, determinism** ("reductions are ordered, seeds are explicit, and nothing depends on
 thread scheduling"; and in the 1.0 criteria, "bit-for-bit the same result on any number of
@@ -538,9 +539,14 @@ or HSS (Ghysels et al. 2016); if not, the phase stops with its measurement publi
    - (c) MPI as the main transport.
    - *Recommended: (b),* with the MPI back end written only when someone needs a cluster.
 3. **CUDA.** (a) Never: wgpu only, with Vulkan's f64. (b) An optional cudarc feature for cuSPARSE
-   and cuSOLVER. *Recommended: (a).*
+   and cuSOLVER. *Recommended: (a).* *(Decided 2026-10-05: NVIDIA's libraries (cuDSS, cuSPARSE,
+   AmgX) as optional backends loaded at run time, never linked, in [the backends plan](backends.md);
+   photonoxide's own GPU kernels, FDTD's first, stay on wgpu.)*
 4. **MKL, PARDISO, MUMPS, PETSc and SLEPc** as external benchmarks, run as programs on exported
-   matrices, never linked, after their licences are checked. *Recommended: yes.*
+   matrices, never linked, after their licences are checked. *Recommended: yes.* *(Decided
+   2026-10-05, beyond this: optional backends loaded at run time through `photonoxide-native`,
+   never linked, never GPL; PETSc and SLEPc dropped, having no native Windows build. See [the
+   backends plan](backends.md).)*
 5. **Where distributed memory goes.** (a) A new milestone after 0.7. (b) Inside 0.7. (c) After
    1.0. *Recommended: (a),* with Phase C's process farming earlier, since it is cheap and serves
    0.7's populations.

@@ -460,6 +460,15 @@ How a design reaches a foundry. Fabrication is almost always a multi-project waf
   - 0.8: eye diagrams and mesh programming;
   - 0.9: the layout view.
 - **Performance:** criterion benchmarks and the `bench` command (0.4.2), with regression gating in CI; every speed-up measured as time to equal accuracy. See [the performance plan](docs/plans/performance.md). faer's threaded dense LU, at 13 to 40% of MKL's on 20 threads ([docs/baselines.md](docs/baselines.md)), measured in faer's own benchmarks and reported upstream, with the owner's go-ahead.
+- **External backends and the in-app benchmark** ([the plan](docs/plans/backends.md), #185): libraries the user installs, loaded at run time only through `photonoxide-native`, never linked, never GPL, photonoxide's own solvers the default and the reference.
+  - [x] The traits, the registry and the choice in solvers and job files (#193).
+  - [ ] `photonoxide-native`: discovery, run-time loading, smoke tests (#174).
+  - [ ] Sparse direct backends: oneMKL's PARDISO (#175), MUMPS (#176), SuperLU (#177), Apple Accelerate's sparse solvers (#187), NVIDIA cuDSS on the GPU (#188).
+  - [ ] Dense kernels for the multifrontal fronts from any BLAS/LAPACK: MKL, AMD AOCL, Apple Accelerate, Arm PL, OpenBLAS (#186).
+  - [ ] Iterative backends: AMD AOCL-Sparse (#189); photonoxide's Krylov solvers on cuSPARSE, and AmgX (#190).
+  - [ ] Install guides per library and platform, verified (#184).
+  - [ ] The benchmark: a catalogue of problems at many sizes (#179) and a runner over every backend with a results database (#180).
+  - [ ] The studio: a Libraries page with guided installs (#181), a Benchmarks page (#182), and `auto` from the measurements (#183).
 - **Docs:** a theory page per method.
 
 ### 1.0: Stable
