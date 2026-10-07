@@ -485,6 +485,11 @@ pub(crate) fn hankel1_log_derivative(nu: c64, z: f64) -> c64 {
 /// index: his Eqs. (32)–(33) with the exact U, for a core of index `core` and thickness 2d in
 /// `cladding`, bent at radius R (to the slab's centre), from the straight slab's effective
 /// index `n_eff`. An approximation for large R (his inequalities 35–36).
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] unless the thickness and the radius are positive and `n_eff` is a
+/// guided mode's, between the cladding's index and the core's.
 pub fn marcuse_loss(
     core: f64,
     cladding: f64,
@@ -492,10 +497,28 @@ pub fn marcuse_loss(
     radius: Length,
     wavelength: Wavelength,
     n_eff: f64,
-) -> f64 {
+) -> Result<f64> {
     let k = wavelength.wavenumber();
     let d = thickness.to_um() / 2.0;
     let r = radius.to_um();
+    if !(d.is_finite() && d > 0.0 && r.is_finite() && r > 0.0) {
+        return Err(Error::invalid(
+            "bend",
+            format!(
+                "the thickness and the radius must be positive, got {} and {r} um",
+                2.0 * d
+            ),
+        ));
+    }
+    if !(cladding > 0.0 && cladding < n_eff && n_eff < core && core.is_finite()) {
+        return Err(Error::invalid(
+            "bend",
+            format!(
+                "the effective index must be a guided mode's, between the cladding's \
+                 {cladding} and the core's {core}, got {n_eff}"
+            ),
+        ));
+    }
     let beta = k * n_eff;
     let gamma = (beta * beta - k * k * cladding * cladding).sqrt();
     let kappa = (k * k * core * core - beta * beta).sqrt();
@@ -504,7 +527,7 @@ pub fn marcuse_loss(
     let two_alpha = 2.0 * gamma * kappa * kappa * (2.0 * gamma * d).exp() * (-u).exp()
         / ((core * core - cladding * cladding) * k * k * beta * (2.0 * d + 2.0 / gamma));
     // the amplitude decays as e^(−αz): Im β = α
-    two_alpha / 2.0 / k
+    Ok(two_alpha / 2.0 / k)
 }
 
 #[cfg(test)]
@@ -719,12 +742,27 @@ mod tests {
                     .fundamental(Polarization::Te, w)
                     .unwrap()
                     .im;
-                let marcuse = marcuse_loss(core, clad, Length::um(t), Length::um(r), w, straight);
+                let marcuse =
+                    marcuse_loss(core, clad, Length::um(t), Length::um(r), w, straight).unwrap();
                 (marcuse / exact - 1.0).abs()
             })
             .collect();
         assert!(off.windows(2).all(|p| p[1] < p[0]), "{off:?}");
         assert!(off[3] < 0.05, "{off:?}");
+    }
+
+    #[test]
+    fn marcuses_loss_refuses_what_isnt_a_guided_mode() {
+        // above the core's index it gave NaN (#115); at or below the cladding's, NaN or 0/0
+        let (core, clad) = (1.5, 1.45);
+        let (t, r, w) = (Length::um(1.0), Length::um(500.0), lam(1.55));
+        for n_eff in [1.51, 1.5, 1.45, 1.4, f64::NAN] {
+            assert!(marcuse_loss(core, clad, t, r, w, n_eff).is_err(), "{n_eff}");
+        }
+        assert!(marcuse_loss(core, clad, Length::um(0.0), r, w, 1.47).is_err());
+        assert!(marcuse_loss(core, clad, t, Length::um(-500.0), w, 1.47).is_err());
+        let loss = marcuse_loss(core, clad, t, r, w, 1.47).unwrap();
+        assert!(loss.is_finite() && loss > 0.0);
     }
 
     #[test]

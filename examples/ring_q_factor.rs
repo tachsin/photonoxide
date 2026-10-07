@@ -93,11 +93,13 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     // critical coupling: r = a, so k² = 1 − a²; r₁ = r₂a, so k₁² = 1 − r₂²a²
     let q_all_pass = |l: f64| {
         let a = single_pass(l, 0.075);
-        all_pass.q_factor(l0, &[l, 1.0 - a * a])
+        all_pass.q_factor(l0, &[l, 1.0 - a * a]).unwrap_or(f64::NAN)
     };
     let q_add_drop = |l: f64| {
         let a = single_pass(l, 0.11);
-        add_drop.q_factor(l0, &[l, 1.0 - (r2 * a).powi(2), 1.0 - r2 * r2])
+        add_drop
+            .q_factor(l0, &[l, 1.0 - (r2 * a).powi(2), 1.0 - r2 * r2])
+            .unwrap_or(f64::NAN)
     };
     let (la, qa) = peak(q_all_pass, 1e3, 3e4);
     let (ld, qd) = peak(q_add_drop, 1e3, 3e4);
@@ -121,20 +123,20 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     let kappa2 = 1.0 - single_pass(la, 0.075).powi(2);
     let values = [la, kappa2];
     let centre = all_pass.resonance(l0, la)?;
-    let fsr = all_pass.fsr(centre, la);
+    let fsr = all_pass.fsr(centre, la)?;
     let through = |w: f64| -> photonoxide::Result<f64> {
         Ok(all_pass.s_matrix(Wavelength::um(w)?, &values)?.power(1, 0))
     };
-    let (top, _) = all_pass.extremes(centre, &values);
+    let (top, _) = all_pass.extremes(centre, &values)?;
     let fwhm = measured_fwhm(through, centre.to_um(), top, fsr)?;
     println!(
         "  all-pass at {:.3} mm, its spectrum: FSR {:.2} pm, FWHM {:.3} pm (Eq. 7: {:.3}), Q {:.4e} (Eq. 20: {:.4e}), finesse {:.2}",
         la / 1e3,
         fsr * 1e6,
         fwhm * 1e6,
-        all_pass.fwhm(centre, &values) * 1e6,
+        all_pass.fwhm(centre, &values)? * 1e6,
         centre.to_um() / fwhm,
-        all_pass.q_factor(centre, &values),
+        all_pass.q_factor(centre, &values)?,
         fsr / fwhm
     );
     Ok(checks.finish())

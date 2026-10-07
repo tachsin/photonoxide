@@ -81,13 +81,13 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                 vector::modes(&cs, w, 1, None)?[0].effective_index().re,
                 core,
                 clad,
-            );
-            let exact = r
-                .mode(family, 1, 1, w)
-                .map_or(f64::NAN, |n| normalized(n, core, clad));
-            let closed = r
-                .closed_form(family, 1, 1, w)
-                .map_or(f64::NAN, |n| normalized(n, core, clad));
+            )?;
+            // no mode there (below cutoff) prints as NaN
+            let b = |n: Option<f64>| -> photonoxide::Result<f64> {
+                n.map_or(Ok(f64::NAN), |n| normalized(n, core, clad))
+            };
+            let exact = b(r.mode(family, 1, 1, w))?;
+            let closed = b(r.closed_form(family, 1, 1, w))?;
             println!("  {big_b:>3}   {family:?}_11    {full:.4}      {exact:.4}     {closed:.4}");
             if exact >= 0.5 {
                 checks.compare(

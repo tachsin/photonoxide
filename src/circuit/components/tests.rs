@@ -245,11 +245,58 @@ fn a_ring_resonates_where_bogaerts_eq_3_says_with_his_extremes() {
     let d = ring.guide();
     let turns = d.effective_index_at(res) * values[0] / res.to_um();
     assert!((turns - turns.round()).abs() < 1e-11);
-    let (top, bottom) = ring.extremes(res, &values);
+    let (top, bottom) = ring.extremes(res, &values).unwrap();
     assert!((ring.s_matrix(res, &values).unwrap().power(1, 0) - bottom).abs() < 1e-12);
     // half a free spectral range away the phase is odd: the maximum (within the FSR's first order)
-    let off = um(res.to_um() + ring.fsr(res, values[0]) / 2.0);
+    let off = um(res.to_um() + ring.fsr(res, values[0]).unwrap() / 2.0);
     assert!((ring.s_matrix(off, &values).unwrap().power(1, 0) - top).abs() < 1e-5);
+}
+
+#[test]
+fn a_rings_closed_forms_refuse_what_they_cant_answer() {
+    // each of these gave an infinity, a NaN or a panic (#115)
+    let w = um(1.55);
+    let all_pass = AllPassRing::new(wire(3.0)).unwrap();
+    let add_drop = AddDropRing::new(wire(3.0)).unwrap();
+    let length = TAU * 10.0;
+    for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+        assert!(all_pass.fsr(w, bad).is_err(), "{bad}");
+        assert!(add_drop.fsr(w, bad).is_err(), "{bad}");
+        assert!(all_pass.q_factor(w, &[bad, 0.1]).is_err(), "{bad}");
+    }
+    // too few values, and too many
+    for values in [&[][..], &[length], &[length, 0.1, 0.1]] {
+        assert!(all_pass.fwhm(w, values).is_err());
+        assert!(all_pass.finesse(w, values).is_err());
+        assert!(all_pass.q_factor(w, values).is_err());
+        assert!(all_pass.extremes(w, values).is_err());
+    }
+    for values in [&[][..], &[length, 0.1], &[length, 0.1, 0.1, 0.1]] {
+        assert!(add_drop.fwhm(w, values).is_err());
+        assert!(add_drop.finesse(w, values).is_err());
+        assert!(add_drop.q_factor(w, values).is_err());
+        assert!(add_drop.extremes(w, values).is_err());
+    }
+    // a coupling outside 0 to 1
+    for bad in [-0.1, 1.1, f64::NAN] {
+        assert!(all_pass.fwhm(w, &[length, bad]).is_err(), "{bad}");
+        assert!(add_drop.extremes(w, &[length, 0.1, bad]).is_err(), "{bad}");
+    }
+    // all the light coupled out: no resonance to have a width
+    assert!(all_pass.fwhm(w, &[length, 1.0]).is_err());
+    assert!(add_drop.fwhm(w, &[length, 0.1, 1.0]).is_err());
+    // no loss and no coupling: no linewidth, so no finesse or Q
+    let lossless = AllPassRing::new(Dispersion::new(um(1.55), 2.4, 4.2)).unwrap();
+    assert!(lossless.finesse(w, &[length, 0.0]).is_err());
+    assert!(lossless.q_factor(w, &[length, 0.0]).is_err());
+    assert!(lossless.extremes(w, &[length, 0.0]).is_err());
+    // and what they can answer is unchanged
+    let values = [length, 0.05];
+    let fsr = all_pass.fsr(w, length).unwrap();
+    let fwhm = all_pass.fwhm(w, &values).unwrap();
+    let finesse = all_pass.finesse(w, &values).unwrap();
+    assert!((fsr / fwhm / finesse - 1.0).abs() < 1e-12);
+    assert!((all_pass.q_factor(w, &values).unwrap() * fwhm / w.to_um() - 1.0).abs() < 1e-12);
 }
 
 #[test]

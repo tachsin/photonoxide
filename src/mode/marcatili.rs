@@ -199,8 +199,22 @@ impl Rectangle {
 
 /// Marcatili's normalized propagation constant (k_z² − k₄²)/(k₁² − k₄²), the ordinate of his
 /// Fig. 6: 0 at cutoff, 1 when all the field is in the core.
-pub fn normalized(n_eff: f64, core: f64, cladding: f64) -> f64 {
-    (n_eff * n_eff - cladding * cladding) / (core * core - cladding * cladding)
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] unless the indices are finite and the core's is above the
+/// cladding's: there is no guide to normalize by otherwise.
+pub fn normalized(n_eff: f64, core: f64, cladding: f64) -> Result<f64> {
+    if !(n_eff.is_finite() && core.is_finite() && cladding > 0.0 && core > cladding) {
+        return Err(Error::invalid(
+            "index",
+            format!(
+                "a normalized propagation constant needs finite indices and a core above its \
+                 cladding, got n_eff {n_eff}, core {core}, cladding {cladding}"
+            ),
+        ));
+    }
+    Ok((n_eff * n_eff - cladding * cladding) / (core * core - cladding * cladding))
 }
 
 /// The largest relative difference in the normalized constant between Marcatili's closed form
@@ -220,10 +234,12 @@ pub(crate) fn closed_form_deviation(core: f64, cladding: f64) -> f64 {
             else {
                 continue;
             };
-            let (e, c) = (
+            let (Ok(e), Ok(c)) = (
                 normalized(exact, core, cladding),
                 normalized(closed, core, cladding),
-            );
+            ) else {
+                continue;
+            };
             if e >= 0.5 {
                 worst = worst.max((c - e).abs() / e);
             }
@@ -292,8 +308,8 @@ pub(crate) fn against_vector(big_b: f64, family: Family) -> (f64, f64) {
         .and_then(|r| r.mode(family, 1, 1, lam))
         .unwrap_or(f64::NAN);
     (
-        normalized(found, core, clad),
-        normalized(marcatili, core, clad),
+        normalized(found, core, clad).unwrap_or(f64::NAN),
+        normalized(marcatili, core, clad).unwrap_or(f64::NAN),
     )
 }
 
@@ -305,6 +321,18 @@ mod tests {
 
     fn lam() -> Wavelength {
         Wavelength::um(1.0).unwrap()
+    }
+
+    #[test]
+    fn the_normalized_constant_refuses_a_guide_that_isnt_one() {
+        // core = cladding gave an infinity or NaN (#115)
+        assert!(normalized(1.5, 1.5, 1.5).is_err());
+        assert!(normalized(1.5, 1.4, 1.5).is_err());
+        assert!(normalized(f64::NAN, 1.5, 1.0).is_err());
+        assert!(normalized(1.2, f64::INFINITY, 1.0).is_err());
+        // 0 at cutoff, 1 with all the field in the core
+        assert_eq!(normalized(1.0, 1.5, 1.0).unwrap(), 0.0);
+        assert_eq!(normalized(1.5, 1.5, 1.0).unwrap(), 1.0);
     }
 
     #[test]
