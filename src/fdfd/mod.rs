@@ -843,7 +843,7 @@ impl Field2d {
 
 mod adjoint;
 pub(crate) mod checks;
-mod direct;
+pub(crate) mod direct;
 pub(crate) mod krylov;
 mod ports;
 #[cfg(test)]
@@ -859,3 +859,4 @@ pub use three::{
 
 pub(crate) use three::checks as checks3d;
 pub(crate) use three::port_checks as port_checks3d;
+pub(crate) use three::positions;

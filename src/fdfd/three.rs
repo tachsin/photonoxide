@@ -1091,7 +1091,7 @@ fn factorize(
 }
 
 /// Each value of E at its place on the grid, for nested dissection.
-fn positions(grid: &Grid3d) -> Vec<[f64; 3]> {
+pub(crate) fn positions(grid: &Grid3d) -> Vec<[f64; 3]> {
     let mut positions = vec![[0.0; 3]; grid.unknowns()];
     for component in Axis::ALL {
         for k in 0..grid.nz {
