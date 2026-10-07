@@ -6,6 +6,7 @@ mod bench;
 mod circuits;
 mod examples;
 mod materials;
+mod runner;
 mod settings;
 mod studio;
 mod tasks;
@@ -39,6 +40,16 @@ const USAGE: &str = "usage:
   photonoxide bench --export <dir> [<id>...]
       write the direct solvers' systems (slab-2d, strip-24, strip-32, strip-40) as Matrix
       Market files with their solutions, for other solvers to factorize
+  photonoxide bench --tier <quick|standard|full> [--backends <name,...|all>] [--threads <n,...>]
+                    [--timeout <seconds>] [--db <file>] [--write <file>] [<id>...]
+      run the catalogue's problems with each backend (photonoxide's own always) in a process
+      each, record every run in the results database (default: the app's data folder) and
+      print the summary of this machine's records (--write: to a file; --timeout: per run,
+      default 600 s)
+  photonoxide bench --report [--db <file>] [--write <file>]
+      the summary alone, from the database
+  photonoxide bench --import <file> [--db <file>]
+      add another database's records, from this machine or another
   photonoxide --version";
 
 fn main() -> ExitCode {

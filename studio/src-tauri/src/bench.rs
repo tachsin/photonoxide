@@ -75,6 +75,21 @@ struct Timed {
 }
 
 pub fn run(args: &[String]) -> ExitCode {
+    // the catalogue's runner (runner.rs)
+    if args.iter().any(|a| {
+        matches!(
+            a.as_str(),
+            "--tier"
+                | "--backends"
+                | "--import"
+                | "--report"
+                | "--child-entry"
+                | "--db"
+                | "--timeout"
+        )
+    }) {
+        return crate::runner::run(args);
+    }
     if let [flag, id, out] = args
         && flag == "--child"
     {
@@ -445,7 +460,7 @@ fn threads(t: usize) -> String {
 }
 
 /// 1234567 as "1 234 567", as the docs write numbers.
-fn grouped(n: usize) -> String {
+pub(crate) fn grouped(n: usize) -> String {
     let digits = n.to_string();
     let mut out = String::new();
     for (i, c) in digits.chars().enumerate() {
@@ -457,7 +472,7 @@ fn grouped(n: usize) -> String {
     out
 }
 
-fn gigabytes(bytes: u64) -> String {
+pub(crate) fn gigabytes(bytes: u64) -> String {
     if bytes >= 1_000_000_000 {
         format!("{:.2} GB", bytes as f64 / 1e9)
     } else {
@@ -480,7 +495,7 @@ fn machine() -> String {
     )
 }
 
-fn cpu_name() -> Option<String> {
+pub(crate) fn cpu_name() -> Option<String> {
     let output = |program: &str, args: &[&str]| {
         Command::new(program)
             .args(args)
@@ -519,7 +534,7 @@ fn cpu_name() -> Option<String> {
 }
 
 /// The process's peak resident set.
-mod memory {
+pub(crate) mod memory {
     #[cfg(windows)]
     pub fn peak_bytes() -> Option<u64> {
         #[repr(C)]
