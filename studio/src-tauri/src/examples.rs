@@ -60,6 +60,7 @@ examples!(
     ring_q_factor: "../../../examples/ring_q_factor.rs",
     mzi_dwivedi: "../../../examples/mzi_dwivedi.rs",
     cpml_roden_gedney: "../../../examples/cpml_roden_gedney.rs",
+    tfsf_square_cylinder: "../../../examples/tfsf_square_cylinder.rs",
 );
 
 /// An example's `main` returns an exit code, or a result holding one.
@@ -142,6 +143,10 @@ fn title(name: &str) -> (&'static str, &'static str) {
         "ring_q_factor" => ("The best length for a ring's Q", "Bogaerts et al. 2012"),
         "mzi_dwivedi" => ("Measured MZIs: a wire's indices", "Dwivedi et al. 2015"),
         "cpml_roden_gedney" => ("The CPML beside a plate in soil", "Roden & Gedney 2000"),
+        "tfsf_square_cylinder" => (
+            "A plane wave on a square conductor",
+            "Umashankar & Taflove 1982",
+        ),
         _ => ("", ""),
     }
 }
@@ -163,7 +168,7 @@ fn seconds(name: &str) -> f64 {
         "marcatili" | "effective_index_method" => 5.0,
         "circuit_fit" => 2.0,
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
-        "directional_coupler" => 20.0,
+        "directional_coupler" | "tfsf_square_cylinder" => 20.0,
         "group_index" | "hadley_corners" => 30.0,
         "leaky_wire_benchmark" | "mzi_dwivedi" => 60.0,
         "cpml_roden_gedney" => 45.0,

@@ -824,6 +824,69 @@ pub fn cases() -> Vec<Case> {
             run: fdtd_cpml_thickness,
         },
         Case {
+            id: "fdtd/spectrum",
+            title: r"FDTD's sources normalized: a Gaussian pulse from an electric point current and from a magnetic dipole between values, in a closed box of a lossy medium ($16 \times 14 \times 12$ cells of 50 nm, $\varepsilon = 2.1$, $\sigma = 2$/µm), E's DFT at the carrier (1.55 µm) and 0.12 c/µm off it against `Solver3d`'s field for the sources' own transforms at the leapfrog's frequency (largest field difference relative to the largest field shown)",
+            tier: Tier::Analytic,
+            source: r"the same equations: each field's transform at its own times solves Yee's frequency-domain equations at $\tilde\omega = (2/\Delta t)\sin(\omega\Delta t/2)$ for the currents' transforms, once the fields have died away; the dipole restricted to the grid as A. F. Oskooi et al., Comput. Phys. Commun. 181, 687 (2010), doi:10.1016/j.cpc.2009.11.008 restrict it; measured 6.5e-13",
+            run: fdtd_spectrum,
+        },
+        Case {
+            id: "fdtd/tfsf-leakage",
+            title: r"FDTD's total-field/scattered-field box with nothing in it: a plane-wave pulse in vacuum at normal and oblique incidence (2D, 80 × 80 cells of 50 nm, along $(1, 0)$, $(2, 1)$ and $(1, -3)$ in units of the cells, both polarizations; 3D, $36^3$ cells, along $(0, 0, 1)$ and $(2, 1, 1)$), the largest field in the scattered region over the run relative to the largest incident field (largest of the five shown)",
+            tier: Tier::Analytic,
+            source: r"K. Umashankar, A. Taflove, IEEE Trans. Electromagn. Compat. EMC-24, 397 (1982), doi:10.1109/TEMC.1982.304054: the box is exact when the incident field solves the grid's own equations, which the auxiliary 1D run along the direction does at any angle whose components are whole numbers of cells; measured 1.3e-15",
+            run: fdtd_tfsf_leakage,
+        },
+        Case {
+            id: "fdtd/tfsf-slab",
+            title: r"FDTD's total-field/scattered-field box at normal incidence on a slab of $\varepsilon = 4$, 0.3 µm thick, on cells of 5 nm: the power reflection from the scattered field in front at 0.8, 1 and 1.2 c/µm against Airy's formula (largest difference shown)",
+            tier: Tier::Analytic,
+            source: r"the slab's exact reflection, $r = r_{12}(1 - e^{2i\delta})/(1 - r_{12}^2 e^{2i\delta})$, $\delta = n k_0 d$; second order in the cells: 5.4e-3 at 20 nm, 1.3e-3 at 10, 3.3e-4 at 5 (measured)",
+            run: fdtd_tfsf_slab,
+        },
+        Case {
+            id: "fdtd/mode-source-fdfd",
+            title: r"FDTD's mode source against FDFD's: a rectangular guide's fundamental mode (core of $\varepsilon = 12$, $0.4 \times 0.3$ µm, in $\varepsilon = 2.1$) launched forward by a continuous wave in a closed box of a lossy medium ($16 \times 14 \times 24$ cells of 50 nm, $\sigma = 4$/µm, 1.55 µm, 64 steps a period), its steady amplitude against `Solver3d`'s field for its mode source of the same mode at the leapfrog's frequency (largest field difference relative to the largest field shown)",
+            tier: Tier::Analytic,
+            source: r"the same equations: the mode is FDFD's on the grid, carried along the guide as the grid carries it, and its currents on the plane are total-field/scattered-field's (Umashankar and Taflove 1982, doi:10.1109/TEMC.1982.304054), FDFD's own (R. C. Rumpf, Prog. Electromagn. Res. B 36, 221 (2012), doi:10.2528/PIERB11092006) in the time domain; measured 2.5e-14",
+            run: fdtd_mode_source_fdfd,
+        },
+        Case {
+            id: "fdtd/mode-source-backward",
+            title: r"FDTD's mode source one way: the same guide's fundamental mode launched forward by a continuous wave in open space ($40 \times 36 \times 40$ cells of 50 nm, CPMLs of 8, 1.55 µm), the power going backward behind the source relative to the power going forward ahead (shown)",
+            tier: Tier::Analytic,
+            source: r"a mode launched by total-field/scattered-field goes one way only; what is left is the CPMLs', which differ from FDFD's PMLs the mode was solved in to first order in $\Delta t$; measured 1.5e-7. With a pulse 0.1 c/µm wide, the carrier's mode sends back 4.1e-4 and 3.8e-4 of the forward power at half that either side (docs/methods/fdtd.md)",
+            run: fdtd_mode_source_backward,
+        },
+        Case {
+            id: "fdtd/mode-source-power",
+            title: r"FDTD's mode source's power: the forward flux ahead of the source in the same open guide, relative to the mode's own power at unit amplitude (shown)",
+            tier: Tier::Analytic,
+            source: r"a mode at unit amplitude carries its power; measured 1.000048",
+            run: fdtd_mode_source_power,
+        },
+        Case {
+            id: "fdtd/beam-waist",
+            title: r"FDTD's Gaussian beam: a 2D beam ($E_z$, 1 µm in vacuum, $w_0 = 1.5$ µm, its focus 2 µm ahead of its plane) on cells of 50 nm, its width $2\sqrt{\langle (y - \bar y)^2 \rangle}$ at 0 to 12 µm past the focus fitted by $w^2 = w_0^2 + \theta^2 (d - d_0)^2$: the waist, µm (shown)",
+            tier: Tier::Analytic,
+            source: r"the paraxial Gaussian beam's waist $w_0$, the beam launched one way from its field on a plane decomposed into the grid's own plane waves; the focus fitted at 1.94 µm from the plane (2 asked)",
+            run: fdtd_beam_waist,
+        },
+        Case {
+            id: "fdtd/beam-divergence",
+            title: r"FDTD's Gaussian beam's divergence: the same beam's $\theta$ from the same fit, against $2\sqrt{\langle (dk_x/dk_y)^2 \rangle}$ over its plane waves with the grid's dispersion (relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"for a sum of plane waves the width grows exactly as $w^2 = w_0^2 + \theta^2 d^2$, $\theta$ from the waves' directions; measured 2.7e-6 (0.218825). The paraxial $\lambda/(\pi w_0) = 0.2122$ is 3.1 % below: the continuum's exact 0.2160 is 1.8 % above it (the beam isn't paraxial at $w_0 = 1.5\lambda$), and the grid's dispersion at 20 cells a wavelength adds 1.3 %",
+            run: fdtd_beam_divergence,
+        },
+        Case {
+            id: "fdtd/beam-tilt",
+            title: r"FDTD's tilted Gaussian beam: the same beam tilted by 10°, the slope of its centre $d\bar y/dx$ from 2 to 14 µm past its plane against $\langle -dk_x/dk_y \rangle$ over its plane waves with the grid's dispersion (relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"the centre of a sum of plane waves moves in a straight line at their mean direction; measured 1.5e-4. The slope, 0.1825, is above $\tan 10° = 0.1763$ by the beam's spread and the grid's dispersion",
+            run: fdtd_beam_tilt,
+        },
+        Case {
             id: "circuit/series-waveguides",
             title: r"Circuits: two waveguides, 12.5 and 30.25 µm, in series are one of 42.75 µm ($n_\text{eff} = 2.4$, $n_g = 4.2$, 3 dB/cm), 1.54 to 1.56 µm (largest $\lvert \Delta S \rvert$ shown)",
             tier: Tier::Analytic,
@@ -1513,6 +1576,125 @@ fn fdtd_cpml_thickness() -> Outcome {
         expected: 0.0,
         // measured 6.1e-6: −104 dB
         tolerance: 1e-4,
+        error: measured,
+    }
+}
+
+fn fdtd_spectrum() -> Outcome {
+    let measured = crate::fdtd::checks::spectrum_against_fdfd();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // the solves' rounding: measured 6.5e-13
+        tolerance: 1e-10,
+        error: measured,
+    }
+}
+
+fn fdtd_tfsf_leakage() -> Outcome {
+    let measured = [
+        ((1, 0, 0), [0.0, 0.0, 1.0], false),
+        ((2, 1, 0), [0.0, 0.0, 1.0], false),
+        ((1, -3, 0), [1.0, 0.0, 0.0], false),
+        ((0, 0, 1), [1.0, 0.0, 0.0], true),
+        ((2, 1, 1), [1.0, -1.0, 0.0], true),
+    ]
+    .into_iter()
+    .map(|(direction, polarization, three_d)| {
+        crate::fdtd::checks::tfsf_leakage(direction, polarization, three_d)
+    })
+    .fold(0.0f64, f64::max);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // round-off: measured 1.3e-15
+        tolerance: 1e-12,
+        error: measured,
+    }
+}
+
+fn fdtd_tfsf_slab() -> Outcome {
+    let measured = crate::fdtd::checks::tfsf_slab(0.005);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // second order in the cells: measured 3.3e-4 at 5 nm (5.4e-3 at 20 nm, 1.3e-3 at 10)
+        tolerance: 1e-3,
+        error: measured,
+    }
+}
+
+fn fdtd_mode_source_fdfd() -> Outcome {
+    let measured = crate::fdtd::checks::mode_source_against_fdfd();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // the solves' rounding: measured 2.5e-14
+        tolerance: 1e-10,
+        error: measured,
+    }
+}
+
+fn fdtd_mode_source_backward() -> Outcome {
+    let measured = crate::fdtd::checks::mode_source_open(false)[0].1;
+    Outcome {
+        measured,
+        expected: 0.0,
+        // the CPMLs against FDFD's PMLs: measured 1.5e-7
+        tolerance: 1e-5,
+        error: measured,
+    }
+}
+
+fn fdtd_mode_source_power() -> Outcome {
+    let measured = crate::fdtd::checks::mode_source_open(false)[0].2;
+    Outcome {
+        measured,
+        expected: 1.0,
+        // measured 1.000048
+        tolerance: 5e-4,
+        error: (measured - 1.0).abs(),
+    }
+}
+
+fn fdtd_beam_waist() -> Outcome {
+    let (measured, _, _) = crate::fdtd::checks::beam_fit(&crate::fdtd::checks::beam(0.0));
+    Outcome {
+        measured,
+        expected: 1.5,
+        // measured 1.49999
+        tolerance: 1e-3,
+        error: (measured - 1.5).abs(),
+    }
+}
+
+fn fdtd_beam_divergence() -> Outcome {
+    use crate::fdtd::checks::{beam, beam_divergence, beam_fit};
+    let (_, _, divergence) = beam_fit(&beam(0.0));
+    let predicted = beam_divergence(1.5, 1.0, Some((0.05, 1.0 / 32.0)));
+    let measured = (divergence - predicted).abs() / predicted;
+    Outcome {
+        measured,
+        expected: 0.0,
+        // measured 2.7e-6 (0.218825)
+        tolerance: 1e-4,
+        error: measured,
+    }
+}
+
+fn fdtd_beam_tilt() -> Outcome {
+    use crate::fdtd::checks::{beam, beam_centre_slope};
+    let tilted = beam(10f64.to_radians());
+    let (d0, _, y0) = tilted.columns[0];
+    let (d1, _, y1) = tilted.columns[4];
+    let slope = (y1 - y0) / (d1 - d0);
+    let predicted = beam_centre_slope(1.5, 10f64.to_radians(), 1.0, 0.05, 1.0 / 32.0);
+    let measured = (slope - predicted).abs() / predicted;
+    Outcome {
+        measured,
+        expected: 0.0,
+        // measured 1.5e-4
+        tolerance: 1e-3,
         error: measured,
     }
 }
