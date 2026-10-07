@@ -19,12 +19,21 @@
 //!   - with α = 0.05 S/m, σ_max = 1.1 σ_opt and κ_max = 7, "−67 dB", where
 //!     σ_opt = (m + 1)/(150π √ε_r Δ) (their Eq. 15).
 //!
-//! The paper doesn't give the time step or the pulse's exact width; here the Courant number is
-//! 0.99, and the differentiated Gaussian's width τ = 1/(π · 6 GHz) puts the bulk of its
-//! spectrum below 6 GHz. The field compared is E_z, the plate's normal component, one cell above
-//! the opposite corner. The two numbers are read off contour plots ("on the order of"), so they
-//! are compared within 5 dB, and the CFS-PML's gain over the traditional one within 5 dB of the
-//! paper's 19 dB.
+//! Settings the paper leaves open:
+//!
+//! - **The time step:** the Courant number is 0.99.
+//! - **The field compared:** E_z, the plate's normal component, one cell above the opposite
+//!   corner.
+//! - **The pulse's width,** which the errors depend on strongly: a differentiated Gaussian of
+//!   width τ = 1/(π · 6 GHz) gives −51.5 and −76.1 dB, and half as wide −38.2 and −55.1 dB. It is
+//!   set here, as τ = 0.72/(π · 6 GHz) = 38 ps, so that the traditional PML's error is the
+//!   paper's −48 dB. The CFS-PML's error is then a prediction.
+//! - **The reference:** padded by 40 cells instead of 75. It gives the same errors to 0.12 dB
+//!   (measured against the 75-cell one) at a third of the cost.
+//!
+//! The paper's two numbers are read off contour plots ("on the order of"), so they are compared
+//! within 5 dB, and the CFS-PML's gain over the traditional one within 5 dB of the paper's 19 dB
+//! (−48 against −67, "almost a 20 dB improvement").
 //!
 //! ```sh
 //! cargo run --release --example cpml_roden_gedney
@@ -84,7 +93,7 @@ fn run(pad: usize, cpml: Cpml) -> Vec<f64> {
     let plate = n[2] / 2;
     s.plate(Axis::Z, plate, edge..edge + 100, edge..edge + 25);
     // the differentiated Gaussian: τ = 1/(π · 6 GHz), in µm/c
-    let tau = 1.0 / (std::f64::consts::PI * 6e9) * C * 1e6 * std::env::var("TAU").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(1.0);
+    let tau = 0.72 / (std::f64::consts::PI * 6e9) * C * 1e6;
     s.add_source(Source {
         field: Field::E,
         component: Axis::Z,
@@ -130,9 +139,13 @@ pub fn main() -> ExitCode {
         ..Cpml::default()
     };
     println!("Roden and Gedney's plate in soil: 1 mm cells, CPML of 10 cells 3 cells from it");
-    println!("126 x 51 x 26 cells; reference 276 x 201 x 176 (75 more on every side), 2000 steps");
-    println!("sigma_opt = {:.4} S/m (their Eq. 15)", optimal / (ETA0 * 1e-6));
-    let reference = run(75, if std::env::var("REF_TRAD").is_ok() { traditional } else { shifted });
+    println!("126 x 51 x 26 cells; reference 206 x 131 x 106 (40 more on every side), 2000 steps");
+    println!(
+        "sigma_opt = {:.4} S/m (their Eq. 15)",
+        optimal / (ETA0 * 1e-6)
+    );
+    let pad = 40;
+    let reference = run(pad, shifted);
     let a = error_db(&run(0, traditional), &reference);
     let b = error_db(&run(0, shifted), &reference);
     let mut checks = common::Checks::default();

@@ -349,7 +349,11 @@ impl Simulation {
             let values: Vec<f64> = (0..n)
                 .into_iter()
                 .map(|r| {
-                    let (i, j, k) = (r % grid.nx, (r / grid.nx) % grid.ny, r / (grid.nx * grid.ny));
+                    let (i, j, k) = (
+                        r % grid.nx,
+                        (r / grid.nx) % grid.ny,
+                        r / (grid.nx * grid.ny),
+                    );
                     let p = grid.e_position(component, (i, j, k));
                     averaged(&complex, p, h, component, SAMPLES).re
                 })
@@ -362,7 +366,8 @@ impl Simulation {
             eps_e[component.index()] = values;
         }
         let mut ca: [Vec<f64>; 3] = [vec![1.0; n], vec![1.0; n], vec![1.0; n]];
-        let cb: [Vec<f64>; 3] = Axis::ALL.map(|c| eps_e[c.index()].iter().map(|e| dt / e).collect());
+        let cb: [Vec<f64>; 3] =
+            Axis::ALL.map(|c| eps_e[c.index()].iter().map(|e| dt / e).collect());
         let mut cb = cb;
         // walls: E tangential to a wall is zero on it, at node 0 (the wall at node n is beyond)
         for component in Axis::ALL {
@@ -371,7 +376,11 @@ impl Simulation {
                     continue;
                 }
                 for r in 0..n {
-                    let at = [r % grid.nx, (r / grid.nx) % grid.ny, r / (grid.nx * grid.ny)];
+                    let at = [
+                        r % grid.nx,
+                        (r / grid.nx) % grid.ny,
+                        r / (grid.nx * grid.ny),
+                    ];
                     if at[axis.index()] == 0 {
                         ca[component.index()][r] = 0.0;
                         cb[component.index()][r] = 0.0;
@@ -412,7 +421,9 @@ impl Simulation {
             // σ, κ at a position along the axis (in cells from node 0), for a slab of `cells`
             let profile = |depth_cells: f64, cells: usize| -> (f64, f64) {
                 let d = cells as f64 * h;
-                let x = (depth_cells / cells as f64).clamp(0.0, 1.0).powf(cpml.order);
+                let x = (depth_cells / cells as f64)
+                    .clamp(0.0, 1.0)
+                    .powf(cpml.order);
                 let sigma_max = cpml
                     .sigma
                     .unwrap_or((cpml.order + 1.0) * (-cpml.reflection.ln()) / (2.0 * d));
@@ -525,7 +536,11 @@ impl Simulation {
                 if self.cb[c][r] == 0.0 {
                     continue;
                 }
-                let (i, j, k) = (r % grid.nx, (r / grid.nx) % grid.ny, r / (grid.nx * grid.ny));
+                let (i, j, k) = (
+                    r % grid.nx,
+                    (r / grid.nx) % grid.ny,
+                    r / (grid.nx * grid.ny),
+                );
                 let [x, y, z] = grid.e_position(component, (i, j, k));
                 let s = sigma(x, y, z);
                 if !(s.is_finite() && s >= 0.0) {
@@ -562,7 +577,9 @@ impl Simulation {
         second: std::ops::Range<usize>,
     ) {
         let (a, b) = normal.others();
-        let mut put = |component: Axis, ra: std::ops::RangeInclusive<usize>, rb: std::ops::RangeInclusive<usize>| {
+        let mut put = |component: Axis,
+                       ra: std::ops::RangeInclusive<usize>,
+                       rb: std::ops::RangeInclusive<usize>| {
             for ia in ra {
                 for ib in rb.clone() {
                     let mut at = [0usize; 3];
@@ -576,8 +593,16 @@ impl Simulation {
             }
         };
         // E along a: half positions along a (the cells), nodes along b (their edges included)
-        put(a, first.start..=first.end.saturating_sub(1), second.start..=second.end);
-        put(b, first.start..=first.end, second.start..=second.end.saturating_sub(1));
+        put(
+            a,
+            first.start..=first.end.saturating_sub(1),
+            second.start..=second.end,
+        );
+        put(
+            b,
+            first.start..=first.end,
+            second.start..=second.end.saturating_sub(1),
+        );
     }
 
     /// Adds a source.
@@ -732,22 +757,25 @@ impl Simulation {
             let other = offset.map_or(0.0, |o| f[(r as isize + o) as usize]);
             if forward { other - f[r] } else { f[r] - other }
         };
-        out.par_chunks_mut(plane).enumerate().for_each(|(k, values)| {
-            for j in 0..grid.ny {
-                for i in 0..grid.nx {
-                    let m = [i, j, k];
-                    let r = k * plane + j * grid.nx + i;
-                    let (ma, mb) = (m[a.index()], m[b.index()]);
-                    let curl = difference(fb, r, offsets[a.index()][ma]) * factors[a.index()][ma]
-                        - difference(fa, r, offsets[b.index()][mb]) * factors[b.index()][mb];
-                    let v = &mut values[j * grid.nx + i];
-                    match coefficients {
-                        None => *v -= dt * curl,
-                        Some((keep, scale)) => *v = keep[r] * *v + scale[r] * curl,
+        out.par_chunks_mut(plane)
+            .enumerate()
+            .for_each(|(k, values)| {
+                for j in 0..grid.ny {
+                    for i in 0..grid.nx {
+                        let m = [i, j, k];
+                        let r = k * plane + j * grid.nx + i;
+                        let (ma, mb) = (m[a.index()], m[b.index()]);
+                        let curl = difference(fb, r, offsets[a.index()][ma])
+                            * factors[a.index()][ma]
+                            - difference(fa, r, offsets[b.index()][mb]) * factors[b.index()][mb];
+                        let v = &mut values[j * grid.nx + i];
+                        match coefficients {
+                            None => *v -= dt * curl,
+                            Some((keep, scale)) => *v = keep[r] * *v + scale[r] * curl,
+                        }
                     }
                 }
-            }
-        });
+            });
     }
 
     fn update_h(&mut self) {
@@ -838,8 +866,7 @@ impl Simulation {
                             let m = [from[0] + li, from[1] + lj, from[2] + lk];
                             let r = m[2] * plane + m[1] * grid.nx + m[0];
                             let mw = m[w.index()];
-                            let other =
-                                off[mw].map_or(0.0, |o| source[(r as isize + o) as usize]);
+                            let other = off[mw].map_or(0.0, |o| source[(r as isize + o) as usize]);
                             let d = if forward {
                                 other - source[r]
                             } else {

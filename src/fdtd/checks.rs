@@ -73,8 +73,8 @@ pub(crate) fn dispersion(m: (usize, usize), courant: f64) -> (f64, f64) {
     }
     let measured = (num / den).acos();
     let dt = s.dt();
-    let lambda =
-        4.0 / (g.dx * g.dx) * (kx * g.dx / 2.0).sin().powi(2) + 4.0 / (g.dy * g.dy) * (ky * g.dy / 2.0).sin().powi(2);
+    let lambda = 4.0 / (g.dx * g.dx) * (kx * g.dx / 2.0).sin().powi(2)
+        + 4.0 / (g.dy * g.dy) * (ky * g.dy / 2.0).sin().powi(2);
     let theory = 2.0 * (dt * lambda.sqrt() / 2.0).asin();
     (measured, theory)
 }
@@ -94,7 +94,13 @@ pub(crate) fn energy_drift() -> f64 {
     let g = grid([10, 9, 8], 0.05);
     let mut s = Simulation::new(
         g,
-        |x, y, _| if x.abs() < 0.12 && y.abs() < 0.1 { 12.0 } else { 2.0 },
+        |x, y, _| {
+            if x.abs() < 0.12 && y.abs() < 0.1 {
+                12.0
+            } else {
+                2.0
+            }
+        },
         Boundaries::walls(),
         0.95,
     )
@@ -124,7 +130,6 @@ pub(crate) fn energy_drift() -> f64 {
         .map(|_| (energy(&mut s) - first).abs() / first)
         .fold(0.0, f64::max)
 }
-
 
 /// A 2D pulse from a dipole in vacuum, recorded `gap` cells from a CPML `thickness` cells thick,
 /// against the same interior inside a much larger grid: the largest difference over the run,
@@ -168,7 +173,6 @@ pub(crate) fn cpml_error(thickness: usize) -> f64 {
         .fold(0.0f64, |m, (a, b)| m.max((a - b).abs()))
         / largest
 }
-
 
 /// The 3D field of a continuous current against FDFD's for the same current: the largest
 /// difference (outside the PMLs, if any), relative to the largest field, with FDFD at the
@@ -242,7 +246,7 @@ pub(crate) fn against_fdfd(steps_per_period: usize, conductivity: Option<f64>) -
         let inside = |r: usize| {
             let rest = r % cells;
             let at = [rest % g.nx, (rest / g.nx) % g.ny, rest / (g.nx * g.ny)];
-            (0..3).all(|a| at[a] >= pml + 1 && at[a] + pml + 1 < n[a])
+            (0..3).all(|a| at[a] > pml && at[a] + pml + 1 < n[a])
         };
         let largest = fdfd
             .values()
@@ -261,4 +265,3 @@ pub(crate) fn against_fdfd(steps_per_period: usize, conductivity: Option<f64>) -
     let tilde = 2.0 / dt * (omega * dt / 2.0).sin();
     (compare(tilde), compare(omega))
 }
-

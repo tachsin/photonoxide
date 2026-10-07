@@ -789,6 +789,41 @@ pub fn cases() -> Vec<Case> {
             run: fdfd3d_gmres_multigrid_direct,
         },
         Case {
+            id: "fdtd/dispersion",
+            title: r"FDTD's numerical dispersion: a plane wave's $E_z$ on a periodic Yee grid ($24 \times 18$ cells of $50 \times 40$ nm), started from rest, at four wave vectors (along an axis, the diagonal, between) and Courant numbers 0.5 to 1: its frequency per step against Taflove and Brodwin's relation (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"A. Taflove, M. E. Brodwin, IEEE Trans. Microw. Theory Tech. 23, 623 (1975), doi:10.1109/TMTT.1975.1128640: $\sin^2(\omega\Delta t/2)/\Delta t^2 = \sum_i \sin^2(k_i\Delta_i/2)/\Delta_i^2$, which the leapfrog on Yee's grid (K. S. Yee, IEEE Trans. Antennas Propag. 14, 302 (1966), doi:10.1109/TAP.1966.1138693) keeps exactly; measured 3.6e-15",
+            run: fdtd_dispersion,
+        },
+        Case {
+            id: "fdtd/energy",
+            title: r"FDTD's energy in a closed conducting box ($10 \times 9 \times 8$ cells of 50 nm, a block of $\varepsilon = 12$ in $\varepsilon = 2$, random fields, Courant number 0.95), over 300 steps: the largest change of the leapfrog's invariant $\tfrac12\sum \varepsilon E^2 + \tfrac12\sum \tilde H^{n-1/2}\cdot\tilde H^{n+1/2}$, relative to it (shown)",
+            tier: Tier::Analytic,
+            source: r"the leapfrog's discrete energy is conserved exactly when the two curls are each other's transposes, as Yee's differences are (Yee 1966, doi:10.1109/TAP.1966.1138693); measured 2.4e-15",
+            run: fdtd_energy,
+        },
+        Case {
+            id: "fdtd/fdfd-lossy",
+            title: r"FDTD against FDFD: a continuous current in a closed box of a lossy medium ($16 \times 14 \times 12$ cells of 50 nm, $\varepsilon = 2.1$, $\sigma = 2$/µm, 1.55 µm, 64 steps a period), its steady amplitude against `Solver3d`'s field for the same current at the leapfrog's frequency $\tilde\omega = (2/\Delta t)\sin(\omega\Delta t/2)$ with $\varepsilon + i\sigma\cos(\omega\Delta t/2)/\tilde\omega$ (largest field difference relative to the largest field shown)",
+            tier: Tier::Analytic,
+            source: r"the same equations: the leapfrog's steady state at $\omega$ solves Yee's frequency-domain equations at $\tilde\omega$ exactly, the conductivity averaged over the step; at $\omega$ itself the difference is 4.1e-4, the leapfrog's dispersion; measured 2.3e-14",
+            run: fdtd_fdfd_lossy,
+        },
+        Case {
+            id: "fdtd/fdfd-cpml",
+            title: r"FDTD against FDFD with open boundaries: a continuous current beside a silicon block ($16 \times 14 \times 12$ cells of 50 nm, a CPML of 4 cells, 1.55 µm, 128 steps a period), its steady amplitude against `Solver3d`'s field with its PML (largest field difference outside the PMLs relative to the largest field shown)",
+            tier: Tier::Analytic,
+            source: r"with $\kappa = 1$ and $\alpha = 0$ the convolutional PML (J. A. Roden, S. D. Gedney, Microw. Opt. Technol. Lett. 27, 334 (2000); see docs/methods/fdtd.md for its DOI) is FDFD's stretched coordinate $s = 1 + i\sigma/\omega$, its recursive convolution to first order in $\Delta t$: 6.6e-4 at 64 steps a period, 3.5e-4 at 128 (measured)",
+            run: fdtd_fdfd_cpml,
+        },
+        Case {
+            id: "fdtd/cpml-thickness",
+            title: r"FDTD's CPML in 2D: a pulse from a dipole in vacuum (cells of 50 nm, $\lambda = 1$ µm), recorded 2 cells from a CPML of 16 cells, against a grid 120 cells larger: the largest difference over the run, relative to the largest field (shown)",
+            tier: Tier::Analytic,
+            source: r"a CPML graded as FDFD's ($R = 10^{-8}$, order 3) reflects less as it thickens: measured 2.6e-2 at 4 cells, 1.2e-4 at 8 and 6.1e-6 at 16. Roden and Gedney's own case, a plate in soil, is the cpml_roden_gedney example",
+            run: fdtd_cpml_thickness,
+        },
+        Case {
             id: "circuit/series-waveguides",
             title: r"Circuits: two waveguides, 12.5 and 30.25 µm, in series are one of 42.75 µm ($n_\text{eff} = 2.4$, $n_g = 4.2$, 3 dB/cm), 1.54 to 1.56 µm (largest $\lvert \Delta S \rvert$ shown)",
             tier: Tier::Analytic,
@@ -1417,6 +1452,67 @@ fn fdfd3d_ldlt_lu() -> Outcome {
         // both refined to a residual of 1e-12: their difference is bounded by the condition
         // number times that; measured 1.2e-15
         tolerance: 1e-10,
+        error: measured,
+    }
+}
+
+fn fdtd_dispersion() -> Outcome {
+    let measured = [((3, 0), 0.9), ((2, 2), 0.9), ((1, 3), 0.5), ((4, 1), 1.0)]
+        .into_iter()
+        .map(|(m, courant)| {
+            let (got, theory) = crate::fdtd::checks::dispersion(m, courant);
+            ((got - theory) / theory).abs()
+        })
+        .fold(0.0f64, f64::max);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // round-off over 400 steps: measured 3.6e-15
+        tolerance: 1e-12,
+        error: measured,
+    }
+}
+
+fn fdtd_energy() -> Outcome {
+    let measured = crate::fdtd::checks::energy_drift();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // round-off: measured 2.4e-15
+        tolerance: 1e-12,
+        error: measured,
+    }
+}
+
+fn fdtd_fdfd_lossy() -> Outcome {
+    let measured = crate::fdtd::checks::against_fdfd(64, Some(2.0)).0;
+    Outcome {
+        measured,
+        expected: 0.0,
+        // the solves' rounding: measured 2.3e-14
+        tolerance: 1e-10,
+        error: measured,
+    }
+}
+
+fn fdtd_fdfd_cpml() -> Outcome {
+    let measured = crate::fdtd::checks::against_fdfd(128, None).0;
+    Outcome {
+        measured,
+        expected: 0.0,
+        // the CPML's convolution, first order in Δt: measured 3.5e-4
+        tolerance: 5e-4,
+        error: measured,
+    }
+}
+
+fn fdtd_cpml_thickness() -> Outcome {
+    let measured = crate::fdtd::checks::cpml_error(16);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // measured 6.1e-6: −104 dB
+        tolerance: 1e-4,
         error: measured,
     }
 }

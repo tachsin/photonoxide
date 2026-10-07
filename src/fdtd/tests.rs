@@ -1,5 +1,5 @@
-use super::*;
 use super::checks::*;
+use super::*;
 
 #[test]
 fn the_scheme_keeps_taflove_and_brodwins_dispersion_relation_exactly() {
@@ -41,7 +41,13 @@ fn the_fields_are_the_same_bits_on_any_number_of_threads() {
             .build()
             .unwrap()
             .install(|| {
-                let mut s = Simulation::new(g, |_, y, _| if y.abs() < 0.1 { 4.0 } else { 1.0 }, Boundaries::cpml(3), 0.9).unwrap();
+                let mut s = Simulation::new(
+                    g,
+                    |_, y, _| if y.abs() < 0.1 { 4.0 } else { 1.0 },
+                    Boundaries::cpml(3),
+                    0.9,
+                )
+                .unwrap();
                 s.add_source(Source {
                     field: Field::E,
                     component: Axis::Y,
@@ -56,7 +62,13 @@ fn the_fields_are_the_same_bits_on_any_number_of_threads() {
                 s.run(120);
                 Axis::ALL
                     .iter()
-                    .flat_map(|&c| s.e(c).iter().chain(s.h(c)).map(|v| v.to_bits()).collect::<Vec<_>>())
+                    .flat_map(|&c| {
+                        s.e(c)
+                            .iter()
+                            .chain(s.h(c))
+                            .map(|v| v.to_bits())
+                            .collect::<Vec<_>>()
+                    })
                     .collect::<Vec<u64>>()
             })
     };

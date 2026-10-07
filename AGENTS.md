@@ -11,6 +11,7 @@ library's modules, each with a write-up in `docs/methods/`:
 - `mode`: slabs, multilayers, planar profiles, full-vector and Hadley cross-sections, bends,
   the effective index method, Marcatili, dispersion and fields;
 - `fdfd`: 2D and 3D, ports and S-parameters, adjoint gradients, direct and QMR solves;
+- `fdtd`: the Yee scheme in 2D and 3D, the convolutional PML, sources and probes;
 - `circuit`: components, netlists, the circuit solve and its adjoint, objectives for genoxide;
 - `compact`: vector fitting, models over parameters, Touchstone files;
 - `job`, `run`: job files, run records and replay; `validation`: the report's cases; `bench`: the benchmark problems.
