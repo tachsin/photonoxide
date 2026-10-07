@@ -1,0 +1,13 @@
+[package]
+name = "photonoxide-native-testlib"
+version = "0.0.0"
+edition = "2024"
+description = "A small C library for photonoxide-native's tests: a dense complex solver behind a C interface"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+num-complex = "0.4"

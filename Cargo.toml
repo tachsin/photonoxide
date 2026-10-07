@@ -15,7 +15,7 @@ exclude = [".github", "assets", "site", "studio"]
 # the studio (studio/src-tauri) is the photonoxide program: it runs jobs, live in its window or
 # headless, and is built from the repository, not published
 [workspace]
-members = ["studio/src-tauri"]
+members = ["studio/src-tauri", "native", "native/testlib"]
 default-members = ["."]
 
 [dependencies]
