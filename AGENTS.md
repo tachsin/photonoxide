@@ -24,6 +24,7 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo run --release --example strip_waveguide           # an example: a published result, checked
 cargo run --release --quiet --example <name> > examples/output/<name>.txt   # its output, which CI compares
 cargo test --release --test validation_report -- --ignored   # every validation case, and the report is current
+cargo run -p photonoxide-native --example libraries      # the external libraries found here (CUDA, cuSPARSE, cuDSS)
 ```
 
 The `photonoxide` program is the studio, a Tauri app in `studio/` (Rust in `studio/src-tauri`,

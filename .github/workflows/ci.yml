@@ -78,6 +78,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --all-targets --all-features
       - run: cargo test --all-features
+      # photonoxide-native against its test library; real libraries are found only where installed
+      - run: cargo test -p photonoxide-native
 
   single-thread:
     name: Single thread
@@ -107,6 +109,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo fmt --check -p photonoxide-native -p photonoxide-native-testlib
+      - run: cargo clippy -p photonoxide-native -p photonoxide-native-testlib --all-targets -- -D warnings
       - run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: -D warnings
