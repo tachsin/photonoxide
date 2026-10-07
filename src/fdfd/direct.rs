@@ -157,6 +157,11 @@ impl Direct {
         }
     }
 
+    /// What the factorization took, as the backend reports it.
+    pub(crate) fn report(&self) -> crate::backend::Report {
+        self.factors.report()
+    }
+
     /// The backend that factorized: its name and version.
     pub(crate) fn backend(&self) -> String {
         let c = self.solver.capabilities();

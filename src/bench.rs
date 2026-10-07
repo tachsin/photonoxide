@@ -141,6 +141,7 @@ pub struct Accuracy {
     pub against: String,
 }
 
+pub mod catalogue;
 pub mod export;
 
 /// Every problem, in the order `photonoxide bench` runs them.
