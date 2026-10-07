@@ -53,7 +53,13 @@ regenerate and commit it with any change that adds or alters a case.
 
 - **Rust only.**
   - No Python anywhere: no bindings, no helper scripts, no reference implementations.
-  - No C or Fortran dependencies.
+  - No C or Fortran dependencies: nothing linked at build time, and the library keeps
+    `#![forbid(unsafe_code)]`.
+- **External libraries are optional backends, loaded at run time** ([docs/plans/backends.md](docs/plans/backends.md)).
+  - Only through `photonoxide-native`, the one crate allowed `unsafe`. Never linked at build time, never redistributed, never GPL.
+  - photonoxide's own solvers stay the default and the reference. A backend is checked against them before it is offered, and its speed counts only at equal accuracy.
+  - The default build, CI and the released program work with no external library. Tests that need one skip when it isn't found, and say so.
+  - A backend declares whether it gives the same bits on every run. photonoxide's own solvers must, on any thread count.
 - **Minimum Rust follows the dependencies.** Use a dependency's current release; when it needs a newer Rust than `rust-version`, raise `rust-version` and the CI's MSRV job to what it needs, in the same PR, and say so in the PR.
 - **Validation before features.** A solver or device isn't done without three things:
   - an analytic test;
