@@ -61,6 +61,7 @@ examples!(
     mzi_dwivedi: "../../../examples/mzi_dwivedi.rs",
     cpml_roden_gedney: "../../../examples/cpml_roden_gedney.rs",
     tfsf_square_cylinder: "../../../examples/tfsf_square_cylinder.rs",
+    lorentz_okoniewski: "../../../examples/lorentz_okoniewski.rs",
 );
 
 /// An example's `main` returns an exit code, or a result holding one.
@@ -147,6 +148,7 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "A plane wave on a square conductor",
             "Umashankar & Taflove 1982",
         ),
+        "lorentz_okoniewski" => ("Reflection from a Lorentz medium", "Okoniewski et al. 1997"),
         _ => ("", ""),
     }
 }
@@ -168,6 +170,7 @@ fn seconds(name: &str) -> f64 {
         "marcatili" | "effective_index_method" => 5.0,
         "circuit_fit" => 2.0,
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
+        "lorentz_okoniewski" => 15.0,
         "directional_coupler" | "tfsf_square_cylinder" => 20.0,
         "group_index" | "hadley_corners" => 30.0,
         "leaky_wire_benchmark" | "mzi_dwivedi" => 60.0,

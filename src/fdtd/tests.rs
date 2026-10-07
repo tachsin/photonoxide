@@ -18,11 +18,16 @@ fn a_courant_number_above_one_or_a_bad_boundary_is_refused() {
     let g = grid([8, 8, 8], 0.05);
     assert!(Simulation::new(g, |_, _, _| 1.0, Boundaries::walls(), 1.01).is_err());
     assert!(Simulation::new(g, |_, _, _| 1.0, Boundaries::walls(), 0.0).is_err());
-    let bloch = Boundaries {
-        x: Edges::Bloch { k: 1.0 },
+    let bloch = |k: f64| Boundaries {
+        x: Edges::Bloch { k },
         ..Boundaries::walls()
     };
-    assert!(Simulation::new(g, |_, _, _| 1.0, bloch, 0.9).is_err());
+    assert!(Simulation::new(g, |_, _, _| 1.0, bloch(f64::NAN), 0.9).is_err());
+    assert!(
+        Simulation::new(g, |_, _, _| 1.0, bloch(1.0), 0.9)
+            .unwrap()
+            .is_complex()
+    );
     assert!(Simulation::new(g, |_, _, _| 1.0, Boundaries::cpml(4), 0.9).is_err());
     assert!(Simulation::new(g, |_, _, _| -1.0, Boundaries::walls(), 0.9).is_err());
 }
@@ -93,6 +98,55 @@ fn the_fields_are_the_same_bits_on_any_number_of_threads() {
     let one = run(1);
     for threads in [2, 4, 5, 20] {
         assert!(run(threads) == one, "{threads} threads differ from one");
+    }
+    // a complex run: Bloch phases along x and y, a CPML along z, a Drude and Lorentz block
+    let bloch = |threads: usize| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| {
+                let boundaries = Boundaries {
+                    x: Edges::Bloch { k: 2.0 },
+                    y: Edges::Bloch { k: -1.1 },
+                    z: Edges::Pml { low: 3, high: 3 },
+                    cpml: Cpml::default(),
+                };
+                let mut s = Simulation::new(g, |_, _, _| 1.5, boundaries, 0.9)
+                    .unwrap()
+                    .with_medium(&super::media_checks::drude_lorentz(), |x, y, _| {
+                        x.abs() < 0.15 && y > 0.0
+                    })
+                    .unwrap();
+                s.add_dipole(Dipole {
+                    field: Field::E,
+                    component: Axis::Y,
+                    position: [0.34, -0.31, 0.02],
+                    amplitude: c64::new(0.01, 0.003),
+                    waveform: Waveform::pulse(Frequency::natural(0.9).unwrap(), 0.4).unwrap(),
+                })
+                .unwrap();
+                s.run(120);
+                Axis::ALL
+                    .iter()
+                    .flat_map(|&c| {
+                        s.e(c)
+                            .iter()
+                            .chain(s.h(c))
+                            .chain(s.e_imaginary(c).unwrap())
+                            .chain(s.h_imaginary(c).unwrap())
+                            .map(|v| v.to_bits())
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<u64>>()
+            })
+    };
+    let one = bloch(1);
+    for threads in [2, 4, 5, 20] {
+        assert!(
+            bloch(threads) == one,
+            "{threads} threads differ from one, Bloch"
+        );
     }
 }
 #[test]
