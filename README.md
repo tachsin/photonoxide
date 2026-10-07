@@ -26,9 +26,10 @@ studio: a desktop window where you build jobs and chips, watch them run in 3D an
 the report. The plan goes on to FDTD, thermal and electro-optic modulators, inverse design,
 layout and tape-out; see the [roadmap](ROADMAP.md).
 
-> **Alpha.** The latest release is **0.4.1**: materials, mode solvers and FDFD, components and
-> circuits, compact models, and the studio. Next is 0.4.2, a stronger preconditioner for
-> high-contrast 3D FDFD and the whole CPU put to use. The API will change between milestones.
+> **Released milestone by milestone** (the latest version is on the crates.io badge above, and
+> what each release changed is in [CHANGELOG.md](CHANGELOG.md)): materials, mode solvers, FDFD in
+> 2D and 3D with fast direct and iterative solvers, components and circuits, compact models, and
+> the studio. Next is FDTD. Until 1.0 the API can change between milestones.
 
 The project's pages are at [tachsin.gr/projects/photonoxide](https://tachsin.gr/projects/photonoxide):
 the methods, the examples with their output, the validation report and the roadmap.
