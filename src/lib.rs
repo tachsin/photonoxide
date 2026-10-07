@@ -39,6 +39,7 @@ pub mod circuit;
 pub mod compact;
 mod eigen;
 pub mod error;
+pub mod fdtd;
 pub mod fdfd;
 pub mod geometry;
 pub mod job;

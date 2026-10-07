@@ -41,14 +41,14 @@ pub enum Axis {
 }
 
 impl Axis {
-    const ALL: [Axis; 3] = [Axis::X, Axis::Y, Axis::Z];
+    pub(crate) const ALL: [Axis; 3] = [Axis::X, Axis::Y, Axis::Z];
 
-    fn index(self) -> usize {
+    pub(crate) fn index(self) -> usize {
         self as usize
     }
 
     /// The next two axes in cyclic order: (y, z) for x, (z, x) for y, (x, y) for z.
-    fn others(self) -> (Axis, Axis) {
+    pub(crate) fn others(self) -> (Axis, Axis) {
         match self {
             Axis::X => (Axis::Y, Axis::Z),
             Axis::Y => (Axis::Z, Axis::X),
@@ -559,7 +559,7 @@ fn merged(t: &mut Vec<Triplet<usize, usize, c64>>, r: usize, row: &mut [(usize, 
 
 /// The permittivity of the cell of size `h` centred on `centre`, for a field component along
 /// `along`, from `samples`³ points: harmonic along the component, arithmetic across it.
-fn averaged(
+pub(crate) fn averaged(
     eps: &impl Fn(f64, f64, f64) -> c64,
     centre: [f64; 3],
     h: [f64; 3],

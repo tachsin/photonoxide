@@ -859,4 +859,4 @@ pub use three::{
 
 pub(crate) use three::checks as checks3d;
 pub(crate) use three::port_checks as port_checks3d;
-pub(crate) use three::positions;
+pub(crate) use three::{averaged as averaged_3d, positions};
