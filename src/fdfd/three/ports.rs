@@ -124,9 +124,25 @@ impl PortMode3d {
         }
     }
 
+    /// The wavenumber k₀ = ω/c the mode was solved at, rad/µm.
+    pub(crate) fn k0(&self) -> f64 {
+        self.k0
+    }
+
+    /// The cells along the plane's two axes, `axis.others()`, and the step along the axis.
+    pub(crate) fn shape(&self) -> ([usize; 2], f64) {
+        (self.size, self.step)
+    }
+
     /// The mode's value `r` of the 3D field, going `direction` at unit amplitude on the plane.
     pub(super) fn value(&self, lattice: &Lattice, r: usize, direction: Direction) -> c64 {
         let (component, at) = lattice.grid.at(r);
+        self.value_at(component, at, direction)
+    }
+
+    /// The mode's `component` at the 3D index `at`, going `direction` at unit amplitude on the
+    /// plane: its profile on the plane, carried along the axis as e^(±iβΔa) per step.
+    pub(crate) fn value_at(&self, component: Axis, at: [usize; 3], direction: Direction) -> c64 {
         let (b, c) = self.axis.others();
         let (u, v, m) = (at[b.index()], at[c.index()], at[self.axis.index()]);
         let steps = m as f64 - self.plane as f64;

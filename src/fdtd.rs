@@ -30,6 +30,13 @@
 //! - **Media:** a real permittivity per E component, averaged over its cell as FDFD averages it
 //!   (harmonically along the component, arithmetically across), and a conductivity σ, sampled at
 //!   the component. Dispersive media are #164's.
+//! - **Sources:** point currents, [`Current`]s over many values and [`Dipole`]s anywhere
+//!   (restricted to the grid as A. F. Oskooi et al., Comput. Phys. Commun. 181, 687 (2010),
+//!   doi:10.1016/j.cpc.2009.11.008, restrict them); [`PlaneWave`]s on
+//!   total-field/scattered-field boxes (K. Umashankar, A. Taflove, IEEE Trans. Electromagn.
+//!   Compat. EMC-24, 397 (1982), doi:10.1109/TEMC.1982.304054), fed by an auxiliary 1D run
+//!   with the grid's dispersion; one-way waveguide modes; [`GaussianBeam`]s. A run's DFT
+//!   divided by [`Waveform::spectrum`] is FDFD's field at ω̃, exactly.
 //!
 //! Every update is a sum over a fixed stencil with no reduction, its z-planes shared among
 //! rayon's threads: the fields are the same bits on any number of threads.
@@ -170,6 +177,107 @@ pub enum Waveform {
 }
 
 impl Waveform {
+    /// A Gaussian pulse on a carrier at `frequency` whose power spectrum is `bandwidth` wide at
+    /// half its peak (c/µm): width √(2 ln 2)/(π bandwidth), its peak 6 widths in, where the
+    /// envelope starts at e^(−36) = 2e-16 of it.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a bandwidth that isn't positive and finite.
+    pub fn pulse(frequency: Frequency, bandwidth: f64) -> Result<Waveform> {
+        if !(bandwidth.is_finite() && bandwidth > 0.0) {
+            return Err(invalid(format!(
+                "a pulse's bandwidth must be positive and finite, got {bandwidth}"
+            )));
+        }
+        let width = (2.0 * std::f64::consts::LN_2).sqrt() / (std::f64::consts::PI * bandwidth);
+        Ok(Waveform::Gaussian {
+            frequency,
+            width,
+            delay: 6.0 * width,
+        })
+    }
+
+    /// The carrier's frequency: the Gaussian's and the continuous wave's; the differentiated
+    /// Gaussian has none.
+    pub fn carrier(&self) -> Option<Frequency> {
+        match *self {
+            Waveform::Gaussian { frequency, .. } | Waveform::Continuous { frequency, .. } => {
+                Some(frequency)
+            }
+            Waveform::DifferentiatedGaussian { .. } => None,
+        }
+    }
+
+    /// Its analytic form w(t), whose real part is [`Waveform::at`]: i e^(−u²) e^(−iω(t − delay))
+    /// for the Gaussian, the switched-on amplitude e^(−iωt) for the continuous wave, and the
+    /// differentiated Gaussian itself (real). A current of complex amplitude a takes the
+    /// values Re(a w(t)).
+    pub fn complex_at(&self, t: f64) -> c64 {
+        match *self {
+            Waveform::Gaussian {
+                frequency,
+                width,
+                delay,
+            } => {
+                let u = (t - delay) / width;
+                c64::new(0.0, (-u * u).exp())
+                    * c64::new(0.0, -frequency.angular() * (t - delay)).exp()
+            }
+            Waveform::DifferentiatedGaussian { .. } => c64::new(self.at(t), 0.0),
+            Waveform::Continuous {
+                frequency,
+                amplitude,
+                ramp,
+            } => smoothstep(t, ramp) * amplitude * c64::new(0.0, -frequency.angular() * t).exp(),
+        }
+    }
+
+    /// The discrete Fourier transform Σ s(tₙ) e^(iωtₙ) Δt of the values a source on `field`
+    /// takes over the first `steps` steps of Δt = `dt`, at the times it takes them (a current
+    /// on E, J, at (n + ½)Δt; on H̃, M, at nΔt): s = [`Waveform::at`], a point source's.
+    ///
+    /// It normalizes a run exactly. Each field's transform, at its own times (E at nΔt, H̃ at
+    /// (n + ½)Δt), solves FDFD's equations at the leapfrog's frequency ω̃ = (2/Δt) sin(ωΔt/2)
+    /// for the currents' transforms, once the fields have died away: the field per unit source
+    /// spectrum is the field's transform divided by this.
+    pub fn spectrum(&self, field: Field, dt: f64, steps: usize, frequency: Frequency) -> c64 {
+        self.transform(field, dt, steps, frequency, |w, t| c64::new(w.at(t), 0.0))
+    }
+
+    /// The transform of the analytic form [`Waveform::complex_at`], W(ω), as
+    /// [`Waveform::spectrum`] takes it. A current of complex amplitude a, whose values are
+    /// Re(a w), transforms as ½(a W(ω) + ā W(−ω)*): near the carrier, the second term is the
+    /// negative frequencies' image, e^(−(ω width)²) of the first for the Gaussian at its
+    /// carrier.
+    pub fn analytic_spectrum(
+        &self,
+        field: Field,
+        dt: f64,
+        steps: usize,
+        frequency: Frequency,
+    ) -> c64 {
+        self.transform(field, dt, steps, frequency, |w, t| w.complex_at(t))
+    }
+
+    fn transform(
+        &self,
+        field: Field,
+        dt: f64,
+        steps: usize,
+        frequency: Frequency,
+        value: impl Fn(&Waveform, f64) -> c64,
+    ) -> c64 {
+        let omega = frequency.angular();
+        let offset = if field == Field::E { 0.5 * dt } else { 0.0 };
+        (0..steps)
+            .map(|n| {
+                let t = n as f64 * dt + offset;
+                value(self, t) * c64::new(0.0, omega * t).exp() * dt
+            })
+            .sum()
+    }
+
     /// Its value at time `t` (µm/c).
     pub fn at(&self, t: f64) -> f64 {
         match *self {
@@ -190,15 +298,19 @@ impl Waveform {
                 amplitude,
                 ramp,
             } => {
-                let on = if ramp > 0.0 {
-                    let s = (t / ramp).clamp(0.0, 1.0);
-                    s * s * (3.0 - 2.0 * s)
-                } else {
-                    1.0
-                };
-                on * (amplitude * c64::new(0.0, -frequency.angular() * t).exp()).re
+                smoothstep(t, ramp) * (amplitude * c64::new(0.0, -frequency.angular() * t).exp()).re
             }
         }
+    }
+}
+
+/// A smoothstep from 0 at t = 0 to 1 at t = `ramp` (1 throughout for no ramp).
+fn smoothstep(t: f64, ramp: f64) -> f64 {
+    if ramp > 0.0 {
+        let s = (t / ramp).clamp(0.0, 1.0);
+        s * s * (3.0 - 2.0 * s)
+    } else {
+        1.0
     }
 }
 
@@ -269,7 +381,13 @@ pub struct Simulation {
     kappa_halves: [Vec<f64>; 3],
     slabs: Vec<Slab>,
     sources: Vec<Source>,
+    /// Distributed currents (J or M), each with its complex amplitudes and waveform.
+    currents: Vec<sources::Applied>,
+    /// Plane waves on total-field/scattered-field boxes, each with its auxiliary grid.
+    plane_waves: Vec<sources::PlaneWaveRun>,
     probes: Vec<Probe>,
+    /// The axes the field varies along: all but those one cell long and periodic.
+    varies: [bool; 3],
 }
 
 /// The permittivity's samples per axis in a cell, as FDFD's 3D solver averages it.
@@ -401,7 +519,10 @@ impl Simulation {
             kappa_halves: Axis::ALL.map(|a| vec![1.0; grid.n(a)]),
             slabs: Vec::new(),
             sources: Vec::new(),
+            currents: Vec::new(),
+            plane_waves: Vec::new(),
             probes: Vec::new(),
+            varies: Axis::ALL.map(varies),
         };
         s.build_cpml(&eps_e);
         Ok(s)
@@ -678,8 +799,13 @@ impl Simulation {
 
     /// One step: H̃ from t − Δt/2 to t + Δt/2 with E at t, then E from t to t + Δt with H̃ at
     /// t + Δt/2.
+    ///
+    /// The magnetic currents M enter H̃'s update at t, the electric ones J E's at t + Δt/2. A
+    /// plane wave's auxiliary grid steps alongside: its E at t gives the boxes' M, then its H̃
+    /// steps to t + Δt/2 and gives their J, then its E steps to t + Δt.
     pub fn step(&mut self) {
         let t = self.time();
+        let half = t + 0.5 * self.dt;
         self.update_h();
         for s in &self.sources {
             if s.field == Field::H {
@@ -687,13 +813,33 @@ impl Simulation {
                 self.h[s.component.index()][r] -= self.dt * s.waveform.at(t);
             }
         }
+        for c in self.currents.iter().filter(|c| c.field == Field::H) {
+            let w = c.waveform.complex_at(t);
+            for &(component, r, a) in &c.values {
+                self.h[component][r] -= self.dt * (a * w).re;
+            }
+        }
+        for p in &mut self.plane_waves {
+            p.correct(Field::H, &mut self.h, &self.cb, self.dt);
+            p.step_h();
+        }
         self.update_e();
         for s in &self.sources {
             if s.field == Field::E {
                 let r = self.index(s.at);
                 let c = s.component.index();
-                self.e[c][r] -= self.cb[c][r] * s.waveform.at(t + 0.5 * self.dt);
+                self.e[c][r] -= self.cb[c][r] * s.waveform.at(half);
             }
+        }
+        for c in self.currents.iter().filter(|c| c.field == Field::E) {
+            let w = c.waveform.complex_at(half);
+            for &(component, r, a) in &c.values {
+                self.e[component][r] -= self.cb[component][r] * (a * w).re;
+            }
+        }
+        for p in &mut self.plane_waves {
+            p.correct(Field::E, &mut self.e, &self.cb, self.dt);
+            p.step_e(half);
         }
         self.steps += 1;
         for p in &mut self.probes {
@@ -926,5 +1072,7 @@ impl Simulation {
 }
 
 pub(crate) mod checks;
+mod sources;
+pub use sources::{BeamPolarization, Current, Dipole, GaussianBeam, PlaneWave};
 #[cfg(test)]
 mod tests;

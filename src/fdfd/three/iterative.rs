@@ -203,6 +203,16 @@ impl IterativeSolver3d {
         }
     }
 
+    /// A field of this problem from E's `values`, laid out as [`Grid3d::index`] says: another
+    /// solver's field (FDTD's at the leapfrog's frequency) read with this one's fluxes and
+    /// mode projections, with no factorization to build.
+    pub(crate) fn field(&self, values: Vec<c64>) -> Field3d {
+        Field3d {
+            lattice: self.lattice.clone(),
+            values,
+        }
+    }
+
     /// The grid.
     pub fn grid(&self) -> Grid3d {
         self.lattice.grid

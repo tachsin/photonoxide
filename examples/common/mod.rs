@@ -23,6 +23,16 @@ impl Checks {
         );
     }
 
+    /// Compares `got` with `value` from another `source` than a printed number (a method the
+    /// paper describes, computed here), allowing `tolerance` (absolute).
+    pub fn against(&mut self, what: &str, got: f64, source: &str, value: f64, tolerance: f64) {
+        let ok = (got - value).abs() <= tolerance;
+        self.row(
+            ok,
+            format!("  {what:<34} {got:>12.6}   {source} {value:<10.6} ± {tolerance:e}"),
+        );
+    }
+
     /// Compares a count, e.g. of guided modes, with the paper's.
     pub fn count(&mut self, what: &str, got: usize, printed: usize) {
         self.row(
