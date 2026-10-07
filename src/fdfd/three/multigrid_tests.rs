@@ -511,3 +511,32 @@ fn gmres_with_the_cycle_takes_fewer_iterations_than_qmr_with_ilu0_and_agrees() {
     );
     assert!(norm(&d) < 1e-7 * norm(&with_ilu));
 }
+
+#[test]
+fn the_coarsest_level_is_factorized_and_solved_by_its_backend() {
+    use crate::backend::tests::Recording;
+    use crate::backend::{Choice, direct};
+    let recording = Recording::register("recording-multigrid");
+    let solver = direct(&Choice::parse("recording-multigrid").unwrap()).unwrap();
+    let (grid, eps, current) = small(12, true);
+    let pml = Boundaries3d::stretched_pml(3);
+    let (lattice, eps, matrix, _) = system(grid, eps, pml, &current);
+    let again = system(grid, |x, y, z| small(12, true).1(x, y, z), pml, &current).2;
+    let options = options(CycleShape::V, 0, 1);
+    let own = Hierarchy::new(&lattice, &eps, again, options).unwrap();
+    let routed = Hierarchy::new_on(&lattice, &eps, matrix, options, &solver).unwrap();
+    // one analysis and one factorization, of the coarsest level's matrix
+    assert_eq!(recording.counts(), [1, 1, 0, 0]);
+    // a cycle and a transposed cycle: one coarsest solve each, the bits of photonoxide's own
+    let b = sequence(grid.unknowns(), 3);
+    assert_eq!(
+        Preconditioner::solve(&routed, &b),
+        Preconditioner::solve(&own, &b)
+    );
+    assert_eq!(recording.counts(), [1, 1, 1, 0]);
+    assert_eq!(
+        Preconditioner::solve_transpose(&routed, &b),
+        Preconditioner::solve_transpose(&own, &b)
+    );
+    assert_eq!(recording.counts(), [1, 1, 1, 1]);
+}

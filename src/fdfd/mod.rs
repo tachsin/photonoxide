@@ -35,15 +35,13 @@
 //! grid, harmonically along the component and arithmetically across it, which is what a
 //! layered medium is for a field along or across its layers.
 
-use std::sync::Arc;
-
 use faer::sparse::Triplet;
 use num_complex::Complex64 as c64;
 
-use crate::sparse::Analysis;
+use crate::backend::Choice;
 use crate::units::Wavelength;
 use crate::{Error, Result};
-use direct::Direct;
+use direct::{Direct, Plan};
 
 /// The field along z, which fixes the polarization of a 2D problem.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -274,7 +272,46 @@ impl Solver2d {
         eps: impl Fn(f64, f64) -> c64,
         boundaries: Boundaries,
     ) -> Result<Solver2d> {
-        Self::build(grid, polarization, wavelength, eps, boundaries, None)
+        Self::new_on(
+            grid,
+            polarization,
+            wavelength,
+            eps,
+            boundaries,
+            &Choice::Auto,
+        )
+    }
+
+    /// [`Solver2d::new`] with the direct solver of `direct` ([`crate::backend`]):
+    /// photonoxide's own for `auto`, or a backend by its name. Every solver this one is reused
+    /// for ([`Solver2d::reuse`], [`Solver2d::reuse_cells`]) keeps it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver2d::new`], and [`Error::InvalidValue`] for a backend that isn't registered or
+    /// isn't available.
+    pub fn new_on(
+        grid: Grid,
+        polarization: Polarization,
+        wavelength: Wavelength,
+        eps: impl Fn(f64, f64) -> c64,
+        boundaries: Boundaries,
+        direct: &Choice,
+    ) -> Result<Solver2d> {
+        Self::build(
+            grid,
+            polarization,
+            wavelength,
+            eps,
+            boundaries,
+            Plan::new(direct)?,
+        )
+    }
+
+    /// The direct solver that factorized this problem, as the backend names itself: its name
+    /// and version, e.g. `photonoxide 0.4.3`.
+    pub fn direct_solver(&self) -> String {
+        self.lu.backend()
     }
 
     /// The same grid, polarization and boundaries at another `wavelength` or with another
@@ -291,7 +328,7 @@ impl Solver2d {
             wavelength,
             eps,
             self.boundaries,
-            Some(self.lu.analysis().clone()),
+            self.lu.plan(),
         )
     }
 
@@ -301,7 +338,7 @@ impl Solver2d {
         wavelength: Wavelength,
         eps: impl Fn(f64, f64) -> c64,
         boundaries: Boundaries,
-        symbolic: Option<Arc<Analysis>>,
+        symbolic: Plan,
     ) -> Result<Solver2d> {
         check(grid, &boundaries)?;
         let k0 = 2.0 * std::f64::consts::PI / wavelength.to_um();
@@ -356,7 +393,37 @@ impl Solver2d {
         eps: &[c64],
         boundaries: Boundaries,
     ) -> Result<Solver2d> {
-        Self::build_cells(grid, polarization, wavelength, eps, boundaries, None)
+        Self::from_cells_on(
+            grid,
+            polarization,
+            wavelength,
+            eps,
+            boundaries,
+            &Choice::Auto,
+        )
+    }
+
+    /// [`Solver2d::from_cells`] with the direct solver of `direct`, as [`Solver2d::new_on`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver2d::from_cells`] and [`Solver2d::new_on`].
+    pub fn from_cells_on(
+        grid: Grid,
+        polarization: Polarization,
+        wavelength: Wavelength,
+        eps: &[c64],
+        boundaries: Boundaries,
+        direct: &Choice,
+    ) -> Result<Solver2d> {
+        Self::build_cells(
+            grid,
+            polarization,
+            wavelength,
+            eps,
+            boundaries,
+            Plan::new(direct)?,
+        )
     }
 
     /// [`Solver2d::from_cells`] with this problem's grid, polarization and boundaries, reusing its
@@ -372,7 +439,7 @@ impl Solver2d {
             wavelength,
             eps,
             self.boundaries,
-            Some(self.lu.analysis().clone()),
+            self.lu.plan(),
         )
     }
 
@@ -382,7 +449,7 @@ impl Solver2d {
         wavelength: Wavelength,
         eps: &[c64],
         boundaries: Boundaries,
-        symbolic: Option<Arc<Analysis>>,
+        symbolic: Plan,
     ) -> Result<Solver2d> {
         check(grid, &boundaries)?;
         let (nx, ny) = (grid.nx, grid.ny);
@@ -429,7 +496,7 @@ impl Solver2d {
         k0: f64,
         boundaries: Boundaries,
         (eps_z, eps_y, eps_x): (Vec<c64>, Vec<c64>, Vec<c64>),
-        (symbolic, cellwise): (Option<Arc<Analysis>>, bool),
+        (symbolic, cellwise): (Plan, bool),
     ) -> Result<Solver2d> {
         // a NaN would only surface as a field of NaNs, and with H along z the operator divides
         // by the faces' permittivity
@@ -548,12 +615,12 @@ impl Solver2d {
         if !rhs.iter().all(|v| v.re.is_finite() && v.im.is_finite()) {
             return Err(Error::invalid("fdfd source", "every value must be finite"));
         }
-        let mut values = self.lu.solve(rhs);
+        let mut values = self.lu.solve(rhs)?;
         // one step of iterative refinement: the factorization's rounding, PMLs and strong
         // contrasts make it worth it
         let applied = self.apply(&values);
         let r: Vec<c64> = rhs.iter().zip(&applied).map(|(b, a)| b - a).collect();
-        for (v, d) in values.iter_mut().zip(self.lu.solve(&r)) {
+        for (v, d) in values.iter_mut().zip(self.lu.solve(&r)?) {
             *v += d;
         }
         Ok(Field2d {
@@ -683,13 +750,13 @@ pub(crate) fn assemble(
 }
 
 /// The matrix's factors ([`direct::Direct`]: the multifrontal L D Lᵀ of its complex symmetric
-/// similarity, or its LU) in nested dissection order on the nx × ny grid: with `analysis` if
-/// given (a matrix with the same sparsity), analysed afresh otherwise.
+/// similarity, or its LU, or another backend's) ordered on the nx × ny grid: with `analysis`'s
+/// analysis if it has one (a matrix with the same sparsity), analysed afresh otherwise.
 fn factorize(
     triplets: &[Triplet<usize, usize, c64>],
     nx: usize,
     ny: usize,
-    analysis: Option<Arc<Analysis>>,
+    analysis: Plan,
 ) -> Result<Direct> {
     let positions: Vec<[f64; 3]> = (0..nx * ny)
         .map(|k| [(k % nx) as f64, (k / nx) as f64, 0.0])

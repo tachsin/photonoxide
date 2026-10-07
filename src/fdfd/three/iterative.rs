@@ -159,7 +159,23 @@ impl IterativeSolver3d {
     /// [`Error::InvalidValue`] for the curl-curl operator, whose near-null space of gradients no
     /// point smoother reduces, for options without smoothing, or if a level's ILU(0) or the
     /// coarsest factorization fails.
-    pub fn with_multigrid(mut self, options: Multigrid) -> Result<IterativeSolver3d> {
+    pub fn with_multigrid(self, options: Multigrid) -> Result<IterativeSolver3d> {
+        self.with_multigrid_on(options, &crate::backend::Choice::Auto)
+    }
+
+    /// [`IterativeSolver3d::with_multigrid`], its coarsest level factorized by the direct solver
+    /// of `direct` ([`crate::backend`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`IterativeSolver3d::with_multigrid`], and [`Error::InvalidValue`] for a backend that
+    /// isn't registered or isn't available.
+    pub fn with_multigrid_on(
+        mut self,
+        options: Multigrid,
+        direct: &crate::backend::Choice,
+    ) -> Result<IterativeSolver3d> {
+        let solver = crate::backend::direct(direct)?;
         if self.formulation == Formulation::CurlCurl {
             return Err(Error::invalid(
                 "fdfd preconditioner",
@@ -167,7 +183,7 @@ impl IterativeSolver3d {
             ));
         }
         let operator = shifted(&self.lattice, &self.eps, &self.matrix, options.shift);
-        let hierarchy = Hierarchy::new(&self.lattice, &self.eps, operator, options)?;
+        let hierarchy = Hierarchy::new_on(&self.lattice, &self.eps, operator, options, &solver)?;
         self.preconditioner = Preconditioning::Multigrid(Box::new(hierarchy));
         Ok(self)
     }

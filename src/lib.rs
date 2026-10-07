@@ -33,6 +33,7 @@
 #![warn(missing_docs)]
 #![warn(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
+pub mod backend;
 pub mod bench;
 pub mod circuit;
 pub mod compact;

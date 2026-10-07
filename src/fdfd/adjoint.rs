@@ -26,16 +26,16 @@ use crate::{Error, Result};
 
 impl Solver2d {
     /// u of Aᵀ u = `rhs`, with one step of iterative refinement.
-    fn solve_transposed(&self, rhs: &[c64]) -> Vec<c64> {
-        let mut values = self.lu.solve_transpose(rhs);
+    pub(super) fn solve_transposed(&self, rhs: &[c64]) -> Result<Vec<c64>> {
+        let mut values = self.lu.solve_transpose(rhs)?;
         let mut residual = rhs.to_vec();
         for t in &self.entries {
             residual[t.col] -= t.val * values[t.row];
         }
-        for (v, d) in values.iter_mut().zip(self.lu.solve_transpose(&residual)) {
+        for (v, d) in values.iter_mut().zip(self.lu.solve_transpose(&residual)?) {
             *v += d;
         }
-        values
+        Ok(values)
     }
 
     /// The power `mode` carries `direction` in `field` (a field of this problem), |a|² with a the
@@ -82,7 +82,7 @@ impl Solver2d {
         }
         let a: c64 = c.iter().zip(&field.values).map(|(c, u)| c * u).sum();
         let adjoint_source: Vec<c64> = c.iter().map(|c| a.conj() * c).collect();
-        let lambda = self.solve_transposed(&adjoint_source);
+        let lambda = self.solve_transposed(&adjoint_source)?;
         let u = &field.values;
         let mut gradient = vec![0.0; nx * ny];
         match self.polarization {
