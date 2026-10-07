@@ -68,7 +68,6 @@ use photonoxide::fdtd::{
     Structure, Waveform,
 };
 use photonoxide::units::Frequency;
-use rayon::prelude::*;
 
 /// The resolutions, pixels a period.
 const RESOLUTIONS: [usize; 8] = [12, 16, 20, 24, 32, 40, 48, 64];
@@ -237,10 +236,10 @@ pub fn main() -> ExitCode {
     jobs.push((3, 96));
     // the slowest first
     jobs.sort_by_key(|&(_, n)| std::cmp::Reverse(n));
-    let found: Vec<((usize, usize), [f64; 2])> = jobs
-        .par_iter()
-        .map(|&(m, n)| ((m, n), modes(methods[m].1, n)))
-        .collect();
+    // side by side, in order, on photonoxide's threads: the studio builds this example in
+    // and doesn't depend on rayon itself
+    let found: Vec<((usize, usize), [f64; 2])> =
+        photonoxide::parallel::map_in_order(&jobs, |&(m, n)| ((m, n), modes(methods[m].1, n)));
     let get = |m: usize, n: usize| {
         found
             .iter()
