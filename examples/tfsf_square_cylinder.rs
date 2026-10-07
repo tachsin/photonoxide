@@ -44,7 +44,7 @@
 
 mod common;
 
-use std::f64::consts::{PI, TAU};
+use std::f64::consts::{EULER_GAMMA, PI, TAU};
 use std::process::ExitCode;
 
 use photonoxide::Complex64 as c64;
@@ -131,9 +131,6 @@ fn fdtd(side: usize) -> [f64; 3] {
     amplitude.map(|a| a.norm() / incident.norm())
 }
 
-/// Euler's constant.
-const EULER: f64 = 0.577_215_664_901_532_9;
-
 /// H₀⁽¹⁾(x) = J₀(x) + iY₀(x) for 0 < x ≤ 3, by their power series.
 fn hankel0(x: f64) -> c64 {
     let q = x * x / 4.0;
@@ -149,7 +146,7 @@ fn hankel0(x: f64) -> c64 {
         j += sign * term;
         tail -= sign * harmonic * term;
     }
-    let y = 2.0 / PI * (((x / 2.0).ln() + EULER) * j + tail);
+    let y = 2.0 / PI * (((x / 2.0).ln() + EULER_GAMMA) * j + tail);
     c64::new(j, y)
 }
 
@@ -189,7 +186,7 @@ fn moments(per: usize) -> [f64; 3] {
         for c in 0..n {
             let integral = if r == c {
                 // ∫ H₀⁽¹⁾(k|x|) dx over the pulse, from H₀⁽¹⁾(z) ≈ 1 + (2i/π)(ln(z/2) + γ)
-                c64::new(d, 2.0 / PI * d * ((k * d / 4.0).ln() - 1.0 + EULER))
+                c64::new(d, 2.0 / PI * d * ((k * d / 4.0).ln() - 1.0 + EULER_GAMMA))
             } else {
                 gauss
                     .iter()
