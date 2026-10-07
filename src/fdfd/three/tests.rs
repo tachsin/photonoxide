@@ -784,7 +784,7 @@ fn a_poor_factorization_still_gives_the_field_to_round_off() {
             faer::sparse::Triplet::new(t.row, t.col, t.val * scale)
         })
         .collect();
-    solver.lu = super::factorize(&grid, &off, Some(solver.lu.analysis().clone())).unwrap();
+    solver.lu = super::factorize(&grid, &off, solver.lu.plan()).unwrap();
     let field = solver.solve(&current).unwrap();
     let rhs: Vec<c64> = current
         .iter()
@@ -1597,4 +1597,78 @@ fn the_direct_solvers_l_d_lt_gives_the_lus_field() {
     let (worst, symmetric) = super::checks::ldlt_against_lu();
     assert!(symmetric, "the solver took L D Lᵀ, and with_lu LU");
     assert!(worst < 1e-10, "{worst}");
+}
+
+#[test]
+fn the_3d_solver_factorizes_and_solves_through_its_backend() {
+    use crate::backend::Choice;
+    use crate::backend::tests::Recording;
+    let recording = Recording::register("recording-3d");
+    let choice = Choice::parse("recording-3d").unwrap();
+    let grid = Grid3d {
+        nx: 8,
+        ny: 8,
+        nz: 8,
+        dx: 0.05,
+        dy: 0.05,
+        dz: 0.05,
+        x0: -0.2,
+        y0: -0.2,
+        z0: -0.2,
+    };
+    let cube = |x: f64, y: f64, z: f64| {
+        let inside = x.abs() < 0.1 && y.abs() < 0.1 && z.abs() < 0.1;
+        c64::new(if inside { 12.0 } else { 2.0 }, 0.0)
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let mut source = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    source[grid.index(Axis::Z, (4, 4, 4))] = c64::new(1.0, 0.0);
+    let since = |before: [usize; 4]| {
+        let now = recording.counts();
+        [0, 1, 2, 3].map(|k| now[k] - before[k])
+    };
+    let bloch = Boundaries3d {
+        x: Edges::Bloch { k: 0.8 },
+        ..Boundaries3d::pml(2)
+    };
+    for (boundaries, symmetric) in [(Boundaries3d::pml(2), true), (bloch, false)] {
+        let own = Solver3d::new(grid, lam, cube, boundaries).unwrap();
+        assert_eq!(
+            own.direct_solver(),
+            format!("photonoxide {}", env!("CARGO_PKG_VERSION"))
+        );
+        let before = recording.counts();
+        let routed = Solver3d::new_on(grid, lam, cube, boundaries, &choice).unwrap();
+        assert_eq!(
+            routed.direct_solver(),
+            format!("recording-3d {}", env!("CARGO_PKG_VERSION"))
+        );
+        assert_eq!(routed.symmetric_factors(), symmetric);
+        assert_eq!(since(before), [1, 1, 0, 0]);
+        // the field, to the bits of photonoxide's own, by solves of the backend's factors
+        let field = routed.solve(&source).unwrap();
+        assert_eq!(field.values(), own.solve(&source).unwrap().values());
+        let [.., solves, transposed] = since(before);
+        assert!(solves >= 1 && transposed == 0, "{solves} {transposed}");
+        // reused: the same backend and analysis
+        let other = Wavelength::um(1.3).unwrap();
+        let reused = routed.reuse(other, cube).unwrap();
+        assert_eq!(reused.direct_solver(), routed.direct_solver());
+        let [analyses, factorizations, ..] = since(before);
+        assert_eq!((analyses, factorizations), (1, 2));
+        assert_eq!(
+            reused.solve(&source).unwrap().values(),
+            own.reuse(other, cube)
+                .unwrap()
+                .solve(&source)
+                .unwrap()
+                .values()
+        );
+        // the LU of the same problem, to check L D Lᵀ against: by the same backend
+        let lu = routed.with_lu().unwrap();
+        assert_eq!(lu.direct_solver(), routed.direct_solver());
+        assert!(!lu.symmetric_factors());
+    }
+    let missing = Choice::parse("not-registered-3d").unwrap();
+    assert!(Solver3d::new_on(grid, lam, cube, Boundaries3d::pml(2), &missing).is_err());
 }

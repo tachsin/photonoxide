@@ -17,9 +17,9 @@ use std::sync::Arc;
 use num_complex::Complex64 as c64;
 
 use super::{Axis, Grid3d, Lattice};
+use crate::backend::{Columns, DirectSolver, Factorization, Form};
 use crate::fdfd::Edges;
 use crate::fdfd::krylov::{BlockIlu0, Operator, Preconditioner, Sparse};
-use crate::sparse::{Analysis, Multifrontal};
 use crate::{Error, Result};
 
 /// The shape of a multigrid cycle.
@@ -166,7 +166,7 @@ pub(crate) struct Hierarchy {
     levels: Vec<Level>,
     /// Each level's cells along x, y and z, the coarsest's included.
     shapes: Vec<[usize; 3]>,
-    lu: Multifrontal,
+    lu: Box<dyn Factorization>,
     /// One thread, for the solves with the coarsest factors: their sums then come in one
     /// order whatever the machine. A pool isn't `RefUnwindSafe`, but one that a panic left stays
     /// usable, so this keeps `IterativeSolver3d` unwind-safe, as it was before the multigrid.
@@ -564,11 +564,28 @@ impl Hierarchy {
     ///
     /// [`Error::InvalidValue`] if no steps of smoothing are asked for, or if a level's ILU(0) or
     /// the coarsest factorization fails.
+    #[cfg(test)]
     pub(crate) fn new(
         lattice: &Lattice,
         eps: &[c64],
         matrix: Sparse,
         options: Multigrid,
+    ) -> Result<Hierarchy> {
+        let solver = crate::backend::direct(&crate::backend::Choice::Auto)?;
+        Self::new_on(lattice, eps, matrix, options, &solver)
+    }
+
+    /// [`Hierarchy::new`], its coarsest level factorized by `solver`.
+    ///
+    /// # Errors
+    ///
+    /// As [`Hierarchy::new`].
+    pub(crate) fn new_on(
+        lattice: &Lattice,
+        eps: &[c64],
+        matrix: Sparse,
+        options: Multigrid,
+        solver: &Arc<dyn DirectSolver>,
     ) -> Result<Hierarchy> {
         if options.pre + options.post == 0 {
             return Err(Error::invalid("multigrid", "needs some smoothing"));
@@ -610,15 +627,19 @@ impl Hierarchy {
                     .map_err(|e| Error::invalid("multigrid", e.to_string()))?;
                 #[cfg(test)]
                 let clock = std::time::Instant::now();
-                let lu = one.install(|| -> Result<Multifrontal> {
-                    let matrix = faer::sparse::SparseColMat::<usize, c64>::try_new_from_triplets(
-                        n, n, &entries,
-                    )
-                    .map_err(|e| Error::invalid("multigrid", format!("{e:?}")))?;
-                    Multifrontal::new(
-                        Arc::new(Analysis::new(matrix.as_ref(), None)?),
-                        matrix.as_ref(),
-                    )
+                let lu = one.install(|| -> Result<Box<dyn Factorization>> {
+                    let columns = Columns::new(n, &entries)?;
+                    let matrix = columns.matrix(Form::General, None)?;
+                    let analysis = solver.analyse(&matrix)?.ok_or_else(|| {
+                        Error::invalid(
+                            "multigrid",
+                            format!(
+                                "the direct solver {} can't factorize the coarsest level",
+                                solver.capabilities().name
+                            ),
+                        )
+                    })?;
+                    analysis.factorize(&matrix)
                 })?;
                 #[cfg(test)]
                 if std::env::var("MG_TIMES").is_ok() {
@@ -702,12 +723,15 @@ impl Hierarchy {
     /// x = 0.
     fn cycle(&self, level: usize, b: &[c64], transpose: bool, shape: CycleShape) -> Vec<c64> {
         if level == self.levels.len() {
+            // a backend's solve that fails gives NaNs, which the Krylov solver reports as a
+            // solve that didn't converge
             return self.one.install(|| {
                 if transpose {
                     self.lu.solve_transpose(b)
                 } else {
                     self.lu.solve(b)
                 }
+                .unwrap_or_else(|_| super::nans(b.len()))
             });
         }
         let l = &self.levels[level];

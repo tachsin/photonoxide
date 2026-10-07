@@ -452,3 +452,157 @@ fn a_permittivity_or_a_source_that_isnt_finite_is_an_error() {
     let e = solver.solve(&source).err().unwrap().to_string();
     assert!(e.contains("every value must be finite"), "{e}");
 }
+
+#[test]
+fn the_2d_solver_factorizes_and_solves_through_its_backend() {
+    use crate::backend::Choice;
+    use crate::backend::tests::Recording;
+    // photonoxide's own backend under another name, counting what it is asked: each
+    // factorization, each solve and each transposed solve goes through the registry, and
+    // gives the bits of the solver that named no backend
+    let recording = Recording::register("recording-2d");
+    let choice = Choice::parse("recording-2d").unwrap();
+    let grid = Grid {
+        nx: 60,
+        ny: 50,
+        dx: 0.04,
+        dy: 0.04,
+        x0: -1.2,
+        y0: -1.0,
+    };
+    let eps = |_: f64, y: f64| c64::new(if y.abs() < 0.2 { 12.0 } else { 2.1 }, 0.0);
+    let lam = Wavelength::um(1.55).unwrap();
+    let mut source = vec![c64::new(0.0, 0.0); grid.nx * grid.ny];
+    source[25 * grid.nx + 20] = c64::new(1.0, 0.0);
+    let since = |before: [usize; 4]| {
+        let now = recording.counts();
+        [0, 1, 2, 3].map(|k| now[k] - before[k])
+    };
+    let bloch = Boundaries {
+        x: Edges::Bloch { k: 0.7 },
+        ..Boundaries::pml(10)
+    };
+    // PMLs all round: L D Lᵀ of the symmetric similarity; a Bloch side: LU
+    for (boundaries, symmetric) in [(Boundaries::pml(10), true), (bloch, false)] {
+        let own = Solver2d::new(grid, Polarization::Ez, lam, eps, boundaries).unwrap();
+        assert_eq!(
+            own.direct_solver(),
+            format!("photonoxide {}", env!("CARGO_PKG_VERSION"))
+        );
+        let before = recording.counts();
+        let routed =
+            Solver2d::new_on(grid, Polarization::Ez, lam, eps, boundaries, &choice).unwrap();
+        assert_eq!(
+            routed.direct_solver(),
+            format!("recording-2d {}", env!("CARGO_PKG_VERSION"))
+        );
+        assert_eq!(routed.lu.symmetric(), symmetric);
+        // one analysis, one factorization
+        assert_eq!(since(before), [1, 1, 0, 0]);
+        // a solve and its step of refinement, to the bits of photonoxide's own
+        let field = routed.solve(&source).unwrap();
+        assert_eq!(field.values, own.solve(&source).unwrap().values);
+        assert_eq!(since(before), [1, 1, 2, 0]);
+        // the transposed solve: by the transposed factors of an LU, by the same factors of a
+        // symmetric similarity
+        let adjoint = routed.solve_transposed(&source).unwrap();
+        assert_eq!(adjoint, own.solve_transposed(&source).unwrap());
+        assert_eq!(
+            since(before),
+            if symmetric {
+                [1, 1, 4, 0]
+            } else {
+                [1, 1, 2, 2]
+            }
+        );
+        // reused at another wavelength: the same backend, no new analysis, one factorization
+        let other = Wavelength::um(1.5).unwrap();
+        let reused = routed.reuse(other, eps).unwrap();
+        assert_eq!(reused.direct_solver(), routed.direct_solver());
+        let [analyses, factorizations, ..] = since(before);
+        assert_eq!((analyses, factorizations), (1, 2));
+        assert_eq!(
+            reused.solve(&source).unwrap().values,
+            own.reuse(other, eps)
+                .unwrap()
+                .solve(&source)
+                .unwrap()
+                .values
+        );
+    }
+    // a backend nothing is registered under is an error, not photonoxide's own in its place
+    let missing = Choice::parse("not-registered-2d").unwrap();
+    let e = Solver2d::new_on(
+        grid,
+        Polarization::Ez,
+        lam,
+        eps,
+        Boundaries::pml(10),
+        &missing,
+    )
+    .err()
+    .unwrap()
+    .to_string();
+    assert!(e.contains("not-registered-2d"), "{e}");
+    let cells = vec![c64::new(2.1, 0.0); grid.nx * grid.ny];
+    assert!(
+        Solver2d::from_cells_on(
+            grid,
+            Polarization::Ez,
+            lam,
+            &cells,
+            Boundaries::pml(10),
+            &missing
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn faers_lu_as_the_backend_gives_the_same_field_to_rounding() {
+    use crate::backend::Choice;
+    let grid = Grid {
+        nx: 60,
+        ny: 50,
+        dx: 0.04,
+        dy: 0.04,
+        x0: -1.2,
+        y0: -1.0,
+    };
+    let eps = |_: f64, y: f64| c64::new(if y.abs() < 0.2 { 12.0 } else { 2.1 }, 0.0);
+    let lam = Wavelength::um(1.55).unwrap();
+    let mut source = vec![c64::new(0.0, 0.0); grid.nx * grid.ny];
+    source[25 * grid.nx + 20] = c64::new(1.0, 0.0);
+    let own = Solver2d::new(grid, Polarization::Ez, lam, eps, Boundaries::pml(10)).unwrap();
+    let faer = Solver2d::new_on(
+        grid,
+        Polarization::Ez,
+        lam,
+        eps,
+        Boundaries::pml(10),
+        &Choice::parse("faer").unwrap(),
+    )
+    .unwrap();
+    assert!(faer.direct_solver().starts_with("faer "));
+    // it takes no symmetric form: the system's LU
+    assert!(!faer.lu.symmetric());
+    let (a, b) = (own.solve(&source).unwrap(), faer.solve(&source).unwrap());
+    let largest = a.values.iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let off = a
+        .values
+        .iter()
+        .zip(&b.values)
+        .map(|(a, b)| (a - b).norm())
+        .fold(0.0, f64::max);
+    assert!(off < 1e-11 * largest, "{off} of {largest}");
+    let (a, b) = (
+        own.solve_transposed(&source).unwrap(),
+        faer.solve_transposed(&source).unwrap(),
+    );
+    let off = a
+        .iter()
+        .zip(&b)
+        .map(|(a, b)| (a - b).norm())
+        .fold(0.0, f64::max);
+    assert!(off < 1e-11 * largest, "{off} of {largest}");
+}

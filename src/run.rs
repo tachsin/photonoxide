@@ -21,6 +21,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+use crate::backend::Choice;
 use crate::{Error, Result};
 
 /// The job file's layout, the same in every [`Format`].
@@ -30,8 +31,18 @@ struct JobFile {
     name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     timeout_minutes: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    solver: Option<SolverFile>,
     #[serde(default)]
     task: toml::Table,
+}
+
+/// The job file's `[solver]` table.
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct SolverFile {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    direct: Option<String>,
 }
 
 /// The format of a job file: TOML, JSON or YAML, the same job in each.
@@ -78,6 +89,8 @@ pub struct Job {
     name: String,
     timeout_minutes: Option<f64>,
     timeout: Option<Duration>,
+    solver: Option<SolverFile>,
+    direct: Choice,
     task: toml::Table,
     text: String,
     format: Format,
@@ -90,6 +103,10 @@ impl Job {
     /// name = "strip-modes"     # letters, digits, '-', '_' and '.'
     /// timeout_minutes = 30     # optional: a hard limit on the run
     ///
+    /// [solver]                 # optional
+    /// direct = "photonoxide"   # the direct solver: auto (the default), photonoxide, or a
+    ///                          # backend's name (see crate::backend)
+    ///
     /// [task]                   # read by the solver that runs the job
     /// width_um = 0.5
     /// ```
@@ -97,7 +114,9 @@ impl Job {
     /// # Errors
     ///
     /// [`Error::Parse`] if the text isn't such a file, and [`Error::InvalidValue`] for an empty
-    /// name, a name with other characters, or a timeout that isn't positive and finite.
+    /// name, a name with other characters, a timeout that isn't positive and finite, or a
+    /// direct solver that isn't a backend's name (whether one is registered under it is for
+    /// [`crate::job::check`] and the run to say).
     pub fn parse(text: &str) -> Result<Job> {
         Job::parse_as(text, Format::Toml)
     }
@@ -140,10 +159,16 @@ impl Job {
                 ));
             }
         };
+        let direct = match file.solver.as_ref().and_then(|s| s.direct.as_deref()) {
+            None => Choice::Auto,
+            Some(name) => Choice::parse(name)?,
+        };
         Ok(Job {
             name: file.name,
             timeout_minutes: file.timeout_minutes,
             timeout,
+            solver: file.solver,
+            direct,
             task: file.task,
             text: text.to_owned(),
             format,
@@ -183,6 +208,11 @@ impl Job {
         &self.task
     }
 
+    /// The direct solver the job asks for in its `[solver]` table: `auto` unless it names one.
+    pub fn direct(&self) -> &Choice {
+        &self.direct
+    }
+
     /// The format the job was read in.
     pub fn format(&self) -> Format {
         self.format
@@ -204,6 +234,7 @@ impl Job {
         let file = JobFile {
             name: self.name.clone(),
             timeout_minutes: self.timeout_minutes,
+            solver: self.solver.clone(),
             task: self.task.clone(),
         };
         let write = |reason: String| Error::Parse {
@@ -632,6 +663,8 @@ mod tests {
             name: "floats".into(),
             timeout_minutes: Some(0.1),
             timeout: Some(Duration::from_secs_f64(6.0)),
+            solver: None,
+            direct: Choice::Auto,
             task,
             text: String::new(),
             format: Format::Toml,
@@ -685,6 +718,46 @@ mod tests {
         }
         assert_eq!(task["f"], toml::Value::Boolean(false));
         assert_eq!(task["g"].as_float(), Some(1000.0));
+    }
+
+    #[test]
+    fn the_direct_solver_is_read_and_written_in_every_format() {
+        // none named: auto, and nothing written
+        let plain = Job::parse("name = \"a\"\n").unwrap();
+        assert_eq!(plain.direct(), &Choice::Auto);
+        assert!(!plain.to_text(Format::Toml).unwrap().contains("solver"));
+        for (text, format) in [
+            (
+                "name = \"a\"\n\n[solver]\ndirect = \"pardiso\"\n",
+                Format::Toml,
+            ),
+            (
+                "{\"name\": \"a\", \"solver\": {\"direct\": \"pardiso\"}}",
+                Format::Json,
+            ),
+            ("name: a\nsolver:\n  direct: pardiso\n", Format::Yaml),
+        ] {
+            let job = Job::parse_as(text, format).unwrap();
+            assert_eq!(job.direct(), &Choice::Named("pardiso".into()), "{format:?}");
+            // each choice comes back the same from every format
+            for to in Format::ALL {
+                let again = Job::parse_as(&job.to_text(to).unwrap(), to).unwrap();
+                assert_eq!(again.direct(), job.direct(), "{format:?} to {to:?}");
+            }
+        }
+        for (name, choice) in [("auto", Choice::Auto), ("photonoxide", Choice::Photonoxide)] {
+            let text = format!("name = \"a\"\n\n[solver]\ndirect = \"{name}\"\n");
+            let job = Job::parse(&text).unwrap();
+            assert_eq!(job.direct(), &choice);
+            let again = Job::parse(&job.to_text(Format::Toml).unwrap()).unwrap();
+            assert_eq!(again.direct(), &choice);
+        }
+        // not a backend's name, and a setting the table doesn't have
+        assert!(Job::parse("name = \"a\"\n\n[solver]\ndirect = \"Intel MKL\"\n").is_err());
+        let e = Job::parse("name = \"a\"\n\n[solver]\niterative = \"qmr\"\n")
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("iterative"), "{e}");
     }
 
     #[test]

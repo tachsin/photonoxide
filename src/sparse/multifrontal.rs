@@ -296,6 +296,11 @@ impl Analysis {
         })
     }
 
+    /// The unknowns of the analysed matrix.
+    pub(crate) fn n(&self) -> usize {
+        self.n
+    }
+
     /// Whether the factorization is L D Lᵀ ([`Analysis::new_symmetric`]).
     pub(crate) fn symmetric(&self) -> bool {
         self.symmetric

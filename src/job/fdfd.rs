@@ -266,6 +266,16 @@ pub(super) fn preview(job: &Job) -> Result<Event> {
     scene_of(&task, &s)
 }
 
+/// The backend a choice resolves to, as the run's record names it: its name and version, and
+/// that it was photonoxide's choice if the job named none.
+fn direct_solver(choice: &crate::backend::Choice) -> Result<String> {
+    let c = crate::backend::direct(choice)?.capabilities();
+    Ok(match choice {
+        crate::backend::Choice::Auto => format!("{} {} (auto)", c.name, c.version),
+        _ => format!("{} {}", c.name, c.version),
+    })
+}
+
 /// [`super::check`] for an `"fdfd"` job.
 pub(super) fn check(job: &Job) -> Result<()> {
     // the task, the structure, the layer, the polarization, that there are ports, and the grid
@@ -295,6 +305,8 @@ struct Device {
     field_name: &'static str,
     grid: Grid,
     boundaries: Boundaries,
+    /// The direct solver the job asks for.
+    direct: crate::backend::Choice,
 }
 
 impl Device {
@@ -341,6 +353,7 @@ impl Device {
             field_name,
             grid,
             boundaries,
+            direct: job.direct().clone(),
         })
     }
 
@@ -380,12 +393,13 @@ impl Device {
             wavelength,
         )?;
         let solver = match first {
-            None => Solver2d::new(
+            None => Solver2d::new_on(
                 self.grid,
                 self.polarization,
                 wavelength,
                 eps,
                 self.boundaries,
+                &self.direct,
             )?,
             Some(first) => first.reuse(wavelength, eps)?,
         };
@@ -573,6 +587,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                  sparsity once"
                     .into(),
             ],
+            ["direct solver".into(), direct_solver(&device.direct)?],
         ],
     })?;
     let pml_cells = task.pml_cells.unwrap_or(20);

@@ -1,5 +1,11 @@
 //! The jobs `photonoxide run` knows, and the events they record.
 //!
+//! A job file's `[solver]` table, if it has one, names the direct solver of an `"fdfd"` job
+//! ([`crate::backend`]): `direct = "auto"` (the default: photonoxide's own), `"photonoxide"`,
+//! or a backend registered under another name. A backend that isn't registered or isn't
+//! available is refused by [`check`] and by the run, with the reason; the run's record names
+//! the backend that solved.
+//!
 //! A job file's `[task]` table names its kind. The kinds so far:
 //!
 //! - `"structure"`: a layer stack with shapes drawn on it, recorded as pictures of its
@@ -1318,6 +1324,7 @@ pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         .and_then(|k| k.as_str())
         .ok_or_else(|| task_error("needs a kind, e.g. kind = \"structure\""))?
         .to_owned();
+    check_direct(job, &kind)?;
     run.record(&Event::Started {
         job: job.name().to_owned(),
         kind: kind.clone(),
@@ -1351,11 +1358,30 @@ pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 ///
 /// The errors [`execute`] would return for those, before recording anything.
 pub fn check(job: &Job) -> Result<()> {
+    check_inner(job)
+}
+
+/// The job's direct solver: one that is registered and available, and asked of a job that has
+/// a direct solve to give it. What [`check`] and the run both refuse, in the same words.
+fn check_direct(job: &Job, kind: &str) -> Result<()> {
+    crate::backend::direct(job.direct())?;
+    if kind != "fdfd" && *job.direct() != crate::backend::Choice::Auto {
+        return Err(task_error(format!(
+            "[solver] direct = \"{}\" is for fdfd jobs: a {kind} job has no direct solve to \
+             give a backend",
+            job.direct()
+        )));
+    }
+    Ok(())
+}
+
+fn check_inner(job: &Job) -> Result<()> {
     let kind = job
         .task()
         .get("kind")
         .and_then(|k| k.as_str())
         .ok_or_else(|| task_error("needs a kind, e.g. kind = \"structure\""))?;
+    check_direct(job, kind)?;
     let parse = |e: toml::de::Error| task_error(e.to_string());
     let mut wavelengths = Vec::new();
     let (s, layer, wavelength_um) = match kind {
@@ -2863,6 +2889,88 @@ points = 2
             })
             .collect();
         assert_eq!(single, [(None, 1.55), (None, 1.55)]);
+    }
+
+    #[test]
+    fn a_job_names_its_direct_solver_and_the_record_says_which_solved() {
+        use crate::backend::tests::Recording;
+        let direct_of = |events: &[Event]| -> String {
+            events
+                .iter()
+                .find_map(|e| match e {
+                    Event::Solver { details, .. } => details
+                        .iter()
+                        .find(|[name, _]| name == "direct solver")
+                        .map(|[_, value]| value.clone()),
+                    _ => None,
+                })
+                .unwrap()
+        };
+        let version = env!("CARGO_PKG_VERSION");
+        let with = |name: &str| format!("{FDFD}\n[solver]\ndirect = \"{name}\"\n");
+        // none named: photonoxide's own, as its choice
+        let plain = run_events("fdfd-direct-auto", FDFD);
+        assert_eq!(direct_of(&plain), format!("photonoxide {version} (auto)"));
+        // photonoxide's by name: the same run
+        let named = run_events("fdfd-direct-own", &with("photonoxide"));
+        assert_eq!(direct_of(&named), format!("photonoxide {version}"));
+        let s = |events: &[Event]| -> Vec<Event> {
+            events
+                .iter()
+                .filter(|e| matches!(e, Event::SParameters { .. }))
+                .cloned()
+                .collect()
+        };
+        assert!(!s(&plain).is_empty());
+        assert_eq!(s(&plain), s(&named));
+        // a backend registered at run time: the job's solves go to it (two wavelengths: one
+        // analysis, two factorizations), and give the same S-matrices
+        let recording = Recording::register("recording-job");
+        let routed = run_events("fdfd-direct-recording", &with("recording-job"));
+        assert_eq!(direct_of(&routed), format!("recording-job {version}"));
+        let [analyses, factorizations, solves, _] = recording.counts();
+        assert_eq!((analyses, factorizations), (1, 2));
+        assert!(solves >= 4, "{solves}");
+        assert_eq!(s(&plain), s(&routed));
+    }
+
+    #[test]
+    fn the_check_and_the_run_refuse_a_direct_solver_that_cant_be_had() {
+        let with = |text: &str, name: &str| format!("{text}\n[solver]\ndirect = \"{name}\"\n");
+        crate::backend::register_unavailable("job-test-missing", "not installed").unwrap();
+        let cases = [
+            // nothing registered under the name
+            (
+                with(FDFD, "job-test-nothing"),
+                "no direct solver is registered as \"job-test-nothing\"",
+            ),
+            // known, and not to be had: with the reason
+            (
+                with(FDFD, "job-test-missing"),
+                "the direct solver \"job-test-missing\" isn't available: not installed",
+            ),
+            // a job without a direct solve
+            (
+                with(MODES, "photonoxide"),
+                "[solver] direct = \"photonoxide\" is for fdfd jobs: a modes job has no direct \
+                 solve to give a backend",
+            ),
+        ];
+        for (k, (text, want)) in cases.iter().enumerate() {
+            let job = Job::parse(text).unwrap();
+            let checked = check(&job).unwrap_err().to_string();
+            assert!(checked.contains(want), "{checked}");
+            // the run says the same, before recording anything
+            let root = temp(&format!("direct-refused-{k}"));
+            let mut run = Run::create(&root.0, &job).unwrap();
+            let ran = execute(&job, &mut run, &Stop::new(None))
+                .unwrap_err()
+                .to_string();
+            assert_eq!(ran, checked);
+            assert!(replay::<Event>(run.dir()).unwrap().is_empty());
+        }
+        // auto on any job is no choice at all
+        check(&Job::parse(&with(MODES, "auto")).unwrap()).unwrap();
     }
 
     #[test]

@@ -20,10 +20,8 @@
 //! over its own cell of the dual grid, harmonically along the component and arithmetically
 //! across it, as in 2D.
 
-use std::sync::Arc;
-
-use super::direct::Direct;
-use crate::sparse::Analysis;
+use super::direct::{Direct, Plan};
+use crate::backend::Choice;
 use faer::sparse::Triplet;
 use num_complex::Complex64 as c64;
 
@@ -618,7 +616,31 @@ impl Solver3d {
         eps: impl Fn(f64, f64, f64) -> c64,
         boundaries: Boundaries3d,
     ) -> Result<Solver3d> {
-        Self::build(grid, wavelength, eps, boundaries, None)
+        Self::new_on(grid, wavelength, eps, boundaries, &Choice::Auto)
+    }
+
+    /// [`Solver3d::new`] with the direct solver of `direct` ([`crate::backend`]):
+    /// photonoxide's own for `auto`, or a backend by its name. A solver this one is reused for
+    /// ([`Solver3d::reuse`]) keeps it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver3d::new`], and [`Error::InvalidValue`] for a backend that isn't registered or
+    /// isn't available.
+    pub fn new_on(
+        grid: Grid3d,
+        wavelength: Wavelength,
+        eps: impl Fn(f64, f64, f64) -> c64,
+        boundaries: Boundaries3d,
+        direct: &Choice,
+    ) -> Result<Solver3d> {
+        Self::build(grid, wavelength, eps, boundaries, Plan::new(direct)?)
+    }
+
+    /// The direct solver that factorized this problem, as the backend names itself: its name
+    /// and version, e.g. `photonoxide 0.4.3`.
+    pub fn direct_solver(&self) -> String {
+        self.lu.backend()
     }
 
     /// The same grid and boundaries at another `wavelength` or with another permittivity: the
@@ -637,7 +659,7 @@ impl Solver3d {
             wavelength,
             eps,
             self.lattice.boundaries,
-            Some(self.lu.analysis().clone()),
+            self.lu.plan(),
         )
     }
 
@@ -646,7 +668,7 @@ impl Solver3d {
         wavelength: Wavelength,
         eps: impl Fn(f64, f64, f64) -> c64,
         boundaries: Boundaries3d,
-        analysis: Option<Arc<Analysis>>,
+        analysis: Plan,
     ) -> Result<Solver3d> {
         let (lattice, eps) = Self::setup(grid, wavelength, eps, boundaries)?;
         let entries = lattice.assemble(&eps);
@@ -759,7 +781,7 @@ impl Solver3d {
                 }
             })
             .collect();
-        let mut values = self.lu.solve(&rhs);
+        let mut values = self.lu.solve(&rhs)?;
         // one step of iterative refinement, as in 2D, which leaves round-off where the
         // factorization is accurate; where it isn't (static pivoting's perturbed pivots; before
         // 0.4.3, faer's sparse LU on GitHub's Windows runners, which left 1e-2 to 1.6 where it
@@ -875,7 +897,7 @@ impl Solver3d {
             lattice: self.lattice.clone(),
             eps: self.eps.clone(),
             entries: self.entries.clone(),
-            lu: Direct::lu(&self.entries, &positions(&self.lattice.grid))?,
+            lu: self.lu.lu(&self.entries, &positions(&self.lattice.grid))?,
         })
     }
 
@@ -1037,17 +1059,23 @@ pub use ports::{Port3d, PortMode3d};
 /// accurate factorization and one step of refinement leave, and within what QMR reaches.
 const ACCURATE: f64 = 1e-12;
 
-/// A factorization as a preconditioner: (LU)⁻¹ and its transpose.
+/// A factorization as a preconditioner: (LU)⁻¹ and its transpose. A backend's solve that fails
+/// gives NaNs, which QMR reports as a solve that didn't converge.
 struct LuInverse<'a>(&'a Direct);
 
 impl super::krylov::Preconditioner for LuInverse<'_> {
     fn solve(&self, v: &[c64]) -> Vec<c64> {
-        self.0.solve(v)
+        self.0.solve(v).unwrap_or_else(|_| nans(v.len()))
     }
 
     fn solve_transpose(&self, v: &[c64]) -> Vec<c64> {
-        self.0.solve_transpose(v)
+        self.0.solve_transpose(v).unwrap_or_else(|_| nans(v.len()))
     }
+}
+
+/// What a failed solve leaves in an interface that can't return its error.
+pub(crate) fn nans(n: usize) -> Vec<c64> {
+    vec![c64::new(f64::NAN, f64::NAN); n]
 }
 
 /// The 3D system's factors ([`super::direct::Direct`]): the multifrontal L D Lᵀ of its complex
@@ -1057,7 +1085,7 @@ impl super::krylov::Preconditioner for LuInverse<'_> {
 fn factorize(
     grid: &Grid3d,
     triplets: &[Triplet<usize, usize, c64>],
-    analysis: Option<Arc<Analysis>>,
+    analysis: Plan,
 ) -> Result<Direct> {
     Direct::new(triplets, &positions(grid), analysis)
 }
