@@ -93,7 +93,7 @@ pub const CUDSS: Spec = Spec {
 };
 
 /// `name`'s version from a `libraryPropertyType` call (cuSPARSE's, cuDSS's).
-fn property_version(library: &Library, name: &str) -> Result<String> {
+pub(crate) fn property_version(library: &Library, name: &str) -> Result<String> {
     // SAFETY: cusparseGetProperty and cudssGetProperty are
     // `status f(libraryPropertyType, int *value)`, the enum an int
     let get: GetProperty = unsafe { library.function(name)? };

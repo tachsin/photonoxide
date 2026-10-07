@@ -21,11 +21,13 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 
+mod cudss;
 mod discovery;
 mod library;
 pub mod nvidia;
 mod smoke;
 
+pub use cudss::Cudss;
 pub use discovery::{Candidate, Discovery, Source, Spec, Status, discover, versioned};
 pub use library::{Library, load};
 pub use smoke::{TOLERANCE, offer, smoke_test};
@@ -63,8 +65,14 @@ impl std::fmt::Display for Probe {
     }
 }
 
-/// Every library photonoxide knows how to look for, as found on this machine. Nothing is
-/// registered yet: each library's backend registers itself here when it lands.
+/// Every library photonoxide knows how to look for, as found on this machine. Each backend
+/// whose library is found is offered to photonoxide's registry after its smoke test
+/// ([`offer`]); one whose library isn't is registered as unavailable, with the reason.
 pub fn register_all() -> Vec<Probe> {
+    // the registry refuses only names it doesn't take, and "cudss" is one it takes
+    let _ = match Cudss::load() {
+        Ok(cudss) => offer(std::sync::Arc::new(cudss)).map(drop),
+        Err(reason) => photonoxide::backend::register_unavailable("cudss", reason),
+    };
     nvidia::probe()
 }
