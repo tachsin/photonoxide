@@ -112,7 +112,7 @@ function structuredData() {
         license: ["https://opensource.org/licenses/MIT", "https://www.apache.org/licenses/LICENSE-2.0"],
         keywords: PHOTONOXIDE_KEYWORDS.join(", "),
         author: { "@type": "Person", name: "tachsin", url: "https://github.com/tachsin" },
-        creativeWorkStatus: "Alpha",
+        creativeWorkStatus: "Published",
         isPartOf: { "@id": WEBSITE_ID },
       },
       breadcrumbList([
@@ -178,8 +178,8 @@ export default async function PhotonoxidePage() {
         <div className="proj-rise flex justify-center">
           {/* the version only: with the next milestone's title it took two lines on a phone */}
           <Link href={ROADMAP_PATH} className="proj-pill whitespace-nowrap">
-            <span className="size-1.5 rounded-full bg-warning" aria-hidden />
-            <span>Alpha · {release ?? (now ? `${now.version} in progress` : "built in the open")}</span>
+            <span className="size-1.5 rounded-full bg-success" aria-hidden />
+            <span>{release ? `Release ${release}` : now ? `${now.version} in progress` : "built in the open"}</span>
             <ArrowRight size={13} aria-hidden />
           </Link>
         </div>

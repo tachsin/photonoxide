@@ -450,7 +450,7 @@ How a design reaches a foundry. Fabrication is almost always a multi-project waf
 ### 0.16: Beyond
 - [ ] **Quantum photonics:** linear optical circuits and their statistics.
 - [ ] **Ray optics.**
-- [ ] **Further domains:** oxiphoton's 63 modules are the long-term map of the field. Each domain enters only with its validation.
+- [ ] **Further domains,** each entering only with its validation.
 
 ### Throughout
 - **Studio:** every new solver gets its live view the same release, and the workspace grows a step per milestone:
@@ -495,7 +495,7 @@ Every solver is checked on three tiers. The results are collected in a report th
    - coplanar lines by conformal mapping;
    - the abrupt p–n junction;
    - heat conduction from a line source.
-2. **Cross-code:** the same structure at the same resolution in Meep, MPB, S4, Ceviche and oxiphoton. GPL codes run only as external programs, in a separate harness.
+2. **Cross-code:** the same structure at the same resolution in Meep, MPB, S4 and Ceviche. GPL codes run only as external programs, in a separate harness.
 3. **Published devices:**
    - the inverse-designed devices above (Piggott 2015, Shen 2015, Frellsen 2016, Su 2018, Piggott 2020);
    - classic devices (Y-branch, MMI, rings, grating couplers);
@@ -507,7 +507,7 @@ Each entry states its tolerance, grid, run time, and the source it is compared w
 
 ## Benchmarks
 
-- **Codes:** Meep, MPB, S4, Ceviche, EMEpy and oxiphoton. Commercial and cloud solvers aren't benchmarked, because we can't run them under the same conditions.
+- **Codes:** Meep, MPB, S4, Ceviche and EMEpy. Commercial and cloud solvers aren't benchmarked, because we can't run them under the same conditions.
 - **Problems:** the validation cases above, from a strip-waveguide mode to a 3D device optimization.
 - **Metrics:**
   - time to a converged answer at equal accuracy;
