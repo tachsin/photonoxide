@@ -9,17 +9,23 @@ from this repository's own files, so they say what the library does, never more.
 tachsin.gr is a Next.js app (Next 16, React, Tailwind 4, daisyUI) in a private repository. Its
 `pnpm sync:photonoxide` downloads this folder at the commit pinned in its `photonoxide-site.json` and
 copies each folder below to the same path in the app, replacing it whole. The app's build and dev
-scripts run the sync first, so a deploy builds the pinned commit. A change here goes live when the
-app pins a commit that has it (`pnpm sync:photonoxide --update` pins main's latest), and the app is
-deployed.
+scripts run the sync first, so a deploy builds the pinned commit's code. A change to the code here
+goes live when the app pins a commit that has it (`pnpm sync:photonoxide --update` pins main's
+latest), and the app is deployed.
+
+**The content follows releases by itself.** The pages read the repository's files (the methods,
+the examples, the validation report, the roadmap) at the tag of GitHub's latest release, looked
+up daily (`github.js`), and show that release's version (`release.js`). A release appears on the
+site within a day, with no new pin and no deploy. Only when GitHub can't be reached do they read
+the pinned commit instead.
 
 | Folder | In the app |
 | --- | --- |
 | `app/projects/photonoxide/` | the routes: the overview, `/docs` (getting started), `/methods` and `/methods/[slug]`, `/examples` and `/examples/[slug]`, `/validation`, `/roadmap`, the sub-navigation layout and the Open Graph image |
-| `lib/projects/photonoxide/` | the data: static facts (`meta.js`), and the repository's files read from GitHub at the pinned commit (`github.js`): the methods, the examples, the validation report, the roadmap and the latest release, and Markdown with TeX math (`markdown.js`) |
+| `lib/projects/photonoxide/` | the data: static facts (`meta.js`), and the repository's files read from GitHub at the latest release's tag (`github.js`): the methods, the examples, the validation report, the roadmap and the release's version, and Markdown with TeX math (`markdown.js`) |
 | `components/projects/photonoxide/` | the components only these pages use: `HeroLight`, the overview's light animation, and `ValidationRows`, the report's table |
 
-What the pages read from the repository, at the pinned commit:
+What the pages read from the repository, at the latest release's tag (or the pinned commit):
 
 | File | Page |
 | --- | --- |
@@ -28,7 +34,7 @@ What the pages read from the repository, at the pinned commit:
 | `docs/validation.md` | the validation report, which `photonoxide validate` writes and CI checks; its cases' math is `$…$` |
 | `docs/getting-started.md` | the docs page |
 | `ROADMAP.md` | the roadmap and the overview's milestones |
-| `CHANGELOG.md` | the latest release, its first `## [x.y.z]` heading, on the overview (`release.js`) |
+| `CHANGELOG.md` | the latest release's version when GitHub's releases can't be read: its first `## [x.y.z]` heading, on the overview (`release.js`) |
 
 Links between method write-ups (`pml.md`) become links between their pages; other relative links go to GitHub.
 

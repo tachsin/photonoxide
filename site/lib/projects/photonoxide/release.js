@@ -1,10 +1,11 @@
 import { cache } from "react";
-import { getRepoFile } from "./github";
+import { getLatestTag, getRepoFile } from "./github";
 
 /**
- * The latest release, read from CHANGELOG.md at the pinned commit (see
- * github.js): its first `## [x.y.z]` heading, which release-plz writes when
- * it releases. `## [Unreleased]` is skipped.
+ * The latest release: GitHub's latest release (its tag without the "v"), so
+ * a new release shows within a day (see github.js); failing that, the first
+ * `## [x.y.z]` heading of CHANGELOG.md, which release-plz writes when it
+ * releases. `## [Unreleased]` is skipped.
  */
 
 const RELEASE = /^##\s+\[(\d+\.\d+\.\d+)\]/;
@@ -19,4 +20,8 @@ export function parseLatestRelease(markdown) {
 }
 
 /** @returns {Promise<string | null>} null when GitHub can't be reached */
-export const getLatestRelease = cache(async () => parseLatestRelease(await getRepoFile("CHANGELOG.md")));
+export const getLatestRelease = cache(async () => {
+  const tag = await getLatestTag();
+  if (tag) return tag.slice(1);
+  return parseLatestRelease(await getRepoFile("CHANGELOG.md"));
+});

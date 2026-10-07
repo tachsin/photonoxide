@@ -21,9 +21,9 @@
 //!   `photonoxide bench` runs.
 //! - [`parallel`]: independent problems (a sweep's points) side by side, collected in order.
 //!
-//! **Alpha:** the API is being built milestone by milestone, and will change. FDTD, thermal and
-//! electro-optic devices, inverse design, layout and PDKs are planned, not here yet: see the
-//! [roadmap](https://github.com/tachsin/photonoxide/blob/main/ROADMAP.md).
+//! **Released milestone by milestone;** until 1.0 the API can change between them. FDTD,
+//! thermal and electro-optic devices, inverse design, layout and PDKs are planned, not here yet:
+//! see the [roadmap](https://github.com/tachsin/photonoxide/blob/main/ROADMAP.md).
 
 #![forbid(unsafe_code)]
 #![doc(

@@ -10,7 +10,7 @@ export default function Image() {
     title: "photonoxide",
     description:
       "Mode solvers, FDFD, FDTD, inverse design, layout and tape-out in one Rust library, with a studio to watch every run live. Validated and fabrication-ready.",
-    chips: ["Rust", "Alpha", "MIT OR Apache-2.0"],
+    chips: ["Rust", "Validated", "MIT OR Apache-2.0"],
     footer: "tachsin.gr/projects/photonoxide",
   });
 }
