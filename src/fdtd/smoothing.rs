@@ -1,0 +1,943 @@
+//! Subpixel smoothing: the permittivity each value of E sees, averaged over a cell about it so
+//! that an interface between two grid points is where the structure puts it.
+//!
+//! - **Isotropic media** (A. Farjadpour et al., Opt. Lett. 31, 2972 (2006),
+//!   doi:10.1364/OL.31.002972, Eq. 1): ε̃⁻¹ = P⟨ε⁻¹⟩ + (1 − P)⟨ε⟩⁻¹, P = nnᵀ the projection on
+//!   the interface's normal n, ⟨·⟩ the mean over the cell: the mean ε for the field along the
+//!   interface, the harmonic mean across it. The perturbation the smoothing makes then has no
+//!   first-order effect, and an interface anywhere in a cell keeps the scheme second order.
+//! - **Anisotropic media** (C. Kottke, A. Farjadpour, S. G. Johnson, Phys. Rev. E 77, 036611
+//!   (2008), doi:10.1103/PhysRevE.77.036611, Eqs. 4, 22 and 23): in the interface's frame (the
+//!   first axis along n), ε̃ = τ⁻¹(⟨τ(ε)⟩), with τ(ε) the matrix of −1/ε₁₁, ε₁ⱼ/ε₁₁, εᵢ₁/ε₁₁ and
+//!   εᵢⱼ − εᵢ₁ε₁ⱼ/ε₁₁, which maps the continuous (D₁, E₂, E₃) linearly; for isotropic media it is
+//!   Eq. 1 again.
+//! - **On Yee's grid** (A. F. Oskooi, C. Kottke, S. G. Johnson, Opt. Lett. 34, 2778 (2009),
+//!   doi:10.1364/OL.34.002778, Fig. 1): each value of E keeps its own diagonal entry of ε̃⁻¹,
+//!   averaged over the cell centred on it. The off-diagonal entries are averaged over the cells
+//!   centred on the nodes and kept there ([`Coupling::Nodes`]): E_x at (i + ½, j, k) takes D_y
+//!   from the two nodes beside it, at each the mean of D_y on either side times (ε̃⁻¹)_xy there,
+//!   and the mean of the two nodes', G. R. Werner and J. R. Cary's scheme (J. Comput. Phys. 226,
+//!   1085 (2007)), whose ε⁻¹ on the grid is symmetric, so that the leapfrog's energy
+//!   ½ Σ E·D + ½ Σ H̃·H̃ is conserved as with a scalar ε. Or they are averaged over each value's
+//!   own cell ([`Coupling::Points`]), times the mean of the four D_y around E_x, as Farjadpour et
+//!   al. have it: second order at oblique interfaces, where the nodes' are first order, but not
+//!   symmetric, and an error grows from round-off. A medium whose tensor couples E's components
+//!   steps D, and E follows from it after each step.
+//!
+//! The cell is the grid's cell about each point, times a diameter (Farjadpour et al.'s s). Where
+//! one body's surface crosses it, the surface is taken as the plane through the nearest point,
+//! normal to the body's gradient there, and the share of the cell inside it is the exact volume
+//! the plane cuts off: what ⟨·⟩ needs, with the normal. A curved surface's departure from that
+//! plane, and an error of order d² in its distance d, are second order. Where two surfaces cross
+//! a cell, it is sampled 8 times along each axis, in the frame of the uppermost surface.
+
+use rayon::prelude::*;
+
+use super::{Boundaries, Simulation, invalid};
+use crate::Result;
+use crate::fdfd::{Axis, Grid3d};
+use crate::geometry::{Point, Shape};
+
+type Matrix = [[f64; 3]; 3];
+
+/// A relative permittivity: a real, symmetric, positive-definite 3 × 3 tensor in the grid's axes
+/// (x, y, z).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Permittivity(Matrix);
+
+impl Permittivity {
+    /// The tensor `matrix`, its rows and columns along x, y and z.
+    ///
+    /// # Errors
+    ///
+    /// [`crate::Error::InvalidValue`] unless every entry is finite, the matrix is symmetric (to
+    /// 1e-12 of its largest entry; it is made exactly so) and positive definite.
+    pub fn new(matrix: [[f64; 3]; 3]) -> Result<Permittivity> {
+        let scale = matrix.iter().flatten().fold(0.0f64, |m, v| m.max(v.abs()));
+        let finite = matrix.iter().flatten().all(|v| v.is_finite());
+        let symmetric =
+            (0..3).all(|i| (0..3).all(|j| (matrix[i][j] - matrix[j][i]).abs() <= 1e-12 * scale));
+        let m = symmetrized(matrix);
+        // Sylvester's criterion: the leading principal minors are positive
+        let minor = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+        if !(finite && symmetric && m[0][0] > 0.0 && minor > 0.0 && determinant(&m) > 0.0) {
+            return Err(invalid(format!(
+                "a permittivity must be finite, symmetric and positive definite, got {matrix:?}"
+            )));
+        }
+        Ok(Permittivity(m))
+    }
+
+    /// An isotropic medium, ε times the identity.
+    ///
+    /// # Errors
+    ///
+    /// [`crate::Error::InvalidValue`] unless ε is finite and positive.
+    pub fn isotropic(eps: f64) -> Result<Permittivity> {
+        Permittivity::diagonal([eps; 3])
+    }
+
+    /// A tensor whose principal axes are the grid's: diag(ε_x, ε_y, ε_z).
+    ///
+    /// # Errors
+    ///
+    /// [`crate::Error::InvalidValue`] unless every value is finite and positive.
+    pub fn diagonal(values: [f64; 3]) -> Result<Permittivity> {
+        let mut m = [[0.0; 3]; 3];
+        for (i, v) in values.into_iter().enumerate() {
+            m[i][i] = v;
+        }
+        Permittivity::new(m)
+    }
+
+    /// A tensor of principal values `values` along the principal axes `axes` (orthonormal, one
+    /// per row): Σ εᵢ aᵢaᵢᵀ.
+    ///
+    /// # Errors
+    ///
+    /// [`crate::Error::InvalidValue`] unless the values are finite and positive and the axes
+    /// orthonormal to 1e-9.
+    pub fn principal(values: [f64; 3], axes: [[f64; 3]; 3]) -> Result<Permittivity> {
+        if !orthonormal(&axes) {
+            return Err(invalid(format!(
+                "the principal axes must be orthonormal, got {axes:?}"
+            )));
+        }
+        let m = std::array::from_fn(|i| {
+            std::array::from_fn(|j| (0..3).map(|k| values[k] * axes[k][i] * axes[k][j]).sum())
+        });
+        if !values.iter().all(|v| v.is_finite() && *v > 0.0) {
+            return Err(invalid(format!(
+                "principal permittivities must be finite and positive, got {values:?}"
+            )));
+        }
+        Permittivity::new(m)
+    }
+
+    /// A uniaxial crystal: `ordinary` across its optic axis `axis` (any length but zero),
+    /// `extraordinary` along it, n_o² and n_e² for a crystal of indices n_o and n_e.
+    ///
+    /// # Errors
+    ///
+    /// [`crate::Error::InvalidValue`] unless both are finite and positive and the axis finite
+    /// and not zero.
+    pub fn uniaxial(ordinary: f64, extraordinary: f64, axis: [f64; 3]) -> Result<Permittivity> {
+        let length = norm(axis);
+        if !(length.is_finite() && length > 0.0) {
+            return Err(invalid(format!("an optic axis can't be {axis:?}")));
+        }
+        let c = axis.map(|v| v / length);
+        let m = std::array::from_fn(|i| {
+            std::array::from_fn(|j| {
+                let identity = if i == j { ordinary } else { 0.0 };
+                identity + (extraordinary - ordinary) * c[i] * c[j]
+            })
+        });
+        if !(ordinary.is_finite() && ordinary > 0.0) {
+            return Err(invalid(format!(
+                "the ordinary permittivity must be positive, got {ordinary}"
+            )));
+        }
+        Permittivity::new(m)
+    }
+
+    /// The tensor, its rows and columns along x, y and z.
+    pub fn matrix(&self) -> [[f64; 3]; 3] {
+        self.0
+    }
+}
+
+/// A region of space filled with one medium. Bodies are made by their functions, which check
+/// them.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Body(Kind);
+
+#[derive(Clone, Debug, PartialEq)]
+enum Kind {
+    HalfSpace {
+        point: [f64; 3],
+        normal: [f64; 3],
+    },
+    Ellipsoid {
+        center: [f64; 3],
+        /// The reciprocal semi-axes, 0 for an infinite one.
+        inverse: [f64; 3],
+        axes: [[f64; 3]; 3],
+    },
+    Extruded(Shape),
+}
+
+impl Body {
+    /// The half-space on the side of the plane through `point` (µm) that `normal` (any length
+    /// but zero) points away from.
+    ///
+    /// # Errors
+    ///
+    /// [`crate::Error::InvalidValue`] unless everything is finite and the normal isn't zero.
+    pub fn half_space(point: [f64; 3], normal: [f64; 3]) -> Result<Body> {
+        let length = norm(normal);
+        if !(point.iter().all(|v| v.is_finite()) && length.is_finite() && length > 0.0) {
+            return Err(invalid(format!(
+                "a half-space needs a finite point and normal, got {point:?} and {normal:?}"
+            )));
+        }
+        Ok(Body(Kind::HalfSpace {
+            point,
+            normal: normal.map(|v| v / length),
+        }))
+    }
+
+    /// An ellipsoid about `center` (µm) with semi-axes `semi_axes` (µm) along the orthonormal
+    /// directions `axes` (one per row). A semi-axis may be infinite: one makes an elliptic
+    /// cylinder, two a slab.
+    ///
+    /// # Errors
+    ///
+    /// [`crate::Error::InvalidValue`] unless the centre is finite, the semi-axes positive (at
+    /// most two infinite) and the axes orthonormal to 1e-9.
+    pub fn ellipsoid(center: [f64; 3], semi_axes: [f64; 3], axes: [[f64; 3]; 3]) -> Result<Body> {
+        let finite = semi_axes.iter().filter(|s| s.is_finite()).count();
+        if !(center.iter().all(|v| v.is_finite())
+            && semi_axes.iter().all(|s| *s > 0.0)
+            && finite >= 1
+            && orthonormal(&axes))
+        {
+            return Err(invalid(format!(
+                "an ellipsoid needs a finite centre, positive semi-axes (one at least finite) and \
+                 orthonormal axes, got {center:?}, {semi_axes:?} and {axes:?}"
+            )));
+        }
+        Ok(Body(Kind::Ellipsoid {
+            center,
+            inverse: semi_axes.map(|s| 1.0 / s),
+            axes,
+        }))
+    }
+
+    /// An elliptic cylinder along z: the ellipse about `center` (x, y, µm) with semi-axes
+    /// `semi_axes` (µm), the first at `angle` (radians) from x, counterclockwise.
+    ///
+    /// # Errors
+    ///
+    /// As [`Body::ellipsoid`].
+    pub fn ellipse(center: [f64; 2], semi_axes: [f64; 2], angle: f64) -> Result<Body> {
+        let (s, c) = angle.sin_cos();
+        Body::ellipsoid(
+            [center[0], center[1], 0.0],
+            [semi_axes[0], semi_axes[1], f64::INFINITY],
+            [[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]],
+        )
+    }
+
+    /// A planar shape (as [`crate::geometry`] draws it, x and y in µm) extended without end
+    /// along z.
+    pub fn extruded(shape: Shape) -> Body {
+        Body(Kind::Extruded(shape))
+    }
+
+    /// The signed distance from `p` to the surface, negative inside (exact for a half-space, a
+    /// sphere and the planar shapes, to second order in itself for an ellipsoid), and the unit
+    /// normal pointing out of the body at the nearest point of the surface.
+    fn surface(&self, p: [f64; 3]) -> (f64, [f64; 3]) {
+        match &self.0 {
+            Kind::HalfSpace { point, normal } => (dot(*normal, sub(p, *point)), *normal),
+            Kind::Ellipsoid {
+                center,
+                inverse,
+                axes,
+            } => {
+                // u in the ellipsoid's own units, |u| = 1 on its surface; f = |u| − 1 has the
+                // gradient g/|u|, g = Σ uᵢ aᵢ/sᵢ, and the distance is f/|∇f|: exact for a
+                // sphere, second order in itself otherwise
+                let q = sub(p, *center);
+                let u: [f64; 3] = std::array::from_fn(|i| dot(q, axes[i]) * inverse[i]);
+                let rho = norm(u);
+                let g: [f64; 3] =
+                    std::array::from_fn(|k| (0..3).map(|i| u[i] * inverse[i] * axes[i][k]).sum());
+                let length = norm(g);
+                if rho == 0.0 || length == 0.0 {
+                    // the centre: deep inside
+                    let smallest = inverse.iter().fold(0.0f64, |m, v| m.max(*v));
+                    return (-1.0 / smallest, axes[0]);
+                }
+                ((rho - 1.0) * rho / length, g.map(|v| v / length))
+            }
+            Kind::Extruded(shape) => {
+                let (d, n) = planar(shape, p[0], p[1]);
+                (d, [n[0], n[1], 0.0])
+            }
+        }
+    }
+}
+
+/// A planar shape's signed distance from (x, y), negative inside, and its outward normal at the
+/// nearest point.
+fn planar(shape: &Shape, x: f64, y: f64) -> (f64, [f64; 2]) {
+    let radial = |center: &Point, x: f64, y: f64| {
+        let (dx, dy) = (x - center.x.to_um(), y - center.y.to_um());
+        let r = dx.hypot(dy);
+        let n = if r > 0.0 {
+            [dx / r, dy / r]
+        } else {
+            [1.0, 0.0]
+        };
+        (r, n)
+    };
+    match shape {
+        Shape::Rect {
+            center,
+            width,
+            height,
+        } => {
+            let (dx, dy) = (x - center.x.to_um(), y - center.y.to_um());
+            let q = [
+                dx.abs() - width.to_um() / 2.0,
+                dy.abs() - height.to_um() / 2.0,
+            ];
+            let sign = [dx.signum(), dy.signum()];
+            if q[0] > 0.0 || q[1] > 0.0 {
+                let v = [q[0].max(0.0), q[1].max(0.0)];
+                let d = v[0].hypot(v[1]);
+                (d, [sign[0] * v[0] / d, sign[1] * v[1] / d])
+            } else if q[0] > q[1] {
+                (q[0], [sign[0], 0.0])
+            } else {
+                (q[1], [0.0, sign[1]])
+            }
+        }
+        Shape::Circle { center, radius } => {
+            let (r, n) = radial(center, x, y);
+            (r - radius.to_um(), n)
+        }
+        Shape::Ring {
+            center,
+            inner,
+            outer,
+        } => {
+            let (r, n) = radial(center, x, y);
+            let (out, inn) = (r - outer.to_um(), inner.to_um() - r);
+            if out >= inn {
+                (out, n)
+            } else {
+                (inn, [-n[0], -n[1]])
+            }
+        }
+        Shape::Polygon(polygon) => {
+            let v = polygon.vertices();
+            let mut best = (f64::INFINITY, [0.0, 0.0], [1.0, 0.0]);
+            for i in 0..v.len() {
+                let (a, b) = (v[i], v[(i + 1) % v.len()]);
+                let (ax, ay, bx, by) = (a.x.to_um(), a.y.to_um(), b.x.to_um(), b.y.to_um());
+                let (ex, ey) = (bx - ax, by - ay);
+                let t = (((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey)).clamp(0.0, 1.0);
+                let nearest = [ax + t * ex, ay + t * ey];
+                let d = (x - nearest[0]).hypot(y - nearest[1]);
+                if d < best.0 {
+                    // counterclockwise: the edge's outward normal is (e_y, −e_x)
+                    let l = ex.hypot(ey);
+                    best = (d, nearest, [ey / l, -ex / l]);
+                }
+            }
+            let (d, nearest, edge) = best;
+            let inside = polygon.contains(Point::um(x, y));
+            let n = if d > 0.0 {
+                let away = [(x - nearest[0]) / d, (y - nearest[1]) / d];
+                if inside { [-away[0], -away[1]] } else { away }
+            } else {
+                edge
+            };
+            (if inside { -d } else { d }, n)
+        }
+    }
+}
+
+/// A structure: a background medium and bodies over it, each over the ones before it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Structure {
+    background: Permittivity,
+    bodies: Vec<(Body, Permittivity)>,
+}
+
+/// How each value of E's permittivity is taken from a [`Structure`]: the average over a cell
+/// about it, and where the tensor's off-diagonal entries are kept.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Smoothing {
+    /// The average.
+    pub average: Average,
+    /// The cell's size in grid cells, Farjadpour et al.'s s: 1, or 2 as their Fig. 1 also has
+    /// it. Unused by [`Average::Sampled`].
+    pub diameter: f64,
+    /// Where the off-diagonal entries of ε̃⁻¹ are kept, when there are any.
+    pub coupling: Coupling,
+}
+
+impl Default for Smoothing {
+    /// Subpixel smoothing over each value's own cell, the off-diagonal entries at the nodes.
+    fn default() -> Smoothing {
+        Smoothing::with(Average::Subpixel)
+    }
+}
+
+impl Smoothing {
+    /// `average` over each value's own cell, the off-diagonal entries at the nodes.
+    pub fn with(average: Average) -> Smoothing {
+        Smoothing {
+            average,
+            diameter: 1.0,
+            coupling: Coupling::Nodes,
+        }
+    }
+}
+
+/// An average over a cell.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Average {
+    /// None: the permittivity at the value's own point. An interface between grid points moves
+    /// to one of them, and the scheme is first order.
+    Sampled,
+    /// ⟨ε⟩ for every component (S. Dey, R. Mittra, IEEE Trans. Microw. Theory Tech. 47, 1737
+    /// (1999)): wrong for the field across an interface, first order.
+    Mean,
+    /// ⟨ε⁻¹⟩⁻¹, the harmonic mean: wrong for the field along an interface, first order.
+    InverseMean,
+    /// Kottke et al.'s τ⁻¹(⟨τ⟩) in the interface's frame: ⟨ε⟩ along an interface between
+    /// isotropic media and ⟨ε⁻¹⟩⁻¹ across it.
+    Subpixel,
+}
+
+/// Where ε̃⁻¹'s off-diagonal entries are kept, and how E_x takes D_y and D_z.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Coupling {
+    /// At the nodes, Werner and Cary's (Oskooi et al.'s Fig. 1): E_x takes the mean of D_y on
+    /// either side of each node beside it times (ε̃⁻¹)_xy there, and the mean of the two.
+    /// Symmetric, so the leapfrog's energy is conserved and the scheme stable, but each row
+    /// of ε̃⁻¹ mixes cells about different points: at an interface oblique to the grid, it is
+    /// first order (docs/methods/fdtd.md, "Subpixel smoothing").
+    Nodes,
+    /// At each value of E, from its own cell, Farjadpour et al.'s: E_x takes (ε̃⁻¹)_xy at its
+    /// own point times the mean of the four D_y around it. Second order at oblique interfaces,
+    /// but not symmetric: an error grows exponentially from round-off, slowly in isotropic
+    /// media and fast in anisotropic ones (docs/methods/fdtd.md), so for short runs only.
+    Points,
+}
+
+/// The samples per axis of a cell two surfaces cross.
+const SAMPLES: usize = 8;
+
+impl Structure {
+    /// The background medium alone.
+    pub fn new(background: Permittivity) -> Structure {
+        Structure {
+            background,
+            bodies: Vec::new(),
+        }
+    }
+
+    /// The structure with `body` of `eps` over everything before it.
+    pub fn with(mut self, body: Body, eps: Permittivity) -> Structure {
+        self.bodies.push((body, eps));
+        self
+    }
+
+    /// The permittivity at `p` (µm): the last body's that contains it, or the background.
+    pub fn at(&self, p: [f64; 3]) -> Permittivity {
+        self.bodies
+            .iter()
+            .rev()
+            .find(|(body, _)| body.surface(p).0 < 0.0)
+            .map_or(self.background, |&(_, eps)| eps)
+    }
+
+    /// ε̃⁻¹ over the cell of `size` (µm) about `centre`, by `average`.
+    fn inverse(&self, centre: [f64; 3], size: [f64; 3], average: Average) -> Matrix {
+        if average == Average::Sampled {
+            return inverse(&self.at(centre).0);
+        }
+        // the bodies whose surface crosses the cell, from the top, down to one that covers it
+        let mut crossing: Vec<(f64, [f64; 3], Permittivity)> = Vec::new();
+        let mut beneath = self.background;
+        for (body, eps) in self.bodies.iter().rev() {
+            let (d, n) = body.surface(centre);
+            let reach = 0.5 * (0..3).map(|i| n[i].abs() * size[i]).sum::<f64>();
+            if d <= -reach {
+                beneath = *eps;
+                break;
+            }
+            if d < reach {
+                crossing.push((d, n, *eps));
+            }
+        }
+        let Some(&(d, n, inside)) = crossing.first() else {
+            return inverse(&beneath.0);
+        };
+        let frame = frame(n);
+        // each medium with its share of the cell
+        let shares: Vec<(f64, Permittivity)> = if crossing.len() == 1 {
+            let f = fill(n, d, size);
+            vec![(f, inside), (1.0 - f, beneath)]
+        } else {
+            let offset = |s: usize| (s as f64 + 0.5) / SAMPLES as f64 - 0.5;
+            let weight = 1.0 / (SAMPLES * SAMPLES * SAMPLES) as f64;
+            let mut shares = Vec::with_capacity(SAMPLES * SAMPLES * SAMPLES);
+            for a in 0..SAMPLES {
+                for b in 0..SAMPLES {
+                    for c in 0..SAMPLES {
+                        let p = [
+                            centre[0] + offset(a) * size[0],
+                            centre[1] + offset(b) * size[1],
+                            centre[2] + offset(c) * size[2],
+                        ];
+                        shares.push((weight, self.at(p)));
+                    }
+                }
+            }
+            shares
+        };
+        match average {
+            Average::Mean => inverse(&mean(shares.iter().map(|&(w, e)| (w, e.0)))),
+            Average::InverseMean => mean(shares.iter().map(|&(w, e)| (w, inverse(&e.0)))),
+            Average::Sampled | Average::Subpixel => {
+                let tau = mean(
+                    shares
+                        .iter()
+                        .map(|&(w, e)| (w, tau(&rotated(&frame, &e.0)))),
+                );
+                let eps = rotated(&transpose(&frame), &tau_inverse(&tau));
+                inverse(&eps)
+            }
+        }
+    }
+}
+
+/// The share of a box of `size` about the origin on the side of the plane n·x + d = 0 that n
+/// points away from (n·x + d < 0), n a unit vector: exact.
+///
+/// With tᵢ ∈ [0, 1] across the box and aᵢ = |nᵢ| sizeᵢ, it is the volume of Σ aᵢtᵢ < s,
+/// s = Σaᵢ/2 − d. Along the axis of the smallest a, the area of the rest's cut is piecewise
+/// quadratic between the sums of the rest's a, so two-point Gauss–Legendre on each piece is
+/// exact, with no division by a small a.
+pub(crate) fn fill(n: [f64; 3], d: f64, size: [f64; 3]) -> f64 {
+    let mut a: Vec<f64> = (0..3).map(|i| n[i].abs() * size[i]).collect();
+    let total: f64 = a.iter().sum();
+    let s = 0.5 * total - d;
+    if s <= 0.0 {
+        return 0.0;
+    }
+    if s >= total {
+        return 1.0;
+    }
+    a.retain(|&v| v > 1e-14 * total);
+    a.sort_by(f64::total_cmp);
+    // the 1D and 2D cuts, the larger a last
+    let line = |s: f64, a: f64| (s / a).clamp(0.0, 1.0);
+    let area = |s: f64, a: f64, b: f64| -> f64 {
+        let half = |s: f64| {
+            if s <= 0.0 {
+                0.0
+            } else if s <= a {
+                s * s / (2.0 * a * b)
+            } else {
+                (2.0 * s - a) / (2.0 * b)
+            }
+        };
+        if 2.0 * s <= a + b {
+            half(s)
+        } else {
+            1.0 - half(a + b - s)
+        }
+    };
+    match a.len() {
+        1 => line(s, a[0]),
+        2 => area(s, a[0], a[1]),
+        _ => {
+            // ∫₀¹ area(s − a₀t) dt, split where s − a₀t crosses 0, a₁, a₂ or a₁ + a₂
+            let mut cuts = vec![0.0, 1.0];
+            for b in [0.0, a[1], a[2], a[1] + a[2]] {
+                let t = (s - b) / a[0];
+                if t > 0.0 && t < 1.0 {
+                    cuts.push(t);
+                }
+            }
+            cuts.sort_by(f64::total_cmp);
+            let g = 0.5 / 3f64.sqrt();
+            cuts.windows(2)
+                .map(|w| {
+                    let (mid, half) = (0.5 * (w[0] + w[1]), w[1] - w[0]);
+                    let at = |t: f64| area(s - a[0] * t, a[1], a[2]);
+                    0.5 * half * (at(mid - g * half) + at(mid + g * half))
+                })
+                .sum()
+        }
+    }
+}
+
+/// A frame whose first row is the unit vector n, its rows orthonormal.
+fn frame(n: [f64; 3]) -> Matrix {
+    // the grid's axis least along n, crossed with n
+    let least = (0..3)
+        .min_by(|&i, &j| n[i].abs().total_cmp(&n[j].abs()))
+        .unwrap();
+    let mut e = [0.0; 3];
+    e[least] = 1.0;
+    let t = cross(n, e);
+    let t = t.map(|v| v / norm(t));
+    [n, t, cross(n, t)]
+}
+
+/// R M Rᵀ.
+fn rotated(r: &Matrix, m: &Matrix) -> Matrix {
+    std::array::from_fn(|i| {
+        std::array::from_fn(|j| {
+            (0..3)
+                .map(|k| (0..3).map(|l| r[i][k] * m[k][l] * r[j][l]).sum::<f64>())
+                .sum()
+        })
+    })
+}
+
+/// Kottke et al.'s Eq. 4.
+fn tau(e: &Matrix) -> Matrix {
+    let mut t = [[0.0; 3]; 3];
+    t[0][0] = -1.0 / e[0][0];
+    for j in 1..3 {
+        t[0][j] = e[0][j] / e[0][0];
+        t[j][0] = e[j][0] / e[0][0];
+    }
+    for i in 1..3 {
+        for j in 1..3 {
+            t[i][j] = e[i][j] - e[i][0] * e[0][j] / e[0][0];
+        }
+    }
+    t
+}
+
+/// Its inverse, their Eq. 23.
+fn tau_inverse(t: &Matrix) -> Matrix {
+    let mut e = [[0.0; 3]; 3];
+    e[0][0] = -1.0 / t[0][0];
+    for j in 1..3 {
+        e[0][j] = -t[0][j] / t[0][0];
+        e[j][0] = -t[j][0] / t[0][0];
+    }
+    for i in 1..3 {
+        for j in 1..3 {
+            e[i][j] = t[i][j] - t[i][0] * t[0][j] / t[0][0];
+        }
+    }
+    e
+}
+
+fn mean(terms: impl Iterator<Item = (f64, Matrix)>) -> Matrix {
+    let mut m = [[0.0; 3]; 3];
+    for (w, t) in terms {
+        for i in 0..3 {
+            for j in 0..3 {
+                m[i][j] += w * t[i][j];
+            }
+        }
+    }
+    m
+}
+
+fn determinant(m: &Matrix) -> f64 {
+    m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+        - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+        + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+}
+
+/// The inverse of a symmetric matrix, by its cofactors, exactly symmetric.
+fn inverse(m: &Matrix) -> Matrix {
+    let det = determinant(m);
+    let c = |i: usize, j: usize| {
+        let (r0, r1) = ((i + 1) % 3, (i + 2) % 3);
+        let (c0, c1) = ((j + 1) % 3, (j + 2) % 3);
+        m[r0][c0] * m[r1][c1] - m[r0][c1] * m[r1][c0]
+    };
+    // the inverse is the transposed cofactors over the determinant
+    symmetrized(std::array::from_fn(|i| {
+        std::array::from_fn(|j| c(j, i) / det)
+    }))
+}
+
+fn symmetrized(m: Matrix) -> Matrix {
+    std::array::from_fn(|i| std::array::from_fn(|j| 0.5 * (m[i][j] + m[j][i])))
+}
+
+fn transpose(m: &Matrix) -> Matrix {
+    std::array::from_fn(|i| std::array::from_fn(|j| m[j][i]))
+}
+
+fn orthonormal(axes: &Matrix) -> bool {
+    (0..3).all(|i| {
+        (0..3).all(|j| {
+            let expected = if i == j { 1.0 } else { 0.0 };
+            (dot(axes[i], axes[j]) - expected).abs() <= 1e-9
+        })
+    })
+}
+
+fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+fn sub(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
+    [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+}
+
+fn norm(a: [f64; 3]) -> f64 {
+    dot(a, a).sqrt()
+}
+
+fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
+    [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    ]
+}
+
+impl Simulation {
+    /// The problem on `grid` with the permittivity of `structure`, each value of E's taken by
+    /// `smoothing`, inside `boundaries`, stepped at the Courant number `courant` (0 < C ≤ 1).
+    ///
+    /// Where the smoothed tensor couples E's components (an interface not along the grid's
+    /// axes, or an anisotropic medium whose principal axes aren't the grid's), the simulation
+    /// steps D and finds E from it, and E set by [`Simulation::e_mut`] before a step enters
+    /// only H̃'s next update. Such a medium takes no conductivity and no dispersive medium.
+    ///
+    /// # Errors
+    ///
+    /// As [`Simulation::new`], for a diameter that isn't positive and finite, and for a smoothed
+    /// tensor that couples E's components with a Bloch boundary of k ≠ 0 (not supported).
+    pub fn smoothed(
+        grid: Grid3d,
+        structure: &Structure,
+        smoothing: Smoothing,
+        boundaries: Boundaries,
+        courant: f64,
+    ) -> Result<Simulation> {
+        let Smoothing {
+            average,
+            diameter,
+            coupling,
+        } = smoothing;
+        if !(diameter.is_finite() && diameter > 0.0) {
+            return Err(invalid(format!(
+                "a smoothing diameter must be positive and finite, got {diameter}"
+            )));
+        }
+        let size = [grid.dx, grid.dy, grid.dz].map(|h| h * diameter);
+        let at = |r: usize| {
+            (
+                r % grid.nx,
+                (r / grid.nx) % grid.ny,
+                r / (grid.nx * grid.ny),
+            )
+        };
+        // each value's row of ε̃⁻¹ over the cell about it
+        let mut rows: [Vec<[f64; 3]>; 3] = [Vec::new(), Vec::new(), Vec::new()];
+        let mut s = Simulation::with_permittivity(grid, boundaries, courant, |grid| {
+            rows = Axis::ALL.map(|c| {
+                (0..grid.cells())
+                    .into_par_iter()
+                    .map(|r| structure.inverse(grid.e_position(c, at(r)), size, average)[c.index()])
+                    .collect()
+            });
+            Ok(std::array::from_fn(|c| {
+                rows[c].iter().map(|row| 1.0 / row[c]).collect()
+            }))
+        })?;
+        let n = grid.cells();
+        // the off-diagonal entries: (ε̃⁻¹)_yz, _zx and _xy at the nodes, over the cells about
+        // them, or (ε̃⁻¹)_ca at each value of E_c
+        let off = match coupling {
+            Coupling::Nodes => {
+                let nodes: Vec<[f64; 3]> = (0..n)
+                    .into_par_iter()
+                    .map(|r| {
+                        let (i, j, k) = at(r);
+                        let p = [
+                            grid.node(Axis::X, i),
+                            grid.node(Axis::Y, j),
+                            grid.node(Axis::Z, k),
+                        ];
+                        let m = structure.inverse(p, size, average);
+                        [m[1][2], m[2][0], m[0][1]]
+                    })
+                    .collect();
+                Off::Nodes(std::array::from_fn(|a| {
+                    nodes.iter().map(|m| m[a]).collect()
+                }))
+            }
+            Coupling::Points => Off::Points(rows.clone()),
+        };
+        let any = match &off {
+            Off::Nodes(w) => w.iter().flatten().any(|&v| v != 0.0),
+            Off::Points(rows) => (0..3).any(|c| {
+                rows[c]
+                    .iter()
+                    .any(|row| (0..3).any(|a| a != c && row[a] != 0.0))
+            }),
+        };
+        if !any {
+            return Ok(s);
+        }
+        if s.bloch.is_some() {
+            return Err(invalid(
+                "a permittivity that couples E's components with a Bloch phase isn't supported: \
+                 D's coupling across the Bloch sides would need the phase",
+            ));
+        }
+        let forward = s.offsets(true);
+        // the values of E an off-diagonal entry reaches
+        let coupled = Axis::ALL.map(|c| {
+            let ci = c.index();
+            (0..n)
+                .map(|r| {
+                    let (i, j, k) = at(r);
+                    let next = forward[ci][[i, j, k][ci]].map(|o| (r as isize + o) as usize);
+                    let (a, b) = c.others();
+                    [a, b].into_iter().any(|other| {
+                        let oi = other.index();
+                        match &off {
+                            Off::Nodes(w) => {
+                                let w = &w[3 - ci - oi];
+                                w[r] != 0.0 || next.is_some_and(|q| w[q] != 0.0)
+                            }
+                            Off::Points(rows) => rows[ci][r][oi] != 0.0,
+                        }
+                    })
+                })
+                .collect()
+        });
+        let anisotropic = Anisotropic {
+            d: [vec![0.0; n], vec![0.0; n], vec![0.0; n]],
+            cb: s.cb.clone().map(|c| {
+                c.iter()
+                    .map(|&v| if v == 0.0 { 0.0 } else { s.dt })
+                    .collect()
+            }),
+            diagonal: std::array::from_fn(|c| rows[c].iter().map(|row| row[c]).collect()),
+            off,
+            coupled,
+            forward,
+            back: s.offsets(false),
+            grid,
+        };
+        s.anisotropic = Some(Box::new(anisotropic));
+        Ok(s)
+    }
+}
+
+/// ε̃⁻¹'s off-diagonal entries, by [`Coupling`].
+#[derive(Clone, Debug)]
+enum Off {
+    /// (ε̃⁻¹)_yz, _zx and _xy at the nodes, numbered by the axis neither is along.
+    Nodes([Vec<f64>; 3]),
+    /// Each value of E_c's row of ε̃⁻¹, (ε̃⁻¹)_ca for each a.
+    Points([Vec<[f64; 3]>; 3]),
+}
+
+/// A permittivity tensor that couples E's components: D, stepped as E would be in vacuum, and
+/// ε̃⁻¹ to find E from it.
+#[derive(Clone, Debug)]
+pub(super) struct Anisotropic {
+    d: [Vec<f64>; 3],
+    /// D's update coefficients, Δt, or 0 where E is held at zero.
+    cb: [Vec<f64>; 3],
+    /// (ε̃⁻¹)_cc at each value of E_c.
+    diagonal: [Vec<f64>; 3],
+    off: Off,
+    /// The values of each component of E that an off-diagonal entry reaches.
+    coupled: [Vec<bool>; 3],
+    /// [`Simulation::offsets`], forward and back.
+    forward: [Vec<Option<isize>>; 3],
+    back: [Vec<Option<isize>>; 3],
+    grid: Grid3d,
+}
+
+impl Anisotropic {
+    /// Before E's update: D and its coefficients take E's and its coefficients' places.
+    pub(super) fn begin(&mut self, e: &mut [Vec<f64>; 3], cb: &mut [Vec<f64>; 3]) {
+        std::mem::swap(e, &mut self.d);
+        std::mem::swap(cb, &mut self.cb);
+    }
+
+    /// After it, its sources and its corrections: back in their places, and E = ε̃⁻¹D, zero
+    /// where it is held there.
+    pub(super) fn end(&mut self, e: &mut [Vec<f64>; 3], cb: &mut [Vec<f64>; 3]) {
+        std::mem::swap(e, &mut self.d);
+        std::mem::swap(cb, &mut self.cb);
+        let g = self.grid;
+        let plane = g.nx * g.ny;
+        let (d, diagonal, off, coupled) = (&self.d, &self.diagonal, &self.off, &self.coupled);
+        let (forward, back) = (&self.forward, &self.back);
+        for c in Axis::ALL {
+            let ci = c.index();
+            let (a, b) = c.others();
+            let held = &cb[ci];
+            e[ci]
+                .par_chunks_mut(plane)
+                .enumerate()
+                .for_each(|(k, values)| {
+                    for j in 0..g.ny {
+                        for i in 0..g.nx {
+                            let m = [i, j, k];
+                            let r = k * plane + j * g.nx + i;
+                            let v = &mut values[j * g.nx + i];
+                            if held[r] == 0.0 {
+                                *v = 0.0;
+                                continue;
+                            }
+                            *v = diagonal[ci][r] * d[ci][r];
+                            if !coupled[ci][r] {
+                                continue;
+                            }
+                            // the nodes at either end of this value's edge, and D_a on either
+                            // side of each
+                            let next = forward[ci][m[ci]].map(|o| (r as isize + o) as usize);
+                            for other in [a, b] {
+                                let oi = other.index();
+                                let pair = |node: usize| {
+                                    d[oi][node]
+                                        + back[oi][m[oi]]
+                                            .map_or(0.0, |o| d[oi][(node as isize + o) as usize])
+                                };
+                                match off {
+                                    Off::Nodes(w) => {
+                                        let w = &w[3 - ci - oi];
+                                        for node in [Some(r), next].into_iter().flatten() {
+                                            if w[node] != 0.0 {
+                                                *v += 0.25 * w[node] * pair(node);
+                                            }
+                                        }
+                                    }
+                                    Off::Points(rows) => {
+                                        let sum = pair(r) + next.map_or(0.0, pair);
+                                        *v += 0.25 * rows[ci][r][oi] * sum;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+        }
+    }
+
+    /// E's `component` held at zero at value `r`, a conductor's.
+    pub(super) fn hold(&mut self, component: usize, r: usize) {
+        self.cb[component][r] = 0.0;
+        self.d[component][r] = 0.0;
+    }
+
+    /// Σ E·D.
+    pub(super) fn dot(&self, e: &[Vec<f64>; 3]) -> f64 {
+        (0..3)
+            .map(|c| e[c].iter().zip(&self.d[c]).map(|(x, y)| x * y).sum::<f64>())
+            .sum()
+    }
+}
+
+pub(crate) mod checks;
+#[cfg(test)]
+mod tests;
