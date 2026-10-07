@@ -48,6 +48,7 @@ use crate::{Error, Result};
 
 /// A family of problems.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Family {
     /// 2D FDFD systems, solved directly.
     Fdfd2d,
@@ -66,8 +67,8 @@ pub enum Family {
 }
 
 impl Family {
-    /// Every family, in the catalogue's order.
-    pub const ALL: [Family; 7] = [
+    /// Every family, in the catalogue's order (a slice, so a new family isn't a new type).
+    pub const ALL: &'static [Family] = &[
         Family::Fdfd2d,
         Family::Fdfd3d,
         Family::Iterative3d,
@@ -93,6 +94,7 @@ impl Family {
 
 /// What a problem asks of the linear algebra.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Task {
     /// A sparse direct solve of a general matrix: an LU.
     DirectGeneral,
@@ -147,6 +149,7 @@ impl Tier {
 
 /// One problem's record.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct Entry {
     /// Its id, stable: `fdfd2d/ring-ez-400`, `strip-24`, `fdfd3d/guide-ilu`.
     pub id: String,
@@ -1341,7 +1344,7 @@ mod tests {
         }
         // every family is there, each entry's id begins with its family's name or is an older
         // one, and no record is without its grid
-        for family in Family::ALL {
+        for &family in Family::ALL {
             assert!(all.iter().any(|e| e.family == family), "{family:?}");
         }
         for e in &all {
@@ -1366,7 +1369,7 @@ mod tests {
         assert_eq!(full, catalogue());
         assert!(quick.iter().all(|e| standard.contains(e)));
         // the quick tier has the smallest of each family but the whole jobs
-        for family in Family::ALL {
+        for &family in Family::ALL {
             let there = quick.iter().any(|e| e.family == family);
             assert_eq!(there, family != Family::Job, "{family:?}");
         }
