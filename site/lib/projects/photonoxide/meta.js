@@ -20,7 +20,7 @@ export const PHOTONOXIDE_COMMIT = site.commit;
 export const PHOTONOXIDE_PATH = "/projects/photonoxide";
 export const PHOTONOXIDE_OG_IMAGE = "/projects/photonoxide/opengraph-image";
 
-export const PHOTONOXIDE_TAGLINE = "Photonics for Rust: validated, fabrication-ready, visible while it runs";
+export const PHOTONOXIDE_TAGLINE = "Photonics for Rust: validated, visible while it runs";
 
 /** The project's pages, under PHOTONOXIDE_PATH. */
 export const METHODS_PATH = "/projects/photonoxide/methods";
@@ -30,7 +30,7 @@ export const ROADMAP_PATH = "/projects/photonoxide/roadmap";
 export const DOCS_PATH = "/projects/photonoxide/docs";
 
 export const PHOTONOXIDE_DESCRIPTION =
-  "photonoxide is a photonics library for Rust: materials with provenance, mode solvers, 2D and 3D FDFD, components and circuits with their adjoint, and compact models, with a studio to build jobs and chips and watch every run live. Every method is validated against analytic solutions and published results. FDTD, active devices, inverse design, layout and tape-out are planned.";
+  "photonoxide is a photonics library for Rust: materials with provenance, mode solvers, 2D and 3D FDFD, components and circuits with their adjoint, and compact models, with a studio to build jobs and chips and watch every run live. Every method is validated against analytic solutions and published results. FDTD, active devices, inverse design and layout export are planned.";
 
 export const PHOTONOXIDE_LICENSE = "MIT OR Apache-2.0";
 
@@ -64,7 +64,6 @@ export const PHOTONOXIDE_KEYWORDS = [
   "adjoint method",
   "GDSII",
   "PDK",
-  "tape-out",
   "Rust",
 ];
 
@@ -132,19 +131,19 @@ export const PHOTONOXIDE_HIGHLIGHTS = [
     icon: "inverse",
     title: "Inverse design",
     status: "planned",
-    body: "Adjoint topology and shape optimization with robust and foundry-rule constraints, on genoxide's optimizers.",
+    body: "Adjoint topology and shape optimization with robust and fabrication-rule constraints, on genoxide's optimizers.",
   },
   {
     icon: "layout",
     title: "Layout and PDKs",
     status: "planned",
-    body: "GDSII and OASIS, parametric cells with ports, routing, design-rule checks, and the open SiEPIC EBeam and Cornerstone PDKs.",
+    body: "GDSII and OASIS, parametric cells with ports, routing, and design-rule checks on the rules the user loads.",
   },
   {
-    icon: "tapeout",
-    title: "Tape-out",
+    icon: "export",
+    title: "Fabrication data",
     status: "planned",
-    body: "Submission packages for multi-project wafer runs: the foundry's layers, black-box cells, test structures, sign-off and connectivity checks.",
+    body: "Layout packages on the user's layer map, with test structures, design and connectivity checks, and a design record.",
   },
 ];
 
@@ -159,8 +158,8 @@ export const PHOTONOXIDE_PROPERTIES = [
     body: "Every number comes with its grid, boundaries and run time. Unconverged results are flagged, never quietly reported.",
   },
   {
-    title: "Fabricable",
-    body: "Designs pass an open PDK's design rules and report their performance across process variation, not just at nominal.",
+    title: "Fabrication-aware",
+    body: "Designs are checked against the design rules the user supplies and report their performance across process variation, not just at nominal.",
   },
   {
     title: "Reproducible",
@@ -168,14 +167,14 @@ export const PHOTONOXIDE_PROPERTIES = [
   },
 ];
 
-/** From a simulation to a measured chip: the path the library covers. */
+/** From a simulation to a checked layout: the path the library covers. */
 export const PHOTONOXIDE_PIPELINE = [
   { title: "Simulate", body: "Modes, fields and spectra, each with its convergence." },
-  { title: "Optimize", body: "Adjoint inverse design under the foundry's rules, robust to process variation." },
-  { title: "Lay out", body: "Polygons on the PDK's layers, with ports, routing and test structures." },
-  { title: "Check", body: "Design rules, connectivity, and sign-off with the foundry's own deck." },
-  { title: "Tape out", body: "GDSII or OASIS for a multi-project wafer run. SiEPIC openEBL is the first target." },
-  { title: "Measure", body: "Measured spectra back into the validation report, next to the prediction." },
+  { title: "Optimize", body: "Adjoint inverse design under fabrication rules, robust to process variation." },
+  { title: "Lay out", body: "Polygons on the process's layers, with ports, routing and test structures." },
+  { title: "Check", body: "Design rules and connectivity, on the rules the user loads." },
+  { title: "Export", body: "GDSII or OASIS, with the design record next to it." },
+  { title: "Compare", body: "Measured spectra the user has, imported and compared with the prediction." },
 ];
 
 /**
@@ -193,7 +192,7 @@ export const PHOTONOXIDE_VALIDATION = [
   },
   {
     title: "Measured",
-    body: "Dwivedi et al.'s Mach-Zehnder interferometers on imec's line: three wires' effective and group indices, predicted from their measured cross-sections, within the paper's fabrication estimate.",
+    body: "Dwivedi et al.'s published Mach-Zehnder interferometers: three wires' effective and group indices, predicted from their measured cross-sections, within the paper's fabrication estimate.",
   },
   {
     title: "Cross-code",
@@ -225,7 +224,7 @@ export const FALLBACK_MILESTONES = [
   "0.7.1: Distributed memory",
   "0.8: Carrier modulators, signals and programmable circuits",
   "0.9: Layout and PDK",
-  "0.10: Tape-out",
+  "0.10: Fabrication data",
   "0.11: Fabrication realism",
   "0.12: Semi-analytic methods",
   "0.13: Device library",
