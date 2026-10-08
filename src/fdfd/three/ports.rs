@@ -134,6 +134,14 @@ impl PortMode3d {
         (self.size, self.step)
     }
 
+    /// The same mode on plane `plane` of a grid with the same cross-section and step: a mode
+    /// solved on a few planes cut out of a longer grid (its own problem is only the plane and
+    /// the next), put back where they were cut from.
+    pub(crate) fn moved_to(mut self, plane: usize) -> PortMode3d {
+        self.plane = plane;
+        self
+    }
+
     /// The mode's value `r` of the 3D field, going `direction` at unit amplitude on the plane.
     pub(super) fn value(&self, lattice: &Lattice, r: usize, direction: Direction) -> c64 {
         let (component, at) = lattice.grid.at(r);

@@ -1,0 +1,76 @@
+# The 1x2 MMI splitter of mmi-fdfd.toml in the time domain: 2D FDTD with the effective index
+# method (an estimate, not the device's 3D performance), on the same 20 nm grid with the same
+# 20-cell absorbers. One pulse from the input guide's TE mode covers 1.5 to 1.6 um; the outputs'
+# mode monitors fill in their spectra as the pulse goes through, and agree with the FDFD job's
+# |S21|^2 and |S31|^2 at every wavelength. The field shows the pulse entering the body, the
+# self-images forming and the two halves leaving.
+#   photonoxide run jobs/mmi-fdtd.toml
+name = "mmi-fdtd"
+timeout_minutes = 20
+
+[task]
+kind = "fdtd"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+polarization = "te"
+x_um = [-2.0, 12.5]
+y_um = [-3.0, 3.0]
+step_nm = 20.0
+
+[task.spectrum]
+from_um = 1.5
+to_um = 1.6
+points = 11
+
+# the input guide
+[[task.rect]]
+layer = "Si"
+center_um = [-3.0, 0.0]
+size_um = [6.0, 0.5]
+
+# the multimode body
+[[task.rect]]
+layer = "Si"
+center_um = [4.275, 0.0]
+size_um = [8.55, 3.0]
+
+# the two outputs
+[[task.rect]]
+layer = "Si"
+center_um = [12.0, 0.75]
+size_um = [7.0, 0.5]
+
+[[task.rect]]
+layer = "Si"
+center_um = [12.0, -0.75]
+size_um = [7.0, 0.5]
+
+# the input guide's TE mode, towards +x
+[[task.source]]
+type = "mode"
+normal = "x"
+at_um = -1.0
+direction = "+"
+
+[[task.monitor]]
+type = "mode"
+name = "upper output"
+normal = "x"
+at_um = 11.0
+y_um = [0.0, 3.0]
+
+[[task.monitor]]
+type = "mode"
+name = "lower output"
+normal = "x"
+at_um = 11.0
+y_um = [-3.0, 0.0]
+
+[[task.monitor]]
+type = "field"
+wavelengths_um = [1.55]
+
+[task.stop]
+until = "decay"
+fraction = 1e-8

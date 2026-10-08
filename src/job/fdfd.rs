@@ -138,12 +138,23 @@ impl FdfdTask {
 fn effective_index(
     s: &Structure,
     p: Point,
+    layer: (Length, Length),
+    kind: crate::mode::Polarization,
+    wavelength: Wavelength,
+) -> Result<f64> {
+    slab_index(|z| s.material_at(p, z), layer, kind, wavelength)
+}
+
+/// [`effective_index`] of the column whose material at each height z is `material(z)`: the
+/// layer's, between what lies just below and above it.
+pub(super) fn slab_index<'a>(
+    material: impl Fn(Length) -> &'a crate::material::Material,
     (bottom, top): (Length, Length),
     kind: crate::mode::Polarization,
     wavelength: Wavelength,
 ) -> Result<f64> {
     let n = |z: Length| -> Result<f64> {
-        Ok(refractive_index(s.material_at(p, z).permittivity(wavelength)?).re)
+        Ok(refractive_index(material(z).permittivity(wavelength)?).re)
     };
     let tiny = Length::nm(1e-3);
     let (below, core, above) = (n(bottom - tiny)?, n((bottom + top) * 0.5)?, n(top + tiny)?);
@@ -303,6 +314,9 @@ struct Device {
     boundaries: Boundaries,
     /// The direct solver the job asks for.
     direct: crate::backend::Choice,
+    /// The wavelength the permittivity is taken at, if not each solve's own: an `"fdtd"` job's
+    /// non-dispersive plane, to compare it with.
+    frozen: Option<Wavelength>,
 }
 
 impl Device {
@@ -346,6 +360,7 @@ impl Device {
             grid,
             boundaries,
             direct: job.direct().clone(),
+            frozen: None,
         })
     }
 
@@ -382,7 +397,7 @@ impl Device {
             &self.grid,
             self.layer,
             self.kind,
-            wavelength,
+            self.frozen.unwrap_or(wavelength),
         )?;
         let solver = match first {
             None => Solver2d::new_on(
@@ -437,8 +452,24 @@ pub struct FdfdSParameters {
 /// The errors [`check`](super::check) finds, a wavelength that isn't positive and finite, and
 /// those of the solve (a port inside the PML, a material without data at a wavelength).
 pub fn fdfd_s_parameters(job: &Job, wavelengths_um: Option<&[f64]>) -> Result<FdfdSParameters> {
+    s_parameters(Device::new(job)?, wavelengths_um)
+}
+
+/// [`fdfd_s_parameters`] with the permittivity taken at `permittivity_um` whatever the
+/// wavelength: the non-dispersive plane an `"fdtd"` job steps in time, its carrier's.
+#[cfg(test)]
+pub(super) fn fdfd_s_parameters_frozen(
+    job: &Job,
+    wavelengths_um: &[f64],
+    permittivity_um: f64,
+) -> Result<FdfdSParameters> {
+    let mut device = Device::new(job)?;
+    device.frozen = Some(Wavelength::um(permittivity_um)?);
+    s_parameters(device, Some(wavelengths_um))
+}
+
+fn s_parameters(device: Device, wavelengths_um: Option<&[f64]>) -> Result<FdfdSParameters> {
     use rayon::prelude::*;
-    let device = Device::new(job)?;
     let wavelengths = wavelengths_um.map_or_else(|| device.wavelengths(), <[f64]>::to_vec);
     let mut s = Vec::with_capacity(wavelengths.len());
     let mut effective_indices = Vec::with_capacity(wavelengths.len());

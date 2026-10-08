@@ -55,6 +55,7 @@
     if (measure.startsWith("eigen-residual")) return "$\\lVert A h - \\beta^2 h\\rVert / (|\\beta^2|\\,\\lVert h\\rVert)$: how far the mode is from solving its eigenproblem";
     if (measure === "linear residual") return "$\\lVert b - A u\\rVert / \\lVert b\\rVert$: how far the field from port 1 is from solving its linear system";
     if (measure === "reciprocity") return "$\\max |S_{qp} - S_{pq}|$: how far the S-matrix is from the symmetric one a reciprocal device has";
+    if (measure.startsWith("field left")) return "$\\max_t |F|^2 / \\max |F|^2$ at the monitors over the last check: the field the transforms leave out, which truncates the spectra";
     return "";
   }
 

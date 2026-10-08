@@ -8,8 +8,9 @@
 //! the neighbour, are done one value at a time. Every value is computed by the same operations
 //! in the same order as the plain loops it replaces (kept as [`reference`]), so in f64 the
 //! fields are the same bits; IEEE 754 makes a vector lane's sum or product the scalar one.
-//! The z-planes are shared among rayon's threads, each value written by one of them: the same
-//! bits on any number of threads.
+//! The rows are shared among rayon's threads in chunks fixed by the grid (so a 2D grid, one plane
+//! thick, is shared too), each value written by one of them: the same bits on any number of
+//! threads.
 //!
 //! The neighbours' offsets and the 1/(κΔ) factors are tabulated once per field ([`Stencil`]),
 //! and nothing is allocated while stepping.
@@ -20,6 +21,11 @@ use rayon::prelude::*;
 
 use super::Field;
 use crate::fdfd::{Axis, Grid3d};
+
+/// About how many values of a component one task of the curl's update takes: whole rows, as
+/// many as make this many values, so that a grid one plane thick is shared among the threads.
+/// Each row's update is alone, so the fields are the same bits however they are shared.
+const ROW_CELLS: usize = 4096;
 
 /// A floating-point type the kernel runs in: f32 or f64.
 pub trait Real:
@@ -181,16 +187,20 @@ pub(crate) fn curl_update<T: Real>(
     dt: T,
 ) {
     let (nx, ny) = (grid.nx, grid.ny);
-    let plane = nx * ny;
+    // the rows in chunks of about ROW_CELLS values, fixed by the grid: a 2D grid, one plane
+    // thick, is shared among the threads as a 3D one is
+    let rows = ROW_CELLS.div_ceil(nx).max(1);
     let [ox, oy, oz] = out;
-    ox.par_chunks_mut(plane)
-        .zip(oy.par_chunks_mut(plane))
-        .zip(oz.par_chunks_mut(plane))
+    ox.par_chunks_mut(rows * nx)
+        .zip(oy.par_chunks_mut(rows * nx))
+        .zip(oz.par_chunks_mut(rows * nx))
         .enumerate()
-        .for_each(|(k, ((px, py), pz))| {
-            for j in 0..ny {
-                let base = k * plane + j * nx;
-                let span = j * nx..(j + 1) * nx;
+        .for_each(|(chunk, ((px, py), pz))| {
+            for local in 0..px.len() / nx {
+                let r = chunk * rows + local;
+                let (j, k) = (r % ny, r / ny);
+                let base = r * nx;
+                let span = local * nx..(local + 1) * nx;
                 let apply = |c: usize| match coefficients {
                     Some((keep, scale)) => Apply::E {
                         keep: &keep[c][base..base + nx],

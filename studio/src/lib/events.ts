@@ -158,7 +158,7 @@ export interface SweepField {
 /** How the run solves, recorded once before its first solve. */
 export interface Solver {
   type: "solver";
-  /** The library module that solves: "mode::vector" or "fdfd". */
+  /** The library module that solves: "mode::vector", "fdfd" or "fdtd". */
   module: string;
   /** The grid's cells along its two axes. */
   cells: [number, number];
@@ -199,8 +199,84 @@ export interface SParameters {
   s: [number, number][][];
 }
 
+/**
+ * A picture of an FDTD run's field at one moment, seen from above over the scene's window:
+ * averaged over blocks of cells and quantized to signed bytes of its peak.
+ */
+export interface FdtdFrame {
+  type: "fdtd_frame";
+  step: number;
+  /** The time of E, c·t in µm (µm/c). */
+  time_um: number;
+  /** A component ("Ez", "Hz", …), "|E|^2" or "|H|^2". */
+  field: string;
+  z_um: number;
+  nx: number;
+  ny: number;
+  x_um: [number, number];
+  y_um: [number, number];
+  /** The largest magnitude among the pixels, in the field's units. */
+  peak: number;
+  /** The pixels row by row from the low y up, signed bytes of peak / 127, base64. */
+  data: string;
+}
+
+/** How far an FDTD run has gone, recorded with each frame. */
+export interface FdtdProgress {
+  type: "fdtd_progress";
+  step: number;
+  time_um: number;
+  /** The time the run stops at, at the latest, µm/c. */
+  until_um: number;
+  /** The largest |field|² at the monitors' points since the last frame, over its peak. */
+  decay: number;
+  /** For a run until the fields decay: the share of the peak they must stay below. */
+  fraction: number | null;
+  steps_seconds: number;
+  frames_seconds: number;
+  cell_updates_per_second: number;
+}
+
+/** An FDTD monitor's spectrum: its transforms so far, or at the end (last). */
+export interface FdtdSpectrum {
+  type: "fdtd_spectrum";
+  monitor: string;
+  /** "mode", "flux", "flux_box" or "reflection". */
+  kind: string;
+  quantity: string;
+  wavelengths_um: number[];
+  series: { label: string; values: number[] }[];
+  time_um: number;
+  last: boolean;
+}
+
+export interface FoundResonance {
+  wavelength_um: number;
+  /** c/µm. */
+  frequency: number;
+  q: number;
+  /** Per µm/c. */
+  decay: number;
+  amplitude: number;
+  /** Harmonic inversion's own error for the term. */
+  error: number;
+}
+
+/** The resonances an FDTD run's resonance monitor found, by harmonic inversion. */
+export interface FdtdResonances {
+  type: "fdtd_resonances";
+  monitor: string;
+  position_um: number[];
+  component: string;
+  resonances: FoundResonance[];
+}
+
 export type Event =
   | { type: "started"; job: string; kind: string }
+  | FdtdFrame
+  | FdtdProgress
+  | FdtdSpectrum
+  | FdtdResonances
   | Scene
   | Permittivity
   | Mode
