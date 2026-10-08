@@ -537,7 +537,9 @@ fn guide_3d_with(
     let new = |formulation| IterativeSolver3d::new(grid, lam, eps, boundaries, formulation);
     let mut phases = Vec::new();
     let field = {
-        let solver = solve.build(&mut phases, new)?.with_iterative_backend(iterative)?;
+        let solver = solve
+            .build(&mut phases, new)?
+            .with_iterative_backend(iterative)?;
         let (t, moved) = (Instant::now(), bytes_moved());
         let (field, convergence) = solver.solve(&source, stopping(tolerance))?;
         phases.push(Phase {

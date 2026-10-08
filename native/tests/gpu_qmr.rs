@@ -30,7 +30,10 @@ fn it_passes_the_smoke_test() {
 /// entry's own check), its iterations against the CPU's QMR, and both times.
 #[test]
 fn it_solves_the_3d_guides_as_photonoxide_does() {
-    guides(&["fdfd3d-iterative/guide-qmr-20", "fdfd3d-iterative/guide-qmr-30"]);
+    guides(&[
+        "fdfd3d-iterative/guide-qmr-20",
+        "fdfd3d-iterative/guide-qmr-30",
+    ]);
 }
 
 /// The guide of 44 cells a side too: over an hour, most of it its reference fields to 1e-12.
@@ -66,7 +69,10 @@ fn guides(ids: &[&str]) {
         // the same recurrences, summed in another order: over a thousand Lanczos steps on an
         // indefinite system, rounding moves the count by a few percent (1394 against 1423)
         let apart = it_gpu.abs_diff(it_cpu);
-        assert!(apart <= 3.max(it_cpu / 20), "{id}: {it_gpu} against {it_cpu}");
+        assert!(
+            apart <= 3.max(it_cpu / 20),
+            "{id}: {it_gpu} against {it_cpu}"
+        );
     }
 }
 

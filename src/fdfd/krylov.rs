@@ -41,8 +41,17 @@ pub(crate) struct Sparse {
 impl Sparse {
     /// The matrix by columns, as a backend takes it ([`crate::backend::Matrix`]): its
     /// transpose's rows are its columns.
-    pub(crate) fn as_matrix(&self, form: crate::backend::Form) -> Result<crate::backend::Matrix<'_>> {
-        crate::backend::Matrix::new(self.n, &self.t_starts, &self.t_columns, &self.t_values, form)
+    pub(crate) fn as_matrix(
+        &self,
+        form: crate::backend::Form,
+    ) -> Result<crate::backend::Matrix<'_>> {
+        crate::backend::Matrix::new(
+            self.n,
+            &self.t_starts,
+            &self.t_columns,
+            &self.t_values,
+            form,
+        )
     }
 
     /// The n × n matrix with these entries, (row, column, value); repeated entries are summed.

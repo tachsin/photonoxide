@@ -3336,6 +3336,7 @@ dependencies = [
  "libloading 0.9.0",
  "num-complex",
  "photonoxide",
+ "rayon",
 ]
 
 [[package]]

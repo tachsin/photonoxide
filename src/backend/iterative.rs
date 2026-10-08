@@ -167,3 +167,66 @@ pub fn iterative(choice: &Choice) -> Result<Option<Arc<dyn IterativeSolver>>> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backend::Form;
+
+    /// A backend that answers every run with zeros, for the registry's tests.
+    struct Zeros;
+
+    impl IterativeSolver for Zeros {
+        fn capabilities(&self) -> Capabilities {
+            Capabilities::new("zeros-for-tests", "1", "MIT OR Apache-2.0")
+        }
+
+        fn qmr_run(&self, matrix: &Matrix<'_>, _: &[c64], _: Stopping) -> Result<QmrRun> {
+            Ok(QmrRun::Broken(
+                vec![c64::new(0.0, 0.0); matrix.n()],
+                Vec::new(),
+                0.0,
+            ))
+        }
+    }
+
+    #[test]
+    fn auto_and_photonoxide_are_photonoxides_own_qmr() {
+        assert!(iterative(&Choice::Auto).unwrap().is_none());
+        assert!(iterative(&Choice::Photonoxide).unwrap().is_none());
+    }
+
+    #[test]
+    fn a_backend_is_found_by_name_and_an_unavailable_one_says_why() {
+        register_iterative(Arc::new(Zeros)).unwrap();
+        let solver = iterative(&Choice::Named("zeros-for-tests".into()))
+            .unwrap()
+            .unwrap();
+        let (starts, rows, values) = (vec![0, 1], vec![0], vec![c64::new(1.0, 0.0)]);
+        let m = Matrix::new(1, &starts, &rows, &values, Form::General).unwrap();
+        let run = solver.qmr_run(&m, &[c64::new(1.0, 0.0)], Stopping::default());
+        assert!(matches!(run, Ok(QmrRun::Broken(..))));
+        assert!(
+            iterative_solvers()
+                .unwrap()
+                .iter()
+                .any(|l| l.name == "zeros-for-tests")
+        );
+
+        register_iterative_unavailable("missing-for-tests", "not installed").unwrap();
+        let e = iterative(&Choice::Named("missing-for-tests".into()))
+            .err()
+            .unwrap();
+        assert!(e.to_string().contains("not installed"), "{e}");
+        let e = iterative(&Choice::Named("nothing-by-this-name".into()))
+            .err()
+            .unwrap();
+        assert!(e.to_string().contains("no iterative solver"), "{e}");
+    }
+
+    #[test]
+    fn photonoxides_own_names_are_refused() {
+        assert!(register_iterative_unavailable("photonoxide", "x").is_err());
+        assert!(register_iterative_unavailable("auto", "x").is_err());
+    }
+}

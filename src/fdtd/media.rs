@@ -704,7 +704,9 @@ impl Simulation {
     ///
     /// [`Error::InvalidValue`] for a medium [`Dispersive::check`] refuses, a medium the time
     /// step can't step stably (see the module docs: in practice ω₀Δt above 2 for a term, or a
-    /// Courant number above √ε∞), or after the run has started.
+    /// Courant number above √ε∞), after the run has started, or in a smoothed medium whose
+    /// permittivity couples E's components ([`Simulation::smoothed`]): there a medium's ε∞ would
+    /// have to enter the tensor.
     pub fn with_medium(
         self,
         medium: &Dispersive,
@@ -721,6 +723,12 @@ impl Simulation {
         medium.check()?;
         if self.steps > 0 {
             return Err(invalid("a dispersive medium goes in before the run starts"));
+        }
+        if self.anisotropic.is_some() {
+            return Err(invalid(
+                "a dispersive medium in a smoothed medium whose permittivity couples E's \
+                 components isn't supported",
+            ));
         }
         if let Some(mut b) = self.bloch.take() {
             b.twin = b.twin.medium(medium, inside)?;

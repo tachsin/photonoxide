@@ -5,9 +5,9 @@
 //!   transpose by rows (the matrix's columns, as given) rather than with a transpose operation.
 //! - **The vector work:** also cuSPARSE's, each vector seen as a sparse vector with every entry
 //!   (one shared index array): `cusparseAxpby` for y ← αx + βy, `cusparseSpVV` for the dot
-//!   products and norms. cuBLAS would read no index array, but a live cuBLAS handle makes
-//!   `cusparseSpMV` fail with an access violation (CUDA 13.1, cuSPARSE 12.7.3, cuBLAS 13 on
-//!   Windows), so it isn't used. `cusparseSpVV` is deprecated since CUDA 12.8: a CUDA without it
+//!   products and norms. cuBLAS would read no index array; a first try with it crashed in
+//!   `cusparseSpMV`, most likely from the misaligned scalars [`Scalar`] now prevents, and
+//!   trying it again is a follow-up. `cusparseSpVV` is deprecated since CUDA 12.8: a CUDA without it
 //!   makes this backend unavailable, saying so.
 //! - **Determinism:** the sums are cuSPARSE's, not photonoxide's chunked ones, so the iterations
 //!   agree with the CPU's to rounding's effect on the residual's history, not bit for bit; a
@@ -40,6 +40,20 @@ const SPMV_ALGORITHM: c_int = 3;
 
 const ONE: c64 = c64::new(1.0, 0.0);
 const ZERO: c64 = c64::new(0.0, 0.0);
+
+/// A complex scalar as cuSPARSE reads and writes it on the host: `cuDoubleComplex` is CUDA's
+/// `double2`, aligned to 16 bytes, and cuSPARSE loads it with aligned instructions. A `c64`,
+/// aligned to 8, faults when it lands off a 16-byte boundary (an access violation that came
+/// and went with the build and the libraries loaded).
+#[repr(C, align(16))]
+#[derive(Clone, Copy)]
+struct Scalar(c64);
+
+impl Scalar {
+    fn ptr(&self) -> *const c_void {
+        (self as *const Scalar).cast()
+    }
+}
 
 type Spmv = unsafe extern "C" fn(
     Opaque,
@@ -95,8 +109,15 @@ struct Api {
     spmv_buffer_size: SpmvBufferSize,
     spmv: Spmv,
     axpby: unsafe extern "C" fn(Opaque, *const c_void, Opaque, *const c_void, Opaque) -> c_int,
-    spvv_buffer_size:
-        unsafe extern "C" fn(Opaque, c_int, Opaque, Opaque, *const c_void, c_int, *mut usize) -> c_int,
+    spvv_buffer_size: unsafe extern "C" fn(
+        Opaque,
+        c_int,
+        Opaque,
+        Opaque,
+        *const c_void,
+        c_int,
+        *mut usize,
+    ) -> c_int,
     spvv: unsafe extern "C" fn(Opaque, c_int, Opaque, Opaque, *mut c_void, c_int, Opaque) -> c_int,
     version: String,
     // last: the functions above must not outlive it
@@ -317,17 +338,18 @@ impl Session {
     /// Makes the workspace large enough for products with `m` and for the dot products.
     fn prepare(&mut self, m: &DeviceMatrix, x: &DeviceVector, y: &DeviceVector) -> Result<()> {
         let (mut spmv, mut spvv) = (0usize, 0usize);
-        let mut result = ZERO;
+        let (one, zero) = (Scalar(ONE), Scalar(ZERO));
+        let mut result = Scalar(ZERO);
         // SAFETY: the handle, the matrix and the vectors are live; the sizes are writable
         unsafe {
             check(
                 (self.api.spmv_buffer_size)(
                     self.handle,
                     NON_TRANSPOSE,
-                    (&ONE as *const c64).cast(),
+                    one.ptr(),
                     m.descriptor,
                     x.dense,
-                    (&ZERO as *const c64).cast(),
+                    zero.ptr(),
                     y.dense,
                     C_64F,
                     SPMV_ALGORITHM,
@@ -341,7 +363,7 @@ impl Session {
                     NON_TRANSPOSE,
                     x.sparse,
                     y.dense,
-                    (&mut result as *mut c64).cast(),
+                    (&mut result as *mut Scalar).cast(),
                     C_64F,
                     &mut spvv,
                 ),
@@ -353,6 +375,7 @@ impl Session {
 
     /// y = M x.
     fn product(&self, m: &DeviceMatrix, x: &DeviceVector, y: &DeviceVector) -> Result<()> {
+        let (one, zero) = (Scalar(ONE), Scalar(ZERO));
         check(
             // SAFETY: x and y are n long, M n × n; the workspace is at least what cuSPARSE
             // asked for
@@ -360,10 +383,10 @@ impl Session {
                 (self.api.spmv)(
                     self.handle,
                     NON_TRANSPOSE,
-                    (&ONE as *const c64).cast(),
+                    one.ptr(),
                     m.descriptor,
                     x.dense,
-                    (&ZERO as *const c64).cast(),
+                    zero.ptr(),
                     y.dense,
                     C_64F,
                     SPMV_ALGORITHM,
@@ -376,7 +399,7 @@ impl Session {
 
     /// Σ a_k b_k, unconjugated, or Σ conj(a_k) b_k.
     fn dot(&self, a: &DeviceVector, b: &DeviceVector, conjugate: bool) -> Result<c64> {
-        let mut out = ZERO;
+        let mut out = Scalar(ZERO);
         check(
             // SAFETY: a and b are n long; out is writable (host pointer mode)
             unsafe {
@@ -389,14 +412,14 @@ impl Session {
                     },
                     a.sparse,
                     b.dense,
-                    (&mut out as *mut c64).cast(),
+                    (&mut out as *mut Scalar).cast(),
                     C_64F,
                     self.workspace(),
                 )
             },
             "cusparseSpVV",
         )?;
-        Ok(out)
+        Ok(out.0)
     }
 
     /// Σ a_k b_k, unconjugated.
@@ -411,17 +434,10 @@ impl Session {
 
     /// y ← α x + β y.
     fn axpby(&self, alpha: c64, x: &DeviceVector, beta: c64, y: &DeviceVector) -> Result<()> {
+        let (alpha, beta) = (Scalar(alpha), Scalar(beta));
         check(
             // SAFETY: x and y are n long; alpha and beta are read on the host
-            unsafe {
-                (self.api.axpby)(
-                    self.handle,
-                    (&alpha as *const c64).cast(),
-                    x.sparse,
-                    (&beta as *const c64).cast(),
-                    y.dense,
-                )
-            },
+            unsafe { (self.api.axpby)(self.handle, alpha.ptr(), x.sparse, beta.ptr(), y.dense) },
             "cusparseAxpby",
         )
     }
@@ -511,6 +527,8 @@ impl IterativeSolver for GpuQmr {
             matrix.values(),
         );
         index(values.len())?;
+        // the handle first: cuSPARSE's descriptors made before it fail later, in SpMV
+        let mut s = Session::new(api, n)?;
         // A by rows; for the general QMR, Aᵀ by rows too: A's columns as given. A symmetric
         // matrix's columns are its rows.
         let a = if symmetric {
@@ -525,7 +543,6 @@ impl IterativeSolver for GpuQmr {
         } else {
             Some(DeviceMatrix::new(api, &columns_as_rows(cs, ri)?, values)?)
         };
-        let mut s = Session::new(api, n)?;
         let zeros = vec![ZERO; n];
         let device_b = s.vector(b)?;
         let x = s.vector(&zeros)?;
@@ -535,7 +552,8 @@ impl IterativeSolver for GpuQmr {
         if let Some(at) = &at {
             s.prepare(at, &x, &av)?;
         }
-        let (mut v, mut v_old, mut v_next) = (s.vector(&zeros)?, s.vector(&zeros)?, s.vector(&zeros)?);
+        let (mut v, mut v_old, mut v_next) =
+            (s.vector(&zeros)?, s.vector(&zeros)?, s.vector(&zeros)?);
         let (mut p, mut p_old, mut p_older) =
             (s.vector(&zeros)?, s.vector(&zeros)?, s.vector(&zeros)?);
         // the left vectors, for the general QMR only

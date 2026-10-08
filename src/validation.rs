@@ -950,6 +950,48 @@ pub fn cases() -> Vec<Case> {
             run: fdtd_fitted_slab,
         },
         Case {
+            id: "fdtd/smoothing-slab",
+            title: r"FDTD's subpixel smoothing at an interface between grid points: a slab of $\varepsilon = 4$, 0.3 µm thick, its faces at 1.0137 and 1.3137 µm, lit by a pulse at normal incidence in a column of cells of 1/160 µm: the complex reflection at 0.8, 1 and 1.2 c/µm at the slab's face against Airy's formula (largest $\lvert \Delta r \rvert$ shown)",
+            tier: Tier::Analytic,
+            source: r"the slab's exact reflection, $r = r_{12}(1 - e^{2i\delta})/(1 - r_{12}^2 e^{2i\delta})$, $\delta = n k_0 d$; with $\langle\varepsilon\rangle$ along the faces (A. Farjadpour et al., Opt. Lett. 31, 2972 (2006), doi:10.1364/OL.31.002972, Eq. 1) second order wherever the faces fall: 5.8e-2, 1.2e-2, 3.0e-3, 6.9e-4 at 1/20 to 1/160 µm; sampled at the values, erratic: 1.6e-1, 1.1e-2, 4.8e-2, 1.8e-2 (measured)",
+            run: fdtd_smoothing_slab,
+        },
+        Case {
+            id: "fdtd/smoothing-anisotropic-slab",
+            title: r"FDTD's subpixel smoothing of an anisotropic slab: principal values 2, 3 and 4.5 along axes turned from the grid's (every entry of $\varepsilon$ non-zero), the same slab and grid, an $x$-polarized pulse: $r_{xx}$ and $r_{yx}$ at 0.8, 1 and 1.2 c/µm (largest $\lvert \Delta r \rvert$ shown)",
+            tier: Tier::Analytic,
+            source: r"exact at normal incidence: $D_z = 0$, so $E_x$ and $E_y$ see $\varepsilon_t = \varepsilon_{tt} - \varepsilon_{tz}\varepsilon_{zt}/\varepsilon_{zz}$, the transverse block of Kottke et al.'s $\tau$ (Phys. Rev. E 77, 036611 (2008), doi:10.1103/PhysRevE.77.036611, Eq. 4), and along each of its principal axes the slab is Airy's (the 4 × 4 transfer matrices split in two). photonoxide has no 4 × 4 transfer matrices for oblique incidence. Second order: 2.9e-2, 9.5e-3, 1.2e-3, 3.0e-4 at 1/20 to 1/160 µm; sampled 1.1e-1, 1.0e-2, 3.2e-2, 1.2e-2 (measured)",
+            run: fdtd_smoothing_anisotropic_slab,
+        },
+        Case {
+            id: "fdtd/smoothing-oblique",
+            title: r"FDTD's subpixel smoothing at interfaces oblique to the grid: layers of $\varepsilon = 12$ and 1, half a period each, the period $1/\sqrt 5$ µm along $(1, 2)/\sqrt 5$, periodic on a square of 1 µm, 128 cells a µm; the lowest mode along the layers with $E$ across them, $\tilde H_z \propto \cos 2\pi(2x - y)$, the off-diagonal entries of $\tilde\varepsilon^{-1}$ at each value of $E$ (`Coupling::Points`): its frequency against the transfer matrices (relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"the exact layers by their transfer matrices of $(\tilde H_z, \varepsilon^{-1}\partial_s \tilde H_z)$, $\frac12 \operatorname{tr} M_1 M_2 = 1$, 0.885677 c/µm; second order with Farjadpour et al.'s placement, error times $n^2$ $-2.1$, $-2.8$, $-3.3$, $-3.5$ at $n$ = 16 to 128; with Werner and Cary's (`Coupling::Nodes`) first order, error times $n$ $-0.56$, $-0.39$, $-0.28$, $-0.26$, like the mean $\langle\varepsilon\rangle$ ($-0.23$ at 128); sampled, erratic (measured; docs/methods/fdtd.md)",
+            run: fdtd_smoothing_oblique,
+        },
+        Case {
+            id: "fdtd/smoothing-oblique-nodes",
+            title: r"FDTD's subpixel smoothing at the same oblique layers with the off-diagonal entries at the nodes (`Coupling::Nodes`, the default), 128 cells a µm: the mode's frequency against the transfer matrices (relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"the same exact frequency; first order: each row of $\tilde\varepsilon^{-1}$ mixes cells about different points (G. Werner, J. R. Cary, J. Comput. Phys. 226, 1085 (2007), as A. F. Oskooi, C. Kottke, S. G. Johnson, Opt. Lett. 34, 2778 (2009), doi:10.1364/OL.34.002778, Fig. 1, place them); measured 2.0e-3, against 2.1e-4 with the entries at the points",
+            run: fdtd_smoothing_oblique_nodes,
+        },
+        Case {
+            id: "fdtd/smoothing-energy",
+            title: r"FDTD's energy with a smoothed tensor: a closed box ($10 \times 9 \times 8$ cells of 50 nm) holding an ellipsoid of the anisotropic crystal above at an angle to the grid, in $\varepsilon = 2$, random D and H, 300 steps: the largest change of $\tfrac12\sum E\cdot D + \tfrac12\sum \tilde H^{n-1/2}\cdot\tilde H^{n+1/2}$, relative to it (shown)",
+            tier: Tier::Analytic,
+            source: r"with the off-diagonal entries at the nodes $\tilde\varepsilon^{-1}$ on the grid is symmetric (Werner and Cary 2007), so the leapfrog conserves this energy exactly; measured 1.5e-15. At the points it isn't: 6.3e-2 over the same steps",
+            run: fdtd_smoothing_energy,
+        },
+        Case {
+            id: "fdtd/smoothing-oskooi",
+            title: r"FDTD's subpixel smoothing of anisotropic media, Oskooi et al.'s 2D lattice: ellipses (semi-axes 0.355 and 0.305 of the period, as their inset) of principal values 1.45, 2.81 and 4.98 in 8.49, 8.78 and 11.52, the axes ours; the lowest mode at $k = (\tfrac12, 0)\thinspace 2\pi/a$ on 32 cells a period: the error of $\tau$'s average relative to the smaller of the harmonic mean's and no smoothing's (shown)",
+            tier: Tier::Published,
+            source: r"A. F. Oskooi, C. Kottke, S. G. Johnson, Opt. Lett. 34, 2778 (2009), doi:10.1364/OL.34.002778, Fig. 2: the new smoothing has the lowest error, often by an order of magnitude. Against the mean of $s = 1$ and $s = 2$ at 64 cells (which converge from either side), 0.159381 c/µm: 2.3e-4 smoothed, 4.5e-3 harmonic mean, 3.7e-3 none; but 2.5e-4 for the mean $\langle\varepsilon\rangle$, which their figure has 6 times the new one's (not reproduced here: at this $k$ and with our axes the mean is as good)",
+            run: fdtd_smoothing_oskooi,
+        },
+        Case {
             id: "circuit/series-waveguides",
             title: r"Circuits: two waveguides, 12.5 and 30.25 µm, in series are one of 42.75 µm ($n_\text{eff} = 2.4$, $n_g = 4.2$, 3 dB/cm), 1.54 to 1.56 µm (largest $\lvert \Delta S \rvert$ shown)",
             tier: Tier::Analytic,
@@ -1870,6 +1912,101 @@ fn fdtd_fitted_slab() -> Outcome {
         expected: 0.0,
         // second order in the cells: measured 2.0e-3 at 5 nm
         tolerance: 5e-3,
+        error: measured,
+    }
+}
+
+fn fdtd_smoothing_slab() -> Outcome {
+    use crate::fdtd::smoothing::checks::slab_error;
+    let eps = crate::fdtd::Permittivity::isotropic(4.0).expect("ε");
+    let measured = slab_error(1.0 / 160.0, eps, crate::fdtd::Smoothing::default());
+    Outcome {
+        measured,
+        expected: 0.0,
+        // second order: measured 6.9e-4 at 1/160 µm
+        tolerance: 1.5e-3,
+        error: measured,
+    }
+}
+
+fn fdtd_smoothing_anisotropic_slab() -> Outcome {
+    use crate::fdtd::smoothing::checks::{slab_error, tilted_crystal};
+    let smoothing = crate::fdtd::Smoothing::default();
+    let measured = slab_error(1.0 / 160.0, tilted_crystal(), smoothing);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // second order: measured 3.0e-4 at 1/160 µm
+        tolerance: 1e-3,
+        error: measured,
+    }
+}
+
+fn fdtd_smoothing_oblique() -> Outcome {
+    use crate::fdtd::{Coupling, Smoothing};
+    let points = Smoothing {
+        coupling: Coupling::Points,
+        ..Smoothing::default()
+    };
+    let measured = crate::fdtd::smoothing::checks::oblique(points, 128).abs();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // second order: measured 2.1e-4 at 128 cells a µm
+        tolerance: 4e-4,
+        error: measured,
+    }
+}
+
+fn fdtd_smoothing_oblique_nodes() -> Outcome {
+    let smoothing = crate::fdtd::Smoothing::default();
+    let measured = crate::fdtd::smoothing::checks::oblique(smoothing, 128).abs();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // first order: measured 2.0e-3 at 128 cells a µm
+        tolerance: 3e-3,
+        error: measured,
+    }
+}
+
+fn fdtd_smoothing_energy() -> Outcome {
+    use crate::fdtd::Coupling;
+    let measured = crate::fdtd::smoothing::checks::tensor_energy_drift(Coupling::Nodes);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // round-off: measured 1.5e-15
+        tolerance: 1e-12,
+        error: measured,
+    }
+}
+
+fn fdtd_smoothing_oskooi() -> Outcome {
+    use crate::fdtd::smoothing::checks::oskooi;
+    use crate::fdtd::{Average, Smoothing};
+    use rayon::prelude::*;
+    let with = |average, diameter| Smoothing {
+        average,
+        diameter,
+        ..Smoothing::default()
+    };
+    let runs = [
+        (with(Average::Subpixel, 1.0), 64),
+        (with(Average::Subpixel, 2.0), 64),
+        (with(Average::Subpixel, 1.0), 32),
+        (with(Average::InverseMean, 1.0), 32),
+        (with(Average::Sampled, 1.0), 32),
+    ];
+    let f: Vec<f64> = runs.par_iter().map(|&(s, n)| oskooi(s, n)).collect();
+    let reference = 0.5 * (f[0] + f[1]);
+    let error = |v: f64| ((v - reference) / reference).abs();
+    let measured = error(f[2]) / error(f[3]).min(error(f[4]));
+    Outcome {
+        measured,
+        expected: 0.0,
+        // "often by 1 order of magnitude": measured 0.063
+        tolerance: 0.1,
         error: measured,
     }
 }

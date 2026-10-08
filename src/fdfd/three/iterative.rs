@@ -6,11 +6,11 @@ use num_complex::Complex64 as c64;
 
 use super::multigrid::{Hierarchy, Multigrid, shifted};
 use super::{Axis, Boundaries3d, Field3d, Grid3d, Lattice, Port3d, PortMode3d, Solver3d};
-use crate::fdfd::Direction;
 use crate::backend::{self, Choice, Form, IterativeSolver};
+use crate::fdfd::Direction;
 use crate::fdfd::krylov::{
-    Convergence, Ilu0, Sparse, Stopping, gmres_preconditioned, qmr, qmr_preconditioned, qmr_similar,
-    qmr_similar_by, restarted_by,
+    Convergence, Ilu0, Sparse, Stopping, gmres_preconditioned, qmr, qmr_preconditioned,
+    qmr_similar, qmr_similar_by, restarted_by,
 };
 use crate::units::Wavelength;
 use crate::{Error, Result};

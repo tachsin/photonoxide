@@ -174,7 +174,6 @@ impl Buffer {
     pub(crate) fn bytes(&self) -> usize {
         self.bytes
     }
-
 }
 
 impl Drop for Buffer {

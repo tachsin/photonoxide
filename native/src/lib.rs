@@ -15,8 +15,8 @@
 //!   A library's errors become photonoxide's [`Error`](photonoxide::Error). An abort inside a
 //!   library can't be caught in-process, so the benchmark runs backends in a child process.
 //!
-//! The libraries known so far are NVIDIA's ([`nvidia`]); their backends, and the others', are
-//! each one's own issue (#175 to #190).
+//! The libraries known so far are NVIDIA's ([`nvidia`]) and Intel's oneMKL ([`intel`]); their
+//! backends, and the others', are each one's own issue (#175 to #190).
 
 #![deny(unsafe_op_in_unsafe_fn)]
 #![warn(clippy::undocumented_unsafe_blocks)]
@@ -25,14 +25,17 @@ mod cuda;
 mod cudss;
 mod discovery;
 mod gpu_qmr;
+pub mod intel;
 mod library;
 pub mod nvidia;
+mod pardiso;
 mod smoke;
 
 pub use cudss::Cudss;
-pub use gpu_qmr::GpuQmr;
 pub use discovery::{Candidate, Discovery, Source, Spec, Status, discover, versioned};
+pub use gpu_qmr::GpuQmr;
 pub use library::{Library, load};
+pub use pardiso::Pardiso;
 pub use smoke::{TOLERANCE, offer, offer_iterative, smoke_test, smoke_test_iterative};
 
 /// What was found of one library.
@@ -81,5 +84,11 @@ pub fn register_all() -> Vec<Probe> {
         Ok(qmr) => offer_iterative(std::sync::Arc::new(qmr)).map(drop),
         Err(reason) => photonoxide::backend::register_iterative_unavailable("cusparse", reason),
     };
-    nvidia::probe()
+    let _ = match Pardiso::load() {
+        Ok(pardiso) => offer(std::sync::Arc::new(pardiso)).map(drop),
+        Err(reason) => photonoxide::backend::register_unavailable("pardiso", reason),
+    };
+    let mut probes = nvidia::probe();
+    probes.push(intel::probe());
+    probes
 }

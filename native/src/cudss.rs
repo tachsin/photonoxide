@@ -116,7 +116,6 @@ impl Api {
         };
         api().map_err(|e| e.to_string())
     }
-
 }
 
 /// A matrix's rows: n + 1 starts and each entry's column, 32-bit.
@@ -160,7 +159,10 @@ impl Engine {
         let starts = Buffer::new(&api.runtime, &rows.starts)?;
         let columns = Buffer::new(&api.runtime, &rows.columns)?;
         let device_values = Buffer::new(&api.runtime, values)?;
-        let (x_values, b_values) = (Buffer::new(&api.runtime, &zero)?, Buffer::new(&api.runtime, &zero)?);
+        let (x_values, b_values) = (
+            Buffer::new(&api.runtime, &zero)?,
+            Buffer::new(&api.runtime, &zero)?,
+        );
         let mut e = Engine {
             api: api.clone(),
             n,
@@ -409,7 +411,11 @@ pub(crate) fn columns_as_rows(cs: &[usize], ri: &[usize]) -> Result<Rows> {
 
 /// The rows of a matrix given by columns: each row's (starts, columns), and for each entry by
 /// rows, its place in the columns' order.
-pub(crate) fn transposed(n: usize, cs: &[usize], ri: &[usize]) -> ((Vec<usize>, Vec<usize>), Vec<usize>) {
+pub(crate) fn transposed(
+    n: usize,
+    cs: &[usize],
+    ri: &[usize],
+) -> ((Vec<usize>, Vec<usize>), Vec<usize>) {
     let mut starts = vec![0usize; n + 1];
     for &r in ri {
         starts[r + 1] += 1;
