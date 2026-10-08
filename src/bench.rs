@@ -540,8 +540,8 @@ fn guide_3d(
     guide_3d_with(guide, pml, solve, tolerance, &Choice::Auto, timed_done)
 }
 
-/// [`guide_3d`], its QMR run by the iterative backend `iterative` names (photonoxide's own for
-/// `auto`): [`Solve::Qmr`] and [`Solve::Ilu`], not multigrid.
+/// [`guide_3d`], its QMR or GMRES run by the iterative backend `iterative` names (photonoxide's
+/// own for `auto`).
 fn guide_3d_with(
     guide: Guide,
     pml: usize,

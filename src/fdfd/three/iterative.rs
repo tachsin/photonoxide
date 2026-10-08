@@ -58,7 +58,8 @@ pub struct IterativeSolver3d {
     similarity: Option<Vec<c64>>,
     /// What preconditions QMR, if anything.
     preconditioner: Preconditioning,
-    /// The backend that runs QMR, if not photonoxide's own ([`IterativeSolver3d::with_iterative_backend`]).
+    /// The backend that runs QMR or GMRES, if not photonoxide's own
+    /// ([`IterativeSolver3d::with_iterative_backend`]).
     backend: Option<Arc<dyn IterativeSolver>>,
 }
 
@@ -195,16 +196,18 @@ impl IterativeSolver3d {
         Ok(self)
     }
 
-    /// QMR run by the iterative backend `choice` names ([`backend::iterative`]): a GPU's, say.
-    /// photonoxide's own for `auto` and `photonoxide`. A backend runs plain QMR, and QMR with
-    /// ILU(0) on factors photonoxide computes ([`backend::IluFactors`]); photonoxide keeps the restarts
-    /// and the similar matrix's tolerance around its runs, so the solution is checked on the
-    /// same residual as photonoxide's own.
+    /// The Krylov solver run by the iterative backend `choice` names ([`backend::iterative`]): a
+    /// GPU's, say. photonoxide's own for `auto` and `photonoxide`. A backend runs plain QMR, QMR
+    /// with ILU(0) on factors photonoxide computes ([`backend::IluFactors`]), and, if it says so
+    /// ([`IterativeSolver::runs_multigrid`]), GMRES with the multigrid cycle photonoxide builds
+    /// ([`backend::MultigridCycle`]). photonoxide keeps the restarts and the similar matrix's
+    /// tolerance around QMR's runs, and checks GMRES's solution on its own residual, so the
+    /// solution is held to the same residual as photonoxide's own.
     ///
     /// # Errors
     ///
     /// [`Error::InvalidValue`] for a backend that isn't registered or available, and for a
-    /// solver preconditioned by multigrid, which a backend doesn't run yet.
+    /// solver preconditioned by multigrid with a backend that doesn't run it.
     pub fn with_iterative_backend(mut self, choice: &Choice) -> Result<IterativeSolver3d> {
         self.backend = backend::iterative(choice)?;
         self.check_backend()?;
@@ -212,10 +215,16 @@ impl IterativeSolver3d {
     }
 
     fn check_backend(&self) -> Result<()> {
-        if self.backend.is_some() && matches!(self.preconditioner, Preconditioning::Multigrid(_)) {
+        if let Some(solver) = &self.backend
+            && matches!(self.preconditioner, Preconditioning::Multigrid(_))
+            && !solver.runs_multigrid()
+        {
             return Err(Error::invalid(
                 "iterative backend",
-                "a backend runs QMR plain or with ILU(0): not GMRES with multigrid yet",
+                format!(
+                    "{} runs QMR plain or with ILU(0), not GMRES with multigrid",
+                    solver.capabilities().name
+                ),
             ));
         }
         Ok(())
@@ -312,9 +321,15 @@ impl IterativeSolver3d {
             },
             // a cycle is worth many products with A, and GMRES takes one per iteration where
             // QMR takes two (the cycle and its transpose)
-            Preconditioning::Multigrid(h) => {
-                gmres_preconditioned(&self.matrix, h.as_ref(), &b, stopping, h.restart())?
-            }
+            Preconditioning::Multigrid(h) => match &self.backend {
+                Some(solver) => {
+                    let cycle = h.cycle_for_backend()?;
+                    let (x, how) =
+                        solver.gmres_multigrid(self.matrix.rows(), &cycle, &b, stopping)?;
+                    checked(&self.matrix, &b, x, how, stopping)?
+                }
+                None => gmres_preconditioned(&self.matrix, h.as_ref(), &b, stopping, h.restart())?,
+            },
             Preconditioning::None => match (&self.backend, &self.similarity) {
                 (Some(solver), Some(s)) => {
                     let matrix = self.matrix.as_matrix(Form::Symmetric)?;
@@ -340,6 +355,43 @@ impl IterativeSolver3d {
             convergence,
         ))
     }
+}
+
+/// A backend's solution of A x = b, held to `stopping`'s tolerance on the residual computed
+/// here, which its convergence then reports.
+fn checked(
+    a: &Sparse,
+    b: &[c64],
+    x: Vec<c64>,
+    mut how: Convergence,
+    stopping: Stopping,
+) -> Result<(Vec<c64>, Convergence)> {
+    let norm = |v: &[c64]| v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
+    if x.len() != b.len() {
+        return Err(Error::invalid(
+            "iterative backend",
+            format!("{} values for {} unknowns", x.len(), b.len()),
+        ));
+    }
+    let ax = a.apply(&x);
+    let r: Vec<c64> = b.iter().zip(&ax).map(|(p, q)| p - q).collect();
+    let rho0 = norm(b);
+    how.residual = if rho0 == 0.0 {
+        norm(&r)
+    } else {
+        norm(&r) / rho0
+    };
+    // NaN fails too
+    if how.residual.is_nan() || how.residual > stopping.tolerance {
+        return Err(Error::invalid(
+            "iterative backend",
+            format!(
+                "its solution's residual is {:e}, above the tolerance {:e}",
+                how.residual, stopping.tolerance
+            ),
+        ));
+    }
+    Ok((x, how))
 }
 
 impl IterativeSolver3d {
