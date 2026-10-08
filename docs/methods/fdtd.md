@@ -585,11 +585,47 @@ A probe records one value of E or H̃ every step. DFT monitors, fluxes and harmo
 ## Cost
 
 Every update is a fixed stencil with no reduction, its z-planes shared among rayon's threads, so
-the fields are the same bits on any number of threads. Each axis's neighbour offsets and 1/(κΔ)
-factors are tabulated once, and the PML's convolutions run only in their slabs. The kernel is
-plain Rust loops. SIMD, f32 and cache blocking are #165, and the GPU is #166. Roden and Gedney's
-plate, 2.9 × 10⁶ cells for 2000 steps plus two smaller lattices, takes about 45 s on 20 threads
-of a Core Ultra 7 265K.
+the fields are the same bits on any number of threads.
+
+**The kernel** (`src/fdtd/kernel.rs`) runs in f32 or f64.
+- **Rows:** it goes through the grid row by row along x. Along a row, the neighbours along y and
+  z are whole rows away, the same offset for every value, and those along x are the next value
+  except at the row's ends. So each row is plain loops over slices of equal length, which the
+  compiler vectorizes over x. The ends, where a wall, a periodic side or a Bloch side decides the
+  neighbour, are done one value at a time.
+- **One pass per field:** the three components of a field are updated in one pass, each row of
+  the other field read once.
+- **CPMLs:** each CPML slab updates ψ and the field it corrects row by row in one pass.
+- **Tables:** the neighbours' offsets and the 1/(κΔ) factors are tabulated once, and nothing is
+  allocated while stepping.
+- **The same bits:** every value is computed by the same operations in the same order as the
+  plain loops it replaced, which are kept as its reference. IEEE 754 makes a vector lane's sum
+  or product the scalar one, so in f64 the fields are the same bits as the plain loops. That is
+  tested with CPMLs (κ and α), walls, periodic sides, 2D, rows of one value, a Bloch phase, a
+  Drude medium and a smoothed tensor.
+- **f32:** E stays within about 1e-8 of f64 per step, relative to the largest E. On random
+  fields in a box with a block of ε = 12 the error is 1.8e-6, 4.5e-6 and 1.5e-5 after 100, 400
+  and 1600 steps. f32 is also the same bits on any number of threads.
+
+**Measured** on a 4-core cloud container (STREAM triad 47 GB/s), with a 128³ guide of 20 nm
+cells and CPMLs of 8:
+- the plain loops: 13.4 million cell-updates/s on 1 thread and 53.7 on 4;
+- the kernel: 38.1 and 124.0, 2.8 and 2.3 times faster.
+
+The `photonoxide bench` problems `fdtd3d/box-*` and `fdtd3d/guide-*` time the kernel alone.
+On the same container with 4 threads:
+- the 160³ guide: 162 million updates/s in f64 and 312 in f32, at 40 and 38 GB/s, near the
+  triad;
+- the 48³ box: 95 and 121, a third of its cells in the CPMLs.
+
+A step reads and writes at least 192 bytes a cell in f64 (96 in f32): each field's three
+components read and the updated one written, E's two coefficients, and more in the CPMLs. So
+the kernel is bound by memory, not arithmetic, and AVX2 changes nothing measurable. Spatial and
+temporal (wavefront) blocking after Malas et al. would reuse each value across steps, and is
+the next step of #165. The GPU is #166.
+
+Roden and Gedney's plate, 2.9 × 10⁶ cells for 2000 steps plus two smaller lattices, took about
+45 s on 20 threads of a Core Ultra 7 265K with the plain loops.
 
 ## Validation
 
