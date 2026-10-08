@@ -34,7 +34,10 @@
 //!   (harmonically along the component, arithmetically across), and a conductivity σ, sampled at
 //!   the component. [`Dispersive`] media, Drude and Lorentz terms by auxiliary differential
 //!   equations (M. Okoniewski, M. Mrozowski, M. A. Stuchly, IEEE Microw. Guided Wave Lett. 7,
-//!   121 (1997), doi:10.1109/75.569723), sampled at the component.
+//!   121 (1997), doi:10.1109/75.569723), sampled at the component. Or a [`Structure`] of
+//!   bodies with tensor permittivities, smoothed over each cell by [`Simulation::smoothed`]
+//!   (Farjadpour et al. 2006, Kottke et al. 2008, Oskooi et al. 2009; see the smoothing
+//!   module): a tensor that couples E's components steps D, and E follows from it.
 //! - **Sources:** point currents, [`Current`]s over many values and [`Dipole`]s anywhere
 //!   (restricted to the grid as A. F. Oskooi et al., Comput. Phys. Commun. 181, 687 (2010),
 //!   doi:10.1016/j.cpc.2009.11.008, restrict them); [`PlaneWave`]s on
@@ -397,6 +400,8 @@ pub struct Simulation {
     media: media::Media,
     /// With a Bloch phase on a side, the fields' imaginary part.
     bloch: Option<Box<bloch::Bloch>>,
+    /// A smoothed permittivity whose tensor couples E's components: D, and E from it.
+    anisotropic: Option<Box<smoothing::Anisotropic>>,
 }
 
 /// The permittivity's samples per axis in a cell, as FDFD's 3D solver averages it.
@@ -419,6 +424,44 @@ impl Simulation {
         eps: impl Fn(f64, f64, f64) -> f64,
         boundaries: Boundaries,
         courant: f64,
+    ) -> Result<Simulation> {
+        Simulation::with_permittivity(grid, boundaries, courant, |grid| {
+            let ok = |v: f64| v.is_finite() && v > 0.0;
+            let n = grid.cells();
+            let h = [grid.dx, grid.dy, grid.dz];
+            let mut eps_e: [Vec<f64>; 3] = [vec![0.0; n], vec![0.0; n], vec![0.0; n]];
+            let complex = |x: f64, y: f64, z: f64| c64::new(eps(x, y, z), 0.0);
+            for component in Axis::ALL {
+                let values: Vec<f64> = (0..n)
+                    .into_iter()
+                    .map(|r| {
+                        let (i, j, k) = (
+                            r % grid.nx,
+                            (r / grid.nx) % grid.ny,
+                            r / (grid.nx * grid.ny),
+                        );
+                        let p = grid.e_position(component, (i, j, k));
+                        averaged(&complex, p, h, component, SAMPLES).re
+                    })
+                    .collect();
+                if let Some(bad) = values.iter().find(|v| !ok(**v)) {
+                    return Err(invalid(format!(
+                        "the permittivity must be finite and positive, got {bad}"
+                    )));
+                }
+                eps_e[component.index()] = values;
+            }
+            Ok(eps_e)
+        })
+    }
+
+    /// The problem with the permittivity each value of E sees from `eps`, one per value of each
+    /// component, asked for once the grid and the boundaries are checked.
+    fn with_permittivity(
+        grid: Grid3d,
+        boundaries: Boundaries,
+        courant: f64,
+        eps: impl FnOnce(&Grid3d) -> Result<[Vec<f64>; 3]>,
     ) -> Result<Simulation> {
         let ok = |v: f64| v.is_finite() && v > 0.0;
         if grid.cells() == 0 || !ok(grid.dx) || !ok(grid.dy) || !ok(grid.dz) {
@@ -467,29 +510,7 @@ impl Simulation {
         }
         let dt = courant / sum.sqrt();
         let n = grid.cells();
-        let h = [grid.dx, grid.dy, grid.dz];
-        let mut eps_e: [Vec<f64>; 3] = [vec![0.0; n], vec![0.0; n], vec![0.0; n]];
-        let complex = |x: f64, y: f64, z: f64| c64::new(eps(x, y, z), 0.0);
-        for component in Axis::ALL {
-            let values: Vec<f64> = (0..n)
-                .into_iter()
-                .map(|r| {
-                    let (i, j, k) = (
-                        r % grid.nx,
-                        (r / grid.nx) % grid.ny,
-                        r / (grid.nx * grid.ny),
-                    );
-                    let p = grid.e_position(component, (i, j, k));
-                    averaged(&complex, p, h, component, SAMPLES).re
-                })
-                .collect();
-            if let Some(bad) = values.iter().find(|v| !ok(**v)) {
-                return Err(invalid(format!(
-                    "the permittivity must be finite and positive, got {bad}"
-                )));
-            }
-            eps_e[component.index()] = values;
-        }
+        let eps_e = eps(&grid)?;
         let mut ca: [Vec<f64>; 3] = [vec![1.0; n], vec![1.0; n], vec![1.0; n]];
         let cb: [Vec<f64>; 3] =
             Axis::ALL.map(|c| eps_e[c.index()].iter().map(|e| dt / e).collect());
@@ -532,6 +553,7 @@ impl Simulation {
             varies: Axis::ALL.map(varies),
             media: media::Media::default(),
             bloch: None,
+            anisotropic: None,
         };
         s.build_cpml(&eps_e);
         s.bloch = bloch::Bloch::new(&s).map(Box::new);
@@ -684,8 +706,9 @@ impl Simulation {
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidValue`] for a conductivity that isn't finite and nonnegative, or after
-    /// [`Simulation::with_medium`] (the conductivity comes first).
+    /// [`Error::InvalidValue`] for a conductivity that isn't finite and nonnegative, after
+    /// [`Simulation::with_medium`] (the conductivity comes first), or in a smoothed medium whose
+    /// permittivity couples E's components.
     pub fn with_conductivity(self, sigma: impl Fn(f64, f64, f64) -> f64) -> Result<Simulation> {
         self.conductivity(&sigma)
     }
@@ -695,6 +718,12 @@ impl Simulation {
             return Err(invalid(
                 "the conductivity comes before the dispersive media: with_conductivity, then \
                  with_medium",
+            ));
+        }
+        if self.anisotropic.is_some() {
+            return Err(invalid(
+                "a conductivity in a medium whose permittivity couples E's components isn't \
+                 supported",
             ));
         }
         if let Some(mut b) = self.bloch.take() {
@@ -737,6 +766,9 @@ impl Simulation {
         self.cb[c][r] = 0.0;
         self.e[c][r] = 0.0;
         self.media.remove(c, r);
+        if let Some(a) = &mut self.anisotropic {
+            a.hold(c, r);
+        }
         if let Some(b) = &mut self.bloch {
             b.twin.conductor(component, at);
         }
@@ -927,6 +959,10 @@ impl Simulation {
     /// `half` = t + Δt/2.
     fn step_e(&mut self, half: f64) {
         self.media.save(&self.e);
+        // a tensor permittivity: D is updated as E would be in vacuum, then E = ε⁻¹D
+        if let Some(a) = &mut self.anisotropic {
+            a.begin(&mut self.e, &mut self.cb);
+        }
         self.update_e();
         for s in &self.sources {
             if s.field == Field::E {
@@ -944,6 +980,9 @@ impl Simulation {
         for p in &mut self.plane_waves {
             p.correct(Field::E, &mut self.e, &self.cb, self.dt);
             p.step_e(half);
+        }
+        if let Some(a) = &mut self.anisotropic {
+            a.end(&mut self.e, &mut self.cb);
         }
     }
 
@@ -1167,6 +1206,10 @@ impl Simulation {
     /// ½ Σ H̃(t − Δt/2)·H̃(t + Δt/2) ΔV, the magnetic half).
     pub(crate) fn electric_energy(&self) -> f64 {
         let volume = self.grid.dx * self.grid.dy * self.grid.dz;
+        if let Some(a) = &self.anisotropic {
+            // ½ Σ E·D, E = ε⁻¹D with ε⁻¹ symmetric
+            return 0.5 * a.dot(&self.e) * volume;
+        }
         let mut sum = 0.0;
         for c in 0..3 {
             for (r, &v) in self.e[c].iter().enumerate() {
@@ -1185,8 +1228,10 @@ pub(crate) mod bloch_checks;
 pub(crate) mod checks;
 mod media;
 pub(crate) mod media_checks;
+pub(crate) mod smoothing;
 mod sources;
 pub use media::{Dispersive, Fit, Pole};
+pub use smoothing::{Average, Body, Coupling, Permittivity, Smoothing, Structure};
 pub use sources::{BeamPolarization, Current, Dipole, GaussianBeam, PlaneWave};
 #[cfg(test)]
 mod media_tests;

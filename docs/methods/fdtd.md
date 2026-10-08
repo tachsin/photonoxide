@@ -1,7 +1,7 @@
 ---
 title: "FDTD"
 module: fdtd
-summary: "Maxwell's equations stepped in time on Yee's grid: E and H leapfrogging on FDFD's own grid, the convolutional PML, walls, periodic and Bloch-periodic sides (complex fields), conductors, lossy media, Drude and Lorentz media by auxiliary differential equations and the catalogue's materials fitted by them, the same bits on any number of threads; dipoles and currents normalized exactly by their spectra, plane waves on total-field/scattered-field boxes at any grid angle, one-way waveguide modes and Gaussian beams."
+summary: "Maxwell's equations stepped in time on Yee's grid: E and H leapfrogging on FDFD's own grid, the convolutional PML, walls, periodic and Bloch-periodic sides (complex fields), conductors, lossy media, subpixel smoothing of isotropic and anisotropic bodies, Drude and Lorentz media by auxiliary differential equations and the catalogue's materials fitted by them, the same bits on any number of threads; dipoles and currents normalized exactly by their spectra, plane waves on total-field/scattered-field boxes at any grid angle, one-way waveguide modes and Gaussian beams."
 order: 23
 papers:
   - cite: "K. S. Yee, IEEE Trans. Antennas Propag. 14, 302 (1966)"
@@ -20,6 +20,12 @@ papers:
     doi: 10.1109/75.569723
   - cite: "J. A. Roden, S. D. Gedney, Microw. Opt. Technol. Lett. 27, 334 (2000) (the convolutional PML)"
     doi: 10.1002/1098-2760(20001205)27:5<334::AID-MOP14>3.0.CO;2-A
+  - cite: "A. Farjadpour et al., Opt. Lett. 31, 2972 (2006) (subpixel smoothing)"
+    doi: 10.1364/OL.31.002972
+  - cite: "C. Kottke, A. Farjadpour, S. G. Johnson, Phys. Rev. E 77, 036611 (2008) (smoothing anisotropic media)"
+    doi: 10.1103/PhysRevE.77.036611
+  - cite: "A. F. Oskooi, C. Kottke, S. G. Johnson, Opt. Lett. 34, 2778 (2009) (anisotropic smoothing on Yee's grid)"
+    doi: 10.1364/OL.34.002778
   - cite: "A. F. Oskooi et al., Comput. Phys. Commun. 181, 687 (2010) (sources restricted to the grid)"
     doi: 10.1016/j.cpc.2009.11.008
   - cite: "R. C. Rumpf, Prog. Electromagn. Res. B 36, 221 (2012) (total-field/scattered-field in the frequency domain)"
@@ -48,10 +54,17 @@ validation:
   - fdtd/fit-lossless
   - fdtd/fit-lossy
   - fdtd/fitted-slab
+  - fdtd/smoothing-slab
+  - fdtd/smoothing-anisotropic-slab
+  - fdtd/smoothing-oblique
+  - fdtd/smoothing-oblique-nodes
+  - fdtd/smoothing-energy
+  - fdtd/smoothing-oskooi
 examples:
   - cpml_roden_gedney
   - tfsf_square_cylinder
   - lorentz_okoniewski
+  - subpixel_holes
 ---
 
 The finite-difference time-domain method steps Maxwell's equations forward in time. One run
@@ -196,8 +209,124 @@ layers of a stack is oblique incidence, each frequency at its own angle, $\sin\t
   finds many modes and their Q in one run, is #163's.
 
 **Conductors and media.** `Simulation::plate` and `conductor` hold E at zero on a conducting
-plate or edge. The permittivity is real, averaged over each component's cell as FDFD averages it,
-and a conductivity σ (in 1/µm: S/m × 376.73 Ω × 10⁻⁶) makes a medium lossy.
+plate or edge. The permittivity is real, averaged over each component's cell as FDFD averages it
+(or smoothed, below), and a conductivity σ (in 1/µm: S/m × 376.73 Ω × 10⁻⁶) makes a medium
+lossy.
+
+## Subpixel smoothing
+
+`Simulation::new` averages a permittivity function over each value's cell by sampling it, which
+puts an interface between grid points only to within the samples' spacing.
+`Simulation::smoothed` instead takes a `Structure`: a background `Permittivity` and `Body`s over
+it, each later one over those before (half-spaces; ellipsoids, and with infinite semi-axes
+elliptic cylinders and slabs; photonoxide's planar shapes extruded along z), each of a real,
+symmetric, positive-definite tensor (isotropic, diagonal, principal values along given axes, or
+uniaxial as the catalogue's LiNbO₃ and AlN are). Each value of E sees the tensor averaged over a
+cell about it, by a `Smoothing`: its `Average`, the cell's `diameter` in grid cells (Farjadpour
+et al.'s s, 1 by default) and the `Coupling` that places the off-diagonal entries.
+
+**The average** (`Average::Subpixel`). At an interface between isotropic media, Farjadpour et
+al. (Eq. 1) average ε along the interface and ε⁻¹ across it,
+
+$$
+\tilde\varepsilon^{-1} = P\langle\varepsilon^{-1}\rangle + (1 - P)\langle\varepsilon\rangle^{-1},
+\qquad P = nn^{\mathsf T},
+$$
+
+n the interface's normal. That is the one smoothing whose perturbation of the structure has no
+first-order effect: what a small change of ε moves a mode's frequency or a scattered power by is
+$\Delta\varepsilon\lvert E_\parallel\rvert^2 - \Delta(\varepsilon^{-1})\lvert D_\perp\rvert^2$
+integrated across the interface, and these two averages make both integrals vanish. Kottke et al.
+generalize it to anisotropic media (their Eqs. 4, 22, 23): in the interface's frame,
+$\tilde\varepsilon = \tau^{-1}(\langle\tau(\varepsilon)\rangle)$, with
+$\tau(\varepsilon)$ the matrix of $-1/\varepsilon_{11}$, $\varepsilon_{1j}/\varepsilon_{11}$,
+$\varepsilon_{i1}/\varepsilon_{11}$ and $\varepsilon_{ij} - \varepsilon_{i1}\varepsilon_{1j}/\varepsilon_{11}$,
+the map of the fields continuous across the interface, $(D_1, E_2, E_3)$; for isotropic media it
+is Eq. 1 again (a unit test, to 1e-14). `Average::Mean` ($\langle\varepsilon\rangle$, Dey and
+Mittra's), `Average::InverseMean` ($\langle\varepsilon^{-1}\rangle^{-1}$) and `Average::Sampled`
+(the tensor at the value's own point: staircases) are there to compare with.
+
+**The cell.** Where one body's surface crosses the cell, the surface is taken as the plane
+through the nearest point, normal to it there: the body's signed distance and normal at the
+cell's centre (exact for a half-space, a sphere and the planar shapes; for an ellipsoid the
+distance is $f/\lvert\nabla f\rvert$ with $f = \lvert u\rvert - 1$, second order in itself). The
+share of the cell inside the plane is the exact volume it cuts off: across the box, the area of
+the cut along the axis of the plane's smallest slope is piecewise quadratic, so two-point
+Gauss–Legendre on each piece is exact with no division by a small slope (to 1e-14 against
+counting points). A curved surface's departure from the plane, and the distance's error, are
+second order. The bodies are taken from the top down to one that covers the cell; where two
+surfaces cross it, it is sampled 8 times along each axis instead, in the frame of the upper one.
+A corner's cell has an error of the order of its area, as Farjadpour et al. find (between first
+and second order where corners matter).
+
+**On Yee's grid** (Oskooi et al., Fig. 1). Each value of E keeps its own diagonal entry of
+$\tilde\varepsilon^{-1}$, from the cell centred on it. Where the tensor couples E's components
+(an interface oblique to the grid, or an anisotropic medium whose axes aren't the grid's), the
+simulation steps D as it would E in vacuum (its sources, plane waves and CPMLs too) and finds
+$E = \tilde\varepsilon^{-1}D$ after each step; where nothing couples, the scalar update runs
+unchanged. E_x needs D_y and D_z, which sit elsewhere, and there are two ways to place the
+off-diagonal entries:
+
+- `Coupling::Nodes`, the default: (ε̃⁻¹)_xy from the cells centred on the nodes, E_x taking at
+  each of the two nodes beside it the mean of D_y on either side times (ε̃⁻¹)_xy there, and the
+  mean of the two (G. R. Werner, J. R. Cary, J. Comput. Phys. 226, 1085 (2007), as Oskooi et al.
+  place them). ε̃⁻¹ on the grid is symmetric, so the leapfrog conserves
+  $\tfrac12\sum E\cdot D + \tfrac12\sum\tilde H^{n-1/2}\cdot\tilde H^{n+1/2}$ exactly
+  (`fdtd/smoothing-energy`, 1.5e-15 over 300 steps) and the scheme is stable. But each row of
+  ε̃⁻¹ then mixes the cells of three points, linearly, where the tangential part needs
+  $\langle\varepsilon\rangle$: across an oblique interface that is a first-order error, as the
+  mean's. Measured, with layers of ε = 12 and 1 at 26.6° to the grid against their transfer
+  matrices (`fdtd/smoothing-oblique`): the error times n is −0.56, −0.39, −0.28, −0.26 at 16 to
+  128 cells a µm, the mean's −0.74, −0.46, −0.32, −0.23.
+- `Coupling::Points`: (ε̃⁻¹)_xy from E_x's own cell, times the mean of the four D_y around it,
+  Farjadpour et al.'s placement. Each row is the cell's own tensor, and the same layers converge
+  as h², the error times n² −2.1, −2.8, −3.3, −3.5. But ε̃⁻¹ isn't symmetric: the energy above
+  changes by 6.3e-2 over 300 steps, and an error grows exponentially from round-off: in a period
+  of the elliptical holes below at 24 cells by 10¹⁷ over 4 × 10⁵ steps (16 cells: 10³), and in
+  the anisotropic lattice at 16 cells by 10¹⁶ within 2 × 10⁴. For short runs in isotropic media
+  only.
+
+Oskooi et al. report second-order convergence with Werner and Cary's placement in their
+anisotropic lattice; at the oblique layers above it is first order, and no symmetric placement
+tried here (Werner and Cary's; the symmetric part of Farjadpour et al.'s) was second order. A
+scheme both stable and second order at oblique interfaces is open.
+
+**What doesn't combine.** A tensor that couples E's components refuses a conductivity, a
+dispersive medium (whose ε∞ would have to enter the tensor) and a Bloch side with k ≠ 0 (D's
+coupling across the side would need the phase). Where nothing couples, all three work as with
+`Simulation::new`: a dispersive medium's values take its ε∞ at their points, unsmoothed.
+
+**Measurements.**
+
+- A slab of ε = 4, 0.3 µm thick, its faces between grid points, at normal incidence: its
+  complex reflection against Airy's formula, second order wherever the faces fall, 5.8e-2,
+  1.2e-2, 3.0e-3 and 6.9e-4 at 1/20 to 1/160 µm; sampled, 1.6e-1, 1.1e-2, 4.8e-2 and 1.8e-2
+  (`fdtd/smoothing-slab`).
+- An anisotropic slab (principal values 2, 3 and 4.5 along turned axes, every entry non-zero):
+  $r_{xx}$ and $r_{yx}$ against the exact ones, from the transverse block of τ along whose
+  principal axes the slab is Airy's (at normal incidence the 4 × 4 transfer matrices split in
+  two; photonoxide has none for oblique incidence): 2.9e-2, 9.5e-3, 1.2e-3 and 3.0e-4
+  (`fdtd/smoothing-anisotropic-slab`).
+- Oblique layers, above: 2.1e-4 at 128 cells a µm with `Coupling::Points`
+  (`fdtd/smoothing-oblique`), 2.0e-3 with `Coupling::Nodes` (`fdtd/smoothing-oblique-nodes`).
+- Oskooi et al.'s 2D anisotropic lattice (ellipses of principal values 1.45, 2.81 and 4.98 in
+  8.49, 8.78 and 11.52, 0.355 × 0.305 of the period at 30° as their inset, the axes ours), the
+  lowest mode at k = (½, 0) 2π/a, 32 cells a period, `Coupling::Nodes` (`Coupling::Points` grows
+  too fast here): the error 2.3e-4 against 4.5e-3 for the harmonic mean and 3.7e-3 without
+  smoothing, their "order of magnitude" (`fdtd/smoothing-oskooi`); but 2.5e-4 for the mean,
+  which their Fig. 2 has 6 times the new method's.
+- Farjadpour et al.'s Fig. 1, the `subpixel_holes` example: elliptical air holes in ε = 12, TE,
+  12 to 64 pixels a period. The lowest mode converges at −2.26 with s = 2 (their −2.43, read
+  at 600 dpi) and −2.12 with s = 1, below the mean at every resolution; the next mode's mean
+  at −1.40 (their −1.33). The lowest mode's mean converges at −1.84, not −1.33.
+
+The smoothing is computed once, four cells' averages a Yee cell, in parallel; a coupling tensor
+adds a pass over E each step, and D's storage.
+
+The same smoothing would serve FDFD, which averages by sampling (8 samples an axis,
+harmonically along each component): its grid-aligned interfaces would be exact wherever they
+fall, and with the off-diagonal entries FDFD's matrix stays symmetric, as its solvers need,
+only with Werner and Cary's placement. A separate change.
 
 ## Dispersive media
 
@@ -469,6 +598,13 @@ of a Core Ultra 7 265K.
 | `fdtd/fit-lossless` | silicon's and silica's fits, relative | 6.0e-5 |
 | `fdtd/fit-lossy` | InGaP's fit above its gap, relative | 8.1e-3 |
 | `fdtd/fitted-slab` | a fitted silicon slab against Airy's formula, cells of 5 nm | 2.0e-3 |
+| `fdtd/smoothing-slab` | a slab's faces between grid points, smoothed, against Airy's formula, cells of 1/160 µm | 6.9e-4 |
+| `fdtd/smoothing-anisotropic-slab` | an anisotropic slab's $r_{xx}$ and $r_{yx}$ against the exact ones, cells of 1/160 µm | 3.0e-4 |
+| `fdtd/smoothing-oblique` | layers oblique to the grid, `Coupling::Points`, against their transfer matrices, 128 cells a µm, relative | 2.1e-4 |
+| `fdtd/smoothing-oblique-nodes` | the same with `Coupling::Nodes`: first order | 2.0e-3 |
+| `fdtd/smoothing-energy` | the leapfrog's invariant with a smoothed tensor, `Coupling::Nodes`, 300 steps | 1.5e-15 |
+| `fdtd/smoothing-oskooi` | Oskooi et al.'s anisotropic lattice, 32 cells a period: the error relative to the harmonic mean's and no smoothing's | 0.063 |
 | example `cpml_roden_gedney` | Roden and Gedney's plate in soil, both PMLs | −48.6 and −70.5 dB (paper: −48, −67) |
 | example `tfsf_square_cylinder` | Umashankar and Taflove's square cylinder's surface current | 1.732 and 0.764 (figure: 1.750, 0.785); within 0.4 % of their Eq. 8a |
 | example `lorentz_okoniewski` | Okoniewski, Mrozowski and Stuchly's two-term Lorentz half-space, $\lvert r\rvert$ and phase errors, 37.5 µm cells | at most 0.24 and 0.34 of their Fig. 1's curve (C = 1), 0.33 and 0.52 (C = 0.5) |
+| example `subpixel_holes` | Farjadpour et al.'s elliptical holes, TE, 12 to 64 pixels a period: slopes of the error | lowest mode −2.26 at 2Δx (paper −2.43), −2.12 at s = 1, below the mean at every resolution; next mode's mean −1.40 (paper −1.33); lowest mode's mean −1.84 |

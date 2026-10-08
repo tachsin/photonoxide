@@ -1,0 +1,28 @@
+Farjadpour et al.'s square lattice of elliptical air holes in eps = 12, TE
+the two lowest modes at k = (1/2, 0) 2 pi/a: relative error against pixels a period
+
+band 1: 0.14525687 c/um, the new method (2 dx) at 64 and 96 pixels by Richardson (0.14526552, 0.14526071)
+pixels a period            12       16       20       24       32       40       48       64    slope
+no smoothing           5.5e-3   1.3e-3   3.4e-4   1.2e-3   9.2e-4   1.6e-4   1.3e-4   1.6e-4    -1.59
+mean epsilon           2.4e-3   1.5e-3   8.9e-4   6.8e-4   3.7e-4   2.6e-4   1.9e-4   1.1e-4    -1.84
+new method             1.1e-3   9.8e-4   3.1e-4   3.7e-4   1.4e-4   1.1e-4   9.1e-5   3.6e-5    -2.12
+new method (2 dx)      2.4e-3   1.5e-3   7.3e-4   6.0e-4   2.5e-4   1.8e-4   1.3e-4   6.0e-5    -2.26
+new, at the nodes      1.3e-3   9.0e-4   5.5e-4   4.2e-4   2.5e-4   2.3e-4   1.5e-4   1.0e-4    -1.53
+slopes from 16 to 64 pixels; the paper's over 20 to 100
+  band 1: new (2 dx), slope             -2.257096   paper -2.43      ± 3e-1      ok
+  band 1: new, slope                    -2.124113   quadratic -2.000000  ± 3e-1  ok
+  band 1: new below the mean                    8   paper 8                      ok
+band 1: mean epsilon's slope -1.84, the paper's -1.33 (printed, not checked)
+
+band 2: 0.16405294 c/um, the new method (2 dx) at 64 and 96 pixels by Richardson (0.16414610, 0.16409435)
+pixels a period            12       16       20       24       32       40       48       64    slope
+no smoothing           2.7e-2   1.7e-4   4.7e-3   1.9e-3   6.8e-3   4.1e-3   1.3e-3   2.1e-3     0.92
+mean epsilon           7.8e-3   4.7e-3   3.9e-3   2.5e-3   1.9e-3   1.5e-3   9.1e-4   7.3e-4    -1.40
+new method             4.0e-4   2.8e-3   1.6e-3   1.6e-4   7.7e-4   5.0e-5   2.1e-4   5.2e-5    -2.64
+new method (2 dx)      2.2e-2   1.1e-2   5.4e-3   4.8e-3   2.0e-3   1.4e-3   9.3e-4   5.7e-4    -2.11
+new, at the nodes      1.4e-3   3.6e-3   1.0e-3   1.0e-3   1.7e-4   1.5e-3   8.0e-4   9.0e-4    -0.67
+slopes from 16 to 64 pixels; the paper's over 20 to 100
+  band 2: new (2 dx), slope             -2.106501   quadratic -2.000000  ± 3e-1  ok
+  band 2: mean epsilon, slope           -1.397523   paper -1.33      ± 3e-1      ok
+band 2: the new method below the mean at 8 of 8 resolutions, its slope -2.64 (erratic, as the paper's s = 1; printed, not checked)
+all 5 within tolerance of the paper
