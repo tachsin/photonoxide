@@ -677,7 +677,10 @@ fn strip_ports_3d(
     tolerance: f64,
     timed_done: &mut dyn FnMut(),
 ) -> Result<Measurement> {
-    let (nx, ny, nz) = (40 + 2 * pml, 70 + 2 * pml, 50 + 2 * pml);
+    // 0.8 × 1.4 × 1.0 µm inside the PMLs: 40 × 70 × 50 cells of 20 nm
+    let inside = |um: f64| (um / h).round() as usize;
+    let (ix, iy, iz) = (inside(0.8), inside(1.4), inside(1.0));
+    let (nx, ny, nz) = (ix + 2 * pml, iy + 2 * pml, iz + 2 * pml);
     let grid = Grid3d {
         nx,
         ny,
@@ -702,7 +705,9 @@ fn strip_ports_3d(
     let solver = solve.build(&mut phases, |formulation| {
         IterativeSolver3d::new(grid, lam, strip, solve.boundaries(pml), formulation)
     })?;
-    let (left, right) = (pml + 5, pml + 35);
+    // the ports an eighth of the length in from each PML, and at least three cells
+    let margin = (ix / 8).max(3);
+    let (left, right) = (pml + margin, pml + ix - margin);
     let ports = timed("port modes", &mut phases, || {
         let mode = |p: usize| -> Result<_> { Ok(solver.port_modes(Axis::X, p, 1)?.remove(0)) };
         Ok([
