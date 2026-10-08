@@ -889,6 +889,7 @@ method_docs!(
     "fdfd-adjoint.md",
     "fdfd-ports.md",
     "fdfd.md",
+    "fdtd-adjoint.md",
     "fdtd.md",
     "fields.md",
     "hadley.md",

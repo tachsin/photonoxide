@@ -49,6 +49,11 @@
 //!   closed boxes on Yee's grid, and waveguide modes' amplitudes by FDFD's own projection;
 //!   resonances by [`harmonic_inversion`] (V. A. Mandelshtam, H. S. Taylor, J. Chem. Phys. 107,
 //!   6756 (1997), doi:10.1063/1.475324); runs until the fields decay.
+//! - **Adjoint gradients** of an objective on the monitors with respect to every cell's density
+//!   in a [`Design`] region, from the forward run and one adjoint run ([`Simulation::adjoint`],
+//!   [`Simulation::gradient`]): exact for the scheme, from the transforms alone (see the adjoint
+//!   module; C. M. Lalau-Keraly et al., Opt. Express 21, 21693 (2013),
+//!   doi:10.1364/OE.21.021693).
 //! - **Mie's series** for a plane wave on a sphere, [`Mie`] and [`Sphere`] (G. Mie, Ann. Phys. 330,
 //!   377 (1908), doi:10.1002/andp.19083300302), written from his paper: FDTD's spheres are
 //!   checked against it.
@@ -1184,6 +1189,10 @@ impl Simulation {
     }
 }
 
+pub(crate) mod adjoint;
+pub(crate) mod adjoint_checks;
+#[cfg(test)]
+mod adjoint_tests;
 pub(crate) mod agreement_checks;
 mod bloch;
 pub(crate) mod bloch_checks;
@@ -1208,6 +1217,7 @@ mod monitors_tests;
 pub(crate) mod ring;
 pub(crate) mod smoothing;
 mod sources;
+pub use adjoint::{Design, Term, ValueGradient};
 pub use harmonic::{Resonance, harmonic_inversion};
 pub(crate) use kernel::{Real, Yee};
 pub use media::{Dispersive, Fit, Pole};

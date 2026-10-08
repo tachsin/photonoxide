@@ -686,6 +686,39 @@ impl Solver3d {
         })
     }
 
+    /// The same problem with the permittivity `eps` at each value of E, as
+    /// [`Solver3d::permittivity`] numbers them: a problem given value by value, to vary one.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a permittivity of the wrong length, or if the system can't be
+    /// factorized.
+    pub(crate) fn with_values(&self, eps: Vec<c64>) -> Result<Solver3d> {
+        if eps.len() != self.eps.len() {
+            return Err(Error::invalid(
+                "fdfd",
+                format!(
+                    "needs {} permittivities, one per value of E, got {}",
+                    self.eps.len(),
+                    eps.len()
+                ),
+            ));
+        }
+        let entries = self.lattice.assemble(&eps);
+        let lu = factorize(&self.lattice.grid, &entries, self.lu.plan())?;
+        Ok(Solver3d {
+            lattice: self.lattice.clone(),
+            eps,
+            entries,
+            lu,
+        })
+    }
+
+    /// The permittivity at every value of E, as [`Solver3d::permittivity`] numbers them.
+    pub(crate) fn values(&self) -> &[c64] {
+        &self.eps
+    }
+
     /// The checked lattice and the averaged permittivity at each value of E.
     pub(crate) fn setup(
         grid: Grid3d,
@@ -1046,6 +1079,7 @@ impl Lattice {
     }
 }
 
+pub(crate) mod adjoint;
 pub(crate) mod checks;
 mod iterative;
 mod multigrid;
@@ -1058,8 +1092,8 @@ mod tests;
 
 pub use iterative::{Formulation, IterativeSolver3d};
 pub use multigrid::{CycleShape, Multigrid};
-pub(crate) use ports::mode_amplitudes_of;
 pub use ports::{Port3d, PortMode3d};
+pub(crate) use ports::{mode_amplitude_weights_of, mode_amplitudes_of};
 
 /// The relative residual a direct solve guarantees: round-off, above the 1e-15 to 1e-14 that an
 /// accurate factorization and one step of refinement leave, and within what QMR reaches.
