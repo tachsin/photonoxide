@@ -23,7 +23,8 @@ use std::sync::Arc;
 use num_complex::Complex64 as c64;
 use photonoxide::Result;
 use photonoxide::backend::{
-    Capabilities, Form, IluFactors, IterativeSolver, Matrix, QmrRun, Threads,
+    Capabilities, Form, IluFactors, IterativeSolver, Matrix, MultigridCycle, QmrRun, RowMatrix,
+    Threads,
 };
 use photonoxide::fdfd::{Convergence, Stopping};
 
@@ -47,8 +48,8 @@ const FILL_UPPER: c_int = 1;
 const DIAGONAL_NON_UNIT: c_int = 0;
 const DIAGONAL_UNIT: c_int = 1;
 
-const ONE: c64 = c64::new(1.0, 0.0);
-const ZERO: c64 = c64::new(0.0, 0.0);
+pub(crate) const ONE: c64 = c64::new(1.0, 0.0);
+pub(crate) const ZERO: c64 = c64::new(0.0, 0.0);
 
 /// A complex scalar as cuSPARSE reads and writes it on the host: `cuDoubleComplex` is CUDA's
 /// `double2`, aligned to 16 bytes, and cuSPARSE loads it with aligned instructions. A `c64`,
@@ -140,8 +141,8 @@ type CreateSpVec =
     unsafe extern "C" fn(*mut Opaque, i64, i64, Opaque, Opaque, c_int, c_int, c_int) -> c_int;
 
 /// cuSPARSE's functions, the library that holds them, and the CUDA runtime.
-struct Api {
-    runtime: Arc<Runtime>,
+pub(crate) struct Api {
+    pub(crate) runtime: Arc<Runtime>,
     create: unsafe extern "C" fn(*mut Opaque) -> c_int,
     destroy: unsafe extern "C" fn(Opaque) -> c_int,
     create_csr: CreateCsr,
@@ -216,7 +217,7 @@ impl Api {
 }
 
 /// A matrix by rows on the GPU, with cuSPARSE's descriptor.
-struct DeviceMatrix {
+pub(crate) struct DeviceMatrix {
     api: Arc<Api>,
     descriptor: Opaque,
     _starts: Buffer,
@@ -226,6 +227,16 @@ struct DeviceMatrix {
 
 impl DeviceMatrix {
     fn new(api: &Arc<Api>, rows: &Rows, values: &[c64]) -> Result<DeviceMatrix> {
+        DeviceMatrix::with_columns(api, rows, rows.starts.len() - 1, values)
+    }
+
+    /// The matrix of these rows and `width` columns.
+    pub(crate) fn with_columns(
+        api: &Arc<Api>,
+        rows: &Rows,
+        width: usize,
+        values: &[c64],
+    ) -> Result<DeviceMatrix> {
         let _serial = serial();
         let n = (rows.starts.len() - 1) as i64;
         let starts = Buffer::new(&api.runtime, &rows.starts)?;
@@ -233,12 +244,13 @@ impl DeviceMatrix {
         let device_values = Buffer::new(&api.runtime, values)?;
         let mut descriptor = std::ptr::null_mut();
         check(
-            // SAFETY: the buffers hold n + 1 starts, nnz columns and nnz values, as declared
+            // SAFETY: the buffers hold n + 1 starts, nnz columns and nnz values, as declared,
+            // each column below `width`
             unsafe {
                 (api.create_csr)(
                     &mut descriptor,
                     n,
-                    n,
+                    width as i64,
                     values.len() as i64,
                     starts.ptr,
                     columns.ptr,
@@ -271,7 +283,7 @@ impl Drop for DeviceMatrix {
 
 /// A vector on the GPU, seen by cuSPARSE both as a dense vector and as a sparse one with every
 /// entry.
-struct DeviceVector {
+pub(crate) struct DeviceVector {
     api: Arc<Api>,
     dense: Opaque,
     sparse: Opaque,
@@ -313,7 +325,12 @@ impl DeviceVector {
         Ok(v)
     }
 
-    fn read(&self) -> Result<Vec<c64>> {
+    /// Its values replaced by `values`, as many.
+    pub(crate) fn write(&self, values: &[c64]) -> Result<()> {
+        self.values.write(values)
+    }
+
+    pub(crate) fn read(&self) -> Result<Vec<c64>> {
         let mut out = vec![ZERO; (self.values.bytes() / size_of::<c64>()).max(1)];
         self.values.read(&mut out)?;
         Ok(out)
@@ -336,8 +353,8 @@ impl Drop for DeviceVector {
 }
 
 /// A run's handle, its index array and the products' workspace.
-struct Session {
-    api: Arc<Api>,
+pub(crate) struct Session {
+    pub(crate) api: Arc<Api>,
     handle: Opaque,
     indices: Buffer,
     workspace: Option<Buffer>,
@@ -358,9 +375,10 @@ impl Drop for Session {
 }
 
 impl Session {
-    fn new(api: &Arc<Api>, n: usize) -> Result<Session> {
+    pub(crate) fn new(api: &Arc<Api>, n: usize) -> Result<Session> {
         let _serial = serial();
-        let indices: Vec<i32> = (0..n).map(index).collect::<Result<_>>()?;
+        index(n)?;
+        let indices: Vec<i32> = (0..n as i32).collect();
         let mut s = Session {
             api: api.clone(),
             handle: std::ptr::null_mut(),
@@ -374,7 +392,8 @@ impl Session {
         Ok(s)
     }
 
-    fn vector(&self, values: &[c64]) -> Result<DeviceVector> {
+    /// A vector of these values, at most the session's n of them.
+    pub(crate) fn vector(&self, values: &[c64]) -> Result<DeviceVector> {
         DeviceVector::new(&self.api, values, &self.indices)
     }
 
@@ -391,8 +410,14 @@ impl Session {
             .map_or(std::ptr::null_mut(), |w| w.ptr)
     }
 
-    /// Makes the workspace large enough for products with `m` and for the dot products.
-    fn prepare(&mut self, m: &DeviceMatrix, x: &DeviceVector, y: &DeviceVector) -> Result<()> {
+    /// Makes the workspace large enough for products with `m`, from vectors like `x` to vectors
+    /// like `y`, and, if they are as long, for their dot products.
+    pub(crate) fn prepare(
+        &mut self,
+        m: &DeviceMatrix,
+        x: &DeviceVector,
+        y: &DeviceVector,
+    ) -> Result<()> {
         let (mut spmv, mut spvv) = (0usize, 0usize);
         let (one, zero) = (Scalar(ONE), Scalar(ZERO));
         let mut result = Scalar(ZERO);
@@ -413,6 +438,9 @@ impl Session {
                 ),
                 "cusparseSpMV_bufferSize",
             )?;
+            if x.values.bytes() != y.values.bytes() {
+                return self.reserve(spmv);
+            }
             check(
                 (self.api.spvv_buffer_size)(
                     self.handle,
@@ -430,11 +458,16 @@ impl Session {
     }
 
     /// y = M x.
-    fn product(&self, m: &DeviceMatrix, x: &DeviceVector, y: &DeviceVector) -> Result<()> {
+    pub(crate) fn product(
+        &self,
+        m: &DeviceMatrix,
+        x: &DeviceVector,
+        y: &DeviceVector,
+    ) -> Result<()> {
         let (one, zero) = (Scalar(ONE), Scalar(ZERO));
         check(
-            // SAFETY: x and y are n long, M n × n; the workspace is at least what cuSPARSE
-            // asked for
+            // SAFETY: x is as long as M's columns, y as its rows; the workspace is at least what
+            // cuSPARSE asked for
             unsafe {
                 (self.api.spmv)(
                     self.handle,
@@ -454,7 +487,7 @@ impl Session {
     }
 
     /// Σ a_k b_k, unconjugated, or Σ conj(a_k) b_k.
-    fn dot(&self, a: &DeviceVector, b: &DeviceVector, conjugate: bool) -> Result<c64> {
+    pub(crate) fn dot(&self, a: &DeviceVector, b: &DeviceVector, conjugate: bool) -> Result<c64> {
         let mut out = Scalar(ZERO);
         check(
             // SAFETY: a and b are n long; out is writable (host pointer mode)
@@ -484,12 +517,18 @@ impl Session {
     }
 
     /// ‖a‖².
-    fn norm2(&self, a: &DeviceVector) -> Result<f64> {
+    pub(crate) fn norm2(&self, a: &DeviceVector) -> Result<f64> {
         Ok(self.dot(a, a, true)?.re)
     }
 
     /// y ← α x + β y.
-    fn axpby(&self, alpha: c64, x: &DeviceVector, beta: c64, y: &DeviceVector) -> Result<()> {
+    pub(crate) fn axpby(
+        &self,
+        alpha: c64,
+        x: &DeviceVector,
+        beta: c64,
+        y: &DeviceVector,
+    ) -> Result<()> {
         let (alpha, beta) = (Scalar(alpha), Scalar(beta));
         check(
             // SAFETY: x and y are n long; alpha and beta are read on the host
@@ -499,17 +538,17 @@ impl Session {
     }
 
     /// y += c x.
-    fn axpy(&self, c: c64, x: &DeviceVector, y: &DeviceVector) -> Result<()> {
+    pub(crate) fn axpy(&self, c: c64, x: &DeviceVector, y: &DeviceVector) -> Result<()> {
         self.axpby(c, x, ONE, y)
     }
 
     /// y = x.
-    fn copy(&self, x: &DeviceVector, y: &DeviceVector) -> Result<()> {
+    pub(crate) fn copy(&self, x: &DeviceVector, y: &DeviceVector) -> Result<()> {
         self.axpby(ONE, x, ZERO, y)
     }
 
     /// x *= c.
-    fn scale(&self, c: c64, x: &DeviceVector) -> Result<()> {
+    pub(crate) fn scale(&self, c: c64, x: &DeviceVector) -> Result<()> {
         let zero = self.zero.as_ref().expect("made in new()");
         self.axpby(ZERO, zero, c, x)
     }
@@ -517,7 +556,7 @@ impl Session {
 
 /// A triangular factor on the GPU, analysed for `cusparseSpSV`: its descriptor and the buffer
 /// the analysis fills, which the solves read.
-struct Triangular {
+pub(crate) struct Triangular {
     api: Arc<Api>,
     matrix: DeviceMatrix,
     descriptor: Opaque,
@@ -527,7 +566,7 @@ struct Triangular {
 impl Triangular {
     /// The factor of these rows, lower or upper, its diagonal unit (not stored) or not, analysed
     /// on vectors like `x` and `y`.
-    fn new(
+    pub(crate) fn new(
         s: &Session,
         (rows, values): (&Rows, &[c64]),
         lower: bool,
@@ -614,7 +653,7 @@ impl Triangular {
     }
 
     /// y = T⁻¹ x.
-    fn solve(&self, s: &Session, x: &DeviceVector, y: &DeviceVector) -> Result<()> {
+    pub(crate) fn solve(&self, s: &Session, x: &DeviceVector, y: &DeviceVector) -> Result<()> {
         let one = Scalar(ONE);
         check(
             // SAFETY: analysed in new() on vectors of this length; the buffer is alive
@@ -718,7 +757,7 @@ impl Operator<'_> {
 
 /// photonoxide's QMR on the GPU, as an iterative backend named `cusparse`.
 pub struct GpuQmr {
-    api: Arc<Api>,
+    pub(crate) api: Arc<Api>,
 }
 
 impl GpuQmr {
@@ -772,6 +811,20 @@ impl IterativeSolver for GpuQmr {
             )));
         }
         self.run(matrix, Some(ilu), b, stopping)
+    }
+
+    fn runs_multigrid(&self) -> bool {
+        true
+    }
+
+    fn gmres_multigrid(
+        &self,
+        matrix: RowMatrix<'_>,
+        cycle: &MultigridCycle<'_>,
+        b: &[c64],
+        stopping: Stopping,
+    ) -> Result<(Vec<c64>, Convergence)> {
+        crate::gpu_multigrid::gmres(&self.api, matrix, cycle, b, stopping)
     }
 }
 

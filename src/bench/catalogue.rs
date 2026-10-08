@@ -813,10 +813,12 @@ pub fn catalogue() -> Vec<Entry> {
             all.push(guide(core, pml, solve));
         }
     }
-    // QMR, plain and with ILU(0), larger, where a GPU's bandwidth can tell (#190)
+    // QMR, plain and with ILU(0), and GMRES with multigrid, larger, where a GPU's bandwidth can
+    // tell (#190)
     for (core, pml) in [(12, 10), (20, 14)] {
         all.push(guide(core, pml, super::Solve::Qmr));
         all.push(guide(core, pml, super::Solve::Ilu));
+        all.push(guide(core, pml, super::Solve::Multigrid));
     }
     // the fixed problems, under their ids
     let fixed_problems = super::problems();
@@ -1316,16 +1318,10 @@ impl Entry {
         )
     }
 
-    /// Whether its solve is QMR, plain or with ILU(0), which an iterative backend can run
-    /// ([`crate::backend::iterative`]): `fdfd3d-iterative/guide-qmr-*` and `guide-ilu-*`.
+    /// Whether its solve is QMR, plain or with ILU(0), or GMRES with multigrid, which an
+    /// iterative backend can run ([`crate::backend::iterative`]): `fdfd3d-iterative/guide-*`.
     pub fn takes_an_iterative_backend(&self) -> bool {
-        matches!(
-            self.kind,
-            Kind::Guide {
-                solve: super::Solve::Qmr | super::Solve::Ilu,
-                ..
-            }
-        )
+        matches!(self.kind, Kind::Guide { .. })
     }
 
     /// The error its check allows: a solve that leaves more hasn't solved the problem.
@@ -1367,7 +1363,8 @@ impl Entry {
                     Task::Iterative { tolerance } => tolerance,
                     _ => 1e-8,
                 };
-                // the iterative backend of the choice runs plain QMR; the others are photonoxide's
+                // the iterative backend of the choice runs the Krylov solver; the others are
+                // photonoxide's
                 let iterative = if self.takes_an_iterative_backend() {
                     direct
                 } else {
