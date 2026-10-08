@@ -1048,6 +1048,48 @@ pub fn cases() -> Vec<Case> {
             run: fdtd_slab_resonance,
         },
         Case {
+            id: "fdtd/mie-table",
+            title: r"Mie's series against Mie's own Table I: $\mathfrak{a}_1 = a_1/2\alpha^3$ for a perfectly conducting sphere and gold spheres in water at 420 to 650 nm, $\alpha^2$ from 0 to 2.5, 66 entries (the median $\lvert \Delta\mathfrak{a}_1 \rvert$ shown)",
+            tier: Tier::Published,
+            source: r"G. Mie, Ann. Phys. 330, 377 (1908), doi:10.1002/andp.19083300302, Table I with gold's $m'^2$ from p. 417, his Eq. 55 in photonoxide's convention; 61 of 66 within 0.016 of his three digits, median 3.0e-3. The other five, near gold's resonance where his series in $\alpha^2$ by hand converge worst, differ from his by 0.04 to 0.40 and agree with $a_1$ from the closed forms of $\psi_1$ and $\xi_1$ to 1e-13",
+            run: fdtd_mie_table,
+        },
+        Case {
+            id: "fdtd/mie-balance",
+            title: r"Mie's series: a lossless sphere takes from the wave what it scatters, $Q_\text{ext} = Q_\text{sca}$, for $\alpha$ from 0.1 to 1000 and $m$ from 1.05 to 3.5 (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"energy conservation: Mie's §26, his parts II and III of the flux through a large sphere, $\operatorname{Re}(a_\nu) = \lvert a_\nu \rvert^2$ and the same for $b_\nu$ when $m$ is real; round-off",
+            run: fdtd_mie_balance,
+        },
+        Case {
+            id: "fdtd/mie-terms",
+            title: r"Mie's series converges in the number of terms: $Q_\text{ext}$ of the first $\alpha + 4\alpha^{1/3} + 10$ terms against the converged sum, for $\alpha$ = 5, 50 and 200 (largest error shown)",
+            tier: Tier::Analytic,
+            source: r"the terms fall faster than exponentially once $\nu$ passes $\alpha$ (Mie's §15); half as many terms are off by more than 1e-2; measured 7.0e-14, round-off",
+            run: fdtd_mie_terms,
+        },
+        Case {
+            id: "fdtd/mie-sphere",
+            title: r"FDTD against Mie's series: a smoothed sphere of $\varepsilon = 4$ and radius 1 µm in vacuum, a TF/SF plane wave, its scattering cross-section from a flux box over $\alpha$ = 1 to 3, on 8 and 16 cells a radius: the order of convergence of the mean relative error",
+            tier: Tier::Analytic,
+            source: r"G. Mie, Ann. Phys. 330, 377 (1908), doi:10.1002/andp.19083300302, Eq. 55 and §26's part III; mean errors 2.8e-2 and 7.2e-3 (6, 12 and 20 cells: 5.1e-2, 1.2e-2, 4.7e-3), second order as the scheme's dispersion",
+            run: fdtd_mie_sphere,
+        },
+        Case {
+            id: "fdtd/mie-sphere-staircase",
+            title: r"The same sphere without smoothing, $\varepsilon$ sampled at each value of E, 16 cells a radius: the mean relative error of the scattering cross-section",
+            tier: Tier::Analytic,
+            source: r"Mie's series; the staircase's error is irregular in the grid, 2.6e-2, 1.7e-2, 8.1e-3, 6.0e-3 and 4.8e-3 on 6, 8, 12, 16 and 20 cells, not smaller than the smoothed sphere's here because the dispersion's dominates at the top of the band",
+            run: fdtd_mie_sphere_staircase,
+        },
+        Case {
+            id: "fdtd/mie-drude",
+            title: r"FDTD against Mie's series for a damped Drude metal sphere ($f_p$ = 0.5 c/µm, $\gamma/2\pi$ = 0.2 c/µm, radius 1 µm: Re ε from −2.8 to 0.3), sampled at each value of E, 16 cells a radius: the mean relative error of the scattering and absorption cross-sections, from flux boxes outside and inside the TF/SF box",
+            tier: Tier::Analytic,
+            source: r"Mie's series with the leapfrog's permittivity at each frequency; first order, as a staircased surface: 3.0e-2 on 8 cells, 1.6e-2 on 16",
+            run: fdtd_mie_drude,
+        },
+        Case {
             id: "circuit/series-waveguides",
             title: r"Circuits: two waveguides, 12.5 and 30.25 µm, in series are one of 42.75 µm ($n_\text{eff} = 2.4$, $n_g = 4.2$, 3 dB/cm), 1.54 to 1.56 µm (largest $\lvert \Delta S \rvert$ shown)",
             tier: Tier::Analytic,
@@ -3393,6 +3435,105 @@ pub fn report() -> (String, bool) {
     (text, all)
 }
 
+fn fdtd_mie_table() -> Outcome {
+    let (median, known) = crate::fdtd::mie_checks::table_one_agreement();
+    Outcome {
+        measured: median,
+        expected: 0.0,
+        // Mie's three digits; all his 66 entries within 0.016 but five known ones
+        tolerance: 0.005,
+        error: if known { median } else { f64::INFINITY },
+    }
+}
+
+fn fdtd_mie_balance() -> Outcome {
+    let measured = crate::fdtd::mie_checks::lossless_balance();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // measured 1.4e-13, round-off over sums of up to 1100 terms
+        tolerance: 1e-11,
+        error: measured,
+    }
+}
+
+fn fdtd_mie_terms() -> Outcome {
+    use crate::fdtd::mie_checks::truncation_error;
+    use num_complex::Complex64 as c64;
+    let mut measured: f64 = 0.0;
+    let mut short: f64 = f64::INFINITY;
+    for (size, index) in [
+        (5.0, c64::new(1.5, 0.0)),
+        (50.0, c64::new(1.33, 0.0)),
+        (200.0, c64::new(1.5, 0.05)),
+    ] {
+        let terms = (size + 4.0 * f64::cbrt(size) + 10.0) as usize;
+        measured = measured.max(truncation_error(size, index, terms));
+        short = short.min(truncation_error(size, index, (size / 2.0) as usize));
+    }
+    Outcome {
+        measured,
+        expected: 0.0,
+        // round-off: the partial sum steps its D_ν down from a different start
+        tolerance: 1e-12,
+        error: if short > 1e-2 {
+            measured
+        } else {
+            f64::INFINITY
+        },
+    }
+}
+
+fn fdtd_mie_sphere() -> Outcome {
+    use crate::fdtd::Average;
+    use crate::fdtd::mie_checks::{Material, SPHERE_TIME, sphere_run};
+    let material = Material::Dielectric(4.0, Average::Subpixel);
+    let coarse = sphere_run(8, &material, SPHERE_TIME);
+    let fine = sphere_run(16, &material, SPHERE_TIME);
+    let measured = (coarse.mean_error(false) / fine.mean_error(false)).log2();
+    Outcome {
+        measured,
+        expected: 2.0,
+        // measured 1.97; and no spurious absorption in the lossless sphere
+        tolerance: 0.15,
+        error: if fine.spurious_absorption() < 2e-3 {
+            (measured - 2.0).abs()
+        } else {
+            f64::INFINITY
+        },
+    }
+}
+
+fn fdtd_mie_sphere_staircase() -> Outcome {
+    use crate::fdtd::Average;
+    use crate::fdtd::mie_checks::{Material, SPHERE_TIME, sphere_run};
+    let run = sphere_run(
+        16,
+        &Material::Dielectric(4.0, Average::Sampled),
+        SPHERE_TIME,
+    );
+    let measured = run.mean_error(false);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // measured 6.0e-3
+        tolerance: 1e-2,
+        error: measured,
+    }
+}
+
+fn fdtd_mie_drude() -> Outcome {
+    use crate::fdtd::mie_checks::{Material, SPHERE_TIME, damped_drude, sphere_run};
+    let run = sphere_run(16, &Material::Dispersive(damped_drude()), SPHERE_TIME);
+    let measured = run.mean_error(true);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // measured 1.6e-2; 3.0e-2 on 8 cells
+        tolerance: 3e-2,
+        error: measured,
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

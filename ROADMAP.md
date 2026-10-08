@@ -242,7 +242,7 @@ What the comparison with PARDISO and MUMPS found ([docs/baselines.md](docs/basel
 - [ ] **Adjoint gradients** in 3D, the imaginary part of the mode included.
 - [ ] **Studio:** live field propagation in planes and slices, with monitors.
 - [ ] **Validation:**
-  - Mie scattering (Mie 1908);
+  - Mie scattering (Mie 1908); *(done, #169: Mie's series written from his paper, `fdtd::Mie`, his Table I reproduced (61 of 66 entries to his three digits, the other five near gold's resonance where the closed form of $a_1$ confirms the series), a lossless sphere's extinction its scattering to 1.4e-13 for α up to 1000; FDTD's sphere of ε = 4 by TF/SF and flux boxes converging to it at second order when smoothed, 7.2e-3 at 16 cells a radius, and irregularly sampled, 6.0e-3; a damped Drude metal sphere's scattering and absorption at first order, 1.6e-2. A sharp plasmon on a sampled dispersive sphere isn't converged: up to 2.7 times Mie's absorption at 16 cells.)*
   - PML reflection; *(done, #160: 6.1e-6 from a CPML of 16 cells in 2D, `fdtd/cpml-thickness`; Roden and Gedney's plate in soil, −48.6 and −70.5 dB against their −48 and −67, the `cpml_roden_gedney` example)*
   - the Yee scheme's numerical dispersion against theory; *(done, #160: Taflove and Brodwin's relation to 3.6e-15, `fdtd/dispersion`; the leapfrog's energy to 2.4e-15, `fdtd/energy`)*
   - Meep on its published cases (Oskooi 2010);
