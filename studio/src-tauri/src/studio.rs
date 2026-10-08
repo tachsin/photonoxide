@@ -75,6 +75,8 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             method_docs,
             preview_scene,
             save_text,
+            crate::libraries::libraries,
+            crate::libraries::install,
             crate::materials::materials,
             crate::materials::material_curves,
             crate::materials::material_at,

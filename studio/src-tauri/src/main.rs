@@ -5,6 +5,7 @@
 mod bench;
 mod circuits;
 mod examples;
+mod libraries;
 mod materials;
 mod runner;
 mod settings;
@@ -50,6 +51,9 @@ const USAGE: &str = "usage:
       the summary alone, from the database
   photonoxide bench --import <file> [--db <file>]
       add another database's records, from this machine or another
+  photonoxide libraries [--json]
+      the external libraries found here (oneMKL, the CUDA runtime, cuSPARSE, cuDSS): where
+      each was found, its version, and the backends that passed their smoke tests
   photonoxide --version";
 
 fn main() -> ExitCode {
@@ -61,6 +65,7 @@ fn main() -> ExitCode {
         Some("validate") => validate(&args[1..]),
         Some("example") => example(&args[1..]),
         Some("bench") => bench::run(&args[1..]),
+        Some("libraries") => libraries::run(&args[1..]),
         Some("--version" | "-V") => {
             println!("photonoxide {}", photonoxide::VERSION);
             ExitCode::SUCCESS

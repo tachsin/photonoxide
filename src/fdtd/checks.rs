@@ -548,7 +548,7 @@ pub(crate) fn guide(x: f64, y: f64, _: f64) -> f64 {
 
 /// The time step for `steps_per_period` steps a period of 1.55 µm on cells of 50 nm in 3D, as
 /// a Courant number.
-fn courant_for(steps_per_period: usize) -> f64 {
+pub(crate) fn courant_for(steps_per_period: usize) -> f64 {
     1.55 / steps_per_period as f64 * (3.0f64 / (0.05 * 0.05)).sqrt()
 }
 

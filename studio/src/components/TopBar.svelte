@@ -17,6 +17,7 @@
     components: ["Components", "The parts a chip is built from: ports, parameters, models and spectra"],
     chip: ["Chip", "Place components, wire them port to port, and simulate the circuit"],
     validation: ["Validation", "Each solver against exact solutions and published results"],
+    libraries: ["Libraries", "External libraries found on this machine, their licences, and how to install them"],
     settings: ["Settings", "Appearance, workspace, tips and updates"],
   };
   const title = $derived(titles[app.page] ?? ["", ""]);
