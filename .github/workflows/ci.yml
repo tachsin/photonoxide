@@ -11,7 +11,8 @@ env:
 jobs:
   # What a push or a pull request changed, so that a change to the docs alone runs only the docs'
   # check. Markdown the program reads (the validation report, the methods' write-ups, the
-  # examples' table and outputs, the changelog) still runs the jobs that read it; anything that
+  # examples' table and outputs, the changelog, the Academy's lessons) still runs the jobs that
+  # read it; anything that
   # isn't Markdown or the site runs everything.
   changes:
     name: What changed
@@ -46,7 +47,7 @@ jobs:
               case "$f" in
                 docs/validation.md) validation=true ;;
                 examples/output/*) validation=true; studio=true ;;
-                docs/methods/*|examples/README.md|CHANGELOG.md) studio=true ;;
+                docs/methods/*|examples/README.md|CHANGELOG.md|academy/*) studio=true ;;
                 site/*|*.md) ;;
                 *) code=true ;;
               esac
