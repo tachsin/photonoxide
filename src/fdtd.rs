@@ -45,6 +45,13 @@
 //!   Compat. EMC-24, 397 (1982), doi:10.1109/TEMC.1982.304054), fed by an auxiliary 1D run
 //!   with the grid's dispersion; one-way waveguide modes; [`GaussianBeam`]s. A run's DFT
 //!   divided by [`Waveform::spectrum`] is FDFD's field at ω̃, exactly.
+//! - **Monitors:** [`Dft`] transforms of E and H̃ over boxes, the flux through [`FluxPlane`]s and
+//!   closed boxes on Yee's grid, and waveguide modes' amplitudes by FDFD's own projection;
+//!   resonances by [`harmonic_inversion`] (V. A. Mandelshtam, H. S. Taylor, J. Chem. Phys. 107,
+//!   6756 (1997), doi:10.1063/1.475324); runs until the fields decay.
+//! - **Mie's series** for a plane wave on a sphere, [`Mie`] and [`Sphere`] (G. Mie, Ann. Phys. 330,
+//!   377 (1908), doi:10.1002/andp.19083300302), written from his paper: FDTD's spheres are
+//!   checked against it.
 //!
 //! Every update is a sum over a fixed stencil with no reduction, its z-planes shared among
 //! rayon's threads: the fields are the same bits on any number of threads.
@@ -389,6 +396,8 @@ pub struct Simulation {
     bloch: Option<Box<bloch::Bloch>>,
     /// A smoothed permittivity whose tensor couples E's components: D, and E from it.
     anisotropic: Option<Box<smoothing::Anisotropic>>,
+    /// Transforms, flux and mode monitors.
+    monitors: monitors::Monitors,
 }
 
 /// The permittivity's samples per axis in a cell, as FDFD's 3D solver averages it.
@@ -550,6 +559,7 @@ impl Simulation {
             media: media::Media::default(),
             bloch: None,
             anisotropic: None,
+            monitors: monitors::Monitors::default(),
         };
         s.build_cpml(&eps_e);
         s.build_stencils();
@@ -994,6 +1004,15 @@ impl Simulation {
             };
             p.values.push(v);
         }
+        let te = self.time();
+        let imaginary = self.bloch.as_ref().map(|b| [&b.twin.e, &b.twin.h]);
+        self.monitors.record(
+            self.grid,
+            [&self.e, &self.h],
+            imaginary,
+            [te, te - 0.5 * self.dt],
+            self.dt,
+        );
     }
 
     /// For each axis, the offset in a component's values from coordinate m to its neighbour one
@@ -1126,15 +1145,29 @@ impl Simulation {
 mod bloch;
 pub(crate) mod bloch_checks;
 pub(crate) mod checks;
+mod harmonic;
+#[cfg(test)]
+mod harmonic_tests;
 mod kernel;
 #[cfg(test)]
 mod kernel_tests;
 mod media;
 pub(crate) mod media_checks;
+pub(crate) mod mie;
+pub(crate) mod mie_checks;
+#[cfg(test)]
+mod mie_tests;
+mod monitors;
+pub(crate) mod monitors_checks;
+#[cfg(test)]
+mod monitors_tests;
 pub(crate) mod smoothing;
 mod sources;
+pub use harmonic::{Resonance, harmonic_inversion};
 pub(crate) use kernel::{Real, Yee};
 pub use media::{Dispersive, Fit, Pole};
+pub use mie::{CrossSections, Mie, Sphere};
+pub use monitors::{Dft, FluxPlane};
 pub use smoothing::{Average, Body, Coupling, Permittivity, Smoothing, Structure};
 pub use sources::{BeamPolarization, Current, Dipole, GaussianBeam, PlaneWave};
 #[cfg(test)]

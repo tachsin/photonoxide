@@ -1053,6 +1053,7 @@ mod tests;
 
 pub use iterative::{Formulation, IterativeSolver3d};
 pub use multigrid::{CycleShape, Multigrid};
+pub(crate) use ports::mode_amplitudes_of;
 pub use ports::{Port3d, PortMode3d};
 
 /// The relative residual a direct solve guarantees: round-off, above the 1e-15 to 1e-14 that an

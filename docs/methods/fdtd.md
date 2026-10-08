@@ -1,9 +1,11 @@
 ---
 title: "FDTD"
 module: fdtd
-summary: "Maxwell's equations stepped in time on Yee's grid: E and H leapfrogging on FDFD's own grid, the convolutional PML, walls, periodic and Bloch-periodic sides (complex fields), conductors, lossy media, subpixel smoothing of isotropic and anisotropic bodies, Drude and Lorentz media by auxiliary differential equations and the catalogue's materials fitted by them, the same bits on any number of threads; dipoles and currents normalized exactly by their spectra, plane waves on total-field/scattered-field boxes at any grid angle, one-way waveguide modes and Gaussian beams."
+summary: "Maxwell's equations stepped in time on Yee's grid: E and H leapfrogging on FDFD's own grid, the convolutional PML, walls, periodic and Bloch-periodic sides (complex fields), conductors, lossy media, subpixel smoothing of isotropic and anisotropic bodies, Drude and Lorentz media by auxiliary differential equations and the catalogue's materials fitted by them, the same bits on any number of threads; dipoles and currents normalized exactly by their spectra, plane waves on total-field/scattered-field boxes at any grid angle, one-way waveguide modes and Gaussian beams; transform, flux and mode monitors, and resonances by harmonic inversion; Mie's series for a sphere, and spheres against it."
 order: 23
 papers:
+  - cite: "G. Mie, Ann. Phys. 330, 377 (1908) (scattering by a sphere)"
+    doi: 10.1002/andp.19083300302
   - cite: "K. S. Yee, IEEE Trans. Antennas Propag. 14, 302 (1966)"
     doi: 10.1109/TAP.1966.1138693
   - cite: "O. Aberth, Math. Comput. 27, 339 (1973) (the stability check's polynomial roots)"
@@ -16,6 +18,8 @@ papers:
     doi: 10.1006/jcph.1994.1159
   - cite: "C. L. Lawson, R. J. Hanson, Solving Least Squares Problems, SIAM (1995) (nonnegative least squares, for the catalogue's fits)"
     doi: 10.1137/1.9781611971217
+  - cite: "V. A. Mandelshtam, H. S. Taylor, J. Chem. Phys. 107, 6756 (1997) (harmonic inversion by filter diagonalization)"
+    doi: 10.1063/1.475324
   - cite: "M. Okoniewski, M. Mrozowski, M. A. Stuchly, IEEE Microw. Guided Wave Lett. 7, 121 (1997) (dispersive media by auxiliary differential equations)"
     doi: 10.1109/75.569723
   - cite: "J. A. Roden, S. D. Gedney, Microw. Opt. Technol. Lett. 27, 334 (2000) (the convolutional PML)"
@@ -60,6 +64,20 @@ validation:
   - fdtd/smoothing-oblique-nodes
   - fdtd/smoothing-energy
   - fdtd/smoothing-oskooi
+  - fdtd/monitor-transforms
+  - fdtd/monitor-flux
+  - fdtd/monitor-flux-box
+  - fdtd/monitor-modes
+  - fdtd/monitor-guides
+  - fdtd/harmonic-inversion
+  - fdtd/cavity-resonances
+  - fdtd/slab-resonance
+  - fdtd/mie-table
+  - fdtd/mie-balance
+  - fdtd/mie-terms
+  - fdtd/mie-sphere
+  - fdtd/mie-sphere-staircase
+  - fdtd/mie-drude
 examples:
   - cpml_roden_gedney
   - tfsf_square_cylinder
@@ -577,10 +595,162 @@ $w_0 = 1.5\lambda$ at 20 cells a wavelength:
 - **Tilt:** tilted by 10°, the centre moves at 0.1825 µm per µm, to 1.5e-4 of the grid's
   prediction (`fdtd/beam-tilt`), above $\tan 10° = 0.1763$ by the same two effects.
 
-## Probes
+## Probes and monitors
 
-A probe records one value of E or H̃ every step. DFT monitors, fluxes and harmonic inversion are
-#163.
+A probe records one value of E or H̃ every step. A monitor accumulates what a run gives back as
+it goes, so a run needs no stored history:
+
+- **Transforms** (`Simulation::add_dft`): every component of E and H̃ over a box of values,
+  $\sum_n F(t_n) e^{i\omega t_n}\Delta t$ at chosen frequencies, each field at its own times
+  (E at $n\Delta t$, H̃ at $(n - \tfrac12)\Delta t$). Each value's sum is its own, in step order,
+  so the transforms are the same bits on any number of threads. Divided by the source's
+  `Waveform::spectrum` once the fields have died away, they are FDFD's fields at the leapfrog's
+  frequency $\tilde\omega = (2/\Delta t)\sin(\omega\Delta t/2)$. H̃'s transform is then
+  $\nabla \times \hat E/(i\tilde\omega)$ exactly: summing $\tilde H^{n+1/2} - \tilde H^{n-1/2} =
+  -\Delta t\,\nabla \times E^n$ against $e^{i\omega n\Delta t}$ gives $-2i\sin(\omega\Delta t/2)\hat H
+  = -\Delta t\,\nabla \times \hat E$. Complex runs (a Bloch phase) transform the whole field.
+- **Flux** (`add_flux`, `add_flux_box`): $\tfrac12\operatorname{Re}(E \times \tilde H^*)$ through
+  a plane halfway between two planes of nodes, where H̃'s tangential components are, the
+  tangential E the mean of its values on the nodes either side: FDFD's `Field3d::flux`, now
+  within a window. It is exact for the scheme. Summation by parts of
+  $\sum \tilde H^*\cdot(\nabla \times E) - \sum E\cdot(\nabla \times \tilde H)^*$ over a box, each
+  value weighted by its share of it (1 inside, ½ on its boundary), leaves only pairs of values
+  coupled across the boundary, and those are the faces' fluxes in this form, with the values on
+  a face's edges counting half. In a lossless region without sources both sums are imaginary
+  ($i\tilde\omega\sum\lvert\tilde H\rvert^2$ and $i\tilde\omega\sum\varepsilon\lvert E\rvert^2$),
+  so the flux out of a closed box is zero to round-off: 1.5e-15 of a face's flux
+  (`fdtd/monitor-flux-box`). The plane's and the box's flux equal FDFD's for the same current to
+  1.2e-11 (`fdtd/monitor-flux`).
+- **Mode amplitudes** (`add_mode_monitor`): a guide's modes from FDFD, each projected by FDFD's
+  own Lorentz reciprocity form on its plane and the next, at the frequency whose $\tilde\omega$
+  is the mode's $k_0$ (`Simulation::leapfrog_frequency`, $\omega = (2/\Delta t)\arcsin(k_0\Delta
+  t/2)$). With a mode source they give S-parameters. In a closed lossy box they are FDFD's to
+  1.5e-11 (`fdtd/monitor-modes`). Open, in 2D with CPMLs of 10 cells against FDFD's PMLs, a
+  straight guide of ε = 12 transmits 0.9999991 against 1.0000002, and a sharp 90° bend 0.315408
+  against 0.315415, the reflections agreeing to 1.4e-5 and 5.8e-5 (`fdtd/monitor-guides`): the
+  CPML and FDFD's PML absorb differently in discrete time.
+- **Stopping** (`run_until_decayed`): a run goes on in blocks until, over a whole block, |F|²
+  at each of a set of probes has stayed below a fraction of its peak, or until a time limit,
+  and says which. A fixed time is `run_until`.
+
+## Resonances
+
+A resonance's frequency and Q come from a probe's time series after the source has died, by
+harmonic inversion (`harmonic_inversion`): V. A. Mandelshtam and H. S. Taylor's filter
+diagonalization (J. Chem. Phys. 107, 6756 (1997), doi:10.1063/1.475324, Section II). The signal
+$c_n = \sum_k d_k e^{-in\tau\omega_k}$ is the correlation function of an evolution operator
+whose eigenvalues are $u_k = e^{-i\tau\omega_k}$. On a basis $\Psi(z_j) = \sum_{n=0}^{M}
+(\hat U/z_j)^n\Phi_0$ for a few points of the window on the unit circle (their Eq. 19), the
+operator's matrices $U^{(p)}(z, z')$ are sums of the signal alone (Eq. 25, checked against
+the double sum it closes), and $U^{(1)}B = u\,U^{(0)}B$ (Eq. 23) gives the $u_k$ near the
+window. photonoxide follows their summary:
+- $J = \lceil N\tau(\omega_\text{max} - \omega_\text{min})/4\pi\rceil$ points, at least 8;
+- $M = \lfloor(N - 3)/2\rfloor$;
+- the eigenproblem on $U^{(0)}$'s singular vectors above 1e-11 of the largest;
+- each $u_k$ checked by $\lVert(U^{(2)} - u_k^2U^{(0)})B_k\rVert$ relative to $\lVert u_k^2U^{(0)}B_k\rVert$ (step 5);
+- the amplitudes from the whole signal (Eq. 27).
+
+Every eigenvalue in the window is returned with that error, and the caller keeps what it trusts.
+
+A signal of finitely many terms is recovered to round-off, and the resolution is not the
+transform's 2π/T:
+- **Synthetic:** two terms 0.01 c/µm apart, where 400 samples resolve 0.025, are found with
+  frequencies, decay rates and amplitudes to 2.1e-12 (`fdtd/harmonic-inversion`).
+- **A lossy cavity:** in a 2D cavity with walls, each mode $\sin(m\pi i/n_x)\sin(n\pi j/n_y)$
+  evolves as $u^n$, with $u^2 - (1 + c_a - c_b\Delta t\lambda)u + c_a = 0$ from E's and H̃'s
+  updates, where λ is the discrete curl-curl's eigenvalue. The four modes found agree to
+  3.4e-15 (`fdtd/cavity-resonances`).
+- **Convergence:** a slab of ε = 4, 0.5 µm thick, in vacuum, against the continuum's pole
+  $\omega = (2\pi + i\ln r)/(nL)$, r = 1/3 (1 c/µm, Q = 2.86). Its second resonance's frequency
+  converges at second order, 1.8e-3, 4.5e-4 and 1.1e-4 on cells of 20, 10 and 5 nm, and so does
+  its decay rate, 1.4e-2, 3.6e-3 and 8.9e-4 (`fdtd/slab-resonance`).
+
+A published cavity's Q is still to be reproduced. Oskooi et al. 2010's Fig. 9 gives only
+Q ∼ 10⁶ for a missing rod in a square lattice of rods (r = 0.2a, ε = 12), with no crystal size,
+which is not enough to check a number against.
+
+## Scattering by a sphere
+
+**Mie's series.** A plane wave on a sphere has an exact solution, G. Mie's (Ann. Phys. 330, 377
+(1908), doi:10.1002/andp.19083300302), written here from his paper (`fdtd::Mie`, `fdtd::Sphere`).
+A sphere of radius ρ in a lossless medium of index n₀ is described by his size parameter
+$\alpha = 2\pi n_0\rho/\lambda$ and its relative index m. The scattered field is a series of
+outgoing partial waves, the electric ones weighted by his $a_\nu$ and the magnetic by $p_\nu$
+(his Eq. 55). The power they carry away and the power they take from the incident wave are his
+§26's parts III and II, the scattering and extinction cross-sections.
+
+Mie writes fields as $e^{+i\omega t}$, so his metals have $m' = n - i\kappa$. His functions are
+his own: $I_\nu(x)$ (his Eq. 25) is the Riccati–Bessel $\psi_\nu(x) = x j_\nu(x)$, and his outgoing
+$K_\nu(-x)$ (Eq. 19) is $(-i)^{\nu+1} x h^{(2)}_\nu(x)$. In photonoxide's $e^{-i\omega t}$, with
+$\xi_\nu = x h^{(1)}_\nu = \psi_\nu - i\chi_\nu$ and $D_\nu = \psi_\nu'/\psi_\nu$, his Eq. 55,
+divided through by $\psi_\nu(m\alpha)$, is
+
+$$
+a_\nu = \frac{(D_\nu(m\alpha)/m + \nu/\alpha)\psi_\nu(\alpha) - \psi_{\nu-1}(\alpha)}{(D_\nu(m\alpha)/m + \nu/\alpha)\xi_\nu(\alpha) - \xi_{\nu-1}(\alpha)},\qquad
+b_\nu = \frac{(mD_\nu(m\alpha) + \nu/\alpha)\psi_\nu(\alpha) - \psi_{\nu-1}(\alpha)}{(mD_\nu(m\alpha) + \nu/\alpha)\xi_\nu(\alpha) - \xi_{\nu-1}(\alpha)},
+$$
+
+his own coefficients being $(2\nu+1)(-1)^\nu i\bar a_\nu$ and $-(2\nu+1)(-1)^\nu i\bar b_\nu$, the bar
+the conjugate with m conjugated. His sums become
+
+$$
+Q_\text{sca} = \frac{2}{\alpha^2}\sum_\nu (2\nu+1)\left(\lvert a_\nu\rvert^2 + \lvert b_\nu\rvert^2\right),\qquad
+Q_\text{ext} = \frac{2}{\alpha^2}\sum_\nu (2\nu+1)\operatorname{Re}(a_\nu + b_\nu),
+$$
+
+the cross-sections over πρ², and absorption is their difference. A perfect conductor is the limit
+m → ∞ (his §17).
+
+Every function follows from his recurrence (26), $(2\nu+1)f_\nu/x = f_{\nu-1} + f_{\nu+1}$:
+- $\xi_\nu$, which grows past ν ≈ α, is stepped up from $\xi_0$ and $\xi_1$;
+- $\psi_\nu$, which falls there and can't be stepped up, comes from $D_\nu$ stepped down,
+  $D_{\nu-1} = \nu/z - 1/(D_\nu + \nu/z)$, from zero well above the last term, and then
+  $\psi_\nu = \psi_{\nu-1}/(D_\nu + \nu/z)$;
+- the sphere's own $\psi_\nu(m\alpha)$ never appears, only $D_\nu(m\alpha)$, so a metal's
+  exponentially large values can't overflow.
+
+The terms fall faster than exponentially once ν passes α. The series is summed until a term adds
+less than 1e-17 of the sum.
+
+**Checked against Mie.** His Table I gives $\mathfrak{a}_1 = a_1/2\alpha^3$ for a perfectly
+conducting sphere and for gold spheres in water at seven wavelengths, from 420 to 650 nm, with
+gold's $m'^2$ in his table on p. 417. Of its 66 entries, 61 agree to within 0.016, his three
+digits by hand; the median difference is 3.0e-3 (`fdtd/mie-table`). The other five lie near gold's
+resonance, where his series in α² converge worst. They differ from his by 0.04 to 0.40, and the
+series agrees there with $a_1$ from the closed forms $\psi_1 = \sin z/z - \cos z$ and $\xi_1$ to
+1e-13. The series is also checked against itself:
+- a lossless sphere takes what it scatters, $Q_\text{ext} = Q_\text{sca}$, to 1.4e-13 for α from 0.1
+  to 1000 (`fdtd/mie-balance`);
+- the first $\alpha + 4\alpha^{1/3} + 10$ terms give $Q_\text{ext}$ to 7e-14 for α up to 200 (round-off), half
+  as many off by more than 1e-2 (`fdtd/mie-terms`);
+- Rayleigh's limits, (8/3)α⁴|(m² − 1)/(m² + 2)|² and (10/3)α⁴ for a perfect conductor, with the
+  next term of order α²;
+- $Q_\text{ext} \to 2$ for a large sphere, and a good conductor tends to a perfect one.
+
+**FDTD against Mie.** A sphere of radius 1 µm in vacuum is lit along x by a TF/SF plane wave
+polarized along z, a pulse over α = 1 to 3. A flux box in the scattered field, around the TF/SF
+box, gives the scattering cross-section, and a box in the total field, around the sphere, the
+absorption. The incident intensity comes from the same plane wave on a grid one cell across,
+periodic, at the same step.
+- **Smoothed,** ε = 4 (`Average::Subpixel`, the entries at the nodes): the mean relative error of
+  $C_\text{sca}$ over the band is 5.1e-2, 2.8e-2, 1.2e-2, 7.2e-3 and 4.7e-3 on 6, 8, 12, 16 and
+  20 cells a radius. That is second order (1.97 from 8 to 16 cells, `fdtd/mie-sphere`), as the
+  scheme's dispersion, which dominates at the top of the band (α = 3 is 6 cells a wavelength
+  in the sphere on the coarsest grid). The lossless sphere's absorption box reads below 1e-3 of
+  the scattering.
+- **Sampled,** ε at each value of E: 2.6e-2, 1.7e-2, 8.1e-3, 6.0e-3 and 4.8e-3
+  (`fdtd/mie-sphere-staircase`). Irregular in the grid, and not larger than the smoothed sphere's
+  here: the staircase's error partly cancels the dispersion's.
+- **A damped Drude metal,** f_p = 0.5 c/µm, γ/2π = 0.2 c/µm (Re ε from −2.8 to 0.3, Im ε from 4.8
+  to 0.5 over the band), sampled at each value of E, against Mie with the leapfrog's
+  permittivity: the mean relative error of both cross-sections is 3.0e-2 and 1.6e-2 on 8 and 16
+  cells a radius, first order, as a staircased surface (`fdtd/mie-drude`).
+
+A metal sphere with a sharp plasmon in the band is not yet converged. With γ/2π = 0.02 c/µm the
+dipole and quadrupole plasmons fall at α ≈ 1.5 to 2, and on 16 cells a radius the staircased
+sphere absorbs up to 2.7 times Mie's there, falling slowly with the grid. A plasmon is a
+surface mode, and a dispersive medium is sampled, not smoothed: its ε∞ would have to enter the
+smoothed tensor.
 
 ## Cost
 
@@ -598,6 +768,8 @@ the fields are the same bits on any number of threads.
 - **CPMLs:** each CPML slab updates ψ and the field it corrects row by row in one pass.
 - **Tables:** the neighbours' offsets and the 1/(κΔ) factors are tabulated once, and nothing is
   allocated while stepping.
+- **Monitors:** a transform monitor adds, each step, a complex multiply-add per value and
+  frequency, in parallel over its z-planes.
 - **The same bits:** every value is computed by the same operations in the same order as the
   plain loops it replaced, which are kept as its reference. IEEE 754 makes a vector lane's sum
   or product the scalar one, so in f64 the fields are the same bits as the plain loops. That is
@@ -660,6 +832,20 @@ Roden and Gedney's plate, 2.9 × 10⁶ cells for 2000 steps plus two smaller lat
 | `fdtd/smoothing-oblique-nodes` | the same with `Coupling::Nodes`: first order | 2.0e-3 |
 | `fdtd/smoothing-energy` | the leapfrog's invariant with a smoothed tensor, `Coupling::Nodes`, 300 steps | 1.5e-15 |
 | `fdtd/smoothing-oskooi` | Oskooi et al.'s anisotropic lattice, 32 cells a period: the error relative to the harmonic mean's and no smoothing's | 0.063 |
+| `fdtd/monitor-transforms` | a transform monitor against the sum by hand | 0 |
+| `fdtd/monitor-flux` | the flux through a plane and out of a box against FDFD's, relative | 1.2e-11 |
+| `fdtd/monitor-flux-box` | the flux out of a closed lossless box with no source, relative to a face's | 1.5e-15 |
+| `fdtd/monitor-modes` | a guide's mode amplitudes in a lossy box against FDFD's, relative | 1.5e-11 |
+| `fdtd/monitor-guides` | a 2D straight guide's and sharp bend's transmission and reflection against FDFD with PMLs | 5.8e-5 |
+| `fdtd/harmonic-inversion` | two decaying terms closer than the Fourier resolution, recovered | 2.1e-12 |
+| `fdtd/cavity-resonances` | a lossy cavity's resonances against the leapfrog's own eigenvalues | 3.4e-15 |
+| `fdtd/slab-resonance` | a slab's resonance and Q against the continuum's: the order of convergence | 2.00 |
+| `fdtd/mie-table` | Mie's series against his own Table I, 66 entries of $\mathfrak{a}_1$: the median difference (61 within 0.016) | 3.0e-3 |
+| `fdtd/mie-balance` | a lossless sphere's $Q_\text{ext}$ against its $Q_\text{sca}$, α from 0.1 to 1000, relative | 1.4e-13 |
+| `fdtd/mie-terms` | the series cut at $\alpha + 4\alpha^{1/3} + 10$ terms against the converged sum | 7.0e-14 |
+| `fdtd/mie-sphere` | a smoothed sphere of ε = 4 against Mie, 8 and 16 cells a radius: the order of convergence | 1.97 |
+| `fdtd/mie-sphere-staircase` | the same sphere sampled, 16 cells a radius: the mean relative error of $C_\text{sca}$ | 6.0e-3 |
+| `fdtd/mie-drude` | a damped Drude metal sphere, 16 cells a radius: the mean relative error of $C_\text{sca}$ and $C_\text{abs}$ | 1.6e-2 |
 | example `cpml_roden_gedney` | Roden and Gedney's plate in soil, both PMLs | −48.6 and −70.5 dB (paper: −48, −67) |
 | example `tfsf_square_cylinder` | Umashankar and Taflove's square cylinder's surface current | 1.732 and 0.764 (figure: 1.750, 0.785); within 0.4 % of their Eq. 8a |
 | example `lorentz_okoniewski` | Okoniewski, Mrozowski and Stuchly's two-term Lorentz half-space, $\lvert r\rvert$ and phase errors, 37.5 µm cells | at most 0.24 and 0.34 of their Fig. 1's curve (C = 1), 0.33 and 0.52 (C = 0.5) |
