@@ -21,10 +21,9 @@
 //! - **Indices** are 32-bit: matrices with more than 2³¹ − 1 entries are refused, far beyond a
 //!   consumer GPU's memory.
 
-use std::cell::Cell;
 use std::ffi::c_void;
 use std::os::raw::c_int;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use num_complex::Complex64 as c64;
@@ -33,45 +32,11 @@ use photonoxide::backend::{
     Analysis, Capabilities, DirectSolver, Factorization, Form, Matrix, Report, Threads,
 };
 
+use crate::cuda::{Buffer, C_64F, Opaque, R_32I, Runtime, check, serial};
 use crate::library::{Library, error, load};
-use crate::nvidia::{CUDA_RUNTIME, CUDSS};
+use crate::nvidia::CUDSS;
 
-type Opaque = *mut c_void;
-
-/// One cuDSS call at a time in the process: handles used from several threads at once fail
-/// in cuDSS's analysis (status 5), and there is one GPU to share anyway.
-static SERIAL: Mutex<()> = Mutex::new(());
-
-thread_local! {
-    static HOLDING: Cell<bool> = const { Cell::new(false) };
-}
-
-/// [`SERIAL`] held by this thread, taken again freely by it (an engine dropped on an early
-/// return of a call that holds it).
-struct Serial(Option<MutexGuard<'static, ()>>);
-
-fn serial() -> Serial {
-    if HOLDING.get() {
-        return Serial(None);
-    }
-    let guard = SERIAL.lock().unwrap_or_else(|p| p.into_inner());
-    HOLDING.set(true);
-    Serial(Some(guard))
-}
-
-impl Drop for Serial {
-    fn drop(&mut self) {
-        if self.0.is_some() {
-            HOLDING.set(false);
-        }
-    }
-}
-
-// cudaMemcpyKind, cudaDataType and cuDSS's enums, from their headers (CUDA 13.1, cuDSS 0.8)
-const HOST_TO_DEVICE: c_int = 1;
-const DEVICE_TO_HOST: c_int = 2;
-const C_64F: c_int = 5;
-const R_32I: c_int = 10;
+// cuDSS's enums, from its header (cuDSS 0.8)
 const MTYPE_GENERAL: c_int = 0;
 const MVIEW_FULL: c_int = 0;
 const BASE_ZERO: c_int = 0;
@@ -84,13 +49,9 @@ const DATA_LU_NNZ: c_int = 1;
 const DATA_NPIVOTS: c_int = 2;
 const DATA_MEMORY_ESTIMATES: c_int = 13;
 
-/// cuDSS's and the CUDA runtime's functions, and the libraries that hold them.
+/// cuDSS's functions, the library that holds them, and the CUDA runtime.
 struct Api {
-    malloc: unsafe extern "C" fn(*mut Opaque, usize) -> c_int,
-    free: unsafe extern "C" fn(Opaque) -> c_int,
-    memcpy: unsafe extern "C" fn(Opaque, *const c_void, usize, c_int) -> c_int,
-    synchronize: unsafe extern "C" fn() -> c_int,
-    mem_get_info: unsafe extern "C" fn(*mut usize, *mut usize) -> c_int,
+    runtime: Arc<Runtime>,
     create: unsafe extern "C" fn(*mut Opaque) -> c_int,
     destroy: unsafe extern "C" fn(Opaque) -> c_int,
     config_create: unsafe extern "C" fn(*mut Opaque) -> c_int,
@@ -121,36 +82,21 @@ struct Api {
     version: String,
     // last: the functions above must not outlive them
     _cudss: Library,
-    _runtime: Library,
-}
-
-fn check(status: c_int, call: &str) -> Result<()> {
-    if status == 0 {
-        Ok(())
-    } else {
-        Err(error(format!("{call} failed with status {status}")))
-    }
 }
 
 impl Api {
     /// The CUDA runtime first, so that cuDSS's own dependency on it is the same library.
     fn load() -> std::result::Result<Api, String> {
-        let (found, runtime) = load(&CUDA_RUNTIME, None, |_| Ok(()));
-        let runtime = runtime.ok_or_else(|| found.reason())?;
+        let runtime = Runtime::load()?;
         let (found, cudss) = load(&CUDSS, None, |_| Ok(()));
         let cudss = cudss.ok_or_else(|| found.reason())?;
         let version = crate::nvidia::property_version(&cudss, "cudssGetProperty")
             .map_err(|e| e.to_string())?;
         let api = || -> Result<Api> {
-            // SAFETY: each type is the function's declaration in cuda_runtime_api.h or cudss.h
+            // SAFETY: each type is the function's declaration in cudss.h
             // (handles, configs, data and matrices are pointers; enums are ints)
             unsafe {
                 Ok(Api {
-                    malloc: runtime.function("cudaMalloc")?,
-                    free: runtime.function("cudaFree")?,
-                    memcpy: runtime.function("cudaMemcpy")?,
-                    synchronize: runtime.function("cudaDeviceSynchronize")?,
-                    mem_get_info: runtime.function("cudaMemGetInfo")?,
                     create: cudss.function("cudssCreate")?,
                     destroy: cudss.function("cudssDestroy")?,
                     config_create: cudss.function("cudssConfigCreate")?,
@@ -164,86 +110,22 @@ impl Api {
                     execute: cudss.function("cudssExecute")?,
                     version: version.clone(),
                     _cudss: cudss,
-                    _runtime: runtime,
+                    runtime,
                 })
             }
         };
         api().map_err(|e| e.to_string())
     }
 
-    fn free_memory(&self) -> Result<usize> {
-        let _serial = serial();
-        let (mut free, mut total) = (0, 0);
-        check(
-            // SAFETY: two writable size_t
-            unsafe { (self.mem_get_info)(&mut free, &mut total) },
-            "cudaMemGetInfo",
-        )?;
-        Ok(free)
-    }
-}
-
-/// Memory on the GPU, freed when dropped.
-struct Buffer {
-    api: Arc<Api>,
-    ptr: Opaque,
-    bytes: usize,
-}
-
-impl Buffer {
-    fn new<T: Copy>(api: &Arc<Api>, data: &[T]) -> Result<Buffer> {
-        let _serial = serial();
-        let bytes = size_of_val(data).max(1);
-        let mut ptr = std::ptr::null_mut();
-        // SAFETY: ptr is writable; bytes > 0
-        check(unsafe { (api.malloc)(&mut ptr, bytes) }, "cudaMalloc")?;
-        let buffer = Buffer {
-            api: api.clone(),
-            ptr,
-            bytes,
-        };
-        buffer.write(data)?;
-        Ok(buffer)
-    }
-
-    fn write<T: Copy>(&self, data: &[T]) -> Result<()> {
-        let _serial = serial();
-        let bytes = size_of_val(data);
-        assert!(bytes <= self.bytes);
-        // SAFETY: the device buffer holds self.bytes ≥ bytes; data is bytes long
-        check(
-            unsafe { (self.api.memcpy)(self.ptr, data.as_ptr().cast(), bytes, HOST_TO_DEVICE) },
-            "cudaMemcpy to the GPU",
-        )
-    }
-
-    fn read<T: Copy>(&self, out: &mut [T]) -> Result<()> {
-        let _serial = serial();
-        let bytes = size_of_val(out);
-        assert!(bytes <= self.bytes);
-        // SAFETY: out is bytes long and writable; the device buffer holds at least that
-        check(
-            unsafe { (self.api.memcpy)(out.as_mut_ptr().cast(), self.ptr, bytes, DEVICE_TO_HOST) },
-            "cudaMemcpy from the GPU",
-        )
-    }
-}
-
-impl Drop for Buffer {
-    fn drop(&mut self) {
-        let _serial = serial();
-        // SAFETY: ptr came from cudaMalloc and is freed once
-        unsafe { (self.api.free)(self.ptr) };
-    }
 }
 
 /// A matrix's rows: n + 1 starts and each entry's column, 32-bit.
-struct Rows {
-    starts: Vec<i32>,
-    columns: Vec<i32>,
+pub(crate) struct Rows {
+    pub(crate) starts: Vec<i32>,
+    pub(crate) columns: Vec<i32>,
 }
 
-fn index(i: usize) -> Result<i32> {
+pub(crate) fn index(i: usize) -> Result<i32> {
     i32::try_from(i).map_err(|_| error("cuDSS's indices here are 32-bit: the matrix is too large"))
 }
 
@@ -275,10 +157,10 @@ impl Engine {
         let _serial = serial();
         let n = rows.starts.len() - 1;
         let zero = vec![c64::new(0.0, 0.0); n];
-        let starts = Buffer::new(api, &rows.starts)?;
-        let columns = Buffer::new(api, &rows.columns)?;
-        let device_values = Buffer::new(api, values)?;
-        let (x_values, b_values) = (Buffer::new(api, &zero)?, Buffer::new(api, &zero)?);
+        let starts = Buffer::new(&api.runtime, &rows.starts)?;
+        let columns = Buffer::new(&api.runtime, &rows.columns)?;
+        let device_values = Buffer::new(&api.runtime, values)?;
+        let (x_values, b_values) = (Buffer::new(&api.runtime, &zero)?, Buffer::new(&api.runtime, &zero)?);
         let mut e = Engine {
             api: api.clone(),
             n,
@@ -337,7 +219,7 @@ impl Engine {
         e.get(DATA_MEMORY_ESTIMATES, &mut estimates)?;
         // [1]: the peak of device memory the factorization needs
         e.peak_bytes = estimates[1].max(0) as u64;
-        let free = api.free_memory()?;
+        let free = api.runtime.free_memory()?;
         if e.peak_bytes > free as u64 {
             const GIB: f64 = 1024.0 * 1024.0 * 1024.0;
             return Err(error(format!(
@@ -350,9 +232,9 @@ impl Engine {
     }
 
     fn run(&self, phase: c_int, what: &str) -> Result<()> {
-        // SAFETY: the objects were created in new() and live until Drop
-        unsafe {
-            check(
+        check(
+            // SAFETY: the objects were created in new() and live until Drop
+            unsafe {
                 (self.api.execute)(
                     self.handle,
                     phase,
@@ -361,14 +243,11 @@ impl Engine {
                     self.a,
                     self.x,
                     self.b,
-                ),
-                &format!("cuDSS's {what}"),
-            )?;
-            check(
-                (self.api.synchronize)(),
-                &format!("cudaDeviceSynchronize after cuDSS's {what}"),
-            )
-        }
+                )
+            },
+            &format!("cuDSS's {what}"),
+        )?;
+        self.api.runtime.synchronize(&format!("cuDSS's {what}"))
     }
 
     /// A value of cuDSS's data (`DATA_*`) into `out`.
@@ -521,7 +400,7 @@ impl DirectSolver for Cudss {
 }
 
 /// A matrix's columns, read as rows.
-fn columns_as_rows(cs: &[usize], ri: &[usize]) -> Result<Rows> {
+pub(crate) fn columns_as_rows(cs: &[usize], ri: &[usize]) -> Result<Rows> {
     Ok(Rows {
         starts: cs.iter().map(|&s| index(s)).collect::<Result<_>>()?,
         columns: ri.iter().map(|&r| index(r)).collect::<Result<_>>()?,
@@ -530,7 +409,7 @@ fn columns_as_rows(cs: &[usize], ri: &[usize]) -> Result<Rows> {
 
 /// The rows of a matrix given by columns: each row's (starts, columns), and for each entry by
 /// rows, its place in the columns' order.
-fn transposed(n: usize, cs: &[usize], ri: &[usize]) -> ((Vec<usize>, Vec<usize>), Vec<usize>) {
+pub(crate) fn transposed(n: usize, cs: &[usize], ri: &[usize]) -> ((Vec<usize>, Vec<usize>), Vec<usize>) {
     let mut starts = vec![0usize; n + 1];
     for &r in ri {
         starts[r + 1] += 1;

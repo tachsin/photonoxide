@@ -21,16 +21,19 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 
+mod cuda;
 mod cudss;
 mod discovery;
+mod gpu_qmr;
 mod library;
 pub mod nvidia;
 mod smoke;
 
 pub use cudss::Cudss;
+pub use gpu_qmr::GpuQmr;
 pub use discovery::{Candidate, Discovery, Source, Spec, Status, discover, versioned};
 pub use library::{Library, load};
-pub use smoke::{TOLERANCE, offer, smoke_test};
+pub use smoke::{TOLERANCE, offer, offer_iterative, smoke_test, smoke_test_iterative};
 
 /// What was found of one library.
 #[derive(Clone, Debug)]
@@ -73,6 +76,10 @@ pub fn register_all() -> Vec<Probe> {
     let _ = match Cudss::load() {
         Ok(cudss) => offer(std::sync::Arc::new(cudss)).map(drop),
         Err(reason) => photonoxide::backend::register_unavailable("cudss", reason),
+    };
+    let _ = match GpuQmr::load() {
+        Ok(qmr) => offer_iterative(std::sync::Arc::new(qmr)).map(drop),
+        Err(reason) => photonoxide::backend::register_iterative_unavailable("cusparse", reason),
     };
     nvidia::probe()
 }

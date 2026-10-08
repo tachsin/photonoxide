@@ -39,6 +39,12 @@ pub(crate) struct Sparse {
 }
 
 impl Sparse {
+    /// The matrix by columns, as a backend takes it ([`crate::backend::Matrix`]): its
+    /// transpose's rows are its columns.
+    pub(crate) fn as_matrix(&self, form: crate::backend::Form) -> Result<crate::backend::Matrix<'_>> {
+        crate::backend::Matrix::new(self.n, &self.t_starts, &self.t_columns, &self.t_values, form)
+    }
+
     /// The n × n matrix with these entries, (row, column, value); repeated entries are summed.
     pub(crate) fn new(n: usize, entries: impl IntoIterator<Item = (usize, usize, c64)>) -> Sparse {
         let entries: Vec<(usize, usize, c64)> = entries.into_iter().collect();
@@ -705,14 +711,12 @@ fn rotate((c, s): (f64, c64), a: c64, b: c64) -> (c64, c64) {
     (c * a + s * b, -s.conj() * a + c * b)
 }
 
-/// How one run of the Lanczos process ended.
-enum Run {
-    /// At the tolerance: the solution and how it went.
-    Done(Vec<c64>, Convergence),
-    /// At a (near-)breakdown, |w_nᵀ v_n| below 1e-14 for unit vectors: the iterate so far, the
-    /// residual's history, and |w_nᵀ v_n|.
-    Broken(Vec<c64>, Vec<f64>, f64),
-}
+/// How one run of the Lanczos process ended: the backends' run too ([`crate::backend::QmrRun`]).
+use crate::backend::QmrRun as Run;
+
+/// One run of QMR from x₀ = 0 on a right-hand side, to a tolerance: photonoxide's own
+/// ([`qmr_run`]) or a backend's ([`crate::backend::IterativeSolver::qmr_run`]).
+pub(crate) type Runner<'a> = &'a dyn Fn(&[c64], Stopping) -> Result<Run>;
 
 /// The most times [`qmr`] restarts after a breakdown.
 const RESTARTS: usize = 10;
@@ -750,6 +754,7 @@ pub(crate) fn qmr(
 /// # Errors
 ///
 /// As [`qmr`].
+#[cfg(test)]
 pub(crate) fn qmr_symmetric(
     a: &impl Operator,
     b: &[c64],
@@ -774,6 +779,23 @@ pub(crate) fn qmr_similar(
     s: &[c64],
     b: &[c64],
     stopping: Stopping,
+) -> Result<(Vec<c64>, Convergence)> {
+    qmr_similar_by(b_matrix, s, b, stopping, &|rhs, st| {
+        qmr_run(b_matrix, rhs, st, true)
+    })
+}
+
+/// [`qmr_similar`], each run of QMR on B by `run`.
+///
+/// # Errors
+///
+/// As [`qmr_similar`].
+pub(crate) fn qmr_similar_by(
+    b_matrix: &Sparse,
+    s: &[c64],
+    b: &[c64],
+    stopping: Stopping,
+    run: Runner<'_>,
 ) -> Result<(Vec<c64>, Convergence)> {
     let n = b.len();
     if s.len() != n || b_matrix.n != n {
@@ -809,13 +831,14 @@ pub(crate) fn qmr_similar(
             tolerance *= 0.5 * stopping.tolerance / residual;
         }
         let left = norm(&rc);
-        let (dy, how) = qmr_symmetric(
+        let (dy, how) = restarted_by(
             b_matrix,
             &rc,
             Stopping {
                 tolerance: tolerance * scale / left,
                 max_iterations: stopping.max_iterations.saturating_sub(history.len()),
             },
+            run,
         )?;
         for (yk, d) in y.iter_mut().zip(&dy) {
             *yk += d;
@@ -839,6 +862,17 @@ fn restarted(
     stopping: Stopping,
     symmetric: bool,
 ) -> Result<(Vec<c64>, Convergence)> {
+    restarted_by(a, b, stopping, &|rhs, st| qmr_run(a, rhs, st, symmetric))
+}
+
+/// QMR by `run`, restarted from its iterate at a breakdown on its true residual (A's products
+/// by `a`).
+pub(crate) fn restarted_by(
+    a: &impl Operator,
+    b: &[c64],
+    stopping: Stopping,
+    run: Runner<'_>,
+) -> Result<(Vec<c64>, Convergence)> {
     let rho0 = norm(b);
     let mut x: Vec<c64> = Vec::new();
     let mut history = Vec::new();
@@ -854,8 +888,7 @@ fn restarted(
             },
             max_iterations: stopping.max_iterations.saturating_sub(used),
         };
-        let run = qmr_run(a, &residual, left, symmetric)?;
-        let (dx, steps) = match run {
+        let (dx, steps) = match run(&residual, left)? {
             Run::Done(dx, how) => {
                 if x.is_empty() {
                     return Ok((dx, how));
