@@ -359,7 +359,8 @@ Second- and third-order processes in waveguides and resonators: SHG, SFG, DFG, p
   - with supplied gradients: Adam and L-BFGS-B;
   - constraints: the augmented Lagrangian;
   - global, discrete and hyperparameter searches: CMA-ES and genetic algorithms;
-  - added to genoxide as general methods where it lacks them: the method of moving asymptotes, the standard for topology optimization (MMA: Svanberg 1987; globally convergent: Svanberg 2002), and continuation schedules that keep the optimizer's state across stages;
+  - the method of moving asymptotes, the standard for topology optimization (MMA: Svanberg 1987; globally convergent: Svanberg 2002), and continuation schedules that keep the optimizer's state across stages: in genoxide since 0.12;
+  - what else photonoxide's examples need from genoxide, and the published results they reproduce: [the optimization plan](docs/plans/optimization.md);
   - large designs (10⁴ to 10⁶ variables) need genoxide's gradient methods to cost O(n) per step.
 - [ ] **Pipeline:** explore in 2D, then optimize and verify in 3D.
 - [ ] **Performance for 3D design** (the performance plan's Phase D):
@@ -696,7 +697,7 @@ Every reference below was checked against its DOI. The performance work's refere
 - M. Chen et al., J. Opt. Soc. Am. B 41, A161 (2024). [10.1364/JOSAB.506412](https://doi.org/10.1364/JOSAB.506412)
 - A. M. Hammond et al., subpixel-smoothed projection, arXiv:2503.20189 (2025).
 - R. Arrieta, G. Romano, S. G. Johnson, Struct. Multidiscip. Optim. 69, 210 (2026). [10.1007/s00158-026-04388-6](https://doi.org/10.1007/s00158-026-04388-6)
-- S. Khan et al., fabrication-aware inverse design for shape optimization, arXiv:2410.07353 (2024).
+- S. Khan et al., fabrication-aware inverse design for shape optimization, arXiv:2410.07353 (2024); Opt. Lett. 50, 117 (2025). [10.1364/OL.543961](https://doi.org/10.1364/OL.543961)
 - S. Mason et al., co-optimized inverse-designed WDMs, arXiv:2509.07233 (2025).
 - Z. Liu, J. K. S. Poon, Lumerical FDTD and Tidy3D compared, arXiv:2506.16665 (2025).
 - L. A. Lugiato, R. Lefever, Phys. Rev. Lett. 58, 2209 (1987). [10.1103/PhysRevLett.58.2209](https://doi.org/10.1103/PhysRevLett.58.2209)
