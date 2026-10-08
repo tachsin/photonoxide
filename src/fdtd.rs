@@ -49,6 +49,9 @@
 //!   closed boxes on Yee's grid, and waveguide modes' amplitudes by FDFD's own projection;
 //!   resonances by [`harmonic_inversion`] (V. A. Mandelshtam, H. S. Taylor, J. Chem. Phys. 107,
 //!   6756 (1997), doi:10.1063/1.475324); runs until the fields decay.
+//! - **Mie's series** for a plane wave on a sphere, [`Mie`] and [`Sphere`] (G. Mie, Ann. Phys. 330,
+//!   377 (1908), doi:10.1002/andp.19083300302), written from his paper: FDTD's spheres are
+//!   checked against it.
 //!
 //! Every update is a sum over a fixed stencil with no reduction, its z-planes shared among
 //! rayon's threads: the fields are the same bits on any number of threads.
@@ -1247,6 +1250,10 @@ mod harmonic;
 mod harmonic_tests;
 mod media;
 pub(crate) mod media_checks;
+pub(crate) mod mie;
+pub(crate) mod mie_checks;
+#[cfg(test)]
+mod mie_tests;
 mod monitors;
 pub(crate) mod monitors_checks;
 #[cfg(test)]
@@ -1255,6 +1262,7 @@ pub(crate) mod smoothing;
 mod sources;
 pub use harmonic::{Resonance, harmonic_inversion};
 pub use media::{Dispersive, Fit, Pole};
+pub use mie::{CrossSections, Mie, Sphere};
 pub use monitors::{Dft, FluxPlane};
 pub use smoothing::{Average, Body, Coupling, Permittivity, Smoothing, Structure};
 pub use sources::{BeamPolarization, Current, Dipole, GaussianBeam, PlaneWave};
