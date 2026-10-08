@@ -128,6 +128,11 @@ impl Transfer {
         (self.starts[r]..self.starts[r + 1]).map(|k| (self.columns[k], self.values[k]))
     }
 
+    /// As a backend takes it, with `columns` columns.
+    fn rows(&self, columns: usize) -> crate::backend::RowMatrix<'_> {
+        crate::backend::RowMatrix::trusted(columns, &self.starts, &self.columns, &self.values)
+    }
+
     fn apply(&self, v: &[c64]) -> Vec<c64> {
         use rayon::prelude::*;
         let rows = self.starts.len() - 1;
@@ -167,6 +172,11 @@ pub(crate) struct Hierarchy {
     /// Each level's cells along x, y and z, the coarsest's included.
     shapes: Vec<[usize; 3]>,
     lu: Box<dyn Factorization>,
+    /// The coarsest level's operator, which `lu` factorizes.
+    coarsest: Sparse,
+    /// Each level's smoother as one pair of factors, for a backend: made the first time one
+    /// asks ([`Hierarchy::cycle_for_backend`]).
+    smoothers: std::sync::OnceLock<Option<Vec<crate::backend::IluFactors>>>,
     /// One thread, for the solves with the coarsest factors: their sums then come in one
     /// order whatever the machine. A pool isn't `RefUnwindSafe`, but one that a panic left stays
     /// usable, so this keeps `IterativeSolver3d` unwind-safe, as it was before the multigrid.
@@ -654,6 +664,8 @@ impl Hierarchy {
                     levels,
                     shapes,
                     lu,
+                    coarsest: a,
+                    smoothers: std::sync::OnceLock::new(),
                     one: std::panic::AssertUnwindSafe(one),
                     options,
                 });
@@ -717,6 +729,38 @@ impl Hierarchy {
     /// The steps of GMRES between restarts.
     pub(crate) fn restart(&self) -> usize {
         self.options.restart
+    }
+
+    /// The cycle as a backend takes it ([`crate::backend::MultigridCycle`]): each level's
+    /// smoother factorized as one pair of factors the first time (as much memory again as the
+    /// smoothers), the rest borrowed.
+    pub(crate) fn cycle_for_backend(&self) -> Result<crate::backend::MultigridCycle<'_>> {
+        let smoothers = self
+            .smoothers
+            .get_or_init(|| self.levels.iter().map(|l| l.smoother.factors()).collect())
+            .as_ref()
+            .ok_or_else(|| Error::invalid("multigrid", "a smoother by Jacobi sweeps"))?;
+        let levels = self
+            .levels
+            .iter()
+            .zip(smoothers)
+            .map(|(l, smoother)| crate::backend::MultigridLevel {
+                operator: l.matrix.rows(),
+                smoother,
+                restriction: l.restriction.rows(l.prolongation.starts.len() - 1),
+                prolongation: l.prolongation.rows(l.restriction.starts.len() - 1),
+            })
+            .collect();
+        Ok(crate::backend::MultigridCycle {
+            shape: self.options.shape,
+            pre: self.options.pre,
+            post: self.options.post,
+            restart: self.options.restart,
+            levels,
+            coarsest: self.coarsest.rows(),
+            lu: self.lu.as_ref(),
+            one: &self.one,
+        })
     }
 
     /// One cycle from `level` down, for A x = b (or Aᵀ x = b, the transposed cycle), from

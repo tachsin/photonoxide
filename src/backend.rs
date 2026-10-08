@@ -41,8 +41,8 @@ use crate::{Error, Result};
 
 mod iterative;
 pub use iterative::{
-    IluFactors, IterativeSolver, QmrRun, iterative, iterative_solvers, register_iterative,
-    register_iterative_unavailable,
+    IluFactors, IterativeSolver, MultigridCycle, MultigridLevel, QmrRun, RowMatrix, iterative,
+    iterative_solvers, register_iterative, register_iterative_unavailable,
 };
 
 fn invalid(reason: impl Into<String>) -> Error {

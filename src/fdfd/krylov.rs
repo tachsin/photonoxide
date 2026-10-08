@@ -54,6 +54,11 @@ impl Sparse {
         )
     }
 
+    /// The matrix by rows, as a backend takes it ([`crate::backend::RowMatrix`]).
+    pub(crate) fn rows(&self) -> crate::backend::RowMatrix<'_> {
+        crate::backend::RowMatrix::trusted(self.n, &self.starts, &self.columns, &self.values)
+    }
+
     /// The n × n matrix with these entries, (row, column, value); repeated entries are summed.
     pub(crate) fn new(n: usize, entries: impl IntoIterator<Item = (usize, usize, c64)>) -> Sparse {
         let entries: Vec<(usize, usize, c64)> = entries.into_iter().collect();
@@ -1351,37 +1356,44 @@ impl Ilu0 {
     /// diagonal (the inverse of the one kept here) first. The exact solves only: `None` with
     /// Jacobi sweeps.
     pub(crate) fn factors(&self) -> Option<crate::backend::IluFactors> {
+        let n = self.l.starts.len() - 1;
+        let (lower, upper) = self.factors_numbered(|i| i)?;
+        Some(crate::backend::IluFactors { n, lower, upper })
+    }
+
+    /// [`Ilu0::factors`]' L and U, by its rows, each column j numbered `number(j)`.
+    fn factors_numbered(&self, number: impl Fn(usize) -> usize) -> Option<Factor2> {
         if self.sweeps.is_some() {
             return None;
         }
-        let n = self.l.starts.len() - 1;
         let lower = (
             self.l.starts.clone(),
-            self.l.columns.clone(),
+            self.l.columns.iter().map(|&j| number(j)).collect(),
             self.l.values.clone(),
         );
         let inverse = self.u.inverse_diagonal.as_ref()?;
-        let (mut starts, mut columns, mut values) = (vec![0], Vec::new(), Vec::new());
-        for (i, d) in inverse.iter().enumerate().take(n) {
-            columns.push(i);
+        let entries = inverse.len() + self.u.values.len();
+        let mut starts = Vec::with_capacity(inverse.len() + 1);
+        starts.push(0);
+        let (mut columns, mut values) = (Vec::with_capacity(entries), Vec::with_capacity(entries));
+        // U's rows after the diagonal are A's, ascending
+        for (i, d) in inverse.iter().enumerate() {
+            columns.push(number(i));
             values.push(c64::new(1.0, 0.0) / d);
-            let mut row: Vec<(usize, c64)> = (self.u.starts[i]..self.u.starts[i + 1])
-                .map(|k| (self.u.columns[k], self.u.values[k]))
-                .collect();
-            row.sort_by_key(|e| e.0);
-            for (j, v) in row {
-                columns.push(j);
-                values.push(v);
+            for k in self.u.starts[i]..self.u.starts[i + 1] {
+                columns.push(number(self.u.columns[k]));
+                values.push(self.u.values[k]);
             }
             starts.push(columns.len());
         }
-        Some(crate::backend::IluFactors {
-            n,
-            lower,
-            upper: (starts, columns, values),
-        })
+        Some((lower, (starts, columns, values)))
     }
 }
+
+/// A factor by rows: row starts, columns, values.
+type Factor = (Vec<usize>, Vec<usize>, Vec<c64>);
+/// L and U.
+type Factor2 = (Factor, Factor);
 
 impl Preconditioner for Ilu0 {
     fn solve(&self, v: &[c64]) -> Vec<c64> {
@@ -1446,6 +1458,44 @@ impl BlockIlu0 {
             out.push((rows, ilu?));
         }
         Ok(BlockIlu0 { n, blocks: out })
+    }
+
+    /// Its factors as one pair, as a backend takes them ([`crate::backend::IluFactors`]): each
+    /// block's in the matrix's own numbering. A block's rows are ascending, so each row's
+    /// columns stay ascending, and LU is block diagonal: the ILU(0) of the matrix without its
+    /// entries between blocks.
+    pub(crate) fn factors(&self) -> Option<crate::backend::IluFactors> {
+        use rayon::prelude::*;
+        let n = self.n;
+        // each block's factors by its rows, their columns the matrix's, on rayon's threads
+        let local: Vec<_> = self
+            .blocks
+            .par_iter()
+            .map(|(rows, ilu)| ilu.factors_numbered(|j| rows[j]))
+            .collect::<Option<_>>()?;
+        // the block and the place in it of each row
+        let mut owner = vec![(0, 0); n];
+        for (b, (rows, _)) in self.blocks.iter().enumerate() {
+            for (i, &r) in rows.iter().enumerate() {
+                owner[r] = (b, i);
+            }
+        }
+        let gather = |pick: fn(&Factor2) -> &Factor| -> Factor {
+            let entries = local.iter().map(|f| pick(f).1.len()).sum();
+            let mut starts = Vec::with_capacity(n + 1);
+            starts.push(0);
+            let (mut columns, mut values) =
+                (Vec::with_capacity(entries), Vec::with_capacity(entries));
+            for &(b, i) in &owner {
+                let (s, c, v) = pick(&local[b]);
+                columns.extend_from_slice(&c[s[i]..s[i + 1]]);
+                values.extend_from_slice(&v[s[i]..s[i + 1]]);
+                starts.push(columns.len());
+            }
+            (starts, columns, values)
+        };
+        let (lower, upper) = rayon::join(|| gather(|f| &f.0), || gather(|f| &f.1));
+        Some(crate::backend::IluFactors { n, lower, upper })
     }
 
     fn solve_with(&self, v: &[c64], transpose: bool) -> Vec<c64> {
