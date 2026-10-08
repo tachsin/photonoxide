@@ -1393,6 +1393,8 @@ pub fn cases() -> Vec<Case> {
     ];
     // the compact models' cases live with them
     cases.extend(crate::compact::checks::cases());
+    // and the geometry kernel's
+    cases.extend(crate::geometry::checks::cases());
     cases
 }
 

@@ -524,6 +524,31 @@ fn outline(shape: &Shape) -> Vec<[f64; 2]> {
             .iter()
             .map(|v| [v.x.to_um(), v.y.to_um()])
             .collect(),
+        // the other primitives (not yet in jobs): their polygons within 1 nm, holes joined as
+        // a ring's are
+        other => {
+            use crate::geometry::Region;
+            let xy = |v: &Point| [v.x.to_um(), v.y.to_um()];
+            let mut o = Vec::new();
+            for c in other
+                .polygons(crate::geometry::Tolerance::default())
+                .contours
+            {
+                o.extend(c.outer.iter().map(xy));
+                if let Some(first) = c.outer.first()
+                    && !c.holes.is_empty()
+                {
+                    o.push(xy(first));
+                }
+                for hole in &c.holes {
+                    o.extend(hole.iter().map(xy));
+                    if let Some(first) = hole.first() {
+                        o.push(xy(first));
+                    }
+                }
+            }
+            o
+        }
     }
 }
 

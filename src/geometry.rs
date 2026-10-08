@@ -3,11 +3,35 @@
 //! Coordinates are [`Length`]s in the plane of the chip: x along the chip, y across it. Shapes
 //! are validated when they are made (finite coordinates, a non-zero area), so a solver never
 //! meets a degenerate one.
+//!
+//! Every shape is a [`Region`]: it says whether a point is inside, its signed distance and
+//! outward normal, its bounds, area and perimeter, its area inside a cell ([`Region::fill`]),
+//! and polygons within a [`Tolerance`]. A shape keeps its exact definition (an arc stays an
+//! arc) and becomes polygons only when asked. A [`Transform`] (translation, rotation, mirror,
+//! scaling) maps a shape to one of its own kind, exactly. An [`Index`] over a layer's shapes
+//! finds those near a point or a cell. See docs/methods/geometry.md.
 
 use std::f64::consts::TAU;
 
 use crate::units::Length;
 use crate::{Error, Result};
+
+mod boundary;
+pub(crate) mod checks;
+mod index;
+mod primitives;
+mod region;
+#[cfg(test)]
+mod region_tests;
+mod transform;
+
+pub use index::Index;
+pub use primitives::{Ellipse, FILL_TOLERANCE, RegularPolygon, RoundedRect, Sector, Superellipse};
+pub use region::{Contour, Distance, Location, Polygons, Region, Tolerance};
+pub use transform::Transform;
+
+use boundary::{Conic, Piece};
+use primitives::um;
 
 /// A point in the plane of the chip.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -103,6 +127,21 @@ impl Polygon {
         &self.vertices
     }
 
+    /// Vertices known to be counterclockwise, as a transform of a polygon leaves them.
+    pub(crate) fn from_ccw(vertices: Vec<Point>) -> Polygon {
+        Polygon { vertices }
+    }
+
+    /// The boundary: one loop of segments, counterclockwise.
+    fn loops(&self) -> Vec<Vec<Piece>> {
+        let v = &self.vertices;
+        vec![
+            (0..v.len())
+                .map(|i| Piece::Line(um(v[i]), um(v[(i + 1) % v.len()])))
+                .collect(),
+        ]
+    }
+
     /// The area, in µm².
     pub fn area(&self) -> f64 {
         signed_area(&self.vertices)
@@ -181,6 +220,12 @@ fn signed_area(v: &[Point]) -> f64 {
         / 2.0
 }
 
+/// The bounds of points given in µm.
+pub(crate) fn bounds_um(v: &[[f64; 2]]) -> Bounds {
+    let points: Vec<Point> = v.iter().map(|p| Point::um(p[0], p[1])).collect();
+    bounds_of(&points)
+}
+
 fn bounds_of(v: &[Point]) -> Bounds {
     let fold = |f: fn(f64, f64) -> f64, get: fn(&Point) -> f64, start: f64| {
         Length::um(v.iter().map(get).fold(start, f))
@@ -229,9 +274,137 @@ pub enum Shape {
         /// The outer radius.
         outer: Length,
     },
+    /// An ellipse at any angle.
+    Ellipse(Ellipse),
+    /// An annular sector; with no inner radius, a pie slice.
+    Sector(Sector),
+    /// A regular polygon.
+    RegularPolygon(RegularPolygon),
+    /// A superellipse, |x/a|ⁿ + |y/b|ⁿ ≤ 1 in its own frame.
+    Superellipse(Superellipse),
+    /// A rectangle at any angle, its corners rounded (a radius of zero: sharp).
+    RoundedRect(RoundedRect),
 }
 
 impl Shape {
+    /// An ellipse ([`Ellipse::new`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`Ellipse::new`].
+    pub fn ellipse(center: Point, semi_axes: [Length; 2], angle: f64) -> Result<Shape> {
+        Ellipse::new(center, semi_axes, angle).map(Shape::Ellipse)
+    }
+
+    /// An annular sector ([`Sector::new`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`Sector::new`].
+    pub fn sector(
+        center: Point,
+        inner: Length,
+        outer: Length,
+        start: f64,
+        sweep: f64,
+    ) -> Result<Shape> {
+        Sector::new(center, inner, outer, start, sweep).map(Shape::Sector)
+    }
+
+    /// A regular polygon ([`RegularPolygon::new`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`RegularPolygon::new`].
+    pub fn regular_polygon(
+        center: Point,
+        radius: Length,
+        sides: usize,
+        angle: f64,
+    ) -> Result<Shape> {
+        RegularPolygon::new(center, radius, sides, angle).map(Shape::RegularPolygon)
+    }
+
+    /// A superellipse ([`Superellipse::new`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`Superellipse::new`].
+    pub fn superellipse(
+        center: Point,
+        semi_axes: [Length; 2],
+        exponent: f64,
+        angle: f64,
+    ) -> Result<Shape> {
+        Superellipse::new(center, semi_axes, exponent, angle).map(Shape::Superellipse)
+    }
+
+    /// A rectangle with rounded corners at an angle ([`RoundedRect::new`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`RoundedRect::new`].
+    pub fn rounded_rect(
+        center: Point,
+        width: Length,
+        height: Length,
+        radius: Length,
+        angle: f64,
+    ) -> Result<Shape> {
+        RoundedRect::new(center, width, height, radius, angle).map(Shape::RoundedRect)
+    }
+
+    /// The primitives that answer as regions themselves; `None` for the rectangle, circle,
+    /// polygon and ring, which answer here.
+    fn primitive(&self) -> Option<&dyn Region> {
+        match self {
+            Shape::Ellipse(s) => Some(s),
+            Shape::Sector(s) => Some(s),
+            Shape::RegularPolygon(s) => Some(s),
+            Shape::Superellipse(s) => Some(s),
+            Shape::RoundedRect(s) => Some(s),
+            Shape::Rect { .. } | Shape::Circle { .. } | Shape::Polygon(_) | Shape::Ring { .. } => {
+                None
+            }
+        }
+    }
+
+    /// The boundary of a rectangle, circle, polygon or ring: loops of pieces, the region on
+    /// their left.
+    fn loops(&self) -> Vec<Vec<Piece>> {
+        let circle = |center: &Point, r: Length, ccw: bool| {
+            let (t0, t1) = if ccw { (0.0, TAU) } else { (TAU, 0.0) };
+            vec![Piece::Conic(Conic {
+                c: um(*center),
+                rx: r.to_um(),
+                ry: r.to_um(),
+                cos: 1.0,
+                sin: 0.0,
+                t0,
+                t1,
+            })]
+        };
+        match self {
+            Shape::Rect { .. } => {
+                let b = self.bounds();
+                let ([x0, y0], [x1, y1]) = (um(b.min), um(b.max));
+                vec![vec![
+                    Piece::Line([x0, y0], [x1, y0]),
+                    Piece::Line([x1, y0], [x1, y1]),
+                    Piece::Line([x1, y1], [x0, y1]),
+                    Piece::Line([x0, y1], [x0, y0]),
+                ]]
+            }
+            Shape::Circle { center, radius } => vec![circle(center, *radius, true)],
+            Shape::Ring {
+                center,
+                inner,
+                outer,
+            } => vec![circle(center, *outer, true), circle(center, *inner, false)],
+            Shape::Polygon(p) => p.loops(),
+            _ => Vec::new(),
+        }
+    }
     /// An axis-aligned rectangle.
     ///
     /// # Errors
@@ -324,6 +497,10 @@ impl Shape {
                 },
             },
             Shape::Polygon(p) => p.bounds(),
+            other => other.primitive().map(Region::bounds).unwrap_or(Bounds {
+                min: Point::default(),
+                max: Point::default(),
+            }),
         }
     }
 
@@ -336,6 +513,7 @@ impl Shape {
             Shape::Ring { inner, outer, .. } => {
                 TAU / 2.0 * (outer.to_um() * outer.to_um() - inner.to_um() * inner.to_um())
             }
+            other => other.primitive().map_or(0.0, Region::area),
         }
     }
 
@@ -357,6 +535,171 @@ impl Shape {
                 let d2 = dx * dx + dy * dy;
                 d2 >= inner.to_um() * inner.to_um() && d2 <= outer.to_um() * outer.to_um()
             }
+            other => other.primitive().is_some_and(|r| r.contains(p)),
+        }
+    }
+}
+
+impl Region for Polygon {
+    fn locate(&self, p: Point) -> Location {
+        let q = um(p);
+        let v = &self.vertices;
+        for i in 0..v.len() {
+            let (a, b) = (um(v[i]), um(v[(i + 1) % v.len()]));
+            let cross = (b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0]);
+            if cross == 0.0
+                && q[0] >= a[0].min(b[0])
+                && q[0] <= a[0].max(b[0])
+                && q[1] >= a[1].min(b[1])
+                && q[1] <= a[1].max(b[1])
+            {
+                return Location::Boundary;
+            }
+        }
+        if Polygon::contains(self, p) {
+            Location::Inside
+        } else {
+            Location::Outside
+        }
+    }
+
+    fn contains(&self, p: Point) -> bool {
+        Polygon::contains(self, p)
+    }
+
+    fn distance(&self, p: Point) -> Distance {
+        Distance::from(boundary::distance(
+            &self.loops(),
+            um(p),
+            Polygon::contains(self, p),
+        ))
+    }
+
+    fn bounds(&self) -> Bounds {
+        Polygon::bounds(self)
+    }
+
+    fn polygons(&self, tolerance: Tolerance) -> Polygons {
+        region::assemble(
+            vec![(self.vertices.iter().map(|p| um(*p)).collect(), Vec::new())],
+            0.0,
+            tolerance,
+        )
+    }
+
+    fn area(&self) -> f64 {
+        Polygon::area(self)
+    }
+
+    fn perimeter(&self) -> Option<Length> {
+        Some(Length::um(boundary::length(&self.loops())))
+    }
+
+    /// Exact: the polygon clipped to the cell.
+    fn fill(&self, cell: Bounds) -> f64 {
+        region::fill_of(
+            &self.loops(),
+            Polygon::bounds(self),
+            Polygon::area(self),
+            cell,
+        )
+    }
+}
+
+impl Region for Shape {
+    fn locate(&self, p: Point) -> Location {
+        if let Some(r) = self.primitive() {
+            return r.locate(p);
+        }
+        let radial = |center: &Point| {
+            let (dx, dy) = ((p.x - center.x).to_um(), (p.y - center.y).to_um());
+            dx * dx + dy * dy
+        };
+        match self {
+            Shape::Rect { .. } => {
+                let b = self.bounds();
+                if !b.contains(p) {
+                    Location::Outside
+                } else if p.x == b.min.x || p.x == b.max.x || p.y == b.min.y || p.y == b.max.y {
+                    Location::Boundary
+                } else {
+                    Location::Inside
+                }
+            }
+            Shape::Circle { center, radius } => {
+                Location::of(radial(center).total_cmp(&(radius.to_um() * radius.to_um())))
+            }
+            Shape::Ring {
+                center,
+                inner,
+                outer,
+            } => {
+                let d2 = radial(center);
+                let (i2, o2) = (inner.to_um() * inner.to_um(), outer.to_um() * outer.to_um());
+                if d2 < i2 || d2 > o2 {
+                    Location::Outside
+                } else if d2 == i2 || d2 == o2 {
+                    Location::Boundary
+                } else {
+                    Location::Inside
+                }
+            }
+            Shape::Polygon(poly) => poly.locate(p),
+            _ => Location::Outside,
+        }
+    }
+
+    /// As [`Shape::contains`]: for a rectangle, circle, polygon or ring, a point exactly on the
+    /// boundary may count either way, as it always has.
+    fn contains(&self, p: Point) -> bool {
+        Shape::contains(self, p)
+    }
+
+    fn distance(&self, p: Point) -> Distance {
+        match self.primitive() {
+            Some(r) => r.distance(p),
+            None => Distance::from(boundary::distance(
+                &self.loops(),
+                um(p),
+                Shape::contains(self, p),
+            )),
+        }
+    }
+
+    fn bounds(&self) -> Bounds {
+        Shape::bounds(self)
+    }
+
+    fn polygons(&self, tolerance: Tolerance) -> Polygons {
+        match (self.primitive(), self) {
+            (Some(r), _) => r.polygons(tolerance),
+            (None, Shape::Polygon(p)) => p.polygons(tolerance),
+            (None, _) => region::polygons_of(&self.loops(), tolerance),
+        }
+    }
+
+    fn area(&self) -> f64 {
+        Shape::area(self)
+    }
+
+    fn perimeter(&self) -> Option<Length> {
+        if let Some(r) = self.primitive() {
+            return r.perimeter();
+        }
+        Some(match self {
+            Shape::Rect { width, height, .. } => (*width + *height) * 2.0,
+            Shape::Circle { radius, .. } => *radius * TAU,
+            Shape::Ring { inner, outer, .. } => (*inner + *outer) * TAU,
+            Shape::Polygon(p) => return p.perimeter(),
+            _ => return None,
+        })
+    }
+
+    fn fill(&self, cell: Bounds) -> f64 {
+        match (self.primitive(), self) {
+            (Some(r), _) => r.fill(cell),
+            (None, Shape::Rect { .. }) => self.bounds().overlap(&cell),
+            (None, _) => region::fill_of(&self.loops(), self.bounds(), self.area(), cell),
         }
     }
 }
