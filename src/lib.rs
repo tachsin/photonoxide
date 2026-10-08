@@ -14,6 +14,8 @@
 //! - [`circuit`]: components with ports and S-matrices, connected into netlists, solved as one
 //!   sparse system and differentiated by the circuit adjoint.
 //! - [`compact`]: compact models by vector fitting, over parameters, and Touchstone files.
+//! - [`expr`]: a small, safe expression language with units and named parameters, for the
+//!   numbers of a structure, with forward-mode derivatives.
 //! - [`run`] and [`job`]: jobs as TOML, JSON or YAML files, and runs recorded as events that
 //!   replay exactly; the studio, the `photonoxide` program attached to each release, runs and
 //!   shows them.
@@ -39,6 +41,7 @@ pub mod circuit;
 pub mod compact;
 mod eigen;
 pub mod error;
+pub mod expr;
 pub mod fdfd;
 pub mod fdtd;
 pub mod geometry;
