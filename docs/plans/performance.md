@@ -531,7 +531,7 @@ or HSS (Ghysels et al. 2016); if not, the phase stops with its measurement publi
    - (a) Keep principle 9 strict, and treat GPU results as previews, never reported numbers.
    - (b) Reword: bit-for-bit on any number of CPU threads and processes; a GPU run repeats
      bit-for-bit on the same device and driver, and agrees with the CPU to a stated tolerance.
-   - *Recommended: (b).* It is what 0.5 already implies.
+   - *Recommended: (b).* It is what 0.5 already implies. *(Decided 2026-10-08: (b).)*
 2. **Principle 6 and MPI.**
    - (a) No MPI ever; pure-Rust transports only.
    - (b) A communicator trait with pure-Rust back ends by default and an optional `mpi` feature,
@@ -551,10 +551,10 @@ or HSS (Ghysels et al. 2016); if not, the phase stops with its measurement publi
    1.0. *Recommended: (a),* with Phase C's process farming earlier, since it is cheap and serves
    0.7's populations.
 6. **Precision on the GPU.** (a) f32 only (0.5 as planned). (b) f32 with f64 refinement on the
-   CPU for FDFD, f64 on Vulkan for checking. (c) f64 everywhere. *Recommended: (b).*
+   CPU for FDFD, f64 on Vulkan for checking. (c) f64 everywhere. *Recommended: (b).* *(Decided 2026-10-08: (b), f32 on the GPU with f64 for checking.)*
 7. **Where GPU tests run.** GitHub's hosted runners have no GPU. (a) On the owner's machine before
    a release, recorded in the validation report. (b) A self-hosted runner with the RTX 4060.
-   *Recommended: (a) first, (b) if GPU regressions slip through.*
+   *Recommended: (a) first, (b) if GPU regressions slip through.* *(Decided 2026-10-08: (a), on the owner's machine before each release, recorded in the validation report.)*
 8. **A 0.4.2 for Phase A.** (a) A patch release after 0.4.1. (b) Folded into 0.5. *Recommended:
    (a),* since Phase A speeds up what users run today.
 9. **Symmetric QMR and the multigrid branch.** The symmetric solver needs a symmetric
