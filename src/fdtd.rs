@@ -1193,6 +1193,7 @@ pub(crate) mod adjoint;
 pub(crate) mod adjoint_checks;
 #[cfg(test)]
 mod adjoint_tests;
+pub(crate) mod agreement_checks;
 mod bloch;
 pub(crate) mod bloch_checks;
 pub(crate) mod checks;
@@ -1204,6 +1205,7 @@ mod kernel;
 mod kernel_tests;
 mod media;
 pub(crate) mod media_checks;
+pub(crate) mod meep_checks;
 pub(crate) mod mie;
 pub(crate) mod mie_checks;
 #[cfg(test)]
@@ -1212,6 +1214,7 @@ mod monitors;
 pub(crate) mod monitors_checks;
 #[cfg(test)]
 mod monitors_tests;
+pub(crate) mod ring;
 pub(crate) mod smoothing;
 mod sources;
 pub use adjoint::{Design, Term, ValueGradient};
