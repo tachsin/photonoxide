@@ -27,7 +27,10 @@ window only follows that record, so a live run and a replay look the same.
     structure in 3D, turning slowly: the scene its run will draw (`photonoxide::job::preview`).
   - The nineteen published results of `examples/` each run in a process of their own. Every
     line is checked against the paper as it prints, beside what the release recorded.
-- **Job builder:** a job as a form for each kind (`modes`, `fdfd`, `structure`).
+- **Job builder:** a job as a form for each kind (`modes`, `fdfd`, `fdtd`, `structure`). An
+  FDTD job's sources and monitors are edited by type and drawn on the top view (sources
+  orange, monitors blue; click one to edit it), with its spectrum, its run length and the field
+  its frames show.
   - The device is drawn in 3D as you type, as its run will draw it; a modes job's whole, with
     its cut drawn where the cross-section is taken. The top view shows
     rectangles, disks, rings, ports, the PML and the cut from above: click a shape to edit it.
@@ -51,6 +54,13 @@ window only follows that record, so a live run and a replay look the same.
     The pictures of fields and modes carry the structure's outline (the shapes' edges, and a
     cross-section's layer interfaces), so a dark region can be told inside from outside; a
     tick turns it off.
+  - **An FDTD run** opens on the 2D view: its field as it propagates, frame by frame, live or
+    played, paused and scrubbed (`,` and `.` step a frame), red and blue for a component's sign
+    or black to pale yellow for |E|², on each frame's own peak or the run's so far, with a gain
+    for the weak tail. Its monitors' spectra fill in as their transforms accumulate, and its
+    resonances come in a table with their Q. The side panel has the time, the steps, the field
+    left against the stopping rule, the speed and the frames' share of the run's time; the 3D
+    view paints the frame shown on its plane.
   - **Solver** (the bar's button, or the solver's name in the side panel): how the run was
     solved. The solver, its grid and its unknowns as the run recorded them; each solve's
     numerical error (a mode's eigen-residual, an FDFD field's linear residual, an S-matrix's

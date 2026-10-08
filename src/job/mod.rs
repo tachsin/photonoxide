@@ -126,6 +126,95 @@
 //! to = 1.6
 //! points = 11
 //! ```
+//!
+//! - `"fdtd"`: a structure stepped in time by FDTD ([`crate::fdtd`]): in 2D (`dimensions = 2`,
+//!   the default) the layer's plane, each point's permittivity its slab mode's effective index
+//!   squared as an `"fdfd"` job's (so its results are 2D estimates, not a device's 3D
+//!   performance), or in 3D the stack itself over `z_um`. The materials are taken at
+//!   `wavelength_um`, the carrier of the one Gaussian pulse every source shares, which is wide
+//!   enough to cover the `[task.spectrum]` (1 point at the carrier by default). Times are c·t
+//!   in µm (µm/c). The run records the field on a plane as it propagates (frames at intervals
+//!   that double as the run goes on, at most 500), its progress, each monitor's spectrum as
+//!   it accumulates and at the end, the resonances, and the transforms' |E|² pictures.
+//!
+//!   Planes are given by their `normal` and `at_um`, with windows along the other axes
+//!   (`y_um`, `x_um`, and `z_um` in 3D; the whole window by default). Sources: `"mode"` (a
+//!   guide's fundamental mode of the job's polarization, or a 3D source's own `"te"` or `"tm"`,
+//!   launched one way, `direction = "+"` or `"-"` along the normal), `"dipole"` (`position_um`
+//!   and `component`, e.g. `"Ez"` or `"Hz"`), `"plane_wave"` (on a total-field/scattered-field
+//!   box `x_um`, `y_um` (`z_um`), `direction` `"+x"` to `"-z"`, in 3D a `polarization`, E's
+//!   axis) and `"beam"` (a Gaussian beam from a plane: `center_um` across it, `waist_um`,
+//!   `focus_um` ahead, `angle_deg` of tilt in the layer's plane, in 3D `"s"` or `"p"`).
+//!   Monitors: `"mode"` (the power in a guide's mode each way, through a plane), `"flux"`
+//!   (through a plane), `"flux_box"` (out of a box), `"field"` (|E|² of the transforms on the
+//!   view's plane at `wavelengths_um`) and `"resonance"` (a point's field after the pulse, by
+//!   harmonic inversion: wavelengths and Q). Their spectra are referred to the incident power:
+//!   a mode source's own mode's, measured just after it; a plane wave's through its box's face;
+//!   a beam's, paraxial. With a dipole they are per unit source spectrum instead. A mode
+//!   source also records its reflection, back into its own mode. Boundaries are `"cpml"`
+//!   (`pml_cells` thick, 20 by default, inside the window), `"wall"` or `"periodic"` along each
+//!   axis, with Bloch wavenumbers (complex fields, driven by dipoles only); a 2D job is
+//!   uniform along z. The run stops when |field|² at the monitors' middles has stayed below
+//!   `fraction` (1e-8) of its peak over ten carrier periods, or at `limit_um` (2000), or at
+//!   `time_um` with `until = "time"`, or at the job's timeout.
+//!
+//! ```toml
+//! name = "mmi-fdtd"
+//! timeout_minutes = 20
+//!
+//! [task]
+//! kind = "fdtd"
+//! stack = "soi_220"
+//! wavelength_um = 1.55       # the pulse's carrier, and the materials' wavelength
+//! layer = "Si"
+//! dimensions = 2             # 2: the layer's plane by the effective index method; 3: the stack
+//! polarization = "te"        # 2D: "te" (H along z, E in the plane) or "tm" (E along z)
+//! x_um = [-2.0, 12.5]
+//! y_um = [-3.0, 3.0]
+//! step_nm = 20.0
+//! courant = 0.9              # the time step, C/sqrt(sum of 1/step^2), 0 < C <= 1
+//! pml_cells = 20             # each CPML's cells, inside the window
+//!
+//! [task.boundaries]          # "cpml" (the default), "wall" or "periodic" along each axis
+//! x = "cpml"
+//! y = "cpml"
+//!
+//! [task.spectrum]            # the wavelengths the monitors report
+//! from_um = 1.5
+//! to_um = 1.6
+//! points = 11
+//!
+//! [[task.rect]]
+//! layer = "Si"
+//! center_um = [4.275, 0.0]
+//! size_um = [8.55, 3.0]
+//!
+//! [[task.source]]
+//! type = "mode"
+//! normal = "x"
+//! at_um = -1.0
+//! direction = "+"            # towards +x
+//!
+//! [[task.monitor]]
+//! type = "mode"
+//! name = "upper output"
+//! normal = "x"
+//! at_um = 11.0
+//! y_um = [0.0, 3.0]          # one guide of two: its window across
+//!
+//! [[task.monitor]]
+//! type = "resonance"
+//! position_um = [4.0, 0.5]
+//! component = "Hz"
+//!
+//! [task.stop]
+//! until = "decay"            # or "time", with time_um
+//! fraction = 1e-10
+//! limit_um = 2000.0
+//!
+//! [task.view]                # the field the frames show
+//! field = "Hz"               # a component, "|E|^2" or "|H|^2"
+//! ```
 
 use serde::{Deserialize, Serialize};
 
@@ -137,8 +226,10 @@ use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
 mod fdfd;
+mod fdtd;
 
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
+pub use fdtd::{FoundResonance, SpectrumSeries};
 
 /// The memory a sweep's points in flight may take in all, by their estimate: what bounds them
 /// when the machine has more threads than a sweep's points can share it with.
@@ -444,6 +535,89 @@ pub enum Event {
         measure: String,
         /// Its value: smaller is better.
         error: f64,
+    },
+    /// A picture of an FDTD run's field at one moment, seen from above on the plane the run's
+    /// view names, over the part of the window its [`Event::Scene`] shows: the field averaged
+    /// over blocks of cells (so that its longer side is at most 240 pixels) and quantized to
+    /// bytes of its peak. Frames are recorded at intervals of the run's time that double as the
+    /// run goes on and when a frame takes more than a tenth of the steps' time since the last, at
+    /// most 500 of them. Which steps have a frame follows the clock; each frame is its step's.
+    FdtdFrame {
+        /// The steps taken.
+        step: usize,
+        /// The time of E, c·t in µm (µm/c).
+        time_um: f64,
+        /// The field shown: a component (`"Ez"`, `"Hz"`, …), `"|E|^2"` or `"|H|^2"`.
+        field: String,
+        /// The height of the plane, µm (in 2D, the layer's top face, where the 3D view draws it).
+        z_um: f64,
+        /// The pixels along x.
+        nx: usize,
+        /// Along y.
+        ny: usize,
+        /// The pixels' extent along x, µm.
+        x_um: [f64; 2],
+        /// Along y.
+        y_um: [f64; 2],
+        /// The largest magnitude among the pixels, in the field's units (E or H̃ = η₀H, the
+        /// sources' currents at unit amplitude; their square for `"|E|^2"`).
+        peak: f64,
+        /// The pixels row by row from the low y up, each a signed byte from −127 to 127 (0 to
+        /// 127 for a square) that times `peak` / 127 is its value, in base64.
+        data: String,
+    },
+    /// How far an FDTD run has gone, recorded with each [`Event::FdtdFrame`] and at least every
+    /// second.
+    FdtdProgress {
+        /// The steps taken.
+        step: usize,
+        /// The time of E, µm/c.
+        time_um: f64,
+        /// The time the run stops at, at the latest, µm/c.
+        until_um: f64,
+        /// The largest |field|² at the monitors' points since the last frame, over its peak
+        /// so far: what the run's stopping rule watches.
+        decay: f64,
+        /// For a run until the fields decay: the share of the peak they must stay below.
+        fraction: Option<f64>,
+        /// The time the steps have taken so far, seconds.
+        steps_seconds: f64,
+        /// The time the frames, the spectra and their records have taken so far, seconds.
+        frames_seconds: f64,
+        /// Cells times steps over `steps_seconds`.
+        cell_updates_per_second: f64,
+    },
+    /// An FDTD monitor's spectrum: its transforms so far, recorded every two seconds or so as they
+    /// accumulate, and once more at the end (`last`). For a mode source, also its reflection
+    /// back into its own guide's mode.
+    FdtdSpectrum {
+        /// The monitor's name, or `"source 1"` for a mode source's reflection.
+        monitor: String,
+        /// `"mode"`, `"flux"`, `"flux_box"` or `"reflection"`.
+        kind: String,
+        /// What the values are, e.g. `"flux / incident power"`.
+        quantity: String,
+        /// The vacuum wavelengths, µm.
+        wavelengths_um: Vec<f64>,
+        /// The values over the wavelengths, one series per direction.
+        series: Vec<SpectrumSeries>,
+        /// The time the transforms have reached, µm/c.
+        time_um: f64,
+        /// Whether it is the run's last.
+        last: bool,
+    },
+    /// The resonances an FDTD run's resonance monitor found at the end, by harmonic inversion
+    /// of its point's field after the sources had ended.
+    FdtdResonances {
+        /// The monitor's name.
+        monitor: String,
+        /// Its point, µm: (x, y), and z in 3D.
+        position_um: Vec<f64>,
+        /// The component recorded, e.g. `"Hz"`.
+        component: String,
+        /// The resonances in the spectrum's band, by wavelength: those with harmonic
+        /// inversion's error below 1e-2, decaying, and above 1e-6 of the largest amplitude.
+        resonances: Vec<FoundResonance>,
     },
     // New variants go here, at the end after the last one, so that the earlier variants keep
     // their discriminants (inserting one in between renumbers every variant after it).
@@ -1333,6 +1507,7 @@ pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         "structure" => structure(job, run, stop)?,
         "modes" => modes(job, run, stop)?,
         "fdfd" => fdfd::run(job, run, stop)?,
+        "fdtd" => fdtd::run(job, run, stop)?,
         other => return Err(task_error(format!("unknown kind \"{other}\""))),
     }
     let seconds = run.elapsed().as_secs_f64();
@@ -1405,6 +1580,7 @@ fn check_inner(job: &Job) -> Result<()> {
             (s, task.layer, task.wavelength_um)
         }
         "fdfd" => return fdfd::check(job),
+        "fdtd" => return fdtd::check(job),
         other => return Err(task_error(format!("unknown kind \"{other}\""))),
     };
     s.stack()
@@ -1570,6 +1746,7 @@ pub fn preview(job: &Job) -> Result<Event> {
             let stack = named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
             modes_scene(&task, &draw(stack, &task.rect, &task.circle, &task.ring)?)
         }
+        Some("fdtd") => fdtd::preview(job),
         _ => fdfd::preview(job),
     }
 }
@@ -3170,7 +3347,7 @@ points = 2
         let root = temp("bad");
         for (text, says) in [
             (
-                JOB.replace("kind = \"structure\"", "kind = \"fdtd\""),
+                JOB.replace("kind = \"structure\"", "kind = \"fem\""),
                 "unknown kind",
             ),
             (

@@ -883,6 +883,7 @@ fn method_docs() -> Vec<MethodDoc> {
         "eim.md",
         "slab.md",
         "pml.md",
+        "fdtd.md",
     ]
 }
 

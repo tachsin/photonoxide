@@ -22,6 +22,7 @@ export interface MethodDoc {
 export const METHODS: Record<string, string[]> = {
   modes: ["vector.md", "eigen.md", "walls.md"],
   fdfd: ["fdfd.md", "fdfd-ports.md", "eim.md", "slab.md", "pml.md"],
+  fdtd: ["fdtd.md", "eim.md", "slab.md"],
   structure: [],
 };
 
@@ -29,6 +30,7 @@ export const METHODS: Record<string, string[]> = {
 export const SOLVERS: Record<string, string> = {
   "mode::vector": "full-vector finite differences",
   fdfd: "2D FDFD, direct",
+  fdtd: "FDTD, Yee's leapfrog with CPMLs",
 };
 
 const unquote = (s: string) => s.trim().replace(/^"(.*)"$/, "$1").replaceAll('\\"', '"');

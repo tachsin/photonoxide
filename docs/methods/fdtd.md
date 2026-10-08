@@ -754,8 +754,9 @@ smoothed tensor.
 
 ## Cost
 
-Every update is a fixed stencil with no reduction, its z-planes shared among rayon's threads, so
-the fields are the same bits on any number of threads.
+Every update is a fixed stencil with no reduction, its rows shared among rayon's threads in chunks
+of about 4096 values fixed by the grid (so a 2D grid, one plane thick, is shared as a 3D one is),
+so the fields are the same bits on any number of threads.
 
 **The kernel** (`src/fdtd/kernel.rs`) runs in f32 or f64.
 - **Rows:** it goes through the grid row by row along x. Along a row, the neighbours along y and
@@ -769,7 +770,7 @@ the fields are the same bits on any number of threads.
 - **Tables:** the neighbours' offsets and the 1/(κΔ) factors are tabulated once, and nothing is
   allocated while stepping.
 - **Monitors:** a transform monitor adds, each step, a complex multiply-add per value and
-  frequency, in parallel over its z-planes.
+  frequency, in parallel over chunks of its rows.
 - **The same bits:** every value is computed by the same operations in the same order as the
   plain loops it replaced, which are kept as its reference. IEEE 754 makes a vector lane's sum
   or product the scalar one, so in f64 the fields are the same bits as the plain loops. That is
@@ -798,6 +799,63 @@ the next step of #165. The GPU is #166.
 
 Roden and Gedney's plate, 2.9 × 10⁶ cells for 2000 steps plus two smaller lattices, took about
 45 s on 20 threads of a Core Ultra 7 265K with the plain loops.
+
+## Jobs
+
+An `"fdtd"` job (`photonoxide::job`, documented with the other kinds there) runs all this on a
+layer stack and its shapes, in 2D or 3D, and the studio shows it live: the field on a plane as
+it propagates, each monitor's spectrum as its transforms accumulate, and the resonances at the
+end.
+
+- **The structure:** in 2D, the layer's plane, each point's permittivity its slab mode's
+  effective index squared, exactly as an `"fdfd"` job's (the effective index method: an
+  estimate, not a device's 3D performance); in 3D, the stack itself. Either is averaged over each
+  value's cell as `Simulation::new` averages it, and taken at the job's wavelength, the carrier
+  of the one Gaussian pulse every source shares: the run is non-dispersive, so away from the
+  carrier its spectra are not an `"fdfd"` job's, which takes the slab's index at each
+  wavelength.
+- **Sources** are this module's: guide modes (FDFD's port modes on a few planes cut out of the
+  grid around the source, at the leapfrog's frequency for the carrier, of the job's
+  polarization), dipoles, plane waves on total-field/scattered-field boxes and Gaussian beams.
+- **Monitors:** a guide's mode each way through a plane, the flux through a plane and out of a
+  box, transforms of the field on the view's plane, and harmonic inversion of a point's field
+  after the pulse. The spectra are referred to the incident power at each wavelength: for a
+  mode source, the power its guide carries forward in its own mode at that wavelength, measured
+  on a plane three cells after it (exact, whatever the pulse launches off its carrier); for a
+  plane wave, ½√ε|W(ω)|² over its box's face; for a beam, the paraxial beam's power. A mode
+  source also records what comes back into its mode, the reflection.
+- **The record:** a frame of the field on the view's plane at intervals that start at an
+  eightieth of the pulse's length and the light's crossing of the window, and double after
+  every hundred frames and whenever a frame takes more than a tenth of the steps' time since the
+  last (at most 500 frames, each averaged to at most 240 pixels a side and quantized to bytes);
+  the progress with each frame and at least every second (the field left at the monitors
+  against the stopping rule, the cell-updates a second, the frames' share of the time); every
+  monitor's spectrum every two seconds or so (less often when it takes long) and at the end.
+- **The end:** when |field|² at the monitors' middles has stayed below a fraction of its peak
+  for ten carrier periods after the pulse, at a time limit, or at the job's timeout; the last
+  check's fraction is the run's recorded error, what the transforms leave out.
+
+On the same grid with the permittivity of the carrier, a job's spectra are FDFD's
+S-parameters at the leapfrog's frequencies. At the carrier they differ by the CPMLs' difference
+from FDFD's PMLs; away from it the mode source, which launches the carrier's mode at every
+frequency (see Sources), also puts in a little that isn't the guide's own mode there, and some
+of that reaches the device's outputs, so the difference grows with the distance from the
+carrier:
+- a guide cut by a 0.3 µm gap, 2D TE on 40 nm cells with absorbers of 20 (the test
+  `a_gaps_transmission_and_reflection_are_fdfds`): the transmitted power within 1.3e-4 of FDFD's
+  at 1.55 µm and 2.4e-3 at 1.6 µm (3 % from the carrier), the reflected within 1.5e-5 and
+  4.4e-4;
+- the built-in `jobs/mmi-fdtd.toml`, the 1 × 2 MMI of `jobs/mmi-fdfd.toml` on its 20 nm grid
+  with absorbers of 20 (the test `the_mmi_job_reproduces_the_fdfd_jobs_s_parameters`, run on
+  demand): each output's power within 4.3e-4 of FDFD's at 1.55 µm and 1.1e-3 at 1.6 µm, the
+  reflection within 2.5e-4, over 1.5 to 1.6 µm.
+
+These are 2D numbers by the effective index method, and non-dispersive: they check the job
+against FDFD on the same discrete problem, not the device's 3D performance.
+
+Before the rows were shared, a 2D grid, one plane thick, stepped on one thread: the MMI's
+217 500 cells at 31 million cell-updates a second on 20 threads of a Core Ultra 7 265K, and
+140 million after.
 
 ## Validation
 

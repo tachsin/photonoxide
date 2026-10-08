@@ -1,0 +1,64 @@
+# The all-pass ring of ring-fdfd.toml in the time domain: 2D FDTD with the effective index
+# method (an estimate, not the device's 3D performance) on a 25 nm grid. A pulse from the bus's
+# TE mode covers 1.50 to 1.60 um; the light couples into the ring and leaks back out on every
+# turn, the bus's transmission dips where it resonates, and harmonic inversion of the field in
+# the ring gives each resonance's wavelength and Q. The permittivity is the carrier's (1.55 um)
+# at every wavelength: the run is non-dispersive, so its resonances are a free spectral range
+# of lambda^2 / (n_g L) apart with the 2D guide's own group index, not the dispersive slab's of
+# ring-fdfd.toml.
+#   photonoxide run jobs/ring-fdtd.toml
+name = "ring-fdtd"
+timeout_minutes = 30
+
+[task]
+kind = "fdtd"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+polarization = "te"
+x_um = [-4.5, 4.5]
+y_um = [-2.9, 3.5]
+step_nm = 25.0
+
+[task.spectrum]
+from_um = 1.5
+to_um = 1.6
+points = 201
+
+# the bus
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, -2.0]
+size_um = [9.0, 0.5]
+
+# the ring: its outer edge 0.1 um above the bus
+[[task.ring]]
+layer = "Si"
+center_um = [0.0, 0.6]
+radius_um = 2.0
+width_um = 0.5
+
+[[task.source]]
+type = "mode"
+normal = "x"
+at_um = -3.5
+direction = "+"
+y_um = [-2.9, -1.0]
+
+[[task.monitor]]
+type = "mode"
+name = "through"
+normal = "x"
+at_um = 3.5
+y_um = [-2.9, -1.0]
+
+# the field in the ring, at its top
+[[task.monitor]]
+type = "resonance"
+name = "ring"
+position_um = [0.0, 2.6]
+component = "Hz"
+
+[task.stop]
+until = "time"
+time_um = 1500.0

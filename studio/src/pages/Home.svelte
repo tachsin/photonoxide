@@ -66,7 +66,7 @@
             <div class="dropdown">
               <div tabindex="0" role="button" class="btn btn-primary gap-2"><Plus size={17} /> New job</div>
               <ul tabindex="-1" class="dropdown-content menu z-20 mt-2 w-72 rounded-box border border-base-content/10 bg-base-100 p-2 shadow-xl">
-                {#each ["modes", "fdfd", "structure"] as const as kind (kind)}
+                {#each ["modes", "fdfd", "fdtd", "structure"] as const as kind (kind)}
                   <li>
                     <button onclick={() => newJob(kind)} class="flex flex-col items-start gap-0.5">
                       <span class="font-medium">{KINDS[kind].label}</span><span class="text-xs faint">{KINDS[kind].about}</span>

@@ -23,7 +23,7 @@
     badge?: string;
   } = $props();
 
-  const tone: Record<string, string> = { modes: "badge-primary", fdfd: "badge-secondary", structure: "badge-accent" };
+  const tone: Record<string, string> = { modes: "badge-primary", fdfd: "badge-secondary", fdtd: "badge-info", structure: "badge-accent" };
 </script>
 
 <article class="panel group flex flex-col overflow-hidden transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-xl hover:shadow-black/10">

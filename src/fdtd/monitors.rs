@@ -132,22 +132,26 @@ impl Dft {
                 .map(|f| c64::new(0.0, f.angular() * t).exp() * dt)
                 .collect();
             let [x, y, z] = s.ranges.clone();
-            let row = x.len() * y.len();
-            // one z-plane of the box for one frequency per chunk: each value's sum alone
+            // rows of the box for each frequency, in chunks of about 4096 values fixed by the
+            // box (a box one plane thick shared among the threads too): each value's sum alone
+            let rows = 4096usize.div_ceil(x.len()).max(1);
+            let (ny, nz) = (y.len(), z.len());
             s.values
-                .par_chunks_mut(row)
+                .par_chunks_mut(rows * x.len())
                 .enumerate()
                 .for_each(|(chunk, values)| {
-                    let (f, k) = (chunk / z.len(), z.start + chunk % z.len());
-                    let w = phases[f];
-                    for (b, j) in y.clone().enumerate() {
+                    for (local, values) in values.chunks_mut(x.len()).enumerate() {
+                        let g = chunk * rows + local;
+                        let (f, rest) = (g / (ny * nz), g % (ny * nz));
+                        let (k, j) = (z.start + rest / ny, y.start + rest % ny);
+                        let w = phases[f];
                         for (a, i) in x.clone().enumerate() {
                             let r = k * plane + j * grid.nx + i;
                             let v = match imag {
                                 Some(im) => c64::new(real[r], im[r]),
                                 None => c64::new(real[r], 0.0),
                             };
-                            values[b * x.len() + a] += v * w;
+                            values[a] += v * w;
                         }
                     }
                 });

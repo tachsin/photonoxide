@@ -13,6 +13,7 @@
   import { api, duration, KINDS } from "../lib/api";
   import { app, followSweep, go, perPoint as hasPerPoint, pickPoint, run, shownField, shownModes, shownScene, sweepAxis, themeBackdrop, toast } from "../lib/app.svelte";
   import { modeKind } from "../lib/events";
+  import { fieldName, frameIntensity, timeText } from "../lib/fdtd";
   import { SOLVERS } from "../lib/methods";
   import { effectiveLook, outside, rows, type Looks } from "../lib/layers";
   import { mediumLook } from "../lib/colours";
@@ -49,6 +50,16 @@
     }
   });
 
+  // an FDTD run opens on its field in time, which the 2D view plays
+  let shownFdtd = -1;
+  $effect(() => {
+    const g = run.info?.generation ?? -1;
+    if (run.job?.kind === "fdtd" && g !== shownFdtd) {
+      shownFdtd = g;
+      view = "2d";
+    }
+  });
+
   $effect(() => three?.setDark(app.dark, themeBackdrop()));
 
   // what is shown: the job's own configuration, or the sweep point picked
@@ -80,10 +91,19 @@
   // the field: an FDFD run's on its layer (the sweep point's, when one is shown), or the
   // selected mode on its cut
   const field = $derived(shownField());
+  /** An FDTD run's frame shown, painted in 3D as its magnitude until the run's transforms give a field. */
+  const frame = $derived(run.frames.length ? run.frames[run.frame === null ? run.frames.length - 1 : Math.min(run.frame, run.frames.length - 1)] : null);
   $effect(() => {
     const f = field;
     const m = current;
-    const plane: Plane | null = f ? { intensity: f.intensity, normal: "z", at: f.z_um } : m ? { intensity: m.intensity, normal: run.along, at: m.cut_y_um } : null;
+    const fr = frame;
+    const plane: Plane | null = f
+      ? { intensity: f.intensity, normal: "z", at: f.z_um }
+      : fr
+        ? { intensity: frameIntensity(fr), normal: "z", at: fr.z_um }
+        : m
+          ? { intensity: m.intensity, normal: run.along, at: m.cut_y_um }
+          : null;
     three?.setField(plane);
   });
 
@@ -171,6 +191,7 @@
     const f = field;
     const m = current;
     if (f) return { label: `${f.label}, at ${lenUnit(f.wavelength_um)}`, where: `on the layer's top face (z = ${lenUnit(f.z_um)})` };
+    if (frame) return { label: `|${fieldName(frame.field)}| at t = ${timeText(frame.time_um)}`, where: `at z = ${lenUnit(frame.z_um)}` };
     if (m) return { label: `${m.label}, |E|²`, where: `on the cut at ${run.along} = ${lenUnit(m.cut_y_um)}` };
     return null;
   });
@@ -338,6 +359,40 @@
         <button class="btn btn-ghost btn-xs mt-2 -ml-2 gap-1" onclick={() => run.info?.dir && revealItemInDir(run.info.dir)}><FolderOpen size={12} /> {run.info.name}</button>
       {/if}
     </section>
+
+    {#if run.progress}
+      {@const p = run.progress}
+      {@const reached = p.fraction !== null && p.decay <= p.fraction}
+      <section>
+        <h3 class="panel-title mb-2 flex items-center gap-1.5"><Waves size={13} /> Time domain</h3>
+        <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+          <dt class="faint">time</dt>
+          <dd class="num" title="c·t in µm: light in vacuum crosses 1 µm in 1 µm/c, 3.34 fs">{timeText(p.time_um)}</dd>
+          <dt class="faint">step</dt>
+          <dd class="num">{p.step.toLocaleString()}</dd>
+          <dt class="faint">field left</dt>
+          <dd class="num" title="The largest |field|² at the monitors' middles since the last frame, over its peak: what the run's stopping rule watches">
+            {p.decay.toExponential(1)}{#if p.fraction !== null}<span class="faint"> of the peak, stops below {p.fraction.toExponential(0)}</span>{/if}
+          </dd>
+          <dt class="faint">speed</dt>
+          <dd class="num" title="Cells times steps over the time the steps took">{(p.cell_updates_per_second / 1e6).toFixed(1)} M cell-steps/s</dd>
+          <dt class="faint">frames</dt>
+          <dd class="num" title="The time the frames, the spectra and their records took, against the steps'">{run.frames.length}, {Math.round((100 * p.frames_seconds) / Math.max(p.steps_seconds + p.frames_seconds, 1e-9))}% of the time</dd>
+        </dl>
+        {#if p.fraction !== null}
+          <!-- how far the field has decayed towards the stopping rule, on a log scale from the peak -->
+          {@const share = Math.min(1, Math.max(0, Math.log10(Math.max(p.decay, 1e-300)) / Math.log10(p.fraction)))}
+          <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-base-content/10" role="progressbar" aria-label="The field's decay towards the stopping rule" aria-valuenow={Math.round(100 * share)} aria-valuemin={0} aria-valuemax={100}>
+            <div class="h-full {reached ? 'bg-success' : 'bg-primary'} transition-[width] duration-300" style="width: {100 * share}%"></div>
+          </div>
+        {/if}
+        <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-base-content/10" role="progressbar" aria-label="The time against the run's limit" aria-valuenow={Math.round((100 * p.time_um) / p.until_um)} aria-valuemin={0} aria-valuemax={100}>
+          <div class="h-full bg-base-content/40" style="width: {Math.min(100, (100 * p.time_um) / p.until_um)}%"></div>
+        </div>
+        <p class="mt-1 text-[11px] faint">{p.fraction !== null ? "the field's decay, then the time against the limit of" : "the time against"} {p.until_um} µm/c</p>
+        <button class="btn btn-ghost btn-xs mt-1 -ml-2" onclick={() => (view = "2d")}>Field and spectra in 2D →</button>
+      </section>
+    {/if}
 
     {#if media.length && scene}
       <section>
