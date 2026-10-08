@@ -1411,6 +1411,23 @@ impl Anisotropic {
             .is_ok_and(|block| block.sp_cholesky(Side::Lower).is_ok())
     }
 
+    /// The same tensor with D at zero, for a run from the start.
+    pub(super) fn at_rest(&self) -> Anisotropic {
+        let mut a = self.clone();
+        a.d.iter_mut().flatten().for_each(|x| *x = 0.0);
+        a
+    }
+
+    /// Whether E's `component` at value `r` is coupled to the others by an off-diagonal entry.
+    pub(super) fn couples(&self, component: usize, r: usize) -> bool {
+        self.coupled[component][r]
+    }
+
+    /// Sets ε̃⁻¹'s diagonal entry at E's `component`, value `r`, one no off-diagonal entry reaches.
+    pub(super) fn set_diagonal(&mut self, component: usize, r: usize, inverse: f64) {
+        self.diagonal[component][r] = inverse;
+    }
+
     /// E's `component` held at zero at value `r`, a conductor's.
     pub(super) fn hold(&mut self, component: usize, r: usize) {
         self.cb[component][r] = 0.0;

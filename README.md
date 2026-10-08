@@ -89,7 +89,8 @@ In the released versions (the latest on the crates.io badge above):
   every run is recorded as events and replays exactly.
 
 Next is 0.5: [FDTD](docs/methods/fdtd.md) in 2D and 3D (Yee's scheme, the convolutional PML,
-subpixel smoothing, dispersive media, sources and monitors), and solver backends loaded at run
+subpixel smoothing, dispersive media, sources and monitors, and
+[adjoint gradients](docs/methods/fdtd-adjoint.md) in 3D), and solver backends loaded at run
 time when installed (oneMKL's PARDISO, NVIDIA cuDSS, and QMR on NVIDIA GPUs), each checked
 against photonoxide's own solvers, as the [backends plan](docs/plans/backends.md) sets out.
 

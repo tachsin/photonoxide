@@ -1672,3 +1672,83 @@ fn the_3d_solver_factorizes_and_solves_through_its_backend() {
     let missing = Choice::parse("not-registered-3d").unwrap();
     assert!(Solver3d::new_on(grid, lam, cube, Boundaries3d::pml(2), &missing).is_err());
 }
+
+#[test]
+#[cfg_attr(debug_assertions, ignore = "slow unoptimized: run with --release")]
+fn the_3d_adjoint_gradient_is_the_finite_differences() {
+    let (worst, pairs) = super::adjoint::gradient_against_differences();
+    eprintln!("3D FDFD adjoint against differences: {worst:e} {pairs:?}");
+    assert!(worst < 1e-6, "{worst:e}: {pairs:?}");
+}
+
+/// The adjoint field of a mode's forward amplitude, A⁻ᵀ of the Lorentz form's weights, is the
+/// field of that mode launched backwards from the monitor's plane, times ΔV/(4ik₀), in front of
+/// the plane (C. M. Lalau-Keraly et al., Opt. Express 21, 21693 (2013), Eq. 8).
+#[test]
+fn the_adjoint_of_a_modes_amplitude_is_the_mode_sent_backwards() {
+    use crate::fdfd::Direction;
+    use crate::units::Wavelength;
+    let grid = Grid3d {
+        nx: 14,
+        ny: 12,
+        nz: 24,
+        dx: 0.05,
+        dy: 0.05,
+        dz: 0.05,
+        x0: -0.35,
+        y0: -0.3,
+        z0: -0.6,
+    };
+    let eps = |x: f64, y: f64, z: f64| {
+        let v = if x.abs() < 0.2 && y.abs() < 0.15 {
+            12.0
+        } else if (0.2..0.3).contains(&x) && (0.0..0.1).contains(&y) && (0.0..0.15).contains(&z) {
+            6.0
+        } else {
+            2.1
+        };
+        c64::new(v, 0.0)
+    };
+    let solver = Solver3d::new(
+        grid,
+        Wavelength::um(1.55).unwrap(),
+        eps,
+        Boundaries3d::pml(4),
+    )
+    .unwrap();
+    let ahead = solver.port_modes(Axis::Z, 16, 1).unwrap().remove(0);
+    let weights = super::ports::mode_amplitude_weights_of(
+        grid,
+        Boundaries3d::pml(4),
+        &ahead,
+        Direction::Forward,
+    );
+    let mut rhs = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    let lattice = super::Lattice::new(grid, Boundaries3d::pml(4), ahead.k0());
+    for &(r, w) in &weights {
+        rhs[r] = w / lattice.volume(r);
+    }
+    let lambda = solver.solve_system(&rhs).unwrap();
+    let back = solver
+        .solve_system(&solver.mode_source(&ahead, Direction::Backward))
+        .unwrap();
+    let largest = back.values().iter().fold(0.0f64, |m, v| m.max(v.norm()));
+    let expected = grid.dx * grid.dy * grid.dz / c64::new(0.0, 4.0 * ahead.k0());
+    for k in [8usize, 10, 12, 14] {
+        for (c, at) in [
+            (Axis::X, (7, 6, k)),
+            (Axis::Y, (7, 6, k)),
+            (Axis::Z, (11, 6, k)),
+            (Axis::X, (11, 6, k)),
+        ] {
+            let r = grid.index(c, at);
+            if back.values()[r].norm() > 1e-3 * largest {
+                let ratio = lambda.values()[r] / back.values()[r];
+                assert!(
+                    (ratio - expected).norm() < 1e-9 * expected.norm(),
+                    "{c:?} {at:?}: {ratio} against {expected}"
+                );
+            }
+        }
+    }
+}

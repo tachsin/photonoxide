@@ -862,6 +862,9 @@ pub use three::{
     Port3d, PortMode3d, Solver3d,
 };
 
+pub(crate) use three::adjoint as checks3d_adjoint;
 pub(crate) use three::checks as checks3d;
 pub(crate) use three::port_checks as port_checks3d;
-pub(crate) use three::{averaged as averaged_3d, mode_amplitudes_of, positions};
+pub(crate) use three::{
+    averaged as averaged_3d, mode_amplitude_weights_of, mode_amplitudes_of, positions,
+};
