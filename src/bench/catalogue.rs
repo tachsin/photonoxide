@@ -24,6 +24,8 @@
 //!   small that overhead is all there is to time.
 //! - **Dense kernels** ([`Family::Dense`]): the LU and the product of complex n × n matrices,
 //!   n from 32 to 4096.
+//! - **FDTD** ([`Family::Fdtd`]): the kernel stepping a box of vacuum and a silicon guide, in f64
+//!   and f32, as `photonoxide bench` runs them: memory traffic, no system to solve.
 //!
 //! The systems of [`super::export`] and the problems of [`super::problems`] are entries too,
 //! under the ids they have always had.
@@ -64,6 +66,8 @@ pub enum Family {
     Dense,
     /// A built-in job, run whole.
     Job,
+    /// FDTD's kernel stepping a box: no linear algebra, only memory.
+    Fdtd,
 }
 
 impl Family {
@@ -76,6 +80,7 @@ impl Family {
         Family::Circuit,
         Family::Dense,
         Family::Job,
+        Family::Fdtd,
     ];
 
     /// Its name, as an entry's id begins.
@@ -88,6 +93,7 @@ impl Family {
             Family::Circuit => "circuit",
             Family::Dense => "dense",
             Family::Job => "job",
+            Family::Fdtd => "fdtd",
         }
     }
 }
@@ -115,6 +121,11 @@ pub enum Task {
     Dense,
     /// Several of those, as a whole run does them.
     Mixed,
+    /// Steps of an explicit time-domain scheme: no system to solve.
+    TimeSteps {
+        /// How many.
+        steps: usize,
+    },
 }
 
 /// How long a set of problems takes: each tier holds the one before it.
@@ -551,10 +562,32 @@ fn fixed(id: &'static str, title: &str, heavy: bool) -> Option<Entry> {
             false,
             Task::Mixed,
         ),
+        "fdtd3d/box-f64" | "fdtd3d/box-f32" => (
+            Family::Fdtd,
+            48,
+            "48 × 48 × 48 cells of 50 nm, CPMLs of 8, vacuum",
+            48 * 48 * 48,
+            true,
+            Task::TimeSteps { steps: 400 },
+        ),
+        "fdtd3d/guide-f64" | "fdtd3d/guide-f32" => (
+            Family::Fdtd,
+            160,
+            "160 × 160 × 160 cells of 20 nm, CPMLs of 8, a 500 × 220 nm silicon guide",
+            160 * 160 * 160,
+            true,
+            Task::TimeSteps { steps: 60 },
+        ),
         _ => return None,
     };
-    let nonzeros = if three { 13 * unknowns } else { 5 * unknowns };
+    let nonzeros = match task {
+        Task::TimeSteps { .. } => 0,
+        _ if three => 13 * unknowns,
+        _ => 5 * unknowns,
+    };
     let memory_bytes = match task {
+        // E, H̃, their coefficients and the CPMLs' ψ, for the run, the kernel alone and its check
+        Task::TimeSteps { .. } => (3 * 13 * 8 * unknowns) as u64,
         Task::DirectSymmetric | Task::Mixed => direct_memory(unknowns, nonzeros, three, true),
         // the matrix, and GMRES's 40 vectors or QMR's dozen
         _ => (24 * nonzeros + 16 * 40 * unknowns) as u64,
@@ -576,7 +609,11 @@ fn fixed(id: &'static str, title: &str, heavy: bool) -> Option<Entry> {
         } else {
             Tier::Quick
         },
-        check: "its own: an exact S-matrix or a direct solve's field, where it has one".into(),
+        check: if family == Family::Fdtd {
+            "f64: the plain loops' bits; f32: f64".into()
+        } else {
+            "its own: an exact S-matrix or a direct solve's field, where it has one".into()
+        },
         kind: Kind::Fixed(id),
     })
 }
@@ -806,7 +843,7 @@ pub fn catalogue() -> Vec<Entry> {
         fixed_problems
             .iter()
             .filter_map(|p| fixed(p.id, p.title, p.heavy))
-            .filter(|e| e.family == Family::Job),
+            .filter(|e| matches!(e.family, Family::Job | Family::Fdtd)),
     );
     all
 }
