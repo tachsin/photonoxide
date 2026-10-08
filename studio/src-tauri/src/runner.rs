@@ -78,6 +78,10 @@ pub struct Record {
     pub seconds: f64,
     /// The process's peak resident set, in bytes.
     pub peak_bytes: Option<u64>,
+    /// The factors' entries of its sparse direct solve, as the backend reports them (none in
+    /// records written before they were kept).
+    #[serde(default)]
+    pub factor_entries: Option<u64>,
     /// The accuracy check's error, and what it allows (none: the problem checks itself).
     pub error: Option<f64>,
     /// The error the check allows.
@@ -364,6 +368,7 @@ fn measure(entry: &Entry, backend: &str, threads: usize, timeout: Duration) -> R
         phases: Vec::new(),
         seconds: f64::NAN,
         peak_bytes: None,
+        factor_entries: None,
         error: None,
         tolerance: entry.tolerance().is_finite().then(|| entry.tolerance()),
         accurate: false,
@@ -391,6 +396,7 @@ fn measure(entry: &Entry, backend: &str, threads: usize, timeout: Duration) -> R
             record.seconds = m.seconds();
             record.phases = m.phases;
             record.peak_bytes = report.peak_bytes;
+            record.factor_entries = m.factor_entries;
             record.backend_version = report.version;
             record.deterministic = report.deterministic;
             record.error = m.accuracy.as_ref().map(|a| a.error);
@@ -504,6 +510,8 @@ pub struct AgainstOwn {
     pub speedup: f64,
     /// The backend's peak memory over photonoxide's.
     pub memory_ratio: Option<f64>,
+    /// The backend's factor entries over photonoxide's.
+    pub factors_ratio: Option<f64>,
 }
 
 /// (family, backend, threads) to its (size, unknowns, seconds).
@@ -540,7 +548,7 @@ pub fn summarize(records: &[Record]) -> Summary {
             continue;
         }
         if let Some(own) = fastest.get(&(id.clone(), "photonoxide".into(), *threads)) {
-            let memory = match (r.peak_bytes, own.peak_bytes) {
+            let ratio = |a: Option<u64>, b: Option<u64>| match (a, b) {
                 (Some(a), Some(b)) if b > 0 => Some(a as f64 / b as f64),
                 _ => None,
             };
@@ -551,7 +559,8 @@ pub fn summarize(records: &[Record]) -> Summary {
                 seconds: r.seconds,
                 own_seconds: own.seconds,
                 speedup: own.seconds / r.seconds,
-                memory_ratio: memory,
+                memory_ratio: ratio(r.peak_bytes, own.peak_bytes),
+                factors_ratio: ratio(r.factor_entries, own.factor_entries),
             });
         }
     }
@@ -665,8 +674,9 @@ fn markdown(machine: &Machine, records: &[Record], s: &Summary) -> String {
     if !s.against_own.is_empty() {
         let _ = writeln!(
             out,
-            "\n## Against photonoxide's own\n\n| Problem | Grid | Threads | Backend | Time | photonoxide | Speed-up | Memory |\n|---|---|---:|---|---:|---:|---:|---:|"
+            "\n## Against photonoxide's own\n\nMemory and factors: the backend's peak memory and its factors' entries over photonoxide's own.\n\n| Problem | Grid | Threads | Backend | Time | photonoxide | Speed-up | Memory | Factors |\n|---|---|---:|---|---:|---:|---:|---:|---:|"
         );
+        let ratio = |r: Option<f64>| r.map_or("—".into(), |r| format!("{r:.2}×"));
         for AgainstOwn {
             id,
             threads,
@@ -675,6 +685,7 @@ fn markdown(machine: &Machine, records: &[Record], s: &Summary) -> String {
             own_seconds: own,
             speedup,
             memory_ratio: memory,
+            factors_ratio: factors,
         } in &s.against_own
         {
             let grid = records
@@ -683,8 +694,9 @@ fn markdown(machine: &Machine, records: &[Record], s: &Summary) -> String {
                 .map_or("", |r| r.grid.as_str());
             let _ = writeln!(
                 out,
-                "| `{id}` | {grid} | {threads} | {backend} | {t:.3} s | {own:.3} s | {speedup:.2}× | {} |",
-                memory.map_or("—".into(), |m| format!("{m:.2}×"))
+                "| `{id}` | {grid} | {threads} | {backend} | {t:.3} s | {own:.3} s | {speedup:.2}× | {} | {} |",
+                ratio(*memory),
+                ratio(*factors)
             );
         }
     }
@@ -823,6 +835,7 @@ mod tests {
             phases: Vec::new(),
             seconds,
             peak_bytes: Some(100 * size as u64),
+            factor_entries: Some(10 * size as u64),
             error: Some(if accurate { 1e-12 } else { 1e-3 }),
             tolerance: Some(1e-9),
             accurate,
@@ -847,15 +860,36 @@ mod tests {
         let mut r = record("fdfd2d/slab-ez-100", 100, "cudss", 0.5, true);
         r.failure = Some("timed out after 600 s".into());
         r.tolerance = None;
+        r.factor_entries = None;
         let records = vec![
             record("fdfd2d/slab-ez-100", 100, "photonoxide", 1.0, true),
             r,
         ];
+        assert_eq!(records[0].factor_entries, Some(1000));
         append(&path, &records[..1]).unwrap();
         append(&path, &records[1..]).unwrap();
         assert_eq!(read(&path).unwrap(), records);
         let _ = std::fs::remove_file(&path);
         assert!(read(&path).unwrap().is_empty());
+        // a record written before the factors' entries were kept reads, without them
+        let mut old = serde_json::to_value(&records[0]).unwrap();
+        old.as_object_mut()
+            .unwrap()
+            .remove("factor_entries")
+            .unwrap();
+        std::fs::write(
+            &path,
+            format!(
+                "{old}
+"
+            ),
+        )
+        .unwrap();
+        let read_back = read(&path).unwrap();
+        assert_eq!(read_back.len(), 1);
+        assert_eq!(read_back[0].factor_entries, None);
+        assert_eq!(read_back[0].peak_bytes, records[0].peak_bytes);
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
@@ -882,9 +916,31 @@ mod tests {
         assert!((speedups[0] - 2.0 / 3.0).abs() < 1e-12, "{speedups:?}");
         assert!((speedups[2] - 8.0 / 3.0).abs() < 1e-12, "{speedups:?}");
         assert_eq!(s.against_own[0].memory_ratio, Some(1.0));
+        assert_eq!(s.against_own[0].factors_ratio, Some(1.0));
         assert_eq!(s.crossovers, vec![("fdfd2d".into(), "gpu".into(), 4, 200)]);
         let best: Vec<&str> = s.best.iter().map(|b| b.2.as_str()).collect();
         assert_eq!(best, ["photonoxide", "gpu", "gpu"]);
+    }
+
+    #[test]
+    fn the_summary_shows_the_factors_beside_the_memory() {
+        let own = record("fdfd2d/slab-100", 100, "photonoxide", 1.0, true);
+        let mut gpu = record("fdfd2d/slab-100", 100, "gpu", 0.5, true);
+        gpu.factor_entries = Some(500);
+        // a backend that doesn't say, or a record from before they were kept
+        let mut faer = record("fdfd2d/slab-100", 100, "faer", 0.8, true);
+        faer.factor_entries = None;
+        let records = vec![own, gpu, faer];
+        let md = markdown(&records[0].machine, &records, &summarize(&records));
+        assert!(md.contains("| Speed-up | Memory | Factors |"), "{md}");
+        assert!(
+            md.contains("| gpu | 0.500 s | 1.000 s | 2.00× | 1.00× | 0.50× |"),
+            "{md}"
+        );
+        assert!(
+            md.contains("| faer | 0.800 s | 1.000 s | 1.25× | 1.00× | — |"),
+            "{md}"
+        );
     }
 
     #[test]

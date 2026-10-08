@@ -735,6 +735,8 @@ pub(crate) mod tests {
         pub(crate) factorizations: Arc<AtomicUsize>,
         pub(crate) solves: Arc<AtomicUsize>,
         pub(crate) transpose_solves: Arc<AtomicUsize>,
+        /// Each factorization's report, in order.
+        pub(crate) reports: Arc<std::sync::Mutex<Vec<Report>>>,
     }
 
     impl Recording {
@@ -761,6 +763,7 @@ pub(crate) mod tests {
     struct RecordingAnalysis {
         inner: Arc<dyn Analysis>,
         factorizations: Arc<AtomicUsize>,
+        reports: Arc<std::sync::Mutex<Vec<Report>>>,
         solves: Arc<AtomicUsize>,
         transpose_solves: Arc<AtomicUsize>,
     }
@@ -785,6 +788,7 @@ pub(crate) mod tests {
                 Arc::new(RecordingAnalysis {
                     inner,
                     factorizations: self.factorizations.clone(),
+                    reports: self.reports.clone(),
                     solves: self.solves.clone(),
                     transpose_solves: self.transpose_solves.clone(),
                 }) as Arc<dyn Analysis>
@@ -799,8 +803,10 @@ pub(crate) mod tests {
 
         fn factorize(&self, matrix: &Matrix<'_>) -> Result<Box<dyn Factorization>> {
             self.factorizations.fetch_add(1, Ordering::SeqCst);
+            let inner = self.inner.factorize(matrix)?;
+            self.reports.lock().unwrap().push(inner.report());
             Ok(Box::new(RecordingFactors {
-                inner: self.inner.factorize(matrix)?,
+                inner,
                 solves: self.solves.clone(),
                 transpose_solves: self.transpose_solves.clone(),
             }))

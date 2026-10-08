@@ -1078,8 +1078,6 @@ fn norm(v: &[c64]) -> f64 {
 #[cfg_attr(not(test), allow(dead_code))]
 struct Solved {
     measurement: Measurement,
-    /// The factors' entries, if the backend says.
-    factor_entries: Option<usize>,
     /// Whether the factors are L D Lᵀ of the symmetric similarity.
     symmetric: bool,
     /// The matrix's nonzeros, repeated entries summed.
@@ -1130,8 +1128,8 @@ fn solve_direct(entry: &Entry, direct: &Choice) -> Result<Solved> {
                 error: norm(&r) / norm(&system.rhs),
                 against: entry.check.clone(),
             }),
+            factor_entries: factors.report().factor_entries.map(|e| e as u64),
         },
-        factor_entries: factors.report().factor_entries,
         symmetric: factors.symmetric(),
         nonzeros: seen.len(),
     })
@@ -1164,6 +1162,7 @@ fn solve_modes(entry: &Entry, step_nm: usize, count: usize) -> Result<Measuremen
             error: worst,
             against: entry.check.clone(),
         }),
+        factor_entries: None,
     })
 }
 
@@ -1208,6 +1207,7 @@ fn solve_circuit(entry: &Entry, points: usize) -> Result<Measurement> {
             error: worst,
             against: entry.check.clone(),
         }),
+        factor_entries: None,
     })
 }
 
@@ -1302,6 +1302,7 @@ fn solve_dense(entry: &Entry, n: usize, product: bool) -> Result<Measurement> {
             error,
             against: entry.check.clone(),
         }),
+        factor_entries: None,
     })
 }
 
@@ -1486,7 +1487,8 @@ mod tests {
                 }
             }
             // the memory, within a factor of 2 of the factors and the matrix
-            let measured = 16 * solved.factor_entries.unwrap() + 24 * solved.nonzeros;
+            let factors = m.factor_entries.unwrap() as usize;
+            let measured = 16 * factors + 24 * solved.nonzeros;
             let ratio = e.memory_bytes as f64 / measured as f64;
             assert!((0.5..=2.0).contains(&ratio), "{}: {ratio}", e.id);
         }
@@ -1502,8 +1504,12 @@ mod tests {
         let own = e.run(&Choice::Auto).unwrap();
         let routed = e.run(&choice).unwrap();
         assert_eq!(recording.counts(), [1, 1, 1, 0]);
-        // the same factors: the same residual to the bit
+        // the same factors: the same residual to the bit, and the entries the backend reports
         assert_eq!(own.accuracy, routed.accuracy);
+        let reported = recording.reports.lock().unwrap()[0].factor_entries;
+        assert!(reported.is_some_and(|e| e > 0));
+        assert_eq!(routed.factor_entries, reported.map(|e| e as u64));
+        assert_eq!(own.factor_entries, routed.factor_entries);
         // faer's LU solves it too, to the check
         let faer = e.run(&Choice::parse("faer").unwrap()).unwrap();
         assert!(faer.accuracy.unwrap().error < e.tolerance());
@@ -1607,15 +1613,12 @@ mod tests {
             let error = solved.measurement.accuracy.as_ref().unwrap().error;
             assert!(error < e.tolerance(), "{id}: {error}");
             assert_eq!(solved.measurement.unknowns, e.unknowns, "{id}");
-            let measured = 16 * solved.factor_entries.unwrap() + 24 * solved.nonzeros;
+            let factors = solved.measurement.factor_entries.unwrap() as usize;
+            let measured = 16 * factors + 24 * solved.nonzeros;
             let ratio = e.memory_bytes as f64 / measured as f64;
             println!(
                 "{id}: {} unknowns, {} nonzeros (record {}), factors {} entries, memory record/measured {ratio:.2}, symmetric {}",
-                e.unknowns,
-                solved.nonzeros,
-                e.nonzeros,
-                solved.factor_entries.unwrap(),
-                solved.symmetric
+                e.unknowns, solved.nonzeros, e.nonzeros, factors, solved.symmetric
             );
             assert!((0.5..=2.0).contains(&ratio), "{id}: {ratio}");
         }

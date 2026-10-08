@@ -73,6 +73,11 @@ pub struct Measurement {
     pub phases: Vec<Phase>,
     /// What was computed, against what it should be.
     pub accuracy: Option<Accuracy>,
+    /// The factors' entries of its sparse direct solve, as the backend reports them
+    /// ([`crate::backend::Report::factor_entries`]): `None` where nothing was factorized, the
+    /// backend doesn't say, or the measurement was recorded before they were kept.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub factor_entries: Option<u64>,
 }
 
 impl Measurement {
@@ -375,6 +380,7 @@ fn slab_2d(h: f64, length: f64, timed_done: &mut dyn FnMut()) -> Result<Measurem
     let solver = timed("assembly and factorization", &mut phases, || {
         Solver2d::new(grid, Polarization::Ez, lam, eps, Boundaries::pml(pml))
     })?;
+    let factor_entries = solver.factor_entries();
     let column = |x: f64| ((x - grid.x0) / h).floor() as usize;
     let (left, right) = (column(0.3), column(length - 0.3));
     let ports = timed("port modes", &mut phases, || {
@@ -414,6 +420,7 @@ fn slab_2d(h: f64, length: f64, timed_done: &mut dyn FnMut()) -> Result<Measurem
             error,
             against: "S21 = exp(iβL), S11 = 0".into(),
         }),
+        factor_entries,
     })
 }
 
@@ -527,6 +534,7 @@ fn guide_direct(timed_done: &mut dyn FnMut()) -> Result<Measurement> {
             error: norm(&r) / norm(&rhs),
             against: "its relative residual".into(),
         }),
+        factor_entries: solver.factor_entries(),
     })
 }
 
@@ -654,6 +662,7 @@ fn guide_3d_with(
             error,
             against: against.into(),
         }),
+        factor_entries: None,
     })
 }
 
@@ -744,6 +753,7 @@ fn strip_ports_3d(
             error,
             against: "S21 = exp(iβL), S11 = 0".into(),
         }),
+        factor_entries: None,
     })
 }
 
@@ -801,6 +811,7 @@ fn built_in_job(text: &str, timed_done: &mut dyn FnMut()) -> Result<Measurement>
                 bytes: None,
             }],
             accuracy: None,
+            factor_entries: None,
         })
     })();
     let _ = std::fs::remove_dir_all(&root);
@@ -846,13 +857,25 @@ mod tests {
                 },
             ],
             accuracy: None,
+            factor_entries: None,
         };
         assert_eq!(m.seconds(), 5.0);
         assert_eq!(m.iterations(), Some(400));
         // 4 s over 1000 unknowns and 400 iterations
         assert!((m.nanoseconds_per_unknown_iteration().unwrap() - 1e4).abs() < 1e-6);
+        // without factor entries, written as before they were kept; with them, read back
         let json = serde_json::to_string(&m).unwrap();
+        assert!(!json.contains("factor_entries"), "{json}");
         assert_eq!(serde_json::from_str::<Measurement>(&json).unwrap(), m);
+        let factored = Measurement {
+            factor_entries: Some(123_456),
+            ..m
+        };
+        let json = serde_json::to_string(&factored).unwrap();
+        assert_eq!(
+            serde_json::from_str::<Measurement>(&json).unwrap(),
+            factored
+        );
     }
 
     #[test]
@@ -868,6 +891,12 @@ mod tests {
         let m = slab_2d(0.02, 2.0, &mut || {}).unwrap();
         assert_eq!(m.phases.len(), 3);
         assert_eq!(m.unknowns, 140 * 190);
+        // its direct solve's factors, at least the matrix's entries (5 an unknown)
+        assert!(
+            m.factor_entries.unwrap() >= 5 * 140 * 190,
+            "{:?}",
+            m.factor_entries
+        );
         // the validation report's fdfd straight-guide case, on the same grid: 1e-3 or better
         let error = m.accuracy.unwrap().error;
         assert!(error < 1e-3, "{error}");
