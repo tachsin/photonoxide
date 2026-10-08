@@ -17,12 +17,17 @@
 //!   centred on the nodes and kept there ([`Coupling::Nodes`]): E_x at (i + ½, j, k) takes D_y
 //!   from the two nodes beside it, at each the mean of D_y on either side times (ε̃⁻¹)_xy there,
 //!   and the mean of the two nodes', G. R. Werner and J. R. Cary's scheme (J. Comput. Phys. 226,
-//!   1085 (2007)), whose ε⁻¹ on the grid is symmetric, so that the leapfrog's energy
+//!   1085 (2007), doi:10.1016/j.jcp.2007.05.008, their Eq. 39), whose ε⁻¹ on the grid is symmetric, so that the leapfrog's energy
 //!   ½ Σ E·D + ½ Σ H̃·H̃ is conserved as with a scalar ε. Or they are averaged over each value's
 //!   own cell ([`Coupling::Points`]), times the mean of the four D_y around E_x, as Farjadpour et
 //!   al. have it: second order at oblique interfaces, where the nodes' are first order, but not
-//!   symmetric, and an error grows from round-off. A medium whose tensor couples E's components
-//!   steps D, and E follows from it after each step.
+//!   symmetric, and an error grows from round-off. Or each node's eight triplets of values take
+//!   one tensor each ([`Coupling::Triplets`], G. R. Werner, C. A. Bauer, J. R. Cary, J. Comput.
+//!   Phys. 255, 436 (2013), doi:10.1016/j.jcp.2013.08.009), C. A. Bauer, G. R. Werner and J. R.
+//!   Cary's (J. Comput. Phys. 230, 2060 (2011), doi:10.1016/j.jcp.2010.12.005) made symmetric:
+//!   positive definite at any contrast, where the nodes' isn't, and first order at oblique
+//!   interfaces with half their error. A medium whose tensor couples E's components steps D, and
+//!   E follows from it after each step.
 //!
 //! The cell is the grid's cell about each point, times a diameter (Farjadpour et al.'s s). Where
 //! one body's surface crosses it, the surface is taken as the plane through the nearest point,
@@ -423,6 +428,19 @@ pub enum Coupling {
     /// but not symmetric: an error grows exponentially from round-off, slowly in isotropic
     /// media and fast in anisotropic ones (docs/methods/fdtd.md), so for short runs only.
     Points,
+    /// From each node's eight triplets, G. R. Werner, C. A. Bauer and J. R. Cary's scheme (J.
+    /// Comput. Phys. 255, 436 (2013), doi:10.1016/j.jcp.2013.08.009): the values of E_x, E_y
+    /// and E_z on the three edges from a node, one each way along each axis, see one 3 × 3
+    /// tensor, and ε̃⁻¹ on the grid is the mean of the eight block-diagonal matrices so made,
+    /// its diagonal entries too. Each tensor is C. A. Bauer, G. R. Werner and J. R. Cary's,
+    /// exact for constant fields at a plane interface (J. Comput. Phys. 230, 2060 (2011),
+    /// doi:10.1016/j.jcp.2010.12.005), made symmetric; one not positive definite, or a node
+    /// two surfaces pass near, takes Kottke et al.'s average over the node's cell instead.
+    /// ε̃⁻¹ is then symmetric and positive definite at any contrast, so the scheme is stable
+    /// with no check. Like the nodes', first order at oblique interfaces, with a smaller error
+    /// (docs/methods/fdtd.md). It takes its own average: [`Smoothing::average`] must be
+    /// [`Average::Subpixel`] and the diameter 1.
+    Triplets,
 }
 
 /// The samples per axis of a cell two surfaces cross.
@@ -441,6 +459,36 @@ impl Structure {
     pub fn with(mut self, body: Body, eps: Permittivity) -> Structure {
         self.bodies.push((body, eps));
         self
+    }
+
+    /// What the box of `size` (µm) about `centre` holds: one medium, one body's surface (as the
+    /// plane through its nearest point, as [`Structure::inverse`] takes it), or more.
+    fn local(&self, centre: [f64; 3], size: [f64; 3]) -> Local {
+        let mut crossing: Option<(f64, [f64; 3], Permittivity)> = None;
+        let mut beneath = self.background;
+        for (body, eps) in self.bodies.iter().rev() {
+            let (d, n) = body.surface(centre);
+            let reach = 0.5 * (0..3).map(|i| n[i].abs() * size[i]).sum::<f64>();
+            if d <= -reach {
+                beneath = *eps;
+                break;
+            }
+            if d < reach {
+                if crossing.is_some() {
+                    return Local::Many;
+                }
+                crossing = Some((d, n, *eps));
+            }
+        }
+        match crossing {
+            None => Local::Uniform(beneath),
+            Some((d, n, inside)) => Local::Plane {
+                d,
+                n,
+                inside,
+                beneath,
+            },
+        }
     }
 
     /// The permittivity at `p` (µm): the last body's that contains it, or the background.
@@ -700,6 +748,171 @@ fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
     ]
 }
 
+/// What a box of the structure holds ([`Structure::local`]).
+enum Local {
+    Uniform(Permittivity),
+    /// One body's surface, as a plane: the signed distance from the box's centre (negative
+    /// inside) and the outward normal; the body's medium and the one beneath it.
+    Plane {
+        d: f64,
+        n: [f64; 3],
+        inside: Permittivity,
+        beneath: Permittivity,
+    },
+    /// Two surfaces or more.
+    Many,
+}
+
+/// The eight triplets at a node, numbered sx + 2sy + 4sz: s = 0 where the triplet's value of
+/// that component is on the edge from the node the positive way, 1 the negative way.
+const TRIPLETS: usize = 8;
+
+/// The side (0 positive, 1 negative) of triplet `t`'s value of `component`.
+fn side(t: usize, component: usize) -> usize {
+    (t >> component) & 1
+}
+
+/// The inverse of a 3 × 3 matrix by its cofactors, if its determinant is non-zero and finite.
+fn inverse_general(m: &Matrix) -> Option<Matrix> {
+    let det = determinant(m);
+    let scale = m.iter().flatten().fold(0.0f64, |a, v| a.max(v.abs()));
+    if !(det.is_finite() && det.abs() > 1e-12 * scale * scale * scale) {
+        return None;
+    }
+    let c = |i: usize, j: usize| {
+        let (r0, r1) = ((i + 1) % 3, (i + 2) % 3);
+        let (c0, c1) = ((j + 1) % 3, (j + 2) % 3);
+        m[r0][c0] * m[r1][c1] - m[r0][c1] * m[r1][c0]
+    };
+    Some(std::array::from_fn(|i| {
+        std::array::from_fn(|j| c(j, i) / det)
+    }))
+}
+
+fn product(a: &Matrix, b: &Matrix) -> Matrix {
+    std::array::from_fn(|i| std::array::from_fn(|j| (0..3).map(|k| a[i][k] * b[k][j]).sum()))
+}
+
+/// Sylvester's criterion for a symmetric matrix.
+fn positive_definite(m: &Matrix) -> bool {
+    m[0][0] > 0.0 && m[0][0] * m[1][1] - m[0][1] * m[1][0] > 0.0 && determinant(m) > 0.0
+}
+
+/// The eight triplets' tensors (ε̃⁻¹ for each) at the node `p` (µm) of a grid of steps `h`, by
+/// Werner, Bauer and Cary's 2013 scheme, `symmetric`; or Bauer, Werner and Cary's 2011 tensor
+/// as it is, not symmetric, when not (for the checks: second order, but not stable).
+fn triplets(structure: &Structure, p: [f64; 3], h: [f64; 3], symmetric: bool) -> [Matrix; 8] {
+    // Kottke et al.'s average over the node's cell: where two surfaces come near, or where
+    // Bauer et al.'s tensor fails (Werner et al. 2013, Sec. 7, step 6)
+    let fallback = || [structure.inverse(p, h, Average::Subpixel); TRIPLETS];
+    // every edge and dual face of the node's triplets lies within a box of 2h about it
+    match structure.local(p, h.map(|v| 2.0 * v)) {
+        Local::Uniform(eps) => [inverse(&eps.0); TRIPLETS],
+        Local::Many => fallback(),
+        Local::Plane {
+            d,
+            n,
+            inside,
+            beneath,
+        } => bauer(n, d, h, &inside.0, &beneath.0, symmetric).unwrap_or_else(fallback),
+    }
+}
+
+/// Bauer, Werner and Cary's tensors (their Eqs. 27 to 44, as Werner et al. 2013 put them, Eqs.
+/// 15 to 20) at a node `d` from the plane of normal `n` (negative inside), on a grid of steps `h`:
+/// for each triplet, E = Λ_C Λ_P⁻¹ D with F = (D_n, E_t, E_s), continuous across the plane, and
+/// E = C F, D = P F in each medium, C = 1 + n(n − εn)ᵀ/(nᵀεn) and P = εC; the rows of Λ_C are
+/// C's rows averaged along each value's edge, those of Λ_P P's over its dual face. Made
+/// symmetric, `symmetric`; `None` where Λ_P is singular or the symmetric tensor isn't positive.
+fn bauer(
+    n: [f64; 3],
+    d: f64,
+    h: [f64; 3],
+    inside: &Matrix,
+    beneath: &Matrix,
+    symmetric: bool,
+) -> Option<[Matrix; 8]> {
+    // the share inside of each edge and dual face, each way along each axis: both centred on
+    // the value of E, half a step from the node
+    let mut line = [[0.0; 2]; 3];
+    let mut face = [[0.0; 2]; 3];
+    for a in 0..3 {
+        for (s, sign) in [1.0, -1.0].into_iter().enumerate() {
+            let centre = d + sign * 0.5 * h[a] * n[a];
+            let mut edge = [0.0; 3];
+            edge[a] = h[a];
+            line[a][s] = fill(n, centre, edge);
+            let mut dual = h;
+            dual[a] = 0.0;
+            face[a][s] = fill(n, centre, dual);
+        }
+    }
+    let shares = || line.iter().chain(&face).flatten();
+    if shares().all(|&f| f == 1.0) {
+        return Some([inverse(inside); TRIPLETS]);
+    }
+    if shares().all(|&f| f == 0.0) {
+        return Some([inverse(beneath); TRIPLETS]);
+    }
+    let mixed = |eps: &Matrix| -> (Matrix, Matrix) {
+        let en: [f64; 3] = std::array::from_fn(|i| dot(eps[i], n));
+        let nen = dot(n, en);
+        let c: Matrix = std::array::from_fn(|i| {
+            std::array::from_fn(|j| {
+                let identity = if i == j { 1.0 } else { 0.0 };
+                identity + n[i] * (n[j] - en[j]) / nen
+            })
+        });
+        (c, product(eps, &c))
+    };
+    let ((c1, p1), (c2, p2)) = (mixed(inside), mixed(beneath));
+    let mut out = [[[0.0; 3]; 3]; TRIPLETS];
+    for (t, k) in out.iter_mut().enumerate() {
+        let lc: Matrix = std::array::from_fn(|r| {
+            let f = line[r][side(t, r)];
+            std::array::from_fn(|j| f * c1[r][j] + (1.0 - f) * c2[r][j])
+        });
+        let lp: Matrix = std::array::from_fn(|r| {
+            let f = face[r][side(t, r)];
+            std::array::from_fn(|j| f * p1[r][j] + (1.0 - f) * p2[r][j])
+        });
+        let accurate = product(&lc, &inverse_general(&lp)?);
+        *k = if symmetric {
+            let k = symmetrized(accurate);
+            if !positive_definite(&k) {
+                return None;
+            }
+            k
+        } else {
+            accurate
+        };
+    }
+    Some(out)
+}
+
+/// A node's part of ε̃⁻¹ on the grid from its triplets' tensors, an eighth of each: for each
+/// component c and side s_c of the node, the diagonal entry (6, numbered 2c + s_c), then for
+/// each other component a (its slot in [`Axis::others`]) and side s_a, the entry coupling the
+/// value of c on side s_c to that of a on side s_a (24, numbered 6 + 4(2c + slot) + 2s_c + s_a).
+fn record(k: &[Matrix; 8]) -> [f64; 30] {
+    let mut out = [0.0; 30];
+    for c in 0..3 {
+        let (a, b) = Axis::ALL[c].others();
+        for sc in 0..2 {
+            let ts = || (0..TRIPLETS).filter(move |&t| side(t, c) == sc);
+            out[2 * c + sc] = 0.125 * ts().map(|t| k[t][c][c]).sum::<f64>();
+            for (slot, other) in [a, b].into_iter().enumerate() {
+                let o = other.index();
+                for sa in 0..2 {
+                    let sum: f64 = ts().filter(|&t| side(t, o) == sa).map(|t| k[t][c][o]).sum();
+                    out[6 + 4 * (2 * c + slot) + 2 * sc + sa] = 0.125 * sum;
+                }
+            }
+        }
+    }
+    out
+}
+
 impl Simulation {
     /// The problem on `grid` with the permittivity of `structure`, each value of E's taken by
     /// `smoothing`, inside `boundaries`, stepped at the Courant number `courant` (0 < C ≤ 1).
@@ -724,13 +937,15 @@ impl Simulation {
         courant: f64,
     ) -> Result<Simulation> {
         let s = Simulation::smoothed_unchecked(grid, structure, smoothing, boundaries, courant)?;
-        if s.anisotropic.as_ref().is_some_and(|a| !a.positive()) {
+        // the triplets' ε̃⁻¹ is positive definite by construction
+        let checked = smoothing.coupling == Coupling::Nodes;
+        if checked && s.anisotropic.as_ref().is_some_and(|a| !a.positive()) {
             return Err(invalid(
                 "the smoothed ε⁻¹ with its off-diagonal entries at the nodes isn't positive \
                  definite here, so the leapfrog's energy isn't positive and the run would grow \
                  without bound: a contrast this high across an interface oblique to the grid is \
-                 beyond Werner and Cary's 2007 scheme (issue #209); Coupling::Points runs, for \
-                 short runs only",
+                 beyond Werner and Cary's 2007 scheme; Coupling::Triplets (Werner, Bauer and \
+                 Cary 2013) is stable at any contrast",
             ));
         }
         Ok(s)
@@ -755,6 +970,15 @@ impl Simulation {
                 "a smoothing diameter must be positive and finite, got {diameter}"
             )));
         }
+        if coupling == Coupling::Triplets {
+            if average != Average::Subpixel || diameter != 1.0 {
+                return Err(invalid(format!(
+                    "Coupling::Triplets takes its own average: it needs Average::Subpixel and a \
+                     diameter of 1, got {average:?} and {diameter}"
+                )));
+            }
+            return Simulation::triplets(grid, structure, boundaries, courant, true);
+        }
         let size = [grid.dx, grid.dy, grid.dz].map(|h| h * diameter);
         let at = |r: usize| {
             (
@@ -765,7 +989,7 @@ impl Simulation {
         };
         // each value's row of ε̃⁻¹ over the cell about it
         let mut rows: [Vec<[f64; 3]>; 3] = [Vec::new(), Vec::new(), Vec::new()];
-        let mut s = Simulation::with_permittivity(grid, boundaries, courant, |grid| {
+        let s = Simulation::with_permittivity(grid, boundaries, courant, |grid| {
             rows = Axis::ALL.map(|c| {
                 (0..grid.cells())
                     .into_par_iter()
@@ -799,6 +1023,105 @@ impl Simulation {
                 }))
             }
             Coupling::Points => Off::Points(rows.clone()),
+            Coupling::Triplets => unreachable!("taken by Simulation::triplets"),
+        };
+        let diagonal = std::array::from_fn(|c| rows[c].iter().map(|row| row[c]).collect());
+        s.couple(off, diagonal)
+    }
+
+    /// As [`Simulation::smoothed`] with [`Coupling::Triplets`], or with Bauer et al.'s 2011
+    /// tensors as they are when not `symmetric` (not stable: for the checks).
+    pub(crate) fn triplets(
+        grid: Grid3d,
+        structure: &Structure,
+        boundaries: Boundaries,
+        courant: f64,
+        symmetric: bool,
+    ) -> Result<Simulation> {
+        let n = grid.cells();
+        let h = [grid.dx, grid.dy, grid.dz];
+        let at = |r: usize| {
+            [
+                r % grid.nx,
+                (r / grid.nx) % grid.ny,
+                r / (grid.nx * grid.ny),
+            ]
+        };
+        let node = |m: [usize; 3]| {
+            [
+                grid.node(Axis::X, m[0]),
+                grid.node(Axis::Y, m[1]),
+                grid.node(Axis::Z, m[2]),
+            ]
+        };
+        let record_at = |m: [usize; 3]| record(&triplets(structure, node(m), h, symmetric));
+        // every node's record, the same ones stored once, a chunk of nodes at a time
+        let mut table: Vec<[f64; 30]> = Vec::new();
+        let mut seen: std::collections::HashMap<[u64; 30], u32> = Default::default();
+        let mut index = vec![0u32; n];
+        const CHUNK: usize = 1 << 16;
+        for start in (0..n).step_by(CHUNK) {
+            let records: Vec<[f64; 30]> = (start..(start + CHUNK).min(n))
+                .into_par_iter()
+                .map(|r| record_at(at(r)))
+                .collect();
+            for (r, record) in (start..).zip(records) {
+                let key = record.map(f64::to_bits);
+                index[r] = *seen.entry(key).or_insert_with(|| {
+                    table.push(record);
+                    (table.len() - 1) as u32
+                });
+            }
+        }
+        // each value of E's diagonal entry: from the node it starts at and the one it ends at,
+        // which beyond a side that isn't periodic is outside the grid (a wall's node, with no
+        // values of the other components to couple to)
+        let stride = [1, grid.nx, grid.nx * grid.ny];
+        let diagonal: [Vec<f64>; 3] = std::array::from_fn(|c| {
+            let axis = Axis::ALL[c];
+            let count = grid.n(axis);
+            (0..n)
+                .into_par_iter()
+                .map(|r| {
+                    let m = at(r);
+                    let own = table[index[r] as usize][2 * c];
+                    let far = if m[c] + 1 < count {
+                        table[index[r + stride[c]] as usize][2 * c + 1]
+                    } else if boundaries.periodic(axis) {
+                        table[index[r + stride[c] - count * stride[c]] as usize][2 * c + 1]
+                    } else {
+                        let mut beyond = m;
+                        beyond[c] += 1;
+                        record_at(beyond)[2 * c + 1]
+                    };
+                    own + far
+                })
+                .collect()
+        });
+        let s = Simulation::with_permittivity(grid, boundaries, courant, |_| {
+            Ok(std::array::from_fn(|c| {
+                diagonal[c].iter().map(|v| 1.0 / v).collect()
+            }))
+        })?;
+        let table = table
+            .iter()
+            .map(|record| std::array::from_fn(|q| record[6 + q]))
+            .collect();
+        s.couple(Off::Triplets { index, table }, diagonal)
+    }
+
+    /// The simulation stepping D and finding E = ε̃⁻¹D, ε̃⁻¹'s diagonal entries `diagonal` and
+    /// its others `off`, if any of those isn't zero; as it is otherwise.
+    fn couple(mut self, off: Off, diagonal: [Vec<f64>; 3]) -> Result<Simulation> {
+        let s = &mut self;
+        let grid = s.grid;
+        let n = grid.cells();
+        let at = |r: usize| {
+            (
+                r % grid.nx,
+                (r / grid.nx) % grid.ny,
+                r / (grid.nx * grid.ny),
+            )
         };
         let any = match &off {
             Off::Nodes(w) => w.iter().flatten().any(|&v| v != 0.0),
@@ -807,9 +1130,13 @@ impl Simulation {
                     .iter()
                     .any(|row| (0..3).any(|a| a != c && row[a] != 0.0))
             }),
+            Off::Triplets { index, table } => {
+                let used: Vec<bool> = table.iter().map(|w| w.iter().any(|&v| v != 0.0)).collect();
+                index.iter().any(|&i| used[i as usize])
+            }
         };
         if !any {
-            return Ok(s);
+            return Ok(self);
         }
         if s.bloch.is_some() {
             return Err(invalid(
@@ -826,7 +1153,7 @@ impl Simulation {
                     let (i, j, k) = at(r);
                     let next = forward[ci][[i, j, k][ci]].map(|o| (r as isize + o) as usize);
                     let (a, b) = c.others();
-                    [a, b].into_iter().any(|other| {
+                    [a, b].into_iter().enumerate().any(|(slot, other)| {
                         let oi = other.index();
                         match &off {
                             Off::Nodes(w) => {
@@ -834,6 +1161,15 @@ impl Simulation {
                                 w[r] != 0.0 || next.is_some_and(|q| w[q] != 0.0)
                             }
                             Off::Points(rows) => rows[ci][r][oi] != 0.0,
+                            Off::Triplets { index, table } => {
+                                [(Some(r), 0), (next, 1)].into_iter().any(|(node, sc)| {
+                                    node.is_some_and(|node| {
+                                        let w = &table[index[node] as usize];
+                                        let k = 4 * (2 * ci + slot) + 2 * sc;
+                                        w[k] != 0.0 || w[k + 1] != 0.0
+                                    })
+                                })
+                            }
                         }
                     })
                 })
@@ -846,7 +1182,7 @@ impl Simulation {
                     .map(|&v| if v == 0.0 { 0.0 } else { s.dt })
                     .collect()
             }),
-            diagonal: std::array::from_fn(|c| rows[c].iter().map(|row| row[c]).collect()),
+            diagonal,
             off,
             coupled,
             forward,
@@ -854,7 +1190,7 @@ impl Simulation {
             grid,
         };
         s.anisotropic = Some(Box::new(anisotropic));
-        Ok(s)
+        Ok(self)
     }
 }
 
@@ -865,6 +1201,12 @@ enum Off {
     Nodes([Vec<f64>; 3]),
     /// Each value of E_c's row of ε̃⁻¹, (ε̃⁻¹)_ca for each a.
     Points([Vec<[f64; 3]>; 3]),
+    /// Each node's off-diagonal entries from its triplets, as [`record`] numbers them less 6,
+    /// the same ones stored once: `table[index[node]]`.
+    Triplets {
+        index: Vec<u32>,
+        table: Vec<[f64; 24]>,
+    },
 }
 
 /// A permittivity tensor that couples E's components: D, stepped as E would be in vacuum, and
@@ -925,7 +1267,7 @@ impl Anisotropic {
                             // the nodes at either end of this value's edge, and D_a on either
                             // side of each
                             let next = forward[ci][m[ci]].map(|o| (r as isize + o) as usize);
-                            for other in [a, b] {
+                            for (slot, other) in [a, b].into_iter().enumerate() {
                                 let oi = other.index();
                                 let pair = |node: usize| {
                                     d[oi][node]
@@ -945,6 +1287,22 @@ impl Anisotropic {
                                         let sum = pair(r) + next.map_or(0.0, pair);
                                         *v += 0.25 * rows[ci][r][oi] * sum;
                                     }
+                                    Off::Triplets { index, table } => {
+                                        for (node, sc) in [(Some(r), 0), (next, 1)] {
+                                            let Some(node) = node else { continue };
+                                            let w = &table[index[node] as usize];
+                                            let k = 4 * (2 * ci + slot) + 2 * sc;
+                                            if w[k] != 0.0 {
+                                                *v += w[k] * d[oi][node];
+                                            }
+                                            if w[k + 1] != 0.0
+                                                && let Some(o) = back[oi][m[oi]]
+                                            {
+                                                *v +=
+                                                    w[k + 1] * d[oi][(node as isize + o) as usize];
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -962,9 +1320,9 @@ impl Anisotropic {
     /// exist exactly when it is positive definite. Values held at zero are left out: what
     /// remains is a principal block, positive when the whole is.
     fn positive(&self) -> bool {
-        let Off::Nodes(w) = &self.off else {
+        if matches!(self.off, Off::Points(_)) {
             return true;
-        };
+        }
         let n = self.grid.cells();
         let at = |r: usize| {
             let g = self.grid;
@@ -1002,17 +1360,24 @@ impl Anisotropic {
                 row.clear();
                 row.push((p, self.diagonal[ci][r]));
                 let next = self.forward[ci][m[ci]].map(|o| (r as isize + o) as usize);
-                for other in [a, b] {
+                for (slot, other) in [a, b].into_iter().enumerate() {
                     let oi = other.index();
-                    let w = &w[3 - ci - oi];
-                    for node in [Some(r), next].into_iter().flatten() {
-                        if w[node] == 0.0 {
-                            continue;
-                        }
+                    for (node, sc) in [(Some(r), 0), (next, 1)] {
+                        let Some(node) = node else { continue };
                         let below = self.back[oi][m[oi]].map(|o| (node as isize + o) as usize);
-                        for q in [Some(node), below].into_iter().flatten() {
-                            if place[oi][q] != usize::MAX {
-                                row.push((place[oi][q], 0.25 * w[node]));
+                        for (q, sa) in [(Some(node), 0), (below, 1)] {
+                            let weight = match &self.off {
+                                Off::Nodes(w) => 0.25 * w[3 - ci - oi][node],
+                                Off::Triplets { index, table } => {
+                                    table[index[node] as usize][4 * (2 * ci + slot) + 2 * sc + sa]
+                                }
+                                Off::Points(_) => unreachable!("not symmetric"),
+                            };
+                            if let Some(q) = q
+                                && weight != 0.0
+                                && place[oi][q] != usize::MAX
+                            {
+                                row.push((place[oi][q], weight));
                             }
                         }
                     }

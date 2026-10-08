@@ -26,14 +26,20 @@ papers:
     doi: 10.1002/1098-2760(20001205)27:5<334::AID-MOP14>3.0.CO;2-A
   - cite: "A. Farjadpour et al., Opt. Lett. 31, 2972 (2006) (subpixel smoothing)"
     doi: 10.1364/OL.31.002972
+  - cite: "G. R. Werner, J. R. Cary, J. Comput. Phys. 226, 1085 (2007) (a symmetric ε⁻¹ for tensor media, `Coupling::Nodes`)"
+    doi: 10.1016/j.jcp.2007.05.008
   - cite: "C. Kottke, A. Farjadpour, S. G. Johnson, Phys. Rev. E 77, 036611 (2008) (smoothing anisotropic media)"
     doi: 10.1103/PhysRevE.77.036611
   - cite: "A. F. Oskooi, C. Kottke, S. G. Johnson, Opt. Lett. 34, 2778 (2009) (anisotropic smoothing on Yee's grid)"
     doi: 10.1364/OL.34.002778
   - cite: "A. F. Oskooi et al., Comput. Phys. Commun. 181, 687 (2010) (sources restricted to the grid)"
     doi: 10.1016/j.cpc.2009.11.008
+  - cite: "C. A. Bauer, G. R. Werner, J. R. Cary, J. Comput. Phys. 230, 2060 (2011) (the triplet tensor, exact at a plane)"
+    doi: 10.1016/j.jcp.2010.12.005
   - cite: "R. C. Rumpf, Prog. Electromagn. Res. B 36, 221 (2012) (total-field/scattered-field in the frequency domain)"
     doi: 10.2528/PIERB11092006
+  - cite: "G. R. Werner, C. A. Bauer, J. R. Cary, J. Comput. Phys. 255, 436 (2013) (a stable ε⁻¹ from triplets, `Coupling::Triplets`)"
+    doi: 10.1016/j.jcp.2013.08.009
 validation:
   - fdtd/dispersion
   - fdtd/energy
@@ -63,7 +69,16 @@ validation:
   - fdtd/smoothing-oblique
   - fdtd/smoothing-oblique-nodes
   - fdtd/smoothing-energy
+  - fdtd/smoothing-contrast
   - fdtd/smoothing-oskooi
+  - fdtd/smoothing-triplets-oblique
+  - fdtd/smoothing-triplets-order
+  - fdtd/smoothing-bauer-order
+  - fdtd/smoothing-triplets-contrast
+  - fdtd/smoothing-triplets-lattices
+  - fdtd/smoothing-wc07-growth
+  - fdtd/smoothing-crystal
+  - fdtd/smoothing-crystal-order
   - fdtd/monitor-transforms
   - fdtd/monitor-flux
   - fdtd/monitor-flux-box
@@ -282,13 +297,16 @@ $\tilde\varepsilon^{-1}$, from the cell centred on it. Where the tensor couples 
 (an interface oblique to the grid, or an anisotropic medium whose axes aren't the grid's), the
 simulation steps D as it would E in vacuum (its sources, plane waves and CPMLs too) and finds
 $E = \tilde\varepsilon^{-1}D$ after each step; where nothing couples, the scalar update runs
-unchanged. E_x needs D_y and D_z, which sit elsewhere, and there are two ways to place the
+unchanged. E_x needs D_y and D_z, which sit elsewhere, and there are three ways to place the
 off-diagonal entries:
 
 - `Coupling::Nodes`, the default: (ε̃⁻¹)_xy from the cells centred on the nodes, E_x taking at
   each of the two nodes beside it the mean of D_y on either side times (ε̃⁻¹)_xy there, and the
-  mean of the two (G. R. Werner, J. R. Cary, J. Comput. Phys. 226, 1085 (2007), as Oskooi et al.
-  place them). ε̃⁻¹ on the grid is symmetric, so the leapfrog conserves
+  mean of the two. This is G. R. Werner and J. R. Cary's scheme exactly (J. Comput. Phys. 226,
+  1085 (2007), their (26c) with (27e), Eq. 39, which Oskooi et al. follow; checked against the
+  paper): only their effective dielectric differs, MPB's average, the same as Kottke's for
+  isotropic media, where photonoxide takes Kottke's for anisotropic media too, as Oskooi et al.
+  and Werner et al. 2013 do. ε̃⁻¹ on the grid is symmetric, so the leapfrog conserves
   $\tfrac12\sum E\cdot D + \tfrac12\sum\tilde H^{n-1/2}\cdot\tilde H^{n+1/2}$ exactly
   (`fdtd/smoothing-energy`, 2.0e-15 over 10⁵ steps), and the scheme is stable while that energy
   is positive: while ε̃⁻¹ on the grid is positive definite (below). But each row of
@@ -304,6 +322,58 @@ off-diagonal entries:
   of the elliptical holes below at 24 cells by 10¹⁷ over 4 × 10⁵ steps (16 cells: 10³), and in
   the anisotropic lattice at 16 cells by 10¹⁶ within 2 × 10⁴. For short runs in isotropic media
   only.
+- `Coupling::Triplets`: G. R. Werner, C. A. Bauer and J. R. Cary's scheme (J. Comput. Phys. 255,
+  436 (2013), Secs. 4 and 7). The three values of E on the edges from a node, one each way along
+  each axis, are a triplet, and each node has eight. Each triplet takes one symmetric
+  positive-definite 3 × 3 tensor, its diagonal entries too, and ε̃⁻¹ on the grid is the mean of
+  the eight block-diagonal matrices so made: positive definite at any contrast, with nothing to
+  check. In a uniform medium it is Werner and Cary's interpolation, second order. At an interface,
+  each tensor is C. A. Bauer, G. R. Werner and J. R. Cary's (J. Comput. Phys. 230, 2060 (2011),
+  Eqs. 27 to 44): with F = (D_n, E_t, E_s), continuous across the interface's plane (found from
+  the node, as the cell's), E = CF and D = PF in each medium, C = 1 + n(n − εn)ᵀ/(nᵀεn) and
+  P = εC; the rows of Λ_C are C's averaged along each value's edge and those of Λ_P are P's over
+  its dual face (the exact shares a plane cuts off, as the cells'), and
+  κ = Λ_C Λ_P⁻¹ takes constant fields' D to their E exactly (a unit test, to 1e-13). κ isn't
+  symmetric, and Werner et al. use ½(κ + κᵀ). Where that isn't positive, or two surfaces pass
+  within a cell of the node, the node takes Kottke's average over its own cell, their step 6.
+  It takes its own average, so `Average::Subpixel` and a diameter of 1 only.
+
+**What the literature allows.** Werner, Bauer and Cary find every symmetric effective dielectric
+they know, their own included, first order at sharp interfaces in the end. It is second order at
+coarse grids and turns first order at a resolution that falls as the contrast rises (their Figs.
+4, 7 and 8, Sec. 9). Only Bauer et al.'s tensor as it is, exact for constant fields at a plane,
+is second order, and it isn't symmetric, so it isn't stable in time. They tried other weights and
+found none both symmetric and second order. So no stable placement here is second order at
+oblique interfaces. Measured at the layers above (relative error of the frequency, n cells a µm):
+
+| n | `Nodes` | `Triplets` | Bauer's κ, not symmetric | `Points` |
+|---|---|---|---|---|
+| 16 | −3.5e-2 | −2.4e-2 | −2.2e-2 | −8.3e-3 |
+| 32 | −1.2e-2 | −7.3e-3 | −5.6e-3 | −2.7e-3 |
+| 64 | −4.3e-3 | −2.3e-3 | −1.5e-3 | −8.0e-4 |
+| 128 | −2.0e-3 | −1.06e-3 | −4.2e-4 | −2.1e-4 |
+
+The triplets' error times n is −0.38, −0.23, −0.15, −0.14: first order (1.15 from 64 to 128,
+`fdtd/smoothing-triplets-order`), about half the nodes' (`fdtd/smoothing-triplets-oblique`), as
+Werner et al. find (2 to 3 times better than the 2007 scheme). Bauer's own κ, run as a check
+(not a `Coupling`), has error times n² −5.7, −5.7, −6.3, −6.9: second order (1.87,
+`fdtd/smoothing-bauer-order`). Making it symmetric is what costs the order. At a plane along the
+grid each triplet's κ is the τ average of the cell, and the slab's reflection is the nodes' to
+1e-15, isotropic and anisotropic. In Bauer et al.'s own 3D crystal (their Sec. 4.3: an
+orthorhombic lattice of turned anisotropic ellipsoids, principal values 8, 10 and 12 in vacuum),
+the nine lowest bands at k = 0 against their Table 1, at 48 cells a lattice vector:
+
+- the triplets: 1.1e-3 to 1.8e-3 (`fdtd/smoothing-crystal`);
+- the nodes: 1.4e-3 to 2.3e-3;
+- Bauer's κ: 0.8e-3 to 1.5e-3, converging at order 1.98 (`fdtd/smoothing-crystal-order`).
+
+Their Eq. 57's rotations are read as passive: of the four readings (active or passive, for the
+body and for the tensor), the only one under which all nine bands converge to the table. In
+Oskooi et al.'s anisotropic lattice the triplets give 2.0e-4 at 32 cells, the nodes 2.3e-4. In
+Farjadpour et al.'s holes (the lowest mode at the X point, against Bauer's κ by Richardson's
+extrapolation from 64 and 96 cells), the triplets give 1.8e-4 at 32 cells and 6e-5 at 64. That
+is half the mean ε's (3.8e-4, 1.2e-4); `Points` gives 1.4e-4 and 4e-5. Their figure's margin of
+10 to 30 times over the mean isn't reproduced by any placement here.
 
 **Positive only to a contrast.** Werner and Cary's ε̃⁻¹ is symmetric at any contrast but not
 positive definite: each value's diagonal entry comes from its own cell and its off-diagonal
@@ -320,14 +390,31 @@ the smoothing itself; values held at zero are left out, a principal block). Here
 refuses from ε = 45, and 40 stays bounded over 10⁵ steps; the check is sufficient, not sharp: 45
 let through stays bounded over 10⁵ steps too. A node-by-node bound (each node's 3 × 3 tensor
 positive with the least diagonal of the values beside it) would be cheaper but fails already at
-ε = 12. G. R. Werner, C. A. Bauer and J. R. Cary (J. Comput. Phys. 255, 436 (2013)) describe
-the 2007 scheme as unstable at high contrast and give a replacement, not yet read here (issue
-#209).
+ε = 12. Werner, Bauer and Cary (2013, Sec. 5) found the 2007 scheme unstable at high contrast
+for this reason: each node's tensor mixes the diagonal entries of the cells about the values with
+the off-diagonal ones of the node's cell. Their case is reproduced (`fdtd/smoothing-wc07-growth`):
+
+- **The structure:** a square lattice of isotropic discs of radius 0.37a in vacuum, TE, from
+  random fields, `Coupling::Nodes` let through unchecked.
+- **ε = 100:** the fields grow as e^{γt} with γ = 2.85 c/a at 32 cells a period (theirs ≈ 3) and
+  6.11 at 64 (theirs ≈ 6).
+- **ε = 60:** their 0.5 c/a at 64 cells isn't reproduced. Nothing grows here over 3000 a/c,
+  though the check refuses that ε̃⁻¹; the disc's place on the grid isn't given.
+- **`Coupling::Triplets`:** stays within 1.1 times the first ‖E‖ in all of them. In the
+  ellipsoid above at ε = 100 it keeps the energy to 5.2e-15 over 10⁵ steps
+  (`fdtd/smoothing-triplets-contrast`). Over 10⁵ steps in a period of Farjadpour et al.'s holes
+  and of Oskooi et al.'s anisotropic lattice, where `Points` grows, it keeps the energy to
+  4.3e-15 and 5.0e-15 (`fdtd/smoothing-triplets-lattices`).
 
 Oskooi et al. report second-order convergence with Werner and Cary's placement in their
-anisotropic lattice; at the oblique layers above it is first order, and no symmetric placement
-tried here (Werner and Cary's; the symmetric part of Farjadpour et al.'s) was second order. A
-scheme both stable and second order at oblique interfaces is open.
+anisotropic lattice, at a contrast near 8, where Werner et al. 2013 also see second order up to
+hundreds of cells a wavelength. At the contrast of 12 of the layers above it is first order.
+
+`Coupling::Nodes` stays the default, so that existing results keep their bits. `Coupling::Triplets`
+takes the same eight terms a value each step, from a table of the distinct nodes' entries. It is
+stable at any contrast, with about half the error at oblique interfaces and the same results at
+interfaces along the grid. Its smoothing costs more than the nodes' (8 tensors a node, each from
+6 edges and 6 faces).
 
 **What doesn't combine.** A tensor that couples E's components refuses a conductivity, a
 dispersive medium (whose ε∞ would have to enter the tensor) and a Bloch side with k ≠ 0 (D's
@@ -346,7 +433,8 @@ coupling across the side would need the phase). Where nothing couples, all three
   two; photonoxide has none for oblique incidence): 2.9e-2, 9.5e-3, 1.2e-3 and 3.0e-4
   (`fdtd/smoothing-anisotropic-slab`).
 - Oblique layers, above: 2.1e-4 at 128 cells a µm with `Coupling::Points`
-  (`fdtd/smoothing-oblique`), 2.0e-3 with `Coupling::Nodes` (`fdtd/smoothing-oblique-nodes`).
+  (`fdtd/smoothing-oblique`), 2.0e-3 with `Coupling::Nodes` (`fdtd/smoothing-oblique-nodes`),
+  1.06e-3 with `Coupling::Triplets` (`fdtd/smoothing-triplets-oblique`).
 - Oskooi et al.'s 2D anisotropic lattice (ellipses of principal values 1.45, 2.81 and 4.98 in
   8.49, 8.78 and 11.52, 0.355 × 0.305 of the period at 30° as their inset, the axes ours), the
   lowest mode at k = (½, 0) 2π/a, 32 cells a period, `Coupling::Nodes` (`Coupling::Points` grows
@@ -832,6 +920,14 @@ Roden and Gedney's plate, 2.9 × 10⁶ cells for 2000 steps plus two smaller lat
 | `fdtd/smoothing-oblique-nodes` | the same with `Coupling::Nodes`: first order | 2.0e-3 |
 | `fdtd/smoothing-energy` | the leapfrog's invariant with a smoothed tensor, `Coupling::Nodes`, 300 steps | 1.5e-15 |
 | `fdtd/smoothing-oskooi` | Oskooi et al.'s anisotropic lattice, 32 cells a period: the error relative to the harmonic mean's and no smoothing's | 0.063 |
+| `fdtd/smoothing-triplets-oblique` | the oblique layers with `Coupling::Triplets`, 128 cells a µm, relative | 1.06e-3 |
+| `fdtd/smoothing-triplets-order` | its order from 64 to 128 cells a µm: first, as Werner et al. 2013 find | 1.15 |
+| `fdtd/smoothing-bauer-order` | Bauer et al.'s tensors not made symmetric (a check): their order | 1.87 |
+| `fdtd/smoothing-triplets-contrast` | the leapfrog's invariant with `Coupling::Triplets` at ε = 100, 10⁵ steps, ‖E‖ bounded | 5.2e-15 |
+| `fdtd/smoothing-triplets-lattices` | the same in a period of the holes and of the anisotropic lattice, 16 cells, 10⁵ steps | 5.0e-15 |
+| `fdtd/smoothing-wc07-growth` | the 2007 scheme's growth at ε = 100 on Werner et al.'s discs, 32 cells, c/a | 2.85 (paper ≈ 3) |
+| `fdtd/smoothing-crystal` | Bauer et al.'s anisotropic ellipsoid crystal with `Coupling::Triplets`, 48 cells: nine bands against their Table 1, relative | 1.8e-3 |
+| `fdtd/smoothing-crystal-order` | the same with their tensors not made symmetric: the order from 32 to 48 cells | 1.98 |
 | `fdtd/monitor-transforms` | a transform monitor against the sum by hand | 0 |
 | `fdtd/monitor-flux` | the flux through a plane and out of a box against FDFD's, relative | 1.2e-11 |
 | `fdtd/monitor-flux-box` | the flux out of a closed lossless box with no source, relative to a face's | 1.5e-15 |

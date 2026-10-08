@@ -378,7 +378,7 @@ fn a_tensor_medium_is_the_same_bits_on_any_number_of_threads() {
     .unwrap();
     let structure =
         Structure::new(Permittivity::isotropic(2.0).unwrap()).with(ellipsoid, tilted_crystal());
-    let run = |threads: usize| {
+    let run = |threads: usize, coupling: Coupling| {
         rayon::ThreadPoolBuilder::new()
             .num_threads(threads)
             .build()
@@ -387,7 +387,10 @@ fn a_tensor_medium_is_the_same_bits_on_any_number_of_threads() {
                 let mut s = Simulation::smoothed(
                     g,
                     &structure,
-                    Smoothing::default(),
+                    Smoothing {
+                        coupling,
+                        ..Smoothing::default()
+                    },
                     Boundaries::cpml(3),
                     0.9,
                 )
@@ -403,9 +406,14 @@ fn a_tensor_medium_is_the_same_bits_on_any_number_of_threads() {
                 Axis::ALL.map(|c| (s.e(c).to_vec(), s.h(c).to_vec()))
             })
     };
-    let one = run(1);
-    for threads in [2, 4, 5, 20] {
-        assert!(run(threads) == one, "{threads} threads");
+    for coupling in [Coupling::Nodes, Coupling::Triplets] {
+        let one = run(1, coupling);
+        for threads in [2, 4, 5, 20] {
+            assert!(
+                run(threads, coupling) == one,
+                "{coupling:?}: {threads} threads"
+            );
+        }
     }
 }
 
@@ -424,4 +432,148 @@ fn harmonic_inversion_finds_a_sums_frequencies_and_decays() {
     assert!((found[0].omega - 1.3).abs() < 1e-10 && (found[0].decay - 0.01).abs() < 1e-10);
     assert!((found[0].amplitude - 2.0).abs() < 1e-8 && (found[1].amplitude - 0.5).abs() < 1e-8);
     assert!((found[1].omega - 2.9).abs() < 1e-10 && found[1].decay.abs() < 1e-10);
+}
+
+#[test]
+fn bauers_tensors_are_exact_for_constant_fields_at_a_plane() {
+    // constant fields either side of a plane, E_t and D_n continuous: each triplet's tensor
+    // takes the values of D (each the mean over its dual face) to those of E (each the mean
+    // along its edge) exactly, Bauer, Werner and Cary's criterion; made symmetric, it is
+    // positive definite
+    let l = (1.0f64 + 4.0 + 0.25).sqrt();
+    let n = [1.0 / l, -2.0 / l, 0.5 / l];
+    let one = tilted_crystal().matrix();
+    let two = Permittivity::principal([7.0, 9.0, 12.0], rotation([1.1, 0.3, 0.8]))
+        .unwrap()
+        .matrix();
+    let apply = |m: &Matrix, v: [f64; 3]| -> [f64; 3] { std::array::from_fn(|i| dot(m[i], v)) };
+    let e1 = [0.3, -1.2, 0.7];
+    let alpha = (dot(n, apply(&one, e1)) - dot(n, apply(&two, e1))) / dot(n, apply(&two, n));
+    let e2: [f64; 3] = std::array::from_fn(|i| e1[i] + alpha * n[i]);
+    let (d1, d2) = (apply(&one, e1), apply(&two, e2));
+    let h = [0.05, 0.04, 0.06];
+    for d in [0.004, -0.017, 0.031] {
+        let accurate = bauer(n, d, h, &one, &two, false).unwrap();
+        let symmetric = bauer(n, d, h, &one, &two, true).unwrap();
+        for t in 0..8 {
+            let (mut e, mut dd) = ([0.0; 3], [0.0; 3]);
+            for a in 0..3 {
+                let s = side(t, a);
+                let sign = if s == 0 { 1.0 } else { -1.0 };
+                let centre = d + sign * 0.5 * h[a] * n[a];
+                let mut edge = [0.0; 3];
+                edge[a] = h[a];
+                let mut face = h;
+                face[a] = 0.0;
+                let (f, g) = (fill(n, centre, edge), fill(n, centre, face));
+                e[a] = f * e1[a] + (1.0 - f) * e2[a];
+                dd[a] = g * d1[a] + (1.0 - g) * d2[a];
+            }
+            let mapped = apply(&accurate[t], dd);
+            for a in 0..3 {
+                assert!(
+                    (mapped[a] - e[a]).abs() < 1e-13,
+                    "{d} {t}: {mapped:?} {e:?}"
+                );
+            }
+            let k = symmetric[t];
+            assert!((0..3).all(|i| (0..3).all(|j| k[i][j] == k[j][i])));
+            assert!(positive_definite(&k), "{d} {t}");
+        }
+    }
+    // a plane that cuts none of the edges and faces leaves the medium's own tensor
+    let far = bauer(n, 0.2, h, &one, &two, true).unwrap();
+    assert!(far.iter().all(|k| *k == inverse(&two)));
+}
+
+#[test]
+fn the_triplets_are_positive_definite_at_any_contrast_and_keep_the_energy() {
+    // Werner, Bauer and Cary 2013: each triplet's tensor positive, so the mean of the eight
+    // block-diagonal matrices is too, where the nodes' isn't (from ε ≈ 45 here)
+    for contrast in [12.0, 50.0, 100.0] {
+        let grown = contrast_growth_with(Coupling::Triplets, contrast, 2000, true).unwrap();
+        assert!(grown < 2.0, "{contrast}: {grown}");
+    }
+    let g = grid([20, 18, 16], 0.05);
+    let ellipsoid = Body::ellipsoid(
+        [0.02, -0.01, 0.0],
+        [0.31, 0.22, 0.19],
+        rotation([0.3, 0.7, 0.2]),
+    )
+    .unwrap();
+    let structure = Structure::new(Permittivity::isotropic(1.0).unwrap())
+        .with(ellipsoid, Permittivity::isotropic(100.0).unwrap());
+    let s = Simulation::smoothed(
+        g,
+        &structure,
+        Smoothing {
+            coupling: Coupling::Triplets,
+            ..Smoothing::default()
+        },
+        Boundaries::walls(),
+        0.99,
+    )
+    .unwrap();
+    assert!(s.anisotropic.as_ref().unwrap().positive());
+    let drift = tensor_energy_drift(Coupling::Triplets, 300);
+    assert!(drift < 1e-12, "{drift}");
+}
+
+#[test]
+fn the_triplets_are_the_nodes_at_interfaces_along_the_grid() {
+    // at a plane along the grid each triplet's tensor is the cell's τ average: the slab's
+    // reflection the same to round-off, isotropic or not
+    for eps in [Permittivity::isotropic(4.0).unwrap(), tilted_crystal()] {
+        let nodes = slab_reflection(1.0 / 40.0, eps, Coupling::Nodes);
+        let triplets = slab_reflection(1.0 / 40.0, eps, Coupling::Triplets);
+        for (a, b) in nodes.iter().zip(&triplets) {
+            assert!((a[0] - b[0]).norm() < 1e-12 && (a[1] - b[1]).norm() < 1e-12);
+        }
+    }
+    // and in a uniform anisotropic medium they are Werner and Cary's interpolation: plane
+    // waves to second order
+    let eps = Permittivity::principal([2.0, 6.0, 4.0], rotation([0.5, 0.0, 0.0])).unwrap();
+    let m = inverse(&eps.matrix());
+    let exact = 2f64.sqrt() * (0.5 * (m[0][0] - 2.0 * m[0][1] + m[1][1])).sqrt();
+    let structure = Structure::new(eps);
+    let lattice = Lattice {
+        structure: &structure,
+        periods: [1, 1, 0],
+        sources: &[],
+        wave: Some([1.0, 1.0]),
+        carrier: exact,
+        bandwidth: 0.3,
+        time: 30.0,
+    };
+    let error = |n| (lattice.frequency(Coupling::Triplets, n, exact) - exact) / exact;
+    let (coarse, fine) = (error(16), error(32));
+    assert!((coarse / fine - 4.0).abs() < 0.2, "{coarse} {fine}");
+}
+
+#[test]
+fn at_an_oblique_interface_the_triplets_halve_the_nodes_error_and_bauers_own_are_second_order() {
+    // layers at 26.6° to the grid: made symmetric, Bauer et al.'s tensors are first order
+    // (Werner et al. 2013), with about half the nodes' error; as they are, second order but
+    // not stable
+    let (t64, n64) = (
+        oblique(Coupling::Triplets, 64),
+        oblique(Coupling::Nodes, 64),
+    );
+    assert!(t64.abs() < 0.65 * n64.abs(), "{t64} {n64}");
+    let (a32, a64) = (oblique(Scheme::Accurate, 32), oblique(Scheme::Accurate, 64));
+    assert!(a32 / a64 > 3.3 && a64.abs() < 2e-3, "{a32} {a64}");
+}
+
+#[test]
+fn coupling_triplets_takes_its_own_average() {
+    let structure = tilted_layers([1.0, 2.0]);
+    for (average, diameter) in [(Average::Mean, 1.0), (Average::Subpixel, 2.0)] {
+        let smoothing = Smoothing {
+            average,
+            diameter,
+            coupling: Coupling::Triplets,
+        };
+        let refused = lattice_simulation(smoothing, &structure, [1, 1], 16, true);
+        assert!(refused.is_err(), "{average:?} {diameter}");
+    }
 }
