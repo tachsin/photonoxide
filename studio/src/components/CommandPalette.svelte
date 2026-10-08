@@ -48,6 +48,7 @@
     ["components", "Components"],
     ["chip", "Chip"],
     ["validation", "Validation"],
+    ["libraries", "Libraries"],
     ["settings", "Settings"],
   ];
 

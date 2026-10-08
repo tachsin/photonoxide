@@ -11,6 +11,7 @@ photonoxide run <job.toml> [--out <dir>] [--headless] [--linger <seconds>]
 photonoxide view <run directory>
 photonoxide example <name>       # a published result reproduced; --list lists them
 photonoxide validate [--write <file> | --check <file>]
+photonoxide libraries [--json]   # the external libraries found here, and their backends
 photonoxide --version
 ```
 
@@ -104,6 +105,15 @@ window only follows that record, so a live run and a replay look the same.
   tensors as matrices; and every paper a click away.
 - **Validation:** the release's report, searchable, its math rendered, and the same report run
   on this machine.
+- **Libraries:** the external libraries photonoxide can use (oneMKL, the CUDA runtime,
+  cuSPARSE, cuDSS), as found on this machine by a process of its own: found or not, the file
+  and where it was found, the version, what the library says (threads, GPUs), the backends
+  that passed their smoke tests against photonoxide's own, and each candidate tried with the
+  reason it failed. Each library's licence and download are linked, with the variables and
+  folders photonoxide searches. For one not found, this platform's package-manager commands,
+  each with a copy button; a winget command can also run in a terminal of its own, after a
+  dialog showing the licence and the exact command. **Detect again** looks once more. None is
+  needed: photonoxide's own solvers are the default.
 - **Settings:** the theme (photonoxide's dark or light, by the system or chosen, with a
   preview of the one in use; "More themes" opens some thirty others, each shown in its own
   colours), the unit of lengths, the workspace folder, tips, and updates.

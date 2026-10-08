@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type { Event, Scene } from "./events";
+import type { LibraryReport } from "./libraries.svelte";
 
 export interface Settings {
   /** "system", "dark" or "light" (the studio's own themes), or a further theme's name (lib/themes.ts). */
@@ -160,6 +161,8 @@ export const api = {
   saveCircuit: (chip: Chip, replace: boolean) => invoke<string>("save_circuit", { chip, replace }),
   readCircuit: (path: string) => invoke<Chip>("read_circuit", { path }),
   deleteCircuit: (path: string) => invoke<void>("delete_circuit", { path }),
+  libraries: () => invoke<LibraryReport>("libraries"),
+  installLibrary: (library: string, id: string) => invoke<string>("install", { library, id }),
 };
 
 /** "2026-10-02T09:17:32Z" as "2 Oct 2026, 09:17". */
