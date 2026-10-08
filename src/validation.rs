@@ -3968,7 +3968,6 @@ fn fdtd_mie_drude() -> Outcome {
 mod tests {
     use super::*;
 
-
     #[test]
     #[cfg_attr(
         debug_assertions,
