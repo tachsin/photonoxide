@@ -242,9 +242,10 @@ impl<'a> MultigridLevel<'a> {
 ///
 /// 1. [`MultigridCycle::pre`] smoothing steps, each xₗ ← xₗ + M⁻¹(bₗ − Aₗ xₗ) (the first,
 ///    from xₗ = 0, M⁻¹ bₗ);
-/// 2. the coarse corrections the [`CycleShape`] asks for (V: one, a V-cycle below; W: two
-///    W-cycles; F: an F-cycle then a V-cycle), each xₗ ← xₗ + P cycle(l + 1, Pᵀ(bₗ − Aₗ xₗ));
-///    on the coarsest level, the cycle is the direct solve;
+/// 2. the coarse corrections the [`crate::fdfd::CycleShape`] asks for (V: one, a V-cycle
+///    below; W: two W-cycles; F: an F-cycle then a V-cycle), each
+///    xₗ ← xₗ + P cycle(l + 1, Pᵀ(bₗ − Aₗ xₗ)); on the coarsest level, the cycle is the direct
+///    solve;
 /// 3. [`MultigridCycle::post`] smoothing steps, as in 1.
 pub struct MultigridCycle<'a> {
     pub(crate) shape: crate::fdfd::CycleShape,
