@@ -3,11 +3,13 @@ name: Changelog
 # The release PR's new CHANGELOG.md section must list every PR merged since the last release.
 # release-plz gives the crate's changelog only the commits that touch the crate's files, and
 # Cargo.toml excludes studio/ and site/, so a PR that changed only those is left out although the
-# release carries the program built from it. This lists such PRs, with their lines ready to paste,
-# and reports a "Changelog" status on the release PR's head commit.
+# release carries the program built from it (the native crates too). This lists such PRs, and
+# reports a "Changelog" status on the release PR's head commit.
 #
 # Called after release-plz opens or updates the release PR (release-plz.yml: its commits, pushed
-# with GITHUB_TOKEN, start no CI) and when someone pushes to the release PR (ci.yml).
+# with GITHUB_TOKEN, start no CI), with `fill`: the missing lines are added to their groups and
+# pushed to the release PR, since release-plz rewrites the section after every merge and would
+# drop lines added by hand. Called also when someone pushes to the release PR (ci.yml), to check.
 on:
   workflow_call:
     inputs:
@@ -15,10 +17,13 @@ on:
         description: the release PR's branch
         required: true
         type: string
+      fill:
+        description: add the missing lines to the release PR instead of failing
+        required: false
+        default: false
+        type: boolean
 
-permissions:
-  contents: read
-  statuses: write
+# the caller's: read and statuses from ci.yml, write too from release-plz.yml (to push the lines)
 
 jobs:
   check:
@@ -29,10 +34,13 @@ jobs:
         with:
           ref: ${{ inputs.branch }}
           fetch-depth: 0
-          persist-credentials: false
+          # the token stays only when the missing lines are pushed
+          persist-credentials: ${{ inputs.fill }}
       - name: Check the new section
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FILL: ${{ inputs.fill }}
+          BRANCH: ${{ inputs.branch }}
         run: |
           set -euo pipefail
           base=$(git merge-base HEAD origin/main)
@@ -63,7 +71,42 @@ jobs:
             fi
           done < <(git log --reverse --format=%s "$tag..$base")
 
-          if (( ${#missing[@]} == 0 )); then
+          if (( ${#missing[@]} > 0 )) && [[ "$FILL" == true ]]; then
+            # each line after the last of its group in the new section, or in a new group at the
+            # section's end
+            printf '%s' "$lines" > "$RUNNER_TEMP/missing.txt"
+            perl -e '
+              my %order = ("Added" => 0, "Fixed" => 1, "Performance" => 2, "Changed" => 3,
+                           "Documentation" => 4, "Project setup" => 5);
+              open my $m, "<", "$ENV{RUNNER_TEMP}/missing.txt" or die;
+              my @add = map { chomp; [split /: /, $_, 2] } grep { /\S/ } <$m>;
+              local $/; open my $f, "<", "CHANGELOG.md" or die; my $t = <$f>; close $f;
+              my $s = index($t, "\n## [", index($t, "## [Unreleased]") + 1);
+              die "no version section" if $s < 0;
+              my $e = index($t, "\n## [", $s + 1); $e = length $t if $e < 0;
+              my $sec = substr($t, $s, $e - $s);
+              for (@add) {
+                my ($g, $line) = @$_;
+                if ($sec =~ /\n### <!-- \d+ -->\Q$g\E\n\n(?:- [^\n]*\n)*/) {
+                  substr($sec, $+[0], 0) = "$line\n";
+                } else {
+                  $sec =~ s/\n*\z/\n\n### <!-- $order{$g} -->$g\n\n$line\n/;
+                }
+              }
+              substr($t, $s, $e - $s) = $sec;
+              open $f, ">", "CHANGELOG.md" or die; print $f $t;'
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -qam "docs(changelog): the PRs release-plz left out: ${missing[*]}"
+            git push -q origin "HEAD:$BRANCH"
+            state=success
+            description="Every PR since $tag is in the new section (added ${missing[*]})"
+            {
+              echo "$description:"
+              echo
+              printf '%s' "$lines"
+            } >> "$GITHUB_STEP_SUMMARY"
+          elif (( ${#missing[@]} == 0 )); then
             state=success
             description="Every PR since $tag is in the new section"
             echo "$description." >> "$GITHUB_STEP_SUMMARY"

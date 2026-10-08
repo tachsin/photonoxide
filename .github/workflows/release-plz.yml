@@ -74,15 +74,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # the release PR's changelog lists every PR since the last release (release-plz leaves out those
-  # that changed only studio/ or site/). Its commits start no CI, so the check runs from here.
+  # the release PR's changelog lists every PR since the last release: release-plz leaves out those
+  # that changed only studio/, site/ or the native crates, and this adds them to the release PR.
+  # Its commits start no CI, so the check runs from here.
   changelog:
     name: Changelog
     needs: release-pr
     if: ${{ needs.release-pr.outputs.prs_created == 'true' }}
     permissions:
-      contents: read
+      contents: write
       statuses: write
     uses: ./.github/workflows/changelog.yml
     with:
       branch: ${{ fromJSON(needs.release-pr.outputs.pr).head_branch }}
+      fill: true
