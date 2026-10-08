@@ -10,7 +10,7 @@ use crate::backend::{self, Choice, Form, IterativeSolver};
 use crate::fdfd::Direction;
 use crate::fdfd::krylov::{
     Convergence, Ilu0, Sparse, Stopping, gmres_preconditioned, qmr, qmr_preconditioned,
-    qmr_similar, qmr_similar_by, restarted_by,
+    qmr_preconditioned_by, qmr_similar, qmr_similar_by, restarted_by,
 };
 use crate::units::Wavelength;
 use crate::{Error, Result};
@@ -196,23 +196,29 @@ impl IterativeSolver3d {
     }
 
     /// QMR run by the iterative backend `choice` names ([`backend::iterative`]): a GPU's, say.
-    /// photonoxide's own for `auto` and `photonoxide`. A backend runs QMR without a
-    /// preconditioner; photonoxide keeps the restarts and the similar matrix's tolerance around
-    /// its runs, so the solution is checked on the same residual as photonoxide's own.
+    /// photonoxide's own for `auto` and `photonoxide`. A backend runs plain QMR, and QMR with
+    /// ILU(0) on factors photonoxide computes ([`backend::IluFactors`]); photonoxide keeps the restarts
+    /// and the similar matrix's tolerance around its runs, so the solution is checked on the
+    /// same residual as photonoxide's own.
     ///
     /// # Errors
     ///
     /// [`Error::InvalidValue`] for a backend that isn't registered or available, and for a
-    /// solver with a preconditioner (ILU(0) or multigrid), which a backend doesn't run yet.
+    /// solver preconditioned by multigrid, which a backend doesn't run yet.
     pub fn with_iterative_backend(mut self, choice: &Choice) -> Result<IterativeSolver3d> {
         self.backend = backend::iterative(choice)?;
-        if self.backend.is_some() && !matches!(self.preconditioner, Preconditioning::None) {
+        self.check_backend()?;
+        Ok(self)
+    }
+
+    fn check_backend(&self) -> Result<()> {
+        if self.backend.is_some() && matches!(self.preconditioner, Preconditioning::Multigrid(_)) {
             return Err(Error::invalid(
                 "iterative backend",
-                "a backend runs QMR without a preconditioner: not with ILU(0) or multigrid yet",
+                "a backend runs QMR plain or with ILU(0): not GMRES with multigrid yet",
             ));
         }
-        Ok(self)
+        Ok(())
     }
 
     /// The number of the multigrid's levels, the coarsest included; 0 without one.
@@ -290,10 +296,20 @@ impl IterativeSolver3d {
         let b = self
             .lattice
             .transformed_rhs(&self.eps, &b, self.formulation.s());
+        self.check_backend()?;
         let (values, convergence) = match &self.preconditioner {
-            Preconditioning::Ilu(ilu) => {
-                qmr_preconditioned(&self.matrix, ilu.as_ref(), &b, stopping)?
-            }
+            Preconditioning::Ilu(ilu) => match &self.backend {
+                Some(solver) => {
+                    let matrix = self.matrix.as_matrix(Form::General)?;
+                    let factors = ilu.factors().ok_or_else(|| {
+                        Error::invalid("iterative backend", "ILU(0) by Jacobi sweeps")
+                    })?;
+                    qmr_preconditioned_by(&self.matrix, ilu.as_ref(), &b, stopping, &|rhs, st| {
+                        solver.qmr_run_ilu(&matrix, &factors, rhs, st)
+                    })?
+                }
+                None => qmr_preconditioned(&self.matrix, ilu.as_ref(), &b, stopping)?,
+            },
             // a cycle is worth many products with A, and GMRES takes one per iteration where
             // QMR takes two (the cycle and its transpose)
             Preconditioning::Multigrid(h) => {

@@ -36,6 +36,17 @@ fn it_solves_the_3d_guides_as_photonoxide_does() {
     ]);
 }
 
+/// The same guides by QMR with ILU(0), its factors photonoxide's and its triangular solves the
+/// GPU's (stretched PMLs, to a residual of 1e-8).
+#[test]
+fn it_solves_the_3d_guides_with_ilu_as_photonoxide_does() {
+    guides(&[
+        "fdfd3d-iterative/guide-ilu-20",
+        "fdfd3d-iterative/guide-ilu-30",
+        "fdfd3d-iterative/guide-ilu-44",
+    ]);
+}
+
 /// The guide of 44 cells a side too: over an hour, most of it its reference fields to 1e-12.
 #[test]
 #[ignore]
@@ -49,6 +60,13 @@ fn guides(ids: &[&str]) {
     for &id in ids {
         let e = entry(id).unwrap();
         let theirs = e.run(&Choice::Named("cusparse".into())).unwrap();
+        // a repeat gives the same field: its error against the reference, to the bit
+        let again = e.run(&Choice::Named("cusparse".into())).unwrap();
+        assert_eq!(
+            theirs.accuracy.as_ref().unwrap().error.to_bits(),
+            again.accuracy.as_ref().unwrap().error.to_bits(),
+            "{id}"
+        );
         let ours = e.run(&Choice::Photonoxide).unwrap();
         let qmr = |m: &photonoxide::bench::Measurement| {
             m.phases
