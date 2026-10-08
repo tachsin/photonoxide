@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type { Event, Scene } from "./events";
+import type { BenchData, BenchRequest, CatalogueEntry, Planned } from "./bench.svelte";
 import type { LibraryReport } from "./libraries.svelte";
 
 export interface Settings {
@@ -163,6 +164,12 @@ export const api = {
   deleteCircuit: (path: string) => invoke<void>("delete_circuit", { path }),
   libraries: () => invoke<LibraryReport>("libraries"),
   installLibrary: (library: string, id: string) => invoke<string>("install", { library, id }),
+  benchData: () => invoke<BenchData>("bench_data"),
+  benchCatalogue: () => invoke<CatalogueEntry[]>("bench_catalogue"),
+  benchPlan: (request: BenchRequest) => invoke<Planned[]>("bench_plan", { request }),
+  startBench: (request: BenchRequest) => invoke<number>("start_bench", { request }),
+  benchImport: (path: string) => invoke<number>("bench_import", { path }),
+  benchExport: (path: string) => invoke<void>("bench_export", { path }),
 };
 
 /** "2026-10-02T09:17:32Z" as "2 Oct 2026, 09:17". */

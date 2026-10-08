@@ -114,6 +114,18 @@ window only follows that record, so a live run and a replay look the same.
   each with a copy button; a winget command can also run in a terminal of its own, after a
   dialog showing the licence and the exact command. **Detect again** looks once more. None is
   needed: photonoxide's own solvers are the default.
+- **Benchmarks:** the catalogue's problems run on this machine, as `photonoxide bench --tier`
+  runs them (each problem with each backend in a process of its own, checked against its
+  accuracy test, recorded in the app's data folder). Pick a tier, families, the largest size,
+  the backends (every one that passed its smoke test) and the thread counts; the plan says how
+  many runs, how long the ones measured before took, and the largest memory. A run shows the
+  problem it is on and each one finished, and stops on request, its finished records kept.
+  The records, by family and thread count: time and peak memory against unknowns (log–log,
+  with the fitted exponent), speed-up and memory against photonoxide's own, time against
+  threads, the fastest on each problem and by how much, every run with its accuracy check,
+  and what the measurements say in sentences. Every point and row carries its grid; hover a
+  point for its machine and versions. Records from another machine are imported and shown
+  apart; the records export as JSON lines or CSV, and this machine's report as Markdown.
 - **Settings:** the theme (photonoxide's dark or light, by the system or chosen, with a
   preview of the one in use; "More themes" opens some thirty others, each shown in its own
   colours), the unit of lengths, the workspace folder, tips, and updates.

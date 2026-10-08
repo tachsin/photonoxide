@@ -12,6 +12,7 @@
   import UpdateDialog from "./components/UpdateDialog.svelte";
   import { app, boot } from "./lib/app.svelte";
   import { checkForUpdate } from "./lib/updater.svelte";
+  import Benchmarks from "./pages/Benchmarks.svelte";
   import Builder from "./pages/Builder.svelte";
   import ChipPage from "./pages/Chip.svelte";
   import Compare from "./pages/Compare.svelte";
@@ -72,6 +73,8 @@
         <Validation />
       {:else if app.page === "libraries"}
         <Libraries />
+      {:else if app.page === "benchmarks"}
+        <Benchmarks />
       {:else if app.page === "settings"}
         <SettingsPage />
       {/if}

@@ -3,6 +3,7 @@
 //! report; times the benchmark problems.
 
 mod bench;
+mod benchmarks;
 mod circuits;
 mod examples;
 mod libraries;

@@ -60,6 +60,12 @@ impl Tasks {
             const CREATE_NO_WINDOW: u32 = 0x0800_0000;
             command.creation_flags(CREATE_NO_WINDOW);
         }
+        #[cfg(unix)]
+        {
+            // a group of its own, so stopping it stops the processes it started (a benchmark's)
+            use std::os::unix::process::CommandExt;
+            command.process_group(0);
+        }
         let mut child = command
             .spawn()
             .map_err(|e| format!("can't start {args:?}: {e}"))?;
@@ -136,14 +142,45 @@ impl Tasks {
     /// Stops task `id`, if it is still running.
     pub fn stop(&self, id: u64) {
         if let Some(task) = lock(&self.running).get(&id) {
-            let _ = lock(&task.child).kill();
+            kill_tree(&mut lock(&task.child));
         }
     }
 
     /// Stops every task: the window is closing.
     pub fn stop_all(&self) {
         for task in lock(&self.running).values() {
-            let _ = lock(&task.child).kill();
+            kill_tree(&mut lock(&task.child));
         }
     }
+}
+
+/// Stops a task and the processes it started: a benchmark runs each problem in a child of its
+/// own, which would otherwise run on to its end.
+fn kill_tree(child: &mut Child) {
+    if let Ok(None) = child.try_wait() {
+        let pid = child.id().to_string();
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            let _ = Command::new("taskkill")
+                .args(["/PID", &pid, "/T", "/F"])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .creation_flags(CREATE_NO_WINDOW)
+                .status();
+        }
+        #[cfg(unix)]
+        {
+            // the task leads its own group (see `start`)
+            let _ = Command::new("kill")
+                .args(["-KILL", "--", &format!("-{pid}")])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+        }
+        #[cfg(not(any(windows, unix)))]
+        let _ = pid;
+    }
+    let _ = child.kill();
 }

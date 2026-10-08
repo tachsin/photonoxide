@@ -498,8 +498,11 @@ fn machine() -> String {
 
 pub(crate) fn cpu_name() -> Option<String> {
     let output = |program: &str, args: &[&str]| {
-        Command::new(program)
-            .args(args)
+        let mut command = Command::new(program);
+        command.args(args);
+        // no console flashing up when the studio's window asks
+        crate::libraries::no_window(&mut command);
+        command
             .output()
             .ok()
             .filter(|o| o.status.success())

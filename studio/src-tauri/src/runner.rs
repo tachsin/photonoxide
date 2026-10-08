@@ -41,7 +41,7 @@ pub struct Machine {
 }
 
 impl Machine {
-    fn here() -> Machine {
+    pub(crate) fn here() -> Machine {
         Machine {
             cpu: cpu_name().unwrap_or_else(|| "an unnamed processor".into()),
             logical_processors: std::thread::available_parallelism().map_or(1, |n| n.get()),
@@ -762,7 +762,7 @@ fn markdown(machine: &Machine, records: &[Record], s: &Summary) -> String {
 }
 
 /// The machine's total and free memory, in bytes.
-fn system_memory() -> Option<(u64, u64)> {
+pub(crate) fn system_memory() -> Option<(u64, u64)> {
     #[cfg(windows)]
     {
         #[repr(C)]

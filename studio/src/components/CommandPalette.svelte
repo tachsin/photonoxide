@@ -49,6 +49,7 @@
     ["chip", "Chip"],
     ["validation", "Validation"],
     ["libraries", "Libraries"],
+    ["benchmarks", "Benchmarks"],
     ["settings", "Settings"],
   ];
 
