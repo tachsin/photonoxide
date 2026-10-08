@@ -318,7 +318,7 @@ Second- and third-order processes in waveguides and resonators: SHG, SFG, DFG, p
   - brightness per mW of pump, and heralding efficiency.
 - [ ] **Resonators:**
   - resonantly enhanced SHG and FWM in rings, the enhancement from the 0.4 ring components;
-  - Kerr combs by the Lugiato–Lefever equation by split-step, fed by the mode solver's dispersion (Lugiato & Lefever 1987; Chembo & Menyuk 2013; Herr et al. 2014 for dissipative solitons).
+  - Kerr combs by the Lugiato–Lefever equation by split-step, fed by the mode solver's dispersion (Lugiato & Lefever 1987; Chembo & Menyuk 2013; Herr et al. 2013 for dissipative solitons).
 - [ ] **Studio:**
   - nonlinear jobs: the process, the waveguide, the poling and the pump;
   - the phase-matching map: Δk against wavelength and width or temperature;
@@ -721,7 +721,7 @@ Every reference below was checked against its DOI. The performance work's refere
 - Q. Lin, O. J. Painter, G. P. Agrawal, Opt. Express 15, 16604 (2007). [10.1364/OE.15.016604](https://doi.org/10.1364/OE.15.016604)
 - O. Gayer, Z. Sacks, E. Galun, A. Arie, Appl. Phys. B 91, 343 (2008). [10.1007/s00340-008-2998-2](https://doi.org/10.1007/s00340-008-2998-2)
 - Y. K. Chembo, C. R. Menyuk, Phys. Rev. A 87, 053852 (2013). [10.1103/PhysRevA.87.053852](https://doi.org/10.1103/PhysRevA.87.053852)
-- T. Herr et al., Nat. Photonics 8, 145 (2014). [10.1038/nphoton.2013.343](https://doi.org/10.1038/nphoton.2013.343)
+- T. Herr et al., Nat. Photonics 8, 145 (published online 22 December 2013; the February 2014 issue). [10.1038/nphoton.2013.343](https://doi.org/10.1038/nphoton.2013.343)
 - M. Leidinger et al., Opt. Express 23, 21690 (2015). [10.1364/OE.23.021690](https://doi.org/10.1364/OE.23.021690)
 - M. Pu et al., Optica 3, 823 (2016). [10.1364/OPTICA.3.000823](https://doi.org/10.1364/OPTICA.3.000823)
 - C. Wang et al., Optica 5, 1438 (2018). [10.1364/OPTICA.5.001438](https://doi.org/10.1364/OPTICA.5.001438)
