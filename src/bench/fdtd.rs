@@ -133,6 +133,7 @@ pub(super) fn kernel<T: crate::fdtd::Real>(
         unknowns: s_cells(run),
         phases,
         accuracy: Some(accuracy),
+        factor_entries: None,
     })
 }
 

@@ -336,6 +336,7 @@ fn single(name: &str, seconds: f64, grid: String) -> Measurement {
             bytes: None,
         }],
         accuracy: None,
+        factor_entries: None,
     }
 }
 

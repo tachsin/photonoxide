@@ -643,6 +643,11 @@ impl Solver3d {
         self.lu.backend()
     }
 
+    /// The factors' entries, as the direct solver reports them.
+    pub(crate) fn factor_entries(&self) -> Option<u64> {
+        self.lu.report().factor_entries.map(|e| e as u64)
+    }
+
     /// The same grid and boundaries at another `wavelength` or with another permittivity: the
     /// matrix's sparsity, which depends on neither, is analysed once and reused.
     ///
