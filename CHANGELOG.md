@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(native)* photonoxide-native, finding and loading external libraries at run time, with smoke tests ([#202](https://github.com/tachsin/photonoxide/pull/202))
 - *(fdtd)* sources: dipoles, total-field/scattered-field, one-way mode sources and Gaussian beams ([#162](https://github.com/tachsin/photonoxide/pull/162)) ([#203](https://github.com/tachsin/photonoxide/pull/203))
 - *(fdtd)* Bloch-periodic boundaries and dispersive media by auxiliary differential equations ([#164](https://github.com/tachsin/photonoxide/pull/164)) ([#204](https://github.com/tachsin/photonoxide/pull/204))
+- *(native)* NVIDIA cuDSS, a sparse direct solver on the GPU ([#205](https://github.com/tachsin/photonoxide/pull/205))
 - *(bench)* the benchmark runner over problems, backends and threads, with a results database ([#207](https://github.com/tachsin/photonoxide/pull/207))
 
 ### <!-- 1 -->Fixed
