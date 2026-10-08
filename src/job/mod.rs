@@ -6,6 +6,35 @@
 //! available is refused by [`check`] and by the run, with the reason; the run's record names
 //! the backend that solved.
 //!
+//! **Parameters and expressions.** A task may have a `[task.parameters]` table of named
+//! parameters, each an expression ([`crate::expr`]) of numbers with units and of the other
+//! parameters, in any order (a cycle is refused). Wherever a shape table (`[[task.rect]]`,
+//! `[[task.circle]]`, `[[task.ring]]`) takes a length, it takes an expression too: its `center`,
+//! `size`, `radius` and `width` keys hold expressions with units (`"500 nm"`, `"w/2 + gap"`; a
+//! bare `0` needs none), and its `_um` keys numbers in µm as they always have, or expressions,
+//! read in µm when they have no unit. A numeric `_um` key reads exactly as before.
+//!
+//! ```toml
+//! [task.parameters]
+//! w = "500 nm"
+//! gap = "w/2.5"
+//! radius = "5 um"
+//!
+//! [[task.ring]]
+//! layer = "Si"
+//! center = [0, "radius + w + gap"]
+//! radius = "radius"
+//! width = "w"
+//! ```
+//!
+//! A modes job's sweep can step through any parameter, `parameter = "gap"`, from `from` to `to`
+//! (numbers in µm for a length and radians for an angle, or expressions with units: `"150 nm"`);
+//! at each point the parameters that use it follow, and the point records its shapes as a width
+//! sweep's do. [`check`] refuses an expression that doesn't parse, an unknown name, units that
+//! don't add up, a parameter named `wavelength` or `width` (a sweep's own) or a coordinate in a
+//! shape's field, naming the table and field: `[[task.rect]] #2, size: value 1: column 3:
+//! unknown name "wdth"`; and a parameter's sweep whose shapes at either end aren't shapes.
+//!
 //! A job file's `[task]` table names its kind. The kinds so far:
 //!
 //! - `"structure"`: a layer stack with shapes drawn on it, recorded as pictures of its
@@ -79,7 +108,7 @@
 //! size_um = [10.0, 0.5]      # 500 nm wide, along x
 //!
 //! [task.sweep]
-//! parameter = "wavelength"   # or "width": rect `rect`'s size across the guide (along y here)
+//! parameter = "wavelength"   # "width": rect `rect`'s size across the guide; or a parameter
 //! from = 1.5
 //! to = 1.6
 //! points = 11
@@ -227,6 +256,7 @@ use crate::{Error, Result};
 
 mod fdfd;
 mod fdtd;
+mod params;
 
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub use fdtd::{FoundResonance, SpectrumSeries};
@@ -337,7 +367,8 @@ pub enum Event {
     },
     /// A point of a sweep: the modes' effective indices at one value of the parameter.
     SweepPoint {
-        /// `"wavelength"` (µm) or `"width"` (µm).
+        /// `"wavelength"` (µm), `"width"` (µm) or a parameter's name (µm for a length, radians
+        /// for an angle).
         parameter: String,
         /// The parameter's value.
         value: f64,
@@ -467,7 +498,8 @@ pub enum Event {
     /// A sweep is about to run, recorded before its first point: what it steps through, so that
     /// a viewer can say how far along a running one is.
     Sweep {
-        /// `"wavelength"` (µm) or `"width"` (µm).
+        /// `"wavelength"` (µm), `"width"` (µm) or a parameter's name (µm for a length, radians
+        /// for an angle).
         parameter: String,
         /// The first point's value.
         from: f64,
@@ -1120,9 +1152,19 @@ impl ModesTask {
                     )));
                 }
             }
+            // a parameter of [task.parameters]: its shapes at each point are checked as drawn
+            other if self.parameters.iter().any(|p| p == other) => {
+                if sweep.rect.is_some() {
+                    return Err(task_error(format!(
+                        "the sweep of the parameter \"{other}\" takes no rect: rect is for a \
+                         width sweep"
+                    )));
+                }
+            }
             other => {
                 return Err(task_error(format!(
-                    "unknown sweep parameter \"{other}\": wavelength or width"
+                    "unknown sweep parameter \"{other}\": wavelength, width or a parameter of \
+                     [task.parameters]"
                 )));
             }
         }
@@ -1244,6 +1286,9 @@ struct ModesTask {
     #[serde(default)]
     ring: Vec<RingSpec>,
     sweep: Option<SweepSpec>,
+    /// The names of `[task.parameters]`, which a sweep may step through: set after reading.
+    #[serde(skip)]
+    parameters: Vec<String>,
 }
 
 /// The axis a modes job's modes travel along.
@@ -1582,18 +1627,17 @@ fn check_inner(job: &Job) -> Result<()> {
         .and_then(|k| k.as_str())
         .ok_or_else(|| task_error("needs a kind, e.g. kind = \"structure\""))?;
     check_direct(job, kind)?;
-    let parse = |e: toml::de::Error| task_error(e.to_string());
     let mut wavelengths = Vec::new();
     let (s, layer, wavelength_um) = match kind {
         "structure" => {
-            let task: StructureTask = job.task().clone().try_into().map_err(parse)?;
+            let task: StructureTask = params::task(job)?;
             task.validate()?;
             let s = task.structure()?;
             window_z(task.z_um, &task.layer, &s, task.step_nm)?;
             (s, task.layer, task.wavelength_um)
         }
         "modes" => {
-            let task: ModesTask = job.task().clone().try_into().map_err(parse)?;
+            let task = modes_task(job, None)?;
             task.validate()?;
             let stack = named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
             let s = draw(stack, &task.rect, &task.circle, &task.ring)?;
@@ -1601,6 +1645,20 @@ fn check_inner(job: &Job) -> Result<()> {
             modes_guide(&task, &s, z)?;
             if let Some(sw) = task.sweep.iter().find(|sw| sw.parameter == "wavelength") {
                 wavelengths.extend([sw.from, sw.to]);
+            }
+            // a parameter's sweep: its shapes at both ends must be shapes
+            if let Some(sw) = task
+                .sweep
+                .iter()
+                .find(|sw| task.parameters.contains(&sw.parameter))
+            {
+                for end in [sw.from, sw.to] {
+                    let at = modes_task(job, Some((&sw.parameter, end)))?;
+                    let stack = named_stack(&at.stack, at.core_nm, at.bottom_oxide_um)?;
+                    draw(stack, &at.rect, &at.circle, &at.ring).map_err(|e| {
+                        task_error(format!("at the sweep's {} = {end}: {e}", sw.parameter))
+                    })?;
+                }
             }
             (s, task.layer, task.wavelength_um)
         }
@@ -1616,11 +1674,7 @@ fn check_inner(job: &Job) -> Result<()> {
 }
 
 fn structure(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
-    let task: StructureTask = job
-        .task()
-        .clone()
-        .try_into()
-        .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
+    let task: StructureTask = params::task(job)?;
     task.validate()?;
     let s = task.structure()?;
     let lam = Wavelength::um(task.wavelength_um)?;
@@ -1760,14 +1814,13 @@ fn modes_scene(task: &ModesTask, s: &Structure) -> Result<Event> {
 /// The errors of [`check`].
 pub fn preview(job: &Job) -> Result<Event> {
     check(job)?;
-    let parse = |e: toml::de::Error| task_error(e.to_string());
     match job.task().get("kind").and_then(|k| k.as_str()) {
         Some("structure") => {
-            let task: StructureTask = job.task().clone().try_into().map_err(parse)?;
+            let task: StructureTask = params::task(job)?;
             structure_scene(&task, &task.structure()?)
         }
         Some("modes") => {
-            let task: ModesTask = job.task().clone().try_into().map_err(parse)?;
+            let task = modes_task(job, None)?;
             let stack = named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
             modes_scene(&task, &draw(stack, &task.rect, &task.circle, &task.ring)?)
         }
@@ -1776,12 +1829,16 @@ pub fn preview(job: &Job) -> Result<Event> {
     }
 }
 
+/// A modes job's task, its parameters and expressions resolved, with `set` (a parameter and its
+/// value) if given.
+fn modes_task(job: &Job, set: Option<(&str, f64)>) -> Result<ModesTask> {
+    let mut task: ModesTask = params::at(job.task(), set)?;
+    task.parameters = params::names(job.task());
+    Ok(task)
+}
+
 fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
-    let task: ModesTask = job
-        .task()
-        .clone()
-        .try_into()
-        .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
+    let task = modes_task(job, None)?;
     task.validate()?;
     let stack = || named_stack(&task.stack, task.core_nm, task.bottom_oxide_um);
     // (validated: at least 1 and at most MOST_MODES)
@@ -1904,7 +1961,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         }
         let mut events = Vec::new();
         let value = sweep.from + (sweep.to - sweep.from) * k as f64 / (sweep.points - 1) as f64;
-        // the point's shapes, for a width sweep
+        // the point's shapes, for a width or a parameter's sweep
         let mut shapes = None;
         let (cs, w) = match sweep.parameter.as_str() {
             "wavelength" => {
@@ -1924,19 +1981,34 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                     w,
                 )
             }
-            "width" => {
-                let index = sweep.rect.unwrap_or(0);
-                let mut rects: Vec<RectSpec> = task.rect.iter().map(RectSpec::clone).collect();
-                let r = rects.get_mut(index).ok_or_else(|| {
-                    task_error(format!("the width sweep's rect {index} isn't there"))
-                })?;
-                // its size across the guide
-                match along {
-                    Along::X => r.size_um[1] = value,
-                    Along::Y => r.size_um[0] = value,
-                }
-                let swept = draw(stack()?, &rects, &task.circle, &task.ring)?;
-                let swept_frame = Frame::new(along, &rects, &task.circle, &task.ring, cut);
+            other => {
+                // the swept rectangle at the point's width, or the shapes at the parameter's value
+                let at: ModesTask;
+                let (rects, circles, rings): (Vec<RectSpec>, &[CircleSpec], &[RingSpec]) = if other
+                    == "width"
+                {
+                    let index = sweep.rect.unwrap_or(0);
+                    let mut rects: Vec<RectSpec> = task.rect.iter().map(RectSpec::clone).collect();
+                    let r = rects.get_mut(index).ok_or_else(|| {
+                        task_error(format!("the width sweep's rect {index} isn't there"))
+                    })?;
+                    // its size across the guide
+                    match along {
+                        Along::X => r.size_um[1] = value,
+                        Along::Y => r.size_um[0] = value,
+                    }
+                    (rects, &task.circle, &task.ring)
+                } else if task.parameters.iter().any(|p| p == other) {
+                    at = modes_task(job, Some((other, value)))?;
+                    (at.rect.clone(), &at.circle, &at.ring)
+                } else {
+                    return Err(task_error(format!(
+                        "unknown sweep parameter \"{other}\": wavelength, width or a \
+                             parameter of [task.parameters]"
+                    )));
+                };
+                let swept = draw(stack()?, &rects, circles, rings)?;
+                let swept_frame = Frame::new(along, &rects, circles, rings, cut);
                 let swept_fs = swept_frame.draw(stack()?)?;
                 let picture = swept_fs.side_view(
                     Length::um(swept_frame.cut),
@@ -1960,11 +2032,6 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                     )?,
                     lam,
                 )
-            }
-            other => {
-                return Err(task_error(format!(
-                    "unknown sweep parameter \"{other}\": wavelength or width"
-                )));
             }
         };
         let Some(mut found) = crate::mode::vector::modes_until(&cs, w, count, None, stopped)?

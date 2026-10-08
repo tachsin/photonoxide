@@ -263,11 +263,7 @@ fn scene_of(task: &FdfdTask, s: &Structure) -> Result<Event> {
 
 /// [`super::preview`] for an `"fdfd"` job.
 pub(super) fn preview(job: &Job) -> Result<Event> {
-    let task: FdfdTask = job
-        .task()
-        .clone()
-        .try_into()
-        .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
+    let task: FdfdTask = super::params::task(job)?;
     let s = draw(
         named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
         &task.rect,
@@ -327,11 +323,7 @@ impl Device {
     /// The device `job` describes, checked: the task, the structure, the polarization and the
     /// ports, and the grid of cells of about `step_nm` filling the window, PMLs inside it.
     fn new(job: &Job) -> Result<Device> {
-        let task: FdfdTask = job
-            .task()
-            .clone()
-            .try_into()
-            .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
+        let task: FdfdTask = super::params::task(job)?;
         task.validate()?;
         let structure = draw(
             named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,

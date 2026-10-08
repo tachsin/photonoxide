@@ -378,11 +378,9 @@ struct Setup {
     margins: [usize; 2],
 }
 
+/// The task, its parameters and the shapes' expressions resolved as the other kinds' are.
 fn parse(job: &Job) -> Result<FdtdTask> {
-    job.task()
-        .clone()
-        .try_into()
-        .map_err(|e: toml::de::Error| task_error(e.to_string()))
+    super::params::task(job)
 }
 
 impl Setup {
