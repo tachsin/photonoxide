@@ -286,6 +286,62 @@ The first active devices. One solver for static problems on the waveguide's cros
   - barium titanate: Eltes 2019 (0.2 V·cm) and Deng 2026 (0.7 V·cm);
   - the open codes Elmer and openEMS, run as external programs, once their licences are checked.
 
+### 0.6.1: Nonlinear integrated optics
+
+Second- and third-order processes in waveguides and resonators: SHG, SFG, DFG, parametric amplification, SPDC, FWM and Kerr combs. They run on the crystals the catalogue already describes (LiNbO₃ bulk and thin film, MgO:LiNbO₃, GaAs, AlGaAs, AlN, AlGaN, InGaP) and on Si and SiN, each with an example that reproduces a published device.
+
+- [ ] **Transparency windows** for every catalogue material, with their sources:
+  - the band-gap edge, against composition for the III–V alloys (Vurgaftman 2001);
+  - the multiphonon edge (Leidinger 2015 for LiNbO₃);
+  - the range the material's index data covers;
+  - where two-photon absorption sets in, below twice the band-gap wavelength (Aitchison 1997 for AlGaAs at the half band gap).
+
+  The studio's Materials page shows them as bands over wavelength, every crystal together. A process's wavelengths (pump, signal, idler, harmonic) are marked on top, so which material can carry a process is visible at a glance.
+- [ ] **Nonlinear coefficients:**
+  - d tensors on Shoji 1997's scale (in), dispersed by Miller's rule (Miller 1964);
+  - χ⁽³⁾ and n₂, with their sources;
+  - temperature-dependent indices for phase matching (Gayer 2008 for MgO:LiNbO₃, Skauli 2003 for GaAs, Gehrsitz 2000 for AlGaAs).
+- [ ] **Phase matching:**
+  - Δk for any three- or four-wave process;
+  - birefringent (types 0, I and II);
+  - quasi-phase matching by periodic poling or orientation patterning: the poling period, its duty-cycle errors, and Fejer 1992's tuning and tolerances;
+  - modal phase matching in waveguides, from the mode solver's effective indices;
+  - acceptance bandwidths in wavelength, temperature and angle;
+  - focused bulk beams (Boyd & Kleinman 1968).
+- [ ] **Coupled-mode equations in waveguides**, the overlaps from the mode solver's full-vector fields: the d tensor's give the normalized efficiency in %/W/cm², and χ⁽³⁾'s give γ in 1/(W·m) (Lin, Painter & Agrawal 2007). The processes:
+  - SHG, SFG and DFG: undepleted (the sinc²) and depleted (Armstrong et al. 1962, Manley–Rowe), with propagation loss;
+  - optical parametric amplification and oscillation;
+  - FWM, SPM and XPM, and parametric gain (Foster et al. 2006), with two-photon and free-carrier absorption in silicon (Lin 2007).
+- [ ] **Photon pairs by SPDC and SFWM:**
+  - the joint spectral amplitude from the phase matching and the pump's spectrum;
+  - its purity by Schmidt decomposition (Grice & Walmsley 1997);
+  - brightness per mW of pump, and heralding efficiency.
+- [ ] **Resonators:**
+  - resonantly enhanced SHG and FWM in rings, the enhancement from the 0.4 ring components;
+  - Kerr combs by the Lugiato–Lefever equation by split-step, fed by the mode solver's dispersion (Lugiato & Lefever 1987; Chembo & Menyuk 2013; Herr et al. 2014 for dissipative solitons).
+- [ ] **Studio:**
+  - nonlinear jobs: the process, the waveguide, the poling and the pump;
+  - the phase-matching map: Δk against wavelength and width or temperature;
+  - efficiency against length;
+  - the joint spectral amplitude;
+  - the transparency chart.
+- [ ] **Validation:**
+  - **analytic:**
+    - undepleted SHG's sinc² and its L² scaling;
+    - Manley–Rowe photon conservation;
+    - depleted SHG's tanh² (Armstrong et al. 1962);
+    - the Lugiato–Lefever soliton;
+  - **published, each an example:**
+    - Fejer 1992's QPM tolerances;
+    - Wang et al. 2018's thin-film PPLN SHG (efficiency, poling period, bandwidth);
+    - Chang et al. 2018's GaAs-on-insulator SHG;
+    - Pu et al. 2016's AlGaAs-on-insulator comb threshold;
+    - Foster et al. 2006's silicon parametric gain;
+    - Zhao et al. 2020's thin-film LN photon pairs (the joint spectrum and brightness);
+    - Coen 2013's octave comb, against pyLLE (Moille 2019);
+  - **convergence:** overlaps and efficiencies with the mode solver's grid, and the split-step at its order;
+  - **cross-check:** χ⁽²⁾ and χ⁽³⁾ in FDTD (0.15) against the coupled-mode results on a short device.
+
 ### 0.7: Inverse design
 - [ ] **Adjoint gradients** for every solver (Lalau-Keraly 2013; nonlinear: Hughes 2018); forward-mode where it pays (Hughes 2019).
 - [ ] **Density topology optimization:**
@@ -436,11 +492,12 @@ What a designer needs to take a design to a process of their choice. photonoxide
 - [ ] **Plasmonics** with dispersive FDTD.
 - [ ] **Mie and T-matrix** scattering.
 
-### 0.15: Nonlinear and fiber optics
-- [ ] **χ(2) and χ(3)** in FDTD: second-harmonic generation, Kerr, four-wave mixing.
-- [ ] **Coupled-mode theory.**
-- [ ] **Fiber modes,** exact for step index; the nonlinear Schrödinger equation by split-step; supercontinuum.
-- [ ] **Kerr microcombs:** the Lugiato–Lefever equation by split-step, fed by the mode solver's dispersion (Lugiato & Lefever 1987; Kippenberg 2018); validated on the analytic soliton and Coen 2013's octave comb, against pyLLE (Moille 2019).
+### 0.15: Nonlinear FDTD and fiber optics
+
+The waveguide and resonator processes, phase matching, photon pairs and Kerr combs come earlier, in 0.6.1.
+
+- [ ] **χ⁽²⁾ and χ⁽³⁾** in FDTD: second-harmonic generation, Kerr, four-wave mixing; checked against 0.6.1's coupled-mode results.
+- [ ] **Fiber modes,** exact for step index; the generalized nonlinear Schrödinger equation by split-step (Agrawal); supercontinuum.
 
 ### 0.16: Beyond
 - [ ] **Quantum photonics:** linear optical circuits and their statistics.
@@ -646,3 +703,29 @@ Every reference below was checked against its DOI. The performance work's refere
 - T. J. Kippenberg et al., Science 361, eaan8083 (2018). [10.1126/science.aan8083](https://doi.org/10.1126/science.aan8083)
 - S. Coen et al., Opt. Lett. 38, 37 (2013). [10.1364/OL.38.000037](https://doi.org/10.1364/OL.38.000037)
 - G. Moille et al., J. Res. NIST 124, 124012 (2019), pyLLE. [10.6028/jres.124.012](https://doi.org/10.6028/jres.124.012)
+
+**Nonlinear optics (0.6.1)**
+
+- P. A. Franken et al., Phys. Rev. Lett. 7, 118 (1961). [10.1103/PhysRevLett.7.118](https://doi.org/10.1103/PhysRevLett.7.118)
+- J. A. Armstrong, N. Bloembergen, J. Ducuing, P. S. Pershan, Phys. Rev. 127, 1918 (1962). [10.1103/PhysRev.127.1918](https://doi.org/10.1103/PhysRev.127.1918)
+- R. C. Miller, Appl. Phys. Lett. 5, 17 (1964). [10.1063/1.1754022](https://doi.org/10.1063/1.1754022)
+- G. D. Boyd, D. A. Kleinman, J. Appl. Phys. 39, 3597 (1968). [10.1063/1.1656831](https://doi.org/10.1063/1.1656831)
+- M. M. Fejer, G. A. Magel, D. H. Jundt, R. L. Byer, IEEE J. Quantum Electron. 28, 2631 (1992). [10.1109/3.161322](https://doi.org/10.1109/3.161322)
+- I. Shoji et al., J. Opt. Soc. Am. B 14, 2268 (1997). [10.1364/JOSAB.14.002268](https://doi.org/10.1364/JOSAB.14.002268)
+- W. P. Grice, I. A. Walmsley, Phys. Rev. A 56, 1627 (1997). [10.1103/PhysRevA.56.1627](https://doi.org/10.1103/PhysRevA.56.1627)
+- J. S. Aitchison et al., IEEE J. Quantum Electron. 33, 341 (1997). [10.1109/3.556002](https://doi.org/10.1109/3.556002)
+- F. Gehrsitz et al., J. Appl. Phys. 87, 7825 (2000). [10.1063/1.373462](https://doi.org/10.1063/1.373462)
+- I. Vurgaftman, J. R. Meyer, L. R. Ram-Mohan, J. Appl. Phys. 89, 5815 (2001). [10.1063/1.1368156](https://doi.org/10.1063/1.1368156)
+- T. Skauli et al., J. Appl. Phys. 94, 6447 (2003). [10.1063/1.1621740](https://doi.org/10.1063/1.1621740)
+- M. A. Foster et al., Nature 441, 960 (2006). [10.1038/nature04932](https://doi.org/10.1038/nature04932)
+- Q. Lin, O. J. Painter, G. P. Agrawal, Opt. Express 15, 16604 (2007). [10.1364/OE.15.016604](https://doi.org/10.1364/OE.15.016604)
+- O. Gayer, Z. Sacks, E. Galun, A. Arie, Appl. Phys. B 91, 343 (2008). [10.1007/s00340-008-2998-2](https://doi.org/10.1007/s00340-008-2998-2)
+- Y. K. Chembo, C. R. Menyuk, Phys. Rev. A 87, 053852 (2013). [10.1103/PhysRevA.87.053852](https://doi.org/10.1103/PhysRevA.87.053852)
+- T. Herr et al., Nat. Photonics 8, 145 (2014). [10.1038/nphoton.2013.343](https://doi.org/10.1038/nphoton.2013.343)
+- M. Leidinger et al., Opt. Express 23, 21690 (2015). [10.1364/OE.23.021690](https://doi.org/10.1364/OE.23.021690)
+- M. Pu et al., Optica 3, 823 (2016). [10.1364/OPTICA.3.000823](https://doi.org/10.1364/OPTICA.3.000823)
+- C. Wang et al., Optica 5, 1438 (2018). [10.1364/OPTICA.5.001438](https://doi.org/10.1364/OPTICA.5.001438)
+- L. Chang et al., Laser Photonics Rev. 12, 1800149 (2018). [10.1002/lpor.201800149](https://doi.org/10.1002/lpor.201800149)
+- J. Zhao et al., Phys. Rev. Lett. 124, 163603 (2020). [10.1103/PhysRevLett.124.163603](https://doi.org/10.1103/PhysRevLett.124.163603)
+- R. W. Boyd, *Nonlinear Optics*, 4th ed., Academic Press (2020). [10.1016/C2015-0-05510-1](https://doi.org/10.1016/C2015-0-05510-1)
+- G. P. Agrawal, *Nonlinear Fiber Optics*, 6th ed., Academic Press (2019). [10.1016/C2018-0-01168-8](https://doi.org/10.1016/C2018-0-01168-8)
