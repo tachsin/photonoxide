@@ -1177,7 +1177,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdtd/ring-order",
             title: r"The ring's resonances on 10 and 20 cells a µm: the order at which the frequencies' and the Q factors' errors fall (the smallest of the six shown)",
             tier: Tier::Analytic,
-            source: r"second order: smoothed, $E_z$ sees the mean $\varepsilon$ across each face, the right average for a field along an interface (A. Farjadpour et al., Opt. Lett. 31, 2972 (2006), doi:10.1364/OL.31.002972); measured 1.99 to 2.02 in frequency, 1.9 to 2.2 in Q",
+            source: r"second order: smoothed, $E_z$ sees the mean $\varepsilon$ across each face, the right average for a field along an interface (A. Farjadpour et al., Opt. Lett. 31, 2972 (2006), doi:10.1364/OL.31.002972); measured 1.99 to 2.02 in frequency, 1.95 to 2.05 in Q",
             run: fdtd_ring_order,
         },
         Case {
@@ -1191,7 +1191,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdtd/fdfd-band-2d-fine",
             title: r"The same 2D guides on 25 nm cells (the same CPMLs of 0.5 µm, 20 cells): the largest $\lvert \Delta S \rvert$ over the band against FDFD (shown)",
             tier: Tier::Analytic,
-            source: r"FDFD on the same grid at the leapfrog's frequency; the CPML's difference from FDFD's PML lies in what each reflects, which falls as the same thickness takes more cells: 3.2e-5 on 50 nm cells, 3.1e-7 on 25",
+            source: r"FDFD on the same grid at the leapfrog's frequency; the CPML's difference from FDFD's PML lies in what each reflects, which falls as the same thickness takes more cells: 3.2e-5 on 50 nm cells, 1.7e-7 on 25",
             run: fdtd_fdfd_band_2d_fine,
         },
         Case {
@@ -2363,7 +2363,7 @@ fn fdtd_fdfd_band_2d_fine() -> Outcome {
     Outcome {
         measured,
         expected: 0.0,
-        // measured 3.1e-7
+        // measured 1.7e-7
         tolerance: 1e-6,
         error: measured,
     }
@@ -3967,6 +3967,7 @@ fn fdtd_mie_drude() -> Outcome {
 #[cfg(test)]
 mod tests {
     use super::*;
+
 
     #[test]
     #[cfg_attr(

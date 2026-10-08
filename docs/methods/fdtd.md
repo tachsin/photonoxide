@@ -1,7 +1,7 @@
 ---
 title: "FDTD"
 module: fdtd
-summary: "Maxwell's equations stepped in time on Yee's grid: E and H leapfrogging on FDFD's own grid, the convolutional PML, walls, periodic and Bloch-periodic sides (complex fields), conductors, lossy media, subpixel smoothing of isotropic and anisotropic bodies, Drude and Lorentz media by auxiliary differential equations and the catalogue's materials fitted by them, the same bits on any number of threads; dipoles and currents normalized exactly by their spectra, plane waves on total-field/scattered-field boxes at any grid angle, one-way waveguide modes and Gaussian beams; transform, flux and mode monitors, and resonances by harmonic inversion; Mie's series for a sphere, and spheres against it."
+summary: "Maxwell's equations stepped in time on Yee's grid: E and H leapfrogging on FDFD's own grid, the convolutional PML, walls, periodic and Bloch-periodic sides (complex fields), conductors, lossy media, subpixel smoothing of isotropic and anisotropic bodies, Drude and Lorentz media by auxiliary differential equations and the catalogue's materials fitted by them, the same bits on any number of threads; dipoles and currents normalized exactly by their spectra, plane waves on total-field/scattered-field boxes at any grid angle, one-way waveguide modes and Gaussian beams; transform, flux and mode monitors, and resonances by harmonic inversion; Mie's series for a sphere, and spheres against it; a ring's exact resonances, and rings against them; S-parameters over a band from one pulse against FDFD at each frequency; Meep's published PML and smoothing convergence."
 order: 23
 papers:
   - cite: "G. Mie, Ann. Phys. 330, 377 (1908) (scattering by a sphere)"
@@ -884,7 +884,7 @@ they reflect:
 
 - **2D,** a guide of ε = 12 and 0.3 µm in air with E in the plane, straight and bent around a
   quarter circle of 1 µm, five frequencies across ±5 % of 1.55 µm, CPMLs of 0.5 µm: 3.2e-5 on
-  50 nm cells (`fdtd/fdfd-band-2d`), 3.1e-7 on 25 (`fdtd/fdfd-band-2d-fine`), as the same
+  50 nm cells (`fdtd/fdfd-band-2d`), 1.7e-7 on 25 (`fdtd/fdfd-band-2d-fine`), as the same
   thickness takes more cells and both reflect less.
 - **3D,** a strip of ε = 12, 0.4 × 0.25 µm, in ε = 2.1, on 50 nm cells, three frequencies:
   straight, 2.2e-4 with CPMLs of 8 cells (`fdtd/fdfd-band-3d-strip`), 6.5e-5 with 10 and 7.9e-6
@@ -1089,9 +1089,9 @@ Before the rows were shared, a 2D grid, one plane thick, stepped on one thread: 
 | `fdtd/meep-pml-rates` | Oskooi et al.'s Fig. 8: the rate a PML's field convergence falls at, σ as $(x/L)^d$, at L = 4, against $2d + 4$ | 6.14, 8.22, 10.32 |
 | `fdtd/ring-wronskian` | the ring's Bessel functions: their Wronskian against $2/\pi z$, relative | 1.0e-10 |
 | `fdtd/ring-resonances` | Fig. 11's ring (ε = 11.56, radii 1 and 2 µm), 20 cells a µm: three resonances against the exact ones, relative frequency | 7.7e-4 (Q 7.3e-3) |
-| `fdtd/ring-order` | the same from 10 to 20 cells: the order of the frequencies' and Q's errors | 1.93 to 2.05 |
+| `fdtd/ring-order` | the same from 10 to 20 cells: the order of the frequencies' and Q's errors | 1.95 to 2.05 |
 | `fdtd/fdfd-band-2d` | a 2D straight guide and bend, one pulse against FDFD at five frequencies, 50 nm cells: $\lvert\Delta S\rvert$ | 3.2e-5 |
-| `fdtd/fdfd-band-2d-fine` | the same on 25 nm cells | 3.1e-7 |
+| `fdtd/fdfd-band-2d-fine` | the same on 25 nm cells | 1.7e-7 |
 | `fdtd/fdfd-band-3d-strip` | a 3D strip, one pulse against `Solver3d` at three frequencies, CPMLs of 8 | 2.2e-4 |
 | `fdtd/fdfd-band-3d-bend` | a 3D bend, the same | 1.9e-4 |
 | `fdtd/fdfd-smoothed` | the 2D bend smoothed for FDTD against FDFD's average: the order their difference falls at, 50 to 25 nm | 0.85 |
