@@ -49,3 +49,20 @@ publish = false
 # excludes studio/ and site/: PRs that changed only those are added to the release PR by hand, and
 # .github/workflows/changelog.yml lists them. (changelog_include = ["photonoxide-studio"] didn't
 # bring them in for 0.4.1: the studio isn't released.)
+
+# the program's and the native crates' changes go in the library's changelog, the one
+# release-plz writes: a PR that touches only them is part of the release too
+[[package]]
+name = "photonoxide"
+changelog_include = ["photonoxide-studio", "photonoxide-native", "photonoxide-native-testlib"]
+
+# loaded at run time, not released on their own yet (#174)
+[[package]]
+name = "photonoxide-native"
+release = false
+publish = false
+
+[[package]]
+name = "photonoxide-native-testlib"
+release = false
+publish = false
