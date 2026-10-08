@@ -79,10 +79,10 @@ papers:
     year: 1997
     role: review
     note: "Coupled-mode theory of fibre gratings worked through: uniform, apodized, chirped and tilted gratings, with the closed forms of the uniform one."
-  - cite: "H. A. Macleod, Thin-Film Optical Filters, 4th ed., CRC Press (2010)"
+  - cite: "H. A. Macleod, Thin-Film Optical Filters, 5th ed., CRC Press (2018)"
     title: "Thin-Film Optical Filters"
-    doi: 10.1201/9781420073034
-    year: 2010
+    doi: 10.1201/b21960
+    year: 2018
     role: review
     note: "The thin-film designer's reference: quarter-wave stacks, their admittances and band widths, and the filters built from them."
   - cite: "X. Wang, W. Shi, R. Vafaei, N. A. F. Jaeger, L. Chrostowski, IEEE Photon. Technol. Lett. 23, 290 (2011)"
@@ -270,7 +270,7 @@ certain frequencies, the first stop band. In 1913 the Braggs explained why cryst
 only at certain angles, the reflections of successive planes adding in step, and in 1929 Bloch
 gave the mathematics of waves in any periodic structure, written for electrons. Thin-film
 interference coatings turned the quarter-wave stack into the workhorse mirror of optics
-([Macleod](https://doi.org/10.1201/9781420073034) gathers that craft). Gratings in waveguides came
+([Macleod](https://doi.org/10.1201/b21960) gathers that craft). Gratings in waveguides came
 with integrated optics and lasers: Kogelnik and Shank's coupled-wave theory of 1972 explained the
 distributed-feedback laser, Yariv generalized coupled modes to guided-wave optics in 1973, and
 Yeh, Yariv and Hong described periodic stacks by Bloch waves in 1977. In 1978 Hill and colleagues
@@ -394,7 +394,7 @@ width now set by the contrast.
   uniform, apodized and chirped gratings, and is where most grating designers start.
 - [Yeh, Yariv and Hong (1977)](https://doi.org/10.1364/JOSA.67.000423) for periodic stacks as
   Bloch waves, at any angle and polarization.
-- [Macleod's book](https://doi.org/10.1201/9781420073034) for thin-film filters built from
+- [Macleod's book](https://doi.org/10.1201/b21960) for thin-film filters built from
   quarter-wave stacks.
 - [Cheng and Chrostowski (2021)](https://doi.org/10.1109/JLT.2020.3035372) for gratings in silicon
   waveguides.
