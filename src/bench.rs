@@ -21,6 +21,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::Result;
+use crate::backend::Choice;
 use crate::fdfd::{
     Axis, Boundaries, Boundaries3d, Formulation, Grid, Grid3d, IterativeSolver3d, Multigrid,
     Polarization, Port, Port3d, Side, Solver2d, Solver3d, Stopping,
@@ -468,6 +469,19 @@ fn guide_3d(
     tolerance: f64,
     timed_done: &mut dyn FnMut(),
 ) -> Result<Measurement> {
+    guide_3d_with(guide, pml, solve, tolerance, &Choice::Auto, timed_done)
+}
+
+/// [`guide_3d`], its QMR run by the iterative backend `iterative` names (photonoxide's own for
+/// `auto`), [`Solve::Qmr`] only.
+fn guide_3d_with(
+    guide: Guide,
+    pml: usize,
+    solve: Solve,
+    tolerance: f64,
+    iterative: &Choice,
+    timed_done: &mut dyn FnMut(),
+) -> Result<Measurement> {
     let h = 0.01;
     let (n, (wy, wz)) = match guide {
         Guide::Cube { core } => {
@@ -523,7 +537,9 @@ fn guide_3d(
     let new = |formulation| IterativeSolver3d::new(grid, lam, eps, boundaries, formulation);
     let mut phases = Vec::new();
     let field = {
-        let solver = solve.build(&mut phases, new)?;
+        let solver = solve
+            .build(&mut phases, new)?
+            .with_iterative_backend(iterative)?;
         let (t, moved) = (Instant::now(), bytes_moved());
         let (field, convergence) = solver.solve(&source, stopping(tolerance))?;
         phases.push(Phase {

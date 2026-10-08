@@ -1,12 +1,16 @@
 //! The 3D problem solved iteratively: QMR on Shin and Fan's operator, without factorizing.
 
+use std::sync::Arc;
+
 use num_complex::Complex64 as c64;
 
 use super::multigrid::{Hierarchy, Multigrid, shifted};
 use super::{Axis, Boundaries3d, Field3d, Grid3d, Lattice, Port3d, PortMode3d, Solver3d};
+use crate::backend::{self, Choice, Form, IterativeSolver};
 use crate::fdfd::Direction;
 use crate::fdfd::krylov::{
-    Convergence, Ilu0, Sparse, Stopping, gmres_preconditioned, qmr, qmr_preconditioned, qmr_similar,
+    Convergence, Ilu0, Sparse, Stopping, gmres_preconditioned, qmr, qmr_preconditioned,
+    qmr_similar, qmr_similar_by, restarted_by,
 };
 use crate::units::Wavelength;
 use crate::{Error, Result};
@@ -54,6 +58,8 @@ pub struct IterativeSolver3d {
     similarity: Option<Vec<c64>>,
     /// What preconditions QMR, if anything.
     preconditioner: Preconditioning,
+    /// The backend that runs QMR, if not photonoxide's own ([`IterativeSolver3d::with_iterative_backend`]).
+    backend: Option<Arc<dyn IterativeSolver>>,
 }
 
 /// A preconditioner for QMR.
@@ -102,6 +108,7 @@ impl IterativeSolver3d {
             matrix,
             similarity,
             preconditioner: Preconditioning::None,
+            backend: None,
         })
     }
 
@@ -185,6 +192,26 @@ impl IterativeSolver3d {
         let operator = shifted(&self.lattice, &self.eps, &self.matrix, options.shift);
         let hierarchy = Hierarchy::new_on(&self.lattice, &self.eps, operator, options, &solver)?;
         self.preconditioner = Preconditioning::Multigrid(Box::new(hierarchy));
+        Ok(self)
+    }
+
+    /// QMR run by the iterative backend `choice` names ([`backend::iterative`]): a GPU's, say.
+    /// photonoxide's own for `auto` and `photonoxide`. A backend runs QMR without a
+    /// preconditioner; photonoxide keeps the restarts and the similar matrix's tolerance around
+    /// its runs, so the solution is checked on the same residual as photonoxide's own.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a backend that isn't registered or available, and for a
+    /// solver with a preconditioner (ILU(0) or multigrid), which a backend doesn't run yet.
+    pub fn with_iterative_backend(mut self, choice: &Choice) -> Result<IterativeSolver3d> {
+        self.backend = backend::iterative(choice)?;
+        if self.backend.is_some() && !matches!(self.preconditioner, Preconditioning::None) {
+            return Err(Error::invalid(
+                "iterative backend",
+                "a backend runs QMR without a preconditioner: not with ILU(0) or multigrid yet",
+            ));
+        }
         Ok(self)
     }
 
@@ -272,9 +299,21 @@ impl IterativeSolver3d {
             Preconditioning::Multigrid(h) => {
                 gmres_preconditioned(&self.matrix, h.as_ref(), &b, stopping, h.restart())?
             }
-            Preconditioning::None => match &self.similarity {
-                Some(s) => qmr_similar(&self.matrix, s, &b, stopping)?,
-                None => qmr(&self.matrix, &b, stopping)?,
+            Preconditioning::None => match (&self.backend, &self.similarity) {
+                (Some(solver), Some(s)) => {
+                    let matrix = self.matrix.as_matrix(Form::Symmetric)?;
+                    qmr_similar_by(&self.matrix, s, &b, stopping, &|rhs, st| {
+                        solver.qmr_run(&matrix, rhs, st)
+                    })?
+                }
+                (Some(solver), None) => {
+                    let matrix = self.matrix.as_matrix(Form::General)?;
+                    restarted_by(&self.matrix, &b, stopping, &|rhs, st| {
+                        solver.qmr_run(&matrix, rhs, st)
+                    })?
+                }
+                (None, Some(s)) => qmr_similar(&self.matrix, s, &b, stopping)?,
+                (None, None) => qmr(&self.matrix, &b, stopping)?,
             },
         };
         Ok((

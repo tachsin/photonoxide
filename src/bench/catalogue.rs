@@ -623,8 +623,10 @@ fn guide(core: usize, pml: usize, solve: super::Solve) -> Entry {
         memory_bytes: (24 * nonzeros + 16 * 40 * unknowns) as u64,
         tier: if cells <= 20 {
             Tier::Quick
-        } else {
+        } else if cells <= 50 {
             Tier::Standard
+        } else {
+            Tier::Full
         },
         check: "the direct solver's field".into(),
         kind: Kind::Guide { core, pml, solve },
@@ -773,6 +775,10 @@ pub fn catalogue() -> Vec<Entry> {
         ] {
             all.push(guide(core, pml, solve));
         }
+    }
+    // plain QMR larger, where a GPU's bandwidth can tell (#190)
+    for (core, pml) in [(12, 10), (20, 14)] {
+        all.push(guide(core, pml, super::Solve::Qmr));
     }
     // the fixed problems, under their ids
     let fixed_problems = super::problems();
@@ -1271,6 +1277,18 @@ impl Entry {
         )
     }
 
+    /// Whether its solve is plain QMR, which an iterative backend can run
+    /// ([`crate::backend::iterative`]): `fdfd3d-iterative/guide-qmr-*`.
+    pub fn takes_an_iterative_backend(&self) -> bool {
+        matches!(
+            self.kind,
+            Kind::Guide {
+                solve: super::Solve::Qmr,
+                ..
+            }
+        )
+    }
+
     /// The error its check allows: a solve that leaves more hasn't solved the problem.
     pub fn tolerance(&self) -> f64 {
         match self.kind {
@@ -1287,13 +1305,15 @@ impl Entry {
     }
 
     /// Builds the problem and solves it, timing each phase: a direct problem by the direct
-    /// solver of `direct` ([`Entry::takes_a_backend`]), the others as photonoxide solves them.
+    /// solver `backend` names ([`Entry::takes_a_backend`]), plain QMR by the iterative one it
+    /// names ([`Entry::takes_an_iterative_backend`]), the others as photonoxide solves them.
     ///
     /// # Errors
     ///
     /// The assembly's and the solver's, and [`Error::InvalidValue`] for a backend that isn't
     /// registered or isn't available.
-    pub fn run(&self, direct: &Choice) -> Result<Measurement> {
+    pub fn run(&self, backend: &Choice) -> Result<Measurement> {
+        let direct = backend;
         match &self.kind {
             Kind::Flat { .. } | Kind::Solid { .. } | Kind::Exported(_) => {
                 Ok(solve_direct(self, direct)?.measurement)
@@ -1308,11 +1328,18 @@ impl Entry {
                     Task::Iterative { tolerance } => tolerance,
                     _ => 1e-8,
                 };
-                super::guide_3d(
+                // the iterative backend of the choice runs plain QMR; the others are photonoxide's
+                let iterative = if self.takes_an_iterative_backend() {
+                    direct
+                } else {
+                    &Choice::Auto
+                };
+                super::guide_3d_with(
                     super::Guide::Cube { core: *core },
                     *pml,
                     *solve,
                     tolerance,
+                    iterative,
                     &mut || {},
                 )
             }

@@ -39,6 +39,12 @@ use num_complex::Complex64 as c64;
 use crate::sparse;
 use crate::{Error, Result};
 
+mod iterative;
+pub use iterative::{
+    IterativeSolver, QmrRun, iterative, iterative_solvers, register_iterative,
+    register_iterative_unavailable,
+};
+
 fn invalid(reason: impl Into<String>) -> Error {
     Error::invalid("backend", reason)
 }

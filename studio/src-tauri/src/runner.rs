@@ -231,6 +231,7 @@ fn backends(wanted: &[String]) -> Vec<String> {
     let available: Vec<String> = backend::direct_solvers()
         .unwrap_or_default()
         .into_iter()
+        .chain(backend::iterative_solvers().unwrap_or_default())
         .filter(|l| l.capabilities.is_some())
         .map(|l| l.name)
         .collect();
@@ -288,8 +289,7 @@ pub fn run(args: &[String]) -> ExitCode {
         for &threads in &o.threads {
             for entry in &chosen {
                 for name in &names {
-                    // a problem without a direct solve runs on photonoxide's own code only
-                    if name != "photonoxide" && !entry.takes_a_backend() {
+                    if name != "photonoxide" && !applies(entry, name) {
                         continue;
                     }
                     eprint!("{} with {name} on {threads} threads: ", entry.id);
@@ -337,6 +337,16 @@ impl Record {
             .as_deref()
             .is_some_and(|f| f.starts_with("skipped"))
     }
+}
+
+/// Whether the backend `name` can solve `entry`: a direct one its direct solve, an iterative
+/// one its plain QMR. The others run on photonoxide's own code only.
+fn applies(entry: &Entry, name: &str) -> bool {
+    let listed = |list: photonoxide::Result<Vec<backend::Listed>>| {
+        list.unwrap_or_default().iter().any(|l| l.name == name)
+    };
+    (entry.takes_a_backend() && listed(backend::direct_solvers()))
+        || (entry.takes_an_iterative_backend() && listed(backend::iterative_solvers()))
 }
 
 /// Runs one entry with one backend on `threads` threads, in a child process.
@@ -449,9 +459,21 @@ fn child(id: &str, backend: &str, out: &Path) -> ExitCode {
         Ok(c) => c,
         Err(e) => return crate::fail(e),
     };
-    let capabilities = match backend::direct(&choice) {
-        Ok(s) => s.capabilities(),
-        Err(e) => return crate::fail(e),
+    let capabilities = if entry.takes_an_iterative_backend() {
+        match backend::iterative(&choice) {
+            Ok(Some(s)) => s.capabilities(),
+            // photonoxide's own QMR
+            Ok(None) => match backend::direct(&choice) {
+                Ok(s) => s.capabilities(),
+                Err(e) => return crate::fail(e),
+            },
+            Err(e) => return crate::fail(e),
+        }
+    } else {
+        match backend::direct(&choice) {
+            Ok(s) => s.capabilities(),
+            Err(e) => return crate::fail(e),
+        }
     };
     let measurement = match entry.run(&choice) {
         Ok(m) => m,
