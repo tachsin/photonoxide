@@ -458,8 +458,8 @@ pub(crate) fn oskooi(smoothing: Smoothing, n: usize) -> f64 {
 }
 
 /// A closed box with an anisotropic ellipsoid at an angle to the grid and random D: the
-/// leapfrog's ½ Σ E·D + ½ Σ H̃⁻·H̃⁺ over 300 steps, its largest change relative to it.
-pub(crate) fn tensor_energy_drift(coupling: Coupling) -> f64 {
+/// leapfrog's ½ Σ E·D + ½ Σ H̃⁻·H̃⁺ over `steps` steps, its largest change relative to it.
+pub(crate) fn tensor_energy_drift(coupling: Coupling, steps: usize) -> f64 {
     let g = grid([10, 9, 8], 0.05);
     let ellipsoid = Body::ellipsoid(
         [0.02, -0.01, 0.0],
@@ -500,7 +500,62 @@ pub(crate) fn tensor_energy_drift(coupling: Coupling) -> f64 {
         electric + 0.5 * magnetic * volume
     };
     let first = energy(&mut s);
-    (0..300)
+    (0..steps)
         .map(|_| (energy(&mut s) - first).abs() / first)
         .fold(0.0, f64::max)
+}
+
+/// An isotropic ellipsoid of ε = `contrast` at an angle to the grid, in vacuum, its smoothed
+/// ε̃⁻¹'s off-diagonal entries at the nodes, in a closed box (20 × 18 × 16 cells of 50 nm),
+/// stepped `steps` times at Courant number 0.99 from random D and H: the largest ‖E‖ over the
+/// run relative to the first, or `None` where [`Simulation::smoothed`] refuses the ellipsoid,
+/// its ε̃⁻¹ not positive definite; or without that check when not `checked`.
+pub(crate) fn contrast_growth(contrast: f64, steps: usize, checked: bool) -> Option<f64> {
+    let g = grid([20, 18, 16], 0.05);
+    let ellipsoid = Body::ellipsoid(
+        [0.02, -0.01, 0.0],
+        [0.31, 0.22, 0.19],
+        rotation([0.3, 0.7, 0.2]),
+    )
+    .unwrap();
+    let structure = Structure::new(Permittivity::isotropic(1.0).unwrap())
+        .with(ellipsoid, Permittivity::isotropic(contrast).unwrap());
+    let build = if checked {
+        Simulation::smoothed
+    } else {
+        Simulation::smoothed_unchecked
+    };
+    let mut s = build(
+        g,
+        &structure,
+        Smoothing::default(),
+        Boundaries::walls(),
+        0.99,
+    )
+    .ok()?;
+    for c in 0..3 {
+        for r in 0..g.cells() {
+            s.anisotropic.as_mut().unwrap().d[c][r] = noise(r + 7 * c);
+            s.h[c][r] = noise(r + 13 * c + 100_000);
+        }
+    }
+    let size = |s: &Simulation| {
+        Axis::ALL
+            .iter()
+            .map(|&c| s.e(c).iter().map(|v| v * v).sum::<f64>())
+            .sum::<f64>()
+            .sqrt()
+    };
+    s.run(1);
+    let first = size(&s);
+    let mut largest: f64 = 1.0;
+    for _ in 0..steps.div_ceil(100) {
+        s.run(100);
+        let ratio = size(&s) / first;
+        if !ratio.is_finite() {
+            return Some(f64::INFINITY);
+        }
+        largest = largest.max(ratio);
+    }
+    Some(largest)
 }

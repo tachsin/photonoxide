@@ -979,10 +979,17 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "fdtd/smoothing-energy",
-            title: r"FDTD's energy with a smoothed tensor: a closed box ($10 \times 9 \times 8$ cells of 50 nm) holding an ellipsoid of the anisotropic crystal above at an angle to the grid, in $\varepsilon = 2$, random D and H, 300 steps: the largest change of $\tfrac12\sum E\cdot D + \tfrac12\sum \tilde H^{n-1/2}\cdot\tilde H^{n+1/2}$, relative to it (shown)",
+            title: r"FDTD's energy with a smoothed tensor: a closed box ($10 \times 9 \times 8$ cells of 50 nm) holding an ellipsoid of the anisotropic crystal above at an angle to the grid, in $\varepsilon = 2$, random D and H, $10^5$ steps: the largest change of $\tfrac12\sum E\cdot D + \tfrac12\sum \tilde H^{n-1/2}\cdot\tilde H^{n+1/2}$, relative to it (shown)",
             tier: Tier::Analytic,
-            source: r"with the off-diagonal entries at the nodes $\tilde\varepsilon^{-1}$ on the grid is symmetric (Werner and Cary 2007), so the leapfrog conserves this energy exactly; measured 1.5e-15. At the points it isn't: 6.3e-2 over the same steps",
+            source: r"with the off-diagonal entries at the nodes $\tilde\varepsilon^{-1}$ on the grid is symmetric (Werner and Cary 2007), so the leapfrog conserves this energy exactly; measured 2.0e-15. At the points it isn't: 6.3e-2 over 300 steps",
             run: fdtd_smoothing_energy,
+        },
+        Case {
+            id: "fdtd/smoothing-contrast",
+            title: r"FDTD's smoothed tensor at high contrast: a closed box ($20 \times 18 \times 16$ cells of 50 nm) holding an isotropic ellipsoid at an angle to the grid in vacuum, the off-diagonal entries at the nodes, random D and H at Courant number 0.99: at $\varepsilon = 40$ the largest $\lVert E\rVert$ over $10^5$ steps relative to the first (shown); refused at $\varepsilon = 50$, its $\tilde\varepsilon^{-1}$ on the grid not positive definite",
+            tier: Tier::Analytic,
+            source: r"symmetric, the leapfrog's energy is conserved, but it bounds the fields only while $\tilde\varepsilon^{-1}$ is positive definite, and Werner and Cary's 2007 scheme isn't at every contrast: here its least eigenvalue turns negative between $\varepsilon = 40$ and 45 ($-4.6 \times 10^{-3}$ at 50), and $\varepsilon = 50$ let through grows by $10^{149}$ in $10^4$ steps. The check is exact (a Cholesky factorization of the coupled block) but sufficient, not sharp: 45 let through stays bounded over $10^5$ steps",
+            run: fdtd_smoothing_contrast,
         },
         Case {
             id: "fdtd/smoothing-oskooi",
@@ -2070,11 +2077,11 @@ fn fdtd_smoothing_oblique_nodes() -> Outcome {
 
 fn fdtd_smoothing_energy() -> Outcome {
     use crate::fdtd::Coupling;
-    let measured = crate::fdtd::smoothing::checks::tensor_energy_drift(Coupling::Nodes);
+    let measured = crate::fdtd::smoothing::checks::tensor_energy_drift(Coupling::Nodes, 100_000);
     Outcome {
         measured,
         expected: 0.0,
-        // round-off: measured 1.5e-15
+        // round-off: measured 2.0e-15 over 10⁵ steps
         tolerance: 1e-12,
         error: measured,
     }
@@ -2183,6 +2190,23 @@ fn fdtd_slab_resonance() -> Outcome {
         // measured 2.00 and 2.01
         tolerance: 0.05,
         error: (measured - 2.0).abs(),
+    }
+}
+
+fn fdtd_smoothing_contrast() -> Outcome {
+    use crate::fdtd::smoothing::checks::contrast_growth;
+    let refused = contrast_growth(50.0, 0, true).is_none();
+    let measured = contrast_growth(40.0, 100_000, true).unwrap_or(f64::INFINITY);
+    Outcome {
+        measured,
+        expected: 1.0,
+        // bounded: E and H trade energy, and ‖E‖ may rise above its first value
+        tolerance: 1.0,
+        error: if refused {
+            (measured - 1.0).abs()
+        } else {
+            f64::INFINITY
+        },
     }
 }
 

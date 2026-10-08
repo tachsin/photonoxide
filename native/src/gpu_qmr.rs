@@ -22,7 +22,9 @@ use std::sync::Arc;
 
 use num_complex::Complex64 as c64;
 use photonoxide::Result;
-use photonoxide::backend::{Capabilities, Form, IterativeSolver, Matrix, QmrRun, Threads};
+use photonoxide::backend::{
+    Capabilities, Form, IluFactors, IterativeSolver, Matrix, QmrRun, Threads,
+};
 use photonoxide::fdfd::{Convergence, Stopping};
 
 use crate::cuda::{Buffer, C_64F, Opaque, Runtime, check, serial};
@@ -37,6 +39,13 @@ const INDEX_32I: c_int = 2;
 const BASE_ZERO: c_int = 0;
 /// `CUSPARSE_SPMV_CSR_ALG2`: the same bits on every run.
 const SPMV_ALGORITHM: c_int = 3;
+const SPSV_ALGORITHM: c_int = 0;
+const ATTRIBUTE_FILL_MODE: c_int = 0;
+const ATTRIBUTE_DIAGONAL: c_int = 1;
+const FILL_LOWER: c_int = 0;
+const FILL_UPPER: c_int = 1;
+const DIAGONAL_NON_UNIT: c_int = 0;
+const DIAGONAL_UNIT: c_int = 1;
 
 const ONE: c64 = c64::new(1.0, 0.0);
 const ZERO: c64 = c64::new(0.0, 0.0);
@@ -92,6 +101,41 @@ type CreateCsr = unsafe extern "C" fn(
     c_int,
     c_int,
 ) -> c_int;
+type SpsvBufferSize = unsafe extern "C" fn(
+    Opaque,
+    c_int,
+    *const c_void,
+    Opaque,
+    Opaque,
+    Opaque,
+    c_int,
+    c_int,
+    Opaque,
+    *mut usize,
+) -> c_int;
+type SpsvAnalysis = unsafe extern "C" fn(
+    Opaque,
+    c_int,
+    *const c_void,
+    Opaque,
+    Opaque,
+    Opaque,
+    c_int,
+    c_int,
+    Opaque,
+    Opaque,
+) -> c_int;
+type SpsvSolve = unsafe extern "C" fn(
+    Opaque,
+    c_int,
+    *const c_void,
+    Opaque,
+    Opaque,
+    Opaque,
+    c_int,
+    c_int,
+    Opaque,
+) -> c_int;
 type CreateSpVec =
     unsafe extern "C" fn(*mut Opaque, i64, i64, Opaque, Opaque, c_int, c_int, c_int) -> c_int;
 
@@ -119,6 +163,12 @@ struct Api {
         *mut usize,
     ) -> c_int,
     spvv: unsafe extern "C" fn(Opaque, c_int, Opaque, Opaque, *mut c_void, c_int, Opaque) -> c_int,
+    set_attribute: unsafe extern "C" fn(Opaque, c_int, *const c_void, usize) -> c_int,
+    spsv_create: unsafe extern "C" fn(*mut Opaque) -> c_int,
+    spsv_destroy: unsafe extern "C" fn(Opaque) -> c_int,
+    spsv_buffer_size: SpsvBufferSize,
+    spsv_analysis: SpsvAnalysis,
+    spsv_solve: SpsvSolve,
     version: String,
     // last: the functions above must not outlive it
     _cusparse: Library,
@@ -149,6 +199,12 @@ impl Api {
                     axpby: cusparse.function("cusparseAxpby")?,
                     spvv_buffer_size: cusparse.function("cusparseSpVV_bufferSize")?,
                     spvv: cusparse.function("cusparseSpVV")?,
+                    set_attribute: cusparse.function("cusparseSpMatSetAttribute")?,
+                    spsv_create: cusparse.function("cusparseSpSV_createDescr")?,
+                    spsv_destroy: cusparse.function("cusparseSpSV_destroyDescr")?,
+                    spsv_buffer_size: cusparse.function("cusparseSpSV_bufferSize")?,
+                    spsv_analysis: cusparse.function("cusparseSpSV_analysis")?,
+                    spsv_solve: cusparse.function("cusparseSpSV_solve")?,
                     version: format!("cuSPARSE {version}"),
                     runtime,
                     _cusparse: cusparse,
@@ -459,6 +515,207 @@ impl Session {
     }
 }
 
+/// A triangular factor on the GPU, analysed for `cusparseSpSV`: its descriptor and the buffer
+/// the analysis fills, which the solves read.
+struct Triangular {
+    api: Arc<Api>,
+    matrix: DeviceMatrix,
+    descriptor: Opaque,
+    _buffer: Buffer,
+}
+
+impl Triangular {
+    /// The factor of these rows, lower or upper, its diagonal unit (not stored) or not, analysed
+    /// on vectors like `x` and `y`.
+    fn new(
+        s: &Session,
+        (rows, values): (&Rows, &[c64]),
+        lower: bool,
+        unit: bool,
+        x: &DeviceVector,
+        y: &DeviceVector,
+    ) -> Result<Triangular> {
+        let _serial = serial();
+        let api = &s.api;
+        let matrix = DeviceMatrix::new(api, rows, values)?;
+        let fill = if lower { FILL_LOWER } else { FILL_UPPER };
+        let diagonal = if unit {
+            DIAGONAL_UNIT
+        } else {
+            DIAGONAL_NON_UNIT
+        };
+        let one = Scalar(ONE);
+        let mut descriptor = std::ptr::null_mut();
+        let mut bytes = 0usize;
+        // SAFETY: the matrix descriptor is live; the attributes are ints, as cusparse.h
+        // declares; the out-pointers are writable; x and y are n long
+        unsafe {
+            for (attribute, value) in [
+                (ATTRIBUTE_FILL_MODE, &fill),
+                (ATTRIBUTE_DIAGONAL, &diagonal),
+            ] {
+                check(
+                    (api.set_attribute)(
+                        matrix.descriptor,
+                        attribute,
+                        (value as *const c_int).cast(),
+                        size_of::<c_int>(),
+                    ),
+                    "cusparseSpMatSetAttribute",
+                )?;
+            }
+            check(
+                (api.spsv_create)(&mut descriptor),
+                "cusparseSpSV_createDescr",
+            )?;
+        }
+        let mut t = Triangular {
+            api: api.clone(),
+            matrix,
+            descriptor,
+            _buffer: Buffer::with_bytes(&api.runtime, 1)?,
+        };
+        // SAFETY: as above; the buffer holds the bytes cuSPARSE asked for, and lives as long as
+        // the descriptor
+        unsafe {
+            check(
+                (api.spsv_buffer_size)(
+                    s.handle,
+                    NON_TRANSPOSE,
+                    one.ptr(),
+                    t.matrix.descriptor,
+                    x.dense,
+                    y.dense,
+                    C_64F,
+                    SPSV_ALGORITHM,
+                    t.descriptor,
+                    &mut bytes,
+                ),
+                "cusparseSpSV_bufferSize",
+            )?;
+            t._buffer = Buffer::with_bytes(&api.runtime, bytes)?;
+            check(
+                (api.spsv_analysis)(
+                    s.handle,
+                    NON_TRANSPOSE,
+                    one.ptr(),
+                    t.matrix.descriptor,
+                    x.dense,
+                    y.dense,
+                    C_64F,
+                    SPSV_ALGORITHM,
+                    t.descriptor,
+                    t._buffer.ptr,
+                ),
+                "cusparseSpSV_analysis",
+            )?;
+        }
+        Ok(t)
+    }
+
+    /// y = T⁻¹ x.
+    fn solve(&self, s: &Session, x: &DeviceVector, y: &DeviceVector) -> Result<()> {
+        let one = Scalar(ONE);
+        check(
+            // SAFETY: analysed in new() on vectors of this length; the buffer is alive
+            unsafe {
+                (self.api.spsv_solve)(
+                    s.handle,
+                    NON_TRANSPOSE,
+                    one.ptr(),
+                    self.matrix.descriptor,
+                    x.dense,
+                    y.dense,
+                    C_64F,
+                    SPSV_ALGORITHM,
+                    self.descriptor,
+                )
+            },
+            "cusparseSpSV_solve",
+        )
+    }
+}
+
+impl Drop for Triangular {
+    fn drop(&mut self) {
+        let _serial = serial();
+        // SAFETY: created once in new(), destroyed once, before its matrix and buffer
+        unsafe { (self.api.spsv_destroy)(self.descriptor) };
+    }
+}
+
+/// ILU(0) on the GPU: L, U and their transposes, and two work vectors.
+struct Ilu {
+    l: Triangular,
+    u: Triangular,
+    lt: Triangular,
+    ut: Triangular,
+    t1: DeviceVector,
+    t2: DeviceVector,
+}
+
+impl Ilu {
+    fn new(s: &Session, factors: &IluFactors) -> Result<Ilu> {
+        let n = factors.n();
+        let zeros = vec![ZERO; n];
+        let (t1, t2) = (s.vector(&zeros)?, s.vector(&zeros)?);
+        // a factor by rows, and its transpose by rows: its columns
+        let both = |(starts, columns, values): (&[usize], &[usize], &[c64])| -> Result<_> {
+            let rows = columns_as_rows(starts, columns)?;
+            let ((t_starts, t_columns), order) = transposed(n, starts, columns);
+            let t_values: Vec<c64> = order.iter().map(|&k| values[k]).collect();
+            Ok((
+                (rows, values.to_vec()),
+                (columns_as_rows(&t_starts, &t_columns)?, t_values),
+            ))
+        };
+        let ((l, l_values), (lt, lt_values)) = both(factors.lower())?;
+        let ((u, u_values), (ut, ut_values)) = both(factors.upper())?;
+        Ok(Ilu {
+            l: Triangular::new(s, (&l, &l_values), true, true, &t1, &t2)?,
+            u: Triangular::new(s, (&u, &u_values), false, false, &t1, &t2)?,
+            lt: Triangular::new(s, (&lt, &lt_values), false, true, &t1, &t2)?,
+            ut: Triangular::new(s, (&ut, &ut_values), true, false, &t1, &t2)?,
+            t1,
+            t2,
+        })
+    }
+}
+
+/// What QMR multiplies by: A, or A M⁻¹ with ILU(0)'s M.
+struct Operator<'a> {
+    a: &'a DeviceMatrix,
+    at: Option<&'a DeviceMatrix>,
+    ilu: Option<&'a Ilu>,
+}
+
+impl Operator<'_> {
+    /// out = A v, or A M⁻¹ v = A U⁻¹ L⁻¹ v.
+    fn apply(&self, s: &Session, v: &DeviceVector, out: &DeviceVector) -> Result<()> {
+        match self.ilu {
+            Some(m) => {
+                m.l.solve(s, v, &m.t1)?;
+                m.u.solve(s, &m.t1, &m.t2)?;
+                s.product(self.a, &m.t2, out)
+            }
+            None => s.product(self.a, v, out),
+        }
+    }
+
+    /// out = Aᵀ w, or (A M⁻¹)ᵀ w = L⁻ᵀ U⁻ᵀ Aᵀ w.
+    fn apply_transpose(&self, s: &Session, w: &DeviceVector, out: &DeviceVector) -> Result<()> {
+        let at = self.at.ok_or_else(|| error("the general QMR needs Aᵀ"))?;
+        match self.ilu {
+            Some(m) => {
+                s.product(at, w, &m.t1)?;
+                m.ut.solve(s, &m.t1, &m.t2)?;
+                m.lt.solve(s, &m.t2, out)
+            }
+            None => s.product(at, w, out),
+        }
+    }
+}
+
 /// photonoxide's QMR on the GPU, as an iterative backend named `cusparse`.
 pub struct GpuQmr {
     api: Arc<Api>,
@@ -497,6 +754,36 @@ impl IterativeSolver for GpuQmr {
     }
 
     fn qmr_run(&self, matrix: &Matrix<'_>, b: &[c64], stopping: Stopping) -> Result<QmrRun> {
+        self.run(matrix, None, b, stopping)
+    }
+
+    fn qmr_run_ilu(
+        &self,
+        matrix: &Matrix<'_>,
+        ilu: &IluFactors,
+        b: &[c64],
+        stopping: Stopping,
+    ) -> Result<QmrRun> {
+        if ilu.n() != matrix.n() {
+            return Err(error(format!(
+                "ILU(0)'s factors of {} unknowns for a matrix of {}",
+                ilu.n(),
+                matrix.n()
+            )));
+        }
+        self.run(matrix, Some(ilu), b, stopping)
+    }
+}
+
+impl GpuQmr {
+    /// One run of QMR on A, or of the general QMR on A M⁻¹ with ILU(0)'s M.
+    fn run(
+        &self,
+        matrix: &Matrix<'_>,
+        ilu: Option<&IluFactors>,
+        b: &[c64],
+        stopping: Stopping,
+    ) -> Result<QmrRun> {
         let _serial = serial();
         let n = matrix.n();
         if b.len() != n {
@@ -519,7 +806,8 @@ impl IterativeSolver for GpuQmr {
                 },
             ));
         }
-        let symmetric = matrix.form() == Form::Symmetric;
+        // ILU(0) preconditions the general QMR, as photonoxide's own
+        let symmetric = matrix.form() == Form::Symmetric && ilu.is_none();
         let api = &self.api;
         let (cs, ri, values) = (
             matrix.column_starts(),
@@ -552,6 +840,12 @@ impl IterativeSolver for GpuQmr {
         if let Some(at) = &at {
             s.prepare(at, &x, &av)?;
         }
+        let factors = ilu.map(|f| Ilu::new(&s, f)).transpose()?;
+        let op = Operator {
+            a: &a,
+            at: at.as_ref(),
+            ilu: factors.as_ref(),
+        };
         let (mut v, mut v_old, mut v_next) =
             (s.vector(&zeros)?, s.vector(&zeros)?, s.vector(&zeros)?);
         let (mut p, mut p_old, mut p_older) =
@@ -583,9 +877,9 @@ impl IterativeSolver for GpuQmr {
             if d.norm() < 1e-14 {
                 return Ok(QmrRun::Broken(x.read()?, history, d.norm()));
             }
-            s.product(&a, &v, &av)?;
-            if let (Some(at), Some(w), Some(atw)) = (&at, &w, &atw) {
-                s.product(at, w, atw)?;
+            op.apply(&s, &v, &av)?;
+            if let (Some(w), Some(atw)) = (&w, &atw) {
+                op.apply_transpose(&s, w, atw)?;
             }
             let alpha = s.dotu(w.as_ref().unwrap_or(&v), &av)? / d;
             let beta_v = xi * d / d_old;
@@ -651,7 +945,7 @@ impl IterativeSolver for GpuQmr {
             history.push(updated);
             if updated <= stopping.tolerance || ended {
                 // the true residual b − A x
-                s.product(&a, &x, &tmp)?;
+                op.apply(&s, &x, &tmp)?;
                 s.axpby(ONE, &device_b, -ONE, &tmp)?;
                 let residual = s.norm2(&tmp)?.sqrt() / rho0;
                 if residual <= stopping.tolerance {

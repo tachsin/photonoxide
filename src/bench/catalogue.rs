@@ -776,9 +776,10 @@ pub fn catalogue() -> Vec<Entry> {
             all.push(guide(core, pml, solve));
         }
     }
-    // plain QMR larger, where a GPU's bandwidth can tell (#190)
+    // QMR, plain and with ILU(0), larger, where a GPU's bandwidth can tell (#190)
     for (core, pml) in [(12, 10), (20, 14)] {
         all.push(guide(core, pml, super::Solve::Qmr));
+        all.push(guide(core, pml, super::Solve::Ilu));
     }
     // the fixed problems, under their ids
     let fixed_problems = super::problems();
@@ -1277,13 +1278,13 @@ impl Entry {
         )
     }
 
-    /// Whether its solve is plain QMR, which an iterative backend can run
-    /// ([`crate::backend::iterative`]): `fdfd3d-iterative/guide-qmr-*`.
+    /// Whether its solve is QMR, plain or with ILU(0), which an iterative backend can run
+    /// ([`crate::backend::iterative`]): `fdfd3d-iterative/guide-qmr-*` and `guide-ilu-*`.
     pub fn takes_an_iterative_backend(&self) -> bool {
         matches!(
             self.kind,
             Kind::Guide {
-                solve: super::Solve::Qmr,
+                solve: super::Solve::Qmr | super::Solve::Ilu,
                 ..
             }
         )

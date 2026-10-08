@@ -310,6 +310,22 @@ impl<A: Operator, M: Preconditioner> Operator for RightPreconditioned<'_, A, M> 
     }
 }
 
+/// [`qmr_preconditioned`], each run of QMR on A M⁻¹ by `run`; x = M⁻¹ y here.
+///
+/// # Errors
+///
+/// As [`qmr_preconditioned`].
+pub(crate) fn qmr_preconditioned_by(
+    a: &impl Operator,
+    m: &impl Preconditioner,
+    b: &[c64],
+    stopping: Stopping,
+    run: Runner<'_>,
+) -> Result<(Vec<c64>, Convergence)> {
+    let (y, convergence) = restarted_by(&RightPreconditioned { a, m }, b, stopping, run)?;
+    Ok((m.solve(&y), convergence))
+}
+
 /// Solves A x = b by QMR on the right-preconditioned system A M⁻¹ y = b, x = M⁻¹ y: each
 /// iteration takes one product with A, one with Aᵀ, one M⁻¹ and one M⁻ᵀ. The residual it stops
 /// on is A x = b's own.
@@ -1329,6 +1345,41 @@ impl Ilu0 {
     pub(crate) fn with_sweeps(mut self, sweeps: usize) -> Ilu0 {
         self.sweeps = Some(sweeps.max(1));
         self
+    }
+
+    /// Its factors as a backend takes them: L's rows below the diagonal, and U's with their
+    /// diagonal (the inverse of the one kept here) first. The exact solves only: `None` with
+    /// Jacobi sweeps.
+    pub(crate) fn factors(&self) -> Option<crate::backend::IluFactors> {
+        if self.sweeps.is_some() {
+            return None;
+        }
+        let n = self.l.starts.len() - 1;
+        let lower = (
+            self.l.starts.clone(),
+            self.l.columns.clone(),
+            self.l.values.clone(),
+        );
+        let inverse = self.u.inverse_diagonal.as_ref()?;
+        let (mut starts, mut columns, mut values) = (vec![0], Vec::new(), Vec::new());
+        for (i, d) in inverse.iter().enumerate().take(n) {
+            columns.push(i);
+            values.push(c64::new(1.0, 0.0) / d);
+            let mut row: Vec<(usize, c64)> = (self.u.starts[i]..self.u.starts[i + 1])
+                .map(|k| (self.u.columns[k], self.u.values[k]))
+                .collect();
+            row.sort_by_key(|e| e.0);
+            for (j, v) in row {
+                columns.push(j);
+                values.push(v);
+            }
+            starts.push(columns.len());
+        }
+        Some(crate::backend::IluFactors {
+            n,
+            lower,
+            upper: (starts, columns, values),
+        })
     }
 }
 

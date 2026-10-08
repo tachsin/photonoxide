@@ -268,11 +268,26 @@ fn a_uniform_anisotropic_medium_carries_its_plane_waves_to_second_order() {
 
 #[test]
 fn the_leapfrogs_energy_is_conserved_with_the_off_diagonal_entries_at_the_nodes() {
-    let drift = tensor_energy_drift(Coupling::Nodes);
+    let drift = tensor_energy_drift(Coupling::Nodes, 300);
     assert!(drift < 1e-12, "{drift}");
     // at the points, ε̃⁻¹ isn't symmetric and nothing is conserved
-    let drift = tensor_energy_drift(Coupling::Points);
+    let drift = tensor_energy_drift(Coupling::Points, 300);
     assert!(drift > 1e-6, "{drift}");
+}
+
+#[test]
+fn the_nodes_refuse_an_inverse_permittivity_that_isnt_positive_definite() {
+    // conserved but not positive, the energy no longer bounds the fields (#209): ε = 50 grows
+    // by 10¹² in a thousand steps when let through
+    assert!(contrast_growth(50.0, 0, true).is_none());
+    assert!(contrast_growth(100.0, 0, true).is_none());
+    let grown = contrast_growth(50.0, 1000, false).unwrap();
+    assert!(grown > 1e6, "{grown}");
+    // below the contrast where it turns indefinite, bounded
+    for contrast in [12.0, 30.0] {
+        let grown = contrast_growth(contrast, 200, true).unwrap();
+        assert!(grown < 2.0, "{contrast}: {grown}");
+    }
 }
 
 #[test]
