@@ -540,3 +540,168 @@ fn the_coarsest_level_is_factorized_and_solved_by_its_backend() {
     );
     assert_eq!(recording.counts(), [1, 1, 1, 1]);
 }
+
+#[test]
+fn the_cycle_a_backend_takes_is_photonoxides_cycle() {
+    // the neutral form's cycle, run as its docs say, against the hierarchy's own, for each shape
+    let (grid, eps, current) = small(12, true);
+    let (lattice, eps, matrix, b) = system(grid, eps, Boundaries3d::stretched_pml(3), &current);
+    for (shape, pre, post) in [
+        (CycleShape::V, 0, 1),
+        (CycleShape::F, 1, 1),
+        (CycleShape::W, 1, 0),
+    ] {
+        let operator = shifted(&lattice, &eps, &matrix, 0.5);
+        let h = Hierarchy::new(&lattice, &eps, operator, options(shape, pre, post)).unwrap();
+        let cycle = h.cycle_for_backend().unwrap();
+        assert_eq!(cycle.levels().len() + 1, h.shapes().len());
+        assert_eq!(
+            (cycle.shape(), cycle.pre(), cycle.post()),
+            (shape, pre, post)
+        );
+        assert_eq!(cycle.restart(), 40);
+        let first = cycle.levels()[0];
+        assert_eq!(first.operator().rows(), grid.unknowns());
+        assert_eq!(first.smoother().n(), grid.unknowns());
+        let coarse = cycle
+            .levels()
+            .get(1)
+            .map_or(cycle.coarsest().rows(), |l| l.operator().rows());
+        assert_eq!(
+            (first.restriction().rows(), first.restriction().columns()),
+            (coarse, grid.unknowns())
+        );
+        assert_eq!(
+            (first.prolongation().rows(), first.prolongation().columns()),
+            (grid.unknowns(), coarse)
+        );
+        for v in [b.clone(), sequence(grid.unknowns(), 5)] {
+            let (theirs, ours) = (cycle.cycle(&v), h.solve(&v));
+            let d: Vec<c64> = theirs.iter().zip(&ours).map(|(p, q)| p - q).collect();
+            assert!(
+                norm(&d) < 1e-12 * norm(&ours),
+                "{shape:?}({pre}, {post}): {:e}",
+                norm(&d) / norm(&ours)
+            );
+        }
+        // the coarsest solve is photonoxide's, bit for bit
+        let c = sequence(cycle.coarsest().rows(), 9);
+        assert_eq!(cycle.coarsest_solve(&c).unwrap(), h.lu.solve(&c).unwrap());
+        // the smoother's factors are its blocks', in one numbering
+        let r = sequence(grid.unknowns(), 4);
+        let (theirs, ours) = (first.smoother().solve(&r), h.levels[0].smoother.solve(&r));
+        let d: Vec<c64> = theirs.iter().zip(&ours).map(|(p, q)| p - q).collect();
+        assert!(norm(&d) < 1e-12 * norm(&ours));
+    }
+}
+
+/// An iterative backend that runs GMRES with the cycle it is given, on the CPU and through the
+/// neutral form only, as a GPU's does; or, `qmr_only`, one that doesn't run it.
+struct CycleOnTheCpu {
+    qmr_only: bool,
+}
+
+struct Neutral<'a, 'b>(&'a crate::backend::MultigridCycle<'b>);
+
+impl Preconditioner for Neutral<'_, '_> {
+    fn solve(&self, v: &[c64]) -> Vec<c64> {
+        self.0.cycle(v)
+    }
+
+    fn solve_transpose(&self, _: &[c64]) -> Vec<c64> {
+        unreachable!("GMRES takes no transposes")
+    }
+}
+
+impl crate::backend::IterativeSolver for CycleOnTheCpu {
+    fn capabilities(&self) -> crate::backend::Capabilities {
+        let name = if self.qmr_only {
+            "qmr-only-for-tests"
+        } else {
+            "cycle-on-the-cpu"
+        };
+        crate::backend::Capabilities::new(name, "1", "MIT OR Apache-2.0")
+    }
+
+    fn qmr_run(
+        &self,
+        _: &crate::backend::Matrix<'_>,
+        _: &[c64],
+        _: Stopping,
+    ) -> Result<crate::backend::QmrRun> {
+        Err(Error::invalid("tests", "runs no QMR"))
+    }
+
+    fn runs_multigrid(&self) -> bool {
+        !self.qmr_only
+    }
+
+    fn gmres_multigrid(
+        &self,
+        matrix: crate::backend::RowMatrix<'_>,
+        cycle: &crate::backend::MultigridCycle<'_>,
+        b: &[c64],
+        stopping: Stopping,
+    ) -> Result<(Vec<c64>, crate::fdfd::Convergence)> {
+        let a = Sparse::from_rows(
+            (0..matrix.rows())
+                .map(|r| {
+                    (matrix.starts()[r]..matrix.starts()[r + 1])
+                        .map(|k| (matrix.indices()[k], matrix.values()[k]))
+                        .collect()
+                })
+                .collect(),
+        );
+        gmres_preconditioned(&a, &Neutral(cycle), b, stopping, cycle.restart())
+    }
+}
+
+#[test]
+fn a_backend_runs_gmres_with_the_multigrid_and_one_that_doesnt_is_refused() {
+    use crate::backend::{Choice, register_iterative};
+    use crate::fdfd::{Formulation, IterativeSolver3d};
+    for qmr_only in [false, true] {
+        register_iterative(std::sync::Arc::new(CycleOnTheCpu { qmr_only })).unwrap();
+    }
+    let (grid, eps, current) = small(14, true);
+    let new = || {
+        IterativeSolver3d::new(
+            grid,
+            Wavelength::um(1.55).unwrap(),
+            eps,
+            Boundaries3d::stretched_pml(3),
+            Formulation::ShinFan,
+        )
+        .unwrap()
+        .with_multigrid(options(CycleShape::V, 0, 1))
+        .unwrap()
+    };
+    let stop = Stopping {
+        tolerance: 1e-9,
+        max_iterations: 500,
+    };
+    let (ours, own) = new().solve(&current, stop).unwrap();
+    let solver = new()
+        .with_iterative_backend(&Choice::Named("cycle-on-the-cpu".into()))
+        .unwrap();
+    let (theirs, how) = solver.solve(&current, stop).unwrap();
+    // the same recurrences, with a cycle that differs from photonoxide's only in rounding
+    assert!(
+        how.iterations.abs_diff(own.iterations) <= 1,
+        "{} against {}",
+        how.iterations,
+        own.iterations
+    );
+    assert!(how.residual <= stop.tolerance, "{:e}", how.residual);
+    let d: Vec<c64> = (theirs.values().iter())
+        .zip(ours.values())
+        .map(|(p, q)| p - q)
+        .collect();
+    assert!(norm(&d) < 1e-6 * norm(ours.values()));
+    // a backend that doesn't run it is refused for the multigrid, saying why
+    let e = new()
+        .with_iterative_backend(&Choice::Named("qmr-only-for-tests".into()))
+        .err()
+        .unwrap();
+    assert!(e.to_string().contains("not GMRES with multigrid"), "{e}");
+}

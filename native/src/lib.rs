@@ -24,6 +24,7 @@
 mod cuda;
 mod cudss;
 mod discovery;
+mod gpu_multigrid;
 mod gpu_qmr;
 pub mod intel;
 mod library;

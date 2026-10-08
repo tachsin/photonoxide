@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/brand/banner.svg" alt="photonoxide: validated, fabrication-ready photonics for Rust" width="100%">
+  <img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/brand/banner.svg" alt="photonoxide: validated photonics for Rust" width="100%">
 </p>
 
 [![Crates.io](https://img.shields.io/crates/v/photonoxide.svg)](https://crates.io/crates/photonoxide)
@@ -10,7 +10,7 @@
 [![Validation](https://img.shields.io/badge/validation-report-ce422b)](docs/validation.md)
 [![Examples](https://img.shields.io/badge/examples-checked_against_papers-ce422b)](examples/README.md)
 
-**Photonics for Rust: validated, fabrication-ready, and visible while it runs.**
+**Photonics for Rust: validated, and visible while it runs.**
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/hero.gif" alt="The photonoxide studio: a silicon strip's first mode travelling along it in 3D as the camera orbits; a ring resonator's transmission spectrum building up point by point, then the ring lit at resonance in 3D; a Mach-Zehnder interferometer wired on the chip and its spectrum appearing" width="100%">
@@ -24,7 +24,7 @@ checked against an analytic solution or a published result, and the checks are c
 [validation report](docs/validation.md) that CI keeps current. The program, `photonoxide`, is a
 studio: a desktop window where you build jobs and chips, watch them run in 3D and 2D, and read
 the report. The plan goes on to FDTD, thermal and electro-optic modulators, inverse design,
-layout and tape-out; see the [roadmap](ROADMAP.md).
+layout export; see the [roadmap](ROADMAP.md).
 
 > **Released milestone by milestone** (the latest version is on the crates.io badge above, and
 > what each release changed is in [CHANGELOG.md](CHANGELOG.md)): materials, mode solvers, FDFD in
@@ -36,7 +36,7 @@ the methods, the examples with their output, the validation report and the roadm
 
 ## What you can do today
 
-In the 0.4.1 release:
+In the released versions (the latest on the crates.io badge above):
 
 - **Materials with provenance:** Sellmeier, Cauchy, Drude and Lorentz models with their source,
   validity range and temperature, and refractiveindex.info files read with theirs
@@ -57,8 +57,14 @@ In the 0.4.1 release:
   coupling](docs/methods/fields.md).
 - **FDFD:** [2D](docs/methods/fdfd.md) and [3D](docs/methods/fdfd-3d.md) on Yee's grid with
   stretched-coordinate PMLs and the scheme's exact power flux; in 2D, [mode ports and
-  S-parameters](docs/methods/fdfd-ports.md) and [adjoint gradients](docs/methods/fdfd-adjoint.md);
-  sparse direct solves (faer) and QMR, preconditioned by ILU(0) in 3D.
+  S-parameters](docs/methods/fdfd-ports.md) and [adjoint gradients](docs/methods/fdfd-adjoint.md).
+- **Fast solves on the whole CPU:** photonoxide's own multifrontal LU and complex symmetric
+  L D Lᵀ, ordered by nested dissection, at PARDISO's fill and 2 to 9 times faster than faer's LU
+  ([baselines](docs/baselines.md)); QMR, plain or with ILU(0), and its complex symmetric form at
+  twice the speed; GMRES preconditioned by multigrid for high-contrast 3D problems; sweeps solved
+  side by side; the same bits on any number of threads.
+- **Benchmarks:** `photonoxide bench` times fixed problems at a stated accuracy, with the memory
+  bandwidth each solve reaches against the machine's ([benchmarks](docs/benchmarks.md)).
 - **3D FDFD ports:** the grid's own full-vector port modes, one-way sources and a reciprocal
   S-matrix.
 - **Circuits:** [components](docs/methods/components.md) with ports, parameters, a fidelity and
@@ -78,14 +84,14 @@ In the 0.4.1 release:
   Tanaka's range (Ferrini 2002).
 - **Validation against measurement:** Dwivedi et al. 2015's Mach-Zehnder interferometers,
   predicted from their wires' measured cross-sections.
-- **Jobs and runs:** a job is a TOML file (`modes`, `fdfd` or `structure`), with light along x
-  in every kind; the check refuses what the run would refuse, before it starts; every run is
-  recorded as events and replays exactly.
+- **Jobs and runs:** a job is a TOML, JSON or YAML file (`modes`, `fdfd` or `structure`), with
+  light along x in every kind; the check refuses what the run would refuse, before it starts;
+  every run is recorded as events and replays exactly.
 
-Next, in 0.4.2: a stronger preconditioner for high-contrast 3D FDFD (multigrid that copes with
-PMLs), so a component's 3D fidelity takes minutes, and the whole CPU put to use (sweeps side by
-side, faster QMR kernels, nested dissection), as the [performance plan](docs/plans/performance.md)
-sets out.
+Next is 0.5: [FDTD](docs/methods/fdtd.md) in 2D and 3D (Yee's scheme, the convolutional PML,
+subpixel smoothing, dispersive media, sources and monitors), and solver backends loaded at run
+time when installed (oneMKL's PARDISO, NVIDIA cuDSS, and QMR on NVIDIA GPUs), each checked
+against photonoxide's own solvers, as the [backends plan](docs/plans/backends.md) sets out.
 
 [Getting started](docs/getting-started.md) goes from `cargo add` to a strip waveguide's modes.
 The API is on [docs.rs](https://docs.rs/photonoxide).
@@ -215,19 +221,21 @@ and CI checks their output too.
 | 0.3.1 – 0.3.3 The studio and materials | The studio as a workspace (examples inside, the job builder, run comparison, updates by one click); rings and 3D previews; the travelling mode in 3D, sweeps in the viewer, the report's math, every theme; the materials catalogue | ✅ released |
 | 0.4 Components and circuits | Components at several fidelities, netlists, the circuit adjoint, optimization through genoxide, compact models, Touchstone, 3D FDFD ports; the studio's component library and chip view | ✅ released |
 | 0.4.1 Polish | Light along x in every job, µm/nm, live sweeps, every page at 960 × 600, a job check that matches the run, bends at any radius, crystal tags and five catalogue gaps filled | ✅ released |
-| 0.4.2 A 3D preconditioner and the whole CPU | A stronger preconditioner for high-contrast 3D FDFD (multigrid), and the CPU's cores and bandwidth put to use | 🚧 next |
-| 0.5 FDTD | 2D and 3D Yee, CPML, subpixel smoothing, dispersive media, a GPU backend (wgpu) | planned |
+| 0.4.2 A 3D preconditioner and the whole CPU | A stronger preconditioner for high-contrast 3D FDFD (multigrid), and the CPU's cores and bandwidth put to use | ✅ released |
+| 0.4.3 Direct solves at PARDISO's fill | A multifrontal LU and L D Lᵀ, 2 to 9 times faster than faer's LU | ✅ released |
+| 0.5 FDTD | 2D and 3D Yee, CPML, subpixel smoothing, dispersive media, sources and monitors, a GPU backend (wgpu); solver backends loaded at run time (PARDISO, cuDSS, GPU QMR) | 🚧 next |
 | 0.5.1 Many solves at once | Block solves for ports, recycling across sweeps, contour-integral mode solvers, farming across processes | planned |
 | 0.6 Thermal and electro-optic | Heat and electrostatics, thermo-optic phase shifters, Pockels modulators (thin-film lithium niobate first), travelling-wave electrodes | planned |
+| 0.6.1 Nonlinear integrated optics | Transparency windows, phase matching (birefringent, QPM, modal), SHG, SFG, DFG, OPA, SPDC and FWM in waveguides, photon pairs, Kerr combs; on LiNbO₃, GaAs, AlGaAs, AlN, SiN and Si | planned |
 | 0.7 Inverse design | Adjoint topology and shape optimization, fabrication constraints, the 2D-to-3D pipeline, device and circuit co-design | planned |
 | 0.7.1 Distributed memory | Domain decomposition across processes and machines, results independent of their number | planned |
 | 0.8 Carrier modulators and signals | Drift-diffusion, plasma-dispersion modulators, time-domain circuits and eye diagrams, programmable meshes | planned |
-| 0.9 Layout and PDK | GDSII and OASIS, parametric cells, routing, DRC, SiEPIC EBeam and Cornerstone | planned |
-| 0.10 Tape-out | Submission packages, test structures, sign-off, openEBL and Cornerstone runs, measurements back | planned |
+| 0.9 Layout and PDK | GDSII and OASIS, parametric cells, routing, DRC on rules the user loads | planned |
+| 0.10 Fabrication data | Layout packages, test structures, design checks and a design record; measured spectra imported and compared | planned |
 | 0.11 Fabrication realism | Process variation, lithography proxies, corners, yield, circuit variability | planned |
 | 0.12 Semi-analytic | RCWA, eigenmode expansion, BPM | planned |
 | 0.13 Device library | Validated devices, each a component at several fidelities | planned |
-| 0.14 – 0.16 | Photonic crystals, metasurfaces, plasmonics, nonlinear and fiber optics, Kerr microcombs, quantum | planned |
+| 0.14 – 0.16 | Photonic crystals, metasurfaces, plasmonics, nonlinear FDTD and fiber optics, quantum | planned |
 | 1.0 | Stable API and the published validation report | planned |
 
 The details, with what each item measured, are in [ROADMAP.md](ROADMAP.md); what each release
@@ -240,7 +248,7 @@ structures, S4 for RCWA, Ceviche and SPINS for inverse design, KLayout for layou
 brings these tasks together in one toolkit, built around three things:
 
 - **Validated:** every solver checked against analytic solutions, published devices and established codes, with the results in a public report. Every reported number carries its convergence.
-- **Fabricable:** foundry design rules inside the optimization, and a tape-out package ready for a multi-project wafer run: GDSII or OASIS on the foundry's layers, DRC and connectivity checked, test structures included, and performance reported across process variation. The first target is SiEPIC openEBL, where photonoxide designs will be fabricated and measured.
+- **Fabrication-aware:** design rules inside the optimization, layouts exported as GDSII or OASIS with their design and connectivity checks and test structures, and performance reported across process variation.
 - **Visible:** a studio that shows modes, fields, spectra and, later, layouts and optimizations as they run. The command line and the studio run the same job, and every run replays.
 
 And underneath:

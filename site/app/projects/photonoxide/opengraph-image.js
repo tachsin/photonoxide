@@ -9,7 +9,7 @@ export default function Image() {
   return projectsOgImage({
     title: "photonoxide",
     description:
-      "Mode solvers, FDFD, FDTD, inverse design, layout and tape-out in one Rust library, with a studio to watch every run live. Validated and fabrication-ready.",
+      "Mode solvers, FDFD, FDTD, inverse design and layout in one Rust library, with a studio to watch every run live. Validated.",
     chips: ["Rust", "Validated", "MIT OR Apache-2.0"],
     footer: "tachsin.gr/projects/photonoxide",
   });

@@ -47,6 +47,18 @@ fn it_solves_the_3d_guides_with_ilu_as_photonoxide_does() {
     ]);
 }
 
+/// The guides by GMRES with photonoxide's multigrid, its cycle run on the GPU (stretched PMLs,
+/// to a residual of 1e-8).
+#[test]
+fn it_solves_the_3d_guides_with_multigrid_as_photonoxide_does() {
+    guides(&[
+        "fdfd3d-iterative/guide-multigrid-20",
+        "fdfd3d-iterative/guide-multigrid-30",
+        "fdfd3d-iterative/guide-multigrid-44",
+        "fdfd3d-iterative/guide-multigrid-68",
+    ]);
+}
+
 /// The guide of 44 cells a side too: over an hour, most of it its reference fields to 1e-12.
 #[test]
 #[ignore]
