@@ -6,6 +6,8 @@
   import { modeKind } from "../lib/events";
   import type { Series } from "../lib/plot";
   import { len } from "../lib/units";
+  import FdtdPlayer from "./FdtdPlayer.svelte";
+  import FdtdSpectra from "./FdtdSpectra.svelte";
   import Plot from "./Plot.svelte";
   import RasterView from "./RasterView.svelte";
   import UnitChip from "./UnitChip.svelte";
@@ -79,18 +81,30 @@
 </script>
 
 <div class="mx-auto max-w-6xl space-y-6 p-6">
-  {#if !run.pictures.length && !run.modes.length && !run.sweep && !run.fields.length && !run.sparams.length}
+  {#if !run.pictures.length && !run.modes.length && !run.sweep && !run.fields.length && !run.sparams.length && !run.frames.length && !Object.keys(run.spectra).length}
     <div class="grid h-64 place-items-center text-sm faint">
       {run.finished ? "This run recorded nothing to plot." : "Waiting for the first results…"}
     </div>
   {/if}
 
-  {#if field || modes.length}
+  {#if field || modes.length || run.frames.length}
     <label class="flex cursor-pointer items-center justify-end gap-2 text-xs faint" title="Draw the shapes' edges over the pictures of fields, to tell inside from outside where the field is dark">
       <input type="checkbox" class="checkbox checkbox-xs" bind:checked={outlined} />
       structure outline on the fields
     </label>
   {/if}
+
+  {#if run.frames.length || run.progress}
+    <section class="panel p-5">
+      <h3 class="mb-1 font-semibold">Field <span class="font-normal faint">· in time, seen from above</span></h3>
+      <p class="mb-3 text-xs faint">
+        {run.frames[0]?.field.startsWith("|") ? "from zero (black) to the scale's top (pale yellow)" : "red where positive, blue where negative, dark at zero"}; frames averaged over blocks of cells, fewer as the run goes on
+      </p>
+      <FdtdPlayer outline={above} />
+    </section>
+  {/if}
+
+  <FdtdSpectra />
 
   {#if field}
     <section class="panel p-5">

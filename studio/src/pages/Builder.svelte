@@ -19,6 +19,7 @@
   } from "@lucide/svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
 
+  import FdtdItems from "../components/FdtdItems.svelte";
   import GeometryPreview, { type Selection } from "../components/GeometryPreview.svelte";
   import NumField from "../components/NumField.svelte";
   import OptField from "../components/OptField.svelte";
@@ -28,7 +29,7 @@
   import { ago, api, formatOf, KINDS, type JobCheck, type JobFormat, type JobItem } from "../lib/api";
   import { app, startRun, toast } from "../lib/app.svelte";
   import { catalog, loadCatalog, modelOf } from "../lib/catalog.svelte";
-  import { along, cells, fromModel, previewWindow, STACKS, template, toToml, turn, type JobModel, type Kind } from "../lib/job";
+  import { along, cells, fromModel, layerSpan, previewWindow, STACKS, template, toToml, turn, type JobModel, type Kind } from "../lib/job";
   import { lenUnit } from "../lib/units";
 
   let model = $state<JobModel>(template("modes"));
@@ -169,6 +170,8 @@
   const nameOk = $derived(/^[A-Za-z0-9._-]+$/.test(model.name));
   const grid = $derived(cells(model));
   const layers = $derived(STACKS[model.stack].layers);
+  /** An fdtd job's axes with ends to choose: x and y, and z in 3D. */
+  const sideAxes = $derived<readonly ("x" | "y" | "z")[]>(model.dimensions === 3 ? ["x", "y", "z"] : ["x", "y"]);
 
   async function save() {
     try {
@@ -218,6 +221,13 @@
     const t = template(kind);
     model.kind = kind;
     if (kind === "fdfd" && !model.port.length) model.port = t.port;
+    if (kind === "fdtd") {
+      // a wavelength sweep becomes the spectrum; the sources and monitors start as the template's, in this window
+      if (model.sweep?.parameter === "wavelength" && !model.spectrum) model.spectrum = { from_um: model.sweep.from, to_um: model.sweep.to, points: model.sweep.points };
+      if (!model.source.length) model.source = t.source.map((s) => ({ ...s, at_um: Number((model.x_um[0] + 0.25 * (model.x_um[1] - model.x_um[0])).toFixed(3)) }));
+      if (!model.monitor.length) model.monitor = t.monitor.map((s) => (s.type === "mode" ? { ...s, at_um: Number((model.x_um[1] - 0.25 * (model.x_um[1] - model.x_um[0])).toFixed(3)) } : s));
+      model.sweep = null;
+    }
     if (kind === "structure") model.sweep = null;
     // an fdfd job sweeps only the wavelength: a width sweep's widths aren't wavelengths, so it
     // becomes a sweep of ±50 nm about the job's own
@@ -230,7 +240,7 @@
     // the same device in the same box: the light goes along x in an fdfd job, so a modes job
     // along y turns to x on the way there (its modes stay the same), and a job that becomes a
     // modes job cuts its cross-section inside the box it had
-    if (kind === "fdfd" && along(model) === "y") turn(model, "x");
+    if ((kind === "fdfd" || kind === "fdtd") && along(model) === "y") turn(model, "x");
     if (kind === "modes") {
       model.propagation ??= "x";
       const [span, cut] = along(model) === "x" ? [model.x_um, model.cut_x_um] : [model.y_um, model.cut_y_um];
@@ -290,7 +300,7 @@
       <div class="dropdown w-full">
         <div tabindex="0" role="button" class="btn btn-primary btn-sm w-full gap-1.5"><Plus size={15} /> New job <ChevronDown size={14} /></div>
         <ul tabindex="-1" class="dropdown-content menu z-30 mt-1 w-64 rounded-box border border-base-content/10 bg-base-100 p-2 shadow-xl">
-          {#each ["modes", "fdfd", "structure"] as const as kind (kind)}
+          {#each ["modes", "fdfd", "fdtd", "structure"] as const as kind (kind)}
             <li>
               <button class="flex flex-col items-start gap-0" onclick={() => load(toToml(template(kind)), null)}>
                 <span class="font-medium">{KINDS[kind].label}</span><span class="text-xs faint">{KINDS[kind].about}</span>
@@ -353,8 +363,8 @@
 
       <fieldset class="space-y-3">
         <legend class="panel-title mb-2">Kind</legend>
-        <div class="grid grid-cols-3 gap-2">
-          {#each ["modes", "fdfd", "structure"] as const as kind (kind)}
+        <div class="grid grid-cols-2 gap-2 @xl:grid-cols-4">
+          {#each ["modes", "fdfd", "fdtd", "structure"] as const as kind (kind)}
             <button
               class="rounded-xl border px-3 py-2.5 text-left transition-colors {model.kind === kind ? 'border-primary bg-primary/8' : 'border-base-content/10 hover:border-base-content/25'}"
               onclick={() => setKind(kind)}
@@ -402,8 +412,23 @@
           <OptField label="Core" length="nm" bind:value={model.core_nm} step={10} hint="The guiding layer's thickness" />
           <OptField label="Bottom oxide" length="um" bind:value={model.bottom_oxide_um} step={0.1} hint="The buried oxide under the core" />
         {/if}
-        <NumField label="Wavelength" length="um" bind:value={model.wavelength_um} step={0.01} hint="In vacuum; {lenUnit(1.55)} is the C band" />
-        {#if model.kind === "fdfd"}
+        <NumField
+          label="Wavelength"
+          length="um"
+          bind:value={model.wavelength_um}
+          step={0.01}
+          hint={model.kind === "fdtd" ? "The pulse's carrier, in vacuum; the materials are taken here (the run is non-dispersive)" : `In vacuum; ${lenUnit(1.55)} is the C band`}
+        />
+        {#if model.kind === "fdtd"}
+          <label class="flex flex-col gap-1">
+            <span class="text-xs font-medium text-base-content/70">Dimensions</span>
+            <select class="select select-sm w-full" bind:value={model.dimensions} title="2D: the layer's plane, each point's index its slab mode's (an estimate). 3D: the stack itself, much slower">
+              <option value={2}>2D, the layer's plane</option>
+              <option value={3}>3D, the stack</option>
+            </select>
+          </label>
+        {/if}
+        {#if model.kind === "fdfd" || (model.kind === "fdtd" && model.dimensions === 2)}
           <label class="flex flex-col gap-1">
             <span class="text-xs font-medium text-base-content/70">Polarization</span>
             <select class="select select-sm w-full" bind:value={model.polarization} title="The slab mode's polarization: TE is H along z in the 2D problem">
@@ -449,6 +474,37 @@
         {#if model.kind === "fdfd"}
           <OptField label="PML" unit="cells" bind:value={model.pml_cells} step={1} hint="Absorbing cells on each side, inside the window (20 by default)" placeholder="20" />
           <OptField label="Field at" length="um" bind:value={model.field_um} step={0.001} hint="The field is recorded at the swept wavelength nearest this: a resonance, say. The first wavelength by default." placeholder="first" />
+        {:else if model.kind === "fdtd"}
+          <OptField label="CPML" unit="cells" bind:value={model.pml_cells} step={1} hint="The convolutional PML's cells at each end of an axis that has one, inside the window (20 by default)" placeholder="20" />
+          <OptField label="Courant number" bind:value={model.courant} step={0.05} hint="The time step, C/√(Σ 1/Δ²): stable up to 1 (0.9 by default)" placeholder="0.9" />
+          {#each sideAxes as a (a)}
+            <label class="flex flex-col gap-1">
+              <span class="text-xs font-medium text-base-content/70">Ends along {a}</span>
+              <select class="select select-sm w-full" bind:value={model.boundaries[a]} title="What is beyond the window's ends along {a}">
+                <option value={null}>CPML (absorbing)</option>
+                <option value="wall">walls (perfect conductor)</option>
+                <option value="periodic">periodic</option>
+              </select>
+            </label>
+          {/each}
+          {#if model.dimensions === 3}
+            <label class="col-span-2 flex items-center gap-1.5 text-xs faint">
+              <input
+                type="checkbox"
+                class="toggle toggle-xs"
+                checked={model.z_um !== null}
+                onchange={(e) => {
+                  const [a, b] = layerSpan(model);
+                  model.z_um = (e.currentTarget as HTMLInputElement).checked ? [Number((a - 1).toFixed(3)), Number((b + 1).toFixed(3))] : null;
+                }}
+              />
+              own height (1 µm below and above the layer by default)
+            </label>
+            {#if model.z_um}
+              <NumField label="z from" length="um" bind:value={model.z_um[0]} step={0.1} hint="Heights from the stack's bottom: the substrate is below 0" />
+              <NumField label="z to" length="um" bind:value={model.z_um[1]} step={0.1} />
+            {/if}
+          {/if}
         {:else if model.kind === "structure"}
           <OptField label="Side view at y" length="um" bind:value={model.side_y_um} step={0.1} placeholder="0" hint="Where the side view cuts" />
         {/if}
@@ -553,7 +609,70 @@
         </fieldset>
       {/if}
 
-      {#if model.kind !== "structure"}
+      {#if model.kind === "fdtd"}
+        <fieldset class="space-y-2">
+          <legend class="panel-title mb-2">Sources</legend>
+          <p class="text-xs faint">Every source shares one Gaussian pulse on the carrier, wide enough to cover the spectrum. Each is drawn in the top view (orange).</p>
+          <FdtdItems bind:model which="source" bind:selection />
+        </fieldset>
+        <fieldset class="space-y-2">
+          <legend class="panel-title mb-2">Monitors</legend>
+          <p class="text-xs faint">What the run measures, referred to the sources' incident power; drawn in the top view (blue). The decay is judged at their middles.</p>
+          <FdtdItems bind:model which="monitor" bind:selection />
+        </fieldset>
+        <fieldset class="space-y-3">
+          <legend class="panel-title mb-2 flex w-full items-center gap-2">
+            Spectrum
+            <input
+              type="checkbox"
+              class="toggle toggle-xs toggle-primary"
+              checked={model.spectrum !== null}
+              onchange={(e) =>
+                (model.spectrum = (e.currentTarget as HTMLInputElement).checked ? { from_um: Number((model.wavelength_um - 0.05).toFixed(3)), to_um: Number((model.wavelength_um + 0.05).toFixed(3)), points: 21 } : null)}
+            />
+          </legend>
+          {#if model.spectrum}
+            <div class="grid grid-cols-3 gap-2">
+              <NumField label="from" length="um" bind:value={model.spectrum.from_um} step={0.01} />
+              <NumField label="to" length="um" bind:value={model.spectrum.to_um} step={0.01} />
+              <NumField label="points" bind:value={model.spectrum.points} integer step={1} min={1} hint="The monitors' wavelengths, all from the one pulse: more points cost little" />
+            </div>
+          {:else}
+            <p class="text-xs faint">The monitors report the carrier alone. Turn the spectrum on for a band, all from the one pulse.</p>
+          {/if}
+        </fieldset>
+        <fieldset class="grid grid-cols-2 gap-3">
+          <legend class="panel-title mb-2">Run length and view</legend>
+          <label class="flex flex-col gap-1">
+            <span class="text-xs font-medium text-base-content/70">Runs until</span>
+            <select class="select select-sm w-full" bind:value={model.stop.until}>
+              <option value="decay">the field decays</option>
+              <option value="time">a time</option>
+            </select>
+          </label>
+          {#if model.stop.until === "decay"}
+            <OptField label="Decayed below" bind:value={model.stop.fraction} step={1e-9} placeholder="1e-8" hint="|field|² at the monitors' middles, as a share of its peak, over ten carrier periods" />
+            <OptField label="At most" unit="µm/c" bind:value={model.stop.limit_um} step={100} placeholder="2000" hint="The longest the run may go on, c·t in µm (1 µm/c is 3.34 fs)" />
+          {:else}
+            <OptField label="For" unit="µm/c" bind:value={model.stop.time_um} step={50} placeholder="500" hint="c·t in µm (1 µm/c is 3.34 fs)" />
+          {/if}
+          <label class="flex flex-col gap-1">
+            <span class="text-xs font-medium text-base-content/70">Frames show</span>
+            <select class="select select-sm w-full" bind:value={model.view.field} title="The field the live frames show">
+              <option value={null}>the default ({model.dimensions === 3 ? "E_y" : model.polarization === "te" ? "H_z" : "E_z"})</option>
+              {#each model.dimensions === 3 ? ["Ex", "Ey", "Ez", "Hx", "Hy", "Hz"] : model.polarization === "te" ? ["Ex", "Ey", "Hz"] : ["Ez", "Hx", "Hy"] as c (c)}<option value={c}>{c[0]}_{c.slice(1)}</option>{/each}
+              <option value="|E|^2">|E|²</option>
+              <option value="|H|^2">|H|²</option>
+            </select>
+          </label>
+          <OptField label="A frame every" unit="µm/c" bind:value={model.view.every_um} step={0.1} placeholder="auto" hint="At first; the interval doubles as the run goes on, and when frames take more than a tenth of its time" />
+          {#if model.dimensions === 3}
+            <OptField label="View at z" length="um" bind:value={model.view.z_um} step={0.01} placeholder="layer" hint="The plane the frames show, seen from above: the layer's middle by default" />
+          {/if}
+        </fieldset>
+      {/if}
+
+      {#if model.kind !== "structure" && model.kind !== "fdtd"}
         <fieldset class="space-y-3">
           <legend class="panel-title mb-2 flex w-full items-center gap-2">
             Sweep
@@ -660,6 +779,11 @@
         {#if model.kind === "fdfd"}
           <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-success"></span>ports</span>
           <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm border border-warning/50 bg-warning/20"></span>PML</span>
+        {/if}
+        {#if model.kind === "fdtd"}
+          <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-warning"></span>sources</span>
+          <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-info"></span>monitors</span>
+          <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm border border-warning/50 bg-warning/20"></span>CPML</span>
         {/if}
         {#if model.kind === "modes"}<span class="flex items-center gap-1.5"><span class="h-0.5 w-3 bg-accent"></span>cross-section</span>{/if}
         <span>seen from above, x across, y up</span>

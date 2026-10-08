@@ -53,8 +53,8 @@
 //!   377 (1908), doi:10.1002/andp.19083300302), written from his paper: FDTD's spheres are
 //!   checked against it.
 //!
-//! Every update is a sum over a fixed stencil with no reduction, its z-planes shared among
-//! rayon's threads: the fields are the same bits on any number of threads.
+//! Every update is a sum over a fixed stencil with no reduction, its rows shared among
+//! rayon's threads (a 2D grid's too): the fields are the same bits on any number of threads.
 
 use num_complex::Complex64 as c64;
 use rayon::prelude::*;
@@ -430,6 +430,48 @@ impl Simulation {
             for component in Axis::ALL {
                 let values: Vec<f64> = (0..n)
                     .into_iter()
+                    .map(|r| {
+                        let (i, j, k) = (
+                            r % grid.nx,
+                            (r / grid.nx) % grid.ny,
+                            r / (grid.nx * grid.ny),
+                        );
+                        let p = grid.e_position(component, (i, j, k));
+                        averaged(&complex, p, h, component, SAMPLES).re
+                    })
+                    .collect();
+                if let Some(bad) = values.iter().find(|v| !ok(**v)) {
+                    return Err(invalid(format!(
+                        "the permittivity must be finite and positive, got {bad}"
+                    )));
+                }
+                eps_e[component.index()] = values;
+            }
+            Ok(eps_e)
+        })
+    }
+
+    /// [`Simulation::new`] with the permittivity's samples taken on rayon's threads, each value's
+    /// average alone, so the same bits on any number of threads: for a permittivity that takes
+    /// a while to evaluate at each of a value's 512 samples, as a job's layer stack does.
+    ///
+    /// # Errors
+    ///
+    /// As [`Simulation::new`].
+    pub(crate) fn new_parallel(
+        grid: Grid3d,
+        eps: impl Fn(f64, f64, f64) -> f64 + Sync,
+        boundaries: Boundaries,
+        courant: f64,
+    ) -> Result<Simulation> {
+        Simulation::with_permittivity(grid, boundaries, courant, |grid| {
+            let ok = |v: f64| v.is_finite() && v > 0.0;
+            let h = [grid.dx, grid.dy, grid.dz];
+            let complex = |x: f64, y: f64, z: f64| c64::new(eps(x, y, z), 0.0);
+            let mut eps_e: [Vec<f64>; 3] = [Vec::new(), Vec::new(), Vec::new()];
+            for component in Axis::ALL {
+                let values: Vec<f64> = (0..grid.cells())
+                    .into_par_iter()
                     .map(|r| {
                         let (i, j, k) = (
                             r % grid.nx,

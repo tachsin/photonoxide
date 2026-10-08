@@ -1,7 +1,7 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
 import { api, type AppState, type Info, type Settings } from "./api";
-import type { Event, Field, Mode, ModeField, Permittivity, Scene, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
+import type { Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Mode, ModeField, Permittivity, Scene, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
 
@@ -156,6 +156,16 @@ export const run = $state({
   solver: null as Solver | null,
   /** Each solve's numerical error, in the order recorded. */
   errors: [] as SolveError[],
+  /** An FDTD run's frames of its field, in time order. */
+  frames: [] as FdtdFrame[],
+  /** An FDTD run's latest progress. */
+  progress: null as FdtdProgress | null,
+  /** An FDTD run's latest spectrum of each monitor, by its name, in the order first recorded. */
+  spectra: {} as Record<string, FdtdSpectrum>,
+  /** An FDTD run's resonances, one record per resonance monitor. */
+  resonances: [] as FdtdResonances[],
+  /** The FDTD frame shown, or null to follow the latest. */
+  frame: null as number | null,
   finished: null as { stopped: string | null; seconds: number } | null,
   problem: null as string | null,
   stoppable: false,
@@ -283,6 +293,18 @@ function take(e: Event) {
     case "solve_error":
       run.errors.push(e);
       break;
+    case "fdtd_frame":
+      run.frames.push(e);
+      break;
+    case "fdtd_progress":
+      run.progress = e;
+      break;
+    case "fdtd_spectrum":
+      run.spectra[e.monitor] = e;
+      break;
+    case "fdtd_resonances":
+      run.resonances.push(e);
+      break;
     case "finished":
       run.finished = { stopped: e.stopped, seconds: e.seconds };
       break;
@@ -310,6 +332,11 @@ function reset(info: Info) {
     sparams: [],
     solver: null,
     errors: [],
+    frames: [],
+    progress: null,
+    spectra: {},
+    resonances: [],
+    frame: null,
     finished: null,
     problem: null,
     stoppable: false,

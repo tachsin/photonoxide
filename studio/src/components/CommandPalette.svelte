@@ -71,6 +71,7 @@
       ...pages.map(([p, label]) => ({ group: "Go to", label, run: () => go(p) })),
       { group: "Actions", label: "New modes job", detail: "a waveguide's modes", run: () => newJob("modes") },
       { group: "Actions", label: "New FDFD job", detail: "a device with ports", run: () => newJob("fdfd") },
+      { group: "Actions", label: "New FDTD job", detail: "a structure in time, its field live", run: () => newJob("fdtd") },
       { group: "Actions", label: "New structure job", detail: "pictures of a layout", run: () => newJob("structure") },
       { group: "Actions", label: "New circuit", detail: "an empty chip", run: () => newChip() },
       { group: "Actions", label: "Simulate the circuit", detail: "the chip being edited (Ctrl+Enter there)", run: () => chipAction(simulate) },

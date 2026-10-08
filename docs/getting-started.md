@@ -183,6 +183,8 @@ photonoxide run jobs/strip-modes.toml           # a strip's modes, and a sweep o
 photonoxide run jobs/strip-width-sweep.toml     # ... or over its width
 photonoxide run jobs/mmi-fdfd.toml              # a 1x2 splitter by 2D FDFD: its S-parameters
 photonoxide run jobs/ring-fdfd.toml             # an all-pass ring's spectrum by 2D FDFD
+photonoxide run jobs/mmi-fdtd.toml              # the splitter by 2D FDTD: its field live, its spectra
+photonoxide run jobs/ring-fdtd.toml             # the ring by 2D FDTD: its spectrum and its resonances' Q
 ```
 
 A job file is TOML, JSON or YAML, by its extension (`.toml`, `.json`, `.yaml` or `.yml`), the
