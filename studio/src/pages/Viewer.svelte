@@ -372,7 +372,7 @@
           <dd class="num">{p.step.toLocaleString()}</dd>
           <dt class="faint">field left</dt>
           <dd class="num" title="The largest |field|² at the monitors' middles since the last frame, over its peak: what the run's stopping rule watches">
-            {p.decay.toExponential(1)}{#if p.fraction !== null}<span class="faint"> of the peak, stops below {p.fraction.toExponential(0)}</span>{/if}
+            {p.decay.toExponential(1)}{#if p.fraction !== null}{" "}<span class="faint">of the peak, stops below {p.fraction.toExponential(0)}</span>{/if}
           </dd>
           <dt class="faint">speed</dt>
           <dd class="num" title="Cells times steps over the time the steps took">{(p.cell_updates_per_second / 1e6).toFixed(1)} M cell-steps/s</dd>

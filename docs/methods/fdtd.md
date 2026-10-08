@@ -938,6 +938,12 @@ carrier:
   demand): each output's power within 4.3e-4 of FDFD's at 1.55 µm and 1.1e-3 at 1.6 µm, the
   reflection within 2.5e-4, over 1.5 to 1.6 µm.
 
+A ring of 1.5 µm beside its bus, 2D TE on 40 nm cells (`a_rings_resonances_are_where_its_bus_dips`):
+harmonic inversion of the field in the ring finds a resonance within one of the spectrum's
+2.5 nm steps of the bus's deepest dip, Q about 690. Harmonic inversion takes the field every
+quarter period of the band's highest frequency, at most 4000 samples: a whole run's steps,
+tens of thousands, make its powers of the eigenvalues run away.
+
 These are 2D numbers by the effective index method, and non-dispersive: they check the job
 against FDFD on the same discrete problem, not the device's 3D performance.
 

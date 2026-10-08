@@ -42,6 +42,8 @@
   let canvas: HTMLCanvasElement | undefined = $state();
   let bar: HTMLCanvasElement | undefined = $state();
   let readout: string | null = $state(null);
+  /** The picture's height on screen, which the colour bar matches. */
+  let pictureHeight = $state(200);
 
   $effect(() => {
     const f = current;
@@ -127,9 +129,9 @@
 <svelte:window onkeydown={keys} />
 
 {#if current}
-  <div class="flex items-stretch gap-3">
+  <div class="flex items-start gap-3">
     <div class="min-w-0 flex-1">
-      <div class="relative w-full" style="aspect-ratio: {aspect}; max-height: {maxHeight}px; max-width: {maxHeight * aspect}px">
+      <div class="relative w-full" bind:clientHeight={pictureHeight} style="aspect-ratio: {aspect}; max-height: {maxHeight}px; max-width: {maxHeight * aspect}px">
         <canvas bind:this={canvas} class="block h-full w-full rounded-md border border-base-content/10" onpointermove={move} onpointerleave={() => (readout = null)}></canvas>
         {#if outline}
           <svg
@@ -152,7 +154,7 @@
     </div>
     <div class="flex w-16 shrink-0 flex-col items-start gap-1 text-[10.5px] faint num">
       <span title="The scale's top, in the field's units (the sources' currents at unit amplitude)">{top.toExponential(1)}</span>
-      <canvas bind:this={bar} width="1" height="256" class="w-3 flex-1 rounded-sm border border-base-content/10" style="max-height: {maxHeight - 40}px"></canvas>
+      <canvas bind:this={bar} width="1" height="256" class="w-3 rounded-sm border border-base-content/10" style="height: {Math.max(pictureHeight - 36, 40)}px"></canvas>
       <span>{squared(current) ? "0" : (-top).toExponential(1)}</span>
     </div>
   </div>

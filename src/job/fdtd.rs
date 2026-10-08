@@ -59,6 +59,9 @@ const PROGRESS_SECONDS: f64 = 1.0;
 /// ten times what they take), and at the end.
 const SPECTRA_SECONDS: f64 = 2.0;
 
+/// The samples of a resonance monitor's field harmonic inversion takes at most.
+const RESONANCE_SAMPLES: usize = 4000;
+
 /// The modes solved on a port's plane, among which the job's polarization is picked.
 const PORT_MODES: usize = 4;
 
@@ -2423,25 +2426,39 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                         setup.carrier + 0.5 * setup.bandwidth,
                     )
                 };
+                // the field is narrow-band, the step oversamples it many times over: every
+                // q-th sample, four a period of the band's highest frequency, and at most
+                // RESONANCE_SAMPLES of them, which harmonic inversion takes without its powers
+                // of the eigenvalues running away
+                let q = ((0.25 / (hi * dt)).floor() as usize).max(1);
+                let signal: Vec<c64> = signal
+                    .iter()
+                    .step_by(q)
+                    .take(RESONANCE_SAMPLES)
+                    .copied()
+                    .collect();
                 let resonances = if signal.len() >= 8 {
                     harmonic_inversion(
                         &signal,
-                        dt,
+                        dt * q as f64,
                         Frequency::natural(lo)?,
                         Frequency::natural(hi)?,
                     )?
                 } else {
                     Vec::new()
                 };
+                // the terms the signal holds (a spurious one's error is large, and its
+                // amplitude may be any size), decaying, and not lost in the largest's noise
+                let held = |r: &&crate::fdtd::Resonance| r.error < 1e-2 && r.decay > 0.0;
                 let largest = resonances
                     .iter()
+                    .filter(held)
                     .map(|r| r.amplitude.norm())
                     .fold(0.0, f64::max);
                 let found = resonances
                     .iter()
-                    .filter(|r| {
-                        r.error < 1e-2 && r.amplitude.norm() > 1e-6 * largest && r.decay > 0.0
-                    })
+                    .filter(held)
+                    .filter(|r| r.amplitude.norm() > 1e-6 * largest)
                     .map(|r| FoundResonance {
                         wavelength_um: 1.0 / r.frequency,
                         frequency: r.frequency,
@@ -3049,5 +3066,77 @@ side = "right"
         );
         // 4.3e-4 at the carrier, 1.1e-3 at the band's edge
         assert!(worst < 1.5e-3 && back < 5e-4, "{worst} {back}");
+    }
+
+    /// A ring of 1.5 µm beside its bus, 2D TE on 40 nm cells: harmonic inversion of the field
+    /// in the ring finds its resonances where the bus's transmission, by its transforms, dips.
+    #[test]
+    fn a_rings_resonances_are_where_its_bus_dips() {
+        let text = r#"
+name = "small-ring"
+[task]
+kind = "fdtd"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+x_um = [-3.0, 3.0]
+y_um = [-2.6, 2.6]
+step_nm = 40.0
+pml_cells = 12
+[task.spectrum]
+from_um = 1.5
+to_um = 1.6
+points = 41
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, -1.7]
+size_um = [8.0, 0.5]
+[[task.ring]]
+layer = "Si"
+center_um = [0.0, 0.4]
+radius_um = 1.5
+width_um = 0.5
+[[task.source]]
+type = "mode"
+normal = "x"
+at_um = -2.0
+y_um = [-2.6, -0.9]
+[[task.monitor]]
+type = "mode"
+name = "through"
+normal = "x"
+at_um = 1.8
+y_um = [-2.6, -0.9]
+[[task.monitor]]
+type = "resonance"
+name = "ring"
+position_um = [0.0, 1.9]
+[task.stop]
+until = "time"
+time_um = 800.0
+"#;
+        let events = run_job(text, "ring");
+        let (wavelengths, through) = last_spectrum(&events, "through");
+        let found = events
+            .iter()
+            .find_map(|e| match e {
+                Event::FdtdResonances { resonances, .. } => Some(resonances.clone()),
+                _ => None,
+            })
+            .unwrap();
+        assert!(!found.is_empty());
+        // the deepest dip, and a resonance within a step of the spectrum of it, its Q a ring's
+        let deepest = (0..through.len())
+            .min_by(|&a, &b| through[a].total_cmp(&through[b]))
+            .unwrap();
+        assert!(through[deepest] < 0.5, "{through:?}");
+        let near = found
+            .iter()
+            .find(|r| (r.wavelength_um - wavelengths[deepest]).abs() < 2.5e-3)
+            .unwrap_or_else(|| panic!("{found:?} against a dip at {}", wavelengths[deepest]));
+        assert!(
+            near.q > 100.0 && near.q < 1e4 && near.error < 1e-5,
+            "{near:?}"
+        );
     }
 }
