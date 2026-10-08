@@ -113,6 +113,51 @@ pub(crate) fn rotation([alpha, beta, gamma]: [f64; 3]) -> [[f64; 3]; 3] {
     product(z(gamma), product(x(beta), z(alpha)))
 }
 
+/// How a check takes the structure's ε̃⁻¹: by a [`Smoothing`], or by Bauer, Werner and Cary's
+/// 2011 triplet tensors as they are, not made symmetric (second order but not stable).
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Scheme {
+    Smoothed(Smoothing),
+    Accurate,
+}
+
+impl From<Smoothing> for Scheme {
+    fn from(smoothing: Smoothing) -> Scheme {
+        Scheme::Smoothed(smoothing)
+    }
+}
+
+impl From<Coupling> for Scheme {
+    fn from(coupling: Coupling) -> Scheme {
+        Scheme::Smoothed(Smoothing {
+            coupling,
+            ..Smoothing::default()
+        })
+    }
+}
+
+impl Scheme {
+    /// The simulation, checked as [`Simulation::smoothed`] checks it when `checked`.
+    pub(crate) fn build(
+        self,
+        grid: Grid3d,
+        structure: &Structure,
+        boundaries: Boundaries,
+        courant: f64,
+        checked: bool,
+    ) -> Result<Simulation> {
+        match self {
+            Scheme::Smoothed(s) if checked => {
+                Simulation::smoothed(grid, structure, s, boundaries, courant)
+            }
+            Scheme::Smoothed(s) => {
+                Simulation::smoothed_unchecked(grid, structure, s, boundaries, courant)
+            }
+            Scheme::Accurate => Simulation::triplets(grid, structure, boundaries, courant, false),
+        }
+    }
+}
+
 /// A run for the modes of a lattice of period 1 µm, periodic (k = 0) on a box of `periods`
 /// periods along x, y and z (0 along z: a 2D lattice, one cell thick).
 pub(crate) struct Lattice<'a> {
@@ -133,7 +178,7 @@ pub(crate) struct Lattice<'a> {
 impl Lattice<'_> {
     /// The harmonics of E_z, H̃_z and E_x at three points on `n` cells a period, by
     /// `smoothing`, the Courant number 0.99, sampled 16 times a period of the carrier.
-    pub(crate) fn modes(&self, smoothing: Smoothing, n: usize) -> Vec<Harmonic> {
+    pub(crate) fn modes(&self, scheme: impl Into<Scheme>, n: usize) -> Vec<Harmonic> {
         let h = 1.0 / n as f64;
         let [px, py, pz] = self.periods;
         let size = [n * px, n * py, (n * pz).max(1)];
@@ -155,8 +200,9 @@ impl Lattice<'_> {
             z: p,
             cpml: Cpml::default(),
         };
-        let mut s =
-            Simulation::smoothed(grid, self.structure, smoothing, boundaries, 0.99).unwrap();
+        let mut s = (scheme.into())
+            .build(grid, self.structure, boundaries, 0.99, true)
+            .unwrap();
         // points at fixed fractions of the box, whatever n
         let at = |f: [f64; 3]| {
             let c = |a: usize| ((f[a] * size[a] as f64) as usize).min(size[a] - 1);
@@ -222,8 +268,8 @@ impl Lattice<'_> {
     }
 
     /// The frequency (c/µm) of the harmonic nearest `target` on `n` cells a period.
-    pub(crate) fn frequency(&self, smoothing: Smoothing, n: usize, target: f64) -> f64 {
-        nearest(&self.modes(smoothing, n), target)
+    pub(crate) fn frequency(&self, scheme: impl Into<Scheme>, n: usize, target: f64) -> f64 {
+        nearest(&self.modes(scheme, n), target)
     }
 }
 
@@ -241,7 +287,11 @@ pub(crate) fn nearest(modes: &[Harmonic], target: f64) -> f64 {
 /// cells of `h` µm along z; its reflection read from the scattered field in front of the
 /// total-field/scattered-field box: r_xx and r_yx at 0.8, 1 and 1.2 c/µm, the reflected field
 /// over the incident one at the slab's face. Returns each frequency's (r_xx, r_yx).
-pub(crate) fn slab_reflection(h: f64, eps: Permittivity, smoothing: Smoothing) -> Vec<[c64; 2]> {
+pub(crate) fn slab_reflection(
+    h: f64,
+    eps: Permittivity,
+    scheme: impl Into<Scheme>,
+) -> Vec<[c64; 2]> {
     let (za, thickness) = (1.0137, 0.3);
     let cells = |x: f64| (x / h).round() as usize;
     let cpml = cells(0.5);
@@ -276,7 +326,9 @@ pub(crate) fn slab_reflection(h: f64, eps: Permittivity, smoothing: Smoothing) -
         cpml: Cpml::default(),
     };
     let courant = 0.9;
-    let mut s = Simulation::smoothed(g, &structure, smoothing, boundaries, courant).unwrap();
+    let mut s = (scheme.into())
+        .build(g, &structure, boundaries, courant, true)
+        .unwrap();
     let wave = s
         .add_plane_wave(PlaneWave {
             low: (0, 0, low),
@@ -351,8 +403,8 @@ pub(crate) fn slab_exact(eps: Permittivity) -> Vec<[c64; 2]> {
 }
 
 /// The largest difference between the measured and the exact reflection.
-pub(crate) fn slab_error(h: f64, eps: Permittivity, smoothing: Smoothing) -> f64 {
-    let measured = slab_reflection(h, eps, smoothing);
+pub(crate) fn slab_error(h: f64, eps: Permittivity, scheme: impl Into<Scheme>) -> f64 {
+    let measured = slab_reflection(h, eps, scheme);
     let exact = slab_exact(eps);
     measured
         .iter()
@@ -426,7 +478,7 @@ pub(crate) fn tilted_layers_exact([p, q]: [f64; 2], guess: f64) -> f64 {
 
 /// The relative error of the tilted layers' (n = (1, 2)/√5) lowest mode along them, on `n`
 /// cells a micrometre with `smoothing`, against [`tilted_layers_exact`].
-pub(crate) fn oblique(smoothing: Smoothing, n: usize) -> f64 {
+pub(crate) fn oblique(scheme: impl Into<Scheme>, n: usize) -> f64 {
     let structure = tilted_layers([1.0, 2.0]);
     let lattice = Lattice {
         structure: &structure,
@@ -438,12 +490,12 @@ pub(crate) fn oblique(smoothing: Smoothing, n: usize) -> f64 {
         time: 30.0,
     };
     let exact = tilted_layers_exact([1.0, 2.0], 0.8857);
-    (lattice.frequency(smoothing, n, exact) - exact) / exact
+    (lattice.frequency(scheme, n, exact) - exact) / exact
 }
 
 /// Oskooi et al.'s anisotropic lattice's lowest mode at k = (½, 0) 2π/µm (two periods along x),
 /// c/µm, on `n` cells a period with `smoothing`.
-pub(crate) fn oskooi(smoothing: Smoothing, n: usize) -> f64 {
+pub(crate) fn oskooi(smoothing: impl Into<Scheme>, n: usize) -> f64 {
     let structure = anisotropic_lattice([2, 1]);
     let lattice = Lattice {
         structure: &structure,
@@ -469,7 +521,7 @@ pub(crate) fn tensor_energy_drift(coupling: Coupling, steps: usize) -> f64 {
     .unwrap();
     let structure =
         Structure::new(Permittivity::isotropic(2.0).unwrap()).with(ellipsoid, tilted_crystal());
-    let mut s = Simulation::smoothed(
+    let s = Simulation::smoothed(
         g,
         &structure,
         Smoothing {
@@ -480,6 +532,13 @@ pub(crate) fn tensor_energy_drift(coupling: Coupling, steps: usize) -> f64 {
         0.95,
     )
     .unwrap();
+    drift(s, steps)
+}
+
+/// A simulation whose tensor couples E's components, from random D and H̃: the leapfrog's
+/// ½ Σ E·D + ½ Σ H̃⁻·H̃⁺ over `steps` steps, its largest change relative to it.
+pub(crate) fn drift(mut s: Simulation, steps: usize) -> f64 {
+    let g = s.grid;
     for c in 0..3 {
         for r in 0..g.cells() {
             s.anisotropic.as_mut().unwrap().d[c][r] = noise(r + 7 * c);
@@ -511,28 +570,20 @@ pub(crate) fn tensor_energy_drift(coupling: Coupling, steps: usize) -> f64 {
 /// run relative to the first, or `None` where [`Simulation::smoothed`] refuses the ellipsoid,
 /// its ε̃⁻¹ not positive definite; or without that check when not `checked`.
 pub(crate) fn contrast_growth(contrast: f64, steps: usize, checked: bool) -> Option<f64> {
-    let g = grid([20, 18, 16], 0.05);
-    let ellipsoid = Body::ellipsoid(
-        [0.02, -0.01, 0.0],
-        [0.31, 0.22, 0.19],
-        rotation([0.3, 0.7, 0.2]),
-    )
-    .unwrap();
-    let structure = Structure::new(Permittivity::isotropic(1.0).unwrap())
-        .with(ellipsoid, Permittivity::isotropic(contrast).unwrap());
-    let build = if checked {
-        Simulation::smoothed
-    } else {
-        Simulation::smoothed_unchecked
-    };
-    let mut s = build(
-        g,
-        &structure,
-        Smoothing::default(),
-        Boundaries::walls(),
-        0.99,
-    )
-    .ok()?;
+    contrast_growth_with(Coupling::Nodes, contrast, steps, checked)
+}
+
+/// As [`contrast_growth`], ε̃⁻¹ by `scheme`.
+pub(crate) fn contrast_growth_with(
+    scheme: impl Into<Scheme>,
+    contrast: f64,
+    steps: usize,
+    checked: bool,
+) -> Option<f64> {
+    let (g, structure) = contrast_box(contrast);
+    let mut s = (scheme.into())
+        .build(g, &structure, Boundaries::walls(), 0.99, checked)
+        .ok()?;
     for c in 0..3 {
         for r in 0..g.cells() {
             s.anisotropic.as_mut().unwrap().d[c][r] = noise(r + 7 * c);
@@ -558,4 +609,297 @@ pub(crate) fn contrast_growth(contrast: f64, steps: usize, checked: bool) -> Opt
         largest = largest.max(ratio);
     }
     Some(largest)
+}
+
+/// [`contrast_growth`]'s box: 20 × 18 × 16 cells of 50 nm, an isotropic ellipsoid of ε =
+/// `contrast` at an angle to the grid in vacuum.
+fn contrast_box(contrast: f64) -> (Grid3d, Structure) {
+    let g = grid([20, 18, 16], 0.05);
+    let ellipsoid = Body::ellipsoid(
+        [0.02, -0.01, 0.0],
+        [0.31, 0.22, 0.19],
+        rotation([0.3, 0.7, 0.2]),
+    )
+    .unwrap();
+    let structure = Structure::new(Permittivity::isotropic(1.0).unwrap())
+        .with(ellipsoid, Permittivity::isotropic(contrast).unwrap());
+    (g, structure)
+}
+
+/// [`drift`] in [`contrast_growth`]'s box, at Courant number 0.99, ε̃⁻¹ by `scheme`.
+pub(crate) fn contrast_drift(scheme: impl Into<Scheme>, contrast: f64, steps: usize) -> f64 {
+    let (g, structure) = contrast_box(contrast);
+    let s = (scheme.into())
+        .build(g, &structure, Boundaries::walls(), 0.99, true)
+        .unwrap();
+    drift(s, steps)
+}
+
+/// A 2D lattice of period 1 µm, `periods` along x and y, on `n` cells a period, one cell thick
+/// and periodic (k = 0), stepped at Courant number 0.99; checked as [`Simulation::smoothed`]
+/// checks it when `checked`.
+pub(crate) fn lattice_simulation(
+    scheme: impl Into<Scheme>,
+    structure: &Structure,
+    periods: [usize; 2],
+    n: usize,
+    checked: bool,
+) -> Result<Simulation> {
+    let h = 1.0 / n as f64;
+    let g = Grid3d {
+        nx: n * periods[0],
+        ny: n * periods[1],
+        nz: 1,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: 0.0,
+        y0: 0.0,
+        z0: 0.0,
+    };
+    let p = Edges::Bloch { k: 0.0 };
+    let boundaries = Boundaries {
+        x: p,
+        y: p,
+        z: p,
+        cpml: Cpml::default(),
+    };
+    (scheme.into()).build(g, structure, boundaries, 0.99, checked)
+}
+
+/// Farjadpour et al.'s lattice (Opt. Lett. 31, 2972 (2006), Fig. 1, as `examples/subpixel_holes`
+/// reads it): elliptical air holes 0.19 × 0.14 of the period, the long axis 53° from x, in ε =
+/// 12, `periods` along x and y.
+pub(crate) fn hole_lattice(periods: [usize; 2]) -> Structure {
+    let mut s = Structure::new(Permittivity::isotropic(12.0).unwrap());
+    for i in 0..periods[0] {
+        for j in 0..periods[1] {
+            let centre = [i as f64 + 0.5, j as f64 + 0.5];
+            let hole = Body::ellipse(centre, [0.19, 0.14], 53f64.to_radians()).unwrap();
+            s = s.with(hole, Permittivity::isotropic(1.0).unwrap());
+        }
+    }
+    s
+}
+
+/// Werner, Bauer and Cary's 2D lattice (J. Comput. Phys. 255, 436 (2013), Sec. 5): a square
+/// lattice of isotropic discs of ε = `eps` and radius 0.37 of the period in vacuum.
+pub(crate) fn disc_lattice(eps: f64) -> Structure {
+    let disc = Body::ellipse([0.5, 0.5], [0.37, 0.37], 0.0).unwrap();
+    Structure::new(Permittivity::isotropic(1.0).unwrap())
+        .with(disc, Permittivity::isotropic(eps).unwrap())
+}
+
+/// How fast a run grows: one period of [`disc_lattice`] on `n` cells, from random D and H̃, for
+/// `time` periods/c or until ‖E‖ has grown by 10²⁰⁰: the largest ‖E‖ relative to the first,
+/// and where it has grown by 10²⁰ the rate of growth from there on (c/a, the least-squares
+/// slope of ln ‖E‖), as Werner et al. measure their wc07's.
+pub(crate) fn disc_growth(
+    scheme: impl Into<Scheme>,
+    eps: f64,
+    n: usize,
+    time: f64,
+) -> (f64, Option<f64>) {
+    let structure = disc_lattice(eps);
+    let mut s = lattice_simulation(scheme, &structure, [1, 1], n, false).unwrap();
+    let g = s.grid;
+    for c in 0..3 {
+        for r in 0..g.cells() {
+            s.anisotropic.as_mut().unwrap().d[c][r] = noise(r + 7 * c);
+            s.h[c][r] = noise(r + 13 * c + 100_000);
+        }
+    }
+    let size = |s: &Simulation| {
+        Axis::ALL
+            .iter()
+            .map(|&c| s.e(c).iter().map(|v| v * v).sum::<f64>())
+            .sum::<f64>()
+            .sqrt()
+    };
+    s.run(1);
+    let first = size(&s);
+    let every = ((0.1 / s.dt()).ceil() as usize).max(1);
+    let mut largest: f64 = 1.0;
+    let mut grown: Vec<(f64, f64)> = Vec::new();
+    while s.time() < time {
+        s.run(every);
+        let ratio = size(&s) / first;
+        if !ratio.is_finite() {
+            break;
+        }
+        largest = largest.max(ratio);
+        if ratio > 1e20 {
+            grown.push((s.time(), ratio.ln()));
+        }
+        if ratio > 1e200 {
+            break;
+        }
+    }
+    let rate = (grown.len() >= 3).then(|| {
+        let m = grown.len() as f64;
+        let (sx, sy) = grown
+            .iter()
+            .fold((0.0, 0.0), |(a, b), (x, y)| (a + x, b + y));
+        let (sxx, sxy) = grown
+            .iter()
+            .fold((0.0, 0.0), |(a, b), (x, y)| (a + x * x, b + x * y));
+        (m * sxy - sx * sy) / (m * sxx - sx * sx)
+    });
+    (largest, rate)
+}
+
+/// Bauer, Werner and Cary's photonic crystal (J. Comput. Phys. 230, 2060 (2011), Sec. 4.3):
+/// an orthorhombic lattice of 1.2 × 1.5 × 1.8 µm, an ellipsoid of semi-axes 0.45, 0.60 and 0.75
+/// µm along the lattice vectors turned by π/8 about x, then π/9 about y, then π/10 about z, of
+/// ε = R diag(8, 10, 12) Rᵀ, R = R_z(π/6) R_y(π/5) R_x(π/4) with R_a(θ) the passive rotation (the
+/// reading under which the bands converge to their Table 1), in vacuum, its centre off the
+/// nodes; the images that reach the cell from the 26 cells about it too.
+pub(crate) fn ellipsoid_crystal() -> Structure {
+    let turn = |axis: usize, t: f64| -> Matrix {
+        let (s, c) = t.sin_cos();
+        let (a, b) = ((axis + 1) % 3, (axis + 2) % 3);
+        let mut m = [[0.0; 3]; 3];
+        m[axis][axis] = 1.0;
+        m[a][a] = c;
+        m[b][b] = c;
+        m[a][b] = -s;
+        m[b][a] = s;
+        m
+    };
+    let pi = std::f64::consts::PI;
+    let r_body = product(
+        &turn(2, pi / 10.0),
+        &product(&turn(1, pi / 9.0), &turn(0, pi / 8.0)),
+    );
+    // the tensor's R as the passive rotations, R_a(θ) our turn by −θ: the one reading of the
+    // paper's two rotations (active or passive, each) whose nine bands all converge to its
+    // Table 1 (the others miss bands by 1 to 4 %)
+    let r_eps = product(
+        &turn(2, -pi / 6.0),
+        &product(&turn(1, -pi / 5.0), &turn(0, -pi / 4.0)),
+    );
+    // the principal axes are the rotated grid axes: the columns
+    let columns =
+        |r: &Matrix| -> Matrix { std::array::from_fn(|i| std::array::from_fn(|k| r[k][i])) };
+    let eps = Permittivity::principal([8.0, 10.0, 12.0], columns(&r_eps)).unwrap();
+    let cell = [1.2, 1.5, 1.8];
+    let semi = [0.45, 0.60, 0.75];
+    let axes = columns(&r_body);
+    let centre = [0.6137, 0.7419, 0.8853];
+    // the ellipsoid's half-extent along each grid axis
+    let extent: [f64; 3] = std::array::from_fn(|k| {
+        (0..3)
+            .map(|i| (semi[i] * axes[i][k]).powi(2))
+            .sum::<f64>()
+            .sqrt()
+    });
+    let mut s = Structure::new(Permittivity::isotropic(1.0).unwrap());
+    for a in -1..=1 {
+        for b in -1..=1 {
+            for c in -1..=1 {
+                let shift = [a as f64 * cell[0], b as f64 * cell[1], c as f64 * cell[2]];
+                let at: [f64; 3] = std::array::from_fn(|k| centre[k] + shift[k]);
+                let reaches =
+                    (0..3).all(|k| at[k] + extent[k] > -0.1 && at[k] - extent[k] < cell[k] + 0.1);
+                if reaches {
+                    s = s.with(Body::ellipsoid(at, semi, axes).unwrap(), eps);
+                }
+            }
+        }
+    }
+    s
+}
+
+/// Bauer et al.'s Table 1: the crystal's nine lowest bands at k = 0 by Richardson's
+/// extrapolation of their own (second-order) results at N = 96 and 128, c/|a₁|.
+pub(crate) const ELLIPSOID_BANDS: [f64; 9] = [
+    0.32300245, 0.35626134, 0.37826015, 0.38601562, 0.40978571, 0.42944672, 0.44031804, 0.47125309,
+    0.48171559,
+];
+
+/// [`ellipsoid_crystal`]'s modes at k = 0 on `n` cells along each lattice vector (cells of
+/// 1.2/n × 1.5/n × 1.8/n µm, as Bauer et al.'s), by `scheme`: E point currents at three points,
+/// a pulse over the nine bands, the harmonics of four probes over 400 µm/c; each band of
+/// [`ELLIPSOID_BANDS`] matched to the nearest frequency found, c/|a₁|, the leapfrog's own
+/// frequency error taken out (sin(ωΔt/2) = Ω Δt/2).
+pub(crate) fn ellipsoid_bands(scheme: impl Into<Scheme>, n: usize) -> Vec<f64> {
+    let cell = [1.2, 1.5, 1.8];
+    let g = Grid3d {
+        nx: n,
+        ny: n,
+        nz: n,
+        dx: cell[0] / n as f64,
+        dy: cell[1] / n as f64,
+        dz: cell[2] / n as f64,
+        x0: 0.0,
+        y0: 0.0,
+        z0: 0.0,
+    };
+    let p = Edges::Bloch { k: 0.0 };
+    let boundaries = Boundaries {
+        x: p,
+        y: p,
+        z: p,
+        cpml: Cpml::default(),
+    };
+    let structure = ellipsoid_crystal();
+    let mut s = (scheme.into())
+        .build(g, &structure, boundaries, 0.99, true)
+        .unwrap();
+    let at = |f: [f64; 3]| {
+        let c = |a: usize| ((f[a] * n as f64) as usize).min(n - 1);
+        (c(0), c(1), c(2))
+    };
+    // the bands from 0.27 to 0.40 c/µm
+    let (carrier, bandwidth) = (0.335, 0.25);
+    let waveform = Waveform::pulse(Frequency::natural(carrier).unwrap(), bandwidth).unwrap();
+    for (component, f) in [
+        (Axis::X, [0.13, 0.71, 0.37]),
+        (Axis::Y, [0.62, 0.27, 0.81]),
+        (Axis::Z, [0.83, 0.58, 0.22]),
+    ] {
+        s.add_source(Source {
+            field: Field::E,
+            component,
+            at: at(f),
+            waveform,
+        })
+        .unwrap();
+    }
+    let probes: Vec<usize> = [
+        (Field::E, Axis::Z, [0.31, 0.12, 0.64]),
+        (Field::H, Axis::Z, [0.77, 0.43, 0.09]),
+        (Field::E, Axis::X, [0.21, 0.89, 0.47]),
+        (Field::H, Axis::Y, [0.52, 0.66, 0.93]),
+    ]
+    .into_iter()
+    .map(|(field, component, f)| s.add_probe(field, component, at(f)).unwrap())
+    .collect();
+    let Waveform::Gaussian { delay, .. } = waveform else {
+        unreachable!("a pulse is a Gaussian")
+    };
+    let start = (2.0 * delay / s.dt()).ceil() as usize;
+    let steps = ((2.0 * delay + 400.0) / s.dt()).ceil() as usize;
+    s.run(steps);
+    // 8 samples a period of the highest band, which stays below the Nyquist frequency
+    let every = ((1.0 / 0.42 / 8.0 / s.dt()).floor() as usize).max(1);
+    let signals: Vec<Vec<f64>> = probes
+        .iter()
+        .map(|&q| s.probe(q)[start..].iter().step_by(every).copied().collect())
+        .collect();
+    let dt = s.dt();
+    let found: Vec<f64> = harmonics(&signals, every as f64 * dt)
+        .iter()
+        .map(|m| (2.0 / dt * (m.omega * dt / 2.0).sin()) / std::f64::consts::TAU * cell[0])
+        .collect();
+    ELLIPSOID_BANDS
+        .iter()
+        .map(|&b| {
+            found
+                .iter()
+                .copied()
+                .min_by(|x, y| (x - b).abs().total_cmp(&(y - b).abs()))
+                .unwrap_or(f64::NAN)
+        })
+        .collect()
 }

@@ -974,7 +974,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdtd/smoothing-oblique-nodes",
             title: r"FDTD's subpixel smoothing at the same oblique layers with the off-diagonal entries at the nodes (`Coupling::Nodes`, the default), 128 cells a µm: the mode's frequency against the transfer matrices (relative difference shown)",
             tier: Tier::Analytic,
-            source: r"the same exact frequency; first order: each row of $\tilde\varepsilon^{-1}$ mixes cells about different points (G. Werner, J. R. Cary, J. Comput. Phys. 226, 1085 (2007), as A. F. Oskooi, C. Kottke, S. G. Johnson, Opt. Lett. 34, 2778 (2009), doi:10.1364/OL.34.002778, Fig. 1, place them); measured 2.0e-3, against 2.1e-4 with the entries at the points",
+            source: r"the same exact frequency; first order: each row of $\tilde\varepsilon^{-1}$ mixes cells about different points (G. R. Werner, J. R. Cary, J. Comput. Phys. 226, 1085 (2007), doi:10.1016/j.jcp.2007.05.008, Eq. 39, as A. F. Oskooi, C. Kottke, S. G. Johnson, Opt. Lett. 34, 2778 (2009), doi:10.1364/OL.34.002778, Fig. 1, place them); measured 2.0e-3, against 2.1e-4 with the entries at the points",
             run: fdtd_smoothing_oblique_nodes,
         },
         Case {
@@ -997,6 +997,62 @@ pub fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: r"A. F. Oskooi, C. Kottke, S. G. Johnson, Opt. Lett. 34, 2778 (2009), doi:10.1364/OL.34.002778, Fig. 2: the new smoothing has the lowest error, often by an order of magnitude. Against the mean of $s = 1$ and $s = 2$ at 64 cells (which converge from either side), 0.159381 c/µm: 2.3e-4 smoothed, 4.5e-3 harmonic mean, 3.7e-3 none; but 2.5e-4 for the mean $\langle\varepsilon\rangle$, which their figure has 6 times the new one's (not reproduced here: at this $k$ and with our axes the mean is as good)",
             run: fdtd_smoothing_oskooi,
+        },
+        Case {
+            id: "fdtd/smoothing-triplets-oblique",
+            title: r"FDTD's subpixel smoothing at the oblique layers above ($\varepsilon = 12$ and 1 at 26.6° to the grid, 128 cells a µm) with $\tilde\varepsilon^{-1}$ from each node's eight triplets (`Coupling::Triplets`): the mode's frequency against the transfer matrices (relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"the same exact frequency, 0.885677 c/µm; G. R. Werner, C. A. Bauer, J. R. Cary, J. Comput. Phys. 255, 436 (2013), doi:10.1016/j.jcp.2013.08.009 (Secs. 4 and 7), each triplet's tensor C. A. Bauer, G. R. Werner, J. R. Cary's (J. Comput. Phys. 230, 2060 (2011), doi:10.1016/j.jcp.2010.12.005) made symmetric. First order, as Werner et al. find every symmetric effective dielectric: error times $n$ $-0.38$, $-0.23$, $-0.15$, $-0.14$ at $n$ = 16 to 128; measured 1.06e-3, about half the nodes' 2.0e-3",
+            run: fdtd_smoothing_triplets_oblique,
+        },
+        Case {
+            id: "fdtd/smoothing-triplets-order",
+            title: r"The order of convergence at the oblique layers with `Coupling::Triplets`, from 64 to 128 cells a µm: $\log_2$ of the ratio of the errors (shown)",
+            tier: Tier::Analytic,
+            source: r"against the transfer matrices; first order, as Werner, Bauer and Cary (2013) find for every symmetric effective dielectric at sharp interfaces (their Figs. 4, 7, 8: second order at coarse grids, first beyond a resolution that falls as the contrast rises); measured 1.15",
+            run: fdtd_smoothing_triplets_order,
+        },
+        Case {
+            id: "fdtd/smoothing-bauer-order",
+            title: r"The order of convergence at the oblique layers with Bauer, Werner and Cary's triplet tensors as they are, not made symmetric (a check, not a `Coupling`: not stable), from 64 to 128 cells a µm (shown)",
+            tier: Tier::Analytic,
+            source: r"C. A. Bauer, G. R. Werner, J. R. Cary, J. Comput. Phys. 230, 2060 (2011), doi:10.1016/j.jcp.2010.12.005: exact for constant fields at a plane interface, hence second order, but not symmetric; error times $n^2$ $-5.7$, $-5.7$, $-6.3$, $-6.9$ at 16 to 128 cells, 4.2e-4 at 128; measured order 1.87. Making them symmetric is what costs the order",
+            run: fdtd_smoothing_bauer_order,
+        },
+        Case {
+            id: "fdtd/smoothing-triplets-contrast",
+            title: r"`Coupling::Triplets` at high contrast: the closed box of `fdtd/smoothing-contrast` with the ellipsoid at $\varepsilon = 100$, where the nodes' $\tilde\varepsilon^{-1}$ isn't positive definite, random D and H at Courant number 0.99, $10^5$ steps: the largest change of $\tfrac12\sum E\cdot D + \tfrac12\sum \tilde H^{n-1/2}\cdot\tilde H^{n+1/2}$ relative to it (shown), and $\lVert E\rVert$ bounded",
+            tier: Tier::Analytic,
+            source: r"Werner, Bauer and Cary (2013), Sec. 4: $\tilde\varepsilon^{-1}$ the mean of eight block-diagonal matrices of symmetric positive-definite 3 × 3 blocks, so symmetric and positive definite at any contrast, and the leapfrog's energy, conserved, bounds the fields; measured: energy to 1e-14 and $\lVert E\rVert$ at most 1.1 times its first",
+            run: fdtd_smoothing_triplets_contrast,
+        },
+        Case {
+            id: "fdtd/smoothing-triplets-lattices",
+            title: r"`Coupling::Triplets` over long runs where Farjadpour et al.'s placement grows: one period of the elliptical holes in $\varepsilon = 12$ and one of Oskooi et al.'s anisotropic lattice, 16 cells a period, random D and H, $10^5$ steps each: the larger change of the leapfrog's energy relative to it (shown)",
+            tier: Tier::Analytic,
+            source: r"symmetric, so the energy is conserved to round-off; `Coupling::Points` grows by $10^3$ over $4 \times 10^5$ steps in the holes and by $10^{16}$ within $2 \times 10^4$ in the anisotropic lattice (docs/methods/fdtd.md); measured 4.3e-15 and 5.0e-15",
+            run: fdtd_smoothing_triplets_lattices,
+        },
+        Case {
+            id: "fdtd/smoothing-wc07-growth",
+            title: r"Werner and Cary's 2007 scheme (`Coupling::Nodes`, let through unchecked) unstable at high contrast: a square lattice of isotropic discs of $\varepsilon = 100$, radius $0.37a$, in vacuum, TE, 32 cells a period, from random fields: the rate $\gamma$ at which $\lVert E\rVert$ grows as $e^{\gamma t}$, c/a (shown); 64 cells too, and `Coupling::Triplets` bounded at both",
+            tier: Tier::Published,
+            source: r"G. R. Werner, C. A. Bauer, J. R. Cary, J. Comput. Phys. 255, 436 (2013), doi:10.1016/j.jcp.2013.08.009, Sec. 5: at contrast 100, $\gamma \approx 3c/a$ on $32^2$ cells and $\approx 6c/a$ on $64^2$; measured 2.85 and 6.11. Their contrast-60 case ($\gamma \approx 0.5c/a$ on $64^2$) isn't reproduced: no growth here over $3000a/c$ (the disc's place on the grid isn't given). The triplets stay within 1.1 times the first $\lVert E\rVert$",
+            run: fdtd_smoothing_wc07_growth,
+        },
+        Case {
+            id: "fdtd/smoothing-crystal",
+            title: r"`Coupling::Triplets` in Bauer, Werner and Cary's 3D photonic crystal: an orthorhombic lattice ($1.2 \times 1.5 \times 1.8$ µm) of ellipsoids (semi-axes 0.45, 0.60, 0.75 µm, turned) of an anisotropic tensor (principal values 8, 10, 12, turned) in vacuum, 48 cells along each lattice vector: the nine lowest bands at $k = 0$ against their Table 1 (largest relative difference shown)",
+            tier: Tier::Published,
+            source: r"C. A. Bauer, G. R. Werner, J. R. Cary, J. Comput. Phys. 230, 2060 (2011), doi:10.1016/j.jcp.2010.12.005, Sec. 4.3 and Table 1 (Richardson's extrapolation of their second-order frequency-domain results at 96 and 128 cells); their tensor's rotations read as passive, the one reading of the two under which all nine bands converge to the table. Measured 1.1e-3 to 1.8e-3 by band with the triplets, 1.4e-3 to 2.3e-3 with the nodes",
+            run: fdtd_smoothing_crystal,
+        },
+        Case {
+            id: "fdtd/smoothing-crystal-order",
+            title: r"The same crystal with Bauer et al.'s triplet tensors as they are (not symmetric; a run of 400 µm/c, before round-off grows): the order of convergence of the nine bands' RMS error against their Table 1 from 32 to 48 cells (shown)",
+            tier: Tier::Published,
+            source: r"Bauer, Werner and Cary (2011), Fig. 8: second order; measured 1.98, the RMS error 1.2e-3 at 48 cells",
+            run: fdtd_smoothing_crystal_order,
         },
         Case {
             id: "fdtd/monitor-transforms",
@@ -2236,6 +2292,162 @@ fn fdtd_smoothing_oskooi() -> Outcome {
         // "often by 1 order of magnitude": measured 0.063
         tolerance: 0.1,
         error: measured,
+    }
+}
+
+fn fdtd_smoothing_triplets_oblique() -> Outcome {
+    use crate::fdtd::Coupling;
+    let measured = crate::fdtd::smoothing::checks::oblique(Coupling::Triplets, 128).abs();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // first order: measured 1.06e-3 at 128 cells a µm
+        tolerance: 1.6e-3,
+        error: measured,
+    }
+}
+
+/// log₂ of the oblique layers' error at 64 cells a µm over that at 128, by `scheme`.
+fn oblique_order(scheme: crate::fdtd::smoothing::checks::Scheme) -> f64 {
+    let (coarse, fine) = rayon::join(
+        || crate::fdtd::smoothing::checks::oblique(scheme, 64),
+        || crate::fdtd::smoothing::checks::oblique(scheme, 128),
+    );
+    (coarse / fine).abs().log2()
+}
+
+fn fdtd_smoothing_triplets_order() -> Outcome {
+    let measured = oblique_order(crate::fdtd::Coupling::Triplets.into());
+    Outcome {
+        measured,
+        expected: 1.0,
+        // first order: measured 1.15
+        tolerance: 0.35,
+        error: (measured - 1.0).abs(),
+    }
+}
+
+fn fdtd_smoothing_bauer_order() -> Outcome {
+    let measured = oblique_order(crate::fdtd::smoothing::checks::Scheme::Accurate);
+    Outcome {
+        measured,
+        expected: 2.0,
+        // second order: measured 1.87
+        tolerance: 0.3,
+        error: (measured - 2.0).abs(),
+    }
+}
+
+fn fdtd_smoothing_triplets_contrast() -> Outcome {
+    use crate::fdtd::Coupling;
+    use crate::fdtd::smoothing::checks::{contrast_drift, contrast_growth_with};
+    let (drift, grown) = rayon::join(
+        || contrast_drift(Coupling::Triplets, 100.0, 100_000),
+        || contrast_growth_with(Coupling::Triplets, 100.0, 100_000, true),
+    );
+    let bounded = grown.is_some_and(|g| g < 2.0);
+    Outcome {
+        measured: drift,
+        expected: 0.0,
+        // round-off over 10⁵ steps, and ‖E‖ bounded
+        tolerance: 1e-12,
+        error: if bounded { drift } else { f64::INFINITY },
+    }
+}
+
+fn fdtd_smoothing_triplets_lattices() -> Outcome {
+    use crate::fdtd::Coupling;
+    use crate::fdtd::smoothing::checks::{
+        anisotropic_lattice, drift, hole_lattice, lattice_simulation,
+    };
+    let run = |structure: crate::fdtd::Structure| {
+        let s = lattice_simulation(Coupling::Triplets, &structure, [1, 1], 16, true)
+            .expect("the lattice");
+        drift(s, 100_000)
+    };
+    let (holes, anisotropic) = rayon::join(
+        || run(hole_lattice([1, 1])),
+        || run(anisotropic_lattice([1, 1])),
+    );
+    let measured = holes.max(anisotropic);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // round-off: measured 4.3e-15 and 5.0e-15 over 10⁵ steps
+        tolerance: 1e-12,
+        error: measured,
+    }
+}
+
+fn fdtd_smoothing_wc07_growth() -> Outcome {
+    use crate::fdtd::Coupling;
+    use crate::fdtd::smoothing::checks::disc_growth;
+    use rayon::prelude::*;
+    let runs = [
+        (Coupling::Nodes, 32),
+        (Coupling::Nodes, 64),
+        (Coupling::Triplets, 32),
+        (Coupling::Triplets, 64),
+    ];
+    let found: Vec<(f64, Option<f64>)> = runs
+        .par_iter()
+        .map(|&(coupling, n)| disc_growth(coupling, 100.0, n, 300.0))
+        .collect();
+    let rate = |q: usize| found[q].1.unwrap_or(0.0);
+    let measured = rate(0);
+    // the paper's "≈ 3" and "≈ 6", to a fifth; the triplets bounded
+    let fine = (rate(1) - 6.0).abs() < 1.2;
+    let bounded = found[2].0 < 2.0 && found[3].0 < 2.0;
+    Outcome {
+        measured,
+        expected: 3.0,
+        // measured 2.85 (32 cells) and 6.11 (64)
+        tolerance: 0.6,
+        error: if fine && bounded {
+            (measured - 3.0).abs()
+        } else {
+            f64::INFINITY
+        },
+    }
+}
+
+fn fdtd_smoothing_crystal() -> Outcome {
+    use crate::fdtd::Coupling;
+    use crate::fdtd::smoothing::checks::{ELLIPSOID_BANDS, ellipsoid_bands};
+    let bands = ellipsoid_bands(Coupling::Triplets, 48);
+    let measured = bands
+        .iter()
+        .zip(ELLIPSOID_BANDS)
+        .map(|(f, r)| ((f - r) / r).abs())
+        .fold(0.0, f64::max);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // measured 1.8e-3 at 48 cells
+        tolerance: 3e-3,
+        error: measured,
+    }
+}
+
+fn fdtd_smoothing_crystal_order() -> Outcome {
+    use crate::fdtd::smoothing::checks::{ELLIPSOID_BANDS, Scheme, ellipsoid_bands};
+    let rms = |n: usize| {
+        let bands = ellipsoid_bands(Scheme::Accurate, n);
+        let sum: f64 = bands
+            .iter()
+            .zip(ELLIPSOID_BANDS)
+            .map(|(f, r)| ((f - r) / r).powi(2))
+            .sum();
+        (sum / ELLIPSOID_BANDS.len() as f64).sqrt()
+    };
+    let (coarse, fine) = rayon::join(|| rms(32), || rms(48));
+    let measured = (coarse / fine).ln() / 1.5f64.ln();
+    Outcome {
+        measured,
+        expected: 2.0,
+        // second order: measured 1.98
+        tolerance: 0.3,
+        error: (measured - 2.0).abs(),
     }
 }
 
