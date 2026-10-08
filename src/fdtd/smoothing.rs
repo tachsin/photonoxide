@@ -31,6 +31,8 @@
 //! plane, and an error of order d² in its distance d, are second order. Where two surfaces cross
 //! a cell, it is sampled 8 times along each axis, in the frame of the uppermost surface.
 
+use faer::Side;
+use faer::sparse::{SparseColMat, Triplet};
 use rayon::prelude::*;
 
 use super::{Boundaries, Simulation, invalid};
@@ -410,9 +412,11 @@ pub enum Average {
 pub enum Coupling {
     /// At the nodes, Werner and Cary's (Oskooi et al.'s Fig. 1): E_x takes the mean of D_y on
     /// either side of each node beside it times (ε̃⁻¹)_xy there, and the mean of the two.
-    /// Symmetric, so the leapfrog's energy is conserved and the scheme stable, but each row
-    /// of ε̃⁻¹ mixes cells about different points: at an interface oblique to the grid, it is
-    /// first order (docs/methods/fdtd.md, "Subpixel smoothing").
+    /// Symmetric, so the leapfrog's energy is conserved and the scheme stable, while ε̃⁻¹ on
+    /// the grid is positive definite, which a high contrast across an interface oblique to the
+    /// grid breaks ([`Simulation::smoothed`] refuses it). Each row of ε̃⁻¹ mixes cells about
+    /// different points: at an interface oblique to the grid, it is first
+    /// order (docs/methods/fdtd.md, "Subpixel smoothing").
     Nodes,
     /// At each value of E, from its own cell, Farjadpour et al.'s: E_x takes (ε̃⁻¹)_xy at its
     /// own point times the mean of the four D_y around it. Second order at oblique interfaces,
@@ -708,8 +712,33 @@ impl Simulation {
     /// # Errors
     ///
     /// As [`Simulation::new`], for a diameter that isn't positive and finite, and for a smoothed
-    /// tensor that couples E's components with a Bloch boundary of k ≠ 0 (not supported).
+    /// tensor that couples E's components with a Bloch boundary of k ≠ 0 (not supported), and
+    /// for [`Coupling::Nodes`] where its ε̃⁻¹ on the grid isn't positive definite: a high
+    /// contrast across an interface oblique to the grid, ε = 50 against vacuum, where the run
+    /// would grow without bound (issue #209).
     pub fn smoothed(
+        grid: Grid3d,
+        structure: &Structure,
+        smoothing: Smoothing,
+        boundaries: Boundaries,
+        courant: f64,
+    ) -> Result<Simulation> {
+        let s = Simulation::smoothed_unchecked(grid, structure, smoothing, boundaries, courant)?;
+        if s.anisotropic.as_ref().is_some_and(|a| !a.positive()) {
+            return Err(invalid(
+                "the smoothed ε⁻¹ with its off-diagonal entries at the nodes isn't positive \
+                 definite here, so the leapfrog's energy isn't positive and the run would grow \
+                 without bound: a contrast this high across an interface oblique to the grid is \
+                 beyond Werner and Cary's 2007 scheme (issue #209); Coupling::Points runs, for \
+                 short runs only",
+            ));
+        }
+        Ok(s)
+    }
+
+    /// As [`Simulation::smoothed`], without its check that ε̃⁻¹ on the grid is positive
+    /// definite: for the checks that show what it prevents.
+    fn smoothed_unchecked(
         grid: Grid3d,
         structure: &Structure,
         smoothing: Smoothing,
@@ -922,6 +951,89 @@ impl Anisotropic {
                     }
                 });
         }
+    }
+
+    /// Whether ε̃⁻¹ on the grid, E = ε̃⁻¹D, is positive definite where it couples E's components:
+    /// the leapfrog's energy ½ Σ E·D + ½ Σ H̃·H̃ is then positive, and the scheme stable below
+    /// a Courant number near 1. Werner and Cary's [`Coupling::Nodes`] is symmetric but not
+    /// positive at every contrast: an interface between ε = 50 and vacuum oblique to the grid
+    /// has a negative eigenvalue, about −0.005 (docs/methods/fdtd.md). The coupled values are
+    /// their own block of ε̃⁻¹, a thin band about the interfaces, and its Cholesky factors
+    /// exist exactly when it is positive definite. Values held at zero are left out: what
+    /// remains is a principal block, positive when the whole is.
+    fn positive(&self) -> bool {
+        let Off::Nodes(w) = &self.off else {
+            return true;
+        };
+        let n = self.grid.cells();
+        let at = |r: usize| {
+            let g = self.grid;
+            [r % g.nx, (r / g.nx) % g.ny, r / (g.nx * g.ny)]
+        };
+        // each coupled value's place in the block
+        let mut size = 0;
+        let place: [Vec<usize>; 3] = std::array::from_fn(|c| {
+            (self.coupled[c].iter().zip(&self.cb[c]))
+                .map(|(&coupled, &cb)| {
+                    if coupled && cb != 0.0 {
+                        size += 1;
+                        size - 1
+                    } else {
+                        usize::MAX
+                    }
+                })
+                .collect()
+        });
+        if size == 0 {
+            return true;
+        }
+        // the lower triangle, row by row, each row's entries summed by column
+        let mut triplets = Vec::new();
+        let mut row: Vec<(usize, f64)> = Vec::new();
+        for c in Axis::ALL {
+            let ci = c.index();
+            let (a, b) = c.others();
+            for r in 0..n {
+                let p = place[ci][r];
+                if p == usize::MAX {
+                    continue;
+                }
+                let m = at(r);
+                row.clear();
+                row.push((p, self.diagonal[ci][r]));
+                let next = self.forward[ci][m[ci]].map(|o| (r as isize + o) as usize);
+                for other in [a, b] {
+                    let oi = other.index();
+                    let w = &w[3 - ci - oi];
+                    for node in [Some(r), next].into_iter().flatten() {
+                        if w[node] == 0.0 {
+                            continue;
+                        }
+                        let below = self.back[oi][m[oi]].map(|o| (node as isize + o) as usize);
+                        for q in [Some(node), below].into_iter().flatten() {
+                            if place[oi][q] != usize::MAX {
+                                row.push((place[oi][q], 0.25 * w[node]));
+                            }
+                        }
+                    }
+                }
+                row.sort_by_key(|&(q, _)| q);
+                let mut k = 0;
+                while k < row.len() {
+                    let (q, mut v) = row[k];
+                    k += 1;
+                    while k < row.len() && row[k].0 == q {
+                        v += row[k].1;
+                        k += 1;
+                    }
+                    if q <= p {
+                        triplets.push(Triplet::new(p, q, v));
+                    }
+                }
+            }
+        }
+        SparseColMat::<usize, f64>::try_new_from_triplets(size, size, &triplets)
+            .is_ok_and(|block| block.sp_cholesky(Side::Lower).is_ok())
     }
 
     /// E's `component` held at zero at value `r`, a conductor's.

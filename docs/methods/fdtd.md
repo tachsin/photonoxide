@@ -272,7 +272,8 @@ off-diagonal entries:
   mean of the two (G. R. Werner, J. R. Cary, J. Comput. Phys. 226, 1085 (2007), as Oskooi et al.
   place them). ε̃⁻¹ on the grid is symmetric, so the leapfrog conserves
   $\tfrac12\sum E\cdot D + \tfrac12\sum\tilde H^{n-1/2}\cdot\tilde H^{n+1/2}$ exactly
-  (`fdtd/smoothing-energy`, 1.5e-15 over 300 steps) and the scheme is stable. But each row of
+  (`fdtd/smoothing-energy`, 2.0e-15 over 10⁵ steps), and the scheme is stable while that energy
+  is positive: while ε̃⁻¹ on the grid is positive definite (below). But each row of
   ε̃⁻¹ then mixes the cells of three points, linearly, where the tangential part needs
   $\langle\varepsilon\rangle$: across an oblique interface that is a first-order error, as the
   mean's. Measured, with layers of ε = 12 and 1 at 26.6° to the grid against their transfer
@@ -285,6 +286,25 @@ off-diagonal entries:
   of the elliptical holes below at 24 cells by 10¹⁷ over 4 × 10⁵ steps (16 cells: 10³), and in
   the anisotropic lattice at 16 cells by 10¹⁶ within 2 × 10⁴. For short runs in isotropic media
   only.
+
+**Positive only to a contrast.** Werner and Cary's ε̃⁻¹ is symmetric at any contrast but not
+positive definite: each value's diagonal entry comes from its own cell and its off-diagonal
+ones from the nodes' cells, and at a high contrast they no longer fit together. An isotropic
+ellipsoid at an angle to the grid in vacuum (20 × 18 × 16 cells of 50 nm,
+`fdtd/smoothing-contrast`): ε̃⁻¹ is positive definite at ε = 12 and 30 (its largest eigenvalue
+1.06 and 1.09), but its least is −4.6e-3 at 50 and −1.7e-2 at 100. The energy, conserved, then
+bounds nothing, and the fields grow: at ε = 50 by 10¹² in 10³ steps and 10¹⁴⁹ in 10⁴ at Courant
+number 0.99, 10¹²⁰ in 10⁴ at 0.8. `Simulation::smoothed` refuses such a structure. The values
+an off-diagonal entry reaches are their own block of ε̃⁻¹, a thin band about the interfaces, and the
+check is its Cholesky factorization, which exists exactly when the block is positive definite
+(milliseconds at this size, 0.5 s at 140³ cells with 1.5 × 10⁵ coupled values, less than
+the smoothing itself; values held at zero are left out, a principal block). Here it
+refuses from ε = 45, and 40 stays bounded over 10⁵ steps; the check is sufficient, not sharp: 45
+let through stays bounded over 10⁵ steps too. A node-by-node bound (each node's 3 × 3 tensor
+positive with the least diagonal of the values beside it) would be cheaper but fails already at
+ε = 12. G. R. Werner, C. A. Bauer and J. R. Cary (J. Comput. Phys. 255, 436 (2013)) describe
+the 2007 scheme as unstable at high contrast and give a replacement, not yet read here (issue
+#209).
 
 Oskooi et al. report second-order convergence with Werner and Cary's placement in their
 anisotropic lattice; at the oblique layers above it is first order, and no symmetric placement

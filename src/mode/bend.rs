@@ -170,7 +170,7 @@ impl SlabBend {
                 rho += h;
                 // only ψ'/ψ matters: keep the numbers in range
                 let scale = psi.norm();
-                if scale > 1e100 || scale < 1e-100 {
+                if !(1e-100..=1e100).contains(&scale) {
                     psi /= scale;
                     dpsi /= scale;
                 }
