@@ -7,7 +7,7 @@ import {
   BookOpen,
   PlayCircle,
   CircuitBoard,
-  Factory,
+  Package,
   FlaskConical,
   Gem,
   MonitorPlay,
@@ -67,7 +67,7 @@ const HIGHLIGHT_ICONS = {
   active: Zap,
   inverse: Sparkles,
   layout: CircuitBoard,
-  tapeout: Factory,
+  export: Package,
   studio: MonitorPlay,
   rust: SiRust,
 };
@@ -192,12 +192,12 @@ export default async function PhotonoxidePage() {
           photonoxide
         </h1>
         <p className="proj-rise-1 mx-auto mt-5 max-w-2xl text-balance text-base-content/80 text-lg sm:text-xl">
-          Photonics for Rust: mode solvers, FDFD, and components and circuits today; FDTD, inverse design, layout
-          and tape-out to come. With a studio to build jobs and chips and watch every run live.
+          Photonics for Rust: mode solvers, FDFD, and components and circuits today; FDTD, inverse design and layout
+          export to come. With a studio to build jobs and chips and watch every run live.
         </p>
         <p className="proj-rise-1 mx-auto mt-3 max-w-xl text-balance text-base-content/60 text-sm">
-          Validated against analytic solutions, published results and measured devices. Built toward fabrication:
-          designs that leave as files a foundry accepts.
+          Validated against analytic solutions, published results and published measurements. Aware of
+          fabrication: design rules, process variation, and layouts exported as GDSII or OASIS.
         </p>
 
         <div className="proj-rise-2 mt-9 flex flex-wrap justify-center gap-3">
@@ -257,8 +257,8 @@ export default async function PhotonoxidePage() {
 
       {/* ---------- Highlights ---------- */}
       <section className="proj-container py-16" aria-labelledby="highlights">
-        <SectionHeading id="highlights" eyebrow="What it does, and what comes" title="From Maxwell's equations to a chip">
-          Solvers, circuits, inverse design, layout and tape-out in one Rust library, built milestone by milestone.
+        <SectionHeading id="highlights" eyebrow="What it does, and what comes" title="From Maxwell's equations to a layout">
+          Solvers, circuits, inverse design and layout in one Rust library, built milestone by milestone.
           Some of it is here; the rest is planned.
         </SectionHeading>
         <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -295,10 +295,9 @@ export default async function PhotonoxidePage() {
 
       {/* ---------- Pipeline ---------- */}
       <section className="proj-container py-16" aria-labelledby="pipeline">
-        <SectionHeading id="pipeline" eyebrow="The path" title="From a simulation to a measured chip">
-          Fabrication is a constraint from the first step, not a step at the end. The first target is SiEPIC
-          openEBL: 220 nm silicon-on-insulator, electron-beam lithography, submitted as a GitHub pull request and
-          measured remotely.
+        <SectionHeading id="pipeline" eyebrow="The path" title="From a simulation to a checked layout">
+          Fabrication is a constraint from the first step, not a step at the end: design rules inside the
+          optimization, process variation in the results, and a layout checked before it is exported.
         </SectionHeading>
         <ol className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {PHOTONOXIDE_PIPELINE.map((step, i) => (
