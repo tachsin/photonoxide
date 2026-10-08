@@ -13,6 +13,7 @@
     History,
     House,
     LayoutGrid,
+    Package,
     Settings,
     ShieldCheck,
     SquarePen,
@@ -70,6 +71,10 @@
     {
       title: "Trust",
       items: [{ page: "validation", label: "Validation", icon: ShieldCheck, hint: "Every solver against theory and papers" }],
+    },
+    {
+      title: "Machine",
+      items: [{ page: "libraries", label: "Libraries", icon: Package, hint: "External libraries found here: licences, backends, installs" }],
     },
   ];
 

@@ -18,6 +18,7 @@
   import Components from "./pages/Components.svelte";
   import Examples from "./pages/Examples.svelte";
   import Home from "./pages/Home.svelte";
+  import Libraries from "./pages/Libraries.svelte";
   import Materials from "./pages/Materials.svelte";
   import Runs from "./pages/Runs.svelte";
   import SettingsPage from "./pages/Settings.svelte";
@@ -69,6 +70,8 @@
         <ChipPage />
       {:else if app.page === "validation"}
         <Validation />
+      {:else if app.page === "libraries"}
+        <Libraries />
       {:else if app.page === "settings"}
         <SettingsPage />
       {/if}
