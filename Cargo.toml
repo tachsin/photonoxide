@@ -9,8 +9,9 @@ repository = "https://github.com/tachsin/photonoxide"
 readme = "README.md"
 keywords = ["photonics", "fdfd", "waveguide", "electromagnetics", "silicon-photonics"]
 categories = ["science", "simulation", "mathematics"]
-# what goes into the published crate: the library, its docs and jobs; not CI, the brand files or the project site
-exclude = [".github", "assets", "site", "studio"]
+# what goes into the published crate: the library, its docs and jobs; not CI, the brand files, the
+# project site, or the program and its Academy's lessons
+exclude = [".github", "academy", "assets", "site", "studio"]
 
 # the studio (studio/src-tauri) is the photonoxide program: it runs jobs, live in its window or
 # headless, and is built from the repository, not published

@@ -25,11 +25,11 @@ const PAPER: &str = "#f6ede5";
 /// The taglines on the cards.
 const MUTED: &str = "#d8c3ae";
 
-const TAGLINE: &str = "Photonics for Rust: validated and fabrication-ready";
+const TAGLINE: &str = "Photonics for Rust: validated and visible while it runs";
 /// The banners' title, for screen readers.
-const TITLE: &str = "photonoxide: validated, fabrication-ready photonics for Rust";
+const TITLE: &str = "photonoxide: validated photonics for Rust";
 const DETAILS: &str =
-    "mode solvers · FDFD · FDTD · inverse design · layout and tape-out · a live studio";
+    "mode solvers · FDFD · FDTD · inverse design · layout · a live studio";
 
 /// A number for an SVG: at most two decimals, no trailing zeros.
 fn fmt(v: f64) -> String {

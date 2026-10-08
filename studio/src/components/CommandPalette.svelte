@@ -40,6 +40,7 @@
   const pages: [Page, string][] = [
     ["home", "Home"],
     ["examples", "Examples"],
+    ["academy", "Academy"],
     ["builder", "Job builder"],
     ["runs", "Runs"],
     ["viewer", "Viewer"],

@@ -9,7 +9,7 @@ import { PHOTONOXIDE_LINKS, PHOTONOXIDE_OG_IMAGE, PHOTONOXIDE_PATH, ROADMAP_PATH
 import { getMilestones } from "@/lib/projects/photonoxide/roadmap";
 
 const DESCRIPTION =
-  "photonoxide's plan, milestone by milestone, from mode solvers to tape-out: what each one ships, how it is validated, and the papers behind it.";
+  "photonoxide's plan, milestone by milestone, from mode solvers to layout export: what each one ships, how it is validated, and the papers behind it.";
 
 export const metadata = projectsMetadata({
   title: "Roadmap",

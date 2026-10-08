@@ -11,6 +11,7 @@
     CircuitBoard,
     FlaskConical,
     Gauge,
+    GraduationCap,
     History,
     House,
     LayoutGrid,
@@ -50,6 +51,7 @@
       items: [
         { page: "home", label: "Home", icon: House, hint: "Where to begin, and what you did last" },
         { page: "examples", label: "Examples", icon: LayoutGrid, hint: "Simulations and published results, built in" },
+        { page: "academy", label: "Academy", icon: GraduationCap, hint: "Lessons: the physics, its history, and charts the library computes live" },
       ],
     },
     {
