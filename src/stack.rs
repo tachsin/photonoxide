@@ -9,7 +9,9 @@
 //! z = 0 is the bottom of the first layer; the substrate is below it, the cladding above the
 //! last layer.
 
-use crate::geometry::{Point, Shape};
+use std::sync::OnceLock;
+
+use crate::geometry::{Index, Point, Shape};
 use crate::material::{self, Material};
 use crate::units::Length;
 use crate::{Error, Result};
@@ -220,13 +222,33 @@ pub struct Structure {
     stack: LayerStack,
     /// for each layer, the shapes drawn on it
     shapes: Vec<Vec<Shape>>,
+    /// for each layer, an index over its shapes, made when first asked for
+    index: Indexes,
 }
+
+/// The layers' indexes, made once on first use; equal whether made or not, since they follow
+/// from the shapes.
+#[derive(Clone, Debug, Default)]
+struct Indexes(OnceLock<Vec<Index>>);
+
+impl PartialEq for Indexes {
+    fn eq(&self, _: &Indexes) -> bool {
+        true
+    }
+}
+
+/// A layer with more shapes than this is searched through its [`Index`]; with fewer, one by one.
+const INDEXED: usize = 8;
 
 impl Structure {
     /// A stack with nothing drawn yet.
     pub fn new(stack: LayerStack) -> Structure {
         let shapes = vec![Vec::new(); stack.layers.len()];
-        Structure { stack, shapes }
+        Structure {
+            stack,
+            shapes,
+            index: Indexes::default(),
+        }
     }
 
     /// Draws `shape` on the layer named `layer`.
@@ -244,7 +266,31 @@ impl Structure {
                 Error::invalid("structure", format!("the stack has no layer {layer}"))
             })?;
         self.shapes[i].push(shape);
+        self.index = Indexes::default();
         Ok(self)
+    }
+
+    /// The index over the shapes drawn on the layer named `layer`, for finding those near a
+    /// point or a cell ([`Index::meeting`]); `None` for an unknown layer.
+    pub fn index(&self, layer: &str) -> Option<&Index> {
+        let i = self.stack.layers.iter().position(|l| l.name == layer)?;
+        Some(&self.indexes()[i])
+    }
+
+    fn indexes(&self) -> &[Index] {
+        self.index
+            .0
+            .get_or_init(|| self.shapes.iter().map(|s| Index::of(s)).collect())
+    }
+
+    /// Whether a shape drawn on layer `i` contains `p`: the shapes whose boxes hold it, through
+    /// the layer's index when it has many. The answer is the one testing every shape gives.
+    fn covered(&self, i: usize, p: Point) -> bool {
+        let shapes = &self.shapes[i];
+        if shapes.len() <= INDEXED {
+            return shapes.iter().any(|s| s.contains(p));
+        }
+        self.indexes()[i].any_at(p, |k| shapes[k].contains(p))
     }
 
     /// The stack.
@@ -269,7 +315,7 @@ impl Structure {
             Place::Above => &self.stack.cladding,
             Place::In(i) => {
                 let layer = &self.stack.layers[i];
-                if self.shapes[i].iter().any(|s| s.contains(p)) {
+                if self.covered(i, p) {
                     &layer.material
                 } else {
                     &layer.background

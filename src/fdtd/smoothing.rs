@@ -350,6 +350,11 @@ fn planar(shape: &Shape, x: f64, y: f64) -> (f64, [f64; 2]) {
             };
             (if inside { -d } else { d }, n)
         }
+        // the other primitives answer for themselves
+        other => {
+            let d = crate::geometry::Region::distance(other, Point::um(x, y));
+            (d.signed.to_um(), d.normal)
+        }
     }
 }
 
