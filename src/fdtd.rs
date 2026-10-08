@@ -360,23 +360,6 @@ struct Probe {
     values: Vec<f64>,
 }
 
-/// One CPML slab's auxiliary field for one component and one axis: ψ over the slab's cells.
-#[derive(Clone, Debug)]
-struct Slab {
-    field: Field,
-    /// The component updated.
-    component: Axis,
-    /// The axis of the PML, and of the derivative ψ convolves.
-    axis: Axis,
-    /// The slab's first index along `axis`, and its thickness.
-    from: usize,
-    count: usize,
-    /// The recursion's coefficients along `axis`, `count` of each.
-    b: Vec<f64>,
-    a: Vec<f64>,
-    psi: Vec<f64>,
-}
-
 /// An FDTD problem: the grid, the medium, the boundaries, the fields at one time, the sources
 /// and the probes. [`Simulation::step`] advances it by Δt.
 #[derive(Clone, Debug)]
@@ -394,7 +377,11 @@ pub struct Simulation {
     /// 1/κ along each axis, at the nodes (for E's updates) and halfway after them (for H's).
     kappa_nodes: [Vec<f64>; 3],
     kappa_halves: [Vec<f64>; 3],
-    slabs: Vec<Slab>,
+    slabs: Vec<kernel::Slab<f64>>,
+    /// E's (back) and H̃'s (forward) differences, tabulated once.
+    stencils: [kernel::Stencil<f64>; 2],
+    /// Whether to step with the plain loops the kernel replaced.
+    reference: bool,
     sources: Vec<Source>,
     /// Distributed currents (J or M), each with its complex amplitudes and waveform.
     currents: Vec<sources::Applied>,
@@ -555,6 +542,15 @@ impl Simulation {
             kappa_nodes: Axis::ALL.map(|a| vec![1.0; grid.n(a)]),
             kappa_halves: Axis::ALL.map(|a| vec![1.0; grid.n(a)]),
             slabs: Vec::new(),
+            stencils: std::array::from_fn(|a| {
+                kernel::Stencil::new(
+                    grid,
+                    a == 1,
+                    [vec![], vec![], vec![]],
+                    &[vec![], vec![], vec![]],
+                )
+            }),
+            reference: false,
             sources: Vec::new(),
             currents: Vec::new(),
             plane_waves: Vec::new(),
@@ -566,6 +562,7 @@ impl Simulation {
             monitors: monitors::Monitors::default(),
         };
         s.build_cpml(&eps_e);
+        s.build_stencils();
         s.bloch = bloch::Bloch::new(&s).map(Box::new);
         Ok(s)
     }
@@ -629,7 +626,7 @@ impl Simulation {
                         .map(|m| coefficients(m as f64 + offset))
                         .unzip();
                     for component in [b_axis, c_axis] {
-                        self.slabs.push(Slab {
+                        self.slabs.push(kernel::Slab {
                             field,
                             component,
                             axis,
@@ -1049,176 +1046,79 @@ impl Simulation {
         })
     }
 
-    /// One component's update: `out = keep out + scale (D_a f_b − D_b f_a)`, D the difference
-    /// along an axis (forward for H's updates, back for E's) times 1/(κ Δ) there; without
-    /// `keep` and `scale`, `out −= Δt (D_a f_b − D_b f_a)` (H's update).
-    #[allow(clippy::too_many_arguments)]
-    fn curl_update(
-        grid: Grid3d,
-        out: &mut [f64],
-        component: Axis,
-        (fa, fb): (&[f64], &[f64]),
-        offsets: &[Vec<Option<isize>>; 3],
-        factors: &[Vec<f64>; 3],
-        coefficients: Option<(&[f64], &[f64])>,
-        dt: f64,
-    ) {
-        let (a, b) = component.others();
-        let plane = grid.nx * grid.ny;
-        let forward = coefficients.is_none();
-        let difference = |f: &[f64], r: usize, offset: Option<isize>| -> f64 {
-            let other = offset.map_or(0.0, |o| f[(r as isize + o) as usize]);
-            if forward { other - f[r] } else { f[r] - other }
-        };
-        out.par_chunks_mut(plane)
-            .enumerate()
-            .for_each(|(k, values)| {
-                for j in 0..grid.ny {
-                    for i in 0..grid.nx {
-                        let m = [i, j, k];
-                        let r = k * plane + j * grid.nx + i;
-                        let (ma, mb) = (m[a.index()], m[b.index()]);
-                        let curl = difference(fb, r, offsets[a.index()][ma])
-                            * factors[a.index()][ma]
-                            - difference(fa, r, offsets[b.index()][mb]) * factors[b.index()][mb];
-                        let v = &mut values[j * grid.nx + i];
-                        match coefficients {
-                            None => *v -= dt * curl,
-                            Some((keep, scale)) => *v = keep[r] * *v + scale[r] * curl,
-                        }
-                    }
-                }
-            });
-    }
-
+    /// H̃ from t − Δt/2 to t + Δt/2 by the curl of E: the kernel, or the plain loops it replaced
+    /// ([`Simulation::use_reference_kernel`]).
     fn update_h(&mut self) {
-        let offsets = self.offsets(true);
-        let factors: [Vec<f64>; 3] = Axis::ALL.map(|a| {
-            let h = self.grid.step(a);
-            self.kappa_halves[a.index()].iter().map(|k| k / h).collect()
-        });
-        let mut h = std::mem::take(&mut self.h);
-        for component in Axis::ALL {
-            let (a, b) = component.others();
-            Self::curl_update(
-                self.grid,
-                &mut h[component.index()],
-                component,
-                (&self.e[a.index()], &self.e[b.index()]),
-                &offsets,
-                &factors,
-                None,
-                self.dt,
-            );
+        if self.reference {
+            return self.update_h_reference();
         }
-        self.h = h;
-        self.update_slabs(Field::H, &offsets);
+        let stencil = &self.stencils[1];
+        kernel::curl_update(self.grid, &mut self.h, &self.e, stencil, None, self.dt);
+        kernel::update_slabs(
+            self.grid,
+            &mut self.slabs,
+            Field::H,
+            &mut self.h,
+            &self.e,
+            &self.cb,
+            stencil,
+            self.dt,
+        );
     }
 
+    /// E from t to t + Δt by the curl of H̃, as [`Simulation::update_h`].
     fn update_e(&mut self) {
-        let offsets = self.offsets(false);
-        let factors: [Vec<f64>; 3] = Axis::ALL.map(|a| {
-            let h = self.grid.step(a);
-            self.kappa_nodes[a.index()].iter().map(|k| k / h).collect()
-        });
-        let mut e = std::mem::take(&mut self.e);
-        for component in Axis::ALL {
-            let (a, b) = component.others();
-            let c = component.index();
-            Self::curl_update(
-                self.grid,
-                &mut e[c],
-                component,
-                (&self.h[a.index()], &self.h[b.index()]),
-                &offsets,
-                &factors,
-                Some((&self.ca[c], &self.cb[c])),
-                self.dt,
-            );
+        if self.reference {
+            return self.update_e_reference();
         }
-        self.e = e;
-        self.update_slabs(Field::E, &offsets);
+        let stencil = &self.stencils[0];
+        kernel::curl_update(
+            self.grid,
+            &mut self.e,
+            &self.h,
+            stencil,
+            Some((&self.ca, &self.cb)),
+            self.dt,
+        );
+        kernel::update_slabs(
+            self.grid,
+            &mut self.slabs,
+            Field::E,
+            &mut self.e,
+            &self.h,
+            &self.cb,
+            stencil,
+            self.dt,
+        );
     }
 
-    /// The CPML's convolutions for `field`'s updates, added to the fields in their slabs.
-    fn update_slabs(&mut self, field: Field, offsets: &[Vec<Option<isize>>; 3]) {
-        let grid = self.grid;
-        let plane = grid.nx * grid.ny;
-        let forward = field == Field::H;
-        let mut slabs = std::mem::take(&mut self.slabs);
-        for slab in slabs.iter_mut().filter(|s| s.field == field) {
-            let (w, c) = (slab.axis, slab.component);
-            let (first, second) = c.others();
-            // in c's curl, the derivative along `first` (of F_second) enters with +1, along
-            // `second` (of F_first) with −1
-            let (sign, differentiated) = if w == first {
-                (1.0, second)
-            } else {
-                (-1.0, first)
-            };
-            let h = grid.step(w);
-            let source = match field {
-                Field::E => &self.h[differentiated.index()],
-                Field::H => &self.e[differentiated.index()],
-            };
-            // the slab's extent along each axis, and its planes of ψ
-            let mut from = [0usize; 3];
-            let mut count = [grid.nx, grid.ny, grid.nz];
-            from[w.index()] = slab.from;
-            count[w.index()] = slab.count;
-            let local_plane = count[0] * count[1];
-            let (bs, as_) = (&slab.b, &slab.a);
-            let start = slab.from;
-            let off = &offsets[w.index()];
-            slab.psi
-                .par_chunks_mut(local_plane)
-                .enumerate()
-                .for_each(|(lk, psi)| {
-                    for lj in 0..count[1] {
-                        for li in 0..count[0] {
-                            let m = [from[0] + li, from[1] + lj, from[2] + lk];
-                            let r = m[2] * plane + m[1] * grid.nx + m[0];
-                            let mw = m[w.index()];
-                            let other = off[mw].map_or(0.0, |o| source[(r as isize + o) as usize]);
-                            let d = if forward {
-                                other - source[r]
-                            } else {
-                                source[r] - other
-                            } / h;
-                            let q = lj * count[0] + li;
-                            let s = mw - start;
-                            psi[q] = bs[s] * psi[q] + as_[s] * d;
-                        }
-                    }
-                });
-            let cb = &self.cb[c.index()];
-            let dt = self.dt;
-            let psi = &slab.psi;
-            let target = match field {
-                Field::E => &mut self.e[c.index()],
-                Field::H => &mut self.h[c.index()],
-            };
-            target
-                .par_chunks_mut(plane)
-                .enumerate()
-                .skip(from[2])
-                .take(count[2])
-                .for_each(|(k, values)| {
-                    let lk = k - from[2];
-                    for lj in 0..count[1] {
-                        for li in 0..count[0] {
-                            let (i, j) = (from[0] + li, from[1] + lj);
-                            let u = sign * psi[lk * local_plane + lj * count[0] + li];
-                            let v = &mut values[j * grid.nx + i];
-                            match field {
-                                Field::E => *v += cb[k * plane + j * grid.nx + i] * u,
-                                Field::H => *v -= dt * u,
-                            }
-                        }
-                    }
-                });
+    /// Steps with the plain loops the kernel replaced, from now on: the reference the kernel
+    /// is checked against (the same bits).
+    pub(crate) fn use_reference_kernel(&mut self) {
+        self.reference = true;
+        if let Some(b) = &mut self.bloch {
+            b.twin.reference = true;
         }
-        self.slabs = slabs;
+    }
+
+    /// The tables of E's (back) and H̃'s (forward) differences, built once.
+    fn build_stencils(&mut self) {
+        let grid = self.grid;
+        let factors = |kappa: &[Vec<f64>; 3]| -> [Vec<f64>; 3] {
+            std::array::from_fn(|a| {
+                let h = grid.step(Axis::ALL[a]);
+                kappa[a].iter().map(|k| k / h).collect()
+            })
+        };
+        self.stencils = [
+            kernel::Stencil::new(
+                grid,
+                false,
+                self.offsets(false),
+                &factors(&self.kappa_nodes),
+            ),
+            kernel::Stencil::new(grid, true, self.offsets(true), &factors(&self.kappa_halves)),
+        ];
     }
 
     /// ½ Σ ε E·E ΔV with E now: the electric half of the energy the leapfrog conserves (with
@@ -1248,6 +1148,9 @@ pub(crate) mod checks;
 mod harmonic;
 #[cfg(test)]
 mod harmonic_tests;
+mod kernel;
+#[cfg(test)]
+mod kernel_tests;
 mod media;
 pub(crate) mod media_checks;
 pub(crate) mod mie;
@@ -1261,6 +1164,7 @@ mod monitors_tests;
 pub(crate) mod smoothing;
 mod sources;
 pub use harmonic::{Resonance, harmonic_inversion};
+pub(crate) use kernel::{Real, Yee};
 pub use media::{Dispersive, Fit, Pole};
 pub use mie::{CrossSections, Mie, Sphere};
 pub use monitors::{Dft, FluxPlane};

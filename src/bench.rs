@@ -144,6 +144,7 @@ pub struct Accuracy {
 
 pub mod catalogue;
 pub mod export;
+mod fdtd;
 
 /// Every problem, in the order `photonoxide bench` runs them.
 pub fn problems() -> Vec<Problem> {
@@ -205,6 +206,73 @@ pub fn problems() -> Vec<Problem> {
                     strip in oxide, its two ports' S-matrix, to 1e-8",
             heavy: false,
             run: |timed| strip_ports_3d(0.02, 16, Solve::Multigrid, 1e-8, timed),
+        },
+        Problem {
+            id: "fdtd3d/box-f64",
+            title: "FDTD's kernel in f64: 48³ cells of 50 nm of vacuum (in the last-level cache), \
+                    CPMLs of 8, 400 steps from a bump of E, against the plain loops",
+            heavy: false,
+            run: |timed| {
+                fdtd::kernel::<f64>(
+                    fdtd::Run {
+                        n: 48,
+                        h: 0.05,
+                        guide: false,
+                        steps: 400,
+                    },
+                    timed,
+                )
+            },
+        },
+        Problem {
+            id: "fdtd3d/box-f32",
+            title: "FDTD's kernel in f32: the same box, against f64",
+            heavy: false,
+            run: |timed| {
+                fdtd::kernel::<f32>(
+                    fdtd::Run {
+                        n: 48,
+                        h: 0.05,
+                        guide: false,
+                        steps: 400,
+                    },
+                    timed,
+                )
+            },
+        },
+        Problem {
+            id: "fdtd3d/guide-f64",
+            title: "FDTD's kernel in f64: 160³ cells of 20 nm (well beyond the cache), a 500 × \
+                    220 nm silicon guide, CPMLs of 8, 60 steps from a bump of E, against the \
+                    plain loops",
+            heavy: false,
+            run: |timed| {
+                fdtd::kernel::<f64>(
+                    fdtd::Run {
+                        n: 160,
+                        h: 0.02,
+                        guide: true,
+                        steps: 60,
+                    },
+                    timed,
+                )
+            },
+        },
+        Problem {
+            id: "fdtd3d/guide-f32",
+            title: "FDTD's kernel in f32: the same guide, against f64",
+            heavy: false,
+            run: |timed| {
+                fdtd::kernel::<f32>(
+                    fdtd::Run {
+                        n: 160,
+                        h: 0.02,
+                        guide: true,
+                        steps: 60,
+                    },
+                    timed,
+                )
+            },
         },
         Problem {
             id: "job/strip-modes",
