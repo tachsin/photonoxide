@@ -60,13 +60,19 @@ export function parseMethod(file: string, text: string): MethodDoc {
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-/** Text between math: code, bold, and links (a paper's or a site's opens outside, another write-up's in place). */
+/**
+ * Text between math: code, bold, and links. A paper's or a site's opens outside; another
+ * write-up's, or a lesson's (the Academy's, beside its own: `ring-resonator.md`, and
+ * `../docs/methods/components.md`), in place; an example's (`../examples/<name>.rs`) on the
+ * Examples page.
+ */
 function marks(s: string): string {
   return esc(s)
     .replace(/`([^`]+)`/g, '<code class="rounded bg-base-content/8 px-1 font-mono text-[0.9em]">$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a class="link link-primary" data-href="$2">$1</a>')
-    .replace(/\[([^\]]+)\]\(([\w-]+\.md)(?:#[^)]*)?\)/g, '<a class="link" data-doc="$2">$1</a>')
+    .replace(/\[([^\]]+)\]\((?:\.\.\/docs\/methods\/)?([\w-]+\.md)(?:#[^)]*)?\)/g, '<a class="link" data-doc="$2">$1</a>')
+    .replace(/\[([^\]]+)\]\(\.\.\/examples\/(\w+)\.rs\)/g, '<a class="link" data-example="$2">$1</a>')
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
 }
 

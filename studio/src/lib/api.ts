@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 
+import type { Academy, ChartData } from "./academy.svelte";
 import type { Event, Scene } from "./events";
 import type { BenchData, BenchRequest, CatalogueEntry, Planned } from "./bench.svelte";
 import type { LibraryReport } from "./libraries.svelte";
@@ -170,6 +171,10 @@ export const api = {
   startBench: (request: BenchRequest) => invoke<number>("start_bench", { request }),
   benchImport: (path: string) => invoke<number>("bench_import", { path }),
   benchExport: (path: string) => invoke<void>("bench_export", { path }),
+  /** The Academy: its lessons, parsed, and the charts they can show. */
+  academy: () => invoke<Academy>("academy"),
+  /** A chart computed by the library at `values`, each in its parameter's unit; those left out at their defaults. */
+  academyChart: (chart: string, values: Record<string, number>) => invoke<ChartData>("academy_chart", { chart, values }),
 };
 
 /** "2026-10-02T09:17:32Z" as "2 Oct 2026, 09:17". */

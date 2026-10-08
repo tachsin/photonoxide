@@ -19,6 +19,7 @@
     validation: ["Validation", "Each solver against exact solutions and published results"],
     libraries: ["Libraries", "External libraries found on this machine, their licences, and how to install them"],
     benchmarks: ["Benchmarks", "The catalogue's problems on this machine: which backend is faster and leaner, where"],
+    academy: ["Academy", "How devices work and how the ideas came about, with charts computed by the library as you move them"],
     settings: ["Settings", "Appearance, workspace, tips and updates"],
   };
   const title = $derived(titles[app.page] ?? ["", ""]);
