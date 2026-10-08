@@ -41,7 +41,7 @@ use crate::{Error, Result};
 
 mod iterative;
 pub use iterative::{
-    IterativeSolver, QmrRun, iterative, iterative_solvers, register_iterative,
+    IluFactors, IterativeSolver, QmrRun, iterative, iterative_solvers, register_iterative,
     register_iterative_unavailable,
 };
 

@@ -40,6 +40,54 @@ pub trait IterativeSolver: Send + Sync {
     /// The backend's, and [`crate::Error::InvalidValue`] if the tolerance isn't reached within
     /// the iterations allowed or the process ends short of it, as photonoxide's own QMR.
     fn qmr_run(&self, matrix: &Matrix<'_>, b: &[c64], stopping: Stopping) -> Result<QmrRun>;
+
+    /// One run of the general QMR on A M⁻¹, M = LU from `ilu` (photonoxide's ILU(0) of
+    /// `matrix`), from y₀ = 0 for `b`: the caller takes x = M⁻¹ y. Each iteration one product with
+    /// A and one with Aᵀ, two triangular solves with M and two with Mᵀ.
+    ///
+    /// # Errors
+    ///
+    /// As [`IterativeSolver::qmr_run`]; by default, that the backend doesn't run it.
+    fn qmr_run_ilu(
+        &self,
+        matrix: &Matrix<'_>,
+        ilu: &IluFactors,
+        b: &[c64],
+        stopping: Stopping,
+    ) -> Result<QmrRun> {
+        let _ = (matrix, ilu, b, stopping);
+        Err(invalid(format!(
+            "{} doesn't run QMR with ILU(0)",
+            self.capabilities().name
+        )))
+    }
+}
+
+/// ILU(0)'s factors as a backend takes them: L, unit lower triangular, without its diagonal,
+/// and U, upper triangular, its diagonal included; each by rows, its columns ascending. M = LU
+/// preconditions QMR from the right: QMR runs on A M⁻¹, as photonoxide's own does.
+#[derive(Clone, Debug, PartialEq)]
+pub struct IluFactors {
+    pub(crate) n: usize,
+    pub(crate) lower: (Vec<usize>, Vec<usize>, Vec<c64>),
+    pub(crate) upper: (Vec<usize>, Vec<usize>, Vec<c64>),
+}
+
+impl IluFactors {
+    /// The unknowns.
+    pub fn n(&self) -> usize {
+        self.n
+    }
+
+    /// L's rows below the diagonal: n + 1 row starts, each entry's column and value.
+    pub fn lower(&self) -> (&[usize], &[usize], &[c64]) {
+        (&self.lower.0, &self.lower.1, &self.lower.2)
+    }
+
+    /// U's rows, the diagonal first in each: n + 1 row starts, each entry's column and value.
+    pub fn upper(&self) -> (&[usize], &[usize], &[c64]) {
+        (&self.upper.0, &self.upper.1, &self.upper.2)
+    }
 }
 
 #[derive(Clone)]
