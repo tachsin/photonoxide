@@ -300,7 +300,7 @@ $E = \tilde\varepsilon^{-1}D$ after each step; where nothing couples, the scalar
 unchanged. E_x needs D_y and D_z, which sit elsewhere, and there are three ways to place the
 off-diagonal entries:
 
-- `Coupling::Nodes`, the default: (ε̃⁻¹)_xy from the cells centred on the nodes, E_x taking at
+- `Coupling::Nodes` (the default before 0.5, still `Smoothing::with`'s): (ε̃⁻¹)_xy from the cells centred on the nodes, E_x taking at
   each of the two nodes beside it the mean of D_y on either side times (ε̃⁻¹)_xy there, and the
   mean of the two. This is G. R. Werner and J. R. Cary's scheme exactly (J. Comput. Phys. 226,
   1085 (2007), their (26c) with (27e), Eq. 39, which Oskooi et al. follow; checked against the
@@ -410,7 +410,7 @@ Oskooi et al. report second-order convergence with Werner and Cary's placement i
 anisotropic lattice, at a contrast near 8, where Werner et al. 2013 also see second order up to
 hundreds of cells a wavelength. At the contrast of 12 of the layers above it is first order.
 
-`Coupling::Nodes` stays the default, so that existing results keep their bits. `Coupling::Triplets`
+`Coupling::Triplets` is the default (`Smoothing::default`) from 0.5; `Coupling::Triplets`
 takes the same eight terms a value each step, from a table of the distinct nodes' entries. It is
 stable at any contrast, with about half the error at oblique interfaces and the same results at
 interfaces along the grid. Its smoothing costs more than the nodes' (8 tensors a node, each from

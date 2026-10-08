@@ -384,9 +384,14 @@ pub struct Smoothing {
 }
 
 impl Default for Smoothing {
-    /// Subpixel smoothing over each value's own cell, the off-diagonal entries at the nodes.
+    /// Subpixel smoothing over each value's own cell, its tensors by Werner, Bauer and Cary's
+    /// triplets ([`Coupling::Triplets`]): stable at any contrast, and at oblique interfaces about
+    /// half the error of the nodes' placement. [`Smoothing::with`] keeps the nodes'.
     fn default() -> Smoothing {
-        Smoothing::with(Average::Subpixel)
+        Smoothing {
+            coupling: Coupling::Triplets,
+            ..Smoothing::with(Average::Subpixel)
+        }
     }
 }
 

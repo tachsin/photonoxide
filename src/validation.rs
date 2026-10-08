@@ -972,7 +972,7 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "fdtd/smoothing-oblique-nodes",
-            title: r"FDTD's subpixel smoothing at the same oblique layers with the off-diagonal entries at the nodes (`Coupling::Nodes`, the default), 128 cells a µm: the mode's frequency against the transfer matrices (relative difference shown)",
+            title: r"FDTD's subpixel smoothing at the same oblique layers with the off-diagonal entries at the nodes (`Coupling::Nodes`, the default before 0.5), 128 cells a µm: the mode's frequency against the transfer matrices (relative difference shown)",
             tier: Tier::Analytic,
             source: r"the same exact frequency; first order: each row of $\tilde\varepsilon^{-1}$ mixes cells about different points (G. R. Werner, J. R. Cary, J. Comput. Phys. 226, 1085 (2007), doi:10.1016/j.jcp.2007.05.008, Eq. 39, as A. F. Oskooi, C. Kottke, S. G. Johnson, Opt. Lett. 34, 2778 (2009), doi:10.1364/OL.34.002778, Fig. 1, place them); measured 2.0e-3, against 2.1e-4 with the entries at the points",
             run: fdtd_smoothing_oblique_nodes,
@@ -2122,7 +2122,7 @@ fn fdtd_smoothing_oblique() -> Outcome {
 }
 
 fn fdtd_smoothing_oblique_nodes() -> Outcome {
-    let smoothing = crate::fdtd::Smoothing::default();
+    let smoothing = crate::fdtd::Smoothing::with(crate::fdtd::Average::Subpixel);
     let measured = crate::fdtd::smoothing::checks::oblique(smoothing, 128).abs();
     Outcome {
         measured,
@@ -2275,7 +2275,7 @@ fn fdtd_smoothing_oskooi() -> Outcome {
     let with = |average, diameter| Smoothing {
         average,
         diameter,
-        ..Smoothing::default()
+        coupling: crate::fdtd::Coupling::Nodes,
     };
     let runs = [
         (with(Average::Subpixel, 1.0), 64),
