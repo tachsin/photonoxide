@@ -220,6 +220,7 @@ export const FALLBACK_MILESTONES = [
   "0.5: Finite-difference time-domain (FDTD)",
   "0.5.1: Many solves at once",
   "0.6: Thermal and electro-optic devices",
+  "0.6.1: Nonlinear integrated optics",
   "0.7: Inverse design",
   "0.7.1: Distributed memory",
   "0.8: Carrier modulators, signals and programmable circuits",
