@@ -1,16 +1,29 @@
-//! NVIDIA cuDSS as a [`DirectSolver`]: sparse LU on the GPU (#188).
+//! NVIDIA cuDSS as a [`DirectSolver`]: sparse LU and L D Lᵀ on the GPU (#188).
 //!
-//! - **The matrices** go to the GPU by rows: a general matrix's columns are turned into rows
-//!   once per structure.
-//! - **Symmetric matrices** are factorized as general ones for now: cuDSS 0.8's L D Lᵀ solve
-//!   failed on the GPU (an illegal address) in its deterministic mode, from a few thousand
-//!   unknowns; without that mode it is to be checked.
+//! - **The forms.** [`Form::General`] is cuDSS's general matrix (`CUDSS_MTYPE_GENERAL`, the
+//!   view `CUDSS_MVIEW_FULL`), by rows: its columns are turned into rows once per structure.
+//!   [`Form::Symmetric`] is its complex symmetric matrix (`CUDSS_MTYPE_SYMMETRIC`, A = Aᵀ
+//!   without conjugation, not Hermitian), an L D Lᵀ, given only its upper triangle by rows
+//!   ([`upper`], the view `CUDSS_MVIEW_UPPER`): a symmetric matrix's columns are its rows, so
+//!   each column's entries on and below the diagonal are the row's on and right of it.
+//! - **L D Lᵀ against LU,** measured on an RTX 4060 (8 GB, cuDSS 0.8, CUDA 13.1) on the
+//!   benchmark's FDFD systems (native/tests/cudss.rs, cuDSS's own figures): half the factors'
+//!   entries, two thirds of the peak memory, and a factorization 1.2 to 1.7 times faster, the
+//!   more so the larger the 3D grid. The 3D strip in oxide (cells of 40 nm, PMLs of 6): at 28³ cells (65 856
+//!   unknowns), 25.7 × 10⁶ factor entries and a 508 MiB peak, factorized in 0.83 s, against
+//!   LU's 44.6 × 10⁶, 782 MiB and 1.14 s; at 40³ (192 000 unknowns), 126 × 10⁶ entries,
+//!   2.2 GiB and 5.4 s, against 213 × 10⁶, 3.4 GiB and 9.3 s; at 48³ (331 776 unknowns),
+//!   273 × 10⁶ entries, 4.7 GiB and 16 s, where LU's 7.3 GiB doesn't fit. The analysis takes
+//!   about as long in either form. Earlier, with cuDSS's deterministic mode on, the symmetric
+//!   solve read an illegal address on the GPU (CUDA error 700) on a 2000-unknown matrix; with
+//!   that mode off (below) it doesn't, in the tests' repeated and parallel runs.
 //! - **Analysis** (reordering and symbolic factorization) is done once per structure. Each
 //!   factorization takes an analysed cuDSS object from a pool, and gives it back when dropped,
 //!   so a sweep analyses once.
 //! - **The transpose:** cuDSS doesn't solve with it, so a general matrix's transpose is
 //!   factorized as a matrix of its own the first time it is asked for (its rows are the
-//!   matrix's columns, as given).
+//!   matrix's columns, as given). A symmetric matrix is its own: its transpose solve is its
+//!   solve.
 //! - **Memory:** a factorization whose estimated peak doesn't fit in the GPU's free memory is
 //!   refused, with both numbers. cuDSS's hybrid (host and device) mode is not used yet.
 //! - **Determinism:** not declared. cuDSS 0.8's deterministic mode makes its kernels read an
@@ -38,7 +51,9 @@ use crate::nvidia::CUDSS;
 
 // cuDSS's enums, from its header (cuDSS 0.8)
 const MTYPE_GENERAL: c_int = 0;
+const MTYPE_SYMMETRIC: c_int = 1;
 const MVIEW_FULL: c_int = 0;
+const MVIEW_UPPER: c_int = 2;
 const BASE_ZERO: c_int = 0;
 const LAYOUT_COL_MAJOR: c_int = 0;
 const PHASE_ANALYSIS: c_int = 0b11;
@@ -151,8 +166,13 @@ struct Engine {
 unsafe impl Send for Engine {}
 
 impl Engine {
-    /// Uploads the matrix and analyses it, in the seconds returned.
-    fn new(api: &Arc<Api>, rows: &Rows, values: &[c64]) -> Result<(Engine, f64)> {
+    /// Uploads the matrix and analyses it in its form, in the seconds returned: a general
+    /// matrix's rows, or a symmetric one's upper triangle by rows ([`upper`]).
+    fn new(api: &Arc<Api>, rows: &Rows, values: &[c64], form: Form) -> Result<(Engine, f64)> {
+        let (mtype, view) = match form {
+            Form::General => (MTYPE_GENERAL, MVIEW_FULL),
+            Form::Symmetric => (MTYPE_SYMMETRIC, MVIEW_UPPER),
+        };
         let _serial = serial();
         let n = rows.starts.len() - 1;
         let zero = vec![c64::new(0.0, 0.0); n];
@@ -201,8 +221,8 @@ impl Engine {
                     R_32I,
                     R_32I,
                     C_64F,
-                    MTYPE_GENERAL,
-                    MVIEW_FULL,
+                    mtype,
+                    view,
                     BASE_ZERO,
                 ),
                 "cudssMatrixCreateCsr",
@@ -364,8 +384,7 @@ impl DirectSolver for Cudss {
             self.api.version.clone(),
             "NVIDIA cuDSS licence (installed by the user)",
         );
-        // not yet (see the module's docs): symmetric matrices are factorized as general ones
-        c.symmetric = false;
+        c.symmetric = true;
         c.transpose = true;
         c.threads = Threads::Library("the GPU".into());
         // its deterministic mode fails on the GPU from several threads (the module's docs)
@@ -380,15 +399,16 @@ impl DirectSolver for Cudss {
             matrix.row_indices(),
             matrix.values(),
         );
-        if matrix.form() == Form::Symmetric {
-            // the caller asks for the general form instead (see capabilities)
-            return Ok(None);
-        }
         index(v.len())?;
-        let ((starts, columns), order) = transposed(n, cs, ri);
-        let rows = columns_as_rows(&starts, &columns)?;
+        let (rows, order) = match matrix.form() {
+            Form::General => {
+                let ((starts, columns), order) = transposed(n, cs, ri);
+                (columns_as_rows(&starts, &columns)?, order)
+            }
+            Form::Symmetric => upper(cs, ri)?,
+        };
         let values: Vec<c64> = order.iter().map(|&k| v[k]).collect();
-        let (engine, seconds) = Engine::new(&self.api, &rows, &values)?;
+        let (engine, seconds) = Engine::new(&self.api, &rows, &values, matrix.form())?;
         Ok(Some(Arc::new(Analysed {
             api: self.api.clone(),
             form: matrix.form(),
@@ -407,6 +427,27 @@ pub(crate) fn columns_as_rows(cs: &[usize], ri: &[usize]) -> Result<Rows> {
         starts: cs.iter().map(|&s| index(s)).collect::<Result<_>>()?,
         columns: ri.iter().map(|&r| index(r)).collect::<Result<_>>()?,
     })
+}
+
+/// A symmetric matrix's upper triangle by rows, and for each of its entries, its place in the
+/// matrix's values: a symmetric matrix's columns are its rows, so column j's entries from row
+/// j down are row j's from column j on. cuDSS is given only that triangle (its view
+/// `CUDSS_MVIEW_UPPER`), so that it never reads the other.
+pub(crate) fn upper(cs: &[usize], ri: &[usize]) -> Result<(Rows, Vec<usize>)> {
+    let n = cs.len() - 1;
+    let mut starts = Vec::with_capacity(n + 1);
+    let (mut columns, mut order) = (Vec::new(), Vec::new());
+    starts.push(0);
+    for j in 0..n {
+        for (k, &i) in ri.iter().enumerate().take(cs[j + 1]).skip(cs[j]) {
+            if i >= j {
+                columns.push(index(i)?);
+                order.push(k);
+            }
+        }
+        starts.push(index(columns.len())?);
+    }
+    Ok((Rows { starts, columns }, order))
 }
 
 /// The rows of a matrix given by columns: each row's (starts, columns), and for each entry by
@@ -466,7 +507,7 @@ impl Analysis for Analysed {
         let pooled = self.pool.lock().map_err(poisoned)?.pop();
         let (engine, analysis_seconds) = match pooled {
             Some(engine) => (engine, self.seconds),
-            None => Engine::new(&self.api, &self.rows, &values)?,
+            None => Engine::new(&self.api, &self.rows, &values, self.form)?,
         };
         let (factorization_seconds, factor_entries, perturbed_pivots) =
             engine.factorize(&values)?;
@@ -476,11 +517,15 @@ impl Analysis for Analysed {
         report.analysis_seconds = analysis_seconds;
         report.factorization_seconds = factorization_seconds;
         report.perturbed_pivots = perturbed_pivots;
-        // its columns as rows: the transpose, factorized when first asked for
-        let columns = (
-            columns_as_rows(matrix.column_starts(), matrix.row_indices())?,
-            matrix.values().to_vec(),
-        );
+        // a general matrix's columns as rows: its transpose, factorized when first asked for;
+        // a symmetric matrix is its own
+        let columns = match self.form {
+            Form::General => Some((
+                columns_as_rows(matrix.column_starts(), matrix.row_indices())?,
+                matrix.values().to_vec(),
+            )),
+            Form::Symmetric => None,
+        };
         Ok(Box::new(Factors {
             api: self.api.clone(),
             engine: Mutex::new(Some(engine)),
@@ -496,8 +541,9 @@ struct Factors {
     api: Arc<Api>,
     engine: Mutex<Option<Engine>>,
     pool: Arc<Mutex<Vec<Engine>>>,
-    /// The matrix's columns as rows, and its values: its transpose.
-    columns: (Rows, Vec<c64>),
+    /// A general matrix's columns as rows, and its values: its transpose. `None` for a
+    /// symmetric matrix, its own transpose.
+    columns: Option<(Rows, Vec<c64>)>,
     transpose: Mutex<Option<Engine>>,
     report: Report,
 }
@@ -509,10 +555,12 @@ impl Factorization for Factors {
     }
 
     fn solve_transpose(&self, b: &[c64]) -> Result<Vec<c64>> {
+        let Some((rows, values)) = &self.columns else {
+            return self.solve(b);
+        };
         let mut transpose = self.transpose.lock().map_err(poisoned)?;
         if transpose.is_none() {
-            let (rows, values) = &self.columns;
-            let (engine, _) = Engine::new(&self.api, rows, values)?;
+            let (engine, _) = Engine::new(&self.api, rows, values, Form::General)?;
             engine.factorize(values)?;
             *transpose = Some(engine);
         }
@@ -531,5 +579,23 @@ impl Drop for Factors {
         {
             pool.push(engine);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_symmetric_matrix_gives_its_upper_triangle_by_rows() {
+        // [a . b]
+        // [. c d]
+        // [b d e], by columns
+        let (cs, ri) = (vec![0, 2, 4, 7], vec![0, 2, 1, 2, 0, 1, 2]);
+        let (rows, order) = upper(&cs, &ri).unwrap();
+        // row 0: (0, 0), (0, 2); row 1: (1, 1), (1, 2); row 2: (2, 2)
+        assert_eq!(rows.starts, [0, 2, 4, 5]);
+        assert_eq!(rows.columns, [0, 2, 1, 2, 2]);
+        assert_eq!(order, [0, 1, 2, 3, 6]);
     }
 }
