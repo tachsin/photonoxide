@@ -1,7 +1,7 @@
 ---
 title: "FDTD"
 module: fdtd
-summary: "Maxwell's equations stepped in time on Yee's grid: E and H leapfrogging on FDFD's own grid, the convolutional PML, walls, periodic and Bloch-periodic sides (complex fields), conductors, lossy media, subpixel smoothing of isotropic and anisotropic bodies, Drude and Lorentz media by auxiliary differential equations and the catalogue's materials fitted by them, the same bits on any number of threads; dipoles and currents normalized exactly by their spectra, plane waves on total-field/scattered-field boxes at any grid angle, one-way waveguide modes and Gaussian beams."
+summary: "Maxwell's equations stepped in time on Yee's grid: E and H leapfrogging on FDFD's own grid, the convolutional PML, walls, periodic and Bloch-periodic sides (complex fields), conductors, lossy media, subpixel smoothing of isotropic and anisotropic bodies, Drude and Lorentz media by auxiliary differential equations and the catalogue's materials fitted by them, the same bits on any number of threads; dipoles and currents normalized exactly by their spectra, plane waves on total-field/scattered-field boxes at any grid angle, one-way waveguide modes and Gaussian beams; transform, flux and mode monitors, and resonances by harmonic inversion."
 order: 23
 papers:
   - cite: "K. S. Yee, IEEE Trans. Antennas Propag. 14, 302 (1966)"
@@ -16,6 +16,8 @@ papers:
     doi: 10.1006/jcph.1994.1159
   - cite: "C. L. Lawson, R. J. Hanson, Solving Least Squares Problems, SIAM (1995) (nonnegative least squares, for the catalogue's fits)"
     doi: 10.1137/1.9781611971217
+  - cite: "V. A. Mandelshtam, H. S. Taylor, J. Chem. Phys. 107, 6756 (1997) (harmonic inversion by filter diagonalization)"
+    doi: 10.1063/1.475324
   - cite: "M. Okoniewski, M. Mrozowski, M. A. Stuchly, IEEE Microw. Guided Wave Lett. 7, 121 (1997) (dispersive media by auxiliary differential equations)"
     doi: 10.1109/75.569723
   - cite: "J. A. Roden, S. D. Gedney, Microw. Opt. Technol. Lett. 27, 334 (2000) (the convolutional PML)"
@@ -60,6 +62,14 @@ validation:
   - fdtd/smoothing-oblique-nodes
   - fdtd/smoothing-energy
   - fdtd/smoothing-oskooi
+  - fdtd/monitor-transforms
+  - fdtd/monitor-flux
+  - fdtd/monitor-flux-box
+  - fdtd/monitor-modes
+  - fdtd/monitor-guides
+  - fdtd/harmonic-inversion
+  - fdtd/cavity-resonances
+  - fdtd/slab-resonance
 examples:
   - cpml_roden_gedney
   - tfsf_square_cylinder
@@ -557,17 +567,86 @@ $w_0 = 1.5\lambda$ at 20 cells a wavelength:
 - **Tilt:** tilted by 10°, the centre moves at 0.1825 µm per µm, to 1.5e-4 of the grid's
   prediction (`fdtd/beam-tilt`), above $\tan 10° = 0.1763$ by the same two effects.
 
-## Probes
+## Probes and monitors
 
-A probe records one value of E or H̃ every step. DFT monitors, fluxes and harmonic inversion are
-#163.
+A probe records one value of E or H̃ every step. A monitor accumulates what a run gives back as
+it goes, so a run needs no stored history:
+
+- **Transforms** (`Simulation::add_dft`): every component of E and H̃ over a box of values,
+  $\sum_n F(t_n) e^{i\omega t_n}\Delta t$ at chosen frequencies, each field at its own times
+  (E at $n\Delta t$, H̃ at $(n - \tfrac12)\Delta t$). Each value's sum is its own, in step order,
+  so the transforms are the same bits on any number of threads. Divided by the source's
+  `Waveform::spectrum` once the fields have died away, they are FDFD's fields at the leapfrog's
+  frequency $\tilde\omega = (2/\Delta t)\sin(\omega\Delta t/2)$. H̃'s transform is then
+  $\nabla \times \hat E/(i\tilde\omega)$ exactly: summing $\tilde H^{n+1/2} - \tilde H^{n-1/2} =
+  -\Delta t\,\nabla \times E^n$ against $e^{i\omega n\Delta t}$ gives $-2i\sin(\omega\Delta t/2)\hat H
+  = -\Delta t\,\nabla \times \hat E$. Complex runs (a Bloch phase) transform the whole field.
+- **Flux** (`add_flux`, `add_flux_box`): $\tfrac12\operatorname{Re}(E \times \tilde H^*)$ through
+  a plane halfway between two planes of nodes, where H̃'s tangential components are, the
+  tangential E the mean of its values on the nodes either side: FDFD's `Field3d::flux`, now
+  within a window. It is exact for the scheme. Summation by parts of
+  $\sum \tilde H^*\cdot(\nabla \times E) - \sum E\cdot(\nabla \times \tilde H)^*$ over a box, each
+  value weighted by its share of it (1 inside, ½ on its boundary), leaves only pairs of values
+  coupled across the boundary, and those are the faces' fluxes in this form, with the values on
+  a face's edges counting half. In a lossless region without sources both sums are imaginary
+  ($i\tilde\omega\sum\lvert\tilde H\rvert^2$ and $i\tilde\omega\sum\varepsilon\lvert E\rvert^2$),
+  so the flux out of a closed box is zero to round-off: 1.5e-15 of a face's flux
+  (`fdtd/monitor-flux-box`). The plane's and the box's flux equal FDFD's for the same current to
+  1.2e-11 (`fdtd/monitor-flux`).
+- **Mode amplitudes** (`add_mode_monitor`): a guide's modes from FDFD, each projected by FDFD's
+  own Lorentz reciprocity form on its plane and the next, at the frequency whose $\tilde\omega$
+  is the mode's $k_0$ (`Simulation::leapfrog_frequency`, $\omega = (2/\Delta t)\arcsin(k_0\Delta
+  t/2)$). With a mode source they give S-parameters. In a closed lossy box they are FDFD's to
+  1.5e-11 (`fdtd/monitor-modes`). Open, in 2D with CPMLs of 10 cells against FDFD's PMLs, a
+  straight guide of ε = 12 transmits 0.9999991 against 1.0000002, and a sharp 90° bend 0.315408
+  against 0.315415, the reflections agreeing to 1.4e-5 and 5.8e-5 (`fdtd/monitor-guides`): the
+  CPML and FDFD's PML absorb differently in discrete time.
+- **Stopping** (`run_until_decayed`): a run goes on in blocks until, over a whole block, |F|²
+  at each of a set of probes has stayed below a fraction of its peak, or until a time limit,
+  and says which. A fixed time is `run_until`.
+
+## Resonances
+
+A resonance's frequency and Q come from a probe's time series after the source has died, by
+harmonic inversion (`harmonic_inversion`): V. A. Mandelshtam and H. S. Taylor's filter
+diagonalization (J. Chem. Phys. 107, 6756 (1997), doi:10.1063/1.475324, Section II). The signal
+$c_n = \sum_k d_k e^{-in\tau\omega_k}$ is the correlation function of an evolution operator
+whose eigenvalues are $u_k = e^{-i\tau\omega_k}$. On a basis $\Psi(z_j) = \sum_{n=0}^{M}
+(\hat U/z_j)^n\Phi_0$ for a few points of the window on the unit circle (their Eq. 19), the
+operator's matrices $U^{(p)}(z, z')$ are sums of the signal alone (Eq. 25, checked against
+the double sum it closes), and $U^{(1)}B = u\,U^{(0)}B$ (Eq. 23) gives the $u_k$ near the
+window. photonoxide follows their summary:
+- $J = \lceil N\tau(\omega_\text{max} - \omega_\text{min})/4\pi\rceil$ points, at least 8;
+- $M = \lfloor(N - 3)/2\rfloor$;
+- the eigenproblem on $U^{(0)}$'s singular vectors above 1e-11 of the largest;
+- each $u_k$ checked by $\lVert(U^{(2)} - u_k^2U^{(0)})B_k\rVert$ relative to $\lVert u_k^2U^{(0)}B_k\rVert$ (step 5);
+- the amplitudes from the whole signal (Eq. 27).
+
+Every eigenvalue in the window is returned with that error, and the caller keeps what it trusts.
+
+A signal of finitely many terms is recovered to round-off, and the resolution is not the
+transform's 2π/T:
+- **Synthetic:** two terms 0.01 c/µm apart, where 400 samples resolve 0.025, are found with
+  frequencies, decay rates and amplitudes to 2.1e-12 (`fdtd/harmonic-inversion`).
+- **A lossy cavity:** in a 2D cavity with walls, each mode $\sin(m\pi i/n_x)\sin(n\pi j/n_y)$
+  evolves as $u^n$, with $u^2 - (1 + c_a - c_b\Delta t\lambda)u + c_a = 0$ from E's and H̃'s
+  updates, where λ is the discrete curl-curl's eigenvalue. The four modes found agree to
+  3.4e-15 (`fdtd/cavity-resonances`).
+- **Convergence:** a slab of ε = 4, 0.5 µm thick, in vacuum, against the continuum's pole
+  $\omega = (2\pi + i\ln r)/(nL)$, r = 1/3 (1 c/µm, Q = 2.86). Its second resonance's frequency
+  converges at second order, 1.8e-3, 4.5e-4 and 1.1e-4 on cells of 20, 10 and 5 nm, and so does
+  its decay rate, 1.4e-2, 3.6e-3 and 8.9e-4 (`fdtd/slab-resonance`).
+
+A published cavity's Q is still to be reproduced. Oskooi et al. 2010's Fig. 9 gives only
+Q ∼ 10⁶ for a missing rod in a square lattice of rods (r = 0.2a, ε = 12), with no crystal size,
+which is not enough to check a number against.
 
 ## Cost
 
 Every update is a fixed stencil with no reduction, its z-planes shared among rayon's threads, so
 the fields are the same bits on any number of threads. Each axis's neighbour offsets and 1/(κΔ)
 factors are tabulated once, and the PML's convolutions run only in their slabs. The kernel is
-plain Rust loops. SIMD, f32 and cache blocking are #165, and the GPU is #166. Roden and Gedney's
+plain Rust loops. SIMD, f32 and cache blocking are #165, and the GPU is #166. A transform monitor adds, each step, a complex multiply-add per value and frequency, in parallel over its z-planes. Roden and Gedney's
 plate, 2.9 × 10⁶ cells for 2000 steps plus two smaller lattices, takes about 45 s on 20 threads
 of a Core Ultra 7 265K.
 
@@ -604,6 +683,14 @@ of a Core Ultra 7 265K.
 | `fdtd/smoothing-oblique-nodes` | the same with `Coupling::Nodes`: first order | 2.0e-3 |
 | `fdtd/smoothing-energy` | the leapfrog's invariant with a smoothed tensor, `Coupling::Nodes`, 300 steps | 1.5e-15 |
 | `fdtd/smoothing-oskooi` | Oskooi et al.'s anisotropic lattice, 32 cells a period: the error relative to the harmonic mean's and no smoothing's | 0.063 |
+| `fdtd/monitor-transforms` | a transform monitor against the sum by hand | 0 |
+| `fdtd/monitor-flux` | the flux through a plane and out of a box against FDFD's, relative | 1.2e-11 |
+| `fdtd/monitor-flux-box` | the flux out of a closed lossless box with no source, relative to a face's | 1.5e-15 |
+| `fdtd/monitor-modes` | a guide's mode amplitudes in a lossy box against FDFD's, relative | 1.5e-11 |
+| `fdtd/monitor-guides` | a 2D straight guide's and sharp bend's transmission and reflection against FDFD with PMLs | 5.8e-5 |
+| `fdtd/harmonic-inversion` | two decaying terms closer than the Fourier resolution, recovered | 2.1e-12 |
+| `fdtd/cavity-resonances` | a lossy cavity's resonances against the leapfrog's own eigenvalues | 3.4e-15 |
+| `fdtd/slab-resonance` | a slab's resonance and Q against the continuum's: the order of convergence | 2.00 |
 | example `cpml_roden_gedney` | Roden and Gedney's plate in soil, both PMLs | −48.6 and −70.5 dB (paper: −48, −67) |
 | example `tfsf_square_cylinder` | Umashankar and Taflove's square cylinder's surface current | 1.732 and 0.764 (figure: 1.750, 0.785); within 0.4 % of their Eq. 8a |
 | example `lorentz_okoniewski` | Okoniewski, Mrozowski and Stuchly's two-term Lorentz half-space, $\lvert r\rvert$ and phase errors, 37.5 µm cells | at most 0.24 and 0.34 of their Fig. 1's curve (C = 1), 0.33 and 0.52 (C = 0.5) |

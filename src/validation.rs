@@ -992,6 +992,62 @@ pub fn cases() -> Vec<Case> {
             run: fdtd_smoothing_oskooi,
         },
         Case {
+            id: "fdtd/monitor-transforms",
+            title: r"FDTD's transform monitors: $E$ over a box of $12 \times 7 \times 10$ values in a closed lossy box ($\varepsilon = 2.1$, $\sigma = 2$/µm, $16 \times 14 \times 12$ cells of 50 nm) after a pulse, at two frequencies, against $\sum_n E(n\Delta t) e^{i\omega n\Delta t}\Delta t$ summed by hand (largest difference relative to the largest transform shown)",
+            tier: Tier::Analytic,
+            source: r"the same sum in the same order; measured 0, the same bits",
+            run: fdtd_monitor_transforms,
+        },
+        Case {
+            id: "fdtd/monitor-flux",
+            title: r"FDTD's flux monitors: the same lossy box, the flux through a whole plane and out of a box around the source at 1.55 µm, from the transforms divided by the pulse's spectrum, against FDFD's field for a unit current at the leapfrog's frequency (largest difference relative to the plane's flux shown)",
+            tier: Tier::Analytic,
+            source: r"once the fields have died away, the transforms solve FDFD's equations at $\tilde\omega = (2/\Delta t)\sin(\omega\Delta t/2)$, $\tilde H = \nabla \times E/(i\tilde\omega)$ exactly, so their flux $\tfrac12 \operatorname{Re}(E \times \tilde H^*)$ on Yee's grid is FDFD's; measured 1.2e-11",
+            run: fdtd_monitor_flux,
+        },
+        Case {
+            id: "fdtd/monitor-flux-box",
+            title: r"FDTD's flux out of a closed box with no source and no loss in it (a block of $\varepsilon = 4$; outside it $\sigma = 3$/µm and a pulse), at two frequencies, run until the fields have died away (largest net flux relative to the largest face's shown)",
+            tier: Tier::Analytic,
+            source: r"summation by parts of $\sum \tilde H^*\cdot(\nabla \times E) - \sum E\cdot(\nabla \times \tilde H)^*$ over the box, each value weighted by its share of it, leaves only the faces' fluxes, and the sums are imaginary in a lossless region without sources; measured 1.5e-15",
+            run: fdtd_monitor_flux_box,
+        },
+        Case {
+            id: "fdtd/monitor-modes",
+            title: r"FDTD's mode monitors: a rectangular guide ($\varepsilon = 12$, $0.4 \times 0.3$ µm in 2.1) in a closed lossy box ($\sigma = 4$/µm, $16 \times 14 \times 24$ cells of 50 nm), its mode launched forward by a pulse: the forward and backward amplitudes behind and ahead of the source at 1.55 µm, divided by the source's amplitude, against FDFD's for its own mode source (largest difference relative to the largest amplitude shown)",
+            tier: Tier::Analytic,
+            source: r"the monitors project the transforms by FDFD's own Lorentz reciprocity form, and the transforms are FDFD's fields at $\tilde\omega$; measured 1.5e-11",
+            run: fdtd_monitor_modes,
+        },
+        Case {
+            id: "fdtd/monitor-guides",
+            title: r"FDTD's S-parameters in 2D: a guide of $\varepsilon = 12$ and 0.25 µm in air (cells of 50 nm, CPMLs of 10 cells), straight and bent by 90° at a sharp corner, its mode launched by a pulse: transmission into the output's mode and reflection into the input's at 1.55 µm, against FDFD with its PMLs (largest difference shown)",
+            tier: Tier::Analytic,
+            source: r"FDFD on the same grid at the leapfrog's frequency; the CPML ($\kappa = 1$, $\alpha = 0$) and FDFD's PML differ in discrete time: straight, $\lvert T \rvert$ 0.9999991 against 1.0000002; bent, 0.315408 against 0.315415, $\lvert \Delta R \rvert$ 1.4e-5; measured 5.8e-5, the straight guide's reflections (1.3e-4 by both)",
+            run: fdtd_monitor_guides,
+        },
+        Case {
+            id: "fdtd/harmonic-inversion",
+            title: r"Harmonic inversion by filter diagonalization: 400 samples of three decaying terms, two of them 0.01 c/µm apart where the Fourier transform resolves 0.025, the window 0.9 to 1.1 c/µm (largest error of their frequencies, decay rates and relative amplitudes shown)",
+            tier: Tier::Analytic,
+            source: r"V. A. Mandelshtam, H. S. Taylor, J. Chem. Phys. 107, 6756 (1997), doi:10.1063/1.475324: the generalized eigenproblem $U^{(1)}B = u\thinspace U^{(0)}B$ of their Eq. 25 is exact for a signal of finitely many terms, so they are recovered to round-off; measured 2.1e-12",
+            run: fdtd_harmonic_inversion,
+        },
+        Case {
+            id: "fdtd/cavity-resonances",
+            title: r"FDTD's resonances by harmonic inversion: a 2D cavity with walls ($24 \times 18$ cells of 50 nm, $\varepsilon = 2$, $\sigma = 0.05$/µm) after a pulse, 4000 steps of $E_z$ at one point, 0.4 to 1.2 c/µm: the resonances found against the leapfrog's own (largest $\lvert u - u_\text{exact} \rvert$ shown)",
+            tier: Tier::Analytic,
+            source: r"each mode $\sin(m\pi i/n_x)\sin(n\pi j/n_y)$ evolves as $u^n$ with $u^2 - (1 + c_a - c_b\Delta t\lambda)u + c_a = 0$, $\lambda = (4/\Delta^2)(\sin^2\frac{m\pi}{2n_x} + \sin^2\frac{n\pi}{2n_y})$; 4 found, to 3.4e-15",
+            run: fdtd_cavity_resonances,
+        },
+        Case {
+            id: "fdtd/slab-resonance",
+            title: r"FDTD's resonance and Q in 1D: a slab of $\varepsilon = 4$, 0.5 µm thick, in vacuum (CPMLs of 30 cells), its second resonance by harmonic inversion on cells of 20, 10 and 5 nm at Courant number 0.5, against the continuum's $\omega = (2\pi + i \ln r)/(nL)$, $r = 1/3$ (1 c/µm, $Q = 2.86$): the order of convergence of the frequency and of the decay rate (the smaller shown)",
+            tier: Tier::Analytic,
+            source: r"the slab's poles $r^2 e^{2inkL} = 1$; second order as the scheme's dispersion: relative errors 1.8e-3, 4.5e-4 and 1.1e-4 of the frequency, 1.4e-2, 3.6e-3 and 8.9e-4 of the decay rate: orders 2.00 and 2.01",
+            run: fdtd_slab_resonance,
+        },
+        Case {
             id: "circuit/series-waveguides",
             title: r"Circuits: two waveguides, 12.5 and 30.25 µm, in series are one of 42.75 µm ($n_\text{eff} = 2.4$, $n_g = 4.2$, 3 dB/cm), 1.54 to 1.56 µm (largest $\lvert \Delta S \rvert$ shown)",
             tier: Tier::Analytic,
@@ -1979,6 +2035,112 @@ fn fdtd_smoothing_energy() -> Outcome {
         // round-off: measured 1.5e-15
         tolerance: 1e-12,
         error: measured,
+    }
+}
+
+fn fdtd_monitor_transforms() -> Outcome {
+    let measured = crate::fdtd::monitors_checks::transforms_against_hand();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // the same sum in the same order
+        tolerance: 1e-15,
+        error: measured,
+    }
+}
+
+fn fdtd_monitor_flux() -> Outcome {
+    let measured = crate::fdtd::monitors_checks::flux_against_fdfd();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // FDFD's direct solve and the fields' decay to 1e-17
+        tolerance: 1e-9,
+        error: measured,
+    }
+}
+
+fn fdtd_monitor_flux_box() -> Outcome {
+    let (net, largest) = crate::fdtd::monitors_checks::box_balance(false);
+    let measured = net / largest;
+    Outcome {
+        measured,
+        expected: 0.0,
+        // round-off once the fields have died away
+        tolerance: 1e-12,
+        error: measured,
+    }
+}
+
+fn fdtd_monitor_modes() -> Outcome {
+    let measured = crate::fdtd::monitors_checks::modes_against_fdfd();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // FDFD's direct solve and the fields' decay to 1e-15
+        tolerance: 1e-9,
+        error: measured,
+    }
+}
+
+fn fdtd_monitor_guides() -> Outcome {
+    let measured = [false, true]
+        .into_iter()
+        .map(|bend| {
+            let s = crate::fdtd::monitors_checks::guide_2d(bend);
+            s.fdtd
+                .iter()
+                .zip(&s.fdfd)
+                .map(|(a, b)| (a - b).norm())
+                .fold(0.0f64, f64::max)
+        })
+        .fold(0.0f64, f64::max);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // the CPML against FDFD's PML: measured 5.8e-5 (the straight guide's reflection)
+        tolerance: 1e-4,
+        error: measured,
+    }
+}
+
+fn fdtd_harmonic_inversion() -> Outcome {
+    let measured = crate::fdtd::monitors_checks::harmonic_synthetic();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // round-off in the small eigenproblem
+        tolerance: 1e-9,
+        error: measured,
+    }
+}
+
+fn fdtd_cavity_resonances() -> Outcome {
+    let (count, measured) = crate::fdtd::monitors_checks::cavity_resonances();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // round-off; at least four modes found
+        tolerance: 1e-12,
+        error: if count >= 4 { measured } else { f64::INFINITY },
+    }
+}
+
+fn fdtd_slab_resonance() -> Outcome {
+    use crate::fdtd::monitors_checks::slab_resonance;
+    use rayon::prelude::*;
+    let errors: Vec<(f64, f64)> = [0.02, 0.01, 0.005]
+        .par_iter()
+        .map(|&h| slab_resonance(h))
+        .collect();
+    let order = |a: f64, b: f64| (a / b).log2();
+    let measured = order(errors[1].0, errors[2].0).min(order(errors[1].1, errors[2].1));
+    Outcome {
+        measured,
+        expected: 2.0,
+        // measured 2.00 and 2.01
+        tolerance: 0.05,
+        error: (measured - 2.0).abs(),
     }
 }
 

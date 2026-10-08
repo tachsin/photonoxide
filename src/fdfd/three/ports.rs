@@ -36,7 +36,7 @@ use std::ops::Range;
 
 use num_complex::Complex64 as c64;
 
-use super::{Axis, Field3d, Lattice};
+use super::{Axis, Boundaries3d, Field3d, Grid3d, Lattice};
 use crate::fdfd::{Direction, Edges, Side};
 use crate::{Error, Result};
 
@@ -621,4 +621,26 @@ impl Lattice {
 /// Whether a mode with this β propagates more than it decays: |Im β| < |Re β|.
 fn propagates(beta: c64) -> bool {
     beta.im.abs() < beta.re.abs()
+}
+
+/// The forward and backward amplitudes of `mode` in a field E on `grid` inside `boundaries`
+/// whose `component` at (i, j, k) is `e(component, [i, j, k])`, as
+/// [`Field3d::mode_amplitudes`] measures them, for a field from elsewhere that solves FDFD's
+/// equations at the mode's k₀: FDTD's transforms. It reads E on the mode's plane and the
+/// tangential E on the next.
+///
+/// # Panics
+///
+/// If the mode's plane doesn't fit `grid` (its size and step) or the next plane isn't on it.
+pub(crate) fn mode_amplitudes_of(
+    grid: Grid3d,
+    boundaries: Boundaries3d,
+    mode: &PortMode3d,
+    e: &impl Fn(Axis, [usize; 3]) -> c64,
+) -> (c64, c64) {
+    let lattice = Lattice::new(grid, boundaries, mode.k0);
+    lattice.mode_amplitudes(mode, &|r| {
+        let (component, at) = grid.at(r);
+        e(component, at)
+    })
 }
