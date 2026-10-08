@@ -32,7 +32,7 @@ papers:
     doi: 10.1103/PhysRevE.77.036611
   - cite: "A. F. Oskooi, C. Kottke, S. G. Johnson, Opt. Lett. 34, 2778 (2009) (anisotropic smoothing on Yee's grid)"
     doi: 10.1364/OL.34.002778
-  - cite: "A. F. Oskooi et al., Comput. Phys. Commun. 181, 687 (2010) (sources restricted to the grid)"
+  - cite: "A. F. Oskooi et al., Comput. Phys. Commun. 181, 687 (2010) (sources restricted to the grid; its Figs. 7 and 8 reproduced)"
     doi: 10.1016/j.cpc.2009.11.008
   - cite: "C. A. Bauer, G. R. Werner, J. R. Cary, J. Comput. Phys. 230, 2060 (2011) (the triplet tensor, exact at a plane)"
     doi: 10.1016/j.jcp.2010.12.005
@@ -93,11 +93,22 @@ validation:
   - fdtd/mie-sphere
   - fdtd/mie-sphere-staircase
   - fdtd/mie-drude
+  - fdtd/meep-pml-rates
+  - fdtd/ring-wronskian
+  - fdtd/ring-resonances
+  - fdtd/ring-order
+  - fdtd/fdfd-band-2d
+  - fdtd/fdfd-band-2d-fine
+  - fdtd/fdfd-band-3d-strip
+  - fdtd/fdfd-band-3d-bend
+  - fdtd/fdfd-smoothed
 examples:
   - cpml_roden_gedney
   - tfsf_square_cylinder
   - lorentz_okoniewski
   - subpixel_holes
+  - pml_oskooi
+  - bump_oskooi
 ---
 
 The finite-difference time-domain method steps Maxwell's equations forward in time. One run
@@ -753,9 +764,26 @@ transform's 2π/T:
   converges at second order, 1.8e-3, 4.5e-4 and 1.1e-4 on cells of 20, 10 and 5 nm, and so does
   its decay rate, 1.4e-2, 3.6e-3 and 8.9e-4 (`fdtd/slab-resonance`).
 
-A published cavity's Q is still to be reproduced. Oskooi et al. 2010's Fig. 9 gives only
-Q ∼ 10⁶ for a missing rod in a square lattice of rods (r = 0.2a, ε = 12), with no crystal size,
-which is not enough to check a number against.
+**A ring's resonances, exactly.** Oskooi et al. 2010's Fig. 11 excites "a dielectric ring
+resonator" of ε = 11.56 but gives neither its size nor a number, and their Fig. 9 gives only
+Q ∼ 10⁶ for a missing rod in a square lattice of rods (r = 0.2a, ε = 12), with no crystal size.
+A 2D ring has an exact solution instead, against which a run's modes and Q's are checked
+(`fdtd::ring`, crate-private). With $E_z$ along the axis, $E_z = u(r)e^{im\phi}e^{-i\omega t}$ is
+$J_m(kr)$ in the hole, $J_m(nkr)$ and $Y_m(nkr)$ in the ring and the outgoing $H^{(1)}_m(kr)$
+outside; continuity of $E_z$ and $\partial E_z/\partial r$ at both faces leaves a 2 × 2
+determinant, each row multiplied through by the outer function so that it has no poles, whose
+zeros $\omega_r - i\gamma$ are the resonances, $Q = \omega_r/2\gamma$, found by the secant
+method. $J_m$ and $Y_m$ of complex argument come from their power series (M. Abramowitz, I. A.
+Stegun, *Handbook of Mathematical Functions*, NBS (1964), Eqs. 9.1.10 and 9.1.11), which lose
+about $e^{\lvert z\rvert}/2\pi\lvert z\rvert$ to cancellation and are kept to |z| ≤ 15: their
+Wronskian is $2/\pi z$ to 1.0e-10 (`fdtd/ring-wronskian`).
+
+The ring between radii 1 and 2 µm, smoothed, kicked by a pulse at 0.15 c/µm and recorded for 300
+µm/c, has three resonances from 0.1 to 0.2 c/µm, m = 3, 4 and 5 at 0.118192, 0.147431 and
+0.175779 c/µm with Q = 77.26, 343.92 and 1634.2. On 20 cells a µm FDTD finds them within 2.8e-4,
+5.2e-4 and 7.7e-4 in frequency and 0.13 %, 0.37 % and 0.73 % in Q (`fdtd/ring-resonances`), and
+both errors fall at second order from 10 cells (`fdtd/ring-order`): $E_z$ lies along every face,
+where the smoothed ε is the cell's mean, the right average for it.
 
 ## Scattering by a sphere
 
@@ -839,6 +867,58 @@ dipole and quadrupole plasmons fall at α ≈ 1.5 to 2, and on 16 cells a radius
 sphere absorbs up to 2.7 times Mie's there, falling slowly with the grid. A plasmon is a
 surface mode, and a dispersive medium is sampled, not smoothed: its ε∞ would have to enter the
 smoothed tensor.
+
+## Agreement with FDFD over a band
+
+One pulsed run gives a guide's S-parameters at every frequency of its band; FDFD gives them one
+frequency at a time. On the same grid they solve the same equations at the leapfrog's frequency
+$\tilde\omega$, so they are compared exactly there (`fdtd::agreement_checks`): the run's mode
+source launches the carrier's mode at every frequency, and FDFD is given the run's own currents,
+each J and M times its transform at the times it is applied
+(`Waveform::analytic_spectrum`), at each frequency's $\tilde\omega$. The amplitudes of each
+frequency's own modes, forward and backward on a reference plane after the source and forward
+on the output's plane, give $S_{21} = a^+_\text{out}/a^+_\text{in}$ and $S_{11} =
+a^-_\text{in}/a^+_\text{in}$ by FDTD's mode monitors and by FDFD's projection. What is left is the
+CPML against FDFD's PML (κ = 1, α = 0: the same stretch, in discrete time), which differ in what
+they reflect:
+
+- **2D,** a guide of ε = 12 and 0.3 µm in air with E in the plane, straight and bent around a
+  quarter circle of 1 µm, five frequencies across ±5 % of 1.55 µm, CPMLs of 0.5 µm: 3.2e-5 on
+  50 nm cells (`fdtd/fdfd-band-2d`), 3.1e-7 on 25 (`fdtd/fdfd-band-2d-fine`), as the same
+  thickness takes more cells and both reflect less.
+- **3D,** a strip of ε = 12, 0.4 × 0.25 µm, in ε = 2.1, on 50 nm cells, three frequencies:
+  straight, 2.2e-4 with CPMLs of 8 cells (`fdtd/fdfd-band-3d-strip`), 6.5e-5 with 10 and 7.9e-6
+  with 12 (an ignored test); bent around a quarter circle of 0.6 µm, 1.9e-4
+  (`fdtd/fdfd-band-3d-bend`), $\lvert S_{21}\rvert$ 0.78 to 0.85.
+- **With subpixel smoothing,** the 2D bend smoothed by the triplets for FDTD and averaged as
+  FDFD averages it: the two differ at the bend, and their difference falls as the grid shrinks,
+  0.56, 0.31 and 0.16 on 50, 25 and 12.5 nm cells (orders 0.85 and 0.97,
+  `fdtd/fdfd-smoothed`), mostly $S_{21}$'s phase over 3.6 µm of guide, $\lvert S_{21}\rvert$
+  within 7e-4. Both converge to the continuum, FDFD's average first order at the curved faces,
+  as is the triplets'.
+
+## Meep's published cases
+
+A. F. Oskooi et al.'s paper on Meep (Comput. Phys. Commun. 181, 687 (2010),
+doi:10.1016/j.cpc.2009.11.008) is reproduced from the paper alone (Meep's code is GPL and isn't
+read). Its figures give convergence rates rather than numbers to many digits; those with a
+number are reproduced:
+
+- **Fig. 8, a PML's reflection** (the `pml_oskooi` example, `fdtd/meep-pml-rates`): with σ
+  graded as $(x/L)^d$ at a fixed round-trip reflection, the change of $E_z$ from a point source
+  when the PML is a wavelength thicker falls as $1/L^{2d+4}$, at 20 pixels a wavelength. Here,
+  in a cell of 4 wavelengths with R = 1e-15, the rates between consecutive differences, each at
+  its midpoint, approach 6, 8 and 10 from above: 6.14, 8.22 and 10.32 at L = 4, 6.03, 8.05 and
+  10.08 at L = 8.
+- **Fig. 7, a bump on a guide** (the `bump_oskooi` example): the power a semicircular bump on a
+  guide of ε = 12 scatters from a dipole converges "roughly second-order" with smoothing and
+  "only first-order" without. With the bump, the frequency and the polarization read off the
+  figure's inset (radius 0.25a, 4.5a from the dipole, f = 0.2 c/a, $E_z$), from 10 to 30 pixels
+  a against the smoothed at 50: least-squares orders 2.37 and 1.07, smoothing better at every
+  resolution, its error 7.5e-2 at 10 pixels (the paper's 0.08).
+- **Figs. 3, 6, 9, 10, 11 and 12** give no number to check. Fig. 6's anisotropic ellipsoids and
+  Fig. 11's ring are not sized in the paper; Fig. 9 gives Q ∼ 10⁶. The ring of Fig. 11 is
+  checked against its exact resonances instead (above, "Resonances").
 
 ## Cost
 
@@ -1006,6 +1086,17 @@ Before the rows were shared, a 2D grid, one plane thick, stepped on one thread: 
 | `fdtd/mie-sphere` | a smoothed sphere of ε = 4 against Mie, 8 and 16 cells a radius: the order of convergence | 1.97 |
 | `fdtd/mie-sphere-staircase` | the same sphere sampled, 16 cells a radius: the mean relative error of $C_\text{sca}$ | 6.0e-3 |
 | `fdtd/mie-drude` | a damped Drude metal sphere, 16 cells a radius: the mean relative error of $C_\text{sca}$ and $C_\text{abs}$ | 1.6e-2 |
+| `fdtd/meep-pml-rates` | Oskooi et al.'s Fig. 8: the rate a PML's field convergence falls at, σ as $(x/L)^d$, at L = 4, against $2d + 4$ | 6.14, 8.22, 10.32 |
+| `fdtd/ring-wronskian` | the ring's Bessel functions: their Wronskian against $2/\pi z$, relative | 1.0e-10 |
+| `fdtd/ring-resonances` | Fig. 11's ring (ε = 11.56, radii 1 and 2 µm), 20 cells a µm: three resonances against the exact ones, relative frequency | 7.7e-4 (Q 7.3e-3) |
+| `fdtd/ring-order` | the same from 10 to 20 cells: the order of the frequencies' and Q's errors | 1.93 to 2.05 |
+| `fdtd/fdfd-band-2d` | a 2D straight guide and bend, one pulse against FDFD at five frequencies, 50 nm cells: $\lvert\Delta S\rvert$ | 3.2e-5 |
+| `fdtd/fdfd-band-2d-fine` | the same on 25 nm cells | 3.1e-7 |
+| `fdtd/fdfd-band-3d-strip` | a 3D strip, one pulse against `Solver3d` at three frequencies, CPMLs of 8 | 2.2e-4 |
+| `fdtd/fdfd-band-3d-bend` | a 3D bend, the same | 1.9e-4 |
+| `fdtd/fdfd-smoothed` | the 2D bend smoothed for FDTD against FDFD's average: the order their difference falls at, 50 to 25 nm | 0.85 |
+| example `pml_oskooi` | Oskooi et al.'s Fig. 8: the rates at L = 8 wavelengths | 6.03, 8.05, 10.08 (paper: 6, 8, 10) |
+| example `bump_oskooi` | Oskooi et al.'s Fig. 7: a bump's scattered power, 10 to 30 pixels a, least-squares orders | 2.37 smoothed, 1.07 not (paper: about 2 and 1) |
 | example `cpml_roden_gedney` | Roden and Gedney's plate in soil, both PMLs | −48.6 and −70.5 dB (paper: −48, −67) |
 | example `tfsf_square_cylinder` | Umashankar and Taflove's square cylinder's surface current | 1.732 and 0.764 (figure: 1.750, 0.785); within 0.4 % of their Eq. 8a |
 | example `lorentz_okoniewski` | Okoniewski, Mrozowski and Stuchly's two-term Lorentz half-space, $\lvert r\rvert$ and phase errors, 37.5 µm cells | at most 0.24 and 0.34 of their Fig. 1's curve (C = 1), 0.33 and 0.52 (C = 0.5) |

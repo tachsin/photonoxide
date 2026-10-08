@@ -1153,6 +1153,69 @@ pub fn cases() -> Vec<Case> {
             run: fdtd_mie_drude,
         },
         Case {
+            id: "fdtd/meep-pml-rates",
+            title: r"Oskooi et al.'s PML convergence: a point source of $E_z$ in 2D vacuum, 20 cells a wavelength, a cell of 4 wavelengths inside CPMLs of L wavelengths ($\kappa = 1$, $\alpha = 0$, round-trip reflection $10^{-15}$), $\sigma$ graded as $(x/L)^d$: the rate at which $\lvert E^{L+1} - E^L \rvert^2$ a wavelength from the source falls with L at L = 4, against $1/L^{2d+4}$ for d = 1, 2 and 3 (largest difference of the rates shown)",
+            tier: Tier::Published,
+            source: r"A. F. Oskooi et al., Comput. Phys. Commun. 181, 687 (2010), doi:10.1016/j.cpc.2009.11.008, Section 4.2 and Fig. 8: field convergence as $1/L^6$, $1/L^8$ and $1/L^{10}$; measured 6.14, 8.22 and 10.32 at L = 4 (each slope between the differences' midpoints), approaching from above: 6.03, 8.05 and 10.08 at L = 8, the `pml_oskooi` example",
+            run: fdtd_meep_pml_rates,
+        },
+        Case {
+            id: "fdtd/ring-wronskian",
+            title: r"A 2D ring's exact resonances: the Bessel functions $J_m$ and $Y_m$ of complex argument by their power series, orders 0 to 11 across $\lvert z \rvert \le 15$: the Wronskian $J_m Y_m' - J_m' Y_m$ against $2/\pi z$ (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"M. Abramowitz, I. A. Stegun, Handbook of Mathematical Functions, NBS (1964), Eqs. 9.1.10, 9.1.11 and 9.1.16; the series lose about $e^{\lvert z \rvert}/2\pi\lvert z \rvert$ of their precision to cancellation; measured 1.0e-10",
+            run: fdtd_ring_wronskian,
+        },
+        Case {
+            id: "fdtd/ring-resonances",
+            title: r"FDTD's resonances of a dielectric ring: Oskooi et al.'s Fig. 11 ring ($\varepsilon = 11.56$) between radii 1 and 2 µm in vacuum, 2D, $E_z$, smoothed, 20 cells a µm (CPMLs of 2 µm, 1 µm clear), a pulse at 0.15 c/µm, 300 µm/c of one point's field by harmonic inversion: the three resonances from 0.1 to 0.2 c/µm against the exact ones (largest relative error in frequency shown)",
+            tier: Tier::Analytic,
+            source: r"the zeros of the determinant of $E_z$'s and $\partial E_z/\partial r$'s continuity with $J_m$ in the hole, $J_m$ and $Y_m$ in the ring and the outgoing $H^{(1)}_m$ outside, by the secant method: m = 3, 4 and 5 at 0.118192, 0.147431 and 0.175779 c/µm, Q 77.26, 343.92 and 1634.2 (Oskooi et al. 2010 give no numbers for their ring, nor its size); measured 2.8e-4, 5.2e-4 and 7.7e-4, Q 77.36, 345.21 and 1646.2 (7.3e-3)",
+            run: fdtd_ring_resonances,
+        },
+        Case {
+            id: "fdtd/ring-order",
+            title: r"The ring's resonances on 10 and 20 cells a µm: the order at which the frequencies' and the Q factors' errors fall (the smallest of the six shown)",
+            tier: Tier::Analytic,
+            source: r"second order: smoothed, $E_z$ sees the mean $\varepsilon$ across each face, the right average for a field along an interface (A. Farjadpour et al., Opt. Lett. 31, 2972 (2006), doi:10.1364/OL.31.002972); measured 1.99 to 2.02 in frequency, 1.9 to 2.2 in Q",
+            run: fdtd_ring_order,
+        },
+        Case {
+            id: "fdtd/fdfd-band-2d",
+            title: r"FDTD against FDFD over a band in 2D: a guide of $\varepsilon = 12$ and 0.3 µm in air (E in the plane; a square of 3.5 µm in 50 nm cells, CPMLs of 0.5 µm), straight, and bent by 90° around a quarter circle of 1 µm, its mode launched by one pulse at 1.55 µm: $S_{21}$ and $S_{11}$ at five frequencies across ±5 % from the run's mode monitors, against `Solver3d` at each one's leapfrog frequency (largest $\lvert \Delta S \rvert$ shown)",
+            tier: Tier::Analytic,
+            source: r"FDFD on the same grid at $\tilde\omega = (2/\Delta t)\sin(\omega\Delta t/2)$ for the run's own currents, the mode source's J and M each times its transform at the times it is applied (the carrier's mode at every frequency, as the run launches it); $S_{21} = a^+_\text{out}/a^+_\text{in}$ and $S_{11} = a^-_\text{in}/a^+_\text{in}$ on the same planes. The CPML ($\kappa = 1$, $\alpha = 0$) and FDFD's PML differ in discrete time: measured 3.2e-5, the straight guide's $\lvert S_{11} \rvert$ 9.0e-5 against 8.4e-5; the bend's $\lvert S_{21} \rvert$ about 0.995",
+            run: fdtd_fdfd_band_2d,
+        },
+        Case {
+            id: "fdtd/fdfd-band-2d-fine",
+            title: r"The same 2D guides on 25 nm cells (the same CPMLs of 0.5 µm, 20 cells): the largest $\lvert \Delta S \rvert$ over the band against FDFD (shown)",
+            tier: Tier::Analytic,
+            source: r"FDFD on the same grid at the leapfrog's frequency; the CPML's difference from FDFD's PML lies in what each reflects, which falls as the same thickness takes more cells: 3.2e-5 on 50 nm cells, 3.1e-7 on 25",
+            run: fdtd_fdfd_band_2d_fine,
+        },
+        Case {
+            id: "fdtd/fdfd-band-3d-strip",
+            title: r"FDTD against FDFD over a band in 3D: a strip of $\varepsilon = 12$, $0.4 \times 0.25$ µm, in $\varepsilon = 2.1$ (50 nm cells, $24 \times 20 \times 28$ inside CPMLs of 8 cells), its fundamental mode launched by one pulse at 1.55 µm: $S_{21}$ over 0.95 µm of guide and $S_{11}$ at the carrier and 5 % either side, against `Solver3d` at each one's leapfrog frequency (largest $\lvert \Delta S \rvert$ shown)",
+            tier: Tier::Analytic,
+            source: r"FDFD on the same grid at the leapfrog's frequency for the run's own currents, as `fdtd/fdfd-band-2d`; the CPML against FDFD's PML, converging as it thickens: 2.2e-4 with 8 cells, 6.5e-5 with 10 and 7.9e-6 with 12 ($\lvert S_{11} \rvert$, what the CPML reflects, 4.2e-4, 8.7e-5 and 4.2e-5); measured 2.2e-4",
+            run: fdtd_fdfd_band_3d_strip,
+        },
+        Case {
+            id: "fdtd/fdfd-band-3d-bend",
+            title: r"FDTD against FDFD over a band in 3D: the same strip along x bent by 90° into y around a quarter circle of 0.6 µm (50 nm cells, $34 \times 34 \times 16$ inside CPMLs of 8 cells), one pulse at 1.55 µm: $S_{21}$ into the output's mode and $S_{11}$ at the carrier and 5 % either side, against `Solver3d` at each one's leapfrog frequency (largest $\lvert \Delta S \rvert$ shown)",
+            tier: Tier::Analytic,
+            source: r"FDFD on the same grid at the leapfrog's frequency for the run's own currents, as `fdtd/fdfd-band-2d`; $\lvert S_{21} \rvert$ 0.78 to 0.85 and $\lvert S_{11} \rvert$ about 0.01 by both; measured 1.9e-4, the CPML against FDFD's PML",
+            run: fdtd_fdfd_band_3d_bend,
+        },
+        Case {
+            id: "fdtd/fdfd-smoothed",
+            title: r"FDTD with subpixel smoothing against FDFD: the 2D bend of `fdtd/fdfd-band-2d` smoothed by Werner, Bauer and Cary's triplets (`Coupling::Triplets`) for FDTD, averaged as FDFD averages it for FDFD, on 50 and 25 nm cells: the order at which their largest $\lvert \Delta S \rvert$ over the band falls (shown)",
+            tier: Tier::Analytic,
+            source: r"both converge to the continuum's S; at the bend the two averages differ, FDFD's (harmonic along each component and arithmetic across, from samples) first order at its curved faces, as are the triplets (G. R. Werner, C. A. Bauer, J. R. Cary, J. Comput. Phys. 255, 436 (2013), doi:10.1016/j.jcp.2013.08.009): $\lvert \Delta S \rvert$ 0.56, 0.31 and 0.16 on 50, 25 and 12.5 nm cells, mostly $S_{21}$'s phase over 3.6 µm of guide ($\lvert S_{21} \rvert$ within 7e-4); measured 0.85 from 50 to 25 nm, 0.97 from 25 to 12.5",
+            run: fdtd_fdfd_smoothed,
+        },
+        Case {
             id: "circuit/series-waveguides",
             title: r"Circuits: two waveguides, 12.5 and 30.25 µm, in series are one of 42.75 µm ($n_\text{eff} = 2.4$, $n_g = 4.2$, 3 dB/cm), 1.54 to 1.56 µm (largest $\lvert \Delta S \rvert$ shown)",
             tier: Tier::Analytic,
@@ -2208,6 +2271,135 @@ fn fdtd_monitor_guides() -> Outcome {
         // the CPML against FDFD's PML: measured 5.8e-5 (the straight guide's reflection)
         tolerance: 1e-4,
         error: measured,
+    }
+}
+
+fn fdtd_meep_pml_rates() -> Outcome {
+    let rates = crate::fdtd::meep_checks::pml_rates(4);
+    let measured = rates
+        .iter()
+        .zip([6.0, 8.0, 10.0])
+        .map(|(r, e)| (r - e).abs())
+        .fold(0.0, f64::max);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // the rates near L = 4 are still above their limits: measured 0.32 (d = 3)
+        tolerance: 0.4,
+        error: measured,
+    }
+}
+
+fn fdtd_ring_wronskian() -> Outcome {
+    let measured = crate::fdtd::ring::wronskian_error();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // measured 1.0e-10
+        tolerance: 1e-9,
+        error: measured,
+    }
+}
+
+/// The ring's relative errors in frequency and in Q at `resolution` cells a µm, by order 3, 4
+/// and 5; infinite unless exactly those three are found.
+fn ring_errors(resolution: usize) -> Vec<(f64, f64)> {
+    use crate::fdtd::ring::ring_q;
+    let modes = crate::fdtd::meep_checks::ring_resonances(resolution);
+    if modes.iter().map(|m| m.order).collect::<Vec<_>>() != [3, 4, 5] {
+        return vec![(f64::INFINITY, f64::INFINITY)];
+    }
+    modes
+        .iter()
+        .map(|m| {
+            (
+                (m.fdtd.re - m.exact.re).abs() / m.exact.re,
+                (ring_q(m.fdtd) - ring_q(m.exact)).abs() / ring_q(m.exact),
+            )
+        })
+        .collect()
+}
+
+fn fdtd_ring_resonances() -> Outcome {
+    let measured = ring_errors(20).iter().map(|e| e.0).fold(0.0, f64::max);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // measured 7.7e-4 (m = 5)
+        tolerance: 1.5e-3,
+        error: measured,
+    }
+}
+
+fn fdtd_ring_order() -> Outcome {
+    let (coarse, fine) = (ring_errors(10), ring_errors(20));
+    let measured = coarse
+        .iter()
+        .zip(&fine)
+        .flat_map(|(c, f)| [(c.0 / f.0).log2(), (c.1 / f.1).log2()])
+        .fold(f64::INFINITY, f64::min);
+    let measured = if measured.is_finite() { measured } else { 0.0 };
+    Outcome {
+        measured,
+        expected: 2.0,
+        tolerance: 0.3,
+        error: (measured - 2.0).abs(),
+    }
+}
+
+fn fdtd_fdfd_band_2d() -> Outcome {
+    let measured = crate::fdtd::agreement_checks::guides_2d(0.05);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // the CPML against FDFD's PML: measured 3.2e-5
+        tolerance: 1e-4,
+        error: measured,
+    }
+}
+
+fn fdtd_fdfd_band_2d_fine() -> Outcome {
+    let measured = crate::fdtd::agreement_checks::guides_2d(0.025);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // measured 3.1e-7
+        tolerance: 1e-6,
+        error: measured,
+    }
+}
+
+fn fdtd_fdfd_band_3d_strip() -> Outcome {
+    let measured = crate::fdtd::agreement_checks::strip_3d(8).largest_difference();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // the CPML against FDFD's PML: measured 2.2e-4
+        tolerance: 5e-4,
+        error: measured,
+    }
+}
+
+fn fdtd_fdfd_band_3d_bend() -> Outcome {
+    let measured = crate::fdtd::agreement_checks::bend_3d(8).largest_difference();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // the CPML against FDFD's PML: measured 1.9e-4
+        tolerance: 5e-4,
+        error: measured,
+    }
+}
+
+fn fdtd_fdfd_smoothed() -> Outcome {
+    use crate::fdtd::agreement_checks::smoothed_bend_2d;
+    let measured = (smoothed_bend_2d(0.05) / smoothed_bend_2d(0.025)).log2();
+    Outcome {
+        measured,
+        expected: 1.0,
+        // first order, not yet asymptotic: 0.85, then 0.97 from 25 to 12.5 nm
+        tolerance: 0.3,
+        error: (measured - 1.0).abs(),
     }
 }
 

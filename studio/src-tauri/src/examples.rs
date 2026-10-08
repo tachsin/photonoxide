@@ -63,6 +63,8 @@ examples!(
     tfsf_square_cylinder: "../../../examples/tfsf_square_cylinder.rs",
     lorentz_okoniewski: "../../../examples/lorentz_okoniewski.rs",
     subpixel_holes: "../../../examples/subpixel_holes.rs",
+    pml_oskooi: "../../../examples/pml_oskooi.rs",
+    bump_oskooi: "../../../examples/bump_oskooi.rs",
 );
 
 /// An example's `main` returns an exit code, or a result holding one.
@@ -151,6 +153,8 @@ fn title(name: &str) -> (&'static str, &'static str) {
         ),
         "lorentz_okoniewski" => ("Reflection from a Lorentz medium", "Okoniewski et al. 1997"),
         "subpixel_holes" => ("Subpixel smoothing's convergence", "Farjadpour et al. 2006"),
+        "pml_oskooi" => ("How a PML's reflection falls", "Oskooi et al. 2010"),
+        "bump_oskooi" => ("Scattering by a bump, smoothed", "Oskooi et al. 2010"),
         _ => ("", ""),
     }
 }
@@ -177,6 +181,8 @@ fn seconds(name: &str) -> f64 {
         "group_index" | "hadley_corners" => 30.0,
         "leaky_wire_benchmark" | "mzi_dwivedi" => 60.0,
         "cpml_roden_gedney" => 45.0,
+        "pml_oskooi" => 90.0,
+        "bump_oskooi" => 120.0,
         _ => 10.0,
     }
 }
