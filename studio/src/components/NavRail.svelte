@@ -10,6 +10,7 @@
     ChevronsLeft,
     CircuitBoard,
     FlaskConical,
+    Gauge,
     History,
     House,
     LayoutGrid,
@@ -74,7 +75,10 @@
     },
     {
       title: "Machine",
-      items: [{ page: "libraries", label: "Libraries", icon: Package, hint: "External libraries found here: licences, backends, installs" }],
+      items: [
+        { page: "libraries", label: "Libraries", icon: Package, hint: "External libraries found here: licences, backends, installs" },
+        { page: "benchmarks", label: "Benchmarks", icon: Gauge, hint: "Which backend is faster and leaner, measured on this machine" },
+      ],
     },
   ];
 

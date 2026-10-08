@@ -77,6 +77,12 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             save_text,
             crate::libraries::libraries,
             crate::libraries::install,
+            start_bench,
+            crate::benchmarks::bench_data,
+            crate::benchmarks::bench_catalogue,
+            crate::benchmarks::bench_plan,
+            crate::benchmarks::bench_import,
+            crate::benchmarks::bench_export,
             crate::materials::materials,
             crate::materials::material_curves,
             crate::materials::material_at,
@@ -814,6 +820,17 @@ fn start_example(state: tauri::State<'_, Studio>, name: String) -> Result<u64, S
 #[tauri::command]
 fn start_validation(state: tauri::State<'_, Studio>) -> Result<u64, String> {
     state.tasks.start(&["validate"])
+}
+
+/// Starts a benchmark run, as `photonoxide bench --tier …` would; returns its task.
+#[tauri::command]
+fn start_bench(
+    state: tauri::State<'_, Studio>,
+    request: crate::benchmarks::Request,
+) -> Result<u64, String> {
+    let args = crate::benchmarks::arguments(&request)?;
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    state.tasks.start(&args)
 }
 
 #[tauri::command]
