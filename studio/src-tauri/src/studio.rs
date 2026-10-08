@@ -75,6 +75,8 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             method_docs,
             preview_scene,
             save_text,
+            crate::academy::academy,
+            crate::academy::academy_chart,
             crate::libraries::libraries,
             crate::libraries::install,
             start_bench,
@@ -862,28 +864,52 @@ struct MethodDoc {
     text: &'static str,
 }
 
-/// The write-ups of the methods the jobs solve by (docs/methods), for the viewer's account of
-/// how a run was solved.
+/// Each method's write-up (docs/methods): its file and its text.
+macro_rules! method_docs {
+    ($($file:literal),* $(,)?) => {
+        /// The methods' write-ups (docs/methods), as the program was built with them: the viewer's
+        /// account of how a run was solved, and the Academy's lessons, show them.
+        pub const METHOD_DOCS: &[(&str, &str)] = &[$(($file, include_str!(concat!("../../../docs/methods/", $file)))),*];
+    };
+}
+
+method_docs!(
+    "backends.md",
+    "bends.md",
+    "catalogue.md",
+    "circuit-adjoint.md",
+    "circuits.md",
+    "compact.md",
+    "components.md",
+    "conventions.md",
+    "dispersion.md",
+    "eigen.md",
+    "eim.md",
+    "fdfd-3d.md",
+    "fdfd-adjoint.md",
+    "fdfd-ports.md",
+    "fdfd.md",
+    "fdtd.md",
+    "fields.md",
+    "hadley.md",
+    "marcatili.md",
+    "materials.md",
+    "multilayer.md",
+    "pml.md",
+    "slab-fd.md",
+    "slab.md",
+    "vector.md",
+    "walls.md",
+);
+
+/// The methods' write-ups, for the viewer's account of how a run was solved and for the
+/// Academy's lessons.
 #[tauri::command]
 fn method_docs() -> Vec<MethodDoc> {
-    macro_rules! docs {
-        ($($file:literal),* $(,)?) => {
-            vec![$(MethodDoc {
-                file: $file,
-                text: include_str!(concat!("../../../docs/methods/", $file)),
-            }),*]
-        };
-    }
-    docs![
-        "vector.md",
-        "eigen.md",
-        "walls.md",
-        "fdfd.md",
-        "fdfd-ports.md",
-        "eim.md",
-        "slab.md",
-        "pml.md",
-    ]
+    METHOD_DOCS
+        .iter()
+        .map(|&(file, text)| MethodDoc { file, text })
+        .collect()
 }
 
 /// A run's record as it grows: the complete lines read so far, as events.

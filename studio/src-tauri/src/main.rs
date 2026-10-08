@@ -2,8 +2,10 @@
 //! headless; replays a run in the studio; runs the built-in examples; checks the validation
 //! report; times the benchmark problems.
 
+mod academy;
 mod bench;
 mod benchmarks;
+mod charts;
 mod circuits;
 mod examples;
 mod libraries;
