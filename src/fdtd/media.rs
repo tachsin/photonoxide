@@ -620,6 +620,18 @@ impl Media {
             .map_or(0.0, |&g| self.groups[g].chi)
     }
 
+    /// The same media at rest: their currents and the fields they remember at zero, for a run
+    /// from the start in the same medium.
+    pub(super) fn at_rest(&self) -> Media {
+        let mut media = self.clone();
+        for g in &mut media.groups {
+            for v in [&mut g.before, &mut g.now, &mut g.current, &mut g.previous] {
+                v.iter_mut().for_each(|x| *x = 0.0);
+            }
+        }
+        media
+    }
+
     /// Takes a value out of its medium (before the run starts).
     pub(super) fn remove(&mut self, c: usize, r: usize) {
         let Some(g) = self.members.remove(&(c, r)) else {

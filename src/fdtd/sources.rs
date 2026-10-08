@@ -1000,6 +1000,11 @@ impl PlaneWaveRun {
         (f[forward] - f[back]) / self.steps[a]
     }
 
+    /// The wave's value in time.
+    pub(super) fn waveform(&self) -> Waveform {
+        self.waveform
+    }
+
     /// H̃ from t − Δt/2 to t + Δt/2.
     pub(super) fn step_h(&mut self) {
         let len = self.ca.len();

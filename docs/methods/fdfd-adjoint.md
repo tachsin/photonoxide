@@ -13,6 +13,7 @@ papers:
 validation:
   - fdfd/adjoint-gradient-ez
   - fdfd/adjoint-gradient-hz
+  - fdfd3d/adjoint-gradient
 ---
 
 Inverse design changes a device's permittivity cell by cell to improve what it does. Each step
@@ -65,6 +66,20 @@ differences ($\delta = 10^{-3}$) on a cell in the bump, one in the core and one 
 That is the finite differences' own limit. Their round-off grows as about $10^{-10}/\delta$, and with
 $\delta = 10^{-5}$ and a second-order stencil the difference is 7e-6, all of it round-off. The
 adjoint gradient is exact to that.
+
+## In 3D
+
+`Solver3d::mode_power_gradient(field, mode, direction)` does the same for a [3D](fdfd-3d.md)
+problem, with respect to the permittivity at each value of E. There $A = -\nabla\times\nabla\times + k_0^2\varepsilon$, so
+$\partial A/\partial\varepsilon_r$ is $k_0^2$ on value r's diagonal alone. The amplitude is linear in the field
+through the Lorentz form's weights ω, so $\partial F/\partial u = \bar a\thinspace\omega$, the mode's complex profile whole.
+The transpose comes from A's own factors: with V the product of the PMLs' stretches at each value
+of E, V A is symmetric, so $A^{\mathsf T} = V A V^{-1}$ and $\lambda = V A^{-1}(V^{-1}\bar a\thinspace\omega)$. A guide with a block
+of ε = 6 beside it, 14 × 12 × 24 cells of 50 nm with PMLs of 4, at 1.55 µm: eight values of
+every component, in the block, the core and the cladding, against fourth-order central
+differences (δ = 10⁻³), 2.8e-10 of the largest gradient (`fdfd3d/adjoint-gradient`). λ is also
+the field of the mode launched backwards from the monitor, times ΔV/(4ik₀), in front of it (a
+unit test): Lalau-Keraly et al.'s Eq. 8, which [FDTD's adjoint](fdtd-adjoint.md) checks too.
 
 ## Limits
 

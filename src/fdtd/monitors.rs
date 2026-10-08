@@ -38,7 +38,7 @@ pub struct Dft {
 
 /// One component's transforms over a box of its values.
 #[derive(Clone, Debug)]
-struct Series {
+pub(super) struct Series {
     field: Field,
     component: Axis,
     /// The values' indices along x, y and z.
@@ -48,7 +48,12 @@ struct Series {
 }
 
 impl Series {
-    fn new(field: Field, component: Axis, ranges: [Range<usize>; 3], frequencies: usize) -> Series {
+    pub(super) fn new(
+        field: Field,
+        component: Axis,
+        ranges: [Range<usize>; 3],
+        frequencies: usize,
+    ) -> Series {
         let volume = ranges.iter().map(|r| r.len()).product::<usize>();
         Series {
             field,
@@ -74,10 +79,17 @@ impl Series {
 }
 
 impl Dft {
-    fn new(frequencies: &[Frequency], series: Vec<Series>) -> Dft {
+    pub(super) fn new(frequencies: &[Frequency], series: Vec<Series>) -> Dft {
         Dft {
             frequencies: frequencies.to_vec(),
             series,
+        }
+    }
+
+    /// Every transform back to zero.
+    pub(super) fn clear(&mut self) {
+        for s in &mut self.series {
+            s.values.iter_mut().for_each(|v| *v = c64::new(0.0, 0.0));
         }
     }
 
@@ -194,7 +206,7 @@ impl FluxPlane {
     }
 
     /// The indices along `along` (one of `axis.others()`) whose values the window reaches.
-    fn range(&self, grid: Grid3d, along: Axis) -> Range<usize> {
+    pub(super) fn range(&self, grid: Grid3d, along: Axis) -> Range<usize> {
         match self.window[self.slot(along)] {
             Some((lo, hi)) => lo..hi + 1,
             None => 0..grid.n(along),
@@ -207,7 +219,7 @@ impl FluxPlane {
 
     /// The share of the window of a value with index `m` along `along`, sitting halfway after
     /// node m (`half`) or on it.
-    fn weight(&self, along: Axis, m: usize, half: bool) -> f64 {
+    pub(super) fn weight(&self, along: Axis, m: usize, half: bool) -> f64 {
         match self.window[self.slot(along)] {
             None => 1.0,
             Some((lo, hi)) => {
@@ -271,7 +283,7 @@ impl FluxPlane {
 
     /// The flux towards +axis at frequency number `f` from `dft`, which holds
     /// [`FluxPlane::series`].
-    fn flux(&self, grid: Grid3d, dft: &Dft, f: usize) -> f64 {
+    pub(super) fn flux(&self, grid: Grid3d, dft: &Dft, f: usize) -> f64 {
         let (b, c) = self.axis.others();
         let value = |field, component, at: [usize; 3]| {
             dft.value(field, component, (at[0], at[1], at[2]), f)
@@ -306,27 +318,43 @@ impl FluxPlane {
 
 /// A flux monitor: faces, each with its sign, and their transforms.
 #[derive(Clone, Debug)]
-struct Flux {
-    faces: Vec<(FluxPlane, f64, Dft)>,
+pub(super) struct Flux {
+    pub(super) faces: Vec<(FluxPlane, f64, Dft)>,
 }
 
 /// A waveguide mode's monitor: the transform on its plane and the next, at the frequency whose
 /// ω̃ is its k₀.
 #[derive(Clone, Debug)]
-struct ModeMonitor {
-    mode: PortMode3d,
-    dft: Dft,
+pub(super) struct ModeMonitor {
+    pub(super) mode: PortMode3d,
+    pub(super) dft: Dft,
 }
 
 /// A run's monitors.
 #[derive(Clone, Debug, Default)]
 pub(super) struct Monitors {
-    dfts: Vec<Dft>,
-    fluxes: Vec<Flux>,
-    modes: Vec<Vec<ModeMonitor>>,
+    pub(super) dfts: Vec<Dft>,
+    pub(super) fluxes: Vec<Flux>,
+    pub(super) modes: Vec<Vec<ModeMonitor>>,
+    /// The transforms of E over design regions, for gradients.
+    pub(super) designs: Vec<super::adjoint::DesignMonitor>,
 }
 
 impl Monitors {
+    /// Every monitor's transforms, one slice per monitor's series.
+    pub(super) fn transforms(&self) -> impl Iterator<Item = &[c64]> {
+        self.dfts
+            .iter()
+            .chain(
+                self.fluxes
+                    .iter()
+                    .flat_map(|f| f.faces.iter().map(|x| &x.2)),
+            )
+            .chain(self.modes.iter().flatten().map(|m| &m.dft))
+            .chain(self.designs.iter().map(|d| &d.dft))
+            .flat_map(|d| d.series.iter().map(|s| s.values.as_slice()))
+    }
+
     /// Adds the step's fields to every transform.
     pub(super) fn record(
         &mut self,
@@ -344,7 +372,8 @@ impl Monitors {
                     .iter_mut()
                     .flat_map(|f| f.faces.iter_mut().map(|x| &mut x.2)),
             )
-            .chain(self.modes.iter_mut().flatten().map(|m| &mut m.dft));
+            .chain(self.modes.iter_mut().flatten().map(|m| &mut m.dft))
+            .chain(self.designs.iter_mut().map(|d| &mut d.dft));
         for d in dfts {
             d.record(grid, fields, imaginary, times, dt);
         }
@@ -353,7 +382,7 @@ impl Monitors {
 
 impl Simulation {
     /// Checks a monitor's frequencies: some, and each below the time step's Nyquist frequency.
-    fn check_frequencies(&self, frequencies: &[Frequency]) -> Result<()> {
+    pub(super) fn check_frequencies(&self, frequencies: &[Frequency]) -> Result<()> {
         if frequencies.is_empty() {
             return Err(invalid("a monitor needs at least one frequency"));
         }
@@ -558,14 +587,7 @@ impl Simulation {
     ///
     /// If there is no mode monitor `n`.
     pub fn mode_amplitudes(&self, n: usize) -> Vec<(c64, c64)> {
-        let boundaries = Boundaries3d {
-            x: self.boundaries.x,
-            y: self.boundaries.y,
-            z: self.boundaries.z,
-            reflection: self.boundaries.cpml.reflection,
-            order: self.boundaries.cpml.order,
-            real_stretch: 0.0,
-        };
+        let boundaries = self.fdfd_boundaries();
         self.monitors.modes[n]
             .iter()
             .map(|m| {
@@ -576,6 +598,19 @@ impl Simulation {
                 })
             })
             .collect()
+    }
+
+    /// FDFD's boundaries for this grid's, the PMLs' grading the CPMLs': what the mode monitors
+    /// project with.
+    pub(super) fn fdfd_boundaries(&self) -> Boundaries3d {
+        Boundaries3d {
+            x: self.boundaries.x,
+            y: self.boundaries.y,
+            z: self.boundaries.z,
+            reflection: self.boundaries.cpml.reflection,
+            order: self.boundaries.cpml.order,
+            real_stretch: 0.0,
+        }
     }
 
     /// Mode monitor `n`'s frequency for each of its modes.

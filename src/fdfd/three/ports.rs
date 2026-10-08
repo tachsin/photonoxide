@@ -134,6 +134,17 @@ impl PortMode3d {
         (self.size, self.step)
     }
 
+    /// The mode with the imaginary parts of its profile and of β dropped: what an adjoint that
+    /// treats the mode as real would project on, for the check that shows it is wrong.
+    pub(crate) fn real_part(&self) -> PortMode3d {
+        let mut m = self.clone();
+        for v in m.tangential.iter_mut().chain(m.normal.iter_mut()) {
+            *v = c64::new(v.re, 0.0);
+        }
+        m.beta = c64::new(m.beta.re, 0.0);
+        m
+    }
+
     /// The same mode on plane `plane` of a grid with the same cross-section and step: a mode
     /// solved on a few planes cut out of a longer grid (its own problem is only the plane and
     /// the next), put back where they were cut from.
@@ -211,7 +222,7 @@ impl Window<'_> {
 impl Lattice {
     /// The product of the PML's stretches along the three axes at E's value `r`: the weight V
     /// that makes V A symmetric.
-    fn volume(&self, r: usize) -> c64 {
+    pub(crate) fn volume(&self, r: usize) -> c64 {
         let (component, at) = self.grid.at(r);
         Axis::ALL
             .into_iter()
@@ -271,6 +282,65 @@ impl Lattice {
         }
         let volume = g.dx * g.dy * g.dz;
         total * volume / c64::new(0.0, 4.0 * self.k0)
+    }
+
+    /// The form [`Lattice::lorentz`] as weights on u: N(u, w) = Σ ωᵣ uᵣ over the values r it
+    /// reads, each value once, in increasing order. N is linear in u, and these are its
+    /// coefficients, summed in another order (so N to round-off).
+    fn lorentz_weights(
+        &self,
+        (axis, plane): (Axis, usize),
+        w: &impl Fn(usize) -> c64,
+    ) -> Vec<(usize, c64)> {
+        let g = self.grid;
+        let (b, c) = axis.others();
+        let scale = g.dx * g.dy * g.dz / c64::new(0.0, 4.0 * self.k0);
+        let mut weights: std::collections::BTreeMap<usize, c64> = Default::default();
+        let mut row = Vec::with_capacity(32);
+        for v in 0..g.n(c) {
+            for uu in 0..g.n(b) {
+                for component in [b, c, axis] {
+                    let r = self.on_plane(axis, plane, component, (uu, v));
+                    let wr = w(r);
+                    row.clear();
+                    self.curl_curl_into(r, &mut row);
+                    let factor = scale * self.volume(r);
+                    for &(s, a) in &row {
+                        let (to, at) = g.at(s);
+                        if to != axis && at[axis.index()] == plane + 1 {
+                            // a (w_r u_s − u_r w_s)
+                            *weights.entry(s).or_default() += factor * a * wr;
+                            *weights.entry(r).or_default() -= factor * a * w(s);
+                        }
+                    }
+                }
+            }
+        }
+        weights.into_iter().collect()
+    }
+
+    /// The weights of `mode`'s amplitude going `direction` ([`Lattice::mode_amplitudes`]) on
+    /// the values of E it reads: the amplitude is Σ ωᵣ uᵣ for a field u.
+    pub(crate) fn mode_amplitude_weights(
+        &self,
+        mode: &PortMode3d,
+        direction: Direction,
+    ) -> Vec<(usize, c64)> {
+        assert!(
+            self.fits(mode),
+            "the mode must come from this problem's port_modes"
+        );
+        let cut = (mode.axis, mode.plane);
+        match direction {
+            Direction::Forward => {
+                self.lorentz_weights(cut, &|r| mode.value(self, r, Direction::Backward))
+            }
+            Direction::Backward => self
+                .lorentz_weights(cut, &|r| mode.value(self, r, Direction::Forward))
+                .into_iter()
+                .map(|(r, w)| (r, -w))
+                .collect(),
+        }
     }
 
     /// Checks that a port on `plane` normal to `axis`, with `window`, fits the grid.
@@ -651,4 +721,20 @@ pub(crate) fn mode_amplitudes_of(
         let (component, at) = grid.at(r);
         e(component, at)
     })
+}
+
+/// [`mode_amplitudes_of`]'s amplitude going `direction` as weights on E: each value E reads
+/// ([`Grid3d::index`]'s numbering) and its coefficient, the amplitude Σ ωᵣ Eᵣ. An adjoint's
+/// source.
+///
+/// # Panics
+///
+/// As [`mode_amplitudes_of`].
+pub(crate) fn mode_amplitude_weights_of(
+    grid: Grid3d,
+    boundaries: Boundaries3d,
+    mode: &PortMode3d,
+    direction: Direction,
+) -> Vec<(usize, c64)> {
+    Lattice::new(grid, boundaries, mode.k0).mode_amplitude_weights(mode, direction)
 }

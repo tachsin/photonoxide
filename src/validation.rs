@@ -705,6 +705,13 @@ pub fn cases() -> Vec<Case> {
             run: fdfd3d_straight_strip,
         },
         Case {
+            id: "fdfd3d/adjoint-gradient",
+            title: r"3D FDFD adjoint gradients: a rectangular guide ($\varepsilon = 12$, $0.4 \times 0.3$ µm in 2.1) with a block of $\varepsilon = 6$ beside it, $14 \times 12 \times 24$ cells of 50 nm, PMLs of 4, 1.55 µm: the gradient of the power its mode carries ahead with respect to the permittivity at eight values of E (each component, in the block, the core and the cladding) against fourth-order central differences ($\delta = 10^{-3}$) (largest difference relative to the largest gradient shown)",
+            tier: Tier::Analytic,
+            source: r"the adjoint variable method, G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2-4, with $A^T = V A V^{-1}$ ($V$ the product of the PMLs' stretches) and the Lorentz form's weights as $\partial F/\partial u$; measured 2.8e-10",
+            run: fdfd3d_adjoint_gradient,
+        },
+        Case {
             id: "fdfd3d/reciprocity",
             title: "3D FDFD ports: a silicon strip stepping from 400 to 600 nm wide, off the grid's axis, PMLs close around it, 50 nm grid: $S_{21}$ against $S_{12}$ (relative difference shown)",
             tier: Tier::Analytic,
@@ -1151,6 +1158,55 @@ pub fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: r"Mie's series with the leapfrog's permittivity at each frequency; first order, as a staircased surface: 3.0e-2 on 8 cells, 1.6e-2 on 16",
             run: fdtd_mie_drude,
+        },
+        Case {
+            id: "fdtd/adjoint-modes",
+            title: r"FDTD adjoint gradients in 3D: a strip guide (core $\varepsilon = 6$, $0.3 \times 0.3$ µm, in vacuum; $36 \times 20 \times 20$ cells of 50 nm, CPMLs of 6) with a design of $3 \times 2 \times 2$ cells in its core at uneven densities ($\varepsilon$ 1 to 6), its mode launched by a pulse; $F = \lvert a_+(f_0)\rvert^2 + \lvert a_+(f_1)\rvert^2 - \frac12\lvert a_-(f_0)\rvert^2$ at 1 and 1.06 c/µm: the gradient with respect to every cell's density against fourth-order central differences ($\delta = 10^{-3}$) (largest difference relative to the largest gradient shown)",
+            tier: Tier::Analytic,
+            source: r"the run's transforms solve $K x = b$ exactly; $K^T D = D K$, $D$ the CPMLs' stretches, so the adjoint is a run; $\partial F/\partial\varepsilon = \sum 2\operatorname{Re}(i\tilde\omega\thinspace\hat E_\text{adj}\hat E)$ (G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288; C. M. Lalau-Keraly et al., Opt. Express 21, 21693 (2013), doi:10.1364/OE.21.021693, Eq. 5); the mode's complex profile whole (dropped, the gradient is wrong by orders of magnitude); measured 5.5e-10, and 0.49 with the imaginary parts dropped",
+            run: fdtd_adjoint_modes,
+        },
+        Case {
+            id: "fdtd/adjoint-flux",
+            title: r"The same strip with the flux through a plane ahead (its window reaching into the CPMLs) at 1 c/µm plus $\lvert E_y\rvert^2$ at a point ahead at 1.06 c/µm (shown)",
+            tier: Tier::Analytic,
+            source: r"as above; the flux $\frac12\operatorname{Re}(E \times \tilde H^*)$ gives sources of both $J$ and $M$; measured 1.5e-9",
+            run: fdtd_adjoint_flux,
+        },
+        Case {
+            id: "fdtd/adjoint-fdfd",
+            title: r"FDTD's adjoint gradient against FDFD's: a rectangular guide ($\varepsilon = 12$, $0.4 \times 0.3$ µm in 2.1) in a closed box of a lossy medium ($\sigma = 4$/µm, $16 \times 14 \times 24$ cells of 50 nm, 64 steps a period of 1.55 µm), a design of $3 \times 3 \times 3$ cells across its core's edge, lossless: the gradient of the forward power ahead with respect to the permittivity at its 144 values of E, divided by the source's amplitude squared, against `Solver3d`'s adjoint on the same values at $\tilde\omega$ (largest difference relative to the largest gradient shown)",
+            tier: Tier::Analytic,
+            source: r"the transforms are FDFD's fields at $\tilde\omega$ with $\varepsilon + i\sigma\cos(\omega\Delta t/2)/\tilde\omega$, exactly, and FDFD's adjoint is $\lambda = V A^{-1} V^{-1}\partial F/\partial u$; measured 7.5e-14",
+            run: fdtd_adjoint_fdfd,
+        },
+        Case {
+            id: "fdtd/adjoint-fdfd-cpml",
+            title: r"The same box open along the guide, CPMLs of 8 cells against FDFD's PMLs of the same grading, at 64, 128 and 256 steps a period: the difference at 256 steps (shown)",
+            tier: Tier::Analytic,
+            source: r"the CPML ($\kappa = 1$, $\alpha = 0$; J. A. Roden, S. D. Gedney, Microw. Opt. Technol. Lett. 27, 334 (2000), see docs/methods/fdtd.md for its DOI) is FDFD's PML to first order in $\Delta t$: 1.3e-4, 5.1e-5 and 2.3e-5 at 64, 128 and 256 steps a period (measured)",
+            run: fdtd_adjoint_fdfd_cpml,
+        },
+        Case {
+            id: "fdtd/adjoint-slab",
+            title: r"FDTD's adjoint gradient against a closed form: a slab of $\varepsilon = 4$, 0.3 µm thick, in vacuum, at 1 c/µm (1D, cells of 1/160 µm, its faces on nodes), $F = \lvert\hat E_x\rvert^2$ behind it: the gradient summed over the slab's cells per unit incident $\lvert\hat E_x\rvert^2$, against $dT/d\varepsilon$ by Airy's formula (relative error shown)",
+            tier: Tier::Analytic,
+            source: r"$T = 1/(1 + \frac{(\varepsilon - 1)^2}{4\varepsilon}\sin^2(\sqrt\varepsilon k_0 d))$, differentiated; the grid's dispersion makes the difference second order: 1.2e-2, 2.9e-3 and 7.2e-4 on cells of 1/40, 1/80 and 1/160 µm (measured)",
+            run: fdtd_adjoint_slab,
+        },
+        Case {
+            id: "fdtd/adjoint-slab-order",
+            title: r"The same: the order of convergence from 1/80 to 1/160 µm (shown to two decimals)",
+            tier: Tier::Analytic,
+            source: r"second order, as the scheme; 2.06 from 1/40 to 1/80 (measured)",
+            run: fdtd_adjoint_slab_order,
+        },
+        Case {
+            id: "fdtd/adjoint-backward-mode",
+            title: r"Lalau-Keraly et al.'s adjoint field: in the closed lossy box above, the adjoint run's transforms over the design for $F = \lvert a_+\rvert^2$ against a run launching the mode backwards from the monitor's plane, $\hat E_\text{adj} / (\bar a\thinspace\hat E_\text{back})$ against $\Delta V/4$ (largest relative difference shown)",
+            tier: Tier::Published,
+            source: r"C. M. Lalau-Keraly, S. Bhargava, O. D. Miller, E. Yablonovitch, Opt. Express 21, 21693 (2013), doi:10.1364/OE.21.021693, Eqs. 8-9: the adjoint of a mode's transmission is the mode sent backwards into the device, its amplitude the forward overlap's conjugate; with FDFD's Lorentz form, $\Delta V/(4ik_0)$ in FDFD's units, $\Delta V/4$ in a run's; measured 5.5e-13",
+            run: fdtd_adjoint_backward_mode,
         },
         Case {
             id: "circuit/series-waveguides",
@@ -3769,6 +3825,102 @@ fn fdtd_mie_drude() -> Outcome {
         expected: 0.0,
         // measured 1.6e-2; 3.0e-2 on 8 cells
         tolerance: 3e-2,
+        error: measured,
+    }
+}
+
+fn fdfd3d_adjoint_gradient() -> Outcome {
+    let (measured, _) = crate::fdfd::checks3d_adjoint::gradient_against_differences();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // the differences' own round-off, about 1e-10/δ
+        tolerance: 1e-7,
+        error: measured,
+    }
+}
+
+fn fdtd_adjoint_modes() -> Outcome {
+    use crate::fdtd::adjoint_checks::{Objective, strip_against_differences};
+    let (measured, _) = strip_against_differences(Objective::Modes);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // the differences' round-off and the transforms' settling, 1e-13 a block
+        tolerance: 1e-7,
+        error: measured,
+    }
+}
+
+fn fdtd_adjoint_flux() -> Outcome {
+    use crate::fdtd::adjoint_checks::{Objective, strip_against_differences};
+    let (measured, _) = strip_against_differences(Objective::Flux);
+    Outcome {
+        measured,
+        expected: 0.0,
+        tolerance: 1e-7,
+        error: measured,
+    }
+}
+
+fn fdtd_adjoint_fdfd() -> Outcome {
+    let (measured, _) = crate::fdtd::adjoint_checks::against_fdfd_closed();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // FDFD's direct solve and the transforms' settling
+        tolerance: 1e-10,
+        error: measured,
+    }
+}
+
+fn fdtd_adjoint_fdfd_cpml() -> Outcome {
+    let measured = crate::fdtd::adjoint_checks::against_fdfd_open(256);
+    Outcome {
+        measured,
+        expected: 0.0,
+        tolerance: 5e-5,
+        error: measured,
+    }
+}
+
+fn fdtd_adjoint_slab() -> Outcome {
+    use crate::fdtd::adjoint_checks::{airy, slab};
+    let (_, exact) = airy();
+    let measured = ((slab(1.0 / 160.0).1 - exact) / exact).abs();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // measured 7.2e-4
+        tolerance: 1e-3,
+        error: measured,
+    }
+}
+
+fn fdtd_adjoint_slab_order() -> Outcome {
+    use crate::fdtd::adjoint_checks::{airy, slab};
+    use rayon::prelude::*;
+    let (_, exact) = airy();
+    let errors: Vec<f64> = [80.0, 160.0]
+        .par_iter()
+        .map(|&n| ((slab(1.0 / n).1 - exact) / exact).abs())
+        .collect();
+    let measured = (errors[0] / errors[1]).log2();
+    Outcome {
+        measured,
+        expected: 2.0,
+        // measured 2.02
+        tolerance: 0.1,
+        error: (measured - 2.0).abs(),
+    }
+}
+
+fn fdtd_adjoint_backward_mode() -> Outcome {
+    let (measured, _) = crate::fdtd::adjoint_checks::adjoint_is_the_mode_sent_backward();
+    Outcome {
+        measured,
+        expected: 0.0,
+        tolerance: 1e-10,
         error: measured,
     }
 }
