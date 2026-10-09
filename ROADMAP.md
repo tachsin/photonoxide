@@ -223,7 +223,7 @@ What the comparison with PARDISO and MUMPS found ([docs/baselines.md](docs/basel
 - [ ] **faer's threaded dense LU** at 13 to 40% of MKL's on 20 threads: measured in faer's own benchmarks and reported upstream. *(Moved to "Throughout": it is faer's to fix, and a report to an outside project waits for the owner.)*
 - [x] **Validation:** the strips' and the slab's solutions to round-off against today's LU; the factors' entries against PARDISO's on the exported systems; the 1 and 20 thread factors bit-identical; the comparison rerun. *(`fdfd3d/ldlt-lu`, L D Lᵀ against LU to 1.2e-15; every existing case unchanged; the exported systems' residuals at round-off unrefined; LU and L D Lᵀ bit-identical on 1, 2, 4, 5 and 20 threads; the matching against brute force; George's O(k² log k) storage on k × k grids; the comparison rerun in [docs/baselines.md](docs/baselines.md).)*
 
-### 0.5: Finite-difference time-domain (FDTD)
+### 0.5: Finite-difference time-domain (FDTD) ✅
 - [x] **Core:**
   - the Yee scheme in 2D and 3D (Yee 1966);
   - CPML (Roden 2000; the PML of Berenger 1994);
