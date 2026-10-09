@@ -16,7 +16,7 @@ use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
 use photonoxide::backend::{self, Listed, Threads};
-use photonoxide_native::{Candidate, Discovery, Spec, Status, intel, nvidia, superlu};
+use photonoxide_native::{Candidate, Discovery, Spec, Status, intel, mumps, nvidia, superlu};
 use serde::Serialize;
 
 /// A command that installs a library.
@@ -496,48 +496,43 @@ pub const GUIDES: &[Guide] = &[
         )],
         built_in: false,
     },
-];
-
-const HAS_LIBRARY: &str =
-    "the package's library is there; photonoxide has no backend to load it with yet";
-
-/// The libraries the plan names that photonoxide has no backend for yet (docs/plans/backends.md):
-/// how each installs, checked on clean machines, for the issue that adds its backend.
-pub const PLANNED: &[Planned] = &[
-    Planned {
+    Guide {
         library: "MUMPS",
-        about: "A multifrontal sparse direct solver, with block low-rank compression: a direct backend. The sequential build.",
-        issue: 176,
+        about: "A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build. MUMPS asks that work using it cite it.",
+        provides: &["direct"],
+        backends: &["mumps"],
+        needs: &[],
         licence: "CeCILL-C",
-        home: "https://mumps-solver.org/",
+        licence_url: "https://cecill.info/licences/Licence_CeCILL-C_V1-en.html",
+        download: "https://mumps-solver.org/",
         installs: &[
             Install {
                 id: "conda",
                 manager: "conda-forge",
                 command: "conda install -c conda-forge mumps-seq",
                 systems: &["windows", "linux", "macos"],
-                note: "The sequential build, into the active conda environment. On Windows it brings conda-forge's mkl with it, and so oneMKL's PARDISO too.",
+                note: "The sequential build, into the active conda environment: start photonoxide from it. On Windows it brings conda-forge's mkl with it, and so oneMKL's PARDISO too.",
                 checked: &[
                     Checked {
                         system: "linux",
                         image: UBUNTU,
                         date: DAY,
                         installed: "mumps-seq 5.8.2",
-                        found: HAS_LIBRARY,
+                        found: "MUMPS 5.8.2, and the mumps backend after its smoke test and its tests",
                     },
                     Checked {
                         system: "windows",
                         image: WINDOWS,
                         date: DAY,
                         installed: "mumps-seq 5.8.2, mkl 2026.1.0",
-                        found: HAS_LIBRARY,
+                        found: "MUMPS 5.8.2, and the mumps backend after its smoke test and its tests",
                     },
                     Checked {
                         system: "macos",
                         image: MACOS,
                         date: DAY,
                         installed: "mumps-seq 5.8.2",
-                        found: HAS_LIBRARY,
+                        found: "MUMPS 5.8.2, and the mumps backend after its smoke test and its tests",
                     },
                 ],
             },
@@ -546,27 +541,36 @@ pub const PLANNED: &[Planned] = &[
                 manager: "apt",
                 command: "sudo apt-get install libmumps-seq-dev",
                 systems: &["linux"],
-                note: "Debian's and Ubuntu's package, older than conda-forge's: 5.6.2 on Ubuntu 24.04, 5.4.1 on 22.04.",
+                note: "Debian's and Ubuntu's package, older than conda-forge's (5.6.2 on Ubuntu 24.04, 5.4.1 on 22.04): both are releases photonoxide knows.",
                 checked: &[
                     Checked {
                         system: "linux",
                         image: UBUNTU,
                         date: DAY,
                         installed: "libmumps-seq-dev 5.6.2",
-                        found: HAS_LIBRARY,
+                        found: "MUMPS 5.6.2, and the mumps backend after its smoke test and its tests",
                     },
                     Checked {
                         system: "linux",
                         image: UBUNTU_22,
                         date: DAY,
                         installed: "libmumps-seq-dev 5.4.1",
-                        found: HAS_LIBRARY,
+                        found: "MUMPS 5.4.1, and the mumps backend after its smoke test and its tests",
                     },
                 ],
             },
         ],
         unsupported: &[],
+        built_in: false,
     },
+];
+
+const HAS_LIBRARY: &str =
+    "the package's library is there; photonoxide has no backend to load it with yet";
+
+/// The libraries the plan names that photonoxide has no backend for yet (docs/plans/backends.md):
+/// how each installs, checked on clean machines, for the issue that adds its backend.
+pub const PLANNED: &[Planned] = &[
     Planned {
         library: "OpenBLAS",
         about: "An open BLAS and LAPACK: dense kernels for the multifrontal fronts, where no vendor's library is installed.",
@@ -690,6 +694,7 @@ fn spec(library: &str) -> Option<&'static Spec> {
         &nvidia::CUSPARSE,
         &nvidia::CUDSS,
         &intel::MKL,
+        &mumps::MUMPS,
         &superlu::SUPERLU,
     ]
     .into_iter()
@@ -1223,6 +1228,7 @@ mod tests {
             nvidia::CUSPARSE.name,
             nvidia::CUDSS.name,
             intel::MKL.name,
+            mumps::MUMPS.name,
             superlu::SUPERLU.name,
         ] {
             assert!(spec(name).is_some(), "{name}");

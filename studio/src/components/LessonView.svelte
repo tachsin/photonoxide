@@ -7,7 +7,7 @@
   import { ArrowLeft, BookOpen, ChevronDown, CircleCheck, CircleX, CircuitBoard, Clock, Eye, Play, ShieldCheck, SquarePen } from "@lucide/svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
 
-  import { academy, DEPTHS, type ChartSpec, type Depth, type Lesson, type LessonSection } from "../lib/academy.svelte";
+  import { academy, DEPTHS, type ChartSpec, type DiagramSpec, type Depth, type Lesson, type LessonSection } from "../lib/academy.svelte";
   import { api, type CircuitExample } from "../lib/api";
   import { app, go, toast } from "../lib/app.svelte";
   import { catalog, jobExample, loadCatalog } from "../lib/catalog.svelte";
@@ -15,6 +15,7 @@
   import { methodHtml, type MethodDoc } from "../lib/methods";
   import { startTask } from "../lib/tasks.svelte";
   import LessonChart from "./LessonChart.svelte";
+  import LessonDiagram from "./LessonDiagram.svelte";
   import LessonExample from "./LessonExample.svelte";
   import MathText from "./MathText.svelte";
   import PaperTimeline from "./PaperTimeline.svelte";
@@ -23,6 +24,7 @@
   let {
     lesson,
     lessons,
+    diagrams,
     charts,
     docs,
     onlesson,
@@ -31,6 +33,7 @@
   }: {
     lesson: Lesson;
     lessons: Lesson[];
+    diagrams: DiagramSpec[];
     charts: ChartSpec[];
     docs: MethodDoc[];
     onlesson: (id: string) => void;
@@ -237,6 +240,9 @@
             {#each s.blocks as b, j (j)}
               {#if b.kind === "text"}
                 <div class="lesson-text selectable">{@html methodHtml(b.markdown)}</div>
+              {:else if b.kind === "diagram"}
+                {@const spec = diagrams.find((d) => d.id === b.diagram)}
+                {#if spec}<LessonDiagram {spec} />{/if}
               {:else if b.kind === "chart"}
                 {@const spec = charts.find((c) => c.id === b.chart)}
                 {#if spec}<LessonChart {spec} initial={b.values} />{/if}

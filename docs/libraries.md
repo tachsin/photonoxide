@@ -15,7 +15,7 @@ This page is written by `photonoxide libraries --write docs/libraries.md` from t
 | [cuSPARSE](#cusparse) | `cusparse` | winget, conda-forge ✓, pip ✓ | conda-forge ✓, pip ✓ | see below |
 | [cuDSS](#cudss) | `cudss` | conda-forge ✓, pip ✓ | conda-forge ✓, pip ✓ | see below |
 | [SuperLU](#superlu) | `superlu` | see below | conda-forge ✓, apt ✓ | conda-forge ✓ |
-| [MUMPS](#mumps) | none yet (#176) | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
+| [MUMPS](#mumps) | `mumps` | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [OpenBLAS](#openblas) | none yet (#186) | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [AMD AOCL](#amd-aocl) | none yet (#186) | see below | see below | see below |
 | [Apple Accelerate](#apple-accelerate) | none yet (#187) | see below | see below | see below |
@@ -237,16 +237,13 @@ A supernodal sparse LU with partial pivoting (Demmel, Eisenstat, Gilbert, Li, Li
 
 - **windows:** conda-forge has no superlu for Windows (the install fails with PackagesNotFoundInChannelsError, 2026-10-09), and no package there names SuperLU's library by its release, which is how photonoxide tells the releases apart: photonoxide's own solvers run there.
 
-## The libraries without a backend yet
-
-How each installs, for the issue that adds its backend. photonoxide doesn't look for them yet.
-
 ### MUMPS
 
-A multifrontal sparse direct solver, with block low-rank compression: a direct backend. The sequential build. Its backend: [#176](https://github.com/tachsin/photonoxide/issues/176).
+A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build. MUMPS asks that work using it cite it.
 
-- **Licence:** CeCILL-C.
-- **Home:** <https://mumps-solver.org/>
+- **Licence:** [CeCILL-C](https://cecill.info/licences/Licence_CeCILL-C_V1-en.html). You accept it by installing.
+- **The vendor's download:** <https://mumps-solver.org/>
+- **Backends:** `mumps`.
 
 - **conda-forge** (Windows, Linux, macOS):
 
@@ -254,11 +251,11 @@ A multifrontal sparse direct solver, with block low-rank compression: a direct b
   conda install -c conda-forge mumps-seq
   ```
 
-  The sequential build, into the active conda environment. On Windows it brings conda-forge's mkl with it, and so oneMKL's PARDISO too.
+  The sequential build, into the active conda environment: start photonoxide from it. On Windows it brings conda-forge's mkl with it, and so oneMKL's PARDISO too.
 
-  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed mumps-seq 5.8.2; found the package's library is there; photonoxide has no backend to load it with yet.
-  - Checked on Windows (windows-2025-vs2026), 2026-10-09: installed mumps-seq 5.8.2, mkl 2026.1.0; found the package's library is there; photonoxide has no backend to load it with yet.
-  - Checked on macOS (macos-latest (Apple silicon)), 2026-10-09: installed mumps-seq 5.8.2; found the package's library is there; photonoxide has no backend to load it with yet.
+  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed mumps-seq 5.8.2; found MUMPS 5.8.2, and the mumps backend after its smoke test and its tests.
+  - Checked on Windows (windows-2025-vs2026), 2026-10-09: installed mumps-seq 5.8.2, mkl 2026.1.0; found MUMPS 5.8.2, and the mumps backend after its smoke test and its tests.
+  - Checked on macOS (macos-latest (Apple silicon)), 2026-10-09: installed mumps-seq 5.8.2; found MUMPS 5.8.2, and the mumps backend after its smoke test and its tests.
 
 - **apt** (Linux):
 
@@ -266,10 +263,14 @@ A multifrontal sparse direct solver, with block low-rank compression: a direct b
   sudo apt-get install libmumps-seq-dev
   ```
 
-  Debian's and Ubuntu's package, older than conda-forge's: 5.6.2 on Ubuntu 24.04, 5.4.1 on 22.04.
+  Debian's and Ubuntu's package, older than conda-forge's (5.6.2 on Ubuntu 24.04, 5.4.1 on 22.04): both are releases photonoxide knows.
 
-  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed libmumps-seq-dev 5.6.2; found the package's library is there; photonoxide has no backend to load it with yet.
-  - Checked on Linux (ubuntu-22.04), 2026-10-09: installed libmumps-seq-dev 5.4.1; found the package's library is there; photonoxide has no backend to load it with yet.
+  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed libmumps-seq-dev 5.6.2; found MUMPS 5.6.2, and the mumps backend after its smoke test and its tests.
+  - Checked on Linux (ubuntu-22.04), 2026-10-09: installed libmumps-seq-dev 5.4.1; found MUMPS 5.4.1, and the mumps backend after its smoke test and its tests.
+
+## The libraries without a backend yet
+
+How each installs, for the issue that adds its backend. photonoxide doesn't look for them yet.
 
 ### OpenBLAS
 

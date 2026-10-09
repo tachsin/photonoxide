@@ -43,12 +43,12 @@ jobs:
           - { os: windows-latest, package: libcudss, found: '^cuDSS [0-9.]+: .*\(from the conda environment\)' }
           - { os: ubuntu-latest, package: cuda-cudart libcusparse, found: '^cuSPARSE [0-9.]+: .*\(from the conda environment\)' }
           - { os: windows-latest, package: cuda-cudart libcusparse, found: '^cuSPARSE [0-9.]+: .*\(from the conda environment\)' }
-          # libraries photonoxide has no backend for yet: the package installs its library
-          - { os: ubuntu-latest, package: mumps-seq, file: 'libzmumps_seq' }
-          - { os: windows-latest, package: mumps-seq, file: 'zmumps\.dll' }
-          - { os: macos-latest, package: mumps-seq, file: 'libzmumps_seq' }
+          - { os: ubuntu-latest, package: mumps-seq, found: '^MUMPS 5\.[0-9.]+: .*\(from the conda environment\)', backend: '^backend mumps \(direct\): .* available', test: mumps, require: 'PHOTONOXIDE_REQUIRE_MUMPS=1' }
+          - { os: windows-latest, package: mumps-seq, found: '^MUMPS 5\.[0-9.]+: .*\(from the conda environment\)', backend: '^backend mumps \(direct\): .* available', test: mumps, require: 'PHOTONOXIDE_REQUIRE_MUMPS=1' }
+          - { os: macos-latest, package: mumps-seq, found: '^MUMPS 5\.[0-9.]+: .*\(from the conda environment\)', backend: '^backend mumps \(direct\): .* available', test: mumps, require: 'PHOTONOXIDE_REQUIRE_MUMPS=1' }
           - { os: ubuntu-latest, package: superlu, found: '^SuperLU [567][0-9.]*: .*\(from the conda environment\)', backend: '^backend superlu \(direct\): .* available', test: superlu, require: 'PHOTONOXIDE_REQUIRE_SUPERLU=1' }
           - { os: macos-latest, package: superlu, found: '^SuperLU [567][0-9.]*: .*\(from the conda environment\)', backend: '^backend superlu \(direct\): .* available', test: superlu, require: 'PHOTONOXIDE_REQUIRE_SUPERLU=1' }
+          # libraries photonoxide has no backend for yet: the package installs its library
           - { os: ubuntu-latest, package: openblas, file: 'libopenblas' }
           - { os: windows-latest, package: openblas, file: 'openblas\.dll' }
           - { os: macos-latest, package: openblas, file: 'libopenblas' }
@@ -139,7 +139,7 @@ jobs:
         package: [libmkl-rt, libmumps-seq-dev, libsuperlu-dev, libopenblas-dev]
         include:
           - { package: libmkl-rt, found: '^oneMKL 2020\.[0-9]+: /usr/lib/' }
-          - { package: libmumps-seq-dev, file: 'libzmumps' }
+          - { package: libmumps-seq-dev, found: '^MUMPS 5\.[0-9.]+: /usr/lib/', backend: '^backend mumps \(direct\): .* available', test: mumps, require: 'PHOTONOXIDE_REQUIRE_MUMPS=1' }
           - { package: libsuperlu-dev, found: '^SuperLU [567][0-9.]*: /usr/lib/', backend: '^backend superlu \(direct\): .* available', test: superlu, require: 'PHOTONOXIDE_REQUIRE_SUPERLU=1' }
           - { package: libopenblas-dev, file: 'libopenblas' }
     runs-on: ${{ matrix.os }}
