@@ -449,6 +449,67 @@ restarts QMR from the iterate it has reached, on its true residual: the iterate 
 Lanczos vectors can't go on (up to 10 times; one at the first step is an error). None occurred in
 the cases below; one did on a 1.8 M-unknown silicon strip with a port's mode source, at step 609.
 
+**Without the matrix.** `IterativeSolver3d::matrix_free` runs the same QMR on the curl-curl
+operator with no matrix stored ([#250](https://github.com/tachsin/photonoxide/issues/250)). A
+product is two passes over the grid's rows, as FDTD's kernel takes its curls:
+$H = \nabla\times E$, then $k_0^2\varepsilon E - \nabla\times H$, each difference divided by the
+step and by the PML's stretch where it sits (halfway between nodes for $\nabla\times E$, at the
+nodes for $\nabla\times H$). A wall holds the tangential E on it (those values keep rows and
+columns of the identity), and a Bloch side wraps with its phase.
+
+- **The same product:** against the assembled matrix's, to 1e-13 of the largest value, with
+  plain and stretched PMLs, walls, PMLs of unequal sides and Bloch sides on one, two and three
+  axes (tests).
+- **The transpose and the symmetric form come from one diagonal,** known in closed form: $D$ is
+  the product of the three stretches at a value of E (the one along its component halfway, the
+  two across it at its nodes). Then $A^{\mathsf T} = D A D^{-1}$, and $B = S A S^{-1}$ with
+  $S = \sqrt D$ is the complex symmetric matrix above. It is the stored matrix's $B$ but for a
+  sign at each value, a square root's two branches (a test). A Bloch side's phases turn into
+  their inverses under the transpose, $A^{\mathsf T}(k) = D A(-k) D^{-1}$, so QMR on $A$ with a
+  Bloch side has its second product too.
+- **The same bits on any number of threads:** each pass writes its rows on rayon's threads, a
+  row its own task and each value a fixed sum (a test on 1, 2, 4, 5 and 20).
+- **Memory:** 96 bytes an unknown for $B$ (ε, $D$, $S$, $S^{-1}$ and two vectors to work in;
+  64 for $A$), where the matrix and its transpose take about 600 (13 entries a row, a value
+  and a column each, twice).
+
+Measured on the guide of the tables above scaled with its grid (n³ cells of 10 nm, PMLs of 10,
+a silicon guide a quarter of the grid across), on an Intel Core 5 210H, 12 threads, 15.6 GB
+(`fdfd::three::matrix_free::measure`). A product, in nanoseconds an unknown, the best of
+several:
+
+| Grid | Unknowns | $B$, no matrix, 12 threads | $B$, stored, 12 threads | $A$, no matrix, 1 thread | $A$, stored, 1 thread |
+|---|---|---|---|---|---|
+| 40³ | 192 000 | 4.2 | 10.8 | 7.3 | 15.4 |
+| 64³ | 786 432 | 10.4 | 22.1 | | |
+| 80³ | 1 536 000 | 12.8 | 20.8 | 20.6 | 38.6 |
+| 96³ | 2 654 208 | 13.7 | | | |
+| 128³ | 6 291 456 | 14.0 | | 21.3 | |
+
+($A$ itself, without the two scalings by $S$, takes 2.3, 5.6, 10.6, 11.1 and 11.8 on 12
+threads.) The stored matrix wasn't built beyond 80³: it and its assembly need more than this
+machine's memory by 128³, where the operator without it is 600 MB. Building it takes 0.02 to
+0.2 s where assembling the matrix and finding $S$ took 0.7 s at 40³ and 10.6 s at 80³.
+
+A whole solve, QMR for symmetric matrices to a residual of 1e-6, a dipole 3 cells off the
+guide's centre (12 threads):
+
+| Grid | | Built in | Iterations | Solve | An iteration |
+|---|---|---|---|---|---|
+| 40³ | no matrix | 0.34 s | 2 099 | 12.7 s | 6.1 ms |
+| 40³ | stored | 1.96 s | 2 077 | 17.7 s | 8.5 ms |
+| 64³ | no matrix | 3.4 s | 2 185 | 57.5 s | 26.3 ms |
+| 64³ | stored | 8.4 s | 2 122 | 77.3 s | 36.5 ms |
+
+The fields differ by 2e-8 and 3e-9 of the largest value. The products differ in their last
+bits, which the Lanczos process carries along: 1 and 3 % more iterations here. The solve gains
+less than the product (1.4 times against 2 to 2.6), since QMR's own vector work is now most of
+an iteration.
+
+It is for the solves that take no preconditioner. ILU(0) needs the matrix's entries, and the
+multigrid works on Shin and Fan's operator, whose gradient of a divergence this operator
+doesn't have: both, and an iterative backend, are refused with it.
+
 **Shin and Fan's operator.** `Formulation::ShinFan` solves their Eq. 7 with s = −1 instead:
 
 $$

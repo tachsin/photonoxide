@@ -805,7 +805,7 @@ pub(crate) fn qmr_symmetric(
 /// As [`qmr`], and [`Error::InvalidValue`] if A's residual is still above the tolerance after
 /// 5 rounds.
 pub(crate) fn qmr_similar(
-    b_matrix: &Sparse,
+    b_matrix: &impl Operator,
     s: &[c64],
     b: &[c64],
     stopping: Stopping,
@@ -821,17 +821,20 @@ pub(crate) fn qmr_similar(
 ///
 /// As [`qmr_similar`].
 pub(crate) fn qmr_similar_by(
-    b_matrix: &Sparse,
+    b_matrix: &impl Operator,
     s: &[c64],
     b: &[c64],
     stopping: Stopping,
     run: Runner<'_>,
 ) -> Result<(Vec<c64>, Convergence)> {
     let n = b.len();
-    if s.len() != n || b_matrix.n != n {
+    if s.len() != n || b_matrix.size() != n {
         return Err(Error::invalid(
             "qmr",
-            format!("the right-hand side needs {} values, got {n}", b_matrix.n),
+            format!(
+                "the right-hand side needs {} values, got {n}",
+                b_matrix.size()
+            ),
         ));
     }
     let rho0 = norm(b);

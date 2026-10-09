@@ -1752,3 +1752,84 @@ fn the_adjoint_of_a_modes_amplitude_is_the_mode_sent_backwards() {
         }
     }
 }
+
+#[test]
+fn qmr_without_the_matrix_takes_the_iterations_and_gives_the_field_of_qmr_with_it() {
+    use crate::fdfd::{IterativeSolver3d, Stopping};
+    let (n, h) = (10, 0.05);
+    let grid = Grid3d {
+        nx: n,
+        ny: n,
+        nz: n,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: -0.25,
+        y0: -0.25,
+        z0: -0.25,
+    };
+    let cube = |x: f64, y: f64, z: f64| {
+        let inside = x.abs() < 0.1 && y.abs() < 0.1 && z.abs() < 0.1;
+        c64::new(if inside { 12.0 } else { 2.0 }, 0.0)
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let mut source = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    source[grid.index(Axis::Z, (5, 5, 5))] = c64::new(1.0, 0.0);
+    let stopping = Stopping {
+        tolerance: 1e-10,
+        max_iterations: 5000,
+    };
+    let bloch = Boundaries3d {
+        x: Edges::Bloch { k: 0.8 },
+        ..Boundaries3d::pml(3)
+    };
+    // PMLs all round: QMR for symmetric matrices on B = S A S⁻¹; a Bloch side: QMR on A, with
+    // its transpose
+    for (name, boundaries) in [("PMLs", Boundaries3d::pml(3)), ("Bloch along x", bloch)] {
+        let stored =
+            IterativeSolver3d::new(grid, lam, cube, boundaries, Formulation::CurlCurl).unwrap();
+        let free = IterativeSolver3d::matrix_free(grid, lam, cube, boundaries).unwrap();
+        assert!(stored.nonzeros() > 12 * 500 && free.nonzeros() == 0);
+        let (a, how_a) = stored.solve(&source, stopping).unwrap();
+        let (b, how_b) = free.solve(&source, stopping).unwrap();
+        assert!(how_b.residual <= 1e-10, "{name}: {how_b:?}");
+        // the products differ in their last bits, and Lanczos carries that along: the
+        // iterations within a few of each other, the fields the same solution
+        let (ia, ib) = (how_a.iterations as f64, how_b.iterations as f64);
+        assert!((ia - ib).abs() <= 0.02 * ia, "{name}: {ia} and {ib}");
+        let largest = a.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+        let d = a
+            .values()
+            .iter()
+            .zip(b.values())
+            .map(|(p, q)| (p - q).norm())
+            .fold(0.0, f64::max);
+        assert!(d < 1e-8 * largest, "{name}: {d} of {largest}");
+        // the S-matrix's solves go the same way: a system given whole
+        let rhs: Vec<c64> = source.iter().map(|v| v * c64::new(0.0, 2.0)).collect();
+        let (c, _) = free.solve_system(&rhs, stopping).unwrap();
+        let (e, _) = stored.solve_system(&rhs, stopping).unwrap();
+        let d = c
+            .values()
+            .iter()
+            .zip(e.values())
+            .map(|(p, q)| (p - q).norm())
+            .fold(0.0, f64::max);
+        assert!(d < 1e-8 * largest * 2.0, "{name}: {d}");
+    }
+    // what needs the matrix says so
+    let free = || IterativeSolver3d::matrix_free(grid, lam, cube, Boundaries3d::pml(3)).unwrap();
+    for refused in [
+        free().with_ilu().err(),
+        free().with_multigrid(Multigrid::default()).err(),
+    ] {
+        let e = refused.unwrap().to_string();
+        assert!(e.contains("needs the assembled matrix"), "{e}");
+    }
+    // photonoxide's own Krylov solver is no backend to refuse
+    assert!(
+        free()
+            .with_iterative_backend(&crate::backend::Choice::Auto)
+            .is_ok()
+    );
+}
