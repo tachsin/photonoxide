@@ -230,12 +230,12 @@ impl Entries {
         })?;
         let (mut rows, mut columns, mut order) = (Vec::new(), Vec::new(), Vec::new());
         for j in 0..n {
-            for e in cs[j]..cs[j + 1] {
-                if lower && ri[e] < j {
+            for (e, &row) in (cs[j]..cs[j + 1]).zip(&ri[cs[j]..cs[j + 1]]) {
+                if lower && row < j {
                     continue;
                 }
                 // (both below 2³¹: n is)
-                rows.push(ri[e] as i32 + 1);
+                rows.push(row as i32 + 1);
                 columns.push(j as i32 + 1);
                 order.push(e);
             }
