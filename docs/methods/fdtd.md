@@ -1325,9 +1325,9 @@ rounding grows (`src/fdtd/gpu/tests.rs`):
   −67), in about 3 s.
 
 These, every FDTD case of the validation report run again on the GPU, and its speed are
-[the GPU's report](../validation-gpu.md), written on the owner's machine before each release.
+[the GPU's report](../validation-gpu.md), written on tachsin's machine before each release.
 
-**Speed** on the owner's RTX 4060 (Vulkan, driver 616.56), `fdtd::gpu::rates`: the kernel alone
+**Speed** on an RTX 4060 (Vulkan, driver 616.56), `fdtd::gpu::rates`: the kernel alone
 on the cubes of the CPU's table above (50 nm cells of vacuum inside CPMLs of 8, random fields),
 the best of three runs of a few tenths of a second, in million cell-updates/s; against the blocked
 CPU kernel on 20 threads of the Core Ultra 7 265K, the diamonds' column of that table (measured

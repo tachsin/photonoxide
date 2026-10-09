@@ -131,5 +131,5 @@ renders every formula of every lesson with KaTeX and fails on an error (`vite.co
 - **Every number has its grid**, or says it is exact, and comes from an example's output or the
   validation report, shown by an `::example` or `::validation` block rather than retyped where
   that is possible. A 2D result is never a device's performance.
-- New papers go into the owner's papers list, ticked or needed, so their PDFs can be fetched.
+- New papers go into tachsin's papers list, ticked or needed, so their PDFs can be fetched.
 - Add the file to `lessons!` in `studio/src-tauri/src/academy.rs`, and a row to the table above.
