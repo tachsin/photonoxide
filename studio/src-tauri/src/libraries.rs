@@ -16,7 +16,7 @@ use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
 use photonoxide::backend::{self, Listed, Threads};
-use photonoxide_native::{Candidate, Discovery, Spec, Status, intel, nvidia};
+use photonoxide_native::{Candidate, Discovery, Spec, Status, intel, nvidia, superlu};
 use serde::Serialize;
 
 /// A command that installs a library.
@@ -24,7 +24,7 @@ use serde::Serialize;
 pub struct Install {
     /// Its id within the library's guide, for [`install`].
     pub id: &'static str,
-    /// The package manager: `winget`, `conda-forge` or `pip`.
+    /// The package manager: `winget`, `conda-forge`, `pip` or `apt`.
     pub manager: &'static str,
     /// The command, exactly as it is run or copied.
     pub command: &'static str,
@@ -433,6 +433,69 @@ pub const GUIDES: &[Guide] = &[
         unsupported: CUDA_UNSUPPORTED,
         built_in: false,
     },
+    Guide {
+        library: "SuperLU",
+        about: "A supernodal sparse LU with partial pivoting (Demmel, Eisenstat, Gilbert, Li, Liu 1999), the sequential library, releases 5 to 7.",
+        provides: &["direct"],
+        backends: &["superlu"],
+        needs: &[],
+        licence: "BSD-3-Clause",
+        licence_url: "https://github.com/xiaoyeli/superlu/blob/master/License.txt",
+        download: "https://portal.nersc.gov/project/sparse/superlu/",
+        installs: &[
+            Install {
+                id: "conda",
+                manager: "conda-forge",
+                command: "conda install -c conda-forge superlu",
+                systems: &["linux", "macos"],
+                note: "Into the active conda environment: start photonoxide from it.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "superlu 7.0.1",
+                        found: "SuperLU 7.0.0 by its file's name, and the superlu backend after its smoke test and its tests",
+                    },
+                    Checked {
+                        system: "macos",
+                        image: MACOS,
+                        date: DAY,
+                        installed: "superlu 7.0.1",
+                        found: "SuperLU 7.0.0 by its file's name, and the superlu backend after its smoke test and its tests",
+                    },
+                ],
+            },
+            Install {
+                id: "apt",
+                manager: "apt",
+                command: "sudo apt-get install libsuperlu-dev",
+                systems: &["linux"],
+                note: "Debian's and Ubuntu's package, older than conda-forge's: 6.0.1 on Ubuntu 24.04, 5.3.0 on 22.04.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "libsuperlu-dev 6.0.1",
+                        found: "SuperLU 6.0.1 by its file's name, and the superlu backend after its smoke test and its tests",
+                    },
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU_22,
+                        date: DAY,
+                        installed: "libsuperlu-dev 5.3.0",
+                        found: "SuperLU 5.3.0 by its file's name, and the superlu backend after its smoke test and its tests",
+                    },
+                ],
+            },
+        ],
+        unsupported: &[(
+            "windows",
+            "conda-forge has no superlu for Windows (the install fails with PackagesNotFoundInChannelsError, 2026-10-09), and no package there names SuperLU's library by its release, which is how photonoxide tells the releases apart: photonoxide's own solvers run there.",
+        )],
+        built_in: false,
+    },
 ];
 
 const HAS_LIBRARY: &str =
@@ -503,65 +566,6 @@ pub const PLANNED: &[Planned] = &[
             },
         ],
         unsupported: &[],
-    },
-    Planned {
-        library: "SuperLU",
-        about: "A supernodal sparse direct solver with partial pivoting: a direct backend.",
-        issue: 177,
-        licence: "BSD-3-Clause",
-        home: "https://portal.nersc.gov/project/sparse/superlu/",
-        installs: &[
-            Install {
-                id: "conda",
-                manager: "conda-forge",
-                command: "conda install -c conda-forge superlu",
-                systems: &["linux", "macos"],
-                note: "Into the active conda environment.",
-                checked: &[
-                    Checked {
-                        system: "linux",
-                        image: UBUNTU,
-                        date: DAY,
-                        installed: "superlu 7.0.1",
-                        found: HAS_LIBRARY,
-                    },
-                    Checked {
-                        system: "macos",
-                        image: MACOS,
-                        date: DAY,
-                        installed: "superlu 7.0.1",
-                        found: HAS_LIBRARY,
-                    },
-                ],
-            },
-            Install {
-                id: "apt",
-                manager: "apt",
-                command: "sudo apt-get install libsuperlu-dev",
-                systems: &["linux"],
-                note: "Debian's and Ubuntu's package, older than conda-forge's: 6.0.1 on Ubuntu 24.04, 5.3.0 on 22.04.",
-                checked: &[
-                    Checked {
-                        system: "linux",
-                        image: UBUNTU,
-                        date: DAY,
-                        installed: "libsuperlu-dev 6.0.1",
-                        found: HAS_LIBRARY,
-                    },
-                    Checked {
-                        system: "linux",
-                        image: UBUNTU_22,
-                        date: DAY,
-                        installed: "libsuperlu-dev 5.3.0",
-                        found: HAS_LIBRARY,
-                    },
-                ],
-            },
-        ],
-        unsupported: &[(
-            "windows",
-            "conda-forge has no superlu for Windows (the install fails with PackagesNotFoundInChannelsError, 2026-10-09). vcpkg builds it from source, which wasn't run here.",
-        )],
     },
     Planned {
         library: "OpenBLAS",
@@ -686,6 +690,7 @@ fn spec(library: &str) -> Option<&'static Spec> {
         &nvidia::CUSPARSE,
         &nvidia::CUDSS,
         &intel::MKL,
+        &superlu::SUPERLU,
     ]
     .into_iter()
     .find(|s| s.name == library)
@@ -1218,6 +1223,7 @@ mod tests {
             nvidia::CUSPARSE.name,
             nvidia::CUDSS.name,
             intel::MKL.name,
+            superlu::SUPERLU.name,
         ] {
             assert!(spec(name).is_some(), "{name}");
             assert!(GUIDES.iter().any(|g| g.library == name), "{name}");

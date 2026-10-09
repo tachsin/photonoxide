@@ -31,6 +31,7 @@ mod library;
 pub mod nvidia;
 mod pardiso;
 mod smoke;
+pub mod superlu;
 
 pub use cudss::Cudss;
 pub use discovery::{Candidate, Discovery, Source, Spec, Status, discover, versioned};
@@ -38,6 +39,7 @@ pub use gpu_qmr::GpuQmr;
 pub use library::{Library, load};
 pub use pardiso::Pardiso;
 pub use smoke::{TOLERANCE, offer, offer_iterative, smoke_test, smoke_test_iterative};
+pub use superlu::SuperLu;
 
 /// What was found of one library.
 #[derive(Clone, Debug)]
@@ -89,7 +91,12 @@ pub fn register_all() -> Vec<Probe> {
         Ok(pardiso) => offer(std::sync::Arc::new(pardiso)).map(drop),
         Err(reason) => photonoxide::backend::register_unavailable("pardiso", reason),
     };
+    let _ = match SuperLu::load() {
+        Ok(superlu) => offer(std::sync::Arc::new(superlu)).map(drop),
+        Err(reason) => photonoxide::backend::register_unavailable("superlu", reason),
+    };
     let mut probes = nvidia::probe();
     probes.push(intel::probe());
+    probes.push(superlu::probe());
     probes
 }
