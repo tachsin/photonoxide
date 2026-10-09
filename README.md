@@ -28,8 +28,9 @@ layout export; see the [roadmap](ROADMAP.md).
 
 > **Released milestone by milestone** (the latest version is on the crates.io badge above, and
 > what each release changed is in [CHANGELOG.md](CHANGELOG.md)): materials, mode solvers, FDFD in
-> 2D and 3D with fast direct and iterative solvers, components and circuits, compact models, and
-> the studio. Next is FDTD. Until 1.0 the API can change between milestones.
+> 2D and 3D with fast direct and iterative solvers, components and circuits, compact models, FDTD
+> in 2D and 3D, and the studio. Next is many solves at once. Until 1.0 the API can change between
+> milestones.
 
 The project's pages are at [tachsin.gr/projects/photonoxide](https://tachsin.gr/projects/photonoxide):
 the methods, the examples with their output, the validation report and the roadmap.
@@ -84,15 +85,26 @@ In the released versions (the latest on the crates.io badge above):
   Tanaka's range (Ferrini 2002).
 - **Validation against measurement:** Dwivedi et al. 2015's Mach-Zehnder interferometers,
   predicted from their wires' measured cross-sections.
-- **Jobs and runs:** a job is a TOML, JSON or YAML file (`modes`, `fdfd` or `structure`), with
-  light along x in every kind; the check refuses what the run would refuse, before it starts;
-  every run is recorded as events and replays exactly.
+- **FDTD:** [Yee's scheme](docs/methods/fdtd.md) in 2D and 3D with the convolutional PML;
+  subpixel smoothing, Werner, Bauer and Cary's triplets by default, stable at any contrast;
+  dipoles, total-field/scattered-field, one-way mode sources and Gaussian beams; Bloch-periodic
+  sides and dispersive media; DFT fields, flux, mode overlaps and resonances by harmonic
+  inversion; [adjoint gradients](docs/methods/fdtd-adjoint.md) in 3D. The CPU kernel is blocked
+  in space and time, about 4 times the memory's roof beyond the caches, with the same bits on
+  any number of threads; the `gpu` feature runs it on the GPU through wgpu.
+- **External solvers, when installed:** oneMKL's PARDISO, NVIDIA cuDSS, and QMR and GMRES on
+  NVIDIA GPUs, found and loaded at run time and each checked against photonoxide's own solvers
+  ([backends](docs/methods/backends.md)). Nothing is needed for the default build.
+- **Geometry and expressions:** a [geometry kernel](docs/methods/geometry.md) of regions,
+  primitives, transforms and polygons within a tolerance, and an
+  [expression language](docs/methods/expressions.md) with units and parameters in job files and
+  sweeps.
+- **Jobs and runs:** a job is a TOML, JSON or YAML file (`modes`, `fdfd`, `fdtd` or
+  `structure`), with light along x in every kind; the check refuses what the run would refuse,
+  before it starts; every run is recorded as events and replays exactly.
 
-Next is 0.5: [FDTD](docs/methods/fdtd.md) in 2D and 3D (Yee's scheme, the convolutional PML,
-subpixel smoothing, dispersive media, sources and monitors, and
-[adjoint gradients](docs/methods/fdtd-adjoint.md) in 3D), and solver backends loaded at run
-time when installed (oneMKL's PARDISO, NVIDIA cuDSS, and QMR on NVIDIA GPUs), each checked
-against photonoxide's own solvers, as the [backends plan](docs/plans/backends.md) sets out.
+Next is 0.5.1, many solves at once: block solves for ports, recycling across sweeps,
+contour-integral mode solvers and farming across processes.
 
 [Getting started](docs/getting-started.md) goes from `cargo add` to a strip waveguide's modes.
 The API is on [docs.rs](https://docs.rs/photonoxide).
@@ -110,7 +122,11 @@ and chips:
 - **Runs, Viewer and Compare:** runs played live or replayed; in 3D, the layers as solids and
   the selected mode travelling along its guide as a volume; in 2D, fields, modes, S-parameters
   and spectra, with a slider through a sweep's points; several runs' sweeps and spectra on
-  shared axes.
+  shared axes; FDTD runs as the field propagates, with their monitors.
+- **Academy:** lessons on the devices of the examples, their history and their papers, with
+  live charts computed by the library: the ring resonator and Bragg gratings first.
+- **Libraries and Benchmarks:** which external solvers this machine has, their licences and
+  guided installs; the benchmark problems timed here, and which solver wins where.
 - **Materials:** the catalogue, each model plotted over its range with its equation, its
   coefficients and tensors, and its papers.
 - **Validation:** the release's report, with its math rendered, and the same report run on your
@@ -224,8 +240,8 @@ and CI checks their output too.
 | 0.4.1 Polish | Light along x in every job, µm/nm, live sweeps, every page at 960 × 600, a job check that matches the run, bends at any radius, crystal tags and five catalogue gaps filled | ✅ released |
 | 0.4.2 A 3D preconditioner and the whole CPU | A stronger preconditioner for high-contrast 3D FDFD (multigrid), and the CPU's cores and bandwidth put to use | ✅ released |
 | 0.4.3 Direct solves at PARDISO's fill | A multifrontal LU and L D Lᵀ, 2 to 9 times faster than faer's LU | ✅ released |
-| 0.5 FDTD | 2D and 3D Yee, CPML, subpixel smoothing, dispersive media, sources and monitors, a GPU backend (wgpu); solver backends loaded at run time (PARDISO, cuDSS, GPU QMR) | 🚧 next |
-| 0.5.1 Many solves at once | Block solves for ports, recycling across sweeps, contour-integral mode solvers, farming across processes | planned |
+| 0.5 FDTD | 2D and 3D Yee, CPML, subpixel smoothing, dispersive media, sources and monitors, a GPU backend (wgpu); solver backends loaded at run time (PARDISO, cuDSS, GPU QMR) | ✅ released |
+| 0.5.1 Many solves at once | Block solves for ports, recycling across sweeps, contour-integral mode solvers, farming across processes | 🚧 next |
 | 0.6 Thermal and electro-optic | Heat and electrostatics, thermo-optic phase shifters, Pockels modulators (thin-film lithium niobate first), travelling-wave electrodes | planned |
 | 0.6.1 Nonlinear integrated optics | Transparency windows, phase matching (birefringent, QPM, modal), SHG, SFG, DFG, OPA, SPDC and FWM in waveguides, photon pairs, Kerr combs; on LiNbO₃, GaAs, AlGaAs, AlN, SiN and Si | planned |
 | 0.6.2 Quantum light | Linear-optical statistics (permanents, HOM, an exact sampler), photon-pair sources and Gaussian states, real components' loss budgets in quantum circuits ([plan](docs/plans/quantum.md)) | planned |
