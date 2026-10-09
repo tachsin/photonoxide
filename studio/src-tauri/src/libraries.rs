@@ -632,9 +632,6 @@ pub const GUIDES: &[Guide] = &[
     },
 ];
 
-const HAS_LIBRARY: &str =
-    "the package's library is there; photonoxide has no backend to load it with yet";
-
 /// The libraries the plan names that photonoxide has no backend for yet (docs/plans/backends.md):
 /// how each installs, checked on clean machines, for the issue that adds its backend.
 pub const PLANNED: &[Planned] = &[
