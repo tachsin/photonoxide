@@ -834,7 +834,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdtd/cpml-late-growth",
             title: r"FDTD over $10^5$ steps with a guide running into its CPMLs: a strip of $\varepsilon = 6$, $0.3 \times 0.3$ µm, in vacuum ($36 \times 20 \times 20$ cells of 50 nm, CPMLs of 6 cells with a damping of 5/µm, Courant number 0.99), a pulse at 1 c/µm from a dipole off its axes: the largest ratio of the fields' energy to its value 500 µm/c before, from 500 µm/c on",
             tier: Tier::Analytic,
-            source: r"a passive system's energy only falls once its source has ended. Without the damping this strip's grows again as $e^{0.064\,ct}$ after about 300 µm/c, by $10^{70}$ over these steps: a PML amplifies a wave whose phase and group velocities point opposite ways along it (P.-R. Loh, A. F. Oskooi, M. Ibanescu, M. Skorobogatiy, S. G. Johnson, Phys. Rev. E 79, 065601 (2009), doi:10.1103/PhysRevE.79.065601), and no $\sigma$, $\kappa$ or $\alpha$ removes it (docs/methods/fdtd.md, Late growth). `Cpml::damping`, an ordinary loss graded steeply inside the CPML, does",
+            source: r"a passive system's energy only falls once its source has ended. Without the damping this strip's grows again as $e^{0.064 ct}$ after about 300 µm/c, by $10^{70}$ over these steps: a PML amplifies a wave whose phase and group velocities point opposite ways along it (P.-R. Loh, A. F. Oskooi, M. Ibanescu, M. Skorobogatiy, S. G. Johnson, Phys. Rev. E 79, 065601 (2009), doi:10.1103/PhysRevE.79.065601), and no $\sigma$, $\kappa$ or $\alpha$ removes it (docs/methods/fdtd.md, Late growth). `Cpml::damping`, an ordinary loss graded steeply inside the CPML, does",
             run: fdtd_cpml_late_growth,
         },
         Case {
