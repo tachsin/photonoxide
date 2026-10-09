@@ -14,11 +14,12 @@ This page is written by `photonoxide libraries --write docs/libraries.md` from t
 | [CUDA runtime](#cuda-runtime) | — | winget, conda-forge ✓, pip ✓ | conda-forge ✓, pip ✓ | see below |
 | [cuSPARSE](#cusparse) | `cusparse` | winget, conda-forge ✓, pip ✓ | conda-forge ✓, pip ✓ | see below |
 | [cuDSS](#cudss) | `cudss` | conda-forge ✓, pip ✓ | conda-forge ✓, pip ✓ | see below |
+| [Accelerate](#accelerate) | `accelerate` | see below | see below | see below |
 | [MUMPS](#mumps) | none yet (#176) | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [SuperLU](#superlu) | none yet (#177) | see below | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [OpenBLAS](#openblas) | none yet (#186) | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [AMD AOCL](#amd-aocl) | none yet (#186) | see below | see below | see below |
-| [Apple Accelerate](#apple-accelerate) | none yet (#187) | see below | see below | see below |
+| [Apple Accelerate](#apple-accelerate) | none yet (#186) | see below | see below | see below |
 | [Arm Performance Libraries](#arm-performance-libraries) | none yet (#186) | see below | see below | see below |
 
 ✓: run on a clean machine and found. A manager without it is listed by its package index alone.
@@ -205,6 +206,18 @@ NVIDIA's sparse direct solver on the GPU.
 
 - **macos:** NVIDIA's libraries have no macOS build: photonoxide's own solvers run there.
 
+### Accelerate
+
+Apple's Accelerate framework, its sparse direct solvers: part of macOS, nothing to install. Complex LU from macOS 15.5, complex symmetric L D Lᵀ from macOS 26.
+
+- **Licence:** [Part of macOS, under Apple's software licence agreement for it](https://www.apple.com/legal/sla/). You accept it by installing.
+- **The vendor's download:** <https://developer.apple.com/documentation/accelerate/sparse_solvers>
+- **Backends:** `accelerate`.
+
+- **macos:** Built in: nothing to install. Its complex LU needs macOS 15.5, its complex symmetric L D Lᵀ macOS 26; on an older macOS photonoxide's own solvers run.
+- **windows:** Accelerate is part of macOS: photonoxide's own solvers run here.
+- **linux:** Accelerate is part of macOS: photonoxide's own solvers run here.
+
 ## The libraries without a backend yet
 
 How each installs, for the issue that adds its backend. photonoxide doesn't look for them yet.
@@ -313,12 +326,12 @@ AMD's BLIS, libFLAME and AOCL-Sparse: dense kernels and iterative solvers on AMD
 
 ### Apple Accelerate
 
-macOS's own BLAS, LAPACK and sparse solvers: dense kernels and a direct backend on a Mac. Its backend: [#187](https://github.com/tachsin/photonoxide/issues/187).
+macOS's own BLAS and LAPACK: dense kernels on a Mac. (Its sparse solvers are the accelerate backend.) Its backend: [#186](https://github.com/tachsin/photonoxide/issues/186).
 
 - **Licence:** part of macOS.
 - **Home:** <https://developer.apple.com/documentation/accelerate>
 
-- **macos:** Built in: nothing to install. Which macOS first has its complex sparse solvers is for #187 to confirm.
+- **macos:** Built in: nothing to install.
 - **windows:** A macOS framework.
 - **linux:** A macOS framework.
 
