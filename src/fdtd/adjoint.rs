@@ -795,6 +795,8 @@ impl Simulation {
             bloch: None,
             anisotropic: self.anisotropic.as_ref().map(|a| Box::new(a.at_rest())),
             monitors,
+            #[cfg(feature = "gpu")]
+            gpu: self.gpu.clone(),
         }
     }
 

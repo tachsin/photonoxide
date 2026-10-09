@@ -3851,6 +3851,11 @@ fn um(value: f64) -> Wavelength {
     Wavelength::from_um_unchecked(value)
 }
 
+#[cfg(feature = "gpu")]
+mod gpu;
+#[cfg(feature = "gpu")]
+pub use gpu::gpu_report;
+
 /// Six significant digits; values below 1e-300 in magnitude as 0.
 fn sig(v: f64) -> String {
     if !v.is_finite() {

@@ -713,6 +713,50 @@ impl Simulation {
 }
 
 impl Monitors {
+    /// What the GPU transforms: each transform monitor's frequencies, and its series' fields,
+    /// components and boxes, in the order [`Monitors::record`] takes them.
+    #[cfg(feature = "gpu")]
+    #[allow(clippy::type_complexity)]
+    pub(super) fn layout(&self) -> Vec<(&[Frequency], Vec<(Field, Axis, [Range<usize>; 3])>)> {
+        self.all()
+            .map(|d| {
+                let series = d
+                    .series
+                    .iter()
+                    .map(|s| (s.field, s.component, s.ranges.clone()))
+                    .collect();
+                (d.frequencies.as_slice(), series)
+            })
+            .collect()
+    }
+
+    /// Adds sums taken elsewhere (on the GPU) to the transforms: series after series in the
+    /// order of [`Monitors::layout`], each's as it keeps them (frequency by frequency, then k,
+    /// j, i with i fastest).
+    #[cfg(feature = "gpu")]
+    pub(super) fn add(&mut self, sums: &[c64]) {
+        let dfts = self
+            .dfts
+            .iter_mut()
+            .chain(
+                self.fluxes
+                    .iter_mut()
+                    .flat_map(|f| f.faces.iter_mut().map(|x| &mut x.2)),
+            )
+            .chain(self.modes.iter_mut().flatten().map(|m| &mut m.dft))
+            .chain(self.designs.iter_mut().map(|d| &mut d.dft));
+        let mut at = 0;
+        for d in dfts {
+            for s in &mut d.series {
+                let n = s.values.len();
+                for (v, x) in s.values.iter_mut().zip(&sums[at..at + n]) {
+                    *v += x;
+                }
+                at += n;
+            }
+        }
+    }
+
     /// Every transform monitor, in the order [`Monitors::record`] takes them.
     fn all(&self) -> impl Iterator<Item = &Dft> {
         self.dfts

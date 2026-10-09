@@ -1,7 +1,7 @@
 ---
 title: "FDTD"
 module: fdtd
-summary: "Maxwell's equations stepped in time on Yee's grid: E and H leapfrogging on FDFD's own grid, the convolutional PML, walls, periodic and Bloch-periodic sides (complex fields), conductors, lossy media, subpixel smoothing of isotropic and anisotropic bodies, Drude and Lorentz media by auxiliary differential equations and the catalogue's materials fitted by them, the same bits on any number of threads; dipoles and currents normalized exactly by their spectra, plane waves on total-field/scattered-field boxes at any grid angle, one-way waveguide modes and Gaussian beams; transform, flux and mode monitors, and resonances by harmonic inversion; Mie's series for a sphere, and spheres against it; a ring's exact resonances, and rings against them; S-parameters over a band from one pulse against FDFD at each frequency; Meep's published PML and smoothing convergence."
+summary: "Maxwell's equations stepped in time on Yee's grid: E and H leapfrogging on FDFD's own grid, the convolutional PML, walls, periodic and Bloch-periodic sides (complex fields), conductors, lossy media, subpixel smoothing of isotropic and anisotropic bodies, Drude and Lorentz media by auxiliary differential equations and the catalogue's materials fitted by them, the same bits on any number of threads; dipoles and currents normalized exactly by their spectra, plane waves on total-field/scattered-field boxes at any grid angle, one-way waveguide modes and Gaussian beams; transform, flux and mode monitors, and resonances by harmonic inversion; Mie's series for a sphere, and spheres against it; a ring's exact resonances, and rings against them; S-parameters over a band from one pulse against FDFD at each frequency; Meep's published PML and smoothing convergence; and on the GPU through wgpu, repeating bit for bit, within a stated tolerance of the CPU."
 order: 23
 papers:
   - cite: "G. Mie, Ann. Phys. 330, 377 (1908) (scattering by a sphere)"
@@ -32,6 +32,8 @@ papers:
     doi: 10.1103/PhysRevE.77.036611
   - cite: "A. F. Oskooi, C. Kottke, S. G. Johnson, Opt. Lett. 34, 2778 (2009) (anisotropic smoothing on Yee's grid)"
     doi: 10.1364/OL.34.002778
+  - cite: "P. Micikevicius, Proc. GPGPU-2, 79 (2009) (3D finite differences on GPUs, slice by slice)"
+    doi: 10.1145/1513895.1513905
   - cite: "A. F. Oskooi et al., Comput. Phys. Commun. 181, 687 (2010) (sources restricted to the grid; its Figs. 7 and 8 reproduced)"
     doi: 10.1016/j.cpc.2009.11.008
   - cite: "C. A. Bauer, G. R. Werner, J. R. Cary, J. Comput. Phys. 230, 2060 (2011) (the triplet tensor, exact at a plane)"
@@ -1065,10 +1067,100 @@ times) and 1536 in f32 against 482 (3.2 times); one thread 177 against 83 and 20
 A simulation with a point source, a probe and a flux box (six faces transformed at three
 frequencies) on a 256³ grid of 50 nm cells inside CPMLs of 8 (`fdtd::kernel_rates`): 241
 million cell-updates/s whole, 335 a step at a time by tiles and 719 run by diamonds on 20
-threads, 91, 114 and 162 on one; the transforms take their share. The GPU is #166.
+threads, 91, 114 and 162 on one; the transforms take their share. On the GPU, see
+[below](#the-gpu).
 
 Roden and Gedney's plate, 2.9 × 10⁶ cells for 2000 steps plus two smaller lattices, took about
 45 s on 20 threads of a Core Ultra 7 265K with the plain loops.
+
+## The GPU
+
+With the `gpu` feature, a `Simulation` steps on a GPU through wgpu's compute shaders: the same
+problem and the same API, chosen by a setting, the CPU the default.
+
+```rust
+let gpu = Gpu::new(Precision::Single)?; // or Precision::Double, on Vulkan
+s.set_device(Device::Gpu(gpu))?;
+s.run(2000); // the fields there and back, the probes and transforms with them
+```
+
+- **What it steps:** E and H̃, CPMLs (κ and α), walls and periodic sides, conductors and
+  conductivity, point sources and currents (dipoles, mode sources, Gaussian beams, the adjoint's),
+  probes, and every transform monitor (transforms, fluxes, modes, a design's): so the adjoint
+  runs there too. Not yet: Bloch phases, dispersive media, smoothed tensors that couple E's
+  components and plane waves on total-field/scattered-field boxes. `set_device` refuses a problem
+  with them, saying which.
+- **Precision:** f32 on any wgpu backend (Vulkan, DirectX 12, Metal); f64 on Vulkan where the
+  adapter has `SHADER_F64`, for checking against the CPU (decision 6 of the [performance
+  plan](../plans/performance.md)). `Gpu::new` takes a discrete GPU before an integrated one and
+  never a software adapter.
+- **Pure Rust, no `unsafe`:** wgpu is a Rust crate that loads the system's Vulkan, DirectX 12 or
+  Metal driver at run time; photonoxide calls only its safe API, so the library keeps
+  `#![forbid(unsafe_code)]`. The feature is off by default: wgpu and its shader compiler
+  lengthen a clean build, and the default build needs no GPU. CI builds it, lints it and runs
+  its tests, which skip there (its runners have no GPU, decision 7).
+
+**The kernels** are WGSL written by hand (`src/fdtd/gpu/yee.wgsl`), compiled for f32 or f64.
+
+- **Slice by slice** (P. Micikevicius 2009): a workgroup of 32 × 8 invocations owns a tile of
+  32 × 8 values in each plane of a run of 4 (f32) or 8 (f64) planes along z, and marches through
+  them. Each plane of the other field goes into workgroup memory with the row and column of
+  neighbours the curl needs, and each invocation keeps its own column's value of the plane before
+  or after in registers, so each value is read from memory about once.
+- **Fused:** one pass a step takes H̃ over the tile and the row and column before it, then E over
+  the tile from those: E, H̃ and E's coefficients are read once and E and H̃ written once,
+  60 bytes a cell in f32 without conductivity (the two passes of the CPU's whole-grid step read
+  and write 84 to 96). A neighbouring workgroup still reads the old values around its tile while
+  this one writes, so the new ones go to a second copy of E, H̃ and ψ and the copies swap each
+  step; the values of H̃ on the row and column before a tile, and on the plane before a run of
+  planes, are computed again by each workgroup that needs them, by the same function as the one
+  that owns them. Where the second copy doesn't fit, a step is two passes in place, H̃'s then
+  E's.
+- **CPMLs** in the same pass, only where a value is in a slab, in the order the CPU's slabs take
+  them; **ca** isn't read where the medium has no conductivity (ca is then 1, or 0 with cb).
+- **Sources and currents** are added one invocation per value, its sources and currents in the
+  order the CPU adds them, their waveforms taken on the CPU in f64 at each step's times. With
+  the fused step a magnetic current goes into H̃ just before its update rather than after: the
+  same sum in another order.
+- **Probes** are copied out after each step; **transforms** are summed per value, one
+  invocation a value taking each frequency in turn, step after step, with e^(iωt)Δt computed on
+  the CPU in f64. A run's sums start at zero on the GPU and are added to the simulation's in f64
+  when it ends; the fields, probes and sums come back after each `run`, so run long stretches.
+
+**Determinism** (principle 9, decided 2026-10-08): no atomics, fixed workgroup sizes, every value
+written by one invocation and every sum taken by one in step order, so a GPU run repeats bit for
+bit on the same device and driver: fields, probes and transforms, f32 and f64, fused and in two
+passes (`a_run_on_the_gpu_repeats_bit_for_bit`). WGSL lets a compiler fuse and reorder
+arithmetic, so the GPU isn't the CPU's bits; it agrees with the CPU to tolerances measured by how
+rounding grows (`src/fdtd/gpu/tests.rs`):
+
+- **f64:** a 3D problem with CPMLs (κ and α), a wall, conductivity, a conductor, sources on E and
+  H̃, a current, a dipole, probes, a transform box and a flux box (37 × 21 × 19 cells, sizes that
+  leave workgroups part-filled), and its 2D twin periodic along x, 800 steps fused or in two
+  passes, in one run or in runs of 130: fields, probes, transforms and fluxes within 1e-13 of the
+  CPU's (measured up to 1.2e-14). In a closed box of 40 × 36 × 32 cells over N steps, within
+  10⁻¹⁵ √N (measured 2 × 10⁻¹⁶ √N, 2.9e-14 after 25 600).
+- **f32 against the CPU's f32 kernel:** in the closed box, a random walk of rounding, within
+  2 × 10⁻⁷ √N (measured 1.1e-6 after 100 steps to 1.6e-5 after 25 600).
+- **f32 against f64:** both f32 kernels drift from f64 alike, linearly, from the coefficients
+  rounded to f32 (5.6 × 10⁻⁸ N relative to the largest E in the closed box; within 10⁻⁷ N); the
+  GPU's drift is the CPU's f32 drift to 0.2 %. With CPMLs and sources after 800 steps, within
+  2e-5 of the CPU's f64 run (measured up to 4.4e-6).
+- **A published result:** Roden and Gedney's plate in soil (the `cpml_roden_gedney` example) in
+  f32 on the GPU: −48.620 and −70.474 dB against the CPU's −48.620 and −70.475 (paper: −48 and
+  −67), in about 3 s.
+
+These, every FDTD case of the validation report run again on the GPU, and its speed are
+[the GPU's report](../validation-gpu.md), written on the owner's machine before each release.
+
+**Speed:** SPEED_TABLE
+
+**Memory** on an 8 GB RTX 4060 (about 7 GB free beside the desktop), cubes inside CPMLs of 8,
+found by allocating (`fdtd::gpu::rates::gpu_memory`): in f32, fused up to 416³ (72 million cells,
+72 bytes a cell) and in two passes up to 480³ (111 million, 48 bytes a cell); in f64, fused up to
+320³ (33 million) and in two passes up to 384³ (57 million). `Gpu::new` sets wgpu's memory
+budget so that an allocation past the device's memory fails rather than spilling into the
+system's; a simulation then takes two passes, or `set_device` says it doesn't fit.
 
 ## Jobs
 
