@@ -30,6 +30,14 @@ toml = "1"
 yaml-rust2 = "0.13.0"
 # job files in YAML (run::Format): serde, YAML 1.2, pure Rust with no unsafe code
 serde-saphyr = "1.3"
+# FDTD on the GPU (the `gpu` feature): compute shaders on Vulkan, DirectX 12 or Metal, the
+# system's driver loaded at run time; photonoxide's own code stays free of `unsafe`
+wgpu = { version = "30.0.1", optional = true, default-features = false, features = ["std", "parking_lot", "wgsl", "vulkan", "dx12", "metal"] }
+
+[features]
+# FDTD on the GPU through wgpu (fdtd::gpu): off by default, since wgpu and its shader compiler
+# lengthen a clean build; CI builds and lints it, and its tests skip without a GPU
+gpu = ["dep:wgpu"]
 
 # faer's matrix-product kernel on x86, named here only for its version: 0.1.20's threaded
 # complex product was wrong on AMD Zen 3 under Windows (GitHub's EPYC 7763 runners), and with

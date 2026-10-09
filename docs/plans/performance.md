@@ -312,8 +312,9 @@ threads"):
 | GPU | WGSL permits reassociation and fusion (§15.7), so the GPU's arithmetic isn't the CPU's; floating-point atomics add order dependence | no float atomics in any kernel; fixed workgroup sizes and fixed-order tree reductions, so a run repeats bit-for-bit **on the same device and driver**; against the CPU, agreement **to a stated tolerance**, as 0.5 already says ("with the CPU results as its reference") |
 | Pipelined Krylov | different rounding from the standard recurrence | deterministic, just different iterates: allowed, documented as a different method |
 
-The GPU row needs the owner's wording (Section 5, decision 1): principle 9 as written can't hold
-across a CPU and a GPU.
+The GPU row needed the owner's wording (Section 5, decision 1): principle 9 as written couldn't
+hold across a CPU and a GPU. *(Decided 2026-10-08: (b). ROADMAP's principle 9 says so, and FDTD's
+GPU kernel, #166, holds to it: [the GPU's report](../validation-gpu.md).)*
 
 ## 4. The plan in phases
 
@@ -418,7 +419,8 @@ metalens figure as an outside reference point.
 
 **From the owner.** The wording of principle 9 for GPUs (decision 1); which GPUs are supported
 (f32 on any wgpu backend; f64, for checking, on Vulkan only); where GPU tests run, since GitHub's
-hosted runners have no GPU (decision 7).
+hosted runners have no GPU (decision 7). *(Decided 2026-10-08: decisions 1 (b), 6 (b) and 7 (a).
+The GPU kernel is in, #166: see [FDTD on the GPU](../methods/fdtd.md#the-gpu).)*
 
 ### Phase C: sweeps, ports and many modes (0.5.x to 0.6)
 
