@@ -66,11 +66,56 @@ impl Library {
     }
 }
 
+/// The folders beside `path`'s that a wheel keeps the rest of its libraries in: NVIDIA's CUDA 13
+/// wheels put some in `bin` and some in `bin\x86_64`.
+#[cfg(windows)]
+fn beside(path: &Path) -> Vec<std::path::PathBuf> {
+    let Some(dir) = path.parent() else {
+        return Vec::new();
+    };
+    let mut out = vec![dir.join("x86_64")];
+    if dir.file_name().is_some_and(|n| n == "x86_64")
+        && let Some(above) = dir.parent()
+    {
+        out.push(above.to_path_buf());
+    }
+    out.retain(|d| d.is_dir());
+    out
+}
+
 #[cfg(windows)]
 unsafe fn open(path: &Path) -> std::result::Result<libloading::Library, libloading::Error> {
-    use libloading::os::windows::{LOAD_WITH_ALTERED_SEARCH_PATH, Library};
+    use libloading::os::windows::{
+        LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR, LOAD_LIBRARY_SEARCH_SYSTEM32,
+        LOAD_LIBRARY_SEARCH_USER_DIRS, LOAD_WITH_ALTERED_SEARCH_PATH, Library,
+    };
+    use std::os::windows::ffi::OsStrExt;
+    unsafe extern "system" {
+        fn AddDllDirectory(new_directory: *const u16) -> *mut std::ffi::c_void;
+    }
     // SAFETY: as Library::open's
-    unsafe { Library::load_with_flags(path, LOAD_WITH_ALTERED_SEARCH_PATH) }.map(Into::into)
+    let first = match unsafe { Library::load_with_flags(path, LOAD_WITH_ALTERED_SEARCH_PATH) } {
+        Ok(library) => return Ok(library.into()),
+        Err(e) => e,
+    };
+    // what it needs may be in a folder beside its own, where Windows doesn't look: again, with
+    // those folders added to the ones searched
+    let beside = beside(path);
+    if beside.is_empty() {
+        return Err(first);
+    }
+    for dir in &beside {
+        let wide: Vec<u16> = dir.as_os_str().encode_wide().chain([0]).collect();
+        // SAFETY: a NUL-terminated absolute path, read during the call
+        unsafe { AddDllDirectory(wide.as_ptr()) };
+    }
+    let flags = LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR
+        | LOAD_LIBRARY_SEARCH_USER_DIRS
+        | LOAD_LIBRARY_SEARCH_SYSTEM32;
+    // SAFETY: as Library::open's
+    unsafe { Library::load_with_flags(path, flags) }
+        .map(Into::into)
+        .map_err(|_| first)
 }
 
 #[cfg(not(windows))]
