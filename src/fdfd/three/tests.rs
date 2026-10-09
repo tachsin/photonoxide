@@ -1836,6 +1836,88 @@ fn qmr_without_the_matrix_takes_the_iterations_and_gives_the_field_of_qmr_with_i
 }
 
 #[test]
+fn qmr_without_the_matrix_gives_the_s_matrix_of_qmr_with_it() {
+    // a strip stepping from 0.3 to 0.4 µm wide, off the box's axis, between walls along y and
+    // z and PMLs of 6 cells along x (24 x 12 x 8 cells of 50 nm): S between the propagating
+    // modes on either side (6 ports), by QMR to a residual of 1e-10 with and without the
+    // matrix, against the direct solver's. QMR stalls near 1e-11 here with either, so S is as
+    // close as its runs' residual: measured 1.0e-10 with the matrix, 9.0e-11 without, 1.3e-10
+    // between them (and 9.6e-9, 6.7e-9 at 1e-8)
+    use crate::fdfd::{IterativeSolver3d, Side, Stopping};
+    let h = 0.05;
+    let (nx, ny, nz) = (24, 12, 8);
+    let grid = Grid3d {
+        nx,
+        ny,
+        nz,
+        dx: h,
+        dy: h,
+        dz: h,
+        x0: -(nx as f64) * h / 2.0,
+        y0: -(ny as f64) * h / 2.0,
+        z0: -(nz as f64) * h / 2.0,
+    };
+    let eps = |x: f64, y: f64, z: f64| {
+        let half = if x < 0.0 { 0.15 } else { 0.2 };
+        let n: f64 = if (y - 0.05).abs() < half && z.abs() < 0.1 {
+            3.476
+        } else {
+            1.444
+        };
+        c64::new(n * n, 0.0)
+    };
+    let wall = Edges::Pml { low: 0, high: 0 };
+    let boundaries = Boundaries3d {
+        x: Edges::Pml { low: 6, high: 6 },
+        y: wall,
+        z: wall,
+        ..Boundaries3d::pml(6)
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let stored = IterativeSolver3d::new(grid, lam, eps, boundaries, Formulation::CurlCurl).unwrap();
+    let free = IterativeSolver3d::matrix_free(grid, lam, eps, boundaries).unwrap();
+    let propagating = |plane: usize| -> Vec<PortMode3d> {
+        stored
+            .port_modes(Axis::X, plane, 4)
+            .unwrap()
+            .into_iter()
+            .filter(|m| m.beta().im.abs() < 1e-9 * m.beta().norm())
+            .collect()
+    };
+    let ports: Vec<Port3d> = (propagating(8).into_iter().map(|mode| Port3d {
+        mode,
+        side: Side::Left,
+    }))
+    .chain(propagating(nx - 9).into_iter().map(|mode| Port3d {
+        mode,
+        side: Side::Right,
+    }))
+    .collect();
+    assert!(ports.len() >= 2);
+    let stopping = Stopping {
+        tolerance: 1e-10,
+        max_iterations: 20_000,
+    };
+    let direct = Solver3d::new(grid, lam, eps, boundaries)
+        .unwrap()
+        .s_matrix(&ports)
+        .unwrap();
+    let (a, b) = (
+        stored.s_matrix(&ports, stopping).unwrap(),
+        free.s_matrix(&ports, stopping).unwrap(),
+    );
+    let off = |p: &[Vec<c64>], q: &[Vec<c64>]| {
+        p.iter()
+            .flatten()
+            .zip(q.iter().flatten())
+            .map(|(p, q)| (p - q).norm())
+            .fold(0.0, f64::max)
+    };
+    let (with, without) = (off(&a, &direct), off(&b, &direct));
+    assert!(with < 3e-10 && without < 3e-10, "{with:e} and {without:e}");
+}
+
+#[test]
 fn auto_takes_the_3d_backend_this_machines_records_say() {
     use crate::backend::Form;
     use crate::backend::auto::{Measured, Outcome, with};

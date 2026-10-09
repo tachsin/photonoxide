@@ -467,6 +467,10 @@ columns of the identity), and a Bloch side wraps with its phase.
   sign at each value, a square root's two branches (a test). A Bloch side's phases turn into
   their inverses under the transpose, $A^{\mathsf T}(k) = D A(-k) D^{-1}$, so QMR on $A$ with a
   Bloch side has its second product too.
+- **The same S:** a strip stepping in width between walls and PMLs (24 × 12 × 8 cells of
+  50 nm, 6 ports), by QMR to a residual of 1e-10 with and without the matrix: both S-matrices
+  within 1.0e-10 of the direct solver's (1.3e-10 of each other), as close as the runs'
+  residual allows; at 1e-8, 9.6e-9 and 6.7e-9 (a test).
 - **The same bits on any number of threads:** each pass writes its rows on rayon's threads, a
   row its own task and each value a fixed sum (a test on 1, 2, 4, 5 and 20).
 - **Memory:** 96 bytes an unknown for $B$ (ε, $D$, $S$, $S^{-1}$ and two vectors to work in;

@@ -206,8 +206,7 @@ impl MatrixFree {
             }
         });
         let e: &[c64] = e;
-        let row_of = |field: &[c64], c: usize, j: usize, k: usize| -> std::ops::Range<usize> {
-            let _ = field;
+        let row_of = |c: usize, j: usize, k: usize| -> std::ops::Range<usize> {
             let from = c * cells + (k * ny + j) * nx;
             from..from + nx
         };
@@ -243,9 +242,9 @@ impl MatrixFree {
                 .for_each(|(q, (hx, hy, hz))| {
                     let (j, k) = (q % ny, q / ny);
                     let (ex, ey, ez) = (
-                        &e[row_of(e, 0, j, k)],
-                        &e[row_of(e, 1, j, k)],
-                        &e[row_of(e, 2, j, k)],
+                        &e[row_of(0, j, k)],
+                        &e[row_of(1, j, k)],
+                        &e[row_of(2, j, k)],
                     );
                     let above = step(j, ny, self.up[1], true);
                     let beyond = step(k, nz, self.up[2], true);
@@ -293,9 +292,9 @@ impl MatrixFree {
             .for_each(|(q, (ox, oy, oz))| {
                 let (j, k) = (q % ny, q / ny);
                 let (hx, hy, hz) = (
-                    &h[row_of(h, 0, j, k)],
-                    &h[row_of(h, 1, j, k)],
-                    &h[row_of(h, 2, j, k)],
+                    &h[row_of(0, j, k)],
+                    &h[row_of(1, j, k)],
+                    &h[row_of(2, j, k)],
                 );
                 let below = step(j, ny, self.up[1], false);
                 let before = step(k, nz, self.up[2], false);
@@ -654,7 +653,6 @@ mod measure {
             let built = t.elapsed().as_secs_f64();
             let a = time(&|v, out| free.apply_into(v, out), &mut out);
             let b = time(&|v, out| symmetric.apply_into(v, out), &mut out);
-            let reference = out.clone();
             // ε, the stretches' product, S and S⁻¹, and the two work vectors
             let bytes = 16.0 * 6.0;
             let mut line = format!(
@@ -679,7 +677,6 @@ mod measure {
                     "; stored A {c:.1}, B {d:.1}; assembled in {built:.2} s; {} nonzeros, {stored:.0} B/unknown",
                     matrix.nonzeros()
                 ));
-                let _ = reference;
             }
             println!("{line}");
         }
