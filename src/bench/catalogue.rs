@@ -17,9 +17,12 @@
 //!   strip, a bend, an MMI and a directional coupler in boxes shaped like devices, with plain
 //!   and stretched PMLs, and a grating with a Bloch-periodic x.
 //! - **3D iterative** ([`Family::Iterative3d`]): the guide, Diel and the strip with ports by
-//!   QMR and by GMRES with multigrid, as `photonoxide bench` has run them.
+//!   QMR and by GMRES with multigrid, as `photonoxide bench` has run them and at other sizes:
+//!   the guide through smaller and larger cubes, Diel shorter and longer, the strip on coarser
+//!   cells.
 //! - **Modes** ([`Family::Modes`]): a strip's full-vector cross-section from 10⁴ to 3 × 10⁵
-//!   unknowns, one mode and eight.
+//!   unknowns, one mode and eight; and two of Hadley's corner problems by his high-accuracy
+//!   equations, 8 × 10³ to 3 × 10⁵ unknowns, against the indices he published.
 //! - **Circuits** ([`Family::Circuit`]): a Mach–Zehnder's netlist over a sweep, a system so
 //!   small that overhead is all there is to time.
 //! - **Dense kernels** ([`Family::Dense`]): the LU and the product of complex n × n matrices,
@@ -234,9 +237,25 @@ enum Kind {
         pml: usize,
         solve: super::Solve,
     },
+    /// Shin and Fan's Diel, `length` cells of 10 nm long with its PMLs of 10.
+    Diel {
+        length: usize,
+        solve: super::Solve,
+    },
+    /// The strip with ports on cells of `step_nm`, inside stretched PMLs of `pml`.
+    StripPorts {
+        step_nm: usize,
+        pml: usize,
+        solve: super::Solve,
+    },
     Modes {
         step_nm: usize,
         count: usize,
+    },
+    /// One of Hadley's four corner problems on n × n cells, by his equations.
+    Hadley {
+        problem: usize,
+        n: usize,
     },
     Circuit {
         points: usize,
@@ -622,6 +641,126 @@ fn fixed(id: &'static str, title: &str, heavy: bool) -> Option<Entry> {
     })
 }
 
+/// What an iterative solve is called in an id and a title, and the residual it runs to.
+fn iterative(solve: super::Solve) -> (&'static str, &'static str, f64) {
+    match solve {
+        super::Solve::Qmr => ("qmr", "QMR on the curl-curl operator, plain PMLs", 1e-6),
+        super::Solve::Ilu => (
+            "ilu",
+            "QMR + ILU(0) on Shin and Fan's operator, stretched PMLs",
+            1e-8,
+        ),
+        super::Solve::Multigrid => (
+            "multigrid",
+            "GMRES + multigrid on Shin and Fan's operator, stretched PMLs",
+            1e-8,
+        ),
+    }
+}
+
+/// The bytes of an iterative solve: the matrix, and GMRES's 40 vectors or QMR's dozen.
+fn iterative_memory(unknowns: usize) -> u64 {
+    (24 * 13 * unknowns + 16 * 40 * unknowns) as u64
+}
+
+/// Shin and Fan's Diel (a 400 × 300 nm silicon guide in vacuum, a current across it), shorter
+/// or longer than `photonoxide bench`'s 40 cells.
+fn diel(length: usize, solve: super::Solve) -> Entry {
+    let (name, how, tolerance) = iterative(solve);
+    let unknowns = 3 * length * 90 * 80;
+    Entry {
+        id: format!("fdfd3d-iterative/diel-{name}-{length}"),
+        family: Family::Iterative3d,
+        title: format!(
+            "3D FDFD by {how}: Shin and Fan's Diel, {} nm long, to a residual of {tolerance:e}",
+            length * 10
+        ),
+        size: length,
+        grid: format!("{length} × 90 × 80 cells of 10 nm, stretched PMLs of 10"),
+        unknowns,
+        nonzeros: 13 * unknowns,
+        task: Task::Iterative { tolerance },
+        memory_bytes: iterative_memory(unknowns),
+        tier: if length <= 30 {
+            Tier::Standard
+        } else {
+            Tier::Full
+        },
+        check: "the direct solver's field".into(),
+        kind: Kind::Diel { length, solve },
+    }
+}
+
+/// The strip with ports (a straight 500 × 220 nm silicon strip in oxide, 0.8 × 1.4 × 1.0 µm
+/// inside its PMLs, its two ports' S-matrix) on cells coarser than `photonoxide bench`'s 20 nm.
+fn strip_ports(step_nm: usize, pml: usize, solve: super::Solve) -> Entry {
+    let (name, how, tolerance) = iterative(solve);
+    let inside = |nm: usize| (nm as f64 / step_nm as f64).round() as usize + 2 * pml;
+    let [nx, ny, nz] = [inside(800), inside(1400), inside(1000)];
+    let unknowns = 3 * nx * ny * nz;
+    Entry {
+        id: format!("fdfd3d-iterative/strip-ports-{name}-{step_nm}nm"),
+        family: Family::Iterative3d,
+        title: format!(
+            "3D FDFD by {how}: a straight 500 × 220 nm silicon strip in oxide, its two ports' \
+             S-matrix, to a residual of {tolerance:e}"
+        ),
+        size: nx.min(ny).min(nz),
+        grid: format!("{nx} × {ny} × {nz} cells of {step_nm} nm, stretched PMLs of {pml}"),
+        unknowns,
+        nonzeros: 13 * unknowns,
+        task: Task::Iterative { tolerance },
+        memory_bytes: iterative_memory(unknowns),
+        tier: Tier::Standard,
+        check: "S21 = exp(iβL) with the grid's own mode, S11 = 0".into(),
+        kind: Kind::StripPorts {
+            step_nm,
+            pml,
+            solve,
+        },
+    }
+}
+
+/// One of Hadley's corner problems (J. Lightwave Technol. 20, 1219 (2002),
+/// doi:10.1109/JLT.2002.800371): 2, the box of ε = 8 of his Fig. 5, or 4, the impinged corner of
+/// his Fig. 7, a quarter of the guide on n × n cells, by his high-accuracy equations.
+fn hadley(problem: usize, n: usize) -> Entry {
+    let (name, what, figure) = if problem == 2 {
+        ("box", "a box of ε = 8 in air", 5)
+    } else {
+        ("corner", "an impinged corner of ε = 8", 7)
+    };
+    // H_x and H_y at each node, less the ones a wall holds at zero: H_x on all four edges of
+    // the box, H_x on two edges and H_y on the other two of the corner
+    let held = if problem == 2 { 4 * n } else { 4 * n + 2 };
+    let unknowns = 2 * (n + 1) * (n + 1) - held;
+    let nonzeros = 18 * unknowns;
+    Entry {
+        id: format!("modes/hadley-{name}-{n}"),
+        family: Family::Modes,
+        title: format!(
+            "Hadley's high-accuracy equations: the fundamental mode of {what} (his Fig. \
+             {figure}), from the full-vector solver's mode, refined"
+        ),
+        size: n,
+        grid: format!("{n} × {n} cells over the 1 × 1 µm quarter of the guide, at 1.5 µm"),
+        unknowns,
+        nonzeros,
+        task: Task::Eigen { modes: 1 },
+        // the starting mode's shifted LU and Krylov vectors, as the strip's
+        memory_bytes: (16.0 * 2.0 * factor_entries(unknowns, false, false)
+            + 24.0 * nonzeros as f64
+            + 16.0 * 40.0 * unknowns as f64) as u64,
+        tier: match n {
+            ..=64 => Tier::Quick,
+            65..=256 => Tier::Standard,
+            _ => Tier::Full,
+        },
+        check: "Hadley's published index, to the grid's error".into(),
+        kind: Kind::Hadley { problem, n },
+    }
+}
+
 /// The iterative solvers' guide (a square silicon guide in vacuum, a dipole beside it) through
 /// a cube smaller than `photonoxide bench`'s 40³.
 fn guide(core: usize, pml: usize, solve: super::Solve) -> Entry {
@@ -806,6 +945,11 @@ pub fn catalogue() -> Vec<Entry> {
         all.push(solid(Solid::Coupler, [3 * c, 2 * c, c], false));
         all.push(solid(Solid::Strip, [c, c, c], true));
         all.push(solid(Solid::Grating, [c, c, c], false));
+        // the devices' boxes with stretched PMLs
+        all.push(solid(Solid::Strip, [3 * c, 2 * c, c], true));
+        all.push(solid(Solid::Bend, [2 * c, 2 * c, c], true));
+        all.push(solid(Solid::Mmi, [3 * c, 2 * c, c], true));
+        all.push(solid(Solid::Coupler, [3 * c, 2 * c, c], true));
     }
     // the iterative solvers' guide, smaller than the fixed problems'
     for (core, pml) in [(5, 5), (8, 7)] {
@@ -824,6 +968,16 @@ pub fn catalogue() -> Vec<Entry> {
         all.push(guide(core, pml, super::Solve::Ilu));
         all.push(guide(core, pml, super::Solve::Multigrid));
     }
+    // Diel shorter and longer than the fixed problem's 40 cells, and the strip with ports on
+    // coarser cells than its 20 nm
+    for length in [30, 80] {
+        all.push(diel(length, super::Solve::Ilu));
+        all.push(diel(length, super::Solve::Multigrid));
+    }
+    for (step_nm, pml) in [(40, 8), (25, 13)] {
+        all.push(strip_ports(step_nm, pml, super::Solve::Ilu));
+        all.push(strip_ports(step_nm, pml, super::Solve::Multigrid));
+    }
     // the fixed problems, under their ids
     let fixed_problems = super::problems();
     for family in [Family::Fdfd2d, Family::Fdfd3d, Family::Iterative3d] {
@@ -837,6 +991,12 @@ pub fn catalogue() -> Vec<Entry> {
     for step_nm in [30, 20, 10, 6] {
         for count in [1, 8] {
             all.push(modes(step_nm, count));
+        }
+    }
+    // Hadley's corners, by his equations
+    for problem in [2, 4] {
+        for n in [64, 128, 256, 384] {
+            all.push(hadley(problem, n));
         }
     }
     for points in [101, 10_001] {
@@ -1172,6 +1332,26 @@ fn solve_modes(entry: &Entry, step_nm: usize, count: usize) -> Result<Measuremen
     })
 }
 
+fn solve_hadley(entry: &Entry, problem: usize, n: usize) -> Result<Measurement> {
+    let (cs, expected) = crate::mode::vector::hadley_problem(problem, n);
+    let clock = Instant::now();
+    let found = crate::mode::hadley::modes(&cs, Wavelength::um(1.5)?, 1, Some(expected))?;
+    let seconds = clock.elapsed().as_secs_f64();
+    let mode = found
+        .first()
+        .ok_or_else(|| Error::invalid("bench", "no mode found"))?;
+    Ok(Measurement {
+        grid: entry.grid.clone(),
+        unknowns: cs.unknowns(),
+        phases: vec![phase("the mode, and its refinement", seconds)],
+        accuracy: Some(Accuracy {
+            error: (mode.effective_index().re - expected).abs(),
+            against: entry.check.clone(),
+        }),
+        factor_entries: None,
+    })
+}
+
 fn solve_circuit(entry: &Entry, points: usize) -> Result<Measurement> {
     use crate::circuit::Component;
     use crate::circuit::components::{Coupler, Dispersion, Waveguide, mzi, mzi_closed_form};
@@ -1328,6 +1508,14 @@ impl Entry {
         matches!(self.kind, Kind::Guide { .. })
     }
 
+    /// The residual an iterative problem runs to.
+    fn residual(&self) -> f64 {
+        match self.task {
+            Task::Iterative { tolerance } => tolerance,
+            _ => 1e-8,
+        }
+    }
+
     /// The error its check allows: a solve that leaves more hasn't solved the problem.
     pub fn tolerance(&self) -> f64 {
         match self.kind {
@@ -1336,7 +1524,11 @@ impl Entry {
             Kind::Circuit { .. } => 1e-12,
             Kind::DenseLu { .. } | Kind::DenseProduct { .. } => 1e-9,
             // a field converged to 1e-6 or 1e-8 in its residual, against the direct solver's
-            Kind::Guide { .. } => 1e-5,
+            Kind::Guide { .. } | Kind::Diel { .. } => 1e-5,
+            // an S-matrix from solves converged to 1e-8
+            Kind::StripPorts { .. } => 1e-5,
+            // the grid's error, second order: 5e-6 at 16 cells in his figures, less on these
+            Kind::Hadley { .. } => 1e-5,
             // their own checks differ: an S-matrix against its exact one, a field against a
             // direct solve's
             Kind::Fixed(_) => f64::INFINITY,
@@ -1383,7 +1575,26 @@ impl Entry {
                     &mut || {},
                 )
             }
+            Kind::Diel { length, solve } => super::guide_3d(
+                super::Guide::Diel { length: *length },
+                10,
+                *solve,
+                self.residual(),
+                &mut || {},
+            ),
+            Kind::StripPorts {
+                step_nm,
+                pml,
+                solve,
+            } => super::strip_ports_3d(
+                *step_nm as f64 / 1000.0,
+                *pml,
+                *solve,
+                self.residual(),
+                &mut || {},
+            ),
             Kind::Modes { step_nm, count } => solve_modes(self, *step_nm, *count),
+            Kind::Hadley { problem, n } => solve_hadley(self, *problem, *n),
             Kind::Circuit { points } => solve_circuit(self, *points),
             Kind::DenseLu { n } => solve_dense(self, *n, false),
             Kind::DenseProduct { n } => solve_dense(self, *n, true),
@@ -1531,6 +1742,8 @@ mod tests {
             "fdfd3d-iterative/guide-multigrid-20",
             "modes/strip-30nm-1",
             "modes/strip-30nm-8",
+            "modes/hadley-box-64",
+            "modes/hadley-corner-64",
             "circuit/mzi-101",
             "dense/lu-32",
             "dense/product-32",
@@ -1545,6 +1758,36 @@ mod tests {
             assert_eq!(m.unknowns, e.unknowns, "{id}");
             assert_eq!(m.grid, e.grid, "{id}");
             assert!(m.seconds() > 0.0);
+        }
+    }
+
+    #[test]
+    #[ignore = "minutes: the iterative problems at their other sizes, the device boxes with stretched PMLs and Hadley's corners on a finer grid: cargo test --release -- --ignored the_other_sizes --nocapture"]
+    fn the_other_sizes_of_the_iterative_and_mode_problems_keep_their_records() {
+        for id in [
+            "fdfd3d-iterative/strip-ports-ilu-40nm",
+            "fdfd3d-iterative/strip-ports-multigrid-40nm",
+            "fdfd3d-iterative/diel-ilu-30",
+            "fdfd3d-iterative/diel-multigrid-30",
+            "modes/hadley-box-128",
+            "modes/hadley-corner-128",
+            "fdfd3d/strip-stretched-48x32x16",
+            "fdfd3d/bend-stretched-32x32x16",
+            "fdfd3d/mmi-stretched-48x32x16",
+            "fdfd3d/coupler-stretched-48x32x16",
+        ] {
+            let e = entry(id).unwrap_or_else(|| panic!("{id}"));
+            let m = e.run(&Choice::Auto).unwrap_or_else(|x| panic!("{id}: {x}"));
+            let error = m.accuracy.as_ref().unwrap().error;
+            println!(
+                "{id}: {} unknowns, error {error:.2e}, {:.1} s, {}",
+                m.unknowns,
+                m.seconds(),
+                m.grid
+            );
+            assert!(error < e.tolerance(), "{id}: {error}");
+            assert_eq!(m.unknowns, e.unknowns, "{id}");
+            assert_eq!(m.grid, e.grid, "{id}");
         }
     }
 
