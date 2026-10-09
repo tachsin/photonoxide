@@ -50,6 +50,15 @@ pub struct Block<'a>(pub(crate) MatRef<'a, c64>);
 pub struct BlockMut<'a>(pub(crate) MatMut<'a, c64>);
 
 impl<'a> Block<'a> {
+    /// The block these entries are, by columns, one column after another.
+    ///
+    /// # Panics
+    ///
+    /// Unless there are rows × columns of them.
+    pub fn of(entries: &'a [c64], rows: usize, columns: usize) -> Block<'a> {
+        Block(MatRef::from_column_major_slice(entries, rows, columns))
+    }
+
     /// The block a faer matrix is.
     ///
     /// # Panics
@@ -88,6 +97,15 @@ impl<'a> Block<'a> {
 }
 
 impl<'a> BlockMut<'a> {
+    /// The block these entries are, by columns, one column after another.
+    ///
+    /// # Panics
+    ///
+    /// Unless there are rows × columns of them.
+    pub fn of(entries: &'a mut [c64], rows: usize, columns: usize) -> BlockMut<'a> {
+        BlockMut(MatMut::from_column_major_slice_mut(entries, rows, columns))
+    }
+
     /// The block a faer matrix is.
     ///
     /// # Panics
@@ -545,6 +563,12 @@ mod tests {
             (5, 2, stride)
         );
         assert!(!block.pointer().is_null());
+        // entries by columns are a block as they are
+        let mut entries: Vec<c64> = (0..6).map(|k| c64::new(k as f64, 0.0)).collect();
+        let block = Block::of(&entries, 3, 2);
+        assert_eq!((block.rows(), block.columns(), block.stride()), (3, 2, 3));
+        assert_eq!(block.pointer(), entries.as_ptr());
+        assert_eq!(BlockMut::of(&mut entries, 2, 3).stride(), 2);
         // an empty block still has a leading dimension BLAS takes
         let empty = faer::Mat::<c64>::zeros(0, 3);
         assert_eq!(Block::new(empty.as_ref()).stride(), 1);

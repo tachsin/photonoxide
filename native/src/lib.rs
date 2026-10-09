@@ -21,6 +21,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 
+pub mod blas;
 mod cuda;
 mod cudss;
 mod discovery;
@@ -34,6 +35,7 @@ mod pardiso;
 mod smoke;
 pub mod superlu;
 
+pub use blas::Blas;
 pub use cudss::Cudss;
 pub use discovery::{Candidate, Discovery, Source, Spec, Status, discover, versioned};
 pub use gpu_qmr::GpuQmr;
@@ -101,9 +103,22 @@ pub fn register_all() -> Vec<Probe> {
         Ok(superlu) => offer(std::sync::Arc::new(superlu)).map(drop),
         Err(reason) => photonoxide::backend::register_unavailable("superlu", reason),
     };
+    // photonoxide's own solver with each library's dense kernels in its fronts
+    for (name, kernels) in blas::all() {
+        let _ = match kernels {
+            Ok(kernels) => offer(photonoxide::backend::dense::with_kernels(
+                std::sync::Arc::new(kernels),
+            ))
+            .map(drop),
+            Err(reason) => {
+                photonoxide::backend::register_unavailable(&format!("photonoxide-{name}"), reason)
+            }
+        };
+    }
     let mut probes = nvidia::probe();
     probes.push(intel::probe());
     probes.push(mumps::probe());
     probes.push(superlu::probe());
+    probes.push(blas::probe());
     probes
 }
