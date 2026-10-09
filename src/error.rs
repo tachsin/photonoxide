@@ -43,6 +43,11 @@ pub enum Error {
     },
     /// A circuit's netlist is invalid: see [`crate::circuit::NetlistError`].
     Netlist(crate::circuit::NetlistError),
+    /// A GPU can't be found or opened, or can't do what was asked (the `gpu` feature).
+    Gpu {
+        /// Why, e.g. `"no GPU found"`.
+        reason: String,
+    },
 }
 
 impl Error {
@@ -71,6 +76,7 @@ impl fmt::Display for Error {
             Error::Io { path, reason } => write!(f, "{path}: {reason}"),
             Error::Parse { what, reason } => write!(f, "can't read {what}: {reason}"),
             Error::Netlist(e) => write!(f, "invalid netlist: {e}"),
+            Error::Gpu { reason } => write!(f, "GPU: {reason}"),
         }
     }
 }

@@ -256,8 +256,8 @@ brings these tasks together in one toolkit, built around three things:
 And underneath:
 
 - **Pure Rust:** no C, Fortran or Python dependencies, from the linear algebra to the GDS writer. There are no Python bindings. Libraries you install yourself (Intel MKL, MUMPS, SuperLU, your CPU or GPU vendor's math libraries) can be used as optional backends where they help, loaded at run time and never required ([the plan](docs/plans/backends.md)).
-- **Fast:** parallel on the CPU, with a GPU backend planned for FDTD.
-- **Reproducible:** the same input gives the same result on any number of threads.
+- **Fast:** parallel on the CPU, and FDTD on the GPU through wgpu (the `gpu` feature), in pure Rust.
+- **Reproducible:** the same input gives the same result on any number of threads; a GPU run repeats bit for bit on the same device and driver, and agrees with the CPU to a stated tolerance.
 - **Inverse design built in:** adjoint gradients for every solver, and the optimizers from [genoxide](https://github.com/tachsin/genoxide), our optimization library, which grows the general methods photonoxide needs.
 
 ## Contributing
