@@ -261,8 +261,8 @@ already exists), covariance matrices and JSAs, in plain documented formats.
 
 ### Size and cost
 
-*(estimates)* A permanent by Ryser's formula (Ryser 1963) or Glynn's (Glynn 2010) in Gray-code
-order costs about n 2ⁿ operations: 2 × 10⁷ for n = 20 (milliseconds), 3 × 10¹⁰ for n = 30
+*(estimates)* A permanent by Ryser's formula (Ryser 1963) or Glynn's (Glynn 2010), both as Lundow & Markström 2022
+give them, in Gray-code order, costs about n 2ⁿ operations: 2 × 10⁷ for n = 20 (milliseconds), 3 × 10¹⁰ for n = 30
 (seconds to tens of seconds on one core), 4 × 10¹³ for n = 40 (hours on 20 cores). The hafnian
 behind an N-photon GBS pattern costs O(N³ 2^(N/2)) (Björklund et al. 2019), about 4 × 10¹² for
 N = 50. So exact statistics of up to about 30 single photons, or GBS patterns of up to about 50
@@ -493,7 +493,8 @@ of.
 **Boson sampling, its algorithms and its experiments**
 
 - S. Aaronson, A. Arkhipov, Theory Comput. 9, 143 (2013). [10.4086/toc.2013.v009a004](https://doi.org/10.4086/toc.2013.v009a004)
-- H. J. Ryser, *Combinatorial Mathematics*, Carus Mathematical Monographs 14, MAA (1963). [10.5948/UPO9781614440147](https://doi.org/10.5948/UPO9781614440147)
+- H. J. Ryser, *Combinatorial Mathematics*, Carus Mathematical Monographs 14, MAA (1963). [10.5948/UPO9781614440147](https://doi.org/10.5948/UPO9781614440147) Out of print; its formula is read in Lundow & Markström 2022.
+- P. H. Lundow, K. Markström, J. Comput. Phys. 455, 110990 (2022). [10.1016/j.jcp.2022.110990](https://doi.org/10.1016/j.jcp.2022.110990)
 - D. G. Glynn, Eur. J. Combin. 31, 1887 (2010). [10.1016/j.ejc.2010.01.010](https://doi.org/10.1016/j.ejc.2010.01.010)
 - P. Clifford, R. Clifford, Proc. 29th ACM-SIAM Symp. Discrete Algorithms (SODA 2018), 146. [10.1137/1.9781611975031.10](https://doi.org/10.1137/1.9781611975031.10)
 - C. S. Hamilton et al., Phys. Rev. Lett. 119, 170501 (2017). [10.1103/PhysRevLett.119.170501](https://doi.org/10.1103/PhysRevLett.119.170501)
