@@ -56,7 +56,13 @@ fn it_finds_accelerate_and_what_this_macos_has() {
         .unwrap()
         .parse()
         .unwrap();
-    assert_eq!(c.symmetric, major >= 26, "macOS {}", accelerate.version());
+    // (macOS 26 may call itself 16.0 to a program built with an older SDK)
+    assert_eq!(
+        c.symmetric,
+        major >= 26 || major == 16,
+        "macOS {}",
+        accelerate.version()
+    );
 }
 
 #[test]

@@ -255,7 +255,8 @@ fn status(code: c_int) -> &'static str {
         -2 => "the matrix is singular",
         -3 => "an internal error",
         -4 => "a parameter was refused",
-        _ => "a status Accelerate's header doesn't name",
+        c if c == -c_int::MAX => "the factorization was released",
+        _ =>"a status Accelerate's header doesn't name",
     }
 }
 
@@ -476,12 +477,19 @@ impl Engine {
             _ => api.numeric_lu,
         };
         let one = CALLS.lock().unwrap_or_else(|p| p.into_inner());
-        let mut symbolic = columns.symbolic.lock().unwrap_or_else(|p| p.into_inner());
+        let symbolic = columns.symbolic.lock().unwrap_or_else(|p| p.into_inner());
         // a complex factor takes twice the bytes the symbolic factorization gives for doubles
-        let (factor_bytes, workspace_bytes) = (
-            2 * symbolic.factor_size_double,
-            2 * symbolic.workspace_size_double,
-        );
+        let (Some(factor_bytes), Some(workspace_bytes)) = (
+            symbolic.factor_size_double.checked_mul(2),
+            symbolic.workspace_size_double.checked_mul(2),
+        ) else {
+            return Err(error(
+                "Accelerate's factorization would need more bytes than can be counted",
+            ));
+        };
+        // the header's inline SparseFactor gives the library a copy of the symbolic
+        // factorization, and so does this: whatever it writes there isn't kept
+        let mut copy = *symbolic;
         // SAFETY: as the header's inline SparseFactor: storage and workspace of the sizes the
         // symbolic factorization asks, from the malloc its options name; the matrix's arrays
         // live through the call; the workspace is freed, the storage is Accelerate's to free
@@ -497,7 +505,7 @@ impl Engine {
                     factor_bytes + workspace_bytes
                 )));
             }
-            let mut numeric = factor(&mut *symbolic, &a, &options, storage, workspace);
+            let mut numeric = factor(&mut copy, &a, &options, storage, workspace);
             (api.free)(workspace);
             numeric.user_factor_storage = false;
             if numeric.numeric_factorization.is_null() {
@@ -696,6 +704,10 @@ impl DirectSolver for Accelerate {
                 )));
             }
         };
+        // (the header's inline functions refuse it before the library sees it)
+        if matrix.n() == 0 {
+            return Err(error("Accelerate is given no empty matrix"));
+        }
         let start = Instant::now();
         let n = c_int::try_from(matrix.n())
             .map_err(|_| error("Accelerate's dimensions are 32-bit: too many unknowns"))?;
