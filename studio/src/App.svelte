@@ -9,8 +9,10 @@
   import TopBar from "./components/TopBar.svelte";
   import Tour from "./components/Tour.svelte";
   import TouchstoneImport from "./components/TouchstoneImport.svelte";
+  import NightlyDialog from "./components/NightlyDialog.svelte";
   import UpdateDialog from "./components/UpdateDialog.svelte";
   import { app, boot } from "./lib/app.svelte";
+  import { nightlyBoot } from "./lib/nightly.svelte";
   import { checkForUpdate } from "./lib/updater.svelte";
   import Academy from "./pages/Academy.svelte";
   import Benchmarks from "./pages/Benchmarks.svelte";
@@ -29,6 +31,8 @@
 
   onMount(() => {
     boot().then(() => {
+      // a nightly build confirms it started, and a build running or waiting shows
+      nightlyBoot();
       // a moment after the window opens, so the first paint isn't held up
       if (app.state?.settings.check_updates) setTimeout(() => checkForUpdate(true), 2500);
     });
@@ -88,6 +92,7 @@
   </div>
   <CommandPalette />
   <UpdateDialog />
+  <NightlyDialog />
   <TouchstoneImport />
   <Tour />
   <Toasts />

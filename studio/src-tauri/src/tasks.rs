@@ -156,7 +156,7 @@ impl Tasks {
 
 /// Stops a task and the processes it started: a benchmark runs each problem in a child of its
 /// own, which would otherwise run on to its end.
-fn kill_tree(child: &mut Child) {
+pub(crate) fn kill_tree(child: &mut Child) {
     if let Ok(None) = child.try_wait() {
         let pid = child.id().to_string();
         #[cfg(windows)]

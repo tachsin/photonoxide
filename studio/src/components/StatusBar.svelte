@@ -5,6 +5,7 @@
 
   import { duration } from "../lib/api";
   import { app, go, run } from "../lib/app.svelte";
+  import { building, nightly } from "../lib/nightly.svelte";
   import { updater } from "../lib/updater.svelte";
 
   let now = $state(performance.now());
@@ -37,7 +38,13 @@
   {/if}
   {#if run.problem}<span class="truncate text-error">{run.problem}</span>{/if}
   <span class="flex-1"></span>
-  {#if updater.status === "checking"}<span class="shrink-0">looking for updates…</span>{/if}
+  {#if updater.status === "checking" || nightly.checking}<span class="shrink-0">looking for updates…</span>{/if}
+  {#if building() && nightly.progress}
+    <button class="flex shrink-0 items-center gap-1.5 hover:text-base-content" onclick={() => (nightly.dialog = true)} title="The nightly build: see its log">
+      <span class="loading loading-spinner loading-xs"></span>
+      building main @ {nightly.progress.commit.slice(0, 7)} · {nightly.progress.doing} · {duration(nightly.progress.seconds)}
+    </button>
+  {/if}
   <span class="shrink-0">{app.state?.platform}</span>
-  <span class="shrink-0">photonoxide {app.state?.version}</span>
+  <span class="shrink-0" title={app.state?.build.commit ? `Built from ${app.state.build.commit}${app.state.build.dirty ? ", with changes not committed" : ""}` : undefined}>photonoxide {app.state?.build.label ?? app.state?.version}</span>
 </footer>

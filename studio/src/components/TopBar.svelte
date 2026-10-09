@@ -1,9 +1,10 @@
 <script lang="ts">
   // The top bar: where you are, the search, an update when there is one, help and the theme.
-  import { CircleHelp, Download, Moon, Search, Sun } from "@lucide/svelte";
+  import { CircleHelp, Download, GitBranch, Hammer, Moon, Search, Sun } from "@lucide/svelte";
 
   import { app, run, updateSettings } from "../lib/app.svelte";
   import { editor } from "../lib/chip.svelte";
+  import { available, building, nightly, onNightly } from "../lib/nightly.svelte";
   import { updater } from "../lib/updater.svelte";
 
   const titles: Record<string, [string, string]> = {
@@ -52,7 +53,21 @@
       <span class="badge badge-soft badge-info gap-1.5 py-3"><span class="loading loading-spinner loading-xs"></span> {updater.version} on the way</span>
     </div>
   {/if}
-  {#if updater.status === "available" || updater.status === "downloading" || updater.status === "installing"}
+  {#if onNightly()}
+    {#if building()}
+      <button class="btn btn-sm btn-soft gap-1.5" onclick={() => (nightly.dialog = true)} title="main is being built here: see its log">
+        <span class="loading loading-spinner loading-xs"></span> Building nightly…
+      </button>
+    {:else if nightly.status?.ready}
+      <button class="btn btn-sm btn-primary gap-1.5 shadow-lg shadow-primary/20" onclick={() => (nightly.dialog = true)} title="A nightly build is ready: install it">
+        <Hammer size={15} /> Install nightly
+      </button>
+    {:else if available()}
+      <button class="btn btn-sm btn-primary btn-soft gap-1.5" onclick={() => (nightly.dialog = true)} title="main has commits this build hasn't: see them, and build them here">
+        <GitBranch size={15} /> {nightly.status?.last?.new_commits} new on main
+      </button>
+    {/if}
+  {:else if updater.status === "available" || updater.status === "downloading" || updater.status === "installing"}
     <button class="btn btn-sm btn-primary gap-1.5 shadow-lg shadow-primary/20" onclick={() => (updater.dialog = true)} title="A new release is out: see what's new and update">
       <Download size={15} />
       {updater.status === "available" ? `Update to ${updater.version}` : "Updating…"}
