@@ -43,7 +43,19 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        // the stable channel: a later release, or from a nightly, whatever the release is
+        // (switching back to Stable steps down on purpose; see channels::stable_accepts)
+        .plugin(
+            tauri_plugin_updater::Builder::new()
+                .default_version_comparator(|current, release| {
+                    crate::channels::stable_accepts(
+                        crate::channels::this_build().nightly(),
+                        &current,
+                        &release.version,
+                    )
+                })
+                .build(),
+        )
         .plugin(tauri_plugin_process::init())
         // the window opens where it was left, at the size it had
         .plugin(tauri_plugin_window_state::Builder::default().build())
@@ -79,6 +91,18 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::academy::academy_chart,
             crate::libraries::libraries,
             crate::libraries::install,
+            crate::channels::nightly_status,
+            crate::channels::nightly_started,
+            crate::channels::nightly_check,
+            crate::channels::nightly_prerequisites,
+            crate::channels::nightly_install_tool,
+            crate::channels::nightly_build,
+            crate::channels::nightly_progress,
+            crate::channels::nightly_cancel,
+            crate::channels::nightly_install,
+            crate::channels::nightly_install_package,
+            crate::channels::nightly_roll_back,
+            crate::channels::nightly_clear_cache,
             start_bench,
             crate::benchmarks::bench_data,
             crate::benchmarks::bench_catalogue,
@@ -110,6 +134,10 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
                 .unwrap_or_else(|_| started_in.join(".photonoxide"))
                 .join("settings.json");
             let documents = paths.document_dir().ok();
+            app.manage(crate::channels::State::new(
+                crate::channels::nightly_dir(paths.app_local_data_dir().ok()),
+                crate::channels::identity_of(app.config()),
+            ));
             let settings = Settings::load(&settings_file);
             let workspace = settings::workspace(&settings, &started_in, documents.as_deref());
             let mut started = Vec::new();
@@ -147,7 +175,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             .build()?;
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(context())
         .map_err(|e| format!("can't open the studio window: {e}"))?;
     if let Some(Live {
         linger, finished, ..
@@ -186,6 +214,11 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// The program's Tauri context: its configuration and the window's files.
+pub fn context() -> tauri::Context<tauri::Wry> {
+    tauri::generate_context!()
 }
 
 fn window_title(dir: &Path) -> String {
@@ -321,6 +354,8 @@ struct AppState {
     /// This copy was installed from a release (an installer, AppImage, package or app), so it
     /// can update itself; a build from the repository can't.
     updatable: bool,
+    /// What it was built from: its commit, and its channel (see channels.rs).
+    build: crate::channels::BuildInfo,
 }
 
 fn app_state_of(studio: &Studio) -> AppState {
@@ -330,6 +365,7 @@ fn app_state_of(studio: &Studio) -> AppState {
         version: photonoxide::VERSION.to_owned(),
         platform: format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
         updatable: !cfg!(debug_assertions) && tauri::utils::platform::bundle_type().is_some(),
+        build: crate::channels::this_build(),
     }
 }
 
@@ -340,7 +376,12 @@ fn app_state(state: tauri::State<'_, Studio>) -> AppState {
 
 /// Saves `settings`, and moves to the workspace they name.
 #[tauri::command]
-fn save_settings(state: tauri::State<'_, Studio>, settings: Settings) -> Result<AppState, String> {
+fn save_settings(
+    state: tauri::State<'_, Studio>,
+    mut settings: Settings,
+) -> Result<AppState, String> {
+    // a channel this version doesn't know is Stable
+    settings.channel = crate::channels::channel_of(&settings.channel).into();
     settings.save(&state.settings_file)?;
     *lock(&state.workspace) =
         settings::workspace(&settings, &state.started_in, state.documents.as_deref());
