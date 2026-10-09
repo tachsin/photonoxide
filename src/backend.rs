@@ -39,6 +39,7 @@ use num_complex::Complex64 as c64;
 use crate::sparse;
 use crate::{Error, Result};
 
+pub mod auto;
 mod iterative;
 pub use iterative::{
     IluFactors, IterativeSolver, MultigridCycle, MultigridLevel, QmrRun, RowMatrix, iterative,
