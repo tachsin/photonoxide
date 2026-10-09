@@ -12,7 +12,7 @@
 //! only for a job that names an external backend or an `fdfd` job on `auto` when the records
 //! hold a run of one.
 
-use std::sync::{Arc, Once};
+use std::sync::{Arc, Once, OnceLock};
 
 use photonoxide::backend::auto::{Measured, Outcome};
 use photonoxide::backend::{Choice, Form};
@@ -76,7 +76,7 @@ pub(crate) fn needs_libraries(job: &Job, measurements: &[Measured]) -> bool {
     match job.direct() {
         Choice::Named(name) => !built_in(name),
         Choice::Auto => {
-            job.task().get("kind").and_then(|k| k.as_str()) == Some("fdfd")
+            asks_auto(job)
                 && measurements
                     .iter()
                     .any(|m| !built_in(&m.backend) && m.outcome == Outcome::Accurate)
@@ -85,14 +85,26 @@ pub(crate) fn needs_libraries(job: &Job, measurements: &[Measured]) -> bool {
     }
 }
 
+/// Whether `job` has `auto` choose a direct solver: an `fdfd` job that names none.
+fn asks_auto(job: &Job) -> bool {
+    *job.direct() == Choice::Auto && job.task().get("kind").and_then(|k| k.as_str()) == Some("fdfd")
+}
+
 /// Before `job` is checked or run: gives `auto` this machine's measurements and its free
-/// memory, and registers the external libraries if the job needs them (once in a process).
+/// memory if the job asks it, and registers the external libraries if the job needs them
+/// (once in a process). A job that needs neither reads nothing.
 pub(crate) fn prepare(job: &Job) {
     static LIBRARIES: Once = Once::new();
-    let records = runner::default_database()
-        .and_then(|db| runner::read(&db).ok())
-        .unwrap_or_default();
-    let measurements = measured(&records, &Machine::here());
+    // naming the machine asks the system (a process on Windows and macOS): once
+    static HERE: OnceLock<Machine> = OnceLock::new();
+    let measurements = if asks_auto(job) {
+        let records = runner::default_database()
+            .and_then(|db| runner::read(&db).ok())
+            .unwrap_or_default();
+        measured(&records, HERE.get_or_init(Machine::here))
+    } else {
+        Vec::new()
+    };
     if needs_libraries(job, &measurements) {
         LIBRARIES.call_once(|| {
             photonoxide_native::register_all();

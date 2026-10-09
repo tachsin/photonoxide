@@ -274,9 +274,10 @@ pub(super) fn preview(job: &Job) -> Result<Event> {
 }
 
 /// The backend a choice resolves to for the device, as the run's record names it: its name
-/// and version; and if the job named none, that `auto` chose it and why (what the solver
-/// decides too, from the same measurements: [`crate::backend::auto::decide`]).
-fn direct_solver(device: &Device) -> Result<String> {
+/// and version; and if the job named none, that `auto` chose it and why
+/// ([`crate::backend::auto::decide`]). `auto` is decided here, once, and the device's choice
+/// becomes the backend decided, so the record names the backend that solves.
+fn direct_solver(device: &mut Device) -> Result<String> {
     use crate::backend::{Choice, direct};
     if device.direct != Choice::Auto {
         let c = direct(&device.direct)?.capabilities();
@@ -284,14 +285,19 @@ fn direct_solver(device: &Device) -> Result<String> {
     }
     let problem = crate::fdfd::problem_2d(device.grid, &device.boundaries);
     let decision = crate::backend::auto::decide(problem);
-    let c = Choice::parse(&decision.backend)
-        .and_then(|c| direct(&c))
-        .or_else(|_| direct(&Choice::Photonoxide))?
-        .capabilities();
-    Ok(format!(
-        "{} {} (auto: {})",
-        c.name, c.version, decision.reason
-    ))
+    let (choice, solver, reason) =
+        match Choice::parse(&decision.backend).and_then(|c| direct(&c).map(|s| (c, s))) {
+            Ok((choice, solver)) => (choice, solver, decision.reason),
+            // decided among the available backends; should it have gone since, photonoxide's own
+            Err(e) => (
+                Choice::Photonoxide,
+                direct(&Choice::Photonoxide)?,
+                format!("{} was chosen and couldn't be had: {e}", decision.backend),
+            ),
+        };
+    device.direct = choice;
+    let c = solver.capabilities();
+    Ok(format!("{} {} (auto: {reason})", c.name, c.version))
 }
 
 /// [`super::check`] for an `"fdfd"` job.
@@ -564,7 +570,10 @@ fn coarse(values: &[f64], grid: &Grid, block: usize) -> Raster {
 }
 
 pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
-    let device = Device::new(job)?;
+    let mut device = Device::new(job)?;
+    // decided once for the run: the record and every solve take the same backend
+    let direct = direct_solver(&mut device)?;
+    let device = device;
     let task = &device.task;
     // the 3D view draws the 2D field on the layer's top face
     let z_face = device.layer.1.to_um();
@@ -621,7 +630,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                  sparsity once"
                     .into(),
             ],
-            ["direct solver".into(), direct_solver(&device)?],
+            ["direct solver".into(), direct],
         ],
     })?;
     let pml_cells = task.pml_cells.unwrap_or(20);

@@ -158,7 +158,10 @@ pub fn choose(
         .iter()
         .copied()
         .filter(|r| {
-            r.outcome == Outcome::Accurate && r.threads == nearest_threads && r.seconds > 0.0
+            r.outcome == Outcome::Accurate
+                && r.threads == nearest_threads
+                && r.seconds.is_finite()
+                && r.seconds > 0.0
         })
         .collect();
     // photonoxide's own fastest run of a size
@@ -507,6 +510,22 @@ mod tests {
             "{}",
             d.reason
         );
+    }
+
+    #[test]
+    fn times_that_arent_times_say_nothing() {
+        // a zero, a NaN or an infinite time, of either side, is no measurement
+        for (own, other) in [
+            (42.0, 0.0),
+            (42.0, f64::NAN),
+            (f64::INFINITY, 20.0),
+            (f64::NAN, 20.0),
+            (42.0, -1.0),
+        ] {
+            let records = vec![run(OWN, 120_000, own), run("pardiso", 120_000, other)];
+            let d = choose(problem(120_000), &records, &all(), 4, None);
+            assert_eq!(d.backend, OWN, "{own} {other}: {}", d.reason);
+        }
     }
 
     #[test]

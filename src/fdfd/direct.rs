@@ -57,14 +57,19 @@ impl Plan {
         }
         let decision = crate::backend::auto::decide(problem);
         // decided among the registered, available backends; should one have gone since,
-        // photonoxide's own
-        let solver = Choice::parse(&decision.backend)
-            .and_then(|c| crate::backend::direct(&c))
-            .or_else(|_| crate::backend::direct(&Choice::Photonoxide))?;
+        // photonoxide's own, and the reason says so
+        let (solver, reason) =
+            match Choice::parse(&decision.backend).and_then(|c| crate::backend::direct(&c)) {
+                Ok(solver) => (solver, decision.reason),
+                Err(e) => (
+                    crate::backend::direct(&Choice::Photonoxide)?,
+                    format!("{} was chosen and couldn't be had: {e}", decision.backend),
+                ),
+            };
         Ok(Plan {
             solver,
             analysis: None,
-            chosen: Some(decision.reason),
+            chosen: Some(reason),
         })
     }
 }
