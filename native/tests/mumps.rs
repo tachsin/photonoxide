@@ -215,8 +215,10 @@ fn a_sweep_reuses_its_analysis_and_reports_its_factors() {
                 report.peak_memory_bytes
             );
         }
-        // the factors held meanwhile are still the first matrix's
-        assert_eq!(held.solve(&b).unwrap(), held_solution);
+        // the factors held meanwhile are still the first matrix's (to rounding: MUMPS's BLAS
+        // may thread, and it declares no reproducibility)
+        let again = held.solve(&b).unwrap();
+        assert!(relative(&again, &held_solution) < 1e-12);
         // another structure is refused
         let (s, r, v) = system(41, form);
         let other = Matrix::new(s.len() - 1, &s, &r, &v, form).unwrap();

@@ -32,8 +32,10 @@
 //! - **Report:** the factors' entries (`INFOG(9)`), the memory used during the factorization
 //!   (`INFOG(22)`, in millions of bytes), and the pivots static pivoting modified
 //!   (`INFOG(25)`).
-//! - **One call at a time.** The sequential build keeps state of its own; every call into it
-//!   is made under one lock.
+//! - **One call at a time, on a stack of its own.** The sequential build keeps state of its
+//!   own; every call into it is made under one lock, on a thread started for it with 256 MB of
+//!   stack: a build with OpenMP (conda-forge's on Linux) keeps its local arrays there, and
+//!   crashed on the 2 MB of a thread Rust starts.
 //! - **Threads and determinism:** the sequential build's only threads are its BLAS's, set by
 //!   the BLAS (`OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`). Not declared deterministic.
 //! - **Errors:** `INFOG(1)` with `INFOG(2)`, with the user guide's meanings.
@@ -141,6 +143,41 @@ const USE_COMM_WORLD: i32 = -987_654;
 
 /// One call into MUMPS at a time.
 static CALLS: Mutex<()> = Mutex::new(());
+
+/// The stack each call into MUMPS is given, in bytes. A build with OpenMP (conda-forge's on
+/// Linux) keeps its routines' local arrays on the stack, more than the 2 MB of a thread Rust
+/// starts: it crashed there on a 2 × 2 matrix. Reserved, not used, until MUMPS takes it.
+const STACK: usize = 256 << 20;
+
+/// A pointer that may cross to the thread a call is made on.
+struct Crossing(*mut c_void);
+
+// SAFETY: the caller waits for the thread, which alone uses the pointer meanwhile
+unsafe impl Send for Crossing {}
+
+/// `zmumps(structure)`, alone among the calls into MUMPS and on a stack of [`STACK`].
+///
+/// # Safety
+///
+/// As `zmumps_c`'s: `structure` is a `ZMUMPS_STRUC_C` with room for its release's, and the
+/// arrays it points at live through the call.
+unsafe fn run(zmumps: ZmumpsC, structure: *mut c_void) -> Result<()> {
+    let _one = CALLS.lock().unwrap_or_else(|p| p.into_inner());
+    let crossing = Crossing(structure);
+    std::thread::scope(|scope| {
+        std::thread::Builder::new()
+            .name("mumps".into())
+            .stack_size(STACK)
+            .spawn_scoped(scope, move || {
+                let crossing = crossing;
+                // SAFETY: the caller's
+                unsafe { zmumps(crossing.0) }
+            })
+            .map_err(|e| error(format!("a thread for MUMPS's call couldn't start: {e}")))?
+            .join()
+            .map_err(|_| error("MUMPS's call panicked"))
+    })
+}
 
 /// What `INFOG(1)` means, from the user guide's list of errors.
 fn meaning(code: i32) -> &'static str {
@@ -310,12 +347,9 @@ fn layout_of(version: &str) -> Option<&'static Layout> {
 /// error if negative.
 fn call(api: &Api, structure: &mut Structure, job: i32, what: &str) -> Result<()> {
     structure.set_int(JOB, job);
-    {
-        let _one = CALLS.lock().unwrap_or_else(|p| p.into_inner());
-        // SAFETY: the structure is a zeroed buffer larger than any release's, its fields set
-        // at this release's offsets, and the arrays its pointers name outlive the call
-        unsafe { (api.zmumps)(structure.pointer()) };
-    }
+    // SAFETY: the structure is a zeroed buffer larger than any release's, its fields set at
+    // this release's offsets, and the arrays its pointers name outlive the call
+    unsafe { run(api.zmumps, structure.pointer()) }?;
     let code = structure.infog(api.layout, 1);
     if code < 0 {
         return Err(error(format!(
@@ -470,12 +504,9 @@ fn identify(library: &Library) -> Result<(ZmumpsC, String, &'static Layout)> {
     s.set_int(PAR, 1);
     s.set_int(COMM_FORTRAN, USE_COMM_WORLD);
     s.set_int(JOB, INIT);
-    {
-        let _one = CALLS.lock().unwrap_or_else(|p| p.into_inner());
-        // SAFETY: a zeroed buffer four times the largest known release's structure, with the
-        // four fields an initialization reads, which every release has first
-        unsafe { zmumps(s.pointer()) };
-    }
+    // SAFETY: a zeroed buffer four times the largest known release's structure, with the four
+    // fields an initialization reads, which every release has first
+    unsafe { run(zmumps, s.pointer()) }?;
     // the version, where each layout has it: 30 characters and a NUL
     let found: Vec<(&'static Layout, String)> = [&OLD, &NEW]
         .into_iter()
@@ -499,10 +530,14 @@ fn identify(library: &Library) -> Result<(ZmumpsC, String, &'static Layout)> {
     };
     // the instance is ended, whichever release it is: the job is at the same place in all
     if !found.is_empty() {
+        // quietly: the streams are among the fields every release has at the same place
+        for k in 1..=3 {
+            s.set_icntl(k, -1);
+        }
+        s.set_icntl(4, 0);
         s.set_int(JOB, END);
-        let _one = CALLS.lock().unwrap_or_else(|p| p.into_inner());
         // SAFETY: the instance made above, ended: the job is the structure's third field
-        unsafe { zmumps(s.pointer()) };
+        let _ = unsafe { run(zmumps, s.pointer()) };
     }
     identified
 }
