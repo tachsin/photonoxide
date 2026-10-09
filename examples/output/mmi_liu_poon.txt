@@ -1,0 +1,6 @@
+Liu and Poon's 2 x 2 MMI (gdsfactory's generic PDK), 3D FDTD, TE0 into the lower left port; materials at 1.55 um
+6 cells a wavelength: 482 × 125 × 54 cells of 74.3 nm (3.3 million), CPMLs of 12
+  wavelength  cross TE0  bar TE0   reflection  excess loss
+  1.550 um    0.40184    0.46907   2.92e-4    -0.6003 dB
+  cross TE0, 1550 nm, 6 cells            0.401837   paper 0.484      ± 1.4e-1    ok
+all 1 within tolerance of the paper

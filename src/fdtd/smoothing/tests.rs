@@ -565,6 +565,42 @@ fn at_an_oblique_interface_the_triplets_halve_the_nodes_error_and_bauers_own_are
 }
 
 #[test]
+fn the_diagonal_is_the_nodes_at_interfaces_along_the_grid_and_couples_nothing() {
+    // at a plane along the grid nothing is off the diagonal: the same reflection, isotropic
+    let eps = Permittivity::isotropic(4.0).unwrap();
+    let nodes = slab_reflection(1.0 / 40.0, eps, Coupling::Nodes);
+    let diagonal = slab_reflection(1.0 / 40.0, eps, Coupling::Diagonal);
+    for (a, b) in nodes.iter().zip(&diagonal) {
+        assert!((a[0] - b[0]).norm() < 1e-12 && (a[1] - b[1]).norm() < 1e-12);
+    }
+    // at the oblique layers no tensor is kept, and the diagonal is each value's own entry of
+    // the nodes' ε̃⁻¹
+    let structure = tilted_layers([1.0, 2.0]);
+    let smoothing = |coupling| Smoothing {
+        coupling,
+        ..Smoothing::with(Average::Subpixel)
+    };
+    let d =
+        lattice_simulation(smoothing(Coupling::Diagonal), &structure, [1, 1], 16, true).unwrap();
+    let n = lattice_simulation(smoothing(Coupling::Nodes), &structure, [1, 1], 16, true).unwrap();
+    assert!(d.anisotropic.is_none() && n.anisotropic.is_some());
+    assert_eq!(d.cb, n.cb);
+}
+
+#[test]
+fn at_an_oblique_interface_the_diagonal_is_first_order() {
+    // error times n 0.14, 0.38, 0.52, 0.57, 0.62 at 16 to 256 cells a µm: first order beyond
+    // 64, about four times the triplets' error
+    let (e32, e64) = (
+        oblique(Coupling::Diagonal, 32),
+        oblique(Coupling::Diagonal, 64),
+    );
+    let t64 = oblique(Coupling::Triplets, 64);
+    assert!(e64 < e32 && e64 * 64.0 < 0.6, "{e32} {e64}");
+    assert!(e64.abs() > 2.0 * t64.abs(), "{e64} {t64}");
+}
+
+#[test]
 fn coupling_triplets_takes_its_own_average() {
     let structure = tilted_layers([1.0, 2.0]);
     for (average, diameter) in [(Average::Mean, 1.0), (Average::Subpixel, 2.0)] {

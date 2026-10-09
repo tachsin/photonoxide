@@ -2,18 +2,23 @@
 
 photonoxide is released milestone by milestone: a library whose public API can change between milestones until 1.0, and
 the `photonoxide` program (the studio). [ROADMAP.md](ROADMAP.md) is the plan and the record of
-what is done; [CHANGELOG.md](CHANGELOG.md) has what each release changed. 0.1 to 0.4 and their
-patches are released, the latest 0.4.3 (direct solves at PARDISO's fill,
-[docs/baselines.md](docs/baselines.md)); next is 0.5, finite-difference time-domain (FDTD). The
-library's modules, each with a write-up in `docs/methods/`:
+what is done; [CHANGELOG.md](CHANGELOG.md) has what each release changed. 0.1 to 0.5 and their
+patches are released, the latest 0.5.0 (finite-difference time-domain, FDTD, and solver backends
+loaded at run time); next is 0.5.1, many solves at once. The library's modules, each with a
+write-up in `docs/methods/`:
 
-- `units`, `material` (with `material::catalogue`), `geometry`, `stack`, `raster`;
+- `units`, `material` (with `material::catalogue`), `geometry` (the kernel: regions, transforms,
+  polygons, a spatial index), `expr` (expressions with units and parameters), `stack`, `raster`;
 - `mode`: slabs, multilayers, planar profiles, full-vector and Hadley cross-sections, bends,
   the effective index method, Marcatili, dispersion and fields;
 - `fdfd`: 2D and 3D, ports and S-parameters, adjoint gradients, direct and QMR solves;
-- `fdtd`: the Yee scheme in 2D and 3D, the convolutional PML, sources and probes;
+- `fdtd`: the Yee scheme in 2D and 3D, the convolutional PML, smoothing, sources, monitors,
+  dispersive media, adjoint gradients, and the GPU (`fdtd::gpu`, wgpu compute behind the `gpu`
+  feature);
 - `circuit`: components, netlists, the circuit solve and its adjoint, objectives for genoxide;
 - `compact`: vector fitting, models over parameters, Touchstone files;
+- `backend`: the solver backends, photonoxide's own and the external libraries' (through
+  `photonoxide-native`);
 - `job`, `run`: job files, run records and replay; `validation`: the report's cases; `bench`: the benchmark problems.
 
 ## Commands
@@ -25,6 +30,8 @@ cargo run --release --example strip_waveguide           # an example: a publishe
 cargo run --release --quiet --example <name> > examples/output/<name>.txt   # its output, which CI compares
 cargo test --release --test validation_report -- --ignored   # every validation case, and the report is current
 cargo run -p photonoxide-native --example libraries      # the external libraries found here (CUDA, cuSPARSE, cuDSS)
+cargo test --release --features gpu --lib fdtd::gpu      # FDTD on the GPU against the CPU (skips without a GPU)
+cargo test --release --features gpu --test gpu_report -- --ignored   # docs/validation-gpu.md, before each release
 ```
 
 The `photonoxide` program is the studio, a Tauri app in `studio/` (Rust in `studio/src-tauri`,
@@ -62,6 +69,8 @@ regenerate and commit it with any change that adds or alters a case.
   - photonoxide's own solvers stay the default and the reference. A backend is checked against them before it is offered, and its speed counts only at equal accuracy.
   - The default build, CI and the released program work with no external library. Tests that need one skip when it isn't found, and say so.
   - A backend declares whether it gives the same bits on every run. photonoxide's own solvers must, on any thread count.
+  - photonoxide's own GPU kernels (wgpu, the `gpu` feature) repeat bit for bit on the same device and driver: no floating-point atomics, fixed workgroup sizes, every sum taken in a fixed order. Against the CPU they agree to a tolerance stated per quantity (ROADMAP's principle 9). f32 on the GPU, f64 (Vulkan) for checking.
+  - GitHub's runners have no GPU: the GPU's tests skip there and say so, and run on the owner's machine before each release, which writes docs/validation-gpu.md. docs/validation.md must be the same with or without a GPU.
 - **Minimum Rust follows the dependencies.** Use a dependency's current release; when it needs a newer Rust than `rust-version`, raise `rust-version` and the CI's MSRV job to what it needs, in the same PR, and say so in the PR.
 - **Validation before features.** A solver or device isn't done without three things:
   - an analytic test;
