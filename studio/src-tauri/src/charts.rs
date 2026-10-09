@@ -125,7 +125,7 @@ pub fn specs() -> Vec<ChartSpec> {
             id: "ring-spectrum",
             title: "A ring's through and drop spectra",
             about: "An all-pass ring (drop coupling 0) or an add-drop ring: the power at its through and drop ports against wavelength, around 1.55 µm, with the Lorentzian of the resonance nearest it.",
-            computed_by: "circuit::components::AllPassRing and AddDropRing: s_matrix, resonance, fsr, fwhm, q_factor, finesse, extremes (Bogaerts et al. 2012, Eqs. 1-23)",
+            computed_by: "circuit::components::AllPassRing and AddDropRing: s_matrix, resonance, fsr, fwhm, q_factor, finesse, extremes (Bogaerts et al. 2011, Eqs. 1-23)",
             params: vec![
                 param(
                     "radius",
@@ -187,7 +187,7 @@ pub fn specs() -> Vec<ChartSpec> {
             id: "ring-coupling",
             title: "On resonance, against the coupling",
             about: "A ring's through and drop powers on resonance, and its loaded Q as a share of its intrinsic Q, as the input coupling goes from nothing through critical coupling to strong over-coupling.",
-            computed_by: "circuit::components::AllPassRing and AddDropRing: extremes, q_factor (Bogaerts et al. 2012, Eqs. 11-22)",
+            computed_by: "circuit::components::AllPassRing and AddDropRing: extremes, q_factor (Bogaerts et al. 2011, Eqs. 11-22)",
             params: vec![
                 param(
                     "radius",

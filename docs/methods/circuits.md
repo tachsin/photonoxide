@@ -6,7 +6,7 @@ order: 20
 papers:
   - cite: "G. Filipsson, 11th European Microwave Conference, 700 (1981)"
     doi: 10.1109/EUMA.1981.332972
-  - cite: "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012)"
+  - cite: "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue)"
     doi: 10.1002/lpor.201100017
 validation:
   - circuit/series-waveguides
@@ -95,7 +95,7 @@ itself, so these check the solve as well.
 
 ## Rings and interferometers
 
-Bogaerts et al. (2012) give the ring's responses in closed form. An all-pass ring is a coupler
+Bogaerts et al. (2011) give the ring's responses in closed form. An all-pass ring is a coupler
 with self-coupling $r$ and cross-coupling $\kappa$, $r^2 + \kappa^2 = 1$, one of whose outputs
 returns to its input through the ring, with single-pass amplitude $a$ and phase $\phi$. Their
 Eq. 1,

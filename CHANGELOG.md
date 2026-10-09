@@ -6,6 +6,70 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/tachsin/photonoxide/compare/v0.4.3...v0.5.0) - 2026-10-09
+
+### <!-- 0 -->Added
+
+- *(backend)* solver backends: DirectSolver, Analysis and Factorization traits, a registry, and a choice in the solvers and in job files ([#193](https://github.com/tachsin/photonoxide/pull/193))
+- *(bench)* a catalogue of problem families at many sizes, each with its task, its memory and its accuracy check ([#195](https://github.com/tachsin/photonoxide/pull/195))
+- *(fdtd)* the Yee scheme in 2D and 3D with the convolutional PML ([#160](https://github.com/tachsin/photonoxide/pull/160)) ([#201](https://github.com/tachsin/photonoxide/pull/201))
+- *(native)* photonoxide-native, finding and loading external libraries at run time, with smoke tests ([#202](https://github.com/tachsin/photonoxide/pull/202))
+- *(fdtd)* sources: dipoles, total-field/scattered-field, one-way mode sources and Gaussian beams ([#162](https://github.com/tachsin/photonoxide/pull/162)) ([#203](https://github.com/tachsin/photonoxide/pull/203))
+- *(fdtd)* Bloch-periodic boundaries and dispersive media by auxiliary differential equations ([#164](https://github.com/tachsin/photonoxide/pull/164)) ([#204](https://github.com/tachsin/photonoxide/pull/204))
+- *(bench)* the benchmark runner over problems, backends and threads, with a results database ([#207](https://github.com/tachsin/photonoxide/pull/207))
+- *(fdtd)* subpixel smoothing, isotropic and anisotropic ([#161](https://github.com/tachsin/photonoxide/pull/161)) ([#206](https://github.com/tachsin/photonoxide/pull/206))
+- *(native)* oneMKL's PARDISO as a direct solver ([#211](https://github.com/tachsin/photonoxide/pull/211))
+- *(native)* photonoxide's QMR on the GPU with cuSPARSE, an iterative backend ([#214](https://github.com/tachsin/photonoxide/pull/214))
+- *(native)* QMR with ILU(0) on the GPU, photonoxide's factors and cuSPARSE's triangular solves ([#216](https://github.com/tachsin/photonoxide/pull/216))
+- *(fdtd)* refuse a smoothed ε⁻¹ at the nodes that isn't positive definite ([#209](https://github.com/tachsin/photonoxide/pull/209)) ([#213](https://github.com/tachsin/photonoxide/pull/213))
+- *(fdtd)* monitors: DFT fields, flux, mode overlaps and resonances by harmonic inversion ([#215](https://github.com/tachsin/photonoxide/pull/215))
+- *(bench)* factor entries in the measurements and the runner's records ([#225](https://github.com/tachsin/photonoxide/pull/225))
+- *(native)* GMRES with photonoxide's multigrid on the GPU ([#229](https://github.com/tachsin/photonoxide/pull/229))
+- *(studio)* the Academy: lessons with live charts from the library, the ring resonator and Bragg gratings ([#233](https://github.com/tachsin/photonoxide/pull/233))
+- *(fdtd)* Coupling::Triplets, Werner, Bauer & Cary's smoothing stable at any contrast ([#234](https://github.com/tachsin/photonoxide/pull/234))
+- *(geometry)* the kernel: regions, primitives, transforms, polygons within a tolerance, fills and a spatial index ([#235](https://github.com/tachsin/photonoxide/pull/235))
+- *(expr)* an expression language with units and parameters, in job files and sweeps ([#237](https://github.com/tachsin/photonoxide/pull/237))
+- *(studio)* FDTD jobs, live field propagation and monitors ([#239](https://github.com/tachsin/photonoxide/pull/239))
+- *(fdtd)* [**breaking**] Werner, Bauer and Cary's triplets are the default smoothing ([#240](https://github.com/tachsin/photonoxide/pull/240))
+- *(fdtd)* adjoint gradients in 3D from FDTD runs, the mode's imaginary part included ([#246](https://github.com/tachsin/photonoxide/pull/246))
+- *(bench)* the catalogue's remaining problems: stretched PMLs on the device boxes, Diel and the strip with ports at other sizes, Hadley's corners ([#242](https://github.com/tachsin/photonoxide/pull/242))
+- *(fdtd)* FDTD on the GPU through wgpu compute, deterministic, judged against the blocked CPU kernel ([#252](https://github.com/tachsin/photonoxide/pull/252))
+- *(fdtd)* Liu and Poon's six PDK devices in 3D FDTD against their published Lumerical FDTD and Tidy3D results; Coupling::Diagonal, a faster smoothing that keeps the blocked kernel; PortMode3d::moved_to public ([#253](https://github.com/tachsin/photonoxide/pull/253))
+- *(native)* NVIDIA cuDSS, a sparse direct solver on the GPU ([#205](https://github.com/tachsin/photonoxide/pull/205))
+- *(native)* cuDSS's complex symmetric L D Lᵀ ([#222](https://github.com/tachsin/photonoxide/pull/222))
+- *(studio)* a Libraries page: what is found, licences, and guided installs the user confirms ([#221](https://github.com/tachsin/photonoxide/pull/221))
+- *(studio)* a Benchmarks page: runs on the user's machine, charts, and which library wins where ([#226](https://github.com/tachsin/photonoxide/pull/226))
+
+### <!-- 1 -->Fixed
+
+- 3D direct solves were wrong on AMD Zen 3 under Windows, faer's threaded product kernel now the fixed 0.1.22 ([#192](https://github.com/tachsin/photonoxide/pull/192))
+- [**breaking**] the ring's closed forms, Marcuse's loss and Marcatili's normalized constant return errors, not NaN, infinities or panics ([#191](https://github.com/tachsin/photonoxide/pull/191))
+
+### <!-- 2 -->Performance
+
+- *(fdtd)* the CPU kernel in f32 and f64, row by row, the same bits as the plain loops ([#218](https://github.com/tachsin/photonoxide/pull/218))
+- *(fdtd)* spatial and wavefront diamond blocking, about 4 times the memory's roof beyond the caches ([#248](https://github.com/tachsin/photonoxide/pull/248))
+
+### <!-- 3 -->Changed
+
+- *(bench)* the catalogue's Family, Task and Entry non-exhaustive and Family::ALL a slice, so new families aren't breaking changes ([#197](https://github.com/tachsin/photonoxide/pull/197))
+
+### <!-- 4 -->Documentation
+
+- the plan for optional external libraries loaded at run time, and AGENTS.md's rule for them ([#196](https://github.com/tachsin/photonoxide/pull/196))
+- other tools described by what they do, without comparisons that run them down; no oxiphoton ([#198](https://github.com/tachsin/photonoxide/pull/198))
+- no more alpha: released milestone by milestone, and the site follows the latest release by itself ([#199](https://github.com/tachsin/photonoxide/pull/199))
+- the README says what 0.4.2 and 0.4.3 released, and that 0.5 is next ([#230](https://github.com/tachsin/photonoxide/pull/230))
+- no promises to fabricate: foundry and process names out of the plan, the site and the banner ([#231](https://github.com/tachsin/photonoxide/pull/231))
+- *(roadmap)* 0.6.1, nonlinear integrated optics, and the materials' transparency windows ([#232](https://github.com/tachsin/photonoxide/pull/232))
+- *(roadmap)* Herr et al.'s solitons paper is from December 2013 ([#236](https://github.com/tachsin/photonoxide/pull/236))
+- *(plans)* the owner's decisions on the GPU: determinism, precision and where its tests run ([#241](https://github.com/tachsin/photonoxide/pull/241))
+- *(plans)* photonic quantum computing: a survey and a plan for photonoxide ([#243](https://github.com/tachsin/photonoxide/pull/243))
+- *(plans)* optimization in photonic design: a survey and a plan with genoxide ([#245](https://github.com/tachsin/photonoxide/pull/245))
+- *(roadmap)* 0.6.2, quantum light and linear-optical statistics, and the owner's decisions on both plans ([#249](https://github.com/tachsin/photonoxide/pull/249))
+- 0.5 released, FDTD and the backends in the README, 0.5.1 next ([#257](https://github.com/tachsin/photonoxide/pull/257))
+- *(academy)* the Bragg lesson cites Macleod's fifth edition ([#238](https://github.com/tachsin/photonoxide/pull/238))
+
 ## [0.4.3](https://github.com/tachsin/photonoxide/compare/v0.4.2...v0.4.3) - 2026-10-05
 
 ### <!-- 0 -->Added

@@ -1027,6 +1027,20 @@ pub fn cases() -> Vec<Case> {
             run: fdtd_smoothing_triplets_order,
         },
         Case {
+            id: "fdtd/smoothing-diagonal-oblique",
+            title: r"FDTD's subpixel smoothing with only the diagonal of $\tilde\varepsilon^{-1}$ (`Coupling::Diagonal`, nothing coupled) at the oblique layers above, 128 cells a µm: the mode's frequency against the transfer matrices (relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"the same exact frequency, 0.885677 c/µm. Each value keeps its own entry $n_c^2\langle\varepsilon^{-1}\rangle + (1 - n_c^2)\langle\varepsilon\rangle^{-1}$ of Farjadpour et al.'s tensor; the dropped coupling is first order at an oblique interface: error times $n$ 0.14, 0.38, 0.52, 0.57 and 0.62 at $n$ = 16 to 256 (frequencies too high), about four times the triplets'; measured 4.43e-3 at 128; along the grid it is the tensor's exactly (a unit test)",
+            run: fdtd_smoothing_diagonal_oblique,
+        },
+        Case {
+            id: "fdtd/smoothing-diagonal-order",
+            title: r"The order of convergence at the oblique layers with `Coupling::Diagonal`, from 64 to 128 cells a µm: $\log_2$ of the ratio of the errors (shown)",
+            tier: Tier::Analytic,
+            source: r"against the transfer matrices; first order, as every placement here but Bauer et al.'s unsymmetric tensor; measured 0.87",
+            run: fdtd_smoothing_diagonal_order,
+        },
+        Case {
             id: "fdtd/smoothing-bauer-order",
             title: r"The order of convergence at the oblique layers with Bauer, Werner and Cary's triplet tensors as they are, not made symmetric (a check, not a `Coupling`: not stable), from 64 to 128 cells a µm (shown)",
             tier: Tier::Analytic,
@@ -1296,21 +1310,21 @@ pub fn cases() -> Vec<Case> {
             id: "circuit/ring-all-pass-bogaerts",
             title: r"Circuits: an all-pass ring, a coupler ($\kappa^2$ = 0.1 and 0.02) with one output fed back through 62.8 µm of waveguide, 1.54 to 1.56 µm: the through field (largest error shown)",
             tier: Tier::Published,
-            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eq. 1: $e^{i(\pi + \phi)} (a - r e^{-i\phi}) / (1 - r a e^{i\phi})$, and its square, Eq. 2",
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue), doi:10.1002/lpor.201100017, Eq. 1: $e^{i(\pi + \phi)} (a - r e^{-i\phi}) / (1 - r a e^{i\phi})$, and its square, Eq. 2",
             run: circuit_ring_all_pass,
         },
         Case {
             id: "circuit/ring-add-drop-bogaerts",
             title: r"Circuits: an add-drop ring, two couplers ($\kappa^2$ = 0.1 and 0.05) joined by two halves of a 62.8 µm ring, 1.54 to 1.56 µm: the through and drop powers (largest error shown)",
             tier: Tier::Published,
-            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eqs. 5 and 6",
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue), doi:10.1002/lpor.201100017, Eqs. 5 and 6",
             run: circuit_ring_add_drop,
         },
         Case {
             id: "circuit/ring-fsr-bogaerts",
             title: r"Circuits: the all-pass ring ($\kappa^2 = 0.1$, 62.8 µm, $n_g = 4.2$): the spacing of its two resonances either side of 1.55 µm, found as minima of the through power (nm, shown)",
             tier: Tier::Published,
-            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eq. 9: $\lambda^2 / (n_g L)$ at the resonances' midpoint; first order, its error here $(\Delta\lambda / 2\lambda)^2$ relative, 8e-5 nm",
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue), doi:10.1002/lpor.201100017, Eq. 9: $\lambda^2 / (n_g L)$ at the resonances' midpoint; first order, its error here $(\Delta\lambda / 2\lambda)^2$ relative, 8e-5 nm",
             run: circuit_ring_fsr,
         },
         Case {
@@ -1380,35 +1394,35 @@ pub fn cases() -> Vec<Case> {
             id: "components/ring-all-pass-bogaerts",
             title: r"Components: the all-pass ring's closed form ($\kappa^2$ = 0.1 and 0.02, 62.8 µm, $n_g = 4.2$, 3 dB/cm), 1.54 to 1.56 µm, against Bogaerts's through field and against its netlist, a coupler fed back through a waveguide, solved as a circuit (largest $\lvert \Delta S \rvert$ shown)",
             tier: Tier::Published,
-            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eq. 1: $e^{i(\pi + \phi)} (a - r e^{-i\phi}) / (1 - r a e^{i\phi})$",
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue), doi:10.1002/lpor.201100017, Eq. 1: $e^{i(\pi + \phi)} (a - r e^{-i\phi}) / (1 - r a e^{i\phi})$",
             run: components::ring_all_pass,
         },
         Case {
             id: "components/ring-add-drop-bogaerts",
             title: r"Components: the add-drop ring's closed form ($\kappa_1^2 = 0.1$, $\kappa_2^2 = 0.05$, 62.8 µm), 1.54 to 1.56 µm, against Bogaerts's through and drop powers and against its netlist of two couplers and two half rings (largest difference shown)",
             tier: Tier::Published,
-            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eqs. 5 and 6",
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue), doi:10.1002/lpor.201100017, Eqs. 5 and 6",
             run: components::ring_add_drop,
         },
         Case {
             id: "components/ring-extremes-bogaerts",
             title: r"Components: the rings' through and drop powers on resonance ($\phi = 2\pi m$) and off it ($\phi = 2\pi m + \pi$), all-pass and add-drop, $\kappa^2$ = 0.05 and 0.2 (largest difference shown)",
             tier: Tier::Published,
-            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eqs. 11 to 16, e.g. $R_\text{min} = (r - a)^2 / (1 - r a)^2$",
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue), doi:10.1002/lpor.201100017, Eqs. 11 to 16, e.g. $R_\text{min} = (r - a)^2 / (1 - r a)^2$",
             run: components::ring_extremes,
         },
         Case {
             id: "components/ring-linewidth-bogaerts",
             title: r"Components: the full width at half maximum measured on the rings' spectra (all-pass through, add-drop drop; $\kappa^2$ = 0.02 and 0.05, 62.8 µm, 3 dB/cm) against Bogaerts's formulas (largest relative difference shown)",
             tier: Tier::Published,
-            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eqs. 7 and 8, $(1 - ra)\lambda^2 / (\pi n_g L \sqrt{ra})$: a Lorentzian line, $\cos \phi \approx 1 - \phi^2 / 2$ across it, good to about $(1 - ra)^2$, 8e-4 at most here",
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue), doi:10.1002/lpor.201100017, Eqs. 7 and 8, $(1 - ra)\lambda^2 / (\pi n_g L \sqrt{ra})$: a Lorentzian line, $\cos \phi \approx 1 - \phi^2 / 2$ across it, good to about $(1 - ra)^2$, 8e-4 at most here",
             run: components::ring_linewidth,
         },
         Case {
             id: "components/ring-fsr-fdfd",
             title: r"Components: the free spectral range of jobs/ring-fdfd.toml's all-pass ring (radius 2 µm, 2D FDFD by the effective index method, 25 nm grid), from its two resonances near 1.52 and 1.567 µm (nm shown)",
             tier: Tier::Published,
-            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eq. 9, $\lambda^2 / (n_g L)$ at the resonances' midpoint, $n_g$ of the exact bent slab of the same plane (radial shooting, Marcuse 1971, doi:10.1002/j.1538-7305.1971.tb02620.x); the tolerance is the 25 nm grid's",
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue), doi:10.1002/lpor.201100017, Eq. 9, $\lambda^2 / (n_g L)$ at the resonances' midpoint, $n_g$ of the exact bent slab of the same plane (radial shooting, Marcuse 1971, doi:10.1002/j.1538-7305.1971.tb02620.x); the tolerance is the 25 nm grid's",
             run: components::ring_fsr_fdfd,
         },
         Case {
@@ -2596,6 +2610,29 @@ fn fdtd_smoothing_triplets_order() -> Outcome {
         measured,
         expected: 1.0,
         // first order: measured 1.15
+        tolerance: 0.35,
+        error: (measured - 1.0).abs(),
+    }
+}
+
+fn fdtd_smoothing_diagonal_oblique() -> Outcome {
+    use crate::fdtd::Coupling;
+    let measured = crate::fdtd::smoothing::checks::oblique(Coupling::Diagonal, 128).abs();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // first order: measured 4.43e-3 at 128 cells a µm
+        tolerance: 6e-3,
+        error: measured,
+    }
+}
+
+fn fdtd_smoothing_diagonal_order() -> Outcome {
+    let measured = oblique_order(crate::fdtd::Coupling::Diagonal.into());
+    Outcome {
+        measured,
+        expected: 1.0,
+        // first order: measured 0.87
         tolerance: 0.35,
         error: (measured - 1.0).abs(),
     }
@@ -3874,6 +3911,11 @@ fn hadley_corners_order() -> Outcome {
 fn um(value: f64) -> Wavelength {
     Wavelength::from_um_unchecked(value)
 }
+
+#[cfg(feature = "gpu")]
+mod gpu;
+#[cfg(feature = "gpu")]
+pub use gpu::gpu_report;
 
 /// Six significant digits; values below 1e-300 in magnitude as 0.
 fn sig(v: f64) -> String {

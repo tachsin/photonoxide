@@ -12,7 +12,7 @@ papers:
     doi: 10.1109/TADVP.2008.2007913
   - cite: "C. K. Sanathanan, J. Koerner, IEEE Trans. Autom. Control 8, 56 (1963) (the reweighting)"
     doi: 10.1109/TAC.1963.1105517
-  - cite: "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012) (the analytic ring)"
+  - cite: "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue) (the analytic ring)"
     doi: 10.1002/lpor.201100017
   - cite: "Touchstone File Format Specification, Rev. 1.1, EIA/IBIS Open Forum (2002), ibis.org"
   - cite: "Touchstone File Format Specification, Version 2.0, IBIS Open Forum (2009), ibis.org"
@@ -124,7 +124,7 @@ every pole, residue and d be any complex number: the same equations, A.1–A.4 a
 pairing. Each resonance then needs one pole instead of a pair. Both fit the analytic ring below
 to about 1e-11 RMS (12 complex poles, or 24 real ones in pairs).
 
-**An all-pass ring** (Bogaerts et al. 2012, Eq. 1) is the analytic test:
+**An all-pass ring** (Bogaerts et al. 2011, Eq. 1) is the analytic test:
 
 $$
 \frac{E_\text{pass}}{E_\text{in}} = \frac{r - a e^{i\phi}}{1 - r a e^{i\phi}} , \qquad \phi = \beta L .

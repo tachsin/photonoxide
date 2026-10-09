@@ -282,8 +282,10 @@ impl Solver2d {
         )
     }
 
-    /// [`Solver2d::new`] with the direct solver of `direct` ([`crate::backend`]):
-    /// photonoxide's own for `auto`, or a backend by its name. Every solver this one is reused
+    /// [`Solver2d::new`] with the direct solver of `direct` ([`crate::backend`]): for `auto`,
+    /// the one measured fastest on this machine for a problem of this kind and size
+    /// ([`crate::backend::auto`]: photonoxide's own without measurements); or a backend by its
+    /// name. Every solver this one is reused
     /// for ([`Solver2d::reuse`], [`Solver2d::reuse_cells`]) keeps it.
     ///
     /// # Errors
@@ -304,7 +306,7 @@ impl Solver2d {
             wavelength,
             eps,
             boundaries,
-            Plan::new(direct)?,
+            Plan::for_problem(direct, problem_2d(grid, &boundaries))?,
         )
     }
 
@@ -312,6 +314,12 @@ impl Solver2d {
     /// and version, e.g. `photonoxide 0.4.3`.
     pub fn direct_solver(&self) -> String {
         self.lu.backend()
+    }
+
+    /// Why `auto` chose that direct solver, if the problem named none
+    /// ([`crate::backend::auto::Decision::reason`]).
+    pub fn direct_choice(&self) -> Option<&str> {
+        self.lu.chosen()
     }
 
     /// The factors' entries, as the direct solver reports them.
@@ -427,7 +435,7 @@ impl Solver2d {
             wavelength,
             eps,
             boundaries,
-            Plan::new(direct)?,
+            Plan::for_problem(direct, problem_2d(grid, &boundaries))?,
         )
     }
 
@@ -752,6 +760,24 @@ pub(crate) fn assemble(
         }
     }
     t
+}
+
+/// What `auto` chooses a direct solver for, for the 2D problem on `grid` inside `boundaries`:
+/// a system with a complex symmetric similarity unless a side is Bloch-periodic.
+pub(crate) fn problem_2d(
+    grid: Grid,
+    boundaries: &Boundaries,
+) -> crate::backend::auto::Problem<'static> {
+    let bloch = |e: Edges| matches!(e, Edges::Bloch { .. });
+    crate::backend::auto::Problem {
+        family: "fdfd2d",
+        form: if bloch(boundaries.x) || bloch(boundaries.y) {
+            crate::backend::Form::General
+        } else {
+            crate::backend::Form::Symmetric
+        },
+        unknowns: grid.nx * grid.ny,
+    }
 }
 
 /// The matrix's factors ([`direct::Direct`]: the multifrontal L D Lᵀ of its complex symmetric

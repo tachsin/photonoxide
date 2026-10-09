@@ -102,7 +102,7 @@ fn text(e: photonoxide::Error) -> String {
 /// The guide every waveguide, bend and ring of the library carries: a 500 × 220 nm silicon
 /// strip in oxide, its TE-like mode's n_eff 2.44506 and n_g 4.17290 at 1.55 µm by photonoxide's
 /// full-vector solver (examples/group_index.rs, on a 6.25 × 5 nm grid; Chrostowski & Hochberg
-/// 2015 give 4.18), losing 2.7 dB/cm to start (Bogaerts et al. 2012's ring waveguide, Section 2.4; a straight
+/// 2015 give 4.18), losing 2.7 dB/cm to start (Bogaerts et al. 2011's ring waveguide, Section 2.4; a straight
 /// waveguide's loss is a parameter).
 fn strip() -> std::result::Result<Dispersion, String> {
     Ok(Dispersion::new(Wavelength::um(1.55).map_err(text)?, 2.44506, 4.172901).with_loss(2.7))

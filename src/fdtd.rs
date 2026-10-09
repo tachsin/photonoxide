@@ -60,6 +60,10 @@
 //!
 //! Every update is a sum over a fixed stencil with no reduction, its rows shared among
 //! rayon's threads (a 2D grid's too): the fields are the same bits on any number of threads.
+//!
+//! With the `gpu` feature a simulation can step on a GPU instead ([`Simulation::set_device`],
+//! the `gpu` module): f32 through wgpu's compute shaders (f64 on Vulkan, for checking),
+//! repeating bit for bit on the same device and driver, within a stated tolerance of the CPU.
 
 use num_complex::Complex64 as c64;
 use rayon::prelude::*;
@@ -424,6 +428,50 @@ pub struct Simulation {
     anisotropic: Option<Box<smoothing::Anisotropic>>,
     /// Transforms, flux and mode monitors.
     monitors: monitors::Monitors,
+    /// The GPU it steps on, if not the CPU, with its buffers there.
+    #[cfg(feature = "gpu")]
+    gpu: Option<OnGpu>,
+}
+
+/// Where a [`Simulation`] is stepped ([`Simulation::set_device`]).
+#[derive(Clone, Debug, Default, PartialEq)]
+#[non_exhaustive]
+pub enum Device {
+    /// photonoxide's own kernel on the CPU, in f64: the default and the reference.
+    #[default]
+    Cpu,
+    /// A GPU, in its precision (the `gpu` feature): see [`gpu`].
+    #[cfg(feature = "gpu")]
+    Gpu(Gpu),
+}
+
+/// A simulation's GPU and its buffers there, allocated when it is set and dropped by a clone,
+/// which allocates its own when it first steps.
+#[cfg(feature = "gpu")]
+struct OnGpu {
+    gpu: Gpu,
+    resident: Option<gpu::Resident>,
+    /// Set by [`gpu::everything_on`] rather than by [`Simulation::set_device`]: what the GPU
+    /// doesn't step falls back to the CPU instead of panicking.
+    fallback: bool,
+}
+
+#[cfg(feature = "gpu")]
+impl Clone for OnGpu {
+    fn clone(&self) -> OnGpu {
+        OnGpu {
+            gpu: self.gpu.clone(),
+            resident: None,
+            fallback: self.fallback,
+        }
+    }
+}
+
+#[cfg(feature = "gpu")]
+impl std::fmt::Debug for OnGpu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.gpu.fmt(f)
+    }
 }
 
 /// How much more steeply a CPML's damping is graded than its σ: as depth⁹ for σ's depth³. It
@@ -660,6 +708,8 @@ impl Simulation {
             bloch: None,
             anisotropic: None,
             monitors: monitors::Monitors::default(),
+            #[cfg(feature = "gpu")]
+            gpu: gpu::by_default(),
         };
         s.build_cpml(&eps_e);
         s.build_stencils();
@@ -1044,7 +1094,20 @@ impl Simulation {
     /// al.'s diamonds), copying out what the probes and monitors read at each step, where it
     /// can: not with a dispersive medium, a Bloch side, a side periodic along y or z, a smoothed
     /// tensor or a plane wave. The same bits as one step at a time.
+    ///
+    /// On a GPU ([`Simulation::set_device`]) the fields go there, take the steps, and come back
+    /// with the probes' values and the transforms' sums: run long stretches at a time.
+    ///
+    /// # Panics
+    ///
+    /// On a GPU, if the problem has gained what the GPU doesn't step since the device was set
+    /// (a dispersive medium, a plane wave), or if the GPU fails (its memory runs out, the
+    /// device is lost).
     pub fn run(&mut self, count: usize) {
+        #[cfg(feature = "gpu")]
+        if self.stays_on_gpu() {
+            return self.run_on_gpu(count);
+        }
         let mut left = count;
         if let Some(b) = self.tiles(true).filter(|b| b.steps > 1) {
             while left > 0 {
@@ -1160,6 +1223,8 @@ impl Simulation {
             return self.finish_step();
         }
         // as finish_step, from the copies: no dispersive medium to update
+        #[cfg(feature = "gpu")]
+        gpu::count(false, n);
         for m in 0..n {
             let step = &captured[m * volume..(m + 1) * volume];
             self.steps += 1;
@@ -1186,7 +1251,17 @@ impl Simulation {
     ///
     /// On a grid beyond the caches the kernel steps H̃ and E together by tiles, plane by plane,
     /// where it can: the same bits.
+    ///
+    /// On a GPU it is [`Simulation::run`] of one step, the fields there and back: slow.
+    ///
+    /// # Panics
+    ///
+    /// On a GPU, as [`Simulation::run`].
     pub fn step(&mut self) {
+        #[cfg(feature = "gpu")]
+        if self.stays_on_gpu() {
+            return self.run_on_gpu(1);
+        }
         if let Some(b) = self.tiles(false) {
             return self.step_tiled(b, 1);
         }
@@ -1264,6 +1339,8 @@ impl Simulation {
     fn finish_step(&mut self) {
         self.media.update(&mut self.e, self.dt);
         self.steps += 1;
+        #[cfg(feature = "gpu")]
+        gpu::count(false, 1);
         for p in &mut self.probes {
             let v = match p.field {
                 Field::E => self.e[p.component.index()][p.index],
@@ -1368,6 +1445,50 @@ impl Simulation {
         }
     }
 
+    /// Steps on `device` from now on: [`Device::Cpu`] (the default), or a GPU, whose buffers are
+    /// allocated now and its fields copied there at each run. The problem stays as it is: what
+    /// is added to it later, sources, probes and monitors, steps on the device too.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Gpu`] if the GPU can't step this problem: a Bloch phase, a dispersive medium, a
+    /// smoothed tensor that couples E's components or a plane wave (not on the GPU yet), a grid
+    /// larger than the device binds at once, or fields that don't fit in its memory. The device
+    /// stays as it was.
+    pub fn set_device(&mut self, device: Device) -> Result<()> {
+        match device {
+            Device::Cpu => {
+                #[cfg(feature = "gpu")]
+                {
+                    self.gpu = None;
+                }
+                Ok(())
+            }
+            #[cfg(feature = "gpu")]
+            Device::Gpu(g) => {
+                if let Some(what) = self.off_gpu() {
+                    return Err(gpu::gpu_error(format!("the GPU doesn't step {what} yet")));
+                }
+                let resident = gpu::Resident::new(&g, self)?;
+                self.gpu = Some(OnGpu {
+                    gpu: g,
+                    resident: Some(resident),
+                    fallback: false,
+                });
+                Ok(())
+            }
+        }
+    }
+
+    /// Where it steps.
+    pub fn device(&self) -> Device {
+        #[cfg(feature = "gpu")]
+        if let Some(on) = &self.gpu {
+            return Device::Gpu(on.gpu.clone());
+        }
+        Device::Cpu
+    }
+
     /// The tables of E's (back) and H̃'s (forward) differences, built once.
     fn build_stencils(&mut self) {
         let grid = self.grid;
@@ -1411,6 +1532,10 @@ impl Simulation {
 
 pub(crate) mod adjoint;
 pub(crate) mod adjoint_checks;
+#[cfg(feature = "gpu")]
+pub mod gpu;
+#[cfg(feature = "gpu")]
+pub use gpu::{Gpu, Precision};
 #[cfg(test)]
 mod adjoint_tests;
 pub(crate) mod agreement_checks;

@@ -127,13 +127,13 @@ serve them. It has five parts:
 
 | Part | What matters | State, with sources |
 |---|---|---|
-| Platforms | loss per component, phase stability, fabrication spread | Silicon (Silverstone et al. 2014; Paesani et al. 2020; Alexander et al. 2025), silicon nitride (Larsen et al. 2025; Vaidya et al. 2020), thin-film lithium niobate (Nehra et al. 2022; Zhao et al. 2020, folder), glass and InP among others (Wang et al. 2020's review) |
+| Platforms | loss per component, phase stability, fabrication spread | Silicon (Silverstone et al. 2013; Paesani et al. 2020; Alexander et al. 2025), silicon nitride (Larsen et al. 2025; Vaidya et al. 2020), thin-film lithium niobate (Nehra et al. 2022; Zhao et al. 2020, folder), glass and InP among others (Wang et al. 2019's review) |
 | Pair sources (SPDC, SFWM) | purity, indistinguishability, heralding efficiency, multi-pair noise | Silicon intermodal SFWM: purity 0.9904 ± 0.0006, mutual indistinguishability 0.987 ± 0.002, > 90% intrinsic heralding efficiency (Paesani et al. 2020); rings whose pump and pair resonances are coupled separately can reach a Schmidt number of 1 (Vernon et al. 2017) |
 | Emitters (quantum dots) | efficiency into one mode, indistinguishability | 57% of photons delivered at the end of a fibre, at GHz rates (Tomm et al. 2021); 98.43 ± 0.04% of emission coupled into a photonic-crystal waveguide (Arcari et al. 2014) |
 | Squeezers | dB on chip, bandwidth, single temporal mode | 1.0 dB measured, about 4 dB inferred on chip, from silicon nitride rings (Vaidya et al. 2020); 4.9 dB measured, about 11 dB inferred, over more than 25 THz, in thin-film lithium niobate (Nehra et al. 2022) |
 | Interferometers | universality, depth, loss balance | Reck et al. (1994) and Clements et al. (2016, folder): N(N−1)/2 beam splitters, depth 2N−3 against N; Carolan et al. (2015): six modes, 15 MZIs and 30 thermo-optic phase shifters |
 | Detectors (SNSPD, TES) | efficiency, photon-number resolution, jitter | 98% system detection efficiency at 1550 nm (Reddy et al. 2020); 91% on-chip efficiency for a nanowire on a waveguide (Pernice et al. 2012) |
-| Feed-forward and switching | speed, loss per switch | fast low-loss phase shifters (electro-optic: lithium niobate, barium titanate) for multiplexing and adaptive measurement (Alexander et al. 2025; Wang et al. 2020) |
+| Feed-forward and switching | speed, loss per switch | fast low-loss phase shifters (electro-optic: lithium niobate, barium titanate) for multiplexing and adaptive measurement (Alexander et al. 2025; Wang et al. 2019) |
 
 **The loss budget.** A photon's chance of arriving is the product of every transmission on its
 path: source extraction, couplers, waveguide length, crossings, switches, fibre interfaces and the
@@ -144,7 +144,7 @@ is why the field's thresholds and photonoxide's solvers meet.
 ### Communication and sensing on chip, briefly
 
 Quantum key distribution and quantum sensing on chip use the same components: sources, phase
-shifters, interferometers, squeezers and detectors (Wang et al. 2020). Nothing in this plan is
+shifters, interferometers, squeezers and detectors (Wang et al. 2019). Nothing in this plan is
 specific to computing; a source's purity, a squeezer's dB and a detector's efficiency serve all
 three.
 
@@ -376,7 +376,7 @@ must be read before a tolerance is set.
 - *Analytic:* frequency-independent S gives Q1's results exactly; the dilation satisfies
   $S S^\dagger + L L^\dagger = I$ to round-off; a budget equals the product of the S-matrix
   elements on its path; a dipole in a homogeneous medium has a Purcell factor of 1.
-- *Published:* Silverstone et al. (2014)'s two silicon SFWM sources in an interferometer, the
+- *Published:* Silverstone et al. (2013)'s two silicon SFWM sources in an interferometer, the
   on-chip fringe against their 100.0 ± 0.4% visibility; Arcari et al. (2014)'s β = 98.43% in a
   photonic-crystal waveguide (3D FDTD; geometry to read); Pernice et al. (2012)'s nanowire on a
   waveguide, the absorption against their 91% on-chip efficiency and their own simulated
@@ -519,12 +519,12 @@ of.
 
 **Hardware: chips, sources, emitters, detectors**
 
-- J. Wang, F. Sciarrino, A. Laing, M. G. Thompson, Nat. Photonics 14, 273 (2020). [10.1038/s41566-019-0532-1](https://doi.org/10.1038/s41566-019-0532-1)
+- J. Wang, F. Sciarrino, A. Laing, M. G. Thompson, Nat. Photonics 14, 273 (published online 21 October 2019; the May 2020 issue). [10.1038/s41566-019-0532-1](https://doi.org/10.1038/s41566-019-0532-1)
 - K. Alexander et al. (PsiQuantum), Nature 641, 876 (2025). [10.1038/s41586-025-08820-7](https://doi.org/10.1038/s41586-025-08820-7)
 - N. Maring et al., Nat. Photonics 18, 603 (2024). [10.1038/s41566-024-01403-4](https://doi.org/10.1038/s41566-024-01403-4)
 - J. Carolan et al., Science 349, 711 (2015). [10.1126/science.aab3642](https://doi.org/10.1126/science.aab3642)
 - J. M. Arrazola et al., Nature 591, 54 (2021). [10.1038/s41586-021-03202-1](https://doi.org/10.1038/s41586-021-03202-1)
-- J. W. Silverstone et al., Nat. Photonics 8, 104 (2014). [10.1038/nphoton.2013.339](https://doi.org/10.1038/nphoton.2013.339)
+- J. W. Silverstone et al., Nat. Photonics 8, 104 (published online 15 December 2013; the February 2014 issue). [10.1038/nphoton.2013.339](https://doi.org/10.1038/nphoton.2013.339)
 - S. Paesani et al., Nat. Commun. 11, 2505 (2020). [10.1038/s41467-020-16187-8](https://doi.org/10.1038/s41467-020-16187-8)
 - L. G. Helt et al., Opt. Lett. 35, 3006 (2010). [10.1364/OL.35.003006](https://doi.org/10.1364/OL.35.003006)
 - Z. Vernon et al., Opt. Lett. 42, 3638 (2017). [10.1364/OL.42.003638](https://doi.org/10.1364/OL.42.003638)

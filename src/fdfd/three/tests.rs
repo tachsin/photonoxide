@@ -1752,3 +1752,71 @@ fn the_adjoint_of_a_modes_amplitude_is_the_mode_sent_backwards() {
         }
     }
 }
+
+#[test]
+fn auto_takes_the_3d_backend_this_machines_records_say() {
+    use crate::backend::Form;
+    use crate::backend::auto::{Measured, Outcome, with};
+    let grid = Grid3d {
+        nx: 8,
+        ny: 8,
+        nz: 8,
+        dx: 0.05,
+        dy: 0.05,
+        dz: 0.05,
+        x0: -0.2,
+        y0: -0.2,
+        z0: -0.2,
+    };
+    let cube = |x: f64, y: f64, z: f64| {
+        let inside = x.abs() < 0.1 && y.abs() < 0.1 && z.abs() < 0.1;
+        c64::new(if inside { 12.0 } else { 2.0 }, 0.0)
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let record = |backend: &str, family: &str, seconds: f64| Measured {
+        family: family.into(),
+        form: Form::Symmetric,
+        unknowns: grid.unknowns(),
+        backend: backend.into(),
+        threads: rayon::current_num_threads(),
+        seconds,
+        peak_bytes: None,
+        outcome: Outcome::Accurate,
+        unix_seconds: 1_791_763_200,
+    };
+    let own = Solver3d::new(grid, lam, cube, Boundaries3d::pml(2)).unwrap();
+    // records of the 2D family say nothing of a 3D system
+    let flat = vec![
+        record("photonoxide", "fdfd2d", 2.0),
+        record("faer", "fdfd2d", 1.0),
+    ];
+    let unmoved = with(flat, None, || {
+        Solver3d::new(grid, lam, cube, Boundaries3d::pml(2)).unwrap()
+    });
+    assert!(unmoved.direct_solver().starts_with("photonoxide "));
+    let solid = vec![
+        record("photonoxide", "fdfd3d", 3.0),
+        record("faer", "fdfd3d", 2.0),
+    ];
+    let chosen = with(solid, None, || {
+        Solver3d::new(grid, lam, cube, Boundaries3d::pml(2)).unwrap()
+    });
+    assert!(chosen.direct_solver().starts_with("faer "));
+    assert!(
+        chosen
+            .direct_choice()
+            .unwrap()
+            .starts_with("1.5 times faster")
+    );
+    let mut source = vec![c64::new(0.0, 0.0); grid.unknowns()];
+    source[grid.index(Axis::Z, (4, 4, 4))] = c64::new(1.0, 0.0);
+    let (a, b) = (own.solve(&source).unwrap(), chosen.solve(&source).unwrap());
+    let largest = a.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let off = a
+        .values()
+        .iter()
+        .zip(b.values())
+        .map(|(a, b)| (a - b).norm())
+        .fold(0.0, f64::max);
+    assert!(off < 1e-10 * largest, "{off} of {largest}");
+}

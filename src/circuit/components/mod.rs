@@ -18,7 +18,7 @@
 //! | [`DirectionalCoupler`] | coupled-mode theory from the two supermodes: through cos(πΔn L/λ), across i sin(πΔn L/λ) | `length` |
 //! | [`Mmi`] | 1 × 2 and 2 × 2 multimode interference, by guided-mode propagation analysis (Soldano & Pennings 1995) | `length`, `width` |
 //! | [`YBranch`] | an ideal 50/50 splitter with an excess loss | `excess_loss` |
-//! | [`AllPassRing`], [`AddDropRing`] | Bogaerts et al. 2012's closed forms, Eqs. 1, 5 and 6 as fields | `length`, `coupling`, `coupling_drop` |
+//! | [`AllPassRing`], [`AddDropRing`] | Bogaerts et al. 2011's closed forms, Eqs. 1, 5 and 6 as fields | `length`, `coupling`, `coupling_drop` |
 //! | [`mzi`], [`mzi_y`] | a Mach–Zehnder interferometer as a netlist of the above | its instances' |
 //! | [`Sampled`] | a sampled spectrum (a 2D FDFD run), interpolated in wavelength | none |
 //!
