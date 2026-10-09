@@ -1,0 +1,33 @@
+Oskooi et al.'s Fig. 8: a point source of E_z in 2D vacuum, 20 cells a wavelength
+4 x 4 wavelengths inside PMLs L wavelengths thick, R = 1e-15; E_z a wavelength from the source
+sigma ~ (x/L)^1:
+  L =  1: |E(L+1) - E(L)|^2 / |E|^2 = 6.11e-5
+  L =  2: |E(L+1) - E(L)|^2 / |E|^2 = 2.04e-6, local rate 6.66
+  L =  3: |E(L+1) - E(L)|^2 / |E|^2 = 2.48e-7, local rate 6.26
+  L =  4: |E(L+1) - E(L)|^2 / |E|^2 = 5.30e-8, local rate 6.14
+  L =  5: |E(L+1) - E(L)|^2 / |E|^2 = 1.56e-8, local rate 6.09
+  L =  6: |E(L+1) - E(L)|^2 / |E|^2 = 5.67e-9, local rate 6.06
+  L =  7: |E(L+1) - E(L)|^2 / |E|^2 = 2.39e-9, local rate 6.04
+  L =  8: |E(L+1) - E(L)|^2 / |E|^2 = 1.12e-9, local rate 6.03
+  rate at L = 8, d = 1                   6.030000   paper 6          ± 1e-1      ok
+sigma ~ (x/L)^2:
+  L =  1: |E(L+1) - E(L)|^2 / |E|^2 = 2.80e-9
+  L =  2: |E(L+1) - E(L)|^2 / |E|^2 = 2.84e-11, local rate 8.99
+  L =  3: |E(L+1) - E(L)|^2 / |E|^2 = 1.68e-12, local rate 8.40
+  L =  4: |E(L+1) - E(L)|^2 / |E|^2 = 2.13e-13, local rate 8.22
+  L =  5: |E(L+1) - E(L)|^2 / |E|^2 = 4.17e-14, local rate 8.14
+  L =  6: |E(L+1) - E(L)|^2 / |E|^2 = 1.08e-14, local rate 8.09
+  L =  7: |E(L+1) - E(L)|^2 / |E|^2 = 3.40e-15, local rate 8.07
+  L =  8: |E(L+1) - E(L)|^2 / |E|^2 = 1.24e-15, local rate 8.05
+  rate at L = 8, d = 2                   8.050000   paper 8          ± 1e-1      ok
+sigma ~ (x/L)^3:
+  L =  1: |E(L+1) - E(L)|^2 / |E|^2 = 4.21e-11
+  L =  2: |E(L+1) - E(L)|^2 / |E|^2 = 1.20e-13, local rate 11.46
+  L =  3: |E(L+1) - E(L)|^2 / |E|^2 = 3.41e-15, local rate 10.59
+  L =  4: |E(L+1) - E(L)|^2 / |E|^2 = 2.55e-16, local rate 10.32
+  L =  5: |E(L+1) - E(L)|^2 / |E|^2 = 3.29e-17, local rate 10.20
+  L =  6: |E(L+1) - E(L)|^2 / |E|^2 = 6.04e-18, local rate 10.14
+  L =  7: |E(L+1) - E(L)|^2 / |E|^2 = 1.42e-18, local rate 10.10
+  L =  8: |E(L+1) - E(L)|^2 / |E|^2 = 4.03e-19, local rate 10.08
+  rate at L = 8, d = 3                  10.080000   paper 10         ± 1e-1      ok
+all 3 within tolerance of the paper
