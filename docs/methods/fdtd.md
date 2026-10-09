@@ -1153,7 +1153,40 @@ rounding grows (`src/fdtd/gpu/tests.rs`):
 These, every FDTD case of the validation report run again on the GPU, and its speed are
 [the GPU's report](../validation-gpu.md), written on the owner's machine before each release.
 
-**Speed:** SPEED_TABLE
+**Speed** on the owner's RTX 4060 (Vulkan, driver 616.56), `fdtd::gpu::rates`: the kernel alone
+on the cubes of the CPU's table above (50 nm cells of vacuum inside CPMLs of 8, random fields),
+the best of three runs of a few tenths of a second, in million cell-updates/s; against the blocked
+CPU kernel on 20 threads of the Core Ultra 7 265K, the diamonds' column of that table (measured
+idle; the CPU kernel is unchanged since). The GPU was measured while another job kept 12 of the
+CPU's 20 threads busy: its rate barely depends on the CPU's load (3723 then, 3727 at 5 % load at
+256³ in f32), the CPU's does, so the CPU's numbers are the idle ones. The roof is the 4060's
+272 GB/s over the bytes a fused step moves, 60 a cell in f32 and 120 in f64 (no conductivity, so
+ca isn't read).
+
+| Grid | Precision | GPU, two passes | GPU, fused | CPU, diamonds | GPU / CPU | The roof |
+|---|---|---:|---:|---:|---:|---:|
+| 128³ | f32 | 2433 | 3350 | 1344 | 2.49 | 4533 |
+| 192³ | f32 | 2642 | 3567 | 1836 | 1.94 | 4533 |
+| 256³ | f32 | 2876 | 3723 | 1986 | 1.87 | 4533 |
+| 320³ | f32 | 2862 | 3663 | 1854 | 1.98 | 4533 |
+| 128³ | f64 | 1242 | 1321 | 792 | 1.67 | 2267 |
+| 192³ | f64 | 1388 | 1555 | 1070 | 1.45 | 2267 |
+| 256³ | f64 | 1421 | 1642 | 1015 | 1.62 | 2267 |
+| 320³ | f64 | 1429 | 1708 | 1003 | 1.70 | 2267 |
+
+So:
+- **In f32 the GPU is about twice the blocked CPU kernel** from 192³ on (1.9 to 2.0 times),
+  2.5 times at 128³, at 74 to 82 % of its memory's roof: 3.7 G/s at 256³ against the
+  performance plan's estimate of about 3.8. The two passes, at up to 89 % of their own roof (84
+  bytes a cell), are 1.4 to 1.8 times the CPU. The diamonds run at about 4 times the CPU's own
+  memory roof, so the 4060's 2.7 times the CPU's bandwidth comes out as about twice the speed.
+- **f64** runs at 1.5 to 1.7 times the CPU, at 58 to 75 % of its roof: the 4060's f64 arithmetic
+  is a sixty-fourth of its f32's, and the fused step's recomputed row and column of H̃ weigh more
+  there. It varies more between sessions, by up to a fifth (the GPU report's run: 1147 and 1459
+  fused at 128³ and 256³). It is for checking.
+- A simulation with a source, a probe and a flux box (six faces at three frequencies, 256³) runs
+  at 1873 million cell-updates/s in f32 and 1020 in f64 over runs of 200 steps, the copies to
+  and from the GPU included; a `Simulation` steps the CPU in f64, 719 by diamonds (above, idle).
 
 **Memory** on an 8 GB RTX 4060 (about 7 GB free beside the desktop), cubes inside CPMLs of 8,
 found by allocating (`fdtd::gpu::rates::gpu_memory`): in f32, fused up to 416³ (72 million cells,

@@ -257,31 +257,35 @@ fn cell(o: &std::result::Result<Outcome, String>, held: bool) -> String {
 /// fused, and of the CPU's blocked kernel on all threads, in `T`.
 fn speeds(gpus: &[&Gpu]) -> String {
     use crate::fdtd::gpu::rates;
+    // `GPU_REPORT_CPU=0` leaves the CPU out, when other work on the machine would slow it
+    let cpu = std::env::var("GPU_REPORT_CPU").map_or(true, |v| v != "0");
     let mut out = String::new();
     let _ = writeln!(
         out,
-        "| Grid | Precision | GPU, M cell-updates/s | CPU, diamonds on {} threads | GPU / CPU |\n|---|---|---:|---:|---:|",
+        "| Grid | Precision | GPU, two passes | GPU, fused | CPU, diamonds on {} threads | GPU / CPU |\n|---|---|---:|---:|---:|---:|",
         rayon::current_num_threads()
     );
     for n in [128, 256] {
         let mut s = rates::filled(n);
         for gpu in gpus {
             let p = gpu.precision();
-            let g = rates::gpu_rate(&mut s, gpu, 0, true);
-            let c = match p {
+            let two = rates::gpu_rate(&mut s, gpu, 0, false);
+            let one = rates::gpu_rate(&mut s, gpu, 0, true);
+            let c = cpu.then(|| match p {
                 Precision::Single => rates::cpu_rate::<f32>(&s),
                 Precision::Double => rates::cpu_rate::<f64>(&s),
-            };
+            });
             let _ = writeln!(
                 out,
-                "| {n}³ cells of 50 nm, vacuum, CPMLs of 8 | {} | {:.0} | {:.0} | {:.2} |",
+                "| {n}³ cells of 50 nm, vacuum, CPMLs of 8 | {} | {:.0} | {:.0} | {} | {} |",
                 match p {
                     Precision::Single => "f32",
                     Precision::Double => "f64",
                 },
-                g / 1e6,
-                c / 1e6,
-                g / c
+                two / 1e6,
+                one / 1e6,
+                c.map_or("not measured".into(), |c| format!("{:.0}", c / 1e6)),
+                c.map_or("—".into(), |c| format!("{:.2}", two.max(one) / c)),
             );
         }
     }
@@ -430,10 +434,12 @@ pub fn gpu_report() -> Result<(String, bool)> {
          \n\
          ## Speed\n\
          \n\
-         The kernel alone, fused, on random fields, the best of three runs of a few tenths of a \
-         second; the CPU's blocked kernel (Malas et al.'s diamonds, `Blocking::auto`) in the \
-         same precision on all its threads. Measured when this report was written: other work \
-         on the machine slows either.\n\
+         The kernel alone on random fields, million cell-updates a second, the best of three \
+         runs of a few tenths of a second each; the CPU's blocked kernel (Malas et al.'s \
+         diamonds, `Blocking::auto`) in the same precision on all its threads, unless the \
+         machine was busy when this report was written (`GPU_REPORT_CPU=0`): the GPU's rate \
+         hardly depends on the CPU's load, the CPU's does. [FDTD](methods/fdtd.md#the-gpu) has \
+         both measured on an idle machine.\n\
          \n\
          {speed}"
     );
