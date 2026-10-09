@@ -150,8 +150,9 @@ scaled).
   2.1e-6 to 1.3e-12, a ratio of 1.6e6, and their bound $1.25^{64} = 1.59 \times 10^6$), our
   median error at 64 points 8.4e-7 against their one draw's 2.1e-6.
 - **Convergence:** the four-layer guide's TE bound modes after one filter pass of 8 vectors fall
-  exponentially with the points: 3.1e-3, 9.2e-6, 3.3e-11 at N = 8, 16, 32, the rate per point
-  from 16 to 32 1.08 times that from 8 to 16 (1 for an exponential, ½ for a power of N).
+  exponentially with the points: 1.3e-2, 1.9e-4, 1.8e-8 at N = 6, 12, 24 (and 3.1e-3, 9.2e-6,
+  3.3e-11 at 8, 16, 32), the rate per point from 12 to 24 1.10 times that from 6 to 12 (1 for an
+  exponential, ½ for a power of N).
 - **Threads:** the strip's modes on 1 and 4 threads, every effective index and field entry the
   same bits.
 
