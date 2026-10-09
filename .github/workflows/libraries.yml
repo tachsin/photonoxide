@@ -1,0 +1,142 @@
+name: Libraries
+
+# Each way of installing an external library that docs/libraries.md lists, run on a clean
+# machine: the package is installed, and photonoxide's discovery (photonoxide-native) is asked
+# what it finds. The default build needs none of them; this job only keeps the guides true.
+on:
+  pull_request:
+    paths:
+      - native/**
+      - studio/src-tauri/src/libraries.rs
+      - docs/libraries.md
+      - .github/workflows/libraries.yml
+  push:
+    branches: ['libraries/**']
+  schedule:
+    # Mondays: a package index that moved shows here, not in a user's install
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  conda:
+    name: conda-forge ${{ matrix.package }} (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-13]
+        package: [mkl, mumps-seq, superlu, openblas]
+        include:
+          - os: ubuntu-latest
+            package: libcudss
+          - os: windows-latest
+            package: libcudss
+          - os: ubuntu-latest
+            package: cuda-cudart libcusparse
+          - os: windows-latest
+            package: cuda-cudart libcusparse
+          - os: macos-latest
+            package: openblas
+          - os: macos-latest
+            package: mumps-seq
+          - os: macos-latest
+            package: superlu
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: libraries
+      - name: Install
+        run: |
+          time conda install -y -c conda-forge ${{ matrix.package }}
+          conda list | grep -i -E "mkl|mumps|superlu|openblas|cudss|cuda|cusparse|tbb|openmp" || true
+          du -sh "$CONDA_PREFIX" || true
+      - name: Where it landed
+        run: |
+          echo "CONDA_PREFIX=$CONDA_PREFIX"
+          for dir in "$CONDA_PREFIX/lib" "$CONDA_PREFIX/Library/bin" "$CONDA_PREFIX/bin"; do
+            ls "$dir" 2>/dev/null | grep -i -E "mkl_rt|mumps|superlu|openblas|cudss|cudart|cusparse" | sed "s|^|$dir/|" || true
+          done
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: What photonoxide finds
+        run: cargo run -p photonoxide-native --example libraries
+
+  pip:
+    name: pip ${{ matrix.package }} (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        package: [mkl, nvidia-cudss-cu13, nvidia-cuda-runtime nvidia-cusparse]
+        include:
+          - os: macos-13
+            package: mkl
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install
+        run: |
+          time python -m pip install ${{ matrix.package }}
+          python -m pip list | grep -i -E "mkl|nvidia|tbb|openmp" || true
+      - name: Where it landed
+        run: |
+          python - <<'EOF' || true
+          EOF
+          root="$(python -c 'import sys; print(sys.prefix)')"
+          echo "sys.prefix=$root"
+          find "$root" -iname "*mkl_rt*" -o -iname "*cudss*" -o -iname "*cudart*" -o -iname "*cusparse*" 2>/dev/null | grep -v -E "\.(py|pyc|h|txt)$|dist-info" | head -40
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: What photonoxide finds
+        run: cargo run -p photonoxide-native --example libraries
+
+  apt:
+    name: apt ${{ matrix.package }} (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-22.04]
+        package: [libmkl-rt, libmumps-seq-dev, libsuperlu-dev, libopenblas-dev]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install
+        run: |
+          sudo apt-get update
+          time sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ${{ matrix.package }}
+          dpkg -l | grep -i -E "mkl|mumps|superlu|openblas" || true
+      - name: Where it landed
+        run: |
+          for p in $(dpkg -l | awk '{print $2}' | grep -i -E "mkl|mumps|superlu|openblas"); do
+            dpkg -L "$p" | grep -E "\.so" || true
+          done
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: What photonoxide finds
+        run: cargo run -p photonoxide-native --example libraries
+
+  winget:
+    name: winget (windows-latest)
+    runs-on: windows-latest
+    steps:
+      - name: Is winget there, and what does it offer?
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          winget --version
+          winget show --id Intel.oneMKL --exact --accept-source-agreements
+          winget show --id Nvidia.CUDA --exact --accept-source-agreements
