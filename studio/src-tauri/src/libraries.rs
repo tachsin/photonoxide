@@ -16,7 +16,9 @@ use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
 use photonoxide::backend::{self, Listed, Threads};
-use photonoxide_native::{Candidate, Discovery, Spec, Status, intel, mumps, nvidia, superlu};
+use photonoxide_native::{
+    Candidate, Discovery, Spec, Status, accelerate, intel, mumps, nvidia, superlu,
+};
 use serde::Serialize;
 
 /// A command that installs a library.
@@ -563,6 +565,32 @@ pub const GUIDES: &[Guide] = &[
         unsupported: &[],
         built_in: false,
     },
+    Guide {
+        library: "Accelerate",
+        about: "Apple's Accelerate framework, its sparse direct solvers: part of macOS, nothing to install. Complex LU from macOS 15.5, complex symmetric L D Lᵀ from macOS 26.",
+        provides: &["direct"],
+        backends: &["accelerate"],
+        needs: &[],
+        licence: "Part of macOS, under Apple's software licence agreement for it",
+        licence_url: "https://www.apple.com/legal/sla/",
+        download: "https://developer.apple.com/documentation/accelerate/sparse_solvers",
+        installs: &[],
+        unsupported: &[
+            (
+                "macos",
+                "Built in: nothing to install. Its complex LU needs macOS 15.5, its complex symmetric L D Lᵀ macOS 26; on an older macOS photonoxide's own solvers run.",
+            ),
+            (
+                "windows",
+                "Accelerate is part of macOS: photonoxide's own solvers run here.",
+            ),
+            (
+                "linux",
+                "Accelerate is part of macOS: photonoxide's own solvers run here.",
+            ),
+        ],
+        built_in: false,
+    },
 ];
 
 const HAS_LIBRARY: &str =
@@ -655,16 +683,13 @@ pub const PLANNED: &[Planned] = &[
     },
     Planned {
         library: "Apple Accelerate",
-        about: "macOS's own BLAS, LAPACK and sparse solvers: dense kernels and a direct backend on a Mac.",
-        issue: 187,
+        about: "macOS's own BLAS and LAPACK: dense kernels on a Mac. (Its sparse solvers are the accelerate backend.)",
+        issue: 186,
         licence: "part of macOS",
         home: "https://developer.apple.com/documentation/accelerate",
         installs: &[],
         unsupported: &[
-            (
-                "macos",
-                "Built in: nothing to install. Which macOS first has its complex sparse solvers is for #187 to confirm.",
-            ),
+            ("macos", "Built in: nothing to install."),
             ("windows", "A macOS framework."),
             ("linux", "A macOS framework."),
         ],
@@ -696,6 +721,7 @@ fn spec(library: &str) -> Option<&'static Spec> {
         &intel::MKL,
         &mumps::MUMPS,
         &superlu::SUPERLU,
+        &accelerate::ACCELERATE,
     ]
     .into_iter()
     .find(|s| s.name == library)
@@ -1230,6 +1256,7 @@ mod tests {
             intel::MKL.name,
             mumps::MUMPS.name,
             superlu::SUPERLU.name,
+            accelerate::ACCELERATE.name,
         ] {
             assert!(spec(name).is_some(), "{name}");
             assert!(GUIDES.iter().any(|g| g.library == name), "{name}");
@@ -1244,7 +1271,15 @@ mod tests {
             assert!(g.licence_url.starts_with("https://"), "{}", g.library);
             assert!(g.download.starts_with("https://"), "{}", g.library);
             assert!(!g.licence.is_empty() && !g.about.is_empty());
-            assert_eq!(g.built_in, g.installs.is_empty(), "{}", g.library);
+            // nothing installs what is built in, or what is part of one system
+            if g.installs.is_empty() && !g.built_in {
+                assert_eq!(g.library, "Accelerate");
+                assert!(g.unsupported.iter().any(|(s, _)| *s == "windows"));
+                assert!(g.unsupported.iter().any(|(s, _)| *s == "linux"));
+                assert!(g.unsupported.iter().any(|(s, _)| *s == "macos"));
+            } else {
+                assert_eq!(g.built_in, g.installs.is_empty(), "{}", g.library);
+            }
             for need in g.needs {
                 assert!(GUIDES.iter().any(|n| n.library == *need), "{need}");
             }
