@@ -1,7 +1,7 @@
 ---
 title: "FDTD"
 module: fdtd
-summary: "Maxwell's equations stepped in time on Yee's grid: E and H leapfrogging on FDFD's own grid, the convolutional PML, walls, periodic and Bloch-periodic sides (complex fields), conductors, lossy media, subpixel smoothing of isotropic and anisotropic bodies, Drude and Lorentz media by auxiliary differential equations and the catalogue's materials fitted by them, the same bits on any number of threads; dipoles and currents normalized exactly by their spectra, plane waves on total-field/scattered-field boxes at any grid angle, one-way waveguide modes and Gaussian beams; transform, flux and mode monitors, and resonances by harmonic inversion; Mie's series for a sphere, and spheres against it; a ring's exact resonances, and rings against them; S-parameters over a band from one pulse against FDFD at each frequency; Meep's published PML and smoothing convergence."
+summary: "Maxwell's equations stepped in time on Yee's grid: E and H leapfrogging on FDFD's own grid, the convolutional PML, walls, periodic and Bloch-periodic sides (complex fields), conductors, lossy media, subpixel smoothing of isotropic and anisotropic bodies, Drude and Lorentz media by auxiliary differential equations and the catalogue's materials fitted by them, the same bits on any number of threads; dipoles and currents normalized exactly by their spectra, plane waves on total-field/scattered-field boxes at any grid angle, one-way waveguide modes and Gaussian beams; transform, flux and mode monitors, and resonances by harmonic inversion; Mie's series for a sphere, and spheres against it; a ring's exact resonances, and rings against them; S-parameters over a band from one pulse against FDFD at each frequency; Meep's published PML and smoothing convergence; and on the GPU through wgpu, repeating bit for bit, within a stated tolerance of the CPU."
 order: 23
 papers:
   - cite: "G. Mie, Ann. Phys. 330, 377 (1908) (scattering by a sphere)"
@@ -32,6 +32,8 @@ papers:
     doi: 10.1103/PhysRevE.77.036611
   - cite: "A. F. Oskooi, C. Kottke, S. G. Johnson, Opt. Lett. 34, 2778 (2009) (anisotropic smoothing on Yee's grid)"
     doi: 10.1364/OL.34.002778
+  - cite: "P. Micikevicius, Proc. GPGPU-2, 79 (2009) (3D finite differences on GPUs, slice by slice)"
+    doi: 10.1145/1513895.1513905
   - cite: "A. F. Oskooi et al., Comput. Phys. Commun. 181, 687 (2010) (sources restricted to the grid; its Figs. 7 and 8 reproduced)"
     doi: 10.1016/j.cpc.2009.11.008
   - cite: "C. A. Bauer, G. R. Werner, J. R. Cary, J. Comput. Phys. 230, 2060 (2011) (the triplet tensor, exact at a plane)"
@@ -44,6 +46,8 @@ papers:
     doi: 10.1137/140991133
   - cite: "T. M. Malas, J. Hornich, G. Hager, H. Ltaief, C. Pflaum, D. E. Keyes, Proc. IEEE IPDPS 2016, 142 (diamond blocking of a Yee stencil)"
     doi: 10.1109/IPDPS.2016.87
+  - cite: "Z. Liu, J. K. S. Poon, Opt. Continuum 4, 2427 (2025) (six PDK devices in Lumerical FDTD and Tidy3D)"
+    doi: 10.1364/OPTCON.572107
 validation:
   - fdtd/dispersion
   - fdtd/energy
@@ -77,6 +81,8 @@ validation:
   - fdtd/smoothing-oskooi
   - fdtd/smoothing-triplets-oblique
   - fdtd/smoothing-triplets-order
+  - fdtd/smoothing-diagonal-oblique
+  - fdtd/smoothing-diagonal-order
   - fdtd/smoothing-bauer-order
   - fdtd/smoothing-triplets-contrast
   - fdtd/smoothing-triplets-lattices
@@ -113,6 +119,12 @@ examples:
   - subpixel_holes
   - pml_oskooi
   - bump_oskooi
+  - coupler_liu_poon
+  - crossing_liu_poon
+  - mmi_liu_poon
+  - mode_converter_liu_poon
+  - splitter_rotator_liu_poon
+  - ring_liu_poon
 ---
 
 The finite-difference time-domain method steps Maxwell's equations forward in time. One run
@@ -430,6 +442,21 @@ takes the same eight terms a value each step, from a table of the distinct nodes
 stable at any contrast, with about half the error at oblique interfaces and the same results at
 interfaces along the grid. Its smoothing costs more than the nodes' (8 tensors a node, each from
 6 edges and 6 faces).
+
+**The diagonal alone** (`Coupling::Diagonal`). Each value of E keeps its own diagonal entry of
+$\tilde\varepsilon^{-1}$ over its cell, for isotropic media
+$n_c^2\langle\varepsilon^{-1}\rangle + (1 - n_c^2)\langle\varepsilon\rangle^{-1}$, and the
+off-diagonal ones are dropped: E = $(\tilde\varepsilon^{-1})_{cc}D_c$, a permittivity per
+component, as conformal and subpixel meshes without a tensor take it. Nothing couples, so the
+update is the scalar one, stable at any contrast and combinable with a conductivity, a dispersive
+medium or a Bloch phase. Along the grid it is the tensor exactly (a unit test). At an oblique
+interface the dropped coupling is first order: at the oblique layers the error times n is 0.14, 0.38, 0.52, 0.57 and 0.62 at 16 to 256 cells a µm, the frequencies too high, about four times the triplets'; 4.43e-3 at 128
+(`fdtd/smoothing-diagonal-oblique`, order 0.87 from 64 to 128, `fdtd/smoothing-diagonal-order`). Its use
+is speed: a tensor that couples anything in a 3D device (a bend's faces, a taper's) steps the
+whole grid every step, where a scalar permittivity steps by the kernel's diamonds (below), about
+four times faster beyond the caches. On a 500 × 220 nm silicon S-bend in silica, 6 million cells
+of 30 nm, 20 threads of a Core Ultra 7 265K made 158 million cell-updates/s with the triplets
+and 582 with the diagonal. The devices of Liu and Poon (below) take it.
 
 **What doesn't combine.** A tensor that couples E's components refuses a conductivity, a
 dispersive medium (whose ε∞ would have to enter the tensor) and a Bloch side with k ≠ 0 (D's
@@ -924,6 +951,78 @@ number are reproduced:
   Fig. 11's ring are not sized in the paper; Fig. 9 gives Q ∼ 10⁶. The ring of Fig. 11 is
   checked against its exact resonances instead (above, "Resonances").
 
+## Six devices against Lumerical FDTD and Tidy3D
+
+Z. Liu and J. K. S. Poon (Opt. Continuum 4, 2427 (2025), doi:10.1364/OPTCON.572107) simulate
+six devices of gdsfactory's generic PDK in 3D in both commercial codes, at 6 to 25 cells a
+wavelength in silicon, and print or plot what each gives. The `*_liu_poon` examples run the same
+devices here (`examples/pdk`):
+
+- **The shapes** are gdsfactory's, drawn from its definitions (Bézier S-bends, Euler bends with
+  p = 0.5 on the arc's footprint, tapers) and checked against the paper's own GDS files: every
+  vertex within 1.1 nm. The guides run 10 µm past the ports, through the CPMLs, as the paper
+  extends them.
+- **The stack:** 220 nm of silicon (Li's, 3.4757 at 1550 nm), the crossing's slab 150 nm, in
+  silica (Malitson's); the splitter-rotator under silicon nitride of n = 2.0. Not dispersive:
+  each run takes its materials at one wavelength. The paper's Palik silicon is 3.4738 in
+  Tidy3D's fit and about 3.4764 in Lumerical's data.
+- **The cell** is the paper's in the plane (the ports and the device, 1 µm on every side); along
+  z 1 µm of cladding either side, where the paper has 2, CPMLs of 12 cells outside.
+- **The grid** is uniform: N cells a wavelength is h = 1.55 µm/(3.4757 N), 29.7 nm at 15 and
+  22.3 nm at 20. The paper's grids are non-uniform, as fine in the silicon and coarser outside.
+- **The smoothing** is `Coupling::Diagonal`: a permittivity per component of E, as the paper's
+  conformal (Lumerical) and subpixel (Tidy3D) meshes take it, and the kernel's diamonds, about
+  four times the speed of a coupling tensor.
+- **Sources and monitors:** the input's mode at 1550 nm launched by a pulse 0.04 c/µm wide on its
+  extension; each output's modes at 1540 to 1560 nm, solved by FDFD on the grid at each
+  frequency, projected on planes 0.3 µm past the ports; transmissions over the incident mode's
+  power at the same frequency. The run stops when the outputs' |E|² has stayed below 1e-6 of its
+  peak for 20 µm/c.
+
+At 1550 nm, against the span of both codes' values where the paper finds them settled (read off
+its figures, the reading's uncertainty stated in each example):
+
+| Device | At 1550 nm | Here, 15 cells (29.7 nm) | Here, 20 cells (22.3 nm) | Lumerical, 15 / 20 / 25 | Tidy3D, 15 / 20 / 25 |
+|---|---|---|---|---|---|
+| crossing | through TE₀ | 0.95666 | 0.95863 | 0.957 / 0.957 / 0.957 | 0.959 / 0.9558 / 0.9567 |
+| crossing | excess loss | −0.192 dB | −0.183 dB | −0.1925 / −0.191 / −0.1915 | −0.183 / −0.1965 / −0.1925 |
+| directional coupler | cross TE₀ | 0.42771 | 0.41352 | 0.411 / 0.446 / 0.430 | 0.448 / 0.492 / 0.456 |
+| directional coupler | excess loss | −0.0014 dB | −0.0017 dB | 0.000 / 0.001 / 0.000 | −0.013 / −0.002 / −0.007 |
+| 2 × 2 MMI | cross TE₀ | 0.48148 | 0.48743 | 0.483 / 0.486 / 0.489 | 0.479 / 0.484 / 0.489 |
+| 2 × 2 MMI | excess loss | −0.140 dB | −0.120 dB | −0.14 / −0.13 / −0.12 | −0.155 / −0.145 / −0.125 |
+
+Every one within the span of the codes' settled values and the reading. The spectra over 1540
+to 1560 nm follow the paper's at 15 cells (the crossing's and the MMI's between the two codes' at both
+ends). At 20 cells the crossing's through port is 0.002 higher across the
+band, more than either code moves from 15 to 20 cells; the paper gives no band at 20, and the
+difference is followed in issue #256.
+
+The mode converter, the polarization splitter-rotator and the ring run in CI on coarse grids
+only; their runs at the paper's grid (81 to 92 million cells, two to four hours each on 20
+threads) are issue #256's. At 5 cells a wavelength the splitter-rotator turns 64 % of its TM₀
+into the upper port's TE₀ (the codes, at 6: 15 % and 5 %), and the mode converter 46 % of its TE₀
+into TE₁ (the codes at 6: 97 % and 36 %; settled, 36 % to 52 %). The ring's coupling across its
+200 nm gap needs a fine grid: at 6 cells its Q is about 8000 against the codes' 1700 to 1800, so
+CI checks its free spectral range instead, 7.54 nm from the strip's group index (4.1792, with
+silicon's and silica's dispersion) and its 75.747 µm, against the text's "around" 7.4 and 7.6.
+
+Run times on 20 threads of a Core Ultra 7 265K, against the paper's at the same resolution
+(Tidy3D in the cloud; Lumerical on an AMD 3960X and on its cloud GPUs):
+
+| Device | Cells, steps | Here (stepping, mode solves) | Tidy3D | Lumerical, local / cloud |
+|---|---|---|---|---|
+| crossing, 15 | 14.1 million, 14 124 | 8 min, 3 min | 29 s | 234 s / 15 s |
+| crossing, 20 | 30.4 million, 18 840 | 22 min, 6 min (shared) | 104 s | 591 s / 23 s |
+| coupler, 15 | 37.0 million, 16 478 | 63 min, 2 min (shared) | 63 s | 1293 s / 42 s |
+| coupler, 20 | 80.0 million, 21 980 | 111 min, 3 min (shared) | 150 s | 2606 s / 77 s |
+| MMI, 15 | 32.0 million, 17 655 | 26 min, 2 min | 45 s | 905 s / 34 s |
+| MMI, 20 | 69.3 million, 23 550 | 96 min, 3 min (shared) | 63 s | 2182 s / 72 s |
+
+On grids of 14 to 32 million cells the kernel made 358 to 436 million cell-updates/s with the
+monitors; "shared" runs had other work on the machine and made 160 to 280. The paper's grids are
+coarser in the cladding (Lumerical's crossing at 25 cells has 4.55e7 cells to our 14.1e6 at 15),
+and its GPUs are many.
+
 ## Cost
 
 Every update is a fixed stencil with no reduction, its rows shared among rayon's threads in chunks
@@ -1065,10 +1164,133 @@ times) and 1536 in f32 against 482 (3.2 times); one thread 177 against 83 and 20
 A simulation with a point source, a probe and a flux box (six faces transformed at three
 frequencies) on a 256³ grid of 50 nm cells inside CPMLs of 8 (`fdtd::kernel_rates`): 241
 million cell-updates/s whole, 335 a step at a time by tiles and 719 run by diamonds on 20
-threads, 91, 114 and 162 on one; the transforms take their share. The GPU is #166.
+threads, 91, 114 and 162 on one; the transforms take their share. On the GPU, see
+[below](#the-gpu).
 
 Roden and Gedney's plate, 2.9 × 10⁶ cells for 2000 steps plus two smaller lattices, took about
 45 s on 20 threads of a Core Ultra 7 265K with the plain loops.
+
+## The GPU
+
+With the `gpu` feature, a `Simulation` steps on a GPU through wgpu's compute shaders: the same
+problem and the same API, chosen by a setting, the CPU the default.
+
+```rust
+let gpu = Gpu::new(Precision::Single)?; // or Precision::Double, on Vulkan
+s.set_device(Device::Gpu(gpu))?;
+s.run(2000); // the fields there and back, the probes and transforms with them
+```
+
+- **What it steps:** E and H̃, CPMLs (κ and α), walls and periodic sides, conductors and
+  conductivity, point sources and currents (dipoles, mode sources, Gaussian beams, the adjoint's),
+  probes, and every transform monitor (transforms, fluxes, modes, a design's): so the adjoint
+  runs there too. Not yet: Bloch phases, dispersive media, smoothed tensors that couple E's
+  components and plane waves on total-field/scattered-field boxes. `set_device` refuses a problem
+  with them, saying which.
+- **Precision:** f32 on any wgpu backend (Vulkan, DirectX 12, Metal); f64 on Vulkan where the
+  adapter has `SHADER_F64`, for checking against the CPU (decision 6 of the [performance
+  plan](../plans/performance.md)). `Gpu::new` takes a discrete GPU before an integrated one and
+  never a software adapter.
+- **Pure Rust, no `unsafe`:** wgpu is a Rust crate that loads the system's Vulkan, DirectX 12 or
+  Metal driver at run time; photonoxide calls only its safe API, so the library keeps
+  `#![forbid(unsafe_code)]`. The feature is off by default: wgpu and its shader compiler
+  lengthen a clean build, and the default build needs no GPU. CI builds it, lints it and runs
+  its tests, which skip there (its runners have no GPU, decision 7).
+
+**The kernels** are WGSL written by hand (`src/fdtd/gpu/yee.wgsl`), compiled for f32 or f64.
+
+- **Slice by slice** (P. Micikevicius 2009): a workgroup of 32 × 8 invocations owns a tile of
+  32 × 8 values in each plane of a run of 4 (f32) or 8 (f64) planes along z, and marches through
+  them. Each plane of the other field goes into workgroup memory with the row and column of
+  neighbours the curl needs, and each invocation keeps its own column's value of the plane before
+  or after in registers, so each value is read from memory about once.
+- **Fused:** one pass a step takes H̃ over the tile and the row and column before it, then E over
+  the tile from those: E, H̃ and E's coefficients are read once and E and H̃ written once,
+  60 bytes a cell in f32 without conductivity (the two passes of the CPU's whole-grid step read
+  and write 84 to 96). A neighbouring workgroup still reads the old values around its tile while
+  this one writes, so the new ones go to a second copy of E, H̃ and ψ and the copies swap each
+  step; the values of H̃ on the row and column before a tile, and on the plane before a run of
+  planes, are computed again by each workgroup that needs them, by the same function as the one
+  that owns them. Where the second copy doesn't fit, a step is two passes in place, H̃'s then
+  E's.
+- **CPMLs** in the same pass, only where a value is in a slab, in the order the CPU's slabs take
+  them; **ca** isn't read where the medium has no conductivity (ca is then 1, or 0 with cb).
+- **Sources and currents** are added one invocation per value, its sources and currents in the
+  order the CPU adds them, their waveforms taken on the CPU in f64 at each step's times. With
+  the fused step a magnetic current goes into H̃ just before its update rather than after: the
+  same sum in another order.
+- **Probes** are copied out after each step; **transforms** are summed per value, one
+  invocation a value taking each frequency in turn, step after step, with e^(iωt)Δt computed on
+  the CPU in f64. A run's sums start at zero on the GPU and are added to the simulation's in f64
+  when it ends; the fields, probes and sums come back after each `run`, so run long stretches.
+
+**Determinism** (principle 9, decided 2026-10-08): no atomics, fixed workgroup sizes, every value
+written by one invocation and every sum taken by one in step order, so a GPU run repeats bit for
+bit on the same device and driver: fields, probes and transforms, f32 and f64, fused and in two
+passes (`a_run_on_the_gpu_repeats_bit_for_bit`). WGSL lets a compiler fuse and reorder
+arithmetic, so the GPU isn't the CPU's bits; it agrees with the CPU to tolerances measured by how
+rounding grows (`src/fdtd/gpu/tests.rs`):
+
+- **f64:** a 3D problem with CPMLs (κ and α), a wall, conductivity, a conductor, sources on E and
+  H̃, a current, a dipole, probes, a transform box and a flux box (37 × 21 × 19 cells, sizes that
+  leave workgroups part-filled), and its 2D twin periodic along x, 800 steps fused or in two
+  passes, in one run or in runs of 130: fields, probes, transforms and fluxes within 1e-13 of the
+  CPU's (measured up to 1.2e-14). In a closed box of 40 × 36 × 32 cells over N steps, within
+  10⁻¹⁵ √N (measured 2 × 10⁻¹⁶ √N, 2.9e-14 after 25 600).
+- **f32 against the CPU's f32 kernel:** in the closed box, a random walk of rounding, within
+  2 × 10⁻⁷ √N (measured 1.1e-6 after 100 steps to 1.6e-5 after 25 600).
+- **f32 against f64:** both f32 kernels drift from f64 alike, linearly, from the coefficients
+  rounded to f32 (5.6 × 10⁻⁸ N relative to the largest E in the closed box; within 10⁻⁷ N); the
+  GPU's drift is the CPU's f32 drift to 0.2 %. With CPMLs and sources after 800 steps, within
+  2e-5 of the CPU's f64 run (measured up to 4.4e-6).
+- **A published result:** Roden and Gedney's plate in soil (the `cpml_roden_gedney` example) in
+  f32 on the GPU: −48.620 and −70.474 dB against the CPU's −48.620 and −70.475 (paper: −48 and
+  −67), in about 3 s.
+
+These, every FDTD case of the validation report run again on the GPU, and its speed are
+[the GPU's report](../validation-gpu.md), written on the owner's machine before each release.
+
+**Speed** on the owner's RTX 4060 (Vulkan, driver 616.56), `fdtd::gpu::rates`: the kernel alone
+on the cubes of the CPU's table above (50 nm cells of vacuum inside CPMLs of 8, random fields),
+the best of three runs of a few tenths of a second, in million cell-updates/s; against the blocked
+CPU kernel on 20 threads of the Core Ultra 7 265K, the diamonds' column of that table (measured
+idle; the CPU kernel is unchanged since). The GPU was measured while another job kept 12 of the
+CPU's 20 threads busy: its rate barely depends on the CPU's load (3723 then, 3727 at 5 % load at
+256³ in f32), the CPU's does, so the CPU's numbers are the idle ones. The roof is the 4060's
+272 GB/s over the bytes a fused step moves, 60 a cell in f32 and 120 in f64 (no conductivity, so
+ca isn't read).
+
+| Grid | Precision | GPU, two passes | GPU, fused | CPU, diamonds | GPU / CPU | The roof |
+|---|---|---:|---:|---:|---:|---:|
+| 128³ | f32 | 2433 | 3350 | 1344 | 2.49 | 4533 |
+| 192³ | f32 | 2642 | 3567 | 1836 | 1.94 | 4533 |
+| 256³ | f32 | 2876 | 3723 | 1986 | 1.87 | 4533 |
+| 320³ | f32 | 2862 | 3663 | 1854 | 1.98 | 4533 |
+| 128³ | f64 | 1242 | 1321 | 792 | 1.67 | 2267 |
+| 192³ | f64 | 1388 | 1555 | 1070 | 1.45 | 2267 |
+| 256³ | f64 | 1421 | 1642 | 1015 | 1.62 | 2267 |
+| 320³ | f64 | 1429 | 1708 | 1003 | 1.70 | 2267 |
+
+So:
+- **In f32 the GPU is about twice the blocked CPU kernel** from 192³ on (1.9 to 2.0 times),
+  2.5 times at 128³, at 74 to 82 % of its memory's roof: 3.7 G/s at 256³ against the
+  performance plan's estimate of about 3.8. The two passes, at up to 89 % of their own roof (84
+  bytes a cell), are 1.4 to 1.8 times the CPU. The diamonds run at about 4 times the CPU's own
+  memory roof, so the 4060's 2.7 times the CPU's bandwidth comes out as about twice the speed.
+- **f64** runs at 1.5 to 1.7 times the CPU, at 58 to 75 % of its roof: the 4060's f64 arithmetic
+  is a sixty-fourth of its f32's, and the fused step's recomputed row and column of H̃ weigh more
+  there. It varies more between sessions, by up to a fifth (the GPU report's run: 1147 and 1459
+  fused at 128³ and 256³). It is for checking.
+- A simulation with a source, a probe and a flux box (six faces at three frequencies, 256³) runs
+  at 1873 million cell-updates/s in f32 and 1020 in f64 over runs of 200 steps, the copies to
+  and from the GPU included; a `Simulation` steps the CPU in f64, 719 by diamonds (above, idle).
+
+**Memory** on an 8 GB RTX 4060 (about 7 GB free beside the desktop), cubes inside CPMLs of 8,
+found by allocating (`fdtd::gpu::rates::gpu_memory`): in f32, fused up to 416³ (72 million cells,
+72 bytes a cell) and in two passes up to 480³ (111 million, 48 bytes a cell); in f64, fused up to
+320³ (33 million) and in two passes up to 384³ (57 million). `Gpu::new` sets wgpu's memory
+budget so that an allocation past the device's memory fails rather than spilling into the
+system's; a simulation then takes two passes, or `set_device` says it doesn't fit.
 
 ## Jobs
 
@@ -1202,4 +1424,9 @@ Before the rows were shared, a 2D grid, one plane thick, stepped on one thread: 
 | example `cpml_roden_gedney` | Roden and Gedney's plate in soil, both PMLs | −48.6 and −70.5 dB (paper: −48, −67) |
 | example `tfsf_square_cylinder` | Umashankar and Taflove's square cylinder's surface current | 1.732 and 0.764 (figure: 1.750, 0.785); within 0.4 % of their Eq. 8a |
 | example `lorentz_okoniewski` | Okoniewski, Mrozowski and Stuchly's two-term Lorentz half-space, $\lvert r\rvert$ and phase errors, 37.5 µm cells | at most 0.24 and 0.34 of their Fig. 1's curve (C = 1), 0.33 and 0.52 (C = 0.5) |
+| example `crossing_liu_poon` | Liu and Poon's crossing (gdsfactory's PDK) in 3D, through TE₀ at 1550 nm, 15 and 20 cells a wavelength (`--full`) | 0.95666, 0.95863 (Lumerical and Tidy3D settled: 0.9558 to 0.959) |
+| example `coupler_liu_poon` | their directional coupler, cross TE₀ at 1550 nm, 15 and 20 cells | 0.42771, 0.41352 (0.411 to 0.492) |
+| example `mmi_liu_poon` | their 2 × 2 MMI, cross TE₀ at 1550 nm, 15 and 20 cells | 0.48148, 0.48743 (0.479 to 0.489) |
+| examples `mode_converter_liu_poon`, `splitter_rotator_liu_poon` | their mode converter and splitter-rotator at 5 cells (CI); the paper's grid in #256 | TE₁ 0.457, TE₀ 0.642: within the codes' own stray at 6 cells |
+| example `ring_liu_poon` | their ring's free spectral range from the strip's group index and its length (CI); the 3D run in #256 | 7.54 nm (the text: around 7.4 and 7.6) |
 | example `subpixel_holes` | Farjadpour et al.'s elliptical holes, TE, 12 to 64 pixels a period: slopes of the error | lowest mode −2.26 at 2Δx (paper −2.43), −2.12 at s = 1, below the mean at every resolution; next mode's mean −1.40 (paper −1.33); lowest mode's mean −1.84 |

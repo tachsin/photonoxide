@@ -1,0 +1,6 @@
+Liu and Poon's crossing (gdsfactory's generic PDK), 3D FDTD, TE0 into the left arm; materials at 1.55 um
+6 cells a wavelength: 159 × 172 × 54 cells of 74.3 nm (1.5 million), CPMLs of 12
+  wavelength  through TE0  side TE0s            reflection  excess loss
+  1.550 um    0.95227      1.38e-6, 1.23e-6   1.51e-4    -0.2124 dB
+  through TE0, 1550 nm, 6 cells          0.952266   paper 0.9574     ± 2.1e-2    ok
+all 1 within tolerance of the paper

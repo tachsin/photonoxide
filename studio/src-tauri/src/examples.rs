@@ -65,6 +65,12 @@ examples!(
     subpixel_holes: "../../../examples/subpixel_holes.rs",
     pml_oskooi: "../../../examples/pml_oskooi.rs",
     bump_oskooi: "../../../examples/bump_oskooi.rs",
+    coupler_liu_poon: "../../../examples/coupler_liu_poon.rs",
+    crossing_liu_poon: "../../../examples/crossing_liu_poon.rs",
+    mmi_liu_poon: "../../../examples/mmi_liu_poon.rs",
+    mode_converter_liu_poon: "../../../examples/mode_converter_liu_poon.rs",
+    splitter_rotator_liu_poon: "../../../examples/splitter_rotator_liu_poon.rs",
+    ring_liu_poon: "../../../examples/ring_liu_poon.rs",
 );
 
 /// An example's `main` returns an exit code, or a result holding one.
@@ -155,6 +161,15 @@ fn title(name: &str) -> (&'static str, &'static str) {
         "subpixel_holes" => ("Subpixel smoothing's convergence", "Farjadpour et al. 2006"),
         "pml_oskooi" => ("How a PML's reflection falls", "Oskooi et al. 2010"),
         "bump_oskooi" => ("Scattering by a bump, smoothed", "Oskooi et al. 2010"),
+        "coupler_liu_poon" => ("A PDK directional coupler in 3D", "Liu & Poon 2025"),
+        "crossing_liu_poon" => ("A PDK waveguide crossing in 3D", "Liu & Poon 2025"),
+        "mmi_liu_poon" => ("A PDK 2 × 2 MMI in 3D", "Liu & Poon 2025"),
+        "mode_converter_liu_poon" => ("A PDK mode converter in 3D", "Liu & Poon 2025"),
+        "splitter_rotator_liu_poon" => (
+            "A PDK polarization splitter-rotator in 3D",
+            "Liu & Poon 2025",
+        ),
+        "ring_liu_poon" => ("A PDK ring resonator in 3D", "Liu & Poon 2025"),
         _ => ("", ""),
     }
 }
@@ -183,6 +198,12 @@ fn seconds(name: &str) -> f64 {
         "cpml_roden_gedney" => 45.0,
         "pml_oskooi" => 90.0,
         "bump_oskooi" => 120.0,
+        "ring_liu_poon" => 20.0,
+        "crossing_liu_poon" => 30.0,
+        "coupler_liu_poon" => 100.0,
+        "mmi_liu_poon" => 120.0,
+        "splitter_rotator_liu_poon" => 350.0,
+        "mode_converter_liu_poon" => 500.0,
         _ => 10.0,
     }
 }
