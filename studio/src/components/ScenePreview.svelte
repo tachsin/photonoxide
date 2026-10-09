@@ -1,5 +1,6 @@
 <script lang="ts">
-  // A job's structure in 3D, turning slowly: what its run will draw, before it runs. A modes
+  // A job's structure in 3D, turning slowly (and by a drag, when turnable): what its run will
+  // draw, before it runs. A modes
   // job's is shown in front of its cut too, with the cut drawn where the cross-section is taken.
   import { Box } from "@lucide/svelte";
 
@@ -8,7 +9,7 @@
   import type { Scene } from "../lib/events";
   import { Preview3D } from "../lib/view3d";
 
-  let { text, height = 150 }: { text: string; height?: number } = $props();
+  let { text, height = 150, turnable = false }: { text: string; height?: number; turnable?: boolean } = $props();
 
   let host: HTMLDivElement;
   let failed = $state("");
@@ -36,7 +37,7 @@
       .then((scene) => {
         cache.set(t, scene);
         if (gone) return;
-        view ??= new Preview3D(host, app.dark);
+        view ??= new Preview3D(host, app.dark, turnable);
         view.setScene(scene, cutOf(t, scene));
         shown = true;
         loading = false;

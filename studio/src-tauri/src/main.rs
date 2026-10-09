@@ -9,6 +9,7 @@ mod benchmarks;
 mod channels;
 mod charts;
 mod circuits;
+mod diagrams;
 mod examples;
 mod libraries;
 mod materials;
@@ -57,7 +58,7 @@ const USAGE: &str = "usage:
   photonoxide bench --import <file> [--db <file>]
       add another database's records, from this machine or another
   photonoxide libraries [--json | --write <file>]
-      the external libraries found here (oneMKL, the CUDA runtime, cuSPARSE, cuDSS): where
+      the external libraries found here (oneMKL, the CUDA runtime, cuSPARSE, cuDSS, MUMPS): where
       each was found, its version, and the backends that passed their smoke tests
   photonoxide nightly <check | prerequisites | build <commit> | install | rollback>
       the nightly channel: main's head and the commits since this build, what building

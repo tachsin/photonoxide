@@ -1,13 +1,15 @@
 //! The Academy's lessons (academy/*.md, built into the program): front matter read, the body cut
 //! into sections at its `##` headings, each with its depth (intuition, theory, research), and each
-//! section into blocks: Markdown, charts (crate::charts), examples, validation cases, the
-//! timeline of the lesson's papers, and answers to reveal. The format is academy/README.md's.
+//! section into blocks: Markdown, diagrams of the device (crate::diagrams), charts
+//! (crate::charts), examples, validation cases, the timeline of the lesson's papers, and answers
+//! to reveal. The format is academy/README.md's.
 
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
 use crate::charts::{self, ChartSpec};
+use crate::diagrams::{self, DiagramSpec};
 
 /// Each lesson's file and text, as the program was built with them.
 macro_rules! lessons {
@@ -106,6 +108,9 @@ pub enum Depth {
 pub enum Block {
     /// Markdown with TeX math.
     Text { markdown: String },
+    /// `::diagram <id>`: the device drawn, a labelled schematic and, where a job builds it, a 3D
+    /// view (crate::diagrams).
+    Diagram { diagram: String },
     /// `::chart <id>{key=value, ...}`: a chart, its parameters set as given and the rest at
     /// their defaults.
     Chart {
@@ -158,14 +163,15 @@ pub struct Lesson {
     pub cases: Vec<CaseRow>,
 }
 
-/// The lessons and the charts they can show.
+/// The lessons, and the diagrams and charts they can show.
 #[derive(Serialize)]
 pub struct Academy {
     pub lessons: Vec<Lesson>,
+    pub diagrams: Vec<DiagramSpec>,
     pub charts: Vec<ChartSpec>,
 }
 
-/// Every lesson, parsed, and every chart's spec. A lesson that doesn't parse is left out here;
+/// Every lesson, parsed, and every diagram's and chart's spec. A lesson that doesn't parse is left out here;
 /// the tests refuse it.
 #[tauri::command]
 pub fn academy() -> Academy {
@@ -174,6 +180,7 @@ pub fn academy() -> Academy {
             .iter()
             .filter_map(|(file, text)| parse(file, text).ok())
             .collect(),
+        diagrams: diagrams::specs(),
         charts: charts::specs(),
     }
 }
@@ -367,6 +374,13 @@ fn block(directive: &str) -> Result<Block, String> {
                 values: charts::parse_values(&spec, values)?,
             })
         }
+        "diagram" => {
+            let d =
+                diagrams::spec(rest).ok_or_else(|| format!("::diagram: no diagram {rest:?}"))?;
+            Ok(Block::Diagram {
+                diagram: d.id.to_owned(),
+            })
+        }
         "example" if !rest.is_empty() && !rest.contains(' ') => Ok(Block::Example {
             name: rest.to_owned(),
         }),
@@ -379,7 +393,7 @@ fn block(directive: &str) -> Result<Block, String> {
         }),
         "timeline" if rest.is_empty() => Ok(Block::Timeline),
         _ => Err(format!(
-            "::{directive} isn't a block: ::chart <id>{{...}}, ::example <name>, ::validation <id> ..., ::timeline"
+            "::{directive} isn't a block: ::diagram <id>, ::chart <id>{{...}}, ::example <name>, ::validation <id> ..., ::timeline"
         )),
     }
 }
@@ -496,11 +510,21 @@ mod tests {
                 "{}: no ::timeline",
                 l.id
             );
+            // the device drawn first: a diagram before any chart
+            let diagram = blocks().position(|b| matches!(b, Block::Diagram { .. }));
+            let chart = blocks().position(|b| matches!(b, Block::Chart { .. }));
+            assert!(diagram.is_some(), "{}: no ::diagram", l.id);
+            assert!(
+                chart.is_none_or(|c| diagram < Some(c)),
+                "{}: a chart before the lesson's diagram",
+                l.id
+            );
         }
     }
 
-    /// Its examples, jobs, circuits, method write-ups, validation cases, charts and
-    /// prerequisites exist, and its blocks name only what its front matter lists.
+    /// Its examples, jobs, circuits, method write-ups, validation cases, diagrams, charts and
+    /// prerequisites exist, and its blocks name only what its front matter lists; a diagram's
+    /// 3D view is of one of its jobs.
     #[test]
     fn everything_a_lesson_names_exists() {
         let lessons = all();
@@ -574,6 +598,17 @@ mod tests {
                             l.id
                         );
                         charts::evaluate(chart, values).unwrap_or_else(|e| panic!("{}: {e}", l.id));
+                    }
+                    Block::Diagram { diagram } => {
+                        let d = diagrams::spec(diagram)
+                            .unwrap_or_else(|| panic!("{}: no diagram {diagram}", l.id));
+                        if let Some(job) = d.job {
+                            assert!(
+                                f.jobs.iter().any(|j| j == job),
+                                "{}: the diagram {diagram} shows {job}, which isn't in its jobs",
+                                l.id
+                            );
+                        }
                     }
                     Block::Example { name } => assert!(
                         f.examples.contains(name),
@@ -690,12 +725,18 @@ mod tests {
 
     #[test]
     fn the_format_is_read_as_documented() {
-        let text = "---\ntitle: T\nsummary: S\ntopic: Rings\nlevel: introductory\nminutes: 5\ncharts: [ring-spectrum]\npapers:\n  - cite: C\n    title: P\n    doi: 10.1/x\n    year: 1997\n    role: origin\n    note: N\n---\nIntro $a$.\n\n## The physics {theory}\nText.\n::chart ring-spectrum{radius=20um, loss=2dB/cm}\n:::answer\nHidden.\n:::\n```\n::not a block\n```\n## History {research}\n::timeline\n::validation a/b c/d\n::example ring_q_factor\n";
+        let text = "---\ntitle: T\nsummary: S\ntopic: Rings\nlevel: introductory\nminutes: 5\ncharts: [ring-spectrum]\npapers:\n  - cite: C\n    title: P\n    doi: 10.1/x\n    year: 1997\n    role: origin\n    note: N\n---\nIntro $a$.\n::diagram ring\n\n## The physics {theory}\nText.\n::chart ring-spectrum{radius=20um, loss=2dB/cm}\n:::answer\nHidden.\n:::\n```\n::not a block\n```\n## History {research}\n::timeline\n::validation a/b c/d\n::example ring_q_factor\n";
         let l = parse("x.md", text).unwrap();
         assert_eq!(l.id, "x");
         assert_eq!(l.front.level, Level::Introductory);
         assert_eq!(l.sections.len(), 3);
         assert_eq!(l.sections[0].title, "");
+        assert_eq!(
+            l.sections[0].blocks[1],
+            Block::Diagram {
+                diagram: "ring".to_owned()
+            }
+        );
         assert_eq!(l.sections[1].title, "The physics");
         assert_eq!(l.sections[1].id, "the-physics");
         assert_eq!(l.sections[1].depth, Depth::Theory);
@@ -742,6 +783,11 @@ mod tests {
 
         let broken = |body: &str| parse("x.md", &text.replace("::timeline\n", body)).is_err();
         assert!(broken("::chart no-such{}\n"));
+        assert!(
+            broken("::diagram no-such\n"),
+            "a diagram that doesn't exist"
+        );
+        assert!(broken("::diagram\n"));
         assert!(
             broken("::chart ring-spectrum{radius=1mm}\n"),
             "out of its range"
