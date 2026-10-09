@@ -1,12 +1,12 @@
 //! A ring tuned to critical coupling: an all-pass ring's coupling and radius, tuned by genoxide's
 //! L-BFGS-B on the circuit adjoint's gradient until its through port is dark at 1.55 µm.
 //!
-//! W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012),
-//! [doi:10.1002/lpor.201100017](https://doi.org/10.1002/lpor.201100017), Eqs. 2, 3 and 12: the
-//! through power vanishes on a resonance, n_eff L = m λ (Eq. 3), at critical coupling, when the
-//! self-coupling r equals the round trip's amplitude a, r = a (Eqs. 2 and 12). With a = 10^(−αL/20)
-//! for a loss α, the closed forms are R = m λ / (2π n_eff) and κ² = 1 − a², which the tuned ring is
-//! checked against.
+//! W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the
+//! January 2012 issue), [doi:10.1002/lpor.201100017](https://doi.org/10.1002/lpor.201100017),
+//! Eqs. 2, 3 and 12: the through power vanishes on a resonance, n_eff L = m λ (Eq. 3), at
+//! critical coupling, when the self-coupling r equals the round trip's amplitude a, r = a (Eqs. 2
+//! and 12). With a = 10^(−αL/20) for a loss α, the closed forms are R = m λ / (2π n_eff) and
+//! κ² = 1 − a², which the tuned ring is checked against.
 //!
 //! ```sh
 //! cargo run --release --example circuit_ring_critical
@@ -103,7 +103,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     let kappa2_exact = 1.0 - a * a;
 
     println!(
-        "An all-pass ring, n_eff {INDEX}, n_g {GROUP_INDEX}, {LOSS} dB/cm, tuned at {LAMBDA} µm (Bogaerts et al. 2012), exact: no grid"
+        "An all-pass ring, n_eff {INDEX}, n_g {GROUP_INDEX}, {LOSS} dB/cm, tuned at {LAMBDA} µm (Bogaerts et al. 2011), exact: no grid"
     );
     println!(
         "  from κ² = {kappa2}, R = {radius} µm: L-BFGS-B, {} evaluations, each the circuit solve and one adjoint solve",
