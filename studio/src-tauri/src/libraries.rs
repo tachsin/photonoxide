@@ -32,7 +32,51 @@ pub struct Install {
     pub systems: &'static [&'static str],
     /// What to know before running it.
     pub note: &'static str,
+    /// Where it was run on a clean machine and the library then found: none if it never was.
+    pub checked: &'static [Checked],
 }
+
+/// One run of an install command on a clean machine (a GitHub runner, by the Libraries
+/// workflow), after which photonoxide found the library.
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct Checked {
+    /// The system: `windows`, `linux` or `macos`.
+    pub system: &'static str,
+    /// The runner's image.
+    pub image: &'static str,
+    /// The day, as `2026-10-09`.
+    pub date: &'static str,
+    /// What the command installed.
+    pub installed: &'static str,
+    /// What photonoxide then found, and what it couldn't check there.
+    pub found: &'static str,
+}
+
+/// A library photonoxide has no backend for yet: how it installs, checked the same way, for
+/// the issue that adds its backend.
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct Planned {
+    /// The library's name.
+    pub library: &'static str,
+    /// What it is, and what photonoxide would use it for.
+    pub about: &'static str,
+    /// The issue that adds its backend.
+    pub issue: u32,
+    /// Its licence, by name.
+    pub licence: &'static str,
+    /// Its home page.
+    pub home: &'static str,
+    /// Package-manager commands that install it.
+    pub installs: &'static [Install],
+    /// The systems it has no package for here, with what to do instead.
+    pub unsupported: &'static [(&'static str, &'static str)],
+}
+
+const DAY: &str = "2026-10-09";
+const UBUNTU: &str = "ubuntu-24.04";
+const UBUNTU_22: &str = "ubuntu-22.04";
+const WINDOWS: &str = "windows-2025-vs2026";
+const MACOS: &str = "macos-latest (Apple silicon)";
 
 /// What to know about a library before installing it.
 #[derive(Clone, Copy, Debug, Serialize)]
@@ -68,8 +112,10 @@ const CUDA_UNSUPPORTED: &[(&str, &str)] = &[(
     "NVIDIA's libraries have no macOS build: photonoxide's own solvers run there.",
 )];
 
-/// The libraries photonoxide knows, its own first. The commands were checked against the
-/// package indexes (winget, conda-forge, PyPI) on 2026-10-08; #184 keeps them as verified data.
+/// The libraries photonoxide knows, its own first. Each install command says where it was run
+/// on a clean machine ([`Checked`]): the Libraries workflow runs them again every week, and
+/// fails when one stops working. winget's installers (gigabytes, elevation) aren't run there:
+/// the workflow checks that the index still has the packages.
 pub const GUIDES: &[Guide] = &[
     Guide {
         library: "photonoxide",
@@ -113,6 +159,7 @@ pub const GUIDES: &[Guide] = &[
                 command: "winget install --id Intel.oneMKL --exact",
                 systems: &["windows"],
                 note: "Intel's installer, into Program Files\\Intel\\oneAPI, where photonoxide looks.",
+                checked: &[],
             },
             Install {
                 id: "conda",
@@ -120,13 +167,68 @@ pub const GUIDES: &[Guide] = &[
                 command: "conda install -c conda-forge mkl",
                 systems: &["windows", "linux", "macos"],
                 note: "Into the active conda environment: start photonoxide from it, so $CONDA_PREFIX points there. On macOS, Intel Macs only.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "mkl 2026.1.0",
+                        found: "oneMKL 2026.1, and the pardiso backend after its smoke test",
+                    },
+                    Checked {
+                        system: "windows",
+                        image: WINDOWS,
+                        date: DAY,
+                        installed: "mkl 2026.1.0",
+                        found: "oneMKL 2026.1, and the pardiso backend after its smoke test",
+                    },
+                ],
             },
             Install {
                 id: "pip",
                 manager: "pip",
                 command: "pip install mkl",
                 systems: &["windows", "linux"],
-                note: "The wheel puts mkl_rt beside Python (Library\\bin on Windows, lib elsewhere), where photonoxide looks.",
+                note: "The wheel puts mkl_rt beside Python (Library\\bin on Windows, lib elsewhere), where photonoxide looks: the Python on PATH, or the active virtual environment's.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "mkl 2026.1.0",
+                        found: "oneMKL 2026.1, and the pardiso backend after its smoke test",
+                    },
+                    Checked {
+                        system: "windows",
+                        image: WINDOWS,
+                        date: DAY,
+                        installed: "mkl 2026.1.0",
+                        found: "oneMKL 2026.1, and the pardiso backend after its smoke test",
+                    },
+                ],
+            },
+            Install {
+                id: "apt",
+                manager: "apt",
+                command: "sudo apt-get install libmkl-rt",
+                systems: &["linux"],
+                note: "Debian's and Ubuntu's package: MKL 2020.4, from 2020, where the other methods give this year's. photonoxide finds it in the system's library path.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "libmkl-rt 2020.4.304-4",
+                        found: "oneMKL 2020.4, and the pardiso backend after its smoke test",
+                    },
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU_22,
+                        date: DAY,
+                        installed: "libmkl-rt 2020.4.304-2ubuntu3",
+                        found: "oneMKL 2020.4, and the pardiso backend after its smoke test",
+                    },
+                ],
             },
         ],
         unsupported: &[(
@@ -151,6 +253,7 @@ pub const GUIDES: &[Guide] = &[
                 command: "winget install --id Nvidia.CUDA --exact",
                 systems: &["windows"],
                 note: "The whole CUDA toolkit (several GB), with cuSPARSE; $CUDA_PATH points at it.",
+                checked: &[],
             },
             Install {
                 id: "conda",
@@ -158,6 +261,22 @@ pub const GUIDES: &[Guide] = &[
                 command: "conda install -c conda-forge cuda-cudart libcusparse",
                 systems: &["windows", "linux"],
                 note: "The runtime and cuSPARSE alone, into the active conda environment: start photonoxide from it.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "cuda-cudart 13.4.92, libcusparse 12.8.6.72",
+                        found: "the CUDA runtime 13.4, which reports no GPU there",
+                    },
+                    Checked {
+                        system: "windows",
+                        image: WINDOWS,
+                        date: DAY,
+                        installed: "cuda-cudart 13.4.92, libcusparse 12.8.6.72",
+                        found: "the CUDA runtime's file, which reports no GPU there",
+                    },
+                ],
             },
             Install {
                 id: "pip",
@@ -165,6 +284,22 @@ pub const GUIDES: &[Guide] = &[
                 command: "pip install nvidia-cuda-runtime nvidia-cusparse",
                 systems: &["windows", "linux"],
                 note: "NVIDIA's CUDA 13 wheels, found in site-packages/nvidia; nothing needs Python to load them.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "nvidia-cuda-runtime 13.4.92, nvidia-cusparse 12.8.6.72",
+                        found: "the CUDA runtime 13.4, which reports no GPU there",
+                    },
+                    Checked {
+                        system: "windows",
+                        image: WINDOWS,
+                        date: DAY,
+                        installed: "nvidia-cuda-runtime 13.4.92, nvidia-cusparse 12.8.6.72",
+                        found: "the CUDA runtime's file, which reports no GPU there",
+                    },
+                ],
             },
         ],
         unsupported: CUDA_UNSUPPORTED,
@@ -186,6 +321,7 @@ pub const GUIDES: &[Guide] = &[
                 command: "winget install --id Nvidia.CUDA --exact",
                 systems: &["windows"],
                 note: "The whole CUDA toolkit (several GB), with the runtime; $CUDA_PATH points at it.",
+                checked: &[],
             },
             Install {
                 id: "conda",
@@ -193,6 +329,22 @@ pub const GUIDES: &[Guide] = &[
                 command: "conda install -c conda-forge cuda-cudart libcusparse",
                 systems: &["windows", "linux"],
                 note: "Into the active conda environment: start photonoxide from it.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "cuda-cudart 13.4.92, libcusparse 12.8.6.72",
+                        found: "cuSPARSE 12.8.6, loaded; the runner has no GPU, so the backend's smoke test couldn't run",
+                    },
+                    Checked {
+                        system: "windows",
+                        image: WINDOWS,
+                        date: DAY,
+                        installed: "cuda-cudart 13.4.92, libcusparse 12.8.6.72",
+                        found: "cuSPARSE 12.8.6, loaded; the runner has no GPU, so the backend's smoke test couldn't run",
+                    },
+                ],
             },
             Install {
                 id: "pip",
@@ -200,6 +352,22 @@ pub const GUIDES: &[Guide] = &[
                 command: "pip install nvidia-cuda-runtime nvidia-cusparse",
                 systems: &["windows", "linux"],
                 note: "NVIDIA's CUDA 13 wheels, found in site-packages/nvidia.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "nvidia-cuda-runtime 13.4.92, nvidia-cusparse 12.8.6.72",
+                        found: "cuSPARSE 12.8.6, loaded; the runner has no GPU, so the backend's smoke test couldn't run",
+                    },
+                    Checked {
+                        system: "windows",
+                        image: WINDOWS,
+                        date: DAY,
+                        installed: "nvidia-cuda-runtime 13.4.92, nvidia-cusparse 12.8.6.72",
+                        found: "cuSPARSE 12.8.6, loaded; the runner has no GPU, so the backend's smoke test couldn't run",
+                    },
+                ],
             },
         ],
         unsupported: CUDA_UNSUPPORTED,
@@ -221,6 +389,22 @@ pub const GUIDES: &[Guide] = &[
                 command: "conda install -c conda-forge libcudss",
                 systems: &["windows", "linux"],
                 note: "Into the active conda environment: start photonoxide from it.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "libcudss 0.8.0.10",
+                        found: "cuDSS 0.8.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run",
+                    },
+                    Checked {
+                        system: "windows",
+                        image: WINDOWS,
+                        date: DAY,
+                        installed: "libcudss 0.8.0.10",
+                        found: "cuDSS 0.8.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run",
+                    },
+                ],
             },
             Install {
                 id: "pip",
@@ -228,10 +412,270 @@ pub const GUIDES: &[Guide] = &[
                 command: "pip install nvidia-cudss-cu13",
                 systems: &["windows", "linux"],
                 note: "The CUDA 13 build (nvidia-cudss-cu12 for CUDA 12), found in site-packages/nvidia.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "nvidia-cudss-cu13 0.8.0.10",
+                        found: "cuDSS 0.8.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run",
+                    },
+                    Checked {
+                        system: "windows",
+                        image: WINDOWS,
+                        date: DAY,
+                        installed: "nvidia-cudss-cu13 0.8.0.10",
+                        found: "cuDSS 0.8.0, loaded; the runner has no GPU, so the backend's smoke test couldn't run",
+                    },
+                ],
             },
         ],
         unsupported: CUDA_UNSUPPORTED,
         built_in: false,
+    },
+];
+
+const HAS_LIBRARY: &str =
+    "the package's library is there; photonoxide has no backend to load it with yet";
+
+/// The libraries the plan names that photonoxide has no backend for yet (docs/plans/backends.md):
+/// how each installs, checked on clean machines, for the issue that adds its backend.
+pub const PLANNED: &[Planned] = &[
+    Planned {
+        library: "MUMPS",
+        about: "A multifrontal sparse direct solver, with block low-rank compression: a direct backend. The sequential build.",
+        issue: 176,
+        licence: "CeCILL-C",
+        home: "https://mumps-solver.org/",
+        installs: &[
+            Install {
+                id: "conda",
+                manager: "conda-forge",
+                command: "conda install -c conda-forge mumps-seq",
+                systems: &["windows", "linux", "macos"],
+                note: "The sequential build, into the active conda environment. On Windows it brings conda-forge's mkl with it, and so oneMKL's PARDISO too.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "mumps-seq 5.8.2",
+                        found: HAS_LIBRARY,
+                    },
+                    Checked {
+                        system: "windows",
+                        image: WINDOWS,
+                        date: DAY,
+                        installed: "mumps-seq 5.8.2, mkl 2026.1.0",
+                        found: HAS_LIBRARY,
+                    },
+                    Checked {
+                        system: "macos",
+                        image: MACOS,
+                        date: DAY,
+                        installed: "mumps-seq 5.8.2",
+                        found: HAS_LIBRARY,
+                    },
+                ],
+            },
+            Install {
+                id: "apt",
+                manager: "apt",
+                command: "sudo apt-get install libmumps-seq-dev",
+                systems: &["linux"],
+                note: "Debian's and Ubuntu's package, older than conda-forge's: 5.6.2 on Ubuntu 24.04, 5.4.1 on 22.04.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "libmumps-seq-dev 5.6.2",
+                        found: HAS_LIBRARY,
+                    },
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU_22,
+                        date: DAY,
+                        installed: "libmumps-seq-dev 5.4.1",
+                        found: HAS_LIBRARY,
+                    },
+                ],
+            },
+        ],
+        unsupported: &[],
+    },
+    Planned {
+        library: "SuperLU",
+        about: "A supernodal sparse direct solver with partial pivoting: a direct backend.",
+        issue: 177,
+        licence: "BSD-3-Clause",
+        home: "https://portal.nersc.gov/project/sparse/superlu/",
+        installs: &[
+            Install {
+                id: "conda",
+                manager: "conda-forge",
+                command: "conda install -c conda-forge superlu",
+                systems: &["linux", "macos"],
+                note: "Into the active conda environment.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "superlu 7.0.1",
+                        found: HAS_LIBRARY,
+                    },
+                    Checked {
+                        system: "macos",
+                        image: MACOS,
+                        date: DAY,
+                        installed: "superlu 7.0.1",
+                        found: HAS_LIBRARY,
+                    },
+                ],
+            },
+            Install {
+                id: "apt",
+                manager: "apt",
+                command: "sudo apt-get install libsuperlu-dev",
+                systems: &["linux"],
+                note: "Debian's and Ubuntu's package, older than conda-forge's: 6.0.1 on Ubuntu 24.04, 5.3.0 on 22.04.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "libsuperlu-dev 6.0.1",
+                        found: HAS_LIBRARY,
+                    },
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU_22,
+                        date: DAY,
+                        installed: "libsuperlu-dev 5.3.0",
+                        found: HAS_LIBRARY,
+                    },
+                ],
+            },
+        ],
+        unsupported: &[(
+            "windows",
+            "conda-forge has no superlu for Windows (the install fails with PackagesNotFoundInChannelsError, 2026-10-09). vcpkg builds it from source, which wasn't run here.",
+        )],
+    },
+    Planned {
+        library: "OpenBLAS",
+        about: "An open BLAS and LAPACK: dense kernels for the multifrontal fronts, where no vendor's library is installed.",
+        issue: 186,
+        licence: "BSD-3-Clause",
+        home: "https://www.openblas.net/",
+        installs: &[
+            Install {
+                id: "conda",
+                manager: "conda-forge",
+                command: "conda install -c conda-forge openblas",
+                systems: &["windows", "linux", "macos"],
+                note: "Into the active conda environment.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "openblas 0.3.34",
+                        found: HAS_LIBRARY,
+                    },
+                    Checked {
+                        system: "windows",
+                        image: WINDOWS,
+                        date: DAY,
+                        installed: "openblas 0.3.34",
+                        found: HAS_LIBRARY,
+                    },
+                    Checked {
+                        system: "macos",
+                        image: MACOS,
+                        date: DAY,
+                        installed: "openblas 0.3.34",
+                        found: HAS_LIBRARY,
+                    },
+                ],
+            },
+            Install {
+                id: "apt",
+                manager: "apt",
+                command: "sudo apt-get install libopenblas-dev",
+                systems: &["linux"],
+                note: "Debian's and Ubuntu's package: 0.3.26 on Ubuntu 24.04, 0.3.20 on 22.04.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "libopenblas-dev 0.3.26",
+                        found: HAS_LIBRARY,
+                    },
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU_22,
+                        date: DAY,
+                        installed: "libopenblas-dev 0.3.20",
+                        found: HAS_LIBRARY,
+                    },
+                ],
+            },
+        ],
+        unsupported: &[],
+    },
+    Planned {
+        library: "AMD AOCL",
+        about: "AMD's BLIS, libFLAME and AOCL-Sparse: dense kernels and iterative solvers on AMD processors.",
+        issue: 186,
+        licence: "BSD-3-Clause and MIT, by component (to confirm in #186)",
+        home: "https://www.amd.com/en/developer/aocl.html",
+        installs: &[],
+        unsupported: &[
+            (
+                "windows",
+                "AMD's installer, from its page: no package manager has it, and it wasn't run here.",
+            ),
+            (
+                "linux",
+                "AMD's packages or Spack, from its page: not run here.",
+            ),
+            ("macos", "AMD has no macOS build."),
+        ],
+    },
+    Planned {
+        library: "Apple Accelerate",
+        about: "macOS's own BLAS, LAPACK and sparse solvers: dense kernels and a direct backend on a Mac.",
+        issue: 187,
+        licence: "part of macOS",
+        home: "https://developer.apple.com/documentation/accelerate",
+        installs: &[],
+        unsupported: &[
+            (
+                "macos",
+                "Built in: nothing to install. Which macOS first has its complex sparse solvers is for #187 to confirm.",
+            ),
+            ("windows", "A macOS framework."),
+            ("linux", "A macOS framework."),
+        ],
+    },
+    Planned {
+        library: "Arm Performance Libraries",
+        about: "Arm's BLAS and LAPACK: dense kernels on Arm processors.",
+        issue: 186,
+        licence: "Arm's terms, free of charge (to confirm in #186)",
+        home: "https://developer.arm.com/",
+        installs: &[],
+        unsupported: &[
+            (
+                "windows",
+                "Arm's installer, for Windows on Arm: not run here.",
+            ),
+            ("linux", "Arm's packages, for AArch64: not run here."),
+            ("macos", "Arm's installer, for Apple silicon: not run here."),
+        ],
     },
 ];
 
@@ -405,9 +849,219 @@ fn platform() -> String {
     format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH)
 }
 
-/// `photonoxide libraries [--json]`: finds every library, registers their backends after their
-/// smoke tests, and prints what was found.
+/// The systems a page's table has a column for.
+const SYSTEMS: [(&str, &str); 3] = [
+    ("windows", "Windows"),
+    ("linux", "Linux"),
+    ("macos", "macOS"),
+];
+
+/// A table cell: the managers that install on `system`, each marked checked or not, or what
+/// the library's guide says of a system it has no package for.
+fn cell(system: &str, installs: &[Install], unsupported: &[(&str, &str)]) -> String {
+    let methods: Vec<String> = installs
+        .iter()
+        .filter(|i| i.systems.contains(&system))
+        .map(|i| {
+            let checked = i.checked.iter().any(|c| c.system == system);
+            format!("{}{}", i.manager, if checked { " ✓" } else { "" })
+        })
+        .collect();
+    if !methods.is_empty() {
+        return methods.join(", ");
+    }
+    if unsupported
+        .iter()
+        .any(|(s, _)| s.split('-').next() == Some(system))
+    {
+        "see below".into()
+    } else {
+        "the vendor's installer".into()
+    }
+}
+
+fn write_installs(out: &mut String, installs: &[Install], unsupported: &[(&str, &str)]) {
+    use std::fmt::Write as _;
+    for i in installs {
+        let systems: Vec<&str> = SYSTEMS
+            .iter()
+            .filter(|(s, _)| i.systems.contains(s))
+            .map(|(_, name)| *name)
+            .collect();
+        let _ = writeln!(out, "- **{}** ({}):\n", i.manager, systems.join(", "));
+        let _ = writeln!(out, "  ```sh\n  {}\n  ```\n", i.command);
+        let _ = writeln!(out, "  {}\n", i.note);
+        if i.checked.is_empty() && i.manager == "winget" {
+            let _ = writeln!(
+                out,
+                "  Not run on a clean machine: the installer is several gigabytes and asks for \
+                 elevation. The workflow checks that winget's index still has the package.\n"
+            );
+        } else if i.checked.is_empty() {
+            let _ = writeln!(out, "  Not run on a clean machine.\n");
+        }
+        for c in i.checked {
+            let _ = writeln!(
+                out,
+                "  - Checked on {} ({}), {}: installed {}; found {}.",
+                SYSTEMS
+                    .iter()
+                    .find(|(s, _)| *s == c.system)
+                    .map_or(c.system, |(_, n)| n),
+                c.image,
+                c.date,
+                c.installed,
+                c.found
+            );
+        }
+        if !i.checked.is_empty() {
+            out.push('\n');
+        }
+    }
+    for (system, instead) in unsupported {
+        let _ = writeln!(out, "- **{system}:** {instead}");
+    }
+    if !unsupported.is_empty() {
+        out.push('\n');
+    }
+}
+
+/// docs/libraries.md: every library's install methods per system, and where each was checked.
+pub fn markdown() -> String {
+    use std::fmt::Write as _;
+    let mut out = String::from(
+        "# Installing the external libraries\n\n\
+         photonoxide needs none of these: its own solvers are built in, and the default build, CI \
+         and the released app work with no library installed. An external library is optional, \
+         installed by you under its own licence, found and loaded at run time, and never \
+         redistributed with photonoxide ([the plan](plans/backends.md)). The studio's Libraries \
+         page shows the same guides beside what it finds on your machine, and \
+         `photonoxide libraries` prints it.\n\n\
+         This page is written by `photonoxide libraries --write docs/libraries.md` from the \
+         guides in the program; a test fails when it is out of date.\n\n\
+         **Checked** means the command was run on a clean machine, one of GitHub's runners, and \
+         photonoxide then found the library: the Libraries workflow \
+         (`.github/workflows/libraries.yml`) does that again every week and on every change to \
+         the guides, and fails when a method stops working. What it can't check is said with \
+         each method: the runners have no GPU, so NVIDIA's libraries are found and loaded there \
+         but their backends' smoke tests don't run; winget's installers are several gigabytes \
+         and ask for elevation, so only the index is checked for the packages; and there is no \
+         Intel Mac among the runners.\n\n",
+    );
+    out.push_str("## Which library installs where\n\n");
+    out.push_str("| Library | Backends | Windows | Linux | macOS |\n|---|---|---|---|---|\n");
+    for g in GUIDES.iter().filter(|g| !g.built_in) {
+        let _ = writeln!(
+            out,
+            "| [{}](#{}) | {} | {} | {} | {} |",
+            g.library,
+            anchor(g.library),
+            if g.backends.is_empty() {
+                "—".into()
+            } else {
+                g.backends
+                    .iter()
+                    .map(|b| format!("`{b}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            },
+            cell("windows", g.installs, g.unsupported),
+            cell("linux", g.installs, g.unsupported),
+            cell("macos", g.installs, g.unsupported),
+        );
+    }
+    for p in PLANNED {
+        let _ = writeln!(
+            out,
+            "| [{}](#{}) | none yet (#{}) | {} | {} | {} |",
+            p.library,
+            anchor(p.library),
+            p.issue,
+            cell("windows", p.installs, p.unsupported),
+            cell("linux", p.installs, p.unsupported),
+            cell("macos", p.installs, p.unsupported),
+        );
+    }
+    out.push_str("\n✓: run on a clean machine and found. A manager without it is listed by its package index alone.\n\n");
+    out.push_str("## Where photonoxide looks\n\n");
+    out.push_str(
+        "For each library, in this order, and the first file that loads and passes its check is used:\n\n\
+         1. the library's own variable, naming the file or its folder (`PHOTONOXIDE_MKL`, say), then the vendor's (`MKLROOT`, `CUDA_PATH`);\n\
+         2. the active conda environment (`CONDA_PREFIX`): start photonoxide from it;\n\
+         3. the vendor's default install folders;\n\
+         4. Python's package folders, for the vendors' wheels: the active virtual environment's, the Python on `PATH`, the user's and the system's. Nothing needs Python to load them;\n\
+         5. the system's library paths.\n\n",
+    );
+    out.push_str("## The libraries photonoxide has a backend for\n\n");
+    for g in GUIDES.iter().filter(|g| !g.built_in) {
+        let _ = writeln!(out, "### {}\n", g.library);
+        let _ = writeln!(out, "{}\n", g.about);
+        let _ = writeln!(
+            out,
+            "- **Licence:** [{}]({}). You accept it by installing.",
+            g.licence, g.licence_url
+        );
+        let _ = writeln!(out, "- **The vendor's download:** <{}>", g.download);
+        if !g.backends.is_empty() {
+            let names: Vec<String> = g.backends.iter().map(|b| format!("`{b}`")).collect();
+            let _ = writeln!(out, "- **Backends:** {}.", names.join(", "));
+        }
+        if !g.needs.is_empty() {
+            let _ = writeln!(out, "- **Needs:** {}.", g.needs.join(", "));
+        }
+        out.push('\n');
+        write_installs(&mut out, g.installs, g.unsupported);
+    }
+    out.push_str("## The libraries without a backend yet\n\n");
+    out.push_str("How each installs, for the issue that adds its backend. photonoxide doesn't look for them yet.\n\n");
+    for p in PLANNED {
+        let _ = writeln!(out, "### {}\n", p.library);
+        let _ = writeln!(
+            out,
+            "{} Its backend: [#{}](https://github.com/tachsin/photonoxide/issues/{}).\n",
+            p.about, p.issue, p.issue
+        );
+        let _ = writeln!(out, "- **Licence:** {}.", p.licence);
+        let _ = writeln!(out, "- **Home:** <{}>\n", p.home);
+        write_installs(&mut out, p.installs, p.unsupported);
+    }
+    out.push_str("## Traps\n\n");
+    out.push_str(
+        "- **Debian's and Ubuntu's oneMKL is MKL 2020.4.** `apt` installs a library six years older than Intel's, conda-forge's or pip's. photonoxide finds it and its PARDISO passes the smoke test; prefer the others for a current library.\n\
+         - **A conda environment must be the active one** when photonoxide starts: it is found by `CONDA_PREFIX`.\n\
+         - **pip installs into the Python that runs it.** photonoxide looks in the active virtual environment and in the Python on `PATH`; a wheel installed into another Python isn't found unless the library's variable points at it.\n\
+         - **NVIDIA's wheels for CUDA 13 keep their libraries in two folders** (`nvidia/cu13/bin` and `bin/x86_64` on Windows). photonoxide adds the second to the folders Windows searches when cuDSS needs it.\n\
+         - **conda-forge's mumps-seq on Windows brings oneMKL with it,** and so the `pardiso` backend.\n\
+         - **Every NVIDIA library needs NVIDIA's driver and a CUDA GPU** to do anything: found and loaded isn't yet a backend.\n",
+    );
+    out
+}
+
+/// A heading's anchor, as GitHub makes it.
+fn anchor(heading: &str) -> String {
+    heading
+        .to_lowercase()
+        .chars()
+        .filter_map(|c| match c {
+            'a'..='z' | '0'..='9' | '-' => Some(c),
+            ' ' => Some('-'),
+            _ => None,
+        })
+        .collect()
+}
+
+/// `photonoxide libraries [--json | --write <file>]`: finds every library, registers their
+/// backends after their smoke tests, and prints what was found; or writes the install guides'
+/// page.
 pub fn run(args: &[String]) -> ExitCode {
+    if let [flag, file] = args
+        && flag == "--write"
+    {
+        return match std::fs::write(file, markdown()) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => crate::fail(format!("{file}: {e}")),
+        };
+    }
     let json = match args {
         [] => false,
         [flag] if flag == "--json" => true,
@@ -592,6 +1246,62 @@ mod tests {
                 // what the command line runs is what the page shows
                 assert!(!i.command.contains("  ") && !i.command.contains(['&', '|', ';', '>']));
             }
+        }
+    }
+
+    #[test]
+    fn the_install_guides_page_is_the_one_the_program_writes() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/libraries.md");
+        let written = std::fs::read_to_string(path).unwrap().replace("\r\n", "\n");
+        assert!(
+            written == markdown(),
+            "docs/libraries.md is out of date: photonoxide libraries --write docs/libraries.md"
+        );
+    }
+
+    #[test]
+    fn every_check_is_of_a_system_its_command_installs_on() {
+        let installs = GUIDES
+            .iter()
+            .flat_map(|g| g.installs.iter().map(move |i| (g.library, i)))
+            .chain(
+                PLANNED
+                    .iter()
+                    .flat_map(|p| p.installs.iter().map(move |i| (p.library, i))),
+            );
+        let mut checked = 0;
+        for (library, i) in installs {
+            for c in i.checked {
+                assert!(
+                    i.systems.contains(&c.system),
+                    "{library} {}: {}",
+                    i.id,
+                    c.system
+                );
+                assert_eq!(c.date.len(), 10, "{library} {}", i.id);
+                assert!(!c.installed.is_empty() && !c.found.is_empty() && !c.image.is_empty());
+                checked += 1;
+            }
+            assert!(!i.command.contains("  ") && !i.command.contains(['&', '|', ';', '>']));
+        }
+        assert!(checked >= 30, "{checked}");
+        // every planned library names its issue, and has a method or says what to do instead
+        for p in PLANNED {
+            assert!(
+                p.issue > 0 && p.home.starts_with("https://"),
+                "{}",
+                p.library
+            );
+            assert!(
+                !p.installs.is_empty() || !p.unsupported.is_empty(),
+                "{}",
+                p.library
+            );
+            assert!(
+                GUIDES.iter().all(|g| g.library != p.library),
+                "{}",
+                p.library
+            );
         }
     }
 
