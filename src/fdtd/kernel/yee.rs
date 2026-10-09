@@ -2,7 +2,7 @@
 //! stepped with nothing else (no sources, monitors, media or Bloch phase), for the benchmarks
 //! and for f32 against f64.
 
-use super::{Real, Slab, Stencil, curl_update, update_slabs};
+use super::{Blocking, Real, Slab, Stencil, blocked, curl_update, update_slabs};
 use crate::Result;
 use crate::fdfd::{Axis, Grid3d};
 use crate::fdtd::{Field, Simulation, invalid};
@@ -90,9 +90,52 @@ impl<T: Real> Yee<T> {
         );
     }
 
+    /// `steps` steps, by tiles of `blocking` where the grid allows ([`blocked::blockable`]),
+    /// else one at a time: the same bits either way.
+    pub(crate) fn run(&mut self, steps: usize, blocking: Option<Blocking>) {
+        let blocking = blocking.filter(|_| blocked::blockable(self.grid, &self.stencils));
+        let Some(b) = blocking else {
+            for _ in 0..steps {
+                self.step();
+            }
+            return;
+        };
+        blocked::step_blocked(
+            blocked::Fields {
+                grid: self.grid,
+                e: &mut self.e,
+                h: &mut self.h,
+                ca: &self.ca,
+                cb: &self.cb,
+                slabs: &mut self.slabs,
+                stencils: &self.stencils,
+                dt: self.dt,
+            },
+            b,
+            steps,
+            blocked::Extras {
+                injections: &[],
+                taps: &[],
+                captured: &mut [],
+            },
+        );
+    }
+
+    /// H̃'s `component`.
+    #[cfg_attr(not(test), allow(dead_code))] // read by the tests
+    pub(crate) fn h(&self, component: Axis) -> &[T] {
+        &self.h[component.index()]
+    }
+
     /// E's `component`.
     pub(crate) fn e(&self, component: Axis) -> &[T] {
         &self.e[component.index()]
+    }
+
+    /// The grid's cells.
+    #[cfg_attr(not(test), allow(dead_code))] // read by the tests
+    pub(crate) fn cells(&self) -> usize {
+        self.grid.cells()
     }
 
     /// The bytes a step reads and writes at least once: each field's three components read

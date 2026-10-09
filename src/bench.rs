@@ -224,6 +224,7 @@ pub fn problems() -> Vec<Problem> {
                         h: 0.05,
                         guide: false,
                         steps: 400,
+                        tiles: true,
                     },
                     timed,
                 )
@@ -240,6 +241,7 @@ pub fn problems() -> Vec<Problem> {
                         h: 0.05,
                         guide: false,
                         steps: 400,
+                        tiles: true,
                     },
                     timed,
                 )
@@ -258,6 +260,7 @@ pub fn problems() -> Vec<Problem> {
                         h: 0.02,
                         guide: true,
                         steps: 60,
+                        tiles: true,
                     },
                     timed,
                 )
@@ -274,6 +277,43 @@ pub fn problems() -> Vec<Problem> {
                         h: 0.02,
                         guide: true,
                         steps: 60,
+                        tiles: true,
+                    },
+                    timed,
+                )
+            },
+        },
+        Problem {
+            id: "fdtd3d/guide-whole-f64",
+            title: "FDTD's kernel in f64 on the same guide, the whole grid every step, without \
+                    the tiles: what blocking gains",
+            heavy: false,
+            run: |timed| {
+                fdtd::kernel::<f64>(
+                    fdtd::Run {
+                        n: 160,
+                        h: 0.02,
+                        guide: true,
+                        steps: 60,
+                        tiles: false,
+                    },
+                    timed,
+                )
+            },
+        },
+        Problem {
+            id: "fdtd3d/guide-whole-f32",
+            title: "FDTD's kernel in f32 on the same guide, the whole grid every step, against \
+                    f64",
+            heavy: false,
+            run: |timed| {
+                fdtd::kernel::<f32>(
+                    fdtd::Run {
+                        n: 160,
+                        h: 0.02,
+                        guide: true,
+                        steps: 60,
+                        tiles: false,
                     },
                     timed,
                 )

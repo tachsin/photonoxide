@@ -387,6 +387,10 @@ pub struct Simulation {
     stencils: [kernel::Stencil<f64>; 2],
     /// Whether to step with the plain loops the kernel replaced.
     reference: bool,
+    /// How the kernel cuts the grid into tiles ([`kernel::Tiling`]).
+    tiling: kernel::Tiling,
+    /// Where the sources and currents add, for the tiled kernel: built when first needed.
+    points: sources::Points,
     sources: Vec<Source>,
     /// Distributed currents (J or M), each with its complex amplitudes and waveform.
     currents: Vec<sources::Applied>,
@@ -498,6 +502,29 @@ impl Simulation {
         })
     }
 
+    /// The problem in a uniform medium of relative permittivity `eps`, with no averaging to
+    /// do: for grids too large to sample, as the kernel's benchmarks step.
+    ///
+    /// # Errors
+    ///
+    /// As [`Simulation::new`].
+    #[cfg_attr(not(test), allow(dead_code))] // read by the tests
+    pub(crate) fn in_uniform_medium(
+        grid: Grid3d,
+        eps: f64,
+        boundaries: Boundaries,
+        courant: f64,
+    ) -> Result<Simulation> {
+        Simulation::with_permittivity(grid, boundaries, courant, |grid| {
+            if !(eps.is_finite() && eps > 0.0) {
+                return Err(invalid(format!(
+                    "the permittivity must be finite and positive, got {eps}"
+                )));
+            }
+            Ok(std::array::from_fn(|_| vec![eps; grid.cells()]))
+        })
+    }
+
     /// The problem with the permittivity each value of E sees from `eps`, one per value of each
     /// component, asked for once the grid and the boundaries are checked.
     fn with_permittivity(
@@ -598,6 +625,8 @@ impl Simulation {
                 )
             }),
             reference: false,
+            tiling: kernel::Tiling::default(),
+            points: sources::Points::default(),
             sources: Vec::new(),
             currents: Vec::new(),
             plane_waves: Vec::new(),
@@ -946,16 +975,137 @@ impl Simulation {
     }
 
     /// Advances by `count` steps.
+    ///
+    /// On a grid beyond the caches the kernel takes several steps at a time by tiles (Malas et
+    /// al.'s diamonds), copying out what the probes and monitors read at each step, where it
+    /// can: not with a dispersive medium, a Bloch side, a side periodic along y or z, a smoothed
+    /// tensor or a plane wave. The same bits as one step at a time.
     pub fn run(&mut self, count: usize) {
-        for _ in 0..count {
+        let mut left = count;
+        if let Some(b) = self.tiles(true).filter(|b| b.steps > 1) {
+            while left > 0 {
+                let n = left.min(b.steps);
+                self.step_tiled(b, n);
+                left -= n;
+            }
+        }
+        for _ in 0..left {
             self.step();
         }
     }
 
-    /// Steps until the time of E reaches `time` (µm/c).
+    /// Steps until the time of E reaches `time` (µm/c), as [`Simulation::run`] does.
     pub fn run_until(&mut self, time: f64) {
-        while self.time() < time {
-            self.step();
+        let mut count = 0;
+        while ((self.steps + count) as f64 * self.dt) < time {
+            count += 1;
+        }
+        self.run(count);
+    }
+
+    /// The tiles the kernel steps this problem by, `temporal`ly (several steps at a time) or
+    /// one step at a time, if it can: not with the plain loops, a Bloch phase, a tensor
+    /// permittivity or a plane wave, whose updates read the whole grid between H̃'s and E's;
+    /// not across a side that wraps along y or z; and several steps at a time only with nothing
+    /// to record or update between steps (probes, monitors, dispersive media). Otherwise, and
+    /// on a grid the caches hold, the whole grid every step ([`kernel::Blocking::auto`]).
+    pub(crate) fn tiles(&self, temporal: bool) -> Option<kernel::Blocking> {
+        if self.reference
+            || self.bloch.is_some()
+            || self.anisotropic.is_some()
+            || !self.plane_waves.is_empty()
+        {
+            return None;
+        }
+        let temporal = temporal && self.media.is_empty();
+        let b = match self.tiling {
+            kernel::Tiling::Whole => None,
+            kernel::Tiling::Fixed(b) if temporal => Some(b),
+            kernel::Tiling::Fixed(b) => Some(kernel::Blocking { steps: 1, ..b }),
+            kernel::Tiling::Auto => kernel::Blocking::auto(
+                self.grid,
+                std::mem::size_of::<f64>(),
+                temporal,
+                rayon::current_num_threads(),
+            ),
+        }?;
+        kernel::blocked::blockable(self.grid, &self.stencils).then_some(b)
+    }
+
+    /// How the kernel cuts the grid into tiles from now on: for comparing the paths.
+    pub(crate) fn set_tiling(&mut self, tiling: kernel::Tiling) {
+        self.tiling = tiling;
+    }
+
+    /// `n` steps by the tiles `b`: H̃ and E plane by plane in each tile, the sources and
+    /// currents added as each value is updated, then what [`Simulation::step`] does after E's
+    /// update. Several steps only with no dispersive medium ([`Simulation::tiles`]): the probes'
+    /// and monitors' values are copied out of each step as the tiles update them, and recorded
+    /// after, step by step.
+    fn step_tiled(&mut self, b: kernel::Blocking, n: usize) {
+        self.media.save(&self.e);
+        let mut points = std::mem::take(&mut self.points);
+        points.amounts(self, self.steps, n);
+        let lists: Vec<&[kernel::Injection<f64>]> = (0..n).map(|m| points.step(m)).collect();
+        // the probes' values, then the monitors' boxes
+        let taps: Vec<kernel::Tap> = if n > 1 {
+            let g = self.grid;
+            self.probes
+                .iter()
+                .map(|p| {
+                    let (i, j, k) = (
+                        p.index % g.nx,
+                        (p.index / g.nx) % g.ny,
+                        p.index / g.nx / g.ny,
+                    );
+                    kernel::Tap {
+                        field: p.field,
+                        component: p.component.index(),
+                        ranges: [i..i + 1, j..j + 1, k..k + 1],
+                    }
+                })
+                .chain(self.monitors.taps())
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let volume: usize = taps.iter().map(kernel::Tap::volume).sum();
+        let mut captured = vec![0.0; n * volume];
+        kernel::blocked::step_blocked(
+            kernel::blocked::Fields {
+                grid: self.grid,
+                e: &mut self.e,
+                h: &mut self.h,
+                ca: &self.ca,
+                cb: &self.cb,
+                slabs: &mut self.slabs,
+                stencils: &self.stencils,
+                dt: self.dt,
+            },
+            b,
+            n,
+            kernel::blocked::Extras {
+                injections: &lists,
+                taps: &taps,
+                captured: &mut captured,
+            },
+        );
+        drop(lists);
+        self.points = points;
+        if n == 1 {
+            return self.finish_step();
+        }
+        // as finish_step, from the copies: no dispersive medium to update
+        for m in 0..n {
+            let step = &captured[m * volume..(m + 1) * volume];
+            self.steps += 1;
+            let (probes, mut boxes) = step.split_at(self.probes.len());
+            for (p, &v) in self.probes.iter_mut().zip(probes) {
+                p.values.push(v);
+            }
+            let te = self.time();
+            self.monitors
+                .record_captured(&mut boxes, [te, te - 0.5 * self.dt], self.dt);
         }
     }
 
@@ -969,7 +1119,13 @@ impl Simulation {
     /// With a Bloch phase, the imaginary part steps alongside, each half step followed by the
     /// two parts' coupling across the Bloch sides; the dispersive media's currents step last,
     /// from E at t + Δt.
+    ///
+    /// On a grid beyond the caches the kernel steps H̃ and E together by tiles, plane by plane,
+    /// where it can: the same bits.
     pub fn step(&mut self) {
+        if let Some(b) = self.tiles(false) {
+            return self.step_tiled(b, 1);
+        }
         let t = self.time();
         let half = t + 0.5 * self.dt;
         let mut bloch = self.bloch.take();
@@ -1202,6 +1358,8 @@ mod harmonic;
 mod harmonic_tests;
 mod kernel;
 #[cfg(test)]
+mod kernel_rates;
+#[cfg(test)]
 mod kernel_tests;
 mod media;
 pub(crate) mod media_checks;
@@ -1219,7 +1377,7 @@ pub(crate) mod smoothing;
 mod sources;
 pub use adjoint::{Design, Term, ValueGradient};
 pub use harmonic::{Resonance, harmonic_inversion};
-pub(crate) use kernel::{Real, Yee};
+pub(crate) use kernel::{Blocking, Real, Yee};
 pub use media::{Dispersive, Fit, Pole};
 pub use mie::{CrossSections, Mie, Sphere};
 pub use monitors::{Dft, FluxPlane};

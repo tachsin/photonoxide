@@ -1467,3 +1467,99 @@ mod tests {
         assert!(ampere < 1e-12, "{ampere}");
     }
 }
+
+/// Where a step's sources and currents add, for the tiled kernel: each value's place, in the
+/// order [`Simulation::step`] adds them (the sources, then the currents' values), sorted by
+/// row, keeping that order within a row; built again when sources or currents are added.
+#[derive(Clone, Debug, Default)]
+pub(super) struct Points {
+    /// How many sources and currents it was built for.
+    built: (usize, usize),
+    points: Vec<Point>,
+    /// Each step's amounts, one list of `points.len()` per step of a block.
+    amounts: Vec<kernel::Injection<f64>>,
+}
+
+/// One value a source or a current adds to: where, and what from.
+#[derive(Clone, Copy, Debug)]
+struct Point {
+    field: Field,
+    component: usize,
+    index: usize,
+    row: usize,
+    /// The source, or the current and its amplitude here.
+    from: (usize, Option<c64>),
+}
+
+impl Points {
+    /// For `steps` steps from step `first` of `s`, what each adds, one list per step, each
+    /// ordered by row: H̃ −= Δt w(t), E −= cb w(t + Δt/2), as [`Simulation::step`] takes them.
+    pub(super) fn amounts(&mut self, s: &Simulation, first: usize, steps: usize) {
+        let key = (s.sources.len(), s.currents.len());
+        if self.built != key {
+            let nx = s.grid.nx;
+            let mut points: Vec<Point> = s
+                .sources
+                .iter()
+                .enumerate()
+                .map(|(n, x)| {
+                    let index = s.index(x.at);
+                    Point {
+                        field: x.field,
+                        component: x.component.index(),
+                        index,
+                        row: index / nx,
+                        from: (n, None),
+                    }
+                })
+                .collect();
+            for (n, c) in s.currents.iter().enumerate() {
+                points.extend(c.values.iter().map(|&(component, index, a)| Point {
+                    field: c.field,
+                    component,
+                    index,
+                    row: index / nx,
+                    from: (n, Some(a)),
+                }));
+            }
+            points.sort_by_key(|p| p.row);
+            self.points = points;
+            self.built = key;
+        }
+        self.amounts.clear();
+        for m in 0..steps {
+            let t = (first + m) as f64 * s.dt;
+            let half = t + 0.5 * s.dt;
+            let when = |f: Field| if f == Field::H { t } else { half };
+            let sources: Vec<f64> = s
+                .sources
+                .iter()
+                .map(|x| x.waveform.at(when(x.field)))
+                .collect();
+            let currents: Vec<c64> = s
+                .currents
+                .iter()
+                .map(|c| c.waveform.complex_at(when(c.field)))
+                .collect();
+            self.amounts.extend(self.points.iter().map(|p| {
+                let w = match p.from {
+                    (n, None) => sources[n],
+                    (n, Some(a)) => (a * currents[n]).re,
+                };
+                kernel::Injection {
+                    field: p.field,
+                    component: p.component,
+                    index: p.index,
+                    row: p.row,
+                    amount: if p.field == Field::H { s.dt * w } else { w },
+                }
+            }));
+        }
+    }
+
+    /// Step `m`'s list from [`Points::amounts`].
+    pub(super) fn step(&self, m: usize) -> &[kernel::Injection<f64>] {
+        let n = self.points.len();
+        &self.amounts[m * n..(m + 1) * n]
+    }
+}

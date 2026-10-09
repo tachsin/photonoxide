@@ -24,7 +24,7 @@ use std::ops::Range;
 use num_complex::Complex64 as c64;
 use rayon::prelude::*;
 
-use super::{Field, Simulation, invalid};
+use super::{Field, Simulation, invalid, kernel};
 use crate::Result;
 use crate::fdfd::{Axis, Boundaries3d, Grid3d, PortMode3d};
 use crate::units::Frequency;
@@ -138,37 +138,68 @@ impl Dft {
             };
             let real = &fields[which][s.component.index()];
             let imag = imaginary.map(|i| &i[which][s.component.index()]);
-            let phases: Vec<c64> = self
-                .frequencies
-                .iter()
-                .map(|f| c64::new(0.0, f.angular() * t).exp() * dt)
-                .collect();
-            let [x, y, z] = s.ranges.clone();
-            // rows of the box for each frequency, in chunks of about 4096 values fixed by the
-            // box (a box one plane thick shared among the threads too): each value's sum alone
-            let rows = 4096usize.div_ceil(x.len()).max(1);
-            let (ny, nz) = (y.len(), z.len());
-            s.values
-                .par_chunks_mut(rows * x.len())
-                .enumerate()
-                .for_each(|(chunk, values)| {
-                    for (local, values) in values.chunks_mut(x.len()).enumerate() {
-                        let g = chunk * rows + local;
-                        let (f, rest) = (g / (ny * nz), g % (ny * nz));
-                        let (k, j) = (z.start + rest / ny, y.start + rest % ny);
-                        let w = phases[f];
-                        for (a, i) in x.clone().enumerate() {
-                            let r = k * plane + j * grid.nx + i;
-                            let v = match imag {
-                                Some(im) => c64::new(real[r], im[r]),
-                                None => c64::new(real[r], 0.0),
-                            };
-                            values[a] += v * w;
-                        }
-                    }
-                });
+            let phases = phases(&self.frequencies, t, dt);
+            accumulate(s, &phases, |k, j, i| {
+                let r = k * plane + j * grid.nx + i;
+                match imag {
+                    Some(im) => c64::new(real[r], im[r]),
+                    None => c64::new(real[r], 0.0),
+                }
+            });
         }
     }
+
+    /// [`Dft::record`] from the real values of each series' box at this step, copied out by
+    /// the tiled kernel: taken from the front of `captured`, a box per series in order, each in
+    /// the order (k, j, i).
+    fn record_captured(&mut self, captured: &mut &[f64], [te, th]: [f64; 2], dt: f64) {
+        for s in &mut self.series {
+            let t = match s.field {
+                Field::E => te,
+                Field::H => th,
+            };
+            let phases = phases(&self.frequencies, t, dt);
+            let (mine, rest) = captured.split_at(s.volume());
+            *captured = rest;
+            let [x, y, z] = s.ranges.clone();
+            let (x0, y0, z0, nx, ny) = (x.start, y.start, z.start, x.len(), y.len());
+            accumulate(s, &phases, |k, j, i| {
+                c64::new(mine[((k - z0) * ny + (j - y0)) * nx + (i - x0)], 0.0)
+            });
+        }
+    }
+}
+
+/// e^(iωt) Δt at each of `frequencies`.
+fn phases(frequencies: &[Frequency], t: f64, dt: f64) -> Vec<c64> {
+    frequencies
+        .iter()
+        .map(|f| c64::new(0.0, f.angular() * t).exp() * dt)
+        .collect()
+}
+
+/// Adds each value of `s`'s box, `value(k, j, i)`, times the step's `phases` to its transforms.
+fn accumulate(s: &mut Series, phases: &[c64], value: impl Fn(usize, usize, usize) -> c64 + Sync) {
+    let [x, y, z] = s.ranges.clone();
+    // rows of the box for each frequency, in chunks of about 4096 values fixed by the box (a
+    // box one plane thick shared among the threads too): each value's sum alone
+    let rows = 4096usize.div_ceil(x.len()).max(1);
+    let (ny, nz) = (y.len(), z.len());
+    s.values
+        .par_chunks_mut(rows * x.len())
+        .enumerate()
+        .for_each(|(chunk, values)| {
+            for (local, values) in values.chunks_mut(x.len()).enumerate() {
+                let g = chunk * rows + local;
+                let (f, rest) = (g / (ny * nz), g % (ny * nz));
+                let (k, j) = (z.start + rest / ny, y.start + rest % ny);
+                let w = phases[f];
+                for (a, i) in x.clone().enumerate() {
+                    let v = value(k, j, i);
+                    values[a] += v * w;
+                }
+            }
+        });
 }
 
 /// A plane for the flux: halfway between the planes of nodes `plane` and `plane + 1` along
@@ -678,5 +709,52 @@ impl Simulation {
             }
         }
         Ok(false)
+    }
+}
+
+impl Monitors {
+    /// Every transform monitor, in the order [`Monitors::record`] takes them.
+    fn all(&self) -> impl Iterator<Item = &Dft> {
+        self.dfts
+            .iter()
+            .chain(
+                self.fluxes
+                    .iter()
+                    .flat_map(|f| f.faces.iter().map(|x| &x.2)),
+            )
+            .chain(self.modes.iter().flatten().map(|m| &m.dft))
+            .chain(self.designs.iter().map(|d| &d.dft))
+    }
+
+    /// The boxes the transforms read after each step, a series' each, in the order
+    /// [`Monitors::record`] takes them: what the tiled kernel copies out
+    /// ([`Monitors::record_captured`]).
+    pub(super) fn taps(&self) -> Vec<kernel::Tap> {
+        self.all()
+            .flat_map(|d| d.series.iter())
+            .map(|s| kernel::Tap {
+                field: s.field,
+                component: s.component.index(),
+                ranges: s.ranges.clone(),
+            })
+            .collect()
+    }
+
+    /// [`Monitors::record`] from the boxes of [`Monitors::taps`] at this step, in order at the
+    /// front of `captured`.
+    pub(super) fn record_captured(&mut self, captured: &mut &[f64], times: [f64; 2], dt: f64) {
+        let dfts = self
+            .dfts
+            .iter_mut()
+            .chain(
+                self.fluxes
+                    .iter_mut()
+                    .flat_map(|f| f.faces.iter_mut().map(|x| &mut x.2)),
+            )
+            .chain(self.modes.iter_mut().flatten().map(|m| &mut m.dft))
+            .chain(self.designs.iter_mut().map(|d| &mut d.dft));
+        for d in dfts {
+            d.record_captured(captured, times, dt);
+        }
     }
 }

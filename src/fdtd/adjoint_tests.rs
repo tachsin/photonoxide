@@ -1,4 +1,5 @@
 use super::adjoint_checks::*;
+use super::kernel::{Blocking, Tiling};
 use super::{Boundaries, Design, Simulation};
 use crate::fdfd::{Axis, Edges};
 
@@ -149,9 +150,9 @@ fn what_a_gradient_costs() {
 #[test]
 #[cfg_attr(debug_assertions, ignore = "slow unoptimized: run with --release")]
 fn the_gradient_is_the_same_bits_on_any_number_of_threads() {
-    let one = strip_gradient_on(1);
+    let one = strip_gradient_on(1, Tiling::Auto);
     for threads in [4, 20] {
-        let other = strip_gradient_on(threads);
+        let other = strip_gradient_on(threads, Tiling::Auto);
         assert!(
             one.iter()
                 .zip(&other)
@@ -187,4 +188,29 @@ fn a_slabs_gradient_converges_to_airys_at_second_order() {
     let orders: Vec<f64> = errors.windows(2).map(|e| (e[0] / e[1]).log2()).collect();
     eprintln!("slab: {errors:?} orders {orders:?}");
     assert!(orders.iter().all(|&o| (o - 2.0).abs() < 0.2), "{orders:?}");
+}
+
+#[test]
+#[cfg_attr(debug_assertions, ignore = "slow unoptimized: run with --release")]
+fn the_gradient_is_the_same_bits_stepped_by_tiles() {
+    // the strip's 20 rows along y in tiles of 4: the forward run (a mode source, mode, flux
+    // and design monitors) and the adjoint's, each step by tiles
+    let whole = strip_gradient_on(4, Tiling::Whole);
+    for threads in [1, 20] {
+        let tiled = strip_gradient_on(
+            threads,
+            Tiling::Fixed(Blocking {
+                rows: 4,
+                steps: 3,
+                diamonds: true,
+            }),
+        );
+        assert!(
+            whole
+                .iter()
+                .zip(&tiled)
+                .all(|(a, b)| a.to_bits() == b.to_bits()),
+            "{threads} threads: {whole:?} against {tiled:?}"
+        );
+    }
 }
