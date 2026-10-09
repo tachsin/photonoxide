@@ -35,6 +35,20 @@
 //!   within how far the paper's own codes stray from them at 6 cells (0.376 and 0.358), half
 //!   their span and the reading: a coarse grid's error, bounded by the codes' own there.
 //!
+//! Measured (`--full`, 2026-10-09), the cross port's TE₀ and the excess loss at 1550 nm:
+//!
+//! | Cells a wavelength | Grid | Cross TE₀ | Excess loss | 1540, 1560 nm |
+//! |---|---|---|---|---|
+//! | 15 | 1168 × 277 × 99 cells of 29.7 nm | 0.48148 | −0.140 dB | 0.48616, 0.47574 |
+//! | 20 | 1549 × 361 × 124 cells of 22.3 nm | 0.48743 | −0.120 dB | 0.49126, 0.48197 |
+//!
+//! Lumerical gives 0.483 and 0.486 at 15 and 20 cells, Tidy3D 0.479 and 0.484, both 0.489 at 25;
+//! the band falls with the wavelength as theirs does. Run times on 20 threads of a Core Ultra 7
+//! 265K: at 15 cells (32.0 million cells, 17 655 steps) 26 minutes of stepping and 2 of mode
+//! solves; at 20 (69.3 million, 23 550 steps) 96 and 3, while other work shared the machine. The
+//! paper's Table 6: at 15 cells 45 s for Tidy3D, 905 s for Lumerical locally and 34 s on its cloud
+//! GPUs; at 20, 63 s, 2182 s and 72 s.
+//!
 //! ```sh
 //! cargo run --release --example mmi_liu_poon              # 6 cells a wavelength
 //! cargo run --release --example mmi_liu_poon -- --full    # 15 and 20

@@ -198,6 +198,12 @@ fn seconds(name: &str) -> f64 {
         "cpml_roden_gedney" => 45.0,
         "pml_oskooi" => 90.0,
         "bump_oskooi" => 120.0,
+        "ring_liu_poon" => 20.0,
+        "crossing_liu_poon" => 30.0,
+        "coupler_liu_poon" => 100.0,
+        "mmi_liu_poon" => 120.0,
+        "splitter_rotator_liu_poon" => 350.0,
+        "mode_converter_liu_poon" => 500.0,
         _ => 10.0,
     }
 }

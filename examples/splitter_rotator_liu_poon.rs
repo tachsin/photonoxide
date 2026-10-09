@@ -39,6 +39,10 @@
 //!   within how far the paper's own codes stray from them at 6 cells (0.147 and 0.051: the
 //!   device doesn't work there in either code), half their span and the reading.
 //!
+//! At 5 cells (845 × 124 × 49 cells of 89.2 nm, 9825 steps): the upper port's TE₀ 0.642, its TM₀
+//! −22.0 dB (at 6 cells, 0.711 and −34.4 dB). The paper's grid hasn't been run yet: 81 million
+//! cells and about 33 000 steps at 15 cells, about 2 hours on 20 threads (issue #256).
+//!
 //! ```sh
 //! cargo run --release --example splitter_rotator_liu_poon              # 5 cells a wavelength
 //! cargo run --release --example splitter_rotator_liu_poon -- --full    # 15 and 20

@@ -51,8 +51,10 @@
 //!   plus the reading.
 //!
 //! The ring isn't checked on a coarse grid: at 6 cells a wavelength (74 nm cells, the 200 nm gap
-//! less than three) its coupling is a fifth of the settled one (Q about 8000, its resonances 4
-//! nm short), where the paper's codes, on grids finer near the silicon, still give 1839 and 1757.
+//! less than three) its Q is about 8000 against the paper's settled 1735 (about a fifth of the
+//! coupling) and its resonances 4 nm short, where the paper's codes, on grids finer near the
+//! silicon, still give 1839 and 1757. The 3D run at the paper's grid hasn't been done yet: 91
+//! million cells and 59 000 steps at 15 cells, about 4 hours on 20 threads (issue #256).
 //!
 //! Silicon's index sets λ₀: the paper's Palik silicon is 3.4738 at 1550 nm in Tidy3D's fit and
 //! about 3.4764 in Lumerical's data, ours 3.4757. A difference of 0.0026 moves λ₀ by about 0.85

@@ -980,7 +980,46 @@ devices here (`examples/pdk`):
 At 1550 nm, against the span of both codes' values where the paper finds them settled (read off
 its figures, the reading's uncertainty stated in each example):
 
-@@RESULTS@@
+| Device | At 1550 nm | Here, 15 cells (29.7 nm) | Here, 20 cells (22.3 nm) | Lumerical, 15 / 20 / 25 | Tidy3D, 15 / 20 / 25 |
+|---|---|---|---|---|---|
+| crossing | through TE₀ | 0.95666 | 0.95863 | 0.957 / 0.957 / 0.957 | 0.959 / 0.9558 / 0.9567 |
+| crossing | excess loss | −0.192 dB | −0.183 dB | −0.1925 / −0.191 / −0.1915 | −0.183 / −0.1965 / −0.1925 |
+| directional coupler | cross TE₀ | 0.42771 | 0.41352 | 0.411 / 0.446 / 0.430 | 0.448 / 0.492 / 0.456 |
+| directional coupler | excess loss | −0.0014 dB | −0.0017 dB | 0.000 / 0.001 / 0.000 | −0.013 / −0.002 / −0.007 |
+| 2 × 2 MMI | cross TE₀ | 0.48148 | 0.48743 | 0.483 / 0.486 / 0.489 | 0.479 / 0.484 / 0.489 |
+| 2 × 2 MMI | excess loss | −0.140 dB | −0.120 dB | −0.14 / −0.13 / −0.12 | −0.155 / −0.145 / −0.125 |
+
+Every one within the span of the codes' settled values and the reading. The spectra over 1540
+to 1560 nm follow the paper's at 15 cells (the crossing's and the MMI's between the two codes' at both
+ends). At 20 cells the crossing's through port is 0.002 higher across the
+band, more than either code moves from 15 to 20 cells; the paper gives no band at 20, and the
+difference is followed in issue #256.
+
+The mode converter, the polarization splitter-rotator and the ring run in CI on coarse grids
+only; their runs at the paper's grid (81 to 92 million cells, two to four hours each on 20
+threads) are issue #256's. At 5 cells a wavelength the splitter-rotator turns 64 % of its TM₀
+into the upper port's TE₀ (the codes, at 6: 15 % and 5 %), and the mode converter 46 % of its TE₀
+into TE₁ (the codes at 6: 97 % and 36 %; settled, 36 % to 52 %). The ring's coupling across its
+200 nm gap needs a fine grid: at 6 cells its Q is about 8000 against the codes' 1700 to 1800, so
+CI checks its free spectral range instead, 7.54 nm from the strip's group index (4.1792, with
+silicon's and silica's dispersion) and its 75.747 µm, against the text's "around" 7.4 and 7.6.
+
+Run times on 20 threads of a Core Ultra 7 265K, against the paper's at the same resolution
+(Tidy3D in the cloud; Lumerical on an AMD 3960X and on its cloud GPUs):
+
+| Device | Cells, steps | Here (stepping, mode solves) | Tidy3D | Lumerical, local / cloud |
+|---|---|---|---|---|
+| crossing, 15 | 14.1 million, 14 124 | 8 min, 3 min | 29 s | 234 s / 15 s |
+| crossing, 20 | 30.4 million, 18 840 | 22 min, 6 min (shared) | 104 s | 591 s / 23 s |
+| coupler, 15 | 37.0 million, 16 478 | 63 min, 2 min (shared) | 63 s | 1293 s / 42 s |
+| coupler, 20 | 80.0 million, 21 980 | 111 min, 3 min (shared) | 150 s | 2606 s / 77 s |
+| MMI, 15 | 32.0 million, 17 655 | 26 min, 2 min | 45 s | 905 s / 34 s |
+| MMI, 20 | 69.3 million, 23 550 | 96 min, 3 min (shared) | 63 s | 2182 s / 72 s |
+
+On grids of 14 to 32 million cells the kernel made 358 to 436 million cell-updates/s with the
+monitors; "shared" runs had other work on the machine and made 160 to 280. The paper's grids are
+coarser in the cladding (Lumerical's crossing at 25 cells has 4.55e7 cells to our 14.1e6 at 15),
+and its GPUs are many.
 
 ## Cost
 
@@ -1260,4 +1299,9 @@ Before the rows were shared, a 2D grid, one plane thick, stepped on one thread: 
 | example `cpml_roden_gedney` | Roden and Gedney's plate in soil, both PMLs | −48.6 and −70.5 dB (paper: −48, −67) |
 | example `tfsf_square_cylinder` | Umashankar and Taflove's square cylinder's surface current | 1.732 and 0.764 (figure: 1.750, 0.785); within 0.4 % of their Eq. 8a |
 | example `lorentz_okoniewski` | Okoniewski, Mrozowski and Stuchly's two-term Lorentz half-space, $\lvert r\rvert$ and phase errors, 37.5 µm cells | at most 0.24 and 0.34 of their Fig. 1's curve (C = 1), 0.33 and 0.52 (C = 0.5) |
+| example `crossing_liu_poon` | Liu and Poon's crossing (gdsfactory's PDK) in 3D, through TE₀ at 1550 nm, 15 and 20 cells a wavelength (`--full`) | 0.95666, 0.95863 (Lumerical and Tidy3D settled: 0.9558 to 0.959) |
+| example `coupler_liu_poon` | their directional coupler, cross TE₀ at 1550 nm, 15 and 20 cells | 0.42771, 0.41352 (0.411 to 0.492) |
+| example `mmi_liu_poon` | their 2 × 2 MMI, cross TE₀ at 1550 nm, 15 and 20 cells | 0.48148, 0.48743 (0.479 to 0.489) |
+| examples `mode_converter_liu_poon`, `splitter_rotator_liu_poon` | their mode converter and splitter-rotator at 5 cells (CI); the paper's grid in #256 | TE₁ 0.457, TE₀ 0.642: within the codes' own stray at 6 cells |
+| example `ring_liu_poon` | their ring's free spectral range from the strip's group index and its length (CI); the 3D run in #256 | 7.54 nm (the text: around 7.4 and 7.6) |
 | example `subpixel_holes` | Farjadpour et al.'s elliptical holes, TE, 12 to 64 pixels a period: slopes of the error | lowest mode −2.26 at 2Δx (paper −2.43), −2.12 at s = 1, below the mean at every resolution; next mode's mean −1.40 (paper −1.33); lowest mode's mean −1.84 |

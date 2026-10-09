@@ -35,10 +35,24 @@
 //!   within how far the paper's own codes stray from them at 6 cells (0.954 and 0.939), half
 //!   their span and the reading: a coarse grid's error, bounded by the codes' own there.
 //!
-//! Measured on 20 threads of a Core Ultra 7 265K: at 15 cells (14.1 million cells, 14 124
-//! steps), 8 minutes of stepping and 3 of solving modes; the paper's Table 4 has, at 15 cells,
-//! 19 s for Tidy3D (GPUs in the cloud), 85 s for Lumerical locally (AMD 3960X) and 10 s on its
-//! cloud GPUs, on its non-uniform grids, which are coarser in the cladding.
+//! Measured (`--full`, 2026-10-09), through TE₀ and the excess loss at 1550 nm:
+//!
+//! | Cells a wavelength | Grid | Through TE₀ | Excess loss | 1540, 1560 nm |
+//! |---|---|---|---|---|
+//! | 15 | 361 × 394 × 99 cells of 29.7 nm | 0.95666 | −0.1923 dB | 0.95310, 0.95961 |
+//! | 20 | 473 × 518 × 124 cells of 22.3 nm | 0.95863 | −0.1834 dB | 0.95511, 0.96122 |
+//!
+//! All within the codes' spread. The paper gives the band (Fig. 8(b)) at 15 cells only, so it is
+//! checked there. At 20 cells the through port is 0.0018 to 0.0020 higher across the band, more
+//! than either code moves at 1550 nm from 15 to 20 cells (Lumerical +0.0003, Tidy3D −0.0029): at
+//! 1540 nm 0.95511, 0.0006 beyond the 15-cell values' tolerance, a known difference followed in
+//! issue #256.
+//!
+//! Run times on 20 threads of a Core Ultra 7 265K: at 15 cells (14.1 million cells, 14 124 steps)
+//! 8 minutes of stepping and 3 of solving the ports' modes; at 20 (30.4 million, 18 840 steps) 22
+//! and 6 minutes. The paper's Table 4 at 15 cells: 29 s for Tidy3D (GPUs in the cloud), 234 s for
+//! Lumerical locally (an AMD 3960X) and 15 s on its cloud GPUs; at 20, 104 s, 591 s and 23 s, on
+//! their non-uniform grids, coarser in the cladding.
 //!
 //! ```sh
 //! cargo run --release --example crossing_liu_poon              # 6 cells a wavelength

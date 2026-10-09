@@ -38,6 +38,10 @@
 //!   −39.6 dB), half their span and the reading: a coarse grid's error, bounded by the codes'
 //!   own there.
 //!
+//! At 5 cells (832 × 142 × 49 cells of 89.2 nm, 11 397 steps): TE₁ 0.457 and the crosstalk −39.2
+//! dB. The paper's grid hasn't been run yet: 92 million cells and about 34 000 steps at 15 cells,
+//! about 2.4 hours on 20 threads (issue #256).
+//!
 //! ```sh
 //! cargo run --release --example mode_converter_liu_poon              # 5 cells a wavelength
 //! cargo run --release --example mode_converter_liu_poon -- --full    # 15

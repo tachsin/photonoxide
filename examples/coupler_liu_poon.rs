@@ -40,6 +40,21 @@
 //! gap of 236 nm with eight cells; the S-bends' share of the coupling depends on their curved
 //! faces, which the smoothing's diagonal takes to first order.
 //!
+//! Measured (`--full`, 2026-10-09), the cross port's TE₀ and the excess loss at 1550 nm:
+//!
+//! | Cells a wavelength | Grid | Cross TE₀ | Excess loss | 1540 to 1560 nm |
+//! |---|---|---|---|---|
+//! | 15 | 1437 × 260 × 99 cells of 29.7 nm | 0.42771 | −0.0014 dB | 0.39639 to 0.46043 |
+//! | 20 | 1908 × 338 × 124 cells of 22.3 nm | 0.41352 | −0.0017 dB | 0.38273 to 0.44576 |
+//!
+//! Both within the codes' 0.411 to 0.492, between Lumerical's 0.411 and Tidy3D's 0.448 at 15
+//! cells; the band rises with the wavelength as both codes' does (Fig. 4(b), about 0.07 over 20
+//! nm). Run times on 20 threads of a Core Ultra 7 265K, each while other work shared the machine
+//! (so slower than it could be): at 15 cells (37.0 million cells, 16 478 steps) 63 minutes of
+//! stepping and 2 of mode solves; at 20 (80.0 million, 21 980 steps) 111 and 3. The paper's Table
+//! 2: at 15 cells 63 s for Tidy3D, 1293 s for Lumerical locally and 42 s on its cloud GPUs; at 20,
+//! 150 s, 2606 s and 77 s.
+//!
 //! ```sh
 //! cargo run --release --example coupler_liu_poon              # 6 cells a wavelength
 //! cargo run --release --example coupler_liu_poon -- --full    # 15 and 20
