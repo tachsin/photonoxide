@@ -137,9 +137,6 @@ mod supermatrix {
     pub const NROW_LONG: usize = 16;
 }
 
-/// `SuperLUStat_t`: three pointers, then the tiny pivots, the refinement's steps, the
-/// memory's expansions.
-const REFINE_STEPS: usize = 28;
 /// `mem_usage_t`: two floats, for the factors and in all.
 const TOTAL_NEEDED: usize = 4;
 
@@ -548,7 +545,6 @@ impl Engine {
         self.options.set_int(options::FACT, FACTORED);
         self.options
             .set_int(options::TRANS, if transpose { TRANS } else { NOTRANS });
-        let steps;
         {
             let _one = CALLS.lock().unwrap_or_else(|p| p.into_inner());
             let api = &self.api;
@@ -582,13 +578,11 @@ impl Engine {
                     stat.pointer(),
                     &mut info,
                 );
-                steps = stat.int(REFINE_STEPS);
                 (api.stat_free)(stat.pointer());
                 (api.destroy_store)(bm.pointer());
                 (api.destroy_store)(xm.pointer());
             }
         }
-        let _ = steps;
         check(info, n, "solve")?;
         Ok(x)
     }
