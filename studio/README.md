@@ -291,7 +291,7 @@ program by `scripts/record-gifs.mjs`, so they can be made again when the studio 
 cd studio
 pnpm tauri build                                  # target/release/photonoxide.exe
 node scripts/record-gifs.mjs                      # every GIF, about six minutes
-node scripts/record-gifs.mjs --only hero,themes   # some: hero, builder, materials, validation, themes
+node scripts/record-gifs.mjs --only hero,academy  # some: hero, builder, materials, validation, academy
 ```
 
 - **What it needs:** Windows (it drives the window's WebView2 over the DevTools protocol, on

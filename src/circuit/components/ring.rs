@@ -1,5 +1,6 @@
 //! Ring resonators, all-pass and add-drop, by the closed forms of W. Bogaerts et al., "Silicon
-//! microring resonators", Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017.
+//! microring resonators", Laser Photonics Rev. 6, 47 (published online 13 September 2011; the
+//! January 2012 issue), doi:10.1002/lpor.201100017.
 //!
 //! A ring of round-trip length L carries a mode of [`Dispersion`]; a round trip multiplies its
 //! field by a e^(iφ) = e^(iγL), so φ = βL is the single-pass phase and a = e^(−αL/2) the
@@ -335,9 +336,10 @@ impl Component for AllPassRing {
         Provenance {
             fidelity: Fidelity::Analytic,
             source: format!(
-                "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, \
-                 Eq. 1, a point coupler and a ring of n_eff {}, n_g {} at {} um, {} dB/cm and {} \
-                 dB per round trip",
+                "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September \
+                 2011; the January 2012 issue), doi:10.1002/lpor.201100017, Eq. 1, a point \
+                 coupler and a ring of n_eff {}, n_g {} at {} um, {} dB/cm and {} dB per round \
+                 trip",
                 self.guide.effective_index,
                 self.guide.group_index,
                 self.guide.wavelength.to_um(),
@@ -557,9 +559,10 @@ impl Component for AddDropRing {
         Provenance {
             fidelity: Fidelity::Analytic,
             source: format!(
-                "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, \
-                 Eqs. 5-6 as fields, two point couplers and a ring of n_eff {}, n_g {} at {} um, \
-                 {} dB/cm and {} dB per round trip",
+                "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September \
+                 2011; the January 2012 issue), doi:10.1002/lpor.201100017, Eqs. 5-6 as \
+                 fields, two point couplers and a ring of n_eff {}, n_g {} at {} um, {} dB/cm \
+                 and {} dB per round trip",
                 self.guide.effective_index,
                 self.guide.group_index,
                 self.guide.wavelength.to_um(),

@@ -3,10 +3,10 @@
 photonoxide's own solvers are pure Rust and always present. This plan lets it also use
 libraries that users install themselves: Intel's, AMD's, Apple's, Arm's and NVIDIA's math
 libraries, MUMPS and SuperLU. It also lets it show each user, on their own machine, which
-library is faster and leaner for which problem. The owner decided its terms on 2026-10-05; the
+library is faster and leaner for which problem. I decided its terms on 2026-10-05; the
 issues are tracked in #185.
 
-## The owner's decisions
+## Decisions
 
 1. **Loaded at run time, optional.** Nothing is linked at build time. The default build, CI and
    the released program stay pure Rust and work with no external library installed. A library
@@ -53,7 +53,9 @@ the studio
   the reason (`backend::register_unavailable`). Asking for a library by name says why it can't
   be had: a named backend that isn't available is an error, never a silent fallback.
 - **The choice.** `auto`, `photonoxide`, or a backend's name: in the solvers' settings, in job
-  files (TOML, JSON, YAML) and in the run record. Until #183, `auto` is photonoxide's own.
+  files (TOML, JSON, YAML) and in the run record. `auto` is the direct solver measured fastest
+  on this machine for the problem's kind and size, photonoxide's own without measurements
+  (#183; [the method's page](../methods/backends.md)).
 - **New traits come with their first backend,** not ahead of it: dense kernels with #186, an
   iterative solver with #189 or #190, an eigensolver if one is planned.
 
@@ -100,7 +102,7 @@ of cuDSS; cuSPARSE's ILU(0) factorization (`csrilu02`), deprecated likewise.
 - **CI has no external libraries.** `photonoxide-native` is tested in CI against a small
   test library, a `cdylib` crate in the workspace that exports a C interface. The real
   libraries' tests skip when the library isn't found, and say so. GPU backends are tested on
-  the owner's machine before releases, as FDTD's GPU kernel will be (#166).
+  tachsin's machine before releases, as FDTD's GPU kernel will be (#166).
 
 ## The benchmark
 

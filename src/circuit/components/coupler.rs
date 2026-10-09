@@ -34,7 +34,7 @@ fn coupler_entries(through: Dual, across: Dual) -> Entries {
 /// for an excess loss in dB. Parameter `coupling`, the power cross-coupling κ².
 ///
 /// The iκ makes it lossless (unitary, without excess loss) and reciprocal: the convention of
-/// Bogaerts et al. 2012 (doi:10.1002/lpor.201100017), whose ring responses (their Eq. 1) it
+/// Bogaerts et al. 2011 (doi:10.1002/lpor.201100017), whose ring responses (their Eq. 1) it
 /// reproduces, and of a directional coupler's supermodes ([`DirectionalCoupler`]) up to a
 /// common phase.
 #[derive(Clone, Debug, PartialEq)]
@@ -107,7 +107,7 @@ impl Component for Coupler {
         Provenance {
             fidelity: Fidelity::Analytic,
             source: format!(
-                "an ideal 2 × 2 coupler, through √(1 − κ²), across iκ (Bogaerts et al. 2012, \
+                "an ideal 2 × 2 coupler, through √(1 − κ²), across iκ (Bogaerts et al. 2011, \
                  doi:10.1002/lpor.201100017, Section 2.1), {} dB excess loss",
                 self.excess_loss
             ),
