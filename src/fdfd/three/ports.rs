@@ -148,7 +148,7 @@ impl PortMode3d {
     /// The same mode on plane `plane` of a grid with the same cross-section and step: a mode
     /// solved on a few planes cut out of a longer grid (its own problem is only the plane and
     /// the next), put back where they were cut from.
-    pub(crate) fn moved_to(mut self, plane: usize) -> PortMode3d {
+    pub fn moved_to(mut self, plane: usize) -> PortMode3d {
         self.plane = plane;
         self
     }

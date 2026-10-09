@@ -46,6 +46,8 @@ papers:
     doi: 10.1137/140991133
   - cite: "T. M. Malas, J. Hornich, G. Hager, H. Ltaief, C. Pflaum, D. E. Keyes, Proc. IEEE IPDPS 2016, 142 (diamond blocking of a Yee stencil)"
     doi: 10.1109/IPDPS.2016.87
+  - cite: "Z. Liu, J. K. S. Poon, Opt. Continuum 4, 2427 (2025) (six PDK devices in Lumerical FDTD and Tidy3D)"
+    doi: 10.1364/OPTCON.572107
 validation:
   - fdtd/dispersion
   - fdtd/energy
@@ -79,6 +81,8 @@ validation:
   - fdtd/smoothing-oskooi
   - fdtd/smoothing-triplets-oblique
   - fdtd/smoothing-triplets-order
+  - fdtd/smoothing-diagonal-oblique
+  - fdtd/smoothing-diagonal-order
   - fdtd/smoothing-bauer-order
   - fdtd/smoothing-triplets-contrast
   - fdtd/smoothing-triplets-lattices
@@ -115,6 +119,12 @@ examples:
   - subpixel_holes
   - pml_oskooi
   - bump_oskooi
+  - coupler_liu_poon
+  - crossing_liu_poon
+  - mmi_liu_poon
+  - mode_converter_liu_poon
+  - splitter_rotator_liu_poon
+  - ring_liu_poon
 ---
 
 The finite-difference time-domain method steps Maxwell's equations forward in time. One run
@@ -432,6 +442,21 @@ takes the same eight terms a value each step, from a table of the distinct nodes
 stable at any contrast, with about half the error at oblique interfaces and the same results at
 interfaces along the grid. Its smoothing costs more than the nodes' (8 tensors a node, each from
 6 edges and 6 faces).
+
+**The diagonal alone** (`Coupling::Diagonal`). Each value of E keeps its own diagonal entry of
+$\tilde\varepsilon^{-1}$ over its cell, for isotropic media
+$n_c^2\langle\varepsilon^{-1}\rangle + (1 - n_c^2)\langle\varepsilon\rangle^{-1}$, and the
+off-diagonal ones are dropped: E = $(\tilde\varepsilon^{-1})_{cc}D_c$, a permittivity per
+component, as conformal and subpixel meshes without a tensor take it. Nothing couples, so the
+update is the scalar one, stable at any contrast and combinable with a conductivity, a dispersive
+medium or a Bloch phase. Along the grid it is the tensor exactly (a unit test). At an oblique
+interface the dropped coupling is first order: at the oblique layers the error times n is 0.14, 0.38, 0.52, 0.57 and 0.62 at 16 to 256 cells a µm, the frequencies too high, about four times the triplets'; 4.43e-3 at 128
+(`fdtd/smoothing-diagonal-oblique`, order 0.87 from 64 to 128, `fdtd/smoothing-diagonal-order`). Its use
+is speed: a tensor that couples anything in a 3D device (a bend's faces, a taper's) steps the
+whole grid every step, where a scalar permittivity steps by the kernel's diamonds (below), about
+four times faster beyond the caches. On a 500 × 220 nm silicon S-bend in silica, 6 million cells
+of 30 nm, 20 threads of a Core Ultra 7 265K made 158 million cell-updates/s with the triplets
+and 582 with the diagonal. The devices of Liu and Poon (below) take it.
 
 **What doesn't combine.** A tensor that couples E's components refuses a conductivity, a
 dispersive medium (whose ε∞ would have to enter the tensor) and a Bloch side with k ≠ 0 (D's
@@ -926,6 +951,78 @@ number are reproduced:
   Fig. 11's ring are not sized in the paper; Fig. 9 gives Q ∼ 10⁶. The ring of Fig. 11 is
   checked against its exact resonances instead (above, "Resonances").
 
+## Six devices against Lumerical FDTD and Tidy3D
+
+Z. Liu and J. K. S. Poon (Opt. Continuum 4, 2427 (2025), doi:10.1364/OPTCON.572107) simulate
+six devices of gdsfactory's generic PDK in 3D in both commercial codes, at 6 to 25 cells a
+wavelength in silicon, and print or plot what each gives. The `*_liu_poon` examples run the same
+devices here (`examples/pdk`):
+
+- **The shapes** are gdsfactory's, drawn from its definitions (Bézier S-bends, Euler bends with
+  p = 0.5 on the arc's footprint, tapers) and checked against the paper's own GDS files: every
+  vertex within 1.1 nm. The guides run 10 µm past the ports, through the CPMLs, as the paper
+  extends them.
+- **The stack:** 220 nm of silicon (Li's, 3.4757 at 1550 nm), the crossing's slab 150 nm, in
+  silica (Malitson's); the splitter-rotator under silicon nitride of n = 2.0. Not dispersive:
+  each run takes its materials at one wavelength. The paper's Palik silicon is 3.4738 in
+  Tidy3D's fit and about 3.4764 in Lumerical's data.
+- **The cell** is the paper's in the plane (the ports and the device, 1 µm on every side); along
+  z 1 µm of cladding either side, where the paper has 2, CPMLs of 12 cells outside.
+- **The grid** is uniform: N cells a wavelength is h = 1.55 µm/(3.4757 N), 29.7 nm at 15 and
+  22.3 nm at 20. The paper's grids are non-uniform, as fine in the silicon and coarser outside.
+- **The smoothing** is `Coupling::Diagonal`: a permittivity per component of E, as the paper's
+  conformal (Lumerical) and subpixel (Tidy3D) meshes take it, and the kernel's diamonds, about
+  four times the speed of a coupling tensor.
+- **Sources and monitors:** the input's mode at 1550 nm launched by a pulse 0.04 c/µm wide on its
+  extension; each output's modes at 1540 to 1560 nm, solved by FDFD on the grid at each
+  frequency, projected on planes 0.3 µm past the ports; transmissions over the incident mode's
+  power at the same frequency. The run stops when the outputs' |E|² has stayed below 1e-6 of its
+  peak for 20 µm/c.
+
+At 1550 nm, against the span of both codes' values where the paper finds them settled (read off
+its figures, the reading's uncertainty stated in each example):
+
+| Device | At 1550 nm | Here, 15 cells (29.7 nm) | Here, 20 cells (22.3 nm) | Lumerical, 15 / 20 / 25 | Tidy3D, 15 / 20 / 25 |
+|---|---|---|---|---|---|
+| crossing | through TE₀ | 0.95666 | 0.95863 | 0.957 / 0.957 / 0.957 | 0.959 / 0.9558 / 0.9567 |
+| crossing | excess loss | −0.192 dB | −0.183 dB | −0.1925 / −0.191 / −0.1915 | −0.183 / −0.1965 / −0.1925 |
+| directional coupler | cross TE₀ | 0.42771 | 0.41352 | 0.411 / 0.446 / 0.430 | 0.448 / 0.492 / 0.456 |
+| directional coupler | excess loss | −0.0014 dB | −0.0017 dB | 0.000 / 0.001 / 0.000 | −0.013 / −0.002 / −0.007 |
+| 2 × 2 MMI | cross TE₀ | 0.48148 | 0.48743 | 0.483 / 0.486 / 0.489 | 0.479 / 0.484 / 0.489 |
+| 2 × 2 MMI | excess loss | −0.140 dB | −0.120 dB | −0.14 / −0.13 / −0.12 | −0.155 / −0.145 / −0.125 |
+
+Every one within the span of the codes' settled values and the reading. The spectra over 1540
+to 1560 nm follow the paper's at 15 cells (the crossing's and the MMI's between the two codes' at both
+ends). At 20 cells the crossing's through port is 0.002 higher across the
+band, more than either code moves from 15 to 20 cells; the paper gives no band at 20, and the
+difference is followed in issue #256.
+
+The mode converter, the polarization splitter-rotator and the ring run in CI on coarse grids
+only; their runs at the paper's grid (81 to 92 million cells, two to four hours each on 20
+threads) are issue #256's. At 5 cells a wavelength the splitter-rotator turns 64 % of its TM₀
+into the upper port's TE₀ (the codes, at 6: 15 % and 5 %), and the mode converter 46 % of its TE₀
+into TE₁ (the codes at 6: 97 % and 36 %; settled, 36 % to 52 %). The ring's coupling across its
+200 nm gap needs a fine grid: at 6 cells its Q is about 8000 against the codes' 1700 to 1800, so
+CI checks its free spectral range instead, 7.54 nm from the strip's group index (4.1792, with
+silicon's and silica's dispersion) and its 75.747 µm, against the text's "around" 7.4 and 7.6.
+
+Run times on 20 threads of a Core Ultra 7 265K, against the paper's at the same resolution
+(Tidy3D in the cloud; Lumerical on an AMD 3960X and on its cloud GPUs):
+
+| Device | Cells, steps | Here (stepping, mode solves) | Tidy3D | Lumerical, local / cloud |
+|---|---|---|---|---|
+| crossing, 15 | 14.1 million, 14 124 | 8 min, 3 min | 29 s | 234 s / 15 s |
+| crossing, 20 | 30.4 million, 18 840 | 22 min, 6 min (shared) | 104 s | 591 s / 23 s |
+| coupler, 15 | 37.0 million, 16 478 | 63 min, 2 min (shared) | 63 s | 1293 s / 42 s |
+| coupler, 20 | 80.0 million, 21 980 | 111 min, 3 min (shared) | 150 s | 2606 s / 77 s |
+| MMI, 15 | 32.0 million, 17 655 | 26 min, 2 min | 45 s | 905 s / 34 s |
+| MMI, 20 | 69.3 million, 23 550 | 96 min, 3 min (shared) | 63 s | 2182 s / 72 s |
+
+On grids of 14 to 32 million cells the kernel made 358 to 436 million cell-updates/s with the
+monitors; "shared" runs had other work on the machine and made 160 to 280. The paper's grids are
+coarser in the cladding (Lumerical's crossing at 25 cells has 4.55e7 cells to our 14.1e6 at 15),
+and its GPUs are many.
+
 ## Cost
 
 Every update is a fixed stencil with no reduction, its rows shared among rayon's threads in chunks
@@ -1327,4 +1424,9 @@ Before the rows were shared, a 2D grid, one plane thick, stepped on one thread: 
 | example `cpml_roden_gedney` | Roden and Gedney's plate in soil, both PMLs | −48.6 and −70.5 dB (paper: −48, −67) |
 | example `tfsf_square_cylinder` | Umashankar and Taflove's square cylinder's surface current | 1.732 and 0.764 (figure: 1.750, 0.785); within 0.4 % of their Eq. 8a |
 | example `lorentz_okoniewski` | Okoniewski, Mrozowski and Stuchly's two-term Lorentz half-space, $\lvert r\rvert$ and phase errors, 37.5 µm cells | at most 0.24 and 0.34 of their Fig. 1's curve (C = 1), 0.33 and 0.52 (C = 0.5) |
+| example `crossing_liu_poon` | Liu and Poon's crossing (gdsfactory's PDK) in 3D, through TE₀ at 1550 nm, 15 and 20 cells a wavelength (`--full`) | 0.95666, 0.95863 (Lumerical and Tidy3D settled: 0.9558 to 0.959) |
+| example `coupler_liu_poon` | their directional coupler, cross TE₀ at 1550 nm, 15 and 20 cells | 0.42771, 0.41352 (0.411 to 0.492) |
+| example `mmi_liu_poon` | their 2 × 2 MMI, cross TE₀ at 1550 nm, 15 and 20 cells | 0.48148, 0.48743 (0.479 to 0.489) |
+| examples `mode_converter_liu_poon`, `splitter_rotator_liu_poon` | their mode converter and splitter-rotator at 5 cells (CI); the paper's grid in #256 | TE₁ 0.457, TE₀ 0.642: within the codes' own stray at 6 cells |
+| example `ring_liu_poon` | their ring's free spectral range from the strip's group index and its length (CI); the 3D run in #256 | 7.54 nm (the text: around 7.4 and 7.6) |
 | example `subpixel_holes` | Farjadpour et al.'s elliptical holes, TE, 12 to 64 pixels a period: slopes of the error | lowest mode −2.26 at 2Δx (paper −2.43), −2.12 at s = 1, below the mean at every resolution; next mode's mean −1.40 (paper −1.33); lowest mode's mean −1.84 |

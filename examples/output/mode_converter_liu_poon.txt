@@ -1,0 +1,7 @@
+Liu and Poon's mode converter (gdsfactory's generic PDK), 3D FDTD, TE0 into the narrow guide; materials at 1.55 um
+5 cells a wavelength: 832 × 142 × 49 cells of 89.2 nm (5.8 million), CPMLs of 12
+  wavelength  cross TE1  cross TE0 (crosstalk)  reflection
+  1.550 um    0.45731    -39.22 dB             3.86e-4
+  cross TE1, 1550 nm, 5 cells            0.457307   paper 0.442      ± 6.1e-1    ok
+  crosstalk (dB), 1550 nm, 5 cells     -39.216938   paper -36.7      ± 1.3e1     ok
+all 2 within tolerance of the paper
