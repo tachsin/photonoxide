@@ -54,10 +54,10 @@ papers:
     year: 2005
     role: milestone
     note: "A silicon ring whose resonance is moved by injected carriers: a modulator a few micrometres across, where a straight one needs millimetres."
-  - cite: "W. Bogaerts, P. De Heyn, T. Van Vaerenbergh, K. De Vos, S. Kumar Selvaraja, T. Claes, P. Dumon, P. Bienstman, D. Van Thourhout, R. Baets, Laser Photonics Rev. 6, 47 (2012)"
+  - cite: "W. Bogaerts, P. De Heyn, T. Van Vaerenbergh, K. De Vos, S. Kumar Selvaraja, T. Claes, P. Dumon, P. Bienstman, D. Van Thourhout, R. Baets, Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue)"
     title: "Silicon microring resonators"
     doi: 10.1002/lpor.201100017
-    year: 2012
+    year: 2011
     role: review
     note: "The closed forms of all-pass and add-drop rings, their linewidth, finesse and Q, and silicon rings' design and uses: the formulas photonoxide's rings implement."
   - cite: "X. Ji, F. A. S. Barbosa, S. P. Roberts, A. Dutt, J. Cardenas, Y. Okawachi, A. Bryant, A. L. Gaeta, M. Lipson, Optica 4, 619 (2017)"
@@ -135,7 +135,7 @@ b_2 = \frac{i k a_1}{1 - r A}, \qquad
 $$
 
 using $r^2 + k^2 = 1$. This is the all-pass ring's through field, Eq. 1 of
-[Bogaerts et al. (2012)](https://doi.org/10.1002/lpor.201100017). Its square is the through
+[Bogaerts et al. (2011)](https://doi.org/10.1002/lpor.201100017). Its square is the through
 power,
 
 $$
@@ -232,7 +232,7 @@ several coupled rings easy to write down; Manolatou and others in Haus's group d
 picture of a resonator as a mode leaking into its ports. Yariv's short letter of 2000 put critical coupling in its universal
 form. Silicon photonics then made rings everyday parts: in 2005 Xu, Schmidt, Pradhan and Lipson
 moved a silicon ring's resonance with injected carriers to make a modulator micrometres across,
-and Bogaerts and colleagues' 2012 review gathered the closed forms and the practice of silicon
+and Bogaerts and colleagues' 2011 review gathered the closed forms and the practice of silicon
 rings that photonoxide's ring components implement.
 
 ::timeline
@@ -249,7 +249,7 @@ and gain balance ([Kippenberg et al., 2018](https://doi.org/10.1126/science.aan8
 laser coupled straight into a ring can start such a comb by itself when switched on
 ([Shen et al., 2020](https://doi.org/10.1038/s41586-020-2358-x)). Meanwhile rings remain the
 workhorse filters, modulators and sensors of silicon photonics
-([Bogaerts et al., 2012](https://doi.org/10.1002/lpor.201100017)), where open problems include
+([Bogaerts et al., 2011](https://doi.org/10.1002/lpor.201100017)), where open problems include
 holding a resonance in place against temperature and fabrication spread, and the splitting of
 resonances by light scattered backwards, which the closed forms here leave out.
 

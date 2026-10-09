@@ -124,10 +124,11 @@ pub(crate) fn paper_recovery(model: &Rational) -> (f64, f64, f64) {
     (pole_err, residue_err, surplus)
 }
 
-/// An all-pass ring (W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012),
-/// doi:10.1002/lpor.201100017, Eq. 1): through transmission
-/// E_pass/E_in = e^(i(π+φ)) (a − r e^(−iφ))/(1 − r a e^(iφ)) = (r − a e^(iφ))/(1 − r a e^(iφ)),
-/// φ = β L the round trip's phase, r the self-coupling and a the round trip's amplitude.
+/// An all-pass ring (W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13
+/// September 2011; the January 2012 issue), doi:10.1002/lpor.201100017, Eq. 1): through
+/// transmission E_pass/E_in = e^(i(π+φ)) (a − r e^(−iφ))/(1 − r a e^(iφ))
+/// = (r − a e^(iφ))/(1 − r a e^(iφ)), φ = β L the round trip's phase, r the self-coupling and a
+/// the round trip's amplitude.
 ///
 /// The effective index is first order in wavelength around λ₀, n_eff(λ) = n₀ − (n_g − n₀)(λ −
 /// λ₀)/λ₀ (their Eq. 10 with n_g constant), which makes φ exactly linear in k = 2π/λ:
@@ -694,14 +695,14 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "compact/vf-ring-allpass",
             title: r"An all-pass ring's through transmission ($r = 0.95$, $a = 0.98$, 10 µm radius, $n_g = 4.2$), 4 resonances from 1.53 to 1.57 µm at 401 wavelengths, fitted with 12 complex poles: largest $\lvert\Delta S\rvert$ at 1001 wavelengths (shown)",
             tier: Tier::Analytic,
-            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017, Eq. 1, with $n_\text{eff}$ first order in $\lambda$ (their Eq. 10), which makes the round trip's phase linear in $k = 2\pi/\lambda$",
+            source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue), doi:10.1002/lpor.201100017, Eq. 1, with $n_\text{eff}$ first order in $\lambda$ (their Eq. 10), which makes the round trip's phase linear in $k = 2\pi/\lambda$",
             run: vf_ring_allpass,
         },
         Case {
             id: "compact/vf-ring-poles",
             title: r"The same fit's poles against the ring's exact poles, where $r a e^{i\phi} = 1$ (largest error relative to the pole's real part, the resonance's half-width, shown)",
             tier: Tier::Analytic,
-            source: r"Bogaerts et al. (2012), Eq. 1: $k_m = (2\pi m + C + i \ln ra)/(L n_g)$ with $C = L (n_g - n_0) k_0$, each with the residue $-(1/r - r)/(L n_g)$ in $s = -ik$",
+            source: r"Bogaerts et al. (2011), Eq. 1: $k_m = (2\pi m + C + i \ln ra)/(L n_g)$ with $C = L (n_g - n_0) k_0$, each with the residue $-(1/r - r)/(L n_g)$ in $s = -ik$",
             run: vf_ring_poles,
         },
         Case {
@@ -722,21 +723,21 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "compact/param-ring-coupling",
             title: r"A parametric model of the all-pass ring over its self-coupling, $r$ from 0.90 to 0.97 (5 samples of 151 wavelengths, 12 basis poles, numerator and denominator polynomial of degree 2, all samples fitted at once): largest $\lvert\Delta S\rvert$ at the 4 values halfway between samples, 401 wavelengths each (shown)",
             tier: Tier::Analytic,
-            source: r"Bogaerts et al. (2012), Eq. 1: $(r - a z)/(1 - r a z)$ is a ratio of functions linear in $r$, which a numerator and denominator of degree 1 represent exactly; the form is P. Triverio et al.'s, IEEE Trans. Adv. Packag. 32, 205 (2009), doi:10.1109/TADVP.2008.2007913, Eq. 6, solved as C. K. Sanathanan and J. Koerner do, IEEE Trans. Autom. Control 8, 56 (1963), doi:10.1109/TAC.1963.1105517, Eqs. 5-7; 2.3e-10 here",
+            source: r"Bogaerts et al. (2011), Eq. 1: $(r - a z)/(1 - r a z)$ is a ratio of functions linear in $r$, which a numerator and denominator of degree 1 represent exactly; the form is P. Triverio et al.'s, IEEE Trans. Adv. Packag. 32, 205 (2009), doi:10.1109/TADVP.2008.2007913, Eq. 6, solved as C. K. Sanathanan and J. Koerner do, IEEE Trans. Autom. Control 8, 56 (1963), doi:10.1109/TAC.1963.1105517, Eqs. 5-7; 2.3e-10 here",
             run: param_ring_coupling,
         },
         Case {
             id: "compact/param-ring-shift",
             title: r"A parametric model of the ring over $n_\text{eff}$ at 1.55 µm from 2.39 to 2.41, which shifts its resonances by 0.8 of a free spectral range (13 samples, 16 basis poles, degree 6): largest $\lvert\Delta S\rvert$ at the 12 values halfway between samples (shown)",
             tier: Tier::Analytic,
-            source: "Bogaerts et al. (2012), Eq. 1; 1.9e-7 here; the 16 shared poles alone fit the samples only to 1.3, Triverio et al.'s piecewise-linear model fails between them (below), and fitting each sample alone and interpolating its poles missed by 0.2 to 0.8, measured while choosing the method",
+            source: "Bogaerts et al. (2011), Eq. 1; 1.9e-7 here; the 16 shared poles alone fit the samples only to 1.3, Triverio et al.'s piecewise-linear model fails between them (below), and fitting each sample alone and interpolating its poles missed by 0.2 to 0.8, measured while choosing the method",
             run: param_ring_shift,
         },
         Case {
             id: "compact/param-ring-stable",
             title: r"The same model made stable at 21 values (poles in the right half plane flipped, residues identified again over 801 wavelengths): largest $\lvert\Delta S\rvert$ against Eq. 1 (shown)",
             tier: Tier::Analytic,
-            source: "Bogaerts et al. (2012), Eq. 1; 1.2e-7 here; the flip is Gustavsen and Semlyen's (1999), Section 2; the polynomial model's own poles aren't constrained, and some fall in the right half plane, out of the band",
+            source: "Bogaerts et al. (2011), Eq. 1; 1.2e-7 here; the flip is Gustavsen and Semlyen's (1999), Section 2; the polynomial model's own poles aren't constrained, and some fall in the right half plane, out of the band",
             run: param_ring_stable,
         },
         Case {
