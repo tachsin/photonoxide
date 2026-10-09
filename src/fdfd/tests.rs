@@ -606,3 +606,95 @@ fn faers_lu_as_the_backend_gives_the_same_field_to_rounding() {
         .fold(0.0, f64::max);
     assert!(off < 1e-11 * largest, "{off} of {largest}");
 }
+
+#[test]
+fn auto_takes_the_backend_this_machines_records_say_and_says_why() {
+    use crate::backend::auto::{Measured, Outcome, with};
+    use crate::backend::{Choice, Form};
+    let grid = Grid {
+        nx: 60,
+        ny: 50,
+        dx: 0.04,
+        dy: 0.04,
+        x0: -1.2,
+        y0: -1.0,
+    };
+    let eps = |_: f64, y: f64| c64::new(if y.abs() < 0.2 { 12.0 } else { 2.1 }, 0.0);
+    let lam = Wavelength::um(1.55).unwrap();
+    let pml = Boundaries::pml(10);
+    let mut source = vec![c64::new(0.0, 0.0); grid.nx * grid.ny];
+    source[25 * grid.nx + 20] = c64::new(1.0, 0.0);
+    let threads = rayon::current_num_threads();
+    let record = |backend: &str, form: Form, seconds: f64| Measured {
+        family: "fdfd2d".into(),
+        form,
+        unknowns: 3_000,
+        backend: backend.into(),
+        threads,
+        seconds,
+        peak_bytes: None,
+        outcome: Outcome::Accurate,
+        // 2026-10-12
+        unix_seconds: 1_791_763_200,
+    };
+    // no records: photonoxide's own, as ever
+    let plain = with(Vec::new(), None, || {
+        Solver2d::new(grid, Polarization::Ez, lam, eps, pml).unwrap()
+    });
+    assert_eq!(
+        plain.direct_solver(),
+        format!("photonoxide {}", env!("CARGO_PKG_VERSION"))
+    );
+    assert_eq!(
+        plain.direct_choice(),
+        Some("no benchmark records on this machine")
+    );
+    // faer's LU measured twice as fast on symmetric 2D systems of this size: auto takes it
+    let symmetric = vec![
+        record("photonoxide", Form::Symmetric, 2.0),
+        record("faer", Form::Symmetric, 1.0),
+    ];
+    let (chosen, named, bloch) = with(symmetric, None, || {
+        let chosen = Solver2d::new(grid, Polarization::Ez, lam, eps, pml).unwrap();
+        // a solver that names its backend isn't auto: the records aren't asked
+        let named =
+            Solver2d::new_on(grid, Polarization::Ez, lam, eps, pml, &Choice::Photonoxide).unwrap();
+        // a Bloch side is a general system, of which there are no records
+        let bloch = Boundaries {
+            x: Edges::Bloch { k: 0.7 },
+            ..pml
+        };
+        let bloch = Solver2d::new(grid, Polarization::Ez, lam, eps, bloch).unwrap();
+        (chosen, named, bloch)
+    });
+    assert!(chosen.direct_solver().starts_with("faer "));
+    let why = format!(
+        "2.0 times faster than photonoxide's own at 3000 unknowns on {threads} thread{} on this \
+         machine, measured 2026-10-12",
+        if threads == 1 { "" } else { "s" }
+    );
+    assert_eq!(chosen.direct_choice(), Some(why.as_str()));
+    assert!(named.direct_solver().starts_with("photonoxide "));
+    assert_eq!(named.direct_choice(), None);
+    assert!(bloch.direct_solver().starts_with("photonoxide "));
+    // the field is the problem's, whichever backend: to rounding of photonoxide's own
+    let (a, b) = (
+        plain.solve(&source).unwrap(),
+        chosen.solve(&source).unwrap(),
+    );
+    let largest = a.values.iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let off = a
+        .values
+        .iter()
+        .zip(&b.values)
+        .map(|(a, b)| (a - b).norm())
+        .fold(0.0, f64::max);
+    assert!(off < 1e-11 * largest, "{off} of {largest}");
+    // a solver reused for another wavelength keeps the backend and the reason: one decision
+    // for a sweep, whatever the records become
+    let reused = chosen.reuse(Wavelength::um(1.5).unwrap(), eps).unwrap();
+    assert_eq!(reused.direct_solver(), chosen.direct_solver());
+    assert_eq!(reused.direct_choice(), chosen.direct_choice());
+    // and the bits of photonoxide's own when the records leave the choice with it
+    assert_eq!(named.solve(&source).unwrap().values, a.values);
+}

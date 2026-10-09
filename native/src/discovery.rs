@@ -226,8 +226,43 @@ fn folders_below(dir: &Path, depth: usize) -> Vec<PathBuf> {
     out
 }
 
-/// Python's package folders: the active virtual environment's, then the user's and the
-/// system's.
+/// The prefixes of the Pythons on `path` (the value of `PATH`), in its order, each once: the
+/// folder above a `bin` that holds `python3` or `python`; on Windows the folder that holds
+/// `python.exe`, or the one above its `Scripts`. Found by looking, not by running Python: a
+/// Python installed anywhere (pyenv, python.org's, a CI's) is where `pip install` puts a wheel.
+fn python_prefixes(path: &std::ffi::OsStr) -> Vec<PathBuf> {
+    let names: &[&str] = if cfg!(windows) {
+        &["python.exe"]
+    } else {
+        &["python3", "python"]
+    };
+    let mut out: Vec<PathBuf> = Vec::new();
+    for dir in env::split_paths(path) {
+        if !names.iter().any(|n| dir.join(n).is_file()) {
+            continue;
+        }
+        let named = |n: &str| {
+            dir.file_name()
+                .is_some_and(|f| f.to_string_lossy().eq_ignore_ascii_case(n))
+        };
+        let prefix = if named("bin") || named("Scripts") {
+            dir.parent().map(Path::to_path_buf)
+        } else if cfg!(windows) {
+            Some(dir.clone())
+        } else {
+            None
+        };
+        if let Some(prefix) = prefix
+            && !out.contains(&prefix)
+        {
+            out.push(prefix);
+        }
+    }
+    out
+}
+
+/// Python's package folders: the active virtual environment's, the Pythons' on `PATH`, then
+/// the user's and the system's.
 fn site_packages() -> Vec<PathBuf> {
     let mut roots = Vec::new();
     if let Some(venv) = env::var_os("VIRTUAL_ENV") {
@@ -235,6 +270,9 @@ fn site_packages() -> Vec<PathBuf> {
     }
     if let Some(conda) = env::var_os("CONDA_PREFIX") {
         roots.push(PathBuf::from(conda));
+    }
+    if let Some(path) = env::var_os("PATH") {
+        roots.extend(python_prefixes(&path));
     }
     let mut out = Vec::new();
     if cfg!(windows) {
@@ -294,4 +332,52 @@ fn system_paths() -> Vec<PathBuf> {
         .unwrap_or_default();
     out.extend(usual.iter().map(PathBuf::from));
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// An empty folder of its own under the system's temporary one.
+    fn scratch(tag: &str) -> PathBuf {
+        let dir = env::temp_dir().join(format!(
+            "photonoxide-discovery-{tag}-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn a_python_on_the_path_is_found_by_its_folder_without_running_it() {
+        let root = scratch("pythons");
+        let executable = if cfg!(windows) {
+            "python.exe"
+        } else {
+            "python3"
+        };
+        // one Python in its prefix's bin (Scripts on Windows), one with nothing called Python,
+        // and the first again later on the path
+        let first = root.join("first");
+        let inner = first.join(if cfg!(windows) { "Scripts" } else { "bin" });
+        let tools = root.join("tools").join("bin");
+        for dir in [&inner, &tools] {
+            fs::create_dir_all(dir).unwrap();
+        }
+        fs::write(inner.join(executable), b"").unwrap();
+        fs::write(tools.join("cargo"), b"").unwrap();
+        let path = env::join_paths([&tools, &inner, &root.join("missing"), &inner]).unwrap();
+        assert_eq!(python_prefixes(&path), vec![first.clone()]);
+        // on Windows python.exe also sits in the prefix itself
+        if cfg!(windows) {
+            let second = root.join("second");
+            fs::create_dir_all(&second).unwrap();
+            fs::write(second.join(executable), b"").unwrap();
+            let path = env::join_paths([&second, &inner]).unwrap();
+            assert_eq!(python_prefixes(&path), vec![second, first]);
+        }
+        assert!(python_prefixes(std::ffi::OsStr::new("")).is_empty());
+        let _ = fs::remove_dir_all(&root);
+    }
 }

@@ -53,7 +53,9 @@ the studio
   the reason (`backend::register_unavailable`). Asking for a library by name says why it can't
   be had: a named backend that isn't available is an error, never a silent fallback.
 - **The choice.** `auto`, `photonoxide`, or a backend's name: in the solvers' settings, in job
-  files (TOML, JSON, YAML) and in the run record. Until #183, `auto` is photonoxide's own.
+  files (TOML, JSON, YAML) and in the run record. `auto` is the direct solver measured fastest
+  on this machine for the problem's kind and size, photonoxide's own without measurements
+  (#183; [the method's page](../methods/backends.md)).
 - **New traits come with their first backend,** not ahead of it: dense kernels with #186, an
   iterative solver with #189 or #190, an eigensolver if one is planned.
 
@@ -121,6 +123,7 @@ of cuDSS; cuSPARSE's ILU(0) factorization (`csrilu02`), deprecated likewise.
 1. This plan, and AGENTS.md's rule (#172).
 2. The traits and the registry (#193, done). `photonoxide-native`'s machinery (#174).
 3. The libraries, in parallel (#175, #176, #177, #186, #187, #188, #189, #190), with the
-   install guides (#184).
+   install guides (#184: [docs/libraries.md](../libraries.md), each method run on clean machines
+   by the Libraries workflow).
 4. The catalogue (#179) and the runner (#180).
 5. The studio's Libraries (#181) and Benchmarks (#182) pages, and `auto` (#183).

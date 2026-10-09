@@ -1020,6 +1020,20 @@ pub fn cases() -> Vec<Case> {
             run: fdtd_smoothing_triplets_order,
         },
         Case {
+            id: "fdtd/smoothing-diagonal-oblique",
+            title: r"FDTD's subpixel smoothing with only the diagonal of $\tilde\varepsilon^{-1}$ (`Coupling::Diagonal`, nothing coupled) at the oblique layers above, 128 cells a µm: the mode's frequency against the transfer matrices (relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"the same exact frequency, 0.885677 c/µm. Each value keeps its own entry $n_c^2\langle\varepsilon^{-1}\rangle + (1 - n_c^2)\langle\varepsilon\rangle^{-1}$ of Farjadpour et al.'s tensor; the dropped coupling is first order at an oblique interface: error times $n$ 0.14, 0.38, 0.52, 0.57 and 0.62 at $n$ = 16 to 256 (frequencies too high), about four times the triplets'; measured 4.43e-3 at 128; along the grid it is the tensor's exactly (a unit test)",
+            run: fdtd_smoothing_diagonal_oblique,
+        },
+        Case {
+            id: "fdtd/smoothing-diagonal-order",
+            title: r"The order of convergence at the oblique layers with `Coupling::Diagonal`, from 64 to 128 cells a µm: $\log_2$ of the ratio of the errors (shown)",
+            tier: Tier::Analytic,
+            source: r"against the transfer matrices; first order, as every placement here but Bauer et al.'s unsymmetric tensor; measured 0.87",
+            run: fdtd_smoothing_diagonal_order,
+        },
+        Case {
             id: "fdtd/smoothing-bauer-order",
             title: r"The order of convergence at the oblique layers with Bauer, Werner and Cary's triplet tensors as they are, not made symmetric (a check, not a `Coupling`: not stable), from 64 to 128 cells a µm (shown)",
             tier: Tier::Analytic,
@@ -2572,6 +2586,29 @@ fn fdtd_smoothing_triplets_order() -> Outcome {
         measured,
         expected: 1.0,
         // first order: measured 1.15
+        tolerance: 0.35,
+        error: (measured - 1.0).abs(),
+    }
+}
+
+fn fdtd_smoothing_diagonal_oblique() -> Outcome {
+    use crate::fdtd::Coupling;
+    let measured = crate::fdtd::smoothing::checks::oblique(Coupling::Diagonal, 128).abs();
+    Outcome {
+        measured,
+        expected: 0.0,
+        // first order: measured 4.43e-3 at 128 cells a µm
+        tolerance: 6e-3,
+        error: measured,
+    }
+}
+
+fn fdtd_smoothing_diagonal_order() -> Outcome {
+    let measured = oblique_order(crate::fdtd::Coupling::Diagonal.into());
+    Outcome {
+        measured,
+        expected: 1.0,
+        // first order: measured 0.87
         tolerance: 0.35,
         error: (measured - 1.0).abs(),
     }

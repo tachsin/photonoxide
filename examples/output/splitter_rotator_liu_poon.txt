@@ -1,0 +1,6 @@
+Liu and Poon's polarization splitter-rotator (gdsfactory's generic PDK), 3D FDTD, TM0 into the input; silicon nitride (n = 2.0) above, materials at 1.55 um
+5 cells a wavelength: 845 × 124 × 49 cells of 89.2 nm (5.1 million), CPMLs of 12
+  wavelength  upper TE0  upper TM0 (crosstalk)  lower TE0  lower TM0  reflection
+  1.550 um    0.64210    -22.04 dB             1.46e-4   1.71e-1   1.95e-5
+  upper TE0, 1550 nm, 5 cells            0.642096   paper 0.9485     ± 9.1e-1    ok
+all 1 within tolerance of the paper

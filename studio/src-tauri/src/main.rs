@@ -3,6 +3,7 @@
 //! report; times the benchmark problems.
 
 mod academy;
+mod auto;
 mod bench;
 mod benchmarks;
 mod charts;
@@ -54,7 +55,7 @@ const USAGE: &str = "usage:
       the summary alone, from the database
   photonoxide bench --import <file> [--db <file>]
       add another database's records, from this machine or another
-  photonoxide libraries [--json]
+  photonoxide libraries [--json | --write <file>]
       the external libraries found here (oneMKL, the CUDA runtime, cuSPARSE, cuDSS): where
       each was found, its version, and the backends that passed their smoke tests
   photonoxide --version";
@@ -123,6 +124,9 @@ fn run(args: &[String]) -> ExitCode {
         Ok(j) => j,
         Err(e) => return fail(e),
     };
+    // this machine's benchmark records for auto, and the external libraries if the job needs
+    // them
+    auto::prepare(&job);
     let mut record = match Run::create(&out, &job) {
         Ok(r) => r,
         Err(e) => return fail(e),

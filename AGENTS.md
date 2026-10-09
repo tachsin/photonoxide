@@ -2,19 +2,23 @@
 
 photonoxide is released milestone by milestone: a library whose public API can change between milestones until 1.0, and
 the `photonoxide` program (the studio). [ROADMAP.md](ROADMAP.md) is the plan and the record of
-what is done; [CHANGELOG.md](CHANGELOG.md) has what each release changed. 0.1 to 0.4 and their
-patches are released, the latest 0.4.3 (direct solves at PARDISO's fill,
-[docs/baselines.md](docs/baselines.md)); next is 0.5, finite-difference time-domain (FDTD). The
-library's modules, each with a write-up in `docs/methods/`:
+what is done; [CHANGELOG.md](CHANGELOG.md) has what each release changed. 0.1 to 0.5 and their
+patches are released, the latest 0.5.0 (finite-difference time-domain, FDTD, and solver backends
+loaded at run time); next is 0.5.1, many solves at once. The library's modules, each with a
+write-up in `docs/methods/`:
 
-- `units`, `material` (with `material::catalogue`), `geometry`, `stack`, `raster`;
+- `units`, `material` (with `material::catalogue`), `geometry` (the kernel: regions, transforms,
+  polygons, a spatial index), `expr` (expressions with units and parameters), `stack`, `raster`;
 - `mode`: slabs, multilayers, planar profiles, full-vector and Hadley cross-sections, bends,
   the effective index method, Marcatili, dispersion and fields;
 - `fdfd`: 2D and 3D, ports and S-parameters, adjoint gradients, direct and QMR solves;
-- `fdtd`: the Yee scheme in 2D and 3D, the convolutional PML, sources and probes, and the GPU
-  (`fdtd::gpu`, wgpu compute behind the `gpu` feature);
+- `fdtd`: the Yee scheme in 2D and 3D, the convolutional PML, smoothing, sources, monitors,
+  dispersive media, adjoint gradients, and the GPU (`fdtd::gpu`, wgpu compute behind the `gpu`
+  feature);
 - `circuit`: components, netlists, the circuit solve and its adjoint, objectives for genoxide;
 - `compact`: vector fitting, models over parameters, Touchstone files;
+- `backend`: the solver backends, photonoxide's own and the external libraries' (through
+  `photonoxide-native`);
 - `job`, `run`: job files, run records and replay; `validation`: the report's cases; `bench`: the benchmark problems.
 
 ## Commands

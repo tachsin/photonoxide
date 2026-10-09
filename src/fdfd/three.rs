@@ -619,8 +619,10 @@ impl Solver3d {
         Self::new_on(grid, wavelength, eps, boundaries, &Choice::Auto)
     }
 
-    /// [`Solver3d::new`] with the direct solver of `direct` ([`crate::backend`]):
-    /// photonoxide's own for `auto`, or a backend by its name. A solver this one is reused for
+    /// [`Solver3d::new`] with the direct solver of `direct` ([`crate::backend`]): for `auto`,
+    /// the one measured fastest on this machine for a problem of this kind and size
+    /// ([`crate::backend::auto`]: photonoxide's own without measurements); or a backend by its
+    /// name. A solver this one is reused for
     /// ([`Solver3d::reuse`]) keeps it.
     ///
     /// # Errors
@@ -634,13 +636,35 @@ impl Solver3d {
         boundaries: Boundaries3d,
         direct: &Choice,
     ) -> Result<Solver3d> {
-        Self::build(grid, wavelength, eps, boundaries, Plan::new(direct)?)
+        let bloch = |e: Edges| matches!(e, Edges::Bloch { .. });
+        let problem = crate::backend::auto::Problem {
+            family: "fdfd3d",
+            form: if bloch(boundaries.x) || bloch(boundaries.y) || bloch(boundaries.z) {
+                crate::backend::Form::General
+            } else {
+                crate::backend::Form::Symmetric
+            },
+            unknowns: grid.unknowns(),
+        };
+        Self::build(
+            grid,
+            wavelength,
+            eps,
+            boundaries,
+            Plan::for_problem(direct, problem)?,
+        )
     }
 
     /// The direct solver that factorized this problem, as the backend names itself: its name
     /// and version, e.g. `photonoxide 0.4.3`.
     pub fn direct_solver(&self) -> String {
         self.lu.backend()
+    }
+
+    /// Why `auto` chose that direct solver, if the problem named none
+    /// ([`crate::backend::auto::Decision::reason`]).
+    pub fn direct_choice(&self) -> Option<&str> {
+        self.lu.chosen()
     }
 
     /// The factors' entries, as the direct solver reports them.
