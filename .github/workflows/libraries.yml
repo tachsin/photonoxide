@@ -183,9 +183,11 @@ jobs:
       - name: What photonoxide finds
         run: cargo run -p photonoxide-native --example libraries | tee found.txt
       - name: photonoxide finds it
-        run: grep -E '^Accelerate [0-9.]+: /System/Library/Frameworks/' found.txt
+        run: |
+          grep -E '^Accelerate [0-9.]+: /System/Library/Frameworks/' found.txt
       - name: Its backend is offered
-        run: grep -E '^backend accelerate \(direct\): .* available' found.txt
+        run: |
+          grep -E '^backend accelerate \(direct\): .* available' found.txt
       - name: Its backend's tests, the library required
         run: env ${{ matrix.require }} cargo test -p photonoxide-native --release --test accelerate
 
