@@ -53,7 +53,9 @@ the studio
   the reason (`backend::register_unavailable`). Asking for a library by name says why it can't
   be had: a named backend that isn't available is an error, never a silent fallback.
 - **The choice.** `auto`, `photonoxide`, or a backend's name: in the solvers' settings, in job
-  files (TOML, JSON, YAML) and in the run record. Until #183, `auto` is photonoxide's own.
+  files (TOML, JSON, YAML) and in the run record. `auto` is the direct solver measured fastest
+  on this machine for the problem's kind and size, photonoxide's own without measurements
+  (#183; [the method's page](../methods/backends.md)).
 - **New traits come with their first backend,** not ahead of it: dense kernels with #186, an
   iterative solver with #189 or #190, an eigensolver if one is planned.
 

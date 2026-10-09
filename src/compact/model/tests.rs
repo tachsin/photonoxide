@@ -18,7 +18,7 @@ fn spectrum(f: impl Fn(f64) -> c64, lo: f64, hi: f64, count: usize) -> Spectrum 
     Spectrum::new(vec!["o1".into()], ws, ms).unwrap()
 }
 
-// Bogaerts et al. 2012, Eq. 1: its poles are exactly where r a e^(iφ) = 1
+// Bogaerts et al. 2011, Eq. 1: its poles are exactly where r a e^(iφ) = 1
 #[test]
 fn an_all_pass_rings_poles_are_recovered() {
     let ring = Ring::example();
@@ -66,7 +66,7 @@ fn a_compact_model_is_a_component() {
     let model = CompactModel::fit(&sp, &Options::new(12))
         .unwrap()
         .with_kind("ring")
-        .with_source("Bogaerts et al. 2012, Eq. 1");
+        .with_source("Bogaerts et al. 2011, Eq. 1");
     assert_eq!(model.kind(), "ring");
     assert_eq!(model.ports()[0].name, "o1");
     assert!(model.parameters().is_empty());

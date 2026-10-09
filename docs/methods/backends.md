@@ -53,7 +53,8 @@ reason. `backend::direct_solvers` lists them all.
 
 ## Choosing one
 
-A `Choice` is `auto` (photonoxide's own), `photonoxide`, or a backend's name:
+A `Choice` is `auto` (what this machine's measurements say: see "What auto chooses"),
+`photonoxide`, or a backend's name:
 
 - **In the solvers:** `Solver2d::new_on` and `from_cells_on`, `Solver3d::new_on`, and
   `IterativeSolver3d::with_multigrid_on` for the multigrid's coarsest level. `new`,
@@ -70,9 +71,50 @@ A `Choice` is `auto` (photonoxide's own), `photonoxide`, or a backend's name:
   is registered under, a backend that isn't available (with its reason), and the setting on a
   job without a direct solve.
 - **In the record:** the run's `Solver` event names the backend that solved and its version,
-  with `(auto)` if the job named none.
+  and if the job named none, that `auto` chose it and why.
 
 A named backend that isn't available is an error. It is never replaced by another.
+
+## What auto chooses
+
+`photonoxide::backend::auto` chooses the direct solver of a 2D or 3D solve that names none,
+from the benchmark runner's records of the machine it runs on (`photonoxide bench --tier`, the
+Benchmarks page). The rule, `auto::choose`, is a function of those records alone:
+
+- **The records that count:** the problem's family (`fdfd2d` or `fdfd3d`) and form (general,
+  or complex symmetric), on the thread count measured nearest the solve's, that ran and passed
+  their accuracy check.
+- **The nearest size:** each backend's record nearest the problem's unknowns, and within a
+  factor of 4 of them, against photonoxide's own on that same problem. A problem far from
+  every measured size is photonoxide's own.
+- **A margin:** a backend is taken only if it was at least 10% faster than photonoxide's own
+  there.
+- **Never** a backend that isn't registered and available (its library gone, a failed smoke
+  test), nor one that missed an accuracy check in that family and form on this machine. A run
+  that didn't finish says nothing either way.
+- **Memory:** a backend whose peak, scaled from its record to the problem's size (as the
+  factors of a nested dissection grow: n log₂ n in 2D, n^(4/3) in 3D), is beyond the free
+  memory is passed over for the next that fits.
+- **No records:** photonoxide's own. The library alone, the tests and the validation report
+  have none, so there `auto` is what it always was, to the bit.
+
+The decision comes with its reason, which the run's record keeps:
+
+```
+pardiso 2025.2 (auto: 2.1 times faster than photonoxide's own at 120000 unknowns on 20 threads
+on this machine, measured 2026-10-12)
+```
+
+A sweep decides once: a solver reused for another wavelength keeps its backend. A job that
+names its backend (`[solver] direct = "pardiso"`) isn't `auto`, and its record says so, which
+is how a result is pinned to one.
+
+The studio gives `auto` the records when a job starts: those of this machine only, and only
+the catalogue's direct problems, each run's time without its assembly. It looks for the
+external libraries then too, once, if the job names one or the records hold a run of one.
+
+Not chosen by `auto` yet: the iterative backends, the multigrid's coarsest level (photonoxide's
+own unless named) and the mode solvers.
 
 ## What is checked
 
@@ -89,5 +131,4 @@ A named backend that isn't available is an error. It is never replaced by anothe
 
 The mode solvers' shift-and-invert still calls faer's LU directly. Dense kernels for the
 multifrontal fronts (#186), iterative solvers (#189, #190) and eigensolvers get their own traits
-with their first backend. `auto` is photonoxide's own until it can choose from measurements
-(#183).
+with their first backend.

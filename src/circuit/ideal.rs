@@ -150,7 +150,7 @@ pub(crate) fn um(value: f64) -> Wavelength {
     Wavelength::um(value).expect("a valid wavelength")
 }
 
-/// An all-pass ring (Bogaerts 2012, Fig. 2A): a coupler with power cross-coupling `kappa2`, the
+/// An all-pass ring (Bogaerts 2011, Fig. 2A): a coupler with power cross-coupling `kappa2`, the
 /// bus from `a1` (external `in`) to `b1` (`through`), and `b2` fed back to `a2` through `guide`
 /// `length` µm long.
 pub(crate) fn all_pass(guide: &Waveguide, length: f64, kappa2: f64) -> Result<super::Circuit> {
@@ -166,7 +166,7 @@ pub(crate) fn all_pass(guide: &Waveguide, length: f64, kappa2: f64) -> Result<su
     n.compile()
 }
 
-/// An add-drop ring (Bogaerts 2012, Fig. 2B): two couplers, `kappa2` and `kappa2_drop`, joined
+/// An add-drop ring (Bogaerts 2011, Fig. 2B): two couplers, `kappa2` and `kappa2_drop`, joined
 /// by two halves of a ring `length` µm round; external ports `in`, `through`, `add`, `drop`.
 pub(crate) fn add_drop(
     guide: &Waveguide,
@@ -232,25 +232,25 @@ pub(crate) fn mzi_closed_form(t_upper: c64, t_lower: c64, kappa2: f64, q: usize,
     c[q][0] * t_upper * c[0][p] + c[q][1] * t_lower * c[1][p]
 }
 
-/// Bogaerts 2012, Eq. 1: the all-pass ring's through field, e^(i(π + φ)) (a − r e^(−iφ)) /
+/// Bogaerts 2011, Eq. 1: the all-pass ring's through field, e^(i(π + φ)) (a − r e^(−iφ)) /
 /// (1 − r a e^(iφ)), r the self-coupling, a the single-pass amplitude, φ the single-pass phase.
 pub(crate) fn bogaerts_eq1(r: f64, a: f64, phi: f64) -> c64 {
     let e = |x: f64| c64::new(0.0, x).exp();
     e(std::f64::consts::PI + phi) * (a - r * e(-phi)) / (1.0 - r * a * e(phi))
 }
 
-/// Bogaerts 2012, Eq. 2: the all-pass ring's through intensity.
+/// Bogaerts 2011, Eq. 2: the all-pass ring's through intensity.
 pub(crate) fn bogaerts_eq2(r: f64, a: f64, phi: f64) -> f64 {
     (a * a - 2.0 * r * a * phi.cos() + r * r) / (1.0 - 2.0 * a * r * phi.cos() + (r * a).powi(2))
 }
 
-/// Bogaerts 2012, Eq. 5: the add-drop ring's through intensity.
+/// Bogaerts 2011, Eq. 5: the add-drop ring's through intensity.
 pub(crate) fn bogaerts_eq5(r1: f64, r2: f64, a: f64, phi: f64) -> f64 {
     (r2 * r2 * a * a - 2.0 * r1 * r2 * a * phi.cos() + r1 * r1)
         / (1.0 - 2.0 * r1 * r2 * a * phi.cos() + (r1 * r2 * a).powi(2))
 }
 
-/// Bogaerts 2012, Eq. 6: the add-drop ring's drop intensity.
+/// Bogaerts 2011, Eq. 6: the add-drop ring's drop intensity.
 pub(crate) fn bogaerts_eq6(r1: f64, r2: f64, a: f64, phi: f64) -> f64 {
     (1.0 - r1 * r1) * (1.0 - r2 * r2) * a
         / (1.0 - 2.0 * r1 * r2 * a * phi.cos() + (r1 * r2 * a).powi(2))

@@ -141,16 +141,16 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "Chrostowski & Hochberg 2015",
         ),
         "circuit_splitter" => ("A tunable MZI splitter", "Clements et al. 2016"),
-        "circuit_ring_critical" => ("A ring tuned to critical coupling", "Bogaerts et al. 2012"),
+        "circuit_ring_critical" => ("A ring tuned to critical coupling", "Bogaerts et al. 2011"),
         "circuit_fit" => (
             "Fitting a ring, with and without gradients",
-            "Bogaerts et al. 2012",
+            "Bogaerts et al. 2011",
         ),
         "directional_coupler" => (
             "A directional coupler's cross-over length",
             "Chrostowski & Hochberg 2015",
         ),
-        "ring_q_factor" => ("The best length for a ring's Q", "Bogaerts et al. 2012"),
+        "ring_q_factor" => ("The best length for a ring's Q", "Bogaerts et al. 2011"),
         "mzi_dwivedi" => ("Measured MZIs: a wire's indices", "Dwivedi et al. 2015"),
         "cpml_roden_gedney" => ("The CPML beside a plate in soil", "Roden & Gedney 2000"),
         "tfsf_square_cylinder" => (

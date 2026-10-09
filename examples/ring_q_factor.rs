@@ -1,6 +1,7 @@
 //! The quality factor of silicon ring resonators against their length, at critical coupling.
 //!
-//! W. Bogaerts et al., "Silicon microring resonators", Laser Photonics Rev. 6, 47 (2012),
+//! W. Bogaerts et al., "Silicon microring resonators", Laser Photonics Rev. 6, 47 (published
+//! online 13 September 2011; the January 2012 issue),
 //! [doi:10.1002/lpor.201100017](https://doi.org/10.1002/lpor.201100017), Section 2.4 and
 //! Fig. 5: rings losing 2.7 dB/cm in their waveguide, plus 0.04 dB in their bends and 0.035 dB
 //! in their coupler (all-pass) or 0.07 dB in their two couplers (add-drop) per round trip (his
