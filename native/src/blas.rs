@@ -13,8 +13,9 @@
 //!   doesn't arise. What was loaded is checked before it is offered: photonoxide's solver
 //!   with these kernels must pass the smoke test against its own ([`crate::offer`]).
 //! - **`zgemmt`,** the product into one triangle that an L D Lᵀ's updates are, isn't standard:
-//!   it is used where the library has it (oneMKL, OpenBLAS from 0.3.22) and `zgemm` computes
-//!   both triangles where it doesn't.
+//!   it is used where the library has it (oneMKL, OpenBLAS) and `zgemm` computes both
+//!   triangles where it doesn't. OpenBLAS has it from 0.3.22, and its is used from 0.3.27:
+//!   with 0.3.26's (Ubuntu 24.04's package) the solver crashed.
 //! - **Threads.** A call says whether it may thread. Fronts factorized side by side on rayon's
 //!   threads must each stay on their own thread, while a front near the root has them all, so
 //!   the count is set for the calling thread around each call: `mkl_set_num_threads_local`,
@@ -217,6 +218,7 @@ impl Blas {
         })
         .unwrap_or_default();
         let version = openblas_version(&config);
+        let zgemmt = zgemmt.filter(|_| at_least(&version, [0, 3, 27]));
         // SAFETY: `int openblas_set_num_threads_local(int)`, from OpenBLAS 0.3.27
         let local = unsafe { library.function::<SetInt>("openblas_set_num_threads_local") }.ok();
         let (threading, threads) = match local {
@@ -373,6 +375,16 @@ fn openblas_version(config: &str) -> String {
         .find(|word| word.starts_with(|c: char| c.is_ascii_digit()))
         .unwrap_or("unknown")
         .to_owned()
+}
+
+/// Whether a version in numbers and points is this one or a later one.
+fn at_least(version: &str, least: [u32; 3]) -> bool {
+    let mut numbers = version.split('.').map(|part| {
+        let digits: String = part.chars().take_while(char::is_ascii_digit).collect();
+        digits.parse::<u32>().unwrap_or(0)
+    });
+    let got: [u32; 3] = std::array::from_fn(|_| numbers.next().unwrap_or(0));
+    got >= least
 }
 
 /// macOS's version, from `kern.osproductversion`.
@@ -634,6 +646,9 @@ mod tests {
         );
         assert_eq!(openblas_version("0.3.29 NO_LAPACKE"), "0.3.29");
         assert_eq!(openblas_version(""), "unknown");
+        assert!(at_least("0.3.27", [0, 3, 27]) && at_least("0.3.34", [0, 3, 27]));
+        assert!(at_least("0.4", [0, 3, 27]) && at_least("0.3.27.dev", [0, 3, 27]));
+        assert!(!at_least("0.3.26", [0, 3, 27]) && !at_least("unknown", [0, 3, 27]));
     }
 
     #[test]

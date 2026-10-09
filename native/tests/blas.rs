@@ -223,10 +223,11 @@ fn the_kernels_are_faers_to_round_off() {
                 let permuted: Vec<c64> = (0..n * n).map(|e| a[rows[e % n] + (e / n) * n]).collect();
                 let d = relative(&product, &permuted);
                 assert!(d < 1e-11, "{} LU n {n}: {d:e}", what.name);
-                // partial pivoting: no entry of L is larger than 1
+                // partial pivoting: LAPACK takes the entry largest in |re| + |im|, which
+                // leaves no entry of L larger than that of 1, and so none beyond √2 in modulus
                 let largest = l.iter().map(|v| v.norm()).fold(0.0, f64::max);
                 assert!(
-                    largest <= 1.0 + 1e-12,
+                    largest <= 2f64.sqrt() + 1e-12,
                     "{} LU n {n}: |L| to {largest}",
                     what.name
                 );
