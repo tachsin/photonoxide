@@ -881,6 +881,7 @@ method_docs!(
     "circuits.md",
     "compact.md",
     "components.md",
+    "contour.md",
     "conventions.md",
     "dispersion.md",
     "eigen.md",

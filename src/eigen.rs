@@ -9,6 +9,8 @@
 //! with a larger Krylov space than the last. A Ritz pair is
 //! accepted only when its true residual ‖Ax − λx‖ / (|λ| ‖x‖) is small, computed with A itself.
 
+pub(crate) mod contour;
+
 use faer::linalg::solvers::Solve;
 use faer::sparse::{SparseColMat, Triplet};
 use faer::{Mat, c64};

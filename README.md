@@ -50,7 +50,9 @@ In the released versions (the latest on the crates.io badge above):
   plane-wave reflection), and [planar profiles](docs/methods/slab-fd.md) by finite differences.
 - **Waveguide cross-sections:** [full-vector modes](docs/methods/vector.md) by finite
   differences, with a [PML](docs/methods/pml.md) for leaky modes and
-  [mirror walls](docs/methods/walls.md); [Hadley's equations](docs/methods/hadley.md) for
+  [mirror walls](docs/methods/walls.md); every mode in a region of the complex effective-index
+  plane, with no count and no guess, by [contour integrals](docs/methods/contour.md);
+  [Hadley's equations](docs/methods/hadley.md) for
   second-order accuracy at dielectric corners; [bends](docs/methods/bends.md);
   the [effective index method](docs/methods/eim.md) and
   [Marcatili's approximation](docs/methods/marcatili.md), each with its error stated; group
