@@ -503,7 +503,7 @@ guide's centre (12 threads):
 
 The fields differ by 2e-8 and 3e-9 of the largest value. The products differ in their last
 bits, which the Lanczos process carries along: 1 and 3 % more iterations here. The solve gains
-less than the product (1.4 times against 2 to 2.6), since QMR's own vector work is now most of
+less than the product (1.4 times against 1.6 to 2.6), since QMR's own vector work is now most of
 an iteration.
 
 It is for the solves that take no preconditioner. ILU(0) needs the matrix's entries, and the

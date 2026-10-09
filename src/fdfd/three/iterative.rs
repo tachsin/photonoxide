@@ -123,7 +123,7 @@ impl IterativeSolver3d {
     /// without its matrix: each product is two passes over the grid, E to H and back, with the
     /// PML's stretch, the walls and the Bloch phases as the matrix has them. The same product
     /// to rounding, so the same iterations but for it; 96 bytes an unknown where the matrix
-    /// and its transpose take about 600, and half the time a product or less
+    /// and its transpose take about 600, and a product 1.6 to 2.6 times faster on 12 threads
     /// (docs/methods/fdfd-3d.md, "Without the matrix").
     ///
     /// For the solves that take no preconditioner. ILU(0), the multigrid and an iterative
