@@ -6,6 +6,7 @@ level: intermediate
 minutes: 35
 prerequisites: []
 examples: [multilayer_chilwell]
+jobs: [bragg-grating.toml]
 methods: [multilayer.md]
 validation:
   - mode/multilayer-bragg
@@ -110,6 +111,13 @@ papers:
     role: review
     note: "How silicon gratings are designed today: coupling from the corrugation, apodization, phase shifts and the fabrication's limits."
 ---
+
+Here are the two devices this lesson is about, labelled with the symbols its equations use: a
+stack of thin layers, cut through, and a waveguide whose width repeats, seen from above, each with
+the light that comes in, is reflected and gets through. The 3D view is the waveguide grating as a
+job builds it.
+
+::diagram bragg
 
 A Bragg mirror is a stack of thin layers whose index alternates, high, low, high, low. Each
 boundary reflects a few percent of the light. At one wavelength, set by the layers' thickness,
