@@ -25,7 +25,8 @@
 //! - **Dense kernels** ([`Family::Dense`]): the LU and the product of complex n × n matrices,
 //!   n from 32 to 4096.
 //! - **FDTD** ([`Family::Fdtd`]): the kernel stepping a box of vacuum and a silicon guide, in f64
-//!   and f32, as `photonoxide bench` runs them: memory traffic, no system to solve.
+//!   and f32, as `photonoxide bench` runs them: by tiles where they pay, and the guide also
+//!   whole every step. Memory traffic, no system to solve.
 //!
 //! The systems of [`super::export`] and the problems of [`super::problems`] are entries too,
 //! under the ids they have always had.
@@ -570,7 +571,10 @@ fn fixed(id: &'static str, title: &str, heavy: bool) -> Option<Entry> {
             true,
             Task::TimeSteps { steps: 400 },
         ),
-        "fdtd3d/guide-f64" | "fdtd3d/guide-f32" => (
+        "fdtd3d/guide-f64"
+        | "fdtd3d/guide-f32"
+        | "fdtd3d/guide-whole-f64"
+        | "fdtd3d/guide-whole-f32" => (
             Family::Fdtd,
             160,
             "160 × 160 × 160 cells of 20 nm, CPMLs of 8, a 500 × 220 nm silicon guide",

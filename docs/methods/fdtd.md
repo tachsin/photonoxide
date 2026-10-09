@@ -40,6 +40,10 @@ papers:
     doi: 10.2528/PIERB11092006
   - cite: "G. R. Werner, C. A. Bauer, J. R. Cary, J. Comput. Phys. 255, 436 (2013) (a stable ε⁻¹ from triplets, `Coupling::Triplets`)"
     doi: 10.1016/j.jcp.2013.08.009
+  - cite: "T. Malas, G. Hager, H. Ltaief, H. Stengel, G. Wellein, D. Keyes, SIAM J. Sci. Comput. 37, C439 (2015) (wavefront diamond blocking)"
+    doi: 10.1137/140991133
+  - cite: "T. M. Malas, J. Hornich, G. Hager, H. Ltaief, C. Pflaum, D. E. Keyes, Proc. IEEE IPDPS 2016, 142 (diamond blocking of a Yee stencil)"
+    doi: 10.1109/IPDPS.2016.87
 validation:
   - fdtd/dispersion
   - fdtd/energy
@@ -868,22 +872,120 @@ so the fields are the same bits on any number of threads.
   fields in a box with a block of ε = 12 the error is 1.8e-6, 4.5e-6 and 1.5e-5 after 100, 400
   and 1600 steps. f32 is also the same bits on any number of threads.
 
-**Measured** on a 4-core cloud container (STREAM triad 47 GB/s), with a 128³ guide of 20 nm
-cells and CPMLs of 8:
-- the plain loops: 13.4 million cell-updates/s on 1 thread and 53.7 on 4;
-- the kernel: 38.1 and 124.0, 2.8 and 2.3 times faster.
+Against the plain loops, on a 4-core cloud container (STREAM triad 47 GB/s) with a 128³ guide
+of 20 nm cells and CPMLs of 8, the kernel stepping the whole grid made 38.1 million
+cell-updates/s on 1 thread and 124.0 on 4, 2.8 and 2.3 times the plain loops' 13.4 and 53.7.
 
-The `photonoxide bench` problems `fdtd3d/box-*` and `fdtd3d/guide-*` time the kernel alone.
-On the same container with 4 threads:
-- the 160³ guide: 162 million updates/s in f64 and 312 in f32, at 40 and 38 GB/s, near the
-  triad;
-- the 48³ box: 95 and 121, a third of its cells in the CPMLs.
+**The memory's roof.** A step reads and writes at least 192 bytes a cell in f64 (96 in f32):
+each field's three components read and the updated one written, E's two coefficients, and more
+in the CPMLs. Stepping the whole grid every step, a grid beyond the caches is bound by memory,
+not arithmetic: on 20 threads of a Core Ultra 7 265K (8 performance and 12 efficient cores,
+30 MB of L3, STREAM triad 33.0 GB/s on 1 thread and 55.1 on 20) it runs at the triad's roof,
+and AVX2 changes nothing measurable. In cache the same kernel is about eight times faster:
+twenty 64 × 16 × 16 periodic grids stepped side by side made about 2000 million
+cell-updates/s in f64 on 20 threads, 280 on one.
 
-A step reads and writes at least 192 bytes a cell in f64 (96 in f32): each field's three
-components read and the updated one written, E's two coefficients, and more in the CPMLs. So
-the kernel is bound by memory, not arithmetic, and AVX2 changes nothing measurable. Spatial and
-temporal (wavefront) blocking after Malas et al. would reuse each value across steps, and is
-the next step of #165. The GPU is #166.
+**Blocking** (`src/fdtd/kernel/blocked.rs`) steps a tile of the grid while it is in cache,
+after T. M. Malas et al. (2015, 2016), who tiled a Yee stencil like this one.
+- **The tiles:** whole rows along x (the fastest axis, left whole as Malas et al. leave it, so
+  the rows stay long for the vector units), a run of rows along y, every plane along z.
+- **One step at a time** (spatial blocking): each tile's H̃ then E, plane by plane, so E's rows
+  are still in cache when H̃'s update has read them. Every row but those along the tiles' edges
+  is done by its own tile; the edges' rows by a second pass.
+- **Several steps at a time** (temporal blocking): Malas et al.'s diamonds in the plane of y and
+  time (their Fig. 2), each stepped as a wavefront along z: plane k at step m right after plane
+  k + 1 at step m − 1, each plane's H̃ then E. Over s steps a tile's rows shrink by one at each
+  inner side each step (H̃ loses the last row, E the first), so it reads nothing another tile
+  writes: a diamond's upper half. The rows it leaves around each boundary grow by one a side
+  each step: the lower half of the next row of diamonds, centred on the boundary and stepped
+  with the next s steps' upper half as one task. The diamonds of a row are apart and run side by
+  side, one a thread. A tile's data is read from memory once every s steps and stepped s times
+  in cache; split tiling (each half a phase of its own, the same tiles every block) reads it
+  twice, and measured about 10 % slower.
+- **The same bits:** in place, a value may be updated once its neighbours hold the level before,
+  and they can't hold a later one, since that would have needed this value first. So any order
+  that respects the stencil's dependencies leaves every value as the whole grid's step does, and
+  the tiles compute each row by the same function as the whole grid (`curl_row`, `slab_row`):
+  the same bits, in f64 and in f32, on any number of threads, however the grid is cut. That is
+  tested on 1, 4 and 20 threads, split and diamonds, tiles of 1 to 1000 rows and 1 to 5 steps,
+  with CPMLs (κ and α), conductors, walls, periodic x, 2D and rows of one value.
+- **What else a step does:** sources and currents are added to each value right after its update,
+  in the order a step adds them; a dispersive medium's currents are stepped after E, so with one
+  it is a step at a time; probes and monitors (transforms, fluxes, modes, a design's) read each
+  step's fields, which the diamonds copy out of each row right after its update and record after,
+  step by step, in order. The adjoint runs through all of this. A simulation stepped by tiles is
+  tested against the whole grid's bits with all of these, and so is the adjoint's gradient.
+- **Where tiles can't go:** a side that wraps along y or z (periodic, Bloch) needs the far side's
+  rows; a smoothed tensor's E = ε̃⁻¹D reads the rows around after D's update, and a plane wave's
+  auxiliary grid steps between H̃'s update and E's. Those are stepped whole every step, as is the
+  plain loops' reference.
+- **When:** chosen by itself (`Blocking::auto`), from the grid alone and the threads, the same bits
+  either way. `Simulation::run` and `run_until` (and so `run_until_converged`, `run_until_decayed`
+  and the adjoint) take diamonds once E, H̃ and E's coefficients pass 40 MiB: the most steps, up
+  to 5, whose tiles of 2s + 2 rows number at least min(threads, 16) and keep at most 4.5 MiB in
+  flight (2s + 2 planes); `Simulation::step` takes a step by tiles past 64 MiB. Below, a grid the
+  caches hold is stepped whole: there the tiles' fewer, unequal tasks cost more than they save.
+  A job, which reads its probes every step, steps a step at a time.
+
+**Measured** by `fdtd::kernel_rates` on the Core Ultra 7 265K: the kernel alone (no sources or
+monitors) on cubes of 50 nm cells of vacuum inside CPMLs of 8, random fields, the best of three
+runs; million cell-updates/s. The roof is the triad over the bytes a step reads and writes,
+CPMLs included. The tiles are those `Blocking::auto` chooses: for a step at a time 16 rows (on
+20 threads, 6 and 8 for 96³ and 128³), for the diamonds as shown.
+
+| Grid | Precision | Threads | Whole | A step at a time by tiles | Diamonds | The roof |
+|---|---|---:|---:|---:|---:|---:|
+| 64³ | f64 | 1 | 115 | — | — | 102 |
+| 64³ | f64 | 20 | 447 | — | — | 170 |
+| 64³ | f32 | 1 | 183 | — | — | 204 |
+| 64³ | f32 | 20 | 605 | — | — | 340 |
+| 96³ | f64 | 1 | 86 | 117 | 155 (12 rows, 5 steps) | 118 |
+| 96³ | f64 | 20 | 323 | 420 | 615 (6 rows, 2 steps) | 197 |
+| 96³ | f32 | 1 | 191 | 174 | 203 (12 rows, 5 steps) | 236 |
+| 96³ | f32 | 20 | 904 | 773 | 998 (6 rows, 2 steps) | 394 |
+| 128³ | f64 | 1 | 82 | 118 | 158 (12 rows, 5 steps) | 128 |
+| 128³ | f64 | 20 | 247 | 383 | 792 (8 rows, 3 steps) | 214 |
+| 128³ | f32 | 1 | 163 | 188 | 225 (12 rows, 5 steps) | 256 |
+| 128³ | f32 | 20 | 628 | 788 | 1344 (8 rows, 3 steps) | 427 |
+| 192³ | f64 | 1 | 90 | 120 | 171 (12 rows, 5 steps) | 140 |
+| 192³ | f64 | 20 | 245 | 391 | 1070 (12 rows, 5 steps) | 234 |
+| 192³ | f32 | 1 | 175 | 194 | 250 (12 rows, 5 steps) | 280 |
+| 192³ | f32 | 20 | 497 | 751 | 1836 (12 rows, 5 steps) | 467 |
+| 256³ | f64 | 1 | 97 | 126 | 177 (12 rows, 5 steps) | 147 |
+| 256³ | f64 | 20 | 252 | 390 | 1015 (12 rows, 5 steps) | 245 |
+| 256³ | f32 | 1 | 170 | 199 | 252 (12 rows, 5 steps) | 293 |
+| 256³ | f32 | 20 | 493 | 764 | 1986 (12 rows, 5 steps) | 490 |
+| 320³ | f64 | 1 | 104 | 135 | 186 (12 rows, 5 steps) | 151 |
+| 320³ | f64 | 20 | 261 | 402 | 1003 (12 rows, 5 steps) | 252 |
+| 320³ | f32 | 1 | 182 | 199 | 269 (12 rows, 5 steps) | 302 |
+| 320³ | f32 | 20 | 516 | 795 | 1854 (12 rows, 5 steps) | 505 |
+
+So, beyond the caches:
+- **Whole**, 20 threads reach the roof, to within a few per cent, and no further: 245 to 261
+  million in f64, 493 to 516 in f32. One thread stays below its roof.
+- **A step at a time by tiles** is 1.5 to 1.6 times the whole grid on 20 threads from 192³ on,
+  1.1 to 1.4 on one: H̃'s update leaves E in cache for E's.
+- **Diamonds** are 3.6 to 4.4 times the whole grid on 20 threads from 192³ on (1003 to 1070
+  million in f64, 1836 to 1986 in f32), about 4 times the memory's roof; 1.4 to 1.9 times on
+  one. Malas et al. measured 3 to 4 times over spatial blocking on their 18-core Haswell; here
+  the diamonds are 2.3 to 2.7 times the step at a time by tiles. Temporal blocking pays on this
+  machine, and is the default wherever a run can take it.
+- At 96³ in f32 (42 MB) the step at a time by tiles was slower than the whole grid, so a step
+  at a time now starts at 64 MiB; at 64³ the grid is in cache and stepped whole. Hence the
+  thresholds above. The thresholds are this machine's; on one with less cache
+  the tiles would pay from smaller grids.
+
+The `photonoxide bench` problems time the kernel alone, its f64 fields checked against the
+plain loops' bits (docs/benchmarks.md): `fdtd3d/box-*`, 48³ cells of 50 nm (in cache, so stepped
+whole), and `fdtd3d/guide-*`, 160³ cells of 20 nm with a 500 × 220 nm silicon guide and CPMLs
+of 8, 60 steps by diamonds, beside `fdtd3d/guide-whole-*`, the same guide whole every step. On
+the guide, 20 threads made 878 million cell-updates/s in f64 by diamonds against 234 whole (3.8
+times) and 1536 in f32 against 482 (3.2 times); one thread 177 against 83 and 208 against 151.
+
+A simulation with a point source, a probe and a flux box (six faces transformed at three
+frequencies) on a 256³ grid of 50 nm cells inside CPMLs of 8 (`fdtd::kernel_rates`): 241
+million cell-updates/s whole, 335 a step at a time by tiles and 719 run by diamonds on 20
+threads, 91, 114 and 162 on one; the transforms take their share. The GPU is #166.
 
 Roden and Gedney's plate, 2.9 × 10⁶ cells for 2000 steps plus two smaller lattices, took about
 45 s on 20 threads of a Core Ultra 7 265K with the plain loops.

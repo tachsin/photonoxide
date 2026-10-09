@@ -5,16 +5,18 @@ use std::time::Instant;
 use super::{Accuracy, Measurement, Phase};
 use crate::Result;
 use crate::fdfd::{Axis, Grid3d};
-use crate::fdtd::{Boundaries, Simulation, Yee};
+use crate::fdtd::{Blocking, Boundaries, Simulation, Yee};
 
 /// What runs: the grid's cells along each axis, its cell (µm), whether a silicon guide runs
-/// along x through it (else vacuum), and the steps timed.
+/// along x through it (else vacuum), the steps timed, and whether by tiles where they pay
+/// ([`Blocking::auto`]) or the whole grid every step.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Run {
     pub(super) n: usize,
     pub(super) h: f64,
     pub(super) guide: bool,
     pub(super) steps: usize,
+    pub(super) tiles: bool,
 }
 
 /// CPMLs of this many cells.
@@ -67,12 +69,25 @@ pub(super) fn kernel<T: crate::fdtd::Real>(
     let s = start(run)?;
     let mut yee = Yee::<T>::from_simulation(&s)?;
     let bytes = yee.bytes_per_step() as f64 * run.steps as f64;
+    let blocking = run
+        .tiles
+        .then(|| {
+            Blocking::auto(
+                s.grid(),
+                std::mem::size_of::<T>(),
+                true,
+                rayon::current_num_threads(),
+            )
+        })
+        .flatten();
     let t = Instant::now();
-    for _ in 0..run.steps {
-        yee.step();
-    }
+    yee.run(run.steps, blocking);
+    let how = match blocking {
+        Some(b) => format!("by diamonds of {} rows, {} steps a half", b.rows, b.steps),
+        None => "the whole grid each".into(),
+    };
     let phases = vec![Phase {
-        name: format!("{} steps", run.steps),
+        name: format!("{} steps, {how}", run.steps),
         seconds: t.elapsed().as_secs_f64(),
         iterations: Some(run.steps),
         bytes: Some(bytes),

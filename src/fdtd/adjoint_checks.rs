@@ -125,7 +125,11 @@ impl Strip {
     /// (its window reaching into the CPMLs across) at both frequencies, a transform of E_y at
     /// a point ahead, and the design's.
     pub(crate) fn forward(&self, density: &[f64]) -> Run {
-        let mut s = self.forward_unrun(density);
+        self.monitored(self.forward_unrun(density))
+    }
+
+    /// [`Strip::forward`] from the unrun simulation `s`.
+    pub(crate) fn monitored(&self, mut s: Simulation) -> Run {
         let behind = s
             .add_mode_monitor(&[self.mode(0, self.behind), self.mode(1, self.behind)])
             .unwrap();
@@ -325,16 +329,21 @@ pub(crate) fn real_mode_error() -> f64 {
     )
 }
 
-/// [`Strip`]'s gradient of the mode objective, forward and adjoint runs on `threads` threads.
+/// [`Strip`]'s gradient of the mode objective, forward and adjoint runs on `threads` threads
+/// with the kernel's tiles chosen by `tiling`.
 #[cfg_attr(not(test), allow(dead_code))] // read by the tests
-pub(crate) fn strip_gradient_on(threads: usize) -> Vec<f64> {
+pub(crate) fn strip_gradient_on(threads: usize, tiling: super::kernel::Tiling) -> Vec<f64> {
     rayon::ThreadPoolBuilder::new()
         .num_threads(threads)
         .build()
         .unwrap()
         .install(|| {
             let strip = Strip::new();
-            let run = strip.forward(&uneven(&strip.design));
+            let mut forward = strip.forward_unrun(&uneven(&strip.design));
+            forward.set_tiling(tiling);
+            let tiled = forward.tiles(false).is_some();
+            assert_eq!(tiled, matches!(tiling, super::kernel::Tiling::Fixed(_)));
+            let run = strip.monitored(forward);
             run.gradient(Objective::Modes)
         })
 }

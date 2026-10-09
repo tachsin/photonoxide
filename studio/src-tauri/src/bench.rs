@@ -354,8 +354,10 @@ fn markdown(chosen: &[Entry], bandwidth: &[(usize, f64)], runs: &[Timed]) -> Str
          and index, each row pointer, each vector read or written once: src/traffic.rs), from \
          memory or from cache; beside it, its share of the triad on the same threads, the roof \
          (Williams et al., Commun. ACM 52(4), 65 (2009)). A problem whose vectors fit in the \
-         last-level cache can count above it: the 40³ guide's do. See the performance \
-         plan, docs/plans/performance.md.\n"
+         last-level cache can count above it: the 40³ guide's do. FDTD counts the bytes of a \
+         step of the whole grid, so its diamonds, which step a tile several times in cache, \
+         count above it too: the 160³ guide's. See the performance plan, \
+         docs/plans/performance.md.\n"
     );
     let _ = writeln!(s, "- photonoxide {}, {}", photonoxide::VERSION, machine());
     if !bandwidth.is_empty() {

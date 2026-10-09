@@ -13,7 +13,10 @@
 //! threads.
 //!
 //! The neighbours' offsets and the 1/(κΔ) factors are tabulated once per field ([`Stencil`]),
-//! and nothing is allocated while stepping.
+//! and nothing is allocated while stepping the whole grid.
+//!
+//! Beyond the caches the grid is stepped by tiles instead ([`blocked`]), one step or several at
+//! a time, each row by the same [`curl_row`] and [`slab_row`]: the same bits.
 
 use std::ops::{Add, Div, Mul, Sub};
 
@@ -110,6 +113,37 @@ impl<T: Real> Stencil<T> {
     }
 }
 
+/// The rows of the other field, F, that one row's update reads: F's three components on the
+/// row, and the rows across it that the curl differences along y and z (zeros beyond a wall).
+pub(crate) struct Rows<'a, T> {
+    pub(crate) f: [&'a [T]; 3],
+    /// F_z and F_x on the neighbouring row along y: j + 1 for H̃'s update, j − 1 for E's.
+    pub(crate) zy: &'a [T],
+    pub(crate) xy: &'a [T],
+    /// F_y and F_x on the neighbouring row along z: k + 1 for H̃'s update, k − 1 for E's.
+    pub(crate) yz: &'a [T],
+    pub(crate) xz: &'a [T],
+}
+
+/// The neighbour row along `axis` (y or z) of the row starting at `base` in `f`, at index `m`
+/// on that axis: zeros beyond a wall.
+fn neighbour<'a, T: Real>(
+    stencil: &'a Stencil<T>,
+    f: &'a [T],
+    axis: usize,
+    m: usize,
+    base: usize,
+    nx: usize,
+) -> &'a [T] {
+    match stencil.offsets[axis][m] {
+        Some(o) => {
+            let start = (base as isize + o) as usize;
+            &f[start..start + nx]
+        }
+        None => &stencil.zeros[..nx],
+    }
+}
+
 /// The difference along an axis other than x for one row: the neighbour row (zeros beyond a
 /// wall) and the factor, the same along the row.
 struct Across<'a, T> {
@@ -117,35 +151,11 @@ struct Across<'a, T> {
     factor: T,
 }
 
-/// The neighbour row of the row starting at `base` along `axis` (y or z), at index `m` on it.
-fn across<'a, T: Real>(
-    stencil: &'a Stencil<T>,
-    f: &'a [T],
-    axis: Axis,
-    m: usize,
-    base: usize,
-    nx: usize,
-) -> Across<'a, T> {
-    let a = axis.index();
-    let other = match stencil.offsets[a][m] {
-        Some(o) => {
-            let start = (base as isize + o) as usize;
-            &f[start..start + nx]
-        }
-        None => &stencil.zeros[..nx],
-    };
-    Across {
-        other,
-        factor: stencil.factors[a][m],
-    }
-}
-
-/// The difference of `f` (the row `row`, starting at `base` in `f`) along x at index `i`, the
-/// neighbour from the stencil: the rows' ends.
+/// The difference of a row along x at index `i`, the neighbour from the stencil: the rows'
+/// ends. The neighbour along x is on the same row, across a periodic or Bloch side too.
 #[inline(always)]
-fn along_x_at<T: Real>(stencil: &Stencil<T>, f: &[T], row: &[T], base: usize, i: usize) -> T {
-    let other =
-        stencil.offsets[0][i].map_or(T::ZERO, |o| f[(base as isize + i as isize + o) as usize]);
+fn along_x_at<T: Real>(stencil: &Stencil<T>, row: &[T], i: usize) -> T {
+    let other = stencil.offsets[0][i].map_or(T::ZERO, |o| row[(i as isize + o) as usize]);
     if stencil.forward {
         other - row[i]
     } else {
@@ -155,7 +165,7 @@ fn along_x_at<T: Real>(stencil: &Stencil<T>, f: &[T], row: &[T], base: usize, i:
 
 /// How a row's values are updated from the curl: E ← keep E + scale curl, or H̃ ← H̃ − Δt curl.
 #[derive(Clone, Copy)]
-enum Apply<'a, T> {
+pub(crate) enum Apply<'a, T> {
     E { keep: &'a [T], scale: &'a [T] },
     H { dt: T },
 }
@@ -173,10 +183,67 @@ impl<T: Real> Apply<'_, T> {
 /// E's update coefficients ca and cb, per component.
 pub(crate) type Coefficients<'a, T> = (&'a [Vec<T>; 3], &'a [Vec<T>; 3]);
 
+/// How each component's row starting at `base` is updated: by E's coefficients there, or by Δt.
+pub(crate) fn applies<'a, T: Real>(
+    coefficients: Option<Coefficients<'a, T>>,
+    dt: T,
+    base: usize,
+    nx: usize,
+) -> [Apply<'a, T>; 3] {
+    std::array::from_fn(|c| match coefficients {
+        Some((keep, scale)) => Apply::E {
+            keep: &keep[c][base..base + nx],
+            scale: &scale[c][base..base + nx],
+        },
+        None => Apply::H { dt },
+    })
+}
+
+/// One row's update, (j, k), of a field's three components (`out`) from the curl of the other
+/// field (`rows`): (∇ × F)_c = ∂F_b/∂a − ∂F_a/∂b for each c, (a, b) = c.others(), each
+/// difference times its factor κ/Δ, then `apply`. The blocked and the unblocked paths both
+/// update every row by this, so they compute every value by the same operations.
+#[inline]
+pub(crate) fn curl_row<T: Real>(
+    stencil: &Stencil<T>,
+    (j, k): (usize, usize),
+    out: [&mut [T]; 3],
+    rows: &Rows<'_, T>,
+    apply: [Apply<'_, T>; 3],
+) {
+    let [px, py, pz] = out;
+    let (fy, fz) = (stencil.factors[1][j], stencil.factors[2][k]);
+    // c = x: ∂F_z/∂y − ∂F_y/∂z, both across rows
+    let ta = Across {
+        other: rows.zy,
+        factor: fy,
+    };
+    let tb = Across {
+        other: rows.yz,
+        factor: fz,
+    };
+    if stencil.forward {
+        rows_across::<T, true>(px, rows.f[2], rows.f[1], &ta, &tb, apply[0]);
+    } else {
+        rows_across::<T, false>(px, rows.f[2], rows.f[1], &ta, &tb, apply[0]);
+    }
+    // c = y: ∂F_x/∂z − ∂F_z/∂x
+    let ta = Across {
+        other: rows.xz,
+        factor: fz,
+    };
+    row_mixed(stencil, py, rows.f[2], rows.f[0], &ta, apply[1], false);
+    // c = z: ∂F_y/∂x − ∂F_x/∂y
+    let tb = Across {
+        other: rows.xy,
+        factor: fy,
+    };
+    row_mixed(stencil, pz, rows.f[1], rows.f[0], &tb, apply[2], true);
+}
+
 /// One field's update from the curl of the other, `f`, all three components in one pass over
-/// the grid, row by row: (∇ × F)_c = ∂F_b/∂a − ∂F_a/∂b for each c, (a, b) = c.others(), each
-/// difference times its factor κ/Δ; E ← ca E + cb (∇ × H̃) with `coefficients` (ca, cb) per
-/// component, or H̃ ← H̃ − Δt (∇ × E) without. One pass reads each row of the three
+/// the grid, row by row ([`curl_row`]): E ← ca E + cb (∇ × H̃) with `coefficients` (ca, cb)
+/// per component, or H̃ ← H̃ − Δt (∇ × E) without. One pass reads each row of the three
 /// components of each field once, where three would read them three times.
 pub(crate) fn curl_update<T: Real>(
     grid: Grid3d,
@@ -201,61 +268,19 @@ pub(crate) fn curl_update<T: Real>(
                 let (j, k) = (r % ny, r / ny);
                 let base = r * nx;
                 let span = local * nx..(local + 1) * nx;
-                let apply = |c: usize| match coefficients {
-                    Some((keep, scale)) => Apply::E {
-                        keep: &keep[c][base..base + nx],
-                        scale: &scale[c][base..base + nx],
-                    },
-                    None => Apply::H { dt },
+                let reads = Rows {
+                    f: std::array::from_fn(|c| &f[c][base..base + nx]),
+                    zy: neighbour(stencil, &f[2], 1, j, base, nx),
+                    xy: neighbour(stencil, &f[0], 1, j, base, nx),
+                    yz: neighbour(stencil, &f[1], 2, k, base, nx),
+                    xz: neighbour(stencil, &f[0], 2, k, base, nx),
                 };
-                let row = |c: usize| &f[c][base..base + nx];
-                // c = x: ∂F_z/∂y − ∂F_y/∂z, both across rows
-                let ta = across(stencil, &f[2], Axis::Y, j, base, nx);
-                let tb = across(stencil, &f[1], Axis::Z, k, base, nx);
-                if stencil.forward {
-                    rows_across::<T, true>(
-                        &mut px[span.clone()],
-                        row(2),
-                        row(1),
-                        &ta,
-                        &tb,
-                        apply(0),
-                    );
-                } else {
-                    rows_across::<T, false>(
-                        &mut px[span.clone()],
-                        row(2),
-                        row(1),
-                        &ta,
-                        &tb,
-                        apply(0),
-                    );
-                }
-                // c = y: ∂F_x/∂z − ∂F_z/∂x
-                let ta = across(stencil, &f[0], Axis::Z, k, base, nx);
-                row_mixed(
+                curl_row(
                     stencil,
-                    &mut py[span.clone()],
-                    &f[2],
-                    row(2),
-                    row(0),
-                    &ta,
-                    base,
-                    apply(1),
-                    false,
-                );
-                // c = z: ∂F_y/∂x − ∂F_x/∂y
-                let tb = across(stencil, &f[0], Axis::Y, j, base, nx);
-                row_mixed(
-                    stencil,
-                    &mut pz[span],
-                    &f[1],
-                    row(1),
-                    row(0),
-                    &tb,
-                    base,
-                    apply(2),
-                    true,
+                    (j, k),
+                    [&mut px[span.clone()], &mut py[span.clone()], &mut pz[span]],
+                    &reads,
+                    applies(coefficients, dt, base, nx),
                 );
             }
         });
@@ -293,18 +318,15 @@ fn rows_across<T: Real, const FORWARD: bool>(
 }
 
 /// A row of E_y, H̃_y (one difference along x, of F_z, subtracted: `x_first` false) or of
-/// E_z, H̃_z (the difference along x of F_y first, `x_first` true). `fx` is the field
-/// differenced along x (whole, `rx` its row), `ry` the one differenced across rows by `t`.
-#[allow(clippy::too_many_arguments)]
+/// E_z, H̃_z (the difference along x of F_y first, `x_first` true). `rx` is the row of the
+/// field differenced along x, `ry` that of the one differenced across rows by `t`.
 #[inline(always)]
 fn row_mixed<T: Real>(
     stencil: &Stencil<T>,
     row: &mut [T],
-    fx: &[T],
     rx: &[T],
     ry: &[T],
     t: &Across<'_, T>,
-    base: usize,
     apply: Apply<'_, T>,
     x_first: bool,
 ) {
@@ -345,7 +367,7 @@ fn row_mixed<T: Real>(
     }
     // the row's end, its neighbour from the stencil
     let i = if forward { n - 1 } else { 0 };
-    let c = curl(along_x_at(stencil, fx, rx, base, i), i, across(i));
+    let c = curl(along_x_at(stencil, rx, i), i, across(i));
     row[i] = apply.at(row[i], i, c);
 }
 
@@ -366,6 +388,25 @@ pub(crate) struct Slab<T> {
     pub(crate) psi: Vec<T>,
 }
 
+/// What a slab's rows read besides ψ: which field and component it updates, the derivative it
+/// convolves and its sign in the curl, and the recursion's coefficients.
+#[derive(Clone, Copy)]
+pub(crate) struct SlabRows<'a, T> {
+    pub(crate) field: Field,
+    pub(crate) component: usize,
+    pub(crate) axis: Axis,
+    pub(crate) from: usize,
+    pub(crate) count: usize,
+    /// The other field's component differenced along `axis`.
+    pub(crate) differentiated: usize,
+    /// +1 or −1: the derivative's sign in the curl.
+    pub(crate) sign: T,
+    /// The step along `axis`.
+    pub(crate) h: T,
+    pub(crate) b: &'a [T],
+    pub(crate) a: &'a [T],
+}
+
 impl<T: Real> Slab<T> {
     /// This slab in another precision.
     pub(crate) fn to<U: Real>(&self) -> Slab<U> {
@@ -381,11 +422,105 @@ impl<T: Real> Slab<T> {
             psi: convert(&self.psi),
         }
     }
+
+    /// What its rows read, and ψ to update.
+    pub(crate) fn rows(&mut self, grid: Grid3d) -> (SlabRows<'_, T>, &mut [T]) {
+        let c = self.component;
+        let w = self.axis;
+        let (a, b) = c.others();
+        // (∇ × F)_c = ∂F_b/∂a − ∂F_a/∂b: the slab's axis is a or b
+        let (differentiated, sign) = if w == a {
+            (b, T::of(1.0))
+        } else {
+            (a, T::of(-1.0))
+        };
+        (
+            SlabRows {
+                field: self.field,
+                component: c.index(),
+                axis: w,
+                from: self.from,
+                count: self.count,
+                differentiated: differentiated.index(),
+                sign,
+                h: T::of(grid.step(w)),
+                b: &self.b,
+                a: &self.a,
+            },
+            &mut self.psi,
+        )
+    }
+}
+
+/// One row of a CPML slab: over the row's values in the slab, ψ ← bψ + a ∂F/∂w, then
+/// ± ψ into the updated field, E += cb ψ or H̃ −= Δt ψ. `rf` is F's whole row, `other` its
+/// neighbouring row along w when w is y or z (zeros beyond a wall), `m` the row's index along
+/// w; `values` and `cb` are the updated field's whole row and its cb, `psi` ψ on the row.
+#[allow(clippy::too_many_arguments)]
+#[inline]
+pub(crate) fn slab_row<T: Real>(
+    slab: &SlabRows<'_, T>,
+    stencil: &Stencil<T>,
+    psi: &mut [T],
+    values: &mut [T],
+    rf: &[T],
+    other: &[T],
+    m: usize,
+    cb: &[T],
+    dt: T,
+) {
+    let n = psi.len();
+    let x0 = if slab.axis == Axis::X { slab.from } else { 0 };
+    let h = slab.h;
+    let forward = stencil.forward;
+    if slab.axis == Axis::X {
+        // the slab's coefficients vary along the row; the neighbour is the next value but at
+        // the grid's ends
+        let (bs, as_, rx) = (&slab.b[..n], &slab.a[..n], &rf[x0..x0 + n]);
+        for li in 0..n {
+            let i = x0 + li;
+            let o = stencil.offsets[0][i].map_or(T::ZERO, |o| rf[(i as isize + o) as usize]);
+            let d = if forward { o - rx[li] } else { rx[li] - o } / h;
+            psi[li] = bs[li] * psi[li] + as_[li] * d;
+        }
+    } else {
+        let s = m - slab.from;
+        let (bw, aw) = (slab.b[s], slab.a[s]);
+        let (rf, other) = (&rf[..n], &other[..n]);
+        if forward {
+            for li in 0..n {
+                let d = (other[li] - rf[li]) / h;
+                psi[li] = bw * psi[li] + aw * d;
+            }
+        } else {
+            for li in 0..n {
+                let d = (rf[li] - other[li]) / h;
+                psi[li] = bw * psi[li] + aw * d;
+            }
+        }
+    }
+    let values = &mut values[x0..x0 + n];
+    let sign = slab.sign;
+    match slab.field {
+        Field::E => {
+            let cb = &cb[x0..x0 + n];
+            for li in 0..n {
+                let u = sign * psi[li];
+                values[li] = values[li] + cb[li] * u;
+            }
+        }
+        Field::H => {
+            for li in 0..n {
+                let u = sign * psi[li];
+                values[li] = values[li] - dt * u;
+            }
+        }
+    }
 }
 
 /// The CPML's convolutions for `field`'s updates: each slab's ψ ← bψ + a ∂F/∂w (F the other
 /// field's component differenced along w, the slab's axis), then ± ψ into the updated field,
-/// E += cb ψ or H̃ −= Δt ψ, the sign that of the derivative in the curl.
+/// E += cb ψ or H̃ −= Δt ψ, the sign that of the derivative in the curl ([`slab_row`]).
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn update_slabs<T: Real>(
     grid: Grid3d,
@@ -400,103 +535,51 @@ pub(crate) fn update_slabs<T: Real>(
     let (nx, ny) = (grid.nx, grid.ny);
     let plane = nx * ny;
     for slab in slabs.iter_mut().filter(|s| s.field == field) {
-        let c = slab.component;
-        let w = slab.axis;
-        let (a, _) = c.others();
-        // (∇ × F)_c = ∂F_b/∂a − ∂F_a/∂b: the slab's axis is a or b
-        let (differentiated, sign) = if w == a {
-            (c.others().1, T::of(1.0))
-        } else {
-            (a, T::of(-1.0))
-        };
-        let h = T::of(grid.step(w));
-        let f = &source[differentiated.index()];
+        let (rows, psi) = slab.rows(grid);
+        let w = rows.axis;
         let mut from = [0usize; 3];
         let mut count = [nx, ny, grid.nz];
-        from[w.index()] = slab.from;
-        count[w.index()] = slab.count;
+        from[w.index()] = rows.from;
+        count[w.index()] = rows.count;
         let local_plane = count[0] * count[1];
-        let (bs, as_) = (&slab.b, &slab.a);
-        let start = slab.from;
-        let forward = stencil.forward;
-        let offsets = &stencil.offsets[w.index()];
-        let cb = &cb[c.index()];
+        let f = &source[rows.differentiated];
+        let cb = &cb[rows.component];
         // ψ's planes and the field's planes they update, together: each row's ψ, then the field
-        target[c.index()]
+        target[rows.component]
             .par_chunks_mut(plane)
             .skip(from[2])
             .take(count[2])
-            .zip(slab.psi.par_chunks_mut(local_plane))
+            .zip(psi.par_chunks_mut(local_plane))
             .enumerate()
             .for_each(|(lk, (values, psi))| {
                 let k = from[2] + lk;
-                let n = count[0];
                 for lj in 0..count[1] {
                     let j = from[1] + lj;
-                    let at = j * nx + from[0];
-                    let row_base = k * plane + at;
-                    let psi = &mut psi[lj * n..(lj + 1) * n];
-                    let values = &mut values[at..at + n];
-                    let rf = &f[row_base..row_base + n];
-                    if w == Axis::X {
-                        // the slab's coefficients vary along the row; the neighbour is the next
-                        // value but at the grid's ends
-                        let (bs, as_) = (&bs[..n], &as_[..n]);
-                        for li in 0..n {
-                            let i = from[0] + li;
-                            let other = offsets[i].map_or(T::ZERO, |o| {
-                                f[(row_base as isize + li as isize + o) as usize]
-                            });
-                            let d = if forward {
-                                other - rf[li]
-                            } else {
-                                rf[li] - other
-                            } / h;
-                            psi[li] = bs[li] * psi[li] + as_[li] * d;
-                        }
+                    let base = (k * ny + j) * nx;
+                    let m = [0, j, k][w.index()];
+                    let other = if w == Axis::X {
+                        &stencil.zeros[..0]
                     } else {
-                        let mw = [0, j, k][w.index()];
-                        let s = mw - start;
-                        let (bw, aw) = (bs[s], as_[s]);
-                        let other = match offsets[mw] {
-                            Some(o) => {
-                                let at = (row_base as isize + o) as usize;
-                                &f[at..at + n]
-                            }
-                            None => &stencil.zeros[..n],
-                        };
-                        if forward {
-                            for li in 0..n {
-                                let d = (other[li] - rf[li]) / h;
-                                psi[li] = bw * psi[li] + aw * d;
-                            }
-                        } else {
-                            for li in 0..n {
-                                let d = (rf[li] - other[li]) / h;
-                                psi[li] = bw * psi[li] + aw * d;
-                            }
-                        }
-                    }
-                    match field {
-                        Field::E => {
-                            let cb = &cb[row_base..row_base + n];
-                            for li in 0..n {
-                                let u = sign * psi[li];
-                                values[li] = values[li] + cb[li] * u;
-                            }
-                        }
-                        Field::H => {
-                            for li in 0..n {
-                                let u = sign * psi[li];
-                                values[li] = values[li] - dt * u;
-                            }
-                        }
-                    }
+                        neighbour(stencil, f, w.index(), m, base, nx)
+                    };
+                    slab_row(
+                        &rows,
+                        stencil,
+                        &mut psi[lj * count[0]..(lj + 1) * count[0]],
+                        &mut values[j * nx..(j + 1) * nx],
+                        &f[base..base + nx],
+                        other,
+                        m,
+                        &cb[base..base + nx],
+                        dt,
+                    );
                 }
             });
     }
 }
 
+pub(crate) mod blocked;
+pub(crate) use blocked::{Blocking, Injection, Tap, Tiling};
 pub(crate) mod reference;
 mod yee;
 pub(crate) use yee::Yee;

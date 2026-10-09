@@ -784,6 +784,8 @@ impl Simulation {
                 .collect(),
             stencils: self.stencils.clone(),
             reference: self.reference,
+            tiling: self.tiling,
+            points: Default::default(),
             sources: Vec::new(),
             currents: Vec::new(),
             plane_waves: Vec::new(),
