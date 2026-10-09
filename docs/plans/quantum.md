@@ -436,6 +436,8 @@ today's components plus the visibility formula.
 
 ## 5. Decisions for the owner
 
+*Decided by the owner on 2026-10-09: the recommendations, for all of them. The milestone is 0.6.2 in ROADMAP.md, the Reck and Clements decompositions move there from 0.8, and 0.16's quantum line is gone.*
+
 1. **Where the work goes.** (a) A new 0.6.2 right after 0.6.1; (b) Q1 earlier, beside 0.5 or 0.6,
    and Q2 and Q3 after 0.6.1; (c) at 0.16 as now. *Recommended: (a).*
 2. **The scope boundary.** photonoxide computes exact statistics of moderate size (about 30

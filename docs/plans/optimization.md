@@ -503,6 +503,8 @@ Each phase is one PR. Issue #244 has the details. Every example follows examples
 
 ## 6. Decisions for the owner
 
+*Decided by the owner on 2026-10-09: the recommendations, for all of them.*
+
 1. **Where the adapter lives.** genoxide is a dev-dependency today, "so the library's API doesn't
    follow genoxide's versions" (Cargo.toml). An `optimize` job run by `photonoxide run` needs it
    at run time. The options:
