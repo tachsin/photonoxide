@@ -451,6 +451,19 @@ pub fn nightly_clear_cache(state: tauri::State<'_, State>) -> Result<(), String>
     Ok(())
 }
 
+/// Adds `e` to `rollback.log` in the nightly folder, and returns it.
+fn logged(dirs: &Dirs, e: String) -> String {
+    use std::io::Write;
+    if let Ok(mut log) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(dirs.root.join("rollback.log"))
+    {
+        let _ = writeln!(log, "{}: {e}", now());
+    }
+    e
+}
+
 const USAGE: &str =
     "usage: photonoxide nightly <check | prerequisites | build <commit> | install | rollback>
   check            main's head on GitHub, and the commits this build hasn't
@@ -597,13 +610,14 @@ pub fn run(args: &[String]) -> ExitCode {
             }
             Err(e) => fail(e),
         },
+        // run detached, with no terminal: a failure goes to rollback.log too
         ["watch", file] => match install::watch(&state.dirs, std::path::Path::new(file)) {
             Ok(_) => ExitCode::SUCCESS,
-            Err(e) => fail(e),
+            Err(e) => fail(logged(&state.dirs, e)),
         },
         ["restore", leaving] => match install::restore(&state.dirs, leaving) {
             Ok(()) => ExitCode::SUCCESS,
-            Err(e) => fail(e),
+            Err(e) => fail(logged(&state.dirs, e)),
         },
         _ => {
             eprintln!("{USAGE}");

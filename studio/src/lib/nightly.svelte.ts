@@ -205,6 +205,9 @@ export async function nightlyBoot() {
   if (building()) follow();
 }
 
+/** The head last announced, so the hourly check doesn't announce it again. */
+let announced = "";
+
 /** Looks at main's head; `quiet` (on opening, hourly) says nothing unless main moved. */
 export async function checkNightly(quiet: boolean) {
   if (nightly.checking) return;
@@ -215,6 +218,8 @@ export async function checkNightly(quiet: boolean) {
     await refresh();
     if (!found) return;
     if (found.status === "available" && !nightly.status?.ready) {
+      if (quiet && announced === found.head) return;
+      announced = found.head;
       const n = found.new_commits;
       toast(`main has ${n} new commit${n === 1 ? "" : "s"} since this build.`, "info", { label: "See them", run: () => (nightly.dialog = true) }, 12000);
     } else if (!quiet) {

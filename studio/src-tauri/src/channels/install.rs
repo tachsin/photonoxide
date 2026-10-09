@@ -196,13 +196,25 @@ pub fn copy(from: &Path, to: &Path) -> Result<(), String> {
     }
 }
 
+/// Where the program being replaced goes aside: `.nightly-old`, or when one is still there
+/// (a program still running on Windows can't be removed), `.nightly-old-1` and on.
+fn aside(target: &Path) -> PathBuf {
+    let free = |p: &PathBuf| {
+        remove(p);
+        !p.exists()
+    };
+    std::iter::once(beside(target, ".nightly-old"))
+        .chain((1..100).map(|n| beside(target, &format!(".nightly-old-{n}"))))
+        .find(free)
+        .unwrap_or_else(|| beside(target, &format!(".nightly-old-{}", now())))
+}
+
 /// Puts `new` where `target` is: copied beside it, then renamed into place, the old one
 /// renamed aside first and removed after (a running program on Windows can be renamed but not
 /// removed: it goes at the next install).
 pub fn replace(target: &Path, new: &Path) -> Result<(), String> {
     let staged = beside(target, ".nightly-new");
-    let old = beside(target, ".nightly-old");
-    remove(&old);
+    let old = aside(target);
     copy(new, &staged)?;
     #[cfg(unix)]
     if staged.is_file() {
@@ -398,15 +410,51 @@ pub fn install(
         &["nightly".as_ref(), "watch".as_ref(), watch.as_os_str()],
     )?;
     if needed == "nsis" {
-        // as Tauri's updater runs it: passive, as an update, and restarting the program
-        launch(
-            &ready.artifact,
-            &["/P".as_ref(), "/UPDATE".as_ref(), "/R".as_ref()],
-        )?;
+        run_installer(&ready.artifact)?;
     } else {
         launch(&target, &[])?;
     }
     Ok(Outcome::Restart)
+}
+
+/// Runs the NSIS installer as Tauri's updater does: passive, as an update, restarting the
+/// program after (`/P /UPDATE /R`). A per-user installer needs no elevation; one that asks for
+/// it goes through the shell, which asks the user.
+fn run_installer(installer: &Path) -> Result<(), String> {
+    const ARGS: [&str; 3] = ["/P", "/UPDATE", "/R"];
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        const ELEVATION_REQUIRED: i32 = 740;
+        let mut command = Command::new(installer);
+        command
+            .args(ARGS)
+            .creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
+        match command.spawn() {
+            Ok(_) => Ok(()),
+            Err(e) if e.raw_os_error() == Some(ELEVATION_REQUIRED) => {
+                let mut shell = Command::new("cmd");
+                shell.raw_arg(format!(
+                    "/c start \"\" \"{}\" {}",
+                    installer.display(),
+                    ARGS.join(" ")
+                ));
+                crate::libraries::no_window(&mut shell);
+                shell
+                    .spawn()
+                    .map(|_| ())
+                    .map_err(|e| format!("can't start {}: {e}", installer.display()))
+            }
+            Err(e) => Err(format!("can't start {}: {e}", installer.display())),
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let args: Vec<&std::ffi::OsStr> = ARGS.iter().map(std::ffi::OsStr::new).collect();
+        launch(installer, &args)
+    }
 }
 
 /// Installs a `.deb` or `.rpm` with `pkexec` (which asks for the password), then restarts into
@@ -457,9 +505,35 @@ pub fn started(dirs: &Dirs, commit: &str) -> bool {
 
 /// Puts the previous build back at `target`, says so in the note, and opens it.
 fn go_back(dirs: &Dirs, previous: &Path, target: &Path, note: &Note) -> Result<(), String> {
+    if !note.asked {
+        // the build that didn't confirm may still be running, its window stuck
+        close(target);
+    }
     replace(target, previous)?;
     write_json(&dirs.rollback_note(), note)?;
     launch(target, &[])
+}
+
+/// Closes the programs running from `target`: by its file name on Windows (the watchdog's copy
+/// has another), by its path elsewhere.
+fn close(target: &Path) {
+    let mut command = if cfg!(windows) {
+        let mut c = Command::new("taskkill");
+        c.args(["/F", "/IM"])
+            .arg(target.file_name().unwrap_or_default());
+        c
+    } else {
+        let mut c = Command::new("pkill");
+        c.arg("-f").arg(target);
+        c
+    };
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    crate::libraries::no_window(&mut command);
+    let _ = command.status();
+    std::thread::sleep(Duration::from_secs(1));
 }
 
 /// `photonoxide nightly watch <handover>`: waits for the new build to start, and goes back to
