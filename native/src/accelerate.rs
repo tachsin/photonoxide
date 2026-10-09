@@ -256,7 +256,7 @@ fn status(code: c_int) -> &'static str {
         -3 => "an internal error",
         -4 => "a parameter was refused",
         c if c == -c_int::MAX => "the factorization was released",
-        _ =>"a status Accelerate's header doesn't name",
+        _ => "a status Accelerate's header doesn't name",
     }
 }
 
