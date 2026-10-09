@@ -16,7 +16,9 @@ use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
 use photonoxide::backend::{self, Listed, Threads};
-use photonoxide_native::{Candidate, Discovery, Spec, Status, accelerate, intel, nvidia};
+use photonoxide_native::{
+    Candidate, Discovery, Spec, Status, accelerate, intel, mumps, nvidia, superlu,
+};
 use serde::Serialize;
 
 /// A command that installs a library.
@@ -24,7 +26,7 @@ use serde::Serialize;
 pub struct Install {
     /// Its id within the library's guide, for [`install`].
     pub id: &'static str,
-    /// The package manager: `winget`, `conda-forge` or `pip`.
+    /// The package manager: `winget`, `conda-forge`, `pip` or `apt`.
     pub manager: &'static str,
     /// The command, exactly as it is run or copied.
     pub command: &'static str,
@@ -434,6 +436,136 @@ pub const GUIDES: &[Guide] = &[
         built_in: false,
     },
     Guide {
+        library: "SuperLU",
+        about: "A supernodal sparse LU with partial pivoting (Demmel, Eisenstat, Gilbert, Li, Liu 1999), the sequential library, releases 5 to 7.",
+        provides: &["direct"],
+        backends: &["superlu"],
+        needs: &[],
+        licence: "BSD-3-Clause",
+        licence_url: "https://github.com/xiaoyeli/superlu/blob/master/License.txt",
+        download: "https://portal.nersc.gov/project/sparse/superlu/",
+        installs: &[
+            Install {
+                id: "conda",
+                manager: "conda-forge",
+                command: "conda install -c conda-forge superlu",
+                systems: &["linux", "macos"],
+                note: "Into the active conda environment: start photonoxide from it.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "superlu 7.0.1",
+                        found: "SuperLU 7.0.0 by its file's name, and the superlu backend after its smoke test and its tests",
+                    },
+                    Checked {
+                        system: "macos",
+                        image: MACOS,
+                        date: DAY,
+                        installed: "superlu 7.0.1",
+                        found: "SuperLU 7.0.0 by its file's name, and the superlu backend after its smoke test and its tests",
+                    },
+                ],
+            },
+            Install {
+                id: "apt",
+                manager: "apt",
+                command: "sudo apt-get install libsuperlu-dev",
+                systems: &["linux"],
+                note: "Debian's and Ubuntu's package, older than conda-forge's: 6.0.1 on Ubuntu 24.04, 5.3.0 on 22.04.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "libsuperlu-dev 6.0.1",
+                        found: "SuperLU 6.0.1 by its file's name, and the superlu backend after its smoke test and its tests",
+                    },
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU_22,
+                        date: DAY,
+                        installed: "libsuperlu-dev 5.3.0",
+                        found: "SuperLU 5.3.0 by its file's name, and the superlu backend after its smoke test and its tests",
+                    },
+                ],
+            },
+        ],
+        unsupported: &[(
+            "windows",
+            "conda-forge has no superlu for Windows (the install fails with PackagesNotFoundInChannelsError, 2026-10-09), and no package there names SuperLU's library by its release, which is how photonoxide tells the releases apart: photonoxide's own solvers run there.",
+        )],
+        built_in: false,
+    },
+    Guide {
+        library: "MUMPS",
+        about: "A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build. MUMPS asks that work using it cite it.",
+        provides: &["direct"],
+        backends: &["mumps"],
+        needs: &[],
+        licence: "CeCILL-C",
+        licence_url: "https://cecill.info/licences/Licence_CeCILL-C_V1-en.html",
+        download: "https://mumps-solver.org/",
+        installs: &[
+            Install {
+                id: "conda",
+                manager: "conda-forge",
+                command: "conda install -c conda-forge mumps-seq",
+                systems: &["windows", "linux", "macos"],
+                note: "The sequential build, into the active conda environment: start photonoxide from it. On Windows it brings conda-forge's mkl with it, and so oneMKL's PARDISO too.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "mumps-seq 5.8.2",
+                        found: "MUMPS 5.8.2, and the mumps backend after its smoke test and its tests",
+                    },
+                    Checked {
+                        system: "windows",
+                        image: WINDOWS,
+                        date: DAY,
+                        installed: "mumps-seq 5.8.2, mkl 2026.1.0",
+                        found: "MUMPS 5.8.2, and the mumps backend after its smoke test and its tests",
+                    },
+                    Checked {
+                        system: "macos",
+                        image: MACOS,
+                        date: DAY,
+                        installed: "mumps-seq 5.8.2",
+                        found: "MUMPS 5.8.2, and the mumps backend after its smoke test and its tests",
+                    },
+                ],
+            },
+            Install {
+                id: "apt",
+                manager: "apt",
+                command: "sudo apt-get install libmumps-seq-dev",
+                systems: &["linux"],
+                note: "Debian's and Ubuntu's package, older than conda-forge's (5.6.2 on Ubuntu 24.04, 5.4.1 on 22.04): both are releases photonoxide knows.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "libmumps-seq-dev 5.6.2",
+                        found: "MUMPS 5.6.2, and the mumps backend after its smoke test and its tests",
+                    },
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU_22,
+                        date: DAY,
+                        installed: "libmumps-seq-dev 5.4.1",
+                        found: "MUMPS 5.4.1, and the mumps backend after its smoke test and its tests",
+                    },
+                ],
+            },
+        ],
+        unsupported: &[],
+        built_in: false,
+    },
+    Guide {
         library: "Accelerate",
         about: "Apple's Accelerate framework, its sparse direct solvers: part of macOS, nothing to install. Complex LU from macOS 15.5, complex symmetric L D Lᵀ from macOS 26.",
         provides: &["direct"],
@@ -467,128 +599,6 @@ const HAS_LIBRARY: &str =
 /// The libraries the plan names that photonoxide has no backend for yet (docs/plans/backends.md):
 /// how each installs, checked on clean machines, for the issue that adds its backend.
 pub const PLANNED: &[Planned] = &[
-    Planned {
-        library: "MUMPS",
-        about: "A multifrontal sparse direct solver, with block low-rank compression: a direct backend. The sequential build.",
-        issue: 176,
-        licence: "CeCILL-C",
-        home: "https://mumps-solver.org/",
-        installs: &[
-            Install {
-                id: "conda",
-                manager: "conda-forge",
-                command: "conda install -c conda-forge mumps-seq",
-                systems: &["windows", "linux", "macos"],
-                note: "The sequential build, into the active conda environment. On Windows it brings conda-forge's mkl with it, and so oneMKL's PARDISO too.",
-                checked: &[
-                    Checked {
-                        system: "linux",
-                        image: UBUNTU,
-                        date: DAY,
-                        installed: "mumps-seq 5.8.2",
-                        found: HAS_LIBRARY,
-                    },
-                    Checked {
-                        system: "windows",
-                        image: WINDOWS,
-                        date: DAY,
-                        installed: "mumps-seq 5.8.2, mkl 2026.1.0",
-                        found: HAS_LIBRARY,
-                    },
-                    Checked {
-                        system: "macos",
-                        image: MACOS,
-                        date: DAY,
-                        installed: "mumps-seq 5.8.2",
-                        found: HAS_LIBRARY,
-                    },
-                ],
-            },
-            Install {
-                id: "apt",
-                manager: "apt",
-                command: "sudo apt-get install libmumps-seq-dev",
-                systems: &["linux"],
-                note: "Debian's and Ubuntu's package, older than conda-forge's: 5.6.2 on Ubuntu 24.04, 5.4.1 on 22.04.",
-                checked: &[
-                    Checked {
-                        system: "linux",
-                        image: UBUNTU,
-                        date: DAY,
-                        installed: "libmumps-seq-dev 5.6.2",
-                        found: HAS_LIBRARY,
-                    },
-                    Checked {
-                        system: "linux",
-                        image: UBUNTU_22,
-                        date: DAY,
-                        installed: "libmumps-seq-dev 5.4.1",
-                        found: HAS_LIBRARY,
-                    },
-                ],
-            },
-        ],
-        unsupported: &[],
-    },
-    Planned {
-        library: "SuperLU",
-        about: "A supernodal sparse direct solver with partial pivoting: a direct backend.",
-        issue: 177,
-        licence: "BSD-3-Clause",
-        home: "https://portal.nersc.gov/project/sparse/superlu/",
-        installs: &[
-            Install {
-                id: "conda",
-                manager: "conda-forge",
-                command: "conda install -c conda-forge superlu",
-                systems: &["linux", "macos"],
-                note: "Into the active conda environment.",
-                checked: &[
-                    Checked {
-                        system: "linux",
-                        image: UBUNTU,
-                        date: DAY,
-                        installed: "superlu 7.0.1",
-                        found: HAS_LIBRARY,
-                    },
-                    Checked {
-                        system: "macos",
-                        image: MACOS,
-                        date: DAY,
-                        installed: "superlu 7.0.1",
-                        found: HAS_LIBRARY,
-                    },
-                ],
-            },
-            Install {
-                id: "apt",
-                manager: "apt",
-                command: "sudo apt-get install libsuperlu-dev",
-                systems: &["linux"],
-                note: "Debian's and Ubuntu's package, older than conda-forge's: 6.0.1 on Ubuntu 24.04, 5.3.0 on 22.04.",
-                checked: &[
-                    Checked {
-                        system: "linux",
-                        image: UBUNTU,
-                        date: DAY,
-                        installed: "libsuperlu-dev 6.0.1",
-                        found: HAS_LIBRARY,
-                    },
-                    Checked {
-                        system: "linux",
-                        image: UBUNTU_22,
-                        date: DAY,
-                        installed: "libsuperlu-dev 5.3.0",
-                        found: HAS_LIBRARY,
-                    },
-                ],
-            },
-        ],
-        unsupported: &[(
-            "windows",
-            "conda-forge has no superlu for Windows (the install fails with PackagesNotFoundInChannelsError, 2026-10-09). vcpkg builds it from source, which wasn't run here.",
-        )],
-    },
     Planned {
         library: "OpenBLAS",
         about: "An open BLAS and LAPACK: dense kernels for the multifrontal fronts, where no vendor's library is installed.",
@@ -709,6 +719,8 @@ fn spec(library: &str) -> Option<&'static Spec> {
         &nvidia::CUSPARSE,
         &nvidia::CUDSS,
         &intel::MKL,
+        &mumps::MUMPS,
+        &superlu::SUPERLU,
         &accelerate::ACCELERATE,
     ]
     .into_iter()
@@ -1242,6 +1254,8 @@ mod tests {
             nvidia::CUSPARSE.name,
             nvidia::CUDSS.name,
             intel::MKL.name,
+            mumps::MUMPS.name,
+            superlu::SUPERLU.name,
             accelerate::ACCELERATE.name,
         ] {
             assert!(spec(name).is_some(), "{name}");

@@ -1,9 +1,9 @@
 # Python and MATLAB bindings: a plan
 
-*A plan, 2026-10-09. Nothing here is implemented or on the roadmap: the owner decides first. The
+*A plan, 2026-10-09. Nothing here is implemented or on the roadmap: I decide first. The
 decisions are tracked in #271.*
 
-The owner wants Python and MATLAB users to be able to use photonoxide some day. Today the rules
+I want Python and MATLAB users to be able to use photonoxide some day. Today the rules
 say otherwise: AGENTS.md has "No Python anywhere: no bindings, no helper scripts, no reference
 implementations", ROADMAP.md's principle 6 has "no Python bindings", and its "Not planned" list
 has "Python bindings: photonoxide is Rust only". This page asks what bindings would take, from the
@@ -17,7 +17,7 @@ It has six parts:
 3. [Three layers, cheapest first](#3-three-layers-cheapest-first): no binding at all (job files
    and run records), Python, and MATLAB.
 4. [Phases](#4-phases): what each delivers, how it is validated, and what it costs to keep.
-5. [Decisions for the owner](#5-decisions-for-the-owner).
+5. [Decisions](#5-decisions).
 6. [Facts checked](#6-facts-checked): versions, names and licences, with dates.
 
 **Rules this page follows.**
@@ -55,7 +55,7 @@ It has six parts:
    published crate; this repository stays Rust only and gains the façade and one sentence in
    AGENTS.md. The alternative, a workspace crate here as genoxide has, keeps versions in step for
    free but brings Python into this repository and wheel builds into its CI. Both are weighed in
-   [decision 1](#5-decisions-for-the-owner).
+   [decision 1](#5-decisions).
 
 ## 1. What's worth binding
 
@@ -164,7 +164,7 @@ files already solved this: every number's name carries its unit (`wavelength_um`
 `size_um`), and the façade can do the same, converting to the types and returning their errors
 (a wavelength that isn't positive is `Error::InvalidValue`, never a silent NaN). Keyword names
 keep principle 7's intent: a length can't be passed where a wavelength goes without the name
-saying so. See [decision 3](#5-decisions-for-the-owner).
+saying so. See [decision 3](#5-decisions).
 
 ### Complex numbers and arrays
 
@@ -401,7 +401,7 @@ MATLAB page:
 - So: the logic lives in Python and is tested there; the `.m` wrappers are kept thin enough to
   review by eye; Octave smoke-tests them where it can; and someone with a MATLAB licence runs the
   MATLAB tests by hand before each release, and the docs list the MATLAB releases checked. If the
-  owner has no licence, MATLAB support is "untested in MATLAB" until a contributor with one checks
+  I have no licence, MATLAB support is "untested in MATLAB" until a contributor with one checks
   it, and the docs say so.
 
 ## 4. Phases
@@ -472,7 +472,7 @@ Every milestone until 1.0 may change the API. What keeps the bindings cheap:
 - **Not every release needs a binding release:** only those that change the façade or that users
   want for a new feature.
 
-## 5. Decisions for the owner
+## 5. Decisions
 
 1. **AGENTS.md's rule and where the bindings live.** AGENTS.md says "No Python anywhere: no
    bindings, no helper scripts, no reference implementations", and the library keeps
@@ -524,7 +524,7 @@ Every milestone until 1.0 may change the API. What keeps the bindings cheap:
    ABI with `loadlibrary`; (c) a MEX gateway. *Recommended: (a).* And: is MATLAB support stated as
    "checked by hand in MATLAB release X before each release" (needs someone with a licence) or as
    "tested in Octave only, untested in MATLAB" until one is found? *Recommended:* say which, on
-   the MATLAB page; the owner says whether a licence is at hand.
+   the MATLAB page; I say whether a licence is at hand.
 
 5. **Versioning.** (a) The package's version is the crate's it wraps (`photonoxide` 0.5.1 on PyPI
    wraps the crate 0.5.1), with binding-only fixes as PEP 440 post-releases (`0.5.1.post1`), and

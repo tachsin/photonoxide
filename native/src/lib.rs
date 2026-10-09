@@ -29,17 +29,21 @@ mod gpu_multigrid;
 mod gpu_qmr;
 pub mod intel;
 mod library;
+pub mod mumps;
 pub mod nvidia;
 mod pardiso;
 mod smoke;
+pub mod superlu;
 
 pub use accelerate::Accelerate;
 pub use cudss::Cudss;
 pub use discovery::{Candidate, Discovery, Source, Spec, Status, discover, versioned};
 pub use gpu_qmr::GpuQmr;
 pub use library::{Library, load};
+pub use mumps::Mumps;
 pub use pardiso::Pardiso;
 pub use smoke::{TOLERANCE, offer, offer_iterative, smoke_test, smoke_test_iterative};
+pub use superlu::SuperLu;
 
 /// What was found of one library.
 #[derive(Clone, Debug)]
@@ -91,6 +95,14 @@ pub fn register_all() -> Vec<Probe> {
         Ok(pardiso) => offer(std::sync::Arc::new(pardiso)).map(drop),
         Err(reason) => photonoxide::backend::register_unavailable("pardiso", reason),
     };
+    let _ = match Mumps::load() {
+        Ok(mumps) => offer(std::sync::Arc::new(mumps)).map(drop),
+        Err(reason) => photonoxide::backend::register_unavailable("mumps", reason),
+    };
+    let _ = match SuperLu::load() {
+        Ok(superlu) => offer(std::sync::Arc::new(superlu)).map(drop),
+        Err(reason) => photonoxide::backend::register_unavailable("superlu", reason),
+    };
     // (off macOS it isn't listed at all: there is nothing a user could do about it)
     if cfg!(target_os = "macos") {
         let _ = match Accelerate::load() {
@@ -100,6 +112,8 @@ pub fn register_all() -> Vec<Probe> {
     }
     let mut probes = nvidia::probe();
     probes.push(intel::probe());
+    probes.push(mumps::probe());
+    probes.push(superlu::probe());
     if cfg!(target_os = "macos") {
         probes.push(accelerate::probe());
     }

@@ -1,0 +1,131 @@
+# A Bragg grating in a silicon strip on 220 nm SOI, as pictures of its permittivity: a 500 nm
+# strip whose width steps between 600 and 400 nm, ten periods of 320 nm, each half wide and half
+# narrow. The steps are deep so that they show in the 3D preview; a filter's are tens of
+# nanometres. The grating reflects where its period is half a wavelength in the guide,
+# lambda_B = 2 n Lambda, n the mean of the two widths' effective indices.
+#   photonoxide run jobs/bragg-grating.toml
+name = "bragg-grating"
+timeout_minutes = 2
+
+[task]
+kind = "structure"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+x_um = [-2.2, 2.2]
+y_um = [-0.7, 0.7]
+z_um = [1.6, 2.62]         # 0.4 um below the silicon (2.0 to 2.22 um) and above it
+step_nm = 20.0
+
+# the strip in, up to the grating at x = -1.6
+[[task.rect]]
+layer = "Si"
+center_um = [-1.9, 0.0]
+size_um = [0.6, 0.5]
+
+# each period: 160 nm at 600 nm wide, then 160 nm at 400 nm
+[[task.rect]]
+layer = "Si"
+center_um = [-1.52, 0.0]
+size_um = [0.16, 0.6]
+
+[[task.rect]]
+layer = "Si"
+center_um = [-1.36, 0.0]
+size_um = [0.16, 0.4]
+
+[[task.rect]]
+layer = "Si"
+center_um = [-1.2, 0.0]
+size_um = [0.16, 0.6]
+
+[[task.rect]]
+layer = "Si"
+center_um = [-1.04, 0.0]
+size_um = [0.16, 0.4]
+
+[[task.rect]]
+layer = "Si"
+center_um = [-0.88, 0.0]
+size_um = [0.16, 0.6]
+
+[[task.rect]]
+layer = "Si"
+center_um = [-0.72, 0.0]
+size_um = [0.16, 0.4]
+
+[[task.rect]]
+layer = "Si"
+center_um = [-0.56, 0.0]
+size_um = [0.16, 0.6]
+
+[[task.rect]]
+layer = "Si"
+center_um = [-0.4, 0.0]
+size_um = [0.16, 0.4]
+
+[[task.rect]]
+layer = "Si"
+center_um = [-0.24, 0.0]
+size_um = [0.16, 0.6]
+
+[[task.rect]]
+layer = "Si"
+center_um = [-0.08, 0.0]
+size_um = [0.16, 0.4]
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.08, 0.0]
+size_um = [0.16, 0.6]
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.24, 0.0]
+size_um = [0.16, 0.4]
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.4, 0.0]
+size_um = [0.16, 0.6]
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.56, 0.0]
+size_um = [0.16, 0.4]
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.72, 0.0]
+size_um = [0.16, 0.6]
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.88, 0.0]
+size_um = [0.16, 0.4]
+
+[[task.rect]]
+layer = "Si"
+center_um = [1.04, 0.0]
+size_um = [0.16, 0.6]
+
+[[task.rect]]
+layer = "Si"
+center_um = [1.2, 0.0]
+size_um = [0.16, 0.4]
+
+[[task.rect]]
+layer = "Si"
+center_um = [1.36, 0.0]
+size_um = [0.16, 0.6]
+
+[[task.rect]]
+layer = "Si"
+center_um = [1.52, 0.0]
+size_um = [0.16, 0.4]
+
+# the strip out, from the grating's end at x = 1.6
+[[task.rect]]
+layer = "Si"
+center_um = [1.9, 0.0]
+size_um = [0.6, 0.5]

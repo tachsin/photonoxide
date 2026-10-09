@@ -1,6 +1,6 @@
 # Validation report: the GPU
 
-Written by `cargo test --release --features gpu --test gpu_report -- --ignored` on the owner's machine before each release; don't edit it by hand. GitHub's runners have no GPU, so CI doesn't run this report: [the main report](validation.md) is the same with or without one. A GPU run repeats bit for bit on the same device and driver, and agrees with the CPU to the tolerances below (see [FDTD](methods/fdtd.md#the-gpu)).
+Written by `cargo test --release --features gpu --test gpu_report -- --ignored` on tachsin's machine before each release; don't edit it by hand. GitHub's runners have no GPU, so CI doesn't run this report: [the main report](validation.md) is the same with or without one. A GPU run repeats bit for bit on the same device and driver, and agrees with the CPU to the tolerances below (see [FDTD](methods/fdtd.md#the-gpu)).
 
 Devices: NVIDIA GeForce RTX 4060 (Vulkan, NVIDIA 616.56) in Single; NVIDIA GeForce RTX 4060 (Vulkan, NVIDIA 616.56) in Double.
 

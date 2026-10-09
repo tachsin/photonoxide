@@ -14,9 +14,9 @@ This page is written by `photonoxide libraries --write docs/libraries.md` from t
 | [CUDA runtime](#cuda-runtime) | — | winget, conda-forge ✓, pip ✓ | conda-forge ✓, pip ✓ | see below |
 | [cuSPARSE](#cusparse) | `cusparse` | winget, conda-forge ✓, pip ✓ | conda-forge ✓, pip ✓ | see below |
 | [cuDSS](#cudss) | `cudss` | conda-forge ✓, pip ✓ | conda-forge ✓, pip ✓ | see below |
+| [SuperLU](#superlu) | `superlu` | see below | conda-forge ✓, apt ✓ | conda-forge ✓ |
+| [MUMPS](#mumps) | `mumps` | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [Accelerate](#accelerate) | `accelerate` | see below | see below | see below |
-| [MUMPS](#mumps) | none yet (#176) | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
-| [SuperLU](#superlu) | none yet (#177) | see below | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [OpenBLAS](#openblas) | none yet (#186) | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [AMD AOCL](#amd-aocl) | none yet (#186) | see below | see below | see below |
 | [Apple Accelerate](#apple-accelerate) | none yet (#186) | see below | see below | see below |
@@ -206,6 +206,69 @@ NVIDIA's sparse direct solver on the GPU.
 
 - **macos:** NVIDIA's libraries have no macOS build: photonoxide's own solvers run there.
 
+### SuperLU
+
+A supernodal sparse LU with partial pivoting (Demmel, Eisenstat, Gilbert, Li, Liu 1999), the sequential library, releases 5 to 7.
+
+- **Licence:** [BSD-3-Clause](https://github.com/xiaoyeli/superlu/blob/master/License.txt). You accept it by installing.
+- **The vendor's download:** <https://portal.nersc.gov/project/sparse/superlu/>
+- **Backends:** `superlu`.
+
+- **conda-forge** (Linux, macOS):
+
+  ```sh
+  conda install -c conda-forge superlu
+  ```
+
+  Into the active conda environment: start photonoxide from it.
+
+  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed superlu 7.0.1; found SuperLU 7.0.0 by its file's name, and the superlu backend after its smoke test and its tests.
+  - Checked on macOS (macos-latest (Apple silicon)), 2026-10-09: installed superlu 7.0.1; found SuperLU 7.0.0 by its file's name, and the superlu backend after its smoke test and its tests.
+
+- **apt** (Linux):
+
+  ```sh
+  sudo apt-get install libsuperlu-dev
+  ```
+
+  Debian's and Ubuntu's package, older than conda-forge's: 6.0.1 on Ubuntu 24.04, 5.3.0 on 22.04.
+
+  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed libsuperlu-dev 6.0.1; found SuperLU 6.0.1 by its file's name, and the superlu backend after its smoke test and its tests.
+  - Checked on Linux (ubuntu-22.04), 2026-10-09: installed libsuperlu-dev 5.3.0; found SuperLU 5.3.0 by its file's name, and the superlu backend after its smoke test and its tests.
+
+- **windows:** conda-forge has no superlu for Windows (the install fails with PackagesNotFoundInChannelsError, 2026-10-09), and no package there names SuperLU's library by its release, which is how photonoxide tells the releases apart: photonoxide's own solvers run there.
+
+### MUMPS
+
+A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build. MUMPS asks that work using it cite it.
+
+- **Licence:** [CeCILL-C](https://cecill.info/licences/Licence_CeCILL-C_V1-en.html). You accept it by installing.
+- **The vendor's download:** <https://mumps-solver.org/>
+- **Backends:** `mumps`.
+
+- **conda-forge** (Windows, Linux, macOS):
+
+  ```sh
+  conda install -c conda-forge mumps-seq
+  ```
+
+  The sequential build, into the active conda environment: start photonoxide from it. On Windows it brings conda-forge's mkl with it, and so oneMKL's PARDISO too.
+
+  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed mumps-seq 5.8.2; found MUMPS 5.8.2, and the mumps backend after its smoke test and its tests.
+  - Checked on Windows (windows-2025-vs2026), 2026-10-09: installed mumps-seq 5.8.2, mkl 2026.1.0; found MUMPS 5.8.2, and the mumps backend after its smoke test and its tests.
+  - Checked on macOS (macos-latest (Apple silicon)), 2026-10-09: installed mumps-seq 5.8.2; found MUMPS 5.8.2, and the mumps backend after its smoke test and its tests.
+
+- **apt** (Linux):
+
+  ```sh
+  sudo apt-get install libmumps-seq-dev
+  ```
+
+  Debian's and Ubuntu's package, older than conda-forge's (5.6.2 on Ubuntu 24.04, 5.4.1 on 22.04): both are releases photonoxide knows.
+
+  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed libmumps-seq-dev 5.6.2; found MUMPS 5.6.2, and the mumps backend after its smoke test and its tests.
+  - Checked on Linux (ubuntu-22.04), 2026-10-09: installed libmumps-seq-dev 5.4.1; found MUMPS 5.4.1, and the mumps backend after its smoke test and its tests.
+
 ### Accelerate
 
 Apple's Accelerate framework, its sparse direct solvers: part of macOS, nothing to install. Complex LU from macOS 15.5, complex symmetric L D Lᵀ from macOS 26.
@@ -221,67 +284,6 @@ Apple's Accelerate framework, its sparse direct solvers: part of macOS, nothing 
 ## The libraries without a backend yet
 
 How each installs, for the issue that adds its backend. photonoxide doesn't look for them yet.
-
-### MUMPS
-
-A multifrontal sparse direct solver, with block low-rank compression: a direct backend. The sequential build. Its backend: [#176](https://github.com/tachsin/photonoxide/issues/176).
-
-- **Licence:** CeCILL-C.
-- **Home:** <https://mumps-solver.org/>
-
-- **conda-forge** (Windows, Linux, macOS):
-
-  ```sh
-  conda install -c conda-forge mumps-seq
-  ```
-
-  The sequential build, into the active conda environment. On Windows it brings conda-forge's mkl with it, and so oneMKL's PARDISO too.
-
-  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed mumps-seq 5.8.2; found the package's library is there; photonoxide has no backend to load it with yet.
-  - Checked on Windows (windows-2025-vs2026), 2026-10-09: installed mumps-seq 5.8.2, mkl 2026.1.0; found the package's library is there; photonoxide has no backend to load it with yet.
-  - Checked on macOS (macos-latest (Apple silicon)), 2026-10-09: installed mumps-seq 5.8.2; found the package's library is there; photonoxide has no backend to load it with yet.
-
-- **apt** (Linux):
-
-  ```sh
-  sudo apt-get install libmumps-seq-dev
-  ```
-
-  Debian's and Ubuntu's package, older than conda-forge's: 5.6.2 on Ubuntu 24.04, 5.4.1 on 22.04.
-
-  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed libmumps-seq-dev 5.6.2; found the package's library is there; photonoxide has no backend to load it with yet.
-  - Checked on Linux (ubuntu-22.04), 2026-10-09: installed libmumps-seq-dev 5.4.1; found the package's library is there; photonoxide has no backend to load it with yet.
-
-### SuperLU
-
-A supernodal sparse direct solver with partial pivoting: a direct backend. Its backend: [#177](https://github.com/tachsin/photonoxide/issues/177).
-
-- **Licence:** BSD-3-Clause.
-- **Home:** <https://portal.nersc.gov/project/sparse/superlu/>
-
-- **conda-forge** (Linux, macOS):
-
-  ```sh
-  conda install -c conda-forge superlu
-  ```
-
-  Into the active conda environment.
-
-  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed superlu 7.0.1; found the package's library is there; photonoxide has no backend to load it with yet.
-  - Checked on macOS (macos-latest (Apple silicon)), 2026-10-09: installed superlu 7.0.1; found the package's library is there; photonoxide has no backend to load it with yet.
-
-- **apt** (Linux):
-
-  ```sh
-  sudo apt-get install libsuperlu-dev
-  ```
-
-  Debian's and Ubuntu's package, older than conda-forge's: 6.0.1 on Ubuntu 24.04, 5.3.0 on 22.04.
-
-  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed libsuperlu-dev 6.0.1; found the package's library is there; photonoxide has no backend to load it with yet.
-  - Checked on Linux (ubuntu-22.04), 2026-10-09: installed libsuperlu-dev 5.3.0; found the package's library is there; photonoxide has no backend to load it with yet.
-
-- **windows:** conda-forge has no superlu for Windows (the install fails with PackagesNotFoundInChannelsError, 2026-10-09). vcpkg builds it from source, which wasn't run here.
 
 ### OpenBLAS
 
