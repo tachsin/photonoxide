@@ -60,6 +60,10 @@
 //!
 //! Every update is a sum over a fixed stencil with no reduction, its rows shared among
 //! rayon's threads (a 2D grid's too): the fields are the same bits on any number of threads.
+//!
+//! With the `gpu` feature a simulation can step on a GPU instead ([`Simulation::set_device`],
+//! the `gpu` module): f32 through wgpu's compute shaders (f64 on Vulkan, for checking),
+//! repeating bit for bit on the same device and driver, within a stated tolerance of the CPU.
 
 use num_complex::Complex64 as c64;
 use rayon::prelude::*;
