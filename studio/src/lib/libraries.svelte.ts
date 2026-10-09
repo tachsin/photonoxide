@@ -39,12 +39,22 @@ export interface Backend {
   unavailable: string | null;
 }
 
+/** One run of an install command on a clean machine, after which the library was found. */
+export interface Checked {
+  system: string;
+  image: string;
+  date: string;
+  installed: string;
+  found: string;
+}
+
 export interface Install {
   id: string;
   manager: string;
   command: string;
   systems: string[];
   note: string;
+  checked: Checked[];
 }
 
 export interface Guide {

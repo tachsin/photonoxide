@@ -123,6 +123,7 @@ of cuDSS; cuSPARSE's ILU(0) factorization (`csrilu02`), deprecated likewise.
 1. This plan, and AGENTS.md's rule (#172).
 2. The traits and the registry (#193, done). `photonoxide-native`'s machinery (#174).
 3. The libraries, in parallel (#175, #176, #177, #186, #187, #188, #189, #190), with the
-   install guides (#184).
+   install guides (#184: [docs/libraries.md](../libraries.md), each method run on clean machines
+   by the Libraries workflow).
 4. The catalogue (#179) and the runner (#180).
 5. The studio's Libraries (#181) and Benchmarks (#182) pages, and `auto` (#183).
