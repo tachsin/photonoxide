@@ -277,9 +277,9 @@ fn it_solves_fdfd_systems_to_their_checks() {
     }
 }
 
-/// Block low-rank factorization, the backend `mumps-blr`: no more entries than the plain
-/// factorization, and solves refined to its tolerance's worth. `PHOTONOXIDE_MUMPS_LARGE` takes
-/// a grid whose fronts are large enough to compress.
+/// Block low-rank factorization, the backend `mumps-blr`: its solves refined to its
+/// tolerance's worth, and with `PHOTONOXIDE_MUMPS_LARGE`, on a grid whose fronts are large
+/// enough to compress, fewer entries than the plain factorization.
 #[test]
 fn block_low_rank_factors_are_no_larger_and_its_solves_are_refined() {
     let Some(mumps) = mumps() else { return };
@@ -296,11 +296,8 @@ fn block_low_rank_factors_are_no_larger_and_its_solves_are_refined() {
     let difference = smoke_test(&blr).unwrap();
     println!("mumps-blr: the smoke test's largest difference, {difference:.1e}");
     assert!(difference < 1e-10);
-    let cells = if std::env::var_os("PHOTONOXIDE_MUMPS_LARGE").is_some() {
-        [44, 44, 44]
-    } else {
-        [20, 20, 20]
-    };
+    let large = std::env::var_os("PHOTONOXIDE_MUMPS_LARGE").is_some();
+    let cells = if large { [44, 44, 44] } else { [20, 20, 20] };
     for form in [Form::General, Form::Symmetric] {
         let (s, r, v) = helmholtz(cells, form);
         let m = Matrix::new(s.len() - 1, &s, &r, &v, form).unwrap();
@@ -331,7 +328,13 @@ fn block_low_rank_factors_are_no_larger_and_its_solves_are_refined() {
                 100.0 * entries as f64 / full as f64,
                 report.factorization_seconds
             );
-            assert!(entries > 0 && entries <= full, "{entries} against {full}");
+            // (MUMPS counts the compressed entries apart from the plain ones: on a grid too
+            // small to compress, 5.4.1 gave half a percent more)
+            let most = if large { 0.95 } else { 1.02 };
+            assert!(
+                entries > 0 && entries as f64 <= most * full as f64,
+                "{entries} against {full}"
+            );
             assert!(
                 d < bound && dt < bound,
                 "{form:?} at {tolerance:e}: {d:e}, {dt:e}"
