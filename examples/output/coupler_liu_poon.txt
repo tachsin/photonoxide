@@ -1,0 +1,6 @@
+Liu and Poon's directional coupler (gdsfactory's generic PDK), 3D FDTD, TE0 into the lower left port; materials at 1.55 um
+6 cells a wavelength: 590 × 119 × 54 cells of 74.3 nm (3.8 million), CPMLs of 12
+  wavelength  cross TE0  bar TE0   reflection  excess loss
+  1.550 um    0.46404    0.52819   1.93e-5    -0.0339 dB
+  cross TE0, 1550 nm, 6 cells            0.464043   paper 0.4515     ± 2.9e-1    ok
+all 1 within tolerance of the paper

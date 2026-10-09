@@ -451,6 +451,16 @@ pub enum Coupling {
     /// (docs/methods/fdtd.md). It takes its own average: [`Smoothing::average`] must be
     /// [`Average::Subpixel`] and the diameter 1.
     Triplets,
+    /// None: each value of E keeps its own diagonal entry of ε̃⁻¹ and the off-diagonal ones are
+    /// dropped, so E = (ε̃⁻¹)_cc D_c and nothing couples E's components. For isotropic media
+    /// (ε̃⁻¹)_xx is n_x²⟨ε⁻¹⟩ + (1 − n_x²)⟨ε⟩⁻¹: the per-component effective permittivity that
+    /// conformal and subpixel schemes without a tensor use. Exact as [`Coupling::Nodes`] at an
+    /// interface along the grid; at an oblique one first order, with a larger error than the
+    /// tensor's (docs/methods/fdtd.md). The update stays scalar, so stable at any contrast,
+    /// combinable with what a coupling tensor refuses (a conductivity, a dispersive medium, a
+    /// Bloch phase), and stepped by the kernel's tiles: about four times the tensors' speed on
+    /// a large 3D grid.
+    Diagonal,
 }
 
 /// The samples per axis of a cell two surfaces cross.
@@ -1033,6 +1043,8 @@ impl Simulation {
                 }))
             }
             Coupling::Points => Off::Points(rows.clone()),
+            // the diagonal entries are E's coefficients already: nothing to couple
+            Coupling::Diagonal => return Ok(s),
             Coupling::Triplets => unreachable!("taken by Simulation::triplets"),
         };
         let diagonal = std::array::from_fn(|c| rows[c].iter().map(|row| row[c]).collect());
