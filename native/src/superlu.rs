@@ -7,11 +7,13 @@
 //!
 //! - **Releases.** The library says nothing of its version, so it is taken from the file's
 //!   name, which the packages give it (`libsuperlu.so.7`, `libsuperlu.6.dylib`): majors 5, 6
-//!   and 7, whose headers (5.3.0, 6.0.1, 7.0.1) declare `zgssvx` and its structures alike. One
+//!   and 7, whose headers (5.0 to 7.0.1) declare `zgssvx` and its structures alike. One
 //!   constant differs: "the column ordering given" is 7 in release 5 and 8 from 6, where an
-//!   ordering was added before it. A file without its major in its name isn't used (a
-//!   SuperLU 4's `zgssvx` takes other arguments), which leaves Windows out: no package there
-//!   names it so.
+//!   ordering was added before it, and a wrong one makes SuperLU exit the process. So the
+//!   name's major is checked against the library's functions: `input_error` is SuperLU's from
+//!   5.0 (4.3 has none), `int32Malloc` from 6.0.0. A file without its major in its name isn't
+//!   used (a SuperLU 4's `zgssvx` takes other arguments), which leaves Windows out: no package
+//!   there names it so. The version reported is the file's (Debian names 7.0.1's 7.0.0).
 //! - **32-bit indices.** SuperLU's `int_t` is `int` unless it was built otherwise. Which, is
 //!   read from the library: a matrix it makes says where its row count sits. A build with
 //!   64-bit indices is refused.
@@ -27,9 +29,13 @@
 //!   refinement in double precision, the transposed system by its `Trans` option.
 //! - **Report:** the factors' entries, nnz(L) + nnz(U) as SuperLU counts them, and the memory
 //!   it says it needs (`mem_usage_t.total_needed`). It replaces no pivots.
-//! - **One call at a time,** under one lock. One thread; not declared deterministic.
-//! - **Errors:** `zgssvx`'s `info`: a zero pivot, with its column, or memory that couldn't be
-//!   had.
+//! - **One call at a time,** under one lock: SuperLU keeps its state in the structures it is
+//!   given, but its BLAS isn't known to be reentrant. SuperLU itself is sequential; its BLAS
+//!   may thread (`OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`). Not declared deterministic.
+//! - **Errors:** `zgssvx`'s `info`: a zero pivot, with its column in the matrix's numbering,
+//!   or memory that couldn't be had. SuperLU exits the process where some of its allocations
+//!   fail, which no error here can catch. An empty matrix and a 32-bit or big-endian system
+//!   are refused before SuperLU is called.
 
 use std::ffi::{c_char, c_int, c_void};
 use std::path::Path;
@@ -78,7 +84,7 @@ impl Buffer {
     }
 
     fn int(&self, offset: usize) -> i32 {
-        debug_assert!(offset.is_multiple_of(4) && offset + 4 <= 8 * self.0.len());
+        assert!(offset.is_multiple_of(4) && offset + 4 <= 8 * self.0.len());
         // SAFETY: inside the buffer, aligned for an i32 (the buffer is of u64)
         unsafe {
             self.0
@@ -91,7 +97,7 @@ impl Buffer {
     }
 
     fn set_int(&mut self, offset: usize, value: i32) {
-        debug_assert!(offset.is_multiple_of(4) && offset + 4 <= 8 * self.0.len());
+        assert!(offset.is_multiple_of(4) && offset + 4 <= 8 * self.0.len());
         // SAFETY: as `int`
         unsafe {
             self.0
@@ -267,8 +273,9 @@ fn narrow(create_dense: CreateDense, destroy_store: DestroyFn) -> Result<bool> {
     let mut x = Buffer::new(64);
     let mut values = [c64::new(0.0, 0.0); 3];
     let _one = CALLS.lock().unwrap_or_else(|p| p.into_inner());
-    // SAFETY: zCreate_Dense_Matrix's arguments, all in registers or 8-byte slots whatever the
-    // index's width; it writes the matrix's header and allocates its store
+    // SAFETY: zCreate_Dense_Matrix's parameters are ints and enums in every release, whatever
+    // the index's width; it writes the matrix's header (40 bytes at most, of the 64 here) and
+    // allocates its store, which is freed below
     unsafe {
         create_dense(
             x.pointer(),
@@ -296,10 +303,50 @@ fn narrow(create_dense: CreateDense, destroy_store: DestroyFn) -> Result<bool> {
     }
 }
 
-fn open(library: Library) -> Result<Api> {
+/// Whether the library's functions agree with the major its name gives: `input_error` is
+/// SuperLU's from 5.0 (4.3 has none), `int32Malloc` from 6.0.0 (5.3.0 has none).
+fn agrees(library: &Library, major: u32) -> Result<()> {
+    let has = |name: &str| {
+        // SAFETY: only looked up, never called
+        unsafe { library.function::<unsafe extern "C" fn()>(name) }.is_ok()
+    };
+    if !has("input_error") || has("int32Malloc") != (major >= 6) {
+        return Err(error(format!(
+            "its file's name says SuperLU {major}, and its functions say otherwise"
+        )));
+    }
+    Ok(())
+}
+
+/// The release of a library photonoxide calls: its name's, confirmed by its functions, with
+/// 32-bit indices.
+fn identify(library: &Library) -> Result<(String, u32)> {
+    if !cfg!(all(target_pointer_width = "64", target_endian = "little")) {
+        return Err(error(
+            "SuperLU's structures are laid out here for 64-bit little-endian systems only",
+        ));
+    }
     let (version, major) = supported(library.path())?;
-    // SAFETY: each type is the function's declaration in slu_util.h or slu_zdefs.h (5.3.0,
-    // 6.0.1 and 7.0.1 alike, with `int_t` an `int`, checked below)
+    agrees(library, major)?;
+    // SAFETY: the two functions' declarations in slu_util.h and slu_zdefs.h, in every release
+    let (create_dense, destroy_store): (CreateDense, DestroyFn) = unsafe {
+        (
+            library.function("zCreate_Dense_Matrix")?,
+            library.function("Destroy_SuperMatrix_Store")?,
+        )
+    };
+    if !narrow(create_dense, destroy_store)? {
+        return Err(error(
+            "this SuperLU was built with 64-bit indices, which photonoxide doesn't call it with",
+        ));
+    }
+    Ok((version, major))
+}
+
+fn open(library: Library) -> Result<Api> {
+    let (version, major) = identify(&library)?;
+    // SAFETY: each type is the function's declaration in slu_util.h or slu_zdefs.h (5.0 to
+    // 7.0.1 alike, with `int_t` an `int`, checked by `identify`)
     let api = unsafe {
         Api {
             set_default_options: library.function("set_default_options")?,
@@ -317,11 +364,6 @@ fn open(library: Library) -> Result<Api> {
             _library: library,
         }
     };
-    if !narrow(api.create_dense, api.destroy_store)? {
-        return Err(error(
-            "this SuperLU was built with 64-bit indices, which photonoxide doesn't call it with",
-        ));
-    }
     Ok(api)
 }
 
@@ -368,6 +410,19 @@ fn check(info: c_int, n: c_int, what: &str) -> Result<()> {
     }
 }
 
+/// `info` with a zero pivot's column in the matrix's numbering: SuperLU counts the columns of
+/// A Pc, and its `perm_c[j]` is where A's column j went.
+fn in_matrix(info: c_int, n: c_int, perm_c: &[c_int]) -> c_int {
+    if (1..=n).contains(&info) {
+        perm_c
+            .iter()
+            .position(|&p| p == info - 1)
+            .map_or(info, |j| j as c_int + 1)
+    } else {
+        info
+    }
+}
+
 /// A matrix's factors as `zgssvx` leaves them, with what its solves need.
 struct Engine {
     api: Arc<Api>,
@@ -391,10 +446,6 @@ struct Engine {
     factorized: bool,
     report: Report,
 }
-
-// SAFETY: an engine is used by one thread at a time (behind a Mutex), every call into SuperLU
-// is under one lock, and its arrays are owned here
-unsafe impl Send for Engine {}
 
 impl Engine {
     fn new(api: &Arc<Api>, columns: &Arc<Columns>, values: Vec<c64>) -> Result<Engine> {
@@ -513,7 +564,11 @@ impl Engine {
         }
         // (SuperLU allocates L and U before it can find a zero pivot)
         engine.factorized = engine.l.address(supermatrix::STORE) != 0;
-        check(info, columns.n, "factorization")?;
+        check(
+            in_matrix(info, columns.n, &engine.perm_c),
+            columns.n,
+            "factorization",
+        )?;
         // nnz is each store's first field, an int_t
         let entries = |m: &Buffer| -> usize {
             let store = m.address(supermatrix::STORE) as *const c_int;
@@ -617,7 +672,7 @@ impl SuperLu {
     ///
     /// Why not: not found, not loadable, another release, 64-bit indices.
     pub fn load() -> std::result::Result<SuperLu, String> {
-        let (discovery, library) = load(&SUPERLU, None, |l| supported(l.path()).map(drop));
+        let (discovery, library) = load(&SUPERLU, None, |l| identify(l).map(drop));
         let library = library.ok_or_else(|| discovery.reason())?;
         let api = open(library).map_err(|e| e.to_string())?;
         Ok(SuperLu { api: Arc::new(api) })
@@ -631,10 +686,10 @@ impl SuperLu {
 
 /// SuperLU: where it was found and its release.
 pub fn probe() -> Probe {
-    let (discovery, library) = load(&SUPERLU, None, |l| supported(l.path()).map(drop));
+    let (discovery, library) = load(&SUPERLU, None, |l| identify(l).map(drop));
     let version = library
         .as_ref()
-        .and_then(|l| supported(l.path()).ok())
+        .and_then(|l| identify(l).ok())
         .map(|(version, _)| version);
     Probe {
         discovery,
@@ -652,7 +707,11 @@ impl DirectSolver for SuperLu {
         );
         c.symmetric = false;
         c.transpose = true;
-        c.threads = Threads::One;
+        c.threads = Threads::Library(
+            "its BLAS's own threads (OMP_NUM_THREADS, OPENBLAS_NUM_THREADS): SuperLU itself is \
+             sequential"
+                .into(),
+        );
         c.deterministic = false;
         c
     }
@@ -660,6 +719,9 @@ impl DirectSolver for SuperLu {
     fn analyse(&self, matrix: &Matrix<'_>) -> Result<Option<Arc<dyn Analysis>>> {
         if matrix.form() != Form::General {
             return Err(error("SuperLU takes general matrices only"));
+        }
+        if matrix.n() == 0 {
+            return Err(error("SuperLU is given no empty matrix"));
         }
         let start = Instant::now();
         let n = c_int::try_from(matrix.n())
@@ -831,6 +893,19 @@ mod tests {
         assert_eq!(b.int(options::TRANS), 1);
         b.set_int(TOTAL_NEEDED, 1.5f32.to_bits() as i32);
         assert_eq!(b.float(TOTAL_NEEDED), 1.5);
+    }
+
+    #[test]
+    fn a_zero_pivots_column_is_the_matrixs() {
+        // A's columns 0, 1, 2 at 2, 0, 1 of A Pc: A Pc's second column is A's third
+        let perm_c = [2, 0, 1];
+        assert_eq!(in_matrix(2, 3, &perm_c), 3);
+        assert_eq!(in_matrix(1, 3, &perm_c), 2);
+        assert_eq!(in_matrix(3, 3, &perm_c), 1);
+        // not a pivot: as it is
+        assert_eq!(in_matrix(0, 3, &perm_c), 0);
+        assert_eq!(in_matrix(-4, 3, &perm_c), -4);
+        assert_eq!(in_matrix(4096, 3, &perm_c), 4096);
     }
 
     #[test]
