@@ -23,7 +23,8 @@
 //!   partial pivoting today, by the header), its default ordering and scaling, its pivot
 //!   tolerance of 0.01.
 //! - **Errors.** A parameter Accelerate refuses is reported to a function given it (without
-//!   one it stops the process); a factorization's failure is its status.
+//!   one it stops the process); a factorization's failure is its status. A matrix with a zero
+//!   pivot may be factorized all the same, so a solution that isn't finite is an error too.
 //! - **Report:** the bytes of the factors and the workspace, as the symbolic factorization
 //!   gives them. It doesn't say how many entries the factors have.
 //! - **Threads** are Accelerate's own. Not declared deterministic.
@@ -487,6 +488,13 @@ impl Engine {
             (api.free)(workspace);
         }
         reported("solve")?;
+        // a zero pivot isn't a failed status to Accelerate: it shows in the solution
+        if x.iter().any(|v| !(v.re.is_finite() && v.im.is_finite())) {
+            return Err(error(
+                "Accelerate's solve: the solution isn't finite, the matrix is singular to its \
+                 factorization",
+            ));
+        }
         Ok(x)
     }
 }

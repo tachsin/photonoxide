@@ -39,7 +39,6 @@ fn it_finds_accelerate_and_what_this_macos_has() {
     println!("{c:?}");
     assert_eq!(probe.version.as_deref(), Some(accelerate.version()));
     assert_eq!(c.name, "accelerate");
-    assert_eq!(c.version, accelerate.version());
     assert_eq!(c.version, format!("macOS {}", accelerate.version()));
     assert!(c.complex && c.transpose && !c.deterministic);
     if std::env::var("PHOTONOXIDE_REQUIRE_ACCELERATE").as_deref() == Ok("symmetric") {
@@ -202,8 +201,10 @@ fn a_singular_matrix_is_an_error_and_a_wrong_right_hand_side_is_refused() {
         let outcome = accelerate
             .analyse(&m)
             .and_then(|a| a.expect("an analysis or an error").factorize(&m));
+        // at the factorization, or at the solve if Accelerate factorized it all the same
+        let outcome = outcome.and_then(|f| f.solve(&[c64::new(1.0, 0.0), c64::new(1.0, 0.0)]));
         let Err(e) = outcome else {
-            panic!("{form:?}: a singular matrix was factorized");
+            panic!("{form:?}: a singular system was solved: {outcome:?}");
         };
         let e = e.to_string();
         println!("{form:?}: {e}");
