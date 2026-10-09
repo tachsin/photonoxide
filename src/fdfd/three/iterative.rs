@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use num_complex::Complex64 as c64;
 
+use super::matrix_free::MatrixFree;
 use super::multigrid::{Hierarchy, Multigrid, shifted};
 use super::{Axis, Boundaries3d, Field3d, Grid3d, Lattice, Port3d, PortMode3d, Solver3d};
 use crate::backend::{self, Choice, Form, IterativeSolver};
@@ -50,8 +51,12 @@ pub struct IterativeSolver3d {
     lattice: Lattice,
     eps: Vec<c64>,
     formulation: Formulation,
-    /// The matrix QMR multiplies by: A, or, when `similarity` is S, B = S A S⁻¹.
+    /// The matrix QMR multiplies by: A, or, when `similarity` is S, B = S A S⁻¹. Empty when
+    /// `free` is the operator.
     matrix: Sparse,
+    /// The same operator without its matrix ([`IterativeSolver3d::matrix_free`]): what QMR
+    /// multiplies by then.
+    free: Option<MatrixFree>,
     /// The curl-curl operator with PMLs or periodic sides is similar to a complex symmetric
     /// matrix by a diagonal S ([`Sparse::symmetrized`]): then `matrix` is that matrix, and QMR
     /// for complex symmetric matrices (Freund 1992) solves with one product an iteration.
@@ -107,10 +112,60 @@ impl IterativeSolver3d {
             eps,
             formulation,
             matrix,
+            free: None,
             similarity,
             preconditioner: Preconditioning::None,
             backend: None,
         })
+    }
+
+    /// [`IterativeSolver3d::new`] for QMR on the curl-curl operator ([`Formulation::CurlCurl`])
+    /// without its matrix: each product is two passes over the grid, E to H and back, with the
+    /// PML's stretch, the walls and the Bloch phases as the matrix has them. The same product
+    /// to rounding, so the same iterations but for it; 96 bytes an unknown where the matrix
+    /// and its transpose take about 600, and a product 1.6 to 2.6 times faster on 12 threads
+    /// (docs/methods/fdfd-3d.md, "Without the matrix").
+    ///
+    /// For the solves that take no preconditioner. ILU(0), the multigrid and an iterative
+    /// backend need the matrix: [`IterativeSolver3d::new`].
+    ///
+    /// # Errors
+    ///
+    /// As [`IterativeSolver3d::new`].
+    pub fn matrix_free(
+        grid: Grid3d,
+        wavelength: Wavelength,
+        eps: impl Fn(f64, f64, f64) -> c64,
+        boundaries: Boundaries3d,
+    ) -> Result<IterativeSolver3d> {
+        let (lattice, eps) = Solver3d::setup(grid, wavelength, eps, boundaries)?;
+        let operator = MatrixFree::new(&lattice, &eps);
+        // by QMR for symmetric matrices where it can be, as with the matrix
+        let (similarity, free) = match operator.symmetrized() {
+            Some((s, b)) => (Some(s), b),
+            None => (None, operator),
+        };
+        Ok(IterativeSolver3d {
+            lattice,
+            eps,
+            formulation: Formulation::CurlCurl,
+            matrix: Sparse::new(grid.unknowns(), std::iter::empty()),
+            free: Some(free),
+            similarity,
+            preconditioner: Preconditioning::None,
+            backend: None,
+        })
+    }
+
+    /// Refuses what needs the matrix of a solver that has none.
+    fn needs_matrix(&self, what: &str) -> Result<()> {
+        if self.free.is_some() {
+            return Err(Error::invalid(
+                "fdfd solver",
+                format!("{what} needs the assembled matrix: IterativeSolver3d::new"),
+            ));
+        }
+        Ok(())
     }
 
     /// The same problem, QMR preconditioned by the incomplete LU factorization of its matrix with
@@ -127,6 +182,7 @@ impl IterativeSolver3d {
     /// converge: its near-null space of gradients makes the incomplete factors useless), or for a
     /// zero pivot.
     pub fn with_ilu(mut self) -> Result<IterativeSolver3d> {
+        self.needs_matrix("ILU(0)")?;
         if self.formulation == Formulation::CurlCurl {
             return Err(Error::invalid(
                 "fdfd preconditioner",
@@ -184,6 +240,7 @@ impl IterativeSolver3d {
         direct: &crate::backend::Choice,
     ) -> Result<IterativeSolver3d> {
         let solver = crate::backend::direct(direct)?;
+        self.needs_matrix("the multigrid")?;
         if self.formulation == Formulation::CurlCurl {
             return Err(Error::invalid(
                 "fdfd preconditioner",
@@ -210,6 +267,9 @@ impl IterativeSolver3d {
     /// solver preconditioned by multigrid with a backend that doesn't run it.
     pub fn with_iterative_backend(mut self, choice: &Choice) -> Result<IterativeSolver3d> {
         self.backend = backend::iterative(choice)?;
+        if self.backend.is_some() {
+            self.needs_matrix("an iterative backend")?;
+        }
         self.check_backend()?;
         Ok(self)
     }
@@ -260,7 +320,8 @@ impl IterativeSolver3d {
         self.lattice.grid
     }
 
-    /// The nonzeros of the matrix QMR multiplies by.
+    /// The nonzeros of the matrix QMR multiplies by: none for
+    /// [`IterativeSolver3d::matrix_free`].
     pub fn nonzeros(&self) -> usize {
         self.matrix.nonzeros()
     }
@@ -329,6 +390,12 @@ impl IterativeSolver3d {
                     checked(&self.matrix, &b, x, how, stopping)?
                 }
                 None => gmres_preconditioned(&self.matrix, h.as_ref(), &b, stopping, h.restart())?,
+            },
+            // without the matrix: by the operator, on its symmetric form where it has one
+            Preconditioning::None if self.free.is_some() => match (&self.free, &self.similarity) {
+                (Some(operator), Some(s)) => qmr_similar(operator, s, &b, stopping)?,
+                (Some(operator), None) => qmr(operator, &b, stopping)?,
+                (None, _) => qmr(&self.matrix, &b, stopping)?,
             },
             Preconditioning::None => match (&self.backend, &self.similarity) {
                 (Some(solver), Some(s)) => {
