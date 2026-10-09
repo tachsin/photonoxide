@@ -17,7 +17,7 @@
   const job = $derived(spec.job ? jobExample(spec.job) : undefined);
 </script>
 
-<figure class="panel my-6 overflow-hidden">
+<figure class="panel my-6 overflow-hidden" data-diagram={spec.id}>
   <div class="flex items-center gap-3 border-b border-base-content/8 px-4 py-3">
     <div class="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><PencilRuler size={16} /></div>
     <p class="min-w-0 flex-1 text-sm font-semibold">{spec.title}</p>
