@@ -1,7 +1,7 @@
 use super::*;
 use crate::compact::checks::{Ring, ring_parametric, ring_spectrum};
 
-// Bogaerts et al. 2012, Eq. 1 is (r − a z)/(1 − r a z): a ratio of functions linear in r, so
+// Bogaerts et al. 2011, Eq. 1 is (r − a z)/(1 − r a z): a ratio of functions linear in r, so
 // numerator and denominator of degree 1 in r are exact
 #[test]
 fn the_rings_coupling_is_exact_at_low_degree() {

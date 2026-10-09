@@ -4,7 +4,7 @@ module: circuit::components
 summary: "Waveguides, bends, couplers, MMIs, Y-branches, rings and the Mach-Zehnder interferometer: closed forms with their exact parameter derivatives, models built from the mode solvers, and S-matrices sampled by 2D FDFD."
 order: 22
 papers:
-  - cite: "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012)"
+  - cite: "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue)"
     doi: 10.1002/lpor.201100017
   - cite: "L. B. Soldano, E. C. M. Pennings, J. Lightwave Technol. 13, 615 (1995)"
     doi: 10.1109/50.372474
