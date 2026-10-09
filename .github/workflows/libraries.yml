@@ -93,8 +93,6 @@ jobs:
           python -m pip list | grep -i -E "mkl|nvidia|tbb|openmp" || true
       - name: Where it landed
         run: |
-          python - <<'EOF' || true
-          EOF
           root="$(python -c 'import sys; print(sys.prefix)')"
           echo "sys.prefix=$root"
           find "$root" -iname "*mkl_rt*" -o -iname "*cudss*" -o -iname "*cudart*" -o -iname "*cusparse*" 2>/dev/null | grep -v -E "\.(py|pyc|h|txt)$|dist-info" | head -40
