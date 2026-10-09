@@ -17,6 +17,15 @@ on:
     - cron: '17 4 * * 1'
   workflow_dispatch:
 
+# it reads the repository and nothing else: no secrets, no writes
+permissions:
+  contents: read
+
+# a PR's newer push replaces its older run
+concurrency:
+  group: libraries-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   CARGO_TERM_COLOR: always
 
