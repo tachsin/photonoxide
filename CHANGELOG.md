@@ -34,6 +34,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(fdtd)* adjoint gradients in 3D from FDTD runs, the mode's imaginary part included ([#246](https://github.com/tachsin/photonoxide/pull/246))
 - *(bench)* the catalogue's remaining problems: stretched PMLs on the device boxes, Diel and the strip with ports at other sizes, Hadley's corners ([#242](https://github.com/tachsin/photonoxide/pull/242))
 - *(fdtd)* FDTD on the GPU through wgpu compute, deterministic, judged against the blocked CPU kernel ([#252](https://github.com/tachsin/photonoxide/pull/252))
+- *(native)* NVIDIA cuDSS, a sparse direct solver on the GPU ([#205](https://github.com/tachsin/photonoxide/pull/205))
+- *(native)* cuDSS's complex symmetric L D Lᵀ ([#222](https://github.com/tachsin/photonoxide/pull/222))
+- *(studio)* a Libraries page: what is found, licences, and guided installs the user confirms ([#221](https://github.com/tachsin/photonoxide/pull/221))
+- *(studio)* a Benchmarks page: runs on the user's machine, charts, and which library wins where ([#226](https://github.com/tachsin/photonoxide/pull/226))
 
 ### <!-- 1 -->Fixed
 
@@ -63,6 +67,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(plans)* optimization in photonic design: a survey and a plan with genoxide ([#245](https://github.com/tachsin/photonoxide/pull/245))
 - *(roadmap)* 0.6.2, quantum light and linear-optical statistics, and the owner's decisions on both plans ([#249](https://github.com/tachsin/photonoxide/pull/249))
 - 0.5 released, FDTD and the backends in the README, 0.5.1 next ([#257](https://github.com/tachsin/photonoxide/pull/257))
+- *(academy)* the Bragg lesson cites Macleod's fifth edition ([#238](https://github.com/tachsin/photonoxide/pull/238))
 
 ## [0.4.3](https://github.com/tachsin/photonoxide/compare/v0.4.2...v0.4.3) - 2026-10-05
 
