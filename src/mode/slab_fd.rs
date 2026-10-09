@@ -148,6 +148,54 @@ impl Profile {
         crate::mode::vector::check_near(near)?;
         let k = wavelength.wavenumber();
         let k2 = k * k;
+        let n = self.nodes.len();
+        let entries = self.entries(polarization, k2);
+        let n_max =
+            near.unwrap_or_else(|| self.cells.iter().map(|e| e.re.sqrt()).fold(1.0, f64::max));
+        let shift = c64::new(k2 * n_max * n_max, 0.0);
+        let pairs = crate::eigen::nearest(n, &entries, shift, count, 1e-10)?;
+        Ok(pairs
+            .into_iter()
+            .map(|p| ProfileMode::new(k, p.value, &p.vector))
+            .collect())
+    }
+
+    /// Every mode whose effective index lies in `region`, highest Re n_eff first, with no count
+    /// and no guess: by contour integrals ([`crate::mode::region`]), the same bits on any number
+    /// of threads.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] if a shifted matrix can't be factorized, a subspace given in
+    /// `search` is too small for the modes in the region, or they don't converge within its
+    /// iterations.
+    pub fn modes_in(
+        &self,
+        polarization: Polarization,
+        wavelength: Wavelength,
+        region: &crate::mode::region::Region,
+        search: &crate::mode::region::Search,
+    ) -> Result<crate::mode::region::Found<ProfileMode>> {
+        let k = wavelength.wavenumber();
+        let entries = self.entries(polarization, k * k);
+        let positions: Vec<[f64; 3]> = self.nodes.iter().map(|&x| [x, 0.0, 0.0]).collect();
+        let found =
+            crate::mode::region::search(self.nodes.len(), &entries, &positions, k, region, search)?;
+        Ok(crate::mode::region::Found {
+            modes: found
+                .pairs
+                .into_iter()
+                .map(|p| ProfileMode::new(k, p.value, &p.vector))
+                .collect(),
+            residuals: found.residuals,
+            estimate: found.estimate,
+            subspace: found.subspace,
+            iterations: found.iterations,
+        })
+    }
+
+    /// The matrix whose eigenvalues are β², as (row, column, value) entries.
+    pub(crate) fn entries(&self, polarization: Polarization, k2: f64) -> Vec<(usize, usize, c64)> {
         let (start, end) = (self.nodes[0], self.nodes[self.nodes.len() - 1]);
         // complex coordinates inside the PML (Chew et al., Eq. 45)
         let x: Vec<c64> = self
@@ -208,25 +256,22 @@ impl Profile {
                 }
             }
         }
-        let n_max =
-            near.unwrap_or_else(|| self.cells.iter().map(|e| e.re.sqrt()).fold(1.0, f64::max));
-        let shift = c64::new(k2 * n_max * n_max, 0.0);
-        let pairs = crate::eigen::nearest(n, &entries, shift, count, 1e-10)?;
-        Ok(pairs
-            .into_iter()
-            .map(|p| {
-                let peak = p
-                    .vector
-                    .iter()
-                    .copied()
-                    .max_by(|a, b| a.norm().total_cmp(&b.norm()))
-                    .unwrap_or(c64::new(1.0, 0.0));
-                ProfileMode {
-                    effective_index: p.value.sqrt() / k,
-                    field: p.vector.iter().map(|v| v / peak).collect(),
-                }
-            })
-            .collect())
+        entries
+    }
+}
+
+impl ProfileMode {
+    /// The mode of eigenvalue β² and field `vector` at wavenumber k, the field's peak 1.
+    fn new(k: f64, beta2: c64, vector: &[c64]) -> ProfileMode {
+        let peak = vector
+            .iter()
+            .copied()
+            .max_by(|a, b| a.norm().total_cmp(&b.norm()))
+            .unwrap_or(c64::new(1.0, 0.0));
+        ProfileMode {
+            effective_index: beta2.sqrt() / k,
+            field: vector.iter().map(|v| v / peak).collect(),
+        }
     }
 }
 

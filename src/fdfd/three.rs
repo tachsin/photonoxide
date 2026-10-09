@@ -1106,6 +1106,7 @@ impl Lattice {
 pub(crate) mod adjoint;
 pub(crate) mod checks;
 mod iterative;
+mod matrix_free;
 mod multigrid;
 pub(crate) mod port_checks;
 #[cfg(test)]

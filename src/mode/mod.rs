@@ -12,6 +12,8 @@
 //! - [`marcatili`]: Marcatili's approximation for rectangular guides.
 //! - [`multilayer`]: the bound modes and leaky waves of any planar stack, exactly, by
 //!   transfer matrices.
+//! - [`region`]: every mode in a region of the complex effective-index plane, with no count
+//!   and no guess, by contour integrals.
 //! - [`slab_fd`]: any planar profile (graded, lossy, leaky) by 1D finite differences.
 //! - [`slab`]: the modes of a three-layer slab, exactly (TE and TM).
 //! - [`vector`]: the full-vector modes of any cross-section, by finite differences.
@@ -23,6 +25,7 @@ pub mod fields;
 pub mod hadley;
 pub mod marcatili;
 pub mod multilayer;
+pub mod region;
 pub mod slab;
 pub mod slab_fd;
 pub mod vector;
