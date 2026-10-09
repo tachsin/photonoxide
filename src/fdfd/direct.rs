@@ -15,6 +15,7 @@ use faer::sparse::Triplet;
 use num_complex::Complex64 as c64;
 
 use super::krylov::Sparse;
+use crate::backend::auto::Problem;
 use crate::backend::{Analysis, Choice, Columns, DirectSolver, Factorization, Form};
 use crate::{Error, Result};
 
@@ -24,6 +25,8 @@ use crate::{Error, Result};
 pub(crate) struct Plan {
     solver: Arc<dyn DirectSolver>,
     analysis: Option<Arc<dyn Analysis>>,
+    /// Why `auto` chose the backend, if it did.
+    chosen: Option<String>,
 }
 
 impl Plan {
@@ -37,6 +40,36 @@ impl Plan {
         Ok(Plan {
             solver: crate::backend::direct(choice)?,
             analysis: None,
+            chosen: None,
+        })
+    }
+
+    /// The plan of a choice of backend for `problem`: for `auto`, the backend this machine's
+    /// measurements say ([`crate::backend::auto::decide`]: photonoxide's own without any), with
+    /// the reason; otherwise as [`Plan::new`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Plan::new`].
+    pub(crate) fn for_problem(choice: &Choice, problem: Problem<'_>) -> Result<Plan> {
+        if *choice != Choice::Auto {
+            return Plan::new(choice);
+        }
+        let decision = crate::backend::auto::decide(problem);
+        // decided among the registered, available backends; should one have gone since,
+        // photonoxide's own, and the reason says so
+        let (solver, reason) =
+            match Choice::parse(&decision.backend).and_then(|c| crate::backend::direct(&c)) {
+                Ok(solver) => (solver, decision.reason),
+                Err(e) => (
+                    crate::backend::direct(&Choice::Photonoxide)?,
+                    format!("{} was chosen and couldn't be had: {e}", decision.backend),
+                ),
+            };
+        Ok(Plan {
+            solver,
+            analysis: None,
+            chosen: Some(reason),
         })
     }
 }
@@ -44,6 +77,8 @@ impl Plan {
 /// A system's factors, with the similarity they were taken through.
 pub(crate) struct Direct {
     solver: Arc<dyn DirectSolver>,
+    /// Why `auto` chose the backend, if it did.
+    chosen: Option<String>,
     analysis: Arc<dyn Analysis>,
     factors: Box<dyn Factorization>,
     /// S, if the factors are B's: B = S A S⁻¹.
@@ -64,7 +99,11 @@ impl Direct {
         plan: Plan,
     ) -> Result<Direct> {
         let n = positions.len();
-        let Plan { solver, analysis } = plan;
+        let Plan {
+            solver,
+            analysis,
+            chosen,
+        } = plan;
         let symmetric_wanted = solver.capabilities().symmetric
             && analysis
                 .as_ref()
@@ -86,6 +125,7 @@ impl Direct {
                     if factors.report().perturbed_pivots == 0 {
                         return Ok(Direct {
                             solver,
+                            chosen,
                             analysis,
                             factors,
                             similarity: Some(s),
@@ -97,7 +137,7 @@ impl Direct {
         Self::general(
             entries,
             positions,
-            solver,
+            (solver, chosen),
             analysis.filter(|a| a.form() == Form::General),
         )
     }
@@ -113,13 +153,18 @@ impl Direct {
         entries: &[Triplet<usize, usize, c64>],
         positions: &[[f64; 3]],
     ) -> Result<Direct> {
-        Self::general(entries, positions, self.solver.clone(), None)
+        Self::general(
+            entries,
+            positions,
+            (self.solver.clone(), self.chosen.clone()),
+            None,
+        )
     }
 
     fn general(
         entries: &[Triplet<usize, usize, c64>],
         positions: &[[f64; 3]],
-        solver: Arc<dyn DirectSolver>,
+        (solver, chosen): (Arc<dyn DirectSolver>, Option<String>),
         analysis: Option<Arc<dyn Analysis>>,
     ) -> Result<Direct> {
         let a = Columns::new(positions.len(), entries)?;
@@ -139,6 +184,7 @@ impl Direct {
         Ok(Direct {
             factors: analysis.factorize(&a)?,
             solver,
+            chosen,
             analysis,
             similarity: None,
         })
@@ -154,12 +200,18 @@ impl Direct {
         Plan {
             solver: self.solver.clone(),
             analysis: Some(self.analysis.clone()),
+            chosen: self.chosen.clone(),
         }
     }
 
     /// What the factorization took, as the backend reports it.
     pub(crate) fn report(&self) -> crate::backend::Report {
         self.factors.report()
+    }
+
+    /// Why `auto` chose the backend, if the solver named none.
+    pub(crate) fn chosen(&self) -> Option<&str> {
+        self.chosen.as_deref()
     }
 
     /// The backend that factorized: its name and version.
