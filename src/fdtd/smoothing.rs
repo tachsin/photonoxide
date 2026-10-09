@@ -171,7 +171,11 @@ enum Kind {
         inverse: [f64; 3],
         axes: [[f64; 3]; 3],
     },
-    Extruded(Shape),
+    Extruded {
+        shape: Shape,
+        /// Its bounding box, µm: the least x and y, then the greatest.
+        bounds: [f64; 4],
+    },
 }
 
 impl Body {
@@ -239,7 +243,24 @@ impl Body {
     /// A planar shape (as [`crate::geometry`] draws it, x and y in µm) extended without end
     /// along z.
     pub fn extruded(shape: Shape) -> Body {
-        Body(Kind::Extruded(shape))
+        let b = shape.bounds();
+        let bounds = [b.min.x, b.min.y, b.max.x, b.max.y].map(|v| v.to_um());
+        Body(Kind::Extruded { shape, bounds })
+    }
+
+    /// Whether `p` is farther than `r` (µm) from the body's bounding box, outside it: then it
+    /// is outside the body and farther than `r` from its surface, known without the surface's
+    /// distance, which for a polygon costs a pass over its edges. Never for the bodies without
+    /// a box.
+    fn beyond(&self, p: [f64; 3], r: f64) -> bool {
+        match &self.0 {
+            Kind::Extruded { bounds, .. } => {
+                let dx = (bounds[0] - p[0]).max(p[0] - bounds[2]).max(0.0);
+                let dy = (bounds[1] - p[1]).max(p[1] - bounds[3]).max(0.0);
+                dx.hypot(dy) > r
+            }
+            _ => false,
+        }
     }
 
     /// The signed distance from `p` to the surface, negative inside (exact for a half-space, a
@@ -269,7 +290,7 @@ impl Body {
                 }
                 ((rho - 1.0) * rho / length, g.map(|v| v / length))
             }
-            Kind::Extruded(shape) => {
+            Kind::Extruded { shape, .. } => {
                 let (d, n) = planar(shape, p[0], p[1]);
                 (d, [n[0], n[1], 0.0])
             }
@@ -486,7 +507,11 @@ impl Structure {
     fn local(&self, centre: [f64; 3], size: [f64; 3]) -> Local {
         let mut crossing: Option<(f64, [f64; 3], Permittivity)> = None;
         let mut beneath = self.background;
+        let far = clear(size);
         for (body, eps) in self.bodies.iter().rev() {
+            if body.beyond(centre, far) {
+                continue;
+            }
             let (d, n) = body.surface(centre);
             let reach = 0.5 * (0..3).map(|i| n[i].abs() * size[i]).sum::<f64>();
             if d <= -reach {
@@ -516,7 +541,7 @@ impl Structure {
         self.bodies
             .iter()
             .rev()
-            .find(|(body, _)| body.surface(p).0 < 0.0)
+            .find(|(body, _)| !body.beyond(p, 0.0) && body.surface(p).0 < 0.0)
             .map_or(self.background, |&(_, eps)| eps)
     }
 
@@ -528,7 +553,11 @@ impl Structure {
         // the bodies whose surface crosses the cell, from the top, down to one that covers it
         let mut crossing: Vec<(f64, [f64; 3], Permittivity)> = Vec::new();
         let mut beneath = self.background;
+        let far = clear(size);
         for (body, eps) in self.bodies.iter().rev() {
+            if body.beyond(centre, far) {
+                continue;
+            }
             let (d, n) = body.surface(centre);
             let reach = 0.5 * (0..3).map(|i| n[i].abs() * size[i]).sum::<f64>();
             if d <= -reach {
@@ -579,6 +608,13 @@ impl Structure {
             }
         }
     }
+}
+
+/// A distance beyond which a body's surface can't touch a box of `size`: a body crosses or
+/// covers the box only within its reach, ½ Σ |nᵢ| sizeᵢ ≤ ½ Σ sizeᵢ, so twice that leaves room
+/// for rounding, and a body skipped beyond it is one the box would have passed over anyway.
+fn clear(size: [f64; 3]) -> f64 {
+    size.iter().sum()
 }
 
 /// The share of a box of `size` about the origin on the side of the plane n·x + d = 0 that n

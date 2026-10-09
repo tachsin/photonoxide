@@ -127,14 +127,49 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       # every case must pass, and docs/validation.md must be the report the code writes
       - run: cargo test --release --test validation_report -- --ignored
-      # every example reproduces a published result and fails when it doesn't, and prints
-      # exactly its committed output (shown on the project site)
+
+  # Every example reproduces a published result and fails when it doesn't, and prints exactly
+  # its committed output (shown on the project site). The 3D devices take minutes each, so each
+  # runs on a runner of its own, beside the report, and the rest together on another.
+  examples:
+    name: Examples (${{ matrix.shard }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.validation == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - the rest
+          - splitter_rotator_liu_poon
+          - mode_converter_liu_poon
+          - mmi_liu_poon
+          - coupler_liu_poon
+          - crossing_liu_poon ring_liu_poon
+    env:
+      # the examples with a runner of their own: the shards above but the first
+      HEAVY: splitter_rotator_liu_poon mode_converter_liu_poon mmi_liu_poon coupler_liu_poon crossing_liu_poon ring_liu_poon
+      SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - name: Examples, each against its paper, and their output
         run: |
-          for example in examples/*.rs; do
-            name="$(basename "$example" .rs)"
+          if [ "$SHARD" = "the rest" ]; then
+            names=""
+            for example in examples/*.rs; do
+              name="$(basename "$example" .rs)"
+              case " $HEAVY " in *" $name "*) ;; *) names="$names $name" ;; esac
+            done
+          else
+            names="$SHARD"
+          fi
+          for name in $names; do
+            echo "::group::$name"
             cargo run --release --quiet --example "$name" > "$RUNNER_TEMP/$name.txt"
             diff -u "examples/output/$name.txt" "$RUNNER_TEMP/$name.txt"
+            echo "::endgroup::"
           done
 
   studio:
