@@ -1,6 +1,6 @@
 # Optimization in photonic design: a survey and a plan with genoxide
 
-*A survey and a plan, 2026-10-08. The owner reviews it first; the work is tracked in #244.*
+*A survey and a plan, 2026-10-08. I review it first; the work is tracked in #244.*
 
 AGENTS.md settles who does what. Optimizers come from [genoxide](https://github.com/tachsin/genoxide).
 photonoxide supplies objectives, gradients and parametrizations. A method genoxide lacks is added
@@ -17,7 +17,7 @@ asks what that means in practice:
 4. [The two sides](#4-what-photonoxide-supplies-and-what-genoxide-supplies): what photonoxide
    supplies and what genoxide supplies, and how the studio shows a run.
 5. [The examples and their phases](#5-the-examples-and-their-phases).
-6. [Decisions for the owner](#6-decisions-for-the-owner).
+6. [Decisions](#6-decisions).
 7. [Open-source tools in the field](#7-open-source-tools-in-the-field), by what they do and their
    licence.
 
@@ -501,9 +501,9 @@ Each phase is one PR. Issue #244 has the details. Every example follows examples
 | 11 | Direct binary search | `optimize_pbs` (11) | 3D FDTD, the genoxide scan |
 | 12 | Cavities and metasurfaces | `optimize_l3` (12), `optimize_metasurface` (13) | 0.14 |
 
-## 6. Decisions for the owner
+## 6. Decisions
 
-*Decided by the owner on 2026-10-09: the recommendations, for all of them.*
+*Decided on 2026-10-09: the recommendations, for all of them.*
 
 1. **Where the adapter lives.** genoxide is a dev-dependency today, "so the library's API doesn't
    follow genoxide's versions" (Cargo.toml). An `optimize` job run by `photonoxide run` needs it
