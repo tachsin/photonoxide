@@ -35,13 +35,13 @@
 //!   full-vector mode solver (6.25 × 5 nm grid, quarter domain), against the paper's "around 7.4
 //!   nm" and "7.6 nm", within half their difference and the text's last digit. The bends' own
 //!   group index, a little above the straight's, is left out.
-//! - **The 3D run** (`--full`: 15 and 20 cells a wavelength; a day's work on 20 threads, so not
-//!   in CI): the field in the ring after the pulse, from 200 to 1200 µm/c, by harmonic inversion
+//! - **The 3D run** (`--full`: 15 and 20 cells a wavelength; hours on 20 threads, so not in CI):
+//!   the field in the ring after the pulse, from 200 to 1000 µm/c, by harmonic inversion
 //!   (`fdtd::harmonic_inversion`) between 1525 and 1575 nm: each resonance's wavelength and
 //!   decay, Q = ω/2γ the loaded Q, and FWHM = λ₀/Q, the width of the through port's Lorentzian
 //!   dip. The paper's broadband pulse sets a pulse going round the ring (306 µm/c a turn at
-//!   n_g = 4.04), so the record holds about three turns; at 6 cells a wavelength 1000 µm/c of
-//!   record was the least that found the resonances cleanly.
+//!   n_g = 4.04), so the record holds two and a half turns; at 6 cells a wavelength, where the
+//!   resonances are narrower, a record to 1000 µm/c was the shortest that found them cleanly.
 //! - **The material dispersion** the runs leave out lengthens the round trip's group delay: Q
 //!   grows, and the width and the free spectral range shrink, by the ratio of the strip's group
 //!   index with and without dispersion (4.1792 and 4.0421, 1.0339). The wavelength needs no
@@ -81,7 +81,7 @@ use pdk::{Kind, Output, Setup};
 /// The materials' wavelength, µm.
 const MATERIALS: f64 = 1.545;
 /// The span of the run recorded for harmonic inversion, µm/c.
-const RECORD: [f64; 2] = [200.0, 1200.0];
+const RECORD: [f64; 2] = [200.0, 1000.0];
 
 /// The 500 × 220 nm strip's group index at 1.545 µm, with silicon's and silica's dispersion
 /// (`dispersive`) or with their indices at 1.545 µm: the quarter x, y ≥ 0 on a 6.25 × 5 nm grid
