@@ -3,8 +3,8 @@ name: Libraries
 # Each way of installing an external library that docs/libraries.md lists as checked, run on a
 # clean machine: the package is installed, and photonoxide's discovery (photonoxide-native) is
 # asked what it finds, and a backend's tests are run with its library required. The default
-# build needs none of them; this job only keeps the guides true. The runners have no GPU: NVIDIA's libraries are found and loaded, and their backends
-# stay unavailable.
+# build needs none of them; this job only keeps the guides true. The runners have no GPU:
+# NVIDIA's libraries are found and loaded, and their backends stay unavailable.
 on:
   pull_request:
     paths:

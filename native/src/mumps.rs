@@ -373,10 +373,6 @@ struct Engine {
     made: bool,
 }
 
-// SAFETY: an instance is used by one thread at a time (behind a Mutex, or owned), every call
-// into MUMPS is under one lock, and its arrays are owned here
-unsafe impl Send for Engine {}
-
 impl Engine {
     /// An instance for this structure, analysed with these values, in the seconds returned.
     fn new(
