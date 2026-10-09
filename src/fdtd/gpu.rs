@@ -449,12 +449,12 @@ impl super::Simulation {
 }
 
 /// A GPU for the tests, or why there is none: they skip, saying so, where there is no GPU (on
-/// CI, whose runners have none: the GPU's tests run on the owner's machine before each release,
+/// CI, whose runners have none: the GPU's tests run on tachsin's machine before each release,
 /// and their results go in docs/validation-gpu.md).
 #[cfg(test)]
 pub(crate) fn for_tests(precision: Precision) -> Option<Gpu> {
     if std::env::var_os("CI").is_some() {
-        println!("skipped: on CI, which has no GPU (the GPU's tests run on the owner's machine)");
+        println!("skipped: on CI, which has no GPU (the GPU's tests run on tachsin's machine)");
         return None;
     }
     match Gpu::new(precision) {

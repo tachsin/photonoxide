@@ -1,6 +1,6 @@
 # Optimization in photonic design: a survey and a plan with genoxide
 
-*A survey and a plan, 2026-10-08. The owner reviews it first; the work is tracked in #244.*
+*A survey and a plan, 2026-10-08. I review it first; the work is tracked in #244.*
 
 AGENTS.md settles who does what. Optimizers come from [genoxide](https://github.com/tachsin/genoxide).
 photonoxide supplies objectives, gradients and parametrizations. A method genoxide lacks is added
@@ -17,7 +17,7 @@ asks what that means in practice:
 4. [The two sides](#4-what-photonoxide-supplies-and-what-genoxide-supplies): what photonoxide
    supplies and what genoxide supplies, and how the studio shows a run.
 5. [The examples and their phases](#5-the-examples-and-their-phases).
-6. [Decisions for the owner](#6-decisions-for-the-owner).
+6. [Decisions](#6-decisions).
 7. [Open-source tools in the field](#7-open-source-tools-in-the-field), by what they do and their
    licence.
 
@@ -67,7 +67,7 @@ asks what that means in practice:
   constraints that photonoxide poses. MMA's epigraph form handles min-max over them (Hammond
   2021; Christiansen & Sigmund 2021; Probst 2024).
 - **Machine-learning surrogates** are fast but approximate, and the reviews say so (Jiang, Chen &
-  Fan 2021; Wiecha 2021). They are not planned as optimizers here.
+  Fan 2020; Wiecha 2021). They are not planned as optimizers here.
 - **genoxide's gaps** for these examples:
   - a systematic neighbourhood scan for binary and integer genomes: direct binary search, in
     general form;
@@ -225,7 +225,7 @@ indicator. EHVI and ParEGO (batch E) would serve expensive objectives.
 
 **The formulations:**
 
-- **Eroded, nominal and dilated designs.** Sigmund 2009; Wang, Lazarov & Sigmund 2011.
+- **Eroded, nominal and dilated designs.** Sigmund 2009; Wang, Lazarov & Sigmund 2010.
   Christiansen & Sigmund 2021's 2D demultiplexer is robust to ±8 nm: transmittance 0.32, 0.32
   and 0.32 at 1300 nm and 0.31, 0.31 and 0.30 at 1550 nm (Table VII, FEM, 10 nm elements).
 - **Corners by min-max in epigraph form:**
@@ -235,7 +235,7 @@ indicator. EHVI and ParEGO (batch E) would serve expensive objectives.
   - Shang 2023: the minimum transmission over 10 wavelengths.
 - **Foundry rules as constraints.** Hammond 2021 imposed linewidth, spacing and area
   constraints. Schubert 2022 used a generator that is feasible by construction.
-- **Lithography models inside the loop.** Khan et al. 2025 (Optics Letters; arXiv 2024): an
+- **Lithography models inside the loop.** Khan et al. 2024 (Optics Letters; arXiv): an
   SWG-to-strip converter's simulated loss with the DUV model was 0.836 dB as designed and 0.111 dB
   designed with the model (their Table 1).
 
@@ -259,7 +259,7 @@ target response. The reviews state the limits:
 
 - Liu 2018: one response has many designs, which gives inverse networks "conflicting training
   instances". Their fix is a tandem network.
-- Jiang, Chen & Fan 2021: networks "cannot guarantee accuracy and should not be used in lieu of an
+- Jiang, Chen & Fan 2020: networks "cannot guarantee accuracy and should not be used in lieu of an
   electromagnetic simulator when an exact physics calculation is required".
 - Wiecha 2021: many models "generalize relatively poorly" outside their training range, and a
   data-driven inverse design "can never outperform an iterative method if it is based on the same
@@ -329,7 +329,7 @@ Each is a candidate example. The tolerance and grid of each are in
 | 1 | Bennet 2024 (code: Zenodo 10.5281/zenodo.10246032) | Bragg mirror, 20 layers (and 10), n 1.8/1.4 on n = 1.8, λ 600 nm, thicknesses in [0, 214.29 nm] | DE, QODE, QNDE, CMA, BFGS | 1 − R | quarter-wave stack 83/107 nm the best found (Fig. 7c); lowest costs about 0.015 and 0.165 *(from a plot, Fig. 6)* | transfer matrices, exact | `Multilayer::reflection` (has it); ∂R/∂d |
 | 2 | Little 1997 | maximally flat filters of 2 to 6 coupled rings | analytic synthesis | match 1/(1 + (Δω/ω_c)^{2N}) | inter-ring couplings μᵢ²/μ⁴ of Table I: 0.250; 0.125; 0.100/0.040; 0.0955/0.0295; 0.0915/0.0245/0.0179 | coupled-mode theory | the circuit solve (has it) |
 | 3 | Pai 2019; Clements 2016 | N-mode Clements mesh | Adam, Haar initialization (Eq. 9) | (1/2N)‖Û − U‖² | Haar initialization's mean sensitivity index (N + 1)/3; convergence *(from plots)* | matrix model | a mesh builder (0.8) |
-| 4 | Bogaerts 2012 | add-drop ring, lossy | (a multi-objective test) | drop at resonance against bandwidth | the analytic trade-off from Eqs. 5–8 | closed form | the circuit solve (has it) |
+| 4 | Bogaerts 2011 | add-drop ring, lossy | (a multi-objective test) | drop at resonance against bandwidth | the analytic trade-off from Eqs. 5–8 | closed form | the circuit solve (has it) |
 | 5 | Pérez-López 2020 | 36-unit hexagonal mesh, loss N(0.15, 0.05) dB, crosstalk | GA, PSO, gradient descent | all-cross: −(1/N) Σ log \|H\| | under 3 dB average error in 95% (GA) and 76.7% (PSO) of 100 runs | simulated mesh | a hexagonal mesh (0.8) |
 | 6 | Passoni 2017 | apodized grating couplers, 220 nm SOI, 10° fibre | multi-objective PSO | efficiency and 1-dB bandwidth | 100 nm at 47% (6 µm MFD), 53% (4 µm) (Fig. 6) | 2D FDTD, 10 nm vertical mesh | grating geometry (#227), 2D FDFD or FDTD |
 | 7 | Zhang 2013; Lalau-Keraly 2013 | Y-branch, 13 widths over 2 µm | PSO; adjoint level set | transmission | 0.13 dB (PSO, 3D FDTD at λ₀/34); −0.07 dB (adjoint) | 2D in the loop, 3D check | paths and widths (#227), shape derivatives (0.7) |
@@ -501,9 +501,9 @@ Each phase is one PR. Issue #244 has the details. Every example follows examples
 | 11 | Direct binary search | `optimize_pbs` (11) | 3D FDTD, the genoxide scan |
 | 12 | Cavities and metasurfaces | `optimize_l3` (12), `optimize_metasurface` (13) | 0.14 |
 
-## 6. Decisions for the owner
+## 6. Decisions
 
-*Decided by the owner on 2026-10-09: the recommendations, for all of them.*
+*Decided on 2026-10-09: the recommendations, for all of them.*
 
 1. **Where the adapter lives.** genoxide is a dev-dependency today, "so the library's API doesn't
    follow genoxide's versions" (Cargo.toml). An `optimize` job run by `photonoxide run` needs it
@@ -587,7 +587,7 @@ Every DOI below was checked on Crossref on 2026-10-08.
 - G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004). [10.1364/OL.29.002288](https://doi.org/10.1364/OL.29.002288)
 - C. M. Lalau-Keraly et al., Opt. Express 21, 21693 (2013). [10.1364/OE.21.021693](https://doi.org/10.1364/OE.21.021693)
 - O. Sigmund, Acta Mech. Sin. 25, 227 (2009). [10.1007/s10409-009-0240-z](https://doi.org/10.1007/s10409-009-0240-z)
-- F. Wang, B. S. Lazarov, O. Sigmund, Struct. Multidiscip. Optim. 43, 767 (2011). [10.1007/s00158-010-0602-y](https://doi.org/10.1007/s00158-010-0602-y)
+- F. Wang, B. S. Lazarov, O. Sigmund, Struct. Multidiscip. Optim. 43, 767 (published online 24 December 2010; the June 2011 issue). [10.1007/s00158-010-0602-y](https://doi.org/10.1007/s00158-010-0602-y)
 - O. Sigmund, Struct. Multidiscip. Optim. 43, 589 (2011). [10.1007/s00158-011-0638-7](https://doi.org/10.1007/s00158-011-0638-7)
 - A. Y. Piggott et al., Nat. Photonics 9, 374 (2015). [10.1038/nphoton.2015.69](https://doi.org/10.1038/nphoton.2015.69)
 - A. Y. Piggott et al., Sci. Rep. 7, 1786 (2017). [10.1038/s41598-017-01939-2](https://doi.org/10.1038/s41598-017-01939-2)
@@ -599,7 +599,7 @@ Every DOI below was checked on Crossref on 2026-10-08.
 - C. Shang et al., ACS Photonics 10, 1019 (2023). [10.1021/acsphotonics.3c00040](https://doi.org/10.1021/acsphotonics.3c00040)
 - M. Chen et al., J. Opt. Soc. Am. B 41, A161 (2024). [10.1364/JOSAB.506412](https://doi.org/10.1364/JOSAB.506412)
 - M. J. Probst et al., Opt. Express 32, 31448 (2024). [10.1364/OE.527442](https://doi.org/10.1364/OE.527442)
-- S. R. Khan et al., Opt. Lett. 50, 117 (2025), arXiv:2410.07353. Crossref lists the first author as "Shaheer Raza", and arXiv as "Shaheer Khan". [10.1364/OL.543961](https://doi.org/10.1364/OL.543961)
+- S. R. Khan et al., Opt. Lett. 50, 117 (published online 18 December 2024; the 1 January 2025 issue), arXiv:2410.07353. Crossref lists the first author as "Shaheer Raza", and arXiv as "Shaheer Khan". [10.1364/OL.543961](https://doi.org/10.1364/OL.543961)
 - S. Mason et al., arXiv:2509.07233 (2025), no journal DOI yet.
 
 **Evolutionary, Bayesian and multi-objective photonics**
@@ -621,7 +621,7 @@ Every DOI below was checked on Crossref on 2026-10-08.
 - F. Horst et al., Opt. Express 21, 11652 (2013). [10.1364/OE.21.011652](https://doi.org/10.1364/OE.21.011652)
 - M. Wang, X. Chen, U. Khan, W. Bogaerts, Sci. Rep. 12, 1482 (2022). [10.1038/s41598-021-04598-6](https://doi.org/10.1038/s41598-021-04598-6)
 - Z. Gao et al., Photonics Res. 11, 643 (2023). [10.1364/PRJ.474606](https://doi.org/10.1364/PRJ.474606)
-- W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012). [10.1002/lpor.201100017](https://doi.org/10.1002/lpor.201100017)
+- W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue). [10.1002/lpor.201100017](https://doi.org/10.1002/lpor.201100017)
 - D. A. B. Miller, Photon. Res. 1, 1 (2013). [10.1364/PRJ.1.000001](https://doi.org/10.1364/PRJ.1.000001)
 - W. R. Clements et al., Optica 3, 1460 (2016). [10.1364/OPTICA.3.001460](https://doi.org/10.1364/OPTICA.3.001460)
 - T. W. Hughes et al., Optica 5, 864 (2018). [10.1364/OPTICA.5.000864](https://doi.org/10.1364/OPTICA.5.000864)
@@ -631,5 +631,5 @@ Every DOI below was checked on Crossref on 2026-10-08.
 
 **Machine learning**
 - D. Liu et al., ACS Photonics 5, 1365 (2018). [10.1021/acsphotonics.7b01377](https://doi.org/10.1021/acsphotonics.7b01377)
-- J. Jiang, M. Chen, J. A. Fan, Nat. Rev. Mater. 6, 679 (2021). [10.1038/s41578-020-00260-1](https://doi.org/10.1038/s41578-020-00260-1)
+- J. Jiang, M. Chen, J. A. Fan, Nat. Rev. Mater. 6, 679 (published online 17 December 2020; volume 6, 2021). [10.1038/s41578-020-00260-1](https://doi.org/10.1038/s41578-020-00260-1)
 - P. R. Wiecha et al., Photonics Res. 9, B182 (2021). [10.1364/PRJ.415960](https://doi.org/10.1364/PRJ.415960)

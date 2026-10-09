@@ -3,11 +3,11 @@
 //! circuit adjoint's gradient and by its CMA-ES on the circuit's response alone, to the same
 //! target, counting evaluations.
 //!
-//! W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012),
-//! [doi:10.1002/lpor.201100017](https://doi.org/10.1002/lpor.201100017), Eqs. 5 and 6 (the
-//! through and drop intensities of an add-drop ring) make the "measured" spectra, from r₁, r₂, a
-//! and φ; their Section 3.3 extracts coupling and loss from measured spectra the same way. Both
-//! fits must return the parameters the spectra were made with.
+//! W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the
+//! January 2012 issue), [doi:10.1002/lpor.201100017](https://doi.org/10.1002/lpor.201100017),
+//! Eqs. 5 and 6 (the through and drop intensities of an add-drop ring) make the "measured"
+//! spectra, from r₁, r₂, a and φ; their Section 3.3 extracts coupling and loss from measured
+//! spectra the same way. Both fits must return the parameters the spectra were made with.
 //!
 //! ```sh
 //! cargo run --release --example circuit_fit

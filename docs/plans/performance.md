@@ -1,8 +1,8 @@
 # Performance plan: kernels, threads, GPUs and distributed memory
 
-*A survey and a plan, 2026-10-04. Nothing here is on the roadmap yet: the owner reviews it first.*
+*A survey and a plan, 2026-10-04. Nothing here is on the roadmap yet: I review it first.*
 
-The owner asked for GPU support, MPI-style parallel algorithms and MKL-class kernel
+I asked for GPU support, MPI-style parallel algorithms and MKL-class kernel
 optimizations, for where each applies, and for what PETSc and SLEPc (and the libraries around
 them) have added lately that photonoxide could implement from the papers. This page answers in
 five parts:
@@ -14,7 +14,7 @@ five parts:
 3. [The Rust side](#3-the-rust-side-checked-2026-10-04): GPU, distributed and kernel crates as of
    today, and where they meet design principles 6 (pure Rust) and 9 (determinism).
 4. [A phased plan](#4-the-plan-in-phases), cheapest wins first, mapped onto the milestones.
-5. [Decisions for the owner](#5-decisions-for-the-owner).
+5. [Decisions](#5-decisions).
 
 **Rules this page follows.**
 
@@ -158,7 +158,7 @@ copy, with wgpu as its one back end.
 
 ### The methods, their papers and their fit
 
-The candidates the owner named, and a few more, each checked against photonoxide's problems.
+The candidates I named, and a few more, each checked against photonoxide's problems.
 "Fit" is this survey's judgement, with its reason.
 
 **Preconditioners for 3D FDFD at scale: domain decomposition and sweeping.**
@@ -170,7 +170,7 @@ The candidates the owner named, and a few more, each checked against photonoxide
 | Optimized Schwarz, Maxwell | Dolean et al. 2009 | the same for time-harmonic Maxwell: a hierarchy of optimized conditions | the vector version photonoxide needs |
 | Restricted additive Schwarz, and its optimized form | Cai & Sarkis 1999; St-Cyr et al. 2007 | Schwarz at the algebraic level (RAS); ORAS puts optimized conditions into the subdomain matrices and cuts iterations significantly | **the recommended one-level method**: algebraic, so it works on photonoxide's own matrices, and a subdomain is a smaller FDFD problem with an absorbing boundary |
 | Two-level Schwarz for Maxwell | Bonazzoli et al. 2019 | proves wavenumber-independent GMRES iterations for Maxwell with enough absorption, and extends the method by experiment towards less absorption and the propagative case | the closest analysis to 3D FDFD; photonoxide's silicon is lossless, so its regime is the paper's extension, not its theorem |
-| Coarse spaces | Spillane et al. 2014 (GenEO); Bootland et al. 2021 | GenEO builds a coarse space from local generalized eigenproblems; Bootland et al. compare grid, DtN and GenEO coarse spaces on high-frequency Helmholtz and find each has its own strengths | needed for more than a few subdomains; which one fits Maxwell at optical frequencies is open, to measure |
+| Coarse spaces | Spillane et al. 2013 (GenEO); Bootland et al. 2021 | GenEO builds a coarse space from local generalized eigenproblems; Bootland et al. compare grid, DtN and GenEO coarse spaces on high-frequency Helmholtz and find each has its own strengths | needed for more than a few subdomains; which one fits Maxwell at optical frequencies is open, to measure |
 | HPDDM in PETSc | Jolivet et al. 2021 | multilevel overlapping Schwarz (GenEO) with block and recycling Krylov methods | the reference design for Phase E |
 | Sweeping, moving PMLs | Engquist & Ying 2011 (in the folder); Poulson et al. 2013 | factor the domain in slabs, each closed by PMLs, and sweep through them; in parallel, setup O(γ² N^{4/3}) and application O(γ N log N), γ the PML's points | photonoxide measured one 6-plane slab of Diel's cross-section at 19 s with faer's LU (docs/methods/fdfd-3d.md): too slow without a better ordering; sequential across the slabs |
 | Sweeping, Maxwell | Tsuji et al. 2012 | the moving-PML sweep for time-harmonic Maxwell (finite elements) | the vector version |
@@ -312,7 +312,7 @@ threads"):
 | GPU | WGSL permits reassociation and fusion (§15.7), so the GPU's arithmetic isn't the CPU's; floating-point atomics add order dependence | no float atomics in any kernel; fixed workgroup sizes and fixed-order tree reductions, so a run repeats bit-for-bit **on the same device and driver**; against the CPU, agreement **to a stated tolerance**, as 0.5 already says ("with the CPU results as its reference") |
 | Pipelined Krylov | different rounding from the standard recurrence | deterministic, just different iterates: allowed, documented as a different method |
 
-The GPU row needed the owner's wording (Section 5, decision 1): principle 9 as written couldn't
+The GPU row needed my wording (Section 5, decision 1): principle 9 as written couldn't
 hold across a CPU and a GPU. *(Decided 2026-10-08: (b). ROADMAP's principle 9 says so, and FDTD's
 GPU kernel, #166, holds to it: [the GPU's report](../validation-gpu.md).)*
 
@@ -321,7 +321,7 @@ GPU kernel, #166, holds to it: [the GPU's report](../validation-gpu.md).)*
 Ordered by what pays most for the least. Each phase states its goal, its methods and papers, how
 it is validated and benchmarked (the roadmap's Benchmarks section: time to a converged answer at
 equal accuracy, throughput, scaling with threads, peak memory, the GPU's speedup at equal results),
-and what it needs from the owner.
+and what it needs from me.
 
 | Phase | Goal | Payoff | Effort | Milestone |
 |---|---|---|---|---|
@@ -364,7 +364,7 @@ result bit-identical on any number of threads.
   or a multigrid cycle with restriction Pᵀ and symmetric smoothing. Shin and Fan's operator, on
   which ILU(0) and the 0.4.1 multigrid work, isn't known to become symmetric under a diagonal
   scaling (its added term carries ε on the right of the divergence); whether one exists is a
-  question for A3, decided by the 0.4.1 branch's owner, not here.
+  question for A3, decided on the 0.4.1 branch, not here.
 - **A4, nested dissection.** A geometric nested-dissection ordering for structured grids (George
   1973), passed to faer's supernodal LU as its column permutation; a multilevel partitioner
   (Karypis & Kumar 1998) only if irregular sparsity ever appears.
@@ -389,7 +389,7 @@ thread count; fill and factorization time with nested dissection against COLAMD 
 sweeps 10 to 20 times faster on 20 cores (A1); fill and factorization time down by a factor to be
 measured (A4).
 
-**From the owner.** Approval of the phase and of a 0.4.2 for it; a licence check before MKL and
+**From me.** Approval of the phase and of a 0.4.2 for it; a licence check before MKL and
 MUMPS are run as external programs (decision 4).
 
 ### Phase B: FDTD on the CPU and the GPU (0.5)
@@ -417,7 +417,7 @@ vendor bandwidths and ≥ 70 B per update); Meep per core on its published cases
 2010); the GPU's speedup over the blocked CPU kernel, not a naive one; Hughes et al. 2021's
 metalens figure as an outside reference point.
 
-**From the owner.** The wording of principle 9 for GPUs (decision 1); which GPUs are supported
+**From me.** The wording of principle 9 for GPUs (decision 1); which GPUs are supported
 (f32 on any wgpu backend; f64, for checking, on Vulkan only); where GPU tests run, since GitHub's
 hosted runners have no GPU (decision 7). *(Decided 2026-10-08: decisions 1 (b), 6 (b) and 7 (a).
 The GPU kernel is in, #166: see [FDTD on the GPU](../methods/fdtd.md#the-gpu).)*
@@ -449,9 +449,9 @@ its region against a dense eigensolve. A farmed sweep is bit-identical for any n
 **Benchmarks.** S-matrix time against ports; a 3D sweep's time against its points; modes per
 second; a population's wall time against workers.
 
-**From the owner.** Whether a second machine is available for farming tests. genoxide must be
+**From me.** Whether a second machine is available for farming tests. genoxide must be
 able to hand a whole population to photonoxide's evaluator at once; if it can't, that is a
-general need to describe to genoxide's owner, not a change made here.
+general need to describe in genoxide, not a change made here.
 
 ### Phase D: mixed precision and 3D FDFD on the GPU (with 0.7)
 
@@ -477,7 +477,7 @@ refinement's convergence tested, and its failure reported, on an ill-conditioned
 in single precision its vectors and permittivity take under 2 GB, so it would fit the RTX 4060's
 8 GB only matrix-free.
 
-**From the owner.** Whether f32 on the GPU with f64 refinement is acceptable as the default GPU
+**From me.** Whether f32 on the GPU with f64 refinement is acceptable as the default GPU
 path (decision 6).
 
 ### Phase E: distributed memory (a new milestone after 0.7)
@@ -491,7 +491,7 @@ answer independent of the number of processes.
   optional MPI back end (rsmpi) off by default (decision 2).
 - **Optimized restricted additive Schwarz** as QMR's preconditioner (St-Cyr et al. 2007; RAS:
   Cai & Sarkis 1999), with transmission conditions from optimized Schwarz for Maxwell (Dolean et
-  al. 2009; Gander et al. 2002) or the PML itself, and a coarse space (GenEO, Spillane et al. 2014;
+  al. 2009; Gander et al. 2002) or the PML itself, and a coarse space (GenEO, Spillane et al. 2013;
   the comparison of Bootland et al. 2021; Maxwell's two-level analysis, Bonazzoli et al. 2019),
   designed after HPDDM (Jolivet et al. 2021). Subdomain solves by faer's LU with Phase A's
   ordering, or by local multigrid. Read Gander & Zhang 2019 and Dolean et al. 2015 first.
@@ -512,7 +512,7 @@ solve; iteration counts against the number of subdomains (flat with a working co
 **Benchmarks.** Strong and weak scaling over processes on one machine, then over machines; time to
 a field error of 1e-8 against Phase A's single-machine solver; memory per process.
 
-**From the owner.** Machines to test on; the MPI decision; where the milestone goes (decision 5).
+**From me.** Machines to test on; the MPI decision; where the milestone goes (decision 5).
 
 ### Phase F: compressed direct solvers (research, optional)
 
@@ -524,9 +524,9 @@ practical at optical frequencies, before building either.
 the grid. If ranks stay low, a BLR front (Amestoy et al. 2015, 2019) as in Shantsev et al. 2017,
 or HSS (Ghysels et al. 2016); if not, the phase stops with its measurement published.
 
-**From the owner.** Whether to spend research time here at all.
+**From me.** Whether to spend research time here at all.
 
-## 5. Decisions for the owner
+## 5. Decisions
 
 1. **Principle 9 and GPUs.** WGSL allows fused and reassociated arithmetic, so a GPU result can't
    equal the CPU's bit for bit.
@@ -554,9 +554,9 @@ or HSS (Ghysels et al. 2016); if not, the phase stops with its measurement publi
    0.7's populations.
 6. **Precision on the GPU.** (a) f32 only (0.5 as planned). (b) f32 with f64 refinement on the
    CPU for FDFD, f64 on Vulkan for checking. (c) f64 everywhere. *Recommended: (b).* *(Decided 2026-10-08: (b), f32 on the GPU with f64 for checking.)*
-7. **Where GPU tests run.** GitHub's hosted runners have no GPU. (a) On the owner's machine before
+7. **Where GPU tests run.** GitHub's hosted runners have no GPU. (a) On tachsin's machine before
    a release, recorded in the validation report. (b) A self-hosted runner with the RTX 4060.
-   *Recommended: (a) first, (b) if GPU regressions slip through.* *(Decided 2026-10-08: (a), on the owner's machine before each release, recorded in the validation report.)*
+   *Recommended: (a) first, (b) if GPU regressions slip through.* *(Decided 2026-10-08: (a), on tachsin's machine before each release, recorded in the validation report.)*
 8. **A 0.4.2 for Phase A.** (a) A patch release after 0.4.1. (b) Folded into 0.5. *Recommended:
    (a),* since Phase A speeds up what users run today.
 9. **Symmetric QMR and the multigrid branch.** The symmetric solver needs a symmetric
@@ -636,7 +636,7 @@ a publisher's block on scripts, and the folder's README gives each one's link.
 - `schenk-gartner-2004`: O. Schenk, K. Gärtner, Future Gener. Comput. Syst. 20, 475 (2004), "Solving unsymmetric sparse systems of linear equations with PARDISO". [10.1016/j.future.2003.07.011](https://doi.org/10.1016/j.future.2003.07.011)
 - `shantsev-2017`: D. V. Shantsev, P. Jaysaval, S. de la Kethulle de Ryhove, P. R. Amestoy, A. Buttari, J.-Y. L’Excellent, T. Mary, Geophys. J. Int. 209, 1558 (2017), "Large-scale 3-D EM modelling with a Block Low-Rank multifrontal direct solver". [10.1093/gji/ggx106](https://doi.org/10.1093/gji/ggx106)
 - `sonneveld-vangijzen-2008`: P. Sonneveld, M. B. van Gijzen, SIAM J. Sci. Comput. 31, 1035 (2008), "IDR(s): A family of simple and fast algorithms for solving large nonsymmetric systems of linear equations". [10.1137/070685804](https://doi.org/10.1137/070685804)
-- `spillane-2014` (folder): N. Spillane, V. Dolean, P. Hauret, F. Nataf, C. Pechstein, R. Scheichl, Numer. Math. 126, 741 (2014), "Abstract robust coarse spaces for systems of PDEs via generalized eigenproblems in the overlaps". [10.1007/s00211-013-0576-y](https://doi.org/10.1007/s00211-013-0576-y)
+- `spillane-2013` (folder): N. Spillane, V. Dolean, P. Hauret, F. Nataf, C. Pechstein, R. Scheichl, Numer. Math. 126, 741 (published online 15 August 2013; the April 2014 issue), "Abstract robust coarse spaces for systems of PDEs via generalized eigenproblems in the overlaps". [10.1007/s00211-013-0576-y](https://doi.org/10.1007/s00211-013-0576-y)
 - `st-cyr-2007` (folder): A. St-Cyr, M. J. Gander, S. J. Thomas, SIAM J. Sci. Comput. 29, 2402 (2007), "Optimized Multiplicative, Additive, and Restricted Additive Schwarz Preconditioning". [10.1137/060652610](https://doi.org/10.1137/060652610)
 - `stewart-2002`: G. W. Stewart, SIAM J. Matrix Anal. Appl. 23, 601 (2002), "A Krylov--Schur Algorithm for Large Eigenproblems". [10.1137/S0895479800371529](https://doi.org/10.1137/S0895479800371529)
 - `stolk-2013` (folder): C. C. Stolk, J. Comput. Phys. 241, 240 (2013), "A rapidly converging domain decomposition method for the Helmholtz equation". [10.1016/j.jcp.2013.01.039](https://doi.org/10.1016/j.jcp.2013.01.039)
