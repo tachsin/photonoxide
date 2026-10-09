@@ -7,6 +7,7 @@ mod bench;
 mod benchmarks;
 mod charts;
 mod circuits;
+mod diagrams;
 mod examples;
 mod libraries;
 mod materials;
