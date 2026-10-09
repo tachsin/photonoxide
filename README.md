@@ -228,6 +228,7 @@ and CI checks their output too.
 | 0.5.1 Many solves at once | Block solves for ports, recycling across sweeps, contour-integral mode solvers, farming across processes | planned |
 | 0.6 Thermal and electro-optic | Heat and electrostatics, thermo-optic phase shifters, Pockels modulators (thin-film lithium niobate first), travelling-wave electrodes | planned |
 | 0.6.1 Nonlinear integrated optics | Transparency windows, phase matching (birefringent, QPM, modal), SHG, SFG, DFG, OPA, SPDC and FWM in waveguides, photon pairs, Kerr combs; on LiNbO₃, GaAs, AlGaAs, AlN, SiN and Si | planned |
+| 0.6.2 Quantum light | Linear-optical statistics (permanents, HOM, an exact sampler), photon-pair sources and Gaussian states, real components' loss budgets in quantum circuits ([plan](docs/plans/quantum.md)) | planned |
 | 0.7 Inverse design | Adjoint topology and shape optimization, fabrication constraints, the 2D-to-3D pipeline, device and circuit co-design | planned |
 | 0.7.1 Distributed memory | Domain decomposition across processes and machines, results independent of their number | planned |
 | 0.8 Carrier modulators and signals | Drift-diffusion, plasma-dispersion modulators, time-domain circuits and eye diagrams, programmable meshes | planned |
@@ -236,7 +237,7 @@ and CI checks their output too.
 | 0.11 Fabrication realism | Process variation, lithography proxies, corners, yield, circuit variability | planned |
 | 0.12 Semi-analytic | RCWA, eigenmode expansion, BPM | planned |
 | 0.13 Device library | Validated devices, each a component at several fidelities | planned |
-| 0.14 – 0.16 | Photonic crystals, metasurfaces, plasmonics, nonlinear FDTD and fiber optics, quantum | planned |
+| 0.14 – 0.16 | Photonic crystals, metasurfaces, plasmonics, nonlinear FDTD and fiber optics | planned |
 | 1.0 | Stable API and the published validation report | planned |
 
 The details, with what each item measured, are in [ROADMAP.md](ROADMAP.md); what each release

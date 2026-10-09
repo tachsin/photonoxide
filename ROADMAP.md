@@ -342,7 +342,20 @@ Second- and third-order processes in waveguides and resonators: SHG, SFG, DFG, p
   - **convergence:** overlaps and efficiencies with the mode solver's grid, and the split-step at its order;
   - **cross-check:** χ⁽²⁾ and χ⁽³⁾ in FDTD (0.15) against the coupled-mode results on a short device.
 
+### 0.6.2: Quantum light and linear-optical statistics
+
+The plan, with its survey, sources and scope, is [docs/plans/quantum.md](docs/plans/quantum.md). photonoxide computes the statistics of real components' circuits exactly up to about 30 single photons, or Gaussian patterns of about 50; beyond that it exports transfer and covariance matrices to dedicated tools.
+
+- [ ] **Linear-optical statistics (Q1):** Fock inputs on any circuit's ports, its loss dilated to noise modes; permanents by Ryser's and Glynn's formulas, threaded and deterministic; partly distinguishable photons; an exact sampler (Clifford & Clifford 2018) with an explicit seed; Hong–Ou–Mandel dips with real spectra; Haar-random unitaries and the Reck and Clements decompositions (moved here from 0.8).
+- [ ] **Sources and Gaussian states (Q2):** from 0.6.1's joint spectral amplitude, the Schmidt purity, heralding efficiency through the filters' S-matrices, multi-pair probability; pair generation in rings; Gaussian states with hafnians and torontonians; squeezing from 0.6.1's parametric amplifiers.
+- [ ] **Real components in quantum circuits (Q3):** frequency-dependent S-matrices from every solver; loss budgets per path, photon and event; emitters' β and Purcell factors from FDTD; detectors' absorption from the mode solver and transfer matrices.
+- [ ] **Studio:** a quantum view on the Chip page (a circuit's unitary, input photons, output statistics), a pair-source designer, a Gaussian view, a loss-budget waterfall.
+- [ ] **Academy:** Hong–Ou–Mandel interference, programmable interferometers, photon pairs and purity, boson sampling and permanents, squeezed light, from KLM to fusion, GKP and cluster states.
+- [ ] **Validation:** each item analytic (HOM visibility, permanents of known matrices, squeezed-vacuum statistics), a published result (Peruzzo 2010, Paesani 2020, Vernon 2017, Vaidya 2020, Nehra 2022, Silverstone 2014, Arcari 2014, Pernice 2012) and a convergence test, as the plan details.
+
 ### 0.7: Inverse design
+- [ ] **Quantum objectives** with gradients (purity, heralding, HOM visibility, a unitary's fidelity), from the circuit adjoint and the minors' permanents ([docs/plans/quantum.md](docs/plans/quantum.md), Q4).
+- [ ] **Optimization examples before 0.7:** #244's phases 1 to 4 run on today's solvers ([docs/plans/optimization.md](docs/plans/optimization.md)).
 - [ ] **Adjoint gradients** for every solver (Lalau-Keraly 2013; nonlinear: Hughes 2018); forward-mode where it pays (Hughes 2019).
 - [ ] **Density topology optimization:**
   - filtering and projection with continuation (Wang 2011; Jensen 2011; Christiansen 2021);
@@ -398,7 +411,7 @@ Second- and third-order processes in waveguides and resonators: SHG, SFG, DFG, p
   - modulator large-signal models: the travelling-wave MZM, and rings by coupled-mode theory (Sacher & Poon 2008);
   - minimal driver and receiver models (photonoxide isn't a SPICE);
   - eye diagrams, extinction ratio and optical modulation amplitude.
-- [ ] **Programmable meshes:** Reck, Clements and hexagonal meshes; decomposition; self-configuration (Miller 2013; Hamerly 2022) and error correction (Bandyopadhyay 2021); calibration posed for genoxide.
+- [ ] **Programmable meshes:** Reck, Clements and hexagonal meshes (the Reck and Clements decompositions come in 0.6.2); self-configuration (Miller 2013; Hamerly 2022) and error correction (Bandyopadhyay 2021); calibration posed for genoxide.
 - [ ] **Components:** the silicon depletion modulator (MZM and ring), and mesh cells.
 - [ ] **Studio:** eye diagrams and time traces; mesh programming.
 - [ ] **Validation:**
@@ -501,7 +514,6 @@ The waveguide and resonator processes, phase matching, photon pairs and Kerr com
 - [ ] **Fiber modes,** exact for step index; the generalized nonlinear Schrödinger equation by split-step (Agrawal); supercontinuum.
 
 ### 0.16: Beyond
-- [ ] **Quantum photonics:** linear optical circuits and their statistics.
 - [ ] **Ray optics.**
 - [ ] **Further domains,** each entering only with its validation.
 
