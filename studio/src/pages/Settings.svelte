@@ -1,12 +1,13 @@
 <script lang="ts">
   // Settings: appearance, the workspace, tips, updates, and what this copy is.
-  import { Check, ChevronDown, Download, ExternalLink, FolderOpen, Lightbulb, Monitor, Moon, RefreshCw, RotateCcw, Search, Sun } from "@lucide/svelte";
+  import { Check, ChevronDown, Download, ExternalLink, FolderOpen, GitBranch, Hammer, Lightbulb, Monitor, Moon, RefreshCw, RotateCcw, Search, Sun, Trash2, Undo2 } from "@lucide/svelte";
   import { open } from "@tauri-apps/plugin-dialog";
   import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 
   import { app, toast, updateSettings } from "../lib/app.svelte";
   import { MORE_THEMES } from "../lib/themes";
   import { lengthUnit } from "../lib/units";
+  import { available, building, clearCache, nightly, refresh, rollBack } from "../lib/nightly.svelte";
   import { checkForUpdate, updater } from "../lib/updater.svelte";
 
   const s = $derived(app.state!.settings);
@@ -19,6 +20,24 @@
       ? `photonoxide ${s.theme}`
       : (MORE_THEMES.find((t) => t.setting === s.theme)?.name ?? `photonoxide ${app.dark ? "dark" : "light"}, as the system is`),
   );
+
+  const build = $derived(app.state!.build);
+  const nightlyOn = $derived(s.channel === "nightly");
+  /** Going back to the previous build, waiting for the user's confirmation. */
+  let confirmingBack = $state(false);
+
+  /** Switches the channel, and looks for an update on the new one. */
+  async function switchChannel(channel: "stable" | "nightly") {
+    if (s.channel === channel) return;
+    await updateSettings((x) => (x.channel = channel));
+    if (channel === "nightly") {
+      toast("Nightly: photonoxide now follows main, and offers to build its new commits here.", "info", undefined, 7000);
+      await refresh();
+    } else if (build.channel === "nightly") {
+      toast("Stable: the latest release replaces this nightly build when you update, even if its version number is lower.", "info", undefined, 9000);
+    }
+    checkForUpdate(false);
+  }
 
   async function chooseWorkspace() {
     const dir = await open({ title: "Choose the workspace folder", directory: true, defaultPath: app.state?.workspace });
@@ -189,13 +208,80 @@
 
     <section class="panel p-6">
       <h3 class="flex items-center gap-2 font-semibold"><Download size={17} class="text-primary" /> Updates</h3>
-      <label class="mt-3 flex cursor-pointer items-center justify-between gap-4">
+      <div class="mt-3 flex items-center justify-between gap-4">
         <span>
-          <span class="block text-sm font-medium">Look for new releases</span>
-          <span class="block text-xs faint">When photonoxide opens, and every hour while it stays open. When one is out, an Update button appears at the top; one click downloads, installs and restarts. Releases are signed, and the signature is checked before installing.</span>
+          <span class="block text-sm font-medium">Channel</span>
+          <span class="block text-xs faint">
+            {#if nightlyOn}Nightly: built here from main's latest code, tested by CI and nothing more; it needs Rust, Node and the platform's build tools.
+            {:else}Stable: the signed releases, built and tested before they are published.{/if}
+          </span>
+        </span>
+        <div class="join shrink-0" role="radiogroup" aria-label="The release channel">
+          {#each [["stable", "Stable", "The signed releases from GitHub"], ["nightly", "Nightly", "main's latest commit, built here from its source"]] as [v, text, tip] (v)}
+            <button
+              class="btn join-item btn-sm {(nightlyOn ? 'nightly' : 'stable') === v ? 'btn-primary btn-soft' : ''}"
+              role="radio"
+              aria-checked={(nightlyOn ? "nightly" : "stable") === v}
+              title={tip}
+              onclick={() => switchChannel(v as "stable" | "nightly")}>{text}</button
+            >
+          {/each}
+        </div>
+      </div>
+      <label class="mt-4 flex cursor-pointer items-center justify-between gap-4">
+        <span>
+          <span class="block text-sm font-medium">{nightlyOn ? "Look at main for new commits" : "Look for new releases"}</span>
+          <span class="block text-xs faint">
+            {#if nightlyOn}When photonoxide opens, and every hour while it stays open, it asks GitHub for main's latest commit. When main moved, a button at the top lists the new commits and offers to build them here; nothing is built or installed without your click.
+            {:else}When photonoxide opens, and every hour while it stays open. When one is out, an Update button appears at the top; one click downloads, installs and restarts. Releases are signed, and the signature is checked before installing.{/if}
+          </span>
         </span>
         <input type="checkbox" class="toggle toggle-primary" checked={s.check_updates} onchange={() => updateSettings((x) => (x.check_updates = !x.check_updates))} />
       </label>
+      {#if nightlyOn}
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <button class="btn btn-sm gap-1.5" onclick={() => checkForUpdate(false)} disabled={nightly.checking}>
+            <RefreshCw size={14} class={nightly.checking ? "animate-spin" : ""} /> Check now
+          </button>
+          {#if building()}
+            <button class="btn btn-sm btn-soft gap-1.5" onclick={() => (nightly.dialog = true)}><span class="loading loading-spinner loading-xs"></span> Building… see the log</button>
+          {:else if nightly.status?.ready}
+            <button class="btn btn-primary btn-sm gap-1.5" onclick={() => (nightly.dialog = true)}><Hammer size={14} /> Install {nightly.status.ready.label}</button>
+          {:else if available()}
+            <button class="btn btn-primary btn-sm btn-soft gap-1.5" onclick={() => (nightly.dialog = true)}><GitBranch size={14} /> {nightly.status?.last?.new_commits} new on main: see them</button>
+          {:else if nightly.status?.last?.status === "current"}
+            <span class="text-sm text-success">You have main's latest commit.</span>
+          {:else if nightly.status?.last}
+            <button class="btn btn-ghost btn-sm" onclick={() => (nightly.dialog = true)}>main's latest commit…</button>
+          {/if}
+          {#if nightly.error}<span class="selectable text-xs text-error">{nightly.error}</span>{/if}
+        </div>
+        {#if nightly.status?.cannot_install}
+          <p class="mt-3 text-xs text-warning">{nightly.status.cannot_install}</p>
+        {/if}
+        <div class="mt-4 space-y-2 rounded-xl border border-base-content/10 bg-base-200/60 px-4 py-3 text-xs">
+          {#if nightly.status?.previous}
+            <div class="flex items-center justify-between gap-3">
+              <span><span class="faint">The build before the last install, kept to go back to:</span> photonoxide {nightly.status.previous.label}</span>
+              {#if confirmingBack}
+                <span class="flex shrink-0 gap-1">
+                  <button class="btn btn-ghost btn-xs" onclick={() => (confirmingBack = false)}>Cancel</button>
+                  <button class="btn btn-warning btn-xs" onclick={() => { confirmingBack = false; rollBack(); }}>Go back and restart</button>
+                </span>
+              {:else}
+                <button class="btn btn-ghost btn-xs shrink-0 gap-1" onclick={() => (confirmingBack = true)}><Undo2 size={12} /> Go back to it…</button>
+              {/if}
+            </div>
+          {/if}
+          <div class="flex items-center justify-between gap-3">
+            <span class="min-w-0 truncate"><span class="faint">Builds, their cache and log:</span> <span class="font-mono">{nightly.status?.folder}</span></span>
+            <span class="flex shrink-0 gap-1">
+              <button class="btn btn-ghost btn-xs" onclick={() => nightly.status && revealItemInDir(nightly.status.folder)}>Show</button>
+              <button class="btn btn-ghost btn-xs gap-1" disabled={building()} title="Remove main's source and Cargo's target folder (several gigabytes): the next build compiles everything again" onclick={clearCache}><Trash2 size={12} /> Remove the cache</button>
+            </span>
+          </div>
+        </div>
+      {:else}
       <div class="mt-4 flex flex-wrap items-center gap-3">
         <button class="btn btn-sm gap-1.5" onclick={() => checkForUpdate(false)} disabled={updater.status === "checking"}>
           <RefreshCw size={14} class={updater.status === "checking" ? "animate-spin" : ""} /> Check now
@@ -213,12 +299,25 @@
           <span class="text-xs faint">This copy was built from the repository; installed releases update themselves.</span>
         {/if}
       </div>
+      {#if build.channel === "nightly"}
+        <p class="mt-3 text-xs faint">This copy is a nightly build: the latest release replaces it when you update, even if its version number is lower.</p>
+      {/if}
+      {/if}
     </section>
 
     <section class="panel p-6">
       <h3 class="font-semibold">About</h3>
       <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
-        <dt class="faint">Version</dt><dd class="num">photonoxide {app.state?.version}</dd>
+        <dt class="faint">Version</dt><dd class="num selectable">photonoxide {build.label}</dd>
+        <dt class="faint">Built from</dt>
+        <dd class="num selectable">
+          {#if build.commit}
+            <button class="link link-hover font-mono" title={build.commit} onclick={() => openUrl(`https://github.com/tachsin/photonoxide/commit/${build.commit}`)}>{build.short}</button>{build.date ? `, ${build.date}` : ""}{build.dirty ? ", with changes not committed" : ""}
+          {:else}
+            <span class="faint">a commit not known to this build</span>
+          {/if}
+        </dd>
+        <dt class="faint">Channel</dt><dd>{build.channel === "nightly" ? "Nightly, built here from main" : "Stable"}</dd>
         <dt class="faint">Platform</dt><dd class="num">{app.state?.platform}</dd>
         <dt class="faint">License</dt><dd>MIT or Apache-2.0</dd>
       </dl>
