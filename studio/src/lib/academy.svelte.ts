@@ -19,6 +19,7 @@ export interface Paper {
 
 export type LessonBlock =
   | { kind: "text"; markdown: string }
+  | { kind: "diagram"; diagram: string }
   | { kind: "chart"; chart: string; values: Record<string, number> }
   | { kind: "example"; name: string }
   | { kind: "validation"; cases: string[] }
@@ -109,8 +110,21 @@ export interface ChartData {
   note: string;
 }
 
+/** A lesson's device drawn (studio/src-tauri/src/diagrams.rs; the drawings in components/diagrams). */
+export interface DiagramSpec {
+  id: string;
+  title: string;
+  /** What the schematic shows; may hold TeX between dollars. */
+  caption: string;
+  /** The built-in job (jobs/<file>) whose structure the 3D view shows, if any. */
+  job: string | null;
+  /** What the 3D view shows. */
+  caption_3d: string;
+}
+
 export interface Academy {
   lessons: Lesson[];
+  diagrams: DiagramSpec[];
   charts: ChartSpec[];
 }
 

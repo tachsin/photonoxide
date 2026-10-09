@@ -109,7 +109,7 @@
   <section class="min-h-0 min-w-0 {reading ? '' : 'max-md:hidden'}">
     {#if current && academy.data}
       {#key current.id}
-        <LessonView lesson={current} {lessons} charts={academy.data.charts} {docs} onlesson={choose} ondoc={(d) => (doc = d)} onback={() => (reading = false)} />
+        <LessonView lesson={current} {lessons} diagrams={academy.data.diagrams} charts={academy.data.charts} {docs} onlesson={choose} ondoc={(d) => (doc = d)} onback={() => (reading = false)} />
       {/key}
     {:else}
       <div class="grid h-full place-items-center">

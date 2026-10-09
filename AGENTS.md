@@ -70,7 +70,7 @@ regenerate and commit it with any change that adds or alters a case.
   - The default build, CI and the released program work with no external library. Tests that need one skip when it isn't found, and say so.
   - A backend declares whether it gives the same bits on every run. photonoxide's own solvers must, on any thread count.
   - photonoxide's own GPU kernels (wgpu, the `gpu` feature) repeat bit for bit on the same device and driver: no floating-point atomics, fixed workgroup sizes, every sum taken in a fixed order. Against the CPU they agree to a tolerance stated per quantity (ROADMAP's principle 9). f32 on the GPU, f64 (Vulkan) for checking.
-  - GitHub's runners have no GPU: the GPU's tests skip there and say so, and run on the owner's machine before each release, which writes docs/validation-gpu.md. docs/validation.md must be the same with or without a GPU.
+  - GitHub's runners have no GPU: the GPU's tests skip there and say so, and run on tachsin's machine before each release, which writes docs/validation-gpu.md. docs/validation.md must be the same with or without a GPU.
 - **Minimum Rust follows the dependencies.** Use a dependency's current release; when it needs a newer Rust than `rust-version`, raise `rust-version` and the CI's MSRV job to what it needs, in the same PR, and say so in the PR.
 - **Validation before features.** A solver or device isn't done without three things:
   - an analytic test;
