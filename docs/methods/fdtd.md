@@ -44,6 +44,8 @@ papers:
     doi: 10.1137/140991133
   - cite: "T. M. Malas, J. Hornich, G. Hager, H. Ltaief, C. Pflaum, D. E. Keyes, Proc. IEEE IPDPS 2016, 142 (diamond blocking of a Yee stencil)"
     doi: 10.1109/IPDPS.2016.87
+  - cite: "Z. Liu, J. K. S. Poon, Opt. Continuum 4, 2427 (2025) (six PDK devices in Lumerical FDTD and Tidy3D)"
+    doi: 10.1364/OPTCON.572107
 validation:
   - fdtd/dispersion
   - fdtd/energy
@@ -77,6 +79,8 @@ validation:
   - fdtd/smoothing-oskooi
   - fdtd/smoothing-triplets-oblique
   - fdtd/smoothing-triplets-order
+  - fdtd/smoothing-diagonal-oblique
+  - fdtd/smoothing-diagonal-order
   - fdtd/smoothing-bauer-order
   - fdtd/smoothing-triplets-contrast
   - fdtd/smoothing-triplets-lattices
@@ -113,6 +117,12 @@ examples:
   - subpixel_holes
   - pml_oskooi
   - bump_oskooi
+  - coupler_liu_poon
+  - crossing_liu_poon
+  - mmi_liu_poon
+  - mode_converter_liu_poon
+  - splitter_rotator_liu_poon
+  - ring_liu_poon
 ---
 
 The finite-difference time-domain method steps Maxwell's equations forward in time. One run
@@ -430,6 +440,21 @@ takes the same eight terms a value each step, from a table of the distinct nodes
 stable at any contrast, with about half the error at oblique interfaces and the same results at
 interfaces along the grid. Its smoothing costs more than the nodes' (8 tensors a node, each from
 6 edges and 6 faces).
+
+**The diagonal alone** (`Coupling::Diagonal`). Each value of E keeps its own diagonal entry of
+$\tilde\varepsilon^{-1}$ over its cell, for isotropic media
+$n_c^2\langle\varepsilon^{-1}\rangle + (1 - n_c^2)\langle\varepsilon\rangle^{-1}$, and the
+off-diagonal ones are dropped: E = $(\tilde\varepsilon^{-1})_{cc}D_c$, a permittivity per
+component, as conformal and subpixel meshes without a tensor take it. Nothing couples, so the
+update is the scalar one, stable at any contrast and combinable with a conductivity, a dispersive
+medium or a Bloch phase. Along the grid it is the tensor exactly (a unit test). At an oblique
+interface the dropped coupling is first order: at the oblique layers the error times n is 0.14, 0.38, 0.52, 0.57 and 0.62 at 16 to 256 cells a µm, the frequencies too high, about four times the triplets'; 4.43e-3 at 128
+(`fdtd/smoothing-diagonal-oblique`, order 0.87 from 64 to 128, `fdtd/smoothing-diagonal-order`). Its use
+is speed: a tensor that couples anything in a 3D device (a bend's faces, a taper's) steps the
+whole grid every step, where a scalar permittivity steps by the kernel's diamonds (below), about
+four times faster beyond the caches. On a 500 × 220 nm silicon S-bend in silica, 6 million cells
+of 30 nm, 20 threads of a Core Ultra 7 265K made 158 million cell-updates/s with the triplets
+and 582 with the diagonal. The devices of Liu and Poon (below) take it.
 
 **What doesn't combine.** A tensor that couples E's components refuses a conductivity, a
 dispersive medium (whose ε∞ would have to enter the tensor) and a Bloch side with k ≠ 0 (D's
@@ -923,6 +948,39 @@ number are reproduced:
 - **Figs. 3, 6, 9, 10, 11 and 12** give no number to check. Fig. 6's anisotropic ellipsoids and
   Fig. 11's ring are not sized in the paper; Fig. 9 gives Q ∼ 10⁶. The ring of Fig. 11 is
   checked against its exact resonances instead (above, "Resonances").
+
+## Six devices against Lumerical FDTD and Tidy3D
+
+Z. Liu and J. K. S. Poon (Opt. Continuum 4, 2427 (2025), doi:10.1364/OPTCON.572107) simulate
+six devices of gdsfactory's generic PDK in 3D in both commercial codes, at 6 to 25 cells a
+wavelength in silicon, and print or plot what each gives. The `*_liu_poon` examples run the same
+devices here (`examples/pdk`):
+
+- **The shapes** are gdsfactory's, drawn from its definitions (Bézier S-bends, Euler bends with
+  p = 0.5 on the arc's footprint, tapers) and checked against the paper's own GDS files: every
+  vertex within 1.1 nm. The guides run 10 µm past the ports, through the CPMLs, as the paper
+  extends them.
+- **The stack:** 220 nm of silicon (Li's, 3.4757 at 1550 nm), the crossing's slab 150 nm, in
+  silica (Malitson's); the splitter-rotator under silicon nitride of n = 2.0. Not dispersive:
+  each run takes its materials at one wavelength. The paper's Palik silicon is 3.4738 in
+  Tidy3D's fit and about 3.4764 in Lumerical's data.
+- **The cell** is the paper's in the plane (the ports and the device, 1 µm on every side); along
+  z 1 µm of cladding either side, where the paper has 2, CPMLs of 12 cells outside.
+- **The grid** is uniform: N cells a wavelength is h = 1.55 µm/(3.4757 N), 29.7 nm at 15 and
+  22.3 nm at 20. The paper's grids are non-uniform, as fine in the silicon and coarser outside.
+- **The smoothing** is `Coupling::Diagonal`: a permittivity per component of E, as the paper's
+  conformal (Lumerical) and subpixel (Tidy3D) meshes take it, and the kernel's diamonds, about
+  four times the speed of a coupling tensor.
+- **Sources and monitors:** the input's mode at 1550 nm launched by a pulse 0.04 c/µm wide on its
+  extension; each output's modes at 1540 to 1560 nm, solved by FDFD on the grid at each
+  frequency, projected on planes 0.3 µm past the ports; transmissions over the incident mode's
+  power at the same frequency. The run stops when the outputs' |E|² has stayed below 1e-6 of its
+  peak for 20 µm/c.
+
+At 1550 nm, against the span of both codes' values where the paper finds them settled (read off
+its figures, the reading's uncertainty stated in each example):
+
+@@RESULTS@@
 
 ## Cost
 
