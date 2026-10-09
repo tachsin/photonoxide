@@ -581,13 +581,18 @@ impl Engine {
             self.norms.0
         };
         let scale = norm * largest(&x) + largest(rhs);
-        // (a solution that isn't finite fails it too)
-        let satisfied = residual.is_finite() && residual <= BACKWARD_ERROR * scale;
+        // (a maximum passes over a NaN, so the solution's finiteness is asked of it)
+        let finite = x.iter().all(|z| z.re.is_finite() && z.im.is_finite());
+        let satisfied = finite && residual <= BACKWARD_ERROR * scale;
         if !satisfied {
             return Err(error(format!(
                 "Accelerate's solve: the solution doesn't satisfy its system (a backward error \
                  of {:.1e}): the matrix is singular to its factorization",
-                residual / scale
+                if finite {
+                    residual / scale
+                } else {
+                    f64::INFINITY
+                }
             )));
         }
         Ok(x)
