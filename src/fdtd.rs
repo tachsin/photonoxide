@@ -976,9 +976,10 @@ impl Simulation {
 
     /// Advances by `count` steps.
     ///
-    /// On a grid beyond the caches with nothing to record or update between steps (no probe,
-    /// monitor or dispersive medium) the kernel takes several steps at a time by tiles
-    /// ([`Simulation::tiles`]): the same bits as one step at a time.
+    /// On a grid beyond the caches the kernel takes several steps at a time by tiles (Malas et
+    /// al.'s diamonds), copying out what the probes and monitors read at each step, where it
+    /// can: not with a dispersive medium, a Bloch side, a side periodic along y or z, a smoothed
+    /// tensor or a plane wave. The same bits as one step at a time.
     pub fn run(&mut self, count: usize) {
         let mut left = count;
         if let Some(b) = self.tiles(true).filter(|b| b.steps > 1) {
@@ -1120,7 +1121,7 @@ impl Simulation {
     /// from E at t + Δt.
     ///
     /// On a grid beyond the caches the kernel steps H̃ and E together by tiles, plane by plane,
-    /// where it can ([`Simulation::tiles`]): the same bits.
+    /// where it can: the same bits.
     pub fn step(&mut self) {
         if let Some(b) = self.tiles(false) {
             return self.step_tiled(b, 1);
