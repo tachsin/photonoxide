@@ -34,7 +34,8 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 - **Modes:** [slabs](docs/methods/slab.md) and [multilayers](docs/methods/multilayer.md),
   [full-vector cross-sections](docs/methods/vector.md) with [PMLs](docs/methods/pml.md),
   [Hadley's](docs/methods/hadley.md) scheme for dielectric corners, [bends](docs/methods/bends.md)
-  and [dispersion](docs/methods/dispersion.md).
+  and [dispersion](docs/methods/dispersion.md); every mode in a region of the complex
+  effective-index plane by [contour integrals](docs/methods/contour.md).
 - **FDFD:** [2D](docs/methods/fdfd.md) and [3D](docs/methods/fdfd-3d.md), with
   [mode ports and S-parameters](docs/methods/fdfd-ports.md) and
   [adjoint gradients](docs/methods/fdfd-adjoint.md); photonoxide's own direct and iterative

@@ -47,7 +47,9 @@ $$
 \qquad n_\text{eff} = \beta / k_0 .
 $$
 
-The modes nearest a guess come from [shift-and-invert Arnoldi](eigen.md).
+The modes nearest a guess come from [shift-and-invert Arnoldi](eigen.md); every mode in a
+region of the complex $n_\text{eff}$ plane, with no count and no guess, from
+[contour integrals](contour.md).
 `VectorMode::residual` measures a mode against the matrix assembled afresh,
 $\lVert A h - \beta^2 h\rVert / (|\beta^2|\thinspace\lVert h\rVert)$; a `"modes"` job records it for every mode, and
 the studio's Solver panel shows it.

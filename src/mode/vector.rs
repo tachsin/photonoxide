@@ -1058,6 +1058,45 @@ pub fn modes_until(
     ))
 }
 
+/// Every mode of `cs` at `wavelength` whose effective index lies in `region`, highest Re n_eff
+/// first, with no count and no guess: by contour integrals ([`crate::mode::region`]). Each
+/// quadrature point factorizes its shifted matrix with photonoxide's multifrontal LU, the
+/// points side by side on rayon's threads; the result is the same bits on any number of them.
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] if a shifted matrix can't be factorized, a subspace given in
+/// `search` is too small for the modes in the region, or they don't converge within its
+/// iterations.
+pub fn modes_in(
+    cs: &CrossSection,
+    wavelength: Wavelength,
+    region: &crate::mode::region::Region,
+    search: &crate::mode::region::Search,
+) -> Result<crate::mode::region::Found<VectorMode>> {
+    let k = wavelength.wavenumber();
+    let unknowns = unknowns(cs);
+    let entries = assemble(cs, k * k);
+    let ny = cs.y.len();
+    let positions: Vec<[f64; 3]> = unknowns
+        .iter()
+        .map(|&(_, node)| [cs.x[node / ny], cs.y[node % ny], 0.0])
+        .collect();
+    let found =
+        crate::mode::region::search(unknowns.len(), &entries, &positions, k, region, search)?;
+    Ok(crate::mode::region::Found {
+        modes: found
+            .pairs
+            .into_iter()
+            .map(|p| VectorMode::from_unknowns(cs, k, p.value, &unknowns, &p.vector))
+            .collect(),
+        residuals: found.residuals,
+        estimate: found.estimate,
+        subspace: found.subspace,
+        iterations: found.iterations,
+    })
+}
+
 impl VectorMode {
     /// How far the mode is from solving the eigenproblem of `cs` at its wavelength:
     /// ‖A h − β² h‖ / (|β²| ‖h‖), with A assembled afresh and h the mode's field over the
@@ -1294,20 +1333,7 @@ pub(crate) fn soi_leakage(
 /// films 1.66, 1.53, 1.60, 1.66 of 500 nm; substrate 1.50, 1 µm, over a 2 µm PML of α = 5) at
 /// 632.8 nm and spacing `h`: its TE leaky waves nearest each of `near`.
 pub(crate) fn chilwell_leaky(h: f64, near: &[c64]) -> Vec<c64> {
-    let cs = flat_slab(
-        crate::mode::Polarization::Te,
-        &[
-            (1.0, 1.0),
-            (1.66, 0.5),
-            (1.53, 0.5),
-            (1.60, 0.5),
-            (1.66, 0.5),
-            (1.5, 1.0),
-        ],
-        h,
-        2.0,
-        5.0,
-    );
+    let cs = chilwell_flat(h);
     let w = Wavelength::from_um_unchecked(0.6328);
     near.iter()
         .map(|&target| {
@@ -1321,6 +1347,24 @@ pub(crate) fn chilwell_leaky(h: f64, near: &[c64]) -> Vec<c64> {
                 .unwrap_or(c64::new(f64::NAN, f64::NAN))
         })
         .collect()
+}
+
+/// Chilwell and Hodgkinson's four-layer guide lying flat, as [`chilwell_leaky`] solves it.
+pub(crate) fn chilwell_flat(h: f64) -> CrossSection {
+    flat_slab(
+        crate::mode::Polarization::Te,
+        &[
+            (1.0, 1.0),
+            (1.66, 0.5),
+            (1.53, 0.5),
+            (1.60, 0.5),
+            (1.66, 0.5),
+            (1.5, 1.0),
+        ],
+        h,
+        2.0,
+        5.0,
+    )
 }
 
 /// The book's strip as a 2D slab (its slab index, 2.845, 500 nm wide, in 1.444) bent at

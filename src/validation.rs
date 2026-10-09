@@ -1528,6 +1528,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::compact::checks::cases());
     // and the geometry kernel's
     cases.extend(crate::geometry::checks::cases());
+    // and the contour solver's, every mode in a region
+    cases.extend(crate::mode::region::checks::cases());
     cases
 }
 
