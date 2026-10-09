@@ -23,8 +23,14 @@
 //!   partial pivoting today, by the header), its default ordering and scaling, its pivot
 //!   tolerance of 0.01.
 //! - **Errors.** A parameter Accelerate refuses is reported to a function given it (without
-//!   one it stops the process); a factorization's failure is its status. A matrix with a zero
-//!   pivot may be factorized all the same, so a solution that isn't finite is an error too.
+//!   one it stops the process); a factorization's failure is its status.
+//! - **Every solve is checked.** A matrix with a zero pivot is factorized without a failed
+//!   status: the LU's solution then isn't finite, and the L D Lᵀ takes the pivot as zero and
+//!   answers all the same (`SparseGetInertia` counts no pivots of a complex factorization).
+//!   So each solution's normwise backward error, ‖A x − b‖ / (‖A‖ ‖x‖ + ‖b‖) in the
+//!   infinity norm (J. L. Rigal, J. Gaches, J. ACM 14, 543 (1967),
+//!   doi:10.1145/321406.321416), is computed, one product with the matrix, and a solve that
+//!   leaves more than 1e-8 is an error.
 //! - **Report:** the bytes of the factors and the workspace, as the symbolic factorization
 //!   gives them. It doesn't say how many entries the factors have.
 //! - **Threads** are Accelerate's own. Not declared deterministic.
@@ -361,7 +367,76 @@ impl Drop for Columns {
 struct Engine {
     columns: Arc<Columns>,
     numeric: Numeric,
+    /// The entries factorized, for each solve's check.
+    values: Vec<c64>,
+    /// The matrix's largest row sum and largest column sum of moduli.
+    norms: (f64, f64),
     report: Report,
+}
+
+/// The largest backward error a solve may leave. A direct solve leaves about 1e-16; one that
+/// took a zero pivot as zero leaves about 1.
+const BACKWARD_ERROR: f64 = 1e-8;
+
+/// The entries a factorization is given, by columns: a general matrix's, or a symmetric one's
+/// on and below its diagonal.
+struct Pattern<'a> {
+    symmetric: bool,
+    starts: &'a [i64],
+    rows: &'a [c_int],
+}
+
+impl Pattern<'_> {
+    /// Each entry as (row, column, index).
+    fn entries(&self) -> impl Iterator<Item = (usize, usize, usize)> + '_ {
+        (0..self.starts.len() - 1).flat_map(move |j| {
+            (self.starts[j] as usize..self.starts[j + 1] as usize)
+                .map(move |e| (self.rows[e] as usize, j, e))
+        })
+    }
+
+    /// The largest row sum and the largest column sum of the entries' moduli, a symmetric
+    /// matrix's entries above its diagonal counted as their mirrors below it.
+    fn norms(&self, values: &[c64]) -> (f64, f64) {
+        let n = self.starts.len() - 1;
+        let (mut by_row, mut by_column) = (vec![0.0f64; n], vec![0.0f64; n]);
+        for (i, j, e) in self.entries() {
+            let modulus = values[e].norm();
+            by_row[i] += modulus;
+            by_column[j] += modulus;
+            if self.symmetric && i != j {
+                by_row[j] += modulus;
+                by_column[i] += modulus;
+            }
+        }
+        (
+            by_row.into_iter().fold(0.0, f64::max),
+            by_column.into_iter().fold(0.0, f64::max),
+        )
+    }
+
+    /// A x, or Aᵀ x.
+    fn product(&self, values: &[c64], x: &[c64], transpose: bool) -> Vec<c64> {
+        let mut y = vec![c64::new(0.0, 0.0); x.len()];
+        for (i, j, e) in self.entries() {
+            let (to, from) = if transpose { (j, i) } else { (i, j) };
+            y[to] += values[e] * x[from];
+            if self.symmetric && i != j {
+                y[from] += values[e] * x[to];
+            }
+        }
+        y
+    }
+}
+
+impl Columns {
+    fn pattern(&self) -> Pattern<'_> {
+        Pattern {
+            symmetric: self.form == Form::Symmetric,
+            starts: &self.starts,
+            rows: &self.rows,
+        }
+    }
 }
 
 // SAFETY: the factorization is Accelerate's, used by one thread at a time (behind a Mutex)
@@ -431,9 +506,12 @@ impl Engine {
             }
             numeric
         };
+        let norms = columns.pattern().norms(&values);
         let mut engine = Engine {
             columns: columns.clone(),
             numeric,
+            values,
+            norms,
             report: Report::default(),
         };
         drop(symbolic);
@@ -488,12 +566,29 @@ impl Engine {
             (api.free)(workspace);
         }
         reported("solve")?;
-        // a zero pivot isn't a failed status to Accelerate: it shows in the solution
-        if x.iter().any(|v| !(v.re.is_finite() && v.im.is_finite())) {
-            return Err(error(
-                "Accelerate's solve: the solution isn't finite, the matrix is singular to its \
-                 factorization",
-            ));
+        // a zero pivot isn't a failed status to Accelerate, and its L D Lᵀ takes it as zero
+        // and goes on: the solution is checked against its system
+        let largest = |v: &[c64]| v.iter().map(|z| z.norm()).fold(0.0, f64::max);
+        let product = self.columns.pattern().product(&self.values, &x, transpose);
+        let residual = product
+            .iter()
+            .zip(rhs)
+            .map(|(a, b)| (a - b).norm())
+            .fold(0.0, f64::max);
+        let norm = if transpose {
+            self.norms.1
+        } else {
+            self.norms.0
+        };
+        let scale = norm * largest(&x) + largest(rhs);
+        // (a solution that isn't finite fails it too)
+        let satisfied = residual.is_finite() && residual <= BACKWARD_ERROR * scale;
+        if !satisfied {
+            return Err(error(format!(
+                "Accelerate's solve: the solution doesn't satisfy its system (a backward error \
+                 of {:.1e}): the matrix is singular to its factorization",
+                residual / scale
+            )));
         }
         Ok(x)
     }
@@ -790,6 +885,56 @@ mod tests {
             "{e}"
         );
         assert!(reported("solve").is_ok());
+    }
+
+    #[test]
+    fn a_patterns_products_and_norms_are_the_matrixs() {
+        let z = |re: f64, im: f64| c64::new(re, im);
+        // [[1, 2i, 0], [3, 4, 0], [0, 5, 6]] by columns
+        let general = Pattern {
+            symmetric: false,
+            starts: &[0, 2, 5, 6],
+            rows: &[0, 1, 0, 1, 2, 2],
+        };
+        let values = [
+            z(1.0, 0.0),
+            z(3.0, 0.0),
+            z(0.0, 2.0),
+            z(4.0, 0.0),
+            z(5.0, 0.0),
+            z(6.0, 0.0),
+        ];
+        let x = [z(1.0, 0.0), z(0.0, 1.0), z(2.0, 0.0)];
+        // A x = [1 + 2i·i, 3 + 4i, 5i + 12]
+        assert_eq!(
+            general.product(&values, &x, false),
+            vec![z(-1.0, 0.0), z(3.0, 4.0), z(12.0, 5.0)]
+        );
+        // Aᵀ x = [1 + 3i, 2i + 4i + 10, 12]
+        assert_eq!(
+            general.product(&values, &x, true),
+            vec![z(1.0, 3.0), z(10.0, 6.0), z(12.0, 0.0)]
+        );
+        // rows: 3, 7, 11; columns: 4, 11, 6
+        assert_eq!(general.norms(&values), (11.0, 11.0));
+        // [[1, 2i, 0], [2i, 4, 5], [0, 5, 6]] by its lower triangle
+        let symmetric = Pattern {
+            symmetric: true,
+            starts: &[0, 2, 4, 5],
+            rows: &[0, 1, 1, 2, 2],
+        };
+        let lower = [
+            z(1.0, 0.0),
+            z(0.0, 2.0),
+            z(4.0, 0.0),
+            z(5.0, 0.0),
+            z(6.0, 0.0),
+        ];
+        let whole = vec![z(-1.0, 0.0), z(10.0, 6.0), z(12.0, 5.0)];
+        assert_eq!(symmetric.product(&lower, &x, false), whole);
+        assert_eq!(symmetric.product(&lower, &x, true), whole);
+        // rows and columns alike: 3, 11, 11
+        assert_eq!(symmetric.norms(&lower), (11.0, 11.0));
     }
 
     #[test]
