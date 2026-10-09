@@ -19,12 +19,13 @@
 //!   structure (Accelerate counts its references). A factorization is the numeric one, in
 //!   storage Accelerate's `malloc` gives and it frees; a solve is in place, the transposed
 //!   system by the factorization's `transpose` attribute, as `SparseGetTranspose` sets it.
-//! - **Settings:** Accelerate's defaults: its default LU and L D Lᵀ (both with threshold
-//!   partial pivoting today, by the header), its default ordering and scaling, its pivot
-//!   tolerance of 0.01.
+//! - **Settings:** Accelerate's defaults: its default LU and the L D Lᵀ with threshold
+//!   partial pivoting (which the header says the default is today), its default ordering and
+//!   scaling, its pivot tolerance of 0.01.
 //! - **Errors.** A parameter Accelerate refuses is reported to a function given it (without
 //!   one it stops the process); a factorization's failure is its status. A matrix with a zero
-//!   pivot may be factorized all the same, so a solution that isn't finite is an error too.
+//!   pivot is factorized all the same: an LU's solution then isn't finite, which is made an
+//!   error, and an L D Lᵀ's zero pivots are counted (`SparseGetInertia`) and made one.
 //! - **Report:** the bytes of the factors and the workspace, as the symbolic factorization
 //!   gives them. It doesn't say how many entries the factors have.
 //! - **Threads** are Accelerate's own. Not declared deterministic.
@@ -157,7 +158,9 @@ struct Numeric {
 }
 
 // SparseFactorization_t
-const LDLT: u8 = 1;
+/// `SparseFactorizationLDLTTPP`: threshold partial pivoting, which the default L D Lᵀ is
+/// today, named because the inertia is counted for it alone.
+const LDLT: u8 = 4;
 const LU: u8 = 80;
 // SparseStatus_t
 const OK: c_int = 0;
@@ -177,6 +180,10 @@ type NumericFactor = unsafe extern "C" fn(
 /// `_SparseSolveOpaque_Complex_Double`: the factorization, the right-hand side (null in
 /// place), the solution, the workspace.
 type SolveOpaque = unsafe extern "C" fn(*const Numeric, *const Dense, *const Dense, *mut c_void);
+/// `int SparseGetInertia(SparseOpaqueFactorization_Complex_Double, int *num_positive, int
+/// *num_zero, int *num_negative)`, an overloaded function, exported under its C++ name.
+type Inertia = unsafe extern "C" fn(Numeric, *mut c_int, *mut c_int, *mut c_int) -> c_int;
+const INERTIA: &str = "_Z16SparseGetInertia40SparseOpaqueFactorization_Complex_DoublePiS0_S0_";
 type DestroyNumeric = unsafe extern "C" fn(*mut Numeric);
 type DestroySymbolic = unsafe extern "C" fn(*mut Symbolic);
 /// `int sysctlbyname(const char *, void *, size_t *, void *, size_t)`.
@@ -189,6 +196,7 @@ struct Api {
     numeric_lu: NumericFactor,
     /// From macOS 26.
     numeric_symmetric: Option<NumericFactor>,
+    inertia: Option<Inertia>,
     solve: SolveOpaque,
     destroy_numeric: DestroyNumeric,
     destroy_symbolic: DestroySymbolic,
@@ -303,6 +311,7 @@ fn open() -> Result<Api> {
             numeric_symmetric: library
                 .function("_SparseNumericFactorSymmetric_Complex_Double")
                 .ok(),
+            inertia: library.function(INERTIA).ok(),
             solve: library.function("_SparseSolveOpaque_Complex_Double")?,
             destroy_numeric: library.function("_SparseDestroyOpaqueNumeric_Complex_Double")?,
             destroy_symbolic: library.function("_SparseDestroyOpaqueSymbolic")?,
@@ -445,6 +454,20 @@ impl Engine {
                 status(engine.numeric.status),
                 engine.numeric.status
             )));
+        }
+        // an L D Lᵀ takes a pivot below the zero tolerance as zero and goes on: its solves
+        // would answer a singular system without a word
+        if let (Form::Symmetric, Some(inertia)) = (columns.form, api.inertia) {
+            let (mut positive, mut zero, mut negative) = (0, 0, 0);
+            // SAFETY: a completed L D Lᵀ factorization, passed as SparseGetInertia takes it
+            let code = unsafe { inertia(engine.numeric, &mut positive, &mut zero, &mut negative) };
+            let _ = reported("inertia");
+            if code == 0 && zero > 0 {
+                return Err(error(format!(
+                    "Accelerate's factorization: {zero} of its pivots are zero, the matrix is \
+                     singular"
+                )));
+            }
         }
         engine.report.peak_memory_bytes = Some((factor_bytes + workspace_bytes) as u64);
         engine.report.factorization_seconds = start.elapsed().as_secs_f64();
