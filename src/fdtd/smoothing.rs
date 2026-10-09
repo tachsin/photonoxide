@@ -1154,6 +1154,12 @@ impl Simulation {
                  D's coupling across the Bloch sides would need the phase",
             ));
         }
+        if s.boundaries.cpml.damping > 0.0 {
+            return Err(invalid(
+                "a CPML's damping with a permittivity that couples E's components isn't \
+                 supported: it is a conductivity, which such a medium doesn't take",
+            ));
+        }
         let forward = s.offsets(true);
         // the values of E an off-diagonal entry reaches
         let coupled = Axis::ALL.map(|c| {

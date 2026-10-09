@@ -477,3 +477,99 @@ fn a_plane_waves_e_is_its_waveform_to_second_order() {
     );
     assert!(errors[2] < 2e-3, "{errors:?}");
 }
+
+#[test]
+fn a_cpmls_damping_is_a_loss_inside_it_alone_and_adds_to_a_conductivity() {
+    let g = grid([20, 12, 12], 0.05);
+    let damped = |damping: f64| Boundaries {
+        cpml: Cpml {
+            damping,
+            ..Cpml::default()
+        },
+        ..Boundaries::cpml(4)
+    };
+    let plain = Simulation::new(g, |_, _, _| 2.0, Boundaries::cpml(4), 0.9).unwrap();
+    let s = Simulation::new(g, |_, _, _| 2.0, damped(5.0), 0.9).unwrap();
+    // none outside the CPMLs; inside, the maximum at the outer face, as depth⁹ for order 3
+    let (inner, outer) = (-0.5 + 4.0 * 0.05, -0.5);
+    assert_eq!(s.damping_at([0.0, 0.0, 0.0]), 0.0);
+    assert_eq!(s.damping_at([inner, 0.0, 0.0]), 0.0);
+    assert!((s.damping_at([outer, 0.0, 0.0]) - 5.0).abs() < 1e-12);
+    let half = s.damping_at([outer + 0.1, 0.0, 0.0]);
+    assert!((half - 5.0 * 0.5f64.powi(9)).abs() < 1e-12, "{half}");
+    // the deepest CPML counts where two overlap
+    assert!((s.damping_at([outer + 0.1, 0.3, 0.0]) - 5.0).abs() < 1e-12);
+    assert_eq!(plain.damping_at([outer, 0.0, 0.0]), 0.0);
+    // E's coefficients: untouched outside, lossy inside
+    let at = |i: usize, j: usize, k: usize| i + g.nx * (j + g.ny * k);
+    // (one cell in: on the wall itself E is held at zero)
+    let (centre, deep) = (at(10, 6, 6), at(1, 6, 6));
+    let y = Axis::Y.index();
+    assert_eq!(s.ca[y][centre], 1.0);
+    assert_eq!(s.cb[y][centre], plain.cb[y][centre]);
+    assert!(s.ca[y][deep] < 1.0 && s.cb[y][deep] < plain.cb[y][deep]);
+    // a conductivity given afterwards adds to it: as one of their sum, to rounding
+    let both = s.with_conductivity(|_, _, _| 3.0).unwrap();
+    let conductive = Simulation::new(g, |_, _, _| 2.0, Boundaries::cpml(4), 0.9)
+        .unwrap()
+        .with_conductivity(|_, _, _| 3.0)
+        .unwrap();
+    assert_eq!(both.ca[y][centre], conductive.ca[y][centre]);
+    assert_eq!(both.cb[y][centre], conductive.cb[y][centre]);
+    let position = g.e_position(Axis::Y, (1, 6, 6));
+    let sum = 3.0 + both.damping_at(position);
+    let dt_over_eps = plain.cb[y][deep];
+    let half = sum * dt_over_eps / 2.0;
+    assert!((both.ca[y][deep] - (1.0 - half) / (1.0 + half)).abs() < 1e-15);
+    assert!((both.cb[y][deep] - dt_over_eps / (1.0 + half)).abs() < 1e-15 * dt_over_eps);
+    // and one that isn't a loss is refused, as is damping a medium that couples E's components
+    for bad in [-1.0, f64::NAN, f64::INFINITY] {
+        assert!(
+            Simulation::new(g, |_, _, _| 2.0, damped(bad), 0.9).is_err(),
+            "{bad}"
+        );
+    }
+}
+
+#[test]
+fn a_damped_cpml_reflects_as_measured() {
+    // the pulse of fdtd/cpml-thickness: a thin CPML reflects less with the damping, a thick
+    // one a hundred times more (docs/methods/fdtd.md, "Late growth")
+    let damped = Cpml {
+        damping: 5.0,
+        ..Cpml::default()
+    };
+    let (thin, thin_damped) = (cpml_error(6), cpml_error_with(6, damped));
+    assert!((thin / 1.416e-3 - 1.0).abs() < 0.05, "{thin}");
+    assert!((thin_damped / 6.92e-4 - 1.0).abs() < 0.05, "{thin_damped}");
+    let thick_damped = cpml_error_with(16, damped);
+    assert!(
+        (thick_damped / 6.16e-4 - 1.0).abs() < 0.05,
+        "{thick_damped}"
+    );
+}
+
+#[test]
+#[ignore = "minutes: the strip's energy over 70 000 steps with and without the CPML's damping: cargo test --release -- --ignored a_guide_through --nocapture"]
+fn a_guide_through_a_cpml_grows_late_and_the_damping_stops_it() {
+    // each energy over the one 100 µm/c before it, at its largest: growth if above 1
+    let steepest = |history: &[f64]| {
+        history
+            .windows(3)
+            .map(|w| (w[2] / w[0]).ln() / 100.0)
+            .fold(f64::MIN, f64::max)
+    };
+    let free = late_energy(0.0, 70_000);
+    let rate = steepest(&free);
+    assert!((0.05..0.09).contains(&rate), "{rate}");
+    assert!(free[free.len() - 1] > 1e30 * free[0]);
+    let damped = late_energy(5.0, 70_000);
+    assert!(steepest(&damped) < 0.0, "{}", steepest(&damped));
+    assert!(damped[damped.len() - 1] < 1e-8 * damped[0]);
+    println!(
+        "undamped: {rate:.4} per um/c, {:.1e} of its first; damped: {:.4}, {:.1e}",
+        free[free.len() - 1] / free[0],
+        steepest(&damped),
+        damped[damped.len() - 1] / damped[0]
+    );
+}

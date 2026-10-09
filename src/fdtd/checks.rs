@@ -135,19 +135,28 @@ pub(crate) fn energy_drift() -> f64 {
 /// against the same interior inside a much larger grid: the largest difference over the run,
 /// relative to the largest field.
 pub(crate) fn cpml_error(thickness: usize) -> f64 {
+    cpml_error_with(thickness, Cpml::default())
+}
+
+/// [`cpml_error`] with the CPML's parameters `cpml` (the reference grid's stay the default).
+pub(crate) fn cpml_error_with(thickness: usize, cpml: Cpml) -> f64 {
     let (h, interior, gap) = (0.05, 40usize, 2usize);
     let pulse = Waveform::Gaussian {
         frequency: Frequency::natural(1.0).unwrap(),
         width: 0.5,
         delay: 1.6,
     };
-    let record = |pad: usize, cells: usize| -> Vec<f64> {
+    let record = |pad: usize, cells: usize, cpml: Cpml| -> Vec<f64> {
         let n = interior + 2 * pad;
         let g = Grid3d {
             nz: 1,
             ..grid([n, n, 1], h)
         };
-        let mut s = Simulation::new(g, |_, _, _| 1.0, Boundaries::cpml_2d(cells), 0.7).unwrap();
+        let boundaries = Boundaries {
+            cpml,
+            ..Boundaries::cpml_2d(cells)
+        };
+        let mut s = Simulation::new(g, |_, _, _| 1.0, boundaries, 0.7).unwrap();
         let centre = n / 2;
         s.add_source(Source {
             field: Field::E,
@@ -163,15 +172,63 @@ pub(crate) fn cpml_error(thickness: usize) -> f64 {
         s.run_until(9.0);
         s.probe(p).iter().chain(s.probe(q)).copied().collect()
     };
-    let small = record(thickness, thickness);
+    let small = record(thickness, thickness, cpml);
     // a reference whose own boundary's reflections can't come back within the run
-    let reference = record(thickness + 120, 20);
+    let reference = record(thickness + 120, 20, Cpml::default());
     let largest = reference.iter().fold(0.0f64, |m, v| m.max(v.abs()));
     small
         .iter()
         .zip(&reference)
         .fold(0.0f64, |m, (a, b)| m.max((a - b).abs()))
         / largest
+}
+
+/// A strip guide running into CPMLs at both ends (a core of ε = 6, 0.3 × 0.3 µm, in vacuum,
+/// 36 × 20 × 20 cells of 50 nm, CPMLs of 6 all round, Courant number 0.99), lit by a pulse at
+/// 1 c/µm from a dipole off its axes, so that no symmetry keeps a mode from being excited: the
+/// fields' energy, Σ(E² + H̃²), every 50 µm/c for `steps` steps, with the CPML's `damping`.
+///
+/// With none the energy falls and then grows again, by e^(0.064 t c/µm): the CPML amplifies a
+/// backward wave of the guide (see [`Cpml::damping`]).
+pub(crate) fn late_energy(damping: f64, steps: usize) -> Vec<f64> {
+    let strip = |_: f64, y: f64, z: f64| {
+        if y.abs() < 0.15 && z.abs() < 0.15 {
+            6.0
+        } else {
+            1.0
+        }
+    };
+    let boundaries = Boundaries {
+        cpml: Cpml {
+            damping,
+            ..Cpml::default()
+        },
+        ..Boundaries::cpml(6)
+    };
+    let mut s = Simulation::new(grid([36, 20, 20], 0.05), strip, boundaries, 0.99).unwrap();
+    s.add_source(Source {
+        field: Field::E,
+        component: Axis::Y,
+        at: (10, 8, 11),
+        waveform: Waveform::pulse(Frequency::natural(1.0).unwrap(), 0.25).unwrap(),
+    })
+    .unwrap();
+    let energy = |s: &Simulation| -> f64 {
+        Axis::ALL
+            .iter()
+            .map(|&a| {
+                s.e(a).iter().map(|v| v * v).sum::<f64>()
+                    + s.h(a).iter().map(|v| v * v).sum::<f64>()
+            })
+            .sum()
+    };
+    let block = (50.0 / s.dt()).round() as usize;
+    let mut history = Vec::new();
+    while s.steps() < steps {
+        s.run(block.min(steps - s.steps()));
+        history.push(energy(&s));
+    }
+    history
 }
 
 /// The 3D field of a continuous current against FDFD's for the same current: the largest

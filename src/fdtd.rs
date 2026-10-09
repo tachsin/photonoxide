@@ -87,10 +87,26 @@ pub struct Cpml {
     pub kappa: f64,
     /// α, the complex frequency shift, in 1/µm, constant through the PML (0: none).
     pub alpha: f64,
+    /// The maximum of an ordinary electric conductivity added inside the CPML, in 1/µm
+    /// (σ\[S/m\] × η₀, as [`Simulation::with_conductivity`]'s), rising from 0 at the CPML's
+    /// inner face as (depth/d)^(3m), three times as steeply as σ (0: none, the default).
+    ///
+    /// For long runs with a guide that runs into the CPML. There the fields can decay and
+    /// then grow again, exponentially, at a rate no σ, κ or α removes (measured:
+    /// docs/methods/fdtd.md, "Late growth"). It is what a PML does to a wave whose phase and
+    /// group velocities point opposite ways along it: P.-R. Loh, A. F. Oskooi, M. Ibanescu,
+    /// M. Skorobogatiy, S. G. Johnson, Phys. Rev. E 79, 065601 (2009),
+    /// doi:10.1103/PhysRevE.79.065601. An ordinary loss damps a wave whatever its direction.
+    ///
+    /// Measured on a strip of ε = 6 through CPMLs of 6 cells: 5/µm stops the growth. The
+    /// price is reflection, the loss being electric alone: a CPML of 16 cells then reflects
+    /// 6.2e-4 of a pulse where it reflected 6.1e-6, and one of 6 cells 6.9e-4 where it
+    /// reflected 1.4e-3. Not with a permittivity that couples E's components.
+    pub damping: f64,
 }
 
 impl Default for Cpml {
-    /// FDFD's PML: R = 1e-8, order 3, κ = 1, α = 0.
+    /// FDFD's PML: R = 1e-8, order 3, κ = 1, α = 0, no damping.
     fn default() -> Cpml {
         Cpml {
             reflection: 1e-8,
@@ -98,6 +114,7 @@ impl Default for Cpml {
             order: 3.0,
             kappa: 1.0,
             alpha: 0.0,
+            damping: 0.0,
         }
     }
 }
@@ -409,6 +426,12 @@ pub struct Simulation {
     monitors: monitors::Monitors,
 }
 
+/// How much more steeply a CPML's damping is graded than its σ: as depth⁹ for σ's depth³. It
+/// then sits where the CPML has already absorbed what came in, and reflects little of it;
+/// measured (docs/methods/fdtd.md, "Late growth"), depth³ reflects twenty times more, and
+/// depth¹² no longer reaches the wave it is there to damp.
+const DAMPING_GRADING: f64 = 3.0;
+
 /// The permittivity's samples per axis in a cell, as FDFD's 3D solver averages it.
 const SAMPLES: usize = 8;
 
@@ -544,11 +567,12 @@ impl Simulation {
             || !(c.order.is_finite() && c.order >= 0.0)
             || !(c.kappa.is_finite() && c.kappa >= 1.0)
             || !(c.alpha.is_finite() && c.alpha >= 0.0)
+            || !(c.damping.is_finite() && c.damping >= 0.0)
             || c.sigma.is_some_and(|s| !(s.is_finite() && s >= 0.0))
         {
             return Err(invalid(format!(
-                "the CPML needs R in (0, 1), an order >= 0, kappa >= 1, alpha >= 0 and sigma >= \
-                 0, got {c:?}"
+                "the CPML needs R in (0, 1), an order >= 0, kappa >= 1, alpha >= 0, a damping >= \
+                 0 and sigma >= 0, got {c:?}"
             )));
         }
         for axis in Axis::ALL {
@@ -640,7 +664,42 @@ impl Simulation {
         s.build_cpml(&eps_e);
         s.build_stencils();
         s.bloch = bloch::Bloch::new(&s).map(Box::new);
+        if c.damping > 0.0 {
+            // the CPML's own loss, with no other conductivity yet
+            s = s.conductivity(&|_, _, _| 0.0)?;
+        }
         Ok(s)
+    }
+
+    /// The CPML's damping at a point ([`Cpml::damping`]): its maximum times the depth into
+    /// the deepest CPML there, as a fraction of its thickness, to [`DAMPING_GRADING`] times
+    /// the grading's order; 0 outside.
+    fn damping_at(&self, position: [f64; 3]) -> f64 {
+        let cpml = self.boundaries.cpml;
+        if cpml.damping == 0.0 {
+            return 0.0;
+        }
+        let grid = self.grid;
+        let origin = [grid.x0, grid.y0, grid.z0];
+        let mut deepest: f64 = 0.0;
+        for axis in Axis::ALL {
+            let Edges::Pml { low, high } = self.boundaries.edges(axis) else {
+                continue;
+            };
+            let a = axis.index();
+            let n = grid.n(axis) as f64;
+            // in cells from node 0, as the CPML's own profile
+            let pos = (position[a] - origin[a]) / grid.step(axis);
+            let depth = if low > 0 && pos < low as f64 {
+                (low as f64 - pos) / low as f64
+            } else if high > 0 && pos > n - high as f64 {
+                (pos - (n - high as f64)) / high as f64
+            } else {
+                0.0
+            };
+            deepest = deepest.max(depth.clamp(0.0, 1.0));
+        }
+        cpml.damping * deepest.powf(DAMPING_GRADING * cpml.order)
     }
 
     /// The CPML's κ along each axis and its slabs' recursions.
@@ -792,6 +851,8 @@ impl Simulation {
     /// [`Error::InvalidValue`] for a conductivity that isn't finite and nonnegative, after
     /// [`Simulation::with_medium`] (the conductivity comes first), or in a smoothed medium whose
     /// permittivity couples E's components.
+    ///
+    /// A CPML's damping ([`Cpml::damping`]) adds to it inside the CPML.
     pub fn with_conductivity(self, sigma: impl Fn(f64, f64, f64) -> f64) -> Result<Simulation> {
         self.conductivity(&sigma)
     }
@@ -832,10 +893,13 @@ impl Simulation {
                         "the conductivity must be finite and >= 0, got {s}"
                     )));
                 }
-                // cb is Δt/ε until now
-                let half = s * self.cb[c][r] / 2.0;
+                let s = s + self.damping_at([x, y, z]);
+                // Δt/ε, whatever conductivity the value had (the CPML's damping alone, set
+                // when the problem was built): with none, cb itself to the bit
+                let plain = 2.0 * self.cb[c][r] / (1.0 + self.ca[c][r]);
+                let half = s * plain / 2.0;
                 self.ca[c][r] = (1.0 - half) / (1.0 + half);
-                self.cb[c][r] /= 1.0 + half;
+                self.cb[c][r] = plain / (1.0 + half);
             }
         }
         Ok(self)
