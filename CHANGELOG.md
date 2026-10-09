@@ -34,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(fdtd)* adjoint gradients in 3D from FDTD runs, the mode's imaginary part included ([#246](https://github.com/tachsin/photonoxide/pull/246))
 - *(bench)* the catalogue's remaining problems: stretched PMLs on the device boxes, Diel and the strip with ports at other sizes, Hadley's corners ([#242](https://github.com/tachsin/photonoxide/pull/242))
 - *(fdtd)* FDTD on the GPU through wgpu compute, deterministic, judged against the blocked CPU kernel ([#252](https://github.com/tachsin/photonoxide/pull/252))
+- *(fdtd)* Liu and Poon's six PDK devices in 3D FDTD against their published Lumerical FDTD and Tidy3D results; Coupling::Diagonal, a faster smoothing that keeps the blocked kernel; PortMode3d::moved_to public ([#253](https://github.com/tachsin/photonoxide/pull/253))
 - *(native)* NVIDIA cuDSS, a sparse direct solver on the GPU ([#205](https://github.com/tachsin/photonoxide/pull/205))
 - *(native)* cuDSS's complex symmetric L D Lᵀ ([#222](https://github.com/tachsin/photonoxide/pull/222))
 - *(studio)* a Libraries page: what is found, licences, and guided installs the user confirms ([#221](https://github.com/tachsin/photonoxide/pull/221))
