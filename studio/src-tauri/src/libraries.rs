@@ -498,9 +498,9 @@ pub const GUIDES: &[Guide] = &[
     },
     Guide {
         library: "MUMPS",
-        about: "A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build. MUMPS asks that work using it cite it.",
+        about: "A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build, and its block low-rank factorization (Amestoy et al. 2015) as a backend of its own, lossy to a tolerance and refined. MUMPS asks that work using it cite it.",
         provides: &["direct"],
-        backends: &["mumps"],
+        backends: &["mumps", "mumps-blr"],
         needs: &[],
         licence: "CeCILL-C",
         licence_url: "https://cecill.info/licences/Licence_CeCILL-C_V1-en.html",

@@ -276,3 +276,66 @@ fn it_solves_fdfd_systems_to_their_checks() {
         assert!(b <= e.tolerance(), "{id}: {b:e}");
     }
 }
+
+/// Block low-rank factorization, the backend `mumps-blr`: no more entries than the plain
+/// factorization, and solves refined to its tolerance's worth. `PHOTONOXIDE_MUMPS_LARGE` takes
+/// a grid whose fronts are large enough to compress.
+#[test]
+fn block_low_rank_factors_are_no_larger_and_its_solves_are_refined() {
+    let Some(mumps) = mumps() else { return };
+    let own = backend::direct(&Choice::Photonoxide).unwrap();
+    assert!(mumps.block_low_rank(0.0).is_err() && mumps.block_low_rank(1.0).is_err());
+    assert!(mumps.block_low_rank(f64::NAN).is_err());
+    let blr = mumps.block_low_rank(mumps::BLR_TOLERANCE).unwrap();
+    let c = blr.capabilities();
+    println!("{c:?}");
+    assert_eq!(c.name, "mumps-blr");
+    assert_eq!(blr.tolerance(), Some(1e-8));
+    assert!(c.symmetric && c.transpose && !c.deterministic);
+    assert!(c.licence.contains("10.1137/120903476"));
+    let difference = smoke_test(&blr).unwrap();
+    println!("mumps-blr: the smoke test's largest difference, {difference:.1e}");
+    assert!(difference < 1e-10);
+    let cells = if std::env::var_os("PHOTONOXIDE_MUMPS_LARGE").is_some() {
+        [44, 44, 44]
+    } else {
+        [20, 20, 20]
+    };
+    for form in [Form::General, Form::Symmetric] {
+        let (s, r, v) = helmholtz(cells, form);
+        let m = Matrix::new(s.len() - 1, &s, &r, &v, form).unwrap();
+        let b = rhs(m.n());
+        let ours = solve(own.as_ref(), &m, &b, false);
+        let ours_transposed = solve(own.as_ref(), &m, &b, true);
+        let plain = mumps.analyse(&m).unwrap().unwrap().factorize(&m).unwrap();
+        let full = plain.report().factor_entries.unwrap();
+        println!(
+            "{cells:?} {form:?} ({} unknowns), plain: {full} entries in {:.2} s, {:.1e} from photonoxide's",
+            m.n(),
+            plain.report().factorization_seconds,
+            relative(&plain.solve(&b).unwrap(), &ours)
+        );
+        for (tolerance, bound) in [(1e-8, 1e-7), (1e-4, 1e-4)] {
+            let blr = mumps.block_low_rank(tolerance).unwrap();
+            let factors = blr.analyse(&m).unwrap().unwrap().factorize(&m).unwrap();
+            let report = factors.report();
+            let entries = report.factor_entries.unwrap();
+            let (x, xt) = (
+                factors.solve(&b).unwrap(),
+                factors.solve_transpose(&b).unwrap(),
+            );
+            let (d, dt) = (relative(&x, &ours), relative(&xt, &ours_transposed));
+            println!(
+                "{cells:?} {form:?}, block low-rank at {tolerance:e}: {entries} entries ({:.0} % of the \
+                 plain ones) in {:.2} s, {d:.1e} and {dt:.1e} (transposed) from photonoxide's",
+                100.0 * entries as f64 / full as f64,
+                report.factorization_seconds
+            );
+            assert!(entries > 0 && entries <= full, "{entries} against {full}");
+            assert!(
+                d < bound && dt < bound,
+                "{form:?} at {tolerance:e}: {d:e}, {dt:e}"
+            );
+        }
+    }
+}
