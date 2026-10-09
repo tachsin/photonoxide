@@ -86,6 +86,12 @@ papers:
     note: "A planar waveguide resonator whose intrinsic Q passes four hundred million."
 ---
 
+Here is the device, seen from above, labelled with the symbols this lesson's equations use: a
+straight waveguide, the bus, and a ring beside it, the coupler where they meet, and the ports the
+light comes in and goes out by. The 3D view is the same ring as a job builds it.
+
+::diagram ring
+
 A ring resonator is a waveguide closed on itself, set beside a straight waveguide, the bus.
 Light in the bus leaks a little into the ring at the place where they run close, goes round,
 and meets the bus again. At most wavelengths the light coming round arrives out of step with

@@ -649,6 +649,9 @@ export class Preview3D {
   private size = new THREE.Vector3(1, 1, 1);
   private distance = 1;
   private yaw = 1.1;
+  private pitch = 0.5;
+  /** Where a drag that turns the view was last, while one goes on. */
+  private dragged: { x: number; y: number } | null = null;
   private visible = false;
   private frameId = 0;
   private last = 0;
@@ -658,10 +661,13 @@ export class Preview3D {
   constructor(
     private container: HTMLElement,
     dark: boolean,
+    /** Whether a drag turns it (round, and up and down), where it otherwise only turns by itself. */
+    turnable = false,
   ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(this.renderer.domElement);
+    if (turnable) this.turnByDragging(this.renderer.domElement);
     this.scene.add(new THREE.HemisphereLight("#e4ecf7", "#2a2e35", 1.6), this.light, this.light.target, this.structure);
     this.camera.up.set(0, 0, 1);
     this.setDark(dark);
@@ -679,6 +685,32 @@ export class Preview3D {
   private wake = () => {
     if (!document.hidden && this.visible) this.start();
   };
+
+  /** A drag across `canvas` turns the view round, and up and down between nearly flat and nearly overhead; it goes on turning by itself after. */
+  private turnByDragging(canvas: HTMLCanvasElement) {
+    canvas.style.cursor = "grab";
+    canvas.style.touchAction = "none";
+    canvas.addEventListener("pointerdown", (e) => {
+      this.dragged = { x: e.clientX, y: e.clientY };
+      canvas.setPointerCapture(e.pointerId);
+      canvas.style.cursor = "grabbing";
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      if (!this.dragged) return;
+      this.yaw -= (e.clientX - this.dragged.x) * 0.008;
+      this.pitch = Math.min(1.35, Math.max(0.12, this.pitch + (e.clientY - this.dragged.y) * 0.006));
+      this.dragged = { x: e.clientX, y: e.clientY };
+      this.fit();
+      this.draw();
+    });
+    const end = () => {
+      this.dragged = null;
+      canvas.style.cursor = "grab";
+      this.last = performance.now();
+    };
+    canvas.addEventListener("pointerup", end);
+    canvas.addEventListener("pointercancel", end);
+  }
 
   /**
    * Shows `s`, in place of what was shown. With `cut` (a modes job's, at the x or y, `normal`,
@@ -723,7 +755,7 @@ export class Preview3D {
    * across, and its height plus the footprint's tilt up, at the camera's pitch.
    */
   private fit() {
-    const pitch = 0.5;
+    const pitch = this.pitch;
     const half = 0.5 * Math.hypot(this.size.x, this.size.y);
     const tv = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
     const th = tv * this.camera.aspect;
@@ -742,7 +774,7 @@ export class Preview3D {
       this.frameId = 0;
       if (!this.visible || document.hidden) return;
       // a turn in about 40 s
-      this.yaw += ((t - this.last) / 1000) * ((2 * Math.PI) / 40);
+      if (!this.dragged) this.yaw += ((t - this.last) / 1000) * ((2 * Math.PI) / 40);
       this.last = t;
       this.draw();
       this.frameId = requestAnimationFrame(step);
@@ -751,7 +783,7 @@ export class Preview3D {
   }
 
   private draw() {
-    this.camera.position.copy(this.centre).addScaledVector(lookFrom(this.yaw, 0.5), this.distance);
+    this.camera.position.copy(this.centre).addScaledVector(lookFrom(this.yaw, this.pitch), this.distance);
     this.camera.lookAt(this.centre);
     this.light.position.copy(this.camera.position).add(new THREE.Vector3(0, 0, this.distance * 0.6));
     this.light.target.position.copy(this.centre);

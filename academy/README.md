@@ -3,13 +3,14 @@
 The lessons the studio's Academy page teaches from. Each file here is one lesson, built into the
 `photonoxide` program (`studio/src-tauri/src/academy.rs`), and read on GitHub as ordinary
 Markdown. A lesson explains a device or a topic at three depths, tells its history paper by
-paper, and draws charts that photonoxide computes live, so moving a slider shows the physics
-the library computes, the code the [validation report](../docs/validation.md) checks.
+paper, opens on a drawing of its device, and draws charts that photonoxide computes live, so
+moving a slider shows the physics the library computes, the code the
+[validation report](../docs/validation.md) checks.
 
-| Lesson | Level | Charts |
-|---|---|---|
-| [The ring resonator](ring-resonator.md) | introductory | `ring-spectrum`, `ring-coupling` |
-| [Bragg gratings and mirrors](bragg-gratings.md) | intermediate | `bragg-reflectance`, `bragg-bandwidth` |
+| Lesson | Level | Diagram | Charts |
+|---|---|---|---|
+| [The ring resonator](ring-resonator.md) | introductory | `ring` | `ring-spectrum`, `ring-coupling` |
+| [Bragg gratings and mirrors](bragg-gratings.md) | intermediate | `bragg` | `bragg-reflectance`, `bragg-bandwidth` |
 
 ## A lesson's file
 
@@ -74,6 +75,7 @@ or digit just outside), and display math between lines holding only `$$`.
 
 | Block | What it shows |
 |---|---|
+| `::diagram <id>` | the device drawn: a labelled schematic, and its structure in 3D where a job builds it |
 | `::chart <id>` | a chart, every parameter at its default |
 | `::chart <id>{key=value, key=value}` | a chart starting from these values |
 | `::example <name>` | an example: what it printed when this release was checked, and a button to run it here |
@@ -94,13 +96,34 @@ The dip reaches zero where κ₁² meets the chart's critical coupling.
 :::
 ```
 
+## The diagrams
+
+A lesson opens on its device drawn, before any chart, with a sentence saying what to look for:
+`::diagram <id>` near the top. A diagram is a clean schematic in the lesson's own symbols (the
+same letters its equations use, set by KaTeX), with dimension arrows, the waves in and out, and a
+caption saying what the reader is looking at. Its sizes may be illustrative; its labels may not.
+Where a built-in job builds the same device, a 2D | 3D switch shows that job's structure as
+photonoxide's geometry builds it, the job builder's 3D preview, turned by a drag; the schematic
+shows first.
+
+| Diagram | What it draws | 3D view |
+|---|---|---|
+| `ring` | a ring and its bus from above: $R$, $w$, $g$, the coupler's $r_1$ and $k_1$, the round trip's $a e^{i\phi}$, the fields $a_1$, $b_1$, $a_2$, $b_2$, the input and through ports, and a faint second bus with its $r_2$, $k_2$, drop and add | `ring-fdfd.toml` |
+| `bragg` | a quarter-wave stack in section: $N$ pairs of $n_H$ and $n_L$, $d_H$, $d_L$ and $\Lambda$, the cover $n_0$ and substrate $n_s$, the incident, reflected ($r$) and transmitted ($t$) waves; and a waveguide grating from above, its period $\Lambda$ and length $L = N\Lambda$ | `bragg-grating.toml` |
+
+Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
+job if it has one) and an SVG drawn by a component in `studio/src/components/diagrams/`, named
+after its id (`ring` is `Ring.svelte`) and listed in that folder's `index.ts`. The SVG draws in
+the theme's colours, so it follows the light and dark themes, and scales crisply with the page.
+A diagram's job must be in the lesson's `jobs`.
+
 ## The charts
 
 Each chart is a Rust function in `studio/src-tauri/src/charts.rs` that calls photonoxide's own
 code; the window only draws what it returns, and asks again as a slider moves.
 
 | Chart | Parameters (default) | Computed by |
-|---|---|---|
+|---|---|---|---|
 | `ring-spectrum` | `radius` µm (10), `coupling` κ₁² (0.01), `drop` κ₂² (0: all-pass), `loss` dB/cm (3), `group_index` (4.2), `window` nm (20) | `AllPassRing`, `AddDropRing`: `s_matrix`, `resonance`, `fsr`, `fwhm`, `q_factor`, `finesse`, `extremes` |
 | `ring-coupling` | `radius` µm (10), `loss` dB/cm (3), `drop` κ₂² (0) | `AllPassRing`, `AddDropRing`: `extremes`, `q_factor` |
 | `bragg-reflectance` | `high` (2.3), `low` (1.38), `pairs` (8), `period` nm (160), `cover` (1.0), `substrate` (1.52), `from` and `to` nm (350, 950) | `Multilayer::reflection`, and the endless stack's band as below |
@@ -113,14 +136,17 @@ The ranges are in `charts.rs`, and the window's sliders keep to them.
 `cargo test -p photonoxide-studio` fails when a lesson:
 
 - doesn't parse, or lacks an intuition, a theory or a research section, or a timeline;
-- names an example, job, circuit, method write-up, validation case, chart or lesson that doesn't
-  exist, or a block names one its front matter doesn't list;
+- names an example, job, circuit, method write-up, validation case, diagram, chart or lesson that
+  doesn't exist, or a block names one its front matter doesn't list;
+- has no diagram, or a chart before its first diagram, or a diagram whose 3D view is of a job its
+  front matter doesn't list;
 - has a chart block with an unknown parameter or a value outside its range;
 - has a paper without a DOI, or its text links to a DOI its papers don't list, or a relative
   link leads nowhere;
 - has unpaired math delimiters.
 
-Every chart has a unit test against the library function it wraps. `pnpm build` in `studio/`
+It fails too when a diagram has no drawing in `studio/src/components/diagrams/`, or names a job
+that isn't built in. Every chart has a unit test against the library function it wraps. `pnpm build` in `studio/`
 renders every formula of every lesson with KaTeX and fails on an error (`vite.config.ts`).
 
 ## Writing a lesson
