@@ -512,11 +512,11 @@ impl DenseKernels for Blas {
     }
 
     fn solve_unit_lower(&self, l: Block<'_>, b: BlockMut<'_>, threaded: bool) {
-        self.triangular(l, b, [b'L', b'L', b'N', b'U'], threaded);
+        self.triangular(l, b, *b"LLNU", threaded);
     }
 
     fn solve_upper_from_right(&self, u: Block<'_>, b: BlockMut<'_>, threaded: bool) {
-        self.triangular(u, b, [b'R', b'U', b'N', b'N'], threaded);
+        self.triangular(u, b, *b"RUNN", threaded);
     }
 
     fn solve_unit_lower_transposed_from_right(
@@ -525,7 +525,7 @@ impl DenseKernels for Blas {
         b: BlockMut<'_>,
         threaded: bool,
     ) {
-        self.triangular(l, b, [b'R', b'L', b'T', b'U'], threaded);
+        self.triangular(l, b, *b"RLTU", threaded);
     }
 
     fn lu(&self, mut a: BlockMut<'_>, threaded: bool) -> Vec<usize> {
