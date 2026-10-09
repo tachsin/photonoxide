@@ -26,10 +26,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-13]
-        package: [mkl, mumps-seq, superlu, openblas]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        package: [mumps-seq, superlu, openblas]
+        exclude:
+          # conda-forge has no superlu for Windows
+          - os: windows-latest
+            package: superlu
         include:
           - os: ubuntu-latest
+            package: mkl
+          - os: windows-latest
+            package: mkl
+          - os: ubuntu-latest
             package: libcudss
           - os: windows-latest
             package: libcudss
@@ -37,12 +45,6 @@ jobs:
             package: cuda-cudart libcusparse
           - os: windows-latest
             package: cuda-cudart libcusparse
-          - os: macos-latest
-            package: openblas
-          - os: macos-latest
-            package: mumps-seq
-          - os: macos-latest
-            package: superlu
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -76,9 +78,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         package: [mkl, nvidia-cudss-cu13, nvidia-cuda-runtime nvidia-cusparse]
-        include:
-          - os: macos-13
-            package: mkl
     runs-on: ${{ matrix.os }}
     defaults:
       run:
