@@ -3,6 +3,7 @@
 //! report; times the benchmark problems.
 
 mod academy;
+mod auto;
 mod bench;
 mod benchmarks;
 mod charts;
@@ -124,6 +125,9 @@ fn run(args: &[String]) -> ExitCode {
         Ok(j) => j,
         Err(e) => return fail(e),
     };
+    // this machine's benchmark records for auto, and the external libraries if the job needs
+    // them
+    auto::prepare(&job);
     let mut record = match Run::create(&out, &job) {
         Ok(r) => r,
         Err(e) => return fail(e),

@@ -71,7 +71,7 @@ every page and command.
   </tr>
   <tr>
     <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/validation.gif" alt="The Validation page: two cases looked up and opened, showing what each computes and what it is checked against, with the math rendered" width="100%"><br><sub><b>Validation:</b> cases looked up and opened, each against its exact solution or paper.</sub></td>
-    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/themes.gif" alt="Settings: themes picked one after another, then the 3D viewer in the chosen theme and in photonoxide's own light and dark" width="100%"><br><sub><b>Themes:</b> photonoxide's light and dark, or one of some thirty others; the 3D view follows.</sub></td>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/academy.gif" alt="The Academy: the ring resonator's lesson opened and scrolled to its live chart; the radius and window set on a resonance at 1.55 µm, then the input coupling raised to a wide, shallow dip and lowered to critical coupling, where the through power reaches zero" width="100%"><br><sub><b>Academy:</b> the ring resonator's lesson; its transmission follows the coupling as the slider moves, critical coupling at the dip's zero.</sub></td>
   </tr>
 </table>
 

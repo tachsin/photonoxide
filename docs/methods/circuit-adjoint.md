@@ -10,7 +10,7 @@ papers:
     doi: 10.1364/OPTICA.5.000864
   - cite: "W. R. Clements, P. C. Humphreys, B. J. Metcalf, W. S. Kolthammer, I. A. Walmsley, Optica 3, 1460 (2016)"
     doi: 10.1364/OPTICA.3.001460
-  - cite: "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012)"
+  - cite: "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue)"
     doi: 10.1002/lpor.201100017
 validation:
   - circuit/adjoint-mzi
