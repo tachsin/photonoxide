@@ -3179,7 +3179,10 @@ points = 2
         let with = |name: &str| format!("{FDFD}\n[solver]\ndirect = \"{name}\"\n");
         // none named: photonoxide's own, as its choice
         let plain = run_events("fdfd-direct-auto", FDFD);
-        assert_eq!(direct_of(&plain), format!("photonoxide {version} (auto)"));
+        assert_eq!(
+            direct_of(&plain),
+            format!("photonoxide {version} (auto: no benchmark records on this machine)")
+        );
         // photonoxide's by name: the same run
         let named = run_events("fdfd-direct-own", &with("photonoxide"));
         assert_eq!(direct_of(&named), format!("photonoxide {version}"));
@@ -3201,6 +3204,83 @@ points = 2
         assert_eq!((analyses, factorizations), (1, 2));
         assert!(solves >= 4, "{solves}");
         assert_eq!(s(&plain), s(&routed));
+    }
+
+    #[test]
+    fn a_job_that_names_no_backend_records_what_auto_chose_and_why() {
+        use crate::backend::Form;
+        use crate::backend::auto::{Measured, Outcome, with};
+        let direct_of = |events: &[Event]| -> String {
+            events
+                .iter()
+                .find_map(|e| match e {
+                    Event::Solver { details, .. } => details
+                        .iter()
+                        .find(|[name, _]| name == "direct solver")
+                        .map(|[_, value]| value.clone()),
+                    _ => None,
+                })
+                .unwrap()
+        };
+        // the job's 70 × 70 cells: faer's LU measured 1.5 times as fast near that size
+        let record = |backend: &str, seconds: f64| Measured {
+            family: "fdfd2d".into(),
+            form: Form::Symmetric,
+            unknowns: 5_000,
+            backend: backend.into(),
+            threads: rayon::current_num_threads(),
+            seconds,
+            peak_bytes: None,
+            outcome: Outcome::Accurate,
+            unix_seconds: 1_791_763_200,
+        };
+        let records = vec![record("photonoxide", 3.0), record("faer", 2.0)];
+        let chosen = with(records.clone(), None, || {
+            run_events("fdfd-auto-chosen", FDFD)
+        });
+        let said = direct_of(&chosen);
+        assert!(said.starts_with("faer "), "{said}");
+        assert!(
+            said.contains("(auto: 1.5 times faster than photonoxide's own at 5000 unknowns on")
+                && said.ends_with("on this machine, measured 2026-10-12)"),
+            "{said}"
+        );
+        // a job that pins its backend keeps it, whatever the records
+        let pinned = format!("{FDFD}\n[solver]\ndirect = \"photonoxide\"\n");
+        let pinned = with(records, None, || run_events("fdfd-auto-pinned", &pinned));
+        assert_eq!(
+            direct_of(&pinned),
+            format!("photonoxide {}", env!("CARGO_PKG_VERSION"))
+        );
+        // the same device either way: the S-parameters agree to rounding
+        let s = |events: &[Event]| -> Vec<f64> {
+            events
+                .iter()
+                .filter(|e| matches!(e, Event::SParameters { .. }))
+                .filter_map(|e| serde_json::to_value(e).ok())
+                .flat_map(|v| numbers(&v))
+                .collect()
+        };
+        let (a, b) = (s(&chosen), s(&pinned));
+        assert!(
+            !a.is_empty() && a.len() == b.len(),
+            "{} {}",
+            a.len(),
+            b.len()
+        );
+        for (x, y) in a.iter().zip(&b) {
+            assert!((x - y).abs() < 1e-9 * (1.0 + y.abs()), "{x} vs {y}");
+        }
+    }
+
+    /// Every number in a JSON value, in order.
+    fn numbers(v: &serde_json::Value) -> Vec<f64> {
+        match v {
+            serde_json::Value::Number(n) => n.as_f64().into_iter().collect(),
+            serde_json::Value::Array(a) => a.iter().flat_map(numbers).collect(),
+            serde_json::Value::Object(o) => o.values().flat_map(numbers).collect(),
+            _ => Vec::new(),
+        }
     }
 
     #[test]

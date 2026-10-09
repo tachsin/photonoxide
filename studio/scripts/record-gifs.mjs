@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Records the README's GIFs of the studio (assets/studio/*.gif) from the built program.
 //
-//   cd studio && pnpm tauri build                  # target/release/photonoxide.exe
-//   node scripts/record-gifs.mjs                    # every GIF
-//   node scripts/record-gifs.mjs --only hero,themes # some of them
+//   cd studio && pnpm tauri build                   # target/release/photonoxide.exe
+//   node scripts/record-gifs.mjs                     # every GIF
+//   node scripts/record-gifs.mjs --only hero,academy # some of them
 //
 // Windows only: it drives the window's WebView2 over the Chrome DevTools Protocol. It needs
 // Node 24 or newer (its global WebSocket), and ffmpeg and gifski on the PATH
@@ -58,7 +58,8 @@ const GIFS = {
   builder: { width: 860, fps: 12, fade: 8, quality: [85, 75, 70], takes: ["builder"] },
   materials: { width: 860, fps: 12, fade: 8, quality: [85, 75, 70], takes: ["materials"] },
   validation: { width: 860, fps: 12, fade: 8, quality: [85, 75, 70], takes: ["validation"] },
-  themes: { width: 860, fps: 12, fade: 6, quality: [85, 75, 70], takes: ["themes-grid", "themes-view"] },
+  // full motion quality: with less, the lesson's text scrolled past lingers faintly under the chart
+  academy: { width: 860, fps: 12, fade: 8, quality: [85, 100, 70], takes: ["academy"] },
 };
 const only = opt("only", Object.keys(GIFS).join(",")).split(",");
 for (const name of only) if (!GIFS[name]) fail(`no GIF called ${name}: ${Object.keys(GIFS).join(", ")}`);
@@ -741,47 +742,86 @@ const SCENES = {
     await cursor(false);
   },
 
-  /** Settings: the further themes, opened and picked one after another. */
-  async "themes-grid"() {
-    await goTo("Settings");
-    await until(`return __rec.find("button", "More themes");`, "the settings");
-    await click("button", "More themes", { ms: 400 });
-    await until(`return __rec.find("p.panel-title", "Light");`, "the themes");
-    await js(
-      `const p = __rec.find("p.panel-title", "Light");
-       const box = p.closest(".overflow-y-auto");
-       box.scrollTo({ top: box.scrollTop + p.getBoundingClientRect().top - 70 });`,
-    );
+  /**
+   * The ring resonator's lesson opened, and its live chart: the radius set so a resonance sits
+   * at 1.55 µm, the window narrowed onto it, then the coupling raised and lowered to critical
+   * coupling, where the dip reaches zero.
+   */
+  async academy() {
+    await goTo("Academy");
+    await until(`return __rec.find("aside button", "Bragg gratings and mirrors");`, "the lessons");
+    // the other lesson open first, so the take opens the ring's
+    await js(`__rec.find("aside button", "Bragg gratings and mirrors").click();`);
+    await until(`return __rec.find("article h2", "Bragg gratings and mirrors");`, "the Bragg lesson");
+    await sleep(600);
+    await moveTo(760, 330, 10);
+    await cursor(true);
+    await rec.begin("academy");
+    rec.crop(await railless());
     await sleep(500);
-    await moveTo(700, 420, 10);
-    await cursor(true);
-    await rec.begin("themes-grid");
-    await sleep(300);
-    for (const name of ["nord", "dracula", "synthwave"]) {
-      await click('button[title^="Use the "]', name, { ms: 550 });
-      await sleep(850);
-    }
-    await click("nav button", "Viewer", { ms: 650 });
-    await sleep(150);
-    await rec.end();
-    await cursor(false);
-  },
-
-  /** The 3D view in the theme just picked, then the studio's own light and dark. */
-  async "themes-view"() {
-    await until(`return __rec.find("main canvas");`, "the viewer");
+    await click("aside button", "The ring resonator", { ms: 700 });
+    await until(`return __rec.find("figure.panel svg[role=img]");`, "the ring's chart");
     await sleep(900);
-    await cursor(true);
-    await rec.begin("themes-view");
-    await sleep(900);
-    await click('button[aria-label="Switch the theme"]', null, { ms: 650 });
-    await sleep(1400);
-    await click('button[aria-label="Switch the theme"]', null, { ms: 250 });
+    // down to the chart: its plot at the top, then its sliders and the numbers it computes
+    await js(`const fig = __rec.find("figure.panel");
+       const art = fig.closest("article");
+       const head = fig.firstElementChild.getBoundingClientRect();
+       art.scrollTo({ top: art.scrollTop + head.bottom - art.getBoundingClientRect().top, behavior: "smooth" });`);
     await sleep(1100);
+    await slideTo("radius", RING_RADIUS, 1100);
+    await sleep(500);
+    await slideTo("window", 50, 1100);
+    await sleep(700);
+    // strongly over-coupled: a wide, shallow dip; then down to critical, where it reaches zero
+    await slideTo("coupling", 730, 1000);
+    await sleep(700);
+    // the chart's figure for it, e.g. "2.721×10⁻³"
+    const critical = await js(
+      `const label = [...document.querySelectorAll("figure.panel p")].find((p) => p.textContent.includes("Critical coupling"));
+       const sup = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+       const text = label.nextElementSibling.textContent.replace(/\\s/g, "").replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]/g, (c) => (c === "⁻" ? "-" : String(sup.indexOf(c))));
+       const m = /^([\\d.]+)(?:×10(-?\\d+))?/.exec(text);
+       return Number(m[1]) * 10 ** Number(m[2] ?? 0);`,
+    );
+    const at = Math.round((1000 * Math.log(critical / 1e-4)) / Math.log(0.5 / 1e-4));
+    log(`  critical coupling ${critical}: the slider at ${at}`);
+    await slideTo("coupling", at, 2200, (t) => t * t * (3 - 2 * t));
+    await moveTo(mouse.x + 60, mouse.y + 110, 600);
+    await sleep(2000);
     await rec.end();
     await cursor(false);
   },
 };
+
+/**
+ * The ring lesson's radius slider's place (of 1000, from 2 to 200 µm on a log scale) at which a
+ * resonance sits within a few pm of 1.55 µm: 6.27 µm, n_eff 2.4, order 61.
+ */
+const RING_RADIUS = 248;
+
+/** A chart slider's thumb, and where a place on it (of its own range) is. */
+const slider = (key) =>
+  js(
+    `const e = __rec.find("figure.panel input[aria-label='" + args[0] + "']");
+     const r = e.getBoundingClientRect();
+     const [min, max, value] = [Number(e.min), Number(e.max), Number(e.value)];
+     return { min, max, value, left: r.left + r.height / 2, width: r.width - r.height, y: r.top + r.height / 2 };`,
+    key,
+  );
+
+/** Drags a chart slider's thumb to a place, then steps it there with the arrow keys, exactly. */
+async function slideTo(key, to, ms = 1000, curve = ease) {
+  let s = await slider(key);
+  const x = (v) => s.left + ((v - s.min) / (s.max - s.min)) * s.width;
+  await drag({ x: x(s.value), y: s.y }, { x: x(to), y: s.y }, ms, curve, 600);
+  for (let i = 0; ; i++) {
+    s = await slider(key);
+    if (s.value === to) return;
+    if (i === 40) throw new Error(`the ${key} slider is at ${s.value}, not ${to}`);
+    await pressKey(s.value < to ? "ArrowRight" : "ArrowLeft");
+    await sleep(60);
+  }
+}
 
 /** How long the ring's run lasts in the hero GIF, in seconds: its speed-up follows from it. */
 const LAPSE = 3.5;
@@ -915,18 +955,9 @@ async function record() {
   if (workspace !== WORKSPACE) throw new Error(`the workspace is ${workspace}, not ${WORKSPACE}`);
   rec = new Recorder();
 
-  // in an order that leaves each scene what it needs: the strip's run for the themes' viewer
-  const order = ["wave", "themes-grid", "themes-view", "ring", "builder", "chip", "materials", "validation"];
-  if (wanted.has("themes-view") && !wanted.has("wave")) wanted.add("wave");
+  const order = ["wave", "ring", "builder", "chip", "materials", "validation", "academy"];
   for (const name of order) {
-    if (!wanted.has(name)) continue;
-    await SCENES[name]();
-    if (name === "themes-view") {
-      await js(`__rec.find("nav button", "Settings").click();`);
-      await until(`return __rec.find("button", "photonoxide dark");`, "the settings");
-      await js(`__rec.find("button", "photonoxide dark").click();`);
-      await sleep(400);
-    }
+    if (wanted.has(name)) await SCENES[name]();
   }
   closeProgram();
   restoreSettings();

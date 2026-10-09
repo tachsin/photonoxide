@@ -553,6 +553,9 @@ fn open_run(
 
 /// Runs `job` (its run directory in the workspace's `runs/`), and shows it.
 fn start(studio: &Studio, window: &tauri::WebviewWindow, job: Job) -> Result<Info, String> {
+    // this machine's benchmark records for auto, and the external libraries if the job needs
+    // them
+    crate::auto::prepare(&job);
     job::check(&job).map_err(|e| e.to_string())?;
     let mut record =
         Run::create(&studio.workspace().join("runs"), &job).map_err(|e| e.to_string())?;
@@ -632,7 +635,11 @@ fn check_job(text: String, format: Format) -> JobCheck {
     }
     .filter(serde_json::Value::is_object);
     let error = Job::parse_as(&text, format)
-        .and_then(|job| job::check(&job))
+        .and_then(|job| {
+            // a job that names an external backend is checked with the libraries registered
+            crate::auto::prepare(&job);
+            job::check(&job)
+        })
         .err()
         .map(|e| e.to_string());
     JobCheck {
