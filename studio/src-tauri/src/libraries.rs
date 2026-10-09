@@ -16,7 +16,7 @@ use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
 use photonoxide::backend::{self, Listed, Threads};
-use photonoxide_native::{Candidate, Discovery, Spec, Status, intel, mumps, nvidia, superlu};
+use photonoxide_native::{Candidate, Discovery, Spec, Status, blas, intel, mumps, nvidia, superlu};
 use serde::Serialize;
 
 /// A command that installs a library.
@@ -563,48 +563,43 @@ pub const GUIDES: &[Guide] = &[
         unsupported: &[],
         built_in: false,
     },
-];
-
-const HAS_LIBRARY: &str =
-    "the package's library is there; photonoxide has no backend to load it with yet";
-
-/// The libraries the plan names that photonoxide has no backend for yet (docs/plans/backends.md):
-/// how each installs, checked on clean machines, for the issue that adds its backend.
-pub const PLANNED: &[Planned] = &[
-    Planned {
+    Guide {
         library: "OpenBLAS",
-        about: "An open BLAS and LAPACK: dense kernels for the multifrontal fronts, where no vendor's library is installed.",
-        issue: 186,
+        about: "An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts, in place of faer's.",
+        provides: &["dense"],
+        backends: &["photonoxide-openblas"],
+        needs: &[],
         licence: "BSD-3-Clause",
-        home: "https://www.openblas.net/",
+        licence_url: "https://github.com/OpenMathLib/OpenBLAS/blob/develop/LICENSE",
+        download: "https://github.com/OpenMathLib/OpenBLAS/releases",
         installs: &[
             Install {
                 id: "conda",
                 manager: "conda-forge",
                 command: "conda install -c conda-forge openblas",
                 systems: &["windows", "linux", "macos"],
-                note: "Into the active conda environment.",
+                note: "Into the active conda environment: start photonoxide from it. conda-forge's macOS build has no openblas_set_num_threads_local, and photonoxide holds it to one thread.",
                 checked: &[
                     Checked {
                         system: "linux",
                         image: UBUNTU,
                         date: DAY,
                         installed: "openblas 0.3.34",
-                        found: HAS_LIBRARY,
+                        found: "OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests",
                     },
                     Checked {
                         system: "windows",
                         image: WINDOWS,
                         date: DAY,
                         installed: "openblas 0.3.34",
-                        found: HAS_LIBRARY,
+                        found: "OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests",
                     },
                     Checked {
                         system: "macos",
                         image: MACOS,
                         date: DAY,
                         installed: "openblas 0.3.34",
-                        found: HAS_LIBRARY,
+                        found: "OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests, on one thread",
                     },
                 ],
             },
@@ -613,27 +608,36 @@ pub const PLANNED: &[Planned] = &[
                 manager: "apt",
                 command: "sudo apt-get install libopenblas-dev",
                 systems: &["linux"],
-                note: "Debian's and Ubuntu's package: 0.3.26 on Ubuntu 24.04, 0.3.20 on 22.04.",
+                note: "Debian's and Ubuntu's package: 0.3.26 on Ubuntu 24.04, 0.3.20 on 22.04. Before OpenBLAS 0.3.27 its threads can't be set for each call, and photonoxide holds it to one.",
                 checked: &[
                     Checked {
                         system: "linux",
                         image: UBUNTU,
                         date: DAY,
                         installed: "libopenblas-dev 0.3.26",
-                        found: HAS_LIBRARY,
+                        found: "OpenBLAS 0.3.26, and the photonoxide-openblas backend after its smoke test and its tests, on one thread",
                     },
                     Checked {
                         system: "linux",
                         image: UBUNTU_22,
                         date: DAY,
                         installed: "libopenblas-dev 0.3.20",
-                        found: HAS_LIBRARY,
+                        found: "OpenBLAS 0.3.20, and the photonoxide-openblas backend after its smoke test and its tests, on one thread",
                     },
                 ],
             },
         ],
         unsupported: &[],
+        built_in: false,
     },
+];
+
+const HAS_LIBRARY: &str =
+    "the package's library is there; photonoxide has no backend to load it with yet";
+
+/// The libraries the plan names that photonoxide has no backend for yet (docs/plans/backends.md):
+/// how each installs, checked on clean machines, for the issue that adds its backend.
+pub const PLANNED: &[Planned] = &[
     Planned {
         library: "AMD AOCL",
         about: "AMD's BLIS, libFLAME and AOCL-Sparse: dense kernels and iterative solvers on AMD processors.",
@@ -696,6 +700,7 @@ fn spec(library: &str) -> Option<&'static Spec> {
         &intel::MKL,
         &mumps::MUMPS,
         &superlu::SUPERLU,
+        &blas::OPENBLAS,
     ]
     .into_iter()
     .find(|s| s.name == library)
@@ -1230,6 +1235,7 @@ mod tests {
             intel::MKL.name,
             mumps::MUMPS.name,
             superlu::SUPERLU.name,
+            blas::OPENBLAS.name,
         ] {
             assert!(spec(name).is_some(), "{name}");
             assert!(GUIDES.iter().any(|g| g.library == name), "{name}");

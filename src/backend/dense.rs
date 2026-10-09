@@ -2,7 +2,7 @@
 //! that photonoxide's own sparse solver spends its time in, as a trait another library can
 //! stand behind.
 //!
-//! photonoxide's multifrontal solver ([`crate::sparse`]) eliminates each front with four dense
+//! photonoxide's multifrontal solver eliminates each front with four dense
 //! operations on complex matrices, which are BLAS's and LAPACK's:
 //!
 //! | Here | BLAS, LAPACK | Where |

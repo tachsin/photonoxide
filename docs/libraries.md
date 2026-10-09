@@ -16,7 +16,7 @@ This page is written by `photonoxide libraries --write docs/libraries.md` from t
 | [cuDSS](#cudss) | `cudss` | conda-forge ✓, pip ✓ | conda-forge ✓, pip ✓ | see below |
 | [SuperLU](#superlu) | `superlu` | see below | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [MUMPS](#mumps) | `mumps` | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
-| [OpenBLAS](#openblas) | none yet (#186) | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
+| [OpenBLAS](#openblas) | `photonoxide-openblas` | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [AMD AOCL](#amd-aocl) | none yet (#186) | see below | see below | see below |
 | [Apple Accelerate](#apple-accelerate) | none yet (#187) | see below | see below | see below |
 | [Arm Performance Libraries](#arm-performance-libraries) | none yet (#186) | see below | see below | see below |
@@ -268,16 +268,13 @@ A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Am
   - Checked on Linux (ubuntu-24.04), 2026-10-09: installed libmumps-seq-dev 5.6.2; found MUMPS 5.6.2, and the mumps backend after its smoke test and its tests.
   - Checked on Linux (ubuntu-22.04), 2026-10-09: installed libmumps-seq-dev 5.4.1; found MUMPS 5.4.1, and the mumps backend after its smoke test and its tests.
 
-## The libraries without a backend yet
-
-How each installs, for the issue that adds its backend. photonoxide doesn't look for them yet.
-
 ### OpenBLAS
 
-An open BLAS and LAPACK: dense kernels for the multifrontal fronts, where no vendor's library is installed. Its backend: [#186](https://github.com/tachsin/photonoxide/issues/186).
+An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts, in place of faer's.
 
-- **Licence:** BSD-3-Clause.
-- **Home:** <https://www.openblas.net/>
+- **Licence:** [BSD-3-Clause](https://github.com/OpenMathLib/OpenBLAS/blob/develop/LICENSE). You accept it by installing.
+- **The vendor's download:** <https://github.com/OpenMathLib/OpenBLAS/releases>
+- **Backends:** `photonoxide-openblas`.
 
 - **conda-forge** (Windows, Linux, macOS):
 
@@ -285,11 +282,11 @@ An open BLAS and LAPACK: dense kernels for the multifrontal fronts, where no ven
   conda install -c conda-forge openblas
   ```
 
-  Into the active conda environment.
+  Into the active conda environment: start photonoxide from it. conda-forge's macOS build has no openblas_set_num_threads_local, and photonoxide holds it to one thread.
 
-  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed openblas 0.3.34; found the package's library is there; photonoxide has no backend to load it with yet.
-  - Checked on Windows (windows-2025-vs2026), 2026-10-09: installed openblas 0.3.34; found the package's library is there; photonoxide has no backend to load it with yet.
-  - Checked on macOS (macos-latest (Apple silicon)), 2026-10-09: installed openblas 0.3.34; found the package's library is there; photonoxide has no backend to load it with yet.
+  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed openblas 0.3.34; found OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests.
+  - Checked on Windows (windows-2025-vs2026), 2026-10-09: installed openblas 0.3.34; found OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests.
+  - Checked on macOS (macos-latest (Apple silicon)), 2026-10-09: installed openblas 0.3.34; found OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests, on one thread.
 
 - **apt** (Linux):
 
@@ -297,10 +294,14 @@ An open BLAS and LAPACK: dense kernels for the multifrontal fronts, where no ven
   sudo apt-get install libopenblas-dev
   ```
 
-  Debian's and Ubuntu's package: 0.3.26 on Ubuntu 24.04, 0.3.20 on 22.04.
+  Debian's and Ubuntu's package: 0.3.26 on Ubuntu 24.04, 0.3.20 on 22.04. Before OpenBLAS 0.3.27 its threads can't be set for each call, and photonoxide holds it to one.
 
-  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed libopenblas-dev 0.3.26; found the package's library is there; photonoxide has no backend to load it with yet.
-  - Checked on Linux (ubuntu-22.04), 2026-10-09: installed libopenblas-dev 0.3.20; found the package's library is there; photonoxide has no backend to load it with yet.
+  - Checked on Linux (ubuntu-24.04), 2026-10-09: installed libopenblas-dev 0.3.26; found OpenBLAS 0.3.26, and the photonoxide-openblas backend after its smoke test and its tests, on one thread.
+  - Checked on Linux (ubuntu-22.04), 2026-10-09: installed libopenblas-dev 0.3.20; found OpenBLAS 0.3.20, and the photonoxide-openblas backend after its smoke test and its tests, on one thread.
+
+## The libraries without a backend yet
+
+How each installs, for the issue that adds its backend. photonoxide doesn't look for them yet.
 
 ### AMD AOCL
 

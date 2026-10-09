@@ -21,6 +21,11 @@
 //!   the count is set for the calling thread around each call: `mkl_set_num_threads_local`,
 //!   `openblas_set_num_threads_local` (OpenBLAS 0.3.27 and later). An OpenBLAS without it is
 //!   held to one thread for good; Accelerate has no such setting here and is left to itself.
+//! - **Accelerate's names** are the ones it has always had (`zgemm_`), not those of its newer
+//!   interface (`zgemm$NEWLAPACK`, from macOS 13.3). On macOS 26.6.2 (an M1) the newer `zgemm`
+//!   crashed on a 1365 × 1024 product of 512 or 513 terms and on a 5461 × 4096 one of 2049,
+//!   called as Fortran's and as `cblas_zgemm$NEWLAPACK` alike, where `zgemm_` and
+//!   `cblas_zgemm` computed them; with 1364 rows it didn't, and macOS 14.8 and 15.7 didn't.
 //! - **Not declared deterministic.**
 
 use std::ffi::{CStr, c_char, c_int, c_void};
@@ -309,14 +314,9 @@ impl Blas {
             return Err("Accelerate is part of macOS: it isn't on this system".into());
         }
         let library = Library::open(Path::new(FRAMEWORK)).map_err(reason)?;
-        // SAFETY: Accelerate's Fortran names, 32-bit integers both: its current LAPACK's
-        // ($NEWLAPACK, from macOS 13.3) before the one it keeps for older programs
-        let (zgemm, zgemmt, ztrsm, zgetrf) = unsafe {
-            routines(&library, |r| {
-                vec![format!("{r}$NEWLAPACK"), format!("{r}_")]
-            })
-        }
-        .map_err(reason)?;
+        // SAFETY: Accelerate's Fortran names with 32-bit integers, the ones it has always had
+        let (zgemm, zgemmt, ztrsm, zgetrf) =
+            unsafe { routines(&library, |r| vec![format!("{r}_")]) }.map_err(reason)?;
         let mut what = Kernels::new(
             "accelerate",
             format!("macOS {}", macos_version()),

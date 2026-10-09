@@ -23,8 +23,9 @@
 //! A solver takes a [`Choice`]: `auto` (photonoxide's own), `photonoxide`, or a backend's name.
 //! A named backend that isn't available is an error, never a silent fallback.
 //!
-//! Dense kernels for the multifrontal fronts, iterative solvers and eigensolvers will get
-//! traits of their own beside these when a backend for them exists; none is sketched here
+//! The dense kernels of photonoxide's own solver are a trait too ([`dense`]): the solver with
+//! a library's kernels in its fronts is a backend of its own name. Eigensolvers will get a
+//! trait of their own beside these when a backend for them exists; none is sketched here
 //! ahead of its first implementation.
 
 use std::fmt;
