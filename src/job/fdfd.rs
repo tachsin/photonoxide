@@ -273,14 +273,25 @@ pub(super) fn preview(job: &Job) -> Result<Event> {
     scene_of(&task, &s)
 }
 
-/// The backend a choice resolves to, as the run's record names it: its name and version, and
-/// that it was photonoxide's choice if the job named none.
-fn direct_solver(choice: &crate::backend::Choice) -> Result<String> {
-    let c = crate::backend::direct(choice)?.capabilities();
-    Ok(match choice {
-        crate::backend::Choice::Auto => format!("{} {} (auto)", c.name, c.version),
-        _ => format!("{} {}", c.name, c.version),
-    })
+/// The backend a choice resolves to for the device, as the run's record names it: its name
+/// and version; and if the job named none, that `auto` chose it and why (what the solver
+/// decides too, from the same measurements: [`crate::backend::auto::decide`]).
+fn direct_solver(device: &Device) -> Result<String> {
+    use crate::backend::{Choice, direct};
+    if device.direct != Choice::Auto {
+        let c = direct(&device.direct)?.capabilities();
+        return Ok(format!("{} {}", c.name, c.version));
+    }
+    let problem = crate::fdfd::problem_2d(device.grid, &device.boundaries);
+    let decision = crate::backend::auto::decide(problem);
+    let c = Choice::parse(&decision.backend)
+        .and_then(|c| direct(&c))
+        .or_else(|_| direct(&Choice::Photonoxide))?
+        .capabilities();
+    Ok(format!(
+        "{} {} (auto: {})",
+        c.name, c.version, decision.reason
+    ))
 }
 
 /// [`super::check`] for an `"fdfd"` job.
@@ -610,7 +621,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                  sparsity once"
                     .into(),
             ],
-            ["direct solver".into(), direct_solver(&device.direct)?],
+            ["direct solver".into(), direct_solver(&device)?],
         ],
     })?;
     let pml_cells = task.pml_cells.unwrap_or(20);
