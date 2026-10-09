@@ -1,0 +1,179 @@
+name: Libraries
+
+# Each way of installing an external library that docs/libraries.md lists as checked, run on a
+# clean machine: the package is installed, and photonoxide's discovery (photonoxide-native) is
+# asked what it finds. The default build needs none of them; this job only keeps the guides
+# true. The runners have no GPU: NVIDIA's libraries are found and loaded, and their backends
+# stay unavailable.
+on:
+  pull_request:
+    paths:
+      - native/**
+      - studio/src-tauri/src/libraries.rs
+      - docs/libraries.md
+      - .github/workflows/libraries.yml
+  schedule:
+    # Mondays: a package index that moved shows here, not in a user's install
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+# it reads the repository and nothing else: no secrets, no writes
+permissions:
+  contents: read
+
+# a PR's newer push replaces its older run
+concurrency:
+  group: libraries-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  conda:
+    name: conda-forge ${{ matrix.package }} (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # libraries photonoxide has a backend for: found, and the backend offered
+          - { os: ubuntu-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: .*\(from the conda environment\)', backend: '^backend pardiso \(direct\): .* available' }
+          - { os: windows-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: .*\(from the conda environment\)', backend: '^backend pardiso \(direct\): .* available' }
+          - { os: ubuntu-latest, package: libcudss, found: '^cuDSS [0-9.]+: .*\(from the conda environment\)' }
+          - { os: windows-latest, package: libcudss, found: '^cuDSS [0-9.]+: .*\(from the conda environment\)' }
+          - { os: ubuntu-latest, package: cuda-cudart libcusparse, found: '^cuSPARSE [0-9.]+: .*\(from the conda environment\)' }
+          - { os: windows-latest, package: cuda-cudart libcusparse, found: '^cuSPARSE [0-9.]+: .*\(from the conda environment\)' }
+          # libraries photonoxide has no backend for yet: the package installs its library
+          - { os: ubuntu-latest, package: mumps-seq, file: 'libzmumps_seq' }
+          - { os: windows-latest, package: mumps-seq, file: 'zmumps\.dll' }
+          - { os: macos-latest, package: mumps-seq, file: 'libzmumps_seq' }
+          - { os: ubuntu-latest, package: superlu, file: 'libsuperlu' }
+          - { os: macos-latest, package: superlu, file: 'libsuperlu' }
+          - { os: ubuntu-latest, package: openblas, file: 'libopenblas' }
+          - { os: windows-latest, package: openblas, file: 'openblas\.dll' }
+          - { os: macos-latest, package: openblas, file: 'libopenblas' }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: libraries
+      - name: Install
+        run: |
+          time conda install -y -c conda-forge ${{ matrix.package }}
+          conda list | grep -i -E "mkl|mumps|superlu|openblas|cudss|cuda|cusparse|tbb|openmp" || true
+          du -sh "$CONDA_PREFIX" || true
+      - name: Where it landed
+        run: |
+          echo "CONDA_PREFIX=$CONDA_PREFIX"
+          for dir in "$CONDA_PREFIX/lib" "$CONDA_PREFIX/Library/bin" "$CONDA_PREFIX/bin"; do
+            ls "$dir" 2>/dev/null | grep -i -E "mkl_rt|mumps|superlu|openblas|cudss|cudart|cusparse" | sed "s|^|$dir/|" || true
+          done | tee landed.txt
+      - name: The library is there
+        if: matrix.file != ''
+        run: grep -E '${{ matrix.file }}' landed.txt
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: What photonoxide finds
+        run: cargo run -p photonoxide-native --example libraries | tee found.txt
+      - name: photonoxide finds it
+        if: matrix.found != ''
+        run: grep -E '${{ matrix.found }}' found.txt
+      - name: Its backend is offered
+        if: matrix.backend != ''
+        run: grep -E '${{ matrix.backend }}' found.txt
+
+  pip:
+    name: pip ${{ matrix.package }} (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: ', backend: '^backend pardiso \(direct\): .* available' }
+          - { os: windows-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: ', backend: '^backend pardiso \(direct\): .* available' }
+          - { os: ubuntu-latest, package: nvidia-cuda-runtime nvidia-cusparse, found: '^cuSPARSE [0-9.]+: .*\(from a Python wheel\)' }
+          - { os: windows-latest, package: nvidia-cuda-runtime nvidia-cusparse, found: '^cuSPARSE [0-9.]+: .*\(from a Python wheel\)' }
+          - { os: ubuntu-latest, package: nvidia-cudss-cu13, found: '^cuDSS [0-9.]+: .*\(from a Python wheel\)' }
+          - { os: windows-latest, package: nvidia-cudss-cu13, found: '^cuDSS [0-9.]+: .*\(from a Python wheel\)' }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install
+        run: |
+          time python -m pip install ${{ matrix.package }}
+          python -m pip list | grep -i -E "mkl|nvidia|tbb|openmp" || true
+      - name: Where it landed
+        run: |
+          root="$(python -c 'import sys; print(sys.prefix)')"
+          echo "sys.prefix=$root"
+          find "$root" -iname "*mkl_rt*" -o -iname "*cudss*" -o -iname "*cudart*" -o -iname "*cusparse*" 2>/dev/null | grep -v -E "\.(py|pyc|h|txt)$|dist-info" | head -40
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: What photonoxide finds
+        run: cargo run -p photonoxide-native --example libraries | tee found.txt
+      - name: photonoxide finds it
+        run: grep -E '${{ matrix.found }}' found.txt
+      - name: Its backend is offered
+        if: matrix.backend != ''
+        run: grep -E '${{ matrix.backend }}' found.txt
+
+  apt:
+    name: apt ${{ matrix.package }} (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-22.04]
+        package: [libmkl-rt, libmumps-seq-dev, libsuperlu-dev, libopenblas-dev]
+        include:
+          - { package: libmkl-rt, found: '^oneMKL 2020\.[0-9]+: /usr/lib/' }
+          - { package: libmumps-seq-dev, file: 'libzmumps' }
+          - { package: libsuperlu-dev, file: 'libsuperlu' }
+          - { package: libopenblas-dev, file: 'libopenblas' }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install
+        run: |
+          sudo apt-get update
+          time sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ${{ matrix.package }}
+          dpkg -l | grep -i -E "mkl|mumps|superlu|openblas" || true
+      - name: Where it landed
+        run: |
+          for p in $(dpkg -l | awk '{print $2}' | grep -i -E "mkl|mumps|superlu|openblas"); do
+            dpkg -L "$p" | grep -E "\.so" || true
+          done | tee landed.txt
+      - name: The library is there
+        if: matrix.file != ''
+        run: grep -E '${{ matrix.file }}' landed.txt
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: What photonoxide finds
+        run: cargo run -p photonoxide-native --example libraries | tee found.txt
+      - name: photonoxide finds it
+        if: matrix.found != ''
+        run: grep -E '${{ matrix.found }}' found.txt
+
+  winget:
+    name: winget's index (windows-latest)
+    runs-on: windows-latest
+    steps:
+      # the installers are several gigabytes and ask for elevation: only that the index still
+      # has the packages the guides name, at which version
+      - name: The index has the packages
+        shell: pwsh
+        run: |
+          winget --version
+          winget show --id Intel.oneMKL --exact --accept-source-agreements --disable-interactivity | Select-String -Pattern 'Found|Version|Installer Type'
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          winget show --id Nvidia.CUDA --exact --accept-source-agreements --disable-interactivity | Select-String -Pattern 'Found|Version|Installer Type'
+          if ($LASTEXITCODE -ne 0) { exit 1 }
