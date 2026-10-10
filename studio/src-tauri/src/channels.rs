@@ -327,7 +327,23 @@ pub fn nightly_status(state: tauri::State<'_, State>) -> Status {
     status_of(&state)
 }
 
-/// The new build started: confirms its install, and returns what the last rollback did, once.
+/// At start, before the window: an install that didn't take is known as such (see
+/// [`install::at_start`]), its watchdog stands down, and the window says so.
+pub fn at_start(state: &State) {
+    let build = this_build();
+    let here = Running::here().target().ok();
+    if let Some(note) = install::at_start(
+        &state.dirs,
+        build.commit.as_deref(),
+        here.as_deref(),
+        &build.label,
+    ) {
+        let _ = write_json(&state.dirs.rollback_note(), &note);
+    }
+}
+
+/// The new build's window is up: confirms its install, and returns what the last rollback or
+/// failed install did, once.
 #[tauri::command]
 pub fn nightly_started(state: tauri::State<'_, State>) -> Option<Note> {
     if let Some(commit) = this_build().commit {
@@ -451,16 +467,9 @@ pub fn nightly_clear_cache(state: tauri::State<'_, State>) -> Result<(), String>
     Ok(())
 }
 
-/// Adds `e` to `rollback.log` in the nightly folder, and returns it.
+/// Adds `e` to `install.log` in the nightly folder, and returns it.
 fn logged(dirs: &Dirs, e: String) -> String {
-    use std::io::Write;
-    if let Ok(mut log) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(dirs.root.join("rollback.log"))
-    {
-        let _ = writeln!(log, "{}: {e}", now());
-    }
+    install::log(dirs, "", &format!("error: {e}"));
     e
 }
 
@@ -590,7 +599,12 @@ pub fn run(args: &[String]) -> ExitCode {
                 build.commit.as_deref(),
             ) {
                 Ok(Outcome::Restart) => {
-                    println!("installing {}: photonoxide restarts into it", ready.label);
+                    println!(
+                        "installing {}: photonoxide opens the new build once it is in, or the \
+                         one you have, saying why it isn't (the steps: {})",
+                        ready.label,
+                        state.dirs.install_log().display()
+                    );
                     ExitCode::SUCCESS
                 }
                 Ok(Outcome::Package { command, pkexec }) => {
@@ -610,7 +624,7 @@ pub fn run(args: &[String]) -> ExitCode {
             }
             Err(e) => fail(e),
         },
-        // run detached, with no terminal: a failure goes to rollback.log too
+        // run detached, with no terminal: a failure goes to install.log too
         ["watch", file] => match install::watch(&state.dirs, std::path::Path::new(file)) {
             Ok(_) => ExitCode::SUCCESS,
             Err(e) => fail(logged(&state.dirs, e)),

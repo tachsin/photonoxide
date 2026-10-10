@@ -281,17 +281,27 @@ and `-nightly` after it, so every later release sorts after it.
 
   The build runs in the background, its log streamed into the window. It can be cancelled, and
   it stops by itself after two hours.
-- **The install:**
-  - Windows: the build's NSIS installer runs as the studio exits, as the stable updater runs
-    it (`/P /UPDATE /R`), and the new build opens.
-  - macOS: the `.app` is replaced (copied beside it, then renamed into place) and opened.
+- **The install:** the build being replaced is kept first, in a folder of its own for each
+  install. A watchdog runs from that copy (`photonoxide nightly watch`) and takes it from there:
+  - Windows: the studio exits, and the watchdog waits for its process to end (up to a
+    minute). It then runs the build's NSIS installer as the stable updater does, passive and
+    as an update (`/P /UPDATE`), into the studio's own folder (`/D=`), and waits for it (up to
+    ten minutes).
+  - macOS: the `.app` is replaced (copied beside it, then renamed into place).
   - Linux: an AppImage is swapped in the same way. A `.deb` or `.rpm` install gets its
     package built, to install with your package manager, or with `pkexec` after you confirm.
 
-  The build being replaced is kept first. A watchdog runs from that copy
-  (`photonoxide nightly watch`). If the new build's window hasn't said it started within five
-  minutes, the watchdog puts the previous build back and opens it, and that build says what
-  happened. Settings can also go back by hand.
+  The program installed is then asked what it is (`--version`), and the new build opens only
+  when it is the commit built. Otherwise the install failed: nothing was replaced, or what was
+  is put back, and the build you had opens again and says why (the installer's exit code, and
+  what the program installed says it is).
+
+  If the new build's window hasn't said it started within five minutes, the watchdog puts the
+  previous build back and opens it, and that build says what happened. A studio that starts
+  where an install was going and isn't the new build knows the install didn't take: it says
+  so, and the watchdog stands down. A new install supersedes an earlier one still under way
+  (its watchdog stands down, or is stopped). Settings can also go back by hand. Each step is in
+  `install.log`.
 - **Back to Stable:** a nightly's version can sort above the latest release. The stable updater
   takes the latest release anyway when the copy running is a nightly
   (`channels::stable_accepts`).
@@ -301,7 +311,7 @@ and `-nightly` after it, so every later release sorts after it.
   - `target/`, Cargo's, kept so the next build compiles only what changed;
   - `ready/`, the build waiting to be installed;
   - `previous/`, the build kept to go back to;
-  - `build.log`.
+  - `build.log`, and `install.log`.
 
   Settings removes the cache. `PHOTONOXIDE_NIGHTLY_DIR` puts it all elsewhere, to try the channel
   without touching an installed copy's.

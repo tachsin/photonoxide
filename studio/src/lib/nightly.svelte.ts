@@ -98,9 +98,13 @@ export interface Previous {
 }
 
 export interface Note {
+  /** The build left, or not installed. */
   left: string;
+  /** The build gone back to, or still running. */
   back_to: string;
   asked: boolean;
+  /** The install failed, and why: nothing was replaced, or what was is back. */
+  failed?: string | null;
 }
 
 export interface Status {
@@ -184,18 +188,22 @@ export async function refresh() {
   }
 }
 
-/** At start: the new build confirms its install (so the watchdog stands down), and a rollback says what it did. */
+/** At start: the new build confirms its install (so the watchdog stands down), and a rollback or a failed install says what it did. */
 export async function nightlyBoot() {
   try {
     const note = await call.started();
     if (note) {
+      const folder = (await call.status().catch(() => null))?.folder;
+      const log = folder ? ` The steps are in install.log, in ${folder}.` : "";
       toast(
-        note.asked
-          ? `Back to photonoxide ${note.back_to}, as asked.`
-          : `photonoxide ${note.left} didn't start within five minutes, so photonoxide went back to ${note.back_to}. The build's log is in Settings › Updates.`,
+        note.failed
+          ? `photonoxide ${note.left} wasn't installed: ${note.failed}. You still have photonoxide ${note.back_to}.${log}`
+          : note.asked
+            ? `Back to photonoxide ${note.back_to}, as asked.`
+            : `photonoxide ${note.left} didn't start within five minutes, so photonoxide went back to ${note.back_to}.${log}`,
         note.asked ? "info" : "error",
         undefined,
-        15000,
+        note.asked ? 15000 : 30000,
       );
     }
   } catch {
@@ -302,7 +310,7 @@ export async function install() {
   try {
     const outcome = await call.install();
     if (outcome.kind === "package") nightly.pkg = { command: outcome.command, pkexec: outcome.pkexec };
-    else toast("Installing the nightly build: photonoxide restarts by itself…", "info", undefined, 20000);
+    else toast("Installing the nightly build: photonoxide closes, and opens again by itself…", "info", undefined, 20000);
   } catch (e) {
     toast(`The install failed: ${e}`, "error");
   }

@@ -42,7 +42,7 @@
     return undefined;
   });
   const bundleSays: Record<string, string> = {
-    nsis: "photonoxide closes, the build's installer runs (for you alone, no administrator rights), and the new build opens.",
+    nsis: "photonoxide closes, then the build's installer runs (for you alone, no administrator rights), and once the new build is in place, it opens. If the install fails, the build you have opens again and says why.",
     app: "photonoxide's app is replaced by the new one, which then opens.",
     appimage: "The AppImage is replaced by the new one, which then opens.",
     deb: "The build is a .deb package: install it with your package manager, or with pkexec here, after confirming.",

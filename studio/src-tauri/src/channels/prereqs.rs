@@ -61,6 +61,20 @@ pub fn shown(v: Version) -> String {
     }
 }
 
+/// A `[package]` field of a `Cargo.toml` (`version`, `rust-version`): the package's own, or the
+/// workspace's when the package takes it from there (`version.workspace = true`) or doesn't set
+/// it.
+pub fn package_field(toml: &toml::Value, key: &str) -> Option<String> {
+    let field = |table: Option<&toml::Value>| {
+        table
+            .and_then(|t| t.get(key))
+            .and_then(|v| v.as_str())
+            .map(str::to_owned)
+    };
+    field(toml.get("package"))
+        .or_else(|| field(toml.get("workspace").and_then(|w| w.get("package"))))
+}
+
 impl Needs {
     /// What the source asks for, from its `Cargo.toml` files and `studio/package.json`.
     pub fn from_source(
@@ -72,16 +86,7 @@ impl Needs {
         for text in cargo_tomls {
             let toml: toml::Value =
                 toml::from_str(text).map_err(|e| format!("a Cargo.toml doesn't read: {e}"))?;
-            let declared = toml
-                .get("package")
-                .and_then(|p| p.get("rust-version"))
-                .or_else(|| {
-                    toml.get("workspace")
-                        .and_then(|w| w.get("package"))
-                        .and_then(|p| p.get("rust-version"))
-                })
-                .and_then(|v| v.as_str())
-                .and_then(version);
+            let declared = package_field(&toml, "rust-version").and_then(|v| version(&v));
             rust = rust.max(declared);
         }
         let package: serde_json::Value = serde_json::from_str(package_json)
@@ -891,11 +896,16 @@ fn in_a_terminal(command: &str) -> Result<(), String> {
     {
         use std::os::windows::process::CommandExt;
         // start opens a console of its own, whose cmd /k runs the line and stays open; the line
-        // goes as it is, its quotes for winget's --override intact
+        // goes as it is, its quotes for winget's --override intact. No standard handles: a
+        // studio opened from Explorer has let go of its console, and a child given its handles
+        // doesn't start
         Command::new("cmd")
             .raw_arg(format!(
                 "/c start \"photonoxide: installing\" cmd /k {command}"
             ))
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .spawn()
             .map(|_| ())
             .map_err(|e| format!("can't open a terminal: {e}"))
@@ -1013,6 +1023,18 @@ mod tests {
         let n = Needs::from_source(&[root, studio], package, "nsis").unwrap();
         assert_eq!((n.rust, n.pnpm.as_str()), ((1, 97, 0), "12.4.1"));
         assert!(Needs::from_source(&[root], "{}", "nsis").is_err());
+        // fields a package takes from its workspace, as main's Cargo.toml has its version since
+        // the Python package shares it
+        let inherited = "[package]\nname = \"photonoxide\"\nversion.workspace = true\n\
+                         rust-version.workspace = true\n\n[workspace.package]\n\
+                         version = \"0.5.1\"\nrust-version = \"1.96\"\n";
+        let toml: toml::Value = toml::from_str(inherited).unwrap();
+        assert_eq!(package_field(&toml, "version").as_deref(), Some("0.5.1"));
+        let toml: toml::Value = toml::from_str(root).unwrap();
+        assert_eq!(package_field(&toml, "version").as_deref(), Some("0.5.0"));
+        assert_eq!(package_field(&toml, "edition"), None);
+        let n = Needs::from_source(&[inherited], package, "nsis").unwrap();
+        assert_eq!(n.rust, (1, 96, 0));
         // this build's own: the repository's
         let own = Needs::of_this_build("nsis");
         assert!(own.rust >= (1, 95, 0) && own.pnpm_major() >= 12, "{own:?}");
