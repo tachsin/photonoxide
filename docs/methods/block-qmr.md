@@ -190,8 +190,7 @@ products and triangular solves taken for the whole block at once.
 
 ## Left for later
 
-- Recycling Krylov subspaces across a wavelength sweep and between a forward solve and its
-  adjoint (a separate item of 0.5.2).
+- Recycling in a block (block GCRO-DR); recycling one solve at a time is [its own write-up](recycling.md).
 - Their Remark 3.4: half the inner products, the rest known from biorthogonality.
 - The matrix-free operator and the multigrid cycle on a block of vectors at once.
 - Look-ahead.

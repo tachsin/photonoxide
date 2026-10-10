@@ -81,6 +81,14 @@ differences (δ = 10⁻³), 2.8e-10 of the largest gradient (`fdfd3d/adjoint-gra
 the field of the mode launched backwards from the monitor, times ΔV/(4ik₀), in front of it (a
 unit test): Lalau-Keraly et al.'s Eq. 8, which [FDTD's adjoint](fdtd-adjoint.md) checks too.
 
+Without factorizing, `IterativeSolver3d::mode_power_gradient(field, mode, direction, stopping)`
+solves the same λ by the iterative solver's own QMR or GMRES: a solve with A itself, which on
+Shin and Fan's operator is the forward's operator too (its right-hand side transformed as any).
+`mode_power_gradient_recycled` carries the forward solve's Krylov space and solution to it
+([recycling](recycling.md)). Against the direct solver's gradient on the guide above (stretched
+PMLs for the multigrid), to a relative residual of 1e-11: 2.3e-11 by symmetric QMR and 7.8e-11
+by GMRES with the multigrid and GCRO-DR (`fdfd3d/recycle-adjoint`).
+
 ## Limits
 
 - The cells varied must be away from the ports, whose sources and modes are taken as fixed.

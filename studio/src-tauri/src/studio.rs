@@ -949,6 +949,7 @@ method_docs!(
     "materials.md",
     "multilayer.md",
     "pml.md",
+    "recycling.md",
     "slab-fd.md",
     "slab.md",
     "vector.md",
