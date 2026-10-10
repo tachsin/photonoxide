@@ -186,6 +186,7 @@ photonoxide run jobs/ring-fdfd.toml             # an all-pass ring's spectrum by
 photonoxide run jobs/mmi-fdtd.toml              # the splitter by 2D FDTD: its field live, its spectra
 photonoxide run jobs/ring-fdtd.toml             # the ring by 2D FDTD: its spectrum and its resonances' Q
 photonoxide run jobs/bragg-grating.toml         # a Bragg grating in a silicon strip: its structure
+photonoxide run jobs/mzi-mmi.toml               # a Mach-Zehnder interferometer of two 1x2 MMIs: its structure
 ```
 
 A job file is TOML, JSON or YAML, by its extension (`.toml`, `.json`, `.yaml` or `.yml`), the
