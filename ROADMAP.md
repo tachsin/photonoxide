@@ -35,7 +35,8 @@ The validated photonics toolkit for Rust: simulation, inverse design and layout 
    - The run directory records its events, so any run can be watched live or replayed later.
    - The window starts the job by itself, exits when it's done, and honours a hard timeout.
 6. **Pure Rust.**
-   - No C, Fortran or Python dependencies, and no Python bindings.
+   - No C, Fortran or Python dependencies.
+   - Python and MATLAB reach the library through bindings in `python/`, over a small façade of plain types; Python lives there only, with its tests ([the plan](docs/plans/bindings.md)).
    - Linear algebra is faer, parallelism is rayon, the GPU is wgpu (f64 through Vulkan), and processes talk through a communicator in pure Rust (in-process and TCP).
    - One exception, written only when a cluster needs it: an optional `mpi` feature, off by default, documented as the one C dependency. No CUDA.
    - PETSc, SLEPc, MKL/PARDISO and MUMPS are inspiration and benchmarks: their methods are implemented from their papers, specific to our solvers, and the libraries themselves run only as external programs on exported problems, never linked.
@@ -546,6 +547,10 @@ The waveguide and resonator processes, phase matching, photon pairs and Kerr com
   - [ ] Install guides per library and platform, verified (#184).
   - [ ] The benchmark: a catalogue of problems at many sizes (#179) and a runner over every backend with a results database (#180).
   - [ ] The studio: a Libraries page with guided installs (#181), a Benchmarks page (#182), and `auto` from the measurements (#183).
+- **Python and MATLAB** ([the plan](docs/plans/bindings.md), #271): bindings in `python/`, in step with the crate's versions.
+  - [ ] A façade: a small module of plain types (numbers named with their units, arrays with their grids), so a change elsewhere in the API stops there.
+  - [ ] The `photonoxide` package for Python (PyO3, abi3 wheels for CPython 3.10 and later), tested against the library's own results bit for bit and against the validation report's numbers, published to PyPI with each release.
+  - [ ] MATLAB through the Python package (R2022b and later), thin `.m` wrappers in the wheel.
 - **Docs:** a theory page per method.
 
 ### 1.0: Stable
@@ -597,7 +602,6 @@ Each entry states its tolerance, grid, run time, and the source it is compared w
 
 ## Not planned
 
-- **Python bindings:** photonoxide is Rust only.
 - **A hosted or cloud service.**
 - **Code ported from GPL projects:** they serve only as external references.
 - **Foundry PDKs under NDA in the repository:** users load their own through the PDK format.

@@ -1,7 +1,8 @@
 # Python and MATLAB bindings: a plan
 
-*A plan, 2026-10-09. Nothing here is implemented or on the roadmap: I decide first. The
-decisions are tracked in #271.*
+*A plan, 2026-10-09. Decided 2026-10-10 (#271): the bindings live in this repository, as a
+workspace crate `python/`; for the rest, the recommendations below. The decisions are in
+[section 5](#5-decisions); the rest of the page is the plan as it was weighed.*
 
 I want Python and MATLAB users to be able to use photonoxide some day. Today the rules
 say otherwise: AGENTS.md has "No Python anywhere: no bindings, no helper scripts, no reference
@@ -55,7 +56,7 @@ It has six parts:
    published crate; this repository stays Rust only and gains the façade and one sentence in
    AGENTS.md. The alternative, a workspace crate here as genoxide has, keeps versions in step for
    free but brings Python into this repository and wheel builds into its CI. Both are weighed in
-   [decision 1](#5-decisions).
+   [decision 1](#5-decisions). *Decided: the workspace crate here, `python/`.*
 
 ## 1. What's worth binding
 
@@ -432,7 +433,7 @@ Each phase is done when its validation is, as AGENTS.md asks of a solver.
   cargo-semver-checks, which release-plz already runs, reports the façade's breaking changes, and
   CHANGELOG.md gets a "Façade" line when it changes.
 
-### Phase 2: Python 0.x (separate repository, by default)
+### Phase 2: Python 0.x (`python/` in this repository, as decided)
 
 - **Delivers:** the package of layer 1's first release, wheels for the platforms above, PyPI.
 - **Validated by:** the conformance cases bit for bit, the validation numbers it reaches, two
@@ -473,6 +474,34 @@ Every milestone until 1.0 may change the API. What keeps the bindings cheap:
   want for a new feature.
 
 ## 5. Decisions
+
+**Decided 2026-10-10** (#271):
+
+1. **In this repository:** option (b), a workspace crate `python/` as genoxide has, sharing the
+   crate's version and `Cargo.lock`. AGENTS.md's rule now reads: Python only in `python/`, the
+   bindings and their tests, nothing else in Python; the library stays Rust only with
+   `#![forbid(unsafe_code)]`, and the binding crate writes no `unsafe` itself (PyO3's macros
+   expand to it). ROADMAP's principle 6 says the same, and its "Not planned" line is gone. The
+   wheels are built only when `python/` or the library changes, so the rest of CI costs what it
+   did.
+2. **Which layer first:** the façade first, then the Python package and MATLAB's wrappers over it.
+   Phase 0 (`results.json`, the `failed` event, `--timeout`) is still to come; a job run from
+   Python reads the run's events in the meantime.
+3. **The API's style:** as recommended. Units in keyword names as job files have them
+   (`wavelength_um=1.55`); Pythonic functions and small result classes, vectorized over
+   wavelength where Rust loops; NumPy arrays in C order, `array[j, i]` at (x_i, y_j), with their
+   coordinates.
+4. **MATLAB:** through the Python package (MATLAB's `py.`, R2022b or later), thin `.m` wrappers
+   shipped in the wheel. GitHub's runners can't run MATLAB's Python interface, so MATLAB support is
+   untested in MATLAB until someone with a licence checks it by hand, and the MATLAB section of
+   the Python page says so.
+5. **Versioning:** as recommended: the package's version is the crate's, binding-only fixes are
+   PEP 440 post-releases (`0.5.1.post1`), and `__version__` sits beside `core_version`. In the
+   workspace the binding depends on the crate by path, so the versions can't drift.
+6. **Names:** `photonoxide` on PyPI, imported as `photonoxide`; no separate repositories.
+7. **The README's line:** the README links the Python page from its install section.
+
+The options as they were weighed:
 
 1. **AGENTS.md's rule and where the bindings live.** AGENTS.md says "No Python anywhere: no
    bindings, no helper scripts, no reference implementations", and the library keeps
