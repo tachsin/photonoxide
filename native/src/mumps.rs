@@ -40,7 +40,18 @@
 //!   the BLAS (`OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`). Not declared deterministic.
 //! - **Errors:** `INFOG(1)` with `INFOG(2)`, with the user guide's meanings.
 //!
-//! Block low-rank factorization (`ICNTL(35)`) isn't offered yet.
+//! **Block low-rank factorization** ([`Mumps::block_low_rank`], the backend `mumps-blr`): P.
+//! Amestoy, C. Ashcraft, O. Boiteau, A. Buttari, J.-Y. L'Excellent, C. Weisbecker, "Improving
+//! multifrontal methods by means of block low-rank representations", SIAM J. Sci. Comput. 37,
+//! A1451 (2015), doi:10.1137/120903476. The fronts' blocks are kept as products of thin
+//! matrices where their rank allows, in the factorization and the solves (`ICNTL(35)` = 2,
+//! set before the analysis), each block truncated where its rank-revealing QR's diagonal falls
+//! below a tolerance (`CNTL(7)`), which MUMPS takes as absolute on the matrix as it scaled
+//! it. The factors are then approximate, so each solve is refined against the matrix
+//! (`ICNTL(10)`: up to [`REFINEMENT`] steps, until the backward error stops halving, with no
+//! target for it, `CNTL(2)` = 0, where MUMPS's default target, √ε, stops at about 1e-8). Its
+//! report's entries are those the factors hold after compression (`INFOG(35)`). It is a backend
+//! of its own, never chosen in `mumps`'s place.
 
 use std::ffi::c_void;
 use std::sync::{Arc, Mutex};
@@ -93,6 +104,14 @@ const NNZ: usize = 5432;
 const IRN: usize = 5440;
 const JCN: usize = 5448;
 const A: usize = 5456;
+/// `cntl`, after `icntl[60]` and `keep[500]`: 15 doubles.
+const CNTL: usize = ICNTL + 4 * 60 + 4 * 500;
+
+/// The tolerance [`crate::register_all`] gives block low-rank factorization, unless
+/// `PHOTONOXIDE_MUMPS_BLR` names another.
+pub const BLR_TOLERANCE: f64 = 1e-8;
+/// The steps of iterative refinement a block low-rank solve may take.
+pub const REFINEMENT: i32 = 3;
 
 /// The fields that moved, and the structure's size.
 #[derive(Debug, PartialEq, Eq)]
@@ -312,6 +331,11 @@ impl Structure {
         self.set_int(ICNTL + 4 * (k - 1), value);
     }
 
+    /// `CNTL(k)`.
+    fn set_cntl(&mut self, k: usize, value: f64) {
+        self.set_long(CNTL + 8 * (k - 1), value.to_bits() as i64);
+    }
+
     /// `INFOG(k)`.
     fn infog(&self, layout: &Layout, k: usize) -> i32 {
         self.int(layout.infog + 4 * (k - 1))
@@ -369,6 +393,8 @@ struct Engine {
     /// The values MUMPS holds a pointer to between calls.
     values: Vec<c64>,
     symmetric: bool,
+    /// Block low-rank factorization's tolerance, if it is on.
+    blr: Option<f64>,
     /// Whether the instance was made, and so must be ended.
     made: bool,
 }
@@ -380,6 +406,7 @@ impl Engine {
         entries: &Arc<Entries>,
         form: Form,
         values: Vec<c64>,
+        blr: Option<f64>,
     ) -> Result<(Engine, f64)> {
         let start = Instant::now();
         let mut engine = Engine {
@@ -388,6 +415,7 @@ impl Engine {
             structure: Structure::new(),
             values,
             symmetric: form == Form::Symmetric,
+            blr,
             made: false,
         };
         let s = &mut engine.structure;
@@ -402,6 +430,16 @@ impl Engine {
             s.set_icntl(k, -1);
         }
         s.set_icntl(4, 0);
+        if let Some(tolerance) = blr {
+            // in the factorization and the solves, asked before the analysis prepares for it
+            s.set_icntl(35, 2);
+            s.set_cntl(7, tolerance);
+            // the factors are approximate: each solve refined against the matrix until the
+            // backward error stops halving. MUMPS's default target (CNTL(2) = √ε) stopped it at
+            // 4.7e-10 from photonoxide's answer at a tolerance of 1e-4, this at 4.5e-13
+            s.set_icntl(10, REFINEMENT);
+            s.set_cntl(2, 0.0);
+        }
         s.set_int(N, entries.n);
         s.set_long(NNZ, entries.rows.len() as i64);
         // MUMPS reads the indices and doesn't write them
@@ -465,8 +503,9 @@ impl Engine {
     /// pivoting modified.
     fn report(&self) -> (Option<usize>, Option<u64>, usize) {
         let info = |k: usize| self.structure.infog(self.api.layout, k);
-        // negative: millions of entries
-        let entries = match info(9) {
+        // negative: millions of entries. With block low-rank factorization, those the factors
+        // hold after compression
+        let entries = match info(if self.blr.is_some() { 35 } else { 9 }) {
             e if e >= 0 => e as usize,
             e => (-(e as i64)) as usize * 1_000_000,
         };
@@ -489,6 +528,8 @@ impl Drop for Engine {
 /// MUMPS, as photonoxide's registry has it.
 pub struct Mumps {
     api: Arc<Api>,
+    /// Block low-rank factorization's tolerance, for the backend `mumps-blr`.
+    blr: Option<f64>,
 }
 
 /// The version an instance of this library says it is, and that release's layout.
@@ -556,7 +597,31 @@ impl Mumps {
                 layout,
                 _library: library,
             }),
+            blr: None,
         })
+    }
+
+    /// The same library with block low-rank factorization, as the backend `mumps-blr`: blocks
+    /// truncated at `tolerance` (MUMPS's `CNTL(7)`), and each solve refined.
+    ///
+    /// # Errors
+    ///
+    /// Unless the tolerance is between 0 and 1.
+    pub fn block_low_rank(&self, tolerance: f64) -> std::result::Result<Mumps, String> {
+        if !(tolerance > 0.0 && tolerance < 1.0) {
+            return Err(format!(
+                "block low-rank factorization's tolerance is between 0 and 1, got {tolerance}"
+            ));
+        }
+        Ok(Mumps {
+            api: self.api.clone(),
+            blr: Some(tolerance),
+        })
+    }
+
+    /// Block low-rank factorization's tolerance, if this is `mumps-blr`.
+    pub fn tolerance(&self) -> Option<f64> {
+        self.blr
     }
 
     /// Its release.
@@ -581,12 +646,24 @@ pub fn probe() -> Probe {
 
 impl DirectSolver for Mumps {
     fn capabilities(&self) -> Capabilities {
-        let mut c = Capabilities::new(
-            "mumps",
-            self.api.version.clone(),
-            "CeCILL-C (installed by the user; cite Amestoy et al. 2001, \
-             doi:10.1137/S0895479899358194, and 2019, doi:10.1145/3242094)",
-        );
+        let mut c = match self.blr {
+            None => Capabilities::new(
+                "mumps",
+                self.api.version.clone(),
+                "CeCILL-C (installed by the user; cite Amestoy et al. 2001, \
+                 doi:10.1137/S0895479899358194, and 2019, doi:10.1145/3242094)",
+            ),
+            Some(tolerance) => Capabilities::new(
+                "mumps-blr",
+                format!(
+                    "{}, block low-rank at {tolerance:e}, refined",
+                    self.api.version
+                ),
+                "CeCILL-C (installed by the user; cite Amestoy et al. 2001, \
+                 doi:10.1137/S0895479899358194, 2015, doi:10.1137/120903476, and 2019, \
+                 doi:10.1145/3242094)",
+            ),
+        };
         c.symmetric = true;
         c.transpose = true;
         c.threads = Threads::Library(
@@ -606,10 +683,11 @@ impl DirectSolver for Mumps {
             symmetric,
         )?);
         let values = entries.values(matrix.values());
-        let (engine, seconds) = Engine::new(&self.api, &entries, matrix.form(), values)?;
+        let (engine, seconds) = Engine::new(&self.api, &entries, matrix.form(), values, self.blr)?;
         Ok(Some(Arc::new(Analysed {
             api: self.api.clone(),
             form: matrix.form(),
+            blr: self.blr,
             entries,
             pool: Arc::new(Mutex::new(vec![engine])),
             seconds,
@@ -620,6 +698,7 @@ impl DirectSolver for Mumps {
 struct Analysed {
     api: Arc<Api>,
     form: Form,
+    blr: Option<f64>,
     entries: Arc<Entries>,
     pool: Arc<Mutex<Vec<Engine>>>,
     seconds: f64,
@@ -642,7 +721,13 @@ impl Analysis for Analysed {
         let pooled = self.pool.lock().map_err(poisoned)?.pop();
         let (mut engine, analysis_seconds) = match pooled {
             Some(engine) => (engine, self.seconds),
-            None => Engine::new(&self.api, &self.entries, self.form, values.clone())?,
+            None => Engine::new(
+                &self.api,
+                &self.entries,
+                self.form,
+                values.clone(),
+                self.blr,
+            )?,
         };
         let start = Instant::now();
         // a failed factorization's instance goes back analysed
@@ -716,10 +801,13 @@ mod tests {
         // from each release's zmumps_c.h by C's layout rules (4-byte MUMPS_INT, 8-byte
         // MUMPS_INT8, double and pointers): the two layouts, and what they share
         assert_eq!((SYM, PAR, JOB, COMM_FORTRAN, ICNTL), (0, 4, 8, 12, 16));
-        // icntl[60], keep[500], then cntl[15], dkeep[230], keep8[150], n
-        let cntl = 16 + 4 * (60 + 500);
-        assert_eq!(cntl, 2256);
-        assert_eq!(N, cntl + 8 * (15 + 230 + 150));
+        // icntl[60], keep[500], then cntl[15], dkeep[230] and keep8[150] before n
+        assert_eq!(CNTL, 2256);
+        assert_eq!(CNTL + 8 * 15 + 8 * 230 + 8 * 150, N);
+        let mut s = Structure::new();
+        s.set_cntl(7, 1e-8);
+        assert_eq!(s.words[(CNTL + 40) / 8], 0);
+        assert_eq!(s.words[(CNTL + 48) / 8], 1e-8f64.to_bits());
         // n, nblk, nz_alloc, nz, then nnz on 8 bytes, irn, jcn, a
         assert_eq!((NNZ, IRN, JCN, A), (N + 16, N + 24, N + 32, N + 40));
         for layout in [&OLD, &NEW] {

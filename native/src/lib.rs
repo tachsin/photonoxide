@@ -98,8 +98,26 @@ pub fn register_all() -> Vec<Probe> {
         Err(reason) => photonoxide::backend::register_unavailable("pardiso", reason),
     };
     let _ = match Mumps::load() {
-        Ok(mumps) => offer(std::sync::Arc::new(mumps)).map(drop),
-        Err(reason) => photonoxide::backend::register_unavailable("mumps", reason),
+        Ok(mumps) => {
+            // its block low-rank factorization, a backend of its own
+            // its tolerance as asked, or unavailable with the reason: never another in its place
+            let tolerance = match std::env::var("PHOTONOXIDE_MUMPS_BLR") {
+                Ok(text) => text
+                    .trim()
+                    .parse::<f64>()
+                    .map_err(|_| format!("PHOTONOXIDE_MUMPS_BLR isn't a number: {text:?}")),
+                Err(_) => Ok(mumps::BLR_TOLERANCE),
+            };
+            let _ = match tolerance.and_then(|tolerance| mumps.block_low_rank(tolerance)) {
+                Ok(blr) => offer(std::sync::Arc::new(blr)).map(drop),
+                Err(reason) => photonoxide::backend::register_unavailable("mumps-blr", reason),
+            };
+            offer(std::sync::Arc::new(mumps)).map(drop)
+        }
+        Err(reason) => {
+            let _ = photonoxide::backend::register_unavailable("mumps-blr", reason.clone());
+            photonoxide::backend::register_unavailable("mumps", reason)
+        }
     };
     let _ = match SuperLu::load() {
         Ok(superlu) => offer(std::sync::Arc::new(superlu)).map(drop),
