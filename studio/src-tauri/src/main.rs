@@ -1,6 +1,7 @@
 //! The `photonoxide` program: opens the studio; runs a job, live in the studio window or
-//! headless; replays a run in the studio; runs the built-in examples; checks the validation
-//! report; times the benchmark problems.
+//! headless, its sweep farmed to workers if asked; serves as a worker; replays a run in the
+//! studio; runs the built-in examples; checks the validation report; times the benchmark
+//! problems.
 
 mod academy;
 mod auto;
@@ -11,6 +12,7 @@ mod charts;
 mod circuits;
 mod diagrams;
 mod examples;
+mod farm;
 mod libraries;
 mod materials;
 mod runner;
@@ -32,6 +34,15 @@ const USAGE: &str = "usage:
       run a job; the studio window shows it live and closes by itself when it's done
       (--headless: no window; --out: where run directories go, default runs/;
        --linger: how long the window stays after the run, default 5 s)
+      [--workers <n>] [--worker <host:port>]... [--token <token>] [--task-timeout <seconds>]
+      farm the sweep's points: to n workers started here, and to workers listening
+      elsewhere (their token: --token or PHOTONOXIDE_FARM_TOKEN); the same record, gathered
+      in order; a point past --task-timeout fails, and its worker is dropped
+  photonoxide worker [--listen <address>] [--token <token>] [--slots <n>] [--once]
+      serve coordinators' sweeps and jobs, one coordinator at a time, on 127.0.0.1:7878
+      by default (an address beyond this machine needs a token); --slots: tasks at once,
+      default 1; --once: one coordinator, then exit. Not for untrusted networks: the
+      traffic isn't encrypted
   photonoxide view <run directory>
       replay a finished run in the studio
   photonoxide example <name>
@@ -73,6 +84,7 @@ fn main() -> ExitCode {
         None => open(),
         Some("run") => run(&args[1..]),
         Some("view") => view(&args[1..]),
+        Some("worker") => farm::worker(&args[1..]),
         Some("validate") => validate(&args[1..]),
         Some("example") => example(&args[1..]),
         Some("bench") => bench::run(&args[1..]),
@@ -121,8 +133,14 @@ fn run(args: &[String]) -> ExitCode {
     let mut out = PathBuf::from("runs");
     let mut headless = false;
     let mut linger = Duration::from_secs(5);
+    let mut farming = farm::Options::default();
     let mut it = args.iter();
     while let Some(a) = it.next() {
+        match farming.take(a, &mut it) {
+            Some(true) => continue,
+            Some(false) => {}
+            None => return usage(),
+        }
         match a.as_str() {
             "--headless" => headless = true,
             "--out" => match it.next() {
@@ -154,11 +172,35 @@ fn run(args: &[String]) -> ExitCode {
     let dir = record.dir().to_path_buf();
     println!("{}", dir.display());
     let stop = Stop::new(job.timeout());
+    // the sweep's points on workers, here or on other machines: the same record, gathered in
+    // order as the points complete
+    let workers = if job.task().get("sweep").is_none() {
+        if farming.workers > 0 || !farming.remote.is_empty() {
+            eprintln!("the job has no sweep to farm: it runs here");
+        }
+        None
+    } else {
+        match farming.farm() {
+            Ok(Some(f)) => {
+                eprintln!(
+                    "the sweep's points farmed to {} workers: {}",
+                    f.addresses().len(),
+                    f.addresses().join(", ")
+                );
+                f.farm_sweep(&job, &mut record, &stop);
+                Some(f)
+            }
+            Ok(None) => None,
+            Err(e) => return fail(e),
+        }
+    };
     let (done, finished) = std::sync::mpsc::channel();
     let worker = {
         let (job, stop) = (job.clone(), stop.clone());
         std::thread::spawn(move || {
             let result = job::execute(&job, &mut record, &stop);
+            // the local workers end with the run
+            drop(workers);
             let _ = done.send(());
             result
         })

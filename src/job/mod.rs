@@ -280,11 +280,12 @@ fn in_flight(bytes_per_point: f64) -> usize {
     rayon::current_num_threads().min(by_memory).max(1)
 }
 
-/// A sweep's points solved side by side, `batch` at a time on rayon's threads, and recorded in
-/// their order: `point(k)` makes point k's events without the run (`None` when the stop came
-/// first), and each batch's events go into `run` point by point, so the record is the one a loop
-/// over the points writes, whatever the threads. A stop ends the sweep at its first point not
-/// done; an error at a point ends it there, after the points before it.
+/// A sweep's points solved side by side, `batch` at a time on rayon's threads (or by a farm's
+/// workers, [`crate::farm`]), and recorded in their order: `point(k)` makes point k's events
+/// without the run (`None` when the stop came first), and they go into `run` point by point, so
+/// the record is the one a loop over the points writes, whatever the threads or the workers. A
+/// stop ends the sweep at its first point not done; an error at a point ends it there, after
+/// the points before it.
 fn sweep_points(
     run: &mut Run,
     stop: &Stop,
@@ -292,23 +293,7 @@ fn sweep_points(
     batch: usize,
     point: impl Fn(usize) -> Result<Option<Vec<Event>>> + Sync,
 ) -> Result<()> {
-    use rayon::prelude::*;
-    let all: Vec<usize> = points.collect();
-    for ks in all.chunks(batch.max(1)) {
-        if stop.reason().is_some() {
-            return Ok(());
-        }
-        let done: Vec<Result<Option<Vec<Event>>>> = ks.par_iter().map(|&k| point(k)).collect();
-        for events in done {
-            let Some(events) = events? else {
-                return Ok(());
-            };
-            for e in &events {
-                run.record(e)?;
-            }
-        }
-    }
-    Ok(())
+    run.sweep(stop, points, batch, &point)
 }
 
 /// An event of a run's record.
