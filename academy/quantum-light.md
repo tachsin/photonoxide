@@ -5,7 +5,7 @@ topic: Active and quantum photonics
 level: advanced
 status: coming
 milestone: "0.6.2"
-prerequisites: [directional-coupler, nonlinear-optics]
+prerequisites: [mach-zehnder, nonlinear-optics]
 circuits: [mzi.toml]
 ---
 

@@ -27,6 +27,7 @@ lessons!(
     "strip-waveguide.md",
     "leaky-and-bent-guides.md",
     "directional-coupler.md",
+    "mach-zehnder.md",
     "ring-resonator.md",
     "bragg-gratings.md",
     "grating-couplers.md",

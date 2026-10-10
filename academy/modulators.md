@@ -5,7 +5,7 @@ topic: Active and quantum photonics
 level: intermediate
 status: coming
 milestone: "0.6"
-prerequisites: [ring-resonator, strip-waveguide]
+prerequisites: [mach-zehnder, ring-resonator]
 ---
 
 ## 1. How does heat shift a waveguide's phase?
