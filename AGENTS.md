@@ -20,6 +20,10 @@ region); next is 0.5.2, many solves at once. The library's modules, each with a 
 - `backend`: the solver backends, photonoxide's own and the external libraries' (through
   `photonoxide-native`);
 - `job`, `run`: job files, run records and replay; `validation`: the report's cases; `bench`: the benchmark problems.
+- `facade`: what the bindings wrap, plain types only: materials, slab and full-vector modes, jobs
+  and their runs, an FDFD job's S-parameters, circuits from a netlist given as data, Touchstone
+  files; and `facade::conformance()`, calls with their results for the bindings' tests. A
+  change elsewhere in the API that touches it is absorbed in it, in the same PR.
 
 ## Commands
 
