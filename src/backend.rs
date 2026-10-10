@@ -23,8 +23,9 @@
 //! A solver takes a [`Choice`]: `auto` (photonoxide's own), `photonoxide`, or a backend's name.
 //! A named backend that isn't available is an error, never a silent fallback.
 //!
-//! Dense kernels for the multifrontal fronts, iterative solvers and eigensolvers will get
-//! traits of their own beside these when a backend for them exists; none is sketched here
+//! The dense kernels of photonoxide's own solver are a trait too ([`dense`]): the solver with
+//! a library's kernels in its fronts is a backend of its own name. Eigensolvers will get a
+//! trait of their own beside these when a backend for them exists; none is sketched here
 //! ahead of its first implementation.
 
 use std::fmt;
@@ -40,6 +41,7 @@ use crate::sparse;
 use crate::{Error, Result};
 
 pub mod auto;
+pub mod dense;
 mod iterative;
 pub use iterative::{
     IluFactors, IterativeSolver, MultigridCycle, MultigridLevel, QmrRun, RowMatrix, iterative,
@@ -383,7 +385,7 @@ fn registry() -> &'static RwLock<Vec<Entry>> {
     static REGISTRY: OnceLock<RwLock<Vec<Entry>>> = OnceLock::new();
     REGISTRY.get_or_init(|| {
         RwLock::new(vec![
-            Entry::Available(Arc::new(Photonoxide)),
+            Entry::Available(Arc::new(Photonoxide { kernels: None })),
             Entry::Available(Arc::new(Faer)),
         ])
     })
@@ -507,11 +509,15 @@ pub fn direct(choice: &Choice) -> Result<Arc<dyn DirectSolver>> {
     }
 }
 
-/// photonoxide's own: the multifrontal LU and L D Lᵀ of [`crate::sparse`].
-struct Photonoxide;
+/// photonoxide's own: the multifrontal LU and L D Lᵀ of [`crate::sparse`], with faer's dense
+/// kernels or another library's ([`dense::with_kernels`]).
+struct Photonoxide {
+    kernels: Option<Arc<dyn dense::DenseKernels>>,
+}
 
 struct OwnAnalysis {
     analysis: Arc<sparse::Analysis>,
+    kernels: Option<Arc<dyn dense::DenseKernels>>,
     seconds: f64,
 }
 
@@ -522,12 +528,16 @@ struct OwnFactors {
 
 impl DirectSolver for Photonoxide {
     fn capabilities(&self) -> Capabilities {
-        Capabilities {
+        let own = Capabilities {
             symmetric: true,
             transpose: true,
             threads: Threads::Rayon,
             deterministic: true,
             ..Capabilities::new(OWN, env!("CARGO_PKG_VERSION"), "MIT OR Apache-2.0")
+        };
+        match &self.kernels {
+            Some(kernels) => dense::capabilities(own, kernels.as_ref()),
+            None => own,
         }
     }
 
@@ -541,6 +551,7 @@ impl DirectSolver for Photonoxide {
         Ok(analysis.map(|analysis| {
             Arc::new(OwnAnalysis {
                 analysis: Arc::new(analysis),
+                kernels: self.kernels.clone(),
                 seconds: clock.elapsed().as_secs_f64(),
             }) as Arc<dyn Analysis>
         }))
@@ -558,7 +569,11 @@ impl Analysis for OwnAnalysis {
 
     fn factorize(&self, matrix: &Matrix<'_>) -> Result<Box<dyn Factorization>> {
         let clock = Instant::now();
-        let factors = sparse::Multifrontal::new(self.analysis.clone(), matrix.as_faer())?;
+        let factors = sparse::Multifrontal::with_kernels(
+            self.analysis.clone(),
+            matrix.as_faer(),
+            self.kernels.as_deref(),
+        )?;
         let report = Report {
             factor_entries: Some(self.analysis.factor_entries()),
             peak_memory_bytes: None,
@@ -779,13 +794,13 @@ pub(crate) mod tests {
         fn capabilities(&self) -> Capabilities {
             Capabilities {
                 name: self.name.clone(),
-                ..Photonoxide.capabilities()
+                ..Photonoxide { kernels: None }.capabilities()
             }
         }
 
         fn analyse(&self, matrix: &Matrix<'_>) -> Result<Option<Arc<dyn Analysis>>> {
             self.analyses.fetch_add(1, Ordering::SeqCst);
-            Ok(Photonoxide.analyse(matrix)?.map(|inner| {
+            Ok(Photonoxide { kernels: None }.analyse(matrix)?.map(|inner| {
                 Arc::new(RecordingAnalysis {
                     inner,
                     factorizations: self.factorizations.clone(),
