@@ -88,6 +88,13 @@ Pure Rust, with no C, Fortran or Python dependencies. The program is on each
 and macOS, and updates itself ([downloads](studio/README.md#downloads)): from the releases, or on
 the Nightly channel by building main's latest code on your machine ([channels](studio/README.md#channels)).
 
+**Python and MATLAB.** The `photonoxide` package for Python (in [`python/`](python)) brings the
+materials catalogue, slab and full-vector modes, jobs and their S-parameters, circuits and
+Touchstone files to Python, with NumPy arrays and the same numbers as Rust, and to MATLAB
+(R2022b and later) through Python: [docs/python.md](docs/python.md). It goes to PyPI
+(`pip install photonoxide`) with the releases once its publishing is set up; until then it
+builds from the repository with `pip install ./python`.
+
 ## A first example
 
 220 nm of silicon in oxide at 1550 nm, each material with its published dispersion, and the

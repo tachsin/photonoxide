@@ -47,6 +47,23 @@ jobs:
     # the update key and, once set, the Windows and macOS signing secrets
     secrets: inherit
 
+  # the Python package to PyPI, once PyPI trusts this repository (the PYPI_PUBLISH variable;
+  # docs/python.md, "Publishing"): python-wheels.yml at the new tag, started as a run of its own,
+  # since PyPI trusts that workflow file and not a workflow that calls it. (workflow_dispatch is
+  # the event GITHUB_TOKEN may start a run with.) Until then a release publishes no package.
+  python:
+    name: Python package
+    needs: release
+    if: ${{ needs.release.outputs.releases_created == 'true' && vars.PYPI_PUBLISH == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ fromJSON(needs.release.outputs.releases)[0].tag }}
+        run: gh workflow run python-wheels.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG" -f publish=true
+
   # open or update the release PR: version bump (checked by cargo-semver-checks) and changelog
   release-pr:
     name: Release PR

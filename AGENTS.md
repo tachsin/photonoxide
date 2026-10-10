@@ -36,7 +36,16 @@ cargo test --release --test validation_report -- --ignored   # every validation 
 cargo run -p photonoxide-native --example libraries      # the external libraries found here (CUDA, cuSPARSE, cuDSS)
 cargo test --release --features gpu --lib fdtd::gpu      # FDTD on the GPU against the CPU (skips without a GPU)
 cargo test --release --features gpu --test gpu_report -- --ignored   # docs/validation-gpu.md, before each release
+cargo clippy -p photonoxide-python --all-targets -- -D warnings   # the Python package's Rust (not in the default members)
+cd python && maturin develop --release && cd tests && python -m pytest   # the Python package, in a virtual environment
 ```
+
+The Python package ([docs/python.md](docs/python.md)) wraps `photonoxide::facade` only. A change to
+the façade's functions or results changes `python/` (the native module, the Python functions,
+their stubs and the MATLAB wrappers) in the same PR; its tests compare each function with the
+façade's conformance cases to the bit. CI builds and tests the wheels
+(`.github/workflows/python-wheels.yml`) only on PRs that touch `python/`, `src/`, `jobs/` or the
+manifests.
 
 The `photonoxide` program is the studio, a Tauri app in `studio/` (Rust in `studio/src-tauri`,
 the window in Svelte 5, TypeScript, Tailwind CSS with daisyUI, and three.js in `studio/src`;
