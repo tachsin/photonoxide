@@ -28,7 +28,7 @@ pub struct Param {
     pub key: &'static str,
     /// Its name for people; may hold TeX between dollars.
     pub label: &'static str,
-    /// Its unit as a block writes it: `um`, `nm`, `dB/cm`, or empty for a number.
+    /// Its unit as a block writes it: `um`, `nm`, `dB/cm`, `dB`, or empty for a number.
     pub unit: &'static str,
     pub min: f64,
     pub max: f64,
@@ -215,6 +215,120 @@ pub fn specs() -> Vec<ChartSpec> {
                     0.001,
                     false,
                     "The drop bus's coupler; 0 leaves an all-pass ring.",
+                ),
+            ],
+        },
+        ChartSpec {
+            id: "ring-extinction",
+            title: "Extinction against coupling over loss",
+            about: "The through port's extinction, off resonance over on it, against the input coupling as a share of the critical coupling: the ring's round-trip loss, the drop coupler's counted in. Below 1 the ring is under-coupled, above 1 over-coupled; the dashed curve is the small-loss limit, the same for every ring.",
+            computed_by: "circuit::components::AllPassRing and AddDropRing: extremes, q_factor (Bogaerts et al. 2011, Eqs. 11, 12, 14 and 20)",
+            params: vec![
+                param(
+                    "radius",
+                    "Radius $R$",
+                    "um",
+                    (2.0, 200.0, 10.0),
+                    0.1,
+                    true,
+                    "The ring's radius.",
+                ),
+                param(
+                    "loss",
+                    "Loss $\\alpha$",
+                    "dB/cm",
+                    (0.1, 50.0, 3.0),
+                    0.1,
+                    false,
+                    "The ring waveguide's propagation loss.",
+                ),
+                param(
+                    "drop",
+                    "Drop coupling $\\kappa_2^2$",
+                    "",
+                    (0.0, 0.5, 0.0),
+                    0.001,
+                    false,
+                    "The drop bus's coupler; 0 leaves an all-pass ring.",
+                ),
+                param(
+                    "coupling",
+                    "Input coupling $\\kappa_1^2$",
+                    "",
+                    (1e-4, 0.5, 0.01),
+                    1e-4,
+                    true,
+                    "The ring whose figures are listed: its input coupler.",
+                ),
+            ],
+        },
+        ChartSpec {
+            id: "ring-q-length",
+            title: "Q at critical coupling against the ring's length",
+            about: "An all-pass ring held at critical coupling as its round trip grows (Bogaerts et al.'s Fig. 5): the loaded Q by the Lorentzian formula, measured as λ/FWHM on the ring's own spectrum, and from how fast the stored energy decays, beside the intrinsic Q of the ring alone.",
+            computed_by: "circuit::components::AllPassRing: q_factor, finesse, s_matrix, resonance, fsr, extremes (Bogaerts et al. 2011, Eqs. 7, 19 and 20)",
+            params: vec![
+                param(
+                    "loss",
+                    "Loss $\\alpha$",
+                    "dB/cm",
+                    (1.0, 50.0, 2.7),
+                    0.1,
+                    false,
+                    "The ring waveguide's propagation loss.",
+                ),
+                param(
+                    "fixed",
+                    "Loss per round trip $A_0$",
+                    "dB",
+                    (0.0, 0.5, 0.075),
+                    0.005,
+                    false,
+                    "The bends' and coupler's loss, the same whatever the length (Bogaerts et al.'s Eq. 19: 0.04 dB and 0.035 dB).",
+                ),
+                param(
+                    "group_index",
+                    "Group index $n_g$",
+                    "",
+                    (2.0, 5.0, 4.3),
+                    0.01,
+                    false,
+                    "The waveguide's group index: 4.30, as Bogaerts et al. measured (their Fig. 13).",
+                ),
+            ],
+        },
+        ChartSpec {
+            id: "ring-identify",
+            title: "Two rings, one power spectrum",
+            about: "An all-pass ring and its twin, the ring with its coupler's r and its round trip's a exchanged: their through powers are the same at every wavelength, their through phases are not. Below, what the power spectrum's Q and depth give (two readings), and what vector fitting the complex field gives (one).",
+            computed_by: "circuit::components::AllPassRing: s_matrix, resonance, fsr, finesse, q_factor, extremes; compact::fit::vector_fit (Gustavsen and Semlyen 1999)",
+            params: vec![
+                param(
+                    "radius",
+                    "Radius $R$",
+                    "um",
+                    (2.0, 200.0, 10.0),
+                    0.1,
+                    true,
+                    "The ring's radius.",
+                ),
+                param(
+                    "coupling",
+                    "Coupling $\\kappa^2$",
+                    "",
+                    (1e-4, 0.5, 0.01),
+                    1e-4,
+                    true,
+                    "The ring's coupler: the share of the power it crosses over.",
+                ),
+                param(
+                    "loss",
+                    "Loss $\\alpha$",
+                    "dB/cm",
+                    (0.1, 50.0, 3.0),
+                    0.1,
+                    false,
+                    "The ring waveguide's propagation loss.",
                 ),
             ],
         },
@@ -444,6 +558,9 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
             at("window"),
         ),
         "ring-coupling" => ring_coupling(at("radius"), at("loss"), at("drop")),
+        "ring-extinction" => ring_extinction(at("radius"), at("loss"), at("drop"), at("coupling")),
+        "ring-q-length" => ring_q_length(at("loss"), at("fixed"), at("group_index")),
+        "ring-identify" => ring_identify(at("radius"), at("coupling"), at("loss")),
         "bragg-reflectance" => bragg_reflectance(
             &Stack {
                 high: at("high"),
@@ -469,7 +586,15 @@ pub fn sig(x: f64, digits: usize) -> String {
     if x == 0.0 {
         return "0".to_owned();
     }
-    let e = x.abs().log10().floor() as i32;
+    let mut e = x.abs().log10().floor() as i32;
+    // a mantissa that rounds up to 10 at these digits belongs to the next power: 9.99999e-3 is
+    // 1.000×10⁻², not 10.000×10⁻³
+    let rounded: f64 = format!("{:.*e}", digits.saturating_sub(1), x)
+        .parse()
+        .unwrap_or(x);
+    if rounded.abs() >= 10f64.powi(e + 1) {
+        e += 1;
+    }
     if (-2..4).contains(&e) {
         let decimals = (digits as i32 - 1 - e).max(0) as usize;
         format!("{x:.decimals$}")
@@ -853,6 +978,535 @@ fn ring_coupling(radius: f64, loss: f64, drop: f64) -> photonoxide::Result<Chart
     })
 }
 
+/// The largest extinction the extinction chart draws, dB: at critical coupling it is infinite.
+const EXTINCTION_CAP: f64 = 40.0;
+
+/// The through port's extinction, off over on resonance, in dB (infinite at critical coupling).
+fn extinction(ring: &Ring, w: Wavelength, values: &[f64]) -> photonoxide::Result<f64> {
+    let (off, on, _) = ring.extremes(w, values)?;
+    Ok(10.0 * (off / on).log10())
+}
+
+/// The input coupling on the other side of critical coupling with the same extinction as
+/// `kappa2`, by bisection on the library's extremes: the extinction rises to infinity at `crit`
+/// and falls on either side.
+fn same_extinction(
+    ring: &Ring,
+    w: Wavelength,
+    length: f64,
+    drop: f64,
+    kappa2: f64,
+    crit: f64,
+) -> photonoxide::Result<Option<f64>> {
+    let target = extinction(ring, w, &ring.values(length, kappa2, drop))?;
+    if !target.is_finite() {
+        return Ok(Some(crit));
+    }
+    let at = |k: f64| extinction(ring, w, &ring.values(length, k, drop));
+    // the other side: (crit, 1) above, (0, crit) below
+    let (mut near, mut far) = if kappa2 < crit {
+        (crit, 1.0 - 1e-12)
+    } else {
+        (crit, 1e-15)
+    };
+    if at(far)? > target {
+        return Ok(None);
+    }
+    for _ in 0..200 {
+        let mid = (near + far) / 2.0;
+        if at(mid)? > target {
+            near = mid;
+        } else {
+            far = mid;
+        }
+    }
+    Ok(Some((near + far) / 2.0))
+}
+
+fn ring_extinction(
+    radius: f64,
+    loss: f64,
+    drop: f64,
+    coupling: f64,
+) -> photonoxide::Result<ChartData> {
+    let ring = Ring::new(loss, 4.2, drop)?;
+    let length = TAU * radius;
+    let w = Wavelength::um(RING_CENTRE)?;
+    let a = ring.single_pass(w, length);
+    let crit = critical(a, drop);
+    let cap = |db: f64| {
+        if db.is_finite() {
+            db.min(EXTINCTION_CAP)
+        } else {
+            EXTINCTION_CAP
+        }
+    };
+    let mut exact = Vec::new();
+    let mut limit = Vec::new();
+    for k in 1..=400 {
+        let x = 4.0 * f64::from(k) / 400.0;
+        let kappa2 = x * crit;
+        if kappa2 >= 1.0 {
+            break;
+        }
+        exact.push([
+            x,
+            cap(extinction(&ring, w, &ring.values(length, kappa2, drop))?),
+        ]);
+        // small losses: T_on = ((1 − x)/(1 + x))², T_off = 1 (derived in the lesson)
+        limit.push([x, cap(20.0 * ((1.0 + x) / (1.0 - x).abs()).log10())]);
+    }
+    let values = ring.values(length, coupling, drop);
+    let mine = extinction(&ring, w, &values)?;
+    let other = same_extinction(&ring, w, length, drop, coupling, crit)?;
+    let mut figures = vec![
+        figure(
+            "Critical coupling $\\kappa_c^2$",
+            crit,
+            4,
+            "",
+            "$1 - (1 - \\kappa_2^2) a^2$: what a round trip loses, the drop coupler's share counted",
+        ),
+        figure(
+            "This ring's $\\kappa_1^2 / \\kappa_c^2$",
+            coupling / crit,
+            4,
+            "",
+            regime(coupling, crit),
+        ),
+        Figure {
+            label: "Its extinction".to_owned(),
+            value: mine.is_finite().then_some(mine),
+            text: if mine > 99.0 || !mine.is_finite() {
+                "> 99".to_owned()
+            } else {
+                sig(mine, 3)
+            },
+            unit: "dB".to_owned(),
+            note: "$T_\\text{off} / T_\\text{on}$".to_owned(),
+        },
+        figure("Its loaded $Q$", ring.q_factor(w, &values)?, 4, "", ""),
+    ];
+    match other {
+        Some(k) => {
+            figures.push(figure(
+                "The same extinction, other side: $\\kappa_1^2$",
+                k,
+                4,
+                "",
+                &format!("$\\kappa_1^2/\\kappa_c^2$ = {}", sig(k / crit, 4)),
+            ));
+            figures.push(figure(
+                "The other's loaded $Q$",
+                ring.q_factor(w, &ring.values(length, k, drop))?,
+                4,
+                "",
+                "the width tells the two apart",
+            ));
+        }
+        None => figures.push(Figure {
+            label: "The same extinction, other side".to_owned(),
+            value: None,
+            text: "none".to_owned(),
+            unit: String::new(),
+            note: "no coupling up to 1 reaches it".to_owned(),
+        }),
+    }
+    Ok(ChartData {
+        x_label: "coupling over round-trip loss, κ₁²/κc²".to_owned(),
+        x_length: false,
+        y_label: "through extinction (dB)".to_owned(),
+        y_range: Some([-1.0, EXTINCTION_CAP + 2.0]),
+        series: vec![
+            Curve {
+                label: "this ring".to_owned(),
+                points: exact,
+                dashed: false,
+            },
+            Curve {
+                label: "small-loss limit: 20 log₁₀((1 + x)/|1 − x|)".to_owned(),
+                points: limit,
+                dashed: true,
+            },
+        ],
+        marker: Some(1.0),
+        figures,
+        note: format!(
+            "Closed forms, exact: no grid. A silicon wire, n_eff {RING_INDEX}, n_g 4.2 at {RING_CENTRE} µm. Extinctions above {EXTINCTION_CAP} dB are drawn at {EXTINCTION_CAP} dB."
+        ),
+    })
+}
+
+/// The FWHM (µm) of the dip of `through` power around the resonance `centre`, at half the
+/// depth between it and `top`, by bisection on each side within a quarter of `fsr`; the
+/// ring_q_factor example's measurement.
+fn measured_fwhm(
+    through: impl Fn(f64) -> photonoxide::Result<f64>,
+    centre: f64,
+    top: f64,
+    fsr: f64,
+) -> photonoxide::Result<f64> {
+    let half = (top + through(centre)?) / 2.0;
+    let mut width = 0.0;
+    for sign in [-1.0, 1.0] {
+        let (mut near, mut far) = (0.0, fsr / 4.0);
+        for _ in 0..60 {
+            let mid = (near + far) / 2.0;
+            if through(centre + sign * mid)? < half {
+                near = mid;
+            } else {
+                far = mid;
+            }
+        }
+        width += (near + far) / 2.0;
+    }
+    Ok(width)
+}
+
+/// The length (µm) in [lo, hi] where `f` peaks, by golden-section search on a log scale: the
+/// ring_q_factor example's search.
+fn peak(f: impl Fn(f64) -> f64, lo: f64, hi: f64) -> f64 {
+    let g = (5f64.sqrt() - 1.0) / 2.0;
+    let (mut lo, mut hi) = (lo.ln(), hi.ln());
+    let (mut a, mut b) = (hi - g * (hi - lo), lo + g * (hi - lo));
+    let (mut fa, mut fb) = (f(a.exp()), f(b.exp()));
+    while hi - lo > 1e-9 {
+        if fa > fb {
+            hi = b;
+            (b, fb) = (a, fa);
+            a = hi - g * (hi - lo);
+            fa = f(a.exp());
+        } else {
+            lo = a;
+            (a, fa) = (b, fb);
+            b = lo + g * (hi - lo);
+            fb = f(b.exp());
+        }
+    }
+    ((lo + hi) / 2.0).exp()
+}
+
+/// An all-pass ring held at critical coupling as its length changes: Bogaerts et al.'s Fig. 5.
+struct Critical {
+    ring: AllPassRing,
+    w: Wavelength,
+    group_index: f64,
+    fixed: f64,
+}
+
+impl Critical {
+    /// The single-pass amplitude over `length` µm, the fixed loss included.
+    fn a(&self, length: f64) -> f64 {
+        (-self.ring.guide().propagation(self.w).im * length).exp() * 10f64.powf(-self.fixed / 20.0)
+    }
+
+    /// `[length, κ²]` at critical coupling, r = a.
+    fn values(&self, length: f64) -> [f64; 2] {
+        [length, 1.0 - self.a(length).powi(2)]
+    }
+
+    /// The loaded Q by Bogaerts et al.'s Eq. 20.
+    fn loaded(&self, length: f64) -> photonoxide::Result<f64> {
+        self.ring.q_factor(self.w, &self.values(length))
+    }
+
+    /// The loaded Q measured on the spectrum: the resonance over its FWHM at half depth.
+    fn measured(&self, length: f64) -> photonoxide::Result<f64> {
+        let values = self.values(length);
+        let centre = self.ring.resonance(self.w, length)?;
+        let fsr = self.ring.fsr(centre, length)?;
+        let (top, _) = self.ring.extremes(centre, &values)?;
+        let through = |x: f64| -> photonoxide::Result<f64> {
+            Ok(self.ring.s_matrix(Wavelength::um(x)?, &values)?.power(1, 0))
+        };
+        Ok(centre.to_um() / measured_fwhm(through, centre.to_um(), top, fsr)?)
+    }
+
+    /// The Q of the stored energy's decay: (ra)² per round trip of n_g L/c, so
+    /// Q = π n_g L/(λ |ln ra|), with ra = a² at critical coupling.
+    fn decay(&self, length: f64) -> f64 {
+        PI * self.group_index * length / (self.w.to_um() * (self.a(length).powi(2)).ln().abs())
+    }
+}
+
+/// The longest round trip the chart draws, µm: the ring component's own limit.
+const LONGEST: f64 = 1e5;
+
+fn ring_q_length(loss: f64, fixed: f64, group_index: f64) -> photonoxide::Result<ChartData> {
+    let w = Wavelength::um(RING_CENTRE)?;
+    let guide = Dispersion::new(w, RING_INDEX, group_index).with_loss(loss);
+    let c = Critical {
+        ring: AllPassRing::new(guide)?.with_round_trip_loss(fixed)?,
+        w,
+        group_index,
+        fixed,
+    };
+    let best = peak(|l| c.loaded(l).unwrap_or(f64::NAN), 10.0, LONGEST);
+    let upto = (3.0 * best).min(LONGEST);
+    let (mut eq20, mut spectrum, mut decay, mut intrinsic) =
+        (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+    for k in 1..=150 {
+        let l = upto * f64::from(k) / 150.0;
+        let mm = l * 1e-3;
+        eq20.push([mm, c.loaded(l)? / 1e5]);
+        spectrum.push([mm, c.measured(l)? / 1e5]);
+        decay.push([mm, c.decay(l) / 1e5]);
+        intrinsic.push([mm, c.ring.q_factor(w, &[l, 0.0])? / 1e5]);
+    }
+    let long = PI * group_index / (RING_CENTRE * 2.0 * guide.propagation(w).im);
+    Ok(ChartData {
+        x_label: "round trip L (mm)".to_owned(),
+        x_length: false,
+        y_label: "Q / 10⁵".to_owned(),
+        y_range: None,
+        series: vec![
+            Curve {
+                label: "loaded, Eq. 20: Lorentzian λ/FWHM".to_owned(),
+                points: eq20,
+                dashed: false,
+            },
+            Curve {
+                label: "loaded, λ/FWHM on the spectrum".to_owned(),
+                points: spectrum,
+                dashed: false,
+            },
+            Curve {
+                label: "loaded, energy decay: πn_gL/(λ|ln ra|)".to_owned(),
+                points: decay,
+                dashed: true,
+            },
+            Curve {
+                label: "intrinsic, Eq. 20 with κ² = 0".to_owned(),
+                points: intrinsic,
+                dashed: true,
+            },
+        ],
+        marker: Some(best * 1e-3),
+        figures: vec![
+            figure(
+                "Eq. 20 peaks at $L$",
+                best * 1e-3,
+                4,
+                "mm",
+                "golden-section search",
+            ),
+            figure("Loaded $Q$ there, Eq. 20", c.loaded(best)?, 5, "", ""),
+            figure(
+                "The same ring, $\\lambda$/FWHM on its spectrum",
+                c.measured(best)?,
+                5,
+                "",
+                "",
+            ),
+            figure(
+                "The same ring, from its energy's decay",
+                c.decay(best),
+                5,
+                "",
+                "$\\pi n_g L / (\\lambda \\lvert\\ln ra\\rvert)$",
+            ),
+            figure(
+                "Finesse there",
+                c.ring.finesse(w, &c.values(best))?,
+                3,
+                "",
+                "the line is Lorentzian only when this is large",
+            ),
+            figure(
+                "Decay $Q$ of a long ring",
+                long,
+                4,
+                "",
+                "$\\pi n_g / (\\lambda \\alpha)$: half the waveguide's own",
+            ),
+        ],
+        note: format!(
+            "Closed forms and the ring's spectrum, exact: no grid. Critical coupling (r = a) at every length; n_eff {RING_INDEX} at {RING_CENTRE} µm; Q of the resonance nearest it."
+        ),
+    })
+}
+
+/// What vector fitting a ring's through field tells: from the pole nearest the resonance and its
+/// residue, ra and r, so κ² and the loss in dB/cm over a round trip of `length` µm. The poles
+/// are where r a e^(iφ) = 1, Re s = ln(ra)/(n_g L), each with the residue −(1/r − r)/(n_g L)
+/// (docs/methods/compact.md, the all-pass ring).
+fn fitted_ring(
+    ring: &AllPassRing,
+    values: &[f64],
+    centre: Wavelength,
+    window: f64,
+) -> photonoxide::Result<(f64, f64)> {
+    use photonoxide::compact::fit::{Options, vector_fit};
+    use photonoxide::compact::model::laplace;
+    let length = values[0];
+    let mut s = Vec::with_capacity(201);
+    let mut t = Vec::with_capacity(201);
+    for k in -100..=100 {
+        let w = Wavelength::um(centre.to_um() + window * f64::from(k) / 100.0)?;
+        s.push(laplace(w));
+        t.push(ring.s_matrix(w, values)?[(1, 0)]);
+    }
+    let fit = vector_fit(&s, &[t], &Options::new(4))?;
+    // the resonance's pole: the term that dominates the response there (a surplus pole the fit
+    // doesn't need can sit nearer, with a residue near zero)
+    let at = laplace(centre);
+    let weight = |(p, c): (&c64, &c64)| (c / (at - p)).norm();
+    let (pole, residue) = fit
+        .poles
+        .iter()
+        .zip(&fit.residues[0])
+        .max_by(|p, q| weight(*p).total_cmp(&weight(*q)))
+        .ok_or_else(|| invalid("the fit", "no poles"))?;
+    let scale = centre.to_um().powi(2) / ring.fsr(centre, length)?; // n_g L
+    let ra = (pole.re * scale).exp();
+    let u = residue.norm() * scale; // 1/r − r
+    let r = (-u + (u * u + 4.0).sqrt()) / 2.0;
+    let a = ra / r;
+    Ok((1.0 - r * r, -20.0 * a.log10() / (length * 1e-4)))
+}
+
+/// A phase curve unwrapped: no jump between neighbours larger than π.
+fn unwrapped(phases: &[[f64; 2]]) -> Vec<[f64; 2]> {
+    let mut out: Vec<[f64; 2]> = Vec::with_capacity(phases.len());
+    let mut shift = 0.0;
+    for (k, p) in phases.iter().enumerate() {
+        if k > 0 {
+            let step = p[1] - phases[k - 1][1];
+            if step > PI {
+                shift -= TAU;
+            } else if step < -PI {
+                shift += TAU;
+            }
+        }
+        out.push([p[0], p[1] + shift]);
+    }
+    out
+}
+
+fn ring_identify(radius: f64, coupling: f64, loss: f64) -> photonoxide::Result<ChartData> {
+    let length = TAU * radius;
+    let w = Wavelength::um(RING_CENTRE)?;
+    let guide = Dispersion::new(w, RING_INDEX, 4.2).with_loss(loss);
+    let ring = AllPassRing::new(guide)?;
+    let values = [length, coupling];
+    let r = (1.0 - coupling).sqrt();
+    let a = (-guide.propagation(w).im * length).exp();
+    // the twin: its coupler keeps a, its round trip keeps r
+    let twin_loss = -20.0 * r.log10() / (length * 1e-4);
+    let twin = AllPassRing::new(Dispersion::new(w, RING_INDEX, 4.2).with_loss(twin_loss))?;
+    let twin_values = [length, 1.0 - a * a];
+
+    let centre = ring.resonance(w, length)?;
+    let fsr = ring.fsr(centre, length)?;
+    let fwhm = ring.fwhm(centre, &values)?;
+    let window = (6.0 * fwhm).min(0.45 * fsr);
+    let mut curves: [Vec<[f64; 2]>; 4] = Default::default();
+    for k in -300..=300 {
+        let x = window * f64::from(k) / 300.0;
+        let at = Wavelength::um(centre.to_um() + x)?;
+        let pm = x * 1e6;
+        let t = ring.s_matrix(at, &values)?[(1, 0)];
+        let u = twin.s_matrix(at, &twin_values)?[(1, 0)];
+        curves[0].push([pm, t.norm_sqr()]);
+        curves[1].push([pm, u.norm_sqr()]);
+        curves[2].push([pm, t.arg()]);
+        curves[3].push([pm, u.arg()]);
+    }
+    let [power, twin_power, phase, twin_phase] = curves;
+    let over_pi = |c: Vec<[f64; 2]>| {
+        unwrapped(&c)
+            .into_iter()
+            .map(|p| [p[0], p[1] / PI])
+            .collect()
+    };
+
+    // what the power spectrum gives: ra from the finesse, |r − a| from the depth
+    let finesse = ring.finesse(centre, &values)?;
+    let q = ring.q_factor(centre, &values)?;
+    let (off, on) = ring.extremes(centre, &values)?;
+    let f = finesse / PI; // √p/(1 − p) with p = ra
+    let p = ((-1.0 + (1.0 + 4.0 * f * f).sqrt()) / (2.0 * f)).powi(2);
+    let d = on.sqrt() * (1.0 - p);
+    let sum = (d * d + 4.0 * p).sqrt();
+    let (big, small) = ((sum + d) / 2.0, (sum - d) / 2.0);
+    let db_per_cm = |amplitude: f64| -20.0 * amplitude.log10() / (length * 1e-4);
+    // under-coupled: r the larger, a the smaller; over-coupled: the other way
+    let reading = |r: f64, a: f64| (1.0 - r * r, db_per_cm(a));
+    let (under, over) = (reading(big, small), reading(small, big));
+    let fitted = fitted_ring(&ring, &values, centre, window)?;
+    let fitted_twin = fitted_ring(&twin, &twin_values, centre, window)?;
+
+    let pair = |label: &str, (k2, db): (f64, f64), note: &str| Figure {
+        label: format!("{label}: $\\kappa^2$ · loss"),
+        value: Some(k2),
+        text: format!("{} · {}", sig(k2, 4), sig(db, 4)),
+        unit: "dB/cm".to_owned(),
+        note: note.to_owned(),
+    };
+    let crit = 1.0 - a * a;
+    Ok(ChartData {
+        x_label: "detuning from resonance (pm)".to_owned(),
+        x_length: false,
+        y_label: "through power, and its phase / π".to_owned(),
+        y_range: None,
+        series: vec![
+            Curve {
+                label: "power, this ring".to_owned(),
+                points: power,
+                dashed: false,
+            },
+            Curve {
+                label: "power, its twin".to_owned(),
+                points: twin_power,
+                dashed: true,
+            },
+            Curve {
+                label: "phase / π, this ring".to_owned(),
+                points: over_pi(phase),
+                dashed: false,
+            },
+            Curve {
+                label: "phase / π, its twin".to_owned(),
+                points: over_pi(twin_phase),
+                dashed: true,
+            },
+        ],
+        marker: Some(0.0),
+        figures: vec![
+            figure("Loaded $Q$", q, 4, "", "Eq. 20"),
+            figure(
+                "Extinction",
+                10.0 * (off / on).log10(),
+                3,
+                "dB",
+                "the same for both",
+            ),
+            pair("This ring", (coupling, loss), regime(coupling, crit)),
+            pair(
+                "Its twin",
+                (1.0 - a * a, twin_loss),
+                regime(1.0 - a * a, 1.0 - r * r),
+            ),
+            pair("From the power: under-coupled reading", under, "$r > a$"),
+            pair("From the power: over-coupled reading", over, "$r < a$"),
+            pair(
+                "From the field by vector fitting: this ring",
+                fitted,
+                "the pole gives $ra$, its residue $r$",
+            ),
+            pair(
+                "The same, its twin",
+                fitted_twin,
+                "201 wavelengths, 4 poles",
+            ),
+        ],
+        note: format!(
+            "Closed forms and vector fitting, exact: no grid. n_eff {RING_INDEX}, n_g 4.2 at {RING_CENTRE} µm; the resonance nearest it, ± {} pm.",
+            sig(window * 1e6, 3)
+        ),
+    })
+}
+
 /// A quarter-wave stack: N pairs of high and low layers, high first.
 struct Stack {
     high: f64,
@@ -1131,7 +1785,7 @@ mod tests {
                     p.key
                 );
                 assert!(
-                    ["", "um", "nm", "dB/cm"].contains(&p.unit),
+                    ["", "um", "nm", "dB/cm", "dB"].contains(&p.unit),
                     "{}.{}",
                     s.id,
                     p.key
@@ -1346,6 +2000,237 @@ mod tests {
         close(add_drop.marker.unwrap(), 1.0 - 0.98 * a * a, 1e-12);
     }
 
+    /// The extinction is the library's off-over-on through power, against κ₁² over the critical
+    /// coupling; the other side's coupling has the same extinction, and a different Q.
+    #[test]
+    fn ring_extinction_is_the_rings_through_extremes() {
+        let w = Wavelength::um(1.55).unwrap();
+        for drop in [0.0, 0.02] {
+            let data = evaluate(
+                "ring-extinction",
+                &with(&[("radius", 20.0), ("loss", 5.0), ("drop", drop)]),
+            )
+            .unwrap();
+            let guide = Dispersion::new(w, 2.4, 4.2).with_loss(5.0);
+            let length = TAU * 20.0;
+            let a = 10f64.powf(-5.0 * length * 1e-4 / 20.0);
+            let crit = 1.0 - (1.0 - drop) * a * a;
+            close(fig(&data, "Critical").value.unwrap(), crit, 1e-12);
+            assert_eq!(data.marker, Some(1.0));
+            let ratio = |k2: f64| {
+                if drop == 0.0 {
+                    let (off, on) = AllPassRing::new(guide)
+                        .unwrap()
+                        .extremes(w, &[length, k2])
+                        .unwrap();
+                    off / on
+                } else {
+                    let [off, on, ..] = AddDropRing::new(guide)
+                        .unwrap()
+                        .extremes(w, &[length, k2, drop])
+                        .unwrap();
+                    off / on
+                }
+            };
+            for p in data.series[0].points.iter().step_by(37) {
+                let db = 10.0 * ratio(p[0] * crit).log10();
+                assert_eq!(p[1], db.min(EXTINCTION_CAP), "{drop}: {p:?}");
+            }
+            // the small-loss limit is close away from x = 1, to first order in the losses, κc² and κ₁² = x κc²
+            for (e, l) in data.series[0].points.iter().zip(&data.series[1].points) {
+                if (e[0] - 1.0).abs() > 0.2 {
+                    assert!(
+                        (e[1] / l[1] - 1.0).abs() < (1.0 + e[0]) * crit,
+                        "{drop}: {e:?} against {l:?}"
+                    );
+                }
+            }
+            // the coupling on the other side has the same extinction
+            let other = fig(&data, "The same extinction").value.unwrap();
+            assert!(
+                (other - crit) * (0.01 - crit) < 0.0,
+                "{drop}: {other} on the same side as 0.01 of {crit}"
+            );
+            close(
+                10.0 * ratio(other).log10(),
+                fig(&data, "Its extinction").value.unwrap(),
+                1e-9,
+            );
+            // the more strongly coupled ring has the wider line, the lower Q
+            let (q, q_other) = (
+                fig(&data, "Its loaded").value.unwrap(),
+                fig(&data, "The other's").value.unwrap(),
+            );
+            assert!((q_other - q) * (other - 0.01) < 0.0, "{q} and {q_other}");
+        }
+    }
+
+    /// The figures of the ring_q_factor example's committed output, as it printed them: Eq. 20's
+    /// peak (mm), the loaded Q there, and the Q measured on the spectrum.
+    fn ring_q_factor_output() -> (f64, f64, f64) {
+        let text = include_str!("../../../examples/output/ring_q_factor.txt");
+        let after = |key: &str, line: &str| -> f64 {
+            let tail = &line[line.find(key).unwrap() + key.len()..];
+            let end = tail.find([' ', ',']).unwrap_or(tail.len());
+            tail[..end].parse().unwrap()
+        };
+        let peak = text
+            .lines()
+            .find(|l| l.contains("all-pass: Q peaks"))
+            .unwrap();
+        let spectrum = text.lines().find(|l| l.contains("its spectrum")).unwrap();
+        (
+            after("peaks at ", peak),
+            after("mm, ", peak),
+            after("), Q ", spectrum),
+        )
+    }
+
+    /// At its defaults the chart is Bogaerts et al.'s Fig. 5 as ring_q_factor reproduces it:
+    /// the same peak, the same Q there and the same Q measured on the spectrum; each curve the
+    /// library's.
+    #[test]
+    fn ring_q_length_is_the_ring_q_factor_example() {
+        let data = evaluate("ring-q-length", &none()).unwrap();
+        let (peak, q, measured) = ring_q_factor_output();
+        let at = |label: &str| fig(&data, label).value.unwrap();
+        assert!(
+            (at("Eq. 20 peaks") - peak).abs() <= 0.0005,
+            "{}",
+            at("Eq. 20")
+        );
+        assert!((at("Loaded $Q$ there") / q - 1.0).abs() < 1e-4);
+        assert!((at("The same ring, $\\lambda$/FWHM") / measured - 1.0).abs() < 1e-4);
+        let w = Wavelength::um(1.55).unwrap();
+        let ring = AllPassRing::new(Dispersion::new(w, 2.4, 4.3).with_loss(2.7))
+            .unwrap()
+            .with_round_trip_loss(0.075)
+            .unwrap();
+        let a = |l: f64| 10f64.powf(-(2.7 * l * 1e-4 + 0.075) / 20.0);
+        let (eq20, decay, intrinsic) = (&data.series[0], &data.series[2], &data.series[3]);
+        for k in (0..eq20.points.len()).step_by(23) {
+            let l = eq20.points[k][0] * 1e3;
+            let values = [l, 1.0 - a(l) * a(l)];
+            close(
+                eq20.points[k][1] * 1e5,
+                ring.q_factor(w, &values).unwrap(),
+                1e-12,
+            );
+            close(
+                intrinsic.points[k][1] * 1e5,
+                ring.q_factor(w, &[l, 0.0]).unwrap(),
+                1e-12,
+            );
+            // the decay Q from (ra)² per round trip
+            close(
+                decay.points[k][1] * 1e5,
+                PI * 4.3 * l / (1.55 * (a(l) * a(l)).ln().abs()),
+                1e-9,
+            );
+        }
+        // the three loaded Q's agree where the finesse is high, the shortest rings
+        let first = |c: &Curve| c.points[0][1];
+        assert!((first(&data.series[1]) / first(eq20) - 1.0).abs() < 2e-3);
+        assert!((first(decay) / first(eq20) - 1.0).abs() < 2e-3);
+        // the decay Q tends to π n_g/(λ α) for a long ring
+        let alpha = 2.7 * 1e-4 * std::f64::consts::LN_10 / 10.0;
+        close(at("Decay $Q$"), PI * 4.3 / (1.55 * alpha), 1e-12);
+        assert!(decay.points.last().unwrap()[1] * 1e5 < at("Decay $Q$"));
+        // Eq. 20 peaks inside the chart; the measured and the decay Q keep rising
+        assert!(eq20.points.last().unwrap()[1] * 1e5 < at("Loaded $Q$ there"));
+        let rising = |c: &Curve| c.points.windows(2).all(|w| w[1][1] >= w[0][1]);
+        assert!(rising(&data.series[1]) && rising(decay));
+    }
+
+    /// The twin's power is the ring's at every wavelength and its phase isn't; the power gives
+    /// two readings, one of them the ring; vector fitting the field gives each ring back.
+    #[test]
+    fn ring_identify_tells_the_twins_apart_by_their_field() {
+        for (radius, coupling, loss) in [(10.0, 0.01, 3.0), (10.0, 1e-3, 3.0), (50.0, 0.05, 1.0)] {
+            let data = evaluate(
+                "ring-identify",
+                &with(&[("radius", radius), ("coupling", coupling), ("loss", loss)]),
+            )
+            .unwrap();
+            let length = TAU * radius;
+            let w = Wavelength::um(1.55).unwrap();
+            let ring = AllPassRing::new(Dispersion::new(w, 2.4, 4.2).with_loss(loss)).unwrap();
+            let res = ring.resonance(w, length).unwrap();
+            for p in data.series[0].points.iter().step_by(29) {
+                let at = Wavelength::um(res.to_um() + p[0] * 1e-6).unwrap();
+                close(
+                    p[1],
+                    ring.s_matrix(at, &[length, coupling]).unwrap().power(1, 0),
+                    1e-9,
+                );
+            }
+            for (t, u) in data.series[0].points.iter().zip(&data.series[1].points) {
+                assert!((t[1] - u[1]).abs() < 1e-12, "{t:?} against {u:?}");
+            }
+            // one phase winds a whole turn across the resonance, the other comes back
+            let swing = |c: &Curve| c.points.last().unwrap()[1] - c.points[0][1];
+            let (mine, twin) = (swing(&data.series[2]), swing(&data.series[3]));
+            assert!(
+                (mine.abs() - 2.0).abs() < 0.2 && twin.abs() < 0.2
+                    || (twin.abs() - 2.0).abs() < 0.2 && mine.abs() < 0.2,
+                "{mine} and {twin}"
+            );
+            let a = 10f64.powf(-loss * length * 1e-4 / 20.0);
+            let twin_loss = -20.0 * (1.0 - coupling).sqrt().log10() / (length * 1e-4);
+            let truth = [(coupling, loss), (1.0 - a * a, twin_loss)];
+            let read = |label: &str| {
+                let f = fig(&data, label);
+                let db: f64 = f
+                    .text
+                    .split(" · ")
+                    .nth(1)
+                    .unwrap()
+                    .trim_end_matches(" dB/cm")
+                    .parse()
+                    .unwrap();
+                (f.value.unwrap(), db)
+            };
+            let same = |(k, db): (f64, f64), (k0, db0): (f64, f64), tol: f64| {
+                (k / k0 - 1.0).abs() < tol && (db / db0 - 1.0).abs() < tol
+            };
+            // the two power readings are the ring and its twin, in some order
+            let (under, over) = (
+                fig(&data, "From the power: under").value.unwrap(),
+                fig(&data, "From the power: over").value.unwrap(),
+            );
+            let mut readings = [under, over];
+            readings.sort_by(f64::total_cmp);
+            let mut couplings = [truth[0].0, truth[1].0];
+            couplings.sort_by(f64::total_cmp);
+            close(readings[0], couplings[0], 1e-6);
+            close(readings[1], couplings[1], 1e-6);
+            // the field's fit: each ring its own, to the four digits shown
+            assert!(
+                same(read("From the field"), truth[0], 1e-3),
+                "{:?}",
+                read("From the field")
+            );
+            assert!(
+                same(read("The same, its twin"), truth[1], 1e-3),
+                "{:?}",
+                read("The same, its twin")
+            );
+        }
+    }
+
+    /// The fit itself, to more digits than the chart shows.
+    #[test]
+    fn vector_fitting_a_ring_gives_its_coupling_and_loss() {
+        let w = Wavelength::um(1.55).unwrap();
+        let (length, coupling, loss) = (TAU * 10.0, 0.01, 3.0);
+        let ring = AllPassRing::new(Dispersion::new(w, 2.4, 4.2).with_loss(loss)).unwrap();
+        let res = ring.resonance(w, length).unwrap();
+        let fwhm = ring.fwhm(res, &[length, coupling]).unwrap();
+        let (k2, db) = fitted_ring(&ring, &[length, coupling], res, 6.0 * fwhm).unwrap();
+        close(k2, coupling, 1e-7);
+        close(db, loss, 1e-6);
+    }
+
     /// The validation case's stack (mode/multilayer-bragg): 8 pairs of 2.3 and 1.38 on 1.52,
     /// quarter waves at 550 nm; the period in nm, x in µm.
     #[test]
@@ -1437,5 +2322,11 @@ mod tests {
         assert_eq!(sig(134_130.0, 4), "1.341×10⁵");
         assert_eq!(sig(0.0004318, 4), "4.318×10⁻⁴");
         assert_eq!(sig(f64::INFINITY, 4), "∞");
+        assert_eq!(
+            sig(0.000_999_999_9, 4),
+            "1.000×10⁻³",
+            "rounded up to the next power"
+        );
+        assert_eq!(sig(9.999_999, 4), "10.00");
     }
 }
