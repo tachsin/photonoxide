@@ -43,12 +43,16 @@ fn complex_symmetric(n: usize) -> Sparse {
     Sparse::new(n, entries)
 }
 
-/// The k-th of a set of unrelated right-hand sides of n values.
+/// The k-th of a set of unrelated right-hand sides of n values, by the portable sine and cosine:
+/// the system's differ in the last bit between Linux, Windows and macOS, and a solve that needs
+/// nearly n iterations turns that into a different count (docs/methods/conventions.md).
 fn rhs(n: usize, k: usize) -> Vec<c64> {
     (0..n)
         .map(|r| {
             let t = (r * (k + 3) + 7 * k) as f64;
-            c64::new((0.37 * t).sin(), 0.3 * (0.11 * t + k as f64).cos())
+            let sin = crate::portable::sin_cos(0.37 * t).0;
+            let cos = crate::portable::sin_cos(0.11 * t + k as f64).1;
+            c64::new(sin, 0.3 * cos)
         })
         .collect()
 }
@@ -122,7 +126,11 @@ fn block_qmr_solves_a_nonsymmetric_block_to_its_tolerance() {
 #[test]
 fn one_right_hand_side_is_qmr() {
     // a block of one is QMR: the same Krylov space and the same quasi-minimal residual, so the
-    // same iterations and solution to rounding
+    // same iterations and solution to rounding, while the iterations stay well below n. The
+    // indefinite complex symmetric matrix needs about n of them: past n, where exact arithmetic
+    // would have stopped, both run on rounding (the Lanczos vectors lose their
+    // biorthogonality), and their counts drift apart by a few per cent, by a different amount
+    // on each system and right-hand side; there only the solutions are compared closely.
     let n = 300;
     for (a, symmetric) in [(nonsymmetric(n), false), (complex_symmetric(n), true)] {
         let b = rhs(n, 1);
@@ -139,9 +147,14 @@ fn one_right_hand_side_is_qmr() {
         } else {
             qmr(&a, &b, stop(1e-10, 5000)).unwrap()
         };
+        let allowed = if once.iterations < n / 2 {
+            1
+        } else {
+            once.iterations / 20
+        };
         assert!(
-            how.iterations.abs_diff(once.iterations) <= 1,
-            "{} against {}",
+            how.iterations.abs_diff(once.iterations) <= allowed,
+            "symmetric {symmetric}: {} against {}",
             how.iterations,
             once.iterations
         );
