@@ -132,7 +132,8 @@ or the committed report isn't the one the code writes. CI checks every example's
 | 0.1 – 0.3 | Units and materials, mode solvers, FDFD in 2D and 3D, the studio | ✅ released |
 | 0.4 – 0.4.3 | Components and circuits, compact models, a 3D preconditioner, multifrontal direct solves | ✅ released |
 | 0.5 FDTD | 2D and 3D, CPML, smoothing, sources, monitors, adjoints, a GPU kernel; solver backends loaded at run time | ✅ released |
-| 0.5.1 Many solves at once | Ports as a block, recycling across sweeps, contour-integral mode solvers, farming across processes | 🚧 next |
+| 0.5.1 Channels and backends | Nightly built from main, MUMPS, SuperLU and Accelerate, the backend chosen from benchmarks, every mode in a region | 🚧 next |
+| 0.5.2 Many solves at once | Ports as a block, recycling across sweeps, more contour-integral mode solvers, farming across processes | planned |
 | 0.6 Thermal and electro-optic | Heat, thermo-optic phase shifters, Pockels modulators, travelling-wave electrodes | planned |
 | 0.6.1 Nonlinear integrated optics | Transparency windows, phase matching, SHG, SFG, DFG, SPDC and FWM in waveguides, Kerr combs | planned |
 | 0.6.2 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states, loss budgets of quantum circuits | planned |

@@ -4,8 +4,9 @@ photonoxide is released milestone by milestone: a library whose public API can c
 the `photonoxide` program (the studio). [ROADMAP.md](ROADMAP.md) is the plan and the record of
 what is done; [CHANGELOG.md](CHANGELOG.md) has what each release changed. 0.1 to 0.5 and their
 patches are released, the latest 0.5.0 (finite-difference time-domain, FDTD, and solver backends
-loaded at run time); next is 0.5.1, many solves at once. The library's modules, each with a
-write-up in `docs/methods/`:
+loaded at run time); next is 0.5.1 (release channels, more backends, every mode
+in a region), then 0.5.2, many solves at once. The library's modules, each with a write-up in
+`docs/methods/`:
 
 - `units`, `material` (with `material::catalogue`), `geometry` (the kernel: regions, transforms,
   polygons, a spatial index), `expr` (expressions with units and parameters), `stack`, `raster`;
