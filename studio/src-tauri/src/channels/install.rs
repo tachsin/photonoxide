@@ -903,16 +903,15 @@ fn failed(dirs: &Dirs, file: &Path, id: &str, reason: String, reopen: bool) -> R
 
 /// Waits up to `within` for the program at `target` to be free, no process running from it.
 fn wait_free(target: &Path, within: Duration) -> bool {
+    // a program running on Windows can't be opened for writing (a sharing violation);
+    // elsewhere it always can. Any other refusal (read-only, no rights) is the installer's
+    // to meet, and to say
+    const SHARING_VIOLATION: i32 = 32;
     let deadline = Instant::now() + within;
     loop {
-        // a program running on Windows can't be opened for writing; elsewhere it always can
-        if std::fs::OpenOptions::new()
-            .append(true)
-            .open(target)
-            .is_ok()
-            || !target.exists()
-        {
-            return true;
+        match std::fs::OpenOptions::new().append(true).open(target) {
+            Err(e) if cfg!(windows) && e.raw_os_error() == Some(SHARING_VIOLATION) => {}
+            _ => return true,
         }
         if Instant::now() >= deadline {
             return false;
@@ -1156,14 +1155,14 @@ pub fn watch(dirs: &Dirs, file: &Path) -> Result<Decision, String> {
         match decide(&h, &id, now()) {
             Decision::Wait => std::thread::sleep(Duration::from_secs(1)),
             Decision::Done => {
-                log(
-                    dirs,
-                    &id,
-                    &format!(
-                        "watchdog done: {}",
-                        serde_json::to_string(&h.stage).unwrap_or_default()
-                    ),
-                );
+                let why = if h.started {
+                    "the new build started".to_owned()
+                } else if h.id != id {
+                    "a later install took over".to_owned()
+                } else {
+                    serde_json::to_string(&h.stage).unwrap_or_default()
+                };
+                log(dirs, &id, &format!("watchdog done: {why}"));
                 return Ok(Decision::Done);
             }
             Decision::Restore => {
@@ -1599,6 +1598,39 @@ mod tests {
             .collect();
         assert_eq!(left, ["5-6"]);
         assert!(third.copy.exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_installer_waits_only_for_a_program_in_use() {
+        let dir = temp("free");
+        let program = dir.join("photonoxide.exe");
+        std::fs::write(&program, "0.5.1").unwrap();
+        assert!(wait_free(&program, Duration::ZERO));
+        assert!(wait_free(&dir.join("gone.exe"), Duration::ZERO));
+        // read-only: the installer's to meet, at once
+        let mut permissions = std::fs::metadata(&program).unwrap().permissions();
+        permissions.set_readonly(true);
+        std::fs::set_permissions(&program, permissions.clone()).unwrap();
+        let begun = Instant::now();
+        assert!(wait_free(&program, Duration::from_secs(5)));
+        assert!(begun.elapsed() < Duration::from_secs(1));
+        #[allow(clippy::permissions_set_readonly_false)]
+        permissions.set_readonly(false);
+        std::fs::set_permissions(&program, permissions).unwrap();
+        // in use, as a program running from it is on Windows
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            let lock = std::fs::OpenOptions::new()
+                .read(true)
+                .share_mode(0)
+                .open(&program)
+                .unwrap();
+            assert!(!wait_free(&program, Duration::from_millis(300)));
+            drop(lock);
+            assert!(wait_free(&program, Duration::ZERO));
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 
