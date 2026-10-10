@@ -818,7 +818,7 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "fdfd3d/block-qmr-dependent",
-            title: r"Block QMR's deflation on the 50 nm coupler's curl-curl operator $A$ (41 472 unknowns): right-hand sides $b_1$, $b_2$ (two ports' mode sources), $b_1 + 2b_2$ and $A b_1$, to 1e-10, by the general form on $A$ and the symmetric one on its similarity: the largest of $|x_4 - b_1|$ and $|x_3 - (x_1 + 2x_2)|$ relative to the largest value (shown)",
+            title: r"Block QMR's deflation on the 50 nm coupler's curl-curl operator $A$ (41 472 unknowns): right-hand sides $b_1$, $b_2$ (two ports' mode sources), $b_1 + 2b_2$ and $A b_1$, to 1e-10, by the general form on $A$ and the symmetric one on its similarity: the largest difference of $x_4$ from $b_1$ and of $x_3$ from $x_1 + 2x_2$, relative to the largest value (shown)",
             tier: Tier::Analytic,
             source: r"Freund and Malhotra (doi:10.1016/S0024-3795(96)00529-0): $b_1 + 2b_2$ is deflated as the block starts and its system recovered as $x_1 + 2x_2$ (Eq. 4.18); $A b_1$ makes the first product dependent, and the system that weighs most in the combination left without a quasi-residual leaves the block and is recovered at the end (Eqs. 4.16–4.20); $A x = A b_1$ is solved by $b_1$; measured 6.2e-15",
             run: fdfd3d_block_qmr_dependent,

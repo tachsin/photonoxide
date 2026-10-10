@@ -326,7 +326,10 @@ fn a_blocks_products_and_triangular_solves_are_each_vectors_own() {
 #[test]
 fn freund_and_malhotras_example_7_1() {
     let (one, five) = super::example::iterations(5);
-    eprintln!("Example 7.1: {one} iterations for one right-hand side, {five} for five");
+    // theirs: 19 and 85, a ratio of 4.47 (their stopping test isn't legible in our copy; at
+    // 1e-6 this gives 14 and 63)
+    let ratio = five as f64 / one as f64;
+    assert!((ratio - 85.0 / 19.0).abs() < 0.5, "{one} and {five}");
 }
 
 #[test]
