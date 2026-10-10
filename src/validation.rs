@@ -1628,6 +1628,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::geometry::checks::cases());
     // and the contour solver's, every mode in a region
     cases.extend(crate::mode::region::checks::cases());
+    // and the shift-and-invert solver's restarts, many modes, and every guided mode
+    cases.extend(crate::eigen::checks::cases());
     cases
 }
 
