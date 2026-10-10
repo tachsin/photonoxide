@@ -18,9 +18,6 @@ on:
     # Mondays, after the Libraries workflow's installs
     - cron: '37 5 * * 1'
   workflow_dispatch:
-  # TEMPORARY: to try it before merging; removed in the next commit
-  push:
-    branches: [ci/library-releases]
 
 # reads the repository, and writes the two issues; no other token or secret
 permissions:
