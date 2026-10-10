@@ -250,7 +250,15 @@ What the comparison with PARDISO and MUMPS found ([docs/baselines.md](docs/basel
 
 *Moved on from 0.5:* a published cavity Q for the monitors; FDTD's stencil as FDFD's matrix-free operator (#250); the mode converter, the splitter-rotator and the ring on the paper's grids, and the crossing's band at 20 cells (#256).
 
-### 0.5.1: Many solves at once
+### 0.5.1: Channels, more backends, and every mode in a region
+
+What was ready after 0.5, released before 0.5.2's solves were all in.
+
+- [x] **The studio:** release channels, Stable and Nightly, Nightly built on the user's machine from main (#275); the Academy opens each lesson on a drawing of its device, in 2D and 3D (#274); the install guides, checked on clean machines (#184).
+- [x] **Backends:** `auto` chooses the direct solver from this machine's benchmark records (#183); MUMPS, sequential and block low-rank (#176), SuperLU (#177) and Apple Accelerate (#187) as direct solvers, loaded at run time.
+- [x] **Solves:** every mode in a region of n_eff by contour integrals (#267), from 0.5.2's "Many modes"; QMR on the curl-curl operator without its matrix (#250, in part); subpixel smoothing about 5 times faster on devices of many shapes.
+
+### 0.5.2: Many solves at once
 
 Wavelengths, ports, modes and candidates multiply every solve; do fewer, and spread the rest. The performance plan's Phase C.
 

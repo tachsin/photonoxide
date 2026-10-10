@@ -296,7 +296,7 @@ later). Scalars are exact: serde_json writes floats so that they read back to th
 - The program is what a script runs, so it is what a user installs: the releases have it for
   Linux (an AppImage that runs on clusters), Windows and macOS. Nothing else is needed.
 
-**Cost:** one or two pull requests, Rust and Markdown only. It changes no rule, and the 0.5.1
+**Cost:** one or two pull requests, Rust and Markdown only. It changes no rule, and the 0.5.2
 milestone's farming across processes may want the same machine-readable results.
 
 ### Layer 1: Python
@@ -507,7 +507,7 @@ Every milestone until 1.0 may change the API. What keeps the bindings cheap:
 2. **Which layer first.** (a) Phase 0 only, and wait for users to ask for more; (b) phases 0 and 1
    now, Python when there is time; (c) straight to Python. *Recommended: (b), phase 0 first.* Phase
    0 helps every language and the studio's own runs at once, needs no rule change, and the façade
-   is what makes the bindings cheap later. When: after 0.5.1, so the 0.5.1 work on farming across
+   is what makes the bindings cheap later. When: after 0.5.2, so the 0.5.2 work on farming across
    processes can share `results.json`.
 
 3. **The Python API's style.**
