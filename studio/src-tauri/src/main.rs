@@ -9,6 +9,7 @@ mod benchmarks;
 mod channels;
 mod charts;
 mod circuits;
+mod dependencies;
 mod diagrams;
 mod examples;
 mod libraries;
@@ -17,6 +18,7 @@ mod runner;
 mod settings;
 mod studio;
 mod tasks;
+mod watch;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -65,6 +67,9 @@ const USAGE: &str = "usage:
       each library's newest release, against the version its guide was checked with and the
       releases photonoxide accepts (--previous: an earlier table, and --news: a file for what
       is new since it)
+  photonoxide dependencies [--previous <file>] [--write <file>] [--news <file>]
+      from the repository's root: the major versions of our own crates, npm packages, Python
+      requirements and GitHub Actions that our requirements don't take
   photonoxide nightly <check | prerequisites | build <commit> | install | rollback>
       the nightly channel: main's head and the commits since this build, what building
       here needs, a build of main at its head (which runs main's code), its install in
@@ -81,6 +86,7 @@ fn main() -> ExitCode {
         Some("example") => example(&args[1..]),
         Some("bench") => bench::run(&args[1..]),
         Some("libraries") => libraries::run(&args[1..]),
+        Some("dependencies") => dependencies::run(&args[1..]),
         Some("nightly") => channels::run(&args[1..]),
         Some("--version" | "-V") => {
             let build = channels::this_build();

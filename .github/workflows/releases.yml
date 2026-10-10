@@ -1,12 +1,18 @@
 name: Releases
 
-# Each external library's newest release, where its publisher puts it (PyPI, anaconda.org,
-# NVIDIA's redistributables, GitHub releases, MUMPS's page, the macOS of GitHub's runners),
-# beside the version its install guide was checked with and the releases photonoxide-native
-# accepts: `photonoxide libraries --releases` (studio/src-tauri/src/libraries/releases.rs).
-# The table is kept in one issue, "New releases of external libraries": created if missing, its
-# body rewritten each week, a comment added only when a release appears, and nothing closed.
-# Never on a pull request: a library's release isn't a change of ours.
+# Two issues kept up to date every Monday, each by a command of the photonoxide program and
+# .github/scripts/keep-issue.sh (created if missing, its body rewritten, a comment only when
+# something new appears, nothing closed):
+#
+# - "New releases of external libraries" (`photonoxide libraries --releases`): each external
+#   library's newest release where its publisher puts it (PyPI, anaconda.org, NVIDIA's
+#   redistributables, GitHub releases, MUMPS's page, the macOS of GitHub's runners), beside the
+#   version its install guide was checked with and the releases photonoxide-native accepts.
+# - "Major updates available" (`photonoxide dependencies`): the major versions of our own
+#   crates, npm packages, Python requirements and GitHub Actions that our requirements don't
+#   take, which Dependabot's weekly pull request leaves out.
+#
+# Never on a pull request: another project's release isn't a change of ours.
 on:
   schedule:
     # Mondays, after the Libraries workflow's installs
@@ -16,12 +22,12 @@ on:
   push:
     branches: [ci/library-releases]
 
-# reads the repository, and writes the one issue; no other token or secret
+# reads the repository, and writes the two issues; no other token or secret
 permissions:
   contents: read
   issues: write
 
-# one run at a time, so two can't both create the issue
+# one run at a time, so two can't both create an issue
 concurrency:
   group: releases
   cancel-in-progress: false
@@ -31,13 +37,14 @@ env:
 
 jobs:
   releases:
-    name: New releases of external libraries
+    name: New releases and major updates
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      TITLE: New releases of external libraries
+      # sent to GitHub's API alone, for reading releases
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -52,41 +59,11 @@ jobs:
           echo '<!doctype html><title>photonoxide</title>' > studio/dist/index.html
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build -p photonoxide-studio
-      - name: Read the releases and update the issue
-        env:
-          # sent to GitHub's API alone, for reading the libraries' releases
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -uo pipefail
-          # the issue: an open one first, else a closed one
-          number=$(gh issue list --state all --limit 1000 --json number,title,state \
-            --jq 'map(select(.title == env.TITLE)) | sort_by(.state != "OPEN") | .[0].number // empty')
-          previous=()
-          if [ -n "$number" ]; then
-            gh issue view "$number" --json body --jq .body > "$RUNNER_TEMP/previous.md"
-            previous=(--previous "$RUNNER_TEMP/previous.md")
-          fi
-          status=0
-          target/debug/photonoxide libraries --releases "${previous[@]}" \
-            --write "$RUNNER_TEMP/body.md" --news "$RUNNER_TEMP/news.md" || status=$?
-          if [ ! -s "$RUNNER_TEMP/body.md" ]; then
-            echo "::error::no table was written"
-            exit 1
-          fi
-          cat "$RUNNER_TEMP/body.md" >> "$GITHUB_STEP_SUMMARY"
-          if [ -z "$number" ]; then
-            gh issue create --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"
-          else
-            gh issue edit "$number" --body-file "$RUNNER_TEMP/body.md"
-            if [ -s "$RUNNER_TEMP/news.md" ]; then
-              # a closed issue is opened again for a new release, never closed here
-              if [ "$(gh issue view "$number" --json state --jq .state)" != OPEN ]; then
-                gh issue reopen "$number"
-              fi
-              gh issue comment "$number" --body-file "$RUNNER_TEMP/news.md"
-            fi
-            echo "https://github.com/$GH_REPO/issues/$number"
-          fi
-          # a source that couldn't be read fails the run, after the issue says which
-          exit "$status"
+      - id: build
+        run: cargo build -p photonoxide-studio
+      - name: New releases of external libraries
+        run: bash .github/scripts/keep-issue.sh "New releases of external libraries" target/debug/photonoxide libraries --releases
+      - name: Major updates available
+        # even when a library's source couldn't be read
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: bash .github/scripts/keep-issue.sh "Major updates available" target/debug/photonoxide dependencies

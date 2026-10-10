@@ -11,14 +11,14 @@
 //! be read is said so in the table, and the run fails after writing it.
 
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
 use photonoxide_native::{mumps, nvidia, superlu};
 use serde_json::Value;
 
 use super::GUIDES;
-use crate::channels::github::Http;
+use crate::watch::{Fetch, Report, cell, compare, day, is_new, numbers, record};
 
 /// The issue the workflow keeps up to date.
 pub const ISSUE_TITLE: &str = "New releases of external libraries";
@@ -388,26 +388,6 @@ pub fn range(library: &str) -> Option<Range> {
     })
 }
 
-/// A version's numbers, up to the first part that isn't one: `v0.3.34` is 0, 3, 34;
-/// `2020.4.304-2ubuntu3` 2020, 4, 304.
-pub fn numbers(version: &str) -> Vec<u64> {
-    let v = version.trim().trim_start_matches(['v', 'V']);
-    let v = v.split(['-', '+', ' ', '_']).next().unwrap_or("");
-    v.split('.').map_while(|p| p.parse().ok()).collect()
-}
-
-/// Two versions by their numbers, a missing number as 0: `26` is `26.0`.
-pub fn compare(a: &str, b: &str) -> Ordering {
-    let (a, b) = (numbers(a), numbers(b));
-    for i in 0..a.len().max(b.len()) {
-        let o = a.get(i).unwrap_or(&0).cmp(b.get(i).unwrap_or(&0));
-        if o != Ordering::Equal {
-            return o;
-        }
-    }
-    Ordering::Equal
-}
-
 /// The version a source is compared with: the newest its guide's checks installed, or the one
 /// stated.
 pub fn baseline(source: &Source) -> Option<String> {
@@ -443,52 +423,6 @@ pub struct Release {
     pub label: Option<String>,
     /// Its notes' page, when the source gives one.
     pub notes: Option<String>,
-}
-
-/// GETs over HTTP, each URL once.
-struct Fetch<'a> {
-    http: &'a dyn Http,
-    /// The workflow's token, sent to GitHub's API alone, for its higher rate limit.
-    token: Option<String>,
-    seen: HashMap<String, Result<Vec<u8>, String>>,
-}
-
-impl Fetch<'_> {
-    fn bytes(&mut self, url: &str) -> Result<Vec<u8>, String> {
-        if let Some(r) = self.seen.get(url) {
-            return r.clone();
-        }
-        let mut headers = Vec::new();
-        let auth;
-        if url.starts_with("https://api.github.com/") {
-            headers.push(("Accept", "application/vnd.github+json"));
-            if let Some(t) = &self.token {
-                auth = format!("Bearer {t}");
-                headers.push(("Authorization", auth.as_str()));
-            }
-        }
-        let r = self.http.get(url, &headers).and_then(|r| match r.status {
-            200 => Ok(r.body),
-            s => Err(format!("{url}: HTTP {s}")),
-        });
-        self.seen.insert(url.to_owned(), r.clone());
-        r
-    }
-
-    fn text(&mut self, url: &str) -> Result<String, String> {
-        self.bytes(url)
-            .map(|b| String::from_utf8_lossy(&b).into_owned())
-    }
-
-    fn json(&mut self, url: &str) -> Result<Value, String> {
-        serde_json::from_slice(&self.bytes(url)?).map_err(|e| format!("{url}: {e}"))
-    }
-}
-
-/// The first ten characters of a timestamp: its day.
-fn day(timestamp: &str) -> Option<String> {
-    let d = timestamp.get(..10)?;
-    (d.len() == 10 && d.as_bytes()[4] == b'-').then(|| d.to_owned())
 }
 
 /// anaconda.org's package: the newest version on the main label, and its first upload.
@@ -792,72 +726,44 @@ impl Row {
 }
 
 /// Reads every source.
-pub fn rows(http: &dyn Http, token: Option<String>) -> Vec<Row> {
-    let mut fetch = Fetch {
-        http,
-        token,
-        seen: HashMap::new(),
-    };
+pub fn rows(fetch: &mut Fetch) -> Vec<Row> {
     SOURCES
         .iter()
         .map(|s| Row {
             source: s,
             checked: baseline(s),
-            newest: newest(&mut fetch, s),
+            newest: newest(fetch, s),
             range: range(s.library),
         })
         .collect()
 }
 
-const MARKER: &str = "<!-- newest releases";
-
-/// The newest versions an earlier issue body recorded, by row: none if it has no record.
-pub fn recorded(body: &str) -> Option<BTreeMap<String, String>> {
-    let start = body.find(MARKER)? + MARKER.len();
-    let end = start + body[start..].find("-->")?;
-    Some(
-        body[start..end]
-            .lines()
-            .filter_map(|l| l.rsplit_once(" = "))
-            .map(|(k, v)| (k.trim().to_owned(), v.trim().to_owned()))
-            .collect(),
-    )
-}
-
 /// The rows whose newest release differs from what `previous` recorded: none when nothing
 /// was recorded, as on the issue's first run.
 pub fn news<'a>(rows: &'a [Row], previous: Option<&BTreeMap<String, String>>) -> Vec<&'a Row> {
-    let Some(previous) = previous else {
-        return Vec::new();
-    };
     rows.iter()
-        .filter(|r| match (&r.newest, previous.get(&r.key())) {
-            (Ok(n), Some(old)) => n.version != *old,
-            _ => false,
+        .filter(|r| {
+            r.newest
+                .as_ref()
+                .is_ok_and(|n| is_new(previous, &r.key(), &n.version))
         })
         .collect()
 }
 
-/// A Markdown cell, its pipes escaped.
-fn cell(text: &str) -> String {
-    text.replace('|', "\\|").replace('\n', " ")
-}
-
 /// The issue's body: the record of the newest versions, the table, and what to do.
 pub fn body(rows: &[Row], previous: Option<&BTreeMap<String, String>>, today: &str) -> String {
-    let mut out = String::new();
-    let _ = writeln!(out, "{MARKER}");
-    for r in rows {
-        let version = match &r.newest {
-            Ok(n) => Some(n.version.clone()),
-            // a source that couldn't be read keeps what it had, so its return isn't news
-            Err(_) => previous.and_then(|p| p.get(&r.key()).cloned()),
-        };
-        if let Some(v) = version {
-            let _ = writeln!(out, "{} = {v}", r.key());
-        }
-    }
-    out.push_str("-->\n");
+    // a source that couldn't be read keeps what it had, so its return isn't news
+    let kept: Vec<(String, String)> = rows
+        .iter()
+        .filter_map(|r| {
+            let v = match &r.newest {
+                Ok(n) => Some(n.version.clone()),
+                Err(_) => previous.and_then(|p| p.get(&r.key()).cloned()),
+            };
+            v.map(|v| (r.key(), v))
+        })
+        .collect();
+    let mut out = record(kept.iter().map(|(k, v)| (k.clone(), v.as_str())));
     let _ = writeln!(
         out,
         "The newest release of each external library photonoxide can use, read on {today}, \
@@ -962,98 +868,29 @@ pub fn comment(new: &[&Row]) -> String {
     out
 }
 
-/// Days since 1970 as a day of the Gregorian calendar (Hinnant's `civil_from_days`).
-pub fn date(days: i64) -> String {
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z - era * 146_097;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    let y = yoe + era * 400 + i64::from(m <= 2);
-    format!("{y:04}-{m:02}-{d:02}")
-}
-
-fn today() -> String {
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs());
-    date(i64::try_from(secs / 86_400).unwrap_or(0))
-}
-
 /// `photonoxide libraries --releases [--previous <file>] [--write <file>] [--news <file>]`:
-/// reads every source, prints the issue's body or writes it, and writes the comment on what is
-/// new since `--previous` (an earlier body) when something is, an empty file otherwise. Fails,
-/// after writing, when a source couldn't be read.
+/// reads every source and writes the issue's body, and the comment on what is new since
+/// `--previous` (an earlier body). Fails, after writing, when a source couldn't be read.
 pub fn run(args: &[String]) -> std::process::ExitCode {
-    use std::process::ExitCode;
-    let (mut previous, mut write, mut news_file) = (None, None, None);
-    let mut it = args.iter();
-    while let Some(a) = it.next() {
-        let slot = match a.as_str() {
-            "--previous" => &mut previous,
-            "--write" => &mut write,
-            "--news" => &mut news_file,
-            _ => return crate::usage(),
-        };
-        match it.next() {
-            Some(file) => *slot = Some(file.clone()),
-            None => return crate::usage(),
+    crate::watch::run(args, |fetch, previous, today| {
+        let rows = rows(fetch);
+        let new = news(&rows, previous);
+        Report {
+            body: body(&rows, previous, today),
+            news: (!new.is_empty()).then(|| comment(&new)),
+            failures: rows
+                .iter()
+                .filter_map(|r| r.newest.as_ref().err().map(|e| format!("{}: {e}", r.key())))
+                .collect(),
         }
-    }
-    let previous = match &previous {
-        Some(file) => match std::fs::read_to_string(file) {
-            Ok(text) => recorded(&text),
-            Err(e) => return crate::fail(format!("{file}: {e}")),
-        },
-        None => None,
-    };
-    let web = crate::channels::github::Web {
-        user_agent: format!("photonoxide/{} (library releases)", photonoxide::VERSION),
-    };
-    let token = std::env::var("GITHUB_TOKEN").ok().filter(|t| !t.is_empty());
-    let rows = rows(&web, token);
-    let text = body(&rows, previous.as_ref(), &today());
-    let new = news(&rows, previous.as_ref());
-    let written = match &write {
-        Some(file) => std::fs::write(file, &text).map_err(|e| format!("{file}: {e}")),
-        None => {
-            print!("{text}");
-            Ok(())
-        }
-    };
-    if let Err(e) = written {
-        return crate::fail(e);
-    }
-    if let Some(file) = &news_file {
-        let c = if new.is_empty() {
-            String::new()
-        } else {
-            comment(&new)
-        };
-        if let Err(e) = std::fs::write(file, c) {
-            return crate::fail(format!("{file}: {e}"));
-        }
-    }
-    let failed = rows.iter().filter(|r| r.newest.is_err()).count();
-    for r in &rows {
-        if let Err(e) = &r.newest {
-            eprintln!("{}: {e}", r.key());
-        }
-    }
-    if failed > 0 {
-        eprintln!("{failed} of {} sources couldn't be read", rows.len());
-        return ExitCode::FAILURE;
-    }
-    ExitCode::SUCCESS
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::channels::github::Response;
+    use crate::channels::github::{Http, Response};
+    use crate::watch::recorded;
     use std::path::Path;
 
     /// Answers from canned bodies by URL, and counts the requests.
@@ -1088,19 +925,6 @@ mod tests {
         ) -> Result<(), String> {
             unreachable!()
         }
-    }
-
-    #[test]
-    fn versions_compare_by_their_numbers() {
-        assert_eq!(numbers("v0.3.34"), [0, 3, 34]);
-        assert_eq!(numbers("2020.4.304-2ubuntu3"), [2020, 4, 304]);
-        assert_eq!(numbers("0.8.0.10"), [0, 8, 0, 10]);
-        assert_eq!(numbers("7.0.0rc1"), [7, 0]);
-        assert_eq!(compare("5.10.0", "5.9.1"), Ordering::Greater);
-        assert_eq!(compare("26", "26.0"), Ordering::Equal);
-        assert_eq!(compare("27.0.1", "26"), Ordering::Greater);
-        assert_eq!(compare("13.4.92", "13.4.92"), Ordering::Equal);
-        assert_eq!(compare("12.8.6.49", "12.8.6.72"), Ordering::Less);
     }
 
     #[test]
@@ -1194,13 +1018,6 @@ mod tests {
             workflow.contains(&format!("os: macos-{ACCELERATE_CHECKED}")),
             "libraries.yml runs Accelerate on another macOS than {ACCELERATE_CHECKED}"
         );
-    }
-
-    #[test]
-    fn days_are_dates() {
-        assert_eq!(date(0), "1970-01-01");
-        assert_eq!(date(11_016), "2000-02-29");
-        assert_eq!(date(20_736), "2026-10-10");
     }
 
     const CONDA: &str = r#"{"name":"mumps-seq","latest_version":"5.8.2","files":[
@@ -1332,7 +1149,7 @@ mod tests {
     #[test]
     fn the_issue_says_what_is_newer_and_comments_on_what_is_new() {
         let http = canned();
-        let rows = rows(&http, Some("token".into()));
+        let rows = rows(&mut Fetch::new(&http, Some("token".into())));
         // NVIDIA's manifest, read for the runtime and for cuSPARSE, was asked for once
         let asked = http.asked.lock().unwrap().clone();
         let manifest =
