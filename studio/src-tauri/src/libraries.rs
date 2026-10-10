@@ -11,6 +11,8 @@
 //!   be run from it, in a terminal of its own, after the user confirms having read the licence
 //!   and the command ([`install`]). Elevation, if needed, is winget's to ask for. Nothing is
 //!   redistributed with photonoxide.
+//! - **New releases** ([`releases`]): each library's newest, against the version its guide
+//!   was checked with, read every week by the Releases workflow.
 
 use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
@@ -20,6 +22,8 @@ use photonoxide_native::{
     Candidate, Discovery, Spec, Status, accelerate, blas, intel, mumps, nvidia, superlu,
 };
 use serde::Serialize;
+
+pub mod releases;
 
 /// A command that installs a library.
 #[derive(Clone, Copy, Debug, Serialize)]
@@ -1050,6 +1054,24 @@ pub fn markdown() -> String {
         let _ = writeln!(out, "- **Home:** <{}>\n", p.home);
         write_installs(&mut out, p.installs, p.unsupported);
     }
+    out.push_str("## New releases\n\n");
+    let _ = writeln!(
+        out,
+        "Every Monday the Releases workflow (`.github/workflows/releases.yml`) runs \
+         `photonoxide libraries --releases`. It reads each library's newest release where it \
+         is published: PyPI's and anaconda.org's APIs for the wheels and conda-forge's \
+         packages, NVIDIA's redistributables' manifests for CUDA and cuDSS, the GitHub releases \
+         of SuperLU and OpenBLAS, MUMPS's download page, and, for Accelerate, the macOS of \
+         GitHub's runner images. It sets each beside the version checked above and the \
+         releases photonoxide-native accepts, with a link to the release's notes, and keeps \
+         that table in one issue, [{title}](https://github.com/tachsin/photonoxide/issues?q=is%3Aissue+in%3Atitle+%22{query}%22), \
+         commenting there when a release appears.\n\n\
+         A new release isn't supported until it has been checked:\n",
+        title = releases::ISSUE_TITLE,
+        query = releases::ISSUE_TITLE.replace(' ', "+"),
+    );
+    out.push_str(releases::STEPS);
+    out.push('\n');
     out.push_str("## Traps\n\n");
     out.push_str(
         "- **Debian's and Ubuntu's oneMKL is MKL 2020.4.** `apt` installs a library six years older than Intel's, conda-forge's or pip's. photonoxide finds it and its PARDISO passes the smoke test; prefer the others for a current library.\n\
@@ -1075,10 +1097,13 @@ fn anchor(heading: &str) -> String {
         .collect()
 }
 
-/// `photonoxide libraries [--json | --write <file>]`: finds every library, registers their
-/// backends after their smoke tests, and prints what was found; or writes the install guides'
-/// page.
+/// `photonoxide libraries [--json | --write <file> | --releases ...]`: finds every library,
+/// registers their backends after their smoke tests, and prints what was found; or writes the
+/// install guides' page; or reads each library's newest release ([`releases::run`]).
 pub fn run(args: &[String]) -> ExitCode {
+    if args.first().is_some_and(|a| a == "--releases") {
+        return releases::run(&args[1..]);
+    }
     if let [flag, file] = args
         && flag == "--write"
     {

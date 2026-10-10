@@ -1,0 +1,92 @@
+name: Releases
+
+# Each external library's newest release, where its publisher puts it (PyPI, anaconda.org,
+# NVIDIA's redistributables, GitHub releases, MUMPS's page, the macOS of GitHub's runners),
+# beside the version its install guide was checked with and the releases photonoxide-native
+# accepts: `photonoxide libraries --releases` (studio/src-tauri/src/libraries/releases.rs).
+# The table is kept in one issue, "New releases of external libraries": created if missing, its
+# body rewritten each week, a comment added only when a release appears, and nothing closed.
+# Never on a pull request: a library's release isn't a change of ours.
+on:
+  schedule:
+    # Mondays, after the Libraries workflow's installs
+    - cron: '37 5 * * 1'
+  workflow_dispatch:
+  # TEMPORARY: to try it before merging; removed in the next commit
+  push:
+    branches: [ci/library-releases]
+
+# reads the repository, and writes the one issue; no other token or secret
+permissions:
+  contents: read
+  issues: write
+
+# one run at a time, so two can't both create the issue
+concurrency:
+  group: releases
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  releases:
+    name: New releases of external libraries
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TITLE: New releases of external libraries
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # what Tauri needs on Linux to compile; the window itself isn't opened, and an empty page
+      # stands in for its web view's build
+      - name: Tauri's prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          mkdir -p studio/dist
+          echo '<!doctype html><title>photonoxide</title>' > studio/dist/index.html
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build -p photonoxide-studio
+      - name: Read the releases and update the issue
+        env:
+          # sent to GitHub's API alone, for reading the libraries' releases
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          # the issue: an open one first, else a closed one
+          number=$(gh issue list --state all --limit 1000 --json number,title,state \
+            --jq 'map(select(.title == env.TITLE)) | sort_by(.state != "OPEN") | .[0].number // empty')
+          previous=()
+          if [ -n "$number" ]; then
+            gh issue view "$number" --json body --jq .body > "$RUNNER_TEMP/previous.md"
+            previous=(--previous "$RUNNER_TEMP/previous.md")
+          fi
+          status=0
+          target/debug/photonoxide libraries --releases "${previous[@]}" \
+            --write "$RUNNER_TEMP/body.md" --news "$RUNNER_TEMP/news.md" || status=$?
+          if [ ! -s "$RUNNER_TEMP/body.md" ]; then
+            echo "::error::no table was written"
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/body.md" >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$number" ]; then
+            gh issue create --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh issue edit "$number" --body-file "$RUNNER_TEMP/body.md"
+            if [ -s "$RUNNER_TEMP/news.md" ]; then
+              # a closed issue is opened again for a new release, never closed here
+              if [ "$(gh issue view "$number" --json state --jq .state)" != OPEN ]; then
+                gh issue reopen "$number"
+              fi
+              gh issue comment "$number" --body-file "$RUNNER_TEMP/news.md"
+            fi
+            echo "https://github.com/$GH_REPO/issues/$number"
+          fi
+          # a source that couldn't be read fails the run, after the issue says which
+          exit "$status"

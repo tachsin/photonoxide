@@ -61,6 +61,10 @@ const USAGE: &str = "usage:
       the external libraries found here (oneMKL, OpenBLAS, the CUDA runtime, cuSPARSE, cuDSS,
       MUMPS, SuperLU, and Accelerate on macOS): where each was found, its version, and the
       backends that passed their smoke tests
+  photonoxide libraries --releases [--previous <file>] [--write <file>] [--news <file>]
+      each library's newest release, against the version its guide was checked with and the
+      releases photonoxide accepts (--previous: an earlier table, and --news: a file for what
+      is new since it)
   photonoxide nightly <check | prerequisites | build <commit> | install | rollback>
       the nightly channel: main's head and the commits since this build, what building
       here needs, a build of main at its head (which runs main's code), its install in
