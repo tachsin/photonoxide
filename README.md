@@ -54,7 +54,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   and replays exactly.
 
 [Getting started](docs/getting-started.md) · [API](https://docs.rs/photonoxide) ·
-[Examples](examples/README.md)
+[Examples](examples/README.md) · [What works in Rust, Python and MATLAB](docs/features.md)
 
 ## The studio
 
@@ -88,12 +88,8 @@ Pure Rust, with no C, Fortran or Python dependencies. The program is on each
 and macOS, and updates itself ([downloads](studio/README.md#downloads)): from the releases, or on
 the Nightly channel by building main's latest code on your machine ([channels](studio/README.md#channels)).
 
-**Python and MATLAB.** The `photonoxide` package for Python (in [`python/`](python)) brings the
-materials catalogue, slab and full-vector modes, jobs and their S-parameters, circuits and
-Touchstone files to Python, with NumPy arrays and the same numbers as Rust, and to MATLAB
-(R2022b and later) through Python: [docs/python.md](docs/python.md). It goes to PyPI
-(`pip install photonoxide`) with the releases once its publishing is set up; until then it
-builds from the repository with `pip install ./python`.
+**Python and MATLAB:** the `photonoxide` package ([`python/`](python), `pip install ./python`;
+on PyPI once its publishing is set up) and MATLAB through it: [docs/python.md](docs/python.md).
 
 ## A first example
 

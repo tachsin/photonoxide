@@ -446,19 +446,7 @@ fn the_conformance_cases_are_computed_and_name_their_calls() {
     let cases = conformance(&scratch.0).unwrap();
     let functions: std::collections::BTreeSet<&str> =
         cases.iter().map(|c| c.function.as_str()).collect();
-    for f in [
-        "materials",
-        "refractive_index",
-        "group_index",
-        "slab_modes",
-        "vector_modes",
-        "check_job",
-        "run_job",
-        "fdfd_s_parameters",
-        "circuit_spectrum",
-        "read_touchstone",
-        "write_touchstone",
-    ] {
+    for f in facade_functions() {
         assert!(functions.contains(f), "no case calls {f}");
     }
     for c in &cases {
@@ -474,4 +462,38 @@ fn the_conformance_cases_are_computed_and_name_their_calls() {
     let result: serde_json::Value = serde_json::from_str(&te.result).unwrap();
     let n = result[0]["effective_index"].as_f64().unwrap();
     assert!((n - 2.845).abs() < 5e-4, "{n}");
+}
+
+/// The façade's functions, read from its source: every `pub fn` at the start of a line (not a
+/// method), but `conformance`, which lists calls of the others.
+fn facade_functions() -> Vec<&'static str> {
+    let sources = [
+        include_str!("../facade.rs"),
+        include_str!("circuit.rs"),
+        include_str!("conformance.rs"),
+    ];
+    let mut names: Vec<&str> = sources
+        .iter()
+        .flat_map(|s| s.lines())
+        .filter_map(|line| line.strip_prefix("pub fn "))
+        .map(|rest| rest.split(['(', '<']).next().unwrap_or(rest))
+        .filter(|&name| name != "conformance")
+        .collect();
+    names.sort_unstable();
+    names
+}
+
+#[test]
+fn every_facade_function_is_in_the_feature_table() {
+    // docs/features.md says what Python and MATLAB reach: a function added to the façade (and
+    // so to the Python package) goes in its table, by name
+    let table = include_str!("../../docs/features.md");
+    let functions = facade_functions();
+    assert_eq!(functions.len(), 11, "{functions:?}");
+    for f in functions {
+        assert!(
+            table.contains(&format!("`{f}`")),
+            "docs/features.md doesn't name the façade's {f}"
+        );
+    }
 }
