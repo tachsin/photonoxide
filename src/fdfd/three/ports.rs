@@ -660,7 +660,34 @@ impl Lattice {
         ports: &[Port3d],
         mut solve: impl FnMut(&[c64]) -> Result<Field3d>,
     ) -> Result<Vec<Vec<c64>>> {
-        use faer::linalg::solvers::Solve;
+        self.check_ports(ports)?;
+        self.s_from(ports, |p| {
+            solve(&self.mode_source(&ports[p].mode, ports[p].incoming()))
+        })
+    }
+
+    /// [`Lattice::s_matrix`], every port's source solved at once by `solve`, which gives the
+    /// fields in the sources' order.
+    pub(crate) fn s_matrix_together(
+        &self,
+        ports: &[Port3d],
+        solve: impl FnOnce(&[Vec<c64>]) -> Result<Vec<Field3d>>,
+    ) -> Result<Vec<Vec<c64>>> {
+        self.check_ports(ports)?;
+        let sources: Vec<Vec<c64>> = ports
+            .iter()
+            .map(|port| self.mode_source(&port.mode, port.incoming()))
+            .collect();
+        let mut fields = solve(&sources)?.into_iter();
+        self.s_from(ports, |_| {
+            fields
+                .next()
+                .ok_or_else(|| Error::invalid("fdfd port", "a field short for the ports"))
+        })
+    }
+
+    /// Refuses a port whose mode isn't this problem's.
+    fn check_ports(&self, ports: &[Port3d]) -> Result<()> {
         for p in ports {
             if !self.fits(&p.mode) {
                 return Err(Error::invalid(
@@ -669,11 +696,21 @@ impl Lattice {
                 ));
             }
         }
+        Ok(())
+    }
+
+    /// The S-matrix from each port's field in turn, `field(p)` for port p's source.
+    fn s_from(
+        &self,
+        ports: &[Port3d],
+        mut field: impl FnMut(usize) -> Result<Field3d>,
+    ) -> Result<Vec<Vec<c64>>> {
+        use faer::linalg::solvers::Solve;
         let n = ports.len();
         let mut incoming = faer::Mat::<c64>::zeros(n, n);
         let mut outgoing = faer::Mat::<c64>::zeros(n, n);
-        for (p, port) in ports.iter().enumerate() {
-            let field = solve(&self.mode_source(&port.mode, port.incoming()))?;
+        for p in 0..n {
+            let field = field(p)?;
             for (q, at) in ports.iter().enumerate() {
                 let (forward, backward) = self.mode_amplitudes(&at.mode, &|r| field.values[r]);
                 let (a, b) = match at.side {

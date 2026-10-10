@@ -10,8 +10,9 @@ use super::{Axis, Boundaries3d, Field3d, Grid3d, Lattice, Port3d, PortMode3d, So
 use crate::backend::{self, Choice, Form, IterativeSolver};
 use crate::fdfd::Direction;
 use crate::fdfd::krylov::{
-    Convergence, Ilu0, Sparse, Stopping, gmres_preconditioned, qmr, qmr_preconditioned,
-    qmr_preconditioned_by, qmr_similar, qmr_similar_by, restarted_by,
+    BlockConvergence, Convergence, Ilu0, Sparse, Stopping, block_qmr, block_qmr_preconditioned,
+    block_qmr_similar, gmres_preconditioned, qmr, qmr_preconditioned, qmr_preconditioned_by,
+    qmr_similar, qmr_similar_by, restarted_by,
 };
 use crate::units::Wavelength;
 use crate::{Error, Result};
@@ -66,6 +67,8 @@ pub struct IterativeSolver3d {
     /// The backend that runs QMR or GMRES, if not photonoxide's own
     /// ([`IterativeSolver3d::with_iterative_backend`]).
     backend: Option<Arc<dyn IterativeSolver>>,
+    /// Whether an S-matrix solves its ports' sources as one block ([`IterativeSolver3d::with_block`]).
+    block: bool,
 }
 
 /// A preconditioner for QMR.
@@ -116,6 +119,7 @@ impl IterativeSolver3d {
             similarity,
             preconditioner: Preconditioning::None,
             backend: None,
+            block: false,
         })
     }
 
@@ -154,6 +158,7 @@ impl IterativeSolver3d {
             similarity,
             preconditioner: Preconditioning::None,
             backend: None,
+            block: false,
         })
     }
 
@@ -347,25 +352,7 @@ impl IterativeSolver3d {
     ///
     /// As [`IterativeSolver3d::solve`].
     pub fn solve_system(&self, rhs: &[c64], stopping: Stopping) -> Result<(Field3d, Convergence)> {
-        let n = self.lattice.grid.unknowns();
-        if rhs.len() != n {
-            return Err(Error::invalid(
-                "fdfd source",
-                format!("needs {n} values, one per value of E, got {}", rhs.len()),
-            ));
-        }
-        let b: Vec<c64> = (0..n)
-            .map(|r| {
-                if self.lattice.fixed(r) {
-                    c64::new(0.0, 0.0)
-                } else {
-                    rhs[r]
-                }
-            })
-            .collect();
-        let b = self
-            .lattice
-            .transformed_rhs(&self.eps, &b, self.formulation.s());
+        let b = self.prepared(rhs)?;
         self.check_backend()?;
         let (values, convergence) = match &self.preconditioner {
             Preconditioning::Ilu(ilu) => match &self.backend {
@@ -421,6 +408,100 @@ impl IterativeSolver3d {
             },
             convergence,
         ))
+    }
+
+    /// A right-hand side as the formulation takes it: zero on the fixed values (walls), and
+    /// transformed with Shin and Fan's operator.
+    fn prepared(&self, rhs: &[c64]) -> Result<Vec<c64>> {
+        let n = self.lattice.grid.unknowns();
+        if rhs.len() != n {
+            return Err(Error::invalid(
+                "fdfd source",
+                format!("needs {n} values, one per value of E, got {}", rhs.len()),
+            ));
+        }
+        let b: Vec<c64> = (0..n)
+            .map(|r| {
+                if self.lattice.fixed(r) {
+                    c64::new(0.0, 0.0)
+                } else {
+                    rhs[r]
+                }
+            })
+            .collect();
+        Ok(self
+            .lattice
+            .transformed_rhs(&self.eps, &b, self.formulation.s()))
+    }
+
+    /// The same problem, an S-matrix's ports solved as one block
+    /// ([`IterativeSolver3d::solve_systems`]) instead of one QMR solve each.
+    pub fn with_block(mut self, block: bool) -> IterativeSolver3d {
+        self.block = block;
+        self
+    }
+
+    /// The fields E of A E = b for each of the right-hand sides `rhs`, as
+    /// [`IterativeSolver3d::solve_system`] takes them, all at once by block QMR (R. W. Freund,
+    /// M. Malhotra, Linear Algebra Appl. 254, 119 (1997), doi:10.1016/S0024-3795(96)00529-0):
+    /// one block Krylov space for them all, with the preconditioner and operator this problem
+    /// has, and each field held to the relative residual `stopping` asks. On the curl-curl
+    /// operator, by its complex symmetric form on the similar matrix: one product an iteration.
+    /// The multigrid cycle takes block QMR too (a cycle and its transpose an iteration), where
+    /// [`IterativeSolver3d::solve_system`] takes GMRES. With an iterative backend, which runs
+    /// single QMR, the right-hand sides are solved one at a time by it.
+    ///
+    /// # Errors
+    ///
+    /// As [`IterativeSolver3d::solve`], for any of them.
+    pub fn solve_systems(
+        &self,
+        rhs: &[Vec<c64>],
+        stopping: Stopping,
+    ) -> Result<(Vec<Field3d>, BlockConvergence)> {
+        let b: Vec<Vec<c64>> = rhs
+            .iter()
+            .map(|r| self.prepared(r))
+            .collect::<Result<_>>()?;
+        self.check_backend()?;
+        let field = |values: Vec<c64>| Field3d {
+            lattice: self.lattice.clone(),
+            values,
+        };
+        if self.backend.is_some() {
+            let mut fields = Vec::with_capacity(rhs.len());
+            let mut how = BlockConvergence {
+                iterations: 0,
+                products: 0,
+                deflations: 0,
+                dropped: 0,
+                restarts: 0,
+                columns: Vec::new(),
+            };
+            for r in rhs {
+                let (f, once) = self.solve_system(r, stopping)?;
+                how.iterations += once.iterations;
+                how.products += once.iterations;
+                how.columns.push(once);
+                fields.push(f);
+            }
+            return Ok((fields, how));
+        }
+        let (values, how) = match &self.preconditioner {
+            Preconditioning::Ilu(ilu) => {
+                block_qmr_preconditioned(&self.matrix, ilu.as_ref(), &b, stopping)?
+            }
+            Preconditioning::Multigrid(h) => {
+                block_qmr_preconditioned(&self.matrix, h.as_ref(), &b, stopping)?
+            }
+            Preconditioning::None => match (&self.free, &self.similarity) {
+                (Some(operator), Some(s)) => block_qmr_similar(operator, s, &b, stopping)?,
+                (Some(operator), None) => block_qmr(operator, &b, stopping, false, None)?,
+                (None, Some(s)) => block_qmr_similar(&self.matrix, s, &b, stopping)?,
+                (None, None) => block_qmr(&self.matrix, &b, stopping, false, None)?,
+            },
+        };
+        Ok((values.into_iter().map(field).collect(), how))
     }
 }
 
@@ -496,7 +577,8 @@ impl IterativeSolver3d {
     }
 
     /// As [`Solver3d::s_matrix`], each run solved by QMR as `stopping` asks: S is as accurate
-    /// as the runs' fields.
+    /// as the runs' fields. With [`IterativeSolver3d::with_block`], all the ports' runs at once
+    /// ([`IterativeSolver3d::solve_systems`]).
     ///
     /// # Errors
     ///
@@ -505,12 +587,17 @@ impl IterativeSolver3d {
         Ok(self.s_matrix_with_convergence(ports, stopping)?.0)
     }
 
-    /// As [`IterativeSolver3d::s_matrix`], with how each run's QMR went, in the ports' order.
+    /// As [`IterativeSolver3d::s_matrix`], with how each run's QMR went, in the ports' order;
+    /// for a block, each port's column of it (its `iterations` the block's when it converged).
     pub(crate) fn s_matrix_with_convergence(
         &self,
         ports: &[Port3d],
         stopping: Stopping,
     ) -> Result<(Vec<Vec<c64>>, Vec<Convergence>)> {
+        if self.block {
+            let (s, how) = self.s_matrix_block(ports, stopping)?;
+            return Ok((s, how.columns));
+        }
         let mut runs = Vec::with_capacity(ports.len());
         let s = self.lattice.s_matrix(ports, |rhs| {
             let (field, convergence) = self.solve_system(rhs, stopping)?;
@@ -518,5 +605,33 @@ impl IterativeSolver3d {
             Ok(field)
         })?;
         Ok((s, runs))
+    }
+
+    /// As [`IterativeSolver3d::s_matrix`], every port's run at once by block QMR
+    /// ([`IterativeSolver3d::solve_systems`]), whether or not [`IterativeSolver3d::with_block`]
+    /// asked for it; and how the block went.
+    ///
+    /// # Errors
+    ///
+    /// As [`IterativeSolver3d::s_matrix`].
+    pub fn s_matrix_block(
+        &self,
+        ports: &[Port3d],
+        stopping: Stopping,
+    ) -> Result<(Vec<Vec<c64>>, BlockConvergence)> {
+        let mut how = BlockConvergence {
+            iterations: 0,
+            products: 0,
+            deflations: 0,
+            dropped: 0,
+            restarts: 0,
+            columns: Vec::new(),
+        };
+        let s = self.lattice.s_matrix_together(ports, |sources| {
+            let (fields, block) = self.solve_systems(sources, stopping)?;
+            how = block;
+            Ok(fields)
+        })?;
+        Ok((s, how))
     }
 }

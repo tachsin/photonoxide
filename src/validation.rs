@@ -796,6 +796,55 @@ pub fn cases() -> Vec<Case> {
             run: fdfd3d_gmres_multigrid_direct,
         },
         Case {
+            id: "fdfd3d/block-qmr-s-matrix",
+            title: r"3D FDFD S-matrix by block QMR, all its ports' runs at once, against one QMR solve each, both to a relative residual of 1e-10: a directional coupler's straight section (two silicon strips $350 \times 220$ nm, 150 nm apart, in oxide; $18 \times 32 \times 24$ cells of 50 nm, PMLs of 4 all round), 8 ports (each end's four supermodes), on the curl-curl operator's complex symmetric similarity, its matrix stored and not (largest difference of an entry shown)",
+            tier: Tier::Analytic,
+            source: r"the same system solved two ways: block QMR, R. W. Freund, M. Malhotra, Linear Algebra Appl. 254, 119 (1997), doi:10.1016/S0024-3795(96)00529-0, Algorithm 4.2 in its complex symmetric form (their Section 6, $J = I$), against QMR for complex symmetric matrices (R. W. Freund, SIAM J. Sci. Stat. Comput. 13, 425 (1992), doi:10.1137/0913023); measured 1.7e-11 with the matrix and without it, in 6798 block iterations against 7336 summed",
+            run: fdfd3d_block_qmr_s_matrix,
+        },
+        Case {
+            id: "fdfd3d/block-qmr-ilu-s-matrix",
+            title: r"The same coupler's S-matrix on Shin and Fan's operator with stretched PMLs, preconditioned by ILU(0) and by the multigrid cycle: block QMR in its general form (left and right Lanczos vectors) against one preconditioned solve each (QMR with ILU(0), GMRES with the cycle), all to 1e-10 (largest difference of an entry shown)",
+            tier: Tier::Analytic,
+            source: r"the same system solved two ways: Freund and Malhotra's Algorithm 4.2 on $A M^{-1}$ (doi:10.1016/S0024-3795(96)00529-0), its Lanczos vectors built a vector at a time (their Algorithm 3.1) and biorthogonalized in the order of modified Gram–Schmidt (their Remark 3.2), against QMR (R. W. Freund, N. M. Nachtigal, Numer. Math. 60, 315 (1991), doi:10.1007/BF01385726) and GMRES (Y. Saad, Iterative Methods for Sparse Linear Systems, 2nd ed., SIAM (2003), doi:10.1137/1.9780898718003); measured 6.6e-11 with ILU(0), 1.1e-10 with the cycle",
+            run: fdfd3d_block_qmr_ilu_s_matrix,
+        },
+        Case {
+            id: "fdfd3d/block-qmr-iterations",
+            title: r"Convergence: the block's iterations (one product with $A$ and one with $A^\mathsf{T}$ each) over the single solves' summed, for the ILU(0)-preconditioned coupler's 8 ports to 1e-10 (fdfd3d/block-qmr-ilu-s-matrix; shown)",
+            tier: Tier::Analytic,
+            source: r"a block Krylov space of dimension $\mu$ serves all the systems where $m$ single solves each build their own, so a block can take up to $m$ times fewer products (Freund and Malhotra, doi:10.1016/S0024-3795(96)00529-0, Section 2.3); measured 0.44. Without a preconditioner the curl-curl coupler's ratio is 0.93: a product carries a field one cell, so each source still needs as many as its distance across the grid",
+            run: fdfd3d_block_qmr_iterations,
+        },
+        Case {
+            id: "fdfd3d/block-qmr-dependent",
+            title: r"Block QMR's deflation on the 50 nm coupler's curl-curl operator $A$ (41 472 unknowns): right-hand sides $b_1$, $b_2$ (two ports' mode sources), $b_1 + 2b_2$ and $A b_1$, to 1e-10, by the general form on $A$ and the symmetric one on its similarity: the largest difference of $x_4$ from $b_1$ and of $x_3$ from $x_1 + 2x_2$, relative to the largest value (shown)",
+            tier: Tier::Analytic,
+            source: r"Freund and Malhotra (doi:10.1016/S0024-3795(96)00529-0): $b_1 + 2b_2$ is deflated as the block starts and its system recovered as $x_1 + 2x_2$ (Eq. 4.18); $A b_1$ makes the first product dependent, and the system that weighs most in the combination left without a quasi-residual leaves the block and is recovered at the end (Eqs. 4.16–4.20); $A x = A b_1$ is solved by $b_1$; measured 6.2e-15",
+            run: fdfd3d_block_qmr_dependent,
+        },
+        Case {
+            id: "fdfd3d/block-qmr-convergence",
+            title: r"Convergence in the tolerance: a closed guide's S-matrix by block QMR (a silicon strip stepping from 300 to 400 nm wide in a box of oxide, $20 \times 12 \times 10$ cells of 50 nm, two modes at each of two ports) against the direct solver's, at relative residuals of 1e-4 and 1e-10: the error's decades per decade of the tolerance (shown)",
+            tier: Tier::Analytic,
+            source: r"the block's fields hold each system to its own residual, so their error, and S's, falls with the tolerance: as $\kappa(A)$ times it, a slope of 1; measured 1.2e-5, 1.7e-7, 2.3e-9 and 1.9e-11 at 1e-4, 1e-6, 1e-8 and 1e-10",
+            run: fdfd3d_block_qmr_convergence,
+        },
+        Case {
+            id: "fdfd3d/block-qmr-freund-malhotra",
+            title: r"Block QMR on Freund and Malhotra's Example 7.1 (a convection–diffusion equation on the unit cube, $15^3$ interior points, $h = 1/16$, two-sided SSOR, random right-hand sides and left block, $X_0 = 0$, to a relative residual of 1e-6): the iterations for five right-hand sides over those for one (medians over 5 draws, shown)",
+            tier: Tier::Published,
+            source: r"R. W. Freund, M. Malhotra, Linear Algebra Appl. 254, 119 (1997), doi:10.1016/S0024-3795(96)00529-0, Example 7.1: 19 iterations for one, 85 for five, a ratio of 4.47; their Eq. 7.4 read as $-\nabla\cdot(e^{xy}\nabla u) + 25(u_x + u_y + u_z) + u/(1+x+y+z) = f$ (their 3375 unknowns and 22 275 nonzeros, and their cell Reynolds number below one); their stopping test isn't legible in our scanned copy, and the counts depend on it (14 and 63 at 1e-6, 18 and 85 at 1e-9) where the ratio hardly does",
+            run: fdfd3d_block_qmr_freund_malhotra,
+        },
+        Case {
+            id: "fdfd3d/block-qmr-threads",
+            title: "The coupler's S-matrix by block QMR (50 nm, 8 ports, 1e-10) on 1 and on 4 threads: its entries whose bits differ, and its convergence (count shown)",
+            tier: Tier::Analytic,
+            source: "every vector operation is a pass over fixed chunks, each chunk's sums in order and the chunks' in order, and the products and triangular solves of a block are each vector's own, row by row: the same computation on any number of threads",
+            run: fdfd3d_block_qmr_threads,
+        },
+        Case {
             id: "fdtd/dispersion",
             title: r"FDTD's numerical dispersion: a plane wave's $E_z$ on a periodic Yee grid ($24 \times 18$ cells of $50 \times 40$ nm), started from rest, at four wave vectors (along an axis, the diagonal, between) and Courant numbers 0.5 to 1: its frequency per step against Taflove and Brodwin's relation (largest relative difference shown)",
             tier: Tier::Analytic,
@@ -2805,6 +2854,91 @@ fn fdfd3d_gmres_multigrid_direct() -> Outcome {
         // 1e-10, 2.0e-10 measured
         tolerance: 1e-8,
         error: worst,
+    }
+}
+
+fn fdfd3d_block_qmr_s_matrix() -> Outcome {
+    use crate::fdfd::block_checks3d::{Solve, coupler_block};
+    let worst = coupler_block(Solve::Stored)
+        .0
+        .max(coupler_block(Solve::Free).0);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // both fields to a residual of 1e-10: their S-matrices within its condition times it
+        tolerance: 1e-9,
+        error: worst,
+    }
+}
+
+/// The ILU(0) coupler's block against its single solves, run once for its two cases.
+fn ilu_coupler_block() -> (f64, f64) {
+    use crate::fdfd::block_checks3d::{Solve, coupler_block};
+    static RUN: std::sync::OnceLock<(f64, f64)> = std::sync::OnceLock::new();
+    *RUN.get_or_init(|| coupler_block(Solve::Ilu))
+}
+
+fn fdfd3d_block_qmr_ilu_s_matrix() -> Outcome {
+    use crate::fdfd::block_checks3d::{Solve, coupler_block};
+    let worst = ilu_coupler_block().0.max(coupler_block(Solve::Multigrid).0);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-9,
+        error: worst,
+    }
+}
+
+fn fdfd3d_block_qmr_iterations() -> Outcome {
+    let (_, ratio) = ilu_coupler_block();
+    Outcome {
+        measured: ratio,
+        expected: 0.0,
+        // fewer than 60 % of the single solves' products
+        tolerance: 0.6,
+        error: ratio,
+    }
+}
+
+fn fdfd3d_block_qmr_dependent() -> Outcome {
+    let worst = crate::fdfd::block_checks3d::dependent_columns();
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-12,
+        error: worst,
+    }
+}
+
+fn fdfd3d_block_qmr_convergence() -> Outcome {
+    let errors = crate::fdfd::block_checks3d::against_direct(&[1e-4, 1e-10]);
+    let slope = (errors[0] / errors[1]).log10() / 6.0;
+    Outcome {
+        measured: slope,
+        expected: 1.0,
+        tolerance: 0.2,
+        error: (slope - 1.0).abs(),
+    }
+}
+
+fn fdfd3d_block_qmr_freund_malhotra() -> Outcome {
+    let (one, five) = crate::fdfd::krylov::block_example::iterations(5);
+    let ratio = five as f64 / one as f64;
+    Outcome {
+        measured: ratio,
+        expected: 85.0 / 19.0,
+        tolerance: 0.5,
+        error: (ratio - 85.0 / 19.0).abs(),
+    }
+}
+
+fn fdfd3d_block_qmr_threads() -> Outcome {
+    let differ = crate::fdfd::block_checks3d::thread_differences();
+    Outcome {
+        measured: differ,
+        expected: 0.0,
+        tolerance: 0.0,
+        error: differ,
     }
 }
 

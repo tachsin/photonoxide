@@ -618,6 +618,10 @@ measured: 106 s for the guide with s = 0 (2 745 iterations), against the direct 
 a problem 4.5 times smaller. Since QMR's vector work runs on every thread (above), an iteration
 costs about 13 ns per unknown.
 
+**Ports as a block.** `IterativeSolver3d::with_block` (or `s_matrix_block`) solves all of an
+S-matrix's ports at once by block QMR (Freund and Malhotra 1997): see
+[Ports as a block](block-qmr.md). Opt-in: faster with ILU(0), slower without a preconditioner.
+
 ## Preconditioning QMR
 
 What makes QMR slow here is less the silicon than the PMLs: in vacuum the 40³ problem takes 122
