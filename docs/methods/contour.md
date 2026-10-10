@@ -22,6 +22,8 @@ validation:
   - mode/contour-exponential
   - mode/contour-threads
   - mode/contour-sakurai-sugiura
+  - mode/every-guided-mode
+  - mode/every-guided-mode-chilwell
 ---
 
 [Shift-and-invert Arnoldi](eigen.md) finds a given number of modes nearest a guess. Often the
@@ -39,6 +41,27 @@ for (mode, residual) in found.modes.iter().zip(&found.residuals) {
     println!("{} ({residual:.1e})", mode.effective_index());
 }
 ```
+
+## Every guided mode above an index
+
+The commonest question has its own call. `vector::modes_above(&cs, wavelength, 1.444, &search)`
+and `Profile::modes_above` return every mode with Re $n_\text{eff}$ above a threshold: with the
+cladding's index, every guided mode, however many. They search `Region::above(threshold,
+highest)`, `Region::between` the threshold and a tenth of the way beyond the cross-section's
+highest index, so the boundary passes clear of the fundamental mode; the ellipse's leftmost point
+is the threshold, so everything inside is above it. A threshold at or above the highest index is
+an error: no mode lies there.
+
+In a job file, a modes job takes `modes_above = 1.444` instead of `modes = 2` (not both), and the
+studio's job builder has the field; each point of a sweep then has as many modes as it guides
+(`jobs/strip-guided-modes.toml`, a strip widening from 0.3 to 1.5 µm). `job::check` refuses a
+threshold that isn't positive or isn't below the highest index the cross-section's window holds
+at the job's wavelength and a wavelength sweep's ends, in the run's own words, and the search
+heeds the job's stop and time limit before each batch of points.
+
+A closed window guides a little more than the open guide would: near cutoff a mode is held by
+the window's walls as much as by the core (the book's strip in a 2 × 2.2 µm window has a third
+mode at 1.498, above the oxide's 1.444, where the open strip guides two).
 
 ## The method
 
@@ -155,11 +178,16 @@ scaled).
   exponential, ½ for a power of N).
 - **Threads:** the strip's modes on 1 and 4 threads, every effective index and field entry the
   same bits.
+- **Every guided mode above an index:** a 3 µm wide, 220 nm silicon strip in oxide at 1.55 µm
+  (20 nm grid, a 5 × 2.2 µm window), every mode above the oxide's 1.444 with no count: 17 found,
+  against [shift-and-invert with Krylov–Schur restarts](eigen.md) asked for 17, to 1.6e-11;
+  Chilwell and Hodgkinson's guide above its substrate's index (the threshold 1.5005), 4 TE and
+  4 TM within 5.5e-7 of their Table 3.
 
 ## Not yet
 
 Left eigenvectors and the two-sided Rayleigh–Ritz of Kestyn et al.'s dual subspaces; their
 flags for spurious Ritz values (Section 2.7); shifted Krylov solves at the points for 3D port
 modes; Hadley's nonlinear eigenproblem by Beyn's contour method (W.-J. Beyn, Linear Algebra
-Appl. 436, 3839, online 2011, doi:10.1016/j.laa.2011.03.030); and "every guided mode above an
-index" as a job in the studio.
+Appl. 436, 3839, online 2011, doi:10.1016/j.laa.2011.03.030); and `modes_above` in the façade
+for Python (a modes job's `modes_above` reaches it today).

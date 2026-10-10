@@ -1035,16 +1035,8 @@ pub fn modes_until(
     }
     check_near(near)?;
     let k = wavelength.wavenumber();
-    let k2 = k * k;
-    let n_max = near.unwrap_or_else(|| {
-        cs.cells
-            .iter()
-            .map(|e| e.xx.re.max(e.yy.re).sqrt())
-            .fold(1.0, f64::max)
-    });
     let unknowns = unknowns(cs);
-    let entries = assemble(cs, k2);
-    let shift = c64::new(k2 * n_max * n_max, 0.0);
+    let (entries, shift) = eigenproblem(cs, wavelength, near);
     let Some(pairs) =
         crate::eigen::nearest_until(unknowns.len(), &entries, shift, count, 1e-9, &stop)?
     else {
@@ -1056,6 +1048,28 @@ pub fn modes_until(
             .map(|p| VectorMode::from_unknowns(cs, k, p.value, &unknowns, &p.vector))
             .collect(),
     ))
+}
+
+/// The highest index in `cs`, from its permittivities' real parts: no guided mode's effective
+/// index is above it.
+pub(crate) fn highest_index(cs: &CrossSection) -> f64 {
+    cs.cells
+        .iter()
+        .map(|e| e.xx.re.max(e.yy.re).sqrt())
+        .fold(1.0, f64::max)
+}
+
+/// The matrix [`modes`] solves, as (row, column, value) entries over the unknowns (its
+/// eigenvalues β²), and its shift k₀² n² for `near` (the highest index when `None`).
+pub(crate) fn eigenproblem(
+    cs: &CrossSection,
+    wavelength: Wavelength,
+    near: Option<f64>,
+) -> (Vec<(usize, usize, c64)>, c64) {
+    let k = wavelength.wavenumber();
+    let k2 = k * k;
+    let n_max = near.unwrap_or_else(|| highest_index(cs));
+    (assemble(cs, k2), c64::new(k2 * n_max * n_max, 0.0))
 }
 
 /// Every mode of `cs` at `wavelength` whose effective index lies in `region`, highest Re n_eff
@@ -1074,6 +1088,24 @@ pub fn modes_in(
     region: &crate::mode::region::Region,
     search: &crate::mode::region::Search,
 ) -> Result<crate::mode::region::Found<VectorMode>> {
+    // (never asked to stop, it always has its modes or an error)
+    modes_in_until(cs, wavelength, region, search, || false)?
+        .ok_or_else(|| Error::invalid("mode search", "stopped"))
+}
+
+/// As [`modes_in`], giving up when `stop` says so: `None` then. It is asked before each batch
+/// of quadrature points, a factorization and its solves each, side by side.
+///
+/// # Errors
+///
+/// As [`modes_in`].
+pub fn modes_in_until(
+    cs: &CrossSection,
+    wavelength: Wavelength,
+    region: &crate::mode::region::Region,
+    search: &crate::mode::region::Search,
+    stop: impl Fn() -> bool,
+) -> Result<Option<crate::mode::region::Found<VectorMode>>> {
     let k = wavelength.wavenumber();
     let unknowns = unknowns(cs);
     let entries = assemble(cs, k * k);
@@ -1082,9 +1114,19 @@ pub fn modes_in(
         .iter()
         .map(|&(_, node)| [cs.x[node / ny], cs.y[node % ny], 0.0])
         .collect();
-    let found =
-        crate::mode::region::search(unknowns.len(), &entries, &positions, k, region, search)?;
-    Ok(crate::mode::region::Found {
+    let Some(found) = crate::mode::region::search(
+        unknowns.len(),
+        &entries,
+        &positions,
+        k,
+        region,
+        search,
+        &stop,
+    )?
+    else {
+        return Ok(None);
+    };
+    Ok(Some(crate::mode::region::Found {
         modes: found
             .pairs
             .into_iter()
@@ -1094,7 +1136,44 @@ pub fn modes_in(
         estimate: found.estimate,
         subspace: found.subspace,
         iterations: found.iterations,
-    })
+    }))
+}
+
+/// Every mode of `cs` at `wavelength` with Re n_eff above `above`, highest first, with no
+/// count and no guess: with `above` the cladding's index, every guided mode. By contour
+/// integrals over [`crate::mode::region::Region::above`] up to the cross-section's highest
+/// index, with [`modes_in`].
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] unless `above` is positive and below the cross-section's highest
+/// index, and as [`modes_in`].
+pub fn modes_above(
+    cs: &CrossSection,
+    wavelength: Wavelength,
+    above: f64,
+    search: &crate::mode::region::Search,
+) -> Result<crate::mode::region::Found<VectorMode>> {
+    // (never asked to stop, it always has its modes or an error)
+    modes_above_until(cs, wavelength, above, search, || false)?
+        .ok_or_else(|| Error::invalid("mode search", "stopped"))
+}
+
+/// As [`modes_above`], giving up when `stop` says so, as [`modes_in_until`] does.
+///
+/// # Errors
+///
+/// As [`modes_above`].
+pub fn modes_above_until(
+    cs: &CrossSection,
+    wavelength: Wavelength,
+    above: f64,
+    search: &crate::mode::region::Search,
+    stop: impl Fn() -> bool,
+) -> Result<Option<crate::mode::region::Found<VectorMode>>> {
+    // (the ellipse's leftmost point is `above`: every index inside has a larger real part)
+    let region = crate::mode::region::Region::above(above, highest_index(cs))?;
+    modes_in_until(cs, wavelength, &region, search, stop)
 }
 
 impl VectorMode {

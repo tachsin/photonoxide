@@ -36,7 +36,9 @@ test fails when one of its functions is missing here.
 | Bends | ✅ | — | — | [bends](methods/bends.md) |
 | The effective index method | ✅ | ◐ inside 2D FDFD and FDTD jobs | ◐ † the same | [eim](methods/eim.md) |
 | Marcatili's method | ✅ | — | — | [marcatili](methods/marcatili.md) |
+| Many modes nearest an index (20 to 50), shift-and-invert with Krylov–Schur restarts | ✅ | ✅ `vector_modes`, its count | ✅ † | [eigen](methods/eigen.md) |
 | Every mode in a region of n_eff, by contour integrals | ✅ | — | — | [contour](methods/contour.md) |
+| Every guided mode above an n_eff threshold, no count | ✅ | ◐ a modes job's `modes_above` | ◐ † the same | [contour](methods/contour.md) |
 | Dispersion: group index and D | ✅ | ◐ effective indices over a wavelength sweep: a job | ◐ † the same | [dispersion](methods/dispersion.md) |
 
 ## FDFD
