@@ -326,6 +326,8 @@ struct State {
     alive: usize,
     lost: Vec<String>,
     quit: bool,
+    /// Whether the tasks were queued: until then a worker with none waits rather than leaves.
+    queued: bool,
 }
 
 struct Shared {
@@ -385,6 +387,7 @@ impl Session {
         state.pending += indices.len();
         state.queue.extend(indices);
         state.expected = expected;
+        state.queued = true;
         drop(state);
         self.shared.wake.notify_all();
     }
@@ -701,7 +704,7 @@ impl Driver {
                     taken.push(index);
                 }
                 if in_flight.is_empty() && taken.is_empty() {
-                    if state.pending == 0 {
+                    if state.queued && state.pending == 0 {
                         return Ok(());
                     }
                     let _ = self
