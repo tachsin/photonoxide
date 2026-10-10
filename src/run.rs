@@ -285,7 +285,9 @@ pub struct Run {
     events: Sink,
     started: Instant,
     digest: u64,
-    points: Option<Box<dyn Points>>,
+    // behind a mutex, so a run stays Sync, UnwindSafe and RefUnwindSafe as it was before the
+    // farm gave it one (only `&mut self` ever reaches it, through `get_mut` or by taking it)
+    points: Option<std::sync::Mutex<Box<dyn Points>>>,
 }
 
 /// Where a run's events go.
@@ -425,12 +427,15 @@ impl Run {
 
     /// Has the run's sweeps solve their points with `points` instead of side by side here.
     pub fn set_points(&mut self, points: Box<dyn Points>) {
-        self.points = Some(points);
+        self.points = Some(std::sync::Mutex::new(points));
     }
 
     /// Takes back what [`Run::set_points`] gave, if anything.
     pub fn take_points(&mut self) -> Option<Box<dyn Points>> {
-        self.points.take()
+        self.points.take().map(|m| {
+            m.into_inner()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+        })
     }
 
     /// The run's directory.
@@ -501,9 +506,9 @@ impl Run {
         point: &PointFn<'_>,
     ) -> Result<()> {
         use rayon::prelude::*;
-        if let Some(mut elsewhere) = self.points.take() {
+        if let Some(mut elsewhere) = self.take_points() {
             let done = elsewhere.sweep(self, stop, points, point);
-            self.points = Some(elsewhere);
+            self.set_points(elsewhere);
             return done;
         }
         let all: Vec<usize> = points.collect();
@@ -658,6 +663,14 @@ fn utc(unix_seconds: u64) -> (String, String) {
 mod tests {
     use super::*;
     use std::sync::atomic::AtomicUsize;
+
+    /// A run is Send, Sync, UnwindSafe and RefUnwindSafe, as it was in 0.5.1: losing one is a
+    /// breaking change (cargo-semver-checks' auto_trait_impl_removed).
+    #[test]
+    fn a_run_keeps_its_auto_traits() {
+        fn assert<T: Send + Sync + std::panic::UnwindSafe + std::panic::RefUnwindSafe>() {}
+        assert::<Run>();
+    }
 
     /// A fresh directory under the system's temporary directory, removed when dropped.
     struct TempDir(PathBuf);
