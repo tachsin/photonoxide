@@ -12,6 +12,30 @@ moving a slider shows the physics the library computes, the code the
 | [The ring resonator](ring-resonator.md) | introductory | `ring` | `ring-spectrum`, `ring-coupling` |
 | [Bragg gratings and mirrors](bragg-gratings.md) | intermediate | `bragg` | `bragg-reflectance`, `bragg-bandwidth` |
 
+The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
+with its numbered subsections, what each will answer and the examples each will use, so writing
+it is filling them in. The library lists them in this order, the order to read them in.
+
+| Lesson coming soon | Topic | Level | Examples |
+|---|---|---|---|
+| [Silicon, silica and dispersion](material-dispersion.md) | Materials | introductory | `silicon_index`, `silica_index` |
+| [The slab waveguide](slab-waveguide.md) | Waveguides | introductory | `slab_yariv_yeh`, `slab_soi` |
+| [The strip waveguide and its cross-section](strip-waveguide.md) | Waveguides | intermediate | `strip_waveguide`, `effective_index_method`, `marcatili`, `hadley_corners`, `group_index`, `leaky_wire_benchmark` |
+| [Leaky and bent guides, and multilayers](leaky-and-bent-guides.md) | Waveguides | advanced | `multilayer_chilwell`, `leaky_waves`, `bend_loss` |
+| [The directional coupler and splitters](directional-coupler.md) | Couplers and splitters | intermediate | `directional_coupler`, `coupler_liu_poon`, `circuit_splitter` |
+| [Grating couplers](grating-couplers.md) | Gratings and filters | intermediate | |
+| [Multimode interference and self-imaging](mmi.md) | Multimode and polarization devices | intermediate | `mmi_liu_poon` |
+| [Crossings, mode converters and the polarization splitter-rotator](crossings-and-converters.md) | Multimode and polarization devices | advanced | `crossing_liu_poon`, `mode_converter_liu_poon`, `splitter_rotator_liu_poon` |
+| [Photonic crystals and band gaps](photonic-crystals.md) | Nanophotonics | advanced | `subpixel_holes` |
+| [Surface plasmons and Mie scattering](plasmonics.md) | Nanophotonics | advanced | `lorentz_okoniewski` |
+| [Metasurfaces and metalenses](metasurfaces.md) | Nanophotonics | advanced | |
+| [How FDTD works](how-fdtd-works.md) | Numerical methods | intermediate | `cpml_roden_gedney`, `pml_oskooi`, `tfsf_square_cylinder`, `subpixel_holes`, `bump_oskooi`, `lorentz_okoniewski` |
+| [FDFD and adjoint gradients](fdfd-and-adjoints.md) | Numerical methods | advanced | |
+| [Inverse design](inverse-design.md), with 0.7 | Numerical methods | advanced | `circuit_splitter`, `circuit_ring_critical`, `circuit_fit` |
+| [Modulators and phase shifters](modulators.md), with 0.6 | Active and quantum photonics | intermediate | |
+| [Nonlinear integrated optics](nonlinear-optics.md), with 0.6.1 | Active and quantum photonics | advanced | |
+| [Quantum light on a chip](quantum-light.md), with 0.6.2 | Active and quantum photonics | advanced | |
+
 ## A lesson's file
 
 Front matter in YAML between `---` lines, then the body in Markdown with TeX math.
@@ -41,6 +65,23 @@ papers:                       # its history, for the timeline
 ```
 
 Every field but the lists is required, and an unknown field is an error.
+
+A lesson **coming soon** says so, has no `minutes`, `charts` or `papers` yet, and may name the
+milestone of [the roadmap](../ROADMAP.md) whose solvers it waits for:
+
+```yaml
+---
+title: "The slab waveguide"
+summary: "One sentence for the library's card, and the lesson's header until it has an opening."
+topic: Waveguides
+level: introductory
+status: coming                # published when left out
+milestone: "0.6"              # only on a lesson coming soon, and only if it waits for one
+prerequisites: [material-dispersion]
+examples: [slab_yariv_yeh, slab_soi]  # each in one of its subsections' ::coming lines
+methods: [slab.md]
+---
+```
 
 ## The body
 
@@ -96,6 +137,27 @@ The dip reaches zero where κ₁² meets the chart's critical coupling.
 :::
 ```
 
+## Coming soon
+
+A section still to be written is its heading, then a `::coming` line naming the examples it will
+use (none, one or several), then one paragraph saying what it will answer, and nothing else:
+
+```markdown
+## 3. How many modes does a slab hold?
+
+::coming slab_yariv_yeh
+The normalized frequency $V$ and index $b$, the $b$–$V$ diagram, each mode's cutoff, and the mode
+counts of an asymmetric and a symmetric slab.
+```
+
+The window shows it with a calm "coming soon" chip, its question, that paragraph and its examples,
+whatever depth the lesson is read to. A written lesson may hold such sections; a lesson with
+`status: coming` holds only them, numbered `1.`, `2.`, `3.` in order, with no opening: its summary
+says what it is about. Each subsection answers one question, its heading; the paragraph names
+what the answer will contain, its numbers with their sources, and no more. To write one, replace
+its `::coming` line and paragraph with the text and blocks that answer it; when every section is
+written, drop `status: coming` and give the lesson its reading time, diagram, papers and charts.
+
 ## The diagrams
 
 A lesson opens on its device drawn, before any chart, with a sentence saying what to look for:
@@ -135,11 +197,17 @@ The ranges are in `charts.rs`, and the window's sliders keep to them.
 
 `cargo test -p photonoxide-studio` fails when a lesson:
 
-- doesn't parse, or lacks an intuition, a theory or a research section, or a timeline;
+- doesn't parse, or, written, lacks an intuition, a theory or a research section, or a timeline;
+- is coming soon and has an opening, a section written, sections not numbered 1, 2, 3 in order, a
+  reading time or charts, an example no subsection's `::coming` line names, or a milestone the
+  roadmap doesn't have;
+- has a section coming soon with more than its `::coming` line and one paragraph, a paragraph
+  longer than a line or two (320 characters), or an example its front matter doesn't list;
+- shares its file's name with a method's write-up, so a link to it would be ambiguous;
 - names an example, job, circuit, method write-up, validation case, diagram, chart or lesson that
   doesn't exist, or a block names one its front matter doesn't list;
-- has no diagram, or a chart before its first diagram, or a diagram whose 3D view is of a job its
-  front matter doesn't list;
+- is written and has no diagram, or a chart before its first diagram, or a diagram whose 3D view is
+  of a job its front matter doesn't list;
 - has a chart block with an unknown parameter or a value outside its range;
 - has a paper without a DOI, or its text links to a DOI its papers don't list, or a relative
   link leads nowhere;
@@ -158,4 +226,5 @@ renders every formula of every lesson with KaTeX and fails on an error (`vite.co
   validation report, shown by an `::example` or `::validation` block rather than retyped where
   that is possible. A 2D result is never a device's performance.
 - New papers go into tachsin's papers list, ticked or needed, so their PDFs can be fetched.
-- Add the file to `lessons!` in `studio/src-tauri/src/academy.rs`, and a row to the table above.
+- Add the file to `lessons!` in `studio/src-tauri/src/academy.rs` where it falls in the reading
+  order, and a row to the tables above; a lesson coming soon moves to the first table once written.

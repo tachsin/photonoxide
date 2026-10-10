@@ -27,13 +27,30 @@
 
   let query = $state("");
   let level = $state<Level | null>(null);
+  /** Only the lessons already written. */
+  let written = $state(false);
   const lessons = $derived(academy.data?.lessons ?? []);
-  const current = $derived(lessons.find((l) => l.id === academy.lesson) ?? lessons[0]);
+  const published = $derived(lessons.filter((l) => l.status === "published"));
+  // opened without a choice: the first lesson written, not the first laid out
+  const current = $derived(lessons.find((l) => l.id === academy.lesson) ?? published[0] ?? lessons[0]);
 
-  /** What a search looks through: the lesson's words, its sections' titles and its papers. */
+  /** What a search looks through: the lesson's words, its sections' titles and what each coming one will answer, and its papers. */
   const haystack = (l: Lesson) =>
-    [l.title, l.summary, l.topic, ...l.sections.map((s) => s.title), ...l.papers.map((p) => `${p.cite} ${p.title}`)].join(" ").toLowerCase();
-  const shown = $derived(lessons.filter((l) => (!level || l.level === level) && (!query.trim() || haystack(l).includes(query.trim().toLowerCase()))));
+    [
+      l.title,
+      l.summary,
+      l.topic,
+      l.status === "coming" ? "coming soon" : "",
+      l.milestone ?? "",
+      ...l.examples,
+      ...l.sections.map((s) => `${s.title} ${s.coming?.answers ?? ""}`),
+      ...l.papers.map((p) => `${p.cite} ${p.title}`),
+    ]
+      .join(" ")
+      .toLowerCase();
+  const shown = $derived(
+    lessons.filter((l) => (!level || l.level === level) && (!written || l.status === "published") && (!query.trim() || haystack(l).includes(query.trim().toLowerCase()))),
+  );
   /** The lessons shown, by topic in the order they first come. */
   const topics = $derived.by(() => {
     const out: [string, Lesson[]][] = [];
@@ -78,6 +95,7 @@
             <span class="size-1.5 rounded-full {LEVEL_DOT[l]}"></span>{l}
           </button>
         {/each}
+        <button class="btn btn-xs {written ? 'btn-primary' : 'btn-ghost'}" aria-pressed={written} onclick={() => (written = !written)} title="Hide the lessons coming soon">written only</button>
       </div>
     </div>
     <div class="flex-1 overflow-y-auto px-2 pb-4">
@@ -86,13 +104,22 @@
         <ul class="space-y-0.5">
           {#each items as l (l.id)}
             {@const on = current?.id === l.id}
+            {@const coming = l.status === "coming"}
             <li>
               <button class="w-full rounded-lg px-3 py-2.5 text-left transition-colors {on ? 'bg-primary/12' : 'hover:bg-base-content/4'}" onclick={() => choose(l.id)}>
-                <span class="block text-sm font-medium {on ? 'text-primary' : ''}">{l.title}</span>
-                <span class="mt-0.5 flex items-center gap-1.5 text-xs faint">
-                  <span class="size-1.5 rounded-full {LEVEL_DOT[l.level]}"></span>{l.level} · {l.minutes} min · {l.papers.length} papers
+                <span class="flex items-start gap-2">
+                  <span class="min-w-0 flex-1 text-sm font-medium {on ? 'text-primary' : coming ? 'text-base-content/70' : ''}">{l.title}</span>
+                  {#if coming}<span class="coming-chip mt-px shrink-0">coming soon</span>{/if}
                 </span>
-                <span class="mt-1 line-clamp-2 block text-xs leading-relaxed muted">{l.summary}</span>
+                <span class="mt-0.5 flex items-center gap-1.5 text-xs faint">
+                  <span class="size-1.5 rounded-full {LEVEL_DOT[l.level]}"></span>
+                  {#if coming}
+                    {l.level} · {l.sections.length} subsections{l.milestone ? ` · with ${l.milestone}` : ""}
+                  {:else}
+                    {l.level} · {l.minutes} min · {l.papers.length} papers
+                  {/if}
+                </span>
+                <span class="mt-1 line-clamp-2 block text-xs leading-relaxed {coming ? 'faint' : 'muted'}">{l.summary}</span>
               </button>
             </li>
           {/each}
@@ -102,7 +129,7 @@
       {/each}
     </div>
     <div class="border-t border-base-content/8 px-4 py-3 text-[11px] leading-relaxed faint">
-      {lessons.length} lessons so far, each written in <code class="font-mono">academy/</code> and built into the program; more come topic by topic.
+      {published.length} lessons written and {lessons.length - published.length} laid out, coming soon; each is a file in <code class="font-mono">academy/</code>, built into the program.
     </div>
   </aside>
 
