@@ -92,6 +92,8 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`, as the Rust example d
 Each function's docstring has the details; `help(po.circuit_spectrum)` lists the kinds of
 component a netlist can hold and their settings. A job is a path to a job file (TOML, JSON or
 YAML) or the job as a dict, so every kind of job, FDTD included, runs from Python.
+[docs/features.md](features.md) has, for every method of the library, whether it works in Rust,
+Python and MATLAB.
 
 A strip's modes, from a cross-section built with NumPy (a quarter of a 500 × 220 nm silicon strip
 in oxide, mirror walls through its centre for the TE-like modes, on a 25 nm grid):

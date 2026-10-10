@@ -43,7 +43,9 @@ cd python && maturin develop --release && cd tests && python -m pytest   # the P
 The Python package ([docs/python.md](docs/python.md)) wraps `photonoxide::facade` only. A change to
 the façade's functions or results changes `python/` (the native module, the Python functions,
 their stubs and the MATLAB wrappers) in the same PR; its tests compare each function with the
-façade's conformance cases to the bit. CI builds and tests the wheels
+façade's conformance cases to the bit. A function added to the façade gets its row in
+[docs/features.md](docs/features.md), the table of what works in Rust, Python and MATLAB (a test
+checks every façade function is named there). CI builds and tests the wheels
 (`.github/workflows/python-wheels.yml`) only on PRs that touch `python/`, `src/`, `jobs/` or the
 manifests.
 
