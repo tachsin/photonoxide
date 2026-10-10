@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.2](https://github.com/tachsin/photonoxide/compare/v0.5.1...v0.5.2) - 2026-10-10
+
+### <!-- 0 -->Added
+
+- *(facade)* a small, stable façade of plain types for the bindings, with conformance cases ([#288](https://github.com/tachsin/photonoxide/pull/288))
+- *(python)* the photonoxide package for Python over the façade, MATLAB wrappers, wheels and PyPI publishing ([#290](https://github.com/tachsin/photonoxide/pull/290))
+- *(mode)* Krylov–Schur restarts for shift-and-invert, and every guided mode above an n_eff threshold ([#298](https://github.com/tachsin/photonoxide/pull/298))
+- *(fdfd)* recycling across 3D solves: earlier solutions and GCRO-DR, a sweep's, ports', adjoints' ([#300](https://github.com/tachsin/photonoxide/pull/300))
+
+### <!-- 1 -->Fixed
+
+- *(fdfd)* block QMR's checks hold on every system: portable inputs, and no count compared where it runs on rounding ([#286](https://github.com/tachsin/photonoxide/pull/286))
+- *(studio)* Nightly installs on Windows: the installer after the old app exits, its failure reported, an earlier watchdog superseded ([#293](https://github.com/tachsin/photonoxide/pull/293))
+
+### <!-- 4 -->Documentation
+
+- Python bindings in this repository, in python/ only: the rule, the roadmap and the plan's decisions ([#287](https://github.com/tachsin/photonoxide/pull/287))
+- a table of what works in Rust, Python and MATLAB, checked against the façade ([#292](https://github.com/tachsin/photonoxide/pull/292))
+- Stewart's Krylov–Schur paper cited by its online year, December 2001 ([#299](https://github.com/tachsin/photonoxide/pull/299))
+
 ## [0.5.1](https://github.com/tachsin/photonoxide/compare/v0.5.0...v0.5.1) - 2026-10-10
 
 ### <!-- 0 -->Added
