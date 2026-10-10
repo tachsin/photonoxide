@@ -15,7 +15,7 @@ This page is written by `photonoxide libraries --write docs/libraries.md` from t
 | [cuSPARSE](#cusparse) | `cusparse` | winget, conda-forge ✓, pip ✓ | conda-forge ✓, pip ✓ | see below |
 | [cuDSS](#cudss) | `cudss` | conda-forge ✓, pip ✓ | conda-forge ✓, pip ✓ | see below |
 | [SuperLU](#superlu) | `superlu` | see below | conda-forge ✓, apt ✓ | conda-forge ✓ |
-| [MUMPS](#mumps) | `mumps` | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
+| [MUMPS](#mumps) | `mumps`, `mumps-blr` | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [Accelerate](#accelerate) | `accelerate` | see below | see below | see below |
 | [OpenBLAS](#openblas) | none yet (#186) | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [AMD AOCL](#amd-aocl) | none yet (#186) | see below | see below | see below |
@@ -240,11 +240,11 @@ A supernodal sparse LU with partial pivoting (Demmel, Eisenstat, Gilbert, Li, Li
 
 ### MUMPS
 
-A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build. MUMPS asks that work using it cite it.
+A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build, and its block low-rank factorization (Amestoy et al. 2015) as a backend of its own, lossy to a tolerance and refined. MUMPS asks that work using it cite it.
 
 - **Licence:** [CeCILL-C](https://cecill.info/licences/Licence_CeCILL-C_V1-en.html). You accept it by installing.
 - **The vendor's download:** <https://mumps-solver.org/>
-- **Backends:** `mumps`.
+- **Backends:** `mumps`, `mumps-blr`.
 
 - **conda-forge** (Windows, Linux, macOS):
 
