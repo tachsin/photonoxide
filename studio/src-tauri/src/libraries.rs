@@ -1210,7 +1210,12 @@ pub fn install(library: String, id: String) -> Result<String, String> {
     // start opens a new console, whose cmd /k runs the command and stays open
     command.args(["/c", "start", "photonoxide: installing", "cmd", "/k"]);
     command.args(install.command.split(' '));
+    // no standard handles: a studio opened from Explorer has let go of its console, and a
+    // child given its handles doesn't start
     command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .spawn()
         .map_err(|e| format!("can't open a terminal: {e}"))?;
     Ok(install.command.to_owned())

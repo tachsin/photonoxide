@@ -134,10 +134,12 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
                 .unwrap_or_else(|_| started_in.join(".photonoxide"))
                 .join("settings.json");
             let documents = paths.document_dir().ok();
-            app.manage(crate::channels::State::new(
+            let channels = crate::channels::State::new(
                 crate::channels::nightly_dir(paths.app_local_data_dir().ok()),
                 crate::channels::identity_of(app.config()),
-            ));
+            );
+            crate::channels::at_start(&channels);
+            app.manage(channels);
             let settings = Settings::load(&settings_file);
             let workspace = settings::workspace(&settings, &started_in, documents.as_deref());
             let mut started = Vec::new();

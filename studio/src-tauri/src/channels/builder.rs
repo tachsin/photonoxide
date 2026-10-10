@@ -59,9 +59,13 @@ impl Dirs {
     pub fn handover(&self) -> PathBuf {
         self.root.join("handover.json")
     }
-    /// What the last rollback did, for the window to say once.
+    /// What the last rollback or failed install did, for the window to say once.
     pub fn rollback_note(&self) -> PathBuf {
         self.root.join("rollback.json")
+    }
+    /// Each install's steps, as the watchdog took them.
+    pub fn install_log(&self) -> PathBuf {
+        self.root.join("install.log")
     }
     /// The check's memory.
     pub fn check_file(&self) -> PathBuf {

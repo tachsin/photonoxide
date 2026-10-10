@@ -891,11 +891,16 @@ fn in_a_terminal(command: &str) -> Result<(), String> {
     {
         use std::os::windows::process::CommandExt;
         // start opens a console of its own, whose cmd /k runs the line and stays open; the line
-        // goes as it is, its quotes for winget's --override intact
+        // goes as it is, its quotes for winget's --override intact. No standard handles: a
+        // studio opened from Explorer has let go of its console, and a child given its handles
+        // doesn't start
         Command::new("cmd")
             .raw_arg(format!(
                 "/c start \"photonoxide: installing\" cmd /k {command}"
             ))
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .spawn()
             .map(|_| ())
             .map_err(|e| format!("can't open a terminal: {e}"))
