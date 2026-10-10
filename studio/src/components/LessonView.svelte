@@ -4,10 +4,10 @@
   // lesson's Markdown with KaTeX; its charts, examples, validation cases and timeline are blocks.
   import "katex/dist/katex.min.css";
 
-  import { ArrowLeft, BookOpen, ChevronDown, CircleCheck, CircleX, CircuitBoard, Clock, Eye, Play, ShieldCheck, SquarePen } from "@lucide/svelte";
+  import { ArrowLeft, BookOpen, ChevronDown, CircleCheck, CircleX, CircuitBoard, Clock, Eye, ListOrdered, Play, ShieldCheck, SquarePen } from "@lucide/svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
 
-  import { academy, DEPTHS, type ChartSpec, type DiagramSpec, type Depth, type Lesson, type LessonSection } from "../lib/academy.svelte";
+  import { academy, DEPTHS, numbered, type ChartSpec, type DiagramSpec, type Depth, type Lesson, type LessonSection } from "../lib/academy.svelte";
   import { api, type CircuitExample } from "../lib/api";
   import { app, go, toast } from "../lib/app.svelte";
   import { catalog, jobExample, loadCatalog } from "../lib/catalog.svelte";
@@ -54,6 +54,8 @@
     research: { label: "Research", about: "history, today's papers, open problems", badge: "badge-secondary" },
   };
 
+  /** Laid out with its subsections, still to be written. */
+  const coming = $derived(lesson.status === "coming");
   const depth = $derived(academy.depth[lesson.id] ?? "intuition");
   const reach = $derived(DEPTHS.indexOf(depth));
   const key = (s: LessonSection) => `${lesson.id}#${s.id}`;
@@ -157,8 +159,13 @@
         <div class="flex flex-wrap items-center gap-2 text-xs">
           <span class="font-medium text-primary">{lesson.topic}</span>
           <span class="badge badge-soft badge-sm {LEVEL[lesson.level]}">{lesson.level}</span>
-          <span class="flex items-center gap-1 faint"><Clock size={12} /> {lesson.minutes} min</span>
-          <span class="flex items-center gap-1 faint"><ShieldCheck size={12} /> {lesson.validation.length} validation cases</span>
+          {#if coming}
+            <span class="coming-chip">coming soon{lesson.milestone ? ` · with ${lesson.milestone}` : ""}</span>
+            <span class="flex items-center gap-1 faint"><ListOrdered size={12} /> {lesson.sections.length} subsections</span>
+          {:else}
+            <span class="flex items-center gap-1 faint"><Clock size={12} /> {lesson.minutes} min</span>
+            <span class="flex items-center gap-1 faint"><ShieldCheck size={12} /> {lesson.validation.length} validation cases</span>
+          {/if}
         </div>
         <h2 class="mt-2 text-2xl font-semibold tracking-tight sm:text-[28px]">{lesson.title}</h2>
         <p class="mt-2 max-w-2xl leading-relaxed muted">{lesson.summary}</p>
@@ -169,7 +176,7 @@
           </p>
         {/if}
 
-        <div class="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div class="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2" class:hidden={coming}>
           <div class="join" role="group" aria-label="How deep to read">
             {#each DEPTHS as d (d)}
               <button class="btn join-item btn-sm {DEPTHS.indexOf(d) <= reach ? 'btn-primary' : ''} {d === depth ? '' : 'btn-soft'}" aria-pressed={d === depth} onclick={() => setDepth(d)} title={DEPTH[d].about}>
@@ -204,7 +211,7 @@
             {/if}
           {/each}
         </div>
-        <div class="mt-4 empty:hidden">
+        <div class="mt-4 empty:hidden" class:hidden={coming}>
           <Tip id="academy-depth" title="Read as deep as you like">
             A lesson opens on its intuition. <strong>Theory</strong> opens the derivations and <strong>Research</strong> the history and today's papers; a section's heading opens it alone. Every chart
             is computed by photonoxide as you move its sliders.
@@ -216,85 +223,112 @@
     <div class="lesson mx-auto max-w-3xl px-5 pb-20 sm:px-8">
       {#each lesson.sections as s, k (s.id || k)}
         {@const open = isOpen(s)}
-        <section id="section-{s.id}" class="scroll-mt-4">
-          {#if s.title && s.depth === "intuition"}
-            <h3 class="mt-10 mb-2 text-xl font-semibold tracking-tight">{s.title}</h3>
-          {:else if s.title}
-            <button class="group mt-10 flex w-full items-center gap-3 text-left" onclick={() => toggle(s)} aria-expanded={open}>
-              <h3 class="text-xl font-semibold tracking-tight">{s.title}</h3>
-              <span class="badge badge-soft badge-sm {DEPTH[s.depth].badge}">{DEPTH[s.depth].label.toLowerCase()}</span>
-              <span class="flex-1 border-t border-base-content/8"></span>
-              <span class="flex items-center gap-1 text-xs faint group-hover:text-base-content">
-                {open ? "close" : "open"}
-                <ChevronDown size={15} class="transition-transform {open ? 'rotate-180' : ''}" />
-              </span>
-            </button>
-            {#if !open}
-              <p class="mt-1.5 text-sm faint">{DEPTH[s.depth].about[0].toUpperCase() + DEPTH[s.depth].about.slice(1)}.</p>
-            {/if}
-          {:else}
-            <div class="mt-8"></div>
-          {/if}
-
-          {#if open}
-            {#each s.blocks as b, j (j)}
-              {#if b.kind === "text"}
-                <div class="lesson-text selectable">{@html methodHtml(b.markdown)}</div>
-              {:else if b.kind === "diagram"}
-                {@const spec = diagrams.find((d) => d.id === b.diagram)}
-                {#if spec}<LessonDiagram {spec} />{/if}
-              {:else if b.kind === "chart"}
-                {@const spec = charts.find((c) => c.id === b.chart)}
-                {#if spec}<LessonChart {spec} initial={b.values} />{/if}
-              {:else if b.kind === "example"}
-                <LessonExample name={b.name} />
-              {:else if b.kind === "validation"}
-                <div class="panel my-6 divide-y divide-base-content/6">
-                  {#each lesson.cases.filter((c) => b.cases.includes(c.id)) as c (c.id)}
-                    <div class="flex gap-3 px-4 py-3">
-                      {#if c.pass}<CircleCheck size={16} class="mt-0.5 shrink-0 text-success" />{:else}<CircleX size={16} class="mt-0.5 shrink-0 text-error" />{/if}
-                      <div class="min-w-0 flex-1">
-                        <p class="flex flex-wrap items-center gap-2">
-                          <code class="font-mono text-[12px]">{c.id}</code>
-                          <span class="badge badge-ghost badge-xs">{c.tier}</span>
-                        </p>
-                        <p class="mt-1 text-[13px] leading-relaxed"><MathText text={c.what} /></p>
-                        <p class="mt-1 text-[11.5px] leading-relaxed faint"><MathText text={c.against} /></p>
-                        <p class="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
-                          <span><span class="faint">measured</span> <span class="num">{c.measured}</span></span>
-                          <span><span class="faint">expected</span> <span class="num">{c.expected}</span></span>
-                          <span><span class="faint">tolerance</span> <span class="num">{c.tolerance}</span></span>
-                        </p>
-                      </div>
-                    </div>
-                  {/each}
-                  <button class="flex w-full items-center gap-1.5 px-4 py-2 text-left text-xs text-primary hover:bg-base-content/3" onclick={() => go("validation")}>
-                    <ShieldCheck size={12} /> From the validation report as this release published it; run it on the Validation page
-                  </button>
+        {#if s.coming}
+          {@const [n, question] = numbered(s.title)}
+          <!-- laid out, not yet written: its question, what it will answer, the examples it will use -->
+          <section id="section-{s.id}" class="scroll-mt-4 {lesson.sections[k - 1]?.coming ? 'mt-3' : 'mt-8'}">
+            <div class="flex items-start gap-3 rounded-xl border border-dashed border-base-content/14 px-4 py-3.5 sm:px-5">
+              {#if n}<span class="mt-px grid size-6 shrink-0 place-items-center rounded-full bg-base-content/6 text-xs font-semibold num muted">{n}</span>{/if}
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                  <h3 class="text-[15.5px] leading-snug font-semibold tracking-tight">{question}</h3>
+                  <span class="coming-chip">coming soon</span>
                 </div>
-              {:else if b.kind === "timeline"}
-                <PaperTimeline papers={lesson.papers} />
-              {:else if b.kind === "answer"}
-                {@const id = `${s.id}:${j}`}
-                {#if revealed.includes(id)}
-                  <div class="lesson-text my-3 rounded-xl border border-success/25 bg-success/6 px-4 py-1 selectable">{@html methodHtml(b.markdown)}</div>
-                {:else}
-                  <button class="btn my-2 gap-1.5 btn-soft btn-sm btn-success" onclick={() => (revealed = [...revealed, id])}><Eye size={14} /> Show the answer</button>
+                <div class="coming-text mt-1 muted selectable">{@html methodHtml(s.coming.answers)}</div>
+                {#if s.coming.examples.length}
+                  <p class="mt-2 flex flex-wrap items-center gap-1 text-xs">
+                    <span class="mr-0.5 faint">Uses</span>
+                    {#each s.coming.examples as e (e)}
+                      <button class="btn font-mono font-normal btn-ghost btn-xs" data-example={e} title="{exampleTitle(e)}: open it on the Examples page">{e}</button>
+                    {/each}
+                  </p>
                 {/if}
+              </div>
+            </div>
+          </section>
+        {:else}
+          <section id="section-{s.id}" class="scroll-mt-4">
+            {#if s.title && s.depth === "intuition"}
+              <h3 class="mt-10 mb-2 text-xl font-semibold tracking-tight">{s.title}</h3>
+            {:else if s.title}
+              <button class="group mt-10 flex w-full items-center gap-3 text-left" onclick={() => toggle(s)} aria-expanded={open}>
+                <h3 class="text-xl font-semibold tracking-tight">{s.title}</h3>
+                <span class="badge badge-soft badge-sm {DEPTH[s.depth].badge}">{DEPTH[s.depth].label.toLowerCase()}</span>
+                <span class="flex-1 border-t border-base-content/8"></span>
+                <span class="flex items-center gap-1 text-xs faint group-hover:text-base-content">
+                  {open ? "close" : "open"}
+                  <ChevronDown size={15} class="transition-transform {open ? 'rotate-180' : ''}" />
+                </span>
+              </button>
+              {#if !open}
+                <p class="mt-1.5 text-sm faint">{DEPTH[s.depth].about[0].toUpperCase() + DEPTH[s.depth].about.slice(1)}.</p>
               {/if}
-            {/each}
-          {/if}
-        </section>
+            {:else}
+              <div class="mt-8"></div>
+            {/if}
+
+            {#if open}
+              {#each s.blocks as b, j (j)}
+                {#if b.kind === "text"}
+                  <div class="lesson-text selectable">{@html methodHtml(b.markdown)}</div>
+                {:else if b.kind === "diagram"}
+                  {@const spec = diagrams.find((d) => d.id === b.diagram)}
+                  {#if spec}<LessonDiagram {spec} />{/if}
+                {:else if b.kind === "chart"}
+                  {@const spec = charts.find((c) => c.id === b.chart)}
+                  {#if spec}<LessonChart {spec} initial={b.values} />{/if}
+                {:else if b.kind === "example"}
+                  <LessonExample name={b.name} />
+                {:else if b.kind === "validation"}
+                  <div class="panel my-6 divide-y divide-base-content/6">
+                    {#each lesson.cases.filter((c) => b.cases.includes(c.id)) as c (c.id)}
+                      <div class="flex gap-3 px-4 py-3">
+                        {#if c.pass}<CircleCheck size={16} class="mt-0.5 shrink-0 text-success" />{:else}<CircleX size={16} class="mt-0.5 shrink-0 text-error" />{/if}
+                        <div class="min-w-0 flex-1">
+                          <p class="flex flex-wrap items-center gap-2">
+                            <code class="font-mono text-[12px]">{c.id}</code>
+                            <span class="badge badge-ghost badge-xs">{c.tier}</span>
+                          </p>
+                          <p class="mt-1 text-[13px] leading-relaxed"><MathText text={c.what} /></p>
+                          <p class="mt-1 text-[11.5px] leading-relaxed faint"><MathText text={c.against} /></p>
+                          <p class="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                            <span><span class="faint">measured</span> <span class="num">{c.measured}</span></span>
+                            <span><span class="faint">expected</span> <span class="num">{c.expected}</span></span>
+                            <span><span class="faint">tolerance</span> <span class="num">{c.tolerance}</span></span>
+                          </p>
+                        </div>
+                      </div>
+                    {/each}
+                    <button class="flex w-full items-center gap-1.5 px-4 py-2 text-left text-xs text-primary hover:bg-base-content/3" onclick={() => go("validation")}>
+                      <ShieldCheck size={12} /> From the validation report as this release published it; run it on the Validation page
+                    </button>
+                  </div>
+                {:else if b.kind === "timeline"}
+                  <PaperTimeline papers={lesson.papers} />
+                {:else if b.kind === "answer"}
+                  {@const id = `${s.id}:${j}`}
+                  {#if revealed.includes(id)}
+                    <div class="lesson-text my-3 rounded-xl border border-success/25 bg-success/6 px-4 py-1 selectable">{@html methodHtml(b.markdown)}</div>
+                  {:else}
+                    <button class="btn my-2 gap-1.5 btn-soft btn-sm btn-success" onclick={() => (revealed = [...revealed, id])}><Eye size={14} /> Show the answer</button>
+                  {/if}
+                {/if}
+              {/each}
+            {/if}
+          </section>
+        {/if}
       {/each}
     </div>
   </article>
 
-  <nav class="hidden w-56 shrink-0 overflow-y-auto border-l border-base-content/8 px-3 py-6 2xl:block" aria-label="On this page">
+  <!-- a lesson coming soon is its outline already -->
+  <nav class="hidden w-56 shrink-0 overflow-y-auto border-l border-base-content/8 px-3 py-6 {coming ? '' : '2xl:block'}" aria-label="On this page">
     <p class="mb-2 px-2 panel-title">On this page</p>
     {#each lesson.sections.filter((s) => s.title) as s (s.id)}
-      <button class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-base-content/5 {isOpen(s) ? '' : 'faint'}" onclick={() => reveal(s)}>
+      <button class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-base-content/5 {isOpen(s) && !s.coming ? '' : 'faint'}" onclick={() => reveal(s)}>
         <span class="min-w-0 flex-1 truncate">{s.title}</span>
-        {#if s.depth !== "intuition"}<span class="size-1.5 shrink-0 rounded-full {s.depth === 'theory' ? 'bg-info' : 'bg-secondary'}" title={DEPTH[s.depth].label}></span>{/if}
+        {#if s.coming}<span class="size-1.5 shrink-0 rounded-full border border-dashed border-base-content/40" title="Coming soon"></span>
+        {:else if s.depth !== "intuition"}<span class="size-1.5 shrink-0 rounded-full {s.depth === 'theory' ? 'bg-info' : 'bg-secondary'}" title={DEPTH[s.depth].label}></span>{/if}
       </button>
     {/each}
   </nav>
@@ -317,5 +351,12 @@
   }
   .lesson-text :global(.katex-display) {
     margin-block: 0.4em;
+  }
+  .coming-text {
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .coming-text :global(p) {
+    margin: 0;
   }
 </style>

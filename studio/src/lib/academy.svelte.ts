@@ -26,13 +26,25 @@ export type LessonBlock =
   | { kind: "timeline" }
   | { kind: "answer"; markdown: string };
 
+/** A section still to be written: what it will answer, and the examples it will use. */
+export interface Coming {
+  /** One paragraph, Markdown with TeX math. */
+  answers: string;
+  examples: string[];
+}
+
 export interface LessonSection {
   title: string;
   /** Its anchor, from the title. */
   id: string;
   depth: Depth;
+  /** Set when the section is still to be written; its blocks are then none. */
+  coming: Coming | null;
   blocks: LessonBlock[];
 }
+
+/** Written, or laid out with its subsections and still to be written. */
+export type Status = "published" | "coming";
 
 /** A validation case's row in the published report (docs/validation.md). */
 export interface CaseRow {
@@ -53,6 +65,10 @@ export interface Lesson {
   summary: string;
   topic: string;
   level: Level;
+  status: Status;
+  /** For a lesson coming soon, the milestone whose solvers it waits for (ROADMAP.md), e.g. "0.6". */
+  milestone: string | null;
+  /** About how long it takes to read; 0 for a lesson coming soon. */
   minutes: number;
   prerequisites: string[];
   examples: string[];
@@ -132,6 +148,12 @@ export interface Academy {
 export const DEPTHS: Depth[] = ["intuition", "theory", "research"];
 
 export const LEVELS: Level[] = ["introductory", "intermediate", "advanced"];
+
+/** A subsection's heading split into its number and its question: "2. Why …?" is ["2", "Why …?"]. */
+export function numbered(title: string): [string | null, string] {
+  const m = /^(\d+)\.\s+(.*)$/.exec(title);
+  return m ? [m[1], m[2]] : [null, title];
+}
 
 /** A unit as people read it. */
 export const unitName = (unit: string) => (unit === "um" ? "µm" : unit);
