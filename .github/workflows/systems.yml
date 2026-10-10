@@ -6,8 +6,6 @@ name: Systems
 # outputs are kept as artifacts.
 on:
   workflow_dispatch:
-  push:
-    branches: [test/280-systems]
 
 env:
   CARGO_TERM_COLOR: always
