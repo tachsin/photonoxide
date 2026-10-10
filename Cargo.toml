@@ -21,6 +21,9 @@ default-members = ["."]
 
 [dependencies]
 faer = "0.24.4"
+# exp, sin and cos in pure Rust, the same bits on every system, where the system's maths library
+# would move a result between Linux, Windows and macOS (the `portable` module)
+libm = "0.2.16"
 num-complex = "0.4"
 # spectra: their wavelengths solved in parallel, each on its own, collected in order
 rayon = "1.12.0"

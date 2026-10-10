@@ -49,6 +49,7 @@ pub mod job;
 pub mod material;
 pub mod mode;
 pub mod parallel;
+mod portable;
 pub mod raster;
 pub mod run;
 mod sparse;
