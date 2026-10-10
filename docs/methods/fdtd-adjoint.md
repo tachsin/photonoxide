@@ -108,8 +108,9 @@ fall below $10^{-16}$.
 transform moves by more than a tolerance (relative to its largest) over a block of time. The
 transforms are then the frequency-domain fields to about that tolerance. A field left standing
 moves them by at most its size over ω̃, so the rule doesn't wait for it. Waiting is no remedy:
-with CPMLs (α = 0), the strip's fields grow again from round-off after about 400 µm/c, ten
-times the run.
+the strip's fields grow again in its CPMLs after about 400 µm/c, ten times the run
+([Late growth](fdtd.md#late-growth): not an effect of α = 0, and removed by the CPML's
+`damping`, at a price in reflection the gradients' checks don't need to pay).
 
 ## The design
 

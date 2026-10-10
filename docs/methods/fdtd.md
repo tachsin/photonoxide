@@ -24,6 +24,10 @@ papers:
     doi: 10.1109/75.569723
   - cite: "J. A. Roden, S. D. Gedney, Microw. Opt. Technol. Lett. 27, 334 (2000) (the convolutional PML)"
     doi: 10.1002/1098-2760(20001205)27:5<334::AID-MOP14>3.0.CO;2-A
+  - cite: "P.-R. Loh, A. F. Oskooi, M. Ibanescu, M. Skorobogatiy, S. G. Johnson, Phys. Rev. E 79, 065601 (2009) (a PML's failure for backward waves)"
+    doi: 10.1103/PhysRevE.79.065601
+  - cite: "A. F. Oskooi, L. Zhang, Y. Avniel, S. G. Johnson, Opt. Express 16, 11376 (2008) (adiabatic absorbers)"
+    doi: 10.1364/OE.16.011376
   - cite: "A. Farjadpour et al., Opt. Lett. 31, 2972 (2006) (subpixel smoothing)"
     doi: 10.1364/OL.31.002972
   - cite: "G. R. Werner, J. R. Cary, J. Comput. Phys. 226, 1085 (2007) (a symmetric ε⁻¹ for tensor media, `Coupling::Nodes`)"
@@ -208,6 +212,79 @@ slabs, two per field component per axis.
   - Their pulse's width isn't given; it is set so the first number is theirs, and the second is
     then a prediction.
   - `Cpml::sigma_optimal` is their Eq. 15.
+
+### Late growth
+
+With a guide running into a CPML, a long run's fields can decay and then grow again,
+exponentially, until they dwarf the pulse that started them
+([#251](https://github.com/tachsin/photonoxide/issues/251)). Measured on a strip of ε = 6,
+0.3 × 0.3 µm, in vacuum, through CPMLs of 6 cells all round (36 × 20 × 20 cells of 50 nm,
+`fdtd::checks::late_energy`), lit by a pulse at 1 c/µm from a dipole off the guide's axes:
+
+- the energy Σ(E² + H̃²) falls for about 300 µm/c and then grows as $e^{0.064\,ct}$ (t in µm/c:
+  a factor of 600 every 100 µm/c), by 10⁷⁰ over 10⁵ steps;
+- what grows oscillates at 3.0 c/µm, three times the pulse's carrier, hardly varies along the
+  guide ($k_x \approx 0$) and is largest inside the CPMLs at the guide's two ends. In the core
+  that frequency's wavelength is 2.7 cells: a transverse resonance of the guide at its cutoff,
+  barely resolved;
+- it isn't a matter of the time step: the rate is 0.064, 0.069 and 0.074 at Courant numbers
+  0.99, 0.9 and 0.7;
+- it needs the guide in the CPML: none in vacuum, none in uniform ε = 6, none with a strip
+  that stops short of the CPMLs, and the same with the CPMLs across 6 cells farther from the
+  core;
+- a dipole on the guide's two symmetry planes never starts it (its field and the scheme keep
+  the symmetry to the bit), which is how a first look can miss it; a mode source or a design
+  region breaks the symmetry and starts it.
+
+No parameter of the CPML removes it:
+
+| CPML (6 cells, R = 10⁻⁸, order 3 unless said) | Energy's growth, per µm/c |
+|---|---|
+| κ = 1, α = 0 (the default) | 0.064 |
+| α = 0.01, 0.05, 0.2 /µm | 0.064 to 0.07 |
+| α = 1, 5 /µm | 0.057, 0.019 |
+| κ = 2, 3, 5, 10 | 0.062, 0.048, 0.032, 0.013 |
+| 12 cells | 0.044 |
+| order 2 | 0.080 |
+| R = 10⁻⁴ | 0.016 |
+
+So it isn't the late-time reflection of evanescent fields that α > 0 is for. It is what Loh et
+al. describe: a PML's stretch turns a wave whose phase and group velocities point opposite ways
+along it into a growing one, whatever the stretch, and a guide of high contrast has such waves
+near its modes' cutoffs. Here the grid supplies one, at a wavelength of a few cells. That this
+mode is a backward wave wasn't shown from its dispersion; the evidence is the list above. On
+cells of 25 nm the same strip showed no growth in 900 µm/c, which is too short to say it has
+none.
+
+**The remedy is ordinary loss,** which damps a wave whatever its direction (Oskooi et al.'s
+adiabatic absorbers are that alone). `Cpml::damping` adds an electric conductivity inside the
+CPML, rising as (depth/d)^(3m). On the same strip, over 7 × 10⁴ steps, and for the reflection
+of `fdtd/cpml-thickness`'s pulse:
+
+| Damping | Growth, per µm/c | Reflection, 6 cells | Reflection, 16 cells |
+|---|---|---|---|
+| none | 0.064 to 0.071 | 1.4e-3 | 6.1e-6 |
+| as depth³, 2 /µm | none | 1.3e-2 | 6.7e-3 |
+| as depth⁶, 3.5 /µm | none | 2.6e-3 | 2.0e-3 |
+| as depth⁹, 5 /µm (`damping: 5.0`) | none | 6.9e-4 | 6.2e-4 |
+| as depth⁹, 10 /µm | none | 1.0e-3 | 1.2e-3 |
+| as depth¹², 6.5 /µm | 0.017 | 1.2e-3 | 2.0e-4 |
+| as depth²⁰, 10.5 to 42 /µm | 0.037 to 0.015 | 1.4e-3 | 1.3e-5 to 5.5e-5 |
+
+- The loss needed is the growth's: graded as depth³, 2 /µm (a mean of 0.5 /µm, a field decay
+  of 0.5/(2ε) = 0.04 per µm/c in the core) stops a field growing at 0.032, and 0.5 /µm (0.01)
+  only halves the rate.
+- An electric loss alone mismatches the impedance, so it reflects. Graded steeply it sits
+  where the CPML has absorbed what came in: depth⁹ reflects a twentieth of what depth³ does.
+  Steeper still, it no longer reaches the growing wave.
+- The price: a thin CPML reflects no more than before (less, at 6 cells), a thick one a
+  hundred times more. So the damping is off by default, and for the long runs that need it:
+  `Boundaries { cpml: Cpml { damping: 5.0, ..Cpml::default() }, .. }`. With it the strip's
+  energy falls by nine orders over 10⁵ steps and then rests on a static remnant, 3.4e-10 of its
+  first sample, that creeps down with a ripple of 3 % (`fdtd/cpml-late-growth`: no growth over
+  any 500 µm/c).
+- Not with a subpixel-smoothed permittivity that couples E's components, which takes no
+  conductivity. A loss in H̃ too, matched to E's, would reflect less; the kernel has none.
 
 **Walls.** A PML of zero cells is a perfect electric conductor: the tangential E on the wall is
 held at zero, as in FDFD. **Periodic** sides wrap. A 2D problem is a grid one cell thick along

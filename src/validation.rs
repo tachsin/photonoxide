@@ -880,6 +880,13 @@ pub fn cases() -> Vec<Case> {
             run: fdtd_cpml_thickness,
         },
         Case {
+            id: "fdtd/cpml-late-growth",
+            title: r"FDTD over $10^5$ steps with a guide running into its CPMLs: a strip of $\varepsilon = 6$, $0.3 \times 0.3$ µm, in vacuum ($36 \times 20 \times 20$ cells of 50 nm, CPMLs of 6 cells with a damping of 5/µm, Courant number 0.99), a pulse at 1 c/µm from a dipole off its axes: the largest ratio of the fields' energy to its value 500 µm/c before, from 500 µm/c on",
+            tier: Tier::Analytic,
+            source: r"a passive system's energy only falls once its source has ended. Without the damping this strip's grows again as $e^{0.064 ct}$ after about 300 µm/c, by $10^{70}$ over these steps: a PML amplifies a wave whose phase and group velocities point opposite ways along it (P.-R. Loh, A. F. Oskooi, M. Ibanescu, M. Skorobogatiy, S. G. Johnson, Phys. Rev. E 79, 065601 (2009), doi:10.1103/PhysRevE.79.065601), and no $\sigma$, $\kappa$ or $\alpha$ removes it (docs/methods/fdtd.md, Late growth). `Cpml::damping`, an ordinary loss graded steeply inside the CPML, does",
+            run: fdtd_cpml_late_growth,
+        },
+        Case {
             id: "fdtd/spectrum",
             title: r"FDTD's sources normalized: a Gaussian pulse from an electric point current and from a magnetic dipole between values, in a closed box of a lossy medium ($16 \times 14 \times 12$ cells of 50 nm, $\varepsilon = 2.1$, $\sigma = 2$/µm), E's DFT at the carrier (1.55 µm) and 0.12 c/µm off it against `Solver3d`'s field for the sources' own transforms at the leapfrog's frequency (largest field difference relative to the largest field shown)",
             tier: Tier::Analytic,
@@ -2028,6 +2035,23 @@ fn fdtd_cpml_thickness() -> Outcome {
         expected: 0.0,
         // measured 6.1e-6: −104 dB
         tolerance: 1e-4,
+        error: measured,
+    }
+}
+
+fn fdtd_cpml_late_growth() -> Outcome {
+    let history = crate::fdtd::checks::late_energy(5.0, 100_000);
+    // blocks of 50 µm/c: each over the one ten before it
+    let measured = history
+        .windows(11)
+        .map(|w| w[10] / w[0])
+        .fold(0.0, f64::max);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // falling throughout: by nine orders, then a static remnant at 3.4e-10 of the first
+        // sample that creeps down with a ripple of 3 % (so not over 100 µm/c: over 500)
+        tolerance: 1.0,
         error: measured,
     }
 }

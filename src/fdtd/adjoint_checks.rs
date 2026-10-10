@@ -20,8 +20,9 @@ pub(crate) const SETTLED: f64 = 1e-11;
 /// The same in the lossy box, over blocks of 2 µm/c: its loss takes everything away.
 const BOX_SETTLED: f64 = 1e-13;
 
-/// The longest a run may take, µm/c: beyond what any here needs, and short of the growth from
-/// round-off a CPML (α = 0) shows after some hundreds of µm/c (see docs/methods/fdtd-adjoint.md).
+/// The longest a run may take, µm/c: beyond what any here needs, and short of the growth the
+/// strip's fields show in its CPMLs after some hundreds of µm/c (docs/methods/fdtd.md, "Late
+/// growth").
 const LIMIT: f64 = 300.0;
 
 /// The cells along each axis of [`Strip`].
