@@ -252,6 +252,8 @@ impl Farm {
                     results[index] = Some(outcome);
                 }
                 Next::Waiting => {}
+                // (workers leave at the stop too, before it is seen here)
+                Next::NoWorkers(_) if stop.reason().is_some() => break,
                 Next::NoWorkers(reasons) => {
                     session.finish();
                     return Err(no_workers(&reasons));
@@ -481,6 +483,8 @@ impl Points for Farmed {
             match session.next() {
                 Next::Done(index, outcome) => results[index - first] = Some(outcome),
                 Next::Waiting => {}
+                // (workers leave at the stop too, before it is seen here)
+                Next::NoWorkers(_) if stop.reason().is_some() => return Ok(()),
                 Next::NoWorkers(reasons) => return Err(no_workers(&reasons)),
             }
         }
