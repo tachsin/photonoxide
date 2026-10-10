@@ -35,7 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - *(plans)* Wang et al.'s review of integrated photonic quantum technologies is from October 2019 ([#262](https://github.com/tachsin/photonoxide/pull/262))
 - the README cut to what photonoxide does, without the padding ([#268](https://github.com/tachsin/photonoxide/pull/268))
-- *(plans)* Python and MATLAB bindings, a plan for the owner's decisions ([#272](https://github.com/tachsin/photonoxide/pull/272))
+- *(plans)* Python and MATLAB bindings, a plan and the decisions it needs ([#272](https://github.com/tachsin/photonoxide/pull/272))
 - the Academy in the README's studio GIFs, in place of the themes ([#270](https://github.com/tachsin/photonoxide/pull/270))
 - papers cited by the year they were published online ([#266](https://github.com/tachsin/photonoxide/pull/266))
 - plans, roadmap and notes written in my own voice, not about "the owner" ([#273](https://github.com/tachsin/photonoxide/pull/273))
