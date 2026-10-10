@@ -548,7 +548,7 @@ The waveguide and resonator processes, phase matching, photon pairs and Kerr com
   - [ ] The benchmark: a catalogue of problems at many sizes (#179) and a runner over every backend with a results database (#180).
   - [ ] The studio: a Libraries page with guided installs (#181), a Benchmarks page (#182), and `auto` from the measurements (#183).
 - **Python and MATLAB** ([the plan](docs/plans/bindings.md), #271): bindings in `python/`, in step with the crate's versions.
-  - [ ] A façade: a small module of plain types (numbers named with their units, arrays with their grids), so a change elsewhere in the API stops there.
+  - [x] A façade: a small module of plain types (numbers named with their units, arrays with their grids), so a change elsewhere in the API stops there. *(`photonoxide::facade`: the catalogue's materials and indices, slab and full-vector modes with their fields, jobs run and checked, an FDFD job's S-parameters, circuits from a netlist given as data, Touchstone files; each the library's own calls to the bit, and `facade::conformance()`, calls with their results, for the bindings to check theirs against.)*
   - [ ] The `photonoxide` package for Python (PyO3, abi3 wheels for CPython 3.10 and later), tested against the library's own results bit for bit and against the validation report's numbers, published to PyPI with each release.
   - [ ] MATLAB through the Python package (R2022b and later), thin `.m` wrappers in the wheel.
 - **Docs:** a theory page per method.

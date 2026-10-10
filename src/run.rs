@@ -438,6 +438,21 @@ impl Stop {
         self.requested.store(true, Ordering::Relaxed);
     }
 
+    /// The same stop with a deadline at `timeout` from now, if that is sooner than its own: a
+    /// request to either is a request to both. A caller's stop, held to a job's own
+    /// `timeout_minutes` as well.
+    #[must_use]
+    pub fn within(&self, timeout: Option<Duration>) -> Stop {
+        let other = timeout.map(|t| Instant::now() + t);
+        Stop {
+            requested: Arc::clone(&self.requested),
+            deadline: match (self.deadline, other) {
+                (Some(a), Some(b)) => Some(a.min(b)),
+                (a, b) => a.or(b),
+            },
+        }
+    }
+
     /// Why the job should stop now, or `None` to go on.
     pub fn reason(&self) -> Option<StopReason> {
         if self.requested.load(Ordering::Relaxed) {
@@ -602,6 +617,34 @@ mod tests {
         assert_eq!(stop.reason(), Some(StopReason::Requested));
         let soon = Stop::new(Some(Duration::ZERO));
         assert_eq!(soon.reason(), Some(StopReason::Timeout));
+    }
+
+    #[test]
+    fn a_stop_within_a_timeout_keeps_the_sooner_deadline_and_shares_requests() {
+        let hour = Some(Duration::from_secs(3600));
+        // the sooner deadline wins, whichever has it
+        let caller = Stop::new(hour);
+        assert_eq!(
+            caller.within(Some(Duration::ZERO)).reason(),
+            Some(StopReason::Timeout)
+        );
+        assert_eq!(
+            Stop::new(Some(Duration::ZERO)).within(hour).reason(),
+            Some(StopReason::Timeout)
+        );
+        assert_eq!(Stop::new(None).within(None).reason(), None);
+        assert_eq!(
+            Stop::new(None).within(Some(Duration::ZERO)).reason(),
+            Some(StopReason::Timeout)
+        );
+        // a request to the caller's stop reaches the job's, and back
+        let job = caller.within(hour);
+        assert_eq!(job.reason(), None);
+        caller.request();
+        assert_eq!(job.reason(), Some(StopReason::Requested));
+        let other = Stop::new(None);
+        other.within(None).request();
+        assert_eq!(other.reason(), Some(StopReason::Requested));
     }
 
     #[test]

@@ -22,6 +22,8 @@
 //! - [`bench`](mod@bench): fixed problems that time the solvers at a stated accuracy, which
 //!   `photonoxide bench` runs.
 //! - [`parallel`]: independent problems (a sweep's points) side by side, collected in order.
+//! - [`facade`]: a small, stable façade of plain types, which the Python package (and MATLAB
+//!   through it) wraps.
 //!
 //! **Released milestone by milestone;** until 1.0 the API can change between them. FDTD,
 //! thermal and electro-optic devices, inverse design, layout and PDKs are planned, not here yet:
@@ -42,6 +44,7 @@ pub mod compact;
 mod eigen;
 pub mod error;
 pub mod expr;
+pub mod facade;
 pub mod fdfd;
 pub mod fdtd;
 pub mod geometry;
