@@ -825,7 +825,7 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "fdfd3d/block-qmr-convergence",
-            title: r"Convergence in the tolerance: a closed guide's S-matrix by block QMR (a silicon strip stepping from 300 to 400 nm wide in a box of oxide, $20 \times 12 \times 10$ cells of 50 nm, two modes at each of two ports) against the direct solver's, at relative residuals of 1e-4 and 1e-10: the error's decades per decade of the tolerance (shown)",
+            title: r"Convergence in the tolerance: a closed guide's S-matrix by block QMR (a silicon strip stepping from 300 to 400 nm wide in a box of oxide, $20 \times 12 \times 10$ cells of 50 nm, two modes at each of two ports) against the direct solver's, at relative residuals of 1e-4 and 1e-10: the error's decades per decade of the tolerance, its departure from 1 (shown)",
             tier: Tier::Analytic,
             source: r"the block's fields hold each system to its own residual, so their error, and S's, falls with the tolerance: as $\kappa(A)$ times it, a slope of 1; measured 1.2e-5, 1.7e-7, 2.3e-9 and 1.9e-11 at 1e-4, 1e-6, 1e-8 and 1e-10",
             run: fdfd3d_block_qmr_convergence,
@@ -2912,14 +2912,15 @@ fn fdfd3d_block_qmr_dependent() -> Outcome {
 
 fn fdfd3d_block_qmr_convergence() -> Outcome {
     let errors = crate::fdfd::block_checks3d::against_direct(&[1e-4, 1e-10]);
-    // to one decimal: the errors' last digits differ between Linux, Windows and macOS (the
-    // iterations at 1e-10 run on rounding; 0.965 here), and the slope is checked to 0.2
-    let slope = ((errors[0] / errors[1]).log10() / 6.0 * 10.0).round() / 10.0;
+    // the slope's departure from 1, shown as within its tolerance: the slope itself differs
+    // between systems in its second decimal (0.965 on Windows, 0.94 on Linux), as the iterations
+    // near 1e-10 run on rounding that the systems' maths libraries make differently
+    let departure = ((errors[0] / errors[1]).log10() / 6.0 - 1.0).abs();
     Outcome {
-        measured: slope,
-        expected: 1.0,
+        measured: departure,
+        expected: 0.0,
         tolerance: 0.2,
-        error: (slope - 1.0).abs(),
+        error: departure,
     }
 }
 
