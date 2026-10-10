@@ -46,9 +46,10 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 - **Circuits:** [components](docs/methods/components.md), [netlists](docs/methods/circuits.md),
   the [circuit adjoint](docs/methods/circuit-adjoint.md), [compact models](docs/methods/compact.md)
   and Touchstone files; optimization with [genoxide](https://github.com/tachsin/genoxide).
-- **External solvers, optional:** oneMKL's PARDISO, NVIDIA cuDSS and Krylov solvers on NVIDIA
-  GPUs, loaded at run time when installed and checked against photonoxide's own
-  ([backends](docs/methods/backends.md)).
+- **External solvers, optional:** oneMKL's PARDISO, MUMPS, SuperLU, Apple Accelerate, NVIDIA
+  cuDSS and Krylov solvers on NVIDIA GPUs, loaded at run time when installed and checked against
+  photonoxide's own, which `auto` leaves only for one measured faster here at the same accuracy
+  ([backends](docs/methods/backends.md), [install guides](docs/libraries.md)).
 - **Jobs and runs:** TOML, JSON or YAML job files, checked before they run; every run is recorded
   and replays exactly.
 
@@ -84,7 +85,8 @@ cargo add photonoxide
 
 Pure Rust, with no C, Fortran or Python dependencies. The program is on each
 [release](https://github.com/tachsin/photonoxide/releases) for Linux (x86_64 and ARM64), Windows
-and macOS, and updates itself ([downloads](studio/README.md#downloads)).
+and macOS, and updates itself ([downloads](studio/README.md#downloads)): from the releases, or on
+the Nightly channel by building main's latest code on your machine ([channels](studio/README.md#channels)).
 
 ## A first example
 
@@ -132,8 +134,8 @@ or the committed report isn't the one the code writes. CI checks every example's
 | 0.1 – 0.3 | Units and materials, mode solvers, FDFD in 2D and 3D, the studio | ✅ released |
 | 0.4 – 0.4.3 | Components and circuits, compact models, a 3D preconditioner, multifrontal direct solves | ✅ released |
 | 0.5 FDTD | 2D and 3D, CPML, smoothing, sources, monitors, adjoints, a GPU kernel; solver backends loaded at run time | ✅ released |
-| 0.5.1 Channels and backends | Nightly built from main, MUMPS, SuperLU and Accelerate, the backend chosen from benchmarks, every mode in a region | 🚧 next |
-| 0.5.2 Many solves at once | Ports as a block, recycling across sweeps, more contour-integral mode solvers, farming across processes | planned |
+| 0.5.1 Channels and backends | Nightly built from main, MUMPS, SuperLU and Accelerate, the backend chosen from benchmarks, every mode in a region | ✅ released |
+| 0.5.2 Many solves at once | Ports as a block, recycling across sweeps, more contour-integral mode solvers, farming across processes | 🚧 next |
 | 0.6 Thermal and electro-optic | Heat, thermo-optic phase shifters, Pockels modulators, travelling-wave electrodes | planned |
 | 0.6.1 Nonlinear integrated optics | Transparency windows, phase matching, SHG, SFG, DFG, SPDC and FWM in waveguides, Kerr combs | planned |
 | 0.6.2 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states, loss budgets of quantum circuits | planned |
