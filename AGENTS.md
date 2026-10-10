@@ -60,8 +60,14 @@ regenerate and commit it with any change that adds or alters a case.
 
 ## Rules
 
-- **Rust only.**
-  - No Python anywhere: no bindings, no helper scripts, no reference implementations.
+- **Rust only, but for the Python bindings** ([docs/plans/bindings.md](docs/plans/bindings.md), #271).
+  - Python only in `python/`: the bindings (the `photonoxide` package for Python, with its
+    MATLAB wrappers) and their tests. No Python helper scripts, no reference implementations,
+    nothing else in Python, anywhere else.
+  - The library stays Rust only. The bindings wrap its façade, a small module of plain types, not
+    the rest of the API.
+  - The binding crate writes no `unsafe` itself, and keeps `#![forbid(unsafe_code)]`: PyO3 needs
+    `unsafe`, in PyO3 and in what its macros expand to, and that is all the `unsafe` there is.
   - No C or Fortran dependencies: nothing linked at build time, and the library keeps
     `#![forbid(unsafe_code)]`.
 - **External libraries are optional backends, loaded at run time** ([docs/plans/backends.md](docs/plans/backends.md)).
