@@ -133,7 +133,8 @@ impl Farm {
                 .env("RAYON_NUM_THREADS", threads.to_string())
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
-                .stderr(Stdio::null())
+                // what goes wrong in a worker (a panic, say) shows where its farm's does
+                .stderr(Stdio::inherit())
                 .spawn()
                 .map_err(|e| farm_error(format!("{}: {e}", program.display())))?;
             let stdout = child.stdout.take();

@@ -88,8 +88,31 @@ impl Server {
             .listener
             .accept()
             .map_err(|e| farm_error(e.to_string()))?;
-        Ok(serve(stream, peer.to_string(), &self.options))
+        // on a thread of its own, with the stack a run's thread has at least: the caller's may be
+        // a process's main thread, whose stack is smaller on some systems (1 MiB on Windows)
+        std::thread::scope(|scope| {
+            std::thread::Builder::new()
+                .stack_size(STACK)
+                .spawn_scoped(scope, || serve(stream, peer.to_string(), &self.options))
+                .map_err(|e| farm_error(e.to_string()))?
+                .join()
+                .map_err(|_| farm_error("serving a coordinator panicked"))
+        })
     }
+}
+
+/// The stack of a worker's threads: 16 MiB, more than a run's thread has by default.
+const STACK: usize = 16 << 20;
+
+/// Starts `f` on a thread of `scope` with a stack of [`STACK`]. (A thread the system won't
+/// start is a slot fewer.)
+fn spawn<'scope, F>(scope: &'scope std::thread::Scope<'scope, '_>, f: F)
+where
+    F: FnOnce() + Send + 'scope,
+{
+    let _ = std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn_scoped(scope, f);
 }
 
 // one coordinator's connection
@@ -164,15 +187,16 @@ fn serve(stream: TcpStream, peer: String, options: &ServeOptions) -> Served {
     // the connection's messages, read on their own thread; its end stops what runs
     let gone = Stop::new(None);
     let (tx, rx) = mpsc::channel();
+    let (ended, read_all) = mpsc::channel::<()>();
     {
         let gone = gone.clone();
         std::thread::spawn(move || {
             while let Ok(m) = reader.wait() {
-                if tx.send(m).is_err() {
-                    break;
-                }
+                // (once the session is over, what else comes is read and let go)
+                let _ = tx.send(m);
             }
             gone.request();
+            let _ = ended.send(());
         });
     }
     let inbox = Arc::new(Inbox {
@@ -200,10 +224,12 @@ fn serve(stream: TcpStream, peer: String, options: &ServeOptions) -> Served {
         Some(other) => served.problem = Some(format!("unexpected {other:?}")),
     }
     served.tasks = answered.load(Ordering::Relaxed);
-    // the coordinator closes; a worker that still holds the connection lets it go
-    if let Ok(s) = out.lock() {
-        let _ = s.shutdown(std::net::Shutdown::Both);
-    }
+    // the coordinator closes: the worker says it is done writing and waits for that, reading
+    // what still comes, so that its last answer (a setup's failure, say) isn't lost to a reset
+    // of a connection closed with something unread
+    let _ = lock(&out).shutdown(std::net::Shutdown::Write);
+    let _ = read_all.recv_timeout(HANDSHAKE);
+    let _ = lock(&out).shutdown(std::net::Shutdown::Both);
     served
 }
 
@@ -353,7 +379,7 @@ impl Points for Serving {
         );
         std::thread::scope(|scope| {
             for _ in 0..self.slots {
-                scope.spawn(|| {
+                spawn(scope, || {
                     while let Some(m) = self.inbox.next() {
                         let answer = match m {
                             Message::Point { index } if points.contains(&index) => {
@@ -414,7 +440,7 @@ fn jobs(
 ) {
     std::thread::scope(|scope| {
         for _ in 0..slots {
-            scope.spawn(|| {
+            spawn(scope, || {
                 while let Some(m) = inbox.next() {
                     let answer = match m {
                         Message::Run {

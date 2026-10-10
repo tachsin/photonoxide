@@ -67,6 +67,8 @@ pub fn worker(args: &[String]) -> ExitCode {
     loop {
         match server.serve_one() {
             Ok(served) => match &served.problem {
+                // (a worker started by a run says only what went wrong, on the run's stderr)
+                None if attached => {}
                 None => eprintln!("{}: {} tasks", served.peer, served.tasks),
                 Some(p) => eprintln!("{}: {} tasks; {p}", served.peer, served.tasks),
             },
