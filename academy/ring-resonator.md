@@ -50,7 +50,7 @@ papers:
     year: 2000
     role: milestone
     note: "The relations between a ring's coupling and its loss, and the condition, coupling equal to loss, under which the bus transmits nothing."
-  - cite: "M. Cai, O. Painter, K. J. Vahala, Phys. Rev. Lett. 85, 74 (published online 3 July 2000)"
+  - cite: "M. Cai, O. Painter, K. J. Vahala, Phys. Rev. Lett. 85, 74 (2000)"
     title: "Observation of Critical Coupling in a Fiber Taper to a Silica-Microsphere Whispering-Gallery Mode System"
     doi: 10.1103/PhysRevLett.85.74
     year: 2000
@@ -74,7 +74,7 @@ papers:
     year: 2005
     role: milestone
     note: "A silicon ring whose resonance is moved by injected carriers: a modulator a few micrometres across, where a straight one needs millimetres."
-  - cite: "W. R. McKinnon, D.-X. Xu, C. Storey, E. Post, A. Densmore, A. Delâge, P. Waldron, J. H. Schmid, S. Janz, Opt. Express 17, 18971 (published online 6 October 2009)"
+  - cite: "W. R. McKinnon, D.-X. Xu, C. Storey, E. Post, A. Densmore, A. Delâge, P. Waldron, J. H. Schmid, S. Janz, Opt. Express 17, 18971 (2009)"
     title: "Extracting coupling and loss coefficients from a ring resonator"
     doi: 10.1364/OE.17.018971
     year: 2009
@@ -121,10 +121,9 @@ radius $R$, the coupler with its $r$ and $k$, the round trip's $a e^{i\phi}$, an
 A ring resonator is a waveguide closed on itself beside a straight waveguide, the bus. Light
 crosses into the ring where the two run close, goes round, and meets the bus again. Where a whole
 number of wavelengths fits around the loop, every pass adds in step, the ring stores light, and
-the bus's transmission dips. Rings are silicon photonics' filters, modulators and sensors
-([Bogaerts et al., 2011](https://doi.org/10.1002/lpor.201100017)) and, in low-loss materials,
-its frequency-comb sources ([Kippenberg et al., 2018](https://doi.org/10.1126/science.aan8083)).
-The sections below take one question each.
+the bus's transmission dips. Rings serve as filters, modulators and sensors in silicon photonics
+([Bogaerts et al., 2011](https://doi.org/10.1002/lpor.201100017)) and, in low-loss materials, as
+frequency-comb sources ([Kippenberg et al., 2018](https://doi.org/10.1126/science.aan8083)).
 
 ## 1. The all-pass ring: transmission, phase and resonance
 
