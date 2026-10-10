@@ -556,15 +556,12 @@ fn run(
     }
 }
 
-/// The version in a `Cargo.toml`.
+/// The version in a `Cargo.toml`: the package's, or the workspace's that it takes.
 fn cargo_version(file: &Path) -> Result<String, String> {
     let text = std::fs::read_to_string(file).map_err(|e| format!("{}: {e}", file.display()))?;
     let toml: toml::Value =
         toml::from_str(&text).map_err(|e| format!("{}: {e}", file.display()))?;
-    toml.get("package")
-        .and_then(|p| p.get("version"))
-        .and_then(|v| v.as_str())
-        .map(str::to_owned)
+    super::prereqs::package_field(&toml, "version")
         .ok_or_else(|| format!("{} has no version", file.display()))
 }
 
