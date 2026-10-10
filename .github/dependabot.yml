@@ -1,69 +1,58 @@
-# Our own dependencies, checked every Monday. Each pull request lists every package's old and
-# new version with links to its release notes, changelog and commits, and CI runs on it. Minor
-# and patch updates come together, one pull request per ecosystem; a major version comes on
-# its own. When a crate's new release needs a newer Rust than `rust-version`, the MSRV job
-# fails: raise `rust-version` and the MSRV job in the same pull request (AGENTS.md).
+# Our own dependencies, checked every Monday, in one pull request of minor and patch updates:
+# the Rust crates, the studio's npm packages, the Python package's requirements and the GitHub
+# Actions together (a multi-ecosystem group). The pull request lists every package's old and new version with links
+# to its release notes, changelog and commits, and CI runs on it. When a crate's new release
+# needs a newer Rust than `rust-version`, the MSRV job fails: raise `rust-version` and the MSRV
+# job in the same pull request (AGENTS.md).
+#
+# Major versions are left out of it (they are what breaks a build): the weekly Libraries
+# workflow lists them in one issue, "Major updates available", to adopt on purpose with the
+# changes they need.
 #
 # The external libraries users install (oneMKL, MUMPS, SuperLU, OpenBLAS, CUDA, cuDSS) are
 # checked by the Libraries workflow instead.
 version: 2
+
+multi-ecosystem-groups:
+  dependencies:
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Bucharest
+    commit-message:
+      prefix: chore
+      include: scope
+
 updates:
   - package-ecosystem: cargo
     directory: /
-    schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: Europe/Bucharest
-    commit-message:
-      prefix: chore
-      include: scope
-    groups:
-      cargo:
-        update-types: [minor, patch]
-    open-pull-requests-limit: 5
+    patterns: ["*"]
+    multi-ecosystem-group: dependencies
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /studio
-    schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: Europe/Bucharest
-    commit-message:
-      prefix: chore
-      include: scope
-    groups:
-      studio:
-        update-types: [minor, patch]
-    open-pull-requests-limit: 5
+    patterns: ["*"]
+    multi-ecosystem-group: dependencies
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: pip
     directory: /python
-    schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: Europe/Bucharest
-    commit-message:
-      prefix: chore
-      include: scope
-    groups:
-      python:
-        update-types: [minor, patch]
-    open-pull-requests-limit: 3
+    patterns: ["*"]
+    multi-ecosystem-group: dependencies
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
-    schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: Europe/Bucharest
-    commit-message:
-      prefix: chore
-      include: scope
-    groups:
-      actions:
-        update-types: [minor, patch]
-    open-pull-requests-limit: 3
+    patterns: ["*"]
+    multi-ecosystem-group: dependencies
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
