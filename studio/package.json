@@ -38,7 +38,7 @@
     "daisyui": "^5.7.47",
     "svelte-check": "^4.7.6",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vite": "^8.2.2"
   }
 }
