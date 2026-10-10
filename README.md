@@ -39,7 +39,9 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 - **FDFD:** [2D](docs/methods/fdfd.md) and [3D](docs/methods/fdfd-3d.md), with
   [mode ports and S-parameters](docs/methods/fdfd-ports.md) and
   [adjoint gradients](docs/methods/fdfd-adjoint.md); photonoxide's own direct and iterative
-  solvers, on every core ([baselines](docs/baselines.md)).
+  solvers, on every core ([baselines](docs/baselines.md)); sweeps sped up by
+  [recycling](docs/methods/recycling.md), and farmed to worker processes here or on other
+  machines ([farming](docs/farming.md)).
 - **FDTD:** [2D and 3D](docs/methods/fdtd.md) with CPMLs, subpixel smoothing, mode sources,
   monitors, dispersive media and [adjoint gradients](docs/methods/fdtd-adjoint.md); a CPU kernel
   blocked in space and time, and an optional GPU one (wgpu).
@@ -138,8 +140,8 @@ or the committed report isn't the one the code writes. CI checks every example's
 | 0.4 – 0.4.3 | Components and circuits, compact models, a 3D preconditioner, multifrontal direct solves | ✅ released |
 | 0.5 FDTD | 2D and 3D, CPML, smoothing, sources, monitors, adjoints, a GPU kernel; solver backends loaded at run time | ✅ released |
 | 0.5.1 Channels and backends | Nightly built from main, MUMPS, SuperLU and Accelerate, the backend chosen from benchmarks, every mode in a region | ✅ released |
-| 0.5.2 Many solves at once | Ports as a block, recycling across sweeps, more contour-integral mode solvers, farming across processes | 🚧 next |
-| 0.6 Thermal and electro-optic | Heat, thermo-optic phase shifters, Pockels modulators, travelling-wave electrodes | planned |
+| 0.5.2 Many solves at once | Ports as a block, recycling across sweeps, more contour-integral mode solvers, farming across processes | ✅ released |
+| 0.6 Thermal and electro-optic | Heat, thermo-optic phase shifters, Pockels modulators, travelling-wave electrodes | 🚧 next |
 | 0.6.1 Nonlinear integrated optics | Transparency windows, phase matching, SHG, SFG, DFG, SPDC and FWM in waveguides, Kerr combs | planned |
 | 0.6.2 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states, loss budgets of quantum circuits | planned |
 | 0.7 Inverse design | Topology and shape optimization with fabrication constraints | planned |

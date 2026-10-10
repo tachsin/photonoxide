@@ -337,6 +337,18 @@ Arm's BLAS and LAPACK: dense kernels on Arm processors. Its backend: [#186](http
 - **linux:** Arm's packages, for AArch64: not run here.
 - **macos:** Arm's installer, for Apple silicon: not run here.
 
+## New releases
+
+Every Monday the Releases workflow (`.github/workflows/releases.yml`) runs `photonoxide libraries --releases`. It reads each library's newest release where it is published: PyPI's and anaconda.org's APIs for the wheels and conda-forge's packages, NVIDIA's redistributables' manifests for CUDA and cuDSS, the GitHub releases of SuperLU and OpenBLAS, MUMPS's download page, and, for Accelerate, the macOS of GitHub's runner images. It sets each beside the version checked above and the releases photonoxide-native accepts, with a link to the release's notes, and keeps that table in one issue, [New releases of external libraries](https://github.com/tachsin/photonoxide/issues?q=is%3Aissue+in%3Atitle+%22New+releases+of+external+libraries%22), commenting there when a release appears.
+
+A new release isn't supported until it has been checked:
+
+1. **Read its release notes** for what photonoxide calls: MUMPS's `ZMUMPS_STRUC_C` and SuperLU's options change between releases, and NVIDIA's, oneMKL's and OpenBLAS's file names carry a major release.
+2. **Outside what photonoxide-native accepts,** it is refused until its support is added: the release's layout in `native/src/mumps.rs` (from its `zmumps_c.h`), its major release in `native/src/superlu.rs`, its file names in `native/src/nvidia.rs`.
+3. **Install it on clean machines:** the Libraries workflow on a branch (`gh workflow run libraries.yml --ref <branch>`) installs each method, asks photonoxide what it finds, and runs each backend's tests with its library required.
+4. **Check it against photonoxide's own solvers** on a machine that has it (and a GPU, for NVIDIA's): the backend's tests (`cargo test -p photonoxide-native --release --test <backend>`, with `PHOTONOXIDE_REQUIRE_<LIBRARY>` set where the test has one) and the benchmark's problems (`photonoxide bench --tier standard --backends <backend>`), whose answers are checked.
+5. **Then record it:** its `Checked` entries in `studio/src-tauri/src/libraries.rs`, and `photonoxide libraries --write docs/libraries.md`. Only then do the guides call it checked.
+
 ## Traps
 
 - **Debian's and Ubuntu's oneMKL is MKL 2020.4.** `apt` installs a library six years older than Intel's, conda-forge's or pip's. photonoxide finds it and its PARDISO passes the smoke test; prefer the others for a current library.

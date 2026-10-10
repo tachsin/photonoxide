@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# A new push to a pull request stops its earlier run; on main every commit runs to the end
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -49,6 +54,13 @@ jobs:
                 examples/output/*) validation=true; studio=true ;;
                 docs/methods/*|examples/README.md|CHANGELOG.md|academy/*) studio=true ;;
                 site/*|*.md) ;;
+                # files no build or test reads: Dependabot's and the other workflows' settings (they
+                # run as themselves), images, the GIF recorder, licences; ci.yml itself still runs
+                # everything, as a change to it changes what CI checks
+                .github/dependabot.yml|.github/ISSUE_TEMPLATE/*|.github/*.md) ;;
+                .github/workflows/ci.yml) code=true ;;
+                .github/workflows/*) ;;
+                assets/*|studio/scripts/*|LICENSE*|.gitignore|.gitattributes) ;;
                 # the Python package: its own workflow (python-wheels.yml) builds and tests it
                 python/*|.github/workflows/python-wheels.yml) ;;
                 *) code=true ;;

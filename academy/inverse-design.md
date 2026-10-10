@@ -5,7 +5,7 @@ topic: Numerical methods
 level: advanced
 status: coming
 milestone: "0.7"
-prerequisites: [fdfd-and-adjoints]
+prerequisites: [ring-resonator, fdfd-and-adjoints]
 examples: [circuit_ring_critical, circuit_fit, circuit_splitter]
 methods: [circuit-adjoint.md, fdfd-adjoint.md, fdtd-adjoint.md]
 ---
@@ -13,14 +13,14 @@ methods: [circuit-adjoint.md, fdfd-adjoint.md, fdtd-adjoint.md]
 ## 1. How does an optimizer use a gradient?
 
 ::coming circuit_splitter circuit_ring_critical
-A figure of merit, its gradient from the adjoint, and genoxide's L-BFGS-B and Adam stepping a
-circuit's phases, couplings and radius to a target.
+A figure of merit, its gradient from the adjoint, and how genoxide's L-BFGS-B and Adam step on it,
+from the ring lesson's critical coupling to a splitter's phases and couplings.
 
 ## 2. When is a gradient worth computing?
 
 ::coming circuit_fit
-An add-drop ring's couplings, loss and radius fitted to its spectra by L-BFGS-B with the adjoint
-gradient and by CMA-ES without it, and the evaluations each takes.
+The ring lesson's four-parameter fit, by L-BFGS-B with the adjoint and by CMA-ES without it, and
+how the evaluations each takes grow with the number of parameters.
 
 ## 3. How does a grid of densities become a device?
 

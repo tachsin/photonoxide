@@ -47,6 +47,14 @@ fn cudss_folders() -> Vec<PathBuf> {
         .collect()
 }
 
+/// The CUDA runtime's major releases photonoxide looks for, by its files' names
+/// (`cudart64_13.dll`, `libcudart.so.12`): another's file isn't looked for.
+pub const CUDA_RUNTIME_RELEASES: &[u32] = &[13, 12];
+/// cuSPARSE's, likewise (`cusparse64_12.dll`).
+pub const CUSPARSE_RELEASES: &[u32] = &[12];
+/// cuDSS's, likewise (`cudss64_0.dll`).
+pub const CUDSS_RELEASES: &[u32] = &[0];
+
 /// The CUDA runtime.
 pub const CUDA_RUNTIME: Spec = Spec {
     name: "CUDA runtime",
@@ -176,4 +184,32 @@ pub fn probe() -> Vec<Probe> {
         });
     }
     probes
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_releases_looked_for_are_the_files_names() {
+        for (spec, releases) in [
+            (&CUDA_RUNTIME, CUDA_RUNTIME_RELEASES),
+            (&CUSPARSE, CUSPARSE_RELEASES),
+            (&CUDSS, CUDSS_RELEASES),
+        ] {
+            if !cfg!(any(windows, target_os = "linux")) {
+                assert!(spec.files.is_empty());
+                continue;
+            }
+            assert_eq!(spec.files.len(), releases.len(), "{}", spec.name);
+            for (file, major) in spec.files.iter().zip(releases) {
+                let named = if cfg!(windows) {
+                    file.ends_with(&format!("_{major}.dll"))
+                } else {
+                    file.ends_with(&format!(".so.{major}"))
+                };
+                assert!(named, "{file}: {major}");
+            }
+        }
+    }
 }
