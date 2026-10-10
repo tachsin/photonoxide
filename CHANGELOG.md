@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### <!-- 1 -->Fixed
 
 - *(fdfd)* block QMR's checks hold on every system: portable inputs, and no count compared where it runs on rounding ([#286](https://github.com/tachsin/photonoxide/pull/286))
+- *(studio)* Nightly installs on Windows: the installer after the old app exits, its failure reported, an earlier watchdog superseded ([#293](https://github.com/tachsin/photonoxide/pull/293))
 
 ### <!-- 4 -->Documentation
 
