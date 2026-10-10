@@ -179,8 +179,16 @@ impl Profile {
         let k = wavelength.wavenumber();
         let entries = self.entries(polarization, k * k);
         let positions: Vec<[f64; 3]> = self.nodes.iter().map(|&x| [x, 0.0, 0.0]).collect();
-        let found =
-            crate::mode::region::search(self.nodes.len(), &entries, &positions, k, region, search)?;
+        let found = crate::mode::region::search(
+            self.nodes.len(),
+            &entries,
+            &positions,
+            k,
+            region,
+            search,
+            &|| false,
+        )?
+        .ok_or_else(|| Error::invalid("mode search", "stopped"))?;
         Ok(crate::mode::region::Found {
             modes: found
                 .pairs
@@ -192,6 +200,27 @@ impl Profile {
             subspace: found.subspace,
             iterations: found.iterations,
         })
+    }
+
+    /// Every mode with Re n_eff above `above`, highest first, with no count and no guess: with
+    /// `above` the claddings' higher index, every guided mode. By contour integrals over
+    /// [`crate::mode::region::Region::above`] up to the profile's highest index, with
+    /// [`Profile::modes_in`].
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] unless `above` is positive and below the profile's highest
+    /// index, and as [`Profile::modes_in`].
+    pub fn modes_above(
+        &self,
+        polarization: Polarization,
+        wavelength: Wavelength,
+        above: f64,
+        search: &crate::mode::region::Search,
+    ) -> Result<crate::mode::region::Found<ProfileMode>> {
+        let highest = self.cells.iter().map(|e| e.re.sqrt()).fold(1.0, f64::max);
+        let region = crate::mode::region::Region::above(above, highest)?;
+        self.modes_in(polarization, wavelength, &region, search)
     }
 
     /// The matrix whose eigenvalues are β², as (row, column, value) entries.

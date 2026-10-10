@@ -1,0 +1,27 @@
+# Every mode of a 220 nm silicon strip above the oxide's index, no count given, as it widens from
+# 0.3 to 1.5 um at 1.55 um: more of them as it widens. Near cutoff a mode is held by the window's
+# walls as much as by the strip, so take the last one or two of each width with care.
+#   photonoxide run jobs/strip-guided-modes.toml
+name = "strip-guided-modes"
+timeout_minutes = 15
+
+[task]
+kind = "modes"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+propagation = "x"          # the modes travel along x, cut at x = 0 (cut_x_um)
+y_um = [-1.6, 1.6]         # the window across the guide
+step_nm = 20.0
+modes_above = 1.444        # every mode with n_eff above the oxide's, by contour integrals
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, 0.0]
+size_um = [10.0, 0.8]
+
+[task.sweep]
+parameter = "width"        # the rect's size across the guide: along y
+from = 0.3
+to = 1.5
+points = 7

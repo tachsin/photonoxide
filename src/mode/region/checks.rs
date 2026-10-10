@@ -19,7 +19,7 @@ fn outcome(measured: f64, expected: f64, tolerance: f64) -> Outcome {
 }
 
 /// Chilwell and Hodgkinson's Table 3, the bound modes' effective indices: TE₀ … TE₃, then TM.
-const TABLE_3: [f64; 8] = [
+pub(crate) const TABLE_3: [f64; 8] = [
     1.622729, 1.605276, 1.557136, 1.503587, 1.620031, 1.594788, 1.554981, 1.501818,
 ];
 

@@ -20,7 +20,7 @@ export interface MethodDoc {
 
 /** The write-ups a kind of job solves by, the solver's own first. */
 export const METHODS: Record<string, string[]> = {
-  modes: ["vector.md", "eigen.md", "walls.md"],
+  modes: ["vector.md", "eigen.md", "contour.md", "walls.md"],
   fdfd: ["fdfd.md", "fdfd-ports.md", "eim.md", "slab.md", "pml.md"],
   fdtd: ["fdtd.md", "eim.md", "slab.md"],
   structure: [],

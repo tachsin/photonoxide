@@ -76,6 +76,13 @@
 //!   and optionally swept over the wavelength or a rectangle's width, each point recorded as it
 //!   is solved, with its modes' pictures and, for a width sweep, its shapes.
 //!
+//!   The modes are a count, `modes` (2 by default), nearest the highest index by
+//!   shift-and-invert, or every mode with n_eff above `modes_above`, however many, by contour
+//!   integrals ([`crate::mode::vector::modes_above`]): the cladding's index gives every guided
+//!   mode, and a sweep's points may then have different numbers of them. A job may give one or
+//!   the other; a threshold must be positive and below the highest index the cross-section
+//!   holds at the job's wavelength and a wavelength sweep's ends.
+//!
 //!   Light travels along x in every kind of job: a modes job with `propagation = "x"` cuts the
 //!   stack and shapes at x = `cut_x_um` (0 by default) over the window `y_um` across the guide,
 //!   as an `"fdfd"` job's ports are columns normal to x, so the same rectangle is the same guide
@@ -101,6 +108,7 @@
 //! cut_x_um = 0.0             # where the cross-section is cut (cut_y_um for "y")
 //! step_nm = 20.0
 //! modes = 2                  # how many (1 to 50), from the highest effective index
+//! # modes_above = 1.444      # or every mode with n_eff above this, no count (not both)
 //!
 //! [[task.rect]]
 //! layer = "Si"
@@ -935,8 +943,9 @@ fn check_cells(name: &str, window: [f64; 2], step_nm: f64) -> Result<()> {
 }
 
 /// The most modes a modes job may ask for. The eigensolver keeps twice as many vectors of the
-/// grid's size and 20 more, and its time grows with them: 500 modes ran six minutes past a
-/// one-minute limit before the solve heeded it.
+/// grid's size and 21 more (Krylov–Schur's space, which no longer grows with its restarts),
+/// and its time grows with them: 500 modes ran six minutes past a one-minute limit before the
+/// solve heeded it.
 const MOST_MODES: usize = 50;
 
 /// An optional number the run uses as a coordinate: finite when given.
@@ -1097,6 +1106,19 @@ impl ModesTask {
         check_finite("cut_y_um", self.cut_y_um)?;
         if self.modes == Some(0) {
             return Err(task_error("modes must be at least 1, got 0"));
+        }
+        if let Some(above) = self.modes_above {
+            if let Some(count) = self.modes {
+                return Err(task_error(format!(
+                    "modes = {count} and modes_above = {above} are two ways to choose the modes: \
+                     give a count or a threshold, not both"
+                )));
+            }
+            if !(above.is_finite() && above > 0.0) {
+                return Err(task_error(format!(
+                    "modes_above must be a positive effective index, got {above}"
+                )));
+            }
         }
         check_step(self.step_nm)?;
         check_cells(
@@ -1264,6 +1286,8 @@ struct ModesTask {
     cut_y_um: Option<f64>,
     step_nm: f64,
     modes: Option<usize>,
+    /// Every mode with n_eff above this, instead of a count.
+    modes_above: Option<f64>,
     #[serde(default)]
     rect: Vec<RectSpec>,
     #[serde(default)]
@@ -1631,6 +1655,14 @@ fn check_inner(job: &Job) -> Result<()> {
             if let Some(sw) = task.sweep.iter().find(|sw| sw.parameter == "wavelength") {
                 wavelengths.extend([sw.from, sw.to]);
             }
+            if task.modes_above.is_some() {
+                // (each material's data at these wavelengths is checked first, as below)
+                check_materials(s.stack(), &[task.wavelength_um])?;
+                check_materials(s.stack(), &wavelengths)?;
+            }
+            let mut at = vec![task.wavelength_um];
+            at.extend(&wavelengths);
+            check_threshold(&task, &s, z, &at)?;
             // a parameter's sweep: its shapes at both ends must be shapes
             if let Some(sw) = task
                 .sweep
@@ -1746,6 +1778,72 @@ fn modes_guide(task: &ModesTask, s: &Structure, z: [f64; 2]) -> Result<()> {
     Ok(())
 }
 
+/// The highest index the cross-section of a modes job holds at `wavelength_um`, from the
+/// materials its window reaches: the substrate below the stack, each layer's surroundings, its
+/// material where a shape meets the cut (sampled as [`modes_guide`] does), and the cladding
+/// above. No mode's effective index is above it.
+fn window_highest(task: &ModesTask, s: &Structure, z: [f64; 2], wavelength_um: f64) -> Result<f64> {
+    let w = Wavelength::um(wavelength_um)?;
+    let index = |m: &crate::material::Material| -> Result<f64> {
+        Ok(m.permittivity(w)?.re.max(0.0).sqrt())
+    };
+    let stack = s.stack();
+    let (along, across, cut) = (task.along()?, task.across()?, task.cut()?);
+    let step = task.step_nm / 4000.0;
+    let samples = ((across[1] - across[0]) / step).ceil() as usize;
+    let mut highest = 0.0f64;
+    if z[0] < 0.0 {
+        highest = highest.max(index(stack.substrate())?);
+    }
+    let mut bottom = 0.0;
+    for layer in stack.layers() {
+        let top = bottom + layer.thickness.to_um();
+        if z[1] > bottom && z[0] < top {
+            highest = highest.max(index(&layer.background)?);
+            let meets = (0..=samples).any(|k| {
+                let a = (across[0] + k as f64 * step).min(across[1]);
+                let p = match along {
+                    Along::X => Point::um(cut, a),
+                    Along::Y => Point::um(a, cut),
+                };
+                s.shapes(&layer.name).iter().any(|shape| shape.contains(p))
+            });
+            if meets {
+                highest = highest.max(index(&layer.material)?);
+            }
+        }
+        bottom = top;
+    }
+    if z[1] > bottom {
+        highest = highest.max(index(stack.cladding())?);
+    }
+    Ok(highest)
+}
+
+/// A modes job's `modes_above` must be below the highest index its cross-section holds at each
+/// of `wavelengths_um`, or no mode lies above it. What [`check`] and the run both refuse.
+fn check_threshold(
+    task: &ModesTask,
+    s: &Structure,
+    z: [f64; 2],
+    wavelengths_um: &[f64],
+) -> Result<()> {
+    let Some(above) = task.modes_above else {
+        return Ok(());
+    };
+    for &w in wavelengths_um {
+        let highest = window_highest(task, s, z, w)?;
+        if above >= highest {
+            return Err(task_error(format!(
+                "modes_above = {above} is not below the highest index the cross-section holds at \
+                 {w} um, {highest:.4}: no mode lies above it (the cladding's index gives every \
+                 guided mode)"
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// A modes job's window height: `z_um`, else 1 µm below and above its layer.
 fn modes_z(task: &ModesTask, s: &Structure) -> Result<[f64; 2]> {
     window_z(task.z_um, &task.layer, s, task.step_nm)
@@ -1837,6 +1935,29 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let s = draw(stack()?, &task.rect, &task.circle, &task.ring)?;
     let z = modes_z(&task, &s)?;
     modes_guide(&task, &s, z)?;
+    let mut at = vec![task.wavelength_um];
+    if let Some(sw) = task.sweep.iter().find(|sw| sw.parameter == "wavelength") {
+        at.extend([sw.from, sw.to]);
+    }
+    check_threshold(&task, &s, z, &at)?;
+    // the modes of a cross-section: a count from the highest index, or every one above a
+    // threshold; `None` when stopped
+    let solve = |cs: &crate::mode::vector::CrossSection,
+                 w: Wavelength|
+     -> Result<Option<Vec<crate::mode::vector::VectorMode>>> {
+        let stopped = || stop.reason().is_some();
+        match task.modes_above {
+            Some(above) => Ok(crate::mode::vector::modes_above_until(
+                cs,
+                w,
+                above,
+                &crate::mode::region::Search::default(),
+                stopped,
+            )?
+            .map(|found| found.modes)),
+            None => crate::mode::vector::modes_until(cs, w, count, None, stopped),
+        }
+    };
     run.record(&modes_scene(&task, &s)?)?;
     if task.propagation.is_some() {
         run.record(&Event::Cut {
@@ -1877,12 +1998,25 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         step_um: step,
         unknowns: cs.unknowns(),
         details: vec![
-            ["modes asked for".into(), count.to_string()],
+            match task.modes_above {
+                Some(above) => [
+                    "modes asked for".into(),
+                    format!("every one with n_eff above {above}"),
+                ],
+                None => ["modes asked for".into(), count.to_string()],
+            },
             [
                 "eigen-solver".into(),
-                "shift-and-invert Arnoldi about the highest index, sparse LU of the shifted \
-                 matrix; an eigenpair is accepted at a residual of 1e-9"
-                    .into(),
+                if task.modes_above.is_some() {
+                    "contour integrals (FEAST) over n_eff from the threshold to the highest \
+                     index, 16 points, each a multifrontal LU; an eigenpair is accepted at a \
+                     residual of 1e-10"
+                } else {
+                    "shift-and-invert Arnoldi about the highest index with Krylov-Schur \
+                     restarts, sparse LU of the shifted matrix; an eigenpair is accepted at a \
+                     residual of 1e-9"
+                }
+                .into(),
             ],
             [
                 "nodes".into(),
@@ -1893,8 +2027,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         ],
     })?;
     // the solve itself heeds the stop and the time limit, at each of its steps
-    let stopped = || stop.reason().is_some();
-    let Some(found) = crate::mode::vector::modes_until(&cs, lam, count, None, stopped)? else {
+    let Some(found) = solve(&cs, lam)? else {
         return Ok(());
     };
     let mut sorted: Vec<_> = found.iter().collect();
@@ -2019,8 +2152,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 )
             }
         };
-        let Some(mut found) = crate::mode::vector::modes_until(&cs, w, count, None, stopped)?
-        else {
+        let Some(mut found) = solve(&cs, w)? else {
             return Ok(None);
         };
         found.sort_by(|a, b| b.effective_index().re.total_cmp(&a.effective_index().re));
@@ -3497,6 +3629,86 @@ points = 2
         for modes in ["modes = 1", "modes = 50"] {
             check(&Job::parse(&MODES.replace("modes = 2", modes)).unwrap()).unwrap();
         }
+    }
+
+    #[test]
+    fn a_threshold_is_refused_by_the_check_as_by_the_run() {
+        // a count and a threshold both, a threshold that isn't a positive index, and one at or
+        // above the highest index the cross-section holds (silicon's 3.48 at 1.55 µm): refused
+        // by the check and the run in the same words
+        for (modes, says) in [
+            (
+                "modes = 2\nmodes_above = 1.444",
+                "give a count or a threshold, not both",
+            ),
+            ("modes_above = 0.0", "modes_above must be a positive"),
+            ("modes_above = -1.5", "modes_above must be a positive"),
+            ("modes_above = nan", "modes_above must be a positive"),
+            ("modes_above = 3.6", "no mode lies above it"),
+        ] {
+            let job = Job::parse(&MODES.replace("modes = 2", modes)).unwrap();
+            let refused = check(&job).unwrap_err().to_string();
+            assert!(refused.contains(says), "{modes}: {refused}");
+            let root = temp("threshold");
+            let mut run = Run::create(&root.0, &job).unwrap();
+            let failed = execute(&job, &mut run, &Stop::new(None)).unwrap_err();
+            assert_eq!(refused, failed.to_string());
+        }
+        // a threshold the oxide's: accepted
+        check(&Job::parse(&MODES.replace("modes = 2", "modes_above = 1.444")).unwrap()).unwrap();
+    }
+
+    #[test]
+    fn a_threshold_finds_every_guided_mode_as_a_count_does() {
+        // the strip's modes above the oxide, no count given: its TE-like and TM-like modes, and
+        // a third the closed window guides at 1.498, the three a count of three finds, the same
+        // to the solvers' tolerances
+        let above = run_events(
+            "modes-above",
+            &MODES.replace("modes = 2", "modes_above = 1.444"),
+        );
+        let three = run_events(
+            "modes-above-three",
+            &MODES.replace("modes = 2", "modes = 3"),
+        );
+        let indices = |events: &[Event]| -> Vec<f64> {
+            events
+                .iter()
+                .filter_map(|e| match e {
+                    Event::Mode {
+                        effective_index, ..
+                    } => Some(effective_index[0]),
+                    _ => None,
+                })
+                .collect()
+        };
+        let (found, want) = (indices(&above), indices(&three));
+        assert_eq!(found.len(), 3, "{found:?}");
+        assert!(found[2] > 1.444 && found[2] < 1.5, "{found:?}");
+        for (a, b) in found.iter().zip(&want) {
+            assert!((a - b).abs() < 1e-8, "{a} vs {b}");
+        }
+        // the record says how the modes were asked for and found
+        let Some(Event::Solver { details, .. }) =
+            above.iter().find(|e| matches!(e, Event::Solver { .. }))
+        else {
+            panic!("no solver event")
+        };
+        assert!(details[0][1].contains("above 1.444"), "{details:?}");
+        assert!(details[1][1].contains("contour integrals"), "{details:?}");
+    }
+
+    #[test]
+    fn a_threshold_heeds_the_stop() {
+        // stopped before the search: the run records its scene and stops, with no modes
+        let job = Job::parse(&MODES.replace("modes = 2", "modes_above = 1.444")).unwrap();
+        let root = temp("threshold-stop");
+        let mut run = Run::create(&root.0, &job).unwrap();
+        let stop = Stop::new(None);
+        stop.request();
+        execute(&job, &mut run, &stop).unwrap();
+        let events = replay(run.dir()).unwrap();
+        assert!(!events.iter().any(|e| matches!(e, Event::Mode { .. })));
     }
 
     #[test]
