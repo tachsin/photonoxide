@@ -54,6 +54,27 @@ pub fn specs() -> Vec<DiagramSpec> {
                          steps between 600 and 400 nm, ten periods of 320 nm, deeper steps than \
                          a filter's so that they show. Drag to turn it.",
         },
+        DiagramSpec {
+            id: "mzi",
+            title: "A Mach–Zehnder interferometer, seen from above",
+            caption: "Light enters the lower guide. The splitter, a coupler, keeps a share $r_1$ \
+                      of the field in its guide and crosses a share $k_1$ over \
+                      ($r_1^2 + k_1^2 = 1$; the charts' $\\kappa_1^2$ is $k_1^2$). The two arms, \
+                      of lengths $L$ and $L + \\Delta L$, multiply their fields by \
+                      $a_l e^{i\\phi_l}$ and $a_u e^{i\\phi_u}$, and a phase shifter adds \
+                      $\\varphi$ to the upper one. The combiner, $r_2$ and $k_2$, mixes them \
+                      again: what leaves each output depends on the phase difference \
+                      $\\Delta\\phi$. The bar output is the guide the light came in by, the \
+                      cross output the other. A Y-branch or a 1 × 2 MMI in place of a coupler \
+                      splits evenly, and as a combiner has one output. Not to scale: the \
+                      arms are drawn short.",
+            job: Some("mzi-mmi.toml"),
+            caption_3d: "The interferometer of jobs/mzi-mmi.toml as photonoxide's geometry \
+                         builds it: 500 nm silicon wires 220 nm thick on oxide, between two \
+                         1 × 2 MMIs 3 µm wide and 8.55 µm long, built as Dwivedi et al.'s were. \
+                         The upper arm is 6 µm longer; its corners are square to keep the \
+                         picture small, where a chip bends them. Drag to turn it.",
+        },
     ]
 }
 
