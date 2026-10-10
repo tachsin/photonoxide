@@ -42,6 +42,7 @@ pub mod compact;
 mod eigen;
 pub mod error;
 pub mod expr;
+pub mod facade;
 pub mod fdfd;
 pub mod fdtd;
 pub mod geometry;
