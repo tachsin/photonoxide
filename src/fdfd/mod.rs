@@ -881,7 +881,7 @@ mod ports;
 mod tests;
 mod three;
 
-pub use krylov::{Convergence, Stopping};
+pub use krylov::{BlockConvergence, Convergence, Stopping};
 pub use ports::{Direction, Port, PortMode, Side};
 pub use three::{
     Axis, Boundaries3d, CycleShape, Field3d, Formulation, Grid3d, IterativeSolver3d, Multigrid,
@@ -889,6 +889,7 @@ pub use three::{
 };
 
 pub(crate) use three::adjoint as checks3d_adjoint;
+pub(crate) use three::block_checks as block_checks3d;
 pub(crate) use three::checks as checks3d;
 pub(crate) use three::port_checks as port_checks3d;
 pub(crate) use three::{

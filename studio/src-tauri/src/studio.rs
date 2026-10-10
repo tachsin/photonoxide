@@ -924,6 +924,7 @@ macro_rules! method_docs {
 method_docs!(
     "backends.md",
     "bends.md",
+    "block-qmr.md",
     "catalogue.md",
     "circuit-adjoint.md",
     "circuits.md",

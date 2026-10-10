@@ -26,6 +26,11 @@ use num_complex::Complex64 as c64;
 
 use crate::{Error, Result};
 
+mod block;
+pub use block::BlockConvergence;
+pub(crate) use block::example as block_example;
+pub(crate) use block::{block_qmr, block_qmr_preconditioned, block_qmr_similar};
+
 /// A sparse matrix by rows, with its transpose by rows, for the products QMR takes.
 pub(crate) struct Sparse {
     n: usize,
@@ -262,6 +267,15 @@ pub(crate) trait Operator {
     fn apply_transpose_into(&self, v: &[c64], out: &mut [c64]) {
         out.copy_from_slice(&self.apply_transpose(v));
     }
+    /// A v for each of `vs`, in one pass over A where the operator can: each the same bit for
+    /// bit as [`Operator::apply`]'s.
+    fn apply_block(&self, vs: &[&[c64]]) -> Vec<Vec<c64>> {
+        vs.iter().map(|v| self.apply(v)).collect()
+    }
+    /// Aᵀ v for each of `vs`, as [`Operator::apply_block`].
+    fn apply_transpose_block(&self, vs: &[&[c64]]) -> Vec<Vec<c64>> {
+        vs.iter().map(|v| self.apply_transpose(v)).collect()
+    }
 }
 
 impl Operator for Sparse {
@@ -284,6 +298,71 @@ impl Operator for Sparse {
     fn apply_transpose_into(&self, v: &[c64], out: &mut [c64]) {
         product(&self.t_starts, &self.t_columns, &self.t_values, v, out);
     }
+
+    fn apply_block(&self, vs: &[&[c64]]) -> Vec<Vec<c64>> {
+        product_block(&self.starts, &self.columns, &self.values, vs)
+    }
+
+    fn apply_transpose_block(&self, vs: &[&[c64]]) -> Vec<Vec<c64>> {
+        product_block(&self.t_starts, &self.t_columns, &self.t_values, vs)
+    }
+}
+
+/// The rows a task of [`product_block`] takes.
+const ROWS: usize = 4096;
+
+/// [`product`] for each of `vs` at once, the matrix read once for them all (P. Jolivet,
+/// P.-H. Tournier, SC16, 190 (2016), doi:10.1109/SC.2016.16, Section V-B: a sparse product with
+/// a block of vectors has the arithmetic intensity one with a vector lacks). Each row's sum for
+/// each vector is taken in the same order as [`product`]'s: the same bits.
+fn product_block(
+    starts: &[usize],
+    columns: &[usize],
+    values: &[c64],
+    vs: &[&[c64]],
+) -> Vec<Vec<c64>> {
+    use rayon::prelude::*;
+    let n = starts.len() - 1;
+    let zero = c64::new(0.0, 0.0);
+    crate::traffic::add(
+        crate::traffic::product(n, n, values.len())
+            + vs.len().saturating_sub(1) * crate::traffic::vectors(n, 1, 1),
+    );
+    let mut outs = vec![vec![zero; n]; vs.len()];
+    by_chunks(&mut outs, ROWS)
+        .into_par_iter()
+        .enumerate()
+        .for_each(|(chunk, mut parts)| {
+            let first = chunk * ROWS;
+            let mut sums = vec![zero; vs.len()];
+            for i in 0..parts.first().map_or(0, |p| p.len()) {
+                let r = first + i;
+                sums.fill(zero);
+                for k in starts[r]..starts[r + 1] {
+                    let (c, a) = (columns[k], values[k]);
+                    for (s, v) in sums.iter_mut().zip(vs) {
+                        *s += a * v[c];
+                    }
+                }
+                for (part, s) in parts.iter_mut().zip(&sums) {
+                    part[i] = *s;
+                }
+            }
+        });
+    outs
+}
+
+/// Each of `vectors` cut into chunks of `size`, gathered by chunk: chunk i of every vector
+/// together, for a pass that writes them all on rayon's threads.
+pub(crate) fn by_chunks(vectors: &mut [Vec<c64>], size: usize) -> Vec<Vec<&mut [c64]>> {
+    let chunks = vectors.first().map_or(0, |v| v.len().div_ceil(size));
+    let mut out: Vec<Vec<&mut [c64]>> = (0..chunks).map(|_| Vec::new()).collect();
+    for v in vectors.iter_mut() {
+        for (i, part) in v.chunks_mut(size).enumerate() {
+            out[i].push(part);
+        }
+    }
+    out
 }
 
 /// An approximate inverse of a matrix M, for preconditioning: M⁻¹ v and M⁻ᵀ v.
@@ -292,6 +371,15 @@ pub(crate) trait Preconditioner {
     fn solve(&self, v: &[c64]) -> Vec<c64>;
     /// M⁻ᵀ v (the transpose, not the conjugate transpose).
     fn solve_transpose(&self, v: &[c64]) -> Vec<c64>;
+    /// M⁻¹ v for each of `vs`, together where the preconditioner can: each the same bit for
+    /// bit as [`Preconditioner::solve`]'s.
+    fn solve_block(&self, vs: &[&[c64]]) -> Vec<Vec<c64>> {
+        vs.iter().map(|v| self.solve(v)).collect()
+    }
+    /// M⁻ᵀ v for each of `vs`, as [`Preconditioner::solve_block`].
+    fn solve_transpose_block(&self, vs: &[&[c64]]) -> Vec<Vec<c64>> {
+        vs.iter().map(|v| self.solve_transpose(v)).collect()
+    }
 }
 
 /// A M⁻¹, the operator of a right-preconditioned system: A M⁻¹ y = b, x = M⁻¹ y. Its residual
@@ -312,6 +400,18 @@ impl<A: Operator, M: Preconditioner> Operator for RightPreconditioned<'_, A, M> 
 
     fn apply_transpose(&self, v: &[c64]) -> Vec<c64> {
         self.m.solve_transpose(&self.a.apply_transpose(v))
+    }
+
+    fn apply_block(&self, vs: &[&[c64]]) -> Vec<Vec<c64>> {
+        let solved = self.m.solve_block(vs);
+        let refs: Vec<&[c64]> = solved.iter().map(Vec::as_slice).collect();
+        self.a.apply_block(&refs)
+    }
+
+    fn apply_transpose_block(&self, vs: &[&[c64]]) -> Vec<Vec<c64>> {
+        let products = self.a.apply_transpose_block(vs);
+        let refs: Vec<&[c64]> = products.iter().map(Vec::as_slice).collect();
+        self.m.solve_transpose_block(&refs)
     }
 }
 
@@ -1245,6 +1345,36 @@ impl Triangle {
             };
         }
     }
+
+    /// [`Triangle::solve`] on each of `xs` together, row by row, each row's entries read once
+    /// for them all: each the same bits as alone.
+    fn solve_block(&self, xs: &mut [Vec<c64>]) {
+        let n = xs.first().map_or(0, Vec::len);
+        let diagonal = self.inverse_diagonal.is_some();
+        crate::traffic::add(
+            crate::traffic::triangular(n, self.values.len(), diagonal)
+                + xs.len().saturating_sub(1) * crate::traffic::vectors(n, 1, 1),
+        );
+        let rows: Box<dyn Iterator<Item = usize>> = if self.forward {
+            Box::new(0..n)
+        } else {
+            Box::new((0..n).rev())
+        };
+        let (columns, values) = (&self.columns, &self.values);
+        for i in rows {
+            let entries = self.starts[i]..self.starts[i + 1];
+            for x in xs.iter_mut() {
+                let mut s = x[i];
+                for k in entries.clone() {
+                    s -= values[k] * x[columns[k]];
+                }
+                x[i] = match &self.inverse_diagonal {
+                    Some(d) => s * d[i],
+                    None => s,
+                };
+            }
+        }
+    }
 }
 
 /// An incomplete LU factorization with no fill, ILU(0) (as in Y. Saad, Iterative Methods for Sparse
@@ -1417,6 +1547,26 @@ impl Preconditioner for Ilu0 {
         self.ut.solve(&mut x);
         self.lt.solve(&mut x);
         x
+    }
+
+    fn solve_block(&self, vs: &[&[c64]]) -> Vec<Vec<c64>> {
+        if self.sweeps.is_some() {
+            return vs.iter().map(|v| self.solve(v)).collect();
+        }
+        let mut xs: Vec<Vec<c64>> = vs.iter().map(|v| v.to_vec()).collect();
+        self.l.solve_block(&mut xs);
+        self.u.solve_block(&mut xs);
+        xs
+    }
+
+    fn solve_transpose_block(&self, vs: &[&[c64]]) -> Vec<Vec<c64>> {
+        if self.sweeps.is_some() {
+            return vs.iter().map(|v| self.solve_transpose(v)).collect();
+        }
+        let mut xs: Vec<Vec<c64>> = vs.iter().map(|v| v.to_vec()).collect();
+        self.ut.solve_block(&mut xs);
+        self.lt.solve_block(&mut xs);
+        xs
     }
 }
 
