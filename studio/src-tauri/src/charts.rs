@@ -979,7 +979,7 @@ fn ring_coupling(radius: f64, loss: f64, drop: f64) -> photonoxide::Result<Chart
 }
 
 /// The largest extinction the extinction chart draws, dB: at critical coupling it is infinite.
-const EXTINCTION_CAP: f64 = 60.0;
+const EXTINCTION_CAP: f64 = 40.0;
 
 /// The through port's extinction, off over on resonance, in dB (infinite at critical coupling).
 fn extinction(ring: &Ring, w: Wavelength, values: &[f64]) -> photonoxide::Result<f64> {
@@ -1248,16 +1248,16 @@ fn ring_q_length(loss: f64, fixed: f64, group_index: f64) -> photonoxide::Result
     for k in 1..=150 {
         let l = upto * f64::from(k) / 150.0;
         let mm = l * 1e-3;
-        eq20.push([mm, c.loaded(l)?]);
-        spectrum.push([mm, c.measured(l)?]);
-        decay.push([mm, c.decay(l)]);
-        intrinsic.push([mm, c.ring.q_factor(w, &[l, 0.0])?]);
+        eq20.push([mm, c.loaded(l)? / 1e5]);
+        spectrum.push([mm, c.measured(l)? / 1e5]);
+        decay.push([mm, c.decay(l) / 1e5]);
+        intrinsic.push([mm, c.ring.q_factor(w, &[l, 0.0])? / 1e5]);
     }
     let long = PI * group_index / (RING_CENTRE * 2.0 * guide.propagation(w).im);
     Ok(ChartData {
         x_label: "round trip L (mm)".to_owned(),
         x_length: false,
-        y_label: "quality factor Q".to_owned(),
+        y_label: "Q / 10⁵".to_owned(),
         y_range: None,
         series: vec![
             Curve {
@@ -1437,10 +1437,10 @@ fn ring_identify(radius: f64, coupling: f64, loss: f64) -> photonoxide::Result<C
     let fitted_twin = fitted_ring(&twin, &twin_values, centre, window)?;
 
     let pair = |label: &str, (k2, db): (f64, f64), note: &str| Figure {
-        label: label.to_owned(),
+        label: format!("{label}: $\\kappa^2$ · loss"),
         value: Some(k2),
-        text: format!("κ² {} · {} dB/cm", sig(k2, 4), sig(db, 4)),
-        unit: String::new(),
+        text: format!("{} · {}", sig(k2, 4), sig(db, 4)),
+        unit: "dB/cm".to_owned(),
         note: note.to_owned(),
     };
     let crit = 1.0 - a * a;
@@ -2111,15 +2111,19 @@ mod tests {
         for k in (0..eq20.points.len()).step_by(23) {
             let l = eq20.points[k][0] * 1e3;
             let values = [l, 1.0 - a(l) * a(l)];
-            close(eq20.points[k][1], ring.q_factor(w, &values).unwrap(), 1e-12);
             close(
-                intrinsic.points[k][1],
+                eq20.points[k][1] * 1e5,
+                ring.q_factor(w, &values).unwrap(),
+                1e-12,
+            );
+            close(
+                intrinsic.points[k][1] * 1e5,
                 ring.q_factor(w, &[l, 0.0]).unwrap(),
                 1e-12,
             );
             // the decay Q from (ra)² per round trip
             close(
-                decay.points[k][1],
+                decay.points[k][1] * 1e5,
                 PI * 4.3 * l / (1.55 * (a(l) * a(l)).ln().abs()),
                 1e-9,
             );
@@ -2131,9 +2135,9 @@ mod tests {
         // the decay Q tends to π n_g/(λ α) for a long ring
         let alpha = 2.7 * 1e-4 * std::f64::consts::LN_10 / 10.0;
         close(at("Decay $Q$"), PI * 4.3 / (1.55 * alpha), 1e-12);
-        assert!(decay.points.last().unwrap()[1] < at("Decay $Q$"));
+        assert!(decay.points.last().unwrap()[1] * 1e5 < at("Decay $Q$"));
         // Eq. 20 peaks inside the chart; the measured and the decay Q keep rising
-        assert!(eq20.points.last().unwrap()[1] < at("Loaded $Q$ there"));
+        assert!(eq20.points.last().unwrap()[1] * 1e5 < at("Loaded $Q$ there"));
         let rising = |c: &Curve| c.points.windows(2).all(|w| w[1][1] >= w[0][1]);
         assert!(rising(&data.series[1]) && rising(decay));
     }

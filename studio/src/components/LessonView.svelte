@@ -147,20 +147,19 @@
   const LEVEL: Record<string, string> = { introductory: "badge-success", intermediate: "badge-warning", advanced: "badge-error" };
 </script>
 
-<div class="flex h-full min-h-0">
+<div class="relative flex h-full min-h-0">
+  <!-- the outline, under a button floating at the lesson's lower right while the side one is hidden -->
+  <div class="dropdown dropdown-end dropdown-top absolute right-5 bottom-4 z-20 2xl:hidden">
+    <div tabindex="0" role="button" class="btn gap-1.5 border-base-content/10 bg-base-100/90 btn-sm shadow-md backdrop-blur" title="Jump to a section">
+      <TableOfContents size={14} /> Contents
+    </div>
+    <div tabindex="-1" class="dropdown-content mb-1 max-h-[70vh] w-72 overflow-y-auto rounded-box border border-base-content/10 bg-base-100 p-1.5 shadow-xl">
+      {@render outline(blur)}
+    </div>
+  </div>
   <!-- the links in the lesson's text are buttons in all but name; the click is delegated -->
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
   <article class="min-w-0 flex-1 overflow-y-auto" onclick={click}>
-    <div class="pointer-events-none sticky top-0 z-20 h-0 2xl:hidden">
-      <div class="dropdown dropdown-end pointer-events-auto absolute top-2 right-3">
-        <div tabindex="0" role="button" class="btn gap-1.5 border-base-content/10 bg-base-100/90 btn-sm shadow-sm backdrop-blur" title="Jump to a section">
-          <TableOfContents size={14} /> Contents
-        </div>
-        <div tabindex="-1" class="dropdown-content z-30 mt-1 max-h-[70vh] w-72 overflow-y-auto rounded-box border border-base-content/10 bg-base-100 p-1.5 shadow-xl">
-          {@render outline(blur)}
-        </div>
-      </div>
-    </div>
     <header class="glow border-b border-base-content/8">
       <div class="mx-auto max-w-3xl px-5 pt-6 pb-6 sm:px-8">
         <button class="btn -ml-2 mb-3 gap-1.5 btn-ghost btn-sm md:hidden" onclick={onback}><ArrowLeft size={15} /> Lessons</button>
