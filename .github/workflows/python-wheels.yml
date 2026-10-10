@@ -1,0 +1,186 @@
+name: Python wheels
+
+# The photonoxide package for Python (python/): abi3 wheels, one per platform for every CPython
+# from 3.10, and one per platform for free-threaded CPython 3.14 (3.14t), which can't load abi3.
+#
+# - On pull requests that touch the package or the library it wraps (and only those, so the
+#   rest of CI costs what it did): the binding crate linted, and the wheels of Linux x86_64,
+#   macOS ARM64 and Windows x64 built and tested, on the lowest Python and on 3.14t.
+# - By hand (workflow_dispatch): every platform and the sdist; with `publish`, to PyPI too. The
+#   release workflow (release-plz.yml) starts it so, at the new release's tag, once PyPI is set
+#   up (the PYPI_PUBLISH variable); a post-release (0.5.1.post1, docs/python.md) is started by
+#   hand.
+#
+# PyPI trusts this workflow file and the `pypi` environment (trusted publishing: no token is
+# stored). Setting that up on pypi.org is done once, by hand: docs/python.md, "Publishing".
+on:
+  pull_request:
+    paths:
+      - "python/**"
+      - "!python/**.md"
+      - "src/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "jobs/**"
+      - ".github/workflows/python-wheels.yml"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "publish the wheels and the sdist to PyPI"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    name: Python lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check -p photonoxide-python
+      - run: cargo clippy -p photonoxide-python --all-targets -- -D warnings
+
+  # the platforms: three on pull requests, every one otherwise
+  platforms:
+    name: Platforms
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+      - id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          all='[
+            {"id": "linux-x86_64", "runner": "ubuntu-latest", "target": "x86_64", "manylinux": "auto", "test": true, "pr": true},
+            {"id": "linux-aarch64", "runner": "ubuntu-24.04-arm", "target": "aarch64", "manylinux": "auto", "test": true, "pr": false},
+            {"id": "musllinux-x86_64", "runner": "ubuntu-latest", "target": "x86_64", "manylinux": "musllinux_1_2", "test": false, "pr": false},
+            {"id": "musllinux-aarch64", "runner": "ubuntu-24.04-arm", "target": "aarch64", "manylinux": "musllinux_1_2", "test": false, "pr": false},
+            {"id": "macos-x86_64", "runner": "macos-latest", "target": "x86_64", "manylinux": "", "test": false, "pr": false},
+            {"id": "macos-arm64", "runner": "macos-latest", "target": "aarch64", "manylinux": "", "test": true, "pr": true},
+            {"id": "windows-x64", "runner": "windows-latest", "target": "x64", "manylinux": "", "test": true, "pr": true}
+          ]'
+          if [ "$EVENT" = pull_request ]; then
+            matrix=$(jq -c '[.[] | select(.pr)]' <<<"$all")
+          else
+            matrix=$(jq -c '.' <<<"$all")
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  wheels:
+    name: Wheel (${{ matrix.platform.id }})
+    needs: platforms
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJSON(needs.platforms.outputs.matrix) }}
+    runs-on: ${{ matrix.platform.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # the package has photonoxide's version and the dependency versions of Cargo.lock: both are
+      # the workspace's, in the root Cargo.toml and Cargo.lock
+      - uses: actions/checkout@v7
+      - uses: PyO3/maturin-action@v1.51.0
+        with:
+          target: ${{ matrix.platform.target }}
+          manylinux: ${{ matrix.platform.manylinux }}
+          working-directory: python
+          args: --release --locked --out dist
+      # free-threaded CPython: PyO3 makes a version-specific wheel for it despite the abi3
+      # feature. On Linux, the manylinux and musllinux containers have it.
+      - uses: actions/setup-python@v7
+        if: runner.os != 'Linux'
+        with:
+          python-version: "3.14t"
+      - uses: PyO3/maturin-action@v1.51.0
+        with:
+          target: ${{ matrix.platform.target }}
+          manylinux: ${{ matrix.platform.manylinux }}
+          working-directory: python
+          args: --release --locked --out dist -i python3.14t
+      # the lowest supported Python: an abi3 wheel works on every version from it
+      - uses: actions/setup-python@v7
+        if: matrix.platform.test
+        with:
+          python-version: "3.10"
+      - name: Test
+        if: matrix.platform.test
+        run: |
+          python -m pip install pytest python/dist/*-abi3-*.whl
+          cd python/tests && python -m pytest -q -p no:cacheprovider
+      - uses: actions/setup-python@v7
+        id: free-threaded
+        if: matrix.platform.test
+        with:
+          python-version: "3.14t"
+      - name: Test free-threaded
+        if: matrix.platform.test
+        run: |
+          python="${{ steps.free-threaded.outputs.python-path }}"
+          "$python" -m pip install pytest python/dist/*-cp314t-*.whl
+          cd python/tests && "$python" -m pytest -q -p no:cacheprovider
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: wheels-${{ matrix.platform.id }}
+          path: python/dist
+
+  sdist:
+    name: Source distribution
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: PyO3/maturin-action@v1.51.0
+        with:
+          command: sdist
+          working-directory: python
+          # the sdist includes Cargo.lock and the library it wraps (sdist has no --locked)
+          args: --out dist
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: wheels-sdist
+          path: python/dist
+
+  # to PyPI, as a trusted publisher: PyPI trusts this workflow file and the `pypi` environment,
+  # so no token is stored
+  pypi:
+    name: Publish to PyPI
+    needs: [lint, wheels, sdist]
+    if: github.event_name == 'workflow_dispatch' && inputs.publish
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/photonoxide/
+    permissions:
+      id-token: write
+    steps:
+      - name: PyPI is set up
+        env:
+          READY: ${{ vars.PYPI_PUBLISH }}
+        run: |
+          if [ "$READY" != true ]; then
+            echo "::error::PyPI's trusted publisher isn't set up (the PYPI_PUBLISH variable): see docs/python.md, Publishing"
+            exit 1
+          fi
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+      # every file of one version, the one PyPI gets
+      - name: One version
+        run: |
+          ls dist
+          versions=$(ls dist | sed -E 's/^photonoxide-([^-]+)(-|\.tar\.gz).*/\1/' | sort -u)
+          echo "version: $versions"
+          [ "$(wc -l <<<"$versions")" -eq 1 ]
+      - uses: pypa/gh-action-pypi-publish@v1.14.2

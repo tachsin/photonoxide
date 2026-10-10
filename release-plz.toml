@@ -45,7 +45,15 @@ release = false
 # overrides the workspace's publish = true, which must agree with its Cargo.toml
 publish = false
 
+# the Python package (python/) shares photonoxide's version, [workspace.package] in Cargo.toml,
+# which a release bumps; it is published to PyPI (.github/workflows/python-wheels.yml, started
+# by the release workflow), never to crates.io, and has no release of its own here
+[[package]]
+name = "photonoxide-python"
+release = false
+publish = false
+
 # release-plz gives the changelog only the commits that touch the crate's files, and Cargo.toml
-# excludes studio/ and site/: PRs that changed only those are added to the release PR by hand, and
+# excludes studio/, site/ and python/: PRs that changed only those are added to the release PR by hand, and
 # .github/workflows/changelog.yml lists them. (changelog_include = ["photonoxide-studio"] didn't
 # bring them in for 0.4.1: the studio isn't released.)

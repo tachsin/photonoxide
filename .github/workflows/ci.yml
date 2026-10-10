@@ -49,6 +49,8 @@ jobs:
                 examples/output/*) validation=true; studio=true ;;
                 docs/methods/*|examples/README.md|CHANGELOG.md|academy/*) studio=true ;;
                 site/*|*.md) ;;
+                # the Python package: its own workflow (python-wheels.yml) builds and tests it
+                python/*|.github/workflows/python-wheels.yml) ;;
                 *) code=true ;;
               esac
             done < <(git diff --name-only "$range")

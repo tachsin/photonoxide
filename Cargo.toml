@@ -1,6 +1,6 @@
 [package]
 name = "photonoxide"
-version = "0.5.1"
+version.workspace = true
 edition = "2024"
 rust-version = "1.95"
 description = "Validated photonics for Rust: materials with provenance, mode solvers, 2D and 3D FDFD with S-parameters and adjoints, circuits and compact models, with a live studio"
@@ -10,14 +10,19 @@ readme = "README.md"
 keywords = ["photonics", "fdfd", "waveguide", "electromagnetics", "silicon-photonics"]
 categories = ["science", "simulation", "mathematics"]
 # what goes into the published crate: the library, its docs and jobs; not CI, the brand files, the
-# project site, or the program and its Academy's lessons
-exclude = [".github", "academy", "assets", "site", "studio"]
+# project site, the program and its Academy's lessons, or the Python package
+exclude = [".github", "academy", "assets", "python", "site", "studio"]
 
 # the studio (studio/src-tauri) is the photonoxide program: it runs jobs, live in its window or
-# headless, and is built from the repository, not published
+# headless, and is built from the repository, not published. python/ is the Python package
+# (PyO3), which maturin builds; it shares photonoxide's version and Cargo.lock.
 [workspace]
-members = ["studio/src-tauri", "native", "native/testlib"]
+members = ["studio/src-tauri", "native", "native/testlib", "python"]
 default-members = ["."]
+
+[workspace.package]
+# photonoxide's version, which the Python package has as well: release-plz bumps it here
+version = "0.5.1"
 
 [dependencies]
 faer = "0.24.4"
