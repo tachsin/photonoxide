@@ -24,8 +24,8 @@ decompositions of an $N \times N$ unitary into them.
 ## 3. Why are photon statistics hard to compute?
 
 ::coming
-The probability of an output pattern is the squared permanent of a submatrix of the circuit's
-unitary, Ryser's and Glynn's formulas for it, and boson sampling.
+The probability of an output pattern is the squared modulus of the permanent of a submatrix of the
+circuit's unitary; Ryser's and Glynn's formulas for it, and boson sampling.
 
 ## 4. What does loss do to a quantum circuit?
 

@@ -675,7 +675,11 @@ mod tests {
             "{}: no reading time until it is written",
             l.id
         );
-        assert!(f.charts.is_empty(), "{}: no charts until it is written", l.id);
+        assert!(
+            f.charts.is_empty(),
+            "{}: no charts until it is written",
+            l.id
+        );
         assert!(l.sections.len() >= 3, "{}: lay out its subsections", l.id);
         for (k, s) in l.sections.iter().enumerate() {
             assert!(
@@ -1008,7 +1012,11 @@ mod tests {
         );
         assert!(parse("x.md", &text.replace("role: origin", "role: founding")).is_err());
         assert!(
-            parse("x.md", &text.replace("minutes: 5", "minutes: 5\nmilestone: \"0.6\"")).is_err(),
+            parse(
+                "x.md",
+                &text.replace("minutes: 5", "minutes: 5\nmilestone: \"0.6\"")
+            )
+            .is_err(),
             "a milestone on a lesson already written"
         );
         // a written lesson may hold a section still to be written
@@ -1043,7 +1051,8 @@ mod tests {
         assert_eq!(
             l.sections[0].coming,
             Some(Coming {
-                answers: "Total internal reflection at both faces, and the $k_x$ that fit.".to_owned(),
+                answers: "Total internal reflection at both faces, and the $k_x$ that fit."
+                    .to_owned(),
                 examples: vec!["slab_yariv_yeh".to_owned()],
             })
         );
@@ -1057,13 +1066,37 @@ mod tests {
 
         let broken = |from: &str, to: &str| parse("x.md", &text.replace(from, to)).is_err();
         assert!(broken("\n## 1.", "An opening.\n\n## 1."), "an opening");
-        assert!(broken("::coming\nExactly.\n", "Exactly.\n"), "a section written");
-        assert!(broken("Exactly.\n", ""), "nothing said of what it will answer");
-        assert!(broken("Exactly.\n", "Exactly.\n\nAnd more.\n"), "two paragraphs");
-        assert!(broken("Exactly.\n", "Exactly.\n::diagram ring\n"), "a block");
-        assert!(broken("Exactly.\n", "Exactly.\n:::answer\nNo.\n:::\n"), "an answer");
-        assert!(broken("::coming\nExactly.", "Exactly.\n::coming\nExactly."), "::coming after text");
-        assert!(broken("::coming slab_yariv_yeh\n", "::coming slab_yariv_yeh\n::coming\n"), "::coming twice");
+        assert!(
+            broken("::coming\nExactly.\n", "Exactly.\n"),
+            "a section written"
+        );
+        assert!(
+            broken("Exactly.\n", ""),
+            "nothing said of what it will answer"
+        );
+        assert!(
+            broken("Exactly.\n", "Exactly.\n\nAnd more.\n"),
+            "two paragraphs"
+        );
+        assert!(
+            broken("Exactly.\n", "Exactly.\n::diagram ring\n"),
+            "a block"
+        );
+        assert!(
+            broken("Exactly.\n", "Exactly.\n:::answer\nNo.\n:::\n"),
+            "an answer"
+        );
+        assert!(
+            broken("::coming\nExactly.", "Exactly.\n::coming\nExactly."),
+            "::coming after text"
+        );
+        assert!(
+            broken(
+                "::coming slab_yariv_yeh\n",
+                "::coming slab_yariv_yeh\n::coming\n"
+            ),
+            "::coming twice"
+        );
     }
 
     #[test]

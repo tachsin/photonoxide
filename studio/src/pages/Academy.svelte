@@ -119,7 +119,7 @@
                     {l.level} · {l.minutes} min · {l.papers.length} papers
                   {/if}
                 </span>
-                <span class="mt-1 line-clamp-2 block text-xs leading-relaxed {coming ? 'faint' : 'muted'}">{l.summary}</span>
+                <span class="mt-1 line-clamp-2 text-xs leading-relaxed {coming ? 'faint' : 'muted'}">{l.summary}</span>
               </button>
             </li>
           {/each}
