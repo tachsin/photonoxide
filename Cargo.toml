@@ -22,7 +22,7 @@ default-members = ["."]
 
 [workspace.package]
 # photonoxide's version, which the Python package has as well: release-plz bumps it here
-version = "0.5.1"
+version = "0.5.2"
 
 [dependencies]
 faer = "0.24.4"
