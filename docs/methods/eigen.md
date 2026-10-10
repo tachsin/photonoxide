@@ -6,7 +6,7 @@ order: 6
 papers:
   - cite: "Y. Saad, Numerical Methods for Large Eigenvalue Problems, 2nd ed., SIAM (2011) (Arnoldi, shift and invert)"
     doi: 10.1137/1.9781611970739
-  - cite: "G. W. Stewart, SIAM J. Matrix Anal. Appl. 23, 601 (2002), online 2001 (Krylov–Schur restarts)"
+  - cite: "G. W. Stewart, SIAM J. Matrix Anal. Appl. 23, 601 (published online 14 December 2001; the 2002 volume) (Krylov–Schur restarts)"
     doi: 10.1137/S0895479800371529
   - cite: "Z. Bai, J. W. Demmel, Linear Algebra Appl. 186, 73 (1993) (exchanging eigenvalues in a Schur form)"
     doi: 10.1016/0024-3795(93)90286-W

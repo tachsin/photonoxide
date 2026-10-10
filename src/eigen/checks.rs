@@ -322,7 +322,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "mode/krylov-schur-box",
             title: r"Many modes by shift-and-invert with Krylov–Schur restarts: a uniform box (ε = 2.25, 2 x 1.4 µm on 20 x 14 cells, 1 µm), its 50 modes nearest the highest index against its exact discrete eigenvalues, 25 of them each twice ($H_x$ and $H_y$), in a Krylov space of 120 (largest relative deviation of $\beta^2$ shown)",
             tier: Tier::Analytic,
-            source: r"the scheme's own sines: $\beta^2 = k^2\varepsilon - (4/h_x^2)\sin^2(p\pi/2(N_x+1)) - (4/h_y^2)\sin^2(q\pi/2(N_y+1))$; Krylov–Schur restarts, G. W. Stewart, SIAM J. Matrix Anal. Appl. 23, 601 (2002), doi:10.1137/S0895479800371529, keep each wanted direction, so a double eigenvalue comes out twice",
+            source: r"the scheme's own sines: $\beta^2 = k^2\varepsilon - (4/h_x^2)\sin^2(p\pi/2(N_x+1)) - (4/h_y^2)\sin^2(q\pi/2(N_y+1))$; Krylov–Schur restarts, G. W. Stewart, SIAM J. Matrix Anal. Appl. 23, 601 (published online 14 December 2001; the 2002 volume), doi:10.1137/S0895479800371529, keep each wanted direction, so a double eigenvalue comes out twice",
             run: || outcome(uniform_box(), 0.0, 1e-12),
         },
         Case {
@@ -350,7 +350,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "mode/krylov-schur-convergence",
             title: r"Convergence over the restarts: the 2D Laplacian on 40 x 30 nodes, its 20 eigenvalues nearest 0 in a Krylov space of 30, 11 growths from a residual of 0.95 to 1.4e-14; each Ritz value's error against the exact eigenvalues as its residual falls from 1e-2 to 1e-8, the slope of $\ln$ error against $\ln$ residual (shown to one decimal; 2 when the error goes as the residual squared)",
             tier: Tier::Analytic,
-            source: r"exact eigenvalues $4 - 2\cos(p\pi/41) - 2\cos(q\pi/31)$; a Ritz value of a Hermitian matrix errs by about its residual squared over the gap to the rest of the spectrum (B. N. Parlett, The Symmetric Eigenvalue Problem, SIAM (1998), doi:10.1137/1.9781611971163), which a Krylov–Schur restart keeps by keeping a Krylov decomposition (Stewart 2002, Theorem 2.2)",
+            source: r"exact eigenvalues $4 - 2\cos(p\pi/41) - 2\cos(q\pi/31)$; a Ritz value of a Hermitian matrix errs by about its residual squared over the gap to the rest of the spectrum (B. N. Parlett, The Symmetric Eigenvalue Problem, SIAM (1998), doi:10.1137/1.9781611971163), which a Krylov–Schur restart keeps by keeping a Krylov decomposition (Stewart 2001, Theorem 2.2)",
             run: || outcome(convergence_slope(), 2.0, 0.3),
         },
         Case {
@@ -364,7 +364,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "mode/every-guided-mode",
             title: r"Every guided mode above an index, no count given: a 3 µm wide, 220 nm silicon strip in oxide at 1.55 µm (20 nm grid, 5 x 2.2 µm window), every mode above the oxide's 1.444 by contour integrals, against Krylov–Schur asked for as many (largest difference in $n_\text{eff}$ shown)",
             tier: Tier::CrossCode,
-            source: "photonoxide's shift-and-invert Arnoldi with Krylov–Schur restarts on the same matrix (G. W. Stewart, SIAM J. Matrix Anal. Appl. 23, 601 (2002), doi:10.1137/S0895479800371529), its residual below 1e-9",
+            source: "photonoxide's shift-and-invert Arnoldi with Krylov–Schur restarts on the same matrix (G. W. Stewart, SIAM J. Matrix Anal. Appl. 23, 601 (published online 14 December 2001; the 2002 volume), doi:10.1137/S0895479800371529), its residual below 1e-9",
             run: || {
                 let (worst, count) = every_guided_mode();
                 outcome(if count > 0 { worst } else { f64::NAN }, 0.0, 1e-9)
