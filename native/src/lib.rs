@@ -100,9 +100,10 @@ pub fn register_all() -> Vec<Probe> {
             // its block low-rank factorization, a backend of its own
             // its tolerance as asked, or unavailable with the reason: never another in its place
             let tolerance = match std::env::var("PHOTONOXIDE_MUMPS_BLR") {
-                Ok(text) => text.trim().parse::<f64>().map_err(|_| {
-                    format!("PHOTONOXIDE_MUMPS_BLR isn't a number: {text:?}")
-                }),
+                Ok(text) => text
+                    .trim()
+                    .parse::<f64>()
+                    .map_err(|_| format!("PHOTONOXIDE_MUMPS_BLR isn't a number: {text:?}")),
                 Err(_) => Ok(mumps::BLR_TOLERANCE),
             };
             let _ = match tolerance.and_then(|tolerance| mumps.block_low_rank(tolerance)) {
