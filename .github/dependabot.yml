@@ -1,0 +1,69 @@
+# Our own dependencies, checked every Monday. Each pull request lists every package's old and
+# new version with links to its release notes, changelog and commits, and CI runs on it. Minor
+# and patch updates come together, one pull request per ecosystem; a major version comes on
+# its own. When a crate's new release needs a newer Rust than `rust-version`, the MSRV job
+# fails: raise `rust-version` and the MSRV job in the same pull request (AGENTS.md).
+#
+# The external libraries users install (oneMKL, MUMPS, SuperLU, OpenBLAS, CUDA, cuDSS) are
+# checked by the Libraries workflow instead.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Bucharest
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      cargo:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /studio
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Bucharest
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      studio:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: pip
+    directory: /python
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Bucharest
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      python:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Bucharest
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      actions:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 3
