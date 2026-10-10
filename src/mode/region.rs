@@ -95,6 +95,26 @@ impl Region {
         Region::ellipse(c64::new(low + half, 0.0), half, 0.5 * half)
     }
 
+    /// Every guided mode's region above `low`, for a guide whose highest index is `highest`:
+    /// [`Region::between`] `low` and a tenth of the way beyond `highest`, so the boundary
+    /// passes clear of the modes at the top. With `low` the cladding's index it holds every
+    /// guided mode.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] unless 0 < `low` < `highest`, both finite.
+    pub fn above(low: f64, highest: f64) -> Result<Region> {
+        if !(low > 0.0 && highest > low && highest.is_finite()) {
+            return Err(Error::invalid(
+                "region",
+                format!(
+                    "no guided mode lies above {low}: the threshold must be positive and below the highest index, {highest}"
+                ),
+            ));
+        }
+        Region::between(low, highest + 0.1 * (highest - low))
+    }
+
     /// The centre.
     pub fn centre(&self) -> c64 {
         self.centre
@@ -182,7 +202,8 @@ pub(crate) fn search(
     k: f64,
     region: &Region,
     search: &Search,
-) -> Result<contour::Found> {
+    stop: &dyn Fn() -> bool,
+) -> Result<Option<contour::Found>> {
     let quadrature = region.quadrature(k * k, search.points)?;
     let pencil = contour::Pencil {
         n,
@@ -191,7 +212,7 @@ pub(crate) fn search(
         positions: Some(positions),
     };
     let inside = |beta2: c64| region.contains(beta2.sqrt() / k);
-    let mut found = contour::solve(
+    let Some(mut found) = contour::solve_until(
         &pencil,
         &quadrature,
         &inside,
@@ -200,7 +221,11 @@ pub(crate) fn search(
             tolerance: search.tolerance,
             iterations: search.iterations,
         },
-    )?;
+        stop,
+    )?
+    else {
+        return Ok(None);
+    };
     // highest Re n_eff first: the order of Re β (both roots principal)
     let mut order: Vec<usize> = (0..found.pairs.len()).collect();
     let key = |i: usize| found.pairs[i].value.sqrt();
@@ -216,7 +241,7 @@ pub(crate) fn search(
         .map(|&i| pairs[i].take().expect("each once"))
         .collect();
     found.residuals = order.iter().map(|&i| found.residuals[i]).collect();
-    Ok(found)
+    Ok(Some(found))
 }
 
 #[cfg(test)]

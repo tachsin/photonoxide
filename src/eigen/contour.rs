@@ -417,14 +417,15 @@ impl Shifts<'_> {
 
 /// Q = Σ w_j (z_j B − A)⁻¹ B Y over the points, in their order: on a real pencil with a
 /// symmetric rule and real Y, the upper half's points only, each with its conjugate's share,
-/// 2 Re(w_j X_j).
+/// 2 Re(w_j X_j). `None` when `stop` says so, asked before each batch of points.
 fn filter(
     shifts: &Shifts,
     quadrature: &Quadrature,
     real: bool,
     cache: &mut [Option<Factors>],
     y: &[Vec<c64>],
-) -> Result<Vec<Vec<c64>>> {
+    stop: &dyn Fn() -> bool,
+) -> Result<Option<Vec<Vec<c64>>>> {
     let n = shifts.pencil.n;
     let by: Vec<Vec<c64>> = y.iter().map(|c| shifts.operators.b(c)).collect();
     let mut q = vec![vec![c64::new(0.0, 0.0); n]; y.len()];
@@ -434,6 +435,9 @@ fn filter(
     let points = cache.len();
     let mut start = 0;
     while start < points {
+        if stop() {
+            return Ok(None);
+        }
         let end = (start + batch).min(points);
         let solved: Vec<Result<Vec<Vec<c64>>>> = cache[start..end]
             .par_iter_mut()
@@ -463,7 +467,7 @@ fn filter(
         }
         start = end;
     }
-    Ok(q)
+    Ok(Some(q))
 }
 
 /// The eigenpairs of `pencil` with eigenvalues inside the curve of `quadrature` (`inside` says
@@ -474,21 +478,39 @@ fn filter(
 /// [`Error::InvalidValue`] if a shifted matrix can't be factorized (an eigenvalue on a node),
 /// the given subspace is too small for the eigenvalues inside, or the pairs inside don't
 /// converge within the iterations.
+#[cfg(test)]
 pub(crate) fn solve(
     pencil: &Pencil,
     quadrature: &Quadrature,
     inside: &(dyn Fn(c64) -> bool + Sync),
     options: &Options,
 ) -> Result<Found> {
+    // (never asked to stop, it always has its pairs or an error)
+    Ok(solve_until(pencil, quadrature, inside, options, &|| false)?.expect("not stopped"))
+}
+
+/// As [`solve`], giving up when `stop` says so: `None` then. It is asked before each batch of
+/// quadrature points (a factorization and solves each, side by side).
+///
+/// # Errors
+///
+/// As [`solve`].
+pub(crate) fn solve_until(
+    pencil: &Pencil,
+    quadrature: &Quadrature,
+    inside: &(dyn Fn(c64) -> bool + Sync),
+    options: &Options,
+    stop: &dyn Fn() -> bool,
+) -> Result<Option<Found>> {
     let n = pencil.n;
     if n == 0 {
-        return Ok(Found {
+        return Ok(Some(Found {
             pairs: Vec::new(),
             residuals: Vec::new(),
             estimate: 0.0,
             subspace: 0,
             iterations: 0,
-        });
+        }));
     }
     if options.tolerance.is_nan() || options.tolerance <= 0.0 || options.iterations == 0 {
         return Err(failed(
@@ -547,7 +569,9 @@ pub(crate) fn solve(
             }
             passes += 1;
             here += 1;
-            let q = filter(&shifts, quadrature, real, &mut cache, &y)?;
+            let Some(q) = filter(&shifts, quadrature, real, &mut cache, &y, stop)? else {
+                return Ok(None);
+            };
             if estimate.is_none() {
                 // the trace of the filter, by the ±1 columns: (1/m) Σ y_cᴴ q_c
                 let e = q.iter().zip(&y).map(|(qc, yc)| dot(qc, yc).re).sum::<f64>() / size as f64;
@@ -572,13 +596,13 @@ pub(crate) fn solve(
             let u = orthonormalize(q);
             let r = u.len();
             if r == 0 {
-                return Ok(Found {
+                return Ok(Some(Found {
                     pairs: Vec::new(),
                     residuals: Vec::new(),
                     estimate: estimate.unwrap_or(0.0),
                     subspace: 0,
                     iterations: passes,
-                });
+                }));
             }
             // Rayleigh–Ritz: Uᴴ A U w = θ Uᴴ B U w
             let (thetas, w) = ritz(&operators, &u)?;
@@ -624,13 +648,13 @@ pub(crate) fn solve(
                     .into_iter()
                     .map(|(value, vector, _)| Pair { value, vector })
                     .collect();
-                return Ok(Found {
+                return Ok(Some(Found {
                     pairs,
                     residuals,
                     estimate: estimate.unwrap_or(0.0),
                     subspace: r,
                     iterations: passes,
-                });
+                }));
             }
             // no convergence after several passes in this subspace: one too small converges
             // slowly (Kestyn Section 2.3), so a larger one, unless the size was given. But a

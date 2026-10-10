@@ -290,6 +290,10 @@ pub fn jobs() -> Vec<JobExample> {
             include_str!("../../../jobs/strip-width-sweep.toml"),
         ),
         (
+            "strip-guided-modes.toml",
+            include_str!("../../../jobs/strip-guided-modes.toml"),
+        ),
+        (
             "strip-and-ring.toml",
             include_str!("../../../jobs/strip-and-ring.toml"),
         ),
