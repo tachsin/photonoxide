@@ -381,7 +381,7 @@ impl Component for Mmi {
             .collect();
         let travel: Vec<c64> = modes
             .iter()
-            .map(|m| c64::new(0.0, m.beta * length).exp())
+            .map(|m| crate::portable::exp_c(c64::new(0.0, m.beta * length)))
             .collect();
         let n = layout.len();
         Ok(SMatrix::from_fn(n, |q, p| {

@@ -15,11 +15,12 @@
 
 mod common;
 
-use std::f64::consts::{PI, TAU};
+use std::f64::consts::{LN_10, PI, TAU};
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
+use genoxide::math;
 use genoxide::prelude::*;
 use photonoxide::circuit::{Circuit, Netlist, SMatrix, objective};
 use photonoxide::units::Wavelength;
@@ -78,15 +79,19 @@ fn ring() -> photonoxide::Result<Circuit> {
 }
 
 /// Bogaerts et al.'s Eqs. 5 and 6 for the ring `x` at `wavelength_um`: the through and drop
-/// intensities.
+/// intensities. In genoxide's portable exp and cos, as photonoxide's circuit takes them: the
+/// system's own round differently on Linux, Windows and macOS, and the fit's count of
+/// evaluations hangs on the last bit (78 on Linux, 80 on Windows, 81 on macOS before; issue #280).
 fn bogaerts(guide: &Waveguide, x: &[f64; 4], wavelength: Wavelength) -> (f64, f64) {
     let wavelength_um = wavelength.to_um();
     let (r1, r2) = ((1.0 - x[0]).sqrt(), (1.0 - x[1]).sqrt());
     let length = TAU * x[3];
-    let a = 10f64.powf(-x[2] * 1e-4 * length / 20.0);
+    // 10^(−αL/20)
+    let a = math::exp(-x[2] * 1e-4 * length / 20.0 * LN_10);
     let phi = TAU * guide.dispersion().effective_index_at(wavelength) * length / wavelength_um;
-    let denominator = 1.0 - 2.0 * r1 * r2 * a * phi.cos() + (r1 * r2 * a).powi(2);
-    let through = (r2 * r2 * a * a - 2.0 * r1 * r2 * a * phi.cos() + r1 * r1) / denominator;
+    let cos = math::sin_cos(phi).1;
+    let denominator = 1.0 - 2.0 * r1 * r2 * a * cos + (r1 * r2 * a).powi(2);
+    let through = (r2 * r2 * a * a - 2.0 * r1 * r2 * a * cos + r1 * r1) / denominator;
     let drop = (1.0 - r1 * r1) * (1.0 - r2 * r2) * a / denominator;
     (through, drop)
 }

@@ -22,6 +22,7 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
 
 pub mod accelerate;
+pub mod blas;
 mod cuda;
 mod cudss;
 mod discovery;
@@ -36,6 +37,7 @@ mod smoke;
 pub mod superlu;
 
 pub use accelerate::Accelerate;
+pub use blas::Blas;
 pub use cudss::Cudss;
 pub use discovery::{Candidate, Discovery, Source, Spec, Status, discover, versioned};
 pub use gpu_qmr::GpuQmr;
@@ -128,6 +130,18 @@ pub fn register_all() -> Vec<Probe> {
             Err(reason) => photonoxide::backend::register_unavailable("accelerate", reason),
         };
     }
+    // photonoxide's own solver with each library's dense kernels in its fronts
+    for (name, kernels) in blas::all() {
+        let _ = match kernels {
+            Ok(kernels) => offer(photonoxide::backend::dense::with_kernels(
+                std::sync::Arc::new(kernels),
+            ))
+            .map(drop),
+            Err(reason) => {
+                photonoxide::backend::register_unavailable(&format!("photonoxide-{name}"), reason)
+            }
+        };
+    }
     let mut probes = nvidia::probe();
     probes.push(intel::probe());
     probes.push(mumps::probe());
@@ -135,5 +149,6 @@ pub fn register_all() -> Vec<Probe> {
     if cfg!(target_os = "macos") {
         probes.push(accelerate::probe());
     }
+    probes.push(blas::probe());
     probes
 }

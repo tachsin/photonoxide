@@ -47,6 +47,8 @@ use super::matching::{Matching, matching};
 use super::{adjacency, nested_dissection};
 use crate::{Error, Result};
 
+use crate::backend::dense::{Block, BlockMut, DenseKernels, Product};
+
 fn failed(what: &str, why: impl std::fmt::Display) -> Error {
     Error::invalid("the multifrontal LU", format!("{what}: {why}"))
 }
@@ -357,6 +359,20 @@ impl Multifrontal {
         analysis: Arc<Analysis>,
         a: SparseColMatRef<'_, usize, c64>,
     ) -> Result<Multifrontal> {
+        Multifrontal::with_kernels(analysis, a, None)
+    }
+
+    /// As [`Multifrontal::new`], the fronts' dense operations done by `kernels` if given, by
+    /// faer's as ever otherwise.
+    ///
+    /// # Errors
+    ///
+    /// As [`Multifrontal::new`].
+    pub(crate) fn with_kernels(
+        analysis: Arc<Analysis>,
+        a: SparseColMatRef<'_, usize, c64>,
+        kernels: Option<&dyn DenseKernels>,
+    ) -> Result<Multifrontal> {
         let n = analysis.n;
         if a.nrows() != n || a.ncols() != n {
             return Err(failed(
@@ -396,6 +412,7 @@ impl Multifrontal {
             by_row: &by_row,
             tiny,
             slots: &slots,
+            kernels,
         };
         let roots = &analysis.roots;
         let run = || -> Result<()> {
@@ -608,6 +625,8 @@ struct Context<'a> {
     by_row: &'a [Vec<(usize, c64)>],
     tiny: f64,
     slots: &'a [OnceLock<(Factors, usize)>],
+    /// Another library's dense kernels, or faer's called as ever.
+    kernels: Option<&'a dyn DenseKernels>,
 }
 
 impl Context<'_> {
@@ -713,7 +732,7 @@ impl Context<'_> {
             }
         }
         if self.analysis.symmetric {
-            let perturbed = eliminate_symmetric(f.as_mut(), k, self.tiny, par);
+            let perturbed = eliminate_symmetric(f.as_mut(), k, self.tiny, parallel, self.kernels);
             let lower = f.as_ref().submatrix(0, 0, m, k).to_owned();
             let values = f.as_ref().submatrix(k, k, p, p).to_owned();
             self.slots[s]
@@ -729,27 +748,55 @@ impl Context<'_> {
             return Ok(Update { values });
         }
         // the diagonal block, pivoting among its own rows, small pivots perturbed
-        let (rows, perturbed) = pivot_block(f.as_mut().submatrix_mut(0, 0, k, k), self.tiny, par);
+        let (rows, perturbed) = pivot_block(
+            f.as_mut().submatrix_mut(0, 0, k, k),
+            self.tiny,
+            parallel,
+            self.kernels,
+        );
         let permuted = Mat::<c64>::from_fn(k, p, |i, j| f[(rows[i], k + j)]);
         f.as_mut().submatrix_mut(0, k, k, p).copy_from(&permuted);
         let (top, bottom) = f.as_mut().split_at_row_mut(k);
         let (l11u11, mut u12) = top.split_at_col_mut(k);
         let (mut l21, mut f22) = bottom.split_at_col_mut(k);
         // U₁₂ = L₁₁⁻¹ F₁₂, L₂₁ = F₂₁ U₁₁⁻¹, S = F₂₂ − L₂₁ U₁₂
-        solve_unit_lower_triangular_in_place(l11u11.as_ref(), u12.as_mut(), par);
-        solve_lower_triangular_in_place(
-            l11u11.as_ref().transpose(),
-            l21.as_mut().transpose_mut(),
-            par,
-        );
-        matmul(
-            f22.as_mut(),
-            Accum::Add,
-            l21.as_ref(),
-            u12.as_ref(),
-            c64::new(-1.0, 0.0),
-            par,
-        );
+        if let Some(kernels) = self.kernels {
+            if k > 0 && p > 0 {
+                kernels.solve_unit_lower(
+                    Block::new(l11u11.as_ref()),
+                    BlockMut::new(u12.as_mut()),
+                    parallel,
+                );
+                kernels.solve_upper_from_right(
+                    Block::new(l11u11.as_ref()),
+                    BlockMut::new(l21.as_mut()),
+                    parallel,
+                );
+                kernels.multiply(
+                    BlockMut::new(f22.as_mut()),
+                    Block::new(l21.as_ref()),
+                    Block::new(u12.as_ref()),
+                    Product::default(),
+                    c64::new(-1.0, 0.0),
+                    parallel,
+                );
+            }
+        } else {
+            solve_unit_lower_triangular_in_place(l11u11.as_ref(), u12.as_mut(), par);
+            solve_lower_triangular_in_place(
+                l11u11.as_ref().transpose(),
+                l21.as_mut().transpose_mut(),
+                par,
+            );
+            matmul(
+                f22.as_mut(),
+                Accum::Add,
+                l21.as_ref(),
+                u12.as_ref(),
+                c64::new(-1.0, 0.0),
+                par,
+            );
+        }
         let lower = f.as_ref().submatrix(0, 0, m, k).to_owned();
         let upper = f.as_ref().submatrix(0, k, k, p).to_owned();
         let values = f.as_ref().submatrix(k, k, p, p).to_owned();
@@ -768,8 +815,23 @@ const PANEL: usize = 64;
 /// pivoting, its first k columns eliminated: L and D in place of the first k columns (D on the
 /// diagonal, L unit and below it), the Schur complement's lower half in place of the rest. A
 /// pivot smaller than `tiny` is set to it (with its own phase, or 1's); returns how many were.
-fn eliminate_symmetric(mut f: MatMut<'_, c64>, k: usize, tiny: f64, par: Par) -> usize {
+fn eliminate_symmetric(
+    mut f: MatMut<'_, c64>,
+    k: usize,
+    tiny: f64,
+    parallel: bool,
+    kernels: Option<&dyn DenseKernels>,
+) -> usize {
     use faer::linalg::matmul::triangular::{BlockStructure, matmul as triangular};
+    let par = if parallel { Par::rayon(0) } else { Par::Seq };
+    let transposed = Product {
+        transposed: true,
+        lower: false,
+    };
+    let lower = Product {
+        transposed: true,
+        lower: true,
+    };
     let m = f.nrows();
     let minus = c64::new(-1.0, 0.0);
     let mut perturbed = 0;
@@ -806,11 +868,19 @@ fn eliminate_symmetric(mut f: MatMut<'_, c64>, k: usize, tiny: f64, par: Par) ->
             .as_mut()
             .submatrix_mut(j0, j0, m - j0, width)
             .split_at_row_mut(width);
-        solve_unit_lower_triangular_in_place(
-            diagonal.as_ref(),
-            below.as_mut().transpose_mut(),
-            par,
-        );
+        match kernels {
+            Some(kernels) if rows > 0 => kernels.solve_unit_lower_transposed_from_right(
+                Block::new(diagonal.as_ref()),
+                BlockMut::new(below.as_mut()),
+                parallel,
+            ),
+            Some(_) => {}
+            None => solve_unit_lower_triangular_in_place(
+                diagonal.as_ref(),
+                below.as_mut().transpose_mut(),
+                par,
+            ),
+        }
         let ld = below.as_ref().to_owned();
         for c in 0..width {
             let d = diagonal[(c, c)];
@@ -822,25 +892,46 @@ fn eliminate_symmetric(mut f: MatMut<'_, c64>, k: usize, tiny: f64, par: Par) ->
         if j1 < k {
             let (left, mut right) = f.as_mut().split_at_col_mut(j1);
             let l = left.as_ref().submatrix(j1, j0, k - j1, width);
-            triangular(
-                right.as_mut().submatrix_mut(j1, 0, k - j1, k - j1),
-                BlockStructure::TriangularLower,
-                Accum::Add,
-                ld.as_ref().subrows(0, k - j1),
-                BlockStructure::Rectangular,
-                l.transpose(),
-                BlockStructure::Rectangular,
-                minus,
-                par,
-            );
-            matmul(
-                right.as_mut().submatrix_mut(k, 0, m - k, k - j1),
-                Accum::Add,
-                ld.as_ref().subrows(k - j1, m - k),
-                l.transpose(),
-                minus,
-                par,
-            );
+            if let Some(kernels) = kernels {
+                kernels.multiply(
+                    BlockMut::new(right.as_mut().submatrix_mut(j1, 0, k - j1, k - j1)),
+                    Block::new(ld.as_ref().subrows(0, k - j1)),
+                    Block::new(l),
+                    lower,
+                    minus,
+                    parallel,
+                );
+                if m > k {
+                    kernels.multiply(
+                        BlockMut::new(right.as_mut().submatrix_mut(k, 0, m - k, k - j1)),
+                        Block::new(ld.as_ref().subrows(k - j1, m - k)),
+                        Block::new(l),
+                        transposed,
+                        minus,
+                        parallel,
+                    );
+                }
+            } else {
+                triangular(
+                    right.as_mut().submatrix_mut(j1, 0, k - j1, k - j1),
+                    BlockStructure::TriangularLower,
+                    Accum::Add,
+                    ld.as_ref().subrows(0, k - j1),
+                    BlockStructure::Rectangular,
+                    l.transpose(),
+                    BlockStructure::Rectangular,
+                    minus,
+                    par,
+                );
+                matmul(
+                    right.as_mut().submatrix_mut(k, 0, m - k, k - j1),
+                    Accum::Add,
+                    ld.as_ref().subrows(k - j1, m - k),
+                    l.transpose(),
+                    minus,
+                    par,
+                );
+            }
         }
         j0 = j1;
     }
@@ -849,27 +940,36 @@ fn eliminate_symmetric(mut f: MatMut<'_, c64>, k: usize, tiny: f64, par: Par) ->
     if p > 0 {
         let ld = Mat::<c64>::from_fn(p, k, |r, c| f[(k + r, c)] * f[(c, c)]);
         let (left, mut right) = f.as_mut().split_at_col_mut(k);
-        triangular(
-            right.as_mut().submatrix_mut(k, 0, p, p),
-            BlockStructure::TriangularLower,
-            Accum::Add,
-            ld.as_ref(),
-            BlockStructure::Rectangular,
-            left.as_ref().submatrix(k, 0, p, k).transpose(),
-            BlockStructure::Rectangular,
-            minus,
-            par,
-        );
+        match kernels {
+            Some(kernels) if k > 0 => kernels.multiply(
+                BlockMut::new(right.as_mut().submatrix_mut(k, 0, p, p)),
+                Block::new(ld.as_ref()),
+                Block::new(left.as_ref().submatrix(k, 0, p, k)),
+                lower,
+                minus,
+                parallel,
+            ),
+            Some(_) => {}
+            None => triangular(
+                right.as_mut().submatrix_mut(k, 0, p, p),
+                BlockStructure::TriangularLower,
+                Accum::Add,
+                ld.as_ref(),
+                BlockStructure::Rectangular,
+                left.as_ref().submatrix(k, 0, p, k).transpose(),
+                BlockStructure::Rectangular,
+                minus,
+                par,
+            ),
+        }
     }
     perturbed
 }
 
-/// LU with partial pivoting of the k × k block in place, rows swapped only among its own: the
-/// block's rows in their new order, and how many pivots were smaller than `tiny` and set to it
-/// (with their own phase, or 1's).
-fn pivot_block(mut a: MatMut<'_, c64>, tiny: f64, par: Par) -> (Vec<usize>, usize) {
+/// faer's LU with partial pivoting of the square block in place: the rows' order, entry i the
+/// row of the block that the factors' row i was.
+pub(crate) fn faer_lu(a: MatMut<'_, c64>, par: Par) -> Vec<usize> {
     let k = a.nrows();
-    let backup = a.to_owned();
     let mut forward = vec![0usize; k];
     let mut inverse = vec![0usize; k];
     let mut stack = MemBuffer::new(
@@ -881,13 +981,35 @@ fn pivot_block(mut a: MatMut<'_, c64>, tiny: f64, par: Par) -> (Vec<usize>, usiz
         ),
     );
     faer::linalg::lu::partial_pivoting::factor::lu_in_place(
-        a.as_mut(),
+        a,
         &mut forward,
         &mut inverse,
         par,
         MemStack::new(&mut stack),
         Default::default(),
     );
+    forward
+}
+
+/// LU with partial pivoting of the k × k block in place, rows swapped only among its own: the
+/// block's rows in their new order, and how many pivots were smaller than `tiny` and set to it
+/// (with their own phase, or 1's).
+fn pivot_block(
+    mut a: MatMut<'_, c64>,
+    tiny: f64,
+    parallel: bool,
+    kernels: Option<&dyn DenseKernels>,
+) -> (Vec<usize>, usize) {
+    let k = a.nrows();
+    let backup = a.to_owned();
+    let forward = match kernels {
+        Some(kernels) if k > 0 => kernels.lu(BlockMut::new(a.as_mut()), parallel),
+        Some(_) => Vec::new(),
+        None => {
+            let par = if parallel { Par::rayon(0) } else { Par::Seq };
+            faer_lu(a.as_mut(), par)
+        }
+    };
     if (0..k).all(|i| a[(i, i)].norm() >= tiny) {
         return (forward, 0);
     }

@@ -1,0 +1,59 @@
+name: Systems
+
+# What CI's Examples job leaves to Linux, run on Windows and macOS (Apple silicon) by hand: the 3D
+# devices and the validation report, each against its committed output, which Linux writes. The
+# system's maths library mustn't show in either (issue #280). Each takes 5 to 30 minutes; the
+# outputs are kept as artifacts.
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  run:
+    name: ${{ matrix.os }} (${{ matrix.shard }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+        shard:
+          - validation
+          - splitter_rotator_liu_poon
+          - mode_converter_liu_poon
+          - mmi_liu_poon
+          - coupler_liu_poon
+          - crossing_liu_poon ring_liu_poon
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Against the committed outputs
+        run: |
+          out="$RUNNER_TEMP/out"
+          mkdir -p "$out"
+          if [ "$SHARD" = validation ]; then
+            PHOTONOXIDE_VALIDATION_OUT="$out/validation.md" \
+              cargo test --release --test validation_report -- --ignored
+            exit 0
+          fi
+          status=0
+          for name in $SHARD; do
+            echo "::group::$name"
+            cargo run --release --quiet --example "$name" > "$out/$name.txt" || status=1
+            diff -u "examples/output/$name.txt" "$out/$name.txt" || status=1
+            echo "::endgroup::"
+          done
+          exit $status
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.os }}-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/out

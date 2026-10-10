@@ -127,8 +127,65 @@ own unless named) and the mode solvers.
 - faer's LU as the backend gives the 2D solver's field to 1e-11 of photonoxide's own.
 - The validation report is unchanged.
 
+## Dense kernels for the fronts
+
+photonoxide's multifrontal solver spends its time in four dense operations on each front, which
+are BLAS's and LAPACK's. `backend::dense::DenseKernels` is those four, so that a vendor's
+library can do them:
+
+| The trait's | BLAS, LAPACK | Where in a front |
+|---|---|---|
+| `multiply` | `zgemm`, `zgemmt` | the Schur complement, an L D Lᵀ panel's updates |
+| `solve_unit_lower` | `ztrsm` (left, lower, unit) | U₁₂ = L₁₁⁻¹ F₁₂ |
+| `solve_upper_from_right` | `ztrsm` (right, upper) | L₂₁ = F₂₁ U₁₁⁻¹ |
+| `solve_unit_lower_transposed_from_right` | `ztrsm` (right, lower, transposed, unit) | L D = F L⁻ᵀ |
+| `lu` | `zgetrf` | the diagonal block, pivoting among its own rows |
+
+- **What stays photonoxide's:** the ordering, the fronts and their assembly, the static
+  pivoting (a pivot below √ε ‖B‖₁ is found after the library's LU and the block redone with it
+  replaced, as with faer's), and the scheduling of independent subtrees on rayon's threads.
+  So the fill is the same whatever the kernels.
+- **Threads.** Each call says whether it may thread: a front near the root may, the many small
+  fronts factorized side by side may not. A library must be able to follow that per call.
+- **A solver per library.** `dense::with_kernels` makes photonoxide's solver with a library's
+  kernels, named `photonoxide-` and the kernels' name (`photonoxide-openblas`,
+  `photonoxide-mkl`, `photonoxide-accelerate`), registered and chosen as any other backend:
+  `direct = "photonoxide-openblas"` in a job. It declares itself deterministic only if the
+  kernels do.
+- **`photonoxide` itself is unchanged:** it calls faer's kernels as it always did, and gives
+  the same bits. `dense::Faer` is those kernels behind the trait.
+- **A block** is a matrix by columns inside a front's storage: its rows, its columns, the
+  distance between its columns, and its first entry's address. photonoxide forbids `unsafe`,
+  so reading through the address is `photonoxide-native`'s to do.
+
+`photonoxide-native` loads the libraries (`native/src/blas.rs`): OpenBLAS, oneMKL's `mkl_rt`
+and Apple Accelerate, by the Fortran interface with 32-bit integers.
+
+- A build with 64-bit integers isn't used: OpenBLAS's has other names, oneMKL's interface layer
+  is asked.
+- `zgemmt` (the product into one triangle) isn't standard; where a library lacks it, `zgemm`
+  computes both triangles.
+- OpenBLAS's `zgemmt` is used from 0.3.27: with 0.3.26's (Ubuntu 24.04's package) the solver
+  crashed.
+- Accelerate is called by the names it has always had (`zgemm_`). Its newer interface's
+  `zgemm$NEWLAPACK` crashed on macOS 26.6.2 for some products with an odd number of rows
+  (1365 × 1024, 5461 × 4096), through Apple's own `cblas_zgemm$NEWLAPACK` too.
+- The threads of a call are set for the calling thread: `mkl_set_num_threads_local`,
+  `openblas_set_num_threads_local` (OpenBLAS 0.3.27 and later; an older one is held to one
+  thread). Accelerate has no such setting and is left to itself.
+
+Checked:
+
+- faer's kernels behind the trait give the solver's own bits, on general and symmetric
+  systems, with fronts large enough to thread.
+- Kernels written from the trait's words alone, one entry at a time, and writing NaN where a
+  triangle isn't wanted, factorize to 1e-12 of faer's: the trait says all a library needs.
+- Each library's kernels against faer's on random complex matrices of 32 to 4096, and the
+  solver with them against photonoxide's own, where the library is installed
+  (`native/tests/blas.rs`).
+
 ## What isn't here yet
 
-The mode solvers' shift-and-invert still calls faer's LU directly. Dense kernels for the
-multifrontal fronts (#186), iterative solvers (#189, #190) and eigensolvers get their own traits
-with their first backend.
+The mode solvers' shift-and-invert still calls faer's LU directly. AMD's AOCL and Arm's
+Performance Libraries aren't loaded as dense kernels yet (#186). Iterative solvers (#189, #190)
+and eigensolvers get their own traits with their first backend.

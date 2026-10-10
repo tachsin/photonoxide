@@ -9,6 +9,8 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use num_complex::Complex64 as c64;
 
+use crate::portable;
+
 /// A value and its derivative with respect to one parameter.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Dual {
@@ -55,9 +57,11 @@ impl Dual {
             .collect()
     }
 
-    /// e^self.
+    /// e^self. Here and in `cos` and `sin`, the same bits on every system
+    /// ([`crate::portable`]): optimizations run on these S-matrices, and how many steps they take
+    /// can hinge on the last bit.
     pub(crate) fn exp(self) -> Dual {
-        let e = self.v.exp();
+        let e = portable::exp_c(self.v);
         Dual {
             v: e,
             d: e * self.d,
@@ -76,16 +80,16 @@ impl Dual {
     /// cos self.
     pub(crate) fn cos(self) -> Dual {
         Dual {
-            v: self.v.cos(),
-            d: -self.v.sin() * self.d,
+            v: portable::cos_c(self.v),
+            d: -portable::sin_c(self.v) * self.d,
         }
     }
 
     /// sin self.
     pub(crate) fn sin(self) -> Dual {
         Dual {
-            v: self.v.sin(),
-            d: self.v.cos() * self.d,
+            v: portable::sin_c(self.v),
+            d: portable::cos_c(self.v) * self.d,
         }
     }
 
