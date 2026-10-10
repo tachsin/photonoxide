@@ -2912,7 +2912,9 @@ fn fdfd3d_block_qmr_dependent() -> Outcome {
 
 fn fdfd3d_block_qmr_convergence() -> Outcome {
     let errors = crate::fdfd::block_checks3d::against_direct(&[1e-4, 1e-10]);
-    let slope = (errors[0] / errors[1]).log10() / 6.0;
+    // to one decimal: the errors' last digits differ between Linux, Windows and macOS (the
+    // iterations at 1e-10 run on rounding; 0.965 here), and the slope is checked to 0.2
+    let slope = ((errors[0] / errors[1]).log10() / 6.0 * 10.0).round() / 10.0;
     Outcome {
         measured: slope,
         expected: 1.0,
