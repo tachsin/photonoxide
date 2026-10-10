@@ -130,15 +130,19 @@ jobs:
 
   # Every example reproduces a published result and fails when it doesn't, and prints exactly
   # its committed output (shown on the project site). The 3D devices take minutes each, so each
-  # runs on a runner of its own, beside the report, and the rest together on another.
+  # runs on a runner of its own, beside the report, and the rest together on another. The rest
+  # run on Windows and macOS too, against the same committed output: the system's maths library
+  # mustn't show in what an example prints (issue #280; the Systems workflow runs the 3D devices
+  # and the report on those systems, by hand).
   examples:
-    name: Examples (${{ matrix.shard }})
+    name: Examples (${{ matrix.shard }}${{ matrix.os != 'ubuntu-latest' && format(', {0}', matrix.os) || '' }})
     needs: changes
     if: needs.changes.outputs.code == 'true' || needs.changes.outputs.validation == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         shard:
           - the rest
           - splitter_rotator_liu_poon
@@ -146,6 +150,14 @@ jobs:
           - mmi_liu_poon
           - coupler_liu_poon
           - crossing_liu_poon ring_liu_poon
+        include:
+          - os: windows-latest
+            shard: the rest
+          - os: macos-latest
+            shard: the rest
+    defaults:
+      run:
+        shell: bash
     env:
       # the examples with a runner of their own: the shards above but the first
       HEAVY: splitter_rotator_liu_poon mode_converter_liu_poon mmi_liu_poon coupler_liu_poon crossing_liu_poon ring_liu_poon

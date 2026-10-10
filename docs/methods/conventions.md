@@ -41,6 +41,43 @@ $$
 A = \frac{2}{T} \int_0^T s(t)\thinspace e^{i\omega t}\thinspace dt .
 $$
 
+## The same numbers on every system
+
+photonoxide's own solvers give the same bits on any number of threads: each sums in an order
+fixed by the problem, not by the threads, and CI runs the tests on one thread as well as many.
+Across systems the same bits are wanted but not promised, and CI checks what shows: the examples'
+outputs, written on Linux, are compared on Windows and macOS (Apple silicon) too, the 3D devices
+and the validation report by hand (the Systems workflow).
+
+What can differ between systems, and what photonoxide does about each:
+
+- **The maths library.** `f64::exp`, `sin`, `cos`, `powf`, `atan2` and `hypot` call the
+  system's: glibc on Linux, the Microsoft C runtime on Windows, Apple's libm on macOS. Each is
+  within an ulp or so, but they round differently. Where a printed result hangs on the last bit,
+  photonoxide takes these from the pure-Rust [`libm`](https://docs.rs/libm) crate instead, the
+  same bits everywhere: the circuit's closed-form S-matrices, which optimizations run on, and
+  FDTD's source waveforms. Elsewhere the system's functions stay, and the last bits of a mode's
+  index or a field may differ between systems with nothing printed to show it.
+- **Fused multiply-adds.** Rust never fuses a multiply and an add on its own, and photonoxide
+  builds with no `target-cpu` or feature flags; faer's dense kernels pick their SIMD
+  instructions at run time.
+- **Randomness.** The contour solver's probe vectors come from splitmix64 on fixed seeds, and
+  genoxide's generators and its random choices use its portable maths.
+
+Measured in October 2026 (issue #280), every example and the validation report on the three
+systems before the change: the report and 29 of the 31 examples printed the same everywhere, the
+3D devices included. Two didn't, both from the maths library:
+
+- `circuit_fit`: L-BFGS-B took 78 evaluations on Linux, 80 on Windows, 81 on macOS. The target
+  spectra differed in the last bits at 2 of their 81 wavelengths (`cos` near the resonance, up to
+  5 ulps of the drop port after the cancellation there) and the circuit's gradient in its first
+  evaluation (the guide's $e^{i\beta L}$), and the optimizer's stopping test, F below 1e-18,
+  turned that into a different count. Now 79 on all three.
+- `subpixel_holes`: two slopes moved in their sixth decimal on Windows. The pulse's
+  $e^{-u^2}$, sin and cos and the source's cos(πx) differed in the last bit, and the matrix pencil
+  that reads the modes' frequencies off the probes, keeping singular values down to 1e-10 of the
+  largest, turned that into 1e-11 of a frequency. Unchanged on Linux.
+
 ## Validation
 
 Two analytic cases pin the convention: the amplitude of a real signal is recovered with the

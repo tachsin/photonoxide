@@ -69,6 +69,7 @@ use num_complex::Complex64 as c64;
 use rayon::prelude::*;
 
 use crate::fdfd::{Axis, Edges, Grid3d, averaged_3d as averaged};
+use crate::portable;
 use crate::units::Frequency;
 use crate::{Error, Result};
 
@@ -245,15 +246,19 @@ impl Waveform {
                 delay,
             } => {
                 let u = (t - delay) / width;
-                c64::new(0.0, (-u * u).exp())
-                    * c64::new(0.0, -frequency.angular() * (t - delay)).exp()
+                c64::new(0.0, portable::exp(-u * u))
+                    * portable::exp_c(c64::new(0.0, -frequency.angular() * (t - delay)))
             }
             Waveform::DifferentiatedGaussian { .. } => c64::new(self.at(t), 0.0),
             Waveform::Continuous {
                 frequency,
                 amplitude,
                 ramp,
-            } => smoothstep(t, ramp) * amplitude * c64::new(0.0, -frequency.angular() * t).exp(),
+            } => {
+                smoothstep(t, ramp)
+                    * amplitude
+                    * portable::exp_c(c64::new(0.0, -frequency.angular() * t))
+            }
         }
     }
 
@@ -297,7 +302,7 @@ impl Waveform {
         (0..steps)
             .map(|n| {
                 let t = n as f64 * dt + offset;
-                value(self, t) * c64::new(0.0, omega * t).exp() * dt
+                value(self, t) * portable::exp_c(c64::new(0.0, omega * t)) * dt
             })
             .sum()
     }
@@ -311,18 +316,19 @@ impl Waveform {
                 delay,
             } => {
                 let u = (t - delay) / width;
-                (-u * u).exp() * (frequency.angular() * (t - delay)).sin()
+                portable::exp(-u * u) * portable::sin_cos(frequency.angular() * (t - delay)).0
             }
             Waveform::DifferentiatedGaussian { width, delay } => {
                 let u = (t - delay) / width;
-                -u * (-u * u).exp() * (2.0 * std::f64::consts::E).sqrt()
+                -u * portable::exp(-u * u) * (2.0 * std::f64::consts::E).sqrt()
             }
             Waveform::Continuous {
                 frequency,
                 amplitude,
                 ramp,
             } => {
-                smoothstep(t, ramp) * (amplitude * c64::new(0.0, -frequency.angular() * t).exp()).re
+                smoothstep(t, ramp)
+                    * (amplitude * portable::exp_c(c64::new(0.0, -frequency.angular() * t))).re
             }
         }
     }

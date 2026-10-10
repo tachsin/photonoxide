@@ -1,7 +1,9 @@
 name: Systems
 
-# Every example and the validation report on Linux, Windows and macOS (Apple silicon), their
-# outputs kept as artifacts, to compare across systems (issue #280).
+# What CI's Examples job leaves to Linux, run on Windows and macOS (Apple silicon) by hand: the 3D
+# devices and the validation report, each against its committed output, which Linux writes. The
+# system's maths library mustn't show in either (issue #280). Each takes 5 to 30 minutes; the
+# outputs are kept as artifacts.
 on:
   workflow_dispatch:
   push:
@@ -16,9 +18,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest, macos-latest]
         shard:
-          - the rest
           - validation
           - splitter_rotator_liu_poon
           - mode_converter_liu_poon
@@ -26,42 +27,35 @@ jobs:
           - coupler_liu_poon
           - crossing_liu_poon ring_liu_poon
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 120
+    timeout-minutes: 90
     defaults:
       run:
         shell: bash
     env:
-      HEAVY: splitter_rotator_liu_poon mode_converter_liu_poon mmi_liu_poon coupler_liu_poon crossing_liu_poon ring_liu_poon
       SHARD: ${{ matrix.shard }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Run
+      - name: Against the committed outputs
         run: |
           out="$RUNNER_TEMP/out"
           mkdir -p "$out"
           if [ "$SHARD" = validation ]; then
             PHOTONOXIDE_VALIDATION_OUT="$out/validation.md" \
-              cargo test --release --test validation_report -- --ignored || true
+              cargo test --release --test validation_report -- --ignored
             exit 0
           fi
-          if [ "$SHARD" = "the rest" ]; then
-            names=""
-            for example in examples/*.rs; do
-              name="$(basename "$example" .rs)"
-              case " $HEAVY " in *" $name "*) ;; *) names="$names $name" ;; esac
-            done
-          else
-            names="$SHARD"
-          fi
-          for name in $names; do
+          status=0
+          for name in $SHARD; do
             echo "::group::$name"
-            cargo run --release --quiet --example "$name" > "$out/$name.txt" || echo "exit $?" >> "$out/$name.txt"
-            diff -u "examples/output/$name.txt" "$out/$name.txt" || true
+            cargo run --release --quiet --example "$name" > "$out/$name.txt" || status=1
+            diff -u "examples/output/$name.txt" "$out/$name.txt" || status=1
             echo "::endgroup::"
           done
-      - uses: actions/upload-artifact@v7
+          exit $status
+      - if: always()
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.os }}-${{ strategy.job-index }}
           path: ${{ runner.temp }}/out

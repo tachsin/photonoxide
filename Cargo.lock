@@ -3482,6 +3482,7 @@ version = "0.5.0"
 dependencies = [
  "faer",
  "genoxide",
+ "libm",
  "num-complex",
  "private-gemm-x86",
  "rayon",
