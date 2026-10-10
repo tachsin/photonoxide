@@ -54,5 +54,8 @@ updates:
     patterns: ["*"]
     multi-ecosystem-group: dependencies
     ignore:
+      # its tags are Rust versions (the MSRV job asks for 1.95), not the action's own: the
+      # MSRV is raised by hand when a dependency needs it (AGENTS.md)
+      - dependency-name: "dtolnay/rust-toolchain"
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
