@@ -67,7 +67,7 @@ the studio
 | MUMPS 5.8.2 (#176) | sparse direct, multifrontal, block low-rank | CeCILL-C | conda-forge `mumps-seq` | conda-forge, apt | conda-forge |
 | SuperLU 7.0.1 (#177) | sparse direct, partial pivoting | BSD | vcpkg (built from source) | conda-forge, apt | conda-forge, Homebrew |
 | AMD AOCL 5.2: BLIS, libFLAME (#186), AOCL-Sparse (#189) | dense kernels; iterative solvers | BSD-3, MIT (to confirm per component) | AMD's installer | AMD's packages, Spack | none |
-| Apple Accelerate (#186, #187) | dense kernels; sparse direct (complex from macOS 15.5, to confirm) | part of macOS | none | none | built in |
+| Apple Accelerate (#186, #187) | dense kernels; sparse direct (complex LU from macOS 15.5, complex symmetric L D Lᵀ from macOS 26) | part of macOS | none | none | built in |
 | Arm Performance Libraries (#186) | dense kernels | free, no licence | Windows on Arm | Linux AArch64 | Apple Silicon |
 | OpenBLAS (#186) | dense kernels, the fallback | BSD | conda-forge, vcpkg | everywhere | conda-forge, Homebrew |
 | NVIDIA cuDSS (#188) | sparse direct on the GPU | NVIDIA EULA | conda-forge, pip, NVIDIA | the same | none |

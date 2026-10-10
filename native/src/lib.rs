@@ -21,6 +21,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 
+pub mod accelerate;
 mod cuda;
 mod cudss;
 mod discovery;
@@ -34,6 +35,7 @@ mod pardiso;
 mod smoke;
 pub mod superlu;
 
+pub use accelerate::Accelerate;
 pub use cudss::Cudss;
 pub use discovery::{Candidate, Discovery, Source, Spec, Status, discover, versioned};
 pub use gpu_qmr::GpuQmr;
@@ -115,9 +117,19 @@ pub fn register_all() -> Vec<Probe> {
         Ok(superlu) => offer(std::sync::Arc::new(superlu)).map(drop),
         Err(reason) => photonoxide::backend::register_unavailable("superlu", reason),
     };
+    // (off macOS it isn't listed at all: there is nothing a user could do about it)
+    if cfg!(target_os = "macos") {
+        let _ = match Accelerate::load() {
+            Ok(accelerate) => offer(std::sync::Arc::new(accelerate)).map(drop),
+            Err(reason) => photonoxide::backend::register_unavailable("accelerate", reason),
+        };
+    }
     let mut probes = nvidia::probe();
     probes.push(intel::probe());
     probes.push(mumps::probe());
     probes.push(superlu::probe());
+    if cfg!(target_os = "macos") {
+        probes.push(accelerate::probe());
+    }
     probes
 }

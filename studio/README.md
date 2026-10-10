@@ -237,6 +237,81 @@ themselves, and say so.
 - **If the key is lost,** installed copies can't take the next release by themselves. Users
   then install it once by hand.
 
+## Channels
+
+Settings › Updates chooses the channel:
+
+- **Stable** is the signed releases, as described above.
+- **Nightly** follows `main`. The studio builds main's latest commit here, from its source, and
+  installs it in place of the copy you have. That code is tested by CI and nothing more, and
+  building it needs Rust, Node and the platform's build tools.
+
+Each build knows what it was built from. `src-tauri/build.rs` embeds the commit, the commit's
+date and whether the tree had changes not committed (from git, or from the variables the
+nightly builder sets, since a tarball has no git). Settings › About shows it, and so does
+`photonoxide --version`. A release says its version; a nightly says e.g.
+`0.5.1-nightly (main @ abc1234, 2026-10-09)`. A nightly's version is main's with the patch raised
+and `-nightly` after it, so every later release sorts after it.
+
+- **The check:** when the studio opens and every hour, as on Stable. It asks GitHub's API for
+  main's head, as its SHA alone and with the ETag of the last answer: an unchanged main answers
+  304, which doesn't count against the 60 requests an hour GitHub allows without signing in.
+  When main moved, the compare API lists the new commits' titles. A failed check waits an hour
+  before the next, doubling up to a day, and a rate limit waits for GitHub's reset time.
+- **The prerequisites:** checked before building, each with what's missing and the command that
+  installs it:
+  - rustc and cargo, at least the `rust-version` of main's `Cargo.toml`;
+  - Node 22.12 or newer (CI uses 24);
+  - the pnpm major that `package.json` pins;
+  - Tauri's platform prerequisites: on Windows, the MSVC build tools and WebView2; on Linux,
+    webkit2gtk-4.1, libayatana-appindicator or libappindicator, librsvg and a C toolchain,
+    with your distribution's command; on macOS, Xcode's command line tools.
+
+  As on the Libraries page, a command is shown to copy. On Windows and macOS the window can
+  also run it in a terminal of its own, after you confirm. Tools are looked for on PATH and in
+  their installers' folders (`~/.cargo/bin`, nvm's, Homebrew's, npm's and pnpm's), so one
+  installed since the studio opened is found.
+- **The build:** **Build and update** builds exactly the commit it listed, from
+  `codeload.github.com/tachsin/photonoxide/tar.gz/<sha>` (no git needed). The tarball's one
+  folder must be `photonoxide-<sha>`. The build then checks the prerequisites again against
+  what that source asks for, and runs `pnpm install --frozen-lockfile` and
+  `pnpm tauri build --bundles <the one the update needs> --config nightly.conf.json`. The
+  config sets the nightly's version, keeps this copy's name and identifier, and sets
+  `createUpdaterArtifacts: false`, since a local build has no signing key.
+
+  The build runs in the background, its log streamed into the window. It can be cancelled, and
+  it stops by itself after two hours.
+- **The install:**
+  - Windows: the build's NSIS installer runs as the studio exits, as the stable updater runs
+    it (`/P /UPDATE /R`), and the new build opens.
+  - macOS: the `.app` is replaced (copied beside it, then renamed into place) and opened.
+  - Linux: an AppImage is swapped in the same way. A `.deb` or `.rpm` install gets its
+    package built, to install with your package manager, or with `pkexec` after you confirm.
+
+  The build being replaced is kept first. A watchdog runs from that copy
+  (`photonoxide nightly watch`). If the new build's window hasn't said it started within five
+  minutes, the watchdog puts the previous build back and opens it, and that build says what
+  happened. Settings can also go back by hand.
+- **Back to Stable:** a nightly's version can sort above the latest release. The stable updater
+  takes the latest release anyway when the copy running is a nightly
+  (`channels::stable_accepts`).
+- **Where:** `nightly/` in the app's local data folder (`%LOCALAPPDATA%\gr.tachsin.photonoxide`,
+  `~/Library/Application Support/gr.tachsin.photonoxide`, `~/.local/share/gr.tachsin.photonoxide`):
+  - `source/`, the commit being built, replaced by the next one's;
+  - `target/`, Cargo's, kept so the next build compiles only what changed;
+  - `ready/`, the build waiting to be installed;
+  - `previous/`, the build kept to go back to;
+  - `build.log`.
+
+  Settings removes the cache. `PHOTONOXIDE_NIGHTLY_DIR` puts it all elsewhere, to try the channel
+  without touching an installed copy's.
+- **From a terminal:**
+  - `photonoxide nightly check` shows main's new commits;
+  - `photonoxide nightly prerequisites` shows what building needs;
+  - `photonoxide nightly build <sha>` builds main's head, and you type the SHA;
+  - `photonoxide nightly install` installs the build;
+  - `photonoxide nightly rollback` goes back.
+
 ## Downloads
 
 Each [release](https://github.com/tachsin/photonoxide/releases) has the program for the
@@ -320,6 +395,9 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, builder, materia
     is the component library the studio offers (each kind's id, title, symbol, and the
     library's component it builds).
   - `tasks.rs`: the examples and reports running in their own processes.
+  - `channels.rs`: the release channels, and the nightly channel's check (`channels/github.rs`),
+    prerequisites (`channels/prereqs.rs`), build (`channels/builder.rs`) and install
+    (`channels/install.rs`); `build.rs` embeds the commit a build is made from.
 - `src/`: the window, in Svelte 5 with TypeScript, Tailwind CSS and daisyUI, and Lucide icons.
   - `pages/`: one file per page.
   - `components/`: what pages share. The plots and pictures, the device preview, the TOML

@@ -172,6 +172,34 @@ jobs:
         if: matrix.test != ''
         run: env ${{ matrix.require }} cargo test -p photonoxide-native --release --test ${{ matrix.test }}
 
+  macos:
+    # nothing to install: what each macOS's Accelerate has, and its backend's tests
+    name: Accelerate (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # complex LU from macOS 15.5, complex symmetric L D Lᵀ from macOS 26
+          - { os: macos-15, require: 'PHOTONOXIDE_REQUIRE_ACCELERATE=1' }
+          - { os: macos-15-intel, require: 'PHOTONOXIDE_REQUIRE_ACCELERATE=1' }
+          - { os: macos-26, require: 'PHOTONOXIDE_REQUIRE_ACCELERATE=symmetric' }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: sw_vers
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: What photonoxide finds
+        run: cargo run -p photonoxide-native --example libraries | tee found.txt
+      - name: photonoxide finds it
+        run: |
+          grep -E '^Accelerate [0-9.]+: /System/Library/Frameworks/' found.txt
+      - name: Its backend is offered
+        run: |
+          grep -E '^backend accelerate \(direct\): .* available' found.txt
+      - name: Its backend's tests, the library required
+        run: env ${{ matrix.require }} cargo test -p photonoxide-native --release --test accelerate
+
   winget:
     name: winget's index (windows-latest)
     runs-on: windows-latest
