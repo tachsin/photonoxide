@@ -48,6 +48,12 @@ pub enum Error {
         /// Why, e.g. `"no GPU found"`.
         reason: String,
     },
+    /// A farm ([`crate::farm`]) can't do its work: no worker left, a worker refused, a task
+    /// past its timeout, a message that isn't the protocol's.
+    Farm {
+        /// Why, e.g. `"no worker left: 127.0.0.1:7878: connection refused"`.
+        reason: String,
+    },
 }
 
 impl Error {
@@ -77,6 +83,7 @@ impl fmt::Display for Error {
             Error::Parse { what, reason } => write!(f, "can't read {what}: {reason}"),
             Error::Netlist(e) => write!(f, "invalid netlist: {e}"),
             Error::Gpu { reason } => write!(f, "GPU: {reason}"),
+            Error::Farm { reason } => write!(f, "farm: {reason}"),
         }
     }
 }

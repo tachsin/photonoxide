@@ -22,6 +22,8 @@
 //! - [`bench`](mod@bench): fixed problems that time the solvers at a stated accuracy, which
 //!   `photonoxide bench` runs.
 //! - [`parallel`]: independent problems (a sweep's points) side by side, collected in order.
+//! - [`farm`]: the same across processes, on this machine or others over TCP: a sweep's points
+//!   or whole jobs (a population, corners) sent to workers and gathered by index.
 //! - [`facade`]: a small, stable façade of plain types, which the Python package (and MATLAB
 //!   through it) wraps.
 //!
@@ -45,6 +47,7 @@ mod eigen;
 pub mod error;
 pub mod expr;
 pub mod facade;
+pub mod farm;
 pub mod fdfd;
 pub mod fdtd;
 pub mod geometry;
