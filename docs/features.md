@@ -50,7 +50,7 @@ test fails when one of its functions is missing here.
 | Mode ports and S-parameters | ✅ | ◐ 2D, a job: `fdfd_s_parameters` | ◐ † the same | [ports](methods/fdfd-ports.md) |
 | Adjoint gradients | ✅ | — | — | [fdfd-adjoint](methods/fdfd-adjoint.md) |
 | Solvers: direct (multifrontal) | ✅ | ◐ a job's `[solver] direct` | ◐ † the same | [backends](methods/backends.md) |
-| Solvers: QMR, block QMR, multigrid | ✅ | — | — | [block-qmr](methods/block-qmr.md), [fdfd-3d](methods/fdfd-3d.md) |
+| Solvers: QMR, block QMR, multigrid, recycling | ✅ | — | — | [block-qmr](methods/block-qmr.md), [fdfd-3d](methods/fdfd-3d.md), [recycling](methods/recycling.md) |
 
 ## FDTD
 

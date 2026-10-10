@@ -30,6 +30,9 @@ mod block;
 pub use block::BlockConvergence;
 pub(crate) use block::example as block_example;
 pub(crate) use block::{block_qmr, block_qmr_preconditioned, block_qmr_similar};
+mod recycle;
+pub(crate) use recycle::example as recycle_example;
+pub(crate) use recycle::{Space, gcro_dr, least_residual};
 
 /// A sparse matrix by rows, with its transpose by rows, for the products QMR takes.
 pub(crate) struct Sparse {
