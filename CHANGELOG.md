@@ -16,11 +16,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(fdfd)* recycling across 3D solves: earlier solutions and GCRO-DR, a sweep's, ports', adjoints' ([#300](https://github.com/tachsin/photonoxide/pull/300))
 - *(studio)* the Academy's Mach–Zehnder lesson, from Mach and Zehnder to thin-film lithium niobate ([#301](https://github.com/tachsin/photonoxide/pull/301))
 - *(farm)* a sweep's points and whole jobs farmed to worker processes, here or over TCP, gathered by index ([#297](https://github.com/tachsin/photonoxide/pull/297))
+- *(studio)* the ring lesson goes on to the Q factor, critical coupling and fitting a measured spectrum ([#310](https://github.com/tachsin/photonoxide/pull/310))
+- *(studio)* the Academy's whole curriculum laid out, each lesson's subsections marked coming soon ([#308](https://github.com/tachsin/photonoxide/pull/308))
 
 ### <!-- 1 -->Fixed
 
 - *(fdfd)* block QMR's checks hold on every system: portable inputs, and no count compared where it runs on rounding ([#286](https://github.com/tachsin/photonoxide/pull/286))
 - *(run)* a run is Sync, UnwindSafe and RefUnwindSafe again, its farm's points behind a mutex ([#318](https://github.com/tachsin/photonoxide/pull/318))
+- *(studio)* Nightly installs on Windows: the installer after the old app exits, its failure reported, an earlier watchdog superseded ([#293](https://github.com/tachsin/photonoxide/pull/293))
 
 ### <!-- 4 -->Documentation
 
