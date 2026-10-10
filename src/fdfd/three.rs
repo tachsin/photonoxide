@@ -1113,10 +1113,11 @@ pub(crate) mod port_checks;
 #[cfg(test)]
 mod port_tests;
 mod ports;
+pub(crate) mod recycle_checks;
 #[cfg(test)]
 mod tests;
 
-pub use iterative::{Formulation, IterativeSolver3d};
+pub use iterative::{Formulation, IterativeSolver3d, Recycler};
 pub use multigrid::{CycleShape, Multigrid};
 pub use ports::{Port3d, PortMode3d};
 pub(crate) use ports::{mode_amplitude_weights_of, mode_amplitudes_of};

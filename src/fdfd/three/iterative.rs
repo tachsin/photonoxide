@@ -17,6 +17,10 @@ use crate::fdfd::krylov::{
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
+#[path = "recycling.rs"]
+mod recycling;
+pub use recycling::Recycler;
+
 /// The operator QMR iterates on. Both have the same solution.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Formulation {
@@ -69,6 +73,16 @@ pub struct IterativeSolver3d {
     backend: Option<Arc<dyn IterativeSolver>>,
     /// Whether an S-matrix solves its ports' sources as one block ([`IterativeSolver3d::with_block`]).
     block: bool,
+    /// Which operator this is, for a recycled space ([`super::Recycler`]): a new number for each
+    /// solver built, and again whenever its preconditioner or backend changes.
+    pub(super) id: u64,
+}
+
+/// A number no solver has had before.
+fn next_id() -> u64 {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    NEXT.fetch_add(1, Ordering::Relaxed)
 }
 
 /// A preconditioner for QMR.
@@ -120,6 +134,7 @@ impl IterativeSolver3d {
             preconditioner: Preconditioning::None,
             backend: None,
             block: false,
+            id: next_id(),
         })
     }
 
@@ -159,6 +174,7 @@ impl IterativeSolver3d {
             preconditioner: Preconditioning::None,
             backend: None,
             block: false,
+            id: next_id(),
         })
     }
 
@@ -195,6 +211,7 @@ impl IterativeSolver3d {
             ));
         }
         self.preconditioner = Preconditioning::Ilu(Box::new(Ilu0::new(&self.matrix)?));
+        self.id = next_id();
         Ok(self)
     }
 
@@ -255,6 +272,7 @@ impl IterativeSolver3d {
         let operator = shifted(&self.lattice, &self.eps, &self.matrix, options.shift);
         let hierarchy = Hierarchy::new_on(&self.lattice, &self.eps, operator, options, &solver)?;
         self.preconditioner = Preconditioning::Multigrid(Box::new(hierarchy));
+        self.id = next_id();
         Ok(self)
     }
 
@@ -272,6 +290,7 @@ impl IterativeSolver3d {
     /// solver preconditioned by multigrid with a backend that doesn't run it.
     pub fn with_iterative_backend(mut self, choice: &Choice) -> Result<IterativeSolver3d> {
         self.backend = backend::iterative(choice)?;
+        self.id = next_id();
         if self.backend.is_some() {
             self.needs_matrix("an iterative backend")?;
         }
@@ -353,54 +372,7 @@ impl IterativeSolver3d {
     /// As [`IterativeSolver3d::solve`].
     pub fn solve_system(&self, rhs: &[c64], stopping: Stopping) -> Result<(Field3d, Convergence)> {
         let b = self.prepared(rhs)?;
-        self.check_backend()?;
-        let (values, convergence) = match &self.preconditioner {
-            Preconditioning::Ilu(ilu) => match &self.backend {
-                Some(solver) => {
-                    let matrix = self.matrix.as_matrix(Form::General)?;
-                    let factors = ilu.factors().ok_or_else(|| {
-                        Error::invalid("iterative backend", "ILU(0) by Jacobi sweeps")
-                    })?;
-                    qmr_preconditioned_by(&self.matrix, ilu.as_ref(), &b, stopping, &|rhs, st| {
-                        solver.qmr_run_ilu(&matrix, &factors, rhs, st)
-                    })?
-                }
-                None => qmr_preconditioned(&self.matrix, ilu.as_ref(), &b, stopping)?,
-            },
-            // a cycle is worth many products with A, and GMRES takes one per iteration where
-            // QMR takes two (the cycle and its transpose)
-            Preconditioning::Multigrid(h) => match &self.backend {
-                Some(solver) => {
-                    let cycle = h.cycle_for_backend()?;
-                    let (x, how) =
-                        solver.gmres_multigrid(self.matrix.rows(), &cycle, &b, stopping)?;
-                    checked(&self.matrix, &b, x, how, stopping)?
-                }
-                None => gmres_preconditioned(&self.matrix, h.as_ref(), &b, stopping, h.restart())?,
-            },
-            // without the matrix: by the operator, on its symmetric form where it has one
-            Preconditioning::None if self.free.is_some() => match (&self.free, &self.similarity) {
-                (Some(operator), Some(s)) => qmr_similar(operator, s, &b, stopping)?,
-                (Some(operator), None) => qmr(operator, &b, stopping)?,
-                (None, _) => qmr(&self.matrix, &b, stopping)?,
-            },
-            Preconditioning::None => match (&self.backend, &self.similarity) {
-                (Some(solver), Some(s)) => {
-                    let matrix = self.matrix.as_matrix(Form::Symmetric)?;
-                    qmr_similar_by(&self.matrix, s, &b, stopping, &|rhs, st| {
-                        solver.qmr_run(&matrix, rhs, st)
-                    })?
-                }
-                (Some(solver), None) => {
-                    let matrix = self.matrix.as_matrix(Form::General)?;
-                    restarted_by(&self.matrix, &b, stopping, &|rhs, st| {
-                        solver.qmr_run(&matrix, rhs, st)
-                    })?
-                }
-                (None, Some(s)) => qmr_similar(&self.matrix, s, &b, stopping)?,
-                (None, None) => qmr(&self.matrix, &b, stopping)?,
-            },
-        };
+        let (values, convergence) = self.solve_prepared(&b, stopping)?;
         Ok((
             Field3d {
                 lattice: self.lattice.clone(),
@@ -410,9 +382,66 @@ impl IterativeSolver3d {
         ))
     }
 
+    /// E of the formulation's system for a right-hand side already [`IterativeSolver3d::prepared`],
+    /// by the solver this problem has.
+    pub(super) fn solve_prepared(
+        &self,
+        b: &[c64],
+        stopping: Stopping,
+    ) -> Result<(Vec<c64>, Convergence)> {
+        self.check_backend()?;
+        Ok(match &self.preconditioner {
+            Preconditioning::Ilu(ilu) => match &self.backend {
+                Some(solver) => {
+                    let matrix = self.matrix.as_matrix(Form::General)?;
+                    let factors = ilu.factors().ok_or_else(|| {
+                        Error::invalid("iterative backend", "ILU(0) by Jacobi sweeps")
+                    })?;
+                    qmr_preconditioned_by(&self.matrix, ilu.as_ref(), b, stopping, &|rhs, st| {
+                        solver.qmr_run_ilu(&matrix, &factors, rhs, st)
+                    })?
+                }
+                None => qmr_preconditioned(&self.matrix, ilu.as_ref(), b, stopping)?,
+            },
+            // a cycle is worth many products with A, and GMRES takes one per iteration where
+            // QMR takes two (the cycle and its transpose)
+            Preconditioning::Multigrid(h) => match &self.backend {
+                Some(solver) => {
+                    let cycle = h.cycle_for_backend()?;
+                    let (x, how) =
+                        solver.gmres_multigrid(self.matrix.rows(), &cycle, b, stopping)?;
+                    checked(&self.matrix, b, x, how, stopping)?
+                }
+                None => gmres_preconditioned(&self.matrix, h.as_ref(), b, stopping, h.restart())?,
+            },
+            // without the matrix: by the operator, on its symmetric form where it has one
+            Preconditioning::None if self.free.is_some() => match (&self.free, &self.similarity) {
+                (Some(operator), Some(s)) => qmr_similar(operator, s, b, stopping)?,
+                (Some(operator), None) => qmr(operator, b, stopping)?,
+                (None, _) => qmr(&self.matrix, b, stopping)?,
+            },
+            Preconditioning::None => match (&self.backend, &self.similarity) {
+                (Some(solver), Some(s)) => {
+                    let matrix = self.matrix.as_matrix(Form::Symmetric)?;
+                    qmr_similar_by(&self.matrix, s, b, stopping, &|rhs, st| {
+                        solver.qmr_run(&matrix, rhs, st)
+                    })?
+                }
+                (Some(solver), None) => {
+                    let matrix = self.matrix.as_matrix(Form::General)?;
+                    restarted_by(&self.matrix, b, stopping, &|rhs, st| {
+                        solver.qmr_run(&matrix, rhs, st)
+                    })?
+                }
+                (None, Some(s)) => qmr_similar(&self.matrix, s, b, stopping)?,
+                (None, None) => qmr(&self.matrix, b, stopping)?,
+            },
+        })
+    }
+
     /// A right-hand side as the formulation takes it: zero on the fixed values (walls), and
     /// transformed with Shin and Fan's operator.
-    fn prepared(&self, rhs: &[c64]) -> Result<Vec<c64>> {
+    pub(super) fn prepared(&self, rhs: &[c64]) -> Result<Vec<c64>> {
         let n = self.lattice.grid.unknowns();
         if rhs.len() != n {
             return Err(Error::invalid(

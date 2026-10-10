@@ -204,7 +204,7 @@ The candidates I named, and a few more, each checked against photonoxide's probl
 |---|---|---|
 | QMR and COCG for complex symmetric matrices | Freund 1992; van der Vorst & Melissen 1990 | **high**: V A is complex symmetric, so one product per iteration and no Aᵀ (Phase A) |
 | IDR(s) | Sonneveld & van Gijzen 2008; van Gijzen & Sonneveld 2011 | medium: short recurrences without the transpose, as good as or better than BiCGSTAB for s > 1 in their experiments; a second solver to compare with QMR on Shin and Fan's operator, which isn't known to be symmetric |
-| Recycling | Parks et al. 2006 | medium to high for 3D sweeps and forward–adjoint pairs (Phase C) |
+| Recycling | Parks et al. 2006; Fischer 1998 | measured (0.5.2, #295): the earlier solutions' combination of least residual (Fischer) takes 3D sweeps' iterations 2.5 to 3.3 times down; GCRO-DR's Krylov space carries little on the multigrid's operator, an adjoint after its forward included (docs/methods/recycling.md) |
 | Block QMR | Freund & Malhotra 1997; Jolivet & Tournier 2016 | high for S-matrices: every port at once, the matrix read once per block (Phase C) |
 | Shifted systems | Frommer & Glässner 1998 | for contour-integral eigensolvers, whose quadrature points are shifts of one matrix (Phase C) |
 | Pipelined Krylov | Ghysels & Vanroose 2014; Cools & Vanroose 2017 | low on one machine, where a reduction is cheap; useful once global reductions cross a network, with residual replacement to keep the attainable accuracy (Phase E) |
@@ -603,6 +603,7 @@ a publisher's block on scripts, and the folder's README gives each one's link.
 - `demmel-nguyen-2015`: J. Demmel, H. D. Nguyen, IEEE Trans. Comput. 64, 2060 (2015), "Parallel Reproducible Summation". [10.1109/TC.2014.2345391](https://doi.org/10.1109/TC.2014.2345391)
 - `dolean-2009` (folder): V. Dolean, M. J. Gander, L. Gerardo-Giorda, SIAM J. Sci. Comput. 31, 2193 (2009), "Optimized Schwarz Methods for Maxwell's Equations". [10.1137/080728536](https://doi.org/10.1137/080728536)
 - `dolean-2015`: V. Dolean, P. Jolivet, F. Nataf, SIAM (2015), a book, "An Introduction to Domain Decomposition Methods: Algorithms, Theory, and Parallel Implementation". [10.1137/1.9781611974065](https://doi.org/10.1137/1.9781611974065)
+- `fischer-1998`: P. F. Fischer, Comput. Methods Appl. Mech. Engrg. 163, 193 (1998), "Projection techniques for iterative solution of Ax = b with successive right-hand sides" (open: ICASE Report 93-90, 1993, on NASA's NTRS). [10.1016/S0045-7825(98)00012-7](https://doi.org/10.1016/S0045-7825(98)00012-7)
 - `freund-1992`: R. W. Freund, SIAM J. Sci. Stat. Comput. 13, 425 (1992), "Conjugate Gradient-Type Methods for Linear Systems with Complex Symmetric Coefficient Matrices". [10.1137/0913023](https://doi.org/10.1137/0913023)
 - `freund-malhotra-1997`: R. W. Freund, M. Malhotra, Linear Algebra Appl. 254, 119 (1997), "A block QMR algorithm for non-Hermitian linear systems with multiple right-hand sides". [10.1016/S0024-3795(96)00529-0](https://doi.org/10.1016/S0024-3795(96)00529-0)
 - `frommer-glassner-1998`: A. Frommer, U. Glässner, SIAM J. Sci. Comput. 19, 15 (1998), "Restarted GMRES for Shifted Linear Systems". [10.1137/S1064827596304563](https://doi.org/10.1137/S1064827596304563)
