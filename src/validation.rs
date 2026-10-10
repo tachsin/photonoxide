@@ -845,6 +845,55 @@ pub fn cases() -> Vec<Case> {
             run: fdfd3d_block_qmr_threads,
         },
         Case {
+            id: "fdfd3d/recycle-s-matrix",
+            title: r"3D FDFD S-matrices over a wavelength sweep, recycled from solve to solve, against one plain solve per port: a directional coupler's straight section (two silicon strips $350 \times 220$ nm, 150 nm apart, in oxide; $18 \times 32 \times 24$ cells of 50 nm, PMLs of 4 all round), one mode at each end, at 1.53, 1.54, 1.55 and 1.56 µm; GMRES with the multigrid on Shin and Fan's operator with stretched PMLs (GCRO-DR keeping 10 vectors and the last 4 solutions, to 1e-11) and QMR on the curl-curl operator's symmetric similarity (the last 4 solutions, to 1e-10, the lowest it reaches here) (largest difference of an entry shown)",
+            tier: Tier::Analytic,
+            source: r"the same systems solved two ways: GCRO-DR, M. L. Parks, E. de Sturler, G. Mackey, D. D. Johnson, S. Maiti, SIAM J. Sci. Comput. 28, 1651 (2006), doi:10.1137/040607277, Appendix, on $A M^{-1}$; the earlier solutions' combination of least residual as the start, P. F. Fischer, Comput. Methods Appl. Mech. Engrg. 163, 193 (1998), doi:10.1016/S0045-7825(98)00012-7, Method 1; each field held to its own residual, so the S-matrices agree within the residual times the condition; measured 6.8e-12 by the multigrid and 2.1e-11 by QMR",
+            run: fdfd3d_recycle_s_matrix,
+        },
+        Case {
+            id: "fdfd3d/recycle-deflation",
+            title: r"GCRO-DR recycling an exact invariant subspace: $A = H D H$ with $H$ a Householder reflector ($n = 300$, dense), 8 eigenvalues of $D$ near zero and 292 on a circle about 1.5, the 8 small ones' eigenvectors recycled, to 1e-10: its residual at each step against full GMRES's on the deflated problem (the other 292 eigenvalues) (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"Parks et al. (doi:10.1137/040607277), Theorem 3.1 with $\delta = 0$: with $C$ an exact invariant subspace, $(I - C C^\mathsf{H}) A$ on its complement is unitarily similar to $D$'s other eigenvalues, and GCRO-DR's residual is GMRES's on the deflated problem step by step; measured 2.2e-11, both in 39 iterations against full GMRES's 114 on $A$",
+            run: fdfd3d_recycle_deflation,
+        },
+        Case {
+            id: "fdfd3d/recycle-convergence",
+            title: r"Convergence as the recycled space grows: the coupler's S-matrix (fdfd3d/recycle-s-matrix's, by the multigrid, to 1e-10) at 1.500, 1.505, … 1.535 µm, recycling the last 0, 2, 4, 6 and 8 solutions: the iterations at the last wavelength, which fall with each, the 8 solutions' over the plain sweep's (shown)",
+            tier: Tier::Analytic,
+            source: r"a wavelength's field is near a polynomial in the wavelength through the last ones' (Fischer, doi:10.1016/S0045-7825(98)00012-7, Method 1, finds the best combination), so each pair of solutions kept (two ports) raises the order the start is good to; measured 103, 78, 62, 42 and 24 iterations, 0.23 of the plain sweep's",
+            run: fdfd3d_recycle_convergence,
+        },
+        Case {
+            id: "fdfd3d/recycle-adjoint",
+            title: r"3D adjoint gradients by the iterative solvers, the adjoint recycled from the forward solve, against the sparse direct solver's: a rectangular guide ($\varepsilon = 12$, $0.4 \times 0.3$ µm, in 2.1) with a block of $\varepsilon = 6$ beside it, $14 \times 12 \times 24$ cells of 50 nm, PMLs of 4, the power of the guide's mode ahead; symmetric QMR with plain PMLs and GMRES with the multigrid and GCRO-DR (10 vectors) with stretched ones, to 1e-11 (largest difference relative to the largest gradient shown)",
+            tier: Tier::Analytic,
+            source: r"the same gradient two ways: $A^\mathsf{T} = V A V^{-1}$ ($V$ the PMLs' stretches), so the adjoint is a solve with the forward's own operator (G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288) and GCRO-DR (Parks et al., doi:10.1137/040607277) carries the forward's space to it at no cost; measured 2.3e-11 by QMR and 7.8e-11 by the multigrid",
+            run: fdfd3d_recycle_adjoint,
+        },
+        Case {
+            id: "fdfd3d/recycle-threads",
+            title: "The coupler's recycled sweep (fdfd3d/recycle-s-matrix's, by the multigrid with GCRO-DR, 1.54 to 1.56 µm, 1e-10) on 1 and on 4 threads: its S-matrices' entries whose bits differ, and its iterations (count shown)",
+            tier: Tier::Analytic,
+            source: "every vector operation is a pass over fixed chunks, each chunk's sums in order and the chunks' in order, and the small eigenproblem and least-squares problems are dense and sequential: the same computation on any number of threads",
+            run: fdfd3d_recycle_threads,
+        },
+        Case {
+            id: "fdfd3d/recycle-parks-table",
+            title: r"Parks et al.'s Section 4.4 rebuilt: $u_{xx} + u_{yy} = 0$ on the unit square by central differences, $h = 1/41$ (1600 unknowns), $u = 0$ on two sides and 1 on the others, GCRO-DR(25, 10) from zero to 1e-10; the cosines of the principal angles between the space it recycles and the invariant subspace of the 10 eigenvalues of smallest magnitude: five at 1 and five at 0, the largest departure (shown)",
+            tier: Tier::Published,
+            source: r"M. L. Parks et al., SIAM J. Sci. Comput. 28, 1651 (2006), doi:10.1137/040607277, Table 4.3, $c = 0$: 1, 1, 1, 1, 0.99999999999703, then 5.9e-9, 3.8e-11, 3e-14, 0, 0 (the right-hand side has no part on four antisymmetric eigenvectors and on $\sin 2\pi x \sin 2\pi y$, so a Krylov space can't hold them); measured 1 to 7.2e-8, then 1.1e-8 and below",
+            run: fdfd3d_recycle_parks_table,
+        },
+        Case {
+            id: "fdfd3d/recycle-parks-rerun",
+            title: r"The same problem solved again by GCRO-DR(25, 10) with the space its first run left: its matrix–vector products over full GMRES's (shown)",
+            tier: Tier::Published,
+            source: r"Parks et al. (doi:10.1137/040607277), Section 4.4 and Fig. 4.9, $c = 0$: the second run converges faster than full GMRES, and the first (GMRES-DR) a little slower; measured 73 against 126, and 133 for the first",
+            run: fdfd3d_recycle_parks_rerun,
+        },
+        Case {
             id: "fdtd/dispersion",
             title: r"FDTD's numerical dispersion: a plane wave's $E_z$ on a periodic Yee grid ($24 \times 18$ cells of $50 \times 40$ nm), started from rest, at four wave vectors (along an axis, the diagonal, between) and Courant numbers 0.5 to 1: its frequency per step against Taflove and Brodwin's relation (largest relative difference shown)",
             tier: Tier::Analytic,
@@ -2944,6 +2993,110 @@ fn fdfd3d_block_qmr_threads() -> Outcome {
         expected: 0.0,
         tolerance: 0.0,
         error: differ,
+    }
+}
+
+fn fdfd3d_recycle_s_matrix() -> Outcome {
+    use crate::fdfd::recycle_checks3d::{Solve, s_matrix_against_plain};
+    let worst = s_matrix_against_plain(Solve::Multigrid(crate::fdfd::Multigrid::default()))
+        .max(s_matrix_against_plain(Solve::Symmetric));
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // ROADMAP's 0.5.2 Validation line
+        tolerance: 1e-10,
+        error: worst,
+    }
+}
+
+fn fdfd3d_recycle_deflation() -> Outcome {
+    let (worst, recycled, reference, _) =
+        crate::fdfd::krylov::recycle_example::deflated_against_gmres();
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-8,
+        error: if recycled == reference {
+            worst
+        } else {
+            f64::INFINITY
+        },
+    }
+}
+
+fn fdfd3d_recycle_convergence() -> Outcome {
+    let runs = crate::fdfd::recycle_checks3d::sweep_convergence();
+    let last: Vec<f64> = runs
+        .iter()
+        .filter_map(|r| r.last().map(|&i| i as f64))
+        .collect();
+    let falls = last.len() == 5 && last.windows(2).all(|w| w[1] < w[0]);
+    let ratio = last
+        .last()
+        .zip(last.first())
+        .map_or(f64::NAN, |(a, b)| a / b);
+    Outcome {
+        measured: ratio,
+        expected: 0.0,
+        // under a third of the plain sweep's: 0.23 measured
+        tolerance: 0.35,
+        error: if falls { ratio } else { f64::INFINITY },
+    }
+}
+
+fn fdfd3d_recycle_adjoint() -> Outcome {
+    let (symmetric, multigrid) = crate::fdfd::recycle_checks3d::adjoint_against_direct();
+    let worst = symmetric.max(multigrid);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // both solved to 1e-11: within the condition times it
+        tolerance: 1e-8,
+        error: worst,
+    }
+}
+
+fn fdfd3d_recycle_threads() -> Outcome {
+    let differ = crate::fdfd::recycle_checks3d::thread_differences();
+    Outcome {
+        measured: differ,
+        expected: 0.0,
+        tolerance: 0.0,
+        error: differ,
+    }
+}
+
+fn fdfd3d_recycle_parks_table() -> Outcome {
+    let cosines = crate::fdfd::krylov::recycle_example::table_cosines();
+    let departure = if cosines.len() == 10 {
+        let ones = cosines[..5]
+            .iter()
+            .map(|c| (1.0 - c).abs())
+            .fold(0.0, f64::max);
+        let zeros = cosines[5..].iter().fold(0.0f64, |m, c| m.max(c.abs()));
+        ones.max(zeros)
+    } else {
+        f64::NAN
+    };
+    Outcome {
+        measured: departure,
+        expected: 0.0,
+        // their fifth cosine is 1 − 3e-12 and their sixth 5.9e-9: shown as within 1e-6, as
+        // these digits are the rounding of the run
+        tolerance: 1e-6,
+        error: departure,
+    }
+}
+
+fn fdfd3d_recycle_parks_rerun() -> Outcome {
+    let (first, second, full, _) = crate::fdfd::krylov::recycle_example::twice(0.0);
+    let ratio = second as f64 / full as f64;
+    Outcome {
+        measured: ratio,
+        expected: 0.0,
+        // faster than full GMRES, as their Fig. 4.9 has it; 0.58 measured
+        tolerance: 0.9,
+        error: if first > full { ratio } else { f64::INFINITY },
     }
 }
 

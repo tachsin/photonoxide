@@ -622,6 +622,13 @@ costs about 13 ns per unknown.
 S-matrix's ports at once by block QMR (Freund and Malhotra 1997): see
 [Ports as a block](block-qmr.md). Opt-in: faster with ILU(0), slower without a preconditioner.
 
+**Recycling.** `IterativeSolver3d::solve_system_recycled`, `s_matrix_recycled` and
+`mode_power_gradient_recycled` take a `Recycler` from solve to solve: a sweep's wavelengths, an
+S-matrix's ports, a forward solve and its adjoint, an optimization's designs. Each solve starts
+from the earlier solutions' combination of least residual (Fischer 1998), and GMRES with the
+multigrid can carry GCRO-DR's Krylov space (Parks et al. 2006): see [Recycling](recycling.md).
+A 16-wavelength sweep takes 3.3 times fewer iterations by the multigrid, 2.5 by QMR. Opt-in.
+
 ## Preconditioning QMR
 
 What makes QMR slow here is less the silicon than the PMLs: in vacuum the 40³ problem takes 122
@@ -802,7 +809,8 @@ not read) factorizes a slab of a few planes per layer: faer's sparse LU took 19 
 
 ## Limits
 
-- No adjoint gradients in 3D yet: those are [2D](fdfd-ports.md) for now.
+- Adjoint gradients in 3D are the mode power's ([adjoint gradients](fdfd-adjoint.md)), by the direct
+  solver or the iterative ones, recycled from the forward solve ([recycling](recycling.md)).
 - A port's reference plane is a plane of nodes. A Bloch-periodic side of a port must be periodic
   (k = 0), and the window whole along it.
 - The direct solver's memory caps a problem at about 200 k unknowns on a 64 GB machine. QMR's
