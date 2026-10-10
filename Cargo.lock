@@ -3519,7 +3519,7 @@ dependencies = [
 
 [[package]]
 name = "photonoxide"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "faer",
  "genoxide",
@@ -3554,7 +3554,7 @@ dependencies = [
 
 [[package]]
 name = "photonoxide-python"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "numpy",
  "photonoxide",
