@@ -98,11 +98,14 @@ pub fn register_all() -> Vec<Probe> {
     let _ = match Mumps::load() {
         Ok(mumps) => {
             // its block low-rank factorization, a backend of its own
-            let tolerance = std::env::var("PHOTONOXIDE_MUMPS_BLR")
-                .ok()
-                .and_then(|text| text.trim().parse().ok())
-                .unwrap_or(mumps::BLR_TOLERANCE);
-            let _ = match mumps.block_low_rank(tolerance) {
+            // its tolerance as asked, or unavailable with the reason: never another in its place
+            let tolerance = match std::env::var("PHOTONOXIDE_MUMPS_BLR") {
+                Ok(text) => text.trim().parse::<f64>().map_err(|_| {
+                    format!("PHOTONOXIDE_MUMPS_BLR isn't a number: {text:?}")
+                }),
+                Err(_) => Ok(mumps::BLR_TOLERANCE),
+            };
+            let _ = match tolerance.and_then(|tolerance| mumps.block_low_rank(tolerance)) {
                 Ok(blr) => offer(std::sync::Arc::new(blr)).map(drop),
                 Err(reason) => photonoxide::backend::register_unavailable("mumps-blr", reason),
             };

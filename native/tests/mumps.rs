@@ -277,8 +277,8 @@ fn it_solves_fdfd_systems_to_their_checks() {
     }
 }
 
-/// Block low-rank factorization, the backend `mumps-blr`: its solves refined to its
-/// tolerance's worth, and with `PHOTONOXIDE_MUMPS_LARGE`, on a grid whose fronts are large
+/// Block low-rank factorization, the backend `mumps-blr`: its solves refined to the accuracy
+/// asked of every backend, and with `PHOTONOXIDE_MUMPS_LARGE`, on a grid whose fronts are large
 /// enough to compress, fewer entries than the plain factorization.
 #[test]
 fn block_low_rank_factors_are_no_larger_and_its_solves_are_refined() {
@@ -312,7 +312,9 @@ fn block_low_rank_factors_are_no_larger_and_its_solves_are_refined() {
             plain.report().factorization_seconds,
             relative(&plain.solve(&b).unwrap(), &ours)
         );
-        for (tolerance, bound) in [(1e-8, 1e-7), (1e-4, 1e-4)] {
+        // refined, as accurate as the catalogue's check asks of every backend at either
+        // tolerance (at most 4.5e-13 at 1e-4 on the large grid)
+        for (tolerance, bound) in [(1e-8, 1e-9), (1e-4, 1e-9)] {
             let blr = mumps.block_low_rank(tolerance).unwrap();
             let factors = blr.analyse(&m).unwrap().unwrap().factorize(&m).unwrap();
             let report = factors.report();

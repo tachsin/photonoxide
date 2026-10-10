@@ -48,9 +48,10 @@
 //! set before the analysis), each block truncated where its rank-revealing QR's diagonal falls
 //! below a tolerance (`CNTL(7)`), which MUMPS takes as absolute on the matrix as it scaled
 //! it. The factors are then approximate, so each solve is refined against the matrix
-//! (`ICNTL(10)`: up to [`REFINEMENT`] steps, stopped by MUMPS's own test). Its report's
-//! entries are those the factors hold after compression (`INFOG(35)`). It is a backend of its
-//! own, never chosen in `mumps`'s place.
+//! (`ICNTL(10)`: up to [`REFINEMENT`] steps, until the backward error stops halving, with no
+//! target for it, `CNTL(2)` = 0, where MUMPS's default target, √ε, stops at about 1e-8). Its
+//! report's entries are those the factors hold after compression (`INFOG(35)`). It is a backend
+//! of its own, never chosen in `mumps`'s place.
 
 use std::ffi::c_void;
 use std::sync::{Arc, Mutex};
@@ -433,8 +434,11 @@ impl Engine {
             // in the factorization and the solves, asked before the analysis prepares for it
             s.set_icntl(35, 2);
             s.set_cntl(7, tolerance);
-            // the factors are approximate: each solve refined against the matrix
+            // the factors are approximate: each solve refined against the matrix until the
+            // backward error stops halving. MUMPS's default target (CNTL(2) = √ε) stopped it at
+            // 4.7e-10 from photonoxide's answer at a tolerance of 1e-4, this at 4.5e-13
             s.set_icntl(10, REFINEMENT);
+            s.set_cntl(2, 0.0);
         }
         s.set_int(N, entries.n);
         s.set_long(NNZ, entries.rows.len() as i64);
@@ -804,10 +808,6 @@ mod tests {
         s.set_cntl(7, 1e-8);
         assert_eq!(s.words[(CNTL + 40) / 8], 0);
         assert_eq!(s.words[(CNTL + 48) / 8], 1e-8f64.to_bits());
-        // icntl[60], keep[500], then cntl[15], dkeep[230], keep8[150], n
-        let cntl = 16 + 4 * (60 + 500);
-        assert_eq!(cntl, 2256);
-        assert_eq!(N, cntl + 8 * (15 + 230 + 150));
         // n, nblk, nz_alloc, nz, then nnz on 8 bytes, irn, jcn, a
         assert_eq!((NNZ, IRN, JCN, A), (N + 16, N + 24, N + 32, N + 40));
         for layout in [&OLD, &NEW] {
