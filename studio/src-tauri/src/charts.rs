@@ -12,10 +12,13 @@
 
 use std::collections::BTreeMap;
 use std::f64::consts::{PI, TAU};
+use std::sync::Arc;
 
 use num_complex::Complex64 as c64;
-use photonoxide::circuit::Component;
-use photonoxide::circuit::components::{AddDropRing, AllPassRing, Dispersion};
+use photonoxide::circuit::components::{
+    AddDropRing, AllPassRing, Coupler, Dispersion, PhaseShifter, Waveguide, mzi_closed_form,
+};
+use photonoxide::circuit::{Circuit, Component, Netlist};
 use photonoxide::mode::Polarization;
 use photonoxide::mode::multilayer::Multilayer;
 use photonoxide::units::{Length, Wavelength};
@@ -324,6 +327,112 @@ pub fn specs() -> Vec<ChartSpec> {
                 ),
             ],
         },
+        ChartSpec {
+            id: "mzi-spectrum",
+            title: "A Mach–Zehnder interferometer's two outputs",
+            about: "Two ideal couplers joined by two arms of a silicon wire, the upper longer by ΔL and with a phase shifter on it, solved as a circuit: the power at the bar and cross outputs against wavelength, around 1.55 µm.",
+            computed_by: "circuit::Netlist of components::Coupler, Waveguide and PhaseShifter, solved by Circuit::spectrum; the extremes by components::mzi_closed_form",
+            params: vec![
+                param(
+                    "delta",
+                    "Path difference $\\Delta L$",
+                    "um",
+                    (5.0, 2000.0, 50.0),
+                    0.01,
+                    true,
+                    "How much longer the upper arm is than the lower (100 µm).",
+                ),
+                param(
+                    "split",
+                    "Splitter $\\kappa_1^2$",
+                    "",
+                    (0.0, 1.0, 0.5),
+                    0.005,
+                    false,
+                    "The share of the power the first coupler crosses over; 0.5 splits it evenly.",
+                ),
+                param(
+                    "combine",
+                    "Combiner $\\kappa_2^2$",
+                    "",
+                    (0.0, 1.0, 0.5),
+                    0.005,
+                    false,
+                    "The share of the power the second coupler crosses over.",
+                ),
+                param(
+                    "loss",
+                    "Arm loss $\\alpha$",
+                    "dB/cm",
+                    (0.0, 100.0, 3.0),
+                    0.1,
+                    false,
+                    "Both arms' propagation loss: the longer arm loses more.",
+                ),
+                param(
+                    "phase",
+                    "Phase shifter $\\varphi / \\pi$",
+                    "",
+                    (-1.0, 1.0, 0.0),
+                    0.01,
+                    false,
+                    "The phase the shifter on the upper arm adds, in units of π: a heater's or a modulator's.",
+                ),
+                param(
+                    "group_index",
+                    "Group index $n_g$",
+                    "",
+                    (1.5, 5.0, 4.2),
+                    0.01,
+                    false,
+                    "The wire's group index, which sets the free spectral range.",
+                ),
+                param(
+                    "window",
+                    "Window",
+                    "nm",
+                    (0.5, 200.0, 40.0),
+                    0.1,
+                    true,
+                    "The span of wavelengths shown, centred on 1.55 µm.",
+                ),
+            ],
+        },
+        ChartSpec {
+            id: "mzi-extinction",
+            title: "The extinction against the splitter",
+            about: "How deep the fringes of each output are, the brightest over the darkest as the arms' phase difference turns, as the first coupler goes from keeping all the light to crossing all of it over.",
+            computed_by: "circuit::components::mzi_closed_form, with Coupler's and Waveguide's S-matrices",
+            params: vec![
+                param(
+                    "combine",
+                    "Combiner $\\kappa_2^2$",
+                    "",
+                    (0.0, 1.0, 0.5),
+                    0.005,
+                    false,
+                    "The share of the power the second coupler crosses over.",
+                ),
+                param(
+                    "loss",
+                    "Arm loss $\\alpha$",
+                    "dB/cm",
+                    (0.0, 100.0, 3.0),
+                    0.1,
+                    false,
+                    "Both arms' propagation loss.",
+                ),
+                param(
+                    "delta",
+                    "Path difference $\\Delta L$",
+                    "um",
+                    (5.0, 2000.0, 50.0),
+                    0.01,
+                    true,
+                    "How much longer, and so how much lossier, the upper arm is.",
+                ),
+            ],
+        },
     ]
 }
 
@@ -456,6 +565,18 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
             (at("from"), at("to")),
         ),
         "bragg-bandwidth" => bragg_bandwidth(at("low"), at("up_to")),
+        "mzi-spectrum" => mzi_spectrum(
+            &Mzi {
+                delta: at("delta"),
+                split: at("split"),
+                combine: at("combine"),
+                loss: at("loss"),
+                phase: at("phase"),
+                group_index: at("group_index"),
+            },
+            at("window"),
+        ),
+        "mzi-extinction" => mzi_extinction(at("combine"), at("loss"), at("delta")),
         _ => return Err(format!("chart {id} has no function")),
     };
     result.map_err(|e| format!("{id}: {e}"))
@@ -1085,6 +1206,393 @@ fn bragg_bandwidth(low: f64, up_to: f64) -> photonoxide::Result<ChartData> {
     })
 }
 
+/// The lower arm's length in the MZI charts, µm; the upper is longer by ΔL.
+const MZI_ARM: f64 = 100.0;
+/// The largest extinction the extinction chart draws, dB: a balanced interferometer's is
+/// unbounded.
+const MZI_CAP: f64 = 60.0;
+
+/// The MZI charts' interferometer: path difference µm, the couplers' κ², the arms' loss dB/cm,
+/// the phase shifter's phase over π, and the wire's group index.
+struct Mzi {
+    delta: f64,
+    split: f64,
+    combine: f64,
+    loss: f64,
+    phase: f64,
+    group_index: f64,
+}
+
+impl Mzi {
+    /// The arms' wire: n_eff 2.4 at 1.55 µm, as the ring charts', first order in λ.
+    fn guide(&self) -> photonoxide::Result<Dispersion> {
+        Ok(
+            Dispersion::new(Wavelength::um(RING_CENTRE)?, RING_INDEX, self.group_index)
+                .with_loss(self.loss),
+        )
+    }
+
+    /// The interferometer as a netlist, solved by the circuit solve: two ideal couplers, the
+    /// upper arm (`MZI_ARM` + ΔL µm) and its phase shifter, the lower arm (`MZI_ARM` µm), as
+    /// [`photonoxide::circuit::components::mzi`] joins them. Ports `o1` (the input, the lower
+    /// guide), `o2`, `o3` (cross, the upper guide) and `o4` (bar, the lower guide).
+    fn circuit(&self) -> photonoxide::Result<Circuit> {
+        let coupler: Arc<dyn Component> = Arc::new(Coupler::new());
+        let wire: Arc<dyn Component> = Arc::new(Waveguide::new(self.guide()?));
+        let mut n = Netlist::new();
+        n.add("splitter", coupler.clone())?;
+        n.add("combiner", coupler)?;
+        n.add("upper", wire.clone())?;
+        n.add("shifter", Arc::new(PhaseShifter::new()))?;
+        n.add("lower", wire)?;
+        n.connect("splitter.o3", "upper.o1")?;
+        n.connect("upper.o2", "shifter.o1")?;
+        n.connect("shifter.o2", "combiner.o2")?;
+        n.connect("splitter.o4", "lower.o1")?;
+        n.connect("lower.o2", "combiner.o1")?;
+        for (port, at) in [
+            ("o1", "splitter.o1"),
+            ("o2", "splitter.o2"),
+            ("o3", "combiner.o3"),
+            ("o4", "combiner.o4"),
+        ] {
+            n.expose(port, at)?;
+        }
+        n.set("splitter", "coupling", self.split)?;
+        n.set("combiner", "coupling", self.combine)?;
+        n.set("upper", "length", MZI_ARM + self.delta)?;
+        n.set("lower", "length", MZI_ARM)?;
+        n.set("shifter", "phase", self.phase * PI)?;
+        n.compile()
+    }
+
+    /// The upper and lower arms' field amplitudes, |e^(iγL)|, from the waveguide's S-matrix.
+    fn arms(&self) -> photonoxide::Result<(f64, f64)> {
+        let wire = Waveguide::new(self.guide()?);
+        let w = Wavelength::um(RING_CENTRE)?;
+        let loss = self.loss;
+        let amplitude = |length: f64| -> photonoxide::Result<f64> {
+            Ok(wire.s_matrix(w, &[length, loss])?[(1, 0)].norm())
+        };
+        Ok((amplitude(MZI_ARM + self.delta)?, amplitude(MZI_ARM)?))
+    }
+}
+
+/// A coupler's through and across fields at κ², from [`Coupler`]'s S-matrix.
+fn coupler_fields(kappa2: f64) -> photonoxide::Result<(c64, c64)> {
+    let s = Coupler::new().s_matrix(Wavelength::um(RING_CENTRE)?, &[kappa2])?;
+    Ok((s[(3, 0)], s[(2, 0)]))
+}
+
+/// The bar and cross outputs' brightest and darkest powers as the arms' phase difference turns,
+/// `[[bar max, bar min], [cross max, cross min]]`, light entering the lower guide: the closed form
+/// with the arms' fields in phase and then opposite (each output adds two paths, and its
+/// extremes are where they line up), for couplers `split` and `combine` and arms of amplitude
+/// `upper` and `lower`.
+fn mzi_extremes(
+    split: f64,
+    combine: f64,
+    upper: f64,
+    lower: f64,
+) -> photonoxide::Result<[[f64; 2]; 2]> {
+    let (s, c) = (coupler_fields(split)?, coupler_fields(combine)?);
+    let lower = c64::new(lower, 0.0);
+    let one = mzi_closed_form(s, c, c64::new(upper, 0.0), lower);
+    let other = mzi_closed_form(s, c, c64::new(-upper, 0.0), lower);
+    let pair = |q: usize| {
+        let (a, b) = (one[q][0].norm_sqr(), other[q][0].norm_sqr());
+        [a.max(b), a.min(b)]
+    };
+    Ok([pair(0), pair(1)])
+}
+
+/// The extinction of `[max, min]`, dB, as a figure: unbounded when the darkest is dark.
+fn extinction_figure(label: &str, [max, min]: [f64; 2]) -> Figure {
+    let db = 10.0 * (max / min).log10();
+    Figure {
+        label: label.to_owned(),
+        value: db.is_finite().then_some(db),
+        text: if max <= 0.0 {
+            "–".to_owned()
+        } else if min <= 0.0 || db > 99.0 {
+            "> 99".to_owned()
+        } else {
+            sig(db, 3)
+        },
+        unit: "dB".to_owned(),
+        note: "brightest over darkest".to_owned(),
+    }
+}
+
+/// The cross port's power at `l` µm.
+fn cross(c: &Circuit, l: f64) -> photonoxide::Result<f64> {
+    Ok(c.s_matrix(Wavelength::um(l)?)?.power(2, 0))
+}
+
+/// The cross port's peaks either side of 1.55 µm, λ₁ < 1.55 ≤ λ₂, found on the circuit's
+/// spectrum: sampled over ±1.6 free spectral ranges (`fsr`, µm), each refined by golden section
+/// to 1e-12 µm, as the `mzi_dwivedi` example reads a spectrum.
+fn neighbouring_peaks(c: &Circuit, fsr: f64) -> photonoxide::Result<Option<(f64, f64)>> {
+    let (from, to) = (RING_CENTRE - 1.6 * fsr, RING_CENTRE + 1.6 * fsr);
+    let n = 480;
+    let x = |i: usize| from + (to - from) * i as f64 / n as f64;
+    let t: Vec<f64> = (0..=n)
+        .map(|i| cross(c, x(i)))
+        .collect::<photonoxide::Result<_>>()?;
+    let spread = t.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+        - t.iter().copied().fold(f64::INFINITY, f64::min);
+    if spread < 1e-9 {
+        return Ok(None);
+    }
+    let mut peaks = Vec::new();
+    for i in 1..n {
+        if t[i] > t[i - 1] && t[i] >= t[i + 1] {
+            let (mut lo, mut hi) = (x(i - 1), x(i + 1));
+            let g = (5f64.sqrt() - 1.0) / 2.0;
+            while hi - lo > 1e-12 {
+                let (a, b) = (hi - g * (hi - lo), lo + g * (hi - lo));
+                if cross(c, a)? > cross(c, b)? {
+                    hi = b;
+                } else {
+                    lo = a;
+                }
+            }
+            peaks.push((lo + hi) / 2.0);
+        }
+    }
+    let below = peaks.iter().copied().rfind(|&p| p < RING_CENTRE);
+    let above = peaks.iter().copied().find(|&p| p >= RING_CENTRE);
+    Ok(below.zip(above))
+}
+
+fn mzi_spectrum(m: &Mzi, window_nm: f64) -> photonoxide::Result<ChartData> {
+    let circuit = m.circuit()?;
+    let guide = m.guide()?;
+    let centre = Wavelength::um(RING_CENTRE)?;
+    let index = |p: &str| {
+        circuit
+            .ports()
+            .iter()
+            .position(|q| q.name == p)
+            .ok_or_else(|| invalid("the interferometer", format!("no port {p}")))
+    };
+    let (input, cross_port, bar_port) = (index("o1")?, index("o3")?, index("o4")?);
+    let fsr_ng = RING_CENTRE * RING_CENTRE / (m.group_index * m.delta);
+    let fsr_neff = RING_CENTRE * RING_CENTRE / (RING_INDEX * m.delta);
+
+    // even across the window, at least 16 points a fringe
+    let half = window_nm * 1e-3 / 2.0;
+    let (lo, hi) = (RING_CENTRE - half, RING_CENTRE + half);
+    let count = ((16.0 * (hi - lo) / fsr_ng).ceil() as usize).clamp(1200, 16000);
+    let wavelengths: Vec<Wavelength> = (0..=count)
+        .map(|k| Wavelength::um(lo + (hi - lo) * k as f64 / count as f64))
+        .collect::<photonoxide::Result<_>>()?;
+    let spectrum = circuit.spectrum(&wavelengths)?;
+    let (mut bar, mut crossed, mut total) = (Vec::new(), Vec::new(), Vec::new());
+    for (w, s) in wavelengths.iter().zip(spectrum.matrices()) {
+        let (b, c) = (s.power(bar_port, input), s.power(cross_port, input));
+        bar.push([w.to_um(), b]);
+        crossed.push([w.to_um(), c]);
+        total.push([w.to_um(), b + c]);
+    }
+
+    let peaks = neighbouring_peaks(&circuit, fsr_ng)?;
+    let (upper, lower) = m.arms()?;
+    let [bar_extremes, cross_extremes] = mzi_extremes(m.split, m.combine, upper, lower)?;
+    let none = |label: &str, note: &str| Figure {
+        label: label.to_owned(),
+        value: None,
+        text: "–".to_owned(),
+        unit: String::new(),
+        note: note.to_owned(),
+    };
+    let mut figures = Vec::new();
+    match peaks {
+        Some((l1, l2)) => {
+            figures.push(figure(
+                "Free spectral range, between peaks",
+                (l2 - l1) * 1e3,
+                5,
+                "nm",
+                "the cross port's peaks $\\lambda_1$, $\\lambda_2$ either side of 1.55 µm",
+            ));
+            figures.push(figure(
+                "$n_g$ read from the peaks",
+                l1 * l2 / ((l2 - l1) * m.delta),
+                6,
+                "",
+                "$\\lambda_1 \\lambda_2 / ((\\lambda_2 - \\lambda_1) \\Delta L)$",
+            ));
+        }
+        None => {
+            figures.push(none(
+                "Free spectral range, between peaks",
+                "no fringes: one arm carries no light",
+            ));
+            figures.push(none("$n_g$ read from the peaks", ""));
+        }
+    }
+    figures.extend([
+        figure(
+            "$\\lambda^2 / (n_g \\Delta L)$",
+            fsr_ng * 1e3,
+            5,
+            "nm",
+            "at 1.55 µm",
+        ),
+        figure(
+            "$\\lambda^2 / (n_\\text{eff} \\Delta L)$",
+            fsr_neff * 1e3,
+            5,
+            "nm",
+            "with the effective index instead: not the spacing",
+        ),
+        figure(
+            "Order at 1.55 µm",
+            guide.effective_index_at(centre) * m.delta / RING_CENTRE,
+            5,
+            "",
+            "$n_\\text{eff} \\Delta L / \\lambda$",
+        ),
+        extinction_figure("Extinction, cross", cross_extremes),
+        extinction_figure("Extinction, bar", bar_extremes),
+        figure(
+            "The longer arm loses more by",
+            m.loss * m.delta * 1e-4,
+            3,
+            "dB",
+            "$\\alpha \\Delta L$",
+        ),
+    ]);
+    let marker = peaks.map(|(l1, l2)| {
+        if (l1 - RING_CENTRE).abs() < (l2 - RING_CENTRE).abs() {
+            l1
+        } else {
+            l2
+        }
+    });
+    Ok(ChartData {
+        x_label: "wavelength".to_owned(),
+        x_length: true,
+        y_label: "power (share of input)".to_owned(),
+        y_range: Some([-0.02, 1.02]),
+        series: vec![
+            Curve {
+                label: "cross".to_owned(),
+                points: crossed,
+                dashed: false,
+            },
+            Curve {
+                label: "bar".to_owned(),
+                points: bar,
+                dashed: false,
+            },
+            Curve {
+                label: "both outputs together".to_owned(),
+                points: total,
+                dashed: true,
+            },
+        ],
+        marker: marker.filter(|x| (lo..=hi).contains(x)),
+        figures,
+        note: format!(
+            "The netlist solved as a circuit, exact: no grid. Ideal couplers; arms of {MZI_ARM} and {MZI_ARM} + ΔL µm of a silicon wire, n_eff {RING_INDEX} at {RING_CENTRE} µm and n_g {}, first order in wavelength.",
+            m.group_index
+        ),
+    })
+}
+
+/// The κ₁² at which an output goes dark, its two paths equal, r₁x = k₁y: x the amplitude the
+/// path through the lower arm has after the splitter, y the upper's (the bar's r₁r₂a_l =
+/// k₁k₂a_u: x = r₂a_l, y = k₂a_u; the cross's r₁k₂a_l = k₁r₂a_u: x = k₂a_l, y = r₂a_u).
+fn balance(lower_path: f64, upper_path: f64) -> Option<f64> {
+    // r₁² = 1 − κ₁² and k₁² = κ₁², so (1 − κ₁²)x² = κ₁²y²
+    let (x2, y2) = (lower_path * lower_path, upper_path * upper_path);
+    (x2 + y2 > 0.0).then(|| x2 / (x2 + y2))
+}
+
+fn mzi_extinction(combine: f64, loss: f64, delta: f64) -> photonoxide::Result<ChartData> {
+    let m = Mzi {
+        delta,
+        split: 0.5,
+        combine,
+        loss,
+        phase: 0.0,
+        group_index: 4.2,
+    };
+    let (upper, lower) = m.arms()?;
+    let capped = |[max, min]: [f64; 2]| {
+        let db = 10.0 * (max / min).log10();
+        if db.is_nan() { 0.0 } else { db.min(MZI_CAP) }
+    };
+    let (mut bar, mut crossed) = (Vec::new(), Vec::new());
+    // denser near the middle, where the dips are narrow
+    for k in 0..=800 {
+        let u = f64::from(k) / 800.0;
+        let kappa2 = 0.5 - 0.5 * (PI * u).cos();
+        let [b, c] = mzi_extremes(kappa2, combine, upper, lower)?;
+        bar.push([kappa2, capped(b)]);
+        crossed.push([kappa2, capped(c)]);
+    }
+    let (r2, k2) = {
+        let (t, x) = coupler_fields(combine)?;
+        (t.norm(), x.norm())
+    };
+    let bar_dark = balance(r2 * lower, k2 * upper);
+    let cross_dark = balance(k2 * lower, r2 * upper);
+    let at = |kappa2: f64| mzi_extremes(kappa2, combine, upper, lower);
+    let dark = |label: &str, v: Option<f64>, note: &str| match v {
+        Some(v) => figure(label, v, 5, "", note),
+        None => Figure {
+            label: label.to_owned(),
+            value: None,
+            text: "–".to_owned(),
+            unit: String::new(),
+            note: "no light reaches it".to_owned(),
+        },
+    };
+    let figures = vec![
+        dark(
+            "Bar dark at $\\kappa_1^2$",
+            bar_dark,
+            "$r_1 r_2 a_l = k_1 k_2 a_u$",
+        ),
+        dark(
+            "Cross dark at $\\kappa_1^2$",
+            cross_dark,
+            "$r_1 k_2 a_l = k_1 r_2 a_u$",
+        ),
+        extinction_figure("Bar, a 50:50 splitter", at(0.5)?[0]),
+        extinction_figure("Cross, a 50:50 splitter", at(0.5)?[1]),
+        extinction_figure("Bar, a 55:45 splitter", at(0.55)?[0]),
+        extinction_figure("Cross, a 55:45 splitter", at(0.55)?[1]),
+    ];
+    Ok(ChartData {
+        x_label: "splitter κ₁²".to_owned(),
+        x_length: false,
+        y_label: "extinction (dB)".to_owned(),
+        y_range: Some([-1.0, MZI_CAP + 2.0]),
+        series: vec![
+            Curve {
+                label: "cross".to_owned(),
+                points: crossed,
+                dashed: false,
+            },
+            // dashed, so that the cross curve shows beneath it where they agree (an even combiner)
+            Curve {
+                label: "bar".to_owned(),
+                points: bar,
+                dashed: true,
+            },
+        ],
+        marker: bar_dark,
+        figures,
+        note: format!(
+            "The closed form, exact: no grid. Ideal couplers; arms of {MZI_ARM} and {MZI_ARM} + ΔL µm, each losing α; an extinction above {MZI_CAP} dB is drawn at {MZI_CAP}."
+        ),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1428,6 +1936,179 @@ mod tests {
         let (c, e0) = (data.series[2].points[0][1], exact[0][1]);
         assert!((c - e0).abs() < 1e-3 * e0, "{c} against {e0}");
         assert_eq!(bloch_band(1.5, 1.5).unwrap(), 0.0, "equal indices: no band");
+    }
+
+    /// The interferometer the chart solves is the closed form's, the product of the couplers' and
+    /// the arms' transfer matrices (components/mzi-closed-form), with the phase shifter's e^(iφ)
+    /// on the upper arm: µm, dB/cm and φ in units of π.
+    #[test]
+    fn mzi_spectrum_is_the_interferometer() {
+        let (delta, split, combine, loss, phase) = (80.0, 0.4, 0.6, 10.0, 0.3);
+        let data = evaluate(
+            "mzi-spectrum",
+            &with(&[
+                ("delta", delta),
+                ("split", split),
+                ("combine", combine),
+                ("loss", loss),
+                ("phase", phase),
+                ("window", 30.0),
+            ]),
+        )
+        .unwrap();
+        let guide = Dispersion::new(Wavelength::um(1.55).unwrap(), 2.4, 4.2).with_loss(loss);
+        let wire = Waveguide::new(guide);
+        let fields = |k: f64| {
+            let s = Coupler::new()
+                .s_matrix(Wavelength::um(1.55).unwrap(), &[k])
+                .unwrap();
+            (s[(3, 0)], s[(2, 0)])
+        };
+        let (crossed, bar, total) = (&data.series[0], &data.series[1], &data.series[2]);
+        assert_eq!(
+            (crossed.label.as_str(), bar.label.as_str()),
+            ("cross", "bar")
+        );
+        close(crossed.points[0][0], 1.55 - 0.015, 1e-12);
+        close(crossed.points.last().unwrap()[0], 1.55 + 0.015, 1e-12);
+        for ((c, b), t) in crossed
+            .points
+            .iter()
+            .zip(&bar.points)
+            .zip(&total.points)
+            .step_by(61)
+        {
+            let w = Wavelength::um(c[0]).unwrap();
+            let arm = |l: f64| wire.s_matrix(w, &[l, loss]).unwrap()[(1, 0)];
+            let shifter = c64::from_polar(1.0, phase * PI);
+            let m = mzi_closed_form(
+                fields(split),
+                fields(combine),
+                arm(100.0 + delta) * shifter,
+                arm(100.0),
+            );
+            assert!((b[1] - m[0][0].norm_sqr()).abs() < 1e-12, "bar at {}", c[0]);
+            assert!(
+                (c[1] - m[1][0].norm_sqr()).abs() < 1e-12,
+                "cross at {}",
+                c[0]
+            );
+            assert!((t[1] - b[1] - c[1]).abs() < 1e-15);
+        }
+        // the longer arm loses α ΔL more
+        close(
+            fig(&data, "The longer arm").value.unwrap(),
+            loss * delta * 1e-4,
+            1e-12,
+        );
+    }
+
+    /// The fringes are a free spectral range λ²/(n_g ΔL) apart, not λ²/(n_eff ΔL), and the
+    /// peaks either side of 1.55 µm give back the wire's n_g by Dwivedi et al.'s Eq. 8, exactly
+    /// for a wire first order in λ (whose n_g doesn't change with λ).
+    #[test]
+    fn mzi_fringes_give_back_the_group_index() {
+        let data = evaluate(
+            "mzi-spectrum",
+            &with(&[("group_index", 4.27), ("delta", 73.0)]),
+        )
+        .unwrap();
+        close(fig(&data, "$n_g$ read").value.unwrap(), 4.27, 1e-8);
+        close(
+            fig(&data, "$\\lambda^2 / (n_g").value.unwrap(),
+            1.55 * 1.55 / (4.27 * 73.0) * 1e3,
+            1e-12,
+        );
+        close(
+            fig(&data, "$\\lambda^2 / (n_\\text{eff}").value.unwrap(),
+            1.55 * 1.55 / (2.4 * 73.0) * 1e3,
+            1e-12,
+        );
+        let between = fig(&data, "Free spectral range").value.unwrap();
+        let formula = fig(&data, "$\\lambda^2 / (n_g").value.unwrap();
+        assert!((between - formula).abs() < 0.02 * formula);
+        // the marker is the cross port's peak nearest 1.55 µm, where it carries all the light
+        let peak = data.marker.unwrap();
+        assert!((peak - 1.55).abs() <= between * 1e-3 / 2.0 + 1e-9);
+        let m = Mzi {
+            delta: 73.0,
+            split: 0.5,
+            combine: 0.5,
+            loss: 3.0,
+            phase: 0.0,
+            group_index: 4.27,
+        };
+        let (upper, lower) = m.arms().unwrap();
+        let brightest = mzi_extremes(0.5, 0.5, upper, lower).unwrap()[1][0];
+        close(
+            cross(&m.circuit().unwrap(), peak).unwrap(),
+            brightest,
+            1e-12,
+        );
+    }
+
+    /// Two 50:50 couplers and lossless arms: the cross port carries cos²(Δφ/2) and the bar
+    /// sin²(Δφ/2), both dark at their minima; a shifter's π swaps them.
+    #[test]
+    fn a_balanced_lossless_mzi_is_cos_squared() {
+        let data = evaluate("mzi-spectrum", &with(&[("loss", 0.0), ("phase", 0.5)])).unwrap();
+        for (c, b) in data.series[0]
+            .points
+            .iter()
+            .zip(&data.series[1].points)
+            .step_by(47)
+        {
+            let phi = TAU * 2.4 * 50.0 / c[0]
+                + TAU * (2.4 - 4.2) / 1.55 * (c[0] - 1.55) * 50.0 / c[0]
+                + 0.5 * PI;
+            close(c[1], (phi / 2.0).cos().powi(2), 1e-9);
+            close(b[1] + c[1], 1.0, 1e-12);
+        }
+        assert_eq!(fig(&data, "Extinction, cross").text, "> 99");
+        assert_eq!(fig(&data, "Extinction, bar").text, "> 99");
+        // no light in the upper arm: no fringes to read
+        let none = evaluate("mzi-spectrum", &with(&[("split", 0.0)])).unwrap();
+        assert!(fig(&none, "Free spectral range").value.is_none());
+        assert!(none.marker.is_none());
+    }
+
+    #[test]
+    fn mzi_extinction_falls_as_the_splitter_leaves_50_50() {
+        let data = evaluate("mzi-extinction", &none()).unwrap();
+        // both outputs are dark where their two paths are equal: just past 0.5, the upper arm
+        // being the lossier
+        let at = data.marker.unwrap();
+        let m = Mzi {
+            delta: 50.0,
+            split: at,
+            combine: 0.5,
+            loss: 3.0,
+            phase: 0.0,
+            group_index: 4.2,
+        };
+        let (upper, lower) = m.arms().unwrap();
+        close(at, lower * lower / (lower * lower + upper * upper), 1e-15);
+        assert!(at > 0.5 && at < 0.501, "{at}");
+        let [bar, crossed] = mzi_extremes(at, 0.5, upper, lower).unwrap();
+        assert!(bar[1] < 1e-20 && crossed[1] < 1e-20, "{bar:?} {crossed:?}");
+        // a 55:45 splitter: ((A + B)/(A − B))², A = r₁r₂a_l and B = k₁k₂a_u
+        let (a, b) = (
+            (0.45f64 * 0.5).sqrt() * lower,
+            (0.55f64 * 0.5).sqrt() * upper,
+        );
+        close(
+            fig(&data, "Bar, a 55:45").value.unwrap(),
+            20.0 * ((a + b) / (b - a)).log10(),
+            1e-9,
+        );
+        // the curve is capped, rises to its cap at the dark point, and is 0 dB at either end
+        let bar_curve = &data.series[1].points;
+        assert_eq!(bar_curve[0][1], 0.0);
+        assert!(bar_curve.iter().all(|p| p[1] <= MZI_CAP));
+        assert!(bar_curve.iter().any(|p| p[1] > 40.0));
+        // equal combiner and lossless arms: dark at 0.5 exactly
+        let lossless = evaluate("mzi-extinction", &with(&[("loss", 0.0)])).unwrap();
+        close(lossless.marker.unwrap(), 0.5, 1e-15);
     }
 
     #[test]

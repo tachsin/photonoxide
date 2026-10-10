@@ -18,7 +18,7 @@ macro_rules! lessons {
     };
 }
 
-lessons!("ring-resonator.md", "bragg-gratings.md");
+lessons!("ring-resonator.md", "bragg-gratings.md", "mach-zehnder.md");
 
 /// How far into a subject a lesson goes.
 #[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Eq)]

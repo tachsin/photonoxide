@@ -1,0 +1,76 @@
+# A Mach-Zehnder interferometer on 220 nm SOI, as pictures of its permittivity: two 1x2
+# multimode interference splitters (each the mmi-fdfd job's, 3 um wide and 8.55 um long, outputs
+# at y = +-0.75 um) joined by two 500 nm arms, the lower straight and 12 um long, the upper
+# raised 3 um and back, 6 um longer along its centre line. Built the way Dwivedi et al.'s
+# interferometers were (J. Lightwave Technol. 33, 4471 (2015)), from 1x2 MMIs, so it has one
+# output. The arms turn with square corners, to keep the picture small: a chip bends them on
+# radii of micrometres (Dwivedi et al. used 20 um). Nothing is solved; the Academy's lesson on
+# the Mach-Zehnder interferometer shows it in 3D, and its charts solve the circuit.
+#   photonoxide run jobs/mzi-mmi.toml
+name = "mzi-mmi"
+timeout_minutes = 2
+
+[task]
+kind = "structure"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+x_um = [-2.0, 31.1]
+y_um = [-2.25, 4.75]
+step_nm = 20.0
+
+# the input guide
+[[task.rect]]
+layer = "Si"
+center_um = [-1.25, 0.0]
+size_um = [2.5, 0.5]
+
+# the splitter, from x = 0 to 8.55
+[[task.rect]]
+layer = "Si"
+center_um = [4.275, 0.0]
+size_um = [8.55, 3.0]
+
+# the lower arm, straight from 8.55 to 20.55
+[[task.rect]]
+layer = "Si"
+center_um = [14.55, -0.75]
+size_um = [12.0, 0.5]
+
+# the upper arm: along, up 3 um, along, down 3 um, along
+[[task.rect]]
+layer = "Si"
+center_um = [9.8, 0.75]
+size_um = [2.5, 0.5]
+
+[[task.rect]]
+layer = "Si"
+center_um = [10.8, 2.25]
+size_um = [0.5, 3.5]
+
+[[task.rect]]
+layer = "Si"
+center_um = [14.55, 3.75]
+size_um = [8.0, 0.5]
+
+[[task.rect]]
+layer = "Si"
+center_um = [18.3, 2.25]
+size_um = [0.5, 3.5]
+
+[[task.rect]]
+layer = "Si"
+center_um = [19.3, 0.75]
+size_um = [2.5, 0.5]
+
+# the combiner, from x = 20.55 to 29.1
+[[task.rect]]
+layer = "Si"
+center_um = [24.825, 0.0]
+size_um = [8.55, 3.0]
+
+# the output guide
+[[task.rect]]
+layer = "Si"
+center_um = [30.35, 0.0]
+size_um = [2.5, 0.5]

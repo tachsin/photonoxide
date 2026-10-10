@@ -5,9 +5,11 @@
 import type { Component } from "svelte";
 
 import Bragg from "./Bragg.svelte";
+import Mzi from "./Mzi.svelte";
 import Ring from "./Ring.svelte";
 
 export const DRAWINGS: Record<string, Component> = {
   "bragg": Bragg,
+  "mzi": Mzi,
   "ring": Ring,
 };
