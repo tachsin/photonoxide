@@ -1,0 +1,27 @@
+name: Full CI
+
+# A pull request labelled `full-ci` gets Tier 2 (issue #315): the CI workflow on its branch with
+# everything on Linux, Windows and macOS, and every Python wheel, as the release pull request
+# gets. Started here as runs of their own (workflow_dispatch, the event GITHUB_TOKEN may start a
+# run with), on the pull request's last commit, where its checks show. While the label stays,
+# each new push runs Tier 2 by itself (ci.yml reads the labels). A pull request from a fork can't
+# be started so: close and reopen it after adding the label.
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  actions: write
+
+jobs:
+  start:
+    name: Start Tier 2
+    if: github.event.label.name == 'full-ci' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: ${{ github.head_ref }}
+    steps:
+      - run: |
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH" -f tier=2
+          gh workflow run python-wheels.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"

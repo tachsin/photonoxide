@@ -38,16 +38,32 @@ cargo test --release --features gpu --lib fdtd::gpu      # FDTD on the GPU again
 cargo test --release --features gpu --test gpu_report -- --ignored   # docs/validation-gpu.md, before each release
 cargo clippy -p photonoxide-python --all-targets -- -D warnings   # the Python package's Rust (not in the default members)
 cd python && maturin develop --release && cd tests && python -m pytest   # the Python package, in a virtual environment
+PHOTONOXIDE_VALIDATION_CASES="circuit/ components/" cargo test --release --test validation_report -- --ignored   # some cases' rows
+bash .github/full-suite.sh                              # the full suite here, as the release PR runs it (--fast: no release build)
+git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh   # what CI runs for a branch
 ```
+
+CI runs in tiers (issue #315). **Tier 1**, every PR and push to main: on Linux, lint, MSRV, and the
+unit tests, validation cases and examples (not the 3D devices) of the areas a change touches and
+of the areas that use them, as the area map [.github/areas.sh](.github/areas.sh) has them; a file
+in no area (the library's root, units, geometry, the manifests) runs everything, and files nothing
+reads (most Markdown, the site, the other workflows) run only the docs' links. A new area, module
+or test-read file gets its line in the map. **Tier 2**, the release PR, a PR labelled `full-ci`, and
+a change to `ci.yml`, `Cargo.toml` or `Cargo.lock`: every test on Linux, Windows and macOS (and on
+one thread), every example on the three systems, the 3D devices, the whole validation report. **Tier
+3**, the Weekly workflow on Mondays when code changed that week: Tier 2, every Python wheel, the
+Systems comparison and the Libraries workflow's installs (those every week); a failure opens the
+issue "Weekly run failed". Run the full suite here after every merge or rebase
+(`.github/full-suite.sh`; `git config core.hooksPath .github/hooks` runs it in the background).
 
 The Python package ([docs/python.md](docs/python.md)) wraps `photonoxide::facade` only. A change to
 the façade's functions or results changes `python/` (the native module, the Python functions,
 their stubs and the MATLAB wrappers) in the same PR; its tests compare each function with the
 façade's conformance cases to the bit. A function added to the façade gets its row in
 [docs/features.md](docs/features.md), the table of what works in Rust, Python and MATLAB (a test
-checks every façade function is named there). CI builds and tests the wheels
-(`.github/workflows/python-wheels.yml`) only on PRs that touch `python/`, `src/`, `jobs/` or the
-manifests.
+checks every façade function is named there). CI lints the binding crate on every code change, and
+builds and tests the wheels (`.github/workflows/python-wheels.yml`) only on PRs that touch
+`python/`, the façade, `jobs/`, `docs/python.md` or the manifests, and weekly.
 
 The `photonoxide` program is the studio, a Tauri app in `studio/` (Rust in `studio/src-tauri`,
 the window in Svelte 5, TypeScript, Tailwind CSS with daisyUI, and three.js in `studio/src`;
@@ -71,7 +87,8 @@ new one needs a `pub fn main`, an entry in `examples!` and a title there; a test
 Every job in `jobs/` is built in too (`jobs()` there), and must pass `job::check`.
 
 CI fails when a validation case fails or `docs/validation.md` isn't the report the code writes:
-regenerate and commit it with any change that adds or alters a case.
+regenerate and commit it with any change that adds or alters a case. A PR runs its areas' cases and
+checks their rows (and the report's head and list of cases); the release PR checks every row.
 
 ## Rules
 
@@ -98,7 +115,7 @@ regenerate and commit it with any change that adds or alters a case.
   - a reproduction of a published result;
   - a convergence test.
   Adjoint gradients are checked against finite differences.
-- **Examples are published results.** Each file in `examples/` reproduces one paper's numbers, checks them with `common::Checks` and fails when they disagree; CI runs them all. See [examples/README.md](examples/README.md).
+- **Examples are published results.** Each file in `examples/` reproduces one paper's numbers, checks them with `common::Checks` and fails when they disagree; CI runs them (a PR those of its areas, the release PR all of them). See [examples/README.md](examples/README.md).
 - **Cite the source.** Every method's docs name the paper it implements, by DOI. Check a DOI before citing it.
 - **No GPL code.** Meep, MPB, KLayout and SPINS-B may be run as external programs for comparison. Never read them to port code. photonoxide is MIT OR Apache-2.0.
 - **Material data is CC0 or our own, with provenance:** source, validity range and temperature.

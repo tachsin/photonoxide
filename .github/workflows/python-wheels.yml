@@ -3,9 +3,12 @@ name: Python wheels
 # The photonoxide package for Python (python/): abi3 wheels, one per platform for every CPython
 # from 3.10, and one per platform for free-threaded CPython 3.14 (3.14t), which can't load abi3.
 #
-# - On pull requests that touch the package or the library it wraps (and only those, so the
-#   rest of CI costs what it did): the binding crate linted, and the wheels of Linux x86_64,
-#   macOS ARM64 and Windows x64 built and tested, on the lowest Python and on 3.14t.
+# - On pull requests that touch the package, the façade it wraps, the files its tests read, or
+#   the dependencies (so the release pull request too): the binding crate linted, and the wheels
+#   of Linux x86_64, macOS ARM64 and Windows x64 built and tested, on the lowest Python and on
+#   3.14t. (CI lints the binding crate on every code change; issue #315.)
+# - Every Monday when code changed that week (the Weekly workflow), and on a pull request
+#   labelled `full-ci` (the Full CI workflow): every platform and the sdist.
 # - By hand (workflow_dispatch): every platform and the sdist; with `publish`, to PyPI too. The
 #   release workflow (release-plz.yml) starts it so, at the new release's tag, once PyPI is set
 #   up (the PYPI_PUBLISH variable); a post-release (0.5.1.post1, docs/python.md) is started by
@@ -17,12 +20,14 @@ on:
   pull_request:
     paths:
       - "python/**"
-      - "!python/**.md"
-      - "src/**"
+      - "src/facade.rs"
+      - "src/facade/**"
+      - "docs/python.md"
       - "Cargo.toml"
       - "Cargo.lock"
       - "jobs/**"
       - ".github/workflows/python-wheels.yml"
+  workflow_call:
   workflow_dispatch:
     inputs:
       publish:

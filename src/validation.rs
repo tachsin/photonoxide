@@ -13,7 +13,6 @@
 //! tolerance, not the raw error, so it reads the same on every platform.
 
 use std::f64::consts::TAU;
-use std::fmt::Write as _;
 
 use num_complex::Complex64;
 
@@ -4219,42 +4218,52 @@ fn small(v: f64, tolerance: f64) -> String {
 /// Runs every case and returns the markdown report, and whether every case passed.
 pub fn report() -> (String, bool) {
     let mut all = true;
-    let mut rows = String::new();
+    let mut text = header();
     for case in cases() {
-        let o = (case.run)();
-        let passed = o.passed();
+        let (row, passed) = row(&case);
         all &= passed;
-        let (measured, expected) = if o.expected == 0.0 {
-            (small(o.measured, o.tolerance), "0".to_owned())
-        } else {
-            (sig(o.measured), sig(o.expected))
-        };
-        debug_assert!(!case.title.contains('|') && !case.source.contains('|'));
-        let _ = writeln!(
-            rows,
-            "| `{}` | {} | {} | {} | {} | {} | {:e} | {} |",
-            case.id,
-            case.tier.label(),
-            case.title,
-            case.source,
-            measured,
-            expected,
-            o.tolerance,
-            if passed { "pass" } else { "**FAIL**" }
-        );
+        text.push_str(&row);
     }
-    let text = format!(
-        "# Validation report\n\
-         \n\
-         Written by `photonoxide validate`; don't edit it by hand. CI fails when a case fails or \
-         this file is out of date. Values have six significant digits; a value that should be \
-         zero shows as \"≤ tolerance\" when it is within it.\n\
-         \n\
-         | Case | Tier | What | Against | Measured | Expected | Tolerance | Result |\n\
-         |---|---|---|---|---|---|---|---|\n\
-         {rows}"
-    );
     (text, all)
+}
+
+/// The report's text before its rows: the title, what it is, and the table's head.
+pub fn header() -> String {
+    "# Validation report\n\
+     \n\
+     Written by `photonoxide validate`; don't edit it by hand. CI fails when a case fails or \
+     this file is out of date. Values have six significant digits; a value that should be \
+     zero shows as \"≤ tolerance\" when it is within it.\n\
+     \n\
+     | Case | Tier | What | Against | Measured | Expected | Tolerance | Result |\n\
+     |---|---|---|---|---|---|---|---|\n"
+        .to_owned()
+}
+
+/// Runs one case and returns its row of the report (ending in a newline), and whether it passed.
+/// The rows are independent: a pull request's CI runs the cases of the areas it changed and
+/// checks only their rows (`tests/validation_report.rs`).
+pub fn row(case: &Case) -> (String, bool) {
+    let o = (case.run)();
+    let passed = o.passed();
+    let (measured, expected) = if o.expected == 0.0 {
+        (small(o.measured, o.tolerance), "0".to_owned())
+    } else {
+        (sig(o.measured), sig(o.expected))
+    };
+    debug_assert!(!case.title.contains('|') && !case.source.contains('|'));
+    let row = format!(
+        "| `{}` | {} | {} | {} | {} | {} | {:e} | {} |\n",
+        case.id,
+        case.tier.label(),
+        case.title,
+        case.source,
+        measured,
+        expected,
+        o.tolerance,
+        if passed { "pass" } else { "**FAIL**" }
+    );
+    (row, passed)
 }
 
 fn fdtd_mie_table() -> Outcome {

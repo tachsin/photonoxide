@@ -5,16 +5,27 @@ name: Libraries
 # asked what it finds, and a backend's tests are run with its library required. The default
 # build needs none of them; this job only keeps the guides true. The runners have no GPU:
 # NVIDIA's libraries are found and loaded, and their backends stay unavailable.
+#
+# On a pull request only for what the installs check first, how a library is found and loaded
+# and the guides that say where it lands; a backend's own code runs against the test library in
+# CI, and against the real ones here every Monday (the Weekly workflow, whatever changed: a
+# package index that moved shows here, not in a user's install) and by hand.
 on:
   pull_request:
     paths:
-      - native/**
+      - native/src/lib.rs
+      - native/src/discovery.rs
+      - native/src/library.rs
+      - native/src/smoke.rs
+      - native/src/intel.rs
+      - native/src/nvidia.rs
+      - native/examples/**
+      - native/Cargo.toml
       - studio/src-tauri/src/libraries.rs
+      - studio/src-tauri/src/libraries/**
       - docs/libraries.md
       - .github/workflows/libraries.yml
-  schedule:
-    # Mondays: a package index that moved shows here, not in a user's install
-    - cron: '17 4 * * 1'
+  workflow_call:
   workflow_dispatch:
 
 # it reads the repository and nothing else: no secrets, no writes
