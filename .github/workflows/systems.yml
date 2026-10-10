@@ -1,0 +1,67 @@
+name: Systems
+
+# Every example and the validation report on Linux, Windows and macOS (Apple silicon), their
+# outputs kept as artifacts, to compare across systems (issue #280).
+on:
+  workflow_dispatch:
+  push:
+    branches: [test/280-systems]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  run:
+    name: ${{ matrix.os }} (${{ matrix.shard }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        shard:
+          - the rest
+          - validation
+          - splitter_rotator_liu_poon
+          - mode_converter_liu_poon
+          - mmi_liu_poon
+          - coupler_liu_poon
+          - crossing_liu_poon ring_liu_poon
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      HEAVY: splitter_rotator_liu_poon mode_converter_liu_poon mmi_liu_poon coupler_liu_poon crossing_liu_poon ring_liu_poon
+      SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run
+        run: |
+          out="$RUNNER_TEMP/out"
+          mkdir -p "$out"
+          if [ "$SHARD" = validation ]; then
+            PHOTONOXIDE_VALIDATION_OUT="$out/validation.md" \
+              cargo test --release --test validation_report -- --ignored || true
+            exit 0
+          fi
+          if [ "$SHARD" = "the rest" ]; then
+            names=""
+            for example in examples/*.rs; do
+              name="$(basename "$example" .rs)"
+              case " $HEAVY " in *" $name "*) ;; *) names="$names $name" ;; esac
+            done
+          else
+            names="$SHARD"
+          fi
+          for name in $names; do
+            echo "::group::$name"
+            cargo run --release --quiet --example "$name" > "$out/$name.txt" || echo "exit $?" >> "$out/$name.txt"
+            diff -u "examples/output/$name.txt" "$out/$name.txt" || true
+            echo "::endgroup::"
+          done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.os }}-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/out
