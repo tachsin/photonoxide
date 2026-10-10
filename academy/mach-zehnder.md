@@ -127,70 +127,39 @@ papers:
     note: "A programmable hexagonal mesh that characterizes itself, routes its light and configures itself by computational optimization."
 ---
 
-Here is the device, seen from above, labelled with the symbols this lesson's equations use: a
-splitter, two arms of different length, one with a phase shifter on it, and a combiner, with the
-input and the two outputs. The 3D view is an interferometer as a job builds it, from two 1 × 2
-splitters.
+A splitter, two arms and a combiner, seen from above, in the symbols of the equations below. The
+3D view is `jobs/mzi-mmi.toml`: two 1 × 2 MMIs joined by arms whose centre lines differ by 6 µm.
 
 ::diagram mzi
 
-A Mach–Zehnder interferometer divides light between two paths and brings it back together.
-Where the two halves meet again in step, they add; where they meet out of step, they cancel. So
-everything depends on one number, the difference in phase the arms give the light, and anything
-that changes that difference, a longer arm, a warmer arm, a voltage across one arm, moves the
-light from one output to the other. With arms of different length the difference changes with
-wavelength, and the interferometer becomes a filter whose transmission rises and falls in
-fringes. With a phase shifter on an arm it becomes a switch or a modulator. Meshes of them make
-programmable circuits.
+A Mach–Zehnder interferometer splits light between two arms and recombines it. The phase
+difference $\Delta\phi$ between the arms decides which output the light leaves by. A path
+difference $\Delta L$ makes $\Delta\phi$ change with wavelength, which makes a filter; a phase
+shifter changes it at a fixed wavelength, which makes a switch or a modulator.
 
-## What it does
+## 1. The ideal interferometer: phase and transmission
 
-Light enters one guide and meets the **splitter**, a coupler that sends part of it into the
-other guide. The two **arms** carry the halves separately, and the **combiner**, a second
-coupler, mixes them again. Each output receives two contributions, one through each arm. The
-**cross** output, the guide the light didn't enter by, gets them in step when the arms are equal:
-with two even couplers and equal arms, all the light crosses over. Lengthen one arm by half a
-wavelength in the guide and the contributions swap roles: all the light leaves by the **bar**
-output, the guide it came in by.
-
-Make one arm longer by $\Delta L$ and the phase difference grows with frequency, so the outputs
-take turns in fringes across the spectrum, a **free spectral range** apart. Move the path
-difference and the fringes crowd together or spread out; turn the phase shifter and they slide
-sideways without changing their spacing; make the couplers uneven, or the arms lossy, and the dark
-fringes stop being dark.
-
-::chart mzi-spectrum
-
-Three numbers describe it: where the fringes are (the phase difference at each wavelength), how
-far apart they are (the free spectral range, set by $\Delta L$ and the **group index**), and how
-deep they go (the **extinction**, set by how evenly the two paths share the light).
-
-## The physics {theory}
-
-### Two couplers and two arms
-
-Take ideal couplers that keep a share $r$ of the field in its guide and cross a share $k$ over,
-with $r^2 + k^2 = 1$ and a phase of $i$ on the crossing field, as for the ring
-([Bogaerts et al., 2011](https://doi.org/10.1002/lpor.201100017), whose convention photonoxide's
-couplers follow). On the basis (lower guide, upper guide) a coupler is the matrix
-$C = \begin{pmatrix} r & ik \cr ik & r \end{pmatrix}$. The arms multiply their fields by
-$a_l e^{i\phi_l}$ and $a_u e^{i\phi_u}$, where $a$ is each arm's amplitude after its loss and
-$\phi = 2\pi n_\text{eff} L/\lambda$ its phase. The interferometer is the product
+Each coupler keeps a share $r$ of the field in its guide and crosses a share $k$ over, with
+$r^2 + k^2 = 1$ and a phase of $i$ on the crossing field, the convention of
+[Bogaerts et al. (2011)](https://doi.org/10.1002/lpor.201100017) that photonoxide's couplers
+follow. On the basis (lower guide, upper guide) a coupler is
+$C = \begin{pmatrix} r & ik \cr ik & r \end{pmatrix}$. An arm multiplies its field by
+$a e^{i\phi}$: $a$ its amplitude after loss, $\phi = 2\pi n_\text{eff} L/\lambda$ its phase. The
+interferometer is the product
 
 $$
 M = C_2 \begin{pmatrix} a_l e^{i\phi_l} & 0 \cr 0 & a_u e^{i\phi_u} \end{pmatrix} C_1 .
 $$
 
-Light entering the lower guide leaves the bar (lower) output with the field $M_{11}$ and the cross
-(upper) one with $M_{21}$:
+Light entering the lower guide leaves the bar (lower) output with $M_{11}$ and the cross (upper)
+output with $M_{21}$:
 
 $$
 M_{11} = r_1 r_2\thinspace a_l e^{i\phi_l} - k_1 k_2\thinspace a_u e^{i\phi_u}, \qquad
 M_{21} = i\left(r_1 k_2\thinspace a_l e^{i\phi_l} + k_1 r_2\thinspace a_u e^{i\phi_u}\right).
 $$
 
-Each output adds two paths, one through each arm, and only their phase difference
-$\Delta\phi = \phi_u - \phi_l$ matters. Squaring,
+Each output adds one path through each arm, so only $\Delta\phi = \phi_u - \phi_l$ matters:
 
 $$
 T_\text{bar} = (r_1 r_2 a_l)^2 + (k_1 k_2 a_u)^2 - 2 r_1 r_2 k_1 k_2\thinspace a_l a_u \cos\Delta\phi ,
@@ -200,20 +169,23 @@ $$
 T_\text{cross} = (r_1 k_2 a_l)^2 + (k_1 r_2 a_u)^2 + 2 r_1 r_2 k_1 k_2\thinspace a_l a_u \cos\Delta\phi .
 $$
 
-For even couplers, $r^2 = k^2 = \tfrac{1}{2}$, and lossless arms these are the interferometer's
-classic transmissions,
+Even couplers, $r^2 = k^2 = \tfrac{1}{2}$, and lossless arms give
 
 $$
-T_\text{cross} = \cos^2\frac{\Delta\phi}{2}, \qquad T_\text{bar} = \sin^2\frac{\Delta\phi}{2} ,
+T_\text{cross} = \cos^2\frac{\Delta\phi}{2}, \qquad T_\text{bar} = \sin^2\frac{\Delta\phi}{2} .
 $$
 
-which add to 1: a lossless interferometer only moves light between its outputs. A Y-branch or a
-1 × 2 splitter in place of the second coupler has one output, which takes the sum of the arms'
-fields, $(a_l e^{i\phi_l} + a_u e^{i\phi_u})/2$ for even splitting, and so, lossless, the cross
-port's $\cos^2(\Delta\phi/2)$; the
-difference goes into a mode the single guide can't carry, and is radiated away.
+At $\Delta\phi = 0$ all the light crosses over; at $\Delta\phi = \pi$ all of it stays in the bar
+output. A 1 × 2 combiner (a Y-branch or an MMI) has one output carrying
+$(a_l e^{i\phi_l} + a_u e^{i\phi_u})/2$, which is $\cos^2(\Delta\phi/2)$ when lossless; the
+difference field excites a mode the output guide can't carry and radiates.
 
-### The phase difference, and the free spectral range
+In the chart, cross (solid) and bar alternate across the spectrum; the dashed line is their sum,
+below 1 by the loss both arms share.
+
+::chart mzi-spectrum
+
+## 2. Group index and the free spectral range {theory}
 
 With the upper arm longer by $\Delta L$ and a phase shifter adding $\varphi$ to it,
 
@@ -221,280 +193,275 @@ $$
 \Delta\phi(\lambda) = \frac{2\pi n_\text{eff}(\lambda)\thinspace\Delta L}{\lambda} + \varphi .
 $$
 
-The cross output peaks where $\Delta\phi$ is a whole number of turns, $2\pi m$; without the phase
-shifter that is $n_\text{eff}\Delta L = m\lambda$, Eq. 3 of
-[Dwivedi et al. (2015)](https://doi.org/10.1109/JLT.2015.2476603), $m$ the interferometer's
-**order**. Neighbouring peaks are one turn of $\Delta\phi$ apart. Differentiating,
+The cross output peaks at $\Delta\phi = 2\pi m$; with $\varphi = 0$ that is
+$n_\text{eff}\Delta L = m\lambda$, Eq. 3 of
+[Dwivedi et al. (2015)](https://doi.org/10.1109/JLT.2015.2476603), $m$ the order. Differentiating,
 
 $$
 \frac{d\Delta\phi}{d\lambda} = -\frac{2\pi\Delta L}{\lambda^2}\left(n_\text{eff} - \lambda\frac{dn_\text{eff}}{d\lambda}\right) = -\frac{2\pi n_g \Delta L}{\lambda^2},
-\qquad n_g = n_\text{eff} - \lambda\frac{dn_\text{eff}}{d\lambda} ,
+\qquad n_g = n_\text{eff} - \lambda\frac{dn_\text{eff}}{d\lambda} .
 $$
 
-so the fringes are a free spectral range apart,
+One turn of $\Delta\phi$ separates neighbouring peaks, so
 
 $$
 \text{FSR} = \frac{\lambda^2}{n_g \Delta L} ,
 $$
 
-Dwivedi et al.'s Eq. 8. The spacing is set by the **group index** $n_g$, not the effective index:
-the phase difference changes with wavelength both because $1/\lambda$ does and because
-$n_\text{eff}$ does. In a silicon wire the two differ a lot, $n_\text{eff}$ near 2.4 and $n_g$
-near 4.2 at 1.55 µm, so using the effective index would put the fringes 75 % too far apart. The
-first chart shows both figures beside the spacing it measures between its peaks.
+Dwivedi et al.'s Eq. 8. The group index sets the spacing because $n_\text{eff}$ changes with
+$\lambda$ as well as $1/\lambda$. The chart's wire has $n_\text{eff} = 2.4$ and $n_g = 4.2$ at
+1.55 µm, so $\lambda^2/(n_\text{eff}\Delta L)$ overestimates the spacing by a factor of 1.75.
 
-Between two neighbouring peaks $\lambda_1 < \lambda_2$ the order drops by one,
-$n_\text{eff}(\lambda_1)\Delta L/\lambda_1 - n_\text{eff}(\lambda_2)\Delta L/\lambda_2 = 1$. For a
-mode whose $n_g$ doesn't change between them this is exactly
+Between neighbouring peaks $\lambda_1 < \lambda_2$ the order drops by one,
+$n_\text{eff}(\lambda_1)\Delta L/\lambda_1 - n_\text{eff}(\lambda_2)\Delta L/\lambda_2 = 1$. If $n_g$
+is constant between them, $n_\text{eff}/\lambda = n_g/\lambda + \text{const}$, and exactly
 
 $$
-n_g = \frac{\lambda_1 \lambda_2}{(\lambda_2 - \lambda_1)\Delta L} ,
+n_g = \frac{\lambda_1 \lambda_2}{(\lambda_2 - \lambda_1)\Delta L} .
 $$
 
-which is how a measured spectrum gives the group index; the chart's "$n_g$ read from the peaks"
-does this to its own spectrum, and finds the $n_g$ it was given.
+In the first chart: "Free spectral range, between peaks" is measured on the computed spectrum and
+differs from $\lambda^2/(n_g\Delta L)$ only because $\lambda_1\lambda_2 \ne \lambda^2$; "$n_g$ read
+from the peaks" returns the $n_g$ slider's value; the phase shifter slides the fringes without
+changing their spacing.
 
-### Extinction
+## 3. Unbalanced couplers and extinction {theory}
 
-Each output's power swings between the two paths adding, $(A + B)^2$, and cancelling,
-$(A - B)^2$, where $A$ and $B$ are the two paths' amplitudes: $A = r_1 r_2 a_l$ and
-$B = k_1 k_2 a_u$ for the bar output. The **extinction ratio** is their ratio,
+Each output swings between its two path amplitudes $A$ and $B$ adding, $(A + B)^2$, and
+cancelling, $(A - B)^2$. For the bar output $A = r_1 r_2 a_l$ and $B = k_1 k_2 a_u$:
 
 $$
 \text{ER}_\text{bar} = \left(\frac{r_1 r_2 a_l + k_1 k_2 a_u}{r_1 r_2 a_l - k_1 k_2 a_u}\right)^2 ,
 $$
 
-infinite only when the two paths carry exactly equal amplitudes, $r_1 r_2 a_l = k_1 k_2 a_u$, and
-the cross output's likewise with $A = r_1 k_2 a_l$ and $B = k_1 r_2 a_u$. Two things unbalance
-them: couplers that don't split evenly, and an arm that loses more than the other. For a splitter
-that is off by $\varepsilon$, $\kappa_1^2 = \tfrac{1}{2} + \varepsilon$, an even combiner and equal
-loss, $\text{ER} \approx 1/\varepsilon^2$: a splitting of 55:45 caps the extinction near 26 dB. Two
-equal but uneven couplers leave the cross output perfectly dark at its minima (its two paths are
-$r k a$ and $k r a$, always equal) while the bar output never goes dark. And an arm that loses more
-can be balanced by a splitter that sends it more light.
+and for the cross output $A = r_1 k_2 a_l$, $B = k_1 r_2 a_u$. An output goes dark only when
+$A = B$. With equal arms and an even combiner, a splitter $\kappa_1^2 = \tfrac{1}{2} + \varepsilon$
+gives $r_1 \approx (1 - \varepsilon)/\sqrt 2$ and $k_1 \approx (1 + \varepsilon)/\sqrt 2$, so
+
+$$
+\text{ER} \approx \frac{1}{\varepsilon^2} :
+$$
+
+a 55:45 splitter limits the extinction to 26 dB, and 30 dB needs $|\varepsilon| \lesssim 0.03$.
+Two equal couplers of any $\kappa^2$ keep the cross output's paths equal ($r k a$ and $k r a$), so
+it still goes dark, with a peak of $4\kappa^2(1 - \kappa^2)$; the bar output's minimum is
+$(1 - 2\kappa^2)^2$.
+
+In the chart, the cross (solid) and bar (dashed) curves coincide for an even combiner and peak
+where the dark condition holds; move the combiner away from 0.5 and the two peaks separate.
 
 ::chart mzi-extinction
 
-## History {research}
+## 4. Loss in the arms {theory}
 
-Ludwig Zehnder described a new interference refractometer in 1891, and Ludwig Mach, Ernst Mach's
-son, another in 1892, both in the Zeitschrift für Instrumentenkunde (11, 275 and 12, 89; neither
-paper has a DOI): two mirrors and two half-silvered plates that separate the beams widely, so that
-a sample, a gas say, can be put in one of them and its index measured against the other.
-[Born and Wolf](https://doi.org/10.1017/CBO9781139644181) describe it among the classical two-beam
-interferometers.
+An arm of length $L$ losing $\alpha$ dB/cm has $a = 10^{-\alpha L/20}$, so the longer arm loses
+$\alpha\Delta L$ dB more. With even couplers and $\rho = a_u/a_l$,
 
-Integrated optics made it a component. Waveguides diffused into lithium niobate could carry the
-arms, and electrodes beside them push the phase through the Pockels effect:
-[Alferness's 1982 review](https://doi.org/10.1109/TMTT.1982.1131213) sets out these
-interferometric modulators, Martin's Y-branch interferometer of 1975 and the balanced bridge of
-Ramaswamy, Divino and Standley of 1978 among them, and by 2000 lithium niobate Mach–Zehnder
-modulators met the needs of the 2.5, 10 and 40 Gb/s fibre links of the time
-([Wooten et al., 2000](https://doi.org/10.1109/2944.826874)). Silica waveguides on silicon,
-the planar lightwave circuits ([Kawachi, 1990](https://doi.org/10.1007/BF02113964)), turned the
-interferometer into a wavelength filter: [Takato et al. (1990)](https://doi.org/10.1109/49.57816)
-made multiplexers whose channel spacing went from 0.01 to 250 nm with the path difference, and
-[Jinguji and Kawachi (1995)](https://doi.org/10.1109/50.350643) cascaded interferometers with
-phase shifters, on such chips thermo-optic heaters, into lattice filters synthesized like digital
-ones.
+$$
+\text{ER} = \left(\frac{1 + \rho}{1 - \rho}\right)^2 .
+$$
 
-Silicon came next. Its crystal has no Pockels effect, but free carriers change its index
-([Soref and Bennett, 1987](https://doi.org/10.1109/JQE.1987.1073206)), and in 2004 Liu and
-colleagues at Intel put metal–oxide–semiconductor capacitors in the arms of a silicon
-Mach–Zehnder and modulated it past a gigahertz
-([Liu et al., 2004](https://doi.org/10.1038/nature02310)); by 2010 silicon modulators were
-reviewed as a field of their own ([Reed et al., 2010](https://doi.org/10.1038/nphoton.2010.179)).
-Meanwhile [Reck et al. (1994)](https://doi.org/10.1103/PhysRevLett.73.58) had shown that a
-triangle of beam splitters and phase shifters makes any unitary transformation, and
-[Clements et al. (2016)](https://doi.org/10.1364/OPTICA.3.001460) a rectangle of them with half the
-depth: meshes whose unit is a Mach–Zehnder interferometer with a phase shifter.
+The chart's default, 3 dB/cm over $\Delta L$ = 50 µm, is 0.015 dB, $\rho$ = 0.9983, an extinction
+of about 61 dB. At 100 dB/cm over 2 mm the difference is 20 dB, $\rho$ = 0.1, and the extinction
+1.7 dB. A splitter that sends more light into the lossier arm restores the balance: with an even
+combiner, $r_1 a_l = k_1 a_u$ gives
 
-::timeline
+$$
+\kappa_1^2 = \frac{a_l^2}{a_l^2 + a_u^2} ,
+$$
 
-## Why the group index matters {research}
+0.50086 for the default and 0.990 for the 20 dB case (the second chart's "Bar dark at" figure).
+The loss both arms share, here 100 µm of wire, lowers both outputs equally and leaves the
+extinction alone.
 
-A silicon wire's index depends steeply on its width and thickness: an interferometer's fringe
-moves by about a nanometre for each nanometre of width, and by about 1.4 nm for each nanometre of
-thickness ([Dwivedi et al., 2015](https://doi.org/10.1109/JLT.2015.2476603)). So the index a
-design assumes is rarely the index a wafer delivers, and measuring it is worth care. A spectrum's
-spacing gives the group index, but the effective index sits in the fringes' absolute position,
-$n_\text{eff}\Delta L = m\lambda$, and that needs the order $m$, which a high-order interferometer
-can't tell apart from its neighbours.
+## 5. The interferometer as a modulator and a switch {theory}
 
-Dwivedi and colleagues used three interferometers per wire. Two of low order, $m$ = 15 and 16,
-have fringes so far apart that the fabrication can't shift the index by enough to mistake the
-order (their Fig. 1 puts the limit at orders of 17, 27 and 38 for wires 450, 600 and 800 nm
-wide): one fringe gives $n_\text{eff}$ outright. The third, of order 110, has many fringes across
-the band, and their spacing gives $n_g$ and how it changes with wavelength. The same
-interferometers measured at several temperatures give the thermo-optic coefficient, from
-$dn/dT = (n_g/\lambda)\thinspace d\lambda/dT$ (their Eq. 13): silicon's 1.86 × 10⁻⁴ per kelvin moves a
-silicon filter by about 80 pm per kelvin.
+A heater over a length $L_h$ adds $\varphi = 2\pi (dn_\text{eff}/dT)\Delta T\thinspace L_h/\lambda$.
+Silicon's thermo-optic coefficient is 1.86 × 10⁻⁴ per kelvin at 1550 nm, which moves a silicon
+filter by about 80 pm per kelvin ([Dwivedi et al., 2015](https://doi.org/10.1109/JLT.2015.2476603));
+taking it for the mode's, a π shift over 100 µm needs $\Delta T = \lambda/(2 L_h\thinspace dn/dT)$,
+about 42 K.
 
-Try their high-order interferometer. For the wire drawn 450 nm wide, the `mzi_dwivedi` example
-designs it with a path difference of 73.06 µm, and the paper measured that wire's group index as
-4.2739 (its Table I). The chart's effective index stays at its 2.4, so the order isn't theirs,
-but the spacing is:
+An electro-optic (Pockels) crystal gives $\varphi = \pi V/V_\pi$, and the cross output follows
+
+$$
+T_\text{cross} = \cos^2\left(\frac{\pi V}{2V_\pi} + \frac{\Delta\phi_0}{2}\right),
+$$
+
+$\Delta\phi_0$ the phase difference at no voltage. Biased at quadrature, $\Delta\phi_0 = \pi/2$,
+the slope is steepest and the response to a small voltage nearly linear.
+[Wang et al. (2018)](https://doi.org/10.1038/s41586-018-0551-y) measured thin-film lithium niobate
+modulators: with 20 mm electrodes $V_\pi$ = 1.4 V, a 3 dB bandwidth above 45 GHz, an extinction
+of about 30 dB and under 0.5 dB of loss on the chip; with 5 mm, 100 GHz at 4.4 V. Silicon has no
+Pockels effect; free carriers change its index
+([Soref and Bennett, 1987](https://doi.org/10.1109/JQE.1987.1073206)) and also absorb, so its
+modulators unbalance the arms' amplitudes as they modulate
+([Reed et al., 2010](https://doi.org/10.1038/nphoton.2010.179)).
+
+With even couplers and a phase between them, an interferometer is a tunable splitter from all bar
+to all cross, the usual gate of programmable meshes, each gate losing about 0.05 to 0.2 dB
+([Bogaerts et al., 2020](https://doi.org/10.1038/s41586-020-2764-0)).
+[circuit_splitter](../examples/circuit_splitter.rs) tunes such a gate by the circuit adjoint's
+gradient until 30 % of the light stays in the bar port, at $2\arcsin\sqrt{0.3}$ from
+$T_\text{bar} = \sin^2(\Delta\phi/2)$:
+
+::example circuit_splitter
+
+photonoxide's `PhaseShifter` is ideal: $e^{i\varphi}$ at every wavelength, lossless. The heater
+and the Pockels modulator come in photonoxide 0.6, the silicon carrier modulator in 0.8.
+
+## 6. Measuring the group index (Dwivedi et al.)
+
+A silicon wire's index depends steeply on its cross-section: an interferometer's fringe moves by
+about 1 nm per nanometre of width and 1.4 nm per nanometre of thickness
+([Dwivedi et al., 2015](https://doi.org/10.1109/JLT.2015.2476603)). A fringe's spacing gives
+$n_g$; its position gives $n_\text{eff}$ only once the order $m$ is known.
+
+Dwivedi and colleagues used three interferometers per wire, between 1 × 2 MMIs. Two of low
+order, $m$ = 15 and 16, have fringes far enough apart that fabrication can't shift them by a
+whole order (their Fig. 1 puts the limit at orders 17, 27 and 38 for wires 450, 600 and 800 nm
+wide), so one peak gives $n_\text{eff}$ by Eq. 3. One of order 110 has many fringes across the
+band, and their spacing gives $n_g$ by Eq. 8. Measured at several temperatures, the same
+interferometers give the thermo-optic coefficient, $dn/dT = (n_g/\lambda)\thinspace d\lambda/dT$
+(their Eq. 13).
+
+For the wire drawn 450 nm wide, `mzi_dwivedi` designs the order-110 interferometer with
+$\Delta L$ = 73.06 µm; the paper measured that wire's $n_g$ as 4.2739 (Table I). With those
+values the chart's fringes are 7.7 nm apart (its $n_\text{eff}$ stays at 2.4, so the order isn't
+theirs):
 
 ::chart mzi-spectrum{delta=73.06um, group_index=4.27, window=30nm}
 
-## Modulators and switches {research}
-
-Hold $\Delta L$ at zero, or at a fixed value, and change $\varphi$: the light moves between the
-outputs. Heating one arm is the simplest way, through the thermo-optic effect: a phase
-$\varphi = 2\pi (dn_\text{eff}/dT)\Delta T\thinspace L_h/\lambda$ for a heater of length $L_h$, so
-a π shift over 100 µm of silicon wire needs it about 40 K warmer, taking silicon's own coefficient
-for the mode's. Heaters are slow, microseconds, but simple and nearly lossless, and they set the
-working points of most programmable circuits.
-
-For speed, the index must follow a voltage. A field through an electro-optic crystal changes its
-index in proportion (the Pockels effect), so $\varphi = \pi V/V_\pi$, and the cross output follows
-$\cos^2(\pi V / 2V_\pi + \Delta\phi_0/2)$, $\Delta\phi_0$ the phase difference at no voltage:
-biased half way, at quadrature, it turns a small voltage into a nearly proportional change of
-power. The half-wave voltage $V_\pi$ is the figure of merit,
-traded against the length of the electrodes and so against bandwidth.
-[Wang et al. (2018)](https://doi.org/10.1038/s41586-018-0551-y) made such modulators in thin-film
-lithium niobate: with 20 mm electrodes, a $V_\pi$ of 1.4 V, a 3 dB bandwidth above 45 GHz, an
-extinction of about 30 dB and under 0.5 dB of loss on the chip; with 5 mm, 100 GHz at 4.4 V.
-Silicon has no Pockels effect and modulates with carriers instead, which also absorb: its
-modulators are lossier and longer for the same phase, and unbalance the arms' amplitudes as they
-modulate ([Reed et al., 2010](https://doi.org/10.1038/nphoton.2010.179)).
-
-photonoxide's phase shifter is so far ideal, $e^{i\varphi}$ at every wavelength and without loss.
-The heater, with its power, time constant and crosstalk, and the Pockels modulator, with its
-electrodes, come in photonoxide 0.6; the silicon carrier modulator in 0.8.
-
-## Today {research}
-
-The interferometer is everywhere in integrated photonics, and three directions stand out. One is
-**modulators**: thin-film lithium niobate's low voltage, high bandwidth and low loss together
-([Wang et al., 2018](https://doi.org/10.1038/s41586-018-0551-y)), against the longer and lossier
-silicon carrier modulators that a CMOS process makes cheaply. Another is **filters**: cascades of interferometers as lattice filters, which can be
-designed with flat pass bands, such as the eight-channel silicon demultiplexers of
-[Horst et al. (2013)](https://doi.org/10.1364/OE.21.011652), under 1.6 dB of loss on about
-500 × 400 µm, where each interferometer's fringes must sit to a fraction of a nanometre despite
-the wafer's spread. The third is **programmable meshes**: many interferometers, each with two phase
-shifters, joined so that software sets what the circuit does
-([Bogaerts et al., 2020](https://doi.org/10.1038/s41586-020-2764-0)). An interferometer with even
-couplers can give any split from all bar to all cross, which is why it is the mesh's usual gate,
-and each gate loses something like 0.05 to 0.2 dB. Configuring hundreds of them is a problem of
-its own, which [Pérez-López et al. (2020)](https://doi.org/10.1038/s41467-020-19608-w) solve by
-optimization on the chip itself. Open problems include couplers that stay even across a wide band
-and a whole wafer, heaters that don't warm their neighbours, and meshes that calibrate and correct
-their own errors as they scale.
-
-## How photonoxide computes it
-
-photonoxide has the interferometer as a circuit of components, each a closed form with its exact
-derivatives ([the components](../docs/methods/components.md)):
-
-- **`Coupler`**: an ideal 2 × 2 coupler, through $\sqrt{1 - \kappa^2}$ and across $i\kappa$, and
-  `DirectionalCoupler` from the two supermodes of a coupled pair of guides, from the mode solver;
-  `YBranch` and `Mmi` for even 1 × 2 splitters.
-- **`Waveguide`**: $e^{i\gamma L}$, its mode's effective and group index and dispersion at a
-  wavelength, and its loss, set by hand or found by the full-vector mode solver.
-- **`PhaseShifter`**: $e^{i\varphi}$.
-- **`mzi`** and **`mzi_y`**: the interferometer as a netlist of the above, solved by
-  [the circuit solve](../docs/methods/circuits.md), and `mzi_closed_form`, the product of transfer
-  matrices above, which checks it.
-
-The first chart builds that netlist with a phase shifter on the upper arm and solves it at every
-wavelength; the second evaluates the closed form. The Chip page opens the same interferometer
-from `circuits/mzi.toml`, and the circuit adjoint gives the gradient of any output with respect
-to every coupler, length and phase ([the circuit adjoint](../docs/methods/circuit-adjoint.md)).
-The 3D view above is `jobs/mzi-mmi.toml`, a structure job: it draws an interferometer, solving
-nothing.
-
-## What our example reproduces
-
-The netlist is checked against the closed form and, without loss, for conserving power; its
-gradients against finite differences, for one interferometer and for a 4 × 4 mesh of six:
-
-::validation components/mzi-closed-form components/mzi-unitarity circuit/mzi-closed-form circuit/adjoint-mzi circuit/adjoint-mesh
-
-[mzi_dwivedi](../examples/mzi_dwivedi.rs) predicts Dwivedi et al.'s measured indices with nothing
-taken from the measurement: each wire is the cross-section their SEM shows, a rectangle in
-photonoxide's silicon and silica, its mode by Hadley's equations on grids of about 10 nm; the
-interferometers are designed as theirs were and built from ideal splitters, and their spectra are
-read as the paper reads the measured ones. Five of the six numbers agree within 0.012; the
-narrowest wire's group index is 0.041 low, inside the tolerance the paper's own fabrication
-estimate gives, and its sidewalls, sloped and rough where the model's are straight, are the likely
-reason:
+[mzi_dwivedi](../examples/mzi_dwivedi.rs) predicts their Table I from nothing measured but the
+SEM cross-sections: each wire a rectangle in photonoxide's silicon and silica, its mode by
+Hadley's equations on grids of about 10 nm, the interferometers built from ideal splitters and
+their spectra read by Eqs. 3, 8 and 10. Five of the six numbers agree within 0.012; the 470 nm
+wire's $n_g$ is 0.041 low, inside the tolerance of the paper's own fabrication estimate (its
+Eq. 5); its sloped, rough sidewalls are straight in the model.
 
 ::validation components/mzi-neff-dwivedi-470 components/mzi-ng-dwivedi-470 components/mzi-neff-dwivedi-602 components/mzi-ng-dwivedi-602 components/mzi-neff-dwivedi-805 components/mzi-ng-dwivedi-805
 
 ::example mzi_dwivedi
 
-[circuit_splitter](../examples/circuit_splitter.rs) uses the interferometer as a tunable
-splitter, a mesh's gate: two even couplers and a phase between them, tuned by the circuit
-adjoint's gradient until 30 % of the light stays in the bar port, at the phase
-$2\arcsin\sqrt{0.3}$ that $T_\text{bar} = \sin^2(\Delta\phi/2)$ gives:
+## 7. History and current research {research}
 
-::example circuit_splitter
+Ludwig Zehnder described an interference refractometer in 1891, and Ludwig Mach, Ernst Mach's
+son, another in 1892, in the Zeitschrift für Instrumentenkunde (11, 275 and 12, 89; neither has
+a DOI): two mirrors and two half-silvered plates separate the beams widely enough to put a
+sample, a gas say, in one of them and measure its index against the other.
+[Born and Wolf](https://doi.org/10.1017/CBO9781139644181) describe it among the classical
+two-beam interferometers.
 
-## Try it
+Waveguides diffused into lithium niobate carried the arms of the first integrated versions, the
+phase pushed by electrodes through the Pockels effect:
+[Alferness's 1982 review](https://doi.org/10.1109/TMTT.1982.1131213) includes Martin's Y-branch
+interferometer of 1975 and the balanced bridge of Ramaswamy, Divino and Standley of 1978. By 2000
+lithium niobate Mach–Zehnder modulators met the needs of 2.5, 10 and 40 Gb/s fibre links
+([Wooten et al., 2000](https://doi.org/10.1109/2944.826874)). In silica waveguides on silicon
+([Kawachi, 1990](https://doi.org/10.1007/BF02113964)),
+[Takato et al. (1990)](https://doi.org/10.1109/49.57816) made interferometric multiplexers with
+channel spacings from 0.01 to 250 nm, and
+[Jinguji and Kawachi (1995)](https://doi.org/10.1109/50.350643) synthesized lattice filters from
+cascaded interferometers, their phase shifters thermo-optic heaters.
+[Liu et al. (2004)](https://doi.org/10.1038/nature02310) modulated a silicon interferometer past a
+gigahertz with metal–oxide–semiconductor capacitors in its arms.
+[Reck et al. (1994)](https://doi.org/10.1103/PhysRevLett.73.58) showed that a triangle of beam
+splitters and phase shifters makes any unitary, and
+[Clements et al. (2016)](https://doi.org/10.1364/OPTICA.3.001460) a rectangle with half the depth.
 
-**The group index sets the spacing.** In the first chart, double the path difference, then
-change the group index. What moves the fringes closer together, and what only slides them?
+::timeline
+
+Current work has three lines. Modulators: thin-film lithium niobate combines low voltage, high
+bandwidth and low loss ([Wang et al., 2018](https://doi.org/10.1038/s41586-018-0551-y)). Filters:
+cascaded interferometers give flat pass bands, as in the eight-channel silicon demultiplexers of
+[Horst et al. (2013)](https://doi.org/10.1364/OE.21.011652), under 1.6 dB of loss on about
+500 × 400 µm. Programmable meshes: software-set gates for routing, filtering and matrix
+operations ([Bogaerts et al., 2020](https://doi.org/10.1038/s41586-020-2764-0)), configured by
+optimization on the chip ([Pérez-López et al., 2020](https://doi.org/10.1038/s41467-020-19608-w)).
+Open problems: couplers that stay even across a band and a wafer, heaters that don't warm their
+neighbours, and meshes that calibrate themselves as they grow.
+
+## 8. How photonoxide computes it
+
+The interferometer is a circuit of closed-form components with exact derivatives
+([the components](../docs/methods/components.md)):
+
+- `Coupler`: through $\sqrt{1 - \kappa^2}$, across $i\kappa$; `DirectionalCoupler` from a
+  coupled pair's supermodes; `YBranch` and `Mmi` for 1 × 2 splitters.
+- `Waveguide`: $e^{i\gamma L}$ from the mode's $n_\text{eff}$, $n_g$ and dispersion at a
+  wavelength, and its loss, set by hand or found by the full-vector mode solver.
+- `PhaseShifter`: $e^{i\varphi}$.
+- `mzi` and `mzi_y`: the interferometer as a netlist, solved by
+  [the circuit solve](../docs/methods/circuits.md); `mzi_closed_form`, the product of transfer
+  matrices of section 1, which checks it.
+
+The first chart solves that netlist, with a phase shifter on the upper arm, at every wavelength;
+the second evaluates the closed form. The Chip page opens the same interferometer from
+`circuits/mzi.toml`, and [the circuit adjoint](../docs/methods/circuit-adjoint.md) gives the
+gradient of any output with respect to every coupler, length and phase. `jobs/mzi-mmi.toml` is a
+structure job: it draws the interferometer and solves nothing. The netlist matches the closed
+form, conserves power without loss, and its gradients match finite differences, for one
+interferometer and for a 4 × 4 mesh of six:
+
+::validation components/mzi-closed-form components/mzi-unitarity circuit/mzi-closed-form circuit/adjoint-mzi circuit/adjoint-mesh
+
+## 9. Try it
+
+**Spacing.** In the first chart, double the path difference, then raise the group index. What
+narrows the fringes, and what only slides them?
 
 :::answer
-Doubling $\Delta L$ halves the free spectral range, and so does raising $n_g$:
-$\text{FSR} = \lambda^2/(n_g\Delta L)$. The "$\lambda^2/(n_\text{eff}\Delta L)$" figure, which uses
-the effective index, never matches the measured spacing. The phase shifter only slides the
-fringes: it adds the same phase at every wavelength.
+Both narrow them: the free spectral range is $\lambda^2/(n_g\Delta L)$, so doubling $\Delta L$
+halves it. The
+"$\lambda^2/(n_\text{eff}\Delta L)$" figure never matches the measured spacing. The phase shifter
+adds the same phase at every wavelength, so it only slides the fringes.
 :::
 
-**How even is even enough?** Set the splitter to 0.55, then find how close to 0.5 it must be for
-the bar output to reach 30 dB of extinction, the figure Wang et al. measured.
+**Even enough.** Set the splitter to 0.55, then find how close to 0.5 it must be for 30 dB of bar
+extinction, Wang et al.'s figure.
 
 :::answer
-At 0.55 the bar's extinction is about 26 dB. With $\kappa_1^2 = \tfrac{1}{2} + \varepsilon$ and an
-even combiner, $\text{ER} \approx 1/\varepsilon^2$, so 30 dB, a ratio of 1000, needs
-$|\varepsilon| \lesssim 0.03$: a splitter between about 47:53 and 53:47. The second chart shows the
-same thing as a sharp peak around 0.5.
+0.55 gives about 26 dB. $\text{ER} \approx 1/\varepsilon^2 = 1000$ needs
+$|\varepsilon| \lesssim 0.03$: between about 0.47 and 0.53.
 :::
 
-**Uneven but equal couplers.** Set both couplers to 0.3. Which output still goes dark?
+**Equal uneven couplers.** Set both couplers to 0.3. Which output still goes dark?
 
 :::answer
-The cross output: its two paths, $r_1 k_2 a_l$ and $k_1 r_2 a_u$, are equal whenever the couplers
-are, so it still reaches zero, though its brightest is only $4\kappa^2(1 - \kappa^2) = 0.84$. The
-bar output's paths are $r^2 a_l$ and $k^2 a_u$, unequal unless $\kappa^2 = \tfrac{1}{2}$: it never
-goes below $(1 - 2\kappa^2)^2 = 0.16$, an extinction of about 8 dB.
+The cross output, whose paths $r_1 k_2 a_l$ and $k_1 r_2 a_u$ are equal for equal couplers; its peak
+is $4 \times 0.3 \times 0.7 = 0.84$. The bar output bottoms out at $(1 - 0.6)^2 = 0.16$, an
+extinction of 8 dB.
 :::
 
-**A lossy arm.** Set the arm loss to 100 dB/cm and the path difference to 2 mm: the longer arm
-now loses 20 dB more. What is left of the fringes, and what splitter brings them back?
+**A lossy arm.** Set 100 dB/cm and a 2 mm path difference, then find the splitter that restores
+the fringes in the second chart.
 
 :::answer
-The upper arm's field is a tenth of the lower's, so the extinction falls to
-$((1 + 0.1)/(1 - 0.1))^2$, under 2 dB. In the second chart, with the same loss and path difference,
-both outputs go dark again at $\kappa_1^2 = a_l^2/(a_l^2 + a_u^2) \approx 0.99$: send almost all
-the light into the lossy arm, so that what survives it matches what the short arm carries.
+The upper arm's field is a tenth of the lower's and the extinction falls to 1.7 dB. Both outputs
+go dark again at $\kappa_1^2 = a_l^2/(a_l^2 + a_u^2) \approx 0.99$.
 :::
 
-**A modulator's working point.** With even couplers, turn the phase shifter. Where is the cross
-output most sensitive to a small change of phase?
+**Working point.** With even couplers, where is the cross output most sensitive to the phase?
 
 :::answer
-At $\varphi$ = ±π/2 from a peak, quadrature, where $\cos^2(\Delta\phi/2)$ is at half its height and
-steepest. A modulator is biased there; at a peak or a null the power hardly changes for a small
-phase. A shift of π swaps the outputs: that is the half-wave voltage's π.
+At quadrature, $\pm\pi/2$ from a peak, where $\cos^2(\Delta\phi/2)$ is at half height and steepest.
+A shift of π swaps the outputs.
 :::
 
-## Further reading {research}
+## 10. Further reading {research}
 
-- [Born and Wolf](https://doi.org/10.1017/CBO9781139644181) for two-beam interference and the
+- [Born and Wolf](https://doi.org/10.1017/CBO9781139644181): two-beam interference and the
   classical interferometers.
-- [Dwivedi et al. (2015)](https://doi.org/10.1109/JLT.2015.2476603) for measuring a waveguide
-  with interferometers: $n_\text{eff}$, $n_g$ and their temperature dependence.
-- [Wooten et al. (2000)](https://doi.org/10.1109/2944.826874) and
-  [Reed et al. (2010)](https://doi.org/10.1038/nphoton.2010.179) for lithium niobate and silicon
-  modulators, and [Wang et al. (2018)](https://doi.org/10.1038/s41586-018-0551-y) for thin-film
-  lithium niobate.
-- [Jinguji and Kawachi (1995)](https://doi.org/10.1109/50.350643) for filters synthesized from
+- [Dwivedi et al. (2015)](https://doi.org/10.1109/JLT.2015.2476603): $n_\text{eff}$, $n_g$ and
+  $dn/dT$ measured with interferometers.
+- [Wooten et al. (2000)](https://doi.org/10.1109/2944.826874),
+  [Reed et al. (2010)](https://doi.org/10.1038/nphoton.2010.179) and
+  [Wang et al. (2018)](https://doi.org/10.1038/s41586-018-0551-y): lithium niobate, silicon and
+  thin-film lithium niobate modulators.
+- [Jinguji and Kawachi (1995)](https://doi.org/10.1109/50.350643): filters synthesized from
   cascaded interferometers.
-- [Bogaerts et al. (2020)](https://doi.org/10.1038/s41586-020-2764-0) for programmable meshes,
-  and [Clements et al. (2016)](https://doi.org/10.1364/OPTICA.3.001460) for their arrangement.
-- In photonoxide: [the components](../docs/methods/components.md), and the lesson on the
-  [ring resonator](ring-resonator.md), the other interferometer, which brings the light back to
-  itself instead of to a second coupler.
+- [Bogaerts et al. (2020)](https://doi.org/10.1038/s41586-020-2764-0) and
+  [Clements et al. (2016)](https://doi.org/10.1364/OPTICA.3.001460): programmable meshes.
+- [The components](../docs/methods/components.md), and the lesson on the
+  [ring resonator](ring-resonator.md), where the second coupler is replaced by a loop back to the
+  first.
