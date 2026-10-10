@@ -132,9 +132,12 @@ pub enum Block {
 #[derive(Serialize, Clone, Debug)]
 pub struct Section {
     pub title: String,
-    /// Its anchor, from the title.
+    /// Its anchor, from the title (a part's prefixed by its section's).
     pub id: String,
     pub depth: Depth,
+    /// 2 for a `##` section, 3 for a part of one: a `###` heading with a depth, which runs to
+    /// the next part or section.
+    pub level: u8,
     pub blocks: Vec<Block>,
 }
 
@@ -242,8 +245,11 @@ fn sections(file: &str, body: &str) -> Result<Vec<Section>, String> {
         title: String::new(),
         id: String::new(),
         depth: Depth::Intuition,
+        level: 2,
         blocks: Vec::new(),
     };
+    // the `##` section the next part belongs to
+    let mut parent: Option<String> = None;
     let mut text = String::new();
     let mut answer: Option<String> = None;
     let mut code = false;
@@ -293,10 +299,40 @@ fn sections(file: &str, body: &str) -> Result<Vec<Section>, String> {
                 out.push(current);
             }
             let (title, depth) = heading_depth(heading).map_err(|e| format!("{}: {e}", at()))?;
+            parent = Some(slug(&title));
             current = Section {
                 id: slug(&title),
                 title,
                 depth,
+                level: 2,
+                blocks: Vec::new(),
+            };
+            continue;
+        }
+        // a part: `### Title {depth}`; a `###` heading without a depth stays in the text
+        if let Some(heading) = line
+            .strip_prefix("### ")
+            .filter(|h| h.trim_end().ends_with('}') && h.contains(" {"))
+        {
+            if answer.is_some() {
+                return Err(format!("{}: a heading inside an answer", at()));
+            }
+            let Some(section) = &parent else {
+                return Err(format!(
+                    "{}: a ### part belongs to a ## section, and none has begun",
+                    at()
+                ));
+            };
+            flush(&mut text, &mut current.blocks);
+            if !current.title.is_empty() || !current.blocks.is_empty() {
+                out.push(current);
+            }
+            let (title, depth) = heading_depth(heading).map_err(|e| format!("{}: {e}", at()))?;
+            current = Section {
+                id: format!("{section}--{}", slug(&title)),
+                title,
+                depth,
+                level: 3,
                 blocks: Vec::new(),
             };
             continue;
@@ -807,6 +843,55 @@ mod tests {
             "an unknown field"
         );
         assert!(parse("x.md", &text.replace("role: origin", "role: founding")).is_err());
+    }
+
+    /// A `###` heading with a depth is a part of its `##` section, at that depth, to the next
+    /// part or section; one without stays in the text.
+    #[test]
+    fn parts_belong_to_their_section() {
+        let front = "---\ntitle: T\nsummary: S\ntopic: Rings\nlevel: introductory\nminutes: 5\npapers: []\n---\n";
+        let body = "Intro.\n## 1. Resonance\nWhat it does.\n### A heading in the text\nMore.\n### The derivation {theory}\nDerived.\n### Its history {research}\nOld.\n## 2. Width\nNext.\n";
+        let l = parse("x.md", &format!("{front}{body}")).unwrap();
+        let shape: Vec<(&str, &str, Depth, u8)> = l
+            .sections
+            .iter()
+            .map(|s| (s.title.as_str(), s.id.as_str(), s.depth, s.level))
+            .collect();
+        assert_eq!(
+            shape,
+            [
+                ("", "", Depth::Intuition, 2),
+                ("1. Resonance", "1-resonance", Depth::Intuition, 2),
+                (
+                    "The derivation",
+                    "1-resonance--the-derivation",
+                    Depth::Theory,
+                    3
+                ),
+                (
+                    "Its history",
+                    "1-resonance--its-history",
+                    Depth::Research,
+                    3
+                ),
+                ("2. Width", "2-width", Depth::Intuition, 2),
+            ]
+        );
+        assert_eq!(
+            l.sections[1].blocks,
+            [Block::Text {
+                markdown: "What it does.\n### A heading in the text\nMore.".to_owned()
+            }]
+        );
+        assert!(
+            parse(
+                "x.md",
+                &format!("{front}Intro.\n### Early {{theory}}\nNo.\n")
+            )
+            .is_err(),
+            "a part before any section"
+        );
+        assert!(parse("x.md", &format!("{front}## A\n### B {{deeper}}\nNo.\n")).is_err());
     }
 
     #[test]

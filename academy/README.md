@@ -9,7 +9,7 @@ moving a slider shows the physics the library computes, the code the
 
 | Lesson | Level | Diagram | Charts |
 |---|---|---|---|
-| [The ring resonator](ring-resonator.md) | introductory | `ring` | `ring-spectrum`, `ring-coupling` |
+| [The ring resonator](ring-resonator.md) | introductory | `ring` | `ring-spectrum`, `ring-extinction`, `ring-coupling`, `ring-q-length`, `ring-identify` |
 | [Bragg gratings and mirrors](bragg-gratings.md) | intermediate | `bragg` | `bragg-reflectance`, `bragg-bandwidth` |
 
 ## A lesson's file
@@ -48,7 +48,16 @@ Every field but the lists is required, and an unknown field is an error.
 `{research}`; without one it is intuition. The window shows intuition sections open and the
 others closed, to open one at a time or all at once from the lesson's depth switch. Text before
 the first heading is the lesson's opening. `#` headings aren't allowed: the title is the front
-matter's. The sections a lesson usually has:
+matter's.
+
+**Parts.** A `###` heading that ends in a depth, `### The derivation {theory}`, starts a part of
+the `##` section above it, at that depth, running to the next part or section: a section can
+open on its intuition and keep its derivation and its literature a click away. A `###` heading
+without a depth stays in the text as an ordinary subheading. The window lists every section and
+part as the lesson's outline, beside the lesson on a wide window and under a Contents button
+otherwise, to jump to.
+
+A lesson either follows the usual sections:
 
 - What it does
 - The physics `{theory}`
@@ -58,6 +67,11 @@ matter's. The sections a lesson usually has:
 - What our example reproduces
 - Try it: exercises with the charts
 - Further reading `{research}`
+
+or, for a device worth analysing thoroughly, numbered sections each answering one question, each
+with its theory and research parts and its exercises, and a closing history with the timeline:
+[the ring resonator](ring-resonator.md) is written so. Every sentence states a fact, a step of a
+derivation, a number with its source, or what to look at in a chart.
 
 **Math** is TeX, as GitHub sets it: `$…$` inline (no space just inside the dollars, no letter
 or digit just outside), and display math between lines holding only `$$`.
@@ -126,6 +140,9 @@ code; the window only draws what it returns, and asks again as a slider moves.
 |---|---|---|---|
 | `ring-spectrum` | `radius` µm (10), `coupling` κ₁² (0.01), `drop` κ₂² (0: all-pass), `loss` dB/cm (3), `group_index` (4.2), `window` nm (20) | `AllPassRing`, `AddDropRing`: `s_matrix`, `resonance`, `fsr`, `fwhm`, `q_factor`, `finesse`, `extremes` |
 | `ring-coupling` | `radius` µm (10), `loss` dB/cm (3), `drop` κ₂² (0) | `AllPassRing`, `AddDropRing`: `extremes`, `q_factor` |
+| `ring-extinction` | `radius` µm (10), `loss` dB/cm (3), `drop` κ₂² (0), `coupling` κ₁² (0.01) | `AllPassRing`, `AddDropRing`: `extremes`, `q_factor`; the extinction against κ₁²/κc², and the coupling on the other side of critical with the same extinction |
+| `ring-q-length` | `loss` dB/cm (2.7), `fixed` dB per round trip (0.075), `group_index` (4.30) | `AllPassRing`: `q_factor`, `finesse`, `s_matrix`, `resonance`, `fsr`, `extremes`; Bogaerts et al.'s Fig. 5, as `ring_q_factor` computes it |
+| `ring-identify` | `radius` µm (10), `coupling` κ² (0.01), `loss` dB/cm (3) | `AllPassRing`: `s_matrix`, `resonance`, `fsr`, `finesse`, `q_factor`, `extremes`; `compact::fit::vector_fit` |
 | `bragg-reflectance` | `high` (2.3), `low` (1.38), `pairs` (8), `period` nm (160), `cover` (1.0), `substrate` (1.52), `from` and `to` nm (350, 950) | `Multilayer::reflection`, and the endless stack's band as below |
 | `bragg-bandwidth` | `low` (1.45), `up_to` (2.0) | `Multilayer::reflection`: one period's transmission $t$, and $\cos K\Lambda = \operatorname{Re}(1/t)$ |
 

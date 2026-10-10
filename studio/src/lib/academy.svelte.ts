@@ -31,6 +31,8 @@ export interface LessonSection {
   /** Its anchor, from the title. */
   id: string;
   depth: Depth;
+  /** 2 for a `##` section, 3 for a part of one (a `###` heading with a depth). */
+  level: 2 | 3;
   blocks: LessonBlock[];
 }
 
@@ -70,7 +72,7 @@ export interface ChartParam {
   key: string;
   /** May hold TeX between dollars. */
   label: string;
-  /** As a chart block writes it: "um", "nm", "dB/cm", or "" for a number. */
+  /** As a chart block writes it: "um", "nm", "dB/cm", "dB", or "" for a number. */
   unit: string;
   min: number;
   max: number;

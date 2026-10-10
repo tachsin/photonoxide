@@ -4,7 +4,7 @@
   // lesson's Markdown with KaTeX; its charts, examples, validation cases and timeline are blocks.
   import "katex/dist/katex.min.css";
 
-  import { ArrowLeft, BookOpen, ChevronDown, CircleCheck, CircleX, CircuitBoard, Clock, Eye, Play, ShieldCheck, SquarePen } from "@lucide/svelte";
+  import { ArrowLeft, BookOpen, ChevronDown, CircleCheck, CircleX, CircuitBoard, Clock, Eye, Play, ShieldCheck, SquarePen, TableOfContents } from "@lucide/svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
 
   import { academy, DEPTHS, type ChartSpec, type DiagramSpec, type Depth, type Lesson, type LessonSection } from "../lib/academy.svelte";
@@ -151,6 +151,16 @@
   <!-- the links in the lesson's text are buttons in all but name; the click is delegated -->
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
   <article class="min-w-0 flex-1 overflow-y-auto" onclick={click}>
+    <div class="pointer-events-none sticky top-0 z-20 h-0 2xl:hidden">
+      <div class="dropdown dropdown-end pointer-events-auto absolute top-2 right-3">
+        <div tabindex="0" role="button" class="btn gap-1.5 border-base-content/10 bg-base-100/90 btn-sm shadow-sm backdrop-blur" title="Jump to a section">
+          <TableOfContents size={14} /> Contents
+        </div>
+        <div tabindex="-1" class="dropdown-content z-30 mt-1 max-h-[70vh] w-72 overflow-y-auto rounded-box border border-base-content/10 bg-base-100 p-1.5 shadow-xl">
+          {@render outline(blur)}
+        </div>
+      </div>
+    </div>
     <header class="glow border-b border-base-content/8">
       <div class="mx-auto max-w-3xl px-5 pt-6 pb-6 sm:px-8">
         <button class="btn -ml-2 mb-3 gap-1.5 btn-ghost btn-sm md:hidden" onclick={onback}><ArrowLeft size={15} /> Lessons</button>
@@ -218,10 +228,18 @@
         {@const open = isOpen(s)}
         <section id="section-{s.id}" class="scroll-mt-4">
           {#if s.title && s.depth === "intuition"}
-            <h3 class="mt-10 mb-2 text-xl font-semibold tracking-tight">{s.title}</h3>
+            {#if s.level === 3}
+              <h4 class="mt-7 mb-1 text-base font-semibold tracking-tight">{s.title}</h4>
+            {:else}
+              <h3 class="mt-10 mb-2 text-xl font-semibold tracking-tight">{s.title}</h3>
+            {/if}
           {:else if s.title}
-            <button class="group mt-10 flex w-full items-center gap-3 text-left" onclick={() => toggle(s)} aria-expanded={open}>
-              <h3 class="text-xl font-semibold tracking-tight">{s.title}</h3>
+            <button class="group {s.level === 3 ? 'mt-7' : 'mt-10'} flex w-full items-center gap-3 text-left" onclick={() => toggle(s)} aria-expanded={open}>
+              {#if s.level === 3}
+                <h4 class="text-base font-semibold tracking-tight">{s.title}</h4>
+              {:else}
+                <h3 class="text-xl font-semibold tracking-tight">{s.title}</h3>
+              {/if}
               <span class="badge badge-soft badge-sm {DEPTH[s.depth].badge}">{DEPTH[s.depth].label.toLowerCase()}</span>
               <span class="flex-1 border-t border-base-content/8"></span>
               <span class="flex items-center gap-1 text-xs faint group-hover:text-base-content">
@@ -289,16 +307,28 @@
     </div>
   </article>
 
-  <nav class="hidden w-56 shrink-0 overflow-y-auto border-l border-base-content/8 px-3 py-6 2xl:block" aria-label="On this page">
+  <nav class="hidden w-60 shrink-0 overflow-y-auto border-l border-base-content/8 px-3 py-6 2xl:block" aria-label="On this page">
     <p class="mb-2 px-2 panel-title">On this page</p>
-    {#each lesson.sections.filter((s) => s.title) as s (s.id)}
-      <button class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-base-content/5 {isOpen(s) ? '' : 'faint'}" onclick={() => reveal(s)}>
-        <span class="min-w-0 flex-1 truncate">{s.title}</span>
-        {#if s.depth !== "intuition"}<span class="size-1.5 shrink-0 rounded-full {s.depth === 'theory' ? 'bg-info' : 'bg-secondary'}" title={DEPTH[s.depth].label}></span>{/if}
-      </button>
-    {/each}
+    {@render outline()}
   </nav>
 </div>
+
+<!-- the lesson's sections and their parts, to jump to: beside the lesson on a wide window, from
+     the Contents button otherwise -->
+{#snippet outline(after?: () => void)}
+  {#each lesson.sections.filter((s) => s.title) as s (s.id)}
+    <button
+      class="flex w-full items-center gap-2 rounded-md py-1.5 pr-2 text-left hover:bg-base-content/5 {s.level === 3 ? 'pl-5 text-[12px]' : 'pl-2 text-[13px]'} {isOpen(s) ? '' : 'faint'}"
+      onclick={() => {
+        after?.();
+        reveal(s);
+      }}
+    >
+      <span class="min-w-0 flex-1 truncate">{s.title}</span>
+      {#if s.depth !== "intuition"}<span class="size-1.5 shrink-0 rounded-full {s.depth === 'theory' ? 'bg-info' : 'bg-secondary'}" title={DEPTH[s.depth].label}></span>{/if}
+    </button>
+  {/each}
+{/snippet}
 
 <style>
   .lesson-text {
