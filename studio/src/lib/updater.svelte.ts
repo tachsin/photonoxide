@@ -5,6 +5,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 
 import { app, toast } from "./app.svelte";
+import { checkNightly, onNightly } from "./nightly.svelte";
 
 export const updater = $state({
   status: "idle" as "idle" | "checking" | "none" | "publishing" | "available" | "downloading" | "installing" | "error",
@@ -63,8 +64,12 @@ function onTheWay(version: string, quiet: boolean) {
   soon = setTimeout(() => checkForUpdate(true), 3 * 60_000);
 }
 
-/** Looks for a newer release; `quiet` says nothing unless one is found. */
+/**
+ * Looks for an update on the channel the settings choose: a newer release on Stable, main's new
+ * commits on Nightly. `quiet` says nothing unless one is found.
+ */
 export async function checkForUpdate(quiet: boolean) {
+  if (onNightly()) return checkNightly(quiet);
   if (!app.state?.updatable) {
     if (!quiet) toast("This copy was built from the repository, so it doesn't update itself: pull and rebuild.", "info");
     return;

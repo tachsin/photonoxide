@@ -21,6 +21,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 
+pub mod accelerate;
 pub mod blas;
 mod cuda;
 mod cudss;
@@ -35,6 +36,7 @@ mod pardiso;
 mod smoke;
 pub mod superlu;
 
+pub use accelerate::Accelerate;
 pub use blas::Blas;
 pub use cudss::Cudss;
 pub use discovery::{Candidate, Discovery, Source, Spec, Status, discover, versioned};
@@ -103,6 +105,13 @@ pub fn register_all() -> Vec<Probe> {
         Ok(superlu) => offer(std::sync::Arc::new(superlu)).map(drop),
         Err(reason) => photonoxide::backend::register_unavailable("superlu", reason),
     };
+    // (off macOS it isn't listed at all: there is nothing a user could do about it)
+    if cfg!(target_os = "macos") {
+        let _ = match Accelerate::load() {
+            Ok(accelerate) => offer(std::sync::Arc::new(accelerate)).map(drop),
+            Err(reason) => photonoxide::backend::register_unavailable("accelerate", reason),
+        };
+    }
     // photonoxide's own solver with each library's dense kernels in its fronts
     for (name, kernels) in blas::all() {
         let _ = match kernels {
@@ -119,6 +128,9 @@ pub fn register_all() -> Vec<Probe> {
     probes.push(intel::probe());
     probes.push(mumps::probe());
     probes.push(superlu::probe());
+    if cfg!(target_os = "macos") {
+        probes.push(accelerate::probe());
+    }
     probes.push(blas::probe());
     probes
 }

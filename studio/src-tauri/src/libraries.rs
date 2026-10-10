@@ -16,7 +16,9 @@ use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
 use photonoxide::backend::{self, Listed, Threads};
-use photonoxide_native::{Candidate, Discovery, Spec, Status, blas, intel, mumps, nvidia, superlu};
+use photonoxide_native::{
+    Candidate, Discovery, Spec, Status, accelerate, blas, intel, mumps, nvidia, superlu,
+};
 use serde::Serialize;
 
 /// A command that installs a library.
@@ -145,9 +147,9 @@ pub const GUIDES: &[Guide] = &[
     },
     Guide {
         library: "oneMKL",
-        about: "Intel's oneAPI Math Kernel Library, through its single library mkl_rt: PARDISO, its sparse direct solver.",
-        provides: &["direct"],
-        backends: &["pardiso"],
+        about: "Intel's oneAPI Math Kernel Library, through its single library mkl_rt: PARDISO, its sparse direct solver, and its BLAS and LAPACK as the dense kernels of photonoxide's own solver's fronts.",
+        provides: &["direct", "dense"],
+        backends: &["pardiso", "photonoxide-mkl"],
         needs: &[],
         licence: "Intel Simplified Software License (October 2022)",
         licence_url: "https://cdrdv2-public.intel.com/749362/intel-simplified-license-software-october-2022.pdf",
@@ -564,6 +566,32 @@ pub const GUIDES: &[Guide] = &[
         built_in: false,
     },
     Guide {
+        library: "Accelerate",
+        about: "Apple's Accelerate framework, its sparse direct solvers, and its BLAS and LAPACK as the dense kernels of photonoxide's own solver's fronts: part of macOS, nothing to install. Complex LU from macOS 15.5, complex symmetric L D Lᵀ from macOS 26.",
+        provides: &["direct", "dense"],
+        backends: &["accelerate", "photonoxide-accelerate"],
+        needs: &[],
+        licence: "Part of macOS, under Apple's software licence agreement for it",
+        licence_url: "https://www.apple.com/legal/sla/",
+        download: "https://developer.apple.com/documentation/accelerate/sparse_solvers",
+        installs: &[],
+        unsupported: &[
+            (
+                "macos",
+                "Built in: nothing to install. Its complex LU needs macOS 15.5, its complex symmetric L D Lᵀ macOS 26; on an older macOS photonoxide's own solvers run.",
+            ),
+            (
+                "windows",
+                "Accelerate is part of macOS: photonoxide's own solvers run here.",
+            ),
+            (
+                "linux",
+                "Accelerate is part of macOS: photonoxide's own solvers run here.",
+            ),
+        ],
+        built_in: false,
+    },
+    Guide {
         library: "OpenBLAS",
         about: "An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts, in place of faer's.",
         provides: &["dense"],
@@ -655,22 +683,6 @@ pub const PLANNED: &[Planned] = &[
         ],
     },
     Planned {
-        library: "Apple Accelerate",
-        about: "macOS's own BLAS, LAPACK and sparse solvers: dense kernels and a direct backend on a Mac.",
-        issue: 187,
-        licence: "part of macOS",
-        home: "https://developer.apple.com/documentation/accelerate",
-        installs: &[],
-        unsupported: &[
-            (
-                "macos",
-                "Built in: nothing to install. Which macOS first has its complex sparse solvers is for #187 to confirm.",
-            ),
-            ("windows", "A macOS framework."),
-            ("linux", "A macOS framework."),
-        ],
-    },
-    Planned {
         library: "Arm Performance Libraries",
         about: "Arm's BLAS and LAPACK: dense kernels on Arm processors.",
         issue: 186,
@@ -697,6 +709,7 @@ fn spec(library: &str) -> Option<&'static Spec> {
         &intel::MKL,
         &mumps::MUMPS,
         &superlu::SUPERLU,
+        &accelerate::ACCELERATE,
         &blas::OPENBLAS,
     ]
     .into_iter()
@@ -1232,6 +1245,7 @@ mod tests {
             intel::MKL.name,
             mumps::MUMPS.name,
             superlu::SUPERLU.name,
+            accelerate::ACCELERATE.name,
             blas::OPENBLAS.name,
         ] {
             assert!(spec(name).is_some(), "{name}");
@@ -1247,7 +1261,15 @@ mod tests {
             assert!(g.licence_url.starts_with("https://"), "{}", g.library);
             assert!(g.download.starts_with("https://"), "{}", g.library);
             assert!(!g.licence.is_empty() && !g.about.is_empty());
-            assert_eq!(g.built_in, g.installs.is_empty(), "{}", g.library);
+            // nothing installs what is built in, or what is part of one system
+            if g.installs.is_empty() && !g.built_in {
+                assert_eq!(g.library, "Accelerate");
+                assert!(g.unsupported.iter().any(|(s, _)| *s == "windows"));
+                assert!(g.unsupported.iter().any(|(s, _)| *s == "linux"));
+                assert!(g.unsupported.iter().any(|(s, _)| *s == "macos"));
+            } else {
+                assert_eq!(g.built_in, g.installs.is_empty(), "{}", g.library);
+            }
             for need in g.needs {
                 assert!(GUIDES.iter().any(|n| n.library == *need), "{need}");
             }

@@ -6,12 +6,15 @@ import type { Academy, ChartData } from "./academy.svelte";
 import type { Event, Scene } from "./events";
 import type { BenchData, BenchRequest, CatalogueEntry, Planned } from "./bench.svelte";
 import type { LibraryReport } from "./libraries.svelte";
+import type { BuildInfo } from "./nightly.svelte";
 
 export interface Settings {
   /** "system", "dark" or "light" (the studio's own themes), or a further theme's name (lib/themes.ts). */
   theme: string;
   workspace: string | null;
   check_updates: boolean;
+  /** The release channel: "stable", the signed releases, or "nightly", main built here (lib/nightly.svelte.ts). */
+  channel: string;
   hints: boolean;
   tour_done: boolean;
   dismissed: string[];
@@ -26,6 +29,8 @@ export interface AppState {
   version: string;
   platform: string;
   updatable: boolean;
+  /** What this copy was built from: its commit, and its channel. */
+  build: BuildInfo;
 }
 
 export interface Info {
