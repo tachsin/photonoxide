@@ -360,6 +360,13 @@ fn is_version(text: &str) -> bool {
             .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
 }
 
+/// The releases photonoxide knows the structure of, the oldest first: any other is refused.
+pub fn releases() -> impl Iterator<Item = &'static str> {
+    [&OLD, &NEW]
+        .into_iter()
+        .flat_map(|l| l.versions.iter().copied())
+}
+
 /// The layout of the release `version`, if photonoxide has its header's.
 fn layout_of(version: &str) -> Option<&'static Layout> {
     [&OLD, &NEW]
@@ -851,6 +858,12 @@ mod tests {
         }
         assert_eq!(s.text(OLD.version_number + 3, 31), "5.8.2");
         assert!(is_version("5.8.2") && is_version("5.10.0"));
+        // every release with a layout is one, the oldest first, and has its layout
+        let known: Vec<&str> = releases().collect();
+        assert_eq!((known[0], known[known.len() - 1]), ("5.4.1", "5.8.2"));
+        for v in known {
+            assert!(is_version(v) && layout_of(v).is_some(), "{v}");
+        }
         for not in ["", "5.8", "5.8.2.1", "5.8.x", "MUMPS", "5..2"] {
             assert!(!is_version(not), "{not}");
         }

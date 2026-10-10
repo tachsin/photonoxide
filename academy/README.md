@@ -11,6 +11,7 @@ moving a slider shows the physics the library computes, the code the
 |---|---|---|---|
 | [The ring resonator](ring-resonator.md) | introductory | `ring` | `ring-spectrum`, `ring-coupling` |
 | [Bragg gratings and mirrors](bragg-gratings.md) | intermediate | `bragg` | `bragg-reflectance`, `bragg-bandwidth` |
+| [The Mach–Zehnder interferometer](mach-zehnder.md) | introductory | `mzi` | `mzi-spectrum`, `mzi-extinction` |
 
 ## A lesson's file
 
@@ -110,6 +111,7 @@ shows first.
 |---|---|---|
 | `ring` | a ring and its bus from above: $R$, $w$, $g$, the coupler's $r_1$ and $k_1$, the round trip's $a e^{i\phi}$, the fields $a_1$, $b_1$, $a_2$, $b_2$, the input and through ports, and a faint second bus with its $r_2$, $k_2$, drop and add | `ring-fdfd.toml` |
 | `bragg` | a quarter-wave stack in section: $N$ pairs of $n_H$ and $n_L$, $d_H$, $d_L$ and $\Lambda$, the cover $n_0$ and substrate $n_s$, the incident, reflected ($r$) and transmitted ($t$) waves; and a waveguide grating from above, its period $\Lambda$ and length $L = N\Lambda$ | `bragg-grating.toml` |
+| `mzi` | a Mach–Zehnder interferometer from above: the splitter's $r_1$, $k_1$ and the combiner's $r_2$, $k_2$, arms of $L$ and $L + \Delta L$ (the longer drawn longer) with their fields $a_l e^{i\phi_l}$ and $a_u e^{i\phi_u}$, a phase shifter $\varphi$, the phase difference $\Delta\phi$, the input and the bar and cross outputs | `mzi-mmi.toml` |
 
 Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
 job if it has one) and an SVG drawn by a component in `studio/src/components/diagrams/`, named
@@ -128,6 +130,8 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `ring-coupling` | `radius` µm (10), `loss` dB/cm (3), `drop` κ₂² (0) | `AllPassRing`, `AddDropRing`: `extremes`, `q_factor` |
 | `bragg-reflectance` | `high` (2.3), `low` (1.38), `pairs` (8), `period` nm (160), `cover` (1.0), `substrate` (1.52), `from` and `to` nm (350, 950) | `Multilayer::reflection`, and the endless stack's band as below |
 | `bragg-bandwidth` | `low` (1.45), `up_to` (2.0) | `Multilayer::reflection`: one period's transmission $t$, and $\cos K\Lambda = \operatorname{Re}(1/t)$ |
+| `mzi-spectrum` | `delta` ΔL µm (50), `split` κ₁² (0.5), `combine` κ₂² (0.5), `loss` dB/cm (3), `phase` φ/π (0), `group_index` (4.2), `window` nm (40) | a `Netlist` of `Coupler`, `Waveguide` and `PhaseShifter` solved by `Circuit::spectrum`, its peaks found on the spectrum; the extremes by `mzi_closed_form` |
+| `mzi-extinction` | `combine` κ₂² (0.5), `loss` dB/cm (3), `delta` ΔL µm (50) | `mzi_closed_form`, with `Coupler`'s and `Waveguide`'s S-matrices |
 
 The ranges are in `charts.rs`, and the window's sliders keep to them.
 

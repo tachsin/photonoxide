@@ -254,10 +254,13 @@ fn release(path: &Path) -> Option<(String, u32)> {
     Some((numbers.join("."), major))
 }
 
+/// The major releases whose drivers photonoxide calls: any other is refused.
+pub const RELEASES: std::ops::RangeInclusive<u32> = 5..=7;
+
 /// The release of the library at `path`, if it is one whose `zgssvx` this is.
 fn supported(path: &Path) -> Result<(String, u32)> {
     match release(path) {
-        Some((version, major)) if (5..=7).contains(&major) => Ok((version, major)),
+        Some((version, major)) if RELEASES.contains(&major) => Ok((version, major)),
         Some((version, _)) => Err(error(format!(
             "SuperLU {version}: photonoxide knows releases 5, 6 and 7"
         ))),

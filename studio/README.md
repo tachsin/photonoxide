@@ -8,6 +8,8 @@ program runs jobs headless, replays runs, runs the built-in examples and checks 
 ```sh
 photonoxide                      # the studio
 photonoxide run <job.toml> [--out <dir>] [--headless] [--linger <seconds>]
+                 [--workers <n>] [--worker <host:port>]... [--token <token>] [--task-timeout <seconds>]
+photonoxide worker [--listen <address>] [--token <token>] [--slots <n>] [--once]
 photonoxide view <run directory>
 photonoxide example <name>       # a published result reproduced; --list lists them
 photonoxide validate [--write <file> | --check <file>]
@@ -18,6 +20,14 @@ photonoxide --version
 Started with `run`, the window starts with the run and closes by itself a few seconds after it
 ends. If you close it first, the run stops. Every run is recorded in `runs/<run>/events.jsonl`, and the
 window only follows that record, so a live run and a replay look the same.
+
+A sweep's points can be farmed to other processes: `--workers 4` starts four workers on this
+machine for the run, and `--worker host:port` (repeated) adds workers started on other machines
+with `photonoxide worker --listen <address> --token <token>`. The run records the points in
+order as they come back, so the window follows a farmed run like any other, and the record is
+the one the run writes on its own, to the last bit. A worker listens on 127.0.0.1:7878 by
+default and needs a token to listen beyond this machine; its traffic isn't encrypted, so use it
+only on a network you trust. See [docs/farming.md](../docs/farming.md).
 
 ## The studio
 
