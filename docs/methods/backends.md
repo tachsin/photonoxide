@@ -1,4 +1,9 @@
-# Solver backends
+---
+title: "Sparse direct solves and their backends"
+module: backend
+summary: "The one place the solvers ask for a sparse direct solve: photonoxide's own multifrontal LU and L D Lᵀ, the default and the reference, or another library registered at run time, each declaring what it can do and checked against photonoxide's own."
+order: 19.7
+---
 
 `photonoxide::backend` is the one place the solvers ask for a sparse direct solve, so that
 another library can stand in for photonoxide's own. It is safe Rust and links nothing: a backend

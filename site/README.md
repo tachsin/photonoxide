@@ -29,7 +29,7 @@ What the pages read from the repository, at the latest release's tag (or the pin
 
 | File | Page |
 | --- | --- |
-| `docs/methods/<slug>.md` | a method: front matter (title, module, summary, order, papers with DOIs, validation case ids, examples) and its write-up in Markdown with `$…$` and `$$…$$` math |
+| `docs/methods/<slug>.md` | a method: front matter (title, module, summary, order, papers with DOIs, validation case ids, examples) and its write-up in Markdown with `$…$` and `$$…$$` math; its category is in `methods.js` (see "The methods' categories" below), and without a title its first `# ` heading is its title |
 | `examples/<name>.rs`, `examples/output/<name>.txt` | an example: its doc comment (the first sentence is the title), its code, and what it prints, which CI checks |
 | `docs/validation.md` | the validation report, which `photonoxide validate` writes and CI checks; its cases' math is `$…$` |
 | `docs/getting-started.md` | the docs page |
@@ -80,3 +80,15 @@ works today and what is to come follow its `milestone` in ROADMAP.md at the late
 them with no edit here. The studio's tests (`studio/src-tauri/tests/site.rs`) fail when a
 highlight names a milestone ROADMAP.md doesn't have, or `FALLBACK_MILESTONES` isn't ROADMAP.md's
 headings. When a release adds something worth a highlight, add one with its milestone.
+
+## The methods' categories
+
+The methods page groups the write-ups by what they compute: waveguide modes, full-wave
+simulation (FDFD and FDTD), numerical linear algebra, gradients, circuits and compact models, and
+last the foundations (units, geometry, expressions, materials), which the methods stand on but
+aren't methods and aren't counted on the overview. It ends with an index of the named algorithms
+(Krylov–Schur, QMR, multigrid, vector fitting, …) and the write-ups they're in. Both live in
+`methods.js` (`CATEGORIES`, `ALGORITHMS`), not in the write-ups, so the page's code can group a
+release's write-ups however old. A write-up `CATEGORIES` doesn't name shows under "More", never
+hidden, and `site.rs` fails until it is named: a new write-up in `docs/methods` takes a line there,
+in its category and group, in the same PR.
