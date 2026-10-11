@@ -3,8 +3,8 @@ import site from "@/photonoxide-site.json";
 /**
  * photonoxide's static facts: names, links and the landing page's copy.
  * Everything that changes with the repository (the methods, examples, the
- * validation report, the roadmap) is read from it at the pinned commit
- * instead: see github.js and the loaders beside it.
+ * validation report, the roadmap, and the highlights' status) is read from it
+ * at the latest release instead: see github.js and the loaders beside it.
  */
 
 export const PHOTONOXIDE_REPO = "tachsin/photonoxide";
@@ -30,7 +30,7 @@ export const ROADMAP_PATH = "/projects/photonoxide/roadmap";
 export const DOCS_PATH = "/projects/photonoxide/docs";
 
 export const PHOTONOXIDE_DESCRIPTION =
-  "photonoxide is a photonics library for Rust: materials with provenance, mode solvers, 2D and 3D FDFD, components and circuits with their adjoint, and compact models, with a studio to build jobs and chips and watch every run live. Every method is validated against analytic solutions and published results. FDTD, active devices, inverse design and layout export are planned.";
+  "photonoxide is a photonics library for Rust: materials with provenance, mode solvers, 2D and 3D FDFD and FDTD on the CPU and GPU, components and circuits with their adjoint, and compact models, with a studio to build jobs and chips and watch every run live. Every method is validated against analytic solutions and published results. Active devices, inverse design and layout export are planned.";
 
 export const PHOTONOXIDE_LICENSE = "MIT OR Apache-2.0";
 
@@ -65,84 +65,101 @@ export const PHOTONOXIDE_KEYWORDS = [
   "GDSII",
   "PDK",
   "Rust",
+  "GPU",
+  "computational electromagnetics",
+  "integrated photonics",
 ];
 
 /**
- * Landing page highlights: what the library does now, then what the roadmap plans. `icon` is a
- * key of HIGHLIGHT_ICONS in the page; `status` is "released" (on crates.io), "main" (on the
- * main branch, for the next release) or "planned" (ROADMAP.md's later milestones).
+ * Landing page highlights: what the library does, then what the roadmap plans. `icon` is a key
+ * of HIGHLIGHT_ICONS in the page. `milestone` is the ROADMAP.md milestone that brings it: the
+ * page reads its status from the roadmap at the latest release, so a highlight shows as done,
+ * next or planned without an edit here. One without a milestone is always true. `hero` is its
+ * name in the hero's line, which lists what is done and what is to come.
  */
 export const PHOTONOXIDE_HIGHLIGHTS = [
   {
     icon: "modes",
     title: "Mode solvers",
-    status: "released",
-    body: "Exact slabs and multilayers, full-vector cross-sections with PMLs and Hadley's corner equations, bends, the effective index method, dispersion and overlaps.",
+    milestone: "0.2",
+    hero: "mode solvers",
+    body: "Exact slabs and multilayers, full-vector cross-sections with PMLs and Hadley's corner equations, bends, the effective index method, dispersion and overlaps, and every mode in a region of n_eff by contour integrals.",
   },
   {
     icon: "fields",
     title: "FDFD",
-    status: "released",
-    body: "Frequency-domain finite differences in 2D and 3D on Yee's grid: stretched-coordinate PMLs, mode ports and reciprocal S-matrices in 2D and 3D, adjoint gradients in 2D, and direct and preconditioned QMR solves.",
+    milestone: "0.3",
+    hero: "FDFD",
+    body: "Frequency-domain finite differences in 2D and 3D on Yee's grid: stretched-coordinate PMLs, mode ports and reciprocal S-matrices, adjoint gradients, and direct and preconditioned QMR solves, all of a 3D S-matrix's ports as one block.",
   },
   {
     icon: "materials",
     title: "Materials catalogue",
-    status: "released",
+    milestone: "0.3.x",
     body: "Silica, silicon, nitride, lithium niobate, GaAs, AlGaAs, InGaP, InP and AlN: index models, crystals, χ⁽²⁾ and Pockels tensors, every number from its paper.",
   },
   {
     icon: "studio",
     title: "The studio",
-    status: "released",
-    body: "A desktop app on a workspace: the examples built in, a job builder with a 3D preview, runs live in 3D and 2D, run comparison, the materials, the validation report, and updates by one click.",
+    milestone: "0.3.1",
+    body: "A desktop app on a workspace: the examples built in, a job builder with a 3D preview, runs live in 3D and 2D, run comparison, the materials, the validation report, the Academy's lessons, and Stable and Nightly channels.",
   },
   {
     icon: "circuits",
     title: "Components and circuits",
-    status: "released",
+    milestone: "0.4",
+    hero: "circuits",
     body: "Waveguides, couplers, MMIs, rings and MZIs with ports and fidelities; netlists solved as one sparse system; the circuit adjoint and genoxide's optimizers; the studio's component library and chip view.",
   },
   {
     icon: "compact",
     title: "Compact models",
-    status: "released",
+    milestone: "0.4",
     body: "Vector fitting with its error, stability and passivity, models over parameters, and Touchstone files read and written as the measured fidelity.",
-  },
-  {
-    icon: "rust",
-    title: "Pure Rust",
-    status: "released",
-    body: "No C, Fortran or Python, from the linear algebra up, and no Python bindings. Spectra are solved in parallel on the CPU.",
   },
   {
     icon: "time",
     title: "FDTD and GPU",
-    status: "planned",
-    body: "Time-domain finite differences in 2D and 3D with CPML, subpixel smoothing and dispersive media, and a GPU backend.",
+    milestone: "0.5",
+    hero: "FDTD on the CPU and GPU",
+    body: "Time-domain finite differences in 2D and 3D: CPML, subpixel smoothing, mode sources and Gaussian beams, DFT monitors and harmonic inversion, Drude and Lorentz media, 3D adjoint gradients, and a GPU backend on wgpu.",
+  },
+  {
+    icon: "solves",
+    title: "Many solves at once",
+    milestone: "0.5.2",
+    body: "Direct solvers chosen from this machine's benchmarks, MUMPS, SuperLU and Accelerate among them; Krylov subspaces recycled across sweeps and adjoints; sweeps and whole jobs farmed to worker processes, here or over TCP.",
+  },
+  {
+    icon: "rust",
+    title: "Rust first",
+    body: "Pure Rust from the linear algebra up, spectra solved in parallel on the CPU. External solvers are optional, loaded at run time; Python and MATLAB packages wrap a small, stable façade.",
   },
   {
     icon: "active",
     title: "Active devices",
-    status: "planned",
+    milestone: "0.6",
+    hero: "active devices",
     body: "Thermo-optic phase shifters, Pockels modulators in thin-film lithium niobate, travelling-wave electrodes, and carrier modulators.",
   },
   {
     icon: "inverse",
     title: "Inverse design",
-    status: "planned",
+    milestone: "0.7",
+    hero: "inverse design",
     body: "Adjoint topology and shape optimization with robust and fabrication-rule constraints, on genoxide's optimizers.",
   },
   {
     icon: "layout",
     title: "Layout and PDKs",
-    status: "planned",
+    milestone: "0.9",
+    hero: "layout export",
     body: "GDSII and OASIS, parametric cells with ports, routing, and design-rule checks on the rules the user loads.",
   },
   {
     icon: "export",
     title: "Fabrication data",
-    status: "planned",
+    milestone: "0.10",
     body: "Layout packages on the user's layer map, with test structures, design and connectivity checks, and a design record.",
   },
 ];
@@ -184,11 +201,11 @@ export const PHOTONOXIDE_PIPELINE = [
 export const PHOTONOXIDE_VALIDATION = [
   {
     title: "Analytic",
-    body: "Closed forms and exact properties: the exact slab and bent slab, Fresnel and transfer-matrix reflection, PML reflection, reciprocity, energy conservation and unitarity, ring responses and free spectral ranges, and every adjoint against finite differences.",
+    body: "Closed forms and exact properties: the exact slab and bent slab, Fresnel and transfer-matrix reflection, PML and CPML reflection, the Yee scheme's numerical dispersion, reciprocity, energy conservation and unitarity, ring responses and free spectral ranges, and every adjoint against finite differences.",
   },
   {
     title: "Published",
-    body: "Papers' tables and figures reproduced: material data (Li, Malitson, Zelmon and more), Marcatili, Hadley's corner problems, the leaky photonic-wire benchmark, Bogaerts's rings, Gustavsen and Semlyen's vector fitting.",
+    body: "Papers' tables and figures reproduced: material data (Li, Malitson, Zelmon and more), Marcatili, Hadley's corner problems, the leaky photonic-wire benchmark, Bogaerts's rings, Gustavsen and Semlyen's vector fitting, Mie's scattering table, Meep's PML convergence rates, and Liu and Poon's open-PDK devices beside two commercial codes' results.",
   },
   {
     title: "Measured",
@@ -203,7 +220,7 @@ export const PHOTONOXIDE_VALIDATION = [
 
 /**
  * The milestones when ROADMAP.md can't be fetched: titles only, no
- * progress. Keep in step with the repository's roadmap.
+ * progress. Its headings, in order: the studio's tests check it.
  */
 export const FALLBACK_MILESTONES = [
   "0.0: Project setup ✅",
@@ -217,8 +234,9 @@ export const FALLBACK_MILESTONES = [
   "0.4.1: Polish ✅",
   "0.4.2: A preconditioner for high-contrast 3D FDFD, and the whole machine (CPU) ✅",
   "0.4.3: Direct solves at PARDISO's fill ✅",
-  "0.5: Finite-difference time-domain (FDTD)",
-  "0.5.1: Many solves at once",
+  "0.5: Finite-difference time-domain (FDTD) ✅",
+  "0.5.1: Channels, more backends, and every mode in a region ✅",
+  "0.5.2: Many solves at once ✅",
   "0.6: Thermal and electro-optic devices",
   "0.6.1: Nonlinear integrated optics",
   "0.6.2: Quantum light and linear-optical statistics",
@@ -231,7 +249,7 @@ export const FALLBACK_MILESTONES = [
   "0.12: Semi-analytic methods",
   "0.13: Device library",
   "0.14: Periodic structures and nanophotonics",
-  "0.15: Nonlinear and fiber optics",
+  "0.15: Nonlinear FDTD and fiber optics",
   "0.16: Beyond",
   "1.0: Stable",
 ];

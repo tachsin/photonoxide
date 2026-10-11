@@ -10,6 +10,7 @@ import {
   Package,
   FlaskConical,
   Gem,
+  Layers,
   MonitorPlay,
   Sparkles,
   Waves,
@@ -69,11 +70,12 @@ const HIGHLIGHT_ICONS = {
   layout: CircuitBoard,
   export: Package,
   studio: MonitorPlay,
+  solves: Layers,
   rust: SiRust,
 };
 
-// a highlight's status (meta.js), as its tag shows it
-const HIGHLIGHT_STATUS = { main: "On main", planned: "Planned" };
+// a highlight's status, its milestone's in the roadmap, as its tag shows it (done shows none)
+const HIGHLIGHT_STATUS = { next: "Next", planned: "Planned" };
 
 const HERO_LINKS = [
   { label: "GitHub", href: PHOTONOXIDE_LINKS.github, Icon: SiGithub },
@@ -94,6 +96,17 @@ const RESOURCES = [
 ];
 
 const STATUS_LABEL = { done: "Done", next: "Next", planned: "Planned" };
+
+// a highlight's status: its milestone's in the roadmap; one without a milestone is done
+function highlightStatus(h, milestones) {
+  if (!h.milestone) return "done";
+  return milestones.find((m) => m.version === h.milestone)?.status ?? "planned";
+}
+
+// "a, b and c"
+function listed(names) {
+  return names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+}
 
 function structuredData() {
   const url = absoluteUrl(PHOTONOXIDE_PATH);
@@ -145,13 +158,16 @@ export default async function PhotonoxidePage() {
   ]);
   const passing = report.cases.filter((c) => c.passed).length;
   const now = milestones.find((m) => m.status === "next");
+  const highlights = PHOTONOXIDE_HIGHLIGHTS.map((h) => ({ ...h, status: highlightStatus(h, milestones) }));
+  const heroDone = listed(highlights.filter((h) => h.hero && h.status === "done").map((h) => h.hero));
+  const heroComing = listed(highlights.filter((h) => h.hero && h.status !== "done").map((h) => h.hero));
   const today = [
     {
       Icon: BookOpen,
       href: METHODS_PATH,
       count: methods.length || null,
       label: "methods",
-      body: "From exact slabs and full-vector modes to FDFD, circuits and compact models, each with its paper and its limits.",
+      body: "From exact slabs and full-vector modes to FDFD, FDTD, circuits and compact models, each with its paper and its limits.",
     },
     {
       Icon: PlayCircle,
@@ -192,8 +208,9 @@ export default async function PhotonoxidePage() {
           photonoxide
         </h1>
         <p className="proj-rise-1 mx-auto mt-5 max-w-2xl text-balance text-base-content/80 text-lg sm:text-xl">
-          Photonics for Rust: mode solvers, FDFD, and components and circuits today; FDTD, inverse design and layout
-          export to come. With a studio to build jobs and chips and watch every run live.
+          {/* from the highlights' milestones, so it moves with the roadmap */}
+          Photonics for Rust: {heroDone} today{heroComing ? `; ${heroComing} to come` : ""}. With a studio to
+          build jobs and chips and watch every run live.
         </p>
         <p className="proj-rise-1 mx-auto mt-3 max-w-xl text-balance text-base-content/60 text-sm">
           Validated against analytic solutions, published results and published measurements. Aware of
@@ -262,7 +279,7 @@ export default async function PhotonoxidePage() {
           Some of it is here; the rest is planned.
         </SectionHeading>
         <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {PHOTONOXIDE_HIGHLIGHTS.map((h) => {
+          {highlights.map((h) => {
             const Icon = HIGHLIGHT_ICONS[h.icon] ?? Sparkles;
             return (
               <li key={h.title} className="proj-card p-5">
@@ -271,7 +288,7 @@ export default async function PhotonoxidePage() {
                     <Icon size={19} aria-hidden />
                   </span>
                   {HIGHLIGHT_STATUS[h.status] ? (
-                    <span className="proj-tag shrink-0" data-tone={h.status === "main" ? "accent" : undefined}>
+                    <span className="proj-tag shrink-0" data-tone={h.status === "next" ? "accent" : undefined}>
                       {HIGHLIGHT_STATUS[h.status]}
                     </span>
                   ) : null}

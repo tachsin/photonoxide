@@ -22,7 +22,7 @@ the pinned commit instead.
 | Folder | In the app |
 | --- | --- |
 | `app/projects/photonoxide/` | the routes: the overview, `/docs` (getting started), `/methods` and `/methods/[slug]`, `/examples` and `/examples/[slug]`, `/validation`, `/roadmap`, the sub-navigation layout and the Open Graph image |
-| `lib/projects/photonoxide/` | the data: static facts (`meta.js`), and the repository's files read from GitHub at the latest release's tag (`github.js`): the methods, the examples, the validation report, the roadmap and the release's version, and Markdown with TeX math (`markdown.js`) |
+| `lib/projects/photonoxide/` | the data: static facts and copy (`meta.js`), and the repository's files read from GitHub at the latest release's tag (`github.js`): the methods, the examples, the validation report, the roadmap and the release's version, and Markdown with TeX math (`markdown.js`) |
 | `components/projects/photonoxide/` | the components only these pages use: `HeroLight`, the overview's light animation, and `ValidationRows`, the report's table |
 
 What the pages read from the repository, at the latest release's tag (or the pinned commit):
@@ -33,7 +33,7 @@ What the pages read from the repository, at the latest release's tag (or the pin
 | `examples/<name>.rs`, `examples/output/<name>.txt` | an example: its doc comment (the first sentence is the title), its code, and what it prints, which CI checks |
 | `docs/validation.md` | the validation report, which `photonoxide validate` writes and CI checks; its cases' math is `$…$` |
 | `docs/getting-started.md` | the docs page |
-| `ROADMAP.md` | the roadmap and the overview's milestones |
+| `ROADMAP.md` | the roadmap, the overview's milestones, and its highlights' status and hero line (each highlight in `meta.js` names its milestone) |
 | `CHANGELOG.md` | the latest release's version when GitHub's releases can't be read: its first `## [x.y.z]` heading, on the overview (`release.js`) |
 
 Links between method write-ups (`pml.md`) become links between their pages; other relative links go to GitHub.
@@ -71,3 +71,12 @@ and the validation page).
 
 The other way, the app uses `photonoxidePaths` from `lib/projects/photonoxide/paths.js` for its
 sitemap (the registry's `extraPaths`).
+
+## Keeping the copy current
+
+`meta.js` holds what can't be read from the repository: the overview's copy. The parts that date
+are read from the roadmap: a highlight's status (done, next or planned) and the hero's line of what
+works today and what is to come follow its `milestone` in ROADMAP.md at the latest release, so a release moves
+them with no edit here. The studio's tests (`studio/src-tauri/tests/site.rs`) fail when a
+highlight names a milestone ROADMAP.md doesn't have, or `FALLBACK_MILESTONES` isn't ROADMAP.md's
+headings. When a release adds something worth a highlight, add one with its milestone.

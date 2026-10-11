@@ -7,7 +7,7 @@ import { FALLBACK_MILESTONES } from "./meta";
  * (see github.js), with the titles of FALLBACK_MILESTONES when GitHub
  * can't be reached.
  *
- * A milestone is a `### <version>: <title>` heading. Its items are the
+ * A milestone is a `### <version>: <title>` heading (a version like "0.4" or "0.3.x"). Its items are the
  * `- [ ]` / `- [x]` lines under it (top level only), their bold lead-in
  * being the item's name. A heading ending in ✅ is done whatever its boxes
  * say; the first milestone not done is "next".
@@ -23,7 +23,7 @@ import { FALLBACK_MILESTONES } from "./meta";
  * @property {number} total     all items
  */
 
-const HEADING = /^###\s+(\d+(?:\.\d+)*):\s+(.+?)\s*$/;
+const HEADING = /^###\s+(\d+(?:\.(?:\d+|x))*):\s+(.+?)\s*$/;
 const ITEM = /^- \[( |x|X)\]\s+(.*)$/;
 const BOLD = /\*\*(.+?)\*\*/;
 
