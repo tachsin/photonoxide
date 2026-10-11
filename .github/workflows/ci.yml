@@ -324,11 +324,17 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
-      # what Tauri needs on Linux: the WebKitGTK web view and its friends
+      # what Tauri needs on Linux: the WebKitGTK web view and its friends, kept in the Actions
+      # cache (installing them took over a minute and a half); the cache is per Ubuntu release,
+      # which the action's own key leaves out, so a new ubuntu-latest starts a fresh one
+      - id: ubuntu
+        if: runner.os == 'Linux'
+        run: echo "release=$(lsb_release -rs)" >> "$GITHUB_OUTPUT"
       - if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          version: ubuntu-${{ steps.ubuntu.outputs.release }}
       - uses: pnpm/action-setup@v6
         with:
           package_json_file: studio/package.json
