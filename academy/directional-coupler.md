@@ -317,7 +317,7 @@ $$
 
 At $\varphi = \pi/4$, $\sin 2\varphi = 1$; at $3\pi/4$, $-1$: the longer coupler's slope is three
 times the shorter's, its band a third. From the chart's $L_c$,
-$d\ln L_c/d\lambda \approx \ln(29.91/45.81)/0.1\ \text{µm} = -4.26$ per µm, so the 3 dB coupler's
+$d\ln L_c/d\lambda \approx \ln(29.91/45.81)/0.1 = -4.26$ per µm, over the 0.1 µm drawn, so the 3 dB coupler's
 $|dP/d\lambda|$ is $(\pi/4)(4.26) = 3.3$ per µm, and $\pm 0.05$ spans about 30 nm, as measured. A
 coupler of fixed length is 3 dB at one wavelength; the shortest one, a single quarter beat, is
 the broadest.
