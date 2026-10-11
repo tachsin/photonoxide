@@ -3,6 +3,7 @@
 </p>
 
 [![Crates.io](https://img.shields.io/crates/v/photonoxide.svg)](https://crates.io/crates/photonoxide)
+[![PyPI](https://img.shields.io/pypi/v/photonoxide.svg)](https://pypi.org/project/photonoxide/)
 [![Docs.rs](https://img.shields.io/docsrs/photonoxide)](https://docs.rs/photonoxide)
 [![CI](https://github.com/tachsin/photonoxide/actions/workflows/ci.yml/badge.svg)](https://github.com/tachsin/photonoxide/actions/workflows/ci.yml)
 [![MSRV](https://img.shields.io/crates/msrv/photonoxide)](Cargo.toml)

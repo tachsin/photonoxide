@@ -12,6 +12,7 @@ moving a slider shows the physics the library computes, the code the
 | [The ring resonator](ring-resonator.md) | introductory | `ring` | `ring-spectrum`, `ring-extinction`, `ring-coupling`, `ring-q-length`, `ring-identify` |
 | [Bragg gratings and mirrors](bragg-gratings.md) | intermediate | `bragg` | `bragg-reflectance`, `bragg-bandwidth` |
 | [The Mach–Zehnder interferometer](mach-zehnder.md) | introductory | `mzi` | `mzi-spectrum`, `mzi-extinction` |
+| [The directional coupler and splitters](directional-coupler.md) | intermediate | `coupler` | `coupler-power`, `coupler-supermodes`, `coupler-gap`, `coupler-spectrum`, `coupler-mismatch` |
 
 The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
 with its numbered subsections, what each will answer and the examples each will use, so writing
@@ -23,7 +24,6 @@ it is filling them in. The library lists them in this order, the order to read t
 | [The slab waveguide](slab-waveguide.md) | Waveguides | introductory | `slab_yariv_yeh`, `slab_soi` |
 | [The strip waveguide and its cross-section](strip-waveguide.md) | Waveguides | intermediate | `strip_waveguide`, `effective_index_method`, `marcatili`, `hadley_corners`, `group_index`, `leaky_wire_benchmark` |
 | [Leaky and bent guides, and multilayers](leaky-and-bent-guides.md) | Waveguides | advanced | `multilayer_chilwell`, `leaky_waves`, `bend_loss` |
-| [The directional coupler and splitters](directional-coupler.md) | Couplers and splitters | intermediate | `directional_coupler`, `coupler_liu_poon`, `circuit_splitter` |
 | [Grating couplers](grating-couplers.md) | Gratings and filters | intermediate | |
 | [Multimode interference and self-imaging](mmi.md) | Multimode and polarization devices | intermediate | `mmi_liu_poon` |
 | [Crossings, mode converters and the polarization splitter-rotator](crossings-and-converters.md) | Multimode and polarization devices | advanced | `crossing_liu_poon`, `mode_converter_liu_poon`, `splitter_rotator_liu_poon` |
@@ -187,6 +187,7 @@ shows first.
 |---|---|---|
 | `ring` | a ring and its bus from above: $R$, $w$, $g$, the coupler's $r_1$ and $k_1$, the round trip's $a e^{i\phi}$, the fields $a_1$, $b_1$, $a_2$, $b_2$, the input and through ports, and a faint second bus with its $r_2$, $k_2$, drop and add | `ring-fdfd.toml` |
 | `bragg` | a quarter-wave stack in section: $N$ pairs of $n_H$ and $n_L$, $d_H$, $d_L$ and $\Lambda$, the cover $n_0$ and substrate $n_s$, the incident, reflected ($r$) and transmitted ($t$) waves; and a waveguide grating from above, its period $\Lambda$ and length $L = N\Lambda$ | `bragg-grating.toml` |
+| `coupler` | a directional coupler from above: two strips of width $w$ a gap $g$ apart over a length $L$, brought in and out by S-bends, $z$ along the coupled section, $P_\text{cross}(z) = \sin^2\kappa z$, $\kappa = \pi\Delta n/\lambda$ and $L_c = \lambda/2\Delta n$, the input and second input, the through ($\cos^2\kappa L$) and cross ($\sin^2\kappa L$) ports; beneath, the field across the pair of the even ($n_\text{even}$) and odd ($n_\text{odd}$) supermodes | `coupler-supermodes.toml` |
 | `mzi` | a Mach–Zehnder interferometer from above: the splitter's $r_1$, $k_1$ and the combiner's $r_2$, $k_2$, arms of $L$ and $L + \Delta L$ (the longer drawn longer) with their fields $a_l e^{i\phi_l}$ and $a_u e^{i\phi_u}$, a phase shifter $\varphi$, the phase difference $\Delta\phi$, the input and the bar and cross outputs | `mzi-mmi.toml` |
 
 Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
@@ -211,8 +212,16 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `bragg-bandwidth` | `low` (1.45), `up_to` (2.0) | `Multilayer::reflection`: one period's transmission $t$, and $\cos K\Lambda = \operatorname{Re}(1/t)$ |
 | `mzi-spectrum` | `delta` ΔL µm (50), `split` κ₁² (0.5), `combine` κ₂² (0.5), `loss` dB/cm (3), `phase` φ/π (0), `group_index` (4.2), `window` nm (40) | a `Netlist` of `Coupler`, `Waveguide` and `PhaseShifter` solved by `Circuit::spectrum`, its peaks found on the spectrum; the extremes by `mzi_closed_form` |
 | `mzi-extinction` | `combine` κ₂² (0.5), `loss` dB/cm (3), `delta` ΔL µm (50) | `mzi_closed_form`, with `Coupler`'s and `Waveguide`'s S-matrices |
+| `coupler-supermodes` | `gap` nm (200), `wavelength` µm (1.55) | `mode::vector::modes` on a quarter of two 500 × 220 nm strips with mirror walls, `VectorMode::hy`: $H_y$ across the pair |
+| `coupler-power` | `gap` nm (200), `wavelength` µm (1.55), `length` µm (20) | `DirectionalCoupler::s_matrix` from the supermodes of `mode::vector::modes` |
+| `coupler-gap` | `wavelength` µm (1.55) | `mode::vector::modes` at 19 gaps from 100 to 1000 nm, $L_c = \lambda/2\Delta n$, on a logarithmic scale |
+| `coupler-spectrum` | `gap` nm (200), `length` $L/L_c$ at 1.55 µm (0.5) | `DirectionalCoupler::from_modes` (the supermodes tracked from 1.50 to 1.60 µm) and `s_matrix` |
+| `coupler-mismatch` | `width` $w_2$ nm (480), `gap` nm (200) | `mode::vector::modes` for an unequal pair and each strip alone on one grid, `Fields::cross` for the overlaps; coupled-mode theory's $\kappa^2/(\kappa^2 + \delta^2)\sin^2 Sz$ beside it |
 
-The ranges are in `charts.rs`, and the window's sliders keep to them.
+The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
+to them. A chart may draw its y axis on a logarithmic scale (`y_log`). The coupler's charts solve
+modes, a tenth of a second to a second each; their solves are cached, so moving a slider that
+changes no geometry redraws at once.
 
 ## Checks
 

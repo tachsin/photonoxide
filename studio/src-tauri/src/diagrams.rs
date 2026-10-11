@@ -75,6 +75,25 @@ pub fn specs() -> Vec<DiagramSpec> {
                          The upper arm is 6 µm longer; its corners are square to keep the \
                          picture small, where a chip bends them. Drag to turn it.",
         },
+        DiagramSpec {
+            id: "coupler",
+            title: "A directional coupler, seen from above",
+            caption: "Two strips of width $w$ run a gap $g$ apart for a length $L$, brought \
+                      together and apart by S-bends. Light enters the lower strip at $z = 0$. \
+                      Across the pair the coupled section has two modes, drawn beneath: the even \
+                      supermode, of index $n_\\text{even}$, and the odd one, of $n_\\text{odd}$. \
+                      Light in one strip is the two in step; they slip out of step by $\\pi$ over \
+                      $L_c = \\lambda / 2\\Delta n$, $\\Delta n = n_\\text{even} - n_\\text{odd}$, \
+                      and the light is then in the other strip. A share $\\cos^2 \\kappa L$ \
+                      leaves by the through port and $\\sin^2 \\kappa L$ by the cross port, \
+                      $\\kappa = \\pi\\Delta n / \\lambda$. Not to scale: the width and the gap \
+                      are drawn wide and the length short.",
+            job: Some("coupler-supermodes.toml"),
+            caption_3d: "The coupled section of jobs/coupler-supermodes.toml as photonoxide's \
+                         geometry builds it: two silicon strips 500 nm wide and 220 nm thick on \
+                         oxide, 200 nm apart, 10 µm of them. Run, the job solves their two \
+                         supermodes as the gap goes from 100 to 400 nm. Drag to turn it.",
+        },
     ]
 }
 

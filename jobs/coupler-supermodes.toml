@@ -1,0 +1,40 @@
+# A directional coupler's coupled section: two 500 nm silicon strips, 220 nm thick in oxide, a
+# gap apart, and the pair's two highest-index modes, its even and odd supermodes, at 1.55 um, as
+# the gap closes from 400 to 100 nm. Their effective indices part as the strips come together,
+# and the light crosses from one strip to the other over L_c = wavelength / (2 (n_even - n_odd)).
+# The grid is uniform, 10 nm, and the strips' edges lie on it at every gap of the sweep (steps of
+# 20 nm). The Academy's lesson on the directional coupler shows the strips in 3D; its charts
+# solve the same supermodes on a grid graded from 10 nm at the strips.
+#   photonoxide run jobs/coupler-supermodes.toml
+name = "coupler-supermodes"
+timeout_minutes = 10
+
+[task]
+kind = "modes"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+propagation = "x"          # the modes travel along x, cut at x = 0
+y_um = [-2.0, 2.0]         # the window across the pair
+step_nm = 10.0
+modes = 2                  # the even and the odd supermode
+
+[task.parameters]
+w = "500 nm"
+gap = "200 nm"
+
+[[task.rect]]
+layer = "Si"
+center = [0, "-(gap + w)/2"]
+size = ["10 um", "w"]
+
+[[task.rect]]
+layer = "Si"
+center = [0, "(gap + w)/2"]
+size = ["10 um", "w"]
+
+[task.sweep]
+parameter = "gap"
+from = "100 nm"
+to = "400 nm"
+points = 16

@@ -64,7 +64,7 @@ the studio
 | Library | What it brings | Licence | Windows | Linux | macOS |
 |---|---|---|---|---|---|
 | oneMKL 2026.1: PARDISO (#175), BLAS/LAPACK (#186) | sparse direct; dense kernels | Intel Simplified Software Licence | winget `Intel.oneMKL`, conda-forge `mkl` | conda-forge, apt, oneAPI | conda-forge, Intel Macs only |
-| MUMPS 5.8.2 (#176) | sparse direct, multifrontal, block low-rank | CeCILL-C | conda-forge `mumps-seq` | conda-forge, apt | conda-forge |
+| MUMPS 5.8.2; 5.9.1 from source (#176) | sparse direct, multifrontal, block low-rank | CeCILL-C | conda-forge `mumps-seq` | conda-forge, apt | conda-forge |
 | SuperLU 7.0.1 (#177) | sparse direct, partial pivoting | BSD | vcpkg (built from source) | conda-forge, apt | conda-forge, Homebrew |
 | AMD AOCL 5.2: BLIS, libFLAME (#186), AOCL-Sparse (#189) | dense kernels; iterative solvers | BSD-3, MIT (to confirm per component) | AMD's installer | AMD's packages, Spack | none |
 | Apple Accelerate (#186, #187) | dense kernels; sparse direct (complex LU from macOS 15.5, complex symmetric L D Lᵀ from macOS 26) | part of macOS | none | none | built in |
@@ -84,8 +84,10 @@ of cuDSS; cuSPARSE's ILU(0) factorization (`csrilu02`), deprecated likewise.
 - **Checked before offered.** A backend is registered only after its smoke test: a small
   complex system solved and compared with photonoxide's answer. Each backend's issue also
   checks it on the exported systems (`photonoxide bench --export`) and on the validation cases
-  it applies to. The validation report itself runs on photonoxide's own solvers; backend runs
-  are reported apart.
+  it applies to (`cargo run -p photonoxide-native --release --example validate -- <backend>`,
+  which puts the backend in `auto`'s place and sets each case beside photonoxide's own run). The
+  validation report itself runs on photonoxide's own solvers; backend runs are reported apart,
+  in [the backends' write-up](../methods/backends.md#the-validation-cases-on-an-external-backend).
 - **Equal accuracy.** A backend's speed counts only at the accuracy photonoxide's own reaches;
   the benchmark checks every run's answer.
 - **Determinism, declared.** photonoxide's own solvers give the same bits on any thread count.

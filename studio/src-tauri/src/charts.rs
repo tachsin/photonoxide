@@ -24,6 +24,8 @@ use photonoxide::mode::multilayer::Multilayer;
 use photonoxide::units::{Length, Wavelength};
 use serde::Serialize;
 
+mod coupler;
+
 /// A chart's parameter: what a slider sets.
 #[derive(Serialize, Clone, Debug)]
 pub struct Param {
@@ -84,6 +86,8 @@ pub struct ChartData {
     /// Whether x is a length in µm, which the window shows in the unit chosen app-wide.
     pub x_length: bool,
     pub y_label: String,
+    /// Whether y is drawn on a logarithmic scale (every value then positive).
+    pub y_log: bool,
     pub y_range: Option<[f64; 2]>,
     pub series: Vec<Curve>,
     /// An x to mark with a line: a resonance, the Bragg wavelength, critical coupling.
@@ -547,7 +551,102 @@ pub fn specs() -> Vec<ChartSpec> {
                 ),
             ],
         },
+        ChartSpec {
+            id: "coupler-supermodes",
+            title: "The two supermodes of a pair of strips",
+            about: "Two 500 × 220 nm silicon strips in silica, side by side: the magnetic field H_y across the pair of its two TE-like modes, which has the shape of their electric field E_x without its jumps at the strips' sides, the even and the odd supermode, and their sum, which is light in one strip.",
+            computed_by: "mode::vector::modes and VectorMode::fields, on a quarter of the cross-section with mirror walls",
+            params: vec![coupler_gap((100.0, 1000.0, 200.0)), coupler_wavelength()],
+        },
+        ChartSpec {
+            id: "coupler-power",
+            title: "The power in each strip along the coupler",
+            about: "Light enters one strip of a directional coupler: the share of its power in each strip along the coupled length, from the pair's two supermodes.",
+            computed_by: "circuit::components::DirectionalCoupler::s_matrix, from the supermodes of mode::vector::modes (Chrostowski and Hochberg 2015, Eqs. 4.1-4.5)",
+            params: vec![
+                coupler_gap((100.0, 1000.0, 200.0)),
+                coupler_wavelength(),
+                param(
+                    "length",
+                    "Coupler length $L$",
+                    "um",
+                    (1.0, 2000.0, 20.0),
+                    0.1,
+                    true,
+                    "The coupled section's length, marked on the chart.",
+                ),
+            ],
+        },
+        ChartSpec {
+            id: "coupler-gap",
+            title: "The cross-over length against the gap",
+            about: "How far the light travels before it has crossed to the other strip, for gaps from 100 nm to 1 µm, on a logarithmic scale: a straight line is an exponential.",
+            computed_by: "mode::vector::modes for each gap's two supermodes, L_c = λ/(2Δn)",
+            params: vec![coupler_wavelength()],
+        },
+        ChartSpec {
+            id: "coupler-spectrum",
+            title: "A coupler's split against wavelength",
+            about: "A directional coupler of a set length, in units of its cross-over length at 1.55 µm: the share crossed and the share kept from 1.50 to 1.60 µm, with the supermodes' dispersion and the materials'.",
+            computed_by: "circuit::components::DirectionalCoupler::from_modes and s_matrix, the supermodes tracked over the band by mode::vector::modes",
+            params: vec![
+                coupler_gap((100.0, 600.0, 200.0)),
+                param(
+                    "length",
+                    "Length $L / L_c$ at 1.55 µm",
+                    "",
+                    (0.05, 3.0, 0.5),
+                    0.01,
+                    false,
+                    "The coupler's length as a share of its cross-over length at 1.55 µm: 0.5 is a 3 dB coupler, and so is 1.5.",
+                ),
+            ],
+        },
+        ChartSpec {
+            id: "coupler-mismatch",
+            title: "Two unequal strips",
+            about: "Light enters a 500 nm strip beside a strip of another width, at 1.55 µm: the share of its power in each strip's own mode along the coupler, and coupled-mode theory's sin² with the same indices.",
+            computed_by: "mode::vector::modes for the pair and for each strip alone on one grid, and mode::fields::Fields::cross for the overlaps",
+            params: vec![
+                param(
+                    "width",
+                    "Other strip's width $w_2$",
+                    "nm",
+                    (450.0, 550.0, 480.0),
+                    1.0,
+                    false,
+                    "The second strip's width; the first is 500 nm. At 500 nm the strips are equal.",
+                ),
+                coupler_gap((100.0, 400.0, 200.0)),
+            ],
+        },
     ]
+}
+
+/// A coupler chart's gap, nm: `(min, max, default)`.
+const fn coupler_gap(range: (f64, f64, f64)) -> Param {
+    param(
+        "gap",
+        "Gap $g$",
+        "nm",
+        range,
+        1.0,
+        false,
+        "The space between the two strips' facing sides.",
+    )
+}
+
+/// A coupler chart's wavelength, µm.
+const fn coupler_wavelength() -> Param {
+    param(
+        "wavelength",
+        "Wavelength $\\lambda$",
+        "um",
+        (1.3, 1.7, 1.55),
+        0.001,
+        false,
+        "The vacuum wavelength; the materials' indices follow it.",
+    )
 }
 
 /// The chart `id`'s spec.
@@ -694,6 +793,11 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
             at("window"),
         ),
         "mzi-extinction" => mzi_extinction(at("combine"), at("loss"), at("delta")),
+        "coupler-supermodes" => coupler::supermodes(at("gap") * 1e-3, at("wavelength")),
+        "coupler-power" => coupler::power(at("gap") * 1e-3, at("wavelength"), at("length")),
+        "coupler-gap" => coupler::gap_chart(at("wavelength")),
+        "coupler-spectrum" => coupler::spectrum(at("gap") * 1e-3, at("length")),
+        "coupler-mismatch" => coupler::mismatch(at("width"), at("gap")),
         _ => return Err(format!("chart {id} has no function")),
     };
     result.map_err(|e| format!("{id}: {e}"))
@@ -1020,6 +1124,7 @@ fn ring_spectrum(
         x_label: "wavelength".to_owned(),
         x_length: true,
         y_label: "power (share of input)".to_owned(),
+        y_log: false,
         y_range: Some([-0.02, 1.02]),
         series,
         marker: Some(nearest.to_um()),
@@ -1072,6 +1177,7 @@ fn ring_coupling(radius: f64, loss: f64, drop: f64) -> photonoxide::Result<Chart
         x_label: "input coupling κ₁²".to_owned(),
         x_length: false,
         y_label: "share".to_owned(),
+        y_log: false,
         y_range: Some([-0.02, 1.02]),
         series,
         marker: Some(crit),
@@ -1237,6 +1343,7 @@ fn ring_extinction(
         x_label: "coupling over round-trip loss, κ₁²/κc²".to_owned(),
         x_length: false,
         y_label: "through extinction (dB)".to_owned(),
+        y_log: false,
         y_range: Some([-1.0, EXTINCTION_CAP + 2.0]),
         series: vec![
             Curve {
@@ -1379,6 +1486,7 @@ fn ring_q_length(loss: f64, fixed: f64, group_index: f64) -> photonoxide::Result
         x_label: "round trip L (mm)".to_owned(),
         x_length: false,
         y_label: "Q / 10⁵".to_owned(),
+        y_log: false,
         y_range: None,
         series: vec![
             Curve {
@@ -1569,6 +1677,7 @@ fn ring_identify(radius: f64, coupling: f64, loss: f64) -> photonoxide::Result<C
         x_label: "detuning from resonance (pm)".to_owned(),
         x_length: false,
         y_label: "through power, and its phase / π".to_owned(),
+        y_log: false,
         y_range: None,
         series: vec![
             Curve {
@@ -1701,6 +1810,7 @@ fn bragg_reflectance(s: &Stack, (from, to): (f64, f64)) -> photonoxide::Result<C
         x_label: "wavelength".to_owned(),
         x_length: true,
         y_label: "reflectance R".to_owned(),
+        y_log: false,
         y_range: Some([-0.02, 1.02]),
         series: vec![Curve {
             label: format!("R, {} pairs", s.pairs),
@@ -1836,6 +1946,7 @@ fn bragg_bandwidth(low: f64, up_to: f64) -> photonoxide::Result<ChartData> {
         x_label: "index contrast Δn = nH − nL".to_owned(),
         x_length: false,
         y_label: "stop band (% of centre frequency)".to_owned(),
+        y_log: false,
         y_range: None,
         series: vec![
             Curve {
@@ -2129,6 +2240,7 @@ fn mzi_spectrum(m: &Mzi, window_nm: f64) -> photonoxide::Result<ChartData> {
         x_label: "wavelength".to_owned(),
         x_length: true,
         y_label: "power (share of input)".to_owned(),
+        y_log: false,
         y_range: Some([-0.02, 1.02]),
         series: vec![
             Curve {
@@ -2225,6 +2337,7 @@ fn mzi_extinction(combine: f64, loss: f64, delta: f64) -> photonoxide::Result<Ch
         x_label: "splitter κ₁²".to_owned(),
         x_length: false,
         y_label: "extinction (dB)".to_owned(),
+        y_log: false,
         y_range: Some([-1.0, MZI_CAP + 2.0]),
         series: vec![
             Curve {

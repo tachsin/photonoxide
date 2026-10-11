@@ -20,6 +20,7 @@
     marker = null,
     markers = true,
     xLength = false,
+    yLog = false,
   }: {
     series: Series[];
     xLabel: string;
@@ -33,6 +34,8 @@
     markers?: boolean;
     /** Whether x is a length kept in µm: shown, read and saved in the unit chosen app-wide, which the axis's unit changes. `xLabel` is then its name alone. */
     xLength?: boolean;
+    /** Whether y is drawn on a logarithmic scale: its values must be positive; others aren't drawn. */
+    yLog?: boolean;
   } = $props();
 
   /** The x axis's name with its unit, and the data and the marker in that unit. */
@@ -67,9 +70,28 @@
   const [L, R, T, B] = [62, 18, 14, 42];
   const visible = $derived(data.map((s, k) => ({ ...s, colour: s.colour ?? SERIES[k % SERIES.length] })).filter((s) => !hidden.includes(s.label)));
   const xs = $derived(padded(visible.flatMap((s) => s.points.map((p) => p[0])), 0.02));
-  const ys = $derived(yRange ?? padded(visible.flatMap((s) => s.points.map((p) => p[1]))));
+  /** y as the axis places it: itself, or its logarithm on a log scale. */
+  const scaled = (y: number) => (yLog ? Math.log10(y) : y);
+  const ys = $derived(
+    yRange ? (yLog ? [Math.log10(yRange[0]), Math.log10(yRange[1])] : yRange) : padded(visible.flatMap((s) => s.points.map((p) => scaled(p[1])))),
+  );
   const X = (x: number) => L + ((x - xs[0]) / (xs[1] - xs[0])) * (width - L - R);
-  const Y = (y: number) => height - B - ((y - ys[0]) / (ys[1] - ys[0])) * (height - T - B);
+  const Y = (y: number) => height - B - ((scaled(y) - ys[0]) / (ys[1] - ys[0])) * (height - T - B);
+  /** The y axis's ticks, as values: round numbers, or on a log scale each power of ten (and 2 and 5 times it over a short span). */
+  const yTicks = $derived.by(() => {
+    if (!yLog) return ticks(ys[0], ys[1]);
+    const out: number[] = [];
+    const steps = ys[1] - ys[0] < 2.5 ? [1, 2, 5] : [1];
+    for (let e = Math.floor(ys[0]); e <= Math.ceil(ys[1]); e++) {
+      for (const m of steps) {
+        const v = m * 10 ** e;
+        if (Math.log10(v) >= ys[0] && Math.log10(v) <= ys[1]) out.push(Number(v.toPrecision(12)));
+      }
+    }
+    return out;
+  });
+  /** A series' points the axis can draw: on a log scale, the positive ones. */
+  const drawable = (points: [number, number][]) => (yLog ? points.filter((p) => p[1] > 0) : points);
 
   /** The x of the data nearest the pointer. */
   const at = $derived.by(() => {
@@ -96,7 +118,7 @@
       <line x1={X(t)} x2={X(t)} y1={T} y2={height - B} class="stroke-base-content/8" />
       <text x={X(t)} y={height - B + 17} text-anchor="middle" class="fill-base-content/55 text-[11px]">{label(t)}</text>
     {/each}
-    {#each ticks(ys[0], ys[1]) as t (t)}
+    {#each yTicks as t (t)}
       <line x1={L} x2={width - R} y1={Y(t)} y2={Y(t)} class="stroke-base-content/8" />
       <text x={L - 8} y={Y(t)} text-anchor="end" dominant-baseline="central" class="fill-base-content/55 text-[11px]">{label(t)}</text>
     {/each}
@@ -110,14 +132,14 @@
     <text x={14} y={(T + height - B) / 2} text-anchor="middle" transform="rotate(-90 14 {(T + height - B) / 2})" class="fill-base-content/70 text-[12px]">{yLabel}</text>
     {#each visible as s (s.label)}
       <polyline
-        points={s.points.map(([x, y]) => `${X(x)},${Y(y)}`).join(" ")}
+        points={drawable(s.points).map(([x, y]) => `${X(x)},${Y(y)}`).join(" ")}
         fill="none"
         stroke={s.colour}
         stroke-width="2"
         stroke-dasharray={s.dashed ? "6 4" : undefined}
         stroke-linejoin="round"
       />
-      {#each s.points as [x, y], k (k)}
+      {#each drawable(s.points) as [x, y], k (k)}
         {#if markers || at === x || mark === x}
           <circle cx={X(x)} cy={Y(y)} r={at === x || mark === x ? 4.5 : 2.6} fill={s.colour} class={mark === x ? "stroke-base-100" : ""} stroke-width={mark === x ? 1.5 : 0} />
         {/if}
