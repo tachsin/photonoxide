@@ -239,7 +239,7 @@ A supernodal sparse LU with partial pivoting (Demmel, Eisenstat, Gilbert, Li, Li
 
 ### MUMPS
 
-A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build, and its block low-rank factorization (Amestoy et al. 2015) as a backend of its own, lossy to a tolerance and refined. MUMPS asks that work using it cite it.
+A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build, and its block low-rank factorization (Amestoy et al. 2015) as a backend of its own, lossy to a tolerance and refined. MUMPS asks that work using it cite it. photonoxide knows the structure of releases 5.4.1 to 5.9.1 and refuses others; no package manager had 5.9 yet on 2026-10-11, and 5.9.1 is checked built from mumps-solver.org's source. From 5.9, MUMPS isn't used while MUMPS_CONFIG_FILE is set: its file's settings would replace photonoxide's.
 
 - **Licence:** [CeCILL-C](https://cecill.info/licences/Licence_CeCILL-C_V1-en.html). You accept it by installing.
 - **The vendor's download:** <https://mumps-solver.org/>

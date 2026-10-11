@@ -1,10 +1,11 @@
 name: Systems
 
-# What CI's Examples job leaves to Linux, run on Windows and macOS (Apple silicon) by hand: the 3D
-# devices and the validation report, each against its committed output, which Linux writes. The
-# system's maths library mustn't show in either (issue #280). Each takes 5 to 30 minutes; the
-# outputs are kept as artifacts.
+# What CI leaves to Linux, run on Windows and macOS (Apple silicon) every Monday (the Weekly
+# workflow, when code changed that week) and by hand: the 3D devices and the validation report,
+# each against its committed output, which Linux writes. The system's maths library mustn't show
+# in either (issue #280). Each takes 5 to 30 minutes; the outputs are kept as artifacts.
 on:
+  workflow_call:
   workflow_dispatch:
 
 env:

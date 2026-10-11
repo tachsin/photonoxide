@@ -20,7 +20,17 @@ photonoxide is pre-1.0: ideas, use cases and validation cases are as welcome as 
 
   Add `!` after the type for a breaking change, e.g. `feat!: rename Structure::draw to Structure::add`, and explain the migration in the PR description.
 - **No AI attribution, anywhere.** Commits, PR and issue descriptions, comments and files carry no attribution to AI tools: no `Co-Authored-By` trailers naming an assistant, no "Generated with …" lines.
-- **Before pushing, run:** `cargo fmt`, `cargo clippy --all-targets --all-features -- -D warnings`, `cargo test --all-features`.
+- **Before pushing, run:** `cargo fmt`, `cargo clippy --all-targets --all-features -- -D warnings`, `cargo test --all-features`; or everything the release PR runs, `bash .github/full-suite.sh`.
+
+## What CI runs
+
+CI runs in three tiers, so that a PR waits only for what its change can break:
+
+1. **Every PR and every push to `main`:** on Linux, the docs' links, `cargo fmt`, clippy, the MSRV check, and the unit tests, validation cases and examples of the areas the change touches and of the areas that use them. The area map is [`.github/areas.sh`](.github/areas.sh); `git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh` shows what it picks for your branch. A file in no area (the library's root, `units`, `geometry`, `Cargo.toml`, …) runs everything; a PR of docs that no test reads runs only the links. A validation case's row is checked against `docs/validation.md` whenever its area runs.
+2. **The release PR, a PR labelled `full-ci`, and a change to `ci.yml`, `Cargo.toml` or `Cargo.lock`:** everything, on Linux, Windows and macOS: every test (and on one thread), every example including the 3D devices, the whole validation report, the studio on each system.
+3. **Every Monday, when code changed that week** (`.github/workflows/weekly.yml`): the same, every Python wheel, the Windows and macOS comparison (`systems.yml`), and every week the external libraries' installs (`libraries.yml`). A failure opens or updates the issue "Weekly run failed", which lists the week's commits.
+
+Nothing ships without a green release PR and weekly run. A large change can ask for the full run before merging by adding the `full-ci` label.
 
 ## Versioning
 
@@ -37,5 +47,5 @@ Dependabot's weekly pull request brings our dependencies' minor and patch update
 1. **Release PR.** After every merge to `main`, release-plz opens or updates a release PR with the next version and the new CHANGELOG.md section, generated from the PR titles.
 2. **Breaking-change check.** [cargo-semver-checks](https://github.com/obi1kenobi/cargo-semver-checks) compares the public API with the previous release and catches a breaking change without a breaking version bump.
 3. **Changelog check.** release-plz leaves out a PR that changed only `studio/`, `site/` or `python/` (the crate excludes them), although the release carries the program built from it. The release PR's "Changelog" status fails while any PR merged since the last release is missing from the new section; its run's summary has the missing lines ready to paste. Add them to the release PR by hand, after the last merge before the release, since release-plz rewrites the section on every merge.
-4. **Release.** A maintainer merges the release PR. That publishes to crates.io through [trusted publishing](https://rust-lang.github.io/rfcs/3691-trusted-publishing-cratesio.html) (no token is stored: crates.io trusts `.github/workflows/release-plz.yml`), tags the version and creates the GitHub release with the same notes.
+4. **Release.** release-plz's pushes start no CI, so a maintainer closes and reopens the release PR, which runs everything (Tier 2), and merges it once that is green and the week's run passed. That publishes to crates.io through [trusted publishing](https://rust-lang.github.io/rfcs/3691-trusted-publishing-cratesio.html) (no token is stored: crates.io trusts `.github/workflows/release-plz.yml`), tags the version and creates the GitHub release with the same notes.
 5. **Python.** The Python package has the crate's version. Once PyPI trusts the repository (the `PYPI_PUBLISH` variable), the release starts `.github/workflows/python-wheels.yml` at the new tag, which builds, tests and publishes the wheels to PyPI; a fix to the package alone is a post-release, published by hand ([docs/python.md](docs/python.md#versions-and-releases)).
