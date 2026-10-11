@@ -34,6 +34,7 @@ cargo run --release --example strip_waveguide           # an example: a publishe
 cargo run --release --quiet --example <name> > examples/output/<name>.txt   # its output, which CI compares
 cargo test --release --test validation_report -- --ignored   # every validation case, and the report is current
 cargo run -p photonoxide-native --example libraries      # the external libraries found here (CUDA, cuSPARSE, cuDSS)
+cargo run -p photonoxide-native --release --example validate -- mumps   # the validation cases on a backend, beside photonoxide's own
 cargo test --release --features gpu --lib fdtd::gpu      # FDTD on the GPU against the CPU (skips without a GPU)
 cargo test --release --features gpu --test gpu_report -- --ignored   # docs/validation-gpu.md, before each release
 cargo clippy -p photonoxide-python --all-targets -- -D warnings   # the Python package's Rust (not in the default members)

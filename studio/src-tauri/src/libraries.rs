@@ -504,7 +504,7 @@ pub const GUIDES: &[Guide] = &[
     },
     Guide {
         library: "MUMPS",
-        about: "A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build, and its block low-rank factorization (Amestoy et al. 2015) as a backend of its own, lossy to a tolerance and refined. MUMPS asks that work using it cite it.",
+        about: "A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build, and its block low-rank factorization (Amestoy et al. 2015) as a backend of its own, lossy to a tolerance and refined. MUMPS asks that work using it cite it. photonoxide knows the structure of releases 5.4.1 to 5.9.1 and refuses others; no package manager had 5.9 yet on 2026-10-11, and 5.9.1 is checked built from mumps-solver.org's source. From 5.9, MUMPS isn't used while MUMPS_CONFIG_FILE is set: its file's settings would replace photonoxide's.",
         provides: &["direct"],
         backends: &["mumps", "mumps-blr"],
         needs: &[],
@@ -1314,6 +1314,14 @@ mod tests {
                 assert!(!i.command.contains("  ") && !i.command.contains(['&', '|', ';', '>']));
             }
         }
+    }
+
+    #[test]
+    fn mumps_guide_names_the_releases_photonoxide_native_knows() {
+        let known: Vec<&str> = photonoxide_native::mumps::releases().collect();
+        let about = GUIDES.iter().find(|g| g.library == "MUMPS").unwrap().about;
+        let range = format!("{} to {}", known[0], known[known.len() - 1]);
+        assert!(about.contains(&range), "{range}: {about}");
     }
 
     #[test]

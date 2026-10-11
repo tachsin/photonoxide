@@ -324,7 +324,7 @@ impl Range {
         }
     }
 
-    /// The range in words: `5.4.1 to 5.8.2`, `5 to 7`, `12 and 13`, `0.x`, `15.5 and later`.
+    /// The range in words: `5.4.1 to 5.9.1`, `5 to 7`, `12 and 13`, `0.x`, `15.5 and later`.
     pub fn describe(&self) -> String {
         let span = match &self.accepts {
             Accepts::Releases(known) => match known.as_slice() {
@@ -930,9 +930,9 @@ mod tests {
     #[test]
     fn the_ranges_are_photonoxide_natives() {
         let mumps = range("MUMPS").unwrap();
-        assert!(mumps.contains("5.8.2") && mumps.contains("5.4.1"));
-        assert!(!mumps.contains("5.9.1") && !mumps.contains("5.3.5") && !mumps.contains("5.6.3"));
-        assert!(mumps.describe().starts_with("5.4.1 to 5.8.2"));
+        assert!(mumps.contains("5.8.2") && mumps.contains("5.4.1") && mumps.contains("5.9.1"));
+        assert!(!mumps.contains("5.9.2") && !mumps.contains("5.3.5") && !mumps.contains("5.6.3"));
+        assert!(mumps.describe().starts_with("5.4.1 to 5.9.1"));
         let superlu = range("SuperLU").unwrap();
         assert!(superlu.contains("7.0.1") && superlu.contains("5.3.0"));
         assert!(!superlu.contains("8.0.0") && !superlu.contains("4.3"));
@@ -1031,8 +1031,10 @@ mod tests {
         "2026.1.0":[{"upload_time_iso_8601":"2026-07-02T15:11:10.123Z"},
                     {"upload_time_iso_8601":"2026-07-01T15:11:10.123Z"}]}}"#;
 
-    const MUMPS_HTML: &str = "<p>Latest release (July 2026) :</p>\n<table summary=\"\">\n\
-        <tr><td>Release 5.9.1</td><td>: July 2026\n</td></tr>\n\
+    // a release photonoxide-native doesn't know yet: 5.10.0, made up
+    const MUMPS_HTML: &str = "<p>Latest release (September 2026) :</p>\n<table summary=\"\">\n\
+        <tr><td>Release 5.10.0</td><td>: September 2026\n</td></tr>\n\
+        <tr><td>Release 5.9.1</td><td>: July 2026</td></tr>\n\
         <tr><td>Release 5.9.0</td><td>: May 2026</td></tr>\n\
         <tr><td>Release 5.8.2</td><td>: January 2026</td></tr>\n</table>";
 
@@ -1075,7 +1077,7 @@ mod tests {
         let mumps = mumps_release(MUMPS_HTML).unwrap();
         assert_eq!(
             (mumps.version.as_str(), mumps.date.as_str()),
-            ("5.9.1", "2026-07")
+            ("5.10.0", "2026-09")
         );
         assert!(mumps_release("<p>no table</p>").is_err());
         assert_eq!(
@@ -1174,18 +1176,18 @@ mod tests {
         let first = body(&rows, None, "2026-10-12");
         assert!(news(&rows, None).is_empty());
         let record = recorded(&first).unwrap();
-        assert_eq!(record["MUMPS | mumps-solver.org"], "5.9.1");
+        assert_eq!(record["MUMPS | mumps-solver.org"], "5.10.0");
         assert!(!record.contains_key("SuperLU | GitHub xiaoyeli/superlu"));
-        assert!(first.contains("| MUMPS | [mumps-solver.org](https://mumps-solver.org/index.php?page=dwnld) | 5.8.2 | **5.9.1**, newer | 2026-07 | [MUMPS's changelog](https://mumps-solver.org/index.php?page=dwnld#cl) | **no**: 5.4.1 to 5.8.2, the releases whose structure it knows |"), "{first}");
+        assert!(first.contains("| MUMPS | [mumps-solver.org](https://mumps-solver.org/index.php?page=dwnld) | 5.8.2 | **5.10.0**, newer | 2026-09 | [MUMPS's changelog](https://mumps-solver.org/index.php?page=dwnld#cl) | **no**: 5.4.1 to 5.9.1, the releases whose structure it knows |"), "{first}");
         assert!(first.contains("| oneMKL | [PyPI mkl](https://pypi.org/project/mkl/) | 2026.1.0 | 2026.1.0 | 2026-07-01 |"));
         assert!(first.contains("**Couldn't be read:**\n\n- SuperLU \\| GitHub xiaoyeli/superlu: "));
-        assert!(first.contains("MUMPS 5.9.1 (mumps-solver.org, 2026-07)"));
+        assert!(first.contains("MUMPS 5.10.0 (mumps-solver.org, 2026-09)"));
         assert!(first.contains("## When a release is new"));
 
         // a week on, with a record of an older MUMPS and SuperLU's last version: MUMPS's is
         // news, and SuperLU's version is kept while its source is out of reach
         let mut earlier = record.clone();
-        earlier.insert("MUMPS | mumps-solver.org".into(), "5.9.0".into());
+        earlier.insert("MUMPS | mumps-solver.org".into(), "5.9.1".into());
         earlier.insert("SuperLU | GitHub xiaoyeli/superlu".into(), "7.0.1".into());
         let new = news(&rows, Some(&earlier));
         assert_eq!(
@@ -1193,7 +1195,7 @@ mod tests {
             ["MUMPS | mumps-solver.org"]
         );
         let c = comment(&new);
-        assert!(c.contains("- MUMPS 5.9.1 (mumps-solver.org, 2026-07): [MUMPS's changelog](https://mumps-solver.org/index.php?page=dwnld#cl); photonoxide-native doesn't accept it yet (5.4.1 to 5.8.2"), "{c}");
+        assert!(c.contains("- MUMPS 5.10.0 (mumps-solver.org, 2026-09): [MUMPS's changelog](https://mumps-solver.org/index.php?page=dwnld#cl); photonoxide-native doesn't accept it yet (5.4.1 to 5.9.1"), "{c}");
         let second = body(&rows, Some(&earlier), "2026-10-19");
         assert_eq!(
             recorded(&second).unwrap()["SuperLU | GitHub xiaoyeli/superlu"],

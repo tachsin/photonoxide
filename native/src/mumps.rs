@@ -13,10 +13,15 @@
 //!   between releases. It holds only 32-bit integers, 64-bit integers, doubles, pointers and
 //!   characters, so it is the same on every 64-bit platform, and the fields' offsets here were
 //!   computed from each release's own `zmumps_c.h` by C's layout rules: one layout for 5.4.1,
-//!   5.5.1 and 5.6.0 to 5.6.2 (8 360 bytes), another for 5.7.0 to 5.8.2 (10 928). The fields up
-//!   to the matrix are at the same places in both. MUMPS writes its version into the structure
-//!   when an instance is made; it is read at each layout's place for it, and a library whose
-//!   version isn't one of those isn't used.
+//!   5.5.1 and 5.6.0 to 5.6.2 (8 360 bytes), another for 5.7.0 to 5.8.2 (10 928), a third for
+//!   5.9.0 and 5.9.1 (10 920). The fields up to the matrix are at the same places in all three,
+//!   and 5.9's differ from 5.7's only after `infog`. MUMPS writes its version into the
+//!   structure when an instance is made; it is read at each layout's place for it, and a
+//!   library whose version isn't one of those isn't used.
+//! - **A configuration file.** From 5.9, MUMPS reads the file `MUMPS_CONFIG_FILE` names, if
+//!   it is set, before every call but the first, and takes any control parameter in it over
+//!   the ones it was given: so a MUMPS of 5.9 or later isn't used while it is set, as the
+//!   settings below would no longer be photonoxide's.
 //! - **The forms.** [`Form::General`] is `SYM` = 0, an LU; [`Form::Symmetric`] is `SYM` = 2, an
 //!   L D Lᵀ of a complex symmetric matrix, given its lower triangle. The matrix is given
 //!   assembled, by entries, with one-based 32-bit indices: a matrix of 2³¹ unknowns or more is
@@ -47,11 +52,14 @@
 //! matrices where their rank allows, in the factorization and the solves (`ICNTL(35)` = 2,
 //! set before the analysis), each block truncated where its rank-revealing QR's diagonal falls
 //! below a tolerance (`CNTL(7)`), which MUMPS takes as absolute on the matrix as it scaled
-//! it. The factors are then approximate, so each solve is refined against the matrix
-//! (`ICNTL(10)`: up to [`REFINEMENT`] steps, until the backward error stops halving, with no
-//! target for it, `CNTL(2)` = 0, where MUMPS's default target, √ε, stops at about 1e-8). Its
-//! report's entries are those the factors hold after compression (`INFOG(35)`). It is a backend
-//! of its own, never chosen in `mumps`'s place.
+//! it. The variant is UFSC, a panel compressed after its triangular solve (`ICNTL(36)` = 0):
+//! MUMPS's default up to 5.8, set here because 5.9 made UFCS its default. The factors are then
+//! approximate, so each solve is refined against the matrix (`ICNTL(10)`: up to
+//! [`REFINEMENT`] steps, until the backward error stops halving, with no target for it,
+//! `CNTL(2)` = 0, where MUMPS's default target, √ε, stops at about 1e-8). Its report's entries
+//! are those the factors hold after compression (`INFOG(35)`; MUMPS's changelog for 5.9.0
+//! says 5.8.0 to 5.8.2 could report it wrong). It is a backend of its own, never chosen in
+//! `mumps`'s place.
 
 use std::ffi::c_void;
 use std::sync::{Arc, Mutex};
@@ -78,6 +86,7 @@ pub const MUMPS: Spec = Spec {
         // the development package's name, then the runtime packages' (Debian's, by version)
         &[
             "libzmumps_seq.so",
+            "libzmumps_seq-5.9.so",
             "libzmumps_seq-5.8.so",
             "libzmumps_seq-5.7.so",
             "libzmumps_seq-5.6.so",
@@ -122,35 +131,58 @@ struct Layout {
     lrhs: usize,
     infog: usize,
     version_number: usize,
+    /// Whether these releases read `MUMPS_CONFIG_FILE`.
+    configuration_file: bool,
     /// The releases whose header gives these offsets.
     versions: &'static [&'static str],
 }
 
-const OLD: Layout = Layout {
+const FIVE_FOUR: Layout = Layout {
     size: 8360,
     rhs: 5600,
     nrhs: 5672,
     lrhs: 5676,
     infog: 6048,
     version_number: 7072,
+    configuration_file: false,
     versions: &["5.4.1", "5.5.1", "5.6.0", "5.6.1", "5.6.2"],
 };
 
-const NEW: Layout = Layout {
+/// 5.7 added fields before the right-hand side and lengthened the paths.
+const FIVE_SEVEN: Layout = Layout {
     size: 10928,
     rhs: 5640,
     nrhs: 5736,
     lrhs: 5740,
     infog: 6120,
     version_number: 7144,
+    configuration_file: false,
     versions: &[
         "5.7.0", "5.7.1", "5.7.2", "5.7.3", "5.8.0", "5.8.1", "5.8.2",
     ],
 };
 
+/// 5.9 dropped the null space's `deficiency` (an int before its pointers) and added
+/// `nb_singular_values` after them: the fields from the null space's pointers to the version
+/// are 8 bytes earlier, everything before them where 5.7 has it. 5.9 also reads a file of
+/// control parameters.
+const FIVE_NINE: Layout = Layout {
+    size: 10920,
+    version_number: 7136,
+    configuration_file: true,
+    versions: &["5.9.0", "5.9.1"],
+    ..FIVE_SEVEN
+};
+
+/// The variable naming the file of control parameters MUMPS 5.9 reads before each call.
+const CONFIGURATION_FILE: &str = "MUMPS_CONFIG_FILE";
+
+/// Every layout, the oldest first.
+const LAYOUTS: [&Layout; 3] = [&FIVE_FOUR, &FIVE_SEVEN, &FIVE_NINE];
+
 /// The structure is given this much room whatever its release: a release photonoxide doesn't
-/// know must not write past it while its version is read.
-const ROOM: usize = 4 * NEW.size;
+/// know must not write past it while its version is read. Four times the largest.
+const ROOM: usize = 4 * FIVE_SEVEN.size;
 
 const INIT: i32 = -1;
 const END: i32 = -2;
@@ -362,16 +394,12 @@ fn is_version(text: &str) -> bool {
 
 /// The releases photonoxide knows the structure of, the oldest first: any other is refused.
 pub fn releases() -> impl Iterator<Item = &'static str> {
-    [&OLD, &NEW]
-        .into_iter()
-        .flat_map(|l| l.versions.iter().copied())
+    LAYOUTS.into_iter().flat_map(|l| l.versions.iter().copied())
 }
 
 /// The layout of the release `version`, if photonoxide has its header's.
 fn layout_of(version: &str) -> Option<&'static Layout> {
-    [&OLD, &NEW]
-        .into_iter()
-        .find(|l| l.versions.contains(&version))
+    LAYOUTS.into_iter().find(|l| l.versions.contains(&version))
 }
 
 /// Calls MUMPS with `job` on `structure`, under the lock: `INFOG(1)` and `INFOG(2)` as an
@@ -441,6 +469,10 @@ impl Engine {
             // in the factorization and the solves, asked before the analysis prepares for it
             s.set_icntl(35, 2);
             s.set_cntl(7, tolerance);
+            // the UFSC variant (a panel compressed after its triangular solve): MUMPS's default
+            // up to 5.8, set so that every release factorizes the same way, as 5.9 made UFCS
+            // (compressed before the solve) its default
+            s.set_icntl(36, 0);
             // the factors are approximate: each solve refined against the matrix until the
             // backward error stops halving. MUMPS's default target (CNTL(2) = √ε) stopped it at
             // 4.7e-10 from photonoxide's answer at a tolerance of 1e-4, this at 4.5e-13
@@ -552,7 +584,7 @@ fn identify(library: &Library) -> Result<(ZmumpsC, String, &'static Layout)> {
     // fields an initialization reads, which every release has first
     unsafe { run(zmumps, s.pointer()) }?;
     // the version, where each layout has it: 30 characters and a NUL
-    let found: Vec<(&'static Layout, String)> = [&OLD, &NEW]
+    let found: Vec<(&'static Layout, String)> = LAYOUTS
         .into_iter()
         .map(|l| (l, s.text(l.version_number, 31)))
         .filter(|(_, v)| is_version(v))
@@ -562,13 +594,11 @@ fn identify(library: &Library) -> Result<(ZmumpsC, String, &'static Layout)> {
             Ok((zmumps, version.clone(), *layout))
         }
         [(_, version)] => Err(error(format!(
-            "MUMPS {version}: photonoxide has the structure's layout of {} and {}, not this \
-             release's",
-            OLD.versions.join(", "),
-            NEW.versions.join(", ")
+            "MUMPS {version}: photonoxide has the structure's layout of {}, not this release's",
+            releases().collect::<Vec<_>>().join(", ")
         ))),
         _ => Err(error(
-            "its version isn't where MUMPS 5.4 to 5.8 write it: another release, or not the \
+            "its version isn't where MUMPS 5.4 to 5.9 write it: another release, or not the \
              sequential complex library",
         )),
     };
@@ -592,11 +622,18 @@ impl Mumps {
     ///
     /// # Errors
     ///
-    /// Why not: not found, not loadable, another release.
+    /// Why not: not found, not loadable, another release, or a release that would read its
+    /// settings from `MUMPS_CONFIG_FILE`.
     pub fn load() -> std::result::Result<Mumps, String> {
         let (discovery, library) = load(&MUMPS, None, |l| identify(l).map(drop));
         let library = library.ok_or_else(|| discovery.reason())?;
         let (zmumps, version, layout) = identify(&library).map_err(|e| e.to_string())?;
+        if layout.configuration_file && std::env::var_os(CONFIGURATION_FILE).is_some() {
+            return Err(format!(
+                "MUMPS {version} takes its control parameters from the file {CONFIGURATION_FILE} \
+                 names over those photonoxide gives it: unset {CONFIGURATION_FILE} to use it"
+            ));
+        }
         Ok(Mumps {
             api: Arc::new(Api {
                 zmumps,
@@ -806,7 +843,7 @@ mod tests {
     #[test]
     fn the_layouts_are_the_headers() {
         // from each release's zmumps_c.h by C's layout rules (4-byte MUMPS_INT, 8-byte
-        // MUMPS_INT8, double and pointers): the two layouts, and what they share
+        // MUMPS_INT8, double and pointers): the three layouts, and what they share
         assert_eq!((SYM, PAR, JOB, COMM_FORTRAN, ICNTL), (0, 4, 8, 12, 16));
         // icntl[60], keep[500], then cntl[15], dkeep[230] and keep8[150] before n
         assert_eq!(CNTL, 2256);
@@ -817,7 +854,7 @@ mod tests {
         assert_eq!(s.words[(CNTL + 48) / 8], 1e-8f64.to_bits());
         // n, nblk, nz_alloc, nz, then nnz on 8 bytes, irn, jcn, a
         assert_eq!((NNZ, IRN, JCN, A), (N + 16, N + 24, N + 32, N + 40));
-        for layout in [&OLD, &NEW] {
+        for layout in LAYOUTS {
             // nrhs and lrhs follow each other, info[80] and infog[80] too
             assert_eq!(layout.lrhs, layout.nrhs + 4);
             assert!(layout.rhs > A && layout.nrhs > layout.rhs && layout.infog > layout.lrhs);
@@ -831,10 +868,23 @@ mod tests {
             }
         }
         // 5.7 added fields before the right-hand side and lengthened the paths
-        assert_eq!(NEW.rhs - OLD.rhs, 40);
-        assert_eq!(NEW.infog - OLD.infog, 72);
-        assert_eq!(NEW.version_number - OLD.version_number, 72);
-        assert_eq!(layout_of("5.9.0"), None);
+        assert_eq!(FIVE_SEVEN.rhs - FIVE_FOUR.rhs, 40);
+        assert_eq!(FIVE_SEVEN.infog - FIVE_FOUR.infog, 72);
+        assert_eq!(FIVE_SEVEN.version_number - FIVE_FOUR.version_number, 72);
+        // 5.9 replaced an int before the null space's three pointers with one after them,
+        // beside size_schur: two ints in 8 bytes where each took 8 with its padding
+        assert_eq!(
+            (FIVE_NINE.rhs, FIVE_NINE.nrhs, FIVE_NINE.infog),
+            (FIVE_SEVEN.rhs, FIVE_SEVEN.nrhs, FIVE_SEVEN.infog)
+        );
+        assert_eq!(FIVE_SEVEN.version_number - FIVE_NINE.version_number, 8);
+        assert_eq!(FIVE_SEVEN.size - FIVE_NINE.size, 8);
+        // a release's version read where another layout has it is never a version: 5.9's
+        // place is 5.7's wk_user pointer, 5.7's is past 5.9's version and its NUL
+        const { assert!(FIVE_SEVEN.version_number >= FIVE_NINE.version_number + 8) };
+        const { assert!(FIVE_NINE.configuration_file && !FIVE_SEVEN.configuration_file) };
+        assert_eq!(layout_of("5.9.2"), None);
+        assert_eq!(layout_of("5.10.0"), None);
         assert_eq!(layout_of("5.3.5"), None);
     }
 
@@ -848,19 +898,19 @@ mod tests {
         assert_eq!(s.int(ICNTL + 4 * 8), 2);
         assert_eq!(s.words[NNZ / 8], 1 << 40);
         // INFOG(1) and INFOG(2), as MUMPS would leave them
-        s.set_int(NEW.infog, -10);
-        s.set_int(NEW.infog + 4, 7);
-        assert_eq!((s.infog(&NEW, 1), s.infog(&NEW, 2)), (-10, 7));
+        s.set_int(FIVE_SEVEN.infog, -10);
+        s.set_int(FIVE_SEVEN.infog + 4, 7);
+        assert_eq!((s.infog(&FIVE_SEVEN, 1), s.infog(&FIVE_SEVEN, 2)), (-10, 7));
         // a version, at an offset that isn't a multiple of 8, up to its NUL
         for (i, b) in b"5.8.2\0junk".iter().enumerate() {
-            let at = OLD.version_number + 3 + i;
+            let at = FIVE_FOUR.version_number + 3 + i;
             s.words[at / 8] |= u64::from(*b) << (8 * (at % 8));
         }
-        assert_eq!(s.text(OLD.version_number + 3, 31), "5.8.2");
+        assert_eq!(s.text(FIVE_FOUR.version_number + 3, 31), "5.8.2");
         assert!(is_version("5.8.2") && is_version("5.10.0"));
         // every release with a layout is one, the oldest first, and has its layout
         let known: Vec<&str> = releases().collect();
-        assert_eq!((known[0], known[known.len() - 1]), ("5.4.1", "5.8.2"));
+        assert_eq!((known[0], known[known.len() - 1]), ("5.4.1", "5.9.1"));
         for v in known {
             assert!(is_version(v) && layout_of(v).is_some(), "{v}");
         }
