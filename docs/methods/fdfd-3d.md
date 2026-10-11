@@ -70,6 +70,8 @@ validation:
   - fdfd3d/pml-reflection-stretched
   - fdfd3d/qmr-ilu-direct
   - fdfd3d/gmres-multigrid-direct
+  - fdfd3d/qmr-matrix-free-sweep
+  - fdfd3d/qmr-matrix-free-threads
 ---
 
 In 3D the fields no longer split into two polarizations: all six components are coupled. FDFD
@@ -510,9 +512,76 @@ bits, which the Lanczos process carries along: 1 and 3 % more iterations here. T
 less than the product (1.4 times against 1.6 to 2.6), since QMR's own vector work is now most of
 an iteration.
 
+On a Core Ultra 7 265K (20 threads, 64 GB), by `photonoxide bench --tier full` (each problem in
+a process of its own, the guides from 20³ to 44³ run twice, alternating, the faster kept; peak
+memory is the process's peak working set when the timed phases end, before the reference solve
+that checks them). The guide as above, n³ cells of 10 nm (PMLs of 5, 7, 10 and 10), QMR for
+symmetric matrices to 1e-6; the strip with ports of `photonoxide bench` (a 500 × 220 nm silicon
+strip in oxide, 0.8 × 1.4 × 1.0 µm inside plain PMLs, its two ports' S-matrix) to 1e-8:
+
+| Problem | Unknowns | | Built in | Iterations | An iteration | Total | Peak memory |
+|---|---|---|---|---|---|---|---|
+| guide, 20³ | 24 000 | stored | 0.16 s | 1 423 | 0.24 ms | 0.49 s | 47 MB |
+| | | no matrix | 0.12 s | 1 412 | 0.31 ms | 0.56 s | 23 MB |
+| guide, 30³ | 81 000 | stored | 0.54 s | 1 706 | 0.46 ms | 1.33 s | 139 MB |
+| | | no matrix | 0.39 s | 1 706 | 0.43 ms | 1.12 s | 50 MB |
+| guide, 40³ | 192 000 | stored | 1.34 s | 2 077 | 1.37 ms | 4.20 s | 321 MB |
+| | | no matrix | 0.93 s | 2 099 | 0.77 ms | 2.54 s | 102 MB |
+| guide, 44³ | 255 552 | stored | 1.71 s | 1 960 | 1.88 ms | 5.39 s | 426 MB |
+| | | no matrix | 1.19 s | 2 034 | 1.08 ms | 3.38 s | 131 MB |
+| strip, 40 nm (36 × 51 × 41) | 225 828 | stored | 1.59 s | 1 529 | 1.70 ms | 4.36 s | 373 MB |
+| | | no matrix | 1.09 s | 1 536 | 0.97 ms | 2.77 s | 116 MB |
+| strip, 25 nm (58 × 82 × 66) | 941 688 | stored | 6.94 s | 2 753 | 8.95 ms | 32.1 s | 1.56 GB |
+| | | no matrix | 4.66 s | 2 667 | 6.41 ms | 22.3 s | 438 MB |
+
+(Built in: the assembly, or the operator and its diagonals, both with the permittivity's
+average over each cell, which is most of the second; the strip's port modes, 0.2 and 0.5 s,
+are in its total.) From 2 × 10⁵ unknowns on, a solve without the matrix is 1.4 to 1.7 times
+faster, an iteration 1.4 to 1.8 times, and the process's peak is under a third: 1.65 to
+1.67 kB an unknown with the matrix (its assembly, the matrix and its symmetric form, QMR's
+vectors), 0.47 to 0.53 kB without. Below 10⁵ unknowns the matrix stays in the caches and is as
+fast or faster. The S-matrices agree with the exact one alike (1.2e-10 and 1.1e-10 at 40 nm,
+7.4e-12 and 1.3e-11 at 25 nm), and the guide's fields with the reference alike (1.5e-7).
+
+Larger, unpreconditioned QMR itself is the limit, with or without the matrix: on the strip at
+20 nm (72 × 102 × 82 cells, 1.8 million unknowns, to 1e-8) and on the guide at 96³ and 128³ (2.7
+and 6.3 million, to 1e-6) the Lanczos process broke down again and again (11 times, from step
+6 664 to 52 457) before the residual was reached. At 68³ (943 296 unknowns, the guide a quarter
+of the grid across, PMLs of 10; `fdfd::three::matrix_free::measure::solves`, one run) it still
+converged both ways: 2 376 iterations of 8.96 ms with the matrix (21.3 s, built in 3.7 s), 2 308
+of 6.36 ms without (14.7 s, 1.3 s), the fields 1.1e-8 of the largest apart. (The catalogue's 68³
+guide didn't finish within the hour either way, its reference solve, QMR + ILU(0) to 1e-12,
+included.) At 1.7 kB an unknown the matrix would fill this machine's 64 GB only
+past 3 × 10⁷ unknowns, far beyond that. Those problems need a preconditioner (ILU(0) or the
+multigrid above, on Shin and Fan's operator), and with it the matrix.
+
+**Choosing it.** `IterativeSolver3d::new_with` takes a `Product`: `Matrix` (what `new` gives),
+`MatrixFree` (what `matrix_free` gives), or `Auto`, without the matrix only where the matrix's
+solve, 1.7 kB an unknown, wouldn't fit in the free memory that `backend::auto` is given (the
+studio gives it a way to read it; the library alone doesn't know, and keeps the matrix). The
+two products differ in their last bits, so the default stays the matrix, which every result
+in the validation report and the examples was computed with, and `Auto` is asked for, never
+assumed: a run whose bits hung on the free memory would not repeat. `IterativeSolver3d::product`
+says which the solver took. Shin and Fan's operator has no product without its matrix: `Auto`
+keeps the matrix there, and `MatrixFree` is refused. `photonoxide bench` runs the 40³ guide
+both ways (`fdfd3d/guide-qmr` and `fdfd3d/guide-qmr-free`), and its catalogue the guide and the
+strip with ports at the sizes above.
+
+- **The same S-matrices over a sweep:** the coupler of `fdfd3d/recycle-s-matrix` (18 × 32 × 24
+  cells of 50 nm, PMLs of 4 all round, one mode at each end) at 1.53 to 1.56 µm, by QMR without
+  the matrix, one plain solve a port and recycled from solve to solve (the last 4 solutions),
+  against QMR with the matrix, all to 1e-10 (`fdfd3d/qmr-matrix-free-sweep`).
+- **The same bits on 1 and 4 threads,** the recycled sweep's S-matrices and iterations
+  (`fdfd3d/qmr-matrix-free-threads`).
+- **Block QMR** takes it as it is: `fdfd3d/block-qmr-s-matrix` runs the coupler's 8 ports with
+  the matrix and without.
+
 It is for the solves that take no preconditioner. ILU(0) needs the matrix's entries, and the
 multigrid works on Shin and Fan's operator, whose gradient of a divergence this operator
-doesn't have: both, and an iterative backend, are refused with it.
+doesn't have: both, and an iterative backend, are refused with it. A multigrid whose finest
+level needs no matrix would need a smoother formed from the stencil and coarse operators
+rediscretized in place of $P^{\mathsf T} A P$, and Shin and Fan's operator without its matrix:
+another multigrid than the one validated here ([#333](https://github.com/tachsin/photonoxide/issues/333)).
 
 **Shin and Fan's operator.** `Formulation::ShinFan` solves their Eq. 7 with s = −1 instead:
 

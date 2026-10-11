@@ -18,6 +18,8 @@ pub(crate) enum Solve {
     Multigrid(Multigrid),
     /// QMR on the curl-curl operator's symmetric similarity, the matrix assembled, plain PMLs.
     Symmetric,
+    /// The same without the matrix ([`IterativeSolver3d::matrix_free`]).
+    Free,
 }
 
 /// A directional coupler's straight section: two silicon strips (350 × 220 nm, 150 nm apart)
@@ -123,6 +125,9 @@ fn build(
             Boundaries3d::pml(pml),
             Formulation::CurlCurl,
         )?,
+        Solve::Free => {
+            IterativeSolver3d::matrix_free(grid, lam, coupler_eps, Boundaries3d::pml(pml))?
+        }
     };
     let mut ports = Vec::new();
     for (plane, side) in [(pml + 2, Side::Left), (nx - pml - 3, Side::Right)] {
@@ -222,7 +227,7 @@ pub(crate) fn small(wavelength: f64, solve: Solve) -> Result<(IterativeSolver3d,
 fn recycled(solve: Solve) -> Recycler {
     match solve {
         Solve::Multigrid(_) => Recycler::new().with_krylov(10).with_solutions(4),
-        Solve::Symmetric => Recycler::new().with_solutions(4),
+        Solve::Symmetric | Solve::Free => Recycler::new().with_solutions(4),
     }
 }
 
@@ -237,7 +242,7 @@ pub(crate) fn s_matrix_against_plain(solve: Solve) -> f64 {
     let mut recycler = recycled(solve);
     let tolerance = match solve {
         Solve::Multigrid(_) => 1e-11,
-        Solve::Symmetric => 1e-10,
+        Solve::Symmetric | Solve::Free => 1e-10,
     };
     match (
         sweep(&wavelengths, &build, tolerance, None),
@@ -266,10 +271,37 @@ pub(crate) fn sweep_convergence() -> Vec<Vec<usize>> {
     out
 }
 
+/// The small coupler's S-matrix at 1.53, 1.54, 1.55 and 1.56 µm by symmetric QMR without the
+/// matrix, one plain solve per port and recycled through [`recycled`]'s recycler, against the
+/// stored matrix's plain sweep, all to 1e-10: the largest difference of an entry from the
+/// stored matrix's, of the plain sweep and of the recycled; NaN if a solve fails.
+pub(crate) fn free_against_stored() -> (f64, f64) {
+    let wavelengths = [1.53, 1.54, 1.55, 1.56];
+    let stored = |lam: f64| small(lam, Solve::Symmetric);
+    let free = |lam: f64| small(lam, Solve::Free);
+    let mut recycler = recycled(Solve::Free);
+    match (
+        sweep(&wavelengths, &stored, 1e-10, None),
+        sweep(&wavelengths, &free, 1e-10, None),
+        sweep(&wavelengths, &free, 1e-10, Some(&mut recycler)),
+    ) {
+        (Ok(stored), Ok(plain), Ok(again)) => (
+            largest_difference(&stored, &plain),
+            largest_difference(&stored, &again),
+        ),
+        _ => (f64::NAN, f64::NAN),
+    }
+}
+
 /// The small coupler's recycled sweep ([`s_matrix_against_plain`]'s, by the multigrid with
 /// GCRO-DR, 1.54 to 1.56 µm, 1e-10) on 1 and on 4 threads: its S-matrices' entries whose bits
 /// differ, plus one if the iterations differ; NaN if a solve fails.
 pub(crate) fn thread_differences() -> f64 {
+    thread_differences_of(Solve::Multigrid(Multigrid::default()))
+}
+
+/// [`thread_differences`] for the sweep solved as `solve` says, recycled as [`recycled`] does.
+pub(crate) fn thread_differences_of(solve: Solve) -> f64 {
     let run = |threads: usize| {
         rayon::ThreadPoolBuilder::new()
             .num_threads(threads)
@@ -277,7 +309,6 @@ pub(crate) fn thread_differences() -> f64 {
             .ok()
             .and_then(|pool| {
                 pool.install(|| {
-                    let solve = Solve::Multigrid(Multigrid::default());
                     let build = |lam: f64| small(lam, solve);
                     let mut recycler = recycled(solve);
                     sweep(&[1.54, 1.55, 1.56], &build, 1e-10, Some(&mut recycler)).ok()
@@ -409,6 +440,18 @@ mod tests {
         assert!(worst < 1e-10, "{worst:e}");
         let worst = s_matrix_against_plain(Solve::Symmetric);
         assert!(worst < 1e-10, "{worst:e}");
+    }
+
+    #[test]
+    #[cfg_attr(
+        debug_assertions,
+        ignore = "five sweeps: the validation report runs it in release (fdfd3d/qmr-matrix-free-*)"
+    )]
+    fn sweeps_without_the_matrix_give_the_stored_matrixs_on_any_threads() {
+        let (plain, recycled) = free_against_stored();
+        println!("without the matrix: plain {plain:e}, recycled {recycled:e}");
+        assert!(plain < 1e-9 && recycled < 1e-9, "{plain:e} {recycled:e}");
+        assert_eq!(thread_differences_of(Solve::Free), 0.0);
     }
 
     #[test]

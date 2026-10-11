@@ -526,7 +526,7 @@ fn fixed(id: &'static str, title: &str, heavy: bool) -> Option<Entry> {
             true,
             Task::DirectSymmetric,
         ),
-        "fdfd3d/guide-qmr" => (
+        "fdfd3d/guide-qmr" | "fdfd3d/guide-qmr-free" => (
             Family::Iterative3d,
             40,
             guide,
@@ -612,6 +612,8 @@ fn fixed(id: &'static str, title: &str, heavy: bool) -> Option<Entry> {
         // E, H̃, their coefficients and the CPMLs' ψ, for the run, the kernel alone and its check
         Task::TimeSteps { .. } => (3 * 13 * 8 * unknowns) as u64,
         Task::DirectSymmetric | Task::Mixed => direct_memory(unknowns, nonzeros, three, true),
+        _ if id.ends_with("-free") => iterative_memory(unknowns, super::Solve::QmrFree),
+        _ if id == "fdfd3d/guide-qmr" => iterative_memory(unknowns, super::Solve::Qmr),
         // the matrix, and GMRES's 40 vectors or QMR's dozen
         _ => (24 * nonzeros + 16 * 40 * unknowns) as u64,
     };
@@ -645,6 +647,11 @@ fn fixed(id: &'static str, title: &str, heavy: bool) -> Option<Entry> {
 fn iterative(solve: super::Solve) -> (&'static str, &'static str, f64) {
     match solve {
         super::Solve::Qmr => ("qmr", "QMR on the curl-curl operator, plain PMLs", 1e-6),
+        super::Solve::QmrFree => (
+            "qmr-free",
+            "QMR on the curl-curl operator without its matrix, plain PMLs",
+            1e-6,
+        ),
         super::Solve::Ilu => (
             "ilu",
             "QMR + ILU(0) on Shin and Fan's operator, stretched PMLs",
@@ -658,9 +665,22 @@ fn iterative(solve: super::Solve) -> (&'static str, &'static str, f64) {
     }
 }
 
-/// The bytes of an iterative solve: the matrix, and GMRES's 40 vectors or QMR's dozen.
-fn iterative_memory(unknowns: usize) -> u64 {
-    (24 * 13 * unknowns + 16 * 40 * unknowns) as u64
+/// The bytes of an iterative solve: plain QMR's, with and without the matrix, as they were
+/// measured at their peaks; the others', the matrix and GMRES's 40 vectors or QMR's dozen.
+fn iterative_memory(unknowns: usize, solve: super::Solve) -> u64 {
+    match solve {
+        super::Solve::Qmr => crate::fdfd::MATRIX_SOLVE_BYTES * unknowns as u64,
+        super::Solve::QmrFree => crate::fdfd::MATRIX_FREE_SOLVE_BYTES * unknowns as u64,
+        _ => (24 * 13 * unknowns + 16 * 40 * unknowns) as u64,
+    }
+}
+
+/// The PMLs an iterative solve takes, as a grid names them.
+fn pmls(solve: super::Solve) -> &'static str {
+    match solve {
+        super::Solve::Qmr | super::Solve::QmrFree => "PMLs",
+        super::Solve::Ilu | super::Solve::Multigrid => "stretched PMLs",
+    }
 }
 
 /// Shin and Fan's Diel (a 400 × 300 nm silicon guide in vacuum, a current across it), shorter
@@ -680,7 +700,7 @@ fn diel(length: usize, solve: super::Solve) -> Entry {
         unknowns,
         nonzeros: 13 * unknowns,
         task: Task::Iterative { tolerance },
-        memory_bytes: iterative_memory(unknowns),
+        memory_bytes: iterative_memory(unknowns, solve),
         tier: if length <= 30 {
             Tier::Standard
         } else {
@@ -695,6 +715,8 @@ fn diel(length: usize, solve: super::Solve) -> Entry {
 /// inside its PMLs, its two ports' S-matrix) on cells coarser than `photonoxide bench`'s 20 nm.
 fn strip_ports(step_nm: usize, pml: usize, solve: super::Solve) -> Entry {
     let (name, how, tolerance) = iterative(solve);
+    // an S-matrix's runs to 1e-8, plain QMR's too
+    let tolerance = tolerance.min(1e-8);
     let inside = |nm: usize| (nm as f64 / step_nm as f64).round() as usize + 2 * pml;
     let [nx, ny, nz] = [inside(800), inside(1400), inside(1000)];
     let unknowns = 3 * nx * ny * nz;
@@ -706,12 +728,19 @@ fn strip_ports(step_nm: usize, pml: usize, solve: super::Solve) -> Entry {
              S-matrix, to a residual of {tolerance:e}"
         ),
         size: nx.min(ny).min(nz),
-        grid: format!("{nx} × {ny} × {nz} cells of {step_nm} nm, stretched PMLs of {pml}"),
+        grid: format!(
+            "{nx} × {ny} × {nz} cells of {step_nm} nm, {} of {pml}",
+            pmls(solve)
+        ),
         unknowns,
         nonzeros: 13 * unknowns,
         task: Task::Iterative { tolerance },
-        memory_bytes: iterative_memory(unknowns),
-        tier: Tier::Standard,
+        memory_bytes: iterative_memory(unknowns, solve),
+        tier: if step_nm < 25 {
+            Tier::Full
+        } else {
+            Tier::Standard
+        },
         check: "S21 = exp(iβL) with the grid's own mode, S11 = 0".into(),
         kind: Kind::StripPorts {
             step_nm,
@@ -767,40 +796,24 @@ fn guide(core: usize, pml: usize, solve: super::Solve) -> Entry {
     let cells = 2 * core + 2 * pml;
     let unknowns = 3 * cells * cells * cells;
     let nonzeros = 13 * unknowns;
-    let (name, how, tolerance) = match solve {
-        super::Solve::Qmr => ("qmr", "QMR on the curl-curl operator, plain PMLs", 1e-6),
-        super::Solve::Ilu => (
-            "ilu",
-            "QMR + ILU(0) on Shin and Fan's operator, stretched PMLs",
-            1e-8,
-        ),
-        super::Solve::Multigrid => (
-            "multigrid",
-            "GMRES + multigrid on Shin and Fan's operator, stretched PMLs",
-            1e-8,
-        ),
-    };
+    let (name, how, tolerance) = iterative(solve);
     Entry {
         id: format!("fdfd3d-iterative/guide-{name}-{cells}"),
         family: Family::Iterative3d,
         title: format!(
-            "3D FDFD by {how}: a {} nm silicon guide through the cube, a dipole beside it, to              a residual of {tolerance:e}",
+            "3D FDFD by {how}: a {} nm silicon guide through the cube, a dipole beside it, to \
+             a residual of {tolerance:e}",
             core * 10
         ),
         size: cells,
         grid: format!(
-            "{cells} × {cells} × {cells} cells of 10 nm, {}PMLs of {pml}",
-            if solve == super::Solve::Qmr {
-                ""
-            } else {
-                "stretched "
-            }
+            "{cells} × {cells} × {cells} cells of 10 nm, {} of {pml}",
+            pmls(solve)
         ),
         unknowns,
         nonzeros,
         task: Task::Iterative { tolerance },
-        // the matrix, and GMRES's 40 vectors or QMR's dozen
-        memory_bytes: (24 * nonzeros + 16 * 40 * unknowns) as u64,
+        memory_bytes: iterative_memory(unknowns, solve),
         tier: if cells <= 20 {
             Tier::Quick
         } else if cells <= 50 {
@@ -955,6 +968,7 @@ pub fn catalogue() -> Vec<Entry> {
     for (core, pml) in [(5, 5), (8, 7)] {
         for solve in [
             super::Solve::Qmr,
+            super::Solve::QmrFree,
             super::Solve::Ilu,
             super::Solve::Multigrid,
         ] {
@@ -965,6 +979,7 @@ pub fn catalogue() -> Vec<Entry> {
     // tell (#190)
     for (core, pml) in [(12, 10), (20, 14)] {
         all.push(guide(core, pml, super::Solve::Qmr));
+        all.push(guide(core, pml, super::Solve::QmrFree));
         all.push(guide(core, pml, super::Solve::Ilu));
         all.push(guide(core, pml, super::Solve::Multigrid));
     }
@@ -977,6 +992,13 @@ pub fn catalogue() -> Vec<Entry> {
     for (step_nm, pml) in [(40, 8), (25, 13)] {
         all.push(strip_ports(step_nm, pml, super::Solve::Ilu));
         all.push(strip_ports(step_nm, pml, super::Solve::Multigrid));
+    }
+    // the strip with ports by plain QMR with and without the matrix; not larger: on the fixed
+    // problems' 20 nm (1.8 million unknowns), and on the guide at 96³ and 128³, the Lanczos
+    // process of unpreconditioned QMR breaks down again and again before the residual (#250)
+    for (step_nm, pml) in [(40, 8), (25, 13)] {
+        all.push(strip_ports(step_nm, pml, super::Solve::Qmr));
+        all.push(strip_ports(step_nm, pml, super::Solve::QmrFree));
     }
     // the fixed problems, under their ids
     let fixed_problems = super::problems();
@@ -1503,9 +1525,10 @@ impl Entry {
     }
 
     /// Whether its solve is QMR, plain or with ILU(0), or GMRES with multigrid, which an
-    /// iterative backend can run ([`crate::backend::iterative`]): `fdfd3d-iterative/guide-*`.
+    /// iterative backend can run ([`crate::backend::iterative`]): `fdfd3d-iterative/guide-*`,
+    /// but for QMR without the matrix, which a backend can't be given.
     pub fn takes_an_iterative_backend(&self) -> bool {
-        matches!(self.kind, Kind::Guide { .. })
+        matches!(self.kind, Kind::Guide { solve, .. } if solve != super::Solve::QmrFree)
     }
 
     /// The residual an iterative problem runs to.
@@ -1544,6 +1567,17 @@ impl Entry {
     /// The assembly's and the solver's, and [`Error::InvalidValue`] for a backend that isn't
     /// registered or isn't available.
     pub fn run(&self, backend: &Choice) -> Result<Measurement> {
+        self.run_with(backend, &mut || {})
+    }
+
+    /// As [`Entry::run`], calling `timed` once the timed phases are over, before what checks
+    /// them, where a reference solve follows (the iterative problems), as
+    /// [`super::Problem::run_with`] does: the peak memory to report is the one `timed` reads.
+    ///
+    /// # Errors
+    ///
+    /// As [`Entry::run`].
+    pub fn run_with(&self, backend: &Choice, timed: &mut dyn FnMut()) -> Result<Measurement> {
         let direct = backend;
         match &self.kind {
             Kind::Flat { .. } | Kind::Solid { .. } | Kind::Exported(_) => {
@@ -1553,7 +1587,7 @@ impl Entry {
                 .into_iter()
                 .find(|p| p.id == *id)
                 .ok_or_else(|| Error::invalid("bench", format!("no problem {id}")))?
-                .run(),
+                .run_with(timed),
             Kind::Guide { core, pml, solve } => {
                 let tolerance = match self.task {
                     Task::Iterative { tolerance } => tolerance,
@@ -1572,7 +1606,7 @@ impl Entry {
                     *solve,
                     tolerance,
                     iterative,
-                    &mut || {},
+                    timed,
                 )
             }
             Kind::Diel { length, solve } => super::guide_3d(
@@ -1580,7 +1614,7 @@ impl Entry {
                 10,
                 *solve,
                 self.residual(),
-                &mut || {},
+                timed,
             ),
             Kind::StripPorts {
                 step_nm,
@@ -1591,7 +1625,7 @@ impl Entry {
                 *pml,
                 *solve,
                 self.residual(),
-                &mut || {},
+                timed,
             ),
             Kind::Modes { step_nm, count } => solve_modes(self, *step_nm, *count),
             Kind::Hadley { problem, n } => solve_hadley(self, *problem, *n),

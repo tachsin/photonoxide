@@ -24,7 +24,7 @@ use crate::Result;
 use crate::backend::Choice;
 use crate::fdfd::{
     Axis, Boundaries, Boundaries3d, Formulation, Grid, Grid3d, IterativeSolver3d, Multigrid,
-    Polarization, Port, Port3d, Side, Solver2d, Solver3d, Stopping,
+    Polarization, Port, Port3d, Product, Side, Solver2d, Solver3d, Stopping,
 };
 use crate::units::Wavelength;
 
@@ -175,6 +175,13 @@ pub fn problems() -> Vec<Problem> {
                     through a 40³ grid, a dipole beside it, to a residual of 1e-6",
             heavy: false,
             run: |timed| guide_3d(Guide::Cube { core: 10 }, 10, Solve::Qmr, 1e-6, timed),
+        },
+        Problem {
+            id: "fdfd3d/guide-qmr-free",
+            title: "3D FDFD by QMR on the curl-curl operator without its matrix, each product \
+                    two passes over the grid, plain PMLs: the same guide, to a residual of 1e-6",
+            heavy: false,
+            run: |timed| guide_3d(Guide::Cube { core: 10 }, 10, Solve::QmrFree, 1e-6, timed),
         },
         Problem {
             id: "fdfd3d/guide-ilu",
@@ -482,6 +489,9 @@ enum Guide {
 enum Solve {
     /// QMR on the curl-curl operator, plain PMLs.
     Qmr,
+    /// The same without the matrix, each product two passes over the grid
+    /// ([`IterativeSolver3d::matrix_free`]).
+    QmrFree,
     /// QMR + ILU(0) on Shin and Fan's operator, stretched PMLs.
     Ilu,
     /// GMRES preconditioned by the default multigrid on Shin and Fan's operator, stretched PMLs.
@@ -491,7 +501,7 @@ enum Solve {
 impl Solve {
     fn boundaries(self, pml: usize) -> Boundaries3d {
         match self {
-            Solve::Qmr => Boundaries3d::pml(pml),
+            Solve::Qmr | Solve::QmrFree => Boundaries3d::pml(pml),
             Solve::Ilu | Solve::Multigrid => Boundaries3d::stretched_pml(pml),
         }
     }
@@ -500,22 +510,27 @@ impl Solve {
     fn build(
         self,
         phases: &mut Vec<Phase>,
-        new: impl FnOnce(Formulation) -> Result<IterativeSolver3d>,
+        new: impl FnOnce(Formulation, Product) -> Result<IterativeSolver3d>,
     ) -> Result<IterativeSolver3d> {
         match self {
-            Solve::Qmr => timed("assembly", phases, || new(Formulation::CurlCurl)),
+            Solve::Qmr => timed("assembly", phases, || {
+                new(Formulation::CurlCurl, Product::Matrix)
+            }),
+            Solve::QmrFree => timed("the operator, no matrix", phases, || {
+                new(Formulation::CurlCurl, Product::MatrixFree)
+            }),
             Solve::Ilu => timed("assembly and ILU(0)", phases, || {
-                new(Formulation::ShinFan)?.with_ilu()
+                new(Formulation::ShinFan, Product::Matrix)?.with_ilu()
             }),
             Solve::Multigrid => timed("assembly and multigrid", phases, || {
-                new(Formulation::ShinFan)?.with_multigrid(Multigrid::default())
+                new(Formulation::ShinFan, Product::Matrix)?.with_multigrid(Multigrid::default())
             }),
         }
     }
 
     fn label(self) -> &'static str {
         match self {
-            Solve::Qmr | Solve::Ilu => "QMR",
+            Solve::Qmr | Solve::QmrFree | Solve::Ilu => "QMR",
             Solve::Multigrid => "GMRES",
         }
     }
@@ -650,7 +665,9 @@ fn guide_3d_with(
         tolerance,
         max_iterations: 100_000,
     };
-    let new = |formulation| IterativeSolver3d::new(grid, lam, eps, boundaries, formulation);
+    let new = |formulation, product| {
+        IterativeSolver3d::new_with(grid, lam, eps, boundaries, formulation, product)
+    };
     let mut phases = Vec::new();
     let field = {
         let solver = solve
@@ -668,12 +685,12 @@ fn guide_3d_with(
     };
     timed_done();
     let (reference, against) = match solve {
-        Solve::Qmr => (
-            new(Formulation::ShinFan)?.with_ilu()?,
+        Solve::Qmr | Solve::QmrFree => (
+            new(Formulation::ShinFan, Product::Matrix)?.with_ilu()?,
             "QMR + ILU(0) to 1e-12, relative",
         ),
         Solve::Ilu | Solve::Multigrid => (
-            new(Formulation::ShinFan)?.with_multigrid(Multigrid::default())?,
+            new(Formulation::ShinFan, Product::Matrix)?.with_multigrid(Multigrid::default())?,
             "GMRES + multigrid to 1e-12, relative",
         ),
     };
@@ -692,7 +709,7 @@ fn guide_3d_with(
             n[2],
             nm(h),
             match solve {
-                Solve::Qmr => "PMLs",
+                Solve::Qmr | Solve::QmrFree => "PMLs",
                 Solve::Ilu | Solve::Multigrid => "stretched PMLs",
             }
         ),
@@ -707,8 +724,8 @@ fn guide_3d_with(
 }
 
 /// A straight strip (500 × 220 nm of 3.476 in 1.444) along x on an h grid, 40 × 70 × 50 cells
-/// inside stretched PMLs of `pml` cells, at 1.55 µm, solved by ILU(0) or the multigrid; ports 5
-/// cells in from the left PML and 35. Its exact S-matrix is S21 = S12 = exp(iβL), L the ports'
+/// inside PMLs of `pml` cells (stretched for ILU(0) and the multigrid), at 1.55 µm, solved as
+/// `solve` says; ports 5 cells in from the left PML and 35. Its exact S-matrix is S21 = S12 = exp(iβL), L the ports'
 /// distance, and S11 = S22 = 0.
 fn strip_ports_3d(
     h: f64,
@@ -742,8 +759,15 @@ fn strip_ports_3d(
     };
     let lam = Wavelength::um(1.55)?;
     let mut phases = Vec::new();
-    let solver = solve.build(&mut phases, |formulation| {
-        IterativeSolver3d::new(grid, lam, strip, solve.boundaries(pml), formulation)
+    let solver = solve.build(&mut phases, |formulation, product| {
+        IterativeSolver3d::new_with(
+            grid,
+            lam,
+            strip,
+            solve.boundaries(pml),
+            formulation,
+            product,
+        )
     })?;
     // the ports an eighth of the length in from each PML, and at least three cells
     let margin = (ix / 8).max(3);
@@ -789,8 +813,12 @@ fn strip_ports_3d(
     .fold(0.0, f64::max);
     Ok(Measurement {
         grid: format!(
-            "{nx} × {ny} × {nz} cells of {} nm, stretched PMLs of {pml}",
-            nm(h)
+            "{nx} × {ny} × {nz} cells of {} nm, {} of {pml}",
+            nm(h),
+            match solve {
+                Solve::Qmr | Solve::QmrFree => "PMLs",
+                Solve::Ilu | Solve::Multigrid => "stretched PMLs",
+            }
         ),
         unknowns: grid.unknowns(),
         phases,
@@ -951,6 +979,7 @@ mod tests {
     fn the_3d_guides_converge_to_their_reference() {
         for (guide, solve, tolerance) in [
             (Guide::Cube { core: 4 }, Solve::Qmr, 1e-6),
+            (Guide::Cube { core: 4 }, Solve::QmrFree, 1e-6),
             (Guide::Cube { core: 4 }, Solve::Ilu, 1e-8),
         ] {
             let m = guide_3d(guide, 4, solve, tolerance, &mut || {}).unwrap();

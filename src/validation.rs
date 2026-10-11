@@ -879,6 +879,20 @@ pub fn cases() -> Vec<Case> {
             run: fdfd3d_recycle_threads,
         },
         Case {
+            id: "fdfd3d/qmr-matrix-free-sweep",
+            title: r"3D FDFD S-matrices over a wavelength sweep by QMR without the matrix (each product two passes over the grid, as FDTD's kernel takes its curls), one plain solve per port and recycled from solve to solve (the last 4 solutions), against QMR with the matrix stored: the coupler of fdfd3d/recycle-s-matrix ($18 \times 32 \times 24$ cells of 50 nm, PMLs of 4 all round, one mode at each end, at 1.53, 1.54, 1.55 and 1.56 µm), on the curl-curl operator's complex symmetric similarity, all to a relative residual of 1e-10 (largest difference of an entry shown)",
+            tier: Tier::Analytic,
+            source: "the same systems solved two ways: the product without the matrix is the stored matrix's to rounding (to 1e-13 of the largest value, docs/methods/fdfd-3d.md), which the Lanczos process carries along, so the iterations differ but each field is held to its own residual, and the S-matrices agree within the residual times the condition; measured 8.2e-12 plain and 2.4e-11 recycled",
+            run: fdfd3d_qmr_matrix_free_sweep,
+        },
+        Case {
+            id: "fdfd3d/qmr-matrix-free-threads",
+            title: "The coupler's recycled sweep without the matrix (fdfd3d/qmr-matrix-free-sweep's, 1.54 to 1.56 µm, 1e-10) on 1 and on 4 threads: its S-matrices' entries whose bits differ, and its iterations (count shown)",
+            tier: Tier::Analytic,
+            source: "each pass of the product writes its rows on rayon's threads, a row its own task and each value a fixed sum, and every vector operation is a pass over fixed chunks, each chunk's sums in order and the chunks' in order: the same computation on any number of threads",
+            run: fdfd3d_qmr_matrix_free_threads,
+        },
+        Case {
             id: "fdfd3d/recycle-parks-table",
             title: r"Parks et al.'s Section 4.4 rebuilt: $u_{xx} + u_{yy} = 0$ on the unit square by central differences, $h = 1/41$ (1600 unknowns), $u = 0$ on two sides and 1 on the others, GCRO-DR(25, 10) from zero to 1e-10; the cosines of the principal angles between the space it recycles and the invariant subspace of the 10 eigenvalues of smallest magnitude: five at 1 and five at 0, the largest departure (shown)",
             tier: Tier::Published,
@@ -3057,6 +3071,29 @@ fn fdfd3d_recycle_adjoint() -> Outcome {
 
 fn fdfd3d_recycle_threads() -> Outcome {
     let differ = crate::fdfd::recycle_checks3d::thread_differences();
+    Outcome {
+        measured: differ,
+        expected: 0.0,
+        tolerance: 0.0,
+        error: differ,
+    }
+}
+
+fn fdfd3d_qmr_matrix_free_sweep() -> Outcome {
+    let (plain, recycled) = crate::fdfd::recycle_checks3d::free_against_stored();
+    let worst = plain.max(recycled);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // every field to a residual of 1e-10: the S-matrices within its condition times it
+        tolerance: 1e-9,
+        error: worst,
+    }
+}
+
+fn fdfd3d_qmr_matrix_free_threads() -> Outcome {
+    use crate::fdfd::recycle_checks3d::{Solve, thread_differences_of};
+    let differ = thread_differences_of(Solve::Free);
     Outcome {
         measured: differ,
         expected: 0.0,

@@ -1836,6 +1836,88 @@ fn qmr_without_the_matrix_takes_the_iterations_and_gives_the_field_of_qmr_with_i
 }
 
 #[test]
+fn auto_goes_without_the_matrix_only_where_it_wouldnt_fit() {
+    use crate::backend::auto::with;
+    use crate::fdfd::{IterativeSolver3d, Product, Stopping};
+    let grid = Grid3d {
+        nx: 8,
+        ny: 8,
+        nz: 8,
+        dx: 0.05,
+        dy: 0.05,
+        dz: 0.05,
+        x0: -0.2,
+        y0: -0.2,
+        z0: -0.2,
+    };
+    let cube = |x: f64, y: f64, z: f64| {
+        let inside = x.abs() < 0.1 && y.abs() < 0.1 && z.abs() < 0.1;
+        c64::new(if inside { 12.0 } else { 2.0 }, 0.0)
+    };
+    let lam = Wavelength::um(1.55).unwrap();
+    let (n, pml) = (grid.unknowns(), Boundaries3d::pml(2));
+    let build = |formulation, product, free: Option<u64>| {
+        with(Vec::new(), free, || {
+            IterativeSolver3d::new_with(grid, lam, cube, pml, formulation, product)
+                .unwrap()
+                .product()
+        })
+    };
+    let needs = super::iterative::MATRIX_SOLVE_BYTES * n as u64;
+    let curl_curl = Formulation::CurlCurl;
+    // the free memory unknown, or enough: the matrix, as `new` has it
+    assert_eq!(build(curl_curl, Product::Auto, None), Product::Matrix);
+    assert_eq!(
+        build(curl_curl, Product::Auto, Some(needs)),
+        Product::Matrix
+    );
+    // too little for the matrix's solve: without it
+    assert_eq!(
+        build(curl_curl, Product::Auto, Some(needs - 1)),
+        Product::MatrixFree
+    );
+    // Shin and Fan's operator has no product without its matrix: the matrix, however little
+    assert_eq!(
+        build(Formulation::ShinFan, Product::Auto, Some(1)),
+        Product::Matrix
+    );
+    // asked for, each is what it says, whatever the memory
+    assert_eq!(build(curl_curl, Product::Matrix, Some(1)), Product::Matrix);
+    assert_eq!(
+        build(curl_curl, Product::MatrixFree, None),
+        Product::MatrixFree
+    );
+    let e = IterativeSolver3d::new_with(
+        grid,
+        lam,
+        cube,
+        pml,
+        Formulation::ShinFan,
+        Product::MatrixFree,
+    )
+    .err()
+    .unwrap()
+    .to_string();
+    assert!(e.contains("curl-curl"), "{e}");
+    // what auto chose solves as the solver it is: without the matrix, the same field to
+    // rounding as with it
+    let mut source = vec![c64::new(0.0, 0.0); n];
+    source[grid.index(Axis::Z, (4, 4, 4))] = c64::new(1.0, 0.0);
+    let stopping = Stopping {
+        tolerance: 1e-10,
+        max_iterations: 5000,
+    };
+    let chosen = with(Vec::new(), Some(needs / 2), || {
+        IterativeSolver3d::new_with(grid, lam, cube, pml, curl_curl, Product::Auto).unwrap()
+    });
+    assert_eq!(chosen.nonzeros(), 0);
+    let free = IterativeSolver3d::matrix_free(grid, lam, cube, pml).unwrap();
+    let (a, _) = chosen.solve(&source, stopping).unwrap();
+    let (b, _) = free.solve(&source, stopping).unwrap();
+    assert_eq!(a.values(), b.values());
+}
+
+#[test]
 fn qmr_without_the_matrix_gives_the_s_matrix_of_qmr_with_it() {
     // a strip stepping from 0.3 to 0.4 µm wide, off the box's axis, between walls along y and
     // z and PMLs of 6 cells along x (24 x 12 x 8 cells of 50 nm): S between the propagating

@@ -45,6 +45,56 @@ impl Formulation {
     }
 }
 
+/// How QMR takes its products with the operator ([`IterativeSolver3d::new_with`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Product {
+    /// By the assembled matrix, as [`IterativeSolver3d::new`]: what ILU(0), the multigrid, an
+    /// iterative backend and Shin and Fan's operator need.
+    #[default]
+    Matrix,
+    /// Without it, as [`IterativeSolver3d::matrix_free`]: two passes over the grid a product,
+    /// for QMR on the curl-curl operator with no preconditioner.
+    MatrixFree,
+    /// Without the matrix only where it wouldn't fit: on the curl-curl operator, when the free
+    /// memory that [`crate::backend::auto`] reads ([`crate::backend::auto::free_memory`]; the
+    /// studio gives it a way to read it) is less than the matrix's solve takes; by the matrix
+    /// otherwise, and when the free memory isn't known. The two products differ in their last
+    /// bits, so the choice is the solver's to report ([`IterativeSolver3d::product`]) and a
+    /// run's to record.
+    Auto,
+}
+
+/// The peak bytes an unknown of QMR's solve on the curl-curl operator by its assembled matrix,
+/// the assembly and the vectors included: the process's peak measured at 1.65 to 1.67 kB an
+/// unknown on the guide (192 000 and 255 552 unknowns) and the strip with ports (941 688), in
+/// docs/methods/fdfd-3d.md ("Without the matrix").
+pub(crate) const MATRIX_SOLVE_BYTES: u64 = 1_700;
+
+/// The peak bytes an unknown of the same solve without the matrix: 0.47 to 0.53 kB measured.
+pub(crate) const MATRIX_FREE_SOLVE_BYTES: u64 = 500;
+
+impl Product {
+    /// What `self` comes to for `unknowns` on `formulation`, with `free` bytes of memory
+    /// (None: unknown): [`Product::Matrix`] or [`Product::MatrixFree`].
+    pub(crate) fn resolved(
+        self,
+        formulation: Formulation,
+        unknowns: usize,
+        free: Option<u64>,
+    ) -> Product {
+        match self {
+            Product::Auto
+                if formulation == Formulation::CurlCurl
+                    && free.is_some_and(|f| MATRIX_SOLVE_BYTES * unknowns as u64 > f) =>
+            {
+                Product::MatrixFree
+            }
+            Product::Auto => Product::Matrix,
+            other => other,
+        }
+    }
+}
+
 /// A 3D FDFD problem for an iterative solver: the matrix assembled, nothing factorized. Memory
 /// grows as the unknowns, not as the factorization's fill.
 ///
@@ -142,8 +192,10 @@ impl IterativeSolver3d {
     /// without its matrix: each product is two passes over the grid, E to H and back, with the
     /// PML's stretch, the walls and the Bloch phases as the matrix has them. The same product
     /// to rounding, so the same iterations but for it; 96 bytes an unknown where the matrix
-    /// and its transpose take about 600, and a product 1.6 to 2.6 times faster on 12 threads
-    /// (docs/methods/fdfd-3d.md, "Without the matrix").
+    /// and its transpose take about 600, and a product 1.6 to 2.6 times faster on 12 threads.
+    /// A whole solve, from 2 × 10⁵ to 10⁶ unknowns, 1.4 to 1.7 times faster at under a third of
+    /// the peak memory (20 threads); below 10⁵ the matrix, which stays in cache, is as fast or
+    /// faster (docs/methods/fdfd-3d.md, "Without the matrix").
     ///
     /// For the solves that take no preconditioner. ILU(0), the multigrid and an iterative
     /// backend need the matrix: [`IterativeSolver3d::new`].
@@ -152,6 +204,53 @@ impl IterativeSolver3d {
     ///
     /// As [`IterativeSolver3d::new`].
     pub fn matrix_free(
+        grid: Grid3d,
+        wavelength: Wavelength,
+        eps: impl Fn(f64, f64, f64) -> c64,
+        boundaries: Boundaries3d,
+    ) -> Result<IterativeSolver3d> {
+        Self::new_with(
+            grid,
+            wavelength,
+            eps,
+            boundaries,
+            Formulation::CurlCurl,
+            Product::MatrixFree,
+        )
+    }
+
+    /// [`IterativeSolver3d::new`] or [`IterativeSolver3d::matrix_free`], as `product` says:
+    /// [`Product::Auto`] takes the second only where the matrix's solve wouldn't fit in the free
+    /// memory.
+    ///
+    /// # Errors
+    ///
+    /// As [`IterativeSolver3d::new`], and [`Error::InvalidValue`] for [`Product::MatrixFree`]
+    /// on Shin and Fan's operator, which has no product without its matrix.
+    pub fn new_with(
+        grid: Grid3d,
+        wavelength: Wavelength,
+        eps: impl Fn(f64, f64, f64) -> c64,
+        boundaries: Boundaries3d,
+        formulation: Formulation,
+        product: Product,
+    ) -> Result<IterativeSolver3d> {
+        let free = match product {
+            Product::Auto => crate::backend::auto::free_memory(),
+            _ => None,
+        };
+        match product.resolved(formulation, grid.unknowns(), free) {
+            Product::MatrixFree if formulation != Formulation::CurlCurl => Err(Error::invalid(
+                "fdfd solver",
+                "QMR without the matrix is for the curl-curl operator \
+                 (Formulation::CurlCurl): Shin and Fan's needs the matrix",
+            )),
+            Product::MatrixFree => Self::without_matrix(grid, wavelength, eps, boundaries),
+            _ => Self::new(grid, wavelength, eps, boundaries, formulation),
+        }
+    }
+
+    fn without_matrix(
         grid: Grid3d,
         wavelength: Wavelength,
         eps: impl Fn(f64, f64, f64) -> c64,
@@ -348,6 +447,16 @@ impl IterativeSolver3d {
     /// [`IterativeSolver3d::matrix_free`].
     pub fn nonzeros(&self) -> usize {
         self.matrix.nonzeros()
+    }
+
+    /// How QMR takes its products here: [`Product::Matrix`] or [`Product::MatrixFree`] (what
+    /// [`Product::Auto`] came to).
+    pub fn product(&self) -> Product {
+        if self.free.is_some() {
+            Product::MatrixFree
+        } else {
+            Product::Matrix
+        }
     }
 
     /// The field for an electric current J = η₀ J on the edges, as [`Solver3d::solve`] takes
