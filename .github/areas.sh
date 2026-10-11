@@ -234,7 +234,8 @@ if [ "$everything" = true ]; then
   echo "native=true"
   echo "cases=*"
   echo "examples=*"
-  echo "studio=all"
+  # the studio's own code differs by system; the library under it doesn't
+  if [ "${1:-}" = --all ] || [ "$studio_systems" = true ]; then echo "studio=all"; else echo "studio=linux"; fi
   exit 0
 fi
 

@@ -107,10 +107,11 @@ jobs:
 
           # The validation cases, the slowest groups each on a runner of their own: a group's
           # prefix, then those of the earlier groups inside it left out. Every case runs in
-          # exactly one job, and together they check the whole report. Measured on 0.5.2 (one
-          # case at a time, about as fast on CI's runners as on 20 threads): fdtd's adjoints
-          # 2.7 min, the rest of fdtd 4.7, fdfd3d 3.3, the rest 2.7 (mode 2.0).
-          groups="fdtd/adjoint fdtd/ fdfd3d/"
+          # exactly one job, and together they check the whole report. Measured on CI's runners
+          # (0.5.2, #321 and #328): fdtd's adjoints 4.7 min, its smoothing 4.8, its comparisons
+          # with fdfd 2.5, the rest of fdtd 4.4, fdfd3d 6.3, the rest 3.5 (mode 2.5); the release
+          # build about 2 minutes more each.
+          groups="fdtd/adjoint fdtd/smoothing fdtd/fdfd fdtd/ fdfd3d/"
           rest=""
           if [ -n "$cases" ]; then
             done=""
