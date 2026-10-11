@@ -244,8 +244,9 @@ pub fn academy() -> Academy {
 }
 
 /// A chart's curves and figures at `values` (each in its parameter's unit; those left out at
-/// their defaults).
-#[tauri::command]
+/// their defaults). Off the window's thread: a chart that solves modes takes a fraction of a
+/// second.
+#[tauri::command(async)]
 pub fn academy_chart(
     chart: String,
     values: BTreeMap<String, f64>,

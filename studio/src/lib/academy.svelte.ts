@@ -121,6 +121,8 @@ export interface ChartData {
   /** Whether x is a length in µm, shown in the unit chosen app-wide. */
   x_length: boolean;
   y_label: string;
+  /** Whether y is drawn on a logarithmic scale. */
+  y_log: boolean;
   y_range: [number, number] | null;
   series: { label: string; points: [number, number][]; dashed: boolean }[];
   marker: number | null;

@@ -79,6 +79,7 @@
         xLabel={data.x_label}
         xLength={data.x_length}
         yLabel={data.y_label}
+        yLog={data.y_log}
         yRange={data.y_range ?? undefined}
         marker={data.marker}
         markers={false}
