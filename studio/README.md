@@ -291,6 +291,38 @@ and `-nightly` after it, so every later release sorts after it.
 
   The build runs in the background, its log streamed into the window. It can be cancelled, and
   it stops by itself after two hours.
+
+  main's version is read from its `Cargo.toml`: the package's, or the workspace's that it takes
+  (`version.workspace = true`). A manifest this build's TOML parser can't read is read line by
+  line, and one that gives no version at all falls back to main's latest release, which main is
+  at or past. A change in the manifest's format doesn't stop the build.
+- **What's offered:** the panel (the top bar's button, Settings › Updates and the dialog) always
+  names the build it offers: its commit, its date, and how many commits it is behind main.
+  - **Build and update:** main has commits this copy hasn't, and nothing is built for them.
+  - **Install:** a build of main's newest commit is waiting.
+  - **Revalidate:** a build is waiting, but main has moved past it. The dialog lists the
+    commits it hasn't, and Revalidate builds main's newest. The build waiting stays installable
+    until the new one is ready (each build has its own folder in `ready/`, and `ready.json`
+    names the new one before the old one is removed), so a failed or cancelled rebuild leaves it
+    as it was. **Install this one anyway** installs it as it is.
+  - **A build running** that main has moved past says so, with the new commits: finish this one,
+    or stop it and start again at main's newest.
+
+  A build waiting is offered only once this very build has checked it against main and against
+  itself, with GitHub's compare API: on opening, after switching to Nightly, or when a leftover
+  from an earlier session is found. One that is this build's commit, or older (main has moved
+  further past it than past this build), is never offered: it is set aside, and `install.log`
+  says so.
+- **A builder too old for main:** the build is made by the copy you have, so when main's source
+  moves on in a way that copy's builder doesn't read, the build stops in the builder's own
+  steps, not in main's code. The breaks known so far are listed in
+  `src-tauri/builder-breaks.json`: what a too-old builder says, what changed, and the pull
+  request, commit and release that fixed it (`version.workspace = true` needs #293, in 0.5.2).
+  A failed build reads the list compiled into it and the one in the source it just downloaded,
+  so main can name a break found after the builder was made. The window then says so, names the
+  fix, and offers the way out: **Switch to Stable**, update to the latest release, then switch
+  back to Nightly. A failure reading main's source that no listed break matches says the
+  builder may be behind.
 - **The install:** the build being replaced is kept first, in a folder of its own for each
   install. A watchdog runs from that copy (`photonoxide nightly watch`) and takes it from there:
   - Windows: the studio exits, and the watchdog waits for its process to end (up to a
@@ -319,14 +351,16 @@ and `-nightly` after it, so every later release sorts after it.
   `~/Library/Application Support/gr.tachsin.photonoxide`, `~/.local/share/gr.tachsin.photonoxide`):
   - `source/`, the commit being built, replaced by the next one's;
   - `target/`, Cargo's, kept so the next build compiles only what changed;
-  - `ready/`, the build waiting to be installed;
+  - `ready/`, the build waiting to be installed, in a folder of its own, and `ready.json`, what
+    it is;
   - `previous/`, the build kept to go back to;
   - `build.log`, and `install.log`.
 
   Settings removes the cache. `PHOTONOXIDE_NIGHTLY_DIR` puts it all elsewhere, to try the channel
   without touching an installed copy's.
 - **From a terminal:**
-  - `photonoxide nightly check` shows main's new commits;
+  - `photonoxide nightly check` shows main's new commits, and the build waiting against main
+    (to install, or to revalidate with `build <main's newest>`);
   - `photonoxide nightly prerequisites` shows what building needs;
   - `photonoxide nightly build <sha>` builds main's head, and you type the SHA;
   - `photonoxide nightly install` installs the build;

@@ -97,6 +97,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::channels::nightly_prerequisites,
             crate::channels::nightly_install_tool,
             crate::channels::nightly_build,
+            crate::channels::nightly_restart,
             crate::channels::nightly_progress,
             crate::channels::nightly_cancel,
             crate::channels::nightly_install,

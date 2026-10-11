@@ -175,6 +175,49 @@ pub struct Nightly {
     pub note: Option<String>,
     /// When it was checked, seconds since 1970.
     pub checked_at: u64,
+    /// Whether this build's place on main is known: GitHub knows its commit (or, for a build
+    /// that doesn't know its commit, its version's tag).
+    #[serde(default)]
+    pub placed: bool,
+    /// The other builds asked about (the one waiting to be installed, the one being built),
+    /// each against main and against this build.
+    #[serde(default)]
+    pub others: Vec<Since>,
+}
+
+impl Nightly {
+    /// How the build of `commit` stands, as this check found it: main's head is always known,
+    /// another commit only when the check was asked about it.
+    pub fn since(&self, commit: &str) -> Option<Since> {
+        if commit == self.head {
+            return Some(Since {
+                commit: commit.to_owned(),
+                behind: Some(0),
+                commits: Vec::new(),
+                // main's head has what this build hasn't, unless this build is it
+                newer: self.placed.then_some(self.status == "available"),
+                note: None,
+            });
+        }
+        self.others.iter().find(|s| s.commit == commit).cloned()
+    }
+}
+
+/// Another build's commit (one waiting to be installed, or being built) against main's head and
+/// against this build.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Since {
+    pub commit: String,
+    /// main's commits it hasn't: 0 when it is main's head; `None` when GitHub doesn't know it.
+    pub behind: Option<u32>,
+    /// Those commits, newest first (GitHub lists up to 250).
+    pub commits: Vec<Commit>,
+    /// Whether it has anything this build hasn't: `Some(false)` when it is this build's commit
+    /// or older (main moved further past it than past this build); `None` when that can't be
+    /// told (this build's commit or the other's isn't on GitHub).
+    pub newer: Option<bool>,
+    /// Something to say about the list, when it couldn't be made.
+    pub note: Option<String>,
 }
 
 /// The check's memory, kept between runs (`check.json` in the nightly folder), so a restart
@@ -224,11 +267,27 @@ impl Checker {
     /// commit, `version` its version (whose tag is the base when the commit is unknown), `now`
     /// seconds since 1970. A `quiet` check (on opening, hourly) is skipped while backing off
     /// (`Ok(None)`); one the user asked for goes ahead, unless GitHub's limit is reached.
+    #[cfg(test)]
     pub fn check(
         &mut self,
         http: &dyn Http,
         built: Option<&str>,
         version: &str,
+        now: u64,
+        quiet: bool,
+    ) -> Result<Option<Nightly>, String> {
+        self.check_with(http, built, version, &[], now, quiet)
+    }
+
+    /// [`Checker::check`], and how each of `others` (the commits of the build waiting and of
+    /// the one being built) stands against main and this build: one compare each, made only
+    /// when main's head moved since it was last asked about.
+    pub fn check_with(
+        &mut self,
+        http: &dyn Http,
+        built: Option<&str>,
+        version: &str,
+        others: &[&str],
         now: u64,
         quiet: bool,
     ) -> Result<Option<Nightly>, String> {
@@ -246,7 +305,11 @@ impl Checker {
         if quiet && now < self.retry_after {
             return Ok(None);
         }
-        match self.look(http, built, version, now) {
+        let looked = self.look(http, built, version, now).and_then(|mut found| {
+            found.others = self.others(http, &found, others, now)?;
+            Ok(found)
+        });
+        match looked {
             Ok(found) => {
                 self.failures = 0;
                 self.retry_after = 0;
@@ -268,6 +331,8 @@ impl Checker {
         }
     }
 
+    /// main's head and this build against it, with whether this build's place on main is known
+    /// (`false` when GitHub doesn't know its commit or tag).
     fn look(
         &mut self,
         http: &dyn Http,
@@ -286,9 +351,12 @@ impl Checker {
             new_commits: 0,
             note: None,
             checked_at: now,
+            placed: false,
+            others: Vec::new(),
         };
         if built == Some(head.as_str()) {
             found.status = "current".into();
+            found.placed = true;
             return Ok(found);
         }
         // the same head and build as last time: the list is the same
@@ -302,30 +370,20 @@ impl Checker {
             });
         }
         let base = built.map_or_else(|| format!("v{version}"), str::to_owned);
-        let url = format!("{API}/repos/{REPO}/compare/{base}...{head}");
-        let r = http
-            .get(&url, &[("Accept", "application/vnd.github+json")])
-            .map_err(Failure::Other)?;
-        match r.status {
-            200 => {}
-            404 | 422 => {
-                found.note = Some(match built {
-                    Some(b) => format!(
-                        "This build's commit, {}, isn't on GitHub (a local commit?), so the \
-                         changes since it can't be listed.",
-                        short(b)
-                    ),
-                    None => format!(
-                        "This build doesn't know its commit, and GitHub has no tag v{version} \
-                         to compare with, so the changes can't be listed."
-                    ),
-                });
-                return Ok(found);
-            }
-            _ => return Err(failure(&r, now, "the compare API")),
-        }
-        let compare: Compare = serde_json::from_slice(&r.body)
-            .map_err(|e| Failure::Other(format!("GitHub's compare doesn't read: {e}")))?;
+        let Some(compare) = compare(http, &base, &head, now)? else {
+            found.note = Some(match built {
+                Some(b) => format!(
+                    "This build's commit, {}, isn't on GitHub (a local commit?), so the \
+                     changes since it can't be listed.",
+                    short(b)
+                ),
+                None => format!(
+                    "This build doesn't know its commit, and GitHub has no tag v{version} \
+                     to compare with, so the changes can't be listed."
+                ),
+            });
+            return Ok(found);
+        };
         found.status = match compare.status.as_str() {
             "identical" => "current",
             "behind" => "ahead",
@@ -333,36 +391,63 @@ impl Checker {
         }
         .into();
         found.new_commits = compare.ahead_by;
-        found.head_date = compare
-            .commits
-            .last()
-            .and_then(|c| c.commit.committer.as_ref())
-            .and_then(|w| w.date.as_deref())
-            .map(|d| d.get(..10).unwrap_or(d).to_owned());
-        found.commits = compare
-            .commits
-            .into_iter()
-            .rev()
-            .map(|c| Commit {
-                title: c.commit.message.lines().next().unwrap_or("").to_owned(),
-                author: c
-                    .commit
-                    .author
-                    .as_ref()
-                    .and_then(|a| a.name.clone())
-                    .unwrap_or_default(),
-                date: c.commit.committer.and_then(|w| w.date).unwrap_or_default(),
-                sha: c.sha,
-            })
-            .collect();
-        if compare.ahead_by as usize > found.commits.len() {
-            found.note = Some(format!(
-                "GitHub lists {} of the {} new commits.",
-                found.commits.len(),
-                compare.ahead_by
-            ));
-        }
+        found.head_date = compare.head_date;
+        found.commits = compare.commits;
+        found.note = compare.note;
+        found.placed = true;
         Ok(found)
+    }
+
+    /// How each of `others` stands against main's head and against this build (`found`). The
+    /// last check's answer is kept for a commit while main's head hasn't moved.
+    fn others(
+        &self,
+        http: &dyn Http,
+        found: &Nightly,
+        others: &[&str],
+        now: u64,
+    ) -> Result<Vec<Since>, Failure> {
+        let mut out: Vec<Since> = Vec::new();
+        for &commit in others {
+            if !is_sha(commit) || commit == found.head || out.iter().any(|s| s.commit == commit) {
+                continue;
+            }
+            let kept = self
+                .last
+                .as_ref()
+                .filter(|l| l.head == found.head)
+                .and_then(|l| l.others.iter().find(|s| s.commit == commit));
+            let (behind, commits, note) = match kept {
+                Some(s) => (s.behind, s.commits.clone(), s.note.clone()),
+                None => match compare(http, commit, &found.head, now)? {
+                    Some(c) => (Some(c.ahead_by), c.commits, c.note),
+                    None => (
+                        None,
+                        Vec::new(),
+                        Some(format!(
+                            "{}'s commit isn't on GitHub, so how far main is past it can't be told.",
+                            short(commit)
+                        )),
+                    ),
+                },
+            };
+            // main moved further past it than past this build: it has nothing this one hasn't
+            let newer = if found.built.as_deref() == Some(commit) {
+                Some(false)
+            } else {
+                behind
+                    .filter(|_| found.placed)
+                    .map(|b| b < found.new_commits && found.status == "available")
+            };
+            out.push(Since {
+                commit: commit.to_owned(),
+                behind,
+                commits,
+                newer,
+                note,
+            });
+        }
+        Ok(out)
     }
 
     /// main's head, from GitHub or, when it answers that nothing changed, from the last time.
@@ -434,6 +519,97 @@ struct Compare {
     status: String,
     ahead_by: u32,
     commits: Vec<CompareCommit>,
+}
+
+/// GitHub's compare of `base...head`, as read.
+struct Compared {
+    /// `ahead` (head has commits base hasn't), `identical`, `behind` or `diverged`.
+    status: String,
+    /// The commits head has that base hasn't, and those GitHub listed, newest first.
+    ahead_by: u32,
+    commits: Vec<Commit>,
+    /// head's commit date, `2026-10-09`, when listed.
+    head_date: Option<String>,
+    /// When GitHub listed fewer commits than there are.
+    note: Option<String>,
+}
+
+/// Compares `base...head` on GitHub: `None` when GitHub doesn't know one of them.
+fn compare(http: &dyn Http, base: &str, head: &str, now: u64) -> Result<Option<Compared>, Failure> {
+    let url = format!("{API}/repos/{REPO}/compare/{base}...{head}");
+    let r = http
+        .get(&url, &[("Accept", "application/vnd.github+json")])
+        .map_err(Failure::Other)?;
+    match r.status {
+        200 => {}
+        404 | 422 => return Ok(None),
+        _ => return Err(failure(&r, now, "the compare API")),
+    }
+    let compare: Compare = serde_json::from_slice(&r.body)
+        .map_err(|e| Failure::Other(format!("GitHub's compare doesn't read: {e}")))?;
+    let head_date = compare
+        .commits
+        .last()
+        .and_then(|c| c.commit.committer.as_ref())
+        .and_then(|w| w.date.as_deref())
+        .map(|d| d.get(..10).unwrap_or(d).to_owned());
+    let commits: Vec<Commit> = compare
+        .commits
+        .into_iter()
+        .rev()
+        .map(|c| Commit {
+            title: c.commit.message.lines().next().unwrap_or("").to_owned(),
+            author: c
+                .commit
+                .author
+                .as_ref()
+                .and_then(|a| a.name.clone())
+                .unwrap_or_default(),
+            date: c.commit.committer.and_then(|w| w.date).unwrap_or_default(),
+            sha: c.sha,
+        })
+        .collect();
+    let note = (compare.ahead_by as usize > commits.len()).then(|| {
+        format!(
+            "GitHub lists {} of the {} new commits.",
+            commits.len(),
+            compare.ahead_by
+        )
+    });
+    Ok(Some(Compared {
+        status: compare.status,
+        ahead_by: compare.ahead_by,
+        commits,
+        head_date,
+        note,
+    }))
+}
+
+/// The version main's latest release implies: its tag without the `v` (`0.5.2`), which main's
+/// own version is at least. For a manifest whose version can't be read.
+pub fn latest_release(http: &dyn Http) -> Result<String, String> {
+    let url = format!("{API}/repos/{REPO}/releases/latest");
+    let r = http.get(&url, &[("Accept", "application/vnd.github+json")])?;
+    if r.status != 200 {
+        return Err(format!(
+            "GitHub answered {} for the latest release",
+            r.status
+        ));
+    }
+    #[derive(Deserialize)]
+    struct Release {
+        tag_name: String,
+    }
+    let release: Release = serde_json::from_slice(&r.body)
+        .map_err(|e| format!("GitHub's latest release doesn't read: {e}"))?;
+    let version = release.tag_name.trim_start_matches('v').to_owned();
+    semver::Version::parse(&version).map_err(|e| {
+        format!(
+            "the latest release's tag {} isn't a version: {e}",
+            release.tag_name
+        )
+    })?;
+    Ok(version)
 }
 
 #[derive(Deserialize)]

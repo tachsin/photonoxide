@@ -12,8 +12,10 @@
 //! whether the tree had changes; a nightly also its channel and version ([`this_build`]).
 
 pub mod builder;
+pub mod compat;
 pub mod github;
 pub mod install;
+pub mod offer;
 pub mod prereqs;
 
 use std::path::PathBuf;
@@ -189,19 +191,59 @@ impl State {
         }
     }
 
-    /// Looks at main's head; see [`Checker::check`].
+    /// Looks at main's head, and places the build waiting and the one running against it and
+    /// this build; see [`Checker::check_with`]. A build waiting that the check finds no newer
+    /// than this one is set aside.
     pub fn check(&self, quiet: bool) -> Result<Option<Nightly>, String> {
         let build = this_build();
-        let mut checker = lock(&self.checker);
-        let result = checker.check(
-            self.http.as_ref(),
-            build.commit.as_deref(),
-            photonoxide::VERSION,
-            now(),
-            quiet,
-        );
-        let _ = write_json(&self.dirs.check_file(), &*checker);
+        let waiting = self.waiting().map(|r| r.commit);
+        let running = lock(&self.build)
+            .as_ref()
+            .filter(|b| !b.finished())
+            .map(|b| b.progress(usize::MAX).commit);
+        let others: Vec<&str> = [waiting.as_deref(), running.as_deref()]
+            .into_iter()
+            .flatten()
+            .collect();
+        let result = {
+            let mut checker = lock(&self.checker);
+            let result = checker.check_with(
+                self.http.as_ref(),
+                build.commit.as_deref(),
+                photonoxide::VERSION,
+                &others,
+                now(),
+                quiet,
+            );
+            let _ = write_json(&self.dirs.check_file(), &*checker);
+            result
+        };
+        self.offer();
         result
+    }
+
+    /// What the panel offers ([`offer::decide`]); a build waiting that is no use is set aside
+    /// here.
+    pub fn offer(&self) -> offer::Offer {
+        let build = this_build();
+        let last = lock(&self.checker).last.clone();
+        let progress = self.progress(usize::MAX);
+        let waiting = self.waiting();
+        let mut offer = offer::decide(
+            build.commit.as_deref(),
+            last.as_ref(),
+            waiting.as_ref(),
+            progress.as_ref(),
+        );
+        if let Some((ready, why)) = offer.discard.take() {
+            install::log(
+                &self.dirs,
+                "",
+                &format!("set aside the build waiting, {}: {why}", ready.label),
+            );
+            builder::discard_ready(&self.dirs, &ready);
+        }
+        offer
     }
 
     /// The prerequisites here, for what main asks for (as this build's source did, until a
@@ -282,11 +324,37 @@ impl State {
         lock(&self.build).as_ref().is_some_and(|b| !b.finished())
     }
 
-    /// The build waiting to be installed, if it is still there and isn't this one.
+    /// Stops the build running and starts again at `commit`, main's newest as the last check
+    /// found it: for a build main has moved past.
+    pub fn restart_build(&self, commit: &str) -> Result<(), String> {
+        if lock(&self.checker).last.as_ref().map(|n| n.head.as_str()) != Some(commit) {
+            return Err(format!(
+                "{} isn't main's head as photonoxide last saw it: check again first",
+                short(commit)
+            ));
+        }
+        self.cancel();
+        // the build's processes are stopped within a second or two; its folder is then free
+        let deadline = std::time::Instant::now() + Duration::from_secs(60);
+        while self.building() {
+            if std::time::Instant::now() > deadline {
+                return Err("the build running didn't stop within a minute".into());
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        self.start_build(commit)
+    }
+
+    /// The build waiting in the nightly folder, its file there: whatever it is, before the
+    /// check has placed it.
+    fn waiting(&self) -> Option<Ready> {
+        read_json::<Ready>(&self.dirs.ready_file()).filter(|r| r.artifact.exists())
+    }
+
+    /// The build waiting to be installed, when it is offered: still there, checked by this
+    /// build against main, and newer than this build ([`offer::decide`]).
     pub fn ready(&self) -> Option<Ready> {
-        let build = this_build();
-        read_json::<Ready>(&self.dirs.ready_file())
-            .filter(|r| r.artifact.exists() && build.commit.as_deref() != Some(r.commit.as_str()))
+        self.offer().ready
     }
 }
 
@@ -298,7 +366,10 @@ pub struct Status {
     pub last: Option<Nightly>,
     /// A build running (its progress) or finished and waiting.
     pub progress: Option<Progress>,
+    /// The build waiting, when it is offered.
     pub ready: Option<Ready>,
+    /// What the panel offers: the build, its commit, date and how far behind main it is.
+    pub offer: offer::Offer,
     pub previous: Option<Previous>,
     /// Why this copy can't install a nightly, if it can't.
     pub cannot_install: Option<String>,
@@ -310,11 +381,13 @@ pub struct Status {
 fn status_of(state: &State) -> Status {
     let running = Running::here();
     let needed = running.bundle_needed();
+    let offer = state.offer();
     Status {
         build: this_build(),
         last: lock(&state.checker).last.clone(),
         progress: state.progress(usize::MAX),
-        ready: state.ready(),
+        ready: offer.ready.clone(),
+        offer,
         previous: install::previous(&state.dirs),
         cannot_install: needed.as_ref().err().cloned(),
         bundle: needed.ok().map(str::to_owned),
@@ -375,6 +448,13 @@ pub fn nightly_install_tool(state: tauri::State<'_, State>, id: String) -> Resul
 #[tauri::command(async)]
 pub fn nightly_build(state: tauri::State<'_, State>, commit: String) -> Result<Status, String> {
     state.start_build(&commit)?;
+    Ok(status_of(&state))
+}
+
+/// Stops the build running and starts again at main's newest, `commit`. The user chose it.
+#[tauri::command(async)]
+pub fn nightly_restart(state: tauri::State<'_, State>, commit: String) -> Result<Status, String> {
+    state.restart_build(&commit)?;
     Ok(status_of(&state))
 }
 
@@ -522,8 +602,39 @@ pub fn run(args: &[String]) -> ExitCode {
                             if let Some(note) = &n.note {
                                 println!("{note}");
                             }
-                            println!("to build it here: photonoxide nightly build {}", n.head);
                         }
+                    }
+                    let offer = state.offer();
+                    let shown = |c: &Option<String>| c.as_deref().map_or("?", short).to_owned();
+                    match (offer.kind.as_str(), &offer.ready) {
+                        ("install", Some(r)) => {
+                            println!("built and waiting: {} (main's head)", r.label);
+                            println!("to install it: photonoxide nightly install");
+                        }
+                        ("revalidate", Some(r)) => {
+                            println!(
+                                "built and waiting: {}, but main has {} commits it hasn't",
+                                r.label,
+                                offer.behind.map_or("some".into(), |b| b.to_string())
+                            );
+                            for c in &offer.commits {
+                                println!("  {} {}", short(&c.sha), c.title);
+                            }
+                            println!(
+                                "to revalidate (build main's newest; the build waiting stays \
+                                 until the new one is ready): photonoxide nightly build {}",
+                                n.head
+                            );
+                        }
+                        ("build", _) => {
+                            println!("to build it here: photonoxide nightly build {}", n.head)
+                        }
+                        ("building", _) => println!(
+                            "building main @ {}, {} commits behind main",
+                            shown(&offer.commit),
+                            offer.behind.map_or("?".into(), |b| b.to_string())
+                        ),
+                        _ => {}
                     }
                     ExitCode::SUCCESS
                 }
@@ -584,7 +695,12 @@ pub fn run(args: &[String]) -> ExitCode {
                     println!("to install it: photonoxide nightly install");
                     ExitCode::SUCCESS
                 }
-                None => fail(progress.error.unwrap_or_else(|| "the build failed".into())),
+                None => {
+                    if let Some(t) = &progress.too_old {
+                        eprintln!("{}", t.message);
+                    }
+                    fail(progress.error.unwrap_or_else(|| "the build failed".into()))
+                }
             }
         }
         ["install"] => {
@@ -746,6 +862,8 @@ mod tests {
             new_commits: 1,
             note: None,
             checked_at: 0,
+            placed: true,
+            others: Vec::new(),
         });
         assert!(
             state
@@ -754,6 +872,74 @@ mod tests {
                 .contains("isn't main's head")
         );
         assert!(state.progress(0).is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_leftover_build_is_checked_before_it_is_offered_and_set_aside_when_older() {
+        // this program's own commit is what the check compares from
+        let Some(built) = this_build().commit else {
+            eprintln!("skipped: this build doesn't know its commit");
+            return;
+        };
+        let dir = std::env::temp_dir().join(format!("photonoxide-leftover-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let identity = Identity {
+            identifier: "gr.tachsin.photonoxide.test".into(),
+            product_name: None,
+            main_binary_name: None,
+        };
+        let mut state = State::new(dir.clone(), identity);
+        // the real case: a build of 2a704d6 left waiting by an earlier session
+        let old = "2a704d6f45d84939b13483efc4314daa11c6fb6d";
+        let folder = state.dirs.ready_for(old, 1);
+        std::fs::create_dir_all(&folder).unwrap();
+        let artifact = folder.join("photonoxide_0.5.2-nightly_x64-setup.exe");
+        std::fs::write(&artifact, "old").unwrap();
+        let leftover = Ready {
+            commit: old.into(),
+            date: Some("2026-10-10".into()),
+            version: "0.5.2-nightly".into(),
+            label: "0.5.2-nightly (main @ 2a704d6, 2026-10-10)".into(),
+            bundle: "nsis".into(),
+            artifact: artifact.clone(),
+            built_at: 0,
+            seconds: 0.0,
+        };
+        write_json(&state.dirs.ready_file(), &leftover).unwrap();
+        // just switched to Nightly, nothing checked: not offered, and not touched either
+        assert_eq!(state.offer().kind, "unchecked");
+        assert!(state.ready().is_none() && artifact.exists());
+        // the check finds main 3 past this build and 40 past the leftover
+        let head = "9a9a9a90000000000000000000000000000000cc";
+        let api = "https://api.github.com/repos/tachsin/photonoxide";
+        let web = github::tests::Canned::default();
+        web.answer(&format!("{api}/commits/main"), 200, &[], head.as_bytes());
+        let ahead = |n: u32| format!(r#"{{"status":"ahead","ahead_by":{n},"commits":[]}}"#);
+        web.answer(
+            &format!("{api}/compare/{built}...{head}"),
+            200,
+            &[],
+            ahead(3).as_bytes(),
+        );
+        web.answer(
+            &format!("{api}/compare/{old}...{head}"),
+            200,
+            &[],
+            ahead(40).as_bytes(),
+        );
+        state.http = Arc::new(web);
+        state.check(false).unwrap();
+        // never offered, and set aside: main's head is offered instead
+        assert!(state.ready().is_none());
+        assert!(!state.dirs.ready_file().exists() && !artifact.exists());
+        let offer = state.offer();
+        assert_eq!(
+            (offer.kind.as_str(), offer.commit.as_deref()),
+            ("build", Some(head))
+        );
+        let log = std::fs::read_to_string(state.dirs.install_log()).unwrap();
+        assert!(log.contains("no newer than the build running"), "{log}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

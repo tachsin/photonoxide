@@ -20,8 +20,9 @@ use std::time::{Duration, Instant, SystemTime};
 
 use serde::{Deserialize, Serialize};
 
+use super::compat::{self, TooOld};
 use super::github::{self, Http, short};
-use super::prereqs::Needs;
+use super::prereqs::{self, Needs};
 
 /// The nightly channel's folder, in the app's local data folder, and what it holds.
 #[derive(Clone, Debug)]
@@ -47,6 +48,11 @@ impl Dirs {
     }
     pub fn ready_file(&self) -> PathBuf {
         self.root.join("ready.json")
+    }
+    /// A folder for a build of `commit` made at `when` (milliseconds since 1970), in
+    /// [`Dirs::ready`]: each build its own, so none is in the way of another.
+    pub fn ready_for(&self, commit: &str, when: u128) -> PathBuf {
+        self.ready().join(format!("{}-{when}", short(commit)))
     }
     /// The build that was running before the last install, to go back to.
     pub fn previous(&self) -> PathBuf {
@@ -142,6 +148,8 @@ pub struct Ready {
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Progress {
     pub commit: String,
+    /// The commit's date, `2026-10-09`, when known.
+    pub date: Option<String>,
     /// `download`, `unpack`, `check`, `install`, `frontend`, `compile`, `bundle`, then `done`,
     /// `failed` or `cancelled`.
     pub phase: String,
@@ -159,6 +167,8 @@ pub struct Progress {
     pub timeout_minutes: u64,
     pub finished: bool,
     pub error: Option<String>,
+    /// The build failed because this copy's builder is too old for main, and what to do.
+    pub too_old: Option<TooOld>,
     pub ready: Option<Ready>,
 }
 
@@ -249,6 +259,7 @@ impl Build {
         let shared = Arc::new(Mutex::new(Shared {
             progress: Progress {
                 commit: plan.commit.clone(),
+                date: plan.date.clone(),
                 phase: "download".into(),
                 doing: "Starting".into(),
                 expected,
@@ -280,6 +291,31 @@ impl Build {
                     }
                     Err(e) => {
                         let cancelled = cancel.load(Ordering::SeqCst);
+                        if !cancelled {
+                            // main's own list of builder breaks, from the source just unpacked
+                            let listed = std::fs::read_to_string(
+                                dirs.source().join("studio/src-tauri/builder-breaks.json"),
+                            )
+                            .ok();
+                            let me = super::this_build();
+                            let tail = s.lines.len().saturating_sub(200);
+                            let too_old = compat::diagnose(
+                                &e,
+                                &s.progress.phase,
+                                &s.lines[tail..],
+                                &compat::known(listed.as_deref()),
+                                &compat::Builder {
+                                    label: &me.label,
+                                    version: &me.version,
+                                },
+                                &plan.commit,
+                            );
+                            if let Some(t) = &too_old {
+                                let line = format!("== {}", t.message);
+                                s.say(line);
+                            }
+                            s.progress.too_old = too_old;
+                        }
                         s.progress.phase = if cancelled { "cancelled" } else { "failed" }.into();
                         s.progress.doing = if cancelled {
                             "Cancelled".into()
@@ -556,13 +592,24 @@ fn run(
     }
 }
 
-/// The version in a `Cargo.toml`: the package's, or the workspace's that it takes.
-fn cargo_version(file: &Path) -> Result<String, String> {
-    let text = std::fs::read_to_string(file).map_err(|e| format!("{}: {e}", file.display()))?;
-    let toml: toml::Value =
-        toml::from_str(&text).map_err(|e| format!("{}: {e}", file.display()))?;
-    super::prereqs::package_field(&toml, "version")
-        .ok_or_else(|| format!("{} has no version", file.display()))
+/// main's version, from its `Cargo.toml` (`text`): the package's, or the workspace's that it
+/// takes ([`prereqs::manifest_field`], which reads the lines when the TOML doesn't parse); and
+/// failing both, the version main's latest release implies (main is at it or past it). Only a
+/// version that reads, and a note when it wasn't the manifest's own. A manifest whose format
+/// moves on doesn't stop the build.
+pub fn main_version(text: &str, http: &dyn Http) -> Result<(String, Option<String>), String> {
+    let reads = |v: &str| semver::Version::parse(v.trim()).is_ok();
+    if let Some(v) = prereqs::manifest_field(text, "version").filter(|v| reads(v)) {
+        return Ok((v, None));
+    }
+    let release = github::latest_release(http).map_err(|e| {
+        format!("main's Cargo.toml gives no version that reads, and neither does GitHub: {e}")
+    })?;
+    let note = format!(
+        "main's Cargo.toml gives no version that reads; main's latest release is {release}, so \
+         main is {release} or later"
+    );
+    Ok((release, Some(note)))
 }
 
 fn now_unix() -> u64 {
@@ -635,7 +682,11 @@ fn build(
         &plan.bundle,
     )?;
     let pnpm = check(&needs)?;
-    let version = nightly_version(&cargo_version(&source.join("Cargo.toml"))?)?;
+    let (version, note) = main_version(&read(source.join("Cargo.toml"))?, http)?;
+    if let Some(note) = note {
+        lock(shared).say(note);
+    }
+    let version = nightly_version(&version)?;
     let label = nightly_label(&version, sha, plan.date.as_deref());
     lock(shared).say(format!("pnpm: {}; building {label}", pnpm.display()));
 
@@ -716,8 +767,12 @@ fn build(
             dirs.target().join("release").join("bundle").display()
         )
     })?;
-    let ready_dir = dirs.ready();
-    let _ = std::fs::remove_dir_all(&ready_dir);
+    // each commit's build in a folder of its own: the build waiting until now stays whole (and
+    // installable) until this one's is in place and `ready.json` names it
+    let millis = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis());
+    let ready_dir = dirs.ready_for(sha, millis);
     std::fs::create_dir_all(&ready_dir).map_err(|e| format!("{}: {e}", ready_dir.display()))?;
     let artifact = ready_dir.join(made.file_name().unwrap_or_default());
     std::fs::rename(&made, &artifact).map_err(|e| {
@@ -742,10 +797,45 @@ fn build(
         seconds,
     };
     write_json(&dirs.ready_file(), &ready)?;
+    // only now is the build it replaces removed
+    remove_ready_except(dirs, Some(&ready_dir));
     if compiled > 0 {
         let _ = write_json(&dirs.last_build(), &compiled);
     }
     Ok(ready)
+}
+
+/// Removes what [`Dirs::ready`] holds but `keep`: older builds' folders, and files an earlier
+/// version left there loose. What can't be removed now (a file in use) goes next time.
+pub fn remove_ready_except(dirs: &Dirs, keep: Option<&Path>) {
+    let Ok(entries) = std::fs::read_dir(dirs.ready()) else {
+        return;
+    };
+    for e in entries.flatten() {
+        let path = e.path();
+        if Some(path.as_path()) == keep {
+            continue;
+        }
+        let _ = if path.is_dir() {
+            std::fs::remove_dir_all(&path)
+        } else {
+            std::fs::remove_file(&path)
+        };
+    }
+}
+
+/// Sets aside the build waiting (`ready.json` and its files), when it is no use: older than
+/// the build running, or the build running itself.
+pub fn discard_ready(dirs: &Dirs, ready: &Ready) {
+    // only if ready.json still names it: a build that just finished may have replaced it
+    if read_json::<Ready>(&dirs.ready_file()).is_some_and(|r| r.commit == ready.commit) {
+        let _ = std::fs::remove_file(dirs.ready_file());
+    }
+    let folder = ready.artifact.parent().filter(|p| *p != dirs.ready());
+    let _ = match folder {
+        Some(f) if f.starts_with(dirs.ready()) => std::fs::remove_dir_all(f),
+        _ => std::fs::remove_file(&ready.artifact),
+    };
 }
 
 /// Waits for `build` to finish, telling `line` each new line of its log: for the command line.
@@ -992,6 +1082,123 @@ mod tests {
         assert_eq!(again.progress(0).expected, Some(2));
         assert_eq!(follow(&again, &mut |_| {}).phase, "done");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Builds again in `dirs`, the fake pnpm doing as `mode` says.
+    fn again(dirs: &Dirs, dir: &Path, mode: &str) -> Progress {
+        let web = Canned::default();
+        web.answer(
+            &github::tarball(HEAD),
+            200,
+            &[],
+            &tarball(&format!("photonoxide-{HEAD}")),
+        );
+        let pnpm = fake_pnpm(dir, mode);
+        let build = Build::start(
+            plan(Duration::from_secs(600)),
+            dirs.clone(),
+            Arc::new(web),
+            Box::new(move |_| Ok(pnpm.clone())),
+        );
+        follow(&build, &mut |_| {})
+    }
+
+    #[test]
+    fn the_build_waiting_is_replaced_only_once_the_new_one_is_ready() {
+        let (build, dirs, dir) = start("build-replace", "ok", Duration::from_secs(600));
+        let first = follow(&build, &mut |_| {}).ready.unwrap();
+        // a file an earlier version left loose in ready/
+        std::fs::write(
+            dirs.ready().join("photonoxide_0.5.0-nightly_x64-setup.exe"),
+            "old",
+        )
+        .unwrap();
+        // a rebuild that fails: the build waiting is still there, whole and named
+        let failed = again(&dirs, &dir, "fail");
+        assert_eq!(failed.phase, "failed");
+        assert_eq!(read_json::<Ready>(&dirs.ready_file()), Some(first.clone()));
+        assert!(first.artifact.is_file());
+        // a cancelled one too
+        let web = Canned::default();
+        web.answer(
+            &github::tarball(HEAD),
+            200,
+            &[],
+            &tarball(&format!("photonoxide-{HEAD}")),
+        );
+        let pnpm = fake_pnpm(&dir, "hang");
+        let hung = Build::start(
+            plan(Duration::from_secs(600)),
+            dirs.clone(),
+            Arc::new(web),
+            Box::new(move |_| Ok(pnpm.clone())),
+        );
+        while !matches!(hung.progress(0).phase.as_str(), "frontend" | "compile") && !hung.finished()
+        {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        hung.cancel();
+        assert_eq!(follow(&hung, &mut |_| {}).phase, "cancelled");
+        assert_eq!(read_json::<Ready>(&dirs.ready_file()), Some(first.clone()));
+        assert!(first.artifact.is_file());
+        // one that succeeds replaces it, and only then is the old one removed
+        let second = again(&dirs, &dir, "ok").ready.unwrap();
+        assert_ne!(second.artifact, first.artifact);
+        assert_eq!(read_json::<Ready>(&dirs.ready_file()), Some(second.clone()));
+        assert!(second.artifact.is_file());
+        assert!(!first.artifact.exists() && !first.artifact.parent().unwrap().exists());
+        let left: Vec<_> = std::fs::read_dir(dirs.ready()).unwrap().flatten().collect();
+        assert_eq!(left.len(), 1, "only the new build's folder");
+        // a build set aside goes with its folder, and ready.json with it
+        discard_ready(&dirs, &second);
+        assert!(!dirs.ready_file().exists() && !second.artifact.exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn main_s_version_is_read_however_its_manifest_gives_it() {
+        let web = Canned::default();
+        let latest = "https://api.github.com/repos/tachsin/photonoxide/releases/latest";
+        // the package's own
+        let own = "[package]\nname = \"photonoxide\"\nversion = \"0.5.0\"\n";
+        assert_eq!(main_version(own, &web).unwrap(), ("0.5.0".into(), None));
+        // the workspace's, as main has had it since #290
+        let workspace = "[package]\nname = \"photonoxide\"\nversion.workspace = true\n\n\
+                         [workspace.package]\nversion = \"0.5.2\"\n";
+        assert_eq!(main_version(workspace, &web).unwrap().0, "0.5.2");
+        // a manifest this build's TOML parser can't read: its lines
+        let newer = "[package]\nname = \"photonoxide\"\nversion.workspace = true\n\
+                     edition = 2027 @ \"future syntax\"\n\n[workspace.package]\n\
+                     version = \"0.6.0\"  # the workspace's\nrust-version = \"1.99\"\n";
+        assert!(toml::from_str::<toml::Value>(newer).is_err());
+        assert_eq!(main_version(newer, &web).unwrap().0, "0.6.0");
+        assert_eq!(
+            prereqs::manifest_field(newer, "rust-version").as_deref(),
+            Some("1.99")
+        );
+        // no version anywhere: the latest release's, said so
+        let none = "[package]\nname = \"photonoxide\"\nversion = { from = \"somewhere\" }\n";
+        assert!(
+            main_version(none, &web)
+                .unwrap_err()
+                .contains("neither does GitHub")
+        );
+        web.answer(latest, 200, &[], br#"{"tag_name":"v0.5.2","name":"0.5.2"}"#);
+        let (v, note) = main_version(none, &web).unwrap();
+        assert_eq!(v, "0.5.2");
+        assert!(note.unwrap().contains("latest release is 0.5.2"));
+        assert_eq!(nightly_version(&v).unwrap(), "0.5.3-nightly");
+        // a version that isn't one isn't taken
+        let bad = "[package]\nversion = \"main\"\n";
+        assert_eq!(main_version(bad, &web).unwrap().0, "0.5.2");
+        // and the prerequisites read past a manifest that doesn't parse, or says no
+        // rust-version: this build's own then
+        let needs =
+            Needs::from_source(&[newer], r#"{"packageManager":"pnpm@12.4.1"}"#, "nsis").unwrap();
+        assert_eq!(needs.rust, (1, 99, 0));
+        let needs =
+            Needs::from_source(&[none], r#"{"packageManager":"pnpm@12.4.1"}"#, "nsis").unwrap();
+        assert_eq!(needs.rust, Needs::of_this_build("nsis").rust);
     }
 
     #[test]

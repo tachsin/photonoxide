@@ -75,6 +75,43 @@ pub fn package_field(toml: &toml::Value, key: &str) -> Option<String> {
         .or_else(|| field(toml.get("workspace").and_then(|w| w.get("package"))))
 }
 
+/// The workspace's and the studio's `Cargo.toml`, as this build was made from.
+pub const OWN_MANIFESTS: [&str; 2] = [
+    include_str!("../../../../Cargo.toml"),
+    include_str!("../../Cargo.toml"),
+];
+
+/// A `[package]` field of a `Cargo.toml`'s text, as [`package_field`] finds it; and when the
+/// text doesn't read as TOML (a syntax newer than this build's parser), from its lines: a
+/// `key = "value"` in `[package]`, else in `[workspace.package]`. A manifest whose format moved
+/// on doesn't stop a build that only needs a version from it.
+pub fn manifest_field(text: &str, key: &str) -> Option<String> {
+    if let Ok(toml) = toml::from_str::<toml::Value>(text) {
+        return package_field(&toml, key);
+    }
+    let in_section = |section: &str| {
+        let mut current = String::new();
+        text.lines().find_map(|line| {
+            let line = line.trim();
+            if line.starts_with('[') {
+                current = line
+                    .trim_matches(|c| c == '[' || c == ']')
+                    .trim()
+                    .to_owned();
+                return None;
+            }
+            if current != section {
+                return None;
+            }
+            let (k, v) = line.split_once('=')?;
+            let v = v.split('#').next()?.trim();
+            (k.trim() == key && v.len() >= 2 && v.starts_with('"') && v.ends_with('"'))
+                .then(|| v[1..v.len() - 1].to_owned())
+        })
+    };
+    in_section("package").or_else(|| in_section("workspace.package"))
+}
+
 impl Needs {
     /// What the source asks for, from its `Cargo.toml` files and `studio/package.json`.
     pub fn from_source(
@@ -84,11 +121,17 @@ impl Needs {
     ) -> Result<Needs, String> {
         let mut rust = None;
         for text in cargo_tomls {
-            let toml: toml::Value =
-                toml::from_str(text).map_err(|e| format!("a Cargo.toml doesn't read: {e}"))?;
-            let declared = package_field(&toml, "rust-version").and_then(|v| version(&v));
+            let declared = manifest_field(text, "rust-version").and_then(|v| version(&v));
             rust = rust.max(declared);
         }
+        // a manifest that no longer says it where it is looked for: what this build's own asked
+        // for, and the toolchain's own check tells the rest
+        let rust = rust.or_else(|| {
+            OWN_MANIFESTS
+                .iter()
+                .filter_map(|t| manifest_field(t, "rust-version").and_then(|v| version(&v)))
+                .max()
+        });
         let package: serde_json::Value = serde_json::from_str(package_json)
             .map_err(|e| format!("studio/package.json doesn't read: {e}"))?;
         let pnpm = package
@@ -108,10 +151,7 @@ impl Needs {
     /// What this build's own source asked for: the best guess before main's is downloaded.
     pub fn of_this_build(bundle: &str) -> Needs {
         Needs::from_source(
-            &[
-                include_str!("../../../../Cargo.toml"),
-                include_str!("../../Cargo.toml"),
-            ],
+            &OWN_MANIFESTS,
             include_str!("../../../package.json"),
             bundle,
         )

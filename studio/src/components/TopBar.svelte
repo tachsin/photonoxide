@@ -1,6 +1,6 @@
 <script lang="ts">
   // The top bar: where you are, the search, an update when there is one, help and the theme.
-  import { CircleHelp, Download, GitBranch, Hammer, Moon, Search, Sun } from "@lucide/svelte";
+  import { CircleHelp, Download, GitBranch, Hammer, Moon, RefreshCw, Search, Sun } from "@lucide/svelte";
 
   import { app, run, updateSettings } from "../lib/app.svelte";
   import { editor } from "../lib/chip.svelte";
@@ -58,9 +58,13 @@
       <button class="btn btn-sm btn-soft gap-1.5" onclick={() => (nightly.dialog = true)} title="main is being built here: see its log">
         <span class="loading loading-spinner loading-xs"></span> Building nightly…
       </button>
-    {:else if nightly.status?.ready}
-      <button class="btn btn-sm btn-primary gap-1.5 shadow-lg shadow-primary/20" onclick={() => (nightly.dialog = true)} title="A nightly build is ready: install it">
+    {:else if nightly.status?.offer.kind === "install"}
+      <button class="btn btn-sm btn-primary gap-1.5 shadow-lg shadow-primary/20" onclick={() => (nightly.dialog = true)} title="A nightly build of main's newest commit is ready: install it">
         <Hammer size={15} /> Install nightly
+      </button>
+    {:else if nightly.status?.offer.kind === "revalidate"}
+      <button class="btn btn-sm btn-primary btn-soft gap-1.5" onclick={() => (nightly.dialog = true)} title="main has moved past the nightly build waiting: build main's newest, or install the one waiting">
+        <RefreshCw size={15} /> Revalidate nightly
       </button>
     {:else if available()}
       <button class="btn btn-sm btn-primary btn-soft gap-1.5" onclick={() => (nightly.dialog = true)} title="main has commits this build hasn't: see them, and build them here">

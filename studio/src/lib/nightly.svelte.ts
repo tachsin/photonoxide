@@ -36,6 +36,52 @@ export interface Nightly {
   new_commits: number;
   note: string | null;
   checked_at: number;
+  /** Whether this build's place on main is known. */
+  placed: boolean;
+  /** The build waiting and the one running, against main and this build. */
+  others: Since[];
+}
+
+export interface Since {
+  commit: string;
+  /** main's commits it hasn't; null when GitHub can't tell. */
+  behind: number | null;
+  commits: Commit[];
+  newer: boolean | null;
+  note: string | null;
+}
+
+/** A known break between main and older builders: what changed, and what fixed it. */
+export interface Break {
+  symptom: string;
+  what: string;
+  pr: number | null;
+  fixed_in: string | null;
+  release: string | null;
+}
+
+/** A build that failed because this copy's builder is too old for main. */
+export interface TooOld {
+  message: string;
+  known: Break | null;
+  /** The release with the fix, newer than this copy: the way out. */
+  release: string | null;
+}
+
+/** What the Nightly panel offers (channels/offer.rs). */
+export interface Offer {
+  /** "none", "unchecked" (main not looked at by this build yet), "build" (main's head), "install" (a build of main's head is waiting), "revalidate" (a build is waiting, main moved past it), "building". */
+  kind: "none" | "unchecked" | "build" | "install" | "revalidate" | "building";
+  /** The build offered: its commit, date, and how many commits main has that it hasn't. */
+  commit: string | null;
+  date: string | null;
+  behind: number | null;
+  /** Newest first: main's commits since the build offered (for "build", since this one). */
+  commits: Commit[];
+  note: string | null;
+  head: string | null;
+  head_date: string | null;
+  ready: Ready | null;
 }
 
 export interface Fix {
@@ -74,6 +120,7 @@ export interface Ready {
 
 export interface BuildProgress {
   commit: string;
+  date: string | null;
   phase: "download" | "unpack" | "check" | "install" | "frontend" | "compile" | "bundle" | "done" | "failed" | "cancelled";
   doing: string;
   lines: string[];
@@ -86,6 +133,7 @@ export interface BuildProgress {
   timeout_minutes: number;
   finished: boolean;
   error: string | null;
+  too_old: TooOld | null;
   ready: Ready | null;
 }
 
@@ -112,6 +160,7 @@ export interface Status {
   last: Nightly | null;
   progress: BuildProgress | null;
   ready: Ready | null;
+  offer: Offer;
   previous: Previous | null;
   cannot_install: string | null;
   bundle: string | null;
@@ -127,6 +176,7 @@ const call = {
   prerequisites: () => invoke<Prerequisites>("nightly_prerequisites"),
   installTool: (id: string) => invoke<string>("nightly_install_tool", { id }),
   build: (commit: string) => invoke<Status>("nightly_build", { commit }),
+  restart: (commit: string) => invoke<Status>("nightly_restart", { commit }),
   progress: (from: number) => invoke<BuildProgress | null>("nightly_progress", { from }),
   cancel: () => invoke<void>("nightly_cancel"),
   install: () => invoke<Outcome>("nightly_install"),
@@ -158,6 +208,8 @@ export const nightly = $state({
   dialog: false,
   /** A package install's commands, once the build is a .deb or .rpm. */
   pkg: null as { command: string; pkexec: string | null } | null,
+  /** A build being stopped to start again at main's newest. */
+  restarting: false,
 });
 
 /** The channel the settings choose. */
@@ -170,9 +222,19 @@ export function thisBuild(): BuildInfo | null {
   return app.state?.build ?? null;
 }
 
-/** The new commits are worth a build: main moved past this build. */
+/** What the panel offers, as the program decided it from the last check. */
+export function offer(): Offer | null {
+  return nightly.status?.offer ?? null;
+}
+
+/** The new commits are worth a build: main moved past this build, and nothing is built for them. */
 export function available(): boolean {
-  return nightly.status?.last?.status === "available" && !nightly.status.ready;
+  return offer()?.kind === "build";
+}
+
+/** "3 commits", "1 commit". */
+export function commits(n: number): string {
+  return `${n} commit${n === 1 ? "" : "s"}`;
 }
 
 export function building(): boolean {
@@ -225,13 +287,23 @@ export async function checkNightly(quiet: boolean) {
     const found = await call.check(quiet);
     await refresh();
     if (!found) return;
-    if (found.status === "available" && !nightly.status?.ready) {
+    const o = offer();
+    const see = { label: "See them", run: () => (nightly.dialog = true) };
+    if (o?.kind === "build") {
       if (quiet && announced === found.head) return;
       announced = found.head;
-      const n = found.new_commits;
-      toast(`main has ${n} new commit${n === 1 ? "" : "s"} since this build.`, "info", { label: "See them", run: () => (nightly.dialog = true) }, 12000);
+      toast(`main has ${commits(found.new_commits)} new since this build.`, "info", see, 12000);
+    } else if (o?.kind === "revalidate" || (o?.kind === "building" && o.behind)) {
+      if (quiet && announced === found.head) return;
+      announced = found.head;
+      const what = o.kind === "building" ? "the build running" : "the build waiting";
+      const n = o.behind === null ? "commits" : commits(o.behind);
+      toast(`main has moved past ${what}: ${n} it hasn't.`, "info", see, 12000);
     } else if (!quiet) {
-      toast(found.status === "current" ? "This build is main's latest commit." : "main has nothing this build hasn't.", "success");
+      toast(
+        o?.kind === "install" ? "The build waiting is main's latest commit." : found.status === "current" ? "This build is main's latest commit." : "main has nothing this build hasn't.",
+        "success",
+      );
     }
   } catch (e) {
     nightly.error = String(e);
@@ -279,7 +351,7 @@ function follow() {
         if (p.phase === "done") {
           toast(`photonoxide ${p.ready?.label} is built and ready to install.`, "success", { label: "Install", run: () => (nightly.dialog = true) }, 20000);
         } else if (p.phase === "failed") {
-          toast(`The nightly build failed: ${p.error}`, "error", { label: "See the log", run: () => (nightly.dialog = true) }, 15000);
+          toast(p.too_old ? p.too_old.message : `The nightly build failed: ${p.error}`, "error", { label: "See the log", run: () => (nightly.dialog = true) }, p.too_old ? 30000 : 15000);
         }
       }
     } catch {
@@ -298,6 +370,23 @@ export async function build(commit: string) {
     follow();
   } catch (e) {
     toast(String(e), "error");
+  }
+}
+
+/** Stops the build running, which main has moved past, and starts again at main's newest, `commit`; the user chose it. */
+export async function restart(commit: string) {
+  try {
+    nightly.restarting = true;
+    const status = await call.restart(commit);
+    nightly.log = [];
+    nightly.pkg = null;
+    nightly.status = status;
+    nightly.progress = status.progress;
+    follow();
+  } catch (e) {
+    toast(String(e), "error");
+  } finally {
+    nightly.restarting = false;
   }
 }
 

@@ -7,7 +7,7 @@
   import { app, toast, updateSettings } from "../lib/app.svelte";
   import { MORE_THEMES } from "../lib/themes";
   import { lengthUnit } from "../lib/units";
-  import { available, building, clearCache, nightly, refresh, rollBack } from "../lib/nightly.svelte";
+  import { available, building, clearCache, commits, nightly, refresh, rollBack } from "../lib/nightly.svelte";
   import { checkForUpdate, updater } from "../lib/updater.svelte";
 
   const s = $derived(app.state!.settings);
@@ -245,8 +245,12 @@
           </button>
           {#if building()}
             <button class="btn btn-sm btn-soft gap-1.5" onclick={() => (nightly.dialog = true)}><span class="loading loading-spinner loading-xs"></span> Building… see the log</button>
-          {:else if nightly.status?.ready}
+          {:else if nightly.status?.offer.kind === "install" && nightly.status.ready}
             <button class="btn btn-primary btn-sm gap-1.5" onclick={() => (nightly.dialog = true)}><Hammer size={14} /> Install {nightly.status.ready.label}</button>
+          {:else if nightly.status?.offer.kind === "revalidate"}
+            <button class="btn btn-primary btn-sm btn-soft gap-1.5" onclick={() => (nightly.dialog = true)}><RefreshCw size={14} /> main moved past the build waiting: revalidate</button>
+          {:else if nightly.status?.offer.kind === "unchecked"}
+            <span class="text-sm faint">Not checked from this build yet: nothing is offered until it is.</span>
           {:else if available()}
             <button class="btn btn-primary btn-sm btn-soft gap-1.5" onclick={() => (nightly.dialog = true)}><GitBranch size={14} /> {nightly.status?.last?.new_commits} new on main: see them</button>
           {:else if nightly.status?.last?.status === "current"}
@@ -256,6 +260,13 @@
           {/if}
           {#if nightly.error}<span class="selectable text-xs text-error">{nightly.error}</span>{/if}
         </div>
+        {#if nightly.status?.offer.commit}
+          {@const o = nightly.status.offer}
+          <p class="mt-2 text-xs faint">
+            {o.kind === "build" ? "To build" : o.kind === "building" ? "Being built" : "Built and waiting"}: main @ <span class="font-mono">{(o.commit ?? "").slice(0, 7)}</span>{o.date ? `, ${o.date}` : ""},
+            {o.behind === 0 ? "main's newest commit" : o.behind === null ? "how far behind main unknown" : `${commits(o.behind)} behind main`}.
+          </p>
+        {/if}
         {#if nightly.status?.cannot_install}
           <p class="mt-3 text-xs text-warning">{nightly.status.cannot_install}</p>
         {/if}
