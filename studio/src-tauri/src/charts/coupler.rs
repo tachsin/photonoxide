@@ -121,9 +121,10 @@ fn fundamental(cs: &CrossSection, l: Wavelength) -> photonoxide::Result<VectorMo
     Ok(mode)
 }
 
-/// A symmetric pair's two supermodes: their effective indices, and E_x across the pair at the
-/// strips' mid-height (the first row of cells, 5 nm up), each scaled to 1 at its largest, as
-/// (x µm, E_x) over the whole width.
+/// A symmetric pair's two supermodes: their effective indices, and H_y across the pair at the
+/// strips' mid-height, each scaled to 1 at its largest, as (x µm, H_y) over the whole width.
+/// For these TE-like modes H_y is the large magnetic field, with E_x's shape and symmetry but
+/// continuous where E_x jumps, at the strips' sides.
 #[derive(Clone, Debug)]
 pub struct Pair {
     pub even: f64,
@@ -139,11 +140,11 @@ impl Pair {
     }
 }
 
-/// E_x along the first row of cells, scaled so its largest is 1 (its phase taken out), then
+/// H_y along the nodes at mid-height, scaled so its largest is 1 (its phase taken out), then
 /// mirrored across x = 0: evenly for the even supermode, with a sign for the odd.
-fn profile(fields: &Fields, even: bool) -> Vec<[f64; 2]> {
-    let x = fields.x();
-    let values: Vec<c64> = (0..x.len()).map(|i| fields.e(i, 0)[0]).collect();
+fn profile(mode: &VectorMode, cs: &CrossSection, even: bool) -> Vec<[f64; 2]> {
+    let x = cs.x();
+    let values: Vec<c64> = (0..x.len()).map(|i| mode.hy(i, 0)).collect();
     let peak = values
         .iter()
         .copied()
@@ -156,7 +157,12 @@ fn profile(fields: &Fields, even: bool) -> Vec<[f64; 2]> {
         .map(|(&x, &v)| [x, (v * unit).re])
         .collect();
     let sign = if even { 1.0 } else { -1.0 };
-    let mut out: Vec<[f64; 2]> = right.iter().rev().map(|&[x, v]| [-x, sign * v]).collect();
+    let mut out: Vec<[f64; 2]> = right
+        .iter()
+        .skip(1)
+        .rev()
+        .map(|&[x, v]| [-x, sign * v])
+        .collect();
     out.extend(right);
     out
 }
@@ -215,7 +221,7 @@ pub fn pair(gap: f64, l: f64) -> photonoxide::Result<Pair> {
         let solve = |even: bool| -> photonoxide::Result<(f64, Vec<[f64; 2]>)> {
             let cs = quarter(gap, lam, even)?;
             let mode = fundamental(&cs, lam)?;
-            Ok((mode.effective_index().re, profile(&mode.fields(&cs)?, even)))
+            Ok((mode.effective_index().re, profile(&mode, &cs, even)))
         };
         let (even, odd) = std::thread::scope(|s| {
             let odd = s.spawn(|| solve(false));
@@ -332,7 +338,7 @@ pub fn supermodes(gap: f64, l: f64) -> photonoxide::Result<ChartData> {
     Ok(ChartData {
         x_label: "across the pair, x".to_owned(),
         x_length: true,
-        y_label: "E_x at mid-height (largest 1)".to_owned(),
+        y_label: "H_y at mid-height (largest 1)".to_owned(),
         y_log: false,
         y_range: Some([-1.15, 1.15]),
         series: vec![
@@ -393,7 +399,7 @@ pub fn power(gap: f64, l: f64, length: f64) -> photonoxide::Result<ChartData> {
         marker: Some(length),
         figures,
         note: format!(
-            "photonoxide's DirectionalCoupler from the pair's two supermodes ($n_\\text{{even}}$ {:.5}, $n_\\text{{odd}}$ {:.5}), {:.0} nm apart at {l} µm, by the full-vector mode solver; the grid {GRID}. The coupled section only: no bends.",
+            "photonoxide's DirectionalCoupler from the pair's two supermodes (n_even {:.5}, n_odd {:.5}), {:.0} nm apart at {l} µm, by the full-vector mode solver; the grid {GRID}. The coupled section only: no bends.",
             p.even,
             p.odd,
             gap * 1e3
@@ -498,16 +504,12 @@ pub fn gap_chart(l: f64) -> photonoxide::Result<ChartData> {
         y_range: None,
         series: vec![
             curve("photonoxide's supermodes", lengths, false),
-            curve(
-                "Chrostowski and Hochberg's fit, Eq. 4.14 (1550 nm)",
-                book,
-                true,
-            ),
+            curve("Chrostowski and Hochberg, Eq. 4.14", book, true),
         ],
         marker: None,
         figures,
         note: format!(
-            "The cross-over length λ/(2Δn) of two {:.0} × {:.0} nm silicon strips in silica at {l} µm, every 50 nm of gap, each pair by the full-vector mode solver on the grid {GRID}; one strip's $n_\\text{{eff}}$ {n:.4} gives $\\gamma = 2\\pi\\sqrt{{n_\\text{{eff}}^2 - n_\\text{{ox}}^2}}/\\lambda$.",
+            "The cross-over length λ/(2Δn) of two {:.0} × {:.0} nm silicon strips in silica at {l} µm, every 50 nm of gap, each pair by the full-vector mode solver on the grid {GRID}; one strip's effective index, {n:.4}, gives the decay γ = 2π √(n_eff² − n_ox²)/λ.",
             WIDTH * 1e3,
             THICKNESS * 1e3
         ),
@@ -802,7 +804,7 @@ pub fn mismatch(other_nm: f64, gap_nm: f64) -> photonoxide::Result<ChartData> {
         marker: Some(lc),
         figures,
         note: format!(
-            "Light launched in the 500 nm strip's own mode, expanded on the pair's two modes, each carried at its own phase, and projected on each strip's own mode: all five modes by the full-vector solver at {UNEQUAL_AT} µm on one grid, {GRID}; a strip {other_nm:.0} nm wide {gap_nm:.0} nm away. The dashed curve is $\\kappa^2/(\\kappa^2 + \\delta^2)\\thinspace\\sin^2 Sz$ from the same indices."
+            "Light launched in the 500 nm strip's own mode, expanded on the pair's two modes, each carried at its own phase, and projected on each strip's own mode: all five modes by the full-vector solver at {UNEQUAL_AT} µm on one grid, {GRID}; a strip {other_nm:.0} nm wide {gap_nm:.0} nm away. The dashed curve is κ²/(κ² + δ²) sin² Sz from the same indices."
         ),
     })
 }
@@ -818,7 +820,7 @@ mod tests {
     /// The supermodes against the directional_coupler example's: the cross-over length at a
     /// 200 nm gap within 1.5 % of its 5 nm grid's 37.152 µm (the book's Lorentz silicon and
     /// 1.444 oxide there, Li's silicon and Malitson's silica here), and the even supermode
-    /// above the odd, each a TE-like mode with E_x even and odd about the gap's middle.
+    /// above the odd, each a TE-like mode with H_y even and odd about the gap's middle.
     #[test]
     fn the_supermodes_match_the_example() {
         let p = pair(0.2, 1.55).unwrap();

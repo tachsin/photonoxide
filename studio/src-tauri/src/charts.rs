@@ -554,7 +554,7 @@ pub fn specs() -> Vec<ChartSpec> {
         ChartSpec {
             id: "coupler-supermodes",
             title: "The two supermodes of a pair of strips",
-            about: "Two 500 × 220 nm silicon strips in silica, side by side: the electric field across the pair of its two TE-like modes, the even and the odd supermode, and their sum, which is light in one strip.",
+            about: "Two 500 × 220 nm silicon strips in silica, side by side: the magnetic field H_y across the pair of its two TE-like modes, which has the shape of their electric field E_x without its jumps at the strips' sides, the even and the odd supermode, and their sum, which is light in one strip.",
             computed_by: "mode::vector::modes and VectorMode::fields, on a quarter of the cross-section with mirror walls",
             params: vec![coupler_gap((100.0, 1000.0, 200.0)), coupler_wavelength()],
         },

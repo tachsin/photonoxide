@@ -184,7 +184,8 @@ the **even supermode**, its field the same sign in both strips, and the **odd su
 field opposite in sign; each travels unchanged. Light in one strip is the two in step: their sum
 fills one strip and cancels in the other. The even supermode has the higher index, so the two
 slip out of step; after a slip of $\pi$ their sum fills the other strip. The chart
-draws both fields across the pair and their sum (dashed).
+draws each one's magnetic field $H_y$ across the pair, which has the shape of its electric field
+$E_x$ without $E_x$'s jumps at the strips' sides, and their sum (dashed).
 
 ::chart coupler-supermodes
 

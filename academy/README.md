@@ -212,7 +212,7 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `bragg-bandwidth` | `low` (1.45), `up_to` (2.0) | `Multilayer::reflection`: one period's transmission $t$, and $\cos K\Lambda = \operatorname{Re}(1/t)$ |
 | `mzi-spectrum` | `delta` ΔL µm (50), `split` κ₁² (0.5), `combine` κ₂² (0.5), `loss` dB/cm (3), `phase` φ/π (0), `group_index` (4.2), `window` nm (40) | a `Netlist` of `Coupler`, `Waveguide` and `PhaseShifter` solved by `Circuit::spectrum`, its peaks found on the spectrum; the extremes by `mzi_closed_form` |
 | `mzi-extinction` | `combine` κ₂² (0.5), `loss` dB/cm (3), `delta` ΔL µm (50) | `mzi_closed_form`, with `Coupler`'s and `Waveguide`'s S-matrices |
-| `coupler-supermodes` | `gap` nm (200), `wavelength` µm (1.55) | `mode::vector::modes` on a quarter of two 500 × 220 nm strips with mirror walls, `VectorMode::fields`: $E_x$ across the pair |
+| `coupler-supermodes` | `gap` nm (200), `wavelength` µm (1.55) | `mode::vector::modes` on a quarter of two 500 × 220 nm strips with mirror walls, `VectorMode::hy`: $H_y$ across the pair |
 | `coupler-power` | `gap` nm (200), `wavelength` µm (1.55), `length` µm (20) | `DirectionalCoupler::s_matrix` from the supermodes of `mode::vector::modes` |
 | `coupler-gap` | `wavelength` µm (1.55) | `mode::vector::modes` at 19 gaps from 100 to 1000 nm, $L_c = \lambda/2\Delta n$, on a logarithmic scale |
 | `coupler-spectrum` | `gap` nm (200), `length` $L/L_c$ at 1.55 µm (0.5) | `DirectionalCoupler::from_modes` (the supermodes tracked from 1.50 to 1.60 µm) and `s_matrix` |
