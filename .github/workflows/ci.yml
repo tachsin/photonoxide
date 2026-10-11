@@ -96,7 +96,6 @@ jobs:
           fi
           echo "tier $tier"
           cat "$RUNNER_TEMP/areas.txt"
-          # shellcheck disable=SC1091
           get() { sed -n "s/^$1=//p" "$RUNNER_TEMP/areas.txt"; }
           code=$(get code) tests=$(get tests) native=$(get native) cases=$(get cases)
           examples=$(get examples) studio=$(get studio)
@@ -117,12 +116,15 @@ jobs:
             done=""
             for g in $groups; do
               take=false
-              if [ "$cases" = "*" ]; then take=true; fi
-              for c in $cases; do case "$g" in "$c"*) take=true ;; esac; done
+              if [ "$cases" = "*" ]; then
+                take=true
+              else
+                for c in $cases; do case "$g" in "$c"*) take=true ;; esac; done
+              fi
               [ "$take" = true ] || continue
               these="$g"
               for d in $done; do case "$d" in "$g"*) these+=" -$d" ;; esac; done
-              entry "cases $g" ubuntu-latest "$these" ""
+              entry "$g" ubuntu-latest "$these" ""
               done+=" $g"
             done
             rest=""
@@ -243,12 +245,12 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      # the library's test binary alone: its few doc tests would build the library once more (two
+      # minutes), so they run with every test
       - name: The changed areas' unit tests
         if: env.TESTS != '' && env.TESTS != '*'
-        run: |
-          # shellcheck disable=SC2086
-          cargo test --all-features --lib -- $TESTS
-          cargo test --all-features --doc
+        # shellcheck disable=SC2086
+        run: cargo test --all-features --lib -- $TESTS
       - name: Every test
         if: env.TESTS == '*'
         run: cargo test --all-features
@@ -269,7 +271,7 @@ jobs:
   # mustn't show in what an example prints (issue #280; the Systems workflow runs the 3D devices
   # and the report on those systems).
   release:
-    name: Release build (${{ matrix.name }}${{ matrix.os != 'ubuntu-latest' && format(', {0}', matrix.os) || '' }})
+    name: Validation and examples (${{ matrix.name }}${{ matrix.os != 'ubuntu-latest' && format(', {0}', matrix.os) || '' }})
     needs: changes
     if: needs.changes.outputs.release != '[]'
     strategy:
