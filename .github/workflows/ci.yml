@@ -318,17 +318,39 @@ jobs:
       matrix:
         os: ${{ fromJSON(needs.changes.outputs.studio) }}
     runs-on: ${{ matrix.os }}
+    env:
+      TAURI_APT_PACKAGES: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
     defaults:
       run:
         working-directory: studio
         shell: bash
     steps:
       - uses: actions/checkout@v7
-      # what Tauri needs on Linux: the WebKitGTK web view and its friends
-      - if: runner.os == 'Linux'
+      # what Tauri needs on Linux: the WebKitGTK web view and its friends, kept in the Actions
+      # cache (installing them took over a minute and a half). The action picks the packages'
+      # versions from the image's package lists, which can name versions the mirror has dropped,
+      # so the lists are updated first; its key leaves out the Ubuntu release, so that is the
+      # cache's version, and a new ubuntu-latest starts a fresh cache
+      - id: ubuntu
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          echo "release=$(lsb_release -rs)" >> "$GITHUB_OUTPUT"
+      - if: runner.os == 'Linux'
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: ${{ env.TAURI_APT_PACKAGES }}
+          # the number after the release: raise it to drop a bad cache
+          version: ubuntu-${{ steps.ubuntu.outputs.release }}-2
+      # the action reports success even when its install failed (and caches what it got), so
+      # the build's own check: the libraries pkg-config finds, else a plain install
+      - if: runner.os == 'Linux'
+        run: |
+          if pkg-config --exists webkit2gtk-4.1 ayatana-appindicator3-0.1 librsvg-2.0 openssl && [ -f /usr/include/xdo.h ]; then
+            exit 0
+          fi
+          echo "::warning::the cached Tauri packages are missing or incomplete: installing them with apt (raise the cache's version to drop it)"
+          sudo apt-get install -y $TAURI_APT_PACKAGES
       - uses: pnpm/action-setup@v6
         with:
           package_json_file: studio/package.json
