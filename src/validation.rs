@@ -893,6 +893,48 @@ pub fn cases() -> Vec<Case> {
             run: fdfd3d_qmr_matrix_free_threads,
         },
         Case {
+            id: "fdfd3d/multigrid-stencil-direct",
+            title: r"3D FDFD by GMRES on Shin and Fan's operator without its matrix, preconditioned by the multigrid without its finest matrix (the finest level from the stencil, smoothed by damped Jacobi; the coarse operators Galerkin's from the stencil's rows, and discretized again), to a relative residual of 1e-10, against the sparse direct solver: fdfd3d/gmres-multigrid-direct's strip, $24 \times 20 \times 16$ cells of 40 nm, stretched PMLs of 6 cells all round (the larger of the two largest field differences relative to the largest field shown)",
+            tier: Tier::Analytic,
+            source: r"the same system solved two ways; Erlangga, Oosterlee and Vuik's ω-Jacobi smoother for the shifted operator (SIAM J. Sci. Comput. 27, 1471 (2006), doi:10.1137/040615195, Section 4.3) in place of ILU(0) on the finest level, and the product and the diagonal from the stencil (docs/methods/multigrid-stencil.md); measured 2.5e-10 in 23 iterations with Galerkin's coarse operators and 3.2e-10 in 30 with them discretized again, against the stored matrix's multigrid's 2.0e-10 in 24",
+            run: fdfd3d_multigrid_stencil_direct,
+        },
+        Case {
+            id: "fdfd3d/multigrid-stencil-s-matrix",
+            title: r"3D FDFD S-matrices over a wavelength sweep by GMRES with the multigrid without the finest matrix (Galerkin's coarse operators from the stencil, and discretized again), one plain solve per port and recycled (GCRO-DR keeping 10 vectors, the last 4 solutions), against the stored matrix's multigrid's plain sweep: the coupler of fdfd3d/recycle-s-matrix ($18 \times 32 \times 24$ cells of 50 nm, stretched PMLs of 4 all round, one mode at each end, at 1.53, 1.54, 1.55 and 1.56 µm), all to a relative residual of 1e-11 (largest difference of an entry shown)",
+            tier: Tier::Analytic,
+            source: "the same systems solved with two preconditioners: the preconditioner changes the iterations, not the solution, so each field is held to its own residual and the S-matrices agree within the residual times the condition; measured 5.7e-12 plain and 4.8e-12 recycled with Galerkin's coarse operators, 8.4e-12 and 5.6e-12 with them discretized again; the plain sweeps' iterations 417 and 559 against the stored matrix's 444",
+            run: fdfd3d_multigrid_stencil_s_matrix,
+        },
+        Case {
+            id: "fdfd3d/multigrid-stencil-threads",
+            title: "The coupler's recycled sweep by the multigrid without the finest matrix (fdfd3d/multigrid-stencil-s-matrix's, Galerkin's coarse operators, 1.54 to 1.56 µm, 1e-10) on 1 and on 4 threads: its S-matrices' entries whose bits differ, and its iterations (count shown)",
+            tier: Tier::Analytic,
+            source: "each pass of the stencil's product writes its rows on rayon's threads, a row its own task and each value a fixed sum; the Jacobi sweep and every vector operation are passes over fixed chunks; the Galerkin rows and the coarse levels' smoothers as for the stored matrix (fdfd3d/recycle-threads): the same computation on any number of threads",
+            run: fdfd3d_multigrid_stencil_threads,
+        },
+        Case {
+            id: "fdfd3d/multigrid-stencil-refinement",
+            title: r"Convergence as the grid refines: GMRES's iterations to a relative residual of 1e-8 on fdfd3d/gmres-multigrid-direct's strip ($0.96 \times 0.8 \times 0.64$ µm, a point current at its centre) on cells of 40, 30 and 20 nm ($24 \times 20 \times 16$, $32 \times 26 \times 22$ and $48 \times 40 \times 32$, stretched PMLs of 6, 8 and 12 cells), by the stored matrix's multigrid and without the finest matrix (Galerkin's coarse operators, and discretized again): the largest of each one's iterations at 20 nm over its iterations at 40 nm (shown)",
+            tier: Tier::Analytic,
+            source: "a multigrid's convergence doesn't depend on the step (Erlangga, Oosterlee and Vuik, SIAM J. Sci. Comput. 27, 1471 (2006), doi:10.1137/040615195, Section 4.3, for the shifted operator with ω-Jacobi): on a box of fixed size, the iterations stay level as the cells halve; measured 18, 16 and 16 iterations by the stored matrix's multigrid, 18, 17 and 19 without the finest matrix, 23, 21 and 23 discretized again: at most 1.06 times as many at 20 nm as at 40",
+            run: fdfd3d_multigrid_stencil_refinement,
+        },
+        Case {
+            id: "fdfd3d/multigrid-stencil-plane-waves",
+            title: r"The finest level's smoother without its matrix (damped Jacobi, ω = 0.8, on Shin and Fan's operator shifted by k₀²(1 + 0.5i)ε from its stencil) on every plane wave of each component in a uniform periodic box ($8 \times 6 \times 10$ cells of 30, 40 and 50 nm, ε = 2.25, 1.55 µm): its damping against the Fourier symbol $S = 1 - \omega\lambda/d$, $\lambda = k_0^2(1 + i\beta)\varepsilon - \sum_a 4\sin^2(\theta_a/2)/h_a^2$, $d = k_0^2(1 + i\beta)\varepsilon - \sum_a 2/h_a^2$ (largest difference shown)",
+            tier: Tier::Analytic,
+            source: r"in a uniform medium Shin and Fan's operator is the vector Laplacian plus $k_0^2(1 + i\beta)\varepsilon$ ($\nabla\times\nabla\times - \nabla\nabla\cdot = -\Delta$ holds exactly on Yee's grid), so each plane wave is an eigenvector with that eigenvalue, and $d$ is the stencil's diagonal; the symbol is Erlangga, Oosterlee and Vuik's (SIAM J. Sci. Comput. 27, 1471 (2006), doi:10.1137/040615195, Section 4.3, Remark: Smoothing) in 3D; every swept wave a multiple of itself to 1e-12",
+            run: fdfd3d_multigrid_stencil_plane_waves,
+        },
+        Case {
+            id: "fdfd3d/multigrid-stencil-smoothing-factors",
+            title: r"The smoothing factors of the finest level's damped Jacobi without its matrix, on the $E_z$ of a 2D slice (one cell along z, periodic; walls on x and y; vacuum; $k_0 = 40$ on the unit square) for Shin and Fan's operator shifted by $\beta$ = 0, 1 and 0.5 with ω = 0.7, 0.7 and 0.5, on h = 1/64, 1/32, 1/16 and 1/8: μ, the largest $\lvert S\rvert^2$ over the sine modes with ℓ or m at least N/2, S each mode's damping by one sweep (largest difference from the published values shown)",
+            tier: Tier::Published,
+            source: r"Y. A. Erlangga, C. W. Oosterlee, C. Vuik, SIAM J. Sci. Comput. 27, 1471 (2006), doi:10.1137/040615195, Table 5, its rows with $\beta_1 = 1$: 0.47, 0.75, 2.31, 0.18; 0.47, 0.56, 0.35, 0.13; 0.60, 0.77, 0.81, 0.32 (two decimals; μ for two sweeps, the low frequencies projected out, their Section 4.2); measured 0.4725, 0.7597, 2.312, 0.1791; 0.4681, 0.5646, 0.3449, 0.1269; 0.6023, 0.7714, 0.8071, 0.3207, each their Fourier symbol's to 2e-14, so within one unit of their last digit (their 0.75 and 0.35 are 0.7597 and 0.3449 by it)",
+            run: fdfd3d_multigrid_stencil_smoothing_factors,
+        },
+        Case {
             id: "fdfd3d/recycle-parks-table",
             title: r"Parks et al.'s Section 4.4 rebuilt: $u_{xx} + u_{yy} = 0$ on the unit square by central differences, $h = 1/41$ (1600 unknowns), $u = 0$ on two sides and 1 on the others, GCRO-DR(25, 10) from zero to 1e-10; the cosines of the principal angles between the space it recycles and the invariant subspace of the 10 eigenvalues of smallest magnitude: five at 1 and five at 0, the largest departure (shown)",
             tier: Tier::Published,
@@ -3099,6 +3141,122 @@ fn fdfd3d_qmr_matrix_free_threads() -> Outcome {
         expected: 0.0,
         tolerance: 0.0,
         error: differ,
+    }
+}
+
+/// The multigrid without its finest matrix as `with_multigrid` takes it, `coarse` its coarse
+/// operators.
+fn stencil_multigrid(coarse: crate::fdfd::Coarse) -> crate::fdfd::Multigrid {
+    crate::fdfd::Multigrid {
+        coarse,
+        ..crate::fdfd::Multigrid::default()
+    }
+}
+
+fn fdfd3d_multigrid_stencil_direct() -> Outcome {
+    use crate::fdfd::{Coarse, Product};
+    let worst = [Coarse::Galerkin, Coarse::Rediscretized]
+        .into_iter()
+        .map(|coarse| {
+            crate::fdfd::checks3d::multigrid_of_against_direct(
+                Product::MatrixFree,
+                stencil_multigrid(coarse),
+            )
+            .0
+        })
+        .fold(0.0, f64::max);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // as the stored matrix's multigrid's: a residual of 1e-10 bounds the error by the
+        // condition number times it
+        tolerance: 1e-8,
+        error: worst,
+    }
+}
+
+fn fdfd3d_multigrid_stencil_s_matrix() -> Outcome {
+    use crate::fdfd::Coarse;
+    let worst = [Coarse::Galerkin, Coarse::Rediscretized]
+        .into_iter()
+        .map(|coarse| {
+            let (plain, recycled, _, _) =
+                crate::fdfd::recycle_checks3d::stencil_against_stored(stencil_multigrid(coarse));
+            plain.max(recycled)
+        })
+        .fold(0.0, f64::max);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // every field to a residual of 1e-11: the S-matrices within its condition times it
+        tolerance: 1e-9,
+        error: worst,
+    }
+}
+
+fn fdfd3d_multigrid_stencil_threads() -> Outcome {
+    use crate::fdfd::recycle_checks3d::{Solve, thread_differences_of};
+    let differ = thread_differences_of(Solve::MultigridFree(stencil_multigrid(
+        crate::fdfd::Coarse::Galerkin,
+    )));
+    Outcome {
+        measured: differ,
+        expected: 0.0,
+        tolerance: 0.0,
+        error: differ,
+    }
+}
+
+fn fdfd3d_multigrid_stencil_refinement() -> Outcome {
+    let runs = crate::fdfd::stencil_checks3d::refinement();
+    let all = runs.iter().flatten().all(|&i| i > 0);
+    let growth = runs
+        .iter()
+        .map(|r| r[2] as f64 / r[0] as f64)
+        .fold(0.0, f64::max);
+    Outcome {
+        measured: growth,
+        expected: 0.0,
+        // level: 1.06 measured; a step-dependent method would double them
+        tolerance: 1.5,
+        error: if all { growth } else { f64::INFINITY },
+    }
+}
+
+fn fdfd3d_multigrid_stencil_plane_waves() -> Outcome {
+    let (worst, departure) = crate::fdfd::stencil_checks3d::plane_wave_damping();
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // rounding: the damping is a ratio of sums over a few thousand values
+        tolerance: 1e-12,
+        error: if departure <= 1e-12 {
+            worst
+        } else {
+            f64::INFINITY
+        },
+    }
+}
+
+fn fdfd3d_multigrid_stencil_smoothing_factors() -> Outcome {
+    use crate::fdfd::stencil_checks3d::{TABLE_5, table_5};
+    let (rows, departure) = table_5();
+    let worst = rows
+        .iter()
+        .zip(&TABLE_5)
+        .flat_map(|(ours, (_, _, theirs))| ours.iter().zip(theirs).map(|(p, q)| (p - q).abs()))
+        .fold(0.0f64, |m, d| if d.is_nan() { f64::NAN } else { m.max(d) });
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // one unit of their two decimals: their 0.75 at (1, 0), h = 1/32, is 0.7597 by their
+        // own symbol, and 0.35 at (1, 1), h = 1/16, 0.3449
+        tolerance: 0.01,
+        error: if departure <= 1e-12 {
+            worst
+        } else {
+            f64::INFINITY
+        },
     }
 }
 

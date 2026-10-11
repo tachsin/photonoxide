@@ -662,8 +662,26 @@ fn iterative(solve: super::Solve) -> (&'static str, &'static str, f64) {
             "GMRES + multigrid on Shin and Fan's operator, stretched PMLs",
             1e-8,
         ),
+        super::Solve::MultigridStencil => (
+            "multigrid-stencil",
+            "GMRES + multigrid on Shin and Fan's operator without the finest matrix (damped \
+             Jacobi from the stencil, Galerkin's coarse operators), stretched PMLs",
+            1e-8,
+        ),
+        super::Solve::MultigridRediscretized => (
+            "multigrid-rediscretized",
+            "GMRES + multigrid on Shin and Fan's operator without the finest matrix, every \
+             coarse operator discretized again, stretched PMLs",
+            1e-8,
+        ),
     }
 }
+
+/// The peak bytes an unknown of GMRES with the multigrid without its finest matrix, Galerkin's
+/// coarse operators and discretized again: 3.2 to 3.6 kB and 1.6 to 1.9 kB measured on the strip
+/// with ports and the guide, 2 × 10⁵ to 6.3 × 10⁶ unknowns (docs/methods/multigrid-stencil.md).
+const MULTIGRID_STENCIL_BYTES: u64 = 3_600;
+const MULTIGRID_REDISCRETIZED_BYTES: u64 = 2_000;
 
 /// The bytes of an iterative solve: plain QMR's, with and without the matrix, as they were
 /// measured at their peaks; the others', the matrix and GMRES's 40 vectors or QMR's dozen.
@@ -671,6 +689,8 @@ fn iterative_memory(unknowns: usize, solve: super::Solve) -> u64 {
     match solve {
         super::Solve::Qmr => crate::fdfd::MATRIX_SOLVE_BYTES * unknowns as u64,
         super::Solve::QmrFree => crate::fdfd::MATRIX_FREE_SOLVE_BYTES * unknowns as u64,
+        super::Solve::MultigridStencil => MULTIGRID_STENCIL_BYTES * unknowns as u64,
+        super::Solve::MultigridRediscretized => MULTIGRID_REDISCRETIZED_BYTES * unknowns as u64,
         _ => (24 * 13 * unknowns + 16 * 40 * unknowns) as u64,
     }
 }
@@ -679,7 +699,7 @@ fn iterative_memory(unknowns: usize, solve: super::Solve) -> u64 {
 fn pmls(solve: super::Solve) -> &'static str {
     match solve {
         super::Solve::Qmr | super::Solve::QmrFree => "PMLs",
-        super::Solve::Ilu | super::Solve::Multigrid => "stretched PMLs",
+        _ => "stretched PMLs",
     }
 }
 
@@ -992,6 +1012,27 @@ pub fn catalogue() -> Vec<Entry> {
     for (step_nm, pml) in [(40, 8), (25, 13)] {
         all.push(strip_ports(step_nm, pml, super::Solve::Ilu));
         all.push(strip_ports(step_nm, pml, super::Solve::Multigrid));
+    }
+    // GMRES with the multigrid with and without its finest matrix (#333), where unpreconditioned
+    // QMR breaks down: the strip with ports at the fixed problem's 20 nm and the guide at 96³ and
+    // 128³ (2.7 and 6.3 million unknowns), and on the strip's coarser cells
+    for (step_nm, pml) in [(40, 8), (25, 13), (20, 16)] {
+        if step_nm == 20 {
+            all.push(strip_ports(step_nm, pml, super::Solve::Multigrid));
+        }
+        all.push(strip_ports(step_nm, pml, super::Solve::MultigridStencil));
+        all.push(strip_ports(
+            step_nm,
+            pml,
+            super::Solve::MultigridRediscretized,
+        ));
+    }
+    for (core, pml) in [(12, 10), (20, 14), (38, 10), (54, 10)] {
+        if core > 20 {
+            all.push(guide(core, pml, super::Solve::Multigrid));
+        }
+        all.push(guide(core, pml, super::Solve::MultigridStencil));
+        all.push(guide(core, pml, super::Solve::MultigridRediscretized));
     }
     // the strip with ports by plain QMR with and without the matrix; not larger: on the fixed
     // problems' 20 nm (1.8 million unknowns), and on the guide at 96³ and 128³, the Lanczos
@@ -1528,7 +1569,13 @@ impl Entry {
     /// iterative backend can run ([`crate::backend::iterative`]): `fdfd3d-iterative/guide-*`,
     /// but for QMR without the matrix, which a backend can't be given.
     pub fn takes_an_iterative_backend(&self) -> bool {
-        matches!(self.kind, Kind::Guide { solve, .. } if solve != super::Solve::QmrFree)
+        matches!(
+            self.kind,
+            Kind::Guide { solve, .. } if matches!(
+                solve,
+                super::Solve::Qmr | super::Solve::Ilu | super::Solve::Multigrid
+            )
+        )
     }
 
     /// The residual an iterative problem runs to.

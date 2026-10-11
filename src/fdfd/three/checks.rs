@@ -550,7 +550,16 @@ pub(crate) fn ilu_against_direct() -> (f64, usize, usize) {
 /// relative residual of 1e-10, against the sparse direct solver: the largest difference from the
 /// direct solver's field relative to the largest field, and GMRES's iterations.
 pub(crate) fn multigrid_against_direct() -> (f64, usize) {
-    use super::{Formulation, IterativeSolver3d, Multigrid};
+    multigrid_of_against_direct(super::Product::Matrix, super::Multigrid::default())
+}
+
+/// [`multigrid_against_direct`] with Shin and Fan's operator by `product` and the multigrid
+/// `options`: [`super::Product::MatrixFree`] for the multigrid without the finest matrix.
+pub(crate) fn multigrid_of_against_direct(
+    product: super::Product,
+    options: super::Multigrid,
+) -> (f64, usize) {
+    use super::{Formulation, IterativeSolver3d};
     use crate::fdfd::Stopping;
     let h = 0.04;
     let (nx, ny, nz) = (24, 20, 16);
@@ -585,12 +594,13 @@ pub(crate) fn multigrid_against_direct() -> (f64, usize) {
         tolerance: 1e-10,
         max_iterations: 20_000,
     };
-    let (field, how) = IterativeSolver3d::new(grid, lam, strip, boundaries, Formulation::ShinFan)
-        .unwrap()
-        .with_multigrid(Multigrid::default())
-        .unwrap()
-        .solve(&source, stopping)
-        .unwrap();
+    let (field, how) =
+        IterativeSolver3d::new_with(grid, lam, strip, boundaries, Formulation::ShinFan, product)
+            .unwrap()
+            .with_multigrid(options)
+            .unwrap()
+            .solve(&source, stopping)
+            .unwrap();
     let largest = direct.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
     let worst = direct
         .values()
