@@ -2,8 +2,9 @@
 # The full suite on your own machine: what CI runs on the release pull request (Tier 2, issue
 # #315), here, after every merge or rebase. From the repository's root:
 #
-#   bash .github/full-suite.sh             # everything, about 40 minutes on 20 threads
-#   bash .github/full-suite.sh --fast      # the same without the release build's checks
+#   bash .github/full-suite.sh             # everything, about an hour on 20 threads
+#   bash .github/full-suite.sh --fast      # without the validation report and the examples:
+#                                          # about 20 minutes, the builds included
 #
 # Every step runs even when an earlier one failed; the summary at the end lists each step's time
 # and result, and the script fails when any step did. Steps whose tools aren't installed (pnpm
