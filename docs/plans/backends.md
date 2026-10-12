@@ -39,7 +39,7 @@ photonoxide-native (unsafe allowed, libloading; optional)                       
 ├── discovery: environment variables, install folders, conda environments, library paths
 ├── loading: symbols, version, integer size, a smoke test against photonoxide's answer
 └── backends: PARDISO (#175), MUMPS (#176), SuperLU (#177), BLAS/LAPACK (#186),
-    Accelerate (#187), cuDSS (#188), AOCL-Sparse (#189), cuSPARSE and AmgX (#190)
+    Accelerate (#187), cuDSS (#188), AOCL-Sparse (#189), cuSPARSE (#190)
 
 the studio
 ├── Libraries: found or not, versions, licences, guided installs                            (#181)
@@ -71,13 +71,52 @@ the studio
 | Arm Performance Libraries (#186) | dense kernels | free, no licence | Windows on Arm | Linux AArch64 | Apple Silicon |
 | OpenBLAS (#186) | dense kernels, the fallback | BSD | conda-forge, vcpkg | everywhere | conda-forge, Homebrew |
 | NVIDIA cuDSS (#188) | sparse direct on the GPU | NVIDIA EULA | conda-forge, pip, NVIDIA | the same | none |
-| NVIDIA cuSPARSE, AmgX (#190) | GPU kernels for photonoxide's Krylov solvers; GPU multigrid | NVIDIA EULA; AmgX open source (to confirm) | CUDA toolkit | CUDA toolkit | none |
+| NVIDIA cuSPARSE (#190) | GPU kernels for photonoxide's Krylov solvers and its multigrid's cycle | NVIDIA EULA | CUDA toolkit | CUDA toolkit | none |
 
 The platforms were checked on 2026-10-05 from the package indexes. #184 verifies each install
 method, keeps them as data, and generates the user's guide from it.
 
 Not used: cuSOLVER's sparse modules (`cusolverSp`, `cusolverRf`), deprecated in CUDA 13 in favour
-of cuDSS; cuSPARSE's ILU(0) factorization (`csrilu02`), deprecated likewise.
+of cuDSS; cuSPARSE's ILU(0) factorization (`csrilu02`), deprecated likewise; and NVIDIA's AmgX,
+below.
+
+### AmgX: examined, and not a backend (#190, 2026-10-11)
+
+[AmgX](https://github.com/NVIDIA/AMGX) is NVIDIA's algebraic multigrid and Krylov library for the
+GPU. Its licence is BSD-3-Clause (its repository's `LICENSES/BSD-3-Clause.txt`), so it could have
+been one. It can't solve photonoxide's systems, which are complex, non-Hermitian and indefinite:
+
+- **What its complex modes have.** In v2.5.0 (2025-12-21) and on its main branch (2026-07-01), a
+  complex mode (`dZZI`, `dZCI`, `dCCI`) registers GMRES, block Jacobi, and the aggregation AMG
+  with one selector (`SIZE_8`), one Galerkin product (`LOW_DEG`) and the V cycle, and nothing
+  else (`registerClasses<T_Config, true>` in `src/core.cu`): no BiCGStab, no FGMRES, no
+  ILU or Gauss–Seidel smoother, no classical AMG, and no dense LU for the coarsest level, whose
+  complex build is commented out. Its README calls the complex support "currently limited".
+- **Its GMRES is wrong for them.** Its complex Givens rotation (`GeneratePlaneRotation<…, true>`
+  in `src/solvers/gmres_solver.cu`) takes c and s from |h_ii| and |h_i+1,i| alone, dropping
+  h_ii's phase, so it doesn't zero the subdiagonal it then sets to zero, and the least-squares
+  update is wrong whenever h_ii isn't a positive real number: nearly always, for a non-Hermitian
+  matrix.
+- **Measured.** Built from its main branch here as `amgxsh.dll` (CUDA 13.1, MSVC 14.29,
+  sm_89) and loaded at run time by a throwaway program, outside the repository, that handed it
+  the systems photonoxide gives an iterative backend, to a relative residual of 1e-8 in at most
+  3000 iterations of GMRES(40), on an RTX 4060:
+  - a complex control, (1 + i) times the 7-point Laplacian on 40³: solved, in 19 iterations with
+    block Jacobi and 13 with its AMG, which divide the 1 + i out and leave h_ii real and
+    positive; unpreconditioned, where h_ii keeps its phase of 45°, it stalled at 9e-5. The build
+    and the complex mode work; the rotation is what fails.
+  - the guide of `fdfd3d-iterative/guide-qmr-20` (24 000 unknowns, the curl-curl operator with
+    PMLs, as QMR has it): the true residual grew to 1e33 unpreconditioned, 6e13 with block
+    Jacobi and 4e14 with its AMG. Restarted GMRES never lets the residual grow; this one does.
+  - the same guide on Shin and Fan's operator with stretched PMLs (`guide-multigrid-20`, what
+    ILU(0) and the multigrid precondition): 4e21 unpreconditioned, 1.5e-5 with block Jacobi and
+    1.2e-4 with its AMG after 3000 iterations, where photonoxide's GMRES with its multigrid
+    takes 20 to 1e-8. Its AMG's coarsening stalled at about 2 350 rows of the 24 000.
+  - with GMRES as the coarsest level's solver, nothing converged, the Laplacian control included.
+
+So AmgX isn't loaded. Should a release fix its complex GMRES and add a complex smoother that
+holds on indefinite systems, this is the place to look again; its GPU AMG would still be an
+algebraic one on a curl-curl operator, which photonoxide's geometric multigrid exists for.
 
 ## Rules for backends
 

@@ -546,7 +546,7 @@ The waveguide and resonator processes, phase matching, photon pairs and Kerr com
   - [ ] `photonoxide-native`: discovery, run-time loading, smoke tests (#174).
   - [ ] Sparse direct backends: oneMKL's PARDISO (#175), MUMPS (#176), SuperLU (#177), Apple Accelerate's sparse solvers (#187), NVIDIA cuDSS on the GPU (#188).
   - [ ] Dense kernels for the multifrontal fronts from any BLAS/LAPACK: MKL, AMD AOCL, Apple Accelerate, Arm PL, OpenBLAS (#186).
-  - [ ] Iterative backends: AMD AOCL-Sparse (#189); photonoxide's Krylov solvers on cuSPARSE, and AmgX (#190).
+  - [ ] Iterative backends: AMD AOCL-Sparse (#189); photonoxide's Krylov solvers on cuSPARSE (#190; AmgX examined and not used: its complex GMRES and smoothers can't solve photonoxide's systems, [the plan](docs/plans/backends.md#amgx-examined-and-not-a-backend-190-2026-10-11)).
   - [ ] Install guides per library and platform, verified (#184).
   - [ ] The benchmark: a catalogue of problems at many sizes (#179) and a runner over every backend with a results database (#180).
   - [ ] The studio: a Libraries page with guided installs (#181), a Benchmarks page (#182), and `auto` from the measurements (#183).

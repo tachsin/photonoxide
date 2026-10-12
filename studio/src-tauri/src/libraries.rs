@@ -313,7 +313,7 @@ pub const GUIDES: &[Guide] = &[
     },
     Guide {
         library: "cuSPARSE",
-        about: "The CUDA toolkit's sparse kernels: photonoxide's QMR with ILU(0) run on the GPU.",
+        about: "The CUDA toolkit's sparse kernels: photonoxide's QMR (plain, complex symmetric, and with ILU(0)) and its GMRES with the multigrid, run on the GPU.",
         provides: &["iterative"],
         backends: &["cusparse"],
         needs: &["CUDA runtime"],

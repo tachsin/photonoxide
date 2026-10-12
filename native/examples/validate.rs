@@ -1,15 +1,24 @@
 //! The validation cases with an external backend in photonoxide's own place, beside photonoxide's
 //! own results: `cargo run -p photonoxide-native --release --example validate -- <backend>
-//! [case prefix ...]`, e.g. `-- mumps fdfd/ fdfd3d/`.
+//! [case prefix ...]`, e.g. `-- mumps fdfd/ fdfd3d/`, or `-- cusparse fdfd3d/`.
 //!
-//! The cases ask for `auto`, as the validation report does. Here `auto` is given records that
-//! say the backend is twice as fast as photonoxide's own at every size, in both families and
-//! both forms, so every direct solve of a 2D or 3D FDFD solver goes to it; the backend is
-//! wrapped to count its factorizations, which shows which cases solved through it. A case that
-//! factorized nothing isn't listed. Each listed case is then run again with no records, on
-//! photonoxide's own, and the two printed as a Markdown table: the values each reported, their
-//! difference, and whether the backend's run is within the case's tolerance. It fails if one
-//! isn't. The validation report itself (docs/validation.md) is photonoxide's own solvers'.
+//! The cases ask for `auto`, as the validation report does.
+//!
+//! - **A direct backend** (`mumps`, `pardiso`, `cudss`, …): `auto` is given records that say the
+//!   backend is twice as fast as photonoxide's own at every size, in both families and both
+//!   forms, so every direct solve of a 2D or 3D FDFD solver goes to it; the backend is wrapped
+//!   to count its factorizations, which shows which cases solved through it.
+//! - **An iterative backend** (`cusparse`): the process prefers it for `auto`
+//!   (`backend::prefer_iterative`), so every QMR and GMRES solve it runs as photonoxide would
+//!   (one right-hand side, by the matrix, plain, with ILU(0) or by the multigrid) goes to it,
+//!   and the others stay photonoxide's (block QMR, recycling, without the matrix); it is
+//!   wrapped to count its runs.
+//!
+//! A case that made no call through the backend isn't listed. Each listed case is then run
+//! again on photonoxide's own, and the two printed as a Markdown table: the values each
+//! reported, their difference, and whether the backend's run is within the case's tolerance.
+//! It fails if one isn't. The validation report itself (docs/validation.md) is photonoxide's own
+//! solvers'.
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::process::ExitCode;
@@ -17,17 +26,20 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
+use num_complex::Complex64 as c64;
 use photonoxide::Result;
 use photonoxide::backend::auto::{self, Measured, Outcome as Ran};
 use photonoxide::backend::{
-    self, Analysis, Capabilities, Choice, DirectSolver, Factorization, Form, Matrix,
+    self, Analysis, Capabilities, Choice, DirectSolver, Factorization, Form, IluFactors,
+    IterativeSolver, Matrix, MultigridCycle, QmrRun, RowMatrix,
 };
+use photonoxide::fdfd::{Convergence, Stopping};
 use photonoxide::validation::{self, Outcome};
 
-/// The factorizations the backend made.
-static FACTORIZATIONS: AtomicUsize = AtomicUsize::new(0);
+/// The calls through the backend: its factorizations, or its runs of QMR or GMRES.
+static CALLS: AtomicUsize = AtomicUsize::new(0);
 
-/// A backend that counts its factorizations.
+/// A direct backend that counts its factorizations.
 struct Counting(Arc<dyn DirectSolver>);
 
 struct CountingAnalysis(Arc<dyn Analysis>);
@@ -51,8 +63,48 @@ impl Analysis for CountingAnalysis {
     }
 
     fn factorize(&self, matrix: &Matrix<'_>) -> Result<Box<dyn Factorization>> {
-        FACTORIZATIONS.fetch_add(1, Ordering::Relaxed);
+        CALLS.fetch_add(1, Ordering::Relaxed);
         self.0.factorize(matrix)
+    }
+}
+
+/// An iterative backend that counts its runs.
+struct CountingRuns(Arc<dyn IterativeSolver>);
+
+impl IterativeSolver for CountingRuns {
+    fn capabilities(&self) -> Capabilities {
+        self.0.capabilities()
+    }
+
+    fn qmr_run(&self, matrix: &Matrix<'_>, b: &[c64], stopping: Stopping) -> Result<QmrRun> {
+        CALLS.fetch_add(1, Ordering::Relaxed);
+        self.0.qmr_run(matrix, b, stopping)
+    }
+
+    fn qmr_run_ilu(
+        &self,
+        matrix: &Matrix<'_>,
+        ilu: &IluFactors,
+        b: &[c64],
+        stopping: Stopping,
+    ) -> Result<QmrRun> {
+        CALLS.fetch_add(1, Ordering::Relaxed);
+        self.0.qmr_run_ilu(matrix, ilu, b, stopping)
+    }
+
+    fn runs_multigrid(&self) -> bool {
+        self.0.runs_multigrid()
+    }
+
+    fn gmres_multigrid(
+        &self,
+        matrix: RowMatrix<'_>,
+        cycle: &MultigridCycle<'_>,
+        b: &[c64],
+        stopping: Stopping,
+    ) -> Result<(Vec<c64>, Convergence)> {
+        CALLS.fetch_add(1, Ordering::Relaxed);
+        self.0.gmres_multigrid(matrix, cycle, b, stopping)
     }
 }
 
@@ -108,6 +160,60 @@ fn number(x: f64) -> String {
     }
 }
 
+/// How the cases are sent to the backend, and back to photonoxide's own.
+enum Route {
+    Direct(String),
+    Iterative(String),
+}
+
+impl Route {
+    fn through_the_backend(&self, on: bool) {
+        match self {
+            Route::Direct(name) => {
+                auto::configure(if on { records(name) } else { Vec::new() }, None);
+            }
+            Route::Iterative(name) => {
+                let choice = if on {
+                    Choice::Named(name.clone())
+                } else {
+                    Choice::Auto
+                };
+                backend::prefer_iterative(&choice).expect("registered above");
+            }
+        }
+    }
+
+    /// What its calls are.
+    fn calls(&self) -> &'static str {
+        match self {
+            Route::Direct(_) => "Factorizations",
+            Route::Iterative(_) => "Runs",
+        }
+    }
+}
+
+/// The backend `name` names, wrapped to count its calls and registered in its place.
+fn route(name: &str) -> std::result::Result<(Route, Capabilities), String> {
+    let choice = Choice::parse(name).map_err(|e| e.to_string())?;
+    match backend::direct(&choice) {
+        Ok(solver) => {
+            let capabilities = solver.capabilities();
+            backend::register(Arc::new(Counting(solver))).map_err(|e| e.to_string())?;
+            Ok((Route::Direct(name.into()), capabilities))
+        }
+        Err(direct) => match backend::iterative(&choice) {
+            Ok(Some(solver)) => {
+                let capabilities = solver.capabilities();
+                backend::register_iterative(Arc::new(CountingRuns(solver)))
+                    .map_err(|e| e.to_string())?;
+                Ok((Route::Iterative(name.into()), capabilities))
+            }
+            Ok(None) => Err(direct.to_string()),
+            Err(iterative) => Err(format!("{direct}; {iterative}")),
+        },
+    }
+}
+
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
     let Some(name) = args.next() else {
@@ -118,18 +224,13 @@ fn main() -> ExitCode {
     for probe in photonoxide_native::register_all() {
         eprintln!("{probe}");
     }
-    let solver = match Choice::parse(&name).and_then(|c| backend::direct(&c)) {
-        Ok(s) => s,
+    let (route, capabilities) = match route(&name) {
+        Ok(r) => r,
         Err(e) => {
             eprintln!("{e}");
             return ExitCode::FAILURE;
         }
     };
-    let capabilities = solver.capabilities();
-    if let Err(e) = backend::register(Arc::new(Counting(solver))) {
-        eprintln!("{e}");
-        return ExitCode::FAILURE;
-    }
     let cases: Vec<validation::Case> = validation::cases()
         .into_iter()
         .filter(|c| prefixes.is_empty() || prefixes.iter().any(|p| c.id.starts_with(p.as_str())))
@@ -145,19 +246,19 @@ fn main() -> ExitCode {
     let (mut unused, mut failed) = (0, 0);
     let total = Instant::now();
     for case in &cases {
-        auto::configure(records(&name), None);
-        FACTORIZATIONS.store(0, Ordering::Relaxed);
+        route.through_the_backend(true);
+        CALLS.store(0, Ordering::Relaxed);
         let (theirs, their_seconds) = run(case);
-        let factorizations = FACTORIZATIONS.swap(0, Ordering::Relaxed);
-        if factorizations == 0 {
+        let calls = CALLS.swap(0, Ordering::Relaxed);
+        if calls == 0 {
             unused += 1;
-            eprintln!("{}: no direct solve ({their_seconds:.1} s)", case.id);
+            eprintln!("{}: nothing through it ({their_seconds:.1} s)", case.id);
             continue;
         }
-        auto::configure(Vec::new(), None);
+        route.through_the_backend(false);
         let (own, own_seconds) = run(case);
-        if FACTORIZATIONS.load(Ordering::Relaxed) != 0 {
-            eprintln!("{}: the backend was used without records", case.id);
+        if CALLS.load(Ordering::Relaxed) != 0 {
+            eprintln!("{}: the backend was used on photonoxide's own run", case.id);
             return ExitCode::FAILURE;
         }
         let row = match (&own, &theirs) {
@@ -170,7 +271,7 @@ fn main() -> ExitCode {
                 format!(
                     "| `{}` | {} | {} | {} | {} | {} | {} |",
                     case.id,
-                    factorizations,
+                    calls,
                     number(own.measured),
                     number(theirs.measured),
                     number(difference),
@@ -187,7 +288,7 @@ fn main() -> ExitCode {
                 format!(
                     "| `{}` | {} | {} | {} | | | **no** |",
                     case.id,
-                    factorizations,
+                    calls,
                     said(&own),
                     said(&theirs)
                 )
@@ -196,8 +297,9 @@ fn main() -> ExitCode {
         eprintln!("{row} ({own_seconds:.1} s, {their_seconds:.1} s)");
         rows.push(row);
     }
+    route.through_the_backend(false);
     println!(
-        "{} {}, {} threads: {} of {} cases factorized through it, {} failed ({:.0} s)\n",
+        "{} {}, {} threads: {} of {} cases went through it, {} failed ({:.0} s)\n",
         capabilities.name,
         capabilities.version,
         rayon::current_num_threads(),
@@ -207,14 +309,15 @@ fn main() -> ExitCode {
         total.elapsed().as_secs_f64()
     );
     println!(
-        "| Case | Factorizations | photonoxide | {} | Difference | Tolerance | Within |",
+        "| Case | {} | photonoxide | {} | Difference | Tolerance | Within |",
+        route.calls(),
         capabilities.name
     );
     println!("|---|---|---|---|---|---|---|");
     for row in &rows {
         println!("{row}");
     }
-    eprintln!("{unused} cases made no direct solve");
+    eprintln!("{unused} cases made no call through it");
     if failed == 0 {
         ExitCode::SUCCESS
     } else {

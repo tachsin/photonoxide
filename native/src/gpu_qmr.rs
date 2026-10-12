@@ -11,7 +11,11 @@
 //!   makes this backend unavailable, saying so.
 //! - **Determinism:** the sums are cuSPARSE's, not photonoxide's chunked ones, so the iterations
 //!   agree with the CPU's to rounding's effect on the residual's history, not bit for bit; a
-//!   repeated run on one GPU gives the same bits, which the tests check.
+//!   repeated run on one GPU gives the same bits, which the tests check. The products are
+//!   `CSR_ALG2`'s, which cuSPARSE says repeat bit for bit: measured, 50 products gave the same
+//!   bits on the curl-curl matrix and on one with rows of 100 000 entries, where the default
+//!   `CSR_ALG1` gave different bits, for 7% more time on the curl-curl matrix (the tests).
+//! - **Memory:** the GPU's free memory is checked against what a run keeps there first.
 //! - **What stays with photonoxide:** the restarts after a breakdown and the tightened tolerance
 //!   on a symmetric similar matrix ([`photonoxide::backend::IterativeSolver`]).
 //! - **Threads:** one call at a time in the process, as cuDSS's ([`crate::cuda::serial`]).
@@ -38,7 +42,8 @@ const NON_TRANSPOSE: c_int = 0;
 const CONJUGATE_TRANSPOSE: c_int = 2;
 const INDEX_32I: c_int = 2;
 const BASE_ZERO: c_int = 0;
-/// `CUSPARSE_SPMV_CSR_ALG2`: the same bits on every run.
+/// `CUSPARSE_SPMV_CSR_ALG2`: the same bits on every run, as cuSPARSE says and the tests measure
+/// (`CUSPARSE_SPMV_CSR_ALG1`, the default, is measured beside it).
 const SPMV_ALGORITHM: c_int = 3;
 const SPSV_ALGORITHM: c_int = 0;
 const ATTRIBUTE_FILL_MODE: c_int = 0;
@@ -360,6 +365,8 @@ pub(crate) struct Session {
     workspace: Option<Buffer>,
     /// A vector of zeros, the x of y ← 0·x + βy.
     zero: Option<DeviceVector>,
+    /// cuSPARSE's algorithm for the products: [`SPMV_ALGORITHM`] but in the tests.
+    algorithm: c_int,
 }
 
 impl Drop for Session {
@@ -385,6 +392,7 @@ impl Session {
             indices: Buffer::new(&api.runtime, &indices)?,
             workspace: None,
             zero: None,
+            algorithm: SPMV_ALGORITHM,
         };
         // SAFETY: the out-pointer is writable
         check(unsafe { (api.create)(&mut s.handle) }, "cusparseCreate")?;
@@ -433,7 +441,7 @@ impl Session {
                     zero.ptr(),
                     y.dense,
                     C_64F,
-                    SPMV_ALGORITHM,
+                    self.algorithm,
                     &mut spmv,
                 ),
                 "cusparseSpMV_bufferSize",
@@ -478,7 +486,7 @@ impl Session {
                     zero.ptr(),
                     y.dense,
                     C_64F,
-                    SPMV_ALGORITHM,
+                    self.algorithm,
                     self.workspace(),
                 )
             },
@@ -771,6 +779,20 @@ impl GpuQmr {
     }
 }
 
+/// The bytes a run keeps on the GPU, nearly: A (and Aᵀ for the general QMR) at 12 bytes an
+/// entry and 4 a row; ILU(0)'s four triangles (L, U and their transposes) likewise; 16 bytes a
+/// value for the vectors (12 for the symmetric QMR, 16 for the general, 2 more with ILU(0)) and
+/// 4 an unknown for the index array they share. cuSPARSE's workspaces come on top: a few
+/// bytes an unknown for SpMV, and the triangular solves' analysis.
+fn footprint(n: usize, entries: usize, symmetric: bool, ilu: Option<&IluFactors>) -> usize {
+    let matrix = 12 * entries + 4 * n;
+    let (matrices, vectors) = if symmetric { (1, 12) } else { (2, 16) };
+    let factors = ilu.map_or(0, |f| {
+        2 * (12 * (f.lower().2.len() + f.upper().2.len()) + 8 * n) + 2 * 16 * n
+    });
+    matrices * matrix + factors + 16 * vectors * n + 4 * n
+}
+
 /// A Givens rotation (c, s) applied to (a, b), as `fdfd::krylov` has it.
 fn rotate((c, s): (f64, c64), a: c64, b: c64) -> (c64, c64) {
     (c * a + s * b, -s.conj() * a + c * b)
@@ -868,6 +890,17 @@ impl GpuQmr {
             matrix.values(),
         );
         index(values.len())?;
+        let (needed, free) = (
+            footprint(n, values.len(), symmetric, ilu),
+            api.runtime.free_memory()?,
+        );
+        if needed > free {
+            return Err(error(format!(
+                "QMR needs about {} MB on the GPU, which has {} MB free",
+                needed >> 20,
+                free >> 20
+            )));
+        }
         // the handle first: cuSPARSE's descriptors made before it fail later, in SpMV
         let mut s = Session::new(api, n)?;
         // A by rows; for the general QMR, Aᵀ by rows too: A's columns as given. A symmetric
@@ -1035,5 +1068,125 @@ impl GpuQmr {
             stopping.max_iterations,
             history.last().copied().unwrap_or(f64::NAN)
         )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Instant;
+
+    use super::*;
+
+    /// `CUSPARSE_SPMV_CSR_ALG1`, cuSPARSE's default for a matrix by rows.
+    const CSR_ALG1: c_int = 2;
+
+    /// A matrix by rows from (row, column, value) entries, each row's columns ascending.
+    fn by_rows(n: usize, mut entries: Vec<(usize, usize, c64)>) -> (Rows, Vec<c64>) {
+        entries.sort_by_key(|e| (e.0, e.1));
+        let mut starts = vec![0i32; n + 1];
+        for e in &entries {
+            starts[e.0 + 1] += 1;
+        }
+        for i in 0..n {
+            starts[i + 1] += starts[i];
+        }
+        let columns = entries.iter().map(|e| e.1 as i32).collect();
+        (
+            Rows { starts, columns },
+            entries.iter().map(|e| e.2).collect(),
+        )
+    }
+
+    /// The same product `repeats` times by `algorithm`: whether every one gave the first's bits,
+    /// and the seconds a product took, the fastest of them.
+    fn repeated(
+        api: &Arc<Api>,
+        (rows, values): &(Rows, Vec<c64>),
+        algorithm: c_int,
+        repeats: usize,
+    ) -> (bool, f64) {
+        let n = rows.starts.len() - 1;
+        let mut s = Session::new(api, n).unwrap();
+        s.algorithm = algorithm;
+        let m = DeviceMatrix::new(api, rows, values).unwrap();
+        let x: Vec<c64> = (0..n)
+            .map(|k| c64::new((k as f64 * 0.618).sin(), (k as f64 * 0.414).cos()))
+            .collect();
+        let (x, y) = (s.vector(&x).unwrap(), s.vector(&vec![ZERO; n]).unwrap());
+        s.prepare(&m, &x, &y).unwrap();
+        let mut first: Option<Vec<c64>> = None;
+        let (mut same, mut fastest) = (true, f64::INFINITY);
+        for _ in 0..repeats {
+            let t = Instant::now();
+            s.product(&m, &x, &y).unwrap();
+            api.runtime.synchronize("the product").unwrap();
+            fastest = fastest.min(t.elapsed().as_secs_f64());
+            let out = y.read().unwrap();
+            match &first {
+                None => first = Some(out),
+                Some(f) => {
+                    same &= f.iter().zip(&out).all(|(a, b)| {
+                        a.re.to_bits() == b.re.to_bits() && a.im.to_bits() == b.im.to_bits()
+                    })
+                }
+            }
+        }
+        (same, fastest)
+    }
+
+    /// cuSPARSE's products repeated: the chosen algorithm, CSR_ALG2, gives the same bits every
+    /// time, on the 3D curl-curl matrix of `photonoxide bench --export`'s strip-40 (192 000
+    /// unknowns, PMLs of 6) and on one with a few rows of 100 000 entries, where an algorithm
+    /// that splits rows between threads would sum them in another order. CSR_ALG1, the
+    /// default, is measured beside it and reported, not asserted.
+    #[test]
+    fn the_products_repeat_bit_for_bit_with_the_algorithm_chosen() {
+        let api = match Api::load() {
+            Ok(api) => Arc::new(api),
+            Err(reason) => {
+                println!("skipped: cuSPARSE isn't here: {reason}");
+                return;
+            }
+        };
+        let strip = photonoxide::bench::export::system("strip-40").unwrap();
+        let curl_curl = by_rows(strip.n, strip.entries);
+        // a diagonal, and every 50 000th row full of 100 000 entries
+        let n = 400_000;
+        let mut entries: Vec<(usize, usize, c64)> =
+            (0..n).map(|i| (i, i, c64::new(4.0, 0.1))).collect();
+        for row in (0..n).step_by(50_000) {
+            for k in 0..100_000 {
+                let column = (row + 1 + 3 * k) % n;
+                if column != row {
+                    entries.push((row, column, c64::new(1.0 / (k + 1) as f64, -0.5)));
+                }
+            }
+        }
+        entries.sort_by_key(|e| (e.0, e.1));
+        entries.dedup_by_key(|e| (e.0, e.1));
+        let long_rows = by_rows(n, entries);
+        for (name, m) in [
+            ("curl-curl, strip-40", &curl_curl),
+            ("long rows", &long_rows),
+        ] {
+            let (same, seconds) = repeated(&api, m, SPMV_ALGORITHM, 50);
+            let (same1, seconds1) = repeated(&api, m, CSR_ALG1, 50);
+            println!(
+                "{name}: CSR_ALG2 {} in 50, {:.3} ms a product; CSR_ALG1 {} in 50, {:.3} ms",
+                if same {
+                    "the same bits"
+                } else {
+                    "DIFFERENT bits"
+                },
+                1e3 * seconds,
+                if same1 {
+                    "the same bits"
+                } else {
+                    "different bits"
+                },
+                1e3 * seconds1
+            );
+            assert!(same, "{name}: CSR_ALG2's products differ between runs");
+        }
     }
 }

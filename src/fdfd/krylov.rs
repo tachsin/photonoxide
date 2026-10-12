@@ -1488,6 +1488,11 @@ impl Ilu0 {
         self
     }
 
+    /// Whether [`Ilu0::factors`] has factors to give: its solves exact, not Jacobi sweeps.
+    pub(crate) fn has_factors(&self) -> bool {
+        self.sweeps.is_none() && self.u.inverse_diagonal.is_some()
+    }
+
     /// Its factors as a backend takes them: L's rows below the diagonal, and U's with their
     /// diagonal (the inverse of the one kept here) first. The exact solves only: `None` with
     /// Jacobi sweeps.

@@ -131,7 +131,7 @@ NVIDIA's CUDA runtime: the GPU backends' memory and devices. It needs NVIDIA's d
 
 ### cuSPARSE
 
-The CUDA toolkit's sparse kernels: photonoxide's QMR with ILU(0) run on the GPU.
+The CUDA toolkit's sparse kernels: photonoxide's QMR (plain, complex symmetric, and with ILU(0)) and its GMRES with the multigrid, run on the GPU.
 
 - **Licence:** [NVIDIA CUDA Toolkit End User License Agreement](https://docs.nvidia.com/cuda/eula/index.html). You accept it by installing.
 - **The vendor's download:** <https://developer.nvidia.com/cuda-downloads>

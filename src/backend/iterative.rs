@@ -501,6 +501,32 @@ pub fn iterative_solvers() -> Result<Vec<Listed>> {
         .collect())
 }
 
+fn preference() -> &'static RwLock<Option<Arc<dyn IterativeSolver>>> {
+    static PREFERRED: OnceLock<RwLock<Option<Arc<dyn IterativeSolver>>>> = OnceLock::new();
+    PREFERRED.get_or_init(|| RwLock::new(None))
+}
+
+/// Makes `auto` stand for the iterative backend `choice` names, in this process, where it runs
+/// a solve as photonoxide's own would ([`crate::fdfd::IterativeSolver3d::with_iterative_backend`]);
+/// `auto` and `photonoxide` make it photonoxide's own again, as it is until this is called. For
+/// running photonoxide's own checks on a backend (the validation cases, as
+/// `photonoxide-native`'s `validate` example does): nothing in photonoxide calls it.
+///
+/// # Errors
+///
+/// As [`iterative`], and nothing changes.
+pub fn prefer_iterative(choice: &Choice) -> Result<()> {
+    let solver = iterative(choice)?;
+    *preference().write().map_err(poisoned)? = solver;
+    Ok(())
+}
+
+/// The iterative backend `auto` stands for ([`prefer_iterative`]): `None`, photonoxide's own,
+/// unless one was preferred.
+pub fn preferred_iterative() -> Option<Arc<dyn IterativeSolver>> {
+    preference().read().ok().and_then(|p| p.clone())
+}
+
 /// The iterative backend of a choice: `None` for `auto` and `photonoxide`, whose QMR is
 /// photonoxide's own.
 ///

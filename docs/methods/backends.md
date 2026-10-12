@@ -300,8 +300,167 @@ Checked:
   solver with them against photonoxide's own, where the library is installed
   (`native/tests/blas.rs`).
 
+## Iterative backends
+
+`backend::IterativeSolver` is the 3D iterative solver's Krylov method run elsewhere, a GPU's,
+on the same recurrences as photonoxide's own (#190):
+
+- **What a backend runs:** one run of QMR from x₀ = 0 (`qmr_run`): the complex symmetric QMR
+  (R. W. Freund, SIAM J. Sci. Stat. Comput. 13, 425 (1992), doi:10.1137/0913023), one product
+  an iteration, on a matrix given in the symmetric form, the general QMR (R. W. Freund, N. M.
+  Nachtigal, Numer. Math. 60, 315 (1991), doi:10.1007/BF01385726) otherwise; the general QMR
+  on A M⁻¹ with photonoxide's ILU(0) factors (`qmr_run_ilu`); and, if it says so
+  (`runs_multigrid`), restarted GMRES with one cycle of photonoxide's multigrid as M⁻¹
+  (`gmres_multigrid`; Y. Saad, *Iterative Methods for Sparse Linear Systems*, 2nd ed., SIAM
+  (2003), doi:10.1137/1.9780898718003, Algorithm 9.5 restarted as 6.11), the cycle handed over
+  as each level's operator, smoother factors and transfers, and the coarsest level's
+  factorization (`MultigridCycle`).
+- **What stays photonoxide's:** the restarts after a breakdown of the Lanczos process, the
+  tightened tolerance of QMR on the symmetric similar matrix, x = M⁻¹ y after ILU(0), and the
+  check of GMRES's solution on the residual computed on the CPU. A backend's solution is held to
+  the same residual as photonoxide's own.
+- **Choosing one:** `IterativeSolver3d::with_iterative_backend(&Choice)`, and in the
+  catalogue each problem that takes one (`Entry::takes_an_iterative_backend`: the guides by
+  QMR, ILU(0) or the multigrid, Diel's guide and the strip with ports). A solver without the
+  matrix can't be given one. With a backend named, an S-matrix's ports and a block solve run
+  one right-hand side at a time on it, and recycling's solves go to it as plain solves.
+- **`auto`** is photonoxide's own, unless the process prefers a backend
+  (`backend::prefer_iterative`, which nothing in photonoxide calls: the validation run on a
+  backend does). Then the solves it runs as photonoxide would go to it (one right-hand side, by
+  the matrix: plain QMR, QMR with ILU(0)'s exact solves, GMRES with the multigrid if it runs it
+  and the hierarchy has every level's matrix and Galerkin's coarse operators), and the others
+  stay photonoxide's: block QMR, GCRO-DR's recycling, and every solve without the matrix. The
+  benchmark's measurements don't choose an iterative backend yet.
+
+### cuSPARSE: photonoxide's QMR and GMRES on an NVIDIA GPU
+
+`photonoxide-native` registers `cusparse` (`native/src/gpu_qmr.rs`, `gpu_multigrid.rs`) when it
+finds the CUDA runtime and cuSPARSE and its QMR, run to 1e-12, matches photonoxide's direct
+solve on the smoke test's systems in both forms.
+
+- **On the GPU:** the matrix (and Aᵀ, by rows, for the general QMR), ILU(0)'s triangles and
+  their transposes, or the multigrid's levels above the coarsest; the Krylov vectors, between
+  iterations too. Only scalars come back each iteration: the dot products, the norms. The
+  coarsest level's solve stays photonoxide's, on the CPU (at most 2 000 unknowns, 32 kB each
+  way, 5 ms of a 1.6 s solve at 68³).
+- **cuSPARSE's calls:** `cusparseSpMV` for the products and the multigrid's transfers,
+  `cusparseSpSV` for the triangular solves (ILU(0)'s and the smoothers' block ILU(0), whose
+  independent blocks its analysis finds), `cusparseAxpby` and `cusparseSpVV` for the vector
+  work, each vector seen as a sparse vector with every entry. cuSPARSE's ILU(0) factorization
+  is deprecated, and isn't used: the factors are photonoxide's.
+- **Memory:** the GPU's free memory is checked against what a run keeps there before
+  anything is copied, and a run that wouldn't fit is refused, saying how much it needs.
+- **Determinism, declared:** yes, on one GPU. The sums are cuSPARSE's, in an order of its own,
+  so the iterations are the CPU's to rounding's effect on the residual's history, not bit for
+  bit; a repeated run gives the same bits, which the tests check on every guide. The products
+  are `CUSPARSE_SPMV_CSR_ALG2`'s, chosen for it: on 50 repeated products, it gave the same bits
+  on the curl-curl matrix of `strip-40` (192 000 unknowns) and on one with rows of 100 000
+  entries, where cuSPARSE's default, `CSR_ALG1`, gave different bits; `CSR_ALG2` took 0.367 ms a
+  product on the curl-curl matrix against `CSR_ALG1`'s 0.342 ms (RTX 4060, cuSPARSE 12.7.3).
+- **Not on the GPU:** the multigrid without its finest matrix and the one with its coarse levels
+  discretized again (#336), whose cycle the backend can't be given (#337); and block QMR.
+
+### The validation cases on cusparse
+
+```sh
+cargo run -p photonoxide-native --release --example validate -- cusparse
+```
+
+prefers the backend for `auto` and counts its runs. Run on 2026-10-11 on an RTX 4060 (8 GB,
+CUDA 13.1, cuSPARSE 12.7.3) beside a Core Ultra 7 265K (20 threads), Windows 11: 12 of the 263
+cases solve through it, and every one is within its tolerance. The rest make no QMR or GMRES
+solve it runs: the 2D and direct solves, the mode solvers, FDTD, and block QMR's and recycling's
+own runs. Several of these cases' values are themselves the difference from a direct solve, so
+their difference here is two iterative solves' rounding at a tolerance of 1e-9 to 1e-12.
+
+| Case | Runs | photonoxide | cusparse | Difference | Tolerance |
+|---|---|---|---|---|---|
+| `fdfd3d/qmr-direct` | 2 | 4.75459e-11 | 5.37127e-11 | 6.2e-12 | 1e-09 |
+| `fdfd3d/qmr-symmetric-direct` | 1 | 6.85453e-12 | 5.84424e-12 | 1.0e-12 | 1e-09 |
+| `fdfd3d/qmr-ilu-direct` | 2 | 2.28618e-10 | 1.68686e-10 | 6.0e-11 | 1e-08 |
+| `fdfd3d/gmres-multigrid-direct` | 1 | 2.02545e-10 | 2.02546e-10 | 8.5e-17 | 1e-08 |
+| `fdfd3d/block-qmr-s-matrix` | 10 | 2.01599e-11 | 1.84858e-11 | 1.7e-12 | 1e-09 |
+| `fdfd3d/block-qmr-ilu-s-matrix` | 16 | 1.14523e-10 | 1.14523e-10 | 2.9e-16 | 1e-09 |
+| `fdfd3d/recycle-s-matrix` | 24 | 2.05367e-11 | 1.88577e-11 | 1.7e-12 | 1e-10 |
+| `fdfd3d/recycle-convergence` | 80 | 0.233010 | 0.233010 | 0 | 0.35 |
+| `fdfd3d/recycle-adjoint` | 2 | 7.8327e-11 | 7.8327e-11 | 0 | 1e-08 |
+| `fdfd3d/qmr-matrix-free-sweep` | 8 | 2.44037e-11 | 2.42948e-11 | 1.1e-13 | 1e-09 |
+| `fdfd3d/multigrid-stencil-s-matrix` | 16 | 8.39236e-12 | 8.39269e-12 | 3.3e-16 | 1e-09 |
+| `fdfd3d/multigrid-stencil-refinement` | 3 | 1.055556 | 1.055556 | 0 | 1.5 |
+
+The block, recycling, matrix-free and stencil cases are listed for the plain solves they also
+make, which went to the GPU: their references, their one-port runs, and the solves for the
+correction after recycling's initial guess. Their block QMR, GCRO-DR and matrix-free solves
+stayed photonoxide's.
+
+### Measured: the 3D iterative problems
+
+```sh
+cargo run -p photonoxide-native --release --example gpu_iterative -- --rounds 3 fdfd3d-iterative/
+```
+
+runs each catalogue problem that takes an iterative backend on `cusparse` and on photonoxide's
+own, alternating, and keeps each side's faster run. Measured on 2026-10-11 and 12 on an RTX 4060
+(8 GB, CUDA 13.1, cuSPARSE 12.7.3) against a Core Ultra 7 265K on 20 threads, Windows 11, a
+shared machine. A solve's time is everything the solver does for it: on the GPU the matrix,
+ILU(0)'s factors or the multigrid's hierarchy copied up and analysed, the iterations, and the
+field copied back, so a step's time counts the transfers. The error is each problem's own check,
+the same for both sides: the field against a reference solve to 1e-12 (QMR + ILU(0) for plain
+QMR, GMRES + multigrid for the others), the strip with ports' S-matrix against its exact one.
+Every repeated GPU run gave the same error to the bit.
+
+| Problem | Grid | Unknowns | Iterations, CPU / GPU | CPU solve (a step) | GPU solve (a step) | Speed-up | Error, CPU / GPU |
+|---|---|---|---|---|---|---|---|
+| `guide-qmr-20` | 20³ cells of 10 nm, PMLs of 5 | 24 000 | 1423 / 1394 | 0.334 s (0.23 ms) | 0.333 s (0.24 ms) | 1.00 | 2.0e-7 / 1.9e-7 |
+| `guide-qmr-30` | 30³ cells of 10 nm, PMLs of 7 | 81 000 | 1706 / 1701 | 0.818 s (0.48 ms) | 0.862 s (0.51 ms) | 0.95 | 2.6e-7 / 2.1e-7 |
+| `guide-ilu-20` | 20³ cells of 10 nm, stretched PMLs of 5 | 24 000 | 66 / 66 | 0.128 s (1.94 ms) | 0.257 s (3.90 ms) | 0.50 | 3.4e-7 / 3.4e-7 |
+| `guide-ilu-30` | 30³ cells of 10 nm, stretched PMLs of 7 | 81 000 | 130 / 130 | 0.887 s (6.82 ms) | 0.650 s (5.00 ms) | 1.36 | 5.1e-7 / 5.1e-7 |
+| `guide-ilu-44` | 44³ cells of 10 nm, stretched PMLs of 10 | 255 552 | 251 / 250 | 5.418 s (21.59 ms) | 1.942 s (7.77 ms) | 2.79 | 9.1e-7 / 8.7e-7 |
+| `guide-ilu-68` | 68³ cells of 10 nm, stretched PMLs of 14 | 943 296 | 560 / 559 | 43.33 s (77.37 ms) | 8.862 s (15.85 ms) | 4.89 | 2.0e-6 / 1.7e-6 |
+| `guide-multigrid-20` | 20³ cells of 10 nm, stretched PMLs of 5 | 24 000 | 20 / 20 | 0.093 s (4.66 ms) | 0.142 s (7.09 ms) | 0.66 | 1.7e-6 / 1.7e-6 |
+| `guide-multigrid-30` | 30³ cells of 10 nm, stretched PMLs of 7 | 81 000 | 19 / 19 | 0.272 s (14.32 ms) | 0.458 s (24.09 ms) | 0.59 | 4.2e-6 / 4.2e-6 |
+| `guide-multigrid-44` | 44³ cells of 10 nm, stretched PMLs of 10 | 255 552 | 16 / 16 | 1.148 s (71.77 ms) | 0.853 s (53.29 ms) | 1.35 | 2.9e-6 / 2.9e-6 |
+| `guide-multigrid-68` | 68³ cells of 10 nm, stretched PMLs of 14 | 943 296 | 22 / 22 | 2.423 s (110.2 ms) | 1.866 s (84.80 ms) | 1.30 | 3.5e-6 / 3.5e-6 |
+| `diel-ilu-30` | 30 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 648 000 | 1307 / 1285 | 69.78 s (53.39 ms) | 12.73 s (9.91 ms) | 5.48 | 7.9e-7 / 4.9e-7 |
+| `diel-ilu-80` | 80 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 1 728 000 | 1656 / 1620 | 241.2 s (145.6 ms) | 41.68 s (25.73 ms) | 5.79 | 7.8e-7 / 1.1e-6 |
+| `diel-multigrid-30` | 30 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 648 000 | 44 / 44 | 3.282 s (74.59 ms) | 1.934 s (43.96 ms) | 1.70 | 2.9e-6 / 2.9e-6 |
+| `diel-multigrid-80` | 80 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 1 728 000 | 51 / 51 | 14.96 s (293.4 ms) | 5.149 s (101.0 ms) | 2.91 | 2.1e-6 / 2.1e-6 |
+| `strip-ports-ilu-40nm` | 36 × 51 × 41 cells of 40 nm, stretched PMLs of 8 | 225 828 | 875 / 851 | 33.45 s (38.23 ms) | 5.178 s (6.09 ms) | 6.46 | 1.7e-9 / 1.8e-9 |
+| `strip-ports-ilu-25nm` | 58 × 82 × 66 cells of 25 nm, stretched PMLs of 13 | 941 688 | 1485 / 1499 | 152.0 s (102.4 ms) | 22.66 s (15.12 ms) | 6.71 | 2.9e-9 / 3.2e-9 |
+| `strip-ports-multigrid-40nm` | 36 × 51 × 41 cells of 40 nm, stretched PMLs of 8 | 225 828 | 56 / 56 | 4.031 s (71.99 ms) | 1.650 s (29.46 ms) | 2.44 | 8.8e-9 / 8.8e-9 |
+| `strip-ports-multigrid-25nm` | 58 × 82 × 66 cells of 25 nm, stretched PMLs of 13 | 941 688 | 55 / 55 | 10.76 s (195.5 ms) | 4.378 s (79.60 ms) | 2.46 | 1.3e-8 / 1.3e-8 |
+| `strip-ports-multigrid-20nm` | 72 × 102 × 82 cells of 20 nm, stretched PMLs of 16 | 1 806 624 | 56 / 56 | 17.80 s (317.9 ms) | 6.997 s (125.0 ms) | 2.54 | 4.1e-9 / 4.1e-9 |
+
+The strip with ports' iterations are its two ports' runs together. What they say:
+
+- **The same answers.** Every GPU run is within its problem's tolerance, with the CPU's error
+  or within a factor of 1.6 of it. GMRES with the multigrid takes the CPU's iterations
+  exactly, and its error agrees to two digits; QMR's iterations differ by up to 2.8%
+  (`strip-ports-ilu-40nm`: 875 against 851), its Lanczos process summed in another order over a
+  thousand steps.
+- **Faster where the problem is large.** QMR with ILU(0) is 2.8 to 6.7 times faster from a
+  quarter of a million unknowns up: its triangular solves are sequential on the CPU and
+  cuSPARSE's analysis finds their parallelism. GMRES with the multigrid is 1.3 to 2.9 times
+  faster there, more on the long Diel guide and the strip than on the cube, whose CPU cycle
+  threads well already. Below 10⁵ unknowns the GPU is at par or slower: the copies and the
+  analysis are a fixed cost, and a step is too small to use it.
+- **Plain QMR doesn't gain** at 24 000 and 81 000 unknowns: a step is a product and a few
+  vector updates, each a call with its latency, and the matrix stays in the CPU's cache. Its
+  larger sizes weren't run, their reference fields taking over an hour.
+- **What wasn't run:** `guide-multigrid-96` and `-128` (2.7 and 6.3 million unknowns; a run
+  that wouldn't fit in the GPU's 8 GB is refused, saying how much it needs), and the
+  matrix-free and stencil problems, which a backend can't be given (#337).
+
+### AmgX
+
+NVIDIA's AmgX was examined for #190 and isn't a backend: its complex modes have GMRES, block
+Jacobi and one aggregation AMG only, and its complex GMRES's Givens rotation drops a phase, so
+it diverges on photonoxide's systems. [The plan](../plans/backends.md#amgx-examined-and-not-a-backend-190-2026-10-11)
+has what was read and measured.
+
 ## What isn't here yet
 
 The mode solvers' shift-and-invert still calls faer's LU directly. AMD's AOCL and Arm's
-Performance Libraries aren't loaded as dense kernels yet (#186). Iterative solvers (#189, #190)
-and eigensolvers get their own traits with their first backend.
+Performance Libraries aren't loaded as dense kernels yet (#186). AMD's AOCL-Sparse as an
+iterative backend is #189; the multigrid without its finest matrix on the GPU is #337.
+Eigensolvers get their own trait with their first backend.

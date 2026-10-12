@@ -1567,15 +1567,19 @@ impl Entry {
 
     /// Whether its solve is QMR, plain or with ILU(0), or GMRES with multigrid, which an
     /// iterative backend can run ([`crate::backend::iterative`]): `fdfd3d-iterative/guide-*`,
-    /// but for QMR without the matrix, which a backend can't be given.
+    /// `diel-*` and `strip-ports-*`, but for QMR without the matrix and the multigrids
+    /// without their finest matrix or with their coarse levels discretized again, which a
+    /// backend can't be given.
     pub fn takes_an_iterative_backend(&self) -> bool {
-        matches!(
-            self.kind,
-            Kind::Guide { solve, .. } if matches!(
+        match self.kind {
+            Kind::Guide { solve, .. }
+            | Kind::Diel { solve, .. }
+            | Kind::StripPorts { solve, .. } => matches!(
                 solve,
                 super::Solve::Qmr | super::Solve::Ilu | super::Solve::Multigrid
-            )
-        )
+            ),
+            _ => false,
+        }
     }
 
     /// The residual an iterative problem runs to.
@@ -1606,7 +1610,7 @@ impl Entry {
     }
 
     /// Builds the problem and solves it, timing each phase: a direct problem by the direct
-    /// solver `backend` names ([`Entry::takes_a_backend`]), plain QMR by the iterative one it
+    /// solver `backend` names ([`Entry::takes_a_backend`]), QMR or GMRES by the iterative one it
     /// names ([`Entry::takes_an_iterative_backend`]), the others as photonoxide solves them.
     ///
     /// # Errors
@@ -1626,6 +1630,13 @@ impl Entry {
     /// As [`Entry::run`].
     pub fn run_with(&self, backend: &Choice, timed: &mut dyn FnMut()) -> Result<Measurement> {
         let direct = backend;
+        // the iterative backend of the choice runs the Krylov solver where it can; the others
+        // are photonoxide's
+        let iterative = if self.takes_an_iterative_backend() {
+            direct
+        } else {
+            &Choice::Auto
+        };
         match &self.kind {
             Kind::Flat { .. } | Kind::Solid { .. } | Kind::Exported(_) => {
                 Ok(solve_direct(self, direct)?.measurement)
@@ -1640,13 +1651,6 @@ impl Entry {
                     Task::Iterative { tolerance } => tolerance,
                     _ => 1e-8,
                 };
-                // the iterative backend of the choice runs the Krylov solver; the others are
-                // photonoxide's
-                let iterative = if self.takes_an_iterative_backend() {
-                    direct
-                } else {
-                    &Choice::Auto
-                };
                 super::guide_3d_with(
                     super::Guide::Cube { core: *core },
                     *pml,
@@ -1656,22 +1660,24 @@ impl Entry {
                     timed,
                 )
             }
-            Kind::Diel { length, solve } => super::guide_3d(
+            Kind::Diel { length, solve } => super::guide_3d_with(
                 super::Guide::Diel { length: *length },
                 10,
                 *solve,
                 self.residual(),
+                iterative,
                 timed,
             ),
             Kind::StripPorts {
                 step_nm,
                 pml,
                 solve,
-            } => super::strip_ports_3d(
+            } => super::strip_ports_3d_with(
                 *step_nm as f64 / 1000.0,
                 *pml,
                 *solve,
                 self.residual(),
+                iterative,
                 timed,
             ),
             Kind::Modes { step_nm, count } => solve_modes(self, *step_nm, *count),

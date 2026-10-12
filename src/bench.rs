@@ -762,6 +762,19 @@ fn strip_ports_3d(
     tolerance: f64,
     timed_done: &mut dyn FnMut(),
 ) -> Result<Measurement> {
+    strip_ports_3d_with(h, pml, solve, tolerance, &Choice::Auto, timed_done)
+}
+
+/// [`strip_ports_3d`], its runs of QMR or GMRES on the iterative backend `iterative` names
+/// (photonoxide's own for `auto`).
+fn strip_ports_3d_with(
+    h: f64,
+    pml: usize,
+    solve: Solve,
+    tolerance: f64,
+    iterative: &Choice,
+    timed_done: &mut dyn FnMut(),
+) -> Result<Measurement> {
     // 0.8 × 1.4 × 1.0 µm inside the PMLs: 40 × 70 × 50 cells of 20 nm
     let inside = |um: f64| (um / h).round() as usize;
     let (ix, iy, iz) = (inside(0.8), inside(1.4), inside(1.0));
@@ -787,16 +800,18 @@ fn strip_ports_3d(
     };
     let lam = Wavelength::um(1.55)?;
     let mut phases = Vec::new();
-    let solver = solve.build(&mut phases, |formulation, product| {
-        IterativeSolver3d::new_with(
-            grid,
-            lam,
-            strip,
-            solve.boundaries(pml),
-            formulation,
-            product,
-        )
-    })?;
+    let solver = solve
+        .build(&mut phases, |formulation, product| {
+            IterativeSolver3d::new_with(
+                grid,
+                lam,
+                strip,
+                solve.boundaries(pml),
+                formulation,
+                product,
+            )
+        })?
+        .with_iterative_backend(iterative)?;
     // the ports an eighth of the length in from each PML, and at least three cells
     let margin = (ix / 8).max(3);
     let (left, right) = (pml + margin, pml + ix - margin);

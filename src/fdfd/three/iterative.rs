@@ -123,6 +123,10 @@ pub struct IterativeSolver3d {
     /// The backend that runs QMR or GMRES, if not photonoxide's own
     /// ([`IterativeSolver3d::with_iterative_backend`]).
     backend: Option<Arc<dyn IterativeSolver>>,
+    /// Whether the choice was `auto` (the default), which runs on the backend this process
+    /// prefers, if any ([`backend::prefer_iterative`]), where it runs the solve; or
+    /// `photonoxide`, always photonoxide's own.
+    auto: bool,
     /// Whether an S-matrix solves its ports' sources as one block ([`IterativeSolver3d::with_block`]).
     block: bool,
     /// Which operator this is, for a recycled space ([`super::Recycler`]): a new number for each
@@ -185,6 +189,7 @@ impl IterativeSolver3d {
             similarity,
             preconditioner: Preconditioning::None,
             backend: None,
+            auto: true,
             block: false,
             id: next_id(),
         })
@@ -276,6 +281,7 @@ impl IterativeSolver3d {
             similarity,
             preconditioner: Preconditioning::None,
             backend: None,
+            auto: true,
             block: false,
             id: next_id(),
         })
@@ -398,12 +404,20 @@ impl IterativeSolver3d {
     /// tolerance around QMR's runs, and checks GMRES's solution on its own residual, so the
     /// solution is held to the same residual as photonoxide's own.
     ///
+    /// `auto`, the default, is photonoxide's own unless the process prefers a backend
+    /// ([`backend::prefer_iterative`]); then that backend runs the solves it runs as photonoxide
+    /// would (one right-hand side, by the matrix, plain, with ILU(0)'s exact solves, or by the
+    /// multigrid if it runs it and the hierarchy has every level's matrix and Galerkin's coarse
+    /// operators), and photonoxide's own the others (block QMR, GCRO-DR's recycling, and any
+    /// solve without the matrix).
+    ///
     /// # Errors
     ///
     /// [`Error::InvalidValue`] for a backend that isn't registered or available, and for a
     /// solver preconditioned by multigrid with a backend that doesn't run it.
     pub fn with_iterative_backend(mut self, choice: &Choice) -> Result<IterativeSolver3d> {
         self.backend = backend::iterative(choice)?;
+        self.auto = *choice == Choice::Auto;
         self.id = next_id();
         if self.backend.is_some() {
             self.needs_matrix("an iterative backend")?;
@@ -426,6 +440,27 @@ impl IterativeSolver3d {
             ));
         }
         Ok(())
+    }
+
+    /// The backend a solve of one right-hand side runs on: the one named; for `auto`, the one
+    /// the process prefers where it runs the solve as photonoxide's own would; `None`,
+    /// photonoxide's own.
+    fn runner(&self) -> Option<Arc<dyn IterativeSolver>> {
+        if self.backend.is_some() {
+            return self.backend.clone();
+        }
+        if !self.auto || self.free.is_some() {
+            return None;
+        }
+        let solver = backend::preferred_iterative()?;
+        let runs = match &self.preconditioner {
+            Preconditioning::None => true,
+            Preconditioning::Ilu(ilu) => ilu.has_factors(),
+            Preconditioning::Multigrid(h) => {
+                solver.runs_multigrid() && h.cycle_for_backend().is_ok()
+            }
+        };
+        runs.then_some(solver)
     }
 
     /// The number of the multigrid's levels, the coarsest included; 0 without one.
@@ -514,8 +549,9 @@ impl IterativeSolver3d {
         stopping: Stopping,
     ) -> Result<(Vec<c64>, Convergence)> {
         self.check_backend()?;
+        let runner = self.runner();
         Ok(match &self.preconditioner {
-            Preconditioning::Ilu(ilu) => match &self.backend {
+            Preconditioning::Ilu(ilu) => match &runner {
                 Some(solver) => {
                     let matrix = self.matrix.as_matrix(Form::General)?;
                     let factors = ilu.factors().ok_or_else(|| {
@@ -529,7 +565,7 @@ impl IterativeSolver3d {
             },
             // a cycle is worth many products with A, and GMRES takes one per iteration where
             // QMR takes two (the cycle and its transpose)
-            Preconditioning::Multigrid(h) => match &self.backend {
+            Preconditioning::Multigrid(h) => match &runner {
                 Some(solver) => {
                     let cycle = h.cycle_for_backend()?;
                     let (x, how) =
@@ -551,7 +587,7 @@ impl IterativeSolver3d {
                 (Some(operator), None) => qmr(operator, b, stopping)?,
                 (None, _) => qmr(&self.matrix, b, stopping)?,
             },
-            Preconditioning::None => match (&self.backend, &self.similarity) {
+            Preconditioning::None => match (&runner, &self.similarity) {
                 (Some(solver), Some(s)) => {
                     let matrix = self.matrix.as_matrix(Form::Symmetric)?;
                     qmr_similar_by(&self.matrix, s, b, stopping, &|rhs, st| {
