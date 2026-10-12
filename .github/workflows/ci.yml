@@ -5,7 +5,9 @@ name: CI
 # - Tier 1, every pull request and every push to main: what the change can break, on Linux. The
 #   area map (.github/areas.sh) turns the changed files into the unit tests, validation cases and
 #   examples of their areas and of the areas that use them; a file of no area runs everything.
-#   Files nothing reads run only the docs' links.
+#   Files nothing reads run only the docs' links. A pull request that changes the library (src/
+#   or the root Cargo.toml) has its public API checked against the latest release's
+#   (cargo-semver-checks).
 # - Tier 2, the release pull request (release-plz's branch), a pull request labelled `full-ci`
 #   (the Full CI workflow starts it), and a change to this workflow or to Cargo.toml or
 #   Cargo.lock: everything, the tests on Linux, Windows and macOS, single-threaded too, every
@@ -54,6 +56,7 @@ jobs:
       systems: ${{ steps.classify.outputs.systems }}
       release: ${{ steps.classify.outputs.release }}
       studio: ${{ steps.classify.outputs.studio }}
+      library: ${{ steps.classify.outputs.library }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -87,6 +90,17 @@ jobs:
               if grep -qxE '\.github/workflows/ci\.yml|Cargo\.toml|Cargo\.lock' "$RUNNER_TEMP/changed.txt"; then
                 tier=2
               fi
+            fi
+          fi
+          # the library's public API, checked on a pull request that changes it (src/ or the root
+          # manifest), or this workflow, on any tier; not on the release PR, whose version
+          # release-plz chose by the same check
+          library=false
+          if [ "$EVENT" = pull_request ] && [[ "$HEAD_REF" != release-plz-* ]] &&
+            git cat-file -e "$PR_BASE^{commit}" 2>/dev/null; then
+            git diff --name-only "$range" > "$RUNNER_TEMP/pr-files.txt"
+            if grep -qE '^(src/|Cargo\.toml$|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/pr-files.txt"; then
+              library=true
             fi
           fi
           if [ "$tier" = 1 ]; then
@@ -186,6 +200,7 @@ jobs:
             echo "systems=$systems"
             echo "release=$release"
             echo "studio=$studio"
+            echo "library=$library"
           } | tee -a "$GITHUB_OUTPUT"
           {
             echo "### Tier $tier"
@@ -380,6 +395,45 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.95
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --all-targets --all-features
+
+  # The library's public API against the latest release on crates.io's (cargo-semver-checks, the
+  # check release-plz runs before it picks the next version). A change a user's code could break
+  # on, a public struct's new field say, fails it, unless the pull request says it breaks: a `!`
+  # in its title (`fix(fdfd)!: ...`, as Conventional Commits mark it) or the `breaking` label.
+  # Release-plz then raises the minor version, 0.5 to 0.6, where a patch was meant.
+  semver:
+    name: Semver
+    needs: changes
+    if: needs.changes.outputs.library == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+      - id: check
+        continue-on-error: true
+        uses: obi1kenobi/cargo-semver-checks-action@v2.9
+        with:
+          package: photonoxide
+      # the title and labels as they are now, not as the run's event had them, so that a rerun
+      # after marking the pull request breaking passes
+      - name: A break needs the pull request to say so
+        if: steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR")
+          title=$(jq -r .title <<<"$pr")
+          if jq -e '[.labels[].name] | index("breaking")' <<<"$pr" > /dev/null ||
+            [[ "$title" =~ ^[a-z]+(\([^\)]*\))?!: ]]; then
+            echo "::notice::The public API breaks semver (above), and the pull request says so: the next release raises the minor version."
+            exit 0
+          fi
+          echo "::error::The public API breaks semver against the latest release (the lints above): users' code that compiles against it may not compile against this. Keep the old API working (a field added to a public struct breaks every literal of it: put new settings in a type of their own marked #[non_exhaustive], with a new method taking it), or, if the break is meant, put a ! in the pull request's title (fix(area)!: ...) or add the breaking label, then rerun this job: release-plz will then raise the minor version."
+          exit 1
 
   # a push to the release PR (lines added to its changelog by hand) is checked again
   changelog:
