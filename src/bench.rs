@@ -496,13 +496,22 @@ enum Solve {
     Ilu,
     /// GMRES preconditioned by the default multigrid on Shin and Fan's operator, stretched PMLs.
     Multigrid,
+    /// The same without the finest matrix (#333): GMRES's products and the finest level's
+    /// damped Jacobi from the stencil, Galerkin's coarse operators from its rows.
+    MultigridStencil,
+    /// The same with every coarse operator discretized again
+    /// ([`crate::fdfd::Coarse::Rediscretized`]).
+    MultigridRediscretized,
 }
 
 impl Solve {
     fn boundaries(self, pml: usize) -> Boundaries3d {
         match self {
             Solve::Qmr | Solve::QmrFree => Boundaries3d::pml(pml),
-            Solve::Ilu | Solve::Multigrid => Boundaries3d::stretched_pml(pml),
+            Solve::Ilu
+            | Solve::Multigrid
+            | Solve::MultigridStencil
+            | Solve::MultigridRediscretized => Boundaries3d::stretched_pml(pml),
         }
     }
 
@@ -525,13 +534,30 @@ impl Solve {
             Solve::Multigrid => timed("assembly and multigrid", phases, || {
                 new(Formulation::ShinFan, Product::Matrix)?.with_multigrid(Multigrid::default())
             }),
+            Solve::MultigridStencil | Solve::MultigridRediscretized => {
+                let coarse = if self == Solve::MultigridStencil {
+                    crate::fdfd::Coarse::Galerkin
+                } else {
+                    crate::fdfd::Coarse::Rediscretized
+                };
+                timed(
+                    "the operator and multigrid, no finest matrix",
+                    phases,
+                    || {
+                        new(Formulation::ShinFan, Product::MatrixFree)?.with_multigrid(Multigrid {
+                            coarse,
+                            ..Multigrid::default()
+                        })
+                    },
+                )
+            }
         }
     }
 
     fn label(self) -> &'static str {
         match self {
             Solve::Qmr | Solve::QmrFree | Solve::Ilu => "QMR",
-            Solve::Multigrid => "GMRES",
+            Solve::Multigrid | Solve::MultigridStencil | Solve::MultigridRediscretized => "GMRES",
         }
     }
 }
@@ -689,10 +715,12 @@ fn guide_3d_with(
             new(Formulation::ShinFan, Product::Matrix)?.with_ilu()?,
             "QMR + ILU(0) to 1e-12, relative",
         ),
-        Solve::Ilu | Solve::Multigrid => (
-            new(Formulation::ShinFan, Product::Matrix)?.with_multigrid(Multigrid::default())?,
-            "GMRES + multigrid to 1e-12, relative",
-        ),
+        Solve::Ilu | Solve::Multigrid | Solve::MultigridStencil | Solve::MultigridRediscretized => {
+            (
+                new(Formulation::ShinFan, Product::Matrix)?.with_multigrid(Multigrid::default())?,
+                "GMRES + multigrid to 1e-12, relative",
+            )
+        }
     };
     let (reference, _) = reference.solve(&source, stopping(1e-12))?;
     let difference: f64 = (field.values().iter())
@@ -710,7 +738,7 @@ fn guide_3d_with(
             nm(h),
             match solve {
                 Solve::Qmr | Solve::QmrFree => "PMLs",
-                Solve::Ilu | Solve::Multigrid => "stretched PMLs",
+                _ => "stretched PMLs",
             }
         ),
         unknowns: grid.unknowns(),
@@ -817,7 +845,7 @@ fn strip_ports_3d(
             nm(h),
             match solve {
                 Solve::Qmr | Solve::QmrFree => "PMLs",
-                Solve::Ilu | Solve::Multigrid => "stretched PMLs",
+                _ => "stretched PMLs",
             }
         ),
         unknowns: grid.unknowns(),

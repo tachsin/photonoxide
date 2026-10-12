@@ -49,7 +49,7 @@ export const CATEGORIES = [
     blurb: "The algorithms under the solvers: eigenvalues near a shift or inside a contour, Krylov solves for many sources and long sequences, and sparse direct solves, photonoxide's own or another library's.",
     groups: [
       { title: "Eigenvalues", slugs: ["eigen", "contour"] },
-      { title: "Linear systems", slugs: ["block-qmr", "recycling", "backends"] },
+      { title: "Linear systems", slugs: ["block-qmr", "recycling", "multigrid-stencil", "backends"] },
     ],
   },
   {
@@ -97,7 +97,7 @@ export const ALGORITHMS = [
   { name: "Marcatili's approximation", does: "a rectangular guide from two slab-like equations", methods: ["marcatili"] },
   { name: "Mirror walls", does: "a symmetric guide on half or a quarter of its cross-section", methods: ["walls"] },
   { name: "Multifrontal LU, nested dissection", does: "photonoxide's own sparse direct solve", methods: ["fdfd-3d", "fdfd"] },
-  { name: "Multigrid, shifted Laplacian", does: "the 3D iterative solves' preconditioner", methods: ["fdfd-3d"] },
+  { name: "Multigrid, shifted Laplacian", does: "the 3D iterative solves' preconditioner", methods: ["fdfd-3d", "multigrid-stencil"] },
   { name: "Nonlinear inverse iteration", does: "an eigenproblem whose matrix depends on its eigenvalue", methods: ["hadley"] },
   { name: "QMR, complex symmetric", does: "3D FDFD by iteration, with or without the matrix", methods: ["fdfd-3d"] },
   { name: "Richardson extrapolation", does: "the grid's error removed from three grids", methods: ["vector"] },

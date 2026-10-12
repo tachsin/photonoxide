@@ -884,8 +884,8 @@ mod three;
 pub use krylov::{BlockConvergence, Convergence, Stopping};
 pub use ports::{Direction, Port, PortMode, Side};
 pub use three::{
-    Axis, Boundaries3d, CycleShape, Field3d, Formulation, Grid3d, IterativeSolver3d, Multigrid,
-    Port3d, PortMode3d, Product, Recycler, Solver3d,
+    Axis, Boundaries3d, Coarse, CycleShape, Field3d, Formulation, Grid3d, IterativeSolver3d,
+    Jacobi, Multigrid, Port3d, PortMode3d, Product, Recycler, Solver3d,
 };
 
 pub(crate) use three::adjoint as checks3d_adjoint;
@@ -893,6 +893,7 @@ pub(crate) use three::block_checks as block_checks3d;
 pub(crate) use three::checks as checks3d;
 pub(crate) use three::port_checks as port_checks3d;
 pub(crate) use three::recycle_checks as recycle_checks3d;
+pub(crate) use three::stencil_checks as stencil_checks3d;
 pub(crate) use three::{MATRIX_FREE_SOLVE_BYTES, MATRIX_SOLVE_BYTES};
 pub(crate) use three::{
     averaged as averaged_3d, mode_amplitude_weights_of, mode_amplitudes_of, positions,

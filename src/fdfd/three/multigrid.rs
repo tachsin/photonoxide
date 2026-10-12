@@ -11,11 +11,21 @@
 //! On Yee's grid each component of E is interpolated from a coarser grid over the same box on
 //! its own staggered points, trilinearly (P), restricted by Pᵀ, and each coarse operator is
 //! Pᵀ A P.
+//!
+//! **Without the finest matrix** ([`Hierarchy::from_stencil_on`], #333): the finest level's
+//! operator is Shin and Fan's from its stencil ([`MatrixFree::shin_fan`]), smoothed by damped
+//! Jacobi with the diagonal the stencil gives, Erlangga, Oosterlee and Vuik's smoother for the
+//! shifted operator (their Section 4.3: ω-Jacobi; ω = 0.8 here, measured). The first
+//! coarse operator is still Pᵀ A P, its fine rows made from the stencil one at a time, to the
+//! same bits as the stored matrix's, or, [`Coarse::Rediscretized`], every coarse operator is
+//! Shin and Fan's discretized again on the coarser grid, restricted by W⁻¹ Pᵀ D_f
+//! (docs/methods/multigrid-stencil.md).
 
 use std::sync::Arc;
 
 use num_complex::Complex64 as c64;
 
+use super::matrix_free::MatrixFree;
 use super::{Axis, Grid3d, Lattice};
 use crate::backend::{Columns, DirectSolver, Factorization, Form};
 use crate::fdfd::Edges;
@@ -50,6 +60,38 @@ pub struct Multigrid {
     /// The steps of GMRES between restarts: it keeps one vector of the grid's size per step,
     /// so this bounds its memory (16 bytes per unknown and step).
     pub restart: usize,
+    /// How the coarse operators are made.
+    pub coarse: Coarse,
+    /// The finest level's smoothing when it has no matrix (a solver built with
+    /// [`super::Product::MatrixFree`]); the coarser levels take ILU(0) as `pre` and `post` say.
+    pub jacobi: Jacobi,
+}
+
+/// How the cycle's coarse operators are made.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Coarse {
+    /// Pᵀ A P, Reps et al.'s Galerkin operators: from the finest matrix, or, without it, from
+    /// the stencil's rows one at a time, to the same bits.
+    Galerkin,
+    /// Shin and Fan's operator discretized again on each coarser grid, each cell and dual cell
+    /// as long as the finer ones it merges in the PMLs' stretched coordinate, the permittivity
+    /// averaged onto it, and the residual restricted by W⁻¹ Pᵀ D_f (D_f the volume of each fine
+    /// value of E's cell, in that coordinate, and W = Pᵀ D_f 1, so that its rows sum to one): 15
+    /// entries a row where Pᵀ A P has about 60. More iterations than Galerkin's, and V-cycles
+    /// only: with F-cycles it fails (docs/methods/multigrid-stencil.md).
+    Rediscretized,
+}
+
+/// Damped Jacobi on the finest level without its matrix: x ← x + ω D⁻¹ (b − A x), D the
+/// operator's diagonal from its stencil.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Jacobi {
+    /// ω.
+    pub omega: f64,
+    /// Sweeps before each coarse correction.
+    pub pre: usize,
+    /// And after it.
+    pub post: usize,
 }
 
 impl Default for Multigrid {
@@ -66,6 +108,12 @@ impl Default for Multigrid {
             post: 1,
             coarsest: 2_000,
             restart: 40,
+            coarse: Coarse::Galerkin,
+            jacobi: Jacobi {
+                omega: 0.8,
+                pre: 1,
+                post: 1,
+            },
         }
     }
 }
@@ -156,14 +204,106 @@ fn add_to(x: &mut [c64], d: &[c64]) {
         .for_each(|(xk, dk)| *xk += dk);
 }
 
+/// A level's operator and smoother.
+enum Stage {
+    /// The operator's matrix, smoothed by ILU(0) in slabs.
+    Stored { matrix: Sparse, smoother: BlockIlu0 },
+    /// Without its matrix: Shin and Fan's operator from its stencil, smoothed by damped Jacobi
+    /// (ω D⁻¹ here).
+    Stencil {
+        operator: MatrixFree,
+        jacobi: Vec<c64>,
+        pre: usize,
+        post: usize,
+    },
+}
+
+impl Stage {
+    /// A x, or Aᵀ x.
+    fn apply(&self, x: &[c64], transpose: bool) -> Vec<c64> {
+        use crate::fdfd::krylov::Operator;
+        match (self, transpose) {
+            (Stage::Stored { matrix, .. }, false) => matrix.apply(x),
+            (Stage::Stored { matrix, .. }, true) => matrix.apply_transpose(x),
+            (Stage::Stencil { operator, .. }, false) => operator.apply(x),
+            (Stage::Stencil { operator, .. }, true) => operator.apply_transpose(x),
+        }
+    }
+
+    /// One smoothing step's correction for the residual `r`: M⁻¹ r, or M⁻ᵀ r.
+    fn smooth(&self, r: &[c64], transpose: bool) -> Vec<c64> {
+        use rayon::prelude::*;
+        match self {
+            Stage::Stored { smoother, .. } if transpose => smoother.solve_transpose(r),
+            Stage::Stored { smoother, .. } => smoother.solve(r),
+            // a diagonal is its own transpose
+            Stage::Stencil { jacobi, .. } => {
+                crate::traffic::add(crate::traffic::vectors(r.len(), 2, 1));
+                r.par_iter()
+                    .with_min_len(16_384)
+                    .zip(jacobi)
+                    .map(|(rk, dk)| rk * dk)
+                    .collect()
+            }
+        }
+    }
+
+    /// The smoothing steps before and after the coarse corrections.
+    fn steps(&self, options: &Multigrid) -> (usize, usize) {
+        match self {
+            Stage::Stored { .. } => (options.pre, options.post),
+            Stage::Stencil { pre, post, .. } => (*pre, *post),
+        }
+    }
+
+    /// The operator's matrix, if it has one.
+    #[cfg(test)]
+    fn matrix(&self) -> Option<&Sparse> {
+        match self {
+            Stage::Stored { matrix, .. } => Some(matrix),
+            Stage::Stencil { .. } => None,
+        }
+    }
+}
+
 /// One level: its operator, its smoother, and the transfers to and from the next.
 struct Level {
-    matrix: Sparse,
-    smoother: BlockIlu0,
+    stage: Stage,
     /// P by rows: for each value here, the next level's values and their weights.
     prolongation: Transfer,
     /// Pᵀ by rows.
     restriction: Transfer,
+    /// For a rediscretized next level, the restriction W⁻¹ Pᵀ D_f: D_f here and W⁻¹ there.
+    scaling: Option<(Vec<c64>, Vec<c64>)>,
+}
+
+impl Level {
+    /// The residual `r` restricted to the next level: R r, or, for the transposed cycle, Pᵀ r
+    /// (the transpose of the prolongation R's transpose is).
+    fn restrict(&self, r: &[c64], transpose: bool) -> Vec<c64> {
+        match &self.scaling {
+            Some((fine, coarse)) if !transpose => {
+                let scaled: Vec<c64> = r.iter().zip(fine).map(|(p, q)| p * q).collect();
+                let mut out = self.restriction.apply(&scaled);
+                out.iter_mut().zip(coarse).for_each(|(p, q)| *p *= q);
+                out
+            }
+            _ => self.restriction.apply(r),
+        }
+    }
+
+    /// The next level's correction `c` brought here: P c, or, for the transposed cycle, Rᵀ c.
+    fn prolong(&self, c: &[c64], transpose: bool) -> Vec<c64> {
+        match &self.scaling {
+            Some((fine, coarse)) if transpose => {
+                let scaled: Vec<c64> = c.iter().zip(coarse).map(|(p, q)| p * q).collect();
+                let mut out = self.prolongation.apply(&scaled);
+                out.iter_mut().zip(fine).for_each(|(p, q)| *p *= q);
+                out
+            }
+            _ => self.prolongation.apply(c),
+        }
+    }
 }
 
 /// The cycle's levels, finest first, and the coarsest's factorization.
@@ -527,9 +667,13 @@ fn prolongation(
         .collect()
 }
 
+/// A fine row of A by its number, into the second vector (the first to work in).
+type Rows<'a> = dyn Fn(usize, &mut Vec<(usize, c64)>, &mut Vec<(usize, c64)>) + Sync + 'a;
+
 /// Pᵀ A P, coarse row by coarse row on rayon's threads, each row accumulated in one order
-/// whatever the threads. A coarse value no fine one reaches gets an identity row.
-fn galerkin(a: &Sparse, p: &Transfer, pt: &Transfer) -> Sparse {
+/// whatever the threads. A coarse value no fine one reaches gets an identity row. A's rows come
+/// from `a`, the stored matrix's or the stencil's.
+fn galerkin(a: &Rows<'_>, p: &Transfer, pt: &Transfer) -> Sparse {
     use rayon::prelude::*;
     let coarse = pt.starts.len() - 1;
     let zero = c64::new(0.0, 0.0);
@@ -538,11 +682,19 @@ fn galerkin(a: &Sparse, p: &Transfer, pt: &Transfer) -> Sparse {
         // a few dozen jobs, each with its own accumulator
         .with_min_len((coarse / 64).max(256))
         .map_init(
-            || (vec![zero; coarse], vec![usize::MAX; coarse], Vec::new()),
-            |(sums, seen, touched), c| {
+            || {
+                (
+                    vec![zero; coarse],
+                    vec![usize::MAX; coarse],
+                    Vec::new(),
+                    (Vec::new(), Vec::new()),
+                )
+            },
+            |(sums, seen, touched, (scratch, row)), c| {
                 touched.clear();
                 for (r, w) in pt.row(c) {
-                    for (s, v) in a.row(r) {
+                    a(r, scratch, row);
+                    for &(s, v) in row.iter() {
                         let wv = w * v;
                         for (cc, u) in p.row(s) {
                             if seen[cc] != c {
@@ -565,6 +717,233 @@ fn galerkin(a: &Sparse, p: &Transfer, pt: &Transfer) -> Sparse {
         )
         .collect();
     Sparse::from_rows(rows)
+}
+
+/// Row `r` of [`shifted`]'s matrix for Shin and Fan's operator on `lattice`, from its stencil:
+/// [`Lattice::row_into`]'s entries summed by column as the assembled matrix sums them, and the
+/// shift added on the diagonal as [`shifted`] adds it, so the same bits. Into `out`; `scratch`
+/// to work in.
+fn stencil_row(
+    lattice: &Lattice,
+    eps: &[c64],
+    shift: f64,
+    r: usize,
+    scratch: &mut Vec<(usize, c64)>,
+    out: &mut Vec<(usize, c64)>,
+) {
+    lattice.row_into(eps, -1.0, r, scratch);
+    scratch.sort_unstable_by_key(|&(col, _)| col);
+    out.clear();
+    for &(col, v) in scratch.iter() {
+        match out.last_mut() {
+            Some((c, acc)) if *c == col => *acc += v,
+            _ => out.push((col, v)),
+        }
+    }
+    if shift != 0.0 && !lattice.fixed(r) {
+        let k2 = lattice.k0 * lattice.k0;
+        let extra = c64::new(0.0, shift * k2) * eps[r];
+        match out.binary_search_by_key(&r, |&(c, _)| c) {
+            Ok(k) => out[k].1 += extra,
+            Err(k) => out.insert(k, (r, extra)),
+        }
+    }
+}
+
+/// [`shifted`]'s matrix for Shin and Fan's operator on `lattice`, assembled from its stencil.
+fn assembled(lattice: &Lattice, eps: &[c64], shift: f64) -> Sparse {
+    use rayon::prelude::*;
+    Sparse::from_rows(
+        (0..eps.len())
+            .into_par_iter()
+            .with_min_len(4096)
+            .map_init(
+                || (Vec::new(), Vec::new()),
+                |(scratch, row), r| {
+                    stencil_row(lattice, eps, shift, r, scratch, row);
+                    row.clone()
+                },
+            )
+            .collect(),
+    )
+}
+
+/// The volume of each value of E's cell on `lattice`: its edge's length times its dual face's
+/// area, each in the PMLs' stretched coordinate (µm³, complex in a PML): what the finite
+/// differences' rows stand for, and what a residual is weighed by when it is restricted to a
+/// grid discretized again.
+fn volumes(lattice: &Lattice) -> Vec<c64> {
+    let g = lattice.grid;
+    (0..g.unknowns())
+        .map(|r| {
+            let (component, at) = g.at(r);
+            let a = component.index();
+            (0..3)
+                .map(|b| {
+                    let s = if b == a {
+                        lattice.halves[b][at[b]]
+                    } else {
+                        lattice.nodes[b][at[b]]
+                    };
+                    s * g.step(Axis::ALL[b])
+                })
+                .product()
+        })
+        .collect()
+}
+
+/// The lattice of the coarser `lines` discretized again: each cell as long, and each node's dual
+/// cell as wide, as the finest cells they take in, in the PMLs' stretched coordinate. Each axis'
+/// step is its period over its cells (what a Bloch side's phase takes), and the stretches carry
+/// the cells' lengths over it.
+fn rediscretized_lattice(finest: &Lattice, lines: &[Line; 3], stretched: &Stretched) -> Lattice {
+    let g = finest.grid;
+    let mut grid = g;
+    let mut nodes: [Vec<c64>; 3] = Default::default();
+    let mut halves: [Vec<c64>; 3] = Default::default();
+    for (a, axis) in Axis::ALL.into_iter().enumerate() {
+        let line = &lines[a];
+        let n = line.cells();
+        let step = g.step(axis) * g.n(axis) as f64 / n as f64;
+        // a length in the finest steps, over this level's step
+        let unit = g.step(axis) / step;
+        let bloch = matches!(finest.boundaries.edges(axis), Edges::Bloch { .. });
+        let (across, along) = (&stretched.across[a], &stretched.along[a]);
+        halves[a] = (0..n)
+            .map(|m| (across[line.ends[m + 1]] - across[line.ends[m]]) * unit)
+            .collect();
+        let centre = |m: usize| line.place(m, true);
+        nodes[a] = (0..n)
+            .map(|m| {
+                let length = if m > 0 {
+                    along[centre(m)] - along[centre(m - 1)]
+                } else if bloch {
+                    // across the period's end, where nothing is stretched
+                    c64::new((centre(0) + line.ends[n] - centre(n - 1)) as f64 / 2.0, 0.0)
+                } else {
+                    // the wall's node: its dual cell's half inside, twice
+                    2.0 * (along[centre(0)] - along[0])
+                };
+                length * unit
+            })
+            .collect();
+        match axis {
+            Axis::X => (grid.nx, grid.dx) = (n, step),
+            Axis::Y => (grid.ny, grid.dy) = (n, step),
+            Axis::Z => (grid.nz, grid.dz) = (n, step),
+        }
+    }
+    Lattice {
+        grid,
+        boundaries: finest.boundaries,
+        k0: finest.k0,
+        nodes,
+        halves,
+    }
+}
+
+/// The permittivity of each coarse value of E for an operator discretized again on `coarse`'s
+/// lines: harmonic along its component over the fine cells its cell takes (as each value's own
+/// average is), and across it arithmetic over the fine nodes of its dual cell, each weighed by
+/// the coarse hat function there (1 at the coarse node, falling to 0 at the next).
+fn averaged_eps(
+    gf: &Grid3d,
+    gc: &Grid3d,
+    eps: &[c64],
+    lines: (&[Line; 3], &[Line; 3]),
+    bloch: [bool; 3],
+) -> Vec<c64> {
+    use rayon::prelude::*;
+    let (fine, coarse) = lines;
+    let nodes = [0, 1, 2].map(|a| fine[a].nodes_of(&coarse[a]));
+    // across axis b, around coarse node m: each fine node and its weight
+    let around = |b: usize, m: usize| -> Vec<(usize, f64)> {
+        let (f, c) = (&fine[b], &coarse[b]);
+        let (nf, nc) = (f.cells(), c.cells());
+        let period = c.ends[nc] as f64;
+        let at = c.ends[m] as f64;
+        let mut out = Vec::new();
+        // below: back to the coarse node before, across the period's end if it wraps
+        if m > 0 || bloch[b] {
+            let (from, low) = if m > 0 {
+                (nodes[b][m - 1], c.ends[m - 1] as f64)
+            } else {
+                (nodes[b][nc - 1], c.ends[nc - 1] as f64 - period)
+            };
+            let width = at - low;
+            let mut q = from + 1;
+            loop {
+                let index = q % nf;
+                let place = if m == 0 && q < nf {
+                    f.ends[q] as f64 - period
+                } else {
+                    f.ends[index] as f64
+                };
+                if place >= at {
+                    break;
+                }
+                out.push((index, 1.0 - (at - place) / width));
+                q += 1;
+            }
+        }
+        out.push((nodes[b][m], 1.0));
+        // above: up to the coarse node after (or the wall, or the period's end)
+        let high = c.ends[m + 1] as f64;
+        let width = high - at;
+        for q in nodes[b][m] + 1..nodes[b][m + 1].min(nf) {
+            out.push((q, 1.0 - (f.ends[q] as f64 - at) / width));
+        }
+        out
+    };
+    (0..gc.unknowns())
+        .into_par_iter()
+        .with_min_len(4096)
+        .map(|r| {
+            let (component, at) = gc.at(r);
+            let a = component.index();
+            let (b, c) = match a {
+                0 => (1, 2),
+                1 => (2, 0),
+                _ => (0, 1),
+            };
+            let cells = nodes[a][at[a]]..nodes[a][at[a] + 1];
+            let count = cells.len() as f64;
+            let (mut sum, mut weights) = (c64::new(0.0, 0.0), 0.0);
+            for (fb, wb) in around(b, at[b]) {
+                for (fc, wc) in around(c, at[c]) {
+                    let mut fine = [0; 3];
+                    fine[b] = fb;
+                    fine[c] = fc;
+                    let inverse: c64 = cells
+                        .clone()
+                        .map(|m| {
+                            fine[a] = m;
+                            1.0 / eps[gf.index(component, (fine[0], fine[1], fine[2]))]
+                        })
+                        .sum();
+                    sum += wb * wc * count / inverse;
+                    weights += wb * wc;
+                }
+            }
+            sum / weights
+        })
+        .collect()
+}
+
+/// One sweep of the finest level's damped Jacobi without its matrix, as it acts on an error `e`
+/// of A x = b: e − ω D⁻¹ A e, A Shin and Fan's operator on `lattice` shifted as `options` says,
+/// D its diagonal from the stencil. For the checks of the smoother against its Fourier symbol.
+pub(crate) fn jacobi_on_error(
+    lattice: &Lattice,
+    eps: &[c64],
+    options: &Multigrid,
+) -> impl Fn(&[c64]) -> Vec<c64> {
+    let stage = Hierarchy::stencil_stage(lattice, eps, options);
+    move |e| {
+        let r = stage.apply(e, false);
+        let d = stage.smooth(&r, false);
+        e.iter().zip(&d).map(|(p, q)| p - q).collect()
+    }
 }
 
 impl Hierarchy {
@@ -597,6 +976,45 @@ impl Hierarchy {
         options: Multigrid,
         solver: &Arc<dyn DirectSolver>,
     ) -> Result<Hierarchy> {
+        Self::build(lattice, eps, Some(matrix), options, solver)
+    }
+
+    /// The hierarchy for Shin and Fan's operator on `lattice`, shifted as `options` says,
+    /// without its matrix: the finest level from the stencil, smoothed by damped Jacobi
+    /// (`options.jacobi`), the next level's operator made as `options.coarse` says, and the
+    /// coarsest factorized by `solver`.
+    ///
+    /// # Errors
+    ///
+    /// As [`Hierarchy::new`], and [`Error::InvalidValue`] for a Jacobi without sweeps or with an
+    /// ω that isn't positive and finite.
+    pub(crate) fn from_stencil_on(
+        lattice: &Lattice,
+        eps: &[c64],
+        options: Multigrid,
+        solver: &Arc<dyn DirectSolver>,
+    ) -> Result<Hierarchy> {
+        let j = options.jacobi;
+        if j.pre + j.post == 0 || !(j.omega.is_finite() && j.omega > 0.0) {
+            return Err(Error::invalid(
+                "multigrid",
+                format!(
+                    "the finest level's Jacobi needs sweeps and an ω > 0, got {} and {} sweeps, ω = {}",
+                    j.pre, j.post, j.omega
+                ),
+            ));
+        }
+        Self::build(lattice, eps, None, options, solver)
+    }
+
+    /// The hierarchy, its finest level by `matrix` or, without one, by the stencil.
+    fn build(
+        lattice: &Lattice,
+        eps: &[c64],
+        matrix: Option<Sparse>,
+        options: Multigrid,
+        solver: &Arc<dyn DirectSolver>,
+    ) -> Result<Hierarchy> {
         if options.pre + options.post == 0 {
             return Err(Error::invalid("multigrid", "needs some smoothing"));
         }
@@ -608,11 +1026,16 @@ impl Hierarchy {
         let g = lattice.grid;
         let mut lines = [Line::finest(g.nx), Line::finest(g.ny), Line::finest(g.nz)];
         let stretched = Stretched::new(lattice);
+        // the level's matrix; None for the finest without one
         let mut a = matrix;
+        // the permittivity the transfers take, and, rediscretized, the operators
         let mut eps = eps.to_vec();
+        let mut eps_operator = eps.clone();
         let mut shapes = Vec::new();
+        let bloch =
+            Axis::ALL.map(|axis| matches!(lattice.boundaries.edges(axis), Edges::Bloch { .. }));
         loop {
-            let n = a.size();
+            let n = fine.grid.unknowns();
             #[cfg(test)]
             let anisotropy = std::env::var("MG_ANISOTROPY")
                 .ok()
@@ -624,6 +1047,10 @@ impl Hierarchy {
             let next_lines = [0, 1, 2].map(|a| lines[a].coarser(&stretched.across[a], target));
             let cells = |l: &[Line; 3]| l.iter().map(Line::cells).product::<usize>();
             if n <= options.coarsest || cells(&next_lines) == cells(&lines) {
+                let a = match a {
+                    Some(a) => a,
+                    None => assembled(&fine, &eps_operator, options.shift),
+                };
                 let entries: Vec<_> = (0..n)
                     .flat_map(|r| {
                         a.row(r)
@@ -678,7 +1105,22 @@ impl Hierarchy {
             };
             #[cfg(test)]
             let clock = std::time::Instant::now();
-            let coarse = Lattice::new(gc, fine.boundaries, fine.k0);
+            let rediscretized = options.coarse == Coarse::Rediscretized;
+            // the next level's lattice: the same one over coarser cells for Galerkin's operators,
+            // whose stretches nothing reads, only its walls and, for the transfers' phases, its
+            // period (each axis' step its period over its cells: with the finest step, a Bloch
+            // side's phase two levels down was e^(ik n h) for n cells fewer than the finest's);
+            // discretized again
+            let coarse = if rediscretized {
+                rediscretized_lattice(lattice, &next_lines, &stretched)
+            } else {
+                let mut gc = gc;
+                gc.dx = g.dx * g.nx as f64 / gc.nx as f64;
+                gc.dy = g.dy * g.ny as f64 / gc.ny as f64;
+                gc.dz = g.dz * g.nz as f64 / gc.nz as f64;
+                Lattice::new(gc, fine.boundaries, fine.k0)
+            };
+            let gc = coarse.grid;
             let nodes = [0, 1, 2].map(|a| lines[a].nodes_of(&next_lines[a]));
             let eps_c = coarse_eps(&fine.grid, &gc, &eps, &nodes);
             let prolongation = prolongation(
@@ -691,17 +1133,68 @@ impl Hierarchy {
             let restriction = prolongation.transpose(gc.unknowns());
             #[cfg(test)]
             let t_transfer = clock.elapsed();
-            let next = galerkin(&a, &prolongation, &restriction);
+            let (next, eps_next, scaling) = if rediscretized {
+                let eps_next =
+                    averaged_eps(&fine.grid, &gc, &eps_operator, (&lines, &next_lines), bloch);
+                let next = assembled(&coarse, &eps_next, options.shift);
+                // each coarse value's share of the fine volumes, Pᵀ D_f 1, so that R's rows sum
+                // to one: on a grid coarsened unevenly (the PMLs' cells merge later) a cell-
+                // centred hat's integral isn't its cell's length
+                let fine_volumes = volumes(&fine);
+                let shares = restriction.apply(&fine_volumes);
+                let inverse: Vec<c64> = shares
+                    .iter()
+                    .map(|v| {
+                        if v.norm() > 0.0 {
+                            1.0 / v
+                        } else {
+                            c64::new(1.0, 0.0)
+                        }
+                    })
+                    .collect();
+                (next, eps_next, Some((fine_volumes, inverse)))
+            } else {
+                let next = match &a {
+                    Some(a) => galerkin(
+                        &|r, _, row: &mut Vec<(usize, c64)>| {
+                            row.clear();
+                            row.extend(a.row(r));
+                        },
+                        &prolongation,
+                        &restriction,
+                    ),
+                    None => {
+                        let (fine, eps) = (&fine, &eps_operator);
+                        galerkin(
+                            &|r, scratch, row| {
+                                stencil_row(fine, eps, options.shift, r, scratch, row)
+                            },
+                            &prolongation,
+                            &restriction,
+                        )
+                    }
+                };
+                (next, eps_c.clone(), None)
+            };
             #[cfg(test)]
             let t_galerkin = clock.elapsed();
             let shape = [0, 1, 2].map(|a| lines[a].cells());
-            let smoother = BlockIlu0::new(&a, slabs(shape))?;
+            let stage = match a {
+                Some(a) => {
+                    let smoother = BlockIlu0::new(&a, slabs(shape))?;
+                    Stage::Stored {
+                        matrix: a,
+                        smoother,
+                    }
+                }
+                None => Self::stencil_stage(&fine, &eps_operator, &options),
+            };
             #[cfg(test)]
             if std::env::var("MG_TIMES").is_ok() {
                 println!(
-                    "MG times: level {shape:?}, {} rows, {} entries: transfer {:?}, galerkin {:?}, smoother {:?}",
-                    a.size(),
-                    a.nonzeros(),
+                    "MG times: level {shape:?}, {} rows, {} entries: transfer {:?}, coarse operator {:?}, smoother {:?}",
+                    n,
+                    stage.matrix().map_or(0, Sparse::nonzeros),
                     t_transfer,
                     t_galerkin - t_transfer,
                     clock.elapsed() - t_galerkin
@@ -709,15 +1202,59 @@ impl Hierarchy {
             }
             shapes.push(shape);
             levels.push(Level {
-                matrix: a,
-                smoother,
+                stage,
                 prolongation,
                 restriction,
+                scaling,
             });
-            a = next;
+            a = Some(next);
             fine = coarse;
             lines = next_lines;
             eps = eps_c;
+            eps_operator = eps_next;
+        }
+    }
+
+    /// The finest level without its matrix: Shin and Fan's shifted operator from its stencil,
+    /// and ω over its diagonal, the diagonal from the same rows the stored matrix would have.
+    fn stencil_stage(lattice: &Lattice, eps: &[c64], options: &Multigrid) -> Stage {
+        use rayon::prelude::*;
+        let j = options.jacobi;
+        #[cfg(test)]
+        let j = Jacobi {
+            omega: std::env::var("MG_OMEGA")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(j.omega),
+            pre: std::env::var("MG_JPRE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(j.pre),
+            post: std::env::var("MG_JPOST")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(j.post),
+        };
+        let jacobi = (0..eps.len())
+            .into_par_iter()
+            .with_min_len(4096)
+            .map_init(
+                || (Vec::new(), Vec::new()),
+                |(scratch, row), r| {
+                    stencil_row(lattice, eps, options.shift, r, scratch, row);
+                    let d = row
+                        .iter()
+                        .find(|&&(c, _)| c == r)
+                        .map_or(c64::new(1.0, 0.0), |&(_, v)| v);
+                    j.omega / d
+                },
+            )
+            .collect();
+        Stage::Stencil {
+            operator: MatrixFree::shin_fan(lattice, eps, options.shift),
+            jacobi,
+            pre: j.pre,
+            post: j.post,
         }
     }
 
@@ -734,22 +1271,47 @@ impl Hierarchy {
     /// The cycle as a backend takes it ([`crate::backend::MultigridCycle`]): each level's
     /// smoother factorized as one pair of factors the first time (as much memory again as the
     /// smoothers), the rest borrowed.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a cycle a backend can't take: a level without its matrix, a
+    /// rediscretized one (its restriction isn't Pᵀ), or ILU(0) by Jacobi sweeps.
     pub(crate) fn cycle_for_backend(&self) -> Result<crate::backend::MultigridCycle<'_>> {
+        if self.levels.iter().any(|l| l.scaling.is_some()) {
+            return Err(Error::invalid(
+                "multigrid",
+                "a backend takes Galerkin's coarse operators, restricted by Pᵀ",
+            ));
+        }
+        let stored: Vec<(&Sparse, &BlockIlu0)> = self
+            .levels
+            .iter()
+            .map(|l| match &l.stage {
+                Stage::Stored { matrix, smoother } => Ok((matrix, smoother)),
+                Stage::Stencil { .. } => Err(Error::invalid(
+                    "multigrid",
+                    "a backend takes each level's matrix: the finest has none",
+                )),
+            })
+            .collect::<Result<_>>()?;
         let smoothers = self
             .smoothers
-            .get_or_init(|| self.levels.iter().map(|l| l.smoother.factors()).collect())
+            .get_or_init(|| stored.iter().map(|(_, s)| s.factors()).collect())
             .as_ref()
             .ok_or_else(|| Error::invalid("multigrid", "a smoother by Jacobi sweeps"))?;
         let levels = self
             .levels
             .iter()
+            .zip(&stored)
             .zip(smoothers)
-            .map(|(l, smoother)| crate::backend::MultigridLevel {
-                operator: l.matrix.rows(),
-                smoother,
-                restriction: l.restriction.rows(l.prolongation.starts.len() - 1),
-                prolongation: l.prolongation.rows(l.restriction.starts.len() - 1),
-            })
+            .map(
+                |((l, (matrix, _)), smoother)| crate::backend::MultigridLevel {
+                    operator: matrix.rows(),
+                    smoother,
+                    restriction: l.restriction.rows(l.prolongation.starts.len() - 1),
+                    prolongation: l.prolongation.rows(l.restriction.starts.len() - 1),
+                },
+            )
             .collect();
         Ok(crate::backend::MultigridCycle {
             shape: self.options.shape,
@@ -784,11 +1346,7 @@ impl Hierarchy {
             match x {
                 None => b.to_vec(),
                 Some(x) => {
-                    let mut r = if transpose {
-                        l.matrix.apply_transpose(x)
-                    } else {
-                        l.matrix.apply(x)
-                    };
+                    let mut r = l.stage.apply(x, transpose);
                     use rayon::prelude::*;
                     r.par_iter_mut()
                         .with_min_len(16_384)
@@ -800,11 +1358,7 @@ impl Hierarchy {
         };
         let smooth = |x: &mut Option<Vec<c64>>| {
             let r = residual(x.as_deref());
-            let d = if transpose {
-                l.smoother.solve_transpose(&r)
-            } else {
-                l.smoother.solve(&r)
-            };
+            let d = l.stage.smooth(&r, transpose);
             match x {
                 None => *x = Some(d),
                 Some(x) => add_to(x, &d),
@@ -812,11 +1366,8 @@ impl Hierarchy {
         };
         // the transposed cycle is the cycle's transpose: its steps in reverse order, each
         // transposed (post-smoothing first, the coarse corrections reversed)
-        let (pre, post) = if transpose {
-            (self.options.post, self.options.pre)
-        } else {
-            (self.options.pre, self.options.post)
-        };
+        let (pre, post) = l.stage.steps(&self.options);
+        let (pre, post) = if transpose { (post, pre) } else { (pre, post) };
         let mut x: Option<Vec<c64>> = None;
         for _ in 0..pre {
             smooth(&mut x);
@@ -831,9 +1382,9 @@ impl Hierarchy {
         }
         for inner in corrections {
             let r = residual(x.as_deref());
-            let coarse = l.restriction.apply(&r);
+            let coarse = l.restrict(&r, transpose);
             let correction = self.cycle(level + 1, &coarse, transpose, inner);
-            let fine = l.prolongation.apply(&correction);
+            let fine = l.prolong(&correction, transpose);
             match &mut x {
                 None => x = Some(fine),
                 Some(x) => add_to(x, &fine),
