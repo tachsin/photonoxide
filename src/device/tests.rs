@@ -572,6 +572,53 @@ fn a_solve_gives_the_same_bits_on_one_thread_and_many() {
     assert_eq!(one.0[0].fidelity, Fidelity::ThreeD);
 }
 
+/// The analytic fits' tables are the 3D models' own values: the strip's n_eff and n_g by the
+/// waveguide device, the pair's coupling by the coupler device's cross-sections at 1.55 µm.
+/// Run in release, it takes a minute on 20 threads.
+#[test]
+#[ignore = "solves 175 cross-sections in 3D"]
+fn the_fits_tables() {
+    let guide = StripWaveguide::new();
+    let mut strips = Vec::new();
+    for (i, &w) in fit::WIDTHS.iter().enumerate() {
+        for (j, &t) in fit::THICKNESSES.iter().enumerate() {
+            strips.push((i, j, w, t));
+        }
+    }
+    let solved = crate::parallel::map_in_order(&strips, |&(_, _, w, t)| {
+        let v = Values::new(&guide, &[("width", w), ("thickness", t)]).unwrap();
+        let (d, _) = guide.dispersion(&v, Fidelity::ThreeD).unwrap();
+        (d.effective_index, d.group_index)
+    });
+    for (&(i, j, ..), (n, ng)) in strips.iter().zip(solved) {
+        let (e, g) = fit::GUIDE[i][j];
+        assert!((n - e).abs() < 1e-9 && (ng - g).abs() < 1e-9, "{i} {j}");
+    }
+    let coupler = StripCoupler::new();
+    let l = um(1.55);
+    let mut pairs = Vec::new();
+    for (i, &w) in fit::WIDTHS.iter().enumerate() {
+        for (j, &t) in fit::PAIR_THICKNESSES.iter().enumerate() {
+            for (k, &g) in fit::GAPS.iter().enumerate() {
+                pairs.push((i, j, k, w, t, g));
+            }
+        }
+    }
+    let solved = crate::parallel::map_in_order(&pairs, |&(.., w, t, g)| {
+        let v = Values::new(&coupler, &[("width", w), ("thickness", t), ("gap", g)]).unwrap();
+        let (even, odd) = coupler.cross_sections(&v, l).unwrap();
+        let n = |cs| {
+            crate::mode::vector::modes(cs, l, 1, None).unwrap()[0]
+                .effective_index()
+                .re
+        };
+        PI * (n(&even) - n(&odd)) / 1.55
+    });
+    for (&(i, j, k, ..), c) in pairs.iter().zip(solved) {
+        assert!((c - fit::COUPLING[i][j][k]).abs() < 1e-9, "{i} {j} {k}");
+    }
+}
+
 #[test]
 fn the_library_has_the_first_devices_each_with_its_models() {
     let kinds: Vec<String> = library().iter().map(|d| d.kind().to_owned()).collect();

@@ -48,7 +48,7 @@ pub(super) const PAIR_THICKNESSES: [f64; 3] = [0.20, 0.22, 0.24];
 pub(super) const GAPS: [f64; 5] = [0.1, 0.2, 0.3, 0.4, 0.5];
 
 /// n_eff and n_g of the TE-like mode at 1.55 µm, by width then thickness.
-const GUIDE: [[(f64, f64); 5]; 5] = [
+pub(super) const GUIDE: [[(f64, f64); 5]; 5] = [
     [
         (2.145_267_622, 4.325_740_438),
         (2.187_363_135, 4.359_269_681),
@@ -87,7 +87,7 @@ const GUIDE: [[(f64, f64); 5]; 5] = [
 ];
 
 /// The coupling C = πΔn/λ of two strips at 1.55 µm, 1/µm, by width, thickness, then gap.
-const COUPLING: [[[f64; 5]; 3]; 5] = [
+pub(super) const COUPLING: [[[f64; 5]; 3]; 5] = [
     [
         [
             0.278_654_547,
