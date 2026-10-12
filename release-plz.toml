@@ -27,6 +27,9 @@ commit_preprocessors = [
 commit_parsers = [
   { message = "^feat", group = "<!-- 0 -->Added" },
   { message = "^fix", group = "<!-- 1 -->Fixed" },
+  # #336, reverted by #350 and held back for 0.6.0, where it comes back as #351
+  # ("perf(fdfd)!: ...", which this doesn't match)
+  { message = '^perf\(fdfd\): a multigrid without the finest matrix', skip = true },
   { message = "^perf", group = "<!-- 2 -->Performance" },
   { message = "^refactor", group = "<!-- 3 -->Changed" },
   { message = "^docs", group = "<!-- 4 -->Documentation" },

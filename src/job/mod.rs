@@ -77,7 +77,9 @@
 //!   is solved, with its modes' pictures and, for a width sweep, its shapes.
 //!
 //!   The modes are a count, `modes` (2 by default), nearest the highest index by
-//!   shift-and-invert, or every mode with n_eff above `modes_above`, however many, by contour
+//!   shift-and-invert, of which only the guided ones are kept (n_eff above the highest index of
+//!   the media around the guides: the window has no absorbing layers, so a mode below it is the closed
+//!   window's own, its n_eff even below 1), or every mode with n_eff above `modes_above`, however many, by contour
 //!   integrals ([`crate::mode::vector::modes_above`]): the cladding's index gives every guided
 //!   mode, and a sweep's points may then have different numbers of them. A job may give one or
 //!   the other; a threshold must be positive and below the highest index the cross-section
@@ -1820,6 +1822,40 @@ fn window_highest(task: &ModesTask, s: &Structure, z: [f64; 2], wavelength_um: f
     Ok(highest)
 }
 
+/// The highest index of the media a modes job's guides sit in, within its window, at
+/// `wavelength_um`: the backgrounds of its layers, and the substrate and cladding where the
+/// window reaches them. A guided mode's n_eff is above it. The window has no absorbing layers,
+/// so a mode not above it isn't a guide's: it is a mode of the closed box the window makes,
+/// its n_eff below the cladding's, even below 1.
+fn window_edge_highest(
+    _task: &ModesTask,
+    s: &Structure,
+    z: [f64; 2],
+    wavelength_um: f64,
+) -> Result<f64> {
+    let w = Wavelength::um(wavelength_um)?;
+    let index = |m: &crate::material::Material| -> Result<f64> {
+        Ok(m.permittivity(w)?.re.max(0.0).sqrt())
+    };
+    let stack = s.stack();
+    let mut highest = 0.0f64;
+    if z[0] < 0.0 {
+        highest = highest.max(index(stack.substrate())?);
+    }
+    let mut bottom = 0.0;
+    for layer in stack.layers() {
+        let top = bottom + layer.thickness.to_um();
+        if z[1] > bottom && z[0] < top {
+            highest = highest.max(index(&layer.background)?);
+        }
+        bottom = top;
+    }
+    if z[1] > bottom {
+        highest = highest.max(index(stack.cladding())?);
+    }
+    Ok(highest)
+}
+
 /// A modes job's `modes_above` must be below the highest index its cross-section holds at each
 /// of `wavelengths_um`, or no mode lies above it. What [`check`] and the run both refuse.
 fn check_threshold(
@@ -1941,7 +1977,8 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     }
     check_threshold(&task, &s, z, &at)?;
     // the modes of a cross-section: a count from the highest index, or every one above a
-    // threshold; `None` when stopped
+    // threshold; `None` when stopped. Of a count, only the guided ones are kept: a mode not
+    // above the window's edges' index is the closed window's, not the guide's
     let solve = |cs: &crate::mode::vector::CrossSection,
                  w: Wavelength|
      -> Result<Option<Vec<crate::mode::vector::VectorMode>>> {
@@ -1955,7 +1992,17 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 stopped,
             )?
             .map(|found| found.modes)),
-            None => crate::mode::vector::modes_until(cs, w, count, None, stopped),
+            None => {
+                let edge = window_edge_highest(&task, &s, z, w.to_um())?;
+                Ok(
+                    crate::mode::vector::modes_until(cs, w, count, None, stopped)?.map(|modes| {
+                        modes
+                            .into_iter()
+                            .filter(|m| m.effective_index().re > edge)
+                            .collect()
+                    }),
+                )
+            }
         }
     };
     run.record(&modes_scene(&task, &s)?)?;
@@ -2003,7 +2050,15 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                     "modes asked for".into(),
                     format!("every one with n_eff above {above}"),
                 ],
-                None => ["modes asked for".into(), count.to_string()],
+                None => [
+                    "modes asked for".into(),
+                    format!(
+                        "{count}, the guided ones kept: n_eff above {:.4}, the highest index of \
+                         the media around the guides (the window has no absorbing layers, so a mode below \
+                         it is the window's own)",
+                        window_edge_highest(&task, &s, z, lam.to_um())?
+                    ),
+                ],
             },
             [
                 "eigen-solver".into(),
@@ -2430,7 +2485,10 @@ size_um = [0.5, 10.0]
                 _ => None,
             })
             .collect();
-        assert_eq!(indices.len(), 8, "{indices:?}");
+        // of the eight solved, only the strip's guided ones are kept: the window's own fall
+        // below the oxide's index
+        assert!(indices.len() >= 2 && indices.len() < 8, "{indices:?}");
+        assert!(indices.iter().all(|&n| n > 1.44), "{indices:?}");
         // from the highest index down, each a different mode, the first two the strip's own
         assert!(
             indices.windows(2).all(|p| p[0] - p[1] > 1e-9),

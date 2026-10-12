@@ -357,8 +357,9 @@ solve on the smoke test's systems in both forms.
   on the curl-curl matrix of `strip-40` (192 000 unknowns) and on one with rows of 100 000
   entries, where cuSPARSE's default, `CSR_ALG1`, gave different bits; `CSR_ALG2` took 0.367 ms a
   product on the curl-curl matrix against `CSR_ALG1`'s 0.342 ms (RTX 4060, cuSPARSE 12.7.3).
-- **Not on the GPU:** the multigrid without its finest matrix and the one with its coarse levels
-  discretized again (#336), whose cycle the backend can't be given (#337); and block QMR.
+- **Not on the GPU:** block QMR, GCRO-DR, and any solve without the matrix: the matrix-free
+  QMR, and the multigrid without its finest matrix coming in 0.6 (#351), whose cycle the backend
+  can't be given (#337).
 
 ### The validation cases on cusparse
 
