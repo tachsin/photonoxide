@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### <!-- 1 -->Fixed
 
 - *(job)* a modes job keeps only its guided modes, never the window's own ([#348](https://github.com/tachsin/photonoxide/pull/348))
+- *(studio)* Nightly offers to revalidate when main has moved on, and says when the installed builder is too old ([#330](https://github.com/tachsin/photonoxide/pull/330))
+- *(site)* the overview follows the roadmap, its highlights and hero line from their milestones ([#331](https://github.com/tachsin/photonoxide/pull/331))
 
 ### <!-- 4 -->Documentation
 
