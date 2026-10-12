@@ -368,7 +368,7 @@ cargo run -p photonoxide-native --release --example validate -- cusparse
 ```
 
 prefers the backend for `auto` and counts its runs. Run on 2026-10-11 on an RTX 4060 (8 GB,
-CUDA 13.1, cuSPARSE 12.7.3) beside a Core Ultra 7 265K (20 threads), Windows 11: 12 of the 263
+CUDA 13.1, cuSPARSE 12.7.3) beside a Core Ultra 7 265K (20 threads), Windows 11: 10 of the 257
 cases solve through it, and every one is within its tolerance. The rest make no QMR or GMRES
 solve it runs: the 2D and direct solves, the mode solvers, FDTD, and block QMR's and recycling's
 own runs. Several of these cases' values are themselves the difference from a direct solve, so
@@ -386,10 +386,8 @@ their difference here is two iterative solves' rounding at a tolerance of 1e-9 t
 | `fdfd3d/recycle-convergence` | 80 | 0.233010 | 0.233010 | 0 | 0.35 |
 | `fdfd3d/recycle-adjoint` | 2 | 7.8327e-11 | 7.8327e-11 | 0 | 1e-08 |
 | `fdfd3d/qmr-matrix-free-sweep` | 8 | 2.44037e-11 | 2.42948e-11 | 1.1e-13 | 1e-09 |
-| `fdfd3d/multigrid-stencil-s-matrix` | 16 | 8.39236e-12 | 8.39269e-12 | 3.3e-16 | 1e-09 |
-| `fdfd3d/multigrid-stencil-refinement` | 3 | 1.055556 | 1.055556 | 0 | 1.5 |
 
-The block, recycling, matrix-free and stencil cases are listed for the plain solves they also
+The block, recycling and matrix-free cases are listed for the plain solves they also
 make, which went to the GPU: their references, their one-port runs, and the solves for the
 correction after recycling's initial guess. Their block QMR, GCRO-DR and matrix-free solves
 stayed photonoxide's.
@@ -430,27 +428,29 @@ Every repeated GPU run gave the same error to the bit.
 | `strip-ports-ilu-25nm` | 58 × 82 × 66 cells of 25 nm, stretched PMLs of 13 | 941 688 | 1485 / 1499 | 152.0 s (102.4 ms) | 22.66 s (15.12 ms) | 6.71 | 2.9e-9 / 3.2e-9 |
 | `strip-ports-multigrid-40nm` | 36 × 51 × 41 cells of 40 nm, stretched PMLs of 8 | 225 828 | 56 / 56 | 4.031 s (71.99 ms) | 1.650 s (29.46 ms) | 2.44 | 8.8e-9 / 8.8e-9 |
 | `strip-ports-multigrid-25nm` | 58 × 82 × 66 cells of 25 nm, stretched PMLs of 13 | 941 688 | 55 / 55 | 10.76 s (195.5 ms) | 4.378 s (79.60 ms) | 2.46 | 1.3e-8 / 1.3e-8 |
-| `strip-ports-multigrid-20nm` | 72 × 102 × 82 cells of 20 nm, stretched PMLs of 16 | 1 806 624 | 56 / 56 | 17.80 s (317.9 ms) | 6.997 s (125.0 ms) | 2.54 | 4.1e-9 / 4.1e-9 |
+| `strip-ports-qmr-40nm` | 36 × 51 × 41 cells of 40 nm, PMLs of 8 | 225 828 | 1529 / 1530 | 2.714 s (1.78 ms) | 1.323 s (0.86 ms) | 2.05 | 1.2e-10 / 1.1e-10 |
+| `strip-ports-qmr-25nm` | 58 × 82 × 66 cells of 25 nm, PMLs of 13 | 941 688 | 2753 / 2774 | 23.94 s (8.70 ms) | 11.61 s (4.18 ms) | 2.06 | 7.4e-12 / 1.6e-11 |
 
-The strip with ports' iterations are its two ports' runs together. What they say:
+The strip with ports' iterations are its two ports' runs together, its error its S-matrix's
+against the exact one. What they say:
 
-- **The same answers.** Every GPU run is within its problem's tolerance, with the CPU's error
-  or within a factor of 1.6 of it. GMRES with the multigrid takes the CPU's iterations
-  exactly, and its error agrees to two digits; QMR's iterations differ by up to 2.8%
-  (`strip-ports-ilu-40nm`: 875 against 851), its Lanczos process summed in another order over a
-  thousand steps.
+- **The same answers.** Every GPU run is within its problem's tolerance (1e-5), its error the
+  CPU's or within a factor of 2.2 of it (`strip-ports-qmr-25nm`, at 1e-11). GMRES with the
+  multigrid takes the CPU's iterations exactly, and its error agrees to two digits; QMR's
+  iterations differ by up to 2.8% (`strip-ports-ilu-40nm`: 875 against 851), its Lanczos
+  process summed in another order over a thousand steps.
 - **Faster where the problem is large.** QMR with ILU(0) is 2.8 to 6.7 times faster from a
   quarter of a million unknowns up: its triangular solves are sequential on the CPU and
   cuSPARSE's analysis finds their parallelism. GMRES with the multigrid is 1.3 to 2.9 times
   faster there, more on the long Diel guide and the strip than on the cube, whose CPU cycle
   threads well already. Below 10⁵ unknowns the GPU is at par or slower: the copies and the
   analysis are a fixed cost, and a step is too small to use it.
-- **Plain QMR doesn't gain** at 24 000 and 81 000 unknowns: a step is a product and a few
-  vector updates, each a call with its latency, and the matrix stays in the CPU's cache. Its
-  larger sizes weren't run, their reference fields taking over an hour.
-- **What wasn't run:** `guide-multigrid-96` and `-128` (2.7 and 6.3 million unknowns; a run
-  that wouldn't fit in the GPU's 8 GB is refused, saying how much it needs), and the
-  matrix-free and stencil problems, which a backend can't be given (#337).
+- **Plain QMR** gains twice on the strip with ports, at 2 × 10⁵ and 10⁶ unknowns, and nothing
+  at 24 000 and 81 000 on the guide: a step is a product and a few vector updates, each a call
+  with its latency, and a small matrix stays in the CPU's cache. The guide's larger sizes
+  weren't run, their reference fields taking over an hour.
+- **What wasn't run:** the matrix-free problems, which a backend can't be given (#337). A run
+  that wouldn't fit in the GPU's 8 GB is refused, saying how much it needs.
 
 ### AmgX
 
