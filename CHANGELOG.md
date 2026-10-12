@@ -21,10 +21,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(studio)* Nightly offers to revalidate when main has moved on, and says when the installed builder is too old ([#330](https://github.com/tachsin/photonoxide/pull/330))
 - *(site)* the overview follows the roadmap, its highlights and hero line from their milestones ([#331](https://github.com/tachsin/photonoxide/pull/331))
 
-### <!-- 2 -->Performance
-
-- *(fdfd)* a multigrid without the finest matrix, its smoother from the stencil and its coarse levels rediscretized ([#336](https://github.com/tachsin/photonoxide/pull/336))
-
 ### <!-- 4 -->Documentation
 
 - a PyPI badge beside the crates.io one ([#325](https://github.com/tachsin/photonoxide/pull/325))
