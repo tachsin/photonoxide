@@ -326,7 +326,7 @@
       {:else}
         <p class="px-3 py-2 text-xs faint">No jobs saved yet. Save one and it appears here.</p>
       {/each}
-      <p class="px-2 pt-4 pb-1.5 text-[10.5px] font-semibold tracking-wider uppercase faint">Start from an example</p>
+      <p class="px-2 pt-4 pb-1.5 text-[10.5px] font-semibold tracking-wider uppercase faint">Start from a template</p>
       {#each catalog.data?.jobs ?? [] as j (j.file)}
         <button class="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm hover:bg-base-content/4" onclick={() => load(j.text, null)}>
           <Copy size={13} class="faint" /><span class="truncate">{j.name}</span>

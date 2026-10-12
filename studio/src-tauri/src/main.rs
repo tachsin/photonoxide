@@ -16,6 +16,8 @@ mod examples;
 mod farm;
 mod libraries;
 mod materials;
+#[cfg(test)]
+mod navigation;
 mod runner;
 mod settings;
 mod studio;

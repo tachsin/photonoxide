@@ -544,13 +544,13 @@ struct JobExample {
 
 /// What ships inside the program: the examples and the job files.
 #[derive(Serialize)]
-struct Catalog {
+pub(crate) struct Catalog {
     examples: Vec<examples::Example>,
     jobs: Vec<JobExample>,
 }
 
 #[tauri::command]
-fn catalog() -> Catalog {
+pub(crate) fn catalog() -> Catalog {
     Catalog {
         examples: examples::list(),
         jobs: examples::jobs()

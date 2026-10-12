@@ -1,10 +1,12 @@
 <script lang="ts">
-  // Ctrl+K: jump to any page, example, job or run, or do a common action, by typing.
+  // Ctrl+K: jump to any page, template, published result, job, circuit or run, or do a common
+  // action, by typing.
   import { CornerDownLeft, Search } from "@lucide/svelte";
   import { tick } from "svelte";
 
   import { api, type Catalog, type CircuitExample, type CircuitItem, type Home, type KindInfo } from "../lib/api";
-  import { app, go, startRun, updateSettings, type Page } from "../lib/app.svelte";
+  import { app, go, showPublished, startRun, updateSettings, type Page } from "../lib/app.svelte";
+  import { PAGES, RAIL, SYSTEM } from "../lib/pages";
   import { addInstance, importTouchstone, library, loadLibrary, openChipFile, partKey, saveChip, showChip, simulate } from "../lib/chip.svelte";
   import { template, toToml, type Kind } from "../lib/job";
   import { checkForUpdate } from "../lib/updater.svelte";
@@ -37,22 +39,8 @@
     }
   });
 
-  const pages: [Page, string][] = [
-    ["home", "Home"],
-    ["examples", "Examples"],
-    ["academy", "Academy"],
-    ["builder", "Job builder"],
-    ["runs", "Runs"],
-    ["viewer", "Viewer"],
-    ["compare", "Compare"],
-    ["materials", "Materials"],
-    ["components", "Components"],
-    ["chip", "Chip"],
-    ["validation", "Validation"],
-    ["libraries", "Libraries"],
-    ["benchmarks", "Benchmarks"],
-    ["settings", "Settings"],
-  ];
+  /** Every page: the rail's, the System group's, Settings, and the two reached from what they show. */
+  const pages: Page[] = [...RAIL, ...SYSTEM, "settings", "builder", "viewer"];
 
   function newJob(kind: Kind) {
     app.builderOpen = { text: toToml(template(kind)), path: null };
@@ -66,9 +54,16 @@
     });
   }
 
+  function openText(text: string) {
+    app.builderOpen = { text, path: null };
+    go("builder");
+  }
+
   const items = $derived.by(() => {
     const all: Item[] = [
-      ...pages.map(([p, label]) => ({ group: "Go to", label, run: () => go(p) })),
+      ...pages.map((p) => ({ group: "Go to", label: PAGES[p].label, detail: PAGES[p].hint, run: () => go(p) })),
+      { group: "Go to", label: "Runs", detail: "every run in the workspace, in the drawer", run: () => (app.drawer = true) },
+      { group: "Go to", label: "Published results", detail: "the papers' numbers reproduced, on Validation", run: () => showPublished() },
       { group: "Actions", label: "New modes job", detail: "a waveguide's modes", run: () => newJob("modes") },
       { group: "Actions", label: "New FDFD job", detail: "a device with ports", run: () => newJob("fdfd") },
       { group: "Actions", label: "New FDTD job", detail: "a structure in time, its field live", run: () => newJob("fdtd") },
@@ -80,11 +75,15 @@
       { group: "Actions", label: "Switch the theme", run: () => updateSettings((s) => (s.theme = app.dark ? "light" : "dark")) },
       { group: "Actions", label: "Take the tour", run: () => (app.tour = true) },
     ];
+    // (each group whole: the sort below is stable, so a group's items stay together under its name)
     for (const j of catalog?.jobs ?? []) {
-      all.push({ group: "Run an example", label: j.name, detail: j.about, run: () => startRun(() => api.runText(j.text), `Running ${j.name}`) });
+      all.push({ group: "Run a template", label: j.name, detail: j.about, run: () => startRun(() => api.runText(j.text), `Running ${j.name}`) });
+    }
+    for (const j of catalog?.jobs ?? []) {
+      all.push({ group: "Open a template in the job builder", label: j.name, detail: j.about, run: () => openText(j.text) });
     }
     for (const c of circuitExamples) {
-      all.push({ group: "Example circuits", label: c.chip.name, detail: c.chip.about, run: () => showChip(c.chip) });
+      all.push({ group: "Built-in circuits", label: c.chip.name, detail: c.chip.about, run: () => showChip(c.chip) });
     }
     for (const c of circuits) {
       all.push({ group: "Your circuits", label: c.name, detail: c.about || `${c.instances} parts`, run: () => openChipFile(c.path) });
@@ -99,20 +98,18 @@
         group: "Published results",
         label: e.title,
         detail: `${e.source}: ${e.what}`,
-        run: () => {
-          app.focus = e.name;
-          go("examples");
-        },
+        run: () => showPublished(e.name),
       });
     }
     for (const j of home?.jobs ?? []) {
       all.push({ group: "Your jobs", label: j.name, detail: j.about || j.kind, run: () => openJob(j.path) });
     }
-    for (const r of (home?.runs ?? []).slice(0, 30)) {
+    // every run, by its job's name or its own; an empty search shows only pages and actions
+    for (const r of home?.runs ?? []) {
       all.push({ group: "Runs", label: r.job || r.name, detail: r.name, run: () => startRun(() => api.openRun(r.dir), `Opened ${r.name}`) });
     }
     const q = query.trim().toLowerCase();
-    if (!q) return all.filter((i) => i.group === "Go to" || i.group === "Actions").slice(0, 14);
+    if (!q) return all.filter((i) => i.group === "Go to");
     const words = q.split(/\s+/);
     return all
       .map((i) => {
@@ -163,7 +160,7 @@
         oninput={() => (active = 0)}
         onkeydown={keys}
         class="flex-1 bg-transparent text-[15px] outline-none"
-        placeholder="Type a page, an example, a job or a run…"
+        placeholder="Type a page, a template, a published result, a circuit or a run…"
       />
       <kbd class="kbd kbd-sm">Esc</kbd>
     </label>

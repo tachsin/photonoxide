@@ -1,90 +1,51 @@
 <script lang="ts">
-  // The navigation rail: every page, and the run being followed when there is one. It folds to
-  // its icons and back with one animation of its width: the icons stay where they are and the
-  // labels are clipped and faded, so nothing in it moves. Folded, an item says what it is in a
-  // hint beside it.
-  import {
-    Atom,
-    Boxes,
-    ChartSpline,
-    ChevronsLeft,
-    CircuitBoard,
-    FlaskConical,
-    Gauge,
-    GraduationCap,
-    History,
-    House,
-    LayoutGrid,
-    Package,
-    Settings,
-    ShieldCheck,
-    SquarePen,
-    View,
-  } from "@lucide/svelte";
+  // The navigation rail: the five pages where work happens, and at its foot the System group
+  // (Validation, Libraries, Benchmarks), folded, beside Settings. It folds to its icons and back
+  // with one animation of its width: the icons stay where they are and the labels are clipped
+  // and faded, so nothing in it moves. Folded, an item says what it is in a hint beside it.
+  import { ChevronRight, ChevronsLeft, FlaskConical, MonitorCog } from "@lucide/svelte";
+  import { untrack } from "svelte";
 
-  import { app, go, run, type Page } from "../lib/app.svelte";
+  import { app, go, type Page } from "../lib/app.svelte";
+  import { PAGES, RAIL, SYSTEM } from "../lib/pages";
   import Logo from "./Logo.svelte";
 
-  let collapsed = $state(load());
+  let collapsed = $state(stored("rail") === "collapsed");
+  /** Whether the System group shows its pages; it opens by itself while one of them is shown. */
+  let systemOpen = $state(stored("rail-system") === "open");
+  const inSystem = $derived(SYSTEM.includes(app.page));
+  // going to one of its pages (from Ctrl+K, a link) opens it, so the page shown is lit on the rail
+  $effect(() => {
+    if (inSystem) untrack(() => (systemOpen = true));
+  });
 
-  function load(): boolean {
+  function stored(key: string): string | null {
     try {
-      return localStorage.getItem("rail") === "collapsed";
+      return localStorage.getItem(key);
     } catch {
-      return false;
+      return null;
+    }
+  }
+  function store(key: string, value: string) {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // storage blocked: the rail just forgets
     }
   }
 
   function toggle() {
     collapsed = !collapsed;
     hint = null;
-    try {
-      localStorage.setItem("rail", collapsed ? "collapsed" : "open");
-    } catch {
-      // storage blocked: the rail just forgets
-    }
+    store("rail", collapsed ? "collapsed" : "open");
   }
 
-  const sections: { title: string; items: { page: Page; label: string; icon: typeof House; hint: string }[] }[] = [
-    {
-      title: "Start",
-      items: [
-        { page: "home", label: "Home", icon: House, hint: "Where to begin, and what you did last" },
-        { page: "examples", label: "Examples", icon: LayoutGrid, hint: "Simulations and published results, built in" },
-        { page: "academy", label: "Academy", icon: GraduationCap, hint: "Lessons: the physics, its history, and charts the library computes live" },
-      ],
-    },
-    {
-      title: "Workspace",
-      items: [
-        { page: "builder", label: "Job builder", icon: SquarePen, hint: "Build a job in a form, with a live preview" },
-        { page: "runs", label: "Runs", icon: History, hint: "Every run in the workspace" },
-        { page: "viewer", label: "Viewer", icon: View, hint: "The run being shown, in 3D and 2D" },
-        { page: "compare", label: "Compare", icon: ChartSpline, hint: "Runs side by side: sweeps and spectra" },
-        { page: "chip", label: "Chip", icon: CircuitBoard, hint: "Place components, wire them into a circuit, simulate it" },
-      ],
-    },
-    {
-      title: "Library",
-      items: [
-        { page: "materials", label: "Materials", icon: Atom, hint: "Indices, crystals and tensors, each from its paper" },
-        { page: "components", label: "Components", icon: Boxes, hint: "The parts of a chip: ports, parameters, models and spectra" },
-      ],
-    },
-    {
-      title: "Trust",
-      items: [{ page: "validation", label: "Validation", icon: ShieldCheck, hint: "Every solver against theory and papers" }],
-    },
-    {
-      title: "Machine",
-      items: [
-        { page: "libraries", label: "Libraries", icon: Package, hint: "External libraries found here: licences, backends, installs" },
-        { page: "benchmarks", label: "Benchmarks", icon: Gauge, hint: "Which backend is faster and leaner, measured on this machine" },
-      ],
-    },
-  ];
-
-  const live = $derived(!!run.info?.dir && !run.finished);
+  function toggleSystem() {
+    // folding it while one of its pages is shown leaves that page shown: the group's row is lit
+    systemOpen = !systemOpen;
+    hint = null;
+    store("rail-system", systemOpen ? "open" : "folded");
+  }
 
   /** The hint beside the item under the pointer or the focus, while the rail is folded: its name, what it is, and where to draw it. */
   let hint = $state<{ label: string; about: string; top: number; left: number } | null>(null);
@@ -117,7 +78,20 @@
 
   // a label: clipped by the rail as it narrows, and faded, never taken out of the layout
   const LABEL = "min-w-0 flex-1 overflow-hidden text-left whitespace-nowrap transition-opacity duration-200 motion-reduce:transition-none";
+  const ITEM = "relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition-colors";
+  const tone = (on: boolean) => (on ? "bg-primary/12 text-primary" : "text-base-content/70 hover:bg-base-content/5 hover:text-base-content");
 </script>
+
+{#snippet item(page: Page)}
+  {@const p = PAGES[page]}
+  {@const Icon = p.icon}
+  {@const on = app.page === page}
+  <button class="{ITEM} {tone(on)}" onclick={() => go(page)} title={collapsed ? undefined : p.hint} aria-label={p.label} aria-current={on ? "page" : undefined} {...hinted(p.label, p.hint)}>
+    {#if on}<span class="absolute top-1.5 bottom-1.5 left-0 w-[3px] rounded-full bg-primary"></span>{/if}
+    <span class="shrink-0"><Icon size={18} strokeWidth={on ? 2.2 : 1.8} /></span>
+    <span class={LABEL} class:opacity-0={collapsed}>{p.label}</span>
+  </button>
+{/snippet}
 
 <!-- 58 px folded: the icons, 18 px wide and 20 px in, sit at its middle -->
 <nav
@@ -133,58 +107,32 @@
     </span>
   </button>
 
-  <div class="flex-1 overflow-x-hidden overflow-y-auto px-2">
-    {#each sections as section (section.title)}
-      <!-- the section's name, or folded a rule in its place: the same height either way -->
-      <div class="relative h-7">
-        <div
-          class="absolute inset-x-3 bottom-1 overflow-hidden text-[10.5px] font-semibold tracking-wider whitespace-nowrap uppercase transition-opacity duration-200 faint motion-reduce:transition-none"
-          class:opacity-0={collapsed}
-        >
-          {section.title}
-        </div>
-        <div class="absolute inset-x-3 top-1/2 border-t border-base-content/8 transition-opacity duration-200 motion-reduce:transition-none" class:opacity-0={!collapsed}></div>
-      </div>
-      {#each section.items as item (item.page)}
-        {@const Icon = item.icon}
-        {@const on = app.page === item.page}
-        <button
-          class="relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition-colors
-            {on ? 'bg-primary/12 text-primary' : 'text-base-content/70 hover:bg-base-content/5 hover:text-base-content'}"
-          onclick={() => go(item.page)}
-          title={collapsed ? undefined : item.hint}
-          aria-label={item.label}
-          aria-current={on ? "page" : undefined}
-          {...hinted(item.label, item.hint)}
-        >
-          {#if on}<span class="absolute top-1.5 bottom-1.5 left-0 w-[3px] rounded-full bg-primary"></span>{/if}
-          <span class="shrink-0"><Icon size={18} strokeWidth={on ? 2.2 : 1.8} /></span>
-          <span class={LABEL} class:opacity-0={collapsed}>{item.label}</span>
-          <!-- a running run: a dot at the icon's corner, in the same place folded or open -->
-          {#if item.page === "viewer" && live}
-            <span class="status status-success absolute top-1.5 left-[25px] animate-pulse"></span>
-          {/if}
-          {#if item.page === "compare" && app.compare.length}
-            <span class="badge badge-xs shrink-0 badge-primary transition-opacity duration-200 motion-reduce:transition-none" class:opacity-0={collapsed}>{app.compare.length}</span>
-          {/if}
-        </button>
-      {/each}
-    {/each}
+  <div class="flex-1 space-y-0.5 overflow-x-hidden overflow-y-auto px-2">
+    {#each RAIL as page (page)}{@render item(page)}{/each}
   </div>
 
-  <div class="space-y-1 px-2 pb-3">
+  <div class="space-y-0.5 overflow-x-hidden px-2 pt-2 pb-3">
+    <!-- the System group: a row that folds its pages away, lit while one of them is shown and they are folded -->
     <button
-      class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition-colors
-        {app.page === 'settings' ? 'bg-primary/12 text-primary' : 'text-base-content/70 hover:bg-base-content/5'}"
-      onclick={() => go("settings")}
-      title={collapsed ? undefined : "Settings: theme, workspace, tips and updates"}
-      aria-label="Settings"
-      aria-current={app.page === "settings" ? "page" : undefined}
-      {...hinted("Settings", "Theme, workspace, tips and updates")}
+      class="{ITEM} {tone(inSystem && !systemOpen)}"
+      onclick={toggleSystem}
+      title={collapsed ? undefined : "Validation, Libraries and Benchmarks"}
+      aria-label="System"
+      aria-expanded={systemOpen}
+      {...hinted("System", systemOpen ? "Fold Validation, Libraries and Benchmarks away" : "Validation, Libraries and Benchmarks")}
     >
-      <span class="shrink-0"><Settings size={18} /></span>
-      <span class={LABEL} class:opacity-0={collapsed}>Settings</span>
+      <span class="shrink-0"><MonitorCog size={18} strokeWidth={1.8} /></span>
+      <span class={LABEL} class:opacity-0={collapsed}>System</span>
+      <span class="shrink-0 transition-[transform,opacity] duration-200 motion-reduce:transition-none" class:rotate-90={systemOpen} class:opacity-0={collapsed}><ChevronRight size={15} /></span>
     </button>
+    {#if systemOpen}
+      <!-- open, its pages sit a step in, under its name; folded to icons, on a shade of their own under its icon -->
+      <div class="space-y-0.5 rounded-lg transition-[padding,background-color] duration-200 motion-reduce:transition-none {collapsed ? 'bg-base-content/5' : ''}" style="padding-left: {collapsed ? 0 : 10}px">
+        {#each SYSTEM as page (page)}{@render item(page)}{/each}
+      </div>
+    {/if}
+    <div class="mx-3 my-1.5 border-t border-base-content/8"></div>
+    {@render item("settings")}
     <button
       class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] text-base-content/50 hover:bg-base-content/5"
       onclick={toggle}

@@ -138,7 +138,7 @@
             {:else}
               {target?.material} isn't drawn by default; pick a colour to draw it.
             {/if}
-            Only the viewer changes: the run and its record stay as they are.
+            Only the run view changes: the run and its record stay as they are.
           </p>
         </section>
       </div>

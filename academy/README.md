@@ -124,7 +124,7 @@ or digit just outside), and display math between lines holding only `$$`.
   front matter's papers;
 - a method's write-up: `[the components](../docs/methods/components.md)`, opened beside the
   lesson in the window;
-- an example: `[ring_q_factor](../examples/ring_q_factor.rs)`, opened on the Examples page;
+- an example: `[ring_q_factor](../examples/ring_q_factor.rs)`, opened among Validation's published results;
 - another lesson: `[Bragg gratings](bragg-gratings.md)`.
 
 **Blocks** are lines of their own, starting with `::`:

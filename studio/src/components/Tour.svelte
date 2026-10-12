@@ -1,6 +1,7 @@
 <script lang="ts">
-  // The welcome tour: five steps through what the studio does, shown once (Help brings it back).
-  import { ChartSpline, LayoutGrid, ShieldCheck, Sparkles, SquarePen } from "@lucide/svelte";
+  // The welcome tour: six steps through what the studio does, following the rail, shown once
+  // (the question mark brings it back).
+  import { Boxes, History, House, ShieldCheck, Sparkles, SquarePen } from "@lucide/svelte";
 
   import { app, go, updateSettings } from "../lib/app.svelte";
   import Logo from "./Logo.svelte";
@@ -9,27 +10,32 @@
     {
       icon: Sparkles,
       title: "Welcome to photonoxide",
-      text: "A photonics toolkit whose every solver is checked against exact solutions and published papers. This studio is where you run it: build simulations, watch them live, compare them, and see the evidence.",
+      text: "A photonics toolkit whose every solver is checked against exact solutions and published papers. This studio is where you run it: build simulations, watch them live, overlay them, and see the evidence.",
     },
     {
-      icon: LayoutGrid,
-      title: "Start from the examples",
-      text: "Everything ships inside the app: ready-made simulations (a strip's modes, a ring, an MMI splitter) and the published results of the examples reproduced, from silicon's index to measured Mach-Zehnder interferometers. One click runs any of them.",
+      icon: House,
+      title: "Start from a template",
+      text: "Home holds ready-made simulations, built in: a strip's modes, a ring, an MMI splitter, each turning in 3D on its card. Run plays one live; Open takes it to the job builder.",
     },
     {
       icon: SquarePen,
       title: "Build your own jobs",
-      text: "The job builder is a form with your device drawn live in 3D, and a top view of its shapes, ports, the PML and the cut. The TOML is written for you, checked as you type, and saved into your workspace.",
+      text: "The job builder (Home's New job, or a template's Open) is a form with your device drawn live in 3D, and a top view of its shapes, ports, the PML and the cut. The TOML is written for you, checked as you type, and saved into your workspace.",
     },
     {
-      icon: ChartSpline,
-      title: "Watch, then compare",
-      text: "Runs play live in 3D (drag to orbit, scroll to zoom) and in 2D plots. Tick several runs to overlay their sweeps and spectra.",
+      icon: Boxes,
+      title: "Components, the chip, and the physics",
+      text: "The rail holds where work happens: Components, the parts with their models and spectra; Chip, where they are wired into a circuit and solved; the Academy's lessons, with charts the library computes as you move them; and Materials, each index from its paper.",
+    },
+    {
+      icon: History,
+      title: "Watch, then overlay",
+      text: "Runs play live in 3D (drag to orbit, scroll to zoom) and in 2D plots. Runs, at the bottom left, opens every run in a drawer, the one going pinned on top: tick several and Overlay draws their sweeps and spectra together.",
     },
     {
       icon: ShieldCheck,
       title: "Trust, and stay current",
-      text: "The validation page runs every check on your machine. New releases arrive by themselves: when one is out, an Update button appears at the top, and one click installs it.",
+      text: "System, at the rail's foot, holds Validation: every check, and every published result reproduced, each runnable on your machine; and the libraries and benchmarks found here. New releases arrive by themselves: when one is out, an Update button appears at the top, and one click installs it.",
     },
   ];
 
@@ -73,8 +79,8 @@
           class="btn btn-primary btn-sm"
           onclick={() => {
             finish();
-            go("examples");
-          }}>Show me the examples</button
+            go("home");
+          }}>Show me the templates</button
         >
       {/if}
     </div>

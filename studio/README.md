@@ -1,8 +1,9 @@
 # The photonoxide program and its studio
 
-`photonoxide` is one program. Its studio window is where photonoxide is used: examples, a job
-builder, runs played live in 3D and 2D, run comparison, the component library and the chip
-view, the materials catalogue, and the validation report. The same
+`photonoxide` is one program. Its studio window is where photonoxide is used: templates to
+start from, a job builder, runs played live in 3D and 2D and overlaid, the component library
+and the chip view, the Academy's lessons, the materials catalogue, and the validation report
+with the published results reproduced. The same
 program runs jobs headless, replays runs, runs the built-in examples and checks the report:
 
 ```sh
@@ -31,12 +32,26 @@ only on a network you trust. See [docs/farming.md](../docs/farming.md).
 
 ## The studio
 
-- **Home:** new jobs, the examples, recent runs, and what changed in this version.
-- **Examples:** everything ships inside the program.
-  - The simulations of `jobs/` run in one click or open in the builder. Each card shows its
+The rail on the left holds five pages, the places where work happens: **Home**,
+**Components**, **Chip**, **Academy** and **Materials**. At its foot, the **System** group
+(Validation, Libraries and Benchmarks) folds away beside **Settings**; it opens by itself when one
+of its pages is shown. The rail folds to its icons, each naming itself in a hint. Two pages
+aren't on the rail, because they are reached from what they show: the **job builder** (Home's
+New job, a template's Open) and the **run view** (a run, Home's Continue, `photonoxide run` and
+`photonoxide view`); the top bar's arrow leads back from them. **Runs** live in a drawer opened
+from the status bar.
+
+- **Home:** start from a template, a new job or a new circuit, or pick up where you left off.
+  - **Start from a template:** the simulations of `jobs/`, built in. Each card shows its
     structure in 3D, turning slowly: the scene its run will draw (`photonoxide::job::preview`).
-  - The nineteen published results of `examples/` each run in a process of their own. Every
-    line is checked against the paper as it prints, beside what the release recorded.
+    **Run** plays it live in the run view; **Open** takes it to the job builder, to change it.
+  - Continue (the run open), recent runs, how many published results and validation cases
+    there are, and what changed in this version.
+- **Runs** (the drawer, from **Runs** at the status bar's left): every run in the workspace,
+  newest first, the one going pinned on top with its time and a Stop. Each opens in the run
+  view, shows on disk or is deleted; deleting the open run closes it, deleting one still running
+  stops it first. Tick several and **Overlay** draws their sweeps' effective indices and their
+  spectra (|S_q1|²) on shared axes, in the drawer.
 - **Job builder:** a job as a form for each kind (`modes`, `fdfd`, `fdtd`, `structure`). An
   FDTD job's sources and monitors are edited by type and drawn on the top view (sources
   orange, monitors blue; click one to edit it), with its spectrum, its run length and the field
@@ -51,9 +66,7 @@ only on a network you trust. See [docs/farming.md](../docs/farming.md).
   - The TOML sits beside the form in an editor, and edits there update the form.
   - The library checks the job as it changes (`photonoxide::job::check`). It is saved to the
     workspace's `jobs/` (Ctrl+S) and runs from the builder (Ctrl+Enter).
-- **Runs:** every run in the workspace, to open, compare, show on disk or delete. Deleting the
-  open run closes it; deleting one still running stops it first.
-- **Viewer:**
+- **The run view:**
   - **3D** (the default): the layers and shapes as solids, with the field painted on its plane.
     A modes run's selected mode also travels along its guide: its field, Re E, as a glowing
     volume in the guide and its evanescent tails (ray-marched), red where positive and blue
@@ -86,8 +99,7 @@ only on a network you trust. See [docs/farming.md](../docs/farming.md).
     point stays on it, and Follow goes back to the running one. The field has
     its own row (shown or not, and how strongly), apart from the layers. A layer outside the
     run's window is greyed. Each layer's info button tells what it is made of, what fills it
-    around its shapes and what lies under and over it, and recolours it in the viewer.
-- **Compare:** the runs ticked on the Runs page, their sweeps and spectra on shared axes.
+    around its shapes and what lies under and over it, and recolours it in the run view.
 - **Components:** the library a chip is built from. Each kind of component with its ports,
   its parameters (units, ranges, defaults), its model's equations and its provenance (the
   source, its stated error against it, the wavelengths it holds for), its schematic symbol, and
@@ -116,16 +128,25 @@ only on a network you trust. See [docs/farming.md](../docs/farming.md).
   - Keys: Delete removes the selection, R rotates it (Shift+R the other way), M mirrors it top
     to bottom, Ctrl+Z and Ctrl+Y undo and redo, Ctrl+S saves to the workspace's `circuits/`,
     Escape lets go.
-  - **New** starts an empty chip or one of the built-in circuits (`circuits/` in the
+  - **New from…** starts an empty chip or one of the built-in circuits (`circuits/` in the
     repository): an MZI from parts, an all-pass and an add-drop ring, a 1×4 splitter.
+- **Academy:** lessons on how devices work and how the ideas came about, each read as deep as
+  you like (intuition, theory, research), with diagrams, charts the library computes as you
+  move them, the published results it reproduces (each runnable in place), the validation cases
+  behind it, and its jobs and circuits a click away.
 - **Materials:** the catalogue (`photonoxide::material::catalogue`), by category and
   searchable. Each material's index models plotted over their range, with a read-out at a
   wavelength and inputs for the temperature and composition where a model has them; each
   model's equation and coefficients as its paper prints them; the crystal and its d and r
   tensors as matrices; and every paper a click away.
-- **Validation:** the release's report, searchable, its math rendered, and the same report run
-  on this machine.
-- **Libraries:** the external libraries photonoxide can use (oneMKL, the CUDA runtime,
+- **Validation** (in System), in two tabs:
+  - **Cases:** the release's report, searchable, its math rendered, and the same report run on
+    this machine.
+  - **Published results:** every example of `examples/`, each reproducing a paper's numbers:
+    its paper and DOIs, its tolerance, what the release recorded, and **Run on this machine**,
+    which runs it in a process of its own and checks every line against the paper as it prints.
+    The Academy's lessons embed the same examples, and a run started there shows here.
+- **Libraries** (in System): the external libraries photonoxide can use (oneMKL, the CUDA runtime,
   cuSPARSE, cuDSS), as found on this machine by a process of its own: found or not, the file
   and where it was found, the version, what the library says (threads, GPUs), the backends
   that passed their smoke tests against photonoxide's own, and each candidate tried with the
@@ -134,7 +155,7 @@ only on a network you trust. See [docs/farming.md](../docs/farming.md).
   each with a copy button; a winget command can also run in a terminal of its own, after a
   dialog showing the licence and the exact command. **Detect again** looks once more. None is
   needed: photonoxide's own solvers are the default.
-- **Benchmarks:** the catalogue's problems run on this machine, as `photonoxide bench --tier`
+- **Benchmarks** (in System): the catalogue's problems run on this machine, as `photonoxide bench --tier`
   runs them (each problem with each backend in a process of its own, checked against its
   accuracy test, recorded in the app's data folder). Pick a tier, families, the largest size,
   the backends (every one that passed its smoke test) and the thread counts; the plan says how
@@ -152,16 +173,16 @@ only on a network you trust. See [docs/farming.md](../docs/farming.md).
   The window opens where it was left, at the size it had.
 - **Lengths in µm or nm:** every length and wavelength the studio shows or asks for (the
   builder's fields, a component's or an instance's parameters, the chip's wavelengths, the
-  viewer's readouts, the plots' axes, hover values and CSV files, the Materials page) is in one
+  run view's readouts, the plots' axes, hover values and CSV files, the Materials page) is in one
   unit, µm or nm, app-wide. Click the unit beside any value to switch it everywhere, or choose
   it in the settings. Only the window converts, exactly: job and chip files keep their units
   (µm, and nm where a field's name says so).
 
 Help is built in:
-- a tour on the first start, which the question mark brings back;
+- a tour on the first start, following the rail, which the question mark brings back;
 - tips on each page, each closable;
 - tooltips on the controls;
-- **Ctrl+K** (⌘K) to jump to any page, example, job or run.
+- **Ctrl+K** (⌘K) to jump to any page, template, published result, job, circuit or run.
 
 **The workspace** is the folder with `jobs/`, `runs/` and `circuits/`:
 1. the one chosen in the settings;
@@ -442,6 +463,8 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, builder, materia
   and is never published.
   - `main.rs`: the command line.
   - `studio.rs`: the window and the commands it calls.
+  - `navigation.rs`: tests that the window's pages are all reachable, and that every example,
+    job, circuit and run has its home in them.
   - `examples.rs`: the examples and jobs built in.
   - `settings.rs`: the settings and the workspace.
   - `materials.rs`: the Materials page's commands.
@@ -454,8 +477,9 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, builder, materia
     (`channels/install.rs`); `build.rs` embeds the commit a build is made from.
 - `src/`: the window, in Svelte 5 with TypeScript, Tailwind CSS and daisyUI, and Lucide icons.
   - `pages/`: one file per page.
-  - `components/`: what pages share. The plots and pictures, the device preview, the TOML
-    editor (CodeMirror), the tour, the Ctrl+K palette, and the update dialog.
-  - `lib/`: the shared state, the program's commands, the job model, the 3D view (three.js),
-    and the updater.
+  - `components/`: what pages share. The rail, the runs drawer and its overlay, Validation's
+    published results, the plots and pictures, the device preview, the TOML editor
+    (CodeMirror), the tour, the Ctrl+K palette, and the update dialog.
+  - `lib/`: the shared state, the pages and the rail (`pages.ts`), the program's commands, the
+    job model, the 3D view (three.js), and the updater.
 - `scripts/record-gifs.mjs`: records the README's GIFs (above).

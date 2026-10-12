@@ -5,12 +5,19 @@ import type { Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Fiel
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
 
-export type Page = "home" | "examples" | "builder" | "runs" | "viewer" | "compare" | "validation" | "materials" | "components" | "chip" | "libraries" | "benchmarks" | "academy" | "settings";
+/**
+ * Every page: the rail's five, the System group's three and Settings (lib/pages.ts), and two
+ * reached from what they show: the job builder (a template's Open, Home's New job) and the run
+ * view (a run, Home's Continue, `photonoxide run` and `view`).
+ */
+export type Page = "home" | "components" | "chip" | "academy" | "materials" | "validation" | "libraries" | "benchmarks" | "settings" | "builder" | "viewer";
 
 export const app = $state({
   ready: false,
   state: null as AppState | null,
   page: "home" as Page,
+  /** The last page on the rail shown, where the job builder and the run view lead back to. */
+  back: "home" as Page,
   /** Whether the theme in effect is dark, from its own base colour. */
   dark: true,
   /** The theme's backdrop colour (its base-200) as hex, for the 3D view; see `themeBackdrop`. */
@@ -19,20 +26,41 @@ export const app = $state({
   tour: false,
   /** Text for the builder to open, set by whoever sends the user there. */
   builderOpen: null as { text: string; path: string | null } | null,
-  /** A published-result example for the examples page to open. */
+  /** A published result for Validation's Published results tab to open, by its example's name. */
   focus: null as string | null,
+  /** Validation's tab: its cases, or the published results of examples/ reproduced. */
+  validationTab: "cases" as "cases" | "published",
+  /** Whether the runs drawer, opened from the status bar, is open. */
+  drawer: false,
   /** A lesson for the Academy page to open, by its id. */
   lesson: null as string | null,
   /** The component the Components page shows, by its library id; null for the first. */
   component: null as string | null,
-  /** Runs picked for comparison. */
+  /** Runs ticked in the drawer, to overlay. */
   compare: [] as string[],
   /** Bumped when the workspace's files change, so lists reload. */
   workspaceVersion: 0,
 });
 
+/** Shows `page`, the drawer closed. */
 export function go(page: Page) {
+  // the job builder and the run view aren't on the rail: the top bar leads back from them
+  if (page !== app.page && app.page !== "builder" && app.page !== "viewer") app.back = app.page;
   app.page = page;
+  app.drawer = false;
+}
+
+/** Validation's Published results tab, on the example `name` when one is given. */
+export function showPublished(name: string | null = null) {
+  app.focus = name;
+  app.validationTab = "published";
+  go("validation");
+}
+
+/** Validation's Cases tab: the report. */
+export function showCases() {
+  app.validationTab = "cases";
+  go("validation");
 }
 
 export function settings(): Settings {
@@ -359,7 +387,8 @@ function reset(info: Info) {
 export async function follow() {
   try {
     reset(await api.info());
-    if (run.info?.dir) app.page = "viewer";
+    // started with a run (`photonoxide run`, `photonoxide view`): the window opens on its view
+    if (run.info?.dir) go("viewer");
   } catch {
     // no backend (a browser preview): nothing to follow
     return;
@@ -392,7 +421,7 @@ export async function follow() {
 export async function startRun(call: () => Promise<Info>, what: string) {
   try {
     reset(await call());
-    app.page = "viewer";
+    go("viewer");
     app.workspaceVersion++;
     toast(what, "success", undefined, 2500);
   } catch (e) {
