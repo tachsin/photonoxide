@@ -316,6 +316,7 @@ pub fn jobs() -> Vec<JobExample> {
             "coupler-supermodes.toml",
             include_str!("../../../jobs/coupler-supermodes.toml"),
         ),
+        ("slab-soi.toml", include_str!("../../../jobs/slab-soi.toml")),
     ]
     .into_iter()
     .map(|(file, text)| JobExample {

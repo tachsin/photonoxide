@@ -94,6 +94,24 @@ pub fn specs() -> Vec<DiagramSpec> {
                          oxide, 200 nm apart, 10 µm of them. Run, the job solves their two \
                          supermodes as the gap goes from 100 to 400 nm. Drag to turn it.",
         },
+        DiagramSpec {
+            id: "slab",
+            title: "A slab waveguide, in section",
+            caption: "A film of index $n_2$ and thickness $d$ lies between a cover of index $n_1$ \
+                      and a substrate of index $n_3$, both lower. A ray meeting a face at an angle \
+                      $\\theta$ from its normal larger than the critical angle \
+                      $\\theta_c = \\arcsin(n_3/n_2)$ is totally reflected, and zig-zags along \
+                      $z$ inside the film; a steeper ray is partly refracted out at every \
+                      reflection and lost. At the right, a guided mode's field across the slab, \
+                      $x$ up from the substrate's face: a cosine $\\cos(hx - \\phi_3)$ in the \
+                      film, and tails $e^{px}$ in the substrate and $e^{-q(x - d)}$ in the \
+                      cover, shorter where the index is lower. Not to scale.",
+            job: Some("slab-soi.toml"),
+            caption_3d: "The film of jobs/slab-soi.toml as photonoxide's geometry builds it: \
+                         220 nm of silicon on the buried oxide of an SOI wafer, under an oxide \
+                         cladding, unetched, so that across it the structure is a slab. Drag to \
+                         turn it.",
+        },
     ]
 }
 

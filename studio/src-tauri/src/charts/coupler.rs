@@ -264,6 +264,7 @@ fn curve(label: &str, points: Vec<[f64; 2]>, dashed: bool) -> Curve {
         label: label.to_owned(),
         points,
         dashed,
+        colour: None,
     }
 }
 

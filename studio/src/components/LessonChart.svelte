@@ -7,7 +7,7 @@
 
   import { unitName, type ChartData, type ChartParam, type ChartSpec } from "../lib/academy.svelte";
   import { api } from "../lib/api";
-  import type { Series } from "../lib/plot";
+  import { SERIES, type Series } from "../lib/plot";
   import MathText from "./MathText.svelte";
   import Plot from "./Plot.svelte";
 
@@ -56,7 +56,9 @@
   /** A value as the slider's readout shows it. */
   const shown = (p: ChartParam, v: number) => (p.step >= 1 ? String(Math.round(v)) : String(Number(v.toPrecision(4))));
 
-  const series = $derived<Series[]>((data?.series ?? []).map((s) => ({ label: s.label, points: s.points, dashed: s.dashed })));
+  const series = $derived<Series[]>(
+    (data?.series ?? []).map((s) => ({ label: s.label, points: s.points, dashed: s.dashed, colour: s.colour === null ? undefined : SERIES[s.colour % SERIES.length] })),
+  );
 </script>
 
 <figure class="panel my-6 overflow-hidden">
