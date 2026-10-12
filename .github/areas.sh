@@ -97,6 +97,14 @@ area circuit \
   "circuit::" "circuit/ components/" \
   "circuit_fit circuit_ring_critical circuit_splitter ring_q_factor directional_coupler mzi_dwivedi"
 
+# the devices: components that know their geometry, built from the circuit's components on the
+# mode solvers' cross-sections
+area device \
+  "src/device.rs src/device/*" \
+  "material mode circuit" \
+  "device::" "device/" \
+  "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss"
+
 area compact \
   "src/compact/*" \
   "circuit job" \
@@ -134,7 +142,7 @@ area python \
 # against docs/methods
 area studio \
   "studio/* academy/* docs/methods/* docs/libraries.md examples/README.md CHANGELOG.md ROADMAP.md jobs/* circuits/* site/lib/projects/photonoxide/meta.js site/lib/projects/photonoxide/methods.js" \
-  "material sparse mode fdfd fdtd job circuit compact facade bench native" \
+  "material sparse mode fdfd fdtd job circuit device compact facade bench native" \
   "" "" ""
 
 # matches FILE GLOBS: whether the file matches one of the globs

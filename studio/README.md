@@ -470,7 +470,8 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, builder, materia
   - `materials.rs`: the Materials page's commands.
   - `circuits.rs`: the Components and Chip pages' commands, and chip files; `circuits/library.rs`
     is the component library the studio offers (each kind's id, title, symbol, and the
-    library's component it builds).
+    library's component it builds: the waveguide, bend, directional coupler and rings from the
+    library's devices, `photonoxide::device`, at their defaults).
   - `tasks.rs`: the examples and reports running in their own processes.
   - `channels.rs`: the release channels, and the nightly channel's check (`channels/github.rs`),
     prerequisites (`channels/prereqs.rs`), build (`channels/builder.rs`) and install

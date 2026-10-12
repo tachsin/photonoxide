@@ -61,8 +61,8 @@ export const CATEGORIES = [
   {
     id: "circuits",
     title: "Circuits and compact models",
-    blurb: "A chip as a netlist of S-matrices, its components' models, and spectra fitted as rational functions and written as Touchstone files.",
-    groups: [{ title: null, slugs: ["circuits", "components", "compact"] }],
+    blurb: "A chip as a netlist of S-matrices, its components' models, the devices that build them from their geometry, and spectra fitted as rational functions and written as Touchstone files.",
+    groups: [{ title: null, slugs: ["circuits", "components", "devices", "compact"] }],
   },
   {
     id: "foundations",

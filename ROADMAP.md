@@ -84,6 +84,7 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 - **`fdtd`:** the Yee scheme in 2D and 3D, CPML, sources, monitors, dispersive and nonlinear media, and a GPU backend.
 - **`semi`:** the transfer matrix method, RCWA, eigenmode expansion (EME) and the beam propagation method.
 - **`circuit`:** components with ports and fidelities, netlists, the frequency-domain S-matrix and its adjoint, compact models and Touchstone files, time-domain models and signals, and programmable meshes.
+- **`device`:** components that know their geometry: a stack, shapes from parameters with ports, the models from a fit to 3D, and the component each builds.
 - **`thermal` and `electro`:** the static solver (heat conduction and electrostatics), thermo-optic and Pockels models, and RF transmission lines.
 - **`carrier`:** drift-diffusion and plasma dispersion.
 - **`inverse`:** adjoint gradients, density and level-set parametrizations, length-scale and foundry-rule constraints, and robust formulations, posed as problems for genoxide's optimizers.
@@ -539,6 +540,10 @@ The waveguide and resonator processes, phase matching, photon pairs and Kerr com
   - 0.7: the optimization dashboard;
   - 0.8: eye diagrams and mesh programming;
   - 0.9: the layout view.
+- **The studio around components** (#338, twelve phases): a page per component holding its design, models, sweeps and optimization.
+  - [x] P1: five pages on the rail where there were fourteen, and nothing lost (#339).
+  - [x] P2: `photonoxide::device`, a component that knows its geometry, with the waveguide, bend, directional coupler and rings (#340). *(A `Device` gives its parameters (with expressions), stack, geometry with ports, models and the component each builds, and its figures, each with its fidelity and grid ([docs/methods/devices.md](docs/methods/devices.md)). The strip's analytic models are fits to the 3D model's own values over width, thickness and gap, anchored at the studio library's strip, so the library's entries now come from the devices to the bit; the bend's 3D model is the straight strip by Hadley's equations plus the conformal map's shift on shared cells, which cancels the corners' error. Each lower model against the next one up within its stated error, the solvers' orders (Hadley 1.92, the coupler's 0.84), exact derivatives against fourth-order differences, the same bits on 1 and 20 threads, and Chrostowski & Hochberg's strip and coupler, Bogaerts's Fig. 5 and Dwivedi's 602 nm wire through the devices; `strip_waveguide`, `directional_coupler`, `mzi_dwivedi` and `ring_q_factor` go through them, their outputs unchanged.)*
+  - [ ] P3 to P12: a component's page (Overview and Design, then Model, Simulate, Study, Optimize, Export), the MMI, Y-branch, MZI and rib waveguide as devices, compact models over a device's parameters, the chip of devices, the Academy's published results, and devices in the façade.
 - **Performance:** criterion benchmarks and the `bench` command (0.4.2), with regression gating in CI; every speed-up measured as time to equal accuracy. See [the performance plan](docs/plans/performance.md). faer's threaded dense LU, at 13 to 40% of MKL's on 20 threads ([docs/baselines.md](docs/baselines.md)), measured in faer's own benchmarks and reported upstream, with my go-ahead.
 - **External backends and the in-app benchmark** ([the plan](docs/plans/backends.md), #185): libraries the user installs, loaded at run time only through `photonoxide-native`, never linked, never GPL, photonoxide's own solvers the default and the reference.
   - [x] The traits, the registry and the choice in solvers and job files (#193).

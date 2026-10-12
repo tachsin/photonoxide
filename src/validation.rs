@@ -1635,6 +1635,8 @@ pub fn cases() -> Vec<Case> {
             run: crate::circuit::components::measured::dwivedi_ng_805,
         },
     ];
+    // the devices' cases, after the components they build, live with them
+    cases.extend(crate::device::checks::cases());
     // the compact models' cases live with them
     cases.extend(crate::compact::checks::cases());
     // and the geometry kernel's

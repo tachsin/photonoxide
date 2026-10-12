@@ -634,3 +634,72 @@ fn a_sweep_on_every_core_is_the_librarys() {
         assert_eq!(own.matrices(), spectrum.matrices(), "{file}");
     }
 }
+
+/// The entries the library's devices build (#340) are the components the studio built before
+/// them, to the bit: the same ports, parameters and provenance, and the same S-matrices over the
+/// band at their defaults and elsewhere.
+#[test]
+fn the_device_entries_are_the_components_they_were() {
+    use photonoxide::circuit::components::{
+        AddDropRing, AllPassRing, Bend, DirectionalCoupler, Dispersion, Supermodes, Waveguide,
+    };
+    use photonoxide::material;
+    use photonoxide::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity};
+    let um = |x: f64| Wavelength::um(x).unwrap();
+    let strip = || Dispersion::new(um(1.55), 2.44506, 4.172901).with_loss(2.7);
+    let section = |wavelength: Wavelength| {
+        let si = material::silicon().permittivity(wavelength)?;
+        let ox = c64::new(1.444 * 1.444, 0.0);
+        CrossSection::uniform((0.0, 1.05, 84), (0.0, 0.75, 75), |x, y| {
+            Permittivity::isotropic(if x < 0.25 && y < 0.11 { si } else { ox })
+        })?
+        .with_boundaries(Boundaries {
+            west: Boundary::ElectricWall,
+            south: Boundary::MagneticWall,
+            ..Boundaries::default()
+        })
+    };
+    let before: Vec<(&str, Arc<dyn Component>)> = vec![
+        ("waveguide", Arc::new(Waveguide::new(strip()))),
+        (
+            "waveguide-modes",
+            Arc::new(Waveguide::from_modes(section, um(1.55), 0.025, None).unwrap()),
+        ),
+        ("bend", Arc::new(Bend::new(10.0, strip()).unwrap())),
+        (
+            "directional-coupler",
+            Arc::new(
+                DirectionalCoupler::new(Supermodes::from_coupling(strip(), 0.042_28)).unwrap(),
+            ),
+        ),
+        (
+            "ring-all-pass",
+            Arc::new(AllPassRing::new(strip()).unwrap()),
+        ),
+        (
+            "ring-add-drop",
+            Arc::new(AddDropRing::new(strip()).unwrap()),
+        ),
+    ];
+    for (id, old) in before {
+        let new = (library::entry(id).unwrap().build)().unwrap();
+        assert_eq!(new.kind(), old.kind(), "{id}");
+        assert_eq!(new.ports(), old.ports(), "{id}");
+        assert_eq!(new.parameters(), old.parameters(), "{id}");
+        assert_eq!(new.provenance(), old.provenance(), "{id}");
+        let defaults = old.defaults();
+        let mut moved = defaults.clone();
+        moved[0] *= 0.75;
+        for values in [&defaults, &moved] {
+            for k in 0..=20 {
+                let w = um(1.5 + 0.005 * f64::from(k));
+                assert_eq!(
+                    new.s_matrix(w, values).unwrap(),
+                    old.s_matrix(w, values).unwrap(),
+                    "{id} at {} um",
+                    w.to_um()
+                );
+            }
+        }
+    }
+}

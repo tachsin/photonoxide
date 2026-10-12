@@ -3,10 +3,12 @@
 //! description of it (a title, a category, a sentence, the model's equation) and the schematic
 //! symbol the chip view draws.
 //!
-//! The physics is the library's (`photonoxide::circuit::components`): each entry builds one of
-//! its components, and everything about its ports, parameters and provenance is read from that
-//! component. What the studio chooses is what the library leaves to its caller: the guide every
-//! waveguide, bend and ring carries, and the MMIs' widths.
+//! The physics is the library's: the waveguide, the bend, the directional coupler and the rings
+//! are its devices (`photonoxide::device`) at their defaults, each the component its analytic
+//! model gives (the strip waveguide's 3D model for `waveguide-modes`); the others are its
+//! components (`photonoxide::circuit::components`). Everything about their ports, parameters
+//! and provenance is read from the component. What the studio chooses is what the library
+//! leaves to its caller: the MMIs' widths, and the window `waveguide-modes` is solved on.
 
 use std::path::Path;
 use std::sync::{Arc, OnceLock};
@@ -14,15 +16,17 @@ use std::sync::{Arc, OnceLock};
 use photonoxide::Complex64 as c64;
 use photonoxide::Result;
 use photonoxide::circuit::components::{
-    self, AddDropRing, AllPassRing, Bend, Coupler, DirectionalCoupler, Dispersion, Mmi, MmiKind,
-    PhaseShifter, Planar, Supermodes, Waveguide, YBranch,
+    self, Coupler, Mmi, MmiKind, PhaseShifter, Planar, YBranch,
 };
-use photonoxide::circuit::{Component, Fixed, Port, SMatrix, Spectrum};
+use photonoxide::circuit::{Component, Fidelity, Fixed, Port, SMatrix, Spectrum};
 use photonoxide::compact::Measured;
 use photonoxide::compact::touchstone::{Convention, Touchstone};
-use photonoxide::material;
+use photonoxide::device::{
+    Device, Mesh, Scheme, StripBend, StripCoupler, StripRing, StripWaveguide, Values,
+};
+use photonoxide::material::{self, Material, Model, Provenance};
 use photonoxide::mode::Polarization;
-use photonoxide::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity};
+use photonoxide::stack::{Layer, LayerStack};
 use photonoxide::units::{Length, Wavelength};
 use serde::Serialize;
 
@@ -99,13 +103,19 @@ fn text(e: photonoxide::Error) -> String {
     e.to_string()
 }
 
-/// The guide every waveguide, bend and ring of the library carries: a 500 × 220 nm silicon
-/// strip in oxide, its TE-like mode's n_eff 2.44506 and n_g 4.17290 at 1.55 µm by photonoxide's
-/// full-vector solver (examples/group_index.rs, on a 6.25 × 5 nm grid; Chrostowski & Hochberg
-/// 2015 give 4.18), losing 2.7 dB/cm to start (Bogaerts et al. 2011's ring waveguide, Section 2.4; a straight
-/// waveguide's loss is a parameter).
-fn strip() -> std::result::Result<Dispersion, String> {
-    Ok(Dispersion::new(Wavelength::um(1.55).map_err(text)?, 2.44506, 4.172901).with_loss(2.7))
+/// A device's component at `fidelity` and `values`, to be shared.
+fn component(device: &dyn Device, values: &Values, fidelity: Fidelity) -> Built {
+    let built = device.component(values, fidelity).map_err(text)?;
+    Ok(Arc::from(built.component))
+}
+
+/// A device's analytic model at its defaults: for every waveguide, bend, coupler and ring, a
+/// 500 × 220 nm silicon strip in oxide, its TE-like mode's n_eff 2.44506 and n_g 4.17290 at
+/// 1.55 µm by photonoxide's full-vector solver (examples/group_index.rs, on a 6.25 × 5 nm grid;
+/// Chrostowski & Hochberg 2015 give 4.18), losing 2.7 dB/cm to start (Bogaerts et al. 2011's
+/// ring waveguide, Section 2.4; a straight waveguide's loss is a parameter).
+fn analytic(device: &dyn Device) -> Built {
+    component(device, &Values::defaults(device), Fidelity::Analytic)
 }
 
 /// The plane the MMIs lie in: a 220 nm silicon film in oxide, by the effective index method.
@@ -119,39 +129,57 @@ fn soi() -> Planar {
 }
 
 fn waveguide() -> Built {
-    once!(Ok(Arc::new(Waveguide::new(strip()?))))
+    once!(analytic(&StripWaveguide::new()))
 }
 
-/// The strip's cross-section at `wavelength`: a quarter of it (x, y ≥ 0, the strip's centre at
-/// the origin), 500 × 220 nm of Li's silicon in oxide of index 1.444, on a 12.5 × 10 nm grid,
-/// with an electric wall at x = 0 and a magnetic wall at y = 0 for the TE-like mode.
-fn strip_section(wavelength: Wavelength) -> Result<CrossSection> {
-    let si = material::silicon().permittivity(wavelength)?;
-    let ox = c64::new(1.444 * 1.444, 0.0);
-    CrossSection::uniform((0.0, 1.05, 84), (0.0, 0.75, 75), |x, y| {
-        Permittivity::isotropic(if x < 0.25 && y < 0.11 { si } else { ox })
-    })?
-    .with_boundaries(Boundaries {
-        west: Boundary::ElectricWall,
-        south: Boundary::MagneticWall,
-        ..Boundaries::default()
+/// Li's silicon in Chrostowski & Hochberg's oxide, of constant index 1.444: the stack
+/// `waveguide-modes` is solved on.
+fn oxide_stack() -> Result<LayerStack> {
+    let oxide = Material::new(
+        "oxide (1.444)",
+        Model::Constant(c64::new(1.444, 0.0)),
+        Wavelength::um(1.2)?,
+        Wavelength::um(2.0)?,
+        Provenance {
+            reference: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), Fig. 3.14"
+                .into(),
+            doi: "10.1017/CBO9781316084168".into(),
+            data: "the book's oxide index".into(),
+            temperature: None,
+            notes: String::new(),
+        },
+    )?;
+    let layer = |name: &str, thickness: Length, material: Material| Layer {
+        name: name.into(),
+        thickness,
+        material,
+        background: oxide.clone(),
+    };
+    LayerStack::new(
+        oxide.clone(),
+        vec![
+            layer("BOX", Length::um(2.0), oxide.clone()),
+            layer("Si", Length::nm(220.0), material::silicon()),
+        ],
+        oxide.clone(),
+    )
+}
+
+/// The strip's 3D model: a quarter of its cross-section (x, y ≥ 0, the strip's centre at the
+/// origin), 500 × 220 nm of Li's silicon in oxide of index 1.444, 1.05 × 0.75 µm on a 12.5 ×
+/// 10 nm grid, with an electric wall at x = 0 and a magnetic wall at y = 0 for the TE-like
+/// mode; its mode at five wavelengths 25 nm apart about 1.55 µm, by the standard scheme.
+fn waveguide_modes() -> Built {
+    once!({
+        let device = StripWaveguide::on(oxide_stack().map_err(text)?, "Si")
+            .map_err(text)?
+            .with_mesh(Mesh::window(2.1, 1.5, 84, 75, Scheme::Standard));
+        component(&device, &Values::defaults(&device), Fidelity::ThreeD)
     })
 }
 
-fn waveguide_modes() -> Built {
-    once!(Ok(Arc::new(
-        Waveguide::from_modes(
-            strip_section,
-            Wavelength::um(1.55).map_err(text)?,
-            0.025,
-            None
-        )
-        .map_err(text)?
-    )))
-}
-
 fn bend() -> Built {
-    once!(Ok(Arc::new(Bend::new(10.0, strip()?).map_err(text)?)))
+    once!(analytic(&StripBend::new()))
 }
 
 fn phase_shifter() -> Built {
@@ -166,9 +194,7 @@ fn directional_coupler() -> Built {
     // two strips 200 nm apart: their supermodes 0.02086 apart at 1.55 µm by photonoxide's
     // full-vector solver (examples/directional_coupler.rs, a 5 nm grid), so C = πΔn/λ =
     // 0.04228 /µm and a cross-over length of 37.2 µm (Chrostowski & Hochberg 2015: 37.5 µm)
-    once!(Ok(Arc::new(
-        DirectionalCoupler::new(Supermodes::from_coupling(strip()?, 0.042_28)).map_err(text)?
-    )))
+    once!(analytic(&StripCoupler::new()))
 }
 
 fn mmi(kind: MmiKind) -> Built {
@@ -191,18 +217,18 @@ fn y_branch() -> Built {
 }
 
 fn ring_all_pass() -> Built {
-    once!(Ok(Arc::new(AllPassRing::new(strip()?).map_err(text)?)))
+    once!(analytic(&StripRing::all_pass()))
 }
 
 fn ring_add_drop() -> Built {
-    once!(Ok(Arc::new(AddDropRing::new(strip()?).map_err(text)?)))
+    once!(analytic(&StripRing::add_drop()))
 }
 
 fn mzi() -> Built {
     // the library's own MZI netlist, of ideal 3 dB couplers and strip arms 50 µm apart
     once!({
         let coupler: Arc<dyn Component> = Arc::new(Coupler::new());
-        let arm: Arc<dyn Component> = Arc::new(Waveguide::new(strip()?));
+        let arm = analytic(&StripWaveguide::new())?;
         let build = || -> Result<Arc<dyn Component>> {
             let mut netlist = components::mzi(coupler.clone(), coupler, arm.clone(), arm)?;
             netlist.set("upper", "length", 150.0)?;
