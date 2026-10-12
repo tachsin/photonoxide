@@ -948,7 +948,6 @@ method_docs!(
     "hadley.md",
     "marcatili.md",
     "materials.md",
-    "multigrid-stencil.md",
     "multilayer.md",
     "pml.md",
     "recycling.md",

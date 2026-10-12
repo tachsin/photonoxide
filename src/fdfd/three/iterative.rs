@@ -48,14 +48,12 @@ impl Formulation {
 /// How QMR takes its products with the operator ([`IterativeSolver3d::new_with`]).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Product {
-    /// By the assembled matrix, as [`IterativeSolver3d::new`]: what ILU(0) and an iterative
-    /// backend need, and what the multigrid's finest level smooths by ILU(0).
+    /// By the assembled matrix, as [`IterativeSolver3d::new`]: what ILU(0), the multigrid, an
+    /// iterative backend and Shin and Fan's operator need.
     #[default]
     Matrix,
     /// Without it, as [`IterativeSolver3d::matrix_free`]: two passes over the grid a product,
-    /// for QMR on the curl-curl operator with no preconditioner; and on Shin and Fan's operator,
-    /// three, for GMRES with the multigrid whose finest level has no matrix either
-    /// ([`IterativeSolver3d::with_multigrid`]: damped Jacobi from the stencil there).
+    /// for QMR on the curl-curl operator with no preconditioner.
     MatrixFree,
     /// Without the matrix only where it wouldn't fit: on the curl-curl operator, when the free
     /// memory that [`crate::backend::auto`] reads ([`crate::backend::auto::free_memory`]; the
@@ -199,9 +197,8 @@ impl IterativeSolver3d {
     /// the peak memory (20 threads); below 10⁵ the matrix, which stays in cache, is as fast or
     /// faster (docs/methods/fdfd-3d.md, "Without the matrix").
     ///
-    /// For the solves that take no preconditioner. ILU(0) and an iterative backend need the
-    /// matrix ([`IterativeSolver3d::new`]); the multigrid without it is on Shin and Fan's
-    /// operator ([`IterativeSolver3d::new_with`] and [`Product::MatrixFree`]).
+    /// For the solves that take no preconditioner. ILU(0), the multigrid and an iterative
+    /// backend need the matrix: [`IterativeSolver3d::new`].
     ///
     /// # Errors
     ///
@@ -228,7 +225,8 @@ impl IterativeSolver3d {
     ///
     /// # Errors
     ///
-    /// As [`IterativeSolver3d::new`].
+    /// As [`IterativeSolver3d::new`], and [`Error::InvalidValue`] for [`Product::MatrixFree`]
+    /// on Shin and Fan's operator, which has no product without its matrix.
     pub fn new_with(
         grid: Grid3d,
         wavelength: Wavelength,
@@ -242,9 +240,12 @@ impl IterativeSolver3d {
             _ => None,
         };
         match product.resolved(formulation, grid.unknowns(), free) {
-            Product::MatrixFree => {
-                Self::without_matrix(grid, wavelength, eps, boundaries, formulation)
-            }
+            Product::MatrixFree if formulation != Formulation::CurlCurl => Err(Error::invalid(
+                "fdfd solver",
+                "QMR without the matrix is for the curl-curl operator \
+                 (Formulation::CurlCurl): Shin and Fan's needs the matrix",
+            )),
+            Product::MatrixFree => Self::without_matrix(grid, wavelength, eps, boundaries),
             _ => Self::new(grid, wavelength, eps, boundaries, formulation),
         }
     }
@@ -254,15 +255,10 @@ impl IterativeSolver3d {
         wavelength: Wavelength,
         eps: impl Fn(f64, f64, f64) -> c64,
         boundaries: Boundaries3d,
-        formulation: Formulation,
     ) -> Result<IterativeSolver3d> {
         let (lattice, eps) = Solver3d::setup(grid, wavelength, eps, boundaries)?;
-        let operator = match formulation {
-            Formulation::CurlCurl => MatrixFree::new(&lattice, &eps),
-            Formulation::ShinFan => MatrixFree::shin_fan(&lattice, &eps, 0.0),
-        };
-        // by QMR for symmetric matrices where it can be, as with the matrix (not Shin and
-        // Fan's operator, which no diagonal makes symmetric)
+        let operator = MatrixFree::new(&lattice, &eps);
+        // by QMR for symmetric matrices where it can be, as with the matrix
         let (similarity, free) = match operator.symmetrized() {
             Some((s, b)) => (Some(s), b),
             None => (None, operator),
@@ -270,7 +266,7 @@ impl IterativeSolver3d {
         Ok(IterativeSolver3d {
             lattice,
             eps,
-            formulation,
+            formulation: Formulation::CurlCurl,
             matrix: Sparse::new(grid.unknowns(), std::iter::empty()),
             free: Some(free),
             similarity,
@@ -348,14 +344,6 @@ impl IterativeSolver3d {
     /// [`Error::InvalidValue`] for the curl-curl operator, whose near-null space of gradients no
     /// point smoother reduces, for options without smoothing, or if a level's ILU(0) or the
     /// coarsest factorization fails.
-    ///
-    /// **Without the finest matrix** (a solver built with [`Product::MatrixFree`] on Shin and
-    /// Fan's operator): GMRES takes its products from the stencil, and the cycle's finest level
-    /// is smoothed by damped Jacobi with the stencil's diagonal (`options.jacobi`; Erlangga et
-    /// al.'s Section 4.3), its first coarse operator Pᵀ A P from the stencil's rows to the same
-    /// bits as the stored matrix's ([`super::Coarse::Galerkin`]), or every coarse operator discretized
-    /// again ([`super::Coarse::Rediscretized`]). Neither the finest matrix nor its ILU(0) factors are
-    /// kept; see docs/methods/multigrid-stencil.md for what it saves and costs.
     pub fn with_multigrid(self, options: Multigrid) -> Result<IterativeSolver3d> {
         self.with_multigrid_on(options, &crate::backend::Choice::Auto)
     }
@@ -373,18 +361,15 @@ impl IterativeSolver3d {
         direct: &crate::backend::Choice,
     ) -> Result<IterativeSolver3d> {
         let solver = crate::backend::direct(direct)?;
+        self.needs_matrix("the multigrid")?;
         if self.formulation == Formulation::CurlCurl {
             return Err(Error::invalid(
                 "fdfd preconditioner",
                 "multigrid needs Shin and Fan's operator (Formulation::ShinFan)",
             ));
         }
-        let hierarchy = if self.free.is_some() {
-            Hierarchy::from_stencil_on(&self.lattice, &self.eps, options, &solver)?
-        } else {
-            let operator = shifted(&self.lattice, &self.eps, &self.matrix, options.shift);
-            Hierarchy::new_on(&self.lattice, &self.eps, operator, options, &solver)?
-        };
+        let operator = shifted(&self.lattice, &self.eps, &self.matrix, options.shift);
+        let hierarchy = Hierarchy::new_on(&self.lattice, &self.eps, operator, options, &solver)?;
         self.preconditioner = Preconditioning::Multigrid(Box::new(hierarchy));
         self.id = next_id();
         Ok(self)
@@ -536,14 +521,7 @@ impl IterativeSolver3d {
                         solver.gmres_multigrid(self.matrix.rows(), &cycle, b, stopping)?;
                     checked(&self.matrix, b, x, how, stopping)?
                 }
-                None => match &self.free {
-                    Some(operator) => {
-                        gmres_preconditioned(operator, h.as_ref(), b, stopping, h.restart())?
-                    }
-                    None => {
-                        gmres_preconditioned(&self.matrix, h.as_ref(), b, stopping, h.restart())?
-                    }
-                },
+                None => gmres_preconditioned(&self.matrix, h.as_ref(), b, stopping, h.restart())?,
             },
             // without the matrix: by the operator, on its symmetric form where it has one
             Preconditioning::None if self.free.is_some() => match (&self.free, &self.similarity) {
@@ -651,10 +629,9 @@ impl IterativeSolver3d {
             Preconditioning::Ilu(ilu) => {
                 block_qmr_preconditioned(&self.matrix, ilu.as_ref(), &b, stopping)?
             }
-            Preconditioning::Multigrid(h) => match &self.free {
-                Some(operator) => block_qmr_preconditioned(operator, h.as_ref(), &b, stopping)?,
-                None => block_qmr_preconditioned(&self.matrix, h.as_ref(), &b, stopping)?,
-            },
+            Preconditioning::Multigrid(h) => {
+                block_qmr_preconditioned(&self.matrix, h.as_ref(), &b, stopping)?
+            }
             Preconditioning::None => match (&self.free, &self.similarity) {
                 (Some(operator), Some(s)) => block_qmr_similar(operator, s, &b, stopping)?,
                 (Some(operator), None) => block_qmr(operator, &b, stopping, false, None)?,
