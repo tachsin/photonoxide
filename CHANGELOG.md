@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.3](https://github.com/tachsin/photonoxide/compare/v0.5.2...v0.5.3) - 2026-10-12
+
+### <!-- 0 -->Added
+
+- *(native)* MUMPS 5.9.0 and 5.9.1, and the validation cases run on MUMPS ([#322](https://github.com/tachsin/photonoxide/pull/322))
+- *(studio)* the Academy's directional coupler lesson, from supermodes to the 3 dB coupler ([#329](https://github.com/tachsin/photonoxide/pull/329))
+- *(fdfd)* QMR without the matrix, chosen by Product and in the benchmark, and when the matrix wouldn't fit ([#334](https://github.com/tachsin/photonoxide/pull/334))
+- *(site)* the methods by what they compute, and an index of their algorithms ([#335](https://github.com/tachsin/photonoxide/pull/335))
+
+### <!-- 1 -->Fixed
+
+- *(job)* a modes job keeps only its guided modes, never the window's own ([#348](https://github.com/tachsin/photonoxide/pull/348))
+
+### <!-- 4 -->Documentation
+
+- a PyPI badge beside the crates.io one ([#325](https://github.com/tachsin/photonoxide/pull/325))
+
 ## [0.5.2](https://github.com/tachsin/photonoxide/compare/v0.5.1...v0.5.2) - 2026-10-10
 
 ### <!-- 0 -->Added
