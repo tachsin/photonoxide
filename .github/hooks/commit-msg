@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Removes AI attribution lines from a commit message (AGENTS.md: commits carry none): a
+# Co-Authored-By naming Claude or Anthropic, the "Generated with [Claude Code](...)" footer and
+# lines starting with the robot emoji. Prose that merely mentions them is kept.
+# Enabled by `git config core.hooksPath .github/hooks`; CI's Attribution check fails a pull
+# request that has any.
+msg="$1"
+pattern='^[[:space:]]*(co-authored-by:.*(claude|anthropic)|🤖|.*generated with \[claude code\]\()'
+grep -viE "$pattern" "$msg" > "$msg.clean"
+# grep exits 1 when every line was removed, 2 on an error: keep the message as it was on an error.
+if [ $? -le 1 ]; then mv "$msg.clean" "$msg"; else rm -f "$msg.clean"; fi

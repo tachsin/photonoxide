@@ -136,7 +136,7 @@ checks their rows (and the report's head and list of cases); the release PR chec
   0.x patches compatible where it costs little: a new field on a public struct that users build
   with a literal breaks them; put new settings in a type of their own, `#[non_exhaustive]`, taken
   by a new method.
-- **Commits:** no AI attribution lines (no 🤖 footer, no Co-Authored-By trailer).
+- **Commits:** no AI attribution lines (no 🤖 footer, no Co-Authored-By trailer), in any commit of a PR or in its description: a squash merge copies every commit's message into main's. CI's Attribution check fails a PR that has one, and `git config core.hooksPath .github/hooks` strips them from new commits.
 
 ## From scratch
 
