@@ -40,7 +40,10 @@ fn every_device_in_the_library_opens() {
         .into_iter()
         .map(|l| l.id)
         .collect();
-    let examples: Vec<String> = crate::examples::list().into_iter().map(|e| e.name).collect();
+    let examples: Vec<String> = crate::examples::list()
+        .into_iter()
+        .map(|e| e.name)
+        .collect();
     for info in &library {
         // the component it stands for, its lesson and its published results exist
         assert!(entries.contains(&info.id), "{}", info.id);
@@ -66,7 +69,12 @@ fn every_device_in_the_library_opens() {
         assert!(!figures.figures.is_empty());
         for f in &figures.figures {
             assert_eq!(f.fidelity, "analytic");
-            assert!(!f.grid.is_empty(), "{}: {} names no grid", info.kind, f.symbol);
+            assert!(
+                !f.grid.is_empty(),
+                "{}: {} names no grid",
+                info.kind,
+                f.symbol
+            );
         }
         let s = spectrum(&spec, "analytic", Sweep::default()).unwrap();
         assert_eq!(s.ports.len(), info.ports.len());
@@ -85,7 +93,10 @@ fn the_geometry_and_figures_are_the_librarys_for_the_same_values() {
             &[("w", "480 nm"), ("width", "w"), ("gap", "w/2.5")],
         ),
         ("all-pass ring", &[("radius", "12"), ("gap", "0.25")]),
-        ("add-drop ring", &[("coupling_length", "2"), ("gap_drop", "0.3")]),
+        (
+            "add-drop ring",
+            &[("coupling_length", "2"), ("gap_drop", "0.3")],
+        ),
     ];
     for (kind, parameters) in cases {
         let spec = design(kind, parameters);
@@ -131,8 +142,12 @@ fn the_geometry_and_figures_are_the_librarys_for_the_same_values() {
     }
     // at the defaults, the figures are those of the library's own device
     let d = device::StripWaveguide::new();
-    let ours = derived(&design("waveguide", &[]), "analytic").unwrap().figures;
-    let theirs = d.derived(&Values::defaults(&d), Fidelity::Analytic).unwrap();
+    let ours = derived(&design("waveguide", &[]), "analytic")
+        .unwrap()
+        .figures;
+    let theirs = d
+        .derived(&Values::defaults(&d), Fidelity::Analytic)
+        .unwrap();
     assert_eq!(ours[0].value, theirs[0].value);
 }
 
@@ -190,7 +205,12 @@ fn a_design_round_trips_through_the_form_and_the_file() {
         },
         ..design(
             "directional coupler",
-            &[("w", "450 nm"), ("width", "w"), ("gap", "w/2.5"), ("length", "6.5 um")],
+            &[
+                ("w", "450 nm"),
+                ("width", "w"),
+                ("gap", "w/2.5"),
+                ("length", "6.5 um"),
+            ],
         )
     };
     // the form: the device's parameters in its order, then the others, each as it was given
@@ -207,21 +227,42 @@ fn a_design_round_trips_through_the_form_and_the_file() {
     let names: Vec<&str> = form.iter().map(|(n, _)| n.as_str()).collect();
     assert_eq!(
         names,
-        ["width", "thickness", "gap", "length", "loss", "wavelength", "span", "w"]
+        [
+            "width",
+            "thickness",
+            "gap",
+            "length",
+            "loss",
+            "wavelength",
+            "span",
+            "w"
+        ]
     );
     // and in that order however a file lists them
     let mut sorted_spec = spec.clone();
     sorted_spec.parameters.sort();
-    let again: Vec<String> = geometry(&sorted_spec).fields.into_iter().map(|f| f.name).collect();
+    let again: Vec<String> = geometry(&sorted_spec)
+        .fields
+        .into_iter()
+        .map(|f| f.name)
+        .collect();
     assert_eq!(again, names);
     // what the form sends back, through the file and back: the same design, expressions and all
     let edited = SpecIn {
         parameters: form.clone(),
         ..spec.clone()
     };
-    let text = saved_text(&edited, "narrow-coupler", "A narrower coupler.\nIts gap follows w.").unwrap();
+    let text = saved_text(
+        &edited,
+        "narrow-coupler",
+        "A narrower coupler.\nIts gap follows w.",
+    )
+    .unwrap();
     assert!(text.starts_with("# A narrower coupler.\n# Its gap follows w.\n"));
-    assert!(text.contains("[device]") && text.contains("gap = \"w/2.5\""), "{text}");
+    assert!(
+        text.contains("[device]") && text.contains("gap = \"w/2.5\""),
+        "{text}"
+    );
     let (back, name, about) = read_text(&text).unwrap();
     assert_eq!(name, "narrow-coupler");
     assert_eq!(about, "A narrower coupler.\nIts gap follows w.");
@@ -263,7 +304,10 @@ fn errors_show_in_their_field_and_what_uses_a_parameter_is_listed() {
     // a unit that doesn't fit, and a value out of range, in their own fields
     let view = coupler(&[("loss", "2 um")]);
     assert!(field(&view, "loss").error.is_some(), "{:?}", view.problem);
-    let view = geometry(&design("directional coupler", &[("w", "9 um"), ("width", "w")]));
+    let view = geometry(&design(
+        "directional coupler",
+        &[("w", "9 um"), ("width", "w")],
+    ));
     assert!(field(&view, "width").error.is_some(), "{:?}", view.problem);
     // a stack that can't be built is the stack's, not a field's
     let mut spec = design("waveguide", &[]);

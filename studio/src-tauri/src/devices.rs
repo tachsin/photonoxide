@@ -465,7 +465,9 @@ fn definitions(spec: &Spec, device: &dyn Device) -> Vec<(String, String)> {
         .parameters()
         .iter()
         .map(|p| {
-            given(&p.name).cloned().unwrap_or_else(|| (p.name.clone(), format!("{:?}", p.default)))
+            given(&p.name)
+                .cloned()
+                .unwrap_or_else(|| (p.name.clone(), format!("{:?}", p.default)))
         })
         .collect();
     all.extend(
@@ -497,7 +499,10 @@ pub fn geometry(spec_in: &SpecIn) -> GeometryView {
     };
     // the device's own parameters, whatever its stack: a stack that can't be built still has
     // its fields shown
-    let Some(template) = device::library().into_iter().find(|d| d.kind() == spec.kind) else {
+    let Some(template) = device::library()
+        .into_iter()
+        .find(|d| d.kind() == spec.kind)
+    else {
         view.problem = Some(format!("no device \"{}\"", spec.kind));
         return view;
     };
@@ -593,7 +598,11 @@ pub fn geometry(spec_in: &SpecIn) -> GeometryView {
     let values = design.values();
     view.values = Some(values.as_slice().to_vec());
     // where the fidelity's stated error holds
-    if let Some(m) = device.fidelities().iter().find(|m| m.fidelity == spec.fidelity) {
+    if let Some(m) = device
+        .fidelities()
+        .iter()
+        .find(|m| m.fidelity == spec.fidelity)
+    {
         for r in &m.validity {
             if let Some(v) = values.get(&r.name)
                 && !(r.min..=r.max).contains(&v)
@@ -671,7 +680,11 @@ fn uses(fields: &mut [Field], parameters: Option<&expr::Parameters>) {
 /// The identifiers in an expression's text.
 fn words(text: &str) -> impl Iterator<Item = &str> {
     text.split(|c: char| !(c.is_alphanumeric() || c == '_'))
-        .filter(|w| w.chars().next().is_some_and(|c| c.is_alphabetic() || c == '_'))
+        .filter(|w| {
+            w.chars()
+                .next()
+                .is_some_and(|c| c.is_alphabetic() || c == '_')
+        })
 }
 
 /// The form's fields, the design's values, ports and scene.
@@ -699,15 +712,15 @@ fn built(spec: &Spec, fidelity: Fidelity) -> Result<Arc<Built>, String> {
         fidelity_name(fidelity),
         design.values().as_slice()
     );
-    let lock = || BUILT.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let lock = || {
+        BUILT
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    };
     if let Some((_, b)) = lock().iter().find(|(k, _)| *k == key) {
         return Ok(b.clone());
     }
-    let b = Arc::new(
-        device
-            .component(design.values(), fidelity)
-            .map_err(text)?,
-    );
+    let b = Arc::new(device.component(design.values(), fidelity).map_err(text)?);
     let mut kept = lock();
     kept.retain(|(k, _)| *k != key);
     kept.push((key, b.clone()));
@@ -782,7 +795,11 @@ pub struct DeviceSpectrum {
     validity: Option<(f64, f64)>,
 }
 
-fn spectrum_of(spec: &SpecIn, fidelity: &str, sweep: Sweep) -> Result<(Spectrum, Arc<Built>), String> {
+fn spectrum_of(
+    spec: &SpecIn,
+    fidelity: &str,
+    sweep: Sweep,
+) -> Result<(Spectrum, Arc<Built>), String> {
     let f = device::fidelity(fidelity).map_err(text)?;
     let b = built(&spec.spec()?, f)?;
     let spectrum =
@@ -798,14 +815,22 @@ pub fn spectrum(spec: &SpecIn, fidelity: &str, sweep: Sweep) -> Result<DeviceSpe
         data: SpectrumData::of(&s),
         ports: ports_of(b.component.as_ref()),
         fidelity: fidelity_name(p.fidelity),
-        grid: b.figures.first().map(|f| f.grid.clone()).unwrap_or_default(),
+        grid: b
+            .figures
+            .first()
+            .map(|f| f.grid.clone())
+            .unwrap_or_default(),
         source: p.source,
         validity: p.validity,
     })
 }
 
 #[tauri::command(async)]
-pub fn device_spectrum(spec: SpecIn, fidelity: String, sweep: Sweep) -> Result<DeviceSpectrum, String> {
+pub fn device_spectrum(
+    spec: SpecIn,
+    fidelity: String,
+    sweep: Sweep,
+) -> Result<DeviceSpectrum, String> {
     spectrum(&spec, &fidelity, sweep)
 }
 

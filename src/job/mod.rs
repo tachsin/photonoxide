@@ -1763,16 +1763,16 @@ fn device_scene(job: &Job) -> Result<Event> {
     let values = design.values();
     let geometry = device.geometry(values)?;
     let shapes = scene_shapes(&geometry.structure);
-    let points = shapes
-        .iter()
-        .flat_map(|s| s.outline.iter().copied())
-        .chain(
-            geometry
-                .ports
-                .iter()
-                .map(|p| [p.position.x.to_um(), p.position.y.to_um()]),
-        );
-    let (mut x, mut y) = ([f64::INFINITY, f64::NEG_INFINITY], [f64::INFINITY, f64::NEG_INFINITY]);
+    let points = shapes.iter().flat_map(|s| s.outline.iter().copied()).chain(
+        geometry
+            .ports
+            .iter()
+            .map(|p| [p.position.x.to_um(), p.position.y.to_um()]),
+    );
+    let (mut x, mut y) = (
+        [f64::INFINITY, f64::NEG_INFINITY],
+        [f64::INFINITY, f64::NEG_INFINITY],
+    );
     for [px, py] in points {
         x = [x[0].min(px), x[1].max(px)];
         y = [y[0].min(py), y[1].max(py)];
@@ -2485,7 +2485,10 @@ radius = "5 um"
         // the bus reaches past the ring by its width and 1 um, the ring's top is 2r + w + gap up
         let reach = 5.0 + 0.45 + 1.0;
         assert!((x_um[0] + reach + 1.0).abs() < 1e-9 && (x_um[1] - reach - 1.0).abs() < 1e-9);
-        assert!((y_um[1] - (0.45 + 0.18 + 10.0 + 0.225 + 1.0)).abs() < 1e-3, "{y_um:?}");
+        assert!(
+            (y_um[1] - (0.45 + 0.18 + 10.0 + 0.225 + 1.0)).abs() < 1e-3,
+            "{y_um:?}"
+        );
         // a run records the scene
         let root = temp("device");
         let mut run = Run::create(&root.0, &job).unwrap();

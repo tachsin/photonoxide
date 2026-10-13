@@ -137,7 +137,11 @@ impl Spec {
     /// [`Error::Parse`] for a table that isn't one: a missing or unknown key, a value of the
     /// wrong type, an unknown fidelity.
     pub fn from_table(table: &Table) -> Result<Spec> {
-        known(table, "[device]", &["kind", "fidelity", "stack", "parameters"])?;
+        known(
+            table,
+            "[device]",
+            &["kind", "fidelity", "stack", "parameters"],
+        )?;
         let kind = string(table, "[device]", "kind")?
             .ok_or_else(|| parse("[device] needs a kind, e.g. kind = \"waveguide\""))?;
         let fidelity = match string(table, "[device]", "fidelity")? {
@@ -363,7 +367,8 @@ impl StackSpec {
             Value::Table(t) if t.contains_key("preset") => {
                 known(t, "[device.stack]", &["preset", "bottom_oxide_um"])?;
                 let name = string(t, "[device.stack]", "preset")?.unwrap_or_default();
-                let bottom_oxide_um = number(t, "[device.stack]", "bottom_oxide_um")?.unwrap_or(2.0);
+                let bottom_oxide_um =
+                    number(t, "[device.stack]", "bottom_oxide_um")?.unwrap_or(2.0);
                 Ok(StackSpec::Preset {
                     name,
                     bottom_oxide_um,
@@ -385,13 +390,18 @@ impl StackSpec {
                         .enumerate()
                         .map(|(k, l)| LayerSpec::from_value(l, k))
                         .collect::<Result<Vec<_>>>()?,
-                    _ => return Err(parse(format!("{at} needs its layers: [[device.stack.layer]]"))),
+                    _ => {
+                        return Err(parse(format!(
+                            "{at} needs its layers: [[device.stack.layer]]"
+                        )));
+                    }
                 };
                 Ok(StackSpec::Layers {
                     substrate: medium("substrate")?,
                     cladding: medium("cladding")?,
-                    core: string(t, at, "core")?
-                        .ok_or_else(|| parse(format!("{at} needs its core layer: core = \"Si\"")))?,
+                    core: string(t, at, "core")?.ok_or_else(|| {
+                        parse(format!("{at} needs its core layer: core = \"Si\""))
+                    })?,
                     layers,
                 })
             }
