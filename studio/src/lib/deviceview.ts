@@ -45,9 +45,12 @@ export function bare(e: string): boolean {
 
 /** A field's expression as its input shows it: a bare length (kept in µm) in the unit chosen, with "nm" after it in nm. */
 export function showExpression(f: Pick<DeviceField, "unit" | "expression">): string {
-  if (!isMicrometres(f.unit) || !bare(f.expression)) return f.expression;
-  const v = shown(Number(f.expression));
-  return lengthUnit() === "nm" ? `${v} nm` : String(v);
+  if (!bare(f.expression)) return f.expression;
+  // a default kept to the last bit (a coupler's 3 dB length) reads to ten digits; it stays exact until typed over
+  const short = (x: number) => String(Number(x.toPrecision(10)));
+  if (!isMicrometres(f.unit)) return short(Number(f.expression));
+  const v = short(shown(Number(f.expression)));
+  return lengthUnit() === "nm" ? `${v} nm` : v;
 }
 
 /** What a field's input holds, as the design keeps it: a bare length typed in the unit chosen, back in µm. */
