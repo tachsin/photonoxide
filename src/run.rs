@@ -33,6 +33,8 @@ struct JobFile {
     timeout_minutes: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     solver: Option<SolverFile>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    device: Option<toml::Table>,
     #[serde(default)]
     task: toml::Table,
 }
@@ -91,6 +93,7 @@ pub struct Job {
     timeout: Option<Duration>,
     solver: Option<SolverFile>,
     direct: Choice,
+    device: Option<toml::Table>,
     task: toml::Table,
     text: String,
     format: Format,
@@ -110,6 +113,9 @@ impl Job {
     /// [task]                   # read by the solver that runs the job
     /// width_um = 0.5
     /// ```
+    ///
+    /// or, in place of a task, a `[device]` table: one of [`crate::device`]'s devices with its
+    /// stack, its parameters' expressions and its fidelity ([`crate::device::Spec`]).
     ///
     /// # Errors
     ///
@@ -169,6 +175,7 @@ impl Job {
             timeout,
             solver: file.solver,
             direct,
+            device: file.device,
             task: file.task,
             text: text.to_owned(),
             format,
@@ -208,6 +215,12 @@ impl Job {
         &self.task
     }
 
+    /// The job's `[device]` table, if it has one: a device's design
+    /// ([`crate::device::Spec::from_table`] reads it).
+    pub fn device(&self) -> Option<&toml::Table> {
+        self.device.as_ref()
+    }
+
     /// The direct solver the job asks for in its `[solver]` table: `auto` unless it names one.
     pub fn direct(&self) -> &Choice {
         &self.direct
@@ -235,6 +248,7 @@ impl Job {
             name: self.name.clone(),
             timeout_minutes: self.timeout_minutes,
             solver: self.solver.clone(),
+            device: self.device.clone(),
             task: self.task.clone(),
         };
         let write = |reason: String| Error::Parse {
@@ -883,6 +897,7 @@ mod tests {
             timeout: Some(Duration::from_secs_f64(6.0)),
             solver: None,
             direct: Choice::Auto,
+            device: None,
             task,
             text: String::new(),
             format: Format::Toml,

@@ -84,10 +84,11 @@ area fdtd \
   "bump_oskooi cpml_roden_gedney lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
 
 # jobs, their runs and replay, and farming them out; the job files in jobs/ are read by the
-# library's tests and validation cases, by the studio's and by the Python package's
+# library's tests and validation cases, by the studio's and by the Python package's; a job's
+# [device] table is read, checked and drawn by the devices
 area job \
   "src/job/* src/run.rs src/farm.rs src/farm/* jobs/*" \
-  "material mode sparse fdfd fdtd" \
+  "material mode sparse fdfd fdtd device" \
   "job:: run:: farm::" "" ""
 
 # a component sampled from an fdfd job's S-parameters runs the job

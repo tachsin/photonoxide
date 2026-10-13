@@ -11,6 +11,7 @@ mod channels;
 mod charts;
 mod circuits;
 mod dependencies;
+mod devices;
 mod diagrams;
 mod examples;
 mod farm;

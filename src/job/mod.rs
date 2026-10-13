@@ -35,6 +35,12 @@
 //! shape's field, naming the table and field: `[[task.rect]] #2, size: value 1: column 3:
 //! unknown name "wdth"`; and a parameter's sweep whose shapes at either end aren't shapes.
 //!
+//! **A device's design.** A job may hold a `[device]` table in place of a task: one of
+//! [`crate::device`]'s devices, its stack, its parameters' expressions and its fidelity
+//! ([`crate::device::Spec`]). [`check`] builds the device and its design and refuses what
+//! [`crate::device::Spec::build`] refuses; [`preview`] draws its structure, over its shapes and
+//! ports with 1 µm around them and 1 µm below and above the core; a run records that scene.
+//!
 //! A job file's `[task]` table names its kind. The kinds so far:
 //!
 //! - `"structure"`: a layer stack with shapes drawn on it, recorded as pictures of its
@@ -1573,6 +1579,19 @@ fn reason(stop: &Stop) -> Option<String> {
 /// task itself (an invalid shape, a wavelength a material has no data for), and
 /// [`Error::Io`] if the record can't be written.
 pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+    if job.device().is_some() {
+        let scene = device_scene(job)?;
+        run.record(&Event::Started {
+            job: job.name().to_owned(),
+            kind: "device".into(),
+        })?;
+        run.record(&scene)?;
+        let seconds = run.elapsed().as_secs_f64();
+        return run.record(&Event::Finished {
+            stopped: reason(stop),
+            seconds,
+        });
+    }
     let kind = job
         .task()
         .get("kind")
@@ -1632,6 +1651,9 @@ fn check_direct(job: &Job, kind: &str) -> Result<()> {
 }
 
 fn check_inner(job: &Job) -> Result<()> {
+    if job.device().is_some() {
+        return device_scene(job).map(|_| ());
+    }
     let kind = job
         .task()
         .get("kind")
@@ -1725,6 +1747,57 @@ fn structure(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 
 /// A structure job's scene: the window, 1 µm above and below the layer seen from above unless
 /// `z_um` says otherwise.
+/// The scene of a job's `[device]`: its structure at its design's values, over its shapes and
+/// ports with 1 µm around them, from 1 µm below its core to 1 µm above, its permittivities at its
+/// `wavelength` parameter (1.55 µm for a device without one). A job with a device has no task.
+fn device_scene(job: &Job) -> Result<Event> {
+    if !job.task().is_empty() {
+        return Err(task_error(
+            "a job with a [device] table holds its design and has no [task]",
+        ));
+    }
+    let table = job
+        .device()
+        .ok_or_else(|| task_error("the job has no [device] table"))?;
+    let (device, design) = crate::device::Spec::from_table(table)?.build()?;
+    let values = design.values();
+    let geometry = device.geometry(values)?;
+    let shapes = scene_shapes(&geometry.structure);
+    let points = shapes
+        .iter()
+        .flat_map(|s| s.outline.iter().copied())
+        .chain(
+            geometry
+                .ports
+                .iter()
+                .map(|p| [p.position.x.to_um(), p.position.y.to_um()]),
+        );
+    let (mut x, mut y) = ([f64::INFINITY, f64::NEG_INFINITY], [f64::INFINITY, f64::NEG_INFINITY]);
+    for [px, py] in points {
+        x = [x[0].min(px), x[1].max(px)];
+        y = [y[0].min(py), y[1].max(py)];
+    }
+    if !x[0].is_finite() {
+        (x, y) = ([0.0, 0.0], [0.0, 0.0]);
+    }
+    let core = geometry
+        .ports
+        .first()
+        .map_or_else(|| "Si".to_owned(), |p| p.layer.clone());
+    let (_, bottom, top) = geometry
+        .structure
+        .stack()
+        .layer(&core)
+        .ok_or_else(|| task_error(format!("the stack has no layer {core}")))?;
+    scene(
+        &geometry.structure,
+        [x[0] - 1.0, x[1] + 1.0],
+        [y[0] - 1.0, y[1] + 1.0],
+        [bottom.to_um() - 1.0, top.to_um() + 1.0],
+        Wavelength::um(values.get("wavelength").unwrap_or(1.55))?,
+    )
+}
+
 fn structure_scene(task: &StructureTask, s: &Structure) -> Result<Event> {
     let z = window_z(task.z_um, &task.layer, s, task.step_nm)?;
     scene(
@@ -1932,6 +2005,9 @@ fn modes_scene(task: &ModesTask, s: &Structure) -> Result<Event> {
 ///
 /// The errors of [`check`].
 pub fn preview(job: &Job) -> Result<Event> {
+    if job.device().is_some() {
+        return device_scene(job);
+    }
     check(job)?;
     match job.task().get("kind").and_then(|k| k.as_str()) {
         Some("structure") => {
@@ -2369,6 +2445,69 @@ size_um = [2.0, 0.5]
             &events[3],
             Event::Finished { stopped: Some(r), .. } if r == "requested"
         ));
+    }
+
+    const DEVICE: &str = r#"
+name = "narrow-ring"
+
+[device]
+kind = "all-pass ring"
+fidelity = "analytic"
+stack = "soi_220"
+
+[device.parameters]
+w = "450 nm"
+width = "w"
+gap = "w/2.5"
+radius = "5 um"
+"#;
+
+    #[test]
+    fn a_device_job_is_checked_drawn_and_recorded() {
+        let job = Job::parse(DEVICE).unwrap();
+        check(&job).unwrap();
+        let Event::Scene {
+            x_um,
+            y_um,
+            z_um,
+            shapes,
+            layers,
+            ..
+        } = preview(&job).unwrap()
+        else {
+            panic!("not a scene")
+        };
+        // the bus and the ring on the Si layer, 1 um around them, 1 um below and above it
+        assert_eq!(shapes.len(), 2);
+        assert!(shapes.iter().all(|s| s.layer == "Si"));
+        assert_eq!(layers.len(), 2);
+        assert!((z_um[0] - 1.0).abs() < 1e-12 && (z_um[1] - 3.22).abs() < 1e-12);
+        // the bus reaches past the ring by its width and 1 um, the ring's top is 2r + w + gap up
+        let reach = 5.0 + 0.45 + 1.0;
+        assert!((x_um[0] + reach + 1.0).abs() < 1e-9 && (x_um[1] - reach - 1.0).abs() < 1e-9);
+        assert!((y_um[1] - (0.45 + 0.18 + 10.0 + 0.225 + 1.0)).abs() < 1e-3, "{y_um:?}");
+        // a run records the scene
+        let root = temp("device");
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let events: Vec<Event> = replay(run.dir()).unwrap();
+        assert!(matches!(&events[0], Event::Started { kind, .. } if kind == "device"));
+        assert!(matches!(&events[1], Event::Scene { .. }));
+        assert!(matches!(&events[2], Event::Finished { stopped: None, .. }));
+        // what isn't a design is refused, as is a task beside it
+        for bad in [
+            DEVICE.replace("all-pass ring", "taper"),
+            DEVICE.replace("w/2.5", "w/0"),
+            DEVICE.replace("\"5 um\"", "\"5 deg\""),
+            format!("{DEVICE}\n[task]\nkind = \"structure\"\n"),
+        ] {
+            let job = Job::parse(&bad).unwrap();
+            assert!(check(&job).is_err(), "{bad}");
+        }
+        // its text in JSON is the same job
+        let json = crate::run::Format::Json;
+        let json = Job::parse_as(&job.to_text(json).unwrap(), json).unwrap();
+        assert_eq!(json.device(), job.device());
     }
 
     const MODES: &str = r#"

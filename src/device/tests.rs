@@ -648,3 +648,129 @@ fn the_library_has_the_first_devices_each_with_its_models() {
         assert!(!d.about().is_empty());
     }
 }
+
+#[test]
+fn a_spec_on_the_default_stack_is_the_librarys_device() {
+    for d in library() {
+        let (device, design) = Spec::new(d.kind()).build().unwrap();
+        let values = Values::defaults(d.as_ref());
+        assert_eq!(design.values(), &values, "{}", d.kind());
+        assert_eq!(device.parameters(), d.parameters());
+        assert_eq!(device.fidelities(), d.fidelities());
+        assert_eq!(
+            device.geometry(&values).unwrap(),
+            d.geometry(&values).unwrap()
+        );
+        assert_eq!(
+            device.derived(&values, A).unwrap(),
+            d.derived(&values, A).unwrap(),
+            "{}",
+            d.kind()
+        );
+    }
+    // a preset written out as layers of the catalogue's materials is the same stack
+    for name in PRESETS {
+        let preset = StackSpec::preset(name);
+        assert_eq!(preset.build().unwrap(), preset.layers().build().unwrap());
+    }
+}
+
+#[test]
+fn a_spec_reads_back_from_its_table_expressions_and_stack_included() {
+    let spec = Spec {
+        kind: "directional coupler".into(),
+        fidelity: Fidelity::ThreeD,
+        stack: StackSpec::Layers {
+            substrate: MaterialSpec::id("si"),
+            layers: vec![
+                LayerSpec {
+                    name: "BOX".into(),
+                    thickness_um: 3.0,
+                    material: MaterialSpec::id("sio2"),
+                    background: MaterialSpec::id("sio2"),
+                },
+                LayerSpec {
+                    name: "Si".into(),
+                    thickness_um: 0.22,
+                    material: MaterialSpec {
+                        id: "si".into(),
+                        model: Some("li-1980".into()),
+                        temperature: None,
+                        composition: None,
+                    },
+                    background: MaterialSpec::id("sio2"),
+                },
+            ],
+            cladding: MaterialSpec::id("sio2"),
+            core: "Si".into(),
+        },
+        // by name, as a file lists them
+        parameters: vec![
+            ("gap".into(), "w/2.5".into()),
+            ("w".into(), "450 nm".into()),
+            ("width".into(), "w".into()),
+        ],
+    };
+    let text = toml::to_string(&spec.to_table()).unwrap();
+    let back = Spec::from_table(&toml::from_str(&text).unwrap()).unwrap();
+    assert_eq!(back, spec);
+    let (device, design) = back.build().unwrap();
+    assert_eq!(device.kind(), "directional coupler");
+    assert_eq!(design.values().get("width"), Some(0.45));
+    assert!((design.values().get("gap").unwrap() - 0.18).abs() < 1e-15);
+    // a preset with another oxide, and the default fidelity
+    let t: toml::Table = toml::from_str(
+        "kind = \"waveguide\"\nstack = { preset = \"nitride\", bottom_oxide_um = 3 }\n",
+    )
+    .unwrap();
+    let s = Spec::from_table(&t).unwrap();
+    assert_eq!(s.fidelity, A);
+    assert_eq!(
+        s.stack,
+        StackSpec::Preset {
+            name: "nitride".into(),
+            bottom_oxide_um: 3.0
+        }
+    );
+    assert_eq!(Spec::from_table(&s.to_table()).unwrap(), s);
+}
+
+#[test]
+fn a_spec_refuses_what_isnt_a_design() {
+    let read = |text: &str| Spec::from_table(&toml::from_str(text).unwrap());
+    let built = |text: &str| read(text).and_then(|s| s.build().map(|_| ()));
+    assert!(read("fidelity = \"analytic\"").is_err());
+    assert!(read("kind = \"bend\"\nshape = 1").is_err());
+    assert!(read("kind = \"bend\"\nfidelity = \"4D\"").is_err());
+    assert!(built("kind = \"taper\"").is_err());
+    assert!(built("kind = \"waveguide\"\nstack = \"glass\"").is_err());
+    // a waveguide has no 2D model; a bend has
+    assert!(built("kind = \"waveguide\"\nfidelity = \"2D\"").is_err());
+    assert!(built("kind = \"bend\"\nfidelity = \"2D\"").is_ok());
+    // expressions: a cycle, a unit that doesn't fit, a value out of range
+    let p = |defs: &str| built(&format!("kind = \"waveguide\"\n[parameters]\n{defs}"));
+    assert!(p("width = \"length\"\nlength = \"width\"").is_err());
+    assert!(p("width = \"90 deg\"").is_err());
+    assert!(p("width = \"9 um\"").is_err());
+    assert!(p("width = \"450 nm\"").is_ok());
+    // a core that isn't a layer, and an anisotropic material
+    let layers = |core: &str, material: &str| {
+        format!(
+            "kind = \"waveguide\"\n[stack]\ncore = \"{core}\"\nsubstrate = \"si\"\n\
+             cladding = \"sio2\"\n[[stack.layer]]\nname = \"Si\"\nthickness_um = 0.22\n\
+             material = \"{material}\"\nbackground = \"sio2\"\n"
+        )
+    };
+    assert!(built(&layers("Si", "si")).is_ok());
+    assert!(built(&layers("core", "si")).is_err());
+    assert!(built(&layers("Si", "linbo3")).is_err());
+}
+
+#[test]
+fn on_nitride_the_analytic_fits_refuse_and_say_to_solve() {
+    let mut spec = Spec::new("waveguide");
+    spec.stack = StackSpec::preset("nitride");
+    let (device, design) = spec.build().unwrap();
+    let e = device.derived(design.values(), A).unwrap_err().to_string();
+    assert!(e.contains("silicon") && e.contains("3D"), "{e}");
+}

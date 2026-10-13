@@ -31,6 +31,11 @@
 //! performance; a 3D figure states the solver's grid. A solver-backed fidelity solves on its
 //! device's [`Mesh`].
 //!
+//! **Saved as a job.** A [`Spec`] is a device's design as a job file's `[device]` table holds
+//! it: the device's kind, its stack (a preset or layers of the materials catalogue's), its
+//! parameters' expressions and its fidelity. [`crate::job::check`] checks it and
+//! [`crate::job::preview`] draws it.
+//!
 //! docs/methods/devices.md describes the abstraction and each device's models, with their
 //! papers and the validation of each.
 
@@ -40,6 +45,7 @@ mod fit;
 mod guide;
 mod ring;
 mod section;
+mod spec;
 mod waveguide;
 
 pub(crate) mod checks;
@@ -50,6 +56,7 @@ pub use bend::StripBend;
 pub use coupler::StripCoupler;
 pub use ring::StripRing;
 pub use section::{Cells, Mesh, Scheme, Symmetry};
+pub use spec::{LayerSpec, MaterialSpec, PRESETS, Spec, StackSpec, fidelity};
 pub use waveguide::StripWaveguide;
 
 use std::fmt;

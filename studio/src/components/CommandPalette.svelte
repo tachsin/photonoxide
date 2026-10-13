@@ -8,6 +8,7 @@
   import { app, go, showPublished, startRun, updateSettings, type Page } from "../lib/app.svelte";
   import { PAGES, RAIL, SYSTEM } from "../lib/pages";
   import { addInstance, importTouchstone, library, loadLibrary, openChipFile, partKey, saveChip, showChip, simulate } from "../lib/chip.svelte";
+  import { openDesign } from "../lib/device.svelte";
   import { template, toToml, type Kind } from "../lib/job";
   import { checkForUpdate } from "../lib/updater.svelte";
 
@@ -102,7 +103,9 @@
       });
     }
     for (const j of home?.jobs ?? []) {
-      all.push({ group: "Your jobs", label: j.name, detail: j.about || j.kind, run: () => openJob(j.path) });
+      // a device's design reopens on its page; any other job in the job builder
+      if (j.kind === "device") all.push({ group: "Your designs", label: j.name, detail: j.about || "a device's design", run: () => openDesign(j.path) });
+      else all.push({ group: "Your jobs", label: j.name, detail: j.about || j.kind, run: () => openJob(j.path) });
     }
     // every run, by its job's name or its own; an empty search shows only pages and actions
     for (const r of home?.runs ?? []) {

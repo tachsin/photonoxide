@@ -577,7 +577,7 @@ pub struct KindInfo {
 }
 
 #[derive(Serialize)]
-struct PortInfo {
+pub(crate) struct PortInfo {
     name: String,
     /// "TE0 at 1.55 µm, n_eff 2.44, n_g 4.18", when the component states it.
     mode: Option<ModeInfo>,
@@ -631,6 +631,23 @@ fn info(entry: &library::Entry) -> Result<KindInfo, String> {
     Ok(info)
 }
 
+/// Component `c`'s ports, with their modes where it states them.
+pub(crate) fn ports_of(c: &dyn Component) -> Vec<PortInfo> {
+    c.ports()
+        .iter()
+        .map(|p| PortInfo {
+            name: p.name.clone(),
+            mode: p.mode.as_ref().map(|m| ModeInfo {
+                polarization: format!("{:?}", m.polarization),
+                order: m.order,
+                effective_index: m.effective_index,
+                group_index: m.group_index,
+                wavelength_um: m.wavelength.to_um(),
+            }),
+        })
+        .collect()
+}
+
 /// What the library says of component `c`, drawn as `glyph`; the studio's words left empty.
 fn describe(c: &dyn Component, glyph: library::Glyph) -> KindInfo {
     let p = c.provenance();
@@ -644,20 +661,7 @@ fn describe(c: &dyn Component, glyph: library::Glyph) -> KindInfo {
         file: None,
         convention: None,
         kind: c.kind().into(),
-        ports: c
-            .ports()
-            .iter()
-            .map(|p| PortInfo {
-                name: p.name.clone(),
-                mode: p.mode.as_ref().map(|m| ModeInfo {
-                    polarization: format!("{:?}", m.polarization),
-                    order: m.order,
-                    effective_index: m.effective_index,
-                    group_index: m.group_index,
-                    wavelength_um: m.wavelength.to_um(),
-                }),
-            })
-            .collect(),
+        ports: ports_of(c),
         parameters: c
             .parameters()
             .iter()
@@ -724,7 +728,7 @@ pub struct SpectrumData {
 }
 
 impl SpectrumData {
-    fn of(spectrum: &Spectrum) -> SpectrumData {
+    pub(crate) fn of(spectrum: &Spectrum) -> SpectrumData {
         let n = spectrum.ports().len();
         let parts = |f: fn(photonoxide::Complex64) -> f64| -> Vec<Vec<Vec<f64>>> {
             (0..n)
@@ -875,7 +879,7 @@ fn simulate(chip: &Chip, root: &Path) -> Result<Simulation, String> {
 
 /// Writes `spectrum` to `path` as a Touchstone file (Version 2.0, its ports in order, in
 /// photonoxide's e^(−iωt) convention).
-fn write_touchstone(path: &Path, spectrum: &Spectrum) -> Result<(), String> {
+pub(crate) fn write_touchstone(path: &Path, spectrum: &Spectrum) -> Result<(), String> {
     Touchstone::from_spectrum(spectrum, Convention::Physics)
         .and_then(|file| file.write_file(path, Precision::RoundTrip))
         .map_err(|e| e.to_string())

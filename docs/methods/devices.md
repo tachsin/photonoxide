@@ -252,6 +252,58 @@ Bogaerts's: the free spectral range $\lambda^2/(n_g L)$ (Eq. 9), the resonance n
 (Eq. 3), the loaded Q (Eqs. 20 and 22), and the extinction or the drop on resonance (Eqs. 11–16).
 At the defaults (10 µm, 200 nm) the analytic κ² is 0.0124, 2.2 % below 3D's.
 
+## Saved as a job
+
+A device's design is a job file with a `[device]` table in place of a task (`device::Spec`):
+the device by its kind, its stack, its parameters' expressions, and the fidelity it is computed
+at.
+
+```toml
+name = "narrow-coupler"
+
+[device]
+kind = "directional coupler"   # waveguide, bend, directional coupler, all-pass ring, add-drop ring
+fidelity = "analytic"          # analytic (the default), 2D or 3D, as the device has them
+stack = "soi_220"              # soi_220 (the default), soi or nitride
+
+[device.parameters]            # expressions; the device's parameters left out take their defaults
+w = "450 nm"
+width = "w"
+gap = "w/2.5"
+```
+
+A stack is a preset, `"soi"` and `"nitride"` with 2 µm of oxide under the core or
+`{ preset = "nitride", bottom_oxide_um = 3 }`, or layers of the
+[materials catalogue](catalogue.md)'s, bottom to top, each material an id (its default model at
+its default conditions) or `{ id = "si", model = "li-1980", temperature = 300 }`:
+
+```toml
+[device.stack]
+core = "Si"                    # the layer the guides are drawn on: its thickness is the device's
+substrate = "si"
+cladding = "sio2"
+
+[[device.stack.layer]]
+name = "BOX"
+thickness_um = 2.0
+material = "sio2"
+background = "sio2"
+
+[[device.stack.layer]]
+name = "Si"
+thickness_um = 0.22
+material = "si"
+background = "sio2"
+```
+
+The presets are those materials' (Li's silicon, Malitson's silica, Luke's nitride), so a preset
+written out as layers is the same stack to the bit. On the default stack a design's device is the
+library's, to the bit. `job::check` builds the device and its design, and refuses an unknown kind,
+fidelity, preset or material, an anisotropic material, a core that isn't a layer, and what
+`Design::new` refuses; `job::preview` draws its structure over its shapes and ports with 1 µm
+around them, from 1 µm below the core to 1 µm above; a run records that scene. The studio saves a
+component page's design this way, in the workspace's `jobs/`, and opens it again on its page.
+
 ## Validation
 
 | Case | What it checks | Grid | Found |

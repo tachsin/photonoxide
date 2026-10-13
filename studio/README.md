@@ -107,6 +107,37 @@ from the status bar.
   parameters move, saved as CSV or as a Touchstone file. **Place on the chip** adds one to the
   chip being edited. **Import Touchstone** reads a `.sNp` file as a measured component, asking
   which time convention its values are in, and interpolates it in wavelength.
+  - **A device's page.** The waveguide, the bend, the directional coupler and the two rings are
+    the library's devices (`photonoxide::device`): components that know their geometry. Each
+    opens on a page of its own. One header holds its name and kind, the fidelity in use (a
+    badge that switches it: analytic, 2D or 3D as the device has them, each with its method and
+    stated error), a dot when the design has changed since it was saved, **Save** (Ctrl+S) and
+    **Place on the chip**. Two tabs below:
+    - **Overview:** its S-parameters, its figures (n_eff and n_g, the cross-over length, the free
+      spectral range, Q, a bend's loss), the model with its equation, papers (each DOI a click
+      away), stated error and where it holds, its ports with their modes, its symbol, **Open its
+      lesson** in the Academy, and the published results on it with their checks.
+    - **Design:** the stack, top to bottom: a preset (`soi_220`, `soi`, `nitride`, its oxide
+      chosen), or, after **Edit the layers**, layers of the catalogue's materials, each with its
+      thickness, material, background, model, and temperature and composition where the model
+      takes them; the core's thickness is the device's `thickness`. The geometry: each parameter
+      a field that takes a number in its unit or an expression (`w/2.5`, `450 nm`), with its
+      slider and range, what it uses and what uses it, and its error in place with a caret under
+      the column; named parameters can be added for the others to use. The views: from above,
+      with the ports named and the cut dragged along the device, the cross-section at the cut,
+      and 3D as its job draws it. And the figures, live.
+    - **Every number names its model and grid.** At the analytic fidelity the figures and the
+      S-parameters follow every change (60 ms after it). A 2D or 3D model is a solve: its button
+      runs it in the background, with the time it took last, and the page can be left meanwhile;
+      a change after it marks its figures as the design's before. A 2D figure says it is never
+      the device's performance. The analytic fits hold for widths of 400 to 600 nm, thicknesses
+      of 200 to 240 nm and gaps of 100 to 500 nm, of silicon in silica: outside them the page
+      says so, never extrapolates, and offers the 3D model. A value outside a model's stated
+      range is named.
+    - **Saved as a job:** a design saves as a job file with a `[device]` table in the
+      workspace's `jobs/` (its stack, its parameters' expressions and its fidelity;
+      docs/methods/devices.md), listed under **Your designs** at the top of the library and in
+      Ctrl+K, and reopens on its page. `photonoxide run` on one records its scene.
 - **Chip:** components placed on a canvas and wired port to port.
   - Drag parts from the left onto the canvas (or click one for the middle). Everything snaps
     to a grid of 10. Drag the background to pan, scroll to zoom, F fits the chip in view.
@@ -472,6 +503,9 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, builder, materia
     is the component library the studio offers (each kind's id, title, symbol, and the
     library's component it builds: the waveguide, bend, directional coupler and rings from the
     library's devices, `photonoxide::device`, at their defaults).
+  - `devices.rs`: a device's page's commands: the devices, a design evaluated as the form shows
+    it, its figures and spectrum at a fidelity (a solve's component kept for the spectrum after
+    it), and designs saved as job files and read back.
   - `tasks.rs`: the examples and reports running in their own processes.
   - `channels.rs`: the release channels, and the nightly channel's check (`channels/github.rs`),
     prerequisites (`channels/prereqs.rs`), build (`channels/builder.rs`) and install
@@ -480,7 +514,10 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, builder, materia
   - `pages/`: one file per page.
   - `components/`: what pages share. The rail, the runs drawer and its overlay, Validation's
     published results, the plots and pictures, the device preview, the TOML editor
-    (CodeMirror), the tour, the Ctrl+K palette, and the update dialog.
+    (CodeMirror), the tour, the Ctrl+K palette, and the update dialog. `components/device/`: a
+    device's page, its stack editor, parameter form, figures, and views from above, across and
+    in 3D.
   - `lib/`: the shared state, the pages and the rail (`pages.ts`), the program's commands, the
-    job model, the 3D view (three.js), and the updater.
+    job model, the 3D view (three.js), the devices' drafts and solves (`device.svelte.ts`), and
+    the updater.
 - `scripts/record-gifs.mjs`: records the README's GIFs (above).

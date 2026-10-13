@@ -113,6 +113,13 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::materials::materials,
             crate::materials::material_curves,
             crate::materials::material_at,
+            crate::devices::device_library,
+            crate::devices::device_geometry,
+            crate::devices::device_derived,
+            crate::devices::device_spectrum,
+            crate::devices::device_touchstone,
+            crate::devices::save_device,
+            crate::devices::read_device,
             crate::circuits::component_library,
             crate::circuits::component_spectrum,
             crate::circuits::measured_component,
@@ -397,7 +404,7 @@ fn save_settings(
 struct JobItem {
     path: String,
     name: String,
-    /// The task's kind, e.g. `"modes"`.
+    /// The task's kind, e.g. `"modes"`; `"device"` for a device's design.
     kind: String,
     /// The job file's opening comment.
     about: String,
@@ -442,6 +449,9 @@ fn home(state: tauri::State<'_, Studio>) -> Home {
 }
 
 fn kind_of(job: &Job) -> String {
+    if job.device().is_some() {
+        return "device".into();
+    }
     job.task()
         .get("kind")
         .and_then(|k| k.as_str())
