@@ -96,7 +96,33 @@ enum Want {
     Micrometres,
     /// Of this dimension; a plain number counting as one in its unit.
     Like(Option<Dim>),
+    /// An angle; a plain number only if it is zero.
+    Angle,
+    /// An angle, a plain number counting as radians (a `_rad` key).
+    Radians,
+    /// A plain number.
+    Number,
 }
+
+/// A path's fields that take values: the field, how many numbers, what each must be, and the
+/// key it is resolved into (its number key, which may also be given as a number).
+const PATH: [(&str, usize, Want, &str); 3] = [
+    ("start", 2, Want::Length, "start_um"),
+    ("width", 1, Want::Length, "width_um"),
+    ("heading", 1, Want::Angle, "heading_rad"),
+];
+
+/// A path segment's fields, as [`PATH`].
+const SEGMENT: [(&str, usize, Want, &str); 8] = [
+    ("straight", 1, Want::Length, "straight_um"),
+    ("arc", 1, Want::Angle, "arc_rad"),
+    ("euler", 1, Want::Angle, "euler_rad"),
+    ("sine", 1, Want::Length, "sine_um"),
+    ("radius", 1, Want::Length, "radius_um"),
+    ("offset", 1, Want::Length, "offset_um"),
+    ("width", 1, Want::Length, "width_um"),
+    ("p", 1, Want::Number, "p"),
+];
 
 /// `value` (an expression's string, or a number) evaluated at the parameters, as `want` says.
 fn evaluate(value: &Value, p: &Parameters, want: Want) -> std::result::Result<f64, String> {
@@ -115,6 +141,9 @@ fn evaluate(value: &Value, p: &Parameters, want: Want) -> std::result::Result<f6
         (Want::Micrometres, Some(d)) => d == Dim::LENGTH || d == Dim::NONE,
         (Want::Like(None), Some(_)) => true,
         (Want::Like(Some(w)), Some(d)) => d.fits(w) || d == Dim::NONE,
+        (Want::Angle, Some(d)) => d == Dim::ANGLE,
+        (Want::Radians, Some(d)) => d == Dim::ANGLE || d == Dim::NONE,
+        (Want::Number, Some(d)) => d == Dim::NONE,
     };
     if !ok {
         let got = e.dim().map_or("zero".to_owned(), Dim::name);
@@ -128,6 +157,11 @@ fn evaluate(value: &Value, p: &Parameters, want: Want) -> std::result::Result<f6
                 "needs {}, got {got}",
                 w.map_or("a value".to_owned(), Dim::name)
             ),
+            Want::Angle if e.dim() == Some(Dim::NONE) => format!(
+                "needs an angle, got a number: give its unit (\"{text} deg\" or \"{text} rad\")"
+            ),
+            Want::Angle | Want::Radians => format!("needs an angle, got {got}"),
+            Want::Number => format!("needs a plain number, got {got}"),
         });
     }
     e.try_eval(p.values()).map_err(|e| e.to_string())
@@ -175,6 +209,32 @@ pub(super) fn resolve(task: &Table, set: Option<(&str, f64)>) -> Result<Table> {
             }
         }
     }
+    if let Some(Value::Array(entries)) = out.get_mut("path") {
+        for (k, entry) in entries.iter_mut().enumerate() {
+            let Value::Table(entry) = entry else {
+                continue;
+            };
+            let at = |field: &str, message: String| {
+                task_error(format!("[[task.path]] #{}, {field}: {message}", k + 1))
+            };
+            resolve_fields(entry, &PATH, &p, &at)?;
+            if let Some(Value::Array(segments)) = entry.get_mut("segments") {
+                for (j, segment) in segments.iter_mut().enumerate() {
+                    let Value::Table(segment) = segment else {
+                        continue;
+                    };
+                    let at = |field: &str, message: String| {
+                        task_error(format!(
+                            "[[task.path]] #{}, segment {}, {field}: {message}",
+                            k + 1,
+                            j + 1
+                        ))
+                    };
+                    resolve_fields(segment, &SEGMENT, &p, &at)?;
+                }
+            }
+        }
+    }
     if let Some(Value::Table(sweep)) = out.get_mut("sweep")
         && let Some(name) = sweep
             .get("parameter")
@@ -197,6 +257,47 @@ pub(super) fn resolve(task: &Table, set: Option<(&str, f64)>) -> Result<Table> {
     Ok(out)
 }
 
+/// A table's `fields` resolved into their number keys: an expression in the field itself, or
+/// a number key holding a string evaluated as its unit says; a number key's numbers stay as
+/// they are.
+fn resolve_fields(
+    entry: &mut Table,
+    fields: &[(&str, usize, Want, &str)],
+    p: &Parameters,
+    at: &dyn Fn(&str, String) -> crate::Error,
+) -> Result<()> {
+    for &(field, count, want, key) in fields {
+        let loose = match want {
+            Want::Length => Want::Micrometres,
+            Want::Angle => Want::Radians,
+            other => other,
+        };
+        let resolved = if field == key {
+            match entry.get(key) {
+                Some(v) if has_string(v) => {
+                    Some(numbers(v, count, p, want).map_err(|m| at(field, m))?)
+                }
+                _ => None,
+            }
+        } else {
+            match (entry.remove(field), entry.get(key)) {
+                (Some(_), Some(_)) => {
+                    return Err(at(field, format!("give {field} or {key}, not both")));
+                }
+                (Some(v), None) => Some(numbers(&v, count, p, want).map_err(|m| at(field, m))?),
+                (None, Some(v)) if has_string(v) => {
+                    Some(numbers(v, count, p, loose).map_err(|m| at(key, m))?)
+                }
+                _ => None,
+            }
+        };
+        if let Some(v) = resolved {
+            entry.insert(key.to_owned(), v);
+        }
+    }
+    Ok(())
+}
+
 fn has_string(v: &Value) -> bool {
     match v {
         Value::String(_) => true,
@@ -215,7 +316,9 @@ fn numbers(
 ) -> std::result::Result<Value, String> {
     let one = |x: &Value| -> std::result::Result<Value, String> {
         match (want, x) {
-            (Want::Micrometres, Value::Float(_) | Value::Integer(_)) => Ok(x.clone()),
+            (Want::Micrometres | Want::Radians, Value::Float(_) | Value::Integer(_)) => {
+                Ok(x.clone())
+            }
             _ => evaluate(x, p, want).map(Value::Float),
         }
     };

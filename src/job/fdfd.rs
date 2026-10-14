@@ -12,8 +12,8 @@ use num_complex::Complex64 as c64;
 use serde::Deserialize;
 
 use super::{
-    CircleSpec, Event, RectSpec, RingSpec, check_cells, check_finite, check_materials, check_step,
-    check_sweep, check_window, draw, named_stack, scene, task_error,
+    CircleSpec, Event, PathSpec, RectSpec, RingSpec, check_cells, check_finite, check_materials,
+    check_step, check_sweep, check_window, draw, draw_paths, named_stack, scene, task_error,
 };
 use crate::fdfd::{Boundaries, Direction, Grid, Polarization, Port, Side, Solver2d};
 use crate::geometry::Point;
@@ -70,6 +70,8 @@ struct FdfdTask {
     circle: Vec<CircleSpec>,
     #[serde(default)]
     ring: Vec<RingSpec>,
+    #[serde(default)]
+    path: Vec<PathSpec>,
     #[serde(default)]
     port: Vec<PortSpec>,
     sweep: Option<WavelengthSweep>,
@@ -264,11 +266,14 @@ fn scene_of(task: &FdfdTask, s: &Structure) -> Result<Event> {
 /// [`super::preview`] for an `"fdfd"` job.
 pub(super) fn preview(job: &Job) -> Result<Event> {
     let task: FdfdTask = super::params::task(job)?;
-    let s = draw(
-        named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
-        &task.rect,
-        &task.circle,
-        &task.ring,
+    let s = draw_paths(
+        draw(
+            named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
+            &task.rect,
+            &task.circle,
+            &task.ring,
+        )?,
+        &task.path,
     )?;
     scene_of(&task, &s)
 }
@@ -342,11 +347,14 @@ impl Device {
     fn new(job: &Job) -> Result<Device> {
         let task: FdfdTask = super::params::task(job)?;
         task.validate()?;
-        let structure = draw(
-            named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
-            &task.rect,
-            &task.circle,
-            &task.ring,
+        let structure = draw_paths(
+            draw(
+                named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
+                &task.rect,
+                &task.circle,
+                &task.ring,
+            )?,
+            &task.path,
         )?;
         let (_, bottom, top) = structure
             .stack()

@@ -1641,6 +1641,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::compact::checks::cases());
     // and the geometry kernel's
     cases.extend(crate::geometry::checks::cases());
+    // and its paths', with the published bends
+    cases.extend(crate::geometry::path_checks::cases());
     // and the contour solver's, every mode in a region
     cases.extend(crate::mode::region::checks::cases());
     // and the shift-and-invert solver's restarts, many modes, and every guided mode

@@ -18,8 +18,8 @@ use num_complex::Complex64 as c64;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    CircleSpec, Event, RectSpec, RingSpec, check_cells, check_materials, check_step, check_window,
-    draw, named_stack, scene, task_error,
+    CircleSpec, Event, PathSpec, RectSpec, RingSpec, check_cells, check_materials, check_step,
+    check_window, draw, draw_paths, named_stack, scene, task_error,
 };
 use crate::fdfd::{
     Axis, Boundaries3d, Direction, Edges, Formulation, Grid3d, IterativeSolver3d, PortMode3d,
@@ -199,6 +199,8 @@ struct FdtdTask {
     circle: Vec<CircleSpec>,
     #[serde(default)]
     ring: Vec<RingSpec>,
+    #[serde(default)]
+    path: Vec<PathSpec>,
     #[serde(default)]
     source: Vec<ItemSpec>,
     #[serde(default)]
@@ -420,11 +422,14 @@ impl Setup {
                 "z_um is for a 3D job (dimensions = 3): a 2D job is the layer's plane",
             ));
         }
-        let structure = draw(
-            named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
-            &task.rect,
-            &task.circle,
-            &task.ring,
+        let structure = draw_paths(
+            draw(
+                named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
+                &task.rect,
+                &task.circle,
+                &task.ring,
+            )?,
+            &task.path,
         )?;
         let (_, bottom, top) = structure
             .stack()

@@ -18,7 +18,13 @@ use crate::{Error, Result};
 
 mod boundary;
 pub(crate) mod checks;
+mod fresnel;
 mod index;
+mod outline;
+mod path;
+pub(crate) mod path_checks;
+#[cfg(test)]
+mod path_tests;
 mod primitives;
 mod region;
 #[cfg(test)]
@@ -26,6 +32,7 @@ mod region_tests;
 mod transform;
 
 pub use index::Index;
+pub use path::{Curve, End, PartialEuler, Path, PathBuilder, Profile, Segment, partial_euler};
 pub use primitives::{Ellipse, FILL_TOLERANCE, RegularPolygon, RoundedRect, Sector, Superellipse};
 pub use region::{Contour, Distance, Location, Polygons, Region, Tolerance};
 pub use transform::Transform;
@@ -284,6 +291,8 @@ pub enum Shape {
     Superellipse(Superellipse),
     /// A rectangle at any angle, its corners rounded (a radius of zero: sharp).
     RoundedRect(RoundedRect),
+    /// A path: a centre line of segments with a width along it.
+    Path(Path),
 }
 
 impl Shape {
@@ -363,6 +372,7 @@ impl Shape {
             Shape::RegularPolygon(s) => Some(s),
             Shape::Superellipse(s) => Some(s),
             Shape::RoundedRect(s) => Some(s),
+            Shape::Path(s) => Some(s),
             Shape::Rect { .. } | Shape::Circle { .. } | Shape::Polygon(_) | Shape::Ring { .. } => {
                 None
             }

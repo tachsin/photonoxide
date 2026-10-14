@@ -27,6 +27,28 @@
 //! width = "w"
 //! ```
 //!
+//! **Paths.** `"structure"`, `"fdfd"` and `"fdtd"` jobs draw paths ([`crate::geometry::Path`]):
+//! a centre line of segments with a width along it, every value an expression. A segment is a
+//! `straight`, an `arc` or an `euler` bend (an angle with its unit, and a `radius`; an Euler
+//! bend's `p` is 1 by default) or a `sine` S-bend (a length and an `offset`), and its `width`, if
+//! given, is the width its end tapers to. Number keys (`straight_um`, `arc_rad`, `radius_um`,
+//! `start_um`, `heading_rad`, `width_um`, ...) take numbers as they are. [`check`] refuses a
+//! segment that isn't exactly one kind, an angle without its unit, a bend that doesn't exist and
+//! a width over twice the radius of curvature, naming the path and segment.
+//!
+//! ```toml
+//! [[task.path]]
+//! layer = "Si"
+//! start = ["-1 um", 0]
+//! width = "w"
+//! segments = [
+//!   { straight = "1 um" },
+//!   { euler = "90 deg", radius = "5 um", p = 0.2 },
+//!   { straight = "2 um", width = "w + 100 nm" },
+//!   { sine = "4 um", offset = "-1 um" },
+//! ]
+//! ```
+//!
 //! A modes job's sweep can step through any parameter, `parameter = "gap"`, from `from` to `to`
 //! (numbers in µm for a length and radians for an angle, or expressions with units: `"150 nm"`);
 //! at each point the parameters that use it follow, and the point records its shapes as a width
@@ -853,6 +875,109 @@ struct RingSpec {
     width_um: f64,
 }
 
+/// A path ([`crate::geometry::Path`]): its start, heading and width, and its segments, every
+/// value resolved to µm and radians.
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PathSpec {
+    layer: String,
+    #[serde(default)]
+    start_um: [f64; 2],
+    #[serde(default)]
+    heading_rad: f64,
+    width_um: f64,
+    segments: Vec<SegmentSpec>,
+}
+
+/// One segment of a [`PathSpec`]: exactly one of a straight, an arc, an Euler bend or a sine
+/// S-bend, with what it needs, and the width at its end if it tapers.
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SegmentSpec {
+    straight_um: Option<f64>,
+    arc_rad: Option<f64>,
+    euler_rad: Option<f64>,
+    sine_um: Option<f64>,
+    radius_um: Option<f64>,
+    offset_um: Option<f64>,
+    p: Option<f64>,
+    width_um: Option<f64>,
+}
+
+impl PathSpec {
+    /// The path, its errors naming the table and segment (`k` from 0).
+    fn path(&self, k: usize) -> Result<crate::geometry::Path> {
+        use crate::geometry::{Path, Segment};
+        let at = |m: String| task_error(format!("[[task.path]] #{}: {m}", k + 1));
+        let mut b = Path::builder(
+            Point::um(self.start_um[0], self.start_um[1]),
+            self.heading_rad,
+            Length::um(self.width_um),
+        );
+        for (j, s) in self.segments.iter().enumerate() {
+            let at = |m: &str| at(format!("segment {}: {m}", j + 1));
+            let kinds = [s.straight_um, s.arc_rad, s.euler_rad, s.sine_um]
+                .iter()
+                .filter(|v| v.is_some())
+                .count();
+            if kinds != 1 {
+                return Err(at(
+                    "needs exactly one of straight, arc, euler and sine (their lengths or angles)",
+                ));
+            }
+            let radius = || {
+                s.radius_um
+                    .map(Length::um)
+                    .ok_or_else(|| at("an arc or Euler bend needs its radius"))
+            };
+            let unused = |name: &str, used: bool| {
+                if used {
+                    Err(at(&format!("{name} isn't for this kind of segment")))
+                } else {
+                    Ok(())
+                }
+            };
+            let segment = if let Some(l) = s.straight_um {
+                unused("radius", s.radius_um.is_some())?;
+                unused("offset", s.offset_um.is_some())?;
+                unused("p", s.p.is_some())?;
+                Segment::Straight {
+                    length: Length::um(l),
+                }
+            } else if let Some(a) = s.arc_rad {
+                unused("offset", s.offset_um.is_some())?;
+                unused("p", s.p.is_some())?;
+                Segment::Arc {
+                    radius: radius()?,
+                    angle: a,
+                }
+            } else if let Some(a) = s.euler_rad {
+                unused("offset", s.offset_um.is_some())?;
+                Segment::Euler {
+                    radius: radius()?,
+                    angle: a,
+                    p: s.p.unwrap_or(1.0),
+                }
+            } else {
+                unused("radius", s.radius_um.is_some())?;
+                unused("p", s.p.is_some())?;
+                Segment::Sine {
+                    length: Length::um(s.sine_um.unwrap_or_default()),
+                    offset: Length::um(
+                        s.offset_um
+                            .ok_or_else(|| at("a sine S-bend needs its offset"))?,
+                    ),
+                }
+            };
+            b = b.segment(segment);
+            if let Some(w) = s.width_um {
+                b = b.taper(Length::um(w));
+            }
+        }
+        b.build().map_err(|e| at(e.to_string()))
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StructureTask {
@@ -874,6 +999,8 @@ struct StructureTask {
     circle: Vec<CircleSpec>,
     #[serde(default)]
     ring: Vec<RingSpec>,
+    #[serde(default)]
+    path: Vec<PathSpec>,
 }
 
 fn task_error(reason: impl Into<String>) -> Error {
@@ -1249,13 +1376,25 @@ fn draw(
     Ok(s)
 }
 
+/// `s` with `paths` drawn on it, after its other shapes, each as its simplest exact shape
+/// ([`crate::geometry::Path::shape`]).
+fn draw_paths(mut s: Structure, paths: &[PathSpec]) -> Result<Structure> {
+    for (k, p) in paths.iter().enumerate() {
+        s.draw(&p.layer, p.path(k)?.shape())?;
+    }
+    Ok(s)
+}
+
 impl StructureTask {
     fn structure(&self) -> Result<Structure> {
-        draw(
-            named_stack(&self.stack, self.core_nm, self.bottom_oxide_um)?,
-            &self.rect,
-            &self.circle,
-            &self.ring,
+        draw_paths(
+            draw(
+                named_stack(&self.stack, self.core_nm, self.bottom_oxide_um)?,
+                &self.rect,
+                &self.circle,
+                &self.ring,
+            )?,
+            &self.path,
         )
     }
 }
@@ -2428,6 +2567,88 @@ size_um = [2.0, 0.5]
         // the default cut spans 1 um below and above the 220 nm layer
         assert!((raster.y1 - raster.y0 - 2.22).abs() < 1e-9);
         assert!(matches!(&events[4], Event::Finished { stopped: None, .. }));
+    }
+
+    const PATH_JOB: &str = r#"
+name = "euler"
+
+[task]
+kind = "structure"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+x_um = [-1.0, 8.0]
+y_um = [-1.0, 8.0]
+step_nm = 100.0
+
+[task.parameters]
+w = "500 nm"
+r = "5 um"
+
+[[task.path]]
+layer = "Si"
+start = ["-1 um", 0]
+width = "w"
+segments = [
+  { straight = "1 um" },
+  { euler = "90 deg", radius = "r", p = 0.2 },
+  { straight = "2 um", width = "w + 100 nm" },
+  { sine = "4 um", offset = "-1 um" },
+  { arc_rad = 0.5, radius_um = 3 },
+]
+"#;
+
+    #[test]
+    fn a_path_in_a_job_is_checked_drawn_and_rasterized() {
+        let job = Job::parse(PATH_JOB).unwrap();
+        check(&job).unwrap();
+        let Event::Scene { shapes, .. } = preview(&job).unwrap() else {
+            panic!("a structure's preview is a scene")
+        };
+        assert_eq!(shapes.len(), 1);
+        assert!(shapes[0].outline.len() > 100);
+        let task: StructureTask = params::task(&job).unwrap();
+        let s = task.structure().unwrap();
+        // on the Euler bend's centre line, and beside it
+        let path = task.path[0].path(0).unwrap();
+        let mid = path.point(Length::um(3.0));
+        let si = s.stack().layer("Si").unwrap().1.to_um() + 0.1;
+        let at = |p: Point| s.material_at(p, Length::um(si)).name().to_owned();
+        assert_eq!(at(mid), "Si");
+        assert_ne!(
+            at(Point::um(mid.x.to_um() + 1.0, mid.y.to_um() - 1.0)),
+            "Si"
+        );
+        // the widths: 500 nm, then 600 nm after the taper
+        assert_eq!(path.start().width, Length::um(0.5));
+        assert!((path.end().width.to_um() - 0.6).abs() < 1e-15);
+    }
+
+    #[test]
+    fn what_a_path_in_a_job_refuses() {
+        let bad = |from: &str, to: &str, says: &str| {
+            let job = Job::parse(&PATH_JOB.replace(from, to)).unwrap();
+            let e = check(&job).unwrap_err().to_string();
+            assert!(e.contains(says), "{e}");
+        };
+        bad(
+            "euler = \"90 deg\"",
+            "euler = \"90\"",
+            "needs an angle, got a number",
+        );
+        bad("radius = \"r\", p = 0.2", "p = 0.2", "needs its radius");
+        bad(
+            "{ straight = \"1 um\" }",
+            "{ straight = \"1 um\", arc = \"1 rad\" }",
+            "exactly one",
+        );
+        bad("width = \"w\"", "width = \"20 um\"", "twice its");
+        bad("p = 0.2", "p = \"2 um\"", "plain number");
+        bad(
+            "{ straight = \"1 um\" }",
+            "{ straight = \"1 um\", straight_um = 1 }",
+            "not both",
+        );
     }
 
     #[test]

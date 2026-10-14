@@ -1,7 +1,7 @@
 ---
 title: "Geometry"
 module: geometry
-summary: "Shapes kept exact and turned into polygons only on demand: every shape a region with an exact inside test, signed distance and outward normal, tight bounds, area, perimeter and area inside a cell; polygons within a stated tolerance that keep the area; similarity transforms that keep each shape's kind; and a bounding-volume hierarchy over a layer's shapes, the same bits on any number of threads."
+summary: "Shapes kept exact and turned into polygons only on demand: every shape a region with an exact inside test, signed distance and outward normal, tight bounds, area, perimeter and area inside a cell; polygons within a stated tolerance that keep the area; similarity transforms that keep each shape's kind; paths, a centre line of straights, arcs, clothoids placed by the Fresnel integrals, partial Euler bends, Bézier, sine and parametric curves with a width along it; and a bounding-volume hierarchy over a layer's shapes, the same bits on any number of threads."
 order: 1.5
 papers:
   - cite: "I. E. Sutherland, G. W. Hodgman, Commun. ACM 17, 32 (1974) (clipping to a cell one side at a time)"
@@ -12,11 +12,33 @@ papers:
     doi: 10.1090/noti879
   - cite: "J. Goldsmith, J. Salmon, IEEE Comput. Graph. Appl. 7, 14 (1987) (bounding-volume hierarchies)"
     doi: 10.1109/MCG.1987.276983
+  - cite: "M. Cherchi, S. Ylinen, M. Harjanne, M. Kapulainen, T. Aalto, Opt. Express 21, 17814 (2013) (the Euler bend)"
+    doi: 10.1364/OE.21.017814
+  - cite: "T. Fujisawa, S. Makino, T. Sato, K. Saitoh, Opt. Express 25, 9150 (2017) (a bend of clothoids and an arc)"
+    doi: 10.1364/OE.25.009150
+  - cite: "F. Vogelbacher, S. Nevlacsil, M. Sagmeister, J. Kraft, K. Unterrainer, R. Hainberger, Opt. Express 27, 31394 (2019) (the partial Euler bend)"
+    doi: 10.1364/OE.27.031394
+  - cite: "M. Abramowitz, I. A. Stegun, Handbook of Mathematical Functions (1964), chapter 7 (the Fresnel integrals)"
+    doi: ""
 validation:
   - geometry/areas
   - geometry/polygons
   - geometry/fill
   - geometry/transforms
+  - geometry/paths/fresnel
+  - geometry/paths/euler-ends
+  - geometry/paths/euler-curvature
+  - geometry/paths/perimeter
+  - geometry/paths/distance
+  - geometry/paths/polygons
+  - geometry/paths/fill
+  - geometry/paths/convergence
+  - geometry/paths/cherchi-l-bend
+  - geometry/paths/cherchi-u-bend
+  - geometry/paths/vogelbacher-singular
+  - geometry/paths/vogelbacher-270
+  - geometry/paths/vogelbacher-fujisawa
+  - geometry/paths/fujisawa-ratios
 ---
 
 Every solver, the studio's views and, later, the layout read one model of what is drawn on a
@@ -117,6 +139,124 @@ zero at its new angle otherwise. Areas scale by the square of the factor and dis
 factor, to round-off. The factor is kept as the product of the scalings given, so a rotation
 keeps lengths to the bit.
 
+## Paths
+
+Waveguides, bends, tapers and S-bends are paths: a centre line $c(s)$ of segments, with a width
+$w(s)$ along it, and the region swept by the line's normals out to half the width on each side,
+$\lbrace c(s) + v\thinspace n(s) : \lvert v\rvert \le w(s)/2 \rbrace$, its ends cut flat.
+`Path::builder(start, heading, width)` adds segments one after another. Each starts where the
+one before ends and along its direction, so the tangent is continuous at every joint, and the
+curvature too where the two kinds allow (an Euler bend or a sine S-bend after a straight).
+
+- **Straight** and **arc** (a radius and a signed angle, positive to the left).
+- **Clothoid:** curvature linear in arc length, $\kappa(s) = \kappa_0 + (\kappa_1 - \kappa_0)\thinspace s/L$.
+  When one end is straight its points are the Fresnel integrals,
+  $\int_0^\tau e^{i a u^2/2} du = \sqrt{\pi/a}\thinspace(C + iS)(\tau\sqrt{a/\pi})$; one that
+  ends straight is placed from its end, $c(s) = e^{i\theta_E}(F(L) - F(L - s))$. A clothoid with
+  neither end straight is integrated by Gauss–Legendre on panels over which it turns by at most
+  half a radian, to round-off.
+- **Partial Euler bend** (Vogelbacher et al. 2019): a clothoid from the straight over the
+  fraction $p$ of the turn's first half, an arc of the radius it reaches, $R_\text{min}$, and the
+  clothoid back. It is built as their Eqs. (5)–(11) build it: the half bend unscaled (a clothoid
+  of parameter $A = 1$ to $p\alpha/2$, then the arc to $\alpha/2$), then scaled by
+  $\eta = R_\text{eff}/(y + x/\tan(\alpha/2))$ from that half's end $(x, y)$, so that its ends
+  and their directions are those of the circular bend of the effective radius $R_\text{eff}$.
+  $p = 1$ is Cherchi et al. 2013's Euler bend, $p = 0$ the circular bend. A bend whose
+  denominator isn't positive doesn't exist and is refused (for $p = 1$, beyond about 263°).
+  `partial_euler` gives the construction: $R_\text{min}$, the clothoids' length and parameter
+  $A$ ($R L = A^2$, Fujisawa et al. 2017's Eq. (3)), the arc's angle and the whole length.
+- **Bézier curve** (control points after the start, turned to leave along the path), **sine
+  S-bend** $y = h(x/L - \sin(2\pi x/L)/2\pi)$ (straight and of zero curvature at both ends), and
+  a **curve** $(x(t), y(t))$ of two [expressions](expressions.md) in $t$, placed so that it
+  leaves along the path. Their derivatives are exact (de Casteljau on the hodographs, closed
+  form, forward-mode derivatives of the expressions); a curve's second derivative, for its
+  curvature, is a central difference of the first. Their lengths are Gauss–Legendre integrals of
+  their speed between knots, to round-off.
+
+The width is constant, tapers linearly along a segment (`taper`), or is an expression $w(s)$ of
+the arc length (`Profile`). The ends are ports: `start()` and `end()` give the position, the
+direction out of the path and the width. `length()`, `point(s)`, `direction(s)`,
+`curvature(s)` and `width(s)` read the centre line. `shape()` gives the simplest exact shape of
+the same region: a single arc of constant width is a `Sector`, a single straight a rectangle,
+anything else the path itself. The strip bend device draws its arc this way, so its structure
+is the sector it always drew, to the bit.
+
+**Knots.** Each part of the centre line is cut at knots close enough that between two the line
+turns by at most 0.1 rad and runs at most a quarter of the gap between its inner edge and its
+centre of curvature, $(1/\kappa_\text{max} - w_\text{max}/2)/4$, and, under a width profile, half
+the narrowest width. A path is refused where its width reaches twice its radius of curvature
+(the inner edge would fold over itself), and where its outline crosses or touches itself
+(checked on its polygon within a 32nd of the narrowest width).
+
+**Inside.** $p$ is in the region when $p = c(s) + v\thinspace n(s)$ with $\lvert v\rvert \le w(s)/2$
+for some $s$: its foot on the centre line, a root of $g = (p - c)\cdot t$. Since
+$g' = -(1 - v\kappa)\thinspace ds/du$ is negative wherever $\lvert v\rvert < 1/\lvert\kappa\rvert$,
+and the knots are closer than a quarter of the gap, an interval near the region holds at most
+one foot, which its bracket shows; it is found by the Illinois method to the last bit, and only
+the intervals whose boxes, widened by the half width, hold $p$ are tried (a bounding-volume
+hierarchy). The test is exact up to that root, whose error moves $v$ only at second order.
+
+**Distance.** The outline is the right edge forward, the end's cap, the left edge back and the
+start's cap, each edge $E = c \pm \frac w2 n$, with
+$E' = s'\thinspace[(1 \mp \frac w2 \kappa)\thinspace t \pm \frac12 w'\thinspace n]$. Along a
+straight or an arc of constant width the edges are a segment and arcs of circles, kept exact; the
+other edges are curve pieces, one between each two knots. The nearest point is each exact
+piece's in closed form, or a curve piece's at its ends or where $(p - E)\cdot E'$ falls through
+zero; the pieces are tried nearest box first, until a box is farther than the best so far.
+
+**Area and perimeter.** The map $(s, v) \mapsto c(s) + v\thinspace n(s)$ has Jacobian
+$1 - v\kappa$, whose integral over $\lvert v\rvert \le w/2$ is $w$: the area is $\int w\thinspace ds$,
+exactly, whatever the centre line (Gauss–Legendre between knots under a profile). For a constant
+width the edges are $L \mp \frac w2\Delta\theta$ long and the perimeter $2L + 2w$, which the
+edges' lengths, integrated between knots, reproduce to $10^{-15}$.
+
+**Polygons and fills.** Each curve piece's chords are halved until the curve strays from each by
+at most 3/4 of the budget; each vertex inside a run of curve chords then moves out along the
+normal by λ times the mean of its two chords' signed sagittas, λ (about 2/3) the root of the
+quadratic that gives the polygon the area $\int w\thinspace ds$ exactly, and the distance is
+measured again at nine points of each chord (tightening if it must). The arcs are flattened as
+every shape's are. The distance is second order in the chords: on a 90° Euler bend, from 10 to
+0.01 nm, the distance reached against the number of vertices has slope −2.03. A fill clips the
+outline with its arcs exact and its curves within $10^{-7}$ of the widest width, keeping the
+area, so the fills of a grid sum to it to $10^{-14}$.
+
+**Jobs.** `[[task.path]]` draws a path in `"structure"`, `"fdfd"` and `"fdtd"` jobs, its values
+expressions with units, checked by `job::check` and drawn by `job::preview`:
+
+```toml
+[[task.path]]
+layer = "Si"
+start = ["-1 um", 0]       # or start_um; (0, 0) by default
+heading = "0 deg"          # or heading_rad; 0 by default
+width = "w"                # or width_um
+segments = [
+  { straight = "1 um" },                              # or straight_um
+  { euler = "90 deg", radius = "5 um", p = 0.2 },     # p = 1 by default
+  { arc = "45 deg", radius = "3 um" },
+  { straight = "2 um", width = "w + 100 nm" },        # tapers to its end's width
+  { sine = "4 um", offset = "-1 um" },
+]
+```
+
+An angle needs its unit (`"90"` is refused: `"90 deg"` or a number in an `_rad` key).
+
+**What it reproduces.** The geometry of the three papers' bends, from their own equations:
+
+| | the papers | photonoxide |
+|---|---|---|
+| Euler L-bend (90°): $R_\text{eff}/R_\text{min}$, length$/R_\text{min}$ | 1.87, $\pi$ (Cherchi et al. 2013, Fig. 3(b)) | 1.870096, $\pi$ |
+| Euler U-bend (180°): $R_\text{eff}/R_\text{min}$, length$/R_\text{min}$ | 1.38, $2\pi$ (Fig. 3(c)) | 1.376832, $2\pi$ |
+| the turn beyond which no Euler bend of $p = 1$ exists | about 263.3° (Vogelbacher et al. 2019, §2.2) | 263.267° |
+| the largest $p$ of a 270° bend | 0.585 (§2.2) | 0.58546 |
+| the $p$ of a 90° bend 68 % clothoid | 0.52 (§3.2) | 0.5152 |
+| clothoid fraction of 90° bends of $R_\text{eff}$ = 4 µm, A = 1.3, 2.4, 2.68 µm | 14, 58, 98 % (Fujisawa et al. 2017, §3) | 14.05, 58.23, 97.83 % |
+
+Vogelbacher et al.'s text gives the pure Euler 90° bend's largest curvature as 82 % above the
+circular bend's; their construction, built here, gives 87 %, Cherchi et al.'s 1.87. The papers'
+bend losses are not reproduced here: they are 3D eigenmode-expansion, FDTD and FEM results on
+grids the papers state, and a 2D estimate would not be their device's performance. That waits for
+the solvers to read fill fractions (phase 10 of #227).
+
 ## The index
 
 A layer with more than 8 shapes is searched through a bounding-volume hierarchy (Goldsmith and
@@ -146,3 +286,13 @@ release build; `cargo test --release --lib material_at_timing -- --ignored --noc
 - Transforms keeping areas and distances: `geometry/transforms`.
 - The index answering as testing every shape does, at 20 000 points and on the boundaries, and
   fills and samples the same bits on 1, 2, 7 and 20 threads.
+- Paths: the Fresnel integrals against A&S's table and quadrature (`geometry/paths/fresnel`);
+  clothoids by the Fresnel integrals against quadrature of $e^{i\theta}$; Euler bends' ends on
+  the circular bend's and their curvature linear in arc length
+  (`geometry/paths/euler-ends`, `geometry/paths/euler-curvature`); an arc path answering as its
+  sector does at 400 points; a parametric arc as the arc; perimeters $2L + 2w$
+  (`geometry/paths/perimeter`); distances against brute force, their sign against the inside
+  test, and stepping back along the normal landing on the outline (`geometry/paths/distance`);
+  polygons within tolerance keeping the area, their convergence, and fills
+  (`geometry/paths/polygons`, `geometry/paths/convergence`, `geometry/paths/fill`); transforms;
+  the same bits on several threads; and the papers' bends (the table above).

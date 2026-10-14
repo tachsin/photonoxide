@@ -146,7 +146,7 @@ impl Transform {
     }
 
     /// The direction a direction at `angle` from x goes to, as an angle from x.
-    fn direction(&self, angle: f64) -> f64 {
+    pub(crate) fn direction(&self, angle: f64) -> f64 {
         let (s, c) = sin_cos(angle);
         let v = [
             self.m[0][0] * c + self.m[0][1] * s,
@@ -284,6 +284,7 @@ impl Shape {
                     .expect("a transformed rounded rectangle is one"),
                 )
             }
+            Shape::Path(p) => Shape::Path(p.transformed(t)),
         }
     }
 }

@@ -444,6 +444,16 @@ pub(crate) fn integrate(f: impl Fn(f64) -> f64, a: f64, b: f64) -> f64 {
         .sum()
 }
 
+/// ∫ f from a to b by one 20-point Gauss–Legendre rule: round-off for an integrand smooth on
+/// the interval's scale.
+pub(crate) fn gauss(f: impl Fn(f64) -> f64, a: f64, b: f64) -> f64 {
+    let (mid, half) = (0.5 * (a + b), 0.5 * (b - a));
+    GL20.iter()
+        .map(|&(x, w)| w * (f(mid + half * x) + f(mid - half * x)))
+        .sum::<f64>()
+        * half
+}
+
 /// The 20-point Gauss–Legendre rule's positive nodes and their weights.
 const GL20: [(f64, f64); 10] = [
     (0.076_526_521_133_497_33, 0.152_753_387_130_725_85),
