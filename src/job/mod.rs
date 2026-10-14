@@ -57,6 +57,39 @@
 //! shape's field, naming the table and field: `[[task.rect]] #2, size: value 1: column 3:
 //! unknown name "wdth"`; and a parameter's sweep whose shapes at either end aren't shapes.
 //!
+//! **Custom stacks and etches.** A task's `stack` is a preset's name or a `[task.stack]` table:
+//! a `substrate`, a `cladding` and `[[task.stack.layer]]`s bottom to top, each with its `name`,
+//! `thickness_um` (or `thickness`, an expression), `material` and `background` (catalogue ids,
+//! or tables with a `model`, `temperature` and `composition`), as a device's `[device.stack]`
+//! has them. A shape takes `etch = { depth = "150 nm", sidewall = "80 deg" }` (or `depth_um`,
+//! `sidewall_deg`): a partial etch leaves its layer's material below its floor, a sidewall below
+//! 90° leans the shape's walls out going down ([`crate::stack::Etch`]). Every kind of job reads
+//! them; a 2D job's etches are on its own layer. docs/methods/stacks.md has the method.
+//!
+//! ```toml
+//! [task.stack]
+//! substrate = "si"
+//! cladding = "sio2"
+//!
+//! [[task.stack.layer]]
+//! name = "BOX"
+//! thickness = "2 um"
+//! material = "sio2"
+//! background = "sio2"
+//!
+//! [[task.stack.layer]]
+//! name = "Si"
+//! thickness = "220 nm"
+//! material = "si"
+//! background = "sio2"
+//!
+//! [[task.rect]]
+//! layer = "Si"
+//! center_um = [0.0, 0.0]
+//! size = ["10 um", "500 nm"]
+//! etch = { depth = "150 nm", sidewall = "80 deg" }
+//! ```
+//!
 //! **A device's design.** A job may hold a `[device]` table in place of a task: one of
 //! [`crate::device`]'s devices, its stack, its parameters' expressions and its fidelity
 //! ([`crate::device::Spec`]). [`check`] builds the device and its design and refuses what
@@ -809,6 +842,152 @@ fn scene_shapes(s: &Structure) -> Vec<SceneShape> {
         .collect()
 }
 
+/// A band of an etched layer as a scene draws it: its name, its bottom and top (µm), whether a
+/// partial etch's slab fills it, and its shapes' outlines at its middle.
+struct Band {
+    name: String,
+    z: [f64; 2],
+    slab: bool,
+    outlines: Vec<Vec<[f64; 2]>>,
+}
+
+/// An etched layer (a partial etch, sloped walls) as a scene draws it: bands between its top,
+/// each partial etch's floor and its bottom, a sloped etch's in four, each with its shapes'
+/// outlines grown by their walls' reach at its middle. The top band keeps the layer's name; the
+/// ones below are `name 2`, `name 3`, … down the layer. A band under a partial etch's floor is
+/// the layer's material all through, its slab.
+fn bands(s: &Structure, name: &str, bottom: f64, top: f64) -> Vec<Band> {
+    let t = top - bottom;
+    let shapes = s.shapes(name);
+    let etches = s.etches(name);
+    let floor = |e: &crate::stack::Etch| e.depth.map_or(t, Length::to_um);
+    // depths below the top where a band starts or ends
+    let mut depths = vec![0.0, t];
+    for e in etches {
+        depths.push(floor(e));
+        if e.run() > 0.0 {
+            depths.extend((1..4).map(|k| floor(e) * f64::from(k) / 4.0));
+        }
+    }
+    depths.sort_by(f64::total_cmp);
+    depths.dedup_by(|a, b| (*a - *b).abs() < 1e-12);
+    let shallowest = etches
+        .iter()
+        .filter_map(|e| e.depth.map(Length::to_um))
+        .fold(f64::INFINITY, f64::min);
+    depths
+        .windows(2)
+        .enumerate()
+        .map(|(k, d)| {
+            let middle = 0.5 * (d[0] + d[1]);
+            let slab = middle > shallowest;
+            let outlines = if slab {
+                Vec::new()
+            } else {
+                shapes
+                    .iter()
+                    .zip(etches)
+                    .filter(|(_, e)| middle <= floor(e))
+                    .map(|(shape, e)| grown(shape, middle * e.run()))
+                    .collect()
+            };
+            Band {
+                name: if k == 0 {
+                    name.to_owned()
+                } else {
+                    format!("{name} {}", k + 1)
+                },
+                z: [top - d[1], top - d[0]],
+                slab,
+                outlines,
+            }
+        })
+        .collect()
+}
+
+/// A shape's outline ([`outline`]) grown by `d` µm, its corners mitred: what a sloped wall
+/// reaches out to at a depth (the true section's convex corners are round; this is a picture).
+fn grown(shape: &Shape, d: f64) -> Vec<[f64; 2]> {
+    if d == 0.0 {
+        return outline(shape);
+    }
+    match shape {
+        Shape::Rect {
+            center,
+            width,
+            height,
+        } => outline(
+            &Shape::rect(
+                *center,
+                *width + Length::um(2.0 * d),
+                *height + Length::um(2.0 * d),
+            )
+            .unwrap_or_else(|_| shape.clone()),
+        ),
+        Shape::Circle { center, radius } => polygon64(*center, radius.to_um() + d, 1.0),
+        Shape::Ring {
+            center,
+            inner,
+            outer,
+        } => {
+            let mut o = polygon64(*center, outer.to_um() + d, 1.0);
+            let hole = inner.to_um() - d;
+            if hole > 0.0 {
+                o.push(o[0]);
+                let hole = polygon64(*center, hole, -1.0);
+                o.extend(&hole);
+                o.push(hole[0]);
+            }
+            o
+        }
+        other => {
+            use crate::geometry::Region;
+            let xy = |v: &Point| [v.x.to_um(), v.y.to_um()];
+            let mut o = Vec::new();
+            for c in other
+                .polygons(crate::geometry::Tolerance::default())
+                .contours
+            {
+                let outer = mitred(&c.outer.iter().map(xy).collect::<Vec<_>>(), d);
+                o.extend(&outer);
+                if !c.holes.is_empty()
+                    && let Some(first) = outer.first()
+                {
+                    o.push(*first);
+                }
+                for hole in &c.holes {
+                    let hole = mitred(&hole.iter().map(xy).collect::<Vec<_>>(), d);
+                    o.extend(&hole);
+                    if let Some(first) = hole.first() {
+                        o.push(*first);
+                    }
+                }
+            }
+            o
+        }
+    }
+}
+
+/// A ring of vertices (material on its left: an outline counterclockwise, a hole clockwise)
+/// moved `d` to its right, each vertex along its corner's bisector, mitred.
+fn mitred(ring: &[[f64; 2]], d: f64) -> Vec<[f64; 2]> {
+    let n = ring.len();
+    let normal = |a: [f64; 2], b: [f64; 2]| {
+        let (ex, ey) = (b[0] - a[0], b[1] - a[1]);
+        let l = ex.hypot(ey).max(f64::MIN_POSITIVE);
+        [ey / l, -ex / l]
+    };
+    (0..n)
+        .map(|i| {
+            let (p, v, q) = (ring[(i + n - 1) % n], ring[i], ring[(i + 1) % n]);
+            let (a, b) = (normal(p, v), normal(v, q));
+            // the mitre: along a + b, as far as keeps each edge d away; at most 4d
+            let k = (1.0 + a[0] * b[0] + a[1] * b[1]).max(0.125);
+            [v[0] + d * (a[0] + b[0]) / k, v[1] + d * (a[1] + b[1]) / k]
+        })
+        .collect()
+}
+
 /// The scene of a structure over a window, its permittivities at `wavelength`.
 fn scene(
     s: &Structure,
@@ -826,17 +1005,43 @@ fn scene(
     let stack = s.stack();
     let mut layers = Vec::new();
     let mut bottom = 0.0;
+    let etched = stack.layers().iter().any(|l| !s.is_plain(&l.name));
+    let mut shapes = if etched { Vec::new() } else { scene_shapes(s) };
     for layer in stack.layers() {
         let top = bottom + layer.thickness.to_um();
-        layers.push(SceneLayer {
-            name: layer.name.clone(),
-            z_um: [bottom, top],
-            material: medium(&layer.material)?,
-            background: medium(&layer.background)?,
-        });
+        if s.is_plain(&layer.name) {
+            layers.push(SceneLayer {
+                name: layer.name.clone(),
+                z_um: [bottom, top],
+                material: medium(&layer.material)?,
+                background: medium(&layer.background)?,
+            });
+            if etched {
+                shapes.extend(s.shapes(&layer.name).iter().map(|shape| SceneShape {
+                    layer: layer.name.clone(),
+                    outline: outline(shape),
+                }));
+            }
+        } else {
+            for band in bands(s, &layer.name, bottom, top) {
+                layers.push(SceneLayer {
+                    name: band.name.clone(),
+                    z_um: band.z,
+                    material: medium(&layer.material)?,
+                    background: medium(if band.slab {
+                        &layer.material
+                    } else {
+                        &layer.background
+                    })?,
+                });
+                shapes.extend(band.outlines.into_iter().map(|outline| SceneShape {
+                    layer: band.name.clone(),
+                    outline,
+                }));
+            }
+        }
         bottom = top;
     }
-    let shapes = scene_shapes(s);
     Ok(Event::Scene {
         x_um: x,
         y_um: y,
@@ -855,6 +1060,7 @@ struct RectSpec {
     layer: String,
     center_um: [f64; 2],
     size_um: [f64; 2],
+    etch: Option<EtchSpec>,
 }
 
 #[derive(Deserialize)]
@@ -863,6 +1069,7 @@ struct CircleSpec {
     layer: String,
     center_um: [f64; 2],
     radius_um: f64,
+    etch: Option<EtchSpec>,
 }
 
 /// A ring: its centre line's radius and its waveguide's width ([`Shape::ring`]).
@@ -873,6 +1080,40 @@ struct RingSpec {
     center_um: [f64; 2],
     radius_um: f64,
     width_um: f64,
+    etch: Option<EtchSpec>,
+}
+
+/// A shape's `etch = { depth_um, sidewall_deg }` ([`crate::stack::Etch`]): how deep from its
+/// layer's top (through it when left out) and its walls' angle from the layer's plane (90 when
+/// left out). `depth` and `sidewall` take expressions with units (`"70 nm"`, `"85 deg"`).
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EtchSpec {
+    depth_um: Option<f64>,
+    sidewall_deg: Option<f64>,
+}
+
+impl EtchSpec {
+    fn etch(spec: Option<EtchSpec>) -> crate::stack::Etch {
+        let mut etch = crate::stack::Etch::FULL;
+        if let Some(e) = spec {
+            if let Some(d) = e.depth_um {
+                etch = crate::stack::Etch::partial(Length::um(d));
+            }
+            if let Some(a) = e.sidewall_deg {
+                etch = etch.with_sidewall_deg(a);
+            }
+        }
+        etch
+    }
+}
+
+/// A task's `stack`: a preset's name, or a `[task.stack]` table of layers.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+enum StackField {
+    Name(String),
+    Layers(toml::Table),
 }
 
 /// A path ([`crate::geometry::Path`]): its start, heading and width, and its segments, every
@@ -983,7 +1224,7 @@ impl PathSpec {
 struct StructureTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
     kind: String,
-    stack: String,
+    stack: StackField,
     core_nm: Option<f64>,
     bottom_oxide_um: Option<f64>,
     wavelength_um: f64,
@@ -1314,12 +1555,46 @@ impl ModesTask {
     }
 }
 
-/// A named stack: `soi_220`, or `soi` / `nitride` with their core and bottom oxide.
+/// A 2D job's etches (partial etches, sloped walls) must be on its own layer, the one whose
+/// columns the effective index method solves; refused elsewhere, as the run would refuse them.
+fn check_etches_2d(s: &Structure, layer: &str) -> Result<()> {
+    match s
+        .stack()
+        .layers()
+        .iter()
+        .find(|l| l.name != layer && !s.is_plain(&l.name))
+    {
+        Some(other) => Err(task_error(format!(
+            "a 2D job's etches are on its own layer, {layer}: {} has a partial etch or a sloped \
+             wall",
+            other.name
+        ))),
+        None => Ok(()),
+    }
+}
+
+/// A task's stack: a named one, `soi_220`, or `soi` / `nitride` with their core and bottom
+/// oxide; or a `[task.stack]` table of layers ([`crate::device::spec::task_stack`]).
 fn named_stack(
-    stack: &str,
+    stack: &StackField,
     core_nm: Option<f64>,
     bottom_oxide_um: Option<f64>,
 ) -> Result<LayerStack> {
+    let stack = match stack {
+        StackField::Name(name) => name.as_str(),
+        StackField::Layers(table) => {
+            if core_nm.is_some() || bottom_oxide_um.is_some() {
+                return Err(task_error(
+                    "core_nm and bottom_oxide_um are a named stack's: a [task.stack] table gives \
+                     each layer's thickness",
+                ));
+            }
+            return crate::device::spec::task_stack(table).map_err(|e| match e {
+                Error::InvalidValue { reason, .. } => task_error(format!("[task.stack]: {reason}")),
+                other => other,
+            });
+        }
+    };
     let thicknesses = || match (core_nm, bottom_oxide_um) {
         (Some(core), Some(oxide)) => Ok((Length::nm(core), Length::um(oxide))),
         _ => Err(task_error(format!(
@@ -1350,28 +1625,46 @@ fn draw(
     rings: &[RingSpec],
 ) -> Result<Structure> {
     let mut s = Structure::new(stack);
-    for r in rects {
+    // a shape without an etch is drawn as it always was
+    let mut put = |layer: &str, shape: Shape, etch: Option<EtchSpec>, what: String| -> Result<()> {
+        match etch {
+            None => s.draw(layer, shape).map(|_| ()),
+            Some(e) => s
+                .draw_etched(layer, shape, EtchSpec::etch(Some(e)))
+                .map(|_| ())
+                .map_err(|e| match e {
+                    Error::InvalidValue { reason, .. } => task_error(format!("{what}: {reason}")),
+                    other => other,
+                }),
+        }
+    };
+    for (k, r) in rects.iter().enumerate() {
         let shape = Shape::rect(
             Point::um(r.center_um[0], r.center_um[1]),
             Length::um(r.size_um[0]),
             Length::um(r.size_um[1]),
         )?;
-        s.draw(&r.layer, shape)?;
+        put(&r.layer, shape, r.etch, format!("[[task.rect]] #{}", k + 1))?;
     }
-    for c in circles {
+    for (k, c) in circles.iter().enumerate() {
         let shape = Shape::circle(
             Point::um(c.center_um[0], c.center_um[1]),
             Length::um(c.radius_um),
         )?;
-        s.draw(&c.layer, shape)?;
+        put(
+            &c.layer,
+            shape,
+            c.etch,
+            format!("[[task.circle]] #{}", k + 1),
+        )?;
     }
-    for r in rings {
+    for (k, r) in rings.iter().enumerate() {
         let shape = Shape::ring(
             Point::um(r.center_um[0], r.center_um[1]),
             Length::um(r.radius_um),
             Length::um(r.width_um),
         )?;
-        s.draw(&r.layer, shape)?;
+        put(&r.layer, shape, r.etch, format!("[[task.ring]] #{}", k + 1))?;
     }
     Ok(s)
 }
@@ -1415,7 +1708,7 @@ struct SweepSpec {
 struct ModesTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
     kind: String,
-    stack: String,
+    stack: StackField,
     core_nm: Option<f64>,
     bottom_oxide_um: Option<f64>,
     wavelength_um: f64,
@@ -1505,6 +1798,7 @@ impl Frame {
                         Along::X => [r.size_um[1], r.size_um[0]],
                         Along::Y => r.size_um,
                     },
+                    etch: r.etch,
                 })
                 .collect(),
             circle: circles
@@ -1513,6 +1807,7 @@ impl Frame {
                     layer: c.layer.clone(),
                     center_um: turn(c.center_um),
                     radius_um: c.radius_um,
+                    etch: c.etch,
                 })
                 .collect(),
             ring: rings
@@ -1522,6 +1817,7 @@ impl Frame {
                     center_um: turn(r.center_um),
                     radius_um: r.radius_um,
                     width_um: r.width_um,
+                    etch: r.etch,
                 })
                 .collect(),
             cut: match along {
@@ -1554,31 +1850,63 @@ fn cross_section(
 ) -> Result<crate::mode::vector::CrossSection> {
     // every material the cut can meet must know this wavelength
     check_materials(s.stack(), &[wavelength.to_um()])?;
-    // the edges the cut crosses, and the layers' interfaces
+    // the edges the cut crosses, and the layers' interfaces; a sloped wall's foot too, and a
+    // partial etch's floor
     let mut x_edges = Vec::new();
+    let mut z_edges = vec![0.0];
+    // how far an etched shape's walls reach out at its foot, µm, and its floor's height
+    let reach = |layer: &str, etch: Option<EtchSpec>| -> (f64, Option<f64>) {
+        let Some((l, _, top)) = s.stack().layer(layer) else {
+            return (0.0, None);
+        };
+        let etch = EtchSpec::etch(etch);
+        let depth = etch.depth.unwrap_or(l.thickness).to_um();
+        (
+            depth * etch.run(),
+            etch.depth.map(|d| top.to_um() - d.to_um()),
+        )
+    };
     for r in rects {
-        if (cut_y - r.center_um[1]).abs() < r.size_um[1] / 2.0 {
+        let (out, floor) = reach(&r.layer, r.etch);
+        z_edges.extend(floor);
+        if (cut_y - r.center_um[1]).abs() < r.size_um[1] / 2.0 + out {
             x_edges.extend([
                 r.center_um[0] - r.size_um[0] / 2.0,
                 r.center_um[0] + r.size_um[0] / 2.0,
             ]);
+            if out > 0.0 {
+                x_edges.extend([
+                    r.center_um[0] - r.size_um[0] / 2.0 - out,
+                    r.center_um[0] + r.size_um[0] / 2.0 + out,
+                ]);
+            }
         }
     }
     let mut circle_edges = |center: [f64; 2], radius: f64| {
         let d = cut_y - center[1];
-        if d.abs() < radius {
+        if radius > 0.0 && d.abs() < radius {
             let half = (radius * radius - d * d).sqrt();
             x_edges.extend([center[0] - half, center[0] + half]);
         }
     };
     for c in circles {
+        let (out, floor) = reach(&c.layer, c.etch);
+        z_edges.extend(floor);
         circle_edges(c.center_um, c.radius_um);
+        if out > 0.0 {
+            circle_edges(c.center_um, c.radius_um + out);
+        }
     }
     for r in rings {
+        let (out, floor) = reach(&r.layer, r.etch);
+        z_edges.extend(floor);
         circle_edges(r.center_um, r.radius_um - r.width_um / 2.0);
         circle_edges(r.center_um, r.radius_um + r.width_um / 2.0);
+        if out > 0.0 {
+            circle_edges(r.center_um, r.radius_um - r.width_um / 2.0 - out);
+            circle_edges(r.center_um, r.radius_um + r.width_um / 2.0 + out);
+        }
     }
-    let mut z_edges = vec![0.0];
     let mut top = 0.0;
     for layer in s.stack().layers() {
         top += layer.thickness.to_um();
@@ -1593,8 +1921,14 @@ fn cross_section(
         let xc = 0.5 * (xs[i] + xs[i + 1]);
         for j in 0..zs.len() - 1 {
             let zc = 0.5 * (zs[j] + zs[j + 1]);
+            // the material at the centre, or a sloped wall's share of the cell
             let eps = s
-                .material_at(Point::um(xc, cut_y), Length::um(zc))
+                .cut_cell(
+                    Point::um(xc, cut_y),
+                    zc,
+                    [1.0, 0.0],
+                    [xs[i + 1] - xs[i], zs[j + 1] - zs[j]],
+                )
                 .permittivity(wavelength)
                 .unwrap_or(num_complex::Complex64::new(f64::NAN, 0.0));
             cells.push(crate::mode::vector::Permittivity::isotropic(eps));
@@ -2500,6 +2834,9 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 }
 
 #[cfg(test)]
+mod etch_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::run::replay;
@@ -3381,6 +3718,7 @@ width_um = 0.3
             layer: "Si".into(),
             center_um: [0.0, 0.0],
             size_um: [0.45, 10.0],
+            etch: None,
         };
         let s = draw(LayerStack::soi_220(), std::slice::from_ref(&rect), &[], &[]).unwrap();
         let cs = cross_section(

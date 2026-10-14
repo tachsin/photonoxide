@@ -301,18 +301,7 @@ impl StackSpec {
                 cladding,
                 core,
             } => {
-                let layers = layers
-                    .iter()
-                    .map(|l| {
-                        Ok(Layer {
-                            name: l.name.clone(),
-                            thickness: Length::um(l.thickness_um),
-                            material: l.material.material()?,
-                            background: l.background.material()?,
-                        })
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-                let stack = LayerStack::new(substrate.material()?, layers, cladding.material()?)?;
+                let stack = layered(substrate, layers, cladding)?;
                 if stack.layer(core).is_none() {
                     return Err(Error::invalid(
                         "stack",
@@ -388,7 +377,9 @@ impl StackSpec {
                     Some(Value::Array(a)) => a
                         .iter()
                         .enumerate()
-                        .map(|(k, l)| LayerSpec::from_value(l, k))
+                        .map(|(k, l)| {
+                            LayerSpec::from_value(l, &format!("[[device.stack.layer]] {}", k + 1))
+                        })
                         .collect::<Result<Vec<_>>>()?,
                     _ => {
                         return Err(parse(format!(
@@ -446,9 +437,66 @@ impl StackSpec {
     }
 }
 
+/// The stack of `layers`, bottom to top, between `substrate` and `cladding`.
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] for an unknown material or one [`MaterialSpec::material`] refuses,
+/// or layers [`LayerStack::new`] refuses.
+pub(crate) fn layered(
+    substrate: &MaterialSpec,
+    layers: &[LayerSpec],
+    cladding: &MaterialSpec,
+) -> Result<LayerStack> {
+    let layers = layers
+        .iter()
+        .map(|l| {
+            Ok(Layer {
+                name: l.name.clone(),
+                thickness: Length::um(l.thickness_um),
+                material: l.material.material()?,
+                background: l.background.material()?,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    LayerStack::new(substrate.material()?, layers, cladding.material()?)
+}
+
+/// A job task's `[task.stack]` table: a substrate, a cladding and `[[task.stack.layer]]`s, as a
+/// device's `[device.stack]` has them but with no core (the task names its own layer).
+///
+/// # Errors
+///
+/// [`Error::Parse`] for a table that isn't one, and the errors of [`layered`].
+pub(crate) fn task_stack(t: &Table) -> Result<LayerStack> {
+    let at = "[task.stack]";
+    known(t, at, &["substrate", "cladding", "layer"])?;
+    let medium = |key: &str| -> Result<MaterialSpec> {
+        MaterialSpec::from_value(
+            t.get(key)
+                .ok_or_else(|| parse(format!("{at} needs a {key}, e.g. {key} = \"sio2\"")))?,
+            &format!("{at} {key}"),
+        )
+    };
+    let layers = match t.get("layer") {
+        Some(Value::Array(a)) if !a.is_empty() => a
+            .iter()
+            .enumerate()
+            .map(|(k, l)| LayerSpec::from_value(l, &format!("[[task.stack.layer]] {}", k + 1)))
+            .collect::<Result<Vec<_>>>()?,
+        _ => {
+            return Err(parse(format!(
+                "{at} needs its layers, bottom to top: [[task.stack.layer]]"
+            )));
+        }
+    };
+    layered(&medium("substrate")?, &layers, &medium("cladding")?)
+}
+
 impl LayerSpec {
-    fn from_value(v: &Value, k: usize) -> Result<LayerSpec> {
-        let at = format!("[[device.stack.layer]] {}", k + 1);
+    /// A layer's table, named `at` in errors (`[[device.stack.layer]] 2`).
+    pub(crate) fn from_value(v: &Value, at: &str) -> Result<LayerSpec> {
+        let at = at.to_owned();
         let Value::Table(t) = v else {
             return Err(parse(format!("{at} must be a table")));
         };
@@ -533,7 +581,7 @@ impl MaterialSpec {
         Ok(materials.remove(0))
     }
 
-    fn from_value(v: &Value, at: &str) -> Result<MaterialSpec> {
+    pub(crate) fn from_value(v: &Value, at: &str) -> Result<MaterialSpec> {
         match v {
             Value::String(id) => Ok(MaterialSpec::id(id)),
             Value::Table(t) => {

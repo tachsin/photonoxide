@@ -176,6 +176,15 @@ enum Kind {
         /// Its bounding box, µm: the least x and y, then the greatest.
         bounds: [f64; 4],
     },
+    Etched {
+        shape: Shape,
+        /// The top face's bounding box, µm: the least x and y, then the greatest.
+        bounds: [f64; 4],
+        /// Its bottom and top, µm.
+        z: [f64; 2],
+        /// How far the walls reach out per µm down, cot θ.
+        run: f64,
+    },
 }
 
 impl Body {
@@ -248,6 +257,40 @@ impl Body {
         Body(Kind::Extruded { shape, bounds })
     }
 
+    /// A planar shape's etched body ([`crate::stack::Etch`]): `shape` (x and y in µm) its top
+    /// face at z = `z[1]`, standing down to `z[0]`, its walls leaning out going down at
+    /// `sidewall` radians from the plane (π/2: vertical, the shape extruded between the two
+    /// heights). Its surface is the walls' planes through the outline's nearest point, and the
+    /// two faces: a trapezoid's sides exactly, so the smoothing takes each cell's exact share
+    /// of a straight sloped wall, with its normal.
+    ///
+    /// # Errors
+    ///
+    /// [`crate::Error::InvalidValue`] unless the heights are finite, the top above the bottom,
+    /// and the sidewall above 0 and at most π/2.
+    pub fn etched(shape: Shape, z: [f64; 2], sidewall: f64) -> Result<Body> {
+        if !(z[0].is_finite()
+            && z[1].is_finite()
+            && z[1] > z[0]
+            && sidewall > 0.0
+            && sidewall <= std::f64::consts::FRAC_PI_2 + 1e-12)
+        {
+            return Err(invalid(format!(
+                "an etched body needs a top above its bottom and a sidewall above 0 and at \
+                 most 90 degrees, got {z:?} and {sidewall} rad"
+            )));
+        }
+        let run = crate::stack::Etch::FULL.with_sidewall(sidewall).run();
+        let b = shape.bounds();
+        let bounds = [b.min.x, b.min.y, b.max.x, b.max.y].map(|v| v.to_um());
+        Ok(Body(Kind::Etched {
+            shape,
+            bounds,
+            z,
+            run,
+        }))
+    }
+
     /// Whether `p` is farther than `r` (µm) from the body's bounding box, outside it: then it
     /// is outside the body and farther than `r` from its surface, known without the surface's
     /// distance, which for a polygon costs a pass over its edges. Never for the bodies without
@@ -258,6 +301,17 @@ impl Body {
                 let dx = (bounds[0] - p[0]).max(p[0] - bounds[2]).max(0.0);
                 let dy = (bounds[1] - p[1]).max(p[1] - bounds[3]).max(0.0);
                 dx.hypot(dy) > r
+            }
+            Kind::Etched { bounds, z, run, .. } => {
+                let out = (z[1] - z[0]) * run;
+                let dx = (bounds[0] - out - p[0])
+                    .max(p[0] - bounds[2] - out)
+                    .max(0.0);
+                let dy = (bounds[1] - out - p[1])
+                    .max(p[1] - bounds[3] - out)
+                    .max(0.0);
+                let dz = (z[0] - p[2]).max(p[2] - z[1]).max(0.0);
+                dx.hypot(dy).hypot(dz) > r
             }
             _ => false,
         }
@@ -293,6 +347,26 @@ impl Body {
             Kind::Extruded { shape, .. } => {
                 let (d, n) = planar(shape, p[0], p[1]);
                 (d, [n[0], n[1], 0.0])
+            }
+            Kind::Etched { shape, z, run, .. } => {
+                // the wall: d − (top − z) cot θ over its gradient's length, the distance to
+                // its plane through the outline's nearest point
+                let (d, n) = planar(shape, p[0], p[1]);
+                let length = run.hypot(1.0);
+                let wall = (
+                    (d - (z[1] - p[2]) * run) / length,
+                    [n[0] / length, n[1] / length, run / length],
+                );
+                // and the faces: the body is where all three are negative
+                [
+                    wall,
+                    (p[2] - z[1], [0.0, 0.0, 1.0]),
+                    (z[0] - p[2], [0.0, 0.0, -1.0]),
+                ]
+                .into_iter()
+                .fold((f64::NEG_INFINITY, [0.0; 3]), |best, s| {
+                    if s.0 > best.0 { s } else { best }
+                })
             }
         }
     }

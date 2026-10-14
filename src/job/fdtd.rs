@@ -176,7 +176,7 @@ struct ViewSpec {
 struct FdtdTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
     kind: String,
-    stack: String,
+    stack: super::StackField,
     core_nm: Option<f64>,
     bottom_oxide_um: Option<f64>,
     wavelength_um: f64,
@@ -431,6 +431,9 @@ impl Setup {
             )?,
             &task.path,
         )?;
+        if !three {
+            super::check_etches_2d(&structure, &task.layer)?;
+        }
         let (_, bottom, top) = structure
             .stack()
             .layer(&task.layer)
@@ -1302,6 +1305,13 @@ impl Setup {
                 table.push((real(&l.material)?, real(&l.background)?));
             }
             let (below, above) = (real(stack.substrate())?, real(stack.cladding())?);
+            // an etched layer (a partial etch, sloped walls) answers through the structure
+            let plain: Vec<bool> = stack
+                .layers()
+                .iter()
+                .map(|l| self.structure.is_plain(&l.name))
+                .collect();
+            let structure = self.structure.clone();
             Ok(Box::new(move |x: f64, y: f64, z: f64| {
                 if z < 0.0 {
                     return below;
@@ -1309,15 +1319,32 @@ impl Setup {
                 match tops.iter().position(|&t| z < t) {
                     Some(i) => {
                         let p = Point::um(x, y);
-                        if shapes[i].iter().any(|shape| shape.contains(p)) {
-                            table[i].0
+                        let inside = if plain[i] {
+                            shapes[i].iter().any(|shape| shape.contains(p))
                         } else {
-                            table[i].1
-                        }
+                            std::ptr::eq(
+                                structure.material_at(p, crate::units::Length::um(z)),
+                                &structure.stack().layers()[i].material,
+                            )
+                        };
+                        if inside { table[i].0 } else { table[i].1 }
                     }
                     None => above,
                 }
             }))
+        } else if stack
+            .layers()
+            .iter()
+            .any(|l| !self.structure.is_plain(&l.name))
+        {
+            let kind = if self.te {
+                crate::mode::Polarization::Te
+            } else {
+                crate::mode::Polarization::Tm
+            };
+            let name = self.task.layer.clone();
+            let eps = super::fdfd::etched_plane(&self.structure, &name, kind, lam)?;
+            Ok(Box::new(move |x: f64, y: f64, _: f64| eps(x, y)))
         } else {
             let kind = if self.te {
                 crate::mode::Polarization::Te

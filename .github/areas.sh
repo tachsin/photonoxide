@@ -26,8 +26,8 @@
 # its kernel's rates are timed with bench's triad.
 #
 # A file in no area is shared and runs everything (the library's root, units, geometry, expr,
-# error, parallel, portable, stack and raster; Cargo.toml and Cargo.lock; anything new). When in
-# doubt, a file is shared. Files nothing builds or reads (the site, Markdown no test reads, the
+# error, parallel, portable, stack (and src/stack/, its etches' validation cases) and raster;
+# Cargo.toml and Cargo.lock; anything new). When in doubt, a file is shared. Files nothing builds or reads (the site, Markdown no test reads, the
 # other workflows) run nothing but the docs' links. The Python wheels (python-wheels.yml) and the
 # Libraries workflow's installs (libraries.yml) start by their own `paths`.
 #

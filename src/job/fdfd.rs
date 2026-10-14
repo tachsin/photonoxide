@@ -50,7 +50,7 @@ struct WavelengthSweep {
 struct FdfdTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
     kind: String,
-    stack: String,
+    stack: super::StackField,
     core_nm: Option<f64>,
     bottom_oxide_um: Option<f64>,
     wavelength_um: f64,
@@ -170,16 +170,177 @@ pub(super) fn slab_index<'a>(
         .map_or(core, crate::mode::slab::SlabMode::effective_index))
 }
 
+/// The most layers a 2D job's stack may have when its layer is etched: its columns' indices
+/// are solved for every set of the other layers' shapes over a point.
+const ETCHED_LAYERS: usize = 6;
+
+/// The effective index squared of every column of a structure whose layer `name` is etched (a
+/// partial etch, or sloped walls), as a function of the plane's point: the column holds the
+/// layer's material up to the height [`Structure::kept`] gives there and its background
+/// above, between what lies just below and above the layer (as each other layer's shapes have
+/// it), a four-layer slab ([`crate::mode::multilayer`]). Its index is solved at the heights the
+/// etches stand at (the layer's top and bottom and each partial etch's floor) and, under a
+/// sloped wall, at 64 heights across the layer, and taken between them as n² linear in the
+/// height: exact where the walls are vertical. The other layers must be plain.
+///
+/// # Errors
+///
+/// [`Error::Parse`] for an etched layer other than `name`, or a stack of more than
+/// [`ETCHED_LAYERS`] layers; [`Error::OutsideValidity`] for a material without data at
+/// `wavelength`, and the multilayer's errors.
+pub(super) fn etched_plane(
+    s: &Structure,
+    name: &str,
+    kind: crate::mode::Polarization,
+    wavelength: Wavelength,
+) -> Result<Box<dyn Fn(f64, f64) -> f64 + Send + Sync>> {
+    let stack = s.stack().clone();
+    let layers = stack.layers();
+    let k = layers
+        .iter()
+        .position(|l| l.name == name)
+        .ok_or_else(|| task_error(format!("the stack has no layer {name}")))?;
+    if let Some(other) = layers
+        .iter()
+        .find(|l| l.name != name && !s.is_plain(&l.name))
+    {
+        return Err(task_error(format!(
+            "a 2D job's etches are on its own layer, {name}: {} has a partial etch or a sloped \
+             wall",
+            other.name
+        )));
+    }
+    if layers.len() > ETCHED_LAYERS {
+        return Err(task_error(format!(
+            "a 2D job with an etched layer may have at most {ETCHED_LAYERS} layers, got {}",
+            layers.len()
+        )));
+    }
+    let (_, bottom, top) = stack.layer(name).expect("found above");
+    let t = (top - bottom).to_um();
+    // the heights the column's index is solved at
+    let mut heights = vec![0.0, t];
+    for e in s.etches(name) {
+        if let Some(d) = e.depth {
+            heights.push(t - d.to_um());
+        }
+        if e.run() > 0.0 {
+            heights.extend((1..64).map(|i| t * f64::from(i) / 64.0));
+        }
+    }
+    heights.sort_by(f64::total_cmp);
+    heights.dedup();
+    let n = |m: &crate::material::Material| -> Result<f64> {
+        Ok(refractive_index(m.permittivity(wavelength)?).re)
+    };
+    let (material, background) = (n(&layers[k].material)?, n(&layers[k].background)?);
+    // the others' bits: layer i's at bit i (the etched layer's never set)
+    let others: Vec<usize> = (0..layers.len()).filter(|&i| i != k).collect();
+    let mut tables = vec![Vec::new(); 1 << layers.len()];
+    for combo in 0..1usize << others.len() {
+        let mask = others
+            .iter()
+            .enumerate()
+            .filter(|(b, _)| combo & (1 << b) != 0)
+            .fold(0, |m, (_, &i)| m | (1 << i));
+        let medium = |i: usize| {
+            if mask & (1 << i) != 0 {
+                &layers[i].material
+            } else {
+                &layers[i].background
+            }
+        };
+        let below = n(if k == 0 {
+            stack.substrate()
+        } else {
+            medium(k - 1)
+        })?;
+        let above = n(if k + 1 == layers.len() {
+            stack.cladding()
+        } else {
+            medium(k + 1)
+        })?;
+        let mut table = Vec::with_capacity(heights.len());
+        for &h in &heights {
+            let index = if h <= 0.0 || h >= t {
+                let core = if h >= t { material } else { background };
+                if core <= below.max(above) {
+                    core
+                } else {
+                    Slab::new(below, core, above, Length::um(t))?
+                        .modes(kind, wavelength)
+                        .first()
+                        .map_or(core, crate::mode::slab::SlabMode::effective_index)
+                }
+            } else {
+                let ml = crate::mode::multilayer::Multilayer::new(
+                    c64::new(above, 0.0),
+                    &[
+                        (c64::new(background, 0.0), Length::um(t - h)),
+                        (c64::new(material, 0.0), Length::um(h)),
+                    ],
+                    c64::new(below, 0.0),
+                )?;
+                ml.bound_modes(kind, wavelength)?
+                    .first()
+                    .map_or(below.max(above).max(background), |m| m.effective_index().re)
+            };
+            table.push(index * index);
+        }
+        tables[mask] = table;
+    }
+    let drawn: Vec<(usize, Vec<crate::geometry::Shape>)> = others
+        .iter()
+        .map(|&i| (i, s.shapes(&layers[i].name).to_vec()))
+        .collect();
+    let s = s.clone();
+    let name = name.to_owned();
+    Ok(Box::new(move |x: f64, y: f64| {
+        let p = Point::um(x, y);
+        let mask = drawn
+            .iter()
+            .filter(|(_, shapes)| shapes.iter().any(|shape| shape.contains(p)))
+            .fold(0, |m, (i, _)| m | (1 << i));
+        let table = &tables[mask];
+        let h = s.kept(&name, p).map_or(0.0, Length::to_um);
+        // n² linear in the height between the two heights about it; exact at each
+        let j = heights.partition_point(|&v| v < h);
+        if j < heights.len() && heights[j] == h {
+            return table[j];
+        }
+        let j = j.clamp(1, heights.len() - 1);
+        let (h0, h1) = (heights[j - 1], heights[j]);
+        let w = ((h - h0) / (h1 - h0)).clamp(0.0, 1.0);
+        table[j - 1] + w * (table[j] - table[j - 1])
+    }))
+}
+
 /// The in-plane permittivity at `wavelength` on `grid`. A point's column is fixed by which
 /// layers have a shape over it; the few distinct columns are found at the cells' centres and each
-/// one's effective index solved once.
+/// one's effective index solved once. An etched layer's columns are [`etched_plane`]'s.
 fn plane(
+    s: &Structure,
+    grid: &Grid,
+    name: &str,
+    layer: (Length, Length),
+    kind: crate::mode::Polarization,
+    wavelength: Wavelength,
+) -> Result<Box<dyn Fn(f64, f64) -> c64 + Send + Sync>> {
+    if s.stack().layers().iter().any(|l| !s.is_plain(&l.name)) {
+        let eps = etched_plane(s, name, kind, wavelength)?;
+        return Ok(Box::new(move |x, y| c64::new(eps(x, y), 0.0)));
+    }
+    Ok(Box::new(plain_plane(s, grid, layer, kind, wavelength)?))
+}
+
+/// [`plane`] of a structure whose layer is plain: as it always was.
+fn plain_plane(
     s: &Structure,
     grid: &Grid,
     layer: (Length, Length),
     kind: crate::mode::Polarization,
     wavelength: Wavelength,
-) -> Result<impl Fn(f64, f64) -> c64 + use<>> {
+) -> Result<impl Fn(f64, f64) -> c64 + Send + Sync + use<>> {
     let s = s.clone();
     let names: Vec<String> = s.stack().layers().iter().map(|l| l.name.clone()).collect();
     let key = move |s: &Structure, p: Point| -> Vec<bool> {
@@ -356,6 +517,7 @@ impl Device {
             )?,
             &task.path,
         )?;
+        super::check_etches_2d(&structure, &task.layer)?;
         let (_, bottom, top) = structure
             .stack()
             .layer(&task.layer)
@@ -420,6 +582,7 @@ impl Device {
         let eps = plane(
             &self.structure,
             &self.grid,
+            &self.task.layer,
             self.layer,
             self.kind,
             self.frozen.unwrap_or(wavelength),

@@ -1647,6 +1647,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::mode::region::checks::cases());
     // and the shift-and-invert solver's restarts, many modes, and every guided mode
     cases.extend(crate::eigen::checks::cases());
+    // and the stacks' etches and sidewalls, as the mode solver reads them
+    cases.extend(crate::stack::checks::cases());
     cases
 }
 

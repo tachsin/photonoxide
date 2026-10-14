@@ -90,6 +90,8 @@ fn text(value: &Value) -> Option<String> {
 /// What a value must be.
 #[derive(Clone, Copy)]
 enum Want {
+    /// An angle, with its unit (a plain number would be radians).
+    Angle,
     /// A length; a plain number only if it is zero.
     Length,
     /// A length, a plain number counting as µm (a `_um` key).
@@ -138,6 +140,7 @@ fn evaluate(value: &Value, p: &Parameters, want: Want) -> std::result::Result<f6
     let ok = match (want, e.dim()) {
         (_, None) => true,
         (Want::Length, Some(d)) => d == Dim::LENGTH,
+        (Want::Angle, Some(d)) => d == Dim::ANGLE,
         (Want::Micrometres, Some(d)) => d == Dim::LENGTH || d == Dim::NONE,
         (Want::Like(None), Some(_)) => true,
         (Want::Like(Some(w)), Some(d)) => d.fits(w) || d == Dim::NONE,
@@ -153,6 +156,7 @@ fn evaluate(value: &Value, p: &Parameters, want: Want) -> std::result::Result<f6
                  use the _um key"
             ),
             Want::Length | Want::Micrometres => format!("needs a length, got {got}"),
+            Want::Angle => format!("needs an angle with its unit (\"85 deg\"), got {got}"),
             Want::Like(w) => format!(
                 "needs {}, got {got}",
                 w.map_or("a value".to_owned(), Dim::name)
@@ -206,6 +210,52 @@ pub(super) fn resolve(task: &Table, set: Option<(&str, f64)>) -> Result<Table> {
                 if let Some(v) = resolved {
                     entry.insert(um, v);
                 }
+            }
+            // its etch's depth (a length) and sidewall (an angle)
+            if let Some(Value::Table(etch)) = entry.get_mut("etch") {
+                let at = |field: &str, message: String| {
+                    task_error(format!(
+                        "[[task.{kind}]] #{}, etch {field}: {message}",
+                        k + 1
+                    ))
+                };
+                if let Some(v) = etch.remove("depth") {
+                    if etch.contains_key("depth_um") {
+                        return Err(at("depth", "give depth or depth_um, not both".into()));
+                    }
+                    let d = evaluate(&v, &p, Want::Length).map_err(|m| at("depth", m))?;
+                    etch.insert("depth_um".into(), Value::Float(d));
+                }
+                if let Some(v) = etch.remove("sidewall") {
+                    if etch.contains_key("sidewall_deg") {
+                        return Err(at(
+                            "sidewall",
+                            "give sidewall or sidewall_deg, not both".into(),
+                        ));
+                    }
+                    let a = evaluate(&v, &p, Want::Angle).map_err(|m| at("sidewall", m))?;
+                    etch.insert("sidewall_deg".into(), Value::Float(a.to_degrees()));
+                }
+            }
+        }
+    }
+    // a [task.stack] table's layers' thicknesses
+    if let Some(Value::Table(stack)) = out.get_mut("stack")
+        && let Some(Value::Array(layers)) = stack.get_mut("layer")
+    {
+        for (k, layer) in layers.iter_mut().enumerate() {
+            let Value::Table(layer) = layer else {
+                continue;
+            };
+            if let Some(v) = layer.remove("thickness") {
+                let at = |m: String| {
+                    task_error(format!("[[task.stack.layer]] {}, thickness: {m}", k + 1))
+                };
+                if layer.contains_key("thickness_um") {
+                    return Err(at("give thickness or thickness_um, not both".into()));
+                }
+                let t = evaluate(&v, &p, Want::Length).map_err(at)?;
+                layer.insert("thickness_um".into(), Value::Float(t));
             }
         }
     }

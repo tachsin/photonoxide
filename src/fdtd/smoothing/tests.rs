@@ -89,6 +89,53 @@ fn smoothing_isotropic_media_is_farjadpours_eq_1() {
 }
 
 #[test]
+fn an_etched_bodys_sloped_wall_smooths_as_its_plane_does() {
+    // a 10 µm square's mesa 220 nm tall, its walls at 80 degrees: a cell on a wall, away from
+    // the faces and the corners, sees the wall's plane exactly
+    let angle = 80f64.to_radians();
+    let run = 1.0 / angle.tan();
+    let square = Shape::rect(Point::um(0.0, 0.0), Length::um(10.0), Length::um(10.0)).unwrap();
+    let mesa = Body::etched(square, [0.0, 0.22], angle).unwrap();
+    let si = Permittivity::isotropic(12.08).unwrap();
+    let ox = Permittivity::isotropic(2.085).unwrap();
+    let etched = Structure::new(ox).with(mesa, si);
+    // the east wall: x − 5 − (0.22 − z) cot θ = 0, its normal along (1, 0, cot θ)
+    let plane = Body::half_space([5.0 + 0.22 * run, 0.0, 0.0], [1.0, 0.0, run]).unwrap();
+    let half = Structure::new(ox).with(plane, si);
+    let size = [0.02, 0.02, 0.02];
+    for (x, z) in [(5.0 + 0.11 * run, 0.11), (5.0 + 0.1 * run + 0.004, 0.123)] {
+        let a = etched.inverse([x, 0.3, z], size, Average::Subpixel);
+        let b = half.inverse([x, 0.3, z], size, Average::Subpixel);
+        for i in 0..3 {
+            for j in 0..3 {
+                assert!((a[i][j] - b[i][j]).abs() < 1e-14, "{i}{j}: {a:?} {b:?}");
+            }
+        }
+    }
+    // inside, beyond the wall's foot, above and below
+    assert_eq!(etched.at([5.0 + 0.2 * run, 0.0, 0.01]), si);
+    assert_eq!(etched.at([5.0 + 0.2 * run, 0.0, 0.1]), ox);
+    assert_eq!(etched.at([0.0, 0.0, 0.25]), ox);
+    assert_eq!(etched.at([0.0, 0.0, -0.01]), ox);
+    // a vertical wall is the shape extruded between the faces
+    let wall = Body::etched(
+        Shape::rect(Point::um(0.0, 0.0), Length::um(1.0), Length::um(1.0)).unwrap(),
+        [0.0, 0.22],
+        std::f64::consts::FRAC_PI_2,
+    )
+    .unwrap();
+    assert_eq!(wall.surface([0.6, 0.0, 0.1]).1, [1.0, 0.0, 0.0]);
+    assert!(
+        Body::etched(
+            Shape::circle(Point::um(0.0, 0.0), Length::um(1.0)).unwrap(),
+            [0.2, 0.1],
+            1.0
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn smoothing_anisotropic_media_averages_tau_across_the_interface() {
     // across a plane normal to z, τ's blocks average: ⟨1/ε_zz⟩ = 1/ε̃_zz, ⟨ε_tz/ε_zz⟩ and
     // ⟨ε_t − ε_tz ε_zt/ε_zz⟩ (the transverse tensor E_x, E_y see when D_z is fixed)

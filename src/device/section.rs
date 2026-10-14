@@ -8,7 +8,7 @@ use faer::c64;
 use crate::geometry::{Point, Shape};
 use crate::material::Material;
 use crate::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity, Pml};
-use crate::stack::{Layer, LayerStack, Structure};
+use crate::stack::{Fill, Layer, LayerStack, Structure};
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
@@ -217,13 +217,17 @@ impl<'a> Media<'a> {
     }
 
     fn of(&self, m: &'a Material) -> Permittivity {
+        Permittivity::isotropic(self.eps(m))
+    }
+
+    fn eps(&self, m: &'a Material) -> c64 {
         if let Some(&(_, e)) = self
             .known
             .borrow()
             .iter()
             .find(|(k, _)| std::ptr::eq(*k, m))
         {
-            return Permittivity::isotropic(e);
+            return e;
         }
         let e = match m.permittivity(self.wavelength) {
             Ok(e) => e,
@@ -233,7 +237,24 @@ impl<'a> Media<'a> {
             }
         };
         self.known.borrow_mut().push((m, e));
-        Permittivity::isotropic(e)
+        e
+    }
+
+    /// A cell's permittivity: a uniform one's material's, a sloped wall's averaged.
+    fn fill(&self, fill: Fill<'a>) -> Permittivity {
+        match fill {
+            Fill::Wall {
+                inside,
+                outside,
+                fraction,
+                ..
+            } => Permittivity::isotropic(crate::stack::mean(
+                self.eps(inside),
+                self.eps(outside),
+                fraction,
+            )),
+            Fill::Uniform(m) => self.of(m),
+        }
     }
 
     fn done(self) -> Result<()> {
@@ -347,16 +368,33 @@ impl<'a> Cut<'a> {
         Ok(())
     }
 
-    /// The cross-section on the nodes `x` and `y`, each cell the material at its centre.
+    /// What fills the cell centred on the cross-section's (x, y), `size` µm across and up
+    /// ([`Structure::cut_cell`]): the material at its centre, or a sloped wall's share.
+    fn cell(&self, x: f64, y: f64, size: [f64; 2]) -> Fill<'a> {
+        self.structure.cut_cell(
+            Point {
+                x: Length::um(self.at),
+                y: Length::um(x),
+            },
+            self.mid + y,
+            [0.0, 1.0],
+            size,
+        )
+    }
+
+    /// The cross-section on the nodes `x` and `y`, each cell the material at its centre, or
+    /// averaged where a sloped wall crosses it.
     fn sample(&self, x: Vec<f64>, y: Vec<f64>, wavelength: Wavelength) -> Result<CrossSection> {
         let media = Media::new(wavelength);
         let (nx, ny) = (x.len() - 1, y.len() - 1);
         let mut cells = Vec::with_capacity(nx * ny);
         for i in 0..nx {
             for j in 0..ny {
-                cells.push(
-                    media.of(self.material(0.5 * (x[i] + x[i + 1]), 0.5 * (y[j] + y[j + 1]))),
-                );
+                cells.push(media.fill(self.cell(
+                    0.5 * (x[i] + x[i + 1]),
+                    0.5 * (y[j] + y[j + 1]),
+                    [x[i + 1] - x[i], y[j + 1] - y[j]],
+                )));
             }
         }
         media.done()?;
@@ -501,14 +539,15 @@ impl<'a> Cut<'a> {
         if mirrored {
             self.check_mirror(&line(x0, x1, nx), &line(y0, y1, ny), false)?;
         }
-        let media = Media::new(wavelength);
-        let eps = |x: f64, y: f64| media.of(self.material(x, y));
         let cs = if mapped {
-            CrossSection::bent(radius, (x0, x1, nx), (y0, y1, ny), eps)?
+            let media = Media::new(wavelength);
+            let cell = |c: [f64; 2], size: [f64; 2]| media.fill(self.cell(c[0], c[1], size));
+            let cs = CrossSection::bent_cells(radius, (x0, x1, nx), (y0, y1, ny), cell)?;
+            media.done()?;
+            cs
         } else {
-            CrossSection::uniform((x0, x1, nx), (y0, y1, ny), eps)?
+            self.sample(line(x0, x1, nx), line(y0, y1, ny), wavelength)?
         };
-        media.done()?;
         // the layer's thickness in u, the mapped coordinate: R ln(1 + x/R) over its last
         // `margin` µm
         let u = |x: f64| {

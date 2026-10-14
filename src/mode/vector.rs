@@ -400,9 +400,20 @@ impl CrossSection {
     /// and finite, or a window reaching the centre of the bend (x0 ≤ −radius).
     pub fn bent(
         radius: f64,
+        x: (f64, f64, usize),
+        y: (f64, f64, usize),
+        eps: impl Fn(f64, f64) -> Permittivity,
+    ) -> Result<CrossSection> {
+        CrossSection::bent_cells(radius, x, y, |c, _| eps(c[0], c[1]))
+    }
+
+    /// [`CrossSection::bent`] with each straight cell's permittivity from `cell(centre, size)`,
+    /// its physical centre and size (µm), as a cell averaged over its area takes it.
+    pub(crate) fn bent_cells(
+        radius: f64,
         (x0, x1, nx): (f64, f64, usize),
         (y0, y1, ny): (f64, f64, usize),
-        eps: impl Fn(f64, f64) -> Permittivity,
+        cell: impl Fn([f64; 2], [f64; 2]) -> Permittivity,
     ) -> Result<CrossSection> {
         if !(radius.is_finite() && radius > 0.0) {
             return Err(Error::invalid(
@@ -429,7 +440,10 @@ impl CrossSection {
             let f = (u[i] + u[i + 1]) / radius;
             let f = f.exp();
             for j in 0..ny {
-                let e = eps(x, 0.5 * (y[j] + y[j + 1]));
+                let e = cell(
+                    [x, 0.5 * (y[j] + y[j + 1])],
+                    [xs[i + 1] - xs[i], y[j + 1] - y[j]],
+                );
                 cells.push(Permittivity {
                     xx: e.xx * f,
                     xy: e.xy * f,

@@ -45,7 +45,7 @@ mod fit;
 mod guide;
 mod ring;
 mod section;
-mod spec;
+pub(crate) mod spec;
 mod waveguide;
 
 pub(crate) mod checks;
