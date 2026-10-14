@@ -90,8 +90,6 @@ fn text(value: &Value) -> Option<String> {
 /// What a value must be.
 #[derive(Clone, Copy)]
 enum Want {
-    /// An angle, with its unit (a plain number would be radians).
-    Angle,
     /// A length; a plain number only if it is zero.
     Length,
     /// A length, a plain number counting as µm (a `_um` key).
@@ -140,7 +138,6 @@ fn evaluate(value: &Value, p: &Parameters, want: Want) -> std::result::Result<f6
     let ok = match (want, e.dim()) {
         (_, None) => true,
         (Want::Length, Some(d)) => d == Dim::LENGTH,
-        (Want::Angle, Some(d)) => d == Dim::ANGLE,
         (Want::Micrometres, Some(d)) => d == Dim::LENGTH || d == Dim::NONE,
         (Want::Like(None), Some(_)) => true,
         (Want::Like(Some(w)), Some(d)) => d.fits(w) || d == Dim::NONE,
@@ -156,7 +153,6 @@ fn evaluate(value: &Value, p: &Parameters, want: Want) -> std::result::Result<f6
                  use the _um key"
             ),
             Want::Length | Want::Micrometres => format!("needs a length, got {got}"),
-            Want::Angle => format!("needs an angle with its unit (\"85 deg\"), got {got}"),
             Want::Like(w) => format!(
                 "needs {}, got {got}",
                 w.map_or("a value".to_owned(), Dim::name)

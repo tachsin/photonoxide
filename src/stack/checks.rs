@@ -476,7 +476,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "stack/oblique-rod",
             title: r"A sloped wall's cells as the mode solver averages them, on an interface oblique everywhere: a silicon rod 0.3 µm in radius in silica at 1.55 µm on a 5 nm grid, $\mathrm{HE}_{11}$ (index shown)",
             tier: Tier::Analytic,
-            source: r"the step-index fibre's exact eigenvalue equation (E. Snitzer, J. Opt. Soc. Am. 51, 491 (1961), doi:10.1364/JOSA.51.000491): 3.001088; the scheme assumes interfaces on its grid lines, so its error at an oblique one stays near 2e-3 (staircased: 7e-3)",
+            source: r"the step-index fibre's exact eigenvalue equation (E. Snitzer, J. Opt. Soc. Am. 51, 491 (1961), doi:10.1364/JOSA.51.000491): 3.001088; the scheme assumes interfaces on its grid lines, so its error at an oblique one stays near 2e-3 (staircased: 6.1e-3)",
             run: || {
                 let (found, exact) = rod(0.005);
                 Outcome {
