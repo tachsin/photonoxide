@@ -1128,6 +1128,7 @@ struct PathSpec {
     heading_rad: f64,
     width_um: f64,
     segments: Vec<SegmentSpec>,
+    etch: Option<EtchSpec>,
 }
 
 /// One segment of a [`PathSpec`]: exactly one of a straight, an arc, an Euler bend or a sine
@@ -1673,7 +1674,19 @@ fn draw(
 /// ([`crate::geometry::Path::shape`]).
 fn draw_paths(mut s: Structure, paths: &[PathSpec]) -> Result<Structure> {
     for (k, p) in paths.iter().enumerate() {
-        s.draw(&p.layer, p.path(k)?.shape())?;
+        let shape = p.path(k)?.shape();
+        match p.etch {
+            None => s.draw(&p.layer, shape).map(|_| ())?,
+            Some(e) => s
+                .draw_etched(&p.layer, shape, EtchSpec::etch(Some(e)))
+                .map(|_| ())
+                .map_err(|e| match e {
+                    Error::InvalidValue { reason, .. } => {
+                        task_error(format!("[[task.path]] #{}: {reason}", k + 1))
+                    }
+                    other => other,
+                })?,
+        }
     }
     Ok(s)
 }

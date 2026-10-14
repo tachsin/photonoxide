@@ -67,8 +67,8 @@ export const CATEGORIES = [
   {
     id: "foundations",
     title: "Foundations",
-    blurb: "Not solvers: the units and signs, shapes, expressions and material data every method above is built on.",
-    groups: [{ title: null, slugs: ["conventions", "geometry", "expressions", "materials", "catalogue"] }],
+    blurb: "Not solvers: the units and signs, shapes, stacks and their etches, expressions and material data every method above is built on.",
+    groups: [{ title: null, slugs: ["conventions", "geometry", "stacks", "expressions", "materials", "catalogue"] }],
   },
 ];
 

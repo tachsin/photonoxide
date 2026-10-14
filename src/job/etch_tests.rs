@@ -140,6 +140,36 @@ fn a_strip_drawn_through_its_etch_is_the_strip_it_always_was() {
 }
 
 #[test]
+fn a_path_takes_an_etch_too() {
+    let text = r#"
+name = "etched-bend"
+
+[task]
+kind = "structure"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+x_um = [-2.0, 6.0]
+y_um = [-2.0, 6.0]
+step_nm = 50.0
+
+[[task.path]]
+layer = "Si"
+start = ["-1 um", 0]
+width = "500 nm"
+segments = [{ straight = "1 um" }, { arc = "90 deg", radius = "4 um" }]
+etch = { depth = "150 nm", sidewall = "85 deg" }
+"#;
+    let job = Job::parse(text).unwrap();
+    check(&job).unwrap();
+    let Event::Scene { layers, shapes, .. } = preview(&job).unwrap() else {
+        panic!("a scene")
+    };
+    assert_eq!(layers.len(), 6, "{layers:?}");
+    assert_eq!(shapes.len(), 4);
+}
+
+#[test]
 fn bad_etches_and_stacks_are_refused_by_the_check() {
     let refused = |text: String, words: &str| {
         let e = check(&Job::parse(&text).unwrap()).unwrap_err().to_string();

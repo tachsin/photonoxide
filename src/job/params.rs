@@ -167,6 +167,33 @@ fn evaluate(value: &Value, p: &Parameters, want: Want) -> std::result::Result<f6
     e.try_eval(p.values()).map_err(|e| e.to_string())
 }
 
+/// A shape's `etch`: its `depth` (a length) into `depth_um` and its `sidewall` (an angle) into
+/// `sidewall_deg`; `what` names the shape in errors.
+fn resolve_etch(entry: &mut Table, p: &Parameters, what: &str) -> Result<()> {
+    let Some(Value::Table(etch)) = entry.get_mut("etch") else {
+        return Ok(());
+    };
+    let at = |field: &str, message: String| task_error(format!("{what}, etch {field}: {message}"));
+    if let Some(v) = etch.remove("depth") {
+        if etch.contains_key("depth_um") {
+            return Err(at("depth", "give depth or depth_um, not both".into()));
+        }
+        let d = evaluate(&v, p, Want::Length).map_err(|m| at("depth", m))?;
+        etch.insert("depth_um".into(), Value::Float(d));
+    }
+    if let Some(v) = etch.remove("sidewall") {
+        if etch.contains_key("sidewall_deg") {
+            return Err(at(
+                "sidewall",
+                "give sidewall or sidewall_deg, not both".into(),
+            ));
+        }
+        let a = evaluate(&v, p, Want::Angle).map_err(|m| at("sidewall", m))?;
+        etch.insert("sidewall_deg".into(), Value::Float(a.to_degrees()));
+    }
+    Ok(())
+}
+
 /// The task's table with its parameters and expressions resolved; see the module.
 pub(super) fn resolve(task: &Table, set: Option<(&str, f64)>) -> Result<Table> {
     let mut p = parameters(task)?;
@@ -207,32 +234,7 @@ pub(super) fn resolve(task: &Table, set: Option<(&str, f64)>) -> Result<Table> {
                     entry.insert(um, v);
                 }
             }
-            // its etch's depth (a length) and sidewall (an angle)
-            if let Some(Value::Table(etch)) = entry.get_mut("etch") {
-                let at = |field: &str, message: String| {
-                    task_error(format!(
-                        "[[task.{kind}]] #{}, etch {field}: {message}",
-                        k + 1
-                    ))
-                };
-                if let Some(v) = etch.remove("depth") {
-                    if etch.contains_key("depth_um") {
-                        return Err(at("depth", "give depth or depth_um, not both".into()));
-                    }
-                    let d = evaluate(&v, &p, Want::Length).map_err(|m| at("depth", m))?;
-                    etch.insert("depth_um".into(), Value::Float(d));
-                }
-                if let Some(v) = etch.remove("sidewall") {
-                    if etch.contains_key("sidewall_deg") {
-                        return Err(at(
-                            "sidewall",
-                            "give sidewall or sidewall_deg, not both".into(),
-                        ));
-                    }
-                    let a = evaluate(&v, &p, Want::Angle).map_err(|m| at("sidewall", m))?;
-                    etch.insert("sidewall_deg".into(), Value::Float(a.to_degrees()));
-                }
-            }
+            resolve_etch(entry, &p, &format!("[[task.{kind}]] #{}", k + 1))?;
         }
     }
     // a [task.stack] table's layers' thicknesses
@@ -264,6 +266,7 @@ pub(super) fn resolve(task: &Table, set: Option<(&str, f64)>) -> Result<Table> {
                 task_error(format!("[[task.path]] #{}, {field}: {message}", k + 1))
             };
             resolve_fields(entry, &PATH, &p, &at)?;
+            resolve_etch(entry, &p, &format!("[[task.path]] #{}", k + 1))?;
             if let Some(Value::Array(segments)) = entry.get_mut("segments") {
                 for (j, segment) in segments.iter_mut().enumerate() {
                     let Value::Table(segment) = segment else {
