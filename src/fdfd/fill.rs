@@ -230,9 +230,9 @@ impl Solver2d {
 
     /// The power `mode` carries `direction` in `field` (a field of this problem, made from a
     /// plane), |a|², and its derivative with respect to a parameter p of the geometry, by the
-    /// adjoint method: dF/dp = −2 Re(λᵀ (dA/dp) u), Aᵀ λ = conj(a) c ([`super::adjoint`]), with
-    /// dA/dp the difference of the matrices assembled from `planes`, the geometry at p − δ and
-    /// p + δ, over `step` = 2δ. Assembling costs no factorization, and with the fill's averaging
+    /// adjoint method: dF/dp = −2 Re(λᵀ (dA/dp) u), Aᵀ λ = conj(a) c, as
+    /// [`Solver2d::mode_power_gradient`] has it, with dA/dp the difference of the matrices
+    /// assembled from `planes`, the geometry at p − δ and p + δ, over `step` = 2δ. Assembling costs no factorization, and with the fill's averaging
     /// the matrix is a smooth function of the geometry, so the difference is a derivative; with
     /// samples it moves in steps. The ports' modes must not depend on p.
     ///

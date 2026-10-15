@@ -450,11 +450,12 @@ impl<K: Copy + PartialEq> Clone for Layout<K> {
 /// let mut plane = Plane::new(c64::new(1.0, 0.0));
 /// let disk = Shape::circle(Point::um(0.0, 0.0), Length::um(1.0)).unwrap();
 /// plane.draw(disk, c64::new(12.0, 0.0));
-/// // a cell half in the disk, along its edge
+/// // a cell across the disk's edge
 /// let cell = Bounds::new(Point::um(0.9, -0.05), Point::um(1.1, 0.05));
 /// let shares = plane.shares(cell);
 /// assert_eq!(shares.parts.len(), 2);
-/// assert!((shares.mean().re - 6.5).abs() < 0.01);
+/// // the disk fills 0.4979 of it (its edge bows in), so the mean is 1 + 11 × 0.4979
+/// assert!((shares.mean().re - 6.477).abs() < 1e-3);
 /// ```
 #[derive(Clone)]
 pub struct Plane {
@@ -490,7 +491,9 @@ impl Plane {
         self.layout.at(Point::um(x, y))
     }
 
-    /// What fills `cell` (see [`Layout`]'s rules in the module's docs).
+    /// What fills `cell`: one shape's fill exactly, several shapes' union or each one's visible
+    /// part from a boolean, and the normal of the boundary nearest the centre (see the module's
+    /// docs).
     pub fn shares(&self, cell: Bounds) -> Shares<c64> {
         self.layout.shares(cell)
     }
