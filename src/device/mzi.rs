@@ -1,7 +1,7 @@
 //! The Mach–Zehnder interferometer: two splitters joined by two arms, as the netlist of its
 //! devices.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::Result;
 use crate::circuit::components::PhaseShifter;
@@ -79,6 +79,13 @@ fn arm(
     Ok(end)
 }
 
+/// The MZIs drawn lately, by kind and values: a page draws the same design twice an update
+/// (its geometry, then its job's scene), and an MZI's curves take milliseconds to trace.
+static DRAWN: Mutex<Vec<(String, Drawing)>> = Mutex::new(Vec::new());
+
+/// How many drawings [`DRAWN`] keeps.
+const KEPT: usize = 8;
+
 /// The splitters an MZI is built of.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Splitters {
@@ -115,6 +122,73 @@ pub struct StripMzi {
 }
 
 impl StripMzi {
+    /// Its drawing at `values`: the splitter, the arms and the combiner, with the ports.
+    fn drawing(&self, values: &Values) -> Result<Drawing> {
+        let (_, v) = self.splitter(values)?;
+        let layer = self.arm.core().to_owned();
+        let w = values.at("width");
+        // the splitter at the origin; a coupler's guides parted by S-bends, drawn, not modelled
+        let (split, upper_out, lower_out, inputs) = match self.splitters {
+            Splitters::Couplers => (
+                generator::DirectionalCoupler::new(
+                    um(w),
+                    um(values.at("gap")),
+                    um(values.at("coupler_length")),
+                )
+                .with_arms(um(ARM_BENDS.0), um(ARM_BENDS.1), SBendKind::Sine)
+                .draw(&layer)?,
+                "o3",
+                "o4",
+                vec!["o1", "o2"],
+            ),
+            Splitters::YBranches => (self.branch.drawing(&v, &layer)?, "o2", "o3", vec!["o1"]),
+        };
+        let mut d = Drawing::new("mzi");
+        add(&mut d, &split);
+        let (upper, lower) = (values.at("upper"), values.at("lower"));
+        let reach = upper.min(lower);
+        let up = arm(
+            &mut d,
+            split.port_named(upper_out)?,
+            upper,
+            reach,
+            1.0,
+            w,
+            &layer,
+        )?;
+        arm(
+            &mut d,
+            split.port_named(lower_out)?,
+            lower,
+            reach,
+            -1.0,
+            w,
+            &layer,
+        )?;
+        // the combiner: the splitter mirrored, its upper output on the upper arm's end
+        let combiner = split.connected(upper_out, &up, true)?;
+        add(&mut d, &combiner);
+        let mut ports: Vec<Port> = inputs
+            .iter()
+            .map(|n| split.port_named(n).cloned())
+            .collect::<Result<_>>()?;
+        // the combiner's inputs, now on the right: top to bottom
+        let mut right: Vec<Port> = inputs
+            .iter()
+            .map(|n| combiner.port_named(n).cloned())
+            .collect::<Result<_>>()?;
+        right.sort_by(|a, b| b.position.y.to_um().total_cmp(&a.position.y.to_um()));
+        let first = ports.len() + 1;
+        for (k, p) in right.iter_mut().enumerate() {
+            p.name = format!("o{}", first + k);
+        }
+        ports.extend(right);
+        for p in ports {
+            d.add_port(p)?;
+        }
+        Ok(d)
+    }
+
     /// An MZI of two directional couplers (500 × 220 nm strips 200 nm apart, each at its 3 dB
     /// length) and arms 150 and 100 µm long, on 220 nm SOI.
     pub fn couplers() -> StripMzi {
@@ -370,72 +444,34 @@ impl Device for StripMzi {
         values.check(self)?;
         let (device, v) = self.splitter(values)?;
         let stack = device.stack(&v)?;
-        let layer = self.arm.core().to_owned();
-        let w = values.at("width");
-        // the splitter at the origin; a coupler's guides parted by S-bends, drawn, not modelled
-        let (split, upper_out, lower_out, inputs) = match self.splitters {
-            Splitters::Couplers => (
-                generator::DirectionalCoupler::new(
-                    um(w),
-                    um(values.at("gap")),
-                    um(values.at("coupler_length")),
-                )
-                .with_arms(um(ARM_BENDS.0), um(ARM_BENDS.1), SBendKind::Sine)
-                .draw(&layer)?,
-                "o3",
-                "o4",
-                vec!["o1", "o2"],
-            ),
-            Splitters::YBranches => (
-                self.branch.generator(&v)?.draw(&layer)?,
-                "o2",
-                "o3",
-                vec!["o1"],
-            ),
+        let key = format!(
+            "{}|{}|{:?}",
+            self.kind(),
+            self.arm.core(),
+            values.as_slice()
+        );
+        let lock = || {
+            DRAWN
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
         };
-        let mut d = Drawing::new("mzi");
-        add(&mut d, &split);
-        let (upper, lower) = (values.at("upper"), values.at("lower"));
-        let reach = upper.min(lower);
-        let up = arm(
-            &mut d,
-            split.port_named(upper_out)?,
-            upper,
-            reach,
-            1.0,
-            w,
-            &layer,
-        )?;
-        arm(
-            &mut d,
-            split.port_named(lower_out)?,
-            lower,
-            reach,
-            -1.0,
-            w,
-            &layer,
-        )?;
-        // the combiner: the splitter mirrored, its upper output on the upper arm's end
-        let combiner = split.connected(upper_out, &up, true)?;
-        add(&mut d, &combiner);
-        let mut ports: Vec<Port> = inputs
+        let kept = lock()
             .iter()
-            .map(|n| split.port_named(n).cloned())
-            .collect::<Result<_>>()?;
-        // the combiner's inputs, now on the right: top to bottom
-        let mut right: Vec<Port> = inputs
-            .iter()
-            .map(|n| combiner.port_named(n).cloned())
-            .collect::<Result<_>>()?;
-        right.sort_by(|a, b| b.position.y.to_um().total_cmp(&a.position.y.to_um()));
-        let first = ports.len() + 1;
-        for (k, p) in right.iter_mut().enumerate() {
-            p.name = format!("o{}", first + k);
-        }
-        ports.extend(right);
-        for p in ports {
-            d.add_port(p)?;
-        }
+            .find(|(k, _)| *k == key)
+            .map(|(_, d)| d.clone());
+        let d = match kept {
+            Some(d) => d,
+            None => {
+                let d = self.drawing(values)?;
+                let mut kept = lock();
+                kept.retain(|(k, _)| *k != key);
+                kept.push((key, d.clone()));
+                if kept.len() > KEPT {
+                    kept.remove(0);
+                }
+                d
+            }
+        };
         super::drawn(Structure::new(stack), &d)
     }
 

@@ -1,9 +1,11 @@
 //! The Y-branch: a stem that widens along an outline of its own into two arms.
 
+use std::sync::Mutex;
+
 use crate::circuit::components::YBranch;
 use crate::circuit::{Component, Fidelity, Parameter};
 use crate::expr::{Expr, Parameters};
-use crate::generator::{self, Generator, SBendKind};
+use crate::generator::{self, Drawing, Generator, SBendKind};
 use crate::stack::{LayerStack, Structure};
 use crate::units::Wavelength;
 use crate::{Error, Result};
@@ -168,6 +170,43 @@ impl StripYBranch {
     }
 }
 
+/// The Y-branches drawn lately, by their generator's parameters and layer: tracing the outline
+/// (a region between two curves) and the arms takes milliseconds, and a page draws the same
+/// design twice an update (its geometry, then its job's scene). The drawing is the generator's
+/// own, so the same bits either way.
+static DRAWN: Mutex<Vec<(String, Drawing)>> = Mutex::new(Vec::new());
+
+/// How many drawings [`DRAWN`] keeps.
+const KEPT: usize = 8;
+
+impl StripYBranch {
+    /// Its generator's drawing at `values` on `layer`, drawn or kept.
+    ///
+    /// # Errors
+    ///
+    /// As [`Generator::draw`], and [`StripYBranch::generator`]'s.
+    pub(super) fn drawing(&self, values: &Values, layer: &str) -> Result<Drawing> {
+        let g = self.generator(values)?;
+        let key = format!("{layer}|{g:?}");
+        let lock = || {
+            DRAWN
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+        };
+        if let Some((_, d)) = lock().iter().find(|(k, _)| *k == key) {
+            return Ok(d.clone());
+        }
+        let d = g.draw(layer)?;
+        let mut kept = lock();
+        kept.retain(|(k, _)| *k != key);
+        kept.push((key, d.clone()));
+        if kept.len() > KEPT {
+            kept.remove(0);
+        }
+        Ok(d)
+    }
+}
+
 /// Pushes a width parameter `name` with default `w`.
 fn parameter_into(parameters: &mut Vec<Parameter>, name: &str, w: f64) {
     parameters.push(parameter(name, "µm", w, 0.05, 10.0));
@@ -239,7 +278,7 @@ impl Device for StripYBranch {
 
     fn geometry(&self, values: &Values) -> Result<Geometry> {
         values.check(self)?;
-        let drawing = self.generator(values)?.draw(&self.strip.core)?;
+        let drawing = self.drawing(values, &self.strip.core)?;
         let p = profile(values);
         let drawing = if p.is_strip() {
             drawing

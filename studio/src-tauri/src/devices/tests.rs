@@ -428,11 +428,14 @@ fn a_slider_drag_keeps_up_at_the_analytic_fidelity() {
         }
         let mean = started.elapsed() / steps;
         println!("{}: {mean:?} an update, the slowest {slowest:?}", d.kind());
-        // an MZI's update draws a whole circuit, two splitters and the arms' bends, each curve
-        // a polygon within 1 nm for the 3D scene (about 40 ms of it on its own): it keeps up
-        // within a few of the page's waits
+        // a Y-branch's update traces its spline outline, a region between two curves, and its
+        // arms, each curve a polygon within 1 nm for the 3D scene (about 30 ms here, 60 on
+        // CI's macOS runner); an MZI's draws a whole circuit, two splitters and the arms' bends
+        // (the scene alone about 40 ms): they keep up within a few of the page's waits
         let budget = if d.kind().contains("MZI") {
             4 * BUDGET
+        } else if d.kind() == "Y-branch" {
+            2 * BUDGET
         } else {
             BUDGET
         };
