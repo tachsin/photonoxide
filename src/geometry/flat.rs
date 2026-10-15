@@ -22,6 +22,9 @@ pub(crate) struct Flat {
     /// The edges, (ring, edge), in the hierarchy's order of items.
     edges: Vec<(usize, usize)>,
     index: Index,
+    /// The rings' boxes, so that a point or a cell meets only the rings near it: many holes (a
+    /// slab less a lattice of them) don't make every query visit every hole.
+    rings: Index,
     area: f64,
     bounds: Bounds,
     /// How far the polygons are from the region they stand for, µm.
@@ -75,6 +78,7 @@ impl Flat {
             }
         }
         let index = Index::new(&edge_boxes);
+        let rings = Index::new(&boxes);
         let bounds = bounds_of(parts.iter().flat_map(|(o, _)| o.iter().copied()));
         Some(Flat {
             parts,
@@ -83,6 +87,7 @@ impl Flat {
             areas,
             edges,
             index,
+            rings,
             area,
             bounds,
             deviation,
@@ -126,13 +131,16 @@ impl Flat {
         if on {
             return Location::Boundary;
         }
+        // a ray along +x crosses a closed ring whose box doesn't hold p an even number of times
+        // (both its ends are outside the ring), so only the rings whose boxes hold p count
         let mut inside = false;
-        for (l, pieces) in self.loops.iter().enumerate() {
+        self.rings.any_at(p, |l| {
+            super::array::tested();
             let b = &self.boxes[l];
             if q[1] < b.min.y.to_um() || q[1] > b.max.y.to_um() || q[0] > b.max.x.to_um() {
-                continue;
+                return false;
             }
-            for piece in pieces {
+            for piece in &self.loops[l] {
                 let Piece::Line(a, c) = piece else { continue };
                 if (a[1] > q[1]) != (c[1] > q[1])
                     && q[0] < (c[0] - a[0]) * (q[1] - a[1]) / (c[1] - a[1]) + a[0]
@@ -140,7 +148,8 @@ impl Flat {
                     inside = !inside;
                 }
             }
-        }
+            false
+        });
         if inside {
             Location::Inside
         } else {
@@ -202,13 +211,17 @@ impl Flat {
         }
         let corners = cell.corners();
         let mut sum = 0.0;
-        for (l, pieces) in self.loops.iter().enumerate() {
+        // the rings whose boxes meet the cell, in their own order, so the sum is the one taken
+        // over every ring (a ring whose box misses the cell bounds none of it)
+        let mut near = self.rings.meeting(cell);
+        near.sort_unstable();
+        for l in near {
+            super::array::tested();
             let b = &self.boxes[l];
             if cell.encloses(b) {
                 sum += self.areas[l];
             } else if b.overlaps(&cell) {
-                // (a ring whose box misses the cell bounds none of it)
-                sum += boundary::fill(std::slice::from_ref(pieces), corners);
+                sum += boundary::fill(std::slice::from_ref(&self.loops[l]), corners);
             }
         }
         sum

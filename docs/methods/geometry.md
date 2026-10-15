@@ -471,3 +471,5 @@ release build; `cargo test --release --lib material_at_timing -- --ignored --noc
   (`geometry/curves/zhang-y-junction`).
 - Booleans, offsets and corner rounding: their own write-up, docs/methods/booleans.md, with
   their checks (`geometry/booleans/*`).
+- Arrays, lattices and references: their own write-up, docs/methods/arrays.md, with their
+  checks (`geometry/arrays/*`) and Akahane et al.'s L3 cavity drawn.

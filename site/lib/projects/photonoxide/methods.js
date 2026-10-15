@@ -68,7 +68,7 @@ export const CATEGORIES = [
     id: "foundations",
     title: "Foundations",
     blurb: "Not solvers: the units and signs, shapes, stacks and their etches, expressions and material data every method above is built on.",
-    groups: [{ title: null, slugs: ["conventions", "geometry", "booleans", "stacks", "expressions", "materials", "catalogue"] }],
+    groups: [{ title: null, slugs: ["conventions", "geometry", "booleans", "arrays", "stacks", "expressions", "materials", "catalogue"] }],
   },
 ];
 
@@ -84,6 +84,7 @@ export const ALGORITHMS = [
   { name: "Adjoint variable method", does: "every parameter's gradient from one more solve", methods: ["fdfd-adjoint", "fdtd-adjoint", "circuit-adjoint"] },
   { name: "Arnoldi, shift and invert", does: "the eigenvalues nearest a shift", methods: ["eigen"] },
   { name: "Auxiliary differential equations", does: "Drude and Lorentz media stepped in time", methods: ["fdtd"] },
+  { name: "Best-first nearest search", does: "the nearest of 10⁴ elements through a hierarchy of their boxes", methods: ["arrays"] },
   { name: "Block QMR with deflation", does: "all of an S-matrix's ports in one Krylov space", methods: ["block-qmr"] },
   { name: "Conformal map", does: "a bend as a straight guide of graded index", methods: ["bends"] },
   { name: "Contour integrals (FEAST)", does: "every eigenvalue inside a disc or an ellipse", methods: ["contour"] },

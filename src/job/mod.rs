@@ -67,6 +67,13 @@
 //! y = ["-2 um", "2 um"]
 //! ```
 //!
+//! **Arrays and references.** `type = "array"` draws an `element` at every site of a
+//! rectangular, hexagonal or polar `lattice`, with sites removed, shifted or resized (an L3
+//! cavity, a W1 guide), its places and sizes expressions of the site's index `i`, `j` and place
+//! `x`, `y`; `type = "reference"` places a named `[[task.cell]]` many times, mirrored, scaled,
+//! rotated and moved. [`check`] names an element by its index and a defect by its site. See
+//! `shapes.rs` and docs/methods/arrays.md.
+//!
 //! A modes job's sweep can step through any parameter, `parameter = "gap"`, from `from` to `to`
 //! (numbers in µm for a length and radians for an angle, or expressions with units: `"150 nm"`);
 //! at each point the parameters that use it follow, and the point records its shapes as a width
@@ -864,13 +871,33 @@ fn scene_shapes(s: &Structure) -> Vec<SceneShape> {
         .collect()
 }
 
-/// A shape's outlines: one ([`outline`]), or for a boolean, offset or rounding (which may fall
-/// apart into several polygons) one for each of its polygons within 1 nm, holes joined as a
-/// ring's are.
+/// An array's or a reference's elements, when no two of them meet: each drawn as its own
+/// outline (circles as 64-gons, as everywhere in a scene); `None` for any other shape, or for
+/// elements that touch or overlap, which are drawn as their union's polygons.
+fn separate(shape: &Shape) -> Option<&[crate::geometry::Element]> {
+    let a = match shape {
+        Shape::Array(a) => a,
+        Shape::Reference(r) => r.array(),
+        _ => return None,
+    };
+    a.is_separate().then(|| a.elements())
+}
+
+/// A shape's outlines: one ([`outline`]); an array's or a reference's elements' each, when
+/// they don't meet; or for a boolean, offset, rounding (which may fall apart into several
+/// polygons), and an array whose elements meet, one for each of its polygons within 1 nm,
+/// holes joined as a ring's are.
 fn outlines(shape: &Shape) -> Vec<Vec<[f64; 2]>> {
+    if let Some(elements) = separate(shape) {
+        return elements.iter().flat_map(|e| outlines(&e.shape)).collect();
+    }
     if !matches!(
         shape,
-        Shape::Boolean(_) | Shape::Offset(_) | Shape::Rounded(_)
+        Shape::Boolean(_)
+            | Shape::Offset(_)
+            | Shape::Rounded(_)
+            | Shape::Array(_)
+            | Shape::Reference(_)
     ) {
         return vec![outline(shape)];
     }
@@ -972,9 +999,19 @@ fn bands(s: &Structure, name: &str, bottom: f64, top: f64) -> Vec<Band> {
 
 /// A shape's outlines ([`outlines`]) grown by `d` µm, as [`grown`].
 fn grown_all(shape: &Shape, d: f64) -> Vec<Vec<[f64; 2]>> {
+    if let Some(elements) = separate(shape) {
+        return elements
+            .iter()
+            .flat_map(|e| grown_all(&e.shape, d))
+            .collect();
+    }
     if !matches!(
         shape,
-        Shape::Boolean(_) | Shape::Offset(_) | Shape::Rounded(_)
+        Shape::Boolean(_)
+            | Shape::Offset(_)
+            | Shape::Rounded(_)
+            | Shape::Array(_)
+            | Shape::Reference(_)
     ) {
         return vec![grown(shape, d)];
     }

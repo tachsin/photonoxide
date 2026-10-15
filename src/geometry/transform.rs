@@ -329,6 +329,8 @@ impl Shape {
             Shape::Boolean(s) => Shape::Boolean(s.transformed(t)),
             Shape::Offset(s) => Shape::Offset(s.transformed(t)),
             Shape::Rounded(s) => Shape::Rounded(s.transformed(t)),
+            Shape::Array(s) => Shape::Array(s.transformed(t)),
+            Shape::Reference(s) => Shape::Reference(s.transformed(t)),
         }
     }
 }

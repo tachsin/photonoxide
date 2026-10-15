@@ -24,12 +24,23 @@
 //! combined exactly, their distances composed by min and max where that is exact and from their
 //! polygons elsewhere; [`Polygons::boolean`], [`Polygons::offset`] and [`Polygons::rounded`] do
 //! the same on polygons, on a grid. See docs/methods/booleans.md.
+//!
+//! Many shapes make one: an [`Array`] is the union of its elements, each with an index, found
+//! through an index over their boxes so that 10⁴ of them cost a point a handful of tests. A
+//! [`Lattice`] (rectangular, hexagonal or polar, with sites removed, shifted or resized: an L3
+//! cavity, a W1 guide) gives an array its sites, the same shape at each or one made from each
+//! site's index and place; a [`Reference`] places a named [`Cell`] many times with transforms.
+//! See docs/methods/arrays.md.
 
 use std::f64::consts::TAU;
 
 use crate::units::Length;
 use crate::{Error, Result};
 
+mod array;
+pub(crate) mod array_checks;
+#[cfg(test)]
+mod array_tests;
 pub(crate) mod boolean_checks;
 #[cfg(test)]
 mod boolean_tests;
@@ -45,6 +56,7 @@ mod flat;
 mod fresnel;
 mod implicit;
 mod index;
+mod lattice;
 mod mask;
 mod outline;
 mod path;
@@ -58,11 +70,13 @@ mod region_tests;
 mod trace;
 mod transform;
 
+pub use array::{Array, Cell, Element, Reference};
 pub use clip::{Join, Operation};
 pub use compose::{Boolean, Offset, Rounded};
 pub use curves::{Between, ClosedCurve, Polar};
 pub use implicit::{IMPLICIT_CELLS, Implicit};
 pub use index::Index;
+pub use lattice::{Lattice, LatticeKind, MAX_SITES, Site};
 pub use mask::Mask;
 pub use path::{Curve, End, PartialEuler, Path, PathBuilder, Profile, Segment, partial_euler};
 pub use primitives::{Ellipse, FILL_TOLERANCE, RegularPolygon, RoundedRect, Sector, Superellipse};
@@ -341,6 +355,10 @@ pub enum Shape {
     Offset(Offset),
     /// A shape with its convex and concave corners rounded.
     Rounded(Rounded),
+    /// Many shapes as one, their union, each with an index: a lattice of holes or pillars.
+    Array(Array),
+    /// A named cell placed many times, each placement a transform.
+    Reference(Reference),
 }
 
 impl Shape {
@@ -429,6 +447,8 @@ impl Shape {
             Shape::Boolean(s) => Some(s),
             Shape::Offset(s) => Some(s),
             Shape::Rounded(s) => Some(s),
+            Shape::Array(s) => Some(s),
+            Shape::Reference(s) => Some(s),
             Shape::Rect { .. } | Shape::Circle { .. } | Shape::Polygon(_) | Shape::Ring { .. } => {
                 None
             }

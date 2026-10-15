@@ -37,7 +37,7 @@ use crate::units::Length;
 use crate::{Error, Result};
 
 /// The larger side of a box, µm.
-fn size_of(b: &Bounds) -> f64 {
+pub(super) fn size_of(b: &Bounds) -> f64 {
     (b.max.x - b.min.x).to_um().max((b.max.y - b.min.y).to_um())
 }
 
@@ -49,7 +49,7 @@ fn widen(b: Bounds, by: f64) -> Bounds {
     }
 }
 
-fn hull(a: &Bounds, b: &Bounds) -> Bounds {
+pub(super) fn hull(a: &Bounds, b: &Bounds) -> Bounds {
     let ([a0, a1], [b0, b1]) = (a.corners(), b.corners());
     Bounds {
         min: point([a0[0].min(b0[0]), a0[1].min(b0[1])]),
@@ -68,7 +68,7 @@ fn meet(a: &Bounds, b: &Bounds) -> Bounds {
 }
 
 /// A shape's polygons within `tolerance` µm, unsnapped, as parts, and their deviation.
-fn fine(shape: &Shape, tolerance: f64) -> (Vec<Part>, f64) {
+pub(super) fn fine(shape: &Shape, tolerance: f64) -> (Vec<Part>, f64) {
     let t = Tolerance::unsnapped(Length::um(tolerance)).expect("a positive tolerance");
     let p = shape.polygons(t);
     (clip::parts(&p), p.deviation.to_um())
@@ -94,7 +94,7 @@ fn measured(region: &dyn Region, parts: &[Part]) -> f64 {
 /// measures to, p − d n, is on `region`'s boundary, a step `step` µm along the normal either
 /// side of it being inside and outside. Within a step of the boundary, where the normal is the
 /// rounding's, `near` says whether p is on the result's boundary.
-fn exact(
+pub(super) fn exact(
     region: &dyn Region,
     p: P2,
     d: f64,
@@ -111,14 +111,14 @@ fn exact(
         && region.locate(point([q[0] + step * n[0], q[1] + step * n[1]])) == Location::Outside
 }
 
-type P2 = [f64; 2];
+pub(super) type P2 = [f64; 2];
 
 /// The polygons of a region at `tolerance`, from `make(e)`, the region's polygons built with
 /// the operands' within `e` µm, and their own deviation: measured against the region's
 /// distance, `e` cut by 4 until they are within the tolerance (at most 6 times). A tolerance
 /// within 100 times `floor`, how closely the region's distance itself is known where it isn't
 /// exact, isn't measured: the polygons are made once, their deviation their own.
-fn tightened(
+pub(super) fn tightened(
     region: &dyn Region,
     tolerance: Tolerance,
     floor: f64,

@@ -72,6 +72,33 @@
 //! of = [{ type = "circle", center = ["5 um", 0], radius = "2 um" }]
 //! ```
 //!
+//! **Arrays and references** ([`crate::geometry::Array`], [`crate::geometry::Lattice`],
+//! [`crate::geometry::Reference`]). `type = "array"` draws its `element` at every site of a
+//! `lattice`: `"rectangular"` (`pitch`, one value or `[x, y]`; `i` and `j`, each `[first,
+//! last]`), `"hexagonal"` (`pitch`, `i`, `j`: rows along x, the odd ones half a pitch along) or
+//! `"polar"` (`pitch` between `rings`, ring j holding `count` sites, an expression of `j`;
+//! `inner` and `start_angle` optional). Its defects are `remove = [[i, j], …]`,
+//! `shift = [{ at = [i, j], by = [dx, dy] }, …]` and `resize = [{ at = [i, j], by = factor }, …]`;
+//! `origin` and `angle` place the lattice. The element is drawn about its site, and its places
+//! and sizes are expressions of the site too: `i`, `j`, its index, and `x`, `y`, its place in
+//! the lattice's frame. `type = "reference"` places a `[[task.cell]]` (`name`, `shapes`, a list
+//! as `of` takes) at each of `place = [{ translate, rotate, mirror, scale }, …]`: mirrored
+//! (`"x"` or `"y"`), scaled, rotated about the cell's origin, then moved. A cell's shapes may be
+//! arrays and references again; one that places itself, and a cell placed nowhere, are refused.
+//!
+//! ```toml
+//! [[task.shape]]
+//! type = "array"              # an L3 cavity's hole lattice
+//! layer = "Si"
+//! lattice = "hexagonal"
+//! pitch = "420 nm"
+//! i = [-7, 7]
+//! j = [-4, 4]
+//! element = { type = "circle", radius = "0.29*420 nm" }
+//! remove = [[-1, 0], [0, 0], [1, 0]]
+//! shift = [{ at = [-2, 0], by = ["-63 nm", 0] }, { at = [2, 0], by = ["63 nm", 0] }]
+//! ```
+//!
 //! Each takes an `etch` as the other shapes do. The resolver ([`super::params`]) puts the task's
 //! parameters' definitions (and a sweep's point) in each entry as `parameters` (and `set`), so
 //! that its expressions are parsed in their scope here.
@@ -82,7 +109,8 @@ use super::{EtchSpec, SegmentSpec, path_of, task_error};
 use crate::Result;
 use crate::expr::{Expr, Parameters};
 use crate::geometry::{
-    Between, Bounds, ClosedCurve, Implicit, Join, Mask, Operation, Point, Polar, Polygon, Shape,
+    Array, Between, Bounds, Cell, ClosedCurve, Implicit, Join, Lattice, Mask, Operation, Point,
+    Polar, Polygon, Reference, Shape, Transform,
 };
 use crate::stack::Structure;
 use crate::units::Length;
@@ -120,6 +148,24 @@ pub(super) struct ShapeSpec {
     miter_limit: Option<f64>,
     convex_um: Option<f64>,
     concave_um: Option<f64>,
+    lattice: Option<String>,
+    pitch_um: Option<Vec<f64>>,
+    i: Option<[i64; 2]>,
+    j: Option<[i64; 2]>,
+    rings: Option<usize>,
+    count: Option<toml::Value>,
+    inner_um: Option<f64>,
+    start_angle_rad: Option<f64>,
+    origin_um: Option<[f64; 2]>,
+    angle_rad: Option<f64>,
+    element: Option<toml::Table>,
+    remove: Option<Vec<[i64; 2]>>,
+    shift: Option<Vec<ShiftSpec>>,
+    resize: Option<Vec<ResizeSpec>>,
+    cell: Option<String>,
+    place: Option<Vec<PlaceSpec>>,
+    /// A reference's cell's shapes: put here by the resolver.
+    cell_shapes: Option<Vec<ShapeSpec>>,
     pub(super) etch: Option<EtchSpec>,
     /// The task's parameters, (name, definition): put here by the resolver.
     #[serde(default)]
@@ -128,8 +174,55 @@ pub(super) struct ShapeSpec {
     set: Option<(String, f64)>,
 }
 
+/// A site an array's defect moves: `at = [i, j]`, `by = [dx, dy]`.
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ShiftSpec {
+    at: [i64; 2],
+    by_um: [f64; 2],
+}
+
+/// A site whose element an array's defect scales: `at = [i, j]`, `by` a factor.
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ResizeSpec {
+    at: [i64; 2],
+    by: f64,
+}
+
+/// A reference's placement: mirrored (`mirror = "x"`, in the x axis, y to −y; `"y"`, x to −x),
+/// scaled, rotated about the cell's origin, then moved, as GDSII places a cell.
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PlaceSpec {
+    translate_um: Option<[f64; 2]>,
+    rotate_rad: Option<f64>,
+    mirror: Option<String>,
+    scale: Option<f64>,
+}
+
 /// The fields each type takes besides `type`, `layer` and `etch`.
-const FIELDS: [(&str, &[&str]); 16] = [
+const FIELDS: [(&str, &[&str]); 18] = [
+    (
+        "array",
+        &[
+            "lattice",
+            "pitch",
+            "i",
+            "j",
+            "rings",
+            "count",
+            "inner",
+            "start_angle",
+            "origin",
+            "angle",
+            "element",
+            "remove",
+            "shift",
+            "resize",
+        ],
+    ),
+    ("reference", &["cell", "place"]),
     ("between", &["x", "lower", "upper"]),
     ("polar", &["center", "radius"]),
     ("parametric", &["curve"]),
@@ -175,8 +268,8 @@ impl ShapeSpec {
         let Some((_, takes)) = FIELDS.iter().find(|(t, _)| *t == self.kind) else {
             return Err(task_error(format!(
                 "{bare}: unknown type \"{}\": between, polar, parametric, implicit, mask, rect, \
-                 circle, ring, polygon, path, union, intersection, difference, xor, offset or \
-                 round",
+                 circle, ring, polygon, path, union, intersection, difference, xor, offset, \
+                 round, array or reference",
                 self.kind
             )));
         };
@@ -205,6 +298,22 @@ impl ShapeSpec {
             ("miter_limit", self.miter_limit.is_some()),
             ("convex", self.convex_um.is_some()),
             ("concave", self.concave_um.is_some()),
+            ("lattice", self.lattice.is_some()),
+            ("pitch", self.pitch_um.is_some()),
+            ("i", self.i.is_some()),
+            ("j", self.j.is_some()),
+            ("rings", self.rings.is_some()),
+            ("count", self.count.is_some()),
+            ("inner", self.inner_um.is_some()),
+            ("start_angle", self.start_angle_rad.is_some()),
+            ("origin", self.origin_um.is_some()),
+            ("angle", self.angle_rad.is_some()),
+            ("element", self.element.is_some()),
+            ("remove", self.remove.is_some()),
+            ("shift", self.shift.is_some()),
+            ("resize", self.resize.is_some()),
+            ("cell", self.cell.is_some()),
+            ("place", self.place.is_some()),
         ];
         if let Some((name, _)) = given.iter().find(|(n, g)| *g && !takes.contains(n)) {
             return Err(at(format!(
@@ -325,8 +434,246 @@ impl ShapeSpec {
                     what,
                 )?)
             }
+            "array" => self.array(p, what)?,
+            "reference" => self.reference(p, what)?,
             kind => self.combined(kind, p, what)?,
         })
+    }
+
+    /// An array: its lattice, its defects, and its element made at each site.
+    fn array(&self, p: &Parameters, what: &str) -> Result<Shape> {
+        let at = |m: String| task_error(format!("{what}: {m}"));
+        let reason = |e: crate::Error| match e {
+            crate::Error::InvalidValue { reason, .. } => at(reason),
+            other => other,
+        };
+        let kind = self.lattice.as_deref().ok_or_else(|| {
+            at("needs lattice: \"rectangular\", \"hexagonal\" or \"polar\"".into())
+        })?;
+        let pitch = self
+            .pitch_um
+            .as_deref()
+            .ok_or_else(|| at("needs pitch, the lattice's spacing".into()))?;
+        let one_pitch = || -> Result<Length> {
+            match pitch {
+                [a] => Ok(Length::um(*a)),
+                _ => Err(at(format!(
+                    "pitch: a {kind} lattice takes one, got {}",
+                    pitch.len()
+                ))),
+            }
+        };
+        let planar = |field: &str, given: bool| -> Result<()> {
+            if given {
+                Err(at(format!("{field} is for a polar lattice")))
+            } else {
+                Ok(())
+            }
+        };
+        let ranges = || -> Result<([i64; 2], [i64; 2])> {
+            planar("rings", self.rings.is_some())?;
+            planar("count", self.count.is_some())?;
+            planar("inner", self.inner_um.is_some())?;
+            planar("start_angle", self.start_angle_rad.is_some())?;
+            Ok((
+                self.i
+                    .ok_or_else(|| at("needs i, the range of i: [first, last]".into()))?,
+                self.j
+                    .ok_or_else(|| at("needs j, the range of j: [first, last]".into()))?,
+            ))
+        };
+        let mut lattice = match kind {
+            "rectangular" => {
+                let (i, j) = ranges()?;
+                let pitch = match pitch {
+                    [a] => [Length::um(*a); 2],
+                    [a, b] => [Length::um(*a), Length::um(*b)],
+                    _ => return Err(at("pitch: one value, or two (x and y)".into())),
+                };
+                Lattice::rectangular(pitch, i, j).map_err(reason)?
+            }
+            "hexagonal" => {
+                let (i, j) = ranges()?;
+                Lattice::hexagonal(one_pitch()?, i, j).map_err(reason)?
+            }
+            "polar" => {
+                if self.i.is_some() || self.j.is_some() {
+                    return Err(at(
+                        "i and j are for a rectangular or hexagonal lattice: a polar one takes \
+                         rings and count"
+                            .into(),
+                    ));
+                }
+                let rings = self
+                    .rings
+                    .filter(|&n| n > 0)
+                    .ok_or_else(|| at("needs rings, how many (at least 1)".into()))?;
+                let count = self.count.as_ref().ok_or_else(|| {
+                    at("needs count, the sites on ring j: a number, or an expression of j".into())
+                })?;
+                let text = match count {
+                    toml::Value::String(s) => s.clone(),
+                    toml::Value::Integer(n) => n.to_string(),
+                    other => {
+                        return Err(at(format!("count: a number or an expression, got {other}")));
+                    }
+                };
+                let e = Expr::parse(&text, p.scope()).map_err(|e| at(format!("count: {e}")))?;
+                let mut counts = Vec::with_capacity(rings);
+                for j in 0..rings {
+                    let q = p
+                        .at_coordinate("j", j as f64)
+                        .map_err(|e| at(e.to_string()))?;
+                    let n = e
+                        .try_eval(q.values())
+                        .map_err(|e| at(format!("count at ring {j}: {e}")))?;
+                    if !(n >= 0.0 && n.fract() == 0.0 && n <= crate::geometry::MAX_SITES as f64) {
+                        return Err(at(format!(
+                            "count at ring {j} is {n}: it must be a whole number of sites"
+                        )));
+                    }
+                    counts.push(n as usize);
+                }
+                Lattice::polar(
+                    Length::um(self.inner_um.unwrap_or_default()),
+                    one_pitch()?,
+                    &counts,
+                    self.start_angle_rad.unwrap_or_default(),
+                )
+                .map_err(reason)?
+            }
+            other => {
+                return Err(at(format!(
+                    "lattice: unknown lattice \"{other}\": rectangular, hexagonal or polar"
+                )));
+            }
+        };
+        for &k in self.remove.as_deref().unwrap_or_default() {
+            lattice = lattice.remove(k).map_err(reason)?;
+        }
+        for s in self.shift.as_deref().unwrap_or_default() {
+            lattice = lattice
+                .shift(s.at, [Length::um(s.by_um[0]), Length::um(s.by_um[1])])
+                .map_err(reason)?;
+        }
+        for s in self.resize.as_deref().unwrap_or_default() {
+            lattice = lattice.resize(s.at, s.by).map_err(reason)?;
+        }
+        let template = self
+            .element
+            .as_ref()
+            .ok_or_else(|| at("needs element, the shape drawn at each site".into()))?;
+        let array = Array::generate(&lattice, |site| {
+            let [i, j] = site.index;
+            let name = format!("{what}, element ({i}, {j})");
+            let q = p
+                .at_coordinate("i", i as f64)
+                .and_then(|q| q.at_coordinate("j", j as f64))
+                .and_then(|q| q.at_coordinate("x", site.at.x.to_um()))
+                .and_then(|q| q.at_coordinate("y", site.at.y.to_um()))
+                .map_err(|e| task_error(format!("{name}: {e}")))?;
+            let mut entry = template.clone();
+            super::params::resolve_element(&mut entry, &q, &name)?;
+            let spec: ShapeSpec = toml::Value::Table(entry)
+                .try_into()
+                .map_err(|e: toml::de::Error| task_error(format!("{name}: {e}")))?;
+            if !spec.layer.is_empty() || spec.etch.is_some() {
+                return Err(task_error(format!(
+                    "{name}: an element takes no layer or etch: the array's own are its"
+                )));
+            }
+            spec.build(&q, &format!("{name} ({})", spec.kind), &name)
+                .map(Some)
+        })
+        .map_err(reason)?;
+        let (origin, angle) = (
+            self.origin_um.unwrap_or_default(),
+            self.angle_rad.unwrap_or_default(),
+        );
+        if origin == [0.0, 0.0] && angle == 0.0 {
+            return Ok(Shape::Array(array));
+        }
+        let t = Transform::rotate(angle, Point::default()).then(&Transform::translate(
+            Length::um(origin[0]),
+            Length::um(origin[1]),
+        ));
+        Ok(Shape::Array(array.transformed(&t)))
+    }
+
+    /// A reference: its cell's shapes (put in `cell_shapes` by the resolver) at each placement.
+    fn reference(&self, p: &Parameters, what: &str) -> Result<Shape> {
+        let at = |m: String| task_error(format!("{what}: {m}"));
+        let reason = |e: crate::Error| match e {
+            crate::Error::InvalidValue { reason, .. } => at(reason),
+            other => other,
+        };
+        let name = self
+            .cell
+            .as_deref()
+            .ok_or_else(|| at("needs cell, the name of a [[task.cell]]".into()))?;
+        let specs = self
+            .cell_shapes
+            .as_deref()
+            .ok_or_else(|| at(format!("unknown cell \"{name}\"")))?;
+        let mut shapes = Vec::with_capacity(specs.len());
+        for (j, s) in specs.iter().enumerate() {
+            let bare = format!("{what}, cell \"{name}\", shape {}", j + 1);
+            if !s.layer.is_empty() || s.etch.is_some() {
+                return Err(task_error(format!(
+                    "{bare}: a cell's shape takes no layer or etch: the reference's own are its"
+                )));
+            }
+            shapes.push(s.build(p, &format!("{bare} ({})", s.kind), &bare)?);
+        }
+        let places = self
+            .place
+            .as_deref()
+            .filter(|v| !v.is_empty())
+            .ok_or_else(|| {
+                at(
+                    "needs place, a list of placements: { translate, rotate, mirror, scale }"
+                        .into(),
+                )
+            })?;
+        let mut placements = Vec::with_capacity(places.len());
+        for (k, pl) in places.iter().enumerate() {
+            let at = |m: String| task_error(format!("{what}, place {}: {m}", k + 1));
+            let mut t = match pl.mirror.as_deref() {
+                None => Transform::IDENTITY,
+                Some("x") => Transform::mirror(Point::default(), 0.0),
+                Some("y") => Transform::mirror(Point::default(), std::f64::consts::FRAC_PI_2),
+                Some(other) => {
+                    return Err(at(format!(
+                        "mirror: \"{other}\": \"x\" (in the x axis) or \"y\" (in the y axis)"
+                    )));
+                }
+            };
+            if let Some(s) = pl.scale {
+                let s = Transform::scale(s, Point::default()).map_err(|e| match e {
+                    crate::Error::InvalidValue { reason, .. } => at(format!("scale: {reason}")),
+                    other => other,
+                })?;
+                t = t.then(&s);
+            }
+            let r = pl.rotate_rad.unwrap_or_default();
+            if !r.is_finite() {
+                return Err(at(format!("rotate: {r} isn't finite")));
+            }
+            if r != 0.0 {
+                t = t.then(&Transform::rotate(r, Point::default()));
+            }
+            if let Some([dx, dy]) = pl.translate_um {
+                if !(dx.is_finite() && dy.is_finite()) {
+                    return Err(at("translate isn't finite".into()));
+                }
+                t = t.then(&Transform::translate(Length::um(dx), Length::um(dy)));
+            }
+            placements.push(t);
+        }
+        let cell = Cell::new(name, shapes).map_err(reason)?;
+        Ok(Shape::Reference(
+            Reference::new(cell, placements).map_err(reason)?,
+        ))
     }
 
     /// A boolean, offset or rounding of the shapes in `of`.
@@ -676,6 +1023,207 @@ etch = { depth = "70 nm", sidewall = "80 deg" }
             })
             .count();
         assert_eq!(guide_pieces, 2);
+    }
+
+    const ARRAYS: &str = r#"
+name = "arrays"
+
+[task]
+kind = "structure"
+wavelength_um = 1.55
+layer = "Si"
+x_um = [-4.0, 14.0]
+y_um = [-5.0, 9.0]
+step_nm = 100.0
+
+[task.stack]
+substrate = "sio2"
+cladding = "sio2"
+
+[[task.stack.layer]]
+name = "Si"
+thickness = "252 nm"
+material = "si"
+background = "sio2"
+
+[task.parameters]
+a = "420 nm"
+r = "0.29*a"
+
+[[task.cell]]
+name = "pair"
+shapes = [
+  { type = "circle", center = [0, 0], radius = "100 nm" },
+  { type = "rect", center = ["0.5 um", 0], size = ["300 nm", "200 nm"] },
+]
+
+[[task.shape]]
+type = "difference"
+layer = "Si"
+of = [
+  { type = "rect", center = [0, 0], size = ["7 um", "4 um"] },
+  { type = "array", lattice = "hexagonal", pitch = "a", i = [-7, 7], j = [-4, 4],
+    element = { type = "circle", radius = "r" },
+    remove = [[-1, 0], [0, 0], [1, 0]],
+    shift = [{ at = [-2, 0], by = ["-0.15*a", 0] }, { at = [2, 0], by = ["0.15*a", 0] }] },
+]
+
+[[task.shape]]
+type = "array"
+layer = "Si"
+lattice = "polar"
+pitch = "0.5 um"
+rings = 4
+count = "max(1, 6*j)"
+origin = ["10 um", 0]
+element = { type = "circle", radius = "60 nm + 10 nm*j + 0.01*sqrt(x^2 + y^2)" }
+
+[[task.shape]]
+type = "array"
+layer = "Si"
+lattice = "rectangular"
+pitch = ["0.5 um", "1 um"]
+i = [0, 9]
+j = [0, 0]
+origin = ["8 um", "-4 um"]
+element = { type = "rect", center = ["2 nm*i^2", 0], size = ["200 nm + 10 nm*i", "600 nm"] }
+etch = { depth = "70 nm" }
+
+[[task.shape]]
+type = "reference"
+layer = "Si"
+cell = "pair"
+place = [
+  { translate = ["6 um", "6 um"] },
+  { translate = ["8 um", "6 um"], rotate = "90 deg" },
+  { translate = ["10 um", "6 um"], mirror = "y", scale = 2 },
+]
+"#;
+
+    #[test]
+    fn arrays_and_references_in_a_job() {
+        use crate::geometry::Region;
+        let job = Job::parse(ARRAYS).unwrap();
+        check(&job).unwrap();
+        let task: StructureTask = params::task(&job).unwrap();
+        let shapes: Vec<Shape> = (0..4).map(|k| task.shape[k].shape(k).unwrap()).collect();
+        let (a, r) = (0.42, 0.29 * 0.42);
+        // the slab less 15 × 9 − 3 holes
+        let holes = (15.0 * 9.0 - 3.0) * std::f64::consts::PI * r * r;
+        let slab = 7.0 * 4.0 - holes;
+        // (some holes at the edges are cut: their parts outside the slab don't count)
+        assert!(shapes[0].area() < slab + 1e-9 && shapes[0].area() > 20.0);
+        // the polar array: 1 + 6 + 12 + 18 pillars about (10, 0), radii from j and the distance
+        let Shape::Array(lens) = &shapes[1] else {
+            panic!("an array")
+        };
+        assert_eq!(lens.len(), 37);
+        let e = lens.element([3, 2]).unwrap();
+        let Shape::Circle { center, radius } = &e.shape else {
+            panic!("a circle")
+        };
+        let rho = ((center.x.to_um() - 10.0).powi(2) + center.y.to_um().powi(2)).sqrt();
+        assert!((rho - 1.0).abs() < 1e-12);
+        assert!((radius.to_um() - (0.06 + 0.02 + 0.01 * rho)).abs() < 1e-12);
+        // the grating: tooth i, 0.2 + 0.01 i µm wide, at 8 + 0.5 i + 0.002 i² µm
+        let Shape::Array(grating) = &shapes[2] else {
+            panic!("an array")
+        };
+        for el in grating.elements() {
+            let i = el.index[0] as f64;
+            let b = el.shape.bounds();
+            assert!(((b.max.x - b.min.x).to_um() - (0.2 + 0.01 * i)).abs() < 1e-12);
+            let c = 0.5 * (b.max.x + b.min.x).to_um();
+            assert!((c - (8.0 + 0.5 * i + 0.002 * i * i)).abs() < 1e-12, "{c}");
+        }
+        // the reference: the pair three times, turned and mirrored and doubled
+        let Shape::Reference(pairs) = &shapes[3] else {
+            panic!("a reference")
+        };
+        assert_eq!(pairs.array().len(), 6);
+        assert!(pairs.contains(Point::um(6.5, 6.0)));
+        assert!(pairs.contains(Point::um(8.0, 6.5)), "turned a quarter");
+        assert!(
+            pairs.contains(Point::um(9.0, 6.0)),
+            "mirrored in y and doubled"
+        );
+        assert!(!pairs.contains(Point::um(11.0, 6.0)));
+        // drawn: the cavity's centre is silicon, a hole's air
+        let s = task.structure().unwrap();
+        let z = Length::um(0.2);
+        let at = |x: f64, y: f64| s.material_at(Point::um(x, y), z).name().to_owned();
+        assert_eq!(at(0.0, 0.0), "Si");
+        assert_eq!(at(a, 0.0), "Si");
+        assert_ne!(at(3.0 * a, 0.0), "Si");
+        assert_eq!(at(10.0, 0.0), "Si", "the lens's centre pillar");
+        // the preview draws every hole, pillar and tooth
+        let Event::Scene { shapes: scene, .. } = preview(&job).unwrap() else {
+            panic!("a structure's preview is a scene")
+        };
+        assert!(scene.len() >= 1 + 37 + 10 + 6, "{}", scene.len());
+    }
+
+    #[test]
+    fn what_an_array_or_a_reference_in_a_job_refuses() {
+        let bad = |from: &str, to: &str, says: &str| {
+            let text = ARRAYS.replace(from, to);
+            assert_ne!(text, ARRAYS, "{from}");
+            let job = Job::parse(&text).unwrap();
+            let e = check(&job).unwrap_err().to_string();
+            assert!(e.contains(says), "{e}");
+        };
+        bad(
+            "lattice = \"hexagonal\"",
+            "lattice = \"square\"",
+            "unknown lattice \"square\"",
+        );
+        bad(
+            "remove = [[-1, 0], [0, 0], [1, 0]]",
+            "remove = [[-1, 0], [0, 0], [9, 0]]",
+            "can't remove site (9, 0): i runs from -7 to 7",
+        );
+        bad(
+            "{ at = [2, 0], by = [\"0.15*a\", 0] }",
+            "{ at = [0, 0], by = [\"0.15*a\", 0] }",
+            "can't shift site (0, 0): it was removed",
+        );
+        bad(
+            "radius = \"60 nm + 10 nm*j + 0.01*sqrt(x^2 + y^2)\"",
+            "radius = \"60 nm - 30 nm*j\"",
+            "[[task.shape]] #2 (array), element (0, 2) (circle): needs a finite centre",
+        );
+        bad(
+            "radius = \"60 nm + 10 nm*j + 0.01*sqrt(x^2 + y^2)\"",
+            "radius = \"60 nm + z\"",
+            "element (0, 0) (circle): radius: z is a coordinate",
+        );
+        bad(
+            "count = \"max(1, 6*j)\"",
+            "count = \"6.5*j\"",
+            "count at ring 1 is 6.5",
+        );
+        bad("rings = 4", "rings = 4\ni = [0, 1]", "i and j are for");
+        bad(
+            "cell = \"pair\"",
+            "cell = \"pear\"",
+            "unknown cell \"pear\": the cells are pair",
+        );
+        bad(
+            "{ type = \"circle\", center = [0, 0], radius = \"100 nm\" },",
+            "{ type = \"reference\", cell = \"pair\", place = [{ translate = [0, 0] }] },",
+            "the cell \"pair\" places itself",
+        );
+        bad(
+            "[[task.cell]]\nname = \"pair\"",
+            "[[task.cell]]\nname = \"spare\"\nshapes = [{ type = \"circle\", radius = \"1 um\" }]\n\n[[task.cell]]\nname = \"pair\"",
+            "\"spare\" is placed nowhere",
+        );
+        bad("mirror = \"y\"", "mirror = \"z\"", "place 3: mirror: \"z\"");
+        bad(
+            "{ type = \"circle\", center = [0, 0], radius = \"100 nm\" },",
+            "{ type = \"circle\", layer = \"Si\", center = [0, 0], radius = \"100 nm\" },",
+            "a cell's shape takes no layer",
+        );
     }
 
     #[test]

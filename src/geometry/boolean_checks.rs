@@ -600,7 +600,7 @@ pub(crate) fn fillet_errors() -> (f64, f64) {
 
 /// The largest distance of polygons' vertices and their edges' middles from a region's
 /// boundary, µm, and how many vertices they have.
-fn deviation(region: &dyn Region, p: &Polygons) -> (f64, usize) {
+pub(crate) fn deviation(region: &dyn Region, p: &Polygons) -> (f64, usize) {
     let mut worst = 0.0f64;
     let mut count = 0;
     for c in &p.contours {
