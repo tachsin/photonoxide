@@ -40,6 +40,11 @@ commit_parsers = [
   { message = ".*", group = "<!-- 5 -->Project setup" },
 ]
 
+# Every crate in the workspace has photonoxide's version ([workspace.package] in Cargo.toml), and
+# only photonoxide is released here: the others are named below with release = false, so a
+# release bumps their version along with the workspace's (and their lines in Cargo.lock) and
+# nothing else.
+
 # the photonoxide program (studio/) is built from the repository and attached to the releases as
 # binaries (.github/workflows/binaries.yml), never published to crates.io
 [[package]]
@@ -53,6 +58,18 @@ publish = false
 # by the release workflow), never to crates.io, and has no release of its own here
 [[package]]
 name = "photonoxide-python"
+release = false
+publish = false
+
+# the external libraries' crate (native/), not published until its first backend lands, and the
+# small C library its tests load
+[[package]]
+name = "photonoxide-native"
+release = false
+publish = false
+
+[[package]]
+name = "photonoxide-native-testlib"
 release = false
 publish = false
 

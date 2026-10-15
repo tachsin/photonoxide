@@ -1199,6 +1199,14 @@ mod tests {
         let needs =
             Needs::from_source(&[none], r#"{"packageManager":"pnpm@12.4.1"}"#, "nsis").unwrap();
         assert_eq!(needs.rust, Needs::of_this_build("nsis").rust);
+        // the workspace's own manifests, as main has them: the version is photonoxide's, and the
+        // program's manifest, which takes it from the workspace, still says its rust-version
+        let [workspace, studio] = prereqs::OWN_MANIFESTS;
+        assert_eq!(
+            main_version(workspace, &web).unwrap(),
+            (photonoxide::VERSION.to_owned(), None)
+        );
+        assert!(prereqs::manifest_field(studio, "rust-version").is_some());
     }
 
     #[test]

@@ -3,7 +3,8 @@
 # studio/README.md), never published.
 [package]
 name = "photonoxide-studio"
-version = "0.2.0"
+# photonoxide's version, from the workspace, as every crate here has it
+version.workspace = true
 edition = "2024"
 rust-version = "1.95"
 description = "The photonoxide program and its studio window"

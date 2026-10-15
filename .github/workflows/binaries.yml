@@ -140,7 +140,9 @@ jobs:
           for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_API_ISSUER APPLE_API_KEY; do
             [ -n "${!v}" ] || unset "$v"
           done
-          # the release's version: the tag without its v
+          # the release's version: the tag without its v. The program has the workspace's version,
+          # which at a release's tag is the tag's, so this agrees; it stays for the releases made
+          # before that (up to v0.5.3), whose tauri.conf.json says 0.2.0, rebuilt by hand
           config="{\"bundle\":$bundle,\"version\":\"${TAG#v}\"}"
           pnpm tauri build --bundles "${{ matrix.bundles }}" --config "$config" ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
       - name: Collect

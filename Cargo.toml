@@ -21,7 +21,8 @@ members = ["studio/src-tauri", "native", "native/testlib", "python"]
 default-members = ["."]
 
 [workspace.package]
-# photonoxide's version, which the Python package has as well: release-plz bumps it here
+# photonoxide's version, which every crate here has (the program, the native libraries' crate and
+# the Python package take it with version.workspace): release-plz bumps it here
 version = "0.5.3"
 
 [dependencies]

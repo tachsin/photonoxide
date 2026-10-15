@@ -2,7 +2,6 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "photonoxide",
   "mainBinaryName": "photonoxide",
-  "version": "0.2.0",
   "identifier": "gr.tachsin.photonoxide",
   "build": {
     "frontendDist": "../dist",

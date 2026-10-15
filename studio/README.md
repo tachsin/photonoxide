@@ -361,7 +361,11 @@ date and whether the tree had changes not committed (from git, or from the varia
 nightly builder sets, since a tarball has no git). Settings › About shows it, and so does
 `photonoxide --version`. A release says its version; a nightly says e.g.
 `0.5.1-nightly (main @ abc1234, 2026-10-09)`. A nightly's version is main's with the patch raised
-and `-nightly` after it, so every later release sorts after it.
+and `-nightly` after it, so every later release sorts after it. The program has photonoxide's
+version: its crate takes the workspace's (`version.workspace = true`, which release-plz bumps at
+each release) and `tauri.conf.json` sets none, so Tauri takes the crate's. A build from a
+checkout of main says the version of the release main follows, with its commit:
+`0.5.3 (abc1234)`.
 
 - **The check:** when the studio opens and every hour, as on Stable. It asks GitHub's API for
   main's head, as its SHA alone and with the ETag of the last answer: an unchanged main answers
