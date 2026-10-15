@@ -3580,7 +3580,7 @@ dependencies = [
 
 [[package]]
 name = "photonoxide-native"
-version = "0.1.0"
+version = "0.5.3"
 dependencies = [
  "libloading 0.9.0",
  "num-complex",
@@ -3590,7 +3590,7 @@ dependencies = [
 
 [[package]]
 name = "photonoxide-native-testlib"
-version = "0.0.0"
+version = "0.5.3"
 dependencies = [
  "num-complex",
 ]
@@ -3606,7 +3606,7 @@ dependencies = [
 
 [[package]]
 name = "photonoxide-studio"
-version = "0.2.0"
+version = "0.5.3"
 dependencies = [
  "faer",
  "flate2",
