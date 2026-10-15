@@ -577,6 +577,24 @@ mod tests {
     }
 
     #[test]
+    fn a_choice_has_the_kernels_of_the_solver_it_names() {
+        for own in [Choice::Auto, Choice::Photonoxide] {
+            assert_eq!(kernels(&own).unwrap().kernels().name, "faer");
+        }
+        crate::backend::register(with_kernels(Arc::new(Plain))).unwrap();
+        let named = kernels(&Choice::Named("photonoxide-plain".into())).unwrap();
+        assert_eq!(named.kernels().name, "plain");
+        // faer's sparse LU is a solver without dense kernels of its own to give
+        let e = kernels(&Choice::Named("faer".into())).err().unwrap();
+        assert!(e.to_string().contains("no dense kernels"), "{e}");
+        assert!(kernels(&Choice::Named("no-such-backend".into())).is_err());
+        // and the solvers say theirs
+        let own = direct(&Choice::Photonoxide).unwrap();
+        assert_eq!(own.dense_kernels().unwrap().kernels().name, "faer");
+        assert!(Faer.kernels().deterministic && !Plain.kernels().deterministic);
+    }
+
+    #[test]
     fn a_block_is_its_matrixs_columns() {
         let mut m = faer::Mat::<c64>::from_fn(5, 4, |i, j| c64::new(i as f64, j as f64));
         // (faer may leave room between a matrix's columns)

@@ -50,7 +50,8 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   the [circuit adjoint](docs/methods/circuit-adjoint.md), [compact models](docs/methods/compact.md)
   and Touchstone files; optimization with [genoxide](https://github.com/tachsin/genoxide).
 - **External solvers, optional:** oneMKL's PARDISO, MUMPS, SuperLU, Apple Accelerate, NVIDIA
-  cuDSS and Krylov solvers on NVIDIA GPUs, loaded at run time when installed and checked against
+  cuDSS and Krylov solvers on NVIDIA GPUs, and any BLAS and LAPACK as the dense kernels of
+  photonoxide's own solver, loaded at run time when installed and checked against
   photonoxide's own, which `auto` leaves only for one measured faster here at the same accuracy
   ([backends](docs/methods/backends.md), [install guides](docs/libraries.md)).
 
@@ -61,6 +62,8 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   [![NVIDIA cuSPARSE: Krylov on the GPU](https://img.shields.io/badge/NVIDIA_cuSPARSE-Krylov_on_the_GPU-555)](docs/libraries.md#cusparse)
   [![OpenBLAS: BLAS](https://img.shields.io/badge/OpenBLAS-BLAS-555)](docs/libraries.md#openblas)
   [![Apple Accelerate: sparse, BLAS](https://img.shields.io/badge/Apple_Accelerate-sparse%2C_BLAS-555)](docs/libraries.md#accelerate)
+  [![AMD AOCL: BLAS](https://img.shields.io/badge/AMD_AOCL-BLAS-555)](docs/libraries.md#amd-aocl)
+  [![Arm Performance Libraries: BLAS](https://img.shields.io/badge/Arm_Performance_Libraries-BLAS-555)](docs/libraries.md#arm-performance-libraries)
 - **Jobs and runs:** TOML, JSON or YAML job files, checked before they run; every run is recorded
   and replays exactly.
 

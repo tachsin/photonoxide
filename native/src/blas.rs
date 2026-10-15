@@ -27,12 +27,16 @@
 //! - **Threads,** set from rayon's thread count, which is photonoxide's: a call says whether it
 //!   may thread. Fronts factorized side by side on rayon's threads must each stay on their own
 //!   thread, while a front near the root has them all, so the count is set for the calling
-//!   thread around each call, by each library's own control: `mkl_set_num_threads_local`,
-//!   `openblas_set_num_threads_local` (OpenBLAS 0.3.27 and later), and for AOCL and Arm PL,
-//!   which thread by OpenMP, `omp_set_num_threads` on the calling thread, which AMD's tuning
-//!   guide names as AOCL-BLAS's control. A library without such a control is held to one
-//!   thread (an OpenBLAS without it, AOCL-BLAS by `bli_thread_set_num_threads`); Accelerate
-//!   has none photonoxide sets, and is left to itself.
+//!   thread around each call, by each library's own control: `mkl_set_num_threads_local`, and
+//!   for AOCL and Arm PL, which thread by OpenMP, `omp_set_num_threads` on the calling thread,
+//!   which AMD's tuning guide names as AOCL-BLAS's control. OpenBLAS has no count per thread:
+//!   its `openblas_set_num_threads_local` sets the process's, as `openblas_set_num_threads`
+//!   does. With rayon's threads setting it to 1 and 20 at once, the solver ran 80 times slower
+//!   and didn't repeat its bits. So OpenBLAS stays on one thread, and a threaded call sets the
+//!   count around itself while no other call into OpenBLAS runs (a lock, shared by the calls
+//!   on one thread). Without an OpenMP runtime, AOCL-BLAS is held to one thread by
+//!   `bli_thread_set_num_threads`; Accelerate has no control photonoxide sets, and is left to
+//!   itself.
 //! - **Determinism** ([`Kernels::reproducibility`]): oneMKL's conditional numerical
 //!   reproducibility (`mkl_cbwr_set`, set up by [`crate::intel`]); the others promise nothing,
 //!   and what was measured is recorded with each. No library's kernels are declared
@@ -1192,12 +1196,20 @@ type SetInt = unsafe extern "C" fn(c_int) -> c_int;
 type SetIntOnly = unsafe extern "C" fn(c_int);
 type GetInt = unsafe extern "C" fn() -> c_int;
 
+/// The calls into OpenBLAS: shared by the calls on one thread, OpenBLAS's count being one
+/// between them; held alone by a threaded call, which sets the process's count around itself.
+/// The fronts factorized side by side on rayon's threads then never see another's count. (Every
+/// OpenBLAS loaded shares it; it is only a lock.)
+static OPENBLAS_CALLS: std::sync::RwLock<()> = std::sync::RwLock::new(());
+
 /// How a call's threads are set.
 enum Threading {
     /// `mkl_set_num_threads_local`.
     Mkl(Arc<Mkl>),
-    /// `openblas_set_num_threads_local`.
-    OpenBlas(SetInt),
+    /// `openblas_set_num_threads`, the process's count (OpenBLAS's
+    /// `openblas_set_num_threads_local` sets the same, despite its name), around a threaded
+    /// call made while no other runs ([`OPENBLAS_CALLS`]); one thread otherwise.
+    OpenBlas(SetIntOnly),
     /// The OpenMP runtime's `omp_set_num_threads` on the calling thread, and
     /// `omp_get_max_threads` to restore.
     OpenMp(SetIntOnly, GetInt),
@@ -1434,14 +1446,24 @@ impl Blas {
                 mkl.set_threads_here(usize::try_from(before).unwrap_or(0));
                 result
             }
-            Threading::OpenBlas(set) => {
-                // SAFETY: `int openblas_set_num_threads_local(int)`: a positive count for
-                // this thread's calls; it returns the one before, restored after
-                let before = unsafe { set(count) };
+            Threading::OpenBlas(set) if threads > 1 => {
+                // the count is the process's: no other call into OpenBLAS runs meanwhile
+                let _alone = OPENBLAS_CALLS
+                    .write()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                // SAFETY: `void openblas_set_num_threads(int)`: a positive count, and back to
+                // one, which every other call takes
+                unsafe { set(count) };
                 let result = call();
                 // SAFETY: as above
-                unsafe { set(before) };
+                unsafe { set(1) };
                 result
+            }
+            Threading::OpenBlas(_) => {
+                let _shared = OPENBLAS_CALLS
+                    .read()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                call()
             }
             Threading::OpenMp(set, get) => {
                 // SAFETY: OpenMP's `int omp_get_max_threads(void)` and
@@ -1564,27 +1586,24 @@ fn openblas(library: Library, found: Detected) -> Blas {
     .unwrap_or_default();
     let version = openblas_version(&config);
     let triangular = found.calls.triangular_product() && at_least(&version, [0, 3, 27]);
-    // SAFETY: `int openblas_set_num_threads_local(int)`, from OpenBLAS 0.3.27
-    let local = unsafe { first::<SetInt>(&library, &names("openblas_set_num_threads_local")) };
-    let (threading, threads) = match local {
-        Some(set) => (
-            Threading::OpenBlas(set),
-            Threads::Library(
-                "OpenBLAS's own, on rayon's thread count (RAYON_NUM_THREADS) by \
-                 openblas_set_num_threads_local"
-                    .into(),
-            ),
-        ),
-        None => {
-            // SAFETY: `void openblas_set_num_threads(int)`
-            let global =
-                unsafe { first::<SetIntOnly>(&library, &names("openblas_set_num_threads")) };
-            if let Some(set) = global {
-                // SAFETY: as above: any positive count
-                unsafe { set(1) };
-            }
-            (Threading::Fixed, Threads::One)
+    // SAFETY: `void openblas_set_num_threads(int)`, the process's count of OpenBLAS's threads
+    let global = unsafe { first::<SetIntOnly>(&library, &names("openblas_set_num_threads")) };
+    let (threading, threads) = match global {
+        Some(set) => {
+            // one thread but for a threaded call, which sets it around itself
+            // SAFETY: as above: any positive count
+            unsafe { set(1) };
+            (
+                Threading::OpenBlas(set),
+                Threads::Library(
+                    "OpenBLAS's own, on rayon's thread count (RAYON_NUM_THREADS) by \
+                     openblas_set_num_threads, the process's count, around each threaded call, \
+                     which runs while no other call into OpenBLAS does"
+                        .into(),
+                ),
+            )
         }
+        None => (Threading::Fixed, Threads::One),
     };
     let what = kernels(
         Provider::OpenBlas,

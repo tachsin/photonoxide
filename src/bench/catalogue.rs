@@ -1450,6 +1450,19 @@ fn solve_dense(
     product: bool,
     kernels: &dyn DenseKernels,
 ) -> Result<Measurement> {
+    // the library's threads started before the clock does: a run times the kernel, not the
+    // start of the pool a process's first threaded call creates
+    let small = dense_matrix(n.min(64), 3);
+    let mut warm = small.clone();
+    let _ = kernels.lu(BlockMut::new(warm.as_mut()), true);
+    kernels.multiply(
+        BlockMut::new(warm.as_mut()),
+        Block::new(small.as_ref()),
+        Block::new(small.as_ref()),
+        Product::default(),
+        c64::new(1.0, 0.0),
+        true,
+    );
     let a = dense_matrix(n, 1);
     let v: Vec<c64> = rhs(n, |_| false);
     let (name, seconds, error) = if product {
@@ -1775,6 +1788,22 @@ mod tests {
         );
         // and the others take no backend
         assert!(!entry("dense/lu-32").unwrap().takes_a_backend());
+        // but the dense kernels' problems take a solver's dense kernels: faer's for
+        // photonoxide's own, none for another library's solver
+        for e in catalogue() {
+            assert_eq!(
+                e.takes_dense_kernels(),
+                e.family == Family::Dense,
+                "{}",
+                e.id
+            );
+        }
+        for id in ["dense/lu-32", "dense/product-32"] {
+            let e = entry(id).unwrap();
+            let m = e.run(&Choice::Photonoxide).unwrap();
+            assert!(m.accuracy.unwrap().error < e.tolerance(), "{id}");
+            assert!(e.run(&Choice::Named("faer".into())).is_err(), "{id}");
+        }
     }
 
     #[test]

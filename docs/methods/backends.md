@@ -265,7 +265,8 @@ library can do them:
   fronts factorized side by side may not. A library must be able to follow that per call.
 - **A solver per library.** `dense::with_kernels` makes photonoxide's solver with a library's
   kernels, named `photonoxide-` and the kernels' name (`photonoxide-openblas`,
-  `photonoxide-mkl`, `photonoxide-accelerate`), registered and chosen as any other backend:
+  `photonoxide-mkl`, `photonoxide-aocl`, `photonoxide-armpl`, `photonoxide-accelerate`),
+  registered and chosen as any other backend, and by the benchmark's dense kernels' problems:
   `direct = "photonoxide-openblas"` in a job. It declares itself deterministic only if the
   kernels do.
 - **`photonoxide` itself is unchanged:** it calls faer's kernels as it always did, and gives
@@ -274,11 +275,25 @@ library can do them:
   distance between its columns, and its first entry's address. photonoxide forbids `unsafe`,
   so reading through the address is `photonoxide-native`'s to do.
 
-`photonoxide-native` loads the libraries (`native/src/blas.rs`): OpenBLAS, oneMKL's `mkl_rt`
-and Apple Accelerate, by the Fortran interface with 32-bit integers.
+`photonoxide-native` loads the libraries (`native/src/blas.rs`), each provider found by its own
+rules: OpenBLAS (its own builds, conda-forge's, the distributions', and pip's
+`scipy-openblas32`), oneMKL's `mkl_rt`, AMD AOCL (AOCL-BLAS and AOCL-LAPACK, which are AMD's
+BLIS and libFLAME, or the two in one `aocl` library), Arm Performance Libraries (on Arm
+processors) and Apple Accelerate (on macOS).
 
-- A build with 64-bit integers isn't used: OpenBLAS's has other names, oneMKL's interface layer
-  is asked.
+- **The interface is measured, not assumed.** Every spelling photonoxide knows is tried in turn:
+  Fortran's (`zgemm_`, `zgemm`, `ZGEMM`, with a prefix such as the wheels' `scipy_`, or a 64-bit
+  suffix, `zgemm_64_`, `zgemm_64`, `zgemm64_`), then CBLAS and LAPACKE (`cblas_zgemm`,
+  `LAPACKE_zgetrf_work`, with those suffixes). For the first a library has, `zgetrf` factorizes a
+  1 × 1 matrix whose integers read 1 at either size, and the bytes it writes in its pivot and
+  its `info` say whether it takes 32-bit integers or 64. A name is no proof: pip's
+  `scipy-openblas64` exports `zgemm_` taking 64-bit integers, and is called so. How a Fortran
+  function returns a complex number (by value, or through a first argument) is measured with
+  `zdotc` the same way, with arguments either reading takes safely; on Windows on x86-64 the two
+  are one convention. Every interface oneMKL 2026.1 has (Fortran's and C's, 32 and 64 bits) and
+  each OpenBLAS build here agrees with faer's kernels to 1e-13.
+- A library that has been called stays loaded for the rest of the process: unloading OpenBLAS
+  while its threads waited crashed (an access violation on Windows).
 - `zgemmt` (the product into one triangle) isn't standard; where a library lacks it, `zgemm`
   computes both triangles.
 - OpenBLAS's `zgemmt` is used from 0.3.27: with 0.3.26's (Ubuntu 24.04's package) the solver
@@ -286,9 +301,20 @@ and Apple Accelerate, by the Fortran interface with 32-bit integers.
 - Accelerate is called by the names it has always had (`zgemm_`). Its newer interface's
   `zgemm$NEWLAPACK` crashed on macOS 26.6.2 for some products with an odd number of rows
   (1365 × 1024, 5461 × 4096), through Apple's own `cblas_zgemm$NEWLAPACK` too.
-- The threads of a call are set for the calling thread: `mkl_set_num_threads_local`,
-  `openblas_set_num_threads_local` (OpenBLAS 0.3.27 and later; an older one is held to one
-  thread). Accelerate has no such setting and is left to itself.
+- The threads of a call are set for the calling thread, from rayon's thread count:
+  `mkl_set_num_threads_local`, and for AOCL and Arm PL, which thread by OpenMP,
+  `omp_set_num_threads` on the calling thread, the control AMD's tuning guide gives AOCL-BLAS
+  (without an OpenMP runtime AOCL-BLAS is held to one thread by `bli_thread_set_num_threads`).
+  OpenBLAS has no count per thread: its `openblas_set_num_threads_local` sets the process's
+  count, as `openblas_set_num_threads` does, and with rayon's threads setting 1 and 20 at once
+  the solver ran 80 times slower and didn't repeat its bits. So OpenBLAS runs on one thread,
+  and a threaded call sets the count around itself while no other call into OpenBLAS runs (a
+  lock that the one-thread calls share). Accelerate has no such setting and is left to itself.
+- **Reproducibility** is each library's own, recorded in its kernels' description: oneMKL's
+  conditional numerical reproducibility (`mkl_cbwr_set`, which photonoxide sets to `AUTO`) gives
+  the same bits on every run at one thread count, not on another; OpenBLAS promises nothing.
+  No library's kernels are declared deterministic; faer's stay the deterministic default.
+  What was measured is in [the baselines](../baselines.md#06-the-fronts-dense-kernels-from-onemkl-and-openblas-186).
 
 Checked:
 
@@ -296,9 +322,14 @@ Checked:
   systems, with fronts large enough to thread.
 - Kernels written from the trait's words alone, one entry at a time, and writing NaN where a
   triangle isn't wanted, factorize to 1e-12 of faer's: the trait says all a library needs.
-- Each library's kernels against faer's on random complex matrices of 32 to 4096, and the
-  solver with them against photonoxide's own, where the library is installed
-  (`native/tests/blas.rs`).
+- Each library's kernels against faer's on random complex matrices of 32 to 4096, each of its
+  interfaces on its own, the solver with them against photonoxide's own on Helmholtz matrices
+  and on the exported systems (the same fill and pivots, the solutions within 1e-10), and
+  whether they repeat their bits, where the library is installed (`native/tests/blas.rs`).
+- The interfaces' detection in CI, against the test library's own BLAS and LAPACK
+  (`native/testlib`): Fortran's names taking 64-bit integers, a complex result through a first
+  argument, and the C interfaces with 32-bit integers, each found as it is and agreeing with
+  faer's kernels.
 
 ## Iterative backends
 
@@ -462,6 +493,8 @@ has what was read and measured.
 ## What isn't here yet
 
 The mode solvers' shift-and-invert still calls faer's LU directly. AMD's AOCL and Arm's
-Performance Libraries aren't loaded as dense kernels yet (#186). AMD's AOCL-Sparse as an
+Performance Libraries are loaded as dense kernels, but neither has yet run with photonoxide:
+their discovery and the interface checks are tested (the CI's test library has their
+variants), the libraries themselves wait for an AMD and an Arm machine. AMD's AOCL-Sparse as an
 iterative backend is #189; the multigrid without its finest matrix on the GPU is #337.
 Eigensolvers get their own trait with their first backend.

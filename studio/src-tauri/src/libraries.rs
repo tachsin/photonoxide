@@ -597,7 +597,7 @@ pub const GUIDES: &[Guide] = &[
     },
     Guide {
         library: "OpenBLAS",
-        about: "An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts, in place of faer's.",
+        about: "An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts, in place of faer's. Its count of threads is the process's, not a thread's: photonoxide runs it on one thread, and a front that threads sets the count around itself while no other call into OpenBLAS runs.",
         provides: &["dense"],
         backends: &["photonoxide-openblas"],
         needs: &[],
@@ -610,7 +610,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "conda-forge",
                 command: "conda install -c conda-forge openblas",
                 systems: &["windows", "linux", "macos"],
-                note: "Into the active conda environment: start photonoxide from it. conda-forge's macOS build has no openblas_set_num_threads_local, and photonoxide holds it to one thread.",
+                note: "Into the active conda environment: start photonoxide from it.",
                 checked: &[
                     Checked {
                         system: "linux",
@@ -640,7 +640,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "apt",
                 command: "sudo apt-get install libopenblas-dev",
                 systems: &["linux"],
-                note: "Debian's and Ubuntu's package: 0.3.26 on Ubuntu 24.04, 0.3.20 on 22.04. Before OpenBLAS 0.3.27 its threads can't be set for each call, and photonoxide holds it to one.",
+                note: "Debian's and Ubuntu's package: 0.3.26 on Ubuntu 24.04, 0.3.20 on 22.04, older than conda-forge's. Before 0.3.27 photonoxide doesn't use OpenBLAS's zgemmt: 0.3.26's crashed the solver.",
                 checked: &[
                     Checked {
                         system: "linux",
@@ -663,7 +663,7 @@ pub const GUIDES: &[Guide] = &[
                 manager: "pip",
                 command: "pip install scipy-openblas32",
                 systems: &["windows", "linux", "macos"],
-                note: "The OpenBLAS that NumPy and SciPy build with, its routines named scipy_zgemm_ beside zgemm_, found in site-packages/scipy_openblas32. Its Windows build has no openblas_set_num_threads_local, and photonoxide holds it to one thread there. scipy-openblas64 (64-bit integers) is used if PHOTONOXIDE_OPENBLAS names its file.",
+                note: "The OpenBLAS that NumPy and SciPy build with, its routines named scipy_zgemm_ beside zgemm_, found in site-packages/scipy_openblas32. scipy-openblas64, whose zgemm_ takes 64-bit integers, is used if PHOTONOXIDE_OPENBLAS names its file.",
                 checked: &[],
             },
         ],

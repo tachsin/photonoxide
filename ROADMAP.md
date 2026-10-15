@@ -552,7 +552,7 @@ The waveguide and resonator processes, phase matching, photon pairs and Kerr com
   - [x] The traits, the registry and the choice in solvers and job files (#193).
   - [ ] `photonoxide-native`: discovery, run-time loading, smoke tests (#174).
   - [ ] Sparse direct backends: oneMKL's PARDISO (#175), MUMPS (#176), SuperLU (#177), Apple Accelerate's sparse solvers (#187), NVIDIA cuDSS on the GPU (#188).
-  - [ ] Dense kernels for the multifrontal fronts from any BLAS/LAPACK: MKL, AMD AOCL, Apple Accelerate, Arm PL, OpenBLAS (#186).
+  - [x] Dense kernels for the multifrontal fronts from any BLAS/LAPACK: MKL, AMD AOCL, Apple Accelerate, Arm PL, OpenBLAS (#186). *(Each provider found by its own rules; its interface measured, not assumed: Fortran's or C's, 32-bit or 64-bit integers by what `zgetrf` writes, complex results by value or through an argument. oneMKL's and OpenBLAS's kernels agree with faer's to 4.2e-13 and give the same factors on the exported systems; on 20 threads they don't make the solver faster than faer's, which is level with PARDISO and faster on `strip-40` ([docs/baselines.md](docs/baselines.md#06-the-fronts-dense-kernels-from-onemkl-and-openblas-186)). AOCL and Arm PL await an AMD and an Arm machine.)*
   - [ ] Iterative backends: AMD AOCL-Sparse (#189); photonoxide's Krylov solvers on cuSPARSE (#190; AmgX examined and not used: its complex GMRES and smoothers can't solve photonoxide's systems, [the plan](docs/plans/backends.md#amgx-examined-and-not-a-backend-190-2026-10-11)).
   - [ ] Install guides per library and platform, verified (#184).
   - [ ] The benchmark: a catalogue of problems at many sizes (#179) and a runner over every backend with a results database (#180).

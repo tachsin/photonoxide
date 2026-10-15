@@ -17,9 +17,10 @@ This page is written by `photonoxide libraries --write docs/libraries.md` from t
 | [SuperLU](#superlu) | `superlu` | see below | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [MUMPS](#mumps) | `mumps`, `mumps-blr` | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
 | [Accelerate](#accelerate) | `accelerate`, `photonoxide-accelerate` | see below | see below | see below |
-| [OpenBLAS](#openblas) | `photonoxide-openblas` | conda-forge ✓ | conda-forge ✓, apt ✓ | conda-forge ✓ |
-| [AMD AOCL](#amd-aocl) | none yet (#186) | see below | see below | see below |
-| [Arm Performance Libraries](#arm-performance-libraries) | none yet (#186) | see below | see below | see below |
+| [OpenBLAS](#openblas) | `photonoxide-openblas` | conda-forge ✓, pip | conda-forge ✓, apt ✓, pip | conda-forge ✓, pip |
+| [AMD AOCL](#amd-aocl) | `photonoxide-aocl` | see below | see below | see below |
+| [Arm Performance Libraries](#arm-performance-libraries) | `photonoxide-armpl` | winget | see below | brew |
+| [AMD AOCL-Sparse](#amd-aocl-sparse) | none yet (#189) | see below | see below | see below |
 
 ✓: run on a clean machine and found. A manager without it is listed by its package index alone.
 
@@ -282,7 +283,7 @@ Apple's Accelerate framework, its sparse direct solvers, and its BLAS and LAPACK
 
 ### OpenBLAS
 
-An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts, in place of faer's.
+An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts, in place of faer's. Its count of threads is the process's, not a thread's: photonoxide runs it on one thread, and a front that threads sets the count around itself while no other call into OpenBLAS runs.
 
 - **Licence:** [BSD-3-Clause](https://github.com/OpenMathLib/OpenBLAS/blob/develop/LICENSE). You accept it by installing.
 - **The vendor's download:** <https://github.com/OpenMathLib/OpenBLAS/releases>
@@ -294,7 +295,7 @@ An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts,
   conda install -c conda-forge openblas
   ```
 
-  Into the active conda environment: start photonoxide from it. conda-forge's macOS build has no openblas_set_num_threads_local, and photonoxide holds it to one thread.
+  Into the active conda environment: start photonoxide from it.
 
   - Checked on Linux (ubuntu-24.04), 2026-10-09: installed openblas 0.3.34; found OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests.
   - Checked on Windows (windows-2025-vs2026), 2026-10-09: installed openblas 0.3.34; found OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests.
@@ -306,36 +307,77 @@ An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts,
   sudo apt-get install libopenblas-dev
   ```
 
-  Debian's and Ubuntu's package: 0.3.26 on Ubuntu 24.04, 0.3.20 on 22.04. Before OpenBLAS 0.3.27 its threads can't be set for each call, and photonoxide holds it to one.
+  Debian's and Ubuntu's package: 0.3.26 on Ubuntu 24.04, 0.3.20 on 22.04, older than conda-forge's. Before 0.3.27 photonoxide doesn't use OpenBLAS's zgemmt: 0.3.26's crashed the solver.
 
   - Checked on Linux (ubuntu-24.04), 2026-10-09: installed libopenblas-dev 0.3.26; found OpenBLAS 0.3.26, and the photonoxide-openblas backend after its smoke test and its tests, on one thread.
   - Checked on Linux (ubuntu-22.04), 2026-10-09: installed libopenblas-dev 0.3.20; found OpenBLAS 0.3.20, and the photonoxide-openblas backend after its smoke test and its tests, on one thread.
+
+- **pip** (Windows, Linux, macOS):
+
+  ```sh
+  pip install scipy-openblas32
+  ```
+
+  The OpenBLAS that NumPy and SciPy build with, its routines named scipy_zgemm_ beside zgemm_, found in site-packages/scipy_openblas32. scipy-openblas64, whose zgemm_ takes 64-bit integers, is used if PHOTONOXIDE_OPENBLAS names its file.
+
+  Not run on a clean machine.
+
+### AMD AOCL
+
+AMD's Optimizing CPU Libraries: AOCL-BLAS (AMD's BLIS) and AOCL-LAPACK (AMD's libFLAME), tuned for AMD's Zen processors, as the dense kernels of photonoxide's own solver's fronts. Its iterative solvers (AOCL-Sparse) are #189's. Not yet run with photonoxide on an AMD processor: its loader and interface checks are tested, the library itself isn't.
+
+- **Licence:** [BSD-3-Clause (AOCL-BLAS, AOCL-LAPACK and AOCL-Utils)](https://github.com/amd/blis/blob/master/LICENSE). You accept it by installing.
+- **The vendor's download:** <https://www.amd.com/en/developer/aocl.html>
+- **Backends:** `photonoxide-aocl`.
+
+- **windows:** AMD's installer (AOCL 5.2: AOCL_Windows-setup-5.2.0-AMD.exe), from its page: no package manager has it. It installs into Program Files\AMD\AOCL-Windows, where photonoxide looks (amd-blis\lib\LP64, amd-libflame\lib\LP64, amd-utils\lib), or set AOCL_ROOT or PHOTONOXIDE_AOCL.
+- **linux:** AMD's .deb, .rpm or tar file, from its page: into /opt/AMD/aocl, where photonoxide looks (lib_LP64), or set AOCL_ROOT or PHOTONOXIDE_AOCL.
+- **macos:** AMD has no macOS build.
+
+### Arm Performance Libraries
+
+Arm's BLAS and LAPACK, tuned for Arm processors, as the dense kernels of photonoxide's own solver's fronts: Windows on Arm, Linux on AArch64 and Apple silicon. Not yet run with photonoxide on an Arm processor: its loader and interface checks are tested, the library itself isn't.
+
+- **Licence:** [End User License Agreement for Arm Performance Libraries, free of charge](https://developer.arm.com/documentation/109686/latest). You accept it by installing.
+- **The vendor's download:** <https://developer.arm.com/Tools%20and%20Software/Arm%20Performance%20Libraries>
+- **Backends:** `photonoxide-armpl`.
+
+- **winget** (Windows):
+
+  ```sh
+  winget install --id Arm.ArmPerformanceLibraries --exact
+  ```
+
+  Windows on Arm only: winget has no installer for x86-64. Into Program Files\Arm Performance Libraries, where photonoxide looks.
+
+  Not run on a clean machine: the installer is several gigabytes and asks for elevation. The workflow checks that winget's index still has the package.
+
+- **brew** (macOS):
+
+  ```sh
+  brew install --cask arm-performance-libraries
+  ```
+
+  Apple silicon only. Into /opt/arm, where photonoxide looks.
+
+  Not run on a clean machine.
+
+- **linux:** Arm's .deb or .rpm, from its page, for AArch64: into /opt/arm, where photonoxide looks, or set ARMPL_DIR or PHOTONOXIDE_ARMPL.
 
 ## The libraries without a backend yet
 
 How each installs, for the issue that adds its backend. photonoxide doesn't look for them yet.
 
-### AMD AOCL
+### AMD AOCL-Sparse
 
-AMD's BLIS, libFLAME and AOCL-Sparse: dense kernels and iterative solvers on AMD processors. Its backend: [#186](https://github.com/tachsin/photonoxide/issues/186).
+AMD's sparse library, part of AOCL: iterative solvers on AMD processors. Its backend: [#189](https://github.com/tachsin/photonoxide/issues/189).
 
-- **Licence:** BSD-3-Clause and MIT, by component (to confirm in #186).
-- **Home:** <https://www.amd.com/en/developer/aocl.html>
+- **Licence:** MIT (to confirm in #189).
+- **Home:** <https://www.amd.com/en/developer/aocl/sparse.html>
 
-- **windows:** AMD's installer, from its page: no package manager has it, and it wasn't run here.
-- **linux:** AMD's packages or Spack, from its page: not run here.
+- **windows:** AMD's installer, with the rest of AOCL, from its page: no package manager has it, and it wasn't run here.
+- **linux:** AMD's packages, with the rest of AOCL, from its page: not run here.
 - **macos:** AMD has no macOS build.
-
-### Arm Performance Libraries
-
-Arm's BLAS and LAPACK: dense kernels on Arm processors. Its backend: [#186](https://github.com/tachsin/photonoxide/issues/186).
-
-- **Licence:** Arm's terms, free of charge (to confirm in #186).
-- **Home:** <https://developer.arm.com/>
-
-- **windows:** Arm's installer, for Windows on Arm: not run here.
-- **linux:** Arm's packages, for AArch64: not run here.
-- **macos:** Arm's installer, for Apple silicon: not run here.
 
 ## New releases
 
