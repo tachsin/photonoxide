@@ -47,9 +47,10 @@ export interface Draft {
 
 export const drafts = $state<Record<string, Draft>>({});
 
-/** The design of `d` at its defaults: on 220 nm SOI, analytic. */
+/** The design of `d` at its defaults: on 220 nm SOI, at its cheapest model (analytic; 2D for the rib and the MMIs). */
 export function defaultSpec(d: DeviceInfo): DeviceSpec {
-  return { kind: d.kind, fidelity: "analytic", stack: { type: "preset", name: "soi_220", bottom_oxide_um: 2 }, parameters: [] };
+  const fidelity = d.fidelities[0]?.fidelity ?? "analytic";
+  return { kind: d.kind, fidelity, stack: { type: "preset", name: "soi_220", bottom_oxide_um: 2 }, parameters: [] };
 }
 
 /** The draft of device `d`'s page, made at its defaults the first time. */

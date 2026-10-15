@@ -8,7 +8,7 @@ use crate::mode::vector::CrossSection;
 use crate::stack::{LayerStack, Structure};
 use crate::units::Wavelength;
 
-use super::guide::{Strip, um};
+use super::guide::{Profile, Strip, um};
 use super::section::{self, Mesh};
 use super::{
     Built, Device, Figure, Geometry, Method, Range, Stated, Values, figure, method, parameter,
@@ -76,14 +76,18 @@ pub(super) fn guide_figures(d: &Dispersion, fidelity: Fidelity, grid: &str) -> V
 /// A straight silicon strip on a stack: ports `o1` and `o2`, its component a
 /// [`Waveguide`], e^(iγL).
 ///
-/// Parameters `width`, `thickness` (the core layer's), `length`, `loss` (dB/cm, the
-/// propagation loss the mode solvers don't give: sidewall roughness, absorption), and the band
-/// its mode is modelled over, `wavelength` (the centre) and `span`.
+/// Parameters `width`, `thickness` (the core layer's), `slab` and `sidewall` (how the layer is
+/// cut beside the strip: a slab of it left there makes a rib, and walls below 90° slope out
+/// going down; a strip has neither), `length`, `loss` (dB/cm, the propagation loss the mode
+/// solvers don't give: sidewall roughness, absorption), and the band its mode is modelled over,
+/// `wavelength` (the centre) and `span`.
 ///
 /// - **Analytic:** the closed form on the fit's dispersion (n_eff and n_g at 1.55 µm, first
-///   order in λ), or on a stated one ([`StripWaveguide::with_guide`]).
+///   order in λ), or on a stated one ([`StripWaveguide::with_guide`]). The fit is a strip's
+///   with vertical walls, and refuses a slab or a sloped wall.
 /// - **3D:** the full-vector solver's mode at five wavelengths across the span, by Hadley's
-///   equations or the standard scheme ([`Mesh::scheme`]).
+///   equations or the standard scheme ([`Mesh::scheme`]); a rib or a sloped wall on the half
+///   behind the vertical mirror plane, and sloped walls by the standard scheme.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StripWaveguide {
     strip: Strip,
@@ -102,6 +106,48 @@ pub(super) fn strip_parameters() -> Vec<Parameter> {
     vec![
         parameter("width", "µm", 0.5, 0.1, 5.0),
         parameter("thickness", "µm", 0.22, 0.05, 2.0),
+    ]
+}
+
+/// How a strip device's core layer is cut beside its guides: `slab` (µm of the layer left
+/// beside them, 0 for a strip etched through) and `sidewall` (the walls' angle from the
+/// layer's plane, degrees, 90 vertical). A slab makes them ribs.
+pub(super) fn etch_parameters() -> Vec<Parameter> {
+    vec![
+        parameter("slab", "µm", 0.0, 0.0, 5.0),
+        parameter("sidewall", "°", 90.0, 30.0, 90.0),
+    ]
+}
+
+/// The profile `values` give a strip device's guides: its `slab` and `sidewall`.
+pub(super) fn profile(values: &Values) -> Profile {
+    Profile {
+        slab: values.at("slab"),
+        sidewall: values.at("sidewall"),
+    }
+}
+
+/// Refuses a rib or a sloped wall at a fit made on strips with vertical walls.
+pub(super) fn strips_only(profile: Profile) -> Result<()> {
+    if profile.is_strip() {
+        Ok(())
+    } else {
+        Err(crate::Error::invalid(
+            "device",
+            format!(
+                "the analytic fit is for strips with vertical walls, not a {} um slab with walls \
+                 at {} degrees: solve the modes (3D)",
+                profile.slab, profile.sidewall
+            ),
+        ))
+    }
+}
+
+/// Where the analytic fit holds in a strip's profile: no slab, vertical walls.
+pub(super) fn strip_validity() -> Vec<Range> {
+    vec![
+        Range::new("slab", 0.0, 0.0),
+        Range::new("sidewall", 90.0, 90.0),
     ]
 }
 
@@ -131,6 +177,7 @@ impl StripWaveguide {
 
     fn of(strip: Strip) -> StripWaveguide {
         let mut parameters = strip_parameters();
+        parameters.extend(etch_parameters());
         parameters.push(parameter("length", "µm", 10.0, 0.0, 1e5));
         parameters.push(parameter("loss", "dB/cm", 2.7, 0.0, 1e3));
         parameters.extend(band_parameters());
@@ -163,6 +210,11 @@ impl StripWaveguide {
         self.strip.mesh
     }
 
+    /// The layer its strip is drawn on.
+    pub(super) fn core(&self) -> &str {
+        &self.strip.core
+    }
+
     /// What the full-vector solver sees at `values` and `wavelength`: the strip's
     /// cross-section on the mesh.
     ///
@@ -172,8 +224,12 @@ impl StripWaveguide {
     /// mirrored on a mirrored mesh, or a material outside its range.
     pub fn cross_section(&self, values: &Values, wavelength: Wavelength) -> Result<CrossSection> {
         values.check(self)?;
-        self.strip
-            .cross_section(values.at("width"), values.at("thickness"), wavelength)
+        self.strip.cross_section_of(
+            values.at("width"),
+            values.at("thickness"),
+            profile(values),
+            wavelength,
+        )
     }
 
     /// Its mode's dispersion at `fidelity` and `values`, and the grid it names: the fit's, or
@@ -202,21 +258,25 @@ impl StripWaveguide {
         let m = method(self.kind(), &self.methods, fidelity)?;
         let (w, t) = (values.at("width"), values.at("thickness"));
         let (l0, span) = (values.at("wavelength"), values.at("span"));
+        let p = profile(values);
         if m.fidelity == Fidelity::Analytic {
+            if self.strip.stated.is_none() {
+                strips_only(p)?;
+            }
             let (d, grid) = self.strip.analytic(w, t, l0, values.at("loss"))?;
             return Ok((Waveguide::new(d), grid));
         }
         let at = Wavelength::um(l0)?;
-        let grid = Strip::grid(&self.strip.cross_section(w, t, at)?);
-        let guide = match self.strip.mesh.scheme {
+        let grid = Strip::grid(&self.strip.cross_section_of(w, t, p, at)?);
+        let guide = match self.strip.scheme_for(p) {
             section::Scheme::Standard => Waveguide::from_modes(
-                |wl| self.strip.cross_section(w, t, wl),
+                |wl| self.strip.cross_section_of(w, t, p, wl),
                 at,
                 span / 4.0,
                 None,
             )?,
             section::Scheme::Hadley => {
-                let (d, residual, grid) = self.strip.solved(w, t, l0, span)?;
+                let (d, residual, grid) = self.strip.solved_of(w, t, p, l0, span)?;
                 let provenance = hadley_provenance(&d, residual, &grid, l0, span);
                 Waveguide::new(d).with_provenance(provenance)
             }
@@ -250,7 +310,7 @@ fn methods(strip: &Strip) -> Vec<Method> {
                 unit: String::new(),
                 against: Fidelity::ThreeD,
             }),
-            validity: fit_validity(),
+            validity: [fit_validity(), strip_validity()].concat(),
         }
     };
     vec![
@@ -289,6 +349,12 @@ impl Device for StripWaveguide {
     fn geometry(&self, values: &Values) -> Result<Geometry> {
         let (w, l) = (values.at("width"), values.at("length"));
         let drawing = Straight::new(um(w), um(l)).draw(&self.strip.core)?;
+        let p = profile(values);
+        let drawing = if p.is_strip() {
+            drawing
+        } else {
+            super::etched(&drawing, p.etch(values.at("thickness"))?)?
+        };
         super::drawn(Structure::new(self.stack(values)?), &drawing)
     }
 

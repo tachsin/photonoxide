@@ -109,12 +109,12 @@ area circuit \
   "circuit_fit circuit_ring_critical circuit_splitter ring_q_factor directional_coupler mzi_dwivedi"
 
 # the devices: components that know their geometry, built from the circuit's components on the
-# mode solvers' cross-sections
+# mode solvers' cross-sections and by FDFD of their own drawings (through the 2D jobs' plane)
 area device \
   "src/device.rs src/device/*" \
-  "material mode circuit generator" \
+  "material mode circuit generator fdfd job" \
   "device::" "device/" \
-  "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss"
+  "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss rib_hadley mmi_soldano y_junction_zhang"
 
 area compact \
   "src/compact/*" \

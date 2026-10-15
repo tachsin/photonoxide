@@ -33,6 +33,14 @@ impl Checks {
         );
     }
 
+    /// Checks `got` is at most the paper's bound `printed` (a value it states as "below").
+    pub fn at_most(&mut self, what: &str, got: f64, printed: f64) {
+        self.row(
+            got <= printed,
+            format!("  {what:<34} {got:>12.6}   paper below {printed}"),
+        );
+    }
+
     /// Compares a count, e.g. of guided modes, with the paper's.
     pub fn count(&mut self, what: &str, got: usize, printed: usize) {
         self.row(

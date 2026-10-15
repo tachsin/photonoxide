@@ -43,21 +43,34 @@ mod bend;
 mod coupler;
 mod fit;
 mod guide;
+mod mmi;
+mod mzi;
+mod rib;
 mod ring;
 mod section;
+mod solve;
 pub(crate) mod spec;
 mod waveguide;
+mod ybranch;
 
 pub(crate) mod checks;
+pub(crate) mod splitter_checks;
+#[cfg(test)]
+mod splitter_tests;
 #[cfg(test)]
 mod tests;
 
 pub use bend::StripBend;
 pub use coupler::StripCoupler;
+pub use mmi::{Model2d, StripMmi};
+pub use mzi::StripMzi;
+pub use rib::RibWaveguide;
 pub use ring::StripRing;
 pub use section::{Cells, Mesh, Scheme, Symmetry};
+pub use solve::FdfdGrid;
 pub use spec::{LayerSpec, MaterialSpec, PRESETS, Spec, StackSpec, fidelity};
 pub use waveguide::StripWaveguide;
+pub use ybranch::StripYBranch;
 
 use std::fmt;
 
@@ -596,8 +609,9 @@ pub fn derivative(
     Ok(Some(total))
 }
 
-/// The first devices at their defaults: the strip waveguide, bend, directional coupler, and the
-/// all-pass and add-drop rings, on 220 nm SOI.
+/// The devices at their defaults, on 220 nm SOI: the strip waveguide, bend, directional
+/// coupler, the all-pass and add-drop rings, the rib waveguide, the 1 × 2 and 2 × 2 MMIs, the
+/// Y-branch, and the MZIs of directional couplers and of Y-branches.
 pub fn library() -> Vec<Box<dyn Device>> {
     vec![
         Box::new(StripWaveguide::new()),
@@ -605,6 +619,12 @@ pub fn library() -> Vec<Box<dyn Device>> {
         Box::new(StripCoupler::new()),
         Box::new(StripRing::all_pass()),
         Box::new(StripRing::add_drop()),
+        Box::new(RibWaveguide::new()),
+        Box::new(StripMmi::one_by_two()),
+        Box::new(StripMmi::two_by_two()),
+        Box::new(StripYBranch::new()),
+        Box::new(StripMzi::couplers()),
+        Box::new(StripMzi::y_branches()),
     ]
 }
 
@@ -628,6 +648,26 @@ fn drawn(mut structure: Structure, drawing: &crate::generator::Drawing) -> Resul
         })
         .collect();
     Ok(Geometry { structure, ports })
+}
+
+/// `drawing` with every shape cut by `etch` instead of its own: a generator draws strips, and
+/// a device whose core is etched part of the way (a rib) or with sloped walls cuts them so.
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] for ports a drawing can't hold (never: they were its own).
+fn etched(
+    drawing: &crate::generator::Drawing,
+    etch: crate::stack::Etch,
+) -> Result<crate::generator::Drawing> {
+    let mut d = crate::generator::Drawing::new(drawing.kind());
+    for item in drawing.items() {
+        d.add_etched(&item.layer, item.shape.clone(), etch);
+    }
+    for p in drawing.ports() {
+        d.add_port(p.clone())?;
+    }
+    Ok(d)
 }
 
 /// The [`Method`] for the fidelity `fidelity` among `methods`.

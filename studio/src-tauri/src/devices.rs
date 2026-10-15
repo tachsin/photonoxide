@@ -32,7 +32,7 @@ use crate::studio::Studio;
 
 /// Each device: the component library's id it stands for, its Academy lesson, and the
 /// published results (examples/) on it.
-pub const DEVICES: [(&str, &str, &str, &[&str]); 5] = [
+pub const DEVICES: [(&str, &str, &str, &[&str]); 11] = [
     (
         "waveguide",
         "waveguide",
@@ -68,6 +68,37 @@ pub const DEVICES: [(&str, &str, &str, &[&str]); 5] = [
         "ring-add-drop",
         "ring-resonator",
         &["ring_q_factor"],
+    ),
+    (
+        "rib waveguide",
+        "rib-waveguide",
+        "strip-waveguide",
+        &["rib_hadley"],
+    ),
+    ("MMI 1x2", "mmi-1x2", "mmi", &["mmi_soldano"]),
+    (
+        "MMI 2x2",
+        "mmi-2x2",
+        "mmi",
+        &["mmi_soldano", "mmi_liu_poon"],
+    ),
+    (
+        "Y-branch",
+        "y-branch",
+        "directional-coupler",
+        &["y_junction_zhang"],
+    ),
+    (
+        "MZI",
+        "mzi-couplers",
+        "mach-zehnder",
+        &["mzi_dwivedi", "circuit_splitter"],
+    ),
+    (
+        "Y-branch MZI",
+        "mzi-y-branches",
+        "mach-zehnder",
+        &["mzi_dwivedi"],
     ),
 ];
 

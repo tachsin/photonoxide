@@ -5,7 +5,7 @@
 //!
 //! [device]
 //! kind = "directional coupler"   # a device of device::library(), by its kind
-//! fidelity = "analytic"          # analytic (the default), 2D or 3D, as the device has them
+//! fidelity = "analytic"          # analytic, 2D or 3D, as the device has them; its cheapest by default
 //! stack = "soi_220"              # soi_220 (the default), soi or nitride; or a table, below
 //!
 //! [device.parameters]            # expressions (crate::expr); any left out take their defaults
@@ -46,14 +46,19 @@ use crate::stack::{Layer, LayerStack};
 use crate::units::Length;
 use crate::{Error, Result};
 
-use super::{Design, Device, StripBend, StripCoupler, StripRing, StripWaveguide};
+use super::{
+    Design, Device, RibWaveguide, StripBend, StripCoupler, StripMmi, StripMzi, StripRing,
+    StripWaveguide, StripYBranch,
+};
+use crate::circuit::components::MmiKind;
 
 /// A device's design as a job's `[device]` table holds it: which device, on which stack, its
 /// parameters as expressions, and the fidelity its figures and S-parameters come from.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Spec {
     /// The device, by its kind ([`Device::kind`]): `"waveguide"`, `"bend"`,
-    /// `"directional coupler"`, `"all-pass ring"` or `"add-drop ring"`.
+    /// `"directional coupler"`, `"all-pass ring"`, `"add-drop ring"`, `"rib waveguide"`,
+    /// `"MMI 1x2"`, `"MMI 2x2"`, `"Y-branch"`, `"MZI"` or `"Y-branch MZI"`.
     pub kind: String,
     /// The fidelity it is computed at.
     pub fidelity: Fidelity,
@@ -120,11 +125,12 @@ pub struct MaterialSpec {
 pub const PRESETS: [&str; 3] = ["soi_220", "soi", "nitride"];
 
 impl Spec {
-    /// The device `kind` at its defaults: on 220 nm SOI, analytic, no parameter given.
+    /// The device `kind` at its defaults: on 220 nm SOI, at its cheapest fidelity (analytic;
+    /// 2D for the rib and the MMIs, which have no analytic model), no parameter given.
     pub fn new(kind: &str) -> Spec {
         Spec {
             kind: kind.to_owned(),
-            fidelity: Fidelity::Analytic,
+            fidelity: cheapest(kind),
             stack: StackSpec::default(),
             parameters: Vec::new(),
         }
@@ -145,7 +151,7 @@ impl Spec {
         let kind = string(table, "[device]", "kind")?
             .ok_or_else(|| parse("[device] needs a kind, e.g. kind = \"waveguide\""))?;
         let fidelity = match string(table, "[device]", "fidelity")? {
-            None => Fidelity::Analytic,
+            None => cheapest(&kind),
             Some(f) => fidelity(&f)?,
         };
         let stack = match table.get("stack") {
@@ -216,12 +222,19 @@ impl Spec {
             "directional coupler" => Box::new(StripCoupler::on(stack, &core)?),
             "all-pass ring" => Box::new(StripRing::on(stack, &core, false)?),
             "add-drop ring" => Box::new(StripRing::on(stack, &core, true)?),
+            "rib waveguide" => Box::new(RibWaveguide::on(stack, &core)?),
+            "MMI 1x2" => Box::new(StripMmi::on(MmiKind::OneByTwo, stack, &core)?),
+            "MMI 2x2" => Box::new(StripMmi::on(MmiKind::TwoByTwo, stack, &core)?),
+            "Y-branch" => Box::new(StripYBranch::on(stack, &core)?),
+            "MZI" => Box::new(StripMzi::on(stack, &core, false)?),
+            "Y-branch MZI" => Box::new(StripMzi::on(stack, &core, true)?),
             other => {
                 return Err(Error::invalid(
                     "device",
                     format!(
                         "no device \"{other}\": waveguide, bend, directional coupler, all-pass \
-                         ring or add-drop ring"
+                         ring, add-drop ring, rib waveguide, MMI 1x2, MMI 2x2, Y-branch, MZI or \
+                         Y-branch MZI"
                     ),
                 ));
             }
@@ -634,6 +647,16 @@ pub fn fidelity(name: &str) -> Result<Fidelity> {
         other => Err(parse(format!(
             "[device] fidelity \"{other}\": analytic, compact, 2D, 3D or measured"
         ))),
+    }
+}
+
+/// The cheapest fidelity of the device `kind`, a `[device]` table's when it names none: 2D for
+/// the rib and the MMIs, which have no analytic model; analytic for the others (and an unknown
+/// kind, which building refuses).
+fn cheapest(kind: &str) -> Fidelity {
+    match kind {
+        "rib waveguide" | "MMI 1x2" | "MMI 2x2" => Fidelity::TwoD,
+        _ => Fidelity::Analytic,
     }
 }
 

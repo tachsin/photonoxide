@@ -423,7 +423,7 @@ pub(super) fn fill_plane(
 /// The in-plane permittivity at `wavelength` on `grid`. A point's column is fixed by which
 /// layers have a shape over it; the few distinct columns are found at the cells' centres and each
 /// one's effective index solved once. An etched layer's columns are [`etched_plane`]'s.
-fn plane(
+pub(crate) fn plane(
     s: &Structure,
     grid: &Grid,
     name: &str,

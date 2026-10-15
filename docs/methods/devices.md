@@ -1,7 +1,7 @@
 ---
 title: "Devices"
 module: device
-summary: "A component that knows its geometry: a stack, the parameters of its shapes, its models from a fit to the solver up to 3D, and the component each gives, with every figure's fidelity and grid. The strip waveguide, bend, directional coupler and rings."
+summary: "A component that knows its geometry: a stack, the parameters of its shapes, its models from a fit to the solver up to 3D, and the component each gives, with every figure's fidelity and grid. The strip waveguide, bend, directional coupler and rings; the rib, the MMIs, the Y-branch and the MZIs, on custom stacks and partial etches."
 order: 22.5
 papers:
   - cite: "L. Chrostowski, M. Hochberg, Silicon Photonics Design, Cambridge University Press (2015)"
@@ -26,6 +26,12 @@ papers:
     doi: 10.1109/JLT.2015.2476603
   - cite: "R. E. Wengert, Commun. ACM 7, 463 (1964)"
     doi: 10.1145/355586.364791
+  - cite: "L. B. Soldano, E. C. M. Pennings, J. Lightwave Technol. 13, 615 (1995)"
+    doi: 10.1109/50.372474
+  - cite: "Y. Zhang et al., Opt. Express 21, 1310 (2013)"
+    doi: 10.1364/OE.21.001310
+  - cite: "R. C. Rumpf, Prog. Electromagn. Res. B 36, 221 (2012)"
+    doi: 10.2528/PIERB11092006
 validation:
   - device/library-components
   - device/ring-closed-forms
@@ -46,6 +52,18 @@ validation:
   - device/coupler-chrostowski
   - device/ring-q-bogaerts
   - device/wire-ng-dwivedi
+  - device/mmi-library
+  - device/mmi-self-imaging
+  - device/mzi-closed-form
+  - device/mzi-derivatives
+  - device/rib-wide-slab
+  - device/rib-eim
+  - device/rib-hadley
+  - device/fdfd-straight
+  - device/mmi-2d-grid
+  - device/mmi-guided-2d
+  - device/y-branch-2d-grid
+  - device/y-branch-ideal-2d
 ---
 
 A [component](components.md) maps its parameters to an S-matrix, and its physical inputs are
@@ -59,9 +77,11 @@ fixed when it is built: a directional coupler's supermodes, a bend's radius, a r
   stated error against a higher model and the range it holds over;
 - the component each model gives, built by the circuit's own builders.
 
-The studio can then show, change, sweep and optimize the geometry, not fixed constants; the
-first four devices are a silicon strip's: the waveguide, the bend, the directional coupler and
-the ring, all-pass and add-drop.
+The studio can then show, change, sweep and optimize the geometry, not fixed constants. The
+first devices are a silicon strip's: the waveguide, the bend, the directional coupler and the
+ring, all-pass and add-drop. Then the rest of the studio's library: the rib waveguide, the 1 × 2
+and 2 × 2 MMIs, the Y-branch, and the Mach–Zehnder interferometers of directional couplers and
+of Y-branches; and the waveguide and the coupler take ribs and sloped walls too.
 
 ## The abstraction
 
@@ -72,7 +92,7 @@ A `Device` has seven methods:
 | `kind()`, `about()` | the component's kind (`"waveguide"`, …) and a sentence |
 | `parameters()` | name, unit, default, range: a `circuit::Parameter` each |
 | `stack(values)` | the stack, the core layer at the device's thickness |
-| `geometry(values)` | a `stack::Structure` of shapes on the stack, and the ports: name, position, direction (degrees, the way light leaves), width and layer; drawn by the device's [generator](generators.md) (`Straight`, `Bend`, `DirectionalCoupler`, `Ring`), the same bits as before |
+| `geometry(values)` | a `stack::Structure` of shapes on the stack, and the ports: name, position, direction (degrees, the way light leaves), width and layer; drawn by the device's [generator](generators.md) (`Straight`, `Bend`, `DirectionalCoupler`, `Ring`, `Mmi`, `YBranch`), the same bits as before |
 | `fidelities()` | a `Method` per model: its fidelity, what computes it, this write-up, its papers, its `Stated` error against a higher fidelity and its validity ranges |
 | `component(values, fidelity)` | a `Built`: the boxed component, the values of its own parameters, their derivatives, and the figures |
 | `derived(values, fidelity)` | the figures: n_eff, n_g, the cross-over length, the free spectral range, Q, a bend's loss, each a `Figure` with its fidelity and grid |
@@ -126,7 +146,14 @@ or a coupler, an electric wall on the vertical plane (a magnetic one for a coupl
 supermode) and a magnetic wall on the core's mid-plane, which keep the TE-like modes; a bend's
 half, the mid-plane wall only. The cut checks that the structure is mirrored across those
 planes at every cell, and refuses a stack that isn't (silicon under air: the full domain then,
-`Symmetry::Full`). The scheme is the [standard full-vector one](vector.md) or
+`Symmetry::Full`). A rib, or a strip whose walls slope, isn't the same above and below its
+mid-plane by its own shape: a mirrored mesh solves it on its half behind the vertical plane
+alone (`Symmetry::Vertical`, which a stack that differs above and below can take too), and a
+fitted mesh then puts the slab's top on a node as well, the spacing $(t/2)/m$ with m the whole
+number nearest $(t/2)/\text{step}$ that does (from half to three times it). Cells a sloped wall
+crosses hold each material's share of them (`Structure::cut_cell`), so a sloped strip or rib is
+solved by the standard scheme, whose cells may hold any permittivity; Hadley's equations need
+each cell one material. The scheme is the [standard full-vector one](vector.md) or
 [Hadley's](hadley.md), which needs a uniform grid along each axis and no PML: the fitted single
 strip, by default.
 
@@ -252,6 +279,159 @@ Bogaerts's: the free spectral range $\lambda^2/(n_g L)$ (Eq. 9), the resonance n
 (Eq. 3), the loaded Q (Eqs. 20 and 22), and the extinction or the drop on resonance (Eqs. 11–16).
 At the defaults (10 µm, 200 nm) the analytic κ² is 0.0124, 2.2 % below 3D's.
 
+## Ribs and sloped walls
+
+**The waveguide and the coupler** take two more parameters, how the core layer is cut beside
+their guides: `slab`, the layer's thickness left there (0, the default, etches through it: a
+strip), and `sidewall`, the walls' angle from the layer's plane (90°, the default, vertical;
+less leans them out going down, the shape's outline its top face). They draw their shapes with
+`Etch::partial(thickness − slab).with_sidewall_deg(sidewall)` ([stacks.md](stacks.md)), and
+their 3D models solve the rib's cross-section on its half. The analytic fits are a strip's with
+vertical walls, and refuse a slab or a sloped wall (their validity ranges say so, and the
+studio's page offers the 3D model).
+
+**The rib waveguide** (`RibWaveguide`) is the rib as a device of its own: parameters `width`
+(the top's), `thickness`, `etch_depth` (from the core's top; less than its thickness: etched
+through it is the waveguide), `sidewall`, `length`, `loss`, `wavelength` and `span`; by default
+500 nm wide on 220 nm SOI, etched 130 nm (a 90 nm slab), on cells fitted about 10 nm apart with
+1.5 µm of cladding, the slab carrying the mode's tail farther than a strip's.
+
+| Fidelity | Model | Stated error | Holds over |
+|---|---|---|---|
+| 2D | the effective index method ([eim.md](eim.md), Hocker & Burns): the vertical slabs through the rib and beside it, then the lateral slab between them, TE-like, at five wavelengths for n_g and D; a sloped wall at its mean width. Labelled 2D: an approximation of the 3D guide | n_eff within 0.07 of 3D (0.064 for a narrow, deep rib, 400 nm wide etched 200 nm; 3e-4 at 3 µm wide) | widths 0.4–3 µm, etched 50–200 nm on 220 nm SOI, vertical walls |
+| 3D | the full-vector solver's mode at five wavelengths across the span, on the half: Hadley's equations for vertical walls, the standard scheme for sloped ones | — | λ₀ ± span/2 |
+
+Its figures are n_eff, n_g (and D in 3D), and at 2D the slab's index beside it, $n_\text{slab}$:
+the mode stays a rib's mode while its n_eff is above it. Through the device, Hadley's standard
+rib (3 µm wide, a 1 µm film of 3.44 on 3.40 under air, 1.15 µm) reproduces his Table I for
+slabs of 0.1 to 0.7 µm by his equations on a 50 nm grid (`device/rib-hadley`; the `rib_hadley`
+example, slab 0 through the waveguide device), and a wide rib tends to its film's slab index,
+the effective index method's limit (`device/rib-wide-slab`: 8 and 16 µm, extrapolated in
+$1/W^2$).
+
+## MMI
+
+`StripMmi`, 1 × 2 (`StripMmi::one_by_two`, kind `"MMI 1x2"`: ports `o1` in the middle of the
+left face, `o2` and `o3` at +W/4 and −W/4 on the right) or 2 × 2 (`two_by_two`, `"MMI 2x2"`:
+`o1`, `o2` at −W/6 and +W/6 on the left, `o3`, `o4` at +W/6 and −W/6 on the right), the
+circuit's `Mmi`'s names, drawn by the `Mmi` generator. Parameters `width` and `length` of the
+multimode section, `access_width` (the access guides' width at the section), `taper_length` and
+`port_width` (each access guide tapers over `taper_length` to `port_width` at its port; with no
+taper the ports are on the section's faces, `access_width` wide), `thickness`, `slab` and
+`sidewall` (as the waveguide's: a rib MMI), `wavelength` (where the default length is the first
+two-fold image) and `span`. The defaults are the studio's MMIs': 6 µm wide with 1.5 µm access
+guides on 220 nm SOI, 33.56 µm long (3L_π/8) and 44.74 µm (L_π/2).
+
+| Fidelity | Model | Stated error | Holds over |
+|---|---|---|---|
+| 2D, guided modes (the default) | Soldano & Pennings's guided-mode propagation analysis (their Section III, Eqs. 8–12) on the plane seen from above by the effective index method, the section's and access guides' exact slab modes ([components.md](components.md)): the S-matrix between the access guides' fundamental modes at the section's faces; the tapers taken as adiabatic and lossless, their phase left out. On the default stack the film is Li's silicon in Malitson's silica, as the studio's MMIs have always been built; on another stack, or a rib, the slabs' indices at the design wavelength. Labelled 2D | each $\lvert S_{qp}\rvert^2$ within 5e-3 of 2D FDFD of the same plane | widths 3–6 µm, access guides 0.5–1.5 µm, vertical walls, 1.5–1.6 µm |
+| 2D, FDFD (`with_model_2d(Model2d::Fdfd)`) | the drawn geometry by 2D FDFD on the effective index method's plane (below) | — (3D isn't resolved here) | — |
+| 3D | the drawn geometry on its stack by 3D FDFD (below) | — | — |
+
+The MMI has two 2D models, and a device setting chooses which its 2D fidelity is, as the strip's
+mesh chooses its 3D scheme: the guided modes by default, cheap and the library's own; 2D FDFD
+with `with_model_2d`. Its figures, from the S-matrix at the design wavelength: the powers into
+the two outputs from `o1`, the excess loss $-10\log_{10}(P_a + P_b)$ and the imbalance
+$10\log_{10}(P_a/P_b)$ in dB; and with the guided modes the beat length
+$L_\pi = \pi/(\beta_0 - \beta_1)$ (Soldano & Pennings's Eq. 6, from the exact modes) and the
+first two-fold image, $3L_\pi/8$ (symmetric interference, their Eq. 37) or $L_\pi/2$ (paired,
+Eq. 33). Those lengths are within 1.2 % of the paper's closed forms with Eq. 4's effective width
+from 3 to 12 µm wide (`device/mmi-self-imaging`; the `mmi_soldano` example).
+
+The guided modes leave out what the junctions radiate and reflect; 2D FDFD keeps it. On a 3 µm
+MMI with 0.5 µm access guides at its image (8.48 µm), 2D FDFD gives 0.39834, 0.40407 and
+0.40622 into each output at 20, 10 and 5 nm (order 1.5), the guided modes 0.40486
+(`device/mmi-2d-grid`, `device/mmi-guided-2d`); on the default 1 × 2, 0.47479 and 0.47933 at 20
+and 10 nm against 0.48082, and on the 2 × 2, 0.45503 and 0.48009 at 10 nm against 0.45826 and
+0.48326.
+
+## Y-branch
+
+`StripYBranch`, kind `"Y-branch"`: ports `o1` (the stem), `o2` (the upper arm) and `o3`, as the
+circuit's ideal `YBranch`. Its stem is `length` long and its width the not-a-knot cubic spline
+through `w1` … `w13` at 13 points evenly along it, written with the expression language's
+`spline` ([expressions.md](expressions.md)) and drawn between $-w(x)/2$ and $w(x)/2$
+(`geometry::Between`) by the `YBranch` generator; two sine S-bend arms `width` wide leave its
+end `w13 − 2 width` apart and reach `separation` after `arm_length`. Parameters those, with
+`thickness`, `slab`, `sidewall`, `excess_loss` (dB, the ideal model's), `wavelength` and `span`.
+The defaults are Zhang et al.'s junction: 2 µm long, their Table 1's widths, from the 500 nm
+strip to two 500 nm arms 200 nm apart; the arms, 5 µm long to ports 2 µm apart, are ours.
+
+| Fidelity | Model | Stated error | Holds over |
+|---|---|---|---|
+| analytic | ideal: the stem's power split equally, with an excess loss | $\lvert S\rvert^2$ within 0.05 of 2D, on Zhang et al.'s junction | — |
+| 2D | the drawn geometry by 2D FDFD on the effective index method's plane. Labelled 2D | — (3D isn't resolved here) | — |
+| 3D | the drawn geometry on its stack by 3D FDFD | — | — |
+
+Its 2D model converges at about second order: 0.46817, 0.46775 and 0.46763 into each arm at 20,
+10 and 5 nm with sharp arms (3 µm long to ports 1.5 µm apart), an insertion loss of 0.29 dB in
+2D, of which the arms' bends shed part: with the default arms, 0.47862 into each at 10 nm,
+0.190 dB. Zhang et al. designed it in 2D FDTD to "sub-0.2 dB", and found 0.13 dB in 3D FDTD at
+λ/34 and 0.28 ± 0.02 dB measured (the `y_junction_zhang` example: its drawn outline is their
+Table 1's at the 13 points, and its 2D loss below their 2D design's).
+
+## FDFD fidelities
+
+The MMIs' and the Y-branch's FDFD models solve the device's own drawing (`device::FdfdGrid`):
+
+- **The window** holds the drawing and `margin` of cladding beside it (1 µm), and each port's
+  guide led straight out of it through the PML, cut as the core is; the port's plane is three
+  cells out from the device's port, five more cells before the PML (12 cells). The cells are
+  even in number each way and centred, so a device mirrored about its axis is mirrored on the
+  grid; in 3D the core's faces are on nodes, `margin` of cladding below and above it.
+- **The plane** in 2D is the effective index method's (the `"fdfd"` job's,
+  [fdfd-2d.md](fdfd-2d.md)): each point's column's slab index squared, the slab's TE mode, H
+  along z. 3D solves the stack itself, TE-like.
+- **Each cell's permittivity** is from 8 samples a side, harmonic along each component of E and
+  arithmetic across it. The shapes' fill ([averaging.md](averaging.md)) would leave a seam where
+  two shapes abut, as a port's guide does its lead: a straight strip then reflects (|S₁₁|² 6e-5
+  on 100 nm cells) and its S isn't symmetric (3e-4). Sampled, they are 1e-32 and 1e-16.
+- **The ports** are each guide's fundamental mode on its plane, in a window across from the
+  middles between it and its neighbours on the same side ([fdfd-2d.md](fdfd-2d.md),
+  [fdfd-3d.md](fdfd-3d.md)); the S-matrix's phases are referred back from the planes to the
+  device's ports by each mode's β. Through it a straight strip 2 µm long gives
+  $S_{21} = e^{i\beta L}$ to 1.6e-7 in 2D and 2.6e-5 in 3D on 100 nm cells
+  (`device/fdfd-straight`).
+- **The wavelengths**: `samples` of them evenly across the span (five), the component a
+  `Sampled` one, interpolated between them; one samples the centre only.
+
+The 2D grid is 20 nm by default; 3D, 40 nm in the plane and 20 nm up the stack with 0.6 µm of
+margin. **3D is limited by the direct solver's memory**, which grows faster than the unknowns:
+a 2 µm MMI's 1.26 million (50 × 50 × 27.5 nm cells) took 32 GB, so a device's 3D solve refuses
+more than 1.2 million unknowns and asks for a coarser grid. That doesn't resolve an MMI: its
+self-image is sensitive to the higher modes' phases, which coarse cells get wrong. The 3 µm MMI
+above gives 0.15981, 0.18082 and 0.22351 into each output on 100, 80 and 67 nm cells (55, 44 and
+37 nm up), against 0.406 in 2D, still moving by 0.04 a step; the 2 µm one 0.299, 0.354 and 0.390
+on 80, 67 and 50 nm cells. So the guided modes' and 2D FDFD's errors against 3D aren't stated
+here; resolving them needs about 20 nm cells, an iterative solve's (`IterativeSolver3d`) or a
+larger machine's. The surveys are `device::splitter_tests::survey` (ignored: run by hand).
+
+## MZI
+
+`StripMzi`, of directional couplers (`StripMzi::couplers`, kind `"MZI"`: ports `o1`, `o2` on the
+left and `o3` (upper), `o4` on the right, as the circuit's `mzi` wires them) or of Y-branches
+(`y_branches`, `"Y-branch MZI"`: `o1`, the splitter's stem, and `o2`, the combiner's): a
+splitter, two strip arms `upper` and `lower` µm long, an ideal phase shifter of `phase` degrees
+in the upper arm (a heater, as a circuit sees it), and the splitter again, mirrored, as the
+combiner. Parameters `width`, `thickness` (the arms' and the splitters'), `upper`, `lower`,
+`phase`, `loss` (the arms'), the splitter's own (a coupler's `gap` and `coupler_length`, at its
+analytic 3 dB length; a Y-branch's `excess_loss`, its outline at Zhang et al.'s defaults),
+`wavelength` and `span`. It is the netlist of its devices, solved as a circuit
+([circuits.md](circuits.md)), each part at the MZI's fidelity: analytic (the coupler's or the
+ideal Y-branch's and the strip's analytic models) or 3D (theirs). Its figures are the powers
+through and across (or through, for the Y-branches).
+
+Its drawing is its parts': the splitter at the origin (a coupler's guides parted by sine
+S-bends 10 µm long, 2 µm each, drawn and not modelled), the shorter arm straight, the longer
+one's extra length a detour of four quarter turns (radius up to 5 µm) away from the other, and
+the combiner on their ends. The netlist's arms are as long as the drawn ones' centre lines; their
+bends' loss and the mode's shift in them aren't modelled.
+
+It is the closed form of the transfer matrices, $C_c\,\mathrm{diag}(t_l, t_u e^{i\varphi})\,C_s$
+with each coupler's through and across fields, to round-off (`device/mzi-closed-form`; for the
+Y-branches, $s^2(t_u e^{i\varphi} + t_l)$), and its derivatives in the arms' lengths, the phase
+and the arms' loss are the circuit adjoint's, exact (`device/mzi-derivatives`).
+
 ## Saved as a job
 
 A device's design is a job file with a `[device]` table in place of a task (`device::Spec`):
@@ -262,8 +442,9 @@ at.
 name = "narrow-coupler"
 
 [device]
-kind = "directional coupler"   # waveguide, bend, directional coupler, all-pass ring, add-drop ring
-fidelity = "analytic"          # analytic (the default), 2D or 3D, as the device has them
+kind = "directional coupler"   # waveguide, bend, directional coupler, all-pass ring, add-drop ring,
+                               # rib waveguide, MMI 1x2, MMI 2x2, Y-branch, MZI, Y-branch MZI
+fidelity = "analytic"          # analytic, 2D or 3D, as the device has them; its cheapest by default
 stack = "soi_220"              # soi_220 (the default), soi or nitride
 
 [device.parameters]            # expressions; the device's parameters left out take their defaults
@@ -324,6 +505,16 @@ component page's design this way, in the workspace's `jobs/`, and opens it again
 | `device/coupler-chrostowski` | their Eq. 4.14 at 200 nm through the coupler device | 5 nm, quarter | 37.152 µm (37.5 ± 1) |
 | `device/ring-q-bogaerts` | Bogaerts's Fig. 5 through the ring device: the length where Q peaks | exact | 9.353 mm (10 ± 1) |
 | `device/wire-ng-dwivedi` | Dwivedi et al.'s Table I, the 602 nm wire's n_g, through the waveguide device | fitted 10 nm, Hadley | 4.03847 (4.0453 ± 0.032) |
+| `device/mmi-library` | the MMIs' 2D models and the Y-branch's analytic one at their defaults against the studio library's components as built before | exact | 0 |
+| `device/mmi-self-imaging` | the MMIs' first two-fold images against Soldano & Pennings's Eqs. 4, 6, 33 and 37, 3 to 12 µm wide | exact slab modes | 0.91 % |
+| `device/mzi-closed-form` | both MZIs against their transfer matrices' closed forms | exact | 3.7e-16 |
+| `device/mzi-derivatives` | the MZIs' exact $dS/dp$ (arms' lengths, phase, loss) against fourth-order differences | exact | 3.2e-10 relative |
+| `device/rib-wide-slab` | a wide rib's 3D n_eff, extrapolated in $1/W^2$, against its film's slab index | 50 nm, Hadley | 3.417137 (3.417150 ± 2e-5) |
+| `device/rib-eim` | the rib's effective index method against its 3D model over its stated range | fitted 20 nm, Hadley | 0.0638 |
+| `device/rib-hadley` | Hadley's Table I through the rib device | 50 nm, Hadley | 1.4e-6 |
+| `device/fdfd-straight` | a straight strip through the FDFD solves: $S_{21} = e^{i\beta L}$, no reflection, reciprocal | 100 nm (55 nm up) | 2.6e-5 |
+| `device/mmi-2d-grid`, `device/mmi-guided-2d` | a 3 µm MMI's 2D FDFD from 10 to 5 nm; its guided modes against it | 20, 10, 5 nm | 2.1e-3 and 1.4e-3 |
+| `device/y-branch-2d-grid`, `device/y-branch-ideal-2d` | Zhang et al.'s Y-branch's 2D FDFD from 20 to 10 nm; the ideal model against it | 40, 20, 10 nm | 4.2e-4 and 0.032 |
 
 The published examples go through the devices too, to their bits: `strip_waveguide` solves the
 waveguide device's cross-section, `directional_coupler` the coupler device's 3D model and

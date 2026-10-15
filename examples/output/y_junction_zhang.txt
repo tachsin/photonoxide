@@ -1,0 +1,9 @@
+Zhang et al.'s Y-junction through the Y-branch device: 220 nm SOI, a 2 um taper, arms 5 um long to ports 2 um apart
+the drawn outline at its 13 points against Table 1 (largest difference):
+  outline against Table 1 (um)           0.000000   paper 0          ± 1e-12     ok
+its 2D model, 2D FDFD by the effective index method at 1.55 um (2D estimates):
+  20 nm (2D FDFD by the effective index method, 390 × 250 cells of 20.0 nm, PMLs 12 cells): arms 0.47897 and 0.47897, insertion loss 0.187 dB
+  insertion loss, 2D, 20 nm (dB)         0.186606   paper below 0.2              ok
+  10 nm (2D FDFD by the effective index method, 740 × 474 cells of 10.0 nm, PMLs 12 cells): arms 0.47862 and 0.47862, insertion loss 0.190 dB
+  insertion loss, 2D, 10 nm (dB)         0.189771   paper below 0.2              ok
+all 3 within tolerance of the paper

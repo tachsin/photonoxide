@@ -407,6 +407,7 @@ mod fdtd;
 mod params;
 mod shapes;
 
+pub(crate) use fdfd::plane as fdfd_plane;
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub use fdtd::{FoundResonance, SpectrumSeries};
 

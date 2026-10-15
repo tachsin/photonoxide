@@ -115,8 +115,14 @@ pub enum Symmetry {
     /// A mirror wall on each of the device's planes of symmetry: a strip's or a coupler's
     /// quarter (the vertical plane through its centre and the core layer's mid-plane), a bend's
     /// half (the mid-plane only). The stack must be the same above and below the core layer
-    /// over the window, which the cross-section checks.
+    /// over the window, which the cross-section checks. A guide that isn't the same above and
+    /// below its mid-plane by its own shape (a rib, or a strip with sloped walls) is solved on
+    /// its half behind the vertical plane alone ([`Symmetry::Vertical`]).
     Mirrored,
+    /// A mirror wall on the vertical plane through the guide's centre only (a strip's or a
+    /// coupler's half, the whole height): for a rib, or a stack that differs above and below
+    /// the core layer.
+    Vertical,
 }
 
 /// How the straight guide's modes are found.
@@ -300,6 +306,35 @@ fn fitted(half: f64, step: f64, margin: f64, mirrored: bool) -> (f64, f64, usize
     }
 }
 
+/// The nodes up a rib's cross-section, its core `thickness` µm thick about the mid-plane and its
+/// slab `slab` thick from the core's bottom: as [`fitted`] places them over the whole height,
+/// the spacing (thickness/2)/m with m the whole number nearest (thickness/2)/step among those
+/// (from half to three times it) that put the slab's top on a node too; [`fitted`]'s own when
+/// none does.
+fn floored(thickness: f64, slab: f64, step: f64, margin: f64) -> (f64, f64, usize) {
+    let half = thickness / 2.0;
+    let m0 = (half / step).round().max(1.0);
+    let on_node = |m: f64| {
+        let k = slab * m / half;
+        (k - k.round()).abs() < 1e-6
+    };
+    let lo = (m0 / 2.0).floor().max(1.0);
+    let hi = 3.0 * m0;
+    let m = (0..)
+        .map(f64::from)
+        .take_while(|&j| m0 - j >= lo || m0 + j <= hi)
+        .find_map(|j| {
+            [m0 - j, m0 + j]
+                .into_iter()
+                .find(|&m| m >= lo && m <= hi && on_node(m))
+        })
+        .unwrap_or(m0);
+    let d = half / m;
+    let n = ((half + margin) / d).round() as usize;
+    let end = n as f64 * d;
+    (-end, end, 2 * n)
+}
+
 /// The nodes along one axis around a face at `half` µm from the centre: the spacing
 /// half/round(half/step), and a whole number of `half`s of cladding beyond the face, at least
 /// `margin`; mirrored to negative x unless `mirrored`. Halving the step halves every cell and
@@ -338,28 +373,36 @@ impl<'a> Cut<'a> {
         )
     }
 
-    /// Refuses a mirrored cross-section whose structure isn't mirrored across its planes
-    /// (`vertical` too for a strip's or a coupler's, x = 0) at the cells' centres.
-    fn check_mirror(&self, x: &[f64], y: &[f64], vertical: bool) -> Result<()> {
+    /// Refuses a mirrored cross-section whose structure isn't mirrored across its planes (the
+    /// core's mid-plane when `horizontal`, and x = 0 when `vertical`, a strip's or a coupler's)
+    /// at the cells' centres.
+    fn check_mirror(&self, x: &[f64], y: &[f64], horizontal: bool, vertical: bool) -> Result<()> {
         for i in 0..x.len() - 1 {
             let cx = 0.5 * (x[i] + x[i + 1]);
             for j in 0..y.len() - 1 {
                 let cy = 0.5 * (y[j] + y[j + 1]);
                 let here = self.material(cx, cy);
-                let flipped_y = self.material(cx, -cy);
+                let flipped_y = if horizontal {
+                    self.material(cx, -cy)
+                } else {
+                    here
+                };
                 let flipped_x = if vertical {
                     self.material(-cx, cy)
                 } else {
                     here
                 };
                 if here != flipped_y || here != flipped_x {
+                    let (planes, instead) = match (horizontal, vertical) {
+                        (true, true) => ("the core's mid-plane and centre", "Symmetry::Full"),
+                        (true, false) => ("the core's mid-plane", "Symmetry::Full"),
+                        _ => ("its centre", "Symmetry::Full"),
+                    };
                     return Err(Error::invalid(
                         "cross-section",
                         format!(
-                            "the structure isn't mirrored about the core's mid-plane{} at \
-                             ({cx:.3}, {cy:.3}) um from its centre: solve the full domain \
-                             (Symmetry::Full)",
-                            if vertical { " and centre" } else { "" }
+                            "the structure isn't mirrored about {planes} at ({cx:.3}, {cy:.3}) \
+                             um from its centre: solve the full domain ({instead})"
                         ),
                     ));
                 }
@@ -401,61 +444,80 @@ impl<'a> Cut<'a> {
         CrossSection::new(x, y, cells)
     }
 
-    /// A single strip's cross-section, its core `width` × `thickness` µm, on `mesh`, with an
-    /// electric wall on the vertical mirror plane and a magnetic one on the horizontal (the
-    /// TE-like modes) when mirrored.
+    /// A single strip's or rib's cross-section, its core `width` × `thickness` µm and the core
+    /// layer's material left `slab` µm thick beside it (0 for a strip), on `mesh`: when
+    /// mirrored, an electric wall on the vertical mirror plane and a magnetic one on the
+    /// horizontal (the TE-like modes); on [`Symmetry::Vertical`] the half x ≥ 0 over the whole
+    /// height, behind the electric wall alone, and a fitted mesh then puts the slab's top on a
+    /// node too, where a spacing near the step allows.
     pub(super) fn strip(
         &self,
         width: f64,
         thickness: f64,
+        slab: f64,
         mesh: &Mesh,
         wavelength: Wavelength,
     ) -> Result<CrossSection> {
         mesh.check()?;
-        let mirrored = mesh.symmetry == Symmetry::Mirrored;
+        let horizontal = mesh.symmetry == Symmetry::Mirrored;
+        let vertical = mesh.symmetry != Symmetry::Full;
         let ((x0, x1, nx), (y0, y1, ny)) = match mesh.cells {
             Cells::Fitted { step, margin } => (
-                fitted(width / 2.0, step, margin, mirrored),
-                fitted(thickness / 2.0, step, margin, mirrored),
+                fitted(width / 2.0, step, margin, vertical),
+                if slab > 0.0 && !horizontal {
+                    floored(thickness, slab, step, margin)
+                } else {
+                    fitted(thickness / 2.0, step, margin, horizontal)
+                },
             ),
             Cells::Window {
                 width: w,
                 height,
                 columns,
                 rows,
-            } => (window(w, columns, mirrored), window(height, rows, mirrored)),
+            } => (
+                window(w, columns, vertical),
+                window(height, rows, horizontal),
+            ),
         };
         let (x, y) = (line(x0, x1, nx), line(y0, y1, ny));
-        if mirrored {
-            self.check_mirror(&x, &y, true)?;
+        if vertical {
+            self.check_mirror(&x, &y, horizontal, true)?;
         }
         let cs = self.sample(x, y, wavelength)?;
-        if mirrored {
-            cs.with_boundaries(Boundaries {
+        match mesh.symmetry {
+            Symmetry::Full => Ok(cs),
+            Symmetry::Vertical => cs.with_boundaries(Boundaries {
+                west: Boundary::ElectricWall,
+                ..Boundaries::default()
+            }),
+            Symmetry::Mirrored => cs.with_boundaries(Boundaries {
                 west: Boundary::ElectricWall,
                 south: Boundary::MagneticWall,
                 ..Boundaries::default()
-            })
-        } else {
-            Ok(cs)
+            }),
         }
     }
 
-    /// Two strips `gap` µm apart, each `width` × `thickness`, on `mesh`; when mirrored, the
-    /// half x ≥ 0 above the mid-plane with `between` on the plane between the guides (an
-    /// electric wall keeps the even TE-like supermode, a magnetic one the odd) and a magnetic
-    /// wall on the mid-plane.
+    /// Two strips (or ribs, the core layer's material left `slab` µm thick beside them) `gap`
+    /// µm apart, each `width` × `thickness`, on `mesh`; when mirrored, the half x ≥ 0 above the
+    /// mid-plane with `between` on the plane between the guides (an electric wall keeps the
+    /// even TE-like supermode, a magnetic one the odd) and a magnetic wall on the mid-plane; on
+    /// [`Symmetry::Vertical`] the half x ≥ 0 over the whole height.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn pair(
         &self,
         width: f64,
         thickness: f64,
+        slab: f64,
         gap: f64,
         between: Boundary,
         mesh: &Mesh,
         wavelength: Wavelength,
     ) -> Result<CrossSection> {
         mesh.check()?;
-        let mirrored = mesh.symmetry == Symmetry::Mirrored;
+        let horizontal = mesh.symmetry == Symmetry::Mirrored;
+        let vertical = mesh.symmetry != Symmetry::Full;
         let (x, y) = match mesh.cells {
             Cells::Fitted { step, margin } => {
                 let faces = [
@@ -464,8 +526,12 @@ impl<'a> Cut<'a> {
                     gap / 2.0 + width,
                     gap / 2.0 + width + margin,
                 ];
-                let (y0, y1, ny) = fitted(thickness / 2.0, step, margin, mirrored);
-                (segments(&faces, step, mirrored), line(y0, y1, ny))
+                let (y0, y1, ny) = if slab > 0.0 && !horizontal {
+                    floored(thickness, slab, step, margin)
+                } else {
+                    fitted(thickness / 2.0, step, margin, horizontal)
+                };
+                (segments(&faces, step, vertical), line(y0, y1, ny))
             }
             Cells::Window {
                 width: w,
@@ -473,23 +539,26 @@ impl<'a> Cut<'a> {
                 columns,
                 rows,
             } => {
-                let (x0, x1, nx) = window(w, columns, mirrored);
-                let (y0, y1, ny) = window(height, rows, mirrored);
+                let (x0, x1, nx) = window(w, columns, vertical);
+                let (y0, y1, ny) = window(height, rows, horizontal);
                 (line(x0, x1, nx), line(y0, y1, ny))
             }
         };
-        if mirrored {
-            self.check_mirror(&x, &y, true)?;
+        if vertical {
+            self.check_mirror(&x, &y, horizontal, true)?;
         }
         let cs = self.sample(x, y, wavelength)?;
-        if mirrored {
-            cs.with_boundaries(Boundaries {
+        match mesh.symmetry {
+            Symmetry::Full => Ok(cs),
+            Symmetry::Vertical => cs.with_boundaries(Boundaries {
+                west: between,
+                ..Boundaries::default()
+            }),
+            Symmetry::Mirrored => cs.with_boundaries(Boundaries {
                 west: between,
                 south: Boundary::MagneticWall,
                 ..Boundaries::default()
-            })
-        } else {
-            Ok(cs)
+            }),
         }
     }
 
@@ -537,7 +606,7 @@ impl<'a> Cut<'a> {
         let nx = ((inner + outer + 1.0) * per) as usize;
         let (y0, y1, ny) = snapped(thickness / 2.0, step, margin, mirrored);
         if mirrored {
-            self.check_mirror(&line(x0, x1, nx), &line(y0, y1, ny), false)?;
+            self.check_mirror(&line(x0, x1, nx), &line(y0, y1, ny), true, false)?;
         }
         let cs = if mapped {
             let media = Media::new(wavelength);

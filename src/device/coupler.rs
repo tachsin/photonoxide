@@ -11,7 +11,10 @@ use crate::units::Wavelength;
 use super::fit;
 use super::guide::{Strip, um};
 use super::section::Mesh;
-use super::waveguide::{analytic_papers, band_parameters, solver_papers, strip_parameters};
+use super::waveguide::{
+    analytic_papers, band_parameters, etch_parameters, profile, solver_papers, strip_parameters,
+    strip_validity, strips_only,
+};
 use super::{
     Built, Device, Figure, Geometry, Method, Range, Stated, Values, figure, method, parameter,
 };
@@ -21,7 +24,9 @@ use super::{
 /// [`DirectionalCoupler`] by coupled-mode theory from the pair's two supermodes (Chrostowski &
 /// Hochberg 2015, Section 4.1).
 ///
-/// Parameters `width`, `thickness`, `gap` (edge to edge), `length` (the coupled section's),
+/// Parameters `width`, `thickness`, `slab` and `sidewall` (the guides' profile, as the
+/// [`super::StripWaveguide`]'s: ribs on a slab, sloped walls; the analytic fit is strips'),
+/// `gap` (edge to edge, at the guides' tops), `length` (the coupled section's),
 /// `loss` (dB/cm, each guide's), `wavelength` and `span`.
 ///
 /// - **Analytic:** supermodes split by Δn = Cλ/π about the strip's analytic mode (Chrostowski
@@ -76,6 +81,7 @@ impl StripCoupler {
 
     fn of(strip: Strip) -> StripCoupler {
         let mut parameters = strip_parameters();
+        parameters.extend(etch_parameters());
         parameters.push(parameter("gap", "µm", 0.2, 0.02, 2.0));
         parameters.push(parameter("length", "µm", default_length(), 0.0, 1e4));
         parameters.push(parameter("loss", "dB/cm", 2.7, 0.0, 1e3));
@@ -109,11 +115,12 @@ impl StripCoupler {
     ) -> Result<(CrossSection, CrossSection)> {
         values.check(self)?;
         let (w, t, g) = (values.at("width"), values.at("thickness"), values.at("gap"));
+        let p = profile(values);
         Ok((
             self.strip
-                .pair_section(w, t, g, Boundary::ElectricWall, wavelength)?,
+                .pair_section_of(w, t, p, g, Boundary::ElectricWall, wavelength)?,
             self.strip
-                .pair_section(w, t, g, Boundary::MagneticWall, wavelength)?,
+                .pair_section_of(w, t, p, g, Boundary::MagneticWall, wavelength)?,
         ))
     }
 
@@ -136,8 +143,10 @@ impl StripCoupler {
             values.at("span"),
             values.at("loss"),
         );
+        let p = profile(values);
         match m.fidelity {
             Fidelity::Analytic => {
+                strips_only(p)?;
                 let (guide, _) = self.strip.analytic(w, t, l0, loss)?;
                 let (c, _) = fit::coupling(g, w, t)?;
                 Ok((
@@ -147,8 +156,14 @@ impl StripCoupler {
             }
             _ => {
                 let at = Wavelength::um(l0)?;
-                let even = |wl| self.strip.pair_section(w, t, g, Boundary::ElectricWall, wl);
-                let odd = |wl| self.strip.pair_section(w, t, g, Boundary::MagneticWall, wl);
+                let even = |wl| {
+                    self.strip
+                        .pair_section_of(w, t, p, g, Boundary::ElectricWall, wl)
+                };
+                let odd = |wl| {
+                    self.strip
+                        .pair_section_of(w, t, p, g, Boundary::MagneticWall, wl)
+                };
                 let grid = Strip::grid(&even(at)?);
                 if loss == 0.0 {
                     return Ok((
@@ -196,6 +211,7 @@ fn methods() -> Vec<Method> {
         fit::GAPS[fit::GAPS.len() - 1],
     ));
     validity.push(Range::new("wavelength", 1.548, 1.552));
+    validity.extend(strip_validity());
     vec![
         Method {
             fidelity: Fidelity::Analytic,
@@ -248,6 +264,12 @@ impl Device for StripCoupler {
         let (w, g, l) = (values.at("width"), values.at("gap"), values.at("length"));
         let drawing =
             generator::DirectionalCoupler::new(um(w), um(g), um(l)).draw(&self.strip.core)?;
+        let p = profile(values);
+        let drawing = if p.is_strip() {
+            drawing
+        } else {
+            super::etched(&drawing, p.etch(values.at("thickness"))?)?
+        };
         super::drawn(Structure::new(self.stack(values)?), &drawing)
     }
 

@@ -20,6 +20,27 @@ fn design(kind: &str, parameters: &[(&str, &str)]) -> SpecIn {
     }
 }
 
+/// The device `kind` at its cheapest fidelity, with `parameters`.
+fn cheapest(kind: &str, parameters: &[(&str, &str)]) -> SpecIn {
+    let d = device::library()
+        .into_iter()
+        .find(|d| d.kind() == kind)
+        .unwrap_or_else(|| panic!("no device {kind}"));
+    SpecIn {
+        fidelity: fidelity_name(d.fidelities()[0].fidelity).into(),
+        ..design(kind, parameters)
+    }
+}
+
+/// A short sweep for a model that solves at each wavelength (the MMIs' guided modes).
+fn short() -> Sweep {
+    Sweep {
+        from_um: 1.5,
+        to_um: 1.6,
+        points: 11,
+    }
+}
+
 fn field<'a>(view: &'a GeometryView, name: &str) -> &'a Field {
     view.fields
         .iter()
@@ -52,7 +73,10 @@ fn every_device_in_the_library_opens() {
         for e in &info.examples {
             assert!(examples.iter().any(|x| x == e), "{e}");
         }
-        let spec = design(&info.kind, &[]);
+        // at its cheapest model: analytic, or 2D for the rib and the MMIs
+        let spec = cheapest(&info.kind, &[]);
+        let f = spec.fidelity.clone();
+        assert_eq!(f, info.fidelities[0].fidelity);
         let view = geometry(&spec);
         assert_eq!(view.problem, None, "{}", info.kind);
         assert!(view.outside.is_empty(), "{}: {:?}", info.kind, view.outside);
@@ -65,10 +89,11 @@ fn every_device_in_the_library_opens() {
             assert!(f.device && f.error.is_none());
             assert_eq!(f.value, Some(p.default), "{}.{}", info.kind, p.name);
         }
-        let figures = derived(&spec, "analytic").unwrap();
+        let figures = derived(&spec, &f).unwrap();
         assert!(!figures.figures.is_empty());
-        for f in &figures.figures {
-            assert_eq!(f.fidelity, "analytic");
+        for g in &figures.figures {
+            assert_eq!(g.fidelity, f);
+            let f = g;
             assert!(
                 !f.grid.is_empty(),
                 "{}: {} names no grid",
@@ -76,16 +101,21 @@ fn every_device_in_the_library_opens() {
                 f.symbol
             );
         }
-        let s = spectrum(&spec, "analytic", Sweep::default()).unwrap();
+        let sweep = if f == "analytic" {
+            Sweep::default()
+        } else {
+            short()
+        };
+        let s = spectrum(&spec, &f, sweep).unwrap();
         assert_eq!(s.ports.len(), info.ports.len());
-        assert_eq!(s.fidelity, "analytic");
+        assert_eq!(s.fidelity, f, "{}", info.kind);
         assert!(!s.grid.is_empty());
     }
 }
 
 #[test]
 fn the_geometry_and_figures_are_the_librarys_for_the_same_values() {
-    let cases: [(&str, &[(&str, &str)]); 5] = [
+    let cases: [(&str, &[(&str, &str)]); 11] = [
         ("waveguide", &[("width", "0.45"), ("length", "25")]),
         ("bend", &[("radius", "7.5 um"), ("angle", "60 deg")]),
         (
@@ -97,9 +127,26 @@ fn the_geometry_and_figures_are_the_librarys_for_the_same_values() {
             "add-drop ring",
             &[("coupling_length", "2"), ("gap_drop", "0.3")],
         ),
+        (
+            "rib waveguide",
+            &[("width", "0.6"), ("etch_depth", "70 nm")],
+        ),
+        ("MMI 1x2", &[("width", "5 um"), ("length", "24")]),
+        (
+            "MMI 2x2",
+            &[
+                ("width", "4.5"),
+                ("access_width", "1.2"),
+                ("taper_length", "5"),
+            ],
+        ),
+        ("Y-branch", &[("w7", "1.35 um"), ("separation", "2.5")]),
+        ("MZI", &[("upper", "120"), ("phase", "45 deg")]),
+        ("Y-branch MZI", &[("lower", "80"), ("excess_loss", "0.2")]),
     ];
     for (kind, parameters) in cases {
-        let spec = design(kind, parameters);
+        let spec = cheapest(kind, parameters);
+        let f = device::fidelity(&spec.fidelity).unwrap();
         let view = geometry(&spec);
         assert_eq!(view.problem, None, "{kind}");
         let d = device::library()
@@ -131,8 +178,8 @@ fn the_geometry_and_figures_are_the_librarys_for_the_same_values() {
             .sum();
         assert_eq!(shapes.len(), drawn, "{kind}");
         // the figures, to the bit
-        let ours = derived(&spec, "analytic").unwrap().figures;
-        let theirs = d.derived(values, Fidelity::Analytic).unwrap();
+        let ours = derived(&spec, &spec.fidelity).unwrap().figures;
+        let theirs = d.derived(values, f).unwrap();
         assert_eq!(ours.len(), theirs.len());
         for (a, b) in ours.iter().zip(&theirs) {
             assert_eq!(a.symbol, b.symbol);
@@ -230,6 +277,8 @@ fn a_design_round_trips_through_the_form_and_the_file() {
         [
             "width",
             "thickness",
+            "slab",
+            "sidewall",
             "gap",
             "length",
             "loss",
@@ -360,6 +409,10 @@ fn a_slider_drag_keeps_up_at_the_analytic_fidelity() {
     // geometry and scene, the figures, and 501 wavelengths of S-parameters) must take less
     const BUDGET: Duration = Duration::from_millis(60);
     for d in device::library() {
+        // the rib and the MMIs have no analytic model: their cheapest solves slabs
+        if d.fidelities()[0].fidelity != Fidelity::Analytic {
+            continue;
+        }
         let steps = 40;
         let started = Instant::now();
         let mut slowest = Duration::ZERO;

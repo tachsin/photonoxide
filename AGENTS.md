@@ -18,7 +18,8 @@ farming); next is 0.6, thermal and electro-optic devices. The library's modules,
   feature);
 - `circuit`: components, netlists, the circuit solve and its adjoint, objectives for genoxide;
 - `device`: components that know their geometry (a stack, parameters as expressions, shapes
-  with ports, models from a fit to 3D): the strip waveguide, bend, directional coupler and rings;
+  with ports, models from a fit to 3D): the strip waveguide, bend, directional coupler and rings,
+  the rib, the MMIs, the Y-branch and the MZIs;
 - `compact`: vector fitting, models over parameters, Touchstone files;
 - `backend`: the solver backends, photonoxide's own and the external libraries' (through
   `photonoxide-native`);

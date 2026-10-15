@@ -1,0 +1,20 @@
+Hadley's standard rib (3 um wide, a 1 um film of 3.44 on 3.40 under air, 1.15 um, TE) through the rib device, by Hadley's equations on a 50 nm grid (the half, 100 x 180 cells); the device's 2D model beside it
+  D (um)   Table I     the device   difference   2D (EIM)    its error
+  0.0      3.412022    3.412022     +2.3e-7      (a strip)
+  n_eff, D = 0.0 um                      3.412022   paper 3.412022   ± 2e-6      ok
+  0.1      3.412126    3.412126     +3.6e-7      3.414262    +2.1e-3
+  n_eff, D = 0.1 um                      3.412126   paper 3.412126   ± 2e-6      ok
+  0.2      3.412279    3.412279     +5.0e-7      3.414262    +2.0e-3
+  n_eff, D = 0.2 um                      3.412279   paper 3.412279   ± 2e-6      ok
+  0.3      3.412492    3.412493     +9.4e-7      3.414262    +1.8e-3
+  n_eff, D = 0.3 um                      3.412493   paper 3.412492   ± 2e-6      ok
+  0.4      3.412774    3.412775     +1.4e-6      3.414262    +1.5e-3
+  n_eff, D = 0.4 um                      3.412775   paper 3.412774   ± 2e-6      ok
+  0.5      3.413132    3.413133     +1.2e-6      3.414262    +1.1e-3
+  n_eff, D = 0.5 um                      3.413133   paper 3.413132   ± 2e-6      ok
+  0.6      3.413571    3.413572     +1.1e-6      3.414386    +8.1e-4
+  n_eff, D = 0.6 um                      3.413572   paper 3.413571   ± 2e-6      ok
+  0.7      3.414100    3.414101     +9.9e-7      3.414653    +5.5e-4
+  n_eff, D = 0.7 um                      3.414101   paper 3.4141     ± 2e-6      ok
+the effective index method's largest error here: 2.1e-3 (2D, printed, not checked)
+all 8 within tolerance of the paper

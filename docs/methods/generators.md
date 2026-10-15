@@ -146,7 +146,9 @@ no number of theirs stands in the report as reproduced.
 
 Each device in `photonoxide::device` draws its geometry with its generator: the strip waveguide
 with `Straight`, the bend with `Bend::arc`, the directional coupler with `DirectionalCoupler`, the
-rings with `Ring`. One generator per component, not two. They draw what the devices drew
+rings with `Ring`, the rib with `Straight` cut by a partial etch, the MMIs with `Mmi` (the 2 × 2's
+access guides at ±W/6), the Y-branch with `YBranch` on a `spline` outline, and the MZIs with
+their splitters' and `Bend` and `Straight` for the arms. One generator per component, not two. They draw what the devices drew
 before, to the bit: the validation case `generator/devices` writes the earlier geometry out and
 compares every shape and port at twelve designs (lengths and angles of zero included).
 

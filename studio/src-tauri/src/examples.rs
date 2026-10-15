@@ -72,6 +72,9 @@ examples!(
     mode_converter_liu_poon: "../../../examples/mode_converter_liu_poon.rs",
     splitter_rotator_liu_poon: "../../../examples/splitter_rotator_liu_poon.rs",
     ring_liu_poon: "../../../examples/ring_liu_poon.rs",
+    rib_hadley: "../../../examples/rib_hadley.rs",
+    mmi_soldano: "../../../examples/mmi_soldano.rs",
+    y_junction_zhang: "../../../examples/y_junction_zhang.rs",
 );
 
 /// An example's `main` returns an exit code, or a result holding one.
@@ -172,6 +175,9 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "Liu & Poon 2025",
         ),
         "ring_liu_poon" => ("A PDK ring resonator in 3D", "Liu & Poon 2025"),
+        "rib_hadley" => ("Hadley's standard rib, as a device", "Hadley 2002"),
+        "mmi_soldano" => ("The MMIs' self-imaging lengths", "Soldano & Pennings 1995"),
+        "y_junction_zhang" => ("A compact Y-junction, as a device", "Zhang et al. 2013"),
         _ => ("", ""),
     }
 }
@@ -202,6 +208,9 @@ fn seconds(name: &str) -> f64 {
         "bump_oskooi" => 120.0,
         "l3_akahane" => 80.0,
         "ring_liu_poon" => 20.0,
+        "mmi_soldano" => 2.0,
+        "y_junction_zhang" => 15.0,
+        "rib_hadley" => 30.0,
         "crossing_liu_poon" => 30.0,
         "coupler_liu_poon" => 100.0,
         "mmi_liu_poon" => 120.0,

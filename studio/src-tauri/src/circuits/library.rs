@@ -3,29 +3,29 @@
 //! description of it (a title, a category, a sentence, the model's equation) and the schematic
 //! symbol the chip view draws.
 //!
-//! The physics is the library's: the waveguide, the bend, the directional coupler and the rings
-//! are its devices (`photonoxide::device`) at their defaults, each the component its analytic
-//! model gives (the strip waveguide's 3D model for `waveguide-modes`); the others are its
-//! components (`photonoxide::circuit::components`). Everything about their ports, parameters
-//! and provenance is read from the component. What the studio chooses is what the library
-//! leaves to its caller: the MMIs' widths, and the window `waveguide-modes` is solved on.
+//! The physics is the library's: the waveguide, the bend, the directional coupler, the rings,
+//! the rib, the MMIs, the Y-branch and the MZIs of couplers and of Y-branches are its devices
+//! (`photonoxide::device`) at their defaults, each the component its cheapest model gives (the
+//! analytic one; the MMIs' and the rib's 2D; the strip waveguide's 3D model for
+//! `waveguide-modes`); the others are its components (`photonoxide::circuit::components`).
+//! Everything about their ports, parameters and provenance is read from the component. What the
+//! studio chooses is what the library leaves to its caller: the window `waveguide-modes` is
+//! solved on.
 
 use std::path::Path;
 use std::sync::{Arc, OnceLock};
 
 use photonoxide::Complex64 as c64;
 use photonoxide::Result;
-use photonoxide::circuit::components::{
-    self, Coupler, Mmi, MmiKind, PhaseShifter, Planar, YBranch,
-};
+use photonoxide::circuit::components::{self, Coupler, PhaseShifter};
 use photonoxide::circuit::{Component, Fidelity, Fixed, Port, SMatrix, Spectrum};
 use photonoxide::compact::Measured;
 use photonoxide::compact::touchstone::{Convention, Touchstone};
 use photonoxide::device::{
-    Device, Mesh, Scheme, StripBend, StripCoupler, StripRing, StripWaveguide, Values,
+    Device, Mesh, RibWaveguide, Scheme, StripBend, StripCoupler, StripMmi, StripMzi, StripRing,
+    StripWaveguide, StripYBranch, Values,
 };
 use photonoxide::material::{self, Material, Model, Provenance};
-use photonoxide::mode::Polarization;
 use photonoxide::stack::{Layer, LayerStack};
 use photonoxide::units::{Length, Wavelength};
 use serde::Serialize;
@@ -118,16 +118,6 @@ fn analytic(device: &dyn Device) -> Built {
     component(device, &Values::defaults(device), Fidelity::Analytic)
 }
 
-/// The plane the MMIs lie in: a 220 nm silicon film in oxide, by the effective index method.
-fn soi() -> Planar {
-    Planar::Film {
-        core: material::silicon(),
-        cladding: material::silica(),
-        thickness: Length::nm(220.0),
-        vertical: Polarization::Te,
-    }
-}
-
 fn waveguide() -> Built {
     once!(analytic(&StripWaveguide::new()))
 }
@@ -197,23 +187,35 @@ fn directional_coupler() -> Built {
     once!(analytic(&StripCoupler::new()))
 }
 
-fn mmi(kind: MmiKind) -> Built {
-    let wavelength = Wavelength::um(1.55).map_err(text)?;
-    Ok(Arc::new(
-        Mmi::new(kind, soi(), 6.0, 1.5, wavelength).map_err(text)?,
-    ))
+/// A device's 2D model at its defaults: the MMIs' guided modes on a 220 nm silicon film in
+/// oxide by the effective index method, 6 µm wide with 1.5 µm access guides; the rib's
+/// effective index method.
+fn two_d(device: &dyn Device) -> Built {
+    component(device, &Values::defaults(device), Fidelity::TwoD)
+}
+
+fn rib_waveguide() -> Built {
+    once!(two_d(&RibWaveguide::new()))
 }
 
 fn mmi_1x2() -> Built {
-    once!(mmi(MmiKind::OneByTwo))
+    once!(two_d(&StripMmi::one_by_two()))
 }
 
 fn mmi_2x2() -> Built {
-    once!(mmi(MmiKind::TwoByTwo))
+    once!(two_d(&StripMmi::two_by_two()))
 }
 
 fn y_branch() -> Built {
-    once!(Ok(Arc::new(YBranch::new())))
+    once!(analytic(&StripYBranch::new()))
+}
+
+fn mzi_couplers() -> Built {
+    once!(analytic(&StripMzi::couplers()))
+}
+
+fn mzi_y_branches() -> Built {
+    once!(analytic(&StripMzi::y_branches()))
 }
 
 fn ring_all_pass() -> Built {
@@ -279,6 +281,16 @@ pub fn entries() -> Vec<Entry> {
             build: bend,
         },
         Entry {
+            id: "rib-waveguide",
+            title: "Rib waveguide",
+            variant: "",
+            category: "Waveguides",
+            about: "A rib 500 nm wide on 220 nm SOI, etched 130 nm into the silicon and standing on a 90 nm slab: its TE-like mode by the effective index method (a 2D approximation), losing 2.7 dB/cm to start.",
+            equation: r"S_{21} = S_{12} = e^{i\gamma L},\quad n_\mathrm{eff}:\ n_\mathrm{rib},\ n_\mathrm{slab} \to \text{the lateral slab}",
+            glyph: Glyph::Waveguide,
+            build: rib_waveguide,
+        },
+        Entry {
             id: "phase-shifter",
             title: "Phase shifter",
             variant: "",
@@ -333,7 +345,7 @@ pub fn entries() -> Vec<Entry> {
             title: "Y-branch",
             variant: "",
             category: "Couplers and splitters",
-            about: "An ideal 50/50 splitter with an excess loss: the stem's power split equally between the arms.",
+            about: "Zhang et al.'s Y-junction (a 2 µm stem widening along a spline to two 500 nm arms), modelled as an ideal 50/50 splitter with an excess loss: the stem's power split equally between the arms.",
             equation: r"S_{21} = S_{31} = \frac{10^{-A/20}}{\sqrt{2}}",
             glyph: Glyph::YBranch,
             build: y_branch,
@@ -367,6 +379,26 @@ pub fn entries() -> Vec<Entry> {
             equation: r"S_{o3,o2} = t_s t_c\, e^{i\gamma L_u} + (i\kappa_s)(i\kappa_c)\, e^{i\gamma L_l}",
             glyph: Glyph::Mzi,
             build: mzi,
+        },
+        Entry {
+            id: "mzi-couplers",
+            title: "Mach–Zehnder interferometer",
+            variant: "directional couplers",
+            category: "Interferometers",
+            about: "An MZI of two directional couplers (500 nm strips 200 nm apart, each at its 3 dB length) and strip arms 150 and 100 µm long, a phase in the upper arm: the netlist of its devices.",
+            equation: r"S_{o3,o1} = x_c\, e^{i(\gamma L_u + \varphi)}\, t_s + t_c\, e^{i\gamma L_l}\, x_s",
+            glyph: Glyph::Mzi,
+            build: mzi_couplers,
+        },
+        Entry {
+            id: "mzi-y-branches",
+            title: "Mach–Zehnder interferometer",
+            variant: "Y-branches",
+            category: "Interferometers",
+            about: "An MZI of two Y-branches and strip arms 150 and 100 µm long, a phase in the upper arm: the netlist of its devices; the light out of phase at the combiner radiates.",
+            equation: r"S_{21} = \frac{10^{-A/10}}{2} \left(e^{i(\gamma L_u + \varphi)} + e^{i\gamma L_l}\right)",
+            glyph: Glyph::Mzi,
+            build: mzi_y_branches,
         },
         Entry {
             id: "terminator",

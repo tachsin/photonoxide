@@ -412,7 +412,9 @@ equal spacing (their Table 1: 0.5, 0.5, 0.6, 0.7, 0.9, 1.26, 1.4, 1.4, 1.4, 1.4,
 the widths at the 13 points don't depend on them), its width measured through its inside test at
 the 13 points is the table's within 2.2e-15 µm, its ends are 0.5 and 1.2 µm, and its area is
 $\int w\thinspace dx$ (Simpson's rule, exact on each cubic). This is the outline P6's Y-branch
-device draws; the paper's losses are 3D FDTD and measurement, not reproduced here.
+device draws (`device::StripYBranch`, its outline now written with the expression language's
+`spline`, the same curve to 1e-13); the paper's losses are 3D FDTD and measurement, not
+reproduced here.
 
 ## The index
 

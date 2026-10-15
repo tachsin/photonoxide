@@ -15,7 +15,10 @@
 //!   `-2^2` is −4, `2^3^2` is 512), comparisons `< <= > >= == !=` (1 or 0), parentheses.
 //! - **Functions:** `sin cos tan asin acos atan atan2 exp ln log10 sqrt abs min max clamp floor
 //!   ceil round erf tanh sinc smoothstep`, `if(c, a, b)` (b where c is 0), and
-//!   `piecewise(c1, a1, c2, a2, …, otherwise)`, the first a whose c isn't 0. `pi` is π;
+//!   `piecewise(c1, a1, c2, a2, …, otherwise)`, the first a whose c isn't 0;
+//!   `spline(x, [x0, x1, …], [y0, y1, …])`, the not-a-knot cubic spline through the points (the
+//!   knots constants, increasing; the values any expressions), expanded at parse time into a
+//!   piecewise of cubics whose coefficients are linear in the values. `pi` is π;
 //!   `sinc(x)` is sin(x)/x; `smoothstep(e0, e1, x)` is 3u² − 2u³ for u = (x − e0)/(e1 − e0)
 //!   clamped to [0, 1]; `clamp(x, lo, hi)`.
 //! - **Coordinates:** `x`, `y`, `z` and the arc length `s` (lengths), a curve's parameter `t`
@@ -181,7 +184,7 @@ pub(crate) fn reserved(name: &str) -> bool {
     parse::FUNCTIONS.iter().any(|f| f.0 == name)
         || parse::UNITS.iter().any(|u| u.0 == name)
         || COORDINATES.iter().any(|c| c.0 == name)
-        || matches!(name, "pi" | "if" | "piecewise")
+        || matches!(name, "pi" | "if" | "piecewise" | "spline")
 }
 
 impl Default for Scope {

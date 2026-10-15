@@ -641,11 +641,23 @@ fn a_sweep_on_every_core_is_the_librarys() {
 #[test]
 fn the_device_entries_are_the_components_they_were() {
     use photonoxide::circuit::components::{
-        AddDropRing, AllPassRing, Bend, DirectionalCoupler, Dispersion, Supermodes, Waveguide,
+        AddDropRing, AllPassRing, Bend, DirectionalCoupler, Dispersion, Mmi, MmiKind, Planar,
+        Supermodes, Waveguide, YBranch,
     };
     use photonoxide::material;
+    use photonoxide::mode::Polarization;
     use photonoxide::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity};
+    use photonoxide::units::Length;
     let um = |x: f64| Wavelength::um(x).unwrap();
+    let mmi = |kind: MmiKind| {
+        let film = Planar::Film {
+            core: material::silicon(),
+            cladding: material::silica(),
+            thickness: Length::nm(220.0),
+            vertical: Polarization::Te,
+        };
+        Mmi::new(kind, film, 6.0, 1.5, um(1.55)).unwrap()
+    };
     let strip = || Dispersion::new(um(1.55), 2.44506, 4.172901).with_loss(2.7);
     let section = |wavelength: Wavelength| {
         let si = material::silicon().permittivity(wavelength)?;
@@ -680,6 +692,11 @@ fn the_device_entries_are_the_components_they_were() {
             "ring-add-drop",
             Arc::new(AddDropRing::new(strip()).unwrap()),
         ),
+        // the MMIs and the Y-branch, devices since #343: a 220 nm silicon film in oxide by the
+        // effective index method, 6 µm wide with 1.5 µm access guides; the ideal Y-branch
+        ("mmi-1x2", Arc::new(mmi(MmiKind::OneByTwo))),
+        ("mmi-2x2", Arc::new(mmi(MmiKind::TwoByTwo))),
+        ("y-branch", Arc::new(YBranch::new())),
     ];
     for (id, old) in before {
         let new = (library::entry(id).unwrap().build)().unwrap();

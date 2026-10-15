@@ -8,6 +8,8 @@ papers:
     doi: 10.1145/355586.364791
   - cite: "F. W. J. Olver et al., NIST Digital Library of Mathematical Functions, sections 7.6 and 7.9 (the error function)"
     doi: ""
+  - cite: "C. de Boor, A Practical Guide to Splines, Springer (1978) (the not-a-knot spline)"
+    doi: 10.1007/978-1-4612-6333-3
 validation: []
 examples: []
 ---
@@ -33,12 +35,26 @@ sqrt(w^2 + h^2)      r0*(1 + 0.1*cos(4*t))      piecewise(x < 0, 0, x < w, x/w, 
 - **Operators:** `+ - * / ^` with the usual precedence (`^` to the right and above a leading
   minus: $-2^2 = -4$, $2^{3^2} = 512$), comparisons `< <= > >= == !=` giving 1 or 0, parentheses.
 - **Functions:** `sin cos tan asin acos atan atan2 exp ln log10 sqrt abs min max clamp floor ceil
-  round erf tanh sinc smoothstep`, `if(c, a, b)` and `piecewise(c₁, a₁, c₂, a₂, …, otherwise)`;
-  `pi`. `sinc(x)` is $\sin x / x$; `smoothstep(e0, e1, x)` is $3u^2 - 2u^3$ for
+  round erf tanh sinc smoothstep`, `if(c, a, b)`, `piecewise(c₁, a₁, c₂, a₂, …, otherwise)` and
+  `spline(x, [x₀, …, xₙ], [y₀, …, yₙ])` (below); `pi`. `sinc(x)` is $\sin x / x$; `smoothstep(e0, e1, x)` is $3u^2 - 2u^3$ for
   $u = (x - e_0)/(e_1 - e_0)$ clamped to [0, 1]. The error function is the series of positive
   terms $\operatorname{erf} x = \frac{2}{\sqrt\pi} e^{-x^2} \sum_n 2^n x^{2n+1}/(2n+1)!!$ (DLMF
   7.6.2) for $\lvert x\rvert < 3$, which has no cancellation, and erfc's continued fraction (DLMF
   7.9.2) beyond: within 5e-16 of the tables.
+- **Splines:** `spline(x, [x₀, …, xₙ], [y₀, …, yₙ])` is the not-a-knot cubic spline through the
+  points (C. de Boor, *A Practical Guide to Splines*, Springer (1978), doi:10.1007/978-1-4612-6333-3,
+  Chapter IV; MATLAB's
+  `spline`): two to 24 knots, constants increasing, of the kind of `x`; the values any
+  expressions of a kind, parameters among them. Three knots give the parabola through them and
+  two the line; from four, the third derivative is continuous at the second and the last but one.
+  Beyond the ends the end pieces go on. It is expanded when it is parsed into a `piecewise` of
+  cubics in $u = (x - x_k)/(x_{k+1} - x_k)$ whose coefficients are linear in the $y$'s (the
+  spline's cardinal functions, from one solve of its linear system per knot), so a value's
+  derivative follows, and the program is the `piecewise` one would write: Zhang et al.'s
+  Y-junction outline, 13 widths 1/6 µm apart, is `spline(x, [0 um, …, 2 um], [w1, …, w13])`.
+  It reproduces any cubic exactly, passes through every knot, and is the geometry check's own
+  spline to 1e-13 (the expressions' unit tests). The knots must be constants: a spline's pieces
+  nest as `if`s, so at most 24 keep the stack within 64 values.
 - **Coordinates:** `x`, `y`, `z` and the arc length `s` (lengths), a curve's parameter `t` and an
   array's indices `i`, `j` (numbers), for the definitions that supply them; a shape's own fields
   in a job have none and refuse them.

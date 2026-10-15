@@ -294,7 +294,10 @@ fn the_ports_are_the_components_and_sit_on_the_shapes() {
     for device in library() {
         let values = Values::defaults(device.as_ref());
         let geometry = device.geometry(&values).unwrap();
-        let built = device.component(&values, A).unwrap();
+        // at its cheapest model: analytic, or 2D for the rib and the MMIs
+        let built = device
+            .component(&values, device.fidelities()[0].fidelity)
+            .unwrap();
         let ports: Vec<&str> = built
             .component
             .ports()
@@ -629,18 +632,48 @@ fn the_library_has_the_first_devices_each_with_its_models() {
             "bend",
             "directional coupler",
             "all-pass ring",
-            "add-drop ring"
+            "add-drop ring",
+            "rib waveguide",
+            "MMI 1x2",
+            "MMI 2x2",
+            "Y-branch",
+            "MZI",
+            "Y-branch MZI"
         ]
     );
     for d in library() {
         let methods = d.fidelities();
-        assert_eq!(methods[0].fidelity, A, "{}", d.kind());
+        // analytic first, but for the rib and the MMIs, whose cheapest model is 2D
+        let first = match d.kind() {
+            "rib waveguide" | "MMI 1x2" | "MMI 2x2" => Fidelity::TwoD,
+            _ => A,
+        };
+        assert_eq!(methods[0].fidelity, first, "{}", d.kind());
         assert_eq!(methods.last().unwrap().fidelity, Fidelity::ThreeD);
-        // every model but the highest states its error against a higher one
-        for m in &methods[..methods.len() - 1] {
+        assert!(methods.windows(2).all(|w| w[0].fidelity != w[1].fidelity));
+        // every model but the highest states its error against a higher one, but the MZIs'
+        // (their parts') and the Y-branch's 2D (its 3D isn't resolved here)
+        let stating = match d.kind() {
+            "MZI" | "Y-branch MZI" => 0,
+            "Y-branch" => 1,
+            _ => methods.len() - 1,
+        };
+        for m in &methods[..stating] {
             let stated = m.error.as_ref().expect("a stated error");
-            assert!(stated.against != m.fidelity && stated.bound > 0.0);
-            assert!(m.papers.iter().all(|p| p.contains("doi:10.")));
+            // the MMIs' guided modes are stated against 2D FDFD, the next model up at 2D
+            let up = if d.kind().starts_with("MMI") {
+                stated.against == Fidelity::TwoD
+            } else {
+                stated.against != m.fidelity
+            };
+            assert!(up && stated.bound > 0.0, "{}", d.kind());
+        }
+        for m in methods {
+            assert!(
+                m.papers.iter().all(|p| p.contains("doi:10.")),
+                "{}",
+                d.kind()
+            );
         }
         for p in d.parameters() {
             assert!(p.allows(p.default), "{}.{}", d.kind(), p.name);
@@ -661,9 +694,11 @@ fn a_spec_on_the_default_stack_is_the_librarys_device() {
             device.geometry(&values).unwrap(),
             d.geometry(&values).unwrap()
         );
+        let f = d.fidelities()[0].fidelity;
+        assert_eq!(design_fidelity(&Spec::new(d.kind())), f, "{}", d.kind());
         assert_eq!(
-            device.derived(&values, A).unwrap(),
-            d.derived(&values, A).unwrap(),
+            device.derived(&values, f).unwrap(),
+            d.derived(&values, f).unwrap(),
             "{}",
             d.kind()
         );
@@ -773,4 +808,9 @@ fn on_nitride_the_analytic_fits_refuse_and_say_to_solve() {
     let (device, design) = spec.build().unwrap();
     let e = device.derived(design.values(), A).unwrap_err().to_string();
     assert!(e.contains("silicon") && e.contains("3D"), "{e}");
+}
+
+/// The fidelity a spec names.
+fn design_fidelity(spec: &Spec) -> Fidelity {
+    spec.fidelity
 }

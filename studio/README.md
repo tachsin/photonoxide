@@ -107,9 +107,11 @@ from the status bar.
   parameters move, saved as CSV or as a Touchstone file. **Place on the chip** adds one to the
   chip being edited. **Import Touchstone** reads a `.sNp` file as a measured component, asking
   which time convention its values are in, and interpolates it in wavelength.
-  - **A device's page.** The waveguide, the bend, the directional coupler and the two rings are
-    the library's devices (`photonoxide::device`): components that know their geometry. Each
-    opens on a page of its own. One header holds its name and kind, the fidelity in use (a
+  - **A device's page.** The waveguide, the bend, the directional coupler, the two rings, the rib
+    waveguide, the two MMIs, the Y-branch and the MZIs of directional couplers and of Y-branches
+    are the library's devices (`photonoxide::device`): components that know their geometry. Each
+    opens on a page of its own, at its cheapest model (analytic; 2D for the rib and the MMIs,
+    whose slabs solve in a moment). One header holds its name and kind, the fidelity in use (a
     badge that switches it: analytic, 2D or 3D as the device has them, each with its method and
     stated error), a dot when the design has changed since it was saved, **Save** (Ctrl+S) and
     **Place on the chip**. Two tabs below:
@@ -501,8 +503,9 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, builder, materia
   - `materials.rs`: the Materials page's commands.
   - `circuits.rs`: the Components and Chip pages' commands, and chip files; `circuits/library.rs`
     is the component library the studio offers (each kind's id, title, symbol, and the
-    library's component it builds: the waveguide, bend, directional coupler and rings from the
-    library's devices, `photonoxide::device`, at their defaults).
+    library's component it builds: the waveguide, bend, directional coupler, rings, rib, MMIs,
+    Y-branch and the MZIs of couplers and of Y-branches from the library's devices,
+    `photonoxide::device`, at their defaults).
   - `devices.rs`: a device's page's commands: the devices, a design evaluated as the form shows
     it, its figures and spectrum at a fidelity (a solve's component kept for the spectrum after
     it), and designs saved as job files and read back.

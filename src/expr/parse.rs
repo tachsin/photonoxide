@@ -147,7 +147,7 @@ fn lex(text: &str) -> Result<Vec<Token>, ExprError> {
             (Tok::Ne, 2)
         } else if two('*', '*') {
             (Tok::Op('^'), 2)
-        } else if "+-*/^()<>,".contains(c) {
+        } else if "+-*/^()<>,[]".contains(c) {
             (Tok::Op(c), 1)
         } else if c == '×' || c == '·' {
             (Tok::Op('*'), 1)
@@ -550,13 +550,16 @@ impl Parser<'_> {
                 col,
             });
         }
-        if FUNCTIONS.iter().any(|f| f.0 == n) || n == "if" || n == "piecewise" {
+        if FUNCTIONS.iter().any(|f| f.0 == n) || matches!(n, "if" | "piecewise" | "spline") {
             return Err(ExprError::at(col, format!("{n} is a function: {n}(...)")));
         }
         Err(ExprError::at(col, format!("unknown name \"{n}\"")))
     }
 
     fn call(&mut self, n: &str, col: usize) -> Result<Typed, ExprError> {
+        if n == "spline" {
+            return self.spline(col);
+        }
         let args = self.args(n)?;
         let count = |want: usize| -> Result<(), ExprError> {
             if args.len() == want {
@@ -735,6 +738,254 @@ impl Parser<'_> {
             }
         }
     }
+}
+
+/// The most knots a spline takes: its pieces nest as `if`s, and blocks of points evaluate every
+/// piece, so the stack grows by two a piece (64 at most).
+pub(crate) const KNOTS: usize = 24;
+
+impl Parser<'_> {
+    /// A list of expressions in brackets, `[a, b, …]`.
+    fn list(&mut self, what: &str) -> Result<Vec<Typed>, ExprError> {
+        self.expect('[', &format!("\"[\" and {what}"))?;
+        let mut items = vec![self.expr()?];
+        while self.peek().tok == Tok::Op(',') {
+            self.bump();
+            items.push(self.expr()?);
+        }
+        self.expect(']', "\",\" or \"]\"")?;
+        Ok(items)
+    }
+
+    /// `spline(x, [x₀, …, xₙ], [y₀, …, yₙ])`: the not-a-knot cubic spline through (x_k, y_k) at
+    /// `x`, expanded at parse time into a `piecewise` of cubics in u = (x − x_k)/(x_{k+1} − x_k)
+    /// whose coefficients are linear in the y's (the spline's cardinal functions), so the y's
+    /// may be any expressions and their derivatives follow. The knots must be constants,
+    /// increasing; beyond the ends the end pieces go on.
+    fn spline(&mut self, col: usize) -> Result<Typed, ExprError> {
+        let usage = "spline(x, [x0, x1, ...], [y0, y1, ...])";
+        self.expect('(', "\"(\" after spline")?;
+        let at = self.expr()?;
+        self.expect(',', &format!("\",\" and the knots: {usage}"))?;
+        let xs = self.list("the knots' positions")?;
+        self.expect(',', &format!("\",\" and the values at the knots: {usage}"))?;
+        let ys = self.list("the values at the knots")?;
+        self.expect(')', "\")\"")?;
+        if xs.len() != ys.len() || xs.len() < 2 || xs.len() > KNOTS {
+            return Err(ExprError::at(
+                col,
+                format!(
+                    "a spline takes as many values as knots, 2 to {KNOTS}, got {} knots and {} \
+                     values",
+                    xs.len(),
+                    ys.len()
+                ),
+            ));
+        }
+        let mut knots = Vec::with_capacity(xs.len());
+        for x in &xs {
+            let Node::Num(v) = x.node else {
+                return Err(ExprError::at(
+                    x.col,
+                    "a spline's knots must be constants (its values may be any expressions)",
+                ));
+            };
+            if !fits(at.dim, x.dim) {
+                return Err(ExprError::at(
+                    x.col,
+                    format!(
+                        "a spline's knots must be of the kind of its point, {}, not {}",
+                        name(at.dim),
+                        name(x.dim)
+                    ),
+                ));
+            }
+            if knots.last().is_some_and(|&last: &f64| v <= last) {
+                return Err(ExprError::at(
+                    x.col,
+                    "a spline's knots must increase, each after the one before",
+                ));
+            }
+            knots.push(v);
+        }
+        let mut dim = ys[0].dim;
+        for y in &ys[1..] {
+            if !fits(dim, y.dim) {
+                return Err(ExprError::at(
+                    y.col,
+                    format!(
+                        "a spline's values must be of a kind, not {} and {}",
+                        name(dim),
+                        name(y.dim)
+                    ),
+                ));
+            }
+            dim = join(dim, y.dim);
+        }
+        let xdim = join(
+            at.dim,
+            xs.iter().fold(None, |d: Option<Dim>, x| join(d, x.dim)),
+        );
+        let cardinal = cardinal_spline(&knots);
+        let n = knots.len();
+        let num = |v: f64, d: Option<Dim>| Typed {
+            node: Node::Num(v),
+            dim: if v == 0.0 { None } else { d },
+            col,
+        };
+        // Σ_k c_k y_k, the zero terms left out
+        let combination = |c: &[f64]| -> Typed {
+            let mut acc: Option<Typed> = None;
+            for (k, &ck) in c.iter().enumerate() {
+                if ck == 0.0 {
+                    continue;
+                }
+                let term = if ck == 1.0 {
+                    ys[k].clone()
+                } else {
+                    binary(
+                        Bin::Mul,
+                        num(ck, Some(Dim::NONE)),
+                        ys[k].clone(),
+                        ys[k].dim,
+                        col,
+                    )
+                };
+                acc = Some(match acc {
+                    None => term,
+                    Some(a) => {
+                        let d = join(a.dim, term.dim);
+                        binary(Bin::Add, a, term, d, col)
+                    }
+                });
+            }
+            acc.unwrap_or_else(|| num(0.0, dim))
+        };
+        let pieces: Vec<Typed> = (0..n - 1)
+            .map(|i| {
+                // u = (x − x_i)/h_i, a number
+                let u = binary(
+                    Bin::Div,
+                    binary(Bin::Sub, at.clone(), num(knots[i], xdim), xdim, col),
+                    num(knots[i + 1] - knots[i], xdim),
+                    Some(Dim::NONE),
+                    col,
+                );
+                let [a, b, c, d] = &cardinal[i];
+                // a + u (b + u (c + u d))
+                let mut p = combination(d);
+                for coefficients in [c, b] {
+                    let times = binary(Bin::Mul, u.clone(), p, dim, col);
+                    p = binary(Bin::Add, combination(coefficients), times, dim, col);
+                }
+                let times = binary(Bin::Mul, u, p, dim, col);
+                binary(Bin::Add, combination(a), times, dim, col)
+            })
+            .collect();
+        let mut pieces = pieces.into_iter().rev();
+        let mut acc = pieces.next().expect("a spline has a piece");
+        for (k, piece) in pieces.enumerate() {
+            // the piece from knot i = n − 2 − (k + 1) holds below knot i + 1
+            let i = n - 3 - k;
+            let below = binary(
+                Bin::Lt,
+                at.clone(),
+                num(knots[i + 1], xdim),
+                Some(Dim::NONE),
+                col,
+            );
+            acc = branch(below, piece, acc, col)?;
+        }
+        Ok(Typed { dim, ..acc })
+    }
+}
+
+/// The not-a-knot cubic spline through knots `x` (increasing) as cardinal functions: for each
+/// interval i, the coefficients of 1, u, u², u³ (u = (x − x_i)/h_i) as weights of each y_k.
+/// Two knots give the line, three the parabola through them (not-a-knot's two conditions are
+/// then one); from four, the third derivative is continuous at the second and the last but one
+/// knots (C. de Boor, A Practical Guide to Splines, Springer (1978),
+/// doi:10.1007/978-1-4612-6333-3, Chapter IV).
+pub(crate) fn cardinal_spline(x: &[f64]) -> Vec<[Vec<f64>; 4]> {
+    let n = x.len();
+    let h: Vec<f64> = x.windows(2).map(|w| w[1] - w[0]).collect();
+    // the second derivatives at the knots for y = e_k, one column per k
+    let mut m = vec![vec![0.0; n]; n];
+    if n == 3 {
+        // the parabola: M constant, 2[(y₂ − y₁)/h₁ − (y₁ − y₀)/h₀]/(h₀ + h₁)
+        let s = 2.0 / (h[0] + h[1]);
+        let w = [s / h[0], -s * (1.0 / h[0] + 1.0 / h[1]), s / h[1]];
+        for (k, &wk) in w.iter().enumerate() {
+            m[k] = vec![wk; 3];
+        }
+    } else if n >= 4 {
+        // rows: not-a-knot at x₁, the interior equations, not-a-knot at x_{n−2}
+        let mut a = vec![vec![0.0; n]; n];
+        a[0][0] = h[1];
+        a[0][1] = -(h[0] + h[1]);
+        a[0][2] = h[0];
+        for i in 1..n - 1 {
+            a[i][i - 1] = h[i - 1];
+            a[i][i] = 2.0 * (h[i - 1] + h[i]);
+            a[i][i + 1] = h[i];
+        }
+        a[n - 1][n - 3] = h[n - 2];
+        a[n - 1][n - 2] = -(h[n - 3] + h[n - 2]);
+        a[n - 1][n - 1] = h[n - 3];
+        for (k, column) in m.iter_mut().enumerate() {
+            // 6[(y_{i+1} − y_i)/h_i − (y_i − y_{i−1})/h_{i−1}] for y = e_k
+            let mut rhs = vec![0.0; n];
+            for i in 1..n - 1 {
+                let e = |j: usize| if j == k { 1.0 } else { 0.0 };
+                rhs[i] = 6.0 * ((e(i + 1) - e(i)) / h[i] - (e(i) - e(i - 1)) / h[i - 1]);
+            }
+            *column = solve(a.clone(), rhs);
+        }
+    }
+    (0..n - 1)
+        .map(|i| {
+            let hi = h[i];
+            let e = |j: usize, k: usize| if j == k { 1.0 } else { 0.0 };
+            let mut c: [Vec<f64>; 4] = std::array::from_fn(|_| vec![0.0; n]);
+            for k in 0..n {
+                let (mi, mj) = (m[k][i], m[k][i + 1]);
+                c[0][k] = e(i, k);
+                c[1][k] = (e(i + 1, k) - e(i, k)) - hi * hi * (2.0 * mi + mj) / 6.0;
+                c[2][k] = mi * hi * hi / 2.0;
+                c[3][k] = (mj - mi) * hi * hi / 6.0;
+            }
+            c
+        })
+        .collect()
+}
+
+/// `a` x = `b` by Gaussian elimination with partial pivoting (a small dense system).
+fn solve(mut a: Vec<Vec<f64>>, mut b: Vec<f64>) -> Vec<f64> {
+    let n = b.len();
+    for col in 0..n {
+        let pivot = (col..n)
+            .max_by(|&r, &s| a[r][col].abs().total_cmp(&a[s][col].abs()))
+            .unwrap_or(col);
+        a.swap(col, pivot);
+        b.swap(col, pivot);
+        for r in col + 1..n {
+            let f = a[r][col] / a[col][col];
+            if f == 0.0 {
+                continue;
+            }
+            let (upper, lower) = a.split_at_mut(r);
+            for (x, &p) in lower[0].iter_mut().zip(&upper[col]).skip(col) {
+                *x -= f * p;
+            }
+            b[r] -= f * b[col];
+        }
+    }
+    let mut x = vec![0.0; n];
+    for r in (0..n).rev() {
+        let s: f64 = (r + 1..n).map(|c| a[r][c] * x[c]).sum();
+        x[r] = (b[r] - s) / a[r][r];
+    }
+    x
 }
 
 fn shown(t: &Token) -> String {

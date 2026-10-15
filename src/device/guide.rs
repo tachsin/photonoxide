@@ -5,12 +5,57 @@
 use crate::circuit::components::Dispersion;
 use crate::material;
 use crate::mode::vector::{Boundary, CrossSection};
-use crate::stack::{LayerStack, Structure};
+use crate::stack::{Etch, LayerStack, Structure};
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
 use super::fit;
-use super::section::{self, Cut, Mesh, Scheme};
+use super::section::{self, Cut, Mesh, Scheme, Symmetry};
+
+/// How a guide's core layer is cut beside it: the slab of the layer's material left there
+/// (µm; 0 etches through it, a strip) and the walls' angle from the layer's plane (degrees; 90
+/// for vertical walls).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) struct Profile {
+    pub(super) slab: f64,
+    pub(super) sidewall: f64,
+}
+
+impl Profile {
+    /// A strip with vertical walls.
+    pub(super) const STRIP: Profile = Profile {
+        slab: 0.0,
+        sidewall: 90.0,
+    };
+
+    /// Whether it is a strip with vertical walls.
+    pub(super) fn is_strip(self) -> bool {
+        self == Profile::STRIP
+    }
+
+    /// The etch that cuts it in a core `thickness` µm thick.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a slab that isn't thinner than the core.
+    pub(super) fn etch(self, thickness: f64) -> Result<Etch> {
+        if !(self.slab >= 0.0 && self.slab < thickness) {
+            return Err(Error::invalid(
+                "device",
+                format!(
+                    "a guide's slab, {} um, must be thinner than its core, {thickness} um",
+                    self.slab
+                ),
+            ));
+        }
+        let etch = if self.slab > 0.0 {
+            Etch::partial(Length::um(thickness - self.slab))
+        } else {
+            Etch::FULL
+        };
+        Ok(etch.with_sidewall_deg(self.sidewall))
+    }
+}
 
 /// A strip guide's platform: the stack, its core layer, and the mesh solves use; and, if
 /// given, the dispersion its analytic fidelity states instead of the fit's.
@@ -63,29 +108,60 @@ impl Strip {
         thickness: f64,
         centres: &[f64],
     ) -> Result<(Structure, f64)> {
+        self.etched_structure(width, thickness, Profile::STRIP, centres)
+    }
+
+    /// [`Strip::section_structure`] with the guides' edges cut by `profile`.
+    fn etched_structure(
+        &self,
+        width: f64,
+        thickness: f64,
+        profile: Profile,
+        centres: &[f64],
+    ) -> Result<(Structure, f64)> {
         let stack = self.stack(thickness)?;
         let (bottom, top) = section::core_span(&stack, &self.core)?;
+        let etch = profile.etch(thickness)?;
         let mut s = Structure::new(stack);
         for &y in centres {
-            s.draw(&self.core, section::straight(width, y, -0.5, 0.5)?)?;
+            s.draw_etched(&self.core, section::straight(width, y, -0.5, 0.5)?, etch)?;
         }
         Ok((s, 0.5 * (bottom + top)))
     }
 
-    /// The strip's cross-section at `wavelength`, `width` × `thickness` µm, on the mesh.
-    pub(super) fn cross_section(
+    /// The mesh a guide of `profile` is solved on: the strip's, but a rib or a sloped wall,
+    /// which isn't the same above and below the mid-plane, on the half behind the vertical
+    /// plane alone when the mesh is mirrored.
+    pub(super) fn mesh_for(&self, profile: Profile) -> Mesh {
+        if !profile.is_strip() && self.mesh.symmetry == Symmetry::Mirrored {
+            self.mesh.with_symmetry(Symmetry::Vertical)
+        } else {
+            self.mesh
+        }
+    }
+
+    /// The cross-section at `wavelength` of a guide `width` × `thickness` µm cut by `profile`
+    /// (a strip, a rib, sloped walls), on the mesh.
+    pub(super) fn cross_section_of(
         &self,
         width: f64,
         thickness: f64,
+        profile: Profile,
         wavelength: Wavelength,
     ) -> Result<CrossSection> {
-        let (structure, mid) = self.section_structure(width, thickness, &[0.0])?;
+        let (structure, mid) = self.etched_structure(width, thickness, profile, &[0.0])?;
         Cut {
             structure: &structure,
             at: 0.0,
             mid,
         }
-        .strip(width, thickness, &self.mesh, wavelength)
+        .strip(
+            width,
+            thickness,
+            profile.slab,
+            &self.mesh_for(profile),
+            wavelength,
+        )
     }
 
     /// Two strips `gap` µm apart: their cross-section at `wavelength`, `between` on the plane
@@ -98,14 +174,35 @@ impl Strip {
         between: Boundary,
         wavelength: Wavelength,
     ) -> Result<CrossSection> {
+        self.pair_section_of(width, thickness, Profile::STRIP, gap, between, wavelength)
+    }
+
+    /// [`Strip::pair_section`] of two guides cut by `profile`.
+    pub(super) fn pair_section_of(
+        &self,
+        width: f64,
+        thickness: f64,
+        profile: Profile,
+        gap: f64,
+        between: Boundary,
+        wavelength: Wavelength,
+    ) -> Result<CrossSection> {
         let c = (gap + width) / 2.0;
-        let (structure, mid) = self.section_structure(width, thickness, &[-c, c])?;
+        let (structure, mid) = self.etched_structure(width, thickness, profile, &[-c, c])?;
         Cut {
             structure: &structure,
             at: 0.0,
             mid,
         }
-        .pair(width, thickness, gap, between, &self.mesh, wavelength)
+        .pair(
+            width,
+            thickness,
+            profile.slab,
+            gap,
+            between,
+            &self.mesh_for(profile),
+            wavelength,
+        )
     }
 
     /// The strip bent at `radius` µm: its cross-section at `wavelength`, by the conformal map,
@@ -203,11 +300,34 @@ impl Strip {
         wavelength: f64,
         span: f64,
     ) -> Result<(Dispersion, f64, String)> {
+        self.solved_of(width, thickness, Profile::STRIP, wavelength, span)
+    }
+
+    /// [`Strip::solved`] for a guide cut by `profile`; by the standard scheme when its walls
+    /// slope, whose cells hold a share of each material where Hadley's equations need one.
+    pub(super) fn solved_of(
+        &self,
+        width: f64,
+        thickness: f64,
+        profile: Profile,
+        wavelength: f64,
+        span: f64,
+    ) -> Result<(Dispersion, f64, String)> {
         let l0 = Wavelength::um(wavelength)?;
-        let section = |w: Wavelength| self.cross_section(width, thickness, w);
-        match self.mesh.scheme {
+        let section = |w: Wavelength| self.cross_section_of(width, thickness, profile, w);
+        match self.scheme_for(profile) {
             Scheme::Hadley => Dispersion::from_hadley(section, l0, span / 4.0, None),
             Scheme::Standard => Dispersion::from_modes(section, l0, span / 4.0, None),
+        }
+    }
+
+    /// The scheme a guide of `profile` is solved by: the mesh's, but the standard one for
+    /// sloped walls.
+    pub(super) fn scheme_for(&self, profile: Profile) -> Scheme {
+        if profile.sidewall == 90.0 {
+            self.mesh.scheme
+        } else {
+            Scheme::Standard
         }
     }
 
