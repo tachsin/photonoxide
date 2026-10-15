@@ -177,8 +177,12 @@ fn vector_modes_are_the_solvers_in_c_order() {
             ..Boundaries::default()
         })
         .unwrap();
-    let exact = vector::modes(&direct, Wavelength::um(1.55).unwrap(), 2, None).unwrap();
-    assert_eq!(modes.len(), 2);
+    let exact = vector::guided_modes(&direct, Wavelength::um(1.55).unwrap(), 2, None).unwrap();
+    // of the two asked for, one is the strip's: the other is the closed window's own, below the
+    // oxide's index, and left out
+    let raw = vector::modes(&direct, Wavelength::um(1.55).unwrap(), 2, None).unwrap();
+    assert_eq!((modes.len(), exact.len(), raw.len()), (1, 1, 2));
+    assert!(raw[1].effective_index().re < 2.085f64.sqrt());
     for (m, e) in modes.iter().zip(&exact) {
         assert_eq!(bits(m.effective_index), bits(e.effective_index()));
         assert_eq!(m.te_fraction.to_bits(), e.te_fraction().to_bits());
@@ -195,6 +199,64 @@ fn vector_modes_are_the_solvers_in_c_order() {
         }
     }
     assert!(modes[0].te_fraction > 0.9);
+}
+
+/// A 1 × 0.4 µm core of ε 4 in ε 2.1025 (indices 2 and 1.45), whole, on a 50 nm grid with its
+/// edges on nodes, 1 µm of cladding round it, the field zero beyond the window.
+fn rectangle() -> CrossSection {
+    let x: Vec<f64> = (0..=60).map(|i| -1.5 + f64::from(i) * 0.05).collect();
+    let y: Vec<f64> = (0..=48).map(|j| -1.2 + f64::from(j) * 0.05).collect();
+    let eps = (0..48)
+        .flat_map(|j| (0..60).map(move |i| (i, j)))
+        .map(|(i, j)| {
+            let core = (20..40).contains(&i) && (20..28).contains(&j);
+            c64::new(if core { 4.0 } else { 2.1025 }, 0.0)
+        })
+        .collect();
+    CrossSection::new(x, y, eps)
+}
+
+#[test]
+fn vector_modes_are_only_the_guided_ones_of_a_closed_window() {
+    let cs = rectangle();
+    let w = Wavelength::um(1.55).unwrap();
+    let stop = Stop::new(None);
+    let modes = vector_modes(&cs, 1.55, 12, None, &stop).unwrap().unwrap();
+    let direct = cs.build().unwrap();
+    let guided = vector::guided_modes(&direct, w, 12, None).unwrap();
+    let raw = vector::modes(&direct, w, 12, None).unwrap();
+    // fewer than asked for, each above the cladding, and the library's guided ones to the bit
+    assert!(!modes.is_empty() && modes.len() < 12, "{}", modes.len());
+    assert_eq!(modes.len(), guided.len());
+    for (m, g) in modes.iter().zip(&guided) {
+        assert_eq!(bits(m.effective_index), bits(g.effective_index()));
+        assert!(m.effective_index.re > 1.45);
+    }
+    // what was left out: the window's own, below the cladding
+    assert_eq!(raw.len(), 12);
+    assert!(
+        raw[guided.len()..]
+            .iter()
+            .all(|m| m.effective_index().re < 1.45)
+    );
+}
+
+#[test]
+fn vector_modes_in_an_open_window_are_every_one_solved() {
+    // with PMLs the window is open: every mode of the count comes back, as the library's
+    let mut cs = rectangle();
+    cs.pml_um = [0.5; 4];
+    cs.pml_strength = 4.0;
+    let w = Wavelength::um(1.55).unwrap();
+    let modes = vector_modes(&cs, 1.55, 8, None, &Stop::new(None))
+        .unwrap()
+        .unwrap();
+    let raw = vector::modes(&cs.build().unwrap(), w, 8, None).unwrap();
+    assert_eq!(modes.len(), 8);
+    for (m, r) in modes.iter().zip(&raw) {
+        assert_eq!(bits(m.effective_index), bits(r.effective_index()));
+    }
+    assert!(modes.iter().any(|m| m.effective_index.re < 1.45));
 }
 
 #[test]
@@ -462,6 +524,18 @@ fn the_conformance_cases_are_computed_and_name_their_calls() {
     let result: serde_json::Value = serde_json::from_str(&te.result).unwrap();
     let n = result[0]["effective_index"].as_f64().unwrap();
     assert!((n - 2.845).abs() < 5e-4, "{n}");
+    // six modes asked of the strip's quarter: its guided ones only, each above the oxide
+    let many = cases
+        .iter()
+        .find(|c| c.name == "vector_modes/strip-quarter-guided")
+        .unwrap();
+    let result: serde_json::Value = serde_json::from_str(&many.result).unwrap();
+    let modes = result.as_array().unwrap();
+    assert!(!modes.is_empty() && modes.len() < 6, "{}", modes.len());
+    for m in modes {
+        let n = m["effective_index"][0].as_f64().unwrap();
+        assert!(n > 2.085f64.sqrt(), "{n}");
+    }
 }
 
 /// The façade's functions, read from its source: every `pub fn` at the start of a line (not a

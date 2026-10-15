@@ -326,9 +326,19 @@ def vector_modes(
     pml_strength: float = 0.0,
     timeout_s: float | None = 600.0,
 ) -> list[VectorMode]:
-    """The ``count`` modes of a cross-section whose effective indices are nearest
-    ``near_index`` (the highest index in it when ``None``: the fundamental modes), nearest
-    first, by photonoxide's full-vector finite-difference solver, with their fields.
+    """Of the ``count`` modes of a cross-section whose effective indices are nearest
+    ``near_index`` (the highest index in it when ``None``: the fundamental modes), the guided
+    ones, nearest first, by photonoxide's full-vector finite-difference solver, with their
+    fields.
+
+    A mode is guided when its effective index is above the highest index of the media around
+    the guides, those at the window's open edges (``"zero"``), as a modes job keeps them. The
+    window is closed: below that index it has modes of its own, standing waves of its box and
+    not the guides', and they are left out. So when fewer modes are guided than ``count``,
+    fewer come back, and an empty list when none is; nothing more is solved to make the count
+    up. With PMLs (``pml_um`` not all 0, ``pml_strength`` above 0) the window is open instead,
+    and every mode solved comes back: leaky modes below the media around the guides, with
+    their loss, and the PMLs' own modes, their loss large.
 
     The cross-section is a rectilinear grid, its nodes ``x_um`` (``nx + 1`` of them, increasing)
     and ``y_um`` (``ny + 1``), and the relative permittivity of each cell, ``(ny, nx)``:

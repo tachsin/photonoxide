@@ -26,11 +26,21 @@
 //! One misprint is corrected: Eq. (31) divides by "v₁₂", which the paper never defines; it is
 //! v₂₁, as in the matching term of Eq. (30) under the mirror x → −x (tested: a structure and its
 //! mirror image have the same modes).
+//!
+//! The window is closed, so a count asked of [`modes`] gets, after the guided modes, the
+//! window's own: below the index of the media around the guides the physical modes are leaky or
+//! radiating, which a closed window can't hold, and it has the standing waves of its box
+//! instead. [`guided_modes`] keeps only the guided ones, n_eff above
+//! [`CrossSection::surrounding_index`], the rule a modes job keeps its modes by.
 
 use faer::c64;
 
 use crate::units::Wavelength;
 use crate::{Error, Result};
+
+mod guided;
+
+pub use guided::{guided_modes, guided_modes_until};
 
 /// The relative permittivity of a cell: the transverse tensor and ε_zz.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1015,6 +1025,11 @@ impl VectorMode {
 /// The `count` modes of `cs` at `wavelength` with effective indices nearest `near` (the
 /// highest index in the cross-section when `None`: the fundamental modes), nearest first.
 ///
+/// Every one of them, guided or not: asked for more modes than its guides have, it returns
+/// after the guided ones the closed window's own, n_eff below the media around the guides
+/// (even below 1), modes of the box the window makes and not of the guides. [`guided_modes`]
+/// leaves those out; [`VectorMode::is_guided`] tells them apart.
+///
 /// # Errors
 ///
 /// [`Error::InvalidValue`] for a count of 0, a `near` that isn't finite, or if the eigenproblem
@@ -1154,9 +1169,11 @@ pub fn modes_in_until(
 }
 
 /// Every mode of `cs` at `wavelength` with Re n_eff above `above`, highest first, with no
-/// count and no guess: with `above` the cladding's index, every guided mode. By contour
-/// integrals over [`crate::mode::region::Region::above`] up to the cross-section's highest
-/// index, with [`modes_in`].
+/// count and no guess: with `above` the cladding's index ([`CrossSection::surrounding_index`]),
+/// every guided mode. Below it, without a [`Pml`], the modes are the closed window's own, not
+/// the guides': leaky modes need the window open. By contour integrals over
+/// [`crate::mode::region::Region::above`] up to the cross-section's highest index, with
+/// [`modes_in`].
 ///
 /// # Errors
 ///

@@ -83,7 +83,7 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`, as the Rust example d
 | `refractive_index(id, wavelength_um=, model=, axis=, temperature_k=, composition=)` | n + iκ | [`Material::refractive_index`](methods/materials.md) |
 | `group_index(...)` | the bulk group index | `Material::group_index` |
 | `slab_modes(below=, core=, above=, thickness_um=, polarization=, wavelength_um=, x_um=)` | the exact slab's guided modes and their fields | [`mode::slab`](methods/slab.md) |
-| `vector_modes(x_um=, y_um=, permittivity=, wavelength_um=, count=, near_index=, boundaries=, pml_um=, pml_strength=)` | full-vector modes of a cross-section, with E and H | [`mode::vector`](methods/vector.md) |
+| `vector_modes(x_um=, y_um=, permittivity=, wavelength_um=, count=, near_index=, boundaries=, pml_um=, pml_strength=)` | a cross-section's guided full-vector modes, with E and H: of `count` solved, those above the media at the window's open edges (fewer when fewer are guided); with PMLs every one, leaky ones with their loss | [`mode::vector`](methods/vector.md) |
 | `check_job(job)`, `run_job(job, runs_dir=)` | a job checked, or run into a run folder as `photonoxide run --headless` does, its events returned | [`job`](../src/job/mod.rs) |
 | `fdfd_s_parameters(job, wavelength_um=)` | an `"fdfd"` job's S-parameters by 2D FDFD | [`fdfd`](methods/fdfd-ports.md) |
 | `circuit_spectrum(instances=, connections=, ports=, wavelength_um=)` | a circuit's S-matrices from a netlist given as data | [`circuit`](methods/circuits.md) |

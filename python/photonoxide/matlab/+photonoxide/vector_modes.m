@@ -14,6 +14,13 @@ function modes = vector_modes(x_um, y_um, permittivity, wavelength_um, options)
 %   highest index of the cross-section by default), boundaries (the west, east, south and north
 %   edges: "zero", "electric" or "magnetic"), pml_um (PMLs inside the same edges, micrometres)
 %   and pml_strength, and timeout_s (600; past it, the error photonoxide:Timeout).
+%
+%   Of the count modes solved, only the guided ones come back: effective index above the
+%   highest index of the media at the window's open ("zero") edges. Below it the closed window
+%   has modes of its own, not the guide's, and they are left out, so fewer than count modes
+%   come back when fewer are guided, and none when none is. With PMLs (pml_um not all 0,
+%   pml_strength above 0) the window is open, and every mode solved comes back, leaky ones
+%   with their loss.
 arguments
     x_um double
     y_um double

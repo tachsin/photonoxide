@@ -333,6 +333,16 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
         &Value::Array(modes.iter().map(vector_mode).collect()),
         &[],
     ));
+    // more modes than the strip has: only its guided ones come back, not the window's own
+    let modes = vector_modes(&cs, 1.55, 6, None, &Stop::new(None))?.unwrap_or_default();
+    cases.push(case(
+        "vector_modes/strip-quarter-guided",
+        "vector_modes",
+        &json!({"x_um": x, "y_um": y, "permittivity": eps, "wavelength_um": 1.55, "count": 6,
+                "boundaries": cs.boundaries}),
+        &Value::Array(modes.iter().map(vector_mode).collect()),
+        &[],
+    ));
 
     // jobs
     let modes = modes_job();

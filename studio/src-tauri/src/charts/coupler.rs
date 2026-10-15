@@ -109,13 +109,20 @@ pub fn quarter(gap: f64, l: Wavelength, even: bool) -> photonoxide::Result<Cross
     section(x, nodes_up(), &[(a, b)], l, wall)
 }
 
-/// The fundamental mode of `cs` at `l`, refused unless it is TE-like.
+/// The fundamental mode of `cs` at `l`, refused unless it is TE-like and guided (not the closed
+/// window's own: n_eff above the oxide at the window's edges).
 fn fundamental(cs: &CrossSection, l: Wavelength) -> photonoxide::Result<VectorMode> {
     let mode = modes(cs, l, 1, None)?.remove(0);
     if mode.te_fraction() < 0.5 {
         return Err(invalid(
             "coupler chart",
             "the fundamental mode found isn't TE-like",
+        ));
+    }
+    if !mode.is_guided(cs.surrounding_index(l)?) {
+        return Err(invalid(
+            "coupler chart",
+            "the fundamental mode found isn't guided",
         ));
     }
     Ok(mode)
@@ -669,6 +676,13 @@ pub fn unequal(other: f64, gap: f64) -> photonoxide::Result<Unequal> {
                 "the unequal pair's two highest modes aren't both TE-like",
             ));
         }
+        let surrounding = pair_cs.surrounding_index(lam)?;
+        if !pair_modes.iter().all(|m| m.is_guided(surrounding)) {
+            return Err(invalid(
+                "coupler chart",
+                "the unequal pair's two highest modes aren't both guided",
+            ));
+        }
         let fields: Vec<Fields> = pair_modes
             .iter()
             .map(|m| m.fields(&pair_cs))
@@ -841,6 +855,23 @@ mod tests {
         let data = supermodes(0.2, 1.55).unwrap();
         assert_eq!(data.figures[0].value, Some(p.even));
         assert_eq!(data.figures[1].value, Some(p.odd));
+    }
+
+    /// Each supermode is a guided mode at the sliders' ends, never the closed window's own: the
+    /// odd one, the lowest, above the oxide at the smallest and largest gap at the longest
+    /// wavelength (`fundamental` refuses a mode that isn't guided).
+    #[test]
+    fn the_supermodes_are_guided_at_the_sliders_ends() {
+        for gap in [0.1, 1.0] {
+            let lam = wavelength(1.7).unwrap();
+            let oxide = silica().refractive_index(lam).unwrap().re;
+            let p = pair(gap, 1.7).unwrap();
+            assert!(p.even > p.odd && p.odd > oxide, "{gap}: {} {oxide}", p.odd);
+            for even in [true, false] {
+                let cs = quarter(gap, lam, even).unwrap();
+                close(cs.surrounding_index(lam).unwrap(), oxide, 1e-12);
+            }
+        }
     }
 
     /// The power chart is DirectionalCoupler's sin² and cos² of πΔn z/λ (Chrostowski and

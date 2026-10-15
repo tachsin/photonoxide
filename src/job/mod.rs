@@ -204,11 +204,14 @@
 //!   is solved, with its modes' pictures and, for a width sweep, its shapes.
 //!
 //!   The modes are a count, `modes` (2 by default), nearest the highest index by
-//!   shift-and-invert, of which only the guided ones are kept (n_eff above the highest index of
-//!   the media around the guides: the window has no absorbing layers, so a mode below it is the closed
-//!   window's own, its n_eff even below 1), or every mode with n_eff above `modes_above`, however many, by contour
-//!   integrals ([`crate::mode::vector::modes_above`]): the cladding's index gives every guided
-//!   mode, and a sweep's points may then have different numbers of them. A job may give one or
+//!   shift-and-invert, of which only the guided ones are kept
+//!   ([`crate::mode::vector::VectorMode::is_guided`]: n_eff above the highest index of the media
+//!   around the guides, the layers' backgrounds and the substrate and cladding the window
+//!   reaches; the window has no absorbing layers, so a mode below it is the closed window's own,
+//!   its n_eff even below 1), or every mode with n_eff above `modes_above`, however many, by
+//!   contour integrals ([`crate::mode::vector::modes_above`]): the cladding's index gives every
+//!   guided mode, and a sweep's points may then have different numbers of them; a threshold
+//!   below it gives the window's own modes too. A job may give one or
 //!   the other; a threshold must be positive and below the highest index the cross-section
 //!   holds at the job's wavelength and a wavelength sweep's ends.
 //!
@@ -2725,7 +2728,10 @@ fn window_highest(task: &ModesTask, s: &Structure, z: [f64; 2], wavelength_um: f
 /// `wavelength_um`: the backgrounds of its layers, and the substrate and cladding where the
 /// window reaches them. A guided mode's n_eff is above it. The window has no absorbing layers,
 /// so a mode not above it isn't a guide's: it is a mode of the closed box the window makes,
-/// its n_eff below the cladding's, even below 1.
+/// its n_eff below the cladding's, even below 1. The job knows its media, so it takes them
+/// from its stack: a bare cross-section reads them at its open edges
+/// ([`crate::mode::vector::CrossSection::surrounding_index`]), the same index unless a shape
+/// reaches the window's side.
 fn window_edge_highest(
     _task: &ModesTask,
     s: &Structure,
@@ -2897,12 +2903,8 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             None => {
                 let edge = window_edge_highest(&task, &s, z, w.to_um())?;
                 Ok(
-                    crate::mode::vector::modes_until(cs, w, count, None, stopped)?.map(|modes| {
-                        modes
-                            .into_iter()
-                            .filter(|m| m.effective_index().re > edge)
-                            .collect()
-                    }),
+                    crate::mode::vector::modes_until(cs, w, count, None, stopped)?
+                        .map(|modes| modes.into_iter().filter(|m| m.is_guided(edge)).collect()),
                 )
             }
         }
@@ -3584,6 +3586,49 @@ layer = "Si"
 center_um = [0.0, 0.0]
 size_um = [10.0, 0.5]
 "#;
+
+    /// The built-in modes jobs keep their modes by the index of the media around their guides,
+    /// from their stacks; the library's rule for a bare cross-section, from its open edges,
+    /// gives the same number on the cross-sections they solve (no shape reaches their sides).
+    #[test]
+    fn the_modes_jobs_media_are_their_cross_sections_edges() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+        for name in [
+            "strip-modes.toml",
+            "strip-guided-modes.toml",
+            "strip-width-sweep.toml",
+            "coupler-supermodes.toml",
+        ] {
+            let job = Job::parse(&std::fs::read_to_string(dir.join(name)).unwrap()).unwrap();
+            let task = modes_task(&job, None).unwrap();
+            let stack = || named_stack(&task.stack, task.core_nm, task.bottom_oxide_um).unwrap();
+            let s = draw(stack(), &task.rect, &task.circle, &task.ring).unwrap();
+            let z = modes_z(&task, &s).unwrap();
+            let (along, across, cut) = (
+                task.along().unwrap(),
+                task.across().unwrap(),
+                task.cut().unwrap(),
+            );
+            let frame = Frame::new(along, &task.rect, &task.circle, &task.ring, cut);
+            let fs = frame.draw(stack()).unwrap();
+            let lam = Wavelength::um(task.wavelength_um).unwrap();
+            let cs = cross_section(
+                &fs,
+                &frame.rect,
+                &frame.circle,
+                &frame.ring,
+                frame.cut,
+                across,
+                z,
+                task.step_nm / 1000.0,
+                lam,
+            )
+            .unwrap();
+            let job_index = window_edge_highest(&task, &s, z, task.wavelength_um).unwrap();
+            assert_eq!(cs.surrounding_index(lam).unwrap(), job_index, "{name}");
+            assert!(job_index > 1.4, "{name}: {job_index}");
+        }
+    }
 
     fn run_events(tag: &str, text: &str) -> Vec<Event> {
         let root = temp(tag);

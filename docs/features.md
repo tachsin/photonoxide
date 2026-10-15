@@ -30,13 +30,14 @@ test fails when one of its functions is missing here.
 | The slab, exact, with its fields | ✅ | ✅ `slab_modes` | ✅ † | [slab](methods/slab.md) |
 | Multilayers: modes and reflection | ✅ | — | — | [multilayer](methods/multilayer.md) |
 | Planar profiles by finite differences | ✅ | — | — | [slab-fd](methods/slab-fd.md) |
-| Full-vector modes of a cross-section, mirror walls and PMLs | ✅ | ✅ `vector_modes`, the permittivity as an array; ◐ shapes on a stack: a job | ✅ † | [vector](methods/vector.md), [PML](methods/pml.md), [walls](methods/walls.md) |
+| Full-vector modes of a cross-section, mirror walls and PMLs | ✅ | ✅ `vector_modes`, the permittivity as an array: the guided modes, or with PMLs every mode solved, leaky ones with their loss; ◐ shapes on a stack: a job | ✅ † | [vector](methods/vector.md), [PML](methods/pml.md), [walls](methods/walls.md) |
+| Guided modes told from the closed window's own (n_eff above the media at its open edges) | ✅ | ✅ `vector_modes` returns only these, without PMLs | ✅ † | [vector](methods/vector.md) |
 | A mode's six field components | ✅ | ✅ `vector_modes` | ✅ † | [fields](methods/fields.md) |
 | Hadley's scheme for dielectric corners | ✅ | — | — | [hadley](methods/hadley.md) |
 | Bends | ✅ | — | — | [bends](methods/bends.md) |
 | The effective index method | ✅ | ◐ inside 2D FDFD and FDTD jobs | ◐ † the same | [eim](methods/eim.md) |
 | Marcatili's method | ✅ | — | — | [marcatili](methods/marcatili.md) |
-| Many modes nearest an index (20 to 50), shift-and-invert with Krylov–Schur restarts | ✅ | ✅ `vector_modes`, its count | ✅ † | [eigen](methods/eigen.md) |
+| Many modes nearest an index (20 to 50), shift-and-invert with Krylov–Schur restarts | ✅ | ◐ `vector_modes`, its count, the guided ones of it | ◐ † the same | [eigen](methods/eigen.md) |
 | Every mode in a region of n_eff, by contour integrals | ✅ | — | — | [contour](methods/contour.md) |
 | Every guided mode above an n_eff threshold, no count | ✅ | ◐ a modes job's `modes_above` | ◐ † the same | [contour](methods/contour.md) |
 | Dispersion: group index and D | ✅ | ◐ effective indices over a wavelength sweep: a job | ◐ † the same | [dispersion](methods/dispersion.md) |

@@ -12,6 +12,8 @@ papers:
     doi: 10.1017/CBO9781316084168
   - cite: "P. Bienstman et al., Opt. Quantum Electron. 38, 731 (2006), the leaky-wire benchmark"
     doi: 10.1007/s11082-006-9025-9
+  - cite: "J. Hu, C. R. Menyuk, Adv. Opt. Photon. 1, 58 (2009): guided, leaky and radiation modes"
+    doi: 10.1364/AOP.1.000058
 validation:
   - mode/vector-slab-limit-te
   - mode/vector-slab-limit-tm
@@ -63,6 +65,37 @@ the studio's Solver panel shows it.
   structure and its mirror image have the same modes, to 1e-10.
 - **Edges:** beyond each edge the field is zero, or a [mirror wall](walls.md) reflects it, or a
   [PML](pml.md) absorbs it.
+
+## What a count returns: guided modes and the window's own
+
+A guided mode's $n_\text{eff}$ lies above the index of every medium around the guide, so its
+field decays away from it. Below that index the physical modes are leaky or radiating: their
+fields grow or oscillate away from the guide, out to infinity, and they aren't normalizable
+(Hu and Menyuk, [doi:10.1364/AOP.1.000058](https://doi.org/10.1364/AOP.1.000058), on the slab).
+A window whose edges hold the field at zero can't represent them. It has modes of its own
+there instead, standing waves between its edges, with $n_\text{eff}$ below the cladding's, even
+below 1: modes of the box the window makes, not of the guide.
+
+`modes` returns every mode its count asks for, so asked for more modes than the guide has it
+returns these after the guided ones. `guided_modes` keeps only the guided ones: of the count
+solved, those with $n_\text{eff}$ above `CrossSection::surrounding_index`, the highest index of
+the media around the guides; fewer than the count when fewer are guided, none when none is, and
+nothing more solved to make the count up. `VectorMode::is_guided` asks it of one mode. The media
+around the guides are those at the window's open edges (a wall is a plane of symmetry through
+the guides, not their surroundings): the substrate, the cladding and the layers' backgrounds.
+Where a guide runs into an edge, as a rib's slab does, the fastest wave along that edge is the
+slab's own mode, solved on the edge's cells by the same scheme, and a mode below it leaks into
+the slab, so a window's side should stay clear of every guide but a slab. The façade's
+`vector_modes` (Python's and MATLAB's) keeps the modes of a closed window by this rule. A
+`"modes"` job keeps a count's modes by the same rule, reading the media from its stack: the
+layers' backgrounds, and the substrate and cladding its window reaches, the same index on the
+built-in jobs' cross-sections (a test checks it). `modes_above` with the surrounding index as
+its threshold gives every guided mode, however many.
+
+Leaky modes need an open window: a [PML](pml.md) inside the edges absorbs what reaches them,
+and then `modes` finds a leaky mode with its loss, as the leaky-wire benchmark below does. The
+PML's own modes come too, their loss large. Neither is a guided mode, so `guided_modes` leaves
+both out; with PMLs, ask `modes` for them.
 
 ## Accuracy
 

@@ -420,10 +420,22 @@ pub struct VectorMode {
     pub h: [Vec<c64>; 3],
 }
 
-/// The `count` modes of `cross_section` at `wavelength_um` whose effective indices are nearest
-/// `near_index` (the highest index in the cross-section when `None`: the fundamental modes),
-/// nearest first, by the full-vector finite-difference solver ([`crate::mode::vector`]), with
-/// their fields. `None` when `stop` stopped the solve.
+/// Of the `count` modes of `cross_section` at `wavelength_um` whose effective indices are
+/// nearest `near_index` (the highest index in the cross-section when `None`: the fundamental
+/// modes), the guided ones, nearest first, by the full-vector finite-difference solver
+/// ([`crate::mode::vector::guided_modes`]), with their fields. `None` when `stop` stopped the
+/// solve.
+///
+/// A mode is guided when its n_eff is above the highest index of the media around the guides,
+/// those at the window's open edges ([`crate::mode::vector::CrossSection::surrounding_index`]),
+/// as a modes job keeps them. The window is closed: below that index it has modes of its own,
+/// the standing waves of its box, and not the guides'. They are left out, so when fewer modes
+/// are guided than `count` asks for, fewer come back, and none when none is: the count is
+/// solved, then the window's own modes dropped, and nothing is solved to make the count up.
+/// With PMLs (any of `pml_um` above 0, and `pml_strength` above 0) the window is open, not
+/// closed: then every mode solved
+/// comes back, as [`crate::mode::vector::modes`] finds them, leaky modes below the media
+/// around the guides with their loss (and the PMLs' own modes, their loss large).
 ///
 /// # Errors
 ///
@@ -440,10 +452,19 @@ pub fn vector_modes(
 ) -> Result<Option<Vec<VectorMode>>> {
     let cs = cross_section.build()?;
     let wavelength = Wavelength::um(wavelength_um)?;
-    let Some(modes) = vector::modes_until(&cs, wavelength, count, near_index, || {
-        stop.reason().is_some()
-    })?
-    else {
+    let stopped = || stop.reason().is_some();
+    // a closed window's own modes left out; an open one's leaky modes kept
+    let pml = cs.pml();
+    let open = pml.strength > 0.0
+        && [pml.west, pml.east, pml.south, pml.north]
+            .iter()
+            .any(|&t| t > 0.0);
+    let solved = if open {
+        vector::modes_until(&cs, wavelength, count, near_index, stopped)?
+    } else {
+        vector::guided_modes_until(&cs, wavelength, count, near_index, stopped)?
+    };
+    let Some(modes) = solved else {
         return Ok(None);
     };
     modes

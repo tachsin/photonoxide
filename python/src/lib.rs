@@ -211,7 +211,9 @@ fn slab_modes<'py>(
     Ok(list)
 }
 
-/// A cross-section's full-vector modes, each a dict with its fields as `(ny, nx)` arrays.
+/// A cross-section's guided full-vector modes, of the `count` nearest `near_index`, each a dict
+/// with its fields as `(ny, nx)` arrays: fewer than `count` when fewer are guided (with PMLs,
+/// every mode solved).
 #[pyfunction]
 #[pyo3(signature = (x_um, y_um, permittivity, wavelength_um, count, near_index, boundaries, pml_um, pml_strength, timeout_s))]
 #[allow(clippy::too_many_arguments)] // the façade's, one for one
