@@ -235,6 +235,11 @@ fn tiny() -> Compute {
     }
 }
 
+/// The tiny grid averaged as the MMIs' and the Y-branch's 2D grids are, from the fill.
+fn tiny_grid_2d() -> FdfdGrid {
+    tiny_grid().with_averaging(crate::averaging::Averaging::Diagonal)
+}
+
 fn tiny_grid() -> FdfdGrid {
     FdfdGrid::new(0.2)
         .with_step_z(0.11)
@@ -260,7 +265,7 @@ fn the_fdfd_models_run_as_jobs_to_the_bit_on_a_coarse_grid() {
         );
         let fdfd = mmi
             .with_model_2d(Model2d::Fdfd)
-            .with_grid_2d(tiny_grid())
+            .with_grid_2d(tiny_grid_2d())
             .with_grid_3d(tiny_grid());
         let mut compute = tiny();
         compute.fdfd_2d = true;
@@ -278,7 +283,7 @@ fn the_fdfd_models_run_as_jobs_to_the_bit_on_a_coarse_grid() {
         );
     }
     let branch = StripYBranch::new()
-        .with_grid_2d(tiny_grid())
+        .with_grid_2d(tiny_grid_2d())
         .with_grid_3d(tiny_grid());
     for f in [two, three] {
         reproduces(

@@ -291,7 +291,7 @@ impl Grids {
         }
     }
 
-    /// `grid` with what is set.
+    /// `grid` with what is set; its averaging the device's own.
     fn fdfd(&self, grid: FdfdGrid) -> FdfdGrid {
         FdfdGrid {
             step: self.step.unwrap_or(grid.step),
@@ -299,6 +299,7 @@ impl Grids {
             margin: self.margin.unwrap_or(grid.margin),
             samples: self.samples.unwrap_or(grid.samples),
             pml: self.pml.unwrap_or(grid.pml),
+            averaging: grid.averaging,
         }
     }
 
