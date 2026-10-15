@@ -121,6 +121,8 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::devices::device_touchstone,
             crate::devices::save_device,
             crate::devices::read_device,
+            crate::devices::device_job,
+            crate::devices::device_job_read,
             crate::circuits::component_library,
             crate::circuits::component_spectrum,
             crate::circuits::measured_component,
@@ -429,6 +431,47 @@ struct RunItem {
     seconds: Option<f64>,
     /// Why it stopped early, if it did.
     stopped: Option<String>,
+    /// The device its job computes or draws (its `[device]` table's kind), if it has one.
+    device: Option<String>,
+    /// That design's fidelity, as the job names it (`"analytic"`, `"2D"`, `"3D"`).
+    fidelity: Option<String>,
+    /// How the job computes it: its model at that fidelity (`"analytic"`, `"2D"`, `"2D FDFD"`
+    /// for an MMI's 2D model by FDFD, `"3D"`) or `"FDTD 2D"`, `"FDTD 3D"`; none for a design
+    /// alone.
+    computes: Option<String>,
+}
+
+/// The device a run's job computes, the design's fidelity, and how it computes it, from the copy
+/// of the job in its directory.
+fn device_of(dir: &Path) -> (Option<String>, Option<String>, Option<String>) {
+    let job = ["toml", "json", "yaml"]
+        .iter()
+        .find_map(|ext| Job::load(&dir.join(format!("job.{ext}"))).ok());
+    let Some(job) = job else {
+        return (None, None, None);
+    };
+    let Some(spec) = job
+        .device()
+        .and_then(|t| photonoxide::device::Spec::from_table(t).ok())
+    else {
+        return (None, None, None);
+    };
+    let fidelity = crate::devices::SpecIn::of(&spec).fidelity;
+    let task = job.task();
+    let computes = match task.get("kind").and_then(toml::Value::as_str) {
+        Some("fdtd") => Some(format!(
+            "FDTD {}D",
+            task.get("dimensions")
+                .and_then(toml::Value::as_integer)
+                .unwrap_or(2)
+        )),
+        Some(_) if task.get("model_2d").and_then(toml::Value::as_str) == Some("fdfd") => {
+            Some("2D FDFD".into())
+        }
+        Some(_) => Some(fidelity.clone()),
+        None => None,
+    };
+    (Some(spec.kind), Some(fidelity), computes)
 }
 
 #[derive(Serialize)]
@@ -529,6 +572,7 @@ fn runs_in(dir: &Path, most: usize) -> Vec<RunItem> {
                 Some(Event::Finished { stopped, seconds }) => (true, Some(seconds), stopped),
                 _ => (false, None, None),
             };
+            let (device, fidelity, computes) = device_of(&d);
             RunItem {
                 dir: d.display().to_string(),
                 name: name_of(&d),
@@ -538,6 +582,9 @@ fn runs_in(dir: &Path, most: usize) -> Vec<RunItem> {
                 finished,
                 seconds,
                 stopped,
+                device,
+                fidelity,
+                computes,
             }
         })
         .collect()
@@ -954,6 +1001,7 @@ method_docs!(
     "components.md",
     "contour.md",
     "conventions.md",
+    "devices.md",
     "dispersion.md",
     "eigen.md",
     "eim.md",
@@ -1173,7 +1221,23 @@ mod tests {
             std::fs::write(root.join(name).join("events.jsonl"), format!("{last}\n")).unwrap();
         }
         std::fs::create_dir_all(root.join("not-a-run")).unwrap();
+        // a run of a job that computes a device says which, and how
+        std::fs::write(
+            root.join("20261001-120000-a").join("job.toml"),
+            "name = \"a\"\n\n[device]\nkind = \"MMI 1x2\"\nfidelity = \"2D\"\n\n[task]\nkind = \
+             \"spectrum\"\nmodel_2d = \"fdfd\"\n",
+        )
+        .unwrap();
         let runs = runs_in(&root, 40);
+        assert_eq!(
+            (
+                runs[1].device.as_deref(),
+                runs[1].fidelity.as_deref(),
+                runs[1].computes.as_deref()
+            ),
+            (Some("MMI 1x2"), Some("2D"), Some("2D FDFD"))
+        );
+        assert_eq!(runs[0].device, None);
         let names: Vec<&str> = runs.iter().map(|r| r.name.as_str()).collect();
         assert_eq!(names, ["20261002-120000-b", "20261001-120000-a"]);
         assert!(!runs[0].finished && runs[1].finished);

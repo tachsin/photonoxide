@@ -65,6 +65,12 @@ export interface RunItem {
   finished: boolean;
   seconds: number | null;
   stopped: string | null;
+  /** The device its job computes or draws (its [device] table's kind), if it has one. */
+  device: string | null;
+  /** That design's fidelity: "analytic", "2D" or "3D". */
+  fidelity: string | null;
+  /** How the job computes it: its model ("analytic", "2D", "2D FDFD", "3D") or "FDTD 2D", "FDTD 3D"; null for a design alone. */
+  computes: string | null;
 }
 
 export interface Home {
@@ -173,6 +179,10 @@ export const api = {
   deviceTouchstone: (spec: DeviceSpec, fidelity: string, sweep: Sweep, path: string) => invoke<void>("device_touchstone", { spec, fidelity, sweep, path }),
   saveDevice: (spec: DeviceSpec, name: string, about: string, replace: boolean) => invoke<string>("save_device", { spec, name, about, replace }),
   readDevice: (path: string) => invoke<SavedDevice>("read_device", { path }),
+  /** The job that computes a design as `compute` says (photonoxide::job::from_device), as its TOML. */
+  deviceJob: (spec: DeviceSpec, compute: Compute, name: string) => invoke<string>("device_job", { spec, compute, name }),
+  /** A device job's text read back into the Simulate tab's form, and what of it the form can't hold. */
+  deviceJobRead: (text: string) => invoke<JobForm>("device_job_read", { text }),
   circuitText: (chip: Chip) => invoke<string>("circuit_text", { chip }),
   circuitParse: (text: string) => invoke<Chip>("circuit_parse", { text }),
   circuitExamples: () => invoke<CircuitExample[]>("circuit_examples"),
@@ -225,6 +235,7 @@ export const KINDS: Record<string, { label: string; about: string }> = {
   modes: { label: "Modes", about: "a waveguide's guided modes by the full-vector solver, optionally swept" },
   fdfd: { label: "FDFD", about: "a device seen from above by 2D FDFD with ports: S-parameters and fields" },
   fdtd: { label: "FDTD", about: "a structure stepped in time by FDTD, in 2D or 3D: the field live, spectra and resonances" },
+  device: { label: "Device", about: "a device's design, or its own model at a fidelity: its figures and S-parameters" },
 };
 
 // The materials catalogue (photonoxide::material::catalogue), as the program serializes it.
@@ -435,6 +446,37 @@ export interface DeviceInfo {
   lesson: string;
   /** The examples that reproduce a paper on it. */
   examples: string[];
+  /** Its 2D model by FDFD, where its 2D fidelity is a cheaper one by default (an MMI's guided modes). */
+  fdfd_2d: DeviceMethod | null;
+}
+
+/** How a job computes a design (photonoxide::job::Compute): its own model, or FDTD of its structure; each grid field null for the device's own. */
+export interface Compute {
+  /** FDTD in 2 or 3 dimensions; null for the device's own model at the design's fidelity. */
+  fdtd: number | null;
+  /** From, to (µm) and how many wavelengths; null for the device's own band. */
+  band: [number, number, number] | null;
+  step_nm: number | null;
+  step_z_nm: number | null;
+  margin_um: number | null;
+  samples: number | null;
+  pml_cells: number | null;
+  /** An MMI's 2D model by FDFD in place of its guided modes. */
+  fdfd_2d: boolean;
+  timeout_minutes: number | null;
+}
+
+/** A device job's text read into the Simulate tab's form. */
+export interface JobForm {
+  name: string;
+  spec: DeviceSpec | null;
+  /** How it computes the design; null for a design alone. */
+  compute: Compute | null;
+  /** What the text holds that the form can't ("task.source", "solver"): it runs as its text says. */
+  beyond: string[];
+  error: string | null;
+  /** An FDFD model's cells along x and y, and the unknowns of a solve. */
+  size: [number, number, number] | null;
 }
 
 export interface MaterialSpec {
@@ -524,6 +566,8 @@ export interface SavedDevice {
   name: string;
   path: string;
   about: string;
+  /** The whole text, when the job computes the design (it has a task): the Simulate tab opens on it. */
+  job: string | null;
 }
 
 /** S-parameters over wavelength: re[q][p][k], im[q][p][k] are S_qp at the k-th wavelength. */

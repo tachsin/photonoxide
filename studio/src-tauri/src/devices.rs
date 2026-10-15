@@ -24,7 +24,7 @@ use photonoxide::circuit::{Fidelity, Spectrum};
 use photonoxide::device::{self, Built, Device, LayerSpec, MaterialSpec, Spec, StackSpec};
 use photonoxide::expr::{self, Dim, Expr};
 use photonoxide::job::{self, Event};
-use photonoxide::run::Job;
+use photonoxide::run::{Format, Job};
 use serde::{Deserialize, Serialize};
 
 use crate::circuits::{PortInfo, SpectrumData, Sweep, ports_of, write_touchstone};
@@ -135,6 +135,9 @@ pub struct DeviceInfo {
     lesson: &'static str,
     /// The examples that reproduce a paper on it.
     examples: Vec<&'static str>,
+    /// Its 2D model by FDFD, where its 2D fidelity has a cheaper one in its place (an MMI's
+    /// guided modes): a job's `model_2d = "fdfd"`.
+    fdfd_2d: Option<MethodInfo>,
 }
 
 #[derive(Serialize)]
@@ -204,37 +207,53 @@ pub fn device_library() -> Result<Vec<DeviceInfo>, String> {
                         max: p.max,
                     })
                     .collect(),
-                fidelities: d
-                    .fidelities()
-                    .iter()
-                    .map(|m| MethodInfo {
-                        fidelity: fidelity_name(m.fidelity),
-                        name: m.name.clone(),
-                        write_up: m.write_up.clone(),
-                        papers: m.papers.clone(),
-                        error: m.error.as_ref().map(|s| StatedInfo {
-                            quantity: s.quantity.clone(),
-                            bound: s.bound,
-                            unit: s.unit.clone(),
-                            against: fidelity_name(s.against),
-                        }),
-                        validity: m
-                            .validity
-                            .iter()
-                            .map(|r| RangeInfo {
-                                name: r.name.clone(),
-                                min: r.min,
-                                max: r.max,
-                            })
-                            .collect(),
-                    })
-                    .collect(),
+                fidelities: d.fidelities().iter().map(method_info).collect(),
                 ports,
                 lesson,
                 examples: examples.to_vec(),
+                fdfd_2d: fdfd_2d(d.kind()),
             })
         })
         .collect()
+}
+
+/// A model as the page shows it.
+fn method_info(m: &device::Method) -> MethodInfo {
+    MethodInfo {
+        fidelity: fidelity_name(m.fidelity),
+        name: m.name.clone(),
+        write_up: m.write_up.clone(),
+        papers: m.papers.clone(),
+        error: m.error.as_ref().map(|s| StatedInfo {
+            quantity: s.quantity.clone(),
+            bound: s.bound,
+            unit: s.unit.clone(),
+            against: fidelity_name(s.against),
+        }),
+        validity: m
+            .validity
+            .iter()
+            .map(|r| RangeInfo {
+                name: r.name.clone(),
+                min: r.min,
+                max: r.max,
+            })
+            .collect(),
+    }
+}
+
+/// The 2D model by FDFD of a device whose 2D fidelity is another by default: an MMI's.
+fn fdfd_2d(kind: &str) -> Option<MethodInfo> {
+    let mmi = match kind {
+        "MMI 1x2" => device::StripMmi::one_by_two(),
+        "MMI 2x2" => device::StripMmi::two_by_two(),
+        _ => return None,
+    };
+    mmi.with_model_2d(device::Model2d::Fdfd)
+        .fidelities()
+        .iter()
+        .find(|m| m.fidelity == Fidelity::TwoD)
+        .map(method_info)
 }
 
 // ---- a design, as the window sends it ----
@@ -877,6 +896,234 @@ pub fn device_touchstone(
     write_touchstone(Path::new(&path), &s)
 }
 
+// ---- the jobs that compute a design (the Simulate tab) ----
+
+/// How a job computes its design, as the Simulate tab's form holds it: [`job::Compute`].
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct ComputeIn {
+    /// FDTD of the drawn structure, 2 or 3 dimensions; `None`, the device's own model.
+    #[serde(default)]
+    pub fdtd: Option<u8>,
+    /// The band, µm: from, to, how many wavelengths.
+    #[serde(default)]
+    pub band: Option<(f64, f64, usize)>,
+    #[serde(default)]
+    pub step_nm: Option<f64>,
+    #[serde(default)]
+    pub step_z_nm: Option<f64>,
+    #[serde(default)]
+    pub margin_um: Option<f64>,
+    #[serde(default)]
+    pub samples: Option<usize>,
+    #[serde(default)]
+    pub pml_cells: Option<usize>,
+    #[serde(default)]
+    pub fdfd_2d: bool,
+    #[serde(default)]
+    pub timeout_minutes: Option<f64>,
+}
+
+impl ComputeIn {
+    fn compute(&self) -> job::Compute {
+        let mut c = match self.fdtd {
+            Some(d) => job::Compute::fdtd(d),
+            None => job::Compute::model(),
+        };
+        c.band = self.band;
+        c.step_nm = self.step_nm;
+        c.step_z_nm = self.step_z_nm;
+        c.margin_um = self.margin_um;
+        c.samples = self.samples;
+        c.pml_cells = self.pml_cells;
+        c.fdfd_2d = self.fdfd_2d;
+        c.timeout_minutes = self.timeout_minutes;
+        c
+    }
+
+    /// What the form holds of a device job's task (`None` for a design alone) and its timeout.
+    fn of(task: &toml::Table, timeout: Option<f64>) -> Option<ComputeIn> {
+        let num = |t: &toml::Table, k: &str| {
+            t.get(k)
+                .and_then(|v| v.as_float().or_else(|| v.as_integer().map(|i| i as f64)))
+        };
+        let count = |t: &toml::Table, k: &str| {
+            t.get(k)
+                .and_then(toml::Value::as_integer)
+                .and_then(|i| usize::try_from(i).ok())
+        };
+        let band = |t: &toml::Table| match (num(t, "from_um"), num(t, "to_um")) {
+            (Some(a), Some(b)) => Some((a, b, count(t, "points").unwrap_or(101))),
+            _ => None,
+        };
+        let mut c = ComputeIn {
+            step_nm: num(task, "step_nm"),
+            pml_cells: count(task, "pml_cells"),
+            timeout_minutes: timeout,
+            ..ComputeIn::default()
+        };
+        match task.get("kind").and_then(toml::Value::as_str)? {
+            "fdtd" => {
+                c.fdtd = Some(count(task, "dimensions").map_or(2, |d| d as u8));
+                c.band = task
+                    .get("spectrum")
+                    .and_then(toml::Value::as_table)
+                    .and_then(band);
+            }
+            _ => {
+                c.band = band(task);
+                c.step_z_nm = num(task, "step_z_nm");
+                c.margin_um = num(task, "margin_um");
+                c.samples = count(task, "samples");
+                c.fdfd_2d = task.get("model_2d").and_then(toml::Value::as_str) == Some("fdfd");
+            }
+        }
+        Some(c)
+    }
+}
+
+/// The text of the job that computes `spec` as `compute` says, named `name`
+/// ([`job::from_device`]), with an opening comment saying what it computes and how to run it.
+///
+/// # Errors
+///
+/// What the library refuses: a grid the device doesn't take, a 3D solve too large, a band that
+/// isn't one.
+pub fn job_text_of(spec: &SpecIn, compute: &ComputeIn, name: &str) -> Result<String, String> {
+    let s = spec.spec()?;
+    let j = job::from_device(name, &s, &compute.compute()).map_err(text)?;
+    let how = match compute.fdtd {
+        Some(2) => "by 2D FDTD of its drawn structure (the effective index method's plane: a 2D \
+                    estimate, not the device's performance)"
+            .to_owned(),
+        Some(_) => "by 3D FDTD of its drawn structure".to_owned(),
+        None if compute.fdfd_2d => "by its 2D model, 2D FDFD (labelled 2D)".to_owned(),
+        None => format!(
+            "by its own {} model",
+            if spec.fidelity == "analytic" {
+                "analytic"
+            } else {
+                spec.fidelity.as_str()
+            }
+        ),
+    };
+    let body = j.to_text(Format::Toml).map_err(text)?;
+    Ok(format!(
+        "# The {} {how}.\n#   photonoxide run jobs/{name}.toml\n{body}",
+        spec.kind
+    ))
+}
+
+/// The job that computes `spec` as `compute` says, as its text.
+#[tauri::command(async)]
+pub fn device_job(spec: SpecIn, compute: ComputeIn, name: String) -> Result<String, String> {
+    job_text_of(&spec, &compute, &name)
+}
+
+/// A device job's text, read back into the Simulate tab's form: its design and how it is
+/// computed, and what of it the form can't hold.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct JobForm {
+    name: String,
+    /// The design, when the text holds one.
+    spec: Option<SpecIn>,
+    /// How it is computed; `None` for a design alone.
+    compute: Option<ComputeIn>,
+    /// What the text holds that the form can't, as `task.<key>` (or a table's name): the job
+    /// runs as its text says, and the form says so.
+    beyond: Vec<String>,
+    /// Why it isn't a job the library runs, if it isn't.
+    error: Option<String>,
+    /// A model that is an FDFD: its cells along x and y and the unknowns of a solve.
+    size: Option<(usize, usize, f64)>,
+}
+
+/// Whether two values are the same, a number the same whether written as an integer or a float.
+fn same(a: &toml::Value, b: &toml::Value) -> bool {
+    use toml::Value as V;
+    match (a, b) {
+        (V::Integer(x), V::Float(y)) | (V::Float(y), V::Integer(x)) => *x as f64 == *y,
+        (V::Float(x), V::Float(y)) => x.to_bits() == y.to_bits(),
+        (V::Array(x), V::Array(y)) => {
+            x.len() == y.len() && x.iter().zip(y).all(|(p, q)| same(p, q))
+        }
+        (V::Table(x), V::Table(y)) => {
+            x.len() == y.len() && x.iter().all(|(k, v)| y.get(k).is_some_and(|w| same(v, w)))
+        }
+        _ => a == b,
+    }
+}
+
+/// Reads a device job's text into the Simulate tab's form.
+pub fn read_job_form(text: &str) -> JobForm {
+    let mut form = JobForm {
+        name: String::new(),
+        spec: None,
+        compute: None,
+        beyond: Vec::new(),
+        error: None,
+        size: None,
+    };
+    let job = match Job::parse(text) {
+        Ok(j) => j,
+        Err(e) => {
+            form.error = Some(text_of(e));
+            return form;
+        }
+    };
+    form.name = job.name().to_owned();
+    let Some(table) = job.device() else {
+        form.error = Some(format!(
+            "{} isn't a device's job: it has no [device] table",
+            job.name()
+        ));
+        return form;
+    };
+    let spec = match Spec::from_table(table) {
+        Ok(s) => s,
+        Err(e) => {
+            form.error = Some(text_of(e));
+            return form;
+        }
+    };
+    let file: toml::Table = toml::from_str(text).unwrap_or_default();
+    let timeout = file
+        .get("timeout_minutes")
+        .and_then(|v| v.as_float().or_else(|| v.as_integer().map(|i| i as f64)));
+    form.spec = Some(SpecIn::of(&spec));
+    form.compute = ComputeIn::of(job.task(), timeout);
+    for key in file.keys() {
+        if !["name", "timeout_minutes", "device", "task"].contains(&key.as_str()) {
+            form.beyond.push(key.clone());
+        }
+    }
+    if let Err(e) = job::check(&job) {
+        form.error = Some(text_of(e));
+        return form;
+    }
+    form.size = job::fdfd_size(&job).ok().flatten();
+    // what the form would write: any key of the task it writes otherwise is beyond it
+    if let Some(compute) = &form.compute {
+        match job::from_device(job.name(), &spec, &compute.compute()) {
+            Ok(again) => {
+                let mine = again.task();
+                for (k, v) in job.task() {
+                    if mine.get(k).is_none_or(|w| !same(v, w)) {
+                        form.beyond.push(format!("task.{k}"));
+                    }
+                }
+            }
+            Err(e) => form.error = Some(text_of(e)),
+        }
+    }
+    form
+}
+
+/// A device job's text read into the Simulate tab's form.
+#[tauri::command(async)]
+pub fn device_job_read(text: String) -> JobForm {
+    read_job_form(&text)
+}
+
 // ---- saved designs ----
 
 /// A design saved as a job file.
@@ -886,6 +1133,9 @@ pub struct Saved {
     name: String,
     path: String,
     about: String,
+    /// The whole text, when the job computes the design (it has a task): the page's Simulate
+    /// tab opens on it.
+    job: Option<String>,
 }
 
 /// The job file's text for `spec` under `name`, checked as the library checks a job.
@@ -952,11 +1202,13 @@ pub fn read_device(path: String) -> Result<Saved, String> {
         .map_err(|e| format!("{path}: {e}"))?
         .replace("\r\n", "\n");
     let (spec, name, about) = read_text(&text)?;
+    let computes = Job::parse(&text).is_ok_and(|j| !j.task().is_empty());
     Ok(Saved {
         spec,
         name,
         path,
         about,
+        job: computes.then_some(text),
     })
 }
 

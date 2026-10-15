@@ -1,7 +1,7 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
 import { api, type AppState, type Info, type Settings } from "./api";
-import type { Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Mode, ModeField, Permittivity, Scene, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
+import type { DeviceModel, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Mode, ModeField, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
 
@@ -182,6 +182,10 @@ export const run = $state({
   sparams: [] as SParameters[],
   /** How the run solves, as it recorded it; an older run has none. */
   solver: null as Solver | null,
+  /** A device job's model: its method, grid, the time it took and its figures. */
+  device: null as DeviceModel | null,
+  /** The named ports the run recorded: a device's, or a job's components'. */
+  ports: [] as ScenePort[],
   /** Each solve's numerical error, in the order recorded. */
   errors: [] as SolveError[],
   /** An FDTD run's frames of its field, in time order. */
@@ -234,7 +238,8 @@ export function shownScene(): Scene | null {
 
 /** The sweep the run steps through, whichever kind of job recorded it: each solved point's value, and how many there will be. */
 export function sweepAxis(): { parameter: string; values: number[]; total: number } | null {
-  const spectrum = run.sparams.length > 1 || Object.keys(run.sweepFields).length > 0;
+  // (a device's model gives its S-parameters at every wavelength at once: a spectrum, not a sweep of solves)
+  const spectrum = (run.sparams.length > 1 && !run.device) || Object.keys(run.sweepFields).length > 0;
   if (!run.sweep && !run.plan && !spectrum) return null;
   // a modes sweep's points, or an FDFD sweep's wavelengths
   const values = run.sweep ? run.sweep.points.map((p) => p.value) : run.sparams.map((s) => s.wavelength_um);
@@ -318,6 +323,12 @@ function take(e: Event) {
     case "solver":
       run.solver = e;
       break;
+    case "device_model":
+      run.device = e;
+      break;
+    case "ports":
+      run.ports = e.ports;
+      break;
     case "solve_error":
       run.errors.push(e);
       break;
@@ -359,6 +370,8 @@ function reset(info: Info) {
     fields: [],
     sparams: [],
     solver: null,
+    device: null,
+    ports: [],
     errors: [],
     frames: [],
     progress: null,
@@ -426,6 +439,18 @@ export async function startRun(call: () => Promise<Info>, what: string) {
     toast(what, "success", undefined, 2500);
   } catch (e) {
     toast(String(e), "error");
+  }
+}
+
+/** Starts a run (or opens one) with `call`, to be shown where the user is (a device's Simulate tab); true when it did. */
+export async function startRunHere(call: () => Promise<Info>): Promise<boolean> {
+  try {
+    reset(await call());
+    app.workspaceVersion++;
+    return true;
+  } catch (e) {
+    toast(String(e), "error");
+    return false;
   }
 }
 

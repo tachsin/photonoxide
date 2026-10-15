@@ -446,3 +446,137 @@ fn a_slider_drag_keeps_up_at_the_analytic_fidelity() {
         );
     }
 }
+
+#[test]
+fn every_devices_job_is_made_checked_and_read_back_into_the_form() {
+    // each device by its own cheapest model, and by FDTD in 2D: the library's job, read back
+    // into the form whole
+    for d in device::library() {
+        let spec = cheapest(d.kind(), &[]);
+        for compute in [
+            ComputeIn::default(),
+            ComputeIn {
+                fdtd: Some(2),
+                band: Some((1.5, 1.6, 11)),
+                ..ComputeIn::default()
+            },
+        ] {
+            let text = job_text_of(&spec, &compute, "page-job")
+                .unwrap_or_else(|e| panic!("{}: {e}", d.kind()));
+            assert!(
+                text.starts_with(&format!("# The {} by ", d.kind())),
+                "{text}"
+            );
+            assert!(text.contains("photonoxide run jobs/page-job.toml"));
+            let form = read_job_form(&text);
+            assert_eq!(form.error, None, "{}: {text}", d.kind());
+            assert!(form.beyond.is_empty(), "{}: {:?}", d.kind(), form.beyond);
+            assert_eq!(form.spec.as_ref(), Some(&spec), "{}", d.kind());
+            let mut want = compute.clone();
+            // the device's own band is written out, as are FDTD's cells and PMLs
+            if want.fdtd.is_none() {
+                want.band = form.compute.as_ref().and_then(|c| c.band);
+            } else {
+                want.step_nm = Some(40.0);
+                want.pml_cells = Some(20);
+            }
+            want.timeout_minutes = Some(30.0);
+            assert_eq!(form.compute.as_ref(), Some(&want), "{}", d.kind());
+        }
+    }
+}
+
+#[test]
+fn as_text_an_edit_the_form_holds_moves_it_and_one_it_cant_is_kept_and_named() {
+    let spec = design("waveguide", &[("width", "450 nm")]);
+    let compute = ComputeIn {
+        band: Some((1.5, 1.6, 11)),
+        ..ComputeIn::default()
+    };
+    let text = job_text_of(&spec, &compute, "w").unwrap();
+    // the band edited: the form follows
+    let form = read_job_form(&text.replace("points = 11", "points = 21"));
+    assert!(form.beyond.is_empty() && form.error.is_none(), "{form:?}");
+    assert_eq!(form.compute.unwrap().band, Some((1.5, 1.6, 21)));
+    // a parameter's expression edited: the design follows
+    let form = read_job_form(&text.replace("\"450 nm\"", "\"480 nm\""));
+    assert!(
+        form.spec
+            .unwrap()
+            .parameters
+            .contains(&("width".into(), "480 nm".into()))
+    );
+    // an FDTD's stopping rule and a solver table: kept in the text, and named
+    let fdtd = job_text_of(
+        &spec,
+        &ComputeIn {
+            fdtd: Some(2),
+            step_nm: Some(50.0),
+            band: Some((1.5, 1.6, 3)),
+            ..ComputeIn::default()
+        },
+        "w-fdtd",
+    )
+    .unwrap();
+    let stopped = format!("{fdtd}\n[task.stop]\nuntil = \"time\"\ntime_um = 100.0\n");
+    let form = read_job_form(&stopped);
+    assert_eq!(form.error, None);
+    assert_eq!(form.beyond, ["task.stop"]);
+    let form = read_job_form(&format!("{fdtd}\n[solver]\ndirect = \"auto\"\n"));
+    assert!(form.beyond.contains(&"solver".to_owned()), "{form:?}");
+    // what isn't a job says why
+    assert!(
+        read_job_form("name = \"x\"\n[task]\nkind = \"modes\"\n")
+            .error
+            .is_some()
+    );
+    assert!(
+        read_job_form(&text.replace("points = 11", "points = 0"))
+            .error
+            .is_some()
+    );
+    // a 3D FDFD says its size, and one too large says how large before it runs
+    let mmi = SpecIn {
+        fidelity: "3D".into(),
+        ..design("MMI 1x2", &[("width", "3 um"), ("length", "3 um")])
+    };
+    let coarse = ComputeIn {
+        step_nm: Some(200.0),
+        step_z_nm: Some(110.0),
+        margin_um: Some(0.2),
+        samples: Some(1),
+        pml_cells: Some(4),
+        ..ComputeIn::default()
+    };
+    let form = read_job_form(&job_text_of(&mmi, &coarse, "mmi").unwrap());
+    let (nx, ny, unknowns) = form.size.unwrap();
+    assert!(
+        nx > 0 && ny > 0 && unknowns > 3.0 * (nx * ny) as f64,
+        "{:?}",
+        form.size
+    );
+    let fine = ComputeIn {
+        step_nm: Some(20.0),
+        step_z_nm: Some(20.0),
+        ..ComputeIn::default()
+    };
+    let e = job_text_of(&mmi, &fine, "mmi").unwrap_err();
+    assert!(e.contains("million unknowns"), "{e}");
+}
+
+#[test]
+fn a_saved_job_that_computes_the_design_reopens_with_its_text() {
+    let spec = design("waveguide", &[]);
+    let text = job_text_of(&spec, &ComputeIn::default(), "guide-run").unwrap();
+    let dir = std::env::temp_dir().join(format!("photonoxide-device-job-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("guide-run.toml");
+    std::fs::write(&path, &text).unwrap();
+    let saved = read_device(path.display().to_string()).unwrap();
+    assert_eq!(saved.job.as_deref(), Some(text.as_str()));
+    assert_eq!(saved.spec, spec);
+    // a design alone has none
+    std::fs::write(&path, saved_text(&spec, "guide", "").unwrap()).unwrap();
+    assert_eq!(read_device(path.display().to_string()).unwrap().job, None);
+    let _ = std::fs::remove_dir_all(&dir);
+}

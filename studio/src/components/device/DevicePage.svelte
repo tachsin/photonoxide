@@ -1,16 +1,18 @@
 <script lang="ts">
   // A device's page (photonoxide::device): one header (its name and kind, the fidelity in use, a
-  // dirty marker, Save and Place on the chip) over two tabs.
+  // dirty marker, Run, Save and Place on the chip) over four tabs.
   //
   // - Overview: what it is, its symbol, its ports with their modes, its figures, its S-parameters
   //   over wavelength, the model with its papers and stated error, its lesson and the published
   //   results on it.
   // - Design: its stack, its geometry as parameters and expressions, its views (from above with
   //   the cut, the cross-section there, 3D) and its figures, live.
+  // - Model: its ladder of models, what each costs here and how far apart they are for the design.
+  // - Simulate: the design run as a job at a fidelity, or by FDTD, shown in place; its past runs.
   //
   // At the analytic fidelity everything follows every change, 60 ms after it; a 2D or 3D model
   // is a solve, started by a button and run in the background. Every number names its model.
-  import { BookOpen, BookOpenCheck, CircleCheck, CirclePlus, Cpu, ExternalLink, FileDown, Save } from "@lucide/svelte";
+  import { BookOpen, BookOpenCheck, CircleCheck, CirclePlus, Cpu, ExternalLink, FileDown, Play, Save } from "@lucide/svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import katex from "katex";
@@ -22,7 +24,7 @@
   import { catalog, loadCatalog } from "../../lib/catalog.svelte";
   import { addInstance, exportTouchstone, partKey } from "../../lib/chip.svelte";
   import { sweepProblem, type Quantity } from "../../lib/circuit";
-  import { dirty, draftOf, drafts, key, solve, solves, took } from "../../lib/device.svelte";
+  import { dirty, draftOf, drafts, keep, key, pending, solve, solves, took, type Rung } from "../../lib/device.svelte";
   import { FIDELITY_ABOUT, plain } from "../../lib/deviceview";
   import type { Scene } from "../../lib/events";
   import { len, shown as inUnit, stored, unitText } from "../../lib/units";
@@ -32,7 +34,9 @@
   import CutView from "./CutView.svelte";
   import Device3D from "./Device3D.svelte";
   import Figures from "./Figures.svelte";
+  import ModelTab from "./ModelTab.svelte";
   import ParameterForm from "./ParameterForm.svelte";
+  import SimulateTab from "./SimulateTab.svelte";
   import StackEditor from "./StackEditor.svelte";
   import TopView from "./TopView.svelte";
 
@@ -98,6 +102,7 @@
       if (job.figures) {
         try {
           const d = await api.deviceDerived(job.spec, job.fidelity);
+          keep(info, job.key, job.fidelity, { figures: d.figures, seconds: d.seconds, at: Date.now(), how: "live" });
           if (!wanted) liveFigures = { key: job.key, figures: d.figures, problem: "" };
         } catch (e) {
           if (!wanted) liveFigures = { key: job.key, figures: null, problem: String(e) };
@@ -152,6 +157,7 @@
 
   function setFidelity(f: string) {
     draft.spec = { ...draft.spec, fidelity: f };
+    draft.compute = { ...draft.compute, fdfd_2d: false, fdtd: null };
     if (f !== "analytic" && !(solves[info.id]?.fidelity === f && solves[info.id]?.design === key(draft.spec, info))) solve(info, snapshot(), f);
   }
 
@@ -187,9 +193,11 @@
     }
     saving.busy = true;
     try {
-      const path = await api.saveDevice(snapshot(), name, saving.about, replace || name === draft.name);
+      // a job that computes the design (it has a task) isn't replaced by the design alone unasked
+      const path = await api.saveDevice(snapshot(), name, saving.about, replace || (name === draft.name && !draft.fromJob));
       draft.name = name;
       draft.path = path;
+      draft.fromJob = false;
       draft.about = saving.about;
       draft.saved = key(draft.spec, info);
       saving = null;
@@ -200,7 +208,8 @@
       if (m.startsWith("exists:") && saving) {
         saving.busy = false;
         saving.problem = `jobs/${name}.toml exists.`;
-        if (await ask(`jobs/${name}.toml exists. Replace it?`, { title: "Replace the design?", kind: "warning" })) await save(true);
+        const computes = draft.fromJob && name === draft.name ? " It is a job that computes the design (it has a task): the design alone replaces it." : "";
+        if (await ask(`jobs/${name}.toml exists.${computes} Replace it?`, { title: "Replace the design?", kind: "warning" })) await save(true);
         return;
       }
       if (saving) {
@@ -353,6 +362,14 @@
       </div>
     </div>
     <div class="flex flex-wrap gap-2">
+      <button
+        class="btn btn-sm gap-1.5"
+        onclick={() => {
+          pending[info.id] = true;
+          draft.tab = "simulate";
+        }}
+        title="Run the design as a job, as the Simulate tab sets it: by its {fidelity} model unless it says otherwise"><Play size={15} /> Run</button
+      >
       <button class="btn btn-sm gap-1.5" onclick={startSave} title="Save the design as a job file in the workspace's jobs/ (Ctrl+S)"><Save size={15} /> Save</button>
       <button class="btn btn-primary btn-sm gap-1.5" onclick={place} title="Add the library's {kind?.title ?? info.kind} to the chip being edited, at its defaults, and go there"><CirclePlus size={15} /> Place on the chip</button>
     </div>
@@ -360,10 +377,28 @@
   <div role="tablist" class="tabs tabs-border mt-4 -mb-px">
     <button role="tab" class="tab {draft.tab === 'overview' ? 'tab-active' : ''}" onclick={() => (draft.tab = "overview")}>Overview</button>
     <button role="tab" class="tab {draft.tab === 'design' ? 'tab-active' : ''}" onclick={() => (draft.tab = "design")}>Design</button>
+    <button role="tab" class="tab {draft.tab === 'model' ? 'tab-active' : ''}" onclick={() => (draft.tab = "model")}>Model</button>
+    <button role="tab" class="tab {draft.tab === 'simulate' ? 'tab-active' : ''}" onclick={() => (draft.tab = "simulate")}>Simulate</button>
   </div>
 </div>
 
-{#if draft.tab === "overview"}
+{#if draft.tab === "model"}
+  <ModelTab
+    {info}
+    {draft}
+    {designKey}
+    {values}
+    onsolve={(f) => solve(info, snapshot(), f)}
+    onsimulate={(r: Rung) => {
+      draft.spec = { ...draft.spec, fidelity: r.fidelity };
+      draft.compute = { ...draft.compute, fdtd: null, fdfd_2d: r.fdfd2d };
+      pending[info.id] = true;
+      draft.tab = "simulate";
+    }}
+  />
+{:else if draft.tab === "simulate"}
+  <SimulateTab {info} {draft} {designKey} {values} active={app.page === "components"} />
+{:else if draft.tab === "overview"}
   <div class="space-y-6 px-8 py-6">
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
       {@render spectrumPanel(300)}

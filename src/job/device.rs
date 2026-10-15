@@ -441,28 +441,7 @@ struct Prepared {
 /// the band, and a 3D FDFD's size.
 fn prepare(job: &Job) -> Result<Prepared> {
     let spec = spec_of(job)?;
-    let task: SpectrumTask = job
-        .task()
-        .clone()
-        .try_into()
-        .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
-    let fdfd_2d = match task.model_2d.as_deref() {
-        None | Some("guided") => false,
-        Some("fdfd") => true,
-        Some(other) => {
-            return Err(task_error(format!(
-                "model_2d \"{other}\": \"guided\" (an MMI's guided modes) or \"fdfd\""
-            )));
-        }
-    };
-    let grids = Grids {
-        step: task.step_nm.map(|v| v / 1e3),
-        step_z: task.step_z_nm.map(|v| v / 1e3),
-        margin: task.margin_um,
-        samples: task.samples,
-        pml: task.pml_cells,
-        fdfd_2d,
-    };
+    let (task, grids) = spectrum_task(job)?;
     let (_, design) = spec.build()?;
     let device = spec.device_with(&grids)?;
     // a 3D FDFD larger than the direct solver holds here is refused before it starts
@@ -499,6 +478,50 @@ fn prepare(job: &Job) -> Result<Prepared> {
         design,
         wavelengths,
     })
+}
+
+/// The size of the FDFD solve a job's device takes, for a `"spectrum"` task whose model is one
+/// (an MMI's or a Y-branch's 2D and 3D, an MMI's 2D by FDFD only): the cells along x and y and
+/// the unknowns of a solve; `None` for another model, a design alone or an `"fdtd"` task. What a
+/// window says of a 3D run before it starts.
+///
+/// # Errors
+///
+/// What [`super::check`] refuses of the device and its grids, and a 3D solve larger than the
+/// direct solver holds here (1.2 million unknowns), the error saying how large.
+pub fn fdfd_size(job: &Job) -> Result<Option<(usize, usize, f64)>> {
+    if job.device().is_none() || task_kind(job)?.as_deref() != Some("spectrum") {
+        return Ok(None);
+    }
+    let (_, grids) = spectrum_task(job)?;
+    spec_of(job)?.fdfd_size(&grids)
+}
+
+/// A `"spectrum"` task read, and the grids it sets.
+fn spectrum_task(job: &Job) -> Result<(SpectrumTask, Grids)> {
+    let task: SpectrumTask = job
+        .task()
+        .clone()
+        .try_into()
+        .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
+    let fdfd_2d = match task.model_2d.as_deref() {
+        None | Some("guided") => false,
+        Some("fdfd") => true,
+        Some(other) => {
+            return Err(task_error(format!(
+                "model_2d \"{other}\": \"guided\" (an MMI's guided modes) or \"fdfd\""
+            )));
+        }
+    };
+    let grids = Grids {
+        step: task.step_nm.map(|v| v / 1e3),
+        step_z: task.step_z_nm.map(|v| v / 1e3),
+        margin: task.margin_um,
+        samples: task.samples,
+        pml: task.pml_cells,
+        fdfd_2d,
+    };
+    Ok((task, grids))
 }
 
 /// [`super::check`] for a `"spectrum"` job.

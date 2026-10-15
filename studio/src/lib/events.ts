@@ -289,8 +289,23 @@ export interface FdtdResonances {
   resonances: FoundResonance[];
 }
 
+/** A device's model, as a job that computes its device records it: what computes it, on which grid, how long it took, and the figures it gives. */
+export interface DeviceModel {
+  type: "device_model";
+  device: string;
+  fidelity: string;
+  method: string;
+  write_up: string;
+  papers: string[];
+  source: string;
+  grid: string;
+  seconds: number;
+  figures: { name: string; symbol: string; value: number; unit: string; fidelity: string; grid: string }[];
+}
+
 export type Event =
   | { type: "started"; job: string; kind: string }
+  | DeviceModel
   | FdtdFrame
   | FdtdProgress
   | FdtdSpectrum

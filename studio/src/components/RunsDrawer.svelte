@@ -9,6 +9,7 @@
 
   import { ago, api, duration, KINDS, when, type RunItem } from "../lib/api";
   import { app, go, run, startRun, toast } from "../lib/app.svelte";
+  import { openRunItem } from "../lib/device.svelte";
   import RunOverlay from "./RunOverlay.svelte";
   import Tip from "./Tip.svelte";
 
@@ -58,7 +59,8 @@
     app.compare = app.compare.includes(dir) ? app.compare.filter((d) => d !== dir) : [...app.compare, dir];
   }
 
-  const openRun = (r: RunItem) => startRun(() => api.openRun(r.dir), `Opened ${r.name}`);
+  // a run that computes a device opens in place on its page's Simulate tab
+  const openRun = (r: RunItem) => openRunItem(r);
 
   async function remove(r: RunItem) {
     const open = run.info?.name === r.name;

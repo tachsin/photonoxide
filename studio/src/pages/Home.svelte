@@ -10,6 +10,7 @@
   import { ago, api, duration, KINDS, type Home } from "../lib/api";
   import { app, go, run, showCases, showPublished, startRun } from "../lib/app.svelte";
   import { catalog, loadCatalog } from "../lib/catalog.svelte";
+  import { openRunItem } from "../lib/device.svelte";
   import { showChip } from "../lib/chip.svelte";
   import { template, toToml, type Kind } from "../lib/job";
 
@@ -149,7 +150,7 @@
           </div>
           <div class="panel divide-y divide-base-content/6">
             {#each recent as r (r.dir)}
-              <button class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-base-content/3" onclick={() => startRun(() => api.openRun(r.dir), `Opened ${r.name}`)}>
+              <button class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-base-content/3" onclick={() => openRunItem(r)}>
                 <span class="status {r.finished ? (r.stopped ? 'status-warning' : 'status-success') : 'status-neutral'}"></span>
                 <span class="min-w-0 flex-1">
                   <span class="block truncate text-sm font-medium">{r.job || r.name}</span>

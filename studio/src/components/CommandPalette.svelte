@@ -8,7 +8,7 @@
   import { app, go, showPublished, startRun, updateSettings, type Page } from "../lib/app.svelte";
   import { PAGES, RAIL, SYSTEM } from "../lib/pages";
   import { addInstance, importTouchstone, library, loadLibrary, openChipFile, partKey, saveChip, showChip, simulate } from "../lib/chip.svelte";
-  import { openDesign } from "../lib/device.svelte";
+  import { openDesign, openRunItem } from "../lib/device.svelte";
   import { template, toToml, type Kind } from "../lib/job";
   import { checkForUpdate } from "../lib/updater.svelte";
 
@@ -109,7 +109,7 @@
     }
     // every run, by its job's name or its own; an empty search shows only pages and actions
     for (const r of home?.runs ?? []) {
-      all.push({ group: "Runs", label: r.job || r.name, detail: r.name, run: () => startRun(() => api.openRun(r.dir), `Opened ${r.name}`) });
+      all.push({ group: "Runs", label: r.job || r.name, detail: r.name, run: () => openRunItem(r) });
     }
     const q = query.trim().toLowerCase();
     if (!q) return all.filter((i) => i.group === "Go to");

@@ -24,6 +24,7 @@ export const METHODS: Record<string, string[]> = {
   fdfd: ["fdfd.md", "fdfd-ports.md", "eim.md", "slab.md", "pml.md"],
   fdtd: ["fdtd.md", "eim.md", "slab.md"],
   structure: [],
+  device: ["devices.md", "hadley.md", "vector.md", "fdfd.md", "fdfd-3d.md", "eim.md"],
 };
 
 /** A solver's module as its run records it, in words. */
