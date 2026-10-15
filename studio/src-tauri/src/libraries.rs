@@ -658,51 +658,97 @@ pub const GUIDES: &[Guide] = &[
                     },
                 ],
             },
+            Install {
+                id: "pip",
+                manager: "pip",
+                command: "pip install scipy-openblas32",
+                systems: &["windows", "linux", "macos"],
+                note: "The OpenBLAS that NumPy and SciPy build with, its routines named scipy_zgemm_ beside zgemm_, found in site-packages/scipy_openblas32. Its Windows build has no openblas_set_num_threads_local, and photonoxide holds it to one thread there. scipy-openblas64 (64-bit integers) is used if PHOTONOXIDE_OPENBLAS names its file.",
+                checked: &[],
+            },
         ],
         unsupported: &[],
+        built_in: false,
+    },
+    Guide {
+        library: "AMD AOCL",
+        about: "AMD's Optimizing CPU Libraries: AOCL-BLAS (AMD's BLIS) and AOCL-LAPACK (AMD's libFLAME), tuned for AMD's Zen processors, as the dense kernels of photonoxide's own solver's fronts. Its iterative solvers (AOCL-Sparse) are #189's. Not yet run with photonoxide on an AMD processor: its loader and interface checks are tested, the library itself isn't.",
+        provides: &["dense"],
+        backends: &["photonoxide-aocl"],
+        needs: &[],
+        licence: "BSD-3-Clause (AOCL-BLAS, AOCL-LAPACK and AOCL-Utils)",
+        licence_url: "https://github.com/amd/blis/blob/master/LICENSE",
+        download: "https://www.amd.com/en/developer/aocl.html",
+        installs: &[],
+        unsupported: &[
+            (
+                "windows",
+                "AMD's installer (AOCL 5.2: AOCL_Windows-setup-5.2.0-AMD.exe), from its page: no package manager has it. It installs into Program Files\\AMD\\AOCL-Windows, where photonoxide looks (amd-blis\\lib\\LP64, amd-libflame\\lib\\LP64, amd-utils\\lib), or set AOCL_ROOT or PHOTONOXIDE_AOCL.",
+            ),
+            (
+                "linux",
+                "AMD's .deb, .rpm or tar file, from its page: into /opt/AMD/aocl, where photonoxide looks (lib_LP64), or set AOCL_ROOT or PHOTONOXIDE_AOCL.",
+            ),
+            ("macos", "AMD has no macOS build."),
+        ],
+        built_in: false,
+    },
+    Guide {
+        library: "Arm Performance Libraries",
+        about: "Arm's BLAS and LAPACK, tuned for Arm processors, as the dense kernels of photonoxide's own solver's fronts: Windows on Arm, Linux on AArch64 and Apple silicon. Not yet run with photonoxide on an Arm processor: its loader and interface checks are tested, the library itself isn't.",
+        provides: &["dense"],
+        backends: &["photonoxide-armpl"],
+        needs: &[],
+        licence: "End User License Agreement for Arm Performance Libraries, free of charge",
+        licence_url: "https://developer.arm.com/documentation/109686/latest",
+        download: "https://developer.arm.com/Tools%20and%20Software/Arm%20Performance%20Libraries",
+        installs: &[
+            Install {
+                id: "winget",
+                manager: "winget",
+                command: "winget install --id Arm.ArmPerformanceLibraries --exact",
+                systems: &["windows"],
+                note: "Windows on Arm only: winget has no installer for x86-64. Into Program Files\\Arm Performance Libraries, where photonoxide looks.",
+                checked: &[],
+            },
+            Install {
+                id: "brew",
+                manager: "brew",
+                command: "brew install --cask arm-performance-libraries",
+                systems: &["macos"],
+                note: "Apple silicon only. Into /opt/arm, where photonoxide looks.",
+                checked: &[],
+            },
+        ],
+        unsupported: &[(
+            "linux",
+            "Arm's .deb or .rpm, from its page, for AArch64: into /opt/arm, where photonoxide looks, or set ARMPL_DIR or PHOTONOXIDE_ARMPL.",
+        )],
         built_in: false,
     },
 ];
 
 /// The libraries the plan names that photonoxide has no backend for yet (docs/plans/backends.md):
 /// how each installs, checked on clean machines, for the issue that adds its backend.
-pub const PLANNED: &[Planned] = &[
-    Planned {
-        library: "AMD AOCL",
-        about: "AMD's BLIS, libFLAME and AOCL-Sparse: dense kernels and iterative solvers on AMD processors.",
-        issue: 186,
-        licence: "BSD-3-Clause and MIT, by component (to confirm in #186)",
-        home: "https://www.amd.com/en/developer/aocl.html",
-        installs: &[],
-        unsupported: &[
-            (
-                "windows",
-                "AMD's installer, from its page: no package manager has it, and it wasn't run here.",
-            ),
-            (
-                "linux",
-                "AMD's packages or Spack, from its page: not run here.",
-            ),
-            ("macos", "AMD has no macOS build."),
-        ],
-    },
-    Planned {
-        library: "Arm Performance Libraries",
-        about: "Arm's BLAS and LAPACK: dense kernels on Arm processors.",
-        issue: 186,
-        licence: "Arm's terms, free of charge (to confirm in #186)",
-        home: "https://developer.arm.com/",
-        installs: &[],
-        unsupported: &[
-            (
-                "windows",
-                "Arm's installer, for Windows on Arm: not run here.",
-            ),
-            ("linux", "Arm's packages, for AArch64: not run here."),
-            ("macos", "Arm's installer, for Apple silicon: not run here."),
-        ],
-    },
-];
+pub const PLANNED: &[Planned] = &[Planned {
+    library: "AMD AOCL-Sparse",
+    about: "AMD's sparse library, part of AOCL: iterative solvers on AMD processors.",
+    issue: 189,
+    licence: "MIT (to confirm in #189)",
+    home: "https://www.amd.com/en/developer/aocl/sparse.html",
+    installs: &[],
+    unsupported: &[
+        (
+            "windows",
+            "AMD's installer, with the rest of AOCL, from its page: no package manager has it, and it wasn't run here.",
+        ),
+        (
+            "linux",
+            "AMD's packages, with the rest of AOCL, from its page: not run here.",
+        ),
+        ("macos", "AMD has no macOS build."),
+    ],
+}];
 
 /// The discovery spec of a library photonoxide looks for.
 fn spec(library: &str) -> Option<&'static Spec> {
@@ -715,6 +761,8 @@ fn spec(library: &str) -> Option<&'static Spec> {
         &superlu::SUPERLU,
         &accelerate::ACCELERATE,
         &blas::OPENBLAS,
+        &blas::AOCL,
+        &blas::ARMPL,
     ]
     .into_iter()
     .find(|s| s.name == library)
@@ -1277,6 +1325,8 @@ mod tests {
             superlu::SUPERLU.name,
             accelerate::ACCELERATE.name,
             blas::OPENBLAS.name,
+            blas::AOCL.name,
+            blas::ARMPL.name,
         ] {
             assert!(spec(name).is_some(), "{name}");
             assert!(GUIDES.iter().any(|g| g.library == name), "{name}");
@@ -1291,9 +1341,14 @@ mod tests {
             assert!(g.licence_url.starts_with("https://"), "{}", g.library);
             assert!(g.download.starts_with("https://"), "{}", g.library);
             assert!(!g.licence.is_empty() && !g.about.is_empty());
-            // nothing installs what is built in, or what is part of one system
+            // nothing installs what is built in, or what is part of one system or comes only
+            // from its vendor's installer, which then says what to do on each system
             if g.installs.is_empty() && !g.built_in {
-                assert_eq!(g.library, "Accelerate");
+                assert!(
+                    ["Accelerate", "AMD AOCL"].contains(&g.library),
+                    "{}",
+                    g.library
+                );
                 assert!(g.unsupported.iter().any(|(s, _)| *s == "windows"));
                 assert!(g.unsupported.iter().any(|(s, _)| *s == "linux"));
                 assert!(g.unsupported.iter().any(|(s, _)| *s == "macos"));

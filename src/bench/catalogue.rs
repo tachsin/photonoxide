@@ -26,7 +26,8 @@
 //! - **Circuits** ([`Family::Circuit`]): a Mach–Zehnder's netlist over a sweep, a system so
 //!   small that overhead is all there is to time.
 //! - **Dense kernels** ([`Family::Dense`]): the LU and the product of complex n × n matrices,
-//!   n from 32 to 4096.
+//!   n from 32 to 4096, by photonoxide's own kernels (faer's) or by a library's that
+//!   photonoxide's solver has in its fronts (`photonoxide-mkl`, say: #186).
 //! - **FDTD** ([`Family::Fdtd`]): the kernel stepping a box of vacuum and a silicon guide, in f64
 //!   and f32, as `photonoxide bench` runs them: by tiles where they pay, and the guide also
 //!   whole every step. Memory traffic, no system to solve.
@@ -47,6 +48,7 @@ use num_complex::Complex64 as c64;
 
 use super::{Accuracy, Measurement, Phase};
 use crate::backend::Choice;
+use crate::backend::dense::{Block, BlockMut, DenseKernels, Product, kernels};
 use crate::fdfd::direct::{Direct, Plan};
 use crate::fdfd::{Boundaries, Boundaries3d, Edges, Grid, Grid3d, Polarization, Solver3d};
 use crate::units::Wavelength;
@@ -893,10 +895,12 @@ fn dense(n: usize, product: bool) -> Entry {
         id: format!("dense/{}-{n}", if product { "product" } else { "lu" }),
         family: Family::Dense,
         title: if product {
-            "the product of two complex n × n matrices, by faer's kernel on rayon's threads".into()
+            "the product of two complex n × n matrices, by the backend's dense kernels (faer's \
+             for photonoxide's own) on rayon's threads"
+                .into()
         } else {
-            "the LU with partial pivoting of a complex n × n matrix, by faer's kernel on \
-             rayon's threads"
+            "the LU with partial pivoting of a complex n × n matrix, by the backend's dense \
+             kernels (faer's for photonoxide's own) on rayon's threads"
                 .into()
         },
         size: n,
@@ -1438,25 +1442,27 @@ fn times(a: &faer::Mat<c64>, v: &[c64]) -> Vec<c64> {
         .collect()
 }
 
-fn solve_dense(entry: &Entry, n: usize, product: bool) -> Result<Measurement> {
-    use faer::dyn_stack::{MemBuffer, MemStack};
-    use faer::linalg::lu::partial_pivoting::factor::{lu_in_place, lu_in_place_scratch};
-    use faer::linalg::matmul::matmul;
-    use faer::{Accum, Par};
-    let par = Par::rayon(0);
+/// The product or the LU of a dense matrix by `kernels`, on rayon's threads: photonoxide's
+/// own (faer's), or a library's that photonoxide's solver has as its fronts' (#186).
+fn solve_dense(
+    entry: &Entry,
+    n: usize,
+    product: bool,
+    kernels: &dyn DenseKernels,
+) -> Result<Measurement> {
     let a = dense_matrix(n, 1);
     let v: Vec<c64> = rhs(n, |_| false);
     let (name, seconds, error) = if product {
         let b = dense_matrix(n, 2);
         let mut c = faer::Mat::<c64>::zeros(n, n);
         let clock = Instant::now();
-        matmul(
-            c.as_mut(),
-            Accum::Replace,
-            a.as_ref(),
-            b.as_ref(),
+        kernels.multiply(
+            BlockMut::new(c.as_mut()),
+            Block::new(a.as_ref()),
+            Block::new(b.as_ref()),
+            Product::default(),
             c64::new(1.0, 0.0),
-            par,
+            true,
         );
         let seconds = clock.elapsed().as_secs_f64();
         let (got, want) = (times(&c, &v), times(&a, &times(&b, &v)));
@@ -1464,23 +1470,8 @@ fn solve_dense(entry: &Entry, n: usize, product: bool) -> Result<Measurement> {
         ("the product", seconds, norm(&off) / norm(&want))
     } else {
         let mut lu = a.clone();
-        let mut forward = vec![0usize; n];
-        let mut inverse = vec![0usize; n];
-        let mut stack = MemBuffer::new(lu_in_place_scratch::<usize, c64>(
-            n,
-            n,
-            par,
-            Default::default(),
-        ));
         let clock = Instant::now();
-        lu_in_place(
-            lu.as_mut(),
-            &mut forward,
-            &mut inverse,
-            par,
-            MemStack::new(&mut stack),
-            Default::default(),
-        );
+        let forward = kernels.lu(BlockMut::new(lu.as_mut()), true);
         let seconds = clock.elapsed().as_secs_f64();
         // P A = L U: x = U⁻¹ L⁻¹ P b
         let mut x: Vec<c64> = forward.iter().map(|&r| v[r]).collect();
@@ -1522,6 +1513,13 @@ impl Entry {
             self.kind,
             Kind::Flat { .. } | Kind::Solid { .. } | Kind::Exported(_)
         )
+    }
+
+    /// Whether it times dense kernels, which photonoxide's solver with a library's kernels
+    /// (`photonoxide-mkl`, say) runs with that library's ([`crate::backend::dense::kernels`]):
+    /// `dense/lu-*` and `dense/product-*`.
+    pub fn takes_dense_kernels(&self) -> bool {
+        matches!(self.kind, Kind::DenseLu { .. } | Kind::DenseProduct { .. })
     }
 
     /// Whether its solve is QMR, plain or with ILU(0), or GMRES with multigrid, which an
@@ -1641,8 +1639,8 @@ impl Entry {
             Kind::Modes { step_nm, count } => solve_modes(self, *step_nm, *count),
             Kind::Hadley { problem, n } => solve_hadley(self, *problem, *n),
             Kind::Circuit { points } => solve_circuit(self, *points),
-            Kind::DenseLu { n } => solve_dense(self, *n, false),
-            Kind::DenseProduct { n } => solve_dense(self, *n, true),
+            Kind::DenseLu { n } => solve_dense(self, *n, false, kernels(direct)?.as_ref()),
+            Kind::DenseProduct { n } => solve_dense(self, *n, true, kernels(direct)?.as_ref()),
         }
     }
 }

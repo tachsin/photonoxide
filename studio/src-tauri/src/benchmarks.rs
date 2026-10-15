@@ -391,7 +391,10 @@ pub fn plan_of(entries: &[Entry], request: &Request, records: &[Record]) -> Vec<
             for b in &names {
                 let applies = b.name == "photonoxide"
                     || (b.kind == "direct" && e.takes_a_backend())
-                    || (b.kind == "iterative" && e.takes_an_iterative_backend());
+                    || (b.kind == "iterative" && e.takes_an_iterative_backend())
+                    || (b.kind == "direct"
+                        && e.takes_dense_kernels()
+                        && crate::runner::has_dense_kernels(&b.name));
                 if !applies {
                     continue;
                 }

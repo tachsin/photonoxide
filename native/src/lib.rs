@@ -143,12 +143,16 @@ pub fn register_all() -> Vec<Probe> {
         };
     }
     let mut probes = nvidia::probe();
-    probes.push(intel::probe());
+    // oneMKL's, with what is known of its dense kernels
+    probes.push(blas::probe(blas::Provider::Mkl));
     probes.push(mumps::probe());
     probes.push(superlu::probe());
-    if cfg!(target_os = "macos") {
-        probes.push(accelerate::probe());
+    // the other BLAS and LAPACK libraries that can be on this system (Accelerate's with its
+    // sparse solvers)
+    for provider in blas::Provider::ALL {
+        if provider != blas::Provider::Mkl && provider.here() {
+            probes.push(blas::probe(provider));
+        }
     }
-    probes.push(blas::probe());
     probes
 }
