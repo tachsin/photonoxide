@@ -289,7 +289,7 @@ The bodies are the geometry's own (`fdtd::Body` is `geometry::Body`, docs/method
 besides those above, boxes, spheres, cylinders and cones along any axis, any planar shape
 between two heights with sloped walls, and booleans of bodies, each read as its surface's plane
 through the nearest point. The ones FDTD had before moved there with the same arithmetic, and
-the smoothing's every value is the same bits as before (`geometry/bodies/fdtd-bits`). A body can
+what the smoothing takes from them is the same bits as before (`geometry/bodies/fdtd-bits`). A body can
 hold a graded medium (`Structure::with_graded`, an index or a permittivity as an expression of
 x, y and z), taken at the point each value's cell is about.
 

@@ -663,7 +663,7 @@ fn coupling_triplets_takes_its_own_average() {
 
 #[test]
 fn the_smoothing_takes_the_same_bits_from_the_shared_bodies() {
-    // every value the smoothing takes from its bodies, against its digest before they moved to
-    // the geometry (#227, phase 9)
-    assert_eq!(bodies_digest(), BODIES_DIGEST);
+    // every value the smoothing takes from its bodies, against the bodies before they moved to
+    // the geometry (#227, phase 9), bit for bit
+    assert_eq!(bodies_differences(), 0);
 }

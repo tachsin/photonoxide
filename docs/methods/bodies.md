@@ -127,9 +127,12 @@ body's surface near a cell as the plane through its nearest point, with its norm
 of the cell the plane cuts off. It reads `Body::surface`: the exact distance for every body but
 the ellipsoid, whose estimate $f/\lvert\nabla f\rvert$ (second order in itself) the smoothing has
 always taken. The half-space, the ellipsoid, the extruded and the etched shapes it had moved here
-with the same arithmetic, and FDTD's smoothing gives the same bits as before: every permittivity,
-every average and every node's eight triplet tensors at 15 000 points through eight overlapping
-bodies of every kind hash to the value they had before the move. The new bodies take part as
+with the same arithmetic, and FDTD's smoothing gives the same bits as before. The check keeps
+FDTD's bodies as they were, word for word, and compares, bit for bit on whatever system it runs,
+what the smoothing takes from them: each body's surface (distance and normal) and its box's test
+at 15 000 points through eight bodies of every kind, and the share of a cell a plane cuts off for
+20 000 planes and cells (its edges and faces too, as the triplets take them). The smoothing's
+averages, tensors and triplets are the same code on these, so their bits are the same too. The new bodies take part as
 the old ones do: a box, a cylinder or a cone, a boolean (its composed surface), the L3 cavity
 below as one body.
 
@@ -266,7 +269,7 @@ limited by the fabrication's disorder, the computed one by the 21 × 15 sites an
 | `geometry/bodies/booleans` | two spheres' union, intersection, difference and xor against the lens they share | 1.3e-7 relative | 1e-6 |
 | `geometry/bodies/oblique` | a cylinder and a frustum along an oblique axis against their volumes | 1.5e-8 relative | 1e-7 |
 | `geometry/bodies/tangent-order` | the tangent plane's share (FDTD's smoothing) summed over a sphere on 32 and 64 cells a µm: the order | 2.0 | 2 ± 0.25 |
-| `geometry/bodies/fdtd-bits` | FDTD's smoothing on the shared bodies against its hash before they moved | 0 bits differ | 0 |
+| `geometry/bodies/fdtd-bits` | the shared bodies' surfaces and boxes, and the plane's share of a cell, against FDTD's own before they moved | 0 values differ | 0 |
 | `geometry/bodies/akahane-l3` | Akahane et al.'s L3 cavity as a body (above) | 7.8e-9 relative | 1e-7 |
 | `mode/graded-parabolic` | the planar mode solver in the parabolic medium, 12.5 nm cells | 3.1e-8 in $n_\text{eff}$ | 1e-7 |
 | `mode/graded-parabolic-order` | the same on 50 and 25 nm cells: the order | 2.00 | 2 ± 0.25 |

@@ -499,14 +499,11 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "geometry/bodies/fdtd-bits",
-            title: r"FDTD's smoothing reads its bodies from here: half-spaces, ellipsoids, elliptic cylinders, extruded shapes and etched ones with sloped walls, eight of them overlapping, and at 15 000 points the permittivity, $\tilde\varepsilon^{-1}$ by every average over a cell and the eight triplets' tensors at a node, every bit hashed, against the hash before they moved (bits differing shown, 0 or 1)",
+            title: r"FDTD's smoothing reads its bodies from here: half-spaces, ellipsoids, elliptic cylinders, extruded shapes and etched ones with sloped and vertical walls, eight bodies, against FDTD's own bodies before they moved, kept word for word: each one's surface (distance and normal) and its box's test at 15 000 points, and the share of a cell a plane cuts off for 20 000 planes and cells, edges and faces among them (values differing in any bit shown)",
             tier: Tier::Analytic,
-            source: r"the same arithmetic on the same bodies: FNV-1a of every value, 0x51f7d2afe112617d on the code before this phase (commit ff50758); measured 0",
+            source: r"the same arithmetic on the same bodies, the smoothing's averages, tensors and triplets the same code on them (FDTD's bodies of commit ff50758); measured 0",
             run: || {
-                let e = f64::from(u8::from(
-                    crate::fdtd::smoothing::checks::bodies_digest()
-                        != crate::fdtd::smoothing::checks::BODIES_DIGEST,
-                ));
+                let e = crate::fdtd::smoothing::checks::bodies_differences() as f64;
                 error(e, 0.0)
             },
         },
