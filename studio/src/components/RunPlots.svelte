@@ -124,25 +124,27 @@
         <h3 class="font-semibold">The {d.device}'s model</h3>
         <span class="badge badge-sm badge-soft {d.fidelity === 'analytic' ? 'badge-secondary' : 'badge-primary'}">{d.fidelity}</span>
         <span class="flex-1"></span>
-        <span class="text-xs faint num" title="The time the model took to build: the solve's, at a solver's fidelity">built in {d.seconds < 1 ? `${(d.seconds * 1000).toFixed(0)} ms` : `${d.seconds.toFixed(1)} s`}</span>
+        <span class="text-xs faint num" title="The time the model took to build: the solve's, at a solver's fidelity">built in {d.seconds < 1e-3 ? "under a millisecond" : d.seconds < 1 ? `${(d.seconds * 1000).toFixed(0)} ms` : `${d.seconds.toFixed(1)} s`}</span>
       </div>
       <p class="mt-1 text-sm muted">{d.method}</p>
       <p class="mt-1 text-xs faint selectable">{d.source}</p>
       {#if d.figures.length}
+        {@const oneGrid = d.figures.every((f) => f.grid === d.figures[0].grid)}
         <div class="mt-3 overflow-x-auto">
           <table class="table table-xs w-auto">
-            <thead><tr><th>Figure</th><th class="text-right">Value</th><th>Grid</th></tr></thead>
+            <thead><tr><th>Figure</th><th class="text-right">Value</th>{#if !oneGrid}<th>Grid</th>{/if}</tr></thead>
             <tbody>
               {#each d.figures as f (f.symbol)}
                 <tr>
                   <td>{f.name} <span class="num faint">{f.symbol}</span></td>
-                  <td class="num text-right">{Math.abs(f.value) >= 1e4 || (Math.abs(f.value) < 1e-3 && f.value !== 0) ? f.value.toExponential(4) : Number(f.value.toPrecision(6))} {f.unit}</td>
-                  <td class="text-xs faint">{f.grid}</td>
+                  <td class="num text-right whitespace-nowrap">{Math.abs(f.value) >= 1e4 || (Math.abs(f.value) < 1e-3 && f.value !== 0) ? f.value.toExponential(4) : Number(f.value.toPrecision(6))} {f.unit}</td>
+                  {#if !oneGrid}<td class="text-xs faint">{f.grid}</td>{/if}
                 </tr>
               {/each}
             </tbody>
           </table>
         </div>
+        {#if oneGrid}<p class="mt-1 text-xs faint">each on {d.figures[0].grid}</p>{/if}
       {/if}
     </section>
   {/if}
@@ -187,7 +189,7 @@
           <tbody>
             {#each first.s as row, q (q)}
               <tr>
-                <th>into {first.ports[q] ?? q + 1}{#if first.effective_indices[q]}<span class="font-normal faint"> (n_eff {first.effective_indices[q].toFixed(4)})</span>{/if}</th>
+                <th>into {first.ports[q] ?? q + 1} {#if first.effective_indices[q]}<span class="font-normal faint">(n_eff {first.effective_indices[q].toFixed(4)})</span>{/if}</th>
                 {#each row as [re, im], p (p)}
                   {@const v = re * re + im * im}
                   <td class="num" style="background: color-mix(in oklch, var(--color-primary) {Math.round(v * 45)}%, transparent)">{v.toFixed(4)}</td>

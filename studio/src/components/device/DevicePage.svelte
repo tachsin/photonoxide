@@ -181,11 +181,15 @@
   // the cut starts mid-device, across a straight; a bend's near its input, where the arc runs along x
   $effect(() => {
     const s = view?.scene;
-    if (!s || cutAt !== null) return;
-    if (info.kind === "bend") {
+    if (!s) return;
+    // a cut the design has moved away from (it shrank) goes back to its middle
+    const span = normal === "x" ? s.x_um : s.y_um;
+    if (cutAt !== null && untrack(() => cutAt! < span[0] || cutAt! > span[1])) cutAt = null;
+    if (cutAt !== null) return;
+    if (info.kind === "bend" && normal === "x") {
       const o1 = view!.ports[0];
       cutAt = o1 ? o1.x + 0.05 : 0;
-    } else cutAt = (s.x_um[0] + s.x_um[1]) / 2;
+    } else cutAt = (span[0] + span[1]) / 2;
   });
 
   // ---- saving ----
@@ -332,9 +336,9 @@
 
 <div class="flex h-full min-h-0 flex-col">
   <!-- the header -->
-  <div class="glow shrink-0 border-b border-base-content/8 px-6 py-4">
-    <div class="flex flex-wrap items-start gap-5">
-      {#if kind?.symbol}
+  <div class="glow shrink-0 border-b border-base-content/8 px-6 {stacked ? 'py-2.5' : 'py-4'}">
+    <div class="flex flex-wrap items-start {stacked ? 'gap-3' : 'gap-5'}">
+      {#if kind?.symbol && !stacked}
         {@const s = kind.symbol}
         <div class="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/12 text-primary">
           <svg width="36" height="24" viewBox="{-s.width / 2 - 6} {-s.height / 2 - 6} {s.width + 12} {s.height + 12}"><Glyph symbol={s} /></svg>
@@ -346,7 +350,7 @@
           {#if changed}<span class="text-base text-warning" title="Changed since it was {draft.path ? 'saved' : 'opened'}">●</span>{/if}
           <span class="text-sm font-normal muted">{info.kind}</span>
         </h2>
-        <p class="mt-0.5 line-clamp-1 max-w-3xl text-sm muted" title={info.about}>{info.about}</p>
+        {#if !stacked}<p class="mt-0.5 line-clamp-1 max-w-3xl text-sm muted" title={info.about}>{info.about}</p>{/if}
         <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
           <div class="dropdown">
             <div tabindex="0" role="button" class="badge badge-sm cursor-pointer gap-1 {live ? 'badge-secondary' : 'badge-primary'}" title="The model in use: {FIDELITY_ABOUT[fidelity]}">
@@ -391,8 +395,8 @@
   </div>
 
   <!-- the view, always on screen, and the panel beside it (under it in a narrow window) -->
-  <div class="min-h-0 flex-1 {stacked ? 'overflow-y-auto' : 'grid grid-cols-[minmax(0,1fr)_minmax(24rem,36%)]'}" bind:clientWidth={bodyWidth}>
-    <section class="flex min-w-0 flex-col border-base-content/8 {stacked ? 'h-[25rem] border-b' : 'min-h-0 border-r'}">
+  <div class="grid min-h-0 flex-1 {stacked ? 'grid-rows-[minmax(13rem,1fr)_minmax(10rem,1fr)]' : 'grid-cols-[minmax(0,1fr)_minmax(24rem,36%)]'}" bind:clientWidth={bodyWidth}>
+    <section class="flex min-h-0 min-w-0 flex-col border-base-content/8 {stacked ? 'border-b' : 'border-r'}">
       <div class="relative min-h-0 flex-1 overflow-hidden" bind:clientHeight={viewHeight}>
         {#if mainView === "run" && runHere}
           <div class="absolute inset-0"><Viewer embedded active={app.page === "components"} /></div>
@@ -402,17 +406,17 @@
               <p role="alert" class="mb-2 text-xs text-warning">{plain(view.problem)}: the last design that held together is shown.</p>
             {/if}
             {#if shape === "3d"}
-              <Device3D scene={drawn.scene} height={Math.max(200, viewHeight - 24)} />
+              <Device3D scene={drawn.scene} height={Math.max(120, viewHeight - 24)} />
             {:else if shape === "top"}
               <div class="mb-1 text-xs faint">From above: drag the cut along the device</div>
-              <TopView scene={drawn.scene} ports={drawn.ports} bind:normal bind:at={() => cutAt ?? 0, (v) => (cutAt = v)} height={Math.max(180, viewHeight - 48)} />
+              <TopView scene={drawn.scene} ports={drawn.ports} bind:normal bind:at={() => cutAt ?? 0, (v) => (cutAt = v)} height={Math.max(110, viewHeight - 48)} />
             {:else if shape === "cut"}
               <div class="mb-1 text-xs faint">From above: drag the cut</div>
-              <TopView scene={drawn.scene} ports={drawn.ports} bind:normal bind:at={() => cutAt ?? 0, (v) => (cutAt = v)} height={Math.max(120, Math.round(0.36 * viewHeight))} />
+              <TopView scene={drawn.scene} ports={drawn.ports} bind:normal bind:at={() => cutAt ?? 0, (v) => (cutAt = v)} height={Math.max(80, Math.round(0.36 * viewHeight))} />
               <div class="mt-2 mb-1 text-xs faint">The cross-section at {normal} = <span class="num">{len(cutAt ?? 0, 3)} {unitText()}</span></div>
-              <CutView scene={drawn.scene} {normal} at={cutAt ?? 0} height={Math.max(160, Math.round(0.64 * viewHeight) - 64)} />
+              <CutView scene={drawn.scene} {normal} at={cutAt ?? 0} height={Math.max(100, Math.round(0.64 * viewHeight) - 64)} />
             {:else}
-              <SolvedView spec={draft.spec} compute={draft.compute} {normal} at={cutAt ?? 0} height={Math.max(220, viewHeight - 40)} />
+              <SolvedView spec={draft.spec} compute={draft.compute} {normal} at={cutAt ?? 0} height={Math.max(140, viewHeight - 40)} />
             {/if}
           </div>
         {:else if view?.problem}
@@ -447,13 +451,13 @@
       </div>
     </section>
 
-    <aside class="flex min-w-0 flex-col {stacked ? '' : 'min-h-0'}">
+    <aside class="flex min-h-0 min-w-0 flex-col">
       <div role="tablist" class="tabs tabs-border shrink-0 border-b border-base-content/8 px-3">
         {#each [["design", "Design"], ["overview", "Overview"], ["model", "Model"], ["simulate", "Simulate"]] as const as [t, label] (t)}
           <button role="tab" class="tab {draft.tab === t ? 'tab-active' : ''}" onclick={() => (draft.tab = t)}>{label}</button>
         {/each}
       </div>
-      <div class="p-4 {stacked ? '' : 'min-h-0 flex-1 overflow-y-auto'}">
+      <div class="min-h-0 flex-1 overflow-y-auto p-4">
         {#if draft.tab === "design"}
           <div class="space-y-4">
             <section class="panel p-4">

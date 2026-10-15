@@ -328,9 +328,13 @@
           The form can't hold <span class="font-medium num">{typed.beyond.join(", ")}</span>: the text is kept, and the run uses it as it is.
         </div>
       {/if}
-      <div class="h-[24rem]">
-        <TomlEditor value={text} onchange={edited} />
-      </div>
+      {#if text}
+        <div class="h-[24rem]">
+          <TomlEditor value={text} onchange={edited} />
+        </div>
+      {:else}
+        <p class="px-3 py-6 text-center text-xs faint">{problem ? "No job: the form's settings make none (above)." : "Making the job…"}</p>
+      {/if}
     </section>
   {/if}
 
@@ -352,9 +356,11 @@
       {#if going && run.device === null && !run.frames.length}
         <p class="mt-2 text-xs faint">The model is being built{size ? `: ${sci(size[2])} unknowns a solve` : ""}. It goes on in the background if you leave the page; Stop ends it, and what it recorded stays.</p>
       {/if}
-      <div class="mt-3 [&_.max-w-6xl]:max-w-none [&_.max-w-6xl]:p-0">
-        <RunPlots />
-      </div>
+      {#if run.device || run.sparams.length || run.frames.length || run.progress}
+        <div class="mt-3 [&_.max-w-6xl]:max-w-none [&_.max-w-6xl]:p-0">
+          <RunPlots />
+        </div>
+      {/if}
     </section>
   {/if}
 

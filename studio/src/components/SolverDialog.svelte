@@ -113,7 +113,7 @@
               <dt class="faint">source</dt>
               <dd class="text-xs">{d.source}</dd>
               <dt class="faint">time</dt>
-              <dd class="num">{d.seconds < 1 ? `${(d.seconds * 1000).toFixed(0)} ms` : `${d.seconds.toFixed(1)} s`} to build the model</dd>
+              <dd class="num">{d.seconds < 1e-3 ? "under a millisecond" : d.seconds < 1 ? `${(d.seconds * 1000).toFixed(0)} ms` : `${d.seconds.toFixed(1)} s`} to build the model</dd>
               {#if d.papers.length}
                 <dt class="faint">papers</dt>
                 <dd class="space-y-1 text-xs">{#each d.papers as p (p)}<p>{p}</p>{/each}</dd>

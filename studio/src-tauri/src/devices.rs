@@ -1294,17 +1294,24 @@ pub fn solved(spec: &SpecIn, compute: &ComputeIn, normal: &str, at: f64) -> Resu
     if !at.is_finite() {
         return Err(format!("the cut must be at a finite {normal}"));
     }
-    let cut = if normal == "x" {
-        picture(y, z, step, step_z, &|a, b| (Point::um(at, a), b))?
+    // a 2D model (by the effective index method) solves no cut: its plane is all it sees
+    let flat = compute.fdtd == Some(2) || (fdfd && !three);
+    let cut = if flat {
+        None
+    } else if normal == "x" {
+        Some(picture(y, z, step, step_z, &|a, b| (Point::um(at, a), b))?)
     } else {
-        picture(x, z, step, step_z, &|a, b| (Point::um(a, at), b))?
+        Some(picture(x, z, step, step_z, &|a, b| (Point::um(a, at), b))?)
     };
-    let coarser = top_view.as_ref().map_or(cut.1, |t| t.1.max(cut.1));
+    let coarser = [top_view.as_ref().map(|t| t.1), cut.as_ref().map(|c| c.1)]
+        .into_iter()
+        .flatten()
+        .fold(1.0, f64::max);
     Ok(Solved {
         top: top_view.map(|t| t.0),
-        cut: Some(cut.0),
+        cut: cut.map(|c| c.0),
         step_nm: step * 1e3,
-        step_z_nm: step_z * 1e3,
+        step_z_nm: if flat { step * 1e3 } else { step_z * 1e3 },
         coarser,
         note,
     })

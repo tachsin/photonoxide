@@ -94,15 +94,15 @@
   function cost(r: Rung): { text: string; detail: string; tone: "measured" | "estimate" | "none" } {
     if (r.fidelity === "analytic") {
       const s = here.analytic?.seconds;
-      return { text: s != null ? `${(s * 1000).toFixed(1)} ms here` : "a closed form: milliseconds", detail: "computed as the design changes", tone: "measured" };
+      return { text: s != null ? `${(s * 1000).toFixed(1)} ms, measured` : "a closed form: milliseconds", detail: "computed as the design changes", tone: "measured" };
     }
     // a run of this device at this rung, the latest
     const run = runs.find((x) => x.computes === r.key);
     const solved = !r.fdfd2d ? took[`${info.id} ${r.fidelity}`] : undefined;
     const result = here[r.key];
-    if (result?.seconds != null) return { text: `${duration(result.seconds)} here`, detail: `this design, ${result.how === "run" ? "a run" : "a solve on this page"} ${ago(result.at / 1000)}`, tone: "measured" };
-    if (solved !== undefined) return { text: `about ${duration(solved)} here`, detail: "the last solve on this page, of another design", tone: "measured" };
-    if (run?.seconds != null) return { text: `about ${duration(run.seconds)} here`, detail: `a run of this device, ${ago(run.started)} (${run.job})`, tone: "measured" };
+    if (result?.seconds != null) return { text: `${duration(result.seconds)}, measured`, detail: `this design, ${result.how === "run" ? "a run" : "a solve on this page"} ${ago(result.at / 1000)}`, tone: "measured" };
+    if (solved !== undefined) return { text: `about ${duration(solved)}, measured`, detail: "the last solve on this page, of another design", tone: "measured" };
+    if (run?.seconds != null) return { text: `about ${duration(run.seconds)}, measured`, detail: `a run of this device, ${ago(run.started)} (${run.job})`, tone: "measured" };
     const fam = family(r);
     const records = (bench.data?.machines.find((m) => m.here)?.records ?? []).filter((x) => x.family === fam && x.backend === "photonoxide" && x.seconds !== null && x.accurate);
     if (!records.length) return { text: "not measured here yet", detail: "compute it once, or time the benchmark problems (System → Benchmarks)", tone: "none" };
@@ -117,7 +117,7 @@
       const samples = 5;
       const t = near.seconds! * (n / near.unknowns) ** exponent * samples;
       return {
-        text: `about ${duration(t)} here, estimated`,
+        text: `about ${duration(t)}, estimated`,
         detail: `${sci(n)} unknowns a solve, ${samples} wavelengths; scaled as N^${exponent.toFixed(2)} from this machine's ${near.id} (${near.grid}: ${duration(near.seconds!)} for ${sci(near.unknowns)} unknowns on ${threads} threads)`,
         tone: "estimate",
       };
@@ -191,7 +191,7 @@
         {@const size = sizes[r.key]?.key === designKey ? sizes[r.key] : null}
         <li class="rounded-xl border p-4 {r.key === inUse ? 'border-primary/40 bg-primary/5' : 'border-base-content/8'}">
           <div class="flex flex-wrap items-start gap-3">
-            <div class="flex min-w-0 flex-1 flex-col gap-1">
+            <div class="flex min-w-[16rem] flex-1 flex-col gap-1">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="badge badge-sm {r.fidelity === 'analytic' ? 'badge-secondary' : 'badge-primary'} badge-soft">{r.key}</span>
                 {#if r.key === inUse}<span class="inline-flex items-center gap-1 text-xs text-primary"><CircleCheck size={13} /> in use, saved with the design</span>{/if}
@@ -282,7 +282,7 @@
       </p>
     {:else}
       <div class="mt-3 overflow-x-auto">
-        <table class="table table-sm">
+        <table class="table table-xs">
           <thead>
             <tr>
               <th>Figure</th>

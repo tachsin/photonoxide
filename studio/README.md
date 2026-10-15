@@ -111,23 +111,55 @@ from the status bar.
     waveguide, the two MMIs, the Y-branch and the MZIs of directional couplers and of Y-branches
     are the library's devices (`photonoxide::device`): components that know their geometry. Each
     opens on a page of its own, at its cheapest model (analytic; 2D for the rib and the MMIs,
-    whose slabs solve in a moment). One header holds its name and kind, the fidelity in use (a
-    badge that switches it: analytic, 2D or 3D as the device has them, each with its method and
-    stated error), a dot when the design has changed since it was saved, **Save** (Ctrl+S) and
-    **Place on the chip**. Two tabs below:
-    - **Overview:** its S-parameters, its figures (n_eff and n_g, the cross-over length, the free
-      spectral range, Q, a bend's loss), the model with its equation, papers (each DOI a click
-      away), stated error and where it holds, its ports with their modes, its symbol, **Open its
-      lesson** in the Academy, and the published results on it with their checks.
-    - **Design:** the stack, top to bottom: a preset (`soi_220`, `soi`, `nitride`, its oxide
-      chosen), or, after **Edit the layers**, layers of the catalogue's materials, each with its
-      thickness, material, background, model, and temperature and composition where the model
-      takes them; the core's thickness is the device's `thickness`. The geometry: each parameter
-      a field that takes a number in its unit or an expression (`w/2.5`, `450 nm`), with its
-      slider and range, what it uses and what uses it, and its error in place with a caret under
-      the column; named parameters can be added for the others to use. The views: from above,
-      with the ports named and the cut dragged along the device, the cross-section at the cut,
-      and 3D as its job draws it. And the figures, live.
+    whose slabs solve in a moment). Opening one folds the components' list away, leaving a
+    breadcrumb (Components › Waveguide) that opens it again, beside the page or, in a narrow
+    window, as a drawer; Ctrl+B does the same, and the list is left as it was last time. One
+    header holds the device's name and kind, the fidelity in use (a badge that switches it:
+    analytic, 2D or 3D as the device has them, each with its method and stated error), a dot
+    when the design has changed since it was saved, **Run**, **Save** (Ctrl+S) and **Place on
+    the chip**. Under it, the design's view is always on screen, its tabs in a panel beside it
+    (under it in a narrow window). The view shows the design in **3D** as its job draws it,
+    **Top** (from above, the ports named, the cut dragged along the device), **Cross-section**
+    (the cut, with the top view to drag it) or **As solved** (the permittivity on the cells the
+    chosen model solves on: an FDFD's or FDTD's plane, a mode solve's cross-section, with the
+    cells' size); every change redraws it at once. The tabs:
+    - **Design** (open first): the geometry, each parameter a field that takes a number in its
+      unit or an expression (`w/2.5`, `450 nm`), with its slider and range, what it uses and
+      what uses it, and its error in place with a caret under the column; named parameters can
+      be added for the others to use. The stack, top to bottom: a preset (`soi_220`, `soi`,
+      `nitride`, its oxide chosen), or, after **Edit the layers**, layers of the catalogue's
+      materials, each with its thickness, material, background, model, and temperature and
+      composition where the model takes them; the core's thickness is the device's
+      `thickness`. And the figures, live.
+    - **Overview:** its S-parameters with their model and grid, its figures (n_eff and n_g, the
+      cross-over length, the free spectral range, Q, a bend's loss), the model with its
+      equation, papers (each DOI a click away), stated error and where it holds, its ports with
+      their modes, **Open its lesson** in the Academy, its symbol, and the published results on
+      it with their checks.
+    - **Model:** the device's ladder of models, cheapest first (an MMI's 2D model by FDFD
+      beside its guided modes). Each with the method that computes it and its write-up
+      (`docs/methods`, opened in place), its papers, its stated error against the next model up
+      and where that holds (this design's values outside it in amber), and its cost on this
+      machine: measured here (a solve on the page, or a run of the device), or else estimated
+      from this machine's benchmark records of the same solver, scaled by the design's unknowns
+      (an FDFD's size is stated before anything runs). **Use this model** makes it the design's
+      fidelity, saved with it; **Compute** solves it in the background. For the models computed
+      on the design shown, its figures side by side and each one's difference from the model
+      below, green within the lower model's stated error and amber beyond it.
+    - **Simulate:** the design run as a job (`photonoxide::job::from_device`): by its own model at
+      a fidelity (a closed form, its cross-section's modes, 2D FDFD labelled 2D, 3D FDFD), or by
+      FDTD of its drawn structure in 2D or 3D; over a band, on the device's own grid or one set
+      here (an FDFD's size shown as it is set; a 3D one larger than the direct solver holds here
+      is refused before it runs, saying how large). **Run** (here or in the header) checks it,
+      records it in `runs/` and shows it in place: the view switches between the design and the
+      run on the device (an FDTD run's fields), its S-parameters, figures and an FDTD run's
+      player and spectra in the panel, the time it has taken and **Stop**. It goes on in the
+      background if the page is left. The past runs of this device are listed below, each
+      shown in place on a click (and from the runs drawer, Home and Ctrl+K). **As text** is the
+      job file, editable: an edit the form can hold (the band, the grid, a parameter's
+      expression) moves the form; one it can't (an FDTD's stopping rule, a solver table) is
+      named, and the text is kept and run as it is. **Save job** puts it in `jobs/`, where it
+      reopens on this tab and `photonoxide run` runs it.
     - **Every number names its model and grid.** At the analytic fidelity the figures and the
       S-parameters follow every change (60 ms after it). A 2D or 3D model is a solve: its button
       runs it in the background, with the time it took last, and the page can be left meanwhile;
@@ -139,7 +171,9 @@ from the status bar.
     - **Saved as a job:** a design saves as a job file with a `[device]` table in the
       workspace's `jobs/` (its stack, its parameters' expressions and its fidelity;
       docs/methods/devices.md), listed under **Your designs** at the top of the library and in
-      Ctrl+K, and reopens on its page. `photonoxide run` on one records its scene.
+      Ctrl+K, and reopens on its page. `photonoxide run` on one records its scene; on a job that
+      computes it (with a task, as **Simulate** saves it), its model or its FDTD run, live in the
+      run view, or headless with `--headless`.
 - **Chip:** components placed on a canvas and wired port to port.
   - Drag parts from the left onto the canvas (or click one for the middle). Everything snaps
     to a grid of 10. Drag the background to pan, scroll to zoom, F fits the chip in view.
