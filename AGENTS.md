@@ -8,7 +8,8 @@ farming); next is 0.6, thermal and electro-optic devices. The library's modules,
 `docs/methods/`:
 
 - `units`, `material` (with `material::catalogue`), `geometry` (the kernel: regions, transforms,
-  polygons, a spatial index), `expr` (expressions with units and parameters), `stack`, `raster`;
+  polygons, a spatial index), `expr` (expressions with units and parameters), `stack`, `raster`,
+  `averaging` (a grid cell's permittivity from the shapes' fill, for FDFD and the rasters);
 - `mode`: slabs, multilayers, planar profiles, full-vector and Hadley cross-sections, bends,
   the effective index method, Marcatili, dispersion and fields;
 - `fdfd`: 2D and 3D, ports and S-parameters, adjoint gradients, direct and QMR solves;

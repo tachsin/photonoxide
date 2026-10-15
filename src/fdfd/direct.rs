@@ -44,6 +44,14 @@ impl Plan {
         })
     }
 
+    /// The same backend with nothing analysed: for a matrix whose structure may differ.
+    pub(crate) fn fresh(self) -> Plan {
+        Plan {
+            analysis: None,
+            ..self
+        }
+    }
+
     /// The plan of a choice of backend for `problem`: for `auto`, the backend this machine's
     /// measurements say ([`crate::backend::auto::decide`]: photonoxide's own without any), with
     /// the reason; otherwise as [`Plan::new`].

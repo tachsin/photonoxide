@@ -107,8 +107,11 @@ as a boundary condition. Light needs open boundaries, so photonoxide adds the sa
 
 **Interfaces.** As in 2D, each component of E sees the permittivity averaged over its own cell
 of the dual grid. The average is harmonic along the component and arithmetic across it, from
-8 × 8 × 8 samples. That is exact for a layered medium, with the field along or across its
-layers.
+8 × 8 × 8 samples. That is the right average for a layered medium, with the field along or
+across its layers, placed by the samples to within a sixteenth of a cell (first order). Given a
+stack (`Solver3d::from_structure`), the cells can instead be averaged from the shapes' and
+layers' exact fill ([averaging from the fill](averaging.md)), second order for layers and walls
+along the axes.
 
 **Open boundaries** are stretched-coordinate PMLs (Chew and Weedon),
 $\partial_w \to s_w^{-1}\partial_w$, graded as in 2D (Shin and Fan, Eqs. 2.5–2.9):
@@ -888,5 +891,6 @@ not read) factorizes a slab of a few planes per layer: faer's sparse LU took 19 
   multigrid was measured with stretched PMLs only, and on silicon in vacuum and in oxide.
 - QMR without look-ahead: a breakdown of the Lanczos process restarts it, which costs the
   Krylov space built so far, rather than being stepped over.
-- A uniform grid along each axis, and interfaces averaged by sampling: exact for interfaces
-  along the axes, slower to converge for curved or slanted ones.
+- A uniform grid along each axis, and interfaces averaged by sampling by default; from the fill
+  as an option ([averaging](averaging.md)), with the tensor's diagonal only, so a wall slanted
+  in the plane stays first order.

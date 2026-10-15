@@ -39,7 +39,7 @@ export const CATEGORIES = [
     title: "Full-wave simulation",
     blurb: "Maxwell's equations on Yee's grid for a whole device: at one frequency as one sparse system, or stepped in time over a band.",
     groups: [
-      { title: "Frequency domain (FDFD)", slugs: ["fdfd", "fdfd-ports", "fdfd-3d"] },
+      { title: "Frequency domain (FDFD)", slugs: ["fdfd", "fdfd-ports", "fdfd-3d", "averaging"] },
       { title: "Time domain (FDTD)", slugs: ["fdtd"] },
     ],
   },
@@ -81,7 +81,8 @@ const MORE = { id: "more", title: "More", blurb: "Write-ups added since this pag
  * FDTD). The site test checks every slug.
  */
 export const ALGORITHMS = [
-  { name: "Adjoint variable method", does: "every parameter's gradient from one more solve", methods: ["fdfd-adjoint", "fdtd-adjoint", "circuit-adjoint"] },
+  { name: "Adjoint variable method", does: "every parameter's gradient from one more solve", methods: ["fdfd-adjoint", "fdtd-adjoint", "circuit-adjoint", "averaging"] },
+  { name: "Anisotropic averaging from fill fractions", does: "a cell's permittivity from its materials' exact shares and the interface's normal", methods: ["averaging"] },
   { name: "Arnoldi, shift and invert", does: "the eigenvalues nearest a shift", methods: ["eigen"] },
   { name: "Auxiliary differential equations", does: "Drude and Lorentz media stepped in time", methods: ["fdtd"] },
   { name: "Best-first nearest search", does: "the nearest of 10⁴ elements through a hierarchy of their boxes", methods: ["arrays"] },
@@ -107,7 +108,7 @@ export const ALGORITHMS = [
   { name: "Richardson extrapolation", does: "the grid's error removed from three grids", methods: ["vector"] },
   { name: "Stretched-coordinate PML", does: "absorbing layers in the frequency domain", methods: ["pml", "fdfd"] },
   { name: "Sub-network growth", does: "Filipsson's circuit solve, the reference", methods: ["circuits"] },
-  { name: "Subpixel smoothing", does: "interfaces between grid points, at second order", methods: ["fdtd"] },
+  { name: "Subpixel smoothing", does: "interfaces between grid points, at second order", methods: ["fdtd", "averaging"] },
   { name: "Total-field/scattered-field", does: "one-way sources of a mode or a plane wave", methods: ["fdfd-ports", "fdtd"] },
   { name: "Transfer matrices", does: "planar stacks' modes, reflection and transmission", methods: ["multilayer"] },
   { name: "Vector fitting", does: "a spectrum as a rational function of frequency", methods: ["compact"] },

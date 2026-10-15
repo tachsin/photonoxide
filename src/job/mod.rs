@@ -3113,6 +3113,9 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 }
 
 #[cfg(test)]
+mod averaging_tests;
+
+#[cfg(test)]
 mod etch_tests;
 
 #[cfg(test)]

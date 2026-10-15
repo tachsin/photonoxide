@@ -1,10 +1,14 @@
 //! Rasters: a structure's permittivity sampled on a rectangular grid, for pictures and checks.
 //!
-//! This is point sampling at the cell centres, for looking at a structure. Solvers get their
-//! own discretization, with subpixel smoothing (ROADMAP.md, 0.4).
+//! [`Structure::top_view`] and [`Structure::side_view`] sample at the cell centres, for looking at
+//! a structure. [`Structure::top_view_averaged`] and [`Structure::side_view_averaged`] take an
+//! [`Averaging`] instead: samples over each cell, or the fill-weighted mean of the materials in
+//! it ([`crate::averaging`]), which shows what a solver averaging from the fill sees. Solvers get
+//! their own discretization, with averaging or subpixel smoothing.
 
 use serde::{Deserialize, Serialize};
 
+use crate::averaging::Averaging;
 use crate::geometry::Point;
 use crate::stack::Structure;
 use crate::units::{Length, Wavelength};
@@ -163,6 +167,181 @@ impl Structure {
     }
 }
 
+/// How far either side of a side view's cut its cells reach, as a share of the step: the cut is
+/// a line, and its cells' fill is taken over this thin a strip about it.
+pub const CUT_STRIP: f64 = 1e-6;
+
+impl Structure {
+    /// [`Structure::top_view`] with each cell's value averaged by `averaging`:
+    /// [`Averaging::Point`] is `top_view`, to the bit; [`Averaging::Samples`] the mean of 8 × 8
+    /// samples over the cell; [`Averaging::Mean`] the fill-weighted mean of the materials in it
+    /// ([`crate::averaging`]), each shape's area in the cell exact for polygons and to a stated
+    /// tolerance for curves.
+    ///
+    /// # Errors
+    ///
+    /// As [`Structure::top_view`], and [`Error::InvalidValue`] for the diagonal or the tensor,
+    /// which are a field component's averages, not a picture's.
+    pub fn top_view_averaged(
+        &self,
+        layer: &str,
+        x: (Length, Length),
+        y: (Length, Length),
+        step: Length,
+        wavelength: Wavelength,
+        averaging: Averaging,
+    ) -> Result<Raster> {
+        if averaging == Averaging::Point {
+            return self.top_view(layer, x, y, step, wavelength);
+        }
+        let (_, bottom, top) = self
+            .stack()
+            .layer(layer)
+            .ok_or_else(|| Error::invalid("raster", format!("the stack has no layer {layer}")))?;
+        let z = ((bottom + top) / 2.0).to_um();
+        let xs = centres(x.0.to_um(), x.1.to_um(), step.to_um())?;
+        let ys = centres(y.0.to_um(), y.1.to_um(), step.to_um())?;
+        let (hx, hy) = (cell(&xs, x), cell(&ys, y));
+        let values = self.averaged_cells(&xs, &ys, wavelength, averaging, [0, 1], |a, b| {
+            (
+                [a - hx / 2.0, b - hy / 2.0, z],
+                [a + hx / 2.0, b + hy / 2.0, z],
+            )
+        })?;
+        Ok(Raster {
+            nx: xs.len(),
+            ny: ys.len(),
+            x0: x.0.to_um(),
+            x1: x.1.to_um(),
+            y0: y.0.to_um(),
+            y1: y.1.to_um(),
+            values,
+        })
+    }
+
+    /// [`Structure::side_view`] with each cell's value averaged by `averaging`, as
+    /// [`Structure::top_view_averaged`]; a cell's fill is taken over a strip [`CUT_STRIP`] of
+    /// the step wide either side of the cut.
+    ///
+    /// # Errors
+    ///
+    /// As [`Structure::side_view`] and [`Structure::top_view_averaged`].
+    pub fn side_view_averaged(
+        &self,
+        y: Length,
+        x: (Length, Length),
+        z: (Length, Length),
+        step: Length,
+        wavelength: Wavelength,
+        averaging: Averaging,
+    ) -> Result<Raster> {
+        if averaging == Averaging::Point {
+            return self.side_view(y, x, z, step, wavelength);
+        }
+        if !y.to_um().is_finite() {
+            return Err(Error::invalid(
+                "raster",
+                format!("the cut must be at a finite y, got {y}"),
+            ));
+        }
+        let xs = centres(x.0.to_um(), x.1.to_um(), step.to_um())?;
+        let zs = centres(z.0.to_um(), z.1.to_um(), step.to_um())?;
+        let (hx, hz) = (cell(&xs, x), cell(&zs, z));
+        let (yc, half) = (y.to_um(), CUT_STRIP * step.to_um());
+        let values = self.averaged_cells(&xs, &zs, wavelength, averaging, [0, 2], |a, b| {
+            (
+                [a - hx / 2.0, yc - half, b - hz / 2.0],
+                [a + hx / 2.0, yc + half, b + hz / 2.0],
+            )
+        })?;
+        Ok(Raster {
+            nx: xs.len(),
+            ny: zs.len(),
+            x0: x.0.to_um(),
+            x1: x.1.to_um(),
+            y0: z.0.to_um(),
+            y1: z.1.to_um(),
+            values,
+        })
+    }
+
+    /// The real permittivity of the cells about (a, b) for `a` in `along` and `b` in `across`,
+    /// row by row, each the box `cell(a, b)` gives, by samples or the fill's mean.
+    fn averaged_cells(
+        &self,
+        along: &[f64],
+        across: &[f64],
+        wavelength: Wavelength,
+        averaging: Averaging,
+        axes: [usize; 2],
+        cell: impl Fn(f64, f64) -> ([f64; 3], [f64; 3]),
+    ) -> Result<Vec<f32>> {
+        if !matches!(averaging, Averaging::Samples | Averaging::Mean) {
+            return Err(Error::invalid(
+                "raster",
+                format!(
+                    "a picture's cells take \"point\", \"samples\" or \"mean\", not \"{}\", a \
+                     field component's average",
+                    averaging.name()
+                ),
+            ));
+        }
+        let fills = crate::stack::fill::Fills::new(self);
+        let materials = fills.materials();
+        let eps: Vec<num_complex::Complex64> = materials
+            .iter()
+            .map(|m| m.permittivity(wavelength))
+            .collect::<Result<_>>()?;
+        let at = |p: [f64; 3]| {
+            let m = self.material_at(Point::um(p[0], p[1]), Length::um(p[2]));
+            let k = materials
+                .iter()
+                .position(|n| std::ptr::eq(*n, m))
+                .expect("every material of the structure is listed");
+            eps[k]
+        };
+        // the mean of 8 × 8 samples over the cell's two sides, along `axes`; across them, at
+        // the box's middle
+        let samples = |lo: [f64; 3], hi: [f64; 3]| {
+            let n = 8;
+            let mut sum = num_complex::Complex64::new(0.0, 0.0);
+            for s in 0..n {
+                for t in 0..n {
+                    let mut w = [0.5; 3];
+                    w[axes[0]] = (s as f64 + 0.5) / n as f64;
+                    w[axes[1]] = (t as f64 + 0.5) / n as f64;
+                    let p = [0, 1, 2].map(|k| lo[k] + w[k] * (hi[k] - lo[k]));
+                    sum += at(p);
+                }
+            }
+            sum / (n * n) as f64
+        };
+        let mut values = Vec::with_capacity(along.len() * across.len());
+        for &b in across {
+            for &a in along {
+                let (lo, hi) = cell(a, b);
+                let v = if averaging == Averaging::Samples {
+                    samples(lo, hi)
+                } else {
+                    let slices = fills.slices(lo, hi);
+                    crate::stack::fill::combine(&slices, &eps, 2, Averaging::Mean, |z, _| {
+                        let (mut l, mut h) = (lo, hi);
+                        (l[2], h[2]) = z;
+                        samples(l, h)
+                    })
+                };
+                values.push(v.re as f32);
+            }
+        }
+        Ok(values)
+    }
+}
+
+/// The width of the cells whose centres are `centres` over `range`.
+fn cell(centres: &[f64], range: (Length, Length)) -> f64 {
+    (range.1.to_um() - range.0.to_um()) / centres.len() as f64
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -227,6 +406,67 @@ mod tests {
             .filter(|&j| r.at(100, j) > 10.0)
             .count();
         assert_eq!(rows, 22);
+    }
+
+    #[test]
+    fn averaged_views_keep_aligned_edges_and_integrate_the_rest_exactly() {
+        let range = (Length::um(-1.0), Length::um(1.0));
+        let step = Length::nm(100.0);
+        // the 600 nm guide's edges are cell edges: the fill's mean is point sampling, to the bit
+        let s = waveguide();
+        let point = s.top_view("Si", range, range, step, lam()).unwrap();
+        let point_too = s
+            .top_view_averaged("Si", range, range, step, lam(), Averaging::Point)
+            .unwrap();
+        let mean = s
+            .top_view_averaged("Si", range, range, step, lam(), Averaging::Mean)
+            .unwrap();
+        assert_eq!(point, point_too);
+        assert_eq!(point, mean);
+        // a 555 nm guide: a column of the mean integrates ε across it exactly
+        let mut narrow = Structure::new(LayerStack::soi_220());
+        let wg = Shape::rect(Point::um(0.0, 0.0123), Length::um(4.0), Length::nm(555.0)).unwrap();
+        narrow.draw("Si", wg).unwrap();
+        let r = narrow
+            .top_view_averaged("Si", range, range, step, lam(), Averaging::Mean)
+            .unwrap();
+        let eps = |m: crate::material::Material| m.permittivity(lam()).unwrap().re;
+        let (si, ox) = (
+            eps(crate::material::silicon()),
+            eps(crate::material::silica()),
+        );
+        let column: f64 = (0..r.ny).map(|j| f64::from(r.at(10, j)) * 0.1).sum();
+        let exact = si * 0.555 + ox * (2.0 - 0.555);
+        // f32 values: about 1e-7 of each
+        assert!((column - exact).abs() < 1e-5, "{column} {exact}");
+        // the side view's cut through it: the layers' faces off the cells' edges, exact too
+        let side = narrow
+            .side_view_averaged(
+                Length::ZERO,
+                range,
+                (Length::um(1.95), Length::um(2.3)),
+                Length::nm(70.0),
+                lam(),
+                Averaging::Mean,
+            )
+            .unwrap();
+        let column: f64 = (0..side.ny).map(|j| f64::from(side.at(14, j)) * 0.07).sum();
+        let exact = si * 0.22 + ox * (0.35 - 0.22);
+        assert!((column - exact).abs() < 1e-5, "{column} {exact}");
+        // a picture has no field component
+        let e = s
+            .top_view_averaged("Si", range, range, step, lam(), Averaging::Diagonal)
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("diagonal"), "{e}");
+        // samples over the cell: 8 by 8, between the two
+        let sampled = narrow
+            .top_view_averaged("Si", range, range, step, lam(), Averaging::Samples)
+            .unwrap();
+        let column: f64 = (0..sampled.ny)
+            .map(|j| f64::from(sampled.at(10, j)) * 0.1)
+            .sum();
+        assert!((column - exact).abs() > 0.0);
     }
 
     #[test]

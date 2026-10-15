@@ -55,6 +55,10 @@ so is "plain": every query of it takes the path it always took, to the bit.
 
 - **Points** (`Structure::material_at`): FDTD in 3D, FDFD in 3D through its permittivity
   function, the pictures (`top_view`, `side_view`).
+- **Boxes' fill** (`Solver3d::from_structure`, `top_view_averaged`, `side_view_averaged` with
+  an averaging that reads the fill): a box cut into slices by the layers, each slice's shares
+  its shapes' fill of the box's face, cut again at a partial etch's floor; a slice under sloped
+  walls is sampled ([averaging from the fill](averaging.md)).
 - **A cross-section's cells** (`Structure::cut_cell`): a cell that a sloped wall crosses, within
   one layer, gets the share of it the layer's material fills and the wall's normal. The wall is
   taken as the plane through the point of its outline nearest the cell's centre, d − δ cot θ = 0,

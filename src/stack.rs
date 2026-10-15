@@ -771,6 +771,7 @@ impl Structure {
 }
 
 pub(crate) mod checks;
+pub(crate) mod fill;
 
 #[cfg(test)]
 mod tests {

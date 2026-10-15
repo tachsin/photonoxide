@@ -33,11 +33,15 @@
 //!
 //! **Interfaces:** each field component sees the permittivity averaged over its own cell of the
 //! grid, harmonically along the component and arithmetically across it, which is what a
-//! layered medium is for a field along or across its layers.
+//! layered medium is for a field along or across its layers; by default from samples, and given
+//! a [`crate::averaging::Plane`] ([`Solver2d::from_plane`]) or a stack
+//! ([`Solver3d::from_structure`]), optionally from the shapes' fill and the interface's normal
+//! ([`crate::averaging`]).
 
 use faer::sparse::Triplet;
 use num_complex::Complex64 as c64;
 
+use crate::averaging::Averaging;
 use crate::backend::Choice;
 use crate::units::Wavelength;
 use crate::{Error, Result};
@@ -254,6 +258,12 @@ pub struct Solver2d {
     lu: Direct,
     /// Given cell by cell ([`Solver2d::from_cells`]), so a cell's permittivity is a parameter.
     cellwise: bool,
+    /// How the cells were averaged: [`Averaging::Samples`] unless given a plane
+    /// ([`Solver2d::from_plane`]).
+    averaging: Averaging,
+    /// With [`Averaging::Tensor`] and H along z: the off-diagonal (ε̃⁻¹)_xy on the y-faces (at
+    /// E_x, `nx` × `(ny + 1)`) and on the x-faces (at E_y, `(nx + 1)` × `ny`); empty otherwise.
+    eta_xy: (Vec<c64>, Vec<c64>),
 }
 
 impl Solver2d {
@@ -341,7 +351,7 @@ impl Solver2d {
             wavelength,
             eps,
             self.boundaries,
-            self.lu.plan(),
+            self.plan_for_reuse(),
         )
     }
 
@@ -452,7 +462,7 @@ impl Solver2d {
             wavelength,
             eps,
             self.boundaries,
-            self.lu.plan(),
+            self.plan_for_reuse(),
         )
     }
 
@@ -508,9 +518,50 @@ impl Solver2d {
         polarization: Polarization,
         k0: f64,
         boundaries: Boundaries,
-        (eps_z, eps_y, eps_x): (Vec<c64>, Vec<c64>, Vec<c64>),
+        eps: (Vec<c64>, Vec<c64>, Vec<c64>),
         (symbolic, cellwise): (Plan, bool),
     ) -> Result<Solver2d> {
+        Self::finish_averaged(
+            grid,
+            polarization,
+            k0,
+            boundaries,
+            eps,
+            (symbolic, cellwise),
+            (Averaging::Samples, (Vec::new(), Vec::new())),
+        )
+    }
+
+    /// The analysis to hand a solver this one is reused for: none after the tensor's averaging,
+    /// whose matrix's sparsity follows the geometry.
+    fn plan_for_reuse(&self) -> Plan {
+        if self.eta_xy.0.is_empty() {
+            self.lu.plan()
+        } else {
+            self.lu.plan().fresh()
+        }
+    }
+
+    fn finish_averaged(
+        grid: Grid,
+        polarization: Polarization,
+        k0: f64,
+        boundaries: Boundaries,
+        (eps_z, eps_y, eps_x): (Vec<c64>, Vec<c64>, Vec<c64>),
+        (symbolic, cellwise): (Plan, bool),
+        (averaging, eta_xy): (Averaging, (Vec<c64>, Vec<c64>)),
+    ) -> Result<Solver2d> {
+        if eta_xy
+            .0
+            .iter()
+            .chain(&eta_xy.1)
+            .any(|e| !(e.re.is_finite() && e.im.is_finite()))
+        {
+            return Err(Error::invalid(
+                "fdfd permittivity",
+                "every value must be finite",
+            ));
+        }
         // a NaN would only surface as a field of NaNs, and with H along z the operator divides
         // by the faces' permittivity
         if eps_z
@@ -530,7 +581,10 @@ impl Solver2d {
                 "with H along z, the permittivity on a face between cells can't be 0",
             ));
         }
-        let entries = assemble(grid, polarization, k0, &eps_z, &eps_y, &eps_x, &boundaries);
+        let mut entries = assemble(grid, polarization, k0, &eps_z, &eps_y, &eps_x, &boundaries);
+        if !eta_xy.0.is_empty() {
+            entries = fill::with_mixed(entries, grid, k0, &eta_xy, &boundaries);
+        }
         let lu = factorize(&entries, grid.nx, grid.ny, symbolic)?;
         Ok(Solver2d {
             grid,
@@ -543,6 +597,8 @@ impl Solver2d {
             entries,
             lu,
             cellwise,
+            averaging,
+            eta_xy,
         })
     }
 }
@@ -875,6 +931,8 @@ impl Field2d {
 mod adjoint;
 pub(crate) mod checks;
 pub(crate) mod direct;
+mod fill;
+pub(crate) mod fill_checks;
 pub(crate) mod krylov;
 mod ports;
 #[cfg(test)]

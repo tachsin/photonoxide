@@ -15,6 +15,7 @@ use super::{
     CircleSpec, Event, PathSpec, RectSpec, RingSpec, check_cells, check_finite, check_materials,
     check_step, check_sweep, check_window, draw, draw_paths, named_stack, scene, task_error,
 };
+use crate::averaging::Averaging;
 use crate::fdfd::{Boundaries, Direction, Grid, Polarization, Port, Side, Solver2d};
 use crate::geometry::Point;
 use crate::mode::slab::Slab;
@@ -62,6 +63,9 @@ struct FdfdTask {
     step_nm: f64,
     /// PML cells on each side, inside the window: 20 by default.
     pml_cells: Option<usize>,
+    /// How the plane's cells are averaged ([`crate::averaging::Averaging`]): `"samples"` (the
+    /// default), `"point"`, `"mean"`, `"diagonal"` or `"tensor"`.
+    averaging: Option<String>,
     /// The field is recorded at the swept wavelength nearest this (µm): the first by default.
     field_um: Option<f64>,
     #[serde(default)]
@@ -266,29 +270,13 @@ pub(super) fn etched_plane(
         })?;
         let mut table = Vec::with_capacity(heights.len());
         for &h in &heights {
-            let index = if h <= 0.0 || h >= t {
-                let core = if h >= t { material } else { background };
-                if core <= below.max(above) {
-                    core
-                } else {
-                    Slab::new(below, core, above, Length::um(t))?
-                        .modes(kind, wavelength)
-                        .first()
-                        .map_or(core, crate::mode::slab::SlabMode::effective_index)
-                }
-            } else {
-                let ml = crate::mode::multilayer::Multilayer::new(
-                    c64::new(above, 0.0),
-                    &[
-                        (c64::new(background, 0.0), Length::um(t - h)),
-                        (c64::new(material, 0.0), Length::um(h)),
-                    ],
-                    c64::new(below, 0.0),
-                )?;
-                ml.bound_modes(kind, wavelength)?
-                    .first()
-                    .map_or(below.max(above).max(background), |m| m.effective_index().re)
-            };
+            let index = column_index(
+                (below, above),
+                (material, background),
+                (t, h),
+                kind,
+                wavelength,
+            )?;
             table.push(index * index);
         }
         tables[mask] = table;
@@ -317,6 +305,119 @@ pub(super) fn etched_plane(
         let w = ((h - h0) / (h1 - h0)).clamp(0.0, 1.0);
         table[j - 1] + w * (table[j] - table[j - 1])
     }))
+}
+
+/// The effective index of a column of a layer `t` µm thick whose material stands `h` µm high
+/// under its background, between `below` and `above` (indices): a three-layer slab where the
+/// layer is one material all through, a four-layer one ([`crate::mode::multilayer`]) between;
+/// a medium's own index where nothing guides.
+fn column_index(
+    (below, above): (f64, f64),
+    (material, background): (f64, f64),
+    (t, h): (f64, f64),
+    kind: crate::mode::Polarization,
+    wavelength: Wavelength,
+) -> Result<f64> {
+    Ok(if h <= 0.0 || h >= t {
+        let core = if h >= t { material } else { background };
+        if core <= below.max(above) {
+            core
+        } else {
+            Slab::new(below, core, above, Length::um(t))?
+                .modes(kind, wavelength)
+                .first()
+                .map_or(core, crate::mode::slab::SlabMode::effective_index)
+        }
+    } else {
+        let ml = crate::mode::multilayer::Multilayer::new(
+            c64::new(above, 0.0),
+            &[
+                (c64::new(background, 0.0), Length::um(t - h)),
+                (c64::new(material, 0.0), Length::um(h)),
+            ],
+            c64::new(below, 0.0),
+        )?;
+        ml.bound_modes(kind, wavelength)?
+            .first()
+            .map_or(below.max(above).max(background), |m| m.effective_index().re)
+    })
+}
+
+/// The plane of an `"fdfd"` job's layer `name` for averaging from the fill
+/// ([`crate::averaging`]): the effective index squared of the column outside every shape as
+/// the background, and of the column inside one on each shape. That takes two columns, so the
+/// other layers must have nothing drawn on them and the layer's walls must be vertical (a
+/// partial etch is fine: outside the shapes the layer stands at its highest floor).
+///
+/// # Errors
+///
+/// [`Error::Parse`] for shapes on another layer or a sloped wall; [`Error::OutsideValidity`]
+/// for a material without data at `wavelength`, and the slabs' errors.
+pub(super) fn fill_plane(
+    s: &Structure,
+    name: &str,
+    kind: crate::mode::Polarization,
+    wavelength: Wavelength,
+) -> Result<crate::averaging::Plane> {
+    let stack = s.stack();
+    let layers = stack.layers();
+    let k = layers
+        .iter()
+        .position(|l| l.name == name)
+        .ok_or_else(|| task_error(format!("the stack has no layer {name}")))?;
+    if let Some(other) = layers
+        .iter()
+        .find(|l| l.name != name && !s.shapes(&l.name).is_empty())
+    {
+        return Err(task_error(format!(
+            "averaging from the fill takes a 2D job's shapes on its own layer, {name}: {} has \
+             shapes too",
+            other.name
+        )));
+    }
+    if s.etches(name).iter().any(|e| e.run() > 0.0) {
+        return Err(task_error(format!(
+            "averaging from the fill needs {name}'s walls vertical: a sloped wall makes the \
+             column's index change across it (use averaging = \"samples\")"
+        )));
+    }
+    let n = |m: &crate::material::Material| -> Result<f64> {
+        Ok(refractive_index(m.permittivity(wavelength)?).re)
+    };
+    let below = n(if k == 0 {
+        stack.substrate()
+    } else {
+        &layers[k - 1].background
+    })?;
+    let above = n(if k + 1 == layers.len() {
+        stack.cladding()
+    } else {
+        &layers[k + 1].background
+    })?;
+    let (material, background) = (n(&layers[k].material)?, n(&layers[k].background)?);
+    let t = layers[k].thickness.to_um();
+    // outside the shapes the layer stands at its highest partial etch's floor, if any
+    let outside = s
+        .etches(name)
+        .iter()
+        .filter_map(|e| e.depth.map(|d| t - d.to_um()))
+        .fold(0.0f64, f64::max);
+    let column = |h: f64| -> Result<c64> {
+        let index = column_index(
+            (below, above),
+            (material, background),
+            (t, h),
+            kind,
+            wavelength,
+        )?;
+        Ok(c64::new(index * index, 0.0))
+    };
+    let inside = column(t)?;
+    let mut plane = crate::averaging::Plane::new(column(outside)?);
+    for shape in s.shapes(name) {
+        plane.draw(shape.clone(), inside);
+    }
+    Ok(plane)
 }
 
 /// The in-plane permittivity at `wavelength` on `grid`. A point's column is fixed by which
@@ -487,7 +588,17 @@ pub(super) fn check(job: &Job) -> Result<()> {
     if let Some(sw) = &task.sweep {
         wavelengths.extend([sw.from, sw.to]);
     }
-    check_materials(device.structure.stack(), &wavelengths)
+    check_materials(device.structure.stack(), &wavelengths)?;
+    // a structure the fill's plane can't be made of
+    if device.averaging != Averaging::Samples {
+        fill_plane(
+            &device.structure,
+            &task.layer,
+            device.kind,
+            Wavelength::um(task.wavelength_um)?,
+        )?;
+    }
+    Ok(())
 }
 
 /// An `"fdfd"` job's device, drawn and gridded, ready to solve at any wavelength.
@@ -506,6 +617,8 @@ struct Device {
     /// The wavelength the permittivity is taken at, if not each solve's own: an `"fdtd"` job's
     /// non-dispersive plane, to compare it with.
     frozen: Option<Wavelength>,
+    /// How the plane's cells are averaged: the task's `averaging`.
+    averaging: Averaging,
 }
 
 impl Device {
@@ -545,7 +658,12 @@ impl Device {
         // (the window and the step are validated above)
         let grid = grid_of(&task);
         let boundaries = Boundaries::pml(task.pml_cells.unwrap_or(20));
+        let averaging = match &task.averaging {
+            None => Averaging::Samples,
+            Some(name) => Averaging::parse(name).map_err(|e| task_error(e.to_string()))?,
+        };
         Ok(Device {
+            averaging,
             task,
             structure,
             layer: (bottom, top),
@@ -587,6 +705,40 @@ impl Device {
         wavelength: Wavelength,
         first: Option<&Solver2d>,
     ) -> Result<(Solver2d, Vec<Port>, Vec<Vec<c64>>)> {
+        let solver = if self.averaging == Averaging::Samples {
+            self.sampled(wavelength, first)?
+        } else {
+            let plane = fill_plane(
+                &self.structure,
+                &self.task.layer,
+                self.kind,
+                self.frozen.unwrap_or(wavelength),
+            )?;
+            match first {
+                None => Solver2d::from_plane_on(
+                    self.grid,
+                    self.polarization,
+                    wavelength,
+                    &plane,
+                    self.boundaries,
+                    self.averaging,
+                    &self.direct,
+                )?,
+                Some(first) => first.reuse_plane(wavelength, &plane)?,
+            }
+        };
+        let ports = self
+            .task
+            .port
+            .iter()
+            .map(|p| port(&solver, &self.boundaries, p))
+            .collect::<Result<Vec<Port>>>()?;
+        let s = solver.s_matrix(&ports)?;
+        Ok((solver, ports, s))
+    }
+
+    /// The problem at `wavelength` with the plane sampled, as it always was.
+    fn sampled(&self, wavelength: Wavelength, first: Option<&Solver2d>) -> Result<Solver2d> {
         let eps = plane(
             &self.structure,
             &self.grid,
@@ -606,14 +758,7 @@ impl Device {
             )?,
             Some(first) => first.reuse(wavelength, eps)?,
         };
-        let ports = self
-            .task
-            .port
-            .iter()
-            .map(|p| port(&solver, &self.boundaries, p))
-            .collect::<Result<Vec<Port>>>()?;
-        let s = solver.s_matrix(&ports)?;
-        Ok((solver, ports, s))
+        Ok(solver)
     }
 }
 
@@ -775,6 +920,22 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         "{} from port 1, 2D by the effective index method",
         device.field_name
     );
+    // averaging other than the default is recorded beside the grid, with the shapes' fill
+    // tolerance; a run with the default records what it always did
+    let averaging = (device.averaging != Averaging::Samples).then(|| {
+        [
+            "averaging".into(),
+            match device.averaging {
+                Averaging::Point => "point: the material at each component's point".to_owned(),
+                a => format!(
+                    "{}: from the shapes' fill of each component's cell (exact for polygons, \
+                     curved boundaries' polygons within {:e} of their size)",
+                    a.name(),
+                    crate::geometry::FILL_TOLERANCE
+                ),
+            },
+        ]
+    });
     // a sweep's points each record their field, on blocks of cells
     run.record(&Event::Solver {
         module: "fdfd".into(),
@@ -811,7 +972,10 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                     .into(),
             ],
             ["direct solver".into(), direct],
-        ],
+        ]
+        .into_iter()
+        .chain(averaging)
+        .collect(),
     })?;
     let pml_cells = task.pml_cells.unwrap_or(20);
     // the pictures show the window without its PMLs

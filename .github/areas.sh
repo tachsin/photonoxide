@@ -26,7 +26,9 @@
 # its kernel's rates are timed with bench's triad.
 #
 # A file in no area is shared and runs everything (the library's root, units, geometry, expr,
-# error, parallel, portable, stack (and src/stack/, its etches' validation cases) and raster;
+# error, parallel, portable, stack (and src/stack/, its etches' validation cases and its boxes' fill),
+# raster and averaging (src/averaging.rs and src/averaging/, its analytic cases, which FDFD and the
+# rasters read);
 # Cargo.toml and Cargo.lock; anything new). When in doubt, a file is shared. Files nothing builds or reads (the site, Markdown no test reads, the
 # other workflows) run nothing but the docs' links. The Python wheels (python-wheels.yml) and the
 # Libraries workflow's installs (libraries.yml) start by their own `paths`.
