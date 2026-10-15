@@ -133,7 +133,7 @@ jobs:
         run: |
           root="$(python -c 'import sys; print(sys.prefix)')"
           echo "sys.prefix=$root"
-          find "$root" -iname "*mkl_rt*" -o -iname "*cudss*" -o -iname "*cudart*" -o -iname "*cusparse*" 2>/dev/null | grep -v -E "\.(py|pyc|h|txt)$|dist-info" | head -40
+          find "$root" -iname "*mkl_rt*" -o -iname "*cudss*" -o -iname "*cudart*" -o -iname "*cusparse*" -o -iname "*scipy_openblas*" 2>/dev/null | grep -v -E "\.(py|pyc|h|txt)$|dist-info" | head -40 || true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: What photonoxide finds
@@ -268,23 +268,35 @@ jobs:
         run: PHOTONOXIDE_REQUIRE_BLAS=accelerate cargo test -p photonoxide-native --release --test blas
 
   armpl:
-    # Arm Performance Libraries, on Arm processors: Homebrew's cask on Apple silicon, winget on
-    # Windows on Arm; found, offered, and their dense kernels' tests run
+    # Arm Performance Libraries, on Arm processors: Homebrew's cask on Apple silicon, and on
+    # Windows on Arm the MSI winget's manifest names (the runner image has no winget), with its
+    # checksum; found, offered, and their dense kernels' tests run
     name: Arm PL ${{ matrix.manager }} (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: macos-latest, manager: brew, install: 'brew install --cask arm-performance-libraries' }
-          - { os: windows-11-arm, manager: winget, install: 'winget install --id Arm.ArmPerformanceLibraries --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity' }
+          - { os: macos-latest, manager: brew }
+          - { os: windows-11-arm, manager: msi }
     runs-on: ${{ matrix.os }}
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v7
-      - name: Install
-        run: time ${{ matrix.install }}
+      - name: Install (Homebrew)
+        if: matrix.manager == 'brew'
+        run: time brew install --cask arm-performance-libraries
+      - name: Install (Arm's MSI, as winget's Arm.ArmPerformanceLibraries 26.01 has it)
+        if: matrix.manager == 'msi'
+        shell: pwsh
+        run: |
+          $url = 'https://developer.arm.com/-/cdn-downloads/permalink/Arm-Performance-Libraries/Version_26.01/arm-performance-libraries_26.01_Windows.msi'
+          Invoke-WebRequest $url -OutFile armpl.msi
+          $hash = (Get-FileHash armpl.msi -Algorithm SHA256).Hash
+          if ($hash -ne '67B68177479103FD0799F0BEA7B893FC11DC67B332F26910BEBBB27E12527356') { Write-Error "checksum $hash"; exit 1 }
+          $p = Start-Process msiexec -ArgumentList '/i', 'armpl.msi', '/quiet', '/norestart', 'ACCEPT_EULA=1' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { exit $p.ExitCode }
       - name: Where it landed
         run: |
           for dir in /opt/arm "/c/Program Files/Arm Performance Libraries"; do
