@@ -183,14 +183,52 @@ pub(crate) fn cpml_error_with(thickness: usize, cpml: Cpml) -> f64 {
         / largest
 }
 
-/// A strip guide running into CPMLs at both ends (a core of ε = 6, 0.3 × 0.3 µm, in vacuum,
-/// 36 × 20 × 20 cells of 50 nm, CPMLs of 6 all round, Courant number 0.99), lit by a pulse at
-/// 1 c/µm from a dipole off its axes, so that no symmetry keeps a mode from being excited: the
-/// fields' energy, Σ(E² + H̃²), every 50 µm/c for `steps` steps, with the CPML's `damping`.
+/// What [`late_strip`] records.
+#[cfg_attr(not(test), allow(dead_code))] // the probes read by the tests
+pub(crate) struct LateStrip {
+    /// The fields' energy, Σ(E² + H̃²), every 50 µm/c.
+    pub(crate) energy: Vec<f64>,
+    /// E_y at every step in the guide, off its axes, halfway through the CPML at its far end,
+    /// where what grows is largest.
+    pub(crate) in_cpml: Vec<f64>,
+    /// E_y at every step in the guide, off its axes, 0.4 µm past the grid's middle, where a
+    /// monitor would be.
+    pub(crate) inside: Vec<f64>,
+    /// The time step, µm/c.
+    pub(crate) dt: f64,
+}
+
+/// The pulse [`late_strip`] is lit by in #251: at 1 c/µm, 0.25 c/µm wide.
+#[cfg_attr(not(test), allow(dead_code))] // read by the tests
+pub(crate) fn late_pulse() -> Waveform {
+    Waveform::pulse(Frequency::natural(1.0).unwrap(), 0.25).unwrap()
+}
+
+/// A differentiated Gaussian 0.03 µm/c wide: broad enough to light the grid's own waves, at a
+/// few cells a wavelength, far above round-off.
+pub(crate) fn late_broadband() -> Waveform {
+    Waveform::DifferentiatedGaussian {
+        width: 0.03,
+        delay: 0.18,
+    }
+}
+
+/// The strip of docs/methods/fdtd.md's "Late growth" (#251): a guide running into CPMLs at both
+/// ends, a core of ε = 6, 0.3 × 0.3 µm, in vacuum, the grid 1.8 × 1 × 1 µm in cells of `h` µm
+/// (50 nm divided by a whole number: 36 × 20 × 20 cells of 50 nm), CPMLs of `cells` all
+/// round with the parameters `cpml`, Courant number 0.99. A dipole off the guide's axes, so
+/// that no symmetry keeps a wave from being excited, drives E_y with `waveform`; the run takes
+/// `steps` steps.
 ///
-/// With none the energy falls and then grows again, by e^(0.064 t c/µm): the CPML amplifies a
-/// backward wave of the guide (see [`Cpml::damping`]).
-pub(crate) fn late_energy(damping: f64, steps: usize) -> Vec<f64> {
+/// On cells of 50 nm with CPMLs of 6 the energy falls and then grows again, by e^(0.066 t c/µm),
+/// at 3.0 c/µm; on cells of 25 nm with CPMLs as thick, of 12, it doesn't.
+pub(crate) fn late_strip(
+    h: f64,
+    cells: usize,
+    cpml: Cpml,
+    waveform: Waveform,
+    steps: usize,
+) -> LateStrip {
     let strip = |_: f64, y: f64, z: f64| {
         if y.abs() < 0.15 && z.abs() < 0.15 {
             6.0
@@ -198,21 +236,28 @@ pub(crate) fn late_energy(damping: f64, steps: usize) -> Vec<f64> {
             1.0
         }
     };
+    // cells of h per cell of 50 nm
+    let scale = (0.05 / h).round() as usize;
     let boundaries = Boundaries {
-        cpml: Cpml {
-            damping,
-            ..Cpml::default()
-        },
-        ..Boundaries::cpml(6)
+        cpml,
+        ..Boundaries::cpml(cells)
     };
-    let mut s = Simulation::new(grid([36, 20, 20], 0.05), strip, boundaries, 0.99).unwrap();
+    let n = [36 * scale, 20 * scale, 20 * scale];
+    let mut s = Simulation::new(grid(n, h), strip, boundaries, 0.99).unwrap();
+    // E_y at x = −0.4, y ≈ −0.075, z = 0.05 µm: (10, 8, 11) on cells of 50 nm
+    let j = (8.5 * scale as f64 - 0.5).round() as usize;
     s.add_source(Source {
         field: Field::E,
         component: Axis::Y,
-        at: (10, 8, 11),
-        waveform: Waveform::pulse(Frequency::natural(1.0).unwrap(), 0.25).unwrap(),
+        at: (10 * scale, j, 11 * scale),
+        waveform,
     })
     .unwrap();
+    let (j, k) = (n[1] / 2 + scale, n[2] / 2 + scale);
+    let in_cpml = s
+        .add_probe(Field::E, Axis::Y, (n[0] - cells / 2, j, k))
+        .unwrap();
+    let inside = s.add_probe(Field::E, Axis::Y, (26 * scale, j, k)).unwrap();
     let energy = |s: &Simulation| -> f64 {
         Axis::ALL
             .iter()
@@ -228,7 +273,12 @@ pub(crate) fn late_energy(damping: f64, steps: usize) -> Vec<f64> {
         s.run(block.min(steps - s.steps()));
         history.push(energy(&s));
     }
-    history
+    LateStrip {
+        energy: history,
+        in_cpml: s.probe(in_cpml).to_vec(),
+        inside: s.probe(inside).to_vec(),
+        dt: s.dt(),
+    }
 }
 
 /// The 3D field of a continuous current against FDFD's for the same current: the largest

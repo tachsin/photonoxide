@@ -479,97 +479,80 @@ fn a_plane_waves_e_is_its_waveform_to_second_order() {
 }
 
 #[test]
-fn a_cpmls_damping_is_a_loss_inside_it_alone_and_adds_to_a_conductivity() {
-    let g = grid([20, 12, 12], 0.05);
-    let damped = |damping: f64| Boundaries {
-        cpml: Cpml {
-            damping,
+fn alpha_costs_a_thin_cpml_reflection_as_measured() {
+    // the pulse of fdtd/cpml-thickness at 6 and 16 cells (docs/methods/fdtd.md, "Late
+    // growth"): α = 0.2/µm costs little, 1/µm doubles a thin CPML's reflection, 5/µm costs a
+    // factor of twenty at 6 cells and a thousand at 16
+    for (alpha, thin, thick) in [
+        (0.0, 1.416e-3, 6.132e-6),
+        (0.2, 1.504e-3, 6.151e-6),
+        (1.0, 2.532e-3, 9.047e-6),
+        (5.0, 3.126e-2, 9.589e-3),
+    ] {
+        let cpml = Cpml {
+            alpha,
             ..Cpml::default()
-        },
-        ..Boundaries::cpml(4)
-    };
-    let plain = Simulation::new(g, |_, _, _| 2.0, Boundaries::cpml(4), 0.9).unwrap();
-    let s = Simulation::new(g, |_, _, _| 2.0, damped(5.0), 0.9).unwrap();
-    // none outside the CPMLs; inside, the maximum at the outer face, as depth⁹ for order 3
-    let (inner, outer) = (-0.5 + 4.0 * 0.05, -0.5);
-    assert_eq!(s.damping_at([0.0, 0.0, 0.0]), 0.0);
-    assert_eq!(s.damping_at([inner, 0.0, 0.0]), 0.0);
-    assert!((s.damping_at([outer, 0.0, 0.0]) - 5.0).abs() < 1e-12);
-    let half = s.damping_at([outer + 0.1, 0.0, 0.0]);
-    assert!((half - 5.0 * 0.5f64.powi(9)).abs() < 1e-12, "{half}");
-    // the deepest CPML counts where two overlap
-    assert!((s.damping_at([outer + 0.1, 0.3, 0.0]) - 5.0).abs() < 1e-12);
-    assert_eq!(plain.damping_at([outer, 0.0, 0.0]), 0.0);
-    // E's coefficients: untouched outside, lossy inside
-    let at = |i: usize, j: usize, k: usize| i + g.nx * (j + g.ny * k);
-    // (one cell in: on the wall itself E is held at zero)
-    let (centre, deep) = (at(10, 6, 6), at(1, 6, 6));
-    let y = Axis::Y.index();
-    assert_eq!(s.ca[y][centre], 1.0);
-    assert_eq!(s.cb[y][centre], plain.cb[y][centre]);
-    assert!(s.ca[y][deep] < 1.0 && s.cb[y][deep] < plain.cb[y][deep]);
-    // a conductivity given afterwards adds to it: as one of their sum, to rounding
-    let both = s.with_conductivity(|_, _, _| 3.0).unwrap();
-    let conductive = Simulation::new(g, |_, _, _| 2.0, Boundaries::cpml(4), 0.9)
-        .unwrap()
-        .with_conductivity(|_, _, _| 3.0)
-        .unwrap();
-    assert_eq!(both.ca[y][centre], conductive.ca[y][centre]);
-    assert_eq!(both.cb[y][centre], conductive.cb[y][centre]);
-    let position = g.e_position(Axis::Y, (1, 6, 6));
-    let sum = 3.0 + both.damping_at(position);
-    let dt_over_eps = plain.cb[y][deep];
-    let half = sum * dt_over_eps / 2.0;
-    assert!((both.ca[y][deep] - (1.0 - half) / (1.0 + half)).abs() < 1e-15);
-    assert!((both.cb[y][deep] - dt_over_eps / (1.0 + half)).abs() < 1e-15 * dt_over_eps);
-    // and one that isn't a loss is refused, as is damping a medium that couples E's components
-    for bad in [-1.0, f64::NAN, f64::INFINITY] {
-        assert!(
-            Simulation::new(g, |_, _, _| 2.0, damped(bad), 0.9).is_err(),
-            "{bad}"
-        );
+        };
+        let (six, sixteen) = (cpml_error_with(6, cpml), cpml_error_with(16, cpml));
+        assert!((six / thin - 1.0).abs() < 0.01, "{alpha}: {six}");
+        assert!((sixteen / thick - 1.0).abs() < 0.01, "{alpha}: {sixteen}");
     }
 }
 
-#[test]
-fn a_damped_cpml_reflects_as_measured() {
-    // the pulse of fdtd/cpml-thickness: a thin CPML reflects less with the damping, a thick
-    // one a hundred times more (docs/methods/fdtd.md, "Late growth")
-    let damped = Cpml {
-        damping: 5.0,
-        ..Cpml::default()
-    };
-    let (thin, thin_damped) = (cpml_error(6), cpml_error_with(6, damped));
-    assert!((thin / 1.416e-3 - 1.0).abs() < 0.05, "{thin}");
-    assert!((thin_damped / 6.92e-4 - 1.0).abs() < 0.05, "{thin_damped}");
-    let thick_damped = cpml_error_with(16, damped);
-    assert!(
-        (thick_damped / 6.16e-4 - 1.0).abs() < 0.05,
-        "{thick_damped}"
-    );
+/// The least-squares slope of ln E against t over [from, to] µm/c, E sampled every 50 µm/c
+/// from 50 on.
+fn energy_rate(energy: &[f64], from: f64, to: f64) -> f64 {
+    let points: Vec<(f64, f64)> = energy
+        .iter()
+        .enumerate()
+        .map(|(n, e)| ((n + 1) as f64 * 50.0, e.ln()))
+        .filter(|&(t, _)| t >= from && t <= to)
+        .collect();
+    let m = points.len() as f64;
+    let (st, sy) = points
+        .iter()
+        .fold((0.0, 0.0), |(a, b), &(t, y)| (a + t, b + y));
+    let (stt, sty) = points
+        .iter()
+        .fold((0.0, 0.0), |(a, b), &(t, y)| (a + t * t, b + t * y));
+    (m * sty - st * sy) / (m * stt - st * st)
+}
+
+/// A probe's frequency over its last fifth, c/µm, from its zero crossings.
+fn late_frequency(values: &[f64], dt: f64) -> f64 {
+    let last = &values[values.len() * 4 / 5..];
+    let crossings = last
+        .windows(2)
+        .filter(|w| (w[0] < 0.0) != (w[1] < 0.0))
+        .count();
+    crossings as f64 / (2.0 * last.len() as f64 * dt)
 }
 
 #[test]
-#[ignore = "minutes: the strip's energy over 70 000 steps with and without the CPML's damping: cargo test --release -- --ignored a_guide_through --nocapture"]
-fn a_guide_through_a_cpml_grows_late_and_the_damping_stops_it() {
-    // each energy over the one 100 µm/c before it, at its largest: growth if above 1
-    let steepest = |history: &[f64]| {
-        history
-            .windows(3)
-            .map(|w| (w[2] / w[0]).ln() / 100.0)
-            .fold(f64::MIN, f64::max)
-    };
-    let free = late_energy(0.0, 70_000);
-    let rate = steepest(&free);
-    assert!((0.05..0.09).contains(&rate), "{rate}");
-    assert!(free[free.len() - 1] > 1e30 * free[0]);
-    let damped = late_energy(5.0, 70_000);
-    assert!(steepest(&damped) < 0.0, "{}", steepest(&damped));
-    assert!(damped[damped.len() - 1] < 1e-8 * damped[0]);
+#[ignore = "a minute and a half: the late growth on cells of 50 and 25 nm, cargo test --release -- --ignored the_late_growth --nocapture"]
+fn the_late_growth_is_the_grids() {
+    // 1500 µm/c on cells of 50 nm (CPMLs of 6, 0.3 µm) and 25 nm (CPMLs of 12, as thick)
+    let coarse = late_strip(0.05, 6, Cpml::default(), late_pulse(), 52_486);
+    let rate = energy_rate(&coarse.energy, 500.0, 1500.0);
+    let frequency = late_frequency(&coarse.inside, coarse.dt);
+    let [largest, inside] = [&coarse.in_cpml, &coarse.inside].map(|v| {
+        v[v.len() * 4 / 5..]
+            .iter()
+            .fold(0.0f64, |m, x| m.max(x.abs()))
+    });
     println!(
-        "undamped: {rate:.4} per um/c, {:.1e} of its first; damped: {:.4}, {:.1e}",
-        free[free.len() - 1] / free[0],
-        steepest(&damped),
-        damped[damped.len() - 1] / damped[0]
+        "50 nm: {rate:.4} per um/c at {frequency:.3} c/um ({:.3} in the CPML), {:.1} times \
+         larger in the CPML",
+        late_frequency(&coarse.in_cpml, coarse.dt),
+        largest / inside
     );
+    assert!((0.06..0.075).contains(&rate), "{rate}");
+    // 2.7 cells a wavelength in the core, the same in the CPML, and larger there
+    assert!((frequency - 3.0).abs() < 0.05, "{frequency}");
+    assert!((late_frequency(&coarse.in_cpml, coarse.dt) - frequency).abs() < 0.02);
+    assert!(largest > inside, "{largest} {inside}");
+    let fine = late_strip(0.025, 12, Cpml::default(), late_pulse(), 104_973);
+    let rate = energy_rate(&fine.energy, 500.0, 1500.0);
+    println!("25 nm: {rate:.4} per um/c");
+    assert!(rate < 0.0, "{rate}");
 }

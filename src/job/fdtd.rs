@@ -65,6 +65,55 @@ const RESONANCE_SAMPLES: usize = 4000;
 /// The modes solved on a port's plane, among which the job's polarization is picked.
 const PORT_MODES: usize = 4;
 
+/// How many times its level at the start of a rise the fields must reach, rising at every
+/// check, for a run to stop as growing ([`Growth`]).
+const GROWTH: f64 = 1e3;
+
+/// Watches a run's largest |field|² at its monitors' points, check by check after the pulse,
+/// for the fields growing again: a wave of the grid amplified in a CPML (docs/methods/fdtd.md,
+/// "Late growth"), which grows until the fields overflow, and which a finer grid removes.
+///
+/// Growing means rising at each of the last `needed` checks, to [`GROWTH`] times the level
+/// before the first of them. `needed` spans more than the pulse lasts, so light reaching a
+/// point late, or a resonator filling, doesn't count: what a pulse lights rises for no longer
+/// than the pulse. A passive run's fields otherwise only fall: two resonators trading their
+/// energy slowly could look like it at monitors in only one of them, which a monitor in the
+/// other prevents.
+#[derive(Clone, Debug)]
+struct Growth {
+    needed: usize,
+    /// The level before the current rise.
+    start: f64,
+    last: f64,
+    rises: usize,
+}
+
+impl Growth {
+    fn new(needed: usize) -> Growth {
+        Growth {
+            needed,
+            start: 0.0,
+            last: 0.0,
+            rises: 0,
+        }
+    }
+
+    /// Takes the level at a check: if the fields are growing, how many times the level before
+    /// the rise they have reached.
+    fn check(&mut self, level: f64) -> Option<f64> {
+        if self.last > 0.0 && level > self.last {
+            if self.rises == 0 {
+                self.start = self.last;
+            }
+            self.rises += 1;
+        } else {
+            self.rises = 0;
+        }
+        self.last = level;
+        (self.rises >= self.needed && level >= GROWTH * self.start).then(|| level / self.start)
+    }
+}
+
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 struct BoundarySpec {
@@ -2371,6 +2420,9 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let mut spectra_seconds = 0.0;
     let mut decayed = false;
     let mut last_decay = None;
+    // rising at more checks in a row than the pulse lasts
+    let mut growth = Growth::new(((pulse_end / check).ceil() as usize + 1).max(4));
+    let mut grew = None;
     // |field|² at a point now, both parts of a complex field
     let level = |s: &Simulation, r: usize| -> f64 {
         components
@@ -2398,23 +2450,26 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 block[k] = block[k].max(v);
             }
         }
-        if let Until::Decay { fraction, .. } = setup.until
-            && t >= block_end
-        {
+        if t >= block_end {
             // (a point the light has never reached holds nothing up)
             let worst = peaks
                 .iter()
                 .zip(&block)
                 .map(|(&p, &b)| if p > 0.0 { b / p } else { 0.0 })
                 .fold(0.0, f64::max);
-            last_decay = Some(worst);
-            if worst <= fraction && peaks.iter().any(|&p| p > 0.0) {
-                decayed = true;
+            if let Until::Decay { fraction, .. } = setup.until {
+                last_decay = Some(worst);
+                if worst <= fraction && peaks.iter().any(|&p| p > 0.0) {
+                    decayed = true;
+                }
             }
+            // the fields growing again: the run stops, and says so (the level not over the
+            // peaks, which growth would carry along)
+            grew = grew.or(growth.check(block.iter().copied().fold(0.0, f64::max)));
             block.iter_mut().for_each(|b| *b = 0.0);
             block_end += check;
         }
-        let done = decayed || t >= limit;
+        let done = decayed || grew.is_some() || t >= limit;
         let framed = t >= next_frame;
         // the frames on the run's time, the progress at least every PROGRESS_SECONDS of the
         // clock, and the spectra no more often than SPECTRA_SECONDS nor than ten times what
@@ -2607,6 +2662,21 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             error: d,
         })?;
     }
+    if let Some(factor) = grew {
+        run.record(&Event::SolveError {
+            point: None,
+            value: setup.task.wavelength_um,
+            measure: format!(
+                "the fields grew again, and the run stopped at {:.0} um/c: |field|^2 at the \
+                 monitors rose at {} checks in a row, to this many times its level before (a \
+                 wave of the grid amplified in a CPML, which a finer grid removes: \
+                 docs/methods/fdtd.md, \"Late growth\")",
+                sim.time(),
+                growth.needed
+            ),
+            error: factor,
+        })?;
+    }
     Ok(())
 }
 
@@ -2723,6 +2793,75 @@ mod tests {
         assert_eq!(base64(b"foo"), "Zm9v");
         assert_eq!(base64(b"foobar"), "Zm9vYmFy");
         assert_eq!(base64(&[0xff, 0x80, 0x7f]), "/4B/");
+    }
+
+    /// The first check at which `levels` are growing, and by what factor.
+    fn first_growth(needed: usize, levels: &[f64]) -> Option<(usize, f64)> {
+        let mut g = Growth::new(needed);
+        levels
+            .iter()
+            .enumerate()
+            .find_map(|(n, &l)| g.check(l).map(|f| (n, f)))
+    }
+
+    #[test]
+    fn growth_is_a_long_rise_by_a_thousand() {
+        // a decay, then a growth by 10^0.45 a check from 1e-19: the 4th rise is 63 times, the
+        // 7th 1413
+        let levels: Vec<f64> = (0..40)
+            .map(|n| {
+                if n < 20 {
+                    10f64.powi(-n)
+                } else {
+                    10f64.powf(-19.0 + 0.45 * f64::from(n - 19))
+                }
+            })
+            .collect();
+        let (n, factor) = first_growth(4, &levels).unwrap();
+        assert_eq!(n, 26);
+        assert!((factor / 10f64.powf(3.15) - 1.0).abs() < 1e-12, "{factor}");
+        // fields that never fell far, growing past their peak, too
+        let early = [1.0, 0.1, 1.0, 10.0, 100.0, 1000.0];
+        assert_eq!(first_growth(4, &early).map(|g| g.0), Some(5));
+        // a pulse returning to a point, rising for fewer checks than needed: no growth
+        let mut returning: Vec<f64> = (0..10).map(|n| 10f64.powi(-n)).collect();
+        returning.extend([1e-6, 1e-4, 1e-2, 1e-3, 1e-5]);
+        assert_eq!(first_growth(4, &returning), None);
+        // a slow rise by less than a thousand, and a ripple on a decay: none
+        let slow: Vec<f64> = (0..30).map(|n| 1e-9 * 1.2f64.powi(n)).collect();
+        assert!(slow[29] / slow[0] > 1e2 && first_growth(4, &slow).is_none());
+        let ripple: Vec<f64> = (0..40)
+            .map(|n| 10f64.powi(-n / 4) * (1.0 + 0.5 * f64::from(n % 2)))
+            .collect();
+        assert_eq!(first_growth(4, &ripple), None);
+        // light reaching a monitor from nothing: the first rise is from a level, not from 0
+        assert_eq!(first_growth(2, &[0.0, 1e-9, 1.0]), None);
+    }
+
+    #[test]
+    fn a_coarse_strips_late_growth_stops_a_run() {
+        // the strip of #251 on cells of 50 nm: |E_y|² in its guide 0.4 µm past the middle,
+        // where a monitor would be, at checks of ten periods of the 1 c/µm carrier after the
+        // pulse (18 µm/c long: 4 rises needed, as the job asks); 600 µm/c
+        use crate::fdtd::checks::{late_pulse, late_strip};
+        let strip = late_strip(0.05, 6, Cpml::default(), late_pulse(), 21_000);
+        let Waveform::Gaussian { width, delay, .. } = late_pulse() else {
+            unreachable!()
+        };
+        let (pulse_end, check) = (delay + 6.0 * width, 10.0);
+        let needed = ((pulse_end / check).ceil() as usize + 1).max(4);
+        assert_eq!(needed, 4);
+        let per = (check / strip.dt).round() as usize;
+        let first = (pulse_end / strip.dt).ceil() as usize;
+        let levels: Vec<f64> = strip.inside[first..]
+            .chunks(per)
+            .map(|c| c.iter().map(|v| v * v).fold(0.0, f64::max))
+            .collect();
+        let (n, factor) = first_growth(needed, &levels).expect("growth");
+        let at = pulse_end + (n + 1) as f64 * check;
+        eprintln!("growth seen at {at:.0} um/c, {factor:.1e} times");
+        // the energy turns at about 250 µm/c and grows by 600 every 100
+        assert!((250.0..500.0).contains(&at), "{at}");
     }
 
     /// A job's events, run headless into a scratch directory.

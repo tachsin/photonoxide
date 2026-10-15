@@ -943,9 +943,9 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "fdtd/cpml-late-growth",
-            title: r"FDTD over $10^5$ steps with a guide running into its CPMLs: a strip of $\varepsilon = 6$, $0.3 \times 0.3$ µm, in vacuum ($36 \times 20 \times 20$ cells of 50 nm, CPMLs of 6 cells with a damping of 5/µm, Courant number 0.99), a pulse at 1 c/µm from a dipole off its axes: the largest ratio of the fields' energy to its value 500 µm/c before, from 500 µm/c on",
+            title: r"FDTD over 1500 µm/c ($10^5$ steps) with a guide running into its CPMLs: a strip of $\varepsilon = 6$, $0.3 \times 0.3$ µm, in vacuum ($72 \times 40 \times 40$ cells of 25 nm, CPMLs of 12 cells, Courant number 0.99), lit from a dipole off its axes by a differentiated Gaussian 0.03 µm/c wide, which lights the grid's own waves: the largest ratio of the fields' energy to its value 500 µm/c before",
             tier: Tier::Analytic,
-            source: r"a passive system's energy only falls once its source has ended. Without the damping this strip's grows again as $e^{0.064 ct}$ after about 300 µm/c, by $10^{70}$ over these steps: a PML amplifies a wave whose phase and group velocities point opposite ways along it (P.-R. Loh, A. F. Oskooi, M. Ibanescu, M. Skorobogatiy, S. G. Johnson, Phys. Rev. E 79, 065601 (2009), doi:10.1103/PhysRevE.79.065601), and no $\sigma$, $\kappa$ or $\alpha$ removes it (docs/methods/fdtd.md, Late growth). `Cpml::damping`, an ordinary loss graded steeply inside the CPML, does",
+            source: r"a passive system's energy only falls once its source has ended. On cells of 50 nm (CPMLs of 6, as thick) this strip's grows as $e^{0.066 ct}$ (4.4e14 by this measure; lit by a pulse at 1 c/µm, it falls for 300 µm/c first), at 3.0 c/µm, 2.7 cells a wavelength in its core: a wave of the grid, which a PML amplifies if its phase and group velocities point opposite ways along it (P.-R. Loh, A. F. Oskooi, M. Ibanescu, M. Skorobogatiy, S. G. Johnson, Phys. Rev. E 79, 065601 (2009), doi:10.1103/PhysRevE.79.065601). On cells of 25 and 12.5 nm it decays (docs/methods/fdtd.md, Late growth); measured 0.62",
             run: fdtd_cpml_late_growth,
         },
         Case {
@@ -2126,17 +2126,26 @@ fn fdtd_cpml_thickness() -> Outcome {
 }
 
 fn fdtd_cpml_late_growth() -> Outcome {
-    let history = crate::fdtd::checks::late_energy(5.0, 100_000);
+    use crate::fdtd::{Cpml, checks};
+    // 1500 µm/c
+    let strip = checks::late_strip(
+        0.025,
+        12,
+        Cpml::default(),
+        checks::late_broadband(),
+        104_973,
+    );
     // blocks of 50 µm/c: each over the one ten before it
-    let measured = history
+    let measured = strip
+        .energy
         .windows(11)
         .map(|w| w[10] / w[0])
         .fold(0.0, f64::max);
     Outcome {
         measured,
         expected: 0.0,
-        // falling throughout: by nine orders, then a static remnant at 3.4e-10 of the first
-        // sample that creeps down with a ripple of 3 % (so not over 100 µm/c: over 500)
+        // falling throughout, the grid's waves at 7 c/µm and a static remnant slowly (on cells
+        // of 50 nm, 4.4e14)
         tolerance: 1.0,
         error: measured,
     }

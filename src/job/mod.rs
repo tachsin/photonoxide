@@ -322,7 +322,9 @@
 //!   axis, with Bloch wavenumbers (complex fields, driven by dipoles only); a 2D job is
 //!   uniform along z. The run stops when |field|² at the monitors' middles has stayed below
 //!   `fraction` (1e-8) of its peak over ten carrier periods, or at `limit_um` (2000), or at
-//!   `time_um` with `until = "time"`, or at the job's timeout.
+//!   `time_um` with `until = "time"`, or at the job's timeout. It also stops when the fields
+//!   grow again, a wave of too coarse a grid amplified in a CPML, and records a solve error
+//!   that says so (docs/methods/fdtd.md, "Late growth").
 //!
 //! ```toml
 //! name = "mmi-fdtd"
