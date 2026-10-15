@@ -595,7 +595,7 @@ pub(crate) fn symmetry_errors() -> usize {
     wrong
 }
 
-/// Wang et al. 2011's uniform gratings drawn (w = 500 nm, Λ = 310 nm, 50 % duty, 620 µm, the
+/// Wang et al. 2010's uniform gratings drawn (w = 500 nm, Λ = 310 nm, 50 % duty, 620 µm, the
 /// designed corrugations of 10 to 30 nm on each side, recessed), and their sampled ones (bursts
 /// of Z₁ = 20 periods, 6.2 µm, every Z₀ = 62 µm, ten of them, at 20 and 40 nm): every tooth's
 /// place and size, the length, the guide's 500 nm and 500 − 2Δw by inside tests, the area
@@ -1000,7 +1000,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "generator/wang-bragg",
             title: r"Wang et al.'s Bragg gratings drawn: SOI strips 500 nm wide with sidewall corrugations recessed $\Delta w$ = 10, 15, 20, 25 and 30 nm on each side, period 310 nm, 50 % duty, 620 µm long (2000 periods), and sampled ones ($\Delta w$ = 20 and 40 nm) with bursts of 20 periods every 62 µm; every tooth's place and size, the length, the guide's 500 nm and $500 - 2\Delta w$ nm by inside tests, the area $L(w - \Delta w)$, and the bursts' $Z_1$ = 6.2 µm, $Z_0$ = 62 µm, their ten and $Z_0/Z_1$ = 10 (largest difference shown, µm); geometry only",
             tier: Tier::Published,
-            source: r"X. Wang, W. Shi, R. Vafaei, N. A. F. Jaeger, L. Chrostowski, IEEE Photon. Technol. Lett. 23, 290 (2011), doi:10.1109/LPT.2010.2103305, Section II, Fig. 1 and Fig. 5: $w$ = 500 nm, $\Lambda$ = 310 nm, duty 50 %, $L$ = 620 µm, corrugations on both sidewalls; Section III: $Z_1$ = 6.2 µm (20 periods), $Z_0$ = 62 µm, ten sampling periods, $N_{3\text{dB}} \approx Z_0/Z_1$ (Eq. 4); measured 1.1e-13",
+            source: r"X. Wang, W. Shi, R. Vafaei, N. A. F. Jaeger, L. Chrostowski, IEEE Photon. Technol. Lett. 23, 290 (published online 30 December 2010; the 2011 volume), doi:10.1109/LPT.2010.2103305, Section II, Fig. 1 and Fig. 5: $w$ = 500 nm, $\Lambda$ = 310 nm, duty 50 %, $L$ = 620 µm, corrugations on both sidewalls; Section III: $Z_1$ = 6.2 µm (20 periods), $Z_0$ = 62 µm, ten sampling periods, $N_{3\text{dB}} \approx Z_0/Z_1$ (Eq. 4); measured 1.1e-13",
             run: || error(wang_error(), 1e-9),
         },
     ]

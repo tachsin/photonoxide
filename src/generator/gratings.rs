@@ -20,7 +20,7 @@ fn at_x(e: &Expr, p: &Parameters, x: f64, kind: &str, what: &str) -> Result<f64>
 /// narrow width, and on each side a tooth spanning `duty` of every period, in its middle (so
 /// the grating ends on its core at both ends, and is its own mirror image about L/2).
 ///
-/// Recessed (as Wang et al. 2011 drew theirs): the teeth reach the full `width` w, and the guide
+/// Recessed (as Wang et al. 2010 drew theirs): the teeth reach the full `width` w, and the guide
 /// between them is w − 2Δw, Δw the `corrugation` on each side. Centred: the guide alternates
 /// between w + Δw and w − Δw about its width. Apodized: the teeth's height is Δw(x), an
 /// expression of the tooth's centre x (from the grating's start), the core still w − 2Δw

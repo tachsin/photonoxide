@@ -120,7 +120,7 @@ the teeth are the top layer, fully etched, over a slab of the grating's extent.
 lattice of holes, an exact boolean. Akahane et al.'s L3 is three holes out of a row with the end
 ones moved out by 0.15a.
 
-### Wang et al. 2011's gratings
+### Wang et al. 2010's gratings
 
 `generator/wang-bragg` draws the gratings of Wang et al. (doi:10.1109/LPT.2010.2103305) from what
 they state: strips 500 nm wide (Fig. 1), corrugations recessed into both sidewalls by the designed
@@ -201,7 +201,7 @@ the ports there are, and a port facing the wrong way for the plane it would need
 | `generator/convergence` | a ring, a half ring, an Euler bend, a cosine S-bend, an exponential taper and an L3 slab as polygons from 1 to 0.001 nm | order 2.00 | 2 ± 0.15 |
 | `generator/job-expressions` | 24 components in a job, every parameter an expression, against the generators with numbers | 0 bits | 0 |
 | `generator/job-ports` | a 2D FDFD job's S-parameters with its ports by name against the same job written out, 50 nm grid | 0 bits | 0 |
-| `generator/wang-bragg` (published) | Wang et al. 2011's uniform and sampled gratings drawn: teeth, length, widths, area, bursts | 1.1e-13 µm | 1e-9 |
+| `generator/wang-bragg` (published) | Wang et al. 2010's uniform and sampled gratings drawn: teeth, length, widths, area, bursts | 1.1e-13 µm | 1e-9 |
 
 The gaps are exact because each gap is built into the definition (the ring's centre at
 w + gap + R above the bus) and measured by the exact signed distance of a circle, a sector or a
