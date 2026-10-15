@@ -17,18 +17,31 @@
 //! region, f(x, y) ≤ 0. Each keeps its definition, tests points against it, and traces its
 //! boundary for distances, areas, polygons and fills. A [`Mask`] is a grid of fill values, a
 //! density for fills and areas and its binarisation at ½ for the rest.
+//!
+//! Shapes combine: a [`Boolean`] (union, intersection, difference or xor, [`Operation`]) of any
+//! two, an [`Offset`] grown or shrunk with round, miter or square [`Join`]s, and a [`Rounded`]
+//! shape with its corners rounded, each a shape again. Their inside tests are their operands'
+//! combined exactly, their distances composed by min and max where that is exact and from their
+//! polygons elsewhere; [`Polygons::boolean`], [`Polygons::offset`] and [`Polygons::rounded`] do
+//! the same on polygons, on a grid. See docs/methods/booleans.md.
 
 use std::f64::consts::TAU;
 
 use crate::units::Length;
 use crate::{Error, Result};
 
+pub(crate) mod boolean_checks;
+#[cfg(test)]
+mod boolean_tests;
 mod boundary;
 pub(crate) mod checks;
+mod clip;
+mod compose;
 pub(crate) mod curve_checks;
 #[cfg(test)]
 mod curve_tests;
 mod curves;
+mod flat;
 mod fresnel;
 mod implicit;
 mod index;
@@ -45,6 +58,8 @@ mod region_tests;
 mod trace;
 mod transform;
 
+pub use clip::{Join, Operation};
+pub use compose::{Boolean, Offset, Rounded};
 pub use curves::{Between, ClosedCurve, Polar};
 pub use implicit::{IMPLICIT_CELLS, Implicit};
 pub use index::Index;
@@ -320,6 +335,12 @@ pub enum Shape {
     Implicit(Implicit),
     /// A mask: fill values from 0 to 1 on a grid of pixels.
     Mask(Mask),
+    /// A boolean of two shapes: their union, intersection, difference or xor.
+    Boolean(Boolean),
+    /// A shape grown or shrunk, its corners joined round, mitred or square.
+    Offset(Offset),
+    /// A shape with its convex and concave corners rounded.
+    Rounded(Rounded),
 }
 
 impl Shape {
@@ -405,6 +426,9 @@ impl Shape {
             Shape::ClosedCurve(s) => Some(s),
             Shape::Implicit(s) => Some(s),
             Shape::Mask(s) => Some(s),
+            Shape::Boolean(s) => Some(s),
+            Shape::Offset(s) => Some(s),
+            Shape::Rounded(s) => Some(s),
             Shape::Rect { .. } | Shape::Circle { .. } | Shape::Polygon(_) | Shape::Ring { .. } => {
                 None
             }

@@ -853,12 +853,58 @@ fn scene_shapes(s: &Structure) -> Vec<SceneShape> {
         .layers()
         .iter()
         .flat_map(|layer| {
-            s.shapes(&layer.name).iter().map(|shape| SceneShape {
-                layer: layer.name.clone(),
-                outline: outline(shape),
-            })
+            s.shapes(&layer.name)
+                .iter()
+                .flat_map(outlines)
+                .map(|outline| SceneShape {
+                    layer: layer.name.clone(),
+                    outline,
+                })
         })
         .collect()
+}
+
+/// A shape's outlines: one ([`outline`]), or for a boolean, offset or rounding (which may fall
+/// apart into several polygons) one for each of its polygons within 1 nm, holes joined as a
+/// ring's are.
+fn outlines(shape: &Shape) -> Vec<Vec<[f64; 2]>> {
+    if !matches!(
+        shape,
+        Shape::Boolean(_) | Shape::Offset(_) | Shape::Rounded(_)
+    ) {
+        return vec![outline(shape)];
+    }
+    use crate::geometry::Region;
+    shape
+        .polygons(crate::geometry::Tolerance::default())
+        .contours
+        .iter()
+        .map(|c| joined(c, 0.0))
+        .collect()
+}
+
+/// A polygon with holes as one outline (see [`SceneShape::outline`]), each ring moved `d` µm out
+/// of the material, its corners mitred.
+fn joined(c: &crate::geometry::Contour, d: f64) -> Vec<[f64; 2]> {
+    let xy = |v: &Point| [v.x.to_um(), v.y.to_um()];
+    let ring = |r: &[Point]| {
+        let v: Vec<[f64; 2]> = r.iter().map(xy).collect();
+        if d == 0.0 { v } else { mitred(&v, d) }
+    };
+    let mut o = ring(&c.outer);
+    if !c.holes.is_empty()
+        && let Some(first) = o.first().copied()
+    {
+        o.push(first);
+    }
+    for hole in &c.holes {
+        let h = ring(hole);
+        o.extend(&h);
+        if let Some(first) = h.first() {
+            o.push(*first);
+        }
+    }
+    o
 }
 
 /// A band of an etched layer as a scene draws it: its name, its bottom and top (µm), whether a
@@ -907,7 +953,7 @@ fn bands(s: &Structure, name: &str, bottom: f64, top: f64) -> Vec<Band> {
                     .iter()
                     .zip(etches)
                     .filter(|(_, e)| middle <= floor(e))
-                    .map(|(shape, e)| grown(shape, middle * e.run()))
+                    .flat_map(|(shape, e)| grown_all(shape, middle * e.run()))
                     .collect()
             };
             Band {
@@ -921,6 +967,23 @@ fn bands(s: &Structure, name: &str, bottom: f64, top: f64) -> Vec<Band> {
                 outlines,
             }
         })
+        .collect()
+}
+
+/// A shape's outlines ([`outlines`]) grown by `d` µm, as [`grown`].
+fn grown_all(shape: &Shape, d: f64) -> Vec<Vec<[f64; 2]>> {
+    if !matches!(
+        shape,
+        Shape::Boolean(_) | Shape::Offset(_) | Shape::Rounded(_)
+    ) {
+        return vec![grown(shape, d)];
+    }
+    use crate::geometry::Region;
+    shape
+        .polygons(crate::geometry::Tolerance::default())
+        .contours
+        .iter()
+        .map(|c| joined(c, d))
         .collect()
 }
 
@@ -1036,10 +1099,15 @@ fn scene(
                 background: medium(&layer.background)?,
             });
             if etched {
-                shapes.extend(s.shapes(&layer.name).iter().map(|shape| SceneShape {
-                    layer: layer.name.clone(),
-                    outline: outline(shape),
-                }));
+                shapes.extend(
+                    s.shapes(&layer.name)
+                        .iter()
+                        .flat_map(outlines)
+                        .map(|outline| SceneShape {
+                            layer: layer.name.clone(),
+                            outline,
+                        }),
+                );
             }
         } else {
             for band in bands(s, &layer.name, bottom, top) {
@@ -1154,7 +1222,7 @@ struct PathSpec {
 /// S-bend, with what it needs, and the width at its end if it tapers.
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct SegmentSpec {
+pub(super) struct SegmentSpec {
     straight_um: Option<f64>,
     arc_rad: Option<f64>,
     euler_rad: Option<f64>,
@@ -1168,75 +1236,92 @@ struct SegmentSpec {
 impl PathSpec {
     /// The path, its errors naming the table and segment (`k` from 0).
     fn path(&self, k: usize) -> Result<crate::geometry::Path> {
-        use crate::geometry::{Path, Segment};
-        let at = |m: String| task_error(format!("[[task.path]] #{}: {m}", k + 1));
-        let mut b = Path::builder(
-            Point::um(self.start_um[0], self.start_um[1]),
+        path_of(
+            self.start_um,
             self.heading_rad,
-            Length::um(self.width_um),
-        );
-        for (j, s) in self.segments.iter().enumerate() {
-            let at = |m: &str| at(format!("segment {}: {m}", j + 1));
-            let kinds = [s.straight_um, s.arc_rad, s.euler_rad, s.sine_um]
-                .iter()
-                .filter(|v| v.is_some())
-                .count();
-            if kinds != 1 {
-                return Err(at(
-                    "needs exactly one of straight, arc, euler and sine (their lengths or angles)",
-                ));
-            }
-            let radius = || {
-                s.radius_um
-                    .map(Length::um)
-                    .ok_or_else(|| at("an arc or Euler bend needs its radius"))
-            };
-            let unused = |name: &str, used: bool| {
-                if used {
-                    Err(at(&format!("{name} isn't for this kind of segment")))
-                } else {
-                    Ok(())
-                }
-            };
-            let segment = if let Some(l) = s.straight_um {
-                unused("radius", s.radius_um.is_some())?;
-                unused("offset", s.offset_um.is_some())?;
-                unused("p", s.p.is_some())?;
-                Segment::Straight {
-                    length: Length::um(l),
-                }
-            } else if let Some(a) = s.arc_rad {
-                unused("offset", s.offset_um.is_some())?;
-                unused("p", s.p.is_some())?;
-                Segment::Arc {
-                    radius: radius()?,
-                    angle: a,
-                }
-            } else if let Some(a) = s.euler_rad {
-                unused("offset", s.offset_um.is_some())?;
-                Segment::Euler {
-                    radius: radius()?,
-                    angle: a,
-                    p: s.p.unwrap_or(1.0),
-                }
-            } else {
-                unused("radius", s.radius_um.is_some())?;
-                unused("p", s.p.is_some())?;
-                Segment::Sine {
-                    length: Length::um(s.sine_um.unwrap_or_default()),
-                    offset: Length::um(
-                        s.offset_um
-                            .ok_or_else(|| at("a sine S-bend needs its offset"))?,
-                    ),
-                }
-            };
-            b = b.segment(segment);
-            if let Some(w) = s.width_um {
-                b = b.taper(Length::um(w));
-            }
-        }
-        b.build().map_err(|e| at(e.to_string()))
+            self.width_um,
+            &self.segments,
+            &format!("[[task.path]] #{}", k + 1),
+        )
     }
+}
+
+/// A path from its start, heading, width and segments, its errors naming it as `what`.
+pub(super) fn path_of(
+    start_um: [f64; 2],
+    heading_rad: f64,
+    width_um: f64,
+    segments: &[SegmentSpec],
+    what: &str,
+) -> Result<crate::geometry::Path> {
+    use crate::geometry::{Path, Segment};
+    let at = |m: String| task_error(format!("{what}: {m}"));
+    let mut b = Path::builder(
+        Point::um(start_um[0], start_um[1]),
+        heading_rad,
+        Length::um(width_um),
+    );
+    for (j, s) in segments.iter().enumerate() {
+        let at = |m: &str| at(format!("segment {}: {m}", j + 1));
+        let kinds = [s.straight_um, s.arc_rad, s.euler_rad, s.sine_um]
+            .iter()
+            .filter(|v| v.is_some())
+            .count();
+        if kinds != 1 {
+            return Err(at(
+                "needs exactly one of straight, arc, euler and sine (their lengths or angles)",
+            ));
+        }
+        let radius = || {
+            s.radius_um
+                .map(Length::um)
+                .ok_or_else(|| at("an arc or Euler bend needs its radius"))
+        };
+        let unused = |name: &str, used: bool| {
+            if used {
+                Err(at(&format!("{name} isn't for this kind of segment")))
+            } else {
+                Ok(())
+            }
+        };
+        let segment = if let Some(l) = s.straight_um {
+            unused("radius", s.radius_um.is_some())?;
+            unused("offset", s.offset_um.is_some())?;
+            unused("p", s.p.is_some())?;
+            Segment::Straight {
+                length: Length::um(l),
+            }
+        } else if let Some(a) = s.arc_rad {
+            unused("offset", s.offset_um.is_some())?;
+            unused("p", s.p.is_some())?;
+            Segment::Arc {
+                radius: radius()?,
+                angle: a,
+            }
+        } else if let Some(a) = s.euler_rad {
+            unused("offset", s.offset_um.is_some())?;
+            Segment::Euler {
+                radius: radius()?,
+                angle: a,
+                p: s.p.unwrap_or(1.0),
+            }
+        } else {
+            unused("radius", s.radius_um.is_some())?;
+            unused("p", s.p.is_some())?;
+            Segment::Sine {
+                length: Length::um(s.sine_um.unwrap_or_default()),
+                offset: Length::um(
+                    s.offset_um
+                        .ok_or_else(|| at("a sine S-bend needs its offset"))?,
+                ),
+            }
+        };
+        b = b.segment(segment);
+        if let Some(w) = s.width_um {
+            b = b.taper(Length::um(w));
+        }
+    }
+    b.build().map_err(|e| at(e.to_string()))
 }
 
 #[derive(Deserialize)]

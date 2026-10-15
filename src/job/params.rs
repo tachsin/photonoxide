@@ -124,14 +124,72 @@ const SEGMENT: [(&str, usize, Want, &str); 8] = [
     ("p", 1, Want::Number, "p"),
 ];
 
-/// A `[[task.shape]]`'s fields that take places and sizes, as [`PATH`].
-const SHAPE: [(&str, usize, Want, &str); 5] = [
+/// A `[[task.shape]]`'s fields that take places and sizes, as [`PATH`]; a shape in another's
+/// `of` takes the same.
+const SHAPE: [(&str, usize, Want, &str); 13] = [
     ("center", 2, Want::Length, "center_um"),
     ("x", 2, Want::Length, "x_um"),
     ("y", 2, Want::Length, "y_um"),
     ("corner", 2, Want::Length, "corner_um"),
     ("pixel", 2, Want::Length, "pixel_um"),
+    ("size", 2, Want::Length, "size_um"),
+    ("width", 1, Want::Length, "width_um"),
+    ("start", 2, Want::Length, "start_um"),
+    ("heading", 1, Want::Angle, "heading_rad"),
+    ("distance", 1, Want::Length, "distance_um"),
+    ("convex", 1, Want::Length, "convex_um"),
+    ("concave", 1, Want::Length, "concave_um"),
+    ("radius_um", 1, Want::Micrometres, "radius_um"),
 ];
+
+/// A shape's places, sizes and segments resolved, `what` naming it in errors, and those of the
+/// shapes in its `of`, each named after it.
+fn resolve_shape(entry: &mut Table, p: &Parameters, what: &str) -> Result<()> {
+    let at = |field: &str, message: String| task_error(format!("{what}, {field}: {message}"));
+    resolve_fields(entry, &SHAPE, p, &at)?;
+    // a polygon's points, each [x, y]
+    if let Some(v) = entry.remove("points") {
+        if entry.contains_key("points_um") {
+            return Err(at("points", "give points or points_um, not both".into()));
+        }
+        let Value::Array(points) = v else {
+            return Err(at("points", "needs a list of [x, y]".into()));
+        };
+        let mut out = Vec::with_capacity(points.len());
+        for (j, q) in points.iter().enumerate() {
+            out.push(
+                numbers(q, 2, p, Want::Length)
+                    .map_err(|m| at("points", format!("point {}: {m}", j + 1)))?,
+            );
+        }
+        entry.insert("points_um".into(), Value::Array(out));
+    }
+    if let Some(Value::Array(segments)) = entry.get_mut("segments") {
+        for (j, segment) in segments.iter_mut().enumerate() {
+            let Value::Table(segment) = segment else {
+                continue;
+            };
+            let at = |field: &str, message: String| {
+                task_error(format!("{what}, segment {}, {field}: {message}", j + 1))
+            };
+            resolve_fields(segment, &SEGMENT, p, &at)?;
+        }
+    }
+    if let Some(Value::Array(of)) = entry.get_mut("of") {
+        for (j, shape) in of.iter_mut().enumerate() {
+            if let Value::Table(shape) = shape {
+                resolve_shape(shape, p, &format!("{what}, of {}", j + 1))?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// `text`, an expression of a length (or a bare zero) reading no coordinate, in µm at the
+/// parameters `p`.
+pub(super) fn length(text: &str, p: &Parameters) -> std::result::Result<f64, String> {
+    evaluate(&Value::String(text.to_owned()), p, Want::Length)
+}
 
 /// `value` (an expression's string, or a number) evaluated at the parameters, as `want` says.
 fn evaluate(value: &Value, p: &Parameters, want: Want) -> std::result::Result<f64, String> {
@@ -316,9 +374,7 @@ pub(super) fn resolve(task: &Table, set: Option<(&str, f64)>) -> Result<Table> {
                 continue;
             };
             let what = format!("[[task.shape]] #{}", k + 1);
-            let at =
-                |field: &str, message: String| task_error(format!("{what}, {field}: {message}"));
-            resolve_fields(entry, &SHAPE, &p, &at)?;
+            resolve_shape(entry, &p, &what)?;
             resolve_etch(entry, &p, &what)?;
             entry.insert("parameters".into(), Value::Array(definitions.clone()));
             entry.remove("set");

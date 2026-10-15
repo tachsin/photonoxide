@@ -1645,6 +1645,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::geometry::path_checks::cases());
     // and its shapes defined by functions and masks, with the published Y-junction
     cases.extend(crate::geometry::curve_checks::cases());
+    // and its booleans, offsets and corner rounding, with the Y-junction drawn as a union
+    cases.extend(crate::geometry::boolean_checks::cases());
     // and the contour solver's, every mode in a region
     cases.extend(crate::mode::region::checks::cases());
     // and the shift-and-invert solver's restarts, many modes, and every guided mode

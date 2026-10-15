@@ -469,3 +469,5 @@ release build; `cargo test --release --lib material_at_timing -- --ignored --noc
   drawn and rotated (`geometry/curves/mask`); transforms keeping each kind, areas and distances;
   the same bits on several threads; refusals; and Zhang et al.'s Y-junction
   (`geometry/curves/zhang-y-junction`).
+- Booleans, offsets and corner rounding: their own write-up, docs/methods/booleans.md, with
+  their checks (`geometry/booleans/*`).

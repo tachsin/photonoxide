@@ -326,6 +326,9 @@ impl Shape {
             Shape::ClosedCurve(s) => Shape::ClosedCurve(s.transformed(t)),
             Shape::Implicit(s) => Shape::Implicit(s.transformed(t)),
             Shape::Mask(s) => Shape::Mask(s.transformed(t)),
+            Shape::Boolean(s) => Shape::Boolean(s.transformed(t)),
+            Shape::Offset(s) => Shape::Offset(s.transformed(t)),
+            Shape::Rounded(s) => Shape::Rounded(s.transformed(t)),
         }
     }
 }
