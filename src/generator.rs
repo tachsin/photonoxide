@@ -19,7 +19,12 @@
 //!   [`Disk`];
 //! - splitters and couplers: [`DirectionalCoupler`] (straight, with S-bend arms if asked),
 //!   [`BentCoupler`], [`Mmi`] (N × M), [`YBranch`] (Bézier arms on a linear or custom stem),
-//!   [`Crossing`].
+//!   [`Crossing`];
+//! - gratings: [`BraggGrating`] (sidewall corrugations, uniform, apodized or sampled),
+//!   [`SwgWaveguide`] (a subwavelength grating), [`GratingCoupler`] (uniform or apodized);
+//! - photonic crystals: [`PhotonicCrystal`], a slab less a square or hexagonal hole lattice with
+//!   an L3 or H1 cavity or a W1 guide ([`Defect`]);
+//! - edge coupling: [`EdgeCoupler`], an inverse taper.
 //!
 //! Each component is drawn in its own frame, its first port at or left of the origin. Lengths
 //! are [`Length`]s; angles are degrees, as ports' directions are (and as the devices take them),
@@ -42,14 +47,20 @@ use crate::units::Length;
 use crate::{Error, Result};
 
 mod couplers;
+mod crystals;
+mod gratings;
 mod resonators;
 mod waveguides;
 
 pub(crate) mod checks;
 #[cfg(test)]
+mod grating_tests;
+#[cfg(test)]
 mod tests;
 
 pub use couplers::{BentCoupler, Crossing, DirectionalCoupler, Mmi, SelfImaging, YBranch};
+pub use crystals::{CrystalLattice, Defect, EdgeCoupler, PhotonicCrystal};
+pub use gratings::{BraggGrating, GratingCoupler, SwgWaveguide};
 pub use resonators::{Disk, Ring};
 pub use waveguides::{Bend, SBend, SBendKind, Spiral, Straight, Taper, TaperProfile};
 

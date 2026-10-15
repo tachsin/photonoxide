@@ -42,7 +42,16 @@
 //!   `taper_width?`, `taper_length?`, `input_positions?`, `output_positions?` (lists);
 //! - `y_branch`: `input_width`, `width`, `length`, `arm_length`, `separation`, `gap?`,
 //!   `arm_shape?`, `outline?` (w(x));
-//! - `crossing`: `width`, `arm`, `centre_width?`.
+//! - `crossing`: `width`, `arm`, `centre_width?`;
+//! - `bragg_grating`: `width`, `corrugation`, `period`, `periods`, `duty?` (a number, 0.5),
+//!   `centred?` (true or false), `apodization?` (Δw(x), a length), `sampling?` (`[burst,
+//!   every]` periods);
+//! - `swg_waveguide`: `width`, `period`, `duty`, `periods`, `width_end?`, `bridge?`;
+//! - `grating_coupler`: `width`, `grating_width`, `taper_length`, `period`, `periods`,
+//!   `etch_depth`, `fill?` (0.5) or `apodization?` (F(x)), `slab_layer?`;
+//! - `photonic_crystal`: `pitch`, `radius`, `half` (`[i, j]`), `lattice?` (`"hexagonal"`,
+//!   `"square"`), `defect?` (`"none"`, `"l3"`, `"h1"`, `"w1"`), `shift?` (an L3's);
+//! - `edge_coupler`: `tip_width`, `width`, `taper_length`, `straight?`, `profile?`.
 //!
 //! **Ports by name.** An `"fdfd"` job's `[[task.port]]` takes `port = "ring.in"` in place of its
 //! `x_um` and `side`: its column at the port, its side the one light comes in from (a port must
@@ -59,8 +68,9 @@ use super::{EtchSpec, task_error};
 use crate::Result;
 use crate::expr::{Expr, Parameters};
 use crate::generator::{
-    Bend, BentCoupler, Crossing, DirectionalCoupler, Disk, Drawing, Generator, Mmi, Port, Ring,
-    SBend, SBendKind, Spiral, Straight, Taper, TaperProfile, YBranch, rotation,
+    Bend, BentCoupler, BraggGrating, Crossing, CrystalLattice, Defect, DirectionalCoupler, Disk,
+    Drawing, EdgeCoupler, Generator, GratingCoupler, Mmi, PhotonicCrystal, Port, Ring, SBend,
+    SBendKind, Spiral, Straight, SwgWaveguide, Taper, TaperProfile, YBranch, rotation,
 };
 use crate::geometry::{Point, Transform};
 use crate::stack::Structure;
@@ -69,7 +79,7 @@ use crate::validation::{Case, Outcome, Tier};
 
 /// The types and the fields each takes besides `type`, `name`, `layer`, `etch`, `origin`,
 /// `rotate`, `mirror` and `connect`.
-const TYPES: [(&str, &[&str]); 14] = [
+const TYPES: [(&str, &[&str]); 19] = [
     ("straight", &["width", "length"]),
     (
         "taper",
@@ -152,6 +162,45 @@ const TYPES: [(&str, &[&str]); 14] = [
         ],
     ),
     ("crossing", &["width", "arm", "centre_width"]),
+    (
+        "bragg_grating",
+        &[
+            "width",
+            "corrugation",
+            "period",
+            "duty",
+            "periods",
+            "centred",
+            "apodization",
+            "sampling",
+        ],
+    ),
+    (
+        "swg_waveguide",
+        &["width", "width_end", "period", "duty", "periods", "bridge"],
+    ),
+    (
+        "grating_coupler",
+        &[
+            "width",
+            "grating_width",
+            "taper_length",
+            "period",
+            "fill",
+            "periods",
+            "etch_depth",
+            "apodization",
+            "slab_layer",
+        ],
+    ),
+    (
+        "photonic_crystal",
+        &["lattice", "pitch", "radius", "half", "defect", "shift"],
+    ),
+    (
+        "edge_coupler",
+        &["tip_width", "width", "taper_length", "straight", "profile"],
+    ),
 ];
 
 /// The keys every component takes.
@@ -310,6 +359,46 @@ impl Fields<'_> {
             }
         })
     }
+
+    /// A taper's profile from `profile`, linear by default.
+    fn profile(&self) -> Result<TaperProfile> {
+        Ok(match self.word("profile")?.unwrap_or("linear") {
+            "linear" => TaperProfile::Linear,
+            "exponential" => TaperProfile::Exponential,
+            "parabolic" => TaperProfile::Parabolic,
+            other => {
+                return Err(self.err(
+                    "profile",
+                    format!(
+                        "unknown profile \"{other}\": linear, exponential or parabolic \
+                         (or give width, w(x), for one of your own)"
+                    ),
+                ));
+            }
+        })
+    }
+
+    /// Whether `field`, true or false, is true (false when left out).
+    fn flag(&self, field: &str) -> Result<bool> {
+        match self.table.get(field) {
+            None => Ok(false),
+            Some(Value::Boolean(b)) => Ok(*b),
+            Some(other) => Err(self.err(field, format!("must be true or false, got {other}"))),
+        }
+    }
+
+    /// Two whole numbers, `[a, b]`.
+    fn pair(&self, field: &str) -> Result<Option<[usize; 2]>> {
+        let Some(v) = self.table.get(field) else {
+            return Ok(None);
+        };
+        match v.as_array().map(Vec::as_slice) {
+            Some([Value::Integer(a), Value::Integer(b)]) if *a >= 0 && *b >= 0 => {
+                Ok(Some([*a as usize, *b as usize]))
+            }
+            _ => Err(self.err(field, format!("must be two whole numbers, [a, b], got {v}"))),
+        }
+    }
 }
 
 /// `rad` radians in degrees, a whole number of degrees when it is one to round-off (so that
@@ -339,27 +428,123 @@ fn generator_of(f: &Fields<'_>, kind: &str) -> Result<Box<dyn Generator>> {
                 }
                 Box::new(Taper::custom(e, p, len("length")?))
             }
-            None => {
-                let profile = match f.word("profile")?.unwrap_or("linear") {
-                    "linear" => TaperProfile::Linear,
-                    "exponential" => TaperProfile::Exponential,
-                    "parabolic" => TaperProfile::Parabolic,
-                    other => {
-                        return Err(f.err(
-                            "profile",
-                            format!(
-                                "unknown profile \"{other}\": linear, exponential or parabolic \
-                                 (or give width, w(x), for one of your own)"
-                            ),
-                        ));
-                    }
-                };
-                Box::new(
-                    Taper::new(len("width_in")?, len("width_out")?, len("length")?)
-                        .with_profile(profile),
-                )
-            }
+            None => Box::new(
+                Taper::new(len("width_in")?, len("width_out")?, len("length")?)
+                    .with_profile(f.profile()?),
+            ),
         },
+        "bragg_grating" => {
+            let mut g = BraggGrating::new(
+                len("width")?,
+                len("corrugation")?,
+                len("period")?,
+                f.count("periods", 1)?,
+            );
+            if let Some(d) = f.number("duty")? {
+                g.duty = d;
+            }
+            g.centred = f.flag("centred")?;
+            if let Some((e, p)) = f.of_x("apodization")? {
+                g = g.with_apodization(e, p);
+            }
+            if let Some([burst, every]) = f.pair("sampling")? {
+                g = g.sampled(burst, every);
+            }
+            Box::new(g)
+        }
+        "swg_waveguide" => {
+            let duty = f
+                .number("duty")?
+                .ok_or_else(|| f.err("duty", "is needed: a number from 0 to 1"))?;
+            let mut s =
+                SwgWaveguide::new(len("width")?, len("period")?, duty, f.count("periods", 1)?);
+            if let Some(w) = opt("width_end")? {
+                s.width_end = w;
+            }
+            if let Some(b) = opt("bridge")? {
+                s.bridge = b;
+            }
+            Box::new(s)
+        }
+        "grating_coupler" => {
+            let apodized = f.of_x("apodization")?;
+            if apodized.is_some() && f.table.contains_key("fill") {
+                return Err(f.err(
+                    "fill",
+                    "isn't for an apodized coupler: its apodization, F(x), gives it",
+                ));
+            }
+            let mut g = GratingCoupler::new(
+                len("width")?,
+                len("grating_width")?,
+                len("taper_length")?,
+                len("period")?,
+                f.number("fill")?.unwrap_or(0.5),
+                f.count("periods", 1)?,
+                len("etch_depth")?,
+            );
+            if let Some((e, p)) = apodized {
+                g = g.with_apodization(e, p);
+            }
+            if let Some(slab) = f.word("slab_layer")? {
+                g = g.with_slab_layer(slab);
+            }
+            Box::new(g)
+        }
+        "photonic_crystal" => {
+            let lattice = match f.word("lattice")?.unwrap_or("hexagonal") {
+                "hexagonal" => CrystalLattice::Hexagonal,
+                "square" => CrystalLattice::Square,
+                other => {
+                    return Err(f.err(
+                        "lattice",
+                        format!("unknown lattice \"{other}\": hexagonal or square"),
+                    ));
+                }
+            };
+            let defect = match f.word("defect")?.unwrap_or("none") {
+                "none" => Defect::None,
+                "h1" => Defect::H1,
+                "w1" => Defect::W1,
+                "l3" => Defect::L3 {
+                    shift: opt("shift")?.unwrap_or(Length::ZERO),
+                },
+                other => {
+                    return Err(f.err(
+                        "defect",
+                        format!("unknown defect \"{other}\": none, l3, h1 or w1"),
+                    ));
+                }
+            };
+            if (f.table.contains_key("shift") || f.table.contains_key("shift_um"))
+                && !matches!(defect, Defect::L3 { .. })
+            {
+                return Err(f.err("shift", "is for an l3 cavity's end holes"));
+            }
+            let [ni, nj] = f.pair("half")?.ok_or_else(|| {
+                f.err(
+                    "half",
+                    "is needed: [i, j], the sites either side of the centre",
+                )
+            })?;
+            Box::new(PhotonicCrystal {
+                lattice,
+                ..PhotonicCrystal::hexagonal(
+                    len("pitch")?,
+                    len("radius")?,
+                    [ni as i64, nj as i64],
+                    defect,
+                )
+            })
+        }
+        "edge_coupler" => {
+            let mut e = EdgeCoupler::new(len("tip_width")?, len("width")?, len("taper_length")?);
+            if let Some(l) = opt("straight")? {
+                e.straight = l;
+            }
+            e.profile = f.profile()?;
+            Box::new(e)
+        }
         "bend" | "euler_bend" => {
             let p = f
                 .number("p")?
@@ -949,7 +1134,7 @@ pub(crate) fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "generator/job-expressions",
-            title: r"Components in a job with every parameter an expression of the task's parameters (a ring, a racetrack, a disk, a directional coupler with arms, a bent coupler, a 2 × 2 MMI, a Y-branch, a crossing, three tapers, a bend, an Euler bend, four S-bends and a spiral, some placed by origin, rotate and mirror, one connected to another's port): their shapes and ports against the generators called with the numbers (differing in any bit shown)",
+            title: r"Components in a job with every parameter an expression of the task's parameters (a ring, a racetrack, a disk, a directional coupler with arms, a bent coupler, a 2 × 2 MMI, a Y-branch, a crossing, three tapers, a bend, an Euler bend, four S-bends, a spiral, an apodized Bragg grating, a tapered subwavelength grating on a bridge, an apodized grating coupler, a W1 photonic-crystal guide and an inverse taper, some placed by origin, rotate and mirror, one connected to another's port): their shapes and ports against the generators called with the numbers (differing in any bit shown)",
             tier: Tier::Analytic,
             source: r"the expressions' values; measured 0",
             run: || {
@@ -1170,6 +1355,58 @@ inner_radius = "r"
 turns = 3
 straight = "2 um"
 origin = ["0 um", "-60 um"]
+
+[[task.component]]
+type = "bragg_grating"
+name = "bragg"
+width = "w"
+corrugation = "g/10"
+period = "310 nm"
+periods = 40
+apodization = "g/10*exp(-((x - 6.2 um)/(3 um))^2)"
+origin = ["30 um", "-40 um"]
+
+[[task.component]]
+type = "swg_waveguide"
+name = "swg"
+width = "w"
+width_end = "0.8*w"
+period = "250 nm"
+duty = "0.6"
+periods = 20
+bridge = "w/5"
+origin = ["30 um", "-45 um"]
+
+[[task.component]]
+type = "grating_coupler"
+name = "gc"
+width = "w"
+grating_width = "10 um"
+taper_length = "15 um"
+period = "630 nm"
+apodization = "0.8 - 0.01*x/(1 um)"
+periods = 20
+etch_depth = "70 nm"
+origin = ["60 um", "-45 um"]
+
+[[task.component]]
+type = "photonic_crystal"
+name = "pc"
+pitch = "420 nm"
+radius = "120 nm"
+half = [7, 4]
+defect = "w1"
+origin = ["90 um", "-45 um"]
+
+[[task.component]]
+type = "edge_coupler"
+name = "edge"
+tip_width = "150 nm"
+width = "w"
+taper_length = "30 um"
+straight = "r"
+origin = ["-15 um", "-25 um"]
+rotate = "180 deg"
 "#;
 
 /// The drawings of [`EXPRESSIONS`]'s components, from the generators called with numbers.
@@ -1219,7 +1456,7 @@ fn expected() -> Vec<Drawing> {
         d(&Taper::new(um(w), um(4.0 * w), um(15.0))).transformed(&at(90.0, 0.0)),
         d(&Taper::new(um(w), um(4.0 * w), um(15.0)).with_profile(TaperProfile::Exponential))
             .transformed(&at(90.0, 5.0)),
-        d(&Taper::custom(custom, p, um(15.0))).transformed(&at(90.0, 10.0)),
+        d(&Taper::custom(custom, p.clone(), um(15.0))).transformed(&at(90.0, 10.0)),
         d(&Bend::arc(um(w), um(r), 3.0 * a)).transformed(&at(90.0, -10.0)),
         d(&Bend::euler(um(w), um(r), -3.0 * a, 0.5)).transformed(&at(90.0, -15.0)),
         d(&SBend::new(um(w), um(12.0), um(3.0), SBendKind::Cosine)).transformed(&at(100.0, 15.0)),
@@ -1237,6 +1474,39 @@ fn expected() -> Vec<Drawing> {
             ..Spiral::new(um(w), um(4.0 * w), um(r), 3)
         })
         .transformed(&at(0.0, -60.0)),
+        d(
+            &BraggGrating::new(um(w), um(g / 10.0), um(0.31), 40).with_apodization(
+                Expr::parse("g/10*exp(-((x - 6.2 um)/(3 um))^2)", p.scope()).expect("Δw(x)"),
+                p.clone(),
+            ),
+        )
+        .transformed(&at(30.0, -40.0)),
+        d(&SwgWaveguide {
+            width_end: um(0.8 * w),
+            bridge: um(w / 5.0),
+            ..SwgWaveguide::new(um(w), um(0.25), 0.6, 20)
+        })
+        .transformed(&at(30.0, -45.0)),
+        d(
+            &GratingCoupler::new(um(w), um(10.0), um(15.0), um(0.63), 0.5, 20, um(0.07))
+                .with_apodization(
+                    Expr::parse("0.8 - 0.01*x/(1 um)", p.scope()).expect("F(x)"),
+                    p.clone(),
+                ),
+        )
+        .transformed(&at(60.0, -45.0)),
+        d(&PhotonicCrystal::hexagonal(
+            um(0.42),
+            um(0.12),
+            [7, 4],
+            Defect::W1,
+        ))
+        .transformed(&at(90.0, -45.0)),
+        d(&EdgeCoupler {
+            straight: um(r),
+            ..EdgeCoupler::new(um(0.15), um(w), um(30.0))
+        })
+        .transformed(&rotation(180.0).then(&at(-15.0, -25.0))),
     ]
 }
 

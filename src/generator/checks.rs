@@ -195,6 +195,48 @@ pub(crate) fn examples() -> Vec<(Box<dyn Generator>, Vec<Want>)> {
                 (0.0, -3.0, 270.0, w),
             ],
         ),
+        (
+            Box::new(BraggGrating::new(um(w), um(0.02), um(0.31), 20)),
+            vec![(0.0, 0.0, 180.0, 0.46), (6.2, 0.0, 0.0, 0.46)],
+        ),
+        (
+            Box::new(SwgWaveguide {
+                width_end: um(0.4),
+                ..SwgWaveguide::new(um(w), um(0.25), 0.6, 12)
+            }),
+            vec![(0.0, 0.0, 180.0, w), (11.0 * 0.25 + 0.15, 0.0, 0.0, 0.4)],
+        ),
+        (
+            Box::new(GratingCoupler::new(
+                um(w),
+                um(10.0),
+                um(15.0),
+                um(0.63),
+                0.5,
+                20,
+                um(0.07),
+            )),
+            vec![(0.0, 0.0, 180.0, w)],
+        ),
+        (
+            Box::new(PhotonicCrystal::hexagonal(
+                um(0.42),
+                um(0.12),
+                [7, 4],
+                Defect::W1,
+            )),
+            vec![
+                (-7.0 * 0.42 - 0.21, 0.0, 180.0, 3f64.sqrt() * 0.42 - 0.24),
+                (7.0 * 0.42 + 0.42, 0.0, 0.0, 3f64.sqrt() * 0.42 - 0.24),
+            ],
+        ),
+        (
+            Box::new(EdgeCoupler {
+                straight: um(5.0),
+                ..EdgeCoupler::new(um(0.15), um(w), um(30.0))
+            }),
+            vec![(0.0, 0.0, 180.0, 0.15), (35.0, 0.0, 0.0, w)],
+        ),
     ]
 }
 
@@ -353,6 +395,54 @@ pub(crate) fn area_error() -> f64 {
     for i in crossing.items() {
         worst.set(worst.get().max(rel(i.shape.area(), a * (w + wc))));
     }
+    // a Bragg grating: its core L (w − 2Δw) and its teeth 2 N Δw d Λ, half of them
+    // apodized away
+    let (dw, a, n) = (0.02, 0.31, 40);
+    check(
+        &drawn(&BraggGrating::new(um(w), um(dw), um(a), n)),
+        n as f64 * a * (w - 2.0 * dw) + 2.0 * n as f64 * dw * 0.5 * a,
+    );
+    check(
+        &drawn(&BraggGrating::new(um(w), um(dw), um(a), n).sampled(5, 10)),
+        n as f64 * a * (w - 2.0 * dw) + 2.0 * (n / 2) as f64 * dw * 0.5 * a,
+    );
+    // a subwavelength grating: N (w₀ + w₁)/2 d Λ
+    check(
+        &drawn(&SwgWaveguide {
+            width_end: um(0.4),
+            ..SwgWaveguide::new(um(w), um(0.25), 0.6, 12)
+        }),
+        12.0 * (w + 0.4) / 2.0 * 0.6 * 0.25,
+    );
+    // a grating coupler: its taper and N teeth
+    check(
+        &drawn(&GratingCoupler::new(
+            um(w),
+            um(10.0),
+            um(15.0),
+            um(0.63),
+            0.5,
+            20,
+            um(0.07),
+        )),
+        (w + 10.0) / 2.0 * 15.0 + 20.0 * 10.0 * 0.5 * 0.63,
+    );
+    // a photonic crystal: its slab less N π r²
+    let crystal =
+        PhotonicCrystal::hexagonal(um(0.42), um(0.12), [7, 4], Defect::L3 { shift: um(0.063) });
+    let holes = 15.0 * 9.0 - 3.0;
+    check(
+        &drawn(&crystal),
+        (15.5 * 0.42) * (8.0 * 0.42 * 3f64.sqrt() / 2.0 + 0.42) - holes * PI * 0.12 * 0.12,
+    );
+    // an inverse taper: (w_tip + w) L_t/2 + w L_s
+    check(
+        &drawn(&EdgeCoupler {
+            straight: um(5.0),
+            ..EdgeCoupler::new(um(0.15), um(w), um(30.0))
+        }),
+        (0.15 + w) / 2.0 * 30.0 + w * 5.0,
+    );
     let (br, bt, bg) = (10.0, 30.0f64, 0.25);
     let bent = drawn(&BentCoupler::new(um(w), um(bg), um(br), bt));
     worst.set(
@@ -485,7 +575,106 @@ pub(crate) fn symmetry_errors() -> usize {
     check(&ring, &|q: Point| p(-q.x.to_um(), q.y.to_um()));
     let crossing = drawn(&Crossing::new(um(w), um(3.0)).with_centre_width(um(1.2)));
     check(&crossing, &|q: Point| p(-q.y.to_um(), q.x.to_um()));
+    let bragg = drawn(&BraggGrating::new(um(w), um(0.02), um(0.31), 30));
+    check(&bragg, &flip_y);
+    check(&bragg, &|q: Point| {
+        p(30.0 * 0.31 - q.x.to_um(), q.y.to_um())
+    });
+    let l3 = drawn(&PhotonicCrystal::hexagonal(
+        um(0.42),
+        um(0.12),
+        [7, 4],
+        Defect::L3 { shift: um(0.063) },
+    ));
+    check(&l3, &flip_y);
+    let h1 = drawn(&PhotonicCrystal {
+        lattice: CrystalLattice::Square,
+        ..PhotonicCrystal::hexagonal(um(0.4), um(0.1), [5, 5], Defect::H1)
+    });
+    check(&h1, &|q: Point| p(-q.y.to_um(), q.x.to_um()));
     wrong
+}
+
+/// Wang et al. 2011's uniform gratings drawn (w = 500 nm, Λ = 310 nm, 50 % duty, 620 µm, the
+/// designed corrugations of 10 to 30 nm on each side, recessed), and their sampled ones (bursts
+/// of Z₁ = 20 periods, 6.2 µm, every Z₀ = 62 µm, ten of them, at 20 and 40 nm): every tooth's
+/// place and size, the length, the guide's 500 nm and 500 − 2Δw by inside tests, the area
+/// L(w − Δw), and the bursts' Z₁, Z₀, count and Z₀/Z₁ (their Eq. 4's ten peaks). The largest
+/// difference, µm (or relative, the area); infinite for a count that is wrong.
+pub(crate) fn wang_error() -> f64 {
+    let (w, a, n) = (0.5, 0.31, 2000usize);
+    let mut worst = 0.0f64;
+    for dw in [0.010, 0.015, 0.020, 0.025, 0.030] {
+        let d = drawn(&BraggGrating::new(um(w), um(dw), um(a), n));
+        let Some(Shape::Array(teeth)) = d.items().get(1).map(|i| &i.shape) else {
+            return f64::INFINITY;
+        };
+        if teeth.len() != 2 * n {
+            return f64::INFINITY;
+        }
+        for e in teeth.elements() {
+            let b = e.shape.bounds();
+            let i = e.index[0] as f64;
+            let (x0, x1) = (b.min.x.to_um(), b.max.x.to_um());
+            let (y0, y1) = (b.min.y.to_um().abs(), b.max.y.to_um().abs());
+            let (inner, outer) = (y0.min(y1), y0.max(y1));
+            worst = worst
+                .max((x0 - (i + 0.25) * a).abs())
+                .max((x1 - (i + 0.75) * a).abs())
+                .max((inner - (w / 2.0 - dw)).abs())
+                .max((outer - w / 2.0).abs());
+        }
+        let length = d.port("o2").map_or(f64::INFINITY, |q| q.position.x.to_um());
+        worst = worst.max((length - 620.0).abs());
+        let area: f64 = d.items().iter().map(|i| i.shape.area()).sum();
+        worst = worst.max(rel(area, 620.0 * (w - dw)));
+        // a tooth reaches w/2, the guide between them w/2 − Δw
+        for k in [0usize, 999, 1999] {
+            let (tooth, gap) = ((k as f64 + 0.5) * a, k as f64 * a);
+            for side in [-1.0, 1.0] {
+                let inside = [
+                    (tooth, w / 2.0 - 1e-4, true),
+                    (tooth, w / 2.0 + 1e-4, false),
+                    (gap, w / 2.0 - dw - 1e-4, true),
+                    (gap, w / 2.0 - dw + 1e-4, false),
+                ];
+                for (x, y, want) in inside {
+                    if d.contains(L, p(x, side * y)) != want {
+                        return f64::INFINITY;
+                    }
+                }
+            }
+        }
+    }
+    for dw in [0.020, 0.040] {
+        let d = drawn(&BraggGrating::new(um(w), um(dw), um(a), n).sampled(20, 200));
+        let Some(Shape::Array(teeth)) = d.items().get(1).map(|i| &i.shape) else {
+            return f64::INFINITY;
+        };
+        // the bursts: their first teeth's starts, and their teeth
+        let mut starts: Vec<f64> = Vec::new();
+        let mut per: Vec<usize> = Vec::new();
+        let mut last = f64::NEG_INFINITY;
+        for e in teeth.elements().iter().filter(|e| e.index[1] == 1) {
+            let x0 = e.shape.bounds().min.x.to_um();
+            if x0 - last > a * 1.5 {
+                starts.push(x0);
+                per.push(0);
+            }
+            *per.last_mut().expect("a burst") += 1;
+            last = x0;
+        }
+        if starts.len() != 10 || per.iter().any(|&c| c != 20) {
+            return f64::INFINITY;
+        }
+        let z1 = per[0] as f64 * a;
+        let z0 = (starts[9] - starts[0]) / 9.0;
+        worst = worst
+            .max((z1 - 6.2).abs())
+            .max((z0 - 62.0).abs())
+            .max((z0 / z1 - 10.0).abs() * z1);
+    }
+    worst
 }
 
 /// A port as the devices drew it: name, position, direction and width.
@@ -707,6 +896,15 @@ pub(crate) fn order() -> f64 {
             .items()[0]
             .shape
             .clone(),
+        drawn(&PhotonicCrystal::hexagonal(
+            um(0.42),
+            um(0.12),
+            [4, 3],
+            Defect::L3 { shift: um(0.063) },
+        ))
+        .items()[0]
+            .shape
+            .clone(),
     ]
     .into();
     let mut least = f64::INFINITY;
@@ -750,16 +948,16 @@ pub(crate) fn cases() -> Vec<Case> {
     vec![
         Case {
             id: "generator/ports",
-            title: r"The ports of 21 components (a straight, three tapers, an arc and a partial Euler bend, four S-bends, a double spiral, a ring, a racetrack and a disk with their buses, two directional couplers, a bent one, two MMIs, a Y-branch and a crossing) against their closed forms, and on their guides' ends: each guide's two edges $\pm w/2$ across the port on its shapes' boundary, 1 nm in inside and 1 nm out outside (largest difference shown, µm or degrees)",
+            title: r"The ports of 26 components (a straight, three tapers, an arc and a partial Euler bend, four S-bends, a double spiral, a ring, a racetrack and a disk with their buses, two directional couplers, a bent one, two MMIs, a Y-branch, a crossing, a Bragg grating, a subwavelength grating, a grating coupler, a W1 photonic-crystal guide and an inverse-taper edge coupler) against their closed forms, and on their guides' ends: each guide's two edges $\pm w/2$ across the port on its shapes' boundary, 1 nm in inside and 1 nm out outside (largest difference shown, µm or degrees)",
             tier: Tier::Analytic,
             source: r"each generator's definition: e.g. an arc's or a partial Euler bend's end $(R\sin\theta, R(1 - \cos\theta))$ facing $\theta$, a ring's buses at $y = 0$ and $2(w + R) + g + g_d$, an MMI's guides at $W(k + \frac12)/N - W/2$; the shapes' signed distances; measured 1.5e-15",
             run: || error(port_error(), 1e-12),
         },
         Case {
             id: "generator/lengths-and-areas",
-            title: r"Areas against closed forms: a straight, linear, exponential and parabolic tapers, an arc, partial Euler bends ($p$ = 0.2, 0.5, 1) and an Euler S-bend ($w$ times their lengths), a cosine S-bend, a double spiral of five semicircles per arm, a ring, a racetrack and a disk less their buses, a 2 × 3 MMI with tapers, a tapered crossing's bars and a bent coupler's arcs (largest relative difference shown)",
+            title: r"Areas against closed forms: a straight, linear, exponential and parabolic tapers, an arc, partial Euler bends ($p$ = 0.2, 0.5, 1) and an Euler S-bend ($w$ times their lengths), a cosine S-bend, a double spiral of five semicircles per arm, a ring, a racetrack and a disk less their buses, a 2 × 3 MMI with tapers, a tapered crossing's bars, a bent coupler's arcs, a uniform and a sampled Bragg grating, a tapered subwavelength grating, a grating coupler, an L3 photonic-crystal slab and an inverse taper (largest relative difference shown)",
             tier: Tier::Analytic,
-            source: r"$w L$; $(w_1 + w_2)L/2$, $w_1 L (r - 1)/\ln r$, $2L(w_2^3 - w_1^3)/3(w_2^2 - w_1^2)$; $R\theta w$; F. Vogelbacher et al., Opt. Express 27, 31394 (2019), doi:10.1364/OE.27.031394, Eqs. (5)–(11); $w\int\sqrt{L^2 + (h\pi/2 \sin\pi t)^2}\thinspace dt$ (Simpson); $2c + 2(\sum\pi r_k + 2nc + \ell)$; $2\pi R w$, $+ 2L_c w$, $\pi R^2$; $WL + (w_a + w_t)L_t/2$ per guide; $a(w + w_c)$; measured 7.1e-16",
+            source: r"$w L$; $(w_1 + w_2)L/2$, $w_1 L (r - 1)/\ln r$, $2L(w_2^3 - w_1^3)/3(w_2^2 - w_1^2)$; $R\theta w$; F. Vogelbacher et al., Opt. Express 27, 31394 (2019), doi:10.1364/OE.27.031394, Eqs. (5)–(11); $w\int\sqrt{L^2 + (h\pi/2 \sin\pi t)^2}\thinspace dt$ (Simpson); $2c + 2(\sum\pi r_k + 2nc + \ell)$; $2\pi R w$, $+ 2L_c w$, $\pi R^2$; $WL + (w_a + w_t)L_t/2$ per guide; $a(w + w_c)$; $L(w - 2\Delta w) + 2N\Delta w\thinspace d\Lambda$; $N(w_0 + w_1)d\Lambda/2$; the slab less $N\pi r^2$; measured 1.6e-15",
             run: || error(area_error(), 1e-9),
         },
         Case {
@@ -771,7 +969,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "generator/symmetry",
-            title: r"Symmetries at 4000 points each: a directional coupler with cosine S-bend arms mirrored in $y = 0$ and in $x = L/2$, a bent coupler in $x = 0$, a 2 × 2 MMI with tapers in $y = 0$ and $x = L/2$, a Y-branch in $y = 0$, an add-drop racetrack in $x = 0$, and a tapered crossing turned a quarter (points inside one and outside the other shown)",
+            title: r"Symmetries at 4000 points each: a directional coupler with cosine S-bend arms mirrored in $y = 0$ and in $x = L/2$, a bent coupler in $x = 0$, a 2 × 2 MMI with tapers in $y = 0$ and $x = L/2$, a Y-branch in $y = 0$, an add-drop racetrack in $x = 0$, a tapered crossing turned a quarter, a Bragg grating in $y = 0$ and $x = L/2$, an L3 photonic-crystal slab in $y = 0$ and an H1 one on a square lattice turned a quarter (points inside one and outside the other shown)",
             tier: Tier::Analytic,
             source: r"the components' definitions are symmetric; measured 0",
             run: || count(symmetry_errors()),
@@ -785,7 +983,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "generator/convergence",
-            title: r"A ring, a racetrack's half ring, a partial Euler bend, a cosine S-bend and an exponential taper as polygons at unsnapped tolerances from 1 to 0.001 nm: the least slope among them of $-\log$ of the distance they reach from the exact boundary against $\log$ of their number of vertices",
+            title: r"A ring, a racetrack's half ring, a partial Euler bend, a cosine S-bend, an exponential taper and an L3 photonic-crystal slab as polygons at unsnapped tolerances from 1 to 0.001 nm: the least slope among them of $-\log$ of the distance they reach from the exact boundary against $\log$ of their number of vertices",
             tier: Tier::Analytic,
             source: r"chords of length $h$ stray by $\kappa h^2/8$: second order (the slope shown to two decimals)",
             run: || {
@@ -797,6 +995,13 @@ pub(crate) fn cases() -> Vec<Case> {
                     error: (o - 2.0).abs(),
                 }
             },
+        },
+        Case {
+            id: "generator/wang-bragg",
+            title: r"Wang et al.'s Bragg gratings drawn: SOI strips 500 nm wide with sidewall corrugations recessed $\Delta w$ = 10, 15, 20, 25 and 30 nm on each side, period 310 nm, 50 % duty, 620 µm long (2000 periods), and sampled ones ($\Delta w$ = 20 and 40 nm) with bursts of 20 periods every 62 µm; every tooth's place and size, the length, the guide's 500 nm and $500 - 2\Delta w$ nm by inside tests, the area $L(w - \Delta w)$, and the bursts' $Z_1$ = 6.2 µm, $Z_0$ = 62 µm, their ten and $Z_0/Z_1$ = 10 (largest difference shown, µm); geometry only",
+            tier: Tier::Published,
+            source: r"X. Wang, W. Shi, R. Vafaei, N. A. F. Jaeger, L. Chrostowski, IEEE Photon. Technol. Lett. 23, 290 (2011), doi:10.1109/LPT.2010.2103305, Section II, Fig. 1 and Fig. 5: $w$ = 500 nm, $\Lambda$ = 310 nm, duty 50 %, $L$ = 620 µm, corrugations on both sidewalls; Section III: $Z_1$ = 6.2 µm (20 periods), $Z_0$ = 62 µm, ten sampling periods, $N_{3\text{dB}} \approx Z_0/Z_1$ (Eq. 4); measured 1.1e-13",
+            run: || error(wang_error(), 1e-9),
         },
     ]
 }

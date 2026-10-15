@@ -1,7 +1,7 @@
 ---
 title: "Component generators with ports"
 module: generator
-summary: "Photonic components drawn from their parameters, each a plain function giving exact shapes on layers and named ports (position, direction, width, layer): straights, tapers, arc and partial Euler bends, S-bends, double spirals, rings, racetracks and disks with their buses, straight and bent directional couplers, N × M MMIs, Y-branches and crossings. The devices draw their geometry with them, to the bit; jobs place them by name and find their ports by name for FDFD ports and FDTD sources and monitors."
+summary: "Photonic components drawn from their parameters, each a plain function giving exact shapes on layers and named ports (position, direction, width, layer): straights, tapers, arc and partial Euler bends, S-bends, double spirals, rings, racetracks and disks with their buses, straight and bent directional couplers, N × M MMIs, Y-branches, crossings, Bragg gratings (uniform, apodized, sampled), subwavelength gratings, grating couplers, photonic crystals with L3, H1 and W1 defects, and inverse-taper edge couplers. The devices draw their geometry with them, to the bit; jobs place them by name and find their ports by name for FDFD ports and FDTD sources and monitors."
 order: 1.54
 papers:
   - cite: "F. Vogelbacher, S. Nevlacsil, M. Sagmeister, J. Kraft, K. Unterrainer, R. Hainberger, Opt. Express 27, 31394 (2019) (the partial Euler bend: its lengths and ends, Eqs. (5)–(11))"
@@ -10,6 +10,10 @@ papers:
     doi: 10.1364/OE.21.017814
   - cite: "L. B. Soldano, E. C. M. Pennings, J. Lightwave Technol. 13, 615 (1995) (an MMI's beat length and self-imaging lengths, Eqs. 4, 6, 24, 33 and 37, as geometry inputs)"
     doi: 10.1109/50.372474
+  - cite: "X. Wang, W. Shi, R. Vafaei, N. A. F. Jaeger, L. Chrostowski, IEEE Photon. Technol. Lett. 23, 290 (2011) (uniform and sampled Bragg gratings with sidewall corrugations, drawn)"
+    doi: 10.1109/LPT.2010.2103305
+  - cite: "Y. Akahane, T. Asano, B.-S. Song, S. Noda, Nature 425, 944 (2003) (the L3 cavity and its shifted end holes)"
+    doi: 10.1038/nature02063
 validation:
   - generator/ports
   - generator/lengths-and-areas
@@ -19,6 +23,7 @@ validation:
   - generator/convergence
   - generator/job-expressions
   - generator/job-ports
+  - generator/wang-bragg
 ---
 
 A component is drawn the same way wherever it is used: on a device's page, in a job, in a
@@ -75,6 +80,11 @@ Each component is drawn in its own frame, its first port at or left of the origi
 | `Mmi` (W, L, N, M, w_a, w_t, L_t) | a W × L rectangle; N inputs and M outputs tapering from w_a to w_t over L_t, their centres given or at W(k + ½)/N − W/2 | `o1`…`oN` left, bottom to top; `o(N+1)`… right, top to bottom (Soldano & Pennings' numbering) |
 | `YBranch` (w_in, w, L, gap, L_a, s, outline) | a stem from w_in to 2w + gap, linear or along w(x); two Bézier arms from it, s apart at their ends | `o1` (0, 0) 180°, `o2` (L + L_a, s/2), `o3` (L + L_a, −s/2) 0° |
 | `Crossing` (w, a, w_c) | two bars through the origin, each tapering from w at its ends to w_c at the centre | `o1` left, `o2` top, `o3` right, `o4` bottom |
+| `BraggGrating` (w, Δw, Λ, d, N) | a core w − 2Δw wide (recessed) or w − Δw (centred), and on each side a tooth Δw(x) high over the middle d Λ of each period; sampled: teeth in the first n₁ periods of every n₀ | `o1` (0, 0) 180°, `o2` (NΛ, 0) 0°, the core's width |
+| `SwgWaveguide` (w₀, w₁, Λ, d, N, bridge) | segments d Λ long at the start of each period, their widths linear from w₀ to w₁, on a bridge if asked | `o1` (0, 0) 180°, `o2` at the last segment's end |
+| `GratingCoupler` (w, W, L_t, Λ, F, N, depth) | a linear taper from w to W, then N teeth F(x) Λ long across W, partly etched (or fully, on a top layer over a slab layer) | `o1` (0, 0) 180° |
+| `PhotonicCrystal` (lattice, a, r, sites, defect) | a slab less a square or hexagonal lattice of holes, with an L3 (three holes out, the end ones shifted), H1 (one out) or W1 (a row out) | W1: `o1`, `o2` at the slab's ends, √3a − 2r wide (2a − 2r square) |
+| `EdgeCoupler` (w_tip, w, L_t, L_s) | an inverse taper from the tip at the facet to the guide, any taper profile, and a straight | `o1` the tip (0, 0) 180°, `o2` (L_t + L_s, 0) 0° |
 
 The names are the circuit's where the circuit has the component: the rings' `in`, `through`,
 `add`, `drop`, the coupler's and the MMI's `o1`… and the Y-branch's `o1`, `o2`, `o3`.
@@ -95,6 +105,42 @@ W_e = W_M + (λ₀/π)(n_c/n_r)^{2σ}(n_r² − n_c²)^{−1/2} (their Eqs. 4 an
 (1/N) L_π for paired (Eq. 33), (1/N) 3L_π/4 for symmetric (Eq. 37). These are paraxial estimates
 for choosing a length, not the device's performance, which `crate::circuit::components::Mmi`
 computes from the exact slab modes and the solvers from the drawn geometry.
+
+**Gratings.** A Bragg grating's teeth stand in the middle of their periods, so it ends on its
+core at both ends and is its own mirror image about L/2. Its teeth are an `Array` of
+rectangles over the core, none touching another, so every answer is exact and a point tests a
+handful of the 4000 teeth of a 620 µm grating, through their index (docs/methods/arrays.md).
+Apodized, each tooth's height is Δw(x) at its centre, an expression of `x`; a sampled grating
+keeps its teeth in bursts. A grating coupler's fill F(x) is an expression of each tooth's start.
+Drawn on one layer, its teeth are partly etched, and the stack leaves the layer's material below
+their floor across the whole layer, as a rib's slab (docs/methods/stacks.md); with a slab layer,
+the teeth are the top layer, fully etched, over a slab of the grating's extent.
+
+**Photonic crystals** take their lattice and defects from docs/methods/arrays.md: a slab less a
+lattice of holes, an exact boolean. Akahane et al.'s L3 is three holes out of a row with the end
+ones moved out by 0.15a.
+
+### Wang et al. 2011's gratings
+
+`generator/wang-bragg` draws the gratings of Wang et al. (doi:10.1109/LPT.2010.2103305) from what
+they state: strips 500 nm wide (Fig. 1), corrugations recessed into both sidewalls by the designed
+Δw of 10 to 30 nm on each side (Figs. 3 and 4), period 310 nm, 50 % duty, 620 µm long (Section
+II), and the sampled gratings of Section III, bursts of 20 periods (Z₁ = 6.2 µm) every Z₀ = 62 µm,
+ten of them, at Δw = 20 and 40 nm (Fig. 6). It checks every tooth's place and size, the length,
+the guide's 500 and 500 − 2Δw nm by inside tests, the area L(w − Δw), and the bursts' Z₁, Z₀,
+count and Z₀/Z₁ = 10, the peaks their Eq. 4 counts in the 3 dB envelope. This is geometry only.
+
+Their spectra are not reproduced. Their bandwidths and Bragg wavelengths are measured on
+fabricated gratings whose corrugations are rounded and smaller than drawn (Fig. 1: 25 nm designed,
+about 20 nm made; their "effective" square corrugation is about a quarter of the designed one,
+Fig. 4), and the paper doesn't state the cladding. Coupled-mode theory on photonoxide's own
+full-vector modes (oxide-clad 220 nm SOI, cells fitted about 10 nm, Hadley's equations; κ =
+2Δn/λ for the square, half-duty corrugation, and their Eq. 2) gives a bandwidth of 7.3 nm for a
+10 nm corrugation on each side, where their own simulation of a square corrugation (Fig. 4, read
+from the plot) gives about 2.1 nm and the measurement 0.8 nm; and a Bragg wavelength of 1524 nm
+where they measured about 1500 nm. The model and the paper's simulation differ by a factor of 3 in
+κ that the paper doesn't give enough to resolve (its simulation's cladding and how it takes κ), so
+no number of theirs stands in the report as reproduced.
 
 ## The devices draw with them
 
@@ -147,14 +193,15 @@ the ports there are, and a port facing the wrong way for the plane it would need
 
 | case | what | measured | tolerance |
 |---|---|---|---|
-| `generator/ports` | 21 components' ports against their closed forms, and on their guides' ends | 1.5e-15 µm | 1e-12 |
-| `generator/lengths-and-areas` | areas against closed forms: tapers' three profiles, arcs, partial Euler bends and an Euler S-bend against Vogelbacher et al.'s lengths, a cosine S-bend (Simpson), the spiral, rings, racetracks, disks, an MMI, a crossing, a bent coupler | 7.1e-16 relative | 1e-9 |
+| `generator/ports` | 26 components' ports against their closed forms, and on their guides' ends | 1.5e-15 µm | 1e-12 |
+| `generator/lengths-and-areas` | areas against closed forms: tapers' three profiles, arcs, partial Euler bends and an Euler S-bend against Vogelbacher et al.'s lengths, a cosine S-bend (Simpson), the spiral, rings, racetracks, disks, an MMI, a crossing, a bent coupler, Bragg gratings, a subwavelength grating, a grating coupler, an L3 slab, an inverse taper | 1.6e-15 relative | 1e-9 |
 | `generator/gaps` | rings', racetracks', disks', couplers' and a Y-branch's gaps by signed distance | 1.2e-15 µm | 1e-12 |
-| `generator/symmetry` | couplers, an MMI, a Y-branch, a racetrack mirrored, a crossing turned a quarter, at 4000 points each | 0 points | 0 |
+| `generator/symmetry` | couplers, an MMI, a Y-branch, a racetrack, a Bragg grating and an L3 slab mirrored, a crossing and a square-lattice H1 slab turned a quarter, at 4000 points each | 0 points | 0 |
 | `generator/devices` | the devices' geometry against what they drew before | 0 bits | 0 |
-| `generator/convergence` | a ring, a half ring, an Euler bend, a cosine S-bend and an exponential taper as polygons from 1 to 0.001 nm | order 2.00 | 2 ± 0.15 |
-| `generator/job-expressions` | 19 components in a job, every parameter an expression, against the generators with numbers | 0 bits | 0 |
+| `generator/convergence` | a ring, a half ring, an Euler bend, a cosine S-bend, an exponential taper and an L3 slab as polygons from 1 to 0.001 nm | order 2.00 | 2 ± 0.15 |
+| `generator/job-expressions` | 24 components in a job, every parameter an expression, against the generators with numbers | 0 bits | 0 |
 | `generator/job-ports` | a 2D FDFD job's S-parameters with its ports by name against the same job written out, 50 nm grid | 0 bits | 0 |
+| `generator/wang-bragg` (published) | Wang et al. 2011's uniform and sampled gratings drawn: teeth, length, widths, area, bursts | 1.1e-13 µm | 1e-9 |
 
 The gaps are exact because each gap is built into the definition (the ring's centre at
 w + gap + R above the bus) and measured by the exact signed distance of a circle, a sector or a

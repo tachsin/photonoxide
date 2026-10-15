@@ -76,7 +76,8 @@
 //!
 //! **Components.** `[[task.component]]` draws one of [`crate::generator`]'s components (a
 //! `ring`, `racetrack`, `disk`, `straight`, `taper`, `bend`, `euler_bend`, `s_bend`, `spiral`,
-//! `directional_coupler`, `bent_coupler`, `mmi`, `y_branch` or `crossing`), every parameter an
+//! `directional_coupler`, `bent_coupler`, `mmi`, `y_branch`, `crossing`, `bragg_grating`,
+//! `swg_waveguide`, `grating_coupler`, `photonic_crystal` or `edge_coupler`), every parameter an
 //! expression, named so that its ports are found by name: placed by `origin`, `rotate` and
 //! `mirror`, or `connect = ["o1", "ring.through"]` onto an earlier one's port. An `"fdfd"` job's
 //! `[[task.port]]` takes `port = "ring.in"` for its column, side and window, and an `"fdtd"`

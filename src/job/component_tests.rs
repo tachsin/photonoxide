@@ -290,6 +290,62 @@ gap = "200 nm"
 }
 
 #[test]
+fn what_a_grating_or_a_crystal_in_a_job_refuses() {
+    let head = r#"
+name = "refused"
+
+[task]
+kind = "structure"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+x_um = [-10.0, 10.0]
+y_um = [-10.0, 10.0]
+step_nm = 100.0
+"#;
+    let refused = |component: &str, says: &str| {
+        let text = format!("{head}\n[[task.component]]\n{component}\n");
+        let e = check(&Job::parse(&text).unwrap()).unwrap_err().to_string();
+        assert!(e.contains(says), "{e}");
+    };
+    let crystal =
+        "type = \"photonic_crystal\"\npitch = \"420 nm\"\nradius = \"120 nm\"\nhalf = [7, 4]";
+    check(&Job::parse(&format!("{head}\n[[task.component]]\n{crystal}\n")).unwrap()).unwrap();
+    refused(
+        &format!("{crystal}\ndefect = \"l4\""),
+        "defect: unknown defect \"l4\": none, l3, h1 or w1",
+    );
+    refused(
+        &format!("{crystal}\ndefect = \"h1\"\nshift = \"60 nm\""),
+        "shift: is for an l3 cavity's end holes",
+    );
+    refused(
+        &crystal.replace("half = [7, 4]", "half = [7.5, 4]"),
+        "half: must be two whole numbers",
+    );
+    let bragg = "type = \"bragg_grating\"\nwidth = \"500 nm\"\ncorrugation = \"20 nm\"\nperiod = \"310 nm\"\nperiods = 100";
+    check(
+        &Job::parse(&format!(
+            "{head}\n[[task.component]]\n{bragg}\nsampling = [10, 50]\n"
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    refused(
+        &format!("{bragg}\nsampling = [60, 50]"),
+        "its sampling needs bursts of 1 to 50 periods",
+    );
+    refused(
+        &format!("{bragg}\ncentred = 1"),
+        "centred: must be true or false",
+    );
+    refused(
+        "type = \"grating_coupler\"\nwidth = \"500 nm\"\ngrating_width = \"10 um\"\ntaper_length = \"15 um\"\nperiod = \"630 nm\"\nperiods = 20\netch_depth = \"70 nm\"\nfill = 0.5\napodization = \"0.8\"",
+        "fill: isn't for an apodized coupler",
+    );
+}
+
+#[test]
 fn a_component_takes_an_etch_and_is_swept() {
     let text = r#"
 name = "etched"
