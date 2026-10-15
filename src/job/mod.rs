@@ -162,6 +162,14 @@
 //! [`crate::device::Spec::build`] refuses; [`preview`] draws its structure, over its shapes and
 //! ports with 1 µm around them and 1 µm below and above the core; a run records that scene.
 //!
+//! **A device computed.** Beside its `[device]`, a job's `[task]` says how to compute it: `kind =
+//! "spectrum"`, its own model at the design's fidelity (a closed form, its cross-section's modes,
+//! 2D or 3D FDFD), its figures and its S-parameters over a band, on its own grid or one the task
+//! sets, recorded as [`Event::DeviceModel`] and an [`Event::SParameters`] per wavelength, the
+//! bits [`crate::device::Device::component`] gives; or `kind = "fdtd"`, its drawn structure
+//! stepped in time as an `"fdtd"` job's shapes are, its sources and monitors finding its ports
+//! by name (`port = "o1"`). [`from_device`] writes such a job. See `device.rs`.
+//!
 //! A job file's `[task]` table names its kind. The kinds so far:
 //!
 //! - `"structure"`: a layer stack with shapes drawn on it, recorded as pictures of its
@@ -402,11 +410,15 @@ mod body_tests;
 #[cfg(test)]
 mod component_tests;
 mod components;
+mod device;
+#[cfg(test)]
+mod device_tests;
 mod fdfd;
 mod fdtd;
 mod params;
 mod shapes;
 
+pub use device::{Compute, DeviceFigure, from_device};
 pub(crate) use fdfd::plane as fdfd_plane;
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub use fdtd::{FoundResonance, SpectrumSeries};
@@ -797,6 +809,31 @@ pub enum Event {
         /// The ports, component by component.
         ports: Vec<ScenePort>,
     },
+    /// A device's model, recorded by a job that computes its device (`[device]` with a
+    /// `"spectrum"` task) once the model is built: what computes it, what it reproduces and on
+    /// which grid, how long that took, and the device's figures from it. The S-parameters
+    /// follow, one [`Event::SParameters`] per wavelength, each port's effective index its
+    /// mode's where the model states one (0 where it doesn't).
+    DeviceModel {
+        /// The device's kind, e.g. `"MMI 1x2"`.
+        device: String,
+        /// The fidelity: `"analytic"`, `"2D"` or `"3D"`.
+        fidelity: String,
+        /// What computes it, in a sentence.
+        method: String,
+        /// Its write-up in docs/methods, e.g. `"devices"`.
+        write_up: String,
+        /// The papers it implements, each with its DOI.
+        papers: Vec<String>,
+        /// What the component reproduces, with its grid (its provenance's source).
+        source: String,
+        /// The grid its figures name, or `"exact: no grid"`.
+        grid: String,
+        /// The time building the model took, seconds: the solve's at a solver-backed fidelity.
+        seconds: f64,
+        /// The device's figures from the model, each with its fidelity and grid.
+        figures: Vec<DeviceFigure>,
+    },
     // New variants go here, at the end after the last one, so that the earlier variants keep
     // their discriminants (inserting one in between renumbers every variant after it).
 }
@@ -826,20 +863,7 @@ pub struct ScenePort {
 /// The errors of [`check`].
 pub fn preview_ports(job: &Job) -> Result<Vec<ScenePort>> {
     if job.device().is_some() {
-        let table = job.device().ok_or_else(|| task_error("no [device]"))?;
-        let (device, design) = crate::device::Spec::from_table(table)?.build()?;
-        let g = device.geometry(design.values())?;
-        return Ok(g
-            .ports
-            .iter()
-            .map(|p| ScenePort {
-                name: p.name.clone(),
-                layer: p.layer.clone(),
-                position_um: [p.position.x.to_um(), p.position.y.to_um()],
-                direction_deg: p.direction,
-                width_um: p.width.to_um(),
-            })
-            .collect());
+        return device::scene_ports(job);
     }
     check(job)?;
     component_ports(job.task())
@@ -869,7 +893,11 @@ fn component_ports(task: &toml::Table) -> Result<Vec<ScenePort>> {
 
 /// Records the job's components' ports after its scene, if it has any.
 fn record_ports(job: &Job, run: &mut Run) -> Result<()> {
-    let ports = component_ports(job.task())?;
+    let ports = if job.device().is_some() {
+        device::scene_ports(job)?
+    } else {
+        component_ports(job.task())?
+    };
     if !ports.is_empty() {
         run.record(&Event::Ports { ports })?;
     }
@@ -2409,17 +2437,7 @@ fn reason(stop: &Stop) -> Option<String> {
 /// [`Error::Io`] if the record can't be written.
 pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     if job.device().is_some() {
-        let scene = device_scene(job)?;
-        run.record(&Event::Started {
-            job: job.name().to_owned(),
-            kind: "device".into(),
-        })?;
-        run.record(&scene)?;
-        let seconds = run.elapsed().as_secs_f64();
-        return run.record(&Event::Finished {
-            stopped: reason(stop),
-            seconds,
-        });
+        return device::execute(job, run, stop);
     }
     let kind = job
         .task()
@@ -2427,6 +2445,12 @@ pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         .and_then(|k| k.as_str())
         .ok_or_else(|| task_error("needs a kind, e.g. kind = \"structure\""))?
         .to_owned();
+    execute_task(job, run, stop, &kind)
+}
+
+/// Runs `job`'s task of `kind` into `run`, from its start to its end.
+fn execute_task(job: &Job, run: &mut Run, stop: &Stop, kind: &str) -> Result<()> {
+    let kind = kind.to_owned();
     check_direct(job, &kind)?;
     run.record(&Event::Started {
         job: job.name().to_owned(),
@@ -2481,7 +2505,18 @@ fn check_direct(job: &Job, kind: &str) -> Result<()> {
 
 fn check_inner(job: &Job) -> Result<()> {
     if job.device().is_some() {
-        return device_scene(job).map(|_| ());
+        return match device::task_kind(job)?.as_deref() {
+            None => device_scene(job).map(|_| ()),
+            Some("fdtd") => {
+                check_direct(job, "fdtd")?;
+                fdtd::check(job)
+            }
+            Some(_) => {
+                check_direct(job, "spectrum")?;
+                device_scene(job)?;
+                device::check_spectrum(job)
+            }
+        };
     }
     let kind = job
         .task()
@@ -2579,13 +2614,8 @@ fn structure(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 /// `z_um` says otherwise.
 /// The scene of a job's `[device]`: its structure at its design's values, over its shapes and
 /// ports with 1 µm around them, from 1 µm below its core to 1 µm above, its permittivities at its
-/// `wavelength` parameter (1.55 µm for a device without one). A job with a device has no task.
+/// `wavelength` parameter (1.55 µm for a device without one).
 fn device_scene(job: &Job) -> Result<Event> {
-    if !job.task().is_empty() {
-        return Err(task_error(
-            "a job with a [device] table holds its design and has no [task]",
-        ));
-    }
     let table = job
         .device()
         .ok_or_else(|| task_error("the job has no [device] table"))?;
@@ -2839,6 +2869,10 @@ fn modes_scene(task: &ModesTask, s: &Structure) -> Result<Event> {
 /// The errors of [`check`].
 pub fn preview(job: &Job) -> Result<Event> {
     if job.device().is_some() {
+        if device::task_kind(job)?.as_deref() == Some("fdtd") {
+            check(job)?;
+            return fdtd::preview(job);
+        }
         return device_scene(job);
     }
     check(job)?;

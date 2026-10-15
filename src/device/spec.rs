@@ -47,8 +47,8 @@ use crate::units::Length;
 use crate::{Error, Result};
 
 use super::{
-    Design, Device, RibWaveguide, StripBend, StripCoupler, StripMmi, StripMzi, StripRing,
-    StripWaveguide, StripYBranch,
+    Cells, Design, Device, FdfdGrid, Mesh, Model2d, RibWaveguide, StripBend, StripCoupler,
+    StripMmi, StripMzi, StripRing, StripWaveguide, StripYBranch,
 };
 use crate::circuit::components::MmiKind;
 
@@ -258,6 +258,212 @@ impl Spec {
         let design = Design::new(device.as_ref(), &definitions)?;
         super::method(device.kind(), device.fidelities(), self.fidelity)?;
         Ok((device, design))
+    }
+}
+
+/// The grids a job sets on a device's solves (a `"spectrum"` task, [`crate::job`]): the cells'
+/// size in the chip's plane, µm (a cross-section's mesh step for a mode solve, the cells of an
+/// FDFD), the FDFD cells' height in 3D, the cladding kept beside the guides, µm, the
+/// wavelengths an FDFD samples, the FDFD's PML cells, and an MMI's 2D model by FDFD in place of
+/// its guided modes. Each left out is the device's own.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct Grids {
+    pub(crate) step: Option<f64>,
+    pub(crate) step_z: Option<f64>,
+    pub(crate) margin: Option<f64>,
+    pub(crate) samples: Option<usize>,
+    pub(crate) pml: Option<usize>,
+    pub(crate) fdfd_2d: bool,
+}
+
+impl Grids {
+    /// `mesh` with the step and margin set, when it is fitted to the core.
+    fn mesh(&self, mesh: Mesh) -> Mesh {
+        match mesh.cells {
+            Cells::Fitted { step, margin } => Mesh {
+                cells: Cells::Fitted {
+                    step: self.step.unwrap_or(step),
+                    margin: self.margin.unwrap_or(margin),
+                },
+                ..mesh
+            },
+            Cells::Window { .. } => mesh,
+        }
+    }
+
+    /// `grid` with what is set.
+    fn fdfd(&self, grid: FdfdGrid) -> FdfdGrid {
+        FdfdGrid {
+            step: self.step.unwrap_or(grid.step),
+            step_z: self.step_z.unwrap_or(grid.step_z),
+            margin: self.margin.unwrap_or(grid.margin),
+            samples: self.samples.unwrap_or(grid.samples),
+            pml: self.pml.unwrap_or(grid.pml),
+        }
+    }
+
+    /// Refuses what a device whose solves are `solves` doesn't take: `"modes"` (a cross-section's
+    /// mesh: a step and a margin), `"fdfd"` (all of them but the MMI's model, `"mmi"` all) or
+    /// `"none"` (an MZI's, whose parts solve on their own grids).
+    fn check(&self, kind: &str, solves: &str) -> Result<()> {
+        let refuse = |what: &str, why: &str| {
+            Err(Error::invalid(
+                "device",
+                format!("a {kind} takes no {what}: {why}"),
+            ))
+        };
+        if solves == "none" && *self != Grids::default() {
+            return refuse("grid", "its parts solve on their own grids");
+        }
+        if solves == "modes" {
+            if self.step_z.is_some() {
+                return refuse(
+                    "step_z_nm",
+                    "its solves are its cross-section's, on one mesh",
+                );
+            }
+            if self.samples.is_some() {
+                return refuse(
+                    "samples",
+                    "its mode solves sample five wavelengths across its span",
+                );
+            }
+            if self.pml.is_some() {
+                return refuse(
+                    "pml_cells",
+                    "its solves are its cross-section's modes, on a mesh of its own",
+                );
+            }
+        }
+        if self.fdfd_2d && solves != "mmi" {
+            return refuse("model_2d", "its 2D model is its only one");
+        }
+        let ok = |v: Option<f64>| v.is_none_or(|v| v.is_finite() && v > 0.0);
+        if !(ok(self.step) && ok(self.step_z) && ok(self.margin))
+            || self.samples == Some(0)
+            || self.pml.is_some_and(|n| n < 4)
+        {
+            return Err(Error::invalid(
+                "device",
+                format!(
+                    "a grid needs positive steps, margin and samples, and 4 PML cells or more, \
+                     got {self:?}"
+                ),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Spec {
+    /// The device as [`Spec::device`] builds it, its solves on `grids`.
+    ///
+    /// # Errors
+    ///
+    /// Those of [`Spec::device`], and [`Error::InvalidValue`] for a grid the device doesn't
+    /// take (a 3D FDFD's cells' height for a mode solve, any for an MZI).
+    pub(crate) fn device_with(&self, grids: &Grids) -> Result<Box<dyn Device>> {
+        if *grids == Grids::default() {
+            return self.device();
+        }
+        let (stack, core) = self.stack.build()?;
+        let kind = self.kind.as_str();
+        let solves = match kind {
+            "MMI 1x2" | "MMI 2x2" => "mmi",
+            "Y-branch" => "fdfd",
+            "MZI" | "Y-branch MZI" => "none",
+            _ => "modes",
+        };
+        grids.check(kind, solves)?;
+        let g = grids;
+        Ok(match kind {
+            "waveguide" => {
+                let d = StripWaveguide::on(stack, &core)?;
+                let m = g.mesh(d.mesh());
+                Box::new(d.with_mesh(m))
+            }
+            "bend" => {
+                let d = StripBend::on(stack, &core)?;
+                let (bent, straight) = d.meshes();
+                Box::new(
+                    d.with_mesh(g.mesh(bent))
+                        .with_straight_mesh(g.mesh(straight)),
+                )
+            }
+            "directional coupler" => {
+                let d = StripCoupler::on(stack, &core)?;
+                let m = g.mesh(d.mesh());
+                Box::new(d.with_mesh(m))
+            }
+            "all-pass ring" | "add-drop ring" => {
+                let d = StripRing::on(stack, &core, kind == "add-drop ring")?;
+                let m = g.mesh(d.mesh());
+                Box::new(d.with_mesh(m))
+            }
+            "rib waveguide" => {
+                let d = RibWaveguide::on(stack, &core)?;
+                let m = g.mesh(d.mesh());
+                Box::new(d.with_mesh(m))
+            }
+            "MMI 1x2" | "MMI 2x2" => Box::new(self.mmi(stack, &core, g)?),
+            "Y-branch" => {
+                let d = StripYBranch::on(stack, &core)?;
+                let (two, three) = d.grids();
+                Box::new(d.with_grid_2d(g.fdfd(two)).with_grid_3d(g.fdfd(three)))
+            }
+            _ => self.device()?,
+        })
+    }
+
+    /// The MMI this design is, on `grids`.
+    fn mmi(&self, stack: LayerStack, core: &str, g: &Grids) -> Result<StripMmi> {
+        let kind = if self.kind == "MMI 1x2" {
+            MmiKind::OneByTwo
+        } else {
+            MmiKind::TwoByTwo
+        };
+        let mut d = StripMmi::on(kind, stack, core)?;
+        if g.fdfd_2d {
+            d = d.with_model_2d(Model2d::Fdfd);
+        }
+        let (two, three) = d.grids();
+        Ok(d.with_grid_2d(g.fdfd(two)).with_grid_3d(g.fdfd(three)))
+    }
+
+    /// The size of the FDFD solve this design takes at its fidelity on `grids`, when its model is
+    /// one (an MMI's or a Y-branch's 2D and 3D, an MMI's 2D by FDFD only): the cells along x
+    /// and y and the unknowns of a solve; and refused, as the solve would refuse it, when a 3D
+    /// one is more than the direct solver holds here.
+    ///
+    /// # Errors
+    ///
+    /// Those of [`Spec::build`] and [`Spec::device_with`], and [`Error::InvalidValue`] for a 3D
+    /// solve too large.
+    pub(crate) fn fdfd_size(&self, grids: &Grids) -> Result<Option<(usize, usize, f64)>> {
+        let (_, design) = self.build()?;
+        let values = design.values();
+        // the grids checked against the device as its solve would take them
+        self.device_with(grids)?;
+        let (stack, core) = self.stack.build()?;
+        let size = match self.kind.as_str() {
+            "MMI 1x2" | "MMI 2x2" => self
+                .mmi(stack, &core, grids)?
+                .fdfd_size(values, self.fidelity)?,
+            "Y-branch" => {
+                let d = StripYBranch::on(stack, &core)?;
+                let (two, three) = d.grids();
+                d.with_grid_2d(grids.fdfd(two))
+                    .with_grid_3d(grids.fdfd(three))
+                    .fdfd_size(values, self.fidelity)?
+            }
+            _ => None,
+        };
+        if let Some((_, _, unknowns)) = size
+            && self.fidelity == Fidelity::ThreeD
+        {
+            super::solve::check_size(unknowns)?;
+        }
+        Ok(size)
     }
 }
 

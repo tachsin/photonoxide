@@ -116,6 +116,11 @@ impl StripRing {
         self
     }
 
+    /// The mesh its solves use.
+    pub(super) fn mesh(&self) -> Mesh {
+        self.strip.mesh
+    }
+
     /// The same device, its analytic fidelity on `guide`, the ring guide's stated dispersion;
     /// its loss is the `loss` parameter's.
     #[must_use]

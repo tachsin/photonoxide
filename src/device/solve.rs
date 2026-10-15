@@ -267,6 +267,63 @@ fn referred(s: Vec<Vec<c64>>, placed: &[Placed], planes: &[f64], beta: &[f64]) -
     )
 }
 
+/// The size of the device's FDFD solve on `grid`: the cells along x and y, and the unknowns of
+/// one solve (3D: three components a cell, over the core and the margins and PMLs below and above
+/// it; 2D: one a cell).
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] for ports that don't face along x, or a grid [`FdfdGrid`] refuses.
+pub(super) fn size(
+    geometry: &Geometry,
+    core: &str,
+    grid: &FdfdGrid,
+    three: bool,
+) -> Result<(usize, usize, f64)> {
+    grid.check()?;
+    let ((x0, x1), (y0, y1)) = window(geometry, core, grid)?;
+    let h = grid.step;
+    // an even number of cells each way, centred on the window, so that a device mirrored about
+    // its axis is mirrored on the grid too, its axis on a node
+    let nx = 2 * ((x1 - x0) / (2.0 * h)).ceil() as usize;
+    let ny = 2 * ((y1 - y0) / (2.0 * h)).ceil() as usize;
+    if !three {
+        return Ok((nx, ny, nx as f64 * ny as f64));
+    }
+    let (_, bottom, top) = geometry
+        .structure
+        .stack()
+        .layer(core)
+        .ok_or_else(|| Error::invalid("device", format!("the stack has no layer {core}")))?;
+    let thick = (top - bottom).to_um() + 2.0 * (grid.margin + grid.pml as f64 * grid.step_z);
+    Ok((
+        nx,
+        ny,
+        3.0 * nx as f64 * ny as f64 * (thick / grid.step_z).ceil(),
+    ))
+}
+
+/// Refuses a 3D solve of `unknowns` the direct solver can't hold here.
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] above [`MOST_3D`], saying how many.
+pub(super) fn check_size(unknowns: f64) -> Result<()> {
+    if unknowns > MOST_3D as f64 {
+        return Err(Error::invalid(
+            "device",
+            format!(
+                "3D FDFD of this device on this grid takes {:.1} million unknowns, more than \
+                 the direct solver holds here ({:.1} million: 1.3 million took 32 GB); \
+                 coarsen the grid (FdfdGrid) or shrink the device",
+                unknowns / 1e6,
+                MOST_3D as f64 / 1e6
+            ),
+        ));
+    }
+    Ok(())
+}
+
 /// The device's S-parameters at `wavelengths` by FDFD on `grid`: in 2D (the effective index
 /// method's plane of the core layer, its slab's TE mode, H along z) or in 3D (the stack,
 /// TE-like). Each cell's permittivity is from 8 samples a side of it (`Averaging::Samples`),
@@ -288,36 +345,15 @@ pub(super) fn sampled(
     grid: &FdfdGrid,
     three: bool,
 ) -> Result<(Sampled, String)> {
-    grid.check()?;
+    let (nx, ny, unknowns) = size(geometry, core, grid, three)?;
+    if three {
+        check_size(unknowns)?;
+    }
     let ((x0, x1), (y0, y1)) = window(geometry, core, grid)?;
     let h = grid.step;
-    // an even number of cells each way, centred on the window, so that a device mirrored about
-    // its axis is mirrored on the grid too, its axis on a node
-    let nx = 2 * ((x1 - x0) / (2.0 * h)).ceil() as usize;
-    let ny = 2 * ((y1 - y0) / (2.0 * h)).ceil() as usize;
     let x0 = 0.5 * (x0 + x1) - 0.5 * nx as f64 * h;
     let y0 = 0.5 * (y0 + y1) - 0.5 * ny as f64 * h;
     let lead = (TO_PLANE + TO_PML + grid.pml + 2) as f64 * h + (x1 - x0);
-    if three {
-        let (_, bottom, top) =
-            geometry.structure.stack().layer(core).ok_or_else(|| {
-                Error::invalid("device", format!("the stack has no layer {core}"))
-            })?;
-        let thick = (top - bottom).to_um() + 2.0 * (grid.margin + grid.pml as f64 * grid.step_z);
-        let unknowns = 3.0 * nx as f64 * ny as f64 * (thick / grid.step_z).ceil();
-        if unknowns > MOST_3D as f64 {
-            return Err(Error::invalid(
-                "device",
-                format!(
-                    "3D FDFD of this device on this grid takes {:.1} million unknowns, more than \
-                     the direct solver holds here ({:.1} million: 1.3 million took 32 GB); \
-                     coarsen the grid (FdfdGrid) or shrink the device",
-                    unknowns / 1e6,
-                    MOST_3D as f64 / 1e6
-                ),
-            ));
-        }
-    }
     let structure = led(geometry, core, lead)?;
     let placed = place(geometry, x0, y0, h, ny)?;
     let mut matrices = Vec::with_capacity(wavelengths.len());

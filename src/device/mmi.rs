@@ -197,6 +197,31 @@ impl StripMmi {
         self
     }
 
+    /// Its FDFD grids: the 2D one's and the 3D one's.
+    pub(super) fn grids(&self) -> (FdfdGrid, FdfdGrid) {
+        (self.grid_2d, self.grid_3d)
+    }
+
+    /// The size of the FDFD solve `fidelity` takes at `values`, when it is one: the cells along
+    /// x and y, and the unknowns of a solve.
+    ///
+    /// # Errors
+    ///
+    /// As [`Device::geometry`], and [`Error::InvalidValue`] for a fidelity it doesn't have.
+    pub(super) fn fdfd_size(
+        &self,
+        values: &Values,
+        fidelity: Fidelity,
+    ) -> Result<Option<(usize, usize, f64)>> {
+        let m = method(self.kind(), &self.methods, fidelity)?;
+        if m.fidelity == Fidelity::TwoD && self.model == Model2d::GuidedModes {
+            return Ok(None);
+        }
+        let three = m.fidelity == Fidelity::ThreeD;
+        let grid = if three { self.grid_3d } else { self.grid_2d };
+        solve::size(&self.geometry(values)?, &self.strip.core, &grid, three).map(Some)
+    }
+
     /// Its kind of MMI.
     pub fn mmi_kind(&self) -> MmiKind {
         self.kind

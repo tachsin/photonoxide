@@ -24,7 +24,11 @@ const OWN: [&str; 2] = ["wavelength", "width"];
 
 /// The task, parameters and expressions resolved, as the kind's table `T`.
 pub(super) fn task<T: DeserializeOwned>(job: &crate::run::Job) -> Result<T> {
-    at(job.task(), None)
+    // a job's device's ports, which its sources and monitors find by name
+    let known = super::device::named_ports(job)?;
+    resolve_with(job.task(), None, &known)?
+        .try_into()
+        .map_err(|e: toml::de::Error| task_error(e.to_string()))
 }
 
 /// The task with the parameter `set.0` at the value `set.1`, as the kind's table `T`.
@@ -473,6 +477,16 @@ fn resolve_etch(entry: &mut Table, p: &Parameters, what: &str) -> Result<()> {
 
 /// The task's table with its parameters and expressions resolved; see the module.
 pub(super) fn resolve(task: &Table, set: Option<(&str, f64)>) -> Result<Table> {
+    resolve_with(task, set, &[])
+}
+
+/// [`resolve`], the ports a source or a port table names found among `known` (a job's device's)
+/// as well as among the task's components'.
+pub(super) fn resolve_with(
+    task: &Table,
+    set: Option<(&str, f64)>,
+    known: &[(String, crate::generator::Port)],
+) -> Result<Table> {
     let mut p = parameters(task)?;
     if let Some((name, value)) = set {
         p = p.with(name, value).map_err(|e| {
@@ -600,7 +614,7 @@ pub(super) fn resolve(task: &Table, set: Option<(&str, f64)>) -> Result<Table> {
     // the components: their layer the task's unless given, their etches resolved, the
     // parameters in each (their fields, which read them, are read when they are drawn); and
     // the ports that name theirs placed on them
-    let mut ports = Vec::new();
+    let mut ports = known.to_vec();
     if let Some(entries) = out.get_mut("component") {
         let Value::Array(entries) = entries else {
             return Err(task_error(
@@ -632,7 +646,7 @@ pub(super) fn resolve(task: &Table, set: Option<(&str, f64)>) -> Result<Table> {
             }
             tables.push(entry.clone());
         }
-        ports = super::components::ports(&tables)?;
+        ports.extend(super::components::ports(&tables)?);
     }
     super::components::place_ports(&mut out, &ports)?;
     // the bodies: the parameters in each (their fields, which read them, are read when they are

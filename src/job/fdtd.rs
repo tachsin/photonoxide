@@ -225,7 +225,8 @@ struct ViewSpec {
 struct FdtdTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
     kind: String,
-    stack: super::StackField,
+    /// The stack; a job's `[device]` gives its own instead.
+    stack: Option<super::StackField>,
     core_nm: Option<f64>,
     bottom_oxide_um: Option<f64>,
     wavelength_um: f64,
@@ -446,6 +447,7 @@ impl Setup {
     /// boundaries, the spectrum, each source's and monitor's fields and place, the stopping rule
     /// and the view.
     fn new(job: &Job) -> Result<Setup> {
+        super::device::check_fdtd_task(job)?;
         let task = parse(job)?;
         check_window("x_um", task.x_um)?;
         check_window("y_um", task.y_um)?;
@@ -478,17 +480,27 @@ impl Setup {
                 "z_um is for a 3D job (dimensions = 3): a 2D job is the layer's plane",
             ));
         }
-        let structure = draw_paths(
-            draw(
-                named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
-                &task.rect,
-                &task.circle,
-                &task.ring,
+        // a job's device is its structure, its ports' guides led on through the window's edges
+        let structure = match super::device::structure(job, task.x_um, task.y_um)? {
+            Some(s) => s,
+            None => draw_paths(
+                draw(
+                    named_stack(
+                        task.stack
+                            .as_ref()
+                            .ok_or_else(|| task_error("needs a stack, e.g. stack = \"soi_220\""))?,
+                        task.core_nm,
+                        task.bottom_oxide_um,
+                    )?,
+                    &task.rect,
+                    &task.circle,
+                    &task.ring,
+                )?,
+                &task.path,
+                &task.shape,
+                &task.component,
             )?,
-            &task.path,
-            &task.shape,
-            &task.component,
-        )?;
+        };
         if !three && !task.body.is_empty() {
             return Err(task_error(
                 "[[task.body]] is a body in space: it is for a 3D job (dimensions = 3), which \

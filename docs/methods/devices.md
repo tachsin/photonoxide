@@ -485,6 +485,55 @@ fidelity, preset or material, an anisotropic material, a core that isn't a layer
 around them, from 1 µm below the core to 1 µm above; a run records that scene. The studio saves a
 component page's design this way, in the workspace's `jobs/`, and opens it again on its page.
 
+## Computed as a job
+
+Beside the `[device]` table, a `[task]` says how the job computes the device, and
+`job::from_device(name, &spec, &Compute)` writes it:
+
+- `kind = "spectrum"`: the device's own model at the design's fidelity, the component
+  `Device::component` gives. At a solver-backed fidelity that is the solve: the cross-section's
+  modes (the waveguide's, coupler's, ring's and rib's 3D, the bend's 2D and 3D), 2D FDFD
+  (labelled 2D) or 3D FDFD (the MMIs and the Y-branch). The run records the scene and the ports,
+  then `DeviceModel`: the method, its write-up and papers, what the component reproduces on
+  which grid, how long it took and the device's figures; then the S-parameters at each
+  wavelength of the band. They are `Device::component`'s at that fidelity to the last bit, and
+  replay so.
+- `kind = "fdtd"`: the drawn structure stepped in time, as an `"fdtd"` job's shapes are, each
+  port's guide led straight on through the window's edge and its PML; the sources and monitors
+  find the ports by name (`port = "o1"`). `from_device` puts a mode source at the first port and
+  a mode monitor at each, on 40 nm cells in 2D (the effective index method's plane, labelled
+  2D) or 50 nm in 3D. No device's fidelity is FDTD; it is a check on the others.
+
+```toml
+name = "mmi-3d"
+timeout_minutes = 30.0
+
+[device]
+kind = "MMI 1x2"
+fidelity = "3D"
+
+[task]
+kind = "spectrum"
+from_um = 1.5        # the band: the device's own, its wavelength ± span/2, by default
+to_um = 1.6
+points = 101
+step_nm = 80.0       # each left out is the device's own: the cells in the chip's plane (an
+step_z_nm = 40.0     # FDFD's, or a cross-section's mesh step); 3D FDFD's cells' height; the
+margin_um = 0.6      # cladding beside the guides; the wavelengths an FDFD samples and its PML
+samples = 3          # cells; an MMI's 2D model by FDFD in place of its guided modes
+pml_cells = 12
+# model_2d = "fdfd"
+```
+
+`job::check` refuses a grid a device doesn't take (a 3D FDFD's cells' height or an FDFD's
+samples for a mode solve, any grid for an MZI, whose parts solve on their own), a band that isn't
+one, and a 3D FDFD larger than the direct solver holds here (1.2 million unknowns), saying how
+large it is, before anything runs. A stop (the window's Stop, the job's timeout) ends the run at
+once: a solve already started is let go and its result discarded. The unit tests run each
+device's job at each fidelity, the mode solves on a 50 nm mesh and the FDFDs on 200 nm cells, and
+compare their records with `Device::component` bit for bit; an ignored test does the same on each
+device's own grids.
+
 ## Validation
 
 | Case | What it checks | Grid | Found |

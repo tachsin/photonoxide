@@ -98,6 +98,11 @@ impl StripBend {
         self
     }
 
+    /// Its meshes: the bend's shift's, and the straight strip's.
+    pub(super) fn meshes(&self) -> (Mesh, Mesh) {
+        (self.strip.mesh, self.straight)
+    }
+
     /// The same device, its straight strip solved on `mesh` (by default the waveguide's: cells
     /// fitted about 10 nm apart, Hadley's equations).
     #[must_use]

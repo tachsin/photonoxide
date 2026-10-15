@@ -100,6 +100,11 @@ impl StripCoupler {
         self
     }
 
+    /// The mesh its solves use.
+    pub(super) fn mesh(&self) -> Mesh {
+        self.strip.mesh
+    }
+
     /// What the full-vector solver sees at `values` and `wavelength`: the pair's even and odd
     /// cross-sections (an electric and a magnetic wall between the guides on the mirrored
     /// domain; on the full domain both are the same).
