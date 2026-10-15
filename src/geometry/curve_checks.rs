@@ -759,7 +759,10 @@ mod tests {
     #[test]
     #[ignore = "writes the cases' rows of the report to PHOTONOXIDE_CURVE_ROWS"]
     fn rows() {
-        let rows: String = cases().iter().map(|c| crate::validation::row(c).0).collect();
+        let rows: String = cases()
+            .iter()
+            .map(|c| crate::validation::row(c).0)
+            .collect();
         if let Some(out) = std::env::var_os("PHOTONOXIDE_CURVE_ROWS") {
             std::fs::write(out, rows).expect("the rows are written");
         }
