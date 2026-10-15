@@ -380,14 +380,14 @@ The MMIs' and the Y-branch's FDFD models solve the device's own drawing (`device
   even in number each way and centred, so a device mirrored about its axis is mirrored on the
   grid; in 3D the core's faces are on nodes, `margin` of cladding below and above it.
 - **The plane** in 2D is the effective index method's (the `"fdfd"` job's,
-  [fdfd-2d.md](fdfd-2d.md)): each point's column's slab index squared, the slab's TE mode, H
+  [fdfd.md](fdfd.md)): each point's column's slab index squared, the slab's TE mode, H
   along z. 3D solves the stack itself, TE-like.
 - **Each cell's permittivity** is from 8 samples a side, harmonic along each component of E and
   arithmetic across it. The shapes' fill ([averaging.md](averaging.md)) would leave a seam where
   two shapes abut, as a port's guide does its lead: a straight strip then reflects (|S₁₁|² 6e-5
   on 100 nm cells) and its S isn't symmetric (3e-4). Sampled, they are 1e-32 and 1e-16.
 - **The ports** are each guide's fundamental mode on its plane, in a window across from the
-  middles between it and its neighbours on the same side ([fdfd-2d.md](fdfd-2d.md),
+  middles between it and its neighbours on the same side ([fdfd-ports.md](fdfd-ports.md),
   [fdfd-3d.md](fdfd-3d.md)); the S-matrix's phases are referred back from the planes to the
   device's ports by each mode's β. Through it a straight strip 2 µm long gives
   $S_{21} = e^{i\beta L}$ to 1.6e-7 in 2D and 2.6e-5 in 3D on 100 nm cells
