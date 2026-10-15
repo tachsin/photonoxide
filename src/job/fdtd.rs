@@ -2126,7 +2126,16 @@ fn spectra(sim: &Simulation, setup: &Setup, m: &Monitors, last: bool) -> Vec<Eve
     let wavelengths_um: Vec<f64> = fs.iter().map(|f| 1.0 / f.to_natural()).collect();
     let time_um = sim.time();
     let mut out = Vec::new();
-    let per = |v: Vec<f64>| -> Vec<f64> { v.iter().zip(&incident).map(|(a, b)| a / b).collect() };
+    // before the pulse has reached a source's own monitor (a spectrum recorded early, on a slow
+    // machine) its incident power is nought: nothing is referred to it yet, and the record holds
+    // zeros, never a NaN (which JSON can't hold, and the record's replay would refuse)
+    let share = |a: f64, b: f64| if b > 0.0 { a / b } else { 0.0 };
+    let per = |v: Vec<f64>| -> Vec<f64> {
+        v.iter()
+            .zip(&incident)
+            .map(|(&a, &b)| share(a, b))
+            .collect()
+    };
     // each mode source's reflection, back into its guide
     for (s, plan) in setup.sources.iter().enumerate() {
         if let SourcePlan::Mode { axis, .. } = plan {
@@ -2151,7 +2160,11 @@ fn spectra(sim: &Simulation, setup: &Setup, m: &Monitors, last: bool) -> Vec<Eve
                 wavelengths_um: wavelengths_um.clone(),
                 series: vec![SpectrumSeries {
                     label: format!("back along {}", axis_name(*axis)),
-                    values: back.iter().zip(&forward).map(|(b, f)| b / f).collect(),
+                    values: back
+                        .iter()
+                        .zip(&forward)
+                        .map(|(&b, &f)| share(b, f))
+                        .collect(),
                 }],
                 time_um,
                 last,
@@ -2955,6 +2968,28 @@ wavelengths_um = [1.55]
 until = "time"
 time_um = 160.0
 "#;
+
+    #[test]
+    fn a_spectrum_before_the_pulse_arrives_holds_zeros_and_the_record_replays() {
+        // stopped long before the pulse reaches anything: the spectra, referred to an incident
+        // power still nought, are recorded as zeros (a NaN would make the record unreadable,
+        // as a spectrum recorded early on a slow machine did)
+        let early = SMALL.replace("time_um = 160.0", "time_um = 0.5");
+        let events = run_job(&early, "early");
+        let spectra: Vec<&Vec<SpectrumSeries>> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::FdtdSpectrum { series, .. } => Some(series),
+                _ => None,
+            })
+            .collect();
+        assert!(!spectra.is_empty());
+        for series in spectra {
+            for s in series {
+                assert!(s.values.iter().all(|v| v.is_finite()), "{s:?}");
+            }
+        }
+    }
 
     #[test]
     fn a_job_records_frames_progress_spectra_resonances_and_fields() {

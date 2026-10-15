@@ -62,7 +62,7 @@ fn reproduces(spec: &Spec, compute: &Compute, reference: &dyn Device, tag: &str)
         fidelity, figures, ..
     } = &events[3]
     else {
-        panic!("{tag}: no model, {:?}", &events[3]);
+        panic!("{tag}: no model, {:?}", events[3]);
     };
     assert_eq!(
         fidelity,
