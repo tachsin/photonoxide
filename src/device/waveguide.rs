@@ -3,7 +3,7 @@
 use crate::Result;
 use crate::circuit::components::{Dispersion, Waveguide};
 use crate::circuit::{Fidelity, Parameter, Provenance};
-use crate::geometry::Point;
+use crate::generator::{Generator, Straight};
 use crate::mode::vector::CrossSection;
 use crate::stack::{LayerStack, Structure};
 use crate::units::Wavelength;
@@ -11,7 +11,7 @@ use crate::units::Wavelength;
 use super::guide::{Strip, um};
 use super::section::{self, Mesh};
 use super::{
-    Built, Device, Figure, Geometry, Method, Port, Range, Stated, Values, figure, method, parameter,
+    Built, Device, Figure, Geometry, Method, Range, Stated, Values, figure, method, parameter,
 };
 
 /// The papers of a strip's analytic model.
@@ -287,22 +287,9 @@ impl Device for StripWaveguide {
     }
 
     fn geometry(&self, values: &Values) -> Result<Geometry> {
-        let mut structure = Structure::new(self.stack(values)?);
         let (w, l) = (values.at("width"), values.at("length"));
-        if l > 0.0 {
-            structure.draw(&self.strip.core, section::straight(w, 0.0, 0.0, l)?)?;
-        }
-        let port = |name: &str, x: f64, direction: f64| Port {
-            name: name.into(),
-            position: Point::um(x, 0.0),
-            direction,
-            width: um(w),
-            layer: self.strip.core.clone(),
-        };
-        Ok(Geometry {
-            structure,
-            ports: vec![port("o1", 0.0, 180.0), port("o2", l, 0.0)],
-        })
+        let drawing = Straight::new(um(w), um(l)).draw(&self.strip.core)?;
+        super::drawn(Structure::new(self.stack(values)?), &drawing)
     }
 
     fn fidelities(&self) -> &[Method] {

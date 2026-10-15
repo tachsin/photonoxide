@@ -3,17 +3,17 @@
 use crate::Result;
 use crate::circuit::components::{DirectionalCoupler, Dispersion, Supermodes};
 use crate::circuit::{Component, Fidelity, Parameter, Provenance};
-use crate::geometry::Point;
+use crate::generator::{self, Generator};
 use crate::mode::vector::{Boundary, CrossSection};
 use crate::stack::{LayerStack, Structure};
 use crate::units::Wavelength;
 
 use super::fit;
 use super::guide::{Strip, um};
-use super::section::{self, Mesh};
+use super::section::Mesh;
 use super::waveguide::{analytic_papers, band_parameters, solver_papers, strip_parameters};
 use super::{
-    Built, Device, Figure, Geometry, Method, Port, Range, Stated, Values, figure, method, parameter,
+    Built, Device, Figure, Geometry, Method, Range, Stated, Values, figure, method, parameter,
 };
 
 /// The coupled section of a directional coupler: two silicon strips a gap apart, ports `o1`
@@ -245,30 +245,10 @@ impl Device for StripCoupler {
     }
 
     fn geometry(&self, values: &Values) -> Result<Geometry> {
-        let mut structure = Structure::new(self.stack(values)?);
         let (w, g, l) = (values.at("width"), values.at("gap"), values.at("length"));
-        let c = (g + w) / 2.0;
-        if l > 0.0 {
-            for y in [-c, c] {
-                structure.draw(&self.strip.core, section::straight(w, y, 0.0, l)?)?;
-            }
-        }
-        let port = |name: &str, x: f64, y: f64, direction: f64| Port {
-            name: name.into(),
-            position: Point::um(x, y),
-            direction,
-            width: um(w),
-            layer: self.strip.core.clone(),
-        };
-        Ok(Geometry {
-            structure,
-            ports: vec![
-                port("o1", 0.0, -c, 180.0),
-                port("o2", 0.0, c, 180.0),
-                port("o3", l, c, 0.0),
-                port("o4", l, -c, 0.0),
-            ],
-        })
+        let drawing =
+            generator::DirectionalCoupler::new(um(w), um(g), um(l)).draw(&self.strip.core)?;
+        super::drawn(Structure::new(self.stack(values)?), &drawing)
     }
 
     fn fidelities(&self) -> &[Method] {

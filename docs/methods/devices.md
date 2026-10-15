@@ -72,7 +72,7 @@ A `Device` has seven methods:
 | `kind()`, `about()` | the component's kind (`"waveguide"`, …) and a sentence |
 | `parameters()` | name, unit, default, range: a `circuit::Parameter` each |
 | `stack(values)` | the stack, the core layer at the device's thickness |
-| `geometry(values)` | a `stack::Structure` of shapes on the stack, and the ports: name, position, direction (degrees, the way light leaves), width and layer |
+| `geometry(values)` | a `stack::Structure` of shapes on the stack, and the ports: name, position, direction (degrees, the way light leaves), width and layer; drawn by the device's [generator](generators.md) (`Straight`, `Bend`, `DirectionalCoupler`, `Ring`), the same bits as before |
 | `fidelities()` | a `Method` per model: its fidelity, what computes it, this write-up, its papers, its `Stated` error against a higher fidelity and its validity ranges |
 | `component(values, fidelity)` | a `Built`: the boxed component, the values of its own parameters, their derivatives, and the figures |
 | `derived(values, fidelity)` | the figures: n_eff, n_g, the cross-over length, the free spectral range, Q, a bend's loss, each a `Figure` with its fidelity and grid |

@@ -89,7 +89,7 @@ fn text(value: &Value) -> Option<String> {
 
 /// What a value must be.
 #[derive(Clone, Copy)]
-enum Want {
+pub(super) enum Want {
     /// A length; a plain number only if it is zero.
     Length,
     /// A length, a plain number counting as µm (a `_um` key).
@@ -373,7 +373,11 @@ pub(super) fn length(text: &str, p: &Parameters) -> std::result::Result<f64, Str
 }
 
 /// `value` (an expression's string, or a number) evaluated at the parameters, as `want` says.
-fn evaluate(value: &Value, p: &Parameters, want: Want) -> std::result::Result<f64, String> {
+pub(super) fn evaluate(
+    value: &Value,
+    p: &Parameters,
+    want: Want,
+) -> std::result::Result<f64, String> {
     let text =
         text(value).ok_or_else(|| format!("must be an expression or a number, got {value}"))?;
     let e = Expr::parse(&text, p.scope()).map_err(|e| e.to_string())?;
@@ -559,21 +563,59 @@ pub(super) fn resolve(task: &Table, set: Option<(&str, f64)>) -> Result<Table> {
             cells[k].0
         )));
     }
+    let definitions: Vec<Value> = task
+        .get("parameters")
+        .and_then(Value::as_table)
+        .map(|t| {
+            t.iter()
+                .filter_map(|(name, v)| {
+                    Some(Value::Array(vec![
+                        Value::String(name.clone()),
+                        Value::String(text(v)?),
+                    ]))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    // the components: their layer the task's unless given, their etches resolved, the
+    // parameters in each (their fields, which read them, are read when they are drawn); and
+    // the ports that name theirs placed on them
+    let mut ports = Vec::new();
+    if let Some(entries) = out.get_mut("component") {
+        let Value::Array(entries) = entries else {
+            return Err(task_error(
+                "[[task.component]] must be tables: type = \"...\" and its parameters",
+            ));
+        };
+        let layer = task.get("layer").cloned();
+        let mut tables = Vec::with_capacity(entries.len());
+        for (k, entry) in entries.iter_mut().enumerate() {
+            let Value::Table(entry) = entry else {
+                return Err(task_error(format!(
+                    "[[task.component]] #{}: must be a table",
+                    k + 1
+                )));
+            };
+            if let Some(l) = &layer
+                && !entry.contains_key("layer")
+            {
+                entry.insert("layer".into(), l.clone());
+            }
+            resolve_etch(entry, &p, &format!("[[task.component]] #{}", k + 1))?;
+            entry.insert("parameters".into(), Value::Array(definitions.clone()));
+            entry.remove("set");
+            if let Some((name, value)) = set {
+                entry.insert(
+                    "set".into(),
+                    Value::Array(vec![Value::String(name.to_owned()), Value::Float(value)]),
+                );
+            }
+            tables.push(entry.clone());
+        }
+        ports = super::components::ports(&tables)?;
+    }
+    super::components::place_ports(&mut out, &ports)?;
     if let Some(Value::Array(entries)) = out.get_mut("shape") {
-        let definitions: Vec<Value> = task
-            .get("parameters")
-            .and_then(Value::as_table)
-            .map(|t| {
-                t.iter()
-                    .filter_map(|(name, v)| {
-                        Some(Value::Array(vec![
-                            Value::String(name.clone()),
-                            Value::String(text(v)?),
-                        ]))
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
         for (k, entry) in entries.iter_mut().enumerate() {
             let Value::Table(entry) = entry else {
                 continue;

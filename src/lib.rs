@@ -16,6 +16,9 @@
 //! - [`device`]: components that know their geometry: a stack, parameters (as expressions),
 //!   shapes with ports, and the models from a fit to the solver up to 3D, each figure with its
 //!   fidelity and grid; the strip waveguide, bend, directional coupler and rings.
+//! - [`generator`]: photonic components drawn from their parameters, with named ports:
+//!   waveguides, tapers, bends, S-bends, spirals, rings and disks with their buses, couplers,
+//!   MMIs, Y-branches and crossings.
 //! - [`compact`]: compact models by vector fitting, over parameters, and Touchstone files.
 //! - [`expr`]: a small, safe expression language with units and named parameters, for the
 //!   numbers of a structure, with forward-mode derivatives.
@@ -54,6 +57,7 @@ pub mod facade;
 pub mod farm;
 pub mod fdfd;
 pub mod fdtd;
+pub mod generator;
 pub mod geometry;
 pub mod job;
 pub mod material;

@@ -68,7 +68,7 @@ export const CATEGORIES = [
     id: "foundations",
     title: "Foundations",
     blurb: "Not solvers: the units and signs, shapes, stacks and their etches, expressions and material data every method above is built on.",
-    groups: [{ title: null, slugs: ["conventions", "geometry", "booleans", "arrays", "stacks", "expressions", "materials", "catalogue"] }],
+    groups: [{ title: null, slugs: ["conventions", "geometry", "booleans", "arrays", "generators", "stacks", "expressions", "materials", "catalogue"] }],
   },
 ];
 
@@ -100,6 +100,7 @@ export const ALGORITHMS = [
   { name: "Morphological opening and closing", does: "corners rounded to a least radius, a first lithography model", methods: ["booleans"] },
   { name: "Multifrontal LU, nested dissection", does: "photonoxide's own sparse direct solve", methods: ["fdfd-3d", "fdfd"] },
   { name: "Multigrid, shifted Laplacian", does: "the 3D iterative solves' preconditioner", methods: ["fdfd-3d"] },
+  { name: "Multimode self-imaging", does: "an MMI's image lengths from its beat length, as geometry inputs", methods: ["generators"] },
   { name: "Nonlinear inverse iteration", does: "an eigenproblem whose matrix depends on its eigenvalue", methods: ["hadley"] },
   { name: "Polygon overlay on an integer grid", does: "union, intersection, difference and xor of polygons, exact on shared edges", methods: ["booleans"] },
   { name: "QMR, complex symmetric", does: "3D FDFD by iteration, with or without the matrix", methods: ["fdfd-3d"] },

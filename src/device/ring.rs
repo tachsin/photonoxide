@@ -5,7 +5,7 @@ use std::f64::consts::{PI, TAU};
 
 use crate::circuit::components::{AddDropRing, AllPassRing, Dispersion};
 use crate::circuit::{Component, Fidelity, Parameter};
-use crate::geometry::{Point, Shape};
+use crate::generator::{self, Generator};
 use crate::mode::vector::{self, Boundary};
 use crate::stack::{LayerStack, Structure};
 use crate::units::Wavelength;
@@ -13,10 +13,10 @@ use crate::{Error, Result};
 
 use super::fit;
 use super::guide::{Strip, um};
-use super::section::{self, Mesh};
+use super::section::Mesh;
 use super::waveguide::{analytic_papers, band_parameters, solver_papers, strip_parameters};
 use super::{
-    Built, Device, Figure, Geometry, Method, Port, Range, Stated, Values, figure, method, parameter,
+    Built, Device, Figure, Geometry, Method, Range, Stated, Values, figure, method, parameter,
 };
 
 /// The gap's step for the 3D coupling's decay, µm: γ = ln(C(g − δ)/C(g + δ))/2δ, δ at most
@@ -341,67 +341,19 @@ impl Device for StripRing {
     }
 
     fn geometry(&self, values: &Values) -> Result<Geometry> {
-        let mut s = Structure::new(self.stack(values)?);
-        let core = self.strip.core.clone();
-        let (w, r, lc) = (
-            values.at("width"),
-            values.at("radius"),
-            values.at("coupling_length"),
+        // the input bus along y = 0, the ring's lower straight (or point) w + gap above it, its
+        // straights coupling_length long, the drop bus gap_drop above its top
+        let mut ring = generator::Ring::racetrack(
+            um(values.at("width")),
+            um(values.at("radius")),
+            um(values.at("gap")),
+            um(values.at("coupling_length")),
         );
-        // the input bus along y = 0, the ring's lower straight (or point) w + gap above it
-        let low = w + values.at("gap");
-        let top = low + 2.0 * r;
-        let centre = low + r;
-        let reach = lc / 2.0 + r + w + 1.0;
-        s.draw(&core, section::straight(w, 0.0, -reach, reach)?)?;
-        if lc > 0.0 {
-            s.draw(
-                &core,
-                Shape::sector(
-                    Point::um(-lc / 2.0, centre),
-                    um(r - w / 2.0),
-                    um(r + w / 2.0),
-                    PI / 2.0,
-                    PI,
-                )?,
-            )?;
-            s.draw(
-                &core,
-                Shape::sector(
-                    Point::um(lc / 2.0, centre),
-                    um(r - w / 2.0),
-                    um(r + w / 2.0),
-                    -PI / 2.0,
-                    PI,
-                )?,
-            )?;
-            for y in [low, top] {
-                s.draw(&core, section::straight(w, y, -lc / 2.0, lc / 2.0)?)?;
-            }
-        } else {
-            s.draw(&core, Shape::ring(Point::um(0.0, centre), um(r), um(w))?)?;
-        }
-        let port = |name: &str, x: f64, y: f64, direction: f64| Port {
-            name: name.into(),
-            position: Point::um(x, y),
-            direction,
-            width: um(w),
-            layer: core.clone(),
-        };
-        let mut ports = vec![
-            port("in", -reach, 0.0, 180.0),
-            port("through", reach, 0.0, 0.0),
-        ];
         if self.drop {
-            let drop = top + w + values.at("gap_drop");
-            s.draw(&core, section::straight(w, drop, -reach, reach)?)?;
-            ports.push(port("add", reach, drop, 0.0));
-            ports.push(port("drop", -reach, drop, 180.0));
+            ring = ring.with_drop(um(values.at("gap_drop")));
         }
-        Ok(Geometry {
-            structure: s,
-            ports,
-        })
+        let drawing = ring.draw(&self.strip.core)?;
+        super::drawn(Structure::new(self.stack(values)?), &drawing)
     }
 
     fn fidelities(&self) -> &[Method] {

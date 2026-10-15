@@ -204,6 +204,8 @@ struct FdtdTask {
     #[serde(default)]
     shape: Vec<super::shapes::ShapeSpec>,
     #[serde(default)]
+    component: Vec<toml::Table>,
+    #[serde(default)]
     source: Vec<ItemSpec>,
     #[serde(default)]
     monitor: Vec<ItemSpec>,
@@ -433,6 +435,7 @@ impl Setup {
             )?,
             &task.path,
             &task.shape,
+            &task.component,
         )?;
         if !three {
             super::check_etches_2d(&structure, &task.layer)?;
@@ -2129,6 +2132,7 @@ fn mode_index(setup: &Setup, s: usize) -> usize {
 pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let mut setup = Setup::new(job)?;
     run.record(&setup.scene()?)?;
+    super::record_ports(job, run)?;
     let g = setup.grid;
     let eps = setup.permittivity()?;
     let mut sim = Simulation::new_parallel(g, &eps, setup.boundaries, setup.courant)?;

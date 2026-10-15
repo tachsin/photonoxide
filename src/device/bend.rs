@@ -4,7 +4,7 @@ use std::f64::consts::PI;
 
 use crate::circuit::components::{Bend, Dispersion};
 use crate::circuit::{Fidelity, Parameter, Provenance};
-use crate::geometry::{Path, Point};
+use crate::generator::{self, Generator};
 use crate::mode::Polarization;
 use crate::mode::bend::SlabBend;
 use crate::mode::eim::Ridge;
@@ -19,7 +19,7 @@ use super::waveguide::{
     analytic_papers, band_parameters, fit_validity, solver_papers, strip_parameters,
 };
 use super::{
-    Built, Device, Figure, Geometry, Method, Port, Range, Stated, Values, figure, method, parameter,
+    Built, Device, Figure, Geometry, Method, Range, Stated, Values, figure, method, parameter,
 };
 
 /// A circular bend of a silicon strip: ports `o1` and `o2`, its component a [`Bend`],
@@ -342,33 +342,11 @@ impl Device for StripBend {
     }
 
     fn geometry(&self, values: &Values) -> Result<Geometry> {
-        let mut structure = Structure::new(self.stack(values)?);
         let (w, r, angle) = (values.at("width"), values.at("radius"), values.at("angle"));
         // a path from (0, 0) heading +x, turning left about (0, R): its shape the annular
         // sector, and its end the second port
-        let sweep = angle.to_radians();
-        let mut end = Point::um(0.0, 0.0);
-        if sweep > 0.0 {
-            let path = Path::builder(Point::um(0.0, 0.0), 0.0, um(w))
-                .arc(um(r), sweep)
-                .build()?;
-            end = path.end().position;
-            structure.draw(&self.strip.core, path.shape())?;
-        }
-        let port = |name: &str, position: Point, direction: f64| Port {
-            name: name.into(),
-            position,
-            direction,
-            width: um(w),
-            layer: self.strip.core.clone(),
-        };
-        Ok(Geometry {
-            structure,
-            ports: vec![
-                port("o1", Point::um(0.0, 0.0), 180.0),
-                port("o2", end, angle.rem_euclid(360.0)),
-            ],
-        })
+        let drawing = generator::Bend::arc(um(w), um(r), angle).draw(&self.strip.core)?;
+        super::drawn(Structure::new(self.stack(values)?), &drawing)
     }
 
     fn fidelities(&self) -> &[Method] {

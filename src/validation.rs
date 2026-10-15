@@ -1649,6 +1649,9 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::geometry::boolean_checks::cases());
     // and its arrays, lattices and references, with the L3 cavity of Akahane et al. drawn
     cases.extend(crate::geometry::array_checks::cases());
+    // and the component generators', with their ports, the devices drawn with them
+    cases.extend(crate::generator::checks::cases());
+    cases.extend(crate::job::component_cases());
     // and the contour solver's, every mode in a region
     cases.extend(crate::mode::region::checks::cases());
     // and the shift-and-invert solver's restarts, many modes, and every guided mode

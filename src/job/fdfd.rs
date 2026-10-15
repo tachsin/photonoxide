@@ -75,6 +75,8 @@ struct FdfdTask {
     #[serde(default)]
     shape: Vec<super::shapes::ShapeSpec>,
     #[serde(default)]
+    component: Vec<toml::Table>,
+    #[serde(default)]
     port: Vec<PortSpec>,
     sweep: Option<WavelengthSweep>,
 }
@@ -438,6 +440,7 @@ pub(super) fn preview(job: &Job) -> Result<Event> {
         )?,
         &task.path,
         &task.shape,
+        &task.component,
     )?;
     scene_of(&task, &s)
 }
@@ -520,6 +523,7 @@ impl Device {
             )?,
             &task.path,
             &task.shape,
+            &task.component,
         )?;
         super::check_etches_2d(&structure, &task.layer)?;
         let (_, bottom, top) = structure
@@ -753,6 +757,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     // the 3D view draws the 2D field on the layer's top face
     let z_face = device.layer.1.to_um();
     run.record(&scene_of(task, &device.structure)?)?;
+    super::record_ports(job, run)?;
     let Grid { nx, ny, .. } = device.grid;
     let wavelengths = device.wavelengths();
     let names = device.port_names();

@@ -74,6 +74,29 @@
 //! rotated and moved. [`check`] names an element by its index and a defect by its site. See
 //! `shapes.rs` and docs/methods/arrays.md.
 //!
+//! **Components.** `[[task.component]]` draws one of [`crate::generator`]'s components (a
+//! `ring`, `racetrack`, `disk`, `straight`, `taper`, `bend`, `euler_bend`, `s_bend`, `spiral`,
+//! `directional_coupler`, `bent_coupler`, `mmi`, `y_branch` or `crossing`), every parameter an
+//! expression, named so that its ports are found by name: placed by `origin`, `rotate` and
+//! `mirror`, or `connect = ["o1", "ring.through"]` onto an earlier one's port. An `"fdfd"` job's
+//! `[[task.port]]` takes `port = "ring.in"` for its column, side and window, and an `"fdtd"`
+//! job's `"mode"` source or monitor takes `port` for its plane, window and direction. [`check`]
+//! names the component and the parameter it refuses; [`preview_ports`] gives the named ports,
+//! which a run records after its scene ([`Event::Ports`]). See `components.rs` and
+//! docs/methods/generators.md.
+//!
+//! ```toml
+//! [[task.component]]
+//! type = "ring"
+//! name = "ring"
+//! width = "500 nm"
+//! radius = "5 um"
+//! gap = "200 nm"
+//!
+//! [[task.port]]
+//! port = "ring.in"
+//! ```
+//!
 //! A modes job's sweep can step through any parameter, `parameter = "gap"`, from `from` to `to`
 //! (numbers in µm for a length and radians for an angle, or expressions with units: `"150 nm"`);
 //! at each point the parameters that use it follow, and the point records its shapes as a width
@@ -350,6 +373,9 @@ use crate::stack::{LayerStack, Structure};
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
+#[cfg(test)]
+mod component_tests;
+mod components;
 mod fdfd;
 mod fdtd;
 mod params;
@@ -357,6 +383,11 @@ mod shapes;
 
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub use fdtd::{FoundResonance, SpectrumSeries};
+
+/// The validation cases of components in jobs ([`crate::generator`] in `[[task.component]]`).
+pub(crate) fn component_cases() -> Vec<crate::validation::Case> {
+    components::cases()
+}
 
 /// The memory a sweep's points in flight may take in all, by their estimate: what bounds them
 /// when the machine has more threads than a sweep's points can share it with.
@@ -733,8 +764,89 @@ pub enum Event {
         /// inversion's error below 1e-2, decaying, and above 1e-6 of the largest amplitude.
         resonances: Vec<FoundResonance>,
     },
+    /// The named ports of a job's components (`[[task.component]]`), recorded after its
+    /// [`Event::Scene`] when it has any: markers for the scene ([`preview_ports`]).
+    Ports {
+        /// The ports, component by component.
+        ports: Vec<ScenePort>,
+    },
     // New variants go here, at the end after the last one, so that the earlier variants keep
     // their discriminants (inserting one in between renumbers every variant after it).
+}
+
+/// A port of a [`Event::Ports`]: where a component's guide ends, by its name.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct ScenePort {
+    /// `component.port`, e.g. `"ring.through"`, as an FDFD or FDTD job finds it.
+    pub name: String,
+    /// The layer its guide is drawn on.
+    pub layer: String,
+    /// The centre of the guide's end, µm.
+    pub position_um: [f64; 2],
+    /// The direction light leaves by, degrees counterclockwise from +x.
+    pub direction_deg: f64,
+    /// The guide's width there, µm.
+    pub width_um: f64,
+}
+
+/// The named ports of `job`'s components, as [`Event::Ports`] records them: what the studio
+/// marks on the scene [`preview`] draws. A job's `[device]` gives its device's ports; a task
+/// without components, none.
+///
+/// # Errors
+///
+/// The errors of [`check`].
+pub fn preview_ports(job: &Job) -> Result<Vec<ScenePort>> {
+    if job.device().is_some() {
+        let table = job.device().ok_or_else(|| task_error("no [device]"))?;
+        let (device, design) = crate::device::Spec::from_table(table)?.build()?;
+        let g = device.geometry(design.values())?;
+        return Ok(g
+            .ports
+            .iter()
+            .map(|p| ScenePort {
+                name: p.name.clone(),
+                layer: p.layer.clone(),
+                position_um: [p.position.x.to_um(), p.position.y.to_um()],
+                direction_deg: p.direction,
+                width_um: p.width.to_um(),
+            })
+            .collect());
+    }
+    check(job)?;
+    component_ports(job.task())
+}
+
+/// The named ports of the components in `task`.
+fn component_ports(task: &toml::Table) -> Result<Vec<ScenePort>> {
+    let resolved = params::resolve(task, None)?;
+    let Some(toml::Value::Array(entries)) = resolved.get("component") else {
+        return Ok(Vec::new());
+    };
+    let tables: Vec<toml::Table> = entries
+        .iter()
+        .filter_map(|v| v.as_table().cloned())
+        .collect();
+    Ok(components::ports(&tables)?
+        .into_iter()
+        .map(|(name, p)| ScenePort {
+            name,
+            layer: p.layer.clone(),
+            position_um: [p.position.x.to_um(), p.position.y.to_um()],
+            direction_deg: p.direction,
+            width_um: p.width.to_um(),
+        })
+        .collect())
+}
+
+/// Records the job's components' ports after its scene, if it has any.
+fn record_ports(job: &Job, run: &mut Run) -> Result<()> {
+    let ports = component_ports(job.task())?;
+    if !ports.is_empty() {
+        run.record(&Event::Ports { ports })?;
+    }
+    Ok(())
 }
 
 /// A medium of a [`Event::Scene`]: its material and the real part of its permittivity.
@@ -1386,6 +1498,8 @@ struct StructureTask {
     path: Vec<PathSpec>,
     #[serde(default)]
     shape: Vec<shapes::ShapeSpec>,
+    #[serde(default)]
+    component: Vec<toml::Table>,
 }
 
 fn task_error(reason: impl Into<String>) -> Error {
@@ -1819,6 +1933,7 @@ fn draw_paths(
     mut s: Structure,
     paths: &[PathSpec],
     shapes: &[shapes::ShapeSpec],
+    components: &[toml::Table],
 ) -> Result<Structure> {
     for (k, p) in paths.iter().enumerate() {
         let shape = p.path(k)?.shape();
@@ -1835,7 +1950,7 @@ fn draw_paths(
                 })?,
         }
     }
-    shapes::draw(s, shapes)
+    components::draw(shapes::draw(s, shapes)?, components)
 }
 
 impl StructureTask {
@@ -1849,6 +1964,7 @@ impl StructureTask {
             )?,
             &self.path,
             &self.shape,
+            &self.component,
         )
     }
 }
@@ -2354,6 +2470,7 @@ fn structure(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let s = task.structure()?;
     let lam = Wavelength::um(task.wavelength_um)?;
     run.record(&structure_scene(&task, &s)?)?;
+    record_ports(job, run)?;
     let step = Length::nm(task.step_nm);
     let x = (Length::um(task.x_um[0]), Length::um(task.x_um[1]));
     let y = (Length::um(task.y_um[0]), Length::um(task.y_um[1]));

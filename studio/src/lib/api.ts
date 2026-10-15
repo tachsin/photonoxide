@@ -3,7 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type { Academy, ChartData } from "./academy.svelte";
-import type { Event, Scene } from "./events";
+import type { Event, Scene, ScenePort } from "./events";
 import type { BenchData, BenchRequest, CatalogueEntry, Planned } from "./bench.svelte";
 import type { LibraryReport } from "./libraries.svelte";
 import type { BuildInfo } from "./nightly.svelte";
@@ -148,6 +148,8 @@ export const api = {
   /** The methods' write-ups (docs/methods), as the program was built with them. */
   methodDocs: () => invoke<{ file: string; text: string }[]>("method_docs"),
   previewScene: (text: string) => invoke<Scene>("preview_scene", { text }),
+  /** The named ports of a job's components (photonoxide::job::preview_ports), to mark on its scene. */
+  previewPorts: (text: string) => invoke<ScenePort[]>("preview_ports", { text }),
   saveText: (path: string, text: string) => invoke<void>("save_text", { path, text }),
   materials: () => invoke<MaterialEntry[]>("materials"),
   materialCurves: (id: string, modelId: string, temperature: number | null, composition: number | null, points: number) =>

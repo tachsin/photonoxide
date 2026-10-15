@@ -85,11 +85,19 @@ area fdtd \
 
 # jobs, their runs and replay, and farming them out; the job files in jobs/ are read by the
 # library's tests and validation cases, by the studio's and by the Python package's; a job's
-# [device] table is read, checked and drawn by the devices
+# [device] table is read, checked and drawn by the devices; its [[task.component]] tables are
+# the generators', and its cases of them (components with expressions, ports by name) run here
 area job \
   "src/job/* src/run.rs src/farm.rs src/farm/* jobs/*" \
-  "material mode sparse fdfd fdtd device" \
-  "job:: run:: farm::" "" ""
+  "material mode sparse fdfd fdtd device generator" \
+  "job:: run:: farm::" "generator/job-" ""
+
+# the component generators: shapes on layers with named ports, which the devices draw their
+# geometry with and jobs place; their cases compare the devices' geometry with what it was
+area generator \
+  "src/generator.rs src/generator/*" \
+  "circuit device" \
+  "generator::" "generator/" ""
 
 # a component sampled from an fdfd job's S-parameters runs the job
 area circuit \
@@ -102,7 +110,7 @@ area circuit \
 # mode solvers' cross-sections
 area device \
   "src/device.rs src/device/*" \
-  "material mode circuit" \
+  "material mode circuit generator" \
   "device::" "device/" \
   "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss"
 
@@ -143,7 +151,7 @@ area python \
 # against docs/methods
 area studio \
   "studio/* academy/* docs/methods/* docs/libraries.md examples/README.md CHANGELOG.md ROADMAP.md jobs/* circuits/* site/lib/projects/photonoxide/meta.js site/lib/projects/photonoxide/methods.js" \
-  "material sparse mode fdfd fdtd job circuit device compact facade bench native" \
+  "material sparse mode fdfd fdtd job circuit device generator compact facade bench native" \
   "" "" ""
 
 # matches FILE GLOBS: whether the file matches one of the globs

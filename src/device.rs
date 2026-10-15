@@ -608,6 +608,28 @@ pub fn library() -> Vec<Box<dyn Device>> {
     ]
 }
 
+/// A device's geometry: its generator's `drawing` ([`crate::generator`]) drawn on `structure`,
+/// and its ports.
+///
+/// # Errors
+///
+/// As [`crate::generator::Drawing::draw_on`].
+fn drawn(mut structure: Structure, drawing: &crate::generator::Drawing) -> Result<Geometry> {
+    drawing.draw_on(&mut structure)?;
+    let ports = drawing
+        .ports()
+        .iter()
+        .map(|p| Port {
+            name: p.name.clone(),
+            position: p.position,
+            direction: p.direction,
+            width: p.width,
+            layer: p.layer.clone(),
+        })
+        .collect();
+    Ok(Geometry { structure, ports })
+}
+
 /// The [`Method`] for the fidelity `fidelity` among `methods`.
 fn method(kind: &str, methods: &[Method], fidelity: Fidelity) -> Result<Method> {
     methods

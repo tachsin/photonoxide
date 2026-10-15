@@ -43,6 +43,24 @@ export interface Scene {
   shapes: Shape[];
 }
 
+/** A named port of a job's component: where its guide ends (photonoxide::job::ScenePort). */
+export interface ScenePort {
+  /** component.port, e.g. "ring.through". */
+  name: string;
+  layer: string;
+  /** The guide end's centre, µm. */
+  position_um: [number, number];
+  /** The direction light leaves by, degrees counterclockwise from +x. */
+  direction_deg: number;
+  width_um: number;
+}
+
+/** The named ports of a job's components, recorded after its scene. */
+export interface Ports {
+  type: "ports";
+  ports: ScenePort[];
+}
+
 export interface Permittivity {
   type: "permittivity";
   view: string;
@@ -278,6 +296,7 @@ export type Event =
   | FdtdSpectrum
   | FdtdResonances
   | Scene
+  | Ports
   | Permittivity
   | Mode
   | ModeField

@@ -86,6 +86,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             published_report,
             method_docs,
             preview_scene,
+            preview_ports,
             save_text,
             crate::academy::academy,
             crate::academy::academy_chart,
@@ -845,6 +846,14 @@ fn save_text(path: String, text: String) -> Result<(), String> {
 fn preview_scene(text: String) -> Result<Event, String> {
     let job = Job::parse(&text).map_err(|e| e.to_string())?;
     job::preview(&job).map_err(|e| e.to_string())
+}
+
+/// The named ports of the job in `text`'s components (a device's ports, for a `[device]`), for
+/// the studio to mark on its scene.
+#[tauri::command]
+fn preview_ports(text: String) -> Result<Vec<job::ScenePort>, String> {
+    let job = Job::parse(&text).map_err(|e| e.to_string())?;
+    job::preview_ports(&job).map_err(|e| e.to_string())
 }
 
 /// Every event of the run in `dir`, for comparing runs.
