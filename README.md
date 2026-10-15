@@ -53,6 +53,14 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   cuDSS and Krylov solvers on NVIDIA GPUs, loaded at run time when installed and checked against
   photonoxide's own, which `auto` leaves only for one measured faster here at the same accuracy
   ([backends](docs/methods/backends.md), [install guides](docs/libraries.md)).
+
+  [![Intel oneMKL: PARDISO, BLAS](https://img.shields.io/badge/Intel_oneMKL-PARDISO%2C_BLAS-555)](docs/libraries.md#onemkl)
+  [![MUMPS: direct](https://img.shields.io/badge/MUMPS-direct-555)](docs/libraries.md#mumps)
+  [![SuperLU: direct](https://img.shields.io/badge/SuperLU-direct-555)](docs/libraries.md#superlu)
+  [![NVIDIA cuDSS: direct on the GPU](https://img.shields.io/badge/NVIDIA_cuDSS-direct_on_the_GPU-555)](docs/libraries.md#cudss)
+  [![NVIDIA cuSPARSE: Krylov on the GPU](https://img.shields.io/badge/NVIDIA_cuSPARSE-Krylov_on_the_GPU-555)](docs/libraries.md#cusparse)
+  [![OpenBLAS: BLAS](https://img.shields.io/badge/OpenBLAS-BLAS-555)](docs/libraries.md#openblas)
+  [![Apple Accelerate: sparse, BLAS](https://img.shields.io/badge/Apple_Accelerate-sparse%2C_BLAS-555)](docs/libraries.md#accelerate)
 - **Jobs and runs:** TOML, JSON or YAML job files, checked before they run; every run is recorded
   and replays exactly.
 
