@@ -255,7 +255,8 @@ jobs:
             platforms=$(jq -c --arg t "$target" --arg url "$base/$file" --rawfile sig "$file.sig" \
               '. + {($t): {signature: $sig, url: $url}}' <<< "$platforms")
           done
-          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json body -q .body > notes.md
+          # the changelog only: the "Which file" section below is for the release page, not the update dialog
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json body -q .body | sed '/^### Which file$/,$d' > notes.md
           jq -n --arg version "$v" --rawfile notes notes.md --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --argjson platforms "$platforms" \
             '{version: $version, notes: $notes, pub_date: $date, platforms: $platforms}' > latest.json
@@ -263,3 +264,20 @@ jobs:
           gh release upload "$TAG" latest.json -R "$GITHUB_REPOSITORY" --clobber
           # only now, with everything attached, is this the release the programs update to
           gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --latest
+      # on the release page, which file to take: on Linux the small packages first, the AppImage
+      # where they don't fit (studio/README.md, "Downloads"); once, so a rerun adds nothing
+      - name: Which file
+        run: |
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json body -q .body > body.md
+          grep -q '^### Which file$' body.md && exit 0
+          cat >> body.md << 'EOF'
+
+          ### Which file
+
+          - **Windows:** the `-windows-x86_64-setup.exe`, a per-user installer.
+          - **macOS** (Apple Silicon and Intel): the `-macos-universal.dmg`.
+          - **Linux:** the `.deb` (Debian, Ubuntu) or the `.rpm` (Fedora, RHEL, openSUSE), about 14 MB: the package manager brings WebKitGTK, the browser engine the window uses. The `.AppImage` runs anywhere, on clusters and other distributions and without root, because it carries WebKitGTK itself, so it is about 88 MB.
+
+          [More on each file](https://github.com/tachsin/photonoxide/blob/main/studio/README.md#downloads)
+          EOF
+          gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --notes-file body.md

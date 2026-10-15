@@ -427,7 +427,8 @@ platforms research groups use:
 
 | Platform | Files | Notes |
 |---|---|---|
-| Linux x86_64 and ARM64 (workstations, clusters) | `.AppImage`, `.deb`, `.rpm` | The AppImage is the one for clusters: it carries its libraries, so `chmod +x` it and run it, with `--appimage-extract-and-run` where FUSE is missing (most clusters). The `.deb` and `.rpm` install it system-wide. Built on Ubuntu 22.04: glibc 2.35 or newer. |
+| Linux x86_64 and ARM64, a workstation | `.deb` (Debian, Ubuntu), `.rpm` (Fedora, RHEL, openSUSE) | Start here: about 14 MB. The package manager installs it system-wide with WebKitGTK, the browser engine the window uses, from the distribution (`sudo apt install ./photonoxide-….deb`, or `sudo dnf install ./photonoxide-….rpm`). Built on Ubuntu 22.04: glibc 2.35 or newer. |
+| Linux, anywhere else (clusters, other distributions, no root) | `.AppImage` | Runs anywhere: it carries WebKitGTK and its libraries, which is why it is about 88 MB. `chmod +x` it and run it, with `--appimage-extract-and-run` where FUSE is missing (most clusters). |
 | Windows x86_64 | `-setup.exe` | A per-user installer: it needs no administrator rights. |
 | macOS, Apple Silicon and Intel | `.dmg`, `.app.tar.gz` | One universal app. Until it is signed (see below), right-click it and choose Open the first time, or run `xattr -dr com.apple.quarantine photonoxide.app`. From a terminal, the program is `photonoxide.app/Contents/MacOS/photonoxide`. |
 

@@ -169,8 +169,10 @@ when the run is done. Every run is recorded (`runs/<run>/events.jsonl`) and repl
 `photonoxide view runs/<run>`; `--headless` runs a job without the window.
 
 Each release has the `photonoxide` program for Linux (x86_64 and ARM64), Windows and macOS
-([downloads](https://github.com/tachsin/photonoxide/releases)), and an installed copy updates
-itself; it can also be built from the repository
+([downloads](https://github.com/tachsin/photonoxide/releases); on Linux, the `.deb` or `.rpm`
+first, and the larger AppImage where neither fits, as on a cluster:
+[which file](https://github.com/tachsin/photonoxide/blob/main/studio/README.md#downloads)), and an
+installed copy updates itself; it can also be built from the repository
 ([how](https://github.com/tachsin/photonoxide/blob/main/studio/README.md)). Started with no
 arguments, it opens the studio on a workspace: the examples and jobs built in, a job builder
 with a 3D preview, the runs, the materials catalogue and the validation report (the
