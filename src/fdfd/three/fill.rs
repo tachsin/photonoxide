@@ -47,6 +47,23 @@ pub(crate) fn structure_values(
              coupling is the 2D problem's only",
         ));
     }
+    // bodies over the stack (`Structure::place`): sampled, each point's permittivity theirs
+    // where one holds it; the fill's slices are the stack's alone
+    let bodies = !structure.bodies().is_empty();
+    if bodies {
+        if averaging.reads_fill() {
+            return Err(Error::invalid(
+                "fdfd averaging",
+                "a structure with bodies over its stack takes \"samples\" or \"point\": the \
+                 fill's slices are the stack's",
+            ));
+        }
+        for (_, medium) in structure.bodies() {
+            if let crate::stack::Medium::Material(m) = medium {
+                m.permittivity(wavelength)?;
+            }
+        }
+    }
     let fills = Fills::new(structure);
     let materials = fills.materials();
     let eps: Vec<c64> = materials
@@ -60,6 +77,12 @@ pub(crate) fn structure_values(
             .expect("every material of the structure is listed")
     };
     let at = |x: f64, y: f64, z: f64| {
+        if bodies {
+            // every medium's data at the wavelength was checked above
+            return structure
+                .permittivity_at(Point::um(x, y), Length::um(z), wavelength)
+                .unwrap_or(c64::new(f64::NAN, 0.0));
+        }
         eps[index_of(structure.material_at(Point::um(x, y), Length::um(z)))]
     };
     let h = [grid.dx, grid.dy, grid.dz];

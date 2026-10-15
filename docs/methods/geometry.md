@@ -58,7 +58,8 @@ validation:
 Every solver, the studio's views and, later, the layout read one model of what is drawn on a
 chip. `photonoxide::geometry` keeps each shape's exact definition: an arc stays an arc, an
 ellipse at an angle stays an ellipse. A shape becomes polygons only when something asks, and
-then within a tolerance it states.
+then within a tolerance it states. In space, a `Body` answers the same questions, with the volume
+it fills of a cell (docs/methods/bodies.md).
 
 ## Regions
 

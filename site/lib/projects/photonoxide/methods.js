@@ -68,7 +68,7 @@ export const CATEGORIES = [
     id: "foundations",
     title: "Foundations",
     blurb: "Not solvers: the units and signs, shapes, stacks and their etches, expressions and material data every method above is built on.",
-    groups: [{ title: null, slugs: ["conventions", "geometry", "booleans", "arrays", "generators", "stacks", "expressions", "materials", "catalogue"] }],
+    groups: [{ title: null, slugs: ["conventions", "geometry", "booleans", "arrays", "bodies", "generators", "stacks", "expressions", "materials", "catalogue"] }],
   },
 ];
 
@@ -92,6 +92,7 @@ export const ALGORITHMS = [
   { name: "Convolutional PML", does: "absorbing boundaries in the time domain", methods: ["fdtd"] },
   { name: "Diamond blocking", does: "several time steps per pass through memory", methods: ["fdtd"] },
   { name: "Effective index method", does: "a ridge's mode from two slabs", methods: ["eim"] },
+  { name: "Elliptical slices of quadrics", does: "a sphere's, an ellipsoid's or a cone's exact share of a cell", methods: ["bodies"] },
   { name: "GCRO-DR", does: "Krylov recycling across a sequence of solves", methods: ["recycling"] },
   { name: "Hadley's interface and corner equations", does: "high-order differences across interfaces and corners", methods: ["hadley"] },
   { name: "Harmonic inversion", does: "resonances and their Q from a short signal, by filter diagonalization", methods: ["fdtd"] },

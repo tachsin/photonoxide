@@ -286,6 +286,23 @@ impl Structure {
                 ),
             ));
         }
+        // bodies over the stack (`Structure::place`): sampled, each point's permittivity theirs
+        // where one holds it; the fill's slices are the stack's alone
+        let bodies = !self.bodies().is_empty();
+        if bodies {
+            if averaging != Averaging::Samples {
+                return Err(Error::invalid(
+                    "raster",
+                    "a structure with bodies over its stack takes \"point\" or \"samples\": the \
+                     fill's slices are the stack's",
+                ));
+            }
+            for (_, medium) in self.bodies() {
+                if let crate::stack::Medium::Material(m) = medium {
+                    m.permittivity(wavelength)?;
+                }
+            }
+        }
         let fills = crate::stack::fill::Fills::new(self);
         let materials = fills.materials();
         let eps: Vec<num_complex::Complex64> = materials
@@ -293,6 +310,12 @@ impl Structure {
             .map(|m| m.permittivity(wavelength))
             .collect::<Result<_>>()?;
         let at = |p: [f64; 3]| {
+            if bodies {
+                // every medium's data at the wavelength was checked above
+                return self
+                    .permittivity_at(Point::um(p[0], p[1]), Length::um(p[2]), wavelength)
+                    .unwrap_or(num_complex::Complex64::new(f64::NAN, 0.0));
+            }
             let m = self.material_at(Point::um(p[0], p[1]), Length::um(p[2]));
             let k = materials
                 .iter()

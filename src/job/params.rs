@@ -241,6 +241,26 @@ fn resolve_pitch(entry: &mut Table, p: &Parameters, what: &str) -> Result<()> {
     Ok(())
 }
 
+/// A body's `of`, `what` naming it: an extrusion's shape resolved as a shape in an `of` is, a
+/// boolean's bodies each in turn.
+fn resolve_body(entry: &mut Table, p: &Parameters, what: &str) -> Result<()> {
+    let extrusion = entry.get("type").and_then(Value::as_str) == Some("extrusion");
+    if let Some(Value::Array(of)) = entry.get_mut("of") {
+        for (j, item) in of.iter_mut().enumerate() {
+            let Value::Table(item) = item else {
+                continue;
+            };
+            let inner = format!("{what}, of {}", j + 1);
+            if extrusion {
+                resolve_shape(item, p, &inner)?;
+            } else {
+                resolve_body(item, p, &inner)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 /// An array's element (`entry`, a copy of its `element` table) resolved at a site, `p` holding
 /// the site's coordinates (`x`, `y`, `i`, `j`, [`Parameters::at_coordinate`]); `what` names it.
 pub(super) fn resolve_element(entry: &mut Table, p: &Parameters, what: &str) -> Result<()> {
@@ -615,6 +635,30 @@ pub(super) fn resolve(task: &Table, set: Option<(&str, f64)>) -> Result<Table> {
         ports = super::components::ports(&tables)?;
     }
     super::components::place_ports(&mut out, &ports)?;
+    // the bodies: the parameters in each (their fields, which read them, are read when they are
+    // placed), and the shapes extrusions take resolved as any shape in an `of`
+    if let Some(entries) = out.get_mut("body") {
+        let Value::Array(entries) = entries else {
+            return Err(task_error(
+                "[[task.body]] must be tables: type = \"...\" and its fields",
+            ));
+        };
+        for (k, entry) in entries.iter_mut().enumerate() {
+            let what = format!("[[task.body]] #{}", k + 1);
+            let Value::Table(entry) = entry else {
+                return Err(task_error(format!("{what}: must be a table")));
+            };
+            resolve_body(entry, &p, &what)?;
+            entry.insert("parameters".into(), Value::Array(definitions.clone()));
+            entry.remove("set");
+            if let Some((name, value)) = set {
+                entry.insert(
+                    "set".into(),
+                    Value::Array(vec![Value::String(name.to_owned()), Value::Float(value)]),
+                );
+            }
+        }
+    }
     if let Some(Value::Array(entries)) = out.get_mut("shape") {
         for (k, entry) in entries.iter_mut().enumerate() {
             let Value::Table(entry) = entry else {

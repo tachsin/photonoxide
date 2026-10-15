@@ -31,6 +31,15 @@
 //! cavity, a W1 guide) gives an array its sites, the same shape at each or one made from each
 //! site's index and place; a [`Reference`] places a named [`Cell`] many times with transforms.
 //! See docs/methods/arrays.md.
+//!
+//! **Bodies in space.** A [`Body`] is a region of (x, y, z): a half-space, an ellipsoid at any
+//! angle (a sphere, an elliptic cylinder, a slab), a box, a cylinder or cone along any axis, any
+//! shape here extruded between two heights with its walls at a sidewall angle, and booleans of
+//! bodies. It answers as a region does in the plane: inside or not, its exact signed distance and
+//! normal, its bounds and volume, and the volume it fills of an axis-aligned cell
+//! ([`Body::fill`]: exact for planar faces by clipping and for quadrics by their slices, to a
+//! stated tolerance where two curved surfaces cross a cell). FDTD's subpixel smoothing reads
+//! these bodies ([`crate::fdtd::Body`] is [`Body`]). See docs/methods/bodies.md.
 
 use std::f64::consts::TAU;
 
@@ -41,6 +50,12 @@ mod array;
 pub(crate) mod array_checks;
 #[cfg(test)]
 mod array_tests;
+mod body;
+pub(crate) mod body_checks;
+mod body_fill;
+mod body_section;
+#[cfg(test)]
+mod body_tests;
 pub(crate) mod boolean_checks;
 #[cfg(test)]
 mod boolean_tests;
@@ -71,6 +86,9 @@ mod trace;
 mod transform;
 
 pub use array::{Array, Cell, Element, Reference};
+pub use body::{Body, Bounds3d, Distance3d};
+pub use body_fill::DEPTH as FILL_DEPTH;
+pub(crate) use body_fill::plane_share;
 pub use clip::{Join, Operation};
 pub use compose::{Boolean, Offset, Rounded};
 pub use curves::{Between, ClosedCurve, Polar};

@@ -106,6 +106,23 @@
 //! shape's field, naming the table and field: `[[task.rect]] #2, size: value 1: column 3:
 //! unknown name "wdth"`; and a parameter's sweep whose shapes at either end aren't shapes.
 //!
+//! **Bodies in space and graded media.** `"structure"` jobs and 3D `"fdtd"` jobs take
+//! `[[task.body]]`: a `sphere`, `ellipsoid`, `box`, `cylinder`, `cone`, an `extrusion` of a shape
+//! between two heights (with a `sidewall`), or a `union`, `intersection`, `difference` or `xor`
+//! of bodies, placed over the stack, its shapes and the bodies before it; its places and sizes
+//! expressions with units, its medium a catalogue `material`, or an `index` or `permittivity`
+//! as an expression of x, y and z (a graded medium). [`check`] names the table, type and field it
+//! refuses, and a graded medium that isn't positive over the window; [`preview`] draws each body
+//! as bands of its sections. See `bodies.rs` and docs/methods/bodies.md.
+//!
+//! ```toml
+//! [[task.body]]
+//! type = "sphere"
+//! center = [0, 0, "2.5 um"]
+//! radius = "300 nm"
+//! material = "si"
+//! ```
+//!
 //! **Custom stacks and etches.** A task's `stack` is a preset's name or a `[task.stack]` table:
 //! a `substrate`, a `cladding` and `[[task.stack.layer]]`s bottom to top, each with its `name`,
 //! `thickness_um` (or `thickness`, an expression), `material` and `background` (catalogue ids,
@@ -374,6 +391,9 @@ use crate::stack::{LayerStack, Structure};
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
+mod bodies;
+#[cfg(test)]
+mod body_tests;
 #[cfg(test)]
 mod component_tests;
 mod components;
@@ -1279,6 +1299,55 @@ fn scene(
         }
         bottom = top;
     }
+    // the bodies, each as bands of its sections over its height in the window; listed before
+    // the stack's layers, whose last one stays the stack's top
+    let window = crate::geometry::Bounds {
+        min: Point::um(x[0], y[0]),
+        max: Point::um(x[1], y[1]),
+    };
+    let mut banded = Vec::new();
+    for (k, (body, medium)) in s.bodies().iter().enumerate() {
+        let b = body.bounds();
+        let (z0, z1) = (b.min[2].max(z[0]), b.max[2].min(z[1]));
+        if z1.is_nan() || z0.is_nan() || z1 <= z0 {
+            continue;
+        }
+        let drawn = SceneMedium {
+            material: medium.name().to_owned(),
+            eps: medium.permittivity(bodies::centre_of(body), wavelength)?.re,
+        };
+        let name = format!("body {}", k + 1);
+        let count = if body.upright() { 1 } else { 12 };
+        for i in 0..count {
+            let (a, c) = (
+                z0 + (z1 - z0) * i as f64 / count as f64,
+                z0 + (z1 - z0) * (i + 1) as f64 / count as f64,
+            );
+            let Some(section) = body.section(0.5 * (a + c), window)? else {
+                continue;
+            };
+            let band = if count == 1 {
+                name.clone()
+            } else {
+                format!("{name} {}", i + 1)
+            };
+            banded.push(SceneLayer {
+                name: band.clone(),
+                z_um: [a, c],
+                material: drawn.clone(),
+                // nothing around it: what is there is drawn already
+                background: SceneMedium {
+                    material: "none".into(),
+                    eps: 1.0,
+                },
+            });
+            shapes.extend(outlines(&section).into_iter().map(|outline| SceneShape {
+                layer: band.clone(),
+                outline,
+            }));
+        }
+    }
+    layers.splice(0..0, banded);
     Ok(Event::Scene {
         x_um: x,
         y_um: y,
@@ -1501,6 +1570,8 @@ struct StructureTask {
     shape: Vec<shapes::ShapeSpec>,
     #[serde(default)]
     component: Vec<toml::Table>,
+    #[serde(default)]
+    body: Vec<toml::Table>,
 }
 
 fn task_error(reason: impl Into<String>) -> Error {
@@ -1967,6 +2038,7 @@ impl StructureTask {
             &self.shape,
             &self.component,
         )
+        .and_then(|s| bodies::place(s, &self.body))
     }
 }
 

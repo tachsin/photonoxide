@@ -903,3 +903,113 @@ pub(crate) fn ellipsoid_bands(scheme: impl Into<Scheme>, n: usize) -> Vec<f64> {
         })
         .collect()
 }
+
+/// [`bodies_digest`] before the bodies moved to [`crate::geometry`]: on the code of commit
+/// ff50758, the last before #227's phase 9.
+pub(crate) const BODIES_DIGEST: u64 = 0x51f7_d2af_e112_617d;
+
+/// Every quantity the smoothing takes from its bodies, over a grid of points through all of
+/// them, its bits hashed (FNV-1a): the permittivity at each point, ε̃⁻¹ by each average over a
+/// cell about it, and the eight triplets' tensors at it as a node. Eight bodies of every kind
+/// FDTD had before the geometry's: a half-space, an extruded polygon and disk, an ellipsoid of
+/// an anisotropic crystal at an angle, an elliptic cylinder, and etched shapes with sloped and
+/// vertical walls (a rectangle, the polygon, a ring).
+pub(crate) fn bodies_digest() -> u64 {
+    use crate::geometry::{Point, Polygon, Shape};
+    use crate::units::Length;
+    let (a, b) = (0.4f64, 1.1f64);
+    let (sa, ca) = a.sin_cos();
+    let (sb, cb) = b.sin_cos();
+    // a rotation about z by a, then about x by b
+    let axes = [
+        [ca, sa * cb, sa * sb],
+        [-sa, ca * cb, ca * sb],
+        [0.0, -sb, cb],
+    ];
+    let Ok(poly) = Polygon::new(vec![
+        Point::um(-0.3, -0.2),
+        Point::um(0.35, -0.25),
+        Point::um(0.2, 0.3),
+        Point::um(-0.1, 0.15),
+        Point::um(-0.25, 0.28),
+    ]) else {
+        return 0;
+    };
+    let built = || -> Result<Structure> {
+        let iso = Permittivity::isotropic;
+        let aniso = Permittivity::principal([2.0, 3.0, 4.5], axes)?;
+        Ok(Structure::new(iso(1.0)?)
+            .with(
+                Body::half_space([0.0, 0.0, -0.31], [0.1, 0.2, -1.0])?,
+                iso(2.1)?,
+            )
+            .with(Body::extruded(Shape::Polygon(poly.clone())), iso(4.0)?)
+            .with(
+                Body::ellipsoid([0.05, -0.02, 0.03], [0.27, 0.19, 0.13], axes)?,
+                aniso,
+            )
+            .with(Body::ellipse([0.2, 0.1], [0.12, 0.07], 0.4)?, iso(12.0)?)
+            .with(
+                Body::extruded(Shape::circle(Point::um(-0.3, 0.25), Length::um(0.11))?),
+                iso(6.0)?,
+            )
+            .with(
+                Body::etched(
+                    Shape::rect(Point::um(0.1, -0.3), Length::um(0.4), Length::um(0.15))?,
+                    [-0.1, 0.12],
+                    1.3,
+                )?,
+                iso(9.0)?,
+            )
+            .with(
+                Body::etched(Shape::Polygon(poly.clone()), [0.15, 0.3], 1.1)?,
+                iso(3.0)?,
+            )
+            .with(
+                Body::etched(
+                    Shape::ring(Point::um(0.0, 0.0), Length::um(0.3), Length::um(0.08))?,
+                    [-0.3, -0.2],
+                    std::f64::consts::FRAC_PI_2,
+                )?,
+                iso(5.0)?,
+            ))
+    };
+    let Ok(structure) = built() else {
+        return 0;
+    };
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut eat = |v: f64| {
+        h ^= v.to_bits();
+        h = h.wrapping_mul(0x0000_0100_0000_01b3);
+    };
+    let step = 0.037;
+    for i in 0..26 {
+        for j in 0..26 {
+            for k in 0..22 {
+                let p = [
+                    -0.47 + f64::from(i) * step,
+                    -0.47 + f64::from(j) * step,
+                    -0.39 + f64::from(k) * step,
+                ];
+                for v in structure.at(p).matrix().iter().flatten() {
+                    eat(*v);
+                }
+                for avg in [Average::Mean, Average::InverseMean, Average::Subpixel] {
+                    for v in structure
+                        .inverse(p, [step, step * 1.1, step * 0.9], avg)
+                        .iter()
+                        .flatten()
+                    {
+                        eat(*v);
+                    }
+                }
+                for t in triplets(&structure, p, [step; 3], true) {
+                    for v in t.iter().flatten() {
+                        eat(*v);
+                    }
+                }
+            }
+        }
+    }
+    h
+}

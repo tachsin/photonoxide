@@ -29,11 +29,18 @@
 //! subpixel smoothing has the same walls as bodies
 //! ([`crate::fdtd::Body::etched`]). docs/methods/stacks.md has the method and its
 //! validation.
+//!
+//! **Bodies over the stack.** [`Structure::place`] puts a body in space
+//! ([`crate::geometry::Body`]: a sphere, a pillar, a membrane's holes, any shape extruded
+//! between two heights) over the stack, its shapes and the bodies placed before it, filled with
+//! a [`Medium`]: a catalogue material, or a graded one ([`crate::material::Graded`]).
+//! [`Structure::permittivity_at`] answers for every point, a graded medium's value included;
+//! [`Structure::material_at`] gives a catalogue body's material. docs/methods/bodies.md.
 
 use std::sync::OnceLock;
 
-use crate::geometry::{Index, Point, Region, Shape};
-use crate::material::{self, Material};
+use crate::geometry::{Body, Index, Point, Region, Shape};
+use crate::material::{self, Graded, Material};
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
@@ -494,7 +501,7 @@ fn clipped(f0: f64, g: [f64; 2], size: [f64; 2]) -> f64 {
     (twice.abs() / 2.0 / (size[0] * size[1])).clamp(0.0, 1.0)
 }
 
-/// A layer stack and the shapes drawn on its layers.
+/// A layer stack and the shapes drawn on its layers, and bodies placed over them.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Structure {
     stack: LayerStack,
@@ -506,6 +513,45 @@ pub struct Structure {
     plain: Vec<bool>,
     /// for each layer, an index over its shapes, made when first asked for
     index: Indexes,
+    /// bodies over the stack and its shapes, each over the ones before it
+    bodies: Vec<(Body, Medium)>,
+}
+
+/// What fills a body placed over a structure ([`Structure::place`]): a catalogue material, or a
+/// graded medium.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum Medium {
+    /// A material of the catalogue, as a layer's.
+    Material(Material),
+    /// A graded medium, n(x, y, z) or ε(x, y, z), the same at every wavelength.
+    Graded(Graded),
+}
+
+impl Medium {
+    /// The relative permittivity at `p` (µm) and `wavelength`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::OutsideValidity`] if a material has no data at `wavelength`.
+    pub fn permittivity(
+        &self,
+        p: [f64; 3],
+        wavelength: Wavelength,
+    ) -> Result<num_complex::Complex64> {
+        match self {
+            Medium::Material(m) => m.permittivity(wavelength),
+            Medium::Graded(g) => Ok(num_complex::Complex64::new(g.permittivity_at(p), 0.0)),
+        }
+    }
+
+    /// Its name: the material's, or the graded medium's expression.
+    pub fn name(&self) -> &str {
+        match self {
+            Medium::Material(m) => m.name(),
+            Medium::Graded(g) => g.expr().text(),
+        }
+    }
 }
 
 /// The layers' indexes, made once on first use; equal whether made or not, since they follow
@@ -532,6 +578,49 @@ impl Structure {
             etches: vec![Vec::new(); n],
             plain: vec![true; n],
             index: Indexes::default(),
+            bodies: Vec::new(),
+        }
+    }
+
+    /// Places `body`, filled with `medium`, over the stack, its shapes and every body placed
+    /// before it: a body in space ([`crate::geometry::Body`]), at any height, through any
+    /// layers.
+    pub fn place(&mut self, body: Body, medium: Medium) -> &mut Structure {
+        self.bodies.push((body, medium));
+        self
+    }
+
+    /// The bodies placed over the stack, in the order placed (each over the ones before it).
+    pub fn bodies(&self) -> &[(Body, Medium)] {
+        &self.bodies
+    }
+
+    /// The medium of the last body placed that holds (x, y, z), if one does.
+    pub fn body_at(&self, p: Point, z: Length) -> Option<&Medium> {
+        let q = [p.x.to_um(), p.y.to_um(), z.to_um()];
+        self.bodies
+            .iter()
+            .rev()
+            .find(|(body, _)| body.contains(q))
+            .map(|(_, m)| m)
+    }
+
+    /// The relative permittivity at (x, y, z) and `wavelength`: a body's medium where one holds
+    /// the point, a graded one's value there; elsewhere the material [`Structure::material_at`]
+    /// gives. What every solver that samples a structure with bodies reads.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::OutsideValidity`] if a material has no data at `wavelength`.
+    pub fn permittivity_at(
+        &self,
+        p: Point,
+        z: Length,
+        wavelength: Wavelength,
+    ) -> Result<num_complex::Complex64> {
+        match self.body_at(p, z) {
+            Some(m) => m.permittivity([p.x.to_um(), p.y.to_um(), z.to_um()], wavelength),
+            None => self.material_at(p, z).permittivity(wavelength),
         }
     }
 
@@ -748,8 +837,16 @@ impl Structure {
     }
 
     /// The material at (x, y, z): the substrate below the stack, the cladding above it, and
-    /// within a layer its material inside a drawn shape and its background elsewhere.
+    /// within a layer its material inside a drawn shape and its background elsewhere; over all
+    /// of them, the material of the last body placed that holds the point, when that body's is
+    /// a catalogue material (a graded medium has none: [`Structure::permittivity_at`] answers
+    /// for it, and here the point is what lies under it).
     pub fn material_at(&self, p: Point, z: Length) -> &Material {
+        if !self.bodies.is_empty()
+            && let Some(Medium::Material(m)) = self.body_at(p, z)
+        {
+            return m;
+        }
         match self.stack.locate(z) {
             Place::Below => &self.stack.substrate,
             Place::Above => &self.stack.cladding,

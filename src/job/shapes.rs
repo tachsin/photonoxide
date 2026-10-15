@@ -261,6 +261,12 @@ impl ShapeSpec {
         self.build(&p, &what, &format!("[[task.shape]] #{}", k + 1))
     }
 
+    /// The shape in another table's `of` (a body's outline) at the parameters `p`, its errors
+    /// naming it after `what`.
+    pub(super) fn inner(&self, p: &Parameters, what: &str) -> Result<Shape> {
+        self.build(p, &format!("{what} ({})", self.kind), what)
+    }
+
     /// The shape at the parameters `p`, its errors naming it `what` (with its type) or `bare`
     /// (without, for an unknown type).
     fn build(&self, p: &Parameters, what: &str, bare: &str) -> Result<Shape> {

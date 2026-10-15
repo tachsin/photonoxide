@@ -83,7 +83,7 @@ area fdtd \
   "src/fdtd.rs src/fdtd/* src/validation/* tests/gpu_report.rs src/compact/fit.rs src/compact/fit/* src/bench.rs" \
   "mode material fdfd" \
   "fdtd::" "fdtd/" \
-  "bump_oskooi cpml_roden_gedney lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
+  "bump_oskooi cpml_roden_gedney l3_akahane lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
 
 # jobs, their runs and replay, and farming them out; the job files in jobs/ are read by the
 # library's tests and validation cases, by the studio's and by the Python package's; a job's

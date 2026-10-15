@@ -77,6 +77,11 @@ so is "plain": every query of it takes the path it always took, to the bit.
   mesa: its surface is the wall's plane through the outline's nearest point and the two faces,
   so a cell on a straight sloped wall takes the exact share and normal of Farjadpour et al.'s
   average (a unit test checks it against the half-space of the wall's plane, to 1e-14).
+- **Bodies over the stack** (`Structure::place`, docs/methods/bodies.md): a body in space filled
+  with a catalogue material or a graded medium, over the layers, their shapes and the bodies
+  before it. `Structure::permittivity_at` answers at every point, a graded medium's value
+  included, and is what a 3D `"fdtd"` job's permittivity reads; `material_at` gives a catalogue
+  body's material.
 
 ## The cross-section's average
 
