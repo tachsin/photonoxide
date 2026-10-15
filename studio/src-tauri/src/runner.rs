@@ -481,13 +481,15 @@ fn child(id: &str, backend: &str, out: &Path) -> ExitCode {
             Err(e) => return crate::fail(e),
         }
     };
-    let measurement = match entry.run(&choice) {
+    // the peak when the timed phases end, before a reference solve that may take more
+    let mut peak = None;
+    let measurement = match entry.run_with(&choice, &mut || peak = memory::peak_bytes()) {
         Ok(m) => m,
         Err(e) => return crate::fail(e),
     };
     let report = Report {
         measurement,
-        peak_bytes: memory::peak_bytes(),
+        peak_bytes: peak.or_else(memory::peak_bytes),
         version: capabilities.version,
         deterministic: capabilities.deterministic,
     };

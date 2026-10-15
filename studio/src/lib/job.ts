@@ -169,6 +169,8 @@ export interface JobModel {
   step_nm: number;
   /** modes: how many. */
   modes: number;
+  /** modes: every mode with n_eff above this, instead of a count (by contour integrals); null for the count. */
+  modes_above: number | null;
   /** fdfd: "te" or "tm". */
   polarization: "te" | "tm";
   /** fdfd: PML cells on each side. */
@@ -223,6 +225,7 @@ export function template(kind: Kind): JobModel {
     cut_y_um: null,
     step_nm: 20,
     modes: 2,
+    modes_above: null,
     polarization: "te",
     pml_cells: null,
     field_um: null,
@@ -356,6 +359,7 @@ export function fromModel(file: Record<string, unknown>, text: string): JobModel
     cut_y_um: opt(task.cut_y_um),
     step_nm: num(task.step_nm, 20),
     modes: num(task.modes, 2),
+    modes_above: opt(task.modes_above),
     polarization: task.polarization === "tm" ? "tm" : "te",
     pml_cells: opt(task.pml_cells),
     field_um: opt(task.field_um),
@@ -461,7 +465,8 @@ export function toToml(m: JobModel): string {
   if ((m.kind === "structure" || m.kind === "modes" || (m.kind === "fdtd" && m.dimensions === 3)) && m.z_um) out.push(`z_um = ${fp(m.z_um)}`);
   if (m.kind === "structure" && m.side_y_um !== null) out.push(`side_y_um = ${f(m.side_y_um)}`);
   out.push(`step_nm = ${f(m.step_nm)}`);
-  if (m.kind === "modes") out.push(`modes = ${Math.max(1, Math.round(m.modes))}`);
+  // a threshold or a count, not both: the library refuses a job with the two
+  if (m.kind === "modes") out.push(m.modes_above !== null ? `modes_above = ${f(m.modes_above)}` : `modes = ${Math.max(1, Math.round(m.modes))}`);
   if ((m.kind === "fdfd" || m.kind === "fdtd") && m.pml_cells !== null) out.push(`pml_cells = ${Math.round(m.pml_cells)}`);
   if (m.kind === "fdtd") fdtdHead(m, out);
   if (m.kind === "fdfd" && m.field_um !== null) out.push(`field_um = ${f(m.field_um)}`);

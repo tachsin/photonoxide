@@ -1,24 +1,40 @@
 <script lang="ts">
   // Components: the library a chip is built from. Each kind's ports, parameters (with their
   // units, ranges and defaults), model and provenance, its schematic symbol, and its S-parameters
-  // over wavelength, recomputed by the library as the parameters move.
-  import { Boxes, CircleCheck, CirclePlus, FileDown, FileUp, RotateCcw, Search } from "@lucide/svelte";
+  // over wavelength, recomputed by the library as the parameters move. A device of the library's
+  // (photonoxide::device: the waveguide, bend, directional coupler and rings) has its own page,
+  // an Overview and a Design (components/device/DevicePage.svelte); the designs saved in the
+  // workspace's jobs/ are listed first and reopen there.
+  import { Boxes, CircleCheck, CirclePlus, FileCog, FileDown, FileUp, RotateCcw, Search } from "@lucide/svelte";
   import katex from "katex";
   import "katex/dist/katex.min.css";
 
+  import DevicePage from "../components/device/DevicePage.svelte";
   import Glyph from "../components/Glyph.svelte";
   import MathText from "../components/MathText.svelte";
   import SpectrumPlot from "../components/SpectrumPlot.svelte";
   import Tip from "../components/Tip.svelte";
   import UnitChip from "../components/UnitChip.svelte";
-  import { api, type KindInfo, type Part, type SpectrumData, type Sweep } from "../lib/api";
+  import { api, type JobItem, type KindInfo, type Part, type SpectrumData, type Sweep } from "../lib/api";
   import { app, go } from "../lib/app.svelte";
   import { addInstance, exportTouchstone, importTouchstone, library, loadLibrary, partKey, partOf } from "../lib/chip.svelte";
   import { sweepProblem, type Quantity } from "../lib/circuit";
+  import { deviceOf, devices, loadDevices, openDesign } from "../lib/device.svelte";
   import { label } from "../lib/plot";
   import { isMicrometres, len, showIn, shown as inUnit, storeIn, stored, unitOf } from "../lib/units";
 
   loadLibrary();
+  loadDevices();
+
+  /** The designs saved in the workspace's jobs/, each a device's. */
+  let designs = $state<JobItem[]>([]);
+  $effect(() => {
+    void app.workspaceVersion;
+    api
+      .home()
+      .then((h) => (designs = h.jobs.filter((j) => j.kind === "device")))
+      .catch(() => {});
+  });
 
   let query = $state("");
   let values = $state<Record<string, number[]>>({});
@@ -48,6 +64,8 @@
   });
   const kind = $derived(everything.find((k) => partKey(k) === (app.component ?? library.kinds[0]?.id)));
   const familyOf = (k: KindInfo) => families.get(k.file ? partKey(k) : k.kind) ?? [k];
+  /** The device the component shown is, when it is one: its page has an Overview and a Design. */
+  const device = $derived(kind && !kind.file ? deviceOf(kind.id) : undefined);
   const now = $derived(kind ? (values[partKey(kind)] ?? kind.parameters.map((p) => p.default)) : []);
 
   /** A wavelength typed in the unit shown, kept in µm; an empty or partial number leaves it. */
@@ -89,7 +107,7 @@
   }
 
   $effect(() => {
-    if (!kind) return;
+    if (!kind || device) return;
     const job = { part: partOf(kind), values: [...now], sweep: { ...sweep } };
     const bad = sweepProblem(job.sweep);
     if (bad) {
@@ -159,6 +177,19 @@
     </div>
     <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
       {#if library.problem}<p class="px-3 text-sm text-error">{library.problem}</p>{/if}
+      {#if devices.problem}<p class="px-3 text-sm text-error">{devices.problem}</p>{/if}
+      {#if designs.length}
+        <div class="px-3 pt-3 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">Your designs</div>
+        {#each designs as d (d.path)}
+          <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={() => openDesign(d.path)} title={d.path}>
+            <span class="grid h-7 w-11 shrink-0 place-items-center text-primary"><FileCog size={16} /></span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-medium">{d.name}</span>
+              <span class="block truncate text-xs faint">{d.about || "a saved design"}</span>
+            </span>
+          </button>
+        {/each}
+      {/if}
       {#each categories as category (category)}
         {@const items = shown.filter((k) => k.category === category && familyOf(k).find((f) => shown.includes(f)) === k)}
         {#if items.length}
@@ -188,7 +219,11 @@
 
   <!-- the component -->
   <div class="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto">
-    {#if kind}
+    {#if kind && device}
+      {#key device.id}
+        <DevicePage info={device} {kind} family={familyOf(kind)} onchoose={choose} />
+      {/key}
+    {:else if kind}
       <div class="glow border-b border-base-content/8 px-8 py-6">
         <div class="flex flex-wrap items-start gap-6">
           <div class="grid size-14 place-items-center rounded-2xl bg-primary/12 text-primary"><Boxes size={28} /></div>

@@ -20,7 +20,7 @@ export interface MethodDoc {
 
 /** The write-ups a kind of job solves by, the solver's own first. */
 export const METHODS: Record<string, string[]> = {
-  modes: ["vector.md", "eigen.md", "walls.md"],
+  modes: ["vector.md", "eigen.md", "contour.md", "walls.md"],
   fdfd: ["fdfd.md", "fdfd-ports.md", "eim.md", "slab.md", "pml.md"],
   fdtd: ["fdtd.md", "eim.md", "slab.md"],
   structure: [],
@@ -65,8 +65,8 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 /**
  * Text between math: code, bold, and links. A paper's or a site's opens outside; another
  * write-up's, or a lesson's (the Academy's, beside its own: `ring-resonator.md`, and
- * `../docs/methods/components.md`), in place; an example's (`../examples/<name>.rs`) on the
- * Examples page.
+ * `../docs/methods/components.md`), in place; an example's (`../examples/<name>.rs`) among
+ * Validation's published results.
  */
 function marks(s: string): string {
   return esc(s)

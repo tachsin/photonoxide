@@ -15,10 +15,12 @@
 //! The lengths of the peaks, and the ratio of the two peaks (1.42/1.36, each printed to three
 //! digits), depend only on the losses: Q is n_g/λ times a function of the length. The peaks
 //! themselves need the group index Fig. 5 was drawn with, which the paper doesn't give; with
-//! the 4.30 it measured (Section 3.3.2, Fig. 13) they come out 6 % below the text's. Each Q is
-//! photonoxide's [`AllPassRing::q_factor`] and [`AddDropRing::q_factor`], the paper's formulas;
-//! the last lines measure the FWHM on the ring's own spectrum instead, to show what those
-//! formulas (a Lorentzian line, ra near 1) leave out at a finesse of 5.
+//! the 4.30 it measured (Section 3.3.2, Fig. 13) they come out 6 % below the text's. The rings
+//! are photonoxide's ring devices ([`StripRing`]) on that guide, stated, at the analytic
+//! fidelity, and each Q is their component's [`AllPassRing::q_factor`] and
+//! [`AddDropRing::q_factor`], the paper's formulas; the last lines measure the FWHM on the
+//! ring's own spectrum instead, to show what those formulas (a Lorentzian line, ra near 1) leave
+//! out at a finesse of 5.
 //!
 //! ```sh
 //! cargo run --release --example ring_q_factor
@@ -28,8 +30,9 @@ mod common;
 
 use std::process::ExitCode;
 
-use photonoxide::circuit::Component;
 use photonoxide::circuit::components::{AddDropRing, AllPassRing, Dispersion};
+use photonoxide::circuit::{Component, Fidelity};
+use photonoxide::device::{StripRing, Values};
 use photonoxide::units::Wavelength;
 
 /// The single-pass amplitude of a ring `length` µm round losing 2.7 dB/cm and `fixed` dB.
@@ -87,9 +90,18 @@ fn measured_fwhm(
 
 pub fn main() -> photonoxide::Result<ExitCode> {
     let l0 = Wavelength::um(1.55)?;
-    let guide = Dispersion::new(l0, 2.4, 4.30).with_loss(2.7);
-    let all_pass = AllPassRing::new(guide)?.with_round_trip_loss(0.075)?;
-    let add_drop = AddDropRing::new(guide)?.with_round_trip_loss(0.11)?;
+    // the ring devices on the paper's guide: its indices stated, its 2.7 dB/cm the devices'
+    // default loss, and the fixed loss per round trip
+    let guide = Dispersion::new(l0, 2.4, 4.30);
+    let ring = |device: StripRing, extra: f64| -> photonoxide::Result<(StripRing, Values)> {
+        let device = device.with_guide(guide);
+        let values = Values::new(&device, &[("round_trip_loss", extra)])?;
+        Ok((device, values))
+    };
+    let (device, values) = ring(StripRing::all_pass(), 0.075)?;
+    let all_pass: AllPassRing = device.all_pass_ring(&values, Fidelity::Analytic)?;
+    let (device, values) = ring(StripRing::add_drop(), 0.11)?;
+    let add_drop: AddDropRing = device.add_drop_ring(&values, Fidelity::Analytic)?;
     let r2: f64 = 0.99;
     // critical coupling: r = a, so k² = 1 − a²; r₁ = r₂a, so k₁² = 1 − r₂²a²
     let q_all_pass = |l: f64| {

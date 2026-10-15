@@ -17,8 +17,11 @@ pub struct Settings {
     pub theme: String,
     /// The workspace, if chosen; see [`workspace`].
     pub workspace: Option<String>,
-    /// Look for a new release when the window opens.
+    /// Look for a new release when the window opens, and every hour while it stays open.
     pub check_updates: bool,
+    /// The release channel: `"stable"`, the signed releases, or `"nightly"`, main's latest
+    /// commit, built here (`channels.rs`). Anything else is taken as `"stable"`.
+    pub channel: String,
     /// Show the tips on each page.
     pub hints: bool,
     /// The welcome tour was seen.
@@ -39,6 +42,7 @@ impl Default for Settings {
             theme: "system".into(),
             workspace: None,
             check_updates: true,
+            channel: "stable".into(),
             hints: true,
             tour_done: false,
             dismissed: Vec::new(),

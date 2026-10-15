@@ -3,15 +3,18 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type { Academy, ChartData } from "./academy.svelte";
-import type { Event, Scene } from "./events";
+import type { Event, Scene, ScenePort } from "./events";
 import type { BenchData, BenchRequest, CatalogueEntry, Planned } from "./bench.svelte";
 import type { LibraryReport } from "./libraries.svelte";
+import type { BuildInfo } from "./nightly.svelte";
 
 export interface Settings {
   /** "system", "dark" or "light" (the studio's own themes), or a further theme's name (lib/themes.ts). */
   theme: string;
   workspace: string | null;
   check_updates: boolean;
+  /** The release channel: "stable", the signed releases, or "nightly", main built here (lib/nightly.svelte.ts). */
+  channel: string;
   hints: boolean;
   tour_done: boolean;
   dismissed: string[];
@@ -26,6 +29,8 @@ export interface AppState {
   version: string;
   platform: string;
   updatable: boolean;
+  /** What this copy was built from: its commit, and its channel. */
+  build: BuildInfo;
 }
 
 export interface Info {
@@ -143,6 +148,8 @@ export const api = {
   /** The methods' write-ups (docs/methods), as the program was built with them. */
   methodDocs: () => invoke<{ file: string; text: string }[]>("method_docs"),
   previewScene: (text: string) => invoke<Scene>("preview_scene", { text }),
+  /** The named ports of a job's components (photonoxide::job::preview_ports), to mark on its scene. */
+  previewPorts: (text: string) => invoke<ScenePort[]>("preview_ports", { text }),
   saveText: (path: string, text: string) => invoke<void>("save_text", { path, text }),
   materials: () => invoke<MaterialEntry[]>("materials"),
   materialCurves: (id: string, modelId: string, temperature: number | null, composition: number | null, points: number) =>
@@ -156,6 +163,16 @@ export const api = {
   circuitSimulate: (chip: Chip) => invoke<Simulation>("circuit_simulate", { chip }),
   circuitTouchstone: (chip: Chip, path: string) => invoke<void>("circuit_touchstone", { chip, path }),
   componentTouchstone: (part: Part, values: number[], sweep: Sweep, path: string) => invoke<void>("component_touchstone", { part, values, sweep, path }),
+  /** The library's devices: the components that know their geometry. */
+  deviceLibrary: () => invoke<DeviceInfo[]>("device_library"),
+  /** A design evaluated as the form shows it: its fields, values, ports and scene. */
+  deviceGeometry: (spec: DeviceSpec) => invoke<DeviceGeometry>("device_geometry", { spec }),
+  /** A design's figures at a fidelity, each with its fidelity and grid. */
+  deviceDerived: (spec: DeviceSpec, fidelity: string) => invoke<DeviceDerived>("device_derived", { spec, fidelity }),
+  deviceSpectrum: (spec: DeviceSpec, fidelity: string, sweep: Sweep) => invoke<DeviceSpectrum>("device_spectrum", { spec, fidelity, sweep }),
+  deviceTouchstone: (spec: DeviceSpec, fidelity: string, sweep: Sweep, path: string) => invoke<void>("device_touchstone", { spec, fidelity, sweep, path }),
+  saveDevice: (spec: DeviceSpec, name: string, about: string, replace: boolean) => invoke<string>("save_device", { spec, name, about, replace }),
+  readDevice: (path: string) => invoke<SavedDevice>("read_device", { path }),
   circuitText: (chip: Chip) => invoke<string>("circuit_text", { chip }),
   circuitParse: (text: string) => invoke<Chip>("circuit_parse", { text }),
   circuitExamples: () => invoke<CircuitExample[]>("circuit_examples"),
@@ -389,6 +406,124 @@ export interface Sweep {
   from_um: number;
   to_um: number;
   points: number;
+}
+
+// ---- devices (studio/src-tauri/src/devices.rs) ----
+
+export type FidelityName = "analytic" | "compact" | "2D" | "3D" | "measured";
+
+/** One of a device's models: what computes it, its papers, its stated error against a higher one, and where it holds. */
+export interface DeviceMethod {
+  fidelity: FidelityName;
+  name: string;
+  write_up: string;
+  papers: string[];
+  error: { quantity: string; bound: number; unit: string; against: FidelityName } | null;
+  validity: { name: string; min: number; max: number }[];
+}
+
+export interface DeviceInfo {
+  /** The component library's id it stands for. */
+  id: string;
+  /** Its kind, as a design names it, e.g. "directional coupler". */
+  kind: string;
+  about: string;
+  parameters: { name: string; unit: string; default: number; min: number; max: number }[];
+  fidelities: DeviceMethod[];
+  ports: string[];
+  /** Its Academy lesson's id. */
+  lesson: string;
+  /** The examples that reproduce a paper on it. */
+  examples: string[];
+}
+
+export interface MaterialSpec {
+  id: string;
+  model?: string | null;
+  temperature?: number | null;
+  composition?: number | null;
+}
+
+export interface LayerSpec {
+  name: string;
+  thickness_um: number;
+  material: MaterialSpec;
+  background: MaterialSpec;
+}
+
+export type StackSpec =
+  | { type: "preset"; name: string; bottom_oxide_um: number }
+  | { type: "layers"; substrate: MaterialSpec; layers: LayerSpec[]; cladding: MaterialSpec; core: string };
+
+/** A design: a device, its stack, its parameters' expressions in the form's order, and its fidelity. */
+export interface DeviceSpec {
+  kind: string;
+  fidelity: string;
+  stack: StackSpec;
+  parameters: [string, string][];
+}
+
+export interface DeviceField {
+  name: string;
+  expression: string;
+  /** In its unit: a device parameter's, or µm, rad or none for another. */
+  value: number | null;
+  unit: string;
+  device: boolean;
+  uses: string[];
+  used_by: string[];
+  error: { message: string; column: number | null } | null;
+}
+
+export interface DevicePort {
+  name: string;
+  x: number;
+  y: number;
+  direction: number;
+  width: number;
+  layer: string;
+}
+
+export interface DeviceGeometry {
+  fields: DeviceField[];
+  values: number[] | null;
+  problem: string | null;
+  stack_problem: string | null;
+  ports: DevicePort[];
+  scene: Scene | null;
+  /** The parameters outside where the fidelity's stated error holds. */
+  outside: string[];
+}
+
+export interface DeviceFigure {
+  name: string;
+  symbol: string;
+  value: number;
+  unit: string;
+  fidelity: FidelityName;
+  grid: string;
+}
+
+export interface DeviceDerived {
+  figures: DeviceFigure[];
+  fidelity: FidelityName;
+  seconds: number;
+}
+
+export interface DeviceSpectrum {
+  data: SpectrumData;
+  ports: KindInfo["ports"];
+  fidelity: FidelityName;
+  grid: string;
+  source: string;
+  validity: [number, number] | null;
+}
+
+export interface SavedDevice {
+  spec: DeviceSpec;
+  name: string;
+  path: string;
+  about: string;
 }
 
 /** S-parameters over wavelength: re[q][p][k], im[q][p][k] are S_qp at the k-th wavelength. */

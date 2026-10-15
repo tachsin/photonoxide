@@ -49,9 +49,13 @@ the in-plane components on the faces between them. Every derivative is then a ce
 difference: second order.
 
 **Interfaces.** Each field component sees the permittivity averaged over its own cell of the
-grid: harmonically along the component, arithmetically across it. That is what a layered medium
-is for a field along or across its layers, so an interface anywhere in a cell keeps the scheme
-second order. For E along z, the average is arithmetic over the whole cell.
+grid, from 8 × 8 samples: harmonically along the component, arithmetically across it. That is
+what a layered medium is for a field along or across its layers. For E along z, the average is
+arithmetic over the whole cell. The samples place an interface to within a sixteenth of a cell,
+an error of order h: first order, with a small constant (a slab off the grid's lines converges
+at order 1.05; [averaging from the fill](averaging.md) measures it). Given a `Plane` of shapes
+(`Solver2d::from_plane`), the cells can instead be averaged from the shapes' exact fill and the
+interface's normal, Farjadpour et al.'s tensor, which is second order.
 
 **Open boundaries** are stretched-coordinate PMLs (Chew and Weedon), $\partial_w \to s_w^{-1}\partial_w$,
 graded as Shin and Fan describe:
@@ -119,7 +123,7 @@ power, an amplitude of 3e-6.
 
 - 2D here; 3D is [its own page](fdfd-3d.md), with the sparse direct solver for now.
 - A uniform grid in each direction.
-- The averaging is exact for interfaces along the grid's axes. A curved or slanted interface is
-  sampled 8 × 8 times per cell, which converges more slowly. Farjadpour et al.'s subpixel
-  smoothing, which follows the interface's normal, is the planned fix.
+- The default averaging samples each cell 8 × 8 times, first order. Averaging from the fill
+  ([its page](averaging.md)), which follows the interface's normal, is an option: second order
+  on a slanted interface with the whole tensor (H along z) or the mean (E along z).
 - Sources are currents on cells, or a waveguide's modes through its [ports](fdfd-ports.md).

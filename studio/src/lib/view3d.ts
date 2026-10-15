@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 import { intensityColour, mediumLook, pixels } from "./colours";
-import type { Mode, ModeField, Raster, Scene } from "./events";
+import type { Mode, ModeField, Raster, Scene, ScenePort } from "./events";
 import { CLEAR_OPACITY, type Look, type Looks } from "./layers";
 
 /**
@@ -189,6 +189,40 @@ function cutPlane(s: Scene, at: number, normal: "x" | "y"): THREE.Group {
 
 /** The cut's colour: the studio's accent, an amber that reads on both backdrops. */
 const CUT = "#e0a43a";
+
+/**
+ * Markers for the named ports of a job's components, on their layers' top faces: a bar across
+ * the guide's end, its width long, and an arrow the way light leaves by.
+ */
+export function portMarkers(s: Scene, ports: ScenePort[]): THREE.Group {
+  const group = new THREE.Group();
+  const points: THREE.Vector3[] = [];
+  for (const p of ports) {
+    const layer = s.layers.find((l) => l.name === p.layer);
+    const z = (layer ? layer.z_um[1] : s.z_um[1]) + 0.01;
+    const a = (p.direction_deg * Math.PI) / 180;
+    const [ox, oy] = [Math.cos(a), Math.sin(a)];
+    const [nx, ny] = [-oy, ox];
+    const [x, y] = p.position_um;
+    const half = p.width_um / 2;
+    const reach = Math.max(2 * p.width_um, 0.4);
+    const head = reach / 3;
+    const tip = [x + reach * ox, y + reach * oy];
+    const v = (px: number, py: number) => new THREE.Vector3(px, py, z);
+    points.push(v(x - half * nx, y - half * ny), v(x + half * nx, y + half * ny));
+    points.push(v(x, y), v(tip[0], tip[1]));
+    for (const side of [-1, 1]) {
+      points.push(v(tip[0], tip[1]), v(tip[0] - head * ox + side * head * 0.5 * nx, tip[1] - head * oy + side * head * 0.5 * ny));
+    }
+  }
+  if (points.length) {
+    const g = new THREE.BufferGeometry().setFromPoints(points);
+    const lines = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: CUT }));
+    lines.renderOrder = 102;
+    group.add(lines);
+  }
+  return group;
+}
 
 /** Frees the geometries and materials of what `structure` built (the shared edge materials stay). */
 export function dispose(group: THREE.Object3D) {
@@ -649,6 +683,9 @@ export class Preview3D {
   private size = new THREE.Vector3(1, 1, 1);
   private distance = 1;
   private yaw = 1.1;
+  private pitch = 0.5;
+  /** Where a drag that turns the view was last, while one goes on. */
+  private dragged: { x: number; y: number } | null = null;
   private visible = false;
   private frameId = 0;
   private last = 0;
@@ -658,10 +695,13 @@ export class Preview3D {
   constructor(
     private container: HTMLElement,
     dark: boolean,
+    /** Whether a drag turns it (round, and up and down), where it otherwise only turns by itself. */
+    turnable = false,
   ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(this.renderer.domElement);
+    if (turnable) this.turnByDragging(this.renderer.domElement);
     this.scene.add(new THREE.HemisphereLight("#e4ecf7", "#2a2e35", 1.6), this.light, this.light.target, this.structure);
     this.camera.up.set(0, 0, 1);
     this.setDark(dark);
@@ -680,12 +720,38 @@ export class Preview3D {
     if (!document.hidden && this.visible) this.start();
   };
 
+  /** A drag across `canvas` turns the view round, and up and down between nearly flat and nearly overhead; it goes on turning by itself after. */
+  private turnByDragging(canvas: HTMLCanvasElement) {
+    canvas.style.cursor = "grab";
+    canvas.style.touchAction = "none";
+    canvas.addEventListener("pointerdown", (e) => {
+      this.dragged = { x: e.clientX, y: e.clientY };
+      canvas.setPointerCapture(e.pointerId);
+      canvas.style.cursor = "grabbing";
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      if (!this.dragged) return;
+      this.yaw -= (e.clientX - this.dragged.x) * 0.008;
+      this.pitch = Math.min(1.35, Math.max(0.12, this.pitch + (e.clientY - this.dragged.y) * 0.006));
+      this.dragged = { x: e.clientX, y: e.clientY };
+      this.fit();
+      this.draw();
+    });
+    const end = () => {
+      this.dragged = null;
+      canvas.style.cursor = "grab";
+      this.last = performance.now();
+    };
+    canvas.addEventListener("pointerup", end);
+    canvas.addEventListener("pointercancel", end);
+  }
+
   /**
    * Shows `s`, in place of what was shown. With `cut` (a modes job's, at the x or y, `normal`,
    * where the scene's window ends), the window reaches as far in front of the cut as behind it,
    * and the cut is drawn as a plane, so the device shows whole and the cross-section's place on it.
    */
-  setScene(s: Scene, options: { cut?: number; normal?: "x" | "y" } = {}) {
+  setScene(s: Scene, options: { cut?: number; normal?: "x" | "y"; ports?: ScenePort[] } = {}) {
     for (const child of this.structure.children.slice()) {
       this.structure.remove(child);
       dispose(child);
@@ -697,6 +763,7 @@ export class Preview3D {
     const y = normal === "y" ? about(s.y_um) : s.y_um;
     this.structure.add(structure(s, new Set(), {}, x, y));
     if (cut !== undefined) this.structure.add(cutPlane(s, cut, normal));
+    if (options.ports?.length) this.structure.add(portMarkers(s, options.ports));
     const box = new THREE.Box3(new THREE.Vector3(x[0], y[0], s.z_um[0]), new THREE.Vector3(x[1], y[1], s.z_um[1]));
     box.getCenter(this.centre);
     box.getSize(this.size);
@@ -723,7 +790,7 @@ export class Preview3D {
    * across, and its height plus the footprint's tilt up, at the camera's pitch.
    */
   private fit() {
-    const pitch = 0.5;
+    const pitch = this.pitch;
     const half = 0.5 * Math.hypot(this.size.x, this.size.y);
     const tv = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
     const th = tv * this.camera.aspect;
@@ -742,7 +809,7 @@ export class Preview3D {
       this.frameId = 0;
       if (!this.visible || document.hidden) return;
       // a turn in about 40 s
-      this.yaw += ((t - this.last) / 1000) * ((2 * Math.PI) / 40);
+      if (!this.dragged) this.yaw += ((t - this.last) / 1000) * ((2 * Math.PI) / 40);
       this.last = t;
       this.draw();
       this.frameId = requestAnimationFrame(step);
@@ -751,7 +818,7 @@ export class Preview3D {
   }
 
   private draw() {
-    this.camera.position.copy(this.centre).addScaledVector(lookFrom(this.yaw, 0.5), this.distance);
+    this.camera.position.copy(this.centre).addScaledVector(lookFrom(this.yaw, this.pitch), this.distance);
     this.camera.lookAt(this.centre);
     this.light.position.copy(this.camera.position).add(new THREE.Vector3(0, 0, this.distance * 0.6));
     this.light.target.position.copy(this.centre);

@@ -16,7 +16,7 @@ import {
   PHOTONOXIDE_PATH,
   VALIDATION_PATH,
 } from "@/lib/projects/photonoxide/meta";
-import { blobUrl, doiUrl, getMethod, getMethods } from "@/lib/projects/photonoxide/methods";
+import { blobUrl, categoryTitle, doiUrl, getMethod, getMethods } from "@/lib/projects/photonoxide/methods";
 import { getReport } from "@/lib/projects/photonoxide/validation";
 
 export async function generateMetadata({ params }) {
@@ -70,8 +70,9 @@ export default async function MethodPage({ params }) {
 
       <header className="proj-rise max-w-3xl">
         <div className="flex flex-wrap items-center gap-2">
-          <Link href={METHODS_PATH} className="proj-tag" data-tone="accent">
-            Method {index + 1} of {methods.length}
+          <Link href={`${METHODS_PATH}#${method.category}`} className="proj-tag" data-tone="accent">
+            {categoryTitle(method.category)}
+            {method.group ? ` · ${method.group}` : null}
           </Link>
           {method.module ? <code className="proj-tag">{method.module}</code> : null}
         </div>

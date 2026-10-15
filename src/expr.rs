@@ -298,6 +298,8 @@ pub struct Parameters {
     fixed: Vec<(usize, f64)>,
     /// every slot's value: the coordinates 0, then the parameters
     values: Vec<f64>,
+    /// the coordinates set by [`Parameters::at_coordinate`], by slot
+    placed: Vec<usize>,
 }
 
 impl Parameters {
@@ -309,6 +311,7 @@ impl Parameters {
             order: Vec::new(),
             fixed: Vec::new(),
             values: vec![0.0; COORDINATES.len()],
+            placed: Vec::new(),
         }
     }
 
@@ -387,6 +390,7 @@ impl Parameters {
             defined,
             order,
             fixed: Vec::new(),
+            placed: Vec::new(),
         };
         p.evaluate()?;
         Ok(p)
@@ -430,6 +434,39 @@ impl Parameters {
         p.fixed.push((slot, value));
         p.evaluate()?;
         Ok(p)
+    }
+
+    /// The parameters with the coordinate `name` (`x`, `y`, `z`, `t`, `s`, `i` or `j`) at
+    /// `value` in [`Parameters::values`], where it is otherwise 0: the place an expression of it
+    /// is evaluated at, as an array's element's index (i, j) and its site (x, y). A definition
+    /// that sets the coordinate itself (a curve's `t`) still does.
+    ///
+    /// # Errors
+    ///
+    /// A [`ParameterError`] if `name` isn't a coordinate or `value` isn't finite.
+    pub fn at_coordinate(&self, name: &str, value: f64) -> Result<Parameters, ParameterError> {
+        let err = |message: String| ParameterError {
+            name: name.to_owned(),
+            message,
+        };
+        let slot = COORDINATES
+            .iter()
+            .position(|c| c.0 == name)
+            .ok_or_else(|| err("isn't a coordinate".to_owned()))?;
+        if !value.is_finite() {
+            return Err(err(format!("can't be set to {value}")));
+        }
+        let mut p = self.clone();
+        p.values[slot] = value;
+        if !p.placed.contains(&slot) {
+            p.placed.push(slot);
+        }
+        Ok(p)
+    }
+
+    /// Whether the coordinate in `slot` was set by [`Parameters::at_coordinate`].
+    pub(crate) fn is_placed(&self, slot: usize) -> bool {
+        self.placed.contains(&slot)
     }
 
     /// The names an expression can use: the coordinates and these parameters.

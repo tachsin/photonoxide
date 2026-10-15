@@ -2,7 +2,7 @@ use super::super::checks::grid;
 use super::super::{Field, Source, Waveform};
 use super::checks::*;
 use super::*;
-use crate::geometry::{Point, Polygon};
+use crate::geometry::{Point, Polygon, Shape};
 use crate::units::{Frequency, Length};
 
 fn smoothing(average: Average, coupling: Coupling) -> Smoothing {
@@ -86,6 +86,53 @@ fn smoothing_isotropic_media_is_farjadpours_eq_1() {
     let inverse_mean = s.inverse([0.0, 0.0, 0.0], size, Average::InverseMean);
     assert!((mean[0][0] - 1.0 / arithmetic).abs() < 1e-15 && mean[0][1] == 0.0);
     assert!((inverse_mean[2][2] - harmonic).abs() < 1e-15 && inverse_mean[1][2] == 0.0);
+}
+
+#[test]
+fn an_etched_bodys_sloped_wall_smooths_as_its_plane_does() {
+    // a 10 µm square's mesa 220 nm tall, its walls at 80 degrees: a cell on a wall, away from
+    // the faces and the corners, sees the wall's plane exactly
+    let angle = 80f64.to_radians();
+    let run = 1.0 / angle.tan();
+    let square = Shape::rect(Point::um(0.0, 0.0), Length::um(10.0), Length::um(10.0)).unwrap();
+    let mesa = Body::etched(square, [0.0, 0.22], angle).unwrap();
+    let si = Permittivity::isotropic(12.08).unwrap();
+    let ox = Permittivity::isotropic(2.085).unwrap();
+    let etched = Structure::new(ox).with(mesa, si);
+    // the east wall: x − 5 − (0.22 − z) cot θ = 0, its normal along (1, 0, cot θ)
+    let plane = Body::half_space([5.0 + 0.22 * run, 0.0, 0.0], [1.0, 0.0, run]).unwrap();
+    let half = Structure::new(ox).with(plane, si);
+    let size = [0.02, 0.02, 0.02];
+    for (x, z) in [(5.0 + 0.11 * run, 0.11), (5.0 + 0.1 * run + 0.004, 0.123)] {
+        let a = etched.inverse([x, 0.3, z], size, Average::Subpixel);
+        let b = half.inverse([x, 0.3, z], size, Average::Subpixel);
+        for i in 0..3 {
+            for j in 0..3 {
+                assert!((a[i][j] - b[i][j]).abs() < 1e-14, "{i}{j}: {a:?} {b:?}");
+            }
+        }
+    }
+    // inside, beyond the wall's foot, above and below
+    assert_eq!(etched.at([5.0 + 0.2 * run, 0.0, 0.01]), si);
+    assert_eq!(etched.at([5.0 + 0.2 * run, 0.0, 0.1]), ox);
+    assert_eq!(etched.at([0.0, 0.0, 0.25]), ox);
+    assert_eq!(etched.at([0.0, 0.0, -0.01]), ox);
+    // a vertical wall is the shape extruded between the faces
+    let wall = Body::etched(
+        Shape::rect(Point::um(0.0, 0.0), Length::um(1.0), Length::um(1.0)).unwrap(),
+        [0.0, 0.22],
+        std::f64::consts::FRAC_PI_2,
+    )
+    .unwrap();
+    assert_eq!(wall.surface([0.6, 0.0, 0.1]).1, [1.0, 0.0, 0.0]);
+    assert!(
+        Body::etched(
+            Shape::circle(Point::um(0.0, 0.0), Length::um(1.0)).unwrap(),
+            [0.2, 0.1],
+            1.0
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -612,4 +659,11 @@ fn coupling_triplets_takes_its_own_average() {
         let refused = lattice_simulation(smoothing, &structure, [1, 1], 16, true);
         assert!(refused.is_err(), "{average:?} {diameter}");
     }
+}
+
+#[test]
+fn the_smoothing_takes_the_same_bits_from_the_shared_bodies() {
+    // every value the smoothing takes from its bodies, against the bodies before they moved to
+    // the geometry (#227, phase 9), bit for bit
+    assert_eq!(bodies_differences(), 0);
 }

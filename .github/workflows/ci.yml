@@ -1,26 +1,62 @@
 name: CI
 
+# Tests in tiers (issue #315):
+#
+# - Tier 1, every pull request and every push to main: what the change can break, on Linux. The
+#   area map (.github/areas.sh) turns the changed files into the unit tests, validation cases and
+#   examples of their areas and of the areas that use them; a file of no area runs everything.
+#   Files nothing reads run only the docs' links. A pull request that changes the library (src/
+#   or the root Cargo.toml) has its public API checked against the latest release's
+#   (cargo-semver-checks).
+# - Tier 2, the release pull request (release-plz's branch), a pull request labelled `full-ci`
+#   (the Full CI workflow starts it), and a change to this workflow or to Cargo.toml or
+#   Cargo.lock: everything, the tests on Linux, Windows and macOS, single-threaded too, every
+#   example on all three systems, the 3D devices, the whole validation report and the studio on
+#   each system.
+# - Tier 3, Mondays (the Weekly workflow, when code changed in the past seven days) and by hand
+#   (Run workflow): Tier 2, and the Weekly workflow adds the Libraries workflow's installs, the
+#   Systems comparison and every Python wheel.
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: "2: everything on the three systems; 3: the same (the Weekly workflow adds the rest)"
+        type: choice
+        options: ["3", "2"]
+        default: "3"
+  workflow_call:
+    inputs:
+      tier:
+        type: string
+        required: true
+
+# A new push to a pull request stops its earlier run; on main every commit runs to the end
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || (github.event_name == 'push' && github.sha) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # What a push or a pull request changed, so that a change to the docs alone runs only the docs'
-  # check. Markdown the program reads (the validation report, the methods' write-ups, the
-  # examples' table and outputs, the changelog, the Academy's lessons) still runs the jobs that
-  # read it; anything that
-  # isn't Markdown or the site runs everything.
   changes:
     name: What changed
     runs-on: ubuntu-latest
     outputs:
+      tier: ${{ steps.classify.outputs.tier }}
       code: ${{ steps.classify.outputs.code }}
-      validation: ${{ steps.classify.outputs.validation }}
+      tests: ${{ steps.classify.outputs.tests }}
+      native: ${{ steps.classify.outputs.native }}
+      systems: ${{ steps.classify.outputs.systems }}
+      release: ${{ steps.classify.outputs.release }}
       studio: ${{ steps.classify.outputs.studio }}
+      library: ${{ steps.classify.outputs.library }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -30,31 +66,149 @@ jobs:
           EVENT: ${{ github.event_name }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
+          HEAD_REF: ${{ github.head_ref }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          TIER: ${{ inputs.tier }}
         run: |
+          set -euo pipefail
+          tier=${TIER:-1}
           if [ "$EVENT" = pull_request ]; then
-            range="$PR_BASE...$GITHUB_SHA"
-            base="$PR_BASE"
+            case "$HEAD_REF" in release-plz-*) tier=2 ;; esac
+            if jq -e 'index("full-ci")' <<<"$LABELS" > /dev/null; then tier=2; fi
+            range="$PR_BASE...$GITHUB_SHA" base="$PR_BASE"
           else
-            range="$PUSH_BEFORE..$GITHUB_SHA"
-            base="$PUSH_BEFORE"
+            range="$PUSH_BEFORE..$GITHUB_SHA" base="$PUSH_BEFORE"
           fi
-          code=false validation=false studio=false
-          if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
-            # no base to compare with (a new branch): run everything
-            code=true
+          if [ "$tier" = 1 ]; then
+            if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+              # no base to compare with (a new branch): everything
+              tier=2
+            else
+              git diff --name-only "$range" > "$RUNNER_TEMP/changed.txt"
+              cat "$RUNNER_TEMP/changed.txt"
+              # this workflow and the dependencies change what every system builds and runs
+              if grep -qxE '\.github/workflows/ci\.yml|Cargo\.toml|Cargo\.lock' "$RUNNER_TEMP/changed.txt"; then
+                tier=2
+              fi
+            fi
+          fi
+          # the library's public API, checked on a pull request that changes it (src/ or the root
+          # manifest), or this workflow, on any tier; not on the release PR, whose version
+          # release-plz chose by the same check
+          library=false
+          if [ "$EVENT" = pull_request ] && [[ "$HEAD_REF" != release-plz-* ]] &&
+            git cat-file -e "$PR_BASE^{commit}" 2>/dev/null; then
+            git diff --name-only "$range" > "$RUNNER_TEMP/pr-files.txt"
+            if grep -qE '^(src/|Cargo\.toml$|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/pr-files.txt"; then
+              library=true
+            fi
+          fi
+          if [ "$tier" = 1 ]; then
+            AREAS_RANGE="$range" bash .github/areas.sh < "$RUNNER_TEMP/changed.txt" > "$RUNNER_TEMP/areas.txt"
           else
-            while IFS= read -r f; do
-              case "$f" in
-                docs/validation.md) validation=true ;;
-                examples/output/*) validation=true; studio=true ;;
-                docs/methods/*|examples/README.md|CHANGELOG.md|academy/*) studio=true ;;
-                site/*|*.md) ;;
-                *) code=true ;;
-              esac
-            done < <(git diff --name-only "$range")
+            bash .github/areas.sh --all < /dev/null > "$RUNNER_TEMP/areas.txt"
           fi
-          echo "code=$code validation=$validation studio=$studio"
-          { echo "code=$code"; echo "validation=$validation"; echo "studio=$studio"; } >> "$GITHUB_OUTPUT"
+          echo "tier $tier"
+          cat "$RUNNER_TEMP/areas.txt"
+          get() { sed -n "s/^$1=//p" "$RUNNER_TEMP/areas.txt"; }
+          code=$(get code) tests=$(get tests) native=$(get native) cases=$(get cases)
+          examples=$(get examples) studio=$(get studio)
+
+          heavy="splitter_rotator_liu_poon mode_converter_liu_poon mmi_liu_poon coupler_liu_poon crossing_liu_poon ring_liu_poon"
+          entries=()
+          # entry NAME OS CASES EXAMPLES: a job of the release build, its validation cases and examples
+          entry() { entries+=("$(jq -nc --arg name "$1" --arg os "$2" --arg cases "$3" --arg examples "$4" '$ARGS.named')"); }
+
+          # The validation cases, the slowest groups each on a runner of their own: a group's
+          # prefix, then those of the earlier groups inside it left out. Every case runs in
+          # exactly one job, and together they check the whole report. Measured on CI's runners
+          # (0.5.2, #321 and #328): fdtd's adjoints 4.7 min, its smoothing 4.8, its comparisons
+          # with fdfd 2.5, the rest of fdtd 4.4, fdfd3d 6.3, the rest 3.5 (mode 2.5); the release
+          # build about 2 minutes more each.
+          groups="fdtd/adjoint fdtd/smoothing fdtd/fdfd fdtd/ fdfd3d/"
+          rest=""
+          if [ -n "$cases" ]; then
+            done=""
+            for g in $groups; do
+              take=false
+              if [ "$cases" = "*" ]; then
+                take=true
+              else
+                for c in $cases; do case "$g" in "$c"*) take=true ;; esac; done
+              fi
+              [ "$take" = true ] || continue
+              these="$g"
+              for d in $done; do case "$d" in "$g"*) these+=" -$d" ;; esac; done
+              entry "$g" ubuntu-latest "$these" ""
+              done+=" $g"
+            done
+            rest=""
+            if [ "$cases" = "*" ]; then
+              for g in $groups; do rest+=" -$g"; done
+            else
+              for c in $cases; do
+                case " $groups " in *" $c "*) ;; *) rest+=" $c" ;; esac
+              done
+            fi
+          fi
+
+          # The examples. "*" is every example but the 3D devices: on Linux on Tier 1; on Tier 2
+          # and 3 on all three systems, and the 3D devices on Linux, each on a runner of its own
+          # (crossing and ring together)
+          light=""
+          for example in examples/*.rs; do
+            name=$(basename "$example" .rs)
+            case " $heavy " in *" $name "*) ;; *) light+=" $name" ;; esac
+          done
+          if [ "$examples" = "*" ]; then
+            if [ "$tier" = 1 ]; then
+              entry "examples" ubuntu-latest "" "${light# }"
+            else
+              for os in ubuntu-latest windows-latest macos-latest; do
+                entry "examples" "$os" "" "${light# }"
+              done
+              for h in splitter_rotator_liu_poon mode_converter_liu_poon mmi_liu_poon coupler_liu_poon "crossing_liu_poon ring_liu_poon"; do
+                entry "$h" ubuntu-latest "" "$h"
+              done
+            fi
+            examples=""
+          else
+            # a 3D device whose file changed runs on a runner of its own
+            others=""
+            for name in $examples; do
+              case " $heavy " in *" $name "*) entry "$name" ubuntu-latest "" "$name" ;; *) others+=" $name" ;; esac
+            done
+            examples=$others
+          fi
+          # the rest of the cases and the light examples together, on one release build
+          if [ -n "${rest// /}" ] || [ -n "${examples// /}" ]; then
+            entry "the rest" ubuntu-latest "${rest# }" "${examples# }"
+          fi
+          release=$(printf '%s\n' "${entries[@]}" | jq -sc '.')
+
+          if [ "$tier" = 1 ]; then systems='["ubuntu-latest"]'; else systems='["ubuntu-latest","windows-latest","macos-latest"]'; fi
+          case "$studio" in
+            linux) studio='["ubuntu-latest"]' ;;
+            all) studio='["ubuntu-latest","windows-latest","macos-latest"]' ;;
+            *) studio='[]' ;;
+          esac
+          {
+            echo "tier=$tier"
+            echo "code=$code"
+            echo "tests=$tests"
+            echo "native=$native"
+            echo "systems=$systems"
+            echo "release=$release"
+            echo "studio=$studio"
+            echo "library=$library"
+          } | tee -a "$GITHUB_OUTPUT"
+          {
+            echo "### Tier $tier"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/areas.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   docs:
     name: Docs
@@ -63,39 +217,6 @@ jobs:
       - uses: actions/checkout@v7
       # every relative link in the Markdown points at something that exists
       - run: bash .github/scripts/check-links.sh
-
-  test:
-    name: Test (${{ matrix.os }})
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo build --all-targets --all-features
-      - run: cargo test --all-features
-      # photonoxide-native against its test library; real libraries are found only where installed
-      - run: cargo test -p photonoxide-native
-
-  single-thread:
-    name: Single thread
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      # parallel code must not rely on having more than one thread, and must give the same
-      # results on one thread as on many
-      - run: cargo test --all-features
-        env:
-          RAYON_NUM_THREADS: 1
 
   lint:
     name: Lint
@@ -112,80 +233,139 @@ jobs:
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo fmt --check -p photonoxide-native -p photonoxide-native-testlib
       - run: cargo clippy -p photonoxide-native -p photonoxide-native-testlib --all-targets -- -D warnings
+      # the Python package's binding crate builds against the façade, which most areas feed
+      - run: cargo fmt --check -p photonoxide-python
+      - run: cargo clippy -p photonoxide-python --all-targets -- -D warnings
       - run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: -D warnings
 
-  validation:
-    name: Validation report
+  # Tier 1: the changed areas' unit tests on Linux. Tier 2 and 3: every test on the three
+  # systems, and on Linux once more on one thread: parallel code must not rely on having more
+  # than one thread, and must give the same results on one thread as on many.
+  test:
+    name: Test (${{ matrix.os }})
     needs: changes
-    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.validation == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      # every case must pass, and docs/validation.md must be the report the code writes
-      - run: cargo test --release --test validation_report -- --ignored
-
-  # Every example reproduces a published result and fails when it doesn't, and prints exactly
-  # its committed output (shown on the project site). The 3D devices take minutes each, so each
-  # runs on a runner of its own, beside the report, and the rest together on another.
-  examples:
-    name: Examples (${{ matrix.shard }})
-    needs: changes
-    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.validation == 'true'
-    runs-on: ubuntu-latest
+    if: needs.changes.outputs.tests != '' || needs.changes.outputs.native == 'true'
     strategy:
       fail-fast: false
       matrix:
-        shard:
-          - the rest
-          - splitter_rotator_liu_poon
-          - mode_converter_liu_poon
-          - mmi_liu_poon
-          - coupler_liu_poon
-          - crossing_liu_poon ring_liu_poon
+        os: ${{ fromJSON(needs.changes.outputs.systems) }}
+    runs-on: ${{ matrix.os }}
     env:
-      # the examples with a runner of their own: the shards above but the first
-      HEAVY: splitter_rotator_liu_poon mode_converter_liu_poon mmi_liu_poon coupler_liu_poon crossing_liu_poon ring_liu_poon
-      SHARD: ${{ matrix.shard }}
+      TESTS: ${{ needs.changes.outputs.tests }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      # the library's test binary alone: its few doc tests would build the library once more (two
+      # minutes), so they run with every test
+      - name: The changed areas' unit tests
+        if: env.TESTS != '' && env.TESTS != '*'
+        # shellcheck disable=SC2086
+        run: cargo test --all-features --lib -- $TESTS
+      - name: Every test
+        if: env.TESTS == '*'
+        run: cargo test --all-features
+      - name: Every test, on one thread
+        if: env.TESTS == '*' && needs.changes.outputs.tier != '1' && runner.os == 'Linux'
+        run: cargo test --all-features
+        env:
+          RAYON_NUM_THREADS: 1
+      # photonoxide-native against its test library; real libraries are found only where installed
+      - name: photonoxide-native
+        if: needs.changes.outputs.native == 'true'
+        run: cargo test -p photonoxide-native
+
+  # The release build's checks: the validation cases (each row against docs/validation.md) and
+  # the examples, each against its paper, printing exactly its committed output (shown on the
+  # project site). The slowest groups of cases and the 3D devices each run on a runner of their
+  # own; the examples run on Windows and macOS too on Tier 2 and 3: the system's maths library
+  # mustn't show in what an example prints (issue #280; the Systems workflow runs the 3D devices
+  # and the report on those systems).
+  release:
+    name: Validation and examples (${{ matrix.name }}${{ matrix.os != 'ubuntu-latest' && format(', {0}', matrix.os) || '' }})
+    needs: changes
+    if: needs.changes.outputs.release != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.release) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      CASES: ${{ matrix.cases }}
+      EXAMPLES: ${{ matrix.examples }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Validation cases, each row against docs/validation.md
+        if: env.CASES != ''
+        run: cargo test --release --test validation_report -- --ignored --nocapture
+        env:
+          PHOTONOXIDE_VALIDATION_CASES: ${{ matrix.cases }}
       - name: Examples, each against its paper, and their output
+        if: env.EXAMPLES != ''
         run: |
-          if [ "$SHARD" = "the rest" ]; then
-            names=""
-            for example in examples/*.rs; do
-              name="$(basename "$example" .rs)"
-              case " $HEAVY " in *" $name "*) ;; *) names="$names $name" ;; esac
-            done
-          else
-            names="$SHARD"
-          fi
-          for name in $names; do
+          for name in $EXAMPLES; do
             echo "::group::$name"
             cargo run --release --quiet --example "$name" > "$RUNNER_TEMP/$name.txt"
             diff -u "examples/output/$name.txt" "$RUNNER_TEMP/$name.txt"
             echo "::endgroup::"
           done
 
+  # the studio on each system: its code differs by platform (the nightly channel's prerequisites
+  # and installs), so each compiles, lints and runs its tests on its own (Linux alone when only
+  # what it builds in changed)
   studio:
-    name: Studio
+    name: Studio (${{ matrix.os }})
     needs: changes
-    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.studio == 'true'
-    runs-on: ubuntu-latest
+    if: needs.changes.outputs.studio != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(needs.changes.outputs.studio) }}
+    runs-on: ${{ matrix.os }}
+    env:
+      TAURI_APT_PACKAGES: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
     defaults:
       run:
         working-directory: studio
+        shell: bash
     steps:
       - uses: actions/checkout@v7
-      # what Tauri needs on Linux: the WebKitGTK web view and its friends
-      - run: |
+      # what Tauri needs on Linux: the WebKitGTK web view and its friends, kept in the Actions
+      # cache (installing them took over a minute and a half). The action picks the packages'
+      # versions from the image's package lists, which can name versions the mirror has dropped,
+      # so the lists are updated first; its key leaves out the Ubuntu release, so that is the
+      # cache's version, and a new ubuntu-latest starts a fresh cache
+      - id: ubuntu
+        if: runner.os == 'Linux'
+        run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          echo "release=$(lsb_release -rs)" >> "$GITHUB_OUTPUT"
+      - if: runner.os == 'Linux'
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: ${{ env.TAURI_APT_PACKAGES }}
+          # the number after the release: raise it to drop a bad cache
+          version: ubuntu-${{ steps.ubuntu.outputs.release }}-2
+      # the action reports success even when its install failed (and caches what it got), so
+      # the build's own check: the libraries pkg-config finds, else a plain install
+      - if: runner.os == 'Linux'
+        run: |
+          if pkg-config --exists webkit2gtk-4.1 ayatana-appindicator3-0.1 librsvg-2.0 openssl && [ -f /usr/include/xdo.h ]; then
+            exit 0
+          fi
+          echo "::warning::the cached Tauri packages are missing or incomplete: installing them with apt (raise the cache's version to drop it)"
+          sudo apt-get install -y $TAURI_APT_PACKAGES
       - uses: pnpm/action-setup@v6
         with:
           package_json_file: studio/package.json
@@ -216,10 +396,49 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --all-targets --all-features
 
+  # The library's public API against the latest release on crates.io's (cargo-semver-checks, the
+  # check release-plz runs before it picks the next version). A change a user's code could break
+  # on, a public struct's new field say, fails it, unless the pull request says it breaks: a `!`
+  # in its title (`fix(fdfd)!: ...`, as Conventional Commits mark it) or the `breaking` label.
+  # Release-plz then raises the minor version, 0.5 to 0.6, where a patch was meant.
+  semver:
+    name: Semver
+    needs: changes
+    if: needs.changes.outputs.library == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+      - id: check
+        continue-on-error: true
+        uses: obi1kenobi/cargo-semver-checks-action@v2.9
+        with:
+          package: photonoxide
+      # the title and labels as they are now, not as the run's event had them, so that a rerun
+      # after marking the pull request breaking passes
+      - name: A break needs the pull request to say so
+        if: steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR")
+          title=$(jq -r .title <<<"$pr")
+          if jq -e '[.labels[].name] | index("breaking")' <<<"$pr" > /dev/null ||
+            [[ "$title" =~ ^[a-z]+(\([^\)]*\))?!: ]]; then
+            echo "::notice::The public API breaks semver (above), and the pull request says so: the next release raises the minor version."
+            exit 0
+          fi
+          echo "::error::The public API breaks semver against the latest release (the lints above): users' code that compiles against it may not compile against this. Keep the old API working (a field added to a public struct breaks every literal of it: put new settings in a type of their own marked #[non_exhaustive], with a new method taking it), or, if the break is meant, put a ! in the pull request's title (fix(area)!: ...) or add the breaking label, then rerun this job: release-plz will then raise the minor version."
+          exit 1
+
   # a push to the release PR (lines added to its changelog by hand) is checked again
   changelog:
     name: Changelog
-    if: ${{ startsWith(github.head_ref, 'release-plz-') }}
+    if: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'release-plz-') }}
     permissions:
       contents: read
       statuses: write

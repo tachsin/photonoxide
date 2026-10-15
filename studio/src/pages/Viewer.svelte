@@ -214,10 +214,10 @@
     <div class="max-w-md text-center">
       <div class="mx-auto mb-4 grid size-16 place-items-center rounded-2xl bg-primary/10 text-primary"><Box size={30} /></div>
       <h2 class="text-lg font-semibold">No run open</h2>
-      <p class="mt-1 text-sm muted">Run an example or a job of yours, or open one of the runs in the workspace: it plays here, live.</p>
+      <p class="mt-1 text-sm muted">Run a template or a job of yours, or open one of the runs in the workspace: it plays here, live.</p>
       <div class="mt-5 flex justify-center gap-2">
-        <button class="btn btn-primary btn-sm" onclick={() => go("examples")}>Browse examples</button>
-        <button class="btn btn-sm" onclick={() => go("runs")}>Open a run</button>
+        <button class="btn btn-primary btn-sm" onclick={() => go("home")}>Start from a template</button>
+        <button class="btn btn-sm" onclick={() => (app.drawer = true)}>Open a run</button>
       </div>
     </div>
   </div>

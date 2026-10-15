@@ -19,19 +19,34 @@ export interface Paper {
 
 export type LessonBlock =
   | { kind: "text"; markdown: string }
+  | { kind: "diagram"; diagram: string }
   | { kind: "chart"; chart: string; values: Record<string, number> }
   | { kind: "example"; name: string }
   | { kind: "validation"; cases: string[] }
   | { kind: "timeline" }
   | { kind: "answer"; markdown: string };
 
+/** A section still to be written: what it will answer, and the examples it will use. */
+export interface Coming {
+  /** One paragraph, Markdown with TeX math. */
+  answers: string;
+  examples: string[];
+}
+
 export interface LessonSection {
   title: string;
   /** Its anchor, from the title. */
   id: string;
   depth: Depth;
+  /** 2 for a `##` section, 3 for a part of one (a `###` heading with a depth). */
+  level: 2 | 3;
+  /** Set when the section is still to be written; its blocks are then none. */
+  coming: Coming | null;
   blocks: LessonBlock[];
 }
+
+/** Written, or laid out with its subsections and still to be written. */
+export type Status = "published" | "coming";
 
 /** A validation case's row in the published report (docs/validation.md). */
 export interface CaseRow {
@@ -52,6 +67,10 @@ export interface Lesson {
   summary: string;
   topic: string;
   level: Level;
+  status: Status;
+  /** For a lesson coming soon, the milestone whose solvers it waits for (ROADMAP.md), e.g. "0.6". */
+  milestone: string | null;
+  /** About how long it takes to read; 0 for a lesson coming soon. */
   minutes: number;
   prerequisites: string[];
   examples: string[];
@@ -69,7 +88,7 @@ export interface ChartParam {
   key: string;
   /** May hold TeX between dollars. */
   label: string;
-  /** As a chart block writes it: "um", "nm", "dB/cm", or "" for a number. */
+  /** As a chart block writes it: "um", "nm", "dB/cm", "dB", or "" for a number. */
   unit: string;
   min: number;
   max: number;
@@ -102,15 +121,31 @@ export interface ChartData {
   /** Whether x is a length in µm, shown in the unit chosen app-wide. */
   x_length: boolean;
   y_label: string;
+  /** Whether y is drawn on a logarithmic scale. */
+  y_log: boolean;
   y_range: [number, number] | null;
-  series: { label: string; points: [number, number][]; dashed: boolean }[];
+  /** Each curve, `colour` the palette's colour it is drawn in when it belongs with another (a TE and a TM mode of one order), or null for the next in turn. */
+  series: { label: string; points: [number, number][]; dashed: boolean; colour: number | null }[];
   marker: number | null;
   figures: ChartFigure[];
   note: string;
 }
 
+/** A lesson's device drawn (studio/src-tauri/src/diagrams.rs; the drawings in components/diagrams). */
+export interface DiagramSpec {
+  id: string;
+  title: string;
+  /** What the schematic shows; may hold TeX between dollars. */
+  caption: string;
+  /** The built-in job (jobs/<file>) whose structure the 3D view shows, if any. */
+  job: string | null;
+  /** What the 3D view shows. */
+  caption_3d: string;
+}
+
 export interface Academy {
   lessons: Lesson[];
+  diagrams: DiagramSpec[];
   charts: ChartSpec[];
 }
 
@@ -118,6 +153,12 @@ export interface Academy {
 export const DEPTHS: Depth[] = ["intuition", "theory", "research"];
 
 export const LEVELS: Level[] = ["introductory", "intermediate", "advanced"];
+
+/** A subsection's heading split into its number and its question: "2. Why …?" is ["2", "Why …?"]. */
+export function numbered(title: string): [string | null, string] {
+  const m = /^(\d+)\.\s+(.*)$/.exec(title);
+  return m ? [m[1], m[2]] : [null, title];
+}
 
 /** A unit as people read it. */
 export const unitName = (unit: string) => (unit === "um" ? "µm" : unit);

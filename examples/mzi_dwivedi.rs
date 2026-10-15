@@ -23,8 +23,9 @@
 //!
 //! Here each wire is the SEM's rectangle (the trapezoid's sidewall angle isn't printed) in
 //! photonoxide's own silicon (Li 1980) and fused silica (Malitson 1965), whose 1.4440 at
-//! 1550 nm is the paper's; its TE-like mode by Hadley's high-accuracy equations on a quarter
-//! domain, about 10 nm grids, at 1.52 to 1.58 µm, a [`Waveguide`]. The interferometers are
+//! 1550 nm is the paper's: photonoxide's waveguide device ([`StripWaveguide`]) at the SEM's
+//! width and thickness, its 3D model, the TE-like mode by Hadley's high-accuracy equations on
+//! a quarter domain, about 10 nm grids, at 1.52 to 1.58 µm, a [`Waveguide`]. The interferometers are
 //! designed as the paper's were: their path differences ΔL = m λ/n_eff from the designed
 //! 215 nm thick wire's index. Each is a netlist of two ideal splitters and two arms, and its
 //! spectrum is read the way the paper reads the measured one: the M = 110 interferometer's
@@ -50,53 +51,30 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use photonoxide::circuit::components::{Dispersion, Waveguide, YBranch, mzi_y};
-use photonoxide::circuit::{Circuit, Component};
-use photonoxide::material::{silica, silicon};
-use photonoxide::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity};
+use photonoxide::circuit::{Circuit, Component, Fidelity};
+use photonoxide::device::{StripWaveguide, Values};
 use photonoxide::units::Wavelength;
 
 /// The wavelength of Table I, µm.
 const CENTRE: f64 = 1.55;
 
-/// The quarter x, y ≥ 0 of a `width` × `thickness` µm silicon wire in silica, centred at the
-/// origin, on a uniform grid of about 10 nm whose lines fall on the core's faces, 1 µm of oxide
-/// beyond them; an electric wall at x = 0 and a magnetic wall at y = 0 keep the TE-like modes.
-fn quarter(
-    width: f64,
-    thickness: f64,
-    wavelength: Wavelength,
-) -> photonoxide::Result<CrossSection> {
-    let (si, ox) = (
-        silicon().permittivity(wavelength)?,
-        silica().permittivity(wavelength)?,
-    );
-    let (a, b) = (width / 2.0, thickness / 2.0);
-    let (dx, dy) = (a / (a / 0.01).round(), b / (b / 0.01).round());
-    let (nx, ny) = (
-        ((a + 1.0) / dx).round() as usize,
-        ((b + 1.0) / dy).round() as usize,
-    );
-    CrossSection::uniform(
-        (0.0, nx as f64 * dx, nx),
-        (0.0, ny as f64 * dy, ny),
-        |x, y| Permittivity::isotropic(if x < a && y < b { si } else { ox }),
-    )?
-    .with_boundaries(Boundaries {
-        west: Boundary::ElectricWall,
-        south: Boundary::MagneticWall,
-        ..Boundaries::default()
-    })
-}
-
-/// The wire's mode about 1550 nm, a model over 1.52 to 1.58 µm, and its grid.
+/// The wire's mode about 1550 nm, a model over 1.52 to 1.58 µm, and its grid: photonoxide's
+/// waveguide device on 220 nm-class SOI, `width` × `thickness` µm, its 3D model, which solves a
+/// quarter of the cross-section (x, y ≥ 0, an electric wall at x = 0 and a magnetic wall at
+/// y = 0 keeping the TE-like modes) on a uniform grid of about 10 nm whose lines fall on the
+/// core's faces, 1 µm of oxide beyond them, by Hadley's equations.
 fn wire(width: f64, thickness: f64) -> photonoxide::Result<(Dispersion, String)> {
-    let (d, _, grid) = Dispersion::from_hadley(
-        |w| quarter(width, thickness, w),
-        Wavelength::um(CENTRE)?,
-        0.015,
-        None,
+    let device = StripWaveguide::new();
+    let values = Values::new(
+        &device,
+        &[
+            ("width", width),
+            ("thickness", thickness),
+            ("wavelength", CENTRE),
+            ("span", 0.06),
+        ],
     )?;
-    Ok((d, grid))
+    device.dispersion(&values, Fidelity::ThreeD)
 }
 
 /// A Mach-Zehnder interferometer of two ideal splitters whose arms of `wire` differ by

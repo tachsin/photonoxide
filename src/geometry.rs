@@ -10,22 +10,93 @@
 //! arc) and becomes polygons only when asked. A [`Transform`] (translation, rotation, mirror,
 //! scaling) maps a shape to one of its own kind, exactly. An [`Index`] over a layer's shapes
 //! finds those near a point or a cell. See docs/methods/geometry.md.
+//!
+//! Besides the primitives, polygons and [`Path`]s, a shape can be defined by functions, each an
+//! expression ([`crate::expr`]): the region [`Between`] two curves, y_low(x) ≤ y ≤ y_high(x); a
+//! [`Polar`] region, r ≤ ρ(θ); the inside of a [`ClosedCurve`] (x(t), y(t)); an [`Implicit`]
+//! region, f(x, y) ≤ 0. Each keeps its definition, tests points against it, and traces its
+//! boundary for distances, areas, polygons and fills. A [`Mask`] is a grid of fill values, a
+//! density for fills and areas and its binarisation at ½ for the rest.
+//!
+//! Shapes combine: a [`Boolean`] (union, intersection, difference or xor, [`Operation`]) of any
+//! two, an [`Offset`] grown or shrunk with round, miter or square [`Join`]s, and a [`Rounded`]
+//! shape with its corners rounded, each a shape again. Their inside tests are their operands'
+//! combined exactly, their distances composed by min and max where that is exact and from their
+//! polygons elsewhere; [`Polygons::boolean`], [`Polygons::offset`] and [`Polygons::rounded`] do
+//! the same on polygons, on a grid. See docs/methods/booleans.md.
+//!
+//! Many shapes make one: an [`Array`] is the union of its elements, each with an index, found
+//! through an index over their boxes so that 10⁴ of them cost a point a handful of tests. A
+//! [`Lattice`] (rectangular, hexagonal or polar, with sites removed, shifted or resized: an L3
+//! cavity, a W1 guide) gives an array its sites, the same shape at each or one made from each
+//! site's index and place; a [`Reference`] places a named [`Cell`] many times with transforms.
+//! See docs/methods/arrays.md.
+//!
+//! **Bodies in space.** A [`Body`] is a region of (x, y, z): a half-space, an ellipsoid at any
+//! angle (a sphere, an elliptic cylinder, a slab), a box, a cylinder or cone along any axis, any
+//! shape here extruded between two heights with its walls at a sidewall angle, and booleans of
+//! bodies. It answers as a region does in the plane: inside or not, its exact signed distance and
+//! normal, its bounds and volume, and the volume it fills of an axis-aligned cell
+//! ([`Body::fill`]: exact for planar faces by clipping and for quadrics by their slices, to a
+//! stated tolerance where two curved surfaces cross a cell). FDTD's subpixel smoothing reads
+//! these bodies ([`crate::fdtd::Body`] is [`Body`]). See docs/methods/bodies.md.
 
 use std::f64::consts::TAU;
 
 use crate::units::Length;
 use crate::{Error, Result};
 
+mod array;
+pub(crate) mod array_checks;
+#[cfg(test)]
+mod array_tests;
+mod body;
+pub(crate) mod body_checks;
+mod body_fill;
+mod body_section;
+#[cfg(test)]
+mod body_tests;
+pub(crate) mod boolean_checks;
+#[cfg(test)]
+mod boolean_tests;
 mod boundary;
 pub(crate) mod checks;
+mod clip;
+mod compose;
+pub(crate) mod curve_checks;
+#[cfg(test)]
+mod curve_tests;
+mod curves;
+mod flat;
+mod fresnel;
+mod implicit;
 mod index;
+mod lattice;
+mod mask;
+mod outline;
+mod path;
+pub(crate) mod path_checks;
+#[cfg(test)]
+mod path_tests;
 mod primitives;
 mod region;
 #[cfg(test)]
 mod region_tests;
+mod trace;
 mod transform;
 
+pub use array::{Array, Cell, Element, Reference};
+pub use body::{Body, Bounds3d, Distance3d};
+pub use body_fill::DEPTH as FILL_DEPTH;
+pub(crate) use body_fill::plane_share;
+pub use clip::{Join, Operation};
+pub use compose::{Boolean, Offset, Rounded};
+pub use curves::{Between, ClosedCurve, Polar};
+pub use implicit::{IMPLICIT_CELLS, Implicit};
 pub use index::Index;
+pub use lattice::{Lattice, LatticeKind, MAX_SITES, Site};
+pub use mask::Mask;
+pub use path::{Curve, End, PartialEuler, Path, PathBuilder, Profile, Segment, partial_euler};
 pub use primitives::{Ellipse, FILL_TOLERANCE, RegularPolygon, RoundedRect, Sector, Superellipse};
 pub use region::{Contour, Distance, Location, Polygons, Region, Tolerance};
 pub use transform::Transform;
@@ -284,6 +355,28 @@ pub enum Shape {
     Superellipse(Superellipse),
     /// A rectangle at any angle, its corners rounded (a radius of zero: sharp).
     RoundedRect(RoundedRect),
+    /// A path: a centre line of segments with a width along it.
+    Path(Path),
+    /// The region between two curves, y_low(x) ≤ y ≤ y_high(x), each an expression.
+    Between(Between),
+    /// A polar region, r ≤ ρ(θ), ρ an expression.
+    Polar(Polar),
+    /// The region inside a closed curve (x(t), y(t)), two expressions.
+    ClosedCurve(ClosedCurve),
+    /// An implicit region, f(x, y) ≤ 0, f an expression.
+    Implicit(Implicit),
+    /// A mask: fill values from 0 to 1 on a grid of pixels.
+    Mask(Mask),
+    /// A boolean of two shapes: their union, intersection, difference or xor.
+    Boolean(Boolean),
+    /// A shape grown or shrunk, its corners joined round, mitred or square.
+    Offset(Offset),
+    /// A shape with its convex and concave corners rounded.
+    Rounded(Rounded),
+    /// Many shapes as one, their union, each with an index: a lattice of holes or pillars.
+    Array(Array),
+    /// A named cell placed many times, each placement a transform.
+    Reference(Reference),
 }
 
 impl Shape {
@@ -363,6 +456,17 @@ impl Shape {
             Shape::RegularPolygon(s) => Some(s),
             Shape::Superellipse(s) => Some(s),
             Shape::RoundedRect(s) => Some(s),
+            Shape::Path(s) => Some(s),
+            Shape::Between(s) => Some(s),
+            Shape::Polar(s) => Some(s),
+            Shape::ClosedCurve(s) => Some(s),
+            Shape::Implicit(s) => Some(s),
+            Shape::Mask(s) => Some(s),
+            Shape::Boolean(s) => Some(s),
+            Shape::Offset(s) => Some(s),
+            Shape::Rounded(s) => Some(s),
+            Shape::Array(s) => Some(s),
+            Shape::Reference(s) => Some(s),
             Shape::Rect { .. } | Shape::Circle { .. } | Shape::Polygon(_) | Shape::Ring { .. } => {
                 None
             }

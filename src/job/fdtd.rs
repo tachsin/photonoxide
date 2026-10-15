@@ -18,8 +18,8 @@ use num_complex::Complex64 as c64;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    CircleSpec, Event, RectSpec, RingSpec, check_cells, check_materials, check_step, check_window,
-    draw, named_stack, scene, task_error,
+    CircleSpec, Event, PathSpec, RectSpec, RingSpec, check_cells, check_materials, check_step,
+    check_window, draw, draw_paths, named_stack, scene, task_error,
 };
 use crate::fdfd::{
     Axis, Boundaries3d, Direction, Edges, Formulation, Grid3d, IterativeSolver3d, PortMode3d,
@@ -176,7 +176,7 @@ struct ViewSpec {
 struct FdtdTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
     kind: String,
-    stack: String,
+    stack: super::StackField,
     core_nm: Option<f64>,
     bottom_oxide_um: Option<f64>,
     wavelength_um: f64,
@@ -199,6 +199,15 @@ struct FdtdTask {
     circle: Vec<CircleSpec>,
     #[serde(default)]
     ring: Vec<RingSpec>,
+    #[serde(default)]
+    path: Vec<PathSpec>,
+    #[serde(default)]
+    shape: Vec<super::shapes::ShapeSpec>,
+    #[serde(default)]
+    component: Vec<toml::Table>,
+    /// Bodies in space over the structure: 3D only.
+    #[serde(default)]
+    body: Vec<toml::Table>,
     #[serde(default)]
     source: Vec<ItemSpec>,
     #[serde(default)]
@@ -420,12 +429,27 @@ impl Setup {
                 "z_um is for a 3D job (dimensions = 3): a 2D job is the layer's plane",
             ));
         }
-        let structure = draw(
-            named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
-            &task.rect,
-            &task.circle,
-            &task.ring,
+        let structure = draw_paths(
+            draw(
+                named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
+                &task.rect,
+                &task.circle,
+                &task.ring,
+            )?,
+            &task.path,
+            &task.shape,
+            &task.component,
         )?;
+        if !three && !task.body.is_empty() {
+            return Err(task_error(
+                "[[task.body]] is a body in space: it is for a 3D job (dimensions = 3), which \
+                 sees the structure in three dimensions",
+            ));
+        }
+        let structure = super::bodies::place(structure, &task.body)?;
+        if !three {
+            super::check_etches_2d(&structure, &task.layer)?;
+        }
         let (_, bottom, top) = structure
             .stack()
             .layer(&task.layer)
@@ -438,6 +462,20 @@ impl Setup {
             }
             None => [bottom.to_um() - 1.0, top.to_um() + 1.0],
         };
+        // a graded body's medium, positive and finite over the window's part of it
+        for (k, (body, medium)) in structure.bodies().iter().enumerate() {
+            if let crate::stack::Medium::Graded(g) = medium {
+                let window = crate::geometry::Bounds3d::new(
+                    [task.x_um[0], task.y_um[0], z_window[0]],
+                    [task.x_um[1], task.y_um[1], z_window[1]],
+                )
+                .intersection(&body.bounds());
+                if !window.is_empty() {
+                    g.check_over(window, 32)
+                        .map_err(|e| task_error(format!("[[task.body]] #{}: {e}", k + 1)))?;
+                }
+            }
+        }
         let courant = task.courant.unwrap_or(0.9);
         if !(courant > 0.0 && courant <= 1.0) {
             return Err(task_error(format!(
@@ -1297,22 +1335,63 @@ impl Setup {
                 table.push((real(&l.material)?, real(&l.background)?));
             }
             let (below, above) = (real(stack.substrate())?, real(stack.cladding())?);
+            // an etched layer (a partial etch, sloped walls) answers through the structure
+            let plain: Vec<bool> = stack
+                .layers()
+                .iter()
+                .map(|l| self.structure.is_plain(&l.name))
+                .collect();
+            let structure = self.structure.clone();
+            // the bodies over it, top first: each a real permittivity, or a graded medium's
+            let mut bodies = Vec::with_capacity(structure.bodies().len());
+            for (body, medium) in structure.bodies().iter().rev() {
+                let eps = match medium {
+                    crate::stack::Medium::Material(m) => Ok(real(m)?),
+                    crate::stack::Medium::Graded(g) => Err(g.clone()),
+                };
+                bodies.push((body.clone(), eps));
+            }
             Ok(Box::new(move |x: f64, y: f64, z: f64| {
+                for (body, eps) in &bodies {
+                    if body.contains([x, y, z]) {
+                        return match eps {
+                            Ok(v) => *v,
+                            Err(g) => g.permittivity_at([x, y, z]),
+                        };
+                    }
+                }
                 if z < 0.0 {
                     return below;
                 }
                 match tops.iter().position(|&t| z < t) {
                     Some(i) => {
                         let p = Point::um(x, y);
-                        if shapes[i].iter().any(|shape| shape.contains(p)) {
-                            table[i].0
+                        let inside = if plain[i] {
+                            shapes[i].iter().any(|shape| shape.contains(p))
                         } else {
-                            table[i].1
-                        }
+                            std::ptr::eq(
+                                structure.material_at(p, crate::units::Length::um(z)),
+                                &structure.stack().layers()[i].material,
+                            )
+                        };
+                        if inside { table[i].0 } else { table[i].1 }
                     }
                     None => above,
                 }
             }))
+        } else if stack
+            .layers()
+            .iter()
+            .any(|l| !self.structure.is_plain(&l.name))
+        {
+            let kind = if self.te {
+                crate::mode::Polarization::Te
+            } else {
+                crate::mode::Polarization::Tm
+            };
+            let name = self.task.layer.clone();
+            let eps = super::fdfd::etched_plane(&self.structure, &name, kind, lam)?;
+            Ok(Box::new(move |x: f64, y: f64, _: f64| eps(x, y)))
         } else {
             let kind = if self.te {
                 crate::mode::Polarization::Te
@@ -2094,6 +2173,7 @@ fn mode_index(setup: &Setup, s: usize) -> usize {
 pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let mut setup = Setup::new(job)?;
     run.record(&setup.scene()?)?;
+    super::record_ports(job, run)?;
     let g = setup.grid;
     let eps = setup.permittivity()?;
     let mut sim = Simulation::new_parallel(g, &eps, setup.boundaries, setup.courant)?;
@@ -2732,7 +2812,11 @@ time_um = 160.0
             .iter()
             .filter(|e| matches!(e, Event::FdtdFrame { .. }))
             .collect();
-        assert!(frames.len() > 10, "{} frames", frames.len());
+        // the interval between frames doubles whenever recording one takes more than a tenth of
+        // the clock's time the steps since the last took: on a machine busy with other tests
+        // (a parallel debug run) that happens at nearly every frame, so the count depends on
+        // the load, not the run, down to about log2 of the run over the first interval
+        assert!(frames.len() >= 5, "{} frames", frames.len());
         // the frames' bytes are the picture's pixels
         for f in &frames {
             let Event::FdtdFrame { nx, ny, data, .. } = f else {
@@ -2862,6 +2946,75 @@ time_um = 160.0
         ] {
             super::super::check(&Job::parse(text).unwrap()).unwrap();
         }
+    }
+
+    #[test]
+    fn a_3d_job_reads_its_bodies_and_graded_media() {
+        let text = r#"
+name = "bodies-3d"
+[task]
+kind = "fdtd"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+dimensions = 3
+x_um = [-1.2, 1.2]
+y_um = [-1.0, 1.0]
+z_um = [1.3, 2.9]
+step_nm = 80.0
+pml_cells = 4
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, 0.0]
+size_um = [4.0, 0.5]
+[[task.body]]
+type = "sphere"
+center = ["0.5 um", 0, "2.5 um"]
+radius = "150 nm"
+material = "si"
+[[task.body]]
+type = "box"
+center = ["-0.5 um", 0, "2.6 um"]
+size = ["0.4 um", "0.4 um", "0.2 um"]
+index = "1.6 + 0.2*(z - 2.5 um)/um"
+[[task.source]]
+type = "mode"
+normal = "x"
+at_um = -0.4
+[[task.monitor]]
+type = "mode"
+name = "out"
+normal = "x"
+at_um = -0.1
+[task.stop]
+until = "time"
+time_um = 10.0
+"#;
+        let job = Job::parse(text).unwrap();
+        crate::job::check(&job).unwrap();
+        let setup = Setup::new(&job).unwrap();
+        let eps = setup.permittivity().unwrap();
+        let si = crate::material::silicon()
+            .permittivity(Wavelength::um(1.55).unwrap())
+            .unwrap()
+            .re;
+        assert_eq!(eps(0.5, 0.0, 2.5), si);
+        assert!((eps(-0.5, 0.0, 2.6) - 1.62f64.powi(2)).abs() < 1e-12);
+        // outside both, the stack: the strip below, the cladding above
+        assert_eq!(eps(0.0, 0.0, 2.11), si);
+        assert!(eps(0.0, 0.6, 2.6) < 2.2);
+        let events = run_job(text, "bodies-3d");
+        let (_, out) = last_spectrum(&events, "out");
+        assert!(out[0].is_finite() && out[0] > 0.0, "{out:?}");
+        // a graded medium that isn't positive inside the window is refused, naming the body
+        let bad = text.replace("1.6 + 0.2*(z - 2.5 um)/um", "1.6 - 20*(z - 2.5 um)/um");
+        let e = crate::job::check(&Job::parse(&bad).unwrap())
+            .unwrap_err()
+            .to_string();
+        assert!(
+            e.contains("[[task.body]] #2") && e.contains("positive"),
+            "{e}"
+        );
     }
 
     #[test]

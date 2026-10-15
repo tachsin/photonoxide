@@ -550,10 +550,11 @@
   <aside class="flex min-h-0 flex-col border-r border-base-content/8 bg-base-100/40">
     <div class="flex gap-2 p-3">
       <div class="dropdown flex-1">
-        <div tabindex="0" role="button" class="btn btn-primary btn-sm w-full gap-1.5"><FilePlus2 size={15} /> New <ChevronDown size={14} /></div>
+        <div tabindex="0" role="button" class="btn btn-primary btn-sm w-full gap-1.5"><FilePlus2 size={15} /> New from… <ChevronDown size={14} /></div>
+        <!-- an empty chip, or each built-in circuit (circuits/ in the repository) -->
         <ul tabindex="-1" class="dropdown-content menu z-30 mt-1 w-72 rounded-box border border-base-content/10 bg-base-100 p-2 shadow-xl">
           <li><button onclick={() => open(emptyChip(), null)}><span class="font-medium">An empty chip</span></button></li>
-          <li class="menu-title pt-2">From an example</li>
+          <li class="menu-title pt-2">A built-in circuit</li>
           {#each examples as ex (ex.file)}
             <li>
               <button class="flex flex-col items-start gap-0" onclick={() => open(ex.chip, null)}>

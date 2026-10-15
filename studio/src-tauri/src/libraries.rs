@@ -11,20 +11,26 @@
 //!   be run from it, in a terminal of its own, after the user confirms having read the licence
 //!   and the command ([`install`]). Elevation, if needed, is winget's to ask for. Nothing is
 //!   redistributed with photonoxide.
+//! - **New releases** ([`releases`]): each library's newest, against the version its guide
+//!   was checked with, read every week by the Releases workflow.
 
 use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
 use photonoxide::backend::{self, Listed, Threads};
-use photonoxide_native::{Candidate, Discovery, Spec, Status, intel, nvidia};
+use photonoxide_native::{
+    Candidate, Discovery, Spec, Status, accelerate, blas, intel, mumps, nvidia, superlu,
+};
 use serde::Serialize;
+
+pub mod releases;
 
 /// A command that installs a library.
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct Install {
     /// Its id within the library's guide, for [`install`].
     pub id: &'static str,
-    /// The package manager: `winget`, `conda-forge` or `pip`.
+    /// The package manager: `winget`, `conda-forge`, `pip` or `apt`.
     pub manager: &'static str,
     /// The command, exactly as it is run or copied.
     pub command: &'static str,
@@ -145,9 +151,9 @@ pub const GUIDES: &[Guide] = &[
     },
     Guide {
         library: "oneMKL",
-        about: "Intel's oneAPI Math Kernel Library, through its single library mkl_rt: PARDISO, its sparse direct solver.",
-        provides: &["direct"],
-        backends: &["pardiso"],
+        about: "Intel's oneAPI Math Kernel Library, through its single library mkl_rt: PARDISO, its sparse direct solver, and its BLAS and LAPACK as the dense kernels of photonoxide's own solver's fronts.",
+        provides: &["direct", "dense"],
+        backends: &["pardiso", "photonoxide-mkl"],
         needs: &[],
         licence: "Intel Simplified Software License (October 2022)",
         licence_url: "https://cdrdv2-public.intel.com/749362/intel-simplified-license-software-october-2022.pdf",
@@ -307,7 +313,7 @@ pub const GUIDES: &[Guide] = &[
     },
     Guide {
         library: "cuSPARSE",
-        about: "The CUDA toolkit's sparse kernels: photonoxide's QMR with ILU(0) run on the GPU.",
+        about: "The CUDA toolkit's sparse kernels: photonoxide's QMR (plain, complex symmetric, and with ILU(0)) and its GMRES with the multigrid, run on the GPU.",
         provides: &["iterative"],
         backends: &["cusparse"],
         needs: &["CUDA runtime"],
@@ -433,104 +439,36 @@ pub const GUIDES: &[Guide] = &[
         unsupported: CUDA_UNSUPPORTED,
         built_in: false,
     },
-];
-
-const HAS_LIBRARY: &str =
-    "the package's library is there; photonoxide has no backend to load it with yet";
-
-/// The libraries the plan names that photonoxide has no backend for yet (docs/plans/backends.md):
-/// how each installs, checked on clean machines, for the issue that adds its backend.
-pub const PLANNED: &[Planned] = &[
-    Planned {
-        library: "MUMPS",
-        about: "A multifrontal sparse direct solver, with block low-rank compression: a direct backend. The sequential build.",
-        issue: 176,
-        licence: "CeCILL-C",
-        home: "https://mumps-solver.org/",
-        installs: &[
-            Install {
-                id: "conda",
-                manager: "conda-forge",
-                command: "conda install -c conda-forge mumps-seq",
-                systems: &["windows", "linux", "macos"],
-                note: "The sequential build, into the active conda environment. On Windows it brings conda-forge's mkl with it, and so oneMKL's PARDISO too.",
-                checked: &[
-                    Checked {
-                        system: "linux",
-                        image: UBUNTU,
-                        date: DAY,
-                        installed: "mumps-seq 5.8.2",
-                        found: HAS_LIBRARY,
-                    },
-                    Checked {
-                        system: "windows",
-                        image: WINDOWS,
-                        date: DAY,
-                        installed: "mumps-seq 5.8.2, mkl 2026.1.0",
-                        found: HAS_LIBRARY,
-                    },
-                    Checked {
-                        system: "macos",
-                        image: MACOS,
-                        date: DAY,
-                        installed: "mumps-seq 5.8.2",
-                        found: HAS_LIBRARY,
-                    },
-                ],
-            },
-            Install {
-                id: "apt",
-                manager: "apt",
-                command: "sudo apt-get install libmumps-seq-dev",
-                systems: &["linux"],
-                note: "Debian's and Ubuntu's package, older than conda-forge's: 5.6.2 on Ubuntu 24.04, 5.4.1 on 22.04.",
-                checked: &[
-                    Checked {
-                        system: "linux",
-                        image: UBUNTU,
-                        date: DAY,
-                        installed: "libmumps-seq-dev 5.6.2",
-                        found: HAS_LIBRARY,
-                    },
-                    Checked {
-                        system: "linux",
-                        image: UBUNTU_22,
-                        date: DAY,
-                        installed: "libmumps-seq-dev 5.4.1",
-                        found: HAS_LIBRARY,
-                    },
-                ],
-            },
-        ],
-        unsupported: &[],
-    },
-    Planned {
+    Guide {
         library: "SuperLU",
-        about: "A supernodal sparse direct solver with partial pivoting: a direct backend.",
-        issue: 177,
+        about: "A supernodal sparse LU with partial pivoting (Demmel, Eisenstat, Gilbert, Li, Liu 1999), the sequential library, releases 5 to 7.",
+        provides: &["direct"],
+        backends: &["superlu"],
+        needs: &[],
         licence: "BSD-3-Clause",
-        home: "https://portal.nersc.gov/project/sparse/superlu/",
+        licence_url: "https://github.com/xiaoyeli/superlu/blob/master/License.txt",
+        download: "https://portal.nersc.gov/project/sparse/superlu/",
         installs: &[
             Install {
                 id: "conda",
                 manager: "conda-forge",
                 command: "conda install -c conda-forge superlu",
                 systems: &["linux", "macos"],
-                note: "Into the active conda environment.",
+                note: "Into the active conda environment: start photonoxide from it.",
                 checked: &[
                     Checked {
                         system: "linux",
                         image: UBUNTU,
                         date: DAY,
                         installed: "superlu 7.0.1",
-                        found: HAS_LIBRARY,
+                        found: "SuperLU 7.0.0 by its file's name, and the superlu backend after its smoke test and its tests",
                     },
                     Checked {
                         system: "macos",
                         image: MACOS,
                         date: DAY,
                         installed: "superlu 7.0.1",
-                        found: HAS_LIBRARY,
+                        found: "SuperLU 7.0.0 by its file's name, and the superlu backend after its smoke test and its tests",
                     },
                 ],
             },
@@ -546,57 +484,154 @@ pub const PLANNED: &[Planned] = &[
                         image: UBUNTU,
                         date: DAY,
                         installed: "libsuperlu-dev 6.0.1",
-                        found: HAS_LIBRARY,
+                        found: "SuperLU 6.0.1 by its file's name, and the superlu backend after its smoke test and its tests",
                     },
                     Checked {
                         system: "linux",
                         image: UBUNTU_22,
                         date: DAY,
                         installed: "libsuperlu-dev 5.3.0",
-                        found: HAS_LIBRARY,
+                        found: "SuperLU 5.3.0 by its file's name, and the superlu backend after its smoke test and its tests",
                     },
                 ],
             },
         ],
         unsupported: &[(
             "windows",
-            "conda-forge has no superlu for Windows (the install fails with PackagesNotFoundInChannelsError, 2026-10-09). vcpkg builds it from source, which wasn't run here.",
+            "conda-forge has no superlu for Windows (the install fails with PackagesNotFoundInChannelsError, 2026-10-09), and no package there names SuperLU's library by its release, which is how photonoxide tells the releases apart: photonoxide's own solvers run there.",
         )],
+        built_in: false,
     },
-    Planned {
+    Guide {
+        library: "MUMPS",
+        about: "A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build, and its block low-rank factorization (Amestoy et al. 2015) as a backend of its own, lossy to a tolerance and refined. MUMPS asks that work using it cite it. photonoxide knows the structure of releases 5.4.1 to 5.9.1 and refuses others; no package manager had 5.9 yet on 2026-10-11, and 5.9.1 is checked built from mumps-solver.org's source. From 5.9, MUMPS isn't used while MUMPS_CONFIG_FILE is set: its file's settings would replace photonoxide's.",
+        provides: &["direct"],
+        backends: &["mumps", "mumps-blr"],
+        needs: &[],
+        licence: "CeCILL-C",
+        licence_url: "https://cecill.info/licences/Licence_CeCILL-C_V1-en.html",
+        download: "https://mumps-solver.org/",
+        installs: &[
+            Install {
+                id: "conda",
+                manager: "conda-forge",
+                command: "conda install -c conda-forge mumps-seq",
+                systems: &["windows", "linux", "macos"],
+                note: "The sequential build, into the active conda environment: start photonoxide from it. On Windows it brings conda-forge's mkl with it, and so oneMKL's PARDISO too.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "mumps-seq 5.8.2",
+                        found: "MUMPS 5.8.2, and the mumps backend after its smoke test and its tests",
+                    },
+                    Checked {
+                        system: "windows",
+                        image: WINDOWS,
+                        date: DAY,
+                        installed: "mumps-seq 5.8.2, mkl 2026.1.0",
+                        found: "MUMPS 5.8.2, and the mumps backend after its smoke test and its tests",
+                    },
+                    Checked {
+                        system: "macos",
+                        image: MACOS,
+                        date: DAY,
+                        installed: "mumps-seq 5.8.2",
+                        found: "MUMPS 5.8.2, and the mumps backend after its smoke test and its tests",
+                    },
+                ],
+            },
+            Install {
+                id: "apt",
+                manager: "apt",
+                command: "sudo apt-get install libmumps-seq-dev",
+                systems: &["linux"],
+                note: "Debian's and Ubuntu's package, older than conda-forge's (5.6.2 on Ubuntu 24.04, 5.4.1 on 22.04): both are releases photonoxide knows.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: DAY,
+                        installed: "libmumps-seq-dev 5.6.2",
+                        found: "MUMPS 5.6.2, and the mumps backend after its smoke test and its tests",
+                    },
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU_22,
+                        date: DAY,
+                        installed: "libmumps-seq-dev 5.4.1",
+                        found: "MUMPS 5.4.1, and the mumps backend after its smoke test and its tests",
+                    },
+                ],
+            },
+        ],
+        unsupported: &[],
+        built_in: false,
+    },
+    Guide {
+        library: "Accelerate",
+        about: "Apple's Accelerate framework, its sparse direct solvers, and its BLAS and LAPACK as the dense kernels of photonoxide's own solver's fronts: part of macOS, nothing to install. Complex LU from macOS 15.5, complex symmetric L D Lᵀ from macOS 26.",
+        provides: &["direct", "dense"],
+        backends: &["accelerate", "photonoxide-accelerate"],
+        needs: &[],
+        licence: "Part of macOS, under Apple's software licence agreement for it",
+        licence_url: "https://www.apple.com/legal/sla/",
+        download: "https://developer.apple.com/documentation/accelerate/sparse_solvers",
+        installs: &[],
+        unsupported: &[
+            (
+                "macos",
+                "Built in: nothing to install. Its complex LU needs macOS 15.5, its complex symmetric L D Lᵀ macOS 26; on an older macOS photonoxide's own solvers run.",
+            ),
+            (
+                "windows",
+                "Accelerate is part of macOS: photonoxide's own solvers run here.",
+            ),
+            (
+                "linux",
+                "Accelerate is part of macOS: photonoxide's own solvers run here.",
+            ),
+        ],
+        built_in: false,
+    },
+    Guide {
         library: "OpenBLAS",
-        about: "An open BLAS and LAPACK: dense kernels for the multifrontal fronts, where no vendor's library is installed.",
-        issue: 186,
+        about: "An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts, in place of faer's.",
+        provides: &["dense"],
+        backends: &["photonoxide-openblas"],
+        needs: &[],
         licence: "BSD-3-Clause",
-        home: "https://www.openblas.net/",
+        licence_url: "https://github.com/OpenMathLib/OpenBLAS/blob/develop/LICENSE",
+        download: "https://github.com/OpenMathLib/OpenBLAS/releases",
         installs: &[
             Install {
                 id: "conda",
                 manager: "conda-forge",
                 command: "conda install -c conda-forge openblas",
                 systems: &["windows", "linux", "macos"],
-                note: "Into the active conda environment.",
+                note: "Into the active conda environment: start photonoxide from it. conda-forge's macOS build has no openblas_set_num_threads_local, and photonoxide holds it to one thread.",
                 checked: &[
                     Checked {
                         system: "linux",
                         image: UBUNTU,
                         date: DAY,
                         installed: "openblas 0.3.34",
-                        found: HAS_LIBRARY,
+                        found: "OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests",
                     },
                     Checked {
                         system: "windows",
                         image: WINDOWS,
                         date: DAY,
                         installed: "openblas 0.3.34",
-                        found: HAS_LIBRARY,
+                        found: "OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests",
                     },
                     Checked {
                         system: "macos",
                         image: MACOS,
                         date: DAY,
                         installed: "openblas 0.3.34",
-                        found: HAS_LIBRARY,
+                        found: "OpenBLAS 0.3.34, and the photonoxide-openblas backend after its smoke test and its tests, on one thread",
                     },
                 ],
             },
@@ -605,27 +640,33 @@ pub const PLANNED: &[Planned] = &[
                 manager: "apt",
                 command: "sudo apt-get install libopenblas-dev",
                 systems: &["linux"],
-                note: "Debian's and Ubuntu's package: 0.3.26 on Ubuntu 24.04, 0.3.20 on 22.04.",
+                note: "Debian's and Ubuntu's package: 0.3.26 on Ubuntu 24.04, 0.3.20 on 22.04. Before OpenBLAS 0.3.27 its threads can't be set for each call, and photonoxide holds it to one.",
                 checked: &[
                     Checked {
                         system: "linux",
                         image: UBUNTU,
                         date: DAY,
                         installed: "libopenblas-dev 0.3.26",
-                        found: HAS_LIBRARY,
+                        found: "OpenBLAS 0.3.26, and the photonoxide-openblas backend after its smoke test and its tests, on one thread",
                     },
                     Checked {
                         system: "linux",
                         image: UBUNTU_22,
                         date: DAY,
                         installed: "libopenblas-dev 0.3.20",
-                        found: HAS_LIBRARY,
+                        found: "OpenBLAS 0.3.20, and the photonoxide-openblas backend after its smoke test and its tests, on one thread",
                     },
                 ],
             },
         ],
         unsupported: &[],
+        built_in: false,
     },
+];
+
+/// The libraries the plan names that photonoxide has no backend for yet (docs/plans/backends.md):
+/// how each installs, checked on clean machines, for the issue that adds its backend.
+pub const PLANNED: &[Planned] = &[
     Planned {
         library: "AMD AOCL",
         about: "AMD's BLIS, libFLAME and AOCL-Sparse: dense kernels and iterative solvers on AMD processors.",
@@ -643,22 +684,6 @@ pub const PLANNED: &[Planned] = &[
                 "AMD's packages or Spack, from its page: not run here.",
             ),
             ("macos", "AMD has no macOS build."),
-        ],
-    },
-    Planned {
-        library: "Apple Accelerate",
-        about: "macOS's own BLAS, LAPACK and sparse solvers: dense kernels and a direct backend on a Mac.",
-        issue: 187,
-        licence: "part of macOS",
-        home: "https://developer.apple.com/documentation/accelerate",
-        installs: &[],
-        unsupported: &[
-            (
-                "macos",
-                "Built in: nothing to install. Which macOS first has its complex sparse solvers is for #187 to confirm.",
-            ),
-            ("windows", "A macOS framework."),
-            ("linux", "A macOS framework."),
         ],
     },
     Planned {
@@ -686,6 +711,10 @@ fn spec(library: &str) -> Option<&'static Spec> {
         &nvidia::CUSPARSE,
         &nvidia::CUDSS,
         &intel::MKL,
+        &mumps::MUMPS,
+        &superlu::SUPERLU,
+        &accelerate::ACCELERATE,
+        &blas::OPENBLAS,
     ]
     .into_iter()
     .find(|s| s.name == library)
@@ -1025,6 +1054,24 @@ pub fn markdown() -> String {
         let _ = writeln!(out, "- **Home:** <{}>\n", p.home);
         write_installs(&mut out, p.installs, p.unsupported);
     }
+    out.push_str("## New releases\n\n");
+    let _ = writeln!(
+        out,
+        "Every Monday the Releases workflow (`.github/workflows/releases.yml`) runs \
+         `photonoxide libraries --releases`. It reads each library's newest release where it \
+         is published: PyPI's and anaconda.org's APIs for the wheels and conda-forge's \
+         packages, NVIDIA's redistributables' manifests for CUDA and cuDSS, the GitHub releases \
+         of SuperLU and OpenBLAS, MUMPS's download page, and, for Accelerate, the macOS of \
+         GitHub's runner images. It sets each beside the version checked above and the \
+         releases photonoxide-native accepts, with a link to the release's notes, and keeps \
+         that table in one issue, [{title}](https://github.com/tachsin/photonoxide/issues?q=is%3Aissue+in%3Atitle+%22{query}%22), \
+         commenting there when a release appears.\n\n\
+         A new release isn't supported until it has been checked:\n",
+        title = releases::ISSUE_TITLE,
+        query = releases::ISSUE_TITLE.replace(' ', "+"),
+    );
+    out.push_str(releases::STEPS);
+    out.push('\n');
     out.push_str("## Traps\n\n");
     out.push_str(
         "- **Debian's and Ubuntu's oneMKL is MKL 2020.4.** `apt` installs a library six years older than Intel's, conda-forge's or pip's. photonoxide finds it and its PARDISO passes the smoke test; prefer the others for a current library.\n\
@@ -1050,10 +1097,13 @@ fn anchor(heading: &str) -> String {
         .collect()
 }
 
-/// `photonoxide libraries [--json | --write <file>]`: finds every library, registers their
-/// backends after their smoke tests, and prints what was found; or writes the install guides'
-/// page.
+/// `photonoxide libraries [--json | --write <file> | --releases ...]`: finds every library,
+/// registers their backends after their smoke tests, and prints what was found; or writes the
+/// install guides' page; or reads each library's newest release ([`releases::run`]).
 pub fn run(args: &[String]) -> ExitCode {
+    if args.first().is_some_and(|a| a == "--releases") {
+        return releases::run(&args[1..]);
+    }
     if let [flag, file] = args
         && flag == "--write"
     {
@@ -1185,7 +1235,12 @@ pub fn install(library: String, id: String) -> Result<String, String> {
     // start opens a new console, whose cmd /k runs the command and stays open
     command.args(["/c", "start", "photonoxide: installing", "cmd", "/k"]);
     command.args(install.command.split(' '));
+    // no standard handles: a studio opened from Explorer has let go of its console, and a
+    // child given its handles doesn't start
     command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .spawn()
         .map_err(|e| format!("can't open a terminal: {e}"))?;
     Ok(install.command.to_owned())
@@ -1218,6 +1273,10 @@ mod tests {
             nvidia::CUSPARSE.name,
             nvidia::CUDSS.name,
             intel::MKL.name,
+            mumps::MUMPS.name,
+            superlu::SUPERLU.name,
+            accelerate::ACCELERATE.name,
+            blas::OPENBLAS.name,
         ] {
             assert!(spec(name).is_some(), "{name}");
             assert!(GUIDES.iter().any(|g| g.library == name), "{name}");
@@ -1232,7 +1291,15 @@ mod tests {
             assert!(g.licence_url.starts_with("https://"), "{}", g.library);
             assert!(g.download.starts_with("https://"), "{}", g.library);
             assert!(!g.licence.is_empty() && !g.about.is_empty());
-            assert_eq!(g.built_in, g.installs.is_empty(), "{}", g.library);
+            // nothing installs what is built in, or what is part of one system
+            if g.installs.is_empty() && !g.built_in {
+                assert_eq!(g.library, "Accelerate");
+                assert!(g.unsupported.iter().any(|(s, _)| *s == "windows"));
+                assert!(g.unsupported.iter().any(|(s, _)| *s == "linux"));
+                assert!(g.unsupported.iter().any(|(s, _)| *s == "macos"));
+            } else {
+                assert_eq!(g.built_in, g.installs.is_empty(), "{}", g.library);
+            }
             for need in g.needs {
                 assert!(GUIDES.iter().any(|n| n.library == *need), "{need}");
             }
@@ -1247,6 +1314,14 @@ mod tests {
                 assert!(!i.command.contains("  ") && !i.command.contains(['&', '|', ';', '>']));
             }
         }
+    }
+
+    #[test]
+    fn mumps_guide_names_the_releases_photonoxide_native_knows() {
+        let known: Vec<&str> = photonoxide_native::mumps::releases().collect();
+        let about = GUIDES.iter().find(|g| g.library == "MUMPS").unwrap().about;
+        let range = format!("{} to {}", known[0], known[known.len() - 1]);
+        assert!(about.contains(&range), "{range}: {about}");
     }
 
     #[test]

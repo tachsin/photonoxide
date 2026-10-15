@@ -131,6 +131,10 @@
   .num {
     @apply font-mono tabular-nums;
   }
+  /* an Academy lesson or subsection laid out but not yet written */
+  .coming-chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-dashed border-base-content/20 px-2 py-px text-[10.5px] font-medium tracking-wide text-base-content/55 whitespace-nowrap;
+  }
   .glow {
     background:
       radial-gradient(60rem 22rem at 10% -20%, color-mix(in oklch, var(--color-primary) 22%, transparent), transparent 70%),

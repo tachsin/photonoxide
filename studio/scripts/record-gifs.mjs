@@ -389,9 +389,12 @@ const pressKey = (k) => key(k, { keyCode: KEYS[k] });
 
 /** Shows (or hides) the drawn pointer, at the pointer's place. */
 const cursor = (on) => js(`__rec.cursor(args[0], args[1], args[2]);`, on, mouse.x, mouse.y);
-/** Goes to a page by the navigation rail, without being recorded. */
+/** Goes to a page by the navigation rail, without being recorded; the System group's opened first when it is folded. */
 const goTo = (label) =>
-  js(`[...document.querySelectorAll("nav button")].find((b) => b.textContent.trim() === args[0] || b.title.startsWith(args[0] + ":")).click();`, label);
+  js(`const find = () => document.querySelector("nav button[aria-label='" + args[0] + "']");
+      if (!find()) document.querySelector("nav button[aria-label='System']").click();
+      await new Promise((r) => setTimeout(r, 50));
+      find().click();`, label);
 
 /** The page right of the navigation rail, above the status bar. */
 const railless = () =>
@@ -494,9 +497,9 @@ async function showIndexPlot() {
 
 let rec;
 
-/** Opens an example's card on the Examples page and presses its Run or Edit. */
+/** Finds a template's card on Home, and which of the cards' buttons is its Run or Open. */
 async function exampleCard(name, button) {
-  await goTo("Examples");
+  await goTo("Home");
   await until(`return __rec.find("article h3", args[0]);`, `the ${name} card`, 20000, name);
   await js(`__rec.find("article h3", args[0]).closest("article").scrollIntoView({ block: "center" });`, name);
   await sleep(400);
@@ -632,7 +635,7 @@ const SCENES = {
 
   /** The ring in the job builder: its radius and place changed, the 3D preview following. */
   async builder() {
-    const card = await exampleCard("ring-fdfd", "Edit");
+    const card = await exampleCard("ring-fdfd", "Open");
     await js(`[...document.querySelectorAll(args[0])].filter((x) => x.getBoundingClientRect().width)[args[1]].click();`, card.selector, card.nth);
     await until(`return __rec.find("button", "Ring 1");`, "the builder's ring");
     await fold(true);
@@ -743,9 +746,9 @@ const SCENES = {
   },
 
   /**
-   * The ring resonator's lesson opened, and its live chart: the radius set so a resonance sits
-   * at 1.55 µm, the window narrowed onto it, then the coupling raised and lowered to critical
-   * coupling, where the dip reaches zero.
+   * The ring resonator's lesson opened on its diagram, the ring drawn from above and then turned
+   * in 3D, and its live chart: the radius set so a resonance sits at 1.55 µm, the window narrowed
+   * onto it, then the coupling raised and lowered to critical coupling, where the dip reaches zero.
    */
   async academy() {
     await goTo("Academy");
@@ -760,10 +763,21 @@ const SCENES = {
     rec.crop(await railless());
     await sleep(500);
     await click("aside button", "The ring resonator", { ms: 700 });
-    await until(`return __rec.find("figure.panel svg[role=img]");`, "the ring's chart");
-    await sleep(900);
-    // down to the chart: its plot at the top, then its sliders and the numbers it computes
-    await js(`const fig = __rec.find("figure.panel");
+    await until(`return __rec.find("figure[data-diagram] svg[role=img]");`, "the ring's diagram");
+    await sleep(700);
+    // first the device: its diagram whole, the schematic, then the same ring in 3D, turned a little
+    await js(`const fig = __rec.find("figure[data-diagram]");
+       const art = fig.closest("article");
+       art.scrollTo({ top: art.scrollTop + fig.getBoundingClientRect().top - art.getBoundingClientRect().top - 12, behavior: "smooth" });`);
+    await sleep(2800);
+    await click("figure[data-diagram] button", "3D", { ms: 700 });
+    await until(`return __rec.find("figure[data-diagram] canvas");`, "the ring in 3D");
+    await sleep(1200);
+    const view = await box("figure[data-diagram] canvas");
+    await drag({ x: view.x - 90, y: view.y - 30 }, { x: view.x + 70, y: view.y + 20 }, 1600, (t) => t * t * (3 - 2 * t), 600);
+    await sleep(1400);
+    // then down to the chart: its plot at the top, then its sliders and the numbers it computes
+    await js(`const fig = __rec.find("figure.panel:not([data-diagram])");
        const art = fig.closest("article");
        const head = fig.firstElementChild.getBoundingClientRect();
        art.scrollTo({ top: art.scrollTop + head.bottom - art.getBoundingClientRect().top, behavior: "smooth" });`);

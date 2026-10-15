@@ -3,13 +3,39 @@
 The lessons the studio's Academy page teaches from. Each file here is one lesson, built into the
 `photonoxide` program (`studio/src-tauri/src/academy.rs`), and read on GitHub as ordinary
 Markdown. A lesson explains a device or a topic at three depths, tells its history paper by
-paper, and draws charts that photonoxide computes live, so moving a slider shows the physics
-the library computes, the code the [validation report](../docs/validation.md) checks.
+paper, opens on a drawing of its device, and draws charts that photonoxide computes live, so
+moving a slider shows the physics the library computes, the code the
+[validation report](../docs/validation.md) checks.
 
-| Lesson | Level | Charts |
-|---|---|---|
-| [The ring resonator](ring-resonator.md) | introductory | `ring-spectrum`, `ring-coupling` |
-| [Bragg gratings and mirrors](bragg-gratings.md) | intermediate | `bragg-reflectance`, `bragg-bandwidth` |
+| Lesson | Level | Diagram | Charts |
+|---|---|---|---|
+| [The ring resonator](ring-resonator.md) | introductory | `ring` | `ring-spectrum`, `ring-extinction`, `ring-coupling`, `ring-q-length`, `ring-identify` |
+| [Bragg gratings and mirrors](bragg-gratings.md) | intermediate | `bragg` | `bragg-reflectance`, `bragg-bandwidth` |
+| [The Mach–Zehnder interferometer](mach-zehnder.md) | introductory | `mzi` | `mzi-spectrum`, `mzi-extinction` |
+| [The directional coupler and splitters](directional-coupler.md) | intermediate | `coupler` | `coupler-power`, `coupler-supermodes`, `coupler-gap`, `coupler-spectrum`, `coupler-mismatch` |
+| [The slab waveguide](slab-waveguide.md) | introductory | `slab` | `slab-fields`, `slab-bv`, `slab-neff`, `slab-confinement` |
+
+The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
+with its numbered subsections, what each will answer and the examples each will use, so writing
+it is filling them in. The library lists them in this order, the order to read them in.
+
+| Lesson coming soon | Topic | Level | Examples |
+|---|---|---|---|
+| [Silicon, silica and dispersion](material-dispersion.md) | Materials | introductory | `silicon_index`, `silica_index` |
+| [The strip waveguide and its cross-section](strip-waveguide.md) | Waveguides | intermediate | `strip_waveguide`, `effective_index_method`, `marcatili`, `hadley_corners`, `group_index`, `leaky_wire_benchmark` |
+| [Leaky and bent guides, and multilayers](leaky-and-bent-guides.md) | Waveguides | advanced | `multilayer_chilwell`, `leaky_waves`, `bend_loss` |
+| [Grating couplers](grating-couplers.md) | Gratings and filters | intermediate | |
+| [Multimode interference and self-imaging](mmi.md) | Multimode and polarization devices | intermediate | `mmi_liu_poon` |
+| [Crossings, mode converters and the polarization splitter-rotator](crossings-and-converters.md) | Multimode and polarization devices | advanced | `crossing_liu_poon`, `mode_converter_liu_poon`, `splitter_rotator_liu_poon` |
+| [Photonic crystals and band gaps](photonic-crystals.md) | Nanophotonics | advanced | `subpixel_holes` |
+| [Surface plasmons and Mie scattering](plasmonics.md) | Nanophotonics | advanced | `lorentz_okoniewski` |
+| [Metasurfaces and metalenses](metasurfaces.md) | Nanophotonics | advanced | |
+| [How FDTD works](how-fdtd-works.md) | Numerical methods | intermediate | `cpml_roden_gedney`, `pml_oskooi`, `tfsf_square_cylinder`, `subpixel_holes`, `bump_oskooi`, `lorentz_okoniewski` |
+| [FDFD and adjoint gradients](fdfd-and-adjoints.md) | Numerical methods | advanced | |
+| [Inverse design](inverse-design.md), with 0.7 | Numerical methods | advanced | `circuit_splitter`, `circuit_ring_critical`, `circuit_fit` |
+| [Modulators and phase shifters](modulators.md), with 0.6 | Active and quantum photonics | intermediate | |
+| [Nonlinear integrated optics](nonlinear-optics.md), with 0.6.1 | Active and quantum photonics | advanced | |
+| [Quantum light on a chip](quantum-light.md), with 0.6.2 | Active and quantum photonics | advanced | |
 
 ## A lesson's file
 
@@ -41,13 +67,39 @@ papers:                       # its history, for the timeline
 
 Every field but the lists is required, and an unknown field is an error.
 
+A lesson **coming soon** says so, has no `minutes`, `charts` or `papers` yet, and may name the
+milestone of [the roadmap](../ROADMAP.md) whose solvers it waits for:
+
+```yaml
+---
+title: "The slab waveguide"
+summary: "One sentence for the library's card, and the lesson's header until it has an opening."
+topic: Waveguides
+level: introductory
+status: coming                # published when left out
+milestone: "0.6"              # only on a lesson coming soon, and only if it waits for one
+prerequisites: [material-dispersion]
+examples: [slab_yariv_yeh, slab_soi]  # each in one of its subsections' ::coming lines
+methods: [slab.md]
+---
+```
+
 ## The body
 
 **Sections** are `##` headings. A heading may end in its depth, `{intuition}`, `{theory}` or
 `{research}`; without one it is intuition. The window shows intuition sections open and the
 others closed, to open one at a time or all at once from the lesson's depth switch. Text before
 the first heading is the lesson's opening. `#` headings aren't allowed: the title is the front
-matter's. The sections a lesson usually has:
+matter's.
+
+**Parts.** A `###` heading that ends in a depth, `### The derivation {theory}`, starts a part of
+the `##` section above it, at that depth, running to the next part or section: a section can
+open on its intuition and keep its derivation and its literature a click away. A `###` heading
+without a depth stays in the text as an ordinary subheading. The window lists every section and
+part as the lesson's outline, beside the lesson on a wide window and under a Contents button
+otherwise, to jump to.
+
+A lesson either follows the usual sections:
 
 - What it does
 - The physics `{theory}`
@@ -58,6 +110,11 @@ matter's. The sections a lesson usually has:
 - Try it: exercises with the charts
 - Further reading `{research}`
 
+or, for a device worth analysing thoroughly, numbered sections each answering one question, each
+with its theory and research parts and its exercises, and a closing history with the timeline:
+[the ring resonator](ring-resonator.md) is written so. Every sentence states a fact, a step of a
+derivation, a number with its source, or what to look at in a chart.
+
 **Math** is TeX, as GitHub sets it: `$…$` inline (no space just inside the dollars, no letter
 or digit just outside), and display math between lines holding only `$$`.
 
@@ -67,13 +124,14 @@ or digit just outside), and display math between lines holding only `$$`.
   front matter's papers;
 - a method's write-up: `[the components](../docs/methods/components.md)`, opened beside the
   lesson in the window;
-- an example: `[ring_q_factor](../examples/ring_q_factor.rs)`, opened on the Examples page;
+- an example: `[ring_q_factor](../examples/ring_q_factor.rs)`, opened among Validation's published results;
 - another lesson: `[Bragg gratings](bragg-gratings.md)`.
 
 **Blocks** are lines of their own, starting with `::`:
 
 | Block | What it shows |
 |---|---|
+| `::diagram <id>` | the device drawn: a labelled schematic, and its structure in 3D where a job builds it |
 | `::chart <id>` | a chart, every parameter at its default |
 | `::chart <id>{key=value, key=value}` | a chart starting from these values |
 | `::example <name>` | an example: what it printed when this release was checked, and a button to run it here |
@@ -94,33 +152,106 @@ The dip reaches zero where κ₁² meets the chart's critical coupling.
 :::
 ```
 
+## Coming soon
+
+A section still to be written is its heading, then a `::coming` line naming the examples it will
+use (none, one or several), then one paragraph saying what it will answer, and nothing else:
+
+```markdown
+## 3. How many modes does a slab hold?
+
+::coming slab_yariv_yeh
+The normalized frequency $V$ and index $b$, the $b$–$V$ diagram, each mode's cutoff, and the mode
+counts of an asymmetric and a symmetric slab.
+```
+
+The window shows it with a calm "coming soon" chip, its question, that paragraph and its examples,
+whatever depth the lesson is read to. A written lesson may hold such sections; a lesson with
+`status: coming` holds only them, numbered `1.`, `2.`, `3.` in order, with no opening: its summary
+says what it is about. Each subsection answers one question, its heading; the paragraph names
+what the answer will contain, its numbers with their sources, and no more. To write one, replace
+its `::coming` line and paragraph with the text and blocks that answer it; when every section is
+written, drop `status: coming` and give the lesson its reading time, diagram, papers and charts.
+
+## The diagrams
+
+A lesson opens on its device drawn, before any chart, with a sentence saying what to look for:
+`::diagram <id>` near the top. A diagram is a clean schematic in the lesson's own symbols (the
+same letters its equations use, set by KaTeX), with dimension arrows, the waves in and out, and a
+caption saying what the reader is looking at. Its sizes may be illustrative; its labels may not.
+Where a built-in job builds the same device, a 2D | 3D switch shows that job's structure as
+photonoxide's geometry builds it, the job builder's 3D preview, turned by a drag; the schematic
+shows first.
+
+| Diagram | What it draws | 3D view |
+|---|---|---|
+| `ring` | a ring and its bus from above: $R$, $w$, $g$, the coupler's $r_1$ and $k_1$, the round trip's $a e^{i\phi}$, the fields $a_1$, $b_1$, $a_2$, $b_2$, the input and through ports, and a faint second bus with its $r_2$, $k_2$, drop and add | `ring-fdfd.toml` |
+| `bragg` | a quarter-wave stack in section: $N$ pairs of $n_H$ and $n_L$, $d_H$, $d_L$ and $\Lambda$, the cover $n_0$ and substrate $n_s$, the incident, reflected ($r$) and transmitted ($t$) waves; and a waveguide grating from above, its period $\Lambda$ and length $L = N\Lambda$ | `bragg-grating.toml` |
+| `coupler` | a directional coupler from above: two strips of width $w$ a gap $g$ apart over a length $L$, brought in and out by S-bends, $z$ along the coupled section, $P_\text{cross}(z) = \sin^2\kappa z$, $\kappa = \pi\Delta n/\lambda$ and $L_c = \lambda/2\Delta n$, the input and second input, the through ($\cos^2\kappa L$) and cross ($\sin^2\kappa L$) ports; beneath, the field across the pair of the even ($n_\text{even}$) and odd ($n_\text{odd}$) supermodes | `coupler-supermodes.toml` |
+| `mzi` | a Mach–Zehnder interferometer from above: the splitter's $r_1$, $k_1$ and the combiner's $r_2$, $k_2$, arms of $L$ and $L + \Delta L$ (the longer drawn longer) with their fields $a_l e^{i\phi_l}$ and $a_u e^{i\phi_u}$, a phase shifter $\varphi$, the phase difference $\Delta\phi$, the input and the bar and cross outputs | `mzi-mmi.toml` |
+| `slab` | a slab in section: the film $n_2$ of thickness $d$ between the cover $n_1$ and the substrate $n_3$, a ray zig-zagging along $z$ at $\theta \gt \theta_c = \arcsin(n_3/n_2)$ and a steeper one lost, and a guided mode's $E_y(x)$ across the slab, $\cos(hx - \phi_3)$ in the film and the tails $e^{px}$ and $e^{-q(x - d)}$ | `slab-soi.toml` |
+
+Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
+job if it has one) and an SVG drawn by a component in `studio/src/components/diagrams/`, named
+after its id (`ring` is `Ring.svelte`) and listed in that folder's `index.ts`. The SVG draws in
+the theme's colours, so it follows the light and dark themes, and scales crisply with the page.
+A diagram's job must be in the lesson's `jobs`.
+
 ## The charts
 
 Each chart is a Rust function in `studio/src-tauri/src/charts.rs` that calls photonoxide's own
 code; the window only draws what it returns, and asks again as a slider moves.
 
 | Chart | Parameters (default) | Computed by |
-|---|---|---|
+|---|---|---|---|
 | `ring-spectrum` | `radius` µm (10), `coupling` κ₁² (0.01), `drop` κ₂² (0: all-pass), `loss` dB/cm (3), `group_index` (4.2), `window` nm (20) | `AllPassRing`, `AddDropRing`: `s_matrix`, `resonance`, `fsr`, `fwhm`, `q_factor`, `finesse`, `extremes` |
 | `ring-coupling` | `radius` µm (10), `loss` dB/cm (3), `drop` κ₂² (0) | `AllPassRing`, `AddDropRing`: `extremes`, `q_factor` |
+| `ring-extinction` | `radius` µm (10), `loss` dB/cm (3), `drop` κ₂² (0), `coupling` κ₁² (0.01) | `AllPassRing`, `AddDropRing`: `extremes`, `q_factor`; the extinction against κ₁²/κc², and the coupling on the other side of critical with the same extinction |
+| `ring-q-length` | `loss` dB/cm (2.7), `fixed` dB per round trip (0.075), `group_index` (4.30) | `AllPassRing`: `q_factor`, `finesse`, `s_matrix`, `resonance`, `fsr`, `extremes`; Bogaerts et al.'s Fig. 5, as `ring_q_factor` computes it |
+| `ring-identify` | `radius` µm (10), `coupling` κ² (0.01), `loss` dB/cm (3) | `AllPassRing`: `s_matrix`, `resonance`, `fsr`, `finesse`, `q_factor`, `extremes`; `compact::fit::vector_fit` |
 | `bragg-reflectance` | `high` (2.3), `low` (1.38), `pairs` (8), `period` nm (160), `cover` (1.0), `substrate` (1.52), `from` and `to` nm (350, 950) | `Multilayer::reflection`, and the endless stack's band as below |
 | `bragg-bandwidth` | `low` (1.45), `up_to` (2.0) | `Multilayer::reflection`: one period's transmission $t$, and $\cos K\Lambda = \operatorname{Re}(1/t)$ |
+| `mzi-spectrum` | `delta` ΔL µm (50), `split` κ₁² (0.5), `combine` κ₂² (0.5), `loss` dB/cm (3), `phase` φ/π (0), `group_index` (4.2), `window` nm (40) | a `Netlist` of `Coupler`, `Waveguide` and `PhaseShifter` solved by `Circuit::spectrum`, its peaks found on the spectrum; the extremes by `mzi_closed_form` |
+| `mzi-extinction` | `combine` κ₂² (0.5), `loss` dB/cm (3), `delta` ΔL µm (50) | `mzi_closed_form`, with `Coupler`'s and `Waveguide`'s S-matrices |
+| `coupler-supermodes` | `gap` nm (200), `wavelength` µm (1.55) | `mode::vector::modes` on a quarter of two 500 × 220 nm strips with mirror walls, `VectorMode::hy`: $H_y$ across the pair |
+| `coupler-power` | `gap` nm (200), `wavelength` µm (1.55), `length` µm (20) | `DirectionalCoupler::s_matrix` from the supermodes of `mode::vector::modes` |
+| `coupler-gap` | `wavelength` µm (1.55) | `mode::vector::modes` at 19 gaps from 100 to 1000 nm, $L_c = \lambda/2\Delta n$, on a logarithmic scale |
+| `coupler-spectrum` | `gap` nm (200), `length` $L/L_c$ at 1.55 µm (0.5) | `DirectionalCoupler::from_modes` (the supermodes tracked from 1.50 to 1.60 µm) and `s_matrix` |
+| `coupler-mismatch` | `width` $w_2$ nm (480), `gap` nm (200) | `mode::vector::modes` for an unequal pair and each strip alone on one grid, `Fields::cross` for the overlaps; coupled-mode theory's $\kappa^2/(\kappa^2 + \delta^2)\sin^2 Sz$ beside it |
+| `slab-fields` | `thickness` nm (220), `wavelength` µm (1.55), `cover` $n_1$ (1.444) | `Slab::modes`, `SlabMode::field`: each guided mode's $E_y$ (TE) or $E_x$ (TM) across silicon (3.473) on oxide (1.444) |
+| `slab-bv` | `core` $n_2$ (3.473), `cover` $n_1$ (1.444) | `Slab::modes` at 300 values of $V$, as $b$; the cutoffs $m\pi + \arctan(r\sqrt a)$ |
+| `slab-neff` | `core` $n_2$ (3.473), `cover` $n_1$ (1.444), `wavelength` µm (1.55) | `Slab::modes` at 300 thicknesses, each mode from its cutoff |
+| `slab-confinement` | `core` $n_2$ (3.473), `cover` $n_1$ (1.444), `wavelength` µm (1.55), `thickness` nm (220) | `MultilayerMode::power_fractions` on the modes of `Slab::modes`, at 200 thicknesses |
 
-The ranges are in `charts.rs`, and the window's sliders keep to them.
+The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
+to them. A chart may draw its y axis on a logarithmic scale (`y_log`), and give curves that belong
+together one colour (`colour`, as the slab's charts give a TE and a TM mode of one order). The
+slab's charts are exact and take tens of milliseconds, so they redraw as a slider moves. The coupler's charts solve
+modes, a tenth of a second to a second each; their solves are cached, so moving a slider that
+changes no geometry redraws at once.
 
 ## Checks
 
 `cargo test -p photonoxide-studio` fails when a lesson:
 
-- doesn't parse, or lacks an intuition, a theory or a research section, or a timeline;
-- names an example, job, circuit, method write-up, validation case, chart or lesson that doesn't
-  exist, or a block names one its front matter doesn't list;
+- doesn't parse, or, written, lacks an intuition, a theory or a research section, or a timeline;
+- is coming soon and has an opening, a section written, sections not numbered 1, 2, 3 in order, a
+  reading time or charts, an example no subsection's `::coming` line names, or a milestone the
+  roadmap doesn't have;
+- has a section coming soon with more than its `::coming` line and one paragraph, a paragraph
+  longer than a line or two (320 characters), or an example its front matter doesn't list;
+- shares its file's name with a method's write-up, so a link to it would be ambiguous;
+- names an example, job, circuit, method write-up, validation case, diagram, chart or lesson that
+  doesn't exist, or a block names one its front matter doesn't list;
+- is written and has no diagram, or a chart before its first diagram, or a diagram whose 3D view is
+  of a job its front matter doesn't list;
 - has a chart block with an unknown parameter or a value outside its range;
 - has a paper without a DOI, or its text links to a DOI its papers don't list, or a relative
   link leads nowhere;
 - has unpaired math delimiters.
 
-Every chart has a unit test against the library function it wraps. `pnpm build` in `studio/`
+It fails too when a diagram has no drawing in `studio/src/components/diagrams/`, or names a job
+that isn't built in. Every chart has a unit test against the library function it wraps. `pnpm build` in `studio/`
 renders every formula of every lesson with KaTeX and fails on an error (`vite.config.ts`).
 
 ## Writing a lesson
@@ -132,4 +263,5 @@ renders every formula of every lesson with KaTeX and fails on an error (`vite.co
   validation report, shown by an `::example` or `::validation` block rather than retyped where
   that is possible. A 2D result is never a device's performance.
 - New papers go into tachsin's papers list, ticked or needed, so their PDFs can be fetched.
-- Add the file to `lessons!` in `studio/src-tauri/src/academy.rs`, and a row to the table above.
+- Add the file to `lessons!` in `studio/src-tauri/src/academy.rs` where it falls in the reading
+  order, and a row to the tables above; a lesson coming soon moves to the first table once written.

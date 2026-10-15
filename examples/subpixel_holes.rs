@@ -136,13 +136,16 @@ fn modes(smoothing: Smoothing, n: usize) -> [f64; 2] {
         Simulation::smoothed(grid, &holes(), smoothing, boundaries, 0.99).expect("the grid");
     let pulse = Waveform::pulse(Frequency::natural(0.155).expect("f"), 0.08).expect("the pulse");
     // a magnetic current ∝ cos(πx) on every H̃_z and two electric point currents, all with
-    // k = (½, 0) 2π/µm or folded onto it by the two periods
+    // k = (½, 0) 2π/µm or folded onto it by the two periods. The cosine is genoxide's portable
+    // one, as photonoxide's waveforms are: the matrix pencil below turns an ulp of the source
+    // into 1e-11 of a frequency, and the system's cosine moved a printed slope's sixth decimal
+    // between Linux and Windows (issue #280)
     let mut values: Vec<(Axis, (usize, usize, usize), c64)> = (0..2 * n * n)
         .map(|r| {
             let (i, j) = (r % (2 * n), r / (2 * n));
             let x = grid.h_position(Axis::Z, (i, j, 0))[0];
-            let x = std::f64::consts::PI * x;
-            (Axis::Z, (i, j, 0), c64::new(x.cos(), 0.0))
+            let (_, cos) = genoxide::math::sin_cos(std::f64::consts::PI * x);
+            (Axis::Z, (i, j, 0), c64::new(cos, 0.0))
         })
         .collect();
     let at = |x: f64, y: f64| ((x * n as f64) as usize, (y * n as f64) as usize, 0);

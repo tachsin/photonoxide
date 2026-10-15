@@ -146,7 +146,7 @@ CHANGELOG.md, both documentation, not code. Only the items that touch photonoxid
 | PETSc 3.24 (2025-09) | MUMPS's block low-rank factorization exposed (`ICNTL(15)`, `MatMumpsSetBlk`); `PCMatApplyTranspose`; a multistage mesh partitioner | BLR multifrontal (Amestoy et al. 2015, 2019); partitioning (Karypis & Kumar 1998) | medium: BLR is the compressed direct solver for 3D FD Maxwell (Shantsev et al. 2017); a transposed preconditioner is what QMR needs |
 | PETSc 3.25 (2026-03) | multi-precision MUMPS (`-pc_precision single`), MUMPS out of core | a low-precision factorization refined to working precision (Carson & Higham 2018; Amestoy et al. 2023) | high: 3D direct solves at half the memory |
 | PETSc 3.26 (2026) | `KSPIDR` (IDR(s), the biorthogonal variant); `KSPEKSM` for multiple shifted systems, with `MatCreateNestFromMultipleShifts`; weighted restricted Schwarz (`PC_ASM_WEIGHTED`); an HPDDM coarse correction applied after the fine one; device sparse-dense products; native block solves (`KSPMatSolve`) with Richardson | IDR(s) (Sonneveld & van Gijzen 2008; van Gijzen & Sonneveld 2011); shifted Krylov (Frommer & Glässner 1998); restricted Schwarz (Cai & Sarkis 1999); HPDDM (Jolivet et al. 2021) | medium to high: IDR(s) needs no transpose; block solves fit ports; shifted solves fit contour integrals |
-| SLEPc 3.22 (2024-09) | structured Krylov–Schur (Bethe–Salpeter); AMD GPUs through HIP | Krylov–Schur (Stewart 2002) | the restart, yes; the structure, no |
+| SLEPc 3.22 (2024-09) | structured Krylov–Schur (Bethe–Salpeter); AMD GPUs through HIP | Krylov–Schur (Stewart 2001) | the restart, yes; the structure, no |
 | SLEPc 3.23 (2025-03) | a threshold stopping test: every eigenvalue beyond a value, without knowing how many | a stopping rule, not a new method | high: "every guided mode", n_eff above the cladding's index, is exactly that question |
 | SLEPc 3.24 (2025-09) | a Chebyshev polynomial filter in `STFILTER` | polynomial filtering of a Hermitian interval | low: photonoxide's mode operators aren't Hermitian (PMLs, the full-vector formulation) |
 | SLEPc 3.26 (2026-09) | CISS solves all its quadrature points in one shifted solve (`EPSCISSSetStrategy` with `KSPEKSM`); Kokkos vectors | contour integrals (Sakurai & Sugiura 2003) with shifted Krylov (Frommer & Glässner 1998) | high for many modes at once (Phase C) |
@@ -204,7 +204,7 @@ The candidates I named, and a few more, each checked against photonoxide's probl
 |---|---|---|
 | QMR and COCG for complex symmetric matrices | Freund 1992; van der Vorst & Melissen 1990 | **high**: V A is complex symmetric, so one product per iteration and no Aᵀ (Phase A) |
 | IDR(s) | Sonneveld & van Gijzen 2008; van Gijzen & Sonneveld 2011 | medium: short recurrences without the transpose, as good as or better than BiCGSTAB for s > 1 in their experiments; a second solver to compare with QMR on Shin and Fan's operator, which isn't known to be symmetric |
-| Recycling | Parks et al. 2006 | medium to high for 3D sweeps and forward–adjoint pairs (Phase C) |
+| Recycling | Parks et al. 2006; Fischer 1998 | measured (0.5.2, #295): the earlier solutions' combination of least residual (Fischer) takes 3D sweeps' iterations 2.5 to 3.3 times down; GCRO-DR's Krylov space carries little on the multigrid's operator, an adjoint after its forward included (docs/methods/recycling.md) |
 | Block QMR | Freund & Malhotra 1997; Jolivet & Tournier 2016 | high for S-matrices: every port at once, the matrix read once per block (Phase C) |
 | Shifted systems | Frommer & Glässner 1998 | for contour-integral eigensolvers, whose quadrature points are shifts of one matrix (Phase C) |
 | Pipelined Krylov | Ghysels & Vanroose 2014; Cools & Vanroose 2017 | low on one machine, where a reduction is cheap; useful once global reductions cross a network, with residual replacement to keep the attainable accuracy (Phase E) |
@@ -213,7 +213,7 @@ The candidates I named, and a few more, each checked against photonoxide's probl
 
 | Method | Paper | Fit |
 |---|---|---|
-| Krylov–Schur | Stewart 2002 | medium: a cleaner restart and deflation than the current restarts (Saad 2011, in the folder); a mode solve's cost is its factorization either way |
+| Krylov–Schur | Stewart 2001 | medium: a cleaner restart and deflation than the current restarts (Saad 2011, in the folder); a mode solve's cost is its factorization either way |
 | Contour integrals, linear | Sakurai & Sugiura 2003; Polizzi 2009; Kestyn et al. 2016 | high when many modes are wanted (every guided mode of a wide guide, port modes, leaky modes in a region): one independent factorization per quadrature point, which is task farming |
 | Contour integrals, nonlinear | Beyn 2012 | high for Hadley's nonlinear eigenproblem when more than one mode is wanted: no starting guesses, every eigenvalue inside the contour |
 | Rational Krylov for nonlinear problems | Güttel et al. 2014 (NLEIGS); Güttel & Tisseur 2017 | medium: many modes of Hadley's problem; by its abstract NLEIGS converges more reliably than its predecessor near singularities |
@@ -437,7 +437,7 @@ of fewer solves, and spread over processes and machines.
   non-Hermitian operators with PMLs, Kestyn et al. 2016), its quadrature points farmed; "every
   guided mode" as a threshold on n_eff (the question SLEPc 3.23's threshold test answers); for
   Hadley's nonlinear problem, Beyn's contour method (Beyn 2012) and NLEIGS (Güttel et al. 2014;
-  Güttel & Tisseur 2017). Krylov–Schur restarts (Stewart 2002) for the shift-invert solver.
+  Güttel & Tisseur 2017). Krylov–Schur restarts (Stewart 2001) for the shift-invert solver.
 - **Farming across processes.** A job runner that sends independent evaluations (a genoxide
   population, a Monte Carlo of 0.11, corners, a sweep) to worker processes on this machine or
   others over TCP, in pure Rust, and gathers results by index.
@@ -603,6 +603,7 @@ a publisher's block on scripts, and the folder's README gives each one's link.
 - `demmel-nguyen-2015`: J. Demmel, H. D. Nguyen, IEEE Trans. Comput. 64, 2060 (2015), "Parallel Reproducible Summation". [10.1109/TC.2014.2345391](https://doi.org/10.1109/TC.2014.2345391)
 - `dolean-2009` (folder): V. Dolean, M. J. Gander, L. Gerardo-Giorda, SIAM J. Sci. Comput. 31, 2193 (2009), "Optimized Schwarz Methods for Maxwell's Equations". [10.1137/080728536](https://doi.org/10.1137/080728536)
 - `dolean-2015`: V. Dolean, P. Jolivet, F. Nataf, SIAM (2015), a book, "An Introduction to Domain Decomposition Methods: Algorithms, Theory, and Parallel Implementation". [10.1137/1.9781611974065](https://doi.org/10.1137/1.9781611974065)
+- `fischer-1998`: P. F. Fischer, Comput. Methods Appl. Mech. Engrg. 163, 193 (1998), "Projection techniques for iterative solution of Ax = b with successive right-hand sides" (open: ICASE Report 93-90, 1993, on NASA's NTRS). [10.1016/S0045-7825(98)00012-7](https://doi.org/10.1016/S0045-7825(98)00012-7)
 - `freund-1992`: R. W. Freund, SIAM J. Sci. Stat. Comput. 13, 425 (1992), "Conjugate Gradient-Type Methods for Linear Systems with Complex Symmetric Coefficient Matrices". [10.1137/0913023](https://doi.org/10.1137/0913023)
 - `freund-malhotra-1997`: R. W. Freund, M. Malhotra, Linear Algebra Appl. 254, 119 (1997), "A block QMR algorithm for non-Hermitian linear systems with multiple right-hand sides". [10.1016/S0024-3795(96)00529-0](https://doi.org/10.1016/S0024-3795(96)00529-0)
 - `frommer-glassner-1998`: A. Frommer, U. Glässner, SIAM J. Sci. Comput. 19, 15 (1998), "Restarted GMRES for Shifted Linear Systems". [10.1137/S1064827596304563](https://doi.org/10.1137/S1064827596304563)
@@ -638,7 +639,7 @@ a publisher's block on scripts, and the folder's README gives each one's link.
 - `sonneveld-vangijzen-2008`: P. Sonneveld, M. B. van Gijzen, SIAM J. Sci. Comput. 31, 1035 (2008), "IDR(s): A family of simple and fast algorithms for solving large nonsymmetric systems of linear equations". [10.1137/070685804](https://doi.org/10.1137/070685804)
 - `spillane-2013` (folder): N. Spillane, V. Dolean, P. Hauret, F. Nataf, C. Pechstein, R. Scheichl, Numer. Math. 126, 741 (published online 15 August 2013; the April 2014 issue), "Abstract robust coarse spaces for systems of PDEs via generalized eigenproblems in the overlaps". [10.1007/s00211-013-0576-y](https://doi.org/10.1007/s00211-013-0576-y)
 - `st-cyr-2007` (folder): A. St-Cyr, M. J. Gander, S. J. Thomas, SIAM J. Sci. Comput. 29, 2402 (2007), "Optimized Multiplicative, Additive, and Restricted Additive Schwarz Preconditioning". [10.1137/060652610](https://doi.org/10.1137/060652610)
-- `stewart-2002`: G. W. Stewart, SIAM J. Matrix Anal. Appl. 23, 601 (2002), "A Krylov--Schur Algorithm for Large Eigenproblems". [10.1137/S0895479800371529](https://doi.org/10.1137/S0895479800371529)
+- `stewart-2001`: G. W. Stewart, SIAM J. Matrix Anal. Appl. 23, 601 (published online 14 December 2001; the 2002 volume), "A Krylov--Schur Algorithm for Large Eigenproblems". [10.1137/S0895479800371529](https://doi.org/10.1137/S0895479800371529)
 - `stolk-2013` (folder): C. C. Stolk, J. Comput. Phys. 241, 240 (2013), "A rapidly converging domain decomposition method for the Helmholtz equation". [10.1016/j.jcp.2013.01.039](https://doi.org/10.1016/j.jcp.2013.01.039)
 - `taus-2020` (folder): M. Taus, L. Zepeda-Núñez, R. J. Hewett, L. Demanet, J. Comput. Phys. 420, 109706 (2020), "L-Sweeps: A scalable, parallel preconditioner for the high-frequency Helmholtz equation". [10.1016/j.jcp.2020.109706](https://doi.org/10.1016/j.jcp.2020.109706)
 - `tsuji-2012`: P. Tsuji, B. Engquist, L. Ying, J. Comput. Phys. 231, 3770 (2012), "A sweeping preconditioner for time-harmonic Maxwell’s equations with finite elements". [10.1016/j.jcp.2012.01.025](https://doi.org/10.1016/j.jcp.2012.01.025)

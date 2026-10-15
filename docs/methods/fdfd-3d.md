@@ -70,6 +70,8 @@ validation:
   - fdfd3d/pml-reflection-stretched
   - fdfd3d/qmr-ilu-direct
   - fdfd3d/gmres-multigrid-direct
+  - fdfd3d/qmr-matrix-free-sweep
+  - fdfd3d/qmr-matrix-free-threads
 ---
 
 In 3D the fields no longer split into two polarizations: all six components are coupled. FDFD
@@ -105,8 +107,11 @@ as a boundary condition. Light needs open boundaries, so photonoxide adds the sa
 
 **Interfaces.** As in 2D, each component of E sees the permittivity averaged over its own cell
 of the dual grid. The average is harmonic along the component and arithmetic across it, from
-8 × 8 × 8 samples. That is exact for a layered medium, with the field along or across its
-layers.
+8 × 8 × 8 samples. That is the right average for a layered medium, with the field along or
+across its layers, placed by the samples to within a sixteenth of a cell (first order). Given a
+stack (`Solver3d::from_structure`), the cells can instead be averaged from the shapes' and
+layers' exact fill ([averaging from the fill](averaging.md)), second order for layers and walls
+along the axes.
 
 **Open boundaries** are stretched-coordinate PMLs (Chew and Weedon),
 $\partial_w \to s_w^{-1}\partial_w$, graded as in 2D (Shin and Fan, Eqs. 2.5–2.9):
@@ -449,6 +454,138 @@ restarts QMR from the iterate it has reached, on its true residual: the iterate 
 Lanczos vectors can't go on (up to 10 times; one at the first step is an error). None occurred in
 the cases below; one did on a 1.8 M-unknown silicon strip with a port's mode source, at step 609.
 
+**Without the matrix.** `IterativeSolver3d::matrix_free` runs the same QMR on the curl-curl
+operator with no matrix stored ([#250](https://github.com/tachsin/photonoxide/issues/250)). A
+product is two passes over the grid's rows, as FDTD's kernel takes its curls:
+$H = \nabla\times E$, then $k_0^2\varepsilon E - \nabla\times H$, each difference divided by the
+step and by the PML's stretch where it sits (halfway between nodes for $\nabla\times E$, at the
+nodes for $\nabla\times H$). A wall holds the tangential E on it (those values keep rows and
+columns of the identity), and a Bloch side wraps with its phase.
+
+- **The same product:** against the assembled matrix's, to 1e-13 of the largest value, with
+  plain and stretched PMLs, walls, PMLs of unequal sides and Bloch sides on one, two and three
+  axes (tests).
+- **The transpose and the symmetric form come from one diagonal,** known in closed form: $D$ is
+  the product of the three stretches at a value of E (the one along its component halfway, the
+  two across it at its nodes). Then $A^{\mathsf T} = D A D^{-1}$, and $B = S A S^{-1}$ with
+  $S = \sqrt D$ is the complex symmetric matrix above. It is the stored matrix's $B$ but for a
+  sign at each value, a square root's two branches (a test). A Bloch side's phases turn into
+  their inverses under the transpose, $A^{\mathsf T}(k) = D A(-k) D^{-1}$, so QMR on $A$ with a
+  Bloch side has its second product too.
+- **The same S:** a strip stepping in width between walls and PMLs (24 × 12 × 8 cells of
+  50 nm, 6 ports), by QMR to a residual of 1e-10 with and without the matrix: both S-matrices
+  within 1.0e-10 of the direct solver's (1.3e-10 of each other), as close as the runs'
+  residual allows; at 1e-8, 9.6e-9 and 6.7e-9 (a test).
+- **The same bits on any number of threads:** each pass writes its rows on rayon's threads, a
+  row its own task and each value a fixed sum (a test on 1, 2, 4, 5 and 20).
+- **Memory:** 96 bytes an unknown for $B$ (ε, $D$, $S$, $S^{-1}$ and two vectors to work in;
+  64 for $A$), where the matrix and its transpose take about 600 (13 entries a row, a value
+  and a column each, twice).
+
+Measured on the guide of the tables above scaled with its grid (n³ cells of 10 nm, PMLs of 10,
+a silicon guide a quarter of the grid across), on an Intel Core 5 210H, 12 threads, 15.6 GB
+(`fdfd::three::matrix_free::measure`). A product, in nanoseconds an unknown, the best of
+several:
+
+| Grid | Unknowns | $B$, no matrix, 12 threads | $B$, stored, 12 threads | $A$, no matrix, 1 thread | $A$, stored, 1 thread |
+|---|---|---|---|---|---|
+| 40³ | 192 000 | 4.2 | 10.8 | 7.3 | 15.4 |
+| 64³ | 786 432 | 10.4 | 22.1 | | |
+| 80³ | 1 536 000 | 12.8 | 20.8 | 20.6 | 38.6 |
+| 96³ | 2 654 208 | 13.7 | | | |
+| 128³ | 6 291 456 | 14.0 | | 21.3 | |
+
+($A$ itself, without the two scalings by $S$, takes 2.3, 5.6, 10.6, 11.1 and 11.8 on 12
+threads.) The stored matrix wasn't built beyond 80³: it and its assembly need more than this
+machine's memory by 128³, where the operator without it is 600 MB. Building it takes 0.02 to
+0.2 s where assembling the matrix and finding $S$ took 0.7 s at 40³ and 10.6 s at 80³.
+
+A whole solve, QMR for symmetric matrices to a residual of 1e-6, a dipole 3 cells off the
+guide's centre (12 threads):
+
+| Grid | | Built in | Iterations | Solve | An iteration |
+|---|---|---|---|---|---|
+| 40³ | no matrix | 0.34 s | 2 099 | 12.7 s | 6.1 ms |
+| 40³ | stored | 1.96 s | 2 077 | 17.7 s | 8.5 ms |
+| 64³ | no matrix | 3.4 s | 2 185 | 57.5 s | 26.3 ms |
+| 64³ | stored | 8.4 s | 2 122 | 77.3 s | 36.5 ms |
+
+The fields differ by 2e-8 and 3e-9 of the largest value. The products differ in their last
+bits, which the Lanczos process carries along: 1 and 3 % more iterations here. The solve gains
+less than the product (1.4 times against 1.6 to 2.6), since QMR's own vector work is now most of
+an iteration.
+
+On a Core Ultra 7 265K (20 threads, 64 GB), by `photonoxide bench --tier full` (each problem in
+a process of its own, the guides from 20³ to 44³ run twice, alternating, the faster kept; peak
+memory is the process's peak working set when the timed phases end, before the reference solve
+that checks them). The guide as above, n³ cells of 10 nm (PMLs of 5, 7, 10 and 10), QMR for
+symmetric matrices to 1e-6; the strip with ports of `photonoxide bench` (a 500 × 220 nm silicon
+strip in oxide, 0.8 × 1.4 × 1.0 µm inside plain PMLs, its two ports' S-matrix) to 1e-8:
+
+| Problem | Unknowns | | Built in | Iterations | An iteration | Total | Peak memory |
+|---|---|---|---|---|---|---|---|
+| guide, 20³ | 24 000 | stored | 0.16 s | 1 423 | 0.24 ms | 0.49 s | 47 MB |
+| | | no matrix | 0.12 s | 1 412 | 0.31 ms | 0.56 s | 23 MB |
+| guide, 30³ | 81 000 | stored | 0.54 s | 1 706 | 0.46 ms | 1.33 s | 139 MB |
+| | | no matrix | 0.39 s | 1 706 | 0.43 ms | 1.12 s | 50 MB |
+| guide, 40³ | 192 000 | stored | 1.34 s | 2 077 | 1.37 ms | 4.20 s | 321 MB |
+| | | no matrix | 0.93 s | 2 099 | 0.77 ms | 2.54 s | 102 MB |
+| guide, 44³ | 255 552 | stored | 1.71 s | 1 960 | 1.88 ms | 5.39 s | 426 MB |
+| | | no matrix | 1.19 s | 2 034 | 1.08 ms | 3.38 s | 131 MB |
+| strip, 40 nm (36 × 51 × 41) | 225 828 | stored | 1.59 s | 1 529 | 1.70 ms | 4.36 s | 373 MB |
+| | | no matrix | 1.09 s | 1 536 | 0.97 ms | 2.77 s | 116 MB |
+| strip, 25 nm (58 × 82 × 66) | 941 688 | stored | 6.94 s | 2 753 | 8.95 ms | 32.1 s | 1.56 GB |
+| | | no matrix | 4.66 s | 2 667 | 6.41 ms | 22.3 s | 438 MB |
+
+(Built in: the assembly, or the operator and its diagonals, both with the permittivity's
+average over each cell, which is most of the second; the strip's port modes, 0.2 and 0.5 s,
+are in its total.) From 2 × 10⁵ unknowns on, a solve without the matrix is 1.4 to 1.7 times
+faster, an iteration 1.4 to 1.8 times, and the process's peak is under a third: 1.65 to
+1.67 kB an unknown with the matrix (its assembly, the matrix and its symmetric form, QMR's
+vectors), 0.47 to 0.53 kB without. Below 10⁵ unknowns the matrix stays in the caches and is as
+fast or faster. The S-matrices agree with the exact one alike (1.2e-10 and 1.1e-10 at 40 nm,
+7.4e-12 and 1.3e-11 at 25 nm), and the guide's fields with the reference alike (1.5e-7).
+
+Larger, unpreconditioned QMR itself is the limit, with or without the matrix: on the strip at
+20 nm (72 × 102 × 82 cells, 1.8 million unknowns, to 1e-8) and on the guide at 96³ and 128³ (2.7
+and 6.3 million, to 1e-6) the Lanczos process broke down again and again (11 times, from step
+6 664 to 52 457) before the residual was reached. At 68³ (943 296 unknowns, the guide a quarter
+of the grid across, PMLs of 10; `fdfd::three::matrix_free::measure::solves`, one run) it still
+converged both ways: 2 376 iterations of 8.96 ms with the matrix (21.3 s, built in 3.7 s), 2 308
+of 6.36 ms without (14.7 s, 1.3 s), the fields 1.1e-8 of the largest apart. (The catalogue's 68³
+guide didn't finish within the hour either way, its reference solve, QMR + ILU(0) to 1e-12,
+included.) At 1.7 kB an unknown the matrix would fill this machine's 64 GB only
+past 3 × 10⁷ unknowns, far beyond that. Those problems need a preconditioner (ILU(0) or the
+multigrid above, on Shin and Fan's operator), and with it the matrix.
+
+**Choosing it.** `IterativeSolver3d::new_with` takes a `Product`: `Matrix` (what `new` gives),
+`MatrixFree` (what `matrix_free` gives), or `Auto`, without the matrix only where the matrix's
+solve, 1.7 kB an unknown, wouldn't fit in the free memory that `backend::auto` is given (the
+studio gives it a way to read it; the library alone doesn't know, and keeps the matrix). The
+two products differ in their last bits, so the default stays the matrix, which every result
+in the validation report and the examples was computed with, and `Auto` is asked for, never
+assumed: a run whose bits hung on the free memory would not repeat. `IterativeSolver3d::product`
+says which the solver took. Shin and Fan's operator has no product without its matrix: `Auto`
+keeps the matrix there, and `MatrixFree` is refused. `photonoxide bench` runs the 40³ guide
+both ways (`fdfd3d/guide-qmr` and `fdfd3d/guide-qmr-free`), and its catalogue the guide and the
+strip with ports at the sizes above.
+
+- **The same S-matrices over a sweep:** the coupler of `fdfd3d/recycle-s-matrix` (18 × 32 × 24
+  cells of 50 nm, PMLs of 4 all round, one mode at each end) at 1.53 to 1.56 µm, by QMR without
+  the matrix, one plain solve a port and recycled from solve to solve (the last 4 solutions),
+  against QMR with the matrix, all to 1e-10 (`fdfd3d/qmr-matrix-free-sweep`).
+- **The same bits on 1 and 4 threads,** the recycled sweep's S-matrices and iterations
+  (`fdfd3d/qmr-matrix-free-threads`).
+- **Block QMR** takes it as it is: `fdfd3d/block-qmr-s-matrix` runs the coupler's 8 ports with
+  the matrix and without.
+
+It is for the solves that take no preconditioner. ILU(0) needs the matrix's entries, and the
+multigrid works on Shin and Fan's operator, whose gradient of a divergence this operator
+doesn't have: both, and an iterative backend, are refused with it. A multigrid whose finest
+level needs no matrix would need a smoother formed from the stencil and coarse operators
+rediscretized in place of $P^{\mathsf T} A P$, and Shin and Fan's operator without its matrix:
+another multigrid than the one validated here ([#333](https://github.com/tachsin/photonoxide/issues/333)).
+
 **Shin and Fan's operator.** `Formulation::ShinFan` solves their Eq. 7 with s = −1 instead:
 
 $$
@@ -552,6 +689,17 @@ count times the cost of an iteration, about 45 ns per unknown on 20 threads when
 measured: 106 s for the guide with s = 0 (2 745 iterations), against the direct solver's 66 s for
 a problem 4.5 times smaller. Since QMR's vector work runs on every thread (above), an iteration
 costs about 13 ns per unknown.
+
+**Ports as a block.** `IterativeSolver3d::with_block` (or `s_matrix_block`) solves all of an
+S-matrix's ports at once by block QMR (Freund and Malhotra 1997): see
+[Ports as a block](block-qmr.md). Opt-in: faster with ILU(0), slower without a preconditioner.
+
+**Recycling.** `IterativeSolver3d::solve_system_recycled`, `s_matrix_recycled` and
+`mode_power_gradient_recycled` take a `Recycler` from solve to solve: a sweep's wavelengths, an
+S-matrix's ports, a forward solve and its adjoint, an optimization's designs. Each solve starts
+from the earlier solutions' combination of least residual (Fischer 1998), and GMRES with the
+multigrid can carry GCRO-DR's Krylov space (Parks et al. 2006): see [Recycling](recycling.md).
+A 16-wavelength sweep takes 3.3 times fewer iterations by the multigrid, 2.5 by QMR. Opt-in.
 
 ## Preconditioning QMR
 
@@ -733,7 +881,8 @@ not read) factorizes a slab of a few planes per layer: faer's sparse LU took 19 
 
 ## Limits
 
-- No adjoint gradients in 3D yet: those are [2D](fdfd-ports.md) for now.
+- Adjoint gradients in 3D are the mode power's ([adjoint gradients](fdfd-adjoint.md)), by the direct
+  solver or the iterative ones, recycled from the forward solve ([recycling](recycling.md)).
 - A port's reference plane is a plane of nodes. A Bloch-periodic side of a port must be periodic
   (k = 0), and the window whole along it.
 - The direct solver's memory caps a problem at about 200 k unknowns on a 64 GB machine. QMR's
@@ -742,5 +891,6 @@ not read) factorizes a slab of a few planes per layer: faer's sparse LU took 19 
   multigrid was measured with stretched PMLs only, and on silicon in vacuum and in oxide.
 - QMR without look-ahead: a breakdown of the Lanczos process restarts it, which costs the
   Krylov space built so far, rather than being stepped over.
-- A uniform grid along each axis, and interfaces averaged by sampling: exact for interfaces
-  along the axes, slower to converge for curved or slanted ones.
+- A uniform grid along each axis, and interfaces averaged by sampling by default; from the fill
+  as an option ([averaging](averaging.md)), with the tensor's diagonal only, so a wall slanted
+  in the plane stays first order.

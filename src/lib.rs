@@ -13,6 +13,12 @@
 //!   ports, S-parameters and adjoint gradients.
 //! - [`circuit`]: components with ports and S-matrices, connected into netlists, solved as one
 //!   sparse system and differentiated by the circuit adjoint.
+//! - [`device`]: components that know their geometry: a stack, parameters (as expressions),
+//!   shapes with ports, and the models from a fit to the solver up to 3D, each figure with its
+//!   fidelity and grid; the strip waveguide, bend, directional coupler and rings.
+//! - [`generator`]: photonic components drawn from their parameters, with named ports:
+//!   waveguides, tapers, bends, S-bends, spirals, rings and disks with their buses, couplers,
+//!   MMIs, Y-branches and crossings.
 //! - [`compact`]: compact models by vector fitting, over parameters, and Touchstone files.
 //! - [`expr`]: a small, safe expression language with units and named parameters, for the
 //!   numbers of a structure, with forward-mode derivatives.
@@ -22,6 +28,10 @@
 //! - [`bench`](mod@bench): fixed problems that time the solvers at a stated accuracy, which
 //!   `photonoxide bench` runs.
 //! - [`parallel`]: independent problems (a sweep's points) side by side, collected in order.
+//! - [`farm`]: the same across processes, on this machine or others over TCP: a sweep's points
+//!   or whole jobs (a population, corners) sent to workers and gathered by index.
+//! - [`facade`]: a small, stable façade of plain types, which the Python package (and MATLAB
+//!   through it) wraps.
 //!
 //! **Released milestone by milestone;** until 1.0 the API can change between them. FDTD,
 //! thermal and electro-optic devices, inverse design, layout and PDKs are planned, not here yet:
@@ -35,20 +45,26 @@
 #![warn(missing_docs)]
 #![warn(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
+pub mod averaging;
 pub mod backend;
 pub mod bench;
 pub mod circuit;
 pub mod compact;
+pub mod device;
 mod eigen;
 pub mod error;
 pub mod expr;
+pub mod facade;
+pub mod farm;
 pub mod fdfd;
 pub mod fdtd;
+pub mod generator;
 pub mod geometry;
 pub mod job;
 pub mod material;
 pub mod mode;
 pub mod parallel;
+mod portable;
 pub mod raster;
 pub mod run;
 mod sparse;

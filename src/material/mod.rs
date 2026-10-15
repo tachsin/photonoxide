@@ -14,6 +14,10 @@
 //! [doi:10.1038/s41597-023-02898-2](https://doi.org/10.1038/s41597-023-02898-2)), which is in the
 //! public domain (CC0 1.0), and each cites its paper. Any other file of that database can be
 //! read with [`from_refractiveindex_info`].
+//!
+//! A [`Graded`] medium changes from point to point instead: n(x, y, z) or ε(x, y, z), an
+//! expression of the coordinates with their units and of parameters, the same at every
+//! wavelength (docs/methods/bodies.md).
 
 use std::f64::consts::{PI, TAU};
 use std::fmt;
@@ -23,9 +27,12 @@ use num_complex::Complex64;
 use crate::units::{Frequency, Wavelength, refractive_index};
 
 pub mod catalogue;
+mod graded;
+pub(crate) mod graded_checks;
 mod refractiveindex;
 
 use crate::{Error, Result};
+pub use graded::{Graded, GradedKind};
 pub use refractiveindex::from_refractiveindex_info;
 
 /// Where a material's data comes from.

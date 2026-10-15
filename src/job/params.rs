@@ -89,21 +89,324 @@ fn text(value: &Value) -> Option<String> {
 
 /// What a value must be.
 #[derive(Clone, Copy)]
-enum Want {
+pub(super) enum Want {
     /// A length; a plain number only if it is zero.
     Length,
     /// A length, a plain number counting as µm (a `_um` key).
     Micrometres,
     /// Of this dimension; a plain number counting as one in its unit.
     Like(Option<Dim>),
+    /// An angle; a plain number only if it is zero.
+    Angle,
+    /// An angle, a plain number counting as radians (a `_rad` key).
+    Radians,
+    /// A plain number.
+    Number,
+}
+
+/// A path's fields that take values: the field, how many numbers, what each must be, and the
+/// key it is resolved into (its number key, which may also be given as a number).
+const PATH: [(&str, usize, Want, &str); 3] = [
+    ("start", 2, Want::Length, "start_um"),
+    ("width", 1, Want::Length, "width_um"),
+    ("heading", 1, Want::Angle, "heading_rad"),
+];
+
+/// A path segment's fields, as [`PATH`].
+const SEGMENT: [(&str, usize, Want, &str); 8] = [
+    ("straight", 1, Want::Length, "straight_um"),
+    ("arc", 1, Want::Angle, "arc_rad"),
+    ("euler", 1, Want::Angle, "euler_rad"),
+    ("sine", 1, Want::Length, "sine_um"),
+    ("radius", 1, Want::Length, "radius_um"),
+    ("offset", 1, Want::Length, "offset_um"),
+    ("width", 1, Want::Length, "width_um"),
+    ("p", 1, Want::Number, "p"),
+];
+
+/// A `[[task.shape]]`'s fields that take places and sizes, as [`PATH`]; a shape in another's
+/// `of` takes the same.
+const SHAPE: [(&str, usize, Want, &str); 17] = [
+    ("origin", 2, Want::Length, "origin_um"),
+    ("angle", 1, Want::Angle, "angle_rad"),
+    ("inner", 1, Want::Length, "inner_um"),
+    ("start_angle", 1, Want::Angle, "start_angle_rad"),
+    ("center", 2, Want::Length, "center_um"),
+    ("x", 2, Want::Length, "x_um"),
+    ("y", 2, Want::Length, "y_um"),
+    ("corner", 2, Want::Length, "corner_um"),
+    ("pixel", 2, Want::Length, "pixel_um"),
+    ("size", 2, Want::Length, "size_um"),
+    ("width", 1, Want::Length, "width_um"),
+    ("start", 2, Want::Length, "start_um"),
+    ("heading", 1, Want::Angle, "heading_rad"),
+    ("distance", 1, Want::Length, "distance_um"),
+    ("convex", 1, Want::Length, "convex_um"),
+    ("concave", 1, Want::Length, "concave_um"),
+    ("radius_um", 1, Want::Micrometres, "radius_um"),
+];
+
+/// A shape's places, sizes and segments resolved, `what` naming it in errors, and those of the
+/// shapes in its `of`, each named after it.
+fn resolve_shape(entry: &mut Table, p: &Parameters, what: &str) -> Result<()> {
+    let at = |field: &str, message: String| task_error(format!("{what}, {field}: {message}"));
+    resolve_fields(entry, &SHAPE, p, &at)?;
+    // a polygon's points, each [x, y]
+    if let Some(v) = entry.remove("points") {
+        if entry.contains_key("points_um") {
+            return Err(at("points", "give points or points_um, not both".into()));
+        }
+        let Value::Array(points) = v else {
+            return Err(at("points", "needs a list of [x, y]".into()));
+        };
+        let mut out = Vec::with_capacity(points.len());
+        for (j, q) in points.iter().enumerate() {
+            out.push(
+                numbers(q, 2, p, Want::Length)
+                    .map_err(|m| at("points", format!("point {}: {m}", j + 1)))?,
+            );
+        }
+        entry.insert("points_um".into(), Value::Array(out));
+    }
+    if let Some(Value::Array(segments)) = entry.get_mut("segments") {
+        for (j, segment) in segments.iter_mut().enumerate() {
+            let Value::Table(segment) = segment else {
+                continue;
+            };
+            let at = |field: &str, message: String| {
+                task_error(format!("{what}, segment {}, {field}: {message}", j + 1))
+            };
+            resolve_fields(segment, &SEGMENT, p, &at)?;
+        }
+    }
+    if let Some(Value::Array(of)) = entry.get_mut("of") {
+        for (j, shape) in of.iter_mut().enumerate() {
+            if let Value::Table(shape) = shape {
+                resolve_shape(shape, p, &format!("{what}, of {}", j + 1))?;
+            }
+        }
+    }
+    // an array's pitch: one length, or two for a rectangular lattice's x and y; its shifts and
+    // a reference's placements (its element is resolved at each site, when it is drawn)
+    resolve_pitch(entry, p, what)?;
+    for (list, fields) in [("shift", &SHIFT[..]), ("place", &PLACE[..])] {
+        if let Some(Value::Array(items)) = entry.get_mut(list) {
+            for (j, item) in items.iter_mut().enumerate() {
+                let Value::Table(item) = item else {
+                    continue;
+                };
+                let at = |field: &str, message: String| {
+                    task_error(format!("{what}, {list} {}, {field}: {message}", j + 1))
+                };
+                resolve_fields(item, fields, p, &at)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// A shift's field, as [`PATH`].
+const SHIFT: [(&str, usize, Want, &str); 1] = [("by", 2, Want::Length, "by_um")];
+
+/// A placement's fields, as [`PATH`].
+const PLACE: [(&str, usize, Want, &str); 2] = [
+    ("translate", 2, Want::Length, "translate_um"),
+    ("rotate", 1, Want::Angle, "rotate_rad"),
+];
+
+/// An array's `pitch` (or `pitch_um`): one length or two, into `pitch_um` as a list.
+fn resolve_pitch(entry: &mut Table, p: &Parameters, what: &str) -> Result<()> {
+    let at = |field: &str, message: String| task_error(format!("{what}, {field}: {message}"));
+    let (field, value, want) = match (entry.remove("pitch"), entry.remove("pitch_um")) {
+        (Some(_), Some(_)) => {
+            return Err(at("pitch", "give pitch or pitch_um, not both".into()));
+        }
+        (Some(v), None) => ("pitch", v, Want::Length),
+        (None, Some(v)) => ("pitch_um", v, Want::Micrometres),
+        (None, None) => return Ok(()),
+    };
+    let count = match &value {
+        Value::Array(a) => a.len(),
+        _ => 1,
+    };
+    if !(1..=2).contains(&count) {
+        return Err(at(
+            field,
+            "needs one value, or two (x and y) for a rectangular lattice".into(),
+        ));
+    }
+    let v = numbers(&value, count, p, want).map_err(|m| at(field, m))?;
+    let list = if count == 1 { Value::Array(vec![v]) } else { v };
+    entry.insert("pitch_um".into(), list);
+    Ok(())
+}
+
+/// A body's `of`, `what` naming it: an extrusion's shape resolved as a shape in an `of` is, a
+/// boolean's bodies each in turn.
+fn resolve_body(entry: &mut Table, p: &Parameters, what: &str) -> Result<()> {
+    let extrusion = entry.get("type").and_then(Value::as_str) == Some("extrusion");
+    if let Some(Value::Array(of)) = entry.get_mut("of") {
+        for (j, item) in of.iter_mut().enumerate() {
+            let Value::Table(item) = item else {
+                continue;
+            };
+            let inner = format!("{what}, of {}", j + 1);
+            if extrusion {
+                resolve_shape(item, p, &inner)?;
+            } else {
+                resolve_body(item, p, &inner)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// An array's element (`entry`, a copy of its `element` table) resolved at a site, `p` holding
+/// the site's coordinates (`x`, `y`, `i`, `j`, [`Parameters::at_coordinate`]); `what` names it.
+pub(super) fn resolve_element(entry: &mut Table, p: &Parameters, what: &str) -> Result<()> {
+    resolve_shape(entry, p, what)
+}
+
+/// The task's `[[task.cell]]` tables, each `name` and `shapes`, their shapes resolved, by name.
+fn cells(task: &Table, p: &Parameters) -> Result<Vec<(String, Vec<Value>)>> {
+    let Some(v) = task.get("cell") else {
+        return Ok(Vec::new());
+    };
+    let Value::Array(entries) = v else {
+        return Err(task_error(
+            "[[task.cell]] must be tables: name = \"...\", shapes = [...]",
+        ));
+    };
+    let mut out: Vec<(String, Vec<Value>)> = Vec::with_capacity(entries.len());
+    for (k, entry) in entries.iter().enumerate() {
+        let what = format!("[[task.cell]] #{}", k + 1);
+        let Value::Table(entry) = entry else {
+            return Err(task_error(format!("{what}: must be a table")));
+        };
+        if let Some(extra) = entry.keys().find(|key| *key != "name" && *key != "shapes") {
+            return Err(task_error(format!(
+                "{what}: unknown field {extra}: a cell takes name and shapes"
+            )));
+        }
+        let name = entry
+            .get("name")
+            .and_then(Value::as_str)
+            .filter(|n| !n.trim().is_empty())
+            .ok_or_else(|| task_error(format!("{what}: needs name, a string")))?
+            .to_owned();
+        if out.iter().any(|(n, _)| *n == name) {
+            return Err(task_error(format!(
+                "{what}: there is already a cell \"{name}\""
+            )));
+        }
+        let what = format!("[[task.cell]] \"{name}\"");
+        let Some(Value::Array(shapes)) = entry.get("shapes") else {
+            return Err(task_error(format!(
+                "{what}: needs shapes, a list of shapes as [[task.shape]] takes them"
+            )));
+        };
+        if shapes.is_empty() {
+            return Err(task_error(format!("{what}: has no shapes")));
+        }
+        let mut resolved = shapes.clone();
+        for (j, shape) in resolved.iter_mut().enumerate() {
+            let Value::Table(shape) = shape else {
+                return Err(task_error(format!(
+                    "{what}, shape {}: must be a table",
+                    j + 1
+                )));
+            };
+            resolve_shape(shape, p, &format!("{what}, shape {}", j + 1))?;
+        }
+        out.push((name, resolved));
+    }
+    Ok(out)
+}
+
+/// Every reference in `entry` (itself, the shapes in its `of`, its `element`, and the shapes of
+/// the cells it places) given its cell's shapes as `cell_shapes`; `chain` holds the cells being
+/// placed, so a cell that places itself is refused, and `used` marks each cell placed.
+fn inline(
+    entry: &mut Table,
+    cells: &[(String, Vec<Value>)],
+    chain: &mut Vec<String>,
+    used: &mut [bool],
+    what: &str,
+) -> Result<()> {
+    if entry.get("type").and_then(Value::as_str) == Some("reference") {
+        let name = entry
+            .get("cell")
+            .and_then(Value::as_str)
+            .ok_or_else(|| task_error(format!("{what}: needs cell, the name of a [[task.cell]]")))?
+            .to_owned();
+        let Some(k) = cells.iter().position(|(n, _)| *n == name) else {
+            let known: Vec<&str> = cells.iter().map(|(n, _)| n.as_str()).collect();
+            return Err(task_error(format!(
+                "{what}: unknown cell \"{name}\"{}",
+                if known.is_empty() {
+                    ": the task has no [[task.cell]]".to_owned()
+                } else {
+                    format!(": the cells are {}", known.join(", "))
+                }
+            )));
+        };
+        if chain.contains(&name) {
+            return Err(task_error(format!(
+                "{what}: the cell \"{name}\" places itself ({} → {name})",
+                chain.join(" → ")
+            )));
+        }
+        used[k] = true;
+        chain.push(name.clone());
+        let mut shapes = cells[k].1.clone();
+        for (j, shape) in shapes.iter_mut().enumerate() {
+            if let Value::Table(shape) = shape {
+                inline(
+                    shape,
+                    cells,
+                    chain,
+                    used,
+                    &format!("[[task.cell]] \"{name}\", shape {}", j + 1),
+                )?;
+            }
+        }
+        chain.pop();
+        entry.insert("cell_shapes".into(), Value::Array(shapes));
+    }
+    if let Some(Value::Array(of)) = entry.get_mut("of") {
+        for (j, shape) in of.iter_mut().enumerate() {
+            if let Value::Table(shape) = shape {
+                inline(shape, cells, chain, used, &format!("{what}, of {}", j + 1))?;
+            }
+        }
+    }
+    if let Some(Value::Table(element)) = entry.get_mut("element") {
+        inline(element, cells, chain, used, &format!("{what}, element"))?;
+    }
+    Ok(())
+}
+
+/// `text`, an expression of a length (or a bare zero) reading no coordinate, in µm at the
+/// parameters `p`.
+pub(super) fn length(text: &str, p: &Parameters) -> std::result::Result<f64, String> {
+    evaluate(&Value::String(text.to_owned()), p, Want::Length)
 }
 
 /// `value` (an expression's string, or a number) evaluated at the parameters, as `want` says.
-fn evaluate(value: &Value, p: &Parameters, want: Want) -> std::result::Result<f64, String> {
+pub(super) fn evaluate(
+    value: &Value,
+    p: &Parameters,
+    want: Want,
+) -> std::result::Result<f64, String> {
     let text =
         text(value).ok_or_else(|| format!("must be an expression or a number, got {value}"))?;
     let e = Expr::parse(&text, p.scope()).map_err(|e| e.to_string())?;
-    if let Some(&slot) = e.slots().iter().find(|&&s| s < COORDINATES.len()) {
+    // an array's element reads its site's coordinates, which `p` then has
+    if let Some(&slot) = e
+        .slots()
+        .iter()
+        .find(|&&s| s < COORDINATES.len() && !p.is_placed(s))
+    {
         return Err(format!(
             "{} is a coordinate, which this field has no value of",
             COORDINATES[slot].0
@@ -115,6 +418,9 @@ fn evaluate(value: &Value, p: &Parameters, want: Want) -> std::result::Result<f6
         (Want::Micrometres, Some(d)) => d == Dim::LENGTH || d == Dim::NONE,
         (Want::Like(None), Some(_)) => true,
         (Want::Like(Some(w)), Some(d)) => d.fits(w) || d == Dim::NONE,
+        (Want::Angle, Some(d)) => d == Dim::ANGLE,
+        (Want::Radians, Some(d)) => d == Dim::ANGLE || d == Dim::NONE,
+        (Want::Number, Some(d)) => d == Dim::NONE,
     };
     if !ok {
         let got = e.dim().map_or("zero".to_owned(), Dim::name);
@@ -128,9 +434,41 @@ fn evaluate(value: &Value, p: &Parameters, want: Want) -> std::result::Result<f6
                 "needs {}, got {got}",
                 w.map_or("a value".to_owned(), Dim::name)
             ),
+            Want::Angle if e.dim() == Some(Dim::NONE) => format!(
+                "needs an angle, got a number: give its unit (\"{text} deg\" or \"{text} rad\")"
+            ),
+            Want::Angle | Want::Radians => format!("needs an angle, got {got}"),
+            Want::Number => format!("needs a plain number, got {got}"),
         });
     }
     e.try_eval(p.values()).map_err(|e| e.to_string())
+}
+
+/// A shape's `etch`: its `depth` (a length) into `depth_um` and its `sidewall` (an angle) into
+/// `sidewall_deg`; `what` names the shape in errors.
+fn resolve_etch(entry: &mut Table, p: &Parameters, what: &str) -> Result<()> {
+    let Some(Value::Table(etch)) = entry.get_mut("etch") else {
+        return Ok(());
+    };
+    let at = |field: &str, message: String| task_error(format!("{what}, etch {field}: {message}"));
+    if let Some(v) = etch.remove("depth") {
+        if etch.contains_key("depth_um") {
+            return Err(at("depth", "give depth or depth_um, not both".into()));
+        }
+        let d = evaluate(&v, p, Want::Length).map_err(|m| at("depth", m))?;
+        etch.insert("depth_um".into(), Value::Float(d));
+    }
+    if let Some(v) = etch.remove("sidewall") {
+        if etch.contains_key("sidewall_deg") {
+            return Err(at(
+                "sidewall",
+                "give sidewall or sidewall_deg, not both".into(),
+            ));
+        }
+        let a = evaluate(&v, p, Want::Angle).map_err(|m| at("sidewall", m))?;
+        etch.insert("sidewall_deg".into(), Value::Float(a.to_degrees()));
+    }
+    Ok(())
 }
 
 /// The task's table with its parameters and expressions resolved; see the module.
@@ -173,6 +511,170 @@ pub(super) fn resolve(task: &Table, set: Option<(&str, f64)>) -> Result<Table> {
                     entry.insert(um, v);
                 }
             }
+            resolve_etch(entry, &p, &format!("[[task.{kind}]] #{}", k + 1))?;
+        }
+    }
+    // a [task.stack] table's layers' thicknesses
+    if let Some(Value::Table(stack)) = out.get_mut("stack")
+        && let Some(Value::Array(layers)) = stack.get_mut("layer")
+    {
+        for (k, layer) in layers.iter_mut().enumerate() {
+            let Value::Table(layer) = layer else {
+                continue;
+            };
+            if let Some(v) = layer.remove("thickness") {
+                let at = |m: String| {
+                    task_error(format!("[[task.stack.layer]] {}, thickness: {m}", k + 1))
+                };
+                if layer.contains_key("thickness_um") {
+                    return Err(at("give thickness or thickness_um, not both".into()));
+                }
+                let t = evaluate(&v, &p, Want::Length).map_err(at)?;
+                layer.insert("thickness_um".into(), Value::Float(t));
+            }
+        }
+    }
+    if let Some(Value::Array(entries)) = out.get_mut("path") {
+        for (k, entry) in entries.iter_mut().enumerate() {
+            let Value::Table(entry) = entry else {
+                continue;
+            };
+            let at = |field: &str, message: String| {
+                task_error(format!("[[task.path]] #{}, {field}: {message}", k + 1))
+            };
+            resolve_fields(entry, &PATH, &p, &at)?;
+            resolve_etch(entry, &p, &format!("[[task.path]] #{}", k + 1))?;
+            if let Some(Value::Array(segments)) = entry.get_mut("segments") {
+                for (j, segment) in segments.iter_mut().enumerate() {
+                    let Value::Table(segment) = segment else {
+                        continue;
+                    };
+                    let at = |field: &str, message: String| {
+                        task_error(format!(
+                            "[[task.path]] #{}, segment {}, {field}: {message}",
+                            k + 1,
+                            j + 1
+                        ))
+                    };
+                    resolve_fields(segment, &SEGMENT, &p, &at)?;
+                }
+            }
+        }
+    }
+    // the cells references place, their shapes resolved
+    let cells = cells(task, &p)?;
+    out.remove("cell");
+    let mut used = vec![false; cells.len()];
+    // the shapes defined by functions: their places and sizes resolved; their definitions'
+    // expressions, which read coordinates, parsed when drawn, in the parameters' scope, which
+    // each entry gets here; a reference's cell's shapes put in it
+    if let Some(Value::Array(entries)) = out.get_mut("shape") {
+        for (k, entry) in entries.iter_mut().enumerate() {
+            if let Value::Table(entry) = entry {
+                let what = format!("[[task.shape]] #{}", k + 1);
+                inline(entry, &cells, &mut Vec::new(), &mut used, &what)?;
+            }
+        }
+    }
+    if let Some(k) = used.iter().position(|u| !u) {
+        return Err(task_error(format!(
+            "[[task.cell]] \"{}\" is placed nowhere: place it with a [[task.shape]] of type \
+             \"reference\", or remove it",
+            cells[k].0
+        )));
+    }
+    let definitions: Vec<Value> = task
+        .get("parameters")
+        .and_then(Value::as_table)
+        .map(|t| {
+            t.iter()
+                .filter_map(|(name, v)| {
+                    Some(Value::Array(vec![
+                        Value::String(name.clone()),
+                        Value::String(text(v)?),
+                    ]))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    // the components: their layer the task's unless given, their etches resolved, the
+    // parameters in each (their fields, which read them, are read when they are drawn); and
+    // the ports that name theirs placed on them
+    let mut ports = Vec::new();
+    if let Some(entries) = out.get_mut("component") {
+        let Value::Array(entries) = entries else {
+            return Err(task_error(
+                "[[task.component]] must be tables: type = \"...\" and its parameters",
+            ));
+        };
+        let layer = task.get("layer").cloned();
+        let mut tables = Vec::with_capacity(entries.len());
+        for (k, entry) in entries.iter_mut().enumerate() {
+            let Value::Table(entry) = entry else {
+                return Err(task_error(format!(
+                    "[[task.component]] #{}: must be a table",
+                    k + 1
+                )));
+            };
+            if let Some(l) = &layer
+                && !entry.contains_key("layer")
+            {
+                entry.insert("layer".into(), l.clone());
+            }
+            resolve_etch(entry, &p, &format!("[[task.component]] #{}", k + 1))?;
+            entry.insert("parameters".into(), Value::Array(definitions.clone()));
+            entry.remove("set");
+            if let Some((name, value)) = set {
+                entry.insert(
+                    "set".into(),
+                    Value::Array(vec![Value::String(name.to_owned()), Value::Float(value)]),
+                );
+            }
+            tables.push(entry.clone());
+        }
+        ports = super::components::ports(&tables)?;
+    }
+    super::components::place_ports(&mut out, &ports)?;
+    // the bodies: the parameters in each (their fields, which read them, are read when they are
+    // placed), and the shapes extrusions take resolved as any shape in an `of`
+    if let Some(entries) = out.get_mut("body") {
+        let Value::Array(entries) = entries else {
+            return Err(task_error(
+                "[[task.body]] must be tables: type = \"...\" and its fields",
+            ));
+        };
+        for (k, entry) in entries.iter_mut().enumerate() {
+            let what = format!("[[task.body]] #{}", k + 1);
+            let Value::Table(entry) = entry else {
+                return Err(task_error(format!("{what}: must be a table")));
+            };
+            resolve_body(entry, &p, &what)?;
+            entry.insert("parameters".into(), Value::Array(definitions.clone()));
+            entry.remove("set");
+            if let Some((name, value)) = set {
+                entry.insert(
+                    "set".into(),
+                    Value::Array(vec![Value::String(name.to_owned()), Value::Float(value)]),
+                );
+            }
+        }
+    }
+    if let Some(Value::Array(entries)) = out.get_mut("shape") {
+        for (k, entry) in entries.iter_mut().enumerate() {
+            let Value::Table(entry) = entry else {
+                continue;
+            };
+            let what = format!("[[task.shape]] #{}", k + 1);
+            resolve_shape(entry, &p, &what)?;
+            resolve_etch(entry, &p, &what)?;
+            entry.insert("parameters".into(), Value::Array(definitions.clone()));
+            entry.remove("set");
+            if let Some((name, value)) = set {
+                entry.insert(
+                    "set".into(),
+                    Value::Array(vec![Value::String(name.to_owned()), Value::Float(value)]),
+                );
+            }
         }
     }
     if let Some(Value::Table(sweep)) = out.get_mut("sweep")
@@ -197,6 +699,47 @@ pub(super) fn resolve(task: &Table, set: Option<(&str, f64)>) -> Result<Table> {
     Ok(out)
 }
 
+/// A table's `fields` resolved into their number keys: an expression in the field itself, or
+/// a number key holding a string evaluated as its unit says; a number key's numbers stay as
+/// they are.
+fn resolve_fields(
+    entry: &mut Table,
+    fields: &[(&str, usize, Want, &str)],
+    p: &Parameters,
+    at: &dyn Fn(&str, String) -> crate::Error,
+) -> Result<()> {
+    for &(field, count, want, key) in fields {
+        let loose = match want {
+            Want::Length => Want::Micrometres,
+            Want::Angle => Want::Radians,
+            other => other,
+        };
+        let resolved = if field == key {
+            match entry.get(key) {
+                Some(v) if has_string(v) => {
+                    Some(numbers(v, count, p, want).map_err(|m| at(field, m))?)
+                }
+                _ => None,
+            }
+        } else {
+            match (entry.remove(field), entry.get(key)) {
+                (Some(_), Some(_)) => {
+                    return Err(at(field, format!("give {field} or {key}, not both")));
+                }
+                (Some(v), None) => Some(numbers(&v, count, p, want).map_err(|m| at(field, m))?),
+                (None, Some(v)) if has_string(v) => {
+                    Some(numbers(v, count, p, loose).map_err(|m| at(key, m))?)
+                }
+                _ => None,
+            }
+        };
+        if let Some(v) = resolved {
+            entry.insert(key.to_owned(), v);
+        }
+    }
+    Ok(())
+}
+
 fn has_string(v: &Value) -> bool {
     match v {
         Value::String(_) => true,
@@ -215,7 +758,9 @@ fn numbers(
 ) -> std::result::Result<Value, String> {
     let one = |x: &Value| -> std::result::Result<Value, String> {
         match (want, x) {
-            (Want::Micrometres, Value::Float(_) | Value::Integer(_)) => Ok(x.clone()),
+            (Want::Micrometres | Want::Radians, Value::Float(_) | Value::Integer(_)) => {
+                Ok(x.clone())
+            }
             _ => evaluate(x, p, want).map(Value::Float),
         }
     };

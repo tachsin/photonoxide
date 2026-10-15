@@ -1,0 +1,9 @@
+[
+  {
+    "symptom": "Cargo.toml has no version",
+    "what": "since #290, main's Cargo.toml takes its version from the workspace (version.workspace = true), which the Nightly builder didn't read before #293",
+    "pr": 293,
+    "fixed_in": "860f599885e26ace04e0479b76f4bc37f3c0571c",
+    "release": "0.5.2"
+  }
+]

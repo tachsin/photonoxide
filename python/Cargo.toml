@@ -1,0 +1,23 @@
+# The photonoxide package for Python: the library's façade (photonoxide::facade) as a native
+# module, `photonoxide._photonoxide`, which the package's Python code wraps. Built by maturin
+# (pyproject.toml), never published to crates.io.
+[package]
+name = "photonoxide-python"
+# photonoxide's version, from the workspace
+version.workspace = true
+edition = "2024"
+rust-version = "1.95"
+description = "Python bindings of photonoxide"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/tachsin/photonoxide"
+publish = false
+
+[lib]
+name = "_photonoxide"
+crate-type = ["cdylib"]
+
+[dependencies]
+numpy = "0.29"
+photonoxide = { path = ".." }
+# one wheel for every CPython from 3.10
+pyo3 = { version = "0.29", features = ["abi3-py310"] }

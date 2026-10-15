@@ -334,13 +334,25 @@ pub fn with<T>(records: Vec<Measured>, free_memory: Option<u64>, f: impl FnOnce(
     f()
 }
 
+/// What is configured now: this thread's [`with`], or [`configure`]'s.
+fn current() -> State {
+    OVERRIDE
+        .with(|o| o.borrow().clone())
+        .or_else(|| state().read().ok().map(|s| s.clone()))
+        .unwrap_or_default()
+}
+
+/// The machine's free memory now, in bytes, as [`configure`] (or [`with`]) gave `auto` a way
+/// to read it: None when nothing does (the library alone) or the reading fails. What
+/// [`crate::fdfd::Product::Auto`] asks too.
+pub fn free_memory() -> Option<u64> {
+    current().free_memory.as_ref().and_then(|read| read())
+}
+
 /// What `auto` chooses for `problem` now: [`choose`] on the configured measurements, the
 /// direct solvers registered and available, rayon's threads and the free memory.
 pub fn decide(problem: Problem<'_>) -> Decision {
-    let current = OVERRIDE
-        .with(|o| o.borrow().clone())
-        .or_else(|| state().read().ok().map(|s| s.clone()))
-        .unwrap_or_default();
+    let current = current();
     if current.records.is_empty() {
         return Decision::own("no benchmark records on this machine");
     }

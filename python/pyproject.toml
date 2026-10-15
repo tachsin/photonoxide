@@ -1,0 +1,48 @@
+[build-system]
+requires = ["maturin>=1.15,<2"]
+build-backend = "maturin"
+
+[project]
+name = "photonoxide"
+description = "Validated photonics from Rust, for Python and MATLAB: materials with provenance, waveguide modes, jobs and 2D FDFD S-parameters, circuits and Touchstone files"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+license-files = ["licenses/LICENSE-MIT", "licenses/LICENSE-APACHE"]
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.21"]
+keywords = [
+    "photonics",
+    "silicon-photonics",
+    "waveguide",
+    "mode-solver",
+    "fdfd",
+    "s-parameters",
+    "touchstone",
+    "electromagnetics",
+    "matlab",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Typing :: Typed",
+]
+# photonoxide's version, from the workspace (python/Cargo.toml). A fix to the package alone is a
+# post-release, 0.5.1.post1: see docs/python.md, "Versions and releases".
+dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/tachsin/photonoxide"
+Documentation = "https://github.com/tachsin/photonoxide/blob/main/docs/python.md"
+Changelog = "https://github.com/tachsin/photonoxide/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[tool.maturin]
+module-name = "photonoxide._photonoxide"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

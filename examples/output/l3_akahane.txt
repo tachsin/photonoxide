@@ -1,0 +1,12 @@
+Akahane et al.'s L3 cavity: a = 0.42 um, slab 0.6a, holes of radius 0.29a, 21 x 15 sites, the end holes moved by 0 and 0.15a
+the cavity as one body (exact: no grid): its volume from its fills over a/4 cells 8.3e-9 off T(|A| - N pi r^2); 0 of 1887 points on the wrong side
+  volume, relative difference            0.000000   fills 0.000000   ± 1e-7      ok
+  points on the wrong side                      0   paper 0                      ok
+3D FDTD, 8 cells a lattice constant (52.50 nm cells, 200 x 135 x 40), the record 300 um/c after the pulse:
+  unshifted: a/lambda 0.2635, lambda 1.5941 um, Q 5574
+  shifted 0.15a: a/lambda 0.2618, lambda 1.6042 um, Q 56156 (10.1 times)
+  lambda unshifted (um), 8 cells         1.594057   paper 1.5725     ± 3.895000000000006e-2 ok
+  lambda shifted (um), 8 cells           1.604180   paper 1.5725     ± 3.895000000000006e-2 ok
+  log2 of Q's rise, 8 cells              3.332762   paper 3.321928094887362 ± 1e0 ok
+  log2 of Q shifted, 8 cells            15.777164   paper 15.45763738099176 ± 1e0 ok
+all 6 within tolerance of the paper

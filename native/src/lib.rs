@@ -21,6 +21,8 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 
+pub mod accelerate;
+pub mod blas;
 mod cuda;
 mod cudss;
 mod discovery;
@@ -28,16 +30,22 @@ mod gpu_multigrid;
 mod gpu_qmr;
 pub mod intel;
 mod library;
+pub mod mumps;
 pub mod nvidia;
 mod pardiso;
 mod smoke;
+pub mod superlu;
 
+pub use accelerate::Accelerate;
+pub use blas::Blas;
 pub use cudss::Cudss;
 pub use discovery::{Candidate, Discovery, Source, Spec, Status, discover, versioned};
 pub use gpu_qmr::GpuQmr;
 pub use library::{Library, load};
+pub use mumps::Mumps;
 pub use pardiso::Pardiso;
 pub use smoke::{TOLERANCE, offer, offer_iterative, smoke_test, smoke_test_iterative};
+pub use superlu::SuperLu;
 
 /// What was found of one library.
 #[derive(Clone, Debug)]
@@ -89,7 +97,58 @@ pub fn register_all() -> Vec<Probe> {
         Ok(pardiso) => offer(std::sync::Arc::new(pardiso)).map(drop),
         Err(reason) => photonoxide::backend::register_unavailable("pardiso", reason),
     };
+    let _ = match Mumps::load() {
+        Ok(mumps) => {
+            // its block low-rank factorization, a backend of its own
+            // its tolerance as asked, or unavailable with the reason: never another in its place
+            let tolerance = match std::env::var("PHOTONOXIDE_MUMPS_BLR") {
+                Ok(text) => text
+                    .trim()
+                    .parse::<f64>()
+                    .map_err(|_| format!("PHOTONOXIDE_MUMPS_BLR isn't a number: {text:?}")),
+                Err(_) => Ok(mumps::BLR_TOLERANCE),
+            };
+            let _ = match tolerance.and_then(|tolerance| mumps.block_low_rank(tolerance)) {
+                Ok(blr) => offer(std::sync::Arc::new(blr)).map(drop),
+                Err(reason) => photonoxide::backend::register_unavailable("mumps-blr", reason),
+            };
+            offer(std::sync::Arc::new(mumps)).map(drop)
+        }
+        Err(reason) => {
+            let _ = photonoxide::backend::register_unavailable("mumps-blr", reason.clone());
+            photonoxide::backend::register_unavailable("mumps", reason)
+        }
+    };
+    let _ = match SuperLu::load() {
+        Ok(superlu) => offer(std::sync::Arc::new(superlu)).map(drop),
+        Err(reason) => photonoxide::backend::register_unavailable("superlu", reason),
+    };
+    // (off macOS it isn't listed at all: there is nothing a user could do about it)
+    if cfg!(target_os = "macos") {
+        let _ = match Accelerate::load() {
+            Ok(accelerate) => offer(std::sync::Arc::new(accelerate)).map(drop),
+            Err(reason) => photonoxide::backend::register_unavailable("accelerate", reason),
+        };
+    }
+    // photonoxide's own solver with each library's dense kernels in its fronts
+    for (name, kernels) in blas::all() {
+        let _ = match kernels {
+            Ok(kernels) => offer(photonoxide::backend::dense::with_kernels(
+                std::sync::Arc::new(kernels),
+            ))
+            .map(drop),
+            Err(reason) => {
+                photonoxide::backend::register_unavailable(&format!("photonoxide-{name}"), reason)
+            }
+        };
+    }
     let mut probes = nvidia::probe();
     probes.push(intel::probe());
+    probes.push(mumps::probe());
+    probes.push(superlu::probe());
+    if cfg!(target_os = "macos") {
+        probes.push(accelerate::probe());
+    }
+    probes.push(blas::probe());
     probes
 }

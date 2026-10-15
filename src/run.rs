@@ -33,6 +33,8 @@ struct JobFile {
     timeout_minutes: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     solver: Option<SolverFile>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    device: Option<toml::Table>,
     #[serde(default)]
     task: toml::Table,
 }
@@ -91,6 +93,7 @@ pub struct Job {
     timeout: Option<Duration>,
     solver: Option<SolverFile>,
     direct: Choice,
+    device: Option<toml::Table>,
     task: toml::Table,
     text: String,
     format: Format,
@@ -110,6 +113,9 @@ impl Job {
     /// [task]                   # read by the solver that runs the job
     /// width_um = 0.5
     /// ```
+    ///
+    /// or, in place of a task, a `[device]` table: one of [`crate::device`]'s devices with its
+    /// stack, its parameters' expressions and its fidelity ([`crate::device::Spec`]).
     ///
     /// # Errors
     ///
@@ -169,6 +175,7 @@ impl Job {
             timeout,
             solver: file.solver,
             direct,
+            device: file.device,
             task: file.task,
             text: text.to_owned(),
             format,
@@ -208,6 +215,12 @@ impl Job {
         &self.task
     }
 
+    /// The job's `[device]` table, if it has one: a device's design
+    /// ([`crate::device::Spec::from_table`] reads it).
+    pub fn device(&self) -> Option<&toml::Table> {
+        self.device.as_ref()
+    }
+
     /// The direct solver the job asks for in its `[solver]` table: `auto` unless it names one.
     pub fn direct(&self) -> &Choice {
         &self.direct
@@ -235,6 +248,7 @@ impl Job {
             name: self.name.clone(),
             timeout_minutes: self.timeout_minutes,
             solver: self.solver.clone(),
+            device: self.device.clone(),
             task: self.task.clone(),
         };
         let write = |reason: String| Error::Parse {
@@ -282,8 +296,46 @@ pub struct Meta {
 #[derive(Debug)]
 pub struct Run {
     dir: PathBuf,
-    events: BufWriter<File>,
+    events: Sink,
     started: Instant,
+    digest: u64,
+    // behind a mutex, so a run stays Sync, UnwindSafe and RefUnwindSafe as it was before the
+    // farm gave it one (only `&mut self` ever reaches it, through `get_mut` or by taking it)
+    points: Option<std::sync::Mutex<Box<dyn Points>>>,
+}
+
+/// Where a run's events go.
+#[derive(Debug)]
+enum Sink {
+    File(BufWriter<File>),
+    Memory(Vec<String>),
+    Discard,
+}
+
+/// What solves a sweep's point: its events, made without the run (`None` when the stop came
+/// first).
+pub type PointFn<'a> = dyn Fn(usize) -> Result<Option<Vec<crate::job::Event>>> + Sync + 'a;
+
+/// Where a run's sweep solves its points when not side by side in this process: a farm's
+/// workers ([`crate::farm`]), or, in a worker, the points its coordinator asks for. A run has
+/// none unless [`Run::set_points`] gives it one.
+pub trait Points: Send + std::fmt::Debug {
+    /// Solves the sweep's points `points`, `point(k)` being point k's events solved here, and
+    /// records them into `run` in their order, as a loop over the points would: a stop ends
+    /// the sweep at its first point not done, and an error at a point ends it there, after the
+    /// points before it.
+    ///
+    /// # Errors
+    ///
+    /// A point's error, the farm's (no worker left, a point past its timeout), and
+    /// [`Error::Io`] if the record can't be written.
+    fn sweep(
+        &mut self,
+        run: &mut Run,
+        stop: &Stop,
+        points: std::ops::Range<usize>,
+        point: &PointFn<'_>,
+    ) -> Result<()>;
 }
 
 impl Run {
@@ -342,8 +394,61 @@ impl Run {
             .map_err(|e| io(&path, &e))?;
         Ok(Run {
             dir,
-            events: BufWriter::new(file),
+            events: Sink::File(BufWriter::new(file)),
             started: Instant::now(),
+            digest: FNV_OFFSET,
+            points: None,
+        })
+    }
+
+    /// A run with no directory that keeps its events in memory, as the lines `events.jsonl`
+    /// would have: a farm's worker's run of a whole job ([`Run::lines`]).
+    pub fn in_memory() -> Run {
+        Run::without_file(Sink::Memory(Vec::new()))
+    }
+
+    /// A run with no directory that keeps nothing but the [`Run::digest`] of its events: a
+    /// farm's worker setting a sweep up.
+    pub fn discarding() -> Run {
+        Run::without_file(Sink::Discard)
+    }
+
+    fn without_file(events: Sink) -> Run {
+        Run {
+            dir: PathBuf::new(),
+            events,
+            started: Instant::now(),
+            digest: FNV_OFFSET,
+            points: None,
+        }
+    }
+
+    /// The events recorded so far by a run [`Run::in_memory`], each a line of JSON without its
+    /// newline; none for another run.
+    pub fn lines(&self) -> &[String] {
+        match &self.events {
+            Sink::Memory(lines) => lines,
+            _ => &[],
+        }
+    }
+
+    /// A digest of every event recorded so far: FNV-1a (64 bits) of their lines, newlines
+    /// included. Two runs that recorded the same events, to the last bit, have the same digest:
+    /// how a farm checks that a worker set a job up as the run did.
+    pub fn digest(&self) -> u64 {
+        self.digest
+    }
+
+    /// Has the run's sweeps solve their points with `points` instead of side by side here.
+    pub fn set_points(&mut self, points: Box<dyn Points>) {
+        self.points = Some(std::sync::Mutex::new(points));
+    }
+
+    /// Takes back what [`Run::set_points`] gave, if anything.
+    pub fn take_points(&mut self) -> Option<Box<dyn Points>> {
+        self.points.take().map(|m| {
+            m.into_inner()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
         })
     }
 
@@ -363,17 +468,87 @@ impl Run {
     ///
     /// [`Error::Parse`] if the event can't be serialized, [`Error::Io`] if it can't be written.
     pub fn record<E: Serialize>(&mut self, event: &E) -> Result<()> {
-        let path = self.dir.join("events.jsonl");
-        serde_json::to_writer(&mut self.events, event).map_err(|e| Error::Parse {
+        let line = serde_json::to_string(event).map_err(|e| Error::Parse {
             what: "event".into(),
             reason: e.to_string(),
         })?;
-        self.events
-            .write_all(b"\n")
-            .and_then(|()| self.events.flush())
-            .map_err(|e| io(&path, &e))
+        self.record_line(&line)
+    }
+
+    /// Appends an event already written as a line of JSON (without its newline), as it is: a
+    /// farm's worker's event, written byte for byte as the worker's [`Run::record`] wrote it.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Parse`] if `line` has a newline, [`Error::Io`] if it can't be written.
+    pub fn record_line(&mut self, line: &str) -> Result<()> {
+        if line.contains('\n') {
+            return Err(Error::Parse {
+                what: "event".into(),
+                reason: "an event's line has a newline".into(),
+            });
+        }
+        for b in line.bytes().chain(*b"\n") {
+            self.digest = (self.digest ^ u64::from(b)).wrapping_mul(FNV_PRIME);
+        }
+        match &mut self.events {
+            Sink::File(file) => {
+                let path = self.dir.join("events.jsonl");
+                file.write_all(line.as_bytes())
+                    .and_then(|()| file.write_all(b"\n"))
+                    .and_then(|()| file.flush())
+                    .map_err(|e| io(&path, &e))
+            }
+            Sink::Memory(lines) => {
+                lines.push(line.to_owned());
+                Ok(())
+            }
+            Sink::Discard => Ok(()),
+        }
+    }
+
+    /// Solves a sweep's points `points` and records their events in order: with what
+    /// [`Run::set_points`] gave, or here, `batch` at a time side by side on rayon's threads,
+    /// each batch's events recorded point by point, so the record is the one a loop over the
+    /// points writes, whatever the threads. A stop ends the sweep at its first point not done;
+    /// an error at a point ends it there, after the points before it.
+    pub(crate) fn sweep(
+        &mut self,
+        stop: &Stop,
+        points: std::ops::Range<usize>,
+        batch: usize,
+        point: &PointFn<'_>,
+    ) -> Result<()> {
+        use rayon::prelude::*;
+        if let Some(mut elsewhere) = self.take_points() {
+            let done = elsewhere.sweep(self, stop, points, point);
+            self.set_points(elsewhere);
+            return done;
+        }
+        let all: Vec<usize> = points.collect();
+        for ks in all.chunks(batch.max(1)) {
+            if stop.reason().is_some() {
+                return Ok(());
+            }
+            let done: Vec<Result<Option<Vec<crate::job::Event>>>> =
+                ks.par_iter().map(|&k| point(k)).collect();
+            for events in done {
+                let Some(events) = events? else {
+                    return Ok(());
+                };
+                for e in &events {
+                    self.record(e)?;
+                }
+            }
+        }
+        Ok(())
     }
 }
+
+/// FNV-1a's 64-bit offset basis and prime (G. Fowler, L. C. Noll, K.-P. Vo, D. Eastlake, "The
+/// FNV Non-Cryptographic Hash Algorithm", IETF draft-eastlake-fnv).
+const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
 
 /// The events of the run in `dir`, in order. A last line without its newline (a run killed
 /// while writing it) is left out.
@@ -438,6 +613,27 @@ impl Stop {
         self.requested.store(true, Ordering::Relaxed);
     }
 
+    /// The same stop with a deadline at `timeout` from now, if that is sooner than its own: a
+    /// request to either is a request to both. A caller's stop, held to a job's own
+    /// `timeout_minutes` as well.
+    #[must_use]
+    pub fn within(&self, timeout: Option<Duration>) -> Stop {
+        let other = timeout.map(|t| Instant::now() + t);
+        Stop {
+            requested: Arc::clone(&self.requested),
+            deadline: match (self.deadline, other) {
+                (Some(a), Some(b)) => Some(a.min(b)),
+                (a, b) => a.or(b),
+            },
+        }
+    }
+
+    /// The time left before the deadline, if there is one (zero once it has passed).
+    pub fn remaining(&self) -> Option<Duration> {
+        self.deadline
+            .map(|d| d.saturating_duration_since(Instant::now()))
+    }
+
     /// Why the job should stop now, or `None` to go on.
     pub fn reason(&self) -> Option<StopReason> {
         if self.requested.load(Ordering::Relaxed) {
@@ -481,6 +677,14 @@ fn utc(unix_seconds: u64) -> (String, String) {
 mod tests {
     use super::*;
     use std::sync::atomic::AtomicUsize;
+
+    /// A run is Send, Sync, UnwindSafe and RefUnwindSafe, as it was in 0.5.1: losing one is a
+    /// breaking change (cargo-semver-checks' auto_trait_impl_removed).
+    #[test]
+    fn a_run_keeps_its_auto_traits() {
+        fn assert<T: Send + Sync + std::panic::UnwindSafe + std::panic::RefUnwindSafe>() {}
+        assert::<Run>();
+    }
 
     /// A fresh directory under the system's temporary directory, removed when dropped.
     struct TempDir(PathBuf);
@@ -605,6 +809,34 @@ mod tests {
     }
 
     #[test]
+    fn a_stop_within_a_timeout_keeps_the_sooner_deadline_and_shares_requests() {
+        let hour = Some(Duration::from_secs(3600));
+        // the sooner deadline wins, whichever has it
+        let caller = Stop::new(hour);
+        assert_eq!(
+            caller.within(Some(Duration::ZERO)).reason(),
+            Some(StopReason::Timeout)
+        );
+        assert_eq!(
+            Stop::new(Some(Duration::ZERO)).within(hour).reason(),
+            Some(StopReason::Timeout)
+        );
+        assert_eq!(Stop::new(None).within(None).reason(), None);
+        assert_eq!(
+            Stop::new(None).within(Some(Duration::ZERO)).reason(),
+            Some(StopReason::Timeout)
+        );
+        // a request to the caller's stop reaches the job's, and back
+        let job = caller.within(hour);
+        assert_eq!(job.reason(), None);
+        caller.request();
+        assert_eq!(job.reason(), Some(StopReason::Requested));
+        let other = Stop::new(None);
+        other.within(None).request();
+        assert_eq!(other.reason(), Some(StopReason::Requested));
+    }
+
+    #[test]
     fn utc_dates_follow_the_gregorian_calendar() {
         assert_eq!(utc(0), ("1970-01-01".into(), "00:00:00".into()));
         // a leap day, and a well-known Unix time
@@ -665,6 +897,7 @@ mod tests {
             timeout: Some(Duration::from_secs_f64(6.0)),
             solver: None,
             direct: Choice::Auto,
+            device: None,
             task,
             text: String::new(),
             format: Format::Toml,

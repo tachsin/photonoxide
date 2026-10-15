@@ -6,6 +6,88 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.3](https://github.com/tachsin/photonoxide/compare/v0.5.2...v0.5.3) - 2026-10-12
+
+### <!-- 0 -->Added
+
+- *(native)* MUMPS 5.9.0 and 5.9.1, and the validation cases run on MUMPS ([#322](https://github.com/tachsin/photonoxide/pull/322))
+- *(studio)* the Academy's directional coupler lesson, from supermodes to the 3 dB coupler ([#329](https://github.com/tachsin/photonoxide/pull/329))
+- *(fdfd)* QMR without the matrix, chosen by Product and in the benchmark, and when the matrix wouldn't fit ([#334](https://github.com/tachsin/photonoxide/pull/334))
+- *(site)* the methods by what they compute, and an index of their algorithms ([#335](https://github.com/tachsin/photonoxide/pull/335))
+
+### <!-- 1 -->Fixed
+
+- *(job)* a modes job keeps only its guided modes, never the window's own ([#348](https://github.com/tachsin/photonoxide/pull/348))
+- *(studio)* Nightly offers to revalidate when main has moved on, and says when the installed builder is too old ([#330](https://github.com/tachsin/photonoxide/pull/330))
+- *(site)* the overview follows the roadmap, its highlights and hero line from their milestones ([#331](https://github.com/tachsin/photonoxide/pull/331))
+
+### <!-- 4 -->Documentation
+
+- a PyPI badge beside the crates.io one ([#325](https://github.com/tachsin/photonoxide/pull/325))
+
+## [0.5.2](https://github.com/tachsin/photonoxide/compare/v0.5.1...v0.5.2) - 2026-10-10
+
+### <!-- 0 -->Added
+
+- *(facade)* a small, stable façade of plain types for the bindings, with conformance cases ([#288](https://github.com/tachsin/photonoxide/pull/288))
+- *(python)* the photonoxide package for Python over the façade, MATLAB wrappers, wheels and PyPI publishing ([#290](https://github.com/tachsin/photonoxide/pull/290))
+- *(mode)* Krylov–Schur restarts for shift-and-invert, and every guided mode above an n_eff threshold ([#298](https://github.com/tachsin/photonoxide/pull/298))
+- *(fdfd)* recycling across 3D solves: earlier solutions and GCRO-DR, a sweep's, ports', adjoints' ([#300](https://github.com/tachsin/photonoxide/pull/300))
+- *(studio)* the Academy's Mach–Zehnder lesson, from Mach and Zehnder to thin-film lithium niobate ([#301](https://github.com/tachsin/photonoxide/pull/301))
+- *(farm)* a sweep's points and whole jobs farmed to worker processes, here or over TCP, gathered by index ([#297](https://github.com/tachsin/photonoxide/pull/297))
+- *(studio)* the ring lesson goes on to the Q factor, critical coupling and fitting a measured spectrum ([#310](https://github.com/tachsin/photonoxide/pull/310))
+- *(studio)* the Academy's whole curriculum laid out, each lesson's subsections marked coming soon ([#308](https://github.com/tachsin/photonoxide/pull/308))
+
+### <!-- 1 -->Fixed
+
+- *(fdfd)* block QMR's checks hold on every system: portable inputs, and no count compared where it runs on rounding ([#286](https://github.com/tachsin/photonoxide/pull/286))
+- *(run)* a run is Sync, UnwindSafe and RefUnwindSafe again, its farm's points behind a mutex ([#318](https://github.com/tachsin/photonoxide/pull/318))
+- *(studio)* Nightly installs on Windows: the installer after the old app exits, its failure reported, an earlier watchdog superseded ([#293](https://github.com/tachsin/photonoxide/pull/293))
+
+### <!-- 4 -->Documentation
+
+- Python bindings in this repository, in python/ only: the rule, the roadmap and the plan's decisions ([#287](https://github.com/tachsin/photonoxide/pull/287))
+- a table of what works in Rust, Python and MATLAB, checked against the façade ([#292](https://github.com/tachsin/photonoxide/pull/292))
+- Stewart's Krylov–Schur paper cited by its online year, December 2001 ([#299](https://github.com/tachsin/photonoxide/pull/299))
+- 0.5.2 released, many solves at once; 0.6 next ([#316](https://github.com/tachsin/photonoxide/pull/316))
+
+## [0.5.1](https://github.com/tachsin/photonoxide/compare/v0.5.0...v0.5.1) - 2026-10-10
+
+### <!-- 0 -->Added
+
+- *(native)* the install guides checked on clean machines, the page written from them, and two discovery fixes they found ([#255](https://github.com/tachsin/photonoxide/pull/255))
+- *(backend)* auto chooses the direct solver from this machine's benchmark records ([#254](https://github.com/tachsin/photonoxide/pull/254))
+- *(studio)* the Academy opens each lesson on a drawing of its device, in 2D and 3D ([#274](https://github.com/tachsin/photonoxide/pull/274))
+- *(native)* MUMPS as a direct solver, its sequential build, releases 5.4 to 5.8 ([#260](https://github.com/tachsin/photonoxide/pull/260))
+- *(native)* SuperLU as a direct solver, releases 5 to 7 ([#261](https://github.com/tachsin/photonoxide/pull/261))
+- *(mode)* every mode in a region of n_eff by contour integrals (Sakurai–Sugiura, FEAST) ([#276](https://github.com/tachsin/photonoxide/pull/276))
+- *(studio)* release channels, Stable and Nightly, Nightly built here from main ([#277](https://github.com/tachsin/photonoxide/pull/277))
+- *(native)* Apple Accelerate's sparse solvers as a direct solver on macOS ([#263](https://github.com/tachsin/photonoxide/pull/263))
+- *(native)* MUMPS's block low-rank factorization as the backend mumps-blr, refined ([#278](https://github.com/tachsin/photonoxide/pull/278))
+- *(backend)* the multifrontal fronts' dense kernels as a trait, with OpenBLAS, oneMKL and Accelerate behind it ([#269](https://github.com/tachsin/photonoxide/pull/269))
+- *(fdfd)* block QMR for all of a 3D S-matrix's ports at once, opt-in ([#284](https://github.com/tachsin/photonoxide/pull/284))
+
+### <!-- 1 -->Fixed
+
+- the same example outputs on Linux, Windows and macOS, exp, sin and cos in pure Rust where a result hangs on the last bit ([#282](https://github.com/tachsin/photonoxide/pull/282))
+
+### <!-- 2 -->Performance
+
+- *(fdtd)* smoothing passes over the shapes out of a cell's reach by their boxes, and CI runs the 3D examples on runners of their own ([#265](https://github.com/tachsin/photonoxide/pull/265))
+- *(fdfd)* QMR on the curl-curl operator without its matrix, a product 1.6 to 2.6 times faster at a sixth of the memory ([#259](https://github.com/tachsin/photonoxide/pull/259))
+
+### <!-- 4 -->Documentation
+
+- *(plans)* Wang et al.'s review of integrated photonic quantum technologies is from October 2019 ([#262](https://github.com/tachsin/photonoxide/pull/262))
+- the README cut to what photonoxide does, without the padding ([#268](https://github.com/tachsin/photonoxide/pull/268))
+- *(plans)* Python and MATLAB bindings, a plan and the decisions it needs ([#272](https://github.com/tachsin/photonoxide/pull/272))
+- the Academy in the README's studio GIFs, in place of the themes ([#270](https://github.com/tachsin/photonoxide/pull/270))
+- papers cited by the year they were published online ([#266](https://github.com/tachsin/photonoxide/pull/266))
+- plans, roadmap and notes written in my own voice, not about "the owner" ([#273](https://github.com/tachsin/photonoxide/pull/273))
+- *(plans)* Ryser's permanent read in Lundow and Markström 2022, his 1963 book being out of print ([#279](https://github.com/tachsin/photonoxide/pull/279))
+- *(roadmap)* 0.5.1 releases the channels, backends and mode search now; many solves at once moves to 0.5.2 ([#283](https://github.com/tachsin/photonoxide/pull/283))
+- 0.5.1 released, its GPU report measured on an idle machine, 0.5.2 next ([#285](https://github.com/tachsin/photonoxide/pull/285))
+
 ## [0.5.0](https://github.com/tachsin/photonoxide/compare/v0.4.3...v0.5.0) - 2026-10-09
 
 ### <!-- 0 -->Added

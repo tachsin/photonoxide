@@ -1,13 +1,15 @@
 //! The Academy's lessons (academy/*.md, built into the program): front matter read, the body cut
 //! into sections at its `##` headings, each with its depth (intuition, theory, research), and each
-//! section into blocks: Markdown, charts (crate::charts), examples, validation cases, the
-//! timeline of the lesson's papers, and answers to reveal. The format is academy/README.md's.
+//! section into blocks: Markdown, diagrams of the device (crate::diagrams), charts
+//! (crate::charts), examples, validation cases, the timeline of the lesson's papers, and answers
+//! to reveal. The format is academy/README.md's.
 
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
 use crate::charts::{self, ChartSpec};
+use crate::diagrams::{self, DiagramSpec};
 
 /// Each lesson's file and text, as the program was built with them.
 macro_rules! lessons {
@@ -16,7 +18,31 @@ macro_rules! lessons {
     };
 }
 
-lessons!("ring-resonator.md", "bragg-gratings.md");
+// In the library's order, which is the order to read them in: materials, waveguides, couplers,
+// interferometers, rings, gratings and filters; then multimode devices, nanophotonics, the
+// numerical methods, and the active and quantum devices the roadmap brings.
+lessons!(
+    "material-dispersion.md",
+    "slab-waveguide.md",
+    "strip-waveguide.md",
+    "leaky-and-bent-guides.md",
+    "directional-coupler.md",
+    "mach-zehnder.md",
+    "ring-resonator.md",
+    "bragg-gratings.md",
+    "grating-couplers.md",
+    "mmi.md",
+    "crossings-and-converters.md",
+    "photonic-crystals.md",
+    "plasmonics.md",
+    "metasurfaces.md",
+    "how-fdtd-works.md",
+    "fdfd-and-adjoints.md",
+    "inverse-design.md",
+    "modulators.md",
+    "nonlinear-optics.md",
+    "quantum-light.md",
+);
 
 /// How far into a subject a lesson goes.
 #[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -25,6 +51,16 @@ pub enum Level {
     Introductory,
     Intermediate,
     Advanced,
+}
+
+/// Whether a lesson is written, or laid out with its subsections and still to be written.
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Status {
+    #[default]
+    Published,
+    /// Its numbered subsections' headings, each with what it will answer, and no body yet.
+    Coming,
 }
 
 /// A paper's place in a lesson's history.
@@ -65,7 +101,14 @@ pub struct Front {
     /// The topic it is listed under, e.g. "Rings".
     pub topic: String,
     pub level: Level,
-    /// About how long it takes to read, minutes.
+    /// Written, or coming soon.
+    #[serde(default)]
+    pub status: Status,
+    /// For a lesson coming soon, the milestone whose solvers it waits for (ROADMAP.md), e.g. "0.6".
+    #[serde(default)]
+    pub milestone: Option<String>,
+    /// About how long it takes to read, minutes; none for a lesson coming soon.
+    #[serde(default)]
     pub minutes: u32,
     /// Lessons to read first, by file name without `.md`.
     #[serde(default)]
@@ -88,6 +131,8 @@ pub struct Front {
     /// Charts it shows, by id (crate::charts).
     #[serde(default)]
     pub charts: Vec<String>,
+    /// Its history; a lesson coming soon may have none yet.
+    #[serde(default)]
     pub papers: Vec<Paper>,
 }
 
@@ -106,6 +151,9 @@ pub enum Depth {
 pub enum Block {
     /// Markdown with TeX math.
     Text { markdown: String },
+    /// `::diagram <id>`: the device drawn, a labelled schematic and, where a job builds it, a 3D
+    /// view (crate::diagrams).
+    Diagram { diagram: String },
     /// `::chart <id>{key=value, ...}`: a chart, its parameters set as given and the rest at
     /// their defaults.
     Chart {
@@ -123,13 +171,28 @@ pub enum Block {
     Answer { markdown: String },
 }
 
-/// A section: its heading, its depth, and its blocks.
+/// A section still to be written (`::coming <example> ...` under its heading, then one
+/// paragraph): what it will answer, and the examples it will use.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct Coming {
+    /// One paragraph, Markdown with TeX math.
+    pub answers: String,
+    /// Examples it will use (examples/<name>.rs).
+    pub examples: Vec<String>,
+}
+
+/// A section: its heading, its depth, and its blocks; or, coming soon, what it will answer.
 #[derive(Serialize, Clone, Debug)]
 pub struct Section {
     pub title: String,
-    /// Its anchor, from the title.
+    /// Its anchor, from the title (a part's prefixed by its section's).
     pub id: String,
     pub depth: Depth,
+    /// 2 for a `##` section, 3 for a part of one: a `###` heading with a depth, which runs to
+    /// the next part or section.
+    pub level: u8,
+    /// Some when it is still to be written; its blocks are then none.
+    pub coming: Option<Coming>,
     pub blocks: Vec<Block>,
 }
 
@@ -158,14 +221,15 @@ pub struct Lesson {
     pub cases: Vec<CaseRow>,
 }
 
-/// The lessons and the charts they can show.
+/// The lessons, and the diagrams and charts they can show.
 #[derive(Serialize)]
 pub struct Academy {
     pub lessons: Vec<Lesson>,
+    pub diagrams: Vec<DiagramSpec>,
     pub charts: Vec<ChartSpec>,
 }
 
-/// Every lesson, parsed, and every chart's spec. A lesson that doesn't parse is left out here;
+/// Every lesson, parsed, and every diagram's and chart's spec. A lesson that doesn't parse is left out here;
 /// the tests refuse it.
 #[tauri::command]
 pub fn academy() -> Academy {
@@ -174,13 +238,15 @@ pub fn academy() -> Academy {
             .iter()
             .filter_map(|(file, text)| parse(file, text).ok())
             .collect(),
+        diagrams: diagrams::specs(),
         charts: charts::specs(),
     }
 }
 
 /// A chart's curves and figures at `values` (each in its parameter's unit; those left out at
-/// their defaults).
-#[tauri::command]
+/// their defaults). Off the window's thread: a chart that solves modes takes a fraction of a
+/// second.
+#[tauri::command(async)]
 pub fn academy_chart(
     chart: String,
     values: BTreeMap<String, f64>,
@@ -215,6 +281,23 @@ pub fn parse(file: &str, text: &str) -> Result<Lesson, String> {
     let body = &rest[end + 5..];
     let id = file.trim_end_matches(".md").to_owned();
     let sections = sections(file, body)?;
+    if front.status == Status::Coming {
+        if sections.first().is_some_and(|s| s.title.is_empty()) {
+            return Err(format!(
+                "{file}: a lesson coming soon has no opening yet: its summary says what it is about"
+            ));
+        }
+        if let Some(s) = sections.iter().find(|s| s.coming.is_none()) {
+            return Err(format!(
+                "{file}: a lesson coming soon has only sections coming soon, each a ::coming line and what it will answer; {:?} isn't",
+                s.title
+            ));
+        }
+    } else if front.milestone.is_some() {
+        return Err(format!(
+            "{file}: a milestone is what a lesson coming soon waits for; this one is written"
+        ));
+    }
     let cases = front
         .validation
         .iter()
@@ -235,8 +318,12 @@ fn sections(file: &str, body: &str) -> Result<Vec<Section>, String> {
         title: String::new(),
         id: String::new(),
         depth: Depth::Intuition,
+        level: 2,
+        coming: None,
         blocks: Vec::new(),
     };
+    // the `##` section the next part belongs to
+    let mut parent: Option<String> = None;
     let mut text = String::new();
     let mut answer: Option<String> = None;
     let mut code = false;
@@ -247,6 +334,26 @@ fn sections(file: &str, body: &str) -> Result<Vec<Section>, String> {
             });
         }
         text.clear();
+    };
+    // a section ends: a coming-soon one takes its paragraph as what it will answer
+    let close = |mut section: Section, text: &mut String, out: &mut Vec<Section>| {
+        if let Some(coming) = section.coming.as_mut() {
+            let paragraph = text.trim();
+            if paragraph.is_empty() || paragraph.contains("\n\n") {
+                return Err(format!(
+                    "{file}, {:?}: a section coming soon holds one paragraph after its ::coming line, what it will answer",
+                    section.title
+                ));
+            }
+            coming.answers = paragraph.split_whitespace().collect::<Vec<_>>().join(" ");
+            text.clear();
+        } else {
+            flush(text, &mut section.blocks);
+        }
+        if !section.title.is_empty() || !section.blocks.is_empty() {
+            out.push(section);
+        }
+        Ok(())
     };
     for (k, line) in body.lines().enumerate() {
         let at = || format!("{file}, line {} of the body", k + 1);
@@ -273,6 +380,9 @@ fn sections(file: &str, body: &str) -> Result<Vec<Section>, String> {
             if answer.is_some() {
                 return Err(format!("{}: an answer inside an answer", at()));
             }
+            if current.coming.is_some() {
+                return Err(format!("{}: an answer in a section coming soon", at()));
+            }
             flush(&mut text, &mut current.blocks);
             answer = Some(String::new());
             continue;
@@ -281,17 +391,43 @@ fn sections(file: &str, body: &str) -> Result<Vec<Section>, String> {
             if answer.is_some() {
                 return Err(format!("{}: a heading inside an answer", at()));
             }
-            flush(&mut text, &mut current.blocks);
-            if !current.title.is_empty() || !current.blocks.is_empty() {
-                out.push(current);
-            }
             let (title, depth) = heading_depth(heading).map_err(|e| format!("{}: {e}", at()))?;
-            current = Section {
+            parent = Some(slug(&title));
+            let next = Section {
                 id: slug(&title),
                 title,
                 depth,
+                level: 2,
+                coming: None,
                 blocks: Vec::new(),
             };
+            close(std::mem::replace(&mut current, next), &mut text, &mut out)?;
+            continue;
+        }
+        // a part: `### Title {depth}`; a `###` heading without a depth stays in the text
+        if let Some(heading) = line
+            .strip_prefix("### ")
+            .filter(|h| h.trim_end().ends_with('}') && h.contains(" {"))
+        {
+            if answer.is_some() {
+                return Err(format!("{}: a heading inside an answer", at()));
+            }
+            let Some(section) = &parent else {
+                return Err(format!(
+                    "{}: a ### part belongs to a ## section, and none has begun",
+                    at()
+                ));
+            };
+            let (title, depth) = heading_depth(heading).map_err(|e| format!("{}: {e}", at()))?;
+            let next = Section {
+                id: format!("{section}--{}", slug(&title)),
+                title,
+                depth,
+                level: 3,
+                coming: None,
+                blocks: Vec::new(),
+            };
+            close(std::mem::replace(&mut current, next), &mut text, &mut out)?;
             continue;
         }
         if line.starts_with("# ") {
@@ -303,6 +439,34 @@ fn sections(file: &str, body: &str) -> Result<Vec<Section>, String> {
         if let Some(directive) = trimmed.strip_prefix("::") {
             if answer.is_some() {
                 return Err(format!("{}: a block inside an answer", at()));
+            }
+            if current.coming.is_some() {
+                return Err(format!(
+                    "{}: a section coming soon has no blocks yet, only what it will answer",
+                    at()
+                ));
+            }
+            if let Some(rest) = directive
+                .strip_prefix("coming")
+                .filter(|r| r.is_empty() || r.starts_with(' '))
+            {
+                if current.title.is_empty() || !current.blocks.is_empty() || !text.trim().is_empty()
+                {
+                    return Err(format!(
+                        "{}: ::coming goes right under a section's heading",
+                        at()
+                    ));
+                }
+                current.coming = Some(Coming {
+                    answers: String::new(),
+                    examples: rest
+                        .split([' ', ','])
+                        .filter(|s| !s.is_empty())
+                        .map(str::to_owned)
+                        .collect(),
+                });
+                text.clear();
+                continue;
             }
             flush(&mut text, &mut current.blocks);
             current
@@ -320,10 +484,7 @@ fn sections(file: &str, body: &str) -> Result<Vec<Section>, String> {
     if code {
         return Err(format!("{file}: a code block is never closed"));
     }
-    flush(&mut text, &mut current.blocks);
-    if !current.title.is_empty() || !current.blocks.is_empty() {
-        out.push(current);
-    }
+    close(current, &mut text, &mut out)?;
     Ok(out)
 }
 
@@ -367,6 +528,13 @@ fn block(directive: &str) -> Result<Block, String> {
                 values: charts::parse_values(&spec, values)?,
             })
         }
+        "diagram" => {
+            let d =
+                diagrams::spec(rest).ok_or_else(|| format!("::diagram: no diagram {rest:?}"))?;
+            Ok(Block::Diagram {
+                diagram: d.id.to_owned(),
+            })
+        }
         "example" if !rest.is_empty() && !rest.contains(' ') => Ok(Block::Example {
             name: rest.to_owned(),
         }),
@@ -379,7 +547,7 @@ fn block(directive: &str) -> Result<Block, String> {
         }),
         "timeline" if rest.is_empty() => Ok(Block::Timeline),
         _ => Err(format!(
-            "::{directive} isn't a block: ::chart <id>{{...}}, ::example <name>, ::validation <id> ..., ::timeline"
+            "::{directive} isn't a block: ::diagram <id>, ::chart <id>{{...}}, ::example <name>, ::validation <id> ..., ::timeline, ::coming <example> ..."
         )),
     }
 }
@@ -428,6 +596,10 @@ mod tests {
         for s in &lesson.sections {
             out.push_str(&s.title);
             out.push('\n');
+            if let Some(c) = &s.coming {
+                out.push_str(&c.answers);
+                out.push('\n');
+            }
             for b in &s.blocks {
                 if let Block::Text { markdown } | Block::Answer { markdown } = b {
                     out.push_str(markdown);
@@ -461,6 +633,13 @@ mod tests {
         built.sort();
         assert_eq!(built, files, "add the new lesson to lessons!()");
         assert_eq!(academy().lessons.len(), LESSONS.len());
+        // a link to `<file>.md` opens a lesson or a method's write-up, so no name is both
+        for (file, _) in LESSONS {
+            assert!(
+                !crate::studio::METHOD_DOCS.iter().any(|(m, _)| m == file),
+                "{file} is a method's write-up's name too"
+            );
+        }
     }
 
     #[test]
@@ -472,8 +651,25 @@ mod tests {
                 "{}",
                 l.id
             );
+            let ids: Vec<&str> = l.sections.iter().map(|s| s.id.as_str()).collect();
+            for (k, id) in ids.iter().enumerate() {
+                assert!(!ids[..k].contains(id), "{}: two sections named {id}", l.id);
+            }
+            for s in l.sections.iter().filter_map(|s| s.coming.as_ref()) {
+                assert!(
+                    s.answers.chars().count() <= 320,
+                    "{}: what a section coming soon will answer is one line, not {:?}",
+                    l.id,
+                    s.answers
+                );
+            }
+            if f.status == Status::Coming {
+                coming_has_its_parts(&l);
+                continue;
+            }
             assert!(f.minutes > 0, "{}", l.id);
-            let depths: Vec<Depth> = l.sections.iter().map(|s| s.depth).collect();
+            let written = || l.sections.iter().filter(|s| s.coming.is_none());
+            let depths: Vec<Depth> = written().map(|s| s.depth).collect();
             for d in [Depth::Intuition, Depth::Theory, Depth::Research] {
                 assert!(depths.contains(&d), "{}: no {d:?} section", l.id);
             }
@@ -481,14 +677,10 @@ mod tests {
             assert!(l.sections[0].depth == Depth::Intuition, "{}", l.id);
             for (k, s) in l.sections.iter().enumerate() {
                 assert!(
-                    (k == 0 || !s.title.is_empty()) && !s.blocks.is_empty(),
+                    (k == 0 || !s.title.is_empty()) && (s.coming.is_some() || !s.blocks.is_empty()),
                     "{}: an empty section",
                     l.id
                 );
-            }
-            let ids: Vec<&str> = l.sections.iter().map(|s| s.id.as_str()).collect();
-            for (k, id) in ids.iter().enumerate() {
-                assert!(!ids[..k].contains(id), "{}: two sections named {id}", l.id);
             }
             let blocks = || l.sections.iter().flat_map(|s| &s.blocks);
             assert!(
@@ -496,11 +688,69 @@ mod tests {
                 "{}: no ::timeline",
                 l.id
             );
+            // the device drawn first: a diagram before any chart
+            let diagram = blocks().position(|b| matches!(b, Block::Diagram { .. }));
+            let chart = blocks().position(|b| matches!(b, Block::Chart { .. }));
+            assert!(diagram.is_some(), "{}: no ::diagram", l.id);
+            assert!(
+                chart.is_none_or(|c| diagram < Some(c)),
+                "{}: a chart before the lesson's diagram",
+                l.id
+            );
         }
     }
 
-    /// Its examples, jobs, circuits, method write-ups, validation cases, charts and
-    /// prerequisites exist, and its blocks name only what its front matter lists.
+    /// A lesson coming soon: its numbered subsections, 1, 2, 3 and on, each saying what it will
+    /// answer; no reading time or charts claimed yet; every example it lists placed in a
+    /// subsection, so writing it is filling them in; and the milestone it waits for one the
+    /// roadmap has.
+    fn coming_has_its_parts(l: &Lesson) {
+        let f = &l.front;
+        assert!(
+            f.minutes == 0,
+            "{}: no reading time until it is written",
+            l.id
+        );
+        assert!(
+            f.charts.is_empty(),
+            "{}: no charts until it is written",
+            l.id
+        );
+        assert!(l.sections.len() >= 3, "{}: lay out its subsections", l.id);
+        for (k, s) in l.sections.iter().enumerate() {
+            assert!(
+                s.title.starts_with(&format!("{}. ", k + 1)),
+                "{}: its subsections are numbered in order, and {:?} is number {}",
+                l.id,
+                s.title,
+                k + 1
+            );
+        }
+        for e in &f.examples {
+            assert!(
+                l.sections
+                    .iter()
+                    .filter_map(|s| s.coming.as_ref())
+                    .any(|c| c.examples.contains(e)),
+                "{}: {e} isn't in any subsection's ::coming line",
+                l.id
+            );
+        }
+        if let Some(m) = &f.milestone {
+            let roadmap = std::fs::read_to_string(root().join("ROADMAP.md")).unwrap();
+            assert!(
+                roadmap
+                    .lines()
+                    .any(|line| line.starts_with(&format!("### {m}:"))),
+                "{}: no milestone {m} in ROADMAP.md",
+                l.id
+            );
+        }
+    }
+
+    /// Its examples, jobs, circuits, method write-ups, validation cases, diagrams, charts and
+    /// prerequisites exist, and its blocks name only what its front matter lists; a diagram's
+    /// 3D view is of one of its jobs.
     #[test]
     fn everything_a_lesson_names_exists() {
         let lessons = all();
@@ -565,6 +815,15 @@ mod tests {
                     l.id
                 );
             }
+            for c in l.sections.iter().filter_map(|s| s.coming.as_ref()) {
+                for e in &c.examples {
+                    assert!(
+                        f.examples.contains(e),
+                        "{}: {e} isn't in its examples",
+                        l.id
+                    );
+                }
+            }
             for b in l.sections.iter().flat_map(|s| &s.blocks) {
                 match b {
                     Block::Chart { chart, values } => {
@@ -574,6 +833,17 @@ mod tests {
                             l.id
                         );
                         charts::evaluate(chart, values).unwrap_or_else(|e| panic!("{}: {e}", l.id));
+                    }
+                    Block::Diagram { diagram } => {
+                        let d = diagrams::spec(diagram)
+                            .unwrap_or_else(|| panic!("{}: no diagram {diagram}", l.id));
+                        if let Some(job) = d.job {
+                            assert!(
+                                f.jobs.iter().any(|j| j == job),
+                                "{}: the diagram {diagram} shows {job}, which isn't in its jobs",
+                                l.id
+                            );
+                        }
                     }
                     Block::Example { name } => assert!(
                         f.examples.contains(name),
@@ -612,7 +882,11 @@ mod tests {
     fn every_paper_has_a_doi_and_every_link_leads_somewhere() {
         for l in all() {
             let papers = &l.front.papers;
-            assert!(papers.len() >= 3, "{}: a history needs papers", l.id);
+            assert!(
+                papers.len() >= 3 || l.front.status == Status::Coming,
+                "{}: a history needs papers",
+                l.id
+            );
             for (k, p) in papers.iter().enumerate() {
                 assert!(
                     p.doi.starts_with("10.") && p.doi.contains('/') && !p.doi.contains(' '),
@@ -664,10 +938,11 @@ mod tests {
     fn math_is_delimited() {
         for l in all() {
             for s in &l.sections {
-                for b in &s.blocks {
-                    let (Block::Text { markdown } | Block::Answer { markdown }) = b else {
-                        continue;
-                    };
+                let texts = s.blocks.iter().filter_map(|b| match b {
+                    Block::Text { markdown } | Block::Answer { markdown } => Some(markdown),
+                    _ => None,
+                });
+                for markdown in texts.chain(s.coming.as_ref().map(|c| &c.answers)) {
                     let mut display = false;
                     for line in markdown.lines() {
                         if line.trim() == "$$" {
@@ -690,12 +965,18 @@ mod tests {
 
     #[test]
     fn the_format_is_read_as_documented() {
-        let text = "---\ntitle: T\nsummary: S\ntopic: Rings\nlevel: introductory\nminutes: 5\ncharts: [ring-spectrum]\npapers:\n  - cite: C\n    title: P\n    doi: 10.1/x\n    year: 1997\n    role: origin\n    note: N\n---\nIntro $a$.\n\n## The physics {theory}\nText.\n::chart ring-spectrum{radius=20um, loss=2dB/cm}\n:::answer\nHidden.\n:::\n```\n::not a block\n```\n## History {research}\n::timeline\n::validation a/b c/d\n::example ring_q_factor\n";
+        let text = "---\ntitle: T\nsummary: S\ntopic: Rings\nlevel: introductory\nminutes: 5\ncharts: [ring-spectrum]\npapers:\n  - cite: C\n    title: P\n    doi: 10.1/x\n    year: 1997\n    role: origin\n    note: N\n---\nIntro $a$.\n::diagram ring\n\n## The physics {theory}\nText.\n::chart ring-spectrum{radius=20um, loss=2dB/cm}\n:::answer\nHidden.\n:::\n```\n::not a block\n```\n## History {research}\n::timeline\n::validation a/b c/d\n::example ring_q_factor\n";
         let l = parse("x.md", text).unwrap();
         assert_eq!(l.id, "x");
         assert_eq!(l.front.level, Level::Introductory);
         assert_eq!(l.sections.len(), 3);
         assert_eq!(l.sections[0].title, "");
+        assert_eq!(
+            l.sections[0].blocks[1],
+            Block::Diagram {
+                diagram: "ring".to_owned()
+            }
+        );
         assert_eq!(l.sections[1].title, "The physics");
         assert_eq!(l.sections[1].id, "the-physics");
         assert_eq!(l.sections[1].depth, Depth::Theory);
@@ -743,6 +1024,11 @@ mod tests {
         let broken = |body: &str| parse("x.md", &text.replace("::timeline\n", body)).is_err();
         assert!(broken("::chart no-such{}\n"));
         assert!(
+            broken("::diagram no-such\n"),
+            "a diagram that doesn't exist"
+        );
+        assert!(broken("::diagram\n"));
+        assert!(
             broken("::chart ring-spectrum{radius=1mm}\n"),
             "out of its range"
         );
@@ -761,6 +1047,141 @@ mod tests {
             "an unknown field"
         );
         assert!(parse("x.md", &text.replace("role: origin", "role: founding")).is_err());
+        assert!(
+            parse(
+                "x.md",
+                &text.replace("minutes: 5", "minutes: 5\nmilestone: \"0.6\"")
+            )
+            .is_err(),
+            "a milestone on a lesson already written"
+        );
+        // a written lesson may hold a section still to be written
+        let partly = parse(
+            "x.md",
+            &format!(
+                "{text}## Apodization\n::coming ring_q_factor\nWhy a graded coupling\nlowers the sidelobes.\n"
+            ),
+        )
+        .unwrap();
+        assert_eq!(partly.front.status, Status::Published);
+        assert_eq!(partly.sections[3].blocks, vec![]);
+        assert_eq!(
+            partly.sections[3].coming,
+            Some(Coming {
+                answers: "Why a graded coupling lowers the sidelobes.".to_owned(),
+                examples: vec!["ring_q_factor".to_owned()],
+            })
+        );
+    }
+
+    #[test]
+    fn a_lesson_coming_soon_is_read_as_documented() {
+        let text = "---\ntitle: T\nsummary: S\ntopic: Waveguides\nlevel: intermediate\nstatus: coming\nmilestone: \"0.6\"\nexamples: [slab_soi, slab_yariv_yeh]\n---\n\n## 1. Why does a slab guide light?\n\n::coming slab_yariv_yeh\nTotal internal reflection at both faces, and the $k_x$ that fit.\n\n## 2. How many modes?\n\n::coming slab_soi, slab_yariv_yeh\nThe cutoffs.\n\n## 3. How does photonoxide solve it?\n\n::coming\nExactly.\n";
+        let l = parse("x.md", text).unwrap();
+        assert_eq!(l.front.status, Status::Coming);
+        assert_eq!(l.front.milestone.as_deref(), Some("0.6"));
+        assert_eq!(l.front.minutes, 0);
+        assert!(l.front.papers.is_empty());
+        assert_eq!(l.sections.len(), 3);
+        assert_eq!(l.sections[0].id, "1-why-does-a-slab-guide-light");
+        assert_eq!(
+            l.sections[0].coming,
+            Some(Coming {
+                answers: "Total internal reflection at both faces, and the $k_x$ that fit."
+                    .to_owned(),
+                examples: vec!["slab_yariv_yeh".to_owned()],
+            })
+        );
+        assert_eq!(
+            l.sections[1].coming.as_ref().unwrap().examples,
+            ["slab_soi", "slab_yariv_yeh"]
+        );
+        assert!(l.sections[2].coming.as_ref().unwrap().examples.is_empty());
+        assert!(l.sections.iter().all(|s| s.blocks.is_empty()));
+        coming_has_its_parts(&l);
+
+        let broken = |from: &str, to: &str| parse("x.md", &text.replace(from, to)).is_err();
+        assert!(broken("\n## 1.", "An opening.\n\n## 1."), "an opening");
+        assert!(
+            broken("::coming\nExactly.\n", "Exactly.\n"),
+            "a section written"
+        );
+        assert!(
+            broken("Exactly.\n", ""),
+            "nothing said of what it will answer"
+        );
+        assert!(
+            broken("Exactly.\n", "Exactly.\n\nAnd more.\n"),
+            "two paragraphs"
+        );
+        assert!(
+            broken("Exactly.\n", "Exactly.\n::diagram ring\n"),
+            "a block"
+        );
+        assert!(
+            broken("Exactly.\n", "Exactly.\n:::answer\nNo.\n:::\n"),
+            "an answer"
+        );
+        assert!(
+            broken("::coming\nExactly.", "Exactly.\n::coming\nExactly."),
+            "::coming after text"
+        );
+        assert!(
+            broken(
+                "::coming slab_yariv_yeh\n",
+                "::coming slab_yariv_yeh\n::coming\n"
+            ),
+            "::coming twice"
+        );
+    }
+
+    /// A `###` heading with a depth is a part of its `##` section, at that depth, to the next
+    /// part or section; one without stays in the text.
+    #[test]
+    fn parts_belong_to_their_section() {
+        let front = "---\ntitle: T\nsummary: S\ntopic: Rings\nlevel: introductory\nminutes: 5\npapers: []\n---\n";
+        let body = "Intro.\n## 1. Resonance\nWhat it does.\n### A heading in the text\nMore.\n### The derivation {theory}\nDerived.\n### Its history {research}\nOld.\n## 2. Width\nNext.\n";
+        let l = parse("x.md", &format!("{front}{body}")).unwrap();
+        let shape: Vec<(&str, &str, Depth, u8)> = l
+            .sections
+            .iter()
+            .map(|s| (s.title.as_str(), s.id.as_str(), s.depth, s.level))
+            .collect();
+        assert_eq!(
+            shape,
+            [
+                ("", "", Depth::Intuition, 2),
+                ("1. Resonance", "1-resonance", Depth::Intuition, 2),
+                (
+                    "The derivation",
+                    "1-resonance--the-derivation",
+                    Depth::Theory,
+                    3
+                ),
+                (
+                    "Its history",
+                    "1-resonance--its-history",
+                    Depth::Research,
+                    3
+                ),
+                ("2. Width", "2-width", Depth::Intuition, 2),
+            ]
+        );
+        assert_eq!(
+            l.sections[1].blocks,
+            [Block::Text {
+                markdown: "What it does.\n### A heading in the text\nMore.".to_owned()
+            }]
+        );
+        assert!(
+            parse(
+                "x.md",
+                &format!("{front}Intro.\n### Early {{theory}}\nNo.\n")
+            )
+            .is_err(),
+            "a part before any section"
+        );
+        assert!(parse("x.md", &format!("{front}## A\n### B {{deeper}}\nNo.\n")).is_err());
     }
 
     #[test]

@@ -2,19 +2,30 @@ name: Libraries
 
 # Each way of installing an external library that docs/libraries.md lists as checked, run on a
 # clean machine: the package is installed, and photonoxide's discovery (photonoxide-native) is
-# asked what it finds. The default build needs none of them; this job only keeps the guides
-# true. The runners have no GPU: NVIDIA's libraries are found and loaded, and their backends
-# stay unavailable.
+# asked what it finds, and a backend's tests are run with its library required. The default
+# build needs none of them; this job only keeps the guides true. The runners have no GPU:
+# NVIDIA's libraries are found and loaded, and their backends stay unavailable.
+#
+# On a pull request only for what the installs check first, how a library is found and loaded
+# and the guides that say where it lands; a backend's own code runs against the test library in
+# CI, and against the real ones here every Monday (the Weekly workflow, whatever changed: a
+# package index that moved shows here, not in a user's install) and by hand.
 on:
   pull_request:
     paths:
-      - native/**
+      - native/src/lib.rs
+      - native/src/discovery.rs
+      - native/src/library.rs
+      - native/src/smoke.rs
+      - native/src/intel.rs
+      - native/src/nvidia.rs
+      - native/examples/**
+      - native/Cargo.toml
       - studio/src-tauri/src/libraries.rs
+      - studio/src-tauri/src/libraries/**
       - docs/libraries.md
       - .github/workflows/libraries.yml
-  schedule:
-    # Mondays: a package index that moved shows here, not in a user's install
-    - cron: '17 4 * * 1'
+  workflow_call:
   workflow_dispatch:
 
 # it reads the repository and nothing else: no secrets, no writes
@@ -43,15 +54,14 @@ jobs:
           - { os: windows-latest, package: libcudss, found: '^cuDSS [0-9.]+: .*\(from the conda environment\)' }
           - { os: ubuntu-latest, package: cuda-cudart libcusparse, found: '^cuSPARSE [0-9.]+: .*\(from the conda environment\)' }
           - { os: windows-latest, package: cuda-cudart libcusparse, found: '^cuSPARSE [0-9.]+: .*\(from the conda environment\)' }
-          # libraries photonoxide has no backend for yet: the package installs its library
-          - { os: ubuntu-latest, package: mumps-seq, file: 'libzmumps_seq' }
-          - { os: windows-latest, package: mumps-seq, file: 'zmumps\.dll' }
-          - { os: macos-latest, package: mumps-seq, file: 'libzmumps_seq' }
-          - { os: ubuntu-latest, package: superlu, file: 'libsuperlu' }
-          - { os: macos-latest, package: superlu, file: 'libsuperlu' }
-          - { os: ubuntu-latest, package: openblas, file: 'libopenblas' }
-          - { os: windows-latest, package: openblas, file: 'openblas\.dll' }
-          - { os: macos-latest, package: openblas, file: 'libopenblas' }
+          - { os: ubuntu-latest, package: mumps-seq, found: '^MUMPS 5\.[0-9.]+: .*\(from the conda environment\)', backend: '^backend mumps \(direct\): .* available', test: mumps, require: 'PHOTONOXIDE_REQUIRE_MUMPS=1' }
+          - { os: windows-latest, package: mumps-seq, found: '^MUMPS 5\.[0-9.]+: .*\(from the conda environment\)', backend: '^backend mumps \(direct\): .* available', test: mumps, require: 'PHOTONOXIDE_REQUIRE_MUMPS=1' }
+          - { os: macos-latest, package: mumps-seq, found: '^MUMPS 5\.[0-9.]+: .*\(from the conda environment\)', backend: '^backend mumps \(direct\): .* available', test: mumps, require: 'PHOTONOXIDE_REQUIRE_MUMPS=1' }
+          - { os: ubuntu-latest, package: superlu, found: '^SuperLU [567][0-9.]*: .*\(from the conda environment\)', backend: '^backend superlu \(direct\): .* available', test: superlu, require: 'PHOTONOXIDE_REQUIRE_SUPERLU=1' }
+          - { os: macos-latest, package: superlu, found: '^SuperLU [567][0-9.]*: .*\(from the conda environment\)', backend: '^backend superlu \(direct\): .* available', test: superlu, require: 'PHOTONOXIDE_REQUIRE_SUPERLU=1' }
+          - { os: ubuntu-latest, package: openblas, found: '^OpenBLAS [0-9.]+: .*\(from the conda environment\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
+          - { os: windows-latest, package: openblas, found: '^OpenBLAS [0-9.]+: .*\(from the conda environment\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
+          - { os: macos-latest, package: openblas, found: '^OpenBLAS [0-9.]+: .*\(from the conda environment\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -86,6 +96,9 @@ jobs:
       - name: Its backend is offered
         if: matrix.backend != ''
         run: grep -E '${{ matrix.backend }}' found.txt
+      - name: Its backend's tests, the library required
+        if: matrix.test != ''
+        run: env ${{ matrix.require }} cargo test -p photonoxide-native --release --test ${{ matrix.test }}
 
   pip:
     name: pip ${{ matrix.package }} (${{ matrix.os }})
@@ -136,9 +149,9 @@ jobs:
         package: [libmkl-rt, libmumps-seq-dev, libsuperlu-dev, libopenblas-dev]
         include:
           - { package: libmkl-rt, found: '^oneMKL 2020\.[0-9]+: /usr/lib/' }
-          - { package: libmumps-seq-dev, file: 'libzmumps' }
-          - { package: libsuperlu-dev, file: 'libsuperlu' }
-          - { package: libopenblas-dev, file: 'libopenblas' }
+          - { package: libmumps-seq-dev, found: '^MUMPS 5\.[0-9.]+: /usr/lib/', backend: '^backend mumps \(direct\): .* available', test: mumps, require: 'PHOTONOXIDE_REQUIRE_MUMPS=1' }
+          - { package: libsuperlu-dev, found: '^SuperLU [567][0-9.]*: /usr/lib/', backend: '^backend superlu \(direct\): .* available', test: superlu, require: 'PHOTONOXIDE_REQUIRE_SUPERLU=1' }
+          - { package: libopenblas-dev, found: '^OpenBLAS [0-9.]+: /usr/lib/', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -162,6 +175,88 @@ jobs:
       - name: photonoxide finds it
         if: matrix.found != ''
         run: grep -E '${{ matrix.found }}' found.txt
+      - name: Its backend is offered
+        if: matrix.backend != ''
+        run: grep -E '${{ matrix.backend }}' found.txt
+      - name: Its backend's tests, the library required
+        if: matrix.test != ''
+        run: env ${{ matrix.require }} cargo test -p photonoxide-native --release --test ${{ matrix.test }}
+
+  mumps-source:
+    # MUMPS releases no package manager ships yet, built from mumps-solver.org's source
+    # (sequential, gfortran, the reference BLAS and LAPACK): each release's structure is read at
+    # its own layout, so each layout photonoxide-native knows is checked on a real library
+    name: MUMPS ${{ matrix.version }} from source (ubuntu-24.04)
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['5.9.1']
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install the compilers and the BLAS
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gfortran libblas-dev liblapack-dev
+      - uses: actions/cache@v6
+        id: built
+        with:
+          path: mumps
+          key: mumps-${{ matrix.version }}-seq-ubuntu-24.04-gfortran
+      - name: Build MUMPS
+        if: steps.built.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL --retry 3 -o mumps.tar.gz "https://mumps-solver.org/MUMPS_${{ matrix.version }}.tar.gz"
+          mkdir mumps
+          tar xzf mumps.tar.gz -C mumps --strip-components=1
+          cd mumps
+          sed -e 's/^CC *=.*/CC = gcc/' -e 's/^FC *=.*/FC = gfortran/' -e 's/^FL *=.*/FL = gfortran/' \
+            -e 's/^OPTF *=.*/OPTF = -O2 -fallow-argument-mismatch/' -e 's/^OPTC *=.*/OPTC = -O2 -I./' \
+            -e 's/^OPTL *=.*/OPTL = -O2/' Make.inc/Makefile.inc.generic.SEQ > Makefile.inc
+          time make -j4 PLAT=_seq zshared > build.log 2>&1 || { tail -50 build.log; exit 1; }
+      - name: Where it landed
+        run: ls mumps/lib | tee landed.txt && grep -E '^libzmumps_seq\.so$' landed.txt
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: What photonoxide finds
+        run: LD_LIBRARY_PATH="$PWD/mumps/lib" cargo run -p photonoxide-native --example libraries | tee found.txt
+      - name: photonoxide finds it
+        run: |
+          grep -F "MUMPS ${{ matrix.version }}: $PWD/mumps/lib/libzmumps_seq.so" found.txt
+      - name: Its backends are offered
+        run: |
+          grep -E '^backend mumps \(direct\): .* available' found.txt
+          grep -E '^backend mumps-blr \(direct\): .* available' found.txt
+      - name: Its backend's tests, the library required
+        run: LD_LIBRARY_PATH="$PWD/mumps/lib" PHOTONOXIDE_REQUIRE_MUMPS=1 cargo test -p photonoxide-native --release --test mumps
+
+  macos:
+    # nothing to install: what each macOS's Accelerate has, and its backend's tests
+    name: Accelerate (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # complex LU from macOS 15.5, complex symmetric L D Lᵀ from macOS 26
+          - { os: macos-15, require: 'PHOTONOXIDE_REQUIRE_ACCELERATE=1' }
+          - { os: macos-15-intel, require: 'PHOTONOXIDE_REQUIRE_ACCELERATE=1' }
+          - { os: macos-26, require: 'PHOTONOXIDE_REQUIRE_ACCELERATE=symmetric' }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: sw_vers
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: What photonoxide finds
+        run: cargo run -p photonoxide-native --example libraries | tee found.txt
+      - name: photonoxide finds it
+        run: |
+          grep -E '^Accelerate [0-9.]+: /System/Library/Frameworks/' found.txt
+      - name: Its backend is offered
+        run: |
+          grep -E '^backend accelerate \(direct\): .* available' found.txt
+      - name: Its backend's tests, the library required
+        run: env ${{ matrix.require }} cargo test -p photonoxide-native --release --test accelerate
 
   winget:
     name: winget's index (windows-latest)

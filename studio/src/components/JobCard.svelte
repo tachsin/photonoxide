@@ -1,6 +1,6 @@
 <script lang="ts">
-  // A job as a card: its device in 3D, turning, what it is, and what can be done with it.
-  import { Pencil, Play } from "@lucide/svelte";
+  // A template as a card: its device in 3D, turning, what it is, and Run or Open (in the builder).
+  import { Play, SquarePen } from "@lucide/svelte";
 
   import { KINDS } from "../lib/api";
   import ScenePreview from "./ScenePreview.svelte";
@@ -11,7 +11,7 @@
     about,
     text,
     onrun,
-    onedit,
+    onopen,
     badge,
   }: {
     name: string;
@@ -19,7 +19,7 @@
     about: string;
     text: string;
     onrun: () => void;
-    onedit: () => void;
+    onopen: () => void;
     badge?: string;
   } = $props();
 
@@ -39,7 +39,7 @@
     <p class="line-clamp-3 flex-1 text-[13px] leading-relaxed muted">{about || KINDS[kind]?.about}</p>
     <div class="mt-1 flex gap-2">
       <button class="btn btn-primary btn-sm flex-1 gap-1.5" onclick={onrun} title="Run it now and watch it live"><Play size={14} /> Run</button>
-      <button class="btn btn-ghost btn-sm gap-1.5" onclick={onedit} title="Open it in the job builder, to change it"><Pencil size={14} /> Edit</button>
+      <button class="btn btn-ghost btn-sm gap-1.5" onclick={onopen} title="Open it in the job builder, to change it"><SquarePen size={14} /> Open</button>
     </div>
   </div>
 </article>

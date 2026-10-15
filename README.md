@@ -3,6 +3,7 @@
 </p>
 
 [![Crates.io](https://img.shields.io/crates/v/photonoxide.svg)](https://crates.io/crates/photonoxide)
+[![PyPI](https://img.shields.io/pypi/v/photonoxide.svg)](https://pypi.org/project/photonoxide/)
 [![Docs.rs](https://img.shields.io/docsrs/photonoxide)](https://docs.rs/photonoxide)
 [![CI](https://github.com/tachsin/photonoxide/actions/workflows/ci.yml/badge.svg)](https://github.com/tachsin/photonoxide/actions/workflows/ci.yml)
 [![MSRV](https://img.shields.io/crates/msrv/photonoxide)](Cargo.toml)
@@ -34,25 +35,29 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 - **Modes:** [slabs](docs/methods/slab.md) and [multilayers](docs/methods/multilayer.md),
   [full-vector cross-sections](docs/methods/vector.md) with [PMLs](docs/methods/pml.md),
   [Hadley's](docs/methods/hadley.md) scheme for dielectric corners, [bends](docs/methods/bends.md)
-  and [dispersion](docs/methods/dispersion.md).
+  and [dispersion](docs/methods/dispersion.md); every mode in a region of the complex
+  effective-index plane by [contour integrals](docs/methods/contour.md).
 - **FDFD:** [2D](docs/methods/fdfd.md) and [3D](docs/methods/fdfd-3d.md), with
   [mode ports and S-parameters](docs/methods/fdfd-ports.md) and
   [adjoint gradients](docs/methods/fdfd-adjoint.md); photonoxide's own direct and iterative
-  solvers, on every core ([baselines](docs/baselines.md)).
+  solvers, on every core ([baselines](docs/baselines.md)); sweeps sped up by
+  [recycling](docs/methods/recycling.md), and farmed to worker processes here or on other
+  machines ([farming](docs/farming.md)).
 - **FDTD:** [2D and 3D](docs/methods/fdtd.md) with CPMLs, subpixel smoothing, mode sources,
   monitors, dispersive media and [adjoint gradients](docs/methods/fdtd-adjoint.md); a CPU kernel
   blocked in space and time, and an optional GPU one (wgpu).
 - **Circuits:** [components](docs/methods/components.md), [netlists](docs/methods/circuits.md),
   the [circuit adjoint](docs/methods/circuit-adjoint.md), [compact models](docs/methods/compact.md)
   and Touchstone files; optimization with [genoxide](https://github.com/tachsin/genoxide).
-- **External solvers, optional:** oneMKL's PARDISO, NVIDIA cuDSS and Krylov solvers on NVIDIA
-  GPUs, loaded at run time when installed and checked against photonoxide's own
-  ([backends](docs/methods/backends.md)).
+- **External solvers, optional:** oneMKL's PARDISO, MUMPS, SuperLU, Apple Accelerate, NVIDIA
+  cuDSS and Krylov solvers on NVIDIA GPUs, loaded at run time when installed and checked against
+  photonoxide's own, which `auto` leaves only for one measured faster here at the same accuracy
+  ([backends](docs/methods/backends.md), [install guides](docs/libraries.md)).
 - **Jobs and runs:** TOML, JSON or YAML job files, checked before they run; every run is recorded
   and replays exactly.
 
 [Getting started](docs/getting-started.md) · [API](https://docs.rs/photonoxide) ·
-[Examples](examples/README.md)
+[Examples](examples/README.md) · [What works in Rust, Python and MATLAB](docs/features.md)
 
 ## The studio
 
@@ -71,7 +76,7 @@ every page and command.
   </tr>
   <tr>
     <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/validation.gif" alt="The Validation page: two cases looked up and opened, showing what each computes and what it is checked against, with the math rendered" width="100%"><br><sub><b>Validation:</b> cases looked up and opened, each against its exact solution or paper.</sub></td>
-    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/academy.gif" alt="The Academy: the ring resonator's lesson opened and scrolled to its live chart; the radius and window set on a resonance at 1.55 µm, then the input coupling raised to a wide, shallow dip and lowered to critical coupling, where the through power reaches zero" width="100%"><br><sub><b>Academy:</b> the ring resonator's lesson; its transmission follows the coupling as the slider moves, critical coupling at the dip's zero.</sub></td>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/academy.gif" alt="The Academy: the ring resonator's lesson opened on its diagram, the ring and its bus drawn from above with R, w, g and the coupler's r and k, then turned in 3D; then its live chart, the radius and window set on a resonance at 1.55 µm, then the input coupling raised to a wide, shallow dip and lowered to critical coupling, where the through power reaches zero" width="100%"><br><sub><b>Academy:</b> the ring resonator's lesson opens on its device, drawn and in 3D; then its transmission follows the coupling as the slider moves, critical coupling at the dip's zero.</sub></td>
   </tr>
 </table>
 
@@ -83,7 +88,11 @@ cargo add photonoxide
 
 Pure Rust, with no C, Fortran or Python dependencies. The program is on each
 [release](https://github.com/tachsin/photonoxide/releases) for Linux (x86_64 and ARM64), Windows
-and macOS, and updates itself ([downloads](studio/README.md#downloads)).
+and macOS, and updates itself ([downloads](studio/README.md#downloads)): from the releases, or on
+the Nightly channel by building main's latest code on your machine ([channels](studio/README.md#channels)).
+
+**Python and MATLAB:** the `photonoxide` package ([`python/`](python), `pip install ./python`;
+on PyPI once its publishing is set up) and MATLAB through it: [docs/python.md](docs/python.md).
 
 ## A first example
 
@@ -131,8 +140,9 @@ or the committed report isn't the one the code writes. CI checks every example's
 | 0.1 – 0.3 | Units and materials, mode solvers, FDFD in 2D and 3D, the studio | ✅ released |
 | 0.4 – 0.4.3 | Components and circuits, compact models, a 3D preconditioner, multifrontal direct solves | ✅ released |
 | 0.5 FDTD | 2D and 3D, CPML, smoothing, sources, monitors, adjoints, a GPU kernel; solver backends loaded at run time | ✅ released |
-| 0.5.1 Many solves at once | Ports as a block, recycling across sweeps, contour-integral mode solvers, farming across processes | 🚧 next |
-| 0.6 Thermal and electro-optic | Heat, thermo-optic phase shifters, Pockels modulators, travelling-wave electrodes | planned |
+| 0.5.1 Channels and backends | Nightly built from main, MUMPS, SuperLU and Accelerate, the backend chosen from benchmarks, every mode in a region | ✅ released |
+| 0.5.2 Many solves at once | Ports as a block, recycling across sweeps, more contour-integral mode solvers, farming across processes | ✅ released |
+| 0.6 Thermal and electro-optic | Heat, thermo-optic phase shifters, Pockels modulators, travelling-wave electrodes | 🚧 next |
 | 0.6.1 Nonlinear integrated optics | Transparency windows, phase matching, SHG, SFG, DFG, SPDC and FWM in waveguides, Kerr combs | planned |
 | 0.6.2 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states, loss budgets of quantum circuits | planned |
 | 0.7 Inverse design | Topology and shape optimization with fabrication constraints | planned |

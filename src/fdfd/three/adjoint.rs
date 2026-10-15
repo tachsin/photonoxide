@@ -14,12 +14,77 @@
 //! a = Σ ωᵣ uᵣ linear in the field (the Lorentz form's weights,
 //! [`super::ports::mode_amplitude_weights_of`]), so ∂F/∂u = ā ω, the mode's complex profile and
 //! the form's phase whole.
+//!
+//! The iterative solver's adjoint ([`super::IterativeSolver3d::mode_power_gradient`]) is the
+//! same solve with A by QMR or GMRES, and can recycle the forward solve's Krylov space
+//! ([`super::Recycler`]): A is the forward's own operator.
 
 use num_complex::Complex64 as c64;
 
-use super::{Field3d, PortMode3d, Solver3d};
+use super::{Field3d, Lattice, PortMode3d, Solver3d};
 use crate::fdfd::Direction;
 use crate::{Error, Result};
+
+impl Lattice {
+    /// The amplitude a = Σ ωᵣ uᵣ of `mode` going `direction` in `field` (a field of this
+    /// lattice), and the adjoint's right-hand side for |a|², V⁻¹ ā ω: its solve with A, scaled
+    /// by V, is λ.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a field or a mode of another problem.
+    pub(super) fn power_adjoint_source(
+        &self,
+        field: &Field3d,
+        mode: &PortMode3d,
+        direction: Direction,
+    ) -> Result<(c64, Vec<c64>)> {
+        let n = self.grid.unknowns();
+        if field.values.len() != n || field.lattice != *self {
+            return Err(Error::invalid(
+                "fdfd gradient",
+                "the field must belong to this problem",
+            ));
+        }
+        let (size, step) = mode.shape();
+        let (b, c) = mode.axis().others();
+        if size != [self.grid.n(b), self.grid.n(c)]
+            || step != self.grid.step(mode.axis())
+            || mode.k0() != self.k0
+            || mode.plane() + 1 >= self.grid.n(mode.axis())
+        {
+            return Err(Error::invalid(
+                "fdfd gradient",
+                "the mode must come from this problem's port_modes",
+            ));
+        }
+        let weights = self.mode_amplitude_weights(mode, direction);
+        let u = &field.values;
+        let a: c64 = weights.iter().map(|&(r, w)| w * u[r]).sum();
+        // λ = V A⁻¹ (V⁻¹ ā ω)
+        let mut rhs = vec![c64::new(0.0, 0.0); n];
+        for &(r, w) in &weights {
+            rhs[r] = a.conj() * w / self.volume(r);
+        }
+        Ok((a, rhs))
+    }
+
+    /// ∂|a|²/∂ε at each value of E, −2 Re(λ k₀² u), from the field u and `solved`, the solve of
+    /// A s = [`Lattice::power_adjoint_source`]'s right-hand side (λ = V s); zero on a wall.
+    pub(super) fn power_gradient(&self, u: &[c64], solved: &[c64]) -> Vec<f64> {
+        let k2 = self.k0 * self.k0;
+        (0..self.grid.unknowns())
+            .map(|r| {
+                if self.fixed(r) {
+                    0.0
+                } else {
+                    let lambda = self.volume(r) * solved[r];
+                    -2.0 * (lambda * k2 * u[r]).re
+                }
+            })
+            .collect()
+    }
+}
 
 impl Solver3d {
     /// The power `mode` carries `direction` in `field` (a field of this problem), |a|² with a
@@ -39,47 +104,12 @@ impl Solver3d {
         mode: &PortMode3d,
         direction: Direction,
     ) -> Result<(f64, Vec<f64>)> {
-        let lattice = &self.lattice;
-        let n = lattice.grid.unknowns();
-        if field.values.len() != n || field.lattice != *lattice {
-            return Err(Error::invalid(
-                "fdfd gradient",
-                "the field must belong to this problem",
-            ));
-        }
-        let (size, step) = mode.shape();
-        let (b, c) = mode.axis().others();
-        if size != [lattice.grid.n(b), lattice.grid.n(c)]
-            || step != lattice.grid.step(mode.axis())
-            || mode.k0() != lattice.k0
-            || mode.plane() + 1 >= lattice.grid.n(mode.axis())
-        {
-            return Err(Error::invalid(
-                "fdfd gradient",
-                "the mode must come from this problem's port_modes",
-            ));
-        }
-        let weights = lattice.mode_amplitude_weights(mode, direction);
-        let u = &field.values;
-        let a: c64 = weights.iter().map(|&(r, w)| w * u[r]).sum();
-        // λ = V A⁻¹ (V⁻¹ ā ω)
-        let mut rhs = vec![c64::new(0.0, 0.0); n];
-        for &(r, w) in &weights {
-            rhs[r] = a.conj() * w / lattice.volume(r);
-        }
+        let (a, rhs) = self.lattice.power_adjoint_source(field, mode, direction)?;
         let solved = self.solve_system(&rhs)?;
-        let k2 = lattice.k0 * lattice.k0;
-        let gradient = (0..n)
-            .map(|r| {
-                if lattice.fixed(r) {
-                    0.0
-                } else {
-                    let lambda = lattice.volume(r) * solved.values[r];
-                    -2.0 * (lambda * k2 * u[r]).re
-                }
-            })
-            .collect();
-        Ok((a.norm_sqr(), gradient))
+        Ok((
+            a.norm_sqr(),
+            self.lattice.power_gradient(&field.values, &solved.values),
+        ))
     }
 }
 

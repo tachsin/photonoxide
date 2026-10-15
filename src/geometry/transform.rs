@@ -146,7 +146,7 @@ impl Transform {
     }
 
     /// The direction a direction at `angle` from x goes to, as an angle from x.
-    fn direction(&self, angle: f64) -> f64 {
+    pub(crate) fn direction(&self, angle: f64) -> f64 {
         let (s, c) = sin_cos(angle);
         let v = [
             self.m[0][0] * c + self.m[0][1] * s,
@@ -157,6 +157,42 @@ impl Transform {
 
     fn length(&self, l: Length) -> Length {
         l * self.factor()
+    }
+
+    /// The inverse map: M⁻¹ = Mᵀ/s², M being s times a rotation or a mirror.
+    pub(crate) fn inverse(&self) -> Transform {
+        let s2 = self.s * self.s;
+        let m = [
+            [self.m[0][0] / s2, self.m[1][0] / s2],
+            [self.m[0][1] / s2, self.m[1][1] / s2],
+        ];
+        let t = [
+            -(m[0][0] * self.t[0] + m[0][1] * self.t[1]),
+            -(m[1][0] * self.t[0] + m[1][1] * self.t[1]),
+        ];
+        Transform {
+            m,
+            t,
+            s: 1.0 / self.s,
+        }
+    }
+
+    /// The image of a point given in µm.
+    pub(crate) fn map_um(&self, p: [f64; 2]) -> [f64; 2] {
+        self.map(p)
+    }
+
+    /// The image of a direction (or a derivative): M v.
+    pub(crate) fn linear(&self, v: [f64; 2]) -> [f64; 2] {
+        [
+            self.m[0][0] * v[0] + self.m[0][1] * v[1],
+            self.m[1][0] * v[0] + self.m[1][1] * v[1],
+        ]
+    }
+
+    /// Whether it keeps axis-aligned boxes axis-aligned (a quarter turn, a mirror in x or y).
+    pub(crate) fn axis_aligned(&self) -> bool {
+        (self.m[0][1] == 0.0 && self.m[1][0] == 0.0) || (self.m[0][0] == 0.0 && self.m[1][1] == 0.0)
     }
 }
 
@@ -284,6 +320,17 @@ impl Shape {
                     .expect("a transformed rounded rectangle is one"),
                 )
             }
+            Shape::Path(p) => Shape::Path(p.transformed(t)),
+            Shape::Between(s) => Shape::Between(s.transformed(t)),
+            Shape::Polar(s) => Shape::Polar(s.transformed(t)),
+            Shape::ClosedCurve(s) => Shape::ClosedCurve(s.transformed(t)),
+            Shape::Implicit(s) => Shape::Implicit(s.transformed(t)),
+            Shape::Mask(s) => Shape::Mask(s.transformed(t)),
+            Shape::Boolean(s) => Shape::Boolean(s.transformed(t)),
+            Shape::Offset(s) => Shape::Offset(s.transformed(t)),
+            Shape::Rounded(s) => Shape::Rounded(s.transformed(t)),
+            Shape::Array(s) => Shape::Array(s.transformed(t)),
+            Shape::Reference(s) => Shape::Reference(s.transformed(t)),
         }
     }
 }

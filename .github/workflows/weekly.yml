@@ -1,0 +1,121 @@
+name: Weekly
+
+# Tier 3 (issue #315), Mondays: when code changed in the past seven days, everything the CI
+# workflow runs on the release pull request (Tier 2), every Python wheel, and the Systems
+# comparison (the 3D devices and the validation report on Windows and macOS); and every week, the
+# Libraries workflow's installs on clean machines, since a package index can move when nothing
+# here does. A failure opens or updates one issue, "Weekly run failed", naming the week's commits;
+# the next run that passes closes it. Run it by hand (Run workflow) to run it all at once.
+on:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly
+  cancel-in-progress: false
+
+jobs:
+  changed:
+    name: Code changed this week
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.week.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: week
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          since=$(git rev-list -1 --before='7 days ago' HEAD)
+          git log --format='%h %s' "${since:+$since..}HEAD"
+          if [ "$EVENT" = workflow_dispatch ] || [ -z "$since" ]; then
+            code=true
+          else
+            git diff --name-only "$since" HEAD | AREAS_RANGE="$since..HEAD" bash .github/areas.sh | tee "$RUNNER_TEMP/areas.txt"
+            code=$(sed -n 's/^code=//p' "$RUNNER_TEMP/areas.txt")
+          fi
+          echo "code=$code" | tee -a "$GITHUB_OUTPUT"
+
+  ci:
+    name: CI
+    needs: changed
+    if: needs.changed.outputs.code == 'true'
+    permissions:
+      contents: read
+      statuses: write
+    uses: ./.github/workflows/ci.yml
+    with:
+      tier: "3"
+
+  python:
+    name: Python wheels
+    needs: changed
+    if: needs.changed.outputs.code == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/python-wheels.yml
+
+  systems:
+    name: Systems
+    needs: changed
+    if: needs.changed.outputs.code == 'true'
+    uses: ./.github/workflows/systems.yml
+
+  libraries:
+    name: Libraries
+    uses: ./.github/workflows/libraries.yml
+
+  issue:
+    name: Report
+    needs: [changed, ci, python, systems, libraries]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      NEEDS: ${{ toJSON(needs) }}
+      RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      TITLE: Weekly run failed
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - run: |
+          set -euo pipefail
+          failed=$(jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key' <<<"$NEEDS" | paste -sd, - | sed 's/,/, /g')
+          number=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title \
+            --jq 'map(select(.title == env.TITLE)) | .[0].number // empty')
+          if [ -z "$failed" ]; then
+            echo "Every part passed."
+            if [ -n "$number" ]; then
+              gh issue comment "$number" --body "The weekly run passed on $(git rev-parse --short HEAD): $RUN"
+              gh issue close "$number"
+            fi
+            exit 0
+          fi
+          {
+            echo "The weekly run ($RUN) failed on $(git rev-parse --short HEAD), in: $failed."
+            echo
+            echo "The commits of the week, newest first:"
+            echo
+            git log --since='7 days ago' --format='- %h %s' HEAD
+          } > "$RUNNER_TEMP/body.md"
+          cat "$RUNNER_TEMP/body.md"
+          if [ -z "$number" ]; then
+            gh issue create --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh issue edit "$number" --body-file "$RUNNER_TEMP/body.md" > /dev/null
+            gh issue comment "$number" --body "Failed again: $RUN ($failed)"
+          fi
+          exit 1

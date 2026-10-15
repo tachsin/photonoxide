@@ -400,9 +400,20 @@ impl CrossSection {
     /// and finite, or a window reaching the centre of the bend (x0 ≤ −radius).
     pub fn bent(
         radius: f64,
+        x: (f64, f64, usize),
+        y: (f64, f64, usize),
+        eps: impl Fn(f64, f64) -> Permittivity,
+    ) -> Result<CrossSection> {
+        CrossSection::bent_cells(radius, x, y, |c, _| eps(c[0], c[1]))
+    }
+
+    /// [`CrossSection::bent`] with each straight cell's permittivity from `cell(centre, size)`,
+    /// its physical centre and size (µm), as a cell averaged over its area takes it.
+    pub(crate) fn bent_cells(
+        radius: f64,
         (x0, x1, nx): (f64, f64, usize),
         (y0, y1, ny): (f64, f64, usize),
-        eps: impl Fn(f64, f64) -> Permittivity,
+        cell: impl Fn([f64; 2], [f64; 2]) -> Permittivity,
     ) -> Result<CrossSection> {
         if !(radius.is_finite() && radius > 0.0) {
             return Err(Error::invalid(
@@ -429,7 +440,10 @@ impl CrossSection {
             let f = (u[i] + u[i + 1]) / radius;
             let f = f.exp();
             for j in 0..ny {
-                let e = eps(x, 0.5 * (y[j] + y[j + 1]));
+                let e = cell(
+                    [x, 0.5 * (y[j] + y[j + 1])],
+                    [xs[i + 1] - xs[i], y[j + 1] - y[j]],
+                );
                 cells.push(Permittivity {
                     xx: e.xx * f,
                     xy: e.xy * f,
@@ -1035,16 +1049,8 @@ pub fn modes_until(
     }
     check_near(near)?;
     let k = wavelength.wavenumber();
-    let k2 = k * k;
-    let n_max = near.unwrap_or_else(|| {
-        cs.cells
-            .iter()
-            .map(|e| e.xx.re.max(e.yy.re).sqrt())
-            .fold(1.0, f64::max)
-    });
     let unknowns = unknowns(cs);
-    let entries = assemble(cs, k2);
-    let shift = c64::new(k2 * n_max * n_max, 0.0);
+    let (entries, shift) = eigenproblem(cs, wavelength, near);
     let Some(pairs) =
         crate::eigen::nearest_until(unknowns.len(), &entries, shift, count, 1e-9, &stop)?
     else {
@@ -1056,6 +1062,132 @@ pub fn modes_until(
             .map(|p| VectorMode::from_unknowns(cs, k, p.value, &unknowns, &p.vector))
             .collect(),
     ))
+}
+
+/// The highest index in `cs`, from its permittivities' real parts: no guided mode's effective
+/// index is above it.
+pub(crate) fn highest_index(cs: &CrossSection) -> f64 {
+    cs.cells
+        .iter()
+        .map(|e| e.xx.re.max(e.yy.re).sqrt())
+        .fold(1.0, f64::max)
+}
+
+/// The matrix [`modes`] solves, as (row, column, value) entries over the unknowns (its
+/// eigenvalues β²), and its shift k₀² n² for `near` (the highest index when `None`).
+pub(crate) fn eigenproblem(
+    cs: &CrossSection,
+    wavelength: Wavelength,
+    near: Option<f64>,
+) -> (Vec<(usize, usize, c64)>, c64) {
+    let k = wavelength.wavenumber();
+    let k2 = k * k;
+    let n_max = near.unwrap_or_else(|| highest_index(cs));
+    (assemble(cs, k2), c64::new(k2 * n_max * n_max, 0.0))
+}
+
+/// Every mode of `cs` at `wavelength` whose effective index lies in `region`, highest Re n_eff
+/// first, with no count and no guess: by contour integrals ([`crate::mode::region`]). Each
+/// quadrature point factorizes its shifted matrix with photonoxide's multifrontal LU, the
+/// points side by side on rayon's threads; the result is the same bits on any number of them.
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] if a shifted matrix can't be factorized, a subspace given in
+/// `search` is too small for the modes in the region, or they don't converge within its
+/// iterations.
+pub fn modes_in(
+    cs: &CrossSection,
+    wavelength: Wavelength,
+    region: &crate::mode::region::Region,
+    search: &crate::mode::region::Search,
+) -> Result<crate::mode::region::Found<VectorMode>> {
+    // (never asked to stop, it always has its modes or an error)
+    modes_in_until(cs, wavelength, region, search, || false)?
+        .ok_or_else(|| Error::invalid("mode search", "stopped"))
+}
+
+/// As [`modes_in`], giving up when `stop` says so: `None` then. It is asked before each batch
+/// of quadrature points, a factorization and its solves each, side by side.
+///
+/// # Errors
+///
+/// As [`modes_in`].
+pub fn modes_in_until(
+    cs: &CrossSection,
+    wavelength: Wavelength,
+    region: &crate::mode::region::Region,
+    search: &crate::mode::region::Search,
+    stop: impl Fn() -> bool,
+) -> Result<Option<crate::mode::region::Found<VectorMode>>> {
+    let k = wavelength.wavenumber();
+    let unknowns = unknowns(cs);
+    let entries = assemble(cs, k * k);
+    let ny = cs.y.len();
+    let positions: Vec<[f64; 3]> = unknowns
+        .iter()
+        .map(|&(_, node)| [cs.x[node / ny], cs.y[node % ny], 0.0])
+        .collect();
+    let Some(found) = crate::mode::region::search(
+        unknowns.len(),
+        &entries,
+        &positions,
+        k,
+        region,
+        search,
+        &stop,
+    )?
+    else {
+        return Ok(None);
+    };
+    Ok(Some(crate::mode::region::Found {
+        modes: found
+            .pairs
+            .into_iter()
+            .map(|p| VectorMode::from_unknowns(cs, k, p.value, &unknowns, &p.vector))
+            .collect(),
+        residuals: found.residuals,
+        estimate: found.estimate,
+        subspace: found.subspace,
+        iterations: found.iterations,
+    }))
+}
+
+/// Every mode of `cs` at `wavelength` with Re n_eff above `above`, highest first, with no
+/// count and no guess: with `above` the cladding's index, every guided mode. By contour
+/// integrals over [`crate::mode::region::Region::above`] up to the cross-section's highest
+/// index, with [`modes_in`].
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] unless `above` is positive and below the cross-section's highest
+/// index, and as [`modes_in`].
+pub fn modes_above(
+    cs: &CrossSection,
+    wavelength: Wavelength,
+    above: f64,
+    search: &crate::mode::region::Search,
+) -> Result<crate::mode::region::Found<VectorMode>> {
+    // (never asked to stop, it always has its modes or an error)
+    modes_above_until(cs, wavelength, above, search, || false)?
+        .ok_or_else(|| Error::invalid("mode search", "stopped"))
+}
+
+/// As [`modes_above`], giving up when `stop` says so, as [`modes_in_until`] does.
+///
+/// # Errors
+///
+/// As [`modes_above`].
+pub fn modes_above_until(
+    cs: &CrossSection,
+    wavelength: Wavelength,
+    above: f64,
+    search: &crate::mode::region::Search,
+    stop: impl Fn() -> bool,
+) -> Result<Option<crate::mode::region::Found<VectorMode>>> {
+    // (the ellipse's leftmost point is `above`: every index inside has a larger real part)
+    let region = crate::mode::region::Region::above(above, highest_index(cs))?;
+    modes_in_until(cs, wavelength, &region, search, stop)
 }
 
 impl VectorMode {
@@ -1294,20 +1426,7 @@ pub(crate) fn soi_leakage(
 /// films 1.66, 1.53, 1.60, 1.66 of 500 nm; substrate 1.50, 1 µm, over a 2 µm PML of α = 5) at
 /// 632.8 nm and spacing `h`: its TE leaky waves nearest each of `near`.
 pub(crate) fn chilwell_leaky(h: f64, near: &[c64]) -> Vec<c64> {
-    let cs = flat_slab(
-        crate::mode::Polarization::Te,
-        &[
-            (1.0, 1.0),
-            (1.66, 0.5),
-            (1.53, 0.5),
-            (1.60, 0.5),
-            (1.66, 0.5),
-            (1.5, 1.0),
-        ],
-        h,
-        2.0,
-        5.0,
-    );
+    let cs = chilwell_flat(h);
     let w = Wavelength::from_um_unchecked(0.6328);
     near.iter()
         .map(|&target| {
@@ -1321,6 +1440,24 @@ pub(crate) fn chilwell_leaky(h: f64, near: &[c64]) -> Vec<c64> {
                 .unwrap_or(c64::new(f64::NAN, f64::NAN))
         })
         .collect()
+}
+
+/// Chilwell and Hodgkinson's four-layer guide lying flat, as [`chilwell_leaky`] solves it.
+pub(crate) fn chilwell_flat(h: f64) -> CrossSection {
+    flat_slab(
+        crate::mode::Polarization::Te,
+        &[
+            (1.0, 1.0),
+            (1.66, 0.5),
+            (1.53, 0.5),
+            (1.60, 0.5),
+            (1.66, 0.5),
+            (1.5, 1.0),
+        ],
+        h,
+        2.0,
+        5.0,
+    )
 }
 
 /// The book's strip as a 2D slab (its slab index, 2.845, 500 nm wide, in 1.444) bent at

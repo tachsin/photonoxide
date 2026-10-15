@@ -903,3 +903,121 @@ pub(crate) fn ellipsoid_bands(scheme: impl Into<Scheme>, n: usize) -> Vec<f64> {
         })
         .collect()
 }
+
+/// The eight bodies of every kind FDTD had before the geometry's, in both models: the shared
+/// one ([`Body`]) and the one before the move ([`super::before::Body`]): a half-space, an
+/// extruded polygon and disk, an ellipsoid at an angle, an elliptic cylinder, and etched shapes
+/// with sloped and vertical walls (a rectangle, a polygon, a ring).
+fn both_models() -> Result<Vec<(Body, super::before::Body)>> {
+    use super::before::Body as Before;
+    use crate::geometry::{Point, Polygon, Shape};
+    use crate::units::Length;
+    let (a, b) = (0.4f64, 1.1f64);
+    let (sa, ca) = a.sin_cos();
+    let (sb, cb) = b.sin_cos();
+    // a rotation about z by a, then about x by b
+    let axes = [
+        [ca, sa * cb, sa * sb],
+        [-sa, ca * cb, ca * sb],
+        [0.0, -sb, cb],
+    ];
+    let poly = Shape::Polygon(Polygon::new(vec![
+        Point::um(-0.3, -0.2),
+        Point::um(0.35, -0.25),
+        Point::um(0.2, 0.3),
+        Point::um(-0.1, 0.15),
+        Point::um(-0.25, 0.28),
+    ])?);
+    let disk = Shape::circle(Point::um(-0.3, 0.25), Length::um(0.11))?;
+    let rect = Shape::rect(Point::um(0.1, -0.3), Length::um(0.4), Length::um(0.15))?;
+    let ring = Shape::ring(Point::um(0.0, 0.0), Length::um(0.3), Length::um(0.08))?;
+    let right = std::f64::consts::FRAC_PI_2;
+    Ok(vec![
+        (
+            Body::half_space([0.0, 0.0, -0.31], [0.1, 0.2, -1.0])?,
+            Before::half_space([0.0, 0.0, -0.31], [0.1, 0.2, -1.0])?,
+        ),
+        (Body::extruded(poly.clone()), Before::extruded(poly.clone())),
+        (
+            Body::ellipsoid([0.05, -0.02, 0.03], [0.27, 0.19, 0.13], axes)?,
+            Before::ellipsoid([0.05, -0.02, 0.03], [0.27, 0.19, 0.13], axes)?,
+        ),
+        (
+            Body::ellipse([0.2, 0.1], [0.12, 0.07], 0.4)?,
+            Before::ellipse([0.2, 0.1], [0.12, 0.07], 0.4)?,
+        ),
+        (Body::extruded(disk.clone()), Before::extruded(disk)),
+        (
+            Body::etched(rect.clone(), [-0.1, 0.12], 1.3)?,
+            Before::etched(rect, [-0.1, 0.12], 1.3)?,
+        ),
+        (
+            Body::etched(poly.clone(), [0.15, 0.3], 1.1)?,
+            Before::etched(poly, [0.15, 0.3], 1.1)?,
+        ),
+        (
+            Body::etched(ring.clone(), [-0.3, -0.2], right)?,
+            Before::etched(ring, [-0.3, -0.2], right)?,
+        ),
+    ])
+}
+
+/// Everything FDTD's smoothing takes from its bodies, the shared ones against the ones before
+/// the move, bit for bit: each body's surface (its signed distance and normal) and whether a
+/// point is beyond its box at three distances, at 15 000 points of a grid through all of them;
+/// and the share of a cell a plane cuts off, the geometry's against the smoothing's own before,
+/// for 20 000 planes and cells, edges and faces (no thickness along an axis) among them, as the
+/// triplets take them. The smoothing's averages, tensors and triplets are the same code as before
+/// on these, so equal bits here are equal bits there. The values that differ in any bit (and
+/// every value if a body can't be made).
+pub(crate) fn bodies_differences() -> usize {
+    let Ok(bodies) = both_models() else {
+        return usize::MAX;
+    };
+    let mut differ = 0;
+    let same = |x: f64, y: f64| x.to_bits() == y.to_bits();
+    let step = 0.037;
+    for i in 0..26 {
+        for j in 0..26 {
+            for k in 0..22 {
+                let p = [
+                    -0.47 + f64::from(i) * step,
+                    -0.47 + f64::from(j) * step,
+                    -0.39 + f64::from(k) * step,
+                ];
+                for (new, old) in &bodies {
+                    let (dn, nn) = new.surface(p);
+                    let (dold, nold) = old.surface(p);
+                    differ += usize::from(!same(dn, dold));
+                    differ += (0..3).filter(|&a| !same(nn[a], nold[a])).count();
+                    for r in [0.0, 0.05, 0.11] {
+                        differ += usize::from(new.beyond(p, r) != old.beyond(p, r));
+                    }
+                }
+            }
+        }
+    }
+    // planes and cells, the same on every run
+    let mut s: u64 = 0x2545_f491_4f6c_dd1d;
+    let mut next = || {
+        s ^= s << 13;
+        s ^= s >> 7;
+        s ^= s << 17;
+        (s >> 11) as f64 / (1u64 << 53) as f64
+    };
+    for case in 0..20_000 {
+        let n = [next() - 0.5, next() - 0.5, next() - 0.5];
+        let l = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
+        let n = n.map(|v| v / l);
+        let mut size = [0.1 + next(), 0.1 + next(), 0.1 + next()];
+        if case % 4 == 1 {
+            size[case % 3] = 0.0;
+        }
+        let d = (next() - 0.5) * 1.5;
+        differ += usize::from(!same(
+            crate::geometry::plane_share(n, d, size),
+            super::before::fill(n, d, size),
+        ));
+    }
+    differ
+}

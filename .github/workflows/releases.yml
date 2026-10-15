@@ -1,0 +1,66 @@
+name: Releases
+
+# Two issues kept up to date every Monday, each by a command of the photonoxide program and
+# .github/scripts/keep-issue.sh (created if missing, its body rewritten, a comment only when
+# something new appears, nothing closed):
+#
+# - "New releases of external libraries" (`photonoxide libraries --releases`): each external
+#   library's newest release where its publisher puts it (PyPI, anaconda.org, NVIDIA's
+#   redistributables, GitHub releases, MUMPS's page, the macOS of GitHub's runners), beside the
+#   version its install guide was checked with and the releases photonoxide-native accepts.
+# - "Major updates available" (`photonoxide dependencies`): the major versions of our own
+#   crates, npm packages, Python requirements and GitHub Actions that our requirements don't
+#   take, which Dependabot's weekly pull request leaves out.
+#
+# Never on a pull request: another project's release isn't a change of ours.
+on:
+  schedule:
+    # Mondays, after the Libraries workflow's installs
+    - cron: '37 5 * * 1'
+  workflow_dispatch:
+
+# reads the repository, and writes the two issues; no other token or secret
+permissions:
+  contents: read
+  issues: write
+
+# one run at a time, so two can't both create an issue
+concurrency:
+  group: releases
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  releases:
+    name: New releases and major updates
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      # sent to GitHub's API alone, for reading releases
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # what Tauri needs on Linux to compile; the window itself isn't opened, and an empty page
+      # stands in for its web view's build
+      - name: Tauri's prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          mkdir -p studio/dist
+          echo '<!doctype html><title>photonoxide</title>' > studio/dist/index.html
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - id: build
+        run: cargo build -p photonoxide-studio
+      - name: New releases of external libraries
+        run: bash .github/scripts/keep-issue.sh "New releases of external libraries" target/debug/photonoxide libraries --releases
+      - name: Major updates available
+        # even when a library's source couldn't be read
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: bash .github/scripts/keep-issue.sh "Major updates available" target/debug/photonoxide dependencies

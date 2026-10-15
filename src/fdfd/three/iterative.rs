@@ -4,16 +4,22 @@ use std::sync::Arc;
 
 use num_complex::Complex64 as c64;
 
+use super::matrix_free::MatrixFree;
 use super::multigrid::{Hierarchy, Multigrid, shifted};
 use super::{Axis, Boundaries3d, Field3d, Grid3d, Lattice, Port3d, PortMode3d, Solver3d};
 use crate::backend::{self, Choice, Form, IterativeSolver};
 use crate::fdfd::Direction;
 use crate::fdfd::krylov::{
-    Convergence, Ilu0, Sparse, Stopping, gmres_preconditioned, qmr, qmr_preconditioned,
-    qmr_preconditioned_by, qmr_similar, qmr_similar_by, restarted_by,
+    BlockConvergence, Convergence, Ilu0, Sparse, Stopping, block_qmr, block_qmr_preconditioned,
+    block_qmr_similar, gmres_preconditioned, qmr, qmr_preconditioned, qmr_preconditioned_by,
+    qmr_similar, qmr_similar_by, restarted_by,
 };
 use crate::units::Wavelength;
 use crate::{Error, Result};
+
+#[path = "recycling.rs"]
+mod recycling;
+pub use recycling::Recycler;
 
 /// The operator QMR iterates on. Both have the same solution.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -39,6 +45,56 @@ impl Formulation {
     }
 }
 
+/// How QMR takes its products with the operator ([`IterativeSolver3d::new_with`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Product {
+    /// By the assembled matrix, as [`IterativeSolver3d::new`]: what ILU(0), the multigrid, an
+    /// iterative backend and Shin and Fan's operator need.
+    #[default]
+    Matrix,
+    /// Without it, as [`IterativeSolver3d::matrix_free`]: two passes over the grid a product,
+    /// for QMR on the curl-curl operator with no preconditioner.
+    MatrixFree,
+    /// Without the matrix only where it wouldn't fit: on the curl-curl operator, when the free
+    /// memory that [`crate::backend::auto`] reads ([`crate::backend::auto::free_memory`]; the
+    /// studio gives it a way to read it) is less than the matrix's solve takes; by the matrix
+    /// otherwise, and when the free memory isn't known. The two products differ in their last
+    /// bits, so the choice is the solver's to report ([`IterativeSolver3d::product`]) and a
+    /// run's to record.
+    Auto,
+}
+
+/// The peak bytes an unknown of QMR's solve on the curl-curl operator by its assembled matrix,
+/// the assembly and the vectors included: the process's peak measured at 1.65 to 1.67 kB an
+/// unknown on the guide (192 000 and 255 552 unknowns) and the strip with ports (941 688), in
+/// docs/methods/fdfd-3d.md ("Without the matrix").
+pub(crate) const MATRIX_SOLVE_BYTES: u64 = 1_700;
+
+/// The peak bytes an unknown of the same solve without the matrix: 0.47 to 0.53 kB measured.
+pub(crate) const MATRIX_FREE_SOLVE_BYTES: u64 = 500;
+
+impl Product {
+    /// What `self` comes to for `unknowns` on `formulation`, with `free` bytes of memory
+    /// (None: unknown): [`Product::Matrix`] or [`Product::MatrixFree`].
+    pub(crate) fn resolved(
+        self,
+        formulation: Formulation,
+        unknowns: usize,
+        free: Option<u64>,
+    ) -> Product {
+        match self {
+            Product::Auto
+                if formulation == Formulation::CurlCurl
+                    && free.is_some_and(|f| MATRIX_SOLVE_BYTES * unknowns as u64 > f) =>
+            {
+                Product::MatrixFree
+            }
+            Product::Auto => Product::Matrix,
+            other => other,
+        }
+    }
+}
+
 /// A 3D FDFD problem for an iterative solver: the matrix assembled, nothing factorized. Memory
 /// grows as the unknowns, not as the factorization's fill.
 ///
@@ -50,8 +106,12 @@ pub struct IterativeSolver3d {
     lattice: Lattice,
     eps: Vec<c64>,
     formulation: Formulation,
-    /// The matrix QMR multiplies by: A, or, when `similarity` is S, B = S A S⁻¹.
+    /// The matrix QMR multiplies by: A, or, when `similarity` is S, B = S A S⁻¹. Empty when
+    /// `free` is the operator.
     matrix: Sparse,
+    /// The same operator without its matrix ([`IterativeSolver3d::matrix_free`]): what QMR
+    /// multiplies by then.
+    free: Option<MatrixFree>,
     /// The curl-curl operator with PMLs or periodic sides is similar to a complex symmetric
     /// matrix by a diagonal S ([`Sparse::symmetrized`]): then `matrix` is that matrix, and QMR
     /// for complex symmetric matrices (Freund 1992) solves with one product an iteration.
@@ -61,6 +121,22 @@ pub struct IterativeSolver3d {
     /// The backend that runs QMR or GMRES, if not photonoxide's own
     /// ([`IterativeSolver3d::with_iterative_backend`]).
     backend: Option<Arc<dyn IterativeSolver>>,
+    /// Whether the choice was `auto` (the default), which runs on the backend this process
+    /// prefers, if any ([`backend::prefer_iterative`]), where it runs the solve; or
+    /// `photonoxide`, always photonoxide's own.
+    auto: bool,
+    /// Whether an S-matrix solves its ports' sources as one block ([`IterativeSolver3d::with_block`]).
+    block: bool,
+    /// Which operator this is, for a recycled space ([`super::Recycler`]): a new number for each
+    /// solver built, and again whenever its preconditioner or backend changes.
+    pub(super) id: u64,
+}
+
+/// A number no solver has had before.
+fn next_id() -> u64 {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    NEXT.fetch_add(1, Ordering::Relaxed)
 }
 
 /// A preconditioner for QMR.
@@ -107,10 +183,115 @@ impl IterativeSolver3d {
             eps,
             formulation,
             matrix,
+            free: None,
             similarity,
             preconditioner: Preconditioning::None,
             backend: None,
+            auto: true,
+            block: false,
+            id: next_id(),
         })
+    }
+
+    /// [`IterativeSolver3d::new`] for QMR on the curl-curl operator ([`Formulation::CurlCurl`])
+    /// without its matrix: each product is two passes over the grid, E to H and back, with the
+    /// PML's stretch, the walls and the Bloch phases as the matrix has them. The same product
+    /// to rounding, so the same iterations but for it; 96 bytes an unknown where the matrix
+    /// and its transpose take about 600, and a product 1.6 to 2.6 times faster on 12 threads.
+    /// A whole solve, from 2 × 10⁵ to 10⁶ unknowns, 1.4 to 1.7 times faster at under a third of
+    /// the peak memory (20 threads); below 10⁵ the matrix, which stays in cache, is as fast or
+    /// faster (docs/methods/fdfd-3d.md, "Without the matrix").
+    ///
+    /// For the solves that take no preconditioner. ILU(0), the multigrid and an iterative
+    /// backend need the matrix: [`IterativeSolver3d::new`].
+    ///
+    /// # Errors
+    ///
+    /// As [`IterativeSolver3d::new`].
+    pub fn matrix_free(
+        grid: Grid3d,
+        wavelength: Wavelength,
+        eps: impl Fn(f64, f64, f64) -> c64,
+        boundaries: Boundaries3d,
+    ) -> Result<IterativeSolver3d> {
+        Self::new_with(
+            grid,
+            wavelength,
+            eps,
+            boundaries,
+            Formulation::CurlCurl,
+            Product::MatrixFree,
+        )
+    }
+
+    /// [`IterativeSolver3d::new`] or [`IterativeSolver3d::matrix_free`], as `product` says:
+    /// [`Product::Auto`] takes the second only where the matrix's solve wouldn't fit in the free
+    /// memory.
+    ///
+    /// # Errors
+    ///
+    /// As [`IterativeSolver3d::new`], and [`Error::InvalidValue`] for [`Product::MatrixFree`]
+    /// on Shin and Fan's operator, which has no product without its matrix.
+    pub fn new_with(
+        grid: Grid3d,
+        wavelength: Wavelength,
+        eps: impl Fn(f64, f64, f64) -> c64,
+        boundaries: Boundaries3d,
+        formulation: Formulation,
+        product: Product,
+    ) -> Result<IterativeSolver3d> {
+        let free = match product {
+            Product::Auto => crate::backend::auto::free_memory(),
+            _ => None,
+        };
+        match product.resolved(formulation, grid.unknowns(), free) {
+            Product::MatrixFree if formulation != Formulation::CurlCurl => Err(Error::invalid(
+                "fdfd solver",
+                "QMR without the matrix is for the curl-curl operator \
+                 (Formulation::CurlCurl): Shin and Fan's needs the matrix",
+            )),
+            Product::MatrixFree => Self::without_matrix(grid, wavelength, eps, boundaries),
+            _ => Self::new(grid, wavelength, eps, boundaries, formulation),
+        }
+    }
+
+    fn without_matrix(
+        grid: Grid3d,
+        wavelength: Wavelength,
+        eps: impl Fn(f64, f64, f64) -> c64,
+        boundaries: Boundaries3d,
+    ) -> Result<IterativeSolver3d> {
+        let (lattice, eps) = Solver3d::setup(grid, wavelength, eps, boundaries)?;
+        let operator = MatrixFree::new(&lattice, &eps);
+        // by QMR for symmetric matrices where it can be, as with the matrix
+        let (similarity, free) = match operator.symmetrized() {
+            Some((s, b)) => (Some(s), b),
+            None => (None, operator),
+        };
+        Ok(IterativeSolver3d {
+            lattice,
+            eps,
+            formulation: Formulation::CurlCurl,
+            matrix: Sparse::new(grid.unknowns(), std::iter::empty()),
+            free: Some(free),
+            similarity,
+            preconditioner: Preconditioning::None,
+            backend: None,
+            auto: true,
+            block: false,
+            id: next_id(),
+        })
+    }
+
+    /// Refuses what needs the matrix of a solver that has none.
+    fn needs_matrix(&self, what: &str) -> Result<()> {
+        if self.free.is_some() {
+            return Err(Error::invalid(
+                "fdfd solver",
+                format!("{what} needs the assembled matrix: IterativeSolver3d::new"),
+            ));
+        }
+        Ok(())
     }
 
     /// The same problem, QMR preconditioned by the incomplete LU factorization of its matrix with
@@ -127,6 +308,7 @@ impl IterativeSolver3d {
     /// converge: its near-null space of gradients makes the incomplete factors useless), or for a
     /// zero pivot.
     pub fn with_ilu(mut self) -> Result<IterativeSolver3d> {
+        self.needs_matrix("ILU(0)")?;
         if self.formulation == Formulation::CurlCurl {
             return Err(Error::invalid(
                 "fdfd preconditioner",
@@ -134,6 +316,7 @@ impl IterativeSolver3d {
             ));
         }
         self.preconditioner = Preconditioning::Ilu(Box::new(Ilu0::new(&self.matrix)?));
+        self.id = next_id();
         Ok(self)
     }
 
@@ -184,6 +367,7 @@ impl IterativeSolver3d {
         direct: &crate::backend::Choice,
     ) -> Result<IterativeSolver3d> {
         let solver = crate::backend::direct(direct)?;
+        self.needs_matrix("the multigrid")?;
         if self.formulation == Formulation::CurlCurl {
             return Err(Error::invalid(
                 "fdfd preconditioner",
@@ -193,6 +377,7 @@ impl IterativeSolver3d {
         let operator = shifted(&self.lattice, &self.eps, &self.matrix, options.shift);
         let hierarchy = Hierarchy::new_on(&self.lattice, &self.eps, operator, options, &solver)?;
         self.preconditioner = Preconditioning::Multigrid(Box::new(hierarchy));
+        self.id = next_id();
         Ok(self)
     }
 
@@ -204,12 +389,24 @@ impl IterativeSolver3d {
     /// tolerance around QMR's runs, and checks GMRES's solution on its own residual, so the
     /// solution is held to the same residual as photonoxide's own.
     ///
+    /// `auto`, the default, is photonoxide's own unless the process prefers a backend
+    /// ([`backend::prefer_iterative`]); then that backend runs the solves it runs as photonoxide
+    /// would (one right-hand side, by the matrix, plain, with ILU(0)'s exact solves, or by the
+    /// multigrid if it runs it and the hierarchy has every level's matrix and Galerkin's coarse
+    /// operators), and photonoxide's own the others (block QMR, GCRO-DR's recycling, and any
+    /// solve without the matrix).
+    ///
     /// # Errors
     ///
     /// [`Error::InvalidValue`] for a backend that isn't registered or available, and for a
     /// solver preconditioned by multigrid with a backend that doesn't run it.
     pub fn with_iterative_backend(mut self, choice: &Choice) -> Result<IterativeSolver3d> {
         self.backend = backend::iterative(choice)?;
+        self.auto = *choice == Choice::Auto;
+        self.id = next_id();
+        if self.backend.is_some() {
+            self.needs_matrix("an iterative backend")?;
+        }
         self.check_backend()?;
         Ok(self)
     }
@@ -228,6 +425,27 @@ impl IterativeSolver3d {
             ));
         }
         Ok(())
+    }
+
+    /// The backend a solve of one right-hand side runs on: the one named; for `auto`, the one
+    /// the process prefers where it runs the solve as photonoxide's own would; `None`,
+    /// photonoxide's own.
+    fn runner(&self) -> Option<Arc<dyn IterativeSolver>> {
+        if self.backend.is_some() {
+            return self.backend.clone();
+        }
+        if !self.auto || self.free.is_some() {
+            return None;
+        }
+        let solver = backend::preferred_iterative()?;
+        let runs = match &self.preconditioner {
+            Preconditioning::None => true,
+            Preconditioning::Ilu(ilu) => ilu.has_factors(),
+            Preconditioning::Multigrid(h) => {
+                solver.runs_multigrid() && h.cycle_for_backend().is_ok()
+            }
+        };
+        runs.then_some(solver)
     }
 
     /// The number of the multigrid's levels, the coarsest included; 0 without one.
@@ -260,9 +478,20 @@ impl IterativeSolver3d {
         self.lattice.grid
     }
 
-    /// The nonzeros of the matrix QMR multiplies by.
+    /// The nonzeros of the matrix QMR multiplies by: none for
+    /// [`IterativeSolver3d::matrix_free`].
     pub fn nonzeros(&self) -> usize {
         self.matrix.nonzeros()
+    }
+
+    /// How QMR takes its products here: [`Product::Matrix`] or [`Product::MatrixFree`] (what
+    /// [`Product::Auto`] came to).
+    pub fn product(&self) -> Product {
+        if self.free.is_some() {
+            Product::MatrixFree
+        } else {
+            Product::Matrix
+        }
     }
 
     /// The field for an electric current J = η₀ J on the edges, as [`Solver3d::solve`] takes
@@ -286,6 +515,78 @@ impl IterativeSolver3d {
     ///
     /// As [`IterativeSolver3d::solve`].
     pub fn solve_system(&self, rhs: &[c64], stopping: Stopping) -> Result<(Field3d, Convergence)> {
+        let b = self.prepared(rhs)?;
+        let (values, convergence) = self.solve_prepared(&b, stopping)?;
+        Ok((
+            Field3d {
+                lattice: self.lattice.clone(),
+                values,
+            },
+            convergence,
+        ))
+    }
+
+    /// E of the formulation's system for a right-hand side already [`IterativeSolver3d::prepared`],
+    /// by the solver this problem has.
+    pub(super) fn solve_prepared(
+        &self,
+        b: &[c64],
+        stopping: Stopping,
+    ) -> Result<(Vec<c64>, Convergence)> {
+        self.check_backend()?;
+        let runner = self.runner();
+        Ok(match &self.preconditioner {
+            Preconditioning::Ilu(ilu) => match &runner {
+                Some(solver) => {
+                    let matrix = self.matrix.as_matrix(Form::General)?;
+                    let factors = ilu.factors().ok_or_else(|| {
+                        Error::invalid("iterative backend", "ILU(0) by Jacobi sweeps")
+                    })?;
+                    qmr_preconditioned_by(&self.matrix, ilu.as_ref(), b, stopping, &|rhs, st| {
+                        solver.qmr_run_ilu(&matrix, &factors, rhs, st)
+                    })?
+                }
+                None => qmr_preconditioned(&self.matrix, ilu.as_ref(), b, stopping)?,
+            },
+            // a cycle is worth many products with A, and GMRES takes one per iteration where
+            // QMR takes two (the cycle and its transpose)
+            Preconditioning::Multigrid(h) => match &runner {
+                Some(solver) => {
+                    let cycle = h.cycle_for_backend()?;
+                    let (x, how) =
+                        solver.gmres_multigrid(self.matrix.rows(), &cycle, b, stopping)?;
+                    checked(&self.matrix, b, x, how, stopping)?
+                }
+                None => gmres_preconditioned(&self.matrix, h.as_ref(), b, stopping, h.restart())?,
+            },
+            // without the matrix: by the operator, on its symmetric form where it has one
+            Preconditioning::None if self.free.is_some() => match (&self.free, &self.similarity) {
+                (Some(operator), Some(s)) => qmr_similar(operator, s, b, stopping)?,
+                (Some(operator), None) => qmr(operator, b, stopping)?,
+                (None, _) => qmr(&self.matrix, b, stopping)?,
+            },
+            Preconditioning::None => match (&runner, &self.similarity) {
+                (Some(solver), Some(s)) => {
+                    let matrix = self.matrix.as_matrix(Form::Symmetric)?;
+                    qmr_similar_by(&self.matrix, s, b, stopping, &|rhs, st| {
+                        solver.qmr_run(&matrix, rhs, st)
+                    })?
+                }
+                (Some(solver), None) => {
+                    let matrix = self.matrix.as_matrix(Form::General)?;
+                    restarted_by(&self.matrix, b, stopping, &|rhs, st| {
+                        solver.qmr_run(&matrix, rhs, st)
+                    })?
+                }
+                (None, Some(s)) => qmr_similar(&self.matrix, s, b, stopping)?,
+                (None, None) => qmr(&self.matrix, b, stopping)?,
+            },
+        })
+    }
+
+    /// A right-hand side as the formulation takes it: zero on the fixed values (walls), and
+    /// transformed with Shin and Fan's operator.
+    pub(super) fn prepared(&self, rhs: &[c64]) -> Result<Vec<c64>> {
         let n = self.lattice.grid.unknowns();
         if rhs.len() != n {
             return Err(Error::invalid(
@@ -302,58 +603,79 @@ impl IterativeSolver3d {
                 }
             })
             .collect();
-        let b = self
+        Ok(self
             .lattice
-            .transformed_rhs(&self.eps, &b, self.formulation.s());
+            .transformed_rhs(&self.eps, &b, self.formulation.s()))
+    }
+
+    /// The same problem, an S-matrix's ports solved as one block
+    /// ([`IterativeSolver3d::solve_systems`]) instead of one QMR solve each.
+    pub fn with_block(mut self, block: bool) -> IterativeSolver3d {
+        self.block = block;
+        self
+    }
+
+    /// The fields E of A E = b for each of the right-hand sides `rhs`, as
+    /// [`IterativeSolver3d::solve_system`] takes them, all at once by block QMR (R. W. Freund,
+    /// M. Malhotra, Linear Algebra Appl. 254, 119 (1997), doi:10.1016/S0024-3795(96)00529-0):
+    /// one block Krylov space for them all, with the preconditioner and operator this problem
+    /// has, and each field held to the relative residual `stopping` asks. On the curl-curl
+    /// operator, by its complex symmetric form on the similar matrix: one product an iteration.
+    /// The multigrid cycle takes block QMR too (a cycle and its transpose an iteration), where
+    /// [`IterativeSolver3d::solve_system`] takes GMRES. With an iterative backend, which runs
+    /// single QMR, the right-hand sides are solved one at a time by it.
+    ///
+    /// # Errors
+    ///
+    /// As [`IterativeSolver3d::solve`], for any of them.
+    pub fn solve_systems(
+        &self,
+        rhs: &[Vec<c64>],
+        stopping: Stopping,
+    ) -> Result<(Vec<Field3d>, BlockConvergence)> {
+        let b: Vec<Vec<c64>> = rhs
+            .iter()
+            .map(|r| self.prepared(r))
+            .collect::<Result<_>>()?;
         self.check_backend()?;
-        let (values, convergence) = match &self.preconditioner {
-            Preconditioning::Ilu(ilu) => match &self.backend {
-                Some(solver) => {
-                    let matrix = self.matrix.as_matrix(Form::General)?;
-                    let factors = ilu.factors().ok_or_else(|| {
-                        Error::invalid("iterative backend", "ILU(0) by Jacobi sweeps")
-                    })?;
-                    qmr_preconditioned_by(&self.matrix, ilu.as_ref(), &b, stopping, &|rhs, st| {
-                        solver.qmr_run_ilu(&matrix, &factors, rhs, st)
-                    })?
-                }
-                None => qmr_preconditioned(&self.matrix, ilu.as_ref(), &b, stopping)?,
-            },
-            // a cycle is worth many products with A, and GMRES takes one per iteration where
-            // QMR takes two (the cycle and its transpose)
-            Preconditioning::Multigrid(h) => match &self.backend {
-                Some(solver) => {
-                    let cycle = h.cycle_for_backend()?;
-                    let (x, how) =
-                        solver.gmres_multigrid(self.matrix.rows(), &cycle, &b, stopping)?;
-                    checked(&self.matrix, &b, x, how, stopping)?
-                }
-                None => gmres_preconditioned(&self.matrix, h.as_ref(), &b, stopping, h.restart())?,
-            },
-            Preconditioning::None => match (&self.backend, &self.similarity) {
-                (Some(solver), Some(s)) => {
-                    let matrix = self.matrix.as_matrix(Form::Symmetric)?;
-                    qmr_similar_by(&self.matrix, s, &b, stopping, &|rhs, st| {
-                        solver.qmr_run(&matrix, rhs, st)
-                    })?
-                }
-                (Some(solver), None) => {
-                    let matrix = self.matrix.as_matrix(Form::General)?;
-                    restarted_by(&self.matrix, &b, stopping, &|rhs, st| {
-                        solver.qmr_run(&matrix, rhs, st)
-                    })?
-                }
-                (None, Some(s)) => qmr_similar(&self.matrix, s, &b, stopping)?,
-                (None, None) => qmr(&self.matrix, &b, stopping)?,
+        let field = |values: Vec<c64>| Field3d {
+            lattice: self.lattice.clone(),
+            values,
+        };
+        if self.backend.is_some() {
+            let mut fields = Vec::with_capacity(rhs.len());
+            let mut how = BlockConvergence {
+                iterations: 0,
+                products: 0,
+                deflations: 0,
+                dropped: 0,
+                restarts: 0,
+                columns: Vec::new(),
+            };
+            for r in rhs {
+                let (f, once) = self.solve_system(r, stopping)?;
+                how.iterations += once.iterations;
+                how.products += once.iterations;
+                how.columns.push(once);
+                fields.push(f);
+            }
+            return Ok((fields, how));
+        }
+        let (values, how) = match &self.preconditioner {
+            Preconditioning::Ilu(ilu) => {
+                block_qmr_preconditioned(&self.matrix, ilu.as_ref(), &b, stopping)?
+            }
+            Preconditioning::Multigrid(h) => {
+                block_qmr_preconditioned(&self.matrix, h.as_ref(), &b, stopping)?
+            }
+            Preconditioning::None => match (&self.free, &self.similarity) {
+                (Some(operator), Some(s)) => block_qmr_similar(operator, s, &b, stopping)?,
+                (Some(operator), None) => block_qmr(operator, &b, stopping, false, None)?,
+                (None, Some(s)) => block_qmr_similar(&self.matrix, s, &b, stopping)?,
+                (None, None) => block_qmr(&self.matrix, &b, stopping, false, None)?,
             },
         };
-        Ok((
-            Field3d {
-                lattice: self.lattice.clone(),
-                values,
-            },
-            convergence,
-        ))
+        Ok((values.into_iter().map(field).collect(), how))
     }
 }
 
@@ -429,7 +751,8 @@ impl IterativeSolver3d {
     }
 
     /// As [`Solver3d::s_matrix`], each run solved by QMR as `stopping` asks: S is as accurate
-    /// as the runs' fields.
+    /// as the runs' fields. With [`IterativeSolver3d::with_block`], all the ports' runs at once
+    /// ([`IterativeSolver3d::solve_systems`]).
     ///
     /// # Errors
     ///
@@ -438,12 +761,17 @@ impl IterativeSolver3d {
         Ok(self.s_matrix_with_convergence(ports, stopping)?.0)
     }
 
-    /// As [`IterativeSolver3d::s_matrix`], with how each run's QMR went, in the ports' order.
+    /// As [`IterativeSolver3d::s_matrix`], with how each run's QMR went, in the ports' order;
+    /// for a block, each port's column of it (its `iterations` the block's when it converged).
     pub(crate) fn s_matrix_with_convergence(
         &self,
         ports: &[Port3d],
         stopping: Stopping,
     ) -> Result<(Vec<Vec<c64>>, Vec<Convergence>)> {
+        if self.block {
+            let (s, how) = self.s_matrix_block(ports, stopping)?;
+            return Ok((s, how.columns));
+        }
         let mut runs = Vec::with_capacity(ports.len());
         let s = self.lattice.s_matrix(ports, |rhs| {
             let (field, convergence) = self.solve_system(rhs, stopping)?;
@@ -451,5 +779,33 @@ impl IterativeSolver3d {
             Ok(field)
         })?;
         Ok((s, runs))
+    }
+
+    /// As [`IterativeSolver3d::s_matrix`], every port's run at once by block QMR
+    /// ([`IterativeSolver3d::solve_systems`]), whether or not [`IterativeSolver3d::with_block`]
+    /// asked for it; and how the block went.
+    ///
+    /// # Errors
+    ///
+    /// As [`IterativeSolver3d::s_matrix`].
+    pub fn s_matrix_block(
+        &self,
+        ports: &[Port3d],
+        stopping: Stopping,
+    ) -> Result<(Vec<Vec<c64>>, BlockConvergence)> {
+        let mut how = BlockConvergence {
+            iterations: 0,
+            products: 0,
+            deflations: 0,
+            dropped: 0,
+            restarts: 0,
+            columns: Vec::new(),
+        };
+        let s = self.lattice.s_matrix_together(ports, |sources| {
+            let (fields, block) = self.solve_systems(sources, stopping)?;
+            how = block;
+            Ok(fields)
+        })?;
+        Ok((s, how))
     }
 }

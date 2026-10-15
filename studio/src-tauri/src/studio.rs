@@ -43,7 +43,19 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        // the stable channel: a later release, or from a nightly, whatever the release is
+        // (switching back to Stable steps down on purpose; see channels::stable_accepts)
+        .plugin(
+            tauri_plugin_updater::Builder::new()
+                .default_version_comparator(|current, release| {
+                    crate::channels::stable_accepts(
+                        crate::channels::this_build().nightly(),
+                        &current,
+                        &release.version,
+                    )
+                })
+                .build(),
+        )
         .plugin(tauri_plugin_process::init())
         // the window opens where it was left, at the size it had
         .plugin(tauri_plugin_window_state::Builder::default().build())
@@ -74,11 +86,25 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             published_report,
             method_docs,
             preview_scene,
+            preview_ports,
             save_text,
             crate::academy::academy,
             crate::academy::academy_chart,
             crate::libraries::libraries,
             crate::libraries::install,
+            crate::channels::nightly_status,
+            crate::channels::nightly_started,
+            crate::channels::nightly_check,
+            crate::channels::nightly_prerequisites,
+            crate::channels::nightly_install_tool,
+            crate::channels::nightly_build,
+            crate::channels::nightly_restart,
+            crate::channels::nightly_progress,
+            crate::channels::nightly_cancel,
+            crate::channels::nightly_install,
+            crate::channels::nightly_install_package,
+            crate::channels::nightly_roll_back,
+            crate::channels::nightly_clear_cache,
             start_bench,
             crate::benchmarks::bench_data,
             crate::benchmarks::bench_catalogue,
@@ -88,6 +114,13 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::materials::materials,
             crate::materials::material_curves,
             crate::materials::material_at,
+            crate::devices::device_library,
+            crate::devices::device_geometry,
+            crate::devices::device_derived,
+            crate::devices::device_spectrum,
+            crate::devices::device_touchstone,
+            crate::devices::save_device,
+            crate::devices::read_device,
             crate::circuits::component_library,
             crate::circuits::component_spectrum,
             crate::circuits::measured_component,
@@ -110,6 +143,12 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
                 .unwrap_or_else(|_| started_in.join(".photonoxide"))
                 .join("settings.json");
             let documents = paths.document_dir().ok();
+            let channels = crate::channels::State::new(
+                crate::channels::nightly_dir(paths.app_local_data_dir().ok()),
+                crate::channels::identity_of(app.config()),
+            );
+            crate::channels::at_start(&channels);
+            app.manage(channels);
             let settings = Settings::load(&settings_file);
             let workspace = settings::workspace(&settings, &started_in, documents.as_deref());
             let mut started = Vec::new();
@@ -147,7 +186,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             .build()?;
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(context())
         .map_err(|e| format!("can't open the studio window: {e}"))?;
     if let Some(Live {
         linger, finished, ..
@@ -186,6 +225,11 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// The program's Tauri context: its configuration and the window's files.
+pub fn context() -> tauri::Context<tauri::Wry> {
+    tauri::generate_context!()
 }
 
 fn window_title(dir: &Path) -> String {
@@ -321,6 +365,8 @@ struct AppState {
     /// This copy was installed from a release (an installer, AppImage, package or app), so it
     /// can update itself; a build from the repository can't.
     updatable: bool,
+    /// What it was built from: its commit, and its channel (see channels.rs).
+    build: crate::channels::BuildInfo,
 }
 
 fn app_state_of(studio: &Studio) -> AppState {
@@ -330,6 +376,7 @@ fn app_state_of(studio: &Studio) -> AppState {
         version: photonoxide::VERSION.to_owned(),
         platform: format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
         updatable: !cfg!(debug_assertions) && tauri::utils::platform::bundle_type().is_some(),
+        build: crate::channels::this_build(),
     }
 }
 
@@ -340,7 +387,12 @@ fn app_state(state: tauri::State<'_, Studio>) -> AppState {
 
 /// Saves `settings`, and moves to the workspace they name.
 #[tauri::command]
-fn save_settings(state: tauri::State<'_, Studio>, settings: Settings) -> Result<AppState, String> {
+fn save_settings(
+    state: tauri::State<'_, Studio>,
+    mut settings: Settings,
+) -> Result<AppState, String> {
+    // a channel this version doesn't know is Stable
+    settings.channel = crate::channels::channel_of(&settings.channel).into();
     settings.save(&state.settings_file)?;
     *lock(&state.workspace) =
         settings::workspace(&settings, &state.started_in, state.documents.as_deref());
@@ -353,7 +405,7 @@ fn save_settings(state: tauri::State<'_, Studio>, settings: Settings) -> Result<
 struct JobItem {
     path: String,
     name: String,
-    /// The task's kind, e.g. `"modes"`.
+    /// The task's kind, e.g. `"modes"`; `"device"` for a device's design.
     kind: String,
     /// The job file's opening comment.
     about: String,
@@ -398,6 +450,9 @@ fn home(state: tauri::State<'_, Studio>) -> Home {
 }
 
 fn kind_of(job: &Job) -> String {
+    if job.device().is_some() {
+        return "device".into();
+    }
     job.task()
         .get("kind")
         .and_then(|k| k.as_str())
@@ -500,13 +555,13 @@ struct JobExample {
 
 /// What ships inside the program: the examples and the job files.
 #[derive(Serialize)]
-struct Catalog {
+pub(crate) struct Catalog {
     examples: Vec<examples::Example>,
     jobs: Vec<JobExample>,
 }
 
 #[tauri::command]
-fn catalog() -> Catalog {
+pub(crate) fn catalog() -> Catalog {
     Catalog {
         examples: examples::list(),
         jobs: examples::jobs()
@@ -793,6 +848,14 @@ fn preview_scene(text: String) -> Result<Event, String> {
     job::preview(&job).map_err(|e| e.to_string())
 }
 
+/// The named ports of the job in `text`'s components (a device's ports, for a `[device]`), for
+/// the studio to mark on its scene.
+#[tauri::command]
+fn preview_ports(text: String) -> Result<Vec<job::ScenePort>, String> {
+    let job = Job::parse(&text).map_err(|e| e.to_string())?;
+    job::preview_ports(&job).map_err(|e| e.to_string())
+}
+
 /// Every event of the run in `dir`, for comparing runs.
 #[tauri::command]
 fn run_events(dir: String) -> Result<Vec<Event>, String> {
@@ -883,11 +946,13 @@ macro_rules! method_docs {
 method_docs!(
     "backends.md",
     "bends.md",
+    "block-qmr.md",
     "catalogue.md",
     "circuit-adjoint.md",
     "circuits.md",
     "compact.md",
     "components.md",
+    "contour.md",
     "conventions.md",
     "dispersion.md",
     "eigen.md",
@@ -904,6 +969,7 @@ method_docs!(
     "materials.md",
     "multilayer.md",
     "pml.md",
+    "recycling.md",
     "slab-fd.md",
     "slab.md",
     "vector.md",

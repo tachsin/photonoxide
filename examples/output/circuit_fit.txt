@@ -1,6 +1,6 @@
 An add-drop ring's through and drop spectra, 81 wavelengths from 1.548 to 1.556 µm, made by Bogaerts et al.'s Eqs. 5 and 6, exact: no grid
   made with κ₁² = 0.08, κ₂² = 0.05, 20 dB/cm, R = 10 µm; both fits from κ₁² = 0.12, κ₂² = 0.03, 10 dB/cm, R = 10.002 µm, to F below 1e-18
-  L-BFGS-B with the adjoint gradient: 78 evaluations, each 81 circuit solves and 81 adjoint solves
+  L-BFGS-B with the adjoint gradient: 79 evaluations, each 81 circuit solves and 81 adjoint solves
   L-BFGS-B: κ₁²                          0.080000   paper 0.08       ± 1e-8      ok
   L-BFGS-B: κ₂²                          0.050000   paper 0.05       ± 1e-8      ok
   L-BFGS-B: loss (dB/cm)                20.000000   paper 20         ± 1e-5      ok

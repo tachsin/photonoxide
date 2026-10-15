@@ -15,6 +15,12 @@
 //! and a PML outside the bend, against the exact bend: E normal to the bend plane, where the
 //! map is exact, and E in it, where it isn't (printed; the validation report checks them).
 //!
+//! Last, the whole 500 × 220 nm strip on 220 nm SOI bent at 2 µm through photonoxide's bend
+//! device ([`StripBend`]), printed: its 2D model, this exact bent slab with the effective index
+//! method's slab index, and its 3D one, the full-vector solver's straight strip plus the
+//! conformal map's shift. The 2D model's index is the effective index method's, a few per cent
+//! high, and isn't the bend's.
+//!
 //! ```sh
 //! cargo run --release --example bend_loss
 //! ```
@@ -24,6 +30,8 @@ mod common;
 use std::process::ExitCode;
 
 use photonoxide::Complex64 as c64;
+use photonoxide::circuit::Fidelity;
+use photonoxide::device::{Device, StripBend, Values};
 use photonoxide::mode::Polarization;
 use photonoxide::mode::bend::{SlabBend, marcuse_loss};
 use photonoxide::mode::dispersion::bend_loss_db;
@@ -112,6 +120,22 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                 exact.re, exact.im, found.re, found.im
             );
         }
+    }
+    // the whole strip through photonoxide's bend device: its 2D model, the exact bent slab of
+    // the strip seen from above (the effective index method's 2.84 in 1.444), and its 3D one,
+    // the straight strip by Hadley's equations plus the conformal map's shift
+    let bend = StripBend::new();
+    let values = Values::new(&bend, &[("radius", 2.0), ("loss", 0.0)])?;
+    println!("the bend device: a 500 x 220 nm strip on 220 nm SOI bent at 2 um, at 1.55 um");
+    for fidelity in [Fidelity::TwoD, Fidelity::ThreeD] {
+        let built = bend.component(&values, fidelity)?;
+        let figure = |s: &str| built.figure(s).map_or(f64::NAN, |f| f.value);
+        println!(
+            "  {fidelity}: n_eff {:.5} along the arc, radiation {:.2e} dB per 90 deg ({})",
+            figure("n_eff"),
+            figure("radiation_90"),
+            built.figures[0].grid
+        );
     }
     Ok(checks.finish())
 }

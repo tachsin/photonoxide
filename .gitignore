@@ -1,3 +1,9 @@
 /target
 /assets/brand/target
 /runs
+# the Python package: its native module when built in place, its wheels and pytest's caches
+__pycache__/
+*.so
+*.pyd
+/python/dist
+/python/.pytest_cache

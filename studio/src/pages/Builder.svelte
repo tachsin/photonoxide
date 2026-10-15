@@ -326,7 +326,7 @@
       {:else}
         <p class="px-3 py-2 text-xs faint">No jobs saved yet. Save one and it appears here.</p>
       {/each}
-      <p class="px-2 pt-4 pb-1.5 text-[10.5px] font-semibold tracking-wider uppercase faint">Start from an example</p>
+      <p class="px-2 pt-4 pb-1.5 text-[10.5px] font-semibold tracking-wider uppercase faint">Start from a template</p>
       {#each catalog.data?.jobs ?? [] as j (j.file)}
         <button class="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm hover:bg-base-content/4" onclick={() => load(j.text, null)}>
           <Copy size={13} class="faint" /><span class="truncate">{j.name}</span>
@@ -468,7 +468,10 @@
             <NumField label="x to" length="um" bind:value={model.x_um[1]} step={0.1} />
             <OptField label="Cut at y" length="um" bind:value={model.cut_y_um} step={0.1} hint="Where the cross-section is taken; the modes travel along y" placeholder="0" />
           {/if}
-          <NumField label="Modes" bind:value={model.modes} integer step={1} min={1} hint="How many, from the highest effective index: 1 to 50" />
+          {#if model.modes_above === null}
+            <NumField label="Modes" bind:value={model.modes} integer step={1} min={1} hint="How many, from the highest effective index: 1 to 50. Or give a threshold below for every mode above it" />
+          {/if}
+          <OptField label="Every mode above n_eff" bind:value={model.modes_above} step={0.01} hint="Every mode whose effective index is above this, with no count: the cladding's index (1.444 for oxide) gives every guided mode. By contour integrals; empty for a count of modes" placeholder="a count" />
         {/if}
         <NumField label="Grid step" length="nm" bind:value={model.step_nm} step={5} min={1} hint="Smaller is more accurate and slower; the error falls as the square of the step" />
         {#if model.kind === "fdfd"}

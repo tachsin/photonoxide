@@ -17,7 +17,7 @@
 mod matching;
 mod multifrontal;
 
-pub(crate) use multifrontal::{Analysis, Multifrontal};
+pub(crate) use multifrontal::{Analysis, Multifrontal, faer_lu};
 
 /// Below this many unknowns a part is numbered as it is, not dissected further.
 const LEAF: usize = 64;

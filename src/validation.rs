@@ -13,7 +13,6 @@
 //! tolerance, not the raw error, so it reads the same on every platform.
 
 use std::f64::consts::TAU;
-use std::fmt::Write as _;
 
 use num_complex::Complex64;
 
@@ -796,6 +795,118 @@ pub fn cases() -> Vec<Case> {
             run: fdfd3d_gmres_multigrid_direct,
         },
         Case {
+            id: "fdfd3d/block-qmr-s-matrix",
+            title: r"3D FDFD S-matrix by block QMR, all its ports' runs at once, against one QMR solve each, both to a relative residual of 1e-10: a directional coupler's straight section (two silicon strips $350 \times 220$ nm, 150 nm apart, in oxide; $18 \times 32 \times 24$ cells of 50 nm, PMLs of 4 all round), 8 ports (each end's four supermodes), on the curl-curl operator's complex symmetric similarity, its matrix stored and not (largest difference of an entry shown)",
+            tier: Tier::Analytic,
+            source: r"the same system solved two ways: block QMR, R. W. Freund, M. Malhotra, Linear Algebra Appl. 254, 119 (1997), doi:10.1016/S0024-3795(96)00529-0, Algorithm 4.2 in its complex symmetric form (their Section 6, $J = I$), against QMR for complex symmetric matrices (R. W. Freund, SIAM J. Sci. Stat. Comput. 13, 425 (1992), doi:10.1137/0913023); measured 1.7e-11 with the matrix and without it, in 6798 block iterations against 7336 summed",
+            run: fdfd3d_block_qmr_s_matrix,
+        },
+        Case {
+            id: "fdfd3d/block-qmr-ilu-s-matrix",
+            title: r"The same coupler's S-matrix on Shin and Fan's operator with stretched PMLs, preconditioned by ILU(0) and by the multigrid cycle: block QMR in its general form (left and right Lanczos vectors) against one preconditioned solve each (QMR with ILU(0), GMRES with the cycle), all to 1e-10 (largest difference of an entry shown)",
+            tier: Tier::Analytic,
+            source: r"the same system solved two ways: Freund and Malhotra's Algorithm 4.2 on $A M^{-1}$ (doi:10.1016/S0024-3795(96)00529-0), its Lanczos vectors built a vector at a time (their Algorithm 3.1) and biorthogonalized in the order of modified Gram–Schmidt (their Remark 3.2), against QMR (R. W. Freund, N. M. Nachtigal, Numer. Math. 60, 315 (1991), doi:10.1007/BF01385726) and GMRES (Y. Saad, Iterative Methods for Sparse Linear Systems, 2nd ed., SIAM (2003), doi:10.1137/1.9780898718003); measured 6.6e-11 with ILU(0), 1.1e-10 with the cycle",
+            run: fdfd3d_block_qmr_ilu_s_matrix,
+        },
+        Case {
+            id: "fdfd3d/block-qmr-iterations",
+            title: r"Convergence: the block's iterations (one product with $A$ and one with $A^\mathsf{T}$ each) over the single solves' summed, for the ILU(0)-preconditioned coupler's 8 ports to 1e-10 (fdfd3d/block-qmr-ilu-s-matrix; shown)",
+            tier: Tier::Analytic,
+            source: r"a block Krylov space of dimension $\mu$ serves all the systems where $m$ single solves each build their own, so a block can take up to $m$ times fewer products (Freund and Malhotra, doi:10.1016/S0024-3795(96)00529-0, Section 2.3); measured 0.44. Without a preconditioner the curl-curl coupler's ratio is 0.93: a product carries a field one cell, so each source still needs as many as its distance across the grid",
+            run: fdfd3d_block_qmr_iterations,
+        },
+        Case {
+            id: "fdfd3d/block-qmr-dependent",
+            title: r"Block QMR's deflation on the 50 nm coupler's curl-curl operator $A$ (41 472 unknowns): right-hand sides $b_1$, $b_2$ (two ports' mode sources), $b_1 + 2b_2$ and $A b_1$, to 1e-10, by the general form on $A$ and the symmetric one on its similarity: the largest difference of $x_4$ from $b_1$ and of $x_3$ from $x_1 + 2x_2$, relative to the largest value (shown)",
+            tier: Tier::Analytic,
+            source: r"Freund and Malhotra (doi:10.1016/S0024-3795(96)00529-0): $b_1 + 2b_2$ is deflated as the block starts and its system recovered as $x_1 + 2x_2$ (Eq. 4.18); $A b_1$ makes the first product dependent, and the system that weighs most in the combination left without a quasi-residual leaves the block and is recovered at the end (Eqs. 4.16–4.20); $A x = A b_1$ is solved by $b_1$; measured 6.2e-15",
+            run: fdfd3d_block_qmr_dependent,
+        },
+        Case {
+            id: "fdfd3d/block-qmr-convergence",
+            title: r"Convergence in the tolerance: a closed guide's S-matrix by block QMR (a silicon strip stepping from 300 to 400 nm wide in a box of oxide, $20 \times 12 \times 10$ cells of 50 nm, two modes at each of two ports) against the direct solver's, at relative residuals of 1e-4 and 1e-10: the error's decades per decade of the tolerance, its departure from 1 (shown)",
+            tier: Tier::Analytic,
+            source: r"the block's fields hold each system to its own residual, so their error, and S's, falls with the tolerance: as $\kappa(A)$ times it, a slope of 1; measured 1.2e-5, 1.7e-7, 2.3e-9 and 1.9e-11 at 1e-4, 1e-6, 1e-8 and 1e-10",
+            run: fdfd3d_block_qmr_convergence,
+        },
+        Case {
+            id: "fdfd3d/block-qmr-freund-malhotra",
+            title: r"Block QMR on Freund and Malhotra's Example 7.1 (a convection–diffusion equation on the unit cube, $15^3$ interior points, $h = 1/16$, two-sided SSOR, random right-hand sides and left block, $X_0 = 0$, to a relative residual of 1e-6): the iterations for five right-hand sides over those for one (medians over 5 draws, shown)",
+            tier: Tier::Published,
+            source: r"R. W. Freund, M. Malhotra, Linear Algebra Appl. 254, 119 (1997), doi:10.1016/S0024-3795(96)00529-0, Example 7.1: 19 iterations for one, 85 for five, a ratio of 4.47; their Eq. 7.4 read as $-\nabla\cdot(e^{xy}\nabla u) + 25(u_x + u_y + u_z) + u/(1+x+y+z) = f$ (their 3375 unknowns and 22 275 nonzeros, and their cell Reynolds number below one); their stopping test isn't legible in our scanned copy, and the counts depend on it (14 and 63 at 1e-6, 18 and 85 at 1e-9) where the ratio hardly does",
+            run: fdfd3d_block_qmr_freund_malhotra,
+        },
+        Case {
+            id: "fdfd3d/block-qmr-threads",
+            title: "The coupler's S-matrix by block QMR (50 nm, 8 ports, 1e-10) on 1 and on 4 threads: its entries whose bits differ, and its convergence (count shown)",
+            tier: Tier::Analytic,
+            source: "every vector operation is a pass over fixed chunks, each chunk's sums in order and the chunks' in order, and the products and triangular solves of a block are each vector's own, row by row: the same computation on any number of threads",
+            run: fdfd3d_block_qmr_threads,
+        },
+        Case {
+            id: "fdfd3d/recycle-s-matrix",
+            title: r"3D FDFD S-matrices over a wavelength sweep, recycled from solve to solve, against one plain solve per port: a directional coupler's straight section (two silicon strips $350 \times 220$ nm, 150 nm apart, in oxide; $18 \times 32 \times 24$ cells of 50 nm, PMLs of 4 all round), one mode at each end, at 1.53, 1.54, 1.55 and 1.56 µm; GMRES with the multigrid on Shin and Fan's operator with stretched PMLs (GCRO-DR keeping 10 vectors and the last 4 solutions, to 1e-11) and QMR on the curl-curl operator's symmetric similarity (the last 4 solutions, to 1e-10, the lowest it reaches here) (largest difference of an entry shown)",
+            tier: Tier::Analytic,
+            source: r"the same systems solved two ways: GCRO-DR, M. L. Parks, E. de Sturler, G. Mackey, D. D. Johnson, S. Maiti, SIAM J. Sci. Comput. 28, 1651 (2006), doi:10.1137/040607277, Appendix, on $A M^{-1}$; the earlier solutions' combination of least residual as the start, P. F. Fischer, Comput. Methods Appl. Mech. Engrg. 163, 193 (1998), doi:10.1016/S0045-7825(98)00012-7, Method 1; each field held to its own residual, so the S-matrices agree within the residual times the condition; measured 6.8e-12 by the multigrid and 2.1e-11 by QMR",
+            run: fdfd3d_recycle_s_matrix,
+        },
+        Case {
+            id: "fdfd3d/recycle-deflation",
+            title: r"GCRO-DR recycling an exact invariant subspace: $A = H D H$ with $H$ a Householder reflector ($n = 300$, dense), 8 eigenvalues of $D$ near zero and 292 on a circle about 1.5, the 8 small ones' eigenvectors recycled, to 1e-10: its residual at each step against full GMRES's on the deflated problem (the other 292 eigenvalues) (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"Parks et al. (doi:10.1137/040607277), Theorem 3.1 with $\delta = 0$: with $C$ an exact invariant subspace, $(I - C C^\mathsf{H}) A$ on its complement is unitarily similar to $D$'s other eigenvalues, and GCRO-DR's residual is GMRES's on the deflated problem step by step; measured 2.2e-11, both in 39 iterations against full GMRES's 114 on $A$",
+            run: fdfd3d_recycle_deflation,
+        },
+        Case {
+            id: "fdfd3d/recycle-convergence",
+            title: r"Convergence as the recycled space grows: the coupler's S-matrix (fdfd3d/recycle-s-matrix's, by the multigrid, to 1e-10) at 1.500, 1.505, … 1.535 µm, recycling the last 0, 2, 4, 6 and 8 solutions: the iterations at the last wavelength, which fall with each, the 8 solutions' over the plain sweep's (shown)",
+            tier: Tier::Analytic,
+            source: r"a wavelength's field is near a polynomial in the wavelength through the last ones' (Fischer, doi:10.1016/S0045-7825(98)00012-7, Method 1, finds the best combination), so each pair of solutions kept (two ports) raises the order the start is good to; measured 103, 78, 62, 42 and 24 iterations, 0.23 of the plain sweep's",
+            run: fdfd3d_recycle_convergence,
+        },
+        Case {
+            id: "fdfd3d/recycle-adjoint",
+            title: r"3D adjoint gradients by the iterative solvers, the adjoint recycled from the forward solve, against the sparse direct solver's: a rectangular guide ($\varepsilon = 12$, $0.4 \times 0.3$ µm, in 2.1) with a block of $\varepsilon = 6$ beside it, $14 \times 12 \times 24$ cells of 50 nm, PMLs of 4, the power of the guide's mode ahead; symmetric QMR with plain PMLs and GMRES with the multigrid and GCRO-DR (10 vectors) with stretched ones, to 1e-11 (largest difference relative to the largest gradient shown)",
+            tier: Tier::Analytic,
+            source: r"the same gradient two ways: $A^\mathsf{T} = V A V^{-1}$ ($V$ the PMLs' stretches), so the adjoint is a solve with the forward's own operator (G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288) and GCRO-DR (Parks et al., doi:10.1137/040607277) carries the forward's space to it at no cost; measured 2.3e-11 by QMR and 7.8e-11 by the multigrid",
+            run: fdfd3d_recycle_adjoint,
+        },
+        Case {
+            id: "fdfd3d/recycle-threads",
+            title: "The coupler's recycled sweep (fdfd3d/recycle-s-matrix's, by the multigrid with GCRO-DR, 1.54 to 1.56 µm, 1e-10) on 1 and on 4 threads: its S-matrices' entries whose bits differ, and its iterations (count shown)",
+            tier: Tier::Analytic,
+            source: "every vector operation is a pass over fixed chunks, each chunk's sums in order and the chunks' in order, and the small eigenproblem and least-squares problems are dense and sequential: the same computation on any number of threads",
+            run: fdfd3d_recycle_threads,
+        },
+        Case {
+            id: "fdfd3d/qmr-matrix-free-sweep",
+            title: r"3D FDFD S-matrices over a wavelength sweep by QMR without the matrix (each product two passes over the grid, as FDTD's kernel takes its curls), one plain solve per port and recycled from solve to solve (the last 4 solutions), against QMR with the matrix stored: the coupler of fdfd3d/recycle-s-matrix ($18 \times 32 \times 24$ cells of 50 nm, PMLs of 4 all round, one mode at each end, at 1.53, 1.54, 1.55 and 1.56 µm), on the curl-curl operator's complex symmetric similarity, all to a relative residual of 1e-10 (largest difference of an entry shown)",
+            tier: Tier::Analytic,
+            source: "the same systems solved two ways: the product without the matrix is the stored matrix's to rounding (to 1e-13 of the largest value, docs/methods/fdfd-3d.md), which the Lanczos process carries along, so the iterations differ but each field is held to its own residual, and the S-matrices agree within the residual times the condition; measured 8.2e-12 plain and 2.4e-11 recycled",
+            run: fdfd3d_qmr_matrix_free_sweep,
+        },
+        Case {
+            id: "fdfd3d/qmr-matrix-free-threads",
+            title: "The coupler's recycled sweep without the matrix (fdfd3d/qmr-matrix-free-sweep's, 1.54 to 1.56 µm, 1e-10) on 1 and on 4 threads: its S-matrices' entries whose bits differ, and its iterations (count shown)",
+            tier: Tier::Analytic,
+            source: "each pass of the product writes its rows on rayon's threads, a row its own task and each value a fixed sum, and every vector operation is a pass over fixed chunks, each chunk's sums in order and the chunks' in order: the same computation on any number of threads",
+            run: fdfd3d_qmr_matrix_free_threads,
+        },
+        Case {
+            id: "fdfd3d/recycle-parks-table",
+            title: r"Parks et al.'s Section 4.4 rebuilt: $u_{xx} + u_{yy} = 0$ on the unit square by central differences, $h = 1/41$ (1600 unknowns), $u = 0$ on two sides and 1 on the others, GCRO-DR(25, 10) from zero to 1e-10; the cosines of the principal angles between the space it recycles and the invariant subspace of the 10 eigenvalues of smallest magnitude: five at 1 and five at 0, the largest departure (shown)",
+            tier: Tier::Published,
+            source: r"M. L. Parks et al., SIAM J. Sci. Comput. 28, 1651 (2006), doi:10.1137/040607277, Table 4.3, $c = 0$: 1, 1, 1, 1, 0.99999999999703, then 5.9e-9, 3.8e-11, 3e-14, 0, 0 (the right-hand side has no part on four antisymmetric eigenvectors and on $\sin 2\pi x \sin 2\pi y$, so a Krylov space can't hold them); measured 1 to 7.2e-8, then 1.1e-8 and below",
+            run: fdfd3d_recycle_parks_table,
+        },
+        Case {
+            id: "fdfd3d/recycle-parks-rerun",
+            title: r"The same problem solved again by GCRO-DR(25, 10) with the space its first run left: its matrix–vector products over full GMRES's (shown)",
+            tier: Tier::Published,
+            source: r"Parks et al. (doi:10.1137/040607277), Section 4.4 and Fig. 4.9, $c = 0$: the second run converges faster than full GMRES, and the first (GMRES-DR) a little slower; measured 73 against 126, and 133 for the first",
+            run: fdfd3d_recycle_parks_rerun,
+        },
+        Case {
             id: "fdtd/dispersion",
             title: r"FDTD's numerical dispersion: a plane wave's $E_z$ on a periodic Yee grid ($24 \times 18$ cells of $50 \times 40$ nm), started from rest, at four wave vectors (along an axis, the diagonal, between) and Courant numbers 0.5 to 1: its frequency per step against Taflove and Brodwin's relation (largest relative difference shown)",
             tier: Tier::Analytic,
@@ -1531,10 +1642,36 @@ pub fn cases() -> Vec<Case> {
             run: crate::circuit::components::measured::dwivedi_ng_805,
         },
     ];
+    // the devices' cases, after the components they build, live with them
+    cases.extend(crate::device::checks::cases());
     // the compact models' cases live with them
     cases.extend(crate::compact::checks::cases());
     // and the geometry kernel's
     cases.extend(crate::geometry::checks::cases());
+    // and its paths', with the published bends
+    cases.extend(crate::geometry::path_checks::cases());
+    // and its shapes defined by functions and masks, with the published Y-junction
+    cases.extend(crate::geometry::curve_checks::cases());
+    // and its booleans, offsets and corner rounding, with the Y-junction drawn as a union
+    cases.extend(crate::geometry::boolean_checks::cases());
+    // and its arrays, lattices and references, with the L3 cavity of Akahane et al. drawn
+    cases.extend(crate::geometry::array_checks::cases());
+    // and its bodies in space, with the L3 cavity as one, and FDTD's smoothing on them
+    cases.extend(crate::geometry::body_checks::cases());
+    // and graded media, in the planar mode solver and in FDTD
+    cases.extend(crate::material::graded_checks::cases());
+    // and the component generators', with their ports, the devices drawn with them
+    cases.extend(crate::generator::checks::cases());
+    cases.extend(crate::job::component_cases());
+    // and the contour solver's, every mode in a region
+    cases.extend(crate::mode::region::checks::cases());
+    // and the shift-and-invert solver's restarts, many modes, and every guided mode
+    cases.extend(crate::eigen::checks::cases());
+    // and the stacks' etches and sidewalls, as the mode solver reads them
+    cases.extend(crate::stack::checks::cases());
+    // and the averaging from the fill, and FDFD reading it, with Farjadpour et al.'s crystal
+    cases.extend(crate::averaging::checks::cases());
+    cases.extend(crate::fdfd::fill_checks::cases());
     cases
 }
 
@@ -2830,6 +2967,221 @@ fn fdfd3d_gmres_multigrid_direct() -> Outcome {
     }
 }
 
+fn fdfd3d_block_qmr_s_matrix() -> Outcome {
+    use crate::fdfd::block_checks3d::{Solve, coupler_block};
+    let worst = coupler_block(Solve::Stored)
+        .0
+        .max(coupler_block(Solve::Free).0);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // both fields to a residual of 1e-10: their S-matrices within its condition times it
+        tolerance: 1e-9,
+        error: worst,
+    }
+}
+
+/// The ILU(0) coupler's block against its single solves, run once for its two cases.
+fn ilu_coupler_block() -> (f64, f64) {
+    use crate::fdfd::block_checks3d::{Solve, coupler_block};
+    static RUN: std::sync::OnceLock<(f64, f64)> = std::sync::OnceLock::new();
+    *RUN.get_or_init(|| coupler_block(Solve::Ilu))
+}
+
+fn fdfd3d_block_qmr_ilu_s_matrix() -> Outcome {
+    use crate::fdfd::block_checks3d::{Solve, coupler_block};
+    let worst = ilu_coupler_block().0.max(coupler_block(Solve::Multigrid).0);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-9,
+        error: worst,
+    }
+}
+
+fn fdfd3d_block_qmr_iterations() -> Outcome {
+    let (_, ratio) = ilu_coupler_block();
+    Outcome {
+        measured: ratio,
+        expected: 0.0,
+        // fewer than 60 % of the single solves' products
+        tolerance: 0.6,
+        error: ratio,
+    }
+}
+
+fn fdfd3d_block_qmr_dependent() -> Outcome {
+    let worst = crate::fdfd::block_checks3d::dependent_columns();
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-12,
+        error: worst,
+    }
+}
+
+fn fdfd3d_block_qmr_convergence() -> Outcome {
+    let errors = crate::fdfd::block_checks3d::against_direct(&[1e-4, 1e-10]);
+    // the slope's departure from 1, shown as within its tolerance: the slope itself differs
+    // between systems in its second decimal (0.965 on Windows, 0.94 on Linux), as the iterations
+    // near 1e-10 run on rounding that the systems' maths libraries make differently
+    let departure = ((errors[0] / errors[1]).log10() / 6.0 - 1.0).abs();
+    Outcome {
+        measured: departure,
+        expected: 0.0,
+        tolerance: 0.2,
+        error: departure,
+    }
+}
+
+fn fdfd3d_block_qmr_freund_malhotra() -> Outcome {
+    let (one, five) = crate::fdfd::krylov::block_example::iterations(5);
+    let ratio = five as f64 / one as f64;
+    Outcome {
+        measured: ratio,
+        expected: 85.0 / 19.0,
+        tolerance: 0.5,
+        error: (ratio - 85.0 / 19.0).abs(),
+    }
+}
+
+fn fdfd3d_block_qmr_threads() -> Outcome {
+    let differ = crate::fdfd::block_checks3d::thread_differences();
+    Outcome {
+        measured: differ,
+        expected: 0.0,
+        tolerance: 0.0,
+        error: differ,
+    }
+}
+
+fn fdfd3d_recycle_s_matrix() -> Outcome {
+    use crate::fdfd::recycle_checks3d::{Solve, s_matrix_against_plain};
+    let worst = s_matrix_against_plain(Solve::Multigrid(crate::fdfd::Multigrid::default()))
+        .max(s_matrix_against_plain(Solve::Symmetric));
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // ROADMAP's 0.5.2 Validation line
+        tolerance: 1e-10,
+        error: worst,
+    }
+}
+
+fn fdfd3d_recycle_deflation() -> Outcome {
+    let (worst, recycled, reference, _) =
+        crate::fdfd::krylov::recycle_example::deflated_against_gmres();
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-8,
+        error: if recycled == reference {
+            worst
+        } else {
+            f64::INFINITY
+        },
+    }
+}
+
+fn fdfd3d_recycle_convergence() -> Outcome {
+    let runs = crate::fdfd::recycle_checks3d::sweep_convergence();
+    let last: Vec<f64> = runs
+        .iter()
+        .filter_map(|r| r.last().map(|&i| i as f64))
+        .collect();
+    let falls = last.len() == 5 && last.windows(2).all(|w| w[1] < w[0]);
+    let ratio = last
+        .last()
+        .zip(last.first())
+        .map_or(f64::NAN, |(a, b)| a / b);
+    Outcome {
+        measured: ratio,
+        expected: 0.0,
+        // under a third of the plain sweep's: 0.23 measured
+        tolerance: 0.35,
+        error: if falls { ratio } else { f64::INFINITY },
+    }
+}
+
+fn fdfd3d_recycle_adjoint() -> Outcome {
+    let (symmetric, multigrid) = crate::fdfd::recycle_checks3d::adjoint_against_direct();
+    let worst = symmetric.max(multigrid);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // both solved to 1e-11: within the condition times it
+        tolerance: 1e-8,
+        error: worst,
+    }
+}
+
+fn fdfd3d_recycle_threads() -> Outcome {
+    let differ = crate::fdfd::recycle_checks3d::thread_differences();
+    Outcome {
+        measured: differ,
+        expected: 0.0,
+        tolerance: 0.0,
+        error: differ,
+    }
+}
+
+fn fdfd3d_qmr_matrix_free_sweep() -> Outcome {
+    let (plain, recycled) = crate::fdfd::recycle_checks3d::free_against_stored();
+    let worst = plain.max(recycled);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        // every field to a residual of 1e-10: the S-matrices within its condition times it
+        tolerance: 1e-9,
+        error: worst,
+    }
+}
+
+fn fdfd3d_qmr_matrix_free_threads() -> Outcome {
+    use crate::fdfd::recycle_checks3d::{Solve, thread_differences_of};
+    let differ = thread_differences_of(Solve::Free);
+    Outcome {
+        measured: differ,
+        expected: 0.0,
+        tolerance: 0.0,
+        error: differ,
+    }
+}
+
+fn fdfd3d_recycle_parks_table() -> Outcome {
+    let cosines = crate::fdfd::krylov::recycle_example::table_cosines();
+    let departure = if cosines.len() == 10 {
+        let ones = cosines[..5]
+            .iter()
+            .map(|c| (1.0 - c).abs())
+            .fold(0.0, f64::max);
+        let zeros = cosines[5..].iter().fold(0.0f64, |m, c| m.max(c.abs()));
+        ones.max(zeros)
+    } else {
+        f64::NAN
+    };
+    Outcome {
+        measured: departure,
+        expected: 0.0,
+        // their fifth cosine is 1 − 3e-12 and their sixth 5.9e-9: shown as within 1e-6, as
+        // these digits are the rounding of the run
+        tolerance: 1e-6,
+        error: departure,
+    }
+}
+
+fn fdfd3d_recycle_parks_rerun() -> Outcome {
+    let (first, second, full, _) = crate::fdfd::krylov::recycle_example::twice(0.0);
+    let ratio = second as f64 / full as f64;
+    Outcome {
+        measured: ratio,
+        expected: 0.0,
+        // faster than full GMRES, as their Fig. 4.9 has it; 0.58 measured
+        tolerance: 0.9,
+        error: if first > full { ratio } else { f64::INFINITY },
+    }
+}
+
 fn fdfd3d_film(kind: Polarization, tolerance: f64) -> Outcome {
     use crate::fdfd::checks3d::{PML, film_ratios, film_run};
     let run = film_run(kind, 0.0025, 30f64.to_radians(), (PML, 1e-8));
@@ -3949,42 +4301,52 @@ fn small(v: f64, tolerance: f64) -> String {
 /// Runs every case and returns the markdown report, and whether every case passed.
 pub fn report() -> (String, bool) {
     let mut all = true;
-    let mut rows = String::new();
+    let mut text = header();
     for case in cases() {
-        let o = (case.run)();
-        let passed = o.passed();
+        let (row, passed) = row(&case);
         all &= passed;
-        let (measured, expected) = if o.expected == 0.0 {
-            (small(o.measured, o.tolerance), "0".to_owned())
-        } else {
-            (sig(o.measured), sig(o.expected))
-        };
-        debug_assert!(!case.title.contains('|') && !case.source.contains('|'));
-        let _ = writeln!(
-            rows,
-            "| `{}` | {} | {} | {} | {} | {} | {:e} | {} |",
-            case.id,
-            case.tier.label(),
-            case.title,
-            case.source,
-            measured,
-            expected,
-            o.tolerance,
-            if passed { "pass" } else { "**FAIL**" }
-        );
+        text.push_str(&row);
     }
-    let text = format!(
-        "# Validation report\n\
-         \n\
-         Written by `photonoxide validate`; don't edit it by hand. CI fails when a case fails or \
-         this file is out of date. Values have six significant digits; a value that should be \
-         zero shows as \"≤ tolerance\" when it is within it.\n\
-         \n\
-         | Case | Tier | What | Against | Measured | Expected | Tolerance | Result |\n\
-         |---|---|---|---|---|---|---|---|\n\
-         {rows}"
-    );
     (text, all)
+}
+
+/// The report's text before its rows: the title, what it is, and the table's head.
+pub fn header() -> String {
+    "# Validation report\n\
+     \n\
+     Written by `photonoxide validate`; don't edit it by hand. CI fails when a case fails or \
+     this file is out of date. Values have six significant digits; a value that should be \
+     zero shows as \"≤ tolerance\" when it is within it.\n\
+     \n\
+     | Case | Tier | What | Against | Measured | Expected | Tolerance | Result |\n\
+     |---|---|---|---|---|---|---|---|\n"
+        .to_owned()
+}
+
+/// Runs one case and returns its row of the report (ending in a newline), and whether it passed.
+/// The rows are independent: a pull request's CI runs the cases of the areas it changed and
+/// checks only their rows (`tests/validation_report.rs`).
+pub fn row(case: &Case) -> (String, bool) {
+    let o = (case.run)();
+    let passed = o.passed();
+    let (measured, expected) = if o.expected == 0.0 {
+        (small(o.measured, o.tolerance), "0".to_owned())
+    } else {
+        (sig(o.measured), sig(o.expected))
+    };
+    debug_assert!(!case.title.contains('|') && !case.source.contains('|'));
+    let row = format!(
+        "| `{}` | {} | {} | {} | {} | {} | {:e} | {} |\n",
+        case.id,
+        case.tier.label(),
+        case.title,
+        case.source,
+        measured,
+        expected,
+        o.tolerance,
+        if passed { "pass" } else { "**FAIL**" }
+    );
+    (row, passed)
 }
 
 fn fdtd_mie_table() -> Outcome {

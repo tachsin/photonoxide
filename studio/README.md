@@ -1,13 +1,16 @@
 # The photonoxide program and its studio
 
-`photonoxide` is one program. Its studio window is where photonoxide is used: examples, a job
-builder, runs played live in 3D and 2D, run comparison, the component library and the chip
-view, the materials catalogue, and the validation report. The same
+`photonoxide` is one program. Its studio window is where photonoxide is used: templates to
+start from, a job builder, runs played live in 3D and 2D and overlaid, the component library
+and the chip view, the Academy's lessons, the materials catalogue, and the validation report
+with the published results reproduced. The same
 program runs jobs headless, replays runs, runs the built-in examples and checks the report:
 
 ```sh
 photonoxide                      # the studio
 photonoxide run <job.toml> [--out <dir>] [--headless] [--linger <seconds>]
+                 [--workers <n>] [--worker <host:port>]... [--token <token>] [--task-timeout <seconds>]
+photonoxide worker [--listen <address>] [--token <token>] [--slots <n>] [--once]
 photonoxide view <run directory>
 photonoxide example <name>       # a published result reproduced; --list lists them
 photonoxide validate [--write <file> | --check <file>]
@@ -19,14 +22,36 @@ Started with `run`, the window starts with the run and closes by itself a few se
 ends. If you close it first, the run stops. Every run is recorded in `runs/<run>/events.jsonl`, and the
 window only follows that record, so a live run and a replay look the same.
 
+A sweep's points can be farmed to other processes: `--workers 4` starts four workers on this
+machine for the run, and `--worker host:port` (repeated) adds workers started on other machines
+with `photonoxide worker --listen <address> --token <token>`. The run records the points in
+order as they come back, so the window follows a farmed run like any other, and the record is
+the one the run writes on its own, to the last bit. A worker listens on 127.0.0.1:7878 by
+default and needs a token to listen beyond this machine; its traffic isn't encrypted, so use it
+only on a network you trust. See [docs/farming.md](../docs/farming.md).
+
 ## The studio
 
-- **Home:** new jobs, the examples, recent runs, and what changed in this version.
-- **Examples:** everything ships inside the program.
-  - The simulations of `jobs/` run in one click or open in the builder. Each card shows its
+The rail on the left holds five pages, the places where work happens: **Home**,
+**Components**, **Chip**, **Academy** and **Materials**. At its foot, the **System** group
+(Validation, Libraries and Benchmarks) folds away beside **Settings**; it opens by itself when one
+of its pages is shown. The rail folds to its icons, each naming itself in a hint. Two pages
+aren't on the rail, because they are reached from what they show: the **job builder** (Home's
+New job, a template's Open) and the **run view** (a run, Home's Continue, `photonoxide run` and
+`photonoxide view`); the top bar's arrow leads back from them. **Runs** live in a drawer opened
+from the status bar.
+
+- **Home:** start from a template, a new job or a new circuit, or pick up where you left off.
+  - **Start from a template:** the simulations of `jobs/`, built in. Each card shows its
     structure in 3D, turning slowly: the scene its run will draw (`photonoxide::job::preview`).
-  - The nineteen published results of `examples/` each run in a process of their own. Every
-    line is checked against the paper as it prints, beside what the release recorded.
+    **Run** plays it live in the run view; **Open** takes it to the job builder, to change it.
+  - Continue (the run open), recent runs, how many published results and validation cases
+    there are, and what changed in this version.
+- **Runs** (the drawer, from **Runs** at the status bar's left): every run in the workspace,
+  newest first, the one going pinned on top with its time and a Stop. Each opens in the run
+  view, shows on disk or is deleted; deleting the open run closes it, deleting one still running
+  stops it first. Tick several and **Overlay** draws their sweeps' effective indices and their
+  spectra (|S_q1|²) on shared axes, in the drawer.
 - **Job builder:** a job as a form for each kind (`modes`, `fdfd`, `fdtd`, `structure`). An
   FDTD job's sources and monitors are edited by type and drawn on the top view (sources
   orange, monitors blue; click one to edit it), with its spectrum, its run length and the field
@@ -41,9 +66,7 @@ window only follows that record, so a live run and a replay look the same.
   - The TOML sits beside the form in an editor, and edits there update the form.
   - The library checks the job as it changes (`photonoxide::job::check`). It is saved to the
     workspace's `jobs/` (Ctrl+S) and runs from the builder (Ctrl+Enter).
-- **Runs:** every run in the workspace, to open, compare, show on disk or delete. Deleting the
-  open run closes it; deleting one still running stops it first.
-- **Viewer:**
+- **The run view:**
   - **3D** (the default): the layers and shapes as solids, with the field painted on its plane.
     A modes run's selected mode also travels along its guide: its field, Re E, as a glowing
     volume in the guide and its evanescent tails (ray-marched), red where positive and blue
@@ -76,8 +99,7 @@ window only follows that record, so a live run and a replay look the same.
     point stays on it, and Follow goes back to the running one. The field has
     its own row (shown or not, and how strongly), apart from the layers. A layer outside the
     run's window is greyed. Each layer's info button tells what it is made of, what fills it
-    around its shapes and what lies under and over it, and recolours it in the viewer.
-- **Compare:** the runs ticked on the Runs page, their sweeps and spectra on shared axes.
+    around its shapes and what lies under and over it, and recolours it in the run view.
 - **Components:** the library a chip is built from. Each kind of component with its ports,
   its parameters (units, ranges, defaults), its model's equations and its provenance (the
   source, its stated error against it, the wavelengths it holds for), its schematic symbol, and
@@ -85,6 +107,37 @@ window only follows that record, so a live run and a replay look the same.
   parameters move, saved as CSV or as a Touchstone file. **Place on the chip** adds one to the
   chip being edited. **Import Touchstone** reads a `.sNp` file as a measured component, asking
   which time convention its values are in, and interpolates it in wavelength.
+  - **A device's page.** The waveguide, the bend, the directional coupler and the two rings are
+    the library's devices (`photonoxide::device`): components that know their geometry. Each
+    opens on a page of its own. One header holds its name and kind, the fidelity in use (a
+    badge that switches it: analytic, 2D or 3D as the device has them, each with its method and
+    stated error), a dot when the design has changed since it was saved, **Save** (Ctrl+S) and
+    **Place on the chip**. Two tabs below:
+    - **Overview:** its S-parameters, its figures (n_eff and n_g, the cross-over length, the free
+      spectral range, Q, a bend's loss), the model with its equation, papers (each DOI a click
+      away), stated error and where it holds, its ports with their modes, its symbol, **Open its
+      lesson** in the Academy, and the published results on it with their checks.
+    - **Design:** the stack, top to bottom: a preset (`soi_220`, `soi`, `nitride`, its oxide
+      chosen), or, after **Edit the layers**, layers of the catalogue's materials, each with its
+      thickness, material, background, model, and temperature and composition where the model
+      takes them; the core's thickness is the device's `thickness`. The geometry: each parameter
+      a field that takes a number in its unit or an expression (`w/2.5`, `450 nm`), with its
+      slider and range, what it uses and what uses it, and its error in place with a caret under
+      the column; named parameters can be added for the others to use. The views: from above,
+      with the ports named and the cut dragged along the device, the cross-section at the cut,
+      and 3D as its job draws it. And the figures, live.
+    - **Every number names its model and grid.** At the analytic fidelity the figures and the
+      S-parameters follow every change (60 ms after it). A 2D or 3D model is a solve: its button
+      runs it in the background, with the time it took last, and the page can be left meanwhile;
+      a change after it marks its figures as the design's before. A 2D figure says it is never
+      the device's performance. The analytic fits hold for widths of 400 to 600 nm, thicknesses
+      of 200 to 240 nm and gaps of 100 to 500 nm, of silicon in silica: outside them the page
+      says so, never extrapolates, and offers the 3D model. A value outside a model's stated
+      range is named.
+    - **Saved as a job:** a design saves as a job file with a `[device]` table in the
+      workspace's `jobs/` (its stack, its parameters' expressions and its fidelity;
+      docs/methods/devices.md), listed under **Your designs** at the top of the library and in
+      Ctrl+K, and reopens on its page. `photonoxide run` on one records its scene.
 - **Chip:** components placed on a canvas and wired port to port.
   - Drag parts from the left onto the canvas (or click one for the middle). Everything snaps
     to a grid of 10. Drag the background to pan, scroll to zoom, F fits the chip in view.
@@ -106,16 +159,25 @@ window only follows that record, so a live run and a replay look the same.
   - Keys: Delete removes the selection, R rotates it (Shift+R the other way), M mirrors it top
     to bottom, Ctrl+Z and Ctrl+Y undo and redo, Ctrl+S saves to the workspace's `circuits/`,
     Escape lets go.
-  - **New** starts an empty chip or one of the built-in circuits (`circuits/` in the
+  - **New from…** starts an empty chip or one of the built-in circuits (`circuits/` in the
     repository): an MZI from parts, an all-pass and an add-drop ring, a 1×4 splitter.
+- **Academy:** lessons on how devices work and how the ideas came about, each read as deep as
+  you like (intuition, theory, research), with diagrams, charts the library computes as you
+  move them, the published results it reproduces (each runnable in place), the validation cases
+  behind it, and its jobs and circuits a click away.
 - **Materials:** the catalogue (`photonoxide::material::catalogue`), by category and
   searchable. Each material's index models plotted over their range, with a read-out at a
   wavelength and inputs for the temperature and composition where a model has them; each
   model's equation and coefficients as its paper prints them; the crystal and its d and r
   tensors as matrices; and every paper a click away.
-- **Validation:** the release's report, searchable, its math rendered, and the same report run
-  on this machine.
-- **Libraries:** the external libraries photonoxide can use (oneMKL, the CUDA runtime,
+- **Validation** (in System), in two tabs:
+  - **Cases:** the release's report, searchable, its math rendered, and the same report run on
+    this machine.
+  - **Published results:** every example of `examples/`, each reproducing a paper's numbers:
+    its paper and DOIs, its tolerance, what the release recorded, and **Run on this machine**,
+    which runs it in a process of its own and checks every line against the paper as it prints.
+    The Academy's lessons embed the same examples, and a run started there shows here.
+- **Libraries** (in System): the external libraries photonoxide can use (oneMKL, the CUDA runtime,
   cuSPARSE, cuDSS), as found on this machine by a process of its own: found or not, the file
   and where it was found, the version, what the library says (threads, GPUs), the backends
   that passed their smoke tests against photonoxide's own, and each candidate tried with the
@@ -124,7 +186,7 @@ window only follows that record, so a live run and a replay look the same.
   each with a copy button; a winget command can also run in a terminal of its own, after a
   dialog showing the licence and the exact command. **Detect again** looks once more. None is
   needed: photonoxide's own solvers are the default.
-- **Benchmarks:** the catalogue's problems run on this machine, as `photonoxide bench --tier`
+- **Benchmarks** (in System): the catalogue's problems run on this machine, as `photonoxide bench --tier`
   runs them (each problem with each backend in a process of its own, checked against its
   accuracy test, recorded in the app's data folder). Pick a tier, families, the largest size,
   the backends (every one that passed its smoke test) and the thread counts; the plan says how
@@ -142,16 +204,16 @@ window only follows that record, so a live run and a replay look the same.
   The window opens where it was left, at the size it had.
 - **Lengths in µm or nm:** every length and wavelength the studio shows or asks for (the
   builder's fields, a component's or an instance's parameters, the chip's wavelengths, the
-  viewer's readouts, the plots' axes, hover values and CSV files, the Materials page) is in one
+  run view's readouts, the plots' axes, hover values and CSV files, the Materials page) is in one
   unit, µm or nm, app-wide. Click the unit beside any value to switch it everywhere, or choose
   it in the settings. Only the window converts, exactly: job and chip files keep their units
   (µm, and nm where a field's name says so).
 
 Help is built in:
-- a tour on the first start, which the question mark brings back;
+- a tour on the first start, following the rail, which the question mark brings back;
 - tips on each page, each closable;
 - tooltips on the controls;
-- **Ctrl+K** (⌘K) to jump to any page, example, job or run.
+- **Ctrl+K** (⌘K) to jump to any page, template, published result, job, circuit or run.
 
 **The workspace** is the folder with `jobs/`, `runs/` and `circuits/`:
 1. the one chosen in the settings;
@@ -237,6 +299,125 @@ themselves, and say so.
 - **If the key is lost,** installed copies can't take the next release by themselves. Users
   then install it once by hand.
 
+## Channels
+
+Settings › Updates chooses the channel:
+
+- **Stable** is the signed releases, as described above.
+- **Nightly** follows `main`. The studio builds main's latest commit here, from its source, and
+  installs it in place of the copy you have. That code is tested by CI and nothing more, and
+  building it needs Rust, Node and the platform's build tools.
+
+Each build knows what it was built from. `src-tauri/build.rs` embeds the commit, the commit's
+date and whether the tree had changes not committed (from git, or from the variables the
+nightly builder sets, since a tarball has no git). Settings › About shows it, and so does
+`photonoxide --version`. A release says its version; a nightly says e.g.
+`0.5.1-nightly (main @ abc1234, 2026-10-09)`. A nightly's version is main's with the patch raised
+and `-nightly` after it, so every later release sorts after it.
+
+- **The check:** when the studio opens and every hour, as on Stable. It asks GitHub's API for
+  main's head, as its SHA alone and with the ETag of the last answer: an unchanged main answers
+  304, which doesn't count against the 60 requests an hour GitHub allows without signing in.
+  When main moved, the compare API lists the new commits' titles. A failed check waits an hour
+  before the next, doubling up to a day, and a rate limit waits for GitHub's reset time.
+- **The prerequisites:** checked before building, each with what's missing and the command that
+  installs it:
+  - rustc and cargo, at least the `rust-version` of main's `Cargo.toml`;
+  - Node 22.12 or newer (CI uses 24);
+  - the pnpm major that `package.json` pins;
+  - Tauri's platform prerequisites: on Windows, the MSVC build tools and WebView2; on Linux,
+    webkit2gtk-4.1, libayatana-appindicator or libappindicator, librsvg and a C toolchain,
+    with your distribution's command; on macOS, Xcode's command line tools.
+
+  As on the Libraries page, a command is shown to copy. On Windows and macOS the window can
+  also run it in a terminal of its own, after you confirm. Tools are looked for on PATH and in
+  their installers' folders (`~/.cargo/bin`, nvm's, Homebrew's, npm's and pnpm's), so one
+  installed since the studio opened is found.
+- **The build:** **Build and update** builds exactly the commit it listed, from
+  `codeload.github.com/tachsin/photonoxide/tar.gz/<sha>` (no git needed). The tarball's one
+  folder must be `photonoxide-<sha>`. The build then checks the prerequisites again against
+  what that source asks for, and runs `pnpm install --frozen-lockfile` and
+  `pnpm tauri build --bundles <the one the update needs> --config nightly.conf.json`. The
+  config sets the nightly's version, keeps this copy's name and identifier, and sets
+  `createUpdaterArtifacts: false`, since a local build has no signing key.
+
+  The build runs in the background, its log streamed into the window. It can be cancelled, and
+  it stops by itself after two hours.
+
+  main's version is read from its `Cargo.toml`: the package's, or the workspace's that it takes
+  (`version.workspace = true`). A manifest this build's TOML parser can't read is read line by
+  line, and one that gives no version at all falls back to main's latest release, which main is
+  at or past. A change in the manifest's format doesn't stop the build.
+- **What's offered:** the panel (the top bar's button, Settings › Updates and the dialog) always
+  names the build it offers: its commit, its date, and how many commits it is behind main.
+  - **Build and update:** main has commits this copy hasn't, and nothing is built for them.
+  - **Install:** a build of main's newest commit is waiting.
+  - **Revalidate:** a build is waiting, but main has moved past it. The dialog lists the
+    commits it hasn't, and Revalidate builds main's newest. The build waiting stays installable
+    until the new one is ready (each build has its own folder in `ready/`, and `ready.json`
+    names the new one before the old one is removed), so a failed or cancelled rebuild leaves it
+    as it was. **Install this one anyway** installs it as it is.
+  - **A build running** that main has moved past says so, with the new commits: finish this one,
+    or stop it and start again at main's newest.
+
+  A build waiting is offered only once this very build has checked it against main and against
+  itself, with GitHub's compare API: on opening, after switching to Nightly, or when a leftover
+  from an earlier session is found. One that is this build's commit, or older (main has moved
+  further past it than past this build), is never offered: it is set aside, and `install.log`
+  says so.
+- **A builder too old for main:** the build is made by the copy you have, so when main's source
+  moves on in a way that copy's builder doesn't read, the build stops in the builder's own
+  steps, not in main's code. The breaks known so far are listed in
+  `src-tauri/builder-breaks.json`: what a too-old builder says, what changed, and the pull
+  request, commit and release that fixed it (`version.workspace = true` needs #293, in 0.5.2).
+  A failed build reads the list compiled into it and the one in the source it just downloaded,
+  so main can name a break found after the builder was made. The window then says so, names the
+  fix, and offers the way out: **Switch to Stable**, update to the latest release, then switch
+  back to Nightly. A failure reading main's source that no listed break matches says the
+  builder may be behind.
+- **The install:** the build being replaced is kept first, in a folder of its own for each
+  install. A watchdog runs from that copy (`photonoxide nightly watch`) and takes it from there:
+  - Windows: the studio exits, and the watchdog waits for its process to end (up to a
+    minute). It then runs the build's NSIS installer as the stable updater does, passive and
+    as an update (`/P /UPDATE`), into the studio's own folder (`/D=`), and waits for it (up to
+    ten minutes).
+  - macOS: the `.app` is replaced (copied beside it, then renamed into place).
+  - Linux: an AppImage is swapped in the same way. A `.deb` or `.rpm` install gets its
+    package built, to install with your package manager, or with `pkexec` after you confirm.
+
+  The program installed is then asked what it is (`--version`), and the new build opens only
+  when it is the commit built. Otherwise the install failed: nothing was replaced, or what was
+  is put back, and the build you had opens again and says why (the installer's exit code, and
+  what the program installed says it is).
+
+  If the new build's window hasn't said it started within five minutes, the watchdog puts the
+  previous build back and opens it, and that build says what happened. A studio that starts
+  where an install was going and isn't the new build knows the install didn't take: it says
+  so, and the watchdog stands down. A new install supersedes an earlier one still under way
+  (its watchdog stands down, or is stopped). Settings can also go back by hand. Each step is in
+  `install.log`.
+- **Back to Stable:** a nightly's version can sort above the latest release. The stable updater
+  takes the latest release anyway when the copy running is a nightly
+  (`channels::stable_accepts`).
+- **Where:** `nightly/` in the app's local data folder (`%LOCALAPPDATA%\gr.tachsin.photonoxide`,
+  `~/Library/Application Support/gr.tachsin.photonoxide`, `~/.local/share/gr.tachsin.photonoxide`):
+  - `source/`, the commit being built, replaced by the next one's;
+  - `target/`, Cargo's, kept so the next build compiles only what changed;
+  - `ready/`, the build waiting to be installed, in a folder of its own, and `ready.json`, what
+    it is;
+  - `previous/`, the build kept to go back to;
+  - `build.log`, and `install.log`.
+
+  Settings removes the cache. `PHOTONOXIDE_NIGHTLY_DIR` puts it all elsewhere, to try the channel
+  without touching an installed copy's.
+- **From a terminal:**
+  - `photonoxide nightly check` shows main's new commits, and the build waiting against main
+    (to install, or to revalidate with `build <main's newest>`);
+  - `photonoxide nightly prerequisites` shows what building needs;
+  - `photonoxide nightly build <sha>` builds main's head, and you type the SHA;
+  - `photonoxide nightly install` installs the build;
+  - `photonoxide nightly rollback` goes back.
+
 ## Downloads
 
 Each [release](https://github.com/tachsin/photonoxide/releases) has the program for the
@@ -313,17 +494,30 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, builder, materia
   and is never published.
   - `main.rs`: the command line.
   - `studio.rs`: the window and the commands it calls.
+  - `navigation.rs`: tests that the window's pages are all reachable, and that every example,
+    job, circuit and run has its home in them.
   - `examples.rs`: the examples and jobs built in.
   - `settings.rs`: the settings and the workspace.
   - `materials.rs`: the Materials page's commands.
   - `circuits.rs`: the Components and Chip pages' commands, and chip files; `circuits/library.rs`
     is the component library the studio offers (each kind's id, title, symbol, and the
-    library's component it builds).
+    library's component it builds: the waveguide, bend, directional coupler and rings from the
+    library's devices, `photonoxide::device`, at their defaults).
+  - `devices.rs`: a device's page's commands: the devices, a design evaluated as the form shows
+    it, its figures and spectrum at a fidelity (a solve's component kept for the spectrum after
+    it), and designs saved as job files and read back.
   - `tasks.rs`: the examples and reports running in their own processes.
+  - `channels.rs`: the release channels, and the nightly channel's check (`channels/github.rs`),
+    prerequisites (`channels/prereqs.rs`), build (`channels/builder.rs`) and install
+    (`channels/install.rs`); `build.rs` embeds the commit a build is made from.
 - `src/`: the window, in Svelte 5 with TypeScript, Tailwind CSS and daisyUI, and Lucide icons.
   - `pages/`: one file per page.
-  - `components/`: what pages share. The plots and pictures, the device preview, the TOML
-    editor (CodeMirror), the tour, the Ctrl+K palette, and the update dialog.
-  - `lib/`: the shared state, the program's commands, the job model, the 3D view (three.js),
-    and the updater.
+  - `components/`: what pages share. The rail, the runs drawer and its overlay, Validation's
+    published results, the plots and pictures, the device preview, the TOML editor
+    (CodeMirror), the tour, the Ctrl+K palette, and the update dialog. `components/device/`: a
+    device's page, its stack editor, parameter form, figures, and views from above, across and
+    in 3D.
+  - `lib/`: the shared state, the pages and the rail (`pages.ts`), the program's commands, the
+    job model, the 3D view (three.js), the devices' drafts and solves (`device.svelte.ts`), and
+    the updater.
 - `scripts/record-gifs.mjs`: records the README's GIFs (above).

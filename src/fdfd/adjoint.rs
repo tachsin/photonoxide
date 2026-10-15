@@ -55,16 +55,45 @@ impl Solver2d {
     ) -> Result<(f64, Vec<f64>)> {
         let g = self.grid;
         let (nx, ny) = (g.nx, g.ny);
-        if field.values.len() != nx * ny || mode.profile.len() != ny {
-            return Err(Error::invalid(
-                "fdfd gradient",
-                "the field and the mode must belong to this problem",
-            ));
-        }
         if self.polarization == Polarization::Hz && !self.cellwise {
             return Err(Error::invalid(
                 "fdfd gradient",
                 "with H along z the gradient is for a problem given cell by cell (from_cells)",
+            ));
+        }
+        let (a, lambda) = self.mode_adjoint(field, mode, direction)?;
+        let u = &field.values;
+        let mut gradient = vec![0.0; nx * ny];
+        match self.polarization {
+            Polarization::Ez => {
+                let k2 = self.k0 * self.k0;
+                for (k, g) in gradient.iter_mut().enumerate() {
+                    *g = -2.0 * (lambda[k] * k2 * u[k]).re;
+                }
+            }
+            Polarization::Hz => self.hz_gradient(&lambda, u, &mut gradient),
+        }
+        Ok((a.norm_sqr(), gradient))
+    }
+
+    /// The amplitude a of `mode` going `direction` in `field`, and the adjoint field λ of
+    /// Aᵀ λ = conj(a) c, a = cᵀ u.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a field or mode of another problem.
+    pub(super) fn mode_adjoint(
+        &self,
+        field: &Field2d,
+        mode: &PortMode,
+        direction: Direction,
+    ) -> Result<(c64, Vec<c64>)> {
+        let g = self.grid;
+        let (nx, ny) = (g.nx, g.ny);
+        if field.values.len() != nx * ny || mode.profile.len() != ny {
+            return Err(Error::invalid(
+                "fdfd gradient",
+                "the field and the mode must belong to this problem",
             ));
         }
         // a = cᵀu: the projection on columns c and c + 1 (see mode_amplitudes)
@@ -82,19 +111,7 @@ impl Solver2d {
         }
         let a: c64 = c.iter().zip(&field.values).map(|(c, u)| c * u).sum();
         let adjoint_source: Vec<c64> = c.iter().map(|c| a.conj() * c).collect();
-        let lambda = self.solve_transposed(&adjoint_source)?;
-        let u = &field.values;
-        let mut gradient = vec![0.0; nx * ny];
-        match self.polarization {
-            Polarization::Ez => {
-                let k2 = self.k0 * self.k0;
-                for (k, g) in gradient.iter_mut().enumerate() {
-                    *g = -2.0 * (lambda[k] * k2 * u[k]).re;
-                }
-            }
-            Polarization::Hz => self.hz_gradient(&lambda, u, &mut gradient),
-        }
-        Ok((a.norm_sqr(), gradient))
+        Ok((a, self.solve_transposed(&adjoint_source)?))
     }
 
     /// −2 Re(λᵀ (∂A/∂ε_cell) u) with H along z, face by face, as `assemble` couples them.

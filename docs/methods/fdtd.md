@@ -362,6 +362,14 @@ uniaxial as the catalogue's LiNbO₃ and AlN are). Each value of E sees the tens
 cell about it, by a `Smoothing`: its `Average`, the cell's `diameter` in grid cells (Farjadpour
 et al.'s s, 1 by default) and the `Coupling` that places the off-diagonal entries.
 
+The bodies are the geometry's own (`fdtd::Body` is `geometry::Body`, docs/methods/bodies.md):
+besides those above, boxes, spheres, cylinders and cones along any axis, any planar shape
+between two heights with sloped walls, and booleans of bodies, each read as its surface's plane
+through the nearest point. The ones FDTD had before moved there with the same arithmetic, and
+what the smoothing takes from them is the same bits as before (`geometry/bodies/fdtd-bits`). A body can
+hold a graded medium (`Structure::with_graded`, an index or a permittivity as an expression of
+x, y and z), taken at the point each value's cell is about.
+
 **The average** (`Average::Subpixel`). At an interface between isotropic media, Farjadpour et
 al. (Eq. 1) average ε along the interface and ε⁻¹ across it,
 
