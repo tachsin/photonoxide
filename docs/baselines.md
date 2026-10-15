@@ -99,14 +99,14 @@ threads:
 
 | n | LU, faer, 1 | oneMKL, 1 | OpenBLAS, 1 | faer, 20 | oneMKL, 20 | OpenBLAS, 20 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 32 | 14.1 | 9.7 | 10.0 | 12.9 | 5.4 | 11.1 |
-| 64 | 29.6 | 28.8 | 25.9 | 23.8 | 18.2 | 19.6 |
-| 128 | 44.4 | 39.4 | 35.1 | 28.8 | 36.5 | 0.1 |
-| 256 | 52.3 | 39.8 | 45.4 | 41.0 | 31.1 | 0.3 |
-| 512 | 60.9 | 52.7 | 57.2 | 47.3 | 2.2 | 3.1 |
-| 1 024 | 62.8 | 54.8 | 61.3 | 89.8 | 273.3 | 5.9 |
-| 2 048 | 60.5 | 64.2 | 67.6 | 230.3 | 323.3 | 28.3 |
-| 4 096 | 64.6 | 65.8 | 68.8 | 281.0 | 605.7 | 221.0 |
+| 32 | 14.1 | 9.7 | 10.0 | 12.9 | 5.4 | 11.3 |
+| 64 | 29.6 | 28.8 | 25.9 | 23.8 | 18.2 | 20.6 |
+| 128 | 44.4 | 39.4 | 35.1 | 28.8 | 36.5 | 32.6 |
+| 256 | 52.3 | 39.8 | 45.4 | 41.0 | 31.1 | 45.8 |
+| 512 | 60.9 | 52.7 | 57.2 | 47.3 | 2.2 | 58.0 |
+| 1 024 | 62.8 | 54.8 | 61.3 | 89.8 | 273.3 | 67.5 |
+| 2 048 | 60.5 | 64.2 | 67.6 | 230.3 | 323.3 | 68.8 |
+| 4 096 | 64.6 | 65.8 | 68.8 | 281.0 | 605.7 | 70.7 |
 
 | n | product, faer, 1 | oneMKL, 1 | OpenBLAS, 1 | faer, 20 | oneMKL, 20 | OpenBLAS, 20 |
 |---:|---:|---:|---:|---:|---:|---:|
@@ -121,8 +121,9 @@ threads:
 
 - **On one thread** the three are level, within 10 to 20 % of each other at every n above 64.
 - **On 20 threads** oneMKL's LU is what faer's isn't: 2.2 times faer's at 4096, 3.0 times at
-  1024. faer's threaded product is as fast as oneMKL's, or faster. OpenBLAS's threaded LU is
-  slow on this processor below n = 4096.
+  1024. faer's threaded product is as fast as oneMKL's, or faster. OpenBLAS's LU is on one
+  thread whatever the count (below), so its 20-thread column is its one-thread rate; threaded,
+  it had reached 5.9 Gflop/s at 1024 and 221 at 4096 here.
 
 **The multifrontal factorization,** the exported systems as the solvers factorize them (L D Lᵀ
 of the complex symmetric form): the analysis and factorization in seconds, then the residual
@@ -130,30 +131,33 @@ of one unrefined solve. PARDISO is `mtype` 6, its factors' entries its own count
 
 | System | Threads | photonoxide (faer) | photonoxide-mkl | photonoxide-openblas | PARDISO |
 |---|---:|---:|---:|---:|---:|
-| `slab-2d` | 1 | 0.61 s, 3.9e-13 | 0.61 s, 5.2e-13 | 0.66 s, 4.2e-13 | 0.55 s, 8.0e-13 |
-| | 20 | 0.49 s | 0.51 s | 1.70 s | 0.48 s |
-| `strip-24` | 1 | 1.32 s, 2.3e-13 | 1.31 s, 2.5e-13 | 1.61 s, 3.2e-13 | 1.35 s, 7.7e-14 |
-| | 20 | 0.48 s | 0.49 s | 5.89 s | 0.42 s |
-| `strip-32` | 1 | 6.84 s, 1.8e-12 | 6.39 s, 1.6e-12 | 8.73 s, 1.6e-12 | 6.79 s, 3.4e-13 |
-| | 20 | 1.66 s | 1.73 s | 21.1 s | 1.60 s |
-| `strip-40` | 1 | 24.3 s, 3.3e-12 | 21.2 s, 2.6e-12 | 44.7 s, 2.8e-12 | 28.5 s, 3.4e-13 |
-| | 20 | 3.87 s | 4.57 s | 59.4 s | 5.71 s |
+| `slab-2d` | 1 | 0.61 s, 3.9e-13 | 0.61 s, 5.2e-13 | 0.62 s, 4.2e-13 | 0.55 s, 8.0e-13 |
+| | 20 | 0.49 s | 0.51 s | 1.58 s | 0.48 s |
+| `strip-24` | 1 | 1.32 s, 2.3e-13 | 1.31 s, 2.5e-13 | 1.50 s, 3.2e-13 | 1.35 s, 7.7e-14 |
+| | 20 | 0.48 s | 0.49 s | 5.32 s | 0.42 s |
+| `strip-32` | 1 | 6.84 s, 1.8e-12 | 6.39 s, 1.6e-12 | 8.58 s, 1.6e-12 | 6.79 s, 3.4e-13 |
+| | 20 | 1.66 s | 1.73 s | 19.6 s | 1.60 s |
+| `strip-40` | 1 | 24.3 s, 3.3e-12 | 21.2 s, 2.6e-12 | 38.9 s, 2.8e-12 | 28.5 s, 3.4e-13 |
+| | 20 | 3.87 s | 4.57 s | 64.4 s | 5.71 s |
 
 The factors' entries are the same with each kernels (7.9 M, 11.0 M, 37.9 M and 97.4 M), against
-PARDISO's 4.9 M, 12.1 M, 41.0 M and 111.8 M.
+PARDISO's 4.9 M, 12.1 M, 41.0 M and 111.8 M. OpenBLAS's column was measured again after its LU
+was put on one thread, in a run where photonoxide's own took 0.59 / 0.44, 1.24 / 0.48, 5.55 /
+1.58 and 21.0 / 4.54 s (1 / 20 threads): the machine was as loaded then.
 
 - **oneMKL's kernels don't make the solver faster on 20 threads.** On one thread they take 7 %
   off `strip-32` and 13 % off `strip-40` (21.2 s against 24.3 s), nothing off the smaller
-  systems; on 20 they are level with faer's or slower (`strip-40`: 4.57 s against 3.87 s). Since 0.4.3 most of the work is in independent
-  subtrees, each on one thread, where the kernels are level; the threaded calls near the root
+  systems; on 20 they are level with faer's or slower (`strip-40`: 4.57 s against 3.87 s).
+  Since 0.4.3 most of the work is in independent subtrees, each on one thread, where the
+  kernels are level; the threaded calls near the root
   are few, and oneMKL's threaded LU, faster alone, pays for waking its OpenMP threads beside
   rayon's. The difference the issue started from (faer's LU at 13 to 40 % of MKL's on 20
   threads) is real for a dense LU, and doesn't reach the factorization.
 - **photonoxide's own is level with PARDISO here, and faster on the largest:** 3.87 s against
   5.71 s on `strip-40` on 20 threads, 24.3 s against 28.5 s on one.
-- **OpenBLAS is slower,** 1.1 to 1.8 times on one thread and 3.5 to 15 times on 20. Its count of
-  threads is the process's, not a thread's (below), so a front that threads waits for every
-  other call into OpenBLAS to end, and its threaded LU is slow at these sizes.
+- **OpenBLAS is slower,** 1.1 to 1.9 times on one thread and 3.6 to 14 times on 20. Its count
+  of threads is the process's, not a thread's (below), so a front that threads waits for every
+  other call into OpenBLAS to end.
 - **`auto`** (#183) keeps photonoxide's own unless this machine's records say otherwise; on
   this one they don't.
 
@@ -161,7 +165,10 @@ PARDISO's 4.9 M, 12.1 M, 41.0 M and 111.8 M.
 the process's count, as `openblas_set_num_threads` does. When rayon's 20 threads each set it to
 1 or 20 around their own calls, `strip-24` took 40 s as LU (0.53 s with faer's kernels) and the
 results changed from run to run. photonoxide now keeps OpenBLAS on one thread and has a
-threaded call set the count around itself while no other call into OpenBLAS runs. oneMKL's
+threaded call set the count around itself while no other call into OpenBLAS runs. Its LU stays
+on one thread: OpenBLAS's threaded `zgetrf` keeps arrays sized by the build's largest thread
+count on the stack at each level of its recursion, and overflowed a 2 MiB thread's stack with
+pip's and Ubuntu's builds on Linux (GitHub's runners, then WSL here). oneMKL's
 `mkl_set_num_threads_local` is the calling thread's, as its name says.
 
 **Do they repeat their bits?** photonoxide's solver with each kernels on the 24 × 24 × 24

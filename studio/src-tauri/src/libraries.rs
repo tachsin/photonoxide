@@ -597,7 +597,7 @@ pub const GUIDES: &[Guide] = &[
     },
     Guide {
         library: "OpenBLAS",
-        about: "An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts, in place of faer's. Its count of threads is the process's, not a thread's: photonoxide runs it on one thread, and a front that threads sets the count around itself while no other call into OpenBLAS runs.",
+        about: "An open BLAS and LAPACK: the dense kernels of photonoxide's own solver's fronts, in place of faer's. Its count of threads is the process's, not a thread's: photonoxide runs it on one thread, and a front that threads sets the count around itself while no other call into OpenBLAS runs. Its LU stays on one thread: its threaded zgetrf needs more stack than a thread has.",
         provides: &["dense"],
         backends: &["photonoxide-openblas"],
         needs: &[],

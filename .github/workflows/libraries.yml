@@ -268,40 +268,21 @@ jobs:
         run: PHOTONOXIDE_REQUIRE_BLAS=accelerate cargo test -p photonoxide-native --release --test blas
 
   armpl:
-    # Arm Performance Libraries, on Arm processors: Homebrew's cask on Apple silicon, and on
-    # Windows on Arm the MSI winget's manifest names (the runner image has no winget), with its
-    # checksum; found, offered, and their dense kernels' tests run
-    name: Arm PL ${{ matrix.manager }} (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { os: macos-latest, manager: brew }
-          - { os: windows-11-arm, manager: msi }
-    runs-on: ${{ matrix.os }}
+    # Arm Performance Libraries on Apple silicon, by Homebrew's cask: found, offered, and their
+    # dense kernels' tests run. (Windows on Arm isn't checked: its runner image has no winget,
+    # and Arm's download server refuses GitHub's runners, "Access Denied", 2026-10-15.)
+    name: Arm PL brew (macos-latest)
+    runs-on: macos-latest
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v7
-      - name: Install (Homebrew)
-        if: matrix.manager == 'brew'
+      - name: Install
         run: time brew install --cask arm-performance-libraries
-      - name: Install (Arm's MSI, as winget's Arm.ArmPerformanceLibraries 26.01 has it)
-        if: matrix.manager == 'msi'
-        shell: pwsh
-        run: |
-          $url = 'https://developer.arm.com/-/cdn-downloads/permalink/Arm-Performance-Libraries/Version_26.01/arm-performance-libraries_26.01_Windows.msi'
-          Invoke-WebRequest $url -OutFile armpl.msi
-          $hash = (Get-FileHash armpl.msi -Algorithm SHA256).Hash
-          if ($hash -ne '67B68177479103FD0799F0BEA7B893FC11DC67B332F26910BEBBB27E12527356') { Write-Error "checksum $hash"; exit 1 }
-          $p = Start-Process msiexec -ArgumentList '/i', 'armpl.msi', '/quiet', '/norestart', 'ACCEPT_EULA=1' -Wait -PassThru
-          if ($p.ExitCode -ne 0) { exit $p.ExitCode }
       - name: Where it landed
         run: |
-          for dir in /opt/arm "/c/Program Files/Arm Performance Libraries"; do
-            find "$dir" -iname "*armpl_lp64*" 2>/dev/null | head -20 || true
-          done
+          find /opt/arm -iname "*armpl_lp64*" 2>/dev/null | head -20 || true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: What photonoxide finds

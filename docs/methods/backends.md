@@ -290,7 +290,8 @@ processors) and Apple Accelerate (on macOS).
   `scipy-openblas64` exports `zgemm_` taking 64-bit integers, and is called so. How a Fortran
   function returns a complex number (by value, or through a first argument) is measured with
   `zdotc` the same way, with arguments either reading takes safely; on Windows on x86-64 the two
-  are one convention. Every interface oneMKL 2026.1 has (Fortran's and C's, 32 and 64 bits) and
+  are one convention. On Linux, Ubuntu's MKL 2020.4 returns through a first argument (Intel's
+  convention, in its LP64 layer) and pip's OpenBLAS by value (gfortran's): both measured so. Every interface oneMKL 2026.1 has (Fortran's and C's, 32 and 64 bits) and
   each OpenBLAS build here agrees with faer's kernels to 1e-13.
 - A library that has been called stays loaded for the rest of the process: unloading OpenBLAS
   while its threads waited crashed (an access violation on Windows).
@@ -309,7 +310,10 @@ processors) and Apple Accelerate (on macOS).
   count, as `openblas_set_num_threads` does, and with rayon's threads setting 1 and 20 at once
   the solver ran 80 times slower and didn't repeat its bits. So OpenBLAS runs on one thread,
   and a threaded call sets the count around itself while no other call into OpenBLAS runs (a
-  lock that the one-thread calls share). Accelerate has no such setting and is left to itself.
+  lock that the one-thread calls share). Its LU stays on one thread: its threaded `zgetrf`
+  keeps arrays sized by the build's largest thread count on the stack at each level of its
+  recursion, and overflowed a 2 MiB thread's stack with pip's and Ubuntu's builds on Linux.
+  Accelerate has no such setting and is left to itself.
 - **Reproducibility** is each library's own, recorded in its kernels' description: oneMKL's
   conditional numerical reproducibility (`mkl_cbwr_set`, which photonoxide sets to `AUTO`) gives
   the same bits on every run at one thread count, not on another; OpenBLAS promises nothing.

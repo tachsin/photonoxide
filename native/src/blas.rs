@@ -34,7 +34,10 @@
 //!   does. With rayon's threads setting it to 1 and 20 at once, the solver ran 80 times slower
 //!   and didn't repeat its bits. So OpenBLAS stays on one thread, and a threaded call sets the
 //!   count around itself while no other call into OpenBLAS runs (a lock, shared by the calls
-//!   on one thread). Without an OpenMP runtime, AOCL-BLAS is held to one thread by
+//!   on one thread). OpenBLAS's LU runs on one thread always: its threaded `zgetrf` keeps
+//!   arrays sized by its build's largest thread count on the stack at each level of its
+//!   recursion, and overflowed a 2 MiB thread's stack (pip's and Ubuntu's builds, on Linux).
+//!   Without an OpenMP runtime, AOCL-BLAS is held to one thread by
 //!   `bli_thread_set_num_threads`; Accelerate has no control photonoxide sets, and is left to
 //!   itself.
 //! - **Determinism** ([`Kernels::reproducibility`]): oneMKL's conditional numerical
@@ -1254,6 +1257,11 @@ pub struct Blas {
     interface: Interface,
     calls: Box<dyn Calls>,
     triangular: bool,
+    /// Whether its LU may thread. OpenBLAS's threaded `zgetrf` (`getrf_parallel`) keeps
+    /// arrays sized by its build's largest thread count on the stack at each level of its
+    /// recursion: on a thread with rayon's or a test's stack (2 MiB) it overflowed, with pip's
+    /// `scipy-openblas32` and Ubuntu's builds on Linux. Its products and solves still thread.
+    threaded_lu: bool,
     threading: Threading,
     /// The files, for what the probe says.
     files: Vec<PathBuf>,
@@ -1621,6 +1629,7 @@ fn openblas(library: Library, found: Detected) -> Blas {
         interface: found.interface,
         calls: found.calls,
         triangular,
+        threaded_lu: false,
         threading,
         files: vec![library.path().to_path_buf()],
         _libraries: vec![library],
@@ -1674,6 +1683,7 @@ fn onemkl(want: Want) -> Result<Blas, String> {
         what,
         interface: found.interface,
         triangular: found.calls.triangular_product(),
+        threaded_lu: true,
         calls: found.calls,
         threading: Threading::Mkl(mkl.clone()),
         files: vec![library.path().to_path_buf()],
@@ -1708,6 +1718,7 @@ fn accelerate(want: Want) -> Result<Blas, String> {
         what,
         interface: found.interface,
         triangular: found.calls.triangular_product(),
+        threaded_lu: true,
         calls: found.calls,
         threading: Threading::Fixed,
         files: vec![library.path().to_path_buf()],
@@ -1768,6 +1779,7 @@ fn armpl(library: Library, found: Detected) -> Blas {
         what,
         interface: found.interface,
         triangular: found.calls.triangular_product(),
+        threaded_lu: true,
         calls: found.calls,
         threading,
         files: vec![libraries[0].path().to_path_buf()],
@@ -1917,6 +1929,7 @@ fn aocl(setting: Option<&Path>, want: Want) -> (Discovery, Result<Blas, String>)
             what,
             interface: found.interface,
             triangular: found.calls.triangular_product(),
+            threaded_lu: true,
             calls: found.calls,
             threading,
             files,
@@ -2025,8 +2038,9 @@ impl DenseKernels for Blas {
         }
         let (lda, pointer) = (a.stride(), a.pointer());
         // SAFETY: A is n × n with leading dimension lda (a Block's promise)
-        let (pivots, info) =
-            self.threaded(threaded, || unsafe { self.calls.getrf(n, pointer, lda) });
+        let (pivots, info) = self.threaded(threaded && self.threaded_lu, || unsafe {
+            self.calls.getrf(n, pointer, lda)
+        });
         // (a positive info is a zero pivot, which the caller looks for itself)
         assert!(info >= 0, "zgetrf refused its argument {}", -info);
         // LAPACK's pivots are the swaps it made, one after another, from 1
