@@ -174,9 +174,9 @@ first, and the larger AppImage where neither fits, as on a cluster:
 [which file](https://github.com/tachsin/photonoxide/blob/main/studio/README.md#downloads)), and an
 installed copy updates itself; it can also be built from the repository
 ([how](https://github.com/tachsin/photonoxide/blob/main/studio/README.md)). Started with no
-arguments, it opens the studio on a workspace: the examples and jobs built in, a job builder
-with a 3D preview, the runs, the materials catalogue and the validation report (the
-[studio's README](https://github.com/tachsin/photonoxide/blob/main/studio/README.md) describes
+arguments, it opens the studio on a workspace: the examples and jobs built in, the components
+each on its page and the Custom device for any other structure, the runs, the materials
+catalogue and the validation report (the [studio's README](https://github.com/tachsin/photonoxide/blob/main/studio/README.md) describes
 every page). From a terminal:
 
 ```sh
@@ -194,8 +194,8 @@ photonoxide run jobs/slab-soi.toml              # a slab: 220 nm of silicon on o
 ```
 
 A job file is TOML, JSON or YAML, by its extension (`.toml`, `.json`, `.yaml` or `.yml`), the
-same fields in each; the builder switches between them. The same job three ways (shortened: a
-modes job needs its stack, window and shapes too, as in `jobs/strip-modes.toml`):
+same fields in each; the Custom device switches between them. The same job three ways
+(shortened: a modes job needs its stack, window and shapes too, as in `jobs/strip-modes.toml`):
 
 ```toml
 # A strip's modes at 1.55 um.

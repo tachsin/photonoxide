@@ -1,5 +1,5 @@
 <script lang="ts">
-  // An optional number in the builder's form: empty means the job's default.
+  // An optional number in the Custom device's form: empty means the job's default.
   import { Info } from "@lucide/svelte";
 
   import { shown, stored, type LengthUnit } from "../lib/units";

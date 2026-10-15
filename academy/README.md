@@ -50,7 +50,7 @@ level: introductory           # introductory, intermediate or advanced
 minutes: 25                   # about how long it takes to read
 prerequisites: []             # other lessons, by file name without .md
 examples: [ring_q_factor]     # examples/<name>.rs it uses: "run the example"
-jobs: [ring-fdfd.toml]        # jobs/<file> it opens in the builder
+jobs: [ring-fdfd.toml]        # jobs/<file> it opens in the Custom device
 circuits: [ring-all-pass.toml]  # circuits/<file> it opens on the chip
 methods: [components.md]      # docs/methods/<file> it explains
 validation: [components/ring-all-pass-bogaerts]  # validation cases it quotes
@@ -180,7 +180,7 @@ A lesson opens on its device drawn, before any chart, with a sentence saying wha
 same letters its equations use, set by KaTeX), with dimension arrows, the waves in and out, and a
 caption saying what the reader is looking at. Its sizes may be illustrative; its labels may not.
 Where a built-in job builds the same device, a 2D | 3D switch shows that job's structure as
-photonoxide's geometry builds it, the job builder's 3D preview, turned by a drag; the schematic
+photonoxide's geometry builds it, the Custom device's 3D view, turned by a drag; the schematic
 shows first.
 
 | Diagram | What it draws | 3D view |

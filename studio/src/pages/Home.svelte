@@ -8,11 +8,11 @@
   import Markdown from "../components/Markdown.svelte";
   import Tip from "../components/Tip.svelte";
   import { ago, api, duration, KINDS, type Home } from "../lib/api";
-  import { app, go, run, showCases, showPublished, startRun } from "../lib/app.svelte";
+  import { app, go, newCustom, openCustom, run, showCases, showPublished, startRun } from "../lib/app.svelte";
   import { catalog, loadCatalog } from "../lib/catalog.svelte";
   import { openRunItem } from "../lib/device.svelte";
   import { showChip } from "../lib/chip.svelte";
-  import { template, toToml, type Kind } from "../lib/job";
+  import type { Kind } from "../lib/job";
 
   let home = $state<Home | null>(null);
   let changelog = $state("");
@@ -33,8 +33,7 @@
   loadCatalog();
 
   function newJob(kind: Kind) {
-    app.builderOpen = { text: toToml(template(kind)), path: null };
-    go("builder");
+    newCustom(kind);
   }
 
   async function openRunFolder() {
@@ -100,7 +99,7 @@
     </section>
 
     <Tip id="home-start" title="New here?">
-      Run one of the templates below: it plays live in the run view. <strong>Open</strong> takes it to the job builder, to change it and save your own. Your runs are in the drawer at the bottom left, and <kbd class="kbd kbd-xs">Ctrl</kbd> <kbd class="kbd kbd-xs">K</kbd> finds any page, template, published result, circuit or run. The question mark at the top replays the tour.
+      Run one of the templates below: it plays live in the run view. <strong>Open</strong> takes it to the Custom device, on Components, to change it and save your own. Your runs are in the drawer at the bottom left, and <kbd class="kbd kbd-xs">Ctrl</kbd> <kbd class="kbd kbd-xs">K</kbd> finds any page, template, published result, circuit or run. The question mark at the top replays the tour.
     </Tip>
 
     <div class="grid gap-6 xl:grid-cols-[1fr_380px]">
@@ -118,8 +117,7 @@
               text={j.text}
               onrun={() => startRun(() => api.runText(j.text), `Running ${j.name}`)}
               onopen={() => {
-                app.builderOpen = { text: j.text, path: null };
-                go("builder");
+                openCustom(j.text);
               }}
             />
           {:else}

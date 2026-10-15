@@ -1,8 +1,13 @@
-// A job file as the builder's form edits it, and back to TOML. The fields are the ones
-// photonoxide::job reads for each kind (see src/job/mod.rs and src/job/fdfd.rs).
+// A job file as the Custom device's form edits it. The fields are the ones photonoxide::job reads
+// for each kind (see src/job/mod.rs and src/job/fdfd.rs); the program reads a file into this model
+// and writes it back (studio/src-tauri/src/form.rs: `api.jobForm`, `api.formText`), keeping as the
+// file has it whatever the form doesn't show (`kept`).
 
 export type Kind = "structure" | "modes" | "fdfd" | "fdtd";
 export type Stack = "soi_220" | "soi" | "nitride";
+
+/** A number, or an expression's text with its units (`"w/2 + gap"`, `"150 nm"`). */
+export type Num = number | string;
 
 export interface Rect {
   layer: string;
@@ -32,9 +37,11 @@ export interface Port {
 }
 
 export interface Sweep {
-  parameter: "wavelength" | "width";
-  from: number;
-  to: number;
+  /** "wavelength", "width" (a rectangle's), or one of the task's parameters. */
+  parameter: string;
+  /** Numbers in µm (radians for an angle), or expressions with units. */
+  from: Num;
+  to: Num;
   points: number;
   /** For a width sweep, which rectangle. */
   rect: number | null;
@@ -70,9 +77,6 @@ export interface FdtdItem {
   /** A field monitor's wavelengths. */
   wavelengths_um: number[] | null;
 }
-
-/** The fields of an `FdtdItem` in the order a job file writes them. */
-const ITEM_KEYS = ["name", "normal", "at_um", "direction", "x_um", "y_um", "z_um", "position_um", "component", "polarization", "center_um", "waist_um", "focus_um", "angle_deg", "wavelengths_um"] as const;
 
 /** The guiding layer's bottom and top, µm: on its bottom oxide, the stack's first layer. */
 export function layerSpan(m: JobModel): [number, number] {
@@ -144,7 +148,8 @@ export interface JobModel {
   name: string;
   timeout_minutes: number | null;
   kind: Kind;
-  stack: Stack;
+  /** A preset; "" when the task has a `[task.stack]` of layers, kept as the file has it. */
+  stack: Stack | "";
   core_nm: number | null;
   bottom_oxide_um: number | null;
   wavelength_um: number;
@@ -196,6 +201,22 @@ export interface JobModel {
   stop: { until: "decay" | "time"; fraction: number | null; time_um: number | null; limit_um: number | null };
   /** fdtd: the field the frames show, the 3D plane's height, and how often. */
   view: { field: string | null; z_um: number | null; every_um: number | null };
+  /** The task's named parameters, `[task.parameters]`: (name, number or expression). */
+  parameters: [string, Num][];
+  /** What the form doesn't show, by name ("task.component", "solver"): written back as the file has it. */
+  kept: string[];
+  /** Those, as TOML, for the program to write back. */
+  kept_toml: string;
+}
+
+/** Whether the form holds `key` of the task (it isn't kept as the file has it). */
+export function holds(m: JobModel, key: string): boolean {
+  return !m.kept.includes(`task.${key}`);
+}
+
+/** A sweep's end as a number, when it is one. */
+export function numberOf(v: Num): number | null {
+  return typeof v === "number" ? v : null;
 }
 
 export const STACKS: Record<Stack, { label: string; layers: string[]; about: string }> = {
@@ -242,6 +263,9 @@ export function template(kind: Kind): JobModel {
     monitor: [],
     stop: { until: "decay", fraction: null, time_um: null, limit_um: null },
     view: { field: null, z_um: null, every_um: null },
+    parameters: [],
+    kept: [],
+    kept_toml: "",
   };
   switch (kind) {
     case "fdtd": {
@@ -290,263 +314,6 @@ export function template(kind: Kind): JobModel {
         ],
       };
   }
-}
-
-const pair = (v: unknown, fallback: [number, number]): [number, number] =>
-  Array.isArray(v) && v.length === 2 && v.every((x) => typeof x === "number") ? [v[0], v[1]] : fallback;
-const num = (v: unknown, fallback: number): number => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
-const opt = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
-
-/** The model of a parsed job file (`check_job`'s `model`) and its text (for the comment). */
-export function fromModel(file: Record<string, unknown>, text: string): JobModel {
-  const task = (file.task ?? {}) as Record<string, unknown>;
-  const kind = (["structure", "modes", "fdfd", "fdtd"].includes(task.kind as string) ? task.kind : "structure") as Kind;
-  const t = template(kind);
-  const list = (v: unknown) => (Array.isArray(v) ? (v as Record<string, unknown>[]) : []);
-  const sweep = task.sweep as Record<string, unknown> | undefined;
-  const table = (v: unknown) => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
-  const text_ = (v: unknown): string | null => (typeof v === "string" ? v : null);
-  const nums = (v: unknown): number[] | null => (Array.isArray(v) && v.every((x) => typeof x === "number") ? (v as number[]) : null);
-  const optPair = (v: unknown): [number, number] | null => (v === undefined ? null : pair(v, [0, 1]));
-  const item = (r: Record<string, unknown>): FdtdItem => ({
-    type: typeof r.type === "string" ? r.type : "mode",
-    name: text_(r.name),
-    normal: r.normal === "x" || r.normal === "y" || r.normal === "z" ? r.normal : null,
-    at_um: opt(r.at_um),
-    direction: text_(r.direction),
-    x_um: optPair(r.x_um),
-    y_um: optPair(r.y_um),
-    z_um: optPair(r.z_um),
-    position_um: nums(r.position_um),
-    component: text_(r.component),
-    polarization: text_(r.polarization),
-    center_um: nums(r.center_um),
-    waist_um: opt(r.waist_um),
-    focus_um: opt(r.focus_um),
-    angle_deg: opt(r.angle_deg),
-    wavelengths_um: nums(r.wavelengths_um),
-  });
-  const bounds = table(task.boundaries);
-  const spectrum = task.spectrum === undefined ? null : table(task.spectrum);
-  const stop = table(task.stop);
-  const view = table(task.view);
-  const bloch = nums(bounds.bloch);
-  return {
-    dimensions: task.dimensions === 3 ? 3 : 2,
-    courant: opt(task.courant),
-    boundaries: { x: text_(bounds.x), y: text_(bounds.y), z: text_(bounds.z), bloch: bloch && bloch.length === 3 ? [bloch[0], bloch[1], bloch[2]] : null },
-    spectrum: spectrum ? { from_um: num(spectrum.from_um, 1.5), to_um: num(spectrum.to_um, 1.6), points: num(spectrum.points, 11) } : null,
-    source: list(task.source).map(item),
-    monitor: list(task.monitor).map(item),
-    stop: { until: stop.until === "time" ? "time" : "decay", fraction: opt(stop.fraction), time_um: opt(stop.time_um), limit_um: opt(stop.limit_um) },
-    view: { field: text_(view.field), z_um: opt(view.z_um), every_um: opt(view.every_um) },
-    about: aboutOf(text),
-    name: typeof file.name === "string" ? file.name : t.name,
-    timeout_minutes: opt(file.timeout_minutes),
-    kind,
-    stack: (["soi_220", "soi", "nitride"].includes(task.stack as string) ? task.stack : "soi_220") as Stack,
-    core_nm: opt(task.core_nm),
-    bottom_oxide_um: opt(task.bottom_oxide_um),
-    wavelength_um: num(task.wavelength_um, 1.55),
-    layer: typeof task.layer === "string" ? task.layer : "Si",
-    // a modes file that doesn't say is an older one, along y; the other kinds' light goes along x
-    propagation: task.propagation === "x" || task.propagation === "y" ? task.propagation : kind === "modes" ? null : "x",
-    x_um: pair(task.x_um, t.x_um),
-    y_um: pair(task.y_um, t.y_um),
-    z_um: task.z_um === undefined ? null : pair(task.z_um, [-1, 1]),
-    side_y_um: opt(task.side_y_um),
-    cut_x_um: opt(task.cut_x_um),
-    cut_y_um: opt(task.cut_y_um),
-    step_nm: num(task.step_nm, 20),
-    modes: num(task.modes, 2),
-    modes_above: opt(task.modes_above),
-    polarization: task.polarization === "tm" ? "tm" : "te",
-    pml_cells: opt(task.pml_cells),
-    field_um: opt(task.field_um),
-    rect: list(task.rect).map((r) => ({
-      layer: typeof r.layer === "string" ? r.layer : "Si",
-      center_um: pair(r.center_um, [0, 0]),
-      size_um: pair(r.size_um, [1, 0.5]),
-    })),
-    circle: list(task.circle).map((c) => ({
-      layer: typeof c.layer === "string" ? c.layer : "Si",
-      center_um: pair(c.center_um, [0, 0]),
-      radius_um: num(c.radius_um, 1),
-    })),
-    ring: list(task.ring).map((r) => ({
-      layer: typeof r.layer === "string" ? r.layer : "Si",
-      center_um: pair(r.center_um, [0, 0]),
-      radius_um: num(r.radius_um, 1.5),
-      width_um: num(r.width_um, 0.5),
-    })),
-    port: list(task.port).map((p) => ({
-      x_um: num(p.x_um, 0),
-      side: p.side === "right" ? "right" : "left",
-      y_um: p.y_um === undefined ? null : pair(p.y_um, [-1, 1]),
-    })),
-    sweep: sweep
-      ? {
-          parameter: sweep.parameter === "width" ? "width" : "wavelength",
-          from: num(sweep.from, 1.5),
-          to: num(sweep.to, 1.6),
-          points: num(sweep.points, 11),
-          rect: opt(sweep.rect),
-        }
-      : null,
-  };
-}
-
-/** A job file's opening comment, as one paragraph, without its usage lines. */
-export function aboutOf(text: string): string {
-  const out: string[] = [];
-  for (const line of text.split("\n")) {
-    if (!line.startsWith("#")) break;
-    const l = line.slice(1).trim();
-    if (!l || l.startsWith("photonoxide ")) break;
-    out.push(l);
-  }
-  return out.join(" ");
-}
-
-/** A float as TOML writes it: always with a point. */
-function f(x: number): string {
-  if (!Number.isFinite(x)) return "0.0";
-  const s = String(Number(x.toPrecision(12)));
-  return /[.eE]/.test(s) ? s : `${s}.0`;
-}
-const fp = (p: [number, number]) => `[${f(p[0])}, ${f(p[1])}]`;
-const str = (s: string) => JSON.stringify(s);
-
-/** `text` wrapped to `width` characters, as comment lines. */
-function comment(text: string, width = 95): string[] {
-  const lines: string[] = [];
-  let line = "#";
-  for (const word of text.split(/\s+/).filter(Boolean)) {
-    if (line.length + 1 + word.length > width && line !== "#") {
-      lines.push(line);
-      line = "#";
-    }
-    line += ` ${word}`;
-  }
-  if (line !== "#") lines.push(line);
-  return lines;
-}
-
-/** The job file for `m`. */
-export function toToml(m: JobModel): string {
-  const out: string[] = [];
-  if (m.about.trim()) out.push(...comment(m.about));
-  out.push(`#   photonoxide run jobs/${m.name}.toml`);
-  out.push(`name = ${str(m.name)}`);
-  if (m.timeout_minutes !== null) out.push(`timeout_minutes = ${f(m.timeout_minutes)}`);
-  out.push("", "[task]", `kind = ${str(m.kind)}`, `stack = ${str(m.stack)}`);
-  if (m.stack !== "soi_220") {
-    out.push(`core_nm = ${f(m.core_nm ?? 220)}`, `bottom_oxide_um = ${f(m.bottom_oxide_um ?? 2)}`);
-  }
-  out.push(`wavelength_um = ${f(m.wavelength_um)}`, `layer = ${str(m.layer)}`);
-  if (m.kind === "fdfd") out.push(`polarization = ${str(m.polarization)}`);
-  if (m.kind === "fdtd") {
-    if (m.dimensions === 3) out.push("dimensions = 3");
-    else out.push(`polarization = ${str(m.polarization)}`);
-  }
-  if (m.kind === "modes") {
-    // only the window across the guide and the cut along it: the library refuses the other axis's
-    if (m.propagation) out.push(`propagation = ${str(m.propagation)}`);
-    if (along(m) === "x") {
-      out.push(`y_um = ${fp(m.y_um)}`);
-      if (m.cut_x_um !== null) out.push(`cut_x_um = ${f(m.cut_x_um)}`);
-    } else {
-      out.push(`x_um = ${fp(m.x_um)}`);
-      if (m.cut_y_um !== null) out.push(`cut_y_um = ${f(m.cut_y_um)}`);
-    }
-  } else {
-    out.push(`x_um = ${fp(m.x_um)}`, `y_um = ${fp(m.y_um)}`);
-  }
-  if ((m.kind === "structure" || m.kind === "modes" || (m.kind === "fdtd" && m.dimensions === 3)) && m.z_um) out.push(`z_um = ${fp(m.z_um)}`);
-  if (m.kind === "structure" && m.side_y_um !== null) out.push(`side_y_um = ${f(m.side_y_um)}`);
-  out.push(`step_nm = ${f(m.step_nm)}`);
-  // a threshold or a count, not both: the library refuses a job with the two
-  if (m.kind === "modes") out.push(m.modes_above !== null ? `modes_above = ${f(m.modes_above)}` : `modes = ${Math.max(1, Math.round(m.modes))}`);
-  if ((m.kind === "fdfd" || m.kind === "fdtd") && m.pml_cells !== null) out.push(`pml_cells = ${Math.round(m.pml_cells)}`);
-  if (m.kind === "fdtd") fdtdHead(m, out);
-  if (m.kind === "fdfd" && m.field_um !== null) out.push(`field_um = ${f(m.field_um)}`);
-  for (const r of m.rect) {
-    out.push("", "[[task.rect]]", `layer = ${str(r.layer)}`, `center_um = ${fp(r.center_um)}`, `size_um = ${fp(r.size_um)}`);
-  }
-  if (m.kind !== "fdfd" || m.circle.length) {
-    for (const c of m.circle) {
-      out.push("", "[[task.circle]]", `layer = ${str(c.layer)}`, `center_um = ${fp(c.center_um)}`, `radius_um = ${f(c.radius_um)}`);
-    }
-  }
-  for (const r of m.ring) {
-    out.push("", "[[task.ring]]", `layer = ${str(r.layer)}`, `center_um = ${fp(r.center_um)}`, `radius_um = ${f(r.radius_um)}`, `width_um = ${f(r.width_um)}`);
-  }
-  if (m.kind === "fdfd") {
-    for (const p of m.port) {
-      out.push("", "[[task.port]]", `x_um = ${f(p.x_um)}`, `side = ${str(p.side)}`);
-      if (p.y_um) out.push(`y_um = ${fp(p.y_um)}`);
-    }
-  }
-  if (m.kind === "fdtd") fdtdTail(m, out);
-  if (m.sweep && m.kind !== "structure" && m.kind !== "fdtd") {
-    const s = m.sweep;
-    const parameter = m.kind === "fdfd" ? "wavelength" : s.parameter;
-    out.push("", "[task.sweep]", `parameter = ${str(parameter)}`, `from = ${f(s.from)}`, `to = ${f(s.to)}`, `points = ${Math.max(1, Math.round(s.points))}`);
-    if (parameter === "width" && s.rect !== null) out.push(`rect = ${Math.round(s.rect)}`);
-  }
-  return out.join("\n") + "\n";
-}
-
-/** An fdtd job's plain keys after the grid, and its boundaries and spectrum: what comes before the shapes. */
-function fdtdHead(m: JobModel, out: string[]) {
-  if (m.courant !== null) out.push(`courant = ${f(m.courant)}`);
-  const b = m.boundaries;
-  const sides = (["x", "y", "z"] as const).filter((a) => b[a] !== null && (a !== "z" || m.dimensions === 3));
-  if (sides.length || b.bloch) {
-    out.push("", "[task.boundaries]");
-    for (const a of sides) out.push(`${a} = ${str(b[a]!)}`);
-    if (b.bloch) out.push(`bloch = [${b.bloch.map(f).join(", ")}]`);
-  }
-  if (m.spectrum) {
-    const s = m.spectrum;
-    out.push("", "[task.spectrum]", `from_um = ${f(s.from_um)}`, `to_um = ${f(s.to_um)}`, `points = ${Math.max(1, Math.round(s.points))}`);
-  }
-}
-
-/** An fdtd job's sources, monitors, stopping rule and view: what comes after the shapes. */
-function fdtdTail(m: JobModel, out: string[]) {
-  const value = (v: unknown): string => {
-    if (typeof v === "string") return str(v);
-    if (typeof v === "number") return f(v);
-    return `[${(v as number[]).map(f).join(", ")}]`;
-  };
-  const items = (table: string, list: FdtdItem[]) => {
-    for (const it of list) {
-      out.push("", `[[task.${table}]]`, `type = ${str(it.type)}`);
-      for (const k of ITEM_KEYS) {
-        const v = it[k];
-        if (v !== null && v !== undefined) out.push(`${k} = ${value(v)}`);
-      }
-    }
-  };
-  items("source", m.source);
-  items("monitor", m.monitor);
-  const s = m.stop;
-  const stop: string[] = [];
-  if (s.until === "time") {
-    stop.push(`until = "time"`, `time_um = ${f(s.time_um ?? 500)}`);
-  } else {
-    if (s.fraction !== null) stop.push(`fraction = ${f(s.fraction)}`);
-    if (s.limit_um !== null) stop.push(`limit_um = ${f(s.limit_um)}`);
-    if (stop.length) stop.unshift(`until = "decay"`);
-  }
-  if (stop.length) out.push("", "[task.stop]", ...stop);
-  const v = m.view;
-  const view: string[] = [];
-  if (v.field !== null) view.push(`field = ${str(v.field)}`);
-  if (v.z_um !== null && m.dimensions === 3) view.push(`z_um = ${f(v.z_um)}`);
-  if (v.every_um !== null) view.push(`every_um = ${f(v.every_um)}`);
-  if (view.length) out.push("", "[task.view]", ...view);
 }
 
 /** The axis a modes job's modes travel along: its `propagation`, y for a file that doesn't say. */
@@ -602,7 +369,7 @@ export function previewWindow(m: JobModel): { x: [number, number]; y: [number, n
   return along(m) === "x" ? { x: [c - half * 1.5, c + half * 1.5], y: span } : { x: span, y: [c - half * 0.6, c + half * 0.6] };
 }
 
-/** How many cells the job's grid has, roughly, for the estimate the builder shows. */
+/** How many cells the job's grid has, roughly, for the estimate the Custom device shows. */
 export function cells(m: JobModel): number {
   const h = m.step_nm / 1000;
   if (h <= 0) return 0;

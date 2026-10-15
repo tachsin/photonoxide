@@ -17,7 +17,6 @@
   import { checkForUpdate } from "./lib/updater.svelte";
   import Academy from "./pages/Academy.svelte";
   import Benchmarks from "./pages/Benchmarks.svelte";
-  import Builder from "./pages/Builder.svelte";
   import ChipPage from "./pages/Chip.svelte";
   import Components from "./pages/Components.svelte";
   import Home from "./pages/Home.svelte";
@@ -58,8 +57,6 @@
     <main class="min-h-0 min-w-0 overflow-hidden">
       {#if app.page === "home"}
         <Home />
-      {:else if app.page === "builder"}
-        <Builder />
       {:else if app.page === "materials"}
         <Materials />
       {:else if app.page === "components"}

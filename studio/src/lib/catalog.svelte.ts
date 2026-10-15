@@ -1,7 +1,7 @@
 // What ships inside the program, loaded once: the examples and the built-in jobs.
 
 import { api, type Catalog, type JobExample, type JobFormat } from "./api";
-import { fromModel, type JobModel } from "./job";
+import type { JobModel } from "./job";
 
 export const catalog = $state({
   loaded: false,
@@ -24,10 +24,9 @@ export function loadCatalog(): Promise<void> {
   return loading;
 }
 
-/** A job's text, in `format`, as the builder's model (the backend parses it). */
-export async function modelOf(text: string, format: JobFormat = "toml"): Promise<JobModel> {
-  const check = await api.checkJob(text, format);
-  return fromModel(check.model ?? {}, text);
+/** A job's text, in `format`, as the Custom device's form holds it (the program reads it). */
+export function modelOf(text: string, format: JobFormat = "toml"): Promise<JobModel> {
+  return api.jobForm(text, format);
 }
 
 export function jobExample(file: string): JobExample | undefined {

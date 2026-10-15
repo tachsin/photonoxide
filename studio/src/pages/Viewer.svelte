@@ -32,7 +32,7 @@
   const onPage = $derived(embedded ? active : app.page === "viewer");
 
   let view = $state<"3d" | "2d">(app.state?.settings.view ?? "3d");
-  /** The page's width, and whether it is too narrow for the bar's full text and a 300 px side panel (a 960 px window is): as the builder judges it. */
+  /** The page's width, and whether it is too narrow for the bar's full text and a 300 px side panel (a 960 px window is): as the Custom device judges it. */
   let width = $state(0);
   const narrow = $derived(width > 0 && width < 1060);
   let host: HTMLDivElement;

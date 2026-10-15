@@ -15,7 +15,7 @@
 
 <header class="flex h-14 items-center gap-4 border-b border-base-content/8 bg-base-100/60 px-5 backdrop-blur">
   {#if !onRail}
-    <!-- the job builder and the run view aren't on the rail: the way back to the page they were opened from -->
+    <!-- the run view isn't on the rail: the way back to the page it was opened from -->
     <div class="tooltip tooltip-bottom tooltip-right" data-tip="Back to {PAGES[app.back].label}">
       <button class="btn btn-ghost btn-sm btn-square -mr-2" aria-label="Back to {PAGES[app.back].label}" onclick={() => go(app.back)}><ArrowLeft size={18} /></button>
     </div>

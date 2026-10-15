@@ -1,5 +1,5 @@
 <script lang="ts">
-  // A template as a card: its device in 3D, turning, what it is, and Run or Open (in the builder).
+  // A template as a card: its device in 3D, turning, what it is, and Run or Open (in the Custom device).
   import { Play, SquarePen } from "@lucide/svelte";
 
   import { KINDS } from "../lib/api";
@@ -39,7 +39,7 @@
     <p class="line-clamp-3 flex-1 text-[13px] leading-relaxed muted">{about || KINDS[kind]?.about}</p>
     <div class="mt-1 flex gap-2">
       <button class="btn btn-primary btn-sm flex-1 gap-1.5" onclick={onrun} title="Run it now and watch it live"><Play size={14} /> Run</button>
-      <button class="btn btn-ghost btn-sm gap-1.5" onclick={onopen} title="Open it in the job builder, to change it"><SquarePen size={14} /> Open</button>
+      <button class="btn btn-ghost btn-sm gap-1.5" onclick={onopen} title="Open it in the Custom device, to change it"><SquarePen size={14} /> Open</button>
     </div>
   </div>
 </article>

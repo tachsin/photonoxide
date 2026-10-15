@@ -116,7 +116,7 @@ pub struct Front {
     /// Examples it uses (examples/<name>.rs).
     #[serde(default)]
     pub examples: Vec<String>,
-    /// Jobs it opens in the builder (jobs/<file>).
+    /// Jobs it opens in the Custom device (jobs/<file>).
     #[serde(default)]
     pub jobs: Vec<String>,
     /// Circuits it opens on the chip (circuits/<file>).

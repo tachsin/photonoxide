@@ -70,16 +70,17 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 ## The studio
 
 `photonoxide` opens a window on a folder of jobs, runs and chips: the examples, each run in one
-click and checked against its paper; a job builder with a live 3D preview; runs played live or
+click and checked against its paper; each component on its own page, its design in 3D, its models
+side by side and its runs; the Custom device for any other structure; runs played live or
 replayed (modes, fields, spectra, FDTD as the field propagates); the Academy's lessons with live
-charts; the materials catalogue; components and chips; the validation report; and the external
+charts; the materials catalogue; chips; the validation report; and the external
 solvers this machine has. The same program runs a job from the command line
 (`photonoxide run job.toml`, `--headless` for batches). [studio/README.md](studio/README.md) has
 every page and command.
 
 <table>
   <tr>
-    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/builder.gif" alt="The job builder: the ring-fdfd job's ring radius and position changed in the form, the 3D preview following each step" width="100%"><br><sub><b>Job builder:</b> the ring's radius and place edited in the form; the 3D preview follows.</sub></td>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/device.gif" alt="A directional coupler's page: its gap widened and its coupled length changed with the sliders, the 3D view following each step, then its cross-section, drawn from above with the cut and across the two strips" width="100%"><br><sub><b>Components:</b> a directional coupler's gap and length moved, its 3D view following; then its cross-section.</sub></td>
     <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/materials.gif" alt="The Materials page: lithium niobate's ordinary and extraordinary indices read off the plot, then AlGaAs's index as its aluminium fraction slider moves" width="100%"><br><sub><b>Materials:</b> LiNbO₃'s n<sub>o</sub> and n<sub>e</sub> read off the plot; AlGaAs as its aluminium fraction moves.</sub></td>
   </tr>
   <tr>

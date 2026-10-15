@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type { Academy, ChartData } from "./academy.svelte";
 import type { Event, Raster, Scene, ScenePort } from "./events";
+import type { JobModel } from "./job";
 import type { BenchData, BenchRequest, CatalogueEntry, Planned } from "./bench.svelte";
 import type { LibraryReport } from "./libraries.svelte";
 import type { BuildInfo } from "./nightly.svelte";
@@ -141,6 +142,10 @@ export const api = {
   /** The same job written in another format; a TOML or YAML file's opening comment goes along. */
   convertJob: (text: string, from: JobFormat, to: JobFormat) => invoke<string>("convert_job", { text, from, to }),
   readJob: (path: string) => invoke<string>("read_job", { path }),
+  /** A job's text, in `format`, as the Custom device's form holds it; what the form doesn't show is kept (form.rs). */
+  jobForm: (text: string, format: JobFormat = "toml") => invoke<JobModel>("job_form", { text, format }),
+  /** The job file the form holds, in TOML: its fields, then what it kept as the file had it. */
+  formText: (form: JobModel) => invoke<string>("form_text", { form }),
   deleteJob: (path: string) => invoke<void>("delete_job", { path }),
   deleteRun: (dir: string) => invoke<void>("delete_run", { dir }),
   runEvents: (dir: string) => invoke<Event[]>("run_events", { dir }),

@@ -124,6 +124,8 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::devices::device_job,
             crate::devices::device_job_read,
             crate::devices::device_solved,
+            crate::form::job_form,
+            crate::form::form_text,
             crate::circuits::component_library,
             crate::circuits::component_spectrum,
             crate::circuits::measured_component,
@@ -691,7 +693,7 @@ fn run_job(
     start(&state, &window, job)
 }
 
-/// Runs the job in `text`, written in `format` (from the builder, or a built-in one), and shows
+/// Runs the job in `text`, written in `format` (from the Custom device, or a built-in one), and shows
 /// it.
 #[tauri::command]
 fn run_text(
@@ -713,7 +715,7 @@ fn stop_run(state: tauri::State<'_, Studio>, dir: String) {
     }
 }
 
-/// A job's text checked: its parts for the builder's form, or why it isn't a job.
+/// A job's text checked: its parts for the Custom device's form, or why it isn't a job.
 #[derive(Serialize)]
 struct JobCheck {
     /// The text is a job file and its task fits its kind ([`job::check`]).

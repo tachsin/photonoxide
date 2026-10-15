@@ -9,7 +9,7 @@
 
   import { academy, DEPTHS, numbered, type ChartSpec, type DiagramSpec, type Depth, type Lesson, type LessonSection } from "../lib/academy.svelte";
   import { api, type CircuitExample } from "../lib/api";
-  import { app, go, showCases, showPublished, toast } from "../lib/app.svelte";
+  import { openCustom, showCases, showPublished, toast } from "../lib/app.svelte";
   import { catalog, jobExample, loadCatalog } from "../lib/catalog.svelte";
   import { showChip } from "../lib/chip.svelte";
   import { methodHtml, type MethodDoc } from "../lib/methods";
@@ -105,8 +105,7 @@
   function openJob(file: string) {
     const job = jobExample(file);
     if (!job) return toast(`${file} isn't built into this program`, "error");
-    app.builderOpen = { text: job.text, path: null };
-    go("builder");
+    openCustom(job.text);
   }
 
   function openCircuit(file: string) {
@@ -120,7 +119,7 @@
   /** The menus of the lesson's header: what it runs and opens. */
   const actions = $derived([
     { label: "Run the example", icon: Play, primary: true, items: lesson.examples.map((e) => ({ label: exampleTitle(e), run: () => runExample(e) })) },
-    { label: "Open in the builder", icon: SquarePen, primary: false, items: lesson.jobs.map((j) => ({ label: jobExample(j)?.name ?? j, run: () => openJob(j) })) },
+    { label: "Open in the Custom device", icon: SquarePen, primary: false, items: lesson.jobs.map((j) => ({ label: jobExample(j)?.name ?? j, run: () => openJob(j) })) },
     { label: "Open on the chip", icon: CircuitBoard, primary: false, items: lesson.circuits.map((c) => ({ label: circuits.find((x) => x.file === c)?.chip.name ?? c, run: () => openCircuit(c) })) },
     { label: "The methods", icon: BookOpen, primary: false, items: methodDocs.map((d) => ({ label: d.title, run: () => ondoc(d) })) },
   ]);

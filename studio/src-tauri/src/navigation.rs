@@ -1,12 +1,13 @@
 //! The window's pages, and that nothing reachable became unreachable when the rail went from
-//! fourteen pages to five (#339). The rail holds Home, Components, Chip, Academy and Materials,
-//! with Validation, Libraries and Benchmarks folded into its System group beside Settings. The
-//! job builder and the run view are reached from what they show. Every example, job, circuit
-//! and run has a home:
+//! fourteen pages to five (#339) and the job builder went into the Custom device (#342). The rail
+//! holds Home, Components, Chip, Academy and Materials, with Validation, Libraries and Benchmarks
+//! folded into its System group beside Settings. The run view is reached from what it shows.
+//! Every example, job, circuit and run has a home:
 //!
 //! - every published result of `examples/` is on Validation's Published results tab, and in
 //!   Ctrl+K;
-//! - every job of `jobs/` is a template on Home;
+//! - every job of `jobs/` is a template on Home, and opens in the Custom device on Components (a
+//!   device's job on its device's page), as do the workspace's own jobs;
 //! - every circuit of `circuits/` is in the Chip's "New from…";
 //! - a run started with `photonoxide run` opens the run view, and is pinned in the runs drawer
 //!   while it goes.
@@ -102,21 +103,35 @@ fn every_page_is_drawn_named_and_reachable() {
             "{p}: App.svelte doesn't draw it"
         );
     }
-    // the rail, the System group and Settings, and the two reached from what they show
+    // the rail, the System group and Settings, and the run view, reached from what it shows; the
+    // job builder is no page of its own: it is the Custom device, on Components
     let mut rest: Vec<&str> = all
         .iter()
         .filter(|p| !rail.contains(p) && !system.contains(p))
         .map(String::as_str)
         .collect();
     rest.sort_unstable();
-    assert_eq!(rest, ["builder", "settings", "viewer"]);
+    assert_eq!(rest, ["settings", "viewer"]);
+    assert!(
+        !source("App.svelte").contains("Builder"),
+        "the builder page is gone"
+    );
     holds(
         "components/CommandPalette.svelte",
-        r#"const pages: Page[] = [...RAIL, ...SYSTEM, "settings", "builder", "viewer"];"#,
+        r#"const pages: Page[] = [...RAIL, ...SYSTEM, "settings", "viewer"];"#,
         "Ctrl+K finds every page",
     );
-    // Home reaches both: the builder from New job and a template's Open, the run view from Continue
-    holds("pages/Home.svelte", r#"go("builder")"#, "the job builder");
+    // Home reaches the Custom device (New job, a template's Open) and the run view (Continue)
+    holds(
+        "pages/Home.svelte",
+        "newCustom(kind)",
+        "a new job, in the Custom device",
+    );
+    holds(
+        "pages/Home.svelte",
+        "openCustom(j.text)",
+        "a template, in the Custom device",
+    );
     holds("pages/Home.svelte", r#"go("viewer")"#, "the run view");
     // and the runs drawer, from the status bar
     holds(
@@ -215,6 +230,65 @@ fn every_job_has_a_home() {
         "<SquarePen size={14} /> Open</button>",
         "Open",
     );
+}
+
+#[test]
+fn every_job_opens_in_the_custom_device_or_on_its_devices_page() {
+    // the Custom device is on Components, in its list and in Ctrl+K
+    let app = source("lib/app.svelte.ts");
+    assert!(app.contains(r#"export const CUSTOM = "custom";"#));
+    let open = &app[app.find("export function openCustom").unwrap()..];
+    let open = &open[..open.find("\n}\n").unwrap()];
+    assert!(
+        open.contains("app.component = CUSTOM;") && open.contains(r#"go("components");"#),
+        "openCustom must show the Custom device on Components"
+    );
+    let components = "pages/Components.svelte";
+    holds(
+        components,
+        "onclick={() => choose(CUSTOM)}",
+        "the list's Custom device",
+    );
+    holds(components, "<CustomDevice />", "the page");
+    // the workspace's jobs: a device's on its page, any other in the Custom device; the
+    // templates in the Custom device too
+    holds(
+        components,
+        r#"designs = h.jobs.filter((j) => j.kind === "device");"#,
+        "the designs",
+    );
+    holds(
+        components,
+        r#"jobs = h.jobs.filter((j) => j.kind !== "device");"#,
+        "the other jobs",
+    );
+    holds(components, "openJob(j.path)", "a job of the workspace");
+    holds(components, "openCustom(j.text)", "a template");
+    let palette = "components/CommandPalette.svelte";
+    holds(palette, "run: () => openDesign(j.path)", "Ctrl+K: a design");
+    holds(palette, "run: () => openJob(j.path)", "Ctrl+K: a job");
+    holds(palette, "run: () => openText(j.text)", "Ctrl+K: a template");
+    holds(
+        palette,
+        r#"label: "Custom device""#,
+        "Ctrl+K: the Custom device",
+    );
+    holds(
+        "components/LessonView.svelte",
+        "openCustom(job.text)",
+        "a lesson's jobs",
+    );
+    // and every job of jobs/ reads into its form, or is a device's (form.rs's tests check each
+    // comes back unchanged)
+    for file in files("jobs", "toml") {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../jobs")
+            .join(&file);
+        let text = std::fs::read_to_string(&path).unwrap();
+        let opens = crate::form::Form::of(&text, photonoxide::run::Format::Toml).is_ok()
+            || crate::devices::read_text(&text).is_ok();
+        assert!(opens, "{file} opens nowhere");
+    }
 }
 
 #[test]

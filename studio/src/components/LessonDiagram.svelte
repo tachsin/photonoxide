@@ -1,6 +1,6 @@
 <script lang="ts">
   // A lesson's device drawn, before any chart: a labelled schematic in the lesson's symbols, and,
-  // where a built-in job builds the same device, its structure in 3D as the job builder previews
+  // where a built-in job builds the same device, its structure in 3D as the Custom device previews
   // it, turned by a drag. The schematic shows first.
   import { Box, PencilRuler } from "@lucide/svelte";
 

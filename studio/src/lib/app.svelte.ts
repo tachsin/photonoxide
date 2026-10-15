@@ -1,22 +1,23 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
-import { api, type AppState, type Info, type Settings } from "./api";
+import { api, type AppState, type Info, type JobFormat, type Settings } from "./api";
 import type { DeviceModel, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Mode, ModeField, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
+import { template, type Kind } from "./job";
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
 
 /**
- * Every page: the rail's five, the System group's three and Settings (lib/pages.ts), and two
- * reached from what they show: the job builder (a template's Open, Home's New job) and the run
- * view (a run, Home's Continue, `photonoxide run` and `view`).
+ * Every page: the rail's five, the System group's three and Settings (lib/pages.ts), and the run
+ * view, reached from what it shows (a run, Home's Continue, `photonoxide run` and `view`). A job
+ * of any kind opens in the Custom device, on the Components page (`openCustom`).
  */
-export type Page = "home" | "components" | "chip" | "academy" | "materials" | "validation" | "libraries" | "benchmarks" | "settings" | "builder" | "viewer";
+export type Page = "home" | "components" | "chip" | "academy" | "materials" | "validation" | "libraries" | "benchmarks" | "settings" | "viewer";
 
 export const app = $state({
   ready: false,
   state: null as AppState | null,
   page: "home" as Page,
-  /** The last page on the rail shown, where the job builder and the run view lead back to. */
+  /** The last page on the rail shown, where the run view leads back to. */
   back: "home" as Page,
   /** Whether the theme in effect is dark, from its own base colour. */
   dark: true,
@@ -24,8 +25,10 @@ export const app = $state({
   backdrop: "#0f1115",
   palette: false,
   tour: false,
-  /** Text for the builder to open, set by whoever sends the user there. */
-  builderOpen: null as { text: string; path: string | null } | null,
+  /** A job for the Custom device to open, its text and the file it came from, set by whoever sends the user there. */
+  jobOpen: null as { text: string; path: string | null } | null,
+  /** The Custom device's job as it was left, saved or not, so a run and the way back to it lose nothing. */
+  customDraft: null as { text: string; path: string | null; format: JobFormat; saved: string } | null,
   /** A published result for Validation's Published results tab to open, by its example's name. */
   focus: null as string | null,
   /** Validation's tab: its cases, or the published results of examples/ reproduced. */
@@ -34,7 +37,7 @@ export const app = $state({
   drawer: false,
   /** A lesson for the Academy page to open, by its id. */
   lesson: null as string | null,
-  /** The component the Components page shows, by its library id; null for the first. */
+  /** The component the Components page shows, by its library id ("custom" for the Custom device); null for the first. */
   component: null as string | null,
   /** Runs ticked in the drawer, to overlay. */
   compare: [] as string[],
@@ -44,10 +47,29 @@ export const app = $state({
 
 /** Shows `page`, the drawer closed. */
 export function go(page: Page) {
-  // the job builder and the run view aren't on the rail: the top bar leads back from them
-  if (page !== app.page && app.page !== "builder" && app.page !== "viewer") app.back = app.page;
+  // the run view isn't on the rail: the top bar leads back from it
+  if (page !== app.page && app.page !== "viewer") app.back = app.page;
   app.page = page;
   app.drawer = false;
+}
+
+/** The Components page's id for the Custom device: any structure no device describes, as a job. */
+export const CUSTOM = "custom";
+
+/** Opens the job in `text` (from the file at `path`, or none for a new one) in the Custom device. */
+export function openCustom(text: string, path: string | null = null) {
+  app.jobOpen = { text, path };
+  app.component = CUSTOM;
+  go("components");
+}
+
+/** Opens a new job of `kind`, its template, in the Custom device. */
+export async function newCustom(kind: Kind) {
+  try {
+    openCustom(await api.formText(template(kind)));
+  } catch (e) {
+    toast(String(e), "error");
+  }
 }
 
 /** Validation's Published results tab, on the example `name` when one is given. */

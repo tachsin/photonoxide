@@ -4,6 +4,7 @@
 //   cd studio && pnpm tauri build                   # target/release/photonoxide.exe
 //   node scripts/record-gifs.mjs                     # every GIF
 //   node scripts/record-gifs.mjs --only hero,academy # some of them
+//   node scripts/record-gifs.mjs --exe <a build> --config <its settings folder>   # another build, as its own app
 //
 // Windows only: it drives the window's WebView2 over the Chrome DevTools Protocol. It needs
 // Node 24 or newer (its global WebSocket), and ffmpeg and gifski on the PATH
@@ -22,7 +23,9 @@
 //    crossfades between takes and from the end back to the start (so each GIF loops seamlessly),
 //    scales with Lanczos (ffmpeg) and encodes with gifski.
 //
-// Options: --only <names>, --exe <path>, --port <n>, --workspace <folder>, --keep (keep the frames),
+// Options: --only <names>, --exe <path>, --config <folder> (the settings folder of the build --exe
+// names: another identifier's, so a check build leaves the installed studio's alone), --port <n>,
+// --workspace <folder>, --keep (keep the frames),
 // --frames <folder> (compose frames an earlier --keep kept, without recording).
 
 import { spawn, spawnSync } from "node:child_process";
@@ -55,7 +58,7 @@ const GIFS = {
   // the README's top: a strip's mode travelling while the camera orbits; a ring's spectrum
   // building up and the ring lit at resonance; an MZI wired on the chip and its spectrum
   hero: { width: 1040, fps: 15, fade: 9, quality: [78, 65, 55], takes: ["wave", "ring", "chip"] },
-  builder: { width: 860, fps: 12, fade: 8, quality: [85, 75, 70], takes: ["builder"] },
+  device: { width: 860, fps: 12, fade: 8, quality: [85, 75, 70], takes: ["device"] },
   materials: { width: 860, fps: 12, fade: 8, quality: [85, 75, 70], takes: ["materials"] },
   validation: { width: 860, fps: 12, fade: 8, quality: [85, 75, 70], takes: ["validation"] },
   // full motion quality: with less, the lesson's text scrolled past lingers faintly under the chart
@@ -86,7 +89,7 @@ for (const tool of ["ffmpeg", "gifski"]) {
 
 // ---- the settings, backed up and restored ----
 
-const CONFIG = path.join(process.env.APPDATA ?? path.join(os.homedir(), "AppData", "Roaming"), "gr.tachsin.photonoxide");
+const CONFIG = path.resolve(opt("config", path.join(process.env.APPDATA ?? path.join(os.homedir(), "AppData", "Roaming"), "gr.tachsin.photonoxide")));
 const backup = REUSE ? null : { existed: fs.existsSync(CONFIG), files: new Map() };
 if (backup?.existed) {
   for (const f of fs.readdirSync(CONFIG, { withFileTypes: true })) {
@@ -633,51 +636,38 @@ const SCENES = {
     await fold(false);
   },
 
-  /** The ring in the job builder: its radius and place changed, the 3D preview following. */
-  async builder() {
-    const card = await exampleCard("ring-fdfd", "Open");
-    await js(`[...document.querySelectorAll(args[0])].filter((x) => x.getBoundingClientRect().width)[args[1]].click();`, card.selector, card.nth);
-    await until(`return __rec.find("button", "Ring 1");`, "the builder's ring");
-    await fold(true);
-    await js(`__rec.find("button", "Ring 1").closest("div.rounded-xl").scrollIntoView({ block: "center" });`);
-    await sleep(1500);
-    const ring = await js(`const r = __rec.find("button", "Ring 1").closest("div.rounded-xl").getBoundingClientRect(); return { x: r.left, y: r.top };`);
-    await moveTo(ring.x + 60, ring.y - 60, 10);
-    await cursor(true);
-    await rec.begin("builder");
-    // the form and the 3D preview: right of the list of jobs, between the top bar and the status bar
-    rec.crop(
-      await js(`const list = __rec.find("[role=button]", "New job").closest("aside").getBoundingClientRect();
-                const foot = document.querySelector("footer").getBoundingClientRect();
-                const top = document.querySelector("main").getBoundingClientRect().top;
-                return { x: list.right, y: top, width: innerWidth - list.right, height: foot.top - top };`),
-    );
+  /** A directional coupler's page: its gap and length moved, the view following; then its cut. */
+  async device() {
+    await goTo("Components");
+    // a component already open has folded the list: its breadcrumb opens it again
     await sleep(600);
-    const inputs = await js(
-      `const ring = __rec.find("button", "Ring 1").closest("div.rounded-xl");
-       return [...ring.querySelectorAll("label")].map((l) => { const r = l.querySelector("input").getBoundingClientRect(); return { label: l.textContent.trim(), x: r.left + r.width / 2, y: r.top + r.height / 2 }; });`,
-    );
-    const radius = inputs.find((i) => i.label.startsWith("radius"));
-    const centreY = inputs.find((i) => i.label.startsWith("centre y"));
-    await moveTo(radius.x, radius.y, 800);
-    await press();
-    await release();
-    await sleep(300);
-    for (let i = 0; i < 8; i++) {
-      await pressKey("ArrowDown");
-      await sleep(260);
-    }
+    await js(`if (!__rec.find("button", "Directional coupler")) document.querySelector("button[title^='The components']")?.click();`);
+    await until(`return __rec.find("button", "Directional coupler");`, "the components");
+    // opening it folds the list away, so the design's view and its panel get the width
+    await js(`__rec.find("button", "Directional coupler").click();`);
+    await until(`return document.getElementById("field-gap");`, "the coupler's page");
+    await fold(true);
+    await sleep(1500);
+    const slider = (name) =>
+      js(`const r = document.getElementById("field-" + args[0]).closest("div").parentElement.querySelector("input[type=range]").getBoundingClientRect();
+          return { left: r.left, width: r.width, y: r.top + r.height / 2 };`, name);
+    const gap = await slider("gap");
+    await moveTo(gap.left + gap.width * 0.4, gap.y - 80, 10);
+    await cursor(true);
+    await rec.begin("device");
+    rec.crop(await railless());
     await sleep(500);
-    await moveTo(centreY.x, centreY.y, 700);
-    await press();
-    await release();
-    await sleep(300);
-    for (let i = 0; i < 8; i++) {
-      await pressKey("ArrowDown");
-      await sleep(260);
-    }
-    await moveTo(centreY.x + 80, centreY.y + 90, 600);
-    await sleep(1400);
+    // the gap opened, then the coupled length shortened: the 3D view redraws at every step
+    const at = (s, v) => ({ x: s.left + s.width * v, y: s.y });
+    const now = await js(`return Number(document.getElementById("field-gap").closest("div").parentElement.querySelector("input[type=range]").value);`);
+    const g0 = (now - 0.1) / (0.5 - 0.1);
+    await drag(at(gap, Math.min(0.95, Math.max(0.05, g0))), at(gap, 0.9), 1600, ease, 600);
+    await sleep(400);
+    const length = await slider("length");
+    await drag(at(length, 0.6), at(length, 0.25), 1400, ease, 600);
+    await sleep(500);
+    await click("button", "Cross-section", { ms: 700 });
+    await sleep(1600);
     await rec.end();
     await cursor(false);
     await fold(false);
@@ -969,7 +959,7 @@ async function record() {
   if (workspace !== WORKSPACE) throw new Error(`the workspace is ${workspace}, not ${WORKSPACE}`);
   rec = new Recorder();
 
-  const order = ["wave", "ring", "builder", "chip", "materials", "validation", "academy"];
+  const order = ["wave", "ring", "device", "chip", "materials", "validation", "academy"];
   for (const name of order) {
     if (wanted.has(name)) await SCENES[name]();
   }

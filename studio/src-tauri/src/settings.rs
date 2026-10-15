@@ -1,5 +1,5 @@
 //! The studio's settings, kept as JSON in the app's configuration folder, and the workspace they
-//! point at: the folder whose `jobs/` the job builder saves to and whose `runs/` runs go to.
+//! point at: the folder whose `jobs/` the Custom device saves to and whose `runs/` runs go to.
 
 use std::path::{Path, PathBuf};
 

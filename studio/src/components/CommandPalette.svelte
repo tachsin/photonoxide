@@ -5,11 +5,11 @@
   import { tick } from "svelte";
 
   import { api, type Catalog, type CircuitExample, type CircuitItem, type Home, type KindInfo } from "../lib/api";
-  import { app, go, showPublished, startRun, updateSettings, type Page } from "../lib/app.svelte";
+  import { app, CUSTOM, go, newCustom, openCustom, showPublished, startRun, updateSettings, type Page } from "../lib/app.svelte";
   import { PAGES, RAIL, SYSTEM } from "../lib/pages";
   import { addInstance, importTouchstone, library, loadLibrary, openChipFile, partKey, saveChip, showChip, simulate } from "../lib/chip.svelte";
   import { openDesign, openRunItem } from "../lib/device.svelte";
-  import { template, toToml, type Kind } from "../lib/job";
+  import type { Kind } from "../lib/job";
   import { checkForUpdate } from "../lib/updater.svelte";
 
   interface Item {
@@ -40,24 +40,19 @@
     }
   });
 
-  /** Every page: the rail's, the System group's, Settings, and the two reached from what they show. */
-  const pages: Page[] = [...RAIL, ...SYSTEM, "settings", "builder", "viewer"];
+  /** Every page: the rail's, the System group's, Settings, and the run view, reached from a run. */
+  const pages: Page[] = [...RAIL, ...SYSTEM, "settings", "viewer"];
 
   function newJob(kind: Kind) {
-    app.builderOpen = { text: toToml(template(kind)), path: null };
-    go("builder");
+    newCustom(kind);
   }
 
   function openJob(path: string) {
-    api.readJob(path).then((text) => {
-      app.builderOpen = { text, path };
-      go("builder");
-    });
+    api.readJob(path).then((text) => openCustom(text, path));
   }
 
   function openText(text: string) {
-    app.builderOpen = { text, path: null };
-    go("builder");
+    openCustom(text);
   }
 
   const items = $derived.by(() => {
@@ -81,7 +76,7 @@
       all.push({ group: "Run a template", label: j.name, detail: j.about, run: () => startRun(() => api.runText(j.text), `Running ${j.name}`) });
     }
     for (const j of catalog?.jobs ?? []) {
-      all.push({ group: "Open a template in the job builder", label: j.name, detail: j.about, run: () => openText(j.text) });
+      all.push({ group: "Open a template in the Custom device", label: j.name, detail: j.about, run: () => openText(j.text) });
     }
     for (const c of circuitExamples) {
       all.push({ group: "Built-in circuits", label: c.chip.name, detail: c.chip.about, run: () => showChip(c.chip) });
@@ -92,6 +87,7 @@
     all.push({ group: "Actions", label: "Import a Touchstone file", detail: "S-parameters as a measured component", run: () => importTouchstone().then((k) => k && ((app.component = partKey(k)), go("components"))) });
     for (const k of library.kinds as KindInfo[]) {
       all.push({ group: "Components", label: k.title, detail: `${k.category}: ${k.about}`, run: () => { app.component = k.id; go("components"); } });
+      if (k === library.kinds[0]) all.push({ group: "Components", label: "Custom device", detail: "any structure no device describes, as a job: its stack, shapes, ports, sources and monitors", run: () => { app.component = CUSTOM; go("components"); } });
       all.push({ group: "Place on the chip", label: k.title, detail: k.id, run: () => { addInstance(k.id); go("chip"); } });
     }
     for (const e of catalog?.examples ?? []) {
@@ -103,7 +99,7 @@
       });
     }
     for (const j of home?.jobs ?? []) {
-      // a device's design reopens on its page; any other job in the job builder
+      // a device's design reopens on its page; any other job in the Custom device
       if (j.kind === "device") all.push({ group: "Your designs", label: j.name, detail: j.about || "a device's design", run: () => openDesign(j.path) });
       else all.push({ group: "Your jobs", label: j.name, detail: j.about || j.kind, run: () => openJob(j.path) });
     }

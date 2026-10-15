@@ -15,12 +15,12 @@
     {
       icon: House,
       title: "Start from a template",
-      text: "Home holds ready-made simulations, built in: a strip's modes, a ring, an MMI splitter, each turning in 3D on its card. Run plays one live; Open takes it to the job builder.",
+      text: "Home holds ready-made simulations, built in: a strip's modes, a ring, an MMI splitter, each turning in 3D on its card. Run plays one live; Open takes it to the Custom device, on Components.",
     },
     {
       icon: SquarePen,
       title: "Build your own jobs",
-      text: "The job builder (Home's New job, or a template's Open) is a form with your device drawn live in 3D, and a top view of its shapes, ports, the PML and the cut. The TOML is written for you, checked as you type, and saved into your workspace.",
+      text: "The Custom device (on Components, or Home's New job and a template's Open) is a job as a form for any structure no device describes, drawn live in 3D with a top view of its shapes, ports, the PML and the cut. The TOML is written for you, keeps what the form doesn't show, is checked as you type, and is saved into your workspace.",
     },
     {
       icon: Boxes,

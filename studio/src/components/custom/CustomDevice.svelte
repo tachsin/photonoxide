@@ -1,101 +1,104 @@
 <script lang="ts">
-  // The job builder: a job as a form, with its device drawn as you type and its text beside it
-  // (TOML, JSON or YAML), checked by the library as it changes; saved to the workspace's jobs/ and
-  // run from here.
-  import {
-    ChevronDown,
-    CircleAlert,
-    CircleCheck,
-    Code,
-    Copy,
-    FileText,
-    Plus,
-    Play,
-    Save,
-    Trash2,
-    Eye,
-    LoaderCircle,
-    Box,
-  } from "@lucide/svelte";
+  // The Custom device: any structure no device of the library describes, as a job. Its view
+  // always on screen (the structure in 3D as its run will draw it, from above with its shapes,
+  // ports, sources and monitors, or the job's text in TOML, JSON or YAML), and the form beside it:
+  // the job's kind, its stack, its named parameters, its shapes, its ports, sources and monitors,
+  // its window, grid and sweep. The program reads a job into the form and writes it back
+  // (studio/src-tauri/src/form.rs): what the form doesn't show (components, paths, shapes defined
+  // by functions, bodies, a stack of layers, a port found by name, a solver table) is kept as the
+  // file has it, and said so; the task's parameters and a sweep of any of them are the form's.
+  // Checked by the library as it changes, saved to the workspace's jobs/, run from here.
+  import { Box, CircleAlert, CircleCheck, Code, Eye, LoaderCircle, Play, Plus, Save, Shapes, Trash2 } from "@lucide/svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
+  import { onDestroy } from "svelte";
 
-  import FdtdItems from "../components/FdtdItems.svelte";
-  import GeometryPreview, { type Selection } from "../components/GeometryPreview.svelte";
-  import NumField from "../components/NumField.svelte";
-  import OptField from "../components/OptField.svelte";
-  import ScenePreview from "../components/ScenePreview.svelte";
-  import Tip from "../components/Tip.svelte";
-  import TomlEditor from "../components/TomlEditor.svelte";
-  import { ago, api, formatOf, KINDS, type JobCheck, type JobFormat, type JobItem } from "../lib/api";
-  import { app, startRun, toast } from "../lib/app.svelte";
-  import { catalog, loadCatalog, modelOf } from "../lib/catalog.svelte";
-  import { along, cells, fromModel, layerSpan, previewWindow, STACKS, template, toToml, turn, type JobModel, type Kind } from "../lib/job";
-  import { lenUnit } from "../lib/units";
+  import { api, formatOf, KINDS, type JobCheck, type JobFormat } from "../../lib/api";
+  import { app, startRun, toast } from "../../lib/app.svelte";
+  import { modelOf } from "../../lib/catalog.svelte";
+  import { along, cells, holds, layerSpan, numberOf, previewWindow, STACKS, template, turn, type JobModel, type Kind, type Num } from "../../lib/job";
+  import { lenUnit } from "../../lib/units";
+  import FdtdItems from "../FdtdItems.svelte";
+  import GeometryPreview, { type Selection } from "../GeometryPreview.svelte";
+  import NumField from "../NumField.svelte";
+  import OptField from "../OptField.svelte";
+  import ScenePreview from "../ScenePreview.svelte";
+  import TomlEditor from "../TomlEditor.svelte";
 
   let model = $state<JobModel>(template("modes"));
-  let text = $state(toToml(template("modes")));
+  let text = $state("");
   /** The format `text` is written in, and its file saved in: the form's TOML, converted by the
    * library for the others, so every float comes back to the last bit. */
   let format = $state<JobFormat>("toml");
   let path = $state<string | null>(null);
-  let saved = $state(toToml(template("modes")));
+  let saved = $state("");
   let check = $state<JobCheck | null>(null);
   let checking = $state(false);
   let selection = $state<Selection>(null);
   let right = $state<"preview" | "3d" | "toml">("3d");
   /** The text the 3D preview shows: the last one that checked out, so it doesn't rebuild on every key. */
   let shown = $state("");
-  let jobs = $state<JobItem[]>([]);
-  /** The page's width: the form and the device side by side need about 1050 px; narrower, the
-   * device and its TOML go under the form instead of being cut off at the window's edge. */
+  /** The page's width: narrower than about 1000 px, the form goes under the view. */
   let width = $state(0);
-  const stacked = $derived(width > 0 && width < 1060);
-  /** The model's TOML when it was last set from the text: a form that writes back the same
-   * values (a select on mount, say) leaves the text, and its comments, as they are. */
-  let baseline = toToml(template("modes"));
+  const stacked = $derived(width > 0 && width < 1000);
+  /** The view's height: the 3D and top views fill it. */
+  let viewHeight = $state(0);
+  /** The model as last set from the text: a form that writes back the same values (a select on
+   * mount, say) leaves the text, and its comments, as they are. */
+  let baseline = "";
+  const snapshot = (): JobModel => $state.snapshot(model) as JobModel;
 
-  loadCatalog();
-  queueMicrotask(() => validate());
+  // the job as it was left (a run started from here, another page looked at), or a new one
+  // until someone asks for another
+  const draft = app.customDraft;
+  app.customDraft = null;
+  if (draft && !app.jobOpen) {
+    load(draft.text, draft.path, true, draft.format).then(() => (saved = draft.saved));
+  } else if (!app.jobOpen) {
+    api
+      .formText(template("modes"))
+      .then((t) => {
+        if (!text) load(t, null, true);
+      })
+      .catch(() => {});
+  }
 
-  $effect(() => {
-    void app.workspaceVersion;
-    api.home().then((h) => (jobs = h.jobs)).catch(() => {});
+  onDestroy(() => {
+    if (text) app.customDraft = { text, path, format, saved };
   });
 
   // whoever sent the user here asked for a job to be opened
   $effect(() => {
-    const o = app.builderOpen;
+    const o = app.jobOpen;
     if (o) {
-      app.builderOpen = null;
+      app.jobOpen = null;
       load(o.text, o.path);
     }
   });
 
-  // the form changed: the text follows, in its format
+  // the form changed: the text follows, in its format, as the program writes it
   $effect(() => {
-    const t = toToml($state.snapshot(model) as JobModel);
-    if (t === baseline) return;
-    baseline = t;
+    const m = snapshot();
+    const key = JSON.stringify(m);
+    if (key === baseline) return;
+    baseline = key;
     const f = format;
-    if (f === "toml") {
-      text = t;
-      validate();
-      return;
-    }
-    // a job the library can't read yet (a name half typed) keeps its last text until it can
     api
-      .convertJob(t, "toml", f)
+      .formText(m)
+      .then((t) => (f === "toml" ? t : api.convertJob(t, "toml", f)))
       .then((x) => {
-        if (baseline === t && format === f) {
+        if (baseline === key && format === f) {
           text = x;
           validate();
         }
       })
+      // a job the library can't read yet (a name half typed) keeps its last text until it can
       .catch(() => {});
   });
 
-  /** The 3D preview reads TOML: the text itself, or the form's TOML of it. */
-  const asToml = (t: string) => (format === "toml" ? t : toToml($state.snapshot(model) as JobModel));
+  /** The 3D preview reads TOML: the text itself, or the program's TOML of the form. */
+  async function asToml(t: string): Promise<string> {
+    return format === "toml" ? t : api.formText(snapshot());
+  }
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   function validate() {
@@ -107,7 +110,7 @@
         const c = await api.checkJob(t, format);
         if (t === text) {
           check = c;
-          if (c.ok) shown = asToml(t);
+          if (c.ok) shown = await asToml(t);
         }
       } catch {
         check = null;
@@ -116,11 +119,16 @@
     }, 250);
   }
 
-  async function load(t: string, p: string | null) {
-    if (dirty && !(await ask("Discard the changes to this job?", { title: "Unsaved changes", kind: "warning" }))) return;
-    const f = p ? formatOf(p) : "toml";
-    const m = await modelOf(t, f);
-    baseline = toToml(m);
+  async function load(t: string, p: string | null, quiet = false, f: JobFormat = p ? formatOf(p) : "toml") {
+    if (!quiet && dirty && !(await ask("Discard the changes to this job?", { title: "Unsaved changes", kind: "warning" }))) return;
+    let m: JobModel;
+    try {
+      m = await modelOf(t, f);
+    } catch (e) {
+      toast(`Couldn't open the job: ${e}`, "error");
+      return;
+    }
+    baseline = JSON.stringify(m);
     format = f;
     model = m;
     text = t;
@@ -130,7 +138,7 @@
     validate();
   }
 
-  /** The text was edited: the form follows, when it parses. */
+  /** The text was edited: the form follows, when it reads as a job. */
   let editTimer: ReturnType<typeof setTimeout> | undefined;
   function edited(t: string) {
     text = t;
@@ -141,12 +149,12 @@
       if (t !== text) return;
       check = c;
       checking = false;
-      if (c?.model) {
-        const m = fromModel(c.model, t);
-        baseline = toToml(m);
+      const m = await api.jobForm(t, format).catch(() => null);
+      if (m && t === text) {
+        baseline = JSON.stringify(m);
         model = m;
       }
-      if (c?.ok) shown = asToml(t);
+      if (c?.ok) shown = await asToml(t);
     }, 300);
   }
 
@@ -169,9 +177,11 @@
   const dirty = $derived(text !== saved);
   const nameOk = $derived(/^[A-Za-z0-9._-]+$/.test(model.name));
   const grid = $derived(cells(model));
-  const layers = $derived(STACKS[model.stack].layers);
+  const layers = $derived(model.stack ? STACKS[model.stack].layers : [model.layer]);
   /** An fdtd job's axes with ends to choose: x and y, and z in 3D. */
   const sideAxes = $derived<readonly ("x" | "y" | "z")[]>(model.dimensions === 3 ? ["x", "y", "z"] : ["x", "y"]);
+  /** What the form keeps as the file has it, in words. */
+  const keptText = $derived(model.kept.map((k) => k.replace(/^task\./, "")).join(", "));
 
   async function save() {
     try {
@@ -209,7 +219,7 @@
       await api.deleteJob(path);
       app.workspaceVersion++;
       saved = text;
-      await load(toToml(template(model.kind)), null);
+      await load(await api.formText(template(model.kind)), null, true);
       toast("Deleted the job", "success", undefined, 2500);
     } catch (e) {
       toast(String(e), "error");
@@ -220,17 +230,19 @@
     if (kind === model.kind) return;
     const t = template(kind);
     model.kind = kind;
-    if (kind === "fdfd" && !model.port.length) model.port = t.port;
+    if (kind === "fdfd" && !model.port.length && holds(model, "port")) model.port = t.port;
     if (kind === "fdtd") {
       // a wavelength sweep becomes the spectrum; the sources and monitors start as the template's, in this window
-      if (model.sweep?.parameter === "wavelength" && !model.spectrum) model.spectrum = { from_um: model.sweep.from, to_um: model.sweep.to, points: model.sweep.points };
-      if (!model.source.length) model.source = t.source.map((s) => ({ ...s, at_um: Number((model.x_um[0] + 0.25 * (model.x_um[1] - model.x_um[0])).toFixed(3)) }));
-      if (!model.monitor.length) model.monitor = t.monitor.map((s) => (s.type === "mode" ? { ...s, at_um: Number((model.x_um[1] - 0.25 * (model.x_um[1] - model.x_um[0])).toFixed(3)) } : s));
+      const s = model.sweep;
+      const [from, to] = s ? [numberOf(s.from), numberOf(s.to)] : [null, null];
+      if (s?.parameter === "wavelength" && from !== null && to !== null && !model.spectrum) model.spectrum = { from_um: from, to_um: to, points: s.points };
+      if (!model.source.length && holds(model, "source")) model.source = t.source.map((s) => ({ ...s, at_um: Number((model.x_um[0] + 0.25 * (model.x_um[1] - model.x_um[0])).toFixed(3)) }));
+      if (!model.monitor.length && holds(model, "monitor")) model.monitor = t.monitor.map((s) => (s.type === "mode" ? { ...s, at_um: Number((model.x_um[1] - 0.25 * (model.x_um[1] - model.x_um[0])).toFixed(3)) } : s));
       model.sweep = null;
     }
     if (kind === "structure") model.sweep = null;
-    // an fdfd job sweeps only the wavelength: a width sweep's widths aren't wavelengths, so it
-    // becomes a sweep of ±50 nm about the job's own
+    // an fdfd job sweeps only the wavelength: a width's or a parameter's values aren't wavelengths,
+    // so it becomes a sweep of ±50 nm about the job's own
     if (kind === "fdfd" && model.sweep && model.sweep.parameter !== "wavelength") {
       const w = model.wavelength_um;
       model.sweep = { ...model.sweep, parameter: "wavelength", from: Number((w - 0.05).toFixed(4)), to: Number((w + 0.05).toFixed(4)), rect: null };
@@ -273,13 +285,28 @@
     model.port.push({ x_um: Number(x.toFixed(3)), side: right ? "right" : "left", y_um: null });
     selection = { kind: "port", index: model.port.length - 1 };
   }
+  function addParameter() {
+    let k = model.parameters.length + 1;
+    while (model.parameters.some(([n]) => n === `p${k}`)) k++;
+    model.parameters.push([`p${k}`, "500 nm"]);
+  }
+
+  /** A sweep end's input: a number in the unit chosen, or an expression with its units. */
+  function setEnd(which: "from" | "to", raw: string) {
+    if (!model.sweep) return;
+    const t = raw.trim();
+    const n = Number(t);
+    model.sweep[which] = (t !== "" && Number.isFinite(n) ? n : t) as Num;
+  }
 
   const isSel = (kind: "rect" | "circle" | "ring" | "port", index: number) => selection?.kind === kind && selection.index === index;
+  /** The parameters a modes job's sweep can step through: the wavelength, a rectangle's width, or a named one. */
+  const sweepable = $derived(model.kind === "modes" ? ["wavelength", "width", ...model.parameters.map(([n]) => n)] : ["wavelength"]);
 </script>
 
 <svelte:window
   onkeydown={(e) => {
-    if (!(e.ctrlKey || e.metaKey)) return;
+    if (app.page !== "components" || app.palette || !(e.ctrlKey || e.metaKey)) return;
     if (e.key.toLowerCase() === "s") {
       e.preventDefault();
       if (nameOk) save();
@@ -290,80 +317,54 @@
   }}
 />
 
-<div
-  class="grid h-full {stacked ? 'grid-cols-[220px_minmax(0,1fr)]' : 'grid-cols-[250px_minmax(420px,1fr)_minmax(380px,0.95fr)]'}"
-  bind:clientWidth={width}
->
-  <!-- the workspace's jobs -->
-  <aside class="flex min-h-0 flex-col border-r border-base-content/8 bg-base-100/40">
-    <div class="p-3">
-      <div class="dropdown w-full">
-        <div tabindex="0" role="button" class="btn btn-primary btn-sm w-full gap-1.5"><Plus size={15} /> New job <ChevronDown size={14} /></div>
-        <ul tabindex="-1" class="dropdown-content menu z-30 mt-1 w-64 rounded-box border border-base-content/10 bg-base-100 p-2 shadow-xl">
-          {#each ["modes", "fdfd", "fdtd", "structure"] as const as kind (kind)}
-            <li>
-              <button class="flex flex-col items-start gap-0" onclick={() => load(toToml(template(kind)), null)}>
-                <span class="font-medium">{KINDS[kind].label}</span><span class="text-xs faint">{KINDS[kind].about}</span>
-              </button>
-            </li>
-          {/each}
-        </ul>
+<div class="flex h-full min-h-0 flex-col" bind:clientWidth={width}>
+  <!-- the header, as a device's -->
+  <div class="glow shrink-0 border-b border-base-content/8 px-6 {stacked ? 'py-2.5' : 'py-4'}">
+    <div class="flex flex-wrap items-start gap-4">
+      {#if !stacked}
+        <div class="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/12 text-primary"><Shapes size={24} /></div>
+      {/if}
+      <div class="min-w-[14rem] flex-1">
+        <h2 class="flex flex-wrap items-baseline gap-x-2 text-xl font-semibold tracking-tight">
+          {model.name}
+          {#if dirty}<span class="text-base text-warning" title="Changed since it was {path ? 'saved' : 'opened'}">●</span>{/if}
+          <span class="text-sm font-normal muted">Custom device</span>
+        </h2>
+        {#if !stacked}<p class="mt-0.5 line-clamp-1 max-w-3xl text-sm muted">Any structure no device describes, as a job: its stack and shapes, its kind, ports, sources and monitors, its window, grid and sweep.</p>{/if}
+        <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+          <span class="badge badge-sm badge-primary badge-soft" title={KINDS[model.kind]?.about}>{KINDS[model.kind]?.label ?? model.kind}</span>
+          <span class="badge badge-sm badge-ghost max-w-72 truncate" title={path ?? "not saved yet"}>{path ? `jobs/${path.split(/[\\/]/).pop()}` : "not saved yet"}</span>
+          {@render status()}
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        {#if path}
+          <button class="btn btn-ghost btn-sm btn-square" aria-label="Delete the job" title="Delete this job file" onclick={remove}><Trash2 size={16} /></button>
+        {/if}
+        <button class="btn btn-sm gap-1.5" disabled={!nameOk} onclick={save} title="Save to {file} in the workspace (Ctrl+S)"><Save size={15} /> Save</button>
+        <button class="btn btn-primary btn-sm gap-1.5" disabled={!check?.ok} onclick={runIt} title="Run it now and watch it live (Ctrl+Enter)"><Play size={15} /> Run</button>
       </div>
     </div>
-    <div class="flex-1 overflow-y-auto px-2 pb-3">
-      <p class="px-2 pt-1 pb-1.5 text-[10.5px] font-semibold tracking-wider uppercase faint">In the workspace</p>
-      {#each jobs as j (j.path)}
-        <button
-          class="w-full rounded-lg px-3 py-2 text-left {path === j.path ? 'bg-primary/12' : 'hover:bg-base-content/4'}"
-          onclick={() => api.readJob(j.path).then((t) => load(t, j.path))}
-        >
-          <span class="flex items-center gap-2">
-            <FileText size={14} class={path === j.path ? "text-primary" : "faint"} />
-            <span class="flex-1 truncate text-sm {path === j.path ? 'font-medium text-primary' : ''}">{j.name}</span>
-          </span>
-          <span class="block truncate pl-6 text-[11px] faint">{KINDS[j.kind]?.label ?? j.kind} · {ago(j.modified)}</span>
-        </button>
-      {:else}
-        <p class="px-3 py-2 text-xs faint">No jobs saved yet. Save one and it appears here.</p>
-      {/each}
-      <p class="px-2 pt-4 pb-1.5 text-[10.5px] font-semibold tracking-wider uppercase faint">Start from a template</p>
-      {#each catalog.data?.jobs ?? [] as j (j.file)}
-        <button class="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm hover:bg-base-content/4" onclick={() => load(j.text, null)}>
-          <Copy size={13} class="faint" /><span class="truncate">{j.name}</span>
-        </button>
-      {/each}
-    </div>
-  </aside>
+  </div>
 
-  <!-- the form -->
-  <section class="flex min-h-0 flex-col">
-    <div class="flex items-center gap-3 border-b border-base-content/8 px-6 py-3">
-      <div class="min-w-0 flex-1">
-        <p class="truncate font-semibold">{model.name}{dirty ? " •" : ""}</p>
-        <p class="truncate text-xs faint">{path ? path : "not saved yet"}</p>
-      </div>
-      {#if stacked}{@render status()}{/if}
-      {#if path}
-        <div class="tooltip tooltip-bottom" data-tip="Delete this job file">
-          <button class="btn btn-ghost btn-sm btn-square" aria-label="Delete the job" onclick={remove}><Trash2 size={16} /></button>
+  <div class="grid min-h-0 flex-1 {stacked ? 'grid-rows-[minmax(13rem,1fr)_minmax(10rem,1fr)]' : 'grid-cols-[minmax(0,1fr)_minmax(24rem,38%)]'}">
+    <!-- the view: always on screen -->
+    <section class="flex min-h-0 min-w-0 flex-col border-base-content/8 {stacked ? 'border-b' : 'border-r'}">
+      {@render view()}
+    </section>
+
+    <!-- the form -->
+    <aside class="@container min-h-0 min-w-0 space-y-6 overflow-x-hidden overflow-y-auto px-5 py-4">
+      {#if check && !check.ok && check.error}{@render problem()}{/if}
+      {#if model.kept.length}
+        <div role="status" class="rounded-lg border border-info/30 bg-info/8 px-3 py-2 text-xs">
+          Kept as the file has it: <span class="font-medium num">{keptText}</span>. The form doesn't show {model.kept.length === 1 ? "it" : "them"}: written back unchanged, edited in the view's <b>As text</b>.
         </div>
       {/if}
-      <button class="btn btn-sm gap-1.5" disabled={!nameOk} onclick={save} title="Save to {file} in the workspace (Ctrl+S)"><Save size={15} /> Save</button>
-      <button class="btn btn-primary btn-sm gap-1.5" disabled={!check?.ok} onclick={runIt} title="Run it now and watch it live (Ctrl+Enter)"><Play size={15} /> Run</button>
-    </div>
-
-    {#if stacked && check && !check.ok && check.error}
-      <div class="border-b border-base-content/8 px-6 py-2.5">{@render problem()}</div>
-    {/if}
-
-    <div class="@container flex-1 space-y-6 overflow-x-hidden overflow-y-auto px-6 py-5">
-      <Tip id="builder-intro" title="A job is a text file">
-        Fill the form and the device is drawn {stacked ? "under it" : "on the right"} as you type, in 3D; the library checks the job as it changes. Click a shape in the top view to edit it. Prefer text? Switch {stacked ? "that panel" : "the right panel"} to the job's text, in TOML, JSON or YAML: edits there update the form.
-      </Tip>
 
       <fieldset class="space-y-3">
         <legend class="panel-title mb-2">Kind</legend>
-        <div class="grid grid-cols-2 gap-2 @xl:grid-cols-4">
+        <div class="grid grid-cols-2 gap-2">
           {#each ["modes", "fdfd", "fdtd", "structure"] as const as kind (kind)}
             <button
               class="rounded-xl border px-3 py-2.5 text-left transition-colors {model.kind === kind ? 'border-primary bg-primary/8' : 'border-base-content/10 hover:border-base-content/25'}"
@@ -398,17 +399,25 @@
         <legend class="panel-title mb-2">Material stack and light</legend>
         <label class="flex flex-col gap-1">
           <span class="text-xs font-medium text-base-content/70">Stack</span>
-          <select class="select select-sm w-full" bind:value={model.stack} title={STACKS[model.stack].about}>
-            {#each Object.entries(STACKS) as [key, s] (key)}<option value={key}>{s.label}</option>{/each}
-          </select>
+          {#if model.stack}
+            <select class="select select-sm w-full" bind:value={model.stack} title={STACKS[model.stack].about}>
+              {#each Object.entries(STACKS) as [key, s] (key)}<option value={key}>{s.label}</option>{/each}
+            </select>
+          {:else}
+            <span class="input input-sm w-full items-center text-xs faint" title="A [task.stack] of layers: kept as the file has it, edited in the text">layers of its own (in the text)</span>
+          {/if}
         </label>
         <label class="flex flex-col gap-1">
           <span class="text-xs font-medium text-base-content/70">Layer</span>
-          <select class="select select-sm w-full" bind:value={model.layer}>
-            {#each layers as l (l)}<option value={l}>{l}</option>{/each}
-          </select>
+          {#if model.stack}
+            <select class="select select-sm w-full" bind:value={model.layer}>
+              {#each layers as l (l)}<option value={l}>{l}</option>{/each}
+            </select>
+          {:else}
+            <input class="input input-sm w-full" bind:value={model.layer} title="The layer the job looks at, by its name in the stack's layers" />
+          {/if}
         </label>
-        {#if model.stack !== "soi_220"}
+        {#if model.stack && model.stack !== "soi_220"}
           <OptField label="Core" length="nm" bind:value={model.core_nm} step={10} hint="The guiding layer's thickness" />
           <OptField label="Bottom oxide" length="um" bind:value={model.bottom_oxide_um} step={0.1} hint="The buried oxide under the core" />
         {/if}
@@ -436,6 +445,34 @@
               <option value="tm">TM (E along z)</option>
             </select>
           </label>
+        {/if}
+      </fieldset>
+
+      <fieldset class="space-y-2">
+        <legend class="panel-title mb-2">Parameters</legend>
+        {#if holds(model, "parameters")}
+          <p class="text-xs faint">Named values the shapes, the components and a sweep use: each a number or an expression with units (<span class="num">500 nm</span>, <span class="num">w/2.5</span>).</p>
+          {#each model.parameters as p, k (k)}
+            <div class="flex items-center gap-2">
+              <input class="input input-xs w-24 num" aria-label="The parameter's name" spellcheck="false" bind:value={p[0]} />
+              <span class="faint">=</span>
+              <input
+                class="input input-xs min-w-0 flex-1 num"
+                aria-label="Its expression"
+                spellcheck="false"
+                value={String(p[1])}
+                onchange={(e) => {
+                  const t = (e.currentTarget as HTMLInputElement).value.trim();
+                  const n = Number(t);
+                  p[1] = t !== "" && Number.isFinite(n) && typeof p[1] === "number" ? n : t;
+                }}
+              />
+              <button class="btn btn-ghost btn-xs btn-square" aria-label="Remove" title="Remove" onclick={() => model.parameters.splice(k, 1)}><Trash2 size={13} /></button>
+            </div>
+          {/each}
+          <button class="btn btn-ghost btn-sm gap-1.5" onclick={addParameter}><Plus size={14} /> Parameter</button>
+        {:else}
+          <p class="text-xs faint">Kept as the file has them: edit them in the text.</p>
         {/if}
       </fieldset>
 
@@ -519,6 +556,7 @@
 
       <fieldset class="space-y-2">
         <legend class="panel-title mb-2 flex w-full items-center">Shapes</legend>
+        {#if !holds(model, "rect")}<p class="text-xs faint">Rectangles kept as the file has them (their places or sizes are expressions): they show in 3D and are edited in the text.</p>{/if}
         {#each model.rect as r, k (k)}
           <div class="rounded-xl border p-3 transition-colors {isSel('rect', k) ? 'border-accent/60 bg-accent/5' : 'border-base-content/8'}">
             <div class="mb-2 flex items-center gap-2">
@@ -528,7 +566,7 @@
               <select class="select select-xs w-24" bind:value={r.layer}>{#each layers as l (l)}<option value={l}>{l}</option>{/each}</select>
               <button class="btn btn-ghost btn-xs btn-square" aria-label="Remove" title="Remove" onclick={() => model.rect.splice(k, 1)}><Trash2 size={13} /></button>
             </div>
-            <div class="grid grid-cols-2 gap-2 @xl:grid-cols-4">
+            <div class="grid grid-cols-2 gap-2">
               <NumField label="centre x" length="um" bind:value={r.center_um[0]} step={0.05} />
               <NumField label="centre y" length="um" bind:value={r.center_um[1]} step={0.05} />
               <NumField label="width (x)" length="um" bind:value={r.size_um[0]} step={0.05} />
@@ -559,7 +597,7 @@
               <select class="select select-xs w-24" bind:value={r.layer}>{#each layers as l (l)}<option value={l}>{l}</option>{/each}</select>
               <button class="btn btn-ghost btn-xs btn-square" aria-label="Remove" title="Remove" onclick={() => model.ring.splice(k, 1)}><Trash2 size={13} /></button>
             </div>
-            <div class="grid grid-cols-2 gap-2 @xl:grid-cols-4">
+            <div class="grid grid-cols-2 gap-2">
               <NumField label="centre x" length="um" bind:value={r.center_um[0]} step={0.05} />
               <NumField label="centre y" length="um" bind:value={r.center_um[1]} step={0.05} />
               <NumField label="radius" length="um" bind:value={r.radius_um} step={0.05} hint="To the waveguide's centre line, as ring resonators are specified" />
@@ -567,61 +605,74 @@
             </div>
           </div>
         {/each}
-        <div class="flex gap-2">
-          <button class="btn btn-ghost btn-sm gap-1.5" onclick={addRect}><Plus size={14} /> Rectangle</button>
-          <button class="btn btn-ghost btn-sm gap-1.5" onclick={addCircle}><Plus size={14} /> Disk</button>
-          <button class="btn btn-ghost btn-sm gap-1.5" onclick={addRing} title="A ring resonator's waveguide: a radius and a width"><Plus size={14} /> Ring</button>
+        <div class="flex flex-wrap gap-2">
+          {#if holds(model, "rect")}<button class="btn btn-ghost btn-sm gap-1.5" onclick={addRect}><Plus size={14} /> Rectangle</button>{/if}
+          {#if holds(model, "circle")}<button class="btn btn-ghost btn-sm gap-1.5" onclick={addCircle}><Plus size={14} /> Disk</button>{/if}
+          {#if holds(model, "ring")}<button class="btn btn-ghost btn-sm gap-1.5" onclick={addRing} title="A ring resonator's waveguide: a radius and a width"><Plus size={14} /> Ring</button>{/if}
         </div>
+        <p class="text-[11px] faint">Components by their generators, paths, shapes defined by functions, arrays and bodies are written in the text (<span class="num">[[task.component]]</span>, <span class="num">[[task.path]]</span>, <span class="num">[[task.shape]]</span>, <span class="num">[[task.body]]</span>): the form keeps them, and the 3D view draws them.</p>
       </fieldset>
 
       {#if model.kind === "fdfd"}
         <fieldset class="space-y-2">
           <legend class="panel-title mb-2">Ports</legend>
-          <p class="text-xs faint">Port 1 is where the light comes in. A left port launches towards +x; a right port receives from the left.</p>
-          {#each model.port as p, k (k)}
-            <div class="rounded-xl border p-3 transition-colors {isSel('port', k) ? 'border-accent/60 bg-accent/5' : 'border-base-content/8'}">
-              <div class="mb-2 flex items-center gap-2">
-                <button class="text-sm font-medium" onclick={() => (selection = { kind: "port", index: k })}>Port {k + 1}</button>
-                <span class="flex-1"></span>
-                <label class="flex items-center gap-1.5 text-xs faint">
-                  <input
-                    type="checkbox"
-                    class="toggle toggle-xs"
-                    checked={p.y_um !== null}
-                    onchange={(e) => {
-                      p.y_um = (e.currentTarget as HTMLInputElement).checked ? [0, model.y_um[1]] : null;
-                    }}
-                  /> own window
-                </label>
-                <button class="btn btn-ghost btn-xs btn-square" aria-label="Remove" title="Remove" onclick={() => model.port.splice(k, 1)}><Trash2 size={13} /></button>
+          {#if holds(model, "port")}
+            <p class="text-xs faint">Port 1 is where the light comes in. A left port launches towards +x; a right port receives from the left.</p>
+            {#each model.port as p, k (k)}
+              <div class="rounded-xl border p-3 transition-colors {isSel('port', k) ? 'border-accent/60 bg-accent/5' : 'border-base-content/8'}">
+                <div class="mb-2 flex items-center gap-2">
+                  <button class="text-sm font-medium" onclick={() => (selection = { kind: "port", index: k })}>Port {k + 1}</button>
+                  <span class="flex-1"></span>
+                  <label class="flex items-center gap-1.5 text-xs faint">
+                    <input
+                      type="checkbox"
+                      class="toggle toggle-xs"
+                      checked={p.y_um !== null}
+                      onchange={(e) => {
+                        p.y_um = (e.currentTarget as HTMLInputElement).checked ? [0, model.y_um[1]] : null;
+                      }}
+                    /> own window
+                  </label>
+                  <button class="btn btn-ghost btn-xs btn-square" aria-label="Remove" title="Remove" onclick={() => model.port.splice(k, 1)}><Trash2 size={13} /></button>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <NumField label="at x" length="um" bind:value={p.x_um} step={0.05} />
+                  <label class="flex flex-col gap-1">
+                    <span class="text-xs font-medium text-base-content/70">Side</span>
+                    <select class="select select-sm w-full" bind:value={p.side}><option value="left">left</option><option value="right">right</option></select>
+                  </label>
+                  {#if p.y_um}
+                    <NumField label="y from" length="um" bind:value={p.y_um[0]} step={0.05} hint="One guide of several: the port's window" />
+                    <NumField label="y to" length="um" bind:value={p.y_um[1]} step={0.05} />
+                  {/if}
+                </div>
               </div>
-              <div class="grid grid-cols-2 gap-2 @xl:grid-cols-4">
-                <NumField label="at x" length="um" bind:value={p.x_um} step={0.05} />
-                <label class="flex flex-col gap-1">
-                  <span class="text-xs font-medium text-base-content/70">Side</span>
-                  <select class="select select-sm w-full" bind:value={p.side}><option value="left">left</option><option value="right">right</option></select>
-                </label>
-                {#if p.y_um}
-                  <NumField label="y from" length="um" bind:value={p.y_um[0]} step={0.05} hint="One guide of several: the port's window" />
-                  <NumField label="y to" length="um" bind:value={p.y_um[1]} step={0.05} />
-                {/if}
-              </div>
-            </div>
-          {/each}
-          <button class="btn btn-ghost btn-sm gap-1.5" onclick={addPort}><Plus size={14} /> Port</button>
+            {/each}
+            <button class="btn btn-ghost btn-sm gap-1.5" onclick={addPort}><Plus size={14} /> Port</button>
+          {:else}
+            <p class="text-xs faint">Kept as the file has them (a port found by a component's name, <span class="num">port = "ring.in"</span>): edited in the text.</p>
+          {/if}
         </fieldset>
       {/if}
 
       {#if model.kind === "fdtd"}
         <fieldset class="space-y-2">
           <legend class="panel-title mb-2">Sources</legend>
-          <p class="text-xs faint">Every source shares one Gaussian pulse on the carrier, wide enough to cover the spectrum. Each is drawn in the top view (orange).</p>
-          <FdtdItems bind:model which="source" bind:selection />
+          {#if holds(model, "source")}
+            <p class="text-xs faint">Every source shares one Gaussian pulse on the carrier, wide enough to cover the spectrum. Each is drawn in the top view (orange).</p>
+            <FdtdItems bind:model which="source" bind:selection />
+          {:else}
+            <p class="text-xs faint">Kept as the file has them: edited in the text.</p>
+          {/if}
         </fieldset>
         <fieldset class="space-y-2">
           <legend class="panel-title mb-2">Monitors</legend>
-          <p class="text-xs faint">What the run measures, referred to the sources' incident power; drawn in the top view (blue). The decay is judged at their middles.</p>
-          <FdtdItems bind:model which="monitor" bind:selection />
+          {#if holds(model, "monitor")}
+            <p class="text-xs faint">What the run measures, referred to the sources' incident power; drawn in the top view (blue). The decay is judged at their middles.</p>
+            <FdtdItems bind:model which="monitor" bind:selection />
+          {:else}
+            <p class="text-xs faint">Kept as the file has them: edited in the text.</p>
+          {/if}
         </fieldset>
         <fieldset class="space-y-3">
           <legend class="panel-title mb-2 flex w-full items-center gap-2">
@@ -690,18 +741,27 @@
             />
           </legend>
           {#if model.sweep}
-            <div class="grid grid-cols-2 gap-2 @xl:grid-cols-4">
+            {@const s = model.sweep}
+            <div class="grid grid-cols-2 gap-2">
               <label class="flex flex-col gap-1">
                 <span class="text-xs font-medium text-base-content/70">Over</span>
-                <select class="select select-sm w-full" bind:value={model.sweep.parameter} disabled={model.kind === "fdfd"}>
-                  <option value="wavelength">wavelength</option>
-                  {#if model.kind === "modes"}<option value="width">a width</option>{/if}
+                <select class="select select-sm w-full" bind:value={s.parameter} disabled={model.kind === "fdfd"} title="The wavelength, a rectangle's width, or one of the parameters above">
+                  {#each sweepable as name (name)}<option value={name}>{name === "width" ? "a width" : name}</option>{/each}
+                  {#if !sweepable.includes(s.parameter)}<option value={s.parameter}>{s.parameter}</option>{/if}
                 </select>
               </label>
-              <NumField label="from" length="um" bind:value={model.sweep.from} step={0.01} />
-              <NumField label="to" length="um" bind:value={model.sweep.to} step={0.01} />
-              <NumField label="points" bind:value={model.sweep.points} integer step={1} min={1} />
-              {#if model.sweep.parameter === "width"}
+              <NumField label="points" bind:value={s.points} integer step={1} min={1} />
+              {#each ["from", "to"] as const as end (end)}
+                {#if typeof s[end] === "number" && (s.parameter === "wavelength" || s.parameter === "width")}
+                  <NumField label={end} length="um" bind:value={() => s[end] as number, (v) => (s[end] = v)} step={0.01} />
+                {:else}
+                  <label class="flex flex-col gap-1">
+                    <span class="text-xs font-medium text-base-content/70">{end}</span>
+                    <input class="input input-sm w-full num" spellcheck="false" value={String(s[end])} title="A number (µm for a length, radians for an angle) or an expression with its units: 150 nm" onchange={(e) => setEnd(end, (e.currentTarget as HTMLInputElement).value)} />
+                  </label>
+                {/if}
+              {/each}
+              {#if s.parameter === "width"}
                 <!-- numbered as the shapes above are, from 1; the job counts from 0 -->
                 <OptField
                   label="Rectangle"
@@ -719,34 +779,25 @@
                 />
               {/if}
             </div>
+            {#if s.parameter !== "wavelength" && s.parameter !== "width"}
+              <p class="text-[11px] faint">A parameter's sweep: at each point the shapes and components that use <span class="num">{s.parameter}</span> follow it.</p>
+            {/if}
           {:else}
-            <p class="text-xs faint">One wavelength. Turn the sweep on to trace the effective indices{model.kind === "fdfd" ? " or the spectrum" : ""} over a range.</p>
+            <p class="text-xs faint">One wavelength. Turn the sweep on to trace the effective indices{model.kind === "fdfd" ? " or the spectrum" : ", or step any parameter"} over a range.</p>
           {/if}
         </fieldset>
       {/if}
-
-      {#if stacked}
-        <!-- too narrow for a third column: the device and its TOML follow the form -->
-        <div class="border-t border-base-content/8">{@render device()}</div>
-      {/if}
-    </div>
-  </section>
-
-  <!-- the device, and the TOML: beside the form when there's room for both -->
-  {#if !stacked}
-    <section class="flex min-h-0 flex-col border-l border-base-content/8 bg-base-100/40">
-      {@render device()}
-    </section>
-  {/if}
+    </aside>
+  </div>
 </div>
 
 {#snippet status()}
   {#if checking}
-    <span class="flex shrink-0 items-center gap-1.5 text-xs faint"><LoaderCircle size={14} class="animate-spin" /> checking</span>
+    <span class="flex shrink-0 items-center gap-1 faint"><LoaderCircle size={13} class="animate-spin" /> checking</span>
   {:else if check?.ok}
-    <span class="flex shrink-0 items-center gap-1.5 text-xs text-success"><CircleCheck size={14} /> ready to run</span>
+    <span class="flex shrink-0 items-center gap-1 text-success"><CircleCheck size={13} /> ready to run</span>
   {:else if check}
-    <span class="flex shrink-0 items-center gap-1.5 text-xs text-error"><CircleAlert size={14} /> not valid</span>
+    <span class="flex shrink-0 items-center gap-1 text-error"><CircleAlert size={13} /> not valid</span>
   {/if}
 {/snippet}
 
@@ -756,78 +807,67 @@
   {/if}
 {/snippet}
 
-{#snippet device()}
-  <div class="flex items-center gap-2 border-b border-base-content/8 {stacked ? 'py-2.5' : 'px-4 py-2.5'}">
-    <div class="join">
-      <button class="btn join-item btn-sm gap-1.5 {right === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "3d")} title="The structure as the run will draw it"><Box size={14} /> 3D</button>
-      <button class="btn join-item btn-sm gap-1.5 {right === 'preview' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "preview")} title="Seen from above: click a shape to edit it"><Eye size={14} /> Top view</button>
-      <button class="btn join-item btn-sm gap-1.5 {right === 'toml' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "toml")} title="The job's text"><Code size={14} /> {format.toUpperCase()}</button>
-    </div>
-    {#if !stacked}
-      <span class="flex-1"></span>
-      {@render status()}
-    {/if}
-  </div>
-  {#if !stacked && check && !check.ok && check.error}
-    <div class="mx-4 mt-3">{@render problem()}</div>
-  {/if}
-  {#if right === "preview"}
-    <div class={stacked ? "pt-4" : "flex-1 overflow-y-auto p-4"}>
-      <div class="panel p-3">
-        <GeometryPreview {model} height={420} selected={selection} onselect={(s) => (selection = s)} />
+{#snippet view()}
+  <div class="min-h-0 flex-1 overflow-hidden" bind:clientHeight={viewHeight}>
+    {#if right === "preview"}
+      <div class="h-full overflow-y-auto p-4">
+        <GeometryPreview {model} height={Math.max(140, viewHeight - (stacked ? 64 : 80))} selected={selection} onselect={(s) => (selection = s)} />
+        <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 px-1 text-xs faint">
+          <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-primary/65"></span>silicon</span>
+          <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-secondary/70"></span>nitride</span>
+          {#if model.kind === "fdfd"}
+            <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-success"></span>ports</span>
+            <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm border border-warning/50 bg-warning/20"></span>PML</span>
+          {/if}
+          {#if model.kind === "fdtd"}
+            <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-warning"></span>sources</span>
+            <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-info"></span>monitors</span>
+            <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm border border-warning/50 bg-warning/20"></span>CPML</span>
+          {/if}
+          {#if model.kind === "modes"}<span class="flex items-center gap-1.5"><span class="h-0.5 w-3 bg-accent"></span>cross-section</span>{/if}
+          <span>seen from above, x across, y up{model.kept.length ? "; what is kept as text shows in 3D" : ""}</span>
+        </div>
       </div>
-      <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 px-1 text-xs faint">
-        <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-primary/65"></span>silicon</span>
-        <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-secondary/70"></span>nitride</span>
-        {#if model.kind === "fdfd"}
-          <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-success"></span>ports</span>
-          <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm border border-warning/50 bg-warning/20"></span>PML</span>
-        {/if}
-        {#if model.kind === "fdtd"}
-          <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-warning"></span>sources</span>
-          <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-info"></span>monitors</span>
-          <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm border border-warning/50 bg-warning/20"></span>CPML</span>
-        {/if}
-        {#if model.kind === "modes"}<span class="flex items-center gap-1.5"><span class="h-0.5 w-3 bg-accent"></span>cross-section</span>{/if}
-        <span>seen from above, x across, y up</span>
-      </div>
-    </div>
-  {:else if right === "3d"}
-    <div class={stacked ? "pt-4" : "flex-1 overflow-y-auto p-4"}>
-      <div class="glow panel relative overflow-hidden">
+    {:else if right === "3d"}
+      <div class="relative h-full">
         {#if shown}
-          <ScenePreview text={shown} height={440} />
+          <ScenePreview text={shown} height={Math.max(160, viewHeight)} />
           {#if check && !check.ok}
-            <div class="absolute inset-x-3 top-3 rounded-lg border border-warning/30 bg-base-100/85 px-3 py-1.5 text-xs backdrop-blur">
-              The job isn't valid now: this is its last valid version.
-            </div>
+            <div class="absolute inset-x-3 top-3 rounded-lg border border-warning/30 bg-base-100/85 px-3 py-1.5 text-xs backdrop-blur">The job isn't valid now: this is its last valid version.</div>
           {/if}
         {:else}
-          <div class="grid h-[440px] place-items-center p-6 text-center">
+          <div class="grid h-full place-items-center p-6 text-center">
             <div class="flex flex-col items-center gap-3 text-sm faint">
               <Box size={22} />
-              <span>The 3D view appears once the job is valid{check && !check.ok ? "; it isn't yet (see above)" : ""}.</span>
+              <span>The 3D view appears once the job is valid{check && !check.ok ? "; it isn't yet (see the form)" : ""}.</span>
               <button class="btn btn-sm gap-1.5" onclick={() => (right = "preview")}><Eye size={14} /> Top view</button>
             </div>
           </div>
         {/if}
       </div>
-      <div class="mt-3 flex items-start gap-3 px-1">
-        <p class="flex-1 text-xs faint">The structure as its run will draw it, over the job's window{model.kind === "modes" ? ", behind the cut" : ""}. To pick a shape by clicking it, use the top view.</p>
-        <button class="btn btn-ghost btn-xs shrink-0 gap-1" onclick={() => (right = "preview")} title="Seen from above: click a shape to edit it"><Eye size={13} /> Top view</button>
+    {:else}
+      <div class="flex h-full min-h-0 flex-col p-3">
+        <div class="mb-2 flex flex-wrap items-center gap-2">
+          <div class="join" role="group" aria-label="The job's format">
+            {#each ["toml", "json", "yaml"] as const as f (f)}
+              <button class="btn join-item btn-xs {format === f ? 'btn-primary btn-soft' : ''}" onclick={() => setFormat(f)} title="The same job in {f.toUpperCase()}, saved as jobs/{model.name}.{f}">{f.toUpperCase()}</button>
+            {/each}
+          </div>
+          {#if format === "json"}<span class="text-[11px] faint">JSON has no comments: the description isn't kept.</span>{/if}
+        </div>
+        <div class="min-h-0 flex-1 overflow-hidden rounded-xl border border-base-content/8 bg-base-300/50 py-2">
+          <TomlEditor value={text} onchange={edited} {format} />
+        </div>
       </div>
+    {/if}
+  </div>
+  <div class="flex shrink-0 flex-wrap items-center gap-2 border-t border-base-content/8 px-3 py-2">
+    <div class="join" role="group" aria-label="What the view shows">
+      <button class="btn btn-xs join-item gap-1 {right === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "3d")} title="The structure as the run will draw it"><Box size={12} /> 3D</button>
+      <button class="btn btn-xs join-item gap-1 {right === 'preview' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "preview")} title="Seen from above: click a shape to edit it"><Eye size={12} /> Top</button>
+      <button class="btn btn-xs join-item gap-1 {right === 'toml' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "toml")} title="The job's text"><Code size={12} /> As text</button>
     </div>
-  {:else}
-    <div class="{stacked ? 'mt-4' : 'mx-4 mt-3'} flex flex-wrap items-center gap-2">
-      <div class="join" role="group" aria-label="The job's format">
-        {#each ["toml", "json", "yaml"] as const as f (f)}
-          <button class="btn join-item btn-xs {format === f ? 'btn-primary btn-soft' : ''}" onclick={() => setFormat(f)} title="The same job in {f.toUpperCase()}, saved as jobs/{model.name}.{f}">{f.toUpperCase()}</button>
-        {/each}
-      </div>
-      {#if format === "json"}<span class="text-[11px] faint">JSON has no comments: the description isn't kept.</span>{/if}
-    </div>
-    <div class="{stacked ? 'mt-2 h-[440px]' : 'mx-4 mt-2 mb-4 min-h-0 flex-1'} overflow-hidden rounded-xl border border-base-content/8 bg-base-300/50 py-2">
-      <TomlEditor value={text} onchange={edited} {format} />
-    </div>
-  {/if}
+    <span class="flex-1"></span>
+    <span class="hidden text-[11px] faint lg:inline">{right === "3d" ? `as its run will draw it, over its window${model.kind === "modes" ? ", behind the cut" : ""}` : right === "preview" ? "click a shape to edit it" : "edits here update the form; what it doesn't show is kept"}</span>
+  </div>
 {/snippet}

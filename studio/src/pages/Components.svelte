@@ -2,14 +2,17 @@
   // Components: the library a chip is built from. Each kind's ports, parameters (with their
   // units, ranges and defaults), model and provenance, its schematic symbol, and its S-parameters
   // over wavelength, recomputed by the library as the parameters move. A device of the library's
-  // (photonoxide::device: the waveguide, bend, directional coupler and rings) has its own page,
-  // an Overview and a Design (components/device/DevicePage.svelte); the designs saved in the
-  // workspace's jobs/ are listed first and reopen there.
-  import { Boxes, ChevronDown, ChevronRight, CircleCheck, CirclePlus, FileCog, FileDown, FileUp, PanelLeftClose, PanelLeftOpen, RotateCcw, Search } from "@lucide/svelte";
+  // (photonoxide::device: the waveguide, bend, directional coupler, rings, rib, MMIs, Y-branch
+  // and MZIs) has its own page (components/device/DevicePage.svelte); the designs saved in the
+  // workspace's jobs/ are listed first and reopen there. Any other structure is the Custom
+  // device (components/custom/CustomDevice.svelte), where every other job of the workspace and
+  // every template opens.
+  import { Boxes, ChevronDown, ChevronRight, CircleCheck, CirclePlus, Copy, FileCog, FileDown, FileText, FileUp, PanelLeftClose, PanelLeftOpen, RotateCcw, Search, Shapes } from "@lucide/svelte";
   import katex from "katex";
   import { fade, fly } from "svelte/transition";
   import "katex/dist/katex.min.css";
 
+  import CustomDevice from "../components/custom/CustomDevice.svelte";
   import DevicePage from "../components/device/DevicePage.svelte";
   import Glyph from "../components/Glyph.svelte";
   import MathText from "../components/MathText.svelte";
@@ -17,7 +20,8 @@
   import Tip from "../components/Tip.svelte";
   import UnitChip from "../components/UnitChip.svelte";
   import { api, type JobItem, type KindInfo, type Part, type SpectrumData, type Sweep } from "../lib/api";
-  import { app, go } from "../lib/app.svelte";
+  import { app, CUSTOM, go, openCustom, toast } from "../lib/app.svelte";
+  import { catalog, loadCatalog } from "../lib/catalog.svelte";
   import { addInstance, exportTouchstone, importTouchstone, library, loadLibrary, partKey, partOf } from "../lib/chip.svelte";
   import { sweepProblem, type Quantity } from "../lib/circuit";
   import { deviceOf, devices, loadDevices, openDesign } from "../lib/device.svelte";
@@ -26,16 +30,39 @@
 
   loadLibrary();
   loadDevices();
+  loadCatalog();
 
-  /** The designs saved in the workspace's jobs/, each a device's. */
+  /** The designs saved in the workspace's jobs/, each a device's; and its other jobs, each the Custom device's. */
   let designs = $state<JobItem[]>([]);
+  let jobs = $state<JobItem[]>([]);
   $effect(() => {
     void app.workspaceVersion;
     api
       .home()
-      .then((h) => (designs = h.jobs.filter((j) => j.kind === "device")))
+      .then((h) => {
+        designs = h.jobs.filter((j) => j.kind === "device");
+        jobs = h.jobs.filter((j) => j.kind !== "device");
+      })
       .catch(() => {});
   });
+  /** Whether the Components page shows the Custom device. */
+  const custom = $derived(app.component === CUSTOM);
+  /** The workspace's other jobs and the templates the search leaves, each the Custom device's. */
+  const matches = (j: { name: string; about: string; kind: string }) => {
+    const q = query.trim().toLowerCase();
+    return !q || `${j.name} ${j.about} ${j.kind}`.toLowerCase().includes(q);
+  };
+  const mine = $derived(jobs.filter(matches));
+  const templates = $derived((catalog.data?.jobs ?? []).filter((j) => j.kind !== "device" && matches(j)));
+
+  /** Opens a job of the workspace in the Custom device. */
+  async function openJob(path: string) {
+    try {
+      openCustom(await api.readJob(path), path);
+    } catch (e) {
+      toast(String(e), "error");
+    }
+  }
 
   let query = $state("");
   let values = $state<Record<string, number[]>>({});
@@ -238,6 +265,19 @@
     <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
       {#if library.problem}<p class="px-3 text-sm text-error">{library.problem}</p>{/if}
       {#if devices.problem}<p class="px-3 text-sm text-error">{devices.problem}</p>{/if}
+      {#if !query.trim() || "custom device job structure".includes(query.trim().toLowerCase())}
+        <button
+          class="mt-1 flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors {custom ? 'bg-primary/12 text-primary' : 'hover:bg-base-content/5'}"
+          onclick={() => choose(CUSTOM)}
+          title="Any structure no device describes, as a job: its stack, shapes, ports, sources, monitors, window, grid and sweep"
+        >
+          <span class="grid h-7 w-11 shrink-0 place-items-center text-primary"><Shapes size={17} /></span>
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-sm font-medium">Custom device</span>
+            <span class="block truncate text-xs {custom ? '' : 'faint'}">any structure, as a job</span>
+          </span>
+        </button>
+      {/if}
       {#if designs.length}
         <div class="px-3 pt-3 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">Your designs</div>
         {#each designs as d (d.path)}
@@ -274,6 +314,31 @@
       {:else}
         {#if library.loaded}<p class="px-3 text-sm faint">The library is empty.</p>{/if}
       {/each}
+      <!-- the workspace's other jobs and the templates: each opens in the Custom device -->
+      {#if mine.length}
+        <div class="px-3 pt-3 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">Your jobs</div>
+        {#each mine as j (j.path)}
+          <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={() => (fold(), openJob(j.path))} title="{j.path}: opens in the Custom device">
+            <span class="grid h-7 w-11 shrink-0 place-items-center faint"><FileText size={15} /></span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-medium">{j.name}</span>
+              <span class="block truncate text-xs faint">{j.kind} · {j.about || "a job"}</span>
+            </span>
+          </button>
+        {/each}
+      {/if}
+      {#if templates.length}
+        <div class="px-3 pt-3 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">Templates</div>
+        {#each templates as j (j.file)}
+          <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={() => (fold(), openCustom(j.text))} title="{j.about}: opens in the Custom device, to change and save as your own">
+            <span class="grid h-7 w-11 shrink-0 place-items-center faint"><Copy size={14} /></span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm">{j.name}</span>
+              <span class="block truncate text-xs faint">{j.kind}</span>
+            </span>
+          </button>
+        {/each}
+      {/if}
     </div>
 {/snippet}
 
@@ -289,11 +354,13 @@
       <div class="flex shrink-0 items-center gap-1 border-b border-base-content/8 px-3 py-1">
         <button class="btn btn-ghost btn-xs gap-1.5" onclick={toggleList} title="The components (Ctrl+B)"><PanelLeftOpen size={14} /> Components</button>
         <ChevronRight size={12} class="faint" />
-        <button class="btn btn-ghost btn-xs gap-1" onclick={toggleList} title="Pick another component (Ctrl+B)">{kind?.title ?? "…"} <ChevronDown size={12} /></button>
+        <button class="btn btn-ghost btn-xs gap-1" onclick={toggleList} title="Pick another component (Ctrl+B)">{custom ? "Custom device" : (kind?.title ?? "…")} <ChevronDown size={12} /></button>
       </div>
     {/if}
-    <div class="min-h-0 flex-1 {kind && device ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}">
-    {#if kind && device}
+    <div class="min-h-0 flex-1 {custom || (kind && device) ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}">
+    {#if custom}
+      <CustomDevice />
+    {:else if kind && device}
       {#key device.id}
         <DevicePage info={device} {kind} family={familyOf(kind)} onchoose={choose} />
       {/key}

@@ -1,5 +1,5 @@
 <script lang="ts">
-  // A number in the builder's form: a label with its hint, the value, its unit.
+  // A number in the Custom device's form: a label with its hint, the value, its unit.
   import { Info } from "@lucide/svelte";
 
   import { shown, stored, type LengthUnit } from "../lib/units";

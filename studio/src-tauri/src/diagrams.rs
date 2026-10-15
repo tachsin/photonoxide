@@ -1,6 +1,6 @@
 //! The Academy's diagrams: a lesson's device drawn before any chart, as a labelled schematic in
 //! the lesson's own symbols (an SVG the window draws, studio/src/components/diagrams/) and, where
-//! a built-in job builds the same device, in 3D from that job's structure, as the job builder
+//! a built-in job builds the same device, in 3D from that job's structure, as the Custom device
 //! previews it. `::diagram <id>` shows one (academy/README.md).
 
 use serde::Serialize;

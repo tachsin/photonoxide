@@ -1,8 +1,8 @@
-// The pages: the five on the rail, the System group folded at its foot, and the two reached from
-// what they show (the job builder, from a template or Home's New job; the run view, from a run).
+// The pages: the five on the rail, the System group folded at its foot, and the run view, reached
+// from a run. A job opens in the Custom device, on the Components page.
 // The rail, the top bar and Ctrl+K all read them from here.
 
-import { Atom, Boxes, CircuitBoard, Gauge, GraduationCap, House, Package, Settings, ShieldCheck, SquarePen, View } from "@lucide/svelte";
+import { Atom, Boxes, CircuitBoard, Gauge, GraduationCap, House, Package, Settings, ShieldCheck, View } from "@lucide/svelte";
 
 import type { Page } from "./app.svelte";
 
@@ -26,7 +26,6 @@ export const PAGES: Record<Page, PageInfo> = {
   libraries: { label: "Libraries", icon: Package, hint: "External libraries found here: licences, backends, installs", about: "External libraries found on this machine, their licences, and how to install them" },
   benchmarks: { label: "Benchmarks", icon: Gauge, hint: "Which backend is faster and leaner, measured on this machine", about: "The catalogue's problems on this machine: which backend is faster and leaner, where" },
   settings: { label: "Settings", icon: Settings, hint: "Theme, workspace, tips and updates", about: "Appearance, workspace, tips and updates" },
-  builder: { label: "Job builder", icon: SquarePen, hint: "Build a job in a form, with a live preview", about: "Describe a simulation in a form; the TOML follows" },
   viewer: { label: "Run", icon: View, hint: "The run open, in 3D and 2D", about: "A run as its record holds it, live or replayed" },
 };
 

@@ -102,7 +102,7 @@ export const PHOTONOXIDE_HIGHLIGHTS = [
     icon: "studio",
     title: "The studio",
     milestone: "0.3.1",
-    body: "A desktop app on a workspace: the examples built in, a job builder with a 3D preview, runs live in 3D and 2D, run comparison, the materials, the validation report, the Academy's lessons, and Stable and Nightly channels.",
+    body: "A desktop app on a workspace: the examples built in, each component on its page and a Custom device with a 3D view, runs live in 3D and 2D, run comparison, the materials, the validation report, the Academy's lessons, and Stable and Nightly channels.",
   },
   {
     icon: "circuits",

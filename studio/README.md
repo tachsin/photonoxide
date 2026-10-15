@@ -1,8 +1,9 @@
 # The photonoxide program and its studio
 
 `photonoxide` is one program. Its studio window is where photonoxide is used: templates to
-start from, a job builder, runs played live in 3D and 2D and overlaid, the component library
-and the chip view, the Academy's lessons, the materials catalogue, and the validation report
+start from, the component library with each device's page (its design, its models, its runs)
+and the Custom device for any other structure, runs played live in 3D and 2D and overlaid, the
+chip view, the Academy's lessons, the materials catalogue, and the validation report
 with the published results reproduced. The same
 program runs jobs headless, replays runs, runs the built-in examples and checks the report:
 
@@ -35,16 +36,15 @@ only on a network you trust. See [docs/farming.md](../docs/farming.md).
 The rail on the left holds five pages, the places where work happens: **Home**,
 **Components**, **Chip**, **Academy** and **Materials**. At its foot, the **System** group
 (Validation, Libraries and Benchmarks) folds away beside **Settings**; it opens by itself when one
-of its pages is shown. The rail folds to its icons, each naming itself in a hint. Two pages
-aren't on the rail, because they are reached from what they show: the **job builder** (Home's
-New job, a template's Open) and the **run view** (a run, Home's Continue, `photonoxide run` and
-`photonoxide view`); the top bar's arrow leads back from them. **Runs** live in a drawer opened
-from the status bar.
+of its pages is shown. The rail folds to its icons, each naming itself in a hint. One page isn't
+on the rail, because it is reached from what it shows: the **run view** (a run, Home's Continue,
+`photonoxide run` and `photonoxide view`); the top bar's arrow leads back from it. **Runs** live
+in a drawer opened from the status bar.
 
 - **Home:** start from a template, a new job or a new circuit, or pick up where you left off.
   - **Start from a template:** the simulations of `jobs/`, built in. Each card shows its
     structure in 3D, turning slowly: the scene its run will draw (`photonoxide::job::preview`).
-    **Run** plays it live in the run view; **Open** takes it to the job builder, to change it.
+    **Run** plays it live in the run view; **Open** takes it to the Custom device, to change it.
   - Continue (the run open), recent runs, how many published results and validation cases
     there are, and what changed in this version.
 - **Runs** (the drawer, from **Runs** at the status bar's left): every run in the workspace,
@@ -52,20 +52,32 @@ from the status bar.
   view, shows on disk or is deleted; deleting the open run closes it, deleting one still running
   stops it first. Tick several and **Overlay** draws their sweeps' effective indices and their
   spectra (|S_q1|²) on shared axes, in the drawer.
-- **Job builder:** a job as a form for each kind (`modes`, `fdfd`, `fdtd`, `structure`). An
-  FDTD job's sources and monitors are edited by type and drawn on the top view (sources
-  orange, monitors blue; click one to edit it), with its spectrum, its run length and the field
-  its frames show.
-  - The device is drawn in 3D as you type, as its run will draw it; a modes job's whole, with
-    its cut drawn where the cross-section is taken. The top view shows
-    rectangles, disks, rings, ports, the PML and the cut from above: click a shape to edit it.
+- **The Custom device** (first in the Components list; Home's New job, a template's Open, and
+  Ctrl+K): any structure no device of the library describes, as a job of its four kinds
+  (`modes`, `fdfd`, `fdtd`, `structure`). Every job of the workspace that isn't a device's opens
+  here, listed under **Your jobs**, and so does every template; a device's job opens on its
+  device's page. Its view is always on screen beside the form:
+  - **3D**, as its run will draw it (a modes job's whole, with its cut drawn where the
+    cross-section is taken); **Top**, the rectangles, disks, rings, ports, sources (orange),
+    monitors (blue), the PML and the cut from above, a click on one editing it; and **As text**,
+    the job in TOML, JSON or YAML, edits there updating the form.
+  - The form: the kind; the name, time limit and description; the stack and the layer; the
+    task's **named parameters** (`[task.parameters]`), each a number or an expression; the
+    window and grid; the shapes; an FDFD job's ports; an FDTD job's sources, monitors, spectrum,
+    run length and view; and a **sweep** of the wavelength, a rectangle's width or any of the
+    named parameters, its ends numbers or expressions with units (`"100 nm"`).
+  - **What the form doesn't show is kept** as the file has it, and named: components by their
+    generators (`[[task.component]]`), paths, shapes defined by functions, arrays and bodies, a
+    stack of layers (`[task.stack]`), a port found by a component's name, a shape whose place
+    is an expression, a `[solver]` table. The program reads a job into the form and writes it
+    back (`form.rs`), so every job of `jobs/` comes back from the form as the same job, and
+    `coupler-supermodes.toml` keeps its expressions and its `gap` sweep through an edit.
   - Light travels along x in every kind, and the top view says so. Changing a job's kind keeps
     its device: the rectangle that is a guide in an FDFD job is the same guide in a modes job,
     cut at an x. An older modes job, its modes along y, opens and runs as before; "Light along"
     turns it to x, the device turning with it, so its modes stay the same.
-  - The TOML sits beside the form in an editor, and edits there update the form.
   - The library checks the job as it changes (`photonoxide::job::check`). It is saved to the
-    workspace's `jobs/` (Ctrl+S) and runs from the builder (Ctrl+Enter).
+    workspace's `jobs/` (Ctrl+S) and runs from here (Ctrl+Enter), live in the run view.
 - **The run view:**
   - **3D** (the default): the layers and shapes as solids, with the field painted on its plane.
     A modes run's selected mode also travels along its guide: its field, Re E, as a glowing
@@ -239,7 +251,7 @@ from the status bar.
   colours), the unit of lengths, the workspace folder, tips, and updates.
   The window opens where it was left, at the size it had.
 - **Lengths in µm or nm:** every length and wavelength the studio shows or asks for (the
-  builder's fields, a component's or an instance's parameters, the chip's wavelengths, the
+  Custom device's fields, a component's or an instance's parameters, the chip's wavelengths, the
   run view's readouts, the plots' axes, hover values and CSV files, the Materials page) is in one
   unit, µm or nm, app-wide. Click the unit beside any value to switch it everywhere, or choose
   it in the settings. Only the window converts, exactly: job and chip files keep their units
@@ -509,7 +521,7 @@ program by `scripts/record-gifs.mjs`, so they can be made again when the studio 
 cd studio
 pnpm tauri build                                  # target/release/photonoxide.exe
 node scripts/record-gifs.mjs                      # every GIF, about six minutes
-node scripts/record-gifs.mjs --only hero,academy  # some: hero, builder, materials, validation, academy
+node scripts/record-gifs.mjs --only hero,academy  # some: hero, device, materials, validation, academy
 ```
 
 - **What it needs:** Windows (it drives the window's WebView2 over the DevTools protocol, on
