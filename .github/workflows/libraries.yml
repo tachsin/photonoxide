@@ -68,7 +68,7 @@ jobs:
         shell: bash -el {0}
     steps:
       - uses: actions/checkout@v7
-      - uses: conda-incubator/setup-miniconda@v3
+      - uses: conda-incubator/setup-miniconda@v4
         with:
           miniforge-version: latest
           activate-environment: libraries
@@ -118,7 +118,7 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
       - name: Install
