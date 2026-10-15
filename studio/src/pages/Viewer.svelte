@@ -59,11 +59,12 @@
   });
 
   // an FDTD run opens on its field in time, which the 2D view plays; a device's model on its
-  // S-parameters and figures
+  // S-parameters and figures. Inside a device's page the view stays on the device, in 3D: the
+  // page's panel has the plots.
   let shownFdtd = -1;
   $effect(() => {
     const g = run.info?.generation ?? -1;
-    if ((run.job?.kind === "fdtd" || run.device) && g !== shownFdtd) {
+    if (!embedded && (run.job?.kind === "fdtd" || run.device) && g !== shownFdtd) {
       shownFdtd = g;
       view = "2d";
     }

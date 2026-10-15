@@ -580,3 +580,56 @@ fn a_saved_job_that_computes_the_design_reopens_with_its_text() {
     assert_eq!(read_device(path.display().to_string()).unwrap().job, None);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn as_solved_shows_the_cells_the_chosen_model_solves_on() {
+    // a closed form solves no grid
+    let guide = design("waveguide", &[]);
+    let s = solved(&guide, &ComputeIn::default(), "x", 5.0).unwrap();
+    assert!(s.top.is_none() && s.cut.is_none(), "{}", s.note);
+    // a mode solve: its cross-section only, on its mesh's step
+    let three = SpecIn {
+        fidelity: "3D".into(),
+        ..guide.clone()
+    };
+    let s = solved(&three, &ComputeIn::default(), "x", 5.0).unwrap();
+    let cut = s.cut.unwrap();
+    assert!(s.top.is_none());
+    assert_eq!(s.step_nm, 10.0);
+    // the strip's silicon at its middle, oxide at the window's edge
+    let mid = cut.at(cut.nx / 2, cut.ny / 2);
+    assert!(mid > 11.0 && cut.at(0, 0) < 2.2, "{mid}");
+    // 2D FDFD: the plane on its cells, its picture coarser when they are too many, and saying so
+    let mmi = SpecIn {
+        fidelity: "2D".into(),
+        ..design("MMI 1x2", &[])
+    };
+    let fdfd = ComputeIn {
+        fdfd_2d: true,
+        ..ComputeIn::default()
+    };
+    let s = solved(&mmi, &fdfd, "x", 1.0).unwrap();
+    let top = s.top.unwrap();
+    assert_eq!(s.step_nm, 20.0);
+    assert!(
+        (top.nx * top.ny) as f64 <= 1.1 * MOST_PIXELS,
+        "{} x {}",
+        top.nx,
+        top.ny
+    );
+    assert!(s.coarser > 1.0);
+    assert!(s.note.contains("effective index"));
+    // FDTD on its own cells
+    let s = solved(
+        &guide,
+        &ComputeIn {
+            fdtd: Some(3),
+            ..ComputeIn::default()
+        },
+        "y",
+        0.0,
+    )
+    .unwrap();
+    assert_eq!(s.step_nm, 50.0);
+    assert!(s.top.is_some() && s.cut.is_some());
+}

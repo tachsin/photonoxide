@@ -72,7 +72,7 @@ export function defaultCompute(): Compute {
 
 /** The draft of device `d`'s page, made at its defaults the first time. */
 export function draftOf(d: DeviceInfo): Draft {
-  drafts[d.id] ??= { spec: defaultSpec(d), name: null, path: null, about: "", saved: key(defaultSpec(d), d), tab: "overview", compute: defaultCompute(), text: null };
+  drafts[d.id] ??= { spec: defaultSpec(d), name: null, path: null, about: "", saved: key(defaultSpec(d), d), tab: "design", compute: defaultCompute(), text: null };
   return drafts[d.id];
 }
 
@@ -113,6 +113,9 @@ export interface Result {
 
 /** The devices whose page's Run was pressed: the Simulate tab runs its job once it is made. */
 export const pending = $state<Record<string, boolean>>({});
+
+/** The run each device's page shows, by the device's id: its directory, once started or opened there. */
+export const shownRun = $state<Record<string, string>>({});
 
 /** What each model gave for each design, by "id design" and then by rung. */
 export const results = $state<Record<string, Record<string, Result>>>({});
@@ -210,7 +213,10 @@ export async function openRunItem(r: RunItem) {
     await loadDevices();
     const d = devices.list.find((x) => x.kind === r.device);
     if (d) {
-      if (await startRunHere(() => api.openRun(r.dir))) openDevice(d.id, "simulate");
+      if (await startRunHere(() => api.openRun(r.dir))) {
+        shownRun[d.id] = r.dir;
+        openDevice(d.id, "simulate");
+      }
       return;
     }
   }

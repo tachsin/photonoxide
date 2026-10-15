@@ -1,14 +1,16 @@
 <script lang="ts">
   // A device's page (photonoxide::device): one header (its name and kind, the fidelity in use, a
-  // dirty marker, Run, Save and Place on the chip) over four tabs.
+  // dirty marker, Run, Save and Place on the chip) over the design's view, always on screen (3D,
+  // from above, the cross-section at a draggable cut, or the cells the model solves on; a run of
+  // the device on it), with a panel of tabs beside it (under it in a narrow window):
   //
-  // - Overview: what it is, its symbol, its ports with their modes, its figures, its S-parameters
-  //   over wavelength, the model with its papers and stated error, its lesson and the published
-  //   results on it.
-  // - Design: its stack, its geometry as parameters and expressions, its views (from above with
-  //   the cut, the cross-section there, 3D) and its figures, live.
+  // - Design: its geometry as parameters and expressions, its stack, its figures, live.
+  // - Overview: its S-parameters with their model and grid, its figures, the model with its
+  //   equation, papers and stated error, its ports with their modes, its lesson, its symbol and
+  //   the published results on it.
   // - Model: its ladder of models, what each costs here and how far apart they are for the design.
-  // - Simulate: the design run as a job at a fidelity, or by FDTD, shown in place; its past runs.
+  // - Simulate: the design run as a job at a fidelity, or by FDTD, its spectra and plots; its
+  //   past runs.
   //
   // At the analytic fidelity everything follows every change, 60 ms after it; a 2D or 3D model
   // is a solve, started by a button and run in the background. Every number names its model.
@@ -20,11 +22,13 @@
   import "katex/dist/katex.min.css";
 
   import { api, type DeviceGeometry, type DeviceInfo, type DevicePort, type DeviceSpec, type DeviceSpectrum, type KindInfo, type Sweep } from "../../lib/api";
-  import { app, go, showPublished, toast } from "../../lib/app.svelte";
+  import { app, go, run, showPublished, toast } from "../../lib/app.svelte";
   import { catalog, loadCatalog } from "../../lib/catalog.svelte";
   import { addInstance, exportTouchstone, partKey } from "../../lib/chip.svelte";
   import { sweepProblem, type Quantity } from "../../lib/circuit";
-  import { dirty, draftOf, drafts, keep, key, pending, solve, solves, took, type Rung } from "../../lib/device.svelte";
+  import { dirty, draftOf, drafts, keep, key, pending, shownRun, solve, solves, took, type Rung } from "../../lib/device.svelte";
+  import Viewer from "../../pages/Viewer.svelte";
+  import SolvedView from "./SolvedView.svelte";
   import { FIDELITY_ABOUT, plain } from "../../lib/deviceview";
   import type { Scene } from "../../lib/events";
   import { len, shown as inUnit, stored, unitText } from "../../lib/units";
@@ -161,8 +165,17 @@
     if (f !== "analytic" && !(solves[info.id]?.fidelity === f && solves[info.id]?.design === key(draft.spec, info))) solve(info, snapshot(), f);
   }
 
-  // ---- the views ----
-  let viewTab = $state<"plan" | "3d">("plan");
+  // ---- the view, always on screen, and the panel beside it ----
+  /** What the design's view shows: 3D, from above, the cross-section at the cut, or the cells the model solves on. */
+  let shape = $state<"3d" | "top" | "cut" | "solved">("3d");
+  /** The design, or the run shown on the device. */
+  let mainView = $state<"design" | "run">("design");
+  let bodyWidth = $state(0);
+  let viewHeight = $state(400);
+  /** A narrow page (a 960 px window): the panel goes under the view. */
+  const stacked = $derived(bodyWidth > 0 && bodyWidth < 1000);
+  /** Whether the run the window follows is one this page started or opened. */
+  const runHere = $derived(!!run.info?.dir && shownRun[info.id] === run.info.dir);
   let normal = $state<"x" | "y">("x");
   let cutAt = $state<number | null>(null);
   // the cut starts mid-device, across a straight; a bend's near its input, where the arc runs along x
@@ -317,296 +330,302 @@
   </section>
 {/snippet}
 
-<!-- the header -->
-<div class="glow border-b border-base-content/8 px-8 pt-6">
-  <div class="flex flex-wrap items-start gap-6">
-    {#if kind?.symbol}
-      {@const s = kind.symbol}
-      <div class="grid size-14 shrink-0 place-items-center rounded-2xl bg-primary/12 text-primary">
-        <svg width="40" height="28" viewBox="{-s.width / 2 - 6} {-s.height / 2 - 6} {s.width + 12} {s.height + 12}"><Glyph symbol={s} /></svg>
-      </div>
-    {/if}
-    <div class="min-w-[16rem] flex-1">
-      <h2 class="flex flex-wrap items-baseline gap-x-2 text-2xl font-semibold tracking-tight">
-        {title}
-        {#if changed}<span class="text-base text-warning" title="Changed since it was {draft.path ? 'saved' : 'opened'}">●</span>{/if}
-        <span class="text-base font-normal muted">{info.kind}</span>
-      </h2>
-      <p class="mt-1 max-w-3xl text-sm muted">{info.about}</p>
-      <div class="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
-        <div class="dropdown">
-          <div tabindex="0" role="button" class="badge badge-sm cursor-pointer gap-1 {live ? 'badge-secondary' : 'badge-primary'}" title="The model in use: {FIDELITY_ABOUT[fidelity]}">
-            <Cpu size={11} /> {fidelity}
-          </div>
-          <ul tabindex="-1" class="dropdown-content menu z-30 mt-2 w-96 rounded-box border border-base-content/10 bg-base-100 p-2 shadow-xl">
-            {#each info.fidelities as m (m.fidelity)}
-              <li>
-                <button class="flex flex-col items-start gap-0.5 {m.fidelity === fidelity ? 'menu-active' : ''}" onclick={() => setFidelity(m.fidelity)}>
-                  <span class="font-medium">{m.fidelity} <span class="text-xs font-normal faint">{m.fidelity === "analytic" ? "live" : `a solve${took[`${info.id} ${m.fidelity}`] ? `: about ${took[`${info.id} ${m.fidelity}`].toFixed(1)} s` : ", seconds"}`}</span></span>
-                  <span class="text-xs muted">{m.name}</span>
-                  {#if m.error}<span class="text-xs faint">within {m.error.bound}{m.error.unit} in {m.error.quantity} of the {m.error.against} model</span>{/if}
-                </button>
-              </li>
-            {/each}
-          </ul>
+<div class="flex h-full min-h-0 flex-col">
+  <!-- the header -->
+  <div class="glow shrink-0 border-b border-base-content/8 px-6 py-4">
+    <div class="flex flex-wrap items-start gap-5">
+      {#if kind?.symbol}
+        {@const s = kind.symbol}
+        <div class="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/12 text-primary">
+          <svg width="36" height="24" viewBox="{-s.width / 2 - 6} {-s.height / 2 - 6} {s.width + 12} {s.height + 12}"><Glyph symbol={s} /></svg>
         </div>
-        <span class="badge badge-sm badge-ghost">{plural(info.ports.length, "port")}</span>
-        <span class="badge badge-sm badge-ghost">{plural(info.parameters.length, "parameter")}</span>
-        {#if draft.path}<span class="badge badge-sm badge-ghost max-w-72 truncate" title={draft.path}>jobs/{draft.path.split(/[\\/]/).pop()}</span>{/if}
-        {#if family.length > 1}
-          <span class="ml-2 text-xs faint">also:</span>
-          {#each family.filter((f) => partKey(f) !== info.id) as f (partKey(f))}
-            <button class="btn btn-ghost btn-xs" onclick={() => onchoose?.(partKey(f))} title="{f.provenance.fidelity}: {f.provenance.source}">{f.variant || f.title} ({f.provenance.fidelity})</button>
-          {/each}
-        {/if}
-      </div>
-    </div>
-    <div class="flex flex-wrap gap-2">
-      <button
-        class="btn btn-sm gap-1.5"
-        onclick={() => {
-          pending[info.id] = true;
-          draft.tab = "simulate";
-        }}
-        title="Run the design as a job, as the Simulate tab sets it: by its {fidelity} model unless it says otherwise"><Play size={15} /> Run</button
-      >
-      <button class="btn btn-sm gap-1.5" onclick={startSave} title="Save the design as a job file in the workspace's jobs/ (Ctrl+S)"><Save size={15} /> Save</button>
-      <button class="btn btn-primary btn-sm gap-1.5" onclick={place} title="Add the library's {kind?.title ?? info.kind} to the chip being edited, at its defaults, and go there"><CirclePlus size={15} /> Place on the chip</button>
-    </div>
-  </div>
-  <div role="tablist" class="tabs tabs-border mt-4 -mb-px">
-    <button role="tab" class="tab {draft.tab === 'overview' ? 'tab-active' : ''}" onclick={() => (draft.tab = "overview")}>Overview</button>
-    <button role="tab" class="tab {draft.tab === 'design' ? 'tab-active' : ''}" onclick={() => (draft.tab = "design")}>Design</button>
-    <button role="tab" class="tab {draft.tab === 'model' ? 'tab-active' : ''}" onclick={() => (draft.tab = "model")}>Model</button>
-    <button role="tab" class="tab {draft.tab === 'simulate' ? 'tab-active' : ''}" onclick={() => (draft.tab = "simulate")}>Simulate</button>
-  </div>
-</div>
-
-{#if draft.tab === "model"}
-  <ModelTab
-    {info}
-    {draft}
-    {designKey}
-    {values}
-    onsolve={(f) => solve(info, snapshot(), f)}
-    onsimulate={(r: Rung) => {
-      draft.spec = { ...draft.spec, fidelity: r.fidelity };
-      draft.compute = { ...draft.compute, fdtd: null, fdfd_2d: r.fdfd2d };
-      pending[info.id] = true;
-      draft.tab = "simulate";
-    }}
-  />
-{:else if draft.tab === "simulate"}
-  <SimulateTab {info} {draft} {designKey} {values} active={app.page === "components"} />
-{:else if draft.tab === "overview"}
-  <div class="space-y-6 px-8 py-6">
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-      {@render spectrumPanel(300)}
-      <div class="space-y-6">
-        <section class="panel p-5">
-          <h3 class="panel-title">Learn</h3>
-          <p class="mt-2 text-sm muted">How it works, from the physics up, with charts the library computes as you move them.</p>
-          <button
-            class="btn btn-sm mt-3 gap-1.5"
-            onclick={() => {
-              app.lesson = info.lesson;
-              go("academy");
-            }}><BookOpen size={14} /> Open its lesson</button
-          >
-        </section>
-        {#if kind?.symbol}
-          {@const s = kind.symbol}
-          {@const pad = 34}
-          <section class="panel p-5">
-            <h3 class="panel-title">Symbol</h3>
-            <svg class="mt-3 w-full" style="max-height: 11rem" viewBox="{-s.width / 2 - pad} {-s.height / 2 - pad} {s.width + 2 * pad} {s.height + 2 * pad}" role="img" aria-label="its schematic symbol">
-              <Glyph symbol={s} />
-              {#each s.pins as p (p.port)}
-                {@const dx = Math.cos((p.angle * Math.PI) / 180)}
-                {@const dy = Math.sin((p.angle * Math.PI) / 180)}
-                <line x1={p.x} y1={p.y} x2={p.x + 8 * dx} y2={p.y + 8 * dy} class="stroke-base-content/40" stroke-width="1" />
-                <circle cx={p.x} cy={p.y} r="2.6" class="fill-base-100 stroke-primary" stroke-width="1.2" />
-                <text x={p.x + 12 * dx} y={p.y + 12 * dy + (Math.abs(dy) > 0.5 ? (dy > 0 ? 5 : -2) : 0)} text-anchor={dx > 0.5 ? "start" : dx < -0.5 ? "end" : "middle"} dominant-baseline="central" class="fill-base-content/70 text-[7px] num">{p.port}</text>
+      {/if}
+      <div class="min-w-[16rem] flex-1">
+        <h2 class="flex flex-wrap items-baseline gap-x-2 text-xl font-semibold tracking-tight">
+          {title}
+          {#if changed}<span class="text-base text-warning" title="Changed since it was {draft.path ? 'saved' : 'opened'}">●</span>{/if}
+          <span class="text-sm font-normal muted">{info.kind}</span>
+        </h2>
+        <p class="mt-0.5 line-clamp-1 max-w-3xl text-sm muted" title={info.about}>{info.about}</p>
+        <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+          <div class="dropdown">
+            <div tabindex="0" role="button" class="badge badge-sm cursor-pointer gap-1 {live ? 'badge-secondary' : 'badge-primary'}" title="The model in use: {FIDELITY_ABOUT[fidelity]}">
+              <Cpu size={11} /> {fidelity}
+            </div>
+            <ul tabindex="-1" class="dropdown-content menu z-30 mt-2 w-96 rounded-box border border-base-content/10 bg-base-100 p-2 shadow-xl">
+              {#each info.fidelities as m (m.fidelity)}
+                <li>
+                  <button class="flex flex-col items-start gap-0.5 {m.fidelity === fidelity ? 'menu-active' : ''}" onclick={() => setFidelity(m.fidelity)}>
+                    <span class="font-medium">{m.fidelity} <span class="text-xs font-normal faint">{m.fidelity === "analytic" ? "live" : `a solve${took[`${info.id} ${m.fidelity}`] ? `: about ${took[`${info.id} ${m.fidelity}`].toFixed(1)} s` : ", seconds"}`}</span></span>
+                    <span class="text-xs muted">{m.name}</span>
+                    {#if m.error}<span class="text-xs faint">within {m.error.bound}{m.error.unit} in {m.error.quantity} of the {m.error.against} model</span>{/if}
+                  </button>
+                </li>
               {/each}
-            </svg>
-          </section>
-        {/if}
+            </ul>
+          </div>
+          <span class="badge badge-sm badge-ghost">{plural(info.ports.length, "port")}</span>
+          <span class="badge badge-sm badge-ghost">{plural(info.parameters.length, "parameter")}</span>
+          {#if draft.path}<span class="badge badge-sm badge-ghost max-w-72 truncate" title={draft.path}>jobs/{draft.path.split(/[\\/]/).pop()}</span>{/if}
+          {#if family.length > 1}
+            <span class="ml-2 text-xs faint">also:</span>
+            {#each family.filter((f) => partKey(f) !== info.id) as f (partKey(f))}
+              <button class="btn btn-ghost btn-xs" onclick={() => onchoose?.(partKey(f))} title="{f.provenance.fidelity}: {f.provenance.source}">{f.variant || f.title} ({f.provenance.fidelity})</button>
+            {/each}
+          {/if}
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button
+          class="btn btn-sm gap-1.5"
+          onclick={() => {
+            pending[info.id] = true;
+            draft.tab = "simulate";
+          }}
+          title="Run the design as a job, as the Simulate tab sets it: by its {fidelity} model unless it says otherwise"><Play size={15} /> Run</button
+        >
+        <button class="btn btn-sm gap-1.5" onclick={startSave} title="Save the design as a job file in the workspace's jobs/ (Ctrl+S)"><Save size={15} /> Save</button>
+        <button class="btn btn-primary btn-sm gap-1.5" onclick={place} title="Add the library's {kind?.title ?? info.kind} to the chip being edited, at its defaults, and go there"><CirclePlus size={15} /> Place on the chip</button>
       </div>
     </div>
+  </div>
 
-    <section class="panel p-5">
-      <div class="flex flex-wrap items-center gap-2">
-        <h3 class="panel-title mr-auto">Figures</h3>
-        <span class="text-xs faint">{live ? "the analytic model, as the design changes" : `the ${fidelity} model's`}</span>
+  <!-- the view, always on screen, and the panel beside it (under it in a narrow window) -->
+  <div class="min-h-0 flex-1 {stacked ? 'overflow-y-auto' : 'grid grid-cols-[minmax(0,1fr)_minmax(24rem,36%)]'}" bind:clientWidth={bodyWidth}>
+    <section class="flex min-w-0 flex-col border-base-content/8 {stacked ? 'h-[25rem] border-b' : 'min-h-0 border-r'}">
+      <div class="relative min-h-0 flex-1 overflow-hidden" bind:clientHeight={viewHeight}>
+        {#if mainView === "run" && runHere}
+          <div class="absolute inset-0"><Viewer embedded active={app.page === "components"} /></div>
+        {:else if drawn}
+          <div class="absolute inset-0 overflow-y-auto p-3">
+            {#if !view?.scene && view?.problem}
+              <p role="alert" class="mb-2 text-xs text-warning">{plain(view.problem)}: the last design that held together is shown.</p>
+            {/if}
+            {#if shape === "3d"}
+              <Device3D scene={drawn.scene} height={Math.max(200, viewHeight - 24)} />
+            {:else if shape === "top"}
+              <div class="mb-1 text-xs faint">From above: drag the cut along the device</div>
+              <TopView scene={drawn.scene} ports={drawn.ports} bind:normal bind:at={() => cutAt ?? 0, (v) => (cutAt = v)} height={Math.max(180, viewHeight - 48)} />
+            {:else if shape === "cut"}
+              <div class="mb-1 text-xs faint">From above: drag the cut</div>
+              <TopView scene={drawn.scene} ports={drawn.ports} bind:normal bind:at={() => cutAt ?? 0, (v) => (cutAt = v)} height={Math.max(120, Math.round(0.36 * viewHeight))} />
+              <div class="mt-2 mb-1 text-xs faint">The cross-section at {normal} = <span class="num">{len(cutAt ?? 0, 3)} {unitText()}</span></div>
+              <CutView scene={drawn.scene} {normal} at={cutAt ?? 0} height={Math.max(160, Math.round(0.64 * viewHeight) - 64)} />
+            {:else}
+              <SolvedView spec={draft.spec} compute={draft.compute} {normal} at={cutAt ?? 0} height={Math.max(220, viewHeight - 40)} />
+            {/if}
+          </div>
+        {:else if view?.problem}
+          <p class="p-6 text-center text-sm text-warning selectable">{plain(view.problem)}</p>
+        {:else}
+          <div class="skeleton m-3 h-[calc(100%-1.5rem)]"></div>
+        {/if}
       </div>
-      <div class="mt-3">{@render figuresPanel()}</div>
+      <!-- the view's switch -->
+      <div class="flex shrink-0 flex-wrap items-center gap-2 border-t border-base-content/8 px-3 py-2">
+        {#if runHere}
+          <div class="join" role="group" aria-label="What the view shows">
+            <button class="btn btn-xs join-item {mainView === 'design' ? 'btn-primary btn-soft' : ''}" onclick={() => (mainView = "design")} title="The design: its structure as drawn">Design</button>
+            <button class="btn btn-xs join-item {mainView === 'run' ? 'btn-primary btn-soft' : ''}" onclick={() => (mainView = "run")} title="The run on the device: {run.job?.job ?? ''}">{run.job?.kind === "fdtd" ? "Fields" : "The run"}</button>
+          </div>
+        {/if}
+        {#if mainView === "design" || !runHere}
+          <div class="join" role="group" aria-label="The design's view">
+            {#each [["3d", "3D"], ["top", "Top"], ["cut", "Cross-section"], ["solved", "As solved"]] as const as [v, label] (v)}
+              <button class="btn btn-xs join-item {shape === v ? 'btn-primary btn-soft' : ''}" onclick={() => (shape = v)}>{label}</button>
+            {/each}
+          </div>
+          {#if shape !== "3d"}
+            <div class="join" role="group" aria-label="The cut">
+              <button class="btn btn-xs join-item {normal === 'x' ? 'btn-active' : 'btn-ghost'}" onclick={() => ((normal = "x"), (cutAt = drawn ? (drawn.scene.x_um[0] + drawn.scene.x_um[1]) / 2 : 0))}>cut across x</button>
+              <button class="btn btn-xs join-item {normal === 'y' ? 'btn-active' : 'btn-ghost'}" onclick={() => ((normal = "y"), (cutAt = drawn ? (drawn.scene.y_um[0] + drawn.scene.y_um[1]) / 2 : 0))}>across y</button>
+            </div>
+          {/if}
+          <span class="flex-1"></span>
+          <span class="hidden text-[11px] faint lg:inline">{shape === "3d" ? "as its job draws it: drag to turn it" : shape === "solved" ? "on the cells the chosen model solves" : "true to scale"}</span>
+        {/if}
+      </div>
     </section>
 
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-      <section class="panel p-5">
-        <h3 class="panel-title">The model</h3>
-        {#if kind?.equation}<div class="mt-2 overflow-x-auto">{@html display(kind.equation)}</div>{/if}
-        {#if method}
-          <dl class="mt-3 grid grid-cols-[7.5rem_1fr] gap-x-4 gap-y-2 text-sm">
-            <dt class="faint">Fidelity</dt>
-            <dd>{method.fidelity}: <span class="muted">{method.name}</span></dd>
-            <dt class="faint">Papers</dt>
-            <dd class="space-y-1">
-              {#each method.papers as p (p)}
-                {@const d = doi(p)}
-                <div class="text-xs selectable">
-                  {p}
-                  {#if d}<button class="btn btn-ghost btn-xs btn-square align-middle" title="Open doi:{d}" aria-label="Open doi:{d}" onclick={() => openUrl(`https://doi.org/${d}`)}><ExternalLink size={11} /></button>{/if}
-                </div>
-              {/each}
-            </dd>
-            <dt class="faint">Error</dt>
-            <dd>
-              {#if method.error}
-                within <span class="num">{method.error.bound}{method.error.unit}</span> in {method.error.quantity} of the {method.error.against} model, over its range
-              {:else}
-                <span class="inline-flex items-center gap-1"><CircleCheck size={13} class="text-success" /> the highest model: the others are measured against it</span>
-              {/if}
-            </dd>
-            <dt class="faint">Holds for</dt>
-            <dd>
-              {#if method.validity.length}
-                {#each method.validity as r, k (r.name)}
-                  {@const u = r.name === "wavelength" || info.parameters.find((p) => p.name === r.name)?.unit === "µm"}
-                  {k ? ", " : ""}<span class="num">{r.name}</span> {u ? len(r.min) : r.min}–{u ? `${len(r.max)} ${unitText()}` : r.max}
-                {/each}
-              {:else}
-                <span class="muted">any values in the parameters' ranges</span>
-              {/if}
-            </dd>
-            {#if shownSpectrum}
-              <dt class="faint">Source</dt>
-              <dd class="text-xs selectable">{shownSpectrum.source}</dd>
-            {/if}
-            <dt class="faint">Write-up</dt>
-            <dd class="num text-xs">docs/methods/{method.write_up}.md</dd>
-          </dl>
-        {/if}
-      </section>
-
-      <section class="panel p-5">
-        <h3 class="panel-title">Ports</h3>
-        <div class="mt-2 overflow-x-auto">
-          <table class="table table-sm">
-            <thead><tr><th>Port</th><th>Where (<UnitChip />)</th><th>Faces</th><th>Mode</th></tr></thead>
-            <tbody>
-              {#each view?.ports ?? [] as p, i (p.name)}
-                {@const mode = shownSpectrum?.ports[i]?.mode}
-                <tr>
-                  <td class="font-medium num">{p.name}</td>
-                  <td class="num">({len(p.x, 3)}, {len(p.y, 3)})</td>
-                  <td class="muted">{faces(p.direction)}</td>
-                  <td class="text-xs muted">
-                    {#if mode}
-                      {mode.polarization}{mode.order}, n<sub>eff</sub> <span class="num">{mode.effective_index.toFixed(5)}</span>{#if mode.group_index !== null}, n<sub>g</sub> <span class="num">{mode.group_index.toFixed(4)}</span>{/if} <span class="badge badge-xs badge-ghost">{shownSpectrum?.fidelity}</span>
-                    {:else}
-                      {shownSpectrum ? "any mode connects" : "–"}
-                    {/if}
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-        <p class="mt-2 text-xs faint">S<sub>qp</sub> is from port p into port q, in this order; each port's phase is at its reference plane, where the device ends.</p>
-      </section>
-    </div>
-
-    <section class="panel p-5">
-      <div class="flex items-center gap-2">
-        <h3 class="panel-title mr-auto">Published results</h3>
-        <span class="text-xs faint">papers' numbers reproduced on this device, each checked line by line</span>
-      </div>
-      <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-        {#each examples as e (e.name)}
-          {@const line = summary(e.recorded)}
-          <button class="flex items-start gap-3 rounded-xl border border-base-content/8 p-3 text-left transition-colors hover:border-primary/30" onclick={() => showPublished(e.name)}>
-            <BookOpenCheck size={17} class="mt-0.5 shrink-0 text-primary" />
-            <span class="min-w-0 flex-1">
-              <span class="block text-sm font-medium">{e.title}</span>
-              <span class="block text-xs faint">{e.source} · {e.what}</span>
-              <span class="mt-1 block text-xs {line.includes('outside') ? 'text-error' : 'text-success'}">{line || `checked within ${e.tolerance}`}</span>
-            </span>
-          </button>
-        {:else}
-          <div class="skeleton h-16"></div>
+    <aside class="flex min-w-0 flex-col {stacked ? '' : 'min-h-0'}">
+      <div role="tablist" class="tabs tabs-border shrink-0 border-b border-base-content/8 px-3">
+        {#each [["design", "Design"], ["overview", "Overview"], ["model", "Model"], ["simulate", "Simulate"]] as const as [t, label] (t)}
+          <button role="tab" class="tab {draft.tab === t ? 'tab-active' : ''}" onclick={() => (draft.tab = t)}>{label}</button>
         {/each}
       </div>
-    </section>
-  </div>
-{:else}
-  <!-- the stack across the page, where its table has room; the geometry beside the views below it -->
-  <section class="panel mx-8 mt-6 p-5">
-    <h3 class="panel-title">Stack</h3>
-    <div class="mt-3">
-      <StackEditor bind:stack={draft.spec.stack} core={thickness} scene={drawn?.scene ?? null} problem={view?.stack_problem ?? ""} />
-    </div>
-  </section>
-  <div class="grid grid-cols-1 gap-6 px-8 py-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,28rem)_minmax(0,1fr)]">
-    <div class="space-y-6">
-      <section class="panel p-5">
-        <h3 class="panel-title">Geometry</h3>
-        <div class="mt-3">
-          <ParameterForm {info} fields={view?.fields ?? []} bind:parameters={draft.spec.parameters} />
-        </div>
-      </section>
-    </div>
-    <div class="min-w-0 space-y-6">
-      <section class="panel p-5">
-        <div class="flex flex-wrap items-center gap-2">
-          <h3 class="panel-title mr-auto">Views</h3>
-          {#if viewTab === "plan"}
-            <div class="join" role="group" aria-label="The cut">
-              <button class="btn btn-xs join-item {normal === 'x' ? 'btn-primary' : 'btn-ghost'}" onclick={() => ((normal = "x"), (cutAt = drawn ? (drawn.scene.x_um[0] + drawn.scene.x_um[1]) / 2 : 0))}>cut across x</button>
-              <button class="btn btn-xs join-item {normal === 'y' ? 'btn-primary' : 'btn-ghost'}" onclick={() => ((normal = "y"), (cutAt = drawn ? (drawn.scene.y_um[0] + drawn.scene.y_um[1]) / 2 : 0))}>across y</button>
-            </div>
-          {/if}
-          <div role="tablist" class="tabs tabs-box tabs-xs">
-            <button role="tab" class="tab {viewTab === 'plan' ? 'tab-active' : ''}" onclick={() => (viewTab = "plan")}>From above, and the cut</button>
-            <button role="tab" class="tab {viewTab === '3d' ? 'tab-active' : ''}" onclick={() => (viewTab = "3d")}>3D</button>
+      <div class="p-4 {stacked ? '' : 'min-h-0 flex-1 overflow-y-auto'}">
+        {#if draft.tab === "design"}
+          <div class="space-y-4">
+            <section class="panel p-4">
+              <h3 class="panel-title">Geometry</h3>
+              <div class="mt-3">
+                <ParameterForm {info} fields={view?.fields ?? []} bind:parameters={draft.spec.parameters} />
+              </div>
+            </section>
+            <section class="panel p-4">
+              <h3 class="panel-title">Stack</h3>
+              <div class="mt-3 overflow-x-auto">
+                <StackEditor bind:stack={draft.spec.stack} core={thickness} scene={drawn?.scene ?? null} problem={view?.stack_problem ?? ""} />
+              </div>
+            </section>
+            <section class="panel p-4">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="panel-title mr-auto">Derived</h3>
+                <span class="text-xs faint">{live ? "live: the analytic model follows every change" : `the ${fidelity} model: a solve`}</span>
+              </div>
+              <div class="mt-3">{@render figuresPanel()}</div>
+            </section>
           </div>
-        </div>
-        {#if drawn}
-          {#if !view?.scene && view?.problem}
-            <p role="alert" class="mt-2 text-xs text-warning">{plain(view.problem)}: the last design that held together is shown.</p>
-          {/if}
-          {#if viewTab === "plan"}
-            <div class="mt-3 grid grid-cols-1 gap-4 2xl:grid-cols-2">
-              <div>
-                <div class="mb-1 text-xs faint">From above: drag the cut along the device</div>
-                <TopView scene={drawn.scene} ports={drawn.ports} bind:normal bind:at={() => cutAt ?? 0, (v) => (cutAt = v)} height={260} />
+        {:else if draft.tab === "overview"}
+          <div class="space-y-4">
+            {@render spectrumPanel(220)}
+            <section class="panel p-4">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="panel-title mr-auto">Figures</h3>
+                <span class="text-xs faint">{live ? "the analytic model, as the design changes" : `the ${fidelity} model's`}</span>
               </div>
-              <div>
-                <div class="mb-1 text-xs faint">The cross-section at {normal} = <span class="num">{len(cutAt ?? 0, 3)} {unitText()}</span></div>
-                <CutView scene={drawn.scene} {normal} at={cutAt ?? 0} height={260} />
+              <div class="mt-3">{@render figuresPanel()}</div>
+            </section>
+            <section class="panel p-4">
+              <h3 class="panel-title">The model</h3>
+              {#if kind?.equation}<div class="mt-2 overflow-x-auto">{@html display(kind.equation)}</div>{/if}
+              {#if method}
+                <dl class="mt-3 grid grid-cols-[6rem_1fr] gap-x-3 gap-y-2 text-sm">
+                  <dt class="faint">Fidelity</dt>
+                  <dd>{method.fidelity}: <span class="muted">{method.name}</span></dd>
+                  <dt class="faint">Papers</dt>
+                  <dd class="space-y-1">
+                    {#each method.papers as p (p)}
+                      {@const d = doi(p)}
+                      <div class="text-xs selectable">
+                        {p}
+                        {#if d}<button class="btn btn-ghost btn-xs btn-square align-middle" title="Open doi:{d}" aria-label="Open doi:{d}" onclick={() => openUrl(`https://doi.org/${d}`)}><ExternalLink size={11} /></button>{/if}
+                      </div>
+                    {/each}
+                  </dd>
+                  <dt class="faint">Error</dt>
+                  <dd>
+                    {#if method.error}
+                      within <span class="num">{method.error.bound}{method.error.unit}</span> in {method.error.quantity} of the {method.error.against} model, over its range
+                    {:else}
+                      <span class="inline-flex items-center gap-1"><CircleCheck size={13} class="text-success" /> the highest model: the others are measured against it</span>
+                    {/if}
+                  </dd>
+                  <dt class="faint">Holds for</dt>
+                  <dd>
+                    {#if method.validity.length}
+                      {#each method.validity as r, k (r.name)}
+                        {@const u = r.name === "wavelength" || info.parameters.find((p) => p.name === r.name)?.unit === "µm"}
+                        {k ? ", " : ""}<span class="num">{r.name}</span> {u ? len(r.min) : r.min}–{u ? `${len(r.max)} ${unitText()}` : r.max}
+                      {/each}
+                    {:else}
+                      <span class="muted">any values in the parameters' ranges</span>
+                    {/if}
+                  </dd>
+                  {#if shownSpectrum}
+                    <dt class="faint">Source</dt>
+                    <dd class="text-xs selectable">{shownSpectrum.source}</dd>
+                  {/if}
+                  <dt class="faint">Write-up</dt>
+                  <dd class="num text-xs">docs/methods/{method.write_up}.md</dd>
+                </dl>
+              {/if}
+            </section>
+            <section class="panel p-4">
+              <h3 class="panel-title">Ports</h3>
+              <div class="mt-2 overflow-x-auto">
+                <table class="table table-sm">
+                  <thead><tr><th>Port</th><th>Where (<UnitChip />)</th><th>Faces</th><th>Mode</th></tr></thead>
+                  <tbody>
+                    {#each view?.ports ?? [] as p, i (p.name)}
+                      {@const mode = shownSpectrum?.ports[i]?.mode}
+                      <tr>
+                        <td class="font-medium num">{p.name}</td>
+                        <td class="num">({len(p.x, 3)}, {len(p.y, 3)})</td>
+                        <td class="muted">{faces(p.direction)}</td>
+                        <td class="text-xs muted">
+                          {#if mode}
+                            {mode.polarization}{mode.order}, n<sub>eff</sub> <span class="num">{mode.effective_index.toFixed(5)}</span>{#if mode.group_index !== null}, n<sub>g</sub> <span class="num">{mode.group_index.toFixed(4)}</span>{/if} <span class="badge badge-xs badge-ghost">{shownSpectrum?.fidelity}</span>
+                          {:else}
+                            {shownSpectrum ? "any mode connects" : "–"}
+                          {/if}
+                        </td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
               </div>
-            </div>
-          {:else}
-            <div class="mt-3"><Device3D scene={drawn.scene} height={360} /></div>
-            <p class="mt-1 text-xs faint">As its job draws it (photonoxide::job::preview): drag to turn it.</p>
-          {/if}
-        {:else if view?.problem}
-          <p class="mt-6 mb-4 text-center text-sm text-warning selectable">{plain(view.problem)}</p>
+              <p class="mt-2 text-xs faint">S<sub>qp</sub> is from port p into port q, in this order; each port's phase is at its reference plane, where the device ends.</p>
+            </section>
+            <section class="panel p-4">
+              <h3 class="panel-title">Learn</h3>
+              <p class="mt-2 text-sm muted">How it works, from the physics up, with charts the library computes as you move them.</p>
+              <button
+                class="btn btn-sm mt-3 gap-1.5"
+                onclick={() => {
+                  app.lesson = info.lesson;
+                  go("academy");
+                }}><BookOpen size={14} /> Open its lesson</button
+              >
+            </section>
+            {#if kind?.symbol}
+              {@const s = kind.symbol}
+              {@const pad = 34}
+              <section class="panel p-4">
+                <h3 class="panel-title">Symbol</h3>
+                <svg class="mt-3 w-full" style="max-height: 9rem" viewBox="{-s.width / 2 - pad} {-s.height / 2 - pad} {s.width + 2 * pad} {s.height + 2 * pad}" role="img" aria-label="its schematic symbol">
+                  <Glyph symbol={s} />
+                  {#each s.pins as p (p.port)}
+                    {@const dx = Math.cos((p.angle * Math.PI) / 180)}
+                    {@const dy = Math.sin((p.angle * Math.PI) / 180)}
+                    <line x1={p.x} y1={p.y} x2={p.x + 8 * dx} y2={p.y + 8 * dy} class="stroke-base-content/40" stroke-width="1" />
+                    <circle cx={p.x} cy={p.y} r="2.6" class="fill-base-100 stroke-primary" stroke-width="1.2" />
+                    <text x={p.x + 12 * dx} y={p.y + 12 * dy + (Math.abs(dy) > 0.5 ? (dy > 0 ? 5 : -2) : 0)} text-anchor={dx > 0.5 ? "start" : dx < -0.5 ? "end" : "middle"} dominant-baseline="central" class="fill-base-content/70 text-[7px] num">{p.port}</text>
+                  {/each}
+                </svg>
+              </section>
+            {/if}
+            <section class="panel p-4">
+              <h3 class="panel-title">Published results</h3>
+              <p class="mt-1 text-xs faint">papers' numbers reproduced on this device, each checked line by line</p>
+              <div class="mt-3 grid grid-cols-1 gap-2">
+                {#each examples as e (e.name)}
+                  {@const line = summary(e.recorded)}
+                  <button class="flex items-start gap-3 rounded-xl border border-base-content/8 p-3 text-left transition-colors hover:border-primary/30" onclick={() => showPublished(e.name)}>
+                    <BookOpenCheck size={17} class="mt-0.5 shrink-0 text-primary" />
+                    <span class="min-w-0 flex-1">
+                      <span class="block text-sm font-medium">{e.title}</span>
+                      <span class="block text-xs faint">{e.source} · {e.what}</span>
+                      <span class="mt-1 block text-xs {line.includes('outside') ? 'text-error' : 'text-success'}">{line || `checked within ${e.tolerance}`}</span>
+                    </span>
+                  </button>
+                {:else}
+                  <div class="skeleton h-16"></div>
+                {/each}
+              </div>
+            </section>
+          </div>
+        {:else if draft.tab === "model"}
+          <ModelTab
+            {info}
+            {draft}
+            {designKey}
+            {values}
+            onsolve={(f) => solve(info, snapshot(), f)}
+            onsimulate={(r: Rung) => {
+              draft.spec = { ...draft.spec, fidelity: r.fidelity };
+              draft.compute = { ...draft.compute, fdtd: null, fdfd_2d: r.fdfd2d };
+              pending[info.id] = true;
+              draft.tab = "simulate";
+            }}
+          />
         {:else}
-          <div class="skeleton mt-3 h-64"></div>
+          <SimulateTab {info} {draft} {designKey} {values} onshow={() => (mainView = "run")} />
         {/if}
-      </section>
-      <section class="panel p-5">
-        <div class="flex flex-wrap items-center gap-2">
-          <h3 class="panel-title mr-auto">Derived</h3>
-          <span class="text-xs faint">{live ? "live: the analytic model follows every change" : `the ${fidelity} model: a solve`}</span>
-        </div>
-        <div class="mt-3">{@render figuresPanel()}</div>
-      </section>
-      {@render spectrumPanel(240)}
-    </div>
+      </div>
+    </aside>
   </div>
-{/if}
+</div>
 
 <dialog class="modal" class:modal-open={!!saving}>
   {#if saving}

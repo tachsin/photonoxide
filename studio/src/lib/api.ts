@@ -3,7 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type { Academy, ChartData } from "./academy.svelte";
-import type { Event, Scene, ScenePort } from "./events";
+import type { Event, Raster, Scene, ScenePort } from "./events";
 import type { BenchData, BenchRequest, CatalogueEntry, Planned } from "./bench.svelte";
 import type { LibraryReport } from "./libraries.svelte";
 import type { BuildInfo } from "./nightly.svelte";
@@ -183,6 +183,8 @@ export const api = {
   deviceJob: (spec: DeviceSpec, compute: Compute, name: string) => invoke<string>("device_job", { spec, compute, name }),
   /** A device job's text read back into the Simulate tab's form, and what of it the form can't hold. */
   deviceJobRead: (text: string) => invoke<JobForm>("device_job_read", { text }),
+  /** A design on the cells the model chosen solves on: from above, and on the cut. */
+  deviceSolved: (spec: DeviceSpec, compute: Compute, normal: "x" | "y", at: number) => invoke<Solved>("device_solved", { spec, compute, normal, at }),
   circuitText: (chip: Chip) => invoke<string>("circuit_text", { chip }),
   circuitParse: (text: string) => invoke<Chip>("circuit_parse", { text }),
   circuitExamples: () => invoke<CircuitExample[]>("circuit_examples"),
@@ -464,6 +466,17 @@ export interface Compute {
   /** An MMI's 2D model by FDFD in place of its guided modes. */
   fdfd_2d: boolean;
   timeout_minutes: number | null;
+}
+
+/** A design as its solver sees it: its permittivity on the solver's cells, from above (none for a cross-section's model) and on the cut. */
+export interface Solved {
+  top: Raster | null;
+  cut: Raster | null;
+  step_nm: number;
+  step_z_nm: number;
+  /** How many times coarser than the solver's the pictures' cells are (1: its own). */
+  coarser: number;
+  note: string;
 }
 
 /** A device job's text read into the Simulate tab's form. */

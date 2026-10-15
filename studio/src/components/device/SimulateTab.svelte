@@ -1,24 +1,38 @@
 <script lang="ts">
   // A device's Simulate tab: the design run as a job (photonoxide::job::from_device), by its own
   // model at a fidelity (a closed form, its cross-section's modes, 2D FDFD labelled 2D, 3D FDFD)
-  // or by FDTD of its drawn structure; checked by the library, recorded in runs/, replayable, and
-  // shown in place with the run view's parts. Beside it, the past runs of this device. "As text"
-  // is the job file, editable: an edit the form can hold moves the form; one it can't says what
-  // and is kept, the run then using the text as it is.
-  import { Code, FileText, History, Play, RotateCcw, Save, Square, TriangleAlert } from "@lucide/svelte";
+  // or by FDTD of its drawn structure; checked by the library, recorded in runs/, replayable. The
+  // run shows in place: on the device in the page's main view (its Run view), its spectra and
+  // plots here, with the past runs of this device. "As text" is the job file, editable: an edit
+  // the form can hold moves the form; one it can't says what and is kept, the run then using the
+  // text as it is.
+  import { Code, Eye, FileText, History, Play, RotateCcw, Save, Square, TriangleAlert } from "@lucide/svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
 
   import { ago, api, duration, type DeviceInfo, type DeviceSpec, type JobForm, type RunItem } from "../../lib/api";
   import { app, run, startRunHere, toast } from "../../lib/app.svelte";
   import { sci } from "../../lib/bench.svelte";
-  import { keep, pending, rungOf, rungs, type Draft } from "../../lib/device.svelte";
+  import { keep, pending, rungOf, rungs, shownRun, type Draft } from "../../lib/device.svelte";
   import { plain } from "../../lib/deviceview";
-  import { len, shown, stored, unitText } from "../../lib/units";
-  import Viewer from "../../pages/Viewer.svelte";
+  import { shown, stored } from "../../lib/units";
+  import RunPlots from "../RunPlots.svelte";
   import TomlEditor from "../TomlEditor.svelte";
   import UnitChip from "../UnitChip.svelte";
 
-  let { info, draft, designKey, values, active }: { info: DeviceInfo; draft: Draft; designKey: string; values: Record<string, number>; active: boolean } = $props();
+  let {
+    info,
+    draft,
+    designKey,
+    values,
+    onshow,
+  }: {
+    info: DeviceInfo;
+    draft: Draft;
+    designKey: string;
+    values: Record<string, number>;
+    /** Shows the run on the device in the page's main view. */
+    onshow: () => void;
+  } = $props();
 
   const snapshot = (): DeviceSpec => $state.snapshot(draft.spec) as DeviceSpec;
   const ladder = $derived(rungs(info));
@@ -98,8 +112,22 @@
   });
   /** The run started here last: its directory, and the design and rung it computes. */
   let started = $state<{ dir: string; design: string; rung: string } | null>(null);
-  const mine = $derived(!!run.info?.dir && (run.info.dir === started?.dir || runs.some((r) => r.dir === run.info?.dir)));
+  const mine = $derived(!!run.info?.dir && run.info.dir === shownRun[info.id]);
   const going = $derived(mine && !run.finished);
+  // a run's clock, while it goes
+  let now = $state(performance.now());
+  $effect(() => {
+    if (!going) return;
+    const t = setInterval(() => (now = performance.now()), 500);
+    return () => clearInterval(t);
+  });
+
+  async function open(r: RunItem) {
+    if (await startRunHere(() => api.openRun(r.dir))) {
+      shownRun[info.id] = r.dir;
+      onshow();
+    }
+  }
 
   async function start() {
     if (!text || problem || otherDevice) {
@@ -110,6 +138,8 @@
     const r = draft.compute.fdtd ? `FDTD ${draft.compute.fdtd}D` : rung;
     if (await startRunHere(() => api.runText(text))) {
       started = { dir: run.info?.dir ?? "", design, rung: r };
+      shownRun[info.id] = started.dir;
+      onshow();
       toast(`Running ${jobName}: it shows here, and keeps going if you leave the page`, "success", undefined, 2500);
     }
   }
@@ -186,169 +216,163 @@
   const val = (v: number | null) => (v === null ? "" : String(v));
 </script>
 
-<div class="grid grid-cols-1 gap-6 px-8 py-6 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-  <div class="min-w-0 space-y-6">
-    <section class="panel p-5">
-      <h3 class="panel-title">How</h3>
-      <div class="mt-3 flex flex-col gap-1">
-        {#each choices as c (c)}
-          {@const m = ladder.find((r) => r.key === c)?.method}
-          <label class="flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-1.5 hover:bg-base-content/4">
-            <input type="radio" class="radio radio-xs radio-primary mt-0.5" name="how-{info.id}" checked={how === c} onchange={() => choose(c)} />
-            <span class="min-w-0 flex-1">
-              <span class="text-sm font-medium">{c}</span>
-              {#if c === rung && !draft.compute.fdtd}<span class="ml-1 text-[11px] text-primary">the design's model</span>{/if}
-              <span class="block text-[11px] leading-snug faint">{m?.name ?? about[c]}</span>
-            </span>
-          </label>
-        {/each}
-      </div>
-      <p class="mt-2 text-[11px] faint">The model chosen here is the design's: it is saved with it, and the Model tab shows the same choice.</p>
-    </section>
-
-    <section class="panel p-5">
-      <h3 class="panel-title">Band</h3>
-      <div class="mt-3 flex flex-wrap items-end gap-3">
-        <label class="flex flex-col gap-1 text-xs">
-          <span class="muted">From (<UnitChip />)</span>
-          <input class="input input-xs w-24 num" type="number" step={shown(0.01)} value={shown(band[0])} onchange={(e) => setBand(0, Number((e.currentTarget as HTMLInputElement).value))} />
+<div class="space-y-5">
+  <section>
+    <h3 class="panel-title">How</h3>
+    <div class="mt-2 flex flex-col gap-0.5">
+      {#each choices as c (c)}
+        {@const m = ladder.find((r) => r.key === c)?.method}
+        <label class="flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-1.5 hover:bg-base-content/4">
+          <input type="radio" class="radio radio-xs radio-primary mt-0.5" name="how-{info.id}" checked={how === c} onchange={() => choose(c)} />
+          <span class="min-w-0 flex-1">
+            <span class="text-sm font-medium">{c}</span>
+            {#if c === rung && !draft.compute.fdtd}<span class="ml-1 text-[11px] text-primary">the design's model</span>{/if}
+            <span class="block text-[11px] leading-snug faint">{m?.name ?? about[c]}</span>
+          </span>
         </label>
-        <label class="flex flex-col gap-1 text-xs">
-          <span class="muted">To (<UnitChip />)</span>
-          <input class="input input-xs w-24 num" type="number" step={shown(0.01)} value={shown(band[1])} onchange={(e) => setBand(1, Number((e.currentTarget as HTMLInputElement).value))} />
-        </label>
-        <label class="flex flex-col gap-1 text-xs">
-          <span class="muted">Points</span>
-          <input class="input input-xs w-20 num" type="number" min="1" value={band[2]} onchange={(e) => setBand(2, Number((e.currentTarget as HTMLInputElement).value))} />
-        </label>
-        {#if draft.compute.band}<button class="btn btn-ghost btn-xs" onclick={() => (draft.compute = { ...draft.compute, band: null })} title="Back to the device's own band: its wavelength ± span/2">its own</button>{/if}
-      </div>
-    </section>
-
-    <section class="panel p-5">
-      <h3 class="panel-title">Grid</h3>
-      {#if !solver}
-        <p class="mt-2 text-sm muted">A closed form: exact, no grid.</p>
-      {:else}
-        <div class="mt-3 grid grid-cols-2 gap-3">
-          <label class="flex flex-col gap-1 text-xs">
-            <span class="muted">{draft.compute.fdtd ? "Cells, nm" : fdfd ? "Cells in the plane, nm" : "Mesh step, nm"}</span>
-            <input class="input input-xs num" type="number" min="1" placeholder={draft.compute.fdtd ? (draft.compute.fdtd === 3 ? "50" : "40") : "its own"} value={val(draft.compute.step_nm)} onchange={(e) => setNumber("step_nm", (e.currentTarget as HTMLInputElement).value)} />
-          </label>
-          {#if fdfd && draft.spec.fidelity === "3D"}
-            <label class="flex flex-col gap-1 text-xs">
-              <span class="muted">Cells' height, nm</span>
-              <input class="input input-xs num" type="number" min="1" placeholder="its own" value={val(draft.compute.step_z_nm)} onchange={(e) => setNumber("step_z_nm", (e.currentTarget as HTMLInputElement).value)} />
-            </label>
-          {/if}
-          {#if !draft.compute.fdtd}
-            <label class="flex flex-col gap-1 text-xs">
-              <span class="muted">Cladding beside, µm</span>
-              <input class="input input-xs num" type="number" min="0" step="0.1" placeholder="its own" value={val(draft.compute.margin_um)} onchange={(e) => setNumber("margin_um", (e.currentTarget as HTMLInputElement).value)} />
-            </label>
-          {/if}
-          {#if fdfd}
-            <label class="flex flex-col gap-1 text-xs">
-              <span class="muted">Wavelengths solved</span>
-              <input class="input input-xs num" type="number" min="1" placeholder="5" value={val(draft.compute.samples)} onchange={(e) => setNumber("samples", (e.currentTarget as HTMLInputElement).value)} />
-            </label>
-          {/if}
-          {#if fdfd || draft.compute.fdtd}
-            <label class="flex flex-col gap-1 text-xs">
-              <span class="muted">PML cells</span>
-              <input class="input input-xs num" type="number" min="4" placeholder={draft.compute.fdtd ? "20" : "12"} value={val(draft.compute.pml_cells)} onchange={(e) => setNumber("pml_cells", (e.currentTarget as HTMLInputElement).value)} />
-            </label>
-          {/if}
-        </div>
-        {#if size}
-          <p class="mt-3 text-xs num">{size[0]} × {size[1]} cells in the plane, <span class="font-medium">{sci(size[2])}</span> unknowns a solve</p>
-        {/if}
-        <p class="mt-2 text-[11px] faint">Empty fields are the device's own grid, as its Model tab states it.</p>
-      {/if}
-      <label class="mt-3 flex items-center gap-2 text-xs">
-        <span class="muted">Stop it after</span>
-        <input class="input input-xs w-20 num" type="number" min="1" placeholder="30" value={val(draft.compute.timeout_minutes)} onchange={(e) => setNumber("timeout_minutes", (e.currentTarget as HTMLInputElement).value)} />
-        <span class="muted">minutes</span>
-      </label>
-    </section>
-
-    {#if problem || otherDevice}
-      <div role="alert" class="alert alert-warning alert-soft text-sm selectable">
-        <TriangleAlert size={16} />
-        <span>{otherDevice ? `This text is a ${otherDevice}'s job: open it on its page.` : plain(problem)}</span>
-      </div>
-    {/if}
-
-    <div class="flex flex-wrap gap-2">
-      {#if going && run.stoppable}
-        <button class="btn btn-sm gap-1.5" onclick={stop} title="Stop the run: what it recorded stays"><Square size={13} /> Stop</button>
-      {/if}
-      <button class="btn btn-primary btn-sm gap-1.5" disabled={!text || !!problem || !!otherDevice} onclick={start} title="Run the job: checked by the library, recorded in runs/, shown here live"><Play size={14} /> Run {how}</button>
-      <button class="btn btn-sm gap-1.5 {asText ? 'btn-active' : ''}" onclick={() => (asText = !asText)} title="The job file, editable"><Code size={14} /> As text</button>
-      <button class="btn btn-ghost btn-sm gap-1.5" disabled={!text} onclick={save} title="Save the job to the workspace's jobs/ as {jobName}.toml"><Save size={14} /> Save job</button>
+      {/each}
     </div>
+    <p class="mt-1 text-[11px] faint">The model chosen here is the design's: it is saved with it, and the Model tab shows the same choice.</p>
+  </section>
 
-    <section class="panel p-5">
-      <div class="flex items-center gap-2">
-        <h3 class="panel-title mr-auto flex items-center gap-1.5"><History size={13} /> Runs of this device</h3>
-        <span class="text-xs faint">{runs.length}</span>
+  <section>
+    <h3 class="panel-title">Band</h3>
+    <div class="mt-2 flex flex-wrap items-end gap-3">
+      <label class="flex flex-col gap-1 text-xs">
+        <span class="muted">From (<UnitChip />)</span>
+        <input class="input input-xs w-24 num" type="number" step={shown(0.01)} value={shown(band[0])} onchange={(e) => setBand(0, Number((e.currentTarget as HTMLInputElement).value))} />
+      </label>
+      <label class="flex flex-col gap-1 text-xs">
+        <span class="muted">To (<UnitChip />)</span>
+        <input class="input input-xs w-24 num" type="number" step={shown(0.01)} value={shown(band[1])} onchange={(e) => setBand(1, Number((e.currentTarget as HTMLInputElement).value))} />
+      </label>
+      <label class="flex flex-col gap-1 text-xs">
+        <span class="muted">Points</span>
+        <input class="input input-xs w-20 num" type="number" min="1" value={band[2]} onchange={(e) => setBand(2, Number((e.currentTarget as HTMLInputElement).value))} />
+      </label>
+      {#if draft.compute.band}<button class="btn btn-ghost btn-xs" onclick={() => (draft.compute = { ...draft.compute, band: null })} title="Back to the device's own band: its wavelength ± span/2">its own</button>{/if}
+    </div>
+  </section>
+
+  <section>
+    <h3 class="panel-title">Grid</h3>
+    {#if !solver}
+      <p class="mt-2 text-sm muted">A closed form: exact, no grid.</p>
+    {:else}
+      <div class="mt-2 grid grid-cols-2 gap-3">
+        <label class="flex flex-col gap-1 text-xs">
+          <span class="muted">{draft.compute.fdtd ? "Cells, nm" : fdfd ? "Cells in the plane, nm" : "Mesh step, nm"}</span>
+          <input class="input input-xs num" type="number" min="1" placeholder={draft.compute.fdtd ? (draft.compute.fdtd === 3 ? "50" : "40") : "its own"} value={val(draft.compute.step_nm)} onchange={(e) => setNumber("step_nm", (e.currentTarget as HTMLInputElement).value)} />
+        </label>
+        {#if fdfd && draft.spec.fidelity === "3D"}
+          <label class="flex flex-col gap-1 text-xs">
+            <span class="muted">Cells' height, nm</span>
+            <input class="input input-xs num" type="number" min="1" placeholder="its own" value={val(draft.compute.step_z_nm)} onchange={(e) => setNumber("step_z_nm", (e.currentTarget as HTMLInputElement).value)} />
+          </label>
+        {/if}
+        {#if !draft.compute.fdtd}
+          <label class="flex flex-col gap-1 text-xs">
+            <span class="muted">Cladding beside, µm</span>
+            <input class="input input-xs num" type="number" min="0" step="0.1" placeholder="its own" value={val(draft.compute.margin_um)} onchange={(e) => setNumber("margin_um", (e.currentTarget as HTMLInputElement).value)} />
+          </label>
+        {/if}
+        {#if fdfd}
+          <label class="flex flex-col gap-1 text-xs">
+            <span class="muted">Wavelengths solved</span>
+            <input class="input input-xs num" type="number" min="1" placeholder="5" value={val(draft.compute.samples)} onchange={(e) => setNumber("samples", (e.currentTarget as HTMLInputElement).value)} />
+          </label>
+        {/if}
+        {#if fdfd || draft.compute.fdtd}
+          <label class="flex flex-col gap-1 text-xs">
+            <span class="muted">PML cells</span>
+            <input class="input input-xs num" type="number" min="4" placeholder={draft.compute.fdtd ? "20" : "12"} value={val(draft.compute.pml_cells)} onchange={(e) => setNumber("pml_cells", (e.currentTarget as HTMLInputElement).value)} />
+          </label>
+        {/if}
       </div>
-      <div class="mt-2 max-h-72 space-y-0.5 overflow-y-auto">
-        {#each runs as r (r.dir)}
-          <button
-            class="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-base-content/4 {run.info?.dir === r.dir ? 'bg-primary/8' : ''}"
-            onclick={() => startRunHere(() => api.openRun(r.dir))}
-            title="Show it here: {r.name}"
-          >
-            <span class="badge badge-xs badge-soft {r.computes === 'analytic' ? 'badge-secondary' : 'badge-primary'} shrink-0">{r.computes ?? "design"}</span>
-            <span class="min-w-0 flex-1 truncate">{r.job}</span>
-            <span class="shrink-0 text-[11px] faint">{ago(r.started)}{r.seconds !== null ? ` · ${duration(r.seconds)}` : r.finished ? "" : " · running"}{r.stopped ? ` · ${r.stopped}` : ""}</span>
-          </button>
-        {:else}
-          <p class="px-2 py-3 text-xs faint">None yet: run it, and each run is kept in runs/, replayable.</p>
-        {/each}
+      {#if size}
+        <p class="mt-2 text-xs num">{size[0]} × {size[1]} cells in the plane, <span class="font-medium">{sci(size[2])}</span> unknowns a solve</p>
+      {/if}
+      <p class="mt-1 text-[11px] faint">Empty fields are the device's own grid, as its Model tab states it; the view's "As solved" shows these cells.</p>
+    {/if}
+    <label class="mt-3 flex items-center gap-2 text-xs">
+      <span class="muted">Stop it after</span>
+      <input class="input input-xs w-20 num" type="number" min="1" placeholder="30" value={val(draft.compute.timeout_minutes)} onchange={(e) => setNumber("timeout_minutes", (e.currentTarget as HTMLInputElement).value)} />
+      <span class="muted">minutes</span>
+    </label>
+  </section>
+
+  {#if problem || otherDevice}
+    <div role="alert" class="alert alert-warning alert-soft text-sm selectable">
+      <TriangleAlert size={16} />
+      <span>{otherDevice ? `This text is a ${otherDevice}'s job: open it on its page.` : plain(problem)}</span>
+    </div>
+  {/if}
+
+  <div class="flex flex-wrap gap-2">
+    <button class="btn btn-primary btn-sm gap-1.5" disabled={!text || !!problem || !!otherDevice} onclick={start} title="Run the job: checked by the library, recorded in runs/, shown here live"><Play size={14} /> Run {how}</button>
+    <button class="btn btn-sm gap-1.5 {asText ? 'btn-active' : ''}" onclick={() => (asText = !asText)} title="The job file, editable"><Code size={14} /> As text</button>
+    <button class="btn btn-ghost btn-sm gap-1.5" disabled={!text} onclick={save} title="Save the job to the workspace's jobs/ as {jobName}.toml"><Save size={14} /> Save job</button>
+  </div>
+
+  {#if asText}
+    <section class="overflow-hidden rounded-xl border border-base-content/10">
+      <div class="flex flex-wrap items-center gap-2 border-b border-base-content/8 px-3 py-2">
+        <FileText size={14} class="faint" />
+        <span class="min-w-0 truncate text-sm font-medium">jobs/{jobName}.toml</span>
+        <span class="text-[11px] faint">{draft.text === null ? "as the form writes it: type to edit" : "edited: the run uses this text"}</span>
+        <span class="flex-1"></span>
+        {#if draft.text !== null}<button class="btn btn-ghost btn-xs gap-1" onclick={backToForm} title="Drop the edits: the form writes the text again"><RotateCcw size={12} /> Back to the form</button>{/if}
+      </div>
+      {#if draft.text !== null && typed?.beyond.length}
+        <div role="status" class="border-b border-warning/30 bg-warning/8 px-3 py-2 text-xs">
+          The form can't hold <span class="font-medium num">{typed.beyond.join(", ")}</span>: the text is kept, and the run uses it as it is.
+        </div>
+      {/if}
+      <div class="h-[24rem]">
+        <TomlEditor value={text} onchange={edited} />
       </div>
     </section>
-  </div>
+  {/if}
 
-  <div class="min-w-0 space-y-4">
-    {#if asText}
-      <section class="panel overflow-hidden">
-        <div class="flex flex-wrap items-center gap-2 border-b border-base-content/8 px-4 py-2">
-          <FileText size={14} class="faint" />
-          <span class="text-sm font-medium">jobs/{jobName}.toml</span>
-          <span class="text-xs faint">{draft.text === null ? "as the form writes it: type in it to edit" : "edited: the run uses this text"}</span>
-          <span class="flex-1"></span>
-          {#if draft.text !== null}<button class="btn btn-ghost btn-xs gap-1" onclick={backToForm} title="Drop the edits: the form writes the text again"><RotateCcw size={12} /> Back to the form</button>{/if}
-        </div>
-        {#if draft.text !== null && typed?.beyond.length}
-          <div role="status" class="border-b border-warning/30 bg-warning/8 px-4 py-2 text-xs">
-            The form can't hold <span class="font-medium num">{typed.beyond.join(", ")}</span>: the text is kept, and the run uses it as it is.
-          </div>
+  {#if mine}
+    <section>
+      <div class="flex flex-wrap items-center gap-2">
+        <h3 class="panel-title mr-auto">The run</h3>
+        {#if going}
+          <span class="badge badge-success badge-soft gap-1.5"><span class="status status-success animate-pulse"></span> running · {duration(Math.max(0, (now - run.opened) / 1000))}</span>
+          {#if run.stoppable}<button class="btn btn-ghost btn-xs gap-1" onclick={stop} title="Stop the run: what it recorded stays"><Square size={12} /> Stop</button>{/if}
+        {:else if run.finished?.stopped}
+          <span class="badge badge-warning badge-soft">stopped: {run.finished.stopped}</span>
+        {:else if run.finished}
+          <span class="badge badge-ghost">finished in {duration(run.finished.seconds)}</span>
         {/if}
-        <div class="h-[26rem]">
-          <TomlEditor value={text} onchange={edited} />
-        </div>
-      </section>
-    {/if}
-
-    {#if mine}
-      <div class="panel overflow-hidden" style="height: 38rem">
-        <Viewer embedded active={active && mine} />
+        <button class="btn btn-ghost btn-xs gap-1" onclick={onshow} title="Show the run on the device in the main view"><Eye size={12} /> On the device</button>
       </div>
-      {#if run.device && run.finished}
-        <p class="text-xs faint">
-          {run.device.fidelity === "2D" ? "Labelled 2D: an estimate, not the device's performance. " : ""}{run.device.grid}{run.device.seconds ? ` · the model took ${duration(run.device.seconds)} here` : ""}
-        </p>
+      <p class="mt-1 truncate text-xs faint" title={run.info?.dir ?? ""}>{run.job?.job ?? ""} · {run.info?.name ?? ""}</p>
+      {#if going && run.device === null && !run.frames.length}
+        <p class="mt-2 text-xs faint">The model is being built{size ? `: ${sci(size[2])} unknowns a solve` : ""}. It goes on in the background if you leave the page; Stop ends it, and what it recorded stays.</p>
       {/if}
-    {:else}
-      <div class="panel grid h-72 place-items-center text-center">
-        <div class="max-w-md">
-          <p class="text-sm muted">Run the design {how === "analytic" ? "by its closed form" : `by ${how}`}: the run shows here, live, as the run view shows it, and stays in runs/.</p>
-          {#if run.info?.dir && !run.finished}<p class="mt-2 text-xs faint">Another run is going: it shows in the run view.</p>{/if}
-          <p class="mt-2 text-xs faint">{values.wavelength !== undefined ? `Its band by default: ${len(band[0])} to ${len(band[1])} ${unitText()}.` : ""}</p>
-        </div>
+      <div class="mt-3 [&_.max-w-6xl]:max-w-none [&_.max-w-6xl]:p-0">
+        <RunPlots />
       </div>
-    {/if}
-  </div>
+    </section>
+  {/if}
+
+  <section>
+    <div class="flex items-center gap-2">
+      <h3 class="panel-title mr-auto flex items-center gap-1.5"><History size={13} /> Runs of this device</h3>
+      <span class="text-xs faint">{runs.length}</span>
+    </div>
+    <div class="mt-2 max-h-72 space-y-0.5 overflow-y-auto">
+      {#each runs as r (r.dir)}
+        <button class="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-base-content/4 {run.info?.dir === r.dir ? 'bg-primary/8' : ''}" onclick={() => open(r)} title="Show it here: {r.name}">
+          <span class="badge badge-xs badge-soft {r.computes === 'analytic' ? 'badge-secondary' : 'badge-primary'} shrink-0">{r.computes ?? "design"}</span>
+          <span class="min-w-0 flex-1 truncate">{r.job}</span>
+          <span class="shrink-0 text-[11px] faint">{ago(r.started)}{r.seconds !== null ? ` · ${duration(r.seconds)}` : r.finished ? "" : " · running"}{r.stopped ? ` · ${r.stopped}` : ""}</span>
+        </button>
+      {:else}
+        <p class="px-2 py-3 text-xs faint">None yet: run it, and each run is kept in runs/, replayable.</p>
+      {/each}
+    </div>
+  </section>
 </div>

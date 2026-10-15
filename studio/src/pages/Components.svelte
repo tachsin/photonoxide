@@ -5,8 +5,9 @@
   // (photonoxide::device: the waveguide, bend, directional coupler and rings) has its own page,
   // an Overview and a Design (components/device/DevicePage.svelte); the designs saved in the
   // workspace's jobs/ are listed first and reopen there.
-  import { Boxes, CircleCheck, CirclePlus, FileCog, FileDown, FileUp, RotateCcw, Search } from "@lucide/svelte";
+  import { Boxes, ChevronDown, ChevronRight, CircleCheck, CirclePlus, FileCog, FileDown, FileUp, PanelLeftClose, PanelLeftOpen, RotateCcw, Search } from "@lucide/svelte";
   import katex from "katex";
+  import { fade, fly } from "svelte/transition";
   import "katex/dist/katex.min.css";
 
   import DevicePage from "../components/device/DevicePage.svelte";
@@ -123,9 +124,64 @@
 
   const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
+  // ---- the list: out of the way once a component is open, one click (or Ctrl+B) away ----
+  function listWas(): string | null {
+    try {
+      return localStorage.getItem("components-list");
+    } catch {
+      return null;
+    }
+  }
+  function store(open: boolean) {
+    try {
+      localStorage.setItem("components-list", open ? "open" : "closed");
+    } catch {
+      // storage blocked: the list just forgets
+    }
+  }
+  let pageWidth = $state(0);
+  /** A narrow page (a 960 px window): the list is a drawer only. */
+  const narrow = $derived(pageWidth > 0 && pageWidth < 1100);
+  /** Whether the list stands beside the component, as it was left. */
+  let pinned = $state(listWas() !== "closed");
+  /** The list as a drawer over the page. */
+  let drawer = $state(false);
+  const inline = $derived(pinned && !narrow);
+
+  /** Opens or closes the list: beside the page in a wide window, as a drawer in a narrow one. */
+  function toggleList() {
+    if (narrow) {
+      drawer = !drawer;
+      return;
+    }
+    pinned = !pinned;
+    drawer = false;
+    store(pinned);
+  }
+
+  function listKeys(e: KeyboardEvent) {
+    if (app.page !== "components" || app.palette) return;
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "b") {
+      e.preventDefault();
+      toggleList();
+    } else if (e.key === "Escape" && drawer) {
+      drawer = false;
+    }
+  }
+
+  /** Opening a component gives it the width: the list folds to its breadcrumb. */
+  function fold() {
+    drawer = false;
+    if (pinned) {
+      pinned = false;
+      store(false);
+    }
+  }
+
   function choose(id: string) {
     app.component = id;
     input = 0;
+    fold();
   }
 
   // a model valid over a limited range is shown over that range
@@ -163,10 +219,14 @@
   };
 </script>
 
-<div class="grid h-full grid-cols-[18rem_minmax(0,1fr)]">
-  <!-- the library -->
-  <aside class="flex min-h-0 flex-col border-r border-base-content/8">
+<svelte:window onkeydown={listKeys} />
+
+{#snippet list()}
     <div class="p-3">
+      <div class="mb-2 flex items-center gap-2">
+        <span class="panel-title mr-auto">Components</span>
+        <button class="btn btn-ghost btn-xs btn-square" aria-label="Fold the list" title="Fold the list (Ctrl+B)" onclick={() => (drawer ? (drawer = false) : toggleList())}><PanelLeftClose size={15} /></button>
+      </div>
       <label class="input input-sm w-full">
         <Search size={14} class="faint" />
         <input type="search" placeholder="Search the components" bind:value={query} />
@@ -181,7 +241,7 @@
       {#if designs.length}
         <div class="px-3 pt-3 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">Your designs</div>
         {#each designs as d (d.path)}
-          <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={() => openDesign(d.path)} title={d.path}>
+          <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={() => (fold(), openDesign(d.path))} title={d.path}>
             <span class="grid h-7 w-11 shrink-0 place-items-center text-primary"><FileCog size={16} /></span>
             <span class="min-w-0 flex-1">
               <span class="block truncate text-sm font-medium">{d.name}</span>
@@ -215,10 +275,24 @@
         {#if library.loaded}<p class="px-3 text-sm faint">The library is empty.</p>{/if}
       {/each}
     </div>
-  </aside>
+{/snippet}
 
-  <!-- the component -->
-  <div class="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto">
+<div class="relative grid h-full {inline ? 'grid-cols-[18rem_minmax(0,1fr)]' : 'grid-cols-[minmax(0,1fr)]'}" bind:clientWidth={pageWidth}>
+  <!-- the library, beside the component while it is pinned open in a wide window -->
+  {#if inline}
+    <aside class="flex min-h-0 flex-col border-r border-base-content/8">{@render list()}</aside>
+  {/if}
+
+  <!-- the component, under a breadcrumb back to the list when the list is folded -->
+  <div class="flex min-h-0 min-w-0 flex-col">
+    {#if !inline}
+      <div class="flex shrink-0 items-center gap-1 border-b border-base-content/8 px-3 py-1">
+        <button class="btn btn-ghost btn-xs gap-1.5" onclick={toggleList} title="The components (Ctrl+B)"><PanelLeftOpen size={14} /> Components</button>
+        <ChevronRight size={12} class="faint" />
+        <button class="btn btn-ghost btn-xs gap-1" onclick={toggleList} title="Pick another component (Ctrl+B)">{kind?.title ?? "…"} <ChevronDown size={12} /></button>
+      </div>
+    {/if}
+    <div class="min-h-0 flex-1 {kind && device ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}">
     {#if kind && device}
       {#key device.id}
         <DevicePage info={device} {kind} family={familyOf(kind)} onchoose={choose} />
@@ -450,5 +524,14 @@
     {:else if !library.loaded && !library.problem}
       <div class="grid h-full place-items-center"><span class="loading loading-ring loading-lg text-primary"></span></div>
     {/if}
+    </div>
   </div>
+
+  <!-- the list as a drawer over the page: in a narrow window, or opened from the breadcrumb -->
+  {#if drawer && !inline}
+    <button class="absolute inset-0 z-20 cursor-default bg-black/25" aria-label="Close the list" transition:fade={{ duration: 120 }} onclick={() => (drawer = false)}></button>
+    <aside class="absolute top-0 bottom-0 left-0 z-20 flex w-[19rem] max-w-[85%] flex-col border-r border-base-content/10 bg-base-100 shadow-2xl" transition:fly={{ x: -30, duration: 160 }}>
+      {@render list()}
+    </aside>
+  {/if}
 </div>

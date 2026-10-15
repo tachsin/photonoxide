@@ -1124,6 +1124,203 @@ pub fn device_job_read(text: String) -> JobForm {
     read_job_form(&text)
 }
 
+// ---- the design as the solver sees it ----
+
+/// A design's permittivity on the cells the model chosen solves on: from above at the core's
+/// middle, and on the cut; what the page's "As solved" view shows.
+#[derive(Debug, Serialize)]
+pub struct Solved {
+    /// From above, at the core's middle; `None` for a model that solves a cross-section only.
+    top: Option<photonoxide::raster::Raster>,
+    /// On the cut, across it and up.
+    cut: Option<photonoxide::raster::Raster>,
+    /// The cells' size in the plane and up, nm, as the solver takes them.
+    step_nm: f64,
+    step_z_nm: f64,
+    /// How many times coarser than the solver's the pictures' cells are (1: its own).
+    coarser: f64,
+    /// What the solver sees, in a sentence.
+    note: String,
+}
+
+/// The most cells a picture of [`Solved`] has: past it, its cells are coarser than the solver's,
+/// and it says so.
+const MOST_PIXELS: f64 = 4e5;
+
+/// `spec` as the model `compute` chooses solves it: its cells, from above and on the cut at
+/// `at` µm along `normal` (`"x"` or `"y"`).
+///
+/// # Errors
+///
+/// The design's, and a cut that isn't one.
+pub fn solved(spec: &SpecIn, compute: &ComputeIn, normal: &str, at: f64) -> Result<Solved, String> {
+    use photonoxide::geometry::Point;
+    use photonoxide::raster::Raster;
+    use photonoxide::units::{Length, Wavelength};
+    let s = spec.spec()?;
+    let (device, design) = s.build().map_err(text)?;
+    let values = design.values();
+    let g = device.geometry(values).map_err(text)?;
+    let core = g
+        .ports
+        .first()
+        .map_or_else(|| "Si".to_owned(), |p| p.layer.clone());
+    let (_, bottom, top) = g
+        .structure
+        .stack()
+        .layer(&core)
+        .ok_or_else(|| format!("the stack has no layer {core}"))?;
+    let (bottom, top) = (bottom.to_um(), top.to_um());
+    let wavelength = Wavelength::um(values.get("wavelength").unwrap_or(1.55)).map_err(text)?;
+    // the window: the shapes and ports with 1 µm around them, 1 µm below and above the core
+    let (mut x, mut y) = (
+        [f64::INFINITY, f64::NEG_INFINITY],
+        [f64::INFINITY, f64::NEG_INFINITY],
+    );
+    let mut take = |p: Point| {
+        x = [x[0].min(p.x.to_um()), x[1].max(p.x.to_um())];
+        y = [y[0].min(p.y.to_um()), y[1].max(p.y.to_um())];
+    };
+    for l in g.structure.stack().layers() {
+        for shape in g.structure.shapes(&l.name) {
+            let b = shape.bounds();
+            take(b.min);
+            take(b.max);
+        }
+    }
+    for p in &g.ports {
+        take(p.position);
+    }
+    if !x[0].is_finite() {
+        return Err("the design draws nothing".into());
+    }
+    let (x, y, z) = (
+        [x[0] - 1.0, x[1] + 1.0],
+        [y[0] - 1.0, y[1] + 1.0],
+        [bottom - 1.0, top + 1.0],
+    );
+    // the cells: the model's
+    let fdfd = matches!(s.kind.as_str(), "MMI 1x2" | "MMI 2x2" | "Y-branch")
+        && s.fidelity != Fidelity::Analytic
+        && !(s.fidelity == Fidelity::TwoD && s.kind.starts_with("MMI") && !compute.fdfd_2d);
+    let three = s.fidelity == Fidelity::ThreeD;
+    let (step, step_z, plane, note) = if let Some(d) = compute.fdtd {
+        let h = compute.step_nm.unwrap_or(if d == 3 { 50.0 } else { 40.0 }) / 1e3;
+        let note = if d == 3 {
+            "3D FDTD's Yee cells on the stack".to_owned()
+        } else {
+            "2D FDTD's cells in the core's plane: each holds its slab's effective index squared, \
+             not the permittivity drawn here (the effective index method)"
+                .to_owned()
+        };
+        (h, h, true, note)
+    } else if fdfd {
+        let h = compute
+            .step_nm
+            .map_or(if three { 0.04 } else { 0.02 }, |v| v / 1e3);
+        let hz = compute
+            .step_z_nm
+            .map_or(h / if three { 2.0 } else { 4.0 }, |v| v / 1e3);
+        let note = if three {
+            "3D FDFD's cells on the stack, each its 8 × 8 samples' average".to_owned()
+        } else {
+            "2D FDFD's cells in the core's plane: each holds its slab's effective index squared, \
+             not the permittivity drawn here (the effective index method)"
+                .to_owned()
+        };
+        (h, hz, true, note)
+    } else if s.fidelity == Fidelity::Analytic {
+        return Ok(Solved {
+            top: None,
+            cut: None,
+            step_nm: 0.0,
+            step_z_nm: 0.0,
+            coarser: 1.0,
+            note: "a closed form, or a fit to the 3D solver: this model solves no grid".into(),
+        });
+    } else {
+        let h = compute
+            .step_nm
+            .map_or(if s.kind == "bend" { 0.02 } else { 0.01 }, |v| v / 1e3);
+        (
+            h,
+            h,
+            false,
+            "the mode solver's cross-section: cells fitted to the core about this far apart, its \
+             faces on nodes"
+                .into(),
+        )
+    };
+    let picture =
+        |a: [f64; 2], b: [f64; 2], ha: f64, hb: f64, at: &dyn Fn(f64, f64) -> (Point, f64)| {
+            let mut ha = ha;
+            let mut hb = hb;
+            let cells = ((a[1] - a[0]) / ha) * ((b[1] - b[0]) / hb);
+            let coarser = (cells / MOST_PIXELS).sqrt().max(1.0).ceil();
+            ha *= coarser;
+            hb *= coarser;
+            let na = (((a[1] - a[0]) / ha).round() as usize).max(1);
+            let nb = (((b[1] - b[0]) / hb).round() as usize).max(1);
+            let mut v = Vec::with_capacity(na * nb);
+            for j in 0..nb {
+                for i in 0..na {
+                    let (p, zz) = at(
+                        a[0] + (i as f64 + 0.5) * (a[1] - a[0]) / na as f64,
+                        b[0] + (j as f64 + 0.5) * (b[1] - b[0]) / nb as f64,
+                    );
+                    let m = g.structure.material_at(p, Length::um(zz));
+                    v.push(m.permittivity(wavelength).map_err(text)?.re as f32);
+                }
+            }
+            Ok::<_, String>((
+                Raster {
+                    nx: na,
+                    ny: nb,
+                    x0: a[0],
+                    x1: a[1],
+                    y0: b[0],
+                    y1: b[1],
+                    values: v,
+                },
+                coarser,
+            ))
+        };
+    let mid = 0.5 * (bottom + top);
+    let top_view = if plane {
+        Some(picture(x, y, step, step, &|a, b| (Point::um(a, b), mid))?)
+    } else {
+        None
+    };
+    if !at.is_finite() {
+        return Err(format!("the cut must be at a finite {normal}"));
+    }
+    let cut = if normal == "x" {
+        picture(y, z, step, step_z, &|a, b| (Point::um(at, a), b))?
+    } else {
+        picture(x, z, step, step_z, &|a, b| (Point::um(a, at), b))?
+    };
+    let coarser = top_view.as_ref().map_or(cut.1, |t| t.1.max(cut.1));
+    Ok(Solved {
+        top: top_view.map(|t| t.0),
+        cut: Some(cut.0),
+        step_nm: step * 1e3,
+        step_z_nm: step_z * 1e3,
+        coarser,
+        note,
+    })
+}
+
+/// The design as the solver sees it.
+#[tauri::command(async)]
+pub fn device_solved(
+    spec: SpecIn,
+    compute: ComputeIn,
+    normal: String,
+    at: f64,
+) -> Result<Solved, String> {
+    solved(&spec, &compute, &normal, at)
+}
+
 // ---- saved designs ----
 
 /// A design saved as a job file.

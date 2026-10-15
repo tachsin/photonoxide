@@ -123,6 +123,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::devices::read_device,
             crate::devices::device_job,
             crate::devices::device_job_read,
+            crate::devices::device_solved,
             crate::circuits::component_library,
             crate::circuits::component_spectrum,
             crate::circuits::measured_component,

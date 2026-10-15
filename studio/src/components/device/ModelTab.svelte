@@ -177,8 +177,8 @@
   const failed = (r: Rung) => (!r.fdfd2d && solves[info.id]?.fidelity === r.fidelity && solves[info.id]?.design === designKey && solves[info.id]?.error) || "";
 </script>
 
-<div class="space-y-6 px-8 py-6">
-  <section class="panel p-5">
+<div class="space-y-6">
+  <section>
     <div class="flex flex-wrap items-baseline gap-2">
       <h3 class="panel-title mr-auto">The ladder</h3>
       <span class="text-xs faint">from the cheapest model up; each one's error is stated against the next one up, where it holds</span>
@@ -270,7 +270,7 @@
     </ol>
   </section>
 
-  <section class="panel p-5">
+  <section>
     <div class="flex flex-wrap items-baseline gap-2">
       <h3 class="panel-title mr-auto">Where the models disagree</h3>
       <span class="text-xs faint">this design's figures from each model computed for it, and each one's difference from the model below it</span>
