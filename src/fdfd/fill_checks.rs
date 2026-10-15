@@ -407,6 +407,123 @@ pub(crate) fn derivative_error(polarization: Polarization) -> f64 {
         .fold(0.0, f64::max)
 }
 
+/// A straight strip (0.5 µm of ε 12.1 in ε 2.085, at 1.55 µm) drawn as `pieces`
+/// ([`crate::averaging::checks::strip_pieces`]) along x through a 6 × 4 µm window of 100 nm
+/// cells, PMLs of 12 cells, by 2D FDFD with `averaging`: |S₁₁|² and |S₂₁ − S₁₂| between ports
+/// 2.3 µm apart.
+pub(crate) fn strip_s(
+    pieces: &[Shape],
+    polarization: Polarization,
+    averaging: Averaging,
+) -> (f64, f64) {
+    use super::{Port, Side};
+    let mut plane = Plane::new(re(2.085));
+    for p in pieces {
+        plane.draw(p.clone(), re(12.1));
+    }
+    let grid = Grid {
+        nx: 60,
+        ny: 40,
+        dx: 0.1,
+        dy: 0.1,
+        x0: -3.0,
+        y0: -2.0,
+    };
+    let solver = Solver2d::from_plane(
+        grid,
+        polarization,
+        Wavelength::um(1.55).unwrap(),
+        &plane,
+        Boundaries::pml(12),
+        averaging,
+    )
+    .unwrap();
+    let port = |column: usize, side: Side| Port {
+        mode: solver
+            .port_modes_within(column, 0..grid.ny, 1)
+            .unwrap()
+            .remove(0),
+        side,
+    };
+    let s = solver
+        .s_matrix(&[port(18, Side::Left), port(41, Side::Right)])
+        .unwrap();
+    (s[0][0].norm_sqr(), (s[1][0] - s[0][1]).norm())
+}
+
+/// The same strip in 3D: 220 nm of the catalogue's silicon on its oxide (`LayerStack::soi_220`)
+/// drawn as `pieces`, through a 4 × 2 µm window of 100 × 100 × 55 nm cells, PMLs of 8 cells on
+/// every side, by 3D FDFD with `averaging`: the fundamental modes' |S₁₁|² and |S₂₁ − S₁₂|
+/// between ports 1.5 µm apart.
+pub(crate) fn strip_s_3d(pieces: &[Shape], averaging: Averaging) -> (f64, f64) {
+    use super::{Axis, Boundaries3d, Grid3d, Port3d, Side, Solver3d};
+    let mut structure = crate::stack::Structure::new(crate::stack::LayerStack::soi_220());
+    for p in pieces {
+        structure.draw("Si", p.clone()).unwrap();
+    }
+    let dz = 0.055;
+    // the core from 2 to 2.22 µm, on the nodes, 14 cells below and above it
+    let grid = Grid3d {
+        nx: 40,
+        ny: 20,
+        nz: 32,
+        dx: 0.1,
+        dy: 0.1,
+        dz,
+        x0: -2.0,
+        y0: -1.0,
+        z0: 2.0 - 14.0 * dz,
+    };
+    let solver = Solver3d::from_structure(
+        grid,
+        Wavelength::um(1.55).unwrap(),
+        &structure,
+        Boundaries3d::pml(8),
+        averaging,
+    )
+    .unwrap();
+    let port = |plane: usize, side: Side| Port3d {
+        mode: solver
+            .port_modes_within(Axis::X, plane, (0..grid.ny, 0..grid.nz), 1)
+            .unwrap()
+            .remove(0),
+        side,
+    };
+    let s = solver
+        .s_matrix(&[port(12, Side::Left), port(27, Side::Right)])
+        .unwrap();
+    (s[0][0].norm_sqr(), (s[1][0] - s[0][1]).norm())
+}
+
+/// The strip drawn in pieces against it drawn whole, on the same grid, by every average from
+/// the fill: 2D FDFD with both polarizations (the mean, the diagonal and the tensor) and, with
+/// `three`, 3D FDFD (the mean and the diagonal). The largest of the pieces' |S₁₁|² beyond the
+/// whole strip's and of their |S₂₁ − S₁₂|.
+pub(crate) fn seam_trace(three: bool) -> f64 {
+    let (whole, cuts) = crate::averaging::checks::strip_pieces();
+    let fill = [Averaging::Mean, Averaging::Diagonal, Averaging::Tensor];
+    let mut worst = 0.0f64;
+    let mut compare = |s: &dyn Fn(&[Shape]) -> (f64, f64)| {
+        let (r0, _) = s(std::slice::from_ref(&whole));
+        for pieces in &cuts {
+            let (r, asymmetry) = s(pieces);
+            worst = worst.max(r - r0).max(asymmetry);
+        }
+    };
+    if three {
+        for averaging in &fill[..2] {
+            compare(&|p| strip_s_3d(p, *averaging));
+        }
+    } else {
+        for polarization in [Polarization::Ez, Polarization::Hz] {
+            for averaging in fill {
+                compare(&|p| strip_s(p, polarization, averaging));
+            }
+        }
+    }
+    worst
+}
+
 /// The cases.
 pub(crate) fn cases() -> Vec<Case> {
     use crate::mode::Polarization as Kind;
@@ -572,6 +689,36 @@ pub(crate) fn cases() -> Vec<Case> {
                     measured: e,
                     expected: 0.0,
                     tolerance: 1e-4,
+                    error: e,
+                }
+            },
+        },
+        Case {
+            id: "fdfd/fill-seam",
+            title: r"2D FDFD averaged from the fill: a straight strip (0.5 µm of $\varepsilon$ = 12.1 in 2.085, 1.55 µm) drawn in pieces (two abutting, three with seams at an angle to the grid, four with one overlapping the next) against it drawn whole, on 100 nm cells, $E$ and $H$ along $z$, the mean, the diagonal and the tensor: the largest of the pieces' $\lvert S_{11}\rvert^2$ beyond the whole strip's and of their $\lvert S_{21} - S_{12}\rvert$ (shown)",
+            tier: Tier::Analytic,
+            source: r"a seam between two shapes of one material is no interface: each material's share comes from the region its shapes fill, and the normal from an interface, so the strip is the same in pieces and whole, and reciprocal (S symmetric); before issue #376 the seams were taken for interfaces, the normal the seam's: with $H$ along $z$, $\lvert S_{11}\rvert^2$ 1.1e-4 to 4.5e-4 by the diagonal and 4.2e-4 to 6.1e-4 by the tensor, its S off symmetric by 1.7e-2",
+            run: || {
+                let e = seam_trace(false);
+                Outcome {
+                    measured: e,
+                    expected: 0.0,
+                    tolerance: 1e-12,
+                    error: e,
+                }
+            },
+        },
+        Case {
+            id: "fdfd3d/fill-seam",
+            title: r"3D FDFD from a stack, averaged from the fill: the same strip as 220 nm of the catalogue's silicon on its oxide, drawn in the same pieces and whole, on 100 × 100 × 55 nm cells, the mean and the diagonal: the largest of the pieces' fundamental mode's $\lvert S_{11}\rvert^2$ beyond the whole strip's and of their $\lvert S_{21} - S_{12}\rvert$ (shown)",
+            tier: Tier::Analytic,
+            source: r"each slice's shares and walls' normal as in 2D: the seams are no walls; before issue #376 the diagonal's $\lvert S_{11}\rvert^2$ was 4.5e-4 to 8.5e-4",
+            run: || {
+                let e = seam_trace(true);
+                Outcome {
+                    measured: e,
+                    expected: 0.0,
+                    tolerance: 1e-12,
                     error: e,
                 }
             },

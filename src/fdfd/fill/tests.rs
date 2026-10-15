@@ -171,3 +171,33 @@ fn a_uniform_tensors_mixed_terms_are_symmetric_and_a_disks_are_not() {
     .unwrap();
     assert!(d.lu.symmetric());
 }
+
+/// A straight strip drawn in pieces, abutting, at angles, three and four of them, reflects no
+/// more than the strip drawn whole on the same 100 nm grid, and its S-matrix is symmetric, to
+/// rounding, by every averaging (issue #376: the diagonal's and the tensor's |S₁₁|² was 4.5e-4
+/// with two pieces, H along z, the seam taken for an interface).
+#[test]
+fn a_strip_in_pieces_reflects_no_more_than_the_strip_whole() {
+    use super::super::fill_checks::strip_s;
+    let (whole, cuts) = crate::averaging::checks::strip_pieces();
+    for polarization in [Polarization::Ez, Polarization::Hz] {
+        for averaging in Averaging::ALL {
+            let (r0, a0) = strip_s(std::slice::from_ref(&whole), polarization, averaging);
+            assert!(r0 < 1e-28 && a0 < 1e-13, "{polarization:?} {averaging:?}");
+            for pieces in &cuts {
+                let (r, a) = strip_s(pieces, polarization, averaging);
+                if averaging.reads_fill() {
+                    assert!(
+                        r <= r0 + 1e-28 && a < 1e-13,
+                        "{polarization:?} {averaging:?}, {} pieces: |S11|² {r:e} (whole \
+                         {r0:e}), |S21 - S12| {a:e}",
+                        pieces.len()
+                    );
+                } else {
+                    // points and samples see the same permittivity at every point
+                    assert_eq!((r, a), (r0, a0), "{polarization:?} {averaging:?}");
+                }
+            }
+        }
+    }
+}

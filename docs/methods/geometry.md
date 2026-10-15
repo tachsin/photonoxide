@@ -93,7 +93,9 @@ on its left. From the pieces, in closed form:
 - the distance: the nearest point of each piece (a segment's foot, an arc's radial point or
   its ends, an ellipse's by the Lagrange condition reduced to one monotone equation in one
   variable, solved by bisection to the last bit); off the boundary the normal is along the line
-  from the nearest point, on it the piece's own;
+  from the nearest point, on it the piece's own, and within the coordinates' rounding of it (16
+  units in the last place) the piece's own too, where the line from the point is rounding and
+  points anywhere (a grid's point on an edge, its coordinate summed from steps);
 - the area in a cell: each loop clipped to the cell's four sides in turn, as Sutherland and
   Hodgman clip polygons. The parts beyond a side are cut out at the side's crossings (closed
   form for segments and arcs) and the loop closed along the side. The clipped loop's winding

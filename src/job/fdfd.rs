@@ -353,7 +353,7 @@ fn column_index(
 ///
 /// [`Error::Parse`] for shapes on another layer or a sloped wall; [`Error::OutsideValidity`]
 /// for a material without data at `wavelength`, and the slabs' errors.
-pub(super) fn fill_plane(
+pub(crate) fn fill_plane(
     s: &Structure,
     name: &str,
     kind: crate::mode::Polarization,

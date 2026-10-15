@@ -6,7 +6,7 @@ use std::f64::consts::PI;
 use num_complex::Complex64 as c64;
 
 use super::{Averaging, Plane};
-use crate::geometry::{Bounds, Point, Shape};
+use crate::geometry::{Bounds, Point, Polygon, Shape};
 use crate::units::Length;
 use crate::validation::{Case, Outcome, Tier};
 
@@ -24,6 +24,49 @@ fn cells(n: usize, m: usize, h: f64, (x0, y0): (f64, f64)) -> Vec<Bounds> {
         }
     }
     out
+}
+
+/// A strip 0.5 µm wide along x from −4 to 4 µm, its axis at y = 0.0137 µm, drawn whole and in
+/// pieces: two abutting at x = 0.037 µm, three with seams at an angle to the grid, and four with
+/// a seam at x = 0.2 µm under a piece that overlaps the one before it and seams at an angle.
+pub(crate) fn strip_pieces() -> (Shape, Vec<Vec<Shape>>) {
+    let (w, y0, end) = (0.5, 0.0137, 4.0);
+    let rect = |x0: f64, x1: f64| {
+        Shape::rect(
+            Point::um(0.5 * (x0 + x1), y0),
+            Length::um(x1 - x0),
+            Length::um(w),
+        )
+        .expect("a piece")
+    };
+    // the piece between two seams, each the line x = a + b (y − y0)
+    let between = |(a0, b0): (f64, f64), (a1, b1): (f64, f64)| {
+        let (lo, hi) = (y0 - w / 2.0, y0 + w / 2.0);
+        Shape::Polygon(
+            Polygon::new(vec![
+                Point::um(a0 + b0 * (lo - y0), lo),
+                Point::um(a1 + b1 * (lo - y0), lo),
+                Point::um(a1 + b1 * (hi - y0), hi),
+                Point::um(a0 + b0 * (hi - y0), hi),
+            ])
+            .expect("a piece"),
+        )
+    };
+    let (left, right) = ((-end, 0.0), (end, 0.0));
+    let (s1, s2) = ((-0.413, 0.3), (0.371, -0.7));
+    (
+        rect(-end, end),
+        vec![
+            vec![rect(-end, 0.037), rect(0.037, end)],
+            vec![between(left, s1), between(s1, s2), between(s2, right)],
+            vec![
+                rect(-end, -0.4),
+                rect(-0.4, 0.2),
+                between((0.1, 0.0), s2),
+                between(s2, right),
+            ],
+        ],
+    )
 }
 
 /// A film of ε 12 and 0.2237 µm from y = 0.0413 in ε 2.085, on a column of 50 nm cells (neither

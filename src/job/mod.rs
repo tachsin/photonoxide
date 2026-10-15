@@ -419,8 +419,8 @@ mod params;
 mod shapes;
 
 pub use device::{Compute, DeviceFigure, fdfd_size, from_device};
-pub(crate) use fdfd::plane as fdfd_plane;
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
+pub(crate) use fdfd::{fill_plane as fdfd_fill_plane, plane as fdfd_plane};
 pub use fdtd::{FoundResonance, SpectrumSeries};
 
 /// The validation cases of components in jobs ([`crate::generator`] in `[[task.component]]`).

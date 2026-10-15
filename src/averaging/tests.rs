@@ -2,6 +2,7 @@ use std::f64::consts::PI;
 
 use num_complex::Complex64 as c64;
 
+use super::checks::strip_pieces;
 use super::*;
 use crate::geometry::{Polygon, Shape};
 use crate::units::Length;
@@ -203,4 +204,150 @@ fn a_cell_without_area_is_its_centres_material() {
     plane.draw(disk, re(4.0));
     let s = plane.shares(Bounds::new(Point::um(0.2, 0.0), Point::um(0.2, 0.0)));
     assert_eq!(s, Shares::uniform(re(4.0)));
+}
+
+#[test]
+fn abutting_shapes_of_one_material_leave_no_seam_in_the_shares_or_the_normals() {
+    let (whole, cuts) = strip_pieces();
+    let mut one = Plane::new(re(2.085));
+    one.draw(whole, re(12.1));
+    for pieces in cuts {
+        let mut plane = Plane::new(re(2.085));
+        for p in pieces {
+            plane.draw(p, re(12.1));
+        }
+        // the cells, and those half a cell over (the faces' cells)
+        for offset in [(0.0, 0.0), (0.05, 0.0), (0.0, 0.05)] {
+            for cell in cells(22, 12, 0.1, (-1.1 + offset.0, -0.6 + offset.1)) {
+                let (a, b) = (one.shares(cell), plane.shares(cell));
+                assert_eq!(a.is_uniform(), b.is_uniform(), "{cell:?}: {a:?} {b:?}");
+                assert!(
+                    (a.mean() - b.mean()).norm() < 1e-13,
+                    "{cell:?}: {a:?} {b:?}"
+                );
+                match (a.normal, b.normal) {
+                    (None, None) => {}
+                    (Some(n), Some(m)) => assert!(
+                        (n[0] - m[0]).abs() < 1e-12 && (n[1] - m[1]).abs() < 1e-12,
+                        "{cell:?}: {n:?} {m:?}"
+                    ),
+                    (n, m) => panic!("{cell:?}: {n:?} {m:?}"),
+                }
+                for along in 0..2 {
+                    for avg in [Averaging::Diagonal, Averaging::Tensor] {
+                        let d = (a.component(along, avg) - b.component(along, avg)).norm();
+                        assert!(d < 1e-12, "{cell:?} {along} {avg:?}: {d:e}");
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn a_seam_between_two_materials_is_an_interface() {
+    let rect = |x0: f64, x1: f64| {
+        Shape::rect(
+            Point::um(0.5 * (x0 + x1), 0.0137),
+            Length::um(x1 - x0),
+            Length::um(0.5),
+        )
+        .unwrap()
+    };
+    let mut plane = Plane::new(re(2.085));
+    plane
+        .draw(rect(-2.0, 0.037), re(12.1))
+        .draw(rect(0.037, 2.0), re(8.0));
+    // inside the strip, across the seam: both materials, the seam's normal
+    let s = plane.shares(Bounds::new(Point::um(0.0, -0.05), Point::um(0.1, 0.05)));
+    assert_eq!(s.parts.len(), 2);
+    let f = s.parts.iter().find(|p| p.0 == re(12.1)).unwrap().1;
+    assert!((f - 0.37).abs() < 1e-14, "{f}");
+    let n = s.normal.unwrap();
+    assert!(
+        (n[0].abs() - 1.0).abs() < 1e-15 && n[1].abs() < 1e-15,
+        "{n:?}"
+    );
+    // on the seam and the strip's edge: three materials
+    let s = plane.shares(Bounds::new(Point::um(0.0, 0.22), Point::um(0.1, 0.32)));
+    assert_eq!(s.parts.len(), 3);
+}
+
+#[test]
+fn a_shape_over_a_seam_sees_the_material_under_it_as_one_region() {
+    // a disk of 4 drawn over the strip, whole and in pieces: the same shares, to the booleans'
+    // tolerance, and the same averages but where a seam is nearer the cell's centre than the
+    // disk's edge (there the normal is the shares' gradient, the mean of the disk's normals
+    // over the cell, not the one at the nearest point)
+    let (whole, cuts) = strip_pieces();
+    let disk = Shape::circle(Point::um(0.05, 0.2), Length::um(0.23)).unwrap();
+    let mut one = Plane::new(re(2.085));
+    one.draw(whole, re(12.1)).draw(disk.clone(), re(4.0));
+    for pieces in cuts {
+        let mut plane = Plane::new(re(2.085));
+        for p in &pieces {
+            plane.draw(p.clone(), re(12.1));
+        }
+        plane.draw(disk.clone(), re(4.0));
+        for cell in cells(22, 12, 0.1, (-1.1, -0.6)) {
+            let (a, b) = (one.shares(cell), plane.shares(cell));
+            // to the booleans' tolerance: their polygons within 1e-7 of the 8 µm strip, a few
+            // 1e-9 of a cell's shares
+            for (x, y) in [(a.mean(), b.mean()), (a.harmonic(), b.harmonic())] {
+                assert!((x - y).norm() < 1e-6, "{cell:?}: {a:?} {b:?}");
+            }
+            assert_eq!(a.normal.is_some(), b.normal.is_some(), "{cell:?}");
+            let seam = pieces.iter().filter(|p| p.fill(cell) > 0.0).count() > 1;
+            if !seam {
+                for along in 0..2 {
+                    let d = (a.component(along, Averaging::Tensor)
+                        - b.component(along, Averaging::Tensor))
+                    .norm();
+                    assert!(d < 1e-6, "{cell:?} {along}: {d:e} {a:?} {b:?}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn a_piece_drawn_over_a_shape_of_another_material_hides_it() {
+    // the strip's left piece, a disk of 4 across the seam, then the right piece over the disk:
+    // the right piece's material where it lies, the disk's left of the seam
+    let rect = |x0: f64, x1: f64| {
+        Shape::rect(
+            Point::um(0.5 * (x0 + x1), 0.0137),
+            Length::um(x1 - x0),
+            Length::um(0.5),
+        )
+        .unwrap()
+    };
+    let disk = Shape::circle(Point::um(0.05, 0.0137), Length::um(0.2)).unwrap();
+    let mut plane = Plane::new(re(2.085));
+    plane
+        .draw(rect(-2.0, 0.037), re(12.1))
+        .draw(disk, re(4.0))
+        .draw(rect(0.037, 2.0), re(12.1));
+    let mut bare = Plane::new(re(2.085));
+    bare.draw(rect(-2.0, 0.037), re(12.1))
+        .draw(rect(0.037, 2.0), re(12.1));
+    // the disk, inside the strip, shows only left of the seam, 0.013 µm left of its centre
+    let h = 0.01;
+    let mut excess = 0.0;
+    for cell in cells(60, 60, h, (-0.3, -0.2863)) {
+        excess += (plane.shares(cell).mean().re - bare.shares(cell).mean().re) * h * h;
+    }
+    let (r, a): (f64, f64) = (0.2, 0.05 - 0.037);
+    let left = r * r * (a / r).acos() - a * (r * r - a * a).sqrt();
+    let exact = (4.0 - 12.1) * left;
+    assert!(
+        (excess - exact).abs() < 1e-8 * exact.abs(),
+        "{excess} {exact}"
+    );
+    // a cell on the seam inside the disk: the disk's 4 and the right piece's 12.1, its normal
+    // the seam's
+    let s = plane.shares(Bounds::new(Point::um(0.0, -0.04), Point::um(0.08, 0.04)));
+    assert_eq!(s.parts.len(), 2);
+    let n = s.normal.unwrap();
+    assert!((n[0].abs() - 1.0).abs() < 1e-12, "{n:?}");
 }

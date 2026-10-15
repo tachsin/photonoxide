@@ -68,3 +68,42 @@ fn a_uniform_cell_is_its_material() {
         assert_eq!(v[g.index(Axis::X, (1, 7, 6))], si);
     }
 }
+
+/// A strip drawn in pieces, abutting and at angles, gives every value of E what the strip drawn
+/// whole gives, to rounding, slice by slice: its seams are no walls.
+#[test]
+fn a_strip_in_pieces_is_the_strip_whole_in_every_slice() {
+    let (whole, cuts) = crate::averaging::checks::strip_pieces();
+    let lam = Wavelength::um(1.55).unwrap();
+    let g = Grid3d {
+        nx: 21,
+        ny: 12,
+        nz: 10,
+        dx: 0.1,
+        dy: 0.1,
+        dz: 0.055,
+        x0: -1.05,
+        y0: -0.6,
+        z0: 1.87,
+    };
+    let of = |pieces: &[Shape]| {
+        let mut s = Structure::new(crate::stack::LayerStack::soi_220());
+        for p in pieces {
+            s.draw("Si", p.clone()).unwrap();
+        }
+        s
+    };
+    let one = of(std::slice::from_ref(&whole));
+    for a in [Averaging::Mean, Averaging::Diagonal] {
+        let want = structure_values(g, lam, &one, a).unwrap();
+        for pieces in &cuts {
+            let got = structure_values(g, lam, &of(pieces), a).unwrap();
+            let worst = want
+                .iter()
+                .zip(&got)
+                .map(|(w, v)| (w - v).norm())
+                .fold(0.0, f64::max);
+            assert!(worst < 1e-12, "{a:?}, {} pieces: {worst:e}", pieces.len());
+        }
+    }
+}

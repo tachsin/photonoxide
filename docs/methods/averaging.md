@@ -28,6 +28,8 @@ validation:
   - fdfd/fill-crystal-tm-mean
   - fdfd/fill-derivative-ez
   - fdfd/fill-derivative-hz
+  - fdfd/fill-seam
+  - fdfd3d/fill-seam
 ---
 
 A grid's cell that an interface crosses holds two materials. Read at a point, the cell is one of
@@ -69,12 +71,29 @@ mean alone is right only for $E$ along every interface; the diagonal of the tens
 keeps the scheme second order. Their Fig. 1 shows it, and so do the cases below.
 
 A cell is answered from the shapes whose boxes meet it ([the spatial index](geometry.md)). One
-shape crossing it gives its fill exactly. Where several do, the fill of their union (one
-material) or each one's visible part, what the shapes drawn after it leave, is taken from a
-boolean ([booleans](booleans.md): its polygons within `FILL_TOLERANCE` of its size), made once
-per set of shapes. A share within $10^{-12}$ of 0 or 1 is taken as 0 or 1, so a cell inside a
-curved shape is its material to the bit. The values are computed row by row side by side and
-collected in order: the same bits on any number of threads.
+shape crossing it gives its fill exactly. Where several do, each material's share is the fill
+of the region its shapes fill, taken from a boolean ([booleans](booleans.md): its polygons
+within `FILL_TOLERANCE` of its size) made once per set of shapes: their union where they are
+all of one material, a shape's visible part (what the shapes drawn after it leave) where it is
+its material's only shape, and the union of the visible parts where a material is drawn as
+several shapes among others. A share within $10^{-12}$ of 0 or 1 is taken as 0 or 1, so a cell
+inside a curved shape is its material to the bit. The values are computed row by row side by
+side and collected in order: the same bits on any number of threads.
+
+**Seams.** A shape's edge is an interface only where the materials on its two sides differ.
+Two shapes of one material that abut, as a waveguide drawn in pieces or a port's guide led out
+of a device, share an edge that isn't one, and so does an edge under a shape drawn later. The
+shares see no seam: they are the material's region's. The nearest point of the shapes'
+boundaries may lie on one, though, and its normal would make the diagonal and the tensor take
+the seam for a wall, the harmonic mean across it. So the nearest point counts only when the
+material a millionth of the cell to either side of it differs; where it doesn't, the normal is
+the gradient of the cell's shares as the cell moves (central differences over a thousandth of
+it, the share that changes most), which for a straight interface across the cell, its share a
+function of $n \cdot x$ only, is along $n$ exactly, and which the seam doesn't change. Before
+this (issue #376), a straight strip drawn as two pieces reflected $\lvert S_{11}\rvert^2$ =
+4.5e-4 on 100 nm cells with the diagonal and the tensor ($H$ along $z$); now 7e-33 and 2e-31, as
+the strip drawn whole does (`fdfd/fill-seam`, `fdfd3d/fill-seam`). A seam between two
+different materials is an interface, as it should be.
 
 ## FDFD in 2D
 
@@ -224,6 +243,17 @@ Every number with its grid; the slabs' and crystals' are 2D or a film's, never a
   same $\pm$0.1 nm, within 2.2e-6 ($E$ along $z$) and 8.5e-6 ($H$ along $z$, the mean; the
   tensor 1.1e-6). Over $\pm$1 and $\pm$2 nm, fourth-order differences of the mean and the
   diagonal differ from the adjoint by 4e-4 to 1.6e-2: the radius passes cells' corners there.
+- **Seams** (`fdfd/fill-seam`, `fdfd3d/fill-seam`): a straight strip (0.5 µm of
+  $\varepsilon$ 12.1 in 2.085 in 2D; 220 nm of silicon on oxide in 3D) drawn whole and in
+  pieces: two abutting off the grid's lines, three with seams at an angle to the grid, four with
+  one piece overlapping the next and one seam on a grid line. On 100 nm cells (100 × 100 × 55
+  nm in 3D), by the mean, the diagonal and the tensor (in 3D the mean and the diagonal), the
+  pieces reflect no more than the whole strip and their S is symmetric, to rounding: the
+  largest $\lvert S_{11}\rvert^2$ 1.4e-30, the largest $\lvert S_{21} - S_{12}\rvert$ 4.2e-15.
+  Before the fix, with $H$ along $z$, the diagonal's $\lvert S_{11}\rvert^2$ was 1.1e-4 to
+  4.5e-4 in 2D and 4.5e-4 to 8.5e-4 in 3D, the tensor's 4.2e-4 to 6.1e-4, its S off symmetric
+  by 1.7e-2 where the seams are at an angle. The mean, which reads no normal, was right
+  already. Points and samples see the same permittivity at every point, seams or not.
 
 ## What was left out
 

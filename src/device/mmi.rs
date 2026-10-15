@@ -47,7 +47,8 @@ pub enum Model2d {
 ///   stack, or a rib, the slabs' indices at the design wavelength. Radiation and reflections
 ///   at the faces are left out. Labelled 2D, never the device's performance.
 /// - **2D, FDFD** ([`StripMmi::with_model_2d`]): the drawn geometry by 2D FDFD on the effective
-///   index method's plane ([`FdfdGrid`]), its ports' fundamental modes.
+///   index method's plane ([`FdfdGrid`]), each cell averaged from the fill (the diagonal of
+///   Farjadpour et al.'s tensor), its ports' fundamental modes.
 /// - **3D:** the drawn geometry on its stack by 3D FDFD, TE-like.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StripMmi {
@@ -170,7 +171,7 @@ impl StripMmi {
             strip,
             parameters,
             model: Model2d::GuidedModes,
-            grid_2d: FdfdGrid::new(0.02),
+            grid_2d: FdfdGrid::new(0.02).with_averaging(crate::averaging::Averaging::Diagonal),
             grid_3d: FdfdGrid::new(0.04).with_step_z(0.02).with_margin(0.6),
         }
     }

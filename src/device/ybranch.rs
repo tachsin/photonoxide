@@ -39,7 +39,8 @@ pub(super) const POINTS: usize = ZHANG.len();
 ///
 /// - **Analytic:** ideal, the stem's power split equally with the excess loss ([`YBranch`]).
 /// - **2D:** the drawn geometry by 2D FDFD on the effective index method's plane
-///   ([`FdfdGrid`]), its ports' fundamental modes. Labelled 2D.
+///   ([`FdfdGrid`]), each cell averaged from the fill (the diagonal of Farjadpour et al.'s
+///   tensor), its ports' fundamental modes. Labelled 2D.
 /// - **3D:** the drawn geometry on its stack by 3D FDFD, TE-like.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StripYBranch {
@@ -91,7 +92,7 @@ impl StripYBranch {
             methods: methods(),
             strip,
             parameters,
-            grid_2d: FdfdGrid::new(0.02),
+            grid_2d: FdfdGrid::new(0.02).with_averaging(crate::averaging::Averaging::Diagonal),
             grid_3d: FdfdGrid::new(0.04).with_step_z(0.02).with_margin(0.6),
         }
     }

@@ -382,10 +382,20 @@ The MMIs' and the Y-branch's FDFD models solve the device's own drawing (`device
 - **The plane** in 2D is the effective index method's (the `"fdfd"` job's,
   [fdfd.md](fdfd.md)): each point's column's slab index squared, the slab's TE mode, H
   along z. 3D solves the stack itself, TE-like.
-- **Each cell's permittivity** is from 8 samples a side, harmonic along each component of E and
-  arithmetic across it. The shapes' fill ([averaging.md](averaging.md)) would leave a seam where
-  two shapes abut, as a port's guide does its lead: a straight strip then reflects (|S₁₁|² 6e-5
-  on 100 nm cells) and its S isn't symmetric (3e-4). Sampled, they are 1e-32 and 1e-16.
+- **Each cell's permittivity** is as the grid's `averaging` says. In 2D the MMIs and the
+  Y-branch take the shapes' fill ([averaging.md](averaging.md)), the diagonal of Farjadpour et
+  al.'s tensor; under sloped walls, which the fill's two-column plane can't take, and in 3D,
+  each cell is from 8 samples a side, harmonic along each component of E and arithmetic across
+  it. A port's guide abuts its lead, a seam the fill sees no more (issue #376: it reflected
+  |S₁₁|² 6e-5 on 100 nm cells): a straight strip through the solves gives |S₁₁|² 1.8e-30 and
+  |S₂₁ − S₁₂| 6e-16 by the diagonal, 2D and 3D, as sampled (6e-31 and 1e-15). In 2D the fill
+  converges faster. On a 3 µm 1 × 2 MMI at its image (`device/mmi-2d-grid`, 20, 10 and 5 nm) the
+  power into an output changes by 0.0064 and then 0.0018, order 1.8, where sampled it changes by
+  0.0057 and then 0.0021, order 1.4; on Zhang et al.'s Y-branch (`device/y-branch-2d-grid`, 40
+  to 5 nm) by 1.3e-3, 3.0e-4 and 8.4e-5, where sampled by 1.4e-3, 4.2e-4 and 1.3e-4. (The
+  whole tensor gives the MMI's numbers, its walls along the grid, and the Y-branch's 1.5e-3,
+  2.4e-4 and 1.1e-4, at twice the factorization's cost.) 3D keeps samples: on the grids a 3D
+  MMI fits, its image isn't resolved (below), so no convergence was measured there.
 - **The ports** are each guide's fundamental mode on its plane, in a window across from the
   middles between it and its neighbours on the same side ([fdfd-ports.md](fdfd-ports.md),
   [fdfd-3d.md](fdfd-3d.md)); the S-matrix's phases are referred back from the planes to the

@@ -376,3 +376,19 @@ fn survey() {
         }
     }
 }
+
+/// A strip with its guides led out of its ends, through the devices' FDFD with each cell
+/// averaged from the fill: the leads abut the strip, and the seams no longer reflect (issue
+/// #376: |S₁₁|² 6e-5 and |S₂₁ − S₁₂| 3e-4 on these 100 nm cells), as with samples.
+#[test]
+fn a_strip_and_its_leads_leave_no_seam_with_the_fill() {
+    use crate::averaging::Averaging;
+    let [r0, a0, p0] = super::splitter_checks::straight(Averaging::Samples);
+    for averaging in [Averaging::Mean, Averaging::Diagonal, Averaging::Tensor] {
+        let [r, a, p] = super::splitter_checks::straight(averaging);
+        assert!(
+            r <= r0 + 1e-28 && a < 1e-13 && p < 1e-4,
+            "{averaging:?}: |S11|² {r:e}, |S21 - S12| {a:e}, phase {p:e} (sampled: {r0:e}, {a0:e}, {p0:e})"
+        );
+    }
+}

@@ -9,6 +9,7 @@ use std::sync::OnceLock;
 use num_complex::Complex64 as c64;
 
 use super::*;
+use crate::averaging::Averaging;
 use crate::circuit::components::{Mmi, MmiKind, Planar, YBranch, mzi_closed_form};
 use crate::generator::SelfImaging;
 use crate::material::{self, Material, Model, Provenance};
@@ -106,7 +107,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "device/mmi-2d-grid",
             title: r"Devices: a 1 × 2 MMI's 2D FDFD (3 µm wide, 0.5 µm access guides, at its first two-fold image, 8.48 µm) on grids of 20, 10 and 5 nm: the power into an output, its change from 10 to 5 nm (shown)",
             tier: Tier::Analytic,
-            source: "2D FDFD by the effective index method (each cell sampled 8 times a side); the change halving the grid (0.0058, then 0.0021: order 1.5) bounds what is left",
+            source: "2D FDFD by the effective index method, each cell averaged from the fill (the diagonal of A. Farjadpour et al.'s tensor, Opt. Lett. 31, 2972 (2006), doi:10.1364/OL.31.002972); the change halving the grid (0.0064, then 0.0018: order 1.8; sampled 8 times a side, 0.0057 and 0.0021, order 1.4) bounds what is left",
             run: mmi_2d_grid,
         },
         Case {
@@ -120,7 +121,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "device/y-branch-2d-grid",
             title: r"Devices: Zhang et al.'s Y-branch through the Y-branch device's 2D FDFD (its spline outline, arms 3 µm long to ports 1.5 µm apart) on grids of 40, 20 and 10 nm: the power into an arm, its change from 20 to 10 nm (shown)",
             tier: Tier::Analytic,
-            source: "2D FDFD by the effective index method (each cell sampled 8 times a side); the change halving the grid bounds what is left (1.3e-4 more from 10 to 5 nm, measured)",
+            source: "2D FDFD by the effective index method, each cell averaged from the fill (the diagonal of Farjadpour et al.'s tensor); the change halving the grid bounds what is left (8.4e-5 more from 10 to 5 nm, measured; sampled 8 times a side, 4.2e-4 and then 1.3e-4)",
             run: y_branch_2d_grid,
         },
         Case {
@@ -496,16 +497,18 @@ fn fdfd_power(device: &dyn Device, values: &Values) -> f64 {
         .value
 }
 
-/// The small MMI's power into `o2` by 2D FDFD at 20, 10 and 5 nm.
+/// The small MMI's power into `o2` by 2D FDFD at 20, 10 and 5 nm, averaged from the fill as its
+/// 2D grid is (the diagonal).
 pub(crate) fn mmi_2d() -> &'static [f64; 3] {
     static P: OnceLock<[f64; 3]> = OnceLock::new();
     P.get_or_init(|| {
         let (mmi, v) = small_mmi();
         let p = map_in_order(&[0.02, 0.01, 0.005], |&h| {
-            let d = mmi
-                .clone()
-                .with_model_2d(Model2d::Fdfd)
-                .with_grid_2d(FdfdGrid::new(h).with_samples(1));
+            let d = mmi.clone().with_model_2d(Model2d::Fdfd).with_grid_2d(
+                FdfdGrid::new(h)
+                    .with_samples(1)
+                    .with_averaging(Averaging::Diagonal),
+            );
             fdfd_power(&d, &v)
         });
         [p[0], p[1], p[2]]
@@ -523,14 +526,19 @@ fn mmi_guided_2d() -> Outcome {
     small((guided - mmi_2d()[2]).abs(), super::mmi::GUIDED_ERROR)
 }
 
-/// Zhang et al.'s Y-branch with short arms, by 2D FDFD at 40, 20 and 10 nm: the power into o2.
+/// Zhang et al.'s Y-branch with short arms, by 2D FDFD at 40, 20 and 10 nm averaged from the fill
+/// as its 2D grid is (the diagonal): the power into o2.
 pub(crate) fn y_branch_2d() -> &'static [f64; 3] {
     static P: OnceLock<[f64; 3]> = OnceLock::new();
     P.get_or_init(|| {
         let y = StripYBranch::new();
         let v = Values::new(&y, &[("arm_length", 3.0), ("separation", 1.5)]).expect(OK);
         let p = map_in_order(&[0.04, 0.02, 0.01], |&h| {
-            let d = y.clone().with_grid_2d(FdfdGrid::new(h).with_samples(1));
+            let d = y.clone().with_grid_2d(
+                FdfdGrid::new(h)
+                    .with_samples(1)
+                    .with_averaging(Averaging::Diagonal),
+            );
             fdfd_power(&d, &v)
         });
         [p[0], p[1], p[2]]
@@ -547,20 +555,28 @@ fn y_branch_2d_grid() -> Outcome {
     small((p[2] - p[1]).abs(), 1e-3)
 }
 
-/// A straight strip 2 µm long through the FDFD solves, 2D and 3D on 100 nm cells: the largest of
-/// |S₁₁|, |S₂₁ − S₁₂| and |S₂₁ − e^(iβL)|.
-pub(crate) fn straight_mismatch() -> f64 {
+/// A straight strip 2 µm long through the FDFD solves, 2D and 3D on 100 nm cells (55 nm up the
+/// stack), each cell averaged by `averaging` (in 3D the tensor's diagonal for the tensor): the
+/// largest |S₁₁|² (both ends), |S₂₁ − S₁₂| and |S₂₁ − e^(iβL)|. Its guides led out through the
+/// PMLs abut it at its ends.
+pub(crate) fn straight(averaging: Averaging) -> [f64; 3] {
     let guide = StripWaveguide::new();
     let v = Values::new(&guide, &[("length", 2.0)]).expect(OK);
     let g = guide.geometry(&v).expect(OK);
     let lam = um(1.55);
-    let mut worst: f64 = 0.0;
+    let mut worst = [0.0f64; 3];
     for three in [false, true] {
+        let a = if three && averaging == Averaging::Tensor {
+            Averaging::Diagonal
+        } else {
+            averaging
+        };
         let grid = FdfdGrid::new(0.1)
             .with_step_z(0.055)
             .with_margin(0.4)
             .with_pml(8)
-            .with_samples(1);
+            .with_samples(1)
+            .with_averaging(a);
         let (sampled, _) =
             super::solve::sampled("strip", &g, "Si", &[lam], &grid, three).expect(OK);
         let s = sampled.s_matrix(lam, &[]).expect(OK);
@@ -570,13 +586,19 @@ pub(crate) fn straight_mismatch() -> f64 {
             .expect("a port's mode")
             .effective_index;
         let ahead = crate::portable::exp_c(c64::new(0.0, lam.wavenumber() * n * 2.0));
-        worst = worst
-            .max(s[(0, 0)].norm())
-            .max(s[(1, 1)].norm())
-            .max((s[(1, 0)] - s[(0, 1)]).norm())
-            .max((s[(1, 0)] - ahead).norm());
+        println!("DBG three {three} {a:?} s {:?}", s);
+        worst[0] = worst[0].max(s[(0, 0)].norm_sqr()).max(s[(1, 1)].norm_sqr());
+        worst[1] = worst[1].max((s[(1, 0)] - s[(0, 1)]).norm());
+        worst[2] = worst[2].max((s[(1, 0)] - ahead).norm());
     }
     worst
+}
+
+/// [`straight`] sampled, as the devices average: the largest of |S₁₁|, |S₂₁ − S₁₂| and
+/// |S₂₁ − e^(iβL)|.
+pub(crate) fn straight_mismatch() -> f64 {
+    let [r, asymmetry, phase] = straight(Averaging::Samples);
+    r.sqrt().max(asymmetry).max(phase)
 }
 
 fn fdfd_straight() -> Outcome {

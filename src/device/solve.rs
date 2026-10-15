@@ -41,11 +41,17 @@ pub struct FdfdGrid {
     /// The wavelengths solved across the device's span, evenly from one end to the other; one
     /// solves its centre only.
     pub samples: usize,
+    /// How each cell's permittivity is averaged ([`Averaging`]): sampled (the default), or from
+    /// the fill. In 2D the fill takes vertical walls (the plane is then two columns of the
+    /// effective index method, [`crate::averaging::Plane`]); under sloped ones the cells are
+    /// sampled. In 3D the tensor is refused, and slices under sloped walls are sampled.
+    pub averaging: Averaging,
 }
 
 impl FdfdGrid {
     /// Square cells `step` µm across in the plane, a quarter of that up the stack in 3D (220 nm
-    /// in 11 cells at 80 nm), 1 µm of margin, 12 cells of PML, five wavelengths.
+    /// in 11 cells at 80 nm), 1 µm of margin, 12 cells of PML, five wavelengths, each cell
+    /// sampled ([`Averaging::Samples`]).
     pub fn new(step: f64) -> FdfdGrid {
         FdfdGrid {
             step,
@@ -53,7 +59,17 @@ impl FdfdGrid {
             margin: 1.0,
             pml: 12,
             samples: 5,
+            averaging: Averaging::Samples,
         }
+    }
+
+    /// The same grid with its cells averaged by `averaging` (see [`FdfdGrid::averaging`]). The
+    /// MMIs' and the Y-branch's 2D grids take the fill's diagonal, which converges faster than
+    /// samples there (docs/methods/devices.md).
+    #[must_use]
+    pub fn with_averaging(mut self, averaging: Averaging) -> FdfdGrid {
+        self.averaging = averaging;
+        self
     }
 
     /// The same grid with cells `step_z` µm high in 3D.
@@ -326,12 +342,12 @@ pub(super) fn check_size(unknowns: f64) -> Result<()> {
 
 /// The device's S-parameters at `wavelengths` by FDFD on `grid`: in 2D (the effective index
 /// method's plane of the core layer, its slab's TE mode, H along z) or in 3D (the stack,
-/// TE-like). Each cell's permittivity is from 8 samples a side of it (`Averaging::Samples`),
-/// harmonic along each component of E and arithmetic across it: the shapes' fill would leave a
-/// seam where two of them abut, as a port's guide does its lead, which reflects and breaks the
-/// S-matrix's symmetry (a straight strip's |S₁₁|² 6e-5 and S₂₁ − S₁₂ 3e-4 on 100 nm cells, where
-/// sampled they are 1e-32 and 1e-16). A sampled component of kind `kind`, its ports the
-/// geometry's, and the grid it names.
+/// TE-like). Each cell's permittivity is averaged as the grid says ([`FdfdGrid::averaging`]):
+/// from 8 samples a side of it, harmonic along each component of E and arithmetic across it, or
+/// from the shapes' fill. A port's guide abuts its lead, and the fill sees no seam there (a
+/// straight strip's |S₁₁|² 1.8e-30 and |S₂₁ − S₁₂| 6e-16 on 100 nm cells by the diagonal, 2D and
+/// 3D; sampled, 6e-31 and 1e-15). A sampled component of kind `kind`, its ports the geometry's,
+/// and the grid it names.
 ///
 /// # Errors
 ///
@@ -384,15 +400,19 @@ pub(super) fn sampled(
         };
         let boundaries = Boundaries3d::pml(grid.pml);
         description = format!(
-            "3D FDFD, {nx} × {ny} × {nz} cells of {:.1} × {:.1} × {:.1} nm, PMLs {} cells",
+            "3D FDFD, {nx} × {ny} × {nz} cells of {:.1} × {:.1} × {:.1} nm{}, PMLs {} cells",
             1e3 * h,
             1e3 * h,
             1e3 * hz,
+            if grid.averaging == Averaging::Samples {
+                String::new()
+            } else {
+                format!(", cells averaged by \"{}\"", grid.averaging.name())
+            },
             grid.pml
         );
         for &wl in wavelengths {
-            let solver =
-                Solver3d::from_structure(g, wl, &structure, boundaries, Averaging::Samples)?;
+            let solver = Solver3d::from_structure(g, wl, &structure, boundaries, grid.averaging)?;
             let ports = placed
                 .iter()
                 .map(|p| -> Result<Port3d> {
@@ -423,10 +443,19 @@ pub(super) fn sampled(
             y0,
         };
         let boundaries = Boundaries::pml(grid.pml);
+        // the fill's plane is two columns, the core's walls vertical; under sloped walls each
+        // point's column is its own, and the cells are sampled
+        let fill = grid.averaging != Averaging::Samples
+            && structure.etches(core).iter().all(|e| e.run() == 0.0);
         description = format!(
-            "2D FDFD by the effective index method, {nx} × {ny} cells of {:.1} nm, PMLs {} \
+            "2D FDFD by the effective index method, {nx} × {ny} cells of {:.1} nm{}, PMLs {} \
              cells",
             1e3 * h,
+            if fill {
+                format!(", cells averaged by \"{}\"", grid.averaging.name())
+            } else {
+                String::new()
+            },
             grid.pml
         );
         let (_, bottom, top) = structure
@@ -435,11 +464,27 @@ pub(super) fn sampled(
             .ok_or_else(|| Error::invalid("device", format!("the stack has no layer {core}")))?;
         let mut first: Option<Solver2d> = None;
         for &wl in wavelengths {
-            let eps =
-                crate::job::fdfd_plane(&structure, &g, core, (bottom, top), Polarization::Te, wl)?;
-            let solver = match &first {
-                None => Solver2d::new(g, Field::Hz, wl, eps, boundaries)?,
-                Some(f) => f.reuse(wl, eps)?,
+            let solver = if fill {
+                let plane = crate::job::fdfd_fill_plane(&structure, core, Polarization::Te, wl)?;
+                match &first {
+                    None => {
+                        Solver2d::from_plane(g, Field::Hz, wl, &plane, boundaries, grid.averaging)?
+                    }
+                    Some(f) => f.reuse_plane(wl, &plane)?,
+                }
+            } else {
+                let eps = crate::job::fdfd_plane(
+                    &structure,
+                    &g,
+                    core,
+                    (bottom, top),
+                    Polarization::Te,
+                    wl,
+                )?;
+                match &first {
+                    None => Solver2d::new(g, Field::Hz, wl, eps, boundaries)?,
+                    Some(f) => f.reuse(wl, eps)?,
+                }
             };
             let ports = placed
                 .iter()

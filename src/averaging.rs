@@ -24,6 +24,10 @@
 //! interface (E along z in 2D), and the diagonal for interfaces along the grid's axes.
 //! docs/methods/averaging.md has the method and what was measured.
 //!
+//! A shape's edge is an interface only where the materials on its two sides differ: each
+//! material's share is taken from the region its shapes fill, and the normal from an interface,
+//! so a seam where two shapes of one material abut leaves no trace (issue #376).
+//!
 //! A [`Plane`] is what a 2D solver reads: shapes drawn on a background, each with its
 //! permittivity, later ones on top. [`Shares`] is what fills one cell of it.
 
@@ -196,13 +200,34 @@ pub(crate) struct Layout<K> {
     shapes: Vec<Shape>,
     keys: Vec<K>,
     index: OnceLock<Index>,
-    /// Unions of sets of shapes (`false`) and the part of a shape that the ones after it leave
-    /// visible (`true`), made once each; `None` where the boolean is empty or couldn't be made.
+    /// Unions of sets of shapes, the part of a shape that the ones after it leave visible, and
+    /// the region one material fills among a set of shapes, made once each; `None` where the
+    /// boolean is empty or couldn't be made.
     combined: Mutex<Combined>,
 }
 
-/// The booleans a [`Layout`] made, by whether each is a visible part and its shapes.
-type Combined = BTreeMap<(bool, Vec<usize>), Option<Shape>>;
+/// A boolean a [`Layout`] makes of its shapes (their indexes, in drawing order).
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum Made {
+    /// The union of the shapes.
+    Union(Vec<usize>),
+    /// The first shape less the union of the rest.
+    Visible(Vec<usize>),
+    /// What the shapes `.1` of one material fill among the shapes `.0`: the union of what each
+    /// of them leaves visible of the other materials' shapes drawn after it.
+    Region(Vec<usize>, Vec<usize>),
+}
+
+/// The booleans a [`Layout`] made.
+type Combined = BTreeMap<Made, Option<Shape>>;
+
+/// A cell's shares before its normal: one material, too much for the booleans (samples), or the
+/// materials and their shares with the shapes that fill some of the cell.
+enum Filled<K> {
+    Uniform(K),
+    Sampled,
+    Parts(Vec<(K, f64)>, Vec<usize>),
+}
 
 /// With more shapes than this, cells and points are answered through the index.
 const INDEXED: usize = 8;
@@ -260,17 +285,33 @@ impl<K: Copy + PartialEq> Layout<K> {
     }
 
     /// What fills `cell`: each material's share, from the shapes' fills, and the normal of the
-    /// boundary nearest its centre.
+    /// interface nearest its centre.
     ///
-    /// One shape crossing the cell gives its fill exactly. Where several do, their union's fill
-    /// (all of one material) or each one's visible part, what the shapes drawn after it leave
-    /// (a [`crate::geometry::Boolean`], whose fill comes from its polygons within
-    /// [`crate::geometry::FILL_TOLERANCE`] of its size) is taken, made once per set of shapes.
+    /// One shape crossing the cell gives its fill exactly. Where several do, each material's
+    /// share is the fill of the region its shapes fill: their union (all of one material), a
+    /// shape's visible part, what the shapes drawn after it leave, or, for a material drawn as
+    /// several shapes among others, the union of their visible parts (each a
+    /// [`crate::geometry::Boolean`], whose fill comes from its polygons within
+    /// [`crate::geometry::FILL_TOLERANCE`] of its size), made once per set of shapes. So two
+    /// shapes of one material that abut are one region, and the edge between them, which no
+    /// interface is, leaves no trace; nor in the normal ([`Layout::normal`]).
     pub(crate) fn shares(&self, cell: Bounds) -> Shares<K> {
+        match self.filled(cell) {
+            Filled::Uniform(k) => Shares::uniform(k),
+            Filled::Sampled => self.sampled(cell),
+            Filled::Parts(parts, touched) => {
+                let normal = self.normal(cell, &touched, &parts);
+                Shares { parts, normal }
+            }
+        }
+    }
+
+    /// The shares of `cell` without the normal, and the shapes that fill some of it.
+    fn filled(&self, cell: Bounds) -> Filled<K> {
         let area = cell.area();
         if area.is_nan() || area <= 0.0 {
             let centre = centre_of(cell);
-            return Shares::uniform(self.at(centre));
+            return Filled::Uniform(self.at(centre));
         }
         let touched: Vec<(usize, f64)> = self
             .near(cell)
@@ -299,11 +340,11 @@ impl<K: Copy + PartialEq> Layout<K> {
             }
         };
         match touched[..] {
-            [] => return Shares::uniform(self.background),
+            [] => return Filled::Uniform(self.background),
             [(k, f)] => {
                 let f = snap(f);
                 if f == 1.0 {
-                    return Shares::uniform(self.keys[k]);
+                    return Filled::Uniform(self.keys[k]);
                 }
                 add(self.keys[k], f);
                 add(self.background, 1.0 - f);
@@ -314,16 +355,30 @@ impl<K: Copy + PartialEq> Layout<K> {
                 if set.iter().all(|&k| self.keys[k] == one) {
                     let f = match self.combine(false, &set) {
                         Some(u) => u.fill(cell) / area,
-                        None => return self.sampled(cell),
+                        None => return Filled::Sampled,
                     };
                     let f = snap(f.min(1.0));
                     add(one, f);
                     add(self.background, 1.0 - f);
                 } else {
-                    // each shape's visible part, the last drawn whole
+                    // each shape's visible part, the last drawn whole; a material of several
+                    // shapes, the union of theirs, at its first
                     let mut covered = 0.0;
                     for (n, &k) in set.iter().enumerate() {
-                        let f = if n + 1 == set.len() {
+                        let of: Vec<usize> = set
+                            .iter()
+                            .copied()
+                            .filter(|&j| self.keys[j] == self.keys[k])
+                            .collect();
+                        let f = if of.len() > 1 {
+                            if of[0] != k {
+                                continue;
+                            }
+                            match self.region(&set, &of) {
+                                Some(r) => r.fill(cell) / area,
+                                None => return Filled::Sampled,
+                            }
+                        } else if n + 1 == set.len() {
                             touched[n].1
                         } else {
                             match self.combine(true, &set[n..]) {
@@ -341,24 +396,152 @@ impl<K: Copy + PartialEq> Layout<K> {
         // the shares add up to 1, as the snaps and the booleans' tolerance may not have
         let total: f64 = parts.iter().map(|&(_, f)| f).sum();
         if parts.len() == 1 {
-            return Shares::uniform(parts[0].0);
+            return Filled::Uniform(parts[0].0);
         }
         for (_, f) in &mut parts {
             *f /= total;
         }
+        Filled::Parts(parts, touched.iter().map(|&(k, _)| k).collect())
+    }
+
+    /// The normal of the interface nearest the centre of `cell`, which `parts` fill.
+    ///
+    /// Of the boundaries of the shapes `near`, the nearest point's normal, when the materials
+    /// on its two sides differ (just to either side of it along the boundary): an interface.
+    /// Where they don't, the point is on an edge that
+    /// isn't one: where two shapes of one material abut (or all but abut, a rounding apart), or
+    /// under a shape drawn later. The normal is then the direction in which the cell's shares
+    /// change fastest as the cell moves, the gradient of the share that changes most, by
+    /// central differences over a thousandth of the cell: the shares know no seams, and for a
+    /// straight interface across the cell, whose share depends on the cell's place only
+    /// through n · x, the gradient is along n exactly. (Where the moved cells' shares come
+    /// from samples, the nearest point's normal is kept.)
+    fn normal(&self, cell: Bounds, near: &[usize], parts: &[(K, f64)]) -> Option<[f64; 2]> {
         let centre = centre_of(cell);
-        let normal = touched
+        let first = near
             .iter()
-            .map(|&(k, _)| self.shapes[k].distance(centre))
-            .min_by(|a, b| a.signed.to_um().abs().total_cmp(&b.signed.to_um().abs()))
-            .map(|d| d.normal);
-        Shares { parts, normal }
+            .map(|&k| self.shapes[k].distance(centre))
+            .min_by(|a, b| a.signed.to_um().abs().total_cmp(&b.signed.to_um().abs()))?;
+        let (c, d, n) = (
+            [centre.x.to_um(), centre.y.to_um()],
+            first.signed.to_um(),
+            first.normal,
+        );
+        let (w, h) = (
+            cell.max.x.to_um() - cell.min.x.to_um(),
+            cell.max.y.to_um() - cell.min.y.to_um(),
+        );
+        // either side of the nearest point, a millionth of the cell off it, and a quarter of
+        // that along the boundary each way, so that neither lies on another edge through the
+        // point (where a seam meets an interface, on a cell's centre)
+        let step = 1e-6 * w.max(h);
+        let side = |s: f64, along: f64| {
+            let (a, b) = (s * step, 0.25 * along * step);
+            self.at(Point::um(
+                c[0] - d * n[0] + a * n[0] - b * n[1],
+                c[1] - d * n[1] + a * n[1] + b * n[0],
+            ))
+        };
+        if [1.0, -1.0]
+            .into_iter()
+            .any(|along| side(1.0, along) != side(-1.0, along))
+        {
+            return Some(n);
+        }
+        let moved = |dx: f64, dy: f64| -> Option<Vec<(K, f64)>> {
+            let b = Bounds::new(
+                Point::um(cell.min.x.to_um() + dx, cell.min.y.to_um() + dy),
+                Point::um(cell.max.x.to_um() + dx, cell.max.y.to_um() + dy),
+            );
+            match self.filled(b) {
+                Filled::Uniform(k) => Some(vec![(k, 1.0)]),
+                Filled::Parts(p, _) => Some(p),
+                Filled::Sampled => None,
+            }
+        };
+        let share = |p: &[(K, f64)], k: K| p.iter().find(|q| q.0 == k).map_or(0.0, |q| q.1);
+        let (ex, ey) = (1e-3 * w, 1e-3 * h);
+        let (Some(xp), Some(xm), Some(yp), Some(ym)) = (
+            moved(ex, 0.0),
+            moved(-ex, 0.0),
+            moved(0.0, ey),
+            moved(0.0, -ey),
+        ) else {
+            return Some(n);
+        };
+        let gradient = parts
+            .iter()
+            .map(|&(k, _)| {
+                [
+                    (share(&xp, k) - share(&xm, k)) / (2.0 * ex),
+                    (share(&yp, k) - share(&ym, k)) / (2.0 * ey),
+                ]
+            })
+            .max_by(|a, b| a[0].hypot(a[1]).total_cmp(&b[0].hypot(b[1])))?;
+        let size = gradient[0].hypot(gradient[1]);
+        if !(size > 0.0 && size.is_finite()) {
+            return Some(n);
+        }
+        // a component within rounding of nothing (the differences' 1e-12 or so) is nothing:
+        // an interface along a grid axis keeps its normal exactly
+        let unit = gradient.map(|g| if g.abs() <= 1e-9 * size { 0.0 } else { g });
+        let size = unit[0].hypot(unit[1]);
+        Some([unit[0] / size, unit[1] / size])
+    }
+
+    /// The region the shapes `of`, all of one material, fill among the shapes `set` (both in
+    /// drawing order, `of` within `set`): the union over `of` of what each one leaves visible
+    /// of the other materials' shapes in `set` drawn after it. A shape alone and on top is
+    /// itself; made once.
+    fn region(&self, set: &[usize], of: &[usize]) -> Option<Shape> {
+        let above = |i: usize| -> Vec<usize> {
+            set.iter()
+                .copied()
+                .filter(|&j| j > i && !of.contains(&j))
+                .collect()
+        };
+        if let [i] = of[..]
+            && above(i).is_empty()
+        {
+            return Some(self.shapes[i].clone());
+        }
+        let key = Made::Region(set.to_vec(), of.to_vec());
+        if let Some(found) = self.lock().get(&key) {
+            return found.clone();
+        }
+        let make = || -> Option<Shape> {
+            let mut acc: Option<Shape> = None;
+            for &i in of {
+                let over = above(i);
+                let visible = if over.is_empty() {
+                    self.shapes[i].clone()
+                } else {
+                    match self.shapes[i].difference(&self.combine(false, &over)?) {
+                        Ok(v) => v,
+                        // all of it hidden
+                        Err(_) => continue,
+                    }
+                };
+                acc = Some(match acc {
+                    None => visible,
+                    Some(a) => a.union(&visible).ok()?,
+                });
+            }
+            acc
+        };
+        let made = make();
+        self.lock().insert(key, made.clone());
+        made
     }
 
     /// The union of the shapes `set` (`visible` false), or the first of them less the union of
     /// the rest (`visible` true), made once.
     fn combine(&self, visible: bool, set: &[usize]) -> Option<Shape> {
-        let key = (visible, set.to_vec());
+        let key = if visible {
+            Made::Visible(set.to_vec())
+        } else {
+            Made::Union(set.to_vec())
+        };
         if let Some(found) = self.lock().get(&key) {
             return found.clone();
         }
@@ -408,13 +591,7 @@ impl<K: Copy + PartialEq> Layout<K> {
         if parts.len() == 1 {
             return Shares::uniform(parts[0].0);
         }
-        let centre = centre_of(cell);
-        let normal = self
-            .near(cell)
-            .into_iter()
-            .map(|k| self.shapes[k].distance(centre))
-            .min_by(|a, b| a.signed.to_um().abs().total_cmp(&b.signed.to_um().abs()))
-            .map(|d| d.normal);
+        let normal = self.normal(cell, &self.near(cell), &parts);
         Shares { parts, normal }
     }
 }
@@ -491,9 +668,11 @@ impl Plane {
         self.layout.at(Point::um(x, y))
     }
 
-    /// What fills `cell`: one shape's fill exactly, several shapes' union or each one's visible
-    /// part from a boolean, and the normal of the boundary nearest the centre (see the module's
-    /// docs).
+    /// What fills `cell`: one shape's fill exactly, or each material's region (several shapes'
+    /// union, a shape's visible part, or the union of a material's visible parts) from a
+    /// boolean, and the normal of the interface nearest the centre, where the materials either
+    /// side differ: an edge between two shapes of one material, which abut, is no interface
+    /// (see the module's docs).
     pub fn shares(&self, cell: Bounds) -> Shares<c64> {
         self.layout.shares(cell)
     }
