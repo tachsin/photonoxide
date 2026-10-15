@@ -52,8 +52,8 @@ pub struct PhotonicCrystal {
     pub pitch: Length,
     /// The holes' radius, r.
     pub radius: Length,
-    /// The sites either side of the centre: i from −half[0] to half[0], j from −half[1] to
-    /// half[1].
+    /// The sites either side of the centre: i from −`half[0]` to `half[0]`, j from −`half[1]`
+    /// to `half[1]`.
     pub half: [i64; 2],
     /// The defect.
     pub defect: Defect,
@@ -77,6 +77,11 @@ impl PhotonicCrystal {
     }
 
     /// The lattice, its defect made.
+    ///
+    /// # Errors
+    ///
+    /// [`crate::Error::InvalidValue`] for a pitch that isn't positive, or a defect at a site
+    /// the lattice doesn't have.
     pub fn sites(&self) -> Result<Lattice> {
         let k = "photonic crystal";
         let a = self.pitch;
