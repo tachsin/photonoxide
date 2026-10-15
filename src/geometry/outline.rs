@@ -89,7 +89,13 @@ pub(crate) fn edge_at(part: &Part, profile: Option<&Profile>, side: f64, u: f64)
 
 /// A root of `f` between `a` and `b`, where f(a) and f(b) have opposite signs, by the Illinois
 /// method: superlinear, and never leaving the bracket. Stops when the bracket can't shrink.
-fn root(f: impl Fn(f64) -> f64, mut a: f64, mut b: f64, mut fa: f64, mut fb: f64) -> f64 {
+pub(crate) fn root(
+    f: impl Fn(f64) -> f64,
+    mut a: f64,
+    mut b: f64,
+    mut fa: f64,
+    mut fb: f64,
+) -> f64 {
     let mut side = 0i8;
     let mut x = a;
     for _ in 0..200 {
@@ -714,7 +720,7 @@ impl Path {
 }
 
 /// Whether the closed segments ab and cd share a point.
-fn segments_meet(a: P, b: P, c: P, d: P) -> bool {
+pub(crate) fn segments_meet(a: P, b: P, c: P, d: P) -> bool {
     let orient = |p: P, q: P, r: P| {
         let v = (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
         if v > 0.0 {

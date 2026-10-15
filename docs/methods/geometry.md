@@ -1,7 +1,7 @@
 ---
 title: "Geometry"
 module: geometry
-summary: "Shapes kept exact and turned into polygons only on demand: every shape a region with an exact inside test, signed distance and outward normal, tight bounds, area, perimeter and area inside a cell; polygons within a stated tolerance that keep the area; similarity transforms that keep each shape's kind; paths, a centre line of straights, arcs, clothoids placed by the Fresnel integrals, partial Euler bends, Bézier, sine and parametric curves with a width along it; and a bounding-volume hierarchy over a layer's shapes, the same bits on any number of threads."
+summary: "Shapes kept exact and turned into polygons only on demand: every shape a region with an exact inside test, signed distance and outward normal, tight bounds, area, perimeter and area inside a cell; polygons within a stated tolerance that keep the area; similarity transforms that keep each shape's kind; paths, a centre line of straights, arcs, clothoids placed by the Fresnel integrals, partial Euler bends, Bézier, sine and parametric curves with a width along it; regions between two curves, polar, inside a closed parametric curve and implicit, each an expression, and masks of fill values; and a bounding-volume hierarchy over a layer's shapes, the same bits on any number of threads."
 order: 1.5
 papers:
   - cite: "I. E. Sutherland, G. W. Hodgman, Commun. ACM 17, 32 (1974) (clipping to a cell one side at a time)"
@@ -20,6 +20,10 @@ papers:
     doi: 10.1364/OE.27.031394
   - cite: "M. Abramowitz, I. A. Stegun, Handbook of Mathematical Functions (1964), chapter 7 (the Fresnel integrals)"
     doi: ""
+  - cite: "W. E. Lorensen, H. E. Cline, ACM SIGGRAPH Comput. Graph. 21, 163 (1987) (marching cubes; in two dimensions, the implicit region's zero set)"
+    doi: 10.1145/37402.37422
+  - cite: "Y. Zhang, S. Yang, A. E.-J. Lim, G.-Q. Lo, C. Galland, T. Baehr-Jones, M. Hochberg, Opt. Express 21, 1310 (2013) (the Y-junction's outline, drawn between two curves)"
+    doi: 10.1364/OE.21.001310
 validation:
   - geometry/areas
   - geometry/polygons
@@ -39,6 +43,16 @@ validation:
   - geometry/paths/vogelbacher-270
   - geometry/paths/vogelbacher-fujisawa
   - geometry/paths/fujisawa-ratios
+  - geometry/curves/circle
+  - geometry/curves/closed-forms
+  - geometry/curves/taper-as-path
+  - geometry/curves/distance
+  - geometry/curves/polygons
+  - geometry/curves/fill
+  - geometry/curves/convergence
+  - geometry/curves/implicit-estimate
+  - geometry/curves/mask
+  - geometry/curves/zhang-y-junction
 ---
 
 Every solver, the studio's views and, later, the layout read one model of what is drawn on a
@@ -257,6 +271,148 @@ bend losses are not reproduced here: they are 3D eigenmode-expansion, FDTD and F
 grids the papers state, and a 2D estimate would not be their device's performance. That waits for
 the solvers to read fill fractions (phase 10 of #227).
 
+## Shapes defined by functions
+
+Four kinds of shape are given by [expressions](expressions.md) of the coordinates and of named
+parameters:
+
+| kind | defined by | inside test |
+|---|---|---|
+| `Between` | $y_\text{low}(x) \le y \le y_\text{high}(x)$ for $x_0 \le x \le x_1$ | the two curves at the point's $x$ |
+| `Polar` | $r \le \rho(\theta)$ about a centre, $\rho$ an expression of `t` $= \theta$ | $\rho$ at the point's angle |
+| `ClosedCurve` | the inside of $(x(t), y(t))$, $0 \le t \le 1$ | crossings of a ray with the curve |
+| `Implicit` | $f(x, y) \le 0$ in a window | the sign of $f$ |
+
+Each keeps its definition in a frame of its own and a similarity transform to the plane, so a
+transformed one is one of its own kind: its inside test maps the point back and asks the
+definition, exactly as far as the arithmetic of the expressions goes.
+
+**What is refused.** A region between two curves whose lower curve meets or crosses the upper
+between its ends (they may meet at the ends: a pointed taper), checked at 2049 points and at
+every knot of its boundary; a polar $\rho$ that isn't positive, or isn't periodic
+($\rho(2\pi)$ more than $10^{-9}$ of the largest $\rho$ from $\rho(0)$); a closed curve that
+doesn't close, stops (a zero derivative) or crosses or touches itself (checked on its polygon
+within $10^{-5}$ of its size; it may run either way round); an implicit $f$ that isn't finite on
+its window's sampling grid, isn't positive on the window's edge (the region must lie inside its
+window), has no zero set the grid finds, or whose gradient vanishes on its zero set (a singular
+point, as the lemniscate's). Any expression reading a coordinate it isn't given (a curve of `y`,
+a radius of `x`) or of the wrong dimension is refused, with the expression named.
+
+**The boundary.** Each kind traces its boundary as loops of curves, the region on their left:
+
+- between two curves: the lower curve from $x_0$ to $x_1$, the side at $x_1$, the upper curve
+  back and the side at $x_0$, corners at the four joints (a side of zero length dropped);
+- polar: $\rho(\theta)(\cos\theta, \sin\theta)$ for $\theta$ from 0 to $2\pi$;
+- a closed curve: the curve itself, walked backwards if it runs clockwise;
+- implicit: $f$ is sampled on a grid of 256 cells along the window's longer side (or as many as
+  asked) and its zero set traced by marching squares (Lorensen and Cline 1987, in two
+  dimensions). Each cell's crossings are found on its edges by bracketed root finding to the
+  last bit and joined with the region on their left; a saddle cell (its diagonal corners alone
+  inside) is decided by $f$ at its centre. Where the gradient turns by more than 0.1 rad between
+  two crossings, the chord is halved and its middle moved onto the zero set along the chord's
+  normal. Between two vertices the boundary is the curve itself, a graph over their chord $e$:
+  its point at $\tau$ the root of $f(a + \tau e + \sigma n) = 0$ along the chord's normal $n$,
+  its derivative $e - (\nabla f\cdot e/\nabla f\cdot n)\thinspace n$, $\nabla f$ by the
+  expressions' dual numbers. Holes and separate parts are loops of their own. A part (or hole)
+  narrower than a sampling cell may be missed; a finer grid finds it.
+
+Every curve is cut into intervals over which it turns by at most 0.1 rad and is monotone in $x$
+and $y$ (cut where $x'$ or $y'$ changes sign, found to the last bit). So:
+
+- an interval's box is its ends', and the bounds, the extremes of every interval's ends, are tight;
+- a horizontal ray meets an interval at most once: a closed curve's inside test counts the
+  crossings of the ray from the point towards $+x$ with the exact curve, each by root finding,
+  through a bounding-volume hierarchy over the intervals;
+- the nearest point of an interval is one of its ends or a root of $(p - c)\cdot c'$ where it
+  falls through zero (or is zero at a sample), the intervals tried nearest box first;
+- the area $\oint x\thinspace dy$ and the perimeter $\oint\lvert c'\rvert$ are 20-point
+  Gauss–Legendre integrals over each interval, halved where one rule and the two on its halves
+  disagree (a kink of a `piecewise`, `abs` or `min`): to round-off.
+
+Polygons and fills are the paths' and the superellipse's: chords halved until the curve strays
+from each by at most 3/4 of the budget, each vertex not at a corner moved out along the normal by
+λ times the mean of its chords' signed sagittas, λ the root of the quadratic that keeps each
+loop's area exactly; a fill clips the polygons within $10^{-7}$ of the larger side, so the fills of
+a grid sum to the area to round-off.
+
+**Distance of an implicit region.** $f/\lvert\nabla f\rvert$ (`Implicit::estimate`) is exact on
+the boundary and in error by $O(\kappa d^2)$ a distance $d$ off it: for $f = r^2 - R^2$ it is
+$d(2R + d)/(2(R + d))$, in error by $d^2/(2(R + d))$. `distance` corrects it to the exact distance:
+the foot of the point is found by root finding on the curve itself, from the nearest pieces of the
+traced boundary, so its error is the root finding's, $10^{-12}$ µm and below.
+
+## Masks
+
+A `Mask` is a grid of fill values $\rho$ from 0 to 1 (from `Mask::new`, `Mask::from_rows`, or
+`Mask::parse` of a text file of rows, the top row first, as the picture reads; comma, space or tab
+separated). It is two things, each answering what it is about:
+
+- a density, constant over each pixel: `fill(cell)` is $\int\rho$ over the cell, exactly (each
+  pixel's value times the area it shares with the cell; a rotated pixel clipped to it), and
+  `area()` is $\int\rho$, so grey pixels count as the fractions they are and a grid's fills sum to
+  the area;
+- the design binarised at $\rho \ge \frac12$, the shape as it would be made: `contains`/`locate`
+  (and so point sampling), `distance`, `polygons` and `perimeter` are the union of the pixels with
+  $\rho \ge \frac12$, exactly. Its outline is the pixels' edges; pixels meeting only at a corner
+  are separate polygons; holes are found. `binarised_area()` is its area.
+
+For a mask of zeros and ones they are the same region. `bounds()` is the box of the pixels with
+$\rho > 0$, which holds both. A mask with no pixel at ½ or more draws nothing and is refused.
+
+## In jobs
+
+`[[task.shape]]` draws any of them in `"structure"`, `"fdfd"` and `"fdtd"` jobs, with an `etch`
+as every shape takes. Places and sizes are expressions with units (or `_um` numbers); the
+definitions are expressions of the coordinates they are given and of `[task.parameters]`:
+
+```toml
+[[task.shape]]
+type = "between"            # y_low(x) <= y <= y_high(x)
+layer = "Si"
+x = [0, "2 um"]
+lower = "-(w/2 + 0.1*x)"
+upper = "w/2 + 0.1*x"
+
+[[task.shape]]
+type = "polar"              # r <= rho(t), t the polar angle
+layer = "Si"
+center = ["6 um", 0]
+radius = "r0*(1 + 0.43*cos(t))"
+
+[[task.shape]]
+type = "parametric"         # the inside of (x(t), y(t)), t from 0 to 1
+layer = "Si"
+curve = ["1.3 um*cos(2*pi*t)", "0.6 um*sin(2*pi*t)"]
+
+[[task.shape]]
+type = "implicit"           # f(x, y) <= 0 in the window x by y
+layer = "Si"
+inside = "(x/2um)^4 + (y/1um)^4 - 1"
+x = ["-3 um", "3 um"]
+y = ["-2 um", "2 um"]
+cells = 256                 # optional
+
+[[task.shape]]
+type = "mask"
+layer = "Si"
+corner = ["-1 um", "2 um"]  # the lower left corner
+pixel = ["100 nm", "100 nm"]
+rows = [[0, 1, 1], [1, 0.5, 0]]   # the top row first
+```
+
+`job::check` refuses what the library refuses, naming the table, its type and the field
+(`[[task.shape]] #2 (polar): its radius ... must be positive`), and a field another type takes.
+
+**What it reproduces.** Zhang et al.'s Y-junction (2013): a 2 µm taper from the 0.5 µm input
+guide to two 0.5 µm arms 0.2 µm apart, its width defined by spline interpolation of 13 widths at
+equal spacing (their Table 1: 0.5, 0.5, 0.6, 0.7, 0.9, 1.26, 1.4, 1.4, 1.4, 1.4, 1.31, 1.2,
+1.2 µm). Drawn between $y = \mp w(x)/2$, $w$ a cubic spline through the widths written as one
+`piecewise` expression (not-a-knot ends, MATLAB's `spline`; the paper doesn't name its ends, and
+the widths at the 13 points don't depend on them), its width measured through its inside test at
+the 13 points is the table's within 2.2e-15 µm, its ends are 0.5 and 1.2 µm, and its area is
+$\int w\thinspace dx$ (Simpson's rule, exact on each cubic). This is the outline P6's Y-branch
+device draws; the paper's losses are 3D FDTD and measurement, not reproduced here.
+
 ## The index
 
 A layer with more than 8 shapes is searched through a bounding-volume hierarchy (Goldsmith and
@@ -296,3 +452,20 @@ release build; `cargo test --release --lib material_at_timing -- --ignored --noc
   polygons within tolerance keeping the area, their convergence, and fills
   (`geometry/paths/polygons`, `geometry/paths/convergence`, `geometry/paths/fill`); transforms;
   the same bits on several threads; and the papers' bends (the table above).
+- Shapes defined by functions: a circle written as a polar region, a closed curve and an
+  implicit region against the primitive, their areas, perimeters, distances and normals at 300
+  points to 1.3e-13 (`geometry/curves/circle`); areas against closed forms, a limaçon
+  $\pi b^2 + \pi a^2/2$, a flower $\pi r_0^2(1 + \varepsilon^2/2)$, ellipses run both ways and
+  implicit $\pi ab$, the implicit superellipse $4ab\thinspace\Gamma(5/4)^2/\Gamma(3/2)$, an
+  annulus and two disks, a linear and a parabolic taper, to 3.6e-15
+  (`geometry/curves/closed-forms`); a linear taper between two curves answering as the path taper
+  does (`geometry/curves/taper-as-path`); distances against brute force within 4.7e-4 nm
+  (`geometry/curves/distance`); polygons within 0.75 nm at the default 1 nm and keeping their
+  area (`geometry/curves/polygons`); fills summing to the area to 7.6e-15, and the three circles'
+  fills cell by cell within 2.8e-9 of the primitive's exact one (`geometry/curves/fill`); the
+  polygons' distance second order in their vertices, slopes 1.94 and above
+  (`geometry/curves/convergence`); the implicit estimate's error second order in $d$, 1.99
+  (`geometry/curves/implicit-estimate`); masks' fills, areas and binarised polygons to round-off,
+  drawn and rotated (`geometry/curves/mask`); transforms keeping each kind, areas and distances;
+  the same bits on several threads; refusals; and Zhang et al.'s Y-junction
+  (`geometry/curves/zhang-y-junction`).

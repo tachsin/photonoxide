@@ -49,6 +49,24 @@
 //! ]
 //! ```
 //!
+//! **Shapes defined by functions, and masks.** `[[task.shape]]` draws, in the same jobs, a region
+//! between two curves (`type = "between"`, `x`, `lower`, `upper`), a polar region (`"polar"`,
+//! `center`, `radius` of the angle `t`), the inside of a closed curve (`"parametric"`, `curve =
+//! [x(t), y(t)]`), an implicit region (`"implicit"`, `inside` = f(x, y) ≤ 0 in the window `x` by
+//! `y`) or a mask (`"mask"`, `corner`, `pixel`, `rows` from the top). Their definitions are
+//! expressions of the coordinates they give and of the task's parameters; [`check`] refuses
+//! what [`crate::geometry`] refuses (crossing curves, a curve that doesn't close or crosses
+//! itself, f with no zero set in its window), naming the table and type. See `shapes.rs`.
+//!
+//! ```toml
+//! [[task.shape]]
+//! type = "implicit"
+//! layer = "Si"
+//! inside = "(x/2um)^4 + (y/1um)^4 - 1"
+//! x = ["-3 um", "3 um"]
+//! y = ["-2 um", "2 um"]
+//! ```
+//!
 //! A modes job's sweep can step through any parameter, `parameter = "gap"`, from `from` to `to`
 //! (numbers in µm for a length and radians for an angle, or expressions with units: `"150 nm"`);
 //! at each point the parameters that use it follow, and the point records its shapes as a width
@@ -328,6 +346,7 @@ use crate::{Error, Result};
 mod fdfd;
 mod fdtd;
 mod params;
+mod shapes;
 
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub use fdtd::{FoundResonance, SpectrumSeries};
@@ -1243,6 +1262,8 @@ struct StructureTask {
     ring: Vec<RingSpec>,
     #[serde(default)]
     path: Vec<PathSpec>,
+    #[serde(default)]
+    shape: Vec<shapes::ShapeSpec>,
 }
 
 fn task_error(reason: impl Into<String>) -> Error {
@@ -1671,8 +1692,12 @@ fn draw(
 }
 
 /// `s` with `paths` drawn on it, after its other shapes, each as its simplest exact shape
-/// ([`crate::geometry::Path::shape`]).
-fn draw_paths(mut s: Structure, paths: &[PathSpec]) -> Result<Structure> {
+/// ([`crate::geometry::Path::shape`]), then `shapes`, the shapes defined by functions and masks.
+fn draw_paths(
+    mut s: Structure,
+    paths: &[PathSpec],
+    shapes: &[shapes::ShapeSpec],
+) -> Result<Structure> {
     for (k, p) in paths.iter().enumerate() {
         let shape = p.path(k)?.shape();
         match p.etch {
@@ -1688,7 +1713,7 @@ fn draw_paths(mut s: Structure, paths: &[PathSpec]) -> Result<Structure> {
                 })?,
         }
     }
-    Ok(s)
+    shapes::draw(s, shapes)
 }
 
 impl StructureTask {
@@ -1701,6 +1726,7 @@ impl StructureTask {
                 &self.ring,
             )?,
             &self.path,
+            &self.shape,
         )
     }
 }

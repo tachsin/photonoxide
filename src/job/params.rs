@@ -124,6 +124,15 @@ const SEGMENT: [(&str, usize, Want, &str); 8] = [
     ("p", 1, Want::Number, "p"),
 ];
 
+/// A `[[task.shape]]`'s fields that take places and sizes, as [`PATH`].
+const SHAPE: [(&str, usize, Want, &str); 5] = [
+    ("center", 2, Want::Length, "center_um"),
+    ("x", 2, Want::Length, "x_um"),
+    ("y", 2, Want::Length, "y_um"),
+    ("corner", 2, Want::Length, "corner_um"),
+    ("pixel", 2, Want::Length, "pixel_um"),
+];
+
 /// `value` (an expression's string, or a number) evaluated at the parameters, as `want` says.
 fn evaluate(value: &Value, p: &Parameters, want: Want) -> std::result::Result<f64, String> {
     let text =
@@ -281,6 +290,43 @@ pub(super) fn resolve(task: &Table, set: Option<(&str, f64)>) -> Result<Table> {
                     };
                     resolve_fields(segment, &SEGMENT, &p, &at)?;
                 }
+            }
+        }
+    }
+    // the shapes defined by functions: their places and sizes resolved; their definitions'
+    // expressions, which read coordinates, parsed when drawn, in the parameters' scope, which
+    // each entry gets here
+    if let Some(Value::Array(entries)) = out.get_mut("shape") {
+        let definitions: Vec<Value> = task
+            .get("parameters")
+            .and_then(Value::as_table)
+            .map(|t| {
+                t.iter()
+                    .filter_map(|(name, v)| {
+                        Some(Value::Array(vec![
+                            Value::String(name.clone()),
+                            Value::String(text(v)?),
+                        ]))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        for (k, entry) in entries.iter_mut().enumerate() {
+            let Value::Table(entry) = entry else {
+                continue;
+            };
+            let what = format!("[[task.shape]] #{}", k + 1);
+            let at =
+                |field: &str, message: String| task_error(format!("{what}, {field}: {message}"));
+            resolve_fields(entry, &SHAPE, &p, &at)?;
+            resolve_etch(entry, &p, &what)?;
+            entry.insert("parameters".into(), Value::Array(definitions.clone()));
+            entry.remove("set");
+            if let Some((name, value)) = set {
+                entry.insert(
+                    "set".into(),
+                    Value::Array(vec![Value::String(name.to_owned()), Value::Float(value)]),
+                );
             }
         }
     }

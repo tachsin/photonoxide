@@ -73,6 +73,8 @@ struct FdfdTask {
     #[serde(default)]
     path: Vec<PathSpec>,
     #[serde(default)]
+    shape: Vec<super::shapes::ShapeSpec>,
+    #[serde(default)]
     port: Vec<PortSpec>,
     sweep: Option<WavelengthSweep>,
 }
@@ -435,6 +437,7 @@ pub(super) fn preview(job: &Job) -> Result<Event> {
             &task.ring,
         )?,
         &task.path,
+        &task.shape,
     )?;
     scene_of(&task, &s)
 }
@@ -516,6 +519,7 @@ impl Device {
                 &task.ring,
             )?,
             &task.path,
+            &task.shape,
         )?;
         super::check_etches_2d(&structure, &task.layer)?;
         let (_, bottom, top) = structure

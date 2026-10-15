@@ -202,6 +202,8 @@ struct FdtdTask {
     #[serde(default)]
     path: Vec<PathSpec>,
     #[serde(default)]
+    shape: Vec<super::shapes::ShapeSpec>,
+    #[serde(default)]
     source: Vec<ItemSpec>,
     #[serde(default)]
     monitor: Vec<ItemSpec>,
@@ -430,6 +432,7 @@ impl Setup {
                 &task.ring,
             )?,
             &task.path,
+            &task.shape,
         )?;
         if !three {
             super::check_etches_2d(&structure, &task.layer)?;

@@ -10,6 +10,13 @@
 //! arc) and becomes polygons only when asked. A [`Transform`] (translation, rotation, mirror,
 //! scaling) maps a shape to one of its own kind, exactly. An [`Index`] over a layer's shapes
 //! finds those near a point or a cell. See docs/methods/geometry.md.
+//!
+//! Besides the primitives, polygons and [`Path`]s, a shape can be defined by functions, each an
+//! expression ([`crate::expr`]): the region [`Between`] two curves, y_low(x) ≤ y ≤ y_high(x); a
+//! [`Polar`] region, r ≤ ρ(θ); the inside of a [`ClosedCurve`] (x(t), y(t)); an [`Implicit`]
+//! region, f(x, y) ≤ 0. Each keeps its definition, tests points against it, and traces its
+//! boundary for distances, areas, polygons and fills. A [`Mask`] is a grid of fill values, a
+//! density for fills and areas and its binarisation at ½ for the rest.
 
 use std::f64::consts::TAU;
 
@@ -18,8 +25,14 @@ use crate::{Error, Result};
 
 mod boundary;
 pub(crate) mod checks;
+pub(crate) mod curve_checks;
+#[cfg(test)]
+mod curve_tests;
+mod curves;
 mod fresnel;
+mod implicit;
 mod index;
+mod mask;
 mod outline;
 mod path;
 pub(crate) mod path_checks;
@@ -29,9 +42,13 @@ mod primitives;
 mod region;
 #[cfg(test)]
 mod region_tests;
+mod trace;
 mod transform;
 
+pub use curves::{Between, ClosedCurve, Polar};
+pub use implicit::{IMPLICIT_CELLS, Implicit};
 pub use index::Index;
+pub use mask::Mask;
 pub use path::{Curve, End, PartialEuler, Path, PathBuilder, Profile, Segment, partial_euler};
 pub use primitives::{Ellipse, FILL_TOLERANCE, RegularPolygon, RoundedRect, Sector, Superellipse};
 pub use region::{Contour, Distance, Location, Polygons, Region, Tolerance};
@@ -293,6 +310,16 @@ pub enum Shape {
     RoundedRect(RoundedRect),
     /// A path: a centre line of segments with a width along it.
     Path(Path),
+    /// The region between two curves, y_low(x) ≤ y ≤ y_high(x), each an expression.
+    Between(Between),
+    /// A polar region, r ≤ ρ(θ), ρ an expression.
+    Polar(Polar),
+    /// The region inside a closed curve (x(t), y(t)), two expressions.
+    ClosedCurve(ClosedCurve),
+    /// An implicit region, f(x, y) ≤ 0, f an expression.
+    Implicit(Implicit),
+    /// A mask: fill values from 0 to 1 on a grid of pixels.
+    Mask(Mask),
 }
 
 impl Shape {
@@ -373,6 +400,11 @@ impl Shape {
             Shape::Superellipse(s) => Some(s),
             Shape::RoundedRect(s) => Some(s),
             Shape::Path(s) => Some(s),
+            Shape::Between(s) => Some(s),
+            Shape::Polar(s) => Some(s),
+            Shape::ClosedCurve(s) => Some(s),
+            Shape::Implicit(s) => Some(s),
+            Shape::Mask(s) => Some(s),
             Shape::Rect { .. } | Shape::Circle { .. } | Shape::Polygon(_) | Shape::Ring { .. } => {
                 None
             }
