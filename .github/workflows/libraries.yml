@@ -300,7 +300,7 @@ jobs:
       - name: Where it landed
         run: |
           for dir in /opt/arm "/c/Program Files/Arm Performance Libraries"; do
-            find "$dir" -iname "*armpl_lp64*" 2>/dev/null | head -20
+            find "$dir" -iname "*armpl_lp64*" 2>/dev/null | head -20 || true
           done
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
