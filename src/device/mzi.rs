@@ -141,7 +141,7 @@ impl StripMzi {
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidValue`] if the stack has no such layer.
+    /// [`crate::Error::InvalidValue`] if the stack has no such layer.
     pub fn on(stack: LayerStack, core: &str, y_branches: bool) -> Result<StripMzi> {
         Ok(StripMzi::of(
             if y_branches {

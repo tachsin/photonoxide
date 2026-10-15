@@ -62,7 +62,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "device/mzi-closed-form",
-            title: r"Devices: the MZI of directional couplers (analytic, arms 150 and 100 µm, a phase of 40°) solved as the netlist of its devices against the closed form $C_c\,\mathrm{diag}(t_l, t_u e^{i\varphi})\,C_s$ on the couplers' and arms' own S-matrices, and the MZI of Y-branches against $s^2 (t_u e^{i\varphi} + t_l)$, from 1.5 to 1.6 µm (largest $\lvert \Delta S \rvert$ shown)",
+            title: r"Devices: the MZI of directional couplers (analytic, arms 150 and 100 µm, a phase of 40°) solved as the netlist of its devices against the closed form $C_c \thinspace \mathrm{diag}(t_l, t_u e^{i\varphi}) \thinspace C_s$ on the couplers' and arms' own S-matrices, and the MZI of Y-branches against $s^2 (t_u e^{i\varphi} + t_l)$, from 1.5 to 1.6 µm (largest $\lvert \Delta S \rvert$ shown)",
             tier: Tier::Analytic,
             source: "the transfer matrices of a Mach-Zehnder interferometer (circuit::components::mzi_closed_form); the circuit solve is exact but for round-off",
             run: mzi_closed_form_case,

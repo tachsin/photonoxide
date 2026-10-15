@@ -427,7 +427,7 @@ one's extra length a detour of four quarter turns (radius up to 5 µm) away from
 the combiner on their ends. The netlist's arms are as long as the drawn ones' centre lines; their
 bends' loss and the mode's shift in them aren't modelled.
 
-It is the closed form of the transfer matrices, $C_c\,\mathrm{diag}(t_l, t_u e^{i\varphi})\,C_s$
+It is the closed form of the transfer matrices, $C_c \thinspace \mathrm{diag}(t_l, t_u e^{i\varphi}) \thinspace C_s$
 with each coupler's through and across fields, to round-off (`device/mzi-closed-form`; for the
 Y-branches, $s^2(t_u e^{i\varphi} + t_l)$), and its derivatives in the arms' lengths, the phase
 and the arms' loss are the circuit adjoint's, exact (`device/mzi-derivatives`).

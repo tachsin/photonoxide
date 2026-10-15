@@ -24,9 +24,9 @@ use super::{Built, Device, Geometry, Method, Range, Stated, Values, method, para
 /// Parameters `width`, `thickness`, `etch_depth`, `sidewall` (degrees), `length`, `loss` (dB/cm,
 /// what the mode solvers don't give), `wavelength` and `span`.
 ///
-/// - **2D:** the effective index method (Hocker & Burns 1977; [`Ridge`]): the slabs through
-///   the rib and beside it give the lateral slab's indices, TE-like. Labelled 2D: it is an
-///   approximation of the 3D guide, whose error against the full-vector solver the validation
+/// - **2D:** the effective index method (Hocker & Burns 1977; [`crate::mode::eim`]): the slabs
+///   through the rib and beside it give the lateral slab's indices, TE-like. Labelled 2D: it is
+///   an approximation of the 3D guide, whose error against the full-vector solver the validation
 ///   report measures and its method states. Sloped walls are taken at their mean width.
 /// - **3D:** the full-vector solver's mode at five wavelengths across the span, on the half
 ///   behind the vertical mirror plane (a rib isn't the same above and below its mid-plane), by
