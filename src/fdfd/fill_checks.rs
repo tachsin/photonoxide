@@ -175,7 +175,7 @@ fn guide_and_disk(r: f64) -> Plane {
 /// The fill makes the power a smooth function of the radius between the radii at which the
 /// circle passes a cell's corner, where its second derivative jumps; so the differences are
 /// taken over 0.1 nm, which no corner falls in here. (Over ± 1 and ± 2 nm, fourth-order
-/// differences differ from the adjoint by 4e-4 to 2e-2.)
+/// differences of the mean and the diagonal differ from the adjoint by 4e-4 to 1.6e-2.)
 pub(crate) fn radius_derivative(polarization: Polarization, averaging: Averaging) -> (f64, f64) {
     let (h, pml) = (0.02, 20);
     let grid = Grid {
@@ -355,12 +355,11 @@ pub(crate) fn crystal_band(
 /// their 10 to 100.
 pub(crate) const RESOLUTIONS: [usize; 8] = [10, 14, 20, 28, 40, 48, 56, 80];
 
-/// The crystal's lowest TE (H along z) band by the tensor at 320 cells per period: the
-/// reference its errors are taken from (`fill_checks::tests::reference`). At 80, 160 and 320
-/// cells the tensor gives 0.1269616, 0.1269568 and 0.1269600, within 4e-5 of one another
-/// (relative): the scatter Farjadpour et al.'s Fig. 1 shows too, so errors below about 5e-5
-/// aren't resolved by it, and the fits stop at 56 cells.
-pub(crate) const CRYSTAL_TE: f64 = 0.126_959_955_732_249;
+/// The crystal's lowest TE (H along z) band by the tensor at 160 and 320 cells per period
+/// (0.12696791 and 0.12696572; at 80, 0.12698373), extrapolated at second order: the reference
+/// its errors are taken from (`fill_checks::tests::reference`). It is 5.8e-6 (relative) from
+/// the value at 320 cells, so the fits stop at 56 cells, where the errors are well above that.
+pub(crate) const CRYSTAL_TE: f64 = 0.126_964_991_431;
 
 /// The same for TM (E along z): the mean at 160 and 320 cells per period (0.11414446 and
 /// 0.11414483), extrapolated at the second order its last three resolutions show (the changes
@@ -507,7 +506,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "fdfd/fill-crystal-te-tensor",
             title: r"Farjadpour et al.'s Fig. 1 as we draw it: a square lattice of elliptical air holes (semi-axes 0.32$a$ and 0.2$a$, turned 30°) in $\varepsilon$ = 12, the lowest TE ($H$ along $z$) band at $k = (0.3, 0.2)\thinspace 2\pi/a$ by 2D FDFD with the whole tensor; the order fitted to its relative errors at 10 to 56 cells per period (shown)",
             tier: Tier::Published,
-            source: r"A. Farjadpour et al., Opt. Lett. 31, 2972 (2006), doi:10.1364/OL.31.002972, Fig. 1: only their tensor converges quadratically, with scatter; the reference is the tensor at 320 cells per period (80, 160 and 320 agree within 4e-5); errors 1.8e-3 at 10 to 1.3e-5 at 80",
+            source: r"A. Farjadpour et al., Opt. Lett. 31, 2972 (2006), doi:10.1364/OL.31.002972, Fig. 1: only their tensor converges quadratically, with scatter; the reference is the tensor at 160 and 320 cells per period extrapolated at second order (5.8e-6 from the value at 320); errors 3.0e-3 at 10 to 1.5e-4 at 80",
             run: || {
                 order_outcome(
                     order(&crystal_errors(Polarization::Hz, Averaging::Tensor)[..FITTED]),
@@ -520,7 +519,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "fdfd/fill-crystal-te-others",
             title: r"The same band by every other average (point, samples, the mean, the tensor's diagonal): the largest order fitted at 10 to 56 cells per period (shown)",
             tier: Tier::Published,
-            source: r"Farjadpour et al. (2006), Fig. 1: the mean and the diagonal (their VP-EP) converge linearly, no smoothing erratically; here point 1.04, samples 0.83, mean 1.34, diagonal 0.93",
+            source: r"Farjadpour et al. (2006), Fig. 1: the mean and the diagonal (their VP-EP) converge linearly, no smoothing erratically; here point 1.05, samples 0.84, mean 1.33, diagonal 0.93",
             run: || {
                 let worst = [
                     Averaging::Point,

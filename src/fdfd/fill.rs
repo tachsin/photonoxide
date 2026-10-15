@@ -12,19 +12,25 @@
 //! **The off-diagonal coupling** (H along z, [`Averaging::Tensor`]). With E = ε̃⁻¹ D and
 //! D = (i/k₀)(∂_y H, −∂_x H), the operator becomes
 //! ∂_x(η_yy ∂_x H) + ∂_y(η_xx ∂_y H) − ∂_x(η_xy ∂_y H) − ∂_y(η_xy ∂_x H) + k₀² H, η = ε̃⁻¹.
-//! The new terms need ∂_y H on the x-faces and ∂_x H on the y-faces: the mean of the four
-//! nearest, as Farjadpour et al. take D_y at an E_x point from its four neighbours. Written with
-//! G_x and G_y, the differences from the cells to the x- and y-faces (Bloch phases included),
-//! and S, the mean of a y-face's four neighbours onto an x-face,
+//! The new terms need D_y at each E_x and D_x at each E_y: as Farjadpour et al. take them, the
+//! mean of the four nearest, each E's own off-diagonal entry times it. Written with G_x and G_y,
+//! the differences from the cells to the x- and y-faces (Bloch phases included), and S, the mean
+//! of a y-face's four neighbours onto an x-face,
 //!
-//! T = ½ [G_xᴴ η⁽ʸ⁾ S G_y + G_yᴴ Sᴴ η⁽ʸ⁾ G_x + G_yᴴ η⁽ˣ⁾ Sᴴ G_x + G_xᴴ S η⁽ˣ⁾ G_y],
+//! T = G_xᴴ η⁽ʸ⁾ S G_y + G_yᴴ η⁽ˣ⁾ Sᴴ G_x,
 //!
-//! η⁽ʸ⁾ the xy entry at the E_y points (x-faces) and η⁽ˣ⁾ at the E_x points (y-faces): each
-//! placement taken half, each with its transpose, so that T is symmetric (Hermitian with Bloch
-//! phases), as the rest of the operator is, and a lossless periodic problem keeps real
-//! eigenvalues. Inside a PML the row is divided by the cell's stretches s_x s_y, which keeps
-//! the system's complex symmetric similarity; the PML's own stretching of these terms is not
-//! modelled, which matters only where an oblique interface runs into a PML.
+//! η⁽ʸ⁾ the xy entry at the E_y points (x-faces) and η⁽ˣ⁾ at the E_x points (y-faces). T is not
+//! symmetric where η_xy varies, so the system is factorized by LU rather than through its
+//! complex symmetric similarity. That is FDFD's only price for it: in time the same placement
+//! grows from round-off ([`crate::fdtd`]), and the symmetric placements that are stable there
+//! are first order in the end at a sharp interface (G. R. Werner, C. A. Bauer, J. R. Cary,
+//! J. Comput. Phys. 255, 436 (2013), doi:10.1016/j.jcp.2013.08.009). Here the symmetric one,
+//! ½ (T + Tᵍ), each placement half with its transpose, was measured on Farjadpour et al.'s
+//! crystal: its band at 80, 160 and 320 cells per period changes by 4.8e-6 and then 3.2e-6,
+//! where this one's changes by 1.6e-5 and then 2.2e-6 (docs/methods/averaging.md). Inside a PML
+//! the row is divided by the cell's stretches s_x s_y, as the rest of it is; the PML's own
+//! stretching of these terms is not modelled, which matters only where an oblique interface runs
+//! into a PML.
 
 use std::collections::BTreeMap;
 
@@ -378,7 +384,7 @@ pub(super) fn with_mixed(
     let mut mixed: Vec<(usize, usize, c64)> = Vec::new();
     let x_faces = if px.is_some() { 1..=nx } else { 0..=nx };
     let y_faces = if py.is_some() { 1..=ny } else { 0..=ny };
-    // η at the E_y points (x-faces): ½ (G_xᴴ η S G_y + its transpose)
+    // E_y's entry, on the x-faces: G_xᴴ η S G_y
     for j in 0..ny {
         for i in x_faces.clone() {
             let eta = eta_y[j * (nx + 1) + i];
@@ -388,14 +394,13 @@ pub(super) fn with_mixed(
             for (r, a) in gx(i, j).into_iter().flatten() {
                 for (c, l, s) in s_yx(i, j) {
                     for (col, bb) in gy(c, l).into_iter().flatten() {
-                        mixed.push((r, col, 0.5 * a.conj() * eta * s * bb));
-                        mixed.push((col, r, 0.5 * bb.conj() * s.conj() * eta * a));
+                        mixed.push((r, col, a.conj() * eta * s * bb));
                     }
                 }
             }
         }
     }
-    // η at the E_x points (y-faces): ½ (G_yᴴ η Sᴴ G_x + its transpose)
+    // E_x's entry, on the y-faces: G_yᴴ η Sᴴ G_x
     for l in y_faces {
         for c in 0..nx {
             let eta = eta_x[l * nx + c];
@@ -405,8 +410,7 @@ pub(super) fn with_mixed(
             for (r, bb) in gy(c, l).into_iter().flatten() {
                 for (i, j, s) in s_xy(c, l) {
                     for (col, a) in gx(i, j).into_iter().flatten() {
-                        mixed.push((r, col, 0.5 * bb.conj() * eta * s * a));
-                        mixed.push((col, r, 0.5 * a.conj() * s.conj() * eta * bb));
+                        mixed.push((r, col, bb.conj() * eta * s * a));
                     }
                 }
             }

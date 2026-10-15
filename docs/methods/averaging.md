@@ -8,6 +8,8 @@ papers:
     doi: 10.1364/OL.31.002972
   - cite: "K. S. Yee, IEEE Trans. Antennas Propag. 14, 302 (1966) (where each component sits)"
     doi: 10.1109/TAP.1966.1138693
+  - cite: "G. R. Werner, C. A. Bauer, J. R. Cary, J. Comput. Phys. 255, 436 (2013) (symmetric placements first order at sharp interfaces)"
+    doi: 10.1016/j.jcp.2013.08.009
   - cite: "G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004) (the adjoint derivative)"
     doi: 10.1364/OL.29.002288
 validation:
@@ -86,18 +88,23 @@ grid: $E_z$ at the cells' centres, $E_y$ on the $x$-faces, $E_x$ on the $y$-face
 - **$H$ along $z$.** $1/\varepsilon_y = (\tilde\varepsilon^{-1})_{yy}$ on the $x$-faces and
   $1/\varepsilon_x = (\tilde\varepsilon^{-1})_{xx}$ on the $y$-faces. With the tensor, the
   operator gains $-\partial_x(\eta_{xy}\partial_y H) - \partial_y(\eta_{xy}\partial_x H)$,
-  $\eta = \tilde\varepsilon^{-1}$. Those terms need $\partial_y H$ on the $x$-faces and
-  $\partial_x H$ on the $y$-faces: the mean of the four nearest, as Farjadpour et al. take $D_y$
-  at an $E_x$ point. Written with $G_x$, $G_y$ (the differences from the cells to the faces,
+  $\eta = \tilde\varepsilon^{-1}$. Those terms need $D_y$ at each $E_x$ and $D_x$ at each $E_y$:
+  as Farjadpour et al. take them, the mean of the four nearest, times each $E$'s own
+  off-diagonal entry. Written with $G_x$, $G_y$ (the differences from the cells to the faces,
   Bloch phases included) and $S$ (the four-point mean from the $y$-faces to the $x$-faces),
   $$
-  T = \tfrac12\left[G_x^H \eta^{(y)} S G_y + G_y^H S^H \eta^{(y)} G_x + G_y^H \eta^{(x)} S^H G_x + G_x^H S\thinspace \eta^{(x)} G_y\right]:
+  T = G_x^H \eta^{(y)} S\thinspace G_y + G_y^H \eta^{(x)} S^H G_x,
   $$
-  each placement of $\eta_{xy}$ taken half, each with its transpose. $T$ is then symmetric
-  (Hermitian with Bloch phases) as the rest of the operator is, so a lossless periodic problem
-  keeps real eigenvalues and the direct solve its complex symmetric factorization. Inside a PML
-  the terms are divided by the cell's stretches, which keeps that symmetry; the PML's stretching
-  of them is not modelled, which matters only where a slanted interface runs into a PML.
+  $\eta^{(y)}$ the entry at the $E_y$ points and $\eta^{(x)}$ at the $E_x$ points. Where
+  $\eta_{xy}$ varies, $T$ is not symmetric, so the problem is factorized by LU instead of
+  through its complex symmetric similarity: about twice the work and memory, FDFD's only price.
+  (In time the same placement grows from round-off, [FDTD](fdtd.md); and the symmetric
+  placements that are stable there are first order in the end at a sharp interface, as Werner,
+  Bauer and Cary find. The symmetric one here, $\tfrac12(T + T^g)$, each placement half with its
+  transpose, does that on the crystal below: its band at 80, 160 and 320 cells per period moves
+  by 4.8e-6 and then 3.2e-6, where this one's moves by 1.6e-5 and then 2.2e-6.) Inside a PML the
+  terms are divided by the cell's stretches, as the rest of the row is; the PML's stretching of
+  them is not modelled, which matters only where a slanted interface runs into a PML.
 
 `Averaging::Samples` from a plane is `Solver2d::new` with the plane's permittivity at each point,
 to the bit. `reuse_plane` reuses the analysis of the matrix's sparsity, except with the tensor,
@@ -200,22 +207,23 @@ Every number with its grid; the slabs' and crystals' are 2D or a film's, never a
 
   | | point | samples | mean | diagonal | tensor |
   |---|---|---|---|---|---|
-  | TE ($H$ along $z$) | 1.04 | 0.83 | 1.34 | 0.93 | 1.73 |
+  | TE ($H$ along $z$) | 1.05 | 0.84 | 1.33 | 0.93 | 1.81 |
   | TM ($E$ along $z$) | 1.28 | 1.78 | 2.02 | 2.02 | 2.02 |
 
   As in the paper: in TE only the tensor converges at second order, with scatter, and its
-  errors are the smallest by far (1.8e-3 at 10 cells to 1.3e-5 at 80, against 1.3e-2 to 9.6e-4
-  for the mean); the diagonal is no better than points. In TM every smoothing is the mean and is
-  second order. The paper finds TM without smoothing quadratic too; ours is erratic (1.28). The
-  TE reference is the tensor at 320 cells per period, 0.1269600 $\omega a/2\pi c$ (80, 160 and
-  320 cells agree within 4e-5, so the fit stops at 56); the TM reference the mean at 160 and 320
-  extrapolated at the second order its last three resolutions show, 0.1141450.
+  errors are the smallest (3.0e-3 at 10 cells to 1.5e-4 at 80, against 1.3e-2 to 1.0e-3 for
+  the mean and 1.1e-2 to 1.7e-3 for the diagonal); the diagonal is no better than points. In TM
+  every smoothing is the mean and is second order. The paper finds TM without smoothing
+  quadratic too; ours is erratic (1.28). The references are the tensor's TE band (0.1269650
+  $\omega a/2\pi c$) and the mean's TM band (0.1141450), each at 160 and 320 cells per period
+  extrapolated at second order: 5.8e-6 and 1.1e-6 from their values at 320 cells, well below the
+  errors fitted.
 - **Derivatives** (`fdfd/fill-derivative-*`): a disk of $\varepsilon$ 6 and radius 0.13 µm
   beside a 220 nm silicon slab, 20 nm grid, the power into the far port's mode: the adjoint's
   derivative with respect to the radius against central differences of full solves over the
   same $\pm$0.1 nm, within 2.2e-6 ($E$ along $z$) and 8.5e-6 ($H$ along $z$, the mean; the
-  tensor 2.7e-6). Over $\pm$1 and $\pm$2 nm, fourth-order differences differ by 4e-4 to 2e-2:
-  the radius passes cells' corners there.
+  tensor 1.1e-6). Over $\pm$1 and $\pm$2 nm, fourth-order differences of the mean and the
+  diagonal differ from the adjoint by 4e-4 to 1.6e-2: the radius passes cells' corners there.
 
 ## What was left out
 

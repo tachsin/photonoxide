@@ -112,10 +112,13 @@ fn the_mixed_terms_are_the_cross_derivative_on_a_plane_wave() {
     );
 }
 
+/// Where η_xy is the same everywhere, each placement is the other's transpose, so the operator is
+/// Hermitian with Bloch sides and symmetric with walls; across a disk's edge it is neither, and
+/// the problem is factorized by LU.
 #[test]
-fn the_mixed_terms_keep_the_operator_hermitian_with_bloch_sides_and_symmetric_with_walls() {
-    let plane = disk_plane();
+fn a_uniform_tensors_mixed_terms_are_symmetric_and_a_disks_are_not() {
     let g = grid();
+    let (nx, ny) = (g.nx, g.ny);
     for bloch in [true, false] {
         let (x, y) = if bloch {
             (Edges::Bloch { k: 1.3 }, Edges::Bloch { k: -0.7 })
@@ -129,8 +132,9 @@ fn the_mixed_terms_keep_the_operator_hermitian_with_bloch_sides_and_symmetric_wi
             reflection: 1e-8,
             order: 3.0,
         };
-        let (_, eps_y, eps_x, eta) = plane_values(g, Polarization::Hz, &plane, Averaging::Tensor);
-        assert!(eta.0.iter().any(|e| e.norm() > 1e-3));
+        let eps_y = vec![re(4.0); (nx + 1) * ny];
+        let eps_x = vec![re(5.0); nx * (ny + 1)];
+        let eta = (vec![re(0.03); nx * (ny + 1)], vec![re(0.03); (nx + 1) * ny]);
         let entries = super::super::assemble(g, Polarization::Hz, 1.0, &[], &eps_y, &eps_x, &b);
         let entries = with_mixed(entries, g, 1.0, &eta, &b);
         let mut m = std::collections::BTreeMap::new();
@@ -143,4 +147,27 @@ fn the_mixed_terms_keep_the_operator_hermitian_with_bloch_sides_and_symmetric_wi
             assert!((v - mirror).norm() < 1e-9 * v.norm(), "{r} {c} {v} {w}");
         }
     }
+    let lam = Wavelength::um(1.55).unwrap();
+    let s = Solver2d::from_plane_on(
+        g,
+        Polarization::Hz,
+        lam,
+        &disk_plane(),
+        Boundaries::pml(8),
+        Averaging::Tensor,
+        &Choice::Photonoxide,
+    )
+    .unwrap();
+    assert!(!s.lu.symmetric());
+    let d = Solver2d::from_plane_on(
+        g,
+        Polarization::Hz,
+        lam,
+        &disk_plane(),
+        Boundaries::pml(8),
+        Averaging::Diagonal,
+        &Choice::Photonoxide,
+    )
+    .unwrap();
+    assert!(d.lu.symmetric());
 }
