@@ -182,7 +182,8 @@
   const record = $derived<StudyRecord | null>(live && run.study ? { study: run.study, points: run.points } : opened && opened.dir === st.shown ? opened.record : null);
   $effect(() => {
     const dir = st.shown;
-    if (!dir || (run.info?.dir === dir && run.study) || opened?.dir === dir) return;
+    // the run the window follows is shown live from its events, never read half-written
+    if (!dir || run.info?.dir === dir || opened?.dir === dir) return;
     api
       .runEvents(dir)
       .then((events) => (opened = { dir, record: recordOf(events as Event[]), problem: "" }))
