@@ -403,19 +403,65 @@ fn outside_the_fits_the_page_is_told_and_offered_the_3d_model() {
     assert!(derived(&spec, "analytic").err().unwrap().contains("3D"));
 }
 
+/// A fixed piece of work on one thread, owing nothing to the code under test: a polygon of
+/// 4000 vertices traced, its area summed, and its vertices sorted, twice over. Timed beside
+/// a slider's updates, it says how busy the machine is.
+fn yardstick() -> Duration {
+    let t = Instant::now();
+    let mut area = 0.0;
+    for turn in 0..2 {
+        let n = 4000;
+        let mut points: Vec<(f64, f64)> = (0..n)
+            .map(|k| {
+                let a = std::f64::consts::TAU * f64::from(k) / f64::from(n);
+                let r = 1.0 + 0.1 * (7.0 * a + f64::from(turn)).sin();
+                (r * a.cos(), r * a.sin())
+            })
+            .collect();
+        area += points
+            .iter()
+            .zip(points.iter().cycle().skip(1))
+            .map(|(p, q)| p.0 * q.1 - q.0 * p.1)
+            .sum::<f64>()
+            / 2.0;
+        points.sort_unstable_by(|p, q| p.0.total_cmp(&q.0));
+        area += std::hint::black_box(points[0].1);
+    }
+    std::hint::black_box(area);
+    t.elapsed()
+}
+
+/// The middle of `times`.
+fn median(mut times: Vec<Duration>) -> Duration {
+    times.sort_unstable();
+    times[times.len() / 2]
+}
+
 #[test]
 fn a_slider_drag_keeps_up_at_the_analytic_fidelity() {
     // the page asks again 60 ms after a slider stops: each of a drag's updates (the form, the
     // geometry and scene, the figures, and 501 wavelengths of S-parameters) must take less
     const BUDGET: Duration = Duration::from_millis(60);
+    // The budget is for a machine with nothing else to do and about as fast as CI's runners,
+    // on which the yardstick takes this long at most: it takes 2.2 ms on a 20-thread desktop
+    // (its code unoptimized, as the tests build it), and CI's runners are about half as fast.
+    // A machine that other work slows (CI's runners share their hosts; a suite runs its tests
+    // at once) slows the yardstick too: each update is timed beside it, and counted at an idle
+    // machine's speed, its time divided by how many times this the yardstick took, if more.
+    // Only the machine's slowness is divided out: an update that does more work, or slower
+    // work, is as much slower beside the same yardstick, and still fails. And the median of a
+    // drag's updates, not their mean, so that the few a burst of other work catches don't
+    // decide.
+    const IDLE: Duration = Duration::from_millis(5);
     for d in device::library() {
         // the rib and the MMIs have no analytic model: their cheapest solves slabs
         if d.fidelities()[0].fidelity != Fidelity::Analytic {
             continue;
         }
         let steps = 40;
-        let started = Instant::now();
-        let mut slowest = Duration::ZERO;
+        let mut times = Vec::new();
+        let mut idle = Vec::new();
+        let mut yards = Vec::new();
         for k in 0..steps {
             let width = 0.45 + 0.1 * f64::from(k) / f64::from(steps - 1);
             let t = Instant::now();
@@ -424,10 +470,21 @@ fn a_slider_drag_keeps_up_at_the_analytic_fidelity() {
             assert_eq!(view.problem, None);
             derived(&spec, "analytic").unwrap();
             spectrum(&spec, "analytic", Sweep::default()).unwrap();
-            slowest = slowest.max(t.elapsed());
+            let time = t.elapsed();
+            let yard = yardstick();
+            times.push(time);
+            idle.push(time.div_f64((yard.as_secs_f64() / IDLE.as_secs_f64()).max(1.0)));
+            yards.push(yard);
         }
-        let mean = started.elapsed() / steps;
-        println!("{}: {mean:?} an update, the slowest {slowest:?}", d.kind());
+        let mean = times.iter().sum::<Duration>() / steps;
+        let slowest = times.iter().max().unwrap();
+        let yard = median(yards);
+        let median = median(idle);
+        println!(
+            "{}: {mean:?} an update, the slowest {slowest:?}; the yardstick's median {yard:?}, \
+             and an update's at an idle machine's speed {median:?}",
+            d.kind()
+        );
         // a Y-branch's update traces its spline outline, a region between two curves, and its
         // arms, each curve a polygon within 1 nm for the 3D scene (about 30 ms here, 60 on
         // CI's macOS runner); an MZI's draws a whole circuit, two splitters and the arms' bends
@@ -440,8 +497,9 @@ fn a_slider_drag_keeps_up_at_the_analytic_fidelity() {
             BUDGET
         };
         assert!(
-            mean < budget,
-            "{}: {mean:?} an update, over the {budget:?} the page waits",
+            median < budget,
+            "{}: {median:?} an update at an idle machine's speed ({mean:?} here, the \
+             yardstick's median {yard:?}), over the {budget:?} the page waits",
             d.kind()
         );
     }

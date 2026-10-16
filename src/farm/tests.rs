@@ -468,21 +468,36 @@ fn a_farm_stops_at_its_deadline_with_the_points_done_recorded_in_order() {
     let (done, all) = alone(&text, &Stop::new(None));
     done.unwrap();
     let whole = started.elapsed();
-    let deadline = whole / 3;
     let farm = farm_of(&workers(2, 1), FarmOptions::default());
-    let started = Instant::now();
-    let (done, lines) = farmed(&text, &farm, &Stop::new(Some(deadline)));
-    done.unwrap();
-    // it stopped soon after its deadline, not when the workers were done
-    assert!(
-        started.elapsed() < deadline + Duration::from_secs(2),
-        "{:?} for a deadline of {deadline:?}",
-        started.elapsed()
-    );
-    let (last, before) = lines.split_last().unwrap();
-    assert!(last.contains("\"stopped\":\"timeout\""), "{last}");
-    assert!(before.len() < all.len() - 1, "it didn't stop");
-    assert_eq!(before, &all[..before.len()]);
+    // A deadline of a third of the sweep alone, which two workers can't meet; but on a machine
+    // that other work slowed while the sweep ran alone, and spares while it is farmed, they
+    // can. Then the farm tries again with half the deadline, up to five times, down to a 48th
+    // of the sweep alone. Every try must end soon after its deadline, and one that finished
+    // must have recorded the whole sweep; a farm that ignored its deadline finishes every
+    // try, and fails the fifth, by which no machine's load can account for it.
+    let mut deadline = whole / 3;
+    for attempt in 1.. {
+        let started = Instant::now();
+        let (done, lines) = farmed(&text, &farm, &Stop::new(Some(deadline)));
+        done.unwrap();
+        let took = started.elapsed();
+        // it stopped soon after its deadline, not when the workers were done
+        assert!(
+            took < deadline + Duration::from_secs(2),
+            "try {attempt}: {took:?} for a deadline of {deadline:?}",
+        );
+        // the points done, in order
+        let (last, before) = lines.split_last().unwrap();
+        assert_eq!(before, &all[..before.len()]);
+        if before.len() < all.len() - 1 {
+            // cut short, and it says why
+            assert!(last.contains("\"stopped\":\"timeout\""), "{last}");
+            break;
+        }
+        assert!(attempt < 5, "it didn't stop, at a deadline of {deadline:?}");
+        println!("try {attempt}: the whole sweep done in {took:?}, by a deadline of {deadline:?}");
+        deadline /= 2;
+    }
 }
 
 #[test]
