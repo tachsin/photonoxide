@@ -54,7 +54,7 @@ use serde::{Deserialize, Serialize};
 use toml::{Table, Value};
 
 use super::device::{
-    Compute, DeviceFigure, band_of, built, fidelity_name, grids_of, own_band, scene_ports, spec_of,
+    Compute, DeviceFigure, band_of, fidelity_name, grids_of, own_band, scene_ports, spec_of,
 };
 use super::{Event, task_error};
 use crate::circuit::Fidelity;
@@ -847,12 +847,17 @@ fn point(p: &Prepared, k: usize, stop: &Stop) -> Result<Option<Vec<Event>>> {
         effective_indices: Vec::new(),
         s: Vec::new(),
     };
+    if stop.reason().is_some() {
+        return Ok(None);
+    }
     let solved = (|| -> Result<Option<_>> {
         let (_, design) = spec.build()?;
         let device = spec.device_with(&p.grids)?;
-        let Some(b) = built(device, &design, spec.fidelity, stop)? else {
-            return Ok(None);
-        };
+        // solved here, on this point's rayon task, so that the solve's own parallel work runs
+        // on the pool too: a point waiting on a thread of its own would hold a worker the solve
+        // needs, and with as many points in flight as workers none would finish. A stop ends
+        // the study at its next point; a solve already started finishes.
+        let b = device.component(design.values(), spec.fidelity)?;
         let s = p
             .wavelengths
             .iter()

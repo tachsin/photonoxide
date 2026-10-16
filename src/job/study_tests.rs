@@ -208,6 +208,41 @@ fn a_sweep_records_the_same_bits_on_one_thread_and_twenty() {
 }
 
 #[test]
+fn a_sweep_of_solves_finishes_and_agrees_on_one_thread_and_on_as_many_as_its_points() {
+    // each point a 3D solve whose own work runs on rayon's pool, solved on the point's own task:
+    // a point that waited on a thread of its own held a worker the solve needed, and with as
+    // many points in flight as the pool's workers (four on CI's runners) nothing finished
+    let s = spec("directional coupler", Fidelity::ThreeD, &[]);
+    let compute = Compute {
+        step_nm: Some(50.0),
+        margin_um: Some(0.5),
+        band: Some((1.55, 1.55, 1)),
+        ..Compute::model()
+    };
+    let study = Study::Sweep(vec![SweepAxis::new("gap", 0.15, 0.25, 3)]);
+    let job = study_from_device("solves", &s, &compute, &study).unwrap();
+    let one = lines_on(&job, 1, "solves-one");
+    let three = lines_on(&job, 3, "solves-three");
+    assert_eq!(one, three);
+    // and on rayon's own pool, whatever its size (the suite runs it on one thread too)
+    let root = temp("solves-global");
+    let mut run = Run::create(&root.0, &job).unwrap();
+    execute(&job, &mut run, &Stop::new(None)).unwrap();
+    let global: Vec<String> = std::fs::read_to_string(run.dir().join("events.jsonl"))
+        .unwrap()
+        .lines()
+        .filter(|l| !l.starts_with("{\"type\":\"finished\""))
+        .map(str::to_owned)
+        .collect();
+    assert_eq!(global, one);
+    let points = one
+        .iter()
+        .filter(|l| l.starts_with("{\"type\":\"device_point\""))
+        .count();
+    assert_eq!(points, 3);
+}
+
+#[test]
 fn a_parameter_the_expressions_name_is_swept_through_them() {
     // w drives the width and the gap: each point is the design with w at that value, in µm
     let s = spec(

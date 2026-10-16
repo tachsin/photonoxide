@@ -605,7 +605,7 @@ pub(super) fn fidelity_name(f: Fidelity) -> &'static str {
 /// The device's component at its values and fidelity, built on a thread of its own so that a
 /// stop ends the run at once (the solve already started is let go, its result discarded);
 /// `None` when the stop came first.
-pub(super) fn built(
+fn built(
     device: Box<dyn Device>,
     design: &Design,
     f: Fidelity,

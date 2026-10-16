@@ -603,7 +603,9 @@ in order: the device's values there, its figures with their grid, its ports' eff
 and its S-matrices over the band. A point the model refuses (an analytic fit outside its range,
 a solve that fails) records why, and the study goes on. The points are solved side by side on
 rayon's threads, as many at once as memory allows by their solves' size, or by a farm's workers
-([farming](../farming.md)); the record is the same on any number of threads or workers.
+([farming](../farming.md)); the record is the same on any number of threads or workers. A stop
+(the window's Stop, the job's timeout) ends the study at its next point, the points done kept; a
+solve already started finishes first.
 
 `job::check` builds every point's design, refuses a 3D FDFD at any point larger than the direct
 solver holds here, at most 10 000 points (an axis of 2 to 1001), 256 corners, a parameter the
