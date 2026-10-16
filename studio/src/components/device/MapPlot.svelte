@@ -116,6 +116,8 @@
       toast(String(e), "error");
     }
   }
+  /** A colour bar's end: four significant digits. */
+  const short = (v: number) => (Math.abs(v) >= 1e5 || (Math.abs(v) < 1e-3 && v !== 0) ? v.toExponential(2) : String(Number(v.toPrecision(4))));
   const show = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? "no value: the model refused this point" : v.toPrecision(6));
 </script>
 
@@ -167,8 +169,8 @@
         <rect x={L + plotW + 14} y={T + plotH - ((k + 1) * plotH) / 48} width="12" height={plotH / 48 + 0.5} fill={colour(k / 47)} />
       {/each}
       <rect x={L + plotW + 14} y={T} width="12" height={plotH} class="fill-none stroke-base-content/20" />
-      <text x={L + plotW + 30} y={T + 6} class="fill-base-content/60 text-[10px]">{label(hi)}</text>
-      <text x={L + plotW + 30} y={T + plotH} class="fill-base-content/60 text-[10px]">{label(lo)}</text>
+      <text x={L + plotW + 30} y={T + 6} class="fill-base-content/60 text-[10px]">{short(hi)}</text>
+      <text x={L + plotW + 30} y={T + plotH} class="fill-base-content/60 text-[10px]">{short(lo)}</text>
     </svg>
     {#if hover}
       {@const v = values[hover.i]?.[hover.j]}

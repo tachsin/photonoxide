@@ -221,7 +221,7 @@ fn every_job_has_a_home() {
         "onrun={() => startRun(() => api.runText(j.text)",
         "Run",
     );
-    holds(home, "onopen={() => {", "Open");
+    holds(home, "onopen={async () => {", "Open");
     holds(
         "components/JobCard.svelte",
         "<Play size={14} /> Run</button>",
@@ -270,6 +270,10 @@ fn every_job_opens_in_the_custom_device_or_on_its_devices_page() {
     holds(palette, "run: () => openDesign(j.path)", "Ctrl+K: a design");
     holds(palette, "run: () => openJob(j.path)", "Ctrl+K: a job");
     holds(palette, "run: () => openText(j.text)", "Ctrl+K: a template");
+    // a template that is a device's job (a study, say) opens on its device's page
+    for file in ["pages/Home.svelte", components, palette] {
+        holds(file, "openDeviceText(", "a device's template, on its page");
+    }
     holds(
         palette,
         r#"label: "Custom device""#,

@@ -2,7 +2,7 @@
 // it is being edited (its stack, its parameters' expressions, its fidelity), where it was saved,
 // and the solves started from it, which go on in the background while the page is left.
 
-import { api, type Compute, type DeviceDerived, type DeviceFigure, type DeviceInfo, type DeviceMethod, type DeviceSpec, type DeviceSpectrum, type LayerSpec, type RunItem, type StackSpec, type StudyIn } from "./api";
+import { api, type Compute, type DeviceDerived, type DeviceFigure, type DeviceInfo, type DeviceMethod, type DeviceSpec, type DeviceSpectrum, type LayerSpec, type RunItem, type SavedDevice, type StackSpec, type StudyIn } from "./api";
 import { app, go, startRun, startRunHere, toast } from "./app.svelte";
 
 export const devices = $state({
@@ -291,37 +291,58 @@ export async function openRunItem(r: RunItem) {
 export async function openDesign(path: string) {
   await loadDevices();
   try {
-    const s = await api.readDevice(path);
-    const d = devices.list.find((x) => x.kind === s.spec.kind);
-    if (!d) throw new Error(`no device "${s.spec.kind}"`);
-    const draft: Draft = { spec: s.spec, name: s.name, path: s.path, about: s.about, saved: key(s.spec, d), tab: "design", compute: defaultCompute(), text: null };
-    if (s.job) {
-      const form = await api.deviceJobRead(s.job);
-      draft.tab = "simulate";
-      draft.fromJob = true;
-      if (form.study && form.compute && !form.error && !form.beyond.length) {
-        // a study: its sweep or corners on the Study tab, its grid the Simulate tab's
-        const st = studyOf(d);
-        st.mode = form.study.kind;
-        st.band = form.compute.band;
-        st.rung = rungOf(s.spec.fidelity, form.compute.fdfd_2d);
-        if (form.study.kind === "sweep") {
-          st.axes = form.study.axes;
-          st.two = form.study.axes.length > 1;
-        } else st.corners.fixed = form.study.corners;
-        draft.tab = "study";
-        draft.compute = { ...form.compute, band: null };
-        drafts[d.id] = draft;
-        openDevice(d.id);
-        return;
-      }
-      if (form.compute) draft.compute = form.compute;
-      // what the form can't hold stays in the text, which the run then uses as it is
-      draft.text = form.beyond.length || form.error ? s.job : null;
-    }
-    drafts[d.id] = draft;
-    openDevice(d.id);
+    await openSaved(await api.readDevice(path));
   } catch (e) {
     toast(`Couldn't open the design: ${e}`, "error");
   }
+}
+
+/**
+ * Opens a job's text on its device's page when it has a `[device]` table (a built-in template's,
+ * say), as a design not saved yet: true when it did, false for a job without a device.
+ */
+export async function openDeviceText(text: string): Promise<boolean> {
+  if (!/^\s*\[device\]/m.test(text)) return false;
+  await loadDevices();
+  try {
+    const form = await api.deviceJobRead(text);
+    if (!form.spec) throw new Error(form.error ?? "it has no design");
+    await openSaved({ spec: form.spec, name: form.name, path: null, about: "", job: text });
+  } catch (e) {
+    toast(`Couldn't open the design: ${e}`, "error");
+  }
+  return true;
+}
+
+/** Opens a design read from a file or a text on its device's page: on Design, or for a job that computes it on Simulate with its text, or that studies it on Study. */
+async function openSaved(s: Omit<SavedDevice, "path"> & { path: string | null }) {
+  const d = devices.list.find((x) => x.kind === s.spec.kind);
+  if (!d) throw new Error(`no device "${s.spec.kind}"`);
+  const draft: Draft = { spec: s.spec, name: s.name, path: s.path, about: s.about, saved: key(s.spec, d), tab: "design", compute: defaultCompute(), text: null };
+  if (s.job) {
+    const form = await api.deviceJobRead(s.job);
+    draft.tab = "simulate";
+    draft.fromJob = true;
+    if (form.study && form.compute && !form.error && !form.beyond.length) {
+      // a study: its sweep or corners on the Study tab, its grid the Simulate tab's
+      const st = studyOf(d);
+      st.mode = form.study.kind;
+      st.band = form.compute.band;
+      st.rung = rungOf(s.spec.fidelity, form.compute.fdfd_2d);
+      if (form.study.kind === "sweep") {
+        st.axes = form.study.axes;
+        st.two = form.study.axes.length > 1;
+      } else st.corners.fixed = form.study.corners;
+      draft.tab = "study";
+      draft.compute = { ...form.compute, band: null };
+      drafts[d.id] = draft;
+      openDevice(d.id);
+      return;
+    }
+    if (form.compute) draft.compute = form.compute;
+    // what the form can't hold stays in the text, which the run then uses as it is
+    draft.text = form.beyond.length || form.error ? s.job : null;
+  }
+  drafts[d.id] = draft;
+  openDevice(d.id);
 }

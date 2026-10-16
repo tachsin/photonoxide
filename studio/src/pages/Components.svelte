@@ -24,7 +24,7 @@
   import { catalog, loadCatalog } from "../lib/catalog.svelte";
   import { addInstance, exportTouchstone, importTouchstone, library, loadLibrary, partKey, partOf } from "../lib/chip.svelte";
   import { sweepProblem, type Quantity } from "../lib/circuit";
-  import { deviceOf, devices, loadDevices, openDesign } from "../lib/device.svelte";
+  import { deviceOf, devices, loadDevices, openDesign, openDeviceText } from "../lib/device.svelte";
   import { label } from "../lib/plot";
   import { isMicrometres, len, showIn, shown as inUnit, storeIn, stored, unitOf } from "../lib/units";
 
@@ -330,7 +330,7 @@
       {#if templates.length}
         <div class="px-3 pt-3 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">Templates</div>
         {#each templates as j (j.file)}
-          <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={() => (fold(), openCustom(j.text))} title="{j.about}: opens in the Custom device, to change and save as your own">
+          <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={async () => (fold(), (await openDeviceText(j.text)) || openCustom(j.text))} title="{j.about}: opens {j.kind === 'device' ? 'on its device’s page' : 'in the Custom device'}, to change and save as your own">
             <span class="grid h-7 w-11 shrink-0 place-items-center faint"><Copy size={14} /></span>
             <span class="min-w-0 flex-1">
               <span class="block truncate text-sm">{j.name}</span>

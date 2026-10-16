@@ -10,7 +10,7 @@
   import { ago, api, duration, KINDS, type Home } from "../lib/api";
   import { app, go, newCustom, openCustom, run, showCases, showPublished, startRun } from "../lib/app.svelte";
   import { catalog, loadCatalog } from "../lib/catalog.svelte";
-  import { openRunItem } from "../lib/device.svelte";
+  import { openDeviceText, openRunItem } from "../lib/device.svelte";
   import { showChip } from "../lib/chip.svelte";
   import type { Kind } from "../lib/job";
 
@@ -116,8 +116,9 @@
               about={j.about}
               text={j.text}
               onrun={() => startRun(() => api.runText(j.text), `Running ${j.name}`)}
-              onopen={() => {
-                openCustom(j.text);
+              onopen={async () => {
+                // a device's job on its device's page, any other in the Custom device
+                if (!(await openDeviceText(j.text))) openCustom(j.text);
               }}
             />
           {:else}
