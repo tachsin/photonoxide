@@ -177,6 +177,15 @@
 //! [`Event::DevicePoint`] per point, side by side on rayon's threads or a farm's workers and to
 //! the bit of each point's own job. [`study_from_device`] writes such a job. See `study.rs`.
 //!
+//! **A device fitted.** `kind = "fit"` fits a compact model of the device to its own runs at the
+//! design's fidelity, over one to four of its parameters: each sample the design computed as a
+//! `"spectrum"` task computes it (on a grid or a Latin hypercube, some held out of the fit to
+//! measure its error), side by side on rayon's threads or a farm's workers, recorded as
+//! [`Event::CompactPlan`], an [`Event::DevicePoint`] per sample and [`Event::CompactFit`], the
+//! model ([`crate::device::Fitted`]) also written to the run's folder. A design that names the
+//! model's file (`compact = "ring.compact.json"`) has the compact fidelity too.
+//! [`fit_from_device`] writes such a job. See `fit.rs`.
+//!
 //! **A device optimized.** `kind = "optimize"` names variables (the design's parameters between
 //! bounds), one objective or two and any constraints (the device's own, [`crate::device::Device::objectives`],
 //! or expressions of its outputs), the band and corners they are taken over, and one of
@@ -434,6 +443,10 @@ mod device;
 mod device_tests;
 mod fdfd;
 mod fdtd;
+mod fit;
+mod fit_checks;
+#[cfg(test)]
+mod fit_tests;
 pub mod optimize;
 mod optimize_checks;
 mod params;
@@ -451,6 +464,7 @@ pub use device::{Compute, DeviceFigure, fdfd_size, from_device};
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub(crate) use fdfd::{fill_plane as fdfd_fill_plane, plane as fdfd_plane};
 pub use fdtd::{FoundResonance, SpectrumSeries};
+pub use fit::fit_from_device;
 pub use optimize::{
     Aim, Bound, Evaluation, GradientCheck, Optimization, Problem, Recorder, Variable, design_of,
     optimize_from_chip, optimize_from_device, optimizes,
@@ -470,6 +484,11 @@ pub(crate) fn chip_cases() -> Vec<crate::validation::Case> {
 /// The validation cases of devices' optimizations ([`optimize::Problem`]).
 pub(crate) fn optimize_cases() -> Vec<crate::validation::Case> {
     optimize_checks::cases()
+}
+
+/// The validation cases of devices' compact models ([`fit_from_device`]).
+pub(crate) fn fit_cases() -> Vec<crate::validation::Case> {
+    fit_checks::cases()
 }
 
 /// The validation cases of devices' studies ([`study_from_device`]).
@@ -882,6 +901,55 @@ pub enum Event {
         seconds: f64,
         /// The device's figures from the model, each with its fidelity and grid.
         figures: Vec<DeviceFigure>,
+    },
+    /// A fit of a compact model of a job's device about to run (`[device]` with a `"fit"` task,
+    /// [`crate::device::FitPlan`]), recorded after the nominal design's scene and ports: the
+    /// parameters it covers, how its samples are placed, and the model's options. An
+    /// [`Event::DevicePoint`] per sample follows, in order (the `samples` it is fitted to, then the
+    /// `held_out`), each `at` the covered parameters' values, then [`Event::CompactFit`].
+    CompactPlan {
+        /// The device's kind, e.g. `"all-pass ring"`.
+        device: String,
+        /// The fidelity every sample is computed at, the model's source: `"analytic"`, `"2D"`
+        /// or `"3D"`.
+        fidelity: String,
+        /// What computes the samples, in a sentence.
+        method: String,
+        /// Its write-up in docs/methods, e.g. `"devices"`.
+        write_up: String,
+        /// The papers it implements, each with its DOI.
+        papers: Vec<String>,
+        /// The device's parameters' names: the order of each point's `values`.
+        parameters: Vec<String>,
+        /// Their units.
+        units: Vec<String>,
+        /// The parameters the model covers, in its order.
+        axes: Vec<String>,
+        /// Their units.
+        axis_units: Vec<String>,
+        /// Each one's range, [smallest, largest].
+        ranges: Vec<[f64; 2]>,
+        /// How the samples are placed, in words.
+        sampling: String,
+        /// How many samples the model is fitted to.
+        samples: usize,
+        /// How many follow them, held out of the fit.
+        held_out: usize,
+        /// The model's basis poles.
+        poles: usize,
+        /// How its coefficients depend on the parameters, in words.
+        interpolation: String,
+        /// The wavelengths each sample's S-parameters are at, µm.
+        wavelengths_um: Vec<f64>,
+        /// The ports' names, in the S-matrices' order.
+        ports: Vec<String>,
+    },
+    /// The compact model a fit made of its samples ([`Event::CompactPlan`]): the file's content
+    /// ([`crate::device::Fitted`]), its errors at its samples and held-out ones, its stability
+    /// and passivity, and the model, every number to the bit.
+    CompactFit {
+        /// The model and what it was fitted from.
+        fitted: Box<crate::device::Fitted>,
     },
     /// A study of a job's device about to run (`[device]` with a `"sweep"` or `"corners"` task,
     /// [`Study`]), recorded after the nominal design's scene and ports: what it steps through, so
@@ -2709,11 +2777,15 @@ pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 /// `"modes"` or `"fdfd"` job's `[task.sweep]`, or a device's study (a `[device]` with a
 /// `"sweep"` or `"corners"` task).
 pub fn farms(job: &Job) -> bool {
+    // a design with a compact model computes in microseconds, and names a file a worker on
+    // another machine hasn't: its studies run here
+    let compact = job.device().is_some_and(|d| d.contains_key("compact"));
     job.task().get("sweep").is_some()
         || (job.device().is_some()
+            && !compact
             && matches!(
                 job.task().get("kind").and_then(toml::Value::as_str),
-                Some("sweep" | "corners")
+                Some("sweep" | "corners" | "fit")
             ))
 }
 
@@ -2788,6 +2860,11 @@ fn check_inner(job: &Job) -> Result<()> {
                 check_direct(job, kind)?;
                 device_scene(job)?;
                 study::check(job)
+            }
+            Some("fit") => {
+                check_direct(job, "fit")?;
+                device_scene(job)?;
+                fit::check(job)
             }
             Some("optimize") => {
                 check_direct(job, "optimize")?;
@@ -2899,10 +2976,7 @@ fn structure(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 /// ports with 1 µm around them, from 1 µm below its core to 1 µm above, its permittivities at its
 /// `wavelength` parameter (1.55 µm for a device without one).
 fn device_scene(job: &Job) -> Result<Event> {
-    let table = job
-        .device()
-        .ok_or_else(|| task_error("the job has no [device] table"))?;
-    let (device, design) = crate::device::Spec::from_table(table)?.build()?;
+    let (device, design) = device::spec_of(job)?.build()?;
     let values = design.values();
     let geometry = device.geometry(values)?;
     let shapes = scene_shapes(&geometry.structure);

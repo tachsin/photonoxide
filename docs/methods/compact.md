@@ -316,7 +316,35 @@ sampled over, the band, the weights (each monomial's exponents, or each paramete
 the basis poles, the numerator's and denominator's coefficients, the delay and the errors.
 `from_json` reads it back to the same model, every number to the last bit (serde_json writes the
 shortest decimal that reads back to the same double), and refuses a file whose coefficients don't
-fit its basis, weights and ports.
+fit its basis, weights and ports. A device's model fitted from its own runs is kept this way,
+with what it was fitted from, next to its design ([devices](devices.md), "Fitted as a compact
+model").
+
+## Fitted from a device
+
+A device's compact model is a `ParametricModel` fitted to the device's own runs
+(`device::compact`, written up with the devices in [devices](devices.md), "Fitted as a compact
+model"):
+
+- **What it covers:** one to four of the device's parameters, each over a range; the others
+  stay at the design's values, and the model holds only there.
+- **The samples:** a grid, or a Latin hypercube (McKay, Beckman and Conover 1979,
+  doi:10.1080/00401706.1979.10489755) whose levels include the ends, so the samples span the
+  range the model covers; each sample the device at its source fidelity (a closed form, 2D or
+  3D), run as a device study (`kind = "fit"`), farmed like any.
+- **Held out:** a Latin hypercube of its own, in the middle of its strata, kept out of the fit;
+  the largest $\lvert\Delta S_{qp}\rvert$ there over the band is the error the device's compact
+  fidelity states against its source, beside the error at its own samples, its poles' stability
+  and its passivity over its range.
+- **Used:** the design names the model's file and has the compact fidelity, the model's
+  derivatives exact in what it covers; on the chip it is a component like any.
+
+The ring's closed form over its gap, a grid of 7 at degree 4, is within 3.3e-7 of the closed
+form at gaps neither fitted nor held out, and states 2.9e-7; from 3, 5 and 7 samples at degree
+1, 2 and 4 the held-out error falls 9.3e-3, 3.7e-5, 2.9e-7. Each device with a 2D or 3D
+fidelity fitted over one parameter from 4 samples states 1.7e-5 to 2.5e-4 (the strip, rib,
+bend, coupler, rings and MZI), 1.5e-3 (the MMIs' 2D guided modes) and 1.5e-2 (the Y-branch's 2D
+FDFD on 40 nm cells): the validation report's `device/compact-` cases.
 
 ## Touchstone files
 

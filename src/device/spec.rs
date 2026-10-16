@@ -14,6 +14,17 @@
 //! gap = "w/2.5"
 //! ```
 //!
+//! A design with a compact model fitted to its runs ([`super::compact`]) names its file, next to
+//! the job's (a relative path is from the job file's folder, [`crate::run::Job::dir`]), and
+//! may then be computed at the compact fidelity:
+//!
+//! ```toml
+//! [device]
+//! kind = "all-pass ring"
+//! fidelity = "compact"
+//! compact = "ring.compact.json"
+//! ```
+//!
 //! A stack is a preset, `stack = "soi"` (2 µm of oxide under the core) or
 //! `stack = { preset = "nitride", bottom_oxide_um = 3 }`, or layers of the materials
 //! catalogue's ([`crate::material::catalogue`]), bottom to top, the guides drawn on `core`:
@@ -67,6 +78,10 @@ pub struct Spec {
     /// Its named parameters, (name, expression): the device's own and any others they use, as
     /// [`Design::new`] takes them. A file lists them by name.
     pub parameters: Vec<(String, String)>,
+    /// The file of its compact model ([`super::compact::Fitted`]), if it has one: a path, from
+    /// the job file's folder when relative ([`Spec::resolved_in`]). With it the device has the
+    /// compact fidelity too.
+    pub compact: Option<String>,
 }
 
 /// A device's stack: a preset, or layers of the catalogue's materials.
@@ -133,6 +148,7 @@ impl Spec {
             fidelity: cheapest(kind),
             stack: StackSpec::default(),
             parameters: Vec::new(),
+            compact: None,
         }
     }
 
@@ -146,7 +162,7 @@ impl Spec {
         known(
             table,
             "[device]",
-            &["kind", "fidelity", "stack", "parameters"],
+            &["kind", "fidelity", "stack", "parameters", "compact"],
         )?;
         let kind = string(table, "[device]", "kind")?
             .ok_or_else(|| parse("[device] needs a kind, e.g. kind = \"waveguide\""))?;
@@ -178,11 +194,16 @@ impl Spec {
                 ));
             }
         };
+        let compact = string(table, "[device]", "compact")?;
+        if compact.as_deref().is_some_and(|c| c.trim().is_empty()) {
+            return Err(parse("[device] compact must name a file"));
+        }
         Ok(Spec {
             kind,
             fidelity,
             stack,
             parameters,
+            compact,
         })
     }
 
@@ -204,7 +225,41 @@ impl Spec {
                 .collect();
             t.insert("parameters".into(), Value::Table(p));
         }
+        if let Some(c) = &self.compact {
+            t.insert("compact".into(), Value::String(c.clone()));
+        }
         t
+    }
+
+    /// The same design, its compact model's file found from `dir` (a job file's folder) when
+    /// its path is relative.
+    #[must_use]
+    pub fn resolved_in(&self, dir: &std::path::Path) -> Spec {
+        let mut s = self.clone();
+        if let Some(c) = &self.compact
+            && std::path::Path::new(c).is_relative()
+        {
+            s.compact = Some(dir.join(c).display().to_string());
+        }
+        s
+    }
+
+    /// `device` with this design's compact model, if it names one.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Io`] and [`Error::Parse`] for a file that can't be read as a compact model, and
+    /// [`Error::InvalidValue`] for a model of another device.
+    fn with_compact(&self, device: Box<dyn Device>) -> Result<Box<dyn Device>> {
+        let Some(path) = &self.compact else {
+            return Ok(device);
+        };
+        let fitted = super::compact::load(std::path::Path::new(path))?;
+        Ok(Box::new(super::compact::Compacted::new(
+            device,
+            fitted,
+            &self.stack.to_value(),
+        )?))
     }
 
     /// The device: the library's of this kind, drawn on this stack.
@@ -215,6 +270,12 @@ impl Spec {
     /// preset or material, a material's conditions outside its model's range, a core that
     /// isn't one of the layers.
     pub fn device(&self) -> Result<Box<dyn Device>> {
+        let device = self.own_device()?;
+        self.with_compact(device)
+    }
+
+    /// The library's device of this kind on this stack, without a compact model.
+    fn own_device(&self) -> Result<Box<dyn Device>> {
         let (stack, core) = self.stack.build()?;
         Ok(match self.kind.as_str() {
             "waveguide" => Box::new(StripWaveguide::on(stack, &core)?),
@@ -256,6 +317,15 @@ impl Spec {
             .map(|(n, e)| (n.as_str(), e.as_str()))
             .collect();
         let design = Design::new(device.as_ref(), &definitions)?;
+        if self.fidelity == Fidelity::Compact && self.compact.is_none() {
+            return Err(Error::invalid(
+                "device",
+                format!(
+                    "a {}'s compact model is fitted to its runs (its Model tab, or a job of kind \"fit\"); name its file in the design: compact = \"<file>.json\"",
+                    device.kind()
+                ),
+            ));
+        }
         super::method(device.kind(), device.fidelities(), self.fidelity)?;
         Ok((device, design))
     }
@@ -367,6 +437,12 @@ impl Spec {
         if *grids == Grids::default() {
             return self.device();
         }
+        let device = self.own_device_with(grids)?;
+        self.with_compact(device)
+    }
+
+    /// [`Spec::device_with`] without a compact model.
+    fn own_device_with(&self, grids: &Grids) -> Result<Box<dyn Device>> {
         let (stack, core) = self.stack.build()?;
         let kind = self.kind.as_str();
         let solves = match kind {
@@ -412,7 +488,7 @@ impl Spec {
                 let (two, three) = d.grids();
                 Box::new(d.with_grid_2d(g.fdfd(two)).with_grid_3d(g.fdfd(three)))
             }
-            _ => self.device()?,
+            _ => self.own_device()?,
         })
     }
 
@@ -442,6 +518,11 @@ impl Spec {
     /// solve too large.
     pub(crate) fn fdfd_size(&self, grids: &Grids) -> Result<Option<(usize, usize, f64)>> {
         let (_, design) = self.build()?;
+        if self.fidelity == Fidelity::Compact {
+            // the grids checked against the device all the same, as at any fidelity
+            self.device_with(grids)?;
+            return Ok(None);
+        }
         let values = design.values();
         // the grids checked against the device as its solve would take them
         self.device_with(grids)?;
@@ -622,7 +703,7 @@ impl StackSpec {
         }
     }
 
-    fn to_value(&self) -> Value {
+    pub(crate) fn to_value(&self) -> Value {
         match self {
             StackSpec::Preset {
                 name,

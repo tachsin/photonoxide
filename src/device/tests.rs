@@ -745,6 +745,7 @@ fn a_spec_reads_back_from_its_table_expressions_and_stack_included() {
             ("w".into(), "450 nm".into()),
             ("width".into(), "w".into()),
         ],
+        compact: None,
     };
     let text = toml::to_string(&spec.to_table()).unwrap();
     let back = Spec::from_table(&toml::from_str(&text).unwrap()).unwrap();

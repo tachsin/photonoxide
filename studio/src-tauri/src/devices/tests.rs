@@ -17,6 +17,7 @@ fn design(kind: &str, parameters: &[(&str, &str)]) -> SpecIn {
             .iter()
             .map(|&(n, e)| (n.to_owned(), e.to_owned()))
             .collect(),
+        compact: None,
     }
 }
 

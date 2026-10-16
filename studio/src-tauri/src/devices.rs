@@ -266,6 +266,10 @@ pub struct SpecIn {
     pub stack: StackIn,
     /// (name, expression), in the form's order.
     pub parameters: Vec<(String, String)>,
+    /// The file of its compact model, if it has one: the path a saved design names (next to
+    /// it), or the absolute path of one not saved yet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compact: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -364,6 +368,7 @@ impl SpecIn {
             fidelity: device::fidelity(&self.fidelity).map_err(text)?,
             stack,
             parameters: self.parameters.clone(),
+            compact: self.compact.clone(),
         })
     }
 
@@ -402,6 +407,7 @@ impl SpecIn {
             fidelity: fidelity_name(spec.fidelity).to_owned(),
             stack,
             parameters: spec.parameters.clone(),
+            compact: spec.compact.clone(),
         }
     }
 }

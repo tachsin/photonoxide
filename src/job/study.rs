@@ -823,7 +823,6 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop, scene: Event) -> Result
 
 /// Point `k` of a study: its design computed, or why it wasn't; `None` when the stop came first.
 fn point(p: &Prepared, k: usize, stop: &Stop) -> Result<Option<Vec<Event>>> {
-    let spec = &p.designs[k];
     let (at, corner) = match &p.study {
         Study::Sweep(axes) => {
             let n2 = axes.get(1).map_or(1, |a| a.points);
@@ -842,6 +841,21 @@ fn point(p: &Prepared, k: usize, stop: &Stop) -> Result<Option<Vec<Event>>> {
             }),
         ),
     };
+    design_point(&p.designs[k], &p.grids, &p.wavelengths, k, at, corner, stop)
+}
+
+/// Point `k` of a study of a device's designs, `spec` computed at its fidelity on `grids` over
+/// `wavelengths` (µm), recorded with `at` and `corner`: its design's values, figures and
+/// S-parameters, or why the model gave nothing; `None` when the stop came first.
+pub(super) fn design_point(
+    spec: &Spec,
+    grids: &Grids,
+    wavelengths: &[f64],
+    k: usize,
+    at: Vec<f64>,
+    corner: Option<String>,
+    stop: &Stop,
+) -> Result<Option<Vec<Event>>> {
     let mut event = Event::DevicePoint {
         point: k,
         at,
@@ -859,14 +873,13 @@ fn point(p: &Prepared, k: usize, stop: &Stop) -> Result<Option<Vec<Event>>> {
     }
     let solved = (|| -> Result<Option<_>> {
         let (_, design) = spec.build()?;
-        let device = spec.device_with(&p.grids)?;
+        let device = spec.device_with(grids)?;
         // solved here, on this point's rayon task, so that the solve's own parallel work runs
         // on the pool too: a point waiting on a thread of its own would hold a worker the solve
         // needs, and with as many points in flight as workers none would finish. A stop ends
         // the study at its next point; a solve already started finishes.
         let b = device.component(design.values(), spec.fidelity)?;
-        let s = p
-            .wavelengths
+        let s = wavelengths
             .iter()
             .map(|&w| {
                 let m = b.s_matrix(Wavelength::um(w)?)?;

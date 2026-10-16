@@ -23,6 +23,11 @@
 //!   small, large or near a target, and keeps within bounds, each an expression of its outputs
 //!   with derivatives where they exist ([`objective`]).
 //!
+//! - [`compact`]: a compact model fitted to the device's own runs at a 2D or 3D fidelity (or its
+//!   closed form) over some of its parameters ([`FitPlan`], [`Fitted`]), which gives the design
+//!   one more fidelity, [`Fidelity::Compact`], at the source's accuracy, with exact derivatives
+//!   in the parameters it covers.
+//!
 //! The first devices are a silicon strip's: the [`StripWaveguide`], the [`StripBend`], the
 //! [`StripCoupler`] (a directional coupler) and the [`StripRing`] (all-pass and add-drop).
 //! [`library`] has them at their defaults, which are the studio's library's components bit
@@ -43,6 +48,7 @@
 //! papers and the validation of each.
 
 mod bend;
+pub mod compact;
 mod coupler;
 mod fit;
 mod guide;
@@ -65,6 +71,7 @@ mod splitter_tests;
 mod tests;
 
 pub use bend::StripBend;
+pub use compact::{FitAxis, FitPlan, Fitted, Sampling};
 pub use coupler::StripCoupler;
 pub use mmi::{Model2d, StripMmi};
 pub use mzi::StripMzi;

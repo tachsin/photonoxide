@@ -265,12 +265,17 @@ fn extent(geometry: &crate::device::Geometry) -> ([f64; 2], [f64; 2]) {
 
 // ---- a job's device, for the tasks that compute it ----
 
-/// The job's design: its spec, read from its `[device]` table.
+/// The job's design: its spec, read from its `[device]` table, its compact model's file found
+/// from the job's folder ([`Job::dir`]).
 pub(super) fn spec_of(job: &Job) -> Result<Spec> {
     let table = job
         .device()
         .ok_or_else(|| task_error("the job has no [device] table"))?;
-    Spec::from_table(table)
+    let spec = Spec::from_table(table)?;
+    Ok(match job.dir() {
+        Some(dir) => spec.resolved_in(dir),
+        None => spec,
+    })
 }
 
 /// The kind of the task beside a job's `[device]`: `None` for a design alone.
@@ -279,17 +284,18 @@ pub(super) fn task_kind(job: &Job) -> Result<Option<String>> {
         return Ok(None);
     }
     match job.task().get("kind").and_then(Value::as_str) {
-        Some(k @ ("spectrum" | "fdtd" | "sweep" | "corners" | "optimize")) => {
+        Some(k @ ("spectrum" | "fdtd" | "sweep" | "corners" | "optimize" | "fit")) => {
             Ok(Some(k.to_owned()))
         }
         Some(other) => Err(task_error(format!(
             "a job with a [device] table computes it by a \"spectrum\" task (its own model), \
              studies it by a \"sweep\" or \"corners\" one, optimizes it by an \"optimize\" one, \
-             or steps it in time by an \"fdtd\" one, not \"{other}\": the device is the structure"
+             fits a compact model to it by a \"fit\" one, or steps it in time by an \"fdtd\" \
+             one, not \"{other}\": the device is the structure"
         ))),
         None => Err(task_error(
-            "a device's task needs a kind: \"spectrum\", \"sweep\", \"corners\", \"optimize\" \
-             or \"fdtd\"",
+            "a device's task needs a kind: \"spectrum\", \"sweep\", \"corners\", \"optimize\", \
+             \"fit\" or \"fdtd\"",
         )),
     }
 }
@@ -411,6 +417,33 @@ pub(super) fn check_fdtd_task(job: &Job) -> Result<()> {
             )));
         }
     }
+    Ok(())
+}
+
+/// Copies the compact model a job's design names into the run's folder, under its file's name,
+/// so that the job the run keeps runs again from there.
+fn keep_compact(job: &Job, run: &Run) -> Result<()> {
+    let Some(name) = job
+        .device()
+        .and_then(|d| d.get("compact"))
+        .and_then(Value::as_str)
+    else {
+        return Ok(());
+    };
+    if run.dir().as_os_str().is_empty() {
+        return Ok(());
+    }
+    let Some(from) = spec_of(job)?.compact else {
+        return Ok(());
+    };
+    let Some(file) = std::path::Path::new(name).file_name() else {
+        return Ok(());
+    };
+    let to = run.dir().join(file);
+    std::fs::copy(&from, &to).map_err(|e| Error::Io {
+        path: to.display().to_string(),
+        reason: e.to_string(),
+    })?;
     Ok(())
 }
 
@@ -747,12 +780,14 @@ pub(super) fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     // checked before anything is recorded
     super::check(job)?;
     let scene = super::device_scene(job)?;
+    keep_compact(job, run)?;
     run.record(&Event::Started {
         job: job.name().to_owned(),
         kind: "device".into(),
     })?;
     match kind.as_deref() {
         Some("sweep" | "corners") => super::study::run(job, run, stop, scene)?,
+        Some("fit") => super::fit::run(job, run, stop, scene)?,
         Some(_) => run_spectrum(job, run, stop)?,
         None => run.record(&scene)?,
     }

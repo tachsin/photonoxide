@@ -1661,6 +1661,7 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::device::splitter_checks::cases());
     // and their studies, which run as jobs
     cases.extend(crate::job::study_cases());
+    cases.extend(crate::job::fit_cases());
     // and their optimizations' objectives
     cases.extend(crate::job::optimize_cases());
     // and chips of devices, computed, studied and optimized

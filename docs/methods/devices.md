@@ -616,6 +616,83 @@ materials, take none: a temperature corner of SOI needs a stack with Leviton and
 and silicon's thermo-optic coefficient comes with the thermal devices (0.6). A study runs by the
 device's models only, not by FDTD, which computes one design at a time.
 
+## Fitted as a compact model
+
+A device solved at 2D or 3D takes seconds to minutes a design; a chip of it wants thousands of
+designs a second. A compact model fitted to the device's own runs over some of its parameters
+gives the design one more fidelity, `compact`, at its source's accuracy and a circuit's speed
+(`device::compact`). The model is `compact::ParametricModel` ([compact models](compact.md)):
+rational in frequency on basis poles found by vector fitting, its numerator and denominator
+polynomial (or piecewise linear) in the parameters it covers.
+
+`job::fit_from_device(name, &spec, &Compute, &FitPlan)` writes the job that fits it, `kind =
+"fit"`, at the design's fidelity, its source:
+
+```toml
+[device]
+kind = "all-pass ring"
+fidelity = "analytic"     # the source: analytic, 2D or 3D, as the device has them
+
+[task]
+kind = "fit"
+from_um = 1.54            # the band, the device's own at 101 points by default
+to_um = 1.56
+points = 41
+sampling = "grid"         # or "latin hypercube", with count (and seed, 1 by default)
+held_out = 6              # samples kept out of the fit (8 by default)
+poles = 12                # the model's basis poles (12 by default)
+degree = 4                # a polynomial in the parameters (2 by default), or
+                          # interpolation = "piecewise linear" (on a grid)
+# step_nm, step_z_nm, margin_um, samples, pml_cells, model_2d: the grids, as a spectrum's
+
+[[task.axis]]             # one to four of the device's own parameters
+parameter = "gap"
+from = 0.15
+to = 0.25
+points = 7                # a grid's
+```
+
+**Samples.** On a grid, every combination of each axis's points, evenly spaced. On a Latin
+hypercube (M. D. McKay, R. J. Beckman, W. J. Conover, Technometrics 21, 239 (1979),
+doi:10.1080/00401706.1979.10489755), `count` samples, each parameter taking `count` levels evenly
+spaced from its `from` to its `to`, each level once, in an order drawn from the seed (SplitMix64,
+the same on every system). The ends are levels, so the samples span the range the model covers.
+The held-out samples are a Latin hypercube of their own (the seed plus one), each level in the
+middle of its stratum, $(k + \tfrac12)/n$ of the range: inside it, and between the fit's samples.
+Each sample is the design with the covered parameters written as plain numbers, computed as a
+`"spectrum"` task computes it, side by side on rayon's threads or a farm's workers, as a study's
+points are. The parameters it doesn't cover must keep their values at every sample: one that
+follows a covered one through its expression (`coupling_length = "gap*10"`) is refused, since the
+model would hold only along that line.
+
+**The record.** The run records the nominal design's scene and ports, `CompactPlan` (what it
+covers, the samples, the options, the band), a `DevicePoint` per sample (the fitted ones, then
+the held-out ones), and `CompactFit`: the model and what it was fitted from, which the run also
+writes to its folder as `compact.json`. The model is fitted from the samples as recorded, so a
+farmed run's model is the bits of one run here; the fit itself runs on one thread, so the model
+is the same on any number of threads, and reads back from its file to the bit.
+
+**What it states.** `device::Fitted` holds, beside the model: the device's kind, the design it
+was fitted from (its `[device]` table), the source fidelity and the grid its runs name, the
+covered parameters and their ranges, the values of the others, the band, how it was sampled, its
+largest $\lvert\Delta S_{qp}\rvert$ at its samples and at the held-out ones, the largest
+$\operatorname{Re} a / \lvert a \rvert$ of its poles over its range (`ParametricModel::stability`)
+and its largest singular value over its band and range (`passivity`), each sampled at 21 values
+a parameter. The held-out error is the one quoted: the error where it wasn't fitted.
+
+**The compact fidelity.** A design names the model's file next to its job file, `compact =
+"ring.compact.json"` in its `[device]` table (a relative path is from the job file's folder,
+`Job::dir`; the studio saves it beside the design). Its device then has the compact fidelity
+after its analytic one: its method names the source fidelity and its grid, the poles, the
+interpolation and the samples; its stated error is the held-out $\lvert\Delta S\rvert$ against the
+source; it holds over the covered ranges, the band, and the other parameters at the values it was
+fitted at. Its component is the model, its parameters the covered ones with exact derivatives in
+them (`Component::derivatives`), so `device::derivative` and the circuit adjoint take them exactly.
+A design whose other parameters differ from those values, a covered value outside its range, or a
+stack it wasn't fitted on, is refused at the compact fidelity and says why. A run of a design with
+a compact model keeps a copy of the file in the run's folder, so its job runs again from there;
+its studies run here rather than on a farm's workers, who haven't the file.
+
 ## Validation
 
 | Case | What it checks | Grid | Found |
@@ -651,6 +728,26 @@ device's models only, not by FDTD, which computes one design at a time.
 | `device/study-corners-closed-form` | a waveguide's length and loss corners against $10^{-\alpha L/10}$, the extremes where it puts them | exact | ≤ 1e-12 |
 | `device/study-coupler-chrostowski` | Chrostowski & Hochberg's Eq. 4.14 through a 3D gap sweep of the coupler device: decades of $L_x$ per nm of gap | fitted 10 nm | 3.8635e-3 (3.7645e-3 ± 5 %) |
 | `device/study-coupler-grid` | that slope on 10 nm cells against 5 nm | fitted 10, 5 nm | 3.86521e-3 against 3.86633e-3 |
+| `device/compact-ring-closed-form` | the all-pass ring's closed form fitted over its gap (0.15 to 0.25 µm, a grid of 7, 12 poles, degree 4, 1.54 to 1.56 µm) and used as its compact fidelity, against the closed form at 4 gaps neither fitted nor held out | exact | 3.3e-7 |
+| `device/compact-ring-held-out` | the same model's error at its 6 held-out gaps, the error it states | exact | 2.9e-7 |
+| `device/compact-ring-convergence` | its held-out error from 3, 5 and 7 samples at degree 1, 2 and 4 | exact | 9.3e-3, 3.7e-5, 2.9e-7 |
+| `device/compact-ring-derivatives` | the compact fidelity's exact $dS/d(\text{gap})$ through the device against central differences | exact | 1.7e-9 relative |
+| `device/compact-ring-passive` | its largest singular value over its band and range | exact | 0.999997 |
+| `device/compact-threads` | a fit over the gap and radius (a Latin hypercube of 12) on 1 and 20 threads, and its file read back | exact | 0 lines differ |
+| `device/compact-waveguide-3d` | the 3D strip fitted over its width, 0.49 to 0.51 µm (a grid of 4, 2 held out, 8 poles, degree 2, 11 wavelengths): held out | fitted 10 nm, Hadley | 1.1e-4 |
+| `device/compact-bend-2d` | the 2D bend over its radius, 9.98 to 10.02 µm (2D) | exact bent slab | 5.4e-5 |
+| `device/compact-coupler-3d` | the 3D coupler over its gap, 0.19 to 0.21 µm | fitted 10 nm | 2.5e-4 |
+| `device/compact-all-pass-3d`, `-add-drop-3d` | the 3D rings over their gap, at 41 wavelengths over 4 nm (a resonance resolved) | fitted 10 nm | 2.0e-4 and 1.8e-4 |
+| `device/compact-rib-2d` | the 2D rib over its width (2D) | exact slabs | 3.0e-5 |
+| `device/compact-mmi-1x2-2d`, `-2x2-2d` | the MMIs' 2D guided modes over their width, 5.88 to 6.12 µm (2D) | exact slab modes | 1.5e-3 and 1.5e-3 |
+| `device/compact-y-branch-2d` | the Y-branch's 2D FDFD over its junction's length, 1.9 to 2.1 µm (2D) | 40 nm cells | 1.5e-2 |
+| `device/compact-mzi-3d` | the 3D MZI over its phase, −10 to 10°, at 41 wavelengths over 2 nm | fitted 10 nm | 1.7e-5 |
+
+The Y-branch MZI has none: its 3D model's FDFD of its Y-branches is more than the direct solver
+holds here (7.3 million unknowns), as for the MMIs' and the Y-branch's own 3D models (#377). The
+Y-branch's fit is the coarsest: its 2D FDFD's spectrum on 40 nm cells fits no closer than 1.5e-2
+at its own samples with 8 poles, so its error is that and not the interpolation's. Each held-out
+error is the one its compact fidelity states, against its source.
 
 The published examples go through the devices too, to their bits: `strip_waveguide` solves the
 waveguide device's cross-section, `directional_coupler` the coupler device's 3D model and

@@ -96,7 +96,7 @@ area fdtd \
 area job \
   "src/job/* src/run.rs src/farm.rs src/farm/* jobs/*" \
   "material mode sparse fdfd fdtd circuit device generator" \
-  "job:: run:: farm::" "generator/job- device/study- optimize/ chip/" "optimize_chip_rings"
+  "job:: run:: farm::" "generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
 
 # the component generators: shapes on layers with named ports, which the devices draw their
 # geometry with and jobs place; their cases compare the devices' geometry with what it was
@@ -116,7 +116,7 @@ area circuit \
 # mode solvers' cross-sections and by FDFD of their own drawings (through the 2D jobs' plane)
 area device \
   "src/device.rs src/device/*" \
-  "material mode circuit generator fdfd job" \
+  "material mode circuit generator fdfd job compact" \
   "device::" "device/" \
   "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss rib_hadley mmi_soldano y_junction_zhang"
 
