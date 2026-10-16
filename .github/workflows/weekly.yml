@@ -50,6 +50,8 @@ jobs:
     permissions:
       contents: read
       statuses: write
+      # the Semver job (#355) reads the pull request; a called workflow can't ask for more than this
+      pull-requests: read
     uses: ./.github/workflows/ci.yml
     with:
       tier: "3"
