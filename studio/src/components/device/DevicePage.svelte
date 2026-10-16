@@ -11,6 +11,8 @@
   // - Model: its ladder of models, what each costs here and how far apart they are for the design.
   // - Simulate: the design run as a job at a fidelity, or by FDTD, its spectra and plots; its
   //   past runs.
+  // - Study: sweeps of any one or two of its parameters and the wavelength, the corners of a
+  //   process, and its designs and runs overlaid (in place of the Compare page).
   //
   // At the analytic fidelity everything follows every change, 60 ms after it; a 2D or 3D model
   // is a solve, started by a button and run in the background. Every number names its model.
@@ -42,6 +44,7 @@
   import ParameterForm from "./ParameterForm.svelte";
   import SimulateTab from "./SimulateTab.svelte";
   import StackEditor from "./StackEditor.svelte";
+  import StudyTab from "./StudyTab.svelte";
   import TopView from "./TopView.svelte";
 
   let { info, kind, family = [], onchoose }: { info: DeviceInfo; kind: KindInfo | undefined; family?: KindInfo[]; onchoose?: (id: string) => void } = $props();
@@ -453,7 +456,7 @@
 
     <aside class="flex min-h-0 min-w-0 flex-col">
       <div role="tablist" class="tabs tabs-border shrink-0 border-b border-base-content/8 px-3">
-        {#each [["design", "Design"], ["overview", "Overview"], ["model", "Model"], ["simulate", "Simulate"]] as const as [t, label] (t)}
+        {#each [["design", "Design"], ["overview", "Overview"], ["model", "Model"], ["simulate", "Simulate"], ["study", "Study"]] as const as [t, label] (t)}
           <button role="tab" class="tab {draft.tab === t ? 'tab-active' : ''}" onclick={() => (draft.tab = t)}>{label}</button>
         {/each}
       </div>
@@ -623,8 +626,10 @@
               draft.tab = "simulate";
             }}
           />
-        {:else}
+        {:else if draft.tab === "simulate"}
           <SimulateTab {info} {draft} {designKey} {values} onshow={() => (mainView = "run")} />
+        {:else}
+          <StudyTab {info} {draft} {designKey} {values} fields={view?.fields ?? []} />
         {/if}
       </div>
     </aside>

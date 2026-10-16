@@ -487,6 +487,84 @@ fn every_devices_job_is_made_checked_and_read_back_into_the_form() {
 }
 
 #[test]
+fn every_device_has_study_whose_jobs_are_checked_and_read_back_into_the_form() {
+    // each device swept in a length of its own at its cheapest model, and its corners: the
+    // library's job, read back into the Study tab's form whole
+    for d in device::library() {
+        let spec = cheapest(d.kind(), &[]);
+        let p = d
+            .parameters()
+            .iter()
+            .find(|p| p.unit == "µm" && !["wavelength", "span"].contains(&p.name.as_str()))
+            .unwrap_or_else(|| panic!("{}: no length to sweep", d.kind()));
+        let (lo, hi) = (p.default * 0.95, p.default * 1.05);
+        let compute = ComputeIn {
+            band: Some((1.55, 1.55, 1)),
+            ..ComputeIn::default()
+        };
+        let sweep = StudyIn {
+            kind: "sweep".into(),
+            axes: vec![AxisIn {
+                parameter: p.name.clone(),
+                from: lo,
+                to: hi,
+                points: 3,
+            }],
+            corners: Vec::new(),
+        };
+        let corners = StudyIn {
+            kind: "corners".into(),
+            axes: Vec::new(),
+            corners: vec![
+                CornerIn {
+                    name: "wide".into(),
+                    offsets: vec![(p.name.clone(), p.default * 0.02)],
+                    temperature_k: None,
+                },
+                CornerIn {
+                    name: "narrow".into(),
+                    offsets: vec![(p.name.clone(), -p.default * 0.02)],
+                    temperature_k: None,
+                },
+            ],
+        };
+        for study in [sweep, corners] {
+            let text = study_text_of(&spec, &compute, &study, "page-study")
+                .unwrap_or_else(|e| panic!("{}: {e}", d.kind()));
+            assert!(text.starts_with(&format!("# The {} ", d.kind())), "{text}");
+            assert!(text.contains("--workers"));
+            let form = read_job_form(&text);
+            assert_eq!(form.error, None, "{}: {text}", d.kind());
+            assert!(form.beyond.is_empty(), "{}: {:?}", d.kind(), form.beyond);
+            assert_eq!(form.spec.as_ref(), Some(&spec), "{}", d.kind());
+            assert_eq!(form.study.as_ref(), Some(&study), "{}", d.kind());
+            assert_eq!(
+                form.compute.as_ref().and_then(|c| c.band),
+                Some((1.55, 1.55, 1))
+            );
+        }
+    }
+    // what the library refuses comes back as its message: a temperature at the analytic fidelity
+    let hot = StudyIn {
+        kind: "corners".into(),
+        axes: Vec::new(),
+        corners: vec![CornerIn {
+            name: "hot".into(),
+            offsets: Vec::new(),
+            temperature_k: Some(340.0),
+        }],
+    };
+    let e = study_text_of(
+        &design("waveguide", &[]),
+        &ComputeIn::default(),
+        &hot,
+        "hot",
+    )
+    .unwrap_err();
+    assert!(e.contains("analytic"), "{e}");
+}
+
+#[test]
 fn as_text_an_edit_the_form_holds_moves_it_and_one_it_cant_is_kept_and_named() {
     let spec = design("waveguide", &[("width", "450 nm")]);
     let compute = ComputeIn {

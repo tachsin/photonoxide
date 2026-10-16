@@ -48,10 +48,11 @@ in a drawer opened from the status bar.
   - Continue (the run open), recent runs, how many published results and validation cases
     there are, and what changed in this version.
 - **Runs** (the drawer, from **Runs** at the status bar's left): every run in the workspace,
-  newest first, the one going pinned on top with its time and a Stop. Each opens in the run
-  view, shows on disk or is deleted; deleting the open run closes it, deleting one still running
-  stops it first. Tick several and **Overlay** draws their sweeps' effective indices and their
-  spectra (|S_q1|²) on shared axes, in the drawer.
+  newest first, the one going pinned on top with its time and a Stop. Each opens where it
+  belongs (a device's run on its page's Simulate tab, a device's study on its Study tab, any other
+  in the run view), shows on disk or is deleted; deleting the open run closes it, deleting one
+  still running stops it first. Runs are overlaid on a device's **Study** tab (its **Compare**),
+  and in the Custom device for runs of jobs without a device, which took over the Compare page.
 - **The Custom device** (first in the Components list; Home's New job, a template's Open, and
   Ctrl+K): any structure no device of the library describes, as a job of its four kinds
   (`modes`, `fdfd`, `fdtd`, `structure`). Every job of the workspace that isn't a device's opens
@@ -78,6 +79,9 @@ in a drawer opened from the status bar.
     turns it to x, the device turning with it, so its modes stay the same.
   - The library checks the job as it changes (`photonoxide::job::check`). It is saved to the
     workspace's `jobs/` (Ctrl+S) and runs from here (Ctrl+Enter), live in the run view.
+  - **Compare runs**, beside the form: the runs of jobs without a device, ticked and drawn on
+    shared axes (their spectra, sweeps' effective indices and FDTD spectra, each curve with its
+    fidelity and grid), as a device's runs are on its Study tab.
 - **The run view:**
   - **3D** (the default): the layers and shapes as solids, with the field painted on its plane.
     A modes run's selected mode also travels along its guide: its field, Re E, as a glowing
@@ -172,6 +176,31 @@ in a drawer opened from the status bar.
       expression) moves the form; one it can't (an FDTD's stopping rule, a solver table) is
       named, and the text is kept and run as it is. **Save job** puts it in `jobs/`, where it
       reopens on this tab and `photonoxide run` runs it.
+    - **Study:** the design at many points, each computed at a fidelity chosen here (the
+      design's by default; the grid the Simulate tab's), as a job
+      (`photonoxide::job::study_from_device`) checked by the library, recorded in `runs/` point
+      by point and replayable; every point is that design's own job's result, to the bit.
+      - **Sweep:** any one or two of its parameters (its own, or one its expressions name), from
+        one value to another, and the band of wavelengths at each point. The results show in
+        place as they come: any quantity the points give (an S-parameter between any two ports
+        as power, dB or phase, a figure such as the cross-over length or the free spectral range,
+        a port's effective index) against the parameter, or as a map of the parameter and the
+        wavelength, or of the two parameters, with a cut through it (click the map, or its arrow
+        keys); hovering reads a value, and each plot saves its data as CSV. A point the model
+        refuses (a fit outside its range) is left empty and listed with why.
+      - **Corners:** ± a width bias (the widths grow by it and the gaps shrink), ± the thickness
+        and two temperatures (at 2D or 3D, for materials whose model takes one; the presets'
+        silicon and silica take none), one at a time or every combination, each a point beside
+        the nominal design; their spectra overlaid and a table of each corner's value against
+        the nominal one.
+      - **Compare:** tick any of this device's designs (the one being edited, those saved) and
+        runs, and they are drawn on shared axes with any quantity they share, each curve's legend
+        naming its fidelity and grid, a 2D one said to be 2D, and their figures side by side. It
+        takes over the Compare page and the drawer's overlay.
+      - A long study runs in the background with its progress, time and **Stop** (the points done
+        stay); **Save job** puts it in `jobs/`, where `photonoxide run <job> --workers 4` farms
+        its points to workers (docs/farming.md) with the same record. The studies of the device
+        are listed, each shown again on a click. `jobs/coupler-gap-sweep.toml` is one, built in.
     - **Every number names its model and grid.** At the analytic fidelity the figures and the
       S-parameters follow every change (60 ms after it). A 2D or 3D model is a solve: its button
       runs it in the background, with the time it took last, and the page can be left meanwhile;
@@ -559,18 +588,20 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, device, material
     `photonoxide::device`, at their defaults).
   - `devices.rs`: a device's page's commands: the devices, a design evaluated as the form shows
     it, its figures and spectrum at a fidelity (a solve's component kept for the spectrum after
-    it), and designs saved as job files and read back.
+    it), the jobs that compute or study a design and their text read back into the form, and
+    designs saved as job files and read back.
   - `tasks.rs`: the examples and reports running in their own processes.
   - `channels.rs`: the release channels, and the nightly channel's check (`channels/github.rs`),
     prerequisites (`channels/prereqs.rs`), build (`channels/builder.rs`) and install
     (`channels/install.rs`); `build.rs` embeds the commit a build is made from.
 - `src/`: the window, in Svelte 5 with TypeScript, Tailwind CSS and daisyUI, and Lucide icons.
   - `pages/`: one file per page.
-  - `components/`: what pages share. The rail, the runs drawer and its overlay, Validation's
-    published results, the plots and pictures, the device preview, the TOML editor
-    (CodeMirror), the tour, the Ctrl+K palette, and the update dialog. `components/device/`: a
-    device's page, its stack editor, parameter form, figures, and views from above, across and
-    in 3D.
+  - `components/`: what pages share. The rail, the runs drawer, the overlays of runs and designs
+    on shared axes (`Overlay.svelte`), Validation's published results, the plots and pictures,
+    the device preview, the TOML editor (CodeMirror), the tour, the Ctrl+K palette, and the
+    update dialog. `components/device/`: a device's page, its stack editor, parameter form,
+    figures, views from above, across and in 3D, and its tabs (the Study tab, its results and
+    maps).
   - `lib/`: the shared state, the pages and the rail (`pages.ts`), the program's commands, the
     job model, the 3D view (three.js), the devices' drafts and solves (`device.svelte.ts`), and
     the updater.

@@ -20,7 +20,7 @@
   <!-- the runs drawer: every run, the live one pinned on top -->
   <button
     class="-my-px flex h-7 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-base-content/5 hover:text-base-content {app.drawer ? 'bg-primary/12 text-primary' : ''}"
-    title="Every run in the workspace: open, show on disk, delete, or tick several and overlay them"
+    title="Every run in the workspace: open it where it belongs, show it on disk, or delete it"
     aria-expanded={app.drawer}
     onclick={() => (app.drawer = !app.drawer)}
   >

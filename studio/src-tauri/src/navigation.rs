@@ -10,7 +10,9 @@
 //!   device's job on its device's page), as do the workspace's own jobs;
 //! - every circuit of `circuits/` is in the Chip's "New from…";
 //! - a run started with `photonoxide run` opens the run view, and is pinned in the runs drawer
-//!   while it goes.
+//!   while it goes; every run is in the drawer, a device's opening on its page (a study on its
+//!   Study tab), and overlays of runs (once the Compare page, then the drawer's) are a device's
+//!   Study tab's Compare, or the Custom device's for runs without a device (#344).
 //!
 //! The window is Svelte, so these read its sources beside the program's own lists.
 
@@ -343,14 +345,73 @@ fn a_run_opens_its_view_and_is_pinned_while_it_goes() {
     );
     holds(drawer, "{#if live && run.info}", "the run pinned");
     holds(drawer, ".then((h) => (runs = h.runs))", "every run");
-    for what in [
-        "openRun(r)",
-        "revealItemInDir(r.dir)",
-        "remove(r)",
-        "(overlay = true)",
-    ] {
-        holds(drawer, what, "open, show on disk, delete, overlay");
+    for what in ["openRun(r)", "revealItemInDir(r.dir)", "remove(r)"] {
+        holds(drawer, what, "open, show on disk, delete");
     }
+    // the Compare page and the drawer's overlay are gone (#338's decision 4, #344): a device's
+    // runs and designs overlay on its Study tab, any other run in the Custom device
+    let gone = ["RunOverlay", "app.compare", "(overlay = true)"];
+    for what in gone {
+        assert!(!source(drawer).contains(what), "{drawer}: still has {what}");
+        assert!(
+            !source("lib/app.svelte.ts").contains(what),
+            "the app: {what}"
+        );
+    }
+    assert!(
+        !Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../src/components/RunOverlay.svelte")
+            .exists(),
+        "the drawer's overlay is gone"
+    );
+    holds(
+        "components/device/DevicePage.svelte",
+        r#"["study", "Study"]"#,
+        "every device has Study",
+    );
+    holds(
+        "components/device/DevicePage.svelte",
+        "<StudyTab ",
+        "the Study tab",
+    );
+    let study = "components/device/StudyTab.svelte";
+    holds(
+        study,
+        "runs = h.runs.filter((r) => r.device === info.kind);",
+        "a device's runs",
+    );
+    holds(
+        study,
+        "designs = h.jobs.filter((j) => j.device === info.kind);",
+        "a device's designs",
+    );
+    holds(study, "<Overlay {items}", "overlaid on its Study tab");
+    // every curve overlaid names its fidelity and grid in its legend, whatever its fidelity
+    holds(
+        "components/Overlay.svelte",
+        "label: `${s.item!.label}${c.tag ? ` · ${c.tag}` : \"\"} · ${d.fidelity}${d.grid ? ` · ${d.grid}` : \"\"}`,",
+        "a curve's fidelity and grid",
+    );
+    let custom = "components/custom/CustomDevice.svelte";
+    holds(
+        custom,
+        "others = h.runs.filter((r) => !r.device)",
+        "every other run",
+    );
+    holds(
+        custom,
+        "<Overlay items={runItems}",
+        "overlaid in the Custom device",
+    );
+    // a device's study opens on its Study tab, any other device run on its page
+    let device = source("lib/device.svelte.ts");
+    let open = &device[device.find("export async function openRunItem").unwrap()..];
+    let open = &open[..open.find("\n}\n").unwrap()];
+    assert!(
+        open.contains(r#"openDevice(d.id, "study");"#)
+            && open.contains(r#"openDevice(d.id, "simulate");"#),
+        "openRunItem must open a study on its Study tab and a device's run on Simulate"
+    );
     // Ctrl+K finds every run, not just the newest
     holds(
         "components/CommandPalette.svelte",

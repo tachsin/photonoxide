@@ -122,6 +122,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::devices::save_device,
             crate::devices::read_device,
             crate::devices::device_job,
+            crate::devices::device_study_job,
             crate::devices::device_job_read,
             crate::devices::device_solved,
             crate::form::job_form,
@@ -416,6 +417,8 @@ struct JobItem {
     about: String,
     /// When it was last changed, seconds since 1970.
     modified: f64,
+    /// The device a design is of (its `[device]` table's kind), if it is one.
+    device: Option<String>,
 }
 
 /// A run in the workspace.
@@ -442,22 +445,31 @@ struct RunItem {
     /// for an MMI's 2D model by FDFD, `"3D"`) or `"FDTD 2D"`, `"FDTD 3D"`; none for a design
     /// alone.
     computes: Option<String>,
+    /// A study of the device (its task a `sweep` or `corners`): which; none for anything else.
+    study: Option<String>,
 }
 
-/// The device a run's job computes, the design's fidelity, and how it computes it, from the copy
-/// of the job in its directory.
-fn device_of(dir: &Path) -> (Option<String>, Option<String>, Option<String>) {
+/// The device a run's job computes, the design's fidelity, how it computes it, and the study it
+/// makes of it if it is one, from the copy of the job in its directory.
+fn device_of(
+    dir: &Path,
+) -> (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
     let job = ["toml", "json", "yaml"]
         .iter()
         .find_map(|ext| Job::load(&dir.join(format!("job.{ext}"))).ok());
     let Some(job) = job else {
-        return (None, None, None);
+        return (None, None, None, None);
     };
     let Some(spec) = job
         .device()
         .and_then(|t| photonoxide::device::Spec::from_table(t).ok())
     else {
-        return (None, None, None);
+        return (None, None, None, None);
     };
     let fidelity = crate::devices::SpecIn::of(&spec).fidelity;
     let task = job.task();
@@ -474,7 +486,11 @@ fn device_of(dir: &Path) -> (Option<String>, Option<String>, Option<String>) {
         Some(_) => Some(fidelity.clone()),
         None => None,
     };
-    (Some(spec.kind), Some(fidelity), computes)
+    let study = match task.get("kind").and_then(toml::Value::as_str) {
+        Some(k @ ("sweep" | "corners")) => Some(k.to_owned()),
+        _ => None,
+    };
+    (Some(spec.kind), Some(fidelity), computes, study)
 }
 
 #[derive(Serialize)]
@@ -531,6 +547,11 @@ fn jobs_in(dir: &Path) -> Vec<JobItem> {
                 kind: kind_of(&job),
                 about: about(text),
                 modified,
+                device: job
+                    .device()
+                    .and_then(|t| t.get("kind"))
+                    .and_then(toml::Value::as_str)
+                    .map(str::to_owned),
             })
         })
         .collect()
@@ -575,7 +596,7 @@ fn runs_in(dir: &Path, most: usize) -> Vec<RunItem> {
                 Some(Event::Finished { stopped, seconds }) => (true, Some(seconds), stopped),
                 _ => (false, None, None),
             };
-            let (device, fidelity, computes) = device_of(&d);
+            let (device, fidelity, computes, study) = device_of(&d);
             RunItem {
                 dir: d.display().to_string(),
                 name: name_of(&d),
@@ -588,6 +609,7 @@ fn runs_in(dir: &Path, most: usize) -> Vec<RunItem> {
                 device,
                 fidelity,
                 computes,
+                study,
             }
         })
         .collect()

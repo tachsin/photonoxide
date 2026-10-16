@@ -1,7 +1,7 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
 import { api, type AppState, type Info, type JobFormat, type Settings } from "./api";
-import type { DeviceModel, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Mode, ModeField, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
+import type { DeviceModel, DevicePoint, DeviceStudy, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Mode, ModeField, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import { template, type Kind } from "./job";
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
@@ -39,8 +39,6 @@ export const app = $state({
   lesson: null as string | null,
   /** The component the Components page shows, by its library id ("custom" for the Custom device); null for the first. */
   component: null as string | null,
-  /** Runs ticked in the drawer, to overlay. */
-  compare: [] as string[],
   /** Bumped when the workspace's files change, so lists reload. */
   workspaceVersion: 0,
 });
@@ -206,6 +204,9 @@ export const run = $state({
   solver: null as Solver | null,
   /** A device job's model: its method, grid, the time it took and its figures. */
   device: null as DeviceModel | null,
+  /** A device's study: what it steps through, and its points as they come. */
+  study: null as DeviceStudy | null,
+  points: [] as DevicePoint[],
   /** The named ports the run recorded: a device's, or a job's components'. */
   ports: [] as ScenePort[],
   /** Each solve's numerical error, in the order recorded. */
@@ -348,6 +349,12 @@ function take(e: Event) {
     case "device_model":
       run.device = e;
       break;
+    case "device_study":
+      run.study = e;
+      break;
+    case "device_point":
+      run.points.push(e);
+      break;
     case "ports":
       run.ports = e.ports;
       break;
@@ -393,6 +400,8 @@ function reset(info: Info) {
     sparams: [],
     solver: null,
     device: null,
+    study: null,
+    points: [],
     ports: [],
     errors: [],
     frames: [],

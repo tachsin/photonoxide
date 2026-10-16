@@ -303,9 +303,51 @@ export interface DeviceModel {
   figures: { name: string; symbol: string; value: number; unit: string; fidelity: string; grid: string }[];
 }
 
+/** A study of a job's device about to run (photonoxide::job::study): what it steps through. */
+export interface DeviceStudy {
+  type: "device_study";
+  study: "sweep" | "corners";
+  device: string;
+  fidelity: string;
+  method: string;
+  write_up: string;
+  papers: string[];
+  /** The device's parameters' names: the order of each point's values. */
+  parameters: string[];
+  units: string[];
+  /** A sweep's axes, the second's values fastest. */
+  axes: { parameter: string; from: number; to: number; points: number }[];
+  axis_units: string[];
+  /** The corners, after the nominal design. */
+  corners: { name: string; offsets: [string, number][]; temperature_k: number | null }[];
+  points: number;
+  wavelengths_um: number[];
+  ports: string[];
+}
+
+/** A point of a device's study: its design computed, or why it wasn't. */
+export interface DevicePoint {
+  type: "device_point";
+  point: number;
+  /** A sweep's: each axis's value there. */
+  at: number[];
+  /** A corners study's: the corner, "nominal" for the first point. */
+  corner: string | null;
+  values: number[];
+  error: string | null;
+  source: string;
+  grid: string;
+  figures: { name: string; symbol: string; value: number; unit: string; fidelity: string; grid: string }[];
+  effective_indices: number[];
+  /** s[w][q][p]: from port p into q at the study's w-th wavelength, real and imaginary parts. */
+  s: [number, number][][][];
+}
+
 export type Event =
   | { type: "started"; job: string; kind: string }
   | DeviceModel
+  | DeviceStudy
+  | DevicePoint
   | FdtdFrame
   | FdtdProgress
   | FdtdSpectrum

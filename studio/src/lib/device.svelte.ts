@@ -2,7 +2,7 @@
 // it is being edited (its stack, its parameters' expressions, its fidelity), where it was saved,
 // and the solves started from it, which go on in the background while the page is left.
 
-import { api, type Compute, type DeviceDerived, type DeviceFigure, type DeviceInfo, type DeviceMethod, type DeviceSpec, type LayerSpec, type RunItem, type StackSpec } from "./api";
+import { api, type Compute, type DeviceDerived, type DeviceFigure, type DeviceInfo, type DeviceMethod, type DeviceSpec, type DeviceSpectrum, type LayerSpec, type RunItem, type StackSpec, type StudyIn } from "./api";
 import { app, go, startRun, startRunHere, toast } from "./app.svelte";
 
 export const devices = $state({
@@ -34,7 +34,7 @@ export function deviceOf(id: string | null | undefined): DeviceInfo | undefined 
 }
 
 /** A device page's tabs. */
-export type Tab = "overview" | "design" | "model" | "simulate";
+export type Tab = "overview" | "design" | "model" | "simulate" | "study";
 
 /** A device's page: its design as edited, its tab, and the file it was saved to or opened from. */
 export interface Draft {
@@ -199,6 +199,60 @@ export async function solve(d: DeviceInfo, spec: DeviceSpec, fidelity: string) {
   }
 }
 
+// ---- studies: the Study tab's form, and what it shows ----
+
+/** A device's Study tab: what it does, its sweep's axes, its corners' settings, the run it shows and the things ticked to compare. */
+export interface StudyState {
+  mode: "sweep" | "corners" | "compare";
+  /** The fidelity's rung the study computes at; null for the design's. */
+  rung: string | null;
+  axes: { parameter: string; from: number; to: number; points: number }[];
+  /** Whether the sweep takes its second axis. */
+  two: boolean;
+  /** The band at each point, µm and a count; null for the device's own. */
+  band: [number, number, number] | null;
+  corners: {
+    bias_nm: number | null;
+    thickness_nm: number | null;
+    cold_k: number | null;
+    hot_k: number | null;
+    combine: "each" | "all";
+    /** Corners read from a job file, which the form shows as they are until it is changed. */
+    fixed: StudyIn["corners"] | null;
+  };
+  /** The study run shown, by its directory. */
+  shown: string | null;
+  /** The designs and runs ticked to compare, by their overlay ids. */
+  picked: string[];
+}
+
+export const studies = $state<Record<string, StudyState>>({});
+
+/** The Custom device's runs ticked to compare, by their overlay ids. */
+export const customCompare = $state({ picked: [] as string[] });
+
+/** Device `d`'s Study tab, made the first time. */
+export function studyOf(d: DeviceInfo): StudyState {
+  studies[d.id] ??= {
+    mode: "sweep",
+    rung: null,
+    axes: [],
+    two: false,
+    band: null,
+    corners: { bias_nm: 10, thickness_nm: 5, cold_k: null, hot_k: null, combine: "each", fixed: null },
+    shown: null,
+    picked: [],
+  };
+  return studies[d.id];
+}
+
+/** A design's S-parameters over `sweep` and its figures at its own fidelity (a solve at 2D or 3D), for an overlay. */
+export async function designSpectrum(spec: DeviceSpec, sweep: { from_um: number; to_um: number; points: number }): Promise<{ spectrum: DeviceSpectrum; figures: DeviceFigure[] }> {
+  const figures = await api.deviceDerived(spec, spec.fidelity);
+  const spectrum = await api.deviceSpectrum(spec, spec.fidelity, sweep);
+  return { spectrum, figures: figures.figures };
+}
+
 /** Shows device `id`'s page. */
 export function openDevice(id: string, tab?: Draft["tab"]) {
   app.component = id;
@@ -207,11 +261,18 @@ export function openDevice(id: string, tab?: Draft["tab"]) {
   go("components");
 }
 
-/** Opens a run: one that computes a device on that device's Simulate tab, in place; any other in the run view. */
+/** Opens a run: a device's study on that device's Study tab, one that computes a device on its Simulate tab, in place; any other in the run view. */
 export async function openRunItem(r: RunItem) {
   if (r.device && r.computes) {
     await loadDevices();
     const d = devices.list.find((x) => x.kind === r.device);
+    if (d && r.study) {
+      const st = studyOf(d);
+      st.mode = r.study === "corners" ? "corners" : "sweep";
+      st.shown = r.dir;
+      openDevice(d.id, "study");
+      return;
+    }
     if (d) {
       if (await startRunHere(() => api.openRun(r.dir))) {
         shownRun[d.id] = r.dir;
@@ -238,6 +299,22 @@ export async function openDesign(path: string) {
       const form = await api.deviceJobRead(s.job);
       draft.tab = "simulate";
       draft.fromJob = true;
+      if (form.study && form.compute && !form.error && !form.beyond.length) {
+        // a study: its sweep or corners on the Study tab, its grid the Simulate tab's
+        const st = studyOf(d);
+        st.mode = form.study.kind;
+        st.band = form.compute.band;
+        st.rung = rungOf(s.spec.fidelity, form.compute.fdfd_2d);
+        if (form.study.kind === "sweep") {
+          st.axes = form.study.axes;
+          st.two = form.study.axes.length > 1;
+        } else st.corners.fixed = form.study.corners;
+        draft.tab = "study";
+        draft.compute = { ...form.compute, band: null };
+        drafts[d.id] = draft;
+        openDevice(d.id);
+        return;
+      }
       if (form.compute) draft.compute = form.compute;
       // what the form can't hold stays in the text, which the run then uses as it is
       draft.text = form.beyond.length || form.error ? s.job : null;

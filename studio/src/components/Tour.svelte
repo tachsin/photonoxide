@@ -29,8 +29,8 @@
     },
     {
       icon: History,
-      title: "Watch, then overlay",
-      text: "Runs play live in 3D (drag to orbit, scroll to zoom) and in 2D plots. Runs, at the bottom left, opens every run in a drawer, the one going pinned on top: tick several and Overlay draws their sweeps and spectra together.",
+      title: "Watch, then compare",
+      text: "Runs play live in 3D (drag to orbit, scroll to zoom) and in 2D plots. Runs, at the bottom left, opens every run in a drawer, the one going pinned on top. A component's Study tab sweeps it, takes its corners and draws its designs and runs together.",
     },
     {
       icon: ShieldCheck,

@@ -55,6 +55,8 @@ export interface JobItem {
   kind: string;
   about: string;
   modified: number;
+  /** The device a design is of (its [device] table's kind), if it is one. */
+  device: string | null;
 }
 
 export interface RunItem {
@@ -72,6 +74,8 @@ export interface RunItem {
   fidelity: string | null;
   /** How the job computes it: its model ("analytic", "2D", "2D FDFD", "3D") or "FDTD 2D", "FDTD 3D"; null for a design alone. */
   computes: string | null;
+  /** A study of the device: "sweep" or "corners"; null for anything else. */
+  study: string | null;
 }
 
 export interface Home {
@@ -186,6 +190,8 @@ export const api = {
   readDevice: (path: string) => invoke<SavedDevice>("read_device", { path }),
   /** The job that computes a design as `compute` says (photonoxide::job::from_device), as its TOML. */
   deviceJob: (spec: DeviceSpec, compute: Compute, name: string) => invoke<string>("device_job", { spec, compute, name }),
+  /** The job that studies a design (photonoxide::job::study_from_device), as its TOML. */
+  deviceStudyJob: (spec: DeviceSpec, compute: Compute, study: StudyIn, name: string) => invoke<string>("device_study_job", { spec, compute, study, name }),
   /** A device job's text read back into the Simulate tab's form, and what of it the form can't hold. */
   deviceJobRead: (text: string) => invoke<JobForm>("device_job_read", { text }),
   /** A design on the cells the model chosen solves on: from above, and on the cut. */
@@ -495,6 +501,15 @@ export interface JobForm {
   error: string | null;
   /** An FDFD model's cells along x and y, and the unknowns of a solve. */
   size: [number, number, number] | null;
+  /** A study's sweep or corners, for a job that studies the design. */
+  study: StudyIn | null;
+}
+
+/** A study of a design (photonoxide::job::Study): a sweep of one or two parameters, or corners. */
+export interface StudyIn {
+  kind: "sweep" | "corners";
+  axes: { parameter: string; from: number; to: number; points: number }[];
+  corners: { name: string; offsets: [string, number][]; temperature_k: number | null }[];
 }
 
 export interface MaterialSpec {

@@ -1019,6 +1019,165 @@ pub fn device_job(spec: SpecIn, compute: ComputeIn, name: String) -> Result<Stri
     job_text_of(&spec, &compute, &name)
 }
 
+// ---- the studies of a design (the Study tab) ----
+
+/// An axis of a sweep, as the Study tab's form holds it: [`job::SweepAxis`].
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AxisIn {
+    pub parameter: String,
+    pub from: f64,
+    pub to: f64,
+    pub points: usize,
+}
+
+/// A corner, as the Study tab's form holds it: [`job::Corner`].
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct CornerIn {
+    pub name: String,
+    #[serde(default)]
+    pub offsets: Vec<(String, f64)>,
+    #[serde(default)]
+    pub temperature_k: Option<f64>,
+}
+
+/// A study, as the Study tab's form holds it: [`job::Study`].
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct StudyIn {
+    /// `"sweep"` or `"corners"`.
+    pub kind: String,
+    #[serde(default)]
+    pub axes: Vec<AxisIn>,
+    #[serde(default)]
+    pub corners: Vec<CornerIn>,
+}
+
+impl StudyIn {
+    fn study(&self) -> Result<job::Study, String> {
+        match self.kind.as_str() {
+            "sweep" => Ok(job::Study::Sweep(
+                self.axes
+                    .iter()
+                    .map(|a| job::SweepAxis::new(&a.parameter, a.from, a.to, a.points))
+                    .collect(),
+            )),
+            "corners" => Ok(job::Study::Corners(
+                self.corners
+                    .iter()
+                    .map(|c| {
+                        let offsets: Vec<(&str, f64)> =
+                            c.offsets.iter().map(|(n, v)| (n.as_str(), *v)).collect();
+                        let corner = job::Corner::new(&c.name, &offsets);
+                        match c.temperature_k {
+                            Some(t) => corner.at_temperature(t),
+                            None => corner,
+                        }
+                    })
+                    .collect(),
+            )),
+            other => Err(format!("a study is a sweep or corners, not \"{other}\"")),
+        }
+    }
+
+    /// The study a device job's `"sweep"` or `"corners"` task holds, as the form holds it.
+    fn of(task: &toml::Table) -> Option<StudyIn> {
+        let kind = task.get("kind").and_then(toml::Value::as_str)?;
+        if kind != "sweep" && kind != "corners" {
+            return None;
+        }
+        let num = |v: &toml::Value| v.as_float().or_else(|| v.as_integer().map(|i| i as f64));
+        let tables = |key: &str| -> Vec<toml::Table> {
+            task.get(key)
+                .and_then(toml::Value::as_array)
+                .map(|a| a.iter().filter_map(|v| v.as_table().cloned()).collect())
+                .unwrap_or_default()
+        };
+        let axes = tables("axis")
+            .iter()
+            .filter_map(|t| {
+                Some(AxisIn {
+                    parameter: t.get("parameter")?.as_str()?.to_owned(),
+                    from: num(t.get("from")?)?,
+                    to: num(t.get("to")?)?,
+                    points: usize::try_from(t.get("points")?.as_integer()?).ok()?,
+                })
+            })
+            .collect();
+        let corners = tables("corner")
+            .iter()
+            .filter_map(|t| {
+                Some(CornerIn {
+                    name: t.get("name")?.as_str()?.to_owned(),
+                    offsets: t
+                        .get("offsets")
+                        .and_then(toml::Value::as_table)
+                        .map(|o| {
+                            o.iter()
+                                .filter_map(|(n, v)| Some((n.clone(), num(v)?)))
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    temperature_k: t.get("temperature_k").and_then(num),
+                })
+            })
+            .collect();
+        Some(StudyIn {
+            kind: kind.to_owned(),
+            axes,
+            corners,
+        })
+    }
+}
+
+/// The text of the job that studies `spec` as `study` says, each point computed as `compute`
+/// says ([`job::study_from_device`]), named `name`, with an opening comment saying what it
+/// studies and how to run it, farmed or not.
+///
+/// # Errors
+///
+/// What the library refuses: a parameter the design hasn't, a point out of a parameter's range,
+/// a temperature at the analytic fidelity or on materials that take none, a 3D solve too large
+/// at a point.
+pub fn study_text_of(
+    spec: &SpecIn,
+    compute: &ComputeIn,
+    study: &StudyIn,
+    name: &str,
+) -> Result<String, String> {
+    let s = spec.spec()?;
+    let mut c = compute.compute();
+    c.fdtd = None;
+    let j = job::study_from_device(name, &s, &c, &study.study()?).map_err(text)?;
+    let what = match study.kind.as_str() {
+        "sweep" => format!(
+            "swept in {}",
+            study
+                .axes
+                .iter()
+                .map(|a| a.parameter.as_str())
+                .collect::<Vec<_>>()
+                .join(" and ")
+        ),
+        _ => format!("at {} corners and its nominal design", study.corners.len()),
+    };
+    let body = j.to_text(Format::Toml).map_err(text)?;
+    Ok(format!(
+        "# The {} {what}, by its {} model at each point.\n#   photonoxide run jobs/{name}.toml \
+         [--headless] [--workers 4]\n{body}",
+        spec.kind, spec.fidelity
+    ))
+}
+
+/// The job that studies `spec`, as its text.
+#[tauri::command(async)]
+pub fn device_study_job(
+    spec: SpecIn,
+    compute: ComputeIn,
+    study: StudyIn,
+    name: String,
+) -> Result<String, String> {
+    study_text_of(&spec, &compute, &study, &name)
+}
+
 /// A device job's text, read back into the Simulate tab's form: its design and how it is
 /// computed, and what of it the form can't hold.
 #[derive(Debug, PartialEq, Serialize)]
@@ -1035,6 +1194,8 @@ pub struct JobForm {
     error: Option<String>,
     /// A model that is an FDFD: its cells along x and y and the unknowns of a solve.
     size: Option<(usize, usize, f64)>,
+    /// A study's sweep or corners, for a job whose task studies the design.
+    study: Option<StudyIn>,
 }
 
 /// Whether two values are the same, a number the same whether written as an integer or a float.
@@ -1062,6 +1223,7 @@ pub fn read_job_form(text: &str) -> JobForm {
         beyond: Vec::new(),
         error: None,
         size: None,
+        study: None,
     };
     let job = match Job::parse(text) {
         Ok(j) => j,
@@ -1101,9 +1263,16 @@ pub fn read_job_form(text: &str) -> JobForm {
         return form;
     }
     form.size = job::fdfd_size(&job).ok().flatten();
+    form.study = StudyIn::of(job.task());
     // what the form would write: any key of the task it writes otherwise is beyond it
     if let Some(compute) = &form.compute {
-        match job::from_device(job.name(), &spec, &compute.compute()) {
+        let again = match &form.study {
+            Some(study) => study.study().and_then(|s| {
+                job::study_from_device(job.name(), &spec, &compute.compute(), &s).map_err(text_of)
+            }),
+            None => job::from_device(job.name(), &spec, &compute.compute()).map_err(text_of),
+        };
+        match again {
             Ok(again) => {
                 let mine = again.task();
                 for (k, v) in job.task() {
@@ -1112,7 +1281,7 @@ pub fn read_job_form(text: &str) -> JobForm {
                     }
                 }
             }
-            Err(e) => form.error = Some(text_of(e)),
+            Err(e) => form.error = Some(e),
         }
     }
     form

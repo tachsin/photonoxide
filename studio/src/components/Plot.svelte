@@ -114,7 +114,7 @@
     <button class="btn btn-ghost btn-xs btn-square" aria-label="Save the data as CSV" onclick={saveCsv}><Download size={14} /></button>
   </div>
   <svg {width} {height} class="block select-none" role="img" aria-label="{yLabel} against {xName}" onpointermove={move} onpointerleave={() => (hover = null)}>
-    {#each ticks(xs[0], xs[1], Math.max(3, Math.floor(width / 110))) as t (t)}
+    {#each ticks(xs[0], xs[1], Math.max(5, Math.floor(width / 100))) as t (t)}
       <line x1={X(t)} x2={X(t)} y1={T} y2={height - B} class="stroke-base-content/8" />
       <text x={X(t)} y={height - B + 17} text-anchor="middle" class="fill-base-content/55 text-[11px]">{label(t)}</text>
     {/each}
@@ -173,7 +173,7 @@
     {#each data as s, k (s.label)}
       {@const colour = s.colour ?? SERIES[k % SERIES.length]}
       <button
-        class="flex items-center gap-1.5 transition-opacity {hidden.includes(s.label) ? 'opacity-35' : ''}"
+        class="flex items-center gap-1.5 text-left transition-opacity {hidden.includes(s.label) ? 'opacity-35' : ''}"
         title={hidden.includes(s.label) ? "Show" : "Hide"}
         onclick={() => (hidden = hidden.includes(s.label) ? hidden.filter((h) => h !== s.label) : [...hidden, s.label])}
       >

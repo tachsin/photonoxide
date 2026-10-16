@@ -12,7 +12,11 @@
   import { ask } from "@tauri-apps/plugin-dialog";
   import { onDestroy } from "svelte";
 
-  import { api, formatOf, KINDS, type JobCheck, type JobFormat } from "../../lib/api";
+  import { ago, api, duration, formatOf, KINDS, type JobCheck, type JobFormat, type RunItem } from "../../lib/api";
+  import { customCompare } from "../../lib/device.svelte";
+  import type { Event } from "../../lib/events";
+  import { overlaidOf } from "../../lib/study";
+  import Overlay, { type OverlayItem } from "../Overlay.svelte";
   import { app, startRun, toast } from "../../lib/app.svelte";
   import { modelOf } from "../../lib/catalog.svelte";
   import { along, cells, holds, layerSpan, numberOf, previewWindow, STACKS, template, turn, type JobModel, type Kind, type Num } from "../../lib/job";
@@ -299,6 +303,28 @@
     model.sweep[which] = (t !== "" && Number.isFinite(n) ? n : t) as Num;
   }
 
+  // ---- the runs of jobs without a device, compared (in place of the Compare page) ----
+  let panel = $state<"job" | "compare">("job");
+  let others = $state<RunItem[]>([]);
+  $effect(() => {
+    void app.workspaceVersion;
+    if (panel !== "compare") return;
+    api
+      .home()
+      .then((h) => (others = h.runs.filter((r) => !r.device)))
+      .catch(() => {});
+  });
+  const runItems = $derived<OverlayItem[]>(
+    others.map((r) => ({
+      id: `run ${r.dir}`,
+      label: r.job || r.name,
+      sub: `${KINDS[r.kind]?.label ?? r.kind} · ${ago(r.started)}${r.seconds !== null ? ` · ${duration(r.seconds)}` : ""}`,
+      what: "run",
+      version: `${r.finished} ${r.seconds}`,
+      load: async () => overlaidOf((await api.runEvents(r.dir)) as Event[]),
+    })),
+  );
+
   const isSel = (kind: "rect" | "circle" | "ring" | "port", index: number) => selection?.kind === kind && selection.index === index;
   /** The parameters a modes job's sweep can step through: the wavelength, a rectangle's width, or a named one. */
   const sweepable = $derived(model.kind === "modes" ? ["wavelength", "width", ...model.parameters.map(([n]) => n)] : ["wavelength"]);
@@ -353,8 +379,18 @@
       {@render view()}
     </section>
 
-    <!-- the form -->
+    <!-- the form, or the runs compared -->
     <aside class="@container min-h-0 min-w-0 space-y-6 overflow-x-hidden overflow-y-auto px-5 py-4">
+      <div class="join w-full" role="tablist" aria-label="The job, or its runs compared">
+        <button role="tab" class="btn btn-sm join-item flex-1 {panel === 'job' ? 'btn-primary btn-soft' : ''}" onclick={() => (panel = "job")}>Job</button>
+        <button role="tab" class="btn btn-sm join-item flex-1 {panel === 'compare' ? 'btn-primary btn-soft' : ''}" onclick={() => (panel = "compare")}>Compare runs</button>
+      </div>
+      {#if panel === "compare"}
+        <section>
+          <p class="mb-3 text-[11px] faint">The runs of jobs without a device, overlaid: their spectra, sweeps and FDTD spectra on shared axes, each curve with its fidelity and grid. A device's runs compare on its page's Study tab.</p>
+          <Overlay items={runItems} bind:picked={customCompare.picked} empty="No runs of jobs without a device in this workspace yet." />
+        </section>
+      {:else}
       {#if check && !check.ok && check.error}{@render problem()}{/if}
       {#if model.kept.length}
         <div role="status" class="rounded-lg border border-info/30 bg-info/8 px-3 py-2 text-xs">
@@ -786,6 +822,7 @@
             <p class="text-xs faint">One wavelength. Turn the sweep on to trace the effective indices{model.kind === "fdfd" ? " or the spectrum" : ", or step any parameter"} over a range.</p>
           {/if}
         </fieldset>
+      {/if}
       {/if}
     </aside>
   </div>

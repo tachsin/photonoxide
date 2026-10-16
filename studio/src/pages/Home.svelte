@@ -61,7 +61,7 @@
           <p class="mb-2 flex items-center gap-2 text-sm font-medium text-primary"><Sparkles size={15} /> {greeting}</p>
           <h2 class="text-3xl font-semibold tracking-tight">Validated photonics, live.</h2>
           <p class="mt-3 text-[15px] leading-relaxed muted">
-            Mode solvers and FDFD whose every result is checked against exact solutions and published papers. Start from a template or build your own, watch it run in 3D, and overlay it on the last one.
+            Mode solvers and FDFD whose every result is checked against exact solutions and published papers. Start from a template or build your own, watch it run in 3D, and sweep it or compare it with the last one.
           </p>
           <div class="mt-6 flex flex-wrap gap-2.5">
             <div class="dropdown">

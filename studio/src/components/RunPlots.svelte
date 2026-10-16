@@ -11,6 +11,7 @@
   import Plot from "./Plot.svelte";
   import RasterView from "./RasterView.svelte";
   import UnitChip from "./UnitChip.svelte";
+  import StudyResults from "./device/StudyResults.svelte";
 
   const db = (re: number, im: number) => 10 * Math.log10(Math.max(re * re + im * im, 1e-30));
   /** Spectra as power (linear, the default: dips read as they are) or in dB (small values show). */
@@ -81,7 +82,7 @@
 </script>
 
 <div class="mx-auto max-w-6xl space-y-6 p-6">
-  {#if !run.pictures.length && !run.modes.length && !run.sweep && !run.fields.length && !run.sparams.length && !run.frames.length && !Object.keys(run.spectra).length && !run.device}
+  {#if !run.pictures.length && !run.modes.length && !run.sweep && !run.fields.length && !run.sparams.length && !run.frames.length && !Object.keys(run.spectra).length && !run.device && !run.study}
     <div class="grid h-64 place-items-center text-sm faint">
       {run.finished ? "This run recorded nothing to plot." : "Waiting for the first results…"}
     </div>
@@ -114,6 +115,13 @@
       </h3>
       <p class="mb-3 text-xs faint">from zero (black) to its peak (pale yellow), seen from above{marker !== null ? "; each point's own peak, on coarser pixels than the job's own field" : ""}</p>
       <RasterView raster={field.intensity} kind="intensity" maxHeight={420} outline={above} />
+    </section>
+  {/if}
+
+  {#if run.study}
+    <section class="panel p-5">
+      <h3 class="mb-3 font-semibold">The {run.study.device}'s study <span class="font-normal faint">· {run.study.method}</span></h3>
+      <StudyResults record={{ study: run.study, points: run.points }} name={run.job?.job ?? "study"} running={!run.finished} height={300} />
     </section>
   {/if}
 
