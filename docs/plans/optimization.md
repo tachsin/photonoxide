@@ -467,7 +467,7 @@ These are formulations or starting points that photonoxide passes to genoxide's 
   constraints' violation;
 - a parameter view: thicknesses as a stack, couplings on the chip view, a design's pixels;
 - for multi-objective runs, a Pareto front that grows as the run goes, with its hypervolume;
-- the Compare page overlays runs with different seeds or methods.
+- the runs drawer's Overlay (a component's Study tab, after P7) overlays runs with different seeds or methods.
 
 The window takes the job from the command line, starts by itself and exits when done. A hard
 timeout is always set, as AGENTS.md requires.

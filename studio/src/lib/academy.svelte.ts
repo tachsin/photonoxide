@@ -124,7 +124,8 @@ export interface ChartData {
   /** Whether y is drawn on a logarithmic scale. */
   y_log: boolean;
   y_range: [number, number] | null;
-  series: { label: string; points: [number, number][]; dashed: boolean }[];
+  /** Each curve, `colour` the palette's colour it is drawn in when it belongs with another (a TE and a TM mode of one order), or null for the next in turn. */
+  series: { label: string; points: [number, number][]; dashed: boolean; colour: number | null }[];
   marker: number | null;
   figures: ChartFigure[];
   note: string;

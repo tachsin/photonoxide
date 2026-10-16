@@ -6,12 +6,17 @@
 //! values and its place on the canvas; the connections; the external ports with their names and
 //! places; and the wavelengths to simulate. [`Chip::netlist`] builds the library's
 //! [`Netlist`] from it, and [`Chip::from_netlist`] a chip from a netlist, so the two round-trip.
+//! An instance may carry a device's design (`device`, [`chip::DeviceRef`]) in place of the
+//! library's component: built at its fidelity, the chip's instance is that design.
 //!
 //! The library does the physics: the studio only builds netlists and hands them to
 //! `Netlist::compile`, and shows what comes back.
 
+pub mod chip;
 pub mod library;
 
+#[cfg(test)]
+mod chip_tests;
 #[cfg(test)]
 mod tests;
 
@@ -137,10 +142,19 @@ pub struct Placed {
     /// The time convention of that file's values.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub convention: Option<TimeConvention>,
+    /// A device's design in place of the library's component: inline, or a job file's of the
+    /// workspace, with its fidelity. Its `values`, if any, then set its component's parameters.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device: Option<chip::DeviceRef>,
 }
 
 /// The kind of a measured component: S-parameters read from a Touchstone file.
 pub const MEASURED: &str = "touchstone";
+
+/// The kind of a device's compact model: a model fitted to the device's runs over some of its
+/// parameters, read from its file (photonoxide::device::Fitted), its parameters the ones it
+/// covers.
+pub const COMPACT: &str = "compact";
 
 /// The time convention a Touchstone file's complex values are in: the specification doesn't
 /// say, so the file's reader must.
@@ -198,6 +212,13 @@ fn build(
     convention: Option<TimeConvention>,
     root: &Path,
 ) -> Result<Arc<dyn Component>, String> {
+    if kind == COMPACT {
+        let file = file.ok_or("a compact model needs its file")?;
+        let path = resolve(root, file);
+        let fitted = photonoxide::device::Fitted::read(&path)
+            .map_err(|e| format!("{}: {e}", path.display()))?;
+        return Ok(Arc::new(fitted.model));
+    }
     if kind == MEASURED {
         let file = file.ok_or("a measured component needs its Touchstone file")?;
         let convention =
@@ -392,10 +413,16 @@ impl Chip {
         let mut models: HashMap<Key, Arc<dyn Component>> = HashMap::new();
         let mut missing = HashSet::new();
         for inst in &self.instances {
+            // a device's design: its own component, with the values its parameters give it
+            let mut own = None;
             let key = (inst.kind.as_str(), inst.file.as_deref(), inst.convention);
-            let model = match models.get(&key) {
-                Some(m) => Ok(m.clone()),
-                None => build(key.0, key.1, key.2, root),
+            let model = match (&inst.device, models.get(&key)) {
+                (Some(d), _) => chip::component(d, root).map(|(c, values)| {
+                    own = Some(values);
+                    c
+                }),
+                (None, Some(m)) => Ok(m.clone()),
+                (None, None) => build(key.0, key.1, key.2, root),
             };
             let model = match model {
                 Ok(m) => m,
@@ -408,13 +435,20 @@ impl Chip {
                     continue;
                 }
             };
-            models.insert(key, model.clone());
-            if let Err(e) = netlist.add(&inst.name, model) {
+            if inst.device.is_none() {
+                models.insert(key, model.clone());
+            }
+            if let Err(e) = netlist.add(&inst.name, model.clone()) {
                 let mut p = Problem::of(&e);
                 p.instance = Some(inst.name.clone());
                 problems.push(p);
                 missing.insert(inst.name.as_str());
                 continue;
+            }
+            for (p, v) in model.parameters().iter().zip(own.iter().flatten()) {
+                if let Err(e) = netlist.set(&inst.name, &p.name, *v) {
+                    problems.push(Problem::of(&e));
+                }
             }
             for (parameter, &value) in &inst.values {
                 if let Err(e) = netlist.set(&inst.name, parameter, value) {
@@ -466,15 +500,9 @@ impl Chip {
     }
 }
 
-#[cfg_attr(
-    not(test),
-    allow(
-        dead_code,
-        reason = "the format's other direction, from a netlist, which only the tests take yet"
-    )
-)]
 impl Chip {
     /// A chip with nothing on it.
+    #[cfg_attr(not(test), allow(dead_code, reason = "from_netlist's start"))]
     pub fn new(name: &str) -> Chip {
         Chip {
             format: FORMAT,
@@ -516,6 +544,7 @@ impl Chip {
                 mirror: false,
                 file: None,
                 convention: None,
+                device: None,
                 values: inst
                     .component
                     .parameters()
@@ -577,7 +606,7 @@ pub struct KindInfo {
 }
 
 #[derive(Serialize)]
-struct PortInfo {
+pub(crate) struct PortInfo {
     name: String,
     /// "TE0 at 1.55 µm, n_eff 2.44, n_g 4.18", when the component states it.
     mode: Option<ModeInfo>,
@@ -631,6 +660,23 @@ fn info(entry: &library::Entry) -> Result<KindInfo, String> {
     Ok(info)
 }
 
+/// Component `c`'s ports, with their modes where it states them.
+pub(crate) fn ports_of(c: &dyn Component) -> Vec<PortInfo> {
+    c.ports()
+        .iter()
+        .map(|p| PortInfo {
+            name: p.name.clone(),
+            mode: p.mode.as_ref().map(|m| ModeInfo {
+                polarization: format!("{:?}", m.polarization),
+                order: m.order,
+                effective_index: m.effective_index,
+                group_index: m.group_index,
+                wavelength_um: m.wavelength.to_um(),
+            }),
+        })
+        .collect()
+}
+
 /// What the library says of component `c`, drawn as `glyph`; the studio's words left empty.
 fn describe(c: &dyn Component, glyph: library::Glyph) -> KindInfo {
     let p = c.provenance();
@@ -644,20 +690,7 @@ fn describe(c: &dyn Component, glyph: library::Glyph) -> KindInfo {
         file: None,
         convention: None,
         kind: c.kind().into(),
-        ports: c
-            .ports()
-            .iter()
-            .map(|p| PortInfo {
-                name: p.name.clone(),
-                mode: p.mode.as_ref().map(|m| ModeInfo {
-                    polarization: format!("{:?}", m.polarization),
-                    order: m.order,
-                    effective_index: m.effective_index,
-                    group_index: m.group_index,
-                    wavelength_um: m.wavelength.to_um(),
-                }),
-            })
-            .collect(),
+        ports: ports_of(c),
         parameters: c
             .parameters()
             .iter()
@@ -707,6 +740,47 @@ fn measured_in(root: &Path, path: &Path, convention: TimeConvention) -> Result<K
     Ok(info)
 }
 
+/// A device's compact model in the file at `path` (relative to the workspace, or absolute), as
+/// the library and the chip view show it: its parameters the ones it covers, over their ranges.
+#[tauri::command(async)]
+pub fn compact_component(
+    state: tauri::State<'_, Studio>,
+    path: String,
+) -> Result<KindInfo, String> {
+    compact_in(&state.workspace(), Path::new(&path))
+}
+
+fn compact_in(root: &Path, path: &Path) -> Result<KindInfo, String> {
+    let path = &resolve(root, &path.to_string_lossy());
+    let file = relative(root, path);
+    let fitted = photonoxide::device::Fitted::read(path).map_err(|e| e.to_string())?;
+    let c = build(COMPACT, Some(&file), None, root)?;
+    let mut info = describe(c.as_ref(), library::Glyph::Box);
+    info.id = COMPACT.into();
+    info.title = format!("{}, compact", fitted.kind);
+    info.variant = path
+        .file_name()
+        .map_or_else(|| file.clone(), |n| n.to_string_lossy().into_owned());
+    info.category = "Compact".into();
+    info.about = format!(
+        "A compact model of the {}, fitted to its {} model's runs ({}) over {}: within {:.2e} in |S| of them at {} samples held out of the fit. It holds at {}.",
+        fitted.kind,
+        fitted.source,
+        fitted.grid,
+        fitted.parameters.join(" and "),
+        fitted.held_out_error,
+        fitted.held_out,
+        fitted
+            .fixed
+            .iter()
+            .map(|(n, v)| format!("{n} = {v}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    info.file = Some(file);
+    Ok(info)
+}
+
 /// Every kind of component in the library.
 #[tauri::command(async)]
 pub fn component_library() -> Result<Vec<KindInfo>, String> {
@@ -724,7 +798,7 @@ pub struct SpectrumData {
 }
 
 impl SpectrumData {
-    fn of(spectrum: &Spectrum) -> SpectrumData {
+    pub(crate) fn of(spectrum: &Spectrum) -> SpectrumData {
         let n = spectrum.ports().len();
         let parts = |f: fn(photonoxide::Complex64) -> f64| -> Vec<Vec<Vec<f64>>> {
             (0..n)
@@ -875,7 +949,7 @@ fn simulate(chip: &Chip, root: &Path) -> Result<Simulation, String> {
 
 /// Writes `spectrum` to `path` as a Touchstone file (Version 2.0, its ports in order, in
 /// photonoxide's e^(−iωt) convention).
-fn write_touchstone(path: &Path, spectrum: &Spectrum) -> Result<(), String> {
+pub(crate) fn write_touchstone(path: &Path, spectrum: &Spectrum) -> Result<(), String> {
     Touchstone::from_spectrum(spectrum, Convention::Physics)
         .and_then(|file| file.write_file(path, Precision::RoundTrip))
         .map_err(|e| e.to_string())

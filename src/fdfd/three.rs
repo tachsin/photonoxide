@@ -1106,6 +1106,7 @@ impl Lattice {
 pub(crate) mod adjoint;
 pub(crate) mod block_checks;
 pub(crate) mod checks;
+pub(crate) mod fill;
 mod iterative;
 mod matrix_free;
 mod multigrid;
@@ -1114,13 +1115,12 @@ pub(crate) mod port_checks;
 mod port_tests;
 mod ports;
 pub(crate) mod recycle_checks;
-pub(crate) mod stencil_checks;
 #[cfg(test)]
 mod tests;
 
 pub use iterative::{Formulation, IterativeSolver3d, Product, Recycler};
 pub(crate) use iterative::{MATRIX_FREE_SOLVE_BYTES, MATRIX_SOLVE_BYTES};
-pub use multigrid::{Coarse, CycleShape, Jacobi, Multigrid};
+pub use multigrid::{CycleShape, Multigrid};
 pub use ports::{Port3d, PortMode3d};
 pub(crate) use ports::{mode_amplitude_weights_of, mode_amplitudes_of};
 

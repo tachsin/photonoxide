@@ -265,7 +265,8 @@ library can do them:
   fronts factorized side by side may not. A library must be able to follow that per call.
 - **A solver per library.** `dense::with_kernels` makes photonoxide's solver with a library's
   kernels, named `photonoxide-` and the kernels' name (`photonoxide-openblas`,
-  `photonoxide-mkl`, `photonoxide-accelerate`), registered and chosen as any other backend:
+  `photonoxide-mkl`, `photonoxide-aocl`, `photonoxide-armpl`, `photonoxide-accelerate`),
+  registered and chosen as any other backend, and by the benchmark's dense kernels' problems:
   `direct = "photonoxide-openblas"` in a job. It declares itself deterministic only if the
   kernels do.
 - **`photonoxide` itself is unchanged:** it calls faer's kernels as it always did, and gives
@@ -274,11 +275,26 @@ library can do them:
   distance between its columns, and its first entry's address. photonoxide forbids `unsafe`,
   so reading through the address is `photonoxide-native`'s to do.
 
-`photonoxide-native` loads the libraries (`native/src/blas.rs`): OpenBLAS, oneMKL's `mkl_rt`
-and Apple Accelerate, by the Fortran interface with 32-bit integers.
+`photonoxide-native` loads the libraries (`native/src/blas.rs`), each provider found by its own
+rules: OpenBLAS (its own builds, conda-forge's, the distributions', and pip's
+`scipy-openblas32`), oneMKL's `mkl_rt`, AMD AOCL (AOCL-BLAS and AOCL-LAPACK, which are AMD's
+BLIS and libFLAME, or the two in one `aocl` library), Arm Performance Libraries (on Arm
+processors) and Apple Accelerate (on macOS).
 
-- A build with 64-bit integers isn't used: OpenBLAS's has other names, oneMKL's interface layer
-  is asked.
+- **The interface is measured, not assumed.** Every spelling photonoxide knows is tried in turn:
+  Fortran's (`zgemm_`, `zgemm`, `ZGEMM`, with a prefix such as the wheels' `scipy_`, or a 64-bit
+  suffix, `zgemm_64_`, `zgemm_64`, `zgemm64_`), then CBLAS and LAPACKE (`cblas_zgemm`,
+  `LAPACKE_zgetrf_work`, with those suffixes). For the first a library has, `zgetrf` factorizes a
+  1 × 1 matrix whose integers read 1 at either size, and the bytes it writes in its pivot and
+  its `info` say whether it takes 32-bit integers or 64. A name is no proof: pip's
+  `scipy-openblas64` exports `zgemm_` taking 64-bit integers, and is called so. How a Fortran
+  function returns a complex number (by value, or through a first argument) is measured with
+  `zdotc` the same way, with arguments either reading takes safely; on Windows on x86-64 the two
+  are one convention. On Linux, Ubuntu's MKL 2020.4 returns through a first argument (Intel's
+  convention, in its LP64 layer) and pip's OpenBLAS by value (gfortran's): both measured so. Every interface oneMKL 2026.1 has (Fortran's and C's, 32 and 64 bits) and
+  each OpenBLAS build here agrees with faer's kernels to 1e-13.
+- A library that has been called stays loaded for the rest of the process: unloading OpenBLAS
+  while its threads waited crashed (an access violation on Windows).
 - `zgemmt` (the product into one triangle) isn't standard; where a library lacks it, `zgemm`
   computes both triangles.
 - OpenBLAS's `zgemmt` is used from 0.3.27: with 0.3.26's (Ubuntu 24.04's package) the solver
@@ -286,9 +302,23 @@ and Apple Accelerate, by the Fortran interface with 32-bit integers.
 - Accelerate is called by the names it has always had (`zgemm_`). Its newer interface's
   `zgemm$NEWLAPACK` crashed on macOS 26.6.2 for some products with an odd number of rows
   (1365 × 1024, 5461 × 4096), through Apple's own `cblas_zgemm$NEWLAPACK` too.
-- The threads of a call are set for the calling thread: `mkl_set_num_threads_local`,
-  `openblas_set_num_threads_local` (OpenBLAS 0.3.27 and later; an older one is held to one
-  thread). Accelerate has no such setting and is left to itself.
+- The threads of a call are set for the calling thread, from rayon's thread count:
+  `mkl_set_num_threads_local`, and for AOCL and Arm PL, which thread by OpenMP,
+  `omp_set_num_threads` on the calling thread, the control AMD's tuning guide gives AOCL-BLAS
+  (without an OpenMP runtime AOCL-BLAS is held to one thread by `bli_thread_set_num_threads`).
+  OpenBLAS has no count per thread: its `openblas_set_num_threads_local` sets the process's
+  count, as `openblas_set_num_threads` does, and with rayon's threads setting 1 and 20 at once
+  the solver ran 80 times slower and didn't repeat its bits. So OpenBLAS runs on one thread,
+  and a threaded call sets the count around itself while no other call into OpenBLAS runs (a
+  lock that the one-thread calls share). Its LU stays on one thread: its threaded `zgetrf`
+  keeps arrays sized by the build's largest thread count on the stack at each level of its
+  recursion, and overflowed a 2 MiB thread's stack with pip's and Ubuntu's builds on Linux.
+  Accelerate has no such setting and is left to itself.
+- **Reproducibility** is each library's own, recorded in its kernels' description: oneMKL's
+  conditional numerical reproducibility (`mkl_cbwr_set`, which photonoxide sets to `AUTO`) gives
+  the same bits on every run at one thread count, not on another; OpenBLAS promises nothing.
+  No library's kernels are declared deterministic; faer's stay the deterministic default.
+  What was measured is in [the baselines](../baselines.md#06-the-fronts-dense-kernels-from-onemkl-and-openblas-186).
 
 Checked:
 
@@ -296,12 +326,179 @@ Checked:
   systems, with fronts large enough to thread.
 - Kernels written from the trait's words alone, one entry at a time, and writing NaN where a
   triangle isn't wanted, factorize to 1e-12 of faer's: the trait says all a library needs.
-- Each library's kernels against faer's on random complex matrices of 32 to 4096, and the
-  solver with them against photonoxide's own, where the library is installed
-  (`native/tests/blas.rs`).
+- Each library's kernels against faer's on random complex matrices of 32 to 4096, each of its
+  interfaces on its own, the solver with them against photonoxide's own on Helmholtz matrices
+  and on the exported systems (the same fill and pivots, the solutions within 1e-10), and
+  whether they repeat their bits, where the library is installed (`native/tests/blas.rs`).
+- The interfaces' detection in CI, against the test library's own BLAS and LAPACK
+  (`native/testlib`): Fortran's names taking 64-bit integers, a complex result through a first
+  argument, and the C interfaces with 32-bit integers, each found as it is and agreeing with
+  faer's kernels.
+
+## Iterative backends
+
+`backend::IterativeSolver` is the 3D iterative solver's Krylov method run elsewhere, a GPU's,
+on the same recurrences as photonoxide's own (#190):
+
+- **What a backend runs:** one run of QMR from x₀ = 0 (`qmr_run`): the complex symmetric QMR
+  (R. W. Freund, SIAM J. Sci. Stat. Comput. 13, 425 (1992), doi:10.1137/0913023), one product
+  an iteration, on a matrix given in the symmetric form, the general QMR (R. W. Freund, N. M.
+  Nachtigal, Numer. Math. 60, 315 (1991), doi:10.1007/BF01385726) otherwise; the general QMR
+  on A M⁻¹ with photonoxide's ILU(0) factors (`qmr_run_ilu`); and, if it says so
+  (`runs_multigrid`), restarted GMRES with one cycle of photonoxide's multigrid as M⁻¹
+  (`gmres_multigrid`; Y. Saad, *Iterative Methods for Sparse Linear Systems*, 2nd ed., SIAM
+  (2003), doi:10.1137/1.9780898718003, Algorithm 9.5 restarted as 6.11), the cycle handed over
+  as each level's operator, smoother factors and transfers, and the coarsest level's
+  factorization (`MultigridCycle`).
+- **What stays photonoxide's:** the restarts after a breakdown of the Lanczos process, the
+  tightened tolerance of QMR on the symmetric similar matrix, x = M⁻¹ y after ILU(0), and the
+  check of GMRES's solution on the residual computed on the CPU. A backend's solution is held to
+  the same residual as photonoxide's own.
+- **Choosing one:** `IterativeSolver3d::with_iterative_backend(&Choice)`, and in the
+  catalogue each problem that takes one (`Entry::takes_an_iterative_backend`: the guides by
+  QMR, ILU(0) or the multigrid, Diel's guide and the strip with ports). A solver without the
+  matrix can't be given one. With a backend named, an S-matrix's ports and a block solve run
+  one right-hand side at a time on it, and recycling's solves go to it as plain solves.
+- **`auto`** is photonoxide's own, unless the process prefers a backend
+  (`backend::prefer_iterative`, which nothing in photonoxide calls: the validation run on a
+  backend does). Then the solves it runs as photonoxide would go to it (one right-hand side, by
+  the matrix: plain QMR, QMR with ILU(0)'s exact solves, GMRES with the multigrid if it runs it
+  and the hierarchy has every level's matrix and Galerkin's coarse operators), and the others
+  stay photonoxide's: block QMR, GCRO-DR's recycling, and every solve without the matrix. The
+  benchmark's measurements don't choose an iterative backend yet.
+
+### cuSPARSE: photonoxide's QMR and GMRES on an NVIDIA GPU
+
+`photonoxide-native` registers `cusparse` (`native/src/gpu_qmr.rs`, `gpu_multigrid.rs`) when it
+finds the CUDA runtime and cuSPARSE and its QMR, run to 1e-12, matches photonoxide's direct
+solve on the smoke test's systems in both forms.
+
+- **On the GPU:** the matrix (and Aᵀ, by rows, for the general QMR), ILU(0)'s triangles and
+  their transposes, or the multigrid's levels above the coarsest; the Krylov vectors, between
+  iterations too. Only scalars come back each iteration: the dot products, the norms. The
+  coarsest level's solve stays photonoxide's, on the CPU (at most 2 000 unknowns, 32 kB each
+  way, 5 ms of a 1.6 s solve at 68³).
+- **cuSPARSE's calls:** `cusparseSpMV` for the products and the multigrid's transfers,
+  `cusparseSpSV` for the triangular solves (ILU(0)'s and the smoothers' block ILU(0), whose
+  independent blocks its analysis finds), `cusparseAxpby` and `cusparseSpVV` for the vector
+  work, each vector seen as a sparse vector with every entry. cuSPARSE's ILU(0) factorization
+  is deprecated, and isn't used: the factors are photonoxide's.
+- **Memory:** the GPU's free memory is checked against what a run keeps there before
+  anything is copied, and a run that wouldn't fit is refused, saying how much it needs.
+- **Determinism, declared:** yes, on one GPU. The sums are cuSPARSE's, in an order of its own,
+  so the iterations are the CPU's to rounding's effect on the residual's history, not bit for
+  bit; a repeated run gives the same bits, which the tests check on every guide. The products
+  are `CUSPARSE_SPMV_CSR_ALG2`'s, chosen for it: on 50 repeated products, it gave the same bits
+  on the curl-curl matrix of `strip-40` (192 000 unknowns) and on one with rows of 100 000
+  entries, where cuSPARSE's default, `CSR_ALG1`, gave different bits; `CSR_ALG2` took 0.367 ms a
+  product on the curl-curl matrix against `CSR_ALG1`'s 0.342 ms (RTX 4060, cuSPARSE 12.7.3).
+- **Not on the GPU:** block QMR, GCRO-DR, and any solve without the matrix: the matrix-free
+  QMR, and the multigrid without its finest matrix coming in 0.6 (#351), whose cycle the backend
+  can't be given (#337).
+
+### The validation cases on cusparse
+
+```sh
+cargo run -p photonoxide-native --release --example validate -- cusparse
+```
+
+prefers the backend for `auto` and counts its runs. Run on 2026-10-11 on an RTX 4060 (8 GB,
+CUDA 13.1, cuSPARSE 12.7.3) beside a Core Ultra 7 265K (20 threads), Windows 11: 10 of the 257
+cases solve through it, and every one is within its tolerance. The rest make no QMR or GMRES
+solve it runs: the 2D and direct solves, the mode solvers, FDTD, and block QMR's and recycling's
+own runs. Several of these cases' values are themselves the difference from a direct solve, so
+their difference here is two iterative solves' rounding at a tolerance of 1e-9 to 1e-12.
+
+| Case | Runs | photonoxide | cusparse | Difference | Tolerance |
+|---|---|---|---|---|---|
+| `fdfd3d/qmr-direct` | 2 | 4.75459e-11 | 5.37127e-11 | 6.2e-12 | 1e-09 |
+| `fdfd3d/qmr-symmetric-direct` | 1 | 6.85453e-12 | 5.84424e-12 | 1.0e-12 | 1e-09 |
+| `fdfd3d/qmr-ilu-direct` | 2 | 2.28618e-10 | 1.68686e-10 | 6.0e-11 | 1e-08 |
+| `fdfd3d/gmres-multigrid-direct` | 1 | 2.02545e-10 | 2.02546e-10 | 8.5e-17 | 1e-08 |
+| `fdfd3d/block-qmr-s-matrix` | 10 | 2.01599e-11 | 1.84858e-11 | 1.7e-12 | 1e-09 |
+| `fdfd3d/block-qmr-ilu-s-matrix` | 16 | 1.14523e-10 | 1.14523e-10 | 2.9e-16 | 1e-09 |
+| `fdfd3d/recycle-s-matrix` | 24 | 2.05367e-11 | 1.88577e-11 | 1.7e-12 | 1e-10 |
+| `fdfd3d/recycle-convergence` | 80 | 0.233010 | 0.233010 | 0 | 0.35 |
+| `fdfd3d/recycle-adjoint` | 2 | 7.8327e-11 | 7.8327e-11 | 0 | 1e-08 |
+| `fdfd3d/qmr-matrix-free-sweep` | 8 | 2.44037e-11 | 2.42948e-11 | 1.1e-13 | 1e-09 |
+
+The block, recycling and matrix-free cases are listed for the plain solves they also
+make, which went to the GPU: their references, their one-port runs, and the solves for the
+correction after recycling's initial guess. Their block QMR, GCRO-DR and matrix-free solves
+stayed photonoxide's.
+
+### Measured: the 3D iterative problems
+
+```sh
+cargo run -p photonoxide-native --release --example gpu_iterative -- --rounds 3 fdfd3d-iterative/
+```
+
+runs each catalogue problem that takes an iterative backend on `cusparse` and on photonoxide's
+own, alternating, and keeps each side's faster run. Measured on 2026-10-11 and 12 on an RTX 4060
+(8 GB, CUDA 13.1, cuSPARSE 12.7.3) against a Core Ultra 7 265K on 20 threads, Windows 11, a
+shared machine. A solve's time is everything the solver does for it: on the GPU the matrix,
+ILU(0)'s factors or the multigrid's hierarchy copied up and analysed, the iterations, and the
+field copied back, so a step's time counts the transfers. The error is each problem's own check,
+the same for both sides: the field against a reference solve to 1e-12 (QMR + ILU(0) for plain
+QMR, GMRES + multigrid for the others), the strip with ports' S-matrix against its exact one.
+Every repeated GPU run gave the same error to the bit.
+
+| Problem | Grid | Unknowns | Iterations, CPU / GPU | CPU solve (a step) | GPU solve (a step) | Speed-up | Error, CPU / GPU |
+|---|---|---|---|---|---|---|---|
+| `guide-qmr-20` | 20³ cells of 10 nm, PMLs of 5 | 24 000 | 1423 / 1394 | 0.334 s (0.23 ms) | 0.333 s (0.24 ms) | 1.00 | 2.0e-7 / 1.9e-7 |
+| `guide-qmr-30` | 30³ cells of 10 nm, PMLs of 7 | 81 000 | 1706 / 1701 | 0.818 s (0.48 ms) | 0.862 s (0.51 ms) | 0.95 | 2.6e-7 / 2.1e-7 |
+| `guide-ilu-20` | 20³ cells of 10 nm, stretched PMLs of 5 | 24 000 | 66 / 66 | 0.128 s (1.94 ms) | 0.257 s (3.90 ms) | 0.50 | 3.4e-7 / 3.4e-7 |
+| `guide-ilu-30` | 30³ cells of 10 nm, stretched PMLs of 7 | 81 000 | 130 / 130 | 0.887 s (6.82 ms) | 0.650 s (5.00 ms) | 1.36 | 5.1e-7 / 5.1e-7 |
+| `guide-ilu-44` | 44³ cells of 10 nm, stretched PMLs of 10 | 255 552 | 251 / 250 | 5.418 s (21.59 ms) | 1.942 s (7.77 ms) | 2.79 | 9.1e-7 / 8.7e-7 |
+| `guide-ilu-68` | 68³ cells of 10 nm, stretched PMLs of 14 | 943 296 | 560 / 559 | 43.33 s (77.37 ms) | 8.862 s (15.85 ms) | 4.89 | 2.0e-6 / 1.7e-6 |
+| `guide-multigrid-20` | 20³ cells of 10 nm, stretched PMLs of 5 | 24 000 | 20 / 20 | 0.093 s (4.66 ms) | 0.142 s (7.09 ms) | 0.66 | 1.7e-6 / 1.7e-6 |
+| `guide-multigrid-30` | 30³ cells of 10 nm, stretched PMLs of 7 | 81 000 | 19 / 19 | 0.272 s (14.32 ms) | 0.458 s (24.09 ms) | 0.59 | 4.2e-6 / 4.2e-6 |
+| `guide-multigrid-44` | 44³ cells of 10 nm, stretched PMLs of 10 | 255 552 | 16 / 16 | 1.148 s (71.77 ms) | 0.853 s (53.29 ms) | 1.35 | 2.9e-6 / 2.9e-6 |
+| `guide-multigrid-68` | 68³ cells of 10 nm, stretched PMLs of 14 | 943 296 | 22 / 22 | 2.423 s (110.2 ms) | 1.866 s (84.80 ms) | 1.30 | 3.5e-6 / 3.5e-6 |
+| `diel-ilu-30` | 30 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 648 000 | 1307 / 1285 | 69.78 s (53.39 ms) | 12.73 s (9.91 ms) | 5.48 | 7.9e-7 / 4.9e-7 |
+| `diel-ilu-80` | 80 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 1 728 000 | 1656 / 1620 | 241.2 s (145.6 ms) | 41.68 s (25.73 ms) | 5.79 | 7.8e-7 / 1.1e-6 |
+| `diel-multigrid-30` | 30 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 648 000 | 44 / 44 | 3.282 s (74.59 ms) | 1.934 s (43.96 ms) | 1.70 | 2.9e-6 / 2.9e-6 |
+| `diel-multigrid-80` | 80 × 90 × 80 cells of 10 nm, stretched PMLs of 10 | 1 728 000 | 51 / 51 | 14.96 s (293.4 ms) | 5.149 s (101.0 ms) | 2.91 | 2.1e-6 / 2.1e-6 |
+| `strip-ports-ilu-40nm` | 36 × 51 × 41 cells of 40 nm, stretched PMLs of 8 | 225 828 | 875 / 851 | 33.45 s (38.23 ms) | 5.178 s (6.09 ms) | 6.46 | 1.7e-9 / 1.8e-9 |
+| `strip-ports-ilu-25nm` | 58 × 82 × 66 cells of 25 nm, stretched PMLs of 13 | 941 688 | 1485 / 1499 | 152.0 s (102.4 ms) | 22.66 s (15.12 ms) | 6.71 | 2.9e-9 / 3.2e-9 |
+| `strip-ports-multigrid-40nm` | 36 × 51 × 41 cells of 40 nm, stretched PMLs of 8 | 225 828 | 56 / 56 | 4.031 s (71.99 ms) | 1.650 s (29.46 ms) | 2.44 | 8.8e-9 / 8.8e-9 |
+| `strip-ports-multigrid-25nm` | 58 × 82 × 66 cells of 25 nm, stretched PMLs of 13 | 941 688 | 55 / 55 | 10.76 s (195.5 ms) | 4.378 s (79.60 ms) | 2.46 | 1.3e-8 / 1.3e-8 |
+| `strip-ports-qmr-40nm` | 36 × 51 × 41 cells of 40 nm, PMLs of 8 | 225 828 | 1529 / 1530 | 2.714 s (1.78 ms) | 1.323 s (0.86 ms) | 2.05 | 1.2e-10 / 1.1e-10 |
+| `strip-ports-qmr-25nm` | 58 × 82 × 66 cells of 25 nm, PMLs of 13 | 941 688 | 2753 / 2774 | 23.94 s (8.70 ms) | 11.61 s (4.18 ms) | 2.06 | 7.4e-12 / 1.6e-11 |
+
+The strip with ports' iterations are its two ports' runs together, its error its S-matrix's
+against the exact one. What they say:
+
+- **The same answers.** Every GPU run is within its problem's tolerance (1e-5), its error the
+  CPU's or within a factor of 2.2 of it (`strip-ports-qmr-25nm`, at 1e-11). GMRES with the
+  multigrid takes the CPU's iterations exactly, and its error agrees to two digits; QMR's
+  iterations differ by up to 2.8% (`strip-ports-ilu-40nm`: 875 against 851), its Lanczos
+  process summed in another order over a thousand steps.
+- **Faster where the problem is large.** QMR with ILU(0) is 2.8 to 6.7 times faster from a
+  quarter of a million unknowns up: its triangular solves are sequential on the CPU and
+  cuSPARSE's analysis finds their parallelism. GMRES with the multigrid is 1.3 to 2.9 times
+  faster there, more on the long Diel guide and the strip than on the cube, whose CPU cycle
+  threads well already. Below 10⁵ unknowns the GPU is at par or slower: the copies and the
+  analysis are a fixed cost, and a step is too small to use it.
+- **Plain QMR** gains twice on the strip with ports, at 2 × 10⁵ and 10⁶ unknowns, and nothing
+  at 24 000 and 81 000 on the guide: a step is a product and a few vector updates, each a call
+  with its latency, and a small matrix stays in the CPU's cache. The guide's larger sizes
+  weren't run, their reference fields taking over an hour.
+- **What wasn't run:** the matrix-free problems, which a backend can't be given (#337). A run
+  that wouldn't fit in the GPU's 8 GB is refused, saying how much it needs.
+
+### AmgX
+
+NVIDIA's AmgX was examined for #190 and isn't a backend: its complex modes have GMRES, block
+Jacobi and one aggregation AMG only, and its complex GMRES's Givens rotation drops a phase, so
+it diverges on photonoxide's systems. [The plan](../plans/backends.md#amgx-examined-and-not-a-backend-190-2026-10-11)
+has what was read and measured.
 
 ## What isn't here yet
 
 The mode solvers' shift-and-invert still calls faer's LU directly. AMD's AOCL and Arm's
-Performance Libraries aren't loaded as dense kernels yet (#186). Iterative solvers (#189, #190)
-and eigensolvers get their own traits with their first backend.
+Performance Libraries are loaded as dense kernels, but neither has yet run with photonoxide:
+their discovery and the interface checks are tested (the CI's test library has their
+variants), the libraries themselves wait for an AMD and an Arm machine. AMD's AOCL-Sparse as an
+iterative backend is #189; the multigrid without its finest matrix on the GPU is #337.
+Eigensolvers get their own trait with their first backend.

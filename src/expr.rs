@@ -15,7 +15,10 @@
 //!   `-2^2` is −4, `2^3^2` is 512), comparisons `< <= > >= == !=` (1 or 0), parentheses.
 //! - **Functions:** `sin cos tan asin acos atan atan2 exp ln log10 sqrt abs min max clamp floor
 //!   ceil round erf tanh sinc smoothstep`, `if(c, a, b)` (b where c is 0), and
-//!   `piecewise(c1, a1, c2, a2, …, otherwise)`, the first a whose c isn't 0. `pi` is π;
+//!   `piecewise(c1, a1, c2, a2, …, otherwise)`, the first a whose c isn't 0;
+//!   `spline(x, [x0, x1, …], [y0, y1, …])`, the not-a-knot cubic spline through the points (the
+//!   knots constants, increasing; the values any expressions), expanded at parse time into a
+//!   piecewise of cubics whose coefficients are linear in the values. `pi` is π;
 //!   `sinc(x)` is sin(x)/x; `smoothstep(e0, e1, x)` is 3u² − 2u³ for u = (x − e0)/(e1 − e0)
 //!   clamped to [0, 1]; `clamp(x, lo, hi)`.
 //! - **Coordinates:** `x`, `y`, `z` and the arc length `s` (lengths), a curve's parameter `t`
@@ -181,7 +184,7 @@ pub(crate) fn reserved(name: &str) -> bool {
     parse::FUNCTIONS.iter().any(|f| f.0 == name)
         || parse::UNITS.iter().any(|u| u.0 == name)
         || COORDINATES.iter().any(|c| c.0 == name)
-        || matches!(name, "pi" | "if" | "piecewise")
+        || matches!(name, "pi" | "if" | "piecewise" | "spline")
 }
 
 impl Default for Scope {
@@ -298,6 +301,8 @@ pub struct Parameters {
     fixed: Vec<(usize, f64)>,
     /// every slot's value: the coordinates 0, then the parameters
     values: Vec<f64>,
+    /// the coordinates set by [`Parameters::at_coordinate`], by slot
+    placed: Vec<usize>,
 }
 
 impl Parameters {
@@ -309,6 +314,7 @@ impl Parameters {
             order: Vec::new(),
             fixed: Vec::new(),
             values: vec![0.0; COORDINATES.len()],
+            placed: Vec::new(),
         }
     }
 
@@ -387,6 +393,7 @@ impl Parameters {
             defined,
             order,
             fixed: Vec::new(),
+            placed: Vec::new(),
         };
         p.evaluate()?;
         Ok(p)
@@ -430,6 +437,39 @@ impl Parameters {
         p.fixed.push((slot, value));
         p.evaluate()?;
         Ok(p)
+    }
+
+    /// The parameters with the coordinate `name` (`x`, `y`, `z`, `t`, `s`, `i` or `j`) at
+    /// `value` in [`Parameters::values`], where it is otherwise 0: the place an expression of it
+    /// is evaluated at, as an array's element's index (i, j) and its site (x, y). A definition
+    /// that sets the coordinate itself (a curve's `t`) still does.
+    ///
+    /// # Errors
+    ///
+    /// A [`ParameterError`] if `name` isn't a coordinate or `value` isn't finite.
+    pub fn at_coordinate(&self, name: &str, value: f64) -> Result<Parameters, ParameterError> {
+        let err = |message: String| ParameterError {
+            name: name.to_owned(),
+            message,
+        };
+        let slot = COORDINATES
+            .iter()
+            .position(|c| c.0 == name)
+            .ok_or_else(|| err("isn't a coordinate".to_owned()))?;
+        if !value.is_finite() {
+            return Err(err(format!("can't be set to {value}")));
+        }
+        let mut p = self.clone();
+        p.values[slot] = value;
+        if !p.placed.contains(&slot) {
+            p.placed.push(slot);
+        }
+        Ok(p)
+    }
+
+    /// Whether the coordinate in `slot` was set by [`Parameters::at_coordinate`].
+    pub(crate) fn is_placed(&self, slot: usize) -> bool {
+        self.placed.contains(&slot)
     }
 
     /// The names an expression can use: the coordinates and these parameters.

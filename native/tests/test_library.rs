@@ -8,10 +8,12 @@ use std::sync::{Arc, OnceLock};
 
 use num_complex::Complex64 as c64;
 use photonoxide::Result;
+use photonoxide::backend::dense::{Block, BlockMut, DenseKernels, Faer, Product, with_kernels};
 use photonoxide::backend::{
     self, Analysis, Capabilities, Choice, DirectSolver, Factorization, Form, Matrix, Report,
 };
-use photonoxide_native::{Library, Source, Spec, Status, discover, load, offer, smoke_test};
+use photonoxide_native::blas::{ComplexResults, Integers, Provider, Style, Want};
+use photonoxide_native::{Blas, Library, Source, Spec, Status, discover, load, offer, smoke_test};
 
 type Version = unsafe extern "C" fn(*mut c_int, *mut c_int, *mut c_int) -> c_int;
 type Solve = unsafe extern "C" fn(i64, *const f64, *mut f64) -> c_int;
@@ -269,6 +271,161 @@ fn a_library_error_becomes_photonoxides() {
         .unwrap();
     let e = factors.solve(&[c64::new(1.0, 0.0); 2]).err().unwrap();
     assert!(e.to_string().contains("returned 2"), "{e}");
+}
+
+/// The test library's BLAS and LAPACK by its interface `want`, loaded as OpenBLAS's loader
+/// loads a file its setting names; the test library's, or why not.
+fn test_blas(want: Want) -> std::result::Result<Blas, String> {
+    let path = folder().join(FILE);
+    Blas::find(Provider::OpenBlas, Some(&path), want).and_then(|blas| {
+        // (another candidate, a real OpenBLAS installed here, if this one hasn't that interface)
+        if blas.files()[0] == path {
+            Ok(blas)
+        } else {
+            Err(format!("another library: {}", blas.files()[0].display()))
+        }
+    })
+}
+
+/// A's kernels against faer's on small blocks, not square: the largest difference.
+fn against_faer(kernels: &dyn DenseKernels) -> f64 {
+    let entries = |rows: usize, columns: usize, seed: f64| -> Vec<c64> {
+        (0..rows * columns)
+            .map(|k| {
+                c64::new(
+                    (k as f64 * 0.37 + seed).sin(),
+                    (k as f64 * 0.21 - seed).cos(),
+                )
+            })
+            .collect()
+    };
+    let (m, n, r) = (13, 9, 6);
+    let mut worst: f64 = 0.0;
+    let mut differ = |a: &[c64], b: &[c64]| {
+        let scale = b.iter().map(|x| x.norm()).fold(0.0, f64::max);
+        let d = a
+            .iter()
+            .zip(b)
+            .map(|(a, b)| (a - b).norm())
+            .fold(0.0, f64::max)
+            / scale;
+        worst = worst.max(d);
+    };
+    for transposed in [false, true] {
+        let a = entries(m, r, 1.0);
+        let b = if transposed {
+            entries(n, r, 2.0)
+        } else {
+            entries(r, n, 2.0)
+        };
+        let (br, bc) = if transposed { (n, r) } else { (r, n) };
+        let c0 = entries(m, n, 3.0);
+        let (mut ours, mut theirs) = (c0.clone(), c0);
+        let product = Product {
+            transposed,
+            lower: false,
+        };
+        for (k, c) in [
+            (&Faer as &dyn DenseKernels, &mut ours),
+            (kernels, &mut theirs),
+        ] {
+            k.multiply(
+                BlockMut::of(c, m, n),
+                Block::of(&a, m, r),
+                Block::of(&b, br, bc),
+                product,
+                c64::new(-0.5, 0.25),
+                false,
+            );
+        }
+        differ(&theirs, &ours);
+    }
+    // a triangle with a large diagonal, and the three solves
+    let mut t = entries(m, m, 4.0);
+    for i in 0..m {
+        t[i + i * m] += c64::new(m as f64, 0.0);
+    }
+    for (k, (rows, columns)) in [(m, n), (n, m), (n, m)].into_iter().enumerate() {
+        let b0 = entries(rows, columns, 5.0 + k as f64);
+        let (mut ours, mut theirs) = (b0.clone(), b0);
+        for (kernels, b) in [
+            (&Faer as &dyn DenseKernels, &mut ours),
+            (kernels, &mut theirs),
+        ] {
+            let (l, b) = (Block::of(&t, m, m), BlockMut::of(b, rows, columns));
+            match k {
+                0 => kernels.solve_unit_lower(l, b, false),
+                1 => kernels.solve_upper_from_right(l, b, false),
+                _ => kernels.solve_unit_lower_transposed_from_right(l, b, false),
+            }
+        }
+        differ(&theirs, &ours);
+    }
+    // the LU, by what it factorizes: A's rows in the order returned are L U
+    let a = entries(m, m, 6.0);
+    let mut factors = a.clone();
+    let rows = kernels.lu(BlockMut::of(&mut factors, m, m), false);
+    let product: Vec<c64> = (0..m * m)
+        .map(|e| {
+            let (i, j) = (e % m, e / m);
+            (0..=i.min(j))
+                .map(|k| {
+                    let l = if k == i {
+                        c64::new(1.0, 0.0)
+                    } else {
+                        factors[i + k * m]
+                    };
+                    l * factors[k + j * m]
+                })
+                .sum()
+        })
+        .collect();
+    let permuted: Vec<c64> = (0..m * m).map(|e| a[rows[e % m] + (e / m) * m]).collect();
+    differ(&product, &permuted);
+    worst
+}
+
+#[test]
+fn a_blas_interface_is_measured_not_assumed() {
+    // Fortran's names, which take 64-bit integers here: found so by what zgetrf writes
+    let fortran = test_blas(Want::new(Some(Style::Fortran), None)).unwrap();
+    let i = fortran.interface().clone();
+    assert_eq!(
+        (i.style, i.integers),
+        (Style::Fortran, Integers::Ilp64),
+        "{i}"
+    );
+    assert_eq!((i.zgemm.as_str(), i.zgetrf.as_str()), ("zgemm_", "zgetrf_"));
+    let complex = if cfg!(all(windows, target_arch = "x86_64")) {
+        ComplexResults::OneConvention
+    } else {
+        ComplexResults::Argument
+    };
+    assert_eq!(i.complex_results, complex, "{i}");
+    // without zgemmt, and without a thread count to set: held to one
+    assert!(!fortran.has_triangular_product() && !fortran.threads_per_call());
+    // the C interfaces, with 32-bit integers
+    let c = test_blas(Want::new(Some(Style::C), None)).unwrap();
+    let i = c.interface().clone();
+    assert_eq!((i.style, i.integers), (Style::C, Integers::Lp64), "{i}");
+    assert_eq!(i.zgetrf, "LAPACKE_zgetrf_work");
+    assert_eq!(i.complex_results, ComplexResults::C);
+    // any interface: Fortran's first
+    let any = test_blas(Want::default()).unwrap();
+    assert_eq!(any.interface().style, Style::Fortran);
+    // Fortran's with 32-bit integers isn't this library's: its names would have said so
+    let why = test_blas(Want::new(Some(Style::Fortran), Some(Integers::Lp64))).unwrap_err();
+    assert!(
+        why.contains("64-bit integers") || why.contains("another library"),
+        "{why}"
+    );
+    for blas in [fortran, c] {
+        let d = against_faer(&blas);
+        assert!(d < 1e-13, "{}: {d:e}", blas.interface());
+        // and photonoxide's solver with them is its own
+        let solver = with_kernels(Arc::new(blas));
+        assert!(smoke_test(solver.as_ref()).unwrap() < 1e-12);
+    }
 }
 
 #[test]

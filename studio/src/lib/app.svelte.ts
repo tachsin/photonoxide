@@ -1,38 +1,86 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
-import { api, type AppState, type Info, type Settings } from "./api";
-import type { Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Mode, ModeField, Permittivity, Scene, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
+import { api, type AppState, type Info, type JobFormat, type Settings } from "./api";
+import type { ChipEvent, CompactFit, CompactPlan, ChipPoint, ChipStudy, DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
+import { template, type Kind } from "./job";
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
 
-export type Page = "home" | "examples" | "builder" | "runs" | "viewer" | "compare" | "validation" | "materials" | "components" | "chip" | "libraries" | "benchmarks" | "academy" | "settings";
+/**
+ * Every page: the rail's five, the System group's three and Settings (lib/pages.ts), and the run
+ * view, reached from what it shows (a run, Home's Continue, `photonoxide run` and `view`). A job
+ * of any kind opens in the Custom device, on the Components page (`openCustom`).
+ */
+export type Page = "home" | "components" | "chip" | "academy" | "materials" | "validation" | "libraries" | "benchmarks" | "settings" | "viewer";
 
 export const app = $state({
   ready: false,
   state: null as AppState | null,
   page: "home" as Page,
+  /** The last page on the rail shown, where the run view leads back to. */
+  back: "home" as Page,
   /** Whether the theme in effect is dark, from its own base colour. */
   dark: true,
   /** The theme's backdrop colour (its base-200) as hex, for the 3D view; see `themeBackdrop`. */
   backdrop: "#0f1115",
   palette: false,
   tour: false,
-  /** Text for the builder to open, set by whoever sends the user there. */
-  builderOpen: null as { text: string; path: string | null } | null,
-  /** A published-result example for the examples page to open. */
+  /** A job for the Custom device to open, its text and the file it came from, set by whoever sends the user there. */
+  jobOpen: null as { text: string; path: string | null } | null,
+  /** The Custom device's job as it was left, saved or not, so a run and the way back to it lose nothing. */
+  customDraft: null as { text: string; path: string | null; format: JobFormat; saved: string } | null,
+  /** A published result for Validation's Published results tab to open, by its example's name. */
   focus: null as string | null,
+  /** Validation's tab: its cases, or the published results of examples/ reproduced. */
+  validationTab: "cases" as "cases" | "published",
+  /** Whether the runs drawer, opened from the status bar, is open. */
+  drawer: false,
   /** A lesson for the Academy page to open, by its id. */
   lesson: null as string | null,
-  /** The component the Components page shows, by its library id; null for the first. */
+  /** The component the Components page shows, by its library id ("custom" for the Custom device); null for the first. */
   component: null as string | null,
-  /** Runs picked for comparison. */
-  compare: [] as string[],
   /** Bumped when the workspace's files change, so lists reload. */
   workspaceVersion: 0,
 });
 
+/** Shows `page`, the drawer closed. */
 export function go(page: Page) {
+  // the run view isn't on the rail: the top bar leads back from it
+  if (page !== app.page && app.page !== "viewer") app.back = app.page;
   app.page = page;
+  app.drawer = false;
+}
+
+/** The Components page's id for the Custom device: any structure no device describes, as a job. */
+export const CUSTOM = "custom";
+
+/** Opens the job in `text` (from the file at `path`, or none for a new one) in the Custom device. */
+export function openCustom(text: string, path: string | null = null) {
+  app.jobOpen = { text, path };
+  app.component = CUSTOM;
+  go("components");
+}
+
+/** Opens a new job of `kind`, its template, in the Custom device. */
+export async function newCustom(kind: Kind) {
+  try {
+    openCustom(await api.formText(template(kind)));
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
+/** Validation's Published results tab, on the example `name` when one is given. */
+export function showPublished(name: string | null = null) {
+  app.focus = name;
+  app.validationTab = "published";
+  go("validation");
+}
+
+/** Validation's Cases tab: the report. */
+export function showCases() {
+  app.validationTab = "cases";
+  go("validation");
 }
 
 export function settings(): Settings {
@@ -154,6 +202,27 @@ export const run = $state({
   sparams: [] as SParameters[],
   /** How the run solves, as it recorded it; an older run has none. */
   solver: null as Solver | null,
+  /** A device job's model: its method, grid, the time it took and its figures. */
+  device: null as DeviceModel | null,
+  /** A device's study: what it steps through, and its points as they come. */
+  study: null as DeviceStudy | null,
+  points: [] as DevicePoint[],
+  /** A fit of a device's compact model: its plan (its samples are `points`), and the model it made. */
+  compactPlan: null as CompactPlan | null,
+  compactFit: null as CompactFit | null,
+  /** A device's optimization: the problem, its evaluations as they come, its latest front and its optimum. */
+  optimization: null as Optimization | null,
+  evaluations: [] as Evaluation[],
+  front: null as Front | null,
+  /** Each front's hypervolume against the evaluations so far. */
+  hypervolumes: [] as [number, number][],
+  optimum: null as Optimum | null,
+  /** A chip's run: its instances and ports, a study's plan and its points as they come. */
+  chip: null as ChipEvent | null,
+  chipStudy: null as ChipStudy | null,
+  chipPoints: [] as ChipPoint[],
+  /** The named ports the run recorded: a device's, or a job's components'. */
+  ports: [] as ScenePort[],
   /** Each solve's numerical error, in the order recorded. */
   errors: [] as SolveError[],
   /** An FDTD run's frames of its field, in time order. */
@@ -206,7 +275,8 @@ export function shownScene(): Scene | null {
 
 /** The sweep the run steps through, whichever kind of job recorded it: each solved point's value, and how many there will be. */
 export function sweepAxis(): { parameter: string; values: number[]; total: number } | null {
-  const spectrum = run.sparams.length > 1 || Object.keys(run.sweepFields).length > 0;
+  // (a device's model gives its S-parameters at every wavelength at once: a spectrum, not a sweep of solves)
+  const spectrum = (run.sparams.length > 1 && !run.device) || Object.keys(run.sweepFields).length > 0;
   if (!run.sweep && !run.plan && !spectrum) return null;
   // a modes sweep's points, or an FDFD sweep's wavelengths
   const values = run.sweep ? run.sweep.points.map((p) => p.value) : run.sparams.map((s) => s.wavelength_um);
@@ -290,6 +360,46 @@ function take(e: Event) {
     case "solver":
       run.solver = e;
       break;
+    case "device_model":
+      run.device = e;
+      break;
+    case "device_study":
+      run.study = e;
+      break;
+    case "compact_plan":
+      run.compactPlan = e;
+      break;
+    case "compact_fit":
+      run.compactFit = e;
+      break;
+    case "optimization":
+      run.optimization = e;
+      break;
+    case "evaluation":
+      run.evaluations.push(e);
+      break;
+    case "front":
+      run.front = e;
+      run.hypervolumes.push([e.evaluations, e.hypervolume]);
+      break;
+    case "optimum":
+      run.optimum = e;
+      break;
+    case "device_point":
+      run.points.push(e);
+      break;
+    case "chip":
+      run.chip = e;
+      break;
+    case "chip_study":
+      run.chipStudy = e;
+      break;
+    case "chip_point":
+      run.chipPoints.push(e);
+      break;
+    case "ports":
+      run.ports = e.ports;
+      break;
     case "solve_error":
       run.errors.push(e);
       break;
@@ -331,6 +441,20 @@ function reset(info: Info) {
     fields: [],
     sparams: [],
     solver: null,
+    device: null,
+    study: null,
+    points: [],
+    compactPlan: null,
+    compactFit: null,
+    optimization: null,
+    evaluations: [],
+    front: null,
+    hypervolumes: [],
+    optimum: null,
+    chip: null,
+    chipStudy: null,
+    chipPoints: [],
+    ports: [],
     errors: [],
     frames: [],
     progress: null,
@@ -359,7 +483,8 @@ function reset(info: Info) {
 export async function follow() {
   try {
     reset(await api.info());
-    if (run.info?.dir) app.page = "viewer";
+    // started with a run (`photonoxide run`, `photonoxide view`): the window opens on its view
+    if (run.info?.dir) go("viewer");
   } catch {
     // no backend (a browser preview): nothing to follow
     return;
@@ -392,11 +517,23 @@ export async function follow() {
 export async function startRun(call: () => Promise<Info>, what: string) {
   try {
     reset(await call());
-    app.page = "viewer";
+    go("viewer");
     app.workspaceVersion++;
     toast(what, "success", undefined, 2500);
   } catch (e) {
     toast(String(e), "error");
+  }
+}
+
+/** Starts a run (or opens one) with `call`, to be shown where the user is (a device's Simulate tab); true when it did. */
+export async function startRunHere(call: () => Promise<Info>): Promise<boolean> {
+  try {
+    reset(await call());
+    app.workspaceVersion++;
+    return true;
+  } catch (e) {
+    toast(String(e), "error");
+    return false;
   }
 }
 

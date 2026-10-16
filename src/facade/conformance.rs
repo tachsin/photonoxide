@@ -5,10 +5,11 @@ use std::path::Path;
 use serde_json::{Value, json};
 
 use super::{
-    CrossSection, IndexModelInfo, IndexOptions, JobSource, MaterialInfo, SParameters, SlabMode,
-    Spectrum, Stop, VectorMode, check_job, circuit_spectrum, fdfd_s_parameters, group_index,
-    materials, read_touchstone, refractive_index, run_job, slab_modes, vector_modes,
-    write_touchstone,
+    CrossSection, DeviceDesign, DeviceFigure, DeviceGeometry, DeviceInfo, DeviceSpectrum,
+    IndexModelInfo, IndexOptions, JobSource, MaterialInfo, SParameters, SlabMode, Spectrum, Stop,
+    VectorMode, check_job, circuit_spectrum, device_derived, device_geometry, device_job,
+    device_spectrum, devices, fdfd_s_parameters, group_index, materials, read_touchstone,
+    refractive_index, run_job, slab_modes, vector_modes, write_touchstone,
 };
 use crate::Complex64 as c64;
 use crate::{Error, Result};
@@ -148,6 +149,110 @@ fn s_parameters(s: &SParameters) -> Value {
     })
 }
 
+fn device_info(d: &DeviceInfo) -> Value {
+    json!({
+        "kind": d.kind,
+        "about": d.about,
+        "parameters": d.parameters.iter().map(|p| json!({
+            "name": p.name, "unit": p.unit, "default": p.default, "min": p.min, "max": p.max,
+        })).collect::<Vec<_>>(),
+        "fidelities": d.fidelities.iter().map(|m| json!({
+            "fidelity": m.fidelity,
+            "name": m.name,
+            "write_up": m.write_up,
+            "papers": m.papers,
+            "error": m.error.as_ref().map(|e| json!({
+                "quantity": e.quantity, "bound": e.bound, "unit": e.unit, "against": e.against,
+            })),
+            "validity": m.validity.iter().map(|r| json!({
+                "name": r.name, "min": r.min, "max": r.max,
+            })).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>(),
+        "ports": d.ports,
+    })
+}
+
+fn device_spectrum_(s: &DeviceSpectrum) -> Value {
+    let n = s.ports.len();
+    json!({
+        "ports": s.ports,
+        "wavelength_um": s.wavelength_um,
+        "s": complexes(&s.s, &[s.wavelength_um.len(), n, n]),
+        "fidelity": s.fidelity,
+        "grid": s.grid,
+        "source": s.source,
+        "validity_um": s.validity_um.map(|(a, b)| [a, b]),
+    })
+}
+
+fn figure(f: &DeviceFigure) -> Value {
+    json!({
+        "name": f.name, "symbol": f.symbol, "value": f.value, "unit": f.unit,
+        "fidelity": f.fidelity, "grid": f.grid,
+    })
+}
+
+fn points(p: &[(f64, f64)]) -> Value {
+    Value::Array(p.iter().map(|&(x, y)| json!([x, y])).collect())
+}
+
+fn geometry(g: &DeviceGeometry) -> Value {
+    json!({
+        "layers": g.layers.iter().map(|l| json!({
+            "name": l.name,
+            "z_um": [l.z_um.0, l.z_um.1],
+            "material": l.material,
+            "background": l.background,
+            "polygons": l.polygons.iter().map(|p| json!({
+                "outer": points(&p.outer),
+                "holes": p.holes.iter().map(|h| points(h)).collect::<Vec<_>>(),
+                "etch_depth_um": p.etch_depth_um,
+                "sidewall_deg": p.sidewall_deg,
+            })).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>(),
+        "substrate": g.substrate,
+        "cladding": g.cladding,
+        "ports": g.ports.iter().map(|p| json!({
+            "name": p.name,
+            "position_um": [p.position_um.0, p.position_um.1],
+            "direction_deg": p.direction_deg,
+            "width_um": p.width_um,
+            "layer": p.layer,
+        })).collect::<Vec<_>>(),
+    })
+}
+
+/// A design as the bindings take it: the call's keyword arguments `kind`, `values` (an object of
+/// numbers, in its members' order), `fidelity` and `stack`, those not given left out.
+fn design(kind: &str, values: &[(&str, f64)], fidelity: Option<&str>) -> (DeviceDesign, Value) {
+    let mut d = DeviceDesign::new(kind);
+    d.values = values.iter().map(|&(n, v)| (n.to_owned(), v)).collect();
+    d.fidelity = fidelity.map(str::to_owned);
+    let mut args = serde_json::Map::new();
+    args.insert("kind".into(), json!(kind));
+    if !values.is_empty() {
+        let v: serde_json::Map<String, Value> = values
+            .iter()
+            .map(|&(n, v)| (n.to_owned(), json!(v)))
+            .collect();
+        args.insert("values".into(), Value::Object(v));
+    }
+    if let Some(f) = fidelity {
+        args.insert("fidelity".into(), json!(f));
+    }
+    (d, Value::Object(args))
+}
+
+/// The same object with `more` members.
+fn with(mut args: Value, more: &[(&str, Value)]) -> Value {
+    if let Value::Object(m) = &mut args {
+        for (k, v) in more {
+            m.insert((*k).to_owned(), v.clone());
+        }
+    }
+    args
+}
+
 /// A small modes job, as data: a 500 × 220 nm strip's fundamental mode on a 40 nm grid.
 fn modes_job() -> Value {
     json!({
@@ -213,6 +318,28 @@ fn mzi() -> Value {
         "connections": [["split.o3", "upper.o1"], ["split.o4", "lower.o1"],
                         ["upper.o2", "combine.o2"], ["lower.o2", "combine.o1"]],
         "ports": {"in1": "split.o2", "in2": "split.o1", "out1": "combine.o3", "out2": "combine.o4"},
+    })
+}
+
+/// An MZI of devices, as data: two directional couplers at their 3 dB length (their default),
+/// the second's gap given as an expression, and strip arms 150 and 100 µm long, the lower's loss
+/// set to 3.5 dB/cm.
+fn mzi_of_devices() -> Value {
+    let coupler = json!({"device": {"kind": "directional coupler", "fidelity": "analytic"}});
+    let arm =
+        |length: f64| json!({"device": {"kind": "waveguide", "parameters": {"length": length}}});
+    let mut lower = arm(100.0);
+    lower["loss"] = json!(3.5);
+    json!({
+        "instances": {
+            "split": coupler,
+            "upper": arm(150.0),
+            "lower": lower,
+            "combine": {"device": {"kind": "directional coupler", "parameters": {"gap": "200 nm"}}},
+        },
+        "connections": [["split.o3", "upper.o1"], ["split.o4", "lower.o1"],
+                        ["upper.o2", "combine.o2"], ["lower.o2", "combine.o1"]],
+        "ports": {"in1": "split.o1", "in2": "split.o2", "out1": "combine.o3", "out2": "combine.o4"},
     })
 }
 
@@ -333,6 +460,16 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
         &Value::Array(modes.iter().map(vector_mode).collect()),
         &[],
     ));
+    // more modes than the strip has: only its guided ones come back, not the window's own
+    let modes = vector_modes(&cs, 1.55, 6, None, &Stop::new(None))?.unwrap_or_default();
+    cases.push(case(
+        "vector_modes/strip-quarter-guided",
+        "vector_modes",
+        &json!({"x_um": x, "y_um": y, "permittivity": eps, "wavelength_um": 1.55, "count": 6,
+                "boundaries": cs.boundaries}),
+        &Value::Array(modes.iter().map(vector_mode).collect()),
+        &[],
+    ));
 
     // jobs
     let modes = modes_job();
@@ -384,6 +521,16 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
         &spectrum(&spectrum_),
         &[],
     ));
+    // the same MZI of devices: directional couplers at their analytic model, strip arms
+    let devices_ = mzi_of_devices();
+    cases.push(case(
+        "circuit_spectrum/mzi-of-devices",
+        "circuit_spectrum",
+        &json!({"instances": devices_["instances"], "connections": devices_["connections"],
+                "ports": devices_["ports"], "wavelength_um": w}),
+        &spectrum(&circuit_spectrum(&devices_.to_string(), &w)?),
+        &[],
+    ));
 
     // Touchstone
     let file = scratch.join("mzi.s4p");
@@ -408,6 +555,124 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
                 "spectrum": spectrum(&spectrum_), "convention": "physics",
                 "significant_digits": 12}),
         &Value::String(text),
+        &[],
+    ));
+
+    // devices: the library, and designs at their cheapest models, closed forms and fits: no
+    // solve, so the bindings' tests stay fast
+    cases.push(case(
+        "devices/library",
+        "devices",
+        &json!({}),
+        &Value::Array(devices()?.iter().map(device_info).collect()),
+        &[],
+    ));
+    let w: Vec<f64> = (0..11).map(|k| 1.54 + 0.002 * f64::from(k)).collect();
+    for (name, kind, values, fidelity) in [
+        (
+            "coupler-gap",
+            "directional coupler",
+            &[("gap", 0.25), ("length", 12.5)][..],
+            Some("analytic"),
+        ),
+        ("ring", "all-pass ring", &[("radius", 5.0)][..], None),
+        ("y-branch", "Y-branch", &[][..], Some("analytic")),
+        // a 2D model: guided modes by the effective index method, exact slabs, no grid
+        ("mmi-2d", "MMI 1x2", &[("length", 7.5)][..], Some("2D")),
+    ] {
+        let (d, args) = design(kind, values, fidelity);
+        cases.push(case(
+            &format!("device_spectrum/{name}"),
+            "device_spectrum",
+            &with(args, &[("wavelength_um", json!(w))]),
+            &device_spectrum_(&device_spectrum(&d, &w)?),
+            &[],
+        ));
+    }
+    // the compact fidelity: a model fitted to the ring's analytic runs over its gap, by a "fit"
+    // job run here, its file named by the design
+    let fit = json!({
+        "name": "conformance-fit",
+        "timeout_minutes": 5,
+        "device": {"kind": "all-pass ring", "fidelity": "analytic"},
+        "task": {"kind": "fit", "from_um": 1.54, "to_um": 1.56, "points": 21, "held_out": 2,
+                 "poles": 8, "degree": 2,
+                 "axis": [{"parameter": "gap", "from": 0.15, "to": 0.25, "points": 4}]},
+    });
+    let fitted = run_job(&job(&fit), &scratch.join("fits"), &Stop::new(None))?
+        .dir
+        .join("compact.json");
+    let (mut d, args) = design("all-pass ring", &[("gap", 0.2)], Some("compact"));
+    d.compact = Some(fitted.clone());
+    let args = with(args, &[("compact", json!(fitted.display().to_string()))]);
+    cases.push(case(
+        "device_spectrum/ring-compact",
+        "device_spectrum",
+        &with(args.clone(), &[("wavelength_um", json!(w))]),
+        &device_spectrum_(&device_spectrum(&d, &w)?),
+        &[],
+    ));
+    cases.push(case(
+        "device_derived/ring-compact",
+        "device_derived",
+        &args,
+        &Value::Array(device_derived(&d)?.iter().map(figure).collect()),
+        &[],
+    ));
+    for (name, kind, values) in [
+        ("waveguide-width", "waveguide", &[("width", 0.45)][..]),
+        (
+            "add-drop-ring",
+            "add-drop ring",
+            &[("gap", 0.18), ("radius", 8.0)][..],
+        ),
+        ("bend", "bend", &[][..]),
+        ("rib-2d", "rib waveguide", &[("etch_depth", 0.1)][..]),
+    ] {
+        let (d, args) = design(kind, values, None);
+        cases.push(case(
+            &format!("device_derived/{name}"),
+            "device_derived",
+            &args,
+            &Value::Array(device_derived(&d)?.iter().map(figure).collect()),
+            &[],
+        ));
+    }
+    for (name, kind, values) in [
+        ("ring", "all-pass ring", &[("radius", 3.0)][..]),
+        ("rib", "rib waveguide", &[][..]),
+        ("mmi", "MMI 2x2", &[("taper_length", 2.0)][..]),
+    ] {
+        let (d, args) = design(kind, values, None);
+        cases.push(case(
+            &format!("device_geometry/{name}"),
+            "device_geometry",
+            &args,
+            &geometry(&device_geometry(&d)?),
+            &[],
+        ));
+    }
+    let (d, args) = design("directional coupler", &[("gap", 0.25)], Some("analytic"));
+    cases.push(case(
+        "device_job/coupler-toml",
+        "device_job",
+        &with(
+            args.clone(),
+            &[("name", json!("narrow-coupler")), ("format", json!("toml"))],
+        ),
+        &Value::String(device_job(&d, "narrow-coupler", "toml")?),
+        &[],
+    ));
+    // without a format, the job as data: the object its JSON is
+    let text = device_job(&d, "narrow-coupler", "json")?;
+    cases.push(case(
+        "device_job/coupler",
+        "device_job",
+        &with(args, &[("name", json!("narrow-coupler"))]),
+        &serde_json::from_str(&text).map_err(|e| Error::Parse {
+            what: "job".into(),
+            reason: e.to_string(),
+        })?,
         &[],
     ));
     Ok(cases)

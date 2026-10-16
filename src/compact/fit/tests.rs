@@ -208,3 +208,38 @@ fn eliminating_each_responses_unknowns_is_the_full_least_squares() {
 
     assert!(d < 1e-8, "{d}");
 }
+
+// least squares' fallback when faer's SVD doesn't converge (on Linux it didn't, on a nearly
+// singular R of the shifting ring's shared poles: #398): one-sided Jacobi, a true SVD
+#[test]
+fn the_jacobi_svd_is_an_svd() {
+    // nearly dependent columns, as close poles' partial fractions are
+    let n = 12;
+    let a = Mat::<f64>::from_fn(n, n, |i, j| {
+        let x = 1.0 / (1.0 + i as f64 + 0.37 * j as f64);
+        if j == n - 1 {
+            x * (1.0 + 1e-9)
+        } else {
+            x + 1e-3 * ((i * 7 + j * 3) % 5) as f64
+        }
+    });
+    let (u, s, v) = jacobi_svd(&a);
+    let mut worst: f64 = 0.0;
+    for i in 0..n {
+        for j in 0..n {
+            let back: f64 = (0..n).map(|k| u[(i, k)] * s[k] * v[(j, k)]).sum();
+            worst = worst.max((back - a[(i, j)]).abs());
+            let vtv: f64 = (0..n).map(|k| v[(k, i)] * v[(k, j)]).sum();
+            assert!((vtv - f64::from(u8::from(i == j))).abs() < 1e-12, "{vtv}");
+        }
+    }
+    assert!(worst < 1e-14, "{worst}");
+    // the singular values faer finds, in another order
+    let mut ours = s.clone();
+    ours.sort_by(|x, y| y.total_cmp(x));
+    let theirs = a.thin_svd().unwrap();
+    for (k, x) in ours.iter().enumerate() {
+        let y = theirs.S().column_vector()[k];
+        assert!((x - y).abs() <= 1e-13 * ours[0], "{x} {y}");
+    }
+}

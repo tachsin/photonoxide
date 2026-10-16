@@ -313,6 +313,12 @@ pub(crate) struct ParametricCheck {
     /// For a piecewise-linear model, how many intervals of 2001 values change their count of
     /// unstable poles without a crossing reported.
     pub missed: Option<usize>,
+    /// The exact derivatives ∂S/∂θ against central differences of a millionth of the range,
+    /// at the 4 values halfway between the middle samples and 101 wavelengths: the largest
+    /// difference relative to the largest derivative.
+    pub derivative: f64,
+    /// The largest singular value of S over 401 wavelengths at 21 values across the range.
+    pub passive: f64,
 }
 
 /// The example ring as a parametric model of one of its parameters, `name` ("r" or "n0"),
@@ -372,7 +378,29 @@ pub(crate) fn ring_parametric(
             stable = stable.max((r.evaluate(0, s) - ring.through(w)).norm());
         }
     }
+    let derivative = {
+        use crate::circuit::Component;
+        let h = 1e-6 * (hi - lo);
+        let (mut worst, mut scale) = (0.0f64, 0.0f64);
+        for j in 0..4 {
+            let v = at((j as f64 + (count / 2 - 2) as f64 + 0.5) / (count - 1) as f64);
+            for k in 0..=100 {
+                let w = Wavelength::from_um_unchecked(1.53 + 0.04 * k as f64 / 100.0);
+                let exact = model
+                    .derivatives(w, &[v])
+                    .expect("in range")
+                    .expect("exact derivatives")[0][(0, 0)];
+                let s = |x: f64| model.s_matrix(w, &[x]).expect("in range")[(0, 0)];
+                let fd = (s(v + h) - s(v - h)) / (2.0 * h);
+                worst = worst.max((fd - exact).norm());
+                scale = scale.max(exact.norm());
+            }
+        }
+        worst / scale
+    };
     ParametricCheck {
+        derivative,
+        passive: model.passivity(401, 21).expect("singular values").largest,
         fitted: model.error().max,
         held_out: model
             .error_against(&held)
@@ -607,6 +635,20 @@ fn param_ring_stable() -> Outcome {
     zero(shift().stable, 5e-6)
 }
 
+fn param_ring_derivatives() -> Outcome {
+    zero(shift().derivative, 1e-6)
+}
+
+fn param_ring_passive() -> Outcome {
+    let largest = coupling().passive;
+    Outcome {
+        measured: largest,
+        expected: 1.0,
+        tolerance: 1e-8,
+        error: (largest - 1.0).max(0.0),
+    }
+}
+
 fn piecewise_coupling() -> &'static ParametricCheck {
     static CHECK: OnceLock<ParametricCheck> = OnceLock::new();
     CHECK.get_or_init(|| ring_parametric("r", (0.90, 0.97), 5, 12, Interpolation::PiecewiseLinear))
@@ -739,6 +781,20 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: "Bogaerts et al. (2011), Eq. 1; 1.2e-7 here; the flip is Gustavsen and Semlyen's (1999), Section 2; the polynomial model's own poles aren't constrained, and some fall in the right half plane, out of the band",
             run: param_ring_stable,
+        },
+        Case {
+            id: "compact/param-ring-derivatives",
+            title: r"The same model's derivatives in $n_\text{eff}$, exact from its form (numerator and denominator linear in the polynomial's weights), against central differences of a millionth of the range at the 4 values halfway between the middle samples and 101 wavelengths: largest difference relative to the largest derivative (shown)",
+            tier: Tier::Analytic,
+            source: r"$\partial S = (\partial N \cdot D - N \cdot \partial D)/D^2$, $N$ and $D$ evaluated at the weights' derivatives; the differences' own truncation and round-off, 9.8e-9 here; the circuit adjoint takes them in place of differences",
+            run: param_ring_derivatives,
+        },
+        Case {
+            id: "compact/param-ring-passive",
+            title: r"The model of the ring over its self-coupling ($r$ from 0.90 to 0.97, degree 2): its largest singular value over 401 wavelengths at 21 values across the range (shown; Eq. 1's is at most 1)",
+            tier: Tier::Analytic,
+            source: r"Bogaerts et al. (2011), Eq. 1: $\lvert S \rvert \le 1$ for $r, a \le 1$, a passive device; the fit's own error allowed",
+            run: param_ring_passive,
         },
         Case {
             id: "compact/param-ring-piecewise",

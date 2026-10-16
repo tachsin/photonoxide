@@ -40,7 +40,8 @@ use faer::linalg::triangular_solve::{
 use faer::{Accum, MatMut, MatRef, Par};
 use num_complex::Complex64 as c64;
 
-use super::{Capabilities, DirectSolver, Threads};
+use super::{Capabilities, Choice, DirectSolver, Threads};
+use crate::Result;
 
 /// A matrix to read, by columns, inside a larger one's storage.
 #[derive(Clone, Copy)]
@@ -165,6 +166,12 @@ pub struct Kernels {
     pub threads: Threads,
     /// Whether a call gives the same bits on every run and any number of threads.
     pub deterministic: bool,
+    /// How the library is called, as found when it was loaded: its routines' names, the size
+    /// of its integers, how it returns a complex number. Empty if nothing needs saying.
+    pub interface: String,
+    /// What the library promises about repeating its bits, in words, and what was measured:
+    /// on every run, and on another number of threads. Empty if nothing is known.
+    pub reproducibility: String,
 }
 
 impl Kernels {
@@ -180,6 +187,8 @@ impl Kernels {
             licence: licence.into(),
             threads: Threads::One,
             deterministic: false,
+            interface: String::new(),
+            reproducibility: String::new(),
         }
     }
 }
@@ -233,6 +242,8 @@ impl DenseKernels for Faer {
         Kernels {
             threads: Threads::Rayon,
             deterministic: true,
+            interface: "faer's own, in Rust".into(),
+            reproducibility: "the same bits on every run and on any number of threads".into(),
             ..Kernels::new("faer", "0.24", "MIT")
         }
     }
@@ -289,6 +300,26 @@ impl DenseKernels for Faer {
 
     fn lu(&self, a: BlockMut<'_>, threaded: bool) -> Vec<usize> {
         crate::sparse::faer_lu(a.0, par(threaded))
+    }
+}
+
+/// The dense kernels a backend's choice stands for: faer's for `auto` and `photonoxide`, and
+/// for a backend's name the kernels of photonoxide's solver it is (`photonoxide-mkl`'s are
+/// oneMKL's).
+///
+/// # Errors
+///
+/// [`crate::Error::InvalidValue`] for a backend that isn't registered or available, or that
+/// has no dense kernels of its own (`pardiso`, `faer`).
+pub fn kernels(choice: &Choice) -> Result<Arc<dyn DenseKernels>> {
+    match choice {
+        Choice::Auto | Choice::Photonoxide => Ok(Arc::new(Faer)),
+        Choice::Named(name) => super::direct(choice)?.dense_kernels().ok_or_else(|| {
+            crate::Error::invalid(
+                "dense kernels",
+                format!("the backend {name} has no dense kernels of its own"),
+            )
+        }),
     }
 }
 
@@ -543,6 +574,24 @@ mod tests {
         crate::backend::register(with_kernels(Arc::new(Plain))).unwrap();
         let chosen = direct(&Choice::Named("photonoxide-plain".into())).unwrap();
         assert_eq!(chosen.capabilities().name, "photonoxide-plain");
+    }
+
+    #[test]
+    fn a_choice_has_the_kernels_of_the_solver_it_names() {
+        for own in [Choice::Auto, Choice::Photonoxide] {
+            assert_eq!(kernels(&own).unwrap().kernels().name, "faer");
+        }
+        crate::backend::register(with_kernels(Arc::new(Plain))).unwrap();
+        let named = kernels(&Choice::Named("photonoxide-plain".into())).unwrap();
+        assert_eq!(named.kernels().name, "plain");
+        // faer's sparse LU is a solver without dense kernels of its own to give
+        let e = kernels(&Choice::Named("faer".into())).err().unwrap();
+        assert!(e.to_string().contains("no dense kernels"), "{e}");
+        assert!(kernels(&Choice::Named("no-such-backend".into())).is_err());
+        // and the solvers say theirs
+        let own = direct(&Choice::Photonoxide).unwrap();
+        assert_eq!(own.dense_kernels().unwrap().kernels().name, "faer");
+        assert!(Faer.kernels().deterministic && !Plain.kernels().deterministic);
     }
 
     #[test]

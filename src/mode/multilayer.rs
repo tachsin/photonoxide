@@ -27,6 +27,13 @@
 //! r = (γ_c m₁₁ + γ_c γ_s m₁₂ − m₂₁ − γ_s m₂₂)/χ, t = 2γ_c/χ, with χ the denominator of Eq. 26
 //! (Eqs. 13–14), the ratios of U, the tangential E for TE and the tangential H for TM; and
 //! R = |r|², T = Re(γ_s)/Re(γ_c) |t|² (Eqs. 15–16).
+//!
+//! **Derivatives** ([`Multilayer::reflection_derivatives`]): R and T in each film's thickness
+//! and index, exactly. The stack's matrix is a product, so its derivative in film j is
+//! M₁ ⋯ M_{j−1} (∂M_j) M_{j+1} ⋯ M_J, from the products before and after each film (two 2 × 2
+//! products a film); ∂M_j follows from Φ = kαd, ∂Φ/∂d = kα, ∂α/∂n = n/α and γ's dependence on
+//! n (α/n² for TM), and r = N/χ and t = 2γ_c/χ by the quotient rule, dR = 2 Re(r̄ dr). They are
+//! checked against fourth-order central differences (the module's tests).
 
 use std::f64::consts::PI;
 
@@ -68,6 +75,20 @@ pub struct Reflection {
     /// The share transmitted into the substrate, Re(γ_s)/Re(γ_c) |t|²: zero beyond total
     /// internal reflection.
     pub transmittance: f64,
+}
+
+/// A plane wave's reflection by a [`Multilayer`] with the derivatives of its reflectance and
+/// transmittance in each film's thickness and index ([`Multilayer::reflection_derivatives`]).
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct ReflectionDerivatives {
+    /// The reflection, as [`Multilayer::reflection`] gives it to rounding, but with sin and cos
+    /// of libm's (the same bits on every system: what an optimization runs on).
+    pub reflection: Reflection,
+    /// For each film from the cover's side, (dR/dd, dT/dd), per µm of its thickness.
+    pub by_thickness: Vec<(f64, f64)>,
+    /// For each film, (dR/dn, dT/dn), in the real part of its index.
+    pub by_index: Vec<(f64, f64)>,
 }
 
 /// The real and imaginary parts that bound a search region in the complex β plane.
@@ -225,6 +246,134 @@ impl Multilayer {
             t,
             reflectance: r.norm_sqr(),
             transmittance: gs.re / gc.re * t.norm_sqr(),
+        })
+    }
+
+    /// [`Multilayer::reflection`] with the derivatives of the reflectance and transmittance in
+    /// each film's thickness and in its index's real part: the transfer matrix's derivative in
+    /// one film is the product of the films before it, that film's own derivative and the films
+    /// after it, M₁ ⋯ dM_j ⋯ M_J, and r = N/χ and t = 2γ_c/χ follow by the quotient rule,
+    /// dR = 2 Re(r̄ dr). Exact (to rounding); each film costs two 2 × 2 products.
+    ///
+    /// # Errors
+    ///
+    /// As [`Multilayer::reflection`], and [`Error::InvalidValue`] for a film whose index equals
+    /// the incident wave's in-plane index (α = 0 there, where the derivative in the index isn't
+    /// defined).
+    pub fn reflection_derivatives(
+        &self,
+        polarization: Polarization,
+        wavelength: Wavelength,
+        angle: f64,
+    ) -> Result<ReflectionDerivatives> {
+        // the checks of the angle and the cover
+        self.reflection(polarization, wavelength, angle)?;
+        let k = 2.0 * PI / wavelength.to_um();
+        let beta = c64::new(self.cover.re * angle.sin(), 0.0);
+        let zero = c64::new(0.0, 0.0);
+        let one = c64::new(1.0, 0.0);
+        let i = c64::new(0.0, 1.0);
+        type M = [[c64; 2]; 2];
+        let mul = |a: &M, b: &M| -> M {
+            [
+                [
+                    a[0][0] * b[0][0] + a[0][1] * b[1][0],
+                    a[0][0] * b[0][1] + a[0][1] * b[1][1],
+                ],
+                [
+                    a[1][0] * b[0][0] + a[1][1] * b[1][0],
+                    a[1][0] * b[0][1] + a[1][1] * b[1][1],
+                ],
+            ]
+        };
+        let identity: M = [[one, zero], [zero, one]];
+        // each film's matrix and its derivatives in its thickness and its index
+        let mut films = Vec::with_capacity(self.films.len());
+        for &(n, d) in &self.films {
+            let alpha = (n * n - beta * beta).sqrt();
+            if alpha.norm() < 1e-300 {
+                return Err(Error::invalid(
+                    "reflection",
+                    format!(
+                        "a film of index {n} is at the incident wave's in-plane index: its \
+                         derivative in the index isn't defined there"
+                    ),
+                ));
+            }
+            let gamma = Self::gamma(polarization, n, alpha);
+            let phi = alpha * k * d;
+            // libm's, the same bits on every system: what an optimization runs on
+            let (c, s) = (crate::portable::cos_c(phi), crate::portable::sin_c(phi));
+            let m: M = [[c, -i * s / gamma], [-i * gamma * s, c]];
+            // in the thickness: dΦ/dd = kα, γ fixed
+            let dphi = alpha * k;
+            let by_d: M = [
+                [-s * dphi, -i * c * dphi / gamma],
+                [-i * gamma * c * dphi, -s * dphi],
+            ];
+            // in the index: dα/dn = n/α, dγ/dn = dα/dn (TE) or (dα/dn)/n² − 2α/n³ (TM)
+            let dalpha = n / alpha;
+            let dgamma = match polarization {
+                Polarization::Te => dalpha,
+                Polarization::Tm => dalpha / (n * n) - 2.0 * alpha / (n * n * n),
+            };
+            let dphi = dalpha * k * d;
+            let by_n: M = [
+                [
+                    -s * dphi,
+                    -i * (c * dphi * gamma - s * dgamma) / (gamma * gamma),
+                ],
+                [-i * (dgamma * s + gamma * c * dphi), -s * dphi],
+            ];
+            films.push((m, by_d, by_n));
+        }
+        // the products before each film and after it
+        let count = films.len();
+        let mut before = vec![identity; count];
+        for j in 1..count {
+            before[j] = mul(&before[j - 1], &films[j - 1].0);
+        }
+        let mut after = vec![identity; count];
+        for j in (0..count - 1).rev() {
+            after[j] = mul(&films[j + 1].0, &after[j + 1]);
+        }
+        let total = mul(&before[count - 1], &films[count - 1].0);
+        let gc = Self::gamma(
+            polarization,
+            self.cover,
+            Self::alpha_outside(self.cover, beta),
+        );
+        let gs = Self::gamma(
+            polarization,
+            self.substrate,
+            Self::alpha_outside(self.substrate, beta),
+        );
+        let chi_of = |m: &M| gc * m[0][0] + gc * gs * m[0][1] + m[1][0] + gs * m[1][1];
+        let num_of = |m: &M| gc * m[0][0] + gc * gs * m[0][1] - m[1][0] - gs * m[1][1];
+        let chi = chi_of(&total);
+        let (r, t) = (num_of(&total) / chi, 2.0 * gc / chi);
+        let ratio = gs.re / gc.re;
+        let derivatives = |dm: &M| -> (f64, f64) {
+            let dchi = chi_of(dm);
+            let dr = (num_of(dm) - r * dchi) / chi;
+            let dt = -t * dchi / chi;
+            (2.0 * (r.conj() * dr).re, ratio * 2.0 * (t.conj() * dt).re)
+        };
+        let mut by_thickness = Vec::with_capacity(count);
+        let mut by_index = Vec::with_capacity(count);
+        for (j, (_, by_d, by_n)) in films.iter().enumerate() {
+            by_thickness.push(derivatives(&mul(&mul(&before[j], by_d), &after[j])));
+            by_index.push(derivatives(&mul(&mul(&before[j], by_n), &after[j])));
+        }
+        Ok(ReflectionDerivatives {
+            reflection: Reflection {
+                r,
+                t,
+                reflectance: r.norm_sqr(),
+                transmittance: ratio * t.norm_sqr(),
+            },
+            by_thickness,
+            by_index,
         })
     }
 
@@ -746,5 +895,83 @@ mod tests {
         )
         .unwrap();
         assert!(lossy.reflection(Polarization::Te, lam, 0.0).is_err());
+    }
+
+    /// A stack of `films` (index, thickness in µm) between air and `substrate`.
+    fn stack(films: &[(c64, f64)], substrate: c64) -> Multilayer {
+        let f: Vec<(c64, Length)> = films.iter().map(|&(n, d)| (n, Length::um(d))).collect();
+        Multilayer::new(re(1.0), &f, substrate).unwrap()
+    }
+
+    #[test]
+    fn reflectance_derivatives_agree_with_fourth_order_differences() {
+        // three films, one lossy, at an angle, both polarizations
+        let films = [
+            (re(2.1), 0.13),
+            (c64::new(1.46, 0.002), 0.21),
+            (re(3.2), 0.07),
+        ];
+        let lam = Wavelength::um(0.85).unwrap();
+        for pol in [Polarization::Te, Polarization::Tm] {
+            for angle in [0.0, 0.6] {
+                let d = stack(&films, re(1.52))
+                    .reflection_derivatives(pol, lam, angle)
+                    .unwrap();
+                let rt = |f: &[(c64, f64)]| {
+                    let r = stack(f, re(1.52)).reflection(pol, lam, angle).unwrap();
+                    (r.reflectance, r.transmittance)
+                };
+                for j in 0..films.len() {
+                    for (by_index, exact) in [(false, d.by_thickness[j]), (true, d.by_index[j])] {
+                        let h = 1e-4;
+                        let at = |k: f64| {
+                            let mut f = films;
+                            if by_index {
+                                f[j].0 += k * h;
+                            } else {
+                                f[j].1 += k * h;
+                            }
+                            rt(&f)
+                        };
+                        let (m2, m1, p1, p2) = (at(-2.0), at(-1.0), at(1.0), at(2.0));
+                        let fd = |g: fn((f64, f64)) -> f64| {
+                            (g(m2) - 8.0 * g(m1) + 8.0 * g(p1) - g(p2)) / (12.0 * h)
+                        };
+                        let (dr, dt) = (fd(|v| v.0), fd(|v| v.1));
+                        for (e, f) in [(exact.0, dr), (exact.1, dt)] {
+                            assert!(
+                                (e - f).abs() < 1e-9 * (1.0 + e.abs()),
+                                "{pol:?} {angle} film {j} index {by_index}: {e} against {f}"
+                            );
+                        }
+                    }
+                }
+                let plain = stack(&films, re(1.52)).reflection(pol, lam, angle).unwrap();
+                assert!((d.reflection.reflectance - plain.reflectance).abs() < 1e-15);
+                assert!((d.reflection.transmittance - plain.transmittance).abs() < 1e-15);
+            }
+        }
+    }
+
+    #[test]
+    fn a_quarter_wave_stack_is_a_stationary_point_of_its_reflectance() {
+        // at its design wavelength every film's thickness is at an extremum of R
+        let lam = 0.6;
+        let films: Vec<(c64, f64)> = (0..20)
+            .map(|k| {
+                let n = if k % 2 == 0 { 1.8 } else { 1.4 };
+                (re(n), lam / (4.0 * n))
+            })
+            .collect();
+        let d = stack(&films, re(1.8))
+            .reflection_derivatives(Polarization::Te, Wavelength::um(lam).unwrap(), 0.0)
+            .unwrap();
+        // the closed form: Y = (n_H/n_L)^20 n_s, R = ((1 − Y)/(1 + Y))²
+        let y = (1.8f64 / 1.4).powi(20) * 1.8;
+        let closed = ((1.0 - y) / (1.0 + y)).powi(2);
+        assert!((d.reflection.reflectance - closed).abs() < 1e-14);
+        for (dr, dt) in &d.by_thickness {
+            assert!(dr.abs() < 1e-12 && dt.abs() < 1e-12, "{dr} {dt}");
+        }
     }
 }

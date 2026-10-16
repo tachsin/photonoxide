@@ -477,3 +477,82 @@ fn a_plane_waves_e_is_its_waveform_to_second_order() {
     );
     assert!(errors[2] < 2e-3, "{errors:?}");
 }
+
+#[test]
+fn alpha_costs_a_thin_cpml_reflection_as_measured() {
+    // the pulse of fdtd/cpml-thickness at 6 and 16 cells (docs/methods/fdtd.md, "Late
+    // growth"): α = 0.2/µm costs little, 1/µm doubles a thin CPML's reflection, 5/µm costs a
+    // factor of twenty at 6 cells and a thousand at 16
+    for (alpha, thin, thick) in [
+        (0.0, 1.416e-3, 6.132e-6),
+        (0.2, 1.504e-3, 6.151e-6),
+        (1.0, 2.532e-3, 9.047e-6),
+        (5.0, 3.126e-2, 9.589e-3),
+    ] {
+        let cpml = Cpml {
+            alpha,
+            ..Cpml::default()
+        };
+        let (six, sixteen) = (cpml_error_with(6, cpml), cpml_error_with(16, cpml));
+        assert!((six / thin - 1.0).abs() < 0.01, "{alpha}: {six}");
+        assert!((sixteen / thick - 1.0).abs() < 0.01, "{alpha}: {sixteen}");
+    }
+}
+
+/// The least-squares slope of ln E against t over [from, to] µm/c, E sampled every 50 µm/c
+/// from 50 on.
+fn energy_rate(energy: &[f64], from: f64, to: f64) -> f64 {
+    let points: Vec<(f64, f64)> = energy
+        .iter()
+        .enumerate()
+        .map(|(n, e)| ((n + 1) as f64 * 50.0, e.ln()))
+        .filter(|&(t, _)| t >= from && t <= to)
+        .collect();
+    let m = points.len() as f64;
+    let (st, sy) = points
+        .iter()
+        .fold((0.0, 0.0), |(a, b), &(t, y)| (a + t, b + y));
+    let (stt, sty) = points
+        .iter()
+        .fold((0.0, 0.0), |(a, b), &(t, y)| (a + t * t, b + t * y));
+    (m * sty - st * sy) / (m * stt - st * st)
+}
+
+/// A probe's frequency over its last fifth, c/µm, from its zero crossings.
+fn late_frequency(values: &[f64], dt: f64) -> f64 {
+    let last = &values[values.len() * 4 / 5..];
+    let crossings = last
+        .windows(2)
+        .filter(|w| (w[0] < 0.0) != (w[1] < 0.0))
+        .count();
+    crossings as f64 / (2.0 * last.len() as f64 * dt)
+}
+
+#[test]
+#[ignore = "a minute and a half: the late growth on cells of 50 and 25 nm, cargo test --release -- --ignored the_late_growth --nocapture"]
+fn the_late_growth_is_the_grids() {
+    // 1500 µm/c on cells of 50 nm (CPMLs of 6, 0.3 µm) and 25 nm (CPMLs of 12, as thick)
+    let coarse = late_strip(0.05, 6, Cpml::default(), late_pulse(), 52_486);
+    let rate = energy_rate(&coarse.energy, 500.0, 1500.0);
+    let frequency = late_frequency(&coarse.inside, coarse.dt);
+    let [largest, inside] = [&coarse.in_cpml, &coarse.inside].map(|v| {
+        v[v.len() * 4 / 5..]
+            .iter()
+            .fold(0.0f64, |m, x| m.max(x.abs()))
+    });
+    println!(
+        "50 nm: {rate:.4} per um/c at {frequency:.3} c/um ({:.3} in the CPML), {:.1} times \
+         larger in the CPML",
+        late_frequency(&coarse.in_cpml, coarse.dt),
+        largest / inside
+    );
+    assert!((0.06..0.075).contains(&rate), "{rate}");
+    // 2.7 cells a wavelength in the core, the same in the CPML, and larger there
+    assert!((frequency - 3.0).abs() < 0.05, "{frequency}");
+    assert!((late_frequency(&coarse.in_cpml, coarse.dt) - frequency).abs() < 0.02);
+    assert!(largest > inside, "{largest} {inside}");
+    let fine = late_strip(0.025, 12, Cpml::default(), late_pulse(), 104_973);
+    let rate = energy_rate(&fine.energy, 500.0, 1500.0);
+    println!("25 nm: {rate:.4} per um/c");
+    assert!(rate < 0.0, "{rate}");
+}

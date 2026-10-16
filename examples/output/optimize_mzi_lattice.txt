@@ -1,0 +1,23 @@
+A maximally flat half-band lattice: couplers θ₁, θ₂, θ₃, delays 2ΔL + φ₁ and ΔL + φ₂ (Jinguji & Oguma 2000, Table I), the circuit solve, exact: no grid
+  T(ω) = cos⁴(ω/2)(1 + 2 sin²(ω/2)) at 64 phases ω across ΔL; the cross port from in1
+  Table I's design: |P_cross − T|, largest     0.000000   T, maximally flat 0.000000   ± 1e-14 ok
+  its field misfit to H_D                0.000000   H_D, T's factor 0.000000   ± 1e-28 ok
+  the circuit adjoint's gradient of the power misfit against fourth-order differences: within 1e-10 of the largest
+  power: adjoint within 1e-8 of differences     1.000000   yes 1.000000   ± 0e0  ok
+  the circuit adjoint's gradient of the field misfit against fourth-order differences: within 1e-10 of the largest
+  field: adjoint within 1e-8 of differences     1.000000   yes 1.000000   ± 0e0  ok
+  fitting the power alone, L-BFGS-B from 16 seeded random starts: best misfit 2e-19, θ = 0.083π, 0.333π, 0.250π: about 1e-3 π from Table I's
+  fitting the field to H_D, L-BFGS-B on the adjoint from 16 seeded random starts: 11 reach a misfit below 1e-24, in 50 evaluations at most
+    θ = 0.08333π, 0.33333π, 0.25000π; φ = 1.00000π, 0.00000π
+  designs that fit H_D                   1.000000   one 1.000000   ± 0e0         ok
+  θ1 (π)                                 0.083333   paper 0.0833     ± 5e-5      ok
+  θ2 (π)                                 0.333333   paper 0.3333     ± 5e-5      ok
+  θ3 (π)                                 0.250000   paper 0.25       ± 5e-5      ok
+  |φ₁| (π)                               1.000000   paper 1          ± 1e-6      ok
+  φ₂ (π)                                 0.000000   paper 0          ± 1e-6      ok
+  power coupling 1                       0.066987   paper 0.067      ± 5e-4      ok
+  power coupling 2                       0.750000   paper 0.75       ± 5e-4      ok
+  power coupling 3                       0.500000   paper 0.5        ± 5e-4      ok
+  CMA-ES (3000 evaluations, seed 1) then L-BFGS-B on the field: misfit below 1e-24, θ = 0.08333π, 0.33333π, 0.25000π; φ = 1.00000π, 0.00000π
+  CMA-ES's design: largest |θ − Table I's| (π)     0.000033   Table I 0.000000   ± 5e-5 ok
+all 14 within tolerance of the paper

@@ -107,8 +107,11 @@ as a boundary condition. Light needs open boundaries, so photonoxide adds the sa
 
 **Interfaces.** As in 2D, each component of E sees the permittivity averaged over its own cell
 of the dual grid. The average is harmonic along the component and arithmetic across it, from
-8 × 8 × 8 samples. That is exact for a layered medium, with the field along or across its
-layers.
+8 × 8 × 8 samples. That is the right average for a layered medium, with the field along or
+across its layers, placed by the samples to within a sixteenth of a cell (first order). Given a
+stack (`Solver3d::from_structure`), the cells can instead be averaged from the shapes' and
+layers' exact fill ([averaging from the fill](averaging.md)), second order for layers and walls
+along the axes.
 
 **Open boundaries** are stretched-coordinate PMLs (Chew and Weedon),
 $\partial_w \to s_w^{-1}\partial_w$, graded as in 2D (Shin and Fan, Eqs. 2.5–2.9):
@@ -562,9 +565,9 @@ studio gives it a way to read it; the library alone doesn't know, and keeps the 
 two products differ in their last bits, so the default stays the matrix, which every result
 in the validation report and the examples was computed with, and `Auto` is asked for, never
 assumed: a run whose bits hung on the free memory would not repeat. `IterativeSolver3d::product`
-says which the solver took. On Shin and Fan's operator `Auto` keeps the matrix; `MatrixFree`
-there is for the multigrid without its finest matrix ([its page](multigrid-stencil.md)).
-`photonoxide bench` runs the 40³ guide both ways (`fdfd3d/guide-qmr` and `fdfd3d/guide-qmr-free`), and its catalogue the guide and the
+says which the solver took. Shin and Fan's operator has no product without its matrix: `Auto`
+keeps the matrix there, and `MatrixFree` is refused. `photonoxide bench` runs the 40³ guide
+both ways (`fdfd3d/guide-qmr` and `fdfd3d/guide-qmr-free`), and its catalogue the guide and the
 strip with ports at the sizes above.
 
 - **The same S-matrices over a sweep:** the coupler of `fdfd3d/recycle-s-matrix` (18 × 32 × 24
@@ -576,12 +579,12 @@ strip with ports at the sizes above.
 - **Block QMR** takes it as it is: `fdfd3d/block-qmr-s-matrix` runs the coupler's 8 ports with
   the matrix and without.
 
-It is for the solves that take no preconditioner, and for GMRES with the multigrid on Shin and
-Fan's operator, whose finest level then has no matrix either: its products and residuals from
-the stencil, its smoothing by damped Jacobi, its coarse operators Galerkin's from the stencil's
-rows or discretized again ([The multigrid without its finest matrix](multigrid-stencil.md),
-#333). ILU(0) needs the matrix's entries, and an iterative backend the matrix: both are refused
-without it.
+It is for the solves that take no preconditioner. ILU(0) needs the matrix's entries, and the
+multigrid works on Shin and Fan's operator, whose gradient of a divergence this operator
+doesn't have: both, and an iterative backend, are refused with it. A multigrid whose finest
+level needs no matrix would need a smoother formed from the stencil and coarse operators
+rediscretized in place of $P^{\mathsf T} A P$, and Shin and Fan's operator without its matrix:
+another multigrid than the one validated here ([#333](https://github.com/tachsin/photonoxide/issues/333)).
 
 **Shin and Fan's operator.** `Formulation::ShinFan` solves their Eq. 7 with s = −1 instead:
 
@@ -884,10 +887,10 @@ not read) factorizes a slab of a few planes per layer: faer's sparse LU took 19 
   (k = 0), and the window whole along it.
 - The direct solver's memory caps a problem at about 200 k unknowns on a 64 GB machine. QMR's
   doesn't. With stretched PMLs, GMRES and the multigrid cycle take tens of iterations where
-  plain QMR takes thousands, at about twice ILU(0)'s memory (9.5 GB for 1.8 M unknowns; 6.0 and
-  3.3 GB without the finest matrix, [its page](multigrid-stencil.md)). The
+  plain QMR takes thousands, at about twice ILU(0)'s memory (9.5 GB for 1.8 M unknowns). The
   multigrid was measured with stretched PMLs only, and on silicon in vacuum and in oxide.
 - QMR without look-ahead: a breakdown of the Lanczos process restarts it, which costs the
   Krylov space built so far, rather than being stepped over.
-- A uniform grid along each axis, and interfaces averaged by sampling: exact for interfaces
-  along the axes, slower to converge for curved or slanted ones.
+- A uniform grid along each axis, and interfaces averaged by sampling by default; from the fill
+  as an option ([averaging](averaging.md)), with the tensor's diagonal only, so a wall slanted
+  in the plane stays first order.

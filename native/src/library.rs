@@ -43,6 +43,33 @@ impl Library {
         })
     }
 
+    /// A library this process has already loaded, by its file's name: another library's
+    /// dependency (an OpenMP runtime a BLAS loaded), whose functions Windows doesn't look up
+    /// through the library that needed it. It isn't loaded if it isn't there already.
+    ///
+    /// # Errors
+    ///
+    /// When no library of that name is loaded.
+    #[cfg(windows)]
+    pub fn loaded(name: &str) -> Result<Library> {
+        let inner = libloading::os::windows::Library::open_already_loaded(name)
+            .map_err(|e| error(e.to_string()))?;
+        Ok(Library {
+            path: PathBuf::from(name),
+            inner: inner.into(),
+        })
+    }
+
+    /// Keeps the library loaded for the rest of the process, whatever becomes of this handle:
+    /// for a library whose threads outlive its calls, as a BLAS's pool of threads does, which
+    /// unloading would leave running in code no longer there (an access violation on Windows,
+    /// seen with OpenBLAS). The file is loaded once more and that handle never closed.
+    pub fn pin(&self) {
+        if let Ok(again) = Library::open(&self.path) {
+            std::mem::forget(again);
+        }
+    }
+
     /// The file it was loaded from.
     pub fn path(&self) -> &Path {
         &self.path

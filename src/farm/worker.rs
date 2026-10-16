@@ -131,11 +131,11 @@ fn serve(stream: TcpStream, peer: String, options: &ServeOptions) -> Served {
         }
     };
     // the hello, within the handshake's time
-    let _ = out.set_read_timeout(Some(HANDSHAKE));
+    let _ = reader.set_timeout(Some(HANDSHAKE));
     reader.limit(protocol::LONGEST_HELLO);
     let hello = reader.wait();
     reader.limit(protocol::LONGEST);
-    let _ = out.set_read_timeout(None);
+    let _ = reader.set_timeout(None);
     let refused = match hello {
         Ok(Message::Hello {
             protocol,

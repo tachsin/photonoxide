@@ -104,6 +104,38 @@ fn distances_and_normals_are_the_closed_forms() {
     }
 }
 
+/// A point on the boundary but for rounding (a grid's point on an edge, its coordinate summed
+/// from steps) gets the boundary's own normal, not the direction of the rounding (issue #376:
+/// (0.97, −0.24) on a rectangle's lower edge).
+#[test]
+fn a_point_a_rounding_off_the_boundary_gets_its_normal() {
+    let rect = Shape::rect(Point::um(-4.0, 0.0), um(8.0), um(0.5)).unwrap();
+    let polygon = Shape::Polygon(
+        Polygon::new(vec![
+            Point::um(-8.0, -0.25),
+            Point::um(0.0, -0.25),
+            Point::um(0.0, 0.25),
+            Point::um(-8.0, 0.25),
+        ])
+        .unwrap(),
+    );
+    let disk = Shape::circle(Point::um(0.3, 0.0), um(0.7)).unwrap();
+    for (shape, p, n) in [
+        (&rect, [-1.8, -0.6 + 3.5 * 0.1], [0.0, -1.0]),
+        (&rect, [-1.8, -0.25 - 5e-17], [0.0, -1.0]),
+        (&polygon, [-1.8, -0.6 + 3.5 * 0.1], [0.0, -1.0]),
+        (&polygon, [-2.0 + 20.0 * 0.1, 0.1], [1.0, 0.0]),
+        (&disk, [1.0 - 1e-16, 0.0], [1.0, 0.0]),
+    ] {
+        let d = shape.distance(Point::um(p[0], p[1]));
+        assert!(d.signed.to_um().abs() < 1e-15, "{p:?}: {d:?}");
+        assert!(
+            (d.normal[0] - n[0]).abs() < 1e-12 && (d.normal[1] - n[1]).abs() < 1e-12,
+            "{p:?}: {d:?}"
+        );
+    }
+}
+
 /// For every shape, at points off the boundary and its medial axis: the distance's gradient
 /// (by central differences) is the normal, and stepping back along the normal by the distance
 /// lands on the boundary.

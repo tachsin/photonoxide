@@ -11,6 +11,8 @@
   import Plot from "./Plot.svelte";
   import RasterView from "./RasterView.svelte";
   import UnitChip from "./UnitChip.svelte";
+  import OptimizeResults from "./device/OptimizeResults.svelte";
+  import StudyResults from "./device/StudyResults.svelte";
 
   const db = (re: number, im: number) => 10 * Math.log10(Math.max(re * re + im * im, 1e-30));
   /** Spectra as power (linear, the default: dips read as they are) or in dB (small values show). */
@@ -81,7 +83,7 @@
 </script>
 
 <div class="mx-auto max-w-6xl space-y-6 p-6">
-  {#if !run.pictures.length && !run.modes.length && !run.sweep && !run.fields.length && !run.sparams.length && !run.frames.length && !Object.keys(run.spectra).length}
+  {#if !run.pictures.length && !run.modes.length && !run.sweep && !run.fields.length && !run.sparams.length && !run.frames.length && !Object.keys(run.spectra).length && !run.device && !run.study && !run.optimization}
     <div class="grid h-64 place-items-center text-sm faint">
       {run.finished ? "This run recorded nothing to plot." : "Waiting for the first results…"}
     </div>
@@ -117,6 +119,52 @@
     </section>
   {/if}
 
+  {#if run.optimization}
+    <section class="panel p-5">
+      <h3 class="mb-3 font-semibold">The {run.optimization.device}'s optimization <span class="font-normal faint">· genoxide's {run.optimization.optimizer} on its {run.optimization.fidelity} model</span></h3>
+      <OptimizeResults record={{ optimization: run.optimization, evaluations: run.evaluations, front: run.front, hypervolumes: run.hypervolumes, optimum: run.optimum }} dir={run.info?.dir ?? null} running={!run.finished} height={260} />
+    </section>
+  {/if}
+
+  {#if run.study}
+    <section class="panel p-5">
+      <h3 class="mb-3 font-semibold">The {run.study.device}'s study <span class="font-normal faint">· {run.study.method}</span></h3>
+      <StudyResults record={{ study: run.study, points: run.points }} name={run.job?.job ?? "study"} running={!run.finished} height={300} />
+    </section>
+  {/if}
+
+  {#if run.device}
+    {@const d = run.device}
+    <section class="panel p-5">
+      <div class="flex flex-wrap items-center gap-2">
+        <h3 class="font-semibold">The {d.device}'s model</h3>
+        <span class="badge badge-sm badge-soft {d.fidelity === 'analytic' ? 'badge-secondary' : 'badge-primary'}">{d.fidelity}</span>
+        <span class="flex-1"></span>
+        <span class="text-xs faint num" title="The time the model took to build: the solve's, at a solver's fidelity">built in {d.seconds < 1e-3 ? "under a millisecond" : d.seconds < 1 ? `${(d.seconds * 1000).toFixed(0)} ms` : `${d.seconds.toFixed(1)} s`}</span>
+      </div>
+      <p class="mt-1 text-sm muted">{d.method}</p>
+      <p class="mt-1 text-xs faint selectable">{d.source}</p>
+      {#if d.figures.length}
+        {@const oneGrid = d.figures.every((f) => f.grid === d.figures[0].grid)}
+        <div class="mt-3 overflow-x-auto">
+          <table class="table table-xs w-auto">
+            <thead><tr><th>Figure</th><th class="text-right">Value</th>{#if !oneGrid}<th>Grid</th>{/if}</tr></thead>
+            <tbody>
+              {#each d.figures as f (f.symbol)}
+                <tr>
+                  <td>{f.name} <span class="num faint">{f.symbol}</span></td>
+                  <td class="num text-right whitespace-nowrap">{Math.abs(f.value) >= 1e4 || (Math.abs(f.value) < 1e-3 && f.value !== 0) ? f.value.toExponential(4) : Number(f.value.toPrecision(6))} {f.unit}</td>
+                  {#if !oneGrid}<td class="text-xs faint">{f.grid}</td>{/if}
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+        {#if oneGrid}<p class="mt-1 text-xs faint">each on {d.figures[0].grid}</p>{/if}
+      {/if}
+    </section>
+  {/if}
+
   {#if run.sparams.length}
     {@const first = tabled}
     <section class="panel p-5">
@@ -130,7 +178,16 @@
           </div>
         {/if}
       </div>
-      <p class="mb-3 text-xs faint">|S|², the power from port p into port q; 2D by the effective index method, an estimate rather than a device's 3D performance</p>
+      <p class="mb-3 text-xs faint">
+        |S|², the power from port p into port q;
+        {#if !run.device}
+          2D by the effective index method, an estimate rather than a device's 3D performance
+        {:else if run.device.fidelity === "2D"}
+          the 2D model's, an estimate labelled 2D, not the device's performance ({run.device.grid})
+        {:else}
+          the {run.device.fidelity} model's ({run.device.grid})
+        {/if}
+      </p>
       {#if spectra.length}
         <Plot
           series={spectra}
@@ -148,7 +205,7 @@
           <tbody>
             {#each first.s as row, q (q)}
               <tr>
-                <th>into {q + 1} <span class="font-normal faint">(n_eff {first.effective_indices[q].toFixed(4)})</span></th>
+                <th>into {first.ports[q] ?? q + 1} {#if first.effective_indices[q]}<span class="font-normal faint">(n_eff {first.effective_indices[q].toFixed(4)})</span>{/if}</th>
                 {#each row as [re, im], p (p)}
                   {@const v = re * re + im * im}
                   <td class="num" style="background: color-mix(in oklch, var(--color-primary) {Math.round(v * 45)}%, transparent)">{v.toFixed(4)}</td>

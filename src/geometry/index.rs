@@ -174,6 +174,67 @@ impl Index {
         self.visit(q, q, test)
     }
 
+    /// The item nearest `p` and its distance `distance(k)`, which must be at least the distance
+    /// from `p` to item k's box: the nodes visited nearest first, and those farther than the
+    /// best found so far left. Of items equally near, the first. `None` when it is empty.
+    ///
+    /// The answer is the least of `distance` over every item, whatever order the nodes are
+    /// visited in, so it is the same bits on any number of threads.
+    pub(crate) fn nearest(
+        &self,
+        p: Point,
+        mut distance: impl FnMut(usize) -> f64,
+    ) -> Option<(usize, f64)> {
+        use std::cmp::{Ordering, Reverse};
+        use std::collections::BinaryHeap;
+        if self.items.is_empty() {
+            return None;
+        }
+        /// A node's distance from `p`, with the node, ordered by distance then node.
+        #[derive(Clone, Copy, PartialEq)]
+        struct Near(f64, u32);
+        impl Eq for Near {}
+        impl PartialOrd for Near {
+            fn partial_cmp(&self, other: &Near) -> Option<Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+        impl Ord for Near {
+            fn cmp(&self, other: &Near) -> Ordering {
+                self.0.total_cmp(&other.0).then(self.1.cmp(&other.1))
+            }
+        }
+        let q = [p.x.to_um(), p.y.to_um()];
+        let gap = |n: &Node| {
+            let dx = (n.lo[0] - q[0]).max(q[0] - n.hi[0]).max(0.0);
+            let dy = (n.lo[1] - q[1]).max(q[1] - n.hi[1]).max(0.0);
+            dx.hypot(dy)
+        };
+        let mut heap = BinaryHeap::new();
+        heap.push(Reverse(Near(gap(&self.nodes[0]), 0)));
+        let mut best: Option<(usize, f64)> = None;
+        while let Some(Reverse(Near(g, n))) = heap.pop() {
+            if best.is_some_and(|(_, d)| g > d) {
+                break;
+            }
+            let node = self.nodes[n as usize];
+            if node.count > 0 {
+                let items = &self.items[node.first as usize..(node.first + node.count) as usize];
+                for &k in items {
+                    let (k, d) = (k as usize, distance(k as usize));
+                    if best.is_none_or(|(bk, bd)| d < bd || (d == bd && k < bk)) {
+                        best = Some((k, d));
+                    }
+                }
+            } else {
+                for c in [node.first, node.first + 1] {
+                    heap.push(Reverse(Near(gap(&self.nodes[c as usize]), c)));
+                }
+            }
+        }
+        best
+    }
+
     /// The items whose boxes meet `cell`, in a fixed order.
     pub fn meeting(&self, cell: Bounds) -> Vec<usize> {
         let mut out = Vec::new();

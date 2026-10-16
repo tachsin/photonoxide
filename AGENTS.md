@@ -3,12 +3,14 @@
 photonoxide is released milestone by milestone: a library whose public API can change between milestones until 1.0, and
 the `photonoxide` program (the studio). [ROADMAP.md](ROADMAP.md) is the plan and the record of
 what is done; [CHANGELOG.md](CHANGELOG.md) has what each release changed. 0.1 to 0.5 and their
-patches are released, the latest 0.5.2 (many solves at once: ports as a block, recycling,
-farming); next is 0.6, thermal and electro-optic devices. The library's modules, each with a write-up in
+patches are released, the latest 0.5.4 (geometry for any device, the devices on pages of their
+own with their studies and optimization, compact models, the chip built from devices, devices in
+Python and MATLAB); next is 0.6, thermal and electro-optic devices. The library's modules, each with a write-up in
 `docs/methods/`:
 
 - `units`, `material` (with `material::catalogue`), `geometry` (the kernel: regions, transforms,
-  polygons, a spatial index), `expr` (expressions with units and parameters), `stack`, `raster`;
+  polygons, a spatial index), `expr` (expressions with units and parameters), `stack`, `raster`,
+  `averaging` (a grid cell's permittivity from the shapes' fill, for FDFD and the rasters);
 - `mode`: slabs, multilayers, planar profiles, full-vector and Hadley cross-sections, bends,
   the effective index method, Marcatili, dispersion and fields;
 - `fdfd`: 2D and 3D, ports and S-parameters, adjoint gradients, direct and QMR solves;
@@ -16,10 +18,14 @@ farming); next is 0.6, thermal and electro-optic devices. The library's modules,
   dispersive media, adjoint gradients, and the GPU (`fdtd::gpu`, wgpu compute behind the `gpu`
   feature);
 - `circuit`: components, netlists, the circuit solve and its adjoint, objectives for genoxide;
+- `device`: components that know their geometry (a stack, parameters as expressions, shapes
+  with ports, models from a fit to 3D): the strip waveguide, bend, directional coupler and rings,
+  the rib, the MMIs, the Y-branch and the MZIs;
 - `compact`: vector fitting, models over parameters, Touchstone files;
 - `backend`: the solver backends, photonoxide's own and the external libraries' (through
   `photonoxide-native`);
-- `job`, `run`: job files, run records and replay; `validation`: the report's cases; `bench`: the benchmark problems.
+- `job`, `run`: job files (a device computed at a fidelity or by FDTD: `job::from_device`), run
+  records and replay; `validation`: the report's cases; `bench`: the benchmark problems.
 - `facade`: what the bindings wrap, plain types only: materials, slab and full-vector modes, jobs
   and their runs, an FDFD job's S-parameters, circuits from a netlist given as data, Touchstone
   files; and `facade::conformance()`, calls with their results for the bindings' tests. A
@@ -42,6 +48,7 @@ cd python && maturin develop --release && cd tests && python -m pytest   # the P
 PHOTONOXIDE_VALIDATION_CASES="circuit/ components/" cargo test --release --test validation_report -- --ignored   # some cases' rows
 bash .github/full-suite.sh                              # the full suite here, as the release PR runs it (--fast: no release build)
 git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh   # what CI runs for a branch
+cargo semver-checks check-release -p photonoxide        # the public API against the latest release (CI's Semver job)
 ```
 
 CI runs in tiers (issue #315). **Tier 1**, every PR and push to main: on Linux, lint, MSRV, and the
@@ -49,13 +56,18 @@ unit tests, validation cases and examples (not the 3D devices) of the areas a ch
 of the areas that use them, as the area map [.github/areas.sh](.github/areas.sh) has them; a file
 in no area (the library's root, units, geometry, the manifests) runs everything, and files nothing
 reads (most Markdown, the site, the other workflows) run only the docs' links. A new area, module
-or test-read file gets its line in the map. **Tier 2**, the release PR, a PR labelled `full-ci`, and
+or test-read file gets its line in the map. A PR that changes the library (`src/`, the root
+`Cargo.toml`) also runs the Semver job, cargo-semver-checks against the latest release on
+crates.io. **Tier 2**, the release PR, a PR labelled `full-ci`, and
 a change to `ci.yml`, `Cargo.toml` or `Cargo.lock`: every test on Linux, Windows and macOS (and on
 one thread), every example on the three systems, the 3D devices, the whole validation report. **Tier
 3**, the Weekly workflow on Mondays when code changed that week: Tier 2, every Python wheel, the
 Systems comparison and the Libraries workflow's installs (those every week); a failure opens the
 issue "Weekly run failed". Run the full suite here after every merge or rebase
 (`.github/full-suite.sh`; `git config core.hooksPath .github/hooks` runs it in the background).
+The same hooks run CI's Lint steps (`.github/lints.sh`: fmt, the clippies, docs) before every push
+that changes Rust code or a manifest, on the commit being pushed, and refuse the push when one
+fails. A lint that passed on a commit, in the hook or the full suite, isn't run again on it.
 
 The Python package ([docs/python.md](docs/python.md)) wraps `photonoxide::facade` only. A change to
 the façade's functions or results changes `python/` (the native module, the Python functions,
@@ -73,7 +85,7 @@ plain `cargo build`, which leaves the window pointing at the dev server:
 
 ```sh
 cd studio && pnpm install && pnpm tauri build           # target/release/photonoxide(.exe)
-target/release/photonoxide                                # the studio: examples, job builder, runs, validation
+target/release/photonoxide                                # the studio: examples, components, runs, validation
 target/release/photonoxide run jobs/strip-and-ring.toml   # a job, live in the studio window
 target/release/photonoxide run jobs/strip-modes.toml      # a strip's modes and a wavelength sweep, live
 target/release/photonoxide run <job.toml> --headless      # the same run without a window
@@ -126,7 +138,12 @@ checks their rows (and the report's head and list of cases); the release PR chec
   - a hard timeout is always set;
   - headless only for batches.
 - **Optimizers come from genoxide.** photonoxide supplies objectives, gradients and parametrizations. A missing method is added to genoxide as a general method, not written here and not made photonics-specific.
-- **Commits:** no AI attribution lines (no 🤖 footer, no Co-Authored-By trailer).
+- **A public API change that breaks 0.x semver needs `!` in the PR title** (or the `breaking`
+  label); CI's semver check enforces it, since release-plz then raises the minor version. Keep
+  0.x patches compatible where it costs little: a new field on a public struct that users build
+  with a literal breaks them; put new settings in a type of their own, `#[non_exhaustive]`, taken
+  by a new method.
+- **Commits:** no AI attribution lines (no 🤖 footer, no Co-Authored-By trailer), in any commit of a PR or in its description: a squash merge copies every commit's message into main's. CI's Attribution check fails a PR that has one, and `git config core.hooksPath .github/hooks` strips them from new commits.
 
 ## From scratch
 

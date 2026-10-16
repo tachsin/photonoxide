@@ -6,7 +6,7 @@
 
   import { api } from "../lib/api";
   import { toast } from "../lib/app.svelte";
-  import { label, padded, SERIES, ticks, type Series } from "../lib/plot";
+  import { label, padded, SERIES, tickLabels, ticks, type Series } from "../lib/plot";
   import { shown, unitText } from "../lib/units";
   import UnitChip from "./UnitChip.svelte";
 
@@ -78,6 +78,15 @@
   const X = (x: number) => L + ((x - xs[0]) / (xs[1] - xs[0])) * (width - L - R);
   const Y = (y: number) => height - B - ((scaled(y) - ys[0]) / (ys[1] - ys[0])) * (height - T - B);
   /** The y axis's ticks, as values: round numbers, or on a log scale each power of ten (and 2 and 5 times it over a short span). */
+  const xAll = $derived(ticks(xs[0], xs[1], Math.max(5, Math.floor(width / 100))));
+  /** Every tick, or every second or third where their labels (a narrow band's, long) would run into each other. */
+  const xEvery = $derived.by(() => {
+    const longest = Math.max(1, ...tickLabels(xAll).map((t) => t.length));
+    const room = Math.max(1, width - 80) / Math.max(1, xAll.length);
+    return Math.max(1, Math.ceil((7 * longest + 8) / room));
+  });
+  const xTicks = $derived(xAll.filter((_, i) => i % xEvery === 0));
+  const xTickLabels = $derived(tickLabels(xTicks));
   const yTicks = $derived.by(() => {
     if (!yLog) return ticks(ys[0], ys[1]);
     const out: number[] = [];
@@ -90,6 +99,7 @@
     }
     return out;
   });
+  const yTickLabels = $derived(tickLabels(yTicks));
   /** A series' points the axis can draw: on a log scale, the positive ones. */
   const drawable = (points: [number, number][]) => (yLog ? points.filter((p) => p[1] > 0) : points);
 
@@ -114,13 +124,13 @@
     <button class="btn btn-ghost btn-xs btn-square" aria-label="Save the data as CSV" onclick={saveCsv}><Download size={14} /></button>
   </div>
   <svg {width} {height} class="block select-none" role="img" aria-label="{yLabel} against {xName}" onpointermove={move} onpointerleave={() => (hover = null)}>
-    {#each ticks(xs[0], xs[1], Math.max(3, Math.floor(width / 110))) as t (t)}
+    {#each xTicks as t, i (t)}
       <line x1={X(t)} x2={X(t)} y1={T} y2={height - B} class="stroke-base-content/8" />
-      <text x={X(t)} y={height - B + 17} text-anchor="middle" class="fill-base-content/55 text-[11px]">{label(t)}</text>
+      <text x={X(t)} y={height - B + 17} text-anchor="middle" class="fill-base-content/55 text-[11px]">{xTickLabels[i]}</text>
     {/each}
-    {#each yTicks as t (t)}
+    {#each yTicks as t, i (t)}
       <line x1={L} x2={width - R} y1={Y(t)} y2={Y(t)} class="stroke-base-content/8" />
-      <text x={L - 8} y={Y(t)} text-anchor="end" dominant-baseline="central" class="fill-base-content/55 text-[11px]">{label(t)}</text>
+      <text x={L - 8} y={Y(t)} text-anchor="end" dominant-baseline="central" class="fill-base-content/55 text-[11px]">{yTickLabels[i]}</text>
     {/each}
     <rect x={L} y={T} width={Math.max(0, width - L - R)} height={height - T - B} class="fill-none stroke-base-content/15" />
     {#if !xLength}
@@ -173,7 +183,7 @@
     {#each data as s, k (s.label)}
       {@const colour = s.colour ?? SERIES[k % SERIES.length]}
       <button
-        class="flex items-center gap-1.5 transition-opacity {hidden.includes(s.label) ? 'opacity-35' : ''}"
+        class="flex items-center gap-1.5 text-left transition-opacity {hidden.includes(s.label) ? 'opacity-35' : ''}"
         title={hidden.includes(s.label) ? "Show" : "Hide"}
         onclick={() => (hidden = hidden.includes(s.label) ? hidden.filter((h) => h !== s.label) : [...hidden, s.label])}
       >

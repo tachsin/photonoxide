@@ -1,24 +1,68 @@
 <script lang="ts">
   // Components: the library a chip is built from. Each kind's ports, parameters (with their
   // units, ranges and defaults), model and provenance, its schematic symbol, and its S-parameters
-  // over wavelength, recomputed by the library as the parameters move.
-  import { Boxes, CircleCheck, CirclePlus, FileDown, FileUp, RotateCcw, Search } from "@lucide/svelte";
+  // over wavelength, recomputed by the library as the parameters move. A device of the library's
+  // (photonoxide::device: the waveguide, bend, directional coupler, rings, rib, MMIs, Y-branch
+  // and MZIs) has its own page (components/device/DevicePage.svelte); the designs saved in the
+  // workspace's jobs/ are listed first and reopen there. Any other structure is the Custom
+  // device (components/custom/CustomDevice.svelte), where every other job of the workspace and
+  // every template opens.
+  import { Boxes, ChevronDown, ChevronRight, CircleCheck, CirclePlus, Copy, FileCog, FileDown, FileText, FileUp, PanelLeftClose, PanelLeftOpen, RotateCcw, Search, Shapes } from "@lucide/svelte";
   import katex from "katex";
+  import { fade, fly } from "svelte/transition";
   import "katex/dist/katex.min.css";
 
+  import CustomDevice from "../components/custom/CustomDevice.svelte";
+  import DevicePage from "../components/device/DevicePage.svelte";
   import Glyph from "../components/Glyph.svelte";
   import MathText from "../components/MathText.svelte";
   import SpectrumPlot from "../components/SpectrumPlot.svelte";
   import Tip from "../components/Tip.svelte";
   import UnitChip from "../components/UnitChip.svelte";
-  import { api, type KindInfo, type Part, type SpectrumData, type Sweep } from "../lib/api";
-  import { app, go } from "../lib/app.svelte";
-  import { addInstance, exportTouchstone, importTouchstone, library, loadLibrary, partKey, partOf } from "../lib/chip.svelte";
+  import { api, type JobItem, type KindInfo, type Part, type SpectrumData, type Sweep } from "../lib/api";
+  import { app, CUSTOM, go, openCustom, toast } from "../lib/app.svelte";
+  import { catalog, loadCatalog } from "../lib/catalog.svelte";
+  import { addInstance, exportTouchstone, importTouchstone, library, loadLibrary, openChipText, partKey, partOf } from "../lib/chip.svelte";
   import { sweepProblem, type Quantity } from "../lib/circuit";
+  import { deviceOf, devices, loadDevices, openDesign, openDeviceText } from "../lib/device.svelte";
   import { label } from "../lib/plot";
   import { isMicrometres, len, showIn, shown as inUnit, storeIn, stored, unitOf } from "../lib/units";
 
   loadLibrary();
+  loadDevices();
+  loadCatalog();
+
+  /** The designs saved in the workspace's jobs/, each a device's; and its other jobs, each the Custom device's. */
+  let designs = $state<JobItem[]>([]);
+  let jobs = $state<JobItem[]>([]);
+  $effect(() => {
+    void app.workspaceVersion;
+    api
+      .home()
+      .then((h) => {
+        designs = h.jobs.filter((j) => j.kind === "device");
+        jobs = h.jobs.filter((j) => j.kind !== "device");
+      })
+      .catch(() => {});
+  });
+  /** Whether the Components page shows the Custom device. */
+  const custom = $derived(app.component === CUSTOM);
+  /** The workspace's other jobs and the templates the search leaves, each the Custom device's. */
+  const matches = (j: { name: string; about: string; kind: string }) => {
+    const q = query.trim().toLowerCase();
+    return !q || `${j.name} ${j.about} ${j.kind}`.toLowerCase().includes(q);
+  };
+  const mine = $derived(jobs.filter(matches));
+  const templates = $derived((catalog.data?.jobs ?? []).filter((j) => j.kind !== "device" && matches(j)));
+
+  /** Opens a job of the workspace in the Custom device. */
+  async function openJob(path: string) {
+    try {
+      openCustom(await api.readJob(path), path);
+    } catch (e) {
+      toast(String(e), "error");
+    }
+  }
 
   let query = $state("");
   let values = $state<Record<string, number[]>>({});
@@ -48,6 +92,8 @@
   });
   const kind = $derived(everything.find((k) => partKey(k) === (app.component ?? library.kinds[0]?.id)));
   const familyOf = (k: KindInfo) => families.get(k.file ? partKey(k) : k.kind) ?? [k];
+  /** The device the component shown is, when it is one: its page has an Overview and a Design. */
+  const device = $derived(kind && !kind.file ? deviceOf(kind.id) : undefined);
   const now = $derived(kind ? (values[partKey(kind)] ?? kind.parameters.map((p) => p.default)) : []);
 
   /** A wavelength typed in the unit shown, kept in µm; an empty or partial number leaves it. */
@@ -89,7 +135,7 @@
   }
 
   $effect(() => {
-    if (!kind) return;
+    if (!kind || device) return;
     const job = { part: partOf(kind), values: [...now], sweep: { ...sweep } };
     const bad = sweepProblem(job.sweep);
     if (bad) {
@@ -105,9 +151,64 @@
 
   const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
+  // ---- the list: out of the way once a component is open, one click (or Ctrl+B) away ----
+  function listWas(): string | null {
+    try {
+      return localStorage.getItem("components-list");
+    } catch {
+      return null;
+    }
+  }
+  function store(open: boolean) {
+    try {
+      localStorage.setItem("components-list", open ? "open" : "closed");
+    } catch {
+      // storage blocked: the list just forgets
+    }
+  }
+  let pageWidth = $state(0);
+  /** A narrow page (a 960 px window): the list is a drawer only. */
+  const narrow = $derived(pageWidth > 0 && pageWidth < 1100);
+  /** Whether the list stands beside the component, as it was left. */
+  let pinned = $state(listWas() !== "closed");
+  /** The list as a drawer over the page. */
+  let drawer = $state(false);
+  const inline = $derived(pinned && !narrow);
+
+  /** Opens or closes the list: beside the page in a wide window, as a drawer in a narrow one. */
+  function toggleList() {
+    if (narrow) {
+      drawer = !drawer;
+      return;
+    }
+    pinned = !pinned;
+    drawer = false;
+    store(pinned);
+  }
+
+  function listKeys(e: KeyboardEvent) {
+    if (app.page !== "components" || app.palette) return;
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "b") {
+      e.preventDefault();
+      toggleList();
+    } else if (e.key === "Escape" && drawer) {
+      drawer = false;
+    }
+  }
+
+  /** Opening a component gives it the width: the list folds to its breadcrumb. */
+  function fold() {
+    drawer = false;
+    if (pinned) {
+      pinned = false;
+      store(false);
+    }
+  }
+
   function choose(id: string) {
     app.component = id;
     input = 0;
+    fold();
   }
 
   // a model valid over a limited range is shown over that range
@@ -145,10 +246,14 @@
   };
 </script>
 
-<div class="grid h-full grid-cols-[18rem_minmax(0,1fr)]">
-  <!-- the library -->
-  <aside class="flex min-h-0 flex-col border-r border-base-content/8">
+<svelte:window onkeydown={listKeys} />
+
+{#snippet list()}
     <div class="p-3">
+      <div class="mb-2 flex items-center gap-2">
+        <span class="panel-title mr-auto">Components</span>
+        <button class="btn btn-ghost btn-xs btn-square" aria-label="Fold the list" title="Fold the list (Ctrl+B)" onclick={() => (drawer ? (drawer = false) : toggleList())}><PanelLeftClose size={15} /></button>
+      </div>
       <label class="input input-sm w-full">
         <Search size={14} class="faint" />
         <input type="search" placeholder="Search the components" bind:value={query} />
@@ -159,6 +264,32 @@
     </div>
     <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
       {#if library.problem}<p class="px-3 text-sm text-error">{library.problem}</p>{/if}
+      {#if devices.problem}<p class="px-3 text-sm text-error">{devices.problem}</p>{/if}
+      {#if !query.trim() || "custom device job structure".includes(query.trim().toLowerCase())}
+        <button
+          class="mt-1 flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors {custom ? 'bg-primary/12 text-primary' : 'hover:bg-base-content/5'}"
+          onclick={() => choose(CUSTOM)}
+          title="Any structure no device describes, as a job: its stack, shapes, ports, sources, monitors, window, grid and sweep"
+        >
+          <span class="grid h-7 w-11 shrink-0 place-items-center text-primary"><Shapes size={17} /></span>
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-sm font-medium">Custom device</span>
+            <span class="block truncate text-xs {custom ? '' : 'faint'}">any structure, as a job</span>
+          </span>
+        </button>
+      {/if}
+      {#if designs.length}
+        <div class="px-3 pt-3 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">Your designs</div>
+        {#each designs as d (d.path)}
+          <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={() => (fold(), openDesign(d.path))} title={d.path}>
+            <span class="grid h-7 w-11 shrink-0 place-items-center text-primary"><FileCog size={16} /></span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-medium">{d.name}</span>
+              <span class="block truncate text-xs faint">{d.about || "a saved design"}</span>
+            </span>
+          </button>
+        {/each}
+      {/if}
       {#each categories as category (category)}
         {@const items = shown.filter((k) => k.category === category && familyOf(k).find((f) => shown.includes(f)) === k)}
         {#if items.length}
@@ -183,12 +314,57 @@
       {:else}
         {#if library.loaded}<p class="px-3 text-sm faint">The library is empty.</p>{/if}
       {/each}
+      <!-- the workspace's other jobs and the templates: each opens in the Custom device -->
+      {#if mine.length}
+        <div class="px-3 pt-3 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">Your jobs</div>
+        {#each mine as j (j.path)}
+          <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={() => (fold(), openJob(j.path))} title="{j.path}: opens in the Custom device">
+            <span class="grid h-7 w-11 shrink-0 place-items-center faint"><FileText size={15} /></span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-medium">{j.name}</span>
+              <span class="block truncate text-xs faint">{j.kind} · {j.about || "a job"}</span>
+            </span>
+          </button>
+        {/each}
+      {/if}
+      {#if templates.length}
+        <div class="px-3 pt-3 pb-1 text-[10.5px] font-semibold tracking-wider uppercase faint">Templates</div>
+        {#each templates as j (j.file)}
+          <button class="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-base-content/5" onclick={async () => (fold(), (await openChipText(j.text)) || (await openDeviceText(j.text)) || openCustom(j.text))} title="{j.about}: opens {j.kind === 'device' ? 'on its device’s page' : 'in the Custom device'}, to change and save as your own">
+            <span class="grid h-7 w-11 shrink-0 place-items-center faint"><Copy size={14} /></span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm">{j.name}</span>
+              <span class="block truncate text-xs faint">{j.kind}</span>
+            </span>
+          </button>
+        {/each}
+      {/if}
     </div>
-  </aside>
+{/snippet}
 
-  <!-- the component -->
-  <div class="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto">
-    {#if kind}
+<div class="relative grid h-full {inline ? 'grid-cols-[18rem_minmax(0,1fr)]' : 'grid-cols-[minmax(0,1fr)]'}" bind:clientWidth={pageWidth}>
+  <!-- the library, beside the component while it is pinned open in a wide window -->
+  {#if inline}
+    <aside class="flex min-h-0 flex-col border-r border-base-content/8">{@render list()}</aside>
+  {/if}
+
+  <!-- the component, under a breadcrumb back to the list when the list is folded -->
+  <div class="flex min-h-0 min-w-0 flex-col">
+    {#if !inline}
+      <div class="flex shrink-0 items-center gap-1 border-b border-base-content/8 px-3 py-1">
+        <button class="btn btn-ghost btn-xs gap-1.5" onclick={toggleList} title="The components (Ctrl+B)"><PanelLeftOpen size={14} /> Components</button>
+        <ChevronRight size={12} class="faint" />
+        <button class="btn btn-ghost btn-xs gap-1" onclick={toggleList} title="Pick another component (Ctrl+B)">{custom ? "Custom device" : (kind?.title ?? "…")} <ChevronDown size={12} /></button>
+      </div>
+    {/if}
+    <div class="min-h-0 flex-1 {custom || (kind && device) ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}">
+    {#if custom}
+      <CustomDevice />
+    {:else if kind && device}
+      {#key device.id}
+        <DevicePage info={device} {kind} family={familyOf(kind)} onchoose={choose} />
+      {/key}
+    {:else if kind}
       <div class="glow border-b border-base-content/8 px-8 py-6">
         <div class="flex flex-wrap items-start gap-6">
           <div class="grid size-14 place-items-center rounded-2xl bg-primary/12 text-primary"><Boxes size={28} /></div>
@@ -415,5 +591,14 @@
     {:else if !library.loaded && !library.problem}
       <div class="grid h-full place-items-center"><span class="loading loading-ring loading-lg text-primary"></span></div>
     {/if}
+    </div>
   </div>
+
+  <!-- the list as a drawer over the page: in a narrow window, or opened from the breadcrumb -->
+  {#if drawer && !inline}
+    <button class="absolute inset-0 z-20 cursor-default bg-black/25" aria-label="Close the list" transition:fade={{ duration: 120 }} onclick={() => (drawer = false)}></button>
+    <aside class="absolute top-0 bottom-0 left-0 z-20 flex w-[19rem] max-w-[85%] flex-col border-r border-base-content/10 bg-base-100 shadow-2xl" transition:fly={{ x: -30, duration: 160 }}>
+      {@render list()}
+    </aside>
+  {/if}
 </div>

@@ -115,7 +115,11 @@ pub struct Crossing {
 /// A rational model in frequency whose numerator and denominator coefficients depend on the
 /// component's parameters (see the [module docs](self)): a [`Component`] of
 /// [`Fidelity::Compact`] with parameters.
-#[derive(Clone, Debug, PartialEq)]
+///
+/// It is written and read as JSON ([`ParametricModel::to_json`], or serde), every number to
+/// the last bit.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(into = "file::ModelFile", try_from = "file::ModelFile")]
 pub struct ParametricModel {
     kind: String,
     ports: Vec<Port>,
@@ -193,6 +197,64 @@ fn grid_weights(axes: &[Vec<f64>], values: &[f64]) -> Vec<f64> {
         w[index] += weight;
     }
     w
+}
+
+/// The derivatives of [`grid_weights`] at `values` with respect to parameter `along`: on the
+/// segment each value lies in (the one above it at a node, the last at the top), the hat
+/// functions' slopes along it times their values along the others.
+fn grid_slopes(axes: &[Vec<f64>], values: &[f64], along: usize) -> Vec<f64> {
+    let count: usize = axes.iter().map(Vec::len).product();
+    let mut w = vec![0.0; count];
+    let segments: Vec<(usize, f64, f64)> = axes
+        .iter()
+        .zip(values)
+        .map(|(axis, &v)| {
+            let k = axis.partition_point(|&a| a <= v).clamp(1, axis.len() - 1);
+            let width = axis[k] - axis[k - 1];
+            let t = ((v - axis[k - 1]) / width).clamp(0.0, 1.0);
+            (k - 1, t, width)
+        })
+        .collect();
+    for corner in 0..(1usize << axes.len()) {
+        let (mut index, mut stride, mut weight) = (0, 1, 1.0);
+        for (d, (axis, &(k, t, width))) in axes.iter().zip(&segments).enumerate() {
+            let upper = corner >> d & 1 == 1;
+            index += (k + usize::from(upper)) * stride;
+            weight *= match (d == along, upper) {
+                (true, true) => 1.0 / width,
+                (true, false) => -1.0 / width,
+                (false, true) => t,
+                (false, false) => 1.0 - t,
+            };
+            stride *= axis.len();
+        }
+        w[index] += weight;
+    }
+    w
+}
+
+/// Where a [`ParametricModel`] is least passive over its band and range, as
+/// [`ParametricModel::passivity`] samples it.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct RangePassivity {
+    /// The largest singular value of S found.
+    pub largest: f64,
+    /// The parameters' values it is at.
+    pub values: Vec<f64>,
+    /// The wavelength it is at.
+    pub wavelength: Wavelength,
+    /// How many of the points checked have a singular value above 1.
+    pub violations: usize,
+    /// How many points (wavelength and values) were checked.
+    pub points: usize,
+}
+
+impl RangePassivity {
+    /// Whether S is passive at every point checked, its singular values at most 1 + `tolerance`.
+    pub fn passive(&self, tolerance: f64) -> bool {
+        self.largest <= 1.0 + tolerance
+    }
 }
 
 /// The error of `value(sample, k, e)` against the samples' responses.
@@ -735,6 +797,140 @@ impl ParametricModel {
         Ok(w.into_iter().map(|v| c64::new(v, 0.0)).collect())
     }
 
+    /// The derivatives of the weights at `values` with respect to each parameter, in its unit:
+    /// one vector per parameter. A piecewise-linear model's are those of the segment the value
+    /// lies in (the one above it at a node, the last one at the top of the range).
+    fn weight_slopes(&self, values: &[f64]) -> Result<Vec<Vec<c64>>> {
+        self.weights_at(values)?;
+        let vars = self.parameters.len();
+        let slopes: Vec<Vec<f64>> = match &self.weights {
+            Weights::Monomials(exponents) => {
+                let x: Vec<f64> = values
+                    .iter()
+                    .zip(self.centre.iter().zip(&self.half))
+                    .map(|(v, (c, h))| (v - c) / h)
+                    .collect();
+                (0..vars)
+                    .map(|k| {
+                        exponents
+                            .iter()
+                            .map(|e| {
+                                if e[k] == 0 {
+                                    return 0.0;
+                                }
+                                let rest: f64 = e
+                                    .iter()
+                                    .zip(&x)
+                                    .enumerate()
+                                    .filter(|&(i, _)| i != k)
+                                    .map(|(_, (&p, &v))| v.powi(p as i32))
+                                    .product();
+                                e[k] as f64 * x[k].powi(e[k] as i32 - 1) * rest / self.half[k]
+                            })
+                            .collect()
+                    })
+                    .collect()
+            }
+            Weights::Grid(axes) => (0..vars).map(|k| grid_slopes(axes, values, k)).collect(),
+        };
+        Ok(slopes
+            .into_iter()
+            .map(|w| w.into_iter().map(|v| c64::new(v, 0.0)).collect())
+            .collect())
+    }
+
+    /// The range of each parameter the samples covered, (smallest, largest), in the order of
+    /// the model's parameters: the model says nothing outside it.
+    pub fn range(&self) -> Vec<(f64, f64)> {
+        self.centre
+            .iter()
+            .zip(&self.half)
+            .map(|(c, h)| (c - h, c + h))
+            .collect()
+    }
+
+    /// How its coefficients depend on the parameters: [`Interpolation::Polynomial`] with its
+    /// total degree, or [`Interpolation::PiecewiseLinear`].
+    pub fn interpolation(&self) -> Interpolation {
+        match &self.weights {
+            Weights::Monomials(exponents) => Interpolation::Polynomial {
+                degree: exponents
+                    .iter()
+                    .map(|e| e.iter().sum::<usize>())
+                    .max()
+                    .unwrap_or(0),
+            },
+            Weights::Grid(_) => Interpolation::PiecewiseLinear,
+        }
+    }
+
+    /// The number of basis poles, each pole of a conjugate pair counted.
+    pub fn basis_poles(&self) -> usize {
+        expanded(&self.basis).len()
+    }
+
+    /// `points` values per parameter evenly across the sampled range, every combination, the
+    /// first parameter fastest; at most about 10⁴ in all.
+    fn grid_values(&self, points: usize) -> Vec<Vec<f64>> {
+        let vars = self.parameters.len();
+        let per = points.min((1e4f64.powf(1.0 / vars.max(1) as f64)).floor().max(2.0) as usize);
+        let total = per.pow(vars as u32);
+        (0..total)
+            .map(|k| {
+                let mut idx = k;
+                (0..vars)
+                    .map(|d| {
+                        let i = idx % per;
+                        idx /= per;
+                        let u = -1.0 + 2.0 * i as f64 / (per - 1) as f64;
+                        (self.centre[d] + self.half[d] * u)
+                            .clamp(self.centre[d] - self.half[d], self.centre[d] + self.half[d])
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    /// The largest singular value of S over the band and the sampled range: at `wavelengths`
+    /// wavelengths evenly spaced in frequency, at `points` values per parameter across its range
+    /// (every combination, at most about 10⁴). A passive device's is at most 1. A sample, not a
+    /// proof, as [`ParametricModel::stability`] is.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for fewer than two wavelengths or points, and the singular
+    /// values' own errors.
+    pub fn passivity(&self, wavelengths: usize, points: usize) -> Result<RangePassivity> {
+        if points < 2 {
+            return Err(Error::invalid(
+                "passivity check",
+                "needs at least two points per parameter",
+            ));
+        }
+        let mut worst: Option<RangePassivity> = None;
+        let (mut violations, mut checked) = (0, 0);
+        for values in self.grid_values(points) {
+            let p =
+                super::model::passivity_of(self.band, wavelengths, |w| self.s_matrix(w, &values))?;
+            violations += p.violations.len();
+            checked += p.points;
+            if worst.as_ref().is_none_or(|w| p.largest.1 > w.largest) {
+                worst = Some(RangePassivity {
+                    largest: p.largest.1,
+                    wavelength: p.largest.0,
+                    values,
+                    violations: 0,
+                    points: 0,
+                });
+            }
+        }
+        let mut worst =
+            worst.ok_or_else(|| Error::invalid("passivity check", "has no values to check at"))?;
+        worst.violations = violations;
+        worst.points = checked;
+        Ok(worst)
+    }
+
     /// D's coefficients at weights `m`.
     fn sigma_at(&self, m: &[c64]) -> Vec<f64> {
         let l = m.len();
@@ -906,21 +1102,8 @@ impl ParametricModel {
                 "needs at least two points",
             ));
         }
-        let vars = self.parameters.len();
-        let per = points.min((1e4f64.powf(1.0 / vars.max(1) as f64)).floor().max(2.0) as usize);
-        let total = per.pow(vars as u32);
         let mut worst = f64::NEG_INFINITY;
-        for k in 0..total {
-            let mut idx = k;
-            let values: Vec<f64> = (0..vars)
-                .map(|d| {
-                    let i = idx % per;
-                    idx /= per;
-                    let u = -1.0 + 2.0 * i as f64 / (per - 1) as f64;
-                    (self.centre[d] + self.half[d] * u)
-                        .clamp(self.centre[d] - self.half[d], self.centre[d] + self.half[d])
-                })
-                .collect();
+        for values in self.grid_values(points) {
             let m = self.weights_at(&values)?;
             for a in sigma_zeros(&self.basis, &self.sigma_at(&m))? {
                 worst = worst.max(a.re / a.norm());
@@ -1141,6 +1324,37 @@ impl Component for ParametricModel {
         }))
     }
 
+    /// ∂S/∂θ_k, exact: N and D are linear in the weights, so ∂N_e and ∂D are N_e and D − 1 at
+    /// the weights' derivatives, and ∂S_e = (∂N_e D − N_e ∂D)/D², times the delay. A
+    /// polynomial model's are the polynomial's; a piecewise-linear one's are those of the
+    /// segment the value lies in (the one above it at a node, where the model has a kink).
+    fn derivatives(&self, wavelength: Wavelength, values: &[f64]) -> Result<Option<Vec<SMatrix>>> {
+        check_band("parametric model", self.band, wavelength)?;
+        let m = self.weights_at(values)?;
+        let slopes = self.weight_slopes(values)?;
+        let s = laplace(wavelength);
+        let delay = (-s * self.delay).exp();
+        let n = self.ports.len();
+        let dot = |c: &[c64], x: &[f64]| -> c64 { c.iter().zip(x).map(|(c, x)| c * x).sum() };
+        let (cn, cd) = self.columns(s, &m);
+        let den = dot(&cd, &self.denominator) + 1.0;
+        let num: Vec<c64> = self.numerator.iter().map(|x| dot(&cn, x)).collect();
+        Ok(Some(
+            slopes
+                .iter()
+                .map(|dm| {
+                    let (dn, dd) = self.columns(s, dm);
+                    let d_den = dot(&dd, &self.denominator);
+                    SMatrix::from_fn(n, |q, p| {
+                        let e = q * n + p;
+                        let d_num = dot(&dn, &self.numerator[e]);
+                        (d_num * den - num[e] * d_den) / (den * den) * delay
+                    })
+                })
+                .collect(),
+        ))
+    }
+
     fn provenance(&self) -> Provenance {
         let dependence = match &self.weights {
             Weights::Monomials(exponents) => format!(
@@ -1162,5 +1376,6 @@ impl Component for ParametricModel {
     }
 }
 
+mod file;
 #[cfg(test)]
 mod tests;

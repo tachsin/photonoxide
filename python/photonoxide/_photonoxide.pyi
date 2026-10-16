@@ -73,4 +73,34 @@ def write_touchstone(
     convention: str,
     significant_digits: int | None,
 ) -> None: ...
+def devices() -> list[dict[str, Any]]: ...
+def device_spectrum(
+    kind: str,
+    values: list[tuple[str, float]],
+    fidelity: str | None,
+    stack: str | None,
+    compact: str | None,
+    wavelength_um: npt.NDArray[np.float64],
+) -> dict[str, Any]: ...
+def device_derived(
+    kind: str,
+    values: list[tuple[str, float]],
+    fidelity: str | None,
+    stack: str | None,
+    compact: str | None,
+) -> list[dict[str, Any]]: ...
+def device_geometry(
+    kind: str,
+    values: list[tuple[str, float]],
+    stack: str | None,
+) -> dict[str, Any]: ...
+def device_job(
+    kind: str,
+    values: list[tuple[str, float]],
+    fidelity: str | None,
+    stack: str | None,
+    compact: str | None,
+    name: str,
+    format: str,
+) -> str: ...
 def _conformance(scratch: str | PathLike[str]) -> list[dict[str, Any]]: ...

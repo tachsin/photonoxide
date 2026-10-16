@@ -460,6 +460,7 @@ fn a_chip_without_external_ports_cant_be_simulated() {
         values: BTreeMap::new(),
         file: None,
         convention: None,
+        device: None,
     });
     chip.connections.push(["w.o1".into(), "w.o2".into()]);
     assert!(check(chip.clone()).is_empty());
@@ -583,6 +584,7 @@ fn a_touchstone_file_is_a_measured_component() {
         values: BTreeMap::new(),
         file: info.file.clone(),
         convention: Some(TimeConvention::Physics),
+        device: None,
     });
     for (k, name) in spectrum.ports().iter().enumerate() {
         chip.ports.push(External {
@@ -622,6 +624,108 @@ fn a_touchstone_file_is_a_measured_component() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// The all-pass ring's closed form fitted over its gap (0.15 to 0.25 µm, a grid of 5, 4 held
+/// out) at 1.54 to 1.56 µm, written to `path`.
+fn ring_model(path: &Path) -> photonoxide::device::Fitted {
+    use photonoxide::compact::Interpolation;
+    use photonoxide::device::{FitAxis, FitPlan, Spec};
+    use photonoxide::job::{Compute, Event, execute, fit_from_device};
+    use photonoxide::run::{Run, Stop};
+    let plan = FitPlan::new(vec![FitAxis::new("gap", 0.15, 0.25, 5)])
+        .holding_out(4)
+        .interpolated(Interpolation::Polynomial { degree: 2 });
+    let mut compute = Compute::model();
+    compute.band = Some((1.54, 1.56, 41));
+    let job = fit_from_device("ring-fit", &Spec::new("all-pass ring"), &compute, &plan).unwrap();
+    let mut run = Run::in_memory();
+    execute(&job, &mut run, &Stop::new(None)).unwrap();
+    let fitted = run
+        .lines()
+        .iter()
+        .find_map(|l| match serde_json::from_str::<Event>(l) {
+            Ok(Event::CompactFit { fitted }) => Some(*fitted),
+            _ => None,
+        })
+        .unwrap();
+    fitted.write(path).unwrap();
+    fitted
+}
+
+#[test]
+fn a_devices_compact_model_is_a_part_of_the_chip() {
+    let dir = std::env::temp_dir().join(format!("photonoxide-compact-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("jobs")).unwrap();
+    let path = dir.join("jobs").join("ring.compact.json");
+    let fitted = ring_model(&path);
+    let info = compact_in(&dir, &path).unwrap();
+    assert_eq!(info.id, COMPACT);
+    assert_eq!(info.file.as_deref(), Some("jobs/ring.compact.json"));
+    assert_eq!(info.category, "Compact");
+    assert_eq!(info.provenance.fidelity, "compact");
+    assert_eq!(info.parameters.len(), 1);
+    assert_eq!(info.parameters[0].name, "gap");
+    assert_eq!(
+        (info.parameters[0].min, info.parameters[0].max),
+        (0.15, 0.25)
+    );
+    // on a chip, the model at a gap it holds for: within its held-out error of the closed form
+    let mut chip = Chip::new("compact-ring");
+    chip.sweep = Sweep {
+        from_um: 1.545,
+        to_um: 1.555,
+        points: 51,
+    };
+    chip.instances.push(Placed {
+        name: "ring".into(),
+        kind: COMPACT.into(),
+        x: 0.0,
+        y: 0.0,
+        rotation: 0,
+        mirror: false,
+        values: BTreeMap::from([("gap".to_owned(), 0.21)]),
+        file: info.file.clone(),
+        convention: None,
+        device: None,
+    });
+    // its ports are the device's: the bus's in and through
+    let names: Vec<String> = info.ports.iter().map(|p| p.name.clone()).collect();
+    assert_eq!(names, ["in", "through"]);
+    for name in &names {
+        chip.ports.push(External {
+            name: name.clone(),
+            at: format!("ring.{name}"),
+            x: 0.0,
+            y: 0.0,
+            rotation: 0,
+        });
+    }
+    let sim = simulate(&chip, &dir).unwrap();
+    let device = photonoxide::device::Spec::new("all-pass ring")
+        .device()
+        .unwrap();
+    let values = photonoxide::device::Values::new(device.as_ref(), &[("gap", 0.21)]).unwrap();
+    let exact = device
+        .component(&values, photonoxide::circuit::Fidelity::Analytic)
+        .unwrap();
+    let through = at(&sim, "through", "in");
+    let mut worst = 0.0f64;
+    for (k, s) in through.iter().enumerate() {
+        let w = photonoxide::units::Wavelength::um(1.545 + 0.01 * k as f64 / 50.0).unwrap();
+        worst = worst.max((s - exact.s_matrix(w).unwrap()[(1, 0)]).norm());
+    }
+    assert!(worst < 3.0 * fitted.held_out_error.max(1e-9), "{worst}");
+    // it round-trips through the chip's file; outside its range it is the instance's problem
+    assert_eq!(Chip::parse(&chip.to_text().unwrap()).unwrap(), chip);
+    chip.instances[0].values.insert("gap".into(), 0.3);
+    let problems = check(chip.clone());
+    assert_eq!(
+        problems[0].instance.as_deref(),
+        Some("ring"),
+        "{problems:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// The sweep shared out among the cores is the library's own `Circuit::spectrum`, bit for bit.
 #[test]
 fn a_sweep_on_every_core_is_the_librarys() {
@@ -632,5 +736,91 @@ fn a_sweep_on_every_core_is_the_librarys() {
         let own = netlist.compile().unwrap().spectrum(&wavelengths).unwrap();
         assert_eq!(own.ports(), spectrum.ports(), "{file}");
         assert_eq!(own.matrices(), spectrum.matrices(), "{file}");
+    }
+}
+
+/// The entries the library's devices build (#340) are the components the studio built before
+/// them, to the bit: the same ports, parameters and provenance, and the same S-matrices over the
+/// band at their defaults and elsewhere.
+#[test]
+fn the_device_entries_are_the_components_they_were() {
+    use photonoxide::circuit::components::{
+        AddDropRing, AllPassRing, Bend, DirectionalCoupler, Dispersion, Mmi, MmiKind, Planar,
+        Supermodes, Waveguide, YBranch,
+    };
+    use photonoxide::material;
+    use photonoxide::mode::Polarization;
+    use photonoxide::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity};
+    use photonoxide::units::Length;
+    let um = |x: f64| Wavelength::um(x).unwrap();
+    let mmi = |kind: MmiKind| {
+        let film = Planar::Film {
+            core: material::silicon(),
+            cladding: material::silica(),
+            thickness: Length::nm(220.0),
+            vertical: Polarization::Te,
+        };
+        Mmi::new(kind, film, 6.0, 1.5, um(1.55)).unwrap()
+    };
+    let strip = || Dispersion::new(um(1.55), 2.44506, 4.172901).with_loss(2.7);
+    let section = |wavelength: Wavelength| {
+        let si = material::silicon().permittivity(wavelength)?;
+        let ox = c64::new(1.444 * 1.444, 0.0);
+        CrossSection::uniform((0.0, 1.05, 84), (0.0, 0.75, 75), |x, y| {
+            Permittivity::isotropic(if x < 0.25 && y < 0.11 { si } else { ox })
+        })?
+        .with_boundaries(Boundaries {
+            west: Boundary::ElectricWall,
+            south: Boundary::MagneticWall,
+            ..Boundaries::default()
+        })
+    };
+    let before: Vec<(&str, Arc<dyn Component>)> = vec![
+        ("waveguide", Arc::new(Waveguide::new(strip()))),
+        (
+            "waveguide-modes",
+            Arc::new(Waveguide::from_modes(section, um(1.55), 0.025, None).unwrap()),
+        ),
+        ("bend", Arc::new(Bend::new(10.0, strip()).unwrap())),
+        (
+            "directional-coupler",
+            Arc::new(
+                DirectionalCoupler::new(Supermodes::from_coupling(strip(), 0.042_28)).unwrap(),
+            ),
+        ),
+        (
+            "ring-all-pass",
+            Arc::new(AllPassRing::new(strip()).unwrap()),
+        ),
+        (
+            "ring-add-drop",
+            Arc::new(AddDropRing::new(strip()).unwrap()),
+        ),
+        // the MMIs and the Y-branch, devices since #343: a 220 nm silicon film in oxide by the
+        // effective index method, 6 µm wide with 1.5 µm access guides; the ideal Y-branch
+        ("mmi-1x2", Arc::new(mmi(MmiKind::OneByTwo))),
+        ("mmi-2x2", Arc::new(mmi(MmiKind::TwoByTwo))),
+        ("y-branch", Arc::new(YBranch::new())),
+    ];
+    for (id, old) in before {
+        let new = (library::entry(id).unwrap().build)().unwrap();
+        assert_eq!(new.kind(), old.kind(), "{id}");
+        assert_eq!(new.ports(), old.ports(), "{id}");
+        assert_eq!(new.parameters(), old.parameters(), "{id}");
+        assert_eq!(new.provenance(), old.provenance(), "{id}");
+        let defaults = old.defaults();
+        let mut moved = defaults.clone();
+        moved[0] *= 0.75;
+        for values in [&defaults, &moved] {
+            for k in 0..=20 {
+                let w = um(1.5 + 0.005 * f64::from(k));
+                assert_eq!(
+                    new.s_matrix(w, values).unwrap(),
+                    old.s_matrix(w, values).unwrap(),
+                    "{id} at {} um",
+                    w.to_um()
+                );
+            }
+        }
     }
 }

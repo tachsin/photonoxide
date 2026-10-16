@@ -26,8 +26,10 @@
 # its kernel's rates are timed with bench's triad.
 #
 # A file in no area is shared and runs everything (the library's root, units, geometry, expr,
-# error, parallel, portable, stack and raster; Cargo.toml and Cargo.lock; anything new). When in
-# doubt, a file is shared. Files nothing builds or reads (the site, Markdown no test reads, the
+# error, parallel, portable, stack (and src/stack/, its etches' validation cases and its boxes' fill),
+# raster and averaging (src/averaging.rs and src/averaging/, its analytic cases, which FDFD and the
+# rasters read);
+# Cargo.toml and Cargo.lock; anything new). When in doubt, a file is shared. Files nothing builds or reads (the site, Markdown no test reads, the
 # other workflows) run nothing but the docs' links. The Python wheels (python-wheels.yml) and the
 # Libraries workflow's installs (libraries.yml) start by their own `paths`.
 #
@@ -63,12 +65,13 @@ area sparse \
   "sparse:: backend:: traffic::" "" "" \
   "bench"
 
-# the mode solvers, and the eigensolvers under them (their contour integrals factorize with sparse)
+# the mode solvers, and the eigensolvers under them (their contour integrals factorize with sparse);
+# with the method study on multilayers (tests/method_study.rs, whose small study runs here)
 area mode \
-  "src/mode/* src/eigen.rs src/eigen/*" \
+  "src/mode/* src/eigen.rs src/eigen/* tests/method_study.rs" \
   "sparse" \
-  "mode:: eigen::" "mode/" \
-  "slab_soi slab_yariv_yeh bend_loss effective_index_method group_index leaky_waves leaky_wire_benchmark marcatili multilayer_chilwell hadley_corners strip_waveguide directional_coupler mzi_dwivedi"
+  "mode:: eigen:: a_small_study_" "mode/" \
+  "slab_soi slab_yariv_yeh bend_loss effective_index_method group_index leaky_waves leaky_wire_benchmark marcatili multilayer_chilwell optimize_bragg hadley_corners strip_waveguide directional_coupler mzi_dwivedi"
 
 area fdfd \
   "src/fdfd/* src/backend/iterative.rs" \
@@ -81,31 +84,52 @@ area fdtd \
   "src/fdtd.rs src/fdtd/* src/validation/* tests/gpu_report.rs src/compact/fit.rs src/compact/fit/* src/bench.rs" \
   "mode material fdfd" \
   "fdtd::" "fdtd/" \
-  "bump_oskooi cpml_roden_gedney lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
+  "bump_oskooi cpml_roden_gedney l3_akahane lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
 
 # jobs, their runs and replay, and farming them out; the job files in jobs/ are read by the
-# library's tests and validation cases, by the studio's and by the Python package's
+# library's tests and validation cases, by the studio's and by the Python package's; a job's
+# [device] table is read, checked and drawn by the devices, and studied (its sweeps and corners,
+# whose cases are the devices', and optimized: its objectives' derivatives, records and fronts,
+# the optimize/ cases), and a job's [circuit] table is a chip of devices, computed, studied and
+# optimized (the chip/ cases, and optimize_chip_rings, which reads jobs/); its [[task.component]] tables are
+# the generators', and its cases of them (components with expressions, ports by name) run here
 area job \
   "src/job/* src/run.rs src/farm.rs src/farm/* jobs/*" \
-  "material mode sparse fdfd fdtd" \
-  "job:: run:: farm::" "" ""
+  "material mode sparse fdfd fdtd circuit device generator" \
+  "job:: run:: farm::" "generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
+
+# the component generators: shapes on layers with named ports, which the devices draw their
+# geometry with and jobs place; their cases compare the devices' geometry with what it was
+area generator \
+  "src/generator.rs src/generator/*" \
+  "circuit device" \
+  "generator::" "generator/" ""
 
 # a component sampled from an fdfd job's S-parameters runs the job
 area circuit \
   "src/circuit/*" \
   "material mode job" \
   "circuit::" "circuit/ components/" \
-  "circuit_fit circuit_ring_critical circuit_splitter ring_q_factor directional_coupler mzi_dwivedi"
+  "circuit_fit circuit_ring_critical circuit_splitter optimize_ring_flat optimize_mzi_lattice optimize_ring_pareto optimize_mesh ring_q_factor directional_coupler mzi_dwivedi"
+
+# the devices: components that know their geometry, built from the circuit's components on the
+# mode solvers' cross-sections and by FDFD of their own drawings (through the 2D jobs' plane)
+area device \
+  "src/device.rs src/device/*" \
+  "material mode circuit generator fdfd job compact" \
+  "device::" "device/" \
+  "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss rib_hadley mmi_soldano y_junction_zhang"
 
 area compact \
   "src/compact/*" \
   "circuit job" \
-  "compact::" "compact/" ""
+  "compact::" "compact/" "compact_mzi_ye"
 
-# with the table of what works in Rust, Python and MATLAB, which its tests read
+# with the table of what works in Rust, Python and MATLAB, which its tests read; its devices are
+# the library's (src/device)
 area facade \
   "src/facade.rs src/facade/* docs/features.md" \
-  "material mode job circuit compact" \
+  "material mode job circuit compact device" \
   "facade::" "" ""
 
 # the benchmark problems, every solver's
@@ -134,7 +158,7 @@ area python \
 # against docs/methods
 area studio \
   "studio/* academy/* docs/methods/* docs/libraries.md examples/README.md CHANGELOG.md ROADMAP.md jobs/* circuits/* site/lib/projects/photonoxide/meta.js site/lib/projects/photonoxide/methods.js" \
-  "material sparse mode fdfd fdtd job circuit compact facade bench native" \
+  "material sparse mode fdfd fdtd job circuit device generator compact facade bench native" \
   "" "" ""
 
 # matches FILE GLOBS: whether the file matches one of the globs

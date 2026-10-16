@@ -344,13 +344,21 @@ impl Record {
 }
 
 /// Whether the backend `name` can solve `entry`: a direct one its direct solve, an iterative
-/// one its plain QMR. The others run on photonoxide's own code only.
+/// one its plain QMR, photonoxide's solver with a library's dense kernels the dense kernels'
+/// problems. The others run on photonoxide's own code only.
 fn applies(entry: &Entry, name: &str) -> bool {
     let listed = |list: photonoxide::Result<Vec<backend::Listed>>| {
         list.unwrap_or_default().iter().any(|l| l.name == name)
     };
     (entry.takes_a_backend() && listed(backend::direct_solvers()))
         || (entry.takes_an_iterative_backend() && listed(backend::iterative_solvers()))
+        || (entry.takes_dense_kernels() && has_dense_kernels(name))
+}
+
+/// Whether the direct backend `name` has dense kernels of its own: photonoxide's solver with a
+/// library's (`photonoxide-mkl`), registered and available.
+pub(crate) fn has_dense_kernels(name: &str) -> bool {
+    backend::direct(&Choice::Named(name.into())).is_ok_and(|s| s.dense_kernels().is_some())
 }
 
 /// Runs one entry with one backend on `threads` threads, in a child process.

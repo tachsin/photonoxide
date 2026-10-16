@@ -6,7 +6,7 @@
 
   import { api } from "../lib/api";
   import { app } from "../lib/app.svelte";
-  import type { Scene } from "../lib/events";
+  import type { Scene, ScenePort } from "../lib/events";
   import { Preview3D } from "../lib/view3d";
 
   let { text, height = 150, turnable = false }: { text: string; height?: number; turnable?: boolean } = $props();
@@ -18,8 +18,14 @@
   let shown = $state(false);
   let view: Preview3D | null = null;
 
-  /** Scenes already built, by job text: the cards share them across pages. */
-  const cache = (globalThis as { __scenes?: Map<string, Scene> }).__scenes ??= new Map();
+  /** Scenes already built, with their components' named ports, by job text: the cards share them across pages. */
+  const cache = (globalThis as { __scenes?: Map<string, { scene: Scene; ports: ScenePort[] }> }).__scenes ??= new Map();
+
+  /** A job's scene and its ports (none when they can't be found: the scene still shows). */
+  const load = (t: string) =>
+    Promise.all([api.previewScene(t), /\[\[task\.component\]\]|\[device\]/.test(t) ? api.previewPorts(t).catch(() => []) : Promise.resolve([])]).then(
+      ([scene, ports]) => ({ scene, ports }),
+    );
 
   /** A modes job's scene ends at its cut (photonoxide::job::preview): normal to x when the job says its modes travel along x, else to y. */
   const cutOf = (t: string, scene: Scene): { cut?: number; normal?: "x" | "y" } => {
@@ -32,13 +38,13 @@
     let gone = false;
     loading = true;
     failed = "";
-    const ready = cache.has(t) ? Promise.resolve(cache.get(t)!) : api.previewScene(t);
+    const ready = cache.has(t) ? Promise.resolve(cache.get(t)!) : load(t);
     ready
-      .then((scene) => {
-        cache.set(t, scene);
+      .then((built) => {
+        cache.set(t, built);
         if (gone) return;
         view ??= new Preview3D(host, app.dark, turnable);
-        view.setScene(scene, cutOf(t, scene));
+        view.setScene(built.scene, { ...cutOf(t, built.scene), ports: built.ports });
         shown = true;
         loading = false;
       })

@@ -65,6 +65,131 @@ What is left, in order: the peak memory (assembling a front in place of its chil
 the update stack of Duff and Reid), the 20-thread efficiency on small fronts (faer's threaded
 dense LU, item 4 below), and METIS-quality separators in 2D.
 
+## 0.6: the fronts' dense kernels from oneMKL and OpenBLAS (#186)
+
+photonoxide's multifrontal solver can take its fronts' dense kernels from a BLAS and LAPACK
+library ([the backends' write-up](methods/backends.md#dense-kernels-for-the-fronts)), as
+`photonoxide-mkl` and `photonoxide-openblas`: its ordering, fill and scheduling, the library's
+arithmetic. This is whether that pays, at the same accuracy.
+
+**Machine and libraries.** The same Intel Core Ultra 7 265K (20 logical processors), now under
+Windows 11, on 2026-10-15; other builds ran on it at the time, so each time is the fastest of
+three. oneMKL 2026.1 (Intel's oneAPI installer; its Intel OpenMP layer; conditional numerical
+reproducibility `AUTO`), OpenBLAS 0.3.34 (conda-forge's, pthreads), faer 0.24 for photonoxide's
+own, and PARDISO from the same oneMKL, loaded at run time as the `pardiso` backend. Every run is
+`photonoxide bench` in a process of its own (`--threads 1,20`, `RAYON_NUM_THREADS` and the
+libraries' own counts set from it), and every one passed its accuracy check.
+
+**Accuracy first** (`native/tests/blas.rs`):
+
+- each library's kernels against faer's on random complex matrices from n = 32 to 4096, not
+  square, threaded and not: every product, triangular solve and LU within 4.2e-13 (oneMKL)
+  and 2.9e-13 (OpenBLAS), relative to the largest entry;
+- every interface each has, on its own: oneMKL's four (Fortran's and C's, 32-bit and 64-bit
+  integers), conda-forge's OpenBLAS (Fortran's and C's), and pip's `scipy-openblas64`, whose
+  `zgemm_` takes 64-bit integers and is called so: each within 2.6e-14 of faer's;
+- photonoxide's solver with each library's kernels against its own on the exported systems, as
+  LU and as L D Lᵀ: the same fill, the same pivots perturbed (none), the solutions within
+  1.3e-12 of each other and every residual below 3e-13 (`slab-2d`, `strip-24`, `strip-32`).
+
+**The dense kernels,** in Gflop/s (8n³ real flops for the product, 8n³/3 for the LU), on 1
+thread and on 20. A run is one call in a fresh process after a small call to start the
+library's threads, so at n ≤ 512 on 20 threads the time is mostly the libraries' waking their
+threads:
+
+| n | LU, faer, 1 | oneMKL, 1 | OpenBLAS, 1 | faer, 20 | oneMKL, 20 | OpenBLAS, 20 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 32 | 14.1 | 9.7 | 10.0 | 12.9 | 5.4 | 11.3 |
+| 64 | 29.6 | 28.8 | 25.9 | 23.8 | 18.2 | 20.6 |
+| 128 | 44.4 | 39.4 | 35.1 | 28.8 | 36.5 | 32.6 |
+| 256 | 52.3 | 39.8 | 45.4 | 41.0 | 31.1 | 45.8 |
+| 512 | 60.9 | 52.7 | 57.2 | 47.3 | 2.2 | 58.0 |
+| 1 024 | 62.8 | 54.8 | 61.3 | 89.8 | 273.3 | 67.5 |
+| 2 048 | 60.5 | 64.2 | 67.6 | 230.3 | 323.3 | 68.8 |
+| 4 096 | 64.6 | 65.8 | 68.8 | 281.0 | 605.7 | 70.7 |
+
+| n | product, faer, 1 | oneMKL, 1 | OpenBLAS, 1 | faer, 20 | oneMKL, 20 | OpenBLAS, 20 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 32 | 63.9 | 53.5 | 63.9 | 62.4 | 21.5 | 62.4 |
+| 64 | 72.3 | 69.0 | 69.0 | 48.4 | 111.6 | 17.7 |
+| 128 | 66.0 | 46.1 | 63.4 | 160.7 | 63.5 | 61.5 |
+| 256 | 62.2 | 59.8 | 68.4 | 144.9 | 198.0 | 182.8 |
+| 512 | 63.4 | 68.3 | 66.0 | 443.0 | 445.5 | 335.4 |
+| 1 024 | 70.3 | 69.6 | 71.8 | 567.8 | 607.8 | 392.4 |
+| 2 048 | 68.3 | 70.0 | 72.8 | 828.4 | 549.4 | 539.8 |
+| 4 096 | 52.7 | 52.1 | 52.2 | 720.4 | 694.9 | 506.4 |
+
+- **On one thread** the three are level, within 10 to 20 % of each other at every n above 64.
+- **On 20 threads** oneMKL's LU is what faer's isn't: 2.2 times faer's at 4096, 3.0 times at
+  1024. faer's threaded product is as fast as oneMKL's, or faster. OpenBLAS's LU is on one
+  thread whatever the count (below), so its 20-thread column is its one-thread rate; threaded,
+  it had reached 5.9 Gflop/s at 1024 and 221 at 4096 here.
+
+**The multifrontal factorization,** the exported systems as the solvers factorize them (L D Lᵀ
+of the complex symmetric form): the analysis and factorization in seconds, then the residual
+of one unrefined solve. PARDISO is `mtype` 6, its factors' entries its own count:
+
+| System | Threads | photonoxide (faer) | photonoxide-mkl | photonoxide-openblas | PARDISO |
+|---|---:|---:|---:|---:|---:|
+| `slab-2d` | 1 | 0.61 s, 3.9e-13 | 0.61 s, 5.2e-13 | 0.62 s, 4.2e-13 | 0.55 s, 8.0e-13 |
+| | 20 | 0.49 s | 0.51 s | 1.58 s | 0.48 s |
+| `strip-24` | 1 | 1.32 s, 2.3e-13 | 1.31 s, 2.5e-13 | 1.50 s, 3.2e-13 | 1.35 s, 7.7e-14 |
+| | 20 | 0.48 s | 0.49 s | 5.32 s | 0.42 s |
+| `strip-32` | 1 | 6.84 s, 1.8e-12 | 6.39 s, 1.6e-12 | 8.58 s, 1.6e-12 | 6.79 s, 3.4e-13 |
+| | 20 | 1.66 s | 1.73 s | 19.6 s | 1.60 s |
+| `strip-40` | 1 | 24.3 s, 3.3e-12 | 21.2 s, 2.6e-12 | 38.9 s, 2.8e-12 | 28.5 s, 3.4e-13 |
+| | 20 | 3.87 s | 4.57 s | 64.4 s | 5.71 s |
+
+The factors' entries are the same with each kernels (7.9 M, 11.0 M, 37.9 M and 97.4 M), against
+PARDISO's 4.9 M, 12.1 M, 41.0 M and 111.8 M. OpenBLAS's column was measured again after its LU
+was put on one thread, in a run where photonoxide's own took 0.59 / 0.44, 1.24 / 0.48, 5.55 /
+1.58 and 21.0 / 4.54 s (1 / 20 threads): the machine was as loaded then.
+
+- **oneMKL's kernels don't make the solver faster on 20 threads.** On one thread they take 7 %
+  off `strip-32` and 13 % off `strip-40` (21.2 s against 24.3 s), nothing off the smaller
+  systems; on 20 they are level with faer's or slower (`strip-40`: 4.57 s against 3.87 s).
+  Since 0.4.3 most of the work is in independent subtrees, each on one thread, where the
+  kernels are level; the threaded calls near the root
+  are few, and oneMKL's threaded LU, faster alone, pays for waking its OpenMP threads beside
+  rayon's. The difference the issue started from (faer's LU at 13 to 40 % of MKL's on 20
+  threads) is real for a dense LU, and doesn't reach the factorization.
+- **photonoxide's own is level with PARDISO here, and faster on the largest:** 3.87 s against
+  5.71 s on `strip-40` on 20 threads, 24.3 s against 28.5 s on one.
+- **OpenBLAS is slower,** 1.1 to 1.9 times on one thread and 3.6 to 14 times on 20. Its count
+  of threads is the process's, not a thread's (below), so a front that threads waits for every
+  other call into OpenBLAS to end.
+- **`auto`** (#183) keeps photonoxide's own unless this machine's records say otherwise; on
+  this one they don't.
+
+**Threads, and OpenBLAS.** OpenBLAS's `openblas_set_num_threads_local`, despite its name, sets
+the process's count, as `openblas_set_num_threads` does. When rayon's 20 threads each set it to
+1 or 20 around their own calls, `strip-24` took 40 s as LU (0.53 s with faer's kernels) and the
+results changed from run to run. photonoxide now keeps OpenBLAS on one thread and has a
+threaded call set the count around itself while no other call into OpenBLAS runs. Its LU stays
+on one thread: OpenBLAS's threaded `zgetrf` keeps arrays sized by the build's largest thread
+count on the stack at each level of its recursion, and overflowed a 2 MiB thread's stack with
+pip's and Ubuntu's builds on Linux (GitHub's runners, then WSL here). oneMKL's
+`mkl_set_num_threads_local` is the calling thread's, as its name says.
+
+**Do they repeat their bits?** photonoxide's solver with each kernels on the 24 × 24 × 24
+Helmholtz matrix (13 824 unknowns, fronts that thread), solved twice on 20 threads, twice on
+one, and on 2:
+
+| Kernels | Twice on 20 threads | Twice on 1 | 1 thread against 20 | 2 threads against 20 |
+|---|---|---|---|---|
+| faer (photonoxide's own) | the same bits | the same bits | the same bits | the same bits |
+| oneMKL (`MKL_CBWR=AUTO`) | the same bits | the same bits | 1.4e-15 apart | 1.2e-15 apart |
+| OpenBLAS 0.3.34 | the same bits | the same bits | 1.0e-15 apart | 1.0e-15 apart |
+
+So neither library's kernels are declared deterministic in photonoxide's sense (the same bits
+on any number of threads); each says what it does in its kernels' description, and faer's stay
+the default. oneMKL's strict reproducibility (`MKL_CBWR=…,STRICT`) covers its products and
+triangular solves but not `zgetrf`.
+
+**Not measured here:** AMD AOCL and Arm Performance Libraries (no AMD or Arm processor at
+hand: their loaders and interface checks are tested, in CI against the test library), and
+Apple Accelerate, measured on GitHub's macOS runners for #269.
+
 ## 0.4.2: faer's LU (as measured then)
 
 ### Summary

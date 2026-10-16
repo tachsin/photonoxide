@@ -297,8 +297,9 @@ pub fn factorize(system: &System) -> Result<Factorized> {
 }
 
 /// Each unknown's place on its grid, for nested dissection: Yee's edges for a strip, the cells'
-/// centres (by index) for the slab.
-pub(crate) fn positions(system: &System) -> Option<Vec<[f64; 3]>> {
+/// centres (by index) for the slab. A backend given them ([`crate::backend::Matrix::with_positions`])
+/// orders the system as the solvers do.
+pub fn positions(system: &System) -> Option<Vec<[f64; 3]>> {
     if let Some(cells) = system.id.strip_prefix("strip-") {
         let cells: usize = cells.parse().ok()?;
         let (grid, _) = strip_grid(cells).ok()?;

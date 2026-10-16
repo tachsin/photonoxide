@@ -1,11 +1,11 @@
 <script lang="ts">
   // An example in a lesson: the published result it reproduces, what it printed when this
-  // release was checked, and a button to run it on this machine. Its run is the Examples page's
-  // too: started here, it shows there, and the other way round.
+  // release was checked, and a button to run it on this machine. Its run is Validation's
+  // Published results tab's too: started here, it shows there, and the other way round.
   import { BookMarked, ExternalLink, Play, Square } from "@lucide/svelte";
 
   import { api, duration } from "../lib/api";
-  import { app, go, toast } from "../lib/app.svelte";
+  import { showPublished, toast } from "../lib/app.svelte";
   import { catalog, loadCatalog } from "../lib/catalog.svelte";
   import { startTask, stopTask, tasks } from "../lib/tasks.svelte";
 
@@ -30,10 +30,7 @@
     });
   }
 
-  function open() {
-    app.focus = name;
-    go("examples");
-  }
+  const open = () => showPublished(name);
 
   /** A line's colour: failures red, the summary green, headings bright. */
   function tone(line: string): string {
@@ -58,7 +55,7 @@
       {:else}
         <button class="btn gap-1.5 btn-xs btn-primary" onclick={run} title="Run it here, in a process of its own; about {duration(example?.seconds ?? 1)}"><Play size={12} /> Run it</button>
       {/if}
-      <button class="btn gap-1 btn-ghost btn-xs" onclick={open} title="Open it on the Examples page"><ExternalLink size={12} /> Examples</button>
+      <button class="btn gap-1 btn-ghost btn-xs" onclick={open} title="Open it among Validation's published results"><ExternalLink size={12} /> Published results</button>
     </div>
   </div>
   <div class="flex items-center gap-3 border-t border-base-content/8 px-4 py-2">

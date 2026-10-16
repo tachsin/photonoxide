@@ -24,13 +24,16 @@
   import { ask } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
 
+  import ChipOptimize from "../components/chip/ChipOptimize.svelte";
+  import ChipStudy from "../components/chip/ChipStudy.svelte";
+  import InstanceDevice from "../components/chip/InstanceDevice.svelte";
   import Glyph from "../components/Glyph.svelte";
   import SpectrumPlot from "../components/SpectrumPlot.svelte";
   import Tip from "../components/Tip.svelte";
   import UnitChip from "../components/UnitChip.svelte";
-  import { ago, api, type Chip, type CircuitExample, type CircuitItem, type KindInfo, type Problem } from "../lib/api";
+  import { ago, api, type Chip, type ChipOptimizeInfo, type CircuitExample, type CircuitItem, type KindInfo, type Problem } from "../lib/api";
   import { app, go, toast } from "../lib/app.svelte";
-  import {
+  import { COMPACT,
     addInstance,
     change,
     dirty,
@@ -42,6 +45,7 @@
     library,
     loadLibrary,
     openChipFile,
+    panels,
     partKey,
     redo,
     remember,
@@ -529,6 +533,24 @@
   let quantity = $state<Quantity>("power");
   let resultsOpen = $state(true);
 
+  // what the Study and Optimize panels offer: the chip's parameters, outputs and its devices' own constraints
+  let offer = $state<ChipOptimizeInfo | null>(null);
+  let offerProblem = $state("");
+  $effect(() => {
+    if (panels.tab === "spectrum") return;
+    const c = $state.snapshot(chip) as Chip;
+    let live = true;
+    api
+      .chipOptimizeInfo(c)
+      .then((o) => {
+        if (live) [offer, offerProblem] = [o, ""];
+      })
+      .catch((e) => {
+        if (live) offerProblem = String(e);
+      });
+    return () => (live = false);
+  });
+
   function runSimulation() {
     resultsOpen = true;
     simulate();
@@ -550,10 +572,11 @@
   <aside class="flex min-h-0 flex-col border-r border-base-content/8 bg-base-100/40">
     <div class="flex gap-2 p-3">
       <div class="dropdown flex-1">
-        <div tabindex="0" role="button" class="btn btn-primary btn-sm w-full gap-1.5"><FilePlus2 size={15} /> New <ChevronDown size={14} /></div>
+        <div tabindex="0" role="button" class="btn btn-primary btn-sm w-full gap-1.5"><FilePlus2 size={15} /> New from… <ChevronDown size={14} /></div>
+        <!-- an empty chip, or each built-in circuit (circuits/ in the repository) -->
         <ul tabindex="-1" class="dropdown-content menu z-30 mt-1 w-72 rounded-box border border-base-content/10 bg-base-100 p-2 shadow-xl">
           <li><button onclick={() => open(emptyChip(), null)}><span class="font-medium">An empty chip</span></button></li>
-          <li class="menu-title pt-2">From an example</li>
+          <li class="menu-title pt-2">A built-in circuit</li>
           {#each examples as ex (ex.file)}
             <li>
               <button class="flex flex-col items-start gap-0" onclick={() => open(ex.chip, null)}>
@@ -581,8 +604,23 @@
           </button>
         {/each}
       {/each}
+      {#if library.measured.some((k) => k.id === COMPACT)}
+        <p class="px-2 pt-2 text-[11px] faint">Compact models</p>
+        {#each library.measured.filter((k) => k.id === COMPACT) as k (partKey(k))}
+          <button
+            class="flex w-full cursor-grab items-center gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-base-content/5 active:cursor-grabbing"
+            onpointerdown={(e) => grab(e, partKey(k))}
+            title="{k.about} Drag it onto the chip."
+          >
+            <svg width="36" height="22" viewBox="{-k.symbol.width / 2 - 4} {-k.symbol.height / 2 - 4} {k.symbol.width + 8} {k.symbol.height + 8}" class="shrink-0">
+              <Glyph symbol={k.symbol} />
+            </svg>
+            <span class="min-w-0 truncate">{k.title}<span class="ml-1 text-xs faint">{k.variant}</span></span>
+          </button>
+        {/each}
+      {/if}
       <p class="px-2 pt-2 text-[11px] faint">Measured</p>
-      {#each library.measured as k (partKey(k))}
+      {#each library.measured.filter((k) => k.id !== COMPACT) as k (partKey(k))}
         <button
           class="flex w-full cursor-grab items-center gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-base-content/5 active:cursor-grabbing"
           onpointerdown={(e) => grab(e, partKey(k))}
@@ -812,9 +850,15 @@
     </div>
 
     <!-- the results -->
-    {#if resultsOpen && (editor.sim || editor.simProblem || editor.simulating)}
+    {#if resultsOpen && (editor.sim || editor.simProblem || editor.simulating || panels.tab !== "spectrum")}
       <div class="h-[22rem] shrink-0 overflow-y-auto border-t border-base-content/8 bg-base-100 px-5 py-3">
         <div class="flex items-center gap-2">
+          <div role="tablist" class="tabs tabs-box tabs-xs shrink-0">
+            <button role="tab" class="tab {panels.tab === 'spectrum' ? 'tab-active' : ''}" onclick={() => (panels.tab = "spectrum")}>S-parameters</button>
+            <button role="tab" class="tab {panels.tab === 'study' ? 'tab-active' : ''}" onclick={() => (panels.tab = "study")}>Study</button>
+            <button role="tab" class="tab {panels.tab === 'optimize' ? 'tab-active' : ''}" onclick={() => (panels.tab = "optimize")}>Optimize</button>
+          </div>
+          {#if panels.tab === "spectrum"}
           <h3 class="panel-title whitespace-nowrap">The circuit's S-parameters</h3>
           {#if editor.sim}
             <span class="truncate text-xs faint">
@@ -822,8 +866,9 @@
             </span>
             {#if stale}<span class="badge badge-ghost badge-xs">updating…</span>{/if}
           {/if}
+          {/if}
           <span class="flex-1"></span>
-          {#if editor.sim}
+          {#if editor.sim && panels.tab === "spectrum"}
             {@const sim = editor.sim}
             <div class="tooltip tooltip-left" data-tip="Save the S-parameters as a Touchstone file (.sNp)">
               <button
@@ -836,6 +881,15 @@
             <button class="btn btn-ghost btn-xs btn-square" aria-label="Hide the results" onclick={() => (resultsOpen = false)}><X size={14} /></button>
           </div>
         </div>
+        {#if panels.tab === "study"}
+          <div class="mt-3">
+            {#if offerProblem}<p class="text-xs text-warning">{offerProblem}</p>{:else}<ChipStudy {chip} info={offer} height={230} />{/if}
+          </div>
+        {:else if panels.tab === "optimize"}
+          <div class="mt-3">
+            {#if offerProblem}<p class="text-xs text-warning">{offerProblem}</p>{:else}<ChipOptimize {chip} info={offer} />{/if}
+          </div>
+        {:else}
         <div class="mt-1 flex flex-wrap items-center gap-2">
           {#if editor.sim}
             {@const c = editor.sim.checks}
@@ -861,6 +915,7 @@
         {:else}
           <div class="grid h-56 place-items-center"><span class="loading loading-ring text-primary"></span></div>
         {/if}
+        {/if}
       </div>
     {/if}
   </div>
@@ -875,7 +930,7 @@
         {@const k = selectedKind}
         <div class="mt-2 flex items-center gap-2 text-sm">
           <span class="font-medium">{k.title}</span>
-          <span class="badge badge-xs badge-secondary badge-soft">{k.provenance.fidelity}</span>
+          {#if !inst.device}<span class="badge badge-xs badge-secondary badge-soft">{k.provenance.fidelity}</span>{/if}
           <span class="flex-1"></span>
           <button
             class="btn btn-link btn-xs h-auto min-h-0 p-0"
@@ -885,8 +940,11 @@
             }}>In the library</button
           >
         </div>
-        <p class="mt-1 text-xs faint">{k.about}</p>
-        {#if k.file}
+        {#if !inst.device}<p class="mt-1 text-xs faint">{k.about}</p>{/if}
+        {#if k.file && k.id === COMPACT}
+          <p class="mt-1 truncate text-xs num muted" title={k.provenance.source}>{k.file}</p>
+          <p class="text-xs faint">a compact model, from {range(k.provenance.validity)}; within {k.provenance.error?.toExponential(1)} in |S| of its source at its own samples</p>
+        {:else if k.file}
           <p class="mt-1 truncate text-xs num muted" title={k.provenance.source}>{k.file}</p>
           <p class="text-xs faint">{k.convention === "engineering" ? "e^(+jωt), as RF tools write" : "e^(−iωt), as photonoxide writes"}; measured from {range(k.provenance.validity)}</p>
         {/if}
@@ -899,6 +957,9 @@
           <div class="tooltip tooltip-left" data-tip="Delete (Del)"><button class="btn btn-ghost btn-xs btn-square" aria-label="Delete" onclick={deleteSelection}><Trash2 size={13} /></button></div>
         </div>
 
+        {#if inst.device}
+          <InstanceDevice {inst} />
+        {:else}
         <p class="panel-title mt-5">Parameters</p>
         {#each k.parameters as p, i (p.name)}
           {@const v = inst.values?.[p.name] ?? p.default}
@@ -938,6 +999,7 @@
         {:else}
           <p class="mt-2 text-xs faint">None.</p>
         {/each}
+        {/if}
 
         <p class="panel-title mt-5">Ports</p>
         <ul class="mt-2 space-y-1 text-xs">

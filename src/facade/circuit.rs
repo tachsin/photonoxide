@@ -18,6 +18,7 @@ use crate::circuit::components::{
 use crate::circuit::{Component, Fixed, Netlist, SMatrix};
 use crate::compact::Measured;
 use crate::compact::touchstone::Touchstone;
+use crate::device::Spec;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -200,6 +201,40 @@ fn measured(path: &Path, convention: &str) -> Result<Measured> {
     Measured::new(&spectrum, path.display().to_string())
 }
 
+/// A device's component, and the values its design gives the component's parameters, by name.
+type Placed = (Arc<dyn Component>, Vec<(String, f64)>);
+
+/// An instance that names a device (`"device"`): its design as a job's `[device]` table (and a
+/// chip file's instance, [`crate::job::ChipDesign`]) holds it, built at its fidelity as
+/// [`super::device_spectrum`] builds it, and the values its design gives its component's
+/// parameters, by name.
+fn device(instance: &str, table: Value) -> Result<Placed> {
+    let at = |reason: String| {
+        Error::invalid(
+            "netlist",
+            format!("instance {instance:?} (a device): {reason}"),
+        )
+    };
+    let table: toml::Table = serde_json::from_value(table).map_err(|e| {
+        at(format!(
+            "its device is a [device] table, {{\"kind\": ..., \"parameters\": {{...}}}}: {e}"
+        ))
+    })?;
+    let spec = Spec::from_table(&table).map_err(|e| at(e.to_string()))?;
+    let (device, design) = spec.build().map_err(|e| at(e.to_string()))?;
+    let built = device
+        .component(design.values(), spec.fidelity)
+        .map_err(|e| at(e.to_string()))?;
+    let own = built
+        .component
+        .parameters()
+        .iter()
+        .map(|p| p.name.clone())
+        .zip(built.values.iter().copied())
+        .collect();
+    Ok((Arc::from(built.component), own))
+}
+
 /// A fixed S-matrix (kind `"fixed"`): its `ports`, and `s` as rows of `[re, im]` pairs.
 fn fixed(settings: &mut Settings<'_>) -> Result<Arc<dyn Component>> {
     let ports: Vec<String> = match settings.members.remove("ports") {
@@ -268,14 +303,28 @@ fn fixed(settings: &mut Settings<'_>) -> Result<Arc<dyn Component>> {
 /// - `"fixed"`: an S-matrix the same at every wavelength, its `ports` (names) and `s` (rows of
 ///   `[re, im]` pairs).
 ///
-/// Ports are written `instance.port`. `connections` joins pairs of them; `ports` names the
+/// An instance can name a `device` of the library ([`super::devices`]) in place of a `kind`:
+/// its design as a job's `[device]` table, and a chip file's instance
+/// ([`crate::job::ChipDesign`]), holds it, its `kind`, `fidelity` (its cheapest when not given),
+/// `stack` and `parameters` (numbers in their units, or expressions as strings):
+///
+/// ```json
+/// "ring": {"device": {"kind": "all-pass ring", "fidelity": "analytic",
+///                     "parameters": {"radius": 5.0, "gap": "180 nm"}}}
+/// ```
+///
+/// It is built at its fidelity as [`super::device_spectrum`] builds it, and placed with the
+/// values its design gives its component's parameters; the instance's other members then set
+/// them by name, as a kind's do (`"loss": 3.0`).
+////// Ports are written `instance.port`. `connections` joins pairs of them; `ports` names the
 /// circuit's external ports, in the order the S-matrices take them. Instances and ports keep the
 /// order they are written in.
 ///
 /// # Errors
 ///
 /// [`Error::Parse`] for text that isn't such a netlist; [`Error::InvalidValue`] for an unknown
-/// kind, a missing or wrong setting, or a wavelength that isn't positive and finite;
+/// kind, a missing or wrong setting, a device's design that isn't one, or a wavelength that isn't
+/// positive and finite;
 /// [`Error::Netlist`] for an unknown parameter or port, a value out of range, a port connected
 /// twice or left unconnected; and the errors of the components and of the solve.
 pub fn circuit_spectrum(netlist: &str, wavelength_um: &[f64]) -> Result<Spectrum> {
@@ -286,6 +335,33 @@ pub fn circuit_spectrum(netlist: &str, wavelength_um: &[f64]) -> Result<Spectrum
     let mut net = Netlist::new();
     let mut values = Vec::new();
     for (name, mut members) in data.instances.0 {
+        if let Some(table) = members.remove("device") {
+            if members.contains_key("kind") {
+                return Err(Error::invalid(
+                    "netlist",
+                    format!("instance {name:?} names a kind or a device, not both"),
+                ));
+            }
+            let (component, own) = device(&name, table)?;
+            // the design's values first, then the instance's own by name
+            for (parameter, value) in own {
+                values.push((name.clone(), parameter, value));
+            }
+            for (parameter, value) in &members {
+                let Some(value) = value.as_f64() else {
+                    return Err(Error::invalid(
+                        "netlist",
+                        format!(
+                            "instance {name:?} (a device): the value of {parameter} must be a \
+                             number, not {value}"
+                        ),
+                    ));
+                };
+                values.push((name.clone(), parameter.clone(), value));
+            }
+            net.add(&name, component)?;
+            continue;
+        }
         let kind = match members.remove("kind") {
             Some(Value::String(kind)) => kind,
             _ => {

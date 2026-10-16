@@ -21,15 +21,6 @@
 //! product an iteration ([`super::super::krylov::Sparse::symmetrized`] finds the same D from
 //! the stored matrix). A Bloch side's phases turn into their inverses under the transpose:
 //! Aᵀ(k) = D A(−k) D⁻¹.
-//!
-//! **Shin and Fan's operator** ([`MatrixFree::shin_fan`]): A + ∇(ε⁻¹ ∇ · (ε ·)), their Eq. 7 with
-//! s = −1 as [`Lattice::assemble_with`] has it, the divergence of ε E taken at the nodes in the
-//! first pass, with ε⁻¹ there, and its gradient added in the second. With V the product of the
-//! stretches at a node, the divergence is −V⁻¹ Gᵀ D, G the gradient, so the added term K =
-//! G ε_n⁻¹ ∇· ε has Kᵀ = (D ε) K (D ε)⁻¹: the transpose is D Ã D⁻¹, Ã the same operator with ε
-//! outside the gradient instead of inside the divergence, and the multigrid's transposed cycle
-//! and QMR have their second product without the matrix too. Not similar to a symmetric matrix
-//! by any diagonal (D and D ε differ), as the stored matrix isn't.
 
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -58,64 +49,17 @@ pub(crate) struct MatrixFree {
     d: Arc<Vec<c64>>,
     left: Option<Arc<Vec<c64>>>,
     right: Option<Arc<Vec<c64>>>,
-    /// Shin and Fan's added term, if this is their operator.
-    grad_div: Option<GradDiv>,
-    /// The masked, scaled input, H, and ε⁻¹ ∇ · (ε E) at the nodes between the passes.
-    work: Mutex<(Vec<c64>, Vec<c64>, Vec<c64>)>,
+    /// The masked, scaled input and H between the passes.
+    work: Mutex<(Vec<c64>, Vec<c64>)>,
     /// The transpose, made when first asked for.
     transpose: OnceLock<Box<MatrixFree>>,
-}
-
-/// Shin and Fan's ∇(ε⁻¹ ∇ · (ε ·)).
-#[derive(Clone)]
-struct GradDiv {
-    /// ε at each value of E.
-    eps: Arc<Vec<c64>>,
-    /// ε⁻¹ at each node ([`Lattice::node_eps`]), zero at a node on a wall behind a PML, whose
-    /// potential the gradient leaves out.
-    inverse: Arc<Vec<c64>>,
-    /// ε outside the gradient, ε ∇(ε⁻¹ ∇ · ·): the transpose's form.
-    outside: bool,
 }
 
 impl MatrixFree {
     /// A, the matrix [`Lattice::assemble`] gives for `eps` (one value per value of E).
     pub(crate) fn new(lattice: &Lattice, eps: &[c64]) -> MatrixFree {
-        Self::with_diagonal(lattice, eps, 0.0)
-    }
-
-    /// Shin and Fan's operator, [`Lattice::assemble_with`]'s matrix for s = −1, with
-    /// Erlangga, Oosterlee and Vuik's shift `shift` added as [`super::multigrid::shifted`] adds
-    /// it: k₀²(1 + i β)ε on the diagonal of every value not fixed at zero.
-    pub(crate) fn shin_fan(lattice: &Lattice, eps: &[c64], shift: f64) -> MatrixFree {
-        let mut operator = Self::with_diagonal(lattice, eps, shift);
-        let cells = lattice.grid.cells();
-        let inverse: Vec<c64> = (0..cells)
-            .into_par_iter()
-            .map(|q| {
-                if lattice.node_fixed(q) {
-                    c64::new(0.0, 0.0)
-                } else {
-                    1.0 / lattice.node_eps(eps, q)
-                }
-            })
-            .collect();
-        operator.grad_div = Some(GradDiv {
-            eps: Arc::new(eps.to_vec()),
-            inverse: Arc::new(inverse),
-            outside: false,
-        });
-        operator
-    }
-
-    fn with_diagonal(lattice: &Lattice, eps: &[c64], shift: f64) -> MatrixFree {
         let grid = lattice.grid;
         let k2 = lattice.k0 * lattice.k0;
-        let k2 = if shift == 0.0 {
-            c64::new(k2, 0.0)
-        } else {
-            c64::new(k2, shift * k2)
-        };
         let over = |stretch: &[Vec<c64>; 3]| -> [Vec<c64>; 3] {
             Axis::ALL.map(|a| {
                 stretch[a.index()]
@@ -157,20 +101,17 @@ impl MatrixFree {
             d: Arc::new(d),
             left: None,
             right: None,
-            grad_div: None,
-            work: Mutex::new((Vec::new(), Vec::new(), Vec::new())),
+            work: Mutex::new((Vec::new(), Vec::new())),
             transpose: OnceLock::new(),
         }
     }
 
-    /// The same operator with other diagonals and phases, sharing what it reads; `flip` moves
-    /// Shin and Fan's ε to the other side of their term.
+    /// The same operator with other diagonals and phases, sharing what it reads.
     fn with(
         &self,
         left: Option<Arc<Vec<c64>>>,
         right: Option<Arc<Vec<c64>>>,
         up: [Option<c64>; 3],
-        flip: bool,
     ) -> MatrixFree {
         MatrixFree {
             grid: self.grid,
@@ -182,41 +123,27 @@ impl MatrixFree {
             d: self.d.clone(),
             left,
             right,
-            grad_div: self.grad_div.clone().map(|g| GradDiv {
-                outside: g.outside != flip,
-                ..g
-            }),
-            work: Mutex::new((Vec::new(), Vec::new(), Vec::new())),
+            work: Mutex::new((Vec::new(), Vec::new())),
             transpose: OnceLock::new(),
         }
     }
 
     /// S and B = S A S⁻¹, complex symmetric: S² = D, scaled to a largest |d| of 1 as
     /// [`crate::fdfd::krylov::Sparse::symmetrized`] scales it. None with a Bloch side, whose
-    /// phases no diagonal makes symmetric, and for Shin and Fan's operator. For A itself (no
-    /// diagonals yet).
+    /// phases no diagonal makes symmetric. For A itself (no diagonals yet).
     pub(crate) fn symmetrized(&self) -> Option<(Vec<c64>, MatrixFree)> {
-        if self.up.iter().any(Option::is_some)
-            || self.left.is_some()
-            || self.right.is_some()
-            || self.grad_div.is_some()
-        {
+        if self.up.iter().any(Option::is_some) || self.left.is_some() || self.right.is_some() {
             return None;
         }
         let largest = self.d.iter().map(|z| z.norm()).fold(0.0, f64::max);
         let s: Vec<c64> = self.d.par_iter().map(|z| (z / largest).sqrt()).collect();
         let inverse: Vec<c64> = s.par_iter().map(|z| 1.0 / z).collect();
-        let b = self.with(
-            Some(Arc::new(s.clone())),
-            Some(Arc::new(inverse)),
-            self.up,
-            false,
-        );
+        let b = self.with(Some(Arc::new(s.clone())), Some(Arc::new(inverse)), self.up);
         Some((s, b))
     }
 
     /// The transpose, as an operator of its own, kept once made:
-    /// (L A(k) R)ᵀ = (R D) A(−k) (D⁻¹ L), Shin and Fan's ε moved across their term.
+    /// (L A(k) R)ᵀ = (R D) A(−k) (D⁻¹ L).
     fn transposed(&self) -> &MatrixFree {
         self.transpose
             .get_or_init(|| Box::new(self.make_transposed()))
@@ -239,7 +166,6 @@ impl MatrixFree {
             Some(times(&self.right, false)),
             Some(times(&self.left, true)),
             self.up.map(|p| p.map(|z| 1.0 / z)),
-            true,
         )
     }
 
@@ -256,7 +182,7 @@ impl MatrixFree {
         let cells = g.cells();
         let zero = c64::new(0.0, 0.0);
         let mut work = self.work.lock().unwrap_or_else(|p| p.into_inner());
-        let (e, h, phi) = &mut *work;
+        let (e, h) = &mut *work;
         e.resize(3 * cells, zero);
         h.resize(3 * cells, zero);
         // E: the input times R, zero where a wall holds it
@@ -353,38 +279,6 @@ impl MatrixFree {
         }
         let h: &[c64] = h;
         let (nx_inv, ny_inv, nz_inv) = (&self.at_nodes[0], &self.at_nodes[1], &self.at_nodes[2]);
-        // Shin and Fan's potential at the nodes, ε⁻¹ ∇ · (ε E) (∇ · E for the transpose's
-        // form), as Lattice::divergence takes it: each axis' difference back from the node
-        if let Some(gd) = &self.grad_div {
-            phi.resize(cells, zero);
-            phi.par_chunks_mut(nx).enumerate().for_each(|(q, row)| {
-                let (j, k) = (q % ny, q / ny);
-                let below = step(j, ny, self.up[1], false);
-                let before = step(k, nz, self.up[2], false);
-                let first = step(0, nx, self.up[0], false);
-                let u = |c: usize, j: usize, k: usize, i: usize| -> c64 {
-                    let r = c * cells + (k * ny + j) * nx + i;
-                    if gd.outside { e[r] } else { e[r] * gd.eps[r] }
-                };
-                let base = (k * ny + j) * nx;
-                for (i, value) in row.iter_mut().enumerate() {
-                    let previous = if i > 0 {
-                        u(0, j, k, i - 1)
-                    } else {
-                        first.map_or(zero, |(m, phase)| u(0, j, k, m) * phase)
-                    };
-                    let dx = (u(0, j, k, i) - previous) * nx_inv[i];
-                    let dy = (u(1, j, k, i)
-                        - below.map_or(zero, |(m, phase)| u(1, m, k, i) * phase))
-                        * ny_inv[j];
-                    let dz = (u(2, j, k, i)
-                        - before.map_or(zero, |(m, phase)| u(2, j, m, i) * phase))
-                        * nz_inv[k];
-                    *value = gd.inverse[base + i] * (dx + dy + dz);
-                }
-            });
-        }
-        let phi: &[c64] = phi;
         // out = L (k₀² ε E − ∇ × H), and the input itself where a wall holds E
         let (ox, rest) = out.split_at_mut(cells);
         let (oy, oz) = rest.split_at_mut(cells);
@@ -404,8 +298,6 @@ impl MatrixFree {
                 );
                 let below = step(j, ny, self.up[1], false);
                 let before = step(k, nz, self.up[2], false);
-                let above = step(j, ny, self.up[1], true);
-                let beyond = step(k, nz, self.up[2], true);
                 let (wy, wz) = (ny_inv[j], nz_inv[k]);
                 let at = |c: usize, to: Option<(usize, c64)>, along_y: bool, i: usize| -> c64 {
                     match to {
@@ -435,37 +327,12 @@ impl MatrixFree {
                         (hy[i] - previous(hy)) * wx - (hx[i] - at(0, below, true, i)) * wy,
                     ];
                     let on_wall = i == 0 && self.walls[0];
-                    // Shin and Fan's gradient of the potential, each axis' difference forward
-                    // from the node
-                    let gradient = self.grad_div.as_ref().map(|_| {
-                        let here = phi[base + i];
-                        let ahead = match step(i, nx, self.up[0], true) {
-                            Some((m, phase)) => phi[base + m] * phase,
-                            None => zero,
-                        };
-                        let up = match above {
-                            Some((m, phase)) => phi[(k * ny + m) * nx + i] * phase,
-                            None => zero,
-                        };
-                        let on = match beyond {
-                            Some((m, phase)) => phi[(m * ny + j) * nx + i] * phase,
-                            None => zero,
-                        };
-                        [
-                            (ahead - here) * self.at_halves[0][i],
-                            (up - here) * self.at_halves[1][j],
-                            (on - here) * self.at_halves[2][k],
-                        ]
-                    });
                     for (c, target) in [&mut *ox, &mut *oy, &mut *oz].into_iter().enumerate() {
                         let r = c * cells + base + i;
                         target[i] = if fixed[c] || (c != 0 && on_wall) {
                             v[r]
                         } else {
-                            let mut value = self.diagonal[r] * e[r] - curl[c];
-                            if let (Some(g), Some(gd)) = (&gradient, &self.grad_div) {
-                                value += if gd.outside { g[c] * gd.eps[r] } else { g[c] };
-                            }
+                            let value = self.diagonal[r] * e[r] - curl[c];
                             match &self.left {
                                 Some(l) => value * l[r],
                                 None => value,
@@ -686,41 +553,11 @@ mod tests {
         }
     }
 
-    /// Shin and Fan's matrix for `eps`, shifted by `shift` as the multigrid shifts it.
-    fn shin_fan_matrix(lattice: &Lattice, eps: &[c64], shift: f64) -> Sparse {
-        let matrix = Sparse::new(
-            lattice.grid.unknowns(),
-            lattice
-                .assemble_with(eps, -1.0)
-                .into_iter()
-                .map(|t| (t.row, t.col, t.val)),
-        );
-        super::super::multigrid::shifted(lattice, eps, &matrix, shift)
-    }
-
-    #[test]
-    fn shin_and_fans_product_and_its_transpose_are_the_assembled_matrixs_to_rounding() {
-        for (name, boundaries) in cases() {
-            let (lattice, eps, _, v) = problem(boundaries);
-            for shift in [0.0, 0.5] {
-                let matrix = shin_fan_matrix(&lattice, &eps, shift);
-                let free = MatrixFree::shin_fan(&lattice, &eps, shift);
-                let (a, b) = (free.apply(&v), matrix.apply(&v));
-                assert!(off(&a, &b) < 1e-13, "{name}, {shift}: {}", off(&a, &b));
-                let (a, b) = (free.apply_transpose(&v), matrix.apply_transpose(&v));
-                assert!(off(&a, &b) < 1e-12, "{name}, {shift}: {}", off(&a, &b));
-                // no diagonal makes it symmetric
-                assert!(free.symmetrized().is_none());
-            }
-        }
-    }
-
     #[test]
     fn a_product_is_the_same_bits_on_any_number_of_threads() {
         let (lattice, eps, _, v) = problem(Boundaries3d::stretched_pml(3));
         let free = MatrixFree::new(&lattice, &eps);
         let (_, symmetric) = free.symmetrized().unwrap();
-        let shin_fan = MatrixFree::shin_fan(&lattice, &eps, 0.5);
         let on = |threads: usize| {
             rayon::ThreadPoolBuilder::new()
                 .num_threads(threads)
@@ -731,8 +568,6 @@ mod tests {
                         free.apply(&v),
                         free.apply_transpose(&v),
                         symmetric.apply(&v),
-                        shin_fan.apply(&v),
-                        shin_fan.apply_transpose(&v),
                     )
                 })
         };

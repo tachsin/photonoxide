@@ -3,26 +3,30 @@
 //! description of it (a title, a category, a sentence, the model's equation) and the schematic
 //! symbol the chip view draws.
 //!
-//! The physics is the library's (`photonoxide::circuit::components`): each entry builds one of
-//! its components, and everything about its ports, parameters and provenance is read from that
-//! component. What the studio chooses is what the library leaves to its caller: the guide every
-//! waveguide, bend and ring carries, and the MMIs' widths.
+//! The physics is the library's: the waveguide, the bend, the directional coupler, the rings,
+//! the rib, the MMIs, the Y-branch and the MZIs of couplers and of Y-branches are its devices
+//! (`photonoxide::device`) at their defaults, each the component its cheapest model gives (the
+//! analytic one; the MMIs' and the rib's 2D; the strip waveguide's 3D model for
+//! `waveguide-modes`); the others are its components (`photonoxide::circuit::components`).
+//! Everything about their ports, parameters and provenance is read from the component. What the
+//! studio chooses is what the library leaves to its caller: the window `waveguide-modes` is
+//! solved on.
 
 use std::path::Path;
 use std::sync::{Arc, OnceLock};
 
 use photonoxide::Complex64 as c64;
 use photonoxide::Result;
-use photonoxide::circuit::components::{
-    self, AddDropRing, AllPassRing, Bend, Coupler, DirectionalCoupler, Dispersion, Mmi, MmiKind,
-    PhaseShifter, Planar, Supermodes, Waveguide, YBranch,
-};
-use photonoxide::circuit::{Component, Fixed, Port, SMatrix, Spectrum};
+use photonoxide::circuit::components::{self, Coupler, PhaseShifter};
+use photonoxide::circuit::{Component, Fidelity, Fixed, Port, SMatrix, Spectrum};
 use photonoxide::compact::Measured;
 use photonoxide::compact::touchstone::{Convention, Touchstone};
-use photonoxide::material;
-use photonoxide::mode::Polarization;
-use photonoxide::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity};
+use photonoxide::device::{
+    Device, Mesh, RibWaveguide, Scheme, StripBend, StripCoupler, StripMmi, StripMzi, StripRing,
+    StripWaveguide, StripYBranch, Values,
+};
+use photonoxide::material::{self, Material, Model, Provenance};
+use photonoxide::stack::{Layer, LayerStack};
 use photonoxide::units::{Length, Wavelength};
 use serde::Serialize;
 
@@ -99,59 +103,73 @@ fn text(e: photonoxide::Error) -> String {
     e.to_string()
 }
 
-/// The guide every waveguide, bend and ring of the library carries: a 500 × 220 nm silicon
-/// strip in oxide, its TE-like mode's n_eff 2.44506 and n_g 4.17290 at 1.55 µm by photonoxide's
-/// full-vector solver (examples/group_index.rs, on a 6.25 × 5 nm grid; Chrostowski & Hochberg
-/// 2015 give 4.18), losing 2.7 dB/cm to start (Bogaerts et al. 2011's ring waveguide, Section 2.4; a straight
-/// waveguide's loss is a parameter).
-fn strip() -> std::result::Result<Dispersion, String> {
-    Ok(Dispersion::new(Wavelength::um(1.55).map_err(text)?, 2.44506, 4.172901).with_loss(2.7))
+/// A device's component at `fidelity` and `values`, to be shared.
+fn component(device: &dyn Device, values: &Values, fidelity: Fidelity) -> Built {
+    let built = device.component(values, fidelity).map_err(text)?;
+    Ok(Arc::from(built.component))
 }
 
-/// The plane the MMIs lie in: a 220 nm silicon film in oxide, by the effective index method.
-fn soi() -> Planar {
-    Planar::Film {
-        core: material::silicon(),
-        cladding: material::silica(),
-        thickness: Length::nm(220.0),
-        vertical: Polarization::Te,
-    }
+/// A device's analytic model at its defaults: for every waveguide, bend, coupler and ring, a
+/// 500 × 220 nm silicon strip in oxide, its TE-like mode's n_eff 2.44506 and n_g 4.17290 at
+/// 1.55 µm by photonoxide's full-vector solver (examples/group_index.rs, on a 6.25 × 5 nm grid;
+/// Chrostowski & Hochberg 2015 give 4.18), losing 2.7 dB/cm to start (Bogaerts et al. 2011's
+/// ring waveguide, Section 2.4; a straight waveguide's loss is a parameter).
+fn analytic(device: &dyn Device) -> Built {
+    component(device, &Values::defaults(device), Fidelity::Analytic)
 }
 
 fn waveguide() -> Built {
-    once!(Ok(Arc::new(Waveguide::new(strip()?))))
+    once!(analytic(&StripWaveguide::new()))
 }
 
-/// The strip's cross-section at `wavelength`: a quarter of it (x, y ≥ 0, the strip's centre at
-/// the origin), 500 × 220 nm of Li's silicon in oxide of index 1.444, on a 12.5 × 10 nm grid,
-/// with an electric wall at x = 0 and a magnetic wall at y = 0 for the TE-like mode.
-fn strip_section(wavelength: Wavelength) -> Result<CrossSection> {
-    let si = material::silicon().permittivity(wavelength)?;
-    let ox = c64::new(1.444 * 1.444, 0.0);
-    CrossSection::uniform((0.0, 1.05, 84), (0.0, 0.75, 75), |x, y| {
-        Permittivity::isotropic(if x < 0.25 && y < 0.11 { si } else { ox })
-    })?
-    .with_boundaries(Boundaries {
-        west: Boundary::ElectricWall,
-        south: Boundary::MagneticWall,
-        ..Boundaries::default()
+/// Li's silicon in Chrostowski & Hochberg's oxide, of constant index 1.444: the stack
+/// `waveguide-modes` is solved on.
+fn oxide_stack() -> Result<LayerStack> {
+    let oxide = Material::new(
+        "oxide (1.444)",
+        Model::Constant(c64::new(1.444, 0.0)),
+        Wavelength::um(1.2)?,
+        Wavelength::um(2.0)?,
+        Provenance {
+            reference: "L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015), Fig. 3.14"
+                .into(),
+            doi: "10.1017/CBO9781316084168".into(),
+            data: "the book's oxide index".into(),
+            temperature: None,
+            notes: String::new(),
+        },
+    )?;
+    let layer = |name: &str, thickness: Length, material: Material| Layer {
+        name: name.into(),
+        thickness,
+        material,
+        background: oxide.clone(),
+    };
+    LayerStack::new(
+        oxide.clone(),
+        vec![
+            layer("BOX", Length::um(2.0), oxide.clone()),
+            layer("Si", Length::nm(220.0), material::silicon()),
+        ],
+        oxide.clone(),
+    )
+}
+
+/// The strip's 3D model: a quarter of its cross-section (x, y ≥ 0, the strip's centre at the
+/// origin), 500 × 220 nm of Li's silicon in oxide of index 1.444, 1.05 × 0.75 µm on a 12.5 ×
+/// 10 nm grid, with an electric wall at x = 0 and a magnetic wall at y = 0 for the TE-like
+/// mode; its mode at five wavelengths 25 nm apart about 1.55 µm, by the standard scheme.
+fn waveguide_modes() -> Built {
+    once!({
+        let device = StripWaveguide::on(oxide_stack().map_err(text)?, "Si")
+            .map_err(text)?
+            .with_mesh(Mesh::window(2.1, 1.5, 84, 75, Scheme::Standard));
+        component(&device, &Values::defaults(&device), Fidelity::ThreeD)
     })
 }
 
-fn waveguide_modes() -> Built {
-    once!(Ok(Arc::new(
-        Waveguide::from_modes(
-            strip_section,
-            Wavelength::um(1.55).map_err(text)?,
-            0.025,
-            None
-        )
-        .map_err(text)?
-    )))
-}
-
 fn bend() -> Built {
-    once!(Ok(Arc::new(Bend::new(10.0, strip()?).map_err(text)?)))
+    once!(analytic(&StripBend::new()))
 }
 
 fn phase_shifter() -> Built {
@@ -166,43 +184,53 @@ fn directional_coupler() -> Built {
     // two strips 200 nm apart: their supermodes 0.02086 apart at 1.55 µm by photonoxide's
     // full-vector solver (examples/directional_coupler.rs, a 5 nm grid), so C = πΔn/λ =
     // 0.04228 /µm and a cross-over length of 37.2 µm (Chrostowski & Hochberg 2015: 37.5 µm)
-    once!(Ok(Arc::new(
-        DirectionalCoupler::new(Supermodes::from_coupling(strip()?, 0.042_28)).map_err(text)?
-    )))
+    once!(analytic(&StripCoupler::new()))
 }
 
-fn mmi(kind: MmiKind) -> Built {
-    let wavelength = Wavelength::um(1.55).map_err(text)?;
-    Ok(Arc::new(
-        Mmi::new(kind, soi(), 6.0, 1.5, wavelength).map_err(text)?,
-    ))
+/// A device's 2D model at its defaults: the MMIs' guided modes on a 220 nm silicon film in
+/// oxide by the effective index method, 6 µm wide with 1.5 µm access guides; the rib's
+/// effective index method.
+fn two_d(device: &dyn Device) -> Built {
+    component(device, &Values::defaults(device), Fidelity::TwoD)
+}
+
+fn rib_waveguide() -> Built {
+    once!(two_d(&RibWaveguide::new()))
 }
 
 fn mmi_1x2() -> Built {
-    once!(mmi(MmiKind::OneByTwo))
+    once!(two_d(&StripMmi::one_by_two()))
 }
 
 fn mmi_2x2() -> Built {
-    once!(mmi(MmiKind::TwoByTwo))
+    once!(two_d(&StripMmi::two_by_two()))
 }
 
 fn y_branch() -> Built {
-    once!(Ok(Arc::new(YBranch::new())))
+    once!(analytic(&StripYBranch::new()))
+}
+
+fn mzi_couplers() -> Built {
+    once!(analytic(&StripMzi::couplers()))
+}
+
+fn mzi_y_branches() -> Built {
+    once!(analytic(&StripMzi::y_branches()))
 }
 
 fn ring_all_pass() -> Built {
-    once!(Ok(Arc::new(AllPassRing::new(strip()?).map_err(text)?)))
+    once!(analytic(&StripRing::all_pass()))
 }
 
 fn ring_add_drop() -> Built {
-    once!(Ok(Arc::new(AddDropRing::new(strip()?).map_err(text)?)))
+    once!(analytic(&StripRing::add_drop()))
 }
 
 fn mzi() -> Built {
     // the library's own MZI netlist, of ideal 3 dB couplers and strip arms 50 µm apart
     once!({
         let coupler: Arc<dyn Component> = Arc::new(Coupler::new());
-        let arm: Arc<dyn Component> = Arc::new(Waveguide::new(strip()?));
+        let arm = analytic(&StripWaveguide::new())?;
         let build = || -> Result<Arc<dyn Component>> {
             let mut netlist = components::mzi(coupler.clone(), coupler, arm.clone(), arm)?;
             netlist.set("upper", "length", 150.0)?;
@@ -251,6 +279,16 @@ pub fn entries() -> Vec<Entry> {
             equation: r"S_{21} = S_{12} = e^{i\gamma R\theta}",
             glyph: Glyph::Bend,
             build: bend,
+        },
+        Entry {
+            id: "rib-waveguide",
+            title: "Rib waveguide",
+            variant: "",
+            category: "Waveguides",
+            about: "A rib 500 nm wide on 220 nm SOI, etched 130 nm into the silicon and standing on a 90 nm slab: its TE-like mode by the effective index method (a 2D approximation), losing 2.7 dB/cm to start.",
+            equation: r"S_{21} = S_{12} = e^{i\gamma L},\quad n_\mathrm{eff}:\ n_\mathrm{rib},\ n_\mathrm{slab} \to \text{the lateral slab}",
+            glyph: Glyph::Waveguide,
+            build: rib_waveguide,
         },
         Entry {
             id: "phase-shifter",
@@ -307,7 +345,7 @@ pub fn entries() -> Vec<Entry> {
             title: "Y-branch",
             variant: "",
             category: "Couplers and splitters",
-            about: "An ideal 50/50 splitter with an excess loss: the stem's power split equally between the arms.",
+            about: "Zhang et al.'s Y-junction (a 2 µm stem widening along a spline to two 500 nm arms), modelled as an ideal 50/50 splitter with an excess loss: the stem's power split equally between the arms.",
             equation: r"S_{21} = S_{31} = \frac{10^{-A/20}}{\sqrt{2}}",
             glyph: Glyph::YBranch,
             build: y_branch,
@@ -343,6 +381,26 @@ pub fn entries() -> Vec<Entry> {
             build: mzi,
         },
         Entry {
+            id: "mzi-couplers",
+            title: "Mach–Zehnder interferometer",
+            variant: "directional couplers",
+            category: "Interferometers",
+            about: "An MZI of two directional couplers (500 nm strips 200 nm apart, each at its 3 dB length) and strip arms 150 and 100 µm long, a phase in the upper arm: the netlist of its devices.",
+            equation: r"S_{o3,o1} = x_c\, e^{i(\gamma L_u + \varphi)}\, t_s + t_c\, e^{i\gamma L_l}\, x_s",
+            glyph: Glyph::Mzi,
+            build: mzi_couplers,
+        },
+        Entry {
+            id: "mzi-y-branches",
+            title: "Mach–Zehnder interferometer",
+            variant: "Y-branches",
+            category: "Interferometers",
+            about: "An MZI of two Y-branches and strip arms 150 and 100 µm long, a phase in the upper arm: the netlist of its devices; the light out of phase at the combiner radiates.",
+            equation: r"S_{21} = \frac{10^{-A/10}}{2} \left(e^{i(\gamma L_u + \varphi)} + e^{i\gamma L_l}\right)",
+            glyph: Glyph::Mzi,
+            build: mzi_y_branches,
+        },
+        Entry {
             id: "terminator",
             title: "Terminator",
             variant: "",
@@ -363,13 +421,6 @@ pub fn entry(id: &str) -> Option<Entry> {
 /// The entry `component` is, for a netlist built outside the studio: the entry that built it
 /// (the library's components are built once and shared), else the first of its kind
 /// (`Component::kind`) with the same provenance, else the first of its kind.
-#[cfg_attr(
-    not(test),
-    allow(
-        dead_code,
-        reason = "for `Chip::from_netlist`, which only the tests take yet"
-    )
-)]
 pub fn entry_of(component: &Arc<dyn Component>) -> Option<Entry> {
     let built: Vec<(Entry, Arc<dyn Component>)> = entries()
         .into_iter()

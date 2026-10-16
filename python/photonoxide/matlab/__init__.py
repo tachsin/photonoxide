@@ -43,6 +43,11 @@ __all__ = [
     "circuit_spectrum",
     "read_touchstone",
     "write_touchstone",
+    "devices",
+    "device_spectrum",
+    "device_derived",
+    "device_geometry",
+    "device_job",
 ]
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -343,4 +348,103 @@ def write_touchstone(
         _po.Spectrum(ports=names, wavelength_um=w, s=s),
         convention=str(convention),
         significant_digits=None if digits is None else int(digits),
+    )
+
+
+def _plain(x: Any) -> Any:
+    """A result as JSON holds it, for MATLAB's ``jsondecode``: dataclasses as objects of their
+    fields, arrays as nested lists (an ``(n, 2)`` outline as n rows of two), ``None`` as null."""
+    if hasattr(x, "__dataclass_fields__"):
+        return {name: _plain(getattr(x, name)) for name in x.__dataclass_fields__}
+    if isinstance(x, np.ndarray):
+        return x.tolist()
+    if isinstance(x, (list, tuple)):
+        return [_plain(v) for v in x]
+    return x
+
+
+def _design(values: Any) -> dict[str, float]:
+    """A design's values as MATLAB gives them: ``jsonencode`` of a struct, its fields the
+    parameters (``"{}"`` or empty for none)."""
+    text = "" if values is None else str(values)
+    return {} if text.strip() in ("", "[]") else json.loads(text)
+
+
+@_identified
+def devices() -> str:
+    """:func:`photonoxide.devices` as JSON text, for ``jsondecode``: a struct array, each
+    device's parameters and models struct arrays."""
+    return json.dumps(_plain(_po.devices()))
+
+
+@_identified
+def device_spectrum(
+    kind: str, values: Any, fidelity: Any, wavelength_um: Any, stack: Any = None, compact: Any = None
+) -> dict[str, Any]:
+    """:func:`photonoxide.device_spectrum`, the values as JSON text: ``s`` flat, ``nλ × n × n``,
+    and ``validity_um`` empty when the model isn't limited."""
+    s = _po.device_spectrum(
+        str(kind),
+        values=_design(values),
+        fidelity=_option(fidelity),
+        stack=_option(stack),
+        compact=_option(compact),
+        wavelength_um=_vector(wavelength_um),
+    )
+    return {
+        "ports": list(s.ports),
+        "wavelength_um": array("d", s.wavelength_um.tolist()),
+        "s": _flat(s.s),
+        "fidelity": s.fidelity,
+        "grid": s.grid,
+        "source": s.source,
+        "validity_um": array("d", list(s.validity_um or ())),
+    }
+
+
+@_identified
+def device_derived(
+    kind: str, values: Any, fidelity: Any, stack: Any = None, compact: Any = None
+) -> str:
+    """:func:`photonoxide.device_derived` as JSON text, for ``jsondecode``: a struct array of
+    the figures."""
+    figures = _po.device_derived(
+        str(kind),
+        values=_design(values),
+        fidelity=_option(fidelity),
+        stack=_option(stack),
+        compact=_option(compact),
+    )
+    return json.dumps(_plain(figures))
+
+
+@_identified
+def device_geometry(kind: str, values: Any, stack: Any = None) -> str:
+    """:func:`photonoxide.device_geometry` as JSON text, for ``jsondecode``: each polygon's
+    outline n-by-2."""
+    return json.dumps(
+        _plain(_po.device_geometry(str(kind), values=_design(values), stack=_option(stack)))
+    )
+
+
+@_identified
+def device_job(
+    kind: str,
+    values: Any,
+    fidelity: Any,
+    stack: Any = None,
+    name: Any = None,
+    format: Any = "json",
+    compact: Any = None,
+) -> str:
+    """:func:`photonoxide.device_job`, the job file's text in ``format`` (JSON by default, which
+    the ``run_job`` wrapper takes as it is)."""
+    return _po.device_job(
+        str(kind),
+        values=_design(values),
+        fidelity=_option(fidelity),
+        stack=_option(stack),
+        compact=_option(compact),
+        name=_option(name),
+        format=str(_option(format) or "json"),
     )

@@ -5,5 +5,7 @@
 __pycache__/
 *.so
 *.pyd
+# and its debug symbols, on Windows
+/python/photonoxide/*.pdb
 /python/dist
 /python/.pytest_cache

@@ -1,0 +1,49 @@
+Maximally flat filters of N series-coupled lossless rings (Little et al. 1997, Table I), the circuit solve, exact: no grid
+  each fitted to 1/(1 + (δ/δ_c)^2N) at 61 detunings over ±3κ_b², by L-BFGS-B on the circuit adjoint from 16 seeded random starts, the couplings symmetric; CMA-ES then L-BFGS-B as a global check
+  N = 4: adjoint within 1e-8 of differences     1.000000   yes 1.000000   ± 0e0  ok
+
+N = 2: μᵢ²/μ⁴ = κᵢ²/κ_b⁴, i = 1 … 1
+  κ_b² = 1e-3: 0.25025 (misfit 2e-15, δ_c = 0.7075 κ_b², the best of 16 starts; CMA-ES then L-BFGS-B: misfit 2e-15)
+  κ_b² = 1e-4: 0.25003 (misfit below 1e-18, δ_c = 0.7071 κ_b², the best of 16 starts; CMA-ES then L-BFGS-B: misfit below 1e-18)
+  κ_b² = 1e-5: 0.25000 (misfit below 1e-18, δ_c = 0.7071 κ_b², the best of 16 starts; CMA-ES then L-BFGS-B: misfit below 1e-18)
+  N = 2, μ1²/μ⁴                          0.250002   paper 0.25       ± 5e-4      ok
+  N = 2, μ1²/μ⁴ (mirror)                 0.250002   μ²/μ⁴ of its mirror 0.250002   ± 5e-5 ok
+
+N = 3: μᵢ²/μ⁴ = κᵢ²/κ_b⁴, i = 1 … 1
+  κ_b² = 1e-3: 0.12513, 0.12513 (misfit 8e-17, δ_c = 0.5003 κ_b², the best of 16 starts; CMA-ES then L-BFGS-B: misfit 8e-17)
+  κ_b² = 1e-4: 0.12501, 0.12501 (misfit below 1e-18, δ_c = 0.5000 κ_b², the best of 16 starts; CMA-ES then L-BFGS-B: misfit below 1e-18)
+  κ_b² = 1e-5: 0.12500, 0.12500 (misfit below 1e-18, δ_c = 0.5000 κ_b², the best of 16 starts; CMA-ES then L-BFGS-B: misfit below 1e-18)
+  N = 3, μ1²/μ⁴                          0.125001   paper 0.125      ± 5e-4      ok
+  N = 3, μ2²/μ⁴ (mirror)                 0.125001   μ²/μ⁴ of its mirror 0.125001   ± 5e-5 ok
+
+N = 4: μᵢ²/μ⁴ = κᵢ²/κ_b⁴, i = 1 … 2
+  κ_b² = 1e-3: 0.10366, 0.04294, 0.10366 (misfit 3e-18, δ_c = 0.3829 κ_b², the best of 16 starts; CMA-ES then L-BFGS-B: misfit 3e-18)
+  κ_b² = 1e-4: 0.10356, 0.04290, 0.10356 (misfit below 1e-18, δ_c = 0.3827 κ_b², the best of 16 starts; CMA-ES then L-BFGS-B: misfit below 1e-18)
+  κ_b² = 1e-5: 0.10355, 0.04289, 0.10355 (misfit below 1e-18, δ_c = 0.3827 κ_b², the best of 16 starts; CMA-ES then L-BFGS-B: misfit below 1e-18)
+  N = 4, μ1²/μ⁴                          0.103554   prototype 0.103553   ± 5e-5  ok
+                                     the paper prints 0.1
+  N = 4, μ3²/μ⁴ (mirror)                 0.103554   μ²/μ⁴ of its mirror 0.103554   ± 5e-5 ok
+  N = 4, μ2²/μ⁴                          0.042894   prototype 0.042893   ± 5e-5  ok
+                                     the paper prints 0.04
+  N = 4, μ2²/μ⁴ (mirror)                 0.042894   μ²/μ⁴ of its mirror 0.042894   ± 5e-5 ok
+
+N = 5: μᵢ²/μ⁴ = κᵢ²/κ_b⁴, i = 1 … 2
+  κ_b² = 1e-3: 0.09559, 0.02954, 0.02954, 0.09559 (misfit below 1e-18, δ_c = 0.3092 κ_b², the best of 16 starts; CMA-ES then L-BFGS-B: misfit below 1e-18)
+  κ_b² = 1e-4: 0.09550, 0.02951, 0.02951, 0.09550 (misfit below 1e-18, δ_c = 0.3090 κ_b², the best of 16 starts; CMA-ES then L-BFGS-B: misfit below 1e-18)
+  κ_b² = 1e-5: 0.09549, 0.02951, 0.02951, 0.09549 (misfit below 1e-18, δ_c = 0.3090 κ_b², the best of 16 starts; CMA-ES then L-BFGS-B: misfit below 1e-18)
+  N = 5, μ1²/μ⁴                          0.095492   paper 0.0955     ± 5e-5      ok
+  N = 5, μ4²/μ⁴ (mirror)                 0.095492   μ²/μ⁴ of its mirror 0.095492   ± 5e-5 ok
+  N = 5, μ2²/μ⁴                          0.029509   paper 0.0295     ± 5e-5      ok
+  N = 5, μ3²/μ⁴ (mirror)                 0.029509   μ²/μ⁴ of its mirror 0.029509   ± 5e-5 ok
+
+N = 6: μᵢ²/μ⁴ = κᵢ²/κ_b⁴, i = 1 … 3
+  κ_b² = 1e-3: 0.09160, 0.02454, 0.01797, 0.02454, 0.09160 (misfit below 1e-18, δ_c = 0.2589 κ_b², the best of 16 starts; CMA-ES then L-BFGS-B: misfit 5e-2)
+  κ_b² = 1e-4: 0.09152, 0.02452, 0.01795, 0.02452, 0.09152 (misfit below 1e-18, δ_c = 0.2588 κ_b², the best of 16 starts; CMA-ES then L-BFGS-B: misfit 5e-2)
+  κ_b² = 1e-5: 0.09151, 0.02452, 0.01795, 0.02452, 0.09151 (misfit below 1e-18, δ_c = 0.2588 κ_b², the best of 16 starts; CMA-ES then L-BFGS-B: misfit 5e-2)
+  N = 6, μ1²/μ⁴                          0.091507   paper 0.0915     ± 5e-5      ok
+  N = 6, μ5²/μ⁴ (mirror)                 0.091507   μ²/μ⁴ of its mirror 0.091507   ± 5e-5 ok
+  N = 6, μ2²/μ⁴                          0.024519   paper 0.0245     ± 5e-5      ok
+  N = 6, μ4²/μ⁴ (mirror)                 0.024519   μ²/μ⁴ of its mirror 0.024519   ± 5e-5 ok
+  N = 6, μ3²/μ⁴                          0.017949   paper 0.0179     ± 5e-5      ok
+  N = 6, μ3²/μ⁴ (mirror)                 0.017949   μ²/μ⁴ of its mirror 0.017949   ± 5e-5 ok
+all 19 within tolerance of the paper

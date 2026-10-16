@@ -299,7 +299,7 @@ CMOS-compatible process by 2012.
 In silicon, a Bragg grating is usually a waveguide whose width is corrugated, and its coupling
 coefficient follows from the corrugation's depth and the mode's overlap with it: a wider
 corrugation couples more, and widens the band. What is drawn is not what is made. In
-[Wang et al. (2011)](https://doi.org/10.1109/LPT.2010.2103305)'s strips, corrugated on both sides
+[Wang et al. (2010)](https://doi.org/10.1109/LPT.2010.2103305)'s strips, corrugated on both sides
 by 193 nm lithography, the corners came out rounded, and the band of a grating drawn with a
 20 nm square corrugation matched the one simulated for a 5 nm square corrugation. The design
 questions are spectral: how narrow a band, how deep a rejection, how low the sidelobes. Narrow

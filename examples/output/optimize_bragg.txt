@@ -1,0 +1,30 @@
+Bragg mirrors of n = 1.8/1.4 on 1.8 under air at 600 nm (Bennet et al. 2024), transfer matrices, exact: no grid
+
+20 layers, each 0 to 214.29 nm; cost 1 − R
+  R of the quarter-wave stack, 20 layers     0.985521   closed form 0.985521   ± 1e-12 ok
+  its closed form, 20 layers             0.985521   paper 0.985521   ± 5e-7      ok
+  |dR/dd| at the quarter-wave stack, per nm     0.000000   a stationary point 0.000000   ± 1e-12 ok
+  DE (current-to-best/1, F 0.8, CR 0.5, 30 individuals, seed 1), 20000 evaluations: 1 − R = 1.448636e-2
+  DE's best: bits differing, 1 and 20 threads     0.000000   the same bits 0.000000   ± 0e0 ok
+  exact dR/dd against fourth-order differences: 5.5e-11 of the largest
+  exact dR/dd − differences, ×1e8        0.005451   agreement 0.000000   ± 1e0   ok
+  then L-BFGS-B on dR/dd: 37 evaluations, 1 − R = 1.447894e-2
+  thicknesses (nm): 83.333 107.143 83.333 107.143 83.333 107.143 83.333 107.143 83.333 107.143 83.333 107.143 83.333 107.143 83.333 107.143 83.333 107.143 83.333 107.143
+  R after the polish, 20 layers          0.985521   paper 0.985521   ± 5e-7      ok
+  largest |d − λ/4n| after it (nm)       0.000008   λ/4n, Fig. 7c 0.000000   ± 1e-2 ok
+  CMA-ES (from the middle of the bounds, seed 1), 20000 evaluations: 1 − R = 1.794098e-2; polished in 47: 1 − R = 1.794098e-2, 130.952 nm from the quarter-wave stack at most
+
+10 layers, each 0 to 214.29 nm; cost 1 − R
+  R of the quarter-wave stack, 10 layers     0.835144   closed form 0.835144   ± 1e-12 ok
+  its closed form, 10 layers             0.835144   paper 0.835144   ± 5e-7      ok
+  |dR/dd| at the quarter-wave stack, per nm     0.000000   a stationary point 0.000000   ± 1e-12 ok
+  DE (current-to-best/1, F 0.8, CR 0.5, 30 individuals, seed 1), 5000 evaluations: 1 − R = 1.649277e-1
+  DE's best: bits differing, 1 and 20 threads     0.000000   the same bits 0.000000   ± 0e0 ok
+  exact dR/dd against fourth-order differences: 3.4e-11 of the largest
+  exact dR/dd − differences, ×1e8        0.003426   agreement 0.000000   ± 1e0   ok
+  then L-BFGS-B on dR/dd: 51 evaluations, 1 − R = 1.648558e-1
+  thicknesses (nm): 83.333 107.143 83.333 107.143 83.333 107.143 83.333 107.143 83.333 107.143
+  R after the polish, 10 layers          0.835144   paper 0.835144   ± 5e-7      ok
+  largest |d − λ/4n| after it (nm)       0.000001   λ/4n, Fig. 7c 0.000000   ± 1e-2 ok
+  CMA-ES (from the middle of the bounds, seed 1), 5000 evaluations: 1 − R = 1.648558e-1; polished in 2: 1 − R = 1.648558e-1, 0.000 nm from the quarter-wave stack at most
+all 14 within tolerance of the paper

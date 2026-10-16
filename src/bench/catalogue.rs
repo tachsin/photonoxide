@@ -26,7 +26,8 @@
 //! - **Circuits** ([`Family::Circuit`]): a Mach–Zehnder's netlist over a sweep, a system so
 //!   small that overhead is all there is to time.
 //! - **Dense kernels** ([`Family::Dense`]): the LU and the product of complex n × n matrices,
-//!   n from 32 to 4096.
+//!   n from 32 to 4096, by photonoxide's own kernels (faer's) or by a library's that
+//!   photonoxide's solver has in its fronts (`photonoxide-mkl`, say: #186).
 //! - **FDTD** ([`Family::Fdtd`]): the kernel stepping a box of vacuum and a silicon guide, in f64
 //!   and f32, as `photonoxide bench` runs them: by tiles where they pay, and the guide also
 //!   whole every step. Memory traffic, no system to solve.
@@ -47,6 +48,7 @@ use num_complex::Complex64 as c64;
 
 use super::{Accuracy, Measurement, Phase};
 use crate::backend::Choice;
+use crate::backend::dense::{Block, BlockMut, DenseKernels, Product, kernels};
 use crate::fdfd::direct::{Direct, Plan};
 use crate::fdfd::{Boundaries, Boundaries3d, Edges, Grid, Grid3d, Polarization, Solver3d};
 use crate::units::Wavelength;
@@ -662,26 +664,8 @@ fn iterative(solve: super::Solve) -> (&'static str, &'static str, f64) {
             "GMRES + multigrid on Shin and Fan's operator, stretched PMLs",
             1e-8,
         ),
-        super::Solve::MultigridStencil => (
-            "multigrid-stencil",
-            "GMRES + multigrid on Shin and Fan's operator without the finest matrix (damped \
-             Jacobi from the stencil, Galerkin's coarse operators), stretched PMLs",
-            1e-8,
-        ),
-        super::Solve::MultigridRediscretized => (
-            "multigrid-rediscretized",
-            "GMRES + multigrid on Shin and Fan's operator without the finest matrix, every \
-             coarse operator discretized again, stretched PMLs",
-            1e-8,
-        ),
     }
 }
-
-/// The peak bytes an unknown of GMRES with the multigrid without its finest matrix, Galerkin's
-/// coarse operators and discretized again: 3.2 to 3.6 kB and 1.6 to 1.9 kB measured on the strip
-/// with ports and the guide, 2 × 10⁵ to 6.3 × 10⁶ unknowns (docs/methods/multigrid-stencil.md).
-const MULTIGRID_STENCIL_BYTES: u64 = 3_600;
-const MULTIGRID_REDISCRETIZED_BYTES: u64 = 2_000;
 
 /// The bytes of an iterative solve: plain QMR's, with and without the matrix, as they were
 /// measured at their peaks; the others', the matrix and GMRES's 40 vectors or QMR's dozen.
@@ -689,8 +673,6 @@ fn iterative_memory(unknowns: usize, solve: super::Solve) -> u64 {
     match solve {
         super::Solve::Qmr => crate::fdfd::MATRIX_SOLVE_BYTES * unknowns as u64,
         super::Solve::QmrFree => crate::fdfd::MATRIX_FREE_SOLVE_BYTES * unknowns as u64,
-        super::Solve::MultigridStencil => MULTIGRID_STENCIL_BYTES * unknowns as u64,
-        super::Solve::MultigridRediscretized => MULTIGRID_REDISCRETIZED_BYTES * unknowns as u64,
         _ => (24 * 13 * unknowns + 16 * 40 * unknowns) as u64,
     }
 }
@@ -699,7 +681,7 @@ fn iterative_memory(unknowns: usize, solve: super::Solve) -> u64 {
 fn pmls(solve: super::Solve) -> &'static str {
     match solve {
         super::Solve::Qmr | super::Solve::QmrFree => "PMLs",
-        _ => "stretched PMLs",
+        super::Solve::Ilu | super::Solve::Multigrid => "stretched PMLs",
     }
 }
 
@@ -913,10 +895,12 @@ fn dense(n: usize, product: bool) -> Entry {
         id: format!("dense/{}-{n}", if product { "product" } else { "lu" }),
         family: Family::Dense,
         title: if product {
-            "the product of two complex n × n matrices, by faer's kernel on rayon's threads".into()
+            "the product of two complex n × n matrices, by the backend's dense kernels (faer's \
+             for photonoxide's own) on rayon's threads"
+                .into()
         } else {
-            "the LU with partial pivoting of a complex n × n matrix, by faer's kernel on \
-             rayon's threads"
+            "the LU with partial pivoting of a complex n × n matrix, by the backend's dense \
+             kernels (faer's for photonoxide's own) on rayon's threads"
                 .into()
         },
         size: n,
@@ -1012,27 +996,6 @@ pub fn catalogue() -> Vec<Entry> {
     for (step_nm, pml) in [(40, 8), (25, 13)] {
         all.push(strip_ports(step_nm, pml, super::Solve::Ilu));
         all.push(strip_ports(step_nm, pml, super::Solve::Multigrid));
-    }
-    // GMRES with the multigrid with and without its finest matrix (#333), where unpreconditioned
-    // QMR breaks down: the strip with ports at the fixed problem's 20 nm and the guide at 96³ and
-    // 128³ (2.7 and 6.3 million unknowns), and on the strip's coarser cells
-    for (step_nm, pml) in [(40, 8), (25, 13), (20, 16)] {
-        if step_nm == 20 {
-            all.push(strip_ports(step_nm, pml, super::Solve::Multigrid));
-        }
-        all.push(strip_ports(step_nm, pml, super::Solve::MultigridStencil));
-        all.push(strip_ports(
-            step_nm,
-            pml,
-            super::Solve::MultigridRediscretized,
-        ));
-    }
-    for (core, pml) in [(12, 10), (20, 14), (38, 10), (54, 10)] {
-        if core > 20 {
-            all.push(guide(core, pml, super::Solve::Multigrid));
-        }
-        all.push(guide(core, pml, super::Solve::MultigridStencil));
-        all.push(guide(core, pml, super::Solve::MultigridRediscretized));
     }
     // the strip with ports by plain QMR with and without the matrix; not larger: on the fixed
     // problems' 20 nm (1.8 million unknowns), and on the guide at 96³ and 128³, the Lanczos
@@ -1479,25 +1442,40 @@ fn times(a: &faer::Mat<c64>, v: &[c64]) -> Vec<c64> {
         .collect()
 }
 
-fn solve_dense(entry: &Entry, n: usize, product: bool) -> Result<Measurement> {
-    use faer::dyn_stack::{MemBuffer, MemStack};
-    use faer::linalg::lu::partial_pivoting::factor::{lu_in_place, lu_in_place_scratch};
-    use faer::linalg::matmul::matmul;
-    use faer::{Accum, Par};
-    let par = Par::rayon(0);
+/// The product or the LU of a dense matrix by `kernels`, on rayon's threads: photonoxide's
+/// own (faer's), or a library's that photonoxide's solver has as its fronts' (#186).
+fn solve_dense(
+    entry: &Entry,
+    n: usize,
+    product: bool,
+    kernels: &dyn DenseKernels,
+) -> Result<Measurement> {
+    // the library's threads started before the clock does: a run times the kernel, not the
+    // start of the pool a process's first threaded call creates
+    let small = dense_matrix(n.min(64), 3);
+    let mut warm = small.clone();
+    let _ = kernels.lu(BlockMut::new(warm.as_mut()), true);
+    kernels.multiply(
+        BlockMut::new(warm.as_mut()),
+        Block::new(small.as_ref()),
+        Block::new(small.as_ref()),
+        Product::default(),
+        c64::new(1.0, 0.0),
+        true,
+    );
     let a = dense_matrix(n, 1);
     let v: Vec<c64> = rhs(n, |_| false);
     let (name, seconds, error) = if product {
         let b = dense_matrix(n, 2);
         let mut c = faer::Mat::<c64>::zeros(n, n);
         let clock = Instant::now();
-        matmul(
-            c.as_mut(),
-            Accum::Replace,
-            a.as_ref(),
-            b.as_ref(),
+        kernels.multiply(
+            BlockMut::new(c.as_mut()),
+            Block::new(a.as_ref()),
+            Block::new(b.as_ref()),
+            Product::default(),
             c64::new(1.0, 0.0),
-            par,
+            true,
         );
         let seconds = clock.elapsed().as_secs_f64();
         let (got, want) = (times(&c, &v), times(&a, &times(&b, &v)));
@@ -1505,23 +1483,8 @@ fn solve_dense(entry: &Entry, n: usize, product: bool) -> Result<Measurement> {
         ("the product", seconds, norm(&off) / norm(&want))
     } else {
         let mut lu = a.clone();
-        let mut forward = vec![0usize; n];
-        let mut inverse = vec![0usize; n];
-        let mut stack = MemBuffer::new(lu_in_place_scratch::<usize, c64>(
-            n,
-            n,
-            par,
-            Default::default(),
-        ));
         let clock = Instant::now();
-        lu_in_place(
-            lu.as_mut(),
-            &mut forward,
-            &mut inverse,
-            par,
-            MemStack::new(&mut stack),
-            Default::default(),
-        );
+        let forward = kernels.lu(BlockMut::new(lu.as_mut()), true);
         let seconds = clock.elapsed().as_secs_f64();
         // P A = L U: x = U⁻¹ L⁻¹ P b
         let mut x: Vec<c64> = forward.iter().map(|&r| v[r]).collect();
@@ -1565,17 +1528,27 @@ impl Entry {
         )
     }
 
+    /// Whether it times dense kernels, which photonoxide's solver with a library's kernels
+    /// (`photonoxide-mkl`, say) runs with that library's ([`crate::backend::dense::kernels`]):
+    /// `dense/lu-*` and `dense/product-*`.
+    pub fn takes_dense_kernels(&self) -> bool {
+        matches!(self.kind, Kind::DenseLu { .. } | Kind::DenseProduct { .. })
+    }
+
     /// Whether its solve is QMR, plain or with ILU(0), or GMRES with multigrid, which an
     /// iterative backend can run ([`crate::backend::iterative`]): `fdfd3d-iterative/guide-*`,
-    /// but for QMR without the matrix, which a backend can't be given.
+    /// `diel-*` and `strip-ports-*`, but for QMR without the matrix, which a backend can't be
+    /// given.
     pub fn takes_an_iterative_backend(&self) -> bool {
-        matches!(
-            self.kind,
-            Kind::Guide { solve, .. } if matches!(
+        match self.kind {
+            Kind::Guide { solve, .. }
+            | Kind::Diel { solve, .. }
+            | Kind::StripPorts { solve, .. } => matches!(
                 solve,
                 super::Solve::Qmr | super::Solve::Ilu | super::Solve::Multigrid
-            )
-        )
+            ),
+            _ => false,
+        }
     }
 
     /// The residual an iterative problem runs to.
@@ -1606,7 +1579,7 @@ impl Entry {
     }
 
     /// Builds the problem and solves it, timing each phase: a direct problem by the direct
-    /// solver `backend` names ([`Entry::takes_a_backend`]), plain QMR by the iterative one it
+    /// solver `backend` names ([`Entry::takes_a_backend`]), QMR or GMRES by the iterative one it
     /// names ([`Entry::takes_an_iterative_backend`]), the others as photonoxide solves them.
     ///
     /// # Errors
@@ -1626,6 +1599,13 @@ impl Entry {
     /// As [`Entry::run`].
     pub fn run_with(&self, backend: &Choice, timed: &mut dyn FnMut()) -> Result<Measurement> {
         let direct = backend;
+        // the iterative backend of the choice runs the Krylov solver where it can; the others
+        // are photonoxide's
+        let iterative = if self.takes_an_iterative_backend() {
+            direct
+        } else {
+            &Choice::Auto
+        };
         match &self.kind {
             Kind::Flat { .. } | Kind::Solid { .. } | Kind::Exported(_) => {
                 Ok(solve_direct(self, direct)?.measurement)
@@ -1640,13 +1620,6 @@ impl Entry {
                     Task::Iterative { tolerance } => tolerance,
                     _ => 1e-8,
                 };
-                // the iterative backend of the choice runs the Krylov solver; the others are
-                // photonoxide's
-                let iterative = if self.takes_an_iterative_backend() {
-                    direct
-                } else {
-                    &Choice::Auto
-                };
                 super::guide_3d_with(
                     super::Guide::Cube { core: *core },
                     *pml,
@@ -1656,29 +1629,31 @@ impl Entry {
                     timed,
                 )
             }
-            Kind::Diel { length, solve } => super::guide_3d(
+            Kind::Diel { length, solve } => super::guide_3d_with(
                 super::Guide::Diel { length: *length },
                 10,
                 *solve,
                 self.residual(),
+                iterative,
                 timed,
             ),
             Kind::StripPorts {
                 step_nm,
                 pml,
                 solve,
-            } => super::strip_ports_3d(
+            } => super::strip_ports_3d_with(
                 *step_nm as f64 / 1000.0,
                 *pml,
                 *solve,
                 self.residual(),
+                iterative,
                 timed,
             ),
             Kind::Modes { step_nm, count } => solve_modes(self, *step_nm, *count),
             Kind::Hadley { problem, n } => solve_hadley(self, *problem, *n),
             Kind::Circuit { points } => solve_circuit(self, *points),
-            Kind::DenseLu { n } => solve_dense(self, *n, false),
-            Kind::DenseProduct { n } => solve_dense(self, *n, true),
+            Kind::DenseLu { n } => solve_dense(self, *n, false, kernels(direct)?.as_ref()),
+            Kind::DenseProduct { n } => solve_dense(self, *n, true, kernels(direct)?.as_ref()),
         }
     }
 }
@@ -1813,6 +1788,22 @@ mod tests {
         );
         // and the others take no backend
         assert!(!entry("dense/lu-32").unwrap().takes_a_backend());
+        // but the dense kernels' problems take a solver's dense kernels: faer's for
+        // photonoxide's own, none for another library's solver
+        for e in catalogue() {
+            assert_eq!(
+                e.takes_dense_kernels(),
+                e.family == Family::Dense,
+                "{}",
+                e.id
+            );
+        }
+        for id in ["dense/lu-32", "dense/product-32"] {
+            let e = entry(id).unwrap();
+            let m = e.run(&Choice::Photonoxide).unwrap();
+            assert!(m.accuracy.unwrap().error < e.tolerance(), "{id}");
+            assert!(e.run(&Choice::Named("faer".into())).is_err(), "{id}");
+        }
     }
 
     #[test]

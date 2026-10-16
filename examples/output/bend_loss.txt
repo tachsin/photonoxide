@@ -10,4 +10,7 @@ strip as a slab: 2.845, 500 nm, in 1.444, at 1.55 um; full-vector on a 5 nm grid
   E normal to the bend plane, R 2 um: exact 2.661426 + 5.064e-7i, full-vector 2.661388 + 5.068e-7i
   E in the bend plane, R 1 um: exact 2.551645 + 3.037e-3i, full-vector 2.552891 + 3.293e-3i
   E in the bend plane, R 2 um: exact 2.503112 + 4.581e-6i, full-vector 2.502916 + 4.777e-6i
+the bend device: a 500 x 220 nm strip on 220 nm SOI bent at 2 um, at 1.55 um
+  2D: n_eff 2.50566 along the arc, radiation 4.85e-4 dB per 90 deg (2D: an exact bent slab by the effective index method, no grid)
+  3D: n_eff 2.46021 along the arc, radiation 2.63e-4 dB per 90 deg (125 × 111 cells, 10.000 nm straight, its bend's shift on 250 × 66 cells, 6.969 nm)
 all 1 within tolerance of the paper

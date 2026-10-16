@@ -45,7 +45,8 @@ pub mod dense;
 mod iterative;
 pub use iterative::{
     IluFactors, IterativeSolver, MultigridCycle, MultigridLevel, QmrRun, RowMatrix, iterative,
-    iterative_solvers, register_iterative, register_iterative_unavailable,
+    iterative_solvers, prefer_iterative, preferred_iterative, register_iterative,
+    register_iterative_unavailable,
 };
 
 fn invalid(reason: impl Into<String>) -> Error {
@@ -273,6 +274,13 @@ pub trait DirectSolver: Send + Sync {
     /// The backend's, as photonoxide's [`Error`]: a form it doesn't take, a structurally
     /// singular matrix, the library's own failure.
     fn analyse(&self, matrix: &Matrix<'_>) -> Result<Option<Arc<dyn Analysis>>>;
+
+    /// The dense kernels its fronts are factorized with, if it is photonoxide's own solver
+    /// ([`dense::with_kernels`]): faer's for `photonoxide`, a library's for
+    /// `photonoxide-mkl` and the like. Another library's solver has none to give.
+    fn dense_kernels(&self) -> Option<Arc<dyn dense::DenseKernels>> {
+        None
+    }
 }
 
 /// A structure's analysis: factorizes any matrix of that structure.
@@ -555,6 +563,14 @@ impl DirectSolver for Photonoxide {
                 seconds: clock.elapsed().as_secs_f64(),
             }) as Arc<dyn Analysis>
         }))
+    }
+
+    fn dense_kernels(&self) -> Option<Arc<dyn dense::DenseKernels>> {
+        Some(
+            self.kernels
+                .clone()
+                .unwrap_or_else(|| Arc::new(dense::Faer) as Arc<dyn dense::DenseKernels>),
+        )
     }
 }
 

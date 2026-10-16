@@ -33,6 +33,10 @@ struct JobFile {
     timeout_minutes: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     solver: Option<SolverFile>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    device: Option<toml::Table>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    circuit: Option<toml::Table>,
     #[serde(default)]
     task: toml::Table,
 }
@@ -91,9 +95,13 @@ pub struct Job {
     timeout: Option<Duration>,
     solver: Option<SolverFile>,
     direct: Choice,
+    device: Option<toml::Table>,
+    circuit: Option<toml::Table>,
     task: toml::Table,
     text: String,
     format: Format,
+    /// The folder of the file it was read from, where the files it names are found.
+    dir: Option<PathBuf>,
 }
 
 impl Job {
@@ -110,6 +118,11 @@ impl Job {
     /// [task]                   # read by the solver that runs the job
     /// width_um = 0.5
     /// ```
+    ///
+    /// or, in place of a task, a `[device]` table: one of [`crate::device`]'s devices with its
+    /// stack, its parameters' expressions and its fidelity ([`crate::device::Spec`]); or, beside
+    /// a task, a `[circuit]` table: a chip of devices and components
+    /// ([`crate::job::ChipDesign`]).
     ///
     /// # Errors
     ///
@@ -169,9 +182,12 @@ impl Job {
             timeout,
             solver: file.solver,
             direct,
+            device: file.device,
+            circuit: file.circuit,
             task: file.task,
             text: text.to_owned(),
             format,
+            dir: None,
         })
     }
 
@@ -184,13 +200,34 @@ impl Job {
     pub fn load(path: &Path) -> Result<Job> {
         let text = fs::read_to_string(path).map_err(|e| io(path, &e))?;
         let format = Format::from_path(path).unwrap_or(Format::Toml);
-        Job::parse_as(&text, format).map_err(|e| match e {
+        let job = Job::parse_as(&text, format).map_err(|e| match e {
             Error::Parse { reason, .. } => Error::Parse {
                 what: path.display().to_string(),
                 reason,
             },
             other => other,
+        })?;
+        Ok(match path.parent() {
+            Some(dir) => job.in_dir(dir),
+            None => job,
         })
+    }
+
+    /// The same job, the files it names found from `dir`: a design's compact model
+    /// (`compact = "ring.compact.json"` in its `[device]` table). [`Job::load`] sets it to the
+    /// file's folder.
+    #[must_use]
+    pub fn in_dir(self, dir: impl Into<PathBuf>) -> Job {
+        Job {
+            dir: Some(dir.into()),
+            ..self
+        }
+    }
+
+    /// The folder the files the job names are found from, if it has one: the folder of the file
+    /// it was loaded from, or one [`Job::in_dir`] gave.
+    pub fn dir(&self) -> Option<&Path> {
+        self.dir.as_deref()
     }
 
     /// The job's name.
@@ -206,6 +243,18 @@ impl Job {
     /// The task, for the solver to read.
     pub fn task(&self) -> &toml::Table {
         &self.task
+    }
+
+    /// The job's `[device]` table, if it has one: a device's design
+    /// ([`crate::device::Spec::from_table`] reads it).
+    pub fn device(&self) -> Option<&toml::Table> {
+        self.device.as_ref()
+    }
+
+    /// The job's `[circuit]` table, if it has one: a chip of devices and components
+    /// ([`crate::job::ChipDesign::from_table`] reads it).
+    pub fn circuit(&self) -> Option<&toml::Table> {
+        self.circuit.as_ref()
     }
 
     /// The direct solver the job asks for in its `[solver]` table: `auto` unless it names one.
@@ -235,6 +284,8 @@ impl Job {
             name: self.name.clone(),
             timeout_minutes: self.timeout_minutes,
             solver: self.solver.clone(),
+            device: self.device.clone(),
+            circuit: self.circuit.clone(),
             task: self.task.clone(),
         };
         let write = |reason: String| Error::Parse {
@@ -288,6 +339,8 @@ pub struct Run {
     // behind a mutex, so a run stays Sync, UnwindSafe and RefUnwindSafe as it was before the
     // farm gave it one (only `&mut self` ever reaches it, through `get_mut` or by taking it)
     points: Option<std::sync::Mutex<Box<dyn Points>>>,
+    /// While a task reads back what it recorded (a fit, its samples), each line recorded.
+    tap: Option<Vec<String>>,
 }
 
 /// Where a run's events go.
@@ -384,6 +437,7 @@ impl Run {
             started: Instant::now(),
             digest: FNV_OFFSET,
             points: None,
+            tap: None,
         })
     }
 
@@ -406,6 +460,7 @@ impl Run {
             started: Instant::now(),
             digest: FNV_OFFSET,
             points: None,
+            tap: None,
         }
     }
 
@@ -436,6 +491,17 @@ impl Run {
             m.into_inner()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
         })
+    }
+
+    /// Keeps a copy of every line recorded from now on, for [`Run::take_tap`]: a task that
+    /// reads back what it recorded, whoever solved it (this process or a farm's workers).
+    pub(crate) fn start_tap(&mut self) {
+        self.tap = Some(Vec::new());
+    }
+
+    /// The lines recorded since [`Run::start_tap`], and stops keeping them.
+    pub(crate) fn take_tap(&mut self) -> Vec<String> {
+        self.tap.take().unwrap_or_default()
     }
 
     /// The run's directory.
@@ -473,6 +539,9 @@ impl Run {
                 what: "event".into(),
                 reason: "an event's line has a newline".into(),
             });
+        }
+        if let Some(tap) = &mut self.tap {
+            tap.push(line.to_owned());
         }
         for b in line.bytes().chain(*b"\n") {
             self.digest = (self.digest ^ u64::from(b)).wrapping_mul(FNV_PRIME);
@@ -883,9 +952,12 @@ mod tests {
             timeout: Some(Duration::from_secs_f64(6.0)),
             solver: None,
             direct: Choice::Auto,
+            device: None,
+            circuit: None,
             task,
             text: String::new(),
             format: Format::Toml,
+            dir: None,
         };
         for format in Format::ALL {
             let again = Job::parse_as(&job.to_text(format).unwrap(), format).unwrap();

@@ -340,7 +340,7 @@ def test_the_python_page_runs(capsys: pytest.CaptureFixture[str]) -> None:
     # docs/python.md's Python blocks, in order; the first is the README's first example
     page = (ROOT / "docs" / "python.md").read_text(encoding="utf-8")
     blocks = re.findall(r"```python\n(.*?)```", page, re.DOTALL)
-    assert len(blocks) == 2
+    assert len(blocks) == 3
     for block in blocks:
         exec(compile(block, "docs/python.md", "exec"), {})
     out = capsys.readouterr().out.splitlines()
@@ -348,3 +348,113 @@ def test_the_python_page_runs(capsys: pytest.CaptureFixture[str]) -> None:
     # the strip on its 25 nm grid: TE-like, near the book's 2.443 (a 5 nm grid's number)
     n, te, shape = out[2].split(" ", 2)
     assert 2.43 < float(n) < 2.46 and float(te) > 0.9 and shape == "(32, 40)"
+    # the coupler's sweep, as the page says it prints
+    assert out[3] == "gap 0.15 um: L_x 23.4 um, across 0.385 at 1.55 um"
+    assert out[6] == "gap 0.30 um: L_x 89.5 um, across 0.030 at 1.55 um"
+    assert out[7].startswith("analytic | a fit to the full-vector solver")
+
+
+# --- devices --------------------------------------------------------------------------------
+
+
+def test_the_devices_are_the_studios() -> None:
+    kinds = [d.kind for d in po.devices()]
+    assert kinds[:3] == ["waveguide", "bend", "directional coupler"] and len(kinds) == 11
+    coupler = po.devices()[2]
+    gap = next(p for p in coupler.parameters if p.name == "gap")
+    assert (gap.unit, gap.default) == ("µm", 0.2) and gap.min < gap.default < gap.max
+    assert coupler.ports == ["o1", "o2", "o3", "o4"]
+    assert coupler.fidelities[0].fidelity == "analytic"
+    assert any("doi:" in paper for m in coupler.fidelities for paper in m.papers)
+
+
+def test_a_device_sweep_is_each_designs_spectrum() -> None:
+    w = np.linspace(1.5, 1.6, 21)
+    across = []
+    for gap in (0.15, 0.2, 0.3):
+        dc = po.device_spectrum("directional coupler", values={"gap": gap}, wavelength_um=w)
+        assert dc.s.shape == (21, 4, 4) and dc.ports == ["o1", "o2", "o3", "o4"]
+        assert dc.fidelity == "analytic" and dc.grid
+        # lossless up to the guide's 2.7 dB/cm, reciprocal
+        assert np.allclose(dc.s, np.swapaxes(dc.s, 1, 2))
+        across.append(np.abs(dc.s[10, 2, 0]) ** 2)
+        # one wavelength gives the same numbers as the sweep's
+        one = po.device_spectrum("directional coupler", values={"gap": gap}, wavelength_um=w[10])
+        assert np.array_equal(one.s[0], dc.s[10])
+    # the default length is the 3 dB length at 200 nm, so half crosses there
+    assert abs(across[1] - 0.5) < 0.01
+    # a wider gap couples less over the same length
+    assert across[0] > across[1] > across[2]
+
+
+def test_a_waveguides_figures_name_their_fidelity_and_grid() -> None:
+    figures = {f.symbol: f for f in po.device_derived("waveguide", values={"width": 0.45})}
+    n = figures["n_eff"]
+    assert n.fidelity == "analytic" and "grid" in n.grid and 2.2 < n.value < 2.5
+    rib = po.device_derived("rib waveguide")
+    assert all(f.fidelity == "2D" for f in rib)
+
+
+def test_a_devices_geometry_has_its_polygons_and_ports() -> None:
+    g = po.device_geometry("all-pass ring", values={"radius": 5.0})
+    si = next(layer for layer in g.layers if layer.name == "Si")
+    ring = next(p for p in si.polygons if p.holes)
+    # the ring's outline, counterclockwise, within 1 nm of its 5.25 µm outer radius
+    r = np.hypot(ring.outer[:, 0], ring.outer[:, 1] - np.mean(ring.outer[:, 1]))
+    assert ring.outer.shape[1] == 2 and abs(r.max() - 5.25) < 2e-3
+    assert [p.name for p in g.ports] == ["in", "through"]
+    assert g.ports[0].direction_deg == 180.0 and g.ports[0].width_um == 0.5
+
+
+def test_a_device_job_runs_to_the_same_numbers(tmp_path: Path) -> None:
+    job = po.device_job("all-pass ring", values={"radius": 5.0})
+    assert job["device"]["kind"] == "all-pass ring" and job["task"]["kind"] == "spectrum"
+    assert "[device]" in po.device_job("all-pass ring", values={"radius": 5.0}, format="toml")
+    run = po.run_job(job, runs_dir=tmp_path)
+    s = [e for e in run.events if e["type"] == "s_parameters"]
+    w = [e["wavelength_um"] for e in s]
+    direct = po.device_spectrum("all-pass ring", values={"radius": 5.0}, wavelength_um=w)
+    recorded = np.array([[[complex(*v) for v in row] for row in e["s"]] for e in s])
+    assert np.array_equal(recorded, direct.s)
+
+
+def test_a_design_that_isnt_one_raises() -> None:
+    with pytest.raises(po.errors.InvalidValue, match="no parameter gap"):
+        po.device_spectrum("waveguide", values={"gap": 0.2}, wavelength_um=1.55)
+    with pytest.raises(ValueError, match="width"):
+        po.device_derived("waveguide", values={"width": 50.0})
+    with pytest.raises(ValueError, match="2D"):
+        po.device_derived("waveguide", fidelity="2D")
+
+
+def test_a_netlist_names_devices_with_their_design() -> None:
+    w = np.linspace(1.5, 1.6, 11)
+    ports = {f"o{k}": f"dc.o{k}" for k in range(1, 5)}
+    design = {"kind": "directional coupler", "parameters": {"gap": 0.3}}
+    s = po.circuit_spectrum(instances={"dc": {"device": design}}, ports=ports, wavelength_um=w)
+    assert np.array_equal(s.s, po.device_spectrum("directional coupler", values={"gap": 0.3}, wavelength_um=w).s)
+    # an expression, as a job's [device] table takes it, gives the same design
+    design = {"kind": "directional coupler", "parameters": {"gap": "300 nm"}}
+    again = po.circuit_spectrum(instances={"dc": {"device": design}}, ports=ports, wavelength_um=w)
+    assert np.array_equal(again.s, s.s)
+
+
+def test_a_compact_model_fitted_by_a_job_is_a_fidelity(tmp_path: Path) -> None:
+    fit = {
+        "name": "ring-compact",
+        "device": {"kind": "all-pass ring", "fidelity": "analytic"},
+        "task": {"kind": "fit", "from_um": 1.54, "to_um": 1.56, "points": 21, "held_out": 2,
+                 "poles": 8, "degree": 2,
+                 "axis": [{"parameter": "gap", "from": 0.15, "to": 0.25, "points": 4}]},
+    }
+    model = po.run_job(fit, runs_dir=tmp_path).dir / "compact.json"
+    w = np.linspace(1.545, 1.555, 5)
+    compact = po.device_spectrum("all-pass ring", values={"gap": 0.21}, fidelity="compact",
+                                 compact=model, wavelength_um=w)
+    exact = po.device_spectrum("all-pass ring", values={"gap": 0.21}, wavelength_um=w)
+    assert compact.fidelity == "compact" and np.abs(compact.s - exact.s).max() < 1e-3
+    # the same model through MATLAB's side
+    from photonoxide import matlab
+    r = matlab.device_spectrum("all-pass ring", '{"gap": 0.21}', "compact", list(w), "", str(model))
+    s = np.asarray(r["s"]["re"]) + 1j * np.asarray(r["s"]["im"])
+    assert np.array_equal(s.reshape([int(n) for n in r["s"]["shape"]], order="F"), compact.s)

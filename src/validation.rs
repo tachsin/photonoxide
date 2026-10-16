@@ -396,6 +396,20 @@ pub fn cases() -> Vec<Case> {
             run: multilayer_bragg,
         },
         Case {
+            id: "mode/multilayer-derivatives",
+            title: r"The derivatives of a plane wave's reflectance and transmittance in each film's thickness and index (three films, one lossy, on glass at 850 nm, TE and TM at 0 and 0.6 rad), by the transfer matrices' product rule, against fourth-order central differences (largest difference, relative to the derivative, shown)",
+            tier: Tier::Analytic,
+            source: r"the derivatives' definition: $(f(x-2h) - 8f(x-h) + 8f(x+h) - f(x+2h))/12h$, h = 1e-4 µm or 1e-4 in the index, its error $O(h^4)$",
+            run: multilayer_derivatives,
+        },
+        Case {
+            id: "mode/multilayer-quarter-wave-stationary",
+            title: r"Bennet's Bragg mirror, 20 quarter-wave layers of 1.8 and 1.4 on 1.8 at 600 nm: the largest $\lvert \partial R/\partial d \rvert$ over its layers, per µm (shown), and its reflectance against the closed form",
+            tier: Tier::Analytic,
+            source: r"the quarter-wave stack is a stationary point of its reflectance in every thickness at its design wavelength; $R = \left(\frac{1 - q}{1 + q}\right)^2$, $q = (1.8/1.4)^{20} \cdot 1.8$, is 0.985521 (P. Bennet et al., J. Opt. Soc. Am. B 41, A126 (2024), doi:10.1364/JOSAB.506389, the optimum their Fig. 7c shows)",
+            run: multilayer_quarter_wave_stationary,
+        },
+        Case {
             id: "mode/pml-soi-leakage-te",
             title: r"The loss of 220 nm SOI's TE mode leaking through 0.5 µm of buried oxide into the substrate, full-vector with a PML (1 µm, strength 3), 2.5 nm grid (relative error in $\operatorname{Im} n_\text{eff}$ shown)",
             tier: Tier::Analytic,
@@ -893,48 +907,6 @@ pub fn cases() -> Vec<Case> {
             run: fdfd3d_qmr_matrix_free_threads,
         },
         Case {
-            id: "fdfd3d/multigrid-stencil-direct",
-            title: r"3D FDFD by GMRES on Shin and Fan's operator without its matrix, preconditioned by the multigrid without its finest matrix (the finest level from the stencil, smoothed by damped Jacobi; the coarse operators Galerkin's from the stencil's rows, and discretized again), to a relative residual of 1e-10, against the sparse direct solver: fdfd3d/gmres-multigrid-direct's strip, $24 \times 20 \times 16$ cells of 40 nm, stretched PMLs of 6 cells all round (the larger of the two largest field differences relative to the largest field shown)",
-            tier: Tier::Analytic,
-            source: r"the same system solved two ways; Erlangga, Oosterlee and Vuik's ω-Jacobi smoother for the shifted operator (SIAM J. Sci. Comput. 27, 1471 (2006), doi:10.1137/040615195, Section 4.3) in place of ILU(0) on the finest level, and the product and the diagonal from the stencil (docs/methods/multigrid-stencil.md); measured 2.5e-10 in 23 iterations with Galerkin's coarse operators and 3.2e-10 in 30 with them discretized again, against the stored matrix's multigrid's 2.0e-10 in 24",
-            run: fdfd3d_multigrid_stencil_direct,
-        },
-        Case {
-            id: "fdfd3d/multigrid-stencil-s-matrix",
-            title: r"3D FDFD S-matrices over a wavelength sweep by GMRES with the multigrid without the finest matrix (Galerkin's coarse operators from the stencil, and discretized again), one plain solve per port and recycled (GCRO-DR keeping 10 vectors, the last 4 solutions), against the stored matrix's multigrid's plain sweep: the coupler of fdfd3d/recycle-s-matrix ($18 \times 32 \times 24$ cells of 50 nm, stretched PMLs of 4 all round, one mode at each end, at 1.53, 1.54, 1.55 and 1.56 µm), all to a relative residual of 1e-11 (largest difference of an entry shown)",
-            tier: Tier::Analytic,
-            source: "the same systems solved with two preconditioners: the preconditioner changes the iterations, not the solution, so each field is held to its own residual and the S-matrices agree within the residual times the condition; measured 5.7e-12 plain and 4.8e-12 recycled with Galerkin's coarse operators, 8.4e-12 and 5.6e-12 with them discretized again; the plain sweeps' iterations 417 and 559 against the stored matrix's 444",
-            run: fdfd3d_multigrid_stencil_s_matrix,
-        },
-        Case {
-            id: "fdfd3d/multigrid-stencil-threads",
-            title: "The coupler's recycled sweep by the multigrid without the finest matrix (fdfd3d/multigrid-stencil-s-matrix's, Galerkin's coarse operators, 1.54 to 1.56 µm, 1e-10) on 1 and on 4 threads: its S-matrices' entries whose bits differ, and its iterations (count shown)",
-            tier: Tier::Analytic,
-            source: "each pass of the stencil's product writes its rows on rayon's threads, a row its own task and each value a fixed sum; the Jacobi sweep and every vector operation are passes over fixed chunks; the Galerkin rows and the coarse levels' smoothers as for the stored matrix (fdfd3d/recycle-threads): the same computation on any number of threads",
-            run: fdfd3d_multigrid_stencil_threads,
-        },
-        Case {
-            id: "fdfd3d/multigrid-stencil-refinement",
-            title: r"Convergence as the grid refines: GMRES's iterations to a relative residual of 1e-8 on fdfd3d/gmres-multigrid-direct's strip ($0.96 \times 0.8 \times 0.64$ µm, a point current at its centre) on cells of 40, 30 and 20 nm ($24 \times 20 \times 16$, $32 \times 26 \times 22$ and $48 \times 40 \times 32$, stretched PMLs of 6, 8 and 12 cells), by the stored matrix's multigrid and without the finest matrix (Galerkin's coarse operators, and discretized again): the largest of each one's iterations at 20 nm over its iterations at 40 nm (shown)",
-            tier: Tier::Analytic,
-            source: "a multigrid's convergence doesn't depend on the step (Erlangga, Oosterlee and Vuik, SIAM J. Sci. Comput. 27, 1471 (2006), doi:10.1137/040615195, Section 4.3, for the shifted operator with ω-Jacobi): on a box of fixed size, the iterations stay level as the cells halve; measured 18, 16 and 16 iterations by the stored matrix's multigrid, 18, 17 and 19 without the finest matrix, 23, 21 and 23 discretized again: at most 1.06 times as many at 20 nm as at 40",
-            run: fdfd3d_multigrid_stencil_refinement,
-        },
-        Case {
-            id: "fdfd3d/multigrid-stencil-plane-waves",
-            title: r"The finest level's smoother without its matrix (damped Jacobi, ω = 0.8, on Shin and Fan's operator shifted by k₀²(1 + 0.5i)ε from its stencil) on every plane wave of each component in a uniform periodic box ($8 \times 6 \times 10$ cells of 30, 40 and 50 nm, ε = 2.25, 1.55 µm): its damping against the Fourier symbol $S = 1 - \omega\lambda/d$, $\lambda = k_0^2(1 + i\beta)\varepsilon - \sum_a 4\sin^2(\theta_a/2)/h_a^2$, $d = k_0^2(1 + i\beta)\varepsilon - \sum_a 2/h_a^2$ (largest difference shown)",
-            tier: Tier::Analytic,
-            source: r"in a uniform medium Shin and Fan's operator is the vector Laplacian plus $k_0^2(1 + i\beta)\varepsilon$ ($\nabla\times\nabla\times - \nabla\nabla\cdot = -\Delta$ holds exactly on Yee's grid), so each plane wave is an eigenvector with that eigenvalue, and $d$ is the stencil's diagonal; the symbol is Erlangga, Oosterlee and Vuik's (SIAM J. Sci. Comput. 27, 1471 (2006), doi:10.1137/040615195, Section 4.3, Remark: Smoothing) in 3D; every swept wave a multiple of itself to 1e-12",
-            run: fdfd3d_multigrid_stencil_plane_waves,
-        },
-        Case {
-            id: "fdfd3d/multigrid-stencil-smoothing-factors",
-            title: r"The smoothing factors of the finest level's damped Jacobi without its matrix, on the $E_z$ of a 2D slice (one cell along z, periodic; walls on x and y; vacuum; $k_0 = 40$ on the unit square) for Shin and Fan's operator shifted by $\beta$ = 0, 1 and 0.5 with ω = 0.7, 0.7 and 0.5, on h = 1/64, 1/32, 1/16 and 1/8: μ, the largest $\lvert S\rvert^2$ over the sine modes with ℓ or m at least N/2, S each mode's damping by one sweep (largest difference from the published values shown)",
-            tier: Tier::Published,
-            source: r"Y. A. Erlangga, C. W. Oosterlee, C. Vuik, SIAM J. Sci. Comput. 27, 1471 (2006), doi:10.1137/040615195, Table 5, its rows with $\beta_1 = 1$: 0.47, 0.75, 2.31, 0.18; 0.47, 0.56, 0.35, 0.13; 0.60, 0.77, 0.81, 0.32 (two decimals; μ for two sweeps, the low frequencies projected out, their Section 4.2); measured 0.4725, 0.7597, 2.312, 0.1791; 0.4681, 0.5646, 0.3449, 0.1269; 0.6023, 0.7714, 0.8071, 0.3207, each their Fourier symbol's to 2e-14, so within one unit of their last digit (their 0.75 and 0.35 are 0.7597 and 0.3449 by it)",
-            run: fdfd3d_multigrid_stencil_smoothing_factors,
-        },
-        Case {
             id: "fdfd3d/recycle-parks-table",
             title: r"Parks et al.'s Section 4.4 rebuilt: $u_{xx} + u_{yy} = 0$ on the unit square by central differences, $h = 1/41$ (1600 unknowns), $u = 0$ on two sides and 1 on the others, GCRO-DR(25, 10) from zero to 1e-10; the cosines of the principal angles between the space it recycles and the invariant subspace of the 10 eigenvalues of smallest magnitude: five at 1 and five at 0, the largest departure (shown)",
             tier: Tier::Published,
@@ -982,6 +954,13 @@ pub fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: r"a CPML graded as FDFD's ($R = 10^{-8}$, order 3) reflects less as it thickens: measured 2.6e-2 at 4 cells, 1.2e-4 at 8 and 6.1e-6 at 16. Roden and Gedney's own case, a plate in soil, is the cpml_roden_gedney example",
             run: fdtd_cpml_thickness,
+        },
+        Case {
+            id: "fdtd/cpml-late-growth",
+            title: r"FDTD over 1500 µm/c ($10^5$ steps) with a guide running into its CPMLs: a strip of $\varepsilon = 6$, $0.3 \times 0.3$ µm, in vacuum ($72 \times 40 \times 40$ cells of 25 nm, CPMLs of 12 cells, Courant number 0.99), lit from a dipole off its axes by a differentiated Gaussian 0.03 µm/c wide, which lights the grid's own waves: the largest ratio of the fields' energy to its value 500 µm/c before",
+            tier: Tier::Analytic,
+            source: r"a passive system's energy only falls once its source has ended. On cells of 50 nm (CPMLs of 6, as thick) this strip's grows as $e^{0.066 ct}$ (4.4e14 by this measure; lit by a pulse at 1 c/µm, it falls for 300 µm/c first), at 3.0 c/µm, 2.7 cells a wavelength in its core: a wave of the grid, which a PML amplifies if its phase and group velocities point opposite ways along it (P.-R. Loh, A. F. Oskooi, M. Ibanescu, M. Skorobogatiy, S. G. Johnson, Phys. Rev. E 79, 065601 (2009), doi:10.1103/PhysRevE.79.065601). On cells of 25 and 12.5 nm it decays (docs/methods/fdtd.md, Late growth); measured 0.62",
+            run: fdtd_cpml_late_growth,
         },
         Case {
             id: "fdtd/spectrum",
@@ -1677,14 +1656,44 @@ pub fn cases() -> Vec<Case> {
             run: crate::circuit::components::measured::dwivedi_ng_805,
         },
     ];
+    // the devices' cases, after the components they build, live with them
+    cases.extend(crate::device::checks::cases());
+    cases.extend(crate::device::splitter_checks::cases());
+    // and their studies, which run as jobs
+    cases.extend(crate::job::study_cases());
+    cases.extend(crate::job::fit_cases());
+    // and their optimizations' objectives
+    cases.extend(crate::job::optimize_cases());
+    // and chips of devices, computed, studied and optimized
+    cases.extend(crate::job::chip_cases());
     // the compact models' cases live with them
     cases.extend(crate::compact::checks::cases());
     // and the geometry kernel's
     cases.extend(crate::geometry::checks::cases());
+    // and its paths', with the published bends
+    cases.extend(crate::geometry::path_checks::cases());
+    // and its shapes defined by functions and masks, with the published Y-junction
+    cases.extend(crate::geometry::curve_checks::cases());
+    // and its booleans, offsets and corner rounding, with the Y-junction drawn as a union
+    cases.extend(crate::geometry::boolean_checks::cases());
+    // and its arrays, lattices and references, with the L3 cavity of Akahane et al. drawn
+    cases.extend(crate::geometry::array_checks::cases());
+    // and its bodies in space, with the L3 cavity as one, and FDTD's smoothing on them
+    cases.extend(crate::geometry::body_checks::cases());
+    // and graded media, in the planar mode solver and in FDTD
+    cases.extend(crate::material::graded_checks::cases());
+    // and the component generators', with their ports, the devices drawn with them
+    cases.extend(crate::generator::checks::cases());
+    cases.extend(crate::job::component_cases());
     // and the contour solver's, every mode in a region
     cases.extend(crate::mode::region::checks::cases());
     // and the shift-and-invert solver's restarts, many modes, and every guided mode
     cases.extend(crate::eigen::checks::cases());
+    // and the stacks' etches and sidewalls, as the mode solver reads them
+    cases.extend(crate::stack::checks::cases());
+    // and the averaging from the fill, and FDFD reading it, with Farjadpour et al.'s crystal
+    cases.extend(crate::averaging::checks::cases());
+    cases.extend(crate::fdfd::fill_checks::cases());
     cases
 }
 
@@ -2134,6 +2143,32 @@ fn fdtd_cpml_thickness() -> Outcome {
         expected: 0.0,
         // measured 6.1e-6: −104 dB
         tolerance: 1e-4,
+        error: measured,
+    }
+}
+
+fn fdtd_cpml_late_growth() -> Outcome {
+    use crate::fdtd::{Cpml, checks};
+    // 1500 µm/c
+    let strip = checks::late_strip(
+        0.025,
+        12,
+        Cpml::default(),
+        checks::late_broadband(),
+        104_973,
+    );
+    // blocks of 50 µm/c: each over the one ten before it
+    let measured = strip
+        .energy
+        .windows(11)
+        .map(|w| w[10] / w[0])
+        .fold(0.0, f64::max);
+    Outcome {
+        measured,
+        expected: 0.0,
+        // falling throughout, the grid's waves at 7 c/µm and a static remnant slowly (on cells
+        // of 50 nm, 4.4e14)
+        tolerance: 1.0,
         error: measured,
     }
 }
@@ -3144,122 +3179,6 @@ fn fdfd3d_qmr_matrix_free_threads() -> Outcome {
     }
 }
 
-/// The multigrid without its finest matrix as `with_multigrid` takes it, `coarse` its coarse
-/// operators.
-fn stencil_multigrid(coarse: crate::fdfd::Coarse) -> crate::fdfd::Multigrid {
-    crate::fdfd::Multigrid {
-        coarse,
-        ..crate::fdfd::Multigrid::default()
-    }
-}
-
-fn fdfd3d_multigrid_stencil_direct() -> Outcome {
-    use crate::fdfd::{Coarse, Product};
-    let worst = [Coarse::Galerkin, Coarse::Rediscretized]
-        .into_iter()
-        .map(|coarse| {
-            crate::fdfd::checks3d::multigrid_of_against_direct(
-                Product::MatrixFree,
-                stencil_multigrid(coarse),
-            )
-            .0
-        })
-        .fold(0.0, f64::max);
-    Outcome {
-        measured: worst,
-        expected: 0.0,
-        // as the stored matrix's multigrid's: a residual of 1e-10 bounds the error by the
-        // condition number times it
-        tolerance: 1e-8,
-        error: worst,
-    }
-}
-
-fn fdfd3d_multigrid_stencil_s_matrix() -> Outcome {
-    use crate::fdfd::Coarse;
-    let worst = [Coarse::Galerkin, Coarse::Rediscretized]
-        .into_iter()
-        .map(|coarse| {
-            let (plain, recycled, _, _) =
-                crate::fdfd::recycle_checks3d::stencil_against_stored(stencil_multigrid(coarse));
-            plain.max(recycled)
-        })
-        .fold(0.0, f64::max);
-    Outcome {
-        measured: worst,
-        expected: 0.0,
-        // every field to a residual of 1e-11: the S-matrices within its condition times it
-        tolerance: 1e-9,
-        error: worst,
-    }
-}
-
-fn fdfd3d_multigrid_stencil_threads() -> Outcome {
-    use crate::fdfd::recycle_checks3d::{Solve, thread_differences_of};
-    let differ = thread_differences_of(Solve::MultigridFree(stencil_multigrid(
-        crate::fdfd::Coarse::Galerkin,
-    )));
-    Outcome {
-        measured: differ,
-        expected: 0.0,
-        tolerance: 0.0,
-        error: differ,
-    }
-}
-
-fn fdfd3d_multigrid_stencil_refinement() -> Outcome {
-    let runs = crate::fdfd::stencil_checks3d::refinement();
-    let all = runs.iter().flatten().all(|&i| i > 0);
-    let growth = runs
-        .iter()
-        .map(|r| r[2] as f64 / r[0] as f64)
-        .fold(0.0, f64::max);
-    Outcome {
-        measured: growth,
-        expected: 0.0,
-        // level: 1.06 measured; a step-dependent method would double them
-        tolerance: 1.5,
-        error: if all { growth } else { f64::INFINITY },
-    }
-}
-
-fn fdfd3d_multigrid_stencil_plane_waves() -> Outcome {
-    let (worst, departure) = crate::fdfd::stencil_checks3d::plane_wave_damping();
-    Outcome {
-        measured: worst,
-        expected: 0.0,
-        // rounding: the damping is a ratio of sums over a few thousand values
-        tolerance: 1e-12,
-        error: if departure <= 1e-12 {
-            worst
-        } else {
-            f64::INFINITY
-        },
-    }
-}
-
-fn fdfd3d_multigrid_stencil_smoothing_factors() -> Outcome {
-    use crate::fdfd::stencil_checks3d::{TABLE_5, table_5};
-    let (rows, departure) = table_5();
-    let worst = rows
-        .iter()
-        .zip(&TABLE_5)
-        .flat_map(|(ours, (_, _, theirs))| ours.iter().zip(theirs).map(|(p, q)| (p - q).abs()))
-        .fold(0.0f64, |m, d| if d.is_nan() { f64::NAN } else { m.max(d) });
-    Outcome {
-        measured: worst,
-        expected: 0.0,
-        // one unit of their two decimals: their 0.75 at (1, 0), h = 1/32, is 0.7597 by their
-        // own symbol, and 0.35 at (1, 1), h = 1/16, 0.3449
-        tolerance: 0.01,
-        error: if departure <= 1e-12 {
-            worst
-        } else {
-            f64::INFINITY
-        },
-    }
-}
-
 fn fdfd3d_recycle_parks_table() -> Outcome {
     let cosines = crate::fdfd::krylov::recycle_example::table_cosines();
     let departure = if cosines.len() == 10 {
@@ -3967,6 +3886,84 @@ fn multilayer_bragg() -> Outcome {
         expected,
         tolerance: 1e-12,
         error: (measured - expected).abs(),
+    }
+}
+
+fn multilayer_derivatives() -> Outcome {
+    use crate::mode::multilayer::Multilayer;
+    let films = [
+        (Complex64::new(2.1, 0.0), 0.13),
+        (Complex64::new(1.46, 0.002), 0.21),
+        (Complex64::new(3.2, 0.0), 0.07),
+    ];
+    let stack = |f: &[(Complex64, f64)]| {
+        let f: Vec<(Complex64, Length)> = f.iter().map(|&(n, d)| (n, Length::um(d))).collect();
+        Multilayer::new(Complex64::new(1.0, 0.0), &f, Complex64::new(1.52, 0.0))
+    };
+    let run = || -> crate::Result<f64> {
+        let lam = Wavelength::um(0.85)?;
+        let mut worst: f64 = 0.0;
+        for pol in [Polarization::Te, Polarization::Tm] {
+            for angle in [0.0, 0.6] {
+                let d = stack(&films)?.reflection_derivatives(pol, lam, angle)?;
+                for j in 0..films.len() {
+                    for (by_index, exact) in [(false, d.by_thickness[j]), (true, d.by_index[j])] {
+                        let h = 1e-4;
+                        let at = |k: f64| -> crate::Result<(f64, f64)> {
+                            let mut f = films;
+                            if by_index {
+                                f[j].0 += k * h;
+                            } else {
+                                f[j].1 += k * h;
+                            }
+                            let r = stack(&f)?.reflection(pol, lam, angle)?;
+                            Ok((r.reflectance, r.transmittance))
+                        };
+                        let (m2, m1, p1, p2) = (at(-2.0)?, at(-1.0)?, at(1.0)?, at(2.0)?);
+                        let fd = |g: fn((f64, f64)) -> f64| {
+                            (g(m2) - 8.0 * g(m1) + 8.0 * g(p1) - g(p2)) / (12.0 * h)
+                        };
+                        for (e, f) in [(exact.0, fd(|v| v.0)), (exact.1, fd(|v| v.1))] {
+                            worst = worst.max((e - f).abs() / e.abs().max(1.0));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(worst)
+    };
+    let worst = run().unwrap_or(f64::INFINITY);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-9,
+        error: worst,
+    }
+}
+
+fn multilayer_quarter_wave_stationary() -> Outcome {
+    use crate::mode::multilayer::Multilayer;
+    let films: Vec<(Complex64, Length)> = (0..20)
+        .map(|k| {
+            let n = if k % 2 == 0 { 1.8 } else { 1.4 };
+            (Complex64::new(n, 0.0), Length::um(0.6 / (4.0 * n)))
+        })
+        .collect();
+    let q = 1.8 * (1.8f64 / 1.4).powi(20);
+    let closed = ((1.0 - q) / (1.0 + q)).powi(2);
+    let (largest, r) = Multilayer::new(Complex64::new(1.0, 0.0), &films, Complex64::new(1.8, 0.0))
+        .and_then(|s| s.reflection_derivatives(Polarization::Te, Wavelength::um(0.6)?, 0.0))
+        .map_or((f64::NAN, f64::NAN), |d| {
+            (
+                d.by_thickness.iter().fold(0.0f64, |a, v| a.max(v.0.abs())),
+                d.reflection.reflectance,
+            )
+        });
+    Outcome {
+        measured: largest,
+        expected: 0.0,
+        tolerance: 1e-11,
+        error: largest.max((r - closed).abs()),
     }
 }
 

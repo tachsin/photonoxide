@@ -83,7 +83,7 @@
             <p class="text-xs leading-relaxed muted">Text, panels, buttons and plots take these colours; the 3D view's backdrop is the darker surface.</p>
             <div class="flex flex-wrap items-center gap-2">
               <span class="btn btn-primary btn-xs">Run</span>
-              <span class="btn btn-xs">Edit</span>
+              <span class="btn btn-xs">Open</span>
               <span class="badge badge-soft badge-primary badge-sm">modes</span>
               <span class="badge badge-soft badge-secondary badge-sm">TM-like</span>
               <span class="badge badge-soft badge-success badge-sm">passed</span>
@@ -144,7 +144,7 @@
       <div class="mt-5 flex items-center justify-between">
         <div>
           <p class="text-sm font-medium">Runs open in</p>
-          <p class="text-xs faint">The view a run shows first; the switch is in the viewer.</p>
+          <p class="text-xs faint">The view a run shows first; the switch is in the run view.</p>
         </div>
         <div class="join">
           <button class="btn join-item btn-sm {s.view === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => updateSettings((x) => (x.view = "3d"))}>3D</button>

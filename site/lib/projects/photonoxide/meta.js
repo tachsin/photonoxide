@@ -102,7 +102,7 @@ export const PHOTONOXIDE_HIGHLIGHTS = [
     icon: "studio",
     title: "The studio",
     milestone: "0.3.1",
-    body: "A desktop app on a workspace: the examples built in, a job builder with a 3D preview, runs live in 3D and 2D, run comparison, the materials, the validation report, the Academy's lessons, and Stable and Nightly channels.",
+    body: "A desktop app on a workspace: the examples built in, each component on its page and a Custom device with a 3D view, runs live in 3D and 2D, run comparison, the materials, the validation report, the Academy's lessons, and Stable and Nightly channels.",
   },
   {
     icon: "circuits",
@@ -237,6 +237,8 @@ export const FALLBACK_MILESTONES = [
   "0.5: Finite-difference time-domain (FDTD) ✅",
   "0.5.1: Channels, more backends, and every mode in a region ✅",
   "0.5.2: Many solves at once ✅",
+  "0.5.3: QMR without the matrix ✅",
+  "0.5.4: Geometry and devices ✅",
   "0.6: Thermal and electro-optic devices",
   "0.6.1: Nonlinear integrated optics",
   "0.6.2: Quantum light and linear-optical statistics",

@@ -86,6 +86,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             published_report,
             method_docs,
             preview_scene,
+            preview_ports,
             save_text,
             crate::academy::academy,
             crate::academy::academy_chart,
@@ -113,11 +114,37 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::materials::materials,
             crate::materials::material_curves,
             crate::materials::material_at,
+            crate::devices::device_library,
+            crate::devices::device_geometry,
+            crate::devices::device_derived,
+            crate::devices::device_spectrum,
+            crate::devices::device_touchstone,
+            crate::devices::save_device,
+            crate::devices::read_device,
+            crate::devices::device_job,
+            crate::devices::device_study_job,
+            crate::devices::compact::device_fidelities,
+            crate::devices::compact::device_fit_job,
+            crate::devices::compact::compact_info,
+            crate::devices::optimizing::device_optimize_info,
+            crate::devices::optimizing::device_optimize_job,
+            crate::devices::optimizing::optimize_design,
+            crate::devices::device_job_read,
+            crate::devices::device_solved,
+            crate::form::job_form,
+            crate::form::form_text,
             crate::circuits::component_library,
             crate::circuits::component_spectrum,
             crate::circuits::measured_component,
+            crate::circuits::compact_component,
             crate::circuits::circuit_check,
             crate::circuits::circuit_simulate,
+            crate::circuits::chip::chip_device,
+            crate::circuits::chip::chip_device_ref,
+            crate::circuits::chip::chip_optimize_info,
+            crate::circuits::chip::chip_job,
+            crate::circuits::chip::chip_apply,
+            crate::circuits::chip::chip_of_job_text,
             crate::circuits::circuit_touchstone,
             crate::circuits::component_touchstone,
             crate::circuits::circuit_text,
@@ -397,12 +424,14 @@ fn save_settings(
 struct JobItem {
     path: String,
     name: String,
-    /// The task's kind, e.g. `"modes"`.
+    /// The task's kind, e.g. `"modes"`; `"device"` for a device's design.
     kind: String,
     /// The job file's opening comment.
     about: String,
     /// When it was last changed, seconds since 1970.
     modified: f64,
+    /// The device a design is of (its `[device]` table's kind), if it is one.
+    device: Option<String>,
 }
 
 /// A run in the workspace.
@@ -421,6 +450,61 @@ struct RunItem {
     seconds: Option<f64>,
     /// Why it stopped early, if it did.
     stopped: Option<String>,
+    /// The device its job computes or draws (its `[device]` table's kind), if it has one.
+    device: Option<String>,
+    /// That design's fidelity, as the job names it (`"analytic"`, `"2D"`, `"3D"`).
+    fidelity: Option<String>,
+    /// How the job computes it: its model at that fidelity (`"analytic"`, `"2D"`, `"2D FDFD"`
+    /// for an MMI's 2D model by FDFD, `"3D"`) or `"FDTD 2D"`, `"FDTD 3D"`; none for a design
+    /// alone.
+    computes: Option<String>,
+    /// A study of the device (its task a `sweep` or `corners`) or its optimization (`optimize`):
+    /// which; none for anything else.
+    study: Option<String>,
+}
+
+/// The device a run's job computes, the design's fidelity, how it computes it, and the study it
+/// makes of it if it is one, from the copy of the job in its directory.
+fn device_of(
+    dir: &Path,
+) -> (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
+    let job = ["toml", "json", "yaml"]
+        .iter()
+        .find_map(|ext| Job::load(&dir.join(format!("job.{ext}"))).ok());
+    let Some(job) = job else {
+        return (None, None, None, None);
+    };
+    let Some(spec) = job
+        .device()
+        .and_then(|t| photonoxide::device::Spec::from_table(t).ok())
+    else {
+        return (None, None, None, None);
+    };
+    let fidelity = crate::devices::SpecIn::of(&spec).fidelity;
+    let task = job.task();
+    let computes = match task.get("kind").and_then(toml::Value::as_str) {
+        Some("fdtd") => Some(format!(
+            "FDTD {}D",
+            task.get("dimensions")
+                .and_then(toml::Value::as_integer)
+                .unwrap_or(2)
+        )),
+        Some(_) if task.get("model_2d").and_then(toml::Value::as_str) == Some("fdfd") => {
+            Some("2D FDFD".into())
+        }
+        Some(_) => Some(fidelity.clone()),
+        None => None,
+    };
+    let study = match task.get("kind").and_then(toml::Value::as_str) {
+        Some(k @ ("sweep" | "corners" | "optimize" | "fit")) => Some(k.to_owned()),
+        _ => None,
+    };
+    (Some(spec.kind), Some(fidelity), computes, study)
 }
 
 #[derive(Serialize)]
@@ -442,6 +526,9 @@ fn home(state: tauri::State<'_, Studio>) -> Home {
 }
 
 fn kind_of(job: &Job) -> String {
+    if job.device().is_some() {
+        return "device".into();
+    }
     job.task()
         .get("kind")
         .and_then(|k| k.as_str())
@@ -474,6 +561,11 @@ fn jobs_in(dir: &Path) -> Vec<JobItem> {
                 kind: kind_of(&job),
                 about: about(text),
                 modified,
+                device: job
+                    .device()
+                    .and_then(|t| t.get("kind"))
+                    .and_then(toml::Value::as_str)
+                    .map(str::to_owned),
             })
         })
         .collect()
@@ -518,6 +610,7 @@ fn runs_in(dir: &Path, most: usize) -> Vec<RunItem> {
                 Some(Event::Finished { stopped, seconds }) => (true, Some(seconds), stopped),
                 _ => (false, None, None),
             };
+            let (device, fidelity, computes, study) = device_of(&d);
             RunItem {
                 dir: d.display().to_string(),
                 name: name_of(&d),
@@ -527,6 +620,10 @@ fn runs_in(dir: &Path, most: usize) -> Vec<RunItem> {
                 finished,
                 seconds,
                 stopped,
+                device,
+                fidelity,
+                computes,
+                study,
             }
         })
         .collect()
@@ -544,13 +641,13 @@ struct JobExample {
 
 /// What ships inside the program: the examples and the job files.
 #[derive(Serialize)]
-struct Catalog {
+pub(crate) struct Catalog {
     examples: Vec<examples::Example>,
     jobs: Vec<JobExample>,
 }
 
 #[tauri::command]
-fn catalog() -> Catalog {
+pub(crate) fn catalog() -> Catalog {
     Catalog {
         examples: examples::list(),
         jobs: examples::jobs()
@@ -610,7 +707,7 @@ fn start(studio: &Studio, window: &tauri::WebviewWindow, job: Job) -> Result<Inf
         std::thread::spawn(move || {
             // a failure is in the record (or the record ends without finishing): the window
             // shows it
-            let _ = job::execute(&job, &mut record, &stop);
+            let _ = crate::optimize::execute(&job, &mut record, &stop);
         })
     };
     lock(&studio.started).push(Started {
@@ -632,7 +729,7 @@ fn run_job(
     start(&state, &window, job)
 }
 
-/// Runs the job in `text`, written in `format` (from the builder, or a built-in one), and shows
+/// Runs the job in `text`, written in `format` (from the Custom device, or a built-in one), and shows
 /// it.
 #[tauri::command]
 fn run_text(
@@ -654,7 +751,7 @@ fn stop_run(state: tauri::State<'_, Studio>, dir: String) {
     }
 }
 
-/// A job's text checked: its parts for the builder's form, or why it isn't a job.
+/// A job's text checked: its parts for the Custom device's form, or why it isn't a job.
 #[derive(Serialize)]
 struct JobCheck {
     /// The text is a job file and its task fits its kind ([`job::check`]).
@@ -837,6 +934,14 @@ fn preview_scene(text: String) -> Result<Event, String> {
     job::preview(&job).map_err(|e| e.to_string())
 }
 
+/// The named ports of the job in `text`'s components (a device's ports, for a `[device]`), for
+/// the studio to mark on its scene.
+#[tauri::command]
+fn preview_ports(text: String) -> Result<Vec<job::ScenePort>, String> {
+    let job = Job::parse(&text).map_err(|e| e.to_string())?;
+    job::preview_ports(&job).map_err(|e| e.to_string())
+}
+
 /// Every event of the run in `dir`, for comparing runs.
 #[tauri::command]
 fn run_events(dir: String) -> Result<Vec<Event>, String> {
@@ -935,6 +1040,7 @@ method_docs!(
     "components.md",
     "contour.md",
     "conventions.md",
+    "devices.md",
     "dispersion.md",
     "eigen.md",
     "eim.md",
@@ -948,7 +1054,6 @@ method_docs!(
     "hadley.md",
     "marcatili.md",
     "materials.md",
-    "multigrid-stencil.md",
     "multilayer.md",
     "pml.md",
     "recycling.md",
@@ -1155,7 +1260,23 @@ mod tests {
             std::fs::write(root.join(name).join("events.jsonl"), format!("{last}\n")).unwrap();
         }
         std::fs::create_dir_all(root.join("not-a-run")).unwrap();
+        // a run of a job that computes a device says which, and how
+        std::fs::write(
+            root.join("20261001-120000-a").join("job.toml"),
+            "name = \"a\"\n\n[device]\nkind = \"MMI 1x2\"\nfidelity = \"2D\"\n\n[task]\nkind = \
+             \"spectrum\"\nmodel_2d = \"fdfd\"\n",
+        )
+        .unwrap();
         let runs = runs_in(&root, 40);
+        assert_eq!(
+            (
+                runs[1].device.as_deref(),
+                runs[1].fidelity.as_deref(),
+                runs[1].computes.as_deref()
+            ),
+            (Some("MMI 1x2"), Some("2D"), Some("2D FDFD"))
+        );
+        assert_eq!(runs[0].device, None);
         let names: Vec<&str> = runs.iter().map(|r| r.name.as_str()).collect();
         assert_eq!(names, ["20261002-120000-b", "20261001-120000-a"]);
         assert!(!runs[0].finished && runs[1].finished);

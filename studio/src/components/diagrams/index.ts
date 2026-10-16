@@ -8,10 +8,12 @@ import Bragg from "./Bragg.svelte";
 import Coupler from "./Coupler.svelte";
 import Mzi from "./Mzi.svelte";
 import Ring from "./Ring.svelte";
+import Slab from "./Slab.svelte";
 
 export const DRAWINGS: Record<string, Component> = {
   "bragg": Bragg,
   "coupler": Coupler,
   "mzi": Mzi,
   "ring": Ring,
+  "slab": Slab,
 };

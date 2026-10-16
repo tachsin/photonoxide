@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 import { intensityColour, mediumLook, pixels } from "./colours";
-import type { Mode, ModeField, Raster, Scene } from "./events";
+import type { Mode, ModeField, Raster, Scene, ScenePort } from "./events";
 import { CLEAR_OPACITY, type Look, type Looks } from "./layers";
 
 /**
@@ -189,6 +189,40 @@ function cutPlane(s: Scene, at: number, normal: "x" | "y"): THREE.Group {
 
 /** The cut's colour: the studio's accent, an amber that reads on both backdrops. */
 const CUT = "#e0a43a";
+
+/**
+ * Markers for the named ports of a job's components, on their layers' top faces: a bar across
+ * the guide's end, its width long, and an arrow the way light leaves by.
+ */
+export function portMarkers(s: Scene, ports: ScenePort[]): THREE.Group {
+  const group = new THREE.Group();
+  const points: THREE.Vector3[] = [];
+  for (const p of ports) {
+    const layer = s.layers.find((l) => l.name === p.layer);
+    const z = (layer ? layer.z_um[1] : s.z_um[1]) + 0.01;
+    const a = (p.direction_deg * Math.PI) / 180;
+    const [ox, oy] = [Math.cos(a), Math.sin(a)];
+    const [nx, ny] = [-oy, ox];
+    const [x, y] = p.position_um;
+    const half = p.width_um / 2;
+    const reach = Math.max(2 * p.width_um, 0.4);
+    const head = reach / 3;
+    const tip = [x + reach * ox, y + reach * oy];
+    const v = (px: number, py: number) => new THREE.Vector3(px, py, z);
+    points.push(v(x - half * nx, y - half * ny), v(x + half * nx, y + half * ny));
+    points.push(v(x, y), v(tip[0], tip[1]));
+    for (const side of [-1, 1]) {
+      points.push(v(tip[0], tip[1]), v(tip[0] - head * ox + side * head * 0.5 * nx, tip[1] - head * oy + side * head * 0.5 * ny));
+    }
+  }
+  if (points.length) {
+    const g = new THREE.BufferGeometry().setFromPoints(points);
+    const lines = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: CUT }));
+    lines.renderOrder = 102;
+    group.add(lines);
+  }
+  return group;
+}
 
 /** Frees the geometries and materials of what `structure` built (the shared edge materials stay). */
 export function dispose(group: THREE.Object3D) {
@@ -717,7 +751,7 @@ export class Preview3D {
    * where the scene's window ends), the window reaches as far in front of the cut as behind it,
    * and the cut is drawn as a plane, so the device shows whole and the cross-section's place on it.
    */
-  setScene(s: Scene, options: { cut?: number; normal?: "x" | "y" } = {}) {
+  setScene(s: Scene, options: { cut?: number; normal?: "x" | "y"; ports?: ScenePort[] } = {}) {
     for (const child of this.structure.children.slice()) {
       this.structure.remove(child);
       dispose(child);
@@ -729,6 +763,7 @@ export class Preview3D {
     const y = normal === "y" ? about(s.y_um) : s.y_um;
     this.structure.add(structure(s, new Set(), {}, x, y));
     if (cut !== undefined) this.structure.add(cutPlane(s, cut, normal));
+    if (options.ports?.length) this.structure.add(portMarkers(s, options.ports));
     const box = new THREE.Box3(new THREE.Vector3(x[0], y[0], s.z_um[0]), new THREE.Vector3(x[1], y[1], s.z_um[1]));
     box.getCenter(this.centre);
     box.getSize(this.size);

@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Before a push: the lints CI's Lint job runs (.github/lints.sh: fmt, clippy, docs), on the commit
+# being pushed, so a red Lint is caught here and not minutes later on CI. A lint that already
+# passed on this commit (here or in .github/full-suite.sh) isn't run again. Only when the push
+# changes Rust code or the manifests; `git push --no-verify` skips it.
+# Enabled by `git config core.hooksPath .github/hooks`.
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || exit 1
+zero=0000000000000000000000000000000000000000
+
+# which pushed commits change what the lints read
+rust=false
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue # a deleted branch
+  if [ "$remote_sha" = "$zero" ]; then
+    base=$(git merge-base "$local_sha" origin/main 2> /dev/null || echo "")
+    range=${base:+$base..}$local_sha
+  else
+    range=$remote_sha..$local_sha
+  fi
+  if git diff --name-only "$range" 2> /dev/null | grep -qE '\.rs$|(^|/)Cargo\.(toml|lock)$|^rust-toolchain|^\.cargo/'; then
+    rust=true
+    pushed=$local_sha
+  fi
+done
+[ "$rust" = true ] || exit 0
+
+if [ "$pushed" != "$(git rev-parse HEAD)" ]; then
+  echo "pre-push: the commit pushed (${pushed:0:7}) isn't the one checked out; its lints run on CI"
+  exit 0
+fi
+if ! git diff --quiet HEAD --; then
+  echo "pre-push: tracked files differ from the commit being pushed, so the lints wouldn't check it."
+  echo "Commit or stash them first (or push with --no-verify)."
+  exit 1
+fi
+
+# shellcheck source=../lints.sh
+source .github/lints.sh
+key=$(lint_key)
+failed=()
+for lint in "${LINTS[@]}"; do
+  name=${lint%%|*}
+  if lint_passed "$key" "$name"; then
+    echo "pre-push: $name passed on this commit already"
+    continue
+  fi
+  echo "pre-push: $name"
+  if eval "${lint#*|}"; then
+    lint_stamp "$key" "$name"
+  else
+    failed+=("$name")
+  fi
+done
+if [ ${#failed[@]} -gt 0 ]; then
+  echo
+  echo "pre-push: not pushed, these failed: ${failed[*]} (CI's Lint would fail the same way)"
+  exit 1
+fi

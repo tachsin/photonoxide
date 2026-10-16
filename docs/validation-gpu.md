@@ -23,80 +23,83 @@ Devices: NVIDIA GeForce RTX 4060 (Vulkan, NVIDIA 616.56) in Single; NVIDIA GeFor
 
 ## Every FDTD case on the GPU
 
-Each FDTD case of the main report run three times: on the CPU, then with every simulation it makes on the GPU in f64, then in f32. A simulation the GPU doesn't step yet (a Bloch phase, a dispersive medium, a smoothed tensor that couples E's components, a plane wave, the plain loops) falls back to the CPU; the last column but one is the share of the steps taken on the GPU. The tolerances are the main report's, set for f64: in f32 a case is shown within or beyond its tolerance, not held to it, and a case whose checks of its own f32 can't meet (a field decaying far below f32's rounding, say) stops short. 36 cases ran on the GPU, 34 on the CPU only or took no steps (analytic cases, and one whose runs are kept from before). The last column is the time on the CPU and on the GPU in f64, including the copies to and from the GPU at each run.
+Each FDTD case of the main report run three times: on the CPU, then with every simulation it makes on the GPU in f64, then in f32. A simulation the GPU doesn't step yet (a Bloch phase, a dispersive medium, a smoothed tensor that couples E's components, a plane wave, the plain loops) falls back to the CPU; the last column but one is the share of the steps taken on the GPU. The tolerances are the main report's, set for f64: in f32 a case is shown within or beyond its tolerance, not held to it, and a case whose checks of its own f32 can't meet (a field decaying far below f32's rounding, say) stops short. 37 cases ran on the GPU, 36 on the CPU only or took no steps (analytic cases, and one whose runs are kept from before). The last column is the time on the CPU and on the GPU in f64, including the copies to and from the GPU at each run.
 
 | Case | CPU | GPU, f64 | GPU, f32 | Tolerance | On the GPU | Time |
 |---|---|---|---|---|---|---|
 | `fdtd/dispersion` | 3.58e-15 pass | 3.51e-15 pass | 3.95e-8 beyond | 1e-12 | 100 % | 0.0 s / 0.1 s |
-| `fdtd/energy` | 2.35e-15 pass | 2.22e-15 pass | 2.56e-8 beyond | 1e-12 | 100 % | 0.0 s / 1.1 s |
-| `fdtd/fdfd-lossy` | 2.29e-14 pass | 2.29e-14 pass | 2.84e-7 beyond | 1e-10 | 100 % | 0.3 s / 2.1 s |
-| `fdtd/fdfd-cpml` | 3.47e-4 pass | 3.47e-4 pass | 3.47e-4 within | 5e-4 | 100 % | 3.3 s / 7.3 s |
-| `fdtd/cpml-thickness` | 6.13e-6 pass | 6.13e-6 pass | 6.28e-6 within | 1e-4 | 100 % | 0.2 s / 0.7 s |
-| `fdtd/spectrum` | 6.46e-13 pass | 6.46e-13 pass | 9.43e-8 beyond | 1e-10 | 100 % | 0.3 s / 8.5 s |
-| `fdtd/tfsf-leakage` | 1.20e-15 pass | 1.20e-15 pass | 1.20e-15 within | 1e-12 | CPU only | 2.6 s / 2.4 s |
-| `fdtd/tfsf-slab` | 3.31e-4 pass | 3.31e-4 pass | 3.31e-4 within | 1e-3 | CPU only | 1.3 s / 1.3 s |
-| `fdtd/mode-source-fdfd` | 2.50e-14 pass | 2.51e-14 pass | 1.50e-6 beyond | 1e-10 | 100 % | 1.8 s / 2.8 s |
-| `fdtd/mode-source-backward` | 1.52e-7 pass | 1.52e-7 pass | 1.52e-7 within | 1e-5 | 100 % | 3.8 s / 12.7 s |
-| `fdtd/mode-source-power` | 1.00005 pass | 1.00005 pass | 1.00005 within | 5e-4 | 100 % | 4.2 s / 12.5 s |
-| `fdtd/beam-waist` | 1.49999 pass | 1.49999 pass | 1.49999 within | 1e-3 | 100 % | 0.7 s / 2.4 s |
-| `fdtd/beam-divergence` | 2.69e-6 pass | 2.69e-6 pass | 2.71e-6 within | 1e-4 | 100 % | 0.7 s / 2.6 s |
-| `fdtd/beam-tilt` | 1.54e-4 pass | 1.54e-4 pass | 1.54e-4 within | 1e-3 | 100 % | 0.7 s / 2.7 s |
-| `fdtd/ade-fdfd` | 3.20e-14 pass | 3.20e-14 pass | 3.20e-14 within | 1e-10 | CPU only | 1.0 s / 1.0 s |
-| `fdtd/drude-fresnel` | 2.96e-4 pass | 2.96e-4 pass | 2.95e-4 within | 1e-3 | 50 % | 1.7 s / 2.8 s |
-| `fdtd/lorentz-group-delay` | 3.62e-4 pass | 3.62e-4 pass | 3.61e-4 within | 1e-3 | 50 % | 6.0 s / 7.1 s |
-| `fdtd/bloch-fdfd` | 2.86e-14 pass | 2.86e-14 pass | 2.86e-14 within | 1e-10 | CPU only | 1.8 s / 2.1 s |
-| `fdtd/bloch-multilayer` | 0.00127298 pass | 0.00127298 pass | 0.00127298 within | 3e-3 | CPU only | 9.5 s / 9.2 s |
-| `fdtd/bloch-bands` | 3.07e-4 pass | 3.07e-4 pass | 3.07e-4 within | 1e-3 | CPU only | 1.3 s / 1.2 s |
+| `fdtd/energy` | 2.35e-15 pass | 2.22e-15 pass | 2.56e-8 beyond | 1e-12 | 100 % | 0.0 s / 0.5 s |
+| `fdtd/fdfd-lossy` | 2.29e-14 pass | 2.29e-14 pass | 2.84e-7 beyond | 1e-10 | 100 % | 0.2 s / 0.8 s |
+| `fdtd/fdfd-cpml` | 3.47e-4 pass | 3.47e-4 pass | 3.47e-4 within | 5e-4 | 100 % | 3.1 s / 4.9 s |
+| `fdtd/cpml-thickness` | 6.13e-6 pass | 6.13e-6 pass | 6.28e-6 within | 1e-4 | 100 % | 0.2 s / 0.2 s |
+| `fdtd/cpml-late-growth` | 0.617961 pass | 0.617961 pass | 0.617642 within | 1e0 | 100 % | 77.4 s / 33.6 s |
+| `fdtd/spectrum` | 6.46e-13 pass | 6.46e-13 pass | 9.43e-8 beyond | 1e-10 | 100 % | 0.2 s / 4.6 s |
+| `fdtd/tfsf-leakage` | 1.20e-15 pass | 1.20e-15 pass | 1.20e-15 within | 1e-12 | CPU only | 1.6 s / 1.6 s |
+| `fdtd/tfsf-slab` | 3.31e-4 pass | 3.31e-4 pass | 3.31e-4 within | 1e-3 | CPU only | 1.7 s / 1.7 s |
+| `fdtd/mode-source-fdfd` | 2.52e-14 pass | 2.53e-14 pass | 1.50e-6 beyond | 1e-10 | 100 % | 0.6 s / 1.4 s |
+| `fdtd/mode-source-backward` | 1.52e-7 pass | 1.52e-7 pass | 1.52e-7 within | 1e-5 | 100 % | 3.3 s / 5.7 s |
+| `fdtd/mode-source-power` | 1.00005 pass | 1.00005 pass | 1.00005 within | 5e-4 | 100 % | 3.4 s / 6.5 s |
+| `fdtd/beam-waist` | 1.49999 pass | 1.49999 pass | 1.49999 within | 1e-3 | 100 % | 0.5 s / 1.4 s |
+| `fdtd/beam-divergence` | 2.69e-6 pass | 2.69e-6 pass | 2.71e-6 within | 1e-4 | 100 % | 0.6 s / 1.2 s |
+| `fdtd/beam-tilt` | 1.54e-4 pass | 1.54e-4 pass | 1.54e-4 within | 1e-3 | 100 % | 0.6 s / 1.2 s |
+| `fdtd/ade-fdfd` | 3.20e-14 pass | 3.20e-14 pass | 3.20e-14 within | 1e-10 | CPU only | 0.9 s / 0.9 s |
+| `fdtd/drude-fresnel` | 2.96e-4 pass | 2.96e-4 pass | 2.95e-4 within | 1e-3 | 50 % | 2.1 s / 2.3 s |
+| `fdtd/lorentz-group-delay` | 3.62e-4 pass | 3.62e-4 pass | 3.61e-4 within | 1e-3 | 50 % | 8.8 s / 8.3 s |
+| `fdtd/bloch-fdfd` | 2.86e-14 pass | 2.86e-14 pass | 2.86e-14 within | 1e-10 | CPU only | 2.0 s / 2.1 s |
+| `fdtd/bloch-multilayer` | 0.00127298 pass | 0.00127298 pass | 0.00127298 within | 3e-3 | CPU only | 12.3 s / 10.4 s |
+| `fdtd/bloch-bands` | 3.07e-4 pass | 3.07e-4 pass | 3.07e-4 within | 1e-3 | CPU only | 1.2 s / 1.1 s |
 | `fdtd/fit-lossless` | 5.96e-5 pass | 5.96e-5 pass | 5.96e-5 within | 1e-4 | no steps | 0.0 s / 0.0 s |
 | `fdtd/fit-lossy` | 0.00805944 pass | 0.00805944 pass | 0.00805944 within | 1e-2 | no steps | 0.0 s / 0.0 s |
-| `fdtd/fitted-slab` | 0.00199390 pass | 0.00199390 pass | 0.00199348 within | 5e-3 | 50 % | 0.6 s / 1.4 s |
-| `fdtd/smoothing-slab` | 6.92e-4 pass | 6.92e-4 pass | 6.92e-4 within | 1.5e-3 | CPU only | 1.2 s / 1.2 s |
-| `fdtd/smoothing-anisotropic-slab` | 3.01e-4 pass | 3.01e-4 pass | 3.01e-4 within | 1e-3 | CPU only | 1.7 s / 1.7 s |
-| `fdtd/smoothing-oblique` | 2.15e-4 pass | 2.15e-4 pass | 2.15e-4 within | 4e-4 | CPU only | 8.2 s / 9.1 s |
-| `fdtd/smoothing-oblique-nodes` | 0.00199259 pass | 0.00199259 pass | 0.00199259 within | 3e-3 | CPU only | 7.7 s / 8.8 s |
-| `fdtd/smoothing-energy` | 1.97e-15 pass | 1.97e-15 pass | 1.97e-15 within | 1e-12 | CPU only | 5.4 s / 5.2 s |
-| `fdtd/smoothing-contrast` | 1.00000 pass | 1.00000 pass | 1.00000 within | 1e0 | CPU only | 13.0 s / 13.1 s |
-| `fdtd/smoothing-oskooi` | 0.0627803 pass | 0.0627803 pass | 0.0627803 within | 1e-1 | CPU only | 17.2 s / 16.0 s |
-| `fdtd/smoothing-triplets-oblique` | 0.00105559 pass | 0.00105559 pass | 0.00105559 within | 1.6e-3 | CPU only | 9.3 s / 8.6 s |
-| `fdtd/smoothing-triplets-order` | 1.15424 pass | 1.15424 pass | 1.15424 within | 3.5e-1 | CPU only | 14.2 s / 14.6 s |
-| `fdtd/smoothing-diagonal-oblique` | 0.00442954 pass | 0.00442954 pass | 0.00953109 beyond | 6e-3 | 100 % | 4.5 s / 0.5 s |
-| `fdtd/smoothing-diagonal-order` | 0.866212 pass | 0.866212 pass | 0.319799 beyond | 3.5e-1 | 100 % | 3.6 s / 0.6 s |
-| `fdtd/smoothing-bauer-order` | 1.86519 pass | 1.86519 pass | 1.86519 within | 3e-1 | CPU only | 12.7 s / 13.6 s |
-| `fdtd/smoothing-triplets-contrast` | 5.19e-15 pass | 5.19e-15 pass | 5.19e-15 within | 1e-12 | CPU only | 10.4 s / 10.9 s |
+| `fdtd/fitted-slab` | 0.00199390 pass | 0.00199390 pass | 0.00199348 within | 5e-3 | 50 % | 0.7 s / 1.4 s |
+| `fdtd/smoothing-slab` | 6.92e-4 pass | 6.92e-4 pass | 6.92e-4 within | 1.5e-3 | CPU only | 1.5 s / 1.6 s |
+| `fdtd/smoothing-anisotropic-slab` | 3.01e-4 pass | 3.01e-4 pass | 3.01e-4 within | 1e-3 | CPU only | 2.4 s / 2.4 s |
+| `fdtd/smoothing-oblique` | 2.15e-4 pass | 2.15e-4 pass | 2.15e-4 within | 4e-4 | CPU only | 2.7 s / 2.6 s |
+| `fdtd/smoothing-oblique-nodes` | 0.00199259 pass | 0.00199259 pass | 0.00199259 within | 3e-3 | CPU only | 2.6 s / 2.7 s |
+| `fdtd/smoothing-energy` | 1.97e-15 pass | 1.97e-15 pass | 1.97e-15 within | 1e-12 | CPU only | 4.9 s / 5.0 s |
+| `fdtd/smoothing-contrast` | 1.00000 pass | 1.00000 pass | 1.00000 within | 1e0 | CPU only | 13.2 s / 13.9 s |
+| `fdtd/smoothing-oskooi` | 0.0627803 pass | 0.0627803 pass | 0.0627803 within | 1e-1 | CPU only | 8.1 s / 8.0 s |
+| `fdtd/smoothing-triplets-oblique` | 0.00105559 pass | 0.00105559 pass | 0.00105559 within | 1.6e-3 | CPU only | 2.6 s / 2.6 s |
+| `fdtd/smoothing-triplets-order` | 1.15424 pass | 1.15424 pass | 1.15424 within | 3.5e-1 | CPU only | 2.6 s / 2.7 s |
+| `fdtd/smoothing-diagonal-oblique` | 0.00442954 pass | 0.00442954 pass | 0.00953109 beyond | 6e-3 | 100 % | 1.1 s / 0.4 s |
+| `fdtd/smoothing-diagonal-order` | 0.866212 pass | 0.866212 pass | 0.319799 beyond | 3.5e-1 | 100 % | 1.0 s / 0.2 s |
+| `fdtd/smoothing-bauer-order` | 1.86519 pass | 1.86519 pass | 1.86519 within | 3e-1 | CPU only | 2.6 s / 2.6 s |
+| `fdtd/smoothing-triplets-contrast` | 5.19e-15 pass | 5.19e-15 pass | 5.19e-15 within | 1e-12 | CPU only | 15.1 s / 15.3 s |
 | `fdtd/smoothing-triplets-lattices` | 4.98e-15 pass | 4.98e-15 pass | 4.98e-15 within | 1e-12 | CPU only | 1.2 s / 1.2 s |
-| `fdtd/smoothing-wc07-growth` | 2.85005 pass | 2.85005 pass | 2.85005 within | 6e-1 | CPU only | 1.4 s / 1.4 s |
-| `fdtd/smoothing-crystal` | 0.00175448 pass | 0.00175448 pass | 0.00175448 within | 3e-3 | CPU only | 11.3 s / 12.4 s |
-| `fdtd/smoothing-crystal-order` | 1.98728 pass | 1.98728 pass | 1.98728 within | 3e-1 | CPU only | 12.8 s / 13.1 s |
-| `fdtd/monitor-transforms` | 0 pass | 8.64e-17 pass | 6.52e-7 beyond | 1e-15 | 100 % | 0.0 s / 4.5 s |
-| `fdtd/monitor-flux` | 1.18e-11 pass | 1.18e-11 pass | 2.58e-6 beyond | 1e-9 | 100 % | 0.2 s / 0.6 s |
-| `fdtd/monitor-flux-box` | 1.52e-15 pass | 5.48e-16 pass | 3.56e-7 beyond | 1e-12 | 100 % | 0.3 s / 0.4 s |
-| `fdtd/monitor-modes` | 1.49e-11 pass | 1.49e-11 pass | 3.68e-6 beyond | 1e-9 | 100 % | 2.2 s / 0.9 s |
-| `fdtd/monitor-guides` | 5.79e-5 pass | 5.79e-5 pass | stopped: the guide's field didn't decay | 1e-4 | 100 % | 1.4 s / 2.0 s |
+| `fdtd/smoothing-wc07-growth` | 2.85005 pass | 2.85005 pass | 2.85005 within | 6e-1 | CPU only | 1.2 s / 1.3 s |
+| `fdtd/smoothing-crystal` | 0.00175448 pass | 0.00175448 pass | 0.00175448 within | 3e-3 | CPU only | 15.1 s / 15.3 s |
+| `fdtd/smoothing-crystal-order` | 1.98728 pass | 1.98728 pass | 1.98728 within | 3e-1 | CPU only | 15.2 s / 15.6 s |
+| `fdtd/monitor-transforms` | 0 pass | 8.64e-17 pass | 6.52e-7 beyond | 1e-15 | 100 % | 0.0 s / 1.5 s |
+| `fdtd/monitor-flux` | 1.18e-11 pass | 1.18e-11 pass | 2.58e-6 beyond | 1e-9 | 100 % | 0.1 s / 0.3 s |
+| `fdtd/monitor-flux-box` | 1.52e-15 pass | 5.48e-16 pass | 3.56e-7 beyond | 1e-12 | 100 % | 0.2 s / 0.3 s |
+| `fdtd/monitor-modes` | 1.49e-11 pass | 1.49e-11 pass | 3.68e-6 beyond | 1e-9 | 100 % | 0.7 s / 0.5 s |
+| `fdtd/monitor-guides` | 5.79e-5 pass | 5.79e-5 pass | stopped: the guide's field didn't decay | 1e-4 | 100 % | 0.8 s / 0.6 s |
 | `fdtd/harmonic-inversion` | 1.50e-12 pass | 1.50e-12 pass | 1.50e-12 within | 1e-9 | no steps | 0.0 s / 0.0 s |
-| `fdtd/cavity-resonances` | 1.18e-14 pass | 5.25e-15 pass | 4.39e-9 beyond | 1e-12 | 100 % | 0.2 s / 0.4 s |
-| `fdtd/slab-resonance` | 2.00129 pass | 2.00129 pass | stopped: the slab's field didn't decay | 5e-2 | 100 % | 2.0 s / 2.0 s |
+| `fdtd/cavity-resonances` | 1.18e-14 pass | 5.25e-15 pass | 4.39e-9 beyond | 1e-12 | 100 % | 0.1 s / 0.1 s |
+| `fdtd/slab-resonance` | 2.00129 pass | 2.00129 pass | stopped: the slab's field didn't decay | 5e-2 | 100 % | 2.7 s / 1.4 s |
 | `fdtd/mie-table` | 0.00295745 pass | 0.00295745 pass | 0.00295745 within | 5e-3 | no steps | 0.0 s / 0.0 s |
 | `fdtd/mie-balance` | 1.39e-13 pass | 1.39e-13 pass | 1.39e-13 within | 1e-11 | no steps | 0.0 s / 0.0 s |
 | `fdtd/mie-terms` | 6.97e-14 pass | 6.97e-14 pass | 6.97e-14 within | 1e-12 | no steps | 0.0 s / 0.0 s |
-| `fdtd/mie-sphere` | 1.96748 pass | 1.96748 pass | 1.96748 within | 1.5e-1 | CPU only | 17.4 s / 17.5 s |
-| `fdtd/mie-sphere-staircase` | 0.00597458 pass | 0.00597458 pass | 0.00597458 within | 1e-2 | CPU only | 10.9 s / 10.9 s |
-| `fdtd/mie-drude` | 0.0158475 pass | 0.0158475 pass | 0.0158475 within | 3e-2 | CPU only | 12.3 s / 12.3 s |
-| `fdtd/meep-pml-rates` | 0.324044 pass | 0.324044 pass | stopped: the field didn't decay | 4e-1 | 100 % | 25.3 s / 6.0 s |
+| `fdtd/mie-sphere` | 1.96748 pass | 1.96748 pass | 1.96748 within | 1.5e-1 | CPU only | 18.6 s / 19.1 s |
+| `fdtd/mie-sphere-staircase` | 0.00597458 pass | 0.00597458 pass | 0.00597458 within | 1e-2 | CPU only | 12.1 s / 12.1 s |
+| `fdtd/mie-drude` | 0.0158475 pass | 0.0158475 pass | 0.0158475 within | 3e-2 | CPU only | 13.4 s / 13.5 s |
+| `fdtd/meep-pml-rates` | 0.324044 pass | 0.324044 pass | stopped: the field didn't decay | 4e-1 | 100 % | 11.8 s / 2.4 s |
 | `fdtd/ring-wronskian` | 1.02e-10 pass | 1.02e-10 pass | 1.02e-10 within | 1e-9 | no steps | 0.0 s / 0.0 s |
-| `fdtd/ring-resonances` | 7.67e-4 pass | 7.67e-4 pass | 7.67e-4 within | 1.5e-3 | no steps | 34.1 s / 0.0 s |
-| `fdtd/ring-order` | 1.94866 pass | 1.94866 pass | 1.94866 within | 3e-1 | no steps | 3.6 s / 0.0 s |
-| `fdtd/fdfd-band-2d` | 3.19e-5 pass | 3.19e-5 pass | stopped: the guide's field didn't decay | 1e-4 | 100 % | 3.9 s / 3.6 s |
-| `fdtd/fdfd-band-2d-fine` | 1.70e-7 pass | 1.70e-7 pass | stopped: the guide's field didn't decay | 1e-6 | 100 % | 12.6 s / 7.7 s |
-| `fdtd/fdfd-band-3d-strip` | 2.19e-4 pass | 2.19e-4 pass | stopped: the guide's field didn't decay | 5e-4 | 100 % | 18.9 s / 19.4 s |
-| `fdtd/fdfd-band-3d-bend` | 1.86e-4 pass | 1.86e-4 pass | stopped: the guide's field didn't decay | 5e-4 | 100 % | 27.4 s / 26.8 s |
-| `fdtd/fdfd-smoothed` | 0.848365 pass | 0.848365 pass | 0.848365 within | 3e-1 | CPU only | 11.9 s / 12.3 s |
-| `fdtd/adjoint-modes` | 5.00e-10 pass | 4.59e-10 pass | 0.00659341 beyond | 1e-7 | 100 % | 40.0 s / 160.1 s |
-| `fdtd/adjoint-flux` | 1.21e-9 pass | 2.06e-10 pass | 0.0594717 beyond | 1e-7 | 100 % | 38.6 s / 161.1 s |
-| `fdtd/adjoint-fdfd` | 7.51e-14 pass | 6.99e-14 pass | 3.42e-6 beyond | 1e-10 | 100 % | 4.5 s / 5.6 s |
-| `fdtd/adjoint-fdfd-cpml` | 2.28e-5 pass | 2.28e-5 pass | 2.42e-5 within | 5e-5 | 100 % | 11.1 s / 8.7 s |
-| `fdtd/adjoint-slab` | 7.16e-4 pass | 7.16e-4 pass | 7.12e-4 within | 1e-3 | 100 % | 2.1 s / 2.6 s |
-| `fdtd/adjoint-slab-order` | 2.01506 pass | 2.01506 pass | 2.02163 within | 1e-1 | 100 % | 2.0 s / 2.7 s |
-| `fdtd/adjoint-backward-mode` | 5.52e-13 pass | 5.52e-13 pass | 2.28e-6 beyond | 1e-10 | 100 % | 6.1 s / 7.7 s |
+| `fdtd/ring-resonances` | 7.67e-4 pass | 7.67e-4 pass | 7.67e-4 within | 1.5e-3 | no steps | 9.0 s / 0.0 s |
+| `fdtd/ring-order` | 1.94866 pass | 1.94866 pass | 1.94866 within | 3e-1 | no steps | 1.4 s / 0.0 s |
+| `fdtd/fdfd-band-2d` | 3.19e-5 pass | 3.19e-5 pass | stopped: the guide's field didn't decay | 1e-4 | 100 % | 1.9 s / 1.9 s |
+| `fdtd/fdfd-band-2d-fine` | 1.70e-7 pass | 1.70e-7 pass | stopped: the guide's field didn't decay | 1e-6 | 100 % | 7.3 s / 5.6 s |
+| `fdtd/fdfd-band-3d-strip` | 2.19e-4 pass | 2.19e-4 pass | stopped: the guide's field didn't decay | 5e-4 | 100 % | 19.6 s / 18.2 s |
+| `fdtd/fdfd-band-3d-bend` | 1.86e-4 pass | 1.86e-4 pass | stopped: the guide's field didn't decay | 5e-4 | 100 % | 26.8 s / 26.4 s |
+| `fdtd/fdfd-smoothed` | 0.848365 pass | 0.848365 pass | 0.848365 within | 3e-1 | CPU only | 6.1 s / 6.1 s |
+| `fdtd/adjoint-modes` | 4.69e-10 pass | 3.60e-10 pass | 0.00659341 beyond | 1e-7 | 100 % | 53.7 s / 101.4 s |
+| `fdtd/adjoint-flux` | 1.15e-9 pass | 3.51e-10 pass | 0.0594717 beyond | 1e-7 | 100 % | 45.5 s / 104.9 s |
+| `fdtd/adjoint-fdfd` | 7.16e-14 pass | 6.87e-14 pass | 3.33e-6 beyond | 1e-10 | 100 % | 4.4 s / 3.9 s |
+| `fdtd/adjoint-fdfd-cpml` | 2.28e-5 pass | 2.28e-5 pass | 2.41e-5 within | 5e-5 | 100 % | 11.2 s / 6.7 s |
+| `fdtd/adjoint-slab` | 7.16e-4 pass | 7.16e-4 pass | 7.12e-4 within | 1e-3 | 100 % | 2.3 s / 1.8 s |
+| `fdtd/adjoint-slab-order` | 2.01506 pass | 2.01506 pass | 2.02163 within | 1e-1 | 100 % | 2.2 s / 2.0 s |
+| `fdtd/adjoint-backward-mode` | 5.39e-13 pass | 5.39e-13 pass | 3.61e-6 beyond | 1e-10 | 100 % | 2.7 s / 4.1 s |
+| `fdtd/graded-parabolic` | 1.02e-4 pass | 1.02e-4 pass | 1.02e-4 within | 2e-4 | CPU only | 0.8 s / 0.9 s |
+| `fdtd/graded-parabolic-order` | 1.98000 pass | 1.98000 pass | 1.98000 within | 2.5e-1 | CPU only | 0.3 s / 0.3 s |
 
 ## Speed
 
@@ -104,7 +107,7 @@ The kernel alone on random fields, million cell-updates a second, the best of th
 
 | Grid | Precision | GPU, two passes | GPU, fused | CPU, diamonds on 20 threads | GPU / CPU |
 |---|---|---:|---:|---:|---:|
-| 128³ cells of 50 nm, vacuum, CPMLs of 8 | f32 | 2431 | 3320 | 1052 | 3.16 |
-| 128³ cells of 50 nm, vacuum, CPMLs of 8 | f64 | 1234 | 1319 | 497 | 2.65 |
-| 256³ cells of 50 nm, vacuum, CPMLs of 8 | f32 | 2869 | 3720 | 1804 | 2.06 |
-| 256³ cells of 50 nm, vacuum, CPMLs of 8 | f64 | 1422 | 1670 | 816 | 2.05 |
+| 128³ cells of 50 nm, vacuum, CPMLs of 8 | f32 | 2423 | 3342 | 1263 | 2.65 |
+| 128³ cells of 50 nm, vacuum, CPMLs of 8 | f64 | 1227 | 1318 | 679 | 1.94 |
+| 256³ cells of 50 nm, vacuum, CPMLs of 8 | f32 | 2882 | 3714 | 1704 | 2.18 |
+| 256³ cells of 50 nm, vacuum, CPMLs of 8 | f64 | 1418 | 1643 | 781 | 2.10 |

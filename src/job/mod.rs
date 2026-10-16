@@ -27,6 +27,77 @@
 //! width = "w"
 //! ```
 //!
+//! **Paths.** `"structure"`, `"fdfd"` and `"fdtd"` jobs draw paths ([`crate::geometry::Path`]):
+//! a centre line of segments with a width along it, every value an expression. A segment is a
+//! `straight`, an `arc` or an `euler` bend (an angle with its unit, and a `radius`; an Euler
+//! bend's `p` is 1 by default) or a `sine` S-bend (a length and an `offset`), and its `width`, if
+//! given, is the width its end tapers to. Number keys (`straight_um`, `arc_rad`, `radius_um`,
+//! `start_um`, `heading_rad`, `width_um`, ...) take numbers as they are. [`check`] refuses a
+//! segment that isn't exactly one kind, an angle without its unit, a bend that doesn't exist and
+//! a width over twice the radius of curvature, naming the path and segment.
+//!
+//! ```toml
+//! [[task.path]]
+//! layer = "Si"
+//! start = ["-1 um", 0]
+//! width = "w"
+//! segments = [
+//!   { straight = "1 um" },
+//!   { euler = "90 deg", radius = "5 um", p = 0.2 },
+//!   { straight = "2 um", width = "w + 100 nm" },
+//!   { sine = "4 um", offset = "-1 um" },
+//! ]
+//! ```
+//!
+//! **Shapes defined by functions, and masks.** `[[task.shape]]` draws, in the same jobs, a region
+//! between two curves (`type = "between"`, `x`, `lower`, `upper`), a polar region (`"polar"`,
+//! `center`, `radius` of the angle `t`), the inside of a closed curve (`"parametric"`, `curve =
+//! [x(t), y(t)]`), an implicit region (`"implicit"`, `inside` = f(x, y) ≤ 0 in the window `x` by
+//! `y`) or a mask (`"mask"`, `corner`, `pixel`, `rows` from the top). Their definitions are
+//! expressions of the coordinates they give and of the task's parameters; [`check`] refuses
+//! what [`crate::geometry`] refuses (crossing curves, a curve that doesn't close or crosses
+//! itself, f with no zero set in its window), naming the table and type. See `shapes.rs`.
+//!
+//! ```toml
+//! [[task.shape]]
+//! type = "implicit"
+//! layer = "Si"
+//! inside = "(x/2um)^4 + (y/1um)^4 - 1"
+//! x = ["-3 um", "3 um"]
+//! y = ["-2 um", "2 um"]
+//! ```
+//!
+//! **Arrays and references.** `type = "array"` draws an `element` at every site of a
+//! rectangular, hexagonal or polar `lattice`, with sites removed, shifted or resized (an L3
+//! cavity, a W1 guide), its places and sizes expressions of the site's index `i`, `j` and place
+//! `x`, `y`; `type = "reference"` places a named `[[task.cell]]` many times, mirrored, scaled,
+//! rotated and moved. [`check`] names an element by its index and a defect by its site. See
+//! `shapes.rs` and docs/methods/arrays.md.
+//!
+//! **Components.** `[[task.component]]` draws one of [`crate::generator`]'s components (a
+//! `ring`, `racetrack`, `disk`, `straight`, `taper`, `bend`, `euler_bend`, `s_bend`, `spiral`,
+//! `directional_coupler`, `bent_coupler`, `mmi`, `y_branch`, `crossing`, `bragg_grating`,
+//! `swg_waveguide`, `grating_coupler`, `photonic_crystal` or `edge_coupler`), every parameter an
+//! expression, named so that its ports are found by name: placed by `origin`, `rotate` and
+//! `mirror`, or `connect = ["o1", "ring.through"]` onto an earlier one's port. An `"fdfd"` job's
+//! `[[task.port]]` takes `port = "ring.in"` for its column, side and window, and an `"fdtd"`
+//! job's `"mode"` source or monitor takes `port` for its plane, window and direction. [`check`]
+//! names the component and the parameter it refuses; [`preview_ports`] gives the named ports,
+//! which a run records after its scene ([`Event::Ports`]). See `components.rs` and
+//! docs/methods/generators.md.
+//!
+//! ```toml
+//! [[task.component]]
+//! type = "ring"
+//! name = "ring"
+//! width = "500 nm"
+//! radius = "5 um"
+//! gap = "200 nm"
+//!
+//! [[task.port]]
+//! port = "ring.in"
+//! ```
+//!
 //! A modes job's sweep can step through any parameter, `parameter = "gap"`, from `from` to `to`
 //! (numbers in µm for a length and radians for an angle, or expressions with units: `"150 nm"`);
 //! at each point the parameters that use it follow, and the point records its shapes as a width
@@ -34,6 +105,96 @@
 //! don't add up, a parameter named `wavelength` or `width` (a sweep's own) or a coordinate in a
 //! shape's field, naming the table and field: `[[task.rect]] #2, size: value 1: column 3:
 //! unknown name "wdth"`; and a parameter's sweep whose shapes at either end aren't shapes.
+//!
+//! **Bodies in space and graded media.** `"structure"` jobs and 3D `"fdtd"` jobs take
+//! `[[task.body]]`: a `sphere`, `ellipsoid`, `box`, `cylinder`, `cone`, an `extrusion` of a shape
+//! between two heights (with a `sidewall`), or a `union`, `intersection`, `difference` or `xor`
+//! of bodies, placed over the stack, its shapes and the bodies before it; its places and sizes
+//! expressions with units, its medium a catalogue `material`, or an `index` or `permittivity`
+//! as an expression of x, y and z (a graded medium). [`check`] names the table, type and field it
+//! refuses, and a graded medium that isn't positive over the window; [`preview`] draws each body
+//! as bands of its sections. See `bodies.rs` and docs/methods/bodies.md.
+//!
+//! ```toml
+//! [[task.body]]
+//! type = "sphere"
+//! center = [0, 0, "2.5 um"]
+//! radius = "300 nm"
+//! material = "si"
+//! ```
+//!
+//! **Custom stacks and etches.** A task's `stack` is a preset's name or a `[task.stack]` table:
+//! a `substrate`, a `cladding` and `[[task.stack.layer]]`s bottom to top, each with its `name`,
+//! `thickness_um` (or `thickness`, an expression), `material` and `background` (catalogue ids,
+//! or tables with a `model`, `temperature` and `composition`), as a device's `[device.stack]`
+//! has them. A shape takes `etch = { depth = "150 nm", sidewall = "80 deg" }` (or `depth_um`,
+//! `sidewall_deg`): a partial etch leaves its layer's material below its floor, a sidewall below
+//! 90° leans the shape's walls out going down ([`crate::stack::Etch`]). Every kind of job reads
+//! them; a 2D job's etches are on its own layer. docs/methods/stacks.md has the method.
+//!
+//! ```toml
+//! [task.stack]
+//! substrate = "si"
+//! cladding = "sio2"
+//!
+//! [[task.stack.layer]]
+//! name = "BOX"
+//! thickness = "2 um"
+//! material = "sio2"
+//! background = "sio2"
+//!
+//! [[task.stack.layer]]
+//! name = "Si"
+//! thickness = "220 nm"
+//! material = "si"
+//! background = "sio2"
+//!
+//! [[task.rect]]
+//! layer = "Si"
+//! center_um = [0.0, 0.0]
+//! size = ["10 um", "500 nm"]
+//! etch = { depth = "150 nm", sidewall = "80 deg" }
+//! ```
+//!
+//! **A device's design.** A job may hold a `[device]` table in place of a task: one of
+//! [`crate::device`]'s devices, its stack, its parameters' expressions and its fidelity
+//! ([`crate::device::Spec`]). [`check`] builds the device and its design and refuses what
+//! [`crate::device::Spec::build`] refuses; [`preview`] draws its structure, over its shapes and
+//! ports with 1 µm around them and 1 µm below and above the core; a run records that scene.
+//!
+//! **A device computed.** Beside its `[device]`, a job's `[task]` says how to compute it: `kind =
+//! "spectrum"`, its own model at the design's fidelity (a closed form, its cross-section's modes,
+//! 2D or 3D FDFD), its figures and its S-parameters over a band, on its own grid or one the task
+//! sets, recorded as [`Event::DeviceModel`] and an [`Event::SParameters`] per wavelength, the
+//! bits [`crate::device::Device::component`] gives; or `kind = "fdtd"`, its drawn structure
+//! stepped in time as an `"fdtd"` job's shapes are, its sources and monitors finding its ports
+//! by name (`port = "o1"`). [`from_device`] writes such a job. See `device.rs`.
+//!
+//! **A device studied.** `kind = "sweep"` steps one or two of the design's parameters, and
+//! `kind = "corners"` computes the nominal design and named corners of it (offsets of its
+//! parameters, its materials at a temperature): each point the design computed as a
+//! `"spectrum"` task computes it, recorded as [`Event::DeviceStudy`] and an
+//! [`Event::DevicePoint`] per point, side by side on rayon's threads or a farm's workers and to
+//! the bit of each point's own job. [`study_from_device`] writes such a job. See `study.rs`.
+//!
+//! **A device fitted.** `kind = "fit"` fits a compact model of the device to its own runs at the
+//! design's fidelity, over one to four of its parameters: each sample the design computed as a
+//! `"spectrum"` task computes it (on a grid or a Latin hypercube, some held out of the fit to
+//! measure its error), side by side on rayon's threads or a farm's workers, recorded as
+//! [`Event::CompactPlan`], an [`Event::DevicePoint`] per sample and [`Event::CompactFit`], the
+//! model ([`crate::device::Fitted`]) also written to the run's folder. A design that names the
+//! model's file (`compact = "ring.compact.json"`) has the compact fidelity too.
+//! [`fit_from_device`] writes such a job. See `fit.rs`.
+//!
+//! **A device optimized.** `kind = "optimize"` names variables (the design's parameters between
+//! bounds), one objective or two and any constraints (the device's own, [`crate::device::Device::objectives`],
+//! or expressions of its outputs), the band and corners they are taken over, and one of
+//! genoxide's methods with its seed and budget; the job's `timeout_minutes` is required.
+//! [`check`] checks it; [`Problem`] evaluates it with its derivatives, and [`Recorder`] records
+//! its run ([`Event::Optimization`], an [`Event::Evaluation`] per evaluation, [`Event::Front`],
+//! [`Event::Optimum`]). The optimizer is genoxide's, which the `photonoxide` program runs:
+//! [`execute`] refuses the job and says so. [`optimize_from_device`] writes such a job. See
+//! `optimize.rs`.
 //!
 //! A job file's `[task]` table names its kind. The kinds so far:
 //!
@@ -77,11 +238,14 @@
 //!   is solved, with its modes' pictures and, for a width sweep, its shapes.
 //!
 //!   The modes are a count, `modes` (2 by default), nearest the highest index by
-//!   shift-and-invert, of which only the guided ones are kept (n_eff above the highest index of
-//!   the media around the guides: the window has no absorbing layers, so a mode below it is the closed
-//!   window's own, its n_eff even below 1), or every mode with n_eff above `modes_above`, however many, by contour
-//!   integrals ([`crate::mode::vector::modes_above`]): the cladding's index gives every guided
-//!   mode, and a sweep's points may then have different numbers of them. A job may give one or
+//!   shift-and-invert, of which only the guided ones are kept
+//!   ([`crate::mode::vector::VectorMode::is_guided`]: n_eff above the highest index of the media
+//!   around the guides, the layers' backgrounds and the substrate and cladding the window
+//!   reaches; the window has no absorbing layers, so a mode below it is the closed window's own,
+//!   its n_eff even below 1), or every mode with n_eff above `modes_above`, however many, by
+//!   contour integrals ([`crate::mode::vector::modes_above`]): the cladding's index gives every
+//!   guided mode, and a sweep's points may then have different numbers of them; a threshold
+//!   below it gives the window's own modes too. A job may give one or
 //!   the other; a threshold must be positive and below the highest index the cross-section
 //!   holds at the job's wavelength and a wavelength sweep's ends.
 //!
@@ -195,7 +359,9 @@
 //!   axis, with Bloch wavenumbers (complex fields, driven by dipoles only); a 2D job is
 //!   uniform along z. The run stops when |field|² at the monitors' middles has stayed below
 //!   `fraction` (1e-8) of its peak over ten carrier periods, or at `limit_um` (2000), or at
-//!   `time_um` with `until = "time"`, or at the job's timeout.
+//!   `time_um` with `until = "time"`, or at the job's timeout. It also stops when the fields
+//!   grow again, a wave of too coarse a grid amplified in a CPML, and records a solve error
+//!   that says so (docs/methods/fdtd.md, "Late growth").
 //!
 //! ```toml
 //! name = "mmi-fdtd"
@@ -264,12 +430,71 @@ use crate::stack::{LayerStack, Structure};
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
+mod bodies;
+#[cfg(test)]
+mod body_tests;
+mod chip;
+mod chip_checks;
+#[cfg(test)]
+mod component_tests;
+mod components;
+mod device;
+#[cfg(test)]
+mod device_tests;
 mod fdfd;
 mod fdtd;
+mod fit;
+mod fit_checks;
+#[cfg(test)]
+mod fit_tests;
+pub mod optimize;
+mod optimize_checks;
 mod params;
+mod shapes;
+mod study;
+mod study_checks;
+#[cfg(test)]
+mod study_tests;
 
+pub use chip::{
+    COMPONENTS, ChipDesign, ChipInstance, ChipPart, ChipPort, InstanceModel, spectrum_from_chip,
+    study_from_chip,
+};
+pub use device::{Compute, DeviceFigure, fdfd_size, from_device};
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
+pub(crate) use fdfd::{fill_plane as fdfd_fill_plane, plane as fdfd_plane};
 pub use fdtd::{FoundResonance, SpectrumSeries};
+pub use fit::fit_from_device;
+pub use optimize::{
+    Aim, Bound, Evaluation, GradientCheck, Optimization, Problem, Recorder, Variable, design_of,
+    optimize_from_chip, optimize_from_device, optimizes,
+};
+pub use study::{Corner, Study, SweepAxis, study_from_device};
+
+/// The validation cases of components in jobs ([`crate::generator`] in `[[task.component]]`).
+pub(crate) fn component_cases() -> Vec<crate::validation::Case> {
+    components::cases()
+}
+
+/// The validation cases of chips of devices ([`ChipDesign`]).
+pub(crate) fn chip_cases() -> Vec<crate::validation::Case> {
+    chip_checks::cases()
+}
+
+/// The validation cases of devices' optimizations ([`optimize::Problem`]).
+pub(crate) fn optimize_cases() -> Vec<crate::validation::Case> {
+    optimize_checks::cases()
+}
+
+/// The validation cases of devices' compact models ([`fit_from_device`]).
+pub(crate) fn fit_cases() -> Vec<crate::validation::Case> {
+    fit_checks::cases()
+}
+
+/// The validation cases of devices' studies ([`study_from_device`]).
+pub(crate) fn study_cases() -> Vec<crate::validation::Case> {
+    study_checks::cases()
+}
 
 /// The memory a sweep's points in flight may take in all, by their estimate: what bounds them
 /// when the machine has more threads than a sweep's points can share it with.
@@ -646,8 +871,359 @@ pub enum Event {
         /// inversion's error below 1e-2, decaying, and above 1e-6 of the largest amplitude.
         resonances: Vec<FoundResonance>,
     },
+    /// The named ports of a job's components (`[[task.component]]`), recorded after its
+    /// [`Event::Scene`] when it has any: markers for the scene ([`preview_ports`]).
+    Ports {
+        /// The ports, component by component.
+        ports: Vec<ScenePort>,
+    },
+    /// A device's model, recorded by a job that computes its device (`[device]` with a
+    /// `"spectrum"` task) once the model is built: what computes it, what it reproduces and on
+    /// which grid, how long that took, and the device's figures from it. The S-parameters
+    /// follow, one [`Event::SParameters`] per wavelength, each port's effective index its
+    /// mode's where the model states one (0 where it doesn't).
+    DeviceModel {
+        /// The device's kind, e.g. `"MMI 1x2"`.
+        device: String,
+        /// The fidelity: `"analytic"`, `"2D"` or `"3D"`.
+        fidelity: String,
+        /// What computes it, in a sentence.
+        method: String,
+        /// Its write-up in docs/methods, e.g. `"devices"`.
+        write_up: String,
+        /// The papers it implements, each with its DOI.
+        papers: Vec<String>,
+        /// What the component reproduces, with its grid (its provenance's source).
+        source: String,
+        /// The grid its figures name, or `"exact: no grid"`.
+        grid: String,
+        /// The time building the model took, seconds: the solve's at a solver-backed fidelity.
+        seconds: f64,
+        /// The device's figures from the model, each with its fidelity and grid.
+        figures: Vec<DeviceFigure>,
+    },
+    /// A fit of a compact model of a job's device about to run (`[device]` with a `"fit"` task,
+    /// [`crate::device::FitPlan`]), recorded after the nominal design's scene and ports: the
+    /// parameters it covers, how its samples are placed, and the model's options. An
+    /// [`Event::DevicePoint`] per sample follows, in order (the `samples` it is fitted to, then the
+    /// `held_out`), each `at` the covered parameters' values, then [`Event::CompactFit`].
+    CompactPlan {
+        /// The device's kind, e.g. `"all-pass ring"`.
+        device: String,
+        /// The fidelity every sample is computed at, the model's source: `"analytic"`, `"2D"`
+        /// or `"3D"`.
+        fidelity: String,
+        /// What computes the samples, in a sentence.
+        method: String,
+        /// Its write-up in docs/methods, e.g. `"devices"`.
+        write_up: String,
+        /// The papers it implements, each with its DOI.
+        papers: Vec<String>,
+        /// The device's parameters' names: the order of each point's `values`.
+        parameters: Vec<String>,
+        /// Their units.
+        units: Vec<String>,
+        /// The parameters the model covers, in its order.
+        axes: Vec<String>,
+        /// Their units.
+        axis_units: Vec<String>,
+        /// Each one's range, [smallest, largest].
+        ranges: Vec<[f64; 2]>,
+        /// How the samples are placed, in words.
+        sampling: String,
+        /// How many samples the model is fitted to.
+        samples: usize,
+        /// How many follow them, held out of the fit.
+        held_out: usize,
+        /// The model's basis poles.
+        poles: usize,
+        /// How its coefficients depend on the parameters, in words.
+        interpolation: String,
+        /// The wavelengths each sample's S-parameters are at, µm.
+        wavelengths_um: Vec<f64>,
+        /// The ports' names, in the S-matrices' order.
+        ports: Vec<String>,
+    },
+    /// The compact model a fit made of its samples ([`Event::CompactPlan`]): the file's content
+    /// ([`crate::device::Fitted`]), its errors at its samples and held-out ones, its stability
+    /// and passivity, and the model, every number to the bit.
+    CompactFit {
+        /// The model and what it was fitted from.
+        fitted: Box<crate::device::Fitted>,
+    },
+    /// A study of a job's device about to run (`[device]` with a `"sweep"` or `"corners"` task,
+    /// [`Study`]), recorded after the nominal design's scene and ports: what it steps through, so
+    /// that a viewer can say how far along it is. An [`Event::DevicePoint`] per point follows, in
+    /// order.
+    DeviceStudy {
+        /// `"sweep"` or `"corners"`.
+        study: String,
+        /// The device's kind, e.g. `"directional coupler"`.
+        device: String,
+        /// The fidelity every point is computed at: `"analytic"`, `"2D"` or `"3D"`.
+        fidelity: String,
+        /// What computes it, in a sentence.
+        method: String,
+        /// Its write-up in docs/methods, e.g. `"devices"`.
+        write_up: String,
+        /// The papers it implements, each with its DOI.
+        papers: Vec<String>,
+        /// The device's parameters' names: the order of each point's `values`.
+        parameters: Vec<String>,
+        /// Their units, e.g. `"µm"`, or `""`.
+        units: Vec<String>,
+        /// A sweep's axes, the second's values fastest; none for corners.
+        axes: Vec<SweepAxis>,
+        /// The axes' parameters' units, in the same order.
+        axis_units: Vec<String>,
+        /// The corners, after the nominal design; none for a sweep.
+        corners: Vec<Corner>,
+        /// How many points.
+        points: usize,
+        /// The wavelengths each point's S-parameters are at, µm.
+        wavelengths_um: Vec<f64>,
+        /// The ports' names, in the S-matrices' order.
+        ports: Vec<String>,
+    },
+    /// A point of a device's study: its design computed at the study's fidelity, or why it
+    /// wasn't. The same numbers, to the bit, as the run of that design's own `"spectrum"` job.
+    DevicePoint {
+        /// The point's index, from 0.
+        point: usize,
+        /// A sweep's: each axis's value there, in its unit; none for corners.
+        at: Vec<f64>,
+        /// A corners study's: the corner, `"nominal"` for the first point.
+        corner: Option<String>,
+        /// The device's parameters' values there, in the [`Event::DeviceStudy`]'s order.
+        values: Vec<f64>,
+        /// Why the model gave nothing there (a fit outside its range, a solve that failed); the
+        /// fields after it are then empty.
+        error: Option<String>,
+        /// What the component reproduces, with its grid (its provenance's source).
+        source: String,
+        /// The grid its figures name, or `"exact: no grid"`.
+        grid: String,
+        /// The device's figures there, each with its fidelity and grid.
+        figures: Vec<DeviceFigure>,
+        /// Each port's mode's effective index where the model states one (0 where it doesn't).
+        effective_indices: Vec<f64>,
+        /// The power-normalized S-matrices, one per wavelength of the study: `s[w][q][p]` from
+        /// port p into port q, real and imaginary parts.
+        s: Vec<Vec<Vec<[f64; 2]>>>,
+    },
+    /// An optimization of a job's device about to run (`[device]` with an `"optimize"` task,
+    /// [`optimize::Problem`]), recorded after the design's scene and ports: the problem, and
+    /// each exact derivative checked against differences. An [`Event::Evaluation`] per
+    /// evaluation follows, in the optimizer's order.
+    Optimization {
+        /// The device's kind, e.g. `"directional coupler"`.
+        device: String,
+        /// The fidelity every design is computed at: `"analytic"`, `"2D"` or `"3D"`.
+        fidelity: String,
+        /// What computes it, in a sentence.
+        model: String,
+        /// The method, as the job names it, e.g. `"lbfgsb"`.
+        method: String,
+        /// genoxide's method, e.g. `"L-BFGS-B"`.
+        optimizer: String,
+        /// The paper it implements, with its DOI.
+        paper: String,
+        /// The seed.
+        seed: u64,
+        /// The budget: the optimizer's evaluations.
+        evaluations: usize,
+        /// A population method's size.
+        population: Option<usize>,
+        /// The hard limit, minutes.
+        timeout_minutes: f64,
+        /// The variables, each with its bounds, start, and how its derivatives are taken.
+        variables: Vec<optimize::OptimizeVariable>,
+        /// The objectives, one or two.
+        objectives: Vec<optimize::OptimizeQuantity>,
+        /// The constraints.
+        constraints: Vec<optimize::OptimizeQuantity>,
+        /// The wavelengths each quantity is taken at, µm.
+        wavelengths_um: Vec<f64>,
+        /// The corners each is also taken at, beside the nominal design.
+        corners: Vec<Corner>,
+        /// The device's parameters' names.
+        parameters: Vec<String>,
+        /// Each exact derivative against fourth-order differences at the start.
+        checks: Vec<optimize::GradientCheck>,
+    },
+    /// An evaluation of an optimization: the variables, each objective's cost and value, each
+    /// constraint's g, and the best so far.
+    Evaluation {
+        /// The evaluation, from 1.
+        index: usize,
+        /// The variables, in their units.
+        x: Vec<f64>,
+        /// Each objective's cost (minimized); none where the model gave nothing.
+        costs: Vec<f64>,
+        /// Each objective's value.
+        values: Vec<f64>,
+        /// Each constraint's g (≤ 0 when met).
+        constraints: Vec<f64>,
+        /// Σ max(0, g); none where the model gave nothing.
+        violation: Option<f64>,
+        /// The first objective's gradient's norm in the variables scaled to their ranges, for a
+        /// method that uses it.
+        gradient_norm: Option<f64>,
+        /// The best evaluation so far (one objective): feasible first, then the lowest cost.
+        best: Option<usize>,
+        /// The device's models built so far.
+        solves: usize,
+        /// Why the model gave nothing there.
+        error: Option<String>,
+    },
+    /// The Pareto front of an optimization of two objectives after a generation: its
+    /// non-dominated feasible evaluations, and the hypervolume they dominate up to a reference
+    /// point fixed at the first front.
+    Front {
+        /// The evaluations so far.
+        evaluations: usize,
+        /// The front's points, in the evaluations' order.
+        points: Vec<optimize::FrontPoint>,
+        /// The hypervolume of their costs up to `reference`.
+        hypervolume: f64,
+        /// The reference point, each cost's.
+        reference: Vec<f64>,
+    },
+    /// An optimization's end: its best evaluation and design (one objective), or its front (two),
+    /// and why it stopped.
+    Optimum {
+        /// The best evaluation, from 1 (one objective).
+        index: Option<usize>,
+        /// Its variables.
+        x: Vec<f64>,
+        /// Its design's parameters' expressions: the job's, the variables written as numbers;
+        /// what Apply takes into the design.
+        parameters: Vec<(String, String)>,
+        /// Whether it meets every constraint.
+        feasible: bool,
+        /// Why it stopped: the optimizer's reason (`"converged"`, `"evaluations"`, ...), or the
+        /// run's (`"timeout"`, `"requested"`).
+        stop: String,
+        /// The evaluations.
+        evaluations: usize,
+        /// The device's models built.
+        solves: usize,
+        /// The front's evaluations (two objectives).
+        front: Vec<usize>,
+    },
+    /// A chip about to be computed (a job's `[circuit]`, [`ChipDesign`]), recorded after
+    /// [`Event::Started`]: each instance, what computes it with its fidelity and grid, and the
+    /// external ports, the order of the S-matrices after it.
+    Chip {
+        /// The instances, in the chip's order.
+        instances: Vec<ChipPart>,
+        /// The external ports' names.
+        ports: Vec<String>,
+    },
+    /// A study of a chip about to run (a `[circuit]` with a `"sweep"` or `"corners"` task),
+    /// recorded after [`Event::Chip`]: what it steps through. An [`Event::ChipPoint`] per point
+    /// follows, in order.
+    ChipStudy {
+        /// `"sweep"` or `"corners"`.
+        study: String,
+        /// A sweep's axes (`instance.parameter`), the second's values fastest; none for corners.
+        axes: Vec<SweepAxis>,
+        /// The axes' parameters' units, in the same order.
+        axis_units: Vec<String>,
+        /// The corners (their offsets by `instance.parameter`), after the nominal chip; none for
+        /// a sweep.
+        corners: Vec<Corner>,
+        /// How many points.
+        points: usize,
+        /// The wavelengths each point's S-parameters are at, µm.
+        wavelengths_um: Vec<f64>,
+        /// The external ports' names, in the S-matrices' order.
+        ports: Vec<String>,
+    },
+    /// A point of a chip's study: its chip's S-matrices over the band, or why it has none. The
+    /// same numbers, to the bit, as the run of that point's own `"spectrum"` job.
+    ChipPoint {
+        /// The point's index, from 0.
+        point: usize,
+        /// A sweep's: each axis's value there, in its unit; none for corners.
+        at: Vec<f64>,
+        /// A corners study's: the corner, `"nominal"` for the first point.
+        corner: Option<String>,
+        /// Why the chip gave nothing there (an instance's model refused its values); `s` is then
+        /// empty.
+        error: Option<String>,
+        /// The power-normalized S-matrices, one per wavelength: `s[w][q][p]` from port p into
+        /// port q, real and imaginary parts.
+        s: Vec<Vec<Vec<[f64; 2]>>>,
+    },
     // New variants go here, at the end after the last one, so that the earlier variants keep
     // their discriminants (inserting one in between renumbers every variant after it).
+}
+
+/// A port of a [`Event::Ports`]: where a component's guide ends, by its name.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct ScenePort {
+    /// `component.port`, e.g. `"ring.through"`, as an FDFD or FDTD job finds it.
+    pub name: String,
+    /// The layer its guide is drawn on.
+    pub layer: String,
+    /// The centre of the guide's end, µm.
+    pub position_um: [f64; 2],
+    /// The direction light leaves by, degrees counterclockwise from +x.
+    pub direction_deg: f64,
+    /// The guide's width there, µm.
+    pub width_um: f64,
+}
+
+/// The named ports of `job`'s components, as [`Event::Ports`] records them: what the studio
+/// marks on the scene [`preview`] draws. A job's `[device]` gives its device's ports; a task
+/// without components, none.
+///
+/// # Errors
+///
+/// The errors of [`check`].
+pub fn preview_ports(job: &Job) -> Result<Vec<ScenePort>> {
+    if job.device().is_some() {
+        return device::scene_ports(job);
+    }
+    check(job)?;
+    component_ports(job.task())
+}
+
+/// The named ports of the components in `task`.
+fn component_ports(task: &toml::Table) -> Result<Vec<ScenePort>> {
+    let resolved = params::resolve(task, None)?;
+    let Some(toml::Value::Array(entries)) = resolved.get("component") else {
+        return Ok(Vec::new());
+    };
+    let tables: Vec<toml::Table> = entries
+        .iter()
+        .filter_map(|v| v.as_table().cloned())
+        .collect();
+    Ok(components::ports(&tables)?
+        .into_iter()
+        .map(|(name, p)| ScenePort {
+            name,
+            layer: p.layer.clone(),
+            position_um: [p.position.x.to_um(), p.position.y.to_um()],
+            direction_deg: p.direction,
+            width_um: p.width.to_um(),
+        })
+        .collect())
+}
+
+/// Records the job's components' ports after its scene, if it has any.
+fn record_ports(job: &Job, run: &mut Run) -> Result<()> {
+    let ports = if job.device().is_some() {
+        device::scene_ports(job)?
+    } else {
+        component_ports(job.task())?
+    };
+    if !ports.is_empty() {
+        run.record(&Event::Ports { ports })?;
+    }
+    Ok(())
 }
 
 /// A medium of a [`Event::Scene`]: its material and the real part of its permittivity.
@@ -773,10 +1349,249 @@ fn scene_shapes(s: &Structure) -> Vec<SceneShape> {
         .layers()
         .iter()
         .flat_map(|layer| {
-            s.shapes(&layer.name).iter().map(|shape| SceneShape {
-                layer: layer.name.clone(),
-                outline: outline(shape),
-            })
+            s.shapes(&layer.name)
+                .iter()
+                .flat_map(outlines)
+                .map(|outline| SceneShape {
+                    layer: layer.name.clone(),
+                    outline,
+                })
+        })
+        .collect()
+}
+
+/// An array's or a reference's elements, when no two of them meet: each drawn as its own
+/// outline (circles as 64-gons, as everywhere in a scene); `None` for any other shape, or for
+/// elements that touch or overlap, which are drawn as their union's polygons.
+fn separate(shape: &Shape) -> Option<&[crate::geometry::Element]> {
+    let a = match shape {
+        Shape::Array(a) => a,
+        Shape::Reference(r) => r.array(),
+        _ => return None,
+    };
+    a.is_separate().then(|| a.elements())
+}
+
+/// A shape's outlines: one ([`outline`]); an array's or a reference's elements' each, when
+/// they don't meet; or for a boolean, offset, rounding (which may fall apart into several
+/// polygons), and an array whose elements meet, one for each of its polygons within 1 nm,
+/// holes joined as a ring's are.
+fn outlines(shape: &Shape) -> Vec<Vec<[f64; 2]>> {
+    if let Some(elements) = separate(shape) {
+        return elements.iter().flat_map(|e| outlines(&e.shape)).collect();
+    }
+    if !matches!(
+        shape,
+        Shape::Boolean(_)
+            | Shape::Offset(_)
+            | Shape::Rounded(_)
+            | Shape::Array(_)
+            | Shape::Reference(_)
+    ) {
+        return vec![outline(shape)];
+    }
+    use crate::geometry::Region;
+    shape
+        .polygons(crate::geometry::Tolerance::default())
+        .contours
+        .iter()
+        .map(|c| joined(c, 0.0))
+        .collect()
+}
+
+/// A polygon with holes as one outline (see [`SceneShape::outline`]), each ring moved `d` µm out
+/// of the material, its corners mitred.
+fn joined(c: &crate::geometry::Contour, d: f64) -> Vec<[f64; 2]> {
+    let xy = |v: &Point| [v.x.to_um(), v.y.to_um()];
+    let ring = |r: &[Point]| {
+        let v: Vec<[f64; 2]> = r.iter().map(xy).collect();
+        if d == 0.0 { v } else { mitred(&v, d) }
+    };
+    let mut o = ring(&c.outer);
+    if !c.holes.is_empty()
+        && let Some(first) = o.first().copied()
+    {
+        o.push(first);
+    }
+    for hole in &c.holes {
+        let h = ring(hole);
+        o.extend(&h);
+        if let Some(first) = h.first() {
+            o.push(*first);
+        }
+    }
+    o
+}
+
+/// A band of an etched layer as a scene draws it: its name, its bottom and top (µm), whether a
+/// partial etch's slab fills it, and its shapes' outlines at its middle.
+struct Band {
+    name: String,
+    z: [f64; 2],
+    slab: bool,
+    outlines: Vec<Vec<[f64; 2]>>,
+}
+
+/// An etched layer (a partial etch, sloped walls) as a scene draws it: bands between its top,
+/// each partial etch's floor and its bottom, a sloped etch's in four, each with its shapes'
+/// outlines grown by their walls' reach at its middle. The top band keeps the layer's name; the
+/// ones below are `name 2`, `name 3`, … down the layer. A band under a partial etch's floor is
+/// the layer's material all through, its slab.
+fn bands(s: &Structure, name: &str, bottom: f64, top: f64) -> Vec<Band> {
+    let t = top - bottom;
+    let shapes = s.shapes(name);
+    let etches = s.etches(name);
+    let floor = |e: &crate::stack::Etch| e.depth.map_or(t, Length::to_um);
+    // depths below the top where a band starts or ends
+    let mut depths = vec![0.0, t];
+    for e in etches {
+        depths.push(floor(e));
+        if e.run() > 0.0 {
+            depths.extend((1..4).map(|k| floor(e) * f64::from(k) / 4.0));
+        }
+    }
+    depths.sort_by(f64::total_cmp);
+    depths.dedup_by(|a, b| (*a - *b).abs() < 1e-12);
+    let shallowest = etches
+        .iter()
+        .filter_map(|e| e.depth.map(Length::to_um))
+        .fold(f64::INFINITY, f64::min);
+    depths
+        .windows(2)
+        .enumerate()
+        .map(|(k, d)| {
+            let middle = 0.5 * (d[0] + d[1]);
+            let slab = middle > shallowest;
+            let outlines = if slab {
+                Vec::new()
+            } else {
+                shapes
+                    .iter()
+                    .zip(etches)
+                    .filter(|(_, e)| middle <= floor(e))
+                    .flat_map(|(shape, e)| grown_all(shape, middle * e.run()))
+                    .collect()
+            };
+            Band {
+                name: if k == 0 {
+                    name.to_owned()
+                } else {
+                    format!("{name} {}", k + 1)
+                },
+                z: [top - d[1], top - d[0]],
+                slab,
+                outlines,
+            }
+        })
+        .collect()
+}
+
+/// A shape's outlines ([`outlines`]) grown by `d` µm, as [`grown`].
+fn grown_all(shape: &Shape, d: f64) -> Vec<Vec<[f64; 2]>> {
+    if let Some(elements) = separate(shape) {
+        return elements
+            .iter()
+            .flat_map(|e| grown_all(&e.shape, d))
+            .collect();
+    }
+    if !matches!(
+        shape,
+        Shape::Boolean(_)
+            | Shape::Offset(_)
+            | Shape::Rounded(_)
+            | Shape::Array(_)
+            | Shape::Reference(_)
+    ) {
+        return vec![grown(shape, d)];
+    }
+    use crate::geometry::Region;
+    shape
+        .polygons(crate::geometry::Tolerance::default())
+        .contours
+        .iter()
+        .map(|c| joined(c, d))
+        .collect()
+}
+
+/// A shape's outline ([`outline`]) grown by `d` µm, its corners mitred: what a sloped wall
+/// reaches out to at a depth (the true section's convex corners are round; this is a picture).
+fn grown(shape: &Shape, d: f64) -> Vec<[f64; 2]> {
+    if d == 0.0 {
+        return outline(shape);
+    }
+    match shape {
+        Shape::Rect {
+            center,
+            width,
+            height,
+        } => outline(
+            &Shape::rect(
+                *center,
+                *width + Length::um(2.0 * d),
+                *height + Length::um(2.0 * d),
+            )
+            .unwrap_or_else(|_| shape.clone()),
+        ),
+        Shape::Circle { center, radius } => polygon64(*center, radius.to_um() + d, 1.0),
+        Shape::Ring {
+            center,
+            inner,
+            outer,
+        } => {
+            let mut o = polygon64(*center, outer.to_um() + d, 1.0);
+            let hole = inner.to_um() - d;
+            if hole > 0.0 {
+                o.push(o[0]);
+                let hole = polygon64(*center, hole, -1.0);
+                o.extend(&hole);
+                o.push(hole[0]);
+            }
+            o
+        }
+        other => {
+            use crate::geometry::Region;
+            let xy = |v: &Point| [v.x.to_um(), v.y.to_um()];
+            let mut o = Vec::new();
+            for c in other
+                .polygons(crate::geometry::Tolerance::default())
+                .contours
+            {
+                let outer = mitred(&c.outer.iter().map(xy).collect::<Vec<_>>(), d);
+                o.extend(&outer);
+                if !c.holes.is_empty()
+                    && let Some(first) = outer.first()
+                {
+                    o.push(*first);
+                }
+                for hole in &c.holes {
+                    let hole = mitred(&hole.iter().map(xy).collect::<Vec<_>>(), d);
+                    o.extend(&hole);
+                    if let Some(first) = hole.first() {
+                        o.push(*first);
+                    }
+                }
+            }
+            o
+        }
+    }
+}
+
+/// A ring of vertices (material on its left: an outline counterclockwise, a hole clockwise)
+/// moved `d` to its right, each vertex along its corner's bisector, mitred.
+fn mitred(ring: &[[f64; 2]], d: f64) -> Vec<[f64; 2]> {
+    let n = ring.len();
+    let normal = |a: [f64; 2], b: [f64; 2]| {
+        let (ex, ey) = (b[0] - a[0], b[1] - a[1]);
+        let l = ex.hypot(ey).max(f64::MIN_POSITIVE);
+        [ey / l, -ex / l]
+    };
+    (0..n)
+        .map(|i| {
+            let (p, v, q) = (ring[(i + n - 1) % n], ring[i], ring[(i + 1) % n]);
+            let (a, b) = (normal(p, v), normal(v, q));
+            // the mitre: along a + b, as far as keeps each edge d away; at most 4d
+            let k = (1.0 + a[0] * b[0] + a[1] * b[1]).max(0.125);
+            [v[0] + d * (a[0] + b[0]) / k, v[1] + d * (a[1] + b[1]) / k]
         })
         .collect()
 }
@@ -798,17 +1613,97 @@ fn scene(
     let stack = s.stack();
     let mut layers = Vec::new();
     let mut bottom = 0.0;
+    let etched = stack.layers().iter().any(|l| !s.is_plain(&l.name));
+    let mut shapes = if etched { Vec::new() } else { scene_shapes(s) };
     for layer in stack.layers() {
         let top = bottom + layer.thickness.to_um();
-        layers.push(SceneLayer {
-            name: layer.name.clone(),
-            z_um: [bottom, top],
-            material: medium(&layer.material)?,
-            background: medium(&layer.background)?,
-        });
+        if s.is_plain(&layer.name) {
+            layers.push(SceneLayer {
+                name: layer.name.clone(),
+                z_um: [bottom, top],
+                material: medium(&layer.material)?,
+                background: medium(&layer.background)?,
+            });
+            if etched {
+                shapes.extend(
+                    s.shapes(&layer.name)
+                        .iter()
+                        .flat_map(outlines)
+                        .map(|outline| SceneShape {
+                            layer: layer.name.clone(),
+                            outline,
+                        }),
+                );
+            }
+        } else {
+            for band in bands(s, &layer.name, bottom, top) {
+                layers.push(SceneLayer {
+                    name: band.name.clone(),
+                    z_um: band.z,
+                    material: medium(&layer.material)?,
+                    background: medium(if band.slab {
+                        &layer.material
+                    } else {
+                        &layer.background
+                    })?,
+                });
+                shapes.extend(band.outlines.into_iter().map(|outline| SceneShape {
+                    layer: band.name.clone(),
+                    outline,
+                }));
+            }
+        }
         bottom = top;
     }
-    let shapes = scene_shapes(s);
+    // the bodies, each as bands of its sections over its height in the window; listed before
+    // the stack's layers, whose last one stays the stack's top
+    let window = crate::geometry::Bounds {
+        min: Point::um(x[0], y[0]),
+        max: Point::um(x[1], y[1]),
+    };
+    let mut banded = Vec::new();
+    for (k, (body, medium)) in s.bodies().iter().enumerate() {
+        let b = body.bounds();
+        let (z0, z1) = (b.min[2].max(z[0]), b.max[2].min(z[1]));
+        if z1.is_nan() || z0.is_nan() || z1 <= z0 {
+            continue;
+        }
+        let drawn = SceneMedium {
+            material: medium.name().to_owned(),
+            eps: medium.permittivity(bodies::centre_of(body), wavelength)?.re,
+        };
+        let name = format!("body {}", k + 1);
+        let count = if body.upright() { 1 } else { 12 };
+        for i in 0..count {
+            let (a, c) = (
+                z0 + (z1 - z0) * i as f64 / count as f64,
+                z0 + (z1 - z0) * (i + 1) as f64 / count as f64,
+            );
+            let Some(section) = body.section(0.5 * (a + c), window)? else {
+                continue;
+            };
+            let band = if count == 1 {
+                name.clone()
+            } else {
+                format!("{name} {}", i + 1)
+            };
+            banded.push(SceneLayer {
+                name: band.clone(),
+                z_um: [a, c],
+                material: drawn.clone(),
+                // nothing around it: what is there is drawn already
+                background: SceneMedium {
+                    material: "none".into(),
+                    eps: 1.0,
+                },
+            });
+            shapes.extend(outlines(&section).into_iter().map(|outline| SceneShape {
+                layer: band.clone(),
+                outline,
+            }));
+        }
+    }
+    layers.splice(0..0, banded);
     Ok(Event::Scene {
         x_um: x,
         y_um: y,
@@ -827,6 +1722,7 @@ struct RectSpec {
     layer: String,
     center_um: [f64; 2],
     size_um: [f64; 2],
+    etch: Option<EtchSpec>,
 }
 
 #[derive(Deserialize)]
@@ -835,6 +1731,7 @@ struct CircleSpec {
     layer: String,
     center_um: [f64; 2],
     radius_um: f64,
+    etch: Option<EtchSpec>,
 }
 
 /// A ring: its centre line's radius and its waveguide's width ([`Shape::ring`]).
@@ -845,6 +1742,161 @@ struct RingSpec {
     center_um: [f64; 2],
     radius_um: f64,
     width_um: f64,
+    etch: Option<EtchSpec>,
+}
+
+/// A shape's `etch = { depth_um, sidewall_deg }` ([`crate::stack::Etch`]): how deep from its
+/// layer's top (through it when left out) and its walls' angle from the layer's plane (90 when
+/// left out). `depth` and `sidewall` take expressions with units (`"70 nm"`, `"85 deg"`).
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EtchSpec {
+    depth_um: Option<f64>,
+    sidewall_deg: Option<f64>,
+}
+
+impl EtchSpec {
+    fn etch(spec: Option<EtchSpec>) -> crate::stack::Etch {
+        let mut etch = crate::stack::Etch::FULL;
+        if let Some(e) = spec {
+            if let Some(d) = e.depth_um {
+                etch = crate::stack::Etch::partial(Length::um(d));
+            }
+            if let Some(a) = e.sidewall_deg {
+                etch = etch.with_sidewall_deg(a);
+            }
+        }
+        etch
+    }
+}
+
+/// A task's `stack`: a preset's name, or a `[task.stack]` table of layers.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+enum StackField {
+    Name(String),
+    Layers(toml::Table),
+}
+
+/// A path ([`crate::geometry::Path`]): its start, heading and width, and its segments, every
+/// value resolved to µm and radians.
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PathSpec {
+    layer: String,
+    #[serde(default)]
+    start_um: [f64; 2],
+    #[serde(default)]
+    heading_rad: f64,
+    width_um: f64,
+    segments: Vec<SegmentSpec>,
+    etch: Option<EtchSpec>,
+}
+
+/// One segment of a [`PathSpec`]: exactly one of a straight, an arc, an Euler bend or a sine
+/// S-bend, with what it needs, and the width at its end if it tapers.
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SegmentSpec {
+    straight_um: Option<f64>,
+    arc_rad: Option<f64>,
+    euler_rad: Option<f64>,
+    sine_um: Option<f64>,
+    radius_um: Option<f64>,
+    offset_um: Option<f64>,
+    p: Option<f64>,
+    width_um: Option<f64>,
+}
+
+impl PathSpec {
+    /// The path, its errors naming the table and segment (`k` from 0).
+    fn path(&self, k: usize) -> Result<crate::geometry::Path> {
+        path_of(
+            self.start_um,
+            self.heading_rad,
+            self.width_um,
+            &self.segments,
+            &format!("[[task.path]] #{}", k + 1),
+        )
+    }
+}
+
+/// A path from its start, heading, width and segments, its errors naming it as `what`.
+pub(super) fn path_of(
+    start_um: [f64; 2],
+    heading_rad: f64,
+    width_um: f64,
+    segments: &[SegmentSpec],
+    what: &str,
+) -> Result<crate::geometry::Path> {
+    use crate::geometry::{Path, Segment};
+    let at = |m: String| task_error(format!("{what}: {m}"));
+    let mut b = Path::builder(
+        Point::um(start_um[0], start_um[1]),
+        heading_rad,
+        Length::um(width_um),
+    );
+    for (j, s) in segments.iter().enumerate() {
+        let at = |m: &str| at(format!("segment {}: {m}", j + 1));
+        let kinds = [s.straight_um, s.arc_rad, s.euler_rad, s.sine_um]
+            .iter()
+            .filter(|v| v.is_some())
+            .count();
+        if kinds != 1 {
+            return Err(at(
+                "needs exactly one of straight, arc, euler and sine (their lengths or angles)",
+            ));
+        }
+        let radius = || {
+            s.radius_um
+                .map(Length::um)
+                .ok_or_else(|| at("an arc or Euler bend needs its radius"))
+        };
+        let unused = |name: &str, used: bool| {
+            if used {
+                Err(at(&format!("{name} isn't for this kind of segment")))
+            } else {
+                Ok(())
+            }
+        };
+        let segment = if let Some(l) = s.straight_um {
+            unused("radius", s.radius_um.is_some())?;
+            unused("offset", s.offset_um.is_some())?;
+            unused("p", s.p.is_some())?;
+            Segment::Straight {
+                length: Length::um(l),
+            }
+        } else if let Some(a) = s.arc_rad {
+            unused("offset", s.offset_um.is_some())?;
+            unused("p", s.p.is_some())?;
+            Segment::Arc {
+                radius: radius()?,
+                angle: a,
+            }
+        } else if let Some(a) = s.euler_rad {
+            unused("offset", s.offset_um.is_some())?;
+            Segment::Euler {
+                radius: radius()?,
+                angle: a,
+                p: s.p.unwrap_or(1.0),
+            }
+        } else {
+            unused("radius", s.radius_um.is_some())?;
+            unused("p", s.p.is_some())?;
+            Segment::Sine {
+                length: Length::um(s.sine_um.unwrap_or_default()),
+                offset: Length::um(
+                    s.offset_um
+                        .ok_or_else(|| at("a sine S-bend needs its offset"))?,
+                ),
+            }
+        };
+        b = b.segment(segment);
+        if let Some(w) = s.width_um {
+            b = b.taper(Length::um(w));
+        }
+    }
+    b.build().map_err(|e| at(e.to_string()))
 }
 
 #[derive(Deserialize)]
@@ -852,7 +1904,7 @@ struct RingSpec {
 struct StructureTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
     kind: String,
-    stack: String,
+    stack: StackField,
     core_nm: Option<f64>,
     bottom_oxide_um: Option<f64>,
     wavelength_um: f64,
@@ -868,6 +1920,14 @@ struct StructureTask {
     circle: Vec<CircleSpec>,
     #[serde(default)]
     ring: Vec<RingSpec>,
+    #[serde(default)]
+    path: Vec<PathSpec>,
+    #[serde(default)]
+    shape: Vec<shapes::ShapeSpec>,
+    #[serde(default)]
+    component: Vec<toml::Table>,
+    #[serde(default)]
+    body: Vec<toml::Table>,
 }
 
 fn task_error(reason: impl Into<String>) -> Error {
@@ -1181,12 +2241,46 @@ impl ModesTask {
     }
 }
 
-/// A named stack: `soi_220`, or `soi` / `nitride` with their core and bottom oxide.
+/// A 2D job's etches (partial etches, sloped walls) must be on its own layer, the one whose
+/// columns the effective index method solves; refused elsewhere, as the run would refuse them.
+fn check_etches_2d(s: &Structure, layer: &str) -> Result<()> {
+    match s
+        .stack()
+        .layers()
+        .iter()
+        .find(|l| l.name != layer && !s.is_plain(&l.name))
+    {
+        Some(other) => Err(task_error(format!(
+            "a 2D job's etches are on its own layer, {layer}: {} has a partial etch or a sloped \
+             wall",
+            other.name
+        ))),
+        None => Ok(()),
+    }
+}
+
+/// A task's stack: a named one, `soi_220`, or `soi` / `nitride` with their core and bottom
+/// oxide; or a `[task.stack]` table of layers ([`crate::device::spec::task_stack`]).
 fn named_stack(
-    stack: &str,
+    stack: &StackField,
     core_nm: Option<f64>,
     bottom_oxide_um: Option<f64>,
 ) -> Result<LayerStack> {
+    let stack = match stack {
+        StackField::Name(name) => name.as_str(),
+        StackField::Layers(table) => {
+            if core_nm.is_some() || bottom_oxide_um.is_some() {
+                return Err(task_error(
+                    "core_nm and bottom_oxide_um are a named stack's: a [task.stack] table gives \
+                     each layer's thickness",
+                ));
+            }
+            return crate::device::spec::task_stack(table).map_err(|e| match e {
+                Error::InvalidValue { reason, .. } => task_error(format!("[task.stack]: {reason}")),
+                other => other,
+            });
+        }
+    };
     let thicknesses = || match (core_nm, bottom_oxide_um) {
         (Some(core), Some(oxide)) => Ok((Length::nm(core), Length::um(oxide))),
         _ => Err(task_error(format!(
@@ -1217,40 +2311,90 @@ fn draw(
     rings: &[RingSpec],
 ) -> Result<Structure> {
     let mut s = Structure::new(stack);
-    for r in rects {
+    // a shape without an etch is drawn as it always was
+    let mut put = |layer: &str, shape: Shape, etch: Option<EtchSpec>, what: String| -> Result<()> {
+        match etch {
+            None => s.draw(layer, shape).map(|_| ()),
+            Some(e) => s
+                .draw_etched(layer, shape, EtchSpec::etch(Some(e)))
+                .map(|_| ())
+                .map_err(|e| match e {
+                    Error::InvalidValue { reason, .. } => task_error(format!("{what}: {reason}")),
+                    other => other,
+                }),
+        }
+    };
+    for (k, r) in rects.iter().enumerate() {
         let shape = Shape::rect(
             Point::um(r.center_um[0], r.center_um[1]),
             Length::um(r.size_um[0]),
             Length::um(r.size_um[1]),
         )?;
-        s.draw(&r.layer, shape)?;
+        put(&r.layer, shape, r.etch, format!("[[task.rect]] #{}", k + 1))?;
     }
-    for c in circles {
+    for (k, c) in circles.iter().enumerate() {
         let shape = Shape::circle(
             Point::um(c.center_um[0], c.center_um[1]),
             Length::um(c.radius_um),
         )?;
-        s.draw(&c.layer, shape)?;
+        put(
+            &c.layer,
+            shape,
+            c.etch,
+            format!("[[task.circle]] #{}", k + 1),
+        )?;
     }
-    for r in rings {
+    for (k, r) in rings.iter().enumerate() {
         let shape = Shape::ring(
             Point::um(r.center_um[0], r.center_um[1]),
             Length::um(r.radius_um),
             Length::um(r.width_um),
         )?;
-        s.draw(&r.layer, shape)?;
+        put(&r.layer, shape, r.etch, format!("[[task.ring]] #{}", k + 1))?;
     }
     Ok(s)
 }
 
+/// `s` with `paths` drawn on it, after its other shapes, each as its simplest exact shape
+/// ([`crate::geometry::Path::shape`]), then `shapes`, the shapes defined by functions and masks.
+fn draw_paths(
+    mut s: Structure,
+    paths: &[PathSpec],
+    shapes: &[shapes::ShapeSpec],
+    components: &[toml::Table],
+) -> Result<Structure> {
+    for (k, p) in paths.iter().enumerate() {
+        let shape = p.path(k)?.shape();
+        match p.etch {
+            None => s.draw(&p.layer, shape).map(|_| ())?,
+            Some(e) => s
+                .draw_etched(&p.layer, shape, EtchSpec::etch(Some(e)))
+                .map(|_| ())
+                .map_err(|e| match e {
+                    Error::InvalidValue { reason, .. } => {
+                        task_error(format!("[[task.path]] #{}: {reason}", k + 1))
+                    }
+                    other => other,
+                })?,
+        }
+    }
+    components::draw(shapes::draw(s, shapes)?, components)
+}
+
 impl StructureTask {
     fn structure(&self) -> Result<Structure> {
-        draw(
-            named_stack(&self.stack, self.core_nm, self.bottom_oxide_um)?,
-            &self.rect,
-            &self.circle,
-            &self.ring,
+        draw_paths(
+            draw(
+                named_stack(&self.stack, self.core_nm, self.bottom_oxide_um)?,
+                &self.rect,
+                &self.circle,
+                &self.ring,
+            )?,
+            &self.path,
+            &self.shape,
+            &self.component,
         )
+        .and_then(|s| bodies::place(s, &self.body))
     }
 }
 
@@ -1270,7 +2414,7 @@ struct SweepSpec {
 struct ModesTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
     kind: String,
-    stack: String,
+    stack: StackField,
     core_nm: Option<f64>,
     bottom_oxide_um: Option<f64>,
     wavelength_um: f64,
@@ -1360,6 +2504,7 @@ impl Frame {
                         Along::X => [r.size_um[1], r.size_um[0]],
                         Along::Y => r.size_um,
                     },
+                    etch: r.etch,
                 })
                 .collect(),
             circle: circles
@@ -1368,6 +2513,7 @@ impl Frame {
                     layer: c.layer.clone(),
                     center_um: turn(c.center_um),
                     radius_um: c.radius_um,
+                    etch: c.etch,
                 })
                 .collect(),
             ring: rings
@@ -1377,6 +2523,7 @@ impl Frame {
                     center_um: turn(r.center_um),
                     radius_um: r.radius_um,
                     width_um: r.width_um,
+                    etch: r.etch,
                 })
                 .collect(),
             cut: match along {
@@ -1409,31 +2556,63 @@ fn cross_section(
 ) -> Result<crate::mode::vector::CrossSection> {
     // every material the cut can meet must know this wavelength
     check_materials(s.stack(), &[wavelength.to_um()])?;
-    // the edges the cut crosses, and the layers' interfaces
+    // the edges the cut crosses, and the layers' interfaces; a sloped wall's foot too, and a
+    // partial etch's floor
     let mut x_edges = Vec::new();
+    let mut z_edges = vec![0.0];
+    // how far an etched shape's walls reach out at its foot, µm, and its floor's height
+    let reach = |layer: &str, etch: Option<EtchSpec>| -> (f64, Option<f64>) {
+        let Some((l, _, top)) = s.stack().layer(layer) else {
+            return (0.0, None);
+        };
+        let etch = EtchSpec::etch(etch);
+        let depth = etch.depth.unwrap_or(l.thickness).to_um();
+        (
+            depth * etch.run(),
+            etch.depth.map(|d| top.to_um() - d.to_um()),
+        )
+    };
     for r in rects {
-        if (cut_y - r.center_um[1]).abs() < r.size_um[1] / 2.0 {
+        let (out, floor) = reach(&r.layer, r.etch);
+        z_edges.extend(floor);
+        if (cut_y - r.center_um[1]).abs() < r.size_um[1] / 2.0 + out {
             x_edges.extend([
                 r.center_um[0] - r.size_um[0] / 2.0,
                 r.center_um[0] + r.size_um[0] / 2.0,
             ]);
+            if out > 0.0 {
+                x_edges.extend([
+                    r.center_um[0] - r.size_um[0] / 2.0 - out,
+                    r.center_um[0] + r.size_um[0] / 2.0 + out,
+                ]);
+            }
         }
     }
     let mut circle_edges = |center: [f64; 2], radius: f64| {
         let d = cut_y - center[1];
-        if d.abs() < radius {
+        if radius > 0.0 && d.abs() < radius {
             let half = (radius * radius - d * d).sqrt();
             x_edges.extend([center[0] - half, center[0] + half]);
         }
     };
     for c in circles {
+        let (out, floor) = reach(&c.layer, c.etch);
+        z_edges.extend(floor);
         circle_edges(c.center_um, c.radius_um);
+        if out > 0.0 {
+            circle_edges(c.center_um, c.radius_um + out);
+        }
     }
     for r in rings {
+        let (out, floor) = reach(&r.layer, r.etch);
+        z_edges.extend(floor);
         circle_edges(r.center_um, r.radius_um - r.width_um / 2.0);
         circle_edges(r.center_um, r.radius_um + r.width_um / 2.0);
+        if out > 0.0 {
+            circle_edges(r.center_um, r.radius_um - r.width_um / 2.0 - out);
+            circle_edges(r.center_um, r.radius_um + r.width_um / 2.0 + out);
+        }
     }
-    let mut z_edges = vec![0.0];
     let mut top = 0.0;
     for layer in s.stack().layers() {
         top += layer.thickness.to_um();
@@ -1448,8 +2627,14 @@ fn cross_section(
         let xc = 0.5 * (xs[i] + xs[i + 1]);
         for j in 0..zs.len() - 1 {
             let zc = 0.5 * (zs[j] + zs[j + 1]);
+            // the material at the centre, or a sloped wall's share of the cell
             let eps = s
-                .material_at(Point::um(xc, cut_y), Length::um(zc))
+                .cut_cell(
+                    Point::um(xc, cut_y),
+                    zc,
+                    [1.0, 0.0],
+                    [xs[i + 1] - xs[i], zs[j + 1] - zs[j]],
+                )
                 .permittivity(wavelength)
                 .unwrap_or(num_complex::Complex64::new(f64::NAN, 0.0));
             cells.push(crate::mode::vector::Permittivity::isotropic(eps));
@@ -1573,12 +2758,40 @@ fn reason(stop: &Stop) -> Option<String> {
 /// task itself (an invalid shape, a wavelength a material has no data for), and
 /// [`Error::Io`] if the record can't be written.
 pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+    if job.circuit().is_some() {
+        return chip::execute(job, run, stop);
+    }
+    if job.device().is_some() {
+        return device::execute(job, run, stop);
+    }
     let kind = job
         .task()
         .get("kind")
         .and_then(|k| k.as_str())
         .ok_or_else(|| task_error("needs a kind, e.g. kind = \"structure\""))?
         .to_owned();
+    execute_task(job, run, stop, &kind)
+}
+
+/// Whether `job` has a sweep whose points a farm's workers can solve ([`crate::farm`]): a
+/// `"modes"` or `"fdfd"` job's `[task.sweep]`, or a device's study (a `[device]` with a
+/// `"sweep"` or `"corners"` task).
+pub fn farms(job: &Job) -> bool {
+    // a design with a compact model computes in microseconds, and names a file a worker on
+    // another machine hasn't: its studies run here
+    let compact = job.device().is_some_and(|d| d.contains_key("compact"));
+    job.task().get("sweep").is_some()
+        || (job.device().is_some()
+            && !compact
+            && matches!(
+                job.task().get("kind").and_then(toml::Value::as_str),
+                Some("sweep" | "corners" | "fit")
+            ))
+}
+
+/// Runs `job`'s task of `kind` into `run`, from its start to its end.
+fn execute_task(job: &Job, run: &mut Run, stop: &Stop, kind: &str) -> Result<()> {
+    let kind = kind.to_owned();
     check_direct(job, &kind)?;
     run.record(&Event::Started {
         job: job.name().to_owned(),
@@ -1632,6 +2845,39 @@ fn check_direct(job: &Job, kind: &str) -> Result<()> {
 }
 
 fn check_inner(job: &Job) -> Result<()> {
+    if job.circuit().is_some() {
+        check_direct(job, "chip")?;
+        return chip::check(job);
+    }
+    if job.device().is_some() {
+        return match device::task_kind(job)?.as_deref() {
+            None => device_scene(job).map(|_| ()),
+            Some("fdtd") => {
+                check_direct(job, "fdtd")?;
+                fdtd::check(job)
+            }
+            Some(kind @ ("sweep" | "corners")) => {
+                check_direct(job, kind)?;
+                device_scene(job)?;
+                study::check(job)
+            }
+            Some("fit") => {
+                check_direct(job, "fit")?;
+                device_scene(job)?;
+                fit::check(job)
+            }
+            Some("optimize") => {
+                check_direct(job, "optimize")?;
+                device_scene(job)?;
+                optimize::check(job)
+            }
+            Some(_) => {
+                check_direct(job, "spectrum")?;
+                device_scene(job)?;
+                device::check_spectrum(job)
+            }
+        };
+    }
     let kind = job
         .task()
         .get("kind")
@@ -1698,6 +2944,7 @@ fn structure(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let s = task.structure()?;
     let lam = Wavelength::um(task.wavelength_um)?;
     run.record(&structure_scene(&task, &s)?)?;
+    record_ports(job, run)?;
     let step = Length::nm(task.step_nm);
     let x = (Length::um(task.x_um[0]), Length::um(task.x_um[1]));
     let y = (Length::um(task.y_um[0]), Length::um(task.y_um[1]));
@@ -1725,6 +2972,49 @@ fn structure(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 
 /// A structure job's scene: the window, 1 µm above and below the layer seen from above unless
 /// `z_um` says otherwise.
+/// The scene of a job's `[device]`: its structure at its design's values, over its shapes and
+/// ports with 1 µm around them, from 1 µm below its core to 1 µm above, its permittivities at its
+/// `wavelength` parameter (1.55 µm for a device without one).
+fn device_scene(job: &Job) -> Result<Event> {
+    let (device, design) = device::spec_of(job)?.build()?;
+    let values = design.values();
+    let geometry = device.geometry(values)?;
+    let shapes = scene_shapes(&geometry.structure);
+    let points = shapes.iter().flat_map(|s| s.outline.iter().copied()).chain(
+        geometry
+            .ports
+            .iter()
+            .map(|p| [p.position.x.to_um(), p.position.y.to_um()]),
+    );
+    let (mut x, mut y) = (
+        [f64::INFINITY, f64::NEG_INFINITY],
+        [f64::INFINITY, f64::NEG_INFINITY],
+    );
+    for [px, py] in points {
+        x = [x[0].min(px), x[1].max(px)];
+        y = [y[0].min(py), y[1].max(py)];
+    }
+    if !x[0].is_finite() {
+        (x, y) = ([0.0, 0.0], [0.0, 0.0]);
+    }
+    let core = geometry
+        .ports
+        .first()
+        .map_or_else(|| "Si".to_owned(), |p| p.layer.clone());
+    let (_, bottom, top) = geometry
+        .structure
+        .stack()
+        .layer(&core)
+        .ok_or_else(|| task_error(format!("the stack has no layer {core}")))?;
+    scene(
+        &geometry.structure,
+        [x[0] - 1.0, x[1] + 1.0],
+        [y[0] - 1.0, y[1] + 1.0],
+        [bottom.to_um() - 1.0, top.to_um() + 1.0],
+        Wavelength::um(values.get("wavelength").unwrap_or(1.55))?,
+    )
+}
+
 fn structure_scene(task: &StructureTask, s: &Structure) -> Result<Event> {
     let z = window_z(task.z_um, &task.layer, s, task.step_nm)?;
     scene(
@@ -1826,7 +3116,10 @@ fn window_highest(task: &ModesTask, s: &Structure, z: [f64; 2], wavelength_um: f
 /// `wavelength_um`: the backgrounds of its layers, and the substrate and cladding where the
 /// window reaches them. A guided mode's n_eff is above it. The window has no absorbing layers,
 /// so a mode not above it isn't a guide's: it is a mode of the closed box the window makes,
-/// its n_eff below the cladding's, even below 1.
+/// its n_eff below the cladding's, even below 1. The job knows its media, so it takes them
+/// from its stack: a bare cross-section reads them at its open edges
+/// ([`crate::mode::vector::CrossSection::surrounding_index`]), the same index unless a shape
+/// reaches the window's side.
 fn window_edge_highest(
     _task: &ModesTask,
     s: &Structure,
@@ -1932,6 +3225,13 @@ fn modes_scene(task: &ModesTask, s: &Structure) -> Result<Event> {
 ///
 /// The errors of [`check`].
 pub fn preview(job: &Job) -> Result<Event> {
+    if job.device().is_some() {
+        if device::task_kind(job)?.as_deref() == Some("fdtd") {
+            check(job)?;
+            return fdtd::preview(job);
+        }
+        return device_scene(job);
+    }
     check(job)?;
     match job.task().get("kind").and_then(|k| k.as_str()) {
         Some("structure") => {
@@ -1995,12 +3295,8 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             None => {
                 let edge = window_edge_highest(&task, &s, z, w.to_um())?;
                 Ok(
-                    crate::mode::vector::modes_until(cs, w, count, None, stopped)?.map(|modes| {
-                        modes
-                            .into_iter()
-                            .filter(|m| m.effective_index().re > edge)
-                            .collect()
-                    }),
+                    crate::mode::vector::modes_until(cs, w, count, None, stopped)?
+                        .map(|modes| modes.into_iter().filter(|m| m.is_guided(edge)).collect()),
                 )
             }
         }
@@ -2285,6 +3581,12 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 }
 
 #[cfg(test)]
+mod averaging_tests;
+
+#[cfg(test)]
+mod etch_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::run::replay;
@@ -2354,6 +3656,88 @@ size_um = [2.0, 0.5]
         assert!(matches!(&events[4], Event::Finished { stopped: None, .. }));
     }
 
+    const PATH_JOB: &str = r#"
+name = "euler"
+
+[task]
+kind = "structure"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+x_um = [-1.0, 8.0]
+y_um = [-1.0, 8.0]
+step_nm = 100.0
+
+[task.parameters]
+w = "500 nm"
+r = "5 um"
+
+[[task.path]]
+layer = "Si"
+start = ["-1 um", 0]
+width = "w"
+segments = [
+  { straight = "1 um" },
+  { euler = "90 deg", radius = "r", p = 0.2 },
+  { straight = "2 um", width = "w + 100 nm" },
+  { sine = "4 um", offset = "-1 um" },
+  { arc_rad = 0.5, radius_um = 3 },
+]
+"#;
+
+    #[test]
+    fn a_path_in_a_job_is_checked_drawn_and_rasterized() {
+        let job = Job::parse(PATH_JOB).unwrap();
+        check(&job).unwrap();
+        let Event::Scene { shapes, .. } = preview(&job).unwrap() else {
+            panic!("a structure's preview is a scene")
+        };
+        assert_eq!(shapes.len(), 1);
+        assert!(shapes[0].outline.len() > 100);
+        let task: StructureTask = params::task(&job).unwrap();
+        let s = task.structure().unwrap();
+        // on the Euler bend's centre line, and beside it
+        let path = task.path[0].path(0).unwrap();
+        let mid = path.point(Length::um(3.0));
+        let si = s.stack().layer("Si").unwrap().1.to_um() + 0.1;
+        let at = |p: Point| s.material_at(p, Length::um(si)).name().to_owned();
+        assert_eq!(at(mid), "Si");
+        assert_ne!(
+            at(Point::um(mid.x.to_um() + 1.0, mid.y.to_um() - 1.0)),
+            "Si"
+        );
+        // the widths: 500 nm, then 600 nm after the taper
+        assert_eq!(path.start().width, Length::um(0.5));
+        assert!((path.end().width.to_um() - 0.6).abs() < 1e-15);
+    }
+
+    #[test]
+    fn what_a_path_in_a_job_refuses() {
+        let bad = |from: &str, to: &str, says: &str| {
+            let job = Job::parse(&PATH_JOB.replace(from, to)).unwrap();
+            let e = check(&job).unwrap_err().to_string();
+            assert!(e.contains(says), "{e}");
+        };
+        bad(
+            "euler = \"90 deg\"",
+            "euler = \"90\"",
+            "needs an angle, got a number",
+        );
+        bad("radius = \"r\", p = 0.2", "p = 0.2", "needs its radius");
+        bad(
+            "{ straight = \"1 um\" }",
+            "{ straight = \"1 um\", arc = \"1 rad\" }",
+            "exactly one",
+        );
+        bad("width = \"w\"", "width = \"20 um\"", "twice its");
+        bad("p = 0.2", "p = \"2 um\"", "plain number");
+        bad(
+            "{ straight = \"1 um\" }",
+            "{ straight = \"1 um\", straight_um = 1 }",
+            "not both",
+        );
+    }
+
     #[test]
     fn a_stopped_job_says_why() {
         let root = temp("stopped");
@@ -2369,6 +3753,72 @@ size_um = [2.0, 0.5]
             &events[3],
             Event::Finished { stopped: Some(r), .. } if r == "requested"
         ));
+    }
+
+    const DEVICE: &str = r#"
+name = "narrow-ring"
+
+[device]
+kind = "all-pass ring"
+fidelity = "analytic"
+stack = "soi_220"
+
+[device.parameters]
+w = "450 nm"
+width = "w"
+gap = "w/2.5"
+radius = "5 um"
+"#;
+
+    #[test]
+    fn a_device_job_is_checked_drawn_and_recorded() {
+        let job = Job::parse(DEVICE).unwrap();
+        check(&job).unwrap();
+        let Event::Scene {
+            x_um,
+            y_um,
+            z_um,
+            shapes,
+            layers,
+            ..
+        } = preview(&job).unwrap()
+        else {
+            panic!("not a scene")
+        };
+        // the bus and the ring on the Si layer, 1 um around them, 1 um below and above it
+        assert_eq!(shapes.len(), 2);
+        assert!(shapes.iter().all(|s| s.layer == "Si"));
+        assert_eq!(layers.len(), 2);
+        assert!((z_um[0] - 1.0).abs() < 1e-12 && (z_um[1] - 3.22).abs() < 1e-12);
+        // the bus reaches past the ring by its width and 1 um, the ring's top is 2r + w + gap up
+        let reach = 5.0 + 0.45 + 1.0;
+        assert!((x_um[0] + reach + 1.0).abs() < 1e-9 && (x_um[1] - reach - 1.0).abs() < 1e-9);
+        assert!(
+            (y_um[1] - (0.45 + 0.18 + 10.0 + 0.225 + 1.0)).abs() < 1e-3,
+            "{y_um:?}"
+        );
+        // a run records the scene
+        let root = temp("device");
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let events: Vec<Event> = replay(run.dir()).unwrap();
+        assert!(matches!(&events[0], Event::Started { kind, .. } if kind == "device"));
+        assert!(matches!(&events[1], Event::Scene { .. }));
+        assert!(matches!(&events[2], Event::Finished { stopped: None, .. }));
+        // what isn't a design is refused, as is a task beside it
+        for bad in [
+            DEVICE.replace("all-pass ring", "taper"),
+            DEVICE.replace("w/2.5", "w/0"),
+            DEVICE.replace("\"5 um\"", "\"5 deg\""),
+            format!("{DEVICE}\n[task]\nkind = \"structure\"\n"),
+        ] {
+            let job = Job::parse(&bad).unwrap();
+            assert!(check(&job).is_err(), "{bad}");
+        }
+        // its text in JSON is the same job
+        let json = crate::run::Format::Json;
+        let json = Job::parse_as(&job.to_text(json).unwrap(), json).unwrap();
+        assert_eq!(json.device(), job.device());
     }
 
     const MODES: &str = r#"
@@ -2528,6 +3978,49 @@ layer = "Si"
 center_um = [0.0, 0.0]
 size_um = [10.0, 0.5]
 "#;
+
+    /// The built-in modes jobs keep their modes by the index of the media around their guides,
+    /// from their stacks; the library's rule for a bare cross-section, from its open edges,
+    /// gives the same number on the cross-sections they solve (no shape reaches their sides).
+    #[test]
+    fn the_modes_jobs_media_are_their_cross_sections_edges() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+        for name in [
+            "strip-modes.toml",
+            "strip-guided-modes.toml",
+            "strip-width-sweep.toml",
+            "coupler-supermodes.toml",
+        ] {
+            let job = Job::parse(&std::fs::read_to_string(dir.join(name)).unwrap()).unwrap();
+            let task = modes_task(&job, None).unwrap();
+            let stack = || named_stack(&task.stack, task.core_nm, task.bottom_oxide_um).unwrap();
+            let s = draw(stack(), &task.rect, &task.circle, &task.ring).unwrap();
+            let z = modes_z(&task, &s).unwrap();
+            let (along, across, cut) = (
+                task.along().unwrap(),
+                task.across().unwrap(),
+                task.cut().unwrap(),
+            );
+            let frame = Frame::new(along, &task.rect, &task.circle, &task.ring, cut);
+            let fs = frame.draw(stack()).unwrap();
+            let lam = Wavelength::um(task.wavelength_um).unwrap();
+            let cs = cross_section(
+                &fs,
+                &frame.rect,
+                &frame.circle,
+                &frame.ring,
+                frame.cut,
+                across,
+                z,
+                task.step_nm / 1000.0,
+                lam,
+            )
+            .unwrap();
+            let job_index = window_edge_highest(&task, &s, z, task.wavelength_um).unwrap();
+            assert_eq!(cs.surrounding_index(lam).unwrap(), job_index, "{name}");
+            assert!(job_index > 1.4, "{name}: {job_index}");
+        }
+    }
 
     fn run_events(tag: &str, text: &str) -> Vec<Event> {
         let root = temp(tag);
@@ -3018,6 +4511,7 @@ width_um = 0.3
             layer: "Si".into(),
             center_um: [0.0, 0.0],
             size_um: [0.45, 10.0],
+            etch: None,
         };
         let s = draw(LayerStack::soi_220(), std::slice::from_ref(&rect), &[], &[]).unwrap();
         let cs = cross_section(

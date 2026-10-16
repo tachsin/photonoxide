@@ -169,12 +169,14 @@ when the run is done. Every run is recorded (`runs/<run>/events.jsonl`) and repl
 `photonoxide view runs/<run>`; `--headless` runs a job without the window.
 
 Each release has the `photonoxide` program for Linux (x86_64 and ARM64), Windows and macOS
-([downloads](https://github.com/tachsin/photonoxide/releases)), and an installed copy updates
-itself; it can also be built from the repository
+([downloads](https://github.com/tachsin/photonoxide/releases); on Linux, the `.deb` or `.rpm`
+first, and the larger AppImage where neither fits, as on a cluster:
+[which file](https://github.com/tachsin/photonoxide/blob/main/studio/README.md#downloads)), and an
+installed copy updates itself; it can also be built from the repository
 ([how](https://github.com/tachsin/photonoxide/blob/main/studio/README.md)). Started with no
-arguments, it opens the studio on a workspace: the examples and jobs built in, a job builder
-with a 3D preview, the runs, the materials catalogue and the validation report (the
-[studio's README](https://github.com/tachsin/photonoxide/blob/main/studio/README.md) describes
+arguments, it opens the studio on a workspace: the examples and jobs built in, the components
+each on its page and the Custom device for any other structure, the runs, the materials
+catalogue and the validation report (the [studio's README](https://github.com/tachsin/photonoxide/blob/main/studio/README.md) describes
 every page). From a terminal:
 
 ```sh
@@ -188,11 +190,12 @@ photonoxide run jobs/ring-fdtd.toml             # the ring by 2D FDTD: its spect
 photonoxide run jobs/bragg-grating.toml         # a Bragg grating in a silicon strip: its structure
 photonoxide run jobs/mzi-mmi.toml               # a Mach-Zehnder interferometer of two 1x2 MMIs: its structure
 photonoxide run jobs/coupler-supermodes.toml    # a coupler's two strips: their supermodes against the gap
+photonoxide run jobs/slab-soi.toml              # a slab: 220 nm of silicon on oxide, unetched: its structure
 ```
 
 A job file is TOML, JSON or YAML, by its extension (`.toml`, `.json`, `.yaml` or `.yml`), the
-same fields in each; the builder switches between them. The same job three ways (shortened: a
-modes job needs its stack, window and shapes too, as in `jobs/strip-modes.toml`):
+same fields in each; the Custom device switches between them. The same job three ways
+(shortened: a modes job needs its stack, window and shapes too, as in `jobs/strip-modes.toml`):
 
 ```toml
 # A strip's modes at 1.55 um.

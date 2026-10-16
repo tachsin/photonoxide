@@ -32,6 +32,13 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 - **Materials:** [dispersion models](docs/methods/materials.md) with their source, validity range
   and temperature; a [catalogue](docs/methods/catalogue.md) of Si, SiO₂, SiN, LiNbO₃, GaAs,
   AlGaAs, InGaP, InP and AlN, with χ⁽²⁾ and Pockels tensors.
+- **Geometry for any device:** [shapes](docs/methods/geometry.md) kept exact, from paths with
+  Euler bends to regions defined by [expressions](docs/methods/expressions.md);
+  [booleans and offsets](docs/methods/booleans.md), [arrays and lattices](docs/methods/arrays.md),
+  [components drawn with named ports](docs/methods/generators.md),
+  [stacks with partial etches and sidewalls](docs/methods/stacks.md), and
+  [3D bodies and graded media](docs/methods/bodies.md); each solver reads it by points or by
+  [each cell's fill](docs/methods/averaging.md).
 - **Modes:** [slabs](docs/methods/slab.md) and [multilayers](docs/methods/multilayer.md),
   [full-vector cross-sections](docs/methods/vector.md) with [PMLs](docs/methods/pml.md),
   [Hadley's](docs/methods/hadley.md) scheme for dielectric corners, [bends](docs/methods/bends.md)
@@ -49,10 +56,25 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 - **Circuits:** [components](docs/methods/components.md), [netlists](docs/methods/circuits.md),
   the [circuit adjoint](docs/methods/circuit-adjoint.md), [compact models](docs/methods/compact.md)
   and Touchstone files; optimization with [genoxide](https://github.com/tachsin/genoxide).
+- **Devices:** [components that know their geometry](docs/methods/devices.md): the strip and rib
+  waveguides, bend, directional coupler, rings, MMIs, Y-branch and MZIs, each with its models
+  from a closed form to 3D and their errors; computed at a fidelity, swept over one or two
+  parameters and taken through a process's corners, as jobs.
 - **External solvers, optional:** oneMKL's PARDISO, MUMPS, SuperLU, Apple Accelerate, NVIDIA
-  cuDSS and Krylov solvers on NVIDIA GPUs, loaded at run time when installed and checked against
+  cuDSS and Krylov solvers on NVIDIA GPUs, and any BLAS and LAPACK as the dense kernels of
+  photonoxide's own solver, loaded at run time when installed and checked against
   photonoxide's own, which `auto` leaves only for one measured faster here at the same accuracy
   ([backends](docs/methods/backends.md), [install guides](docs/libraries.md)).
+
+  [![Intel oneMKL: PARDISO, BLAS](https://img.shields.io/badge/Intel_oneMKL-PARDISO%2C_BLAS-555)](docs/libraries.md#onemkl)
+  [![MUMPS: direct](https://img.shields.io/badge/MUMPS-direct-555)](docs/libraries.md#mumps)
+  [![SuperLU: direct](https://img.shields.io/badge/SuperLU-direct-555)](docs/libraries.md#superlu)
+  [![NVIDIA cuDSS: direct on the GPU](https://img.shields.io/badge/NVIDIA_cuDSS-direct_on_the_GPU-555)](docs/libraries.md#cudss)
+  [![NVIDIA cuSPARSE: Krylov on the GPU](https://img.shields.io/badge/NVIDIA_cuSPARSE-Krylov_on_the_GPU-555)](docs/libraries.md#cusparse)
+  [![OpenBLAS: BLAS](https://img.shields.io/badge/OpenBLAS-BLAS-555)](docs/libraries.md#openblas)
+  [![Apple Accelerate: sparse, BLAS](https://img.shields.io/badge/Apple_Accelerate-sparse%2C_BLAS-555)](docs/libraries.md#accelerate)
+  [![AMD AOCL: BLAS](https://img.shields.io/badge/AMD_AOCL-BLAS-555)](docs/libraries.md#amd-aocl)
+  [![Arm Performance Libraries: BLAS](https://img.shields.io/badge/Arm_Performance_Libraries-BLAS-555)](docs/libraries.md#arm-performance-libraries)
 - **Jobs and runs:** TOML, JSON or YAML job files, checked before they run; every run is recorded
   and replays exactly.
 
@@ -62,16 +84,17 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 ## The studio
 
 `photonoxide` opens a window on a folder of jobs, runs and chips: the examples, each run in one
-click and checked against its paper; a job builder with a live 3D preview; runs played live or
+click and checked against its paper; each component on its own page, its design in 3D, its models
+side by side, its runs, sweeps and corners; the Custom device for any other structure; runs played live or
 replayed (modes, fields, spectra, FDTD as the field propagates); the Academy's lessons with live
-charts; the materials catalogue; components and chips; the validation report; and the external
+charts; the materials catalogue; chips; the validation report; and the external
 solvers this machine has. The same program runs a job from the command line
 (`photonoxide run job.toml`, `--headless` for batches). [studio/README.md](studio/README.md) has
 every page and command.
 
 <table>
   <tr>
-    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/builder.gif" alt="The job builder: the ring-fdfd job's ring radius and position changed in the form, the 3D preview following each step" width="100%"><br><sub><b>Job builder:</b> the ring's radius and place edited in the form; the 3D preview follows.</sub></td>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/device.gif" alt="A directional coupler's page: its gap widened and its coupled length changed with the sliders, the 3D view following each step, then its cross-section, drawn from above with the cut and across the two strips" width="100%"><br><sub><b>Components:</b> a directional coupler's gap and length moved, its 3D view following; then its cross-section.</sub></td>
     <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/tachsin/photonoxide/main/assets/studio/materials.gif" alt="The Materials page: lithium niobate's ordinary and extraordinary indices read off the plot, then AlGaAs's index as its aluminium fraction slider moves" width="100%"><br><sub><b>Materials:</b> LiNbO₃'s n<sub>o</sub> and n<sub>e</sub> read off the plot; AlGaAs as its aluminium fraction moves.</sub></td>
   </tr>
   <tr>
@@ -142,6 +165,8 @@ or the committed report isn't the one the code writes. CI checks every example's
 | 0.5 FDTD | 2D and 3D, CPML, smoothing, sources, monitors, adjoints, a GPU kernel; solver backends loaded at run time | ✅ released |
 | 0.5.1 Channels and backends | Nightly built from main, MUMPS, SuperLU and Accelerate, the backend chosen from benchmarks, every mode in a region | ✅ released |
 | 0.5.2 Many solves at once | Ports as a block, recycling across sweeps, more contour-integral mode solvers, farming across processes | ✅ released |
+| 0.5.3 QMR without the matrix | QMR without its matrix where the matrix wouldn't fit, MUMPS 5.9 | ✅ released |
+| 0.5.4 Geometry and devices | Geometry for any device; the device library on pages of its own, with its models, runs, sweeps, corners and optimization; compact models; the chip built from devices; devices in Python and MATLAB | ✅ released |
 | 0.6 Thermal and electro-optic | Heat, thermo-optic phase shifters, Pockels modulators, travelling-wave electrodes | 🚧 next |
 | 0.6.1 Nonlinear integrated optics | Transparency windows, phase matching, SHG, SFG, DFG, SPDC and FWM in waveguides, Kerr combs | planned |
 | 0.6.2 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states, loss budgets of quantum circuits | planned |

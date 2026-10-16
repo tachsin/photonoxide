@@ -1,0 +1,13 @@
+An add-drop ring, R = 10 µm, 20 dB/cm (a = 0.985637), n_eff 2.4, n_g 4.2, at its resonance 1.552627 µm (Bogaerts et al. 2011, Eqs. 5–8); couplings κ² from 0.005 to 0.3
+  the drop by the circuit solve and the width by Eq. 8, exact: no grid; costs −D and FWHM (nm)
+  drop at resonance, κ² = 0.05, 0.12     0.605803   Eq. 6 0.605803   ± 1e-12     ok
+  the closed-form front's hypervolume up to (0, 3 nm): 2.575970
+  NSGA-II (population 60, 40000 evaluations, seed 1): 60 points, widths 0.0566 to 1.0854 nm, hypervolume 2.568213; largest |D − D_front| 1e-2
+  NSGA-II: hypervolume / the front's     0.996989   the closed form 1.000000   ± 1e-2 ok
+    each point then polished by GCMMA at its width: |κ₁² − κ₂²| at most 6e-9
+  NSGA-II, polished: largest |D − D_front|     0.000000   the closed form 0.000000   ± 1e-3 ok
+  SMS-EMOA (population 60, 40000 evaluations, seed 1): 60 points, widths 0.0566 to 1.0854 nm, hypervolume 2.571072; largest |D − D_front| 3e-3
+  SMS-EMOA: hypervolume / the front's     0.998099   the closed form 1.000000   ± 1e-2 ok
+    each point then polished by GCMMA at its width: |κ₁² − κ₂²| at most 9e-9
+  SMS-EMOA, polished: largest |D − D_front|     0.000000   the closed form 0.000000   ± 1e-3 ok
+all 5 within tolerance of the paper

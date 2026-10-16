@@ -3,8 +3,13 @@
 //! systems by Gaussian elimination with partial pivoting.
 //!
 //! Every function returns 0 on success, 1 for an invalid argument and 2 for a singular matrix.
+//!
+//! It is also a small BLAS and LAPACK (`blas`), for the tests of how a library's interface is
+//! found: Fortran's names with 64-bit integers, and the C interfaces with 32-bit ones.
 
 use std::os::raw::c_int;
+
+mod blas;
 
 use num_complex::Complex64 as c64;
 

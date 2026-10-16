@@ -12,8 +12,11 @@ validation:
   - mode/multilayer-power-chilwell
   - mode/multilayer-fresnel
   - mode/multilayer-bragg
+  - mode/multilayer-derivatives
+  - mode/multilayer-quarter-wave-stationary
 examples:
   - multilayer_chilwell
+  - optimize_bragg
 ---
 
 Films 1 … J lie between a semi-infinite cover and substrate. In each medium of index n,
@@ -61,6 +64,31 @@ r and t are ratios of U: the tangential E for TE, the tangential H for TM. Beyon
 reflection $\gamma_s$ is imaginary and T is zero. `Multilayer::reflection` returns all four; the
 cover must be lossless, so that the incident wave is defined. This is the exact reference for
 the plane-wave checks of the FDFD solver.
+
+## Derivatives
+
+`Multilayer::reflection_derivatives` gives R and T with their derivatives in each film's
+thickness and in the real part of its index, exactly, for an optimizer's gradient. The stack's
+matrix is a product, so its derivative in film j is
+
+$$
+\frac{\partial M}{\partial p_j} = M_1 \cdots M_{j-1}\thinspace \frac{\partial M_j}{\partial p_j}\thinspace M_{j+1} \cdots M_J ,
+$$
+
+the products before and after every film kept from one pass each way (two 2 × 2 products a
+film). In a film, $\Phi = k\alpha d$: $\partial\Phi/\partial d = k\alpha$ with γ fixed, and in
+the index $\partial\alpha/\partial n = n/\alpha$, $\partial\gamma/\partial n$ the same for TE and
+$(\partial\alpha/\partial n)/n^2 - 2\alpha/n^3$ for TM. r and t are quotients of quantities
+linear in M, so $dr = (dN - r\thinspace d\chi)/\chi$, $dt = -t\thinspace d\chi/\chi$, and
+$dR = 2\operatorname{Re}(\bar r\thinspace dr)$, $dT = (\operatorname{Re}\gamma_s/\operatorname{Re}\gamma_c)\thinspace 2\operatorname{Re}(\bar t\thinspace dt)$.
+A film at the incident wave's in-plane index (α = 0) has no derivative in its index there, and
+is refused. Their sin and cos are libm's ([conventions](conventions.md), "The same numbers on every
+system"), so an optimization on them takes the same path on every system.
+
+They agree with fourth-order central differences to 1e-9 for three films, one lossy, TE and TM,
+at normal and oblique incidence; and the quarter-wave stack is a stationary point of R in every
+thickness at its design wavelength (to 1e-11 per µm), as the optimum of
+[`optimize_bragg`](../../examples/optimize_bragg.rs) must be.
 
 ## Validation
 

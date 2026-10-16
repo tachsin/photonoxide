@@ -1,5 +1,5 @@
 <script lang="ts">
-  // An fdtd job's sources or monitors in the builder: each one's type and the fields that type
+  // An fdtd job's sources or monitors in the Custom device: each one's type and the fields that type
   // reads, as photonoxide::job's fdtd module reads them; placed in the top view, where a click
   // picks one.
   import { Plus, Trash2 } from "@lucide/svelte";

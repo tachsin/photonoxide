@@ -386,3 +386,155 @@ fn expression_timing() {
         out.iter().sum::<f64>()
     );
 }
+
+/// `spline(x, [knots], [values])` at `x` (µm).
+fn spline_at(knots: &str, values: &str, x: f64) -> f64 {
+    let text = format!("spline(x, [{knots}], [{values}])");
+    let e = Expr::parse(&text, &Scope::new()).unwrap_or_else(|e| panic!("{text}: {e}"));
+    let mut v = [0.0; 7];
+    v[0] = x;
+    e.try_eval(&v).unwrap_or_else(|e| panic!("{text}: {e}"))
+}
+
+/// Lengths in µm, as a list's text.
+fn lengths(v: &[f64]) -> String {
+    v.iter()
+        .map(|x| format!("{x:?} um"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+#[test]
+fn a_spline_is_zhangs_not_a_knot_spline() {
+    // Zhang et al.'s 13 widths 1/6 µm apart: the expression against the spline the geometry's
+    // check solves for itself, at 1001 points across the knots and beyond the ends
+    let widths = crate::geometry::curve_checks::ZHANG_WIDTHS;
+    let h = 2.0 / 12.0;
+    let pieces = crate::geometry::curve_checks::spline(&widths, h);
+    let knots: Vec<f64> = (0..13).map(|k| f64::from(k) * h).collect();
+    let mut worst = 0.0f64;
+    for i in 0..=1000 {
+        let x = -0.1 + 2.2 * f64::from(i) / 1000.0;
+        let k = ((x / h).floor().max(0.0) as usize).min(11);
+        let t = x - k as f64 * h;
+        let c = &pieces[k];
+        let expected = c[0] + t * (c[1] + t * (c[2] + t * c[3]));
+        let got = spline_at(&lengths(&knots), &lengths(&widths), x);
+        worst = worst.max((got - expected).abs());
+    }
+    assert!(worst < 1e-13, "{worst:e}");
+    // through every knot
+    for (x, w) in knots.iter().zip(widths) {
+        assert!((spline_at(&lengths(&knots), &lengths(&widths), *x) - w).abs() < 1e-14);
+    }
+}
+
+#[test]
+fn a_spline_reproduces_cubics_on_any_knots() {
+    // not-a-knot reproduces a cubic exactly (a natural spline wouldn't), on uneven knots; three
+    // knots give the parabola through them, two the line
+    let p = |x: f64| 0.3 - 1.2 * x + 0.7 * x * x - 0.25 * x * x * x;
+    let q = |x: f64| 0.3 - 1.2 * x + 0.7 * x * x;
+    let knots = [0.0, 0.4, 1.1, 1.5, 2.6, 3.0];
+    let ys: Vec<f64> = knots.iter().map(|&x| p(x)).collect();
+    let k3 = [0.2, 0.9, 2.0];
+    let y3: Vec<f64> = k3.iter().map(|&x| q(x)).collect();
+    for i in 0..=60 {
+        let x = -0.3 + 3.6 * f64::from(i) / 60.0;
+        let s = spline_at(&lengths(&knots), &lengths(&ys), x);
+        assert!((s - p(x)).abs() < 1e-12, "{x}");
+        let s = spline_at(&lengths(&k3), &lengths(&y3), x);
+        assert!((s - q(x)).abs() < 1e-12, "{x}");
+        let line = spline_at("1 um, 3 um", "2 um, 3 um", x);
+        assert!((line - (1.5 + 0.5 * x)).abs() < 1e-14, "{x}");
+    }
+    // values may be numbers, and the point any expression of the knots' kind
+    let e = Expr::parse(
+        "spline(2*x, [0 um, 1 um, 2 um, 4 um], [1, 0, 2, 3])",
+        &Scope::new(),
+    )
+    .unwrap();
+    assert_eq!(e.dim(), Some(Dim::NONE));
+    let mut v = [0.0; 7];
+    v[0] = 0.5;
+    assert!(e.eval(&v).abs() < 1e-15);
+}
+
+#[test]
+fn a_splines_values_carry_their_derivatives() {
+    // the values as parameters, one of them an expression of another
+    let defs: Vec<(String, String)> = [
+        ("a", "0.5 um"),
+        ("w1", "0.6 um"),
+        ("w2", "a + 0.4 um"),
+        ("w3", "1.2 um"),
+        ("w4", "1.1 um"),
+    ]
+    .iter()
+    .map(|(n, e)| ((*n).to_owned(), (*e).to_owned()))
+    .collect();
+    let p = Parameters::new(&defs).unwrap();
+    let e = Expr::parse(
+        "spline(x, [0 um, 0.5 um, 1 um, 1.5 um, 2 um], [a, w1, w2, w3, w4])",
+        p.scope(),
+    )
+    .unwrap();
+    assert_eq!(e.dim(), Some(Dim::LENGTH));
+    for x in [0.1, 0.7, 1.3, 1.9] {
+        let q = p.at_coordinate("x", x).unwrap();
+        for name in ["a", "w1", "w3"] {
+            let d = e.eval_dual(&q.derivatives(name).unwrap());
+            let at = |v: f64| e.eval(q.with(name, v).unwrap().values());
+            let (v0, h) = (q.value(name).unwrap(), 1e-6);
+            let fd = (at(v0 + h) - at(v0 - h)) / (2.0 * h);
+            assert!(
+                (d.derivative - fd).abs() < 1e-8,
+                "{name} at {x}: {} against {fd}",
+                d.derivative
+            );
+        }
+    }
+}
+
+#[test]
+fn a_bad_spline_is_refused_where_it_is_wrong() {
+    let message = |text: &str| error(text).to_string();
+    assert!(message("spline(x, [0 um, 1 um], [1])").contains("as many values as knots"));
+    assert!(message("spline(x, [0 um], [1])").contains("2 to"));
+    assert!(message("spline(x, [0 um, 2 um, 1 um], [1, 2, 3])").contains("must increase"));
+    assert!(message("spline(x, [0 um, x, 2 um], [1, 2, 3])").contains("must be constants"));
+    assert!(message("spline(x, [0, 1, 2], [1, 2, 3])").contains("kind of its point"));
+    assert!(message("spline(x, [0 um, 1 um], [1 um, 2 deg])").contains("of a kind"));
+    assert!(message("spline(x, 0 um, [1, 2])").contains("\"[\""));
+    assert!(message("spline(x, [0 um, 1 um] [1, 2])").contains("\",\""));
+    assert!(message("spline").contains("is a function"));
+    let e = Parameters::new(&[("spline".to_owned(), "1".to_owned())]).unwrap_err();
+    assert!(e.message.contains("the expression language's own"), "{e}");
+    // as many knots as it allows fit the stack
+    let many = |n: usize| {
+        let k: Vec<f64> = (0..n).map(|i| i as f64).collect();
+        Expr::parse(
+            &format!("spline(x, [{}], [{}])", lengths(&k), lengths(&k)),
+            &Scope::new(),
+        )
+    };
+    let most = super::parse::KNOTS;
+    let e = many(most).unwrap_or_else(|e| panic!("{e}"));
+    // and evaluate in blocks of points as one by one, to the bit
+    let xs: Vec<f64> = (0..100).map(|i| 0.27 * f64::from(i) - 1.0).collect();
+    let mut out = vec![0.0; xs.len()];
+    e.eval_many(&[0.0; 7], &[(0, &xs)], &mut out);
+    for (k, &x) in xs.iter().enumerate() {
+        let mut v = [0.0; 7];
+        v[0] = x;
+        assert_eq!(out[k].to_bits(), e.eval(&v).to_bits(), "{x}");
+        // the values are the knots: the line y = x, beyond the ends too
+        assert!((out[k] - x).abs() < 1e-11, "{x}: {}", out[k]);
+    }
+    assert!(
+        many(most + 1)
+            .unwrap_err()
+            .to_string()
+            .contains("as many values as knots")
+    );
+}

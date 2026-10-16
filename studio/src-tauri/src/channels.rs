@@ -815,6 +815,33 @@ mod tests {
     }
 
     #[test]
+    fn the_program_has_photonoxide_s_version_and_a_nightly_sorts_between_two_releases() {
+        // the program's crate takes the workspace's version, and tauri.conf.json sets none, so
+        // Tauri's (the installer's, and the one the stable updater compares) is photonoxide's
+        assert_eq!(env!("CARGO_PKG_VERSION"), photonoxide::VERSION);
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        assert!(
+            config.get("version").is_none(),
+            "tauri.conf.json sets a version"
+        );
+        let v = |s: &str| semver::Version::parse(s).unwrap();
+        let release = v(photonoxide::VERSION);
+        let mut next = release.clone();
+        next.patch += 1;
+        next.pre = semver::Prerelease::EMPTY;
+        let nightly = v(&builder::nightly_version(photonoxide::VERSION).unwrap());
+        // a nightly of main is newer than the release main follows, and older than the next
+        assert!(release < nightly && nightly < next);
+        // a build from a checkout of main has the release's version: Stable doesn't offer that
+        // release again (it would be a step back), and offers the next
+        assert!(!stable_accepts(false, &release, &release));
+        assert!(stable_accepts(false, &release, &next));
+        // from a nightly, back on Stable, the release it was made after is taken on purpose
+        assert!(stable_accepts(true, &nightly, &release));
+    }
+
+    #[test]
     fn the_channel_switch_is_a_setting_that_defaults_to_stable() {
         assert_eq!(Settings::default().channel, "stable");
         let old: Settings = serde_json::from_str(r#"{"theme":"dark"}"#).unwrap();

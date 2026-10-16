@@ -1,0 +1,47 @@
+name: Attribution
+
+# AGENTS.md: commits carry no AI attribution (no Co-Authored-By naming Claude or Anthropic, no
+# "Generated with Claude Code", no 🤖). A squash merge copies every commit's message into
+# main's, so each commit of a pull request is checked, and its description.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  attribution:
+    name: No AI attribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          # Trailer-shaped lines only, so prose that mentions them (like this PR's) passes.
+          pattern='^[[:space:]]*(co-authored-by:.*(claude|anthropic)|🤖|.*generated with \[claude code\]\()'
+          found=0
+          for c in $(git rev-list "$BASE..$HEAD"); do
+            lines=$(git log -1 --format=%B "$c" | grep -inE "$pattern" || true)
+            if [ -n "$lines" ]; then
+              echo "::error::commit $(git log -1 --format='%h %s' "$c") carries AI attribution:"
+              echo "$lines"
+              found=1
+            fi
+          done
+          lines=$(printf '%s\n' "$BODY" | grep -inE "$pattern" || true)
+          if [ -n "$lines" ]; then
+            echo "::error::the pull request's description carries AI attribution:"
+            echo "$lines"
+            found=1
+          fi
+          if [ "$found" = 1 ]; then
+            echo "Remove these lines (AGENTS.md): reword the commits, e.g. git rebase -i with reword, and edit the description. git config core.hooksPath .github/hooks strips them from new commits."
+            exit 1
+          fi
+          echo "no AI attribution in $(git rev-list --count "$BASE..$HEAD") commits or the description"

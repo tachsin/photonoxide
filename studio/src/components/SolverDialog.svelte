@@ -101,6 +101,24 @@
                 <dd>{value}</dd>
               {/each}
             </dl>
+          {:else if run.device}
+            {@const d = run.device}
+            <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
+              <dt class="faint">device</dt>
+              <dd>{d.device}, its <span class="badge badge-sm badge-soft {d.fidelity === 'analytic' ? 'badge-secondary' : 'badge-primary'}">{d.fidelity}</span> model</dd>
+              <dt class="faint">method</dt>
+              <dd>{d.method}</dd>
+              <dt class="faint">grid</dt>
+              <dd>{d.grid}</dd>
+              <dt class="faint">source</dt>
+              <dd class="text-xs">{d.source}</dd>
+              <dt class="faint">time</dt>
+              <dd class="num">{d.seconds < 1e-3 ? "under a millisecond" : d.seconds < 1 ? `${(d.seconds * 1000).toFixed(0)} ms` : `${d.seconds.toFixed(1)} s`} to build the model</dd>
+              {#if d.papers.length}
+                <dt class="faint">papers</dt>
+                <dd class="space-y-1 text-xs">{#each d.papers as p (p)}<p>{p}</p>{/each}</dd>
+              {/if}
+            </dl>
           {:else if kind === "structure"}
             <p class="faint">A structure run solves nothing: it draws the stack and the shapes, and pictures their permittivity.</p>
           {:else}

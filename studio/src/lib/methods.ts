@@ -24,6 +24,7 @@ export const METHODS: Record<string, string[]> = {
   fdfd: ["fdfd.md", "fdfd-ports.md", "eim.md", "slab.md", "pml.md"],
   fdtd: ["fdtd.md", "eim.md", "slab.md"],
   structure: [],
+  device: ["devices.md", "hadley.md", "vector.md", "fdfd.md", "fdfd-3d.md", "eim.md"],
 };
 
 /** A solver's module as its run records it, in words. */
@@ -65,8 +66,8 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 /**
  * Text between math: code, bold, and links. A paper's or a site's opens outside; another
  * write-up's, or a lesson's (the Academy's, beside its own: `ring-resonator.md`, and
- * `../docs/methods/components.md`), in place; an example's (`../examples/<name>.rs`) on the
- * Examples page.
+ * `../docs/methods/components.md`), in place; an example's (`../examples/<name>.rs`) among
+ * Validation's published results.
  */
 function marks(s: string): string {
   return esc(s)

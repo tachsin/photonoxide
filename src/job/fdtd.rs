@@ -18,8 +18,8 @@ use num_complex::Complex64 as c64;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    CircleSpec, Event, RectSpec, RingSpec, check_cells, check_materials, check_step, check_window,
-    draw, named_stack, scene, task_error,
+    CircleSpec, Event, PathSpec, RectSpec, RingSpec, check_cells, check_materials, check_step,
+    check_window, draw, draw_paths, named_stack, scene, task_error,
 };
 use crate::fdfd::{
     Axis, Boundaries3d, Direction, Edges, Formulation, Grid3d, IterativeSolver3d, PortMode3d,
@@ -64,6 +64,55 @@ const RESONANCE_SAMPLES: usize = 4000;
 
 /// The modes solved on a port's plane, among which the job's polarization is picked.
 const PORT_MODES: usize = 4;
+
+/// How many times its level at the start of a rise the fields must reach, rising at every
+/// check, for a run to stop as growing ([`Growth`]).
+const GROWTH: f64 = 1e3;
+
+/// Watches a run's largest |field|² at its monitors' points, check by check after the pulse,
+/// for the fields growing again: a wave of the grid amplified in a CPML (docs/methods/fdtd.md,
+/// "Late growth"), which grows until the fields overflow, and which a finer grid removes.
+///
+/// Growing means rising at each of the last `needed` checks, to [`GROWTH`] times the level
+/// before the first of them. `needed` spans more than the pulse lasts, so light reaching a
+/// point late, or a resonator filling, doesn't count: what a pulse lights rises for no longer
+/// than the pulse. A passive run's fields otherwise only fall: two resonators trading their
+/// energy slowly could look like it at monitors in only one of them, which a monitor in the
+/// other prevents.
+#[derive(Clone, Debug)]
+struct Growth {
+    needed: usize,
+    /// The level before the current rise.
+    start: f64,
+    last: f64,
+    rises: usize,
+}
+
+impl Growth {
+    fn new(needed: usize) -> Growth {
+        Growth {
+            needed,
+            start: 0.0,
+            last: 0.0,
+            rises: 0,
+        }
+    }
+
+    /// Takes the level at a check: if the fields are growing, how many times the level before
+    /// the rise they have reached.
+    fn check(&mut self, level: f64) -> Option<f64> {
+        if self.last > 0.0 && level > self.last {
+            if self.rises == 0 {
+                self.start = self.last;
+            }
+            self.rises += 1;
+        } else {
+            self.rises = 0;
+        }
+        self.last = level;
+        (self.rises >= self.needed && level >= GROWTH * self.start).then(|| level / self.start)
+    }
+}
 
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
@@ -176,7 +225,8 @@ struct ViewSpec {
 struct FdtdTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
     kind: String,
-    stack: String,
+    /// The stack; a job's `[device]` gives its own instead.
+    stack: Option<super::StackField>,
     core_nm: Option<f64>,
     bottom_oxide_um: Option<f64>,
     wavelength_um: f64,
@@ -199,6 +249,15 @@ struct FdtdTask {
     circle: Vec<CircleSpec>,
     #[serde(default)]
     ring: Vec<RingSpec>,
+    #[serde(default)]
+    path: Vec<PathSpec>,
+    #[serde(default)]
+    shape: Vec<super::shapes::ShapeSpec>,
+    #[serde(default)]
+    component: Vec<toml::Table>,
+    /// Bodies in space over the structure: 3D only.
+    #[serde(default)]
+    body: Vec<toml::Table>,
     #[serde(default)]
     source: Vec<ItemSpec>,
     #[serde(default)]
@@ -388,6 +447,7 @@ impl Setup {
     /// boundaries, the spectrum, each source's and monitor's fields and place, the stopping rule
     /// and the view.
     fn new(job: &Job) -> Result<Setup> {
+        super::device::check_fdtd_task(job)?;
         let task = parse(job)?;
         check_window("x_um", task.x_um)?;
         check_window("y_um", task.y_um)?;
@@ -420,12 +480,37 @@ impl Setup {
                 "z_um is for a 3D job (dimensions = 3): a 2D job is the layer's plane",
             ));
         }
-        let structure = draw(
-            named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
-            &task.rect,
-            &task.circle,
-            &task.ring,
-        )?;
+        // a job's device is its structure, its ports' guides led on through the window's edges
+        let structure = match super::device::structure(job, task.x_um, task.y_um)? {
+            Some(s) => s,
+            None => draw_paths(
+                draw(
+                    named_stack(
+                        task.stack
+                            .as_ref()
+                            .ok_or_else(|| task_error("needs a stack, e.g. stack = \"soi_220\""))?,
+                        task.core_nm,
+                        task.bottom_oxide_um,
+                    )?,
+                    &task.rect,
+                    &task.circle,
+                    &task.ring,
+                )?,
+                &task.path,
+                &task.shape,
+                &task.component,
+            )?,
+        };
+        if !three && !task.body.is_empty() {
+            return Err(task_error(
+                "[[task.body]] is a body in space: it is for a 3D job (dimensions = 3), which \
+                 sees the structure in three dimensions",
+            ));
+        }
+        let structure = super::bodies::place(structure, &task.body)?;
+        if !three {
+            super::check_etches_2d(&structure, &task.layer)?;
+        }
         let (_, bottom, top) = structure
             .stack()
             .layer(&task.layer)
@@ -438,6 +523,20 @@ impl Setup {
             }
             None => [bottom.to_um() - 1.0, top.to_um() + 1.0],
         };
+        // a graded body's medium, positive and finite over the window's part of it
+        for (k, (body, medium)) in structure.bodies().iter().enumerate() {
+            if let crate::stack::Medium::Graded(g) = medium {
+                let window = crate::geometry::Bounds3d::new(
+                    [task.x_um[0], task.y_um[0], z_window[0]],
+                    [task.x_um[1], task.y_um[1], z_window[1]],
+                )
+                .intersection(&body.bounds());
+                if !window.is_empty() {
+                    g.check_over(window, 32)
+                        .map_err(|e| task_error(format!("[[task.body]] #{}: {e}", k + 1)))?;
+                }
+            }
+        }
         let courant = task.courant.unwrap_or(0.9);
         if !(courant > 0.0 && courant <= 1.0) {
             return Err(task_error(format!(
@@ -1297,22 +1396,63 @@ impl Setup {
                 table.push((real(&l.material)?, real(&l.background)?));
             }
             let (below, above) = (real(stack.substrate())?, real(stack.cladding())?);
+            // an etched layer (a partial etch, sloped walls) answers through the structure
+            let plain: Vec<bool> = stack
+                .layers()
+                .iter()
+                .map(|l| self.structure.is_plain(&l.name))
+                .collect();
+            let structure = self.structure.clone();
+            // the bodies over it, top first: each a real permittivity, or a graded medium's
+            let mut bodies = Vec::with_capacity(structure.bodies().len());
+            for (body, medium) in structure.bodies().iter().rev() {
+                let eps = match medium {
+                    crate::stack::Medium::Material(m) => Ok(real(m)?),
+                    crate::stack::Medium::Graded(g) => Err(g.clone()),
+                };
+                bodies.push((body.clone(), eps));
+            }
             Ok(Box::new(move |x: f64, y: f64, z: f64| {
+                for (body, eps) in &bodies {
+                    if body.contains([x, y, z]) {
+                        return match eps {
+                            Ok(v) => *v,
+                            Err(g) => g.permittivity_at([x, y, z]),
+                        };
+                    }
+                }
                 if z < 0.0 {
                     return below;
                 }
                 match tops.iter().position(|&t| z < t) {
                     Some(i) => {
                         let p = Point::um(x, y);
-                        if shapes[i].iter().any(|shape| shape.contains(p)) {
-                            table[i].0
+                        let inside = if plain[i] {
+                            shapes[i].iter().any(|shape| shape.contains(p))
                         } else {
-                            table[i].1
-                        }
+                            std::ptr::eq(
+                                structure.material_at(p, crate::units::Length::um(z)),
+                                &structure.stack().layers()[i].material,
+                            )
+                        };
+                        if inside { table[i].0 } else { table[i].1 }
                     }
                     None => above,
                 }
             }))
+        } else if stack
+            .layers()
+            .iter()
+            .any(|l| !self.structure.is_plain(&l.name))
+        {
+            let kind = if self.te {
+                crate::mode::Polarization::Te
+            } else {
+                crate::mode::Polarization::Tm
+            };
+            let name = self.task.layer.clone();
+            let eps = super::fdfd::etched_plane(&self.structure, &name, kind, lam)?;
+            Ok(Box::new(move |x: f64, y: f64, _: f64| eps(x, y)))
         } else {
             let kind = if self.te {
                 crate::mode::Polarization::Te
@@ -1986,7 +2126,16 @@ fn spectra(sim: &Simulation, setup: &Setup, m: &Monitors, last: bool) -> Vec<Eve
     let wavelengths_um: Vec<f64> = fs.iter().map(|f| 1.0 / f.to_natural()).collect();
     let time_um = sim.time();
     let mut out = Vec::new();
-    let per = |v: Vec<f64>| -> Vec<f64> { v.iter().zip(&incident).map(|(a, b)| a / b).collect() };
+    // before the pulse has reached a source's own monitor (a spectrum recorded early, on a slow
+    // machine) its incident power is nought: nothing is referred to it yet, and the record holds
+    // zeros, never a NaN (which JSON can't hold, and the record's replay would refuse)
+    let share = |a: f64, b: f64| if b > 0.0 { a / b } else { 0.0 };
+    let per = |v: Vec<f64>| -> Vec<f64> {
+        v.iter()
+            .zip(&incident)
+            .map(|(&a, &b)| share(a, b))
+            .collect()
+    };
     // each mode source's reflection, back into its guide
     for (s, plan) in setup.sources.iter().enumerate() {
         if let SourcePlan::Mode { axis, .. } = plan {
@@ -2011,7 +2160,11 @@ fn spectra(sim: &Simulation, setup: &Setup, m: &Monitors, last: bool) -> Vec<Eve
                 wavelengths_um: wavelengths_um.clone(),
                 series: vec![SpectrumSeries {
                     label: format!("back along {}", axis_name(*axis)),
-                    values: back.iter().zip(&forward).map(|(b, f)| b / f).collect(),
+                    values: back
+                        .iter()
+                        .zip(&forward)
+                        .map(|(&b, &f)| share(b, f))
+                        .collect(),
                 }],
                 time_um,
                 last,
@@ -2094,6 +2247,7 @@ fn mode_index(setup: &Setup, s: usize) -> usize {
 pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let mut setup = Setup::new(job)?;
     run.record(&setup.scene()?)?;
+    super::record_ports(job, run)?;
     let g = setup.grid;
     let eps = setup.permittivity()?;
     let mut sim = Simulation::new_parallel(g, &eps, setup.boundaries, setup.courant)?;
@@ -2291,6 +2445,9 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let mut spectra_seconds = 0.0;
     let mut decayed = false;
     let mut last_decay = None;
+    // rising at more checks in a row than the pulse lasts
+    let mut growth = Growth::new(((pulse_end / check).ceil() as usize + 1).max(4));
+    let mut grew = None;
     // |field|² at a point now, both parts of a complex field
     let level = |s: &Simulation, r: usize| -> f64 {
         components
@@ -2318,23 +2475,26 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 block[k] = block[k].max(v);
             }
         }
-        if let Until::Decay { fraction, .. } = setup.until
-            && t >= block_end
-        {
+        if t >= block_end {
             // (a point the light has never reached holds nothing up)
             let worst = peaks
                 .iter()
                 .zip(&block)
                 .map(|(&p, &b)| if p > 0.0 { b / p } else { 0.0 })
                 .fold(0.0, f64::max);
-            last_decay = Some(worst);
-            if worst <= fraction && peaks.iter().any(|&p| p > 0.0) {
-                decayed = true;
+            if let Until::Decay { fraction, .. } = setup.until {
+                last_decay = Some(worst);
+                if worst <= fraction && peaks.iter().any(|&p| p > 0.0) {
+                    decayed = true;
+                }
             }
+            // the fields growing again: the run stops, and says so (the level not over the
+            // peaks, which growth would carry along)
+            grew = grew.or(growth.check(block.iter().copied().fold(0.0, f64::max)));
             block.iter_mut().for_each(|b| *b = 0.0);
             block_end += check;
         }
-        let done = decayed || t >= limit;
+        let done = decayed || grew.is_some() || t >= limit;
         let framed = t >= next_frame;
         // the frames on the run's time, the progress at least every PROGRESS_SECONDS of the
         // clock, and the spectra no more often than SPECTRA_SECONDS nor than ten times what
@@ -2527,6 +2687,21 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             error: d,
         })?;
     }
+    if let Some(factor) = grew {
+        run.record(&Event::SolveError {
+            point: None,
+            value: setup.task.wavelength_um,
+            measure: format!(
+                "the fields grew again, and the run stopped at {:.0} um/c: |field|^2 at the \
+                 monitors rose at {} checks in a row, to this many times its level before (a \
+                 wave of the grid amplified in a CPML, which a finer grid removes: \
+                 docs/methods/fdtd.md, \"Late growth\")",
+                sim.time(),
+                growth.needed
+            ),
+            error: factor,
+        })?;
+    }
     Ok(())
 }
 
@@ -2645,6 +2820,75 @@ mod tests {
         assert_eq!(base64(&[0xff, 0x80, 0x7f]), "/4B/");
     }
 
+    /// The first check at which `levels` are growing, and by what factor.
+    fn first_growth(needed: usize, levels: &[f64]) -> Option<(usize, f64)> {
+        let mut g = Growth::new(needed);
+        levels
+            .iter()
+            .enumerate()
+            .find_map(|(n, &l)| g.check(l).map(|f| (n, f)))
+    }
+
+    #[test]
+    fn growth_is_a_long_rise_by_a_thousand() {
+        // a decay, then a growth by 10^0.45 a check from 1e-19: the 4th rise is 63 times, the
+        // 7th 1413
+        let levels: Vec<f64> = (0..40)
+            .map(|n| {
+                if n < 20 {
+                    10f64.powi(-n)
+                } else {
+                    10f64.powf(-19.0 + 0.45 * f64::from(n - 19))
+                }
+            })
+            .collect();
+        let (n, factor) = first_growth(4, &levels).unwrap();
+        assert_eq!(n, 26);
+        assert!((factor / 10f64.powf(3.15) - 1.0).abs() < 1e-12, "{factor}");
+        // fields that never fell far, growing past their peak, too
+        let early = [1.0, 0.1, 1.0, 10.0, 100.0, 1000.0];
+        assert_eq!(first_growth(4, &early).map(|g| g.0), Some(5));
+        // a pulse returning to a point, rising for fewer checks than needed: no growth
+        let mut returning: Vec<f64> = (0..10).map(|n| 10f64.powi(-n)).collect();
+        returning.extend([1e-6, 1e-4, 1e-2, 1e-3, 1e-5]);
+        assert_eq!(first_growth(4, &returning), None);
+        // a slow rise by less than a thousand, and a ripple on a decay: none
+        let slow: Vec<f64> = (0..30).map(|n| 1e-9 * 1.2f64.powi(n)).collect();
+        assert!(slow[29] / slow[0] > 1e2 && first_growth(4, &slow).is_none());
+        let ripple: Vec<f64> = (0..40)
+            .map(|n| 10f64.powi(-n / 4) * (1.0 + 0.5 * f64::from(n % 2)))
+            .collect();
+        assert_eq!(first_growth(4, &ripple), None);
+        // light reaching a monitor from nothing: the first rise is from a level, not from 0
+        assert_eq!(first_growth(2, &[0.0, 1e-9, 1.0]), None);
+    }
+
+    #[test]
+    fn a_coarse_strips_late_growth_stops_a_run() {
+        // the strip of #251 on cells of 50 nm: |E_y|² in its guide 0.4 µm past the middle,
+        // where a monitor would be, at checks of ten periods of the 1 c/µm carrier after the
+        // pulse (18 µm/c long: 4 rises needed, as the job asks); 600 µm/c
+        use crate::fdtd::checks::{late_pulse, late_strip};
+        let strip = late_strip(0.05, 6, Cpml::default(), late_pulse(), 21_000);
+        let Waveform::Gaussian { width, delay, .. } = late_pulse() else {
+            unreachable!()
+        };
+        let (pulse_end, check) = (delay + 6.0 * width, 10.0);
+        let needed = ((pulse_end / check).ceil() as usize + 1).max(4);
+        assert_eq!(needed, 4);
+        let per = (check / strip.dt).round() as usize;
+        let first = (pulse_end / strip.dt).ceil() as usize;
+        let levels: Vec<f64> = strip.inside[first..]
+            .chunks(per)
+            .map(|c| c.iter().map(|v| v * v).fold(0.0, f64::max))
+            .collect();
+        let (n, factor) = first_growth(needed, &levels).expect("growth");
+        let at = pulse_end + (n + 1) as f64 * check;
+        eprintln!("growth seen at {at:.0} um/c, {factor:.1e} times");
+        // the energy turns at about 250 µm/c and grows by 600 every 100
+        assert!((250.0..500.0).contains(&at), "{at}");
+    }
+
     /// A job's events, run headless into a scratch directory.
     fn run_job(text: &str, tag: &str) -> Vec<Event> {
         let job = Job::parse(text).unwrap();
@@ -2726,13 +2970,39 @@ time_um = 160.0
 "#;
 
     #[test]
+    fn a_spectrum_before_the_pulse_arrives_holds_zeros_and_the_record_replays() {
+        // stopped long before the pulse reaches anything: the spectra, referred to an incident
+        // power still nought, are recorded as zeros (a NaN would make the record unreadable,
+        // as a spectrum recorded early on a slow machine did)
+        let early = SMALL.replace("time_um = 160.0", "time_um = 0.5");
+        let events = run_job(&early, "early");
+        let spectra: Vec<&Vec<SpectrumSeries>> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::FdtdSpectrum { series, .. } => Some(series),
+                _ => None,
+            })
+            .collect();
+        assert!(!spectra.is_empty());
+        for series in spectra {
+            for s in series {
+                assert!(s.values.iter().all(|v| v.is_finite()), "{s:?}");
+            }
+        }
+    }
+
+    #[test]
     fn a_job_records_frames_progress_spectra_resonances_and_fields() {
         let events = run_job(SMALL, "small");
         let frames: Vec<&Event> = events
             .iter()
             .filter(|e| matches!(e, Event::FdtdFrame { .. }))
             .collect();
-        assert!(frames.len() > 10, "{} frames", frames.len());
+        // the interval between frames doubles whenever recording one takes more than a tenth of
+        // the clock's time the steps since the last took: on a machine busy with other tests
+        // (a parallel debug run) that happens at nearly every frame, so the count depends on
+        // the load, not the run, down to about log2 of the run over the first interval
+        assert!(frames.len() >= 5, "{} frames", frames.len());
         // the frames' bytes are the picture's pixels
         for f in &frames {
             let Event::FdtdFrame { nx, ny, data, .. } = f else {
@@ -2862,6 +3132,75 @@ time_um = 160.0
         ] {
             super::super::check(&Job::parse(text).unwrap()).unwrap();
         }
+    }
+
+    #[test]
+    fn a_3d_job_reads_its_bodies_and_graded_media() {
+        let text = r#"
+name = "bodies-3d"
+[task]
+kind = "fdtd"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+dimensions = 3
+x_um = [-1.2, 1.2]
+y_um = [-1.0, 1.0]
+z_um = [1.3, 2.9]
+step_nm = 80.0
+pml_cells = 4
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, 0.0]
+size_um = [4.0, 0.5]
+[[task.body]]
+type = "sphere"
+center = ["0.5 um", 0, "2.5 um"]
+radius = "150 nm"
+material = "si"
+[[task.body]]
+type = "box"
+center = ["-0.5 um", 0, "2.6 um"]
+size = ["0.4 um", "0.4 um", "0.2 um"]
+index = "1.6 + 0.2*(z - 2.5 um)/um"
+[[task.source]]
+type = "mode"
+normal = "x"
+at_um = -0.4
+[[task.monitor]]
+type = "mode"
+name = "out"
+normal = "x"
+at_um = -0.1
+[task.stop]
+until = "time"
+time_um = 10.0
+"#;
+        let job = Job::parse(text).unwrap();
+        crate::job::check(&job).unwrap();
+        let setup = Setup::new(&job).unwrap();
+        let eps = setup.permittivity().unwrap();
+        let si = crate::material::silicon()
+            .permittivity(Wavelength::um(1.55).unwrap())
+            .unwrap()
+            .re;
+        assert_eq!(eps(0.5, 0.0, 2.5), si);
+        assert!((eps(-0.5, 0.0, 2.6) - 1.62f64.powi(2)).abs() < 1e-12);
+        // outside both, the stack: the strip below, the cladding above
+        assert_eq!(eps(0.0, 0.0, 2.11), si);
+        assert!(eps(0.0, 0.6, 2.6) < 2.2);
+        let events = run_job(text, "bodies-3d");
+        let (_, out) = last_spectrum(&events, "out");
+        assert!(out[0].is_finite() && out[0] > 0.0, "{out:?}");
+        // a graded medium that isn't positive inside the window is refused, naming the body
+        let bad = text.replace("1.6 + 0.2*(z - 2.5 um)/um", "1.6 - 20*(z - 2.5 um)/um");
+        let e = crate::job::check(&Job::parse(&bad).unwrap())
+            .unwrap_err()
+            .to_string();
+        assert!(
+            e.contains("[[task.body]] #2") && e.contains("positive"),
+            "{e}"
+        );
     }
 
     #[test]

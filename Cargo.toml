@@ -21,11 +21,17 @@ members = ["studio/src-tauri", "native", "native/testlib", "python"]
 default-members = ["."]
 
 [workspace.package]
-# photonoxide's version, which the Python package has as well: release-plz bumps it here
-version = "0.5.2"
+# photonoxide's version, which every crate here has (the program, the native libraries' crate and
+# the Python package take it with version.workspace): release-plz bumps it here
+version = "0.5.4"
 
 [dependencies]
 faer = "0.24.4"
+# polygon booleans for the geometry's layout polygons (geometry::Polygons::boolean): integer
+# overlays on a fixed grid, robust on shared edges, touching vertices and collinear overlaps
+# (docs/methods/booleans.md has the measurements that chose it); single-threaded, so the same
+# bits on any thread count. MIT OR Apache-2.0, its own dependencies MIT
+i_overlay = { version = "9.1.0", default-features = false }
 # exp, sin and cos in pure Rust, the same bits on every system, where the system's maths library
 # would move a result between Linux, Windows and macOS (the `portable` module)
 libm = "0.2.16"

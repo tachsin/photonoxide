@@ -25,6 +25,7 @@ use photonoxide::units::{Length, Wavelength};
 use serde::Serialize;
 
 mod coupler;
+mod slab;
 
 /// A chart's parameter: what a slider sets.
 #[derive(Serialize, Clone, Debug)]
@@ -63,6 +64,9 @@ pub struct Curve {
     pub label: String,
     pub points: Vec<[f64; 2]>,
     pub dashed: bool,
+    /// The palette's colour to draw it in, where curves belong together (a TE mode and the TM
+    /// mode of the same order); `None` takes the next colour in turn.
+    pub colour: Option<usize>,
 }
 
 /// A number the chart reports beside its curves.
@@ -620,7 +624,96 @@ pub fn specs() -> Vec<ChartSpec> {
                 coupler_gap((100.0, 400.0, 200.0)),
             ],
         },
+        ChartSpec {
+            id: "slab-bv",
+            title: "The b–V diagram",
+            about: "Every guided mode of a film on oxide, in Kogelnik and Ramaswamy's normalized frequency V and index b: TE solid, TM dashed, the same colour for the same order. A mode is born at b = 0, its cutoff, and approaches b = 1 as the film thickens.",
+            computed_by: "mode::slab::Slab::modes (Yariv and Yeh's Eqs. 3.2-5 and 3.2-11), b and V from its effective indices",
+            params: vec![slab_core(), slab_cover()],
+        },
+        ChartSpec {
+            id: "slab-fields",
+            title: "The guided modes' fields across a silicon film",
+            about: "A silicon film on oxide: each guided mode's transverse electric field across it, E_y for TE (solid) and E_x for TM (dashed), a cosine in the film and an exponential tail on each side.",
+            computed_by: "mode::slab::Slab::modes and SlabMode::field (Yariv and Yeh's Eqs. 3.2-3 and 3.2-10)",
+            params: vec![
+                slab_thickness((20.0, 1000.0, 220.0)),
+                slab_wavelength(),
+                slab_cover(),
+            ],
+        },
+        ChartSpec {
+            id: "slab-neff",
+            title: "The effective index against the film's thickness",
+            about: "Every guided mode's effective index as the film thickens: each starts at the substrate's index at its cutoff and rises towards the film's. The line marks where the second TE mode appears.",
+            computed_by: "mode::slab::Slab::modes, and the cutoffs mπ + atan(r√a) of the transverse resonance",
+            params: vec![slab_core(), slab_cover(), slab_wavelength()],
+        },
+        ChartSpec {
+            id: "slab-confinement",
+            title: "How much of the light is in the film",
+            about: "The share Γ of each mode's power that travels inside the film, against its thickness, for the first two orders of TE (solid) and TM (dashed); the figures give Γ and the tails' decay lengths at the marked thickness.",
+            computed_by: "mode::multilayer::MultilayerMode::power_fractions (Chilwell and Hodgkinson's Eq. 42), on the modes of mode::slab::Slab",
+            params: vec![
+                slab_core(),
+                slab_cover(),
+                slab_wavelength(),
+                slab_thickness((10.0, 1500.0, 220.0)),
+            ],
+        },
     ]
+}
+
+/// A slab chart's film index n₂.
+const fn slab_core() -> Param {
+    param(
+        "core",
+        "Film index $n_2$",
+        "",
+        (1.45, 4.0, slab::SILICON),
+        0.001,
+        false,
+        "The film's refractive index: 3.473 is Chrostowski and Hochberg's silicon, 2.00 silicon nitride, 2.14 lithium niobate's extraordinary index, all at 1.55 µm.",
+    )
+}
+
+/// A slab chart's cover index n₁: air to oxide.
+const fn slab_cover() -> Param {
+    param(
+        "cover",
+        "Cover index $n_1$",
+        "",
+        (1.0, slab::OXIDE, slab::OXIDE),
+        0.001,
+        false,
+        "The index above the film: 1 for air, 1.444 for an oxide cladding, which makes the film symmetric.",
+    )
+}
+
+/// A slab chart's wavelength, µm.
+const fn slab_wavelength() -> Param {
+    param(
+        "wavelength",
+        "Wavelength $\\lambda$",
+        "um",
+        (1.0, 2.0, 1.55),
+        0.001,
+        false,
+        "The vacuum wavelength; the indices are held fixed.",
+    )
+}
+
+/// A slab chart's film thickness, nm: `(min, max, default)`.
+const fn slab_thickness(range: (f64, f64, f64)) -> Param {
+    param(
+        "thickness",
+        "Thickness $d$",
+        "nm",
+        range,
+        1.0,
+        false,
+        "The film's thickness.",
+    )
 }
 
 /// A coupler chart's gap, nm: `(min, max, default)`.
@@ -798,6 +891,12 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
         "coupler-gap" => coupler::gap_chart(at("wavelength")),
         "coupler-spectrum" => coupler::spectrum(at("gap") * 1e-3, at("length")),
         "coupler-mismatch" => coupler::mismatch(at("width"), at("gap")),
+        "slab-bv" => slab::bv(at("core"), at("cover")),
+        "slab-fields" => slab::fields(at("thickness"), at("wavelength"), at("cover")),
+        "slab-neff" => slab::neff(at("core"), at("cover"), at("wavelength")),
+        "slab-confinement" => {
+            slab::confinement(at("core"), at("cover"), at("wavelength"), at("thickness"))
+        }
         _ => return Err(format!("chart {id} has no function")),
     };
     result.map_err(|e| format!("{id}: {e}"))
@@ -1030,12 +1129,14 @@ fn ring_spectrum(
         label: "through".to_owned(),
         points: through,
         dashed: false,
+        colour: None,
     }];
     if drop > 0.0 {
         series.push(Curve {
             label: "drop".to_owned(),
             points: dropped,
             dashed: false,
+            colour: None,
         });
     }
     // the Lorentzian the line is close to, by its width from Eq. 7 (or 8)
@@ -1053,6 +1154,7 @@ fn ring_spectrum(
             label: "Lorentzian of the FWHM formula".to_owned(),
             points: lorentzian,
             dashed: true,
+            colour: None,
         });
     }
 
@@ -1159,18 +1261,21 @@ fn ring_coupling(radius: f64, loss: f64, drop: f64) -> photonoxide::Result<Chart
         label: "through, on resonance".to_owned(),
         points: on,
         dashed: false,
+        colour: None,
     }];
     if drop > 0.0 {
         series.push(Curve {
             label: "drop, on resonance".to_owned(),
             points: peak,
             dashed: false,
+            colour: None,
         });
     }
     series.push(Curve {
         label: "loaded Q / intrinsic Q".to_owned(),
         points: q,
         dashed: true,
+        colour: None,
     });
     let at_critical = ring.q_factor(w, &ring.values(length, crit, drop))?;
     Ok(ChartData {
@@ -1350,11 +1455,13 @@ fn ring_extinction(
                 label: "this ring".to_owned(),
                 points: exact,
                 dashed: false,
+                colour: None,
             },
             Curve {
                 label: "small-loss limit: 20 log₁₀((1 + x)/|1 − x|)".to_owned(),
                 points: limit,
                 dashed: true,
+                colour: None,
             },
         ],
         marker: Some(1.0),
@@ -1493,21 +1600,25 @@ fn ring_q_length(loss: f64, fixed: f64, group_index: f64) -> photonoxide::Result
                 label: "loaded, Eq. 20: Lorentzian λ/FWHM".to_owned(),
                 points: eq20,
                 dashed: false,
+                colour: None,
             },
             Curve {
                 label: "loaded, λ/FWHM on the spectrum".to_owned(),
                 points: spectrum,
                 dashed: false,
+                colour: None,
             },
             Curve {
                 label: "loaded, energy decay: πn_gL/(λ|ln ra|)".to_owned(),
                 points: decay,
                 dashed: true,
+                colour: None,
             },
             Curve {
                 label: "intrinsic, Eq. 20 with κ² = 0".to_owned(),
                 points: intrinsic,
                 dashed: true,
+                colour: None,
             },
         ],
         marker: Some(best * 1e-3),
@@ -1684,21 +1795,25 @@ fn ring_identify(radius: f64, coupling: f64, loss: f64) -> photonoxide::Result<C
                 label: "power, this ring".to_owned(),
                 points: power,
                 dashed: false,
+                colour: None,
             },
             Curve {
                 label: "power, its twin".to_owned(),
                 points: twin_power,
                 dashed: true,
+                colour: None,
             },
             Curve {
                 label: "phase / π, this ring".to_owned(),
                 points: over_pi(phase),
                 dashed: false,
+                colour: None,
             },
             Curve {
                 label: "phase / π, its twin".to_owned(),
                 points: over_pi(twin_phase),
                 dashed: true,
+                colour: None,
             },
         ],
         marker: Some(0.0),
@@ -1816,6 +1931,7 @@ fn bragg_reflectance(s: &Stack, (from, to): (f64, f64)) -> photonoxide::Result<C
             label: format!("R, {} pairs", s.pairs),
             points,
             dashed: false,
+            colour: None,
         }],
         marker: Some(bragg * 1e-3),
         figures: vec![
@@ -1953,16 +2069,19 @@ fn bragg_bandwidth(low: f64, up_to: f64) -> photonoxide::Result<ChartData> {
                 label: "band edges, transfer matrices: cos KΛ = −1".to_owned(),
                 points: measured,
                 dashed: false,
+                colour: None,
             },
             Curve {
                 label: "closed form: (4/π) arcsin(Δn/(nH + nL))".to_owned(),
                 points: exact,
                 dashed: true,
+                colour: None,
             },
             Curve {
                 label: "coupled modes: 2Δn/(π n̄)".to_owned(),
                 points: coupled,
                 dashed: true,
+                colour: None,
             },
         ],
         marker: None,
@@ -2247,16 +2366,19 @@ fn mzi_spectrum(m: &Mzi, window_nm: f64) -> photonoxide::Result<ChartData> {
                 label: "cross".to_owned(),
                 points: crossed,
                 dashed: false,
+                colour: None,
             },
             Curve {
                 label: "bar".to_owned(),
                 points: bar,
                 dashed: false,
+                colour: None,
             },
             Curve {
                 label: "both outputs together".to_owned(),
                 points: total,
                 dashed: true,
+                colour: None,
             },
         ],
         marker: marker.filter(|x| (lo..=hi).contains(x)),
@@ -2344,12 +2466,14 @@ fn mzi_extinction(combine: f64, loss: f64, delta: f64) -> photonoxide::Result<Ch
                 label: "cross".to_owned(),
                 points: crossed,
                 dashed: false,
+                colour: None,
             },
             // dashed, so that the cross curve shows beneath it where they agree (an even combiner)
             Curve {
                 label: "bar".to_owned(),
                 points: bar,
                 dashed: true,
+                colour: None,
             },
         ],
         marker: bar_dark,

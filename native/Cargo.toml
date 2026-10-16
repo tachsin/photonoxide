@@ -1,6 +1,7 @@
 [package]
 name = "photonoxide-native"
-version = "0.1.0"
+# photonoxide's version, from the workspace
+version.workspace = true
 edition = "2024"
 rust-version = "1.95"
 description = "External libraries for photonoxide, found and loaded at run time: the one crate that calls C"

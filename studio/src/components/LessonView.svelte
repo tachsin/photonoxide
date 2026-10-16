@@ -9,7 +9,7 @@
 
   import { academy, DEPTHS, numbered, type ChartSpec, type DiagramSpec, type Depth, type Lesson, type LessonSection } from "../lib/academy.svelte";
   import { api, type CircuitExample } from "../lib/api";
-  import { app, go, toast } from "../lib/app.svelte";
+  import { openCustom, showCases, showPublished, toast } from "../lib/app.svelte";
   import { catalog, jobExample, loadCatalog } from "../lib/catalog.svelte";
   import { showChip } from "../lib/chip.svelte";
   import { methodHtml, type MethodDoc } from "../lib/methods";
@@ -99,17 +99,13 @@
     });
     const block = document.getElementById(`example-${name}`);
     if (block) block.scrollIntoView({ behavior: "smooth", block: "center" });
-    else {
-      app.focus = name;
-      go("examples");
-    }
+    else showPublished(name);
   }
 
   function openJob(file: string) {
     const job = jobExample(file);
     if (!job) return toast(`${file} isn't built into this program`, "error");
-    app.builderOpen = { text: job.text, path: null };
-    go("builder");
+    openCustom(job.text);
   }
 
   function openCircuit(file: string) {
@@ -123,7 +119,7 @@
   /** The menus of the lesson's header: what it runs and opens. */
   const actions = $derived([
     { label: "Run the example", icon: Play, primary: true, items: lesson.examples.map((e) => ({ label: exampleTitle(e), run: () => runExample(e) })) },
-    { label: "Open in the builder", icon: SquarePen, primary: false, items: lesson.jobs.map((j) => ({ label: jobExample(j)?.name ?? j, run: () => openJob(j) })) },
+    { label: "Open in the Custom device", icon: SquarePen, primary: false, items: lesson.jobs.map((j) => ({ label: jobExample(j)?.name ?? j, run: () => openJob(j) })) },
     { label: "Open on the chip", icon: CircuitBoard, primary: false, items: lesson.circuits.map((c) => ({ label: circuits.find((x) => x.file === c)?.chip.name ?? c, run: () => openCircuit(c) })) },
     { label: "The methods", icon: BookOpen, primary: false, items: methodDocs.map((d) => ({ label: d.title, run: () => ondoc(d) })) },
   ]);
@@ -134,10 +130,8 @@
     if (!a) return;
     e.preventDefault();
     if (a.dataset.href) openUrl(a.dataset.href);
-    else if (a.dataset.example) {
-      app.focus = a.dataset.example;
-      go("examples");
-    } else if (a.dataset.doc) {
+    else if (a.dataset.example) showPublished(a.dataset.example);
+    else if (a.dataset.doc) {
       const id = a.dataset.doc.replace(/\.md$/, "");
       const doc = docs.find((d) => d.file === a.dataset.doc);
       if (lessons.some((l) => l.id === id)) onlesson(id);
@@ -251,7 +245,7 @@
                   <p class="mt-2 flex flex-wrap items-center gap-1 text-xs">
                     <span class="mr-0.5 faint">Uses</span>
                     {#each s.coming.examples as e (e)}
-                      <button class="btn font-mono font-normal btn-ghost btn-xs" data-example={e} title="{exampleTitle(e)}: open it on the Examples page">{e}</button>
+                      <button class="btn font-mono font-normal btn-ghost btn-xs" data-example={e} title="{exampleTitle(e)}: open it among Validation's published results">{e}</button>
                     {/each}
                   </p>
                 {/if}
@@ -319,7 +313,7 @@
                         </div>
                       </div>
                     {/each}
-                    <button class="flex w-full items-center gap-1.5 px-4 py-2 text-left text-xs text-primary hover:bg-base-content/3" onclick={() => go("validation")}>
+                    <button class="flex w-full items-center gap-1.5 px-4 py-2 text-left text-xs text-primary hover:bg-base-content/3" onclick={showCases}>
                       <ShieldCheck size={12} /> From the validation report as this release published it; run it on the Validation page
                     </button>
                   </div>

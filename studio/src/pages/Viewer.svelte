@@ -23,8 +23,16 @@
   /** The opacity of the solid shapes the wave runs through, while it shows. */
   const GLASS = 0.15;
 
+  /**
+   * `embedded`: inside another page (a device's Simulate tab) rather than the run view, shown
+   * while `active`; it has no empty state of its own, and its keys and 3D view follow `active`.
+   */
+  let { embedded = false, active = false }: { embedded?: boolean; active?: boolean } = $props();
+  /** Whether this viewer is the one on screen. */
+  const onPage = $derived(embedded ? active : app.page === "viewer");
+
   let view = $state<"3d" | "2d">(app.state?.settings.view ?? "3d");
-  /** The page's width, and whether it is too narrow for the bar's full text and a 300 px side panel (a 960 px window is): as the builder judges it. */
+  /** The page's width, and whether it is too narrow for the bar's full text and a 300 px side panel (a 960 px window is): as the Custom device judges it. */
   let width = $state(0);
   const narrow = $derived(width > 0 && width < 1060);
   let host: HTMLDivElement;
@@ -50,11 +58,13 @@
     }
   });
 
-  // an FDTD run opens on its field in time, which the 2D view plays
+  // an FDTD run opens on its field in time, which the 2D view plays; a device's model on its
+  // S-parameters and figures, an optimization on its convergence. Inside a device's page the view
+  // stays on the device, in 3D: the page's panel has the plots.
   let shownFdtd = -1;
   $effect(() => {
     const g = run.info?.generation ?? -1;
-    if (run.job?.kind === "fdtd" && g !== shownFdtd) {
+    if (!embedded && (run.job?.kind === "fdtd" || run.device || run.optimization) && g !== shownFdtd) {
       shownFdtd = g;
       view = "2d";
     }
@@ -154,7 +164,7 @@
   }
 
   function keys(e: KeyboardEvent) {
-    if (app.page !== "viewer" || !axis || details || solving || app.palette) return;
+    if (!onPage || !axis || details || solving || app.palette) return;
     const t = e.target as HTMLElement | null;
     if (t && (t.closest("input, textarea, select, [contenteditable]") || t.closest("dialog.modal-open"))) return;
     if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
@@ -167,7 +177,7 @@
   $effect(() => three?.setWaveLook(run.wave, run.wavePlaying, run.waveSpeed, run.waveDensity));
 
   $effect(() => {
-    const onScreen = view === "3d" && app.page === "viewer";
+    const onScreen = view === "3d" && onPage;
     three?.setActive(onScreen);
     if (onScreen) requestAnimationFrame(() => three?.resize());
   });
@@ -209,15 +219,15 @@
 
 <svelte:window onkeydown={keys} />
 
-{#if !run.info?.dir}
+{#if !run.info?.dir && !embedded}
   <div class="grid h-full place-items-center">
     <div class="max-w-md text-center">
       <div class="mx-auto mb-4 grid size-16 place-items-center rounded-2xl bg-primary/10 text-primary"><Box size={30} /></div>
       <h2 class="text-lg font-semibold">No run open</h2>
-      <p class="mt-1 text-sm muted">Run an example or a job of yours, or open one of the runs in the workspace: it plays here, live.</p>
+      <p class="mt-1 text-sm muted">Run a template or a job of yours, or open one of the runs in the workspace: it plays here, live.</p>
       <div class="mt-5 flex justify-center gap-2">
-        <button class="btn btn-primary btn-sm" onclick={() => go("examples")}>Browse examples</button>
-        <button class="btn btn-sm" onclick={() => go("runs")}>Open a run</button>
+        <button class="btn btn-primary btn-sm" onclick={() => go("home")}>Start from a template</button>
+        <button class="btn btn-sm" onclick={() => (app.drawer = true)}>Open a run</button>
       </div>
     </div>
   </div>
@@ -276,7 +286,7 @@
         <!-- how far the sweep is -->
         <div class="absolute bottom-0 left-0 h-0.5 bg-primary transition-[width] duration-300" style="width: {(100 * points) / Math.max(axis.total, 1)}%" role="progressbar" aria-valuenow={points} aria-valuemin={0} aria-valuemax={axis.total} aria-label="The sweep's points solved"></div>
       {/if}
-      {#if run.job && run.job.kind !== "structure"}
+      {#if run.job && run.job.kind !== "structure" && (run.job.kind !== "device" || run.device)}
         <button class="btn btn-ghost btn-sm shrink-0 gap-1.5 {narrow ? 'btn-square' : ''}" aria-label="Solver" onclick={() => (solving = true)} title="The solver this run uses, its grid, each solve's numerical error, and the method's equations and papers">
           <Cpu size={14} />{#if !narrow} Solver{/if}
         </button>
@@ -314,7 +324,7 @@
           <p class="flex items-center gap-2 faint"><span class="loading loading-dots loading-xs"></span> waiting for the structure…</p>
         {:else}
           <p class="font-medium">{run.job?.job}</p>
-          <p class="text-xs faint">{KINDS[run.job?.kind ?? ""]?.about ?? ""}</p>
+          <p class="text-xs faint">{run.optimization ? `the ${run.optimization.device} optimized by genoxide's ${run.optimization.optimizer}: its convergence, variables and best design below` : (KINDS[run.job?.kind ?? ""]?.about ?? "")}</p>
         {/if}
       </div>
       <div class="absolute right-4 top-4 flex flex-col gap-1">

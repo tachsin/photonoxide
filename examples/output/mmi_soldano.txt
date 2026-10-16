@@ -1,0 +1,18 @@
+Soldano and Pennings's self-imaging lengths against the MMI devices' on 220 nm SOI at 1.55 um (2D: the effective index method, n_r 2.84749, n_c 1.44402; exact slab modes, no grid)
+MMI 1x2:
+  width (um)  L_pi, Eq. 6   the device's   image, Eq. 37   the device's   outputs   excess loss (dB)
+    3.0          22.811        22.603          8.554           8.476    0.4529, 0.4529   0.429
+  MMI 1x2 image, 3 um wide (um)          8.476295   Soldano & Pennings 8.554295   ± 1.03e-1 ok
+    6.0          89.706        89.489         33.640          33.559    0.4808, 0.4808   0.170
+  MMI 1x2 image, 6 um wide (um)         33.558502   Soldano & Pennings 33.639934  ± 4.04e-1 ok
+   12.0         355.767       355.545        133.413         133.329    0.3939, 0.3939   1.036
+  MMI 1x2 image, 12 um wide (um)       133.329406   Soldano & Pennings 133.412614 ± 1.601e0 ok
+MMI 2x2:
+  width (um)  L_pi, Eq. 6   the device's   image, Eq. 33   the device's   outputs   excess loss (dB)
+    3.0          22.811        22.603         11.406          11.302    0.3813, 0.4686   0.707
+  MMI 2x2 image, 3 um wide (um)         11.301727   Soldano & Pennings 11.405726  ± 1.37e-1 ok
+    6.0          89.706        89.489         44.853          44.745    0.4583, 0.4833   0.262
+  MMI 2x2 image, 6 um wide (um)         44.744670   Soldano & Pennings 44.853246  ± 5.38e-1 ok
+   12.0         355.767       355.545        177.883         177.773    0.3441, 0.3928   1.326
+  MMI 2x2 image, 12 um wide (um)       177.772541   Soldano & Pennings 177.883485 ± 2.135e0 ok
+all 6 within tolerance of the paper

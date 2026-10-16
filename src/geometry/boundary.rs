@@ -396,15 +396,20 @@ pub(crate) fn distance(loops: &[Vec<Piece>], p: P, inside: bool) -> (f64, P) {
 }
 
 /// A nearest point's distance signed, and the normal: along the line from the point when it is
-/// off the boundary, the boundary's own on it.
+/// off the boundary, the boundary's own on it. Within the coordinates' rounding of it (16
+/// units in the last place of the largest), the line from the point is rounding and points
+/// anywhere, so the boundary's own normal is taken there too.
 pub(crate) fn signed((d, q, n): (f64, P, P), p: P, inside: bool) -> (f64, P) {
-    if d > 0.0 {
+    let rounding = 16.0 * f64::EPSILON * p[0].abs().max(p[1].abs()).max(q[0].abs()).max(q[1].abs());
+    if d > rounding {
         let away = [(p[0] - q[0]) / d, (p[1] - q[1]) / d];
         if inside {
             (-d, [-away[0], -away[1]])
         } else {
             (d, away)
         }
+    } else if d > 0.0 {
+        (if inside { -d } else { d }, n)
     } else {
         (0.0, n)
     }
@@ -442,6 +447,16 @@ pub(crate) fn integrate(f: impl Fn(f64) -> f64, a: f64, b: f64) -> f64 {
                 * h
         })
         .sum()
+}
+
+/// ∫ f from a to b by one 20-point Gauss–Legendre rule: round-off for an integrand smooth on
+/// the interval's scale.
+pub(crate) fn gauss(f: impl Fn(f64) -> f64, a: f64, b: f64) -> f64 {
+    let (mid, half) = (0.5 * (a + b), 0.5 * (b - a));
+    GL20.iter()
+        .map(|&(x, w)| w * (f(mid + half * x) + f(mid - half * x)))
+        .sum::<f64>()
+        * half
 }
 
 /// The 20-point Gauss–Legendre rule's positive nodes and their weights.

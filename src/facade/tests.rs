@@ -177,8 +177,12 @@ fn vector_modes_are_the_solvers_in_c_order() {
             ..Boundaries::default()
         })
         .unwrap();
-    let exact = vector::modes(&direct, Wavelength::um(1.55).unwrap(), 2, None).unwrap();
-    assert_eq!(modes.len(), 2);
+    let exact = vector::guided_modes(&direct, Wavelength::um(1.55).unwrap(), 2, None).unwrap();
+    // of the two asked for, one is the strip's: the other is the closed window's own, below the
+    // oxide's index, and left out
+    let raw = vector::modes(&direct, Wavelength::um(1.55).unwrap(), 2, None).unwrap();
+    assert_eq!((modes.len(), exact.len(), raw.len()), (1, 1, 2));
+    assert!(raw[1].effective_index().re < 2.085f64.sqrt());
     for (m, e) in modes.iter().zip(&exact) {
         assert_eq!(bits(m.effective_index), bits(e.effective_index()));
         assert_eq!(m.te_fraction.to_bits(), e.te_fraction().to_bits());
@@ -195,6 +199,64 @@ fn vector_modes_are_the_solvers_in_c_order() {
         }
     }
     assert!(modes[0].te_fraction > 0.9);
+}
+
+/// A 1 × 0.4 µm core of ε 4 in ε 2.1025 (indices 2 and 1.45), whole, on a 50 nm grid with its
+/// edges on nodes, 1 µm of cladding round it, the field zero beyond the window.
+fn rectangle() -> CrossSection {
+    let x: Vec<f64> = (0..=60).map(|i| -1.5 + f64::from(i) * 0.05).collect();
+    let y: Vec<f64> = (0..=48).map(|j| -1.2 + f64::from(j) * 0.05).collect();
+    let eps = (0..48)
+        .flat_map(|j| (0..60).map(move |i| (i, j)))
+        .map(|(i, j)| {
+            let core = (20..40).contains(&i) && (20..28).contains(&j);
+            c64::new(if core { 4.0 } else { 2.1025 }, 0.0)
+        })
+        .collect();
+    CrossSection::new(x, y, eps)
+}
+
+#[test]
+fn vector_modes_are_only_the_guided_ones_of_a_closed_window() {
+    let cs = rectangle();
+    let w = Wavelength::um(1.55).unwrap();
+    let stop = Stop::new(None);
+    let modes = vector_modes(&cs, 1.55, 12, None, &stop).unwrap().unwrap();
+    let direct = cs.build().unwrap();
+    let guided = vector::guided_modes(&direct, w, 12, None).unwrap();
+    let raw = vector::modes(&direct, w, 12, None).unwrap();
+    // fewer than asked for, each above the cladding, and the library's guided ones to the bit
+    assert!(!modes.is_empty() && modes.len() < 12, "{}", modes.len());
+    assert_eq!(modes.len(), guided.len());
+    for (m, g) in modes.iter().zip(&guided) {
+        assert_eq!(bits(m.effective_index), bits(g.effective_index()));
+        assert!(m.effective_index.re > 1.45);
+    }
+    // what was left out: the window's own, below the cladding
+    assert_eq!(raw.len(), 12);
+    assert!(
+        raw[guided.len()..]
+            .iter()
+            .all(|m| m.effective_index().re < 1.45)
+    );
+}
+
+#[test]
+fn vector_modes_in_an_open_window_are_every_one_solved() {
+    // with PMLs the window is open: every mode of the count comes back, as the library's
+    let mut cs = rectangle();
+    cs.pml_um = [0.5; 4];
+    cs.pml_strength = 4.0;
+    let w = Wavelength::um(1.55).unwrap();
+    let modes = vector_modes(&cs, 1.55, 8, None, &Stop::new(None))
+        .unwrap()
+        .unwrap();
+    let raw = vector::modes(&cs.build().unwrap(), w, 8, None).unwrap();
+    assert_eq!(modes.len(), 8);
+    for (m, r) in modes.iter().zip(&raw) {
+        assert_eq!(bits(m.effective_index), bits(r.effective_index()));
+    }
+    assert!(modes.iter().any(|m| m.effective_index.re < 1.45));
 }
 
 #[test]
@@ -462,6 +524,18 @@ fn the_conformance_cases_are_computed_and_name_their_calls() {
     let result: serde_json::Value = serde_json::from_str(&te.result).unwrap();
     let n = result[0]["effective_index"].as_f64().unwrap();
     assert!((n - 2.845).abs() < 5e-4, "{n}");
+    // six modes asked of the strip's quarter: its guided ones only, each above the oxide
+    let many = cases
+        .iter()
+        .find(|c| c.name == "vector_modes/strip-quarter-guided")
+        .unwrap();
+    let result: serde_json::Value = serde_json::from_str(&many.result).unwrap();
+    let modes = result.as_array().unwrap();
+    assert!(!modes.is_empty() && modes.len() < 6, "{}", modes.len());
+    for m in modes {
+        let n = m["effective_index"][0].as_f64().unwrap();
+        assert!(n > 2.085f64.sqrt(), "{n}");
+    }
 }
 
 /// The façade's functions, read from its source: every `pub fn` at the start of a line (not a
@@ -471,6 +545,7 @@ fn facade_functions() -> Vec<&'static str> {
         include_str!("../facade.rs"),
         include_str!("circuit.rs"),
         include_str!("conformance.rs"),
+        include_str!("device.rs"),
     ];
     let mut names: Vec<&str> = sources
         .iter()
@@ -489,11 +564,375 @@ fn every_facade_function_is_in_the_feature_table() {
     // so to the Python package) goes in its table, by name
     let table = include_str!("../../docs/features.md");
     let functions = facade_functions();
-    assert_eq!(functions.len(), 11, "{functions:?}");
+    assert_eq!(functions.len(), 16, "{functions:?}");
     for f in functions {
         assert!(
             table.contains(&format!("`{f}`")),
             "docs/features.md doesn't name the façade's {f}"
         );
     }
+}
+
+fn design(kind: &str, values: &[(&str, f64)]) -> DeviceDesign {
+    let mut d = DeviceDesign::new(kind);
+    d.values = values.iter().map(|&(n, v)| (n.to_owned(), v)).collect();
+    d
+}
+
+#[test]
+fn the_devices_are_the_librarys() {
+    let all = devices().unwrap();
+    let library = crate::device::library();
+    assert_eq!(all.len(), library.len());
+    for (info, d) in all.iter().zip(&library) {
+        assert_eq!(info.kind, d.kind());
+        assert_eq!(info.parameters.len(), d.parameters().len());
+        for (p, q) in info.parameters.iter().zip(d.parameters()) {
+            assert_eq!((&p.name, &p.unit), (&q.name, &q.unit));
+            assert_eq!(
+                [p.default, p.min, p.max].map(f64::to_bits),
+                [q.default, q.min, q.max].map(f64::to_bits)
+            );
+        }
+        let fidelities: Vec<String> = d
+            .fidelities()
+            .iter()
+            .map(|m| m.fidelity.to_string())
+            .collect();
+        let ours: Vec<&String> = info.fidelities.iter().map(|m| &m.fidelity).collect();
+        assert_eq!(ours, fidelities.iter().collect::<Vec<_>>());
+        // a design naming no fidelity takes the first, the cheapest
+        let spec = crate::device::Spec::new(d.kind());
+        assert_eq!(info.fidelities[0].fidelity, spec.fidelity.to_string());
+    }
+    let coupler = all
+        .iter()
+        .find(|d| d.kind == "directional coupler")
+        .unwrap();
+    assert_eq!(coupler.ports, ["o1", "o2", "o3", "o4"]);
+    assert!(
+        coupler
+            .parameters
+            .iter()
+            .any(|p| p.name == "gap" && p.unit == "µm")
+    );
+}
+
+#[test]
+fn a_device_spectrum_is_its_components_to_the_bit() {
+    use crate::device::{Device, StripCoupler, Values};
+    let w = [1.5, 1.55, 1.6];
+    let s = device_spectrum(&design("directional coupler", &[("gap", 0.25)]), &w).unwrap();
+    let device = StripCoupler::new();
+    let values = Values::new(&device, &[("gap", 0.25)]).unwrap();
+    let built = device
+        .component(&values, crate::circuit::Fidelity::Analytic)
+        .unwrap();
+    let n = built.component.ports().len();
+    assert_eq!(s.ports.len(), n);
+    assert_eq!(s.wavelength_um, w);
+    assert_eq!(s.fidelity, "analytic");
+    assert_eq!(s.grid, built.figures[0].grid);
+    for (k, &wk) in w.iter().enumerate() {
+        let m = built.s_matrix(Wavelength::um(wk).unwrap()).unwrap();
+        for q in 0..n {
+            for p in 0..n {
+                assert_eq!(bits(s.s[(k * n + q) * n + p]), bits(m[(q, p)]));
+            }
+        }
+    }
+}
+
+#[test]
+fn a_waveguides_analytic_index_is_the_librarys() {
+    use crate::device::{Device, StripWaveguide, Values};
+    let figures = device_derived(&design("waveguide", &[("width", 0.45)])).unwrap();
+    let device = StripWaveguide::new();
+    let values = Values::new(&device, &[("width", 0.45)]).unwrap();
+    let direct = device
+        .derived(&values, crate::circuit::Fidelity::Analytic)
+        .unwrap();
+    assert_eq!(figures.len(), direct.len());
+    for (f, g) in figures.iter().zip(&direct) {
+        assert_eq!((&f.symbol, &f.unit, &f.grid), (&g.symbol, &g.unit, &g.grid));
+        assert_eq!(f.value.to_bits(), g.value.to_bits());
+        assert_eq!(f.fidelity, "analytic");
+    }
+    // a 450 nm strip's n_eff at 1.55 µm, near the book's (Chrostowski and Hochberg, Fig. 3.9)
+    let n = figures.iter().find(|f| f.symbol == "n_eff").unwrap().value;
+    assert!((2.2..2.5).contains(&n), "{n}");
+}
+
+#[test]
+fn a_device_geometry_is_its_structures_polygons() {
+    use crate::device::{Device, StripRing, Values};
+    use crate::geometry::Region;
+    let g = device_geometry(&design("all-pass ring", &[("radius", 3.0)])).unwrap();
+    let device = StripRing::all_pass();
+    let values = Values::new(&device, &[("radius", 3.0)]).unwrap();
+    let direct = device.geometry(&values).unwrap();
+    let s = &direct.structure;
+    assert_eq!(g.layers.len(), s.stack().layers().len());
+    for layer in &g.layers {
+        let shapes = s.shapes(&layer.name);
+        let polygons: usize = shapes
+            .iter()
+            .map(|sh| {
+                sh.polygons(crate::geometry::Tolerance::default())
+                    .contours
+                    .len()
+            })
+            .sum();
+        assert_eq!(layer.polygons.len(), polygons, "{}", layer.name);
+        assert!(layer.z_um.1 > layer.z_um.0);
+    }
+    let si = g.layers.iter().find(|l| l.name == "Si").unwrap();
+    assert_eq!(si.material, "Si");
+    // the ring is a polygon with a hole, its radius within 1 nm
+    let ring = si.polygons.iter().find(|p| !p.holes.is_empty()).unwrap();
+    assert!(ring.etch_depth_um.is_none() && ring.sidewall_deg == 90.0);
+    assert_eq!(g.ports.len(), direct.ports.len());
+    for (p, q) in g.ports.iter().zip(&direct.ports) {
+        assert_eq!(p.name, q.name);
+        assert_eq!(p.position_um, (q.position.x.to_um(), q.position.y.to_um()));
+        assert_eq!(p.width_um.to_bits(), q.width.to_um().to_bits());
+    }
+    // a rib: its layer etched part of the way
+    let rib = device_geometry(&DeviceDesign::new("rib waveguide")).unwrap();
+    let core = rib.layers.iter().find(|l| !l.polygons.is_empty()).unwrap();
+    let depth = core.polygons[0].etch_depth_um.unwrap();
+    assert!(depth > 0.0 && depth < core.z_um.1 - core.z_um.0, "{depth}");
+    // another stack's core
+    let mut nitride = DeviceDesign::new("waveguide");
+    nitride.stack = Some("nitride".into());
+    let g = device_geometry(&nitride).unwrap();
+    assert!(
+        g.layers
+            .iter()
+            .any(|l| l.name == "SiN" && !l.polygons.is_empty())
+    );
+}
+
+#[test]
+fn a_device_job_runs_to_its_spectrum() {
+    let scratch = Scratch::new();
+    let d = design("all-pass ring", &[("radius", 5.0)]);
+    let toml = device_job(&d, "ring-5um", "toml").unwrap();
+    assert!(
+        toml.contains("[device]") && toml.contains("radius = \"5.0\""),
+        "{toml}"
+    );
+    let json = device_job(&d, "ring-5um", "json").unwrap();
+    let source = JobSource::Text {
+        text: json,
+        format: "json".into(),
+    };
+    check_job(&source).unwrap();
+    let run = run_job(&source, &scratch.0, &Stop::new(None)).unwrap();
+    let events: Vec<serde_json::Value> = run
+        .events
+        .iter()
+        .map(|e| serde_json::from_str(e).unwrap())
+        .collect();
+    let s: Vec<&serde_json::Value> = events
+        .iter()
+        .filter(|e| e["type"] == "s_parameters")
+        .collect();
+    assert_eq!(s.len(), 101);
+    let w: Vec<f64> = s
+        .iter()
+        .map(|e| e["wavelength_um"].as_f64().unwrap())
+        .collect();
+    let direct = device_spectrum(&d, &w).unwrap();
+    let n = direct.ports.len();
+    for (k, e) in s.iter().enumerate() {
+        for q in 0..n {
+            for p in 0..n {
+                let v = &e["s"][q][p];
+                let z = direct.s[(k * n + q) * n + p];
+                assert_eq!(v[0].as_f64().unwrap().to_bits(), z.re.to_bits());
+                assert_eq!(v[1].as_f64().unwrap().to_bits(), z.im.to_bits());
+            }
+        }
+    }
+    assert!(device_job(&d, "ring", "ini").is_err());
+}
+
+#[test]
+fn a_design_names_what_is_wrong() {
+    let e = |d: &DeviceDesign| device_derived(d).unwrap_err().to_string();
+    assert!(e(&DeviceDesign::new("laser")).contains("waveguide"));
+    let m = e(&design("waveguide", &[("gap", 0.2)]));
+    assert!(m.contains("no parameter gap") && m.contains("width"), "{m}");
+    assert!(e(&design("waveguide", &[("width", 50.0)])).contains("width"));
+    assert!(e(&design("waveguide", &[("width", f64::NAN)])).contains("finite"));
+    let mut d = DeviceDesign::new("waveguide");
+    d.fidelity = Some("4D".into());
+    assert!(e(&d).contains("analytic"));
+    d.fidelity = Some("2D".into());
+    assert!(e(&d).contains("2D"), "{}", e(&d));
+    d.fidelity = None;
+    d.stack = Some("sapphire".into());
+    assert!(e(&d).contains("nitride"));
+    assert!(device_spectrum(&DeviceDesign::new("waveguide"), &[0.0]).is_err());
+}
+
+/// An MZI of devices as a netlist names them: two directional couplers and two strip arms.
+const MZI_OF_DEVICES: &str = r#"{
+    "instances": {
+        "split": {"device": {"kind": "directional coupler", "fidelity": "analytic",
+                             "parameters": {"gap": 0.25, "length": "w/0.02", "w": "0.45"}}},
+        "upper": {"device": {"kind": "waveguide", "parameters": {"length": 150.0}}},
+        "lower": {"device": {"kind": "waveguide", "parameters": {"length": 100}}, "loss": 3.5},
+        "combine": {"kind": "coupler", "coupling": 0.5}
+    },
+    "connections": [["split.o3", "upper.o1"], ["split.o4", "lower.o1"],
+                    ["upper.o2", "combine.o2"], ["lower.o2", "combine.o1"]],
+    "ports": {"in": "split.o1", "in2": "split.o2", "out1": "combine.o3", "out2": "combine.o4"}
+}"#;
+
+#[test]
+fn a_netlist_of_devices_is_the_chips_to_the_bit() {
+    use crate::device::Spec;
+    use crate::job::{ChipDesign, ChipInstance};
+    let w = [1.54, 1.55, 1.56];
+    let s = circuit_spectrum(MZI_OF_DEVICES, &w).unwrap();
+    // the same chip as a chip file holds it (P10's model): each device a [device] table, its
+    // parameters' expressions as the netlist's numbers read
+    let spec = |kind: &str, fidelity: Option<&str>, parameters: &[(&str, &str)]| {
+        let mut s = Spec::new(kind);
+        if let Some(f) = fidelity {
+            s.fidelity = crate::device::fidelity(f).unwrap();
+        }
+        s.parameters = parameters
+            .iter()
+            .map(|&(n, e)| (n.to_owned(), e.to_owned()))
+            .collect();
+        s
+    };
+    let chip = ChipDesign::new()
+        .instance(ChipInstance::device(
+            "split",
+            spec(
+                "directional coupler",
+                Some("analytic"),
+                &[("gap", "0.25"), ("length", "w/0.02"), ("w", "0.45")],
+            ),
+        ))
+        .instance(ChipInstance::device(
+            "upper",
+            spec("waveguide", None, &[("length", "150.0")]),
+        ))
+        .instance(
+            ChipInstance::device("lower", spec("waveguide", None, &[("length", "100")]))
+                .with_value("loss", 3.5),
+        )
+        .instance(ChipInstance::component("combine", "coupler").with_value("coupling", 0.5))
+        .connect("split.o3", "upper.o1")
+        .connect("split.o4", "lower.o1")
+        .connect("upper.o2", "combine.o2")
+        .connect("lower.o2", "combine.o1")
+        .port("in", "split.o1")
+        .port("in2", "split.o2")
+        .port("out1", "combine.o3")
+        .port("out2", "combine.o4");
+    let wavelengths: Vec<Wavelength> = w.iter().map(|&w| Wavelength::um(w).unwrap()).collect();
+    let direct = chip.circuit().unwrap().spectrum(&wavelengths).unwrap();
+    assert_eq!(s.ports, direct.ports());
+    for (k, m) in direct.matrices().iter().enumerate() {
+        for q in 0..4 {
+            for p in 0..4 {
+                assert_eq!(bits(s.s[(k * 4 + q) * 4 + p]), bits(m[(q, p)]));
+            }
+        }
+    }
+}
+
+#[test]
+fn a_netlist_of_one_device_is_its_spectrum() {
+    let netlist = r#"{
+        "instances": {"dc": {"device": {"kind": "directional coupler",
+                                        "parameters": {"gap": 0.3}}}},
+        "ports": {"o1": "dc.o1", "o2": "dc.o2", "o3": "dc.o3", "o4": "dc.o4"}
+    }"#;
+    let w = [1.5, 1.55, 1.6];
+    let s = circuit_spectrum(netlist, &w).unwrap();
+    let d = device_spectrum(&design("directional coupler", &[("gap", 0.3)]), &w).unwrap();
+    assert_eq!(s.ports, d.ports);
+    assert_eq!(
+        s.s.iter().map(|&z| bits(z)).collect::<Vec<_>>(),
+        d.s.iter().map(|&z| bits(z)).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn a_device_in_a_netlist_names_what_is_wrong() {
+    let w = [1.55];
+    let message = |instance: &str| {
+        let text = format!(r#"{{"instances": {{"a": {instance}}}, "ports": {{"x": "a.o1"}}}}"#);
+        circuit_spectrum(&text, &w).unwrap_err().to_string()
+    };
+    let e = message(r#"{"device": {"kind": "laser"}}"#);
+    assert!(e.contains("\"a\"") && e.contains("waveguide"), "{e}");
+    let e = message(r#"{"device": {"kind": "waveguide"}, "kind": "bend"}"#);
+    assert!(e.contains("not both"), "{e}");
+    let e = message(r#"{"device": "waveguide"}"#);
+    assert!(e.contains("[device] table"), "{e}");
+    let e = message(r#"{"device": {"kind": "waveguide", "parameters": {"width": 50}}}"#);
+    assert!(e.contains("width"), "{e}");
+    let e = message(r#"{"device": {"kind": "waveguide"}, "loss": "lots"}"#);
+    assert!(e.contains("loss"), "{e}");
+}
+
+#[test]
+fn a_compact_model_is_the_designs_compact_fidelity() {
+    let scratch = Scratch::new();
+    let fit = r#"{"name": "facade-fit", "timeout_minutes": 5,
+        "device": {"kind": "all-pass ring", "fidelity": "analytic"},
+        "task": {"kind": "fit", "from_um": 1.54, "to_um": 1.56, "points": 21, "held_out": 2,
+                 "poles": 8, "degree": 2,
+                 "axis": [{"parameter": "gap", "from": 0.15, "to": 0.25, "points": 4}]}}"#;
+    let source = JobSource::Text {
+        text: fit.into(),
+        format: "json".into(),
+    };
+    let file = run_job(&source, &scratch.0, &Stop::new(None))
+        .unwrap()
+        .dir
+        .join("compact.json");
+    let mut d = design("all-pass ring", &[("gap", 0.21)]);
+    d.fidelity = Some("compact".into());
+    d.compact = Some(file.clone());
+    let w = [1.545, 1.55, 1.555];
+    let s = device_spectrum(&d, &w).unwrap();
+    assert_eq!(s.fidelity, "compact");
+    // the library's own: the design naming the file
+    let mut spec = crate::device::Spec::new("all-pass ring");
+    spec.fidelity = crate::circuit::Fidelity::Compact;
+    spec.parameters = vec![("gap".into(), "0.21".into())];
+    spec.compact = Some(file.display().to_string());
+    let (device, design) = spec.build().unwrap();
+    let built = device.component(design.values(), spec.fidelity).unwrap();
+    let n = built.component.ports().len();
+    for (k, &wk) in w.iter().enumerate() {
+        let m = built.s_matrix(Wavelength::um(wk).unwrap()).unwrap();
+        for q in 0..n {
+            for p in 0..n {
+                assert_eq!(bits(s.s[(k * n + q) * n + p]), bits(m[(q, p)]));
+            }
+        }
+    }
+    // close to the closed form it was fitted to, at a gap it wasn't
+    d.fidelity = Some("analytic".into());
+    let exact = device_spectrum(&d, &w).unwrap();
+    let worst =
+        s.s.iter()
+            .zip(&exact.s)
+            .map(|(a, b)| (a - b).norm())
+            .fold(0.0, f64::max);
+    assert!(worst < 1e-3, "{worst}");
+    // a compact fidelity without its file says how to get one
+    d.fidelity = Some("compact".into());
+    d.compact = None;
+    assert!(device_derived(&d).unwrap_err().to_string().contains("fit"));
 }

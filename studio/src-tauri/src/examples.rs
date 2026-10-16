@@ -56,6 +56,12 @@ examples!(
     circuit_splitter: "../../../examples/circuit_splitter.rs",
     circuit_ring_critical: "../../../examples/circuit_ring_critical.rs",
     circuit_fit: "../../../examples/circuit_fit.rs",
+    optimize_bragg: "../../../examples/optimize_bragg.rs",
+    optimize_ring_flat: "../../../examples/optimize_ring_flat.rs",
+    optimize_mzi_lattice: "../../../examples/optimize_mzi_lattice.rs",
+    optimize_ring_pareto: "../../../examples/optimize_ring_pareto.rs",
+    optimize_chip_rings: "../../../examples/optimize_chip_rings.rs",
+    optimize_mesh: "../../../examples/optimize_mesh.rs",
     directional_coupler: "../../../examples/directional_coupler.rs",
     ring_q_factor: "../../../examples/ring_q_factor.rs",
     mzi_dwivedi: "../../../examples/mzi_dwivedi.rs",
@@ -65,12 +71,17 @@ examples!(
     subpixel_holes: "../../../examples/subpixel_holes.rs",
     pml_oskooi: "../../../examples/pml_oskooi.rs",
     bump_oskooi: "../../../examples/bump_oskooi.rs",
+    l3_akahane: "../../../examples/l3_akahane.rs",
     coupler_liu_poon: "../../../examples/coupler_liu_poon.rs",
     crossing_liu_poon: "../../../examples/crossing_liu_poon.rs",
     mmi_liu_poon: "../../../examples/mmi_liu_poon.rs",
     mode_converter_liu_poon: "../../../examples/mode_converter_liu_poon.rs",
     splitter_rotator_liu_poon: "../../../examples/splitter_rotator_liu_poon.rs",
     ring_liu_poon: "../../../examples/ring_liu_poon.rs",
+    rib_hadley: "../../../examples/rib_hadley.rs",
+    mmi_soldano: "../../../examples/mmi_soldano.rs",
+    y_junction_zhang: "../../../examples/y_junction_zhang.rs",
+    compact_mzi_ye: "../../../examples/compact_mzi_ye.rs",
 );
 
 /// An example's `main` returns an exit code, or a result holding one.
@@ -150,6 +161,24 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "A directional coupler's cross-over length",
             "Chrostowski & Hochberg 2015",
         ),
+        "optimize_bragg" => ("A Bragg mirror found by optimization", "Bennet et al. 2024"),
+        "optimize_ring_flat" => (
+            "Maximally flat ring filters by optimization",
+            "Little et al. 1997",
+        ),
+        "optimize_mzi_lattice" => (
+            "A half-band lattice filter by optimization",
+            "Jinguji & Oguma 2000",
+        ),
+        "optimize_chip_rings" => (
+            "A maximally flat ring filter co-designed from devices",
+            "Little et al. 1997",
+        ),
+        "optimize_ring_pareto" => (
+            "A ring's drop against its width: a Pareto front",
+            "Bogaerts et al. 2011",
+        ),
+        "optimize_mesh" => ("MZI meshes fitted to random unitaries", "Pai et al. 2019"),
         "ring_q_factor" => ("The best length for a ring's Q", "Bogaerts et al. 2011"),
         "mzi_dwivedi" => ("Measured MZIs: a wire's indices", "Dwivedi et al. 2015"),
         "cpml_roden_gedney" => ("The CPML beside a plate in soil", "Roden & Gedney 2000"),
@@ -161,6 +190,7 @@ fn title(name: &str) -> (&'static str, &'static str) {
         "subpixel_holes" => ("Subpixel smoothing's convergence", "Farjadpour et al. 2006"),
         "pml_oskooi" => ("How a PML's reflection falls", "Oskooi et al. 2010"),
         "bump_oskooi" => ("Scattering by a bump, smoothed", "Oskooi et al. 2010"),
+        "l3_akahane" => ("An L3 photonic-crystal cavity in 3D", "Akahane et al. 2003"),
         "coupler_liu_poon" => ("A PDK directional coupler in 3D", "Liu & Poon 2025"),
         "crossing_liu_poon" => ("A PDK waveguide crossing in 3D", "Liu & Poon 2025"),
         "mmi_liu_poon" => ("A PDK 2 × 2 MMI in 3D", "Liu & Poon 2025"),
@@ -170,6 +200,13 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "Liu & Poon 2025",
         ),
         "ring_liu_poon" => ("A PDK ring resonator in 3D", "Liu & Poon 2025"),
+        "rib_hadley" => ("Hadley's standard rib, as a device", "Hadley 2002"),
+        "mmi_soldano" => ("The MMIs' self-imaging lengths", "Soldano & Pennings 1995"),
+        "y_junction_zhang" => ("A compact Y-junction, as a device", "Zhang et al. 2013"),
+        "compact_mzi_ye" => (
+            "How many poles an MZI's compact model takes",
+            "Ye et al. 2018",
+        ),
         _ => ("", ""),
     }
 }
@@ -190,6 +227,12 @@ fn seconds(name: &str) -> f64 {
         | "multilayer_chilwell" => 0.1,
         "marcatili" | "effective_index_method" => 5.0,
         "circuit_fit" => 2.0,
+        "optimize_bragg" => 0.5,
+        "optimize_ring_flat" => 70.0,
+        "optimize_mzi_lattice" => 20.0,
+        "optimize_ring_pareto" => 3.0,
+        "optimize_chip_rings" => 2.0,
+        "optimize_mesh" => 5.0,
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
         "lorentz_okoniewski" | "subpixel_holes" => 15.0,
         "directional_coupler" | "tfsf_square_cylinder" => 20.0,
@@ -198,7 +241,12 @@ fn seconds(name: &str) -> f64 {
         "cpml_roden_gedney" => 45.0,
         "pml_oskooi" => 90.0,
         "bump_oskooi" => 120.0,
+        "l3_akahane" => 80.0,
         "ring_liu_poon" => 20.0,
+        "mmi_soldano" => 2.0,
+        "y_junction_zhang" => 15.0,
+        "compact_mzi_ye" => 40.0,
+        "rib_hadley" => 30.0,
         "crossing_liu_poon" => 30.0,
         "coupler_liu_poon" => 100.0,
         "mmi_liu_poon" => 120.0,
@@ -315,6 +363,23 @@ pub fn jobs() -> Vec<JobExample> {
         (
             "coupler-supermodes.toml",
             include_str!("../../../jobs/coupler-supermodes.toml"),
+        ),
+        ("slab-soi.toml", include_str!("../../../jobs/slab-soi.toml")),
+        (
+            "coupler-gap-sweep.toml",
+            include_str!("../../../jobs/coupler-gap-sweep.toml"),
+        ),
+        (
+            "coupler-3db-optimize.toml",
+            include_str!("../../../jobs/coupler-3db-optimize.toml"),
+        ),
+        (
+            "ring-pareto.toml",
+            include_str!("../../../jobs/ring-pareto.toml"),
+        ),
+        (
+            "chip-little-rings.toml",
+            include_str!("../../../jobs/chip-little-rings.toml"),
         ),
     ]
     .into_iter()

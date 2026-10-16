@@ -12,7 +12,11 @@ function s = circuit_spectrum(netlist, wavelength_um)
 %
 %   Each instance names its kind, its settings and its parameters' values, as Python's
 %   photonoxide.circuit_spectrum takes them (see its help, or docs/python.md); the ports are in
-%   the order the struct has them.
+%   the order the struct has them. An instance can name a device of photonoxide's library in
+%   place of a kind, its design as a job's [device] table holds it:
+%
+%     netlist.instances.ring = struct("device", struct("kind", "all-pass ring", ...
+%                                     "parameters", struct("radius", 5)));
 %
 %   s.ports are the external ports' names, s.wavelength_um the wavelengths, and s.s the
 %   S-matrices, nl-by-n-by-n: s.s(k, q, p) from port p into port q at the k-th wavelength.
