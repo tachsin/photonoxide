@@ -14,7 +14,11 @@
 //! - jobs: [`check_job`], [`run_job`] (a run's record, as the studio's), and an `"fdfd"` job's
 //!   S-parameters, [`fdfd_s_parameters`];
 //! - circuits from a netlist given as data, [`circuit_spectrum`];
-//! - Touchstone files: [`read_touchstone`], [`write_touchstone`].
+//! - Touchstone files: [`read_touchstone`], [`write_touchstone`];
+//! - devices, the components that know their geometry ([`crate::device`]): the library's,
+//!   [`devices`], and a design's S-parameters, figures, geometry and job, [`device_spectrum`],
+//!   [`device_derived`], [`device_geometry`], [`device_job`], the numbers a component's page in
+//!   the studio shows for the same design.
 //!
 //! Its conventions:
 //!
@@ -36,6 +40,7 @@
 
 mod circuit;
 mod conformance;
+mod device;
 #[cfg(test)]
 mod tests;
 
@@ -55,6 +60,11 @@ use crate::{Error, Result};
 pub use crate::run::Stop;
 pub use circuit::circuit_spectrum;
 pub use conformance::{Case, conformance};
+pub use device::{
+    DeviceDesign, DeviceFigure, DeviceGeometry, DeviceInfo, DeviceModel, DeviceParameter,
+    DevicePolygon, DevicePort, DeviceSpectrum, GeometryLayer, StatedError, ValidityRange,
+    device_derived, device_geometry, device_job, device_spectrum, devices,
+};
 
 /// A material of the catalogue ([`crate::material::catalogue`]), with its index models.
 #[derive(Clone, Debug, PartialEq)]

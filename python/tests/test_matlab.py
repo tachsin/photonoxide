@@ -200,3 +200,49 @@ def test_the_catalogue_as_columns() -> None:
     si = m["id"].index("si")
     assert tuple(ranges[:, si]) == (1.2, 14.0) and m["axes"][si] == "isotropic"
     assert matlab.version() == {"package": po.__version__, "core": po.core_version}
+
+
+def test_devices_come_back_as_matlabs_json() -> None:
+    ours = json.loads(matlab.devices())
+    assert [d["kind"] for d in ours] == [d.kind for d in po.devices()]
+    assert ours[2]["parameters"][4]["name"] == "gap"
+    # a design as jsonencode writes a struct of its values, and none as "{}" or "[]"
+    w = [1.54, 1.55, 1.56]
+    r = matlab.device_spectrum("directional coupler", json.dumps({"gap": 0.25}), "analytic", w)
+    dc = po.device_spectrum("directional coupler", values={"gap": 0.25}, fidelity="analytic", wavelength_um=w)
+    s = rebuilt(r["s"])
+    assert s.shape == (3, 4, 4) and np.array_equal(s, dc.s)
+    assert r["ports"] == dc.ports and r["fidelity"] == "analytic" and r["grid"] == dc.grid
+    assert list(r["validity_um"]) == list(dc.validity_um or ())
+    ring = matlab.device_spectrum("all-pass ring", "{}", "", [1.55], "")
+    assert np.array_equal(rebuilt(ring["s"]), po.device_spectrum("all-pass ring", wavelength_um=[1.55]).s)
+    figures = json.loads(matlab.device_derived("waveguide", json.dumps({"width": 0.45}), ""))
+    n = next(f for f in figures if f["symbol"] == "n_eff")["value"]
+    assert n == next(f.value for f in po.device_derived("waveguide", values={"width": 0.45}) if f.symbol == "n_eff")
+
+
+def test_a_devices_geometry_and_job_for_matlab() -> None:
+    g = json.loads(matlab.device_geometry("all-pass ring", "[]"))
+    ours = po.device_geometry("all-pass ring")
+    si = [layer for layer in g["layers"] if layer["name"] == "Si"][0]
+    ring = [p for p in si["polygons"] if p["holes"]][0]
+    # each outline n rows of (x, y), as jsondecode makes an n-by-2 matrix of it
+    expected = next(p for layer in ours.layers for p in layer.polygons if p.holes)
+    assert np.array_equal(np.array(ring["outer"]), expected.outer)
+    assert g["ports"][0]["position_um"] == list(ours.ports[0].position_um)
+    text = matlab.device_job("waveguide", "{}", "", "", "", "json")
+    assert json.loads(text) == po.device_job("waveguide")
+    assert matlab.device_job("waveguide", "{}", "", "", "strip", "toml").startswith("name = \"strip\"")
+
+
+def test_a_netlist_of_devices_from_matlabs_json() -> None:
+    # jsonencode of the struct circuit_spectrum.m's help shows for a device
+    netlist = json.dumps(
+        {
+            "instances": {"ring": {"device": {"kind": "all-pass ring", "parameters": {"radius": 5}}}},
+            "ports": {"in": "ring.in", "through": "ring.through"},
+        }
+    )
+    r = matlab.circuit_spectrum(netlist, [1.55, 1.56])
+    ours = po.device_spectrum("all-pass ring", values={"radius": 5.0}, wavelength_um=[1.55, 1.56])
+    assert np.array_equal(rebuilt(r["s"]), ours.s)

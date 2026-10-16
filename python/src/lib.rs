@@ -23,7 +23,7 @@ use numpy::{
     Complex64, PyArray1, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArray3,
     PyUntypedArrayMethods,
 };
-use photonoxide::facade::{self, CrossSection, IndexOptions, JobSource, Stop};
+use photonoxide::facade::{self, CrossSection, DeviceDesign, IndexOptions, JobSource, Stop};
 use pyo3::exceptions::{PyTimeoutError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyComplex, PyDict, PyList};
@@ -429,6 +429,204 @@ fn write_touchstone<'py>(
         .fail(py)
 }
 
+/// A device's design from the package's arguments.
+fn design(
+    kind: &str,
+    values: Vec<(String, f64)>,
+    fidelity: Option<String>,
+    stack: Option<String>,
+) -> DeviceDesign {
+    let mut d = DeviceDesign::new(kind);
+    d.values = values;
+    d.fidelity = fidelity;
+    d.stack = stack;
+    d
+}
+
+/// The library's devices, each a dict: its parameters and models dicts.
+#[pyfunction]
+fn devices(py: Python<'_>) -> PyResult<Bound<'_, PyList>> {
+    let all = py.detach(facade::devices).fail(py)?;
+    let list = PyList::empty(py);
+    for d in all {
+        let parameters = PyList::empty(py);
+        for p in &d.parameters {
+            let item = PyDict::new(py);
+            item.set_item("name", &p.name)?;
+            item.set_item("unit", &p.unit)?;
+            item.set_item("default", p.default)?;
+            item.set_item("min", p.min)?;
+            item.set_item("max", p.max)?;
+            parameters.append(item)?;
+        }
+        let fidelities = PyList::empty(py);
+        for m in &d.fidelities {
+            let item = PyDict::new(py);
+            item.set_item("fidelity", &m.fidelity)?;
+            item.set_item("name", &m.name)?;
+            item.set_item("write_up", &m.write_up)?;
+            item.set_item("papers", &m.papers)?;
+            match &m.error {
+                Some(e) => {
+                    let error = PyDict::new(py);
+                    error.set_item("quantity", &e.quantity)?;
+                    error.set_item("bound", e.bound)?;
+                    error.set_item("unit", &e.unit)?;
+                    error.set_item("against", &e.against)?;
+                    item.set_item("error", error)?;
+                }
+                None => item.set_item("error", py.None())?,
+            }
+            let validity = PyList::empty(py);
+            for r in &m.validity {
+                let range = PyDict::new(py);
+                range.set_item("name", &r.name)?;
+                range.set_item("min", r.min)?;
+                range.set_item("max", r.max)?;
+                validity.append(range)?;
+            }
+            item.set_item("validity", validity)?;
+            fidelities.append(item)?;
+        }
+        let item = PyDict::new(py);
+        item.set_item("kind", &d.kind)?;
+        item.set_item("about", &d.about)?;
+        item.set_item("parameters", parameters)?;
+        item.set_item("fidelities", fidelities)?;
+        item.set_item("ports", &d.ports)?;
+        list.append(item)?;
+    }
+    Ok(list)
+}
+
+/// A device's S-parameters at its fidelity, a dict with S as an `(nλ, n, n)` array.
+#[pyfunction]
+#[pyo3(signature = (kind, values, fidelity, stack, wavelength_um))]
+fn device_spectrum<'py>(
+    py: Python<'py>,
+    kind: &str,
+    values: Vec<(String, f64)>,
+    fidelity: Option<String>,
+    stack: Option<String>,
+    wavelength_um: PyReadonlyArray1<'py, f64>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let w = vector(&wavelength_um);
+    let d = design(kind, values, fidelity, stack);
+    let s = py.detach(|| facade::device_spectrum(&d, &w)).fail(py)?;
+    let (k, n) = (s.wavelength_um.len(), s.ports.len());
+    let out = PyDict::new(py);
+    out.set_item("ports", s.ports)?;
+    out.set_item("wavelength_um", PyArray1::from_vec(py, s.wavelength_um))?;
+    out.set_item("s", PyArray1::from_vec(py, s.s).reshape([k, n, n])?)?;
+    out.set_item("fidelity", s.fidelity)?;
+    out.set_item("grid", s.grid)?;
+    out.set_item("source", s.source)?;
+    out.set_item("validity_um", s.validity_um)?;
+    Ok(out)
+}
+
+/// A device's figures at its fidelity, each a dict.
+#[pyfunction]
+#[pyo3(signature = (kind, values, fidelity, stack))]
+fn device_derived<'py>(
+    py: Python<'py>,
+    kind: &str,
+    values: Vec<(String, f64)>,
+    fidelity: Option<String>,
+    stack: Option<String>,
+) -> PyResult<Bound<'py, PyList>> {
+    let d = design(kind, values, fidelity, stack);
+    let figures = py.detach(|| facade::device_derived(&d)).fail(py)?;
+    let list = PyList::empty(py);
+    for f in figures {
+        let item = PyDict::new(py);
+        item.set_item("name", f.name)?;
+        item.set_item("symbol", f.symbol)?;
+        item.set_item("value", f.value)?;
+        item.set_item("unit", f.unit)?;
+        item.set_item("fidelity", f.fidelity)?;
+        item.set_item("grid", f.grid)?;
+        list.append(item)?;
+    }
+    Ok(list)
+}
+
+/// (x, y) points as an `(n, 2)` array.
+fn points<'py>(py: Python<'py>, p: &[(f64, f64)]) -> PyResult<Bound<'py, PyAny>> {
+    let flat: Vec<f64> = p.iter().flat_map(|&(x, y)| [x, y]).collect();
+    Ok(PyArray1::from_vec(py, flat)
+        .reshape([p.len(), 2])?
+        .into_any())
+}
+
+/// A device's geometry: its layers with their polygons (`(n, 2)` arrays), and its ports.
+#[pyfunction]
+#[pyo3(signature = (kind, values, stack))]
+fn device_geometry<'py>(
+    py: Python<'py>,
+    kind: &str,
+    values: Vec<(String, f64)>,
+    stack: Option<String>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let d = design(kind, values, None, stack);
+    let g = py.detach(|| facade::device_geometry(&d)).fail(py)?;
+    let layers = PyList::empty(py);
+    for l in &g.layers {
+        let polygons = PyList::empty(py);
+        for p in &l.polygons {
+            let item = PyDict::new(py);
+            item.set_item("outer", points(py, &p.outer)?)?;
+            let holes = PyList::empty(py);
+            for h in &p.holes {
+                holes.append(points(py, h)?)?;
+            }
+            item.set_item("holes", holes)?;
+            item.set_item("etch_depth_um", p.etch_depth_um)?;
+            item.set_item("sidewall_deg", p.sidewall_deg)?;
+            polygons.append(item)?;
+        }
+        let item = PyDict::new(py);
+        item.set_item("name", &l.name)?;
+        item.set_item("z_um", l.z_um)?;
+        item.set_item("material", &l.material)?;
+        item.set_item("background", &l.background)?;
+        item.set_item("polygons", polygons)?;
+        layers.append(item)?;
+    }
+    let ports = PyList::empty(py);
+    for p in &g.ports {
+        let item = PyDict::new(py);
+        item.set_item("name", &p.name)?;
+        item.set_item("position_um", p.position_um)?;
+        item.set_item("direction_deg", p.direction_deg)?;
+        item.set_item("width_um", p.width_um)?;
+        item.set_item("layer", &p.layer)?;
+        ports.append(item)?;
+    }
+    let out = PyDict::new(py);
+    out.set_item("layers", layers)?;
+    out.set_item("substrate", &g.substrate)?;
+    out.set_item("cladding", &g.cladding)?;
+    out.set_item("ports", ports)?;
+    Ok(out)
+}
+
+/// The job file that computes a device's design, as text in a format.
+#[pyfunction]
+#[pyo3(signature = (kind, values, fidelity, stack, name, format))]
+fn device_job(
+    py: Python<'_>,
+    kind: &str,
+    values: Vec<(String, f64)>,
+    fidelity: Option<String>,
+    stack: Option<String>,
+    name: &str,
+    format: &str,
+) -> PyResult<String> {
+    let d = design(kind, values, fidelity, stack);
+    py.detach(|| facade::device_job(&d, name, format)).fail(py)
+}
+
 /// The façade's conformance cases ([`facade::conformance`]), computed here: dicts of the case's
 /// name, function, arguments and result (JSON text each) and the members to ignore.
 #[pyfunction]
@@ -461,6 +659,11 @@ fn _photonoxide(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(circuit_spectrum, module)?)?;
     module.add_function(wrap_pyfunction!(read_touchstone, module)?)?;
     module.add_function(wrap_pyfunction!(write_touchstone, module)?)?;
+    module.add_function(wrap_pyfunction!(devices, module)?)?;
+    module.add_function(wrap_pyfunction!(device_spectrum, module)?)?;
+    module.add_function(wrap_pyfunction!(device_derived, module)?)?;
+    module.add_function(wrap_pyfunction!(device_geometry, module)?)?;
+    module.add_function(wrap_pyfunction!(device_job, module)?)?;
     module.add_function(wrap_pyfunction!(_conformance, module)?)?;
     Ok(())
 }

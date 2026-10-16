@@ -2,7 +2,8 @@
 
 The `photonoxide` package for Python wraps a part of the library: the materials catalogue,
 the exact slab's and the full-vector solver's modes, jobs (run as the program runs them) and
-an FDFD job's S-parameters, circuits from a netlist given as data, and Touchstone files. MATLAB
+an FDFD job's S-parameters, circuits from a netlist given as data, Touchstone files, and the
+devices of a component's page in the studio, with the same parameters, models and numbers. MATLAB
 reaches the same functions through the package. The package lives in this repository, in
 [`python/`](../python), and wraps the library's façade, `photonoxide::facade`: a small module of
 plain types, so that the rest of the library's API can change between milestones without the
@@ -12,6 +13,7 @@ package following every change ([the plan](plans/bindings.md), #271).
 - [A first example](#a-first-example)
 - [Units, arrays and errors](#units-arrays-and-errors)
 - [What it does](#what-it-does)
+- [Devices](#devices)
 - [The same numbers as Rust](#the-same-numbers-as-rust)
 - [MATLAB](#matlab)
 - [Versions and releases](#versions-and-releases)
@@ -60,7 +62,7 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`, as the Rust example d
   `radius_um`, `loss_db_per_cm`. A length can't be passed where a wavelength goes without the
   name saying so.
 - **Vectorized over wavelength** where Rust loops: `refractive_index`, `group_index`,
-  `circuit_spectrum` and `fdfd_s_parameters` take one wavelength or an array
+  `circuit_spectrum`, `device_spectrum` and `fdfd_s_parameters` take one wavelength or an array
   (`wavelength_um=np.linspace(1.5, 1.6, 101)`); one gives one value, an array an array of its
   shape.
 - **NumPy arrays in C order, with their coordinates.** A field on a cross-section is `(ny, nx)`:
@@ -88,6 +90,9 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`, as the Rust example d
 | `fdfd_s_parameters(job, wavelength_um=)` | an `"fdfd"` job's S-parameters by 2D FDFD | [`fdfd`](methods/fdfd-ports.md) |
 | `circuit_spectrum(instances=, connections=, ports=, wavelength_um=)` | a circuit's S-matrices from a netlist given as data | [`circuit`](methods/circuits.md) |
 | `read_touchstone(path, convention=)`, `write_touchstone(path, spectrum, convention=)` | Touchstone files, the time convention always named | [`compact::touchstone`](methods/compact.md) |
+| `devices()` | the library's devices: each one's parameters (unit, default, range), models and ports | [`device`](methods/devices.md) |
+| `device_spectrum(kind, values=, fidelity=, stack=, wavelength_um=)`, `device_derived(kind, ...)` | a design's S-parameters and figures at a fidelity, each with its model's grid | [`device`](methods/devices.md) |
+| `device_geometry(kind, values=, stack=)`, `device_job(kind, ..., format=)` | a design's stack, polygons and ports; the job that computes it | [`device`](methods/devices.md) |
 
 Each function's docstring has the details; `help(po.circuit_spectrum)` lists the kinds of
 component a netlist can hold and their settings. A job is a path to a job file (TOML, JSON or
@@ -114,6 +119,46 @@ print(te.effective_index.real, te.te_fraction, te.ex.shape)
 
 A 2D FDFD result (`fdfd_s_parameters`, an `"fdfd"` job) comes from the effective index method:
 an estimate, not a device's performance in 3D, and it carries its grid (`cell_um`).
+
+## Devices
+
+The devices are the components of the studio's Components page: a strip or rib waveguide, a
+bend, a directional coupler, rings, MMIs, a Y-branch and MZIs, each with its parameters, its
+models from a closed form to 3D FDFD, and its ports (`po.devices()` lists them). A design is a
+device's kind, its parameters' values (those not given at their defaults), a fidelity (its
+cheapest when not given) and a stack (220 nm SOI by default, or `"soi"` or `"nitride"`). For
+the same design, `device_spectrum` and `device_derived` give the numbers the device's page in
+the studio shows, to the bit, and every number names its fidelity and grid.
+
+A directional coupler swept over its gap, at its analytic model (a fit to the full-vector
+solver):
+
+```python
+import numpy as np
+import photonoxide as po
+
+w = np.linspace(1.5, 1.6, 101)
+for gap in (0.15, 0.2, 0.25, 0.3):
+    design = dict(values={"gap": gap, "length": 10.0}, fidelity="analytic")
+    figures = {f.symbol: f.value for f in po.device_derived("directional coupler", **design)}
+    dc = po.device_spectrum("directional coupler", **design, wavelength_um=w)
+    across = np.abs(dc.s[:, 2, 0]) ** 2   # from o1, lower left, into o3, upper right
+    print(f"gap {gap:.2f} um: L_x {figures['L_x']:.1f} um, across {across[50]:.3f} at 1.55 um")
+print(dc.fidelity, "|", dc.grid)
+```
+
+It prints the cross-over length growing with the gap, 23.4 µm at 150 nm to 89.5 µm at 300 nm,
+and the power across a 10 µm coupler falling from 0.385 to 0.030, each from the fit's grid of
+about 10 nm, which `dc.grid` names. At `fidelity="3D"` the same loop solves each
+design's supermodes by the full-vector solver (about ten seconds a design here, on its 10 nm
+grid), and `dc.grid` names that grid.
+`device_geometry` gives the polygons to draw or check, and `device_job` the job file that
+computes a design, which `run_job` runs as the studio does: its record holds the same numbers.
+
+A circuit's instances can be devices too: in `circuit_spectrum`'s netlist, an instance names a
+`device` in place of a `kind`, its design as a job's `[device]` table (and a chip file's
+instance) holds it, `{"device": {"kind": "all-pass ring", "parameters": {"radius": 5.0}}}`,
+and is built at its fidelity as `device_spectrum` builds it.
 
 ## The same numbers as Rust
 
@@ -163,7 +208,8 @@ plot(s.wavelength_um, abs(s.s(:, 3, 1)).^2)    % from in1 to out1
 
 The wrappers: `photonoxide.version`, `materials`, `refractive_index`, `group_index`,
 `slab_modes`, `vector_modes`, `run_job`, `fdfd_s_parameters`, `circuit_spectrum`,
-`read_touchstone` and `write_touchstone`, each with its help (`help photonoxide.vector_modes`).
+`read_touchstone`, `write_touchstone`, `devices`, `device_spectrum`, `device_derived`,
+`device_geometry` and `device_job`, each with its help (`help photonoxide.vector_modes`).
 They take MATLAB's arrays and name-value arguments and return MATLAB arrays and structs:
 
 - arrays keep the Python package's shapes and indexing, so a field is `ny`-by-`nx` and

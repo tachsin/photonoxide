@@ -125,10 +125,11 @@ area compact \
   "circuit job" \
   "compact::" "compact/" "compact_mzi_ye"
 
-# with the table of what works in Rust, Python and MATLAB, which its tests read
+# with the table of what works in Rust, Python and MATLAB, which its tests read; its devices are
+# the library's (src/device)
 area facade \
   "src/facade.rs src/facade/* docs/features.md" \
-  "material mode job circuit compact" \
+  "material mode job circuit compact device" \
   "facade::" "" ""
 
 # the benchmark problems, every solver's

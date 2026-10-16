@@ -13,7 +13,10 @@ package brings a part of it to Python, and through Python to MATLAB:
 - waveguide modes: the exact slab, and full-vector modes of a cross-section with their fields;
 - jobs (TOML, JSON or YAML, or a dict), run as the photonoxide program runs them, and an FDFD
   job's S-parameters;
-- circuits from a netlist given as data, and Touchstone files.
+- circuits from a netlist given as data, and Touchstone files;
+- the devices of the photonoxide studio's component pages (waveguides, bends, couplers, rings,
+  MMIs, Y-branches, MZIs): their S-parameters, figures, geometry and jobs, the same numbers as
+  the studio's for the same design.
 
 ```sh
 pip install photonoxide

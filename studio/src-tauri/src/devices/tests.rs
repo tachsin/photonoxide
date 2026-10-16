@@ -858,3 +858,82 @@ fn a_compact_model_is_fitted_from_the_page_and_kept_next_to_its_design() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// The page's numbers are the Python package's: for the same design, the façade the package
+/// wraps (`photonoxide::facade`) gives the S-parameters and figures this page shows, bit for
+/// bit.
+#[test]
+fn the_page_and_the_facade_give_the_same_numbers() {
+    use photonoxide::facade::{self, DeviceDesign};
+    type Design<'a> = (&'a str, &'a str, &'a [(&'a str, f64)]);
+    let designs: [Design; 5] = [
+        (
+            "directional coupler",
+            "analytic",
+            &[("gap", 0.25), ("length", 12.5)],
+        ),
+        ("all-pass ring", "analytic", &[("radius", 5.0)]),
+        ("waveguide", "analytic", &[("width", 0.45)]),
+        ("MMI 1x2", "2D", &[("length", 7.5)]),
+        ("Y-branch MZI", "analytic", &[("upper", 120.0)]),
+    ];
+    let sweep = short();
+    let w: Vec<f64> = sweep
+        .wavelengths()
+        .unwrap()
+        .iter()
+        .map(|w| w.to_um())
+        .collect();
+    for (kind, fidelity, values) in designs {
+        // the page's design: each value as the form holds it, an expression
+        let texts: Vec<(String, String)> = values
+            .iter()
+            .map(|&(n, v)| (n.to_owned(), format!("{v:?}")))
+            .collect();
+        let pairs: Vec<(&str, &str)> = texts
+            .iter()
+            .map(|(n, e)| (n.as_str(), e.as_str()))
+            .collect();
+        let spec = SpecIn {
+            fidelity: fidelity.into(),
+            ..design(kind, &pairs)
+        };
+        let page = spectrum(&spec, fidelity, short()).unwrap();
+        let mut d = DeviceDesign::new(kind);
+        d.values = values.iter().map(|&(n, v)| (n.to_owned(), v)).collect();
+        d.fidelity = Some(fidelity.into());
+        let ours = facade::device_spectrum(&d, &w).unwrap();
+        let data = serde_json::to_value(&page.data).unwrap();
+        let n = ours.ports.len();
+        assert_eq!(data["ports"], serde_json::json!(ours.ports), "{kind}");
+        for q in 0..n {
+            for p in 0..n {
+                for k in 0..w.len() {
+                    let z = ours.s[(k * n + q) * n + p];
+                    let re = data["re"][q][p][k].as_f64().unwrap();
+                    let im = data["im"][q][p][k].as_f64().unwrap();
+                    assert_eq!(
+                        (re.to_bits(), im.to_bits()),
+                        (z.re.to_bits(), z.im.to_bits()),
+                        "{kind}: S{q}{p} at {}",
+                        w[k]
+                    );
+                }
+            }
+        }
+        assert_eq!(
+            (page.fidelity, &page.grid),
+            (ours.fidelity.as_str(), &ours.grid)
+        );
+        let figures = derived(&spec, fidelity).unwrap().figures;
+        let theirs = facade::device_derived(&d).unwrap();
+        assert_eq!(figures.len(), theirs.len(), "{kind}");
+        for (f, g) in figures.iter().zip(&theirs) {
+            assert_eq!(
+                (&f.symbol, f.value.to_bits()),
+                (&g.symbol, g.value.to_bits())
+            );
+            assert_eq!((f.fidelity, &f.grid), (g.fidelity.as_str(), &g.grid));
+        }
+    }
+}

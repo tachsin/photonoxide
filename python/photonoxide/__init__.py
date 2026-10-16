@@ -1,5 +1,5 @@
 """Validated photonics from Rust, for Python: materials with provenance, mode solvers, jobs and
-2D FDFD S-parameters, circuits and Touchstone files, from
+2D FDFD S-parameters, circuits and Touchstone files, and devices that know their geometry, from
 `photonoxide <https://github.com/tachsin/photonoxide>`_.
 
 220 nm of silicon in oxide at 1550 nm, each material with its published dispersion, and the
@@ -75,6 +75,22 @@ __all__ = [
     "circuit_spectrum",
     "read_touchstone",
     "write_touchstone",
+    "Device",
+    "DeviceParameter",
+    "DeviceModel",
+    "StatedError",
+    "ValidityRange",
+    "DeviceSpectrum",
+    "DeviceFigure",
+    "DeviceGeometry",
+    "GeometryLayer",
+    "DevicePolygon",
+    "DevicePort",
+    "devices",
+    "device_spectrum",
+    "device_derived",
+    "device_geometry",
+    "device_job",
 ]
 
 try:
@@ -477,6 +493,18 @@ def circuit_spectrum(
     - ``"fixed"``: an S-matrix the same at every wavelength: ``ports`` (names) and ``s`` (rows
       of ``[re, im]`` pairs).
 
+    An instance can instead name a ``device`` of the library (see :func:`devices`) in place of
+    a ``kind``: its design as a job's ``[device]`` table holds it, ``kind``, ``fidelity`` (its
+    cheapest when not given), ``stack`` and ``parameters`` (numbers in their units, or
+    expressions such as ``"450 nm"`` or ``"w/2.5"``)::
+
+        ring = {"device": {"kind": "all-pass ring", "fidelity": "analytic",
+                           "parameters": {"radius": 5.0, "gap": 0.18}}}
+
+    It is built at its fidelity, as :func:`device_spectrum` builds it, and its component's
+    parameters take the values the design gives them; the instance's other members then set
+    them by name (``"loss": 3.0``), as for a kind.
+
     Ports are named ``o1``, ``o2``, ... as photonoxide's components name them (the rings: ``in``,
     ``through``, ``add`` and ``drop``).
     """
@@ -523,3 +551,322 @@ def write_touchstone(
         convention,
         None if significant_digits is None else int(significant_digits),
     )
+
+
+# --- devices --------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class DeviceParameter:
+    """A parameter of a device: its name, unit, default and range."""
+
+    #: Its name, e.g. ``"gap"``.
+    name: str
+    #: Its unit, e.g. ``"µm"`` or ``"°"``, or ``""`` for a pure number.
+    unit: str
+    #: Its default.
+    default: float
+    #: The smallest value it takes.
+    min: float
+    #: The largest.
+    max: float
+
+
+@dataclass(frozen=True)
+class StatedError:
+    """A model's stated error: the largest difference in one quantity against another
+    fidelity, measured by photonoxide's validation report."""
+
+    #: The quantity, e.g. ``"n_eff"``.
+    quantity: str
+    #: The largest difference, in ``unit``.
+    bound: float
+    #: Its unit: ``""`` for a pure number, ``"%"`` for a relative one.
+    unit: str
+    #: The fidelity it is measured against.
+    against: str
+
+
+@dataclass(frozen=True)
+class ValidityRange:
+    """A range a model holds over, for one parameter or the wavelength (µm)."""
+
+    #: The parameter's name, or ``"wavelength"``.
+    name: str
+    #: The smallest value.
+    min: float
+    #: The largest.
+    max: float
+
+
+@dataclass(frozen=True)
+class DeviceModel:
+    """One of a device's models: its fidelity, what computes it, its write-up and papers, its
+    stated error against the next fidelity up, and where it holds."""
+
+    #: ``"analytic"``, ``"compact"``, ``"2D"``, ``"3D"`` or ``"measured"``.
+    fidelity: str
+    #: What computes it, in a sentence.
+    name: str
+    #: Its write-up in photonoxide's docs/methods, e.g. ``"devices"``.
+    write_up: str
+    #: The papers it implements, each with its DOI.
+    papers: list[str]
+    #: Its error against the next fidelity up over its validity; ``None`` for the highest.
+    error: StatedError | None
+    #: Where it holds: a range for each parameter it limits, and ``"wavelength"``.
+    validity: list[ValidityRange]
+
+
+@dataclass(frozen=True)
+class Device:
+    """A device of photonoxide's library: a component that knows its geometry."""
+
+    #: Its kind, what the device functions take, e.g. ``"directional coupler"``.
+    kind: str
+    #: What it is, in a sentence or two.
+    about: str
+    #: Its parameters, in order.
+    parameters: list[DeviceParameter]
+    #: Its models, cheapest first: the first is a design's when it names none.
+    fidelities: list[DeviceModel]
+    #: Its ports' names, in the order of its S-matrices.
+    ports: list[str]
+
+
+@dataclass(frozen=True)
+class DeviceSpectrum:
+    """A device's S-parameters over wavelength, with the model they come from. A 2D result is
+    an estimate, not the device's performance."""
+
+    #: The device's ports' names, in the matrices' order.
+    ports: list[str]
+    #: The vacuum wavelengths, µm.
+    wavelength_um: np.ndarray
+    #: The S-matrices, ``(nλ, n, n)``: ``s[k, q, p]`` from port p into port q, in photonoxide's
+    #: e^(−iωt) convention.
+    s: np.ndarray
+    #: The fidelity of the model: ``"analytic"``, ``"2D"``, ``"3D"``, ...
+    fidelity: str
+    #: The grid its figures name, or ``"exact: no grid"`` for a closed form; a fit names the grid
+    #: of the solves it was fitted to.
+    grid: str
+    #: What the model reproduces: a paper with its DOI and equation, or a solver with its grid.
+    source: str
+    #: The wavelengths it holds for, µm, if limited.
+    validity_um: tuple[float, float] | None
+
+
+@dataclass(frozen=True)
+class DeviceFigure:
+    """One of a device's figures, with the fidelity and grid it comes from."""
+
+    #: What it is, e.g. ``"effective index"``.
+    name: str
+    #: Its symbol, unique among a device's figures, e.g. ``"n_eff"``.
+    symbol: str
+    #: Its value, in ``unit``.
+    value: float
+    #: Its unit, e.g. ``"µm"``, or ``""`` for a pure number.
+    unit: str
+    #: The fidelity of the model that gives it.
+    fidelity: str
+    #: The grid it was computed on, or ``"exact: no grid"`` for a closed form.
+    grid: str
+
+
+@dataclass(frozen=True)
+class DevicePolygon:
+    """A polygon with holes, seen from above, and how its edges were etched."""
+
+    #: Its outer boundary, ``(n, 2)``: (x, y) in µm, counterclockwise, the first vertex not
+    #: repeated.
+    outer: np.ndarray
+    #: Its holes, each ``(n, 2)``, clockwise.
+    holes: list[np.ndarray]
+    #: How deep the etch around it went from the layer's top, µm: ``None`` through the layer (a
+    #: strip), less than the layer's thickness for a rib.
+    etch_depth_um: float | None
+    #: Its walls' angle from the layer's plane, degrees: 90 vertical.
+    sidewall_deg: float
+
+
+@dataclass(frozen=True)
+class GeometryLayer:
+    """A layer of a device's stack, and the polygons drawn on it."""
+
+    #: Its name, e.g. ``"Si"``.
+    name: str
+    #: Its bottom and top, µm.
+    z_um: tuple[float, float]
+    #: What the polygons are made of.
+    material: str
+    #: What fills the layer elsewhere.
+    background: str
+    #: The polygons drawn on it.
+    polygons: list[DevicePolygon]
+
+
+@dataclass(frozen=True)
+class DevicePort:
+    """A device's port: where it crosses the device's edge, the direction light leaves by, the
+    guide's width there, and its layer."""
+
+    #: Its name, e.g. ``"o1"``.
+    name: str
+    #: Its centre seen from above, µm.
+    position_um: tuple[float, float]
+    #: The direction light leaves by, degrees counterclockwise from +x.
+    direction_deg: float
+    #: The guide's width there, µm.
+    width_um: float
+    #: The layer the guide is drawn on.
+    layer: str
+
+
+@dataclass(frozen=True)
+class DeviceGeometry:
+    """A device's geometry: its stack's layers bottom to top with the polygons on each, and its
+    ports."""
+
+    #: The layers, bottom to top.
+    layers: list[GeometryLayer]
+    #: The material below them.
+    substrate: str
+    #: The material above them.
+    cladding: str
+    #: The ports, in the order of the device's S-matrices.
+    ports: list[DevicePort]
+
+
+def _values(values: Mapping[str, float] | None) -> list[tuple[str, float]]:
+    return [] if values is None else [(str(k), float(v)) for k, v in values.items()]
+
+
+def devices() -> list[Device]:
+    """The devices of photonoxide's library: the strip and rib waveguides, the bend, the
+    directional coupler, the all-pass and add-drop rings, the 1 × 2 and 2 × 2 MMIs, the
+    Y-branch, and the MZIs of directional couplers and of Y-branches, each with its parameters
+    (name, unit, default, range), its models (cheapest first, each with its papers, stated error
+    and validity) and its ports."""
+    return [
+        Device(
+            kind=d["kind"],
+            about=d["about"],
+            parameters=[DeviceParameter(**p) for p in d["parameters"]],
+            fidelities=[
+                DeviceModel(
+                    **{
+                        **m,
+                        "error": None if m["error"] is None else StatedError(**m["error"]),
+                        "validity": [ValidityRange(**r) for r in m["validity"]],
+                    }
+                )
+                for m in d["fidelities"]
+            ],
+            ports=d["ports"],
+        )
+        for d in _native.devices()
+    ]
+
+
+def device_spectrum(
+    kind: str,
+    *,
+    values: Mapping[str, float] | None = None,
+    fidelity: str | None = None,
+    stack: str | None = None,
+    wavelength_um: Any,
+) -> DeviceSpectrum:
+    """The S-parameters at ``wavelength_um`` (one or an array) of a device of the library (its
+    ``kind``, see :func:`devices`), with its parameters at ``values`` (in their units; those not
+    given at their defaults), computed at ``fidelity`` (``"analytic"``, ``"2D"``, ``"3D"``, ...
+    as the device has them; its cheapest when ``None``) on ``stack`` (``"soi_220"``, the
+    default, ``"soi"`` or ``"nitride"``)::
+
+        import numpy as np
+        import photonoxide as po
+
+        w = np.linspace(1.5, 1.6, 201)
+        for gap in (0.15, 0.2, 0.25):
+            dc = po.device_spectrum("directional coupler", values={"gap": gap, "length": 10.0},
+                                    fidelity="analytic", wavelength_um=w)
+            cross = np.abs(dc.s[:, 2, 0]) ** 2
+
+    These are the numbers a component's page in the photonoxide studio shows for the same
+    design, to the bit. A solver-backed fidelity solves once (a mode solve, or 2D or 3D FDFD:
+    seconds to minutes, not stopped by Ctrl+C until the solve ends) and every wavelength comes
+    from that model. A 2D result is an estimate, not the device's performance.
+    """
+    w, _ = _wavelengths(wavelength_um)
+    s = _native.device_spectrum(kind, _values(values), fidelity, stack, w)
+    validity = s["validity_um"]
+    return DeviceSpectrum(**{**s, "validity_um": None if validity is None else tuple(validity)})
+
+
+def device_derived(
+    kind: str,
+    *,
+    values: Mapping[str, float] | None = None,
+    fidelity: str | None = None,
+    stack: str | None = None,
+) -> list[DeviceFigure]:
+    """A device's figures at ``fidelity`` (see :func:`device_spectrum` for the design): n_eff
+    and n_g, the cross-over length, the free spectral range, Q, a bend's loss, as its model
+    gives them, each with its fidelity and grid."""
+    return [
+        DeviceFigure(**f)
+        for f in _native.device_derived(kind, _values(values), fidelity, stack)
+    ]
+
+
+def device_geometry(
+    kind: str,
+    *,
+    values: Mapping[str, float] | None = None,
+    stack: str | None = None,
+) -> DeviceGeometry:
+    """A device's geometry at ``values`` (see :func:`device_spectrum`): its stack's layers,
+    bottom to top, each with the polygons drawn on it (every curve within 1 nm, every vertex on
+    a 1 nm grid, as GDSII's usual database unit), how each was etched, and the device's ports."""
+    g = _native.device_geometry(kind, _values(values), stack)
+    return DeviceGeometry(
+        layers=[
+            GeometryLayer(
+                name=layer["name"],
+                z_um=tuple(layer["z_um"]),
+                material=layer["material"],
+                background=layer["background"],
+                polygons=[DevicePolygon(**p) for p in layer["polygons"]],
+            )
+            for layer in g["layers"]
+        ],
+        substrate=g["substrate"],
+        cladding=g["cladding"],
+        ports=[DevicePort(**{**p, "position_um": tuple(p["position_um"])}) for p in g["ports"]],
+    )
+
+
+def device_job(
+    kind: str,
+    *,
+    values: Mapping[str, float] | None = None,
+    fidelity: str | None = None,
+    stack: str | None = None,
+    name: str | None = None,
+    format: str | None = None,
+) -> Any:
+    """The job that computes a device's design (see :func:`device_spectrum`), as a component's
+    Simulate tab in the studio writes it: a ``[device]`` table holding the design and a
+    ``"spectrum"`` task over the device's own band. Named ``name`` (the kind's, by default).
+
+    Without a ``format``, the job as data, a dict, which :func:`run_job` and :func:`check_job`
+    take; with ``format`` (``"toml"``, ``"json"`` or ``"yaml"``), the job file's text, to save
+    and run with ``photonoxide run`` or open in the studio. Its run records what
+    :func:`device_spectrum` gives, to the bit."""
+    job_name = name if name is not None else str(kind).lower().replace(" ", "-")
+    if format is None:
+        return json.loads(
+            _native.device_job(kind, _values(values), fidelity, stack, job_name, "json")
+        )
+    return _native.device_job(kind, _values(values), fidelity, stack, job_name, format)

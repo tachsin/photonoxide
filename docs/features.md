@@ -67,12 +67,26 @@ test fails when one of its functions is missing here.
 
 | | Rust | Python | MATLAB | Method |
 |---|---|---|---|---|
-| Components: waveguides, bends, phase shifters, couplers, Y-branches, rings, measured | ✅ | ◐ these, by kind in a netlist: `circuit_spectrum`; not MMIs or components from mode solves | ◐ † the same | [components](methods/components.md) |
-| Netlists and the circuit solve | ✅ | ✅ `circuit_spectrum` | ✅ † | [circuits](methods/circuits.md) |
+| Components: waveguides, bends, phase shifters, couplers, Y-branches, rings, measured | ✅ | ◐ these, by kind in a netlist: `circuit_spectrum`; MMIs and the models from mode solves and FDFD as devices, `device_spectrum` | ◐ † the same | [components](methods/components.md) |
+| Netlists and the circuit solve | ✅ | ✅ `circuit_spectrum`, its instances by kind, or devices with their parameters and fidelity | ✅ † | [circuits](methods/circuits.md) |
 | The circuit adjoint | ✅ | — | — | [circuit-adjoint](methods/circuit-adjoint.md) |
 | Optimization with genoxide | ✅ | — | — | [circuit-adjoint](methods/circuit-adjoint.md) |
 | Compact models: vector fitting, models over parameters | ✅ | — | — | [compact](methods/compact.md) |
 | Touchstone files | ✅ | ✅ `read_touchstone`, `write_touchstone` | ✅ † | [compact](methods/compact.md) |
+
+## Devices
+
+The components that know their geometry, as a component's page in the studio has them: the
+same designs give the same numbers in Rust, Python and MATLAB.
+
+| | Rust | Python | MATLAB | Method |
+|---|---|---|---|---|
+| The library's devices: strip and rib waveguides, bend, directional coupler, rings, MMIs, Y-branch, MZIs, each with its parameters (unit, default, range), models and ports | ✅ | ✅ `devices` | ✅ † | [devices](methods/devices.md) |
+| A design's S-parameters at a fidelity, from a closed form to 3D FDFD, with its model's grid and source | ✅ | ✅ `device_spectrum`: a preset stack (soi_220, soi, nitride); ◐ a stack of the catalogue's layers: a job | ✅ † | [devices](methods/devices.md) |
+| A design's figures (n_eff, n_g, the cross-over length, FSR, Q, a bend's loss), each with its fidelity and grid | ✅ | ✅ `device_derived` | ✅ † | [devices](methods/devices.md) |
+| A design's geometry: its stack, the polygons on each layer with their etch, its ports | ✅ | ✅ `device_geometry` | ✅ † | [devices](methods/devices.md) |
+| The job that computes a design, as the Simulate tab writes it | ✅ | ✅ `device_job`, run by `run_job` | ✅ † | [devices](methods/devices.md) |
+| Sweeps, corners and optimization of a device | ✅ | ◐ a job (`run_job`) | ◐ † the same | [devices](methods/devices.md), [optimization](methods/optimization.md) |
 
 ## Jobs, runs and backends
 
