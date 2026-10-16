@@ -6,6 +6,58 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.4](https://github.com/tachsin/photonoxide/compare/v0.5.3...v0.5.4) - 2026-10-16
+
+### <!-- 0 -->Added
+
+- *(native)* the GPU's iterative solves on every case and problem, cuSPARSE's products chosen to repeat, and AmgX examined ([#356](https://github.com/tachsin/photonoxide/pull/356))
+- *(studio)* the Academy's slab waveguide lesson, from total internal reflection to the b–V diagram ([#358](https://github.com/tachsin/photonoxide/pull/358))
+- *(studio)* five pages on the rail where there are fourteen, and nothing lost ([#359](https://github.com/tachsin/photonoxide/pull/359))
+- *(device)* photonoxide::device, with the waveguide, bend, directional coupler and ring ([#360](https://github.com/tachsin/photonoxide/pull/360))
+- *(studio)* a component's page, its Overview and Design ([#362](https://github.com/tachsin/photonoxide/pull/362))
+- *(geometry)* paths: straights, arcs, clothoids, partial Euler, Bézier, sine and parametric segments with a width along them ([#363](https://github.com/tachsin/photonoxide/pull/363))
+- *(stack)* custom stacks, partial etches and sidewall angles through every solver (part of #227) ([#364](https://github.com/tachsin/photonoxide/pull/364))
+- *(geometry)* regions between two curves, polar, parametric and implicit, and masks (part of #227) ([#365](https://github.com/tachsin/photonoxide/pull/365))
+- *(geometry)* booleans, offsets and corner rounding of any shapes, exact and on polygons (part of #227) ([#366](https://github.com/tachsin/photonoxide/pull/366))
+- *(geometry)* arrays, lattices and references, with defects and index expressions (part of #227) ([#367](https://github.com/tachsin/photonoxide/pull/367))
+- *(generator)* component generators with ports by name: waveguides, bends, resonators, couplers, MMIs (part of #227) ([#368](https://github.com/tachsin/photonoxide/pull/368))
+- *(generator)* gratings, photonic crystals and the edge coupler, with Wang et al. 2011's gratings drawn (part of #227) ([#369](https://github.com/tachsin/photonoxide/pull/369))
+- *(fdfd)* the solvers read fill fractions: Farjadpour's tensor in 2D FDFD, its diagonal in 3D, averaged rasters (part of #227) ([#371](https://github.com/tachsin/photonoxide/pull/371))
+- *(geometry)* 3D bodies and graded media, shared with FDTD's smoothing, in jobs; the L3 cavity in 3D FDTD (part of #227) ([#372](https://github.com/tachsin/photonoxide/pull/372))
+- *(device)* the MMI, Y-branch, MZI and rib waveguide as devices, on custom stacks and partial etches ([#375](https://github.com/tachsin/photonoxide/pull/375))
+- *(studio)* a component's Model and Simulate tabs, and job::from_device, which computes a device at a fidelity (part of #342) ([#381](https://github.com/tachsin/photonoxide/pull/381))
+- *(studio)* the Job builder retired into the Custom device, which keeps a job's parameters and sweeps ([#384](https://github.com/tachsin/photonoxide/pull/384))
+- *(native)* any BLAS and LAPACK's interface measured, AMD AOCL and Arm PL as providers, the fronts' dense kernels benchmarked against PARDISO ([#382](https://github.com/tachsin/photonoxide/pull/382))
+- *(job)* a device's studies, sweeps of one or two parameters and the corners of a process, as jobs (part of #344) ([#386](https://github.com/tachsin/photonoxide/pull/386))
+- *(studio)* a component's Study tab, its sweeps, maps and corners in place, and overlays in place of Compare ([#387](https://github.com/tachsin/photonoxide/pull/387))
+- *(job)* a device's optimization as a job, each device's objectives and constraints, and the Optimize tab, run live by genoxide (part of #244) ([#390](https://github.com/tachsin/photonoxide/pull/390))
+- *(mode)* a multilayer's reflectance derivatives, and Bennet's Bragg mirror found by DE and polished on them (part of #244) ([#392](https://github.com/tachsin/photonoxide/pull/392))
+- *(examples)* Little's maximally flat ring filters and Jinguji's half-band lattice found by optimization on the circuit adjoint (part of #244) ([#394](https://github.com/tachsin/photonoxide/pull/394))
+- *(examples)* an add-drop ring's Pareto front of drop against width, by NSGA-II and SMS-EMOA against its closed form (part of #244) ([#395](https://github.com/tachsin/photonoxide/pull/395))
+- *(examples)* Clements meshes fitted to Haar-random unitaries from Pai's Haar initialization, and its statistics (part of #244) ([#396](https://github.com/tachsin/photonoxide/pull/396))
+- *(job)* chips of devices as jobs, their studies and optimization through the devices' derivatives (part of #346) ([#399](https://github.com/tachsin/photonoxide/pull/399))
+- *(compact)* a parametric model's exact derivatives, its file, its passivity over its range, and Ye et al.'s MZI fit reproduced (part of #345) ([#398](https://github.com/tachsin/photonoxide/pull/398))
+- *(studio)* the chip built from devices: instances carrying a design and its fidelity, Open device and back, the chip's studies and optimization ([#400](https://github.com/tachsin/photonoxide/pull/400))
+- *(device)* compact models fitted from a device's own runs over its parameters, and the compact fidelity they give (part of #345) ([#401](https://github.com/tachsin/photonoxide/pull/401))
+- *(studio)* a device's compact model fitted from its Model tab, used as its compact fidelity, saved next to it and placed on the chip ([#345](https://github.com/tachsin/photonoxide/pull/345)) ([#403](https://github.com/tachsin/photonoxide/pull/403))
+- *(facade)* devices in the façade and netlists naming them, for Python and MATLAB ([#402](https://github.com/tachsin/photonoxide/pull/402))
+
+### <!-- 1 -->Fixed
+
+- *(fdtd)* the late growth in a CPML is the grid's: a finer grid removes it, and jobs stop and say so ([#258](https://github.com/tachsin/photonoxide/pull/258))
+- *(mode)* only guided modes from the façade, and the library tells them from the window's own ([#374](https://github.com/tachsin/photonoxide/pull/374))
+- *(averaging)* a seam where two shapes of one material abut is no interface ([#376](https://github.com/tachsin/photonoxide/pull/376)) ([#383](https://github.com/tachsin/photonoxide/pull/383))
+- *(farm)* a stopped farm leaves its points in flight on Windows too ([#407](https://github.com/tachsin/photonoxide/pull/407))
+
+### <!-- 4 -->Documentation
+
+- Wang et al.'s Bragg gratings are cited by their online year, 2010 ([#370](https://github.com/tachsin/photonoxide/pull/370))
+- *(readme)* the optional backends' libraries as plain badges, each linking to its install guide ([#379](https://github.com/tachsin/photonoxide/pull/379))
+- on Linux the .deb or .rpm first, and the AppImage where they don't fit; each release says which file to take ([#380](https://github.com/tachsin/photonoxide/pull/380))
+- the roadmap and README brought up to date with what's in since 0.5.3 ([#389](https://github.com/tachsin/photonoxide/pull/389))
+- *(methods)* a method study on Bennet's Bragg mirror, BO, DE, CMA-ES and L-BFGS-B over 31 seeds each (part of #244) ([#397](https://github.com/tachsin/photonoxide/pull/397))
+- *(validation)* the GPU's report for 0.5.4, on the RTX 4060 ([#405](https://github.com/tachsin/photonoxide/pull/405))
+
 ## [0.5.3](https://github.com/tachsin/photonoxide/compare/v0.5.2...v0.5.3) - 2026-10-12
 
 ### <!-- 0 -->Added
