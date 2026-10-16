@@ -806,7 +806,8 @@ impl Names {
 }
 
 /// The outputs an objective or constraint of `device` may name at `values`, with `fidelity`'s
-/// figures: [`Names`] with the model built (or without its figures where it fails).
+/// figures: its ports' powers, the model's figures (none where the model fails there), its
+/// parameters and the wavelength.
 ///
 /// # Errors
 ///

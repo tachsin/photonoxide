@@ -801,7 +801,7 @@ pub struct GradientCheck {
     pub exact: f64,
     /// The fourth-order central differences'.
     pub differences: f64,
-    /// Whether they agree to [`CHECK_TOLERANCE`] (relative, with a floor of 1e-10 of the
+    /// Whether they agree to 1e-6, relative (with a floor of 1e-10 of the
     /// quantity): an exact derivative is used only where every quantity's does.
     pub agrees: bool,
 }
