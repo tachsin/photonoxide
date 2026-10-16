@@ -1,7 +1,7 @@
 ---
 title: "The multigrid without its finest matrix"
 module: fdfd
-summary: "GMRES with the 3D multigrid on Shin and Fan's operator, the finest level's matrix and ILU(0) factors never assembled: GMRES's products and the finest level's residuals from the stencil, its smoothing by damped Jacobi with the stencil's diagonal (Erlangga, Oosterlee and Vuik's smoother), and the coarse operators either Galerkin's, made from the stencil's rows to the stored matrix's bits, or discretized again on each coarser grid. On the strip with ports at 20 nm (1.8 million unknowns) the peak memory falls from 9.5 GB to 6.0 or 3.3 GB, on the guide at 128³ (6.3 million) from 33.3 GB to 22.5 or 10.2 GB, and the whole solve is 1.1 to 1.5 times faster. Opt-in."
+summary: "GMRES with the 3D multigrid on Shin and Fan's operator, the finest level's matrix and ILU(0) factors never assembled: GMRES's products and the finest level's residuals from the stencil, its smoothing by damped Jacobi with the stencil's diagonal (Erlangga, Oosterlee and Vuik's smoother), and the coarse operators either Galerkin's, made from the stencil's rows to the stored matrix's bits, or discretized again on each coarser grid. On the strip with ports at 20 nm (1.8 million unknowns) the peak memory falls from 9.5 GB to 6.0 or 3.3 GB, on the guide at 128³ (6.3 million) from 33.8 GB to 21.2 or 10.2 GB, and the whole solve is 1.1 to 1.5 times faster. Opt-in."
 order: 19.7
 papers:
   - cite: "Y. A. Erlangga, C. W. Oosterlee, C. Vuik, SIAM J. Sci. Comput. 27, 1471 (2006) (the shifted operator, ω-Jacobi, Table 5's smoothing factors)"
@@ -231,19 +231,21 @@ stretched PMLs of 10, a dipole beside it) against the stored multigrid's field t
 | guide, 96³ | 2 654 208 | the matrix's | 25.8 s | 27 | 7.93 s | 33.8 s | 13.4 GB | 9.5e-6 |
 | | | Galerkin's, no finest matrix | 17.4 s | 33 | 8.84 s | 26.3 s | 8.45 GB | 2.7e-6 |
 | | | discretized again | 13.7 s | 47 | 10.9 s | 24.7 s | 4.45 GB | 6.5e-6 |
-| guide, 128³ | 6 291 456 | the matrix's | 63.1 s | 40 | 27.8 s | 91.0 s | 33.3 GB | 2.0e-5 |
-| | | Galerkin's, no finest matrix | 41.4 s | 50 | 31.1 s | 72.5 s | 22.5 GB | 7.6e-6 |
-| | | discretized again | 32.9 s | 73 | 39.8 s | 72.7 s | 10.2 GB | 1.6e-5 |
+| guide, 128³ | 6 291 456 | the matrix's | 61.7 s | 40 | 27.2 s | 88.9 s | 33.8 GB | 2.0e-5 |
+| | | Galerkin's, no finest matrix | 40.2 s | 50 | 30.6 s | 70.8 s | 21.2 GB | 7.6e-6 |
+| | | discretized again | 31.1 s | 73 | 38.6 s | 69.7 s | 10.2 GB | 1.6e-5 |
 
 (Built in: the operator and the hierarchy, the permittivity's average over each cell included;
 the strip's total has its port modes too. Error: the strip's S against the exact one, the
 guide's field against the stored multigrid's to 1e-12, relative.) The two passes agreed within
 2% but for the 96³ and 128³ guides, whose first pass, run while I was compiling, was up to 30%
-slower.
+slower. The 128³ guide's rows are from a second measurement, on 0.6.0's code (#351, two passes
+again, the faster kept): every other row's iterations and peaks came out the same and its times
+within 4%, but Galerkin's peak at 128³ fell from 22.5 GB to 21.2 GB, in both passes.
 
 - **Memory:** the peak falls from 5.0 to 5.4 kB an unknown with the matrix to 3.2 to 3.6 kB
   without the finest one (Galerkin's coarse operators) and 1.6 to 1.9 kB discretized again: on
-  the strip at 20 nm 9.5 GB to 6.0 and 3.3 GB, on the 128³ guide 33.3 GB to 22.5 and 10.2 GB.
+  the strip at 20 nm 9.5 GB to 6.0 and 3.3 GB, on the 128³ guide 33.8 GB to 21.2 and 10.2 GB.
   What is left with Galerkin's operators is mostly the first coarse level (about 1.7 kB a fine
   unknown with its ILU(0)) and GMRES's 40 vectors (0.64 kB).
 - **Time:** faster at every size from 2 × 10⁵ unknowns, 1.1 to 1.5 times in total: the
