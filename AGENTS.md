@@ -64,6 +64,9 @@ one thread), every example on the three systems, the 3D devices, the whole valid
 Systems comparison and the Libraries workflow's installs (those every week); a failure opens the
 issue "Weekly run failed". Run the full suite here after every merge or rebase
 (`.github/full-suite.sh`; `git config core.hooksPath .github/hooks` runs it in the background).
+The same hooks run CI's Lint steps (`.github/lints.sh`: fmt, the clippies, docs) before every push
+that changes Rust code or a manifest, on the commit being pushed, and refuse the push when one
+fails. A lint that passed on a commit, in the hook or the full suite, isn't run again on it.
 
 The Python package ([docs/python.md](docs/python.md)) wraps `photonoxide::facade` only. A change to
 the façade's functions or results changes `python/` (the native module, the Python functions,

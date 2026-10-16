@@ -17,6 +17,8 @@
 #   git config core.hooksPath .github/hooks
 #
 # They write its output to target/full-suite.log; `git config --unset core.hooksPath` turns them off.
+# The same hooks run the lints (.github/lints.sh) before every push; a lint that passed on a
+# commit, there or here, is not run again on it.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
@@ -36,6 +38,7 @@ step() {
   else
     results+=("$(printf '%6ds  FAILED  %s' $((SECONDS - start)) "$name")")
     failed=1
+    return 1
   fi
 }
 skip() { results+=("$(printf '%6s  skipped %s (%s)' - "$1" "$2")"); }
@@ -63,11 +66,19 @@ studio() {
     cargo test -p photonoxide-studio
 }
 
-step "fmt" cargo fmt --all --check
-step "clippy" cargo clippy --all-targets --all-features -- -D warnings
-step "clippy, native" cargo clippy -p photonoxide-native -p photonoxide-native-testlib --all-targets -- -D warnings
-step "clippy, Python" cargo clippy -p photonoxide-python --all-targets -- -D warnings
-step "docs" env RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+# the lints (.github/lints.sh): one that already passed on this commit, here or in the pre-push
+# hook, isn't run again
+# shellcheck source=lints.sh
+source .github/lints.sh
+key=$(lint_key || true)
+for lint in "${LINTS[@]}"; do
+  name=${lint%%|*}
+  if lint_passed "$key" "$name"; then
+    results+=("$(printf '%6s  ok      %s (passed on this commit already)' - "$name")")
+  elif step "$name" eval "${lint#*|}" && [ "$(lint_key || true)" = "$key" ]; then
+    lint_stamp "$key" "$name"
+  fi
+done
 step "tests" cargo test --all-features
 step "tests, one thread" env RAYON_NUM_THREADS=1 cargo test --all-features
 step "tests, native" cargo test -p photonoxide-native
