@@ -88,10 +88,29 @@ export interface Rung {
   method: DeviceMethod;
 }
 
+/**
+ * Each device's design's own models, while its design names a compact model's file: the
+ * library's and the compact one (photonoxide::device::Fitted), by the device's id.
+ */
+export const designMethods = $state<{ byId: Record<string, DeviceMethod[]> }>({ byId: {} });
+
+/** Device `d`'s design's models, cheapest first: its compact one among them once it has one. */
+export function methodsOf(d: DeviceInfo): DeviceMethod[] {
+  return designMethods.byId[d.id] ?? d.fidelities;
+}
+
+/** Sets device `id`'s design's models, or with none its library's again: the whole map replaced, so every reader follows. */
+export function setDesignMethods(id: string, methods: DeviceMethod[] | null) {
+  const next = { ...designMethods.byId };
+  if (methods) next[id] = methods;
+  else delete next[id];
+  designMethods.byId = next;
+}
+
 /** Device `d`'s models, cheapest first. */
 export function rungs(d: DeviceInfo): Rung[] {
   const out: Rung[] = [];
-  for (const m of d.fidelities) {
+  for (const m of methodsOf(d)) {
     out.push({ key: m.fidelity, fidelity: m.fidelity, fdfd2d: false, method: m });
     if (m.fidelity === "2D" && d.fdfd_2d) out.push({ key: "2D FDFD", fidelity: "2D", fdfd2d: true, method: d.fdfd_2d });
   }
@@ -139,7 +158,7 @@ export function key(spec: DeviceSpec, d: DeviceInfo): string {
     .filter(([n, e]) => !(defaults.has(n) && /^\s*[-+]?[\d.]+(e[-+]?\d+)?\s*$/i.test(e) && Number(e) === defaults.get(n)))
     .slice()
     .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
-  return JSON.stringify({ kind: spec.kind, fidelity: spec.fidelity, stack: spec.stack, parameters });
+  return JSON.stringify({ kind: spec.kind, fidelity: spec.fidelity, stack: spec.stack, parameters, ...(spec.compact ? { compact: spec.compact } : {}) });
 }
 
 /** Whether the draft differs from what was saved or opened. */
@@ -230,6 +249,32 @@ export const studies = $state<Record<string, StudyState>>({});
 
 /** The Custom device's runs ticked to compare, by their overlay ids. */
 export const customCompare = $state({ picked: [] as string[] });
+
+/** A device's compact model's form on its Model tab: what it covers, how it is sampled, its options, and the fit shown. */
+export interface FitState {
+  /** The rung the samples are computed at, the model's source; null for the cheapest solver's. */
+  rung: string | null;
+  axes: { parameter: string; from: number; to: number; points: number }[];
+  sampling: "grid" | "latin hypercube";
+  count: number;
+  seed: number;
+  held_out: number;
+  poles: number;
+  /** A polynomial's degree; null for piecewise linear. */
+  degree: number | null;
+  /** The band, µm and a count; null for the device's own at 41 wavelengths. */
+  band: [number, number, number] | null;
+  /** The fit run shown, by its directory. */
+  shown: string | null;
+}
+
+export const fits = $state<Record<string, FitState>>({});
+
+/** Device `d`'s compact model's form, made the first time. */
+export function fitOf(d: DeviceInfo): FitState {
+  fits[d.id] ??= { rung: null, axes: [], sampling: "grid", count: 12, seed: 1, held_out: 6, poles: 12, degree: 2, band: null, shown: null };
+  return fits[d.id];
+}
 
 /** Device `d`'s Study tab, made the first time. */
 export function studyOf(d: DeviceInfo): StudyState {

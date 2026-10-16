@@ -17,6 +17,7 @@
   import { figureText, number, plain } from "../../lib/deviceview";
   import { isMicrometres, len, unitText } from "../../lib/units";
   import MethodDocDialog from "../MethodDocDialog.svelte";
+  import CompactModel from "./CompactModel.svelte";
 
   let {
     info,
@@ -41,19 +42,28 @@
   const inUse = $derived(rungOf(draft.spec.fidelity, draft.compute.fdfd_2d));
   const snapshot = (): DeviceSpec => $state.snapshot(draft.spec) as DeviceSpec;
 
-  // ---- the analytic model, for the comparisons: computed for every design shown ----
+  // ---- the analytic and compact models, for the comparisons: computed for every design shown ----
   let analyticProblem = $state<{ key: string; text: string }>({ key: "", text: "" });
+  let compactProblem = $state<{ key: string; text: string }>({ key: "", text: "" });
   $effect(() => {
     const k = designKey;
-    if (!info.fidelities.some((m) => m.fidelity === "analytic") || untrack(() => resultsOf(info, k).analytic)) return;
-    const spec = { ...snapshot(), fidelity: "analytic" };
-    const timer = setTimeout(() => {
-      api
-        .deviceDerived(spec, "analytic")
-        .then((d) => keep(info, k, "analytic", { figures: d.figures, seconds: d.seconds, at: Date.now(), how: "live" }))
-        .catch((e) => (analyticProblem = { key: k, text: String(e) }));
-    }, 120);
-    return () => clearTimeout(timer);
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (const f of ["analytic", "compact"] as const) {
+      if (!ladder.some((r) => r.fidelity === f) || untrack(() => resultsOf(info, k)[f])) continue;
+      const spec = { ...snapshot(), fidelity: f };
+      timers.push(
+        setTimeout(() => {
+          api
+            .deviceDerived(spec, f)
+            .then((d) => keep(info, k, f, { figures: d.figures, seconds: d.seconds, at: Date.now(), how: "live" }))
+            .catch((e) => {
+              if (f === "analytic") analyticProblem = { key: k, text: String(e) };
+              else compactProblem = { key: k, text: String(e) };
+            });
+        }, 120),
+      );
+    }
+    return () => timers.forEach(clearTimeout);
   });
 
   // ---- what it costs here ----
@@ -70,7 +80,7 @@
   /** Whether a rung's model is an FDFD (an MMI's or a Y-branch's): its size and cost follow its cells. */
   const isFdfd = (r: Rung) => /FDFD/.test(r.method.name);
   /** The benchmark family a rung's solver is timed in. */
-  const family = (r: Rung) => (r.fidelity === "analytic" ? null : isFdfd(r) ? (r.fidelity === "3D" ? "fdfd3d" : "fdfd2d") : "modes");
+  const family = (r: Rung) => (r.fidelity === "analytic" || r.fidelity === "compact" ? null : isFdfd(r) ? (r.fidelity === "3D" ? "fdfd3d" : "fdfd2d") : "modes");
 
   // each FDFD rung's size at the design shown, on the device's own grid
   let sizes = $state<Record<string, { key: string; size: [number, number, number] | null; problem: string }>>({});
@@ -92,6 +102,10 @@
 
   /** A rung's cost on this machine: measured here, else from this machine's benchmark records. */
   function cost(r: Rung): { text: string; detail: string; tone: "measured" | "estimate" | "none" } {
+    if (r.fidelity === "compact") {
+      const s = here.compact?.seconds;
+      return { text: s != null ? `${(s * 1000).toFixed(1)} ms, measured` : "a rational function: milliseconds", detail: "computed as the design changes, from its model's file", tone: "measured" };
+    }
     if (r.fidelity === "analytic") {
       const s = here.analytic?.seconds;
       return { text: s != null ? `${(s * 1000).toFixed(1)} ms, measured` : "a closed form: milliseconds", detail: "computed as the design changes", tone: "measured" };
@@ -194,6 +208,7 @@
             <div class="flex min-w-[16rem] flex-1 flex-col gap-1">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="badge badge-sm {r.fidelity === 'analytic' ? 'badge-secondary' : 'badge-primary'} badge-soft">{r.key}</span>
+                {#if r.fidelity === "compact" && r.method.error}<span class="text-xs faint">fitted to the {r.method.error.against} model, within {r.method.error.bound.toExponential(1)} in |S| of it</span>{/if}
                 {#if r.key === inUse}<span class="inline-flex items-center gap-1 text-xs text-primary"><CircleCheck size={13} /> in use, saved with the design</span>{/if}
                 {#if r.fidelity === "2D"}<span class="text-xs faint">labelled 2D: an estimate, never the device's performance</span>{/if}
               </div>
@@ -208,7 +223,7 @@
             </div>
             <div class="flex shrink-0 flex-wrap gap-2">
               {#if r.key !== inUse}<button class="btn btn-sm" onclick={() => use(r)} title="Compute the design by this model from now on; saved with it">Use this model</button>{/if}
-              {#if r.fidelity !== "analytic"}
+              {#if r.fidelity !== "analytic" && r.fidelity !== "compact"}
                 <button class="btn btn-sm btn-primary btn-soft gap-1.5" disabled={running(r)} onclick={() => compute(r)} title={r.fdfd2d ? "Run it on the Simulate tab" : "Solve this design by this model, in the background"}>
                   {#if running(r)}<span class="loading loading-spinner loading-xs"></span> solving{:else}<Play size={13} /> {result ? "Again" : "Compute"}{/if}
                 </button>
@@ -229,7 +244,7 @@
             <dt class="faint">Holds for</dt>
             <dd>
               {#if r.method.validity.length}
-                {#each r.method.validity as v, j (v.name)}
+                {#each r.method.validity as v, j (`${v.name} ${j}`)}
                   {@const u = unitOf(v.name)}
                   {j ? ", " : ""}<span class="num {away.includes(v.name) ? 'text-warning' : ''}">{v.name} {v.min === v.max ? shownValue(v.min, u) : `${shownValue(v.min, u)} to ${shownValue(v.max, u)}`}</span>
                 {/each}
@@ -260,6 +275,8 @@
                 <span class="text-xs text-warning">{plain(failed(r))}</span>
               {:else if r.fidelity === "analytic" && analyticProblem.key === designKey}
                 <span class="text-xs text-warning">{plain(analyticProblem.text)}</span>
+              {:else if r.fidelity === "compact" && compactProblem.key === designKey}
+                <span class="text-xs text-warning">{plain(compactProblem.text)}</span>
               {:else}
                 <span class="text-xs faint">not computed yet</span>
               {/if}
@@ -269,6 +286,8 @@
       {/each}
     </ol>
   </section>
+
+  <CompactModel {info} {draft} {values} />
 
   <section>
     <div class="flex flex-wrap items-baseline gap-2">

@@ -770,3 +770,91 @@ fn as_solved_shows_the_cells_the_chosen_model_solves_on() {
     assert_eq!(s.step_nm, 50.0);
     assert!(s.top.is_some() && s.cut.is_some());
 }
+
+#[test]
+fn a_compact_model_is_fitted_from_the_page_and_kept_next_to_its_design() {
+    use photonoxide::job::{Event, execute};
+    use photonoxide::run::{Job, Run, Stop};
+    let dir = std::env::temp_dir().join(format!("photonoxide-page-compact-{}", std::process::id()));
+    let jobs = dir.join("jobs");
+    std::fs::create_dir_all(&jobs).unwrap();
+    // the Model tab's form: the ring's gap on a grid of 5, 4 held out, degree 2
+    let fit = compact::FitIn {
+        axes: vec![compact::FitAxisIn {
+            parameter: "gap".into(),
+            from: 0.15,
+            to: 0.25,
+            points: 5,
+        }],
+        sampling: "grid".into(),
+        count: 0,
+        seed: 1,
+        held_out: 4,
+        poles: 12,
+        degree: Some(2),
+    };
+    let compute = ComputeIn {
+        band: Some((1.54, 1.56, 41)),
+        ..ComputeIn::default()
+    };
+    let ring = design("all-pass ring", &[]);
+    let text = compact::fit_text_of(&ring, &compute, &fit, "ring-compact").unwrap();
+    assert!(
+        text.starts_with("# A compact model of the all-pass ring over gap"),
+        "{text}"
+    );
+    let job = Job::parse(&text).unwrap();
+    let mut run = Run::in_memory();
+    execute(&job, &mut run, &Stop::new(None)).unwrap();
+    let fitted = run
+        .lines()
+        .iter()
+        .find_map(|l| match serde_json::from_str::<Event>(l) {
+            Ok(Event::CompactFit { fitted }) => Some(*fitted),
+            _ => None,
+        })
+        .unwrap();
+    // as a run would leave it, outside the workspace's jobs/
+    let made = dir.join("compact.json");
+    fitted.write(&made).unwrap();
+    let info = compact::info_of(&made, &fitted);
+    assert_eq!(info.parameters, ["gap"]);
+    assert_eq!(info.source, "analytic");
+    assert_eq!(info.held_out, 4);
+    // the design using it has the compact fidelity on its ladder, after the analytic one
+    let using = SpecIn {
+        fidelity: "compact".into(),
+        compact: Some(made.display().to_string()),
+        ..ring.clone()
+    };
+    let ladder: Vec<&str> = compact::fidelities_of(&using)
+        .unwrap()
+        .iter()
+        .map(|m| m.fidelity)
+        .collect();
+    assert_eq!(ladder, ["analytic", "compact", "3D"]);
+    // saved: the model copied next to the design, which names it by a relative path
+    let kept = compact::kept_beside(&using, &jobs, "ring").unwrap();
+    assert_eq!(kept.compact.as_deref(), Some("ring.compact.json"));
+    assert!(jobs.join("ring.compact.json").exists());
+    let saved = saved_text_in(&kept, "ring", "", Some(&jobs)).unwrap();
+    assert!(saved.contains("compact = \"ring.compact.json\""), "{saved}");
+    // read back, found from the design's folder, and computed at its compact fidelity
+    let (spec, _, _) = read_text(&saved).unwrap();
+    let spec = compact::found_from(spec, &jobs);
+    assert_eq!(
+        spec.compact,
+        Some(jobs.join("ring.compact.json").display().to_string())
+    );
+    let d = derived(&spec, "compact").unwrap();
+    assert_eq!(d.figures[0].fidelity, "compact");
+    // saving again over its own file copies nothing
+    assert_eq!(
+        compact::kept_beside(&spec, &jobs, "ring")
+            .unwrap()
+            .compact
+            .as_deref(),
+        Some("ring.compact.json")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

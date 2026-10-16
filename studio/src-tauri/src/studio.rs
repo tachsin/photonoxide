@@ -123,6 +123,9 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::devices::read_device,
             crate::devices::device_job,
             crate::devices::device_study_job,
+            crate::devices::compact::device_fidelities,
+            crate::devices::compact::device_fit_job,
+            crate::devices::compact::compact_info,
             crate::devices::optimizing::device_optimize_info,
             crate::devices::optimizing::device_optimize_job,
             crate::devices::optimizing::optimize_design,
@@ -133,6 +136,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::circuits::component_library,
             crate::circuits::component_spectrum,
             crate::circuits::measured_component,
+            crate::circuits::compact_component,
             crate::circuits::circuit_check,
             crate::circuits::circuit_simulate,
             crate::circuits::chip::chip_device,
@@ -497,7 +501,7 @@ fn device_of(
         None => None,
     };
     let study = match task.get("kind").and_then(toml::Value::as_str) {
-        Some(k @ ("sweep" | "corners" | "optimize")) => Some(k.to_owned()),
+        Some(k @ ("sweep" | "corners" | "optimize" | "fit")) => Some(k.to_owned()),
         _ => None,
     };
     (Some(spec.kind), Some(fidelity), computes, study)

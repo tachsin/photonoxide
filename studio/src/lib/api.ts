@@ -192,6 +192,14 @@ export const api = {
   deviceJob: (spec: DeviceSpec, compute: Compute, name: string) => invoke<string>("device_job", { spec, compute, name }),
   /** The job that studies a design (photonoxide::job::study_from_device), as its TOML. */
   deviceStudyJob: (spec: DeviceSpec, compute: Compute, study: StudyIn, name: string) => invoke<string>("device_study_job", { spec, compute, study, name }),
+  /** A design's own models, its compact one among them once fitted. */
+  deviceFidelities: (spec: DeviceSpec) => invoke<DeviceMethod[]>("device_fidelities", { spec }),
+  /** The job that fits a compact model of a design at its fidelity (photonoxide::job::fit_from_device), as its TOML. */
+  deviceFitJob: (spec: DeviceSpec, compute: Compute, fit: FitIn, name: string) => invoke<string>("device_fit_job", { spec, compute, fit, name }),
+  /** What the compact model in a file says of itself. */
+  compactInfo: (path: string) => invoke<CompactInfo>("compact_info", { path }),
+  /** A compact model's file as a part for the chip. */
+  compactComponent: (path: string) => invoke<KindInfo>("compact_component", { path }),
   /** What a design's optimization offers: its device's objectives and constraints, its outputs, genoxide's methods. */
   deviceOptimizeInfo: (spec: DeviceSpec) => invoke<OptimizeInfo>("device_optimize_info", { spec }),
   /** The job that optimizes a design (photonoxide::job::optimize_from_device), as its TOML. */
@@ -595,6 +603,42 @@ export interface DeviceSpec {
   fidelity: string;
   stack: StackSpec;
   parameters: [string, string][];
+  /** Its compact model's file: next to a saved design, or the absolute path of one not saved yet. */
+  compact?: string | null;
+}
+
+/** A compact model's plan, as the Model tab's form sends it (photonoxide::device::FitPlan). */
+export interface FitIn {
+  axes: { parameter: string; from: number; to: number; points: number }[];
+  sampling: "grid" | "latin hypercube";
+  count: number;
+  seed: number;
+  held_out: number;
+  poles: number;
+  /** A polynomial's degree; null for a piecewise-linear model. */
+  degree: number | null;
+}
+
+/** What a compact model's file says of itself (photonoxide::device::Fitted). */
+export interface CompactInfo {
+  path: string;
+  kind: string;
+  source: string;
+  grid: string;
+  parameters: string[];
+  units: string[];
+  ranges: [number, number][];
+  fixed: [string, number][];
+  band_um: [number, number];
+  sampling: string;
+  samples: number;
+  held_out: number;
+  fitted_error: number;
+  held_out_error: number;
+  stability: number;
+  passivity: number;
+  poles: number;
+  interpolation: string;
 }
 
 export interface DeviceField {

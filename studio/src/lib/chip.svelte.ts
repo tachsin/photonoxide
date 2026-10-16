@@ -14,7 +14,7 @@ export type Selection = { kind: "instance"; name: string } | { kind: "port"; ind
 
 export const library = $state({
   kinds: [] as KindInfo[],
-  /** Measured components imported from Touchstone files, or met in the chips opened. */
+  /** Measured components imported from Touchstone files, and devices' compact models placed from their pages, or met in the chips opened. */
   measured: [] as KindInfo[],
   problem: "",
   loaded: false,
@@ -22,9 +22,13 @@ export const library = $state({
   importing: null as { path: string; convention: TimeConvention; busy: boolean } | null,
 });
 
-/** The key a part is known by: its library id, or for a measured one its file and convention. */
+/** The kind of a device's compact model on the chip: a model's file (photonoxide::device::Fitted). */
+export const COMPACT = "compact";
+
+/** The key a part is known by: its library id, for a measured one its file and convention, for a compact model its file. */
 export function partKey(p: { kind?: string; id?: string; file?: string | null; convention?: string | null }): string {
   // a library part by its id (a KindInfo has one), an instance by its kind, which is that id
+  if (p.file && (p.id ?? p.kind) === COMPACT) return `compact:${p.file}`;
   return p.file ? `touchstone:${p.convention}:${p.file}` : (p.id ?? p.kind ?? "");
 }
 
@@ -41,9 +45,10 @@ export function allParts(): Map<string, KindInfo> {
 /** Loads the measured components a chip's instances name, so they can be drawn. */
 export async function loadMeasured(chip: Chip) {
   for (const inst of chip.instance) {
-    if (!inst.file || !inst.convention || library.measured.some((m) => partKey(m) === partKey(inst))) continue;
+    const compact = inst.kind === COMPACT;
+    if (!inst.file || (!inst.convention && !compact) || library.measured.some((m) => partKey(m) === partKey(inst))) continue;
     try {
-      const k = await api.measuredComponent(inst.file, inst.convention);
+      const k = compact ? await api.compactComponent(inst.file) : await api.measuredComponent(inst.file, inst.convention!);
       // (another load may have finished first)
       if (!library.measured.some((m) => partKey(m) === partKey(k))) library.measured.push(k);
     } catch (e) {
@@ -451,14 +456,14 @@ export function addInstance(key: string, x?: number, y?: number, device?: Device
   if (!k) return;
   const kind = k.id;
   change((chip) => {
-    const name = freshName(chip, k.file ? "measured" : kind);
+    const name = freshName(chip, k.file ? (kind === COMPACT ? "compact" : "measured") : kind);
     const values = device ? {} : Object.fromEntries(k.parameters.map((p) => [p.name, p.default]));
     let at = [snap(x ?? editor.view.cx), snap(y ?? editor.view.cy)];
     // placed without a point: the first spot near the middle that nothing occupies
     for (let step = 0; x === undefined && step < 40 && chip.instance.some((i) => Math.abs(i.x - at[0]) < 90 && Math.abs(i.y - at[1]) < 60); step++) {
       at = [at[0] + (step % 2 ? 0 : 100), at[1] + (step % 2 ? 80 : 0)];
     }
-    chip.instance.push({ name, kind, x: at[0], y: at[1], rotation: 0, values, ...(k.file ? { file: k.file, convention: k.convention } : {}), ...(device ? { device } : {}) });
+    chip.instance.push({ name, kind, x: at[0], y: at[1], rotation: 0, values, ...(k.file ? (kind === COMPACT ? { file: k.file } : { file: k.file, convention: k.convention }) : {}), ...(device ? { device } : {}) });
     editor.selection = { kind: "instance", name };
   });
 }

@@ -1,7 +1,7 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
 import { api, type AppState, type Info, type JobFormat, type Settings } from "./api";
-import type { ChipEvent, ChipPoint, ChipStudy, DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
+import type { ChipEvent, CompactFit, CompactPlan, ChipPoint, ChipStudy, DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import { template, type Kind } from "./job";
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
@@ -207,6 +207,9 @@ export const run = $state({
   /** A device's study: what it steps through, and its points as they come. */
   study: null as DeviceStudy | null,
   points: [] as DevicePoint[],
+  /** A fit of a device's compact model: its plan (its samples are `points`), and the model it made. */
+  compactPlan: null as CompactPlan | null,
+  compactFit: null as CompactFit | null,
   /** A device's optimization: the problem, its evaluations as they come, its latest front and its optimum. */
   optimization: null as Optimization | null,
   evaluations: [] as Evaluation[],
@@ -363,6 +366,12 @@ function take(e: Event) {
     case "device_study":
       run.study = e;
       break;
+    case "compact_plan":
+      run.compactPlan = e;
+      break;
+    case "compact_fit":
+      run.compactFit = e;
+      break;
     case "optimization":
       run.optimization = e;
       break;
@@ -435,6 +444,8 @@ function reset(info: Info) {
     device: null,
     study: null,
     points: [],
+    compactPlan: null,
+    compactFit: null,
     optimization: null,
     evaluations: [],
     front: null,

@@ -325,6 +325,53 @@ export interface DeviceStudy {
   ports: string[];
 }
 
+/** A fit of a device's compact model about to run (photonoxide::job::fit): what it covers and how. */
+export interface CompactPlan {
+  type: "compact_plan";
+  device: string;
+  /** The fidelity the samples are computed at: the model's source. */
+  fidelity: string;
+  method: string;
+  write_up: string;
+  papers: string[];
+  parameters: string[];
+  units: string[];
+  /** The parameters the model covers, and each one's unit and range. */
+  axes: string[];
+  axis_units: string[];
+  ranges: [number, number][];
+  sampling: string;
+  /** The samples it is fitted to; the held-out ones follow them. */
+  samples: number;
+  held_out: number;
+  poles: number;
+  interpolation: string;
+  wavelengths_um: number[];
+  ports: string[];
+}
+
+/** The compact model a fit made (photonoxide::device::Fitted), its model left as the file has it. */
+export interface CompactFit {
+  type: "compact_fit";
+  fitted: {
+    kind: string;
+    source: string;
+    grid: string;
+    parameters: string[];
+    units: string[];
+    ranges: [number, number][];
+    fixed: [string, number][];
+    band_um: [number, number];
+    sampling: string;
+    samples: number;
+    held_out: number;
+    fitted_error: number;
+    held_out_error: number;
+    stability: number;
+    passivity: number;
+  };
+}
+
 /** A point of a device's study: its design computed, or why it wasn't. */
 export interface DevicePoint {
   type: "device_point";
@@ -471,6 +518,8 @@ export type Event =
   | DeviceModel
   | DeviceStudy
   | DevicePoint
+  | CompactPlan
+  | CompactFit
   | FdtdFrame
   | FdtdProgress
   | FdtdSpectrum

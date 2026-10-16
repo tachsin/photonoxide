@@ -33,7 +33,7 @@
   import UnitChip from "../components/UnitChip.svelte";
   import { ago, api, type Chip, type ChipOptimizeInfo, type CircuitExample, type CircuitItem, type KindInfo, type Problem } from "../lib/api";
   import { app, go, toast } from "../lib/app.svelte";
-  import {
+  import { COMPACT,
     addInstance,
     change,
     dirty,
@@ -604,8 +604,23 @@
           </button>
         {/each}
       {/each}
+      {#if library.measured.some((k) => k.id === COMPACT)}
+        <p class="px-2 pt-2 text-[11px] faint">Compact models</p>
+        {#each library.measured.filter((k) => k.id === COMPACT) as k (partKey(k))}
+          <button
+            class="flex w-full cursor-grab items-center gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-base-content/5 active:cursor-grabbing"
+            onpointerdown={(e) => grab(e, partKey(k))}
+            title="{k.about} Drag it onto the chip."
+          >
+            <svg width="36" height="22" viewBox="{-k.symbol.width / 2 - 4} {-k.symbol.height / 2 - 4} {k.symbol.width + 8} {k.symbol.height + 8}" class="shrink-0">
+              <Glyph symbol={k.symbol} />
+            </svg>
+            <span class="min-w-0 truncate">{k.title}<span class="ml-1 text-xs faint">{k.variant}</span></span>
+          </button>
+        {/each}
+      {/if}
       <p class="px-2 pt-2 text-[11px] faint">Measured</p>
-      {#each library.measured as k (partKey(k))}
+      {#each library.measured.filter((k) => k.id !== COMPACT) as k (partKey(k))}
         <button
           class="flex w-full cursor-grab items-center gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-base-content/5 active:cursor-grabbing"
           onpointerdown={(e) => grab(e, partKey(k))}
@@ -926,7 +941,10 @@
           >
         </div>
         {#if !inst.device}<p class="mt-1 text-xs faint">{k.about}</p>{/if}
-        {#if k.file}
+        {#if k.file && k.id === COMPACT}
+          <p class="mt-1 truncate text-xs num muted" title={k.provenance.source}>{k.file}</p>
+          <p class="text-xs faint">a compact model, from {range(k.provenance.validity)}; within {k.provenance.error?.toExponential(1)} in |S| of its source at its own samples</p>
+        {:else if k.file}
           <p class="mt-1 truncate text-xs num muted" title={k.provenance.source}>{k.file}</p>
           <p class="text-xs faint">{k.convention === "engineering" ? "e^(+jωt), as RF tools write" : "e^(−iωt), as photonoxide writes"}; measured from {range(k.provenance.validity)}</p>
         {/if}

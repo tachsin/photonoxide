@@ -104,6 +104,7 @@ const PREFIX: Record<string, string> = {
   "y-branch": "y",
   terminator: "end",
   measured: "meas",
+  compact: "cm",
 };
 
 /** The first free name for a new instance of `kind`. */

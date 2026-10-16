@@ -7,6 +7,7 @@
   import { CircleAlert, Cpu, Play, TriangleAlert } from "@lucide/svelte";
 
   import type { DeviceFigure, DeviceInfo } from "../../lib/api";
+  import { methodsOf } from "../../lib/device.svelte";
   import { figureText, number, plain } from "../../lib/deviceview";
   import { isMicrometres, len, unitText } from "../../lib/units";
 
@@ -38,8 +39,8 @@
     onfidelity: (f: string) => void;
   } = $props();
 
-  const live = $derived(fidelity === "analytic");
-  const method = $derived(info.fidelities.find((m) => m.fidelity === fidelity));
+  const live = $derived(fidelity === "analytic" || fidelity === "compact");
+  const method = $derived(methodsOf(info).find((m) => m.fidelity === fidelity));
   /** The highest model the device has: the one to offer where a fit refuses. */
   const highest = $derived(info.fidelities[info.fidelities.length - 1]?.fidelity ?? "3D");
   /** A fit refused: its tables or its platform. */

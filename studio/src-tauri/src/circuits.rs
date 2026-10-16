@@ -151,6 +151,11 @@ pub struct Placed {
 /// The kind of a measured component: S-parameters read from a Touchstone file.
 pub const MEASURED: &str = "touchstone";
 
+/// The kind of a device's compact model: a model fitted to the device's runs over some of its
+/// parameters, read from its file (photonoxide::device::Fitted), its parameters the ones it
+/// covers.
+pub const COMPACT: &str = "compact";
+
 /// The time convention a Touchstone file's complex values are in: the specification doesn't
 /// say, so the file's reader must.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -207,6 +212,13 @@ fn build(
     convention: Option<TimeConvention>,
     root: &Path,
 ) -> Result<Arc<dyn Component>, String> {
+    if kind == COMPACT {
+        let file = file.ok_or("a compact model needs its file")?;
+        let path = resolve(root, file);
+        let fitted = photonoxide::device::Fitted::read(&path)
+            .map_err(|e| format!("{}: {e}", path.display()))?;
+        return Ok(Arc::new(fitted.model));
+    }
     if kind == MEASURED {
         let file = file.ok_or("a measured component needs its Touchstone file")?;
         let convention =
@@ -725,6 +737,47 @@ fn measured_in(root: &Path, path: &Path, convention: TimeConvention) -> Result<K
     info.about = "S-parameters measured, or simulated by another program, read from a Touchstone file and interpolated in wavelength.".into();
     info.file = Some(file);
     info.convention = Some(convention);
+    Ok(info)
+}
+
+/// A device's compact model in the file at `path` (relative to the workspace, or absolute), as
+/// the library and the chip view show it: its parameters the ones it covers, over their ranges.
+#[tauri::command(async)]
+pub fn compact_component(
+    state: tauri::State<'_, Studio>,
+    path: String,
+) -> Result<KindInfo, String> {
+    compact_in(&state.workspace(), Path::new(&path))
+}
+
+fn compact_in(root: &Path, path: &Path) -> Result<KindInfo, String> {
+    let path = &resolve(root, &path.to_string_lossy());
+    let file = relative(root, path);
+    let fitted = photonoxide::device::Fitted::read(path).map_err(|e| e.to_string())?;
+    let c = build(COMPACT, Some(&file), None, root)?;
+    let mut info = describe(c.as_ref(), library::Glyph::Box);
+    info.id = COMPACT.into();
+    info.title = format!("{}, compact", fitted.kind);
+    info.variant = path
+        .file_name()
+        .map_or_else(|| file.clone(), |n| n.to_string_lossy().into_owned());
+    info.category = "Compact".into();
+    info.about = format!(
+        "A compact model of the {}, fitted to its {} model's runs ({}) over {}: within {:.2e} in |S| of them at {} samples held out of the fit. It holds at {}.",
+        fitted.kind,
+        fitted.source,
+        fitted.grid,
+        fitted.parameters.join(" and "),
+        fitted.held_out_error,
+        fitted.held_out,
+        fitted
+            .fixed
+            .iter()
+            .map(|(n, v)| format!("{n} = {v}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    info.file = Some(file);
     Ok(info)
 }
 

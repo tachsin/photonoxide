@@ -102,7 +102,7 @@ pub const DEVICES: [(&str, &str, &str, &[&str]); 11] = [
     ),
 ];
 
-fn text(e: photonoxide::Error) -> String {
+pub(crate) fn text(e: photonoxide::Error) -> String {
     e.to_string()
 }
 
@@ -150,7 +150,7 @@ struct ParameterInfo {
 }
 
 #[derive(Serialize)]
-struct MethodInfo {
+pub struct MethodInfo {
     fidelity: &'static str,
     name: String,
     write_up: String,
@@ -218,7 +218,7 @@ pub fn device_library() -> Result<Vec<DeviceInfo>, String> {
 }
 
 /// A model as the page shows it.
-fn method_info(m: &device::Method) -> MethodInfo {
+pub(crate) fn method_info(m: &device::Method) -> MethodInfo {
     MethodInfo {
         fidelity: fidelity_name(m.fidelity),
         name: m.name.clone(),
@@ -1530,8 +1530,22 @@ pub struct Saved {
 ///
 /// A message for a name that isn't a job's, or a design the library refuses.
 pub fn saved_text(spec: &SpecIn, name: &str, about: &str) -> Result<String, String> {
+    saved_text_in(spec, name, about, None)
+}
+
+/// [`saved_text`] for a design to be saved in `dir`, whose compact model's file it names
+/// relative to there.
+fn saved_text_in(
+    spec: &SpecIn,
+    name: &str,
+    about: &str,
+    dir: Option<&std::path::Path>,
+) -> Result<String, String> {
     let text = job_text(&spec.spec()?, name, about)?;
-    let job = Job::parse(&text).map_err(text_of)?;
+    let mut job = Job::parse(&text).map_err(text_of)?;
+    if let Some(dir) = dir {
+        job = job.in_dir(dir);
+    }
     job::check(&job).map_err(text_of)?;
     Ok(text)
 }
@@ -1570,13 +1584,17 @@ pub fn save_device(
     about: String,
     replace: bool,
 ) -> Result<String, String> {
-    let text = saved_text(&spec, &name, &about)?;
+    // checked as it is, before anything is written
+    saved_text(&spec, &name, &about)?;
     let dir = state.workspace().join("jobs");
     std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let path = dir.join(format!("{name}.toml"));
     if path.exists() && !replace {
         return Err(format!("exists: {}", path.display()));
     }
+    // its compact model kept next to it, as <name>.compact.json
+    let kept = compact::kept_beside(&spec, &dir, &name)?;
+    let text = saved_text_in(&kept, &name, &about, Some(&dir))?;
     std::fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))?;
     Ok(path.display().to_string())
 }
@@ -1588,6 +1606,10 @@ pub fn read_device(path: String) -> Result<Saved, String> {
         .map_err(|e| format!("{path}: {e}"))?
         .replace("\r\n", "\n");
     let (spec, name, about) = read_text(&text)?;
+    let spec = match std::path::Path::new(&path).parent() {
+        Some(dir) => compact::found_from(spec, dir),
+        None => spec,
+    };
     let computes = Job::parse(&text).is_ok_and(|j| !j.task().is_empty());
     Ok(Saved {
         spec,
@@ -1598,6 +1620,7 @@ pub fn read_device(path: String) -> Result<Saved, String> {
     })
 }
 
+pub mod compact;
 pub mod optimizing;
 pub use optimizing::OptimizeIn;
 

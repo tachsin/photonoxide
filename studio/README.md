@@ -169,6 +169,20 @@ in a drawer opened from the status bar.
       fidelity, saved with it; **Compute** solves it in the background. For the models computed
       on the design shown, its figures side by side and each one's difference from the model
       below, green within the lower model's stated error and amber beyond it.
+      - **Compact model:** a model of the device fitted to its own runs
+        (`photonoxide::job::fit_from_device`; docs/methods/devices.md): the source fidelity (a
+        closed form, 2D or 3D), one to four of its parameters with their ranges (the others keep
+        the design's values), the samples on a grid or a Latin hypercube with its seed, how many
+        are held out of the fit, the poles, and a polynomial's degree or piecewise linear; over a
+        band. **Fit** runs the samples as a job, a device study recorded in `runs/` sample by
+        sample (farmed when saved and run with `--workers`), and fits the model to them: its
+        largest |ΔS| at the held-out samples (the error it states), at its own, its stability and
+        passivity over its range, and the range, band and values it holds for. **Use it for this
+        design** gives the design the **compact** fidelity, on the ladder after the analytic one,
+        labelled with its source and error, live as the design changes, and on every tab;
+        **Save** keeps the model next to the design, `jobs/<name>.compact.json`, which the design
+        names (`compact = "<name>.compact.json"`). At the compact fidelity **Place on the chip**
+        places the model itself, its parameters the ones it covers.
     - **Simulate:** the design run as a job (`photonoxide::job::from_device`): by its own model at
       a fidelity (a closed form, its cross-section's modes, 2D FDFD labelled 2D, 3D FDFD), or by
       FDTD of its drawn structure in 2D or 3D; over a band, on the device's own grid or one set
@@ -436,6 +450,21 @@ A chip's study or optimization is a job of its own (`photonoxide::job::ChipDesig
 at their defaults with the instance's values; a measured component, the library's own MZI and
 the solved waveguide aren't devices, and a chip holding one is simulated but not studied or
 optimized. A chip's job in `jobs/` opens on the Chip page.
+
+A device's compact model, fitted on its page (a component page's Model tab), is an instance of
+kind `compact` that names the model's file (relative to the workspace when it is inside it); its
+parameters are the ones the model covers, each within the range it was fitted over, and its
+ports the device's.
+
+```toml
+[[instance]]
+name = "compact1"
+kind = "compact"
+file = "jobs/ring.compact.json"
+x = 0
+y = 0
+values = { gap = 0.21 }
+```
 
 Every port of every instance must be connected or exposed exactly once before the circuit
 simulates; a port meant to absorb what reaches it is wired to a terminator.

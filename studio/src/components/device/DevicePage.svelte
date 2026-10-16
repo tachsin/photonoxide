@@ -28,9 +28,9 @@
   import { api, type DeviceGeometry, type DeviceInfo, type DevicePort, type DeviceSpec, type DeviceSpectrum, type KindInfo, type Sweep } from "../../lib/api";
   import { app, go, run, showPublished, toast } from "../../lib/app.svelte";
   import { catalog, loadCatalog } from "../../lib/catalog.svelte";
-  import { chipLink, exportTouchstone, partKey, placeDesign, returnToChip } from "../../lib/chip.svelte";
+  import { addInstance, chipLink, exportTouchstone, library, partKey, placeDesign, returnToChip } from "../../lib/chip.svelte";
   import { sweepProblem, type Quantity } from "../../lib/circuit";
-  import { dirty, draftOf, drafts, keep, key, optimizePreview, pending, shownRun, solve, solves, took, type Rung } from "../../lib/device.svelte";
+  import { designMethods, dirty, draftOf, setDesignMethods, drafts, keep, key, methodsOf, optimizePreview, pending, shownRun, solve, solves, took, type Rung } from "../../lib/device.svelte";
   import Viewer from "../../pages/Viewer.svelte";
   import SolvedView from "./SolvedView.svelte";
   import { FIDELITY_ABOUT, plain } from "../../lib/deviceview";
@@ -58,9 +58,27 @@
   const draft = $derived(drafts[info.id] ?? draftOf(info));
   const spec = $derived(draft.spec);
   const fidelity = $derived(spec.fidelity);
-  const live = $derived(fidelity === "analytic");
+  // a closed form or a compact model: computed as the design changes
+  const live = $derived(fidelity === "analytic" || fidelity === "compact");
   const designKey = $derived(key(spec, info));
   const snapshot = (): DeviceSpec => $state.snapshot(draft.spec) as DeviceSpec;
+
+  // ---- the design's own models: its compact one among them once it names a model's file ----
+  $effect(() => {
+    const file = draft.spec.compact ?? null;
+    const id = info.id;
+    if (!file) {
+      if (untrack(() => designMethods.byId[id])) setDesignMethods(id, null);
+      return;
+    }
+    const spec = snapshot();
+    api
+      .deviceFidelities(spec)
+      .then((m) => {
+        if ((draft.spec.compact ?? null) === file) setDesignMethods(id, m);
+      })
+      .catch((e) => toast(`The compact model: ${plain(String(e))}`, "error"));
+  });
 
   // ---- the form and the geometry: every change, at once (a millisecond) ----
   let view = $state<DeviceGeometry | null>(null);
@@ -240,6 +258,8 @@
       draft.name = name;
       draft.path = path;
       draft.fromJob = false;
+      // its compact model is now the one kept next to it
+      if (draft.spec.compact) draft.spec = { ...draft.spec, compact: path.replace(/\.toml$/, ".compact.json") };
       draft.about = saving.about;
       draft.saved = key(draft.spec, info);
       saving = null;
@@ -269,8 +289,20 @@
     }
   }
 
-  /** Places the design on the chip being edited: an instance that carries it and its fidelity. */
+  /** Places the design on the chip being edited: an instance that carries it and its fidelity; at the
+   * compact fidelity, the design's compact model itself, its parameters the ones it covers. */
   async function place() {
+    if (fidelity === "compact" && draft.spec.compact) {
+      try {
+        const k = await api.compactComponent(draft.spec.compact);
+        library.measured = [...library.measured.filter((m) => partKey(m) !== partKey(k)), k];
+        addInstance(partKey(k));
+        go("chip");
+      } catch (e) {
+        toast(String(e), "error");
+      }
+      return;
+    }
     const saved = draft.path && !dirty(draft, info) ? `jobs/${draft.path.split(/[\\/]/).pop()}` : null;
     await placeDesign(info.id, snapshot(), saved);
     go("chip");
@@ -282,7 +314,7 @@
   const examples = $derived((catalog.data?.examples ?? []).filter((e) => info.examples.includes(e.name)));
   /** An example's summary line: "all 5 within tolerance". */
   const summary = (recorded: string) => recorded.trimEnd().split("\n").reverse().find((l) => /within tolerance|outside tolerance/.test(l)) ?? "";
-  const method = $derived(info.fidelities.find((m) => m.fidelity === fidelity));
+  const method = $derived(methodsOf(info).find((m) => m.fidelity === fidelity));
   const display = (tex: string) => katex.renderToString(tex, { displayMode: true, throwOnError: false });
   const doi = (paper: string) => /doi:(10\.[^\s,;)]+)/.exec(paper)?.[1];
   const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -387,10 +419,10 @@
               <Cpu size={11} /> {fidelity}
             </div>
             <ul tabindex="-1" class="dropdown-content menu z-30 mt-2 w-96 rounded-box border border-base-content/10 bg-base-100 p-2 shadow-xl">
-              {#each info.fidelities as m (m.fidelity)}
+              {#each methodsOf(info) as m (m.fidelity)}
                 <li>
                   <button class="flex flex-col items-start gap-0.5 {m.fidelity === fidelity ? 'menu-active' : ''}" onclick={() => setFidelity(m.fidelity)}>
-                    <span class="font-medium">{m.fidelity} <span class="text-xs font-normal faint">{m.fidelity === "analytic" ? "live" : `a solve${took[`${info.id} ${m.fidelity}`] ? `: about ${took[`${info.id} ${m.fidelity}`].toFixed(1)} s` : ", seconds"}`}</span></span>
+                    <span class="font-medium">{m.fidelity} <span class="text-xs font-normal faint">{m.fidelity === "analytic" || m.fidelity === "compact" ? "live" : `a solve${took[`${info.id} ${m.fidelity}`] ? `: about ${took[`${info.id} ${m.fidelity}`].toFixed(1)} s` : ", seconds"}`}</span></span>
                     <span class="text-xs muted">{m.name}</span>
                     {#if m.error}<span class="text-xs faint">within {m.error.bound}{m.error.unit} in {m.error.quantity} of the {m.error.against} model</span>{/if}
                   </button>
@@ -519,7 +551,7 @@
             <section class="panel p-4">
               <div class="flex flex-wrap items-center gap-2">
                 <h3 class="panel-title mr-auto">Derived</h3>
-                <span class="text-xs faint">{live ? "live: the analytic model follows every change" : `the ${fidelity} model: a solve`}</span>
+                <span class="text-xs faint">{live ? `live: the ${fidelity} model follows every change` : `the ${fidelity} model: a solve`}</span>
               </div>
               <div class="mt-3">{@render figuresPanel()}</div>
             </section>

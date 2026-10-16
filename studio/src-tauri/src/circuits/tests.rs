@@ -624,6 +624,108 @@ fn a_touchstone_file_is_a_measured_component() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// The all-pass ring's closed form fitted over its gap (0.15 to 0.25 µm, a grid of 5, 4 held
+/// out) at 1.54 to 1.56 µm, written to `path`.
+fn ring_model(path: &Path) -> photonoxide::device::Fitted {
+    use photonoxide::compact::Interpolation;
+    use photonoxide::device::{FitAxis, FitPlan, Spec};
+    use photonoxide::job::{Compute, Event, execute, fit_from_device};
+    use photonoxide::run::{Run, Stop};
+    let plan = FitPlan::new(vec![FitAxis::new("gap", 0.15, 0.25, 5)])
+        .holding_out(4)
+        .interpolated(Interpolation::Polynomial { degree: 2 });
+    let mut compute = Compute::model();
+    compute.band = Some((1.54, 1.56, 41));
+    let job = fit_from_device("ring-fit", &Spec::new("all-pass ring"), &compute, &plan).unwrap();
+    let mut run = Run::in_memory();
+    execute(&job, &mut run, &Stop::new(None)).unwrap();
+    let fitted = run
+        .lines()
+        .iter()
+        .find_map(|l| match serde_json::from_str::<Event>(l) {
+            Ok(Event::CompactFit { fitted }) => Some(*fitted),
+            _ => None,
+        })
+        .unwrap();
+    fitted.write(path).unwrap();
+    fitted
+}
+
+#[test]
+fn a_devices_compact_model_is_a_part_of_the_chip() {
+    let dir = std::env::temp_dir().join(format!("photonoxide-compact-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("jobs")).unwrap();
+    let path = dir.join("jobs").join("ring.compact.json");
+    let fitted = ring_model(&path);
+    let info = compact_in(&dir, &path).unwrap();
+    assert_eq!(info.id, COMPACT);
+    assert_eq!(info.file.as_deref(), Some("jobs/ring.compact.json"));
+    assert_eq!(info.category, "Compact");
+    assert_eq!(info.provenance.fidelity, "compact");
+    assert_eq!(info.parameters.len(), 1);
+    assert_eq!(info.parameters[0].name, "gap");
+    assert_eq!(
+        (info.parameters[0].min, info.parameters[0].max),
+        (0.15, 0.25)
+    );
+    // on a chip, the model at a gap it holds for: within its held-out error of the closed form
+    let mut chip = Chip::new("compact-ring");
+    chip.sweep = Sweep {
+        from_um: 1.545,
+        to_um: 1.555,
+        points: 51,
+    };
+    chip.instances.push(Placed {
+        name: "ring".into(),
+        kind: COMPACT.into(),
+        x: 0.0,
+        y: 0.0,
+        rotation: 0,
+        mirror: false,
+        values: BTreeMap::from([("gap".to_owned(), 0.21)]),
+        file: info.file.clone(),
+        convention: None,
+        device: None,
+    });
+    // its ports are the device's: the bus's in and through
+    let names: Vec<String> = info.ports.iter().map(|p| p.name.clone()).collect();
+    assert_eq!(names, ["in", "through"]);
+    for name in &names {
+        chip.ports.push(External {
+            name: name.clone(),
+            at: format!("ring.{name}"),
+            x: 0.0,
+            y: 0.0,
+            rotation: 0,
+        });
+    }
+    let sim = simulate(&chip, &dir).unwrap();
+    let device = photonoxide::device::Spec::new("all-pass ring")
+        .device()
+        .unwrap();
+    let values = photonoxide::device::Values::new(device.as_ref(), &[("gap", 0.21)]).unwrap();
+    let exact = device
+        .component(&values, photonoxide::circuit::Fidelity::Analytic)
+        .unwrap();
+    let through = at(&sim, "through", "in");
+    let mut worst = 0.0f64;
+    for (k, s) in through.iter().enumerate() {
+        let w = photonoxide::units::Wavelength::um(1.545 + 0.01 * k as f64 / 50.0).unwrap();
+        worst = worst.max((s - exact.s_matrix(w).unwrap()[(1, 0)]).norm());
+    }
+    assert!(worst < 3.0 * fitted.held_out_error.max(1e-9), "{worst}");
+    // it round-trips through the chip's file; outside its range it is the instance's problem
+    assert_eq!(Chip::parse(&chip.to_text().unwrap()).unwrap(), chip);
+    chip.instances[0].values.insert("gap".into(), 0.3);
+    let problems = check(chip.clone());
+    assert_eq!(
+        problems[0].instance.as_deref(),
+        Some("ring"),
+        "{problems:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// The sweep shared out among the cores is the library's own `Circuit::spectrum`, bit for bit.
 #[test]
 fn a_sweep_on_every_core_is_the_librarys() {

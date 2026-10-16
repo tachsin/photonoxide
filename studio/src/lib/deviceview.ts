@@ -29,7 +29,7 @@ export function plain(message: string): string {
 /** What each fidelity is, for its badge's hint. */
 export const FIDELITY_ABOUT: Record<string, string> = {
   analytic: "a closed form, or a fit to the 3D solver whose grid it names: live as you type",
-  compact: "a compact model fitted to a solver's or a measurement's results",
+  compact: "a compact model fitted to the design's own runs at a 2D or 3D fidelity: live as you type, within its stated error of its source",
   "2D": "a 2D model (the effective index method): never the device's performance",
   "3D": "the full-vector mode solver on the device's cross-section: a solve, in seconds",
   measured: "measured S-parameters",
