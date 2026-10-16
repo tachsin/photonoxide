@@ -206,7 +206,7 @@ same objectives for `Circuit::gradient`: `power_db`, and `worst` and `average` o
 of any one-matrix objective; the validation case `chip/adjoint` checks the job's gradient of a
 worst loss in dB against them.
 
-**A co-design.** `examples/optimize_chip_rings.rs` runs a chip's `optimize` job:
+**A co-design.** `examples/optimize_chip_rings.rs` runs the chip job `jobs/chip-little-rings.toml`:
 two rings, each two lossless half-circle bends between directional couplers (analytic), the rings'
 coupler's gap and each ring's radius fitted by L-BFGS-B until the drop port is the Butterworth
 shape over ±3κ_b² of round-trip phase. The rings' coupling comes out κ₁²/κ_b⁴ = 0.250023 at

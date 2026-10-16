@@ -273,6 +273,7 @@ fn every_job_opens_in_the_custom_device_or_on_its_devices_page() {
     // a template that is a device's job (a study, say) opens on its device's page
     for file in ["pages/Home.svelte", components, palette] {
         holds(file, "openDeviceText(", "a device's template, on its page");
+        holds(file, "openChipText(", "a chip's template, on the Chip page");
     }
     holds(
         palette,
@@ -292,7 +293,8 @@ fn every_job_opens_in_the_custom_device_or_on_its_devices_page() {
             .join(&file);
         let text = std::fs::read_to_string(&path).unwrap();
         let opens = crate::form::Form::of(&text, photonoxide::run::Format::Toml).is_ok()
-            || crate::devices::read_text(&text).is_ok();
+            || crate::devices::read_text(&text).is_ok()
+            || crate::circuits::chip::chip_of_job(&text).is_ok();
         assert!(opens, "{file} opens nowhere");
     }
 }

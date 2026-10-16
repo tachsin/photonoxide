@@ -416,8 +416,54 @@ export interface Optimum {
   front: number[];
 }
 
+/** One of a chip's instances as a run records it (photonoxide::job::ChipPart). */
+export interface ChipPart {
+  name: string;
+  /** The device's kind, or the component's id. */
+  kind: string;
+  device: boolean;
+  fidelity: string;
+  method: string;
+  grid: string;
+  parameters: string[];
+  values: number[];
+}
+
+/** A chip about to be computed (a job's [circuit]): its instances, and its external ports. */
+export interface ChipEvent {
+  type: "chip";
+  instances: ChipPart[];
+  ports: string[];
+}
+
+/** A chip's study about to run: what it steps through. */
+export interface ChipStudy {
+  type: "chip_study";
+  study: "sweep" | "corners";
+  axes: { parameter: string; from: number; to: number; points: number }[];
+  axis_units: string[];
+  corners: { name: string; offsets: [string, number][]; temperature_k: number | null }[];
+  points: number;
+  wavelengths_um: number[];
+  ports: string[];
+}
+
+/** A point of a chip's study: its S-matrices over the band, or why it has none. */
+export interface ChipPoint {
+  type: "chip_point";
+  point: number;
+  at: number[];
+  corner: string | null;
+  error: string | null;
+  /** s[w][q][p]: from port p into q at the study's w-th wavelength, real and imaginary parts. */
+  s: [number, number][][][];
+}
+
 export type Event =
   | { type: "started"; job: string; kind: string }
+  | ChipEvent
+  | ChipStudy
+  | ChipPoint
   | Optimization
   | Evaluation
   | Front

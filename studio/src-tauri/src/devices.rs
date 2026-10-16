@@ -1052,7 +1052,7 @@ pub struct StudyIn {
 }
 
 impl StudyIn {
-    fn study(&self) -> Result<job::Study, String> {
+    pub(crate) fn study(&self) -> Result<job::Study, String> {
         match self.kind.as_str() {
             "sweep" => Ok(job::Study::Sweep(
                 self.axes

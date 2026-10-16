@@ -421,13 +421,6 @@ pub fn entry(id: &str) -> Option<Entry> {
 /// The entry `component` is, for a netlist built outside the studio: the entry that built it
 /// (the library's components are built once and shared), else the first of its kind
 /// (`Component::kind`) with the same provenance, else the first of its kind.
-#[cfg_attr(
-    not(test),
-    allow(
-        dead_code,
-        reason = "for `Chip::from_netlist`, which only the tests take yet"
-    )
-)]
 pub fn entry_of(component: &Arc<dyn Component>) -> Option<Entry> {
     let built: Vec<(Entry, Arc<dyn Component>)> = entries()
         .into_iter()

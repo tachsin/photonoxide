@@ -6,12 +6,17 @@
 //! values and its place on the canvas; the connections; the external ports with their names and
 //! places; and the wavelengths to simulate. [`Chip::netlist`] builds the library's
 //! [`Netlist`] from it, and [`Chip::from_netlist`] a chip from a netlist, so the two round-trip.
+//! An instance may carry a device's design (`device`, [`chip::DeviceRef`]) in place of the
+//! library's component: built at its fidelity, the chip's instance is that design.
 //!
 //! The library does the physics: the studio only builds netlists and hands them to
 //! `Netlist::compile`, and shows what comes back.
 
+pub mod chip;
 pub mod library;
 
+#[cfg(test)]
+mod chip_tests;
 #[cfg(test)]
 mod tests;
 
@@ -137,6 +142,10 @@ pub struct Placed {
     /// The time convention of that file's values.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub convention: Option<TimeConvention>,
+    /// A device's design in place of the library's component: inline, or a job file's of the
+    /// workspace, with its fidelity. Its `values`, if any, then set its component's parameters.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device: Option<chip::DeviceRef>,
 }
 
 /// The kind of a measured component: S-parameters read from a Touchstone file.
@@ -392,10 +401,16 @@ impl Chip {
         let mut models: HashMap<Key, Arc<dyn Component>> = HashMap::new();
         let mut missing = HashSet::new();
         for inst in &self.instances {
+            // a device's design: its own component, with the values its parameters give it
+            let mut own = None;
             let key = (inst.kind.as_str(), inst.file.as_deref(), inst.convention);
-            let model = match models.get(&key) {
-                Some(m) => Ok(m.clone()),
-                None => build(key.0, key.1, key.2, root),
+            let model = match (&inst.device, models.get(&key)) {
+                (Some(d), _) => chip::component(d, root).map(|(c, values)| {
+                    own = Some(values);
+                    c
+                }),
+                (None, Some(m)) => Ok(m.clone()),
+                (None, None) => build(key.0, key.1, key.2, root),
             };
             let model = match model {
                 Ok(m) => m,
@@ -408,13 +423,20 @@ impl Chip {
                     continue;
                 }
             };
-            models.insert(key, model.clone());
-            if let Err(e) = netlist.add(&inst.name, model) {
+            if inst.device.is_none() {
+                models.insert(key, model.clone());
+            }
+            if let Err(e) = netlist.add(&inst.name, model.clone()) {
                 let mut p = Problem::of(&e);
                 p.instance = Some(inst.name.clone());
                 problems.push(p);
                 missing.insert(inst.name.as_str());
                 continue;
+            }
+            for (p, v) in model.parameters().iter().zip(own.iter().flatten()) {
+                if let Err(e) = netlist.set(&inst.name, &p.name, *v) {
+                    problems.push(Problem::of(&e));
+                }
             }
             for (parameter, &value) in &inst.values {
                 if let Err(e) = netlist.set(&inst.name, parameter, value) {
@@ -466,15 +488,9 @@ impl Chip {
     }
 }
 
-#[cfg_attr(
-    not(test),
-    allow(
-        dead_code,
-        reason = "the format's other direction, from a netlist, which only the tests take yet"
-    )
-)]
 impl Chip {
     /// A chip with nothing on it.
+    #[cfg_attr(not(test), allow(dead_code, reason = "from_netlist's start"))]
     pub fn new(name: &str) -> Chip {
         Chip {
             format: FORMAT,
@@ -516,6 +532,7 @@ impl Chip {
                 mirror: false,
                 file: None,
                 convention: None,
+                device: None,
                 values: inst
                     .component
                     .parameters()

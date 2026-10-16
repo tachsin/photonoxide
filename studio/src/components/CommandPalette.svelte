@@ -7,7 +7,7 @@
   import { api, type Catalog, type CircuitExample, type CircuitItem, type Home, type KindInfo } from "../lib/api";
   import { app, CUSTOM, go, newCustom, openCustom, showPublished, startRun, updateSettings, type Page } from "../lib/app.svelte";
   import { PAGES, RAIL, SYSTEM } from "../lib/pages";
-  import { addInstance, importTouchstone, library, loadLibrary, openChipFile, partKey, saveChip, showChip, simulate } from "../lib/chip.svelte";
+  import { addInstance, importTouchstone, library, loadLibrary, openChipFile, openChipText, partKey, saveChip, showChip, simulate } from "../lib/chip.svelte";
   import { openDesign, openDeviceText, openRunItem } from "../lib/device.svelte";
   import type { Kind } from "../lib/job";
   import { checkForUpdate } from "../lib/updater.svelte";
@@ -53,7 +53,7 @@
 
   /** A template: a device's on its page, any other in the Custom device. */
   async function openText(text: string) {
-    if (!(await openDeviceText(text))) openCustom(text);
+    if (!(await openChipText(text)) && !(await openDeviceText(text))) openCustom(text);
   }
 
   const items = $derived.by(() => {

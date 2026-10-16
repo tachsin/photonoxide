@@ -261,6 +261,27 @@ in a drawer opened from the status bar.
     is left to finish. Problems point at their instance, wire or port: click one to select it.
   - The side panel edits the selection: an instance's name and parameters, an external port's
     name; with nothing selected, the circuit's name, notes and wavelengths.
+  - **Devices on the chip.** A device page's **Place on the chip** adds an instance that carries
+    the design and its fidelity (inline, or the design's file in `jobs/` when it is saved). Its
+    side panel shows the device's kind, its fidelity (a choice of the device's models), its
+    parameters' expressions and its geometry from above; **Open device** goes to its page with
+    the instance's values, and a bar there goes back: **Apply** takes the changes into the
+    instance (as changes of its job file's design, if it names one), **Keep as a variant** saves
+    them in `jobs/` and has the instance name that file (its old design left as it was), **Back
+    to the chip** leaves it as it was.
+  - **Study** sweeps one or two of any instances' parameters (`ring.gap`, `split.coupling`), or
+    takes corners of several, each point the whole chip at its instances' fidelities
+    (`photonoxide::job::study_from_chip`, a job recorded in `runs/`): |S|² between two ports
+    over the band, a curve per point, each instance's fidelity and grid named.
+  - **Optimize** is #244's `optimize` job over any instances' parameters
+    (`photonoxide::job::optimize_from_chip`): an objective of the chip's outputs (`T_q_p`, the
+    power from port p into port q, and `lambda`; worst, average or spread over the band), the
+    chip's constraints or a device instance's own (a smallest gap, an excess loss), genoxide's
+    method, seed, budget and hard limit. Exact derivatives where a device gives them (the
+    circuit adjoint through its derivatives, each checked against differences), central
+    differences elsewhere. It runs live, as a device's Optimize tab does; **Apply** takes an
+    evaluation's values into the instances. `photonoxide run jobs/chip-little-rings.toml`
+    runs one in the run view.
   - **Simulate** (Ctrl+Enter) solves the whole netlist at each wavelength
     (`Netlist::compile`, then `Circuit::spectrum`), and plots what comes out of every external
     port for light in at one, with the checks: reciprocity (the largest |S − Sᵀ|), passivity
@@ -385,6 +406,36 @@ convention = "engineering"
 x = 0
 y = 0
 ```
+
+An instance may carry a device's design in place of the library's component: a `device` key
+holding a job's `[device]` table inline (its kind, fidelity, stack and parameters' expressions),
+or `job`, a design file of the workspace, whose fidelity and parameters those given beside it
+change for this instance. The design is built at its fidelity and placed with the values its
+parameters give its component; `values`, if given, then set the component's parameters. A file
+without `device` reads as before, and a chip of devices at their defaults simulates to the same
+bits as the library's kinds.
+
+```toml
+[[instance]]
+name = "ring"
+kind = "ring-add-drop"           # the symbol drawn: the device's library id
+x = 0
+y = 0
+device = { kind = "add-drop ring", fidelity = "analytic", parameters = { gap = "0.25", radius = "12" } }
+
+[[instance]]
+name = "arm"
+kind = "waveguide"
+x = 100
+y = 0
+device = { job = "jobs/arm.toml", parameters = { length = "150" } }   # jobs/arm.toml's design, 150 µm long
+```
+
+A chip's study or optimization is a job of its own (`photonoxide::job::ChipDesign`, a job's
+`[circuit]` table, in docs/methods/optimization.md), the library's kinds written as their devices
+at their defaults with the instance's values; a measured component, the library's own MZI and
+the solved waveguide aren't devices, and a chip holding one is simulated but not studied or
+optimized. A chip's job in `jobs/` opens on the Chip page.
 
 Every port of every instance must be connected or exposed exactly once before the circuit
 simulates; a port meant to absorb what reaches it is wired to a terminator.
@@ -615,7 +666,9 @@ node scripts/record-gifs.mjs --only hero,academy  # some: hero, device, material
   - `examples.rs`: the examples and jobs built in.
   - `settings.rs`: the settings and the workspace.
   - `materials.rs`: the Materials page's commands.
-  - `circuits.rs`: the Components and Chip pages' commands, and chip files; `circuits/library.rs`
+  - `circuits.rs`: the Components and Chip pages' commands, and chip files; `circuits/chip.rs`
+    an instance's device design and the chip's jobs (the library's chip of a chip file, the
+    Study and Optimize panels' jobs, a chip's job opened on the page); `circuits/library.rs`
     is the component library the studio offers (each kind's id, title, symbol, and the
     library's component it builds: the waveguide, bend, directional coupler, rings, rib, MMIs,
     Y-branch and the MZIs of couplers and of Y-branches from the library's devices,

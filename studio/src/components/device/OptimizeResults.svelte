@@ -22,6 +22,7 @@
     onapply,
     onkeep,
     onpreview,
+    onapplyto,
   }: {
     record: OptimizeRecord;
     /** The run's directory, whose job gives an evaluation's design. */
@@ -34,15 +35,19 @@
     onkeep?: (spec: DeviceSpec, index: number) => void;
     /** The design shown as it changes: the best so far, or the front point picked. */
     onpreview?: (spec: DeviceSpec | null, index: number | null) => void;
+    /** A chip's: takes an evaluation's variables into the chip's instances. */
+    onapplyto?: (x: number[], index: number) => void;
   } = $props();
 
   const o = $derived(record.optimization);
+  /** A chip's optimization: its design is its instances', which the chip page takes in. */
+  const isChip = $derived(record.optimization.device === "chip");
   const two = $derived(o.objectives.length === 2);
   const done = $derived(record.evaluations.length);
   const ok = $derived(valid(record));
   const refused = $derived(record.evaluations.filter((e) => e.error));
   const bestNow = $derived(best(record));
-  const caveat = $derived(o.fidelity === "2D" ? "2D: an estimate, never the device's performance" : "");
+  const caveat = $derived(o.fidelity === "2D" ? "2D: an estimate, never the device's performance" : o.fidelity.includes("2D") ? "Some instances at 2D: estimates, never the devices' performance" : "");
   const exact = $derived(o.variables.filter((v) => v.derivatives === "exact").map((v) => v.parameter));
   const differenced = $derived(o.variables.filter((v) => v.derivatives === "differences").map((v) => v.parameter));
   const disagree = $derived(o.checks.filter((c) => !c.agrees));
@@ -58,7 +63,7 @@
   $effect(() => {
     const e = shown;
     const d = dir;
-    if (!e || !d || design?.index === e.index || fetching === e.index) return;
+    if (!e || !d || isChip || design?.index === e.index || fetching === e.index) return;
     fetching = e.index;
     untrack(() => {
       api
@@ -137,6 +142,7 @@
     <section class="rounded-xl border border-base-content/10 p-3">
       <div class="flex flex-wrap items-center gap-2">
         <h4 class="mr-auto text-xs font-medium">{two ? "The front point picked" : "The best so far"}: evaluation {shown.index}{shown.violation !== null && shown.violation > 0 ? " (breaks a constraint)" : ""}</h4>
+        {#if onapplyto}<button class="btn btn-primary btn-xs gap-1" onclick={() => onapplyto?.(shown.x, shown.index)} title="Take these values into the chip's instances: a device's design parameter written as a number, a component's value set"><Check size={12} /> Apply</button>{/if}
         {#if onapply}<button class="btn btn-primary btn-xs gap-1" disabled={!design || design.index !== shown.index} onclick={() => design && onapply?.(design.spec, design.index)} title="Take this design into Design: its variables written as numbers in place of their expressions"><Check size={12} /> Apply</button>{/if}
         {#if onkeep}<button class="btn btn-xs gap-1" disabled={!design || design.index !== shown.index} onclick={() => design && onkeep?.(design.spec, design.index)} title="Keep this design as a variant: saved to jobs/ beside the design, which stays as it is"><CopyPlus size={12} /> Keep as a variant</button>{/if}
       </div>

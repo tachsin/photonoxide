@@ -202,6 +202,12 @@ export const api = {
   deviceJobRead: (text: string) => invoke<JobForm>("device_job_read", { text }),
   /** A design on the cells the model chosen solves on: from above, and on the cut. */
   deviceSolved: (spec: DeviceSpec, compute: Compute, normal: "x" | "y", at: number) => invoke<Solved>("device_solved", { spec, compute, normal, at }),
+  chipDevice: (device: DeviceRef) => invoke<InstanceDevice>("chip_device", { device }),
+  chipDeviceRef: (spec: DeviceSpec) => invoke<DeviceRef>("chip_device_ref", { spec }),
+  chipOptimizeInfo: (chip: Chip) => invoke<ChipOptimizeInfo>("chip_optimize_info", { chip }),
+  chipJob: (chip: Chip, task: ChipTaskIn) => invoke<string>("chip_job", { chip, task }),
+  chipApply: (chip: Chip, parameters: [string, string][]) => invoke<Chip>("chip_apply", { chip, parameters }),
+  chipOfJobText: (text: string) => invoke<Chip>("chip_of_job_text", { text }),
   circuitText: (chip: Chip) => invoke<string>("circuit_text", { chip }),
   circuitParse: (text: string) => invoke<Chip>("circuit_parse", { text }),
   circuitExamples: () => invoke<CircuitExample[]>("circuit_examples"),
@@ -520,6 +526,8 @@ export interface Aim {
   goal?: "minimize" | "maximize" | "target" | null;
   target?: number | null;
   reduce?: "worst" | "average" | "spread" | null;
+  /** On a chip, the device instance whose own objective it is. */
+  instance?: string | null;
 }
 
 /** A constraint as a job gives it (photonoxide::job::Bound). */
@@ -529,6 +537,8 @@ export interface Bound {
   at_most?: number | null;
   at_least?: number | null;
   reduce?: "worst" | "average" | "spread" | null;
+  /** On a chip, the device instance whose own constraint it is. */
+  instance?: string | null;
 }
 
 /** An optimization of a design (photonoxide::job::Optimization), as the Optimize tab's form holds it. */
@@ -671,6 +681,58 @@ export interface Placed {
   /** A measured component's Touchstone file and its time convention. */
   file?: string | null;
   convention?: TimeConvention | null;
+  /** A device's design in place of the library's component: inline, or a job file's. */
+  device?: DeviceRef | null;
+}
+
+/**
+ * An instance's device design, as a chip file holds it: a job's [device] table inline (kind,
+ * fidelity, stack, parameters), or a job file in the workspace (`job = "jobs/ring.toml"`) whose
+ * design its fidelity and parameters, when given, change.
+ */
+export interface DeviceRef {
+  job?: string | null;
+  kind?: string | null;
+  fidelity?: string | null;
+  stack?: unknown;
+  parameters?: Record<string, string>;
+}
+
+/** An instance's device resolved: its design, the device's id on the Components page, and its job file. */
+export interface InstanceDevice {
+  spec: DeviceSpec;
+  id: string;
+  job: string | null;
+}
+
+/** A parameter of a chip a study or optimization may move: `instance.parameter`. */
+export interface ChipParameter {
+  name: string;
+  instance: string;
+  parameter: string;
+  unit: string;
+  value: number;
+  min: number | null;
+  max: number | null;
+  /** A device's design parameter (else a component's value). */
+  design: boolean;
+}
+
+/** What a chip's optimization offers: its outputs, genoxide's methods, and each device instance's own objectives and constraints. */
+export interface ChipOptimizeInfo {
+  outputs: { name: string; unit: string; about: string; per_wavelength: boolean }[];
+  methods: OptimizeInfo["methods"];
+  instances: { name: string; kind: string; objectives: OptimizeInfo["objectives"]; constraints: OptimizeInfo["constraints"] }[];
+  parameters: ChipParameter[];
+}
+
+/** A chip's job, as the Chip page's Study and Optimize panels make it. */
+export interface ChipTaskIn {
+  name: string;
+  band: [number, number, number];
+  timeout_minutes: number;
+  study: StudyIn | null;
+  optimize: OptimizeIn | null;
 }
 
 /** The time convention of a Touchstone file's values: photonoxide's e^(−iωt), or RF tools' e^(+jωt). */

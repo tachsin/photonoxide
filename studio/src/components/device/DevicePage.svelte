@@ -28,7 +28,7 @@
   import { api, type DeviceGeometry, type DeviceInfo, type DevicePort, type DeviceSpec, type DeviceSpectrum, type KindInfo, type Sweep } from "../../lib/api";
   import { app, go, run, showPublished, toast } from "../../lib/app.svelte";
   import { catalog, loadCatalog } from "../../lib/catalog.svelte";
-  import { addInstance, exportTouchstone, partKey } from "../../lib/chip.svelte";
+  import { chipLink, exportTouchstone, partKey, placeDesign, returnToChip } from "../../lib/chip.svelte";
   import { sweepProblem, type Quantity } from "../../lib/circuit";
   import { dirty, draftOf, drafts, keep, key, optimizePreview, pending, shownRun, solve, solves, took, type Rung } from "../../lib/device.svelte";
   import Viewer from "../../pages/Viewer.svelte";
@@ -269,10 +269,15 @@
     }
   }
 
-  function place() {
-    addInstance(info.id);
+  /** Places the design on the chip being edited: an instance that carries it and its fidelity. */
+  async function place() {
+    const saved = draft.path && !dirty(draft, info) ? `jobs/${draft.path.split(/[\\/]/).pop()}` : null;
+    await placeDesign(info.id, snapshot(), saved);
     go("chip");
   }
+
+  const fromChip = $derived(chipLink.instance !== null && chipLink.id === info.id);
+  const changedFromChip = $derived(fromChip && JSON.stringify(snapshot()) !== chipLink.start);
 
   const examples = $derived((catalog.data?.examples ?? []).filter((e) => info.examples.includes(e.name)));
   /** An example's summary line: "all 5 within tolerance". */
@@ -414,10 +419,22 @@
           title="Run the design as a job, as the Simulate tab sets it: by its {fidelity} model unless it says otherwise"><Play size={15} /> Run</button
         >
         <button class="btn btn-sm gap-1.5" onclick={startSave} title="Save the design as a job file in the workspace's jobs/ (Ctrl+S)"><Save size={15} /> Save</button>
-        <button class="btn btn-primary btn-sm gap-1.5" onclick={place} title="Add the library's {kind?.title ?? info.kind} to the chip being edited, at its defaults, and go there"><CirclePlus size={15} /> Place on the chip</button>
+        <button class="btn btn-primary btn-sm gap-1.5" onclick={place} title="Add this design to the chip being edited, at its {fidelity} model: the instance carries the design and its fidelity"><CirclePlus size={15} /> Place on the chip</button>
       </div>
     </div>
   </div>
+
+  {#if fromChip}
+    <div class="flex flex-wrap items-center gap-2 border-b border-base-content/8 bg-info/8 px-5 py-1.5 text-xs" role="status">
+      <span>
+        The design of <span class="font-medium num">{chipLink.instance}</span> on the chip <span class="num">{chipLink.chip}</span>{#if chipLink.job}, from <span class="num">{chipLink.job}</span>{/if}{changedFromChip ? ": changed here" : ""}.
+      </span>
+      <span class="flex-1"></span>
+      <button class="btn btn-primary btn-xs" disabled={!changedFromChip} onclick={() => returnToChip("apply")} title="Take this design into {chipLink.instance} and go back to the chip">Apply to {chipLink.instance}</button>
+      <button class="btn btn-xs" disabled={!changedFromChip} onclick={() => returnToChip("variant")} title="Save this design in jobs/ as a variant and have {chipLink.instance} name it; the design it had stays as it was">Keep as a variant</button>
+      <button class="btn btn-ghost btn-xs" onclick={() => returnToChip("back")} title="Go back to the chip, {chipLink.instance} as it was">Back to the chip</button>
+    </div>
+  {/if}
 
   <!-- the view, always on screen, and the panel beside it (under it in a narrow window) -->
   <div class="grid min-h-0 flex-1 {stacked ? 'grid-rows-[minmax(13rem,1fr)_minmax(10rem,1fr)]' : 'grid-cols-[minmax(0,1fr)_minmax(24rem,36%)]'}" bind:clientWidth={bodyWidth}>

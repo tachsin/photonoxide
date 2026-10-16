@@ -212,6 +212,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         "  variables: the rings' coupler's gap, u₁ and u₂, by central differences; fitted to 1/(1 + (δ/δ_c)⁴) at 61 wavelengths, δ_c = κ_b²/√2 = {:.4} pm, by L-BFGS-B",
         width * 1e6
     );
+    // the built-in job (jobs/chip-little-rings.toml) is this chip, from the first start
+    let builtin = Job::parse(include_str!("../jobs/chip-little-rings.toml"))?;
+    let first = job(r0, bus_length, width, [0.42, 20.0, -15.0])?;
+    checks.count(
+        "jobs/chip-little-rings.toml is this job",
+        usize::from(builtin.circuit() == first.circuit() && builtin.task() == first.task()),
+        1,
+    );
     let mut best: Option<(f64, Vec<f64>)> = None;
     for start in [[0.42, 20.0, -15.0], [0.46, -10.0, 25.0], [0.44, 5.0, 5.0]] {
         let problem = Problem::of(&job(r0, bus_length, width, start)?)?;

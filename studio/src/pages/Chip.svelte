@@ -24,11 +24,14 @@
   import { ask } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
 
+  import ChipOptimize from "../components/chip/ChipOptimize.svelte";
+  import ChipStudy from "../components/chip/ChipStudy.svelte";
+  import InstanceDevice from "../components/chip/InstanceDevice.svelte";
   import Glyph from "../components/Glyph.svelte";
   import SpectrumPlot from "../components/SpectrumPlot.svelte";
   import Tip from "../components/Tip.svelte";
   import UnitChip from "../components/UnitChip.svelte";
-  import { ago, api, type Chip, type CircuitExample, type CircuitItem, type KindInfo, type Problem } from "../lib/api";
+  import { ago, api, type Chip, type ChipOptimizeInfo, type CircuitExample, type CircuitItem, type KindInfo, type Problem } from "../lib/api";
   import { app, go, toast } from "../lib/app.svelte";
   import {
     addInstance,
@@ -42,6 +45,7 @@
     library,
     loadLibrary,
     openChipFile,
+    panels,
     partKey,
     redo,
     remember,
@@ -529,6 +533,24 @@
   let quantity = $state<Quantity>("power");
   let resultsOpen = $state(true);
 
+  // what the Study and Optimize panels offer: the chip's parameters, outputs and its devices' own constraints
+  let offer = $state<ChipOptimizeInfo | null>(null);
+  let offerProblem = $state("");
+  $effect(() => {
+    if (panels.tab === "spectrum") return;
+    const c = $state.snapshot(chip) as Chip;
+    let live = true;
+    api
+      .chipOptimizeInfo(c)
+      .then((o) => {
+        if (live) [offer, offerProblem] = [o, ""];
+      })
+      .catch((e) => {
+        if (live) offerProblem = String(e);
+      });
+    return () => (live = false);
+  });
+
   function runSimulation() {
     resultsOpen = true;
     simulate();
@@ -813,9 +835,15 @@
     </div>
 
     <!-- the results -->
-    {#if resultsOpen && (editor.sim || editor.simProblem || editor.simulating)}
+    {#if resultsOpen && (editor.sim || editor.simProblem || editor.simulating || panels.tab !== "spectrum")}
       <div class="h-[22rem] shrink-0 overflow-y-auto border-t border-base-content/8 bg-base-100 px-5 py-3">
         <div class="flex items-center gap-2">
+          <div role="tablist" class="tabs tabs-box tabs-xs shrink-0">
+            <button role="tab" class="tab {panels.tab === 'spectrum' ? 'tab-active' : ''}" onclick={() => (panels.tab = "spectrum")}>S-parameters</button>
+            <button role="tab" class="tab {panels.tab === 'study' ? 'tab-active' : ''}" onclick={() => (panels.tab = "study")}>Study</button>
+            <button role="tab" class="tab {panels.tab === 'optimize' ? 'tab-active' : ''}" onclick={() => (panels.tab = "optimize")}>Optimize</button>
+          </div>
+          {#if panels.tab === "spectrum"}
           <h3 class="panel-title whitespace-nowrap">The circuit's S-parameters</h3>
           {#if editor.sim}
             <span class="truncate text-xs faint">
@@ -823,8 +851,9 @@
             </span>
             {#if stale}<span class="badge badge-ghost badge-xs">updating…</span>{/if}
           {/if}
+          {/if}
           <span class="flex-1"></span>
-          {#if editor.sim}
+          {#if editor.sim && panels.tab === "spectrum"}
             {@const sim = editor.sim}
             <div class="tooltip tooltip-left" data-tip="Save the S-parameters as a Touchstone file (.sNp)">
               <button
@@ -837,6 +866,15 @@
             <button class="btn btn-ghost btn-xs btn-square" aria-label="Hide the results" onclick={() => (resultsOpen = false)}><X size={14} /></button>
           </div>
         </div>
+        {#if panels.tab === "study"}
+          <div class="mt-3">
+            {#if offerProblem}<p class="text-xs text-warning">{offerProblem}</p>{:else}<ChipStudy {chip} info={offer} height={230} />{/if}
+          </div>
+        {:else if panels.tab === "optimize"}
+          <div class="mt-3">
+            {#if offerProblem}<p class="text-xs text-warning">{offerProblem}</p>{:else}<ChipOptimize {chip} info={offer} />{/if}
+          </div>
+        {:else}
         <div class="mt-1 flex flex-wrap items-center gap-2">
           {#if editor.sim}
             {@const c = editor.sim.checks}
@@ -862,6 +900,7 @@
         {:else}
           <div class="grid h-56 place-items-center"><span class="loading loading-ring text-primary"></span></div>
         {/if}
+        {/if}
       </div>
     {/if}
   </div>
@@ -876,7 +915,7 @@
         {@const k = selectedKind}
         <div class="mt-2 flex items-center gap-2 text-sm">
           <span class="font-medium">{k.title}</span>
-          <span class="badge badge-xs badge-secondary badge-soft">{k.provenance.fidelity}</span>
+          {#if !inst.device}<span class="badge badge-xs badge-secondary badge-soft">{k.provenance.fidelity}</span>{/if}
           <span class="flex-1"></span>
           <button
             class="btn btn-link btn-xs h-auto min-h-0 p-0"
@@ -900,6 +939,9 @@
           <div class="tooltip tooltip-left" data-tip="Delete (Del)"><button class="btn btn-ghost btn-xs btn-square" aria-label="Delete" onclick={deleteSelection}><Trash2 size={13} /></button></div>
         </div>
 
+        {#if inst.device}
+          <InstanceDevice {inst} />
+        {:else}
         <p class="panel-title mt-5">Parameters</p>
         {#each k.parameters as p, i (p.name)}
           {@const v = inst.values?.[p.name] ?? p.default}
@@ -939,6 +981,7 @@
         {:else}
           <p class="mt-2 text-xs faint">None.</p>
         {/each}
+        {/if}
 
         <p class="panel-title mt-5">Ports</p>
         <ul class="mt-2 space-y-1 text-xs">

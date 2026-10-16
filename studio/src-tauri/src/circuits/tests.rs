@@ -460,6 +460,7 @@ fn a_chip_without_external_ports_cant_be_simulated() {
         values: BTreeMap::new(),
         file: None,
         convention: None,
+        device: None,
     });
     chip.connections.push(["w.o1".into(), "w.o2".into()]);
     assert!(check(chip.clone()).is_empty());
@@ -583,6 +584,7 @@ fn a_touchstone_file_is_a_measured_component() {
         values: BTreeMap::new(),
         file: info.file.clone(),
         convention: Some(TimeConvention::Physics),
+        device: None,
     });
     for (k, name) in spectrum.ports().iter().enumerate() {
         chip.ports.push(External {

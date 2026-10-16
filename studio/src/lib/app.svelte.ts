@@ -1,7 +1,7 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
 import { api, type AppState, type Info, type JobFormat, type Settings } from "./api";
-import type { DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
+import type { ChipEvent, ChipPoint, ChipStudy, DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import { template, type Kind } from "./job";
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
@@ -214,6 +214,10 @@ export const run = $state({
   /** Each front's hypervolume against the evaluations so far. */
   hypervolumes: [] as [number, number][],
   optimum: null as Optimum | null,
+  /** A chip's run: its instances and ports, a study's plan and its points as they come. */
+  chip: null as ChipEvent | null,
+  chipStudy: null as ChipStudy | null,
+  chipPoints: [] as ChipPoint[],
   /** The named ports the run recorded: a device's, or a job's components'. */
   ports: [] as ScenePort[],
   /** Each solve's numerical error, in the order recorded. */
@@ -375,6 +379,15 @@ function take(e: Event) {
     case "device_point":
       run.points.push(e);
       break;
+    case "chip":
+      run.chip = e;
+      break;
+    case "chip_study":
+      run.chipStudy = e;
+      break;
+    case "chip_point":
+      run.chipPoints.push(e);
+      break;
     case "ports":
       run.ports = e.ports;
       break;
@@ -427,6 +440,9 @@ function reset(info: Info) {
     front: null,
     hypervolumes: [],
     optimum: null,
+    chip: null,
+    chipStudy: null,
+    chipPoints: [],
     ports: [],
     errors: [],
     frames: [],

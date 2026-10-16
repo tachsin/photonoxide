@@ -73,6 +73,43 @@ pub struct OptimizeInfo {
     exact: Vec<String>,
 }
 
+impl OutputInfo {
+    /// An output `name` in `unit`.
+    pub fn new(name: &str, unit: &str, about: &str, per_wavelength: bool) -> OutputInfo {
+        OutputInfo {
+            name: name.to_owned(),
+            unit: unit.to_owned(),
+            about: about.to_owned(),
+            per_wavelength,
+        }
+    }
+}
+
+impl OptimizeInfo {
+    /// The device's objectives and constraints.
+    pub fn offers(self) -> (Vec<ObjectiveInfo>, Vec<ConstraintInfo>) {
+        (self.objectives, self.constraints)
+    }
+}
+
+/// genoxide's methods, as a form offers them.
+pub fn methods() -> Vec<MethodInfo> {
+    job::optimize::METHODS
+        .iter()
+        .map(|m| MethodInfo {
+            name: m.name,
+            title: m.title,
+            gradient: m.gradient,
+            constraints: m.constraints,
+            objectives: m.objectives,
+            population: m.population,
+            random: m.random,
+            about: m.about,
+            paper: m.paper,
+        })
+        .collect()
+}
+
 fn goal(g: Goal) -> String {
     g.name().to_owned()
 }
@@ -148,20 +185,7 @@ pub fn optimize_info(spec: &SpecIn) -> Result<OptimizeInfo, String> {
                 per_wavelength: o.per_wavelength,
             })
             .collect(),
-        methods: job::optimize::METHODS
-            .iter()
-            .map(|m| MethodInfo {
-                name: m.name,
-                title: m.title,
-                gradient: m.gradient,
-                constraints: m.constraints,
-                objectives: m.objectives,
-                population: m.population,
-                random: m.random,
-                about: m.about,
-                paper: m.paper,
-            })
-            .collect(),
+        methods: methods(),
         exact,
     })
 }
@@ -191,7 +215,7 @@ pub struct OptimizeIn {
 }
 
 impl OptimizeIn {
-    fn optimization(&self) -> Result<Optimization, String> {
+    pub(crate) fn optimization(&self) -> Result<Optimization, String> {
         let mut o = Optimization::new(&self.method, self.seed, self.evaluations);
         o.population = self.population;
         o.learning_rate = self.learning_rate;

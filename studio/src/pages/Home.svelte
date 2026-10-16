@@ -11,7 +11,7 @@
   import { app, go, newCustom, openCustom, run, showCases, showPublished, startRun } from "../lib/app.svelte";
   import { catalog, loadCatalog } from "../lib/catalog.svelte";
   import { openDeviceText, openRunItem } from "../lib/device.svelte";
-  import { showChip } from "../lib/chip.svelte";
+  import { openChipText, showChip } from "../lib/chip.svelte";
   import type { Kind } from "../lib/job";
 
   let home = $state<Home | null>(null);
@@ -118,7 +118,7 @@
               onrun={() => startRun(() => api.runText(j.text), `Running ${j.name}`)}
               onopen={async () => {
                 // a device's job on its device's page, any other in the Custom device
-                if (!(await openDeviceText(j.text))) openCustom(j.text);
+                if (!(await openChipText(j.text)) && !(await openDeviceText(j.text))) openCustom(j.text);
               }}
             />
           {:else}
