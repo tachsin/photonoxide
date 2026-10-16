@@ -14,6 +14,7 @@ moving a slider shows the physics the library computes, the code the
 | [The Mach–Zehnder interferometer](mach-zehnder.md) | introductory | `mzi` | `mzi-spectrum`, `mzi-extinction` |
 | [The directional coupler and splitters](directional-coupler.md) | intermediate | `coupler` | `coupler-power`, `coupler-supermodes`, `coupler-gap`, `coupler-spectrum`, `coupler-mismatch` |
 | [The slab waveguide](slab-waveguide.md) | introductory | `slab` | `slab-fields`, `slab-bv`, `slab-neff`, `slab-confinement` |
+| [The strip waveguide and its cross-section](strip-waveguide.md) | intermediate | `strip` | `strip-fields`, `strip-neff`, `strip-models`, `strip-corners`, `strip-group-index` |
 
 The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
 with its numbered subsections, what each will answer and the examples each will use, so writing
@@ -22,7 +23,6 @@ it is filling them in. The library lists them in this order, the order to read t
 | Lesson coming soon | Topic | Level | Examples |
 |---|---|---|---|
 | [Silicon, silica and dispersion](material-dispersion.md) | Materials | introductory | `silicon_index`, `silica_index` |
-| [The strip waveguide and its cross-section](strip-waveguide.md) | Waveguides | intermediate | `strip_waveguide`, `effective_index_method`, `marcatili`, `hadley_corners`, `group_index`, `leaky_wire_benchmark` |
 | [Leaky and bent guides, and multilayers](leaky-and-bent-guides.md) | Waveguides | advanced | `multilayer_chilwell`, `leaky_waves`, `bend_loss` |
 | [Grating couplers](grating-couplers.md) | Gratings and filters | intermediate | |
 | [Multimode interference and self-imaging](mmi.md) | Multimode and polarization devices | intermediate | `mmi_liu_poon` |
@@ -136,6 +136,7 @@ or digit just outside), and display math between lines holding only `$$`.
 | `::chart <id>{key=value, key=value}` | a chart starting from these values |
 | `::example <name>` | an example: what it printed when this release was checked, and a button to run it here |
 | `::validation <id> <id> ...` | validation cases as the published report has them |
+| `::device <id>` | a device the lesson teaches, by its id in the component library (`waveguide`, `rib-waveguide`), to open on its page |
 | `::timeline` | the front matter's papers by year, each linked by its DOI |
 
 A chart's values carry their units or none: `radius=10um`, `radius=10000nm`, `loss=2dB/cm`,
@@ -190,6 +191,7 @@ shows first.
 | `coupler` | a directional coupler from above: two strips of width $w$ a gap $g$ apart over a length $L$, brought in and out by S-bends, $z$ along the coupled section, $P_\text{cross}(z) = \sin^2\kappa z$, $\kappa = \pi\Delta n/\lambda$ and $L_c = \lambda/2\Delta n$, the input and second input, the through ($\cos^2\kappa L$) and cross ($\sin^2\kappa L$) ports; beneath, the field across the pair of the even ($n_\text{even}$) and odd ($n_\text{odd}$) supermodes | `coupler-supermodes.toml` |
 | `mzi` | a Mach–Zehnder interferometer from above: the splitter's $r_1$, $k_1$ and the combiner's $r_2$, $k_2$, arms of $L$ and $L + \Delta L$ (the longer drawn longer) with their fields $a_l e^{i\phi_l}$ and $a_u e^{i\phi_u}$, a phase shifter $\varphi$, the phase difference $\Delta\phi$, the input and the bar and cross outputs | `mzi-mmi.toml` |
 | `slab` | a slab in section: the film $n_2$ of thickness $d$ between the cover $n_1$ and the substrate $n_3$, a ray zig-zagging along $z$ at $\theta \gt \theta_c = \arcsin(n_3/n_2)$ and a steeper one lost, and a guided mode's $E_y(x)$ across the slab, $\cos(hx - \phi_3)$ in the film and the tails $e^{px}$ and $e^{-q(x - d)}$ | `slab-soi.toml` |
+| `strip` | a strip in section: the core $n_1$, $w$ wide and $t$ thick, in the cladding $n_2$ on a buried oxide $h$ thick over the substrate, $x$, $y$ and $z$; the TE-like mode's field with its main $E_x$, the four corners and Marcatili's four corner regions; and the effective index method's two slabs, across $t$ giving $N$ and across $w$ giving $n_\text{eff}$ | `strip-modes.toml` |
 
 Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
 job if it has one) and an SVG drawn by a component in `studio/src/components/diagrams/`, named
@@ -222,13 +224,22 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `slab-bv` | `core` $n_2$ (3.473), `cover` $n_1$ (1.444) | `Slab::modes` at 300 values of $V$, as $b$; the cutoffs $m\pi + \arctan(r\sqrt a)$ |
 | `slab-neff` | `core` $n_2$ (3.473), `cover` $n_1$ (1.444), `wavelength` µm (1.55) | `Slab::modes` at 300 thicknesses, each mode from its cutoff |
 | `slab-confinement` | `core` $n_2$ (3.473), `cover` $n_1$ (1.444), `wavelength` µm (1.55), `thickness` nm (220) | `MultilayerMode::power_fractions` on the modes of `Slab::modes`, at 200 thicknesses |
+| `strip-fields` | `width` nm (500), `thickness` nm (220), `wavelength` µm (1.55), `mode` (1) | `mode::vector::modes` on the four quarters of `StripWaveguide::cross_section` (10 nm cells), `VectorMode::fields`: $\lvert E_x \rvert$, $\lvert E_y \rvert$ and $\lvert E_z \rvert$ of the chosen guided mode as pictures |
+| `strip-neff` | `thickness` nm (220), `wavelength` µm (1.55), `width` nm (500) | the same at 41 widths from 200 to 1200 nm (20 nm cells), `VectorMode::is_guided`; TE₁'s cutoff bisected to a nanometre |
+| `strip-models` | `thickness` nm (220), `wavelength` µm (1.55), `width` nm (500) | `mode::hadley::modes` on `StripWaveguide::cross_section` (20 nm cells), `Ridge::mode`, `Rectangle::mode` and `closed_form`, and the device's analytic fit, at 16 widths from 250 to 1000 nm |
+| `strip-corners` | `width` nm (500), `thickness` nm (220) | `mode::vector::modes` and `mode::hadley::modes` on `StripWaveguide::cross_section` at 11 grids from 40 to 10 nm, Richardson's extrapolation of Hadley's at its fitted order |
+| `strip-group-index` | `thickness` nm (220), `wavelength` µm (1.55), `width` nm (500) | `StripWaveguide::dispersion` at its 3D fidelity (20 nm cells) at 13 widths from 300 to 900 nm, the effective index method's $n_g$, `Material::group_index` |
 
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
 to them. A chart may draw its y axis on a logarithmic scale (`y_log`), and give curves that belong
 together one colour (`colour`, as the slab's charts give a TE and a TM mode of one order). The
 slab's charts are exact and take tens of milliseconds, so they redraw as a slider moves. The coupler's charts solve
 modes, a tenth of a second to a second each; their solves are cached, so moving a slider that
-changes no geometry redraws at once.
+changes no geometry redraws at once. The strip's charts (`charts/strip.rs`) solve the strip
+waveguide device's own cross-section, so a lesson and the device's page can't disagree: one to
+five seconds for a sweep, cached likewise, their width marker moving along the sweep's own widths.
+A chart may draw pictures of a field over a cross-section in place of curves (`maps`), side by
+side with one colour scale, as `strip-fields` does.
 
 ## Checks
 
@@ -243,6 +254,8 @@ changes no geometry redraws at once.
 - shares its file's name with a method's write-up, so a link to it would be ambiguous;
 - names an example, job, circuit, method write-up, validation case, diagram, chart or lesson that
   doesn't exist, or a block names one its front matter doesn't list;
+- opens a device (`::device`) that isn't in the component library, or whose page names another
+  lesson as its own;
 - is written and has no diagram, or a chart before its first diagram, or a diagram whose 3D view is
   of a job its front matter doesn't list;
 - has a chart block with an unknown parameter or a value outside its range;

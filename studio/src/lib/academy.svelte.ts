@@ -2,6 +2,7 @@
 // the page remembers between visits: the lesson open, how deep it reads, and the sections opened.
 
 import { api } from "./api";
+import type { Raster } from "./events";
 
 export type Level = "introductory" | "intermediate" | "advanced";
 export type Role = "origin" | "milestone" | "review" | "current";
@@ -24,7 +25,8 @@ export type LessonBlock =
   | { kind: "example"; name: string }
   | { kind: "validation"; cases: string[] }
   | { kind: "timeline" }
-  | { kind: "answer"; markdown: string };
+  | { kind: "answer"; markdown: string }
+  | { kind: "device"; device: string };
 
 /** A section still to be written: what it will answer, and the examples it will use. */
 export interface Coming {
@@ -129,6 +131,8 @@ export interface ChartData {
   marker: number | null;
   figures: ChartFigure[];
   note: string;
+  /** Pictures of a field over a cross-section, drawn side by side in place of the curves when there are any. */
+  maps: { label: string; raster: Raster; outline: [number, number][][] }[];
 }
 
 /** A lesson's device drawn (studio/src-tauri/src/diagrams.rs; the drawings in components/diagrams). */

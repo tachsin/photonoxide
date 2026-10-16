@@ -344,6 +344,7 @@ pub fn supermodes(gap: f64, l: f64) -> photonoxide::Result<ChartData> {
         ),
     ];
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "across the pair, x".to_owned(),
         x_length: true,
         y_label: "H_y at mid-height (largest 1)".to_owned(),
@@ -395,6 +396,7 @@ pub fn power(gap: f64, l: f64, length: f64) -> photonoxide::Result<ChartData> {
         figure("Through at $L$", t, 4, "", "$\\cos^2 \\kappa L$"),
     ];
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "along the coupler, z".to_owned(),
         x_length: true,
         y_label: "power (share of input)".to_owned(),
@@ -505,6 +507,7 @@ pub fn gap_chart(l: f64) -> photonoxide::Result<ChartData> {
         ),
     ];
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "gap g (nm)".to_owned(),
         x_length: false,
         y_label: "cross-over length L_c (µm)".to_owned(),
@@ -596,6 +599,7 @@ pub fn spectrum(gap: f64, share: f64) -> photonoxide::Result<ChartData> {
         figure("$L_c$ at 1.60 µm", at_edges(hi)?, 4, "µm", ""),
     ];
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "wavelength".to_owned(),
         x_length: true,
         y_label: "power (share of input)".to_owned(),
@@ -806,6 +810,7 @@ pub fn mismatch(other_nm: f64, gap_nm: f64) -> photonoxide::Result<ChartData> {
         figure("At $z = \\pi / 2S$", lc, 4, "µm", "where it peaks"),
     ];
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "along the coupler, z".to_owned(),
         x_length: true,
         y_label: "power (share of input)".to_owned(),

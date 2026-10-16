@@ -112,6 +112,25 @@ pub fn specs() -> Vec<DiagramSpec> {
                          cladding, unetched, so that across it the structure is a slab. Drag to \
                          turn it.",
         },
+        DiagramSpec {
+            id: "strip",
+            title: "A strip waveguide, in section",
+            caption: "A core of index $n_1$, $w$ wide and $t$ thick, in a cladding of index \
+                      $n_2$ on a buried oxide $h$ thick over the silicon substrate; light \
+                      travels along $z$, out of the page. The shaded contours are the TE-like \
+                      mode's field, whose main component $E_x$ lies across the width. At the \
+                      four corners, circled, the field's derivatives are singular. Marcatili's \
+                      approximation solves the core and the four regions beside its faces, and \
+                      leaves out the four corner regions, shaded. At the right, the effective \
+                      index method: a slab across the thickness gives an index $N$, and a slab \
+                      of index $N$ and width $w$ in the cladding gives the mode's $n_\\text{eff}$. \
+                      Not to scale.",
+            job: Some("strip-modes.toml"),
+            caption_3d: "The strip of jobs/strip-modes.toml as photonoxide's geometry builds it: \
+                         a silicon strip 500 nm wide and 220 nm thick on the buried oxide of an \
+                         SOI wafer, under an oxide cladding. Run, the job solves its modes and \
+                         their indices from 1.5 to 1.6 µm. Drag to turn it.",
+        },
     ]
 }
 

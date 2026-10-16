@@ -9,6 +9,7 @@ import Coupler from "./Coupler.svelte";
 import Mzi from "./Mzi.svelte";
 import Ring from "./Ring.svelte";
 import Slab from "./Slab.svelte";
+import Strip from "./Strip.svelte";
 
 export const DRAWINGS: Record<string, Component> = {
   "bragg": Bragg,
@@ -16,4 +17,5 @@ export const DRAWINGS: Record<string, Component> = {
   "mzi": Mzi,
   "ring": Ring,
   "slab": Slab,
+  "strip": Strip,
 };

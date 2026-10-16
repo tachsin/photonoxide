@@ -8,8 +8,10 @@
   import { unitName, type ChartData, type ChartParam, type ChartSpec } from "../lib/academy.svelte";
   import { api } from "../lib/api";
   import { SERIES, type Series } from "../lib/plot";
+  import { len, unitText } from "../lib/units";
   import MathText from "./MathText.svelte";
   import Plot from "./Plot.svelte";
+  import RasterView from "./RasterView.svelte";
 
   let { spec, initial = {} }: { spec: ChartSpec; initial?: Record<string, number> } = $props();
 
@@ -75,7 +77,23 @@
   </div>
 
   <div class="px-3 pt-3 sm:px-4">
-    {#if data}
+    {#if data && data.maps.length}
+      <!-- pictures of a field, side by side, sharing one colour scale -->
+      <div class="@container">
+        <div class="mx-auto grid max-w-md gap-3 @xl:max-w-none @xl:grid-cols-3">
+          {#each data.maps as m (m.label)}
+            <div class="min-w-0">
+              <p class="mb-1 text-xs leading-snug muted"><MathText text={m.label} /></p>
+              <RasterView raster={m.raster} kind="intensity" quantity="of the scale's top" bare maxHeight={220} outline={{ shapes: m.outline, interfaces: [] }} />
+            </div>
+          {/each}
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 py-1 text-[11px] faint">
+        <span class="flex items-center gap-1.5">least <span class="inline-block h-2 w-24 rounded-sm border border-base-content/10" style="background: linear-gradient(to right, rgb(0,0,4), rgb(120,28,109), rgb(237,105,37), rgb(252,255,164))"></span> brightest</span>
+        <span>{data.x_label} from {len(data.maps[0].raster.x0, 2, true)} to {len(data.maps[0].raster.x1, 2, true)} {unitText()}; {data.y_label} from {len(data.maps[0].raster.y0, 2, true)} to {len(data.maps[0].raster.y1, 2, true)} {unitText()}</span>
+      </div>
+    {:else if data}
       <Plot
         {series}
         xLabel={data.x_label}

@@ -169,6 +169,8 @@ pub enum Block {
     Timeline,
     /// `:::answer` ... `:::`: Markdown hidden until asked for.
     Answer { markdown: String },
+    /// `::device <id>`: a device this lesson teaches (crate::devices), to open on its page.
+    Device { device: String },
 }
 
 /// A section still to be written (`::coming <example> ...` under its heading, then one
@@ -546,8 +548,11 @@ fn block(directive: &str) -> Result<Block, String> {
                 .collect(),
         }),
         "timeline" if rest.is_empty() => Ok(Block::Timeline),
+        "device" if !rest.is_empty() && !rest.contains(' ') => Ok(Block::Device {
+            device: rest.to_owned(),
+        }),
         _ => Err(format!(
-            "::{directive} isn't a block: ::diagram <id>, ::chart <id>{{...}}, ::example <name>, ::validation <id> ..., ::timeline, ::coming <example> ..."
+            "::{directive} isn't a block: ::diagram <id>, ::chart <id>{{...}}, ::example <name>, ::validation <id> ..., ::device <id>, ::timeline, ::coming <example> ..."
         )),
     }
 }
@@ -859,6 +864,18 @@ mod tests {
                             );
                         }
                     }
+                    // a device it opens: one of the library's, whose page names this lesson
+                    Block::Device { device } => {
+                        let entry = crate::devices::DEVICES
+                            .iter()
+                            .find(|d| d.1 == device)
+                            .unwrap_or_else(|| panic!("{}: no device {device}", l.id));
+                        assert_eq!(
+                            entry.2, l.id,
+                            "{}: the device {device}'s lesson is {}",
+                            l.id, entry.2
+                        );
+                    }
                     _ => {}
                 }
             }
@@ -1020,6 +1037,13 @@ mod tests {
                 name: "ring_q_factor".to_owned()
             }
         );
+        let with_device = text.replace("::timeline\n", "::timeline\n::device ring-all-pass\n");
+        assert_eq!(
+            parse("x.md", &with_device).unwrap().sections[2].blocks[1],
+            Block::Device {
+                device: "ring-all-pass".to_owned()
+            }
+        );
 
         let broken = |body: &str| parse("x.md", &text.replace("::timeline\n", body)).is_err();
         assert!(broken("::chart no-such{}\n"));
@@ -1034,6 +1058,7 @@ mod tests {
         );
         assert!(broken("::chart ring-spectrum{colour=red}\n"));
         assert!(broken("::graph x\n"));
+        assert!(broken("::device\n"), "a device without its id");
         assert!(broken(":::answer\nnever closed\n"));
         assert!(broken(":::\n"));
         assert!(broken("## Deep {deeper}\n"));

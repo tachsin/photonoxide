@@ -259,6 +259,7 @@ pub fn bv(core: f64, cover: f64) -> photonoxide::Result<ChartData> {
         ),
     ];
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "normalized frequency V".to_owned(),
         x_length: false,
         y_label: "normalized index b".to_owned(),
@@ -418,6 +419,7 @@ pub fn fields(d_nm: f64, l: f64, cover: f64) -> photonoxide::Result<ChartData> {
         ));
     }
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "height above the substrate x".to_owned(),
         x_length: true,
         y_label: "field, scaled to its peak".to_owned(),
@@ -484,6 +486,7 @@ pub fn neff(core: f64, cover: f64, l: f64) -> photonoxide::Result<ChartData> {
     ];
     let pad = 0.03 * (core - OXIDE);
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "film thickness d".to_owned(),
         x_length: true,
         y_label: "effective index n_eff".to_owned(),
@@ -578,6 +581,7 @@ pub fn confinement(core: f64, cover: f64, l: f64, at_nm: f64) -> photonoxide::Re
         }
     }
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "film thickness d".to_owned(),
         x_length: true,
         y_label: "share of the power in the film, Γ".to_owned(),

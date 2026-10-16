@@ -4,7 +4,7 @@
   // lesson's Markdown with KaTeX; its charts, examples, validation cases and timeline are blocks.
   import "katex/dist/katex.min.css";
 
-  import { ArrowLeft, BookOpen, ChevronDown, CircleCheck, CircleX, CircuitBoard, Clock, Eye, ListOrdered, Play, ShieldCheck, SquarePen, TableOfContents } from "@lucide/svelte";
+  import { ArrowLeft, BookOpen, Boxes, ChevronDown, ChevronRight, CircleCheck, CircleX, CircuitBoard, Clock, Eye, ListOrdered, Play, ShieldCheck, SquarePen, TableOfContents } from "@lucide/svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
 
   import { academy, DEPTHS, numbered, type ChartSpec, type DiagramSpec, type Depth, type Lesson, type LessonSection } from "../lib/academy.svelte";
@@ -12,6 +12,7 @@
   import { openCustom, showCases, showPublished, toast } from "../lib/app.svelte";
   import { catalog, jobExample, loadCatalog } from "../lib/catalog.svelte";
   import { showChip } from "../lib/chip.svelte";
+  import { deviceOf, devices, loadDevices, openDevice } from "../lib/device.svelte";
   import { methodHtml, type MethodDoc } from "../lib/methods";
   import { startTask } from "../lib/tasks.svelte";
   import LessonChart from "./LessonChart.svelte";
@@ -114,11 +115,18 @@
     showChip(c.chip, null);
   }
 
+  // the devices this lesson teaches: those whose page names it as their lesson
+  loadDevices();
+  const taught = $derived(devices.list.filter((d) => d.lesson === lesson.id));
+  /** A device's name as a heading reads: "The rib waveguide". */
+  const deviceName = (kind: string) => `The ${kind === "waveguide" ? "strip waveguide" : kind}`;
+
   const methodDocs = $derived(lesson.methods.map((m) => docs.find((d) => d.file === m)).filter((d): d is MethodDoc => !!d));
 
   /** The menus of the lesson's header: what it runs and opens. */
   const actions = $derived([
     { label: "Run the example", icon: Play, primary: true, items: lesson.examples.map((e) => ({ label: exampleTitle(e), run: () => runExample(e) })) },
+    { label: "Open the device", icon: Boxes, primary: false, items: taught.map((d) => ({ label: deviceName(d.kind), run: () => openDevice(d.id) })) },
     { label: "Open in the Custom device", icon: SquarePen, primary: false, items: lesson.jobs.map((j) => ({ label: jobExample(j)?.name ?? j, run: () => openJob(j) })) },
     { label: "Open on the chip", icon: CircuitBoard, primary: false, items: lesson.circuits.map((c) => ({ label: circuits.find((x) => x.file === c)?.chip.name ?? c, run: () => openCircuit(c) })) },
     { label: "The methods", icon: BookOpen, primary: false, items: methodDocs.map((d) => ({ label: d.title, run: () => ondoc(d) })) },
@@ -317,6 +325,19 @@
                       <ShieldCheck size={12} /> From the validation report as this release published it; run it on the Validation page
                     </button>
                   </div>
+                {:else if b.kind === "device"}
+                  {@const d = deviceOf(b.device)}
+                  {#if d}
+                    <button class="panel my-6 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-base-content/3" onclick={() => openDevice(d.id)}>
+                      <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Boxes size={16} /></span>
+                      <span class="min-w-0 flex-1">
+                        <span class="block text-sm font-semibold">{deviceName(d.kind)}</span>
+                        <span class="mt-0.5 block text-xs leading-relaxed muted">{d.about}</span>
+                        <span class="mt-1 block text-[11px] faint">Its models: {d.fidelities.map((f) => f.fidelity).join(", ")}</span>
+                      </span>
+                      <span class="flex shrink-0 items-center gap-1 text-xs font-medium text-primary">Open the device <ChevronRight size={14} /></span>
+                    </button>
+                  {/if}
                 {:else if b.kind === "timeline"}
                   <PaperTimeline papers={lesson.papers} />
                 {:else if b.kind === "answer"}

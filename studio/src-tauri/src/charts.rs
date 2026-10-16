@@ -26,6 +26,7 @@ use serde::Serialize;
 
 mod coupler;
 mod slab;
+mod strip;
 
 /// A chart's parameter: what a slider sets.
 #[derive(Serialize, Clone, Debug)]
@@ -99,6 +100,20 @@ pub struct ChartData {
     pub figures: Vec<Figure>,
     /// What the curves are, in a sentence: the grid, or "exact".
     pub note: String,
+    /// Pictures of a field over a cross-section, drawn side by side in place of the curves
+    /// when there are any.
+    pub maps: Vec<FieldMap>,
+}
+
+/// A picture of a field over a cross-section.
+#[derive(Serialize, Clone, Debug)]
+pub struct FieldMap {
+    /// Its name; may hold TeX between dollars.
+    pub label: String,
+    /// Its cells, each value from 0 to 1.
+    pub raster: photonoxide::raster::Raster,
+    /// The structure's edges to draw over it, each a closed line, µm.
+    pub outline: Vec<Vec<[f64; 2]>>,
 }
 
 /// A parameter, its range and default as `(min, max, default)`.
@@ -661,7 +676,117 @@ pub fn specs() -> Vec<ChartSpec> {
                 slab_thickness((10.0, 1500.0, 220.0)),
             ],
         },
+        ChartSpec {
+            id: "strip-fields",
+            title: "A strip's mode, field by field",
+            about: "A silicon strip in oxide, one of its guided modes: the size of each component of its electric field across the cross-section. A TE-like mode's main field is E_x, across the width; E_y and E_z, which a slab's TE mode doesn't have, gather at the sidewalls and the corners.",
+            computed_by: "mode::vector::modes and VectorMode::fields, on device::StripWaveguide::cross_section's quarter with each pair of mirror walls",
+            params: vec![
+                strip_width((200.0, 1500.0, 500.0), 10.0),
+                strip_thickness(),
+                strip_wavelength(),
+                param(
+                    "mode",
+                    "Mode, by index",
+                    "",
+                    (1.0, 6.0, 1.0),
+                    1.0,
+                    false,
+                    "Which guided mode: 1 has the highest effective index. Past the last mode the chart shows the last.",
+                ),
+            ],
+        },
+        ChartSpec {
+            id: "strip-neff",
+            title: "A strip's modes against its width",
+            about: "Every guided mode of a silicon strip in oxide (of the first order up the height) as the strip widens: TE-like solid, TM-like dashed, the same colour for the same order across the width. Each starts at the oxide's index, its cutoff.",
+            computed_by: "mode::vector::modes on device::StripWaveguide::cross_section's quarter with each pair of mirror walls, VectorMode::is_guided",
+            params: vec![
+                strip_thickness(),
+                strip_wavelength(),
+                strip_width((200.0, 1200.0, 500.0), 50.0),
+            ],
+        },
+        ChartSpec {
+            id: "strip-models",
+            title: "The effective index method and Marcatili against the full-vector mode",
+            about: "The TE-like mode's effective index of a silicon strip in oxide against its width, by the full-vector solver and by the approximations a strip is designed with, all on the same indices; the figures give each one's error at the marked width.",
+            computed_by: "mode::hadley::modes on device::StripWaveguide::cross_section, mode::eim::Ridge::mode, mode::marcatili::Rectangle::mode and closed_form, and the device's analytic fit",
+            params: vec![
+                strip_thickness(),
+                strip_wavelength(),
+                strip_width((250.0, 1000.0, 500.0), 50.0),
+            ],
+        },
+        ChartSpec {
+            id: "strip-corners",
+            title: "The strip's index against the grid",
+            about: "A strip's TE-like effective index on finer and finer cells, by the standard finite-difference scheme and by Hadley's equations, which treat the corners exactly: how fast each approaches the cross-section's true index.",
+            computed_by: "mode::vector::modes and mode::hadley::modes on device::StripWaveguide::cross_section at seven grids",
+            params: vec![
+                strip_width((300.0, 800.0, 500.0), 10.0),
+                param(
+                    "thickness",
+                    "Thickness $t$",
+                    "nm",
+                    (150.0, 300.0, 220.0),
+                    10.0,
+                    false,
+                    "The silicon layer's thickness.",
+                ),
+            ],
+        },
+        ChartSpec {
+            id: "strip-group-index",
+            title: "The group index against the width",
+            about: "The TE-like mode's group index n_g of a silicon strip in oxide, and its effective index, as the strip widens, with the materials' dispersion; beside them the effective index method's n_g, the device's analytic fit and bulk silicon's own group index.",
+            computed_by: "device::StripWaveguide::dispersion at its 3D fidelity (Dispersion::from_hadley), mode::eim::Ridge::mode, material::Material::group_index",
+            params: vec![
+                strip_thickness(),
+                strip_wavelength(),
+                strip_width((300.0, 900.0, 500.0), 50.0),
+            ],
+        },
     ]
+}
+
+/// A strip chart's width, nm: `(min, max, default)`, and the slider's step.
+const fn strip_width(range: (f64, f64, f64), step: f64) -> Param {
+    param(
+        "width",
+        "Width $w$",
+        "nm",
+        range,
+        step,
+        false,
+        "The strip's width.",
+    )
+}
+
+/// A strip chart's thickness, nm: 150 to 260, where the strip has one order up its height.
+const fn strip_thickness() -> Param {
+    param(
+        "thickness",
+        "Thickness $t$",
+        "nm",
+        (150.0, 260.0, 220.0),
+        10.0,
+        false,
+        "The silicon layer's thickness: 220 nm is the standard SOI wafer's.",
+    )
+}
+
+/// A strip chart's wavelength, µm.
+const fn strip_wavelength() -> Param {
+    param(
+        "wavelength",
+        "Wavelength $\\lambda$",
+        "um",
+        (1.3, 1.7, 1.55),
+        0.01,
+        false,
+        "The vacuum wavelength; the materials' indices follow it.",
+    )
 }
 
 /// A slab chart's film index n₂.
@@ -897,6 +1022,16 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
         "slab-confinement" => {
             slab::confinement(at("core"), at("cover"), at("wavelength"), at("thickness"))
         }
+        "strip-fields" => strip::fields(
+            at("width"),
+            at("thickness"),
+            at("wavelength"),
+            at("mode") as usize,
+        ),
+        "strip-neff" => strip::neff(at("thickness"), at("wavelength"), at("width")),
+        "strip-models" => strip::models(at("thickness"), at("wavelength"), at("width")),
+        "strip-corners" => strip::corners(at("width"), at("thickness")),
+        "strip-group-index" => strip::group_index(at("thickness"), at("wavelength"), at("width")),
         _ => return Err(format!("chart {id} has no function")),
     };
     result.map_err(|e| format!("{id}: {e}"))
@@ -1223,6 +1358,7 @@ fn ring_spectrum(
         ));
     }
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "wavelength".to_owned(),
         x_length: true,
         y_label: "power (share of input)".to_owned(),
@@ -1279,6 +1415,7 @@ fn ring_coupling(radius: f64, loss: f64, drop: f64) -> photonoxide::Result<Chart
     });
     let at_critical = ring.q_factor(w, &ring.values(length, crit, drop))?;
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "input coupling κ₁²".to_owned(),
         x_length: false,
         y_label: "share".to_owned(),
@@ -1445,6 +1582,7 @@ fn ring_extinction(
         }),
     }
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "coupling over round-trip loss, κ₁²/κc²".to_owned(),
         x_length: false,
         y_label: "through extinction (dB)".to_owned(),
@@ -1590,6 +1728,7 @@ fn ring_q_length(loss: f64, fixed: f64, group_index: f64) -> photonoxide::Result
     }
     let long = PI * group_index / (RING_CENTRE * 2.0 * guide.propagation(w).im);
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "round trip L (mm)".to_owned(),
         x_length: false,
         y_label: "Q / 10⁵".to_owned(),
@@ -1785,6 +1924,7 @@ fn ring_identify(radius: f64, coupling: f64, loss: f64) -> photonoxide::Result<C
     };
     let crit = 1.0 - a * a;
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "detuning from resonance (pm)".to_owned(),
         x_length: false,
         y_label: "through power, and its phase / π".to_owned(),
@@ -1922,6 +2062,7 @@ fn bragg_reflectance(s: &Stack, (from, to): (f64, f64)) -> photonoxide::Result<C
     let width = bloch_band(s.high, s.low)?;
     let (short, long) = (bragg / (1.0 + width / 2.0), bragg / (1.0 - width / 2.0));
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "wavelength".to_owned(),
         x_length: true,
         y_label: "reflectance R".to_owned(),
@@ -2059,6 +2200,7 @@ fn bragg_bandwidth(low: f64, up_to: f64) -> photonoxide::Result<ChartData> {
         ),
     ];
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "index contrast Δn = nH − nL".to_owned(),
         x_length: false,
         y_label: "stop band (% of centre frequency)".to_owned(),
@@ -2356,6 +2498,7 @@ fn mzi_spectrum(m: &Mzi, window_nm: f64) -> photonoxide::Result<ChartData> {
         }
     });
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "wavelength".to_owned(),
         x_length: true,
         y_label: "power (share of input)".to_owned(),
@@ -2456,6 +2599,7 @@ fn mzi_extinction(combine: f64, loss: f64, delta: f64) -> photonoxide::Result<Ch
         extinction_figure("Cross, a 55:45 splitter", at(0.55)?[1]),
     ];
     Ok(ChartData {
+        maps: Vec::new(),
         x_label: "splitter κ₁²".to_owned(),
         x_length: false,
         y_label: "extinction (dB)".to_owned(),
@@ -2538,12 +2682,28 @@ mod tests {
             }
             let data = evaluate(s.id, &none()).unwrap();
             assert!(
-                !data.series.is_empty() && !data.figures.is_empty(),
+                (!data.series.is_empty() || !data.maps.is_empty()) && !data.figures.is_empty(),
+                "{}",
+                s.id
+            );
+            for m in &data.maps {
+                let r = &m.raster;
+                assert!(
+                    r.nx > 10 && r.ny > 10 && r.values.len() == r.nx * r.ny,
+                    "{}: {}",
+                    s.id,
+                    m.label
+                );
+            }
+            // a curve, the chart's longest drawn through more than ten points; a mode's curve may
+            // start at its cutoff near the range's end, with only a few
+            assert!(
+                data.series.is_empty() || data.series.iter().any(|c| c.points.len() > 10),
                 "{}",
                 s.id
             );
             for c in &data.series {
-                assert!(c.points.len() > 10, "{}: {}", s.id, c.label);
+                assert!(c.points.len() >= 2, "{}: {}", s.id, c.label);
                 assert!(
                     c.points
                         .iter()
