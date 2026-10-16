@@ -157,7 +157,7 @@
     constraints: op.constraints,
   });
   const compute = $derived({ ...$state.snapshot(draft.compute), fdtd: null, fdfd_2d: rung.fdfd2d, band: op.band, timeout_minutes: op.timeout_minutes });
-  const jobName = $derived(`${draft.name ?? info.id}-optimize-${op.objectives.map((o) => o.name ?? "custom").join("-")}`.toLowerCase().replace(/[^a-z0-9._-]+/g, "-"));
+  const jobName = $derived((draft.name && /optimi[sz]/.test(draft.name) ? draft.name : `${draft.name ?? info.id}-optimize-${op.objectives.map((o) => o.name ?? "custom").join("-")}`).toLowerCase().replace(/[^a-z0-9._-]+/g, "-"));
   let made = $state<{ key: string; text: string; problem: string }>({ key: "", text: "", problem: "" });
   const madeKey = $derived(JSON.stringify([designKey, compute, optimize, jobName, rung.key]));
   $effect(() => {
@@ -361,7 +361,7 @@
         {#if param(v.parameter)}
           {@const p = param(v.parameter)!}
           <p class="text-[11px] {outside(v) ? 'text-warning' : 'faint'}">
-            starts at the design's {p.unit === "µm" ? `${inUnit(p.value)} ${unitText()}` : `${p.value}${p.unit ? ` ${p.unit}` : ""}`}{outside(v) ? ", outside these bounds: widen them" : ""}{Number.isFinite(p.min) ? `; it takes ${p.unit === "µm" ? `${inUnit(p.min)} to ${inUnit(p.max)} ${unitText()}` : `${p.min} to ${p.max}${p.unit ? ` ${p.unit}` : ""}`}` : ""}
+            starts at the design's {p.unit === "µm" ? `${r6(inUnit(p.value))} ${unitText()}` : `${r6(p.value)}${p.unit ? ` ${p.unit}` : ""}`}{outside(v) ? ", outside these bounds: widen them" : ""}{Number.isFinite(p.min) ? `; it takes ${p.unit === "µm" ? `${inUnit(p.min)} to ${inUnit(p.max)} ${unitText()}` : `${p.min} to ${p.max}${p.unit ? ` ${p.unit}` : ""}`}` : ""}
           </p>
         {/if}
       {/each}

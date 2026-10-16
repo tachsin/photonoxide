@@ -96,7 +96,10 @@ export function costText(r: OptimizeRecord, k = 0): string {
   if (!o) return "";
   const what = o.symbol.startsWith("objective") ? o.expression : o.symbol;
   const reduced = o.reduce === "spread" ? `the spread of ${what}` : o.reduce === "average" ? `${what}, averaged` : what;
-  const over = r.optimization.wavelengths_um.length > 1 || r.optimization.corners.length ? (o.reduce === "worst" ? ", worst over the band and corners" : "") : "";
+  const band = r.optimization.wavelengths_um.length > 1;
+  const corners = r.optimization.corners.length > 0;
+  const where = band && corners ? "the band and corners" : band ? "the band" : "the corners";
+  const over = (band || corners) && o.reduce === "worst" ? `, worst over ${where}` : "";
   switch (o.aim) {
     case "maximize":
       return `−${reduced}${over}`;

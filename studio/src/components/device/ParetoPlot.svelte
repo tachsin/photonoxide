@@ -32,6 +32,8 @@
   const sorted = $derived([...front].sort((a, b) => a[0] - b[0]));
   const line = $derived(sorted.map((p, k) => `${k ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(" "));
   let hover = $state<[number, number, number] | null>(null);
+  /** A front of many points: smaller marks without an outline, so the curve reads. */
+  const dense = $derived(front.length > 60);
 </script>
 
 <div class="relative w-full" bind:clientWidth={width}>
@@ -55,8 +57,8 @@
       <circle
         cx={X(p[0])}
         cy={Y(p[1])}
-        r={picked === p[2] ? 6 : 4}
-        class="cursor-pointer fill-primary {picked === p[2] ? 'stroke-base-content' : 'stroke-base-100'}"
+        r={picked === p[2] ? 6 : dense ? 2.5 : 4}
+        class="cursor-pointer fill-primary {picked === p[2] ? 'stroke-base-content' : dense ? 'stroke-none' : 'stroke-base-100'}"
         stroke-width="1.5"
         role="button"
         tabindex="-1"

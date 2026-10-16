@@ -59,12 +59,12 @@
   });
 
   // an FDTD run opens on its field in time, which the 2D view plays; a device's model on its
-  // S-parameters and figures. Inside a device's page the view stays on the device, in 3D: the
-  // page's panel has the plots.
+  // S-parameters and figures, an optimization on its convergence. Inside a device's page the view
+  // stays on the device, in 3D: the page's panel has the plots.
   let shownFdtd = -1;
   $effect(() => {
     const g = run.info?.generation ?? -1;
-    if (!embedded && (run.job?.kind === "fdtd" || run.device) && g !== shownFdtd) {
+    if (!embedded && (run.job?.kind === "fdtd" || run.device || run.optimization) && g !== shownFdtd) {
       shownFdtd = g;
       view = "2d";
     }
@@ -324,7 +324,7 @@
           <p class="flex items-center gap-2 faint"><span class="loading loading-dots loading-xs"></span> waiting for the structure…</p>
         {:else}
           <p class="font-medium">{run.job?.job}</p>
-          <p class="text-xs faint">{KINDS[run.job?.kind ?? ""]?.about ?? ""}</p>
+          <p class="text-xs faint">{run.optimization ? `the ${run.optimization.device} optimized by genoxide's ${run.optimization.optimizer}: its convergence, variables and best design below` : (KINDS[run.job?.kind ?? ""]?.about ?? "")}</p>
         {/if}
       </div>
       <div class="absolute right-4 top-4 flex flex-col gap-1">

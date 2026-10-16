@@ -83,12 +83,11 @@
 </script>
 
 <div class="space-y-4">
-  <div class="flex flex-wrap items-center gap-2 text-xs">
+  <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
     <span class="badge badge-sm badge-soft {o.fidelity === 'analytic' ? 'badge-secondary' : 'badge-primary'}">{o.fidelity}</span>
     <span class="font-medium">{o.optimizer}</span>
-    <span class="faint">seed {o.seed}{o.population ? ` · population ${o.population}` : ""}</span>
-    <span class="num faint">{done} of {o.evaluations} evaluations</span>
-    {#if record.evaluations.length}<span class="num faint">· {record.evaluations[record.evaluations.length - 1].solves} models built</span>{/if}
+    <span class="faint">seed {o.seed}{o.population ? `, population ${o.population}` : ""}</span>
+    <span class="faint">{done} of {o.evaluations} evaluations{record.evaluations.length ? `, ${record.evaluations[record.evaluations.length - 1].solves} models built` : ""}</span>
     {#if running}<span class="loading loading-spinner loading-xs text-primary"></span>{/if}
     {#if record.optimum}<span class="badge badge-sm badge-ghost">{stopText(record.optimum.stop)}</span>{/if}
   </div>
@@ -123,7 +122,7 @@
         <p class="py-6 text-center text-xs faint">{running ? "The first generation is coming." : "No feasible evaluation."}</p>
       {/if}
       {#if record.hypervolumes.length > 1}
-        <Plot series={[{ label: "hypervolume", points: record.hypervolumes }]} xLabel="evaluation" yLabel="hypervolume" height={Math.round(height * 0.55)} name="{o.device}-hypervolume" markers={false} />
+        <Plot series={[{ label: "hypervolume", points: record.hypervolumes }]} xLabel="evaluation" yLabel="" height={Math.round(height * 0.55)} name="{o.device}-hypervolume" markers={false} />
         <p class="text-[11px] faint">Of the costs, up to the reference point ({record.front?.reference.map(fmt).join(", ")}) fixed at the first front.</p>
       {/if}
     </section>
@@ -155,7 +154,7 @@
           {/each}
         </tbody>
       </table>
-      {#if design?.geometry?.scene && design.index === shown.index}
+      {#if !onpreview && design?.geometry?.scene && design.index === shown.index}
         <div class="mt-2"><TopView scene={design.geometry.scene} ports={design.geometry.ports} height={150} /></div>
       {/if}
     </section>

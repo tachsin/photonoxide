@@ -479,7 +479,7 @@
     </section>
 
     <aside class="flex min-h-0 min-w-0 flex-col">
-      <div role="tablist" class="tabs tabs-border shrink-0 border-b border-base-content/8 px-3">
+      <div role="tablist" class="tabs tabs-border tabs-sm shrink-0 flex-nowrap overflow-x-auto border-b border-base-content/8 px-3">
         {#each [["design", "Design"], ["overview", "Overview"], ["model", "Model"], ["simulate", "Simulate"], ["study", "Study"], ["optimize", "Optimize"]] as const as [t, label] (t)}
           <button role="tab" class="tab {draft.tab === t ? 'tab-active' : ''}" onclick={() => (draft.tab = t)}>{label}</button>
         {/each}

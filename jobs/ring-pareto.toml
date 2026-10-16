@@ -1,8 +1,10 @@
-# An all-pass ring's trade-off between its loaded Q and its footprint, by genoxide's NSGA-II: its
-# radius from 5 to 30 µm and its gap from 100 to 400 nm (analytic model: 500 x 220 nm strips in
-# oxide, 20 dB/cm), Q made large and the radius small, with the dip at least 10 dB deep. The run
-# grows the Pareto front of the two and its hypervolume as it goes. Opened, it shows on the
-# ring's Optimize tab.
+# An all-pass ring's trade-off between its loaded Q and the depth of its dip, by genoxide's
+# NSGA-II: its gap from 100 to 500 nm and its radius from 5 to 30 µm (analytic model: 500 x
+# 220 nm strips in oxide, 20 dB/cm), both made large, its free spectral range at least 4 nm. The
+# dip is deepest at critical coupling, where the bus takes what a round trip loses, and the Q is
+# then half its intrinsic one; coupled more weakly the Q rises and the dip fills. The run grows
+# the Pareto front of the two, and its hypervolume, as it goes. Opened, it shows on the ring's
+# Optimize tab.
 #   photonoxide run jobs/ring-pareto.toml   (live in the window; --headless for batches)
 name = "ring-pareto"
 timeout_minutes = 5
@@ -22,23 +24,22 @@ evaluations = 1200
 population = 40
 
 [[task.variable]]
+parameter = "gap"
+from = 0.1
+to = 0.5
+
+[[task.variable]]
 parameter = "radius"
 from = 5.0
 to = 30.0
-
-[[task.variable]]
-parameter = "gap"
-from = 0.1
-to = 0.4
 
 [[task.objective]]
 name = "Q"
 goal = "maximize"
 
 [[task.objective]]
-expression = "radius"
-goal = "minimize"
+name = "extinction"
 
 [[task.constraint]]
-name = "extinction"
-at_least = 10.0
+name = "FSR"
+at_least = 4.0

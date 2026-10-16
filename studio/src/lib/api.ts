@@ -254,7 +254,7 @@ export const KINDS: Record<string, { label: string; about: string }> = {
   modes: { label: "Modes", about: "a waveguide's guided modes by the full-vector solver, optionally swept" },
   fdfd: { label: "FDFD", about: "a device seen from above by 2D FDFD with ports: S-parameters and fields" },
   fdtd: { label: "FDTD", about: "a structure stepped in time by FDTD, in 2D or 3D: the field live, spectra and resonances" },
-  device: { label: "Device", about: "a device's design, or its own model at a fidelity: its figures and S-parameters" },
+  device: { label: "Device", about: "a device's design, its own model at a fidelity (its figures and S-parameters), a study of it, or its optimization" },
 };
 
 // The materials catalogue (photonoxide::material::catalogue), as the program serializes it.

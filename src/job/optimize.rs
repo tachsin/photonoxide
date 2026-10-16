@@ -1380,7 +1380,8 @@ impl Problem {
             solves: point.solves,
             error: None,
         };
-        e.violation = e.constraints.iter().map(|g| g.max(0.0)).sum();
+        // (+ 0.0: an empty sum is −0.0, which a record would keep)
+        e.violation = e.constraints.iter().map(|g| g.max(0.0)).sum::<f64>() + 0.0;
         if let Some(bad) = e
             .costs
             .iter()
