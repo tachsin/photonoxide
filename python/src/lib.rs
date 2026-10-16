@@ -435,11 +435,13 @@ fn design(
     values: Vec<(String, f64)>,
     fidelity: Option<String>,
     stack: Option<String>,
+    compact: Option<PathBuf>,
 ) -> DeviceDesign {
     let mut d = DeviceDesign::new(kind);
     d.values = values;
     d.fidelity = fidelity;
     d.stack = stack;
+    d.compact = compact;
     d
 }
 
@@ -501,17 +503,18 @@ fn devices(py: Python<'_>) -> PyResult<Bound<'_, PyList>> {
 
 /// A device's S-parameters at its fidelity, a dict with S as an `(nλ, n, n)` array.
 #[pyfunction]
-#[pyo3(signature = (kind, values, fidelity, stack, wavelength_um))]
+#[pyo3(signature = (kind, values, fidelity, stack, compact, wavelength_um))]
 fn device_spectrum<'py>(
     py: Python<'py>,
     kind: &str,
     values: Vec<(String, f64)>,
     fidelity: Option<String>,
     stack: Option<String>,
+    compact: Option<PathBuf>,
     wavelength_um: PyReadonlyArray1<'py, f64>,
 ) -> PyResult<Bound<'py, PyDict>> {
     let w = vector(&wavelength_um);
-    let d = design(kind, values, fidelity, stack);
+    let d = design(kind, values, fidelity, stack, compact);
     let s = py.detach(|| facade::device_spectrum(&d, &w)).fail(py)?;
     let (k, n) = (s.wavelength_um.len(), s.ports.len());
     let out = PyDict::new(py);
@@ -527,15 +530,16 @@ fn device_spectrum<'py>(
 
 /// A device's figures at its fidelity, each a dict.
 #[pyfunction]
-#[pyo3(signature = (kind, values, fidelity, stack))]
+#[pyo3(signature = (kind, values, fidelity, stack, compact))]
 fn device_derived<'py>(
     py: Python<'py>,
     kind: &str,
     values: Vec<(String, f64)>,
     fidelity: Option<String>,
     stack: Option<String>,
+    compact: Option<PathBuf>,
 ) -> PyResult<Bound<'py, PyList>> {
-    let d = design(kind, values, fidelity, stack);
+    let d = design(kind, values, fidelity, stack, compact);
     let figures = py.detach(|| facade::device_derived(&d)).fail(py)?;
     let list = PyList::empty(py);
     for f in figures {
@@ -568,7 +572,7 @@ fn device_geometry<'py>(
     values: Vec<(String, f64)>,
     stack: Option<String>,
 ) -> PyResult<Bound<'py, PyDict>> {
-    let d = design(kind, values, None, stack);
+    let d = design(kind, values, None, stack, None);
     let g = py.detach(|| facade::device_geometry(&d)).fail(py)?;
     let layers = PyList::empty(py);
     for l in &g.layers {
@@ -613,17 +617,19 @@ fn device_geometry<'py>(
 
 /// The job file that computes a device's design, as text in a format.
 #[pyfunction]
-#[pyo3(signature = (kind, values, fidelity, stack, name, format))]
+#[pyo3(signature = (kind, values, fidelity, stack, compact, name, format))]
+#[allow(clippy::too_many_arguments)] // the design's fields, one for one
 fn device_job(
     py: Python<'_>,
     kind: &str,
     values: Vec<(String, f64)>,
     fidelity: Option<String>,
     stack: Option<String>,
+    compact: Option<PathBuf>,
     name: &str,
     format: &str,
 ) -> PyResult<String> {
-    let d = design(kind, values, fidelity, stack);
+    let d = design(kind, values, fidelity, stack, compact);
     py.detach(|| facade::device_job(&d, name, format)).fail(py)
 }
 

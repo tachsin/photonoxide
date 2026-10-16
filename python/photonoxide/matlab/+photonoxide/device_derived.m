@@ -4,7 +4,7 @@ function f = device_derived(kind, options)
 %   its defaults by its cheapest model: f(k).name, f(k).symbol (e.g. "n_eff"), f(k).value,
 %   f(k).unit, f(k).fidelity and f(k).grid.
 %
-%   Options: values, fidelity and stack, as photonoxide.device_spectrum takes them.
+%   Options: values, fidelity, stack and compact, as photonoxide.device_spectrum takes them.
 arguments
     kind (1,1) string
     options.values (1,1) struct = struct()
@@ -12,5 +12,5 @@ arguments
     options.stack (1,1) string = ""
 end
 f = jsondecode(char(call(@() py.photonoxide.matlab.device_derived(kind, ...
-    jsonencode(options.values), options.fidelity, options.stack))));
+    jsonencode(options.values), options.fidelity, options.stack, options.compact))));
 end

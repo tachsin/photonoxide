@@ -79,6 +79,7 @@ def device_spectrum(
     values: list[tuple[str, float]],
     fidelity: str | None,
     stack: str | None,
+    compact: str | None,
     wavelength_um: npt.NDArray[np.float64],
 ) -> dict[str, Any]: ...
 def device_derived(
@@ -86,6 +87,7 @@ def device_derived(
     values: list[tuple[str, float]],
     fidelity: str | None,
     stack: str | None,
+    compact: str | None,
 ) -> list[dict[str, Any]]: ...
 def device_geometry(
     kind: str,
@@ -97,6 +99,7 @@ def device_job(
     values: list[tuple[str, float]],
     fidelity: str | None,
     stack: str | None,
+    compact: str | None,
     name: str,
     format: str,
 ) -> str: ...

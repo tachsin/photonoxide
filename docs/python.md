@@ -126,7 +126,9 @@ The devices are the components of the studio's Components page: a strip or rib w
 bend, a directional coupler, rings, MMIs, a Y-branch and MZIs, each with its parameters, its
 models from a closed form to 3D FDFD, and its ports (`po.devices()` lists them). A design is a
 device's kind, its parameters' values (those not given at their defaults), a fidelity (its
-cheapest when not given) and a stack (220 nm SOI by default, or `"soi"` or `"nitride"`). For
+cheapest when not given), a stack (220 nm SOI by default, or `"soi"` or `"nitride"`), and for
+the compact fidelity the file of a compact model fitted to the device's runs (`compact=`, the
+`compact.json` a `"fit"` job's run writes in its folder). For
 the same design, `device_spectrum` and `device_derived` give the numbers the device's page in
 the studio shows, to the bit, and every number names its fidelity and grid.
 

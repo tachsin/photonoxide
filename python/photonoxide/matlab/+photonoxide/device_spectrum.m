@@ -7,7 +7,8 @@ function s = device_spectrum(kind, wavelength_um, options)
 %   Options: values, a struct of its parameters' values in their units, e.g.
 %   struct("gap", 0.25, "length", 10) (those not given at their defaults); fidelity
 %   ("analytic", "2D", "3D", ... as the device has them); stack ("soi_220", "soi" or
-%   "nitride").
+%   "nitride"); compact, the file of a compact model fitted to its runs (the compact.json a "fit"
+%   job writes), for fidelity "compact".
 %
 %   s.ports are the device's ports, s.wavelength_um the wavelengths, s.s the S-matrices,
 %   nl-by-n-by-n: s.s(k, q, p) from port p into port q at the k-th wavelength; s.fidelity,
@@ -22,7 +23,7 @@ arguments
     options.stack (1,1) string = ""
 end
 r = struct(call(@() py.photonoxide.matlab.device_spectrum(kind, jsonencode(options.values), ...
-    options.fidelity, pylist(wavelength_um), options.stack)));
+    options.fidelity, pylist(wavelength_um), options.stack, options.compact)));
 s.ports = strings(r.ports);
 s.wavelength_um = double(r.wavelength_um);
 s.s = unflat(r.s);

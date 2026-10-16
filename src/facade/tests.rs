@@ -883,3 +883,56 @@ fn a_device_in_a_netlist_names_what_is_wrong() {
     let e = message(r#"{"device": {"kind": "waveguide"}, "loss": "lots"}"#);
     assert!(e.contains("loss"), "{e}");
 }
+
+#[test]
+fn a_compact_model_is_the_designs_compact_fidelity() {
+    let scratch = Scratch::new();
+    let fit = r#"{"name": "facade-fit", "timeout_minutes": 5,
+        "device": {"kind": "all-pass ring", "fidelity": "analytic"},
+        "task": {"kind": "fit", "from_um": 1.54, "to_um": 1.56, "points": 21, "held_out": 2,
+                 "poles": 8, "degree": 2,
+                 "axis": [{"parameter": "gap", "from": 0.15, "to": 0.25, "points": 4}]}}"#;
+    let source = JobSource::Text {
+        text: fit.into(),
+        format: "json".into(),
+    };
+    let file = run_job(&source, &scratch.0, &Stop::new(None))
+        .unwrap()
+        .dir
+        .join("compact.json");
+    let mut d = design("all-pass ring", &[("gap", 0.21)]);
+    d.fidelity = Some("compact".into());
+    d.compact = Some(file.clone());
+    let w = [1.545, 1.55, 1.555];
+    let s = device_spectrum(&d, &w).unwrap();
+    assert_eq!(s.fidelity, "compact");
+    // the library's own: the design naming the file
+    let mut spec = crate::device::Spec::new("all-pass ring");
+    spec.fidelity = crate::circuit::Fidelity::Compact;
+    spec.parameters = vec![("gap".into(), "0.21".into())];
+    spec.compact = Some(file.display().to_string());
+    let (device, design) = spec.build().unwrap();
+    let built = device.component(design.values(), spec.fidelity).unwrap();
+    let n = built.component.ports().len();
+    for (k, &wk) in w.iter().enumerate() {
+        let m = built.s_matrix(Wavelength::um(wk).unwrap()).unwrap();
+        for q in 0..n {
+            for p in 0..n {
+                assert_eq!(bits(s.s[(k * n + q) * n + p]), bits(m[(q, p)]));
+            }
+        }
+    }
+    // close to the closed form it was fitted to, at a gap it wasn't
+    d.fidelity = Some("analytic".into());
+    let exact = device_spectrum(&d, &w).unwrap();
+    let worst =
+        s.s.iter()
+            .zip(&exact.s)
+            .map(|(a, b)| (a - b).norm())
+            .fold(0.0, f64::max);
+    assert!(worst < 1e-3, "{worst}");
+    // a compact fidelity without its file says how to get one
+    d.fidelity = Some("compact".into());
+    d.compact = None;
+    assert!(device_derived(&d).unwrap_err().to_string().contains("fit"));
+}

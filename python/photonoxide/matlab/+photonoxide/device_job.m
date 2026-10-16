@@ -4,7 +4,7 @@ function text = device_job(kind, options)
 %   at its defaults by its cheapest model over its own band, as the device's Simulate tab in
 %   the photonoxide studio writes it. photonoxide.run_job(text) runs it.
 %
-%   Options: values, fidelity and stack, as photonoxide.device_spectrum takes them; name (the
+%   Options: values, fidelity, stack and compact, as photonoxide.device_spectrum takes them; name (the
 %   kind's by default); format ("json", "toml" or "yaml"), the text to save as a job file.
 arguments
     kind (1,1) string
@@ -15,5 +15,5 @@ arguments
     options.format (1,1) string = "json"
 end
 text = string(call(@() py.photonoxide.matlab.device_job(kind, jsonencode(options.values), ...
-    options.fidelity, options.stack, options.name, options.format)));
+    options.fidelity, options.stack, options.name, options.format, options.compact)));
 end

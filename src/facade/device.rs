@@ -1,6 +1,8 @@
 //! Devices: the components that know their geometry ([`crate::device`]), as plain data:
 //! [`devices`], [`device_spectrum`], [`device_derived`], [`device_geometry`] and [`device_job`].
 
+use std::path::PathBuf;
+
 use crate::Complex64 as c64;
 use crate::device::{self, Design, Device, Spec, StackSpec};
 use crate::geometry::{Point, Region, Tolerance};
@@ -89,7 +91,7 @@ pub struct ValidityRange {
 }
 
 /// A device's design as data: the device, its parameters' values, the fidelity it is computed
-/// at, and its stack.
+/// at, its stack, and the file of its compact model if it has one.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct DeviceDesign {
@@ -103,6 +105,10 @@ pub struct DeviceDesign {
     /// Its stack, a preset: `"soi_220"` (the default, when `None`), `"soi"` or `"nitride"`, the
     /// core as thick as the device's `thickness` and 2 µm of oxide under it.
     pub stack: Option<String>,
+    /// The file of a compact model fitted to the device's runs (`compact.json`, which a run of a
+    /// `"fit"` job writes in its folder, [`crate::job::fit_from_device`]): the design then has the
+    /// compact fidelity too, over the ranges the model covers.
+    pub compact: Option<PathBuf>,
 }
 
 impl DeviceDesign {
@@ -113,6 +119,7 @@ impl DeviceDesign {
             values: Vec::new(),
             fidelity: None,
             stack: None,
+            compact: None,
         }
     }
 
@@ -158,6 +165,7 @@ impl DeviceDesign {
         if let Some(stack) = &self.stack {
             spec.stack = StackSpec::preset(stack);
         }
+        spec.compact = self.compact.as_ref().map(|p| p.display().to_string());
         Ok(spec)
     }
 

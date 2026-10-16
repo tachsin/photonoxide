@@ -379,7 +379,7 @@ def devices() -> str:
 
 @_identified
 def device_spectrum(
-    kind: str, values: Any, fidelity: Any, wavelength_um: Any, stack: Any = None
+    kind: str, values: Any, fidelity: Any, wavelength_um: Any, stack: Any = None, compact: Any = None
 ) -> dict[str, Any]:
     """:func:`photonoxide.device_spectrum`, the values as JSON text: ``s`` flat, ``nλ × n × n``,
     and ``validity_um`` empty when the model isn't limited."""
@@ -388,6 +388,7 @@ def device_spectrum(
         values=_design(values),
         fidelity=_option(fidelity),
         stack=_option(stack),
+        compact=_option(compact),
         wavelength_um=_vector(wavelength_um),
     )
     return {
@@ -402,11 +403,17 @@ def device_spectrum(
 
 
 @_identified
-def device_derived(kind: str, values: Any, fidelity: Any, stack: Any = None) -> str:
+def device_derived(
+    kind: str, values: Any, fidelity: Any, stack: Any = None, compact: Any = None
+) -> str:
     """:func:`photonoxide.device_derived` as JSON text, for ``jsondecode``: a struct array of
     the figures."""
     figures = _po.device_derived(
-        str(kind), values=_design(values), fidelity=_option(fidelity), stack=_option(stack)
+        str(kind),
+        values=_design(values),
+        fidelity=_option(fidelity),
+        stack=_option(stack),
+        compact=_option(compact),
     )
     return json.dumps(_plain(figures))
 
@@ -422,7 +429,13 @@ def device_geometry(kind: str, values: Any, stack: Any = None) -> str:
 
 @_identified
 def device_job(
-    kind: str, values: Any, fidelity: Any, stack: Any = None, name: Any = None, format: Any = "json"
+    kind: str,
+    values: Any,
+    fidelity: Any,
+    stack: Any = None,
+    name: Any = None,
+    format: Any = "json",
+    compact: Any = None,
 ) -> str:
     """:func:`photonoxide.device_job`, the job file's text in ``format`` (JSON by default, which
     the ``run_job`` wrapper takes as it is)."""
@@ -431,6 +444,7 @@ def device_job(
         values=_design(values),
         fidelity=_option(fidelity),
         stack=_option(stack),
+        compact=_option(compact),
         name=_option(name),
         format=str(_option(format) or "json"),
     )

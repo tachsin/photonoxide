@@ -82,7 +82,7 @@ same designs give the same numbers in Rust, Python and MATLAB.
 | | Rust | Python | MATLAB | Method |
 |---|---|---|---|---|
 | The library's devices: strip and rib waveguides, bend, directional coupler, rings, MMIs, Y-branch, MZIs, each with its parameters (unit, default, range), models and ports | ✅ | ✅ `devices` | ✅ † | [devices](methods/devices.md) |
-| A design's S-parameters at a fidelity, from a closed form to 3D FDFD, with its model's grid and source | ✅ | ✅ `device_spectrum`: a preset stack (soi_220, soi, nitride); ◐ a stack of the catalogue's layers: a job | ✅ † | [devices](methods/devices.md) |
+| A design's S-parameters at a fidelity, from a closed form to 3D FDFD, with its model's grid and source | ✅ | ✅ `device_spectrum`: a preset stack (soi_220, soi, nitride), and the compact fidelity from a fitted model's file (a `"fit"` job's, run by `run_job`); ◐ a stack of the catalogue's layers: a job | ✅ † | [devices](methods/devices.md) |
 | A design's figures (n_eff, n_g, the cross-over length, FSR, Q, a bend's loss), each with its fidelity and grid | ✅ | ✅ `device_derived` | ✅ † | [devices](methods/devices.md) |
 | A design's geometry: its stack, the polygons on each layer with their etch, its ports | ✅ | ✅ `device_geometry` | ✅ † | [devices](methods/devices.md) |
 | The job that computes a design, as the Simulate tab writes it | ✅ | ✅ `device_job`, run by `run_job` | ✅ † | [devices](methods/devices.md) |

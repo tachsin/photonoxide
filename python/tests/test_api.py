@@ -437,3 +437,24 @@ def test_a_netlist_names_devices_with_their_design() -> None:
     design = {"kind": "directional coupler", "parameters": {"gap": "300 nm"}}
     again = po.circuit_spectrum(instances={"dc": {"device": design}}, ports=ports, wavelength_um=w)
     assert np.array_equal(again.s, s.s)
+
+
+def test_a_compact_model_fitted_by_a_job_is_a_fidelity(tmp_path: Path) -> None:
+    fit = {
+        "name": "ring-compact",
+        "device": {"kind": "all-pass ring", "fidelity": "analytic"},
+        "task": {"kind": "fit", "from_um": 1.54, "to_um": 1.56, "points": 21, "held_out": 2,
+                 "poles": 8, "degree": 2,
+                 "axis": [{"parameter": "gap", "from": 0.15, "to": 0.25, "points": 4}]},
+    }
+    model = po.run_job(fit, runs_dir=tmp_path).dir / "compact.json"
+    w = np.linspace(1.545, 1.555, 5)
+    compact = po.device_spectrum("all-pass ring", values={"gap": 0.21}, fidelity="compact",
+                                 compact=model, wavelength_um=w)
+    exact = po.device_spectrum("all-pass ring", values={"gap": 0.21}, wavelength_um=w)
+    assert compact.fidelity == "compact" and np.abs(compact.s - exact.s).max() < 1e-3
+    # the same model through MATLAB's side
+    from photonoxide import matlab
+    r = matlab.device_spectrum("all-pass ring", '{"gap": 0.21}', "compact", list(w), "", str(model))
+    s = np.asarray(r["s"]["re"]) + 1j * np.asarray(r["s"]["im"])
+    assert np.array_equal(s.reshape([int(n) for n in r["s"]["shape"]], order="F"), compact.s)

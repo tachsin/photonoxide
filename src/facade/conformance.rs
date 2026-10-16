@@ -589,6 +589,36 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
             &[],
         ));
     }
+    // the compact fidelity: a model fitted to the ring's analytic runs over its gap, by a "fit"
+    // job run here, its file named by the design
+    let fit = json!({
+        "name": "conformance-fit",
+        "timeout_minutes": 5,
+        "device": {"kind": "all-pass ring", "fidelity": "analytic"},
+        "task": {"kind": "fit", "from_um": 1.54, "to_um": 1.56, "points": 21, "held_out": 2,
+                 "poles": 8, "degree": 2,
+                 "axis": [{"parameter": "gap", "from": 0.15, "to": 0.25, "points": 4}]},
+    });
+    let fitted = run_job(&job(&fit), &scratch.join("fits"), &Stop::new(None))?
+        .dir
+        .join("compact.json");
+    let (mut d, args) = design("all-pass ring", &[("gap", 0.2)], Some("compact"));
+    d.compact = Some(fitted.clone());
+    let args = with(args, &[("compact", json!(fitted.display().to_string()))]);
+    cases.push(case(
+        "device_spectrum/ring-compact",
+        "device_spectrum",
+        &with(args.clone(), &[("wavelength_um", json!(w))]),
+        &device_spectrum_(&device_spectrum(&d, &w)?),
+        &[],
+    ));
+    cases.push(case(
+        "device_derived/ring-compact",
+        "device_derived",
+        &args,
+        &Value::Array(device_derived(&d)?.iter().map(figure).collect()),
+        &[],
+    ));
     for (name, kind, values) in [
         ("waveguide-width", "waveguide", &[("width", 0.45)][..]),
         (

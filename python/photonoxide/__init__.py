@@ -739,6 +739,10 @@ class DeviceGeometry:
     ports: list[DevicePort]
 
 
+def _path(path: str | os.PathLike[str] | None) -> str | None:
+    return None if path is None else os.fspath(path)
+
+
 def _values(values: Mapping[str, float] | None) -> list[tuple[str, float]]:
     return [] if values is None else [(str(k), float(v)) for k, v in values.items()]
 
@@ -776,13 +780,16 @@ def device_spectrum(
     values: Mapping[str, float] | None = None,
     fidelity: str | None = None,
     stack: str | None = None,
+    compact: str | os.PathLike[str] | None = None,
     wavelength_um: Any,
 ) -> DeviceSpectrum:
     """The S-parameters at ``wavelength_um`` (one or an array) of a device of the library (its
     ``kind``, see :func:`devices`), with its parameters at ``values`` (in their units; those not
     given at their defaults), computed at ``fidelity`` (``"analytic"``, ``"2D"``, ``"3D"``, ...
     as the device has them; its cheapest when ``None``) on ``stack`` (``"soi_220"``, the
-    default, ``"soi"`` or ``"nitride"``)::
+    default, ``"soi"`` or ``"nitride"``). ``fidelity="compact"`` takes a compact model fitted to the
+    device's runs, its file ``compact`` (the ``compact.json`` that a ``"fit"`` job's run writes in
+    its folder)::
 
         import numpy as np
         import photonoxide as po
@@ -799,7 +806,7 @@ def device_spectrum(
     from that model. A 2D result is an estimate, not the device's performance.
     """
     w, _ = _wavelengths(wavelength_um)
-    s = _native.device_spectrum(kind, _values(values), fidelity, stack, w)
+    s = _native.device_spectrum(kind, _values(values), fidelity, stack, _path(compact), w)
     validity = s["validity_um"]
     return DeviceSpectrum(**{**s, "validity_um": None if validity is None else tuple(validity)})
 
@@ -810,13 +817,14 @@ def device_derived(
     values: Mapping[str, float] | None = None,
     fidelity: str | None = None,
     stack: str | None = None,
+    compact: str | os.PathLike[str] | None = None,
 ) -> list[DeviceFigure]:
     """A device's figures at ``fidelity`` (see :func:`device_spectrum` for the design): n_eff
     and n_g, the cross-over length, the free spectral range, Q, a bend's loss, as its model
     gives them, each with its fidelity and grid."""
     return [
         DeviceFigure(**f)
-        for f in _native.device_derived(kind, _values(values), fidelity, stack)
+        for f in _native.device_derived(kind, _values(values), fidelity, stack, _path(compact))
     ]
 
 
@@ -853,6 +861,7 @@ def device_job(
     values: Mapping[str, float] | None = None,
     fidelity: str | None = None,
     stack: str | None = None,
+    compact: str | os.PathLike[str] | None = None,
     name: str | None = None,
     format: str | None = None,
 ) -> Any:
@@ -867,6 +876,6 @@ def device_job(
     job_name = name if name is not None else str(kind).lower().replace(" ", "-")
     if format is None:
         return json.loads(
-            _native.device_job(kind, _values(values), fidelity, stack, job_name, "json")
+            _native.device_job(kind, _values(values), fidelity, stack, _path(compact), job_name, "json")
         )
-    return _native.device_job(kind, _values(values), fidelity, stack, job_name, format)
+    return _native.device_job(kind, _values(values), fidelity, stack, _path(compact), job_name, format)
