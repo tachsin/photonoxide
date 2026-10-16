@@ -175,6 +175,45 @@ A seed gives the same record, to the bit, on any number of threads: genoxide's m
 (their own guarantee), the devices' models do, and each generation's points are recorded in
 the optimizer's order whatever the threads computed them in.
 
+## A chip of devices
+
+A job's `[circuit]` table is a chip (`photonoxide::job::ChipDesign`): instances, each a device's
+design at its fidelity (a `[device]` table) or one of the circuit's own components (an ideal
+coupler, a phase shifter, a terminator), the connections between their ports, and the external
+ports. Each device is built at its fidelity and placed with the values its parameters give its
+component, so a chip of devices at their defaults is the studio's chip of the library's kinds,
+to the bit. A `"spectrum"` task records each instance's model with its fidelity and grid
+(`Chip`), then the chip's S-parameters between its ports; a `"sweep"` or `"corners"` task steps
+any instances' parameters, named `instance.parameter` (`ring.gap`, `split.coupling`), each point
+the bits of its own chip's spectrum; an `"optimize"` task optimizes them.
+
+**A chip's objectives** are expressions of its outputs: `T_q_p`, the power from its port p into
+its port q, and `lambda`, reduced over the band and corners as a device's are (worst, average,
+spread), so a loss in dB is `-10*log10(T_out_in)`. An instance's own objectives and constraints
+(`instance = "ring"`, a declared `name` or an `expression` of its device's outputs: a smallest
+gap, a footprint) are taken on that device alone.
+
+**Derivatives.** At each wavelength the circuit adjoint gives ∂S/∂θ for every parameter θ of
+every instance, one transposed solve with a right-hand side per external port
+(`Circuit::jacobian`, the method of [circuit-adjoint.md](circuit-adjoint.md)); a component's
+value is its own θ, and a device's parameter x moves its component's θ by
+∂θ/∂x = Σ_k (∂θ/∂p_k)(∂p_k/∂x), the device's exact derivatives (`Built::derivatives`) through its
+design's expressions (`Design::sensitivities`). The expression's derivative follows by forward
+mode, ∂T_qp/∂x = 2 Re(conj(S_qp) ∂S_qp/∂x). A parameter its device doesn't differentiate (a gap,
+a bend's radius: each builds another component) is differenced, and every exact derivative is
+checked against fourth-order differences before use, as a device's. `circuit::objective` has the
+same objectives for `Circuit::gradient`: `power_db`, and `worst` and `average` over wavelengths
+of any one-matrix objective; the validation case `chip/adjoint` checks the job's gradient of a
+worst loss in dB against them.
+
+**A co-design.** `examples/optimize_chip_rings.rs` runs a chip's `optimize` job:
+two rings, each two lossless half-circle bends between directional couplers (analytic), the rings'
+coupler's gap and each ring's radius fitted by L-BFGS-B until the drop port is the Butterworth
+shape over ±3κ_b² of round-trip phase. The rings' coupling comes out κ₁²/κ_b⁴ = 0.250023 at
+κ_b² = 1e-3, Little et al. 1997's Table I printing 0.250 (doi:10.1109/50.588673); the circuit's
+exact couplers differ from coupled-mode theory by O(κ_b²) there (`optimize_ring_flat` finds
+0.25025 with the width free). Exact: no grid beyond the coupler's fit of its coupling.
+
 ## A method study
 
 Which of genoxide's methods to reach for, on a problem with cheap evaluations and an exact
@@ -241,6 +280,11 @@ number of threads; a small study in the same file checks that on 1 and 4 threads
 | `optimize/coupler-3db` | the coupler's split at L_x/2 against 1/2, coupled-mode theory's closed form | exact: no grid | ≤ 1e-14 |
 | `optimize/threads` | an evaluation with three variables' gradient on 1 and 20 threads | exact: no grid | 0 bits differ |
 | `optimize/hypervolume` | a front's hypervolume against one computed by hand | — | 6 |
+| `chip/mzi-closed-form` | an MZI of directional-coupler and waveguide devices against the product of its devices' transfer matrices | exact: no grid | ≤ 1e-13 |
+| `chip/derivatives` | a chip's exact derivatives through its devices against fourth-order differences | exact: no grid | ≤ 1e-6 relative |
+| `chip/adjoint` | a chip job's gradient of a worst loss in dB against `Circuit::gradient` of `objective::worst` of `objective::power_db` | exact: no grid | ≤ 1e-9 relative |
+| `chip/study-points` | a chip's sweep against each point's own spectrum | exact: no grid | 0 bits differ |
+| `chip/threads` | a chip's evaluation with three variables' gradient on 1 and 20 threads | exact: no grid | 0 bits differ |
 
 The library's tests also run genoxide's L-BFGS-B (a dev-dependency) on the coupler: it reaches
 the 3 dB length L_x/2 to 10⁻⁶ µm. The `photonoxide` program's tests run each method through the

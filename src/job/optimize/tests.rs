@@ -158,6 +158,7 @@ fn the_reductions_weights_are_their_derivatives() {
                 limit,
                 reduce: r,
                 figures: Vec::new(),
+                instance: None,
             };
             let base = reduce(&q, &samples);
             for k in 0..samples.len() {

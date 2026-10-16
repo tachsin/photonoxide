@@ -35,6 +35,8 @@ struct JobFile {
     solver: Option<SolverFile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     device: Option<toml::Table>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    circuit: Option<toml::Table>,
     #[serde(default)]
     task: toml::Table,
 }
@@ -94,6 +96,7 @@ pub struct Job {
     solver: Option<SolverFile>,
     direct: Choice,
     device: Option<toml::Table>,
+    circuit: Option<toml::Table>,
     task: toml::Table,
     text: String,
     format: Format,
@@ -115,7 +118,9 @@ impl Job {
     /// ```
     ///
     /// or, in place of a task, a `[device]` table: one of [`crate::device`]'s devices with its
-    /// stack, its parameters' expressions and its fidelity ([`crate::device::Spec`]).
+    /// stack, its parameters' expressions and its fidelity ([`crate::device::Spec`]); or, beside
+    /// a task, a `[circuit]` table: a chip of devices and components
+    /// ([`crate::job::ChipDesign`]).
     ///
     /// # Errors
     ///
@@ -176,6 +181,7 @@ impl Job {
             solver: file.solver,
             direct,
             device: file.device,
+            circuit: file.circuit,
             task: file.task,
             text: text.to_owned(),
             format,
@@ -221,6 +227,12 @@ impl Job {
         self.device.as_ref()
     }
 
+    /// The job's `[circuit]` table, if it has one: a chip of devices and components
+    /// ([`crate::job::ChipDesign::from_table`] reads it).
+    pub fn circuit(&self) -> Option<&toml::Table> {
+        self.circuit.as_ref()
+    }
+
     /// The direct solver the job asks for in its `[solver]` table: `auto` unless it names one.
     pub fn direct(&self) -> &Choice {
         &self.direct
@@ -249,6 +261,7 @@ impl Job {
             timeout_minutes: self.timeout_minutes,
             solver: self.solver.clone(),
             device: self.device.clone(),
+            circuit: self.circuit.clone(),
             task: self.task.clone(),
         };
         let write = |reason: String| Error::Parse {
@@ -898,6 +911,7 @@ mod tests {
             solver: None,
             direct: Choice::Auto,
             device: None,
+            circuit: None,
             task,
             text: String::new(),
             format: Format::Toml,

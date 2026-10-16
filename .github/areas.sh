@@ -90,12 +90,13 @@ area fdtd \
 # library's tests and validation cases, by the studio's and by the Python package's; a job's
 # [device] table is read, checked and drawn by the devices, and studied (its sweeps and corners,
 # whose cases are the devices', and optimized: its objectives' derivatives, records and fronts,
-# the optimize/ cases); its [[task.component]] tables are
+# the optimize/ cases), and a job's [circuit] table is a chip of devices, computed, studied and
+# optimized (the chip/ cases, and optimize_chip_rings); its [[task.component]] tables are
 # the generators', and its cases of them (components with expressions, ports by name) run here
 area job \
   "src/job/* src/run.rs src/farm.rs src/farm/* jobs/*" \
-  "material mode sparse fdfd fdtd device generator" \
-  "job:: run:: farm::" "generator/job- device/study- optimize/" ""
+  "material mode sparse fdfd fdtd circuit device generator" \
+  "job:: run:: farm::" "generator/job- device/study- optimize/ chip/" "optimize_chip_rings"
 
 # the component generators: shapes on layers with named ports, which the devices draw their
 # geometry with and jobs place; their cases compare the devices' geometry with what it was

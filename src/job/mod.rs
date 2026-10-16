@@ -424,6 +424,8 @@ use crate::{Error, Result};
 mod bodies;
 #[cfg(test)]
 mod body_tests;
+mod chip;
+mod chip_checks;
 #[cfg(test)]
 mod component_tests;
 mod components;
@@ -441,19 +443,28 @@ mod study_checks;
 #[cfg(test)]
 mod study_tests;
 
+pub use chip::{
+    COMPONENTS, ChipDesign, ChipInstance, ChipPart, ChipPort, InstanceModel, spectrum_from_chip,
+    study_from_chip,
+};
 pub use device::{Compute, DeviceFigure, fdfd_size, from_device};
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub(crate) use fdfd::{fill_plane as fdfd_fill_plane, plane as fdfd_plane};
 pub use fdtd::{FoundResonance, SpectrumSeries};
 pub use optimize::{
     Aim, Bound, Evaluation, GradientCheck, Optimization, Problem, Recorder, Variable, design_of,
-    optimize_from_device, optimizes,
+    optimize_from_chip, optimize_from_device, optimizes,
 };
 pub use study::{Corner, Study, SweepAxis, study_from_device};
 
 /// The validation cases of components in jobs ([`crate::generator`] in `[[task.component]]`).
 pub(crate) fn component_cases() -> Vec<crate::validation::Case> {
     components::cases()
+}
+
+/// The validation cases of chips of devices ([`ChipDesign`]).
+pub(crate) fn chip_cases() -> Vec<crate::validation::Case> {
+    chip_checks::cases()
 }
 
 /// The validation cases of devices' optimizations ([`optimize::Problem`]).
@@ -1031,6 +1042,51 @@ pub enum Event {
         solves: usize,
         /// The front's evaluations (two objectives).
         front: Vec<usize>,
+    },
+    /// A chip about to be computed (a job's `[circuit]`, [`ChipDesign`]), recorded after
+    /// [`Event::Started`]: each instance, what computes it with its fidelity and grid, and the
+    /// external ports, the order of the S-matrices after it.
+    Chip {
+        /// The instances, in the chip's order.
+        instances: Vec<ChipPart>,
+        /// The external ports' names.
+        ports: Vec<String>,
+    },
+    /// A study of a chip about to run (a `[circuit]` with a `"sweep"` or `"corners"` task),
+    /// recorded after [`Event::Chip`]: what it steps through. An [`Event::ChipPoint`] per point
+    /// follows, in order.
+    ChipStudy {
+        /// `"sweep"` or `"corners"`.
+        study: String,
+        /// A sweep's axes (`instance.parameter`), the second's values fastest; none for corners.
+        axes: Vec<SweepAxis>,
+        /// The axes' parameters' units, in the same order.
+        axis_units: Vec<String>,
+        /// The corners (their offsets by `instance.parameter`), after the nominal chip; none for
+        /// a sweep.
+        corners: Vec<Corner>,
+        /// How many points.
+        points: usize,
+        /// The wavelengths each point's S-parameters are at, µm.
+        wavelengths_um: Vec<f64>,
+        /// The external ports' names, in the S-matrices' order.
+        ports: Vec<String>,
+    },
+    /// A point of a chip's study: its chip's S-matrices over the band, or why it has none. The
+    /// same numbers, to the bit, as the run of that point's own `"spectrum"` job.
+    ChipPoint {
+        /// The point's index, from 0.
+        point: usize,
+        /// A sweep's: each axis's value there, in its unit; none for corners.
+        at: Vec<f64>,
+        /// A corners study's: the corner, `"nominal"` for the first point.
+        corner: Option<String>,
+        /// Why the chip gave nothing there (an instance's model refused its values); `s` is then
+        /// empty.
+        error: Option<String>,
+        /// The power-normalized S-matrices, one per wavelength: `s[w][q][p]` from port p into
+        /// port q, real and imaginary parts.
+        s: Vec<Vec<Vec<[f64; 2]>>>,
     },
     // New variants go here, at the end after the last one, so that the earlier variants keep
     // their discriminants (inserting one in between renumbers every variant after it).
@@ -2634,6 +2690,9 @@ fn reason(stop: &Stop) -> Option<String> {
 /// task itself (an invalid shape, a wavelength a material has no data for), and
 /// [`Error::Io`] if the record can't be written.
 pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+    if job.circuit().is_some() {
+        return chip::execute(job, run, stop);
+    }
     if job.device().is_some() {
         return device::execute(job, run, stop);
     }
@@ -2714,6 +2773,10 @@ fn check_direct(job: &Job, kind: &str) -> Result<()> {
 }
 
 fn check_inner(job: &Job) -> Result<()> {
+    if job.circuit().is_some() {
+        check_direct(job, "chip")?;
+        return chip::check(job);
+    }
     if job.device().is_some() {
         return match device::task_kind(job)?.as_deref() {
             None => device_scene(job).map(|_| ()),

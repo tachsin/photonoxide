@@ -755,7 +755,14 @@ impl Names {
     }
 
     /// Adds a name, unless one hides it (a figure hides a parameter of its name).
-    fn add(&mut self, name: &str, source: Source, unit: &str, about: &str, per_wavelength: bool) {
+    pub(crate) fn add(
+        &mut self,
+        name: &str,
+        source: Source,
+        unit: &str,
+        about: &str,
+        per_wavelength: bool,
+    ) {
         if let Ok(slot) = self.scope.define(name, Some(Dim::NONE)) {
             self.sources.push((slot, source));
             self.outputs.push(Output {

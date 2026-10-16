@@ -79,6 +79,12 @@ fn every_job_in_jobs_comes_back_through_the_form_as_the_same_job() {
             crate::devices::read_text(text).unwrap();
             continue;
         }
+        if job.circuit().is_some() {
+            // a chip's job isn't the Custom device's
+            assert!(Form::of(text, Format::Toml).is_err(), "{name}");
+            job::check(&job).unwrap_or_else(|e| panic!("{name}: {e}"));
+            continue;
+        }
         round_trip(name, text);
     }
 }

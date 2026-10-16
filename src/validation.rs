@@ -1663,6 +1663,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::job::study_cases());
     // and their optimizations' objectives
     cases.extend(crate::job::optimize_cases());
+    // and chips of devices, computed, studied and optimized
+    cases.extend(crate::job::chip_cases());
     // the compact models' cases live with them
     cases.extend(crate::compact::checks::cases());
     // and the geometry kernel's

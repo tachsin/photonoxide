@@ -60,6 +60,7 @@ examples!(
     optimize_ring_flat: "../../../examples/optimize_ring_flat.rs",
     optimize_mzi_lattice: "../../../examples/optimize_mzi_lattice.rs",
     optimize_ring_pareto: "../../../examples/optimize_ring_pareto.rs",
+    optimize_chip_rings: "../../../examples/optimize_chip_rings.rs",
     optimize_mesh: "../../../examples/optimize_mesh.rs",
     directional_coupler: "../../../examples/directional_coupler.rs",
     ring_q_factor: "../../../examples/ring_q_factor.rs",
@@ -168,6 +169,10 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "A half-band lattice filter by optimization",
             "Jinguji & Oguma 2000",
         ),
+        "optimize_chip_rings" => (
+            "A maximally flat ring filter co-designed from devices",
+            "Little et al. 1997",
+        ),
         "optimize_ring_pareto" => (
             "A ring's drop against its width: a Pareto front",
             "Bogaerts et al. 2011",
@@ -221,6 +226,7 @@ fn seconds(name: &str) -> f64 {
         "optimize_ring_flat" => 70.0,
         "optimize_mzi_lattice" => 20.0,
         "optimize_ring_pareto" => 3.0,
+        "optimize_chip_rings" => 2.0,
         "optimize_mesh" => 5.0,
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
         "lorentz_okoniewski" | "subpixel_holes" => 15.0,

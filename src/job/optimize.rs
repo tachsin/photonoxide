@@ -317,6 +317,10 @@ pub struct Aim {
     /// out (a declared spread keeps its own).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reduce: Option<String>,
+    /// On a chip, the device instance whose own objective (or an expression of whose own
+    /// outputs) this is; `None` for an expression of the chip's outputs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instance: Option<String>,
 }
 
 impl Aim {
@@ -354,6 +358,15 @@ impl Aim {
             ..self
         }
     }
+
+    /// The same, of the chip's device instance `instance`: its own objective or outputs.
+    #[must_use]
+    pub fn of_instance(self, instance: &str) -> Aim {
+        Aim {
+            instance: Some(instance.to_owned()),
+            ..self
+        }
+    }
 }
 
 /// A constraint as a task gives it: one the device declares, by its symbol, or an expression of
@@ -377,6 +390,11 @@ pub struct Bound {
     /// `"worst"` (the default), `"average"` or `"spread"` over the band and corners.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reduce: Option<String>,
+    /// On a chip, the device instance whose own constraint (or an expression of whose own
+    /// outputs) this is: a smallest gap, a footprint; `None` for an expression of the chip's
+    /// outputs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instance: Option<String>,
 }
 
 impl Bound {
@@ -411,6 +429,15 @@ impl Bound {
                 at_most: None,
                 ..self
             },
+        }
+    }
+
+    /// The same, of the chip's device instance `instance`: its own constraint or outputs.
+    #[must_use]
+    pub fn of_instance(self, instance: &str) -> Bound {
+        Bound {
+            instance: Some(instance.to_owned()),
+            ..self
         }
     }
 }
@@ -614,7 +641,7 @@ fn table<T: Serialize>(v: &T) -> Result<Value> {
 }
 
 /// A corner as a `[[task.corner]]` table.
-fn corner_table(c: &Corner) -> Value {
+pub(super) fn corner_table(c: &Corner) -> Value {
     let mut t = Table::new();
     t.insert("name".into(), Value::String(c.name.clone()));
     if !c.offsets.is_empty() {
@@ -688,6 +715,9 @@ struct Quantity {
     reduce: Reduce,
     /// The figures it names, by symbol.
     figures: Vec<String>,
+    /// On a chip, the instance whose own outputs it is of; `None` for the chip's (and a
+    /// device's).
+    instance: Option<usize>,
 }
 
 impl Quantity {
@@ -721,9 +751,8 @@ impl Quantity {
 /// and its settings, ready to evaluate any point of the variables ([`Problem::evaluate`]).
 #[derive(Debug)]
 pub struct Problem {
-    spec: Spec,
+    target: Target,
     kind: String,
-    grids: Grids,
     wavelengths: Vec<f64>,
     corners: Vec<Corner>,
     variables: Vec<Variable>,
@@ -742,6 +771,16 @@ pub struct Problem {
     /// Per variable: its derivatives exact, once checked ([`Problem::check_gradients`]).
     exact: Vec<bool>,
     timeout_minutes: f64,
+}
+
+/// What an optimization designs: a device, or a chip of devices.
+#[derive(Debug)]
+#[allow(clippy::large_enum_variant)] // one per optimization
+enum Target {
+    /// A job's `[device]`, computed on the task's grids.
+    Device { spec: Spec, grids: Grids },
+    /// A job's `[circuit]`.
+    Chip(Box<chip::ChipTarget>),
 }
 
 /// What a point of the variables gives: each objective's cost and value, each constraint's
@@ -846,6 +885,97 @@ pub struct OptimizeQuantity {
     pub reduce: String,
 }
 
+/// The settings every optimization's task gives: its method, hard limit, seed, budget and
+/// reduction.
+struct Settings {
+    method: &'static Method,
+    timeout_minutes: f64,
+    seed: u64,
+    evaluations: usize,
+    reduce: Reduce,
+}
+
+/// A task's settings read and checked: a known method, a hard limit, a seed, a budget, a
+/// population for a population method only, a learning rate for Adam only, and a reduction that
+/// isn't a spread.
+#[allow(clippy::too_many_arguments)]
+fn settings(
+    job: &Job,
+    method_name: &str,
+    seed: Option<u64>,
+    evaluations: Option<usize>,
+    population: Option<usize>,
+    learning_rate: Option<f64>,
+    reduce: Option<&str>,
+) -> Result<Settings> {
+    let method = method(method_name)?;
+    let timeout_minutes = job
+        .timeout()
+        .map(|t| t.as_secs_f64() / 60.0)
+        .ok_or_else(|| {
+            task_error(
+                "an optimization needs a hard limit: timeout_minutes (AGENTS.md: a hard \
+                 timeout is always set)",
+            )
+        })?;
+    let seed = seed
+        .ok_or_else(|| task_error("an optimization needs its seed: seed = 1 (any whole number)"))?;
+    let evaluations = evaluations.ok_or_else(|| {
+        task_error("an optimization needs its budget: evaluations = 200 (the optimizer's)")
+    })?;
+    if evaluations == 0 || evaluations > MAX_EVALUATIONS {
+        return Err(task_error(format!(
+            "the budget takes 1 to {MAX_EVALUATIONS} evaluations, got {evaluations}"
+        )));
+    }
+    if let Some(p) = population {
+        if method.population.is_none() {
+            return Err(task_error(format!(
+                "{} isn't a population method: it takes no population",
+                method.title
+            )));
+        }
+        if !(4..=10_000).contains(&p) {
+            return Err(task_error(format!(
+                "a population takes 4 to 10000 members, got {p}"
+            )));
+        }
+    }
+    if let Some(r) = learning_rate {
+        if method.name != "adam" {
+            return Err(task_error(format!(
+                "{} takes no learning rate: Adam's",
+                method.title
+            )));
+        }
+        if !(r.is_finite() && r > 0.0 && r <= 1.0) {
+            return Err(task_error(format!(
+                "Adam's learning rate, in the variables scaled to their ranges, is above 0 \
+                 and at most 1, got {r}"
+            )));
+        }
+    }
+    let reduce = match reduce {
+        None => Reduce::Worst,
+        Some(r) => match Reduce::named(r)? {
+            Reduce::Spread => {
+                return Err(task_error(
+                    "the task's reduction is \"worst\" or \"average\"; a spread is an \
+                     objective's own",
+                ));
+            }
+            r => r,
+        },
+    };
+    Ok(Settings {
+        method,
+        timeout_minutes,
+        seed,
+        evaluations,
+        reduce,
+    })
+}
+
 /// The variables' derivatives' names, as the record keeps them.
 fn derivative_name(method: &Method, exact: bool) -> &'static str {
     match (method.gradient, exact) {
@@ -858,7 +988,8 @@ fn derivative_name(method: &Method, exact: bool) -> &'static str {
 /// Whether `job` optimizes its device (a `[device]` with a task of kind `"optimize"`): a job
 /// the `photonoxide` program runs, its optimizer genoxide's.
 pub fn optimizes(job: &Job) -> bool {
-    job.device().is_some() && job.task().get("kind").and_then(Value::as_str) == Some("optimize")
+    (job.device().is_some() || job.circuit().is_some())
+        && job.task().get("kind").and_then(Value::as_str) == Some("optimize")
 }
 
 impl Problem {
@@ -874,72 +1005,37 @@ impl Problem {
     /// [`Error::InvalidValue`] for an objective or constraint the device hasn't, an expression
     /// that doesn't parse, and what [`Spec::build`] and the corners refuse.
     pub fn of(job: &Job) -> Result<Problem> {
+        if job.circuit().is_some() {
+            return chip::of(job);
+        }
         let spec = spec_of(job)?;
         let task: OptimizeTask = job
             .task()
             .clone()
             .try_into()
             .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
-        let method = method(&task.method)?;
-        let timeout_minutes = job
-            .timeout()
-            .map(|t| t.as_secs_f64() / 60.0)
-            .ok_or_else(|| {
-                task_error(
-                    "an optimization needs a hard limit: timeout_minutes (AGENTS.md: a hard \
-                     timeout is always set)",
-                )
-            })?;
-        let seed = task.seed.ok_or_else(|| {
-            task_error("an optimization needs its seed: seed = 1 (any whole number)")
-        })?;
-        let evaluations = task.evaluations.ok_or_else(|| {
-            task_error("an optimization needs its budget: evaluations = 200 (the optimizer's)")
-        })?;
-        if evaluations == 0 || evaluations > MAX_EVALUATIONS {
-            return Err(task_error(format!(
-                "the budget takes 1 to {MAX_EVALUATIONS} evaluations, got {evaluations}"
-            )));
+        let Settings {
+            method,
+            timeout_minutes,
+            seed,
+            evaluations,
+            reduce,
+        } = settings(
+            job,
+            &task.method,
+            task.seed,
+            task.evaluations,
+            task.population,
+            task.learning_rate,
+            task.reduce.as_deref(),
+        )?;
+        if task.objective.iter().any(|a| a.instance.is_some())
+            || task.constraint.iter().any(|b| b.instance.is_some())
+        {
+            return Err(task_error(
+                "a device's objectives and constraints name no instance: that is a chip's",
+            ));
         }
-        if let Some(p) = task.population {
-            if method.population.is_none() {
-                return Err(task_error(format!(
-                    "{} isn't a population method: it takes no population",
-                    method.title
-                )));
-            }
-            if !(4..=10_000).contains(&p) {
-                return Err(task_error(format!(
-                    "a population takes 4 to 10000 members, got {p}"
-                )));
-            }
-        }
-        if let Some(r) = task.learning_rate {
-            if method.name != "adam" {
-                return Err(task_error(format!(
-                    "{} takes no learning rate: Adam's",
-                    method.title
-                )));
-            }
-            if !(r.is_finite() && r > 0.0 && r <= 1.0) {
-                return Err(task_error(format!(
-                    "Adam's learning rate, in the variables scaled to their ranges, is above 0 \
-                     and at most 1, got {r}"
-                )));
-            }
-        }
-        let reduce = match task.reduce.as_deref() {
-            None => Reduce::Worst,
-            Some(r) => match Reduce::named(r)? {
-                Reduce::Spread => {
-                    return Err(task_error(
-                        "the task's reduction is \"worst\" or \"average\"; a spread is an \
-                         objective's own",
-                    ));
-                }
-                r => r,
-            },
-        };
         let grids = grids_of(
             task.step_nm,
             task.step_z_nm,
@@ -1160,6 +1256,7 @@ impl Problem {
                 goal: Some((goal, target.unwrap_or(0.0))),
                 limit: None,
                 reduce,
+                instance: None,
             });
         }
         if !task.constraint.is_empty() && !method.constraints {
@@ -1242,13 +1339,13 @@ impl Problem {
                 goal: None,
                 limit: Some(limit),
                 reduce,
+                instance: None,
             });
         }
         let n = variables.len();
         Ok(Problem {
             kind: device.kind().to_owned(),
-            spec,
-            grids,
+            target: Target::Device { spec, grids },
             wavelengths,
             corners,
             variables,
@@ -1336,17 +1433,53 @@ impl Problem {
                 ),
             ));
         }
-        let (device, design) = self.spec.build()?;
+        let Target::Device { spec: own, .. } = &self.target else {
+            return Err(Error::invalid(
+                "optimize",
+                "a chip's optimization designs a chip (Problem::chip_at), not a device",
+            ));
+        };
+        let (device, design) = own.build()?;
         let named = Named {
             device: device.as_ref(),
             design: &design,
-            spec: &self.spec,
+            spec: own,
         };
-        let mut spec = self.spec.clone();
+        let mut spec = own.clone();
         for (v, &value) in self.variables.iter().zip(x) {
             set(&mut spec, &v.parameter, named.literal(&v.parameter, value));
         }
         Ok(spec)
+    }
+
+    /// The parameters' expressions of the design at `x`, as Apply takes them: a device's every
+    /// parameter ([`Problem::design_at`]); a chip's variables, `instance.parameter`, each a
+    /// number in its unit (a name the design defines with its unit).
+    ///
+    /// # Errors
+    ///
+    /// As [`Problem::design_at`].
+    pub fn parameters_at(&self, x: &[f64]) -> Result<Vec<(String, String)>> {
+        match &self.target {
+            Target::Device { .. } => Ok(self.design_at(x)?.parameters),
+            Target::Chip(t) => chip::parameters_at(self, t, x),
+        }
+    }
+
+    /// The chip at `x`, for a chip's optimization: its instances with the variables at `x`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a device's optimization, or a point that isn't one of the
+    /// variables'.
+    pub fn chip_at(&self, x: &[f64]) -> Result<super::ChipDesign> {
+        match &self.target {
+            Target::Chip(t) => chip::chip_at(t, x),
+            Target::Device { .. } => Err(Error::invalid(
+                "optimize",
+                "a device's optimization designs a device (Problem::design_at), not a chip",
+            )),
+        }
     }
 
     /// The objectives and constraints at `x`, with their gradients when `gradient` is set (and
@@ -1647,12 +1780,15 @@ impl Problem {
         let mut samples = vec![Vec::new(); nq];
         let mut derivatives: Vec<Option<Vec<Vec<f64>>>> =
             wanted.iter().map(|_| Some(vec![Vec::new(); nq])).collect();
+        let (fidelity, grids) = match &self.target {
+            Target::Device { spec, grids } => (spec.fidelity, grids),
+            Target::Chip(t) => return chip::point(self, t, x, wanted),
+        };
         let designs = self.designs(x)?;
-        let fidelity = self.spec.fidelity;
         let mut solves = 0;
         for d in &designs {
             let (_, design) = d.build()?;
-            let device = d.device_with(&self.grids)?;
+            let device = d.device_with(grids)?;
             let built = device.component(design.values(), fidelity)?;
             solves += 1;
             for q in self.quantities() {
@@ -1988,26 +2124,37 @@ impl Recorder {
         run: &mut Run,
         checks: Vec<GradientCheck>,
     ) -> Result<Recorder> {
-        run.record(&Event::Started {
-            job: job.name().to_owned(),
-            kind: "device".into(),
-        })?;
-        run.record(&super::device_scene(job)?)?;
-        run.record(&Event::Ports {
-            ports: scene_ports(job)?,
-        })?;
-        let (device, _) = problem.spec.build()?;
-        let model = device
-            .fidelities()
-            .iter()
-            .find(|m| m.fidelity == problem.spec.fidelity)
-            .cloned()
-            .ok_or_else(|| task_error(format!("a {} has no such model", problem.kind)))?;
+        let (fidelity, model, parameters) = match &problem.target {
+            Target::Device { spec, .. } => {
+                run.record(&Event::Started {
+                    job: job.name().to_owned(),
+                    kind: "device".into(),
+                })?;
+                run.record(&super::device_scene(job)?)?;
+                run.record(&Event::Ports {
+                    ports: scene_ports(job)?,
+                })?;
+                let (device, _) = spec.build()?;
+                let model = device
+                    .fidelities()
+                    .iter()
+                    .find(|m| m.fidelity == spec.fidelity)
+                    .cloned()
+                    .ok_or_else(|| task_error(format!("a {} has no such model", problem.kind)))?;
+                let parameters = device.parameters().iter().map(|p| p.name.clone()).collect();
+                (
+                    fidelity_name(spec.fidelity).to_owned(),
+                    model.name,
+                    parameters,
+                )
+            }
+            Target::Chip(t) => chip::begin(problem, t, job, run)?,
+        };
         let derivatives = problem.derivatives();
         run.record(&Event::Optimization {
             device: problem.kind.clone(),
-            fidelity: fidelity_name(problem.spec.fidelity).to_owned(),
-            model: model.name,
+            fidelity,
+            model,
             method: problem.method.name.to_owned(),
             optimizer: problem.method.title.to_owned(),
             paper: problem.method.paper.to_owned(),
@@ -2034,14 +2181,7 @@ impl Recorder {
             constraints: problem.constraints.iter().map(Quantity::event).collect(),
             wavelengths_um: problem.wavelengths.clone(),
             corners: problem.corners.clone(),
-            parameters: problem
-                .spec
-                .build()?
-                .0
-                .parameters()
-                .iter()
-                .map(|p| p.name.clone())
-                .collect(),
+            parameters,
             checks,
         })?;
         Ok(Recorder {
@@ -2193,7 +2333,7 @@ impl Recorder {
     /// [`Error::Io`] if the record can't be written.
     pub fn finish(&mut self, problem: &Problem, run: &mut Run, stop: &str) -> Result<()> {
         let (index, parameters) = match &self.best {
-            Some((index, _, _, x)) => (Some(*index), problem.design_at(x)?.parameters),
+            Some((index, _, _, x)) => (Some(*index), problem.parameters_at(x)?),
             None => (None, Vec::new()),
         };
         let front = if self.objectives == 2 {
@@ -2228,6 +2368,9 @@ pub(super) fn check(job: &Job) -> Result<()> {
 pub fn design_of(job: &Job, x: &[f64]) -> Result<Spec> {
     Problem::of(job)?.design_at(x)
 }
+
+mod chip;
+pub use chip::optimize_from_chip;
 
 #[cfg(test)]
 mod tests;

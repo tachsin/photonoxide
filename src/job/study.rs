@@ -328,7 +328,7 @@ pub(super) fn set(spec: &mut Spec, name: &str, expression: String) {
     }
 }
 
-fn check_axes(axes: &[SweepAxis]) -> Result<()> {
+pub(super) fn check_axes(axes: &[SweepAxis]) -> Result<()> {
     if axes.is_empty() || axes.len() > 2 {
         return Err(task_error(format!(
             "a sweep steps one or two parameters ([[task.axis]]), got {}",

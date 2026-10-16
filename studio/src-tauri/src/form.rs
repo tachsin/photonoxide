@@ -271,6 +271,12 @@ impl Form {
                 job.name()
             ));
         }
+        if job.circuit().is_some() {
+            return Err(format!(
+                "{} is a chip's job (a [circuit] table of devices): photonoxide run runs it",
+                job.name()
+            ));
+        }
         // the file as TOML reads it, whatever it was written in
         let toml_text = job.to_text(Format::Toml).map_err(|e| e.to_string())?;
         let file: Table = toml::from_str(&toml_text).map_err(|e| e.to_string())?;
