@@ -153,6 +153,19 @@ closer than about 2e-7, which is the solver's own noise. The fitted model is pas
 largest singular value 0.908. These are 2D numbers, an estimate of the device, not its
 performance.
 
+**How many poles: Ye et al.'s MZI.** Y. Ye, D. Spina, Y. Xing, W. Bogaerts and T. Dhaene
+(Photonics Res. 6, 560 (2018), doi:10.1364/PRJ.6.000560, Section 6.A) fit an MZI by vector
+fitting: two ideal 50/50 couplers, arms of 150 and 100 µm, $n_\text{eff}$ 2.35 and $n_g$ 4.3 at
+1.55 µm, 200 dB/m. Aiming at an error below −60 dB on frequencies kept apart from the fit, their
+model over 187.5 to 200 THz takes 67 poles, and over 193.72 THz ± 150 GHz 8. The `compact_mzi_ye`
+example fits photonoxide's netlist of the same MZI with real poles and conjugate pairs, as theirs,
+at the even of 2001 (or 201) evenly spaced frequencies, and checks it at the odd ones. The fewest
+poles below −60 dB are 66 over the wide band (64 give −51 dB, 66 give −68 dB; a real model's poles
+come in pairs here, so 67 isn't a count it can have) and 8 over the narrow one (6 give −58 dB).
+With complex poles, which need no partner at negative frequency, 34 poles reach −92 dB over the
+wide band and 32 only −59 dB: half as many, the point of complex vector fitting for a band far
+from zero frequency.
+
 **Fit error.** `FitError` holds the RMS and the largest $\lvert\Delta S_{qp}\rvert$, each also
 relative: the RMS over the data's RMS, and the largest over the data's largest. A relative error
 taken point by point would be infinite at a critical-coupling notch. A `CompactModel`'s
@@ -277,6 +290,33 @@ aren't. A time-domain model needs stable poles: `stable_rational(values, points)
 a parameter point, flipping D's unstable zeros as Gustavsen and Semlyen do and identifying the
 residues again (Stage 2) against the model's own response. On the shifting ring this costs at
 most 1.2e-7 against Eq. 1.
+
+**Derivatives.** N and D are linear in the weights, so their derivatives in a parameter are N
+and D − 1 evaluated at the weights' derivatives, and
+
+$$
+\frac{\partial H_e}{\partial p_k} = \frac{\partial_k N_e\, D - N_e\, \partial_k D}{D^2} .
+$$
+
+A polynomial model's are the polynomial's, exactly; a piecewise-linear model's are those of the
+segment the value lies in (the one above it at a node, where the model has a kink). The model
+gives them as a `Component`'s `derivatives`, so the circuit adjoint uses them in place of finite
+differences. On the shifting ring they agree with central differences of a millionth of the range
+to 9.8e-9 of the largest derivative, the differences' own truncation and round-off
+(`compact/param-ring-derivatives`).
+
+**Passivity over the range.** `passivity(wavelengths, points)` takes the largest singular value
+of S over the band at a grid of values across the sampled range (at most about $10^4$), and says
+where it is largest and how many points exceed 1. Like `stability`, it samples; it doesn't
+prove. The coupling model's is 0.999692 over 401 wavelengths at 21 values
+(`compact/param-ring-passive`).
+
+**As a file.** `to_json` writes the model as JSON: its ports, parameters and the range each was
+sampled over, the band, the weights (each monomial's exponents, or each parameter's grid nodes),
+the basis poles, the numerator's and denominator's coefficients, the delay and the errors.
+`from_json` reads it back to the same model, every number to the last bit (serde_json writes the
+shortest decimal that reads back to the same double), and refuses a file whose coefficients don't
+fit its basis, weights and ports.
 
 ## Touchstone files
 

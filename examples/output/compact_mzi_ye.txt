@@ -1,0 +1,7 @@
+Ye et al.'s MZI (Photonics Res. 6, 560, 2018): ideal 50/50 couplers, arms of 150 and 100 µm, n_eff 2.35 and n_g 4.3 at 1.55 µm, 200 dB/m; a closed form, exact: no grid
+  real poles and conjugate pairs, each fit checked at the frequencies between those it was fitted at; the target -60 dB in |ΔS|
+  Model A, 187.5 to 200 THz, fitted at 1001 frequencies: 66 poles -68 dB, 64 poles -51 dB
+  Model A, poles for −60 dB (pairs)     66.000000   paper 67         ± 1e0       ok
+  Model B, 193.72 THz ± 150 GHz, fitted at 101 frequencies: 8 poles -99 dB, 6 poles -58 dB
+  Model B, poles for −60 dB                     8   paper 8                      ok
+all 2 within tolerance of the paper

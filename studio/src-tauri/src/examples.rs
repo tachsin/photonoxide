@@ -81,6 +81,7 @@ examples!(
     rib_hadley: "../../../examples/rib_hadley.rs",
     mmi_soldano: "../../../examples/mmi_soldano.rs",
     y_junction_zhang: "../../../examples/y_junction_zhang.rs",
+    compact_mzi_ye: "../../../examples/compact_mzi_ye.rs",
 );
 
 /// An example's `main` returns an exit code, or a result holding one.
@@ -202,6 +203,10 @@ fn title(name: &str) -> (&'static str, &'static str) {
         "rib_hadley" => ("Hadley's standard rib, as a device", "Hadley 2002"),
         "mmi_soldano" => ("The MMIs' self-imaging lengths", "Soldano & Pennings 1995"),
         "y_junction_zhang" => ("A compact Y-junction, as a device", "Zhang et al. 2013"),
+        "compact_mzi_ye" => (
+            "How many poles an MZI's compact model takes",
+            "Ye et al. 2018",
+        ),
         _ => ("", ""),
     }
 }
@@ -240,6 +245,7 @@ fn seconds(name: &str) -> f64 {
         "ring_liu_poon" => 20.0,
         "mmi_soldano" => 2.0,
         "y_junction_zhang" => 15.0,
+        "compact_mzi_ye" => 40.0,
         "rib_hadley" => 30.0,
         "crossing_liu_poon" => 30.0,
         "coupler_liu_poon" => 100.0,

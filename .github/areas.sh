@@ -123,7 +123,7 @@ area device \
 area compact \
   "src/compact/*" \
   "circuit job" \
-  "compact::" "compact/" ""
+  "compact::" "compact/" "compact_mzi_ye"
 
 # with the table of what works in Rust, Python and MATLAB, which its tests read
 area facade \

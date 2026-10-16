@@ -52,4 +52,4 @@ pub mod touchstone;
 
 pub use fit::{Delay, FitError, Options, Rational, Symmetry};
 pub use model::{CompactModel, Measured, Passivity};
-pub use param::{Crossing, Interpolation, ParametricModel, Sample};
+pub use param::{Crossing, Interpolation, ParametricModel, RangePassivity, Sample};
