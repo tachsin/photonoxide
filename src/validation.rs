@@ -1645,6 +1645,8 @@ pub fn cases() -> Vec<Case> {
     // the devices' cases, after the components they build, live with them
     cases.extend(crate::device::checks::cases());
     cases.extend(crate::device::splitter_checks::cases());
+    // and their studies, which run as jobs
+    cases.extend(crate::job::study_cases());
     // the compact models' cases live with them
     cases.extend(crate::compact::checks::cases());
     // and the geometry kernel's

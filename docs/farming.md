@@ -32,8 +32,10 @@ machine's threads to itself: photonoxide's solvers use them inside each point).
 is dropped (a local one killed), as one that may be stuck. The job's own `timeout_minutes`
 bounds the whole run, farm included.
 
-What is farmed is a `modes` or `fdfd` job's `[task.sweep]`; a job without one runs as it always
-does, and the program says so. The window shows a farmed run live like any run: the run records
+What is farmed is a `modes` or `fdfd` job's `[task.sweep]`, or a device's study (a `[device]`
+job whose task is a `"sweep"` or `"corners"`, [devices](methods/devices.md#studied-as-a-job): each
+point a design computed by the device's own model); a job without one runs as it always does,
+and the program says so. The window shows a farmed run live like any run: the run records
 each point as it comes back, in the points' order, into `runs/<run>/events.jsonl`, which is all
 the window follows.
 
@@ -61,7 +63,8 @@ two runs. That holds because:
   workers finish doesn't show.
 
 The tests check it: a modes sweep and two 2D FDFD sweeps farmed to 1, 2, 4 and 8 workers (and to
-3 of 2 slots each) against the same sweeps in one process; a worker whose connection breaks
+3 of 2 slots each) against the same sweeps in one process, and a device's sweep in two parameters
+and its corners farmed to 1 and 3 workers (and to 2 of 2 slots); a worker whose connection breaks
 while it has a point; a worker process killed while the program's run is under way
 (`studio/src-tauri/tests/farm.rs`); jobs that finish out of order coming back in order; a point
 that fails, a task past its timeout and a run past its deadline.

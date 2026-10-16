@@ -191,9 +191,10 @@ impl Farm {
     /// setup recorded other events than the run's is dropped with the reason. The points come
     /// back in their order, as each completes, into the run's record. `stop` is the run's.
     ///
-    /// A job with no `[task.sweep]` farms nothing; its run goes as it would.
+    /// A job with no sweep (a `[task.sweep]`, or a device's study: [`crate::job::farms`]) farms
+    /// nothing; its run goes as it would.
     pub fn farm_sweep(&self, job: &Job, run: &mut Run, stop: &Stop) {
-        if job.task().get("sweep").is_none() {
+        if !crate::job::farms(job) {
             return;
         }
         let open = Message::Open {

@@ -188,7 +188,7 @@ fn run(args: &[String]) -> ExitCode {
     let stop = Stop::new(job.timeout());
     // the sweep's points on workers, here or on other machines: the same record, gathered in
     // order as the points complete
-    let workers = if job.task().get("sweep").is_none() {
+    let workers = if !job::farms(&job) {
         if farming.workers > 0 || !farming.remote.is_empty() {
             eprintln!("the job has no sweep to farm: it runs here");
         }

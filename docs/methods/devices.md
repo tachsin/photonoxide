@@ -544,6 +544,76 @@ device's job at each fidelity, the mode solves on a 50 nm mesh and the FDFDs on 
 compare their records with `Device::component` bit for bit; an ignored test does the same on each
 device's own grids.
 
+## Studied as a job
+
+A study computes a design at many points, each a design of its own, by the device's own model at
+the design's fidelity, on the task's grids. `job::study_from_device(name, &spec, &Compute,
+&Study)` writes it:
+
+- `kind = "sweep"`: one or two of the design's parameters stepped evenly from one value to
+  another (`[[task.axis]]`), the second's values fastest, and at each point the band of
+  wavelengths (the device's own at 21 points by default). A parameter is one of the device's or
+  one the design's expressions name (`w` in `width = "w"`, `gap = "w/2.5"`); its values are in its
+  unit, µm for a length and degrees for an angle.
+- `kind = "corners"`: the nominal design, then each named corner (`[[task.corner]]`): offsets
+  added to its parameters' nominal values (a width bias, a thickness) and its materials at a
+  temperature (`temperature_k`), every material of the stack whose index model takes one.
+
+```toml
+[task]
+kind = "sweep"
+from_um = 1.53             # the band at each point
+to_um = 1.57
+points = 5
+# step_nm, step_z_nm, margin_um, samples, pml_cells, model_2d: the grids, as a spectrum's
+
+[[task.axis]]
+parameter = "gap"
+from = 0.15
+to = 0.3
+points = 4
+
+[[task.axis]]
+parameter = "length"
+from = 5.0
+to = 20.0
+points = 3
+```
+
+```toml
+[task]
+kind = "corners"
+
+[[task.corner]]
+name = "wide, thin"
+offsets = { width = 0.01, thickness = -0.005 }
+
+[[task.corner]]
+name = "cold"
+temperature_k = 200.0
+```
+
+Each point is the design with its values written as plain numbers in place of the parameters'
+expressions (a parameter the expressions name keeps its unit, so the ones that use it follow
+it), and a corner's stack at its temperature, a preset as its layers: `Study::designs` gives
+them, and the job `from_device` makes of each computes what the study records there, to the
+bit. The run records the nominal design's scene and ports, then `DeviceStudy` (the study's axes
+or corners, the method, the device's parameters and the band), then a `DevicePoint` per point
+in order: the device's values there, its figures with their grid, its ports' effective indices
+and its S-matrices over the band. A point the model refuses (an analytic fit outside its range,
+a solve that fails) records why, and the study goes on. The points are solved side by side on
+rayon's threads, as many at once as memory allows by their solves' size, or by a farm's workers
+([farming](../farming.md)); the record is the same on any number of threads or workers.
+
+`job::check` builds every point's design, refuses a 3D FDFD at any point larger than the direct
+solver holds here, at most 10 000 points (an axis of 2 to 1001), 256 corners, a parameter the
+design doesn't have, a corner without offsets or temperature, and a temperature at the analytic
+fidelity (the fits and closed forms don't solve the materials) or on a stack none of whose
+materials' models takes one. Li's silicon (293 K) and Malitson's silica (20 °C), the presets'
+materials, take none: a temperature corner of SOI needs a stack with Leviton and Frey's silica,
+and silicon's thermo-optic coefficient comes with the thermal devices (0.6). A study runs by the
+device's models only, not by FDTD, which computes one design at a time.
+
 ## Validation
 
 | Case | What it checks | Grid | Found |
@@ -574,6 +644,11 @@ device's own grids.
 | `device/fdfd-straight` | a straight strip through the FDFD solves: $S_{21} = e^{i\beta L}$, no reflection, reciprocal | 100 nm (55 nm up) | 2.6e-5 |
 | `device/mmi-2d-grid`, `device/mmi-guided-2d` | a 3 µm MMI's 2D FDFD from 10 to 5 nm; its guided modes against it | 20, 10, 5 nm | 2.1e-3 and 1.4e-3 |
 | `device/y-branch-2d-grid`, `device/y-branch-ideal-2d` | Zhang et al.'s Y-branch's 2D FDFD from 20 to 10 nm; the ideal model against it | 40, 20, 10 nm | 4.2e-4 and 0.032 |
+| `device/study-sweep-analytic` | a coupler's sweep in its gap and length as a job against the device at each pair of values | exact | 0 bits differ |
+| `device/study-threads` | a ring's radius sweep and a waveguide's corners on 1 and 20 threads | exact | 0 lines differ |
+| `device/study-corners-closed-form` | a waveguide's length and loss corners against $10^{-\alpha L/10}$, the extremes where it puts them | exact | ≤ 1e-12 |
+| `device/study-coupler-chrostowski` | Chrostowski & Hochberg's Eq. 4.14 through a 3D gap sweep of the coupler device: decades of $L_x$ per nm of gap | fitted 10 nm | 3.8635e-3 (3.7645e-3 ± 5 %) |
+| `device/study-coupler-grid` | that slope on 10 nm cells against 5 nm | fitted 10, 5 nm | 3.86521e-3 against 3.86633e-3 |
 
 The published examples go through the devices too, to their bits: `strip_waveguide` solves the
 waveguide device's cross-section, `directional_coupler` the coupler device's 3D model and

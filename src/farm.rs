@@ -4,7 +4,8 @@
 //! A worker is a `photonoxide worker` process ([`Server`]); a coordinator is a [`Farm`] of
 //! them. What they farm is photonoxide jobs and nothing else, in two forms:
 //!
-//! - **A sweep's points** ([`Farm::farm_sweep`]). A `modes` or `fdfd` job with a `[task.sweep]`
+//! - **A sweep's points** ([`Farm::farm_sweep`]). A `modes` or `fdfd` job with a `[task.sweep]`,
+//!   or a device's study (`[device]` with a `"sweep"` or `"corners"` task, [`crate::job::farms`]),
 //!   hands its points to the workers instead of rayon's threads. Each worker sets the job up
 //!   once, as the run does (the structure, the cross-section, an FDFD sweep's first point, whose
 //!   sparsity analysis the others reuse), then solves the points it is sent. The run records

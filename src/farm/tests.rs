@@ -209,6 +209,73 @@ fn a_farmed_sweep_is_the_record_of_one_process_on_any_number_of_workers() {
     }
 }
 
+/// A device's study (crate::job::study_from_device): a coupler's gap and length at its analytic
+/// fidelity, and a waveguide's corners.
+const STUDIES: [&str; 2] = [
+    r#"
+name = "farmed-study"
+
+[device]
+kind = "directional coupler"
+
+[task]
+kind = "sweep"
+from_um = 1.53
+to_um = 1.57
+points = 5
+
+[[task.axis]]
+parameter = "gap"
+from = 0.15
+to = 0.3
+points = 4
+
+[[task.axis]]
+parameter = "length"
+from = 5.0
+to = 20.0
+points = 3
+"#,
+    r#"
+name = "farmed-corners"
+
+[device]
+kind = "waveguide"
+
+[task]
+kind = "corners"
+
+[[task.corner]]
+name = "wide"
+offsets = { width = 0.02 }
+
+[[task.corner]]
+name = "thin"
+offsets = { thickness = -0.01 }
+"#,
+];
+
+#[test]
+fn a_farmed_study_is_the_record_of_one_process_on_any_number_of_workers() {
+    for (text, points) in STUDIES.iter().zip([12, 3]) {
+        let stop = Stop::new(None);
+        let (done, one) = alone(text, &stop);
+        done.unwrap();
+        let in_record = one
+            .iter()
+            .filter(|l| l.starts_with("{\"type\":\"device_point\""))
+            .count();
+        assert_eq!(in_record, points);
+        let one = timeless(&one);
+        for (count, slots) in [(1, 1), (3, 1), (2, 2)] {
+            let farm = farm_of(&workers(count, slots), FarmOptions::default());
+            let (done, lines) = farmed(text, &farm, &stop);
+            done.unwrap();
+            assert_eq!(timeless(&lines), one, "{count} workers of {slots} slots");
+        }
+    }
+}
+
 /// A connection between a coordinator and a worker that breaks off, as a worker that died
 /// does, when the coordinator sends it its `cut`-th point (from 1): the point is in flight,
 /// never answered.

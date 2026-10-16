@@ -169,7 +169,7 @@ pub fn from_device(name: &str, spec: &Spec, compute: &Compute) -> Result<Job> {
 }
 
 /// The band a device states: its `wavelength` ± `span`/2, or 1.5 to 1.6 µm.
-fn own_band(values: &crate::device::Values) -> (f64, f64) {
+pub(super) fn own_band(values: &crate::device::Values) -> (f64, f64) {
     match (values.get("wavelength"), values.get("span")) {
         (Some(l), Some(s)) if s > 0.0 => (l - s / 2.0, l + s / 2.0),
         (Some(l), _) => (l - 0.05, l + 0.05),
@@ -266,7 +266,7 @@ fn extent(geometry: &crate::device::Geometry) -> ([f64; 2], [f64; 2]) {
 // ---- a job's device, for the tasks that compute it ----
 
 /// The job's design: its spec, read from its `[device]` table.
-fn spec_of(job: &Job) -> Result<Spec> {
+pub(super) fn spec_of(job: &Job) -> Result<Spec> {
     let table = job
         .device()
         .ok_or_else(|| task_error("the job has no [device] table"))?;
@@ -279,13 +279,14 @@ pub(super) fn task_kind(job: &Job) -> Result<Option<String>> {
         return Ok(None);
     }
     match job.task().get("kind").and_then(Value::as_str) {
-        Some(k @ ("spectrum" | "fdtd")) => Ok(Some(k.to_owned())),
+        Some(k @ ("spectrum" | "fdtd" | "sweep" | "corners")) => Ok(Some(k.to_owned())),
         Some(other) => Err(task_error(format!(
-            "a job with a [device] table computes it by a \"spectrum\" task (its own model) or \
-             an \"fdtd\" one, not \"{other}\": the device is the structure"
+            "a job with a [device] table computes it by a \"spectrum\" task (its own model), \
+             studies it by a \"sweep\" or \"corners\" one, or steps it in time by an \"fdtd\" \
+             one, not \"{other}\": the device is the structure"
         ))),
         None => Err(task_error(
-            "a device's task needs a kind: \"spectrum\" or \"fdtd\"",
+            "a device's task needs a kind: \"spectrum\", \"sweep\", \"corners\" or \"fdtd\"",
         )),
     }
 }
@@ -446,32 +447,7 @@ fn prepare(job: &Job) -> Result<Prepared> {
     let device = spec.device_with(&grids)?;
     // a 3D FDFD larger than the direct solver holds here is refused before it starts
     spec.fdfd_size(&grids)?;
-    let (from, to) = match (task.from_um, task.to_um) {
-        (Some(a), Some(b)) => (a, b),
-        (None, None) => own_band(design.values()),
-        _ => return Err(task_error("give both from_um and to_um, or neither")),
-    };
-    let points = task.points.unwrap_or(101);
-    if !(from.is_finite() && to.is_finite() && from > 0.0 && to >= from) {
-        return Err(task_error(format!(
-            "the band must go from a positive wavelength to one no smaller, got {from} to {to} um"
-        )));
-    }
-    if points == 0 || points > 20_001 || (points > 1 && to == from) {
-        return Err(task_error(format!(
-            "the band takes 1 to 20001 points, at distinct ends unless it has one, got {points}"
-        )));
-    }
-    let wavelengths: Vec<f64> = if points == 1 {
-        vec![from]
-    } else {
-        (0..points)
-            .map(|k| from + (to - from) * k as f64 / (points - 1) as f64)
-            .collect()
-    };
-    for &w in &wavelengths {
-        Wavelength::um(w)?;
-    }
+    let wavelengths = band_of(task.from_um, task.to_um, task.points, 101, &design)?;
     Ok(Prepared {
         spec,
         device,
@@ -497,14 +473,65 @@ pub fn fdfd_size(job: &Job) -> Result<Option<(usize, usize, f64)>> {
     spec_of(job)?.fdfd_size(&grids)
 }
 
-/// A `"spectrum"` task read, and the grids it sets.
-fn spectrum_task(job: &Job) -> Result<(SpectrumTask, Grids)> {
-    let task: SpectrumTask = job
-        .task()
-        .clone()
-        .try_into()
-        .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
-    let fdfd_2d = match task.model_2d.as_deref() {
+/// The wavelengths of a band a task gives as `from_um`, `to_um` and `points` (each optional):
+/// the design's own band (its `wavelength` ± `span`/2) when the ends aren't given, at
+/// `default_points` when the count isn't, evenly spaced.
+///
+/// # Errors
+///
+/// [`Error::Parse`] for one end without the other, ends that aren't a band, or a count that
+/// isn't from 1 to 20001 (at distinct ends unless it is 1).
+pub(super) fn band_of(
+    from_um: Option<f64>,
+    to_um: Option<f64>,
+    points: Option<usize>,
+    default_points: usize,
+    design: &Design,
+) -> Result<Vec<f64>> {
+    let (from, to) = match (from_um, to_um) {
+        (Some(a), Some(b)) => (a, b),
+        (None, None) => own_band(design.values()),
+        _ => return Err(task_error("give both from_um and to_um, or neither")),
+    };
+    let points = points.unwrap_or(default_points);
+    if !(from.is_finite() && to.is_finite() && from > 0.0 && to >= from) {
+        return Err(task_error(format!(
+            "the band must go from a positive wavelength to one no smaller, got {from} to {to} um"
+        )));
+    }
+    if points == 0 || points > 20_001 || (points > 1 && to == from) {
+        return Err(task_error(format!(
+            "the band takes 1 to 20001 points, at distinct ends unless it has one, got {points}"
+        )));
+    }
+    let wavelengths: Vec<f64> = if points == 1 {
+        vec![from]
+    } else {
+        (0..points)
+            .map(|k| from + (to - from) * k as f64 / (points - 1) as f64)
+            .collect()
+    };
+    for &w in &wavelengths {
+        Wavelength::um(w)?;
+    }
+    Ok(wavelengths)
+}
+
+/// The grids a task sets: its `step_nm`, `step_z_nm`, `margin_um`, `samples`, `pml_cells` and
+/// `model_2d`, each the device's own when left out.
+///
+/// # Errors
+///
+/// [`Error::Parse`] for a `model_2d` that isn't `"guided"` or `"fdfd"`.
+pub(super) fn grids_of(
+    step_nm: Option<f64>,
+    step_z_nm: Option<f64>,
+    margin_um: Option<f64>,
+    samples: Option<usize>,
+    pml_cells: Option<usize>,
+    model_2d: Option<&str>,
+) -> Result<Grids> {
+    let fdfd_2d = match model_2d {
         None | Some("guided") => false,
         Some("fdfd") => true,
         Some(other) => {
@@ -513,14 +540,31 @@ fn spectrum_task(job: &Job) -> Result<(SpectrumTask, Grids)> {
             )));
         }
     };
-    let grids = Grids {
-        step: task.step_nm.map(|v| v / 1e3),
-        step_z: task.step_z_nm.map(|v| v / 1e3),
-        margin: task.margin_um,
-        samples: task.samples,
-        pml: task.pml_cells,
+    Ok(Grids {
+        step: step_nm.map(|v| v / 1e3),
+        step_z: step_z_nm.map(|v| v / 1e3),
+        margin: margin_um,
+        samples,
+        pml: pml_cells,
         fdfd_2d,
-    };
+    })
+}
+
+/// A `"spectrum"` task read, and the grids it sets.
+fn spectrum_task(job: &Job) -> Result<(SpectrumTask, Grids)> {
+    let task: SpectrumTask = job
+        .task()
+        .clone()
+        .try_into()
+        .map_err(|e: toml::de::Error| task_error(e.to_string()))?;
+    let grids = grids_of(
+        task.step_nm,
+        task.step_z_nm,
+        task.margin_um,
+        task.samples,
+        task.pml_cells,
+        task.model_2d.as_deref(),
+    )?;
     Ok((task, grids))
 }
 
@@ -561,7 +605,7 @@ pub(super) fn fidelity_name(f: Fidelity) -> &'static str {
 /// The device's component at its values and fidelity, built on a thread of its own so that a
 /// stop ends the run at once (the solve already started is let go, its result discarded);
 /// `None` when the stop came first.
-fn built(
+pub(super) fn built(
     device: Box<dyn Device>,
     design: &Design,
     f: Fidelity,
@@ -681,7 +725,8 @@ pub(super) fn run_spectrum(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> 
 }
 
 /// Runs a job with a `[device]` table: the design alone records its scene; a `"spectrum"` task
-/// its model's S-parameters; an `"fdtd"` task its structure in time.
+/// its model's S-parameters; a `"sweep"` or `"corners"` task its model at each of the study's
+/// designs ([`super::study`]); an `"fdtd"` task its structure in time.
 pub(super) fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let kind = task_kind(job)?;
     if kind.as_deref() == Some("fdtd") {
@@ -695,7 +740,8 @@ pub(super) fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         job: job.name().to_owned(),
         kind: "device".into(),
     })?;
-    match kind {
+    match kind.as_deref() {
+        Some("sweep" | "corners") => super::study::run(job, run, stop, scene)?,
         Some(_) => run_spectrum(job, run, stop)?,
         None => run.record(&scene)?,
     }

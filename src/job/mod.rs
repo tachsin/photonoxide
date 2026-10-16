@@ -170,6 +170,13 @@
 //! stepped in time as an `"fdtd"` job's shapes are, its sources and monitors finding its ports
 //! by name (`port = "o1"`). [`from_device`] writes such a job. See `device.rs`.
 //!
+//! **A device studied.** `kind = "sweep"` steps one or two of the design's parameters, and
+//! `kind = "corners"` computes the nominal design and named corners of it (offsets of its
+//! parameters, its materials at a temperature): each point the design computed as a
+//! `"spectrum"` task computes it, recorded as [`Event::DeviceStudy`] and an
+//! [`Event::DevicePoint`] per point, side by side on rayon's threads or a farm's workers and to
+//! the bit of each point's own job. [`study_from_device`] writes such a job. See `study.rs`.
+//!
 //! A job file's `[task]` table names its kind. The kinds so far:
 //!
 //! - `"structure"`: a layer stack with shapes drawn on it, recorded as pictures of its
@@ -417,15 +424,25 @@ mod fdfd;
 mod fdtd;
 mod params;
 mod shapes;
+mod study;
+mod study_checks;
+#[cfg(test)]
+mod study_tests;
 
 pub use device::{Compute, DeviceFigure, fdfd_size, from_device};
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub(crate) use fdfd::{fill_plane as fdfd_fill_plane, plane as fdfd_plane};
 pub use fdtd::{FoundResonance, SpectrumSeries};
+pub use study::{Corner, Study, SweepAxis, study_from_device};
 
 /// The validation cases of components in jobs ([`crate::generator`] in `[[task.component]]`).
 pub(crate) fn component_cases() -> Vec<crate::validation::Case> {
     components::cases()
+}
+
+/// The validation cases of devices' studies ([`study_from_device`]).
+pub(crate) fn study_cases() -> Vec<crate::validation::Case> {
+    study_checks::cases()
 }
 
 /// The memory a sweep's points in flight may take in all, by their estimate: what bounds them
@@ -833,6 +850,66 @@ pub enum Event {
         seconds: f64,
         /// The device's figures from the model, each with its fidelity and grid.
         figures: Vec<DeviceFigure>,
+    },
+    /// A study of a job's device about to run (`[device]` with a `"sweep"` or `"corners"` task,
+    /// [`Study`]), recorded after the nominal design's scene and ports: what it steps through, so
+    /// that a viewer can say how far along it is. An [`Event::DevicePoint`] per point follows, in
+    /// order.
+    DeviceStudy {
+        /// `"sweep"` or `"corners"`.
+        study: String,
+        /// The device's kind, e.g. `"directional coupler"`.
+        device: String,
+        /// The fidelity every point is computed at: `"analytic"`, `"2D"` or `"3D"`.
+        fidelity: String,
+        /// What computes it, in a sentence.
+        method: String,
+        /// Its write-up in docs/methods, e.g. `"devices"`.
+        write_up: String,
+        /// The papers it implements, each with its DOI.
+        papers: Vec<String>,
+        /// The device's parameters' names: the order of each point's `values`.
+        parameters: Vec<String>,
+        /// Their units, e.g. `"µm"`, or `""`.
+        units: Vec<String>,
+        /// A sweep's axes, the second's values fastest; none for corners.
+        axes: Vec<SweepAxis>,
+        /// The axes' parameters' units, in the same order.
+        axis_units: Vec<String>,
+        /// The corners, after the nominal design; none for a sweep.
+        corners: Vec<Corner>,
+        /// How many points.
+        points: usize,
+        /// The wavelengths each point's S-parameters are at, µm.
+        wavelengths_um: Vec<f64>,
+        /// The ports' names, in the S-matrices' order.
+        ports: Vec<String>,
+    },
+    /// A point of a device's study: its design computed at the study's fidelity, or why it
+    /// wasn't. The same numbers, to the bit, as the run of that design's own `"spectrum"` job.
+    DevicePoint {
+        /// The point's index, from 0.
+        point: usize,
+        /// A sweep's: each axis's value there, in its unit; none for corners.
+        at: Vec<f64>,
+        /// A corners study's: the corner, `"nominal"` for the first point.
+        corner: Option<String>,
+        /// The device's parameters' values there, in the [`Event::DeviceStudy`]'s order.
+        values: Vec<f64>,
+        /// Why the model gave nothing there (a fit outside its range, a solve that failed); the
+        /// fields after it are then empty.
+        error: Option<String>,
+        /// What the component reproduces, with its grid (its provenance's source).
+        source: String,
+        /// The grid its figures name, or `"exact: no grid"`.
+        grid: String,
+        /// The device's figures there, each with its fidelity and grid.
+        figures: Vec<DeviceFigure>,
+        /// Each port's mode's effective index where the model states one (0 where it doesn't).
+        effective_indices: Vec<f64>,
+        /// The power-normalized S-matrices, one per wavelength of the study: `s[w][q][p]` from
+        /// port p into port q, real and imaginary parts.
+        s: Vec<Vec<Vec<[f64; 2]>>>,
     },
     // New variants go here, at the end after the last one, so that the earlier variants keep
     // their discriminants (inserting one in between renumbers every variant after it).
@@ -2448,6 +2525,18 @@ pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     execute_task(job, run, stop, &kind)
 }
 
+/// Whether `job` has a sweep whose points a farm's workers can solve ([`crate::farm`]): a
+/// `"modes"` or `"fdfd"` job's `[task.sweep]`, or a device's study (a `[device]` with a
+/// `"sweep"` or `"corners"` task).
+pub fn farms(job: &Job) -> bool {
+    job.task().get("sweep").is_some()
+        || (job.device().is_some()
+            && matches!(
+                job.task().get("kind").and_then(toml::Value::as_str),
+                Some("sweep" | "corners")
+            ))
+}
+
 /// Runs `job`'s task of `kind` into `run`, from its start to its end.
 fn execute_task(job: &Job, run: &mut Run, stop: &Stop, kind: &str) -> Result<()> {
     let kind = kind.to_owned();
@@ -2510,6 +2599,11 @@ fn check_inner(job: &Job) -> Result<()> {
             Some("fdtd") => {
                 check_direct(job, "fdtd")?;
                 fdtd::check(job)
+            }
+            Some(kind @ ("sweep" | "corners")) => {
+                check_direct(job, kind)?;
+                device_scene(job)?;
+                study::check(job)
             }
             Some(_) => {
                 check_direct(job, "spectrum")?;
