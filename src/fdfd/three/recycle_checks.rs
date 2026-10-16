@@ -20,6 +20,9 @@ pub(crate) enum Solve {
     Symmetric,
     /// The same without the matrix ([`IterativeSolver3d::matrix_free`]).
     Free,
+    /// GMRES on Shin and Fan's operator without its matrix, stretched PMLs, preconditioned by
+    /// the multigrid whose finest level has none either.
+    MultigridFree(Multigrid),
 }
 
 /// A directional coupler's straight section: two silicon strips (350 × 220 nm, 150 nm apart)
@@ -128,6 +131,15 @@ fn build(
         Solve::Free => {
             IterativeSolver3d::matrix_free(grid, lam, coupler_eps, Boundaries3d::pml(pml))?
         }
+        Solve::MultigridFree(options) => IterativeSolver3d::new_with(
+            grid,
+            lam,
+            coupler_eps,
+            Boundaries3d::stretched_pml(pml),
+            Formulation::ShinFan,
+            super::Product::MatrixFree,
+        )?
+        .with_multigrid(options)?,
     };
     let mut ports = Vec::new();
     for (plane, side) in [(pml + 2, Side::Left), (nx - pml - 3, Side::Right)] {
@@ -226,7 +238,9 @@ pub(crate) fn small(wavelength: f64, solve: Solve) -> Result<(IterativeSolver3d,
 /// last 4 solutions, and symmetric QMR with the last 4 solutions.
 fn recycled(solve: Solve) -> Recycler {
     match solve {
-        Solve::Multigrid(_) => Recycler::new().with_krylov(10).with_solutions(4),
+        Solve::Multigrid(_) | Solve::MultigridFree(_) => {
+            Recycler::new().with_krylov(10).with_solutions(4)
+        }
         Solve::Symmetric | Solve::Free => Recycler::new().with_solutions(4),
     }
 }
@@ -241,7 +255,7 @@ pub(crate) fn s_matrix_against_plain(solve: Solve) -> f64 {
     let build = |lam: f64| small(lam, solve);
     let mut recycler = recycled(solve);
     let tolerance = match solve {
-        Solve::Multigrid(_) => 1e-11,
+        Solve::Multigrid(_) | Solve::MultigridFree(_) => 1e-11,
         Solve::Symmetric | Solve::Free => 1e-10,
     };
     match (
@@ -290,6 +304,32 @@ pub(crate) fn free_against_stored() -> (f64, f64) {
             largest_difference(&stored, &again),
         ),
         _ => (f64::NAN, f64::NAN),
+    }
+}
+
+/// The small coupler's S-matrix at 1.53, 1.54, 1.55 and 1.56 µm by GMRES with the multigrid
+/// without the finest matrix ([`Solve::MultigridFree`], `options`), one plain solve per port and
+/// recycled through [`recycled`]'s recycler, against the stored matrix's multigrid's plain sweep,
+/// all to 1e-11: the largest difference of an entry from the stored multigrid's, of the plain
+/// sweep and of the recycled, and the plain sweeps' iterations, the stored multigrid's and this
+/// one's; NaN if a solve fails.
+pub(crate) fn stencil_against_stored(options: Multigrid) -> (f64, f64, usize, usize) {
+    let wavelengths = [1.53, 1.54, 1.55, 1.56];
+    let stored = |lam: f64| small(lam, Solve::Multigrid(Multigrid::default()));
+    let free = |lam: f64| small(lam, Solve::MultigridFree(options));
+    let mut recycler = recycled(Solve::MultigridFree(options));
+    match (
+        sweep(&wavelengths, &stored, 1e-11, None),
+        sweep(&wavelengths, &free, 1e-11, None),
+        sweep(&wavelengths, &free, 1e-11, Some(&mut recycler)),
+    ) {
+        (Ok(stored), Ok(plain), Ok(again)) => (
+            largest_difference(&stored, &plain),
+            largest_difference(&stored, &again),
+            iterations(&stored).iter().sum(),
+            iterations(&plain).iter().sum(),
+        ),
+        _ => (f64::NAN, f64::NAN, 0, 0),
     }
 }
 

@@ -1818,15 +1818,16 @@ fn qmr_without_the_matrix_takes_the_iterations_and_gives_the_field_of_qmr_with_i
             .fold(0.0, f64::max);
         assert!(d < 1e-8 * largest * 2.0, "{name}: {d}");
     }
-    // what needs the matrix says so
+    // what needs the matrix says so, and the multigrid needs Shin and Fan's operator
     let free = || IterativeSolver3d::matrix_free(grid, lam, cube, Boundaries3d::pml(3)).unwrap();
-    for refused in [
-        free().with_ilu().err(),
-        free().with_multigrid(Multigrid::default()).err(),
-    ] {
-        let e = refused.unwrap().to_string();
-        assert!(e.contains("needs the assembled matrix"), "{e}");
-    }
+    let e = free().with_ilu().err().unwrap().to_string();
+    assert!(e.contains("needs the assembled matrix"), "{e}");
+    let e = free()
+        .with_multigrid(Multigrid::default())
+        .err()
+        .unwrap()
+        .to_string();
+    assert!(e.contains("Shin and Fan"), "{e}");
     // photonoxide's own Krylov solver is no backend to refuse
     assert!(
         free()
@@ -1876,7 +1877,8 @@ fn auto_goes_without_the_matrix_only_where_it_wouldnt_fit() {
         build(curl_curl, Product::Auto, Some(needs - 1)),
         Product::MatrixFree
     );
-    // Shin and Fan's operator has no product without its matrix: the matrix, however little
+    // on Shin and Fan's operator Auto keeps the matrix, however little the memory (its
+    // multigrid without the matrix is asked for, never chosen)
     assert_eq!(
         build(Formulation::ShinFan, Product::Auto, Some(1)),
         Product::Matrix
@@ -1887,18 +1889,11 @@ fn auto_goes_without_the_matrix_only_where_it_wouldnt_fit() {
         build(curl_curl, Product::MatrixFree, None),
         Product::MatrixFree
     );
-    let e = IterativeSolver3d::new_with(
-        grid,
-        lam,
-        cube,
-        pml,
-        Formulation::ShinFan,
-        Product::MatrixFree,
-    )
-    .err()
-    .unwrap()
-    .to_string();
-    assert!(e.contains("curl-curl"), "{e}");
+    // Shin and Fan's operator without its matrix, asked for: for the multigrid without it
+    assert_eq!(
+        build(Formulation::ShinFan, Product::MatrixFree, None),
+        Product::MatrixFree
+    );
     // what auto chose solves as the solver it is: without the matrix, the same field to
     // rounding as with it
     let mut source = vec![c64::new(0.0, 0.0); n];

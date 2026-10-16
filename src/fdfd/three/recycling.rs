@@ -193,16 +193,28 @@ impl IterativeSolver3d {
                 max_iterations: stopping.max_iterations,
             };
             match (&self.preconditioner, &self.backend) {
-                (Preconditioning::Multigrid(h), None) if recycler.vectors > 0 => gcro_dr(
-                    &self.matrix,
-                    h.as_ref(),
-                    &r0,
-                    inner,
-                    h.restart(),
-                    recycler.vectors,
-                    &mut recycler.space,
-                    self.id,
-                )?,
+                (Preconditioning::Multigrid(h), None) if recycler.vectors > 0 => match &self.free {
+                    Some(operator) => gcro_dr(
+                        operator,
+                        h.as_ref(),
+                        &r0,
+                        inner,
+                        h.restart(),
+                        recycler.vectors,
+                        &mut recycler.space,
+                        self.id,
+                    )?,
+                    None => gcro_dr(
+                        &self.matrix,
+                        h.as_ref(),
+                        &r0,
+                        inner,
+                        h.restart(),
+                        recycler.vectors,
+                        &mut recycler.space,
+                        self.id,
+                    )?,
+                },
                 _ => self.solve_prepared(&r0, inner)?,
             }
         };

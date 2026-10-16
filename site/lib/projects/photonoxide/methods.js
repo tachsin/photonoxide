@@ -49,7 +49,7 @@ export const CATEGORIES = [
     blurb: "The algorithms under the solvers: eigenvalues near a shift or inside a contour, Krylov solves for many sources and long sequences, and sparse direct solves, photonoxide's own or another library's.",
     groups: [
       { title: "Eigenvalues", slugs: ["eigen", "contour"] },
-      { title: "Linear systems", slugs: ["block-qmr", "recycling", "backends"] },
+      { title: "Linear systems", slugs: ["block-qmr", "recycling", "multigrid-stencil", "backends"] },
     ],
   },
   {
@@ -101,7 +101,7 @@ export const ALGORITHMS = [
   { name: "Mirror walls", does: "a symmetric guide on half or a quarter of its cross-section", methods: ["walls"] },
   { name: "Morphological opening and closing", does: "corners rounded to a least radius, a first lithography model", methods: ["booleans"] },
   { name: "Multifrontal LU, nested dissection", does: "photonoxide's own sparse direct solve", methods: ["fdfd-3d", "fdfd"] },
-  { name: "Multigrid, shifted Laplacian", does: "the 3D iterative solves' preconditioner", methods: ["fdfd-3d"] },
+  { name: "Multigrid, shifted Laplacian", does: "the 3D iterative solves' preconditioner", methods: ["fdfd-3d", "multigrid-stencil"] },
   { name: "Multimode self-imaging", does: "an MMI's image lengths from its beat length, as geometry inputs", methods: ["generators"] },
   { name: "Nonlinear inverse iteration", does: "an eigenproblem whose matrix depends on its eigenvalue", methods: ["hadley"] },
   { name: "Polygon overlay on an integer grid", does: "union, intersection, difference and xor of polygons, exact on shared edges", methods: ["booleans"] },
