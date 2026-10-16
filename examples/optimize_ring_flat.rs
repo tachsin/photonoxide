@@ -207,12 +207,10 @@ fn misfit_half(filter: &Filter, y: &[f64], gradient: &mut [f64]) -> f64 {
     f
 }
 
-/// What a fit found: the ratios and s, the misfit, how many of the starts reached it, and
-/// CMA-ES's misfit after the same polish.
+/// What a fit found: the ratios and s, the misfit, and CMA-ES's misfit after the same polish.
 struct Fit {
     x: Vec<f64>,
     misfit: f64,
-    reached: usize,
     cmaes: f64,
 }
 
@@ -254,10 +252,6 @@ fn fit(filter: &Filter) -> Fit {
         })
         .cloned()
         .expect("a start");
-    let reached = found
-        .iter()
-        .filter(|(y, _)| y.iter().zip(&best).all(|(a, b)| (a - b).abs() < 1e-6))
-        .count();
     let value = |y: &Reals| {
         let mut g = vec![0.0; y.len()];
         misfit_half(filter, y, &mut g)
@@ -275,7 +269,6 @@ fn fit(filter: &Filter) -> Fit {
     Fit {
         x: full(filter.n, &best),
         misfit,
-        reached,
         cmaes,
     }
 }
@@ -323,15 +316,10 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         println!("\nN = {n}: μᵢ²/μ⁴ = κᵢ²/κ_b⁴, i = 1 … {half}");
         for bus in [1e-3, 1e-4, 1e-5] {
             let filter = Filter::new(n, bus)?;
-            let Fit {
-                x,
-                misfit,
-                reached,
-                cmaes,
-            } = fit(&filter);
+            let Fit { x, misfit, cmaes } = fit(&filter);
             let ratios: Vec<String> = x[..n - 1].iter().map(|r| format!("{r:.5}")).collect();
             println!(
-                "  κ_b² = {bus:e}: {} (misfit {}, δ_c = {:.4} κ_b²; {reached} of {STARTS} starts reached it; CMA-ES then L-BFGS-B: misfit {})",
+                "  κ_b² = {bus:e}: {} (misfit {}, δ_c = {:.4} κ_b², the best of {STARTS} starts; CMA-ES then L-BFGS-B: misfit {})",
                 ratios.join(", "),
                 magnitude(misfit),
                 x[n - 1],
