@@ -32,6 +32,13 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 - **Materials:** [dispersion models](docs/methods/materials.md) with their source, validity range
   and temperature; a [catalogue](docs/methods/catalogue.md) of Si, SiO₂, SiN, LiNbO₃, GaAs,
   AlGaAs, InGaP, InP and AlN, with χ⁽²⁾ and Pockels tensors.
+- **Geometry for any device:** [shapes](docs/methods/geometry.md) kept exact, from paths with
+  Euler bends to regions defined by [expressions](docs/methods/expressions.md);
+  [booleans and offsets](docs/methods/booleans.md), [arrays and lattices](docs/methods/arrays.md),
+  [components drawn with named ports](docs/methods/generators.md),
+  [stacks with partial etches and sidewalls](docs/methods/stacks.md), and
+  [3D bodies and graded media](docs/methods/bodies.md); each solver reads it by points or by
+  [each cell's fill](docs/methods/averaging.md).
 - **Modes:** [slabs](docs/methods/slab.md) and [multilayers](docs/methods/multilayer.md),
   [full-vector cross-sections](docs/methods/vector.md) with [PMLs](docs/methods/pml.md),
   [Hadley's](docs/methods/hadley.md) scheme for dielectric corners, [bends](docs/methods/bends.md)
@@ -49,6 +56,10 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 - **Circuits:** [components](docs/methods/components.md), [netlists](docs/methods/circuits.md),
   the [circuit adjoint](docs/methods/circuit-adjoint.md), [compact models](docs/methods/compact.md)
   and Touchstone files; optimization with [genoxide](https://github.com/tachsin/genoxide).
+- **Devices:** [components that know their geometry](docs/methods/devices.md): the strip and rib
+  waveguides, bend, directional coupler, rings, MMIs, Y-branch and MZIs, each with its models
+  from a closed form to 3D and their errors; computed at a fidelity, swept over one or two
+  parameters and taken through a process's corners, as jobs.
 - **External solvers, optional:** oneMKL's PARDISO, MUMPS, SuperLU, Apple Accelerate, NVIDIA
   cuDSS and Krylov solvers on NVIDIA GPUs, and any BLAS and LAPACK as the dense kernels of
   photonoxide's own solver, loaded at run time when installed and checked against
@@ -74,7 +85,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 
 `photonoxide` opens a window on a folder of jobs, runs and chips: the examples, each run in one
 click and checked against its paper; each component on its own page, its design in 3D, its models
-side by side and its runs; the Custom device for any other structure; runs played live or
+side by side, its runs, sweeps and corners; the Custom device for any other structure; runs played live or
 replayed (modes, fields, spectra, FDTD as the field propagates); the Academy's lessons with live
 charts; the materials catalogue; chips; the validation report; and the external
 solvers this machine has. The same program runs a job from the command line
@@ -154,6 +165,8 @@ or the committed report isn't the one the code writes. CI checks every example's
 | 0.5 FDTD | 2D and 3D, CPML, smoothing, sources, monitors, adjoints, a GPU kernel; solver backends loaded at run time | ✅ released |
 | 0.5.1 Channels and backends | Nightly built from main, MUMPS, SuperLU and Accelerate, the backend chosen from benchmarks, every mode in a region | ✅ released |
 | 0.5.2 Many solves at once | Ports as a block, recycling across sweeps, more contour-integral mode solvers, farming across processes | ✅ released |
+| 0.5.3 QMR without the matrix | QMR without its matrix where the matrix wouldn't fit, MUMPS 5.9 | ✅ released |
+| 0.5.4 Geometry and devices | Geometry for any device, the device library on pages of its own, sweeps and corners as jobs, the Custom device | 🚧 in main, not yet released |
 | 0.6 Thermal and electro-optic | Heat, thermo-optic phase shifters, Pockels modulators, travelling-wave electrodes | 🚧 next |
 | 0.6.1 Nonlinear integrated optics | Transparency windows, phase matching, SHG, SFG, DFG, SPDC and FWM in waveguides, Kerr combs | planned |
 | 0.6.2 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states, loss budgets of quantum circuits | planned |

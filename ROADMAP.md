@@ -78,13 +78,13 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 
 - **`units`:** typed lengths, wavelengths and frequencies, and the time convention.
 - **`material`:** dispersion models (Sellmeier, Cauchy, Drude, Lorentz, tabulated data with Kramers–Kronig checks), each with its provenance.
-- **`geometry`:** shapes, polygons, extrusion, layer stacks (for example 220 nm SOI), and rasterization to grids with subpixel smoothing.
+- **`geometry`:** shapes, polygons, extrusion, layer stacks (for example 220 nm SOI), and rasterization to grids with subpixel smoothing. With `expr`, `stack`, `generator` and `averaging`: paths, regions defined by expressions and masks, booleans and offsets, arrays and references, components drawn with named ports, custom stacks with partial etches and sidewalls, 3D bodies and graded media, and each cell's fill for the solvers' averaging.
 - **`mode`:** slab and 2D cross-section mode solvers, the effective index method, bend modes, dispersion and overlaps.
 - **`fdfd`:** frequency-domain finite differences in 2D and 3D, ports, S-parameters, and adjoints.
 - **`fdtd`:** the Yee scheme in 2D and 3D, CPML, sources, monitors, dispersive and nonlinear media, and a GPU backend.
 - **`semi`:** the transfer matrix method, RCWA, eigenmode expansion (EME) and the beam propagation method.
 - **`circuit`:** components with ports and fidelities, netlists, the frequency-domain S-matrix and its adjoint, compact models and Touchstone files, time-domain models and signals, and programmable meshes.
-- **`device`:** components that know their geometry: a stack, shapes from parameters with ports, the models from a fit to 3D, and the component each builds.
+- **`device`:** components that know their geometry: a stack, shapes from parameters with ports, the models from a fit to 3D, and the component each builds; computed, swept and taken through a process's corners as jobs.
 - **`thermal` and `electro`:** the static solver (heat conduction and electrostatics), thermo-optic and Pockels models, and RF transmission lines.
 - **`carrier`:** drift-diffusion and plasma dispersion.
 - **`inverse`:** adjoint gradients, density and level-set parametrizations, length-scale and foundry-rule constraints, and robust formulations, posed as problems for genoxide's optimizers.
@@ -145,8 +145,8 @@ These mistakes were each seen and measured while designing a 1310/1550 nm silico
 
 ### 0.3.1: The studio as a workspace ✅
 - [x] **Everything inside the program:** the job files of `jobs/` and the thirteen published results of `examples/` built in, each run from the window, with each line of an example checked against its paper as it prints; the validation report, and running it on this machine.
-- [x] **Jobs built in the window,** with no TOML needed, moved from 0.4: a form for each kind, the device drawn from above as you type (shapes, ports, the PML, the cut), the TOML beside it and editable, and the library checking the job as it changes (`job::check`); saved to the workspace's `jobs/`.
-- [x] **Spectra and run comparison,** moved from 0.4: plots with read-outs, and the sweeps and spectra of several runs on shared axes.
+- [x] **Jobs built in the window,** with no TOML needed, moved from 0.4: a form for each kind, the device drawn from above as you type (shapes, ports, the PML, the cut), the TOML beside it and editable, and the library checking the job as it changes (`job::check`); saved to the workspace's `jobs/`. *(Since 0.5.4 the builder is the Custom device, whose form keeps a job's named parameters and sweeps, and a device's job opens on its device's page (#342).)*
+- [x] **Spectra and run comparison,** moved from 0.4: plots with read-outs, and the sweeps and spectra of several runs on shared axes. *(Since 0.5.4 the Compare page is a device's Study tab, which overlays any quantity its designs and runs share, and the Custom device's Compare runs for jobs without a device (#344).)*
 - [x] **A modern window:** Svelte, Tailwind CSS and daisyUI; dark and light themes; a home page, a tour, tips, tooltips and a Ctrl+K palette; settings, and a workspace folder.
 - [x] **Updates from inside the program:** signed releases with an update manifest; an installed copy offers a new release and installs it with one click (tested from a 0.3.0 installer to 0.3.1).
 - [x] **Code signing, ready:** Windows (Certum's open-source certificate through ssign) and macOS (Developer ID and notarization) in the release workflow, each from when its secrets are set.
@@ -273,6 +273,25 @@ Wavelengths, ports, modes and candidates multiply every solve; do fewer, and spr
 - [x] **Validation:** block and recycled solves give the single solves' S-matrices to 1e-10; the contour solver finds shift-invert's modes, and every eigenvalue in its region of a small problem against a dense solve; a farmed sweep is bit-identical for any number of workers. SLEPc runs as an external program on exported problems for comparison. *(Done in each item above, but for SLEPc, which moved on.)*
 
 *Moved on from 0.5.2:* Hadley's nonlinear problem by Beyn's method and NLEIGS, left eigenvectors and spurious-mode flags, `modes_above` in the façade; recycling inside QMR's Lanczos iteration, GCROT, the multigrid reused across wavelengths, block GCRO-DR; respawning a dead local worker, heartbeats and TLS for farming; SLEPc on exported problems.
+
+### 0.5.3: QMR without the matrix ✅
+
+What was in after 0.5.2. The multigrid without its finest matrix (#333) changes the API, so it waits for 0.6.0.
+
+- [x] **Solves:** QMR on the curl-curl operator without its matrix, chosen by `Product` and in the benchmark, and taken where the matrix wouldn't fit in the free memory (#334; #250, under 0.5's Performance).
+- [x] **Backends:** MUMPS 5.9.0 and 5.9.1, and the validation cases run on MUMPS (#322).
+- [x] **The studio:** the Academy's directional coupler lesson, from supermodes to the 3 dB coupler (#329); Nightly offers to revalidate when main has moved on, and says when the installed builder is too old (#330).
+- [x] **Fixes:** a modes job keeps only its guided modes, never the window's own (#348).
+
+### 0.5.4: Geometry and devices
+
+What is in since 0.5.3, not yet released: geometry for any device, the devices on pages of their own, and their studies.
+
+- [x] **Geometry for any device** (#227, #338's P4): paths with clothoids and partial Euler bends (#363); regions between two curves, polar, parametric and implicit, and masks (#365); booleans, offsets and corner rounding on i_overlay's integer overlay (#366); arrays, lattices and references, with defects and index expressions (#367); component generators with ports by name, from straights and bends to MMIs, gratings, photonic crystals and the edge coupler (#368, #369); custom stacks, partial etches and sidewall angles through every solver (#364); 3D bodies and graded media, shared with FDTD's smoothing (#372); the solvers reading fill fractions (#371). On the kernel (#235) and the expressions (#237) that came before. See [geometry](docs/methods/geometry.md), [expressions](docs/methods/expressions.md), [stacks](docs/methods/stacks.md), [booleans](docs/methods/booleans.md), [arrays](docs/methods/arrays.md), [generators](docs/methods/generators.md), [bodies](docs/methods/bodies.md) and [averaging](docs/methods/averaging.md).
+- [x] **Devices and their pages** (#338's P1 to P3 and P5 to P7): five pages on the rail where there were fourteen (#359); `photonoxide::device`, with the waveguide, bend, directional coupler and rings (#360), then the MMIs, Y-branch, MZIs and rib waveguide (#375); a component's page, its design view always on screen beside the tabs Design, Overview, Model, Simulate and Study (#362, #381, #387); `job::from_device`, a device computed at a fidelity (#381), and its sweeps of one or two parameters and a process's corners as jobs (#386); the Job builder retired into the Custom device (#384), and the Compare page into the Study tab's overlays (#387). See [devices](docs/methods/devices.md) and "The studio around components" under "Throughout".
+- [x] **Fixes:** the late growth in a CPML is the grid's: a finer grid removes it, and jobs stop and say so (#258); only guided modes from the façade and the library's `guided_modes`, never the closed window's own (#374; leaky modes in modes jobs are #373); a seam where two shapes of one material abut is no interface to the averaging (#383).
+- [x] **Backends:** any BLAS and LAPACK's interface measured, AMD AOCL and Arm PL as providers, the fronts' dense kernels benchmarked against PARDISO (#382); the GPU's iterative solves on every case and problem, cuSPARSE's products chosen to repeat, and AmgX examined (#356).
+- [x] **The project:** the Academy's slab waveguide lesson (#358); every crate in the workspace has photonoxide's version, the studio and native included (#385); on Linux the `.deb` or `.rpm` first, each release saying which file to take (#380); the optional backends as badges in the README (#379); a pull request that changes the library checked against the latest release's public API (#355), and one with an AI attribution line refused (#361); Wang et al.'s Bragg gratings cited by their online year, 2010 (#370); new majors of the Libraries workflow's actions (#378).
 
 ### 0.6: Thermal and electro-optic devices
 
@@ -452,10 +471,13 @@ Taken with the survey of October 2026:
 7. **Variable material data ships with its spread:** barium titanate's coefficient, and the drift and relaxation of lithium niobate's response (results labelled valid above about 1 MHz until it is modelled; Holzgrafe 2024).
 
 ### 0.9: Layout and PDK
-- [ ] **Layout:** polygons and booleans, cell hierarchy and references.
+
+The geometry this milestone builds on came early, most of it in 0.5.4 (#227): the layout wraps it rather than redoing it.
+
+- [ ] **Layout:** polygons and booleans, cell hierarchy and references. *(In part, in 0.5.4: booleans of any shapes on polygons, on i_overlay's integer grid, exact on shared edges and touching vertices (#366), and named cells placed many times with transforms (#367). Left: the layout's own cells and their hierarchy, as GDSII and OASIS hold them.)*
 - [ ] **GDSII and OASIS,** read and write (our own implementation). OASIS keeps curved, inverse-designed layouts small.
-- [ ] **Clean geometry:** curves turned into polygons within a stated tolerance, snapped to the database grid, split under the format's vertex limit, and merged.
-- [ ] **Parametric cells** with ports; waveguide routing with bends and tapers.
+- [ ] **Clean geometry:** curves turned into polygons within a stated tolerance, snapped to the database grid, split under the format's vertex limit, and merged. *(In part, in 0.5.4: every shape turned into polygons within a stated tolerance that keep its area, and booleans that merge them (#363, #366). Left: snapping to a layout's database grid and splitting under the format's vertex limit.)*
+- [ ] **Parametric cells** with ports; waveguide routing with bends and tapers. *(In part, in 0.5.4: the component generators, each a plain function of its parameters drawing shapes on layers with named ports, which the parametric cells will wrap (#368, #369; [generators](docs/methods/generators.md)), and paths with Euler bends and tapers for routing to use (#363). Left: the cells themselves, and routing.)*
 - [ ] **PDK format:** layer stack, layer map, design rules, cross-sections and process corners.
 - [ ] **DRC:** width, space, enclosure, minimum area, acute angles and curvature.
 - [ ] **PDKs loaded by the user:** a process's layers, rules and cells in the PDK format, kept outside this repository; the tests use a small open, permissively licensed rule set.
@@ -488,7 +510,7 @@ What a designer needs to take a design to a process of their choice. photonoxide
   - published measured devices, where their layouts and spectra are public, compared with photonoxide's prediction.
 
 ### 0.11: Fabrication realism
-- [ ] **Process variation:** width bias, film thickness and sidewall angle; corners and Monte Carlo; yield.
+- [ ] **Process variation:** width bias, film thickness and sidewall angle; corners and Monte Carlo; yield. *(In part, in 0.5.4: sidewall angles and partial etches through every solver (#364), and a device's corners (± a width bias, ± the thickness, a temperature, one at a time or every combination) as a job, on its Study tab (#386, #387). Left: Monte Carlo and yield; temperature corners on SOI wait for silicon's dn/dT in 0.6.)*
 - [ ] **Lithography and etch proxies** (blur and threshold), calibrated against published measurements where they exist. Machine-learned fabrication predictors (Gostimirovic 2022) are for comparison only.
 - [ ] **Robust design** across corners.
 - [ ] **Fabrication report** per design: nominal, corners and spread, and the design rules it was checked against.
@@ -502,22 +524,24 @@ What a designer needs to take a design to a process of their choice. photonoxide
 - [ ] **Validation:** Bragg mirrors analytically, gratings against published results, and EME against FDTD on tapers.
 
 ### 0.13: Device library
+Begun early, in 0.5.4: `photonoxide::device` (#338's P2 and P6, [devices](docs/methods/devices.md)) has the first of these, each with its parameters, stack, geometry drawn by its generator, models from analytic to 3D with their errors, and its page in the studio.
+
 - [ ] **Validated devices,** each a component with its source paper, its fidelities and its validation:
-  - strip and rib waveguides;
-  - bends and tapers;
-  - Y-branch (Zhang 2013);
-  - MMI (Soldano 1995);
-  - directional couplers;
-  - rings (Bogaerts 2011);
-  - MZIs;
-  - grating couplers (Vermeulen 2010; Su 2018);
+  - strip and rib waveguides; *(done in 0.5.4: the strip (#360) and the rib, Hadley's standard rib reproduced through it (#375))*
+  - bends and tapers; *(the bend done in 0.5.4 (#360); tapers are drawn by the generators (#368) but aren't devices yet)*
+  - Y-branch (Zhang 2013); *(in 0.5.4, Zhang et al.'s junction drawn (#375); its 2D model's error against 3D waits for 3D FDFD that resolves it, #377)*
+  - MMI (Soldano 1995); *(in 0.5.4, the 1 × 2 and 2 × 2, their images within 1.2 % of Soldano and Pennings's (#375); their 2D models' error against 3D waits for #377)*
+  - directional couplers; *(done in 0.5.4 (#360))*
+  - rings (Bogaerts 2011); *(done in 0.5.4 (#360))*
+  - MZIs; *(done in 0.5.4, of directional couplers and of Y-branches, as netlists of their devices (#375))*
+  - grating couplers (Vermeulen 2010; Su 2018); *(drawn by the generators in 0.5.4 (#369), not yet a device)*
   - AWGs;
   - demultiplexers.
-- [ ] **Studio:** the device catalogue in the component library.
+- [ ] **Studio:** the device catalogue in the component library. *(In place for the devices so far, in 0.5.4: each on its page in Components, with Design, Overview, Model, Simulate and Study (#362, #381, #387); it grows with the list above.)*
 
 ### 0.14: Periodic structures and nanophotonics
 - [ ] **Photonic band structures:** plane-wave expansion, block-iterative (Johnson 2001).
-- [ ] **Photonic-crystal waveguides and cavities** (Q factors by harmonic inversion).
+- [ ] **Photonic-crystal waveguides and cavities** (Q factors by harmonic inversion). *(Begun in 0.5.4: lattices with L3, H1 and W1 defects drawn by the generators (#367, #369), and Akahane et al. 2003's L3 cavity as one body in 3D FDTD (#372): at 16 cells a lattice constant its resonances 0.7 % (unshifted) and 1.4 % (end holes shifted 0.15a) above the top of the measured span, and Q rising 10.1, 9.7 and 7.5 times with the shift at 8, 12 and 16 cells, against their tenfold; the shifted cavity's Q doesn't settle with the grid yet, so no more than a factor of 2 is claimed for it.)*
 - [ ] **Metasurfaces:** RCWA, and the locally periodic approximation.
 - [ ] **Plasmonics** with dispersive FDTD.
 - [ ] **Mie and T-matrix** scattering.
@@ -545,18 +569,21 @@ The waveguide and resonator processes, phase matching, photon pairs and Kerr com
   - [x] P1: five pages on the rail where there were fourteen, and nothing lost (#339).
   - [x] P2: `photonoxide::device`, a component that knows its geometry, with the waveguide, bend, directional coupler and rings (#340). *(A `Device` gives its parameters (with expressions), stack, geometry with ports, models and the component each builds, and its figures, each with its fidelity and grid ([docs/methods/devices.md](docs/methods/devices.md)). The strip's analytic models are fits to the 3D model's own values over width, thickness and gap, anchored at the studio library's strip, so the library's entries now come from the devices to the bit; the bend's 3D model is the straight strip by Hadley's equations plus the conformal map's shift on shared cells, which cancels the corners' error. Each lower model against the next one up within its stated error, the solvers' orders (Hadley 1.92, the coupler's 0.84), exact derivatives against fourth-order differences, the same bits on 1 and 20 threads, and Chrostowski & Hochberg's strip and coupler, Bogaerts's Fig. 5 and Dwivedi's 602 nm wire through the devices; `strip_waveguide`, `directional_coupler`, `mzi_dwivedi` and `ring_q_factor` go through them, their outputs unchanged.)*
   - [x] P3: a component's page, its Overview and Design (#341). *(The waveguide, bend, directional coupler and rings each open on a page with one header (the fidelity in use, a dirty marker, Save, Place on the chip) and two tabs. Overview: the S-parameters, the figures, each with its model and grid, the model's papers and stated error, the ports with their modes, the lesson and the published results on it. Design: the stack (a preset, or layers of the catalogue's materials with their temperature and composition), the parameters as expressions with their errors in place and what uses each, the view from above with a draggable cut, the cross-section there and 3D, and the figures live. An analytic fit outside its tables or off silicon in silica says so and offers the 3D model, which solves in the background. A design saves as a job file with a `[device]` table (`device::Spec`), which `job::check` checks and `job::preview` draws, and reopens on its page.)*
+  - [x] P4: geometry for every device: paths, curves, booleans, arrays, generators with ports, custom stacks, etches and 3D bodies (#227). *(Ten phases, a PR each: the kernel (#235) and expressions with units and derivatives (#237); paths of straights, arcs, clothoids by the Fresnel integrals, partial Euler, Bézier, sine and parametric segments, Cherchi's, Vogelbacher's and Fujisawa's bends' geometry reproduced to their last digit (#363); regions between two curves, polar, parametric and implicit, and masks, Zhang et al.'s Y-junction outline drawn (#365); booleans, offsets and fillets of any shapes, exact for the solvers and on polygons on i_overlay's integer overlay, chosen against geo on degenerate cases (#366); arrays, lattices and references, each element an expression of its index, with defects, through a BVH (#367); component generators with ports by name, from straights to MMIs, Bragg and subwavelength gratings, grating couplers, photonic crystals and the edge coupler, Wang et al.'s gratings drawn, and the devices drawing with them to the bit (#368, #369); custom stacks, partial etches and sidewalls through every solver, Hadley's standard rib to 1.4e-6 (#364); 3D bodies and graded media, FDTD's smoothing reading them to the bit as it read its own, a parabolic medium's modes at second order, the L3 cavity in 3D FDTD (#372); the solvers reading fill fractions, a slab off the grid at order 2.00 (TE) and 1.88 (TM) against about 1 staircased (#371), and seams between shapes of one material no interface (#383). The builder's §9 became the Design tab (P3) and the Custom device (P5). See [geometry](docs/methods/geometry.md), [stacks](docs/methods/stacks.md), [booleans](docs/methods/booleans.md), [arrays](docs/methods/arrays.md), [generators](docs/methods/generators.md), [bodies](docs/methods/bodies.md) and [averaging](docs/methods/averaging.md).)*
+  - [x] P5: a component's Model and Simulate tabs, and the Job builder retired into the Custom device (#342). *(#381 and #384. The design's view always on screen, 3D, from above, across or as solved, with the tabs in a panel beside it. Model: the device's ladder of models, cheapest first, each with its method, papers, stated error and validity, its cost on this machine, and where two models computed on the design disagree. Simulate: `job::from_device` writes the job that computes a design at a fidelity, or steps it in FDTD with sources and monitors found at its ports by name; each device at each fidelity run as a job equals `Device::component` bit for bit; `job::check` refuses a 3D FDFD the direct solver can't hold here, with its size. The Custom device holds any structure no device describes: its form, read and written by the program, keeps a job's named parameters and sweeps, and names what it can't show and keeps it.)*
   - [x] P6: the MMI, Y-branch, MZI and rib waveguide as devices, on custom stacks and partial etches (#343). *(The rib (the effective index method at 2D, labelled and its error measured, the full-vector solver on its half at 3D) reproduces Hadley's standard rib through the device; the waveguide and coupler take ribs and sloped walls (`slab`, `sidewall`). The MMIs' 2D model is the library's guided-mode MMI to the bit, within 5e-3 of 2D FDFD of their own drawing, their images within 1.2 % of Soldano & Pennings's; the Y-branch draws Zhang et al.'s junction with the expression language's new `spline`; the MZIs are the netlists of their devices, their closed form to round-off. The MMIs and the Y-branch solve their drawings by 2D and 3D FDFD; 3D isn't resolved on the grids the direct solver holds here, so their 2D models' errors against it aren't stated yet.)*
-  - [ ] P4 to P12 but P6: geometry for every device, a component's Model, Simulate, Study, Optimize and Export tabs, compact models over a device's parameters, the chip of devices, the Academy's published results, and devices in the façade.
+  - [x] P7: a component's Study tab: sweeps of any parameters, corners, and overlays in place of Compare (#344). *(#386 and #387. A `[device]` job's task can be a `sweep` of one or two of the design's parameters (its own, or one its expressions name) with the band at each point, or `corners`, the nominal design and named corners of offsets and temperatures; each point is a design of its own, equal bit for bit to its own run, on 1 and 20 threads and farmed; a point the model refuses says why and the study goes on. Chrostowski and Hochberg's Eq. 4.14 through a 3D gap sweep of the coupler, 3.86e-3 decades of L_x a nm of gap against the equation's 3.76e-3 ± 5 %, the same on 10 and 5 nm cells to 3e-4 of itself. The tab plots any quantity the points give, against the parameter or as a map with a cut, the corners against the nominal design, and overlays any of the device's designs and runs, each curve with its fidelity and grid; runs of jobs without a device overlay in the Custom device.)*
+  - [ ] P8 to P12: the Optimize tab (P8, #244, under way), the Export tab with compact models over a device's parameters (P9, #345) and the chip of devices (P10, #346), the Academy's published results (P11, #228; lessons landing: the slab waveguide, the ring, the MZI and the directional coupler), and devices in the façade (P12, #347).
 - **Performance:** criterion benchmarks and the `bench` command (0.4.2), with regression gating in CI; every speed-up measured as time to equal accuracy. See [the performance plan](docs/plans/performance.md). faer's threaded dense LU, at 13 to 40% of MKL's on 20 threads ([docs/baselines.md](docs/baselines.md)), measured in faer's own benchmarks and reported upstream, with my go-ahead.
 - **External backends and the in-app benchmark** ([the plan](docs/plans/backends.md), #185): libraries the user installs, loaded at run time only through `photonoxide-native`, never linked, never GPL, photonoxide's own solvers the default and the reference.
   - [x] The traits, the registry and the choice in solvers and job files (#193).
-  - [ ] `photonoxide-native`: discovery, run-time loading, smoke tests (#174).
-  - [ ] Sparse direct backends: oneMKL's PARDISO (#175), MUMPS (#176), SuperLU (#177), Apple Accelerate's sparse solvers (#187), NVIDIA cuDSS on the GPU (#188).
+  - [x] `photonoxide-native`: discovery, run-time loading, smoke tests (#174).
+  - [x] Sparse direct backends: oneMKL's PARDISO (#175), MUMPS (#176), SuperLU (#177), Apple Accelerate's sparse solvers (#187), NVIDIA cuDSS on the GPU (#188).
   - [x] Dense kernels for the multifrontal fronts from any BLAS/LAPACK: MKL, AMD AOCL, Apple Accelerate, Arm PL, OpenBLAS (#186). *(Each provider found by its own rules; its interface measured, not assumed: Fortran's or C's, 32-bit or 64-bit integers by what `zgetrf` writes, complex results by value or through an argument. oneMKL's and OpenBLAS's kernels agree with faer's to 4.2e-13 and give the same factors on the exported systems; on 20 threads they don't make the solver faster than faer's, which is level with PARDISO and faster on `strip-40` ([docs/baselines.md](docs/baselines.md#06-the-fronts-dense-kernels-from-onemkl-and-openblas-186)). AOCL and Arm PL await an AMD and an Arm machine.)*
-  - [ ] Iterative backends: AMD AOCL-Sparse (#189); photonoxide's Krylov solvers on cuSPARSE (#190; AmgX examined and not used: its complex GMRES and smoothers can't solve photonoxide's systems, [the plan](docs/plans/backends.md#amgx-examined-and-not-a-backend-190-2026-10-11)).
-  - [ ] Install guides per library and platform, verified (#184).
-  - [ ] The benchmark: a catalogue of problems at many sizes (#179) and a runner over every backend with a results database (#180).
-  - [ ] The studio: a Libraries page with guided installs (#181), a Benchmarks page (#182), and `auto` from the measurements (#183).
+  - [ ] Iterative backends: AMD AOCL-Sparse (#189); photonoxide's Krylov solvers on cuSPARSE (#190; AmgX examined and not used: its complex GMRES and smoothers can't solve photonoxide's systems, [the plan](docs/plans/backends.md#amgx-examined-and-not-a-backend-190-2026-10-11)). *(cuSPARSE done in 0.5.4 (#356): the validation cases that solve iteratively run on it, all within tolerance, and so do the 3D iterative benchmark problems, its products' algorithm chosen by measurement to repeat bit for bit. AOCL-Sparse waits for an AMD machine.)*
+  - [x] Install guides per library and platform, verified (#184).
+  - [x] The benchmark: a catalogue of problems at many sizes (#179) and a runner over every backend with a results database (#180).
+  - [x] The studio: a Libraries page with guided installs (#181), a Benchmarks page (#182), and `auto` from the measurements (#183).
 - **Python and MATLAB** ([the plan](docs/plans/bindings.md), #271): bindings in `python/`, in step with the crate's versions.
   - [x] A façade: a small module of plain types (numbers named with their units, arrays with their grids), so a change elsewhere in the API stops there. *(`photonoxide::facade`: the catalogue's materials and indices, slab and full-vector modes with their fields, jobs run and checked, an FDFD job's S-parameters, circuits from a netlist given as data, Touchstone files; each the library's own calls to the bit, and `facade::conformance()`, calls with their results, for the bindings to check theirs against.)*
   - [x] The `photonoxide` package for Python (PyO3, abi3 wheels for CPython 3.10 and later), tested against the library's own results bit for bit and against the validation report's numbers, published to PyPI with each release. *(`python/`, [docs/python.md](docs/python.md): the façade's functions with NumPy arrays, result classes and type stubs, photonoxide's errors as exception classes, the GIL released and Ctrl+C and timeouts stopping long calls; every conformance case to the bit, the book's slab, a ring's free spectral range, an MZI and Li's silicon through Python; wheels for 7 platforms and free-threaded 3.14t, tested on 3 on every PR that touches them. Publishing waits for PyPI's trusted publisher to be set up, docs/python.md.)*
