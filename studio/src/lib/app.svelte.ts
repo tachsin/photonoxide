@@ -1,7 +1,7 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
 import { api, type AppState, type Info, type JobFormat, type Settings } from "./api";
-import type { DeviceModel, DevicePoint, DeviceStudy, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Mode, ModeField, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
+import type { DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import { template, type Kind } from "./job";
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
@@ -207,6 +207,13 @@ export const run = $state({
   /** A device's study: what it steps through, and its points as they come. */
   study: null as DeviceStudy | null,
   points: [] as DevicePoint[],
+  /** A device's optimization: the problem, its evaluations as they come, its latest front and its optimum. */
+  optimization: null as Optimization | null,
+  evaluations: [] as Evaluation[],
+  front: null as Front | null,
+  /** Each front's hypervolume against the evaluations so far. */
+  hypervolumes: [] as [number, number][],
+  optimum: null as Optimum | null,
   /** The named ports the run recorded: a device's, or a job's components'. */
   ports: [] as ScenePort[],
   /** Each solve's numerical error, in the order recorded. */
@@ -352,6 +359,19 @@ function take(e: Event) {
     case "device_study":
       run.study = e;
       break;
+    case "optimization":
+      run.optimization = e;
+      break;
+    case "evaluation":
+      run.evaluations.push(e);
+      break;
+    case "front":
+      run.front = e;
+      run.hypervolumes.push([e.evaluations, e.hypervolume]);
+      break;
+    case "optimum":
+      run.optimum = e;
+      break;
     case "device_point":
       run.points.push(e);
       break;
@@ -402,6 +422,11 @@ function reset(info: Info) {
     device: null,
     study: null,
     points: [],
+    optimization: null,
+    evaluations: [],
+    front: null,
+    hypervolumes: [],
+    optimum: null,
     ports: [],
     errors: [],
     frames: [],

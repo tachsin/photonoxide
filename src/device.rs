@@ -19,6 +19,9 @@
 //!   and their derivatives ([`Built`]).
 //! - [`Device::derived`]: its cheap figures, each with its fidelity and grid: n_eff and n_g, the
 //!   cross-over length, the free spectral range, Q, the bend's loss.
+//! - [`Device::objectives`] and [`Device::constraints`]: what an optimization of it makes
+//!   small, large or near a target, and keeps within bounds, each an expression of its outputs
+//!   with derivatives where they exist ([`objective`]).
 //!
 //! The first devices are a silicon strip's: the [`StripWaveguide`], the [`StripBend`], the
 //! [`StripCoupler`] (a directional coupler) and the [`StripRing`] (all-pass and add-drop).
@@ -45,6 +48,7 @@ mod fit;
 mod guide;
 mod mmi;
 mod mzi;
+pub mod objective;
 mod rib;
 mod ring;
 mod section;
@@ -64,6 +68,7 @@ pub use bend::StripBend;
 pub use coupler::StripCoupler;
 pub use mmi::{Model2d, StripMmi};
 pub use mzi::StripMzi;
+pub use objective::{Constraint, Goal, Limit, Objective, Reduce};
 pub use rib::RibWaveguide;
 pub use ring::StripRing;
 pub use section::{Cells, Mesh, Scheme, Symmetry};
@@ -129,6 +134,21 @@ pub trait Device: fmt::Debug + Send + Sync {
     /// As [`Device::component`].
     fn derived(&self, values: &Values, fidelity: Fidelity) -> Result<Vec<Figure>> {
         Ok(self.component(values, fidelity)?.figures)
+    }
+
+    /// The objectives an optimization of it offers, each an expression of its outputs
+    /// ([`objective`]) to make small, large or near a target: a coupler's split ratio and its
+    /// flatness over a band, a ring's extinction and critical coupling. The library's devices
+    /// declare theirs by kind; another device, none.
+    fn objectives(&self) -> Vec<Objective> {
+        objective::objectives_of(self.kind())
+    }
+
+    /// The constraints an optimization of it offers, each an expression of its outputs kept at
+    /// most or at least a bound: a smallest gap, a footprint, a free spectral range. The
+    /// library's devices declare theirs by kind; another device, none.
+    fn constraints(&self) -> Vec<Constraint> {
+        objective::constraints_of(self.kind())
     }
 }
 

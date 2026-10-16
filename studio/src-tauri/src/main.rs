@@ -20,6 +20,7 @@ mod libraries;
 mod materials;
 #[cfg(test)]
 mod navigation;
+mod optimize;
 mod runner;
 mod settings;
 mod studio;
@@ -212,7 +213,7 @@ fn run(args: &[String]) -> ExitCode {
     let worker = {
         let (job, stop) = (job.clone(), stop.clone());
         std::thread::spawn(move || {
-            let result = job::execute(&job, &mut record, &stop);
+            let result = crate::optimize::execute(&job, &mut record, &stop);
             // the local workers end with the run
             drop(workers);
             let _ = done.send(());

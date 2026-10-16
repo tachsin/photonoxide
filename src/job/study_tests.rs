@@ -484,7 +484,7 @@ fn the_check_refuses_what_isnt_a_study() {
             "kind = \"sweep\"\nsteps = 3\n[[task.axis]]\nparameter = \"gap\"\nfrom = 0.1\nto = 0.2\npoints = 2",
             "steps",
         ),
-        ("kind = \"optimize\"", "sweep"),
+        ("kind = \"simulate\"", "optimize"),
     ] {
         let e = check(&Job::parse(&text(task)).unwrap())
             .unwrap_err()

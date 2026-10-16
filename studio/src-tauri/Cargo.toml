@@ -28,6 +28,8 @@ flate2 = "1"
 # the optimizers of the circuit examples, which the program builds in (examples.rs)
 genoxide = { version = "0.13.1", default-features = false }
 num-complex = "0.4"
+# a generation's points evaluated side by side (optimize.rs), on the library's pool
+rayon = "1.12.0"
 photonoxide = { path = "../.." }
 # external libraries found at run time, for the benchmark's backends (bench --backends)
 photonoxide-native = { path = "../../native" }

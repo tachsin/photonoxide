@@ -123,6 +123,9 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::devices::read_device,
             crate::devices::device_job,
             crate::devices::device_study_job,
+            crate::devices::optimizing::device_optimize_info,
+            crate::devices::optimizing::device_optimize_job,
+            crate::devices::optimizing::optimize_design,
             crate::devices::device_job_read,
             crate::devices::device_solved,
             crate::form::job_form,
@@ -445,7 +448,8 @@ struct RunItem {
     /// for an MMI's 2D model by FDFD, `"3D"`) or `"FDTD 2D"`, `"FDTD 3D"`; none for a design
     /// alone.
     computes: Option<String>,
-    /// A study of the device (its task a `sweep` or `corners`): which; none for anything else.
+    /// A study of the device (its task a `sweep` or `corners`) or its optimization (`optimize`):
+    /// which; none for anything else.
     study: Option<String>,
 }
 
@@ -487,7 +491,7 @@ fn device_of(
         None => None,
     };
     let study = match task.get("kind").and_then(toml::Value::as_str) {
-        Some(k @ ("sweep" | "corners")) => Some(k.to_owned()),
+        Some(k @ ("sweep" | "corners" | "optimize")) => Some(k.to_owned()),
         _ => None,
     };
     (Some(spec.kind), Some(fidelity), computes, study)
@@ -693,7 +697,7 @@ fn start(studio: &Studio, window: &tauri::WebviewWindow, job: Job) -> Result<Inf
         std::thread::spawn(move || {
             // a failure is in the record (or the record ends without finishing): the window
             // shows it
-            let _ = job::execute(&job, &mut record, &stop);
+            let _ = crate::optimize::execute(&job, &mut record, &stop);
         })
     };
     lock(&studio.started).push(Started {

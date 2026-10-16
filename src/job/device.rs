@@ -279,14 +279,17 @@ pub(super) fn task_kind(job: &Job) -> Result<Option<String>> {
         return Ok(None);
     }
     match job.task().get("kind").and_then(Value::as_str) {
-        Some(k @ ("spectrum" | "fdtd" | "sweep" | "corners")) => Ok(Some(k.to_owned())),
+        Some(k @ ("spectrum" | "fdtd" | "sweep" | "corners" | "optimize")) => {
+            Ok(Some(k.to_owned()))
+        }
         Some(other) => Err(task_error(format!(
             "a job with a [device] table computes it by a \"spectrum\" task (its own model), \
-             studies it by a \"sweep\" or \"corners\" one, or steps it in time by an \"fdtd\" \
-             one, not \"{other}\": the device is the structure"
+             studies it by a \"sweep\" or \"corners\" one, optimizes it by an \"optimize\" one, \
+             or steps it in time by an \"fdtd\" one, not \"{other}\": the device is the structure"
         ))),
         None => Err(task_error(
-            "a device's task needs a kind: \"spectrum\", \"sweep\", \"corners\" or \"fdtd\"",
+            "a device's task needs a kind: \"spectrum\", \"sweep\", \"corners\", \"optimize\" \
+             or \"fdtd\"",
         )),
     }
 }
@@ -732,6 +735,14 @@ pub(super) fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     if kind.as_deref() == Some("fdtd") {
         // as any fdtd job, its structure the device's
         return super::execute_task(job, run, stop, "fdtd");
+    }
+    if kind.as_deref() == Some("optimize") {
+        super::check(job)?;
+        return Err(task_error(
+            "an \"optimize\" job's optimizer is genoxide's, which the photonoxide program runs: \
+             photonoxide run <job> (the studio window shows it live); the library supplies its \
+             objectives and records it (photonoxide::job::Problem, Recorder)",
+        ));
     }
     // checked before anything is recorded
     super::check(job)?;

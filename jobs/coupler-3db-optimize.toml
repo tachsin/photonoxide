@@ -1,0 +1,33 @@
+# A directional coupler's length taken to an even split by genoxide's L-BFGS-B, on the analytic
+# model's exact derivative (checked against differences before it is used): two 500 x 220 nm
+# silicon strips 200 nm apart, from 8 µm long, the split T31/(T31 + T41) brought to 1/2 at the
+# worst of five wavelengths from 1.53 to 1.57 um. The optimum is near L_x/2, the closed form at
+# 1.55 um, moved by the band's worst case. Opened, it shows on the coupler's Optimize tab.
+#   photonoxide run jobs/coupler-3db-optimize.toml   (live in the window; --headless for batches)
+name = "coupler-3db-optimize"
+timeout_minutes = 2
+
+[device]
+kind = "directional coupler"
+fidelity = "analytic"
+
+[device.parameters]
+length = "8"
+
+[task]
+kind = "optimize"
+method = "lbfgsb"
+seed = 1
+evaluations = 100
+from_um = 1.53
+to_um = 1.57
+points = 5
+
+[[task.variable]]
+parameter = "length"
+from = 2.0
+to = 40.0
+
+[[task.objective]]
+name = "split"
+target = 0.5

@@ -177,6 +177,16 @@
 //! [`Event::DevicePoint`] per point, side by side on rayon's threads or a farm's workers and to
 //! the bit of each point's own job. [`study_from_device`] writes such a job. See `study.rs`.
 //!
+//! **A device optimized.** `kind = "optimize"` names variables (the design's parameters between
+//! bounds), one objective or two and any constraints (the device's own, [`crate::device::Device::objectives`],
+//! or expressions of its outputs), the band and corners they are taken over, and one of
+//! genoxide's methods with its seed and budget; the job's `timeout_minutes` is required.
+//! [`check`] checks it; [`Problem`] evaluates it with its derivatives, and [`Recorder`] records
+//! its run ([`Event::Optimization`], an [`Event::Evaluation`] per evaluation, [`Event::Front`],
+//! [`Event::Optimum`]). The optimizer is genoxide's, which the `photonoxide` program runs:
+//! [`execute`] refuses the job and says so. [`optimize_from_device`] writes such a job. See
+//! `optimize.rs`.
+//!
 //! A job file's `[task]` table names its kind. The kinds so far:
 //!
 //! - `"structure"`: a layer stack with shapes drawn on it, recorded as pictures of its
@@ -422,6 +432,8 @@ mod device;
 mod device_tests;
 mod fdfd;
 mod fdtd;
+pub mod optimize;
+mod optimize_checks;
 mod params;
 mod shapes;
 mod study;
@@ -433,11 +445,20 @@ pub use device::{Compute, DeviceFigure, fdfd_size, from_device};
 pub use fdfd::{FdfdSParameters, fdfd_s_parameters};
 pub(crate) use fdfd::{fill_plane as fdfd_fill_plane, plane as fdfd_plane};
 pub use fdtd::{FoundResonance, SpectrumSeries};
+pub use optimize::{
+    Aim, Bound, Evaluation, GradientCheck, Optimization, Problem, Recorder, Variable, design_of,
+    optimize_from_device, optimizes,
+};
 pub use study::{Corner, Study, SweepAxis, study_from_device};
 
 /// The validation cases of components in jobs ([`crate::generator`] in `[[task.component]]`).
 pub(crate) fn component_cases() -> Vec<crate::validation::Case> {
     components::cases()
+}
+
+/// The validation cases of devices' optimizations ([`optimize::Problem`]).
+pub(crate) fn optimize_cases() -> Vec<crate::validation::Case> {
+    optimize_checks::cases()
 }
 
 /// The validation cases of devices' studies ([`study_from_device`]).
@@ -910,6 +931,106 @@ pub enum Event {
         /// The power-normalized S-matrices, one per wavelength of the study: `s[w][q][p]` from
         /// port p into port q, real and imaginary parts.
         s: Vec<Vec<Vec<[f64; 2]>>>,
+    },
+    /// An optimization of a job's device about to run (`[device]` with an `"optimize"` task,
+    /// [`optimize::Problem`]), recorded after the design's scene and ports: the problem, and
+    /// each exact derivative checked against differences. An [`Event::Evaluation`] per
+    /// evaluation follows, in the optimizer's order.
+    Optimization {
+        /// The device's kind, e.g. `"directional coupler"`.
+        device: String,
+        /// The fidelity every design is computed at: `"analytic"`, `"2D"` or `"3D"`.
+        fidelity: String,
+        /// What computes it, in a sentence.
+        model: String,
+        /// The method, as the job names it, e.g. `"lbfgsb"`.
+        method: String,
+        /// genoxide's method, e.g. `"L-BFGS-B"`.
+        optimizer: String,
+        /// The paper it implements, with its DOI.
+        paper: String,
+        /// The seed.
+        seed: u64,
+        /// The budget: the optimizer's evaluations.
+        evaluations: usize,
+        /// A population method's size.
+        population: Option<usize>,
+        /// The hard limit, minutes.
+        timeout_minutes: f64,
+        /// The variables, each with its bounds, start, and how its derivatives are taken.
+        variables: Vec<optimize::OptimizeVariable>,
+        /// The objectives, one or two.
+        objectives: Vec<optimize::OptimizeQuantity>,
+        /// The constraints.
+        constraints: Vec<optimize::OptimizeQuantity>,
+        /// The wavelengths each quantity is taken at, µm.
+        wavelengths_um: Vec<f64>,
+        /// The corners each is also taken at, beside the nominal design.
+        corners: Vec<Corner>,
+        /// The device's parameters' names.
+        parameters: Vec<String>,
+        /// Each exact derivative against fourth-order differences at the start.
+        checks: Vec<optimize::GradientCheck>,
+    },
+    /// An evaluation of an optimization: the variables, each objective's cost and value, each
+    /// constraint's g, and the best so far.
+    Evaluation {
+        /// The evaluation, from 1.
+        index: usize,
+        /// The variables, in their units.
+        x: Vec<f64>,
+        /// Each objective's cost (minimized); none where the model gave nothing.
+        costs: Vec<f64>,
+        /// Each objective's value.
+        values: Vec<f64>,
+        /// Each constraint's g (≤ 0 when met).
+        constraints: Vec<f64>,
+        /// Σ max(0, g); none where the model gave nothing.
+        violation: Option<f64>,
+        /// The first objective's gradient's norm in the variables scaled to their ranges, for a
+        /// method that uses it.
+        gradient_norm: Option<f64>,
+        /// The best evaluation so far (one objective): feasible first, then the lowest cost.
+        best: Option<usize>,
+        /// The device's models built so far.
+        solves: usize,
+        /// Why the model gave nothing there.
+        error: Option<String>,
+    },
+    /// The Pareto front of an optimization of two objectives after a generation: its
+    /// non-dominated feasible evaluations, and the hypervolume they dominate up to a reference
+    /// point fixed at the first front.
+    Front {
+        /// The evaluations so far.
+        evaluations: usize,
+        /// The front's points, in the evaluations' order.
+        points: Vec<optimize::FrontPoint>,
+        /// The hypervolume of their costs up to `reference`.
+        hypervolume: f64,
+        /// The reference point, each cost's.
+        reference: Vec<f64>,
+    },
+    /// An optimization's end: its best evaluation and design (one objective), or its front (two),
+    /// and why it stopped.
+    Optimum {
+        /// The best evaluation, from 1 (one objective).
+        index: Option<usize>,
+        /// Its variables.
+        x: Vec<f64>,
+        /// Its design's parameters' expressions: the job's, the variables written as numbers;
+        /// what Apply takes into the design.
+        parameters: Vec<(String, String)>,
+        /// Whether it meets every constraint.
+        feasible: bool,
+        /// Why it stopped: the optimizer's reason (`"converged"`, `"evaluations"`, ...), or the
+        /// run's (`"timeout"`, `"requested"`).
+        stop: String,
+        /// The evaluations.
+        evaluations: usize,
+        /// The device's models built.
+        solves: usize,
+        /// The front's evaluations (two objectives).
+        front: Vec<usize>,
     },
     // New variants go here, at the end after the last one, so that the earlier variants keep
     // their discriminants (inserting one in between renumbers every variant after it).
@@ -2604,6 +2725,11 @@ fn check_inner(job: &Job) -> Result<()> {
                 check_direct(job, kind)?;
                 device_scene(job)?;
                 study::check(job)
+            }
+            Some("optimize") => {
+                check_direct(job, "optimize")?;
+                device_scene(job)?;
+                optimize::check(job)
             }
             Some(_) => {
                 check_direct(job, "spectrum")?;

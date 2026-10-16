@@ -23,6 +23,13 @@ Started with `run`, the window starts with the run and closes by itself a few se
 ends. If you close it first, the run stops. Every run is recorded in `runs/<run>/events.jsonl`, and the
 window only follows that record, so a live run and a replay look the same.
 
+A device's optimization (a `[device]` job whose task is `kind = "optimize"`;
+docs/methods/optimization.md) is run by this program, whose optimizers are genoxide's: the
+library supplies the objectives, their derivatives and the record (#244's decision 1).
+`photonoxide run <job>` opens the window, runs it live and closes when it is done, within the
+job's hard limit (`timeout_minutes`, which an optimize job must set); `--headless` runs it without
+a window, for batches. A seed gives the same record, to the bit, on any number of threads.
+
 A sweep's points can be farmed to other processes: `--workers 4` starts four workers on this
 machine for the run, and `--worker host:port` (repeated) adds workers started on other machines
 with `photonoxide worker --listen <address> --token <token>`. The run records the points in
@@ -201,6 +208,33 @@ in a drawer opened from the status bar.
         stay); **Save job** puts it in `jobs/`, where `photonoxide run <job> --workers 4` farms
         its points to workers (docs/farming.md) with the same record. The studies of the device
         are listed, each shown again on a click. `jobs/coupler-gap-sweep.toml` is one, built in.
+    - **Optimize:** the design optimized by one of genoxide's methods, as a job
+      (`photonoxide::job::optimize_from_device`; docs/methods/optimization.md) checked by the
+      library and recorded in `runs/` evaluation by evaluation, replayable bit for bit.
+      - **Objective:** one the device declares (a coupler's split ratio and its flatness over a
+        band, an MMI's imbalance and excess loss, a ring's extinction, critical coupling, Q and
+        FSR, a bend's loss, a waveguide's loss and n_g), or an expression of its outputs (each
+        port pair's power `T_o3_o1`, its figures, its parameters, `lambda`), to minimize,
+        maximize or bring to a target, the worst or the average over the band; a second one
+        makes it a Pareto front.
+      - **Variables:** any of its parameters, each between bounds the design's value is within;
+        each says whether its derivative is exact (the component's, the circuit adjoint's for an
+        MZI) or differenced. **Constraints:** the device's (a smallest width or gap, a footprint,
+        an FSR, a Q) or an expression's bound.
+      - **Method:** genoxide's L-BFGS-B, Adam, MMA, GCMMA, Nelder-Mead, CMA-ES, differential
+        evolution, a particle swarm, NSGA-II or SMS-EMOA, its seed, budget, population and a hard
+        limit; the band and how each quantity is reduced over it; the fidelity, its grid the
+        Simulate tab's.
+      - **Live:** the convergence (each evaluation's cost and the best so far, on a log axis when
+        the costs are positive, and the constraints' violation), the variables' traces, the
+        Pareto front as it grows with its hypervolume (a point picked by a click), and the best
+        design (or the point picked) drawn in the page's view as it changes and tabled against
+        the start. **Apply** takes it into Design; **Keep as a variant** saves it to `jobs/`
+        beside the design. Each exact derivative is checked against fourth-order differences at
+        the start, and the record says how each came out. The device's optimizations are listed
+        below, each shown again on a click; `jobs/coupler-3db-optimize.toml` and
+        `jobs/ring-pareto.toml` are built in. A saved job runs with `photonoxide run`, live in
+        the window, which closes when it is done.
     - **Every number names its model and grid.** At the analytic fidelity the figures and the
       S-parameters follow every change (60 ms after it). A 2D or 3D model is a solve: its button
       runs it in the background, with the time it took last, and the page can be left meanwhile;

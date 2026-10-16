@@ -343,8 +343,85 @@ export interface DevicePoint {
   s: [number, number][][][];
 }
 
+/** An objective or constraint as an optimization's record keeps it. */
+export interface OptimizeQuantity {
+  name: string;
+  symbol: string;
+  unit: string;
+  expression: string;
+  /** An objective's "minimize", "maximize" or "target"; a constraint's "at_most" or "at_least". */
+  aim: string;
+  /** The target, or the constraint's bound. */
+  target: number | null;
+  reduce: string;
+}
+
+/** An optimization of a job's device about to run (photonoxide::job::optimize): the problem. */
+export interface Optimization {
+  type: "optimization";
+  device: string;
+  fidelity: string;
+  model: string;
+  method: string;
+  optimizer: string;
+  paper: string;
+  seed: number;
+  evaluations: number;
+  population: number | null;
+  timeout_minutes: number;
+  variables: { parameter: string; unit: string; from: number; to: number; start: number; derivatives: "exact" | "differences" | "none" }[];
+  objectives: OptimizeQuantity[];
+  constraints: OptimizeQuantity[];
+  wavelengths_um: number[];
+  corners: { name: string; offsets: [string, number][]; temperature_k: number | null }[];
+  parameters: string[];
+  checks: { variable: string; quantity: string; exact: number; differences: number; agrees: boolean }[];
+}
+
+/** An evaluation of an optimization, in the optimizer's order. */
+export interface Evaluation {
+  type: "evaluation";
+  index: number;
+  x: number[];
+  /** Empty where the model gave nothing (error says why). */
+  costs: number[];
+  values: number[];
+  constraints: number[];
+  violation: number | null;
+  gradient_norm: number | null;
+  best: number | null;
+  solves: number;
+  error: string | null;
+}
+
+/** A Pareto front after a generation: its non-dominated feasible evaluations and their hypervolume. */
+export interface Front {
+  type: "front";
+  evaluations: number;
+  points: { index: number; costs: number[]; values: number[] }[];
+  hypervolume: number;
+  reference: number[];
+}
+
+/** An optimization's end: its best evaluation and design, or its front, and why it stopped. */
+export interface Optimum {
+  type: "optimum";
+  index: number | null;
+  x: number[];
+  parameters: [string, string][];
+  feasible: boolean;
+  stop: string;
+  evaluations: number;
+  solves: number;
+  front: number[];
+}
+
 export type Event =
   | { type: "started"; job: string; kind: string }
+  | Optimization
+  | Evaluation
+  | Front
+  | Optimum
   | DeviceModel
   | DeviceStudy
   | DevicePoint

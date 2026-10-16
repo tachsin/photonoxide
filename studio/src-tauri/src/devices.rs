@@ -1196,6 +1196,8 @@ pub struct JobForm {
     size: Option<(usize, usize, f64)>,
     /// A study's sweep or corners, for a job whose task studies the design.
     study: Option<StudyIn>,
+    /// An optimization, for a job whose task optimizes the design.
+    optimize: Option<OptimizeIn>,
 }
 
 /// Whether two values are the same, a number the same whether written as an integer or a float.
@@ -1224,6 +1226,7 @@ pub fn read_job_form(text: &str) -> JobForm {
         error: None,
         size: None,
         study: None,
+        optimize: None,
     };
     let job = match Job::parse(text) {
         Ok(j) => j,
@@ -1264,13 +1267,17 @@ pub fn read_job_form(text: &str) -> JobForm {
     }
     form.size = job::fdfd_size(&job).ok().flatten();
     form.study = StudyIn::of(job.task());
+    form.optimize = OptimizeIn::of(job.task());
     // what the form would write: any key of the task it writes otherwise is beyond it
     if let Some(compute) = &form.compute {
-        let again = match &form.study {
-            Some(study) => study.study().and_then(|s| {
+        let again = match (&form.study, &form.optimize) {
+            (Some(study), _) => study.study().and_then(|s| {
                 job::study_from_device(job.name(), &spec, &compute.compute(), &s).map_err(text_of)
             }),
-            None => job::from_device(job.name(), &spec, &compute.compute()).map_err(text_of),
+            (None, Some(o)) => optimizing::optimize_job_of(job.name(), &spec, compute, o),
+            (None, None) => {
+                job::from_device(job.name(), &spec, &compute.compute()).map_err(text_of)
+            }
         };
         match again {
             Ok(again) => {
@@ -1584,6 +1591,9 @@ pub fn read_device(path: String) -> Result<Saved, String> {
         job: computes.then_some(text),
     })
 }
+
+pub mod optimizing;
+pub use optimizing::OptimizeIn;
 
 #[cfg(test)]
 mod tests;

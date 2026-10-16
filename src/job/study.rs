@@ -253,18 +253,18 @@ impl Study {
 
 /// The parameters a study of a design can move: the device's, and the others its expressions
 /// name.
-struct Named<'a> {
-    device: &'a dyn Device,
-    design: &'a Design,
-    spec: &'a Spec,
+pub(super) struct Named<'a> {
+    pub(super) device: &'a dyn Device,
+    pub(super) design: &'a Design,
+    pub(super) spec: &'a Spec,
 }
 
 impl Named<'_> {
-    fn is_device(&self, name: &str) -> bool {
+    pub(super) fn is_device(&self, name: &str) -> bool {
         self.device.parameters().iter().any(|p| p.name == name)
     }
 
-    fn check(&self, name: &str) -> Result<()> {
+    pub(super) fn check(&self, name: &str) -> Result<()> {
         if self.is_device(name) || self.spec.parameters.iter().any(|(n, _)| n == name) {
             return Ok(());
         }
@@ -287,12 +287,12 @@ impl Named<'_> {
     }
 
     /// The dimension of a parameter the design names (not one of the device's).
-    fn dim(&self, name: &str) -> Option<Dim> {
+    pub(super) fn dim(&self, name: &str) -> Option<Dim> {
         self.design.expressions().dim(name).flatten()
     }
 
     /// Its nominal value, in its unit: µm for a length, degrees for an angle.
-    fn nominal(&self, name: &str) -> f64 {
+    pub(super) fn nominal(&self, name: &str) -> f64 {
         if let Some(v) = self.design.values().get(name)
             && self.is_device(name)
         {
@@ -308,7 +308,7 @@ impl Named<'_> {
     /// `value` as the expression that gives it: a device parameter's a plain number in its
     /// unit, read back exactly; another's with its unit, so the expressions that use it keep
     /// theirs.
-    fn literal(&self, name: &str, value: f64) -> String {
+    pub(super) fn literal(&self, name: &str, value: f64) -> String {
         if self.is_device(name) {
             return format!("{value:?}");
         }
@@ -321,7 +321,7 @@ impl Named<'_> {
 }
 
 /// Sets the parameter `name` of `spec` to `expression`, in place of its own or added.
-fn set(spec: &mut Spec, name: &str, expression: String) {
+pub(super) fn set(spec: &mut Spec, name: &str, expression: String) {
     match spec.parameters.iter_mut().find(|(n, _)| n == name) {
         Some(p) => p.1 = expression,
         None => spec.parameters.push((name.to_owned(), expression)),
@@ -364,7 +364,7 @@ fn check_axes(axes: &[SweepAxis]) -> Result<()> {
     Ok(())
 }
 
-fn check_corners(corners: &[Corner]) -> Result<()> {
+pub(super) fn check_corners(corners: &[Corner]) -> Result<()> {
     if corners.is_empty() || corners.len() > MAX_CORNERS {
         return Err(task_error(format!(
             "a corners study takes 1 to {MAX_CORNERS} corners ([[task.corner]]), got {}",
@@ -600,7 +600,7 @@ struct StudyTask {
 /// A `[[task.corner]]`.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct CornerTask {
+pub(super) struct CornerTask {
     name: String,
     #[serde(default)]
     offsets: Table,
@@ -624,37 +624,44 @@ impl StudyTask {
                         "a corners study takes corners ([[task.corner]]), not axes",
                     ));
                 }
-                let corners = self
-                    .corner
-                    .iter()
-                    .map(|c| {
-                        let offsets = c
-                            .offsets
-                            .iter()
-                            .map(|(n, v)| {
-                                let x = v
-                                    .as_float()
-                                    .or_else(|| v.as_integer().map(|i| i as f64))
-                                    .ok_or_else(|| {
-                                    task_error(format!(
-                                        "the corner \"{}\"'s offset of {n} must be a number",
-                                        c.name
-                                    ))
-                                })?;
-                                Ok((n.as_str(), x))
-                            })
-                            .collect::<Result<Vec<_>>>()?;
-                        let corner = Corner::new(&c.name, &offsets);
-                        Ok(match c.temperature_k {
-                            Some(t) => corner.at_temperature(t),
-                            None => corner,
-                        })
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-                Ok(Study::Corners(corners))
+                Ok(Study::Corners(corners_of(&self.corner)?))
             }
         }
     }
+}
+
+/// The corners `[[task.corner]]` tables give.
+///
+/// # Errors
+///
+/// [`Error::Parse`] for an offset that isn't a number.
+pub(super) fn corners_of(tables: &[CornerTask]) -> Result<Vec<Corner>> {
+    tables
+        .iter()
+        .map(|c| {
+            let offsets = c
+                .offsets
+                .iter()
+                .map(|(n, v)| {
+                    let x = v
+                        .as_float()
+                        .or_else(|| v.as_integer().map(|i| i as f64))
+                        .ok_or_else(|| {
+                            task_error(format!(
+                                "the corner \"{}\"'s offset of {n} must be a number",
+                                c.name
+                            ))
+                        })?;
+                    Ok((n.as_str(), x))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let corner = Corner::new(&c.name, &offsets);
+            Ok(match c.temperature_k {
+                Some(t) => corner.at_temperature(t),
+                None => corner,
+            })
+        })
+        .collect()
 }
 
 /// A study read and checked, without solving: its designs, their grids and the band.

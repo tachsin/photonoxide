@@ -88,12 +88,13 @@ area fdtd \
 # jobs, their runs and replay, and farming them out; the job files in jobs/ are read by the
 # library's tests and validation cases, by the studio's and by the Python package's; a job's
 # [device] table is read, checked and drawn by the devices, and studied (its sweeps and corners,
-# whose cases are the devices'); its [[task.component]] tables are
+# whose cases are the devices', and optimized: its objectives' derivatives, records and fronts,
+# the optimize/ cases); its [[task.component]] tables are
 # the generators', and its cases of them (components with expressions, ports by name) run here
 area job \
   "src/job/* src/run.rs src/farm.rs src/farm/* jobs/*" \
   "material mode sparse fdfd fdtd device generator" \
-  "job:: run:: farm::" "generator/job- device/study-" ""
+  "job:: run:: farm::" "generator/job- device/study- optimize/" ""
 
 # the component generators: shapes on layers with named ports, which the devices draw their
 # geometry with and jobs place; their cases compare the devices' geometry with what it was

@@ -333,6 +333,14 @@ pub fn jobs() -> Vec<JobExample> {
             "coupler-gap-sweep.toml",
             include_str!("../../../jobs/coupler-gap-sweep.toml"),
         ),
+        (
+            "coupler-3db-optimize.toml",
+            include_str!("../../../jobs/coupler-3db-optimize.toml"),
+        ),
+        (
+            "ring-pareto.toml",
+            include_str!("../../../jobs/ring-pareto.toml"),
+        ),
     ]
     .into_iter()
     .map(|(file, text)| JobExample {

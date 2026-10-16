@@ -13,6 +13,8 @@
   //   past runs.
   // - Study: sweeps of any one or two of its parameters and the wavelength, the corners of a
   //   process, and its designs and runs overlaid (in place of the Compare page).
+  // - Optimize: genoxide's methods on its objectives and constraints, live (convergence, traces,
+  //   a Pareto front), the best design shown in the view as it changes; Apply takes it into Design.
   //
   // At the analytic fidelity everything follows every change, 60 ms after it; a 2D or 3D model
   // is a solve, started by a button and run in the background. Every number names its model.
@@ -28,7 +30,7 @@
   import { catalog, loadCatalog } from "../../lib/catalog.svelte";
   import { addInstance, exportTouchstone, partKey } from "../../lib/chip.svelte";
   import { sweepProblem, type Quantity } from "../../lib/circuit";
-  import { dirty, draftOf, drafts, keep, key, pending, shownRun, solve, solves, took, type Rung } from "../../lib/device.svelte";
+  import { dirty, draftOf, drafts, keep, key, optimizePreview, pending, shownRun, solve, solves, took, type Rung } from "../../lib/device.svelte";
   import Viewer from "../../pages/Viewer.svelte";
   import SolvedView from "./SolvedView.svelte";
   import { FIDELITY_ABOUT, plain } from "../../lib/deviceview";
@@ -44,6 +46,7 @@
   import ParameterForm from "./ParameterForm.svelte";
   import SimulateTab from "./SimulateTab.svelte";
   import StackEditor from "./StackEditor.svelte";
+  import OptimizeTab from "./OptimizeTab.svelte";
   import StudyTab from "./StudyTab.svelte";
   import TopView from "./TopView.svelte";
 
@@ -88,6 +91,25 @@
     wantedView = snapshot();
     pumpView();
   });
+  // ---- an optimization's design as it changes: shown in place of the design on the Optimize tab ----
+  const preview = $derived(draft.tab === "optimize" ? (optimizePreview[info.id] ?? null) : null);
+  let previewDrawn = $state<{ index: number; scene: Scene; ports: DevicePort[] } | null>(null);
+  $effect(() => {
+    const p = preview;
+    if (!p) {
+      previewDrawn = null;
+      return;
+    }
+    api
+      .deviceGeometry(p.spec)
+      .then((v) => {
+        if (v.scene && preview === p) previewDrawn = { index: p.index, scene: v.scene, ports: v.ports };
+      })
+      .catch(() => {});
+  });
+  /** What the view draws: the optimization's design while the Optimize tab shows one, the design otherwise. */
+  const shownDrawn = $derived(previewDrawn ?? drawn);
+
   const values = $derived<Record<string, number>>(view?.values ? Object.fromEntries(info.parameters.map((p, i) => [p.name, view!.values![i]])) : {});
   const thickness = $derived(values.thickness ?? null);
 
@@ -403,21 +425,23 @@
       <div class="relative min-h-0 flex-1 overflow-hidden" bind:clientHeight={viewHeight}>
         {#if mainView === "run" && runHere}
           <div class="absolute inset-0"><Viewer embedded active={app.page === "components"} /></div>
-        {:else if drawn}
+        {:else if shownDrawn}
           <div class="absolute inset-0 overflow-y-auto p-3">
-            {#if !view?.scene && view?.problem}
+            {#if previewDrawn}
+              <p class="mb-2 text-xs text-primary">The optimization's design, evaluation {previewDrawn.index}: Apply on the Optimize tab takes it into Design.</p>
+            {:else if !view?.scene && view?.problem}
               <p role="alert" class="mb-2 text-xs text-warning">{plain(view.problem)}: the last design that held together is shown.</p>
             {/if}
             {#if shape === "3d"}
-              <Device3D scene={drawn.scene} height={Math.max(120, viewHeight - 24)} />
+              <Device3D scene={shownDrawn.scene} height={Math.max(120, viewHeight - 24)} />
             {:else if shape === "top"}
               <div class="mb-1 text-xs faint">From above: drag the cut along the device</div>
-              <TopView scene={drawn.scene} ports={drawn.ports} bind:normal bind:at={() => cutAt ?? 0, (v) => (cutAt = v)} height={Math.max(110, viewHeight - 48)} />
+              <TopView scene={shownDrawn.scene} ports={shownDrawn.ports} bind:normal bind:at={() => cutAt ?? 0, (v) => (cutAt = v)} height={Math.max(110, viewHeight - 48)} />
             {:else if shape === "cut"}
               <div class="mb-1 text-xs faint">From above: drag the cut</div>
-              <TopView scene={drawn.scene} ports={drawn.ports} bind:normal bind:at={() => cutAt ?? 0, (v) => (cutAt = v)} height={Math.max(80, Math.round(0.36 * viewHeight))} />
+              <TopView scene={shownDrawn.scene} ports={shownDrawn.ports} bind:normal bind:at={() => cutAt ?? 0, (v) => (cutAt = v)} height={Math.max(80, Math.round(0.36 * viewHeight))} />
               <div class="mt-2 mb-1 text-xs faint">The cross-section at {normal} = <span class="num">{len(cutAt ?? 0, 3)} {unitText()}</span></div>
-              <CutView scene={drawn.scene} {normal} at={cutAt ?? 0} height={Math.max(100, Math.round(0.64 * viewHeight) - 64)} />
+              <CutView scene={shownDrawn.scene} {normal} at={cutAt ?? 0} height={Math.max(100, Math.round(0.64 * viewHeight) - 64)} />
             {:else}
               <SolvedView spec={draft.spec} compute={draft.compute} {normal} at={cutAt ?? 0} height={Math.max(140, viewHeight - 40)} />
             {/if}
@@ -456,7 +480,7 @@
 
     <aside class="flex min-h-0 min-w-0 flex-col">
       <div role="tablist" class="tabs tabs-border shrink-0 border-b border-base-content/8 px-3">
-        {#each [["design", "Design"], ["overview", "Overview"], ["model", "Model"], ["simulate", "Simulate"], ["study", "Study"]] as const as [t, label] (t)}
+        {#each [["design", "Design"], ["overview", "Overview"], ["model", "Model"], ["simulate", "Simulate"], ["study", "Study"], ["optimize", "Optimize"]] as const as [t, label] (t)}
           <button role="tab" class="tab {draft.tab === t ? 'tab-active' : ''}" onclick={() => (draft.tab = t)}>{label}</button>
         {/each}
       </div>
@@ -628,8 +652,10 @@
           />
         {:else if draft.tab === "simulate"}
           <SimulateTab {info} {draft} {designKey} {values} onshow={() => (mainView = "run")} />
-        {:else}
+        {:else if draft.tab === "study"}
           <StudyTab {info} {draft} {designKey} {values} fields={view?.fields ?? []} />
+        {:else}
+          <OptimizeTab {info} {draft} {designKey} {values} fields={view?.fields ?? []} />
         {/if}
       </div>
     </aside>

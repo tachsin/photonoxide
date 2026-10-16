@@ -3614,6 +3614,7 @@ dependencies = [
  "num-complex",
  "photonoxide",
  "photonoxide-native",
+ "rayon",
  "reqwest",
  "rustls",
  "semver",

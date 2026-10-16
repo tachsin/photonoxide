@@ -74,7 +74,7 @@ export interface RunItem {
   fidelity: string | null;
   /** How the job computes it: its model ("analytic", "2D", "2D FDFD", "3D") or "FDTD 2D", "FDTD 3D"; null for a design alone. */
   computes: string | null;
-  /** A study of the device: "sweep" or "corners"; null for anything else. */
+  /** A study of the device ("sweep" or "corners") or its optimization ("optimize"); null for anything else. */
   study: string | null;
 }
 
@@ -192,6 +192,12 @@ export const api = {
   deviceJob: (spec: DeviceSpec, compute: Compute, name: string) => invoke<string>("device_job", { spec, compute, name }),
   /** The job that studies a design (photonoxide::job::study_from_device), as its TOML. */
   deviceStudyJob: (spec: DeviceSpec, compute: Compute, study: StudyIn, name: string) => invoke<string>("device_study_job", { spec, compute, study, name }),
+  /** What a design's optimization offers: its device's objectives and constraints, its outputs, genoxide's methods. */
+  deviceOptimizeInfo: (spec: DeviceSpec) => invoke<OptimizeInfo>("device_optimize_info", { spec }),
+  /** The job that optimizes a design (photonoxide::job::optimize_from_device), as its TOML. */
+  deviceOptimizeJob: (spec: DeviceSpec, compute: Compute, optimize: OptimizeIn, name: string) => invoke<string>("device_optimize_job", { spec, compute, optimize, name }),
+  /** The design of an optimization run's evaluation at `x`: what Apply takes into Design. */
+  optimizeDesign: (dir: string, x: number[]) => invoke<DeviceSpec>("optimize_design", { dir, x }),
   /** A device job's text read back into the Simulate tab's form, and what of it the form can't hold. */
   deviceJobRead: (text: string) => invoke<JobForm>("device_job_read", { text }),
   /** A design on the cells the model chosen solves on: from above, and on the cut. */
@@ -503,6 +509,49 @@ export interface JobForm {
   size: [number, number, number] | null;
   /** A study's sweep or corners, for a job that studies the design. */
   study: StudyIn | null;
+  /** An optimization, for a job that optimizes the design. */
+  optimize: OptimizeIn | null;
+}
+
+/** An objective as a job gives it (photonoxide::job::Aim): a declared one's symbol, or an expression of the outputs. */
+export interface Aim {
+  name?: string | null;
+  expression?: string | null;
+  goal?: "minimize" | "maximize" | "target" | null;
+  target?: number | null;
+  reduce?: "worst" | "average" | "spread" | null;
+}
+
+/** A constraint as a job gives it (photonoxide::job::Bound). */
+export interface Bound {
+  name?: string | null;
+  expression?: string | null;
+  at_most?: number | null;
+  at_least?: number | null;
+  reduce?: "worst" | "average" | "spread" | null;
+}
+
+/** An optimization of a design (photonoxide::job::Optimization), as the Optimize tab's form holds it. */
+export interface OptimizeIn {
+  method: string;
+  seed: number;
+  evaluations: number;
+  population?: number | null;
+  learning_rate?: number | null;
+  reduce?: "worst" | "average" | null;
+  variables: { parameter: string; from: number; to: number }[];
+  objectives: Aim[];
+  constraints: Bound[];
+}
+
+/** What a design's optimization offers. */
+export interface OptimizeInfo {
+  objectives: { name: string; symbol: string; unit: string; expression: string; goal: "minimize" | "maximize" | "target"; target: number | null; reduce: string | null; about: string }[];
+  constraints: { name: string; symbol: string; unit: string; expression: string; limit: "at_most" | "at_least"; bound: number; about: string }[];
+  outputs: { name: string; unit: string; about: string; per_wavelength: boolean }[];
+  methods: { name: string; title: string; gradient: boolean; constraints: boolean; objectives: number; population: number | null; random: boolean; about: string; paper: string }[];
+  /** The parameters whose derivatives the cheapest model gives exactly. */
+  exact: string[];
 }
 
 /** A study of a design (photonoxide::job::Study): a sweep of one or two parameters, or corners. */

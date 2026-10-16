@@ -2,7 +2,7 @@
 // it is being edited (its stack, its parameters' expressions, its fidelity), where it was saved,
 // and the solves started from it, which go on in the background while the page is left.
 
-import { api, type Compute, type DeviceDerived, type DeviceFigure, type DeviceInfo, type DeviceMethod, type DeviceSpec, type DeviceSpectrum, type LayerSpec, type RunItem, type SavedDevice, type StackSpec, type StudyIn } from "./api";
+import { api, type Aim, type Bound, type Compute, type DeviceDerived, type DeviceFigure, type DeviceInfo, type DeviceMethod, type DeviceSpec, type DeviceSpectrum, type LayerSpec, type RunItem, type SavedDevice, type StackSpec, type StudyIn } from "./api";
 import { app, go, startRun, startRunHere, toast } from "./app.svelte";
 
 export const devices = $state({
@@ -34,7 +34,7 @@ export function deviceOf(id: string | null | undefined): DeviceInfo | undefined 
 }
 
 /** A device page's tabs. */
-export type Tab = "overview" | "design" | "model" | "simulate" | "study";
+export type Tab = "overview" | "design" | "model" | "simulate" | "study" | "optimize";
 
 /** A device's page: its design as edited, its tab, and the file it was saved to or opened from. */
 export interface Draft {
@@ -246,6 +246,54 @@ export function studyOf(d: DeviceInfo): StudyState {
   return studies[d.id];
 }
 
+// ---- optimizations: the Optimize tab's form, and what it shows ----
+
+/** A device's Optimize tab: the objectives, variables and constraints, genoxide's method and its settings, and the run it shows. */
+export interface OptimizeState {
+  /** The fidelity's rung each design is computed at; null for the design's. */
+  rung: string | null;
+  objectives: Aim[];
+  variables: { parameter: string; from: number; to: number }[];
+  constraints: Bound[];
+  method: string;
+  seed: number;
+  evaluations: number;
+  population: number | null;
+  learning_rate: number | null;
+  reduce: "worst" | "average";
+  /** The band each quantity is taken over, µm and a count; null for the design's own wavelength. */
+  band: [number, number, number] | null;
+  /** The hard limit, minutes. */
+  timeout_minutes: number;
+  /** The optimization run shown, by its directory. */
+  shown: string | null;
+}
+
+export const optimizations = $state<Record<string, OptimizeState>>({});
+
+/** The design an optimization shows on the device's page as it changes (its best so far, or a front point), by the device's id. */
+export const optimizePreview = $state<Record<string, { spec: DeviceSpec; index: number } | null>>({});
+
+/** Device `d`'s Optimize tab, made the first time. */
+export function optimizeOf(d: DeviceInfo): OptimizeState {
+  optimizations[d.id] ??= {
+    rung: null,
+    objectives: [],
+    variables: [],
+    constraints: [],
+    method: "lbfgsb",
+    seed: 1,
+    evaluations: 200,
+    population: null,
+    learning_rate: null,
+    reduce: "worst",
+    band: null,
+    timeout_minutes: 10,
+    shown: null,
+  };
+  return optimizations[d.id];
+}
+
 /** A design's S-parameters over `sweep` and its figures at its own fidelity (a solve at 2D or 3D), for an overlay. */
 export async function designSpectrum(spec: DeviceSpec, sweep: { from_um: number; to_um: number; points: number }): Promise<{ spectrum: DeviceSpectrum; figures: DeviceFigure[] }> {
   const figures = await api.deviceDerived(spec, spec.fidelity);
@@ -266,6 +314,11 @@ export async function openRunItem(r: RunItem) {
   if (r.device && r.computes) {
     await loadDevices();
     const d = devices.list.find((x) => x.kind === r.device);
+    if (d && r.study === "optimize") {
+      optimizeOf(d).shown = r.dir;
+      openDevice(d.id, "optimize");
+      return;
+    }
     if (d && r.study) {
       const st = studyOf(d);
       st.mode = r.study === "corners" ? "corners" : "sweep";
@@ -335,6 +388,30 @@ async function openSaved(s: Omit<SavedDevice, "path"> & { path: string | null })
       } else st.corners.fixed = form.study.corners;
       draft.tab = "study";
       draft.compute = { ...form.compute, band: null };
+      drafts[d.id] = draft;
+      openDevice(d.id);
+      return;
+    }
+    if (form.optimize && form.compute && !form.error && !form.beyond.length) {
+      // an optimization: its problem and method on the Optimize tab, its grid the Simulate tab's
+      const op = optimizeOf(d);
+      const o = form.optimize;
+      Object.assign(op, {
+        rung: rungOf(s.spec.fidelity, form.compute.fdfd_2d),
+        objectives: o.objectives,
+        variables: o.variables,
+        constraints: o.constraints,
+        method: o.method,
+        seed: o.seed,
+        evaluations: o.evaluations,
+        population: o.population ?? null,
+        learning_rate: o.learning_rate ?? null,
+        reduce: o.reduce ?? "worst",
+        band: form.compute.band,
+        timeout_minutes: form.compute.timeout_minutes ?? 10,
+      });
+      draft.tab = "optimize";
+      draft.compute = { ...form.compute, band: null, timeout_minutes: null };
       drafts[d.id] = draft;
       openDevice(d.id);
       return;

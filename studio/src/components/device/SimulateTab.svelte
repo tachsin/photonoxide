@@ -72,7 +72,7 @@
     draft.text = t;
     clearTimeout(editTimer);
     editTimer = setTimeout(async () => {
-      const form = await api.deviceJobRead(t).catch((e) => ({ name: "", spec: null, compute: null, beyond: [], error: String(e), size: null, study: null }) as JobForm);
+      const form = await api.deviceJobRead(t).catch((e) => ({ name: "", spec: null, compute: null, beyond: [], error: String(e), size: null, study: null, optimize: null }) as JobForm);
       if (draft.text !== t) return;
       typed = form;
       // the form holds all of it: the form follows, and writes the text again

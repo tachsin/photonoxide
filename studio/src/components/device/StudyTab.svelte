@@ -174,7 +174,7 @@
       })
       .catch(() => {});
   });
-  const studyRuns = $derived(runs.filter((r) => r.study));
+  const studyRuns = $derived(runs.filter((r) => r.study === "sweep" || r.study === "corners"));
   /** The study shown: a run's directory. */
   const live = $derived(!!run.info?.dir && run.info.dir === st.shown && !!run.study);
   const going = $derived(live && !run.finished);
