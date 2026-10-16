@@ -175,6 +175,64 @@ A seed gives the same record, to the bit, on any number of threads: genoxide's m
 (their own guarantee), the devices' models do, and each generation's points are recorded in
 the optimizer's order whatever the threads computed them in.
 
+## A method study
+
+Which of genoxide's methods to reach for, on a problem with cheap evaluations and an exact
+gradient? A study on Bennet et al.'s Bragg mirror (J. Opt. Soc. Am. B 41, A126 (2024),
+doi:10.1364/JOSAB.506389, with the problem as their published code has it, Zenodo
+doi:10.5281/zenodo.10246032), in the spirit of their Fig. 6 and of Schneider et al.'s benchmark
+(ACS Photonics 6, 2726 (2019), doi:10.1021/acsphotonics.9b00706). Schneider's problems are 3D
+finite-element models, and the high-dimensional one of their Supporting Information isn't in
+hand, so the problem is Bennet's: 10 and 20 layers of n = 1.8 and 1.4 alternating from the
+top, on 1.8, under air, at 600 nm and normal incidence, each thickness from 0 to 214.29 nm, the
+cost 1 − R by transfer matrices (exact: no grid) and its exact gradient
+(`Multilayer::reflection_derivatives`). The quarter-wave stack is the optimum, 1 − R = 0.164856
+and 0.014479 in closed form, and no run of the study found a lower cost. A run reaches the
+target when its best comes within 10⁻⁶ of it. 31 seeds per method, as Bennet's runs; budgets as
+the `optimize_bragg` example's, 5000 and 20 000 evaluations, and 300 for Bayesian optimization,
+whose model costs grow with the evaluations.
+
+**10 layers** (1 − R = 0.164856):
+
+| Method | Budget | Runs reaching the target | Evaluations to it: median (quartiles) | Best 1 − R above the optimum: best, median, worst run |
+|---|---|---|---|---|
+| Bayesian optimization (genoxide's defaults) | 300 | 0 of 31 | – | 1.2e-6, 1.7e-2, 9.4e-2 |
+| DE (current-to-best/1, F 0.8, CR 0.5, 30 individuals: Bennet's) | 5000 | 0 of 31 | – | 1.8e-5, 1.1e-4, 1.0e-3 |
+| CMA-ES (genoxide's defaults, from the middle of the box) | 5000 | 24 of 31 | 1175 (1113–1245) | below 1e-9, below 1e-9, 1.7e-2 |
+| L-BFGS-B on the exact gradient, restarted from random points | 5000 | 31 of 31 | 104 (52–234) | below 1e-9, below 1e-9, below 1e-9 |
+
+**20 layers** (1 − R = 0.014479):
+
+| Method | Budget | Runs reaching the target | Evaluations to it: median (quartiles) | Best 1 − R above the optimum: best, median, worst run |
+|---|---|---|---|---|
+| Bayesian optimization | 300 | 0 of 31 | – | 1.0e-2, 3.5e-2, 9.3e-2 |
+| DE | 20 000 | 0 of 31 | – | 1.5e-6, 1.5e-5, 1.6e-3 |
+| CMA-ES | 20 000 | 18 of 31 | 2350 (2219–2472) | below 1e-9, below 1e-9, 9.3e-3 |
+| L-BFGS-B, restarted | 20 000 | 31 of 31 | 896 (332–2209) | below 1e-9, below 1e-9, 1.3e-9 |
+
+What it says, for this problem:
+
+- **With an exact gradient, a local method restarted is hard to beat.** Every L-BFGS-B run found
+  the quarter-wave stack, in a median of 104 evaluations for 10 layers and 896 for 20, each
+  evaluation the stack's reflectance and its gradient at once. The landscape has local minima,
+  so some runs needed several starts, but each local run is cheap.
+- **CMA-ES is fast when it finds the basin, and inconsistent.** Most of its runs reached the
+  optimum in about 1200 and 2400 evaluations; a quarter to two fifths settled in other minima,
+  1e-2 above. Bennet et al. describe the same poorer consistency of CMA-ES (their Fig. 6, from a
+  plot); unlike theirs, its median here is better than DE's.
+- **DE with Bennet's settings comes close and stays close.** No run reached 10⁻⁶ within the
+  budget, but its worst runs are better than CMA-ES's worst: its median ends 1e-4 and 1.5e-5
+  above the optimum. Bennet et al. follow DE with a local method (their QNDE) for that reason, as
+  `optimize_bragg` does with L-BFGS-B.
+- **Bayesian optimization is for expensive evaluations, not these.** With 300 evaluations it
+  came within 1.2e-6 once for 10 layers; in 20 dimensions its model can't resolve the optimum in
+  that budget. Its own cost made the study's runtime (about half an hour on 20 threads, most of
+  it the 62 Bayesian runs); the transfer matrices take microseconds.
+
+Run with `cargo test --release --test method_study -- --ignored --nocapture`, which prints the
+tables. Every run is seeded and runs on its own thread, so the tables are the same on any
+number of threads; a small study in the same file checks that on 1 and 4 threads in CI.
+
 ## Validation
 
 | Case | What | Grid | Result |

@@ -65,11 +65,12 @@ area sparse \
   "sparse:: backend:: traffic::" "" "" \
   "bench"
 
-# the mode solvers, and the eigensolvers under them (their contour integrals factorize with sparse)
+# the mode solvers, and the eigensolvers under them (their contour integrals factorize with sparse);
+# with the method study on multilayers (tests/method_study.rs, whose small study runs here)
 area mode \
-  "src/mode/* src/eigen.rs src/eigen/*" \
+  "src/mode/* src/eigen.rs src/eigen/* tests/method_study.rs" \
   "sparse" \
-  "mode:: eigen::" "mode/" \
+  "mode:: eigen:: a_small_study_" "mode/" \
   "slab_soi slab_yariv_yeh bend_loss effective_index_method group_index leaky_waves leaky_wire_benchmark marcatili multilayer_chilwell optimize_bragg hadley_corners strip_waveguide directional_coupler mzi_dwivedi"
 
 area fdfd \
