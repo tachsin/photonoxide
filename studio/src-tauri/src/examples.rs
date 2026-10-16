@@ -167,7 +167,10 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "A half-band lattice filter by optimization",
             "Jinguji & Oguma 2000",
         ),
-        "optimize_ring_pareto" => ("A ring's drop against its width: a Pareto front", "Bogaerts et al. 2011"),
+        "optimize_ring_pareto" => (
+            "A ring's drop against its width: a Pareto front",
+            "Bogaerts et al. 2011",
+        ),
         "ring_q_factor" => ("The best length for a ring's Q", "Bogaerts et al. 2011"),
         "mzi_dwivedi" => ("Measured MZIs: a wire's indices", "Dwivedi et al. 2015"),
         "cpml_roden_gedney" => ("The CPML beside a plate in soil", "Roden & Gedney 2000"),

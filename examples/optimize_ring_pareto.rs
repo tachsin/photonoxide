@@ -193,8 +193,11 @@ fn front_hypervolume() -> f64 {
     hypervolume(&points, REFERENCE)
 }
 
+/// A front: each point's costs and couplings.
+type Front = Vec<([f64; 2], Vec<f64>)>;
+
 /// A multi-objective method's front: each point's costs and couplings.
-fn run<A>(problem: &Problem, algorithm: A, budget: u64) -> Vec<([f64; 2], Vec<f64>)>
+fn run<A>(problem: &Problem, algorithm: A, budget: u64) -> Front
 where
     A: genoxide::multi::MultiObjectiveAlgorithm<2, Genome = Reals>,
 {
@@ -247,7 +250,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
 
     let n = 2;
     let space = || Real::new(vec![KAPPA2.0..=KAPPA2.1; n]).expect("bounds");
-    let methods: [(&str, Vec<([f64; 2], Vec<f64>)>); 2] = [
+    let methods: [(&str, Front); 2] = [
         (
             "NSGA-II",
             run(
