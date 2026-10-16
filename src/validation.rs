@@ -396,6 +396,20 @@ pub fn cases() -> Vec<Case> {
             run: multilayer_bragg,
         },
         Case {
+            id: "mode/multilayer-derivatives",
+            title: r"The derivatives of a plane wave's reflectance and transmittance in each film's thickness and index (three films, one lossy, on glass at 850 nm, TE and TM at 0 and 0.6 rad), by the transfer matrices' product rule, against fourth-order central differences (largest difference, relative to the derivative, shown)",
+            tier: Tier::Analytic,
+            source: r"the derivatives' definition: $(f(x-2h) - 8f(x-h) + 8f(x+h) - f(x+2h))/12h$, h = 1e-4 µm or 1e-4 in the index, its error $O(h^4)$",
+            run: multilayer_derivatives,
+        },
+        Case {
+            id: "mode/multilayer-quarter-wave-stationary",
+            title: r"Bennet's Bragg mirror, 20 quarter-wave layers of 1.8 and 1.4 on 1.8 at 600 nm: the largest $\lvert \partial R/\partial d \rvert$ over its layers, per µm (shown), and its reflectance against the closed form",
+            tier: Tier::Analytic,
+            source: r"the quarter-wave stack is a stationary point of its reflectance in every thickness at its design wavelength; $R = \left(\frac{1 - q}{1 + q}\right)^2$, $q = (1.8/1.4)^{20} \cdot 1.8$, is 0.985521 (P. Bennet et al., J. Opt. Soc. Am. B 41, A126 (2024), doi:10.1364/JOSAB.506389, the optimum their Fig. 7c shows)",
+            run: multilayer_quarter_wave_stationary,
+        },
+        Case {
             id: "mode/pml-soi-leakage-te",
             title: r"The loss of 220 nm SOI's TE mode leaking through 0.5 µm of buried oxide into the substrate, full-vector with a PML (1 µm, strength 3), 2.5 nm grid (relative error in $\operatorname{Im} n_\text{eff}$ shown)",
             tier: Tier::Analytic,
@@ -3869,6 +3883,84 @@ fn multilayer_bragg() -> Outcome {
         expected,
         tolerance: 1e-12,
         error: (measured - expected).abs(),
+    }
+}
+
+fn multilayer_derivatives() -> Outcome {
+    use crate::mode::multilayer::Multilayer;
+    let films = [
+        (Complex64::new(2.1, 0.0), 0.13),
+        (Complex64::new(1.46, 0.002), 0.21),
+        (Complex64::new(3.2, 0.0), 0.07),
+    ];
+    let stack = |f: &[(Complex64, f64)]| {
+        let f: Vec<(Complex64, Length)> = f.iter().map(|&(n, d)| (n, Length::um(d))).collect();
+        Multilayer::new(Complex64::new(1.0, 0.0), &f, Complex64::new(1.52, 0.0))
+    };
+    let run = || -> crate::Result<f64> {
+        let lam = Wavelength::um(0.85)?;
+        let mut worst: f64 = 0.0;
+        for pol in [Polarization::Te, Polarization::Tm] {
+            for angle in [0.0, 0.6] {
+                let d = stack(&films)?.reflection_derivatives(pol, lam, angle)?;
+                for j in 0..films.len() {
+                    for (by_index, exact) in [(false, d.by_thickness[j]), (true, d.by_index[j])] {
+                        let h = 1e-4;
+                        let at = |k: f64| -> crate::Result<(f64, f64)> {
+                            let mut f = films;
+                            if by_index {
+                                f[j].0 += k * h;
+                            } else {
+                                f[j].1 += k * h;
+                            }
+                            let r = stack(&f)?.reflection(pol, lam, angle)?;
+                            Ok((r.reflectance, r.transmittance))
+                        };
+                        let (m2, m1, p1, p2) = (at(-2.0)?, at(-1.0)?, at(1.0)?, at(2.0)?);
+                        let fd = |g: fn((f64, f64)) -> f64| {
+                            (g(m2) - 8.0 * g(m1) + 8.0 * g(p1) - g(p2)) / (12.0 * h)
+                        };
+                        for (e, f) in [(exact.0, fd(|v| v.0)), (exact.1, fd(|v| v.1))] {
+                            worst = worst.max((e - f).abs() / e.abs().max(1.0));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(worst)
+    };
+    let worst = run().unwrap_or(f64::INFINITY);
+    Outcome {
+        measured: worst,
+        expected: 0.0,
+        tolerance: 1e-9,
+        error: worst,
+    }
+}
+
+fn multilayer_quarter_wave_stationary() -> Outcome {
+    use crate::mode::multilayer::Multilayer;
+    let films: Vec<(Complex64, Length)> = (0..20)
+        .map(|k| {
+            let n = if k % 2 == 0 { 1.8 } else { 1.4 };
+            (Complex64::new(n, 0.0), Length::um(0.6 / (4.0 * n)))
+        })
+        .collect();
+    let q = 1.8 * (1.8f64 / 1.4).powi(20);
+    let closed = ((1.0 - q) / (1.0 + q)).powi(2);
+    let (largest, r) = Multilayer::new(Complex64::new(1.0, 0.0), &films, Complex64::new(1.8, 0.0))
+        .and_then(|s| s.reflection_derivatives(Polarization::Te, Wavelength::um(0.6)?, 0.0))
+        .map_or((f64::NAN, f64::NAN), |d| {
+            (
+                d.by_thickness.iter().fold(0.0f64, |a, v| a.max(v.0.abs())),
+                d.reflection.reflectance,
+            )
+        });
+    Outcome {
+        measured: largest,
+        expected: 0.0,
+        tolerance: 1e-11,
+        error: largest.max((r - closed).abs()),
     }
 }
 

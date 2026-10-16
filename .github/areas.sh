@@ -70,7 +70,7 @@ area mode \
   "src/mode/* src/eigen.rs src/eigen/*" \
   "sparse" \
   "mode:: eigen::" "mode/" \
-  "slab_soi slab_yariv_yeh bend_loss effective_index_method group_index leaky_waves leaky_wire_benchmark marcatili multilayer_chilwell hadley_corners strip_waveguide directional_coupler mzi_dwivedi"
+  "slab_soi slab_yariv_yeh bend_loss effective_index_method group_index leaky_waves leaky_wire_benchmark marcatili multilayer_chilwell optimize_bragg hadley_corners strip_waveguide directional_coupler mzi_dwivedi"
 
 area fdfd \
   "src/fdfd/* src/backend/iterative.rs" \
