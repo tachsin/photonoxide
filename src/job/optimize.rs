@@ -260,7 +260,9 @@ const MAX_VARIABLES: usize = 64;
 /// exact: ε^(1/3), as the circuit adjoint's ([`crate::circuit::adjoint::STEP`]).
 const STEP: f64 = crate::circuit::adjoint::STEP;
 
-/// The relative step of the fourth-order differences an exact derivative is checked against:
+/// The relative step of the fourth-order differences an exact derivative is checked against
+/// first (then 10 and 100 times smaller where those disagree: a ring's resonance can be sharp on
+/// this step's scale, and the differences' error falls as its fourth power):
 /// small enough to resolve a guide's phase over a long arm (an MZI's 150 µm, whose power's
 /// period in its length is 0.4 µm), large enough that round-off stays near 1e-10.
 const CHECK_STEP: f64 = 1e-5;
@@ -1607,22 +1609,45 @@ impl Problem {
                 continue;
             };
             // each quantity at each sample, before the reduction (whose worst case has kinks
-            // where the worst sample changes)
-            let fourth = self.fourth_order(&x, j)?;
-            let mut all_agree = true;
-            for (k, (dk, fk)) in d.iter().zip(&fourth).enumerate() {
-                let mut worst: Option<(f64, f64, f64)> = None;
-                let mut agrees = true;
-                for ((&ex, &fd), &value) in dk.iter().zip(fk).zip(&point.samples[k]) {
-                    let miss = (ex - fd).abs();
-                    agrees &= miss
-                        <= CHECK_TOLERANCE * (ex.abs() + fd.abs()) + 1e-10 * (1.0 + value.abs());
-                    if worst.is_none_or(|w| miss > w.2) {
-                        worst = Some((ex, fd, miss));
+            // where the worst sample changes); where the differences' own error is larger than
+            // the tolerance (a resonance sharp on the step's scale), at steps 10 and 100 times
+            // smaller, their error falling as the step's fourth power
+            let compare = |fourth: &[Vec<f64>]| -> Vec<(bool, f64, f64)> {
+                d.iter()
+                    .zip(fourth)
+                    .zip(&point.samples)
+                    .map(|((dk, fk), values)| {
+                        let mut worst: Option<(f64, f64, f64)> = None;
+                        let mut agrees = true;
+                        for ((&ex, &fd), &value) in dk.iter().zip(fk).zip(values) {
+                            let miss = (ex - fd).abs();
+                            agrees &= miss
+                                <= CHECK_TOLERANCE * (ex.abs() + fd.abs())
+                                    + 1e-10 * (1.0 + value.abs());
+                            if worst.is_none_or(|w| miss > w.2) {
+                                worst = Some((ex, fd, miss));
+                            }
+                        }
+                        let (ex, fd, _) = worst.unwrap_or((0.0, 0.0, 0.0));
+                        (agrees, ex, fd)
+                    })
+                    .collect()
+            };
+            let mut found = compare(&self.fourth_order(&x, j, CHECK_STEP)?);
+            for finer in [CHECK_STEP / 10.0, CHECK_STEP / 100.0] {
+                if found.iter().all(|f| f.0) {
+                    break;
+                }
+                let again = compare(&self.fourth_order(&x, j, finer)?);
+                for (f, a) in found.iter_mut().zip(again) {
+                    if !f.0 {
+                        *f = a;
                     }
                 }
+            }
+            let mut all_agree = true;
+            for (k, &(agrees, ex, fd)) in found.iter().enumerate() {
                 all_agree &= agrees;
-                let (ex, fd, _) = worst.unwrap_or((0.0, 0.0, 0.0));
                 checks.push(GradientCheck {
                     variable: self.variables[j].parameter.clone(),
                     quantity: symbols[k].clone(),
@@ -1711,9 +1736,9 @@ impl Problem {
 
     /// Fourth-order differences of every quantity at every sample in variable `j`: central, or
     /// one-sided inwards at a bound.
-    fn fourth_order(&self, x: &[f64], j: usize) -> Result<Vec<Vec<f64>>> {
+    fn fourth_order(&self, x: &[f64], j: usize, relative: f64) -> Result<Vec<Vec<f64>>> {
         let v = &self.variables[j];
-        let h = self.step(x, j, CHECK_STEP) / 2.0;
+        let h = self.step(x, j, relative) / 2.0;
         let f = |k: f64| {
             self.point(&Self::moved(x, j, k * h), &[])
                 .map(|p| p.samples)

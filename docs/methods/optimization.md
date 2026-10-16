@@ -83,7 +83,11 @@ g = (value − bound) or (bound − value) is met when g ≤ 0; the violation is
 MZI arm's phase, whose power's period in its length is 0.4 µm), sample by sample before the
 reduction (whose worst case has kinks where the worst sample changes). A variable whose
 derivatives all agree to 10⁻⁶ (relative, with a floor of 10⁻¹⁰ of the quantity) uses them; one
-that doesn't is differenced instead. The run records every check.
+that doesn't is differenced instead. A quantity that disagrees is checked again at steps 10 and
+100 times smaller: a chip's ring resonance can be sharp on the first step's scale (a bus coupler's
+length moves the ring's phase), and the differences' own error falls as the step's fourth power,
+so an exact derivative is refused only where no step confirms it. The run records every check,
+at the step that decided it.
 
 ## The optimize job
 

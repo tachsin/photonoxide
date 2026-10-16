@@ -3,7 +3,7 @@ use crate::job::chip_checks::{
     adjoint_difference, closed_form_error, mzi, mzi_problem, study_differences,
 };
 use crate::job::optimize::Optimization;
-use crate::job::{Aim, Variable, check, optimize_from_chip};
+use crate::job::{Aim, Problem, Variable, check, optimize_from_chip};
 use crate::run::replay;
 
 #[test]
@@ -200,4 +200,23 @@ fn a_chips_optimization_records_its_problem() {
             ("combine.gap".to_owned(), "0.2".to_owned()),
         ]
     );
+}
+
+/// A ring's resonance can be sharp on the check's first step: the exact derivative of the chip's
+/// drop in a bus coupler's length, which fourth-order differences reach only at a finer step, is
+/// still checked and used.
+#[test]
+fn a_sharp_resonances_exact_derivative_is_checked_at_a_finer_step() {
+    let text = include_str!("../../jobs/chip-little-rings.toml");
+    let a = text.find("[[task.variable]]").unwrap();
+    let b = text.find("[[task.objective]]").unwrap();
+    let t = format!(
+        "{}[[task.variable]]\nparameter = \"c0.length\"\nfrom = 0.6\nto = 0.9\n\n{}",
+        &text[..a],
+        &text[b..]
+    );
+    let mut p = Problem::of(&Job::parse(&t).unwrap()).unwrap();
+    let checks = p.check_gradients().unwrap();
+    assert!(checks.iter().all(|c| c.agrees), "{checks:?}");
+    assert_eq!(p.derivatives(), ["exact"]);
 }

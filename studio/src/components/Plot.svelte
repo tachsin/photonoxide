@@ -78,7 +78,14 @@
   const X = (x: number) => L + ((x - xs[0]) / (xs[1] - xs[0])) * (width - L - R);
   const Y = (y: number) => height - B - ((scaled(y) - ys[0]) / (ys[1] - ys[0])) * (height - T - B);
   /** The y axis's ticks, as values: round numbers, or on a log scale each power of ten (and 2 and 5 times it over a short span). */
-  const xTicks = $derived(ticks(xs[0], xs[1], Math.max(5, Math.floor(width / 100))));
+  const xAll = $derived(ticks(xs[0], xs[1], Math.max(5, Math.floor(width / 100))));
+  /** Every tick, or every second or third where their labels (a narrow band's, long) would run into each other. */
+  const xEvery = $derived.by(() => {
+    const longest = Math.max(1, ...tickLabels(xAll).map((t) => t.length));
+    const room = Math.max(1, width - 80) / Math.max(1, xAll.length);
+    return Math.max(1, Math.ceil((7 * longest + 8) / room));
+  });
+  const xTicks = $derived(xAll.filter((_, i) => i % xEvery === 0));
   const xTickLabels = $derived(tickLabels(xTicks));
   const yTicks = $derived.by(() => {
     if (!yLog) return ticks(ys[0], ys[1]);

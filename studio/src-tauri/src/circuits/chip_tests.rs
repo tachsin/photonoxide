@@ -54,10 +54,18 @@ fn the_built_in_circuits_rebuilt_from_devices_simulate_to_the_same_bits() {
     for (file, text) in example_texts() {
         let chip = Chip::parse(text).unwrap();
         let rebuilt = of_devices(&chip);
-        devices += rebuilt.instances.iter().filter(|i| i.device.is_some()).count();
+        devices += rebuilt
+            .instances
+            .iter()
+            .filter(|i| i.device.is_some())
+            .count();
         assert_eq!(bits(&chip, root()), bits(&rebuilt, root()), "{file}");
         // and the chip's file holds its devices, read back the same
-        assert_eq!(Chip::parse(&rebuilt.to_text().unwrap()).unwrap(), rebuilt, "{file}");
+        assert_eq!(
+            Chip::parse(&rebuilt.to_text().unwrap()).unwrap(),
+            rebuilt,
+            "{file}"
+        );
     }
     assert!(devices >= 8, "{devices} device instances");
 }
@@ -65,7 +73,10 @@ fn the_built_in_circuits_rebuilt_from_devices_simulate_to_the_same_bits() {
 #[test]
 fn a_chip_of_devices_is_the_librarys_chip_to_the_bit() {
     for (file, text) in example_texts() {
-        for chip in [Chip::parse(text).unwrap(), of_devices(&Chip::parse(text).unwrap())] {
+        for chip in [
+            Chip::parse(text).unwrap(),
+            of_devices(&Chip::parse(text).unwrap()),
+        ] {
             let d = design(&chip, root()).unwrap();
             let c = d.circuit().unwrap();
             let (_, s, _) = solve(&chip, root()).unwrap();
@@ -112,7 +123,12 @@ fn an_instance_names_a_design_in_jobs_and_changes_it() {
         ..named.clone()
     };
     let spec = changed.spec(&dir).unwrap();
-    let get = |n: &str| spec.parameters.iter().find(|(k, _)| k == n).map(|(_, e)| e.clone());
+    let get = |n: &str| {
+        spec.parameters
+            .iter()
+            .find(|(k, _)| k == n)
+            .map(|(_, e)| e.clone())
+    };
     assert_eq!(get("length").as_deref(), Some("150"));
     assert_eq!(get("loss").as_deref(), Some("1.0"));
     let wrong = DeviceRef {
@@ -172,9 +188,17 @@ fn the_panels_jobs_check_and_apply_takes_an_optimum_in() {
         ],
     )
     .unwrap();
-    let upper = applied.instances.iter().find(|i| i.name == "upper").unwrap();
+    let upper = applied
+        .instances
+        .iter()
+        .find(|i| i.name == "upper")
+        .unwrap();
     assert_eq!(upper.device.as_ref().unwrap().parameters["length"], "104.5");
-    let split = applied.instances.iter().find(|i| i.name == "split").unwrap();
+    let split = applied
+        .instances
+        .iter()
+        .find(|i| i.name == "split")
+        .unwrap();
     assert_eq!(split.values["coupling"], 0.45);
 }
 

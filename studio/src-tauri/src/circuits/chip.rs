@@ -160,7 +160,10 @@ pub fn kind_of(id: &str) -> Option<&'static str> {
 /// # Errors
 ///
 /// What the library refuses of the design.
-pub fn component(device: &DeviceRef, root: &Path) -> Result<(Arc<dyn Component>, Vec<f64>), String> {
+pub fn component(
+    device: &DeviceRef,
+    root: &Path,
+) -> Result<(Arc<dyn Component>, Vec<f64>), String> {
     let spec = device.spec(root)?;
     let (d, design) = spec.build().map_err(|e| e.to_string())?;
     let built = d
@@ -239,14 +242,18 @@ pub struct InstanceDevice {
 
 /// The design `device` holds, resolved in the workspace.
 #[tauri::command]
-pub fn chip_device(state: tauri::State<'_, Studio>, device: DeviceRef) -> Result<InstanceDevice, String> {
+pub fn chip_device(
+    state: tauri::State<'_, Studio>,
+    device: DeviceRef,
+) -> Result<InstanceDevice, String> {
     instance_device(&device, &state.workspace())
 }
 
 fn instance_device(device: &DeviceRef, root: &Path) -> Result<InstanceDevice, String> {
     let spec = device.spec(root)?;
     Ok(InstanceDevice {
-        id: id_of(&spec.kind).ok_or_else(|| format!("no device {} on the Components page", spec.kind))?,
+        id: id_of(&spec.kind)
+            .ok_or_else(|| format!("no device {} on the Components page", spec.kind))?,
         spec: SpecIn::of(&spec),
         job: device.job.clone(),
     })
@@ -293,7 +300,10 @@ pub struct InstanceOffer {
 /// The chip's parameters, its outputs, genoxide's methods, and its device instances' own
 /// objectives and constraints.
 #[tauri::command(async)]
-pub fn chip_optimize_info(state: tauri::State<'_, Studio>, chip: Chip) -> Result<ChipOptimizeInfo, String> {
+pub fn chip_optimize_info(
+    state: tauri::State<'_, Studio>,
+    chip: Chip,
+) -> Result<ChipOptimizeInfo, String> {
     optimize_info(&chip, &state.workspace())
 }
 
@@ -381,7 +391,11 @@ pub struct ChipTaskIn {
 
 /// The job that computes, studies or optimizes `chip` as `task` says.
 #[tauri::command(async)]
-pub fn chip_job(state: tauri::State<'_, Studio>, chip: Chip, task: ChipTaskIn) -> Result<String, String> {
+pub fn chip_job(
+    state: tauri::State<'_, Studio>,
+    chip: Chip,
+    task: ChipTaskIn,
+) -> Result<String, String> {
     job_text(&chip, &task, &state.workspace())
 }
 
@@ -398,7 +412,14 @@ pub fn job_text(chip: &Chip, task: &ChipTaskIn, root: &Path) -> Result<String, S
                 Study::Corners(c) => (Vec::new(), c),
                 _ => return Err("a chip's study is a sweep or corners".into()),
             };
-            job::study_from_chip(&task.name, &d, task.band, &axes, &corners, task.timeout_minutes)
+            job::study_from_chip(
+                &task.name,
+                &d,
+                task.band,
+                &axes,
+                &corners,
+                task.timeout_minutes,
+            )
         }
         (None, Some(o)) => job::optimize_from_chip(
             &task.name,
@@ -422,15 +443,24 @@ pub fn job_text(chip: &Chip, task: &ChipTaskIn, root: &Path) -> Result<String, S
 /// A message for a job that isn't a chip's, or a chip the library can't build.
 pub fn chip_of_job(text: &str) -> Result<Chip, String> {
     let job = Job::parse(text).map_err(|e| e.to_string())?;
-    let table = job
-        .circuit()
-        .ok_or_else(|| format!("{} isn't a chip's job: it has no [circuit] table", job.name()))?;
+    let table = job.circuit().ok_or_else(|| {
+        format!(
+            "{} isn't a chip's job: it has no [circuit] table",
+            job.name()
+        )
+    })?;
     let d = ChipDesign::from_table(table).map_err(|e| e.to_string())?;
     let circuit = d.circuit().map_err(|e| e.to_string())?;
     let name: String = job
         .name()
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect();
     let mut chip = Chip::from_netlist(&name, circuit.netlist())?;
     // in rows of four rather than one long row, each external port moved with its instance
@@ -462,13 +492,21 @@ pub fn chip_of_job(text: &str) -> Result<Chip, String> {
         placed.values = inst.values.iter().cloned().collect();
         if let job::InstanceModel::Device(spec) = &inst.model {
             placed.kind = id_of(&spec.kind)
-                .ok_or_else(|| format!("{}: no device {} on the Components page", inst.name, spec.kind))?
+                .ok_or_else(|| {
+                    format!(
+                        "{}: no device {} on the Components page",
+                        inst.name, spec.kind
+                    )
+                })?
                 .to_owned();
             placed.device = Some(DeviceRef::inline(spec));
         }
     }
     let task = job.task();
-    let number = |k: &str| task.get(k).and_then(|v| v.as_float().or_else(|| v.as_integer().map(|i| i as f64)));
+    let number = |k: &str| {
+        task.get(k)
+            .and_then(|v| v.as_float().or_else(|| v.as_integer().map(|i| i as f64)))
+    };
     if let (Some(from), Some(to)) = (number("from_um"), number("to_um"))
         && to > from
     {
@@ -506,7 +544,8 @@ pub fn apply(mut chip: Chip, parameters: &[(String, String)]) -> Result<Chip, St
             .ok_or_else(|| format!("no instance {instance}"))?;
         match (&mut inst.device, inst.values.contains_key(parameter)) {
             (Some(d), false) => {
-                d.parameters.insert(parameter.to_owned(), expression.clone());
+                d.parameters
+                    .insert(parameter.to_owned(), expression.clone());
             }
             _ => {
                 let v: f64 = expression
