@@ -2,6 +2,7 @@
 
 use std::io::{ErrorKind, Read, Write};
 use std::net::TcpStream;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
@@ -94,6 +95,13 @@ impl Reader {
             buffer: Vec::new(),
             longest: LONGEST,
         }
+    }
+
+    /// How long a read waits for something to come (`None`: for ever), set on the stream this
+    /// reader reads. Set here, never on a clone: on Windows each clone of a socket has its own
+    /// timeout, and one set on another leaves this reader's reads waiting for ever.
+    pub(crate) fn set_timeout(&self, timeout: Option<Duration>) -> std::io::Result<()> {
+        self.stream.set_read_timeout(timeout)
     }
 
     /// Refuses messages longer than `longest` bytes from now on (at most [`LONGEST`]).

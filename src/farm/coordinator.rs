@@ -513,7 +513,8 @@ impl Driver {
     fn drive(self) {
         let mut in_flight: Vec<(usize, Instant)> = Vec::new();
         let lost = match self.connect() {
-            Ok((mut stream, reader, slots)) => {
+            Ok(None) => None,
+            Ok(Some((mut stream, reader, slots))) => {
                 let done = self.work(&mut stream, reader, slots, &mut in_flight);
                 if done.is_ok() {
                     let _ = protocol::send(&mut stream, &Message::Close);
@@ -577,7 +578,9 @@ impl Driver {
         lock(&self.shared.state).quit || self.stop.reason().is_some()
     }
 
-    fn connect(&self) -> std::result::Result<(TcpStream, Reader, usize), Lost> {
+    /// The connection to the worker and its slots, once it welcomed the farm: `Ok(None)` when
+    /// the farm quit first.
+    fn connect(&self) -> std::result::Result<Option<(TcpStream, Reader, usize)>, Lost> {
         let lost = |e: String| Lost(e);
         let address = self
             .endpoint
@@ -590,8 +593,11 @@ impl Driver {
             TcpStream::connect_timeout(&address, HANDSHAKE).map_err(|e| lost(e.to_string()))?;
         let _ = stream.set_nodelay(true);
         let mut reader = Reader::new(stream.try_clone().map_err(|e| lost(e.to_string()))?);
-        stream
-            .set_read_timeout(Some(HANDSHAKE))
+        // from here a read waits a tick at most, so that the farm's stop is seen at once whatever
+        // the worker is doing (a worker still busy with another coordinator welcomes this one
+        // only when it is done)
+        reader
+            .set_timeout(Some(TICK))
             .map_err(|e| lost(e.to_string()))?;
         protocol::send(
             &mut stream,
@@ -602,7 +608,22 @@ impl Driver {
             },
         )
         .map_err(lost)?;
-        let slots = match reader.wait().map_err(lost)? {
+        let since = Instant::now();
+        let welcome = loop {
+            if let Some(m) = reader.next().map_err(lost)? {
+                break m;
+            }
+            if self.quitting() {
+                return Ok(None);
+            }
+            if since.elapsed() > HANDSHAKE {
+                return Err(lost(format!(
+                    "no welcome within {} s",
+                    HANDSHAKE.as_secs_f64()
+                )));
+            }
+        };
+        let slots = match welcome {
             Message::Welcome {
                 protocol,
                 photonoxide,
@@ -621,11 +642,7 @@ impl Driver {
             Message::Refused { reason } => return Err(lost(format!("refused: {reason}"))),
             other => return Err(lost(format!("expected a welcome, got {other:?}"))),
         };
-        // from here a read waits a tick at most
-        stream
-            .set_read_timeout(Some(TICK))
-            .map_err(|e| lost(e.to_string()))?;
-        Ok((stream, reader, slots))
+        Ok(Some((stream, reader, slots)))
     }
 
     /// A sweep's setup on the worker: `Ok(false)` when the farm quit first.

@@ -30,7 +30,9 @@ n tasks at once, each on its own thread (1 by default, which suits a worker with
 machine's threads to itself: photonoxide's solvers use them inside each point).
 `--task-timeout <seconds>` bounds each point: one past it fails with that reason and its worker
 is dropped (a local one killed), as one that may be stuck. The job's own `timeout_minutes`
-bounds the whole run, farm included.
+bounds the whole run, farm included: at it, or when the window stops the run, the run ends as
+it would alone, without waiting for the points the workers have in flight, and the workers
+stop them by themselves.
 
 What is farmed is a `modes` or `fdfd` job's `[task.sweep]`, or a device's study (a `[device]`
 job whose task is a `"sweep"` or `"corners"`, [devices](methods/devices.md#studied-as-a-job): each
@@ -67,7 +69,9 @@ The tests check it: a modes sweep and two 2D FDFD sweeps farmed to 1, 2, 4 and 8
 and its corners farmed to 1 and 3 workers (and to 2 of 2 slots); a worker whose connection breaks
 while it has a point; a worker process killed while the program's run is under way
 (`studio/src-tauri/tests/farm.rs`); jobs that finish out of order coming back in order; a point
-that fails, a task past its timeout and a run past its deadline.
+that fails, a task past its timeout and a run past its deadline; a run stopped while a point it
+will never get back is in flight; and a connection that never says hello, which a worker
+refuses after the handshake's 10 s.
 
 ## The protocol
 

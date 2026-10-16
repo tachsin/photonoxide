@@ -33,8 +33,9 @@
 //! a result, its error: in a sweep, as in one run, the points before it are recorded and the run
 //! fails with it. A task past [`FarmOptions::task_timeout`] fails, and its worker is dropped (a
 //! local one killed). The run's stop is the farm's: at it the points done are recorded in order
-//! and the run ends as any run stopped does; a worker is sent the time left, and stops by itself
-//! at it or when its coordinator goes away.
+//! and the run ends as any run stopped does: the farm looks at the stop every 50 ms, and leaves
+//! the points in flight rather than wait for them. A worker is sent the time left, and stops by
+//! itself at it or when its coordinator goes away.
 //!
 //! **The same bits.** Results are placed by index and a sweep's are recorded only as a complete
 //! prefix, so the record doesn't depend on which worker finished first, on their number, or on

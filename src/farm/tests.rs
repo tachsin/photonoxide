@@ -1,8 +1,8 @@
 use std::io::{Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use super::*;
@@ -461,6 +461,64 @@ fn a_task_past_its_timeout_fails_with_that_reason() {
     assert!(e.contains("past its timeout of 0.005 s"), "{e}");
 }
 
+/// A farm's sweep, timed: when the run gave it its points, and when it gave them back.
+#[derive(Debug)]
+struct Timed {
+    farm: Box<dyn crate::run::Points>,
+    span: Arc<Mutex<Option<(Instant, Instant)>>>,
+}
+
+impl crate::run::Points for Timed {
+    fn sweep(
+        &mut self,
+        run: &mut Run,
+        stop: &Stop,
+        points: std::ops::Range<usize>,
+        point: &crate::run::PointFn<'_>,
+    ) -> crate::Result<()> {
+        let began = Instant::now();
+        let done = self.farm.sweep(run, stop, points, point);
+        *self.span.lock().unwrap() = Some((began, Instant::now()));
+        done
+    }
+}
+
+/// The job run with its sweep farmed and a stop at `deadline`: its result, its record, how long
+/// the farm went on past the deadline, and whether the run's sweep began before it. The farm's
+/// time is its sweep's past the deadline (past its start, if the run's own setup ran past the
+/// deadline) and its letting the workers go; the run's own steps, here on the coordinator,
+/// aren't the farm's.
+fn farmed_until(
+    text: &str,
+    farm: &Farm,
+    deadline: Duration,
+) -> (crate::Result<()>, Vec<String>, Duration, bool) {
+    let root = TempDir::new("until");
+    let job = Job::parse(text).unwrap();
+    let mut run = Run::create(&root.0, &job).unwrap();
+    // (no later than the stop's own deadline)
+    let at = Instant::now() + deadline;
+    let stop = Stop::new(Some(deadline));
+    farm.farm_sweep(&job, &mut run, &stop);
+    let span = Arc::new(Mutex::new(None));
+    let sweep = run.take_points().unwrap();
+    run.set_points(Box::new(Timed {
+        farm: sweep,
+        span: Arc::clone(&span),
+    }));
+    let done = execute(&job, &mut run, &stop);
+    let lines = lines_of(&run);
+    // a sweep the run never came to lets its workers go when the run drops it
+    let dropped = Instant::now();
+    drop(run);
+    let mut late = dropped.elapsed();
+    let span = *span.lock().unwrap();
+    if let Some((began, ended)) = span {
+        late += ended.saturating_duration_since(began.max(at));
+    }
+    (done, lines, late, span.is_some_and(|(began, _)| began < at))
+}
+
 #[test]
 fn a_farm_stops_at_its_deadline_with_the_points_done_recorded_in_order() {
     let text = MODES.replace("points = 6", "points = 40");
@@ -471,33 +529,132 @@ fn a_farm_stops_at_its_deadline_with_the_points_done_recorded_in_order() {
     let farm = farm_of(&workers(2, 1), FarmOptions::default());
     // A deadline of a third of the sweep alone, which two workers can't meet; but on a machine
     // that other work slowed while the sweep ran alone, and spares while it is farmed, they
-    // can. Then the farm tries again with half the deadline, up to five times, down to a 48th
-    // of the sweep alone. Every try must end soon after its deadline, and one that finished
-    // must have recorded the whole sweep; a farm that ignored its deadline finishes every
-    // try, and fails the fifth, by which no machine's load can account for it.
+    // can: then the farm tries again at half the deadline. And on a machine that other work
+    // slows while the sweep is farmed, the run's own setup (its modes before the sweep, solved
+    // here, as in a run alone) can run past the deadline, where the farm has nothing to stop:
+    // then it tries again at twice the deadline. In every try the farm must stop soon after the
+    // deadline (the run's own steps end at a stop as in a run alone, between its solve's steps,
+    // one of which, an LU factorization, other work on rayon's threads can hold up for
+    // seconds), and a try that finished must have recorded the whole sweep. A farm that
+    // ignored its deadline goes on past it, or finishes every try, and fails the fifth.
     let mut deadline = whole / 3;
-    for attempt in 1.. {
-        let started = Instant::now();
-        let (done, lines) = farmed(&text, &farm, &Stop::new(Some(deadline)));
+    let mut finished = 0;
+    for attempt in 1..=10 {
+        let (done, lines, late, in_sweep) = farmed_until(&text, &farm, deadline);
         done.unwrap();
-        let took = started.elapsed();
         // it stopped soon after its deadline, not when the workers were done
         assert!(
-            took < deadline + Duration::from_secs(2),
-            "try {attempt}: {took:?} for a deadline of {deadline:?}",
+            late < Duration::from_secs(2),
+            "try {attempt}: the farm went on {late:?} past its deadline of {deadline:?}",
         );
         // the points done, in order
         let (last, before) = lines.split_last().unwrap();
         assert_eq!(before, &all[..before.len()]);
-        if before.len() < all.len() - 1 {
-            // cut short, and it says why
-            assert!(last.contains("\"stopped\":\"timeout\""), "{last}");
-            break;
+        if before.len() == all.len() - 1 {
+            finished += 1;
+            assert!(
+                finished < 5,
+                "it didn't stop, at a deadline of {deadline:?}"
+            );
+            println!("try {attempt}: the whole sweep done by a deadline of {deadline:?}");
+            deadline /= 2;
+            continue;
         }
-        assert!(attempt < 5, "it didn't stop, at a deadline of {deadline:?}");
-        println!("try {attempt}: the whole sweep done in {took:?}, by a deadline of {deadline:?}");
-        deadline /= 2;
+        // cut short, and it says why
+        assert!(last.contains("\"stopped\":\"timeout\""), "{last}");
+        if in_sweep {
+            return;
+        }
+        println!("try {attempt}: the deadline of {deadline:?} passed before the sweep");
+        deadline *= 2;
     }
+    panic!("in no try did the deadline pass in the sweep");
+}
+
+/// A connection between a coordinator and a worker that passes everything on but the worker's
+/// answers to points, which it keeps: the points stay in flight. It closes after `hold`. The
+/// count is of the answers kept.
+fn holding(worker: String, hold: Duration) -> (String, Arc<AtomicUsize>) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap().to_string();
+    let held = Arc::new(AtomicUsize::new(0));
+    let count = Arc::clone(&held);
+    std::thread::spawn(move || {
+        let (from, _) = listener.accept().unwrap();
+        let mut back = TcpStream::connect(&worker).unwrap();
+        // the coordinator's messages, as they come
+        let (mut forth_from, mut forth_to) = (from.try_clone().unwrap(), back.try_clone().unwrap());
+        std::thread::spawn(move || std::io::copy(&mut forth_from, &mut forth_to));
+        let (end_from, end_back) = (from.try_clone().unwrap(), back.try_clone().unwrap());
+        std::thread::spawn(move || {
+            std::thread::sleep(hold);
+            let _ = end_from.shutdown(Shutdown::Both);
+            let _ = end_back.shutdown(Shutdown::Both);
+        });
+        let mut to = from;
+        loop {
+            let mut length = [0u8; 4];
+            if back.read_exact(&mut length).is_err() {
+                return;
+            }
+            let mut body = vec![0u8; u32::from_be_bytes(length) as usize];
+            if back.read_exact(&mut body).is_err() {
+                return;
+            }
+            if [
+                &b"{\"type\":\"events\""[..],
+                b"{\"type\":\"stopped\"",
+                b"{\"type\":\"failed\"",
+            ]
+            .iter()
+            .any(|p| body.starts_with(p))
+            {
+                count.fetch_add(1, Ordering::Relaxed);
+                continue;
+            }
+            if to
+                .write_all(&length)
+                .and_then(|()| to.write_all(&body))
+                .is_err()
+            {
+                return;
+            }
+        }
+    });
+    (address, held)
+}
+
+#[test]
+fn a_farm_at_its_stop_leaves_the_points_in_flight() {
+    // a worker whose answers to points never reach the farm: when the run is stopped, the farm
+    // must let the point it has in flight go and end the run, not wait for its answer (on
+    // Windows it waited: the time a read waits for was set on another handle of the socket than
+    // the one read, and on Windows each has its own; #388)
+    let (address, held) = holding(workers(1, 1).remove(0), Duration::from_secs(60));
+    let farm = farm_of(&[address], FarmOptions::default());
+    let stop = Stop::new(None);
+    let requested = Arc::new(Mutex::new(None));
+    {
+        let (stop, held, requested) = (stop.clone(), Arc::clone(&held), Arc::clone(&requested));
+        // the stop once an answer was kept: the sweep is under way, its next point in flight
+        std::thread::spawn(move || {
+            while held.load(Ordering::Relaxed) == 0 {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            *requested.lock().unwrap() = Some(Instant::now());
+            stop.request();
+        });
+    }
+    let (done, lines) = farmed(MODES, &farm, &stop);
+    let late = requested.lock().unwrap().expect("no answer kept").elapsed();
+    done.unwrap();
+    assert!(
+        late < Duration::from_secs(2),
+        "the run ended {late:?} after its stop"
+    );
+    assert_eq!(points_in(&lines), 0);
+    let last = lines.last().unwrap();
+    assert!(last.contains("\"stopped\":\"requested\""), "{last}");
 }
 
 #[test]
@@ -566,6 +723,24 @@ fn a_worker_refuses_what_isnt_a_hello_and_an_overlong_one() {
             other => panic!("{other:?}"),
         }
     }
+}
+
+#[test]
+fn a_worker_refuses_a_connection_that_says_nothing_within_the_handshake() {
+    // (a worker serves one coordinator at a time: one that never says hello would keep it for
+    // ever, as it did on Windows, where the hello's time was set on another handle of the
+    // socket than the one read)
+    let address = workers(1, 1).remove(0);
+    let stream = TcpStream::connect(&address).unwrap();
+    stream
+        .set_read_timeout(Some(HANDSHAKE + Duration::from_secs(10)))
+        .unwrap();
+    let started = Instant::now();
+    match protocol::Reader::new(stream).wait().unwrap() {
+        protocol::Message::Refused { reason } => assert!(reason.contains("no message"), "{reason}"),
+        other => panic!("{other:?}"),
+    }
+    assert!(started.elapsed() >= HANDSHAKE, "{:?}", started.elapsed());
 }
 
 #[test]
