@@ -238,7 +238,7 @@ export const FALLBACK_MILESTONES = [
   "0.5.1: Channels, more backends, and every mode in a region ✅",
   "0.5.2: Many solves at once ✅",
   "0.5.3: QMR without the matrix ✅",
-  "0.5.4: Geometry and devices",
+  "0.5.4: Geometry and devices ✅",
   "0.6: Thermal and electro-optic devices",
   "0.6.1: Nonlinear integrated optics",
   "0.6.2: Quantum light and linear-optical statistics",

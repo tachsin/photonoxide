@@ -166,7 +166,7 @@ or the committed report isn't the one the code writes. CI checks every example's
 | 0.5.1 Channels and backends | Nightly built from main, MUMPS, SuperLU and Accelerate, the backend chosen from benchmarks, every mode in a region | ✅ released |
 | 0.5.2 Many solves at once | Ports as a block, recycling across sweeps, more contour-integral mode solvers, farming across processes | ✅ released |
 | 0.5.3 QMR without the matrix | QMR without its matrix where the matrix wouldn't fit, MUMPS 5.9 | ✅ released |
-| 0.5.4 Geometry and devices | Geometry for any device, the device library on pages of its own, sweeps and corners as jobs, the Custom device | 🚧 in main, not yet released |
+| 0.5.4 Geometry and devices | Geometry for any device; the device library on pages of its own, with its models, runs, sweeps, corners and optimization; compact models; the chip built from devices; devices in Python and MATLAB | ✅ released |
 | 0.6 Thermal and electro-optic | Heat, thermo-optic phase shifters, Pockels modulators, travelling-wave electrodes | 🚧 next |
 | 0.6.1 Nonlinear integrated optics | Transparency windows, phase matching, SHG, SFG, DFG, SPDC and FWM in waveguides, Kerr combs | planned |
 | 0.6.2 Quantum light | Linear-optical statistics, photon-pair sources, Gaussian states, loss budgets of quantum circuits | planned |
