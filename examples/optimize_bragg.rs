@@ -71,12 +71,13 @@ fn lambda() -> Wavelength {
     Wavelength::um(LAMBDA).expect("a wavelength")
 }
 
-/// 1 − R.
+/// 1 − R, by `reflection_derivatives`: with libm's sin and cos, the same bits on every system,
+/// so that the optimizers' paths and counts are too.
 fn cost(d: &[f64]) -> f64 {
     let r = stack(d)
-        .reflection(Polarization::Te, lambda(), 0.0)
+        .reflection_derivatives(Polarization::Te, lambda(), 0.0)
         .expect("a reflection");
-    1.0 - r.reflectance
+    1.0 - r.reflection.reflectance
 }
 
 /// 1 − R and its gradient, per nm.

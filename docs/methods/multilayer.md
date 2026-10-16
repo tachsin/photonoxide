@@ -82,7 +82,8 @@ $(\partial\alpha/\partial n)/n^2 - 2\alpha/n^3$ for TM. r and t are quotients of
 linear in M, so $dr = (dN - r\thinspace d\chi)/\chi$, $dt = -t\thinspace d\chi/\chi$, and
 $dR = 2\operatorname{Re}(\bar r\thinspace dr)$, $dT = (\operatorname{Re}\gamma_s/\operatorname{Re}\gamma_c)\thinspace 2\operatorname{Re}(\bar t\thinspace dt)$.
 A film at the incident wave's in-plane index (α = 0) has no derivative in its index there, and
-is refused.
+is refused. Their sin and cos are libm's ([conventions](conventions.md), "The same numbers on every
+system"), so an optimization on them takes the same path on every system.
 
 They agree with fourth-order central differences to 1e-9 for three films, one lossy, TE and TM,
 at normal and oblique incidence; and the quarter-wave stack is a stationary point of R in every

@@ -82,7 +82,8 @@ pub struct Reflection {
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct ReflectionDerivatives {
-    /// The reflection, as [`Multilayer::reflection`] gives it.
+    /// The reflection, as [`Multilayer::reflection`] gives it to rounding, but with sin and cos
+    /// of libm's (the same bits on every system: what an optimization runs on).
     pub reflection: Reflection,
     /// For each film from the cover's side, (dR/dd, dT/dd), per µm of its thickness.
     pub by_thickness: Vec<(f64, f64)>,
@@ -265,7 +266,8 @@ impl Multilayer {
         wavelength: Wavelength,
         angle: f64,
     ) -> Result<ReflectionDerivatives> {
-        let reflection = self.reflection(polarization, wavelength, angle)?;
+        // the checks of the angle and the cover
+        self.reflection(polarization, wavelength, angle)?;
         let k = 2.0 * PI / wavelength.to_um();
         let beta = c64::new(self.cover.re * angle.sin(), 0.0);
         let zero = c64::new(0.0, 0.0);
@@ -300,7 +302,8 @@ impl Multilayer {
             }
             let gamma = Self::gamma(polarization, n, alpha);
             let phi = alpha * k * d;
-            let (c, s) = (phi.cos(), phi.sin());
+            // libm's, the same bits on every system: what an optimization runs on
+            let (c, s) = (crate::portable::cos_c(phi), crate::portable::sin_c(phi));
             let m: M = [[c, -i * s / gamma], [-i * gamma * s, c]];
             // in the thickness: dΦ/dd = kα, γ fixed
             let dphi = alpha * k;
@@ -363,7 +366,12 @@ impl Multilayer {
             by_index.push(derivatives(&mul(&mul(&before[j], by_n), &after[j])));
         }
         Ok(ReflectionDerivatives {
-            reflection,
+            reflection: Reflection {
+                r,
+                t,
+                reflectance: r.norm_sqr(),
+                transmittance: ratio * t.norm_sqr(),
+            },
             by_thickness,
             by_index,
         })
@@ -938,10 +946,9 @@ mod tests {
                         }
                     }
                 }
-                assert_eq!(
-                    d.reflection,
-                    stack(&films, re(1.52)).reflection(pol, lam, angle).unwrap()
-                );
+                let plain = stack(&films, re(1.52)).reflection(pol, lam, angle).unwrap();
+                assert!((d.reflection.reflectance - plain.reflectance).abs() < 1e-15);
+                assert!((d.reflection.transmittance - plain.transmittance).abs() < 1e-15);
             }
         }
     }
