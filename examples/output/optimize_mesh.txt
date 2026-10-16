@@ -1,0 +1,28 @@
+Clements meshes (Clements et al. 2016) fitted to Haar-random unitaries from Pai et al. 2019's Haar initialization: the matrix model, exact: no grid
+
+N = 8: 28 MZIs, 64 phases
+  mean sensitivity index                 3.000000   Pai, (N + 1)/3 3.000000   ± 1e-12 ok
+  Û's entries agreeing to 1e-12         64.000000   the circuit solve's 64.000000  ± 0e0 ok
+  gradient's agreeing to 1e-10          64.000000   the circuit adjoint's 64.000000  ± 0e0 ok
+  Haar-initialized meshes, 10000 of them: E|U_qp|⁴ = 0.027777 ± 0.000028 over the mesh, a Haar-random unitary's 2/(N(N + 1)) = 0.027778
+  E|U_qp|⁴ over the mesh                 0.027777   Haar, ±3 s.e. 0.027778   ± 8.33e-5 ok
+  largest |z| of an entry's E|U_qp|⁴     2.457842   Haar 0.000000   ± 4e0        ok
+  with α + 1 instead: 0.027750 ± 0.000028, an entry's |z| up to 52; every phase uniform: 0.040217 ± 0.000064, up to 3e2
+  L-BFGS-B from the Haar initialization, 8 targets: 2153, 1716, 2528, 1040, 1396, 2288, 2205, 2203 evaluations
+  the fits' largest (1/2N)‖Û − U‖²       0.000000   round-off 0.000000   ± 1e-20 ok
+  L-BFGS-B from uniform phases instead: 2185, 2039, 2590, 1015, 1532, 2484, 2373, 3419 evaluations
+  Adam (learning rate 0.0025, 20000 iterations), the median cost: from the Haar initialization 4.9e-8, from uniform phases 4.3e-8
+
+N = 16: 120 MZIs, 256 phases
+  mean sensitivity index                 5.666667   Pai, (N + 1)/3 5.666667   ± 1e-12 ok
+  Û's entries agreeing to 1e-12        256.000000   the circuit solve's 256.000000 ± 0e0 ok
+  gradient's agreeing to 1e-10         256.000000   the circuit adjoint's 256.000000 ± 0e0 ok
+  Haar-initialized meshes, 10000 of them: E|U_qp|⁴ = 0.007352 ± 0.000004 over the mesh, a Haar-random unitary's 2/(N(N + 1)) = 0.007353
+  E|U_qp|⁴ over the mesh                 0.007352   Haar, ±3 s.e. 0.007353   ± 1.23e-5 ok
+  largest |z| of an entry's E|U_qp|⁴     2.907487   Haar 0.000000   ± 4e0        ok
+  with α + 1 instead: 0.007351 ± 0.000004, an entry's |z| up to 48; every phase uniform: 0.012627 ± 0.000013, up to 3e5
+  L-BFGS-B from the Haar initialization, 8 targets: 14409, 13169, 14881, 11701, 9426, 12911, 15420, 15584 evaluations
+  the fits' largest (1/2N)‖Û − U‖²       0.000000   round-off 0.000000   ± 1e-20 ok
+  L-BFGS-B from uniform phases instead: 18408, 15670, 18942, 11814, 8003, 11224, 17604, 18988 evaluations
+  Adam (learning rate 0.0025, 20000 iterations), the median cost: from the Haar initialization 3.5e-5, from uniform phases 6.9e-5
+all 12 within tolerance of the paper
