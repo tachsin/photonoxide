@@ -134,9 +134,9 @@
     {#if study}
       <div class="mb-1 flex flex-wrap items-center gap-2 text-xs">
         <span class="muted">|S|² into</span>
-        <select class="select select-xs" value={q} onchange={(e) => (st.q = e.currentTarget.value)} aria-label="Out of">{#each ports as n (n)}<option>{n}</option>{/each}</select>
+        <select class="select select-xs w-auto" value={q} onchange={(e) => (st.q = e.currentTarget.value)} aria-label="Out of">{#each ports as n (n)}<option>{n}</option>{/each}</select>
         <span class="muted">from</span>
-        <select class="select select-xs" value={p} onchange={(e) => (st.p = e.currentTarget.value)} aria-label="Into">{#each ports as n (n)}<option>{n}</option>{/each}</select>
+        <select class="select select-xs w-auto" value={p} onchange={(e) => (st.p = e.currentTarget.value)} aria-label="Into">{#each ports as n (n)}<option>{n}</option>{/each}</select>
         <span class="badge badge-ghost badge-xs num">{points.length}/{study.points} points</span>
         {#each fidelities as f (f)}<span class="badge badge-secondary badge-soft badge-xs">{f}</span>{/each}
         {#if going}<span class="loading loading-dots loading-xs"></span>{/if}

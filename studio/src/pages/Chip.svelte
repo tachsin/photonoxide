@@ -925,7 +925,7 @@
             }}>In the library</button
           >
         </div>
-        <p class="mt-1 text-xs faint">{k.about}</p>
+        {#if !inst.device}<p class="mt-1 text-xs faint">{k.about}</p>{/if}
         {#if k.file}
           <p class="mt-1 truncate text-xs num muted" title={k.provenance.source}>{k.file}</p>
           <p class="text-xs faint">{k.convention === "engineering" ? "e^(+jωt), as RF tools write" : "e^(−iωt), as photonoxide writes"}; measured from {range(k.provenance.validity)}</p>

@@ -98,7 +98,7 @@
   </div>
   {#if caveat}<p class="text-[11px] text-warning">{caveat}</p>{/if}
   <p class="text-[11px] faint">
-    {o.model}{o.wavelengths_um.length > 1 ? `, at ${o.wavelengths_um.length} wavelengths from ${o.wavelengths_um[0]} to ${o.wavelengths_um[o.wavelengths_um.length - 1]} µm` : `, at ${o.wavelengths_um[0]} µm`}{o.corners.length ? ` and ${o.corners.length} corners` : ""}.
+    {o.model}{o.wavelengths_um.length > 1 ? `, at ${o.wavelengths_um.length} wavelengths from ${Number(o.wavelengths_um[0].toPrecision(10))} to ${Number(o.wavelengths_um[o.wavelengths_um.length - 1].toPrecision(10))} µm` : `, at ${o.wavelengths_um[0]} µm`}{o.corners.length ? ` and ${o.corners.length} corners` : ""}.
     {#if exact.length}Exact derivatives in {exact.join(", ")}, each checked against fourth-order differences ({o.checks.length - disagree.length} of {o.checks.length} agree).{/if}
     {#if differenced.length}Central differences in {differenced.join(", ")}.{/if}
   </p>

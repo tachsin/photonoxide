@@ -29,6 +29,15 @@ export function label(v: number): string {
   return String(Number(v.toPrecision(6)));
 }
 
+/** An axis's tick labels: as `label` writes them, with more digits where that would write two alike (a band a few picometres wide). */
+export function tickLabels(ts: number[]): string[] {
+  for (let digits = 6; digits <= 12; digits++) {
+    const out = ts.map((v) => (digits === 6 ? label(v) : v === 0 ? "0" : String(Number(v.toPrecision(digits)))));
+    if (new Set(out).size === out.length) return out;
+  }
+  return ts.map(label);
+}
+
 export const SERIES = ["#5b9cf5", "#f29a4a", "#5cc282", "#b294f0", "#e8c94f", "#4ec9c9", "#ec7096", "#9aa6b8"];
 
 export interface Series {

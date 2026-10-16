@@ -67,9 +67,10 @@
   <div class="mt-2"><span class="loading loading-dots loading-xs"></span></div>
 {:else}
   {@const s = shown.spec}
+  <p class="mt-2 text-sm font-medium">{s.kind}</p>
+  {#if info?.about}<p class="mt-0.5 text-xs faint">{info.about}</p>{/if}
   <div class="mt-2 flex items-center gap-2 text-sm">
-    <span class="font-medium">{s.kind}</span>
-    <select class="select select-xs w-28" value={s.fidelity} onchange={(e) => setFidelity(e.currentTarget.value)} aria-label="Its fidelity" title="The model the chip computes this instance by">
+    <select class="select select-xs w-32" value={s.fidelity} onchange={(e) => setFidelity(e.currentTarget.value)} aria-label="Its fidelity" title="The model the chip computes this instance by">
       {#each info?.fidelities ?? [] as m (m.fidelity)}<option value={m.fidelity}>{m.fidelity}</option>{/each}
     </select>
     <span class="flex-1"></span>
@@ -88,15 +89,15 @@
     {#each fields as f (f.name)}
       {@const p = info?.parameters.find((q) => q.name === f.name)}
       <label class="flex items-center gap-2 text-xs">
-        <span class="w-28 truncate font-medium num" title={f.name}>{f.name}</span>
+        <span class="w-24 shrink-0 truncate font-medium num" title={f.name}>{f.name}</span>
         <input
-          class="input input-xs flex-1 num"
+          class="input input-xs min-w-0 flex-1 num"
           value={f.expression}
           onchange={(e) => setParameter(f.name, e.currentTarget.value)}
           aria-label="{f.name}: an expression in {f.unit || 'its unit'}"
           title={p ? `${p.min} to ${p.max} ${p.unit}; ${p.default} by default` : f.unit}
         />
-        <span class="w-8 faint">{f.unit}</span>
+        <span class="w-11 shrink-0 faint">{f.unit}</span>
       </label>
       {#if f.error}<p class="text-xs text-error">{f.error.message}</p>{/if}
     {/each}

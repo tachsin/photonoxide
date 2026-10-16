@@ -433,6 +433,25 @@ pub fn chip_of_job(text: &str) -> Result<Chip, String> {
         .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
         .collect();
     let mut chip = Chip::from_netlist(&name, circuit.netlist())?;
+    // in rows of four rather than one long row, each external port moved with its instance
+    let moves: Vec<(String, f64, f64)> = chip
+        .instances
+        .iter_mut()
+        .enumerate()
+        .map(|(k, inst)| {
+            let (x, y) = (160.0 * (k % 4) as f64, 160.0 * (k / 4) as f64);
+            let d = (inst.name.clone(), x - inst.x, y - inst.y);
+            (inst.x, inst.y) = (x, y);
+            d
+        })
+        .collect();
+    for p in &mut chip.ports {
+        let owner = p.at.split_once('.').map_or("", |(i, _)| i);
+        if let Some((_, dx, dy)) = moves.iter().find(|(n, _, _)| n == owner) {
+            p.x += dx;
+            p.y += dy;
+        }
+    }
     chip.about = text
         .lines()
         .map_while(|l| l.strip_prefix('#'))
