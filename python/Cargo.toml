@@ -17,7 +17,7 @@ name = "_photonoxide"
 crate-type = ["cdylib"]
 
 [dependencies]
-numpy = "0.29"
+numpy = "0.30"
 photonoxide = { path = ".." }
 # one wheel for every CPython from 3.10
-pyo3 = { version = "0.29", features = ["abi3-py310"] }
+pyo3 = { version = "0.30", features = ["abi3-py310"] }
