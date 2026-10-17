@@ -59,6 +59,12 @@ export const CATEGORIES = [
     groups: [{ title: null, slugs: ["fdfd-adjoint", "fdtd-adjoint", "circuit-adjoint", "optimization"] }],
   },
   {
+    id: "static",
+    title: "Heat and static fields",
+    blurb: "Temperature, potential and current on a waveguide's cross-section: one static solver for heaters, electrodes and their Joule heat, exact for layered media and second order elsewhere.",
+    groups: [{ title: null, slugs: ["static"] }],
+  },
+  {
     id: "circuits",
     title: "Circuits and compact models",
     blurb: "A chip as a netlist of S-matrices, its components' models, the devices that build them from their geometry, and spectra fitted as rational functions and written as Touchstone files.",
@@ -92,6 +98,7 @@ export const ALGORITHMS = [
   { name: "Convolutional PML", does: "absorbing boundaries in the time domain", methods: ["fdtd"] },
   { name: "Diamond blocking", does: "several time steps per pass through memory", methods: ["fdtd"] },
   { name: "Effective index method", does: "a ridge's mode from two slabs", methods: ["eim"] },
+  { name: "Finite volumes, conductances in series", does: "heat, potential and current on a graded grid, exact for layered media", methods: ["static"] },
   { name: "Elliptical slices of quadrics", does: "a sphere's, an ellipsoid's or a cone's exact share of a cell", methods: ["bodies"] },
   { name: "GCRO-DR", does: "Krylov recycling across a sequence of solves", methods: ["recycling"] },
   { name: "Hadley's interface and corner equations", does: "high-order differences across interfaces and corners", methods: ["hadley"] },
@@ -107,6 +114,7 @@ export const ALGORITHMS = [
   { name: "Polygon overlay on an integer grid", does: "union, intersection, difference and xor of polygons, exact on shared edges", methods: ["booleans"] },
   { name: "QMR, complex symmetric", does: "3D FDFD by iteration, with or without the matrix", methods: ["fdfd-3d"] },
   { name: "Richardson extrapolation", does: "the grid's error removed from three grids", methods: ["vector"] },
+  { name: "Shortley–Weller boundary points", does: "curved conductors met between the grid's points, at second order", methods: ["static"] },
   { name: "Stretched-coordinate PML", does: "absorbing layers in the frequency domain", methods: ["pml", "fdfd"] },
   { name: "Sub-network growth", does: "Filipsson's circuit solve, the reference", methods: ["circuits"] },
   { name: "Subpixel smoothing", does: "interfaces between grid points, at second order", methods: ["fdtd", "averaging"] },

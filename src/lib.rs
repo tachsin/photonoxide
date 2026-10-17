@@ -20,6 +20,9 @@
 //!   waveguides, tapers, bends, S-bends, spirals, rings and disks with their buses, couplers,
 //!   MMIs, Y-branches and crossings.
 //! - [`compact`]: compact models by vector fitting, over parameters, and Touchstone files.
+//! - [`thermal`] and [`electro`]: the static solver on a cross-section: heat conduction,
+//!   electrostatics and current continuity with its Joule heat, on graded grids fitted to the
+//!   stack and its shapes, each checked against closed forms.
 //! - [`expr`]: a small, safe expression language with units and named parameters, for the
 //!   numbers of a structure, with forward-mode derivatives.
 //! - [`run`] and [`job`]: jobs as TOML, JSON or YAML files, and runs recorded as events that
@@ -33,8 +36,8 @@
 //! - [`facade`]: a small, stable façade of plain types, which the Python package (and MATLAB
 //!   through it) wraps.
 //!
-//! **Released milestone by milestone;** until 1.0 the API can change between them. FDTD,
-//! thermal and electro-optic devices, inverse design, layout and PDKs are planned, not here yet:
+//! **Released milestone by milestone;** until 1.0 the API can change between them.
+//! Thermo-optic and electro-optic devices, inverse design, layout and PDKs are planned, not here yet:
 //! see the [roadmap](https://github.com/tachsin/photonoxide/blob/main/ROADMAP.md).
 
 #![forbid(unsafe_code)]
@@ -52,6 +55,7 @@ pub mod circuit;
 pub mod compact;
 pub mod device;
 mod eigen;
+pub mod electro;
 pub mod error;
 pub mod expr;
 pub mod facade;
@@ -69,6 +73,8 @@ pub mod raster;
 pub mod run;
 mod sparse;
 pub mod stack;
+mod statics;
+pub mod thermal;
 mod traffic;
 pub mod units;
 pub mod validation;

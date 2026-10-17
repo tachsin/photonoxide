@@ -22,6 +22,9 @@ Python and MATLAB); next is 0.6, thermal and electro-optic devices. The library'
   with ports, models from a fit to 3D): the strip waveguide, bend, directional coupler and rings,
   the rib, the MMIs, the Y-branch and the MZIs;
 - `compact`: vector fitting, models over parameters, Touchstone files;
+- `thermal`, `electro`: the static solver on a cross-section (heat conduction, electrostatics,
+  current continuity and its Joule heat) on graded grids, over a core inside the crate
+  (`statics`) both re-export; a job's `kind = "static"`;
 - `backend`: the solver backends, photonoxide's own and the external libraries' (through
   `photonoxide-native`);
 - `job`, `run`: job files (a device computed at a fidelity or by FDTD: `job::from_device`), run

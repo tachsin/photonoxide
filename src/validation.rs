@@ -1736,6 +1736,8 @@ pub fn cases() -> Vec<Case> {
     // and the averaging from the fill, and FDFD reading it, with Farjadpour et al.'s crystal
     cases.extend(crate::averaging::checks::cases());
     cases.extend(crate::fdfd::fill_checks::cases());
+    // and the static solver's: heat, electrostatics and current on a cross-section
+    cases.extend(crate::statics::checks::cases());
     cases
 }
 

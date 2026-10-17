@@ -420,6 +420,12 @@
 //! [task.view]                # the field the frames show
 //! field = "Hz"               # a component, "|E|^2" or "|H|^2"
 //! ```
+//!
+//! - `"static"`: heat conduction, electrostatics or current continuity on the cross-section at
+//!   x = `cut_x_um` ([`crate::thermal`], [`crate::electro`]), on a grid fitted to the stack and
+//!   its shapes, each medium's coefficient given by name; recorded as the field, the grid and
+//!   the numbers ([`Event::StaticField`], [`Event::StaticResult`]). See `statics.rs` for its
+//!   tables and an example.
 
 use serde::{Deserialize, Serialize};
 
@@ -451,6 +457,9 @@ pub mod optimize;
 mod optimize_checks;
 mod params;
 mod shapes;
+mod statics;
+#[cfg(test)]
+mod statics_tests;
 mod study;
 mod study_checks;
 #[cfg(test)]
@@ -469,6 +478,7 @@ pub use optimize::{
     Aim, Bound, Evaluation, GradientCheck, Optimization, Problem, Recorder, Variable, design_of,
     optimize_from_chip, optimize_from_device, optimizes,
 };
+pub use statics::StaticValue;
 pub use study::{Corner, Study, SweepAxis, study_from_device};
 
 /// The validation cases of components in jobs ([`crate::generator`] in `[[task.component]]`).
@@ -628,6 +638,31 @@ pub enum Event {
         /// The power-normalized S-matrix, `s[q][p]` from port p into port q, real and
         /// imaginary parts.
         s: Vec<Vec<[f64; 2]>>,
+    },
+    /// A field of a static job ([`crate::thermal`], [`crate::electro`]) on its cross-section,
+    /// in its own unit (not scaled): each pixel the value of the cell its centre falls in.
+    StaticField {
+        /// What it is: `"temperature"` or `"potential"`.
+        label: String,
+        /// Its unit: `"K"` or `"V"`.
+        unit: String,
+        /// The axes: across the guide and up, `["y", "z"]`.
+        axes: [String; 2],
+        /// The picture.
+        raster: Raster,
+    },
+    /// A static job's grid and numbers, recorded after its fields.
+    StaticResult {
+        /// `"heat"`, `"electrostatic"` or `"current"`.
+        physics: String,
+        /// The grid's cells across and up.
+        cells: [usize; 2],
+        /// Its smallest and largest steps, µm.
+        step_um: [f64; 2],
+        /// The numbers, each with its unit: the probes' means, the largest value, what each
+        /// held rectangle gives, what leaves through each side, the balance's imbalance, and a
+        /// capacitance matrix or the contacts' Joule power.
+        values: Vec<StaticValue>,
     },
     /// The run ended.
     Finished {
@@ -2802,6 +2837,7 @@ fn execute_task(job: &Job, run: &mut Run, stop: &Stop, kind: &str) -> Result<()>
         "modes" => modes(job, run, stop)?,
         "fdfd" => fdfd::run(job, run, stop)?,
         "fdtd" => fdtd::run(job, run, stop)?,
+        "static" => statics::run(job, run, stop)?,
         other => return Err(task_error(format!("unknown kind \"{other}\""))),
     }
     let seconds = run.elapsed().as_secs_f64();
@@ -2929,6 +2965,7 @@ fn check_inner(job: &Job) -> Result<()> {
         }
         "fdfd" => return fdfd::check(job),
         "fdtd" => return fdtd::check(job),
+        "static" => return statics::check(job),
         other => return Err(task_error(format!("unknown kind \"{other}\""))),
     };
     s.stack()
@@ -3244,6 +3281,7 @@ pub fn preview(job: &Job) -> Result<Event> {
             modes_scene(&task, &draw(stack, &task.rect, &task.circle, &task.ring)?)
         }
         Some("fdtd") => fdtd::preview(job),
+        Some("static") => statics::preview(job),
         _ => fdfd::preview(job),
     }
 }

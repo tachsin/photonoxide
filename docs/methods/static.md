@@ -1,0 +1,188 @@
+---
+title: "The static solver: heat, electrostatics and current on a cross-section"
+module: "thermal, electro"
+summary: "−∇·(c∇u) = s on a waveguide's cross-section, per unit length along it: heat conduction (k, a heater's W/m), electrostatics (ε₀ε_r, a conductor's C/m) and current continuity (σ, and its Joule heat). Cell-centred finite volumes on a graded tensor-product grid fitted to the stack's interfaces and the shapes' edges, the faces' coefficients in series, conductors met where their surfaces cross the lines between centres, solved by photonoxide's multifrontal L D Lᵀ. Exact to round-off for layered media, second order on the analytic cases (2.00 on a heated slab, 2.03 on a coaxial line, 1.90 on a line source by images), about first order in the edge's step at a thin electrode's r^(−1/2) singularity (0.82 on a coplanar waveguide), where grading toward the edges makes finite differences enough."
+order: 25
+papers:
+  - cite: "S. V. Patankar, Numerical Heat Transfer and Fluid Flow, Hemisphere (1980); CRC Press reissue (2018), Section 4.2-3 (the interface conductivity: resistances in series)"
+    doi: 10.1201/9781482234213
+  - cite: "G. H. Shortley, R. Weller, J. Appl. Phys. 9, 334 (1938) (boundaries between the grid's points, met where they cross the lines between them)"
+    doi: 10.1063/1.1710426
+  - cite: "T. A. Manteuffel, A. B. White, Math. Comp. 47, 511 (1986) (second order on nonuniform meshes where the local truncation error is first: supraconvergence)"
+    doi: 10.1090/S0025-5718-1986-0856700-3
+  - cite: "A. Farjadpour et al., Opt. Lett. 31, 2972 (2006) (the mean along an interface and the harmonic mean across it)"
+    doi: 10.1364/OL.31.002972
+  - cite: "C. P. Wen, IEEE Trans. Microw. Theory Tech. 17, 1087 (1969) (the coplanar waveguide by conformal mapping)"
+    doi: 10.1109/TMTT.1969.1127105
+  - cite: "G. Ghione, C. Naldi, Electron. Lett. 20, 179 (1984) (coplanar lines on finite substrates, Eqs. 1–3)"
+    doi: 10.1049/el:19840120
+  - cite: "A. George, SIAM J. Numer. Anal. 10, 345 (1973) (nested dissection, the solve's order)"
+    doi: 10.1137/0710032
+validation:
+  - static/two-layer-temperature
+  - static/two-layer-flux
+  - static/heated-slab-order
+  - static/heated-slab
+  - static/parallel-plate
+  - static/coaxial
+  - static/coaxial-order
+  - static/line-source-images
+  - static/line-source-order
+  - static/coplanar-wen
+  - static/coplanar-edges-order
+  - static/joule-resistor
+  - static/joule-balance
+  - static/soi-heater-balance
+---
+
+One solver serves the static problems of 0.6 (ROADMAP's "Static solver", issue #412): the
+temperature a heater raises in a waveguide's cross-section, the field of an electro-optic
+modulator's electrodes, and the current through a doped heater with its Joule heat. All three are
+
+$$-\nabla\cdot(c\,\nabla u) = s$$
+
+on the cross-section, with the guide running out of the plane, so every quantity is per unit
+length along it:
+
+| Problem | $u$ | $c$ | $s$ | What a held region gives |
+|---|---|---|---|---|
+| Heat (`thermal::Heat`) | $T$ (K) | $k$, W/(m·K) | a heater's power, W/m | a sink's heat, W/m |
+| Electrostatics (`electro::Electrostatic`) | $\varphi$ (V) | $\varepsilon_0\varepsilon_r$, F/m | a charge, C/m | a conductor's charge, C/m |
+| Current (`electro::Current`) | $V$ (V) | $\sigma$, S/m | none | a contact's current, A/m |
+
+A 2D number is a 2D number: a heater's temperature rise per W/m, or a capacitance in F/m, is that
+of a straight section, not of a device with ends.
+
+## The grid
+
+A tensor product of two axes, x across and y up (a job's y and z). Each axis has a node on every
+line of its `Features`: the layers' interfaces, the etches' floors, the
+shapes' straight edges where the cut crosses them (and a sloped wall's foot), the electrodes'
+rectangles and strips. Between the lines, the cells grow away from the features' corners in a
+geometric progression: a cell is no larger than
+
+$$h(x) = \min\bigl(h_\text{max},\; h_\text{min} + (g - 1)\,\min_p |x - p|\bigr)$$
+
+over the corners $p$, with a step that would leave a sliver before a line shared with the one
+before it. A window can then reach far boundaries in a few dozen cells (a heater's substrate tens
+of µm down, a coplanar line's box hundreds of µm out) while an electrode's edge has cells of a
+nanometre. Corners refine both axes, through the whole window: the price of a tensor grid.
+
+## The scheme
+
+Integrating the equation over cell $P$ and its four faces:
+
+$$\sum_{f} G_f\,(u_P - u_{N_f}) = S_P, \qquad G_f = \frac{L_f}{d_P/c_P + d_N/c_N},$$
+
+with $L_f$ the face's length, $d_P$ and $d_N$ the distances from the two centres to the face and
+$c$ each cell's coefficient along the face's normal (the tensor's $xx$ for a vertical face, $yy$
+for a horizontal one), and $S_P$ the source in the cell. $G_f$ is the two half-cells'
+conductances in series (Patankar's Section 4.2-3), which is what the flux through an interface
+between two media is when the solution is linear in each: the scheme reproduces a layered slab's
+piecewise-linear temperature to round-off whatever the contrast (`static/two-layer-temperature`,
+4.4e-16 K, oxide under silicon, 1.4 and 148 W/(m·K)). Lengths cancel in $G_f$, so the coefficients
+keep their SI units and the sources are per unit length.
+
+**Cells an interface cuts** (a curved shape, a sloped wall) take their coefficient from the fill,
+as the optics' cells take ε ([averaging](averaging.md)): with the shares $f_m$ of each medium and
+the interface's normal $n$, per axis $a$,
+
+$$c_a = \Bigl(\frac{n_a^2}{\langle c^{-1}\rangle^{-1}} + \frac{1 - n_a^2}{\langle c\rangle}\Bigr)^{-1},$$
+
+the mean along the interface and the harmonic mean across it (Farjadpour et al.'s diagonal). A
+`Section` cut from a [`Structure`](stacks.md) fills its cells as the
+full-vector mode solver does (`Structure::cut_cell`: one material, or a sloped wall's exact
+share), with rectangles drawn over it (a heater's metal) by their exact fill.
+
+**On a graded grid** the difference between neighbouring centres is only first-order accurate as
+a derivative at the face, but the solution converges at second order (Manteuffel and White's
+supraconvergence): the validation cases measure it, on uniform and graded grids.
+
+**Held regions.** A conductor at a potential, or a heat sink at a temperature, holds every cell
+whose centre it contains. A free cell beside a held one meets the region where its boundary
+crosses the line between their centres, at distance $\delta$ (found by bisection on the shape),
+not at the face:
+
+$$G = \frac{L\,c_P}{\delta}.$$
+
+These are Shortley and Weller's boundary points, which keep the second order at a curved conductor
+where staircasing it would give first: a coaxial line's capacitance converges at 2.03
+(`static/coaxial-order`, 192 to 384 cells across). A conductor aligned with the grid's lines has
+$\delta = d_P$, the face. A **strip** of zero thickness on a horizontal grid line (a coplanar
+line's electrodes, as conformal mapping draws them) holds the faces it covers: each cell beside it
+sees the strip's potential at its face.
+
+What a held region gives is the sum over the faces it meets of $G\,(u_\text{held} - u_P)$: a
+conductor's charge, a sink's heat, a contact's current. It is exactly what the free cells'
+balances leave, so the total balance (sources, held regions and the window's sides) closes to
+round-off (`static/soi-heater-balance`, 6e-13); and for a conductor at 1 V among grounded ones it
+equals the discrete energy $\sum_f G_f\,\Delta u^2$, so a capacitance computed as a charge and as
+an energy is one number.
+
+**Boundaries,** per side of the window (`Boundary`): a fixed value
+($G = L c_P / d_P$ to it), a flux into the window per unit area (W/m² or C/m²; zero is an
+insulated side, or a mirror plane), or a convective film of coefficient $h$ to an ambient value
+($G = L / (d_P/c_P + 1/h)$, with the lengths in metres).
+
+**Joule heat.** A current's solution dissipates $G_f\,\Delta V^2$ at each face between free cells,
+shared between the two cells; at a contact, all of it in the free cell (a contact is a perfect
+conductor). The total is $\sum_k V_k I_k$ over the contacts to round-off, and it is the source of a
+heat problem on the same grid (`static/joule-balance`: the heat out through the substrate against
+the Joule power, 6e-13).
+
+## The solve
+
+The free cells' matrix is symmetric positive definite. photonoxide's multifrontal solver
+([backends](backends.md)) factorizes it as complex symmetric L D Lᵀ (the imaginary parts zero) in
+George's nested-dissection order on the cells' centres, and the factors serve every right-hand
+side: a capacitance matrix's columns (each conductor at 1 V in turn) cost one factorization. The
+results are the same bits on any number of threads (the tests, 1 and 8). A cross-section's grid
+is a 2D one of up to a few hundred thousand cells, which the direct solver factorizes in a second
+or so; an iterative solve isn't needed at these sizes, and #351's multigrid is on Shin and Fan's
+operator and its own grids, not this one.
+
+## Electrode edges
+
+At the edge of a thin electrode the potential goes as $r^{1/2}$ and the field as $r^{-1/2}$. On a
+coplanar waveguide of zero-thickness strips on a semi-infinite substrate, which Wen's conformal
+map solves exactly,
+
+$$C = 2\varepsilon_0(\varepsilon_r + 1)\,\frac{K(k)}{K(k')}, \qquad k = a/b,$$
+
+(and Ghione and Naldi's Eqs. 1–2 reduce to for a thick substrate), the capacitance's error on a
+grid graded from the strips' edges falls about as the smallest step when the cells grow slowly
+(by 4 % a cell, to 5 µm: 3.1e-3, 1.5e-3, 9.0e-4, 4.8e-4 and 2.9e-4 at 8, 4, 2, 1 and 0.5 nm,
+orders 0.73 to 1.05), and stops falling at an error the growth sets when they grow fast (by 8 %:
+1.3e-3, by 15 %: 2.5e-3, both at 2 nm). It converges, so by ROADMAP's decision 2 graded finite
+differences are enough at electrode edges, and finite elements aren't needed.
+`static/coplanar-wen` is the strips graded from 1 nm (605 thousand cells; 4.8e-4 against Wen's
+formula, the window's ±200 µm box included: ±100 µm gives 4.3e-4, ±400 µm 5.0e-4), and
+`static/coplanar-edges-order` the order from 4 to 1 nm, 0.82.
+
+## Validation
+
+| Case | What | Grid | Result |
+|---|---|---|---|
+| `static/two-layer-temperature`, `static/two-layer-flux` | oxide under silicon between two temperatures: $T$ and the flux against the series resistance | graded, 10 to 250 nm | 4.4e-16 K, 6.3e-14 |
+| `static/heated-slab`, `static/heated-slab-order` | a slab generating heat, both faces at 0 K, against its parabola | 20, 40, 80 rows | order 2.00 |
+| `static/parallel-plate` | two dielectrics between plates: $\varepsilon_0 W / (d_1/\varepsilon_1 + d_2/\varepsilon_2)$ | graded, 5 to 50 nm | 2.5e-14 |
+| `static/coaxial`, `static/coaxial-order` | $2\pi\varepsilon_0\varepsilon / \ln(b/a)$, curved conductors | 96 to 384 across | 1.5e-5 at 6.25 nm, order 2.03 |
+| `static/line-source-images`, `static/line-source-order` | a line source above an isothermal plane, by images | 10 to 40 nm | 1.4e-5 K at 10 nm, order 1.90 |
+| `static/coplanar-wen`, `static/coplanar-edges-order` | a coplanar waveguide by conformal mapping | graded from 4 and 1 nm | 4.8e-4 at 1 nm, order 0.82 in the edge's step |
+| `static/joule-resistor`, `static/joule-balance` | a bar's Joule heat $V^2\sigma t/L$, and all of it through the substrate | graded, 10 to 100 nm | 4e-16, 6e-13 |
+| `static/soi-heater-balance` | a heater over the 220 nm SOI stack's strip: the balance | graded, 20 nm to 1 µm | 6e-13 |
+
+Each case's numbers are in the validation report (docs/validation.md). The published result for
+the static solver (a heater's cross-section) waits for a choice on #412; the heaters' Pπ and time
+constants come with dn/dT and the transient in #413 to #415.
+
+## As a job
+
+`kind = "static"` (`job`) cuts a job's stack and shapes at x =
+`cut_x_um` over the window `y_um` × `z_um`, fits the grid (`step_nm`, `fine_nm`, `growth`), and
+solves `physics = "heat"`, `"electrostatic"` or `"current"` (with its Joule heat when a thermal
+conductivity is given). Each medium's coefficient comes from the job by name (`Si`, `SiO2`, or a
+region's): the catalogue has no thermal or static data yet, which 0.6's P3 (#414) brings with its
+provenance. The run records the field on pixels of about the finest step, the grid and the numbers
+(probes' means, held regions, sides, the imbalance, a capacitance matrix or a Joule power), and
+replays to the bit.

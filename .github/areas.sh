@@ -86,6 +86,14 @@ area fdtd \
   "fdtd::" "fdtd/" \
   "bump_oskooi cpml_roden_gedney l3_akahane lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
 
+# the static solver (heat conduction, electrostatics and current on a cross-section): its shared
+# core and the thermal and electro modules on it; it cuts stacks (shared) and factorizes with
+# sparse's multifrontal solver. Its job kind (src/job/statics.rs) is the job area's.
+area statics \
+  "src/statics.rs src/statics/* src/thermal.rs src/electro.rs" \
+  "sparse" \
+  "statics:: thermal:: electro::" "static/" ""
+
 # jobs, their runs and replay, and farming them out; the job files in jobs/ are read by the
 # library's tests and validation cases, by the studio's and by the Python package's; a job's
 # [device] table is read, checked and drawn by the devices, and studied (its sweeps and corners,
@@ -95,7 +103,7 @@ area fdtd \
 # the generators', and its cases of them (components with expressions, ports by name) run here
 area job \
   "src/job/* src/run.rs src/farm.rs src/farm/* jobs/*" \
-  "material mode sparse fdfd fdtd circuit device generator" \
+  "material mode sparse fdfd fdtd circuit device generator statics" \
   "job:: run:: farm::" "generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
 
 # the component generators: shapes on layers with named ports, which the devices draw their
