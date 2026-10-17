@@ -39,7 +39,7 @@ pub struct BuildInfo {
     /// `"nightly"` for a build the nightly channel made, `"stable"` otherwise (a release, or a
     /// build from the repository).
     pub channel: String,
-    /// The program's version: a release's, or a nightly's (`0.5.1-nightly`).
+    /// The program's version: a release's, or a nightly's (`0.5.4+nightly.20261017.4cc3c39`).
     pub version: String,
     /// The commit, when known, and its first seven characters.
     pub commit: Option<String>,
@@ -49,13 +49,24 @@ pub struct BuildInfo {
     /// The tree had changes not committed.
     pub dirty: bool,
     /// What Settings calls it: the version, or for a nightly,
-    /// `0.5.1-nightly (main @ abc1234, 2026-10-09)`.
+    /// `0.5.4+nightly.20261017.4cc3c39 (main @ 4cc3c39, 2026-10-17)`.
     pub label: String,
 }
 
 impl BuildInfo {
     pub fn nightly(&self) -> bool {
         self.channel == "nightly"
+    }
+
+    /// The version the stable channel compares a release with. Tauri's updater gives the
+    /// bundle's (`bundled`), which for a nightly is main's plain version (`0.5.4`, see
+    /// [`builder::bundle_version`]): a nightly's is its own, `0.5.4+nightly.…`, never equal to
+    /// a release.
+    pub fn updating_from(&self, bundled: &semver::Version) -> semver::Version {
+        self.nightly()
+            .then(|| semver::Version::parse(&self.version).ok())
+            .flatten()
+            .unwrap_or_else(|| bundled.clone())
     }
 
     /// From what `build.rs` gave: each is empty when unknown.
@@ -100,9 +111,10 @@ pub fn this_build() -> BuildInfo {
 }
 
 /// Whether the stable channel takes `release` in place of this build (`current`): a later one,
-/// as always; but from a nightly, whatever the release is, even one that sorts before it (a
-/// nightly of 0.5.0 is `0.5.1-nightly`, and the latest release may still be 0.5.0). Switching
-/// back to Stable is a deliberate step down.
+/// as always; but from a nightly, whatever the release is, even the one it was made after (a
+/// nightly of main at 0.5.4 is `0.5.4+nightly.20261017.4cc3c39`, and the latest release may
+/// still be 0.5.4). Switching back to Stable is a deliberate step down. The semver crate's `!=`
+/// sees build metadata, so a nightly is never its release.
 pub fn stable_accepts(
     nightly_build: bool,
     current: &semver::Version,
@@ -767,17 +779,20 @@ mod tests {
     fn a_build_says_what_it_was_built_from() {
         let nightly = BuildInfo::from_parts(
             "nightly",
-            "0.5.1-nightly",
+            "0.5.0+nightly.20261009.c9cae4c",
             SHA,
             "2026-10-09",
             "false",
             "0.5.0",
         );
         assert!(nightly.nightly());
-        assert_eq!(nightly.label, "0.5.1-nightly (main @ c9cae4c, 2026-10-09)");
+        assert_eq!(
+            nightly.label,
+            "0.5.0+nightly.20261009.c9cae4c (main @ c9cae4c, 2026-10-09)"
+        );
         assert_eq!(
             (nightly.version.as_str(), nightly.short.as_deref()),
-            ("0.5.1-nightly", Some("c9cae4c"))
+            ("0.5.0+nightly.20261009.c9cae4c", Some("c9cae4c"))
         );
         // a release, from a checkout of its tag
         let release = BuildInfo::from_parts("", "", SHA, "2026-10-09", "false", "0.5.0");
@@ -792,7 +807,8 @@ mod tests {
         assert_eq!((bare.commit, bare.label.as_str()), (None, "0.5.0"));
         // a nightly that doesn't know its commit isn't taken for one
         assert!(
-            !BuildInfo::from_parts("nightly", "0.5.1-nightly", "", "", "false", "0.5.0").nightly()
+            !BuildInfo::from_parts("nightly", "0.5.0+nightly.c9cae4c", "", "", "false", "0.5.0")
+                .nightly()
         );
         // this program's own
         let own = this_build();
@@ -806,16 +822,40 @@ mod tests {
         assert!(stable_accepts(false, &v("0.5.0"), &v("0.5.1")));
         assert!(!stable_accepts(false, &v("0.5.0"), &v("0.5.0")));
         assert!(!stable_accepts(false, &v("0.5.1"), &v("0.5.0")));
-        // a nightly of 0.5.0 sorts after the 0.5.0 release: back on Stable, it takes it anyway
-        assert!(!stable_accepts(false, &v("0.5.1-nightly"), &v("0.5.0")));
-        assert!(stable_accepts(true, &v("0.5.1-nightly"), &v("0.5.0")));
-        // and the next release, of course
-        assert!(stable_accepts(true, &v("0.5.1-nightly"), &v("0.5.1")));
-        assert!(stable_accepts(true, &v("0.5.1-nightly"), &v("0.6.0")));
+        // a nightly of main at 0.5.0 is not the 0.5.0 release (semver's `==` and `Ord` see the
+        // build metadata, though its precedence doesn't): back on Stable, it takes that release
+        let nightly = v("0.5.0+nightly.20261009.c9cae4c");
+        assert!(nightly != v("0.5.0") && nightly > v("0.5.0"));
+        assert!(!stable_accepts(false, &nightly, &v("0.5.0")));
+        assert!(stable_accepts(true, &nightly, &v("0.5.0")));
+        // an older release too, and the next ones, of course
+        assert!(stable_accepts(true, &nightly, &v("0.4.9")));
+        assert!(stable_accepts(true, &nightly, &v("0.5.1")));
+        assert!(stable_accepts(true, &nightly, &v("0.6.0")));
+        // Tauri's updater gives the bundle's version, main's plain 0.5.0: a nightly compares
+        // with its own, a release with the bundle's
+        let built = |channel, version| {
+            BuildInfo::from_parts(channel, version, SHA, "2026-10-09", "false", "0.5.0")
+        };
+        let bundled = v("0.5.0");
+        let nightly_build = built("nightly", "0.5.0+nightly.20261009.c9cae4c");
+        assert_eq!(nightly_build.updating_from(&bundled), nightly);
+        assert!(stable_accepts(
+            nightly_build.nightly(),
+            &nightly_build.updating_from(&bundled),
+            &v("0.5.0")
+        ));
+        let release = built("", "");
+        assert_eq!(release.updating_from(&bundled), bundled);
+        assert!(!stable_accepts(
+            release.nightly(),
+            &release.updating_from(&bundled),
+            &v("0.5.0")
+        ));
     }
 
     #[test]
-    fn the_program_has_photonoxide_s_version_and_a_nightly_sorts_between_two_releases() {
+    fn the_program_has_photonoxide_s_version_and_a_nightly_has_main_s() {
         // the program's crate takes the workspace's version, and tauri.conf.json sets none, so
         // Tauri's (the installer's, and the one the stable updater compares) is photonoxide's
         assert_eq!(env!("CARGO_PKG_VERSION"), photonoxide::VERSION);
@@ -830,9 +870,17 @@ mod tests {
         let mut next = release.clone();
         next.patch += 1;
         next.pre = semver::Prerelease::EMPTY;
-        let nightly = v(&builder::nightly_version(photonoxide::VERSION).unwrap());
-        // a nightly of main is newer than the release main follows, and older than the next
-        assert!(release < nightly && nightly < next);
+        let nightly =
+            v(&builder::nightly_version(photonoxide::VERSION, SHA, Some("2026-10-09")).unwrap());
+        // a nightly of main has main's version, the release it follows, with build metadata:
+        // the same precedence, and before the next release, whatever that turns out to be
+        assert_eq!(nightly.cmp_precedence(&release), std::cmp::Ordering::Equal);
+        assert!(nightly != release && nightly < next);
+        // its bundle has main's version, plain
+        assert_eq!(
+            v(&builder::bundle_version(photonoxide::VERSION).unwrap()),
+            release
+        );
         // a build from a checkout of main has the release's version: Stable doesn't offer that
         // release again (it would be a step back), and offers the next
         assert!(!stable_accepts(false, &release, &release));
@@ -921,13 +969,13 @@ mod tests {
         let old = "2a704d6f45d84939b13483efc4314daa11c6fb6d";
         let folder = state.dirs.ready_for(old, 1);
         std::fs::create_dir_all(&folder).unwrap();
-        let artifact = folder.join("photonoxide_0.5.2-nightly_x64-setup.exe");
+        let artifact = folder.join("photonoxide_0.5.1_x64-setup.exe");
         std::fs::write(&artifact, "old").unwrap();
         let leftover = Ready {
             commit: old.into(),
             date: Some("2026-10-10".into()),
-            version: "0.5.2-nightly".into(),
-            label: "0.5.2-nightly (main @ 2a704d6, 2026-10-10)".into(),
+            version: "0.5.1+nightly.20261010.2a704d6".into(),
+            label: "0.5.1+nightly.20261010.2a704d6 (main @ 2a704d6, 2026-10-10)".into(),
             bundle: "nsis".into(),
             artifact: artifact.clone(),
             built_at: 0,

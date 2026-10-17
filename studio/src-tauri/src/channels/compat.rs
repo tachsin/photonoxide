@@ -59,7 +59,7 @@ pub fn known(source: Option<&str>) -> Vec<Break> {
 
 /// This copy, as the message names it.
 pub struct Builder<'a> {
-    /// Its label, `0.5.2-nightly (main @ 2a704d6, 2026-10-10)`, and its version.
+    /// Its label, `0.5.1+nightly.20261010.2a704d6 (main @ 2a704d6, 2026-10-10)`, and its version.
     pub label: &'a str,
     pub version: &'a str,
 }
@@ -90,12 +90,14 @@ pub fn diagnose(
             (None, Some(c)) => format!(" It was fixed at main @ {}", short(c)),
             (None, None) => " It was fixed on main".into(),
         };
+        // newer than this copy by precedence, which leaves a nightly's build metadata out: a
+        // nightly of main at 0.5.2 already has what the 0.5.2 release fixed
         let mine = semver::Version::parse(builder.version).ok();
         let release = b
             .release
             .clone()
             .filter(|r| match (semver::Version::parse(r).ok(), &mine) {
-                (Some(r), Some(m)) => r > *m,
+                (Some(r), Some(m)) => r.cmp_precedence(m).is_gt(),
                 _ => true,
             });
         let message = match &release {
@@ -152,8 +154,8 @@ mod tests {
 
     fn old() -> Builder<'static> {
         Builder {
-            label: "0.5.2-nightly (main @ 2a704d6, 2026-10-10)",
-            version: "0.5.2-nightly",
+            label: "0.5.1+nightly.20261010.2a704d6 (main @ 2a704d6, 2026-10-10)",
+            version: "0.5.1+nightly.20261010.2a704d6",
         }
     }
 
@@ -186,7 +188,7 @@ mod tests {
         assert_eq!(too_old.release.as_deref(), Some("0.5.2"));
         let m = &too_old.message;
         assert!(
-            m.contains("0.5.2-nightly (main @ 2a704d6, 2026-10-10)"),
+            m.contains("0.5.1+nightly.20261010.2a704d6 (main @ 2a704d6, 2026-10-10)"),
             "{m}"
         );
         assert!(m.contains("too old to build main @ 896e64c"), "{m}");
@@ -220,6 +222,13 @@ mod tests {
             version: "0.6.0",
         };
         let t = diagnose(error, "check", &[], &known(None), &new, MAIN).unwrap();
+        assert!(t.release.is_none(), "{}", t.message);
+        // a nightly of main at the release with the fix has it already
+        let same = Builder {
+            label: "0.5.2+nightly.20261012.860f599 (main @ 860f599, 2026-10-12)",
+            version: "0.5.2+nightly.20261012.860f599",
+        };
+        let t = diagnose(error, "check", &[], &known(None), &same, MAIN).unwrap();
         assert!(t.release.is_none(), "{}", t.message);
     }
 

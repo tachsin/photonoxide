@@ -14,7 +14,7 @@ export interface BuildInfo {
   short: string | null;
   date: string | null;
   dirty: boolean;
-  /** "0.5.0", or for a nightly "0.5.1-nightly (main @ abc1234, 2026-10-09)". */
+  /** "0.5.4", or for a nightly "0.5.4+nightly.20261017.4cc3c39 (main @ 4cc3c39, 2026-10-17)". */
   label: string;
 }
 

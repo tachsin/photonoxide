@@ -44,13 +44,15 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         // the stable channel: a later release, or from a nightly, whatever the release is
-        // (switching back to Stable steps down on purpose; see channels::stable_accepts)
+        // (switching back to Stable steps down on purpose; see channels::stable_accepts). A
+        // nightly's bundle has main's plain version: it compares with its own instead
         .plugin(
             tauri_plugin_updater::Builder::new()
                 .default_version_comparator(|current, release| {
+                    let build = crate::channels::this_build();
                     crate::channels::stable_accepts(
-                        crate::channels::this_build().nightly(),
-                        &current,
+                        build.nightly(),
+                        &build.updating_from(&current),
                         &release.version,
                     )
                 })

@@ -507,8 +507,14 @@ Each build knows what it was built from. `src-tauri/build.rs` embeds the commit,
 date and whether the tree had changes not committed (from git, or from the variables the
 nightly builder sets, since a tarball has no git). Settings › About shows it, and so does
 `photonoxide --version`. A release says its version; a nightly says e.g.
-`0.5.1-nightly (main @ abc1234, 2026-10-09)`. A nightly's version is main's with the patch raised
-and `-nightly` after it, so every later release sorts after it. The program has photonoxide's
+`0.5.4+nightly.20261017.4cc3c39 (main @ 4cc3c39, 2026-10-17)`. A nightly's version is main's,
+with the commit's date and short hash as build metadata (`0.5.4+nightly.4cc3c39` when the date
+isn't known; a pre-release stays one, `0.6.0-rc.1+nightly.…`). It guesses no next release:
+semver's precedence leaves build metadata out, so a nightly ranks with main's version, and it is
+never its release, so switching back to Stable installs the latest release even when that is
+the version main had. The bundle carries main's plain version (`0.5.4`), since the installer's
+and macOS's version fields want numbers; the nightly's own reaches the program through
+`PHOTONOXIDE_NIGHTLY_VERSION`, and the Stable updater compares with that. The program has photonoxide's
 version: its crate takes the workspace's (`version.workspace = true`, which release-plz bumps at
 each release) and `tauri.conf.json` sets none, so Tauri takes the crate's. A build from a
 checkout of main says the version of the release main follows, with its commit:

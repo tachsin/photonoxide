@@ -132,9 +132,10 @@ pub struct Plan {
 pub struct Ready {
     pub commit: String,
     pub date: Option<String>,
-    /// Its version, e.g. `0.5.1-nightly`.
+    /// Its version, e.g. `0.5.4+nightly.20261017.4cc3c39`.
     pub version: String,
-    /// What Settings calls it, e.g. `0.5.1-nightly (main @ abc1234, 2026-10-09)`.
+    /// What Settings calls it, e.g.
+    /// `0.5.4+nightly.20261017.4cc3c39 (main @ 4cc3c39, 2026-10-17)`.
     pub label: String,
     pub bundle: String,
     /// The installer, app bundle, AppImage or package.
@@ -353,23 +354,41 @@ impl Build {
     }
 }
 
-/// `0.5.0` → `0.5.1-nightly`: the next patch, before which every later release sorts after it
-/// (a pre-release of `0.5.0` keeps its patch: `0.6.0-rc.1` → `0.6.0-rc.1.nightly`).
-pub fn nightly_version(version: &str) -> Result<String, String> {
+/// A nightly's version: main's, with the commit's date and short hash as build metadata. Main
+/// at `0.5.4`, commit `4cc3c39` of 2026-10-17, is `0.5.4+nightly.20261017.4cc3c39`; without the
+/// date, `0.5.4+nightly.4cc3c39`; a pre-release stays one, `0.6.0-rc.1+nightly.20261017.4cc3c39`.
+/// It guesses no next release: semver's precedence ignores build metadata, so a nightly ranks
+/// with the version main has, and is never equal to its release (the semver crate's `==` and
+/// `Ord` do look at build metadata).
+pub fn nightly_version(version: &str, commit: &str, date: Option<&str>) -> Result<String, String> {
     let mut v = semver::Version::parse(version.trim())
         .map_err(|e| format!("the version {version} doesn't read: {e}"))?;
-    v.build = semver::BuildMetadata::EMPTY;
-    v.pre = if v.pre.is_empty() {
-        v.patch += 1;
-        semver::Prerelease::new("nightly")
-    } else {
-        semver::Prerelease::new(&format!("{}.nightly", v.pre))
-    }
-    .map_err(|e| e.to_string())?;
+    let date = date
+        .map(|d| d.replace('-', ""))
+        .filter(|d| !d.is_empty() && d.bytes().all(|b| b.is_ascii_digit()));
+    let build = match date {
+        Some(d) => format!("nightly.{d}.{}", short(commit)),
+        None => format!("nightly.{}", short(commit)),
+    };
+    v.build = semver::BuildMetadata::new(&build)
+        .map_err(|e| format!("the build metadata {build} doesn't read: {e}"))?;
     Ok(v.to_string())
 }
 
-/// What Settings calls a nightly: `0.5.1-nightly (main @ abc1234, 2026-10-09)`.
+/// The version a nightly's bundle carries: main's own, without build metadata (`0.5.4`). The
+/// bundles' versions are made for releases: Tauri's NSIS installer can only put a number after
+/// the patch in its file version (it warns and writes 0 for `nightly.…`), and macOS reads
+/// CFBundleShortVersionString as numbers. The nightly's full version reaches the program itself
+/// through `PHOTONOXIDE_NIGHTLY_VERSION` instead (`build.rs`, `channels::this_build`).
+pub fn bundle_version(version: &str) -> Result<String, String> {
+    let mut v = semver::Version::parse(version.trim())
+        .map_err(|e| format!("the version {version} doesn't read: {e}"))?;
+    v.build = semver::BuildMetadata::EMPTY;
+    Ok(v.to_string())
+}
+
+/// What Settings calls a nightly:
+/// `0.5.4+nightly.20261017.4cc3c39 (main @ 4cc3c39, 2026-10-17)`.
 pub fn nightly_label(version: &str, commit: &str, date: Option<&str>) -> String {
     match date {
         Some(d) => format!("{version} (main @ {}, {d})", short(commit)),
@@ -686,14 +705,16 @@ fn build(
     if let Some(note) = note {
         lock(shared).say(note);
     }
-    let version = nightly_version(&version)?;
+    let bundled = bundle_version(&version)?;
+    let version = nightly_version(&version, sha, plan.date.as_deref())?;
     let label = nightly_label(&version, sha, plan.date.as_deref());
     lock(shared).say(format!("pnpm: {}; building {label}", pnpm.display()));
 
-    // this copy's name and identifier, the nightly's version, the bundle the update needs, and
-    // no updater artifacts: the Tauri CLI merges it over tauri.conf.json
+    // this copy's name and identifier, main's plain version for the bundle (the nightly's own is
+    // the program's, through PHOTONOXIDE_NIGHTLY_VERSION), the bundle the update needs, and no
+    // updater artifacts: the Tauri CLI merges it over tauri.conf.json
     let mut config = serde_json::json!({
-        "version": version,
+        "version": bundled,
         "identifier": plan.identity.identifier,
         "bundle": { "active": true, "createUpdaterArtifacts": false },
     });
@@ -896,9 +917,9 @@ mod tests {
     /// The bundle a fake build makes here, as `tauri build` would name it.
     fn fake_bundle() -> (&'static str, &'static str) {
         if cfg!(windows) {
-            ("nsis", "photonoxide_0.5.1-nightly_x64-setup.exe")
+            ("nsis", "photonoxide_0.5.0_x64-setup.exe")
         } else {
-            ("deb", "photonoxide_0.5.1-nightly_amd64.deb")
+            ("deb", "photonoxide_0.5.0_amd64.deb")
         }
     }
 
@@ -917,7 +938,7 @@ mod tests {
                 _ => {}
             }
             s.push_str(&format!(
-                "echo     Running beforeBuildCommand `pnpm build`\r\necho    Compiling serde v1.0.228\r\necho    Compiling photonoxide v0.5.0\r\necho     Finished `release` profile\r\nmkdir \"%CARGO_TARGET_DIR%\\release\\bundle\\{folder}\" 2>nul\r\necho fake> \"%CARGO_TARGET_DIR%\\release\\bundle\\{folder}\\{file}\"\r\nexit /b 0\r\n"
+                "echo     Running beforeBuildCommand `pnpm build`\r\necho nightly version %PHOTONOXIDE_NIGHTLY_VERSION%\r\necho    Compiling serde v1.0.228\r\necho    Compiling photonoxide v0.5.0\r\necho     Finished `release` profile\r\nmkdir \"%CARGO_TARGET_DIR%\\release\\bundle\\{folder}\" 2>nul\r\necho fake> \"%CARGO_TARGET_DIR%\\release\\bundle\\{folder}\\{file}\"\r\nexit /b 0\r\n"
             ));
             std::fs::write(&path, s).unwrap();
             path
@@ -931,7 +952,7 @@ mod tests {
                 _ => {}
             }
             s.push_str(&format!(
-                "echo '    Running beforeBuildCommand `pnpm build`'\necho '   Compiling serde v1.0.228'\necho '   Compiling photonoxide v0.5.0'\necho '    Finished `release` profile'\nmkdir -p \"$CARGO_TARGET_DIR/release/bundle/{folder}\"\necho fake > \"$CARGO_TARGET_DIR/release/bundle/{folder}/{file}\"\n"
+                "echo '    Running beforeBuildCommand `pnpm build`'\necho \"nightly version $PHOTONOXIDE_NIGHTLY_VERSION\"\necho '   Compiling serde v1.0.228'\necho '   Compiling photonoxide v0.5.0'\necho '    Finished `release` profile'\nmkdir -p \"$CARGO_TARGET_DIR/release/bundle/{folder}\"\necho fake > \"$CARGO_TARGET_DIR/release/bundle/{folder}/{file}\"\n"
             ));
             std::fs::write(&path, s).unwrap();
             #[cfg(unix)]
@@ -987,20 +1008,63 @@ mod tests {
 
     #[test]
     fn versions_and_labels() {
-        assert_eq!(nightly_version("0.5.0").unwrap(), "0.5.1-nightly");
-        assert_eq!(nightly_version("1.2.3+meta").unwrap(), "1.2.4-nightly");
-        assert_eq!(nightly_version("0.6.0-rc.1").unwrap(), "0.6.0-rc.1.nightly");
-        assert!(nightly_version("main").is_err());
-        // every later release sorts after the nightly, the one it was made from before it
-        let v = |s: &str| semver::Version::parse(s).unwrap();
-        assert!(v("0.5.1") > v("0.5.1-nightly") && v("0.5.0") < v("0.5.1-nightly"));
+        let day = Some("2026-10-09");
         assert_eq!(
-            nightly_label("0.5.1-nightly", HEAD, Some("2026-10-09")),
-            "0.5.1-nightly (main @ c9cae4c, 2026-10-09)"
+            nightly_version("0.5.4", HEAD, day).unwrap(),
+            "0.5.4+nightly.20261009.c9cae4c"
+        );
+        // no date, or one that isn't a date: the commit alone
+        assert_eq!(
+            nightly_version("0.5.4", HEAD, None).unwrap(),
+            "0.5.4+nightly.c9cae4c"
         );
         assert_eq!(
-            nightly_label("0.5.1-nightly", HEAD, None),
-            "0.5.1-nightly (main @ c9cae4c)"
+            nightly_version("0.5.4", HEAD, Some("")).unwrap(),
+            "0.5.4+nightly.c9cae4c"
+        );
+        assert_eq!(
+            nightly_version("0.5.4", HEAD, Some("yesterday")).unwrap(),
+            "0.5.4+nightly.c9cae4c"
+        );
+        // a pre-release stays one; build metadata already there goes
+        assert_eq!(
+            nightly_version("0.6.0-rc.1", HEAD, day).unwrap(),
+            "0.6.0-rc.1+nightly.20261009.c9cae4c"
+        );
+        assert_eq!(
+            nightly_version(" 1.2.3+meta.7 ", HEAD, day).unwrap(),
+            "1.2.3+nightly.20261009.c9cae4c"
+        );
+        // a short hash of digits alone, leading zero and all, is build metadata semver takes
+        assert_eq!(
+            nightly_version("0.5.4", "0123456789012345678901234567890123456789", day).unwrap(),
+            "0.5.4+nightly.20261009.0123456"
+        );
+        assert!(nightly_version("main", HEAD, day).is_err());
+        // the bundles carry main's plain version
+        assert_eq!(bundle_version("0.5.4").unwrap(), "0.5.4");
+        assert_eq!(bundle_version("1.2.3+meta").unwrap(), "1.2.3");
+        assert_eq!(bundle_version("0.6.0-rc.1").unwrap(), "0.6.0-rc.1");
+        assert!(bundle_version("main").is_err());
+        // no guess at the next release: a nightly ranks with main's version, ahead of none of
+        // the releases after it, and isn't its release (`==` and `Ord` see build metadata)
+        let v = |s: &str| semver::Version::parse(s).unwrap();
+        let nightly = v(&nightly_version("0.5.4", HEAD, day).unwrap());
+        assert_eq!(
+            nightly.cmp_precedence(&v("0.5.4")),
+            std::cmp::Ordering::Equal
+        );
+        assert!(nightly != v("0.5.4") && nightly < v("0.5.5") && nightly < v("0.6.0"));
+        // two nightlies of one version: the later day's sorts after
+        let next_day = v(&nightly_version("0.5.4", HEAD, Some("2026-10-10")).unwrap());
+        assert!(next_day > nightly);
+        assert_eq!(
+            nightly_label("0.5.4+nightly.20261009.c9cae4c", HEAD, day),
+            "0.5.4+nightly.20261009.c9cae4c (main @ c9cae4c, 2026-10-09)"
+        );
+        assert_eq!(
+            nightly_label("0.5.4+nightly.c9cae4c", HEAD, None),
+            "0.5.4+nightly.c9cae4c (main @ c9cae4c)"
         );
         assert_eq!(
             plain("\u{1b}[1m\u{1b}[32m   Compiling\u{1b}[0m x v1\r"),
@@ -1039,8 +1103,11 @@ mod tests {
         assert_eq!(p.phase, "done", "{:?}\n{}", p.error, log.join("\n"));
         assert_eq!((p.compiled, p.downloaded > 0), (2, true));
         let ready = p.ready.unwrap();
-        assert_eq!(ready.version, "0.5.1-nightly");
-        assert_eq!(ready.label, "0.5.1-nightly (main @ c9cae4c, 2026-10-09)");
+        assert_eq!(ready.version, "0.5.0+nightly.20261009.c9cae4c");
+        assert_eq!(
+            ready.label,
+            "0.5.0+nightly.20261009.c9cae4c (main @ c9cae4c, 2026-10-09)"
+        );
         assert!(ready.artifact.starts_with(dirs.ready()) && ready.artifact.is_file());
         assert_eq!(read_json::<Ready>(&dirs.ready_file()), Some(ready));
         assert_eq!(read_json::<u32>(&dirs.last_build()), Some(2));
@@ -1052,10 +1119,17 @@ mod tests {
             "fake pnpm tauri build --bundles {} --config",
             fake_bundle().0
         )));
-        // the config the CLI merged: this copy's identity, the nightly's version, no updater artifacts
+        // the config the CLI merged: this copy's identity, main's plain version for the bundle,
+        // no updater artifacts; the nightly's own version goes to the program
         let config: serde_json::Value =
             read_json(&dirs.source().join("studio/src-tauri/nightly.conf.json")).unwrap();
-        assert_eq!(config["version"], "0.5.1-nightly");
+        assert_eq!(config["version"], "0.5.0");
+        assert!(
+            log.iter()
+                .any(|l| l == "nightly version 0.5.0+nightly.20261009.c9cae4c"),
+            "{}",
+            log.join("\n")
+        );
         assert_eq!(config["bundle"]["createUpdaterArtifacts"], false);
         assert_eq!(config["identifier"], "gr.tachsin.photonoxide");
         // the log was kept on disk too
@@ -1108,11 +1182,7 @@ mod tests {
         let (build, dirs, dir) = start("build-replace", "ok", Duration::from_secs(600));
         let first = follow(&build, &mut |_| {}).ready.unwrap();
         // a file an earlier version left loose in ready/
-        std::fs::write(
-            dirs.ready().join("photonoxide_0.5.0-nightly_x64-setup.exe"),
-            "old",
-        )
-        .unwrap();
+        std::fs::write(dirs.ready().join("photonoxide_0.4.9_x64-setup.exe"), "old").unwrap();
         // a rebuild that fails: the build waiting is still there, whole and named
         let failed = again(&dirs, &dir, "fail");
         assert_eq!(failed.phase, "failed");
@@ -1187,7 +1257,10 @@ mod tests {
         let (v, note) = main_version(none, &web).unwrap();
         assert_eq!(v, "0.5.2");
         assert!(note.unwrap().contains("latest release is 0.5.2"));
-        assert_eq!(nightly_version(&v).unwrap(), "0.5.3-nightly");
+        assert_eq!(
+            nightly_version(&v, HEAD, None).unwrap(),
+            "0.5.2+nightly.c9cae4c"
+        );
         // a version that isn't one isn't taken
         let bad = "[package]\nversion = \"main\"\n";
         assert_eq!(main_version(bad, &web).unwrap().0, "0.5.2");

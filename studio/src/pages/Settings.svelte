@@ -34,7 +34,7 @@
       toast("Nightly: photonoxide now follows main, and offers to build its new commits here.", "info", undefined, 7000);
       await refresh();
     } else if (build.channel === "nightly") {
-      toast("Stable: the latest release replaces this nightly build when you update, even if its version number is lower.", "info", undefined, 9000);
+      toast("Stable: the latest release replaces this nightly build when you update, even if it is older.", "info", undefined, 9000);
     }
     checkForUpdate(false);
   }
@@ -311,7 +311,7 @@
         {/if}
       </div>
       {#if build.channel === "nightly"}
-        <p class="mt-3 text-xs faint">This copy is a nightly build: the latest release replaces it when you update, even if its version number is lower.</p>
+        <p class="mt-3 text-xs faint">This copy is a nightly build: the latest release replaces it when you update, even if it is older.</p>
       {/if}
       {/if}
     </section>

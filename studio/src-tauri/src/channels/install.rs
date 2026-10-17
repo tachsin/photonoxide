@@ -581,7 +581,7 @@ pub fn version_of(target: &Path) -> Result<String, String> {
 
 /// Whether `version` (what `photonoxide --version` printed) is the build of `commit`: it names
 /// the commit's first seven characters, as `0.5.1 (3064650)` or
-/// `0.5.2-nightly (main @ 2a704d6, 2026-10-10)` does.
+/// `0.5.1+nightly.20261010.2a704d6 (main @ 2a704d6, 2026-10-10)` does.
 pub fn is_build(version: &str, commit: &str) -> bool {
     let short = short(commit);
     short.len() >= 7
@@ -1262,7 +1262,7 @@ mod tests {
             id: id.into(),
             stage,
             to: TO.into(),
-            to_label: "0.5.2-nightly (main @ 2a704d6, 2026-10-10)".into(),
+            to_label: "0.5.1+nightly.20261010.2a704d6 (main @ 2a704d6, 2026-10-10)".into(),
             from_label: "0.5.1".into(),
             from_commit: Some(FROM.into()),
             from_pid: None,
@@ -1369,7 +1369,7 @@ mod tests {
     fn a_build_is_known_by_the_commit_its_version_names() {
         assert!(is_build("photonoxide 0.5.1 (3064650)", FROM));
         assert!(is_build(
-            "photonoxide 0.5.2-nightly (main @ 2a704d6, 2026-10-10)",
+            "photonoxide 0.5.1+nightly.20261010.2a704d6 (main @ 2a704d6, 2026-10-10)",
             TO
         ));
         assert!(!is_build("photonoxide 0.5.1 (3064650)", TO));
@@ -1486,7 +1486,7 @@ mod tests {
         write_json(&dirs.handover(), &h).unwrap();
         let note = at_start(&dirs, Some(FROM), Some(&target), "0.5.1").unwrap();
         assert_eq!(note.back_to, "0.5.1");
-        assert!(note.left.starts_with("0.5.2-nightly"));
+        assert!(note.left.starts_with("0.5.1+nightly.20261010.2a704d6"));
         assert!(note.failed.unwrap().contains("started as 0.5.1"));
         let after = read_json::<Handover>(&dirs.handover()).unwrap();
         assert_eq!(after.stage, Stage::Failed);
@@ -1577,11 +1577,18 @@ mod tests {
                 .open(&first.copy)
                 .unwrap()
         };
-        std::fs::write(&target, "0.5.2-nightly").unwrap();
-        let second = keep_previous(&dirs, "3-4", &target, "0.5.2-nightly", Some(TO)).unwrap();
+        std::fs::write(&target, "0.5.1+nightly.20261010.2a704d6").unwrap();
+        let second = keep_previous(
+            &dirs,
+            "3-4",
+            &target,
+            "0.5.1+nightly.20261010.2a704d6",
+            Some(TO),
+        )
+        .unwrap();
         assert_eq!(
             std::fs::read_to_string(&second.copy).unwrap(),
-            "0.5.2-nightly"
+            "0.5.1+nightly.20261010.2a704d6"
         );
         assert_eq!(previous(&dirs), Some(second.clone()));
         #[cfg(windows)]
@@ -1590,7 +1597,14 @@ mod tests {
             drop(lock);
         }
         // the next install clears what it can
-        let third = keep_previous(&dirs, "5-6", &target, "0.5.2-nightly", Some(TO)).unwrap();
+        let third = keep_previous(
+            &dirs,
+            "5-6",
+            &target,
+            "0.5.1+nightly.20261010.2a704d6",
+            Some(TO),
+        )
+        .unwrap();
         let left: Vec<_> = std::fs::read_dir(dirs.previous())
             .unwrap()
             .flatten()
@@ -1650,7 +1664,7 @@ mod tests {
             "photonoxide-previous.exe"
         );
         assert_eq!(super::previous(&dirs), Some(previous.clone()));
-        let new = dir.join("photonoxide_0.5.1-nightly.exe");
+        let new = dir.join("photonoxide_0.5.1.exe");
         std::fs::write(&new, "nightly").unwrap();
         replace(&target, &new).unwrap();
         assert_eq!(std::fs::read_to_string(&target).unwrap(), "nightly");
@@ -1756,7 +1770,10 @@ mod tests {
         if case == "broken" {
             program(&new, "something else");
         } else {
-            program(&new, "0.5.2-nightly (main @ 2a704d6, 2026-10-10)");
+            program(
+                &new,
+                "0.5.1+nightly.20261010.2a704d6 (main @ 2a704d6, 2026-10-10)",
+            );
         }
         let setup = dir.join(format!("setup.{ext}"));
         installer(
@@ -1839,17 +1856,17 @@ mod tests {
         let ready = Ready {
             commit: "c".into(),
             date: None,
-            version: "0.5.1-nightly".into(),
+            version: "0.5.1+nightly.20261010.2a704d6".into(),
             label: "l".into(),
             bundle: "deb".into(),
-            artifact: "/data/ready/photonoxide_0.5.1-nightly_amd64.deb".into(),
+            artifact: "/data/ready/photonoxide_0.5.1_amd64.deb".into(),
             built_at: 0,
             seconds: 0.0,
         };
         let (command, args) = package_command(&ready);
         assert_eq!(
             command,
-            "sudo apt install '/data/ready/photonoxide_0.5.1-nightly_amd64.deb'"
+            "sudo apt install '/data/ready/photonoxide_0.5.1_amd64.deb'"
         );
         assert_eq!(args[..2], ["dpkg", "-i"]);
         let rpm = Ready {

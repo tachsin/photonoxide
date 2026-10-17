@@ -174,10 +174,13 @@ mod tests {
         Ready {
             commit: commit.into(),
             date: Some("2026-10-10".into()),
-            version: "0.5.3-nightly".into(),
-            label: format!("0.5.3-nightly (main @ {})", short(commit)),
+            version: format!("0.5.2+nightly.20261010.{}", short(commit)),
+            label: format!(
+                "0.5.2+nightly.20261010.{0} (main @ {0}, 2026-10-10)",
+                short(commit)
+            ),
             bundle: "nsis".into(),
-            artifact: PathBuf::from("ready/x/photonoxide_0.5.3-nightly_x64-setup.exe"),
+            artifact: PathBuf::from("ready/x/photonoxide_0.5.2_x64-setup.exe"),
             built_at: 0,
             seconds: 60.0,
         }
