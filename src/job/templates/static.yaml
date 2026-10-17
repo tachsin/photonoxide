@@ -1,0 +1,44 @@
+# A heater 2 um above a 500 x 220 nm silicon strip, by the static solver on its cross-section:
+# 10 W per metre of heater, the substrate's bottom held at the ambient, and the top cooled by
+# air. The temperatures are rises above the ambient, in K.
+#   photonoxide run static.yaml
+name: new-static
+timeout_minutes: 5
+
+task:
+  kind: static
+  physics: heat            # heat, electrostatic or current
+  stack: soi_220
+  y_um: [-20.0, 20.0]
+  z_um: [-10.0, 6.0]
+  step_nm: 1000.0          # the grid's largest cells
+  fine_nm: 20.0            # and its smallest, at the interfaces and edges, growing to step_nm
+
+  rect:
+    - layer: Si
+      center_um: [0.0, 0.0]
+      size_um: [10.0, 0.5]
+
+  thermal_conductivity:    # W/(m K), by medium
+    Si: 148.0
+    SiO2: 1.4
+    TiN: 28.0
+
+  boundary:
+    bottom: { fixed: 0.0 }
+    top: { convective: 10.0, ambient: 0.0 }
+
+  region:                  # a medium drawn over the stack: the heater's titanium nitride
+    - y_um: [-1.0, 1.0]
+      z_um: [4.22, 4.34]
+      medium: TiN
+
+  heater:
+    - y_um: [-1.0, 1.0]
+      z_um: [4.22, 4.34]
+      power_w_per_m: 10.0
+
+  probe:                   # the mean temperature over the guide
+    - name: guide
+      y_um: [-0.25, 0.25]
+      z_um: [2.0, 2.22]

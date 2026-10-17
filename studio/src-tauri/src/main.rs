@@ -50,6 +50,11 @@ const USAGE: &str = "usage:
       by default (an address beyond this machine needs a token); --slots: tasks at once,
       default 1; --once: one coordinator, then exit. Not for untrusted networks: the
       traffic isn't encrypted
+  photonoxide new <kind> [<file>]
+      write a short job of that kind to start from, which runs as it is: in YAML with a
+      comment on each field, or in TOML or JSON by the file's extension (without the
+      comments); new-<kind>.yaml here by default, and never over a file that exists
+      (`photonoxide new --list` lists the kinds)
   photonoxide view <run directory>
       replay a finished run in the studio
   photonoxide example <name>
@@ -97,6 +102,7 @@ fn main() -> ExitCode {
     match args.first().map(String::as_str) {
         None => open(),
         Some("run") => run(&args[1..]),
+        Some("new") => new(&args[1..]),
         Some("view") => view(&args[1..]),
         Some("worker") => farm::worker(&args[1..]),
         Some("validate") => validate(&args[1..]),
@@ -257,6 +263,62 @@ fn view(args: &[String]) -> ExitCode {
     }
 }
 
+fn new(args: &[String]) -> ExitCode {
+    let (name, path) = match args {
+        [flag] if flag == "--list" => {
+            for t in &job::TEMPLATES {
+                println!("{:<12} {}", t.name, t.about);
+            }
+            return ExitCode::SUCCESS;
+        }
+        [name] => (name, PathBuf::from(format!("new-{name}.yaml"))),
+        [name, path] => (name, PathBuf::from(path)),
+        _ => return usage(),
+    };
+    match new_job(name, &path) {
+        Ok(()) => {
+            println!(
+                "wrote {}: photonoxide run {} runs it",
+                path.display(),
+                path.display()
+            );
+            ExitCode::SUCCESS
+        }
+        Err(e) => fail(e),
+    }
+}
+
+/// Writes the template `name` to `path`, in the format its extension names: YAML as the template
+/// is, TOML or JSON as the library writes the job. Never over a file that exists.
+fn new_job(name: &str, path: &Path) -> Result<(), String> {
+    let t = job::template(name)
+        .ok_or_else(|| format!("no template {name}: see `photonoxide new --list`"))?;
+    let format = photonoxide::run::Format::from_path(path).ok_or_else(|| {
+        format!(
+            "{}: a job file ends in .yaml, .yml, .toml or .json",
+            path.display()
+        )
+    })?;
+    let text = match format {
+        photonoxide::run::Format::Yaml => t.text.to_owned(),
+        other => Job::parse_as(t.text, photonoxide::run::Format::Yaml)
+            .and_then(|j| j.to_text(other))
+            .map_err(|e| e.to_string())?,
+    };
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|e| match e.kind() {
+            std::io::ErrorKind::AlreadyExists => {
+                format!("{} exists: name another file", path.display())
+            }
+            _ => format!("{}: {e}", path.display()),
+        })?;
+    std::io::Write::write_all(&mut file, text.as_bytes())
+        .map_err(|e| format!("{}: {e}", path.display()))
+}
+
 fn example(args: &[String]) -> ExitCode {
     match args {
         [flag] if flag == "--list" => {
@@ -330,4 +392,42 @@ mod console {
 
     #[cfg(not(windows))]
     pub fn release() {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_writes_a_template_in_the_format_its_file_names_and_never_over_a_file() {
+        let dir = std::env::temp_dir().join(format!("photonoxide-new-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        for t in &job::TEMPLATES {
+            let yaml = dir.join(format!("{}.yaml", t.name));
+            new_job(t.name, &yaml).unwrap();
+            // the template as it is, with its comments
+            assert_eq!(std::fs::read_to_string(&yaml).unwrap(), t.text);
+            for ext in ["toml", "json"] {
+                let other = dir.join(format!("{}.{ext}", t.name));
+                new_job(t.name, &other).unwrap();
+                let again = Job::load(&other).unwrap();
+                assert_eq!(again.task(), Job::load(&yaml).unwrap().task(), "{other:?}");
+                job::check(&again).unwrap();
+            }
+            let e = new_job(t.name, &yaml).unwrap_err();
+            assert!(e.contains("exists"), "{e}");
+            assert_eq!(std::fs::read_to_string(&yaml).unwrap(), t.text);
+        }
+        assert!(
+            new_job("nothing", &dir.join("a.yaml"))
+                .unwrap_err()
+                .contains("--list")
+        );
+        assert!(
+            new_job("modes", &dir.join("a.txt"))
+                .unwrap_err()
+                .contains(".yaml")
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
 }

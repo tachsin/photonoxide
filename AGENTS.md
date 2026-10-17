@@ -92,6 +92,7 @@ target/release/photonoxide                                # the studio: examples
 target/release/photonoxide run jobs/strip-and-ring.toml   # a job, live in the studio window
 target/release/photonoxide run jobs/strip-modes.toml      # a strip's modes and a wavelength sweep, live
 target/release/photonoxide run <job.toml> --headless      # the same run without a window
+target/release/photonoxide new modes                      # a job to start from, in YAML (--list: every kind)
 target/release/photonoxide view runs/<run>                # replay a finished run
 target/release/photonoxide example slab_soi               # a built-in example (--list lists them)
 cargo run -p photonoxide-studio --release -- validate --write docs/validation.md   # rewrite the report

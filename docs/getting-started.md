@@ -193,6 +193,17 @@ photonoxide run jobs/coupler-supermodes.toml    # a coupler's two strips: their 
 photonoxide run jobs/slab-soi.toml              # a slab: 220 nm of silicon on oxide, unetched: its structure
 ```
 
+A new job starts from a template: `photonoxide new <kind>` writes a short one that runs as it
+is, in YAML with a comment on each field, to `new-<kind>.yaml` (or the file named after the
+kind, in TOML or JSON by its extension, without the comments). It never writes over a file.
+
+```sh
+photonoxide new --list               # structure, modes, fdfd, fdtd, static, device, sweep, optimize, chip
+photonoxide new modes                # new-modes.yaml: a strip's guided modes
+photonoxide new fdtd ring.yaml       # a pulse through a guide by 2D FDTD, to change into a ring
+photonoxide run new-modes.yaml
+```
+
 A job file is TOML, JSON or YAML, by its extension (`.toml`, `.json`, `.yaml` or `.yml`), the
 same fields in each; the Custom device switches between them. The same job three ways
 (shortened: a modes job needs its stack, window and shapes too, as in `jobs/strip-modes.toml`):

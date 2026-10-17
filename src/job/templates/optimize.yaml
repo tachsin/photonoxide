@@ -1,0 +1,29 @@
+# A directional coupler's length taken to an even split by L-BFGS-B on its analytic model, at the
+# worst of five wavelengths from 1.53 to 1.57 um.
+#   photonoxide run optimize.yaml
+name: new-optimize
+timeout_minutes: 2
+
+device:
+  kind: directional coupler
+  fidelity: analytic
+  parameters:
+    length: "8"
+
+task:
+  kind: optimize
+  method: lbfgsb
+  seed: 1
+  evaluations: 100         # the budget
+  from_um: 1.53
+  to_um: 1.57
+  points: 5
+
+  variable:
+    - parameter: length
+      from: 2.0
+      to: 40.0
+
+  objective:
+    - name: split
+      target: 0.5

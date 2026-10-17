@@ -1,0 +1,18 @@
+# A directional coupler of the device library at its analytic fidelity: two 500 x 220 nm strips
+# 200 nm apart, 15 um long, their S-parameters over the band.
+#   photonoxide run device.yaml
+name: new-device
+timeout_minutes: 5
+
+device:
+  kind: directional coupler
+  fidelity: analytic       # analytic, compact, 2D, 3D or measured, where the device has it
+  parameters:              # the design's own; the rest keep their defaults
+    length: "15"
+    gap: "0.2"
+
+task:
+  kind: spectrum
+  from_um: 1.5
+  to_um: 1.6
+  points: 21
