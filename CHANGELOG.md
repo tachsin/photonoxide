@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(fdtd, studio)* run_until_decayed stops when the fields grow; kept shapes in the Custom device's top view, a static run in the window, the chip's port names ([#425](https://github.com/tachsin/photonoxide/pull/425))
 - *(studio)* chip jobs that reach the circuit examples' closed forms through the chip's optimize task (part of #244) ([#427](https://github.com/tachsin/photonoxide/pull/427))
 - *(job)* leaky modes in modes jobs, with a PML, each with its loss ([#429](https://github.com/tachsin/photonoxide/pull/429))
+- *(studio)* the Academy's strip waveguide lesson, from hybrid modes to the device's fidelities ([#410](https://github.com/tachsin/photonoxide/pull/410))
 
 ### <!-- 2 -->Performance
 
@@ -23,6 +24,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - 0.5.4 is released ([#408](https://github.com/tachsin/photonoxide/pull/408))
 - *(fdtd)* Liu and Poon's mode converter, splitter-rotator and ring at 15 cells, and the crossing with the coupling tensor ([#436](https://github.com/tachsin/photonoxide/pull/436))
+
+### <!-- 1 -->Fixed
+
+- *(studio)* a nightly's version is main's, with the date and commit as build metadata ([#428](https://github.com/tachsin/photonoxide/pull/428))
 
 ## [0.5.4](https://github.com/tachsin/photonoxide/compare/v0.5.3...v0.5.4) - 2026-10-16
 
