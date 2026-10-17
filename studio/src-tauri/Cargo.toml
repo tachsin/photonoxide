@@ -22,7 +22,9 @@ path = "src/main.rs"
 tauri-build = { version = "2.6", features = [] }
 
 [dependencies]
-faer = "0.24.4"
+# without faer's `npy` default: nothing here reads .npy files, and it brought pest, whose newer
+# releases assemble and link .asm files (psm) at build time, against AGENTS.md's "nothing linked"
+faer = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg", "rand"] }
 # the nightly channel's source, main's tarball at a commit (channels.rs)
 flate2 = "1"
 # the optimizers of the circuit examples, which the program builds in (examples.rs)

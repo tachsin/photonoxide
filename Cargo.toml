@@ -26,7 +26,9 @@ default-members = ["."]
 version = "0.5.4"
 
 [dependencies]
-faer = "0.24.4"
+# without faer's `npy` default: nothing here reads .npy files, and it brought pest, whose newer
+# releases assemble and link .asm files (psm) at build time, against AGENTS.md's "nothing linked"
+faer = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg", "rand"] }
 # polygon booleans for the geometry's layout polygons (geometry::Polygons::boolean): integer
 # overlays on a fixed grid, robust on shared edges, touching vertices and collinear overlaps
 # (docs/methods/booleans.md has the measurements that chose it); single-threaded, so the same
