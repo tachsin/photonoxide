@@ -54,6 +54,17 @@ pub enum Error {
         /// Why, e.g. `"no worker left: 127.0.0.1:7878: connection refused"`.
         reason: String,
     },
+    /// A time-domain run's fields grew again after its sources had ended, and it stopped: a
+    /// wave of the grid amplified in a CPML, which a finer grid removes (docs/methods/fdtd.md,
+    /// "Late growth"). See [`crate::fdtd::Simulation::run_until_decayed`].
+    Growing {
+        /// When the run stopped, µm/c.
+        time_um: f64,
+        /// How many checks in a row |F|² rose at.
+        checks: usize,
+        /// How many times its level before the rise it reached.
+        factor: f64,
+    },
 }
 
 impl Error {
@@ -84,6 +95,17 @@ impl fmt::Display for Error {
             Error::Netlist(e) => write!(f, "invalid netlist: {e}"),
             Error::Gpu { reason } => write!(f, "GPU: {reason}"),
             Error::Farm { reason } => write!(f, "farm: {reason}"),
+            Error::Growing {
+                time_um,
+                checks,
+                factor,
+            } => write!(
+                f,
+                "the fields grew again, and the run stopped at {time_um:.0} um/c: |field|^2 at \
+                 the probes rose at {checks} checks in a row, to {factor:.1e} times its level \
+                 before (a wave of the grid amplified in a CPML, which a finer grid removes: \
+                 docs/methods/fdtd.md, \"Late growth\")"
+            ),
         }
     }
 }

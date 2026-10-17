@@ -58,13 +58,13 @@
     }
   });
 
-  // an FDTD run opens on its field in time, which the 2D view plays; a device's model on its
+  // an FDTD run opens on its field in time, which the 2D view plays, and a static run on its field; a device's model on its
   // S-parameters and figures, an optimization on its convergence. Inside a device's page the view
   // stays on the device, in 3D: the page's panel has the plots.
   let shownFdtd = -1;
   $effect(() => {
     const g = run.info?.generation ?? -1;
-    if (!embedded && (run.job?.kind === "fdtd" || run.device || run.optimization) && g !== shownFdtd) {
+    if (!embedded && (run.job?.kind === "fdtd" || run.job?.kind === "static" || run.device || run.optimization) && g !== shownFdtd) {
       shownFdtd = g;
       view = "2d";
     }
@@ -286,7 +286,7 @@
         <!-- how far the sweep is -->
         <div class="absolute bottom-0 left-0 h-0.5 bg-primary transition-[width] duration-300" style="width: {(100 * points) / Math.max(axis.total, 1)}%" role="progressbar" aria-valuenow={points} aria-valuemin={0} aria-valuemax={axis.total} aria-label="The sweep's points solved"></div>
       {/if}
-      {#if run.job && run.job.kind !== "structure" && (run.job.kind !== "device" || run.device)}
+      {#if run.job && run.job.kind !== "structure" && run.job.kind !== "static" && (run.job.kind !== "device" || run.device)}
         <button class="btn btn-ghost btn-sm shrink-0 gap-1.5 {narrow ? 'btn-square' : ''}" aria-label="Solver" onclick={() => (solving = true)} title="The solver this run uses, its grid, each solve's numerical error, and the method's equations and papers">
           <Cpu size={14} />{#if !narrow} Solver{/if}
         </button>
@@ -370,6 +370,22 @@
       {/if}
     </section>
 
+    {#if run.staticResult}
+      {@const r = run.staticResult}
+      <!-- a static run's numbers, as it recorded them (its own views come with #421) -->
+      <section>
+        <h3 class="panel-title mb-2">Result</h3>
+        <dl class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 text-sm">
+          <dt class="faint">grid</dt>
+          <dd class="num text-right" title="Graded: its steps from {lenUnit(r.step_um[0])} to {lenUnit(r.step_um[1])}">{r.cells[0]} × {r.cells[1]} cells</dd>
+          {#each r.values as v, k (k)}
+            <dt class="leading-snug break-words faint">{v.name}</dt>
+            <dd class="num text-right">{Math.abs(v.value) >= 1e4 || (v.value !== 0 && Math.abs(v.value) < 1e-3) ? v.value.toExponential(3) : v.value.toPrecision(4)}{v.unit ? ` ${v.unit}` : ""}</dd>
+          {/each}
+        </dl>
+        <button class="btn btn-ghost btn-xs mt-1 -ml-2" onclick={() => (view = "2d")}>{run.statics.length === 1 ? "Its field" : "Its fields"} in 2D →</button>
+      </section>
+    {/if}
     {#if run.progress}
       {@const p = run.progress}
       {@const reached = p.fraction !== null && p.decay <= p.fraction}

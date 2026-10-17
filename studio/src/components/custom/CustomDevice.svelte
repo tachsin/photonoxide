@@ -14,7 +14,7 @@
 
   import { ago, api, duration, formatOf, KINDS, type JobCheck, type JobFormat, type RunItem } from "../../lib/api";
   import { customCompare } from "../../lib/device.svelte";
-  import type { Event } from "../../lib/events";
+  import type { Event, Shape } from "../../lib/events";
   import { overlaidOf } from "../../lib/study";
   import Overlay, { type OverlayItem } from "../Overlay.svelte";
   import { app, startRun, toast } from "../../lib/app.svelte";
@@ -184,6 +184,29 @@
   const layers = $derived(model.stack ? STACKS[model.stack].layers : [model.layer]);
   /** An fdtd job's axes with ends to choose: x and y, and z in 3D. */
   const sideAxes = $derived<readonly ("x" | "y" | "z")[]>(model.dimensions === 3 ? ["x", "y", "z"] : ["x", "y"]);
+  /** The shapes the form doesn't hold (rectangles placed by expressions, components, paths…),
+   * as the library draws them for the 3D view, of the last text that checked out: the top view
+   * draws them too. */
+  let keptShapes = $state<Shape[]>([]);
+  /** Whether the form keeps anything that draws shapes. */
+  const keepsShapes = $derived(model.kept.some((k) => /^task\.(rect|circle|ring|component|path|shape|body)$/.test(k)));
+  $effect(() => {
+    const t = shown;
+    if (!t || !keepsShapes) {
+      keptShapes = [];
+      return;
+    }
+    let live = true;
+    api
+      .formKeptShapes(t, "toml")
+      .then((s) => {
+        if (live) keptShapes = s;
+      })
+      .catch(() => {
+        if (live) keptShapes = [];
+      });
+    return () => (live = false);
+  });
   /** What the form keeps as the file has it, in words. */
   const keptText = $derived(model.kept.map((k) => k.replace(/^task\./, "")).join(", "));
 
@@ -592,7 +615,7 @@
 
       <fieldset class="space-y-2">
         <legend class="panel-title mb-2 flex w-full items-center">Shapes</legend>
-        {#if !holds(model, "rect")}<p class="text-xs faint">Rectangles kept as the file has them (their places or sizes are expressions): they show in 3D and are edited in the text.</p>{/if}
+        {#if !holds(model, "rect")}<p class="text-xs faint">Rectangles kept as the file has them (their places or sizes are expressions): drawn in both views, edited in the text.</p>{/if}
         {#each model.rect as r, k (k)}
           <div class="rounded-xl border p-3 transition-colors {isSel('rect', k) ? 'border-accent/60 bg-accent/5' : 'border-base-content/8'}">
             <div class="mb-2 flex items-center gap-2">
@@ -646,7 +669,7 @@
           {#if holds(model, "circle")}<button class="btn btn-ghost btn-sm gap-1.5" onclick={addCircle}><Plus size={14} /> Disk</button>{/if}
           {#if holds(model, "ring")}<button class="btn btn-ghost btn-sm gap-1.5" onclick={addRing} title="A ring resonator's waveguide: a radius and a width"><Plus size={14} /> Ring</button>{/if}
         </div>
-        <p class="text-[11px] faint">Components by their generators, paths, shapes defined by functions, arrays and bodies are written in the text (<span class="num">[[task.component]]</span>, <span class="num">[[task.path]]</span>, <span class="num">[[task.shape]]</span>, <span class="num">[[task.body]]</span>): the form keeps them, and the 3D view draws them.</p>
+        <p class="text-[11px] faint">Components by their generators, paths, shapes defined by functions, arrays and bodies are written in the text (<span class="num">[[task.component]]</span>, <span class="num">[[task.path]]</span>, <span class="num">[[task.shape]]</span>, <span class="num">[[task.body]]</span>): the form keeps them, and both views draw them.</p>
       </fieldset>
 
       {#if model.kind === "fdfd"}
@@ -848,7 +871,7 @@
   <div class="min-h-0 flex-1 overflow-hidden" bind:clientHeight={viewHeight}>
     {#if right === "preview"}
       <div class="h-full overflow-y-auto p-4">
-        <GeometryPreview {model} height={Math.max(140, viewHeight - (stacked ? 64 : 80))} selected={selection} onselect={(s) => (selection = s)} />
+        <GeometryPreview {model} kept={keptShapes} height={Math.max(140, viewHeight - (stacked ? 64 : 80))} selected={selection} onselect={(s) => (selection = s)} />
         <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 px-1 text-xs faint">
           <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-primary/65"></span>silicon</span>
           <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-secondary/70"></span>nitride</span>
@@ -862,7 +885,7 @@
             <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm border border-warning/50 bg-warning/20"></span>CPML</span>
           {/if}
           {#if model.kind === "modes"}<span class="flex items-center gap-1.5"><span class="h-0.5 w-3 bg-accent"></span>cross-section</span>{/if}
-          <span>seen from above, x across, y up{model.kept.length ? "; what is kept as text shows in 3D" : ""}</span>
+          <span>seen from above, x across, y up</span>
         </div>
       </div>
     {:else if right === "3d"}

@@ -3,7 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type { Academy, ChartData } from "./academy.svelte";
-import type { Event, Raster, Scene, ScenePort } from "./events";
+import type { Event, Raster, Scene, ScenePort, Shape } from "./events";
 import type { JobModel } from "./job";
 import type { BenchData, BenchRequest, CatalogueEntry, Planned } from "./bench.svelte";
 import type { LibraryReport } from "./libraries.svelte";
@@ -150,6 +150,8 @@ export const api = {
   jobForm: (text: string, format: JobFormat = "toml") => invoke<JobModel>("job_form", { text, format }),
   /** The job file the form holds, in TOML: its fields, then what it kept as the file had it. */
   formText: (form: JobModel) => invoke<string>("form_text", { form }),
+  /** The shapes of a job the form doesn't hold (rectangles placed by expressions, components, paths…), seen from above as the library draws them. */
+  formKeptShapes: (text: string, format: JobFormat = "toml") => invoke<Shape[]>("form_kept_shapes", { text, format }),
   deleteJob: (path: string) => invoke<void>("delete_job", { path }),
   deleteRun: (dir: string) => invoke<void>("delete_run", { dir }),
   runEvents: (dir: string) => invoke<Event[]>("run_events", { dir }),
@@ -268,6 +270,7 @@ export const KINDS: Record<string, { label: string; about: string }> = {
   modes: { label: "Modes", about: "a waveguide's guided modes by the full-vector solver, optionally swept" },
   fdfd: { label: "FDFD", about: "a device seen from above by 2D FDFD with ports: S-parameters and fields" },
   fdtd: { label: "FDTD", about: "a structure stepped in time by FDTD, in 2D or 3D: the field live, spectra and resonances" },
+  static: { label: "Static", about: "a cross-section's heat, electrostatics or current by the static solver: its field and its numbers" },
   device: { label: "Device", about: "a device's design, its own model at a fidelity (its figures and S-parameters), a study of it, or its optimization" },
 };
 

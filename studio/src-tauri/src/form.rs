@@ -11,6 +11,7 @@
 use serde::{Deserialize, Serialize};
 use toml::{Table, Value};
 
+use photonoxide::job::{Event, SceneShape};
 use photonoxide::run::{Format, Job};
 
 /// A number or an expression's text (`"w/2 + gap"`, `"150 nm"`), as a field holds it.
@@ -1078,6 +1079,61 @@ pub fn job_form(text: String, format: Format) -> Result<Form, String> {
 #[tauri::command]
 pub fn form_text(form: Form) -> Result<String, String> {
     form.text()
+}
+
+/// The shapes of the job in `text` the form doesn't hold, seen from above: rectangles whose
+/// places or sizes are expressions, components, paths, shapes defined by functions, bodies.
+/// Each as the library draws it for the 3D view (`photonoxide::job::preview`, its parameters'
+/// expressions evaluated there), so the top view draws them where the 3D view does. The
+/// rectangles, disks and rings the form holds are left out: the top view draws those itself,
+/// to be picked and edited. None when the form holds everything the job draws.
+///
+/// # Errors
+///
+/// A message when the text isn't a job the form reads, or the job without the form's shapes
+/// can't be drawn.
+pub fn kept_shapes(text: &str, format: Format) -> Result<Vec<SceneShape>, String> {
+    let form = Form::of(text, format)?;
+    let kept = |k: &str| form.kept.iter().any(|x| x == &format!("task.{k}"));
+    let job = Job::parse_as(text, format).map_err(|e| e.to_string())?;
+    let mut file: Table = toml::from_str(&job.to_text(Format::Toml).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let Some(task) = file.get_mut("task").and_then(Value::as_table_mut) else {
+        return Ok(Vec::new());
+    };
+    // the shapes the form holds, and a sweep (which may name one of them), are left out
+    for k in ["rect", "circle", "ring"] {
+        if !kept(k) {
+            task.remove(k);
+        }
+    }
+    task.remove("sweep");
+    if !task.keys().any(|k| DRAWN.contains(&k.as_str())) {
+        return Ok(Vec::new());
+    }
+    let rest = Job::parse(&toml::to_string(&file).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    match photonoxide::job::preview(&rest).map_err(|e| e.to_string())? {
+        Event::Scene { shapes, .. } => Ok(shapes),
+        _ => Ok(Vec::new()),
+    }
+}
+
+/// What a job's task draws shapes with.
+const DRAWN: [&str; 7] = [
+    "rect",
+    "circle",
+    "ring",
+    "component",
+    "path",
+    "shape",
+    "body",
+];
+
+/// [`kept_shapes`], for the Custom device's top view.
+#[tauri::command]
+pub fn form_kept_shapes(text: String, format: Format) -> Result<Vec<SceneShape>, String> {
+    kept_shapes(&text, format)
 }
 
 #[cfg(test)]

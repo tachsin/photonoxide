@@ -1,6 +1,9 @@
 <script lang="ts">
   // A job's device seen from above, as the solver will see its window: the shapes, the ports
-  // and their windows, the PML, and where a modes job cuts its cross-section.
+  // and their windows, the PML, and where a modes job cuts its cross-section. The shapes the form
+  // doesn't hold (rectangles placed by expressions, components, paths…) come as `kept`, drawn by
+  // the library as the 3D view draws them; they can't be picked here, only edited in the text.
+  import type { Shape } from "../lib/events";
   import { along, cutAt, previewWindow, type JobModel } from "../lib/job";
   import { label, ticks } from "../lib/plot";
   import { shown, stored, unitText } from "../lib/units";
@@ -9,12 +12,14 @@
 
   let {
     model,
+    kept = [],
     compact = false,
     height = 360,
     selected = null,
     onselect,
   }: {
     model: JobModel;
+    kept?: Shape[];
     compact?: boolean;
     height?: number;
     selected?: Selection;
@@ -46,6 +51,8 @@
   /** The axis the light travels along: x, but y for an older modes job; none for a structure. */
   const light = $derived(model.kind === "structure" ? null : model.kind === "modes" ? along(model) : "x");
   const sweptRect = $derived(model.kind === "modes" && model.sweep?.parameter === "width" ? (model.sweep.rect ?? 0) : -1);
+  /** A shape's outline as a path: a ring's hole is walked in the same outline. */
+  const outline = (o: [number, number][]) => (o.length ? `M${o.map(([x, y]) => `${X(x)},${Y(y)}`).join("L")}Z` : "");
   const clipId = `clip-${Math.random().toString(36).slice(2)}`;
 
   function pick(e: MouseEvent, s: Selection) {
@@ -75,6 +82,9 @@
           d="M{X(win.x[0])},{Y(win.y[1])}h{w}v{h}h{-w}z M{X(win.x[0] + pmlX)},{Y(win.y[1] - pmlY)}h{Math.max(0, w - 2 * pmlX * scale)}v{Math.max(0, h - 2 * pmlY * scale)}h{-Math.max(0, w - 2 * pmlX * scale)}z"
         />
       {/if}
+      {#each kept as s, k (k)}
+        <path d={outline(s.outline)} fill-rule="evenodd" class={fill(s.layer)} stroke-width="1" />
+      {/each}
       {#each model.rect as r, k (k)}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
         <rect

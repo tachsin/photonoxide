@@ -556,3 +556,41 @@ fn the_late_growth_is_the_grids() {
     println!("25 nm: {rate:.4} per um/c");
     assert!(rate < 0.0, "{rate}");
 }
+
+#[test]
+fn running_until_decayed_stops_when_the_fields_grow_again() {
+    // the strip of #251 on cells of 50 nm, its pulse over by 18 µm/c: its fields fall, then
+    // grow again from about 250 µm/c (the_late_growth_is_the_grids). |E_y|² at a monitor's
+    // point, its largest over each 10 µm/c, falls to 1e-27 of its peak by 230 µm/c, and then
+    // grows by about 2 a block. Run until it has decayed below 1e-30 of its peak, checked every
+    // 10 µm/c up to 2000 µm/c, the run stops on the growth, as an FDTD job does (job::fdtd's
+    // a_coarse_strips_late_growth_stops_a_run), rather than at its limit as not decayed
+    let (mut s, _, inside) = late_strip_simulation(0.05, 6, Cpml::default(), late_pulse());
+    let grew = s.run_until_decayed(&[inside], 1e-30, 10.0, 2000.0);
+    let Err(Error::Growing {
+        time_um,
+        checks,
+        factor,
+    }) = grew
+    else {
+        panic!("{grew:?}");
+    };
+    println!("stopped at {time_um:.0} um/c, {factor:.1e} times after {checks} rises");
+    assert_eq!(checks, 4);
+    assert!((250.0..500.0).contains(&time_um), "{time_um}");
+    assert!(factor >= 1e3, "{factor}");
+    assert!(
+        grew.unwrap_err().to_string().contains("grew again"),
+        "it says what happened"
+    );
+    // the steps it took are the plain run's, bit for bit
+    let plain = late_strip(0.05, 6, Cpml::default(), late_pulse(), s.steps());
+    assert!(
+        plain
+            .inside
+            .iter()
+            .zip(s.probe(inside))
+            .all(|(a, b)| a.to_bits() == b.to_bits())
+    );
+    assert_eq!(plain.inside.len(), s.probe(inside).len());
+}

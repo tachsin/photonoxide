@@ -506,6 +506,37 @@ export interface ChipPoint {
   s: [number, number][][][];
 }
 
+/** A static job's field on its cross-section (photonoxide::job::Event::StaticField): the temperature or the potential, in its own unit. */
+export interface StaticField {
+  type: "static_field";
+  /** "temperature" or "potential". */
+  label: string;
+  /** "K" or "V". */
+  unit: string;
+  /** Across the guide and up: ["y", "z"]. */
+  axes: [string, string];
+  raster: Raster;
+}
+
+/** A number of a static job's result, with its unit. */
+export interface StaticValue {
+  name: string;
+  value: number;
+  unit: string;
+}
+
+/** A static job's grid and numbers, recorded after its fields. */
+export interface StaticResult {
+  type: "static_result";
+  /** "heat", "electrostatic" or "current". */
+  physics: string;
+  /** The grid's cells across and up. */
+  cells: [number, number];
+  /** Its smallest and largest steps, µm. */
+  step_um: [number, number];
+  values: StaticValue[];
+}
+
 export type Event =
   | { type: "started"; job: string; kind: string }
   | ChipEvent
@@ -540,6 +571,8 @@ export type Event =
   | SolveError
   | Field
   | SParameters
+  | StaticField
+  | StaticResult
   | { type: "finished"; stopped: string | null; seconds: number };
 
 export function modeKind(m: Mode): string {

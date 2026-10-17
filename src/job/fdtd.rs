@@ -25,7 +25,7 @@ use crate::fdfd::{
     Axis, Boundaries3d, Direction, Edges, Formulation, Grid3d, IterativeSolver3d, PortMode3d,
 };
 use crate::fdtd::{
-    BeamPolarization, Boundaries, Cpml, Dipole, Field, FluxPlane, GaussianBeam, PlaneWave,
+    BeamPolarization, Boundaries, Cpml, Dipole, Field, FluxPlane, GaussianBeam, Growth, PlaneWave,
     Simulation, Waveform, harmonic_inversion,
 };
 use crate::geometry::{Point, Shape};
@@ -64,55 +64,6 @@ const RESONANCE_SAMPLES: usize = 4000;
 
 /// The modes solved on a port's plane, among which the job's polarization is picked.
 const PORT_MODES: usize = 4;
-
-/// How many times its level at the start of a rise the fields must reach, rising at every
-/// check, for a run to stop as growing ([`Growth`]).
-const GROWTH: f64 = 1e3;
-
-/// Watches a run's largest |field|² at its monitors' points, check by check after the pulse,
-/// for the fields growing again: a wave of the grid amplified in a CPML (docs/methods/fdtd.md,
-/// "Late growth"), which grows until the fields overflow, and which a finer grid removes.
-///
-/// Growing means rising at each of the last `needed` checks, to [`GROWTH`] times the level
-/// before the first of them. `needed` spans more than the pulse lasts, so light reaching a
-/// point late, or a resonator filling, doesn't count: what a pulse lights rises for no longer
-/// than the pulse. A passive run's fields otherwise only fall: two resonators trading their
-/// energy slowly could look like it at monitors in only one of them, which a monitor in the
-/// other prevents.
-#[derive(Clone, Debug)]
-struct Growth {
-    needed: usize,
-    /// The level before the current rise.
-    start: f64,
-    last: f64,
-    rises: usize,
-}
-
-impl Growth {
-    fn new(needed: usize) -> Growth {
-        Growth {
-            needed,
-            start: 0.0,
-            last: 0.0,
-            rises: 0,
-        }
-    }
-
-    /// Takes the level at a check: if the fields are growing, how many times the level before
-    /// the rise they have reached.
-    fn check(&mut self, level: f64) -> Option<f64> {
-        if self.last > 0.0 && level > self.last {
-            if self.rises == 0 {
-                self.start = self.last;
-            }
-            self.rises += 1;
-        } else {
-            self.rises = 0;
-        }
-        self.last = level;
-        (self.rises >= self.needed && level >= GROWTH * self.start).then(|| level / self.start)
-    }
-}
 
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
@@ -2446,7 +2397,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let mut decayed = false;
     let mut last_decay = None;
     // rising at more checks in a row than the pulse lasts
-    let mut growth = Growth::new(((pulse_end / check).ceil() as usize + 1).max(4));
+    let mut growth = Growth::after(pulse_end, check);
     let mut grew = None;
     // |field|² at a point now, both parts of a complex field
     let level = |s: &Simulation, r: usize| -> f64 {

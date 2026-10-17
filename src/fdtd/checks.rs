@@ -229,6 +229,38 @@ pub(crate) fn late_strip(
     waveform: Waveform,
     steps: usize,
 ) -> LateStrip {
+    let (mut s, in_cpml, inside) = late_strip_simulation(h, cells, cpml, waveform);
+    let energy = |s: &Simulation| -> f64 {
+        Axis::ALL
+            .iter()
+            .map(|&a| {
+                s.e(a).iter().map(|v| v * v).sum::<f64>()
+                    + s.h(a).iter().map(|v| v * v).sum::<f64>()
+            })
+            .sum()
+    };
+    let block = (50.0 / s.dt()).round() as usize;
+    let mut history = Vec::new();
+    while s.steps() < steps {
+        s.run(block.min(steps - s.steps()));
+        history.push(energy(&s));
+    }
+    LateStrip {
+        energy: history,
+        in_cpml: s.probe(in_cpml).to_vec(),
+        inside: s.probe(inside).to_vec(),
+        dt: s.dt(),
+    }
+}
+
+/// [`late_strip`]'s simulation before it runs, with its probes of E_y: halfway through the
+/// CPML at the guide's far end, and 0.4 µm past the grid's middle, where a monitor would be.
+pub(crate) fn late_strip_simulation(
+    h: f64,
+    cells: usize,
+    cpml: Cpml,
+    waveform: Waveform,
+) -> (Simulation, usize, usize) {
     let strip = |_: f64, y: f64, z: f64| {
         if y.abs() < 0.15 && z.abs() < 0.15 {
             6.0
@@ -258,27 +290,7 @@ pub(crate) fn late_strip(
         .add_probe(Field::E, Axis::Y, (n[0] - cells / 2, j, k))
         .unwrap();
     let inside = s.add_probe(Field::E, Axis::Y, (26 * scale, j, k)).unwrap();
-    let energy = |s: &Simulation| -> f64 {
-        Axis::ALL
-            .iter()
-            .map(|&a| {
-                s.e(a).iter().map(|v| v * v).sum::<f64>()
-                    + s.h(a).iter().map(|v| v * v).sum::<f64>()
-            })
-            .sum()
-    };
-    let block = (50.0 / s.dt()).round() as usize;
-    let mut history = Vec::new();
-    while s.steps() < steps {
-        s.run(block.min(steps - s.steps()));
-        history.push(energy(&s));
-    }
-    LateStrip {
-        energy: history,
-        in_cpml: s.probe(in_cpml).to_vec(),
-        inside: s.probe(inside).to_vec(),
-        dt: s.dt(),
-    }
+    (s, in_cpml, inside)
 }
 
 /// The 3D field of a continuous current against FDFD's for the same current: the largest

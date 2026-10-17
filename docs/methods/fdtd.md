@@ -857,7 +857,16 @@ it goes, so a run needs no stored history:
   CPML and FDFD's PML absorb differently in discrete time.
 - **Stopping** (`run_until_decayed`): a run goes on in blocks until, over a whole block, |F|²
   at each of a set of probes has stayed below a fraction of its peak, or until a time limit,
-  and says which. A fixed time is `run_until`.
+  and says which. Once its sources have ended (none a continuous wave), it also stops when the
+  fields grow again, as an FDTD job does (see [Late growth](#late-growth)): the largest |F|² at
+  the probes over a block rising at every block for longer than the pulses last, and at 4
+  blocks at least, to a thousand times its level before the rise. That is an error of its own,
+  `Error::Growing`, with the time and the factor; the steps taken are the same either way. On
+  #251's strip on cells of 50 nm (36 × 20 × 20, CPMLs of 6), checked every 10 µm/c against a
+  fraction of 1e-30 that its fields never reach, it stops at 380 µm/c, 1.8e3 times up after 4
+  rises, where it used to run to its limit
+  (`fdtd::tests::running_until_decayed_stops_when_the_fields_grow_again`). A fixed time is
+  `run_until`.
 
 ## Resonances
 

@@ -134,6 +134,94 @@ fn a_form_edit_keeps_the_expressions_and_the_parameters_sweep() {
     assert_eq!(rects[0]["size"].as_array().unwrap()[1].as_str(), Some("w"));
 }
 
+/// A scene's shapes, as the 3D view draws them.
+fn scene_shapes(text: &str) -> Vec<job::SceneShape> {
+    match job::preview(&Job::parse(text).unwrap()).unwrap() {
+        job::Event::Scene { shapes, .. } => shapes,
+        other => panic!("{other:?}"),
+    }
+}
+
+/// An outline's bounds: x from, x to, y from, y to.
+fn bounds(outline: &[[f64; 2]]) -> [f64; 4] {
+    outline.iter().fold(
+        [f64::MAX, f64::MIN, f64::MAX, f64::MIN],
+        |[a, b, c, d], &[x, y]| [a.min(x), b.max(x), c.min(y), d.max(y)],
+    )
+}
+
+#[test]
+fn the_top_view_draws_every_shape_the_form_keeps_where_the_3d_view_does() {
+    // coupler-supermodes' rectangles are placed by expressions of its parameters: the form
+    // keeps them, and the top view has them, evaluated by the library as the 3D view's are
+    let text = jobs()
+        .into_iter()
+        .find(|(n, _)| n == "coupler-supermodes.toml")
+        .unwrap()
+        .1;
+    let kept = kept_shapes(&text, Format::Toml).unwrap();
+    assert_eq!(kept, scene_shapes(&text));
+    assert_eq!(kept.len(), 2);
+    // (gap + w)/2 apart from the axis, w wide: gap 200 nm, w 500 nm
+    let near = |a: [f64; 4], b: [f64; 4]| a.iter().zip(&b).all(|(p, q)| (p - q).abs() < 1e-12);
+    assert!(
+        near(bounds(&kept[0].outline), [-5.0, 5.0, -0.6, -0.1]),
+        "{kept:?}"
+    );
+    assert!(
+        near(bounds(&kept[1].outline), [-5.0, 5.0, 0.1, 0.6]),
+        "{kept:?}"
+    );
+    assert!(kept.iter().all(|s| s.layer == "Si"));
+    // a parameter changed in the form: they follow it
+    let mut form = Form::of(&text, Format::Toml).unwrap();
+    form.parameters[0].1 = Num::Text("300 nm".into());
+    let moved = kept_shapes(&form.text().unwrap(), Format::Toml).unwrap();
+    assert!(
+        near(bounds(&moved[1].outline), [-5.0, 5.0, 0.15, 0.65]),
+        "{moved:?}"
+    );
+    // a ring by its generator beside a rectangle the form holds: the ring alone, as the 3D
+    // view draws it (the rectangle is the form's own to draw)
+    let ring = r#"name = "ring-and-rect"
+
+[task]
+kind = "structure"
+stack = "soi_220"
+wavelength_um = 1.55
+layer = "Si"
+x_um = [-8.0, 8.0]
+y_um = [-3.0, 12.0]
+step_nm = 50.0
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, 11.0]
+size_um = [4.0, 0.5]
+
+[[task.component]]
+type = "ring"
+name = "ring"
+width = "500 nm"
+radius = "5 um"
+gap = "200 nm"
+"#;
+    let all = scene_shapes(ring);
+    let kept = kept_shapes(ring, Format::Toml).unwrap();
+    assert!(!kept.is_empty() && kept.len() + 1 == all.len(), "{kept:?}");
+    assert!(kept.iter().all(|s| all.contains(s)));
+    // what is left out is the held rectangle
+    let left: Vec<_> = all.iter().filter(|s| !kept.contains(s)).collect();
+    assert_eq!(left.len(), 1);
+    assert!(
+        near(bounds(&left[0].outline), [-2.0, 2.0, 10.75, 11.25]),
+        "{left:?}"
+    );
+    // a job whose shapes the form holds: none
+    let held = ring.split("[[task.component]]").next().unwrap();
+    assert_eq!(kept_shapes(held, Format::Toml).unwrap(), []);
+}
+
 #[test]
 fn what_the_form_cant_hold_is_kept_and_named() {
     let text = r#"# A ring by its generator, its port found by name.

@@ -133,6 +133,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             crate::devices::device_solved,
             crate::form::job_form,
             crate::form::form_text,
+            crate::form::form_kept_shapes,
             crate::circuits::component_library,
             crate::circuits::component_spectrum,
             crate::circuits::measured_component,

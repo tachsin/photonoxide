@@ -1002,14 +1002,16 @@
         {/if}
 
         <p class="panel-title mt-5">Ports</p>
-        <ul class="mt-2 space-y-1 text-xs">
+        <!-- the names in a column as wide as the longest ("through"), up to 8 rem; a
+             longer one is cut short, whole in its tooltip -->
+        <ul class="mt-2 grid grid-cols-[minmax(2.5rem,max-content)_minmax(0,1fr)] gap-x-2 gap-y-1 text-xs">
           {#each k.ports as port (port.name)}
             {@const ref = `${inst.name}.${port.name}`}
             {@const to = partner(ref)}
-            <li class="flex items-center gap-2">
-              <span class="w-10 font-medium num">{port.name}</span>
+            <li class="contents">
+              <span class="max-w-32 truncate font-medium num" title={port.name}>{port.name}</span>
               {#if to}
-                <ArrowRightLeft size={11} class="faint" /><span class="truncate num muted">{to}</span>
+                <span class="flex min-w-0 items-center gap-2"><ArrowRightLeft size={11} class="shrink-0 faint" /><span class="truncate num muted" title={to}>{to}</span></span>
               {:else}
                 <span class="text-warning">open: wire it or expose it</span>
               {/if}
