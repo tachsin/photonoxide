@@ -126,6 +126,11 @@ impl JsonSchema for Layers {
 }
 
 /// The job file's schema, as `docs/job.schema.json` holds it.
+///
+/// # Panics
+///
+/// Only if the library's own job types don't make the schema it expects of them (a struct
+/// renamed, a resolver's table naming a field its struct lacks): a bug its tests catch.
 pub fn schema() -> Value {
     let mut g = SchemaSettings::draft2020_12().into_generator();
     let job = g.subschema_for::<crate::run::JobFile>();
@@ -236,11 +241,18 @@ pub fn schema() -> Value {
 }
 
 /// [`schema`] as `docs/job.schema.json` holds it: indented JSON, ending in a newline.
+///
+/// # Panics
+///
+/// As [`schema`] does.
 pub fn schema_text() -> String {
     let mut text = serde_json::to_string_pretty(&schema()).expect("a schema is JSON");
     text.push('\n');
     text
 }
+
+/// A function writing a task struct's schema: [`task`] at its type.
+type TaskSchema = fn(&mut SchemaGenerator) -> Value;
 
 /// A task's schema: a reference to its struct's.
 fn task<T: JsonSchema>(g: &mut SchemaGenerator) -> Value {
@@ -248,7 +260,7 @@ fn task<T: JsonSchema>(g: &mut SchemaGenerator) -> Value {
 }
 
 /// A task table that is one of `kinds`: its `kind` one of their names, the rest its kind's.
-fn kinds(g: &mut SchemaGenerator, kinds: &[(&str, fn(&mut SchemaGenerator) -> Value)]) -> Value {
+fn kinds(g: &mut SchemaGenerator, kinds: &[(&str, TaskSchema)]) -> Value {
     let names: Vec<&str> = kinds.iter().map(|(k, _)| *k).collect();
     let cases: Vec<Value> = kinds
         .iter()
