@@ -68,6 +68,7 @@
 //! bit, on any number of threads.
 
 use rayon::prelude::*;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use toml::{Table, Value};
 
@@ -298,7 +299,7 @@ impl Variable {
 
 /// An objective as a task gives it: one the device declares, by its symbol, or an expression
 /// of its outputs, with what to do with it.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct Aim {
@@ -373,7 +374,7 @@ impl Aim {
 
 /// A constraint as a task gives it: one the device declares, by its symbol, or an expression of
 /// its outputs, with its bound.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct Bound {
@@ -663,9 +664,9 @@ pub(super) fn corner_table(c: &Corner) -> Value {
 // ---- the task read ----
 
 /// An `"optimize"` task.
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct OptimizeTask {
+pub(super) struct OptimizeTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
     kind: String,
     method: String,
@@ -694,7 +695,7 @@ struct OptimizeTask {
 }
 
 /// A `[[task.variable]]`.
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct VariableTask {
     parameter: String,

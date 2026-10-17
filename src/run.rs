@@ -18,6 +18,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
@@ -25,26 +26,42 @@ use crate::backend::Choice;
 use crate::{Error, Result};
 
 /// The job file's layout, the same in every [`Format`].
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct JobFile {
+pub(crate) struct JobFile {
+    /// The schema an editor checks the file with ([`crate::job::schema`]): read and left out,
+    /// for a JSON job, which has no comment to point an editor at it.
+    #[serde(rename = "$schema", default, skip_serializing)]
+    #[schemars(skip)]
+    _schema: Option<String>,
+    /// The job's name: its runs' directories end in it.
     name: String,
+    /// The hard limit on the run, in minutes: it stops when the limit passes.
     #[serde(skip_serializing_if = "Option::is_none")]
     timeout_minutes: Option<f64>,
+    /// The solver backends the job asks for.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     solver: Option<SolverFile>,
+    /// A device of the library: the structure, which the task computes, studies or optimizes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<crate::job::schema::Open>")]
     device: Option<toml::Table>,
+    /// A chip of instances: the structure, which the task computes, studies or optimizes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<crate::job::schema::Open>")]
     circuit: Option<toml::Table>,
+    /// What to compute, by its kind.
     #[serde(default)]
+    #[schemars(with = "crate::job::schema::Open")]
     task: toml::Table,
 }
 
 /// The job file's `[solver]` table.
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct SolverFile {
+    /// The direct solver of an `"fdfd"` job: `"auto"` (the default, photonoxide's own),
+    /// `"photonoxide"`, or a backend registered under another name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     direct: Option<String>,
 }
@@ -281,6 +298,7 @@ impl Job {
     /// and YAML can, e.g. a value after a table in an array).
     pub fn to_text(&self, format: Format) -> Result<String> {
         let file = JobFile {
+            _schema: None,
             name: self.name.clone(),
             timeout_minutes: self.timeout_minutes,
             solver: self.solver.clone(),

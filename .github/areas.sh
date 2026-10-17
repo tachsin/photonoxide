@@ -100,9 +100,10 @@ area statics \
 # whose cases are the devices', and optimized: its objectives' derivatives, records and fronts,
 # the optimize/ cases), and a job's [circuit] table is a chip of devices, computed, studied and
 # optimized (the chip/ cases, and optimize_chip_rings, which reads jobs/); its [[task.component]] tables are
-# the generators', and its cases of them (components with expressions, ports by name) run here
+# the generators', and its cases of them (components with expressions, ports by name) run here;
+# docs/job.schema.json is the schema job::schema writes, which its tests check
 area job \
-  "src/job/* src/run.rs src/farm.rs src/farm/* jobs/*" \
+  "src/job/* src/run.rs src/farm.rs src/farm/* jobs/* docs/job.schema.json" \
   "material mode sparse fdfd fdtd circuit device generator statics" \
   "job:: run:: farm::" "job/ generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
 

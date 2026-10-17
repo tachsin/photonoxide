@@ -61,6 +61,7 @@
 //! gradients the circuit adjoint ([`crate::circuit::Circuit::jacobian`]) through each device's
 //! derivatives. The band is the task's `from_um`, `to_um` and `points`.
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use toml::{Table, Value};
 
@@ -815,9 +816,9 @@ pub(super) fn chip_of(job: &Job) -> Result<ChipDesign> {
 }
 
 /// A chip's `"spectrum"`, `"sweep"` or `"corners"` task.
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct ChipTask {
+pub(super) struct ChipTask {
     kind: String,
     from_um: f64,
     to_um: f64,

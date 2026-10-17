@@ -15,6 +15,7 @@
 use std::time::Instant;
 
 use num_complex::Complex64 as c64;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -65,8 +66,9 @@ const RESONANCE_SAMPLES: usize = 4000;
 /// The modes solved on a port's plane, among which the job's polarization is picked.
 const PORT_MODES: usize = 4;
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(rename = "FdtdBoundaries")]
 struct BoundarySpec {
     x: Option<String>,
     y: Option<String>,
@@ -75,7 +77,7 @@ struct BoundarySpec {
     bloch: Option<[f64; 3]>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct SpectrumSpec {
     from_um: f64,
@@ -84,7 +86,7 @@ struct SpectrumSpec {
 }
 
 /// A source or a monitor, as the job gives it: its type and the fields that type reads.
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ItemSpec {
     #[serde(rename = "type")]
@@ -146,7 +148,7 @@ impl ItemSpec {
     }
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct StopSpec {
     /// `"decay"` (the default) or `"time"`.
@@ -160,7 +162,7 @@ struct StopSpec {
     limit_um: Option<f64>,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ViewSpec {
     /// The field the frames show: a component, `"|E|^2"` or `"|H|^2"`.
@@ -171,9 +173,9 @@ struct ViewSpec {
     every_um: Option<f64>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct FdtdTask {
+pub(super) struct FdtdTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
     kind: String,
     /// The stack; a job's `[device]` gives its own instead.
@@ -205,9 +207,11 @@ struct FdtdTask {
     #[serde(default)]
     shape: Vec<super::shapes::ShapeSpec>,
     #[serde(default)]
+    #[schemars(with = "Vec<crate::job::schema::Component>")]
     component: Vec<toml::Table>,
     /// Bodies in space over the structure: 3D only.
     #[serde(default)]
+    #[schemars(with = "Vec<crate::job::schema::Body>")]
     body: Vec<toml::Table>,
     #[serde(default)]
     source: Vec<ItemSpec>,

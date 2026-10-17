@@ -9,6 +9,7 @@
 //! and `"tm"` is E along z.
 
 use num_complex::Complex64 as c64;
+use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::{
@@ -25,7 +26,7 @@ use crate::stack::Structure;
 use crate::units::{Length, Wavelength, refractive_index};
 use crate::{Error, Result};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct PortSpec {
     /// Where the port's column is, µm.
@@ -36,7 +37,7 @@ struct PortSpec {
     y_um: Option<[f64; 2]>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct WavelengthSweep {
     #[allow(dead_code)] // only the wavelength is swept; checked below
@@ -46,9 +47,9 @@ struct WavelengthSweep {
     points: usize,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct FdfdTask {
+pub(super) struct FdfdTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
     kind: String,
     stack: super::StackField,
@@ -79,6 +80,7 @@ struct FdfdTask {
     #[serde(default)]
     shape: Vec<super::shapes::ShapeSpec>,
     #[serde(default)]
+    #[schemars(with = "Vec<crate::job::schema::Component>")]
     component: Vec<toml::Table>,
     #[serde(default)]
     port: Vec<PortSpec>,

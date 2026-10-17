@@ -13,7 +13,7 @@ use crate::expr::{COORDINATES, Dim, Expr, Parameters};
 
 /// The shape tables and their fields that take lengths: the field's name and how many numbers
 /// it holds (its `_um` key holds the same in µm).
-const SHAPES: [(&str, &[(&str, usize)]); 3] = [
+pub(super) const SHAPES: [(&str, &[(&str, usize)]); 3] = [
     ("rect", &[("center", 2), ("size", 2)]),
     ("circle", &[("center", 2), ("radius", 1)]),
     ("ring", &[("center", 2), ("radius", 1), ("width", 1)]),
@@ -110,14 +110,14 @@ pub(super) enum Want {
 
 /// A path's fields that take values: the field, how many numbers, what each must be, and the
 /// key it is resolved into (its number key, which may also be given as a number).
-const PATH: [(&str, usize, Want, &str); 3] = [
+pub(super) const PATH: [(&str, usize, Want, &str); 3] = [
     ("start", 2, Want::Length, "start_um"),
     ("width", 1, Want::Length, "width_um"),
     ("heading", 1, Want::Angle, "heading_rad"),
 ];
 
 /// A path segment's fields, as [`PATH`].
-const SEGMENT: [(&str, usize, Want, &str); 8] = [
+pub(super) const SEGMENT: [(&str, usize, Want, &str); 8] = [
     ("straight", 1, Want::Length, "straight_um"),
     ("arc", 1, Want::Angle, "arc_rad"),
     ("euler", 1, Want::Angle, "euler_rad"),
@@ -130,7 +130,7 @@ const SEGMENT: [(&str, usize, Want, &str); 8] = [
 
 /// A `[[task.shape]]`'s fields that take places and sizes, as [`PATH`]; a shape in another's
 /// `of` takes the same.
-const SHAPE: [(&str, usize, Want, &str); 17] = [
+pub(super) const SHAPE: [(&str, usize, Want, &str); 17] = [
     ("origin", 2, Want::Length, "origin_um"),
     ("angle", 1, Want::Angle, "angle_rad"),
     ("inner", 1, Want::Length, "inner_um"),
@@ -210,10 +210,10 @@ fn resolve_shape(entry: &mut Table, p: &Parameters, what: &str) -> Result<()> {
 }
 
 /// A shift's field, as [`PATH`].
-const SHIFT: [(&str, usize, Want, &str); 1] = [("by", 2, Want::Length, "by_um")];
+pub(super) const SHIFT: [(&str, usize, Want, &str); 1] = [("by", 2, Want::Length, "by_um")];
 
 /// A placement's fields, as [`PATH`].
-const PLACE: [(&str, usize, Want, &str); 2] = [
+pub(super) const PLACE: [(&str, usize, Want, &str); 2] = [
     ("translate", 2, Want::Length, "translate_um"),
     ("rotate", 1, Want::Angle, "rotate_rad"),
 ];

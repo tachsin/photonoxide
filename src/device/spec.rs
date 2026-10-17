@@ -159,11 +159,7 @@ impl Spec {
     /// [`Error::Parse`] for a table that isn't one: a missing or unknown key, a value of the
     /// wrong type, an unknown fidelity.
     pub fn from_table(table: &Table) -> Result<Spec> {
-        known(
-            table,
-            "[device]",
-            &["kind", "fidelity", "stack", "parameters", "compact"],
-        )?;
+        known(table, "[device]", &DEVICE_KEYS)?;
         let kind = string(table, "[device]", "kind")?
             .ok_or_else(|| parse("[device] needs a kind, e.g. kind = \"waveguide\""))?;
         let fidelity = match string(table, "[device]", "fidelity")? {
@@ -974,6 +970,13 @@ impl MaterialSpec {
         Value::Table(t)
     }
 }
+
+/// The keys a `[device]` table takes.
+pub(crate) const DEVICE_KEYS: [&str; 5] = ["kind", "fidelity", "stack", "parameters", "compact"];
+
+/// The names [`fidelity`] reads, as a job writes them.
+pub(crate) const FIDELITIES: [&str; 7] =
+    ["analytic", "compact", "2D", "3D", "measured", "2d", "3d"];
 
 /// A fidelity by the name it is written with: analytic, compact, 2D, 3D or measured.
 ///

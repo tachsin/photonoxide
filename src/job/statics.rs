@@ -75,6 +75,7 @@
 
 use std::collections::BTreeMap;
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -106,7 +107,7 @@ pub struct StaticValue {
     pub unit: String,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(untagged)]
 enum CoefficientSpec {
     Isotropic(f64),
@@ -122,7 +123,7 @@ impl CoefficientSpec {
     }
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(untagged)]
 enum SideSpec {
     Named(String),
@@ -154,8 +155,9 @@ impl SideSpec {
     }
 }
 
-#[derive(Clone, Default, Deserialize)]
+#[derive(Clone, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(rename = "StaticBoundaries")]
 struct BoundarySpec {
     left: Option<SideSpec>,
     right: Option<SideSpec>,
@@ -164,7 +166,7 @@ struct BoundarySpec {
 }
 
 /// A rectangle in the section's plane: y across, z up, µm.
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct Area {
     y_um: [f64; 2],
@@ -205,9 +207,9 @@ impl Area {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct StaticTask {
+pub(super) struct StaticTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
     kind: String,
     physics: String,
@@ -231,8 +233,10 @@ struct StaticTask {
     #[serde(default)]
     shape: Vec<super::shapes::ShapeSpec>,
     #[serde(default)]
+    #[schemars(with = "Vec<crate::job::schema::Component>")]
     component: Vec<toml::Table>,
     #[serde(default)]
+    #[schemars(with = "Vec<crate::job::schema::Body>")]
     body: Vec<toml::Table>,
     #[serde(default)]
     thermal_conductivity: BTreeMap<String, CoefficientSpec>,

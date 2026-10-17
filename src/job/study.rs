@@ -50,6 +50,7 @@
 //! temperature_k = 340.0    # every material of the stack whose model takes a temperature
 //! ```
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use toml::{Table, Value};
 
@@ -79,7 +80,7 @@ const MAX_CORNERS: usize = 256;
 const BAND_POINTS: usize = 21;
 
 /// An axis of a sweep: a parameter of the design stepped evenly from one value to another.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[non_exhaustive]
 pub struct SweepAxis {
     /// The parameter: one of the device's ([`Device::parameters`]), or one the design's
@@ -578,9 +579,9 @@ pub fn study_from_device(name: &str, spec: &Spec, compute: &Compute, study: &Stu
 // ---- the task ----
 
 /// A `"sweep"` or `"corners"` task: the band, the grids, and the axes or corners.
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct StudyTask {
+pub(super) struct StudyTask {
     kind: String,
     from_um: Option<f64>,
     to_um: Option<f64>,
@@ -598,11 +599,12 @@ struct StudyTask {
 }
 
 /// A `[[task.corner]]`.
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(super) struct CornerTask {
     name: String,
     #[serde(default)]
+    #[schemars(with = "std::collections::BTreeMap<String, f64>")]
     offsets: Table,
     temperature_k: Option<f64>,
 }

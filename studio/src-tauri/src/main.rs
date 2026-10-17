@@ -60,6 +60,9 @@ const USAGE: &str = "usage:
       comment on each field, or in TOML or JSON by the file's extension (without the
       comments); new-<kind>.yaml here by default, and never over a file that exists
       (`photonoxide new --list` lists the kinds)
+  photonoxide schema [--write <file> | --check <file>]
+      print the job file's JSON Schema, which editors complete and check jobs with;
+      --write saves it, --check fails unless <file> holds exactly this schema
   photonoxide view <run directory>
       replay a finished run in the studio
   photonoxide example <name>
@@ -108,6 +111,7 @@ fn main() -> ExitCode {
         None => open(),
         Some("run") => run(&args[1..]),
         Some("new") => new(&args[1..]),
+        Some("schema") => schema(&args[1..]),
         Some("view") => view(&args[1..]),
         Some("worker") => farm::worker(&args[1..]),
         Some("validate") => validate(&args[1..]),
@@ -364,6 +368,30 @@ fn example(args: &[String]) -> ExitCode {
         }
         _ => usage(),
     }
+}
+
+fn schema(args: &[String]) -> ExitCode {
+    let text = job::schema_text();
+    match args {
+        [] => print!("{text}"),
+        [flag, file] if flag == "--write" => {
+            if let Err(e) = std::fs::write(file, &text) {
+                return fail(format!("{file}: {e}"));
+            }
+        }
+        [flag, file] if flag == "--check" => {
+            let current = std::fs::read_to_string(file)
+                .unwrap_or_default()
+                .replace("\r\n", "\n");
+            if current != text {
+                return fail(format!(
+                    "{file} is out of date: run `photonoxide schema --write {file}`"
+                ));
+            }
+        }
+        _ => return usage(),
+    }
+    ExitCode::SUCCESS
 }
 
 fn validate(args: &[String]) -> ExitCode {

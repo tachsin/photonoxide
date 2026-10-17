@@ -1,0 +1,5637 @@
+{
+  "$defs": {
+    "Aim": {
+      "additionalProperties": false,
+      "description": "An objective as a task gives it: one the device declares, by its symbol, or an expression of its outputs, with what to do with it.",
+      "properties": {
+        "expression": {
+          "description": "Or an expression of the outputs (`crate::device::objective`).",
+          "type": "string"
+        },
+        "goal": {
+          "description": "`\"minimize\"`, `\"maximize\"` or `\"target\"`: an expression's (minimize by default), or in place of a declared objective's.",
+          "type": "string"
+        },
+        "instance": {
+          "description": "On a chip, the device instance whose own objective (or an expression of whose own outputs) this is; `None` for an expression of the chip's outputs.",
+          "type": "string"
+        },
+        "name": {
+          "description": "A declared objective's symbol (`crate::device::Device::objectives`).",
+          "type": "string"
+        },
+        "reduce": {
+          "description": "`\"worst\"`, `\"average\"` or `\"spread\"` over the band and corners; the task's when left out (a declared spread keeps its own).",
+          "type": "string"
+        },
+        "target": {
+          "description": "The target, for a goal of `\"target\"`; a declared objective's own when left out.",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "Area": {
+      "additionalProperties": false,
+      "description": "A rectangle in the section's plane: y across, z up, µm.",
+      "properties": {
+        "medium": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "potential_v": {
+          "type": "number"
+        },
+        "power_w_per_m": {
+          "type": "number"
+        },
+        "temperature": {
+          "type": "number"
+        },
+        "y_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "z_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "y_um",
+        "z_um"
+      ],
+      "type": "object"
+    },
+    "AxisTask": {
+      "additionalProperties": false,
+      "description": "A `[[task.axis]]` of a fit.",
+      "properties": {
+        "from": {
+          "type": "number"
+        },
+        "parameter": {
+          "type": "string"
+        },
+        "points": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "to": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "parameter",
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
+    "Body": {
+      "description": "A body in space over the structure, 3D only (docs/methods/bodies.md): a sphere, a box, an extrusion of a shape, or a union, intersection or difference of bodies, with its medium.",
+      "properties": {
+        "type": {
+          "description": "\"sphere\", \"box\", \"extrusion\", \"union\", \"intersection\" or \"difference\".",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "Bound": {
+      "additionalProperties": false,
+      "description": "A constraint as a task gives it: one the device declares, by its symbol, or an expression of its outputs, with its bound.",
+      "properties": {
+        "at_least": {
+          "description": "The smallest value allowed.",
+          "type": "number"
+        },
+        "at_most": {
+          "description": "The largest value allowed.",
+          "type": "number"
+        },
+        "expression": {
+          "description": "Or an expression of the outputs.",
+          "type": "string"
+        },
+        "instance": {
+          "description": "On a chip, the device instance whose own constraint (or an expression of whose own outputs) this is: a smallest gap, a footprint; `None` for an expression of the chip's outputs.",
+          "type": "string"
+        },
+        "name": {
+          "description": "A declared constraint's symbol (`crate::device::Device::constraints`).",
+          "type": "string"
+        },
+        "reduce": {
+          "description": "`\"worst\"` (the default), `\"average\"` or `\"spread\"` over the band and corners.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ChipTask": {
+      "additionalProperties": false,
+      "description": "A chip's `\"spectrum\"`, `\"sweep\"` or `\"corners\"` task.",
+      "properties": {
+        "axis": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SweepAxis"
+          },
+          "type": "array"
+        },
+        "corner": {
+          "items": {
+            "$ref": "#/$defs/CornerTask"
+          },
+          "type": "array"
+        },
+        "from_um": {
+          "type": "number"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "points": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "to_um": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "from_um",
+        "to_um"
+      ],
+      "type": "object"
+    },
+    "CircleSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "center",
+              "center_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "center_um"
+              ]
+            },
+            {
+              "required": [
+                "center"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "radius",
+              "radius_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "radius_um"
+              ]
+            },
+            {
+              "required": [
+                "radius"
+              ]
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "center": {
+          "description": "As expressions in place of center_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "center_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "etch": {
+          "$ref": "#/$defs/EtchSpec"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "radius": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of radius_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "radius_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        }
+      },
+      "required": [
+        "layer"
+      ],
+      "type": "object"
+    },
+    "Circuit": {
+      "additionalProperties": false,
+      "description": "A chip of instances (devices of the library, or the circuit's own components), connected port to port, with its external ports.",
+      "properties": {
+        "connections": {
+          "description": "Pairs of ports connected: [\"a.o2\", \"b.o1\"].",
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "instance": {
+          "items": {
+            "additionalProperties": false,
+            "oneOf": [
+              {
+                "required": [
+                  "device"
+                ]
+              },
+              {
+                "required": [
+                  "component"
+                ]
+              }
+            ],
+            "properties": {
+              "component": {
+                "description": "A component of the circuit's own, in place of a device.",
+                "enum": [
+                  "coupler",
+                  "phase-shifter",
+                  "terminator"
+                ]
+              },
+              "device": {
+                "$ref": "#/$defs/Device"
+              },
+              "name": {
+                "description": "Its name: its ports are \"name.o1\", ...",
+                "type": "string"
+              },
+              "values": {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "description": "The component's parameters' values.",
+                "type": "object"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "port": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "description": "The instance's port it is: \"name.o1\".",
+                "type": "string"
+              },
+              "name": {
+                "description": "The chip's port's name.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "at"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "CoefficientSpec": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      ]
+    },
+    "Component": {
+      "description": "A component drawn by its generator (docs/methods/generators.md): its type (straight, bend, taper, mmi, directional coupler, ring, grating coupler, ...) and that type's fields; name, layer, etch, origin, rotate, mirror and connect for any of them.",
+      "properties": {
+        "layer": {
+          "description": "The layer it is drawn on: the task's by default.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Its name, by which its ports are found: \"name.port\".",
+          "type": "string"
+        },
+        "type": {
+          "description": "The generator, e.g. \"straight\".",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "CornerTask": {
+      "additionalProperties": false,
+      "description": "A `[[task.corner]]`.",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "offsets": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "temperature_k": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "Device": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "waveguide"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "A straight strip: its mode's phase and loss over a length, from the strip's width and thickness.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "length µm: 10 by default, from 0 to 100000."
+                  },
+                  "loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "loss dB/cm: 2.7 by default, from 0 to 1000."
+                  },
+                  "sidewall": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "sidewall °: 90 by default, from 30 to 90."
+                  },
+                  "slab": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "slab µm: 0 by default, from 0 to 5."
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "span µm: 0.1 by default, from 0.004 to 0.4."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.05 to 2."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 0.4 to 10."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 0.5 by default, from 0.1 to 5."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "bend"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "A circular bend of the strip: its mode's phase and loss along the arc, from the strip and the radius.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "angle": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "angle °: 90 by default, from 0 to 360."
+                  },
+                  "loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "loss dB/cm: 2.7 by default, from 0 to 1000."
+                  },
+                  "radius": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "radius µm: 10 by default, from 1 to 10000."
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "span µm: 0.1 by default, from 0.004 to 0.4."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.05 to 2."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 0.4 to 10."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 0.5 by default, from 0.1 to 5."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "directional coupler"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "Two strips side by side, a gap apart: the light crosses from one to the other and back along the coupled length.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "gap": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "gap µm: 0.2 by default, from 0.02 to 2."
+                  },
+                  "length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "length µm: 18.576115501358448 by default, from 0 to 10000."
+                  },
+                  "loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "loss dB/cm: 2.7 by default, from 0 to 1000."
+                  },
+                  "sidewall": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "sidewall °: 90 by default, from 30 to 90."
+                  },
+                  "slab": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "slab µm: 0 by default, from 0 to 5."
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "span µm: 0.1 by default, from 0.004 to 0.4."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.05 to 2."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 0.4 to 10."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 0.5 by default, from 0.1 to 5."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "all-pass ring"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "A ring of the strip beside one bus: the bus's transmission dips at each resonance.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "coupling_length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "coupling_length µm: 0 by default, from 0 to 1000."
+                  },
+                  "gap": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "gap µm: 0.2 by default, from 0.02 to 2."
+                  },
+                  "loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "loss dB/cm: 2.7 by default, from 0 to 1000."
+                  },
+                  "radius": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "radius µm: 10 by default, from 1 to 10000."
+                  },
+                  "round_trip_loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "round_trip_loss dB: 0 by default, from 0 to 50."
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "span µm: 0.1 by default, from 0.004 to 0.4."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.05 to 2."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 0.4 to 10."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 0.5 by default, from 0.1 to 5."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "add-drop ring"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "A ring of the strip between two buses: on resonance the light leaves by the drop port.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "coupling_length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "coupling_length µm: 0 by default, from 0 to 1000."
+                  },
+                  "gap": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "gap µm: 0.2 by default, from 0.02 to 2."
+                  },
+                  "gap_drop": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "gap_drop µm: 0.2 by default, from 0.02 to 2."
+                  },
+                  "loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "loss dB/cm: 2.7 by default, from 0 to 1000."
+                  },
+                  "radius": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "radius µm: 10 by default, from 1 to 10000."
+                  },
+                  "round_trip_loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "round_trip_loss dB: 0 by default, from 0 to 50."
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "span µm: 0.1 by default, from 0.004 to 0.4."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.05 to 2."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 0.4 to 10."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 0.5 by default, from 0.1 to 5."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "rib waveguide"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "A rib: a strip etched part of the way into its core layer, on a slab of the same material; its mode's phase and loss over a length.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "etch_depth": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "etch_depth µm: 0.13 by default, from 0.005 to 5."
+                  },
+                  "length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "length µm: 10 by default, from 0 to 100000."
+                  },
+                  "loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "loss dB/cm: 2.7 by default, from 0 to 1000."
+                  },
+                  "sidewall": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "sidewall °: 90 by default, from 30 to 90."
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "span µm: 0.1 by default, from 0.004 to 0.4."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.05 to 5."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 0.4 to 10."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 0.5 by default, from 0.1 to 50."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "MMI 1x2"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "A 1 × 2 multimode interference splitter: a wide section fed in its middle, whose modes beat into two images of the input at 3L_π/8.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "access_width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "access_width µm: 1.5 by default, from 0.1 to 20."
+                  },
+                  "length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "length µm: 33.55850234923838 by default, from 0.1 to 10000."
+                  },
+                  "port_width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "port_width µm: 1.5 by default, from 0.1 to 20."
+                  },
+                  "sidewall": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "sidewall °: 90 by default, from 30 to 90."
+                  },
+                  "slab": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "slab µm: 0 by default, from 0 to 5."
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "span µm: 0.1 by default, from 0.004 to 0.4."
+                  },
+                  "taper_length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "taper_length µm: 0 by default, from 0 to 200."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.05 to 5."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 0.4 to 10."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 6 by default, from 0.5 to 100."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "MMI 2x2"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "A 2 × 2 multimode interference coupler: a wide section fed at ±W/6, whose modes beat into two images of each input at L_π/2, a 3 dB coupler.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "access_width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "access_width µm: 1.5 by default, from 0.1 to 20."
+                  },
+                  "length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "length µm: 44.7446697989845 by default, from 0.1 to 10000."
+                  },
+                  "port_width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "port_width µm: 1.5 by default, from 0.1 to 20."
+                  },
+                  "sidewall": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "sidewall °: 90 by default, from 30 to 90."
+                  },
+                  "slab": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "slab µm: 0 by default, from 0 to 5."
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "span µm: 0.1 by default, from 0.004 to 0.4."
+                  },
+                  "taper_length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "taper_length µm: 0 by default, from 0 to 200."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.05 to 5."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 0.4 to 10."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 6 by default, from 0.5 to 100."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "Y-branch"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "A Y-branch: a stem that widens along an outline of its own (a spline through its widths) and divides into two arms, splitting its power between them.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "arm_length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "arm_length µm: 5 by default, from 0.1 to 1000."
+                  },
+                  "excess_loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "excess_loss dB: 0 by default, from 0 to 10."
+                  },
+                  "length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "length µm: 2 by default, from 0.1 to 100."
+                  },
+                  "separation": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "separation µm: 2 by default, from 0.1 to 1000."
+                  },
+                  "sidewall": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "sidewall °: 90 by default, from 30 to 90."
+                  },
+                  "slab": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "slab µm: 0 by default, from 0 to 5."
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "span µm: 0.1 by default, from 0.004 to 0.4."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.05 to 5."
+                  },
+                  "w1": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "w1 µm: 0.5 by default, from 0.05 to 10."
+                  },
+                  "w10": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "w10 µm: 1.4 by default, from 0.05 to 10."
+                  },
+                  "w11": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "w11 µm: 1.31 by default, from 0.05 to 10."
+                  },
+                  "w12": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "w12 µm: 1.2 by default, from 0.05 to 10."
+                  },
+                  "w13": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "w13 µm: 1.2 by default, from 0.05 to 10."
+                  },
+                  "w2": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "w2 µm: 0.5 by default, from 0.05 to 10."
+                  },
+                  "w3": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "w3 µm: 0.6 by default, from 0.05 to 10."
+                  },
+                  "w4": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "w4 µm: 0.7 by default, from 0.05 to 10."
+                  },
+                  "w5": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "w5 µm: 0.9 by default, from 0.05 to 10."
+                  },
+                  "w6": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "w6 µm: 1.26 by default, from 0.05 to 10."
+                  },
+                  "w7": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "w7 µm: 1.4 by default, from 0.05 to 10."
+                  },
+                  "w8": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "w8 µm: 1.4 by default, from 0.05 to 10."
+                  },
+                  "w9": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "w9 µm: 1.4 by default, from 0.05 to 10."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 0.4 to 10."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 0.5 by default, from 0.1 to 5."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "MZI"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "A Mach–Zehnder interferometer of two directional couplers and two strip arms, solved as the netlist of its devices.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "coupler_length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "coupler_length µm: 18.576115501358448 by default, from 0 to 10000."
+                  },
+                  "gap": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "gap µm: 0.2 by default, from 0.02 to 2."
+                  },
+                  "loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "loss dB/cm: 2.7 by default, from 0 to 1000."
+                  },
+                  "lower": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "lower µm: 100 by default, from 0 to 100000."
+                  },
+                  "phase": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "phase °: 0 by default, from -360 to 360."
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "span µm: 0.1 by default, from 0.004 to 0.4."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.05 to 2."
+                  },
+                  "upper": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "upper µm: 150 by default, from 0 to 100000."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 0.4 to 10."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 0.5 by default, from 0.1 to 5."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "Y-branch MZI"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "A Mach–Zehnder interferometer of two Y-branches and two strip arms, solved as the netlist of its devices.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "excess_loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "excess_loss dB: 0 by default, from 0 to 10."
+                  },
+                  "loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "loss dB/cm: 2.7 by default, from 0 to 1000."
+                  },
+                  "lower": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "lower µm: 100 by default, from 0 to 100000."
+                  },
+                  "phase": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "phase °: 0 by default, from -360 to 360."
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "span µm: 0.1 by default, from 0.004 to 0.4."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.05 to 2."
+                  },
+                  "upper": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "upper µm: 150 by default, from 0 to 100000."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 0.4 to 10."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 0.5 by default, from 0.1 to 5."
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "description": "A device of the library (docs/methods/devices.md), computed at a fidelity, studied, fitted or optimized by the task.",
+      "properties": {
+        "compact": {
+          "description": "A compact model's file, for the compact fidelity.",
+          "type": "string"
+        },
+        "fidelity": {
+          "description": "The model it is computed by: the device's cheapest by default.",
+          "enum": [
+            "analytic",
+            "compact",
+            "2D",
+            "3D",
+            "measured",
+            "2d",
+            "3d"
+          ]
+        },
+        "kind": {
+          "description": "The device, of the library's.",
+          "enum": [
+            "waveguide",
+            "bend",
+            "directional coupler",
+            "all-pass ring",
+            "add-drop ring",
+            "rib waveguide",
+            "MMI 1x2",
+            "MMI 2x2",
+            "Y-branch",
+            "MZI",
+            "Y-branch MZI"
+          ]
+        },
+        "parameters": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "description": "The design's values, each a number in its unit or an expression; the others keep their defaults, and names of your own may be read by the rest.",
+          "type": "object"
+        },
+        "stack": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object"
+            }
+          ],
+          "description": "A preset (\"soi\", \"soi_220\", \"nitride\"), { preset, bottom_oxide_um }, or layers of your own."
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "EtchSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "depth",
+              "depth_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "sidewall",
+              "sidewall_deg"
+            ]
+          }
+        }
+      ],
+      "description": "A shape's `etch = { depth_um, sidewall_deg }` (`crate::stack::Etch`): how deep from its layer's top (through it when left out) and its walls' angle from the layer's plane (90 when left out). `depth` and `sidewall` take expressions with units (`\"70 nm\"`, `\"85 deg\"`).",
+      "properties": {
+        "depth": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of depth_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "depth_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "sidewall": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of sidewall_deg: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "sidewall_deg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Expression": {
+      "description": "An expression of numbers with units and the task's parameters (docs/methods/expressions.md), e.g. \"500 nm\", \"w/2 + gap\", \"10 deg\".",
+      "type": "string"
+    },
+    "FdfdTask": {
+      "additionalProperties": false,
+      "properties": {
+        "averaging": {
+          "description": "How the plane's cells are averaged (`crate::averaging::Averaging`): `\"samples\"` (the default), `\"point\"`, `\"mean\"`, `\"diagonal\"` or `\"tensor\"`.",
+          "type": "string"
+        },
+        "bottom_oxide_um": {
+          "type": "number"
+        },
+        "cell": {
+          "description": "Named groups of shapes, placed by a [[task.shape]] of type \"reference\".",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "shapes": {
+                "items": {
+                  "$ref": "#/$defs/ShapeSpec"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "name",
+              "shapes"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "circle": {
+          "items": {
+            "$ref": "#/$defs/CircleSpec"
+          },
+          "type": "array"
+        },
+        "component": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Component"
+          },
+          "type": "array"
+        },
+        "core_nm": {
+          "type": "number"
+        },
+        "field_um": {
+          "description": "The field is recorded at the swept wavelength nearest this (µm): the first by default.",
+          "type": "number"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "description": "Named parameters, each an expression of numbers with units and of the others, in any order: what the shapes' expressions and a sweep read.",
+          "type": "object"
+        },
+        "path": {
+          "items": {
+            "$ref": "#/$defs/PathSpec"
+          },
+          "type": "array"
+        },
+        "pml_cells": {
+          "description": "PML cells on each side, inside the window: 20 by default.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "polarization": {
+          "description": "`\"te\"` (the default) or `\"tm\"`: the slab mode's polarization.",
+          "type": "string"
+        },
+        "port": {
+          "items": {
+            "$ref": "#/$defs/PortSpec"
+          },
+          "type": "array"
+        },
+        "rect": {
+          "items": {
+            "$ref": "#/$defs/RectSpec"
+          },
+          "type": "array"
+        },
+        "ring": {
+          "items": {
+            "$ref": "#/$defs/RingSpec"
+          },
+          "type": "array"
+        },
+        "shape": {
+          "items": {
+            "$ref": "#/$defs/ShapeSpec"
+          },
+          "type": "array"
+        },
+        "stack": {
+          "$ref": "#/$defs/StackField"
+        },
+        "step_nm": {
+          "type": "number"
+        },
+        "sweep": {
+          "$ref": "#/$defs/WavelengthSweep"
+        },
+        "wavelength_um": {
+          "type": "number"
+        },
+        "x_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "stack",
+        "wavelength_um",
+        "layer",
+        "x_um",
+        "y_um",
+        "step_nm"
+      ],
+      "type": "object"
+    },
+    "FdtdBoundaries": {
+      "additionalProperties": false,
+      "properties": {
+        "bloch": {
+          "description": "The Bloch wavenumbers along x, y and z, rad/µm, for the periodic sides.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
+        "x": {
+          "type": "string"
+        },
+        "y": {
+          "type": "string"
+        },
+        "z": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "FdtdTask": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "default": [],
+          "description": "Bodies in space over the structure: 3D only.",
+          "items": {
+            "$ref": "#/$defs/Body"
+          },
+          "type": "array"
+        },
+        "bottom_oxide_um": {
+          "type": "number"
+        },
+        "boundaries": {
+          "$ref": "#/$defs/FdtdBoundaries"
+        },
+        "cell": {
+          "description": "Named groups of shapes, placed by a [[task.shape]] of type \"reference\".",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "shapes": {
+                "items": {
+                  "$ref": "#/$defs/ShapeSpec"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "name",
+              "shapes"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "circle": {
+          "items": {
+            "$ref": "#/$defs/CircleSpec"
+          },
+          "type": "array"
+        },
+        "component": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Component"
+          },
+          "type": "array"
+        },
+        "core_nm": {
+          "type": "number"
+        },
+        "courant": {
+          "type": "number"
+        },
+        "dimensions": {
+          "description": "2 (the default) or 3.",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "monitor": {
+          "items": {
+            "$ref": "#/$defs/ItemSpec"
+          },
+          "type": "array"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "description": "Named parameters, each an expression of numbers with units and of the others, in any order: what the shapes' expressions and a sweep read.",
+          "type": "object"
+        },
+        "path": {
+          "items": {
+            "$ref": "#/$defs/PathSpec"
+          },
+          "type": "array"
+        },
+        "pml_cells": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "polarization": {
+          "description": "2D: `\"te\"` (the default) or `\"tm\"`.",
+          "type": "string"
+        },
+        "rect": {
+          "items": {
+            "$ref": "#/$defs/RectSpec"
+          },
+          "type": "array"
+        },
+        "ring": {
+          "items": {
+            "$ref": "#/$defs/RingSpec"
+          },
+          "type": "array"
+        },
+        "shape": {
+          "items": {
+            "$ref": "#/$defs/ShapeSpec"
+          },
+          "type": "array"
+        },
+        "source": {
+          "items": {
+            "$ref": "#/$defs/ItemSpec"
+          },
+          "type": "array"
+        },
+        "spectrum": {
+          "$ref": "#/$defs/SpectrumSpec"
+        },
+        "stack": {
+          "$ref": "#/$defs/StackField",
+          "description": "The stack; a job's `[device]` gives its own instead."
+        },
+        "step_nm": {
+          "type": "number"
+        },
+        "stop": {
+          "$ref": "#/$defs/StopSpec"
+        },
+        "view": {
+          "$ref": "#/$defs/ViewSpec"
+        },
+        "wavelength_um": {
+          "type": "number"
+        },
+        "x_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "z_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "wavelength_um",
+        "layer",
+        "x_um",
+        "y_um",
+        "step_nm"
+      ],
+      "type": "object"
+    },
+    "FitTask": {
+      "additionalProperties": false,
+      "description": "A `\"fit\"` task.",
+      "properties": {
+        "axis": {
+          "items": {
+            "$ref": "#/$defs/AxisTask"
+          },
+          "type": "array"
+        },
+        "count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "degree": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "from_um": {
+          "type": "number"
+        },
+        "held_out": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "interpolation": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "margin_um": {
+          "type": "number"
+        },
+        "model_2d": {
+          "type": "string"
+        },
+        "pml_cells": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "points": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "poles": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "samples": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sampling": {
+          "type": "string"
+        },
+        "seed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "step_nm": {
+          "type": "number"
+        },
+        "step_z_nm": {
+          "type": "number"
+        },
+        "to_um": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "ItemSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "port",
+              "normal"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "port",
+              "at_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "port",
+              "direction"
+            ]
+          }
+        }
+      ],
+      "description": "A source or a monitor, as the job gives it: its type and the fields that type reads.",
+      "properties": {
+        "angle_deg": {
+          "type": "number"
+        },
+        "at_um": {
+          "type": "number"
+        },
+        "center_um": {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "component": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string"
+        },
+        "focus_um": {
+          "type": "number"
+        },
+        "name": {
+          "type": "string"
+        },
+        "normal": {
+          "type": "string"
+        },
+        "polarization": {
+          "type": "string"
+        },
+        "port": {
+          "description": "A component's port, \"name.port\", that places it: in place of normal, at_um, direction.",
+          "type": "string"
+        },
+        "position_um": {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "type": {
+          "type": "string"
+        },
+        "waist_um": {
+          "type": "number"
+        },
+        "wavelengths_um": {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "x_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "z_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "Layers": {
+      "description": "A stack of your own (docs/methods/stacks.md): a substrate, a cladding and layers of the materials catalogue's, bottom to top, each with its thickness (thickness_um, or thickness as an expression).",
+      "type": "object"
+    },
+    "ModesTask": {
+      "additionalProperties": false,
+      "properties": {
+        "bottom_oxide_um": {
+          "type": "number"
+        },
+        "cell": {
+          "description": "Named groups of shapes, placed by a [[task.shape]] of type \"reference\".",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "shapes": {
+                "items": {
+                  "$ref": "#/$defs/ShapeSpec"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "name",
+              "shapes"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "circle": {
+          "items": {
+            "$ref": "#/$defs/CircleSpec"
+          },
+          "type": "array"
+        },
+        "core_nm": {
+          "type": "number"
+        },
+        "cut_x_um": {
+          "description": "Along x: where the cross-section is cut.",
+          "type": "number"
+        },
+        "cut_y_um": {
+          "description": "Along y: where the cross-section is cut.",
+          "type": "number"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "modes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "modes_above": {
+          "description": "Every mode with n_eff above this, instead of a count.",
+          "type": "number"
+        },
+        "modes_near": {
+          "description": "The count nearest this effective index, instead of the highest index's.",
+          "type": "number"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "description": "Named parameters, each an expression of numbers with units and of the others, in any order: what the shapes' expressions and a sweep read.",
+          "type": "object"
+        },
+        "pml": {
+          "$ref": "#/$defs/PmlSpec",
+          "description": "Perfectly matched layers inside the window's edges: the window is open, and its leaky modes are kept with their loss."
+        },
+        "propagation": {
+          "description": "`\"x\"` or `\"y\"` (the default, an older job): the axis the modes travel along.",
+          "type": "string"
+        },
+        "rect": {
+          "items": {
+            "$ref": "#/$defs/RectSpec"
+          },
+          "type": "array"
+        },
+        "ring": {
+          "items": {
+            "$ref": "#/$defs/RingSpec"
+          },
+          "type": "array"
+        },
+        "stack": {
+          "$ref": "#/$defs/StackField"
+        },
+        "step_nm": {
+          "type": "number"
+        },
+        "sweep": {
+          "$ref": "#/$defs/SweepSpec"
+        },
+        "wavelength_um": {
+          "type": "number"
+        },
+        "x_um": {
+          "description": "Along y: the window across the guide.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y_um": {
+          "description": "Along x: the window across the guide.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "z_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "stack",
+        "wavelength_um",
+        "layer",
+        "step_nm"
+      ],
+      "type": "object"
+    },
+    "OptimizeTask": {
+      "additionalProperties": false,
+      "description": "An `\"optimize\"` task.",
+      "properties": {
+        "constraint": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Bound"
+          },
+          "type": "array"
+        },
+        "corner": {
+          "items": {
+            "$ref": "#/$defs/CornerTask"
+          },
+          "type": "array"
+        },
+        "evaluations": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "from_um": {
+          "type": "number"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "learning_rate": {
+          "type": "number"
+        },
+        "margin_um": {
+          "type": "number"
+        },
+        "method": {
+          "type": "string"
+        },
+        "model_2d": {
+          "type": "string"
+        },
+        "objective": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Aim"
+          },
+          "type": "array"
+        },
+        "pml_cells": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "points": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "population": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "reduce": {
+          "type": "string"
+        },
+        "samples": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "seed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "step_nm": {
+          "type": "number"
+        },
+        "step_z_nm": {
+          "type": "number"
+        },
+        "to_um": {
+          "type": "number"
+        },
+        "variable": {
+          "items": {
+            "$ref": "#/$defs/VariableTask"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "method"
+      ],
+      "type": "object"
+    },
+    "PathSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "start",
+              "start_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "width",
+              "width_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "width_um"
+              ]
+            },
+            {
+              "required": [
+                "width"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "heading",
+              "heading_rad"
+            ]
+          }
+        }
+      ],
+      "description": "A path (`crate::geometry::Path`): its start, heading and width, and its segments, every value resolved to µm and radians.",
+      "properties": {
+        "etch": {
+          "$ref": "#/$defs/EtchSpec"
+        },
+        "heading": {
+          "anyOf": [
+            {
+              "default": 0.0,
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of heading_rad: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "heading_rad": {
+          "anyOf": [
+            {
+              "default": 0.0,
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "layer": {
+          "type": "string"
+        },
+        "segments": {
+          "items": {
+            "$ref": "#/$defs/SegmentSpec"
+          },
+          "type": "array"
+        },
+        "start": {
+          "default": [
+            0.0,
+            0.0
+          ],
+          "description": "As expressions in place of start_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "start_um": {
+          "default": [
+            0.0,
+            0.0
+          ],
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of width_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "width_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        }
+      },
+      "required": [
+        "layer",
+        "segments"
+      ],
+      "type": "object"
+    },
+    "PlaceSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "translate",
+              "translate_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "rotate",
+              "rotate_rad"
+            ]
+          }
+        }
+      ],
+      "description": "A reference's placement: mirrored (`mirror = \"x\"`, in the x axis, y to −y; `\"y\"`, x to −x), scaled, rotated about the cell's origin, then moved, as GDSII places a cell.",
+      "properties": {
+        "mirror": {
+          "type": "string"
+        },
+        "rotate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of rotate_rad: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "rotate_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "scale": {
+          "type": "number"
+        },
+        "translate": {
+          "description": "As expressions in place of translate_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "translate_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "PmlSpec": {
+      "additionalProperties": false,
+      "description": "A modes job's `[task.pml]`: perfectly matched layers inside its window's edges (`crate::mode::vector::Pml`), as the façade's cross-section has them.",
+      "properties": {
+        "strength": {
+          "description": "The stretching's strength α, s = 1 + iα at the window's edge: 3 by default.",
+          "type": "number"
+        },
+        "thickness_um": {
+          "description": "Each layer's thickness, µm, 0 for none: across the guide at its low and high end (the pictures' left and right), below and above.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "type": "array"
+        }
+      },
+      "required": [
+        "thickness_um"
+      ],
+      "type": "object"
+    },
+    "PortSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "port",
+              "x_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "port",
+              "side"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "x_um",
+                "side"
+              ]
+            },
+            {
+              "required": [
+                "port"
+              ]
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "port": {
+          "description": "A component's port, \"name.port\", that places it: in place of x_um, side.",
+          "type": "string"
+        },
+        "side": {
+          "description": "`\"left\"` (light goes in towards +x) or `\"right\"`.",
+          "type": "string"
+        },
+        "x_um": {
+          "description": "Where the port's column is, µm.",
+          "type": "number"
+        },
+        "y_um": {
+          "description": "The port's window along y, µm: one guide of several; the whole column by default.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "RectSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "center",
+              "center_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "center_um"
+              ]
+            },
+            {
+              "required": [
+                "center"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "size",
+              "size_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "size_um"
+              ]
+            },
+            {
+              "required": [
+                "size"
+              ]
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "center": {
+          "description": "As expressions in place of center_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "center_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "etch": {
+          "$ref": "#/$defs/EtchSpec"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "size": {
+          "description": "As expressions in place of size_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "size_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "layer"
+      ],
+      "type": "object"
+    },
+    "ResizeSpec": {
+      "additionalProperties": false,
+      "description": "A site whose element an array's defect scales: `at = [i, j]`, `by` a factor.",
+      "properties": {
+        "at": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "by": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "at",
+        "by"
+      ],
+      "type": "object"
+    },
+    "RingSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "center",
+              "center_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "center_um"
+              ]
+            },
+            {
+              "required": [
+                "center"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "radius",
+              "radius_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "radius_um"
+              ]
+            },
+            {
+              "required": [
+                "radius"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "width",
+              "width_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "width_um"
+              ]
+            },
+            {
+              "required": [
+                "width"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "A ring: its centre line's radius and its waveguide's width (`Shape::ring`).",
+      "properties": {
+        "center": {
+          "description": "As expressions in place of center_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "center_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "etch": {
+          "$ref": "#/$defs/EtchSpec"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "radius": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of radius_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "radius_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of width_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "width_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        }
+      },
+      "required": [
+        "layer"
+      ],
+      "type": "object"
+    },
+    "SegmentSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "straight",
+              "straight_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "arc",
+              "arc_rad"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "euler",
+              "euler_rad"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "sine",
+              "sine_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "radius",
+              "radius_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "offset",
+              "offset_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "width",
+              "width_um"
+            ]
+          }
+        }
+      ],
+      "description": "One segment of a `PathSpec`: exactly one of a straight, an arc, an Euler bend or a sine S-bend, with what it needs, and the width at its end if it tapers.",
+      "properties": {
+        "arc": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of arc_rad: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "arc_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "euler": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of euler_rad: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "euler_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "offset": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of offset_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "offset_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "radius": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of radius_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "radius_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "sine": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of sine_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "sine_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "straight": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of straight_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "straight_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of width_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "width_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "ShapeSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "origin",
+              "origin_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "angle",
+              "angle_rad"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "inner",
+              "inner_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "start_angle",
+              "start_angle_rad"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "center",
+              "center_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "x",
+              "x_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "y",
+              "y_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "corner",
+              "corner_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "pixel",
+              "pixel_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "size",
+              "size_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "width",
+              "width_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "start",
+              "start_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "heading",
+              "heading_rad"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "distance",
+              "distance_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "convex",
+              "convex_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "concave",
+              "concave_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "points",
+              "points_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "pitch",
+              "pitch_um"
+            ]
+          }
+        }
+      ],
+      "description": "A `[[task.shape]]`, or a shape in another's `of`. See the module.",
+      "properties": {
+        "angle": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of angle_rad: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "angle_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "cell": {
+          "type": "string"
+        },
+        "cells": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "center": {
+          "description": "As expressions in place of center_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "center_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "concave": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of concave_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "concave_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "convex": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of convex_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "convex_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "corner": {
+          "description": "As expressions in place of corner_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "corner_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "count": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "curve": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "distance": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of distance_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "distance_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "element": {
+          "$ref": "#/$defs/ShapeSpec"
+        },
+        "etch": {
+          "$ref": "#/$defs/EtchSpec"
+        },
+        "heading": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of heading_rad: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "heading_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "i": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "inner": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of inner_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "inner_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "inside": {
+          "type": "string"
+        },
+        "j": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "join": {
+          "type": "string"
+        },
+        "lattice": {
+          "type": "string"
+        },
+        "layer": {
+          "default": "",
+          "type": "string"
+        },
+        "lower": {
+          "type": "string"
+        },
+        "miter_limit": {
+          "type": "number"
+        },
+        "of": {
+          "items": {
+            "$ref": "#/$defs/ShapeSpec"
+          },
+          "type": "array"
+        },
+        "origin": {
+          "description": "As expressions in place of origin_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "origin_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "pitch": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/Expression"
+                }
+              ]
+            },
+            {
+              "description": "As expressions in place of pitch_um: a length with its unit, e.g. \"500 nm\".",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Expression"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          ],
+          "description": "As expressions in place of pitch_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "pitch_um": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/Expression"
+                }
+              ]
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Expression"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          ]
+        },
+        "pixel": {
+          "description": "As expressions in place of pixel_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "pixel_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "place": {
+          "items": {
+            "$ref": "#/$defs/PlaceSpec"
+          },
+          "type": "array"
+        },
+        "points": {
+          "description": "As expressions in place of points_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/Expression"
+                }
+              ]
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "points_um": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/Expression"
+                }
+              ]
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "radius": {
+          "type": "string"
+        },
+        "radius_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "remove": {
+          "items": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "resize": {
+          "items": {
+            "$ref": "#/$defs/ResizeSpec"
+          },
+          "type": "array"
+        },
+        "rings": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "segments": {
+          "items": {
+            "$ref": "#/$defs/SegmentSpec"
+          },
+          "type": "array"
+        },
+        "shift": {
+          "items": {
+            "$ref": "#/$defs/ShiftSpec"
+          },
+          "type": "array"
+        },
+        "size": {
+          "description": "As expressions in place of size_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "size_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "start": {
+          "description": "As expressions in place of start_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "start_angle": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of start_angle_rad: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "start_angle_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "start_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "type": {
+          "type": "string"
+        },
+        "upper": {
+          "type": "string"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of width_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "width_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "x": {
+          "description": "As expressions in place of x_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "x_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y": {
+          "description": "As expressions in place of y_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "ShiftSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "by",
+              "by_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "by_um"
+              ]
+            },
+            {
+              "required": [
+                "by"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "A site an array's defect moves: `at = [i, j]`, `by = [dx, dy]`.",
+      "properties": {
+        "at": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "by": {
+          "description": "As expressions in place of by_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "by_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "at"
+      ],
+      "type": "object"
+    },
+    "SideSpec": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "properties": {
+            "fixed": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "fixed"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "flux": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "flux"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "ambient": {
+              "type": "number"
+            },
+            "convective": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "convective",
+            "ambient"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "SolverFile": {
+      "additionalProperties": false,
+      "description": "The job file's `[solver]` table.",
+      "properties": {
+        "direct": {
+          "description": "The direct solver of an `\"fdfd\"` job: `\"auto\"` (the default, photonoxide's own), `\"photonoxide\"`, or a backend registered under another name.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "SpectrumSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "from_um": {
+          "type": "number"
+        },
+        "points": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "to_um": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "from_um",
+        "to_um",
+        "points"
+      ],
+      "type": "object"
+    },
+    "SpectrumTask": {
+      "additionalProperties": false,
+      "description": "A `\"spectrum\"` task: the band and the grids.",
+      "properties": {
+        "from_um": {
+          "type": "number"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "margin_um": {
+          "type": "number"
+        },
+        "model_2d": {
+          "type": "string"
+        },
+        "pml_cells": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "points": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "samples": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "step_nm": {
+          "type": "number"
+        },
+        "step_z_nm": {
+          "type": "number"
+        },
+        "to_um": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "StackField": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/Layers"
+        }
+      ],
+      "description": "A task's `stack`: a preset's name, or a `[task.stack]` table of layers."
+    },
+    "StaticBoundaries": {
+      "additionalProperties": false,
+      "properties": {
+        "bottom": {
+          "$ref": "#/$defs/SideSpec"
+        },
+        "left": {
+          "$ref": "#/$defs/SideSpec"
+        },
+        "right": {
+          "$ref": "#/$defs/SideSpec"
+        },
+        "top": {
+          "$ref": "#/$defs/SideSpec"
+        }
+      },
+      "type": "object"
+    },
+    "StaticTask": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Body"
+          },
+          "type": "array"
+        },
+        "bottom_oxide_um": {
+          "type": "number"
+        },
+        "boundary": {
+          "$ref": "#/$defs/StaticBoundaries"
+        },
+        "cell": {
+          "description": "Named groups of shapes, placed by a [[task.shape]] of type \"reference\".",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "shapes": {
+                "items": {
+                  "$ref": "#/$defs/ShapeSpec"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "name",
+              "shapes"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "circle": {
+          "items": {
+            "$ref": "#/$defs/CircleSpec"
+          },
+          "type": "array"
+        },
+        "component": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Component"
+          },
+          "type": "array"
+        },
+        "conductor": {
+          "items": {
+            "$ref": "#/$defs/Area"
+          },
+          "type": "array"
+        },
+        "core_nm": {
+          "type": "number"
+        },
+        "cut_x_um": {
+          "type": "number"
+        },
+        "electrical_conductivity": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CoefficientSpec"
+          },
+          "type": "object"
+        },
+        "fine_nm": {
+          "type": "number"
+        },
+        "growth": {
+          "type": "number"
+        },
+        "heater": {
+          "items": {
+            "$ref": "#/$defs/Area"
+          },
+          "type": "array"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "description": "Named parameters, each an expression of numbers with units and of the others, in any order: what the shapes' expressions and a sweep read.",
+          "type": "object"
+        },
+        "path": {
+          "items": {
+            "$ref": "#/$defs/PathSpec"
+          },
+          "type": "array"
+        },
+        "permittivity": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CoefficientSpec"
+          },
+          "type": "object"
+        },
+        "physics": {
+          "type": "string"
+        },
+        "probe": {
+          "items": {
+            "$ref": "#/$defs/Area"
+          },
+          "type": "array"
+        },
+        "rect": {
+          "items": {
+            "$ref": "#/$defs/RectSpec"
+          },
+          "type": "array"
+        },
+        "region": {
+          "items": {
+            "$ref": "#/$defs/Area"
+          },
+          "type": "array"
+        },
+        "ring": {
+          "items": {
+            "$ref": "#/$defs/RingSpec"
+          },
+          "type": "array"
+        },
+        "shape": {
+          "items": {
+            "$ref": "#/$defs/ShapeSpec"
+          },
+          "type": "array"
+        },
+        "sink": {
+          "items": {
+            "$ref": "#/$defs/Area"
+          },
+          "type": "array"
+        },
+        "stack": {
+          "$ref": "#/$defs/StackField"
+        },
+        "step_nm": {
+          "type": "number"
+        },
+        "thermal_conductivity": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CoefficientSpec"
+          },
+          "type": "object"
+        },
+        "y_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "z_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "physics",
+        "stack",
+        "y_um",
+        "z_um",
+        "step_nm"
+      ],
+      "type": "object"
+    },
+    "StopSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "fraction": {
+          "description": "For `\"decay\"`: the share of its peak |field|² the monitors' points must stay below over a whole check.",
+          "type": "number"
+        },
+        "limit_um": {
+          "description": "For `\"decay\"`: the longest the run may go on, µm/c.",
+          "type": "number"
+        },
+        "time_um": {
+          "description": "For `\"time\"`: how long, µm/c.",
+          "type": "number"
+        },
+        "until": {
+          "description": "`\"decay\"` (the default) or `\"time\"`.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "StructureTask": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Body"
+          },
+          "type": "array"
+        },
+        "bottom_oxide_um": {
+          "type": "number"
+        },
+        "cell": {
+          "description": "Named groups of shapes, placed by a [[task.shape]] of type \"reference\".",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "shapes": {
+                "items": {
+                  "$ref": "#/$defs/ShapeSpec"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "name",
+              "shapes"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "circle": {
+          "items": {
+            "$ref": "#/$defs/CircleSpec"
+          },
+          "type": "array"
+        },
+        "component": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Component"
+          },
+          "type": "array"
+        },
+        "core_nm": {
+          "type": "number"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "description": "Named parameters, each an expression of numbers with units and of the others, in any order: what the shapes' expressions and a sweep read.",
+          "type": "object"
+        },
+        "path": {
+          "items": {
+            "$ref": "#/$defs/PathSpec"
+          },
+          "type": "array"
+        },
+        "rect": {
+          "items": {
+            "$ref": "#/$defs/RectSpec"
+          },
+          "type": "array"
+        },
+        "ring": {
+          "items": {
+            "$ref": "#/$defs/RingSpec"
+          },
+          "type": "array"
+        },
+        "shape": {
+          "items": {
+            "$ref": "#/$defs/ShapeSpec"
+          },
+          "type": "array"
+        },
+        "side_y_um": {
+          "type": "number"
+        },
+        "stack": {
+          "$ref": "#/$defs/StackField"
+        },
+        "step_nm": {
+          "type": "number"
+        },
+        "wavelength_um": {
+          "type": "number"
+        },
+        "x_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "z_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "stack",
+        "wavelength_um",
+        "layer",
+        "x_um",
+        "y_um",
+        "step_nm"
+      ],
+      "type": "object"
+    },
+    "StudyTask": {
+      "additionalProperties": false,
+      "description": "A `\"sweep\"` or `\"corners\"` task: the band, the grids, and the axes or corners.",
+      "properties": {
+        "axis": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SweepAxis"
+          },
+          "type": "array"
+        },
+        "corner": {
+          "items": {
+            "$ref": "#/$defs/CornerTask"
+          },
+          "type": "array"
+        },
+        "from_um": {
+          "type": "number"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "margin_um": {
+          "type": "number"
+        },
+        "model_2d": {
+          "type": "string"
+        },
+        "pml_cells": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "points": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "samples": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "step_nm": {
+          "type": "number"
+        },
+        "step_z_nm": {
+          "type": "number"
+        },
+        "to_um": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "SweepAxis": {
+      "description": "An axis of a sweep: a parameter of the design stepped evenly from one value to another.",
+      "properties": {
+        "from": {
+          "description": "The first value, in the parameter's unit: µm for a length, degrees for an angle, the number otherwise.",
+          "type": "number"
+        },
+        "parameter": {
+          "description": "The parameter: one of the device's (`Device::parameters`), or one the design's expressions name.",
+          "type": "string"
+        },
+        "points": {
+          "description": "How many values, evenly spaced from `from` to `to`.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "to": {
+          "description": "The last.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "parameter",
+        "from",
+        "to",
+        "points"
+      ],
+      "type": "object"
+    },
+    "SweepSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "parameter": {
+          "type": "string"
+        },
+        "points": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rect": {
+          "description": "For a width sweep: which rectangle, in the order given (0 by default).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        }
+      },
+      "required": [
+        "parameter",
+        "from",
+        "to",
+        "points"
+      ],
+      "type": "object"
+    },
+    "VariableTask": {
+      "additionalProperties": false,
+      "description": "A `[[task.variable]]`.",
+      "properties": {
+        "from": {
+          "type": "number"
+        },
+        "parameter": {
+          "type": "string"
+        },
+        "to": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "parameter",
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
+    "ViewSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "every_um": {
+          "description": "A frame every this much time, µm/c.",
+          "type": "number"
+        },
+        "field": {
+          "description": "The field the frames show: a component, `\"|E|^2\"` or `\"|H|^2\"`.",
+          "type": "string"
+        },
+        "z_um": {
+          "description": "3D: the height of the plane seen from above, µm.",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "WavelengthSweep": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "type": "number"
+        },
+        "parameter": {
+          "type": "string"
+        },
+        "points": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "to": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "parameter",
+        "from",
+        "to",
+        "points"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/tachsin/photonoxide/main/docs/job.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "circuit"
+        ]
+      },
+      "then": {
+        "properties": {
+          "task": {
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "spectrum"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/ChipTask"
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "sweep"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/ChipTask"
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "corners"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/ChipTask"
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "optimize"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/OptimizeTask"
+                }
+              }
+            ],
+            "properties": {
+              "kind": {
+                "description": "What the task computes.",
+                "enum": [
+                  "spectrum",
+                  "sweep",
+                  "corners",
+                  "optimize"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "not": {
+          "required": [
+            "circuit"
+          ]
+        },
+        "required": [
+          "device"
+        ]
+      },
+      "then": {
+        "properties": {
+          "task": {
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "spectrum"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/SpectrumTask"
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "sweep"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/StudyTask"
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "corners"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/StudyTask"
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "fit"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/FitTask"
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "optimize"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/OptimizeTask"
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "fdtd"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/FdtdTask"
+                }
+              },
+              {
+                "anyOf": [
+                  {
+                    "maxProperties": 0
+                  },
+                  {
+                    "required": [
+                      "kind"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "properties": {
+              "kind": {
+                "description": "What the task computes.",
+                "enum": [
+                  "spectrum",
+                  "sweep",
+                  "corners",
+                  "fit",
+                  "optimize",
+                  "fdtd"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "device"
+              ]
+            },
+            {
+              "required": [
+                "circuit"
+              ]
+            }
+          ]
+        }
+      },
+      "then": {
+        "properties": {
+          "task": {
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "structure"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/StructureTask"
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "modes"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/ModesTask"
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "fdfd"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/FdfdTask"
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "fdtd"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/FdtdTask"
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "static"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/StaticTask"
+                }
+              }
+            ],
+            "properties": {
+              "kind": {
+                "description": "What the task computes.",
+                "enum": [
+                  "structure",
+                  "modes",
+                  "fdfd",
+                  "fdtd",
+                  "static"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          }
+        }
+      }
+    }
+  ],
+  "description": "The job file's layout, the same in every `Format`.",
+  "properties": {
+    "$schema": {
+      "description": "The schema an editor checks this file with.",
+      "type": "string"
+    },
+    "circuit": {
+      "$ref": "#/$defs/Circuit",
+      "description": "A chip of instances: the structure, which the task computes, studies or optimizes."
+    },
+    "device": {
+      "$ref": "#/$defs/Device",
+      "description": "A device of the library: the structure, which the task computes, studies or optimizes."
+    },
+    "name": {
+      "description": "The job's name: its runs' directories end in it.",
+      "type": "string"
+    },
+    "solver": {
+      "$ref": "#/$defs/SolverFile",
+      "description": "The solver backends the job asks for."
+    },
+    "task": {
+      "description": "What to compute, by its kind.",
+      "type": "object"
+    },
+    "timeout_minutes": {
+      "description": "The hard limit on the run, in minutes: it stops when the limit passes.",
+      "type": "number"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "photonoxide job",
+  "type": "object"
+}

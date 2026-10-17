@@ -36,6 +36,7 @@
 //! points = 5                # a grid's; a Latin hypercube takes count
 //! ```
 
+use schemars::JsonSchema;
 use serde::Deserialize;
 use toml::{Table, Value};
 
@@ -54,7 +55,7 @@ use crate::{Complex64, Error, Result};
 const BAND_POINTS: usize = 101;
 
 /// A `[[task.axis]]` of a fit.
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct AxisTask {
     parameter: String,
@@ -64,9 +65,9 @@ struct AxisTask {
 }
 
 /// A `"fit"` task.
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct FitTask {
+pub(super) struct FitTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
     kind: String,
     from_um: Option<f64>,

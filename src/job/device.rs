@@ -33,6 +33,7 @@
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use toml::{Table, Value};
 
@@ -450,9 +451,9 @@ fn keep_compact(job: &Job, run: &Run) -> Result<()> {
 // ---- the spectrum task ----
 
 /// A `"spectrum"` task: the band and the grids.
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct SpectrumTask {
+pub(super) struct SpectrumTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
     kind: String,
     from_um: Option<f64>,

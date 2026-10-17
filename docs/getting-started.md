@@ -239,6 +239,31 @@ JSON has no comments, so a JSON job has no description. YAML is read as YAML 1.2
 `on` and `off` are strings, as `1:30` is, and only `true` and `false` are booleans. A run keeps
 its job as it was given (`job.toml`, `job.json` or `job.yaml`).
 
+**Completions and checks in your editor.** [`docs/job.schema.json`](job.schema.json) is the job
+file's JSON Schema. It is derived from the structs the library reads each task into, so it has
+every kind's fields, which of them a kind needs, their types and their docs. It also has the
+expressions with units the shapes take, the device library's kinds and parameters, and it
+refuses a key the library would refuse. Point an editor at it from the file's first line:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/tachsin/photonoxide/main/docs/job.schema.json
+```
+
+```toml
+#:schema https://raw.githubusercontent.com/tachsin/photonoxide/main/docs/job.schema.json
+```
+
+```json
+{ "$schema": "https://raw.githubusercontent.com/tachsin/photonoxide/main/docs/job.schema.json", "name": "strip" }
+```
+
+The YAML line works in VS Code with Red Hat's YAML extension, and in any editor that runs
+yaml-language-server. The TOML line works with Taplo, which is Even Better TOML in VS Code. A
+JSON job's `$schema` key is read and left out, and it isn't written back. `photonoxide schema`
+prints the schema of the version you run, and `--write` saves it. The schema says what a file's
+keys and types are. Only `photonoxide run`'s check knows what needs the stack or a solve, such as
+a layer the stack doesn't have, or a window too small for its PMLs.
+
 A run opens in 3D: the layers and shapes as solids over the run's window, cut where a modes
 job cuts its cross-section, and the selected mode travelling along its guide (drag to rotate,
 right-drag to pan, scroll to zoom). The sidebar lists the run, its layers (each can be hidden),

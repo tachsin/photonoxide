@@ -454,6 +454,7 @@
 //!   the numbers ([`Event::StaticField`], [`Event::StaticResult`]). See `statics.rs` for its
 //!   tables and an example.
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::geometry::{Point, Shape};
@@ -487,6 +488,7 @@ pub mod optimize;
 mod optimize_checks;
 mod params;
 pub mod results;
+pub(crate) mod schema;
 mod shapes;
 mod statics;
 #[cfg(test)]
@@ -510,6 +512,7 @@ pub use optimize::{
     Aim, Bound, Evaluation, GradientCheck, Optimization, Problem, Recorder, Variable, design_of,
     optimize_from_chip, optimize_from_device, optimizes,
 };
+pub use schema::{SCHEMA_URL, schema, schema_text};
 pub use statics::StaticValue;
 pub use study::{Corner, Study, SweepAxis, study_from_device};
 pub use templates::{TEMPLATES, Template, template};
@@ -1817,7 +1820,7 @@ fn scene(
     })
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct RectSpec {
     layer: String,
@@ -1826,7 +1829,7 @@ struct RectSpec {
     etch: Option<EtchSpec>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct CircleSpec {
     layer: String,
@@ -1836,7 +1839,7 @@ struct CircleSpec {
 }
 
 /// A ring: its centre line's radius and its waveguide's width ([`Shape::ring`]).
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct RingSpec {
     layer: String,
@@ -1849,7 +1852,7 @@ struct RingSpec {
 /// A shape's `etch = { depth_um, sidewall_deg }` ([`crate::stack::Etch`]): how deep from its
 /// layer's top (through it when left out) and its walls' angle from the layer's plane (90 when
 /// left out). `depth` and `sidewall` take expressions with units (`"70 nm"`, `"85 deg"`).
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct EtchSpec {
     depth_um: Option<f64>,
@@ -1872,16 +1875,17 @@ impl EtchSpec {
 }
 
 /// A task's `stack`: a preset's name, or a `[task.stack]` table of layers.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
 #[serde(untagged)]
 enum StackField {
     Name(String),
+    #[schemars(with = "crate::job::schema::Layers")]
     Layers(toml::Table),
 }
 
 /// A path ([`crate::geometry::Path`]): its start, heading and width, and its segments, every
 /// value resolved to µm and radians.
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct PathSpec {
     layer: String,
@@ -1896,7 +1900,7 @@ struct PathSpec {
 
 /// One segment of a [`PathSpec`]: exactly one of a straight, an arc, an Euler bend or a sine
 /// S-bend, with what it needs, and the width at its end if it tapers.
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(super) struct SegmentSpec {
     straight_um: Option<f64>,
@@ -2000,7 +2004,7 @@ pub(super) fn path_of(
     b.build().map_err(|e| at(e.to_string()))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct StructureTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
@@ -2026,8 +2030,10 @@ struct StructureTask {
     #[serde(default)]
     shape: Vec<shapes::ShapeSpec>,
     #[serde(default)]
+    #[schemars(with = "Vec<crate::job::schema::Component>")]
     component: Vec<toml::Table>,
     #[serde(default)]
+    #[schemars(with = "Vec<crate::job::schema::Body>")]
     body: Vec<toml::Table>,
 }
 
@@ -2560,7 +2566,7 @@ impl StructureTask {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct SweepSpec {
     parameter: String,
@@ -2571,7 +2577,7 @@ struct SweepSpec {
     rect: Option<usize>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ModesTask {
     #[allow(dead_code)] // read to dispatch, checked by serde
@@ -2615,7 +2621,7 @@ struct ModesTask {
 
 /// A modes job's `[task.pml]`: perfectly matched layers inside its window's edges
 /// ([`crate::mode::vector::Pml`]), as the façade's cross-section has them.
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct PmlSpec {
     /// Each layer's thickness, µm, 0 for none: across the guide at its low and high end (the

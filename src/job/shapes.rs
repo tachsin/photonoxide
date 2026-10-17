@@ -103,6 +103,7 @@
 //! parameters' definitions (and a sweep's point) in each entry as `parameters` (and `set`), so
 //! that its expressions are parsed in their scope here.
 
+use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::{EtchSpec, SegmentSpec, path_of, task_error};
@@ -116,7 +117,7 @@ use crate::stack::Structure;
 use crate::units::Length;
 
 /// A `[[task.shape]]`, or a shape in another's `of`. See the module.
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ShapeSpec {
     #[serde(rename = "type")]
@@ -153,11 +154,13 @@ pub(super) struct ShapeSpec {
     i: Option<[i64; 2]>,
     j: Option<[i64; 2]>,
     rings: Option<usize>,
+    #[schemars(with = "Option<crate::job::schema::NumberOrExpression>")]
     count: Option<toml::Value>,
     inner_um: Option<f64>,
     start_angle_rad: Option<f64>,
     origin_um: Option<[f64; 2]>,
     angle_rad: Option<f64>,
+    #[schemars(with = "Option<ShapeSpec>")]
     element: Option<toml::Table>,
     remove: Option<Vec<[i64; 2]>>,
     shift: Option<Vec<ShiftSpec>>,
@@ -165,17 +168,20 @@ pub(super) struct ShapeSpec {
     cell: Option<String>,
     place: Option<Vec<PlaceSpec>>,
     /// A reference's cell's shapes: put here by the resolver.
+    #[schemars(skip)]
     cell_shapes: Option<Vec<ShapeSpec>>,
     pub(super) etch: Option<EtchSpec>,
     /// The task's parameters, (name, definition): put here by the resolver.
+    #[schemars(skip)]
     #[serde(default)]
     parameters: Vec<[String; 2]>,
     /// A sweep's parameter and its value at this point: put here by the resolver.
+    #[schemars(skip)]
     set: Option<(String, f64)>,
 }
 
 /// A site an array's defect moves: `at = [i, j]`, `by = [dx, dy]`.
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ShiftSpec {
     at: [i64; 2],
@@ -183,7 +189,7 @@ struct ShiftSpec {
 }
 
 /// A site whose element an array's defect scales: `at = [i, j]`, `by` a factor.
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ResizeSpec {
     at: [i64; 2],
@@ -192,7 +198,7 @@ struct ResizeSpec {
 
 /// A reference's placement: mirrored (`mirror = "x"`, in the x axis, y to −y; `"y"`, x to −x),
 /// scaled, rotated about the cell's origin, then moved, as GDSII places a cell.
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct PlaceSpec {
     translate_um: Option<[f64; 2]>,

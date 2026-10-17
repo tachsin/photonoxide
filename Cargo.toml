@@ -46,6 +46,9 @@ toml = "1"
 yaml-rust2 = "0.13.0"
 # job files in YAML (run::Format): serde, YAML 1.2, pure Rust with no unsafe code
 serde-saphyr = "2.0"
+# the job file's JSON Schema (job::schema), derived from the structs the tasks are read into so
+# the two can't drift: what editors complete and check a job with. MIT, pure Rust
+schemars = "1.2.3"
 # FDTD on the GPU (the `gpu` feature): compute shaders on Vulkan, DirectX 12 or Metal, the
 # system's driver loaded at run time; photonoxide's own code stays free of `unsafe`
 wgpu = { version = "30.0.1", optional = true, default-features = false, features = ["std", "parking_lot", "wgsl", "vulkan", "dx12", "metal"] }
@@ -67,6 +70,8 @@ private-gemm-x86 = "0.1.22"
 # examples in, depends on it too.
 [dev-dependencies]
 genoxide = { version = "0.13.1", default-features = false }
+# checks every built-in job against job::schema(): JSON Schema 2020-12, pure Rust, MIT OR Apache-2.0
+boon = "0.6.1"
 
 # the solvers' heavy lifting runs in dependencies (faer's sparse LU) and in photonoxide itself (FDFD
 # assembly, the mode solvers, QMR): optimize both in debug and test builds too, so `cargo test`
