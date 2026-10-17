@@ -75,10 +75,6 @@ impl Array {
 
     /// Its values: those here, or those read from its file in `dir`.
     ///
-    /// # Panics
-    ///
-    /// Never: a file's bytes are taken eight at a time.
-    ///
     /// # Errors
     ///
     /// [`Error::Io`] if the file can't be read, and [`Error::Parse`] if it holds another number
@@ -94,10 +90,8 @@ impl Array {
                     path: path.display().to_string(),
                     reason: e.to_string(),
                 })?;
-                bytes
-                    .chunks_exact(8)
-                    .map(|b| f64::from_le_bytes(b.try_into().expect("eight bytes")))
-                    .collect()
+                let (words, _) = bytes.as_chunks::<8>();
+                words.iter().map(|b| f64::from_le_bytes(*b)).collect()
             }
             (None, None) => Vec::new(),
         };
