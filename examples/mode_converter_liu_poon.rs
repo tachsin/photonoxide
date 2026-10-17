@@ -39,8 +39,20 @@
 //!   own there.
 //!
 //! At 5 cells (832 × 142 × 49 cells of 89.2 nm, 11 397 steps): TE₁ 0.457 and the crosstalk −39.2
-//! dB. The paper's grid hasn't been run yet: 92 million cells and about 34 000 steps at 15 cells,
-//! about 2.4 hours on 20 threads (issue #256).
+//! dB.
+//!
+//! Measured at 15 cells (`--full`, the same as `--resolution 15`, 2026-10-17), the cross port at 1540 to 1560 nm:
+//!
+//! | Cells a wavelength | Grid | TE₁ at 1540, 1545, 1550, 1555, 1560 nm | TE₀ (crosstalk) at 1550 nm |
+//! |---|---|---|---|
+//! | 15 | 2446 × 376 × 99 cells of 29.7 nm | 0.46290, 0.46175, 0.45909, 0.45436, 0.44941 | −37.94 dB |
+//!
+//! Both within the codes' spread, the TE₁ 0.017 from its middle. The spectrum is smooth over the
+//! band, where the paper's vary by ±0.1 within a few nanometres.
+//!
+//! The run: 91.0 million cells, 24 717 steps to 420 µm/c (decayed), 2 h 27 min of stepping on 20
+//! threads of a Core Ultra 7 265K shared with other work (254 million cell-updates/s), 40 s of
+//! smoothing and 84 s of mode solves.
 //!
 //! ```sh
 //! cargo run --release --example mode_converter_liu_poon              # 5 cells a wavelength

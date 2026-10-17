@@ -45,8 +45,21 @@
 //! All within the codes' spread. The paper gives the band (Fig. 8(b)) at 15 cells only, so it is
 //! checked there. At 20 cells the through port is 0.0018 to 0.0020 higher across the band, more
 //! than either code moves at 1550 nm from 15 to 20 cells (Lumerical +0.0003, Tidy3D −0.0029): at
-//! 1540 nm 0.95511, 0.0006 beyond the 15-cell values' tolerance, a known difference followed in
-//! issue #256.
+//! 1540 nm 0.95511, 0.0006 beyond the 15-cell values' tolerance.
+//!
+//! With the coupling tensor instead of its diagonal (`--triplets`, 2026-10-17, issue #256), on the
+//! same grids:
+//!
+//! | Cells a wavelength | Through TE₀ | Excess loss | 1540, 1560 nm |
+//! |---|---|---|---|
+//! | 15 | 0.95820 | −0.1853 dB | 0.95454, 0.96126 |
+//! | 20 | 0.95944 | −0.1797 dB | 0.95596, 0.96209 |
+//!
+//! The tensor shrinks the rise from 15 to 20 cells (0.0012 at 1550 nm against the diagonal's
+//! 0.0020) but doesn't remove it, and both pairs, taking the error as h², extrapolate to the same
+//! through port, 0.961: the rise is the grid's convergence, not the diagonal's. On this grid the
+//! crossing settles about 0.002 above the codes' 0.957 to 0.959. With the tensor, every check
+//! passes at 15 cells; at 20 the through port is 0.0001 and the excess loss 0.0023 dB past them.
 //!
 //! Run times on 20 threads of a Core Ultra 7 265K: at 15 cells (14.1 million cells, 14 124 steps)
 //! 8 minutes of stepping and 3 of solving the ports' modes; at 20 (30.4 million, 18 840 steps) 22

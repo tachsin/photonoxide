@@ -1099,17 +1099,46 @@ its figures, the reading's uncertainty stated in each example):
 Every one within the span of the codes' settled values and the reading. The spectra over 1540
 to 1560 nm follow the paper's at 15 cells (the crossing's and the MMI's between the two codes' at both
 ends). At 20 cells the crossing's through port is 0.002 higher across the
-band, more than either code moves from 15 to 20 cells; the paper gives no band at 20, and the
-difference is followed in issue #256.
+band, more than either code moves from 15 to 20 cells; the paper gives no band at 20. With the
+coupling tensor (`--triplets`) the through port at 1550 nm is 0.95820 at 15 cells and 0.95944 at
+20 (excess loss −0.185 and −0.180 dB): a smaller rise, 0.0012 against 0.0020, but taking the
+error as h² both smoothings extrapolate to 0.961. The rise is the grid's convergence, the same
+for both, and the crossing settles here about 0.002 above the codes' 0.957 to 0.959.
 
 The mode converter, the polarization splitter-rotator and the ring run in CI on coarse grids
-only; their runs at the paper's grid (81 to 92 million cells, two to four hours each on 20
-threads) are issue #256's. At 5 cells a wavelength the splitter-rotator turns 64 % of its TM₀
-into the upper port's TE₀ (the codes, at 6: 15 % and 5 %), and the mode converter 46 % of its TE₀
-into TE₁ (the codes at 6: 97 % and 36 %; settled, 36 % to 52 %). The ring's coupling across its
-200 nm gap needs a fine grid: at 6 cells its Q is about 8000 against the codes' 1700 to 1800, so
-CI checks its free spectral range instead, 7.54 nm from the strip's group index (4.1792, with
-silicon's and silica's dispersion) and its 75.747 µm, against the text's "around" 7.4 and 7.6.
+only. At 5 cells a wavelength the splitter-rotator turns 64 % of its TM₀ into the upper port's
+TE₀ (the codes, at 6: 15 % and 5 %), and the mode converter 46 % of its TE₀ into TE₁ (the codes at
+6: 97 % and 36 %; settled, 36 % to 52 %). For the ring CI checks the free spectral range, 7.54 nm
+from the strip's group index (4.1792, with silicon's and silica's dispersion) and its 75.747 µm,
+against the text's "around" 7.4 and 7.6.
+
+At 15 cells a wavelength (issue #256), against the codes' settled values:
+
+| Device | At 1550 nm | Here, 15 cells (29.7 nm) | Lumerical, 15 / 20 / 25 | Tidy3D, 15 / 20 / 25 | |
+|---|---|---|---|---|---|
+| mode converter | cross TE₁ | 0.45909 | 0.443 (0.362) / 0.482 / 0.512 | 0.492 (0.522) / 0.479 / 0.430 | within |
+| mode converter | TE₀ crosstalk | −37.94 dB | −37.2 / −38.1 / −36.9 | −35.4 / −35.3 / −35.6 | within |
+| splitter-rotator | upper TE₀ | 0.95919 | 0.945 / 0.942 / 0.955 | 0.901 / 0.948 / 0.950 | 0.0042 above, 0.0011 past the check |
+| splitter-rotator | TM₀ crosstalk | −40.06 dB | −49.1 / −36.8 / −41.1 | −32.4 / −35.4 / −42.6 | within |
+| ring | lowest resonance | 1540.45 nm | 1547.73 / 1545.57 / 1545.67 | 1545.77 / 1545.07 / 1544.96 | 4.9 nm short |
+| ring | FWHM, Q | 0.168 nm, 9182 | 0.86, 1798 / 0.90, 1716 / 0.88, 1755 | 0.90, 1716 / 0.88, 1754 / 0.90, 1715 | a fifth, five times |
+
+(The mode converter's values in brackets are with a 50 nm pulse.) The mode converter is within the
+codes' spread, its spectrum smooth over 1540 to 1560 nm (0.463 to 0.449) where the paper's vary
+by ±0.1 within a few nanometres. The splitter-rotator works on the paper's grid, its TE₀ 0.4 %
+above both codes' settled values: on the crossing our values moved more than the codes' from 15
+to 20 cells, and the codes themselves still move by 0.013 from 20 to 25, so the run at 20 cells
+decides whether this is the grid's.
+
+The ring's Q, 6560 to 9180 over the band, is the ring's own, from its field's decay, and it
+hardly changes from 6 cells (about 8000) to 15 (the gap 6.7 cells). The paper's width is the
+through port's dip, from a record that ends at 1920 µm/c in both codes; a ring that loses only
+what it couples out has no dip in steady state, so the dip read is the energy left in the ring
+when the record ends. A one-mode model of the ring puts a true Q of 8000 read through a record of
+1920 µm/c at a dip 0.73 nm wide, an apparent Q of 2100, near the paper's 1715 to 1840 at every
+resolution. The like-for-like check, the through port over the paper's record, is #256's next
+step; the resonance 4.9 nm short (or 2.8 nm long, if the paper's line is our next) is more than
+the silicon indices' spread (0.85 nm) explains, and stays open with it.
 
 Run times on 20 threads of a Core Ultra 7 265K, against the paper's at the same resolution
 (Tidy3D in the cloud; Lumerical on an AMD 3960X and on its cloud GPUs):
@@ -1122,9 +1151,15 @@ Run times on 20 threads of a Core Ultra 7 265K, against the paper's at the same 
 | coupler, 20 | 80.0 million, 21 980 | 111 min, 3 min (shared) | 150 s | 2606 s / 77 s |
 | MMI, 15 | 32.0 million, 17 655 | 26 min, 2 min | 45 s | 905 s / 34 s |
 | MMI, 20 | 69.3 million, 23 550 | 96 min, 3 min (shared) | 63 s | 2182 s / 72 s |
+| mode converter, 15 | 91.0 million, 24 717 | 147 min, 1 min (shared) | — | — |
+| splitter-rotator, 15 | 79.5 million, 23 540 | 182 min, 2 min (shared) | — | — |
+| ring, 15 | 90.8 million, 58 848 | 191 min, under 1 min | — | — |
+| crossing, 15, tensor | 14.1 million, 14 124 | 23 min, 3 min (shared) | — | — |
+| crossing, 20, tensor | 30.4 million, 18 840 | 63 min, 6 min (shared) | — | — |
 
 On grids of 14 to 32 million cells the kernel made 358 to 436 million cell-updates/s with the
-monitors; "shared" runs had other work on the machine and made 160 to 280. The paper's grids are
+monitors, and 465 on the ring's 91 million; "shared" runs had other work on the machine and made
+160 to 280. With the coupling tensor, shared, 143 to 152. The paper's grids are
 coarser in the cladding (Lumerical's crossing at 25 cells has 4.55e7 cells to our 14.1e6 at 15),
 and its GPUs are many.
 

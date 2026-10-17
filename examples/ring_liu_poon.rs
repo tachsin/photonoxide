@@ -25,7 +25,8 @@
 //!
 //! The paper needs 20 cells a wavelength for the ring (Table 14), where the codes differ by 2 %
 //! in the width and Q. Their spectra are sampled every 0.2 nm and interpolated to 0.02 nm; their
-//! runs stop at 6.4 ps (1920 µm/c), when about 1 % of the ring's energy is left.
+//! runs end at 6.40 ps (1920 µm/c) in both codes (Table 13), the auto-shutoff of 1e-5 not
+//! reached.
 //!
 //! Here, with the materials at 1.545 µm:
 //!
@@ -51,10 +52,31 @@
 //!   plus the reading.
 //!
 //! The ring isn't checked on a coarse grid: at 6 cells a wavelength (74 nm cells, the 200 nm gap
-//! less than three) its Q is about 8000 against the paper's settled 1735 (about a fifth of the
-//! coupling) and its resonances 4 nm short, where the paper's codes, on grids finer near the
-//! silicon, still give 1839 and 1757. The 3D run at the paper's grid hasn't been done yet: 91
-//! million cells and 59 000 steps at 15 cells, about 4 hours on 20 threads (issue #256).
+//! less than three) its Q is about 8000 against the paper's settled 1735 and its resonances 4 nm
+//! short, where the paper's codes, on grids finer near the silicon, still give 1839 and 1757.
+//!
+//! Measured at 15 cells (`--resolution 15`, 2026-10-17; 1101 × 833 × 99 cells of 29.7 nm, the
+//! gap 6.7 cells), Q scaled for the dispersion:
+//!
+//! | Resonance | 1532.84 nm | 1540.45 nm | 1548.14 nm | 1555.93 nm | 1563.81 nm |
+//! |---|---|---|---|---|---|
+//! | Q | 6563 | 9182 | 7830 | 7284 | 7360 |
+//! | FWHM = λ₀/Q | 0.234 nm | 0.168 nm | 0.198 nm | 0.214 nm | 0.212 nm |
+//!
+//! The free spectral range 7.44 nm. All three checks fail: the lowest resonance in 1540 to 1560
+//! nm, 1540.45 nm, is 4.9 nm short of the codes' 1544.96 to 1545.67 nm (the next, 1548.14 nm,
+//! 2.8 nm long), more than the silicon indices' spread explains; its Q, 9182, is about five
+//! times theirs and its width a fifth. So the Q at 6 cells wasn't the grid's: at 15 cells, the
+//! gap 6.7 cells wide, it is 6560 to 9180 over the band. The two numbers may not be the same
+//! quantity. Here Q is the ring's own, from its field's decay; the paper reads the width of the
+//! through port's dip from a record that ends at 1920 µm/c, and a ring that loses nothing but
+//! what it couples out has no dip in steady state, so the dip read is the energy the ring still
+//! holds when the record ends. A one-mode model of the ring puts a true Q of 8000, read through
+//! a record of 1920 µm/c, at a dip 0.73 nm wide (an apparent Q of 2100). The like-for-like check,
+//! the through port's spectrum over the paper's record, is issue #256's next step.
+//!
+//! The run: 90.8 million cells, 58 848 steps to 1000 µm/c, 3 h 11 min of stepping on 20 threads
+//! of a Core Ultra 7 265K (465 million cell-updates/s), 41 s of smoothing, 28 s of mode solves.
 //!
 //! Silicon's index sets λ₀: the paper's Palik silicon is 3.4738 at 1550 nm in Tidy3D's fit and
 //! about 3.4764 in Lumerical's data, ours 3.4757. A difference of 0.0026 moves λ₀ by about 0.85

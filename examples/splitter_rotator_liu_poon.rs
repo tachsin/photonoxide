@@ -40,8 +40,26 @@
 //!   device doesn't work there in either code), half their span and the reading.
 //!
 //! At 5 cells (845 × 124 × 49 cells of 89.2 nm, 9825 steps): the upper port's TE₀ 0.642, its TM₀
-//! −22.0 dB (at 6 cells, 0.711 and −34.4 dB). The paper's grid hasn't been run yet: 81 million
-//! cells and about 33 000 steps at 15 cells, about 2 hours on 20 threads (issue #256).
+//! −22.0 dB (at 6 cells, 0.711 and −34.4 dB).
+//!
+//! Measured at 15 cells (`--resolution 15`, 2026-10-17), the upper port at 1540 to 1560 nm:
+//!
+//! | Cells a wavelength | Grid | TE₀ at 1540, 1545, 1550, 1555, 1560 nm | TM₀ (crosstalk) at 1550 nm |
+//! |---|---|---|---|
+//! | 15 | 2487 × 323 × 99 cells of 29.7 nm | 0.95071, 0.95623, 0.95919, 0.95969, 0.95791 | −40.06 dB |
+//!
+//! The crosstalk is within the codes' settled span. The TE₀, 0.95919, is 0.0042 above the highest
+//! of the codes' settled values (Lumerical's 0.955 at 25 cells) and 0.0011 beyond the check's
+//! tolerance: at 15 cells the check fails. The paper's codes still move by 0.013 from 20 to 25
+//! cells (Lumerical 0.942 to 0.955), and on the crossing our values moved more than the codes'
+//! from 15 to 20 cells (a uniform grid with the diagonal smoothing, against their non-uniform
+//! conformal and subpixel meshes); 1 µm of cladding along z where the paper has 2, and the
+//! materials taken at 1550 nm, may count too. The run at 20 cells, which the paper needs for
+//! Tidy3D, decides it (issue #256).
+//!
+//! The run: 79.5 million cells, 23 540 steps to 400 µm/c (decayed), 3 h 2 min of stepping on 20
+//! threads of a Core Ultra 7 265K shared with other work (172 million cell-updates/s), 2 min of
+//! smoothing and 2 of mode solves.
 //!
 //! ```sh
 //! cargo run --release --example splitter_rotator_liu_poon              # 5 cells a wavelength
