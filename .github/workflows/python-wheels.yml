@@ -138,7 +138,7 @@ jobs:
           python="${{ steps.free-threaded.outputs.python-path }}"
           "$python" -m pip install pytest python/dist/*-cp314t-*.whl
           cd python/tests && "$python" -m pytest -q -p no:cacheprovider
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: wheels-${{ matrix.platform.id }}
           path: python/dist
@@ -155,7 +155,7 @@ jobs:
           working-directory: python
           # the sdist includes Cargo.lock and the library it wraps (sdist has no --locked)
           args: --out dist
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: wheels-sdist
           path: python/dist
@@ -181,7 +181,7 @@ jobs:
             echo "::error::PyPI's trusted publisher isn't set up (the PYPI_PUBLISH variable): see docs/python.md, Publishing"
             exit 1
           fi
-      - uses: actions/download-artifact@v8.0.1
+      - uses: actions/download-artifact@v8.0.2
         with:
           pattern: wheels-*
           merge-multiple: true
