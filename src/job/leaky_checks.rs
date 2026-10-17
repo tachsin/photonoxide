@@ -47,7 +47,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "job/leaky-film-pml",
             title: r"The same film's loss from the job on a 10 nm grid with PMLs of 0.5 and 1 µm at strength 3, and 1 µm at strength 10, against 1.5 µm at strength 3 (largest relative difference in $\operatorname{Im} n_\text{eff}$ shown)",
             tier: Tier::Analytic,
-            source: "a PML absorbs what reaches it without reflecting, at any thickness and strength (W. C. Chew et al., Microw. Opt. Technol. Lett. 15, 363 (1997), doi:10.1002/(SICI)1098-2760(19970820)15:6<363::AID-MOP8>3.0.CO;2-C), up to its own discretization: 1.8e-4 at 0.5 µm (50 cells), 2.9e-6 at 1 µm, 2.8e-5 at strength 10",
+            source: "a PML absorbs what reaches it without reflecting, at any thickness and strength (W. C. Chew et al., Microw. Opt. Technol. Lett. 15, 363 (1997), as mode/pml-soi-leakage-te cites it), up to its own discretization: 1.8e-4 at 0.5 µm (50 cells), 2.9e-6 at 1 µm, 2.8e-5 at strength 10",
             run: film_pml,
         },
         Case {
