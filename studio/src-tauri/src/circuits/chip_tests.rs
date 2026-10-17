@@ -220,3 +220,29 @@ fn a_chips_job_opens_on_the_chip_page() {
         own.circuit().unwrap().s_matrix(at).unwrap()
     );
 }
+
+#[test]
+fn every_chip_job_opens_on_the_chip_page_as_its_own_chip() {
+    let at = photonoxide::units::Wavelength::um(1.55).unwrap();
+    for j in crate::examples::jobs() {
+        let job = Job::parse(&j.text).unwrap();
+        let Some(table) = job.circuit() else {
+            continue;
+        };
+        let chip = chip_of_job(&j.text).unwrap();
+        let (_, problems) = chip.netlist(root());
+        assert!(problems.is_empty(), "{}: {problems:?}", j.file);
+        let own = photonoxide::job::ChipDesign::from_table(table).unwrap();
+        assert_eq!(
+            design(&chip, root())
+                .unwrap()
+                .circuit()
+                .unwrap()
+                .s_matrix(at)
+                .unwrap(),
+            own.circuit().unwrap().s_matrix(at).unwrap(),
+            "{}",
+            j.file
+        );
+    }
+}

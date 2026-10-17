@@ -295,7 +295,11 @@ in a drawer opened from the status bar.
     circuit adjoint through its derivatives, each checked against differences), central
     differences elsewhere. It runs live, as a device's Optimize tab does; **Apply** takes an
     evaluation's values into the instances. `photonoxide run jobs/chip-little-rings.toml`
-    runs one in the run view.
+    runs one in the run view. Built-in chip jobs: `chip-little-rings` (Little's maximally flat
+    rings from devices), and three that reach the circuit examples' closed forms on the chip:
+    `chip-splitter` (an MZI's phase to a 30:70 split, θ = 2 arcsin √0.3), `chip-ring-critical`
+    (a ring's coupling and radius to critical coupling on resonance) and `chip-fit` (an add-drop
+    ring's couplings, loss and radius fitted to its spectra).
   - **Simulate** (Ctrl+Enter) solves the whole netlist at each wavelength
     (`Netlist::compile`, then `Circuit::spectrum`), and plots what comes out of every external
     port for light in at one, with the checks: reciprocity (the largest |S − Sᵀ|), passivity

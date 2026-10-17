@@ -1,0 +1,68 @@
+# Clements et al. 2016's variable beam splitter (Optica 3, 1460, doi:10.1364/OPTICA.3.001460, Eq. 1)
+# on a chip: an MZI of two 50:50 couplers with a phase shifter in each arm, the upper arm's phase θ
+# tuned until 30% of the light stays in the bar port. The bar port carries sin²(θ/2), so the closed
+# form is θ = 2 arcsin √0.3 = 1.159279 rad. examples/circuit_splitter.rs tunes the same circuit
+# outside a job, with its own stopping rules.
+name = "chip-splitter"
+timeout_minutes = 1
+
+[circuit]
+connections = [
+    ["c1.o4", "upper.o1"], ["upper.o2", "c2.o1"],
+    ["c1.o3", "lower.o1"], ["lower.o2", "c2.o2"],
+]
+
+[[circuit.instance]]
+name = "c1"
+component = "coupler"
+values = { coupling = 0.5 }
+
+[[circuit.instance]]
+name = "c2"
+component = "coupler"
+values = { coupling = 0.5 }
+
+[[circuit.instance]]
+name = "upper"
+component = "phase-shifter"
+values = { phase = 2.0 }
+
+[[circuit.instance]]
+name = "lower"
+component = "phase-shifter"
+values = { phase = 0.0 }
+
+[[circuit.port]]
+name = "in1"
+at = "c1.o1"
+
+[[circuit.port]]
+name = "in2"
+at = "c1.o2"
+
+[[circuit.port]]
+name = "out1"
+at = "c2.o4"
+
+[[circuit.port]]
+name = "out2"
+at = "c2.o3"
+
+[task]
+kind = "optimize"
+method = "lbfgsb"
+seed = 1
+evaluations = 200
+from_um = 1.55
+to_um = 1.55
+
+# in (0, π), where the bar power rises with the phase; from 0.2, not 0, where the bar port is dark
+# and flat: a stationary point L-BFGS-B's first step, along the whole range, would stop at
+[[task.variable]]
+parameter = "upper.phase"
+from = 0.2
+to = 3.141592653589793
+
+[[task.objective]]
+expression = "(T_out1_in1 - 0.3)^2"
+goal = "minimize"

@@ -1,0 +1,52 @@
+# Bogaerts et al. 2011's critical coupling (Laser Photonics Rev. 6, 47, doi:10.1002/lpor.201100017,
+# Eqs. 2, 3 and 12) on a chip: an all-pass ring of a coupler and a 500 x 220 nm strip losing 3 dB/cm,
+# its coupling κ² and radius R tuned until the through port is dark at 1.55 µm. That needs a
+# resonance, R = m λ/(2π n_eff), at critical coupling, κ² = 1 − a² with a = 10^(−αL/20).
+# examples/circuit_ring_critical.rs tunes the same circuit outside a job, on a stated n_eff of 2.4;
+# here n_eff is the strip's analytic model's, 2.44506.
+name = "chip-ring-critical"
+timeout_minutes = 1
+
+[circuit]
+connections = [["coupler.o3", "ring.o1"], ["ring.o2", "coupler.o2"]]
+
+[[circuit.instance]]
+name = "coupler"
+component = "coupler"
+values = { coupling = 0.05 }
+
+[[circuit.instance]]
+name = "ring"
+device = { kind = "waveguide", fidelity = "analytic", parameters = { R = "9.985", length = "2*pi*R", loss = "3" } }
+
+[[circuit.port]]
+name = "in"
+at = "coupler.o1"
+
+[[circuit.port]]
+name = "through"
+at = "coupler.o4"
+
+[task]
+kind = "optimize"
+method = "lbfgsb"
+seed = 1
+evaluations = 500
+from_um = 1.55
+to_um = 1.55
+
+[[task.variable]]
+parameter = "coupler.coupling"
+from = 1e-4
+to = 0.5
+
+# about the resonance m = 99 at R = 9.988436 µm, which is under 1 nm of radius wide: on a range
+# 0.2 µm wide, L-BFGS-B's steps (scaled to the range) land on another order's
+[[task.variable]]
+parameter = "ring.R"
+from = 9.98
+to = 10.0
+
+[[task.objective]]
+expression = "T_through_in"
+goal = "minimize"

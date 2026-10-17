@@ -1,5 +1,6 @@
 //! The optimize adapter's tests: genoxide's methods through the job, against closed forms; a
-//! seeded run's record the same on any number of threads; the hard limit; the Pareto front.
+//! seeded run's record the same on any number of threads; the hard limit; the Pareto front; and
+//! the built-in chip jobs that reach #244's circuit examples' closed forms.
 
 use photonoxide::circuit::Fidelity;
 use photonoxide::job::Event;
@@ -229,4 +230,102 @@ fn the_hard_limit_ends_a_run_cleanly() {
         events.last(),
         Some(Event::Finished { stopped: Some(s), .. }) if s == "timeout"
     ));
+}
+
+/// The built-in job `file` (jobs/), as the program reads it.
+fn built_in(file: &str) -> Job {
+    let text = crate::examples::jobs()
+        .into_iter()
+        .find(|j| j.file == file)
+        .expect("a built-in job")
+        .text;
+    Job::parse(&text).expect("a job")
+}
+
+/// A chip job's optimum: its variables, after checking its record is the same bits on 1 and 4
+/// threads and when read back from its run's directory.
+fn chip_optimum(file: &str) -> Vec<f64> {
+    let job = built_in(file);
+    let one = lines(&job, Some(1));
+    assert_eq!(one, lines(&job, Some(4)), "{file}: 1 and 4 threads");
+    let root = std::env::temp_dir().join(format!(
+        "photonoxide-{}-{}",
+        file.trim_end_matches(".toml"),
+        std::process::id()
+    ));
+    let mut run = Run::create(&root, &job).expect("a run directory");
+    execute(&job, &mut run, &Stop::new(job.timeout())).expect("a run");
+    let back: Vec<Event> = photonoxide::run::replay(run.dir()).expect("its record");
+    drop(run);
+    let _ = std::fs::remove_dir_all(&root);
+    let replayed: Vec<String> = back[..back.len() - 1]
+        .iter()
+        .map(|e| serde_json::to_string(e).expect("an event"))
+        .collect();
+    assert_eq!(replayed, one, "{file}: its record read back");
+    let e: Vec<Event> = one
+        .iter()
+        .map(|l| serde_json::from_str(l).expect("an event"))
+        .collect();
+    let Some(Event::Optimum {
+        x,
+        stop,
+        evaluations,
+        ..
+    }) = e.last()
+    else {
+        panic!("{file}: an optimum last");
+    };
+    eprintln!("{file}: {x:?}, {evaluations} evaluations ({stop})");
+    x.clone()
+}
+
+/// The 500 × 220 nm strip's analytic model's dispersion at 1.55 µm.
+fn strip() -> photonoxide::circuit::components::Dispersion {
+    let guide = photonoxide::device::StripWaveguide::new();
+    let values = photonoxide::device::Values::defaults(&guide);
+    guide.dispersion(&values, Fidelity::Analytic).unwrap().0
+}
+
+#[test]
+fn the_chip_splitter_reaches_clements_closed_form() {
+    // the bar port carries sin²(θ/2): 0.3 at θ = 2 arcsin √0.3
+    let x = chip_optimum("chip-splitter.toml");
+    let theta = 2.0 * 0.3f64.sqrt().asin();
+    assert!((x[0] - theta).abs() < 1e-6, "θ {} against {theta}", x[0]);
+}
+
+#[test]
+fn the_chip_ring_reaches_critical_coupling_on_resonance() {
+    let n = strip().effective_index;
+    let x = chip_optimum("chip-ring-critical.toml");
+    // the resonance nearest the start (R = 9.985 µm), R = m λ/(2π n_eff), and κ² = 1 − a² with
+    // a = 10^(−αL/20) (Bogaerts et al. 2011, Eqs. 3 and 2)
+    let tau = std::f64::consts::TAU;
+    let m = (n * tau * 9.985 / 1.55).round();
+    assert_eq!(m, 99.0);
+    let radius = m * 1.55 / (tau * n);
+    let a = 10f64.powf(-3.0 * 1e-4 * tau * radius / 20.0);
+    let kappa2 = 1.0 - a * a;
+    assert!((x[0] - kappa2).abs() < 1e-9, "κ² {} against {kappa2}", x[0]);
+    assert!((x[1] - radius).abs() < 1e-9, "R {} against {radius}", x[1]);
+}
+
+#[test]
+fn the_chip_fit_returns_the_ring_its_spectra_were_made_from() {
+    // the objective writes the strip's n_eff and n_g out: they must be its model's
+    let d = strip();
+    assert_eq!((d.effective_index, d.group_index), (2.44506, 4.172901));
+    let x = chip_optimum("chip-fit.toml");
+    // κ₁², κ₂², the loss (dB/cm), the radius (µm)
+    let truth = [0.08, 0.05, 20.0, 10.0];
+    let tolerance = [1e-8, 1e-8, 1e-5, 1e-9];
+    for k in 0..4 {
+        assert!(
+            (x[k] - truth[k]).abs() < tolerance[k],
+            "variable {k}: {} against {}",
+            x[k],
+            truth[k]
+        );
+    }
 }
