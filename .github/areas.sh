@@ -104,8 +104,15 @@ area statics \
 # docs/job.schema.json is the schema job::schema writes, which its tests check
 area job \
   "src/job/* src/run.rs src/farm.rs src/farm/* jobs/* docs/job.schema.json" \
-  "material mode sparse fdfd fdtd circuit device generator statics" \
+  "material mode sparse fdfd fdtd circuit device generator statics export" \
   "job:: run:: farm::" "job/ generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
+
+# exporting a run's results (issue #431): a modes job's own fields, written as `.npz` and csv;
+# used by the job area, which wires `[task.export]` into the modes job
+area export \
+  "src/export.rs src/export/*" \
+  "mode" \
+  "export::" "" ""
 
 # the component generators: shapes on layers with named ports, which the devices draw their
 # geometry with and jobs place; their cases compare the devices' geometry with what it was

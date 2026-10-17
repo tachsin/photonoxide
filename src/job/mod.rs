@@ -2370,6 +2370,9 @@ impl ModesTask {
         if let Some(pml) = &self.pml {
             self.check_pml(pml)?;
         }
+        if let Some(export) = &self.export {
+            export.validate()?;
+        }
         let Some(sweep) = &self.sweep else {
             return Ok(());
         };
@@ -2621,6 +2624,9 @@ struct ModesTask {
     circle: Vec<CircleSpec>,
     #[serde(default)]
     ring: Vec<RingSpec>,
+    /// Writes each mode's complex fields, and a summary table of every mode, into the run's
+    /// directory (issue #431; not a sweep's points, which stay pictures only).
+    export: Option<ExportSpec>,
     sweep: Option<SweepSpec>,
     /// The names of `[task.parameters]`, which a sweep may step through: set after reading.
     #[serde(skip)]
@@ -2675,6 +2681,65 @@ impl PmlSpec {
             self.strength(),
             self.strength()
         )
+    }
+}
+
+/// A modes job's `[task.export]`: each solved mode's complex fields as an `.npz`
+/// (`mode-<k of n>.npz`), a summary table of every mode as `modes.csv`, or both, written into
+/// the run's directory ([`crate::export`]).
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ExportSpec {
+    /// `"npz"` (the fields), `"csv"` (the summary table) or `"both"`.
+    format: String,
+    /// `"f32"` or `"f64"` (the default): the npz's fields' precision.
+    precision: Option<String>,
+    /// Deflate's level, 0 (store) to 9 (smallest); 6 by default. The csv is never compressed.
+    level: Option<u8>,
+}
+
+impl ExportSpec {
+    fn validate(&self) -> Result<()> {
+        if !matches!(self.format.as_str(), "npz" | "csv" | "both") {
+            return Err(task_error(format!(
+                "[task.export] format must be \"npz\", \"csv\" or \"both\", got \"{}\"",
+                self.format
+            )));
+        }
+        if let Some(p) = &self.precision
+            && !matches!(p.as_str(), "f32" | "f64")
+        {
+            return Err(task_error(format!(
+                "[task.export] precision must be \"f32\" or \"f64\", got \"{p}\""
+            )));
+        }
+        if let Some(level) = self.level
+            && level > 9
+        {
+            return Err(task_error(format!(
+                "[task.export] level must be at most 9, got {level}"
+            )));
+        }
+        Ok(())
+    }
+
+    fn npz(&self) -> bool {
+        matches!(self.format.as_str(), "npz" | "both")
+    }
+
+    fn csv(&self) -> bool {
+        matches!(self.format.as_str(), "csv" | "both")
+    }
+
+    fn precision(&self) -> crate::export::Precision {
+        match self.precision.as_deref() {
+            Some("f32") => crate::export::Precision::F32,
+            _ => crate::export::Precision::F64,
+        }
+    }
+
+    fn level(&self) -> u8 {
+        self.level.unwrap_or(6)
     }
 }
 
@@ -3631,6 +3696,42 @@ fn modes_task(job: &Job, set: Option<(&str, f64)>) -> Result<ModesTask> {
     Ok(task)
 }
 
+/// Writes a mode's complex fields as `<run's directory>/<label, spaces to dashes>.npz`, per its
+/// job's `[task.export]` ([`crate::export::write_mode_npz`]); a no-op for a run kept only in
+/// memory (a farm's worker, most tests) or an `export` whose format is `"csv"` only.
+fn export_mode(
+    export: &ExportSpec,
+    job: &Job,
+    run: &Run,
+    label: &str,
+    m: &crate::mode::vector::VectorMode,
+    fields: &crate::mode::fields::Fields,
+    wavelength: Wavelength,
+) -> Result<()> {
+    if !export.npz() || run.dir().as_os_str().is_empty() {
+        return Ok(());
+    }
+    let meta = crate::export::Meta {
+        job: job.name().to_owned(),
+        run_id: run
+            .dir()
+            .file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+    };
+    let path = run.dir().join(format!("{}.npz", label.replace(' ', "-")));
+    crate::export::write_mode_npz(
+        &path,
+        m,
+        fields,
+        wavelength,
+        &meta,
+        export.precision(),
+        export.level(),
+    )?;
+    Ok(())
+}
+
 fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let task = modes_task(job, None)?;
     task.validate()?;
@@ -3826,6 +3927,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     };
     let mut sorted: Vec<_> = found.iter().collect();
     sorted.sort_by(|a, b| b.effective_index().re.total_cmp(&a.effective_index().re));
+    let mut csv_rows = Vec::new();
     for (k, m) in sorted.iter().enumerate() {
         if stop.reason().is_some() {
             return Ok(());
@@ -3851,6 +3953,21 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         if let Some(event) = loss(None, &label, m, lam)? {
             run.record(&event)?;
         }
+        if let Some(export) = &task.export {
+            export_mode(export, job, run, &label, m, &fields, lam)?;
+            if export.csv() {
+                csv_rows.push(crate::export::ModeRow {
+                    label: label.clone(),
+                    wavelength_um: lam.to_um(),
+                    effective_index: n,
+                    loss_db_per_cm: crate::mode::dispersion::loss_db_per_cm(n, lam),
+                    te_fraction: m.te_fraction(),
+                });
+            }
+        }
+    }
+    if task.export.as_ref().is_some_and(ExportSpec::csv) && !run.dir().as_os_str().is_empty() {
+        crate::export::write_modes_csv(&run.dir().join("modes.csv"), &csv_rows)?;
     }
     for (k, m) in sorted.iter().enumerate() {
         run.record(&Event::SolveError {
@@ -4468,6 +4585,71 @@ size_um = [0.5, 10.0]
         assert!(second[0] < effective_index[0] && *te_fraction < 0.1);
         // the TM-like mode's field is mostly vertical
         assert!(matches!(&events[6], Event::ModeField { component, .. } if component == "Ez"));
+    }
+
+    /// `[task.export]` writes each mode into the run's directory, its `.npz`'s own
+    /// `effective_index` and the csv's row the same bits as the run's own [`Event::Mode`]: not a
+    /// separate recomputation, the solve's own result.
+    #[test]
+    fn a_modes_export_writes_each_mode_to_the_runs_directory() {
+        use std::io::Read as _;
+        let root = temp("modes-export");
+        let text = format!("{MODES}\n[task.export]\nformat = \"both\"\n");
+        let job = Job::parse(&text).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let events: Vec<Event> = found(&run);
+        let modes: Vec<_> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::Mode {
+                    label,
+                    effective_index,
+                    ..
+                } => Some((label.clone(), *effective_index)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(modes.len(), 2, "{events:?}");
+
+        let csv = std::fs::read_to_string(run.dir().join("modes.csv")).unwrap();
+        let mut lines = csv.lines();
+        assert_eq!(
+            lines.next().unwrap(),
+            "label,wavelength_um,n_eff_re,n_eff_im,loss_db_per_cm,te_fraction"
+        );
+        for (label, effective_index) in &modes {
+            let path = run.dir().join(format!("{}.npz", label.replace(' ', "-")));
+            let file = std::fs::File::open(&path).unwrap_or_else(|e| panic!("{path:?}: {e}"));
+            let mut archive = ::zip::ZipArchive::new(file).unwrap();
+            let mut entry = archive.by_name("effective_index.npy").unwrap();
+            let mut bytes = Vec::new();
+            entry.read_to_end(&mut bytes).unwrap();
+            // a scalar complex128 .npy: header then 16 bytes, re then im
+            let data = &bytes[bytes.len() - 16..];
+            let re = f64::from_le_bytes(data[0..8].try_into().unwrap());
+            let im = f64::from_le_bytes(data[8..16].try_into().unwrap());
+            assert_eq!([re, im], *effective_index, "{label}");
+
+            let row = csv
+                .lines()
+                .find(|line| line.starts_with(label.as_str()))
+                .unwrap_or_else(|| panic!("no csv row for {label}: {csv}"));
+            let fields: Vec<&str> = row.split(',').collect();
+            assert_eq!(fields[2].parse::<f64>().unwrap(), effective_index[0]);
+            assert_eq!(fields[3].parse::<f64>().unwrap(), effective_index[1]);
+        }
+    }
+
+    #[test]
+    fn what_a_modes_export_refuses() {
+        let bad = |extra: &str| {
+            let text = format!("{MODES}\n[task.export]\n{extra}\n");
+            check(&Job::parse(&text).unwrap()).unwrap_err().to_string()
+        };
+        assert!(bad("format = \"hdf5\"").contains("format must be"));
+        assert!(bad("format = \"npz\"\nprecision = \"f16\"").contains("precision must be"));
+        assert!(bad("format = \"npz\"\nlevel = 10").contains("level must be at most 9"));
     }
 
     /// MODES, its modes travelling along x: the same strip turned a quarter turn.

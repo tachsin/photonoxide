@@ -57,6 +57,7 @@ pub mod device;
 mod eigen;
 pub mod electro;
 pub mod error;
+pub mod export;
 pub mod expr;
 pub mod facade;
 pub mod farm;

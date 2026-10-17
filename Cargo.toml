@@ -29,6 +29,11 @@ version = "0.5.4"
 # without faer's `npy` default: nothing here reads .npy files, and it brought pest, whose newer
 # releases assemble and link .asm files (psm) at build time, against AGENTS.md's "nothing linked"
 faer = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg", "rand"] }
+# deflate for exported files (export::write_mode_npz's .npz, issue #431): default features build
+# on zlib-rs, a pure-Rust reimplementation, not a linked C zlib
+flate2 = "1.1"
+# the ZIP format's own checksum, for export's minimal ZIP writer (export::zip)
+crc32fast = "1.5"
 # polygon booleans for the geometry's layout polygons (geometry::Polygons::boolean): integer
 # overlays on a fixed grid, robust on shared edges, touching vertices and collinear overlaps
 # (docs/methods/booleans.md has the measurements that chose it); single-threaded, so the same
@@ -72,6 +77,10 @@ private-gemm-x86 = "0.1.22"
 genoxide = { version = "0.13.1", default-features = false }
 # checks every built-in job against job::schema(): JSON Schema 2020-12, pure Rust, MIT OR Apache-2.0
 boon = "0.6.1"
+# export's own tests read the `.npz` its minimal ZIP writer (export::zip) made, with a real
+# parser as the ground truth for the container format; only `deflate` (flate2, pure Rust): no
+# bzip2, lzma or zstd, which link C
+zip = { version = "4", default-features = false, features = ["deflate"] }
 
 # the solvers' heavy lifting runs in dependencies (faer's sparse LU) and in photonoxide itself (FDFD
 # assembly, the mode solvers, QMR): optimize both in debug and test builds too, so `cargo test`
