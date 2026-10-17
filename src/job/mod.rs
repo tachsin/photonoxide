@@ -639,31 +639,6 @@ pub enum Event {
         /// imaginary parts.
         s: Vec<Vec<[f64; 2]>>,
     },
-    /// A field of a static job ([`crate::thermal`], [`crate::electro`]) on its cross-section,
-    /// in its own unit (not scaled): each pixel the value of the cell its centre falls in.
-    StaticField {
-        /// What it is: `"temperature"` or `"potential"`.
-        label: String,
-        /// Its unit: `"K"` or `"V"`.
-        unit: String,
-        /// The axes: across the guide and up, `["y", "z"]`.
-        axes: [String; 2],
-        /// The picture.
-        raster: Raster,
-    },
-    /// A static job's grid and numbers, recorded after its fields.
-    StaticResult {
-        /// `"heat"`, `"electrostatic"` or `"current"`.
-        physics: String,
-        /// The grid's cells across and up.
-        cells: [usize; 2],
-        /// Its smallest and largest steps, µm.
-        step_um: [f64; 2],
-        /// The numbers, each with its unit: the probes' means, the largest value, what each
-        /// held rectangle gives, what leaves through each side, the balance's imbalance, and a
-        /// capacitance matrix or the contacts' Joule power.
-        values: Vec<StaticValue>,
-    },
     /// The run ended.
     Finished {
         /// Why it ended early, if it did: `"timeout"` or `"requested"`.
@@ -1193,6 +1168,31 @@ pub enum Event {
     },
     // New variants go here, at the end after the last one, so that the earlier variants keep
     // their discriminants (inserting one in between renumbers every variant after it).
+    /// A field of a static job ([`crate::thermal`], [`crate::electro`]) on its cross-section,
+    /// in its own unit (not scaled): each pixel the value of the cell its centre falls in.
+    StaticField {
+        /// What it is: `"temperature"` or `"potential"`.
+        label: String,
+        /// Its unit: `"K"` or `"V"`.
+        unit: String,
+        /// The axes: across the guide and up, `["y", "z"]`.
+        axes: [String; 2],
+        /// The picture.
+        raster: Raster,
+    },
+    /// A static job's grid and numbers, recorded after its fields.
+    StaticResult {
+        /// `"heat"`, `"electrostatic"` or `"current"`.
+        physics: String,
+        /// The grid's cells across and up.
+        cells: [usize; 2],
+        /// Its smallest and largest steps, µm.
+        step_um: [f64; 2],
+        /// The numbers, each with its unit: the probes' means, the largest value, what each
+        /// held rectangle gives, what leaves through each side, the balance's imbalance, and a
+        /// capacitance matrix or the contacts' Joule power.
+        values: Vec<StaticValue>,
+    },
 }
 
 /// A port of a [`Event::Ports`]: where a component's guide ends, by its name.
