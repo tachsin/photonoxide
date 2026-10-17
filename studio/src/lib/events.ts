@@ -595,7 +595,8 @@ export type Event =
   | SParameters
   | StaticField
   | StaticResult
-  | { type: "finished"; stopped: string | null; seconds: number };
+  | { type: "finished"; stopped: string | null; seconds: number }
+  | { type: "failed"; error: string; seconds: number };
 
 export function modeKind(m: Mode): string {
   return m.te_fraction > 0.5 ? "TE-like" : "TM-like";

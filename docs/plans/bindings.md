@@ -411,6 +411,14 @@ Each phase is done when its validation is, as AGENTS.md asks of a solver.
 
 ### Phase 0: results for scripts (this repository, Rust only)
 
+*Done in part:* `results.json` (schema 1) with the run's outcome, grids, modes, sweep points,
+S-parameters, spectra and resonances, its large arrays as raw files; the `failed` event;
+`--timeout` and the exit codes; [docs/runs.md](../runs.md). Not yet: the modes' fields and group
+indices at full precision (the events hold only their pictures), and the test over every job in
+`jobs/` against the validation report's numbers (the tests check two jobs against the library's
+direct calls, bit for bit).
+
+
 - **Delivers:** `results.json` (schema 1) and its array files; the `failed` event; `--timeout` and
   the exit codes; `docs/runs.md`.
 - **Validated by:** a test runs each job in `jobs/` and checks that `results.json` holds the same
@@ -485,8 +493,8 @@ Every milestone until 1.0 may change the API. What keeps the bindings cheap:
    wheels are built only when `python/` or the library changes, so the rest of CI costs what it
    did.
 2. **Which layer first:** the façade first, then the Python package and MATLAB's wrappers over it.
-   Phase 0 (`results.json`, the `failed` event, `--timeout`) is still to come; a job run from
-   Python reads the run's events in the meantime.
+   Phase 0 followed (`results.json`, the `failed` event, `--timeout` and the exit codes,
+   [docs/runs.md](../runs.md)); what it leaves for later is in its section below.
 3. **The API's style:** as recommended. Units in keyword names as job files have them
    (`wavelength_um=1.55`); Pythonic functions and small result classes, vectorized over
    wavelength where Rust loops; NumPy arrays in C order, `array[j, i]` at (x_i, y_j), with their

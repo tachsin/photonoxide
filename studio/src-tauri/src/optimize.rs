@@ -31,7 +31,9 @@ use rayon::prelude::*;
 /// What the job refuses, or the run's errors.
 pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> photonoxide::Result<()> {
     if job::optimizes(job) {
-        optimize(job, run, stop)
+        // its failure recorded and its results written, as job::execute does for the rest
+        let outcome = optimize(job, run, stop);
+        job::conclude(run, outcome)
     } else {
         job::execute(job, run, stop)
     }

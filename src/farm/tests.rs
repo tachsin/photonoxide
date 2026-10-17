@@ -376,7 +376,15 @@ fn a_point_that_fails_is_the_sweeps_error_after_the_points_before_it() {
     let farm = farm_of(&workers(2, 1), FarmOptions::default());
     let (done, lines) = farmed(&text, &farm, &stop);
     let error = done.unwrap_err().to_string();
-    assert_eq!(lines, one);
+    // the same record, but for its last line: each run's failure in its own words
+    let failure = |lines: &[String], error: &str| {
+        let last: serde_json::Value = serde_json::from_str(lines.last().unwrap()).unwrap();
+        assert_eq!(last["type"], "failed");
+        assert_eq!(last["error"], error);
+    };
+    failure(&one, &alone_error);
+    failure(&lines, &error);
+    assert_eq!(lines[..lines.len() - 1], one[..one.len() - 1]);
     assert!(error.contains(&alone_error), "{error} / {alone_error}");
     assert!(error.starts_with("farm: point "), "{error}");
 }

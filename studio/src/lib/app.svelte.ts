@@ -439,6 +439,11 @@ function take(e: Event) {
     case "finished":
       run.finished = { stopped: e.stopped, seconds: e.seconds };
       break;
+    case "failed":
+      // ended, with the error the record gives
+      run.finished = { stopped: null, seconds: e.seconds };
+      run.problem = e.error;
+      break;
   }
 }
 
@@ -519,7 +524,7 @@ export async function follow() {
       if (p.generation !== run.info?.generation) {
         reset(await api.info());
       } else if (p.events.length || p.stoppable !== run.stoppable || p.problem !== run.problem) {
-        const ended = p.events.some((e) => e.type === "finished");
+        const ended = p.events.some((e) => e.type === "finished" || e.type === "failed");
         // a finished run, opened: it starts at the job's own configuration, not at its last point
         if (run.count === 0 && ended) run.following = false;
         for (const e of p.events) take(e);

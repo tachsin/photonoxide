@@ -32,19 +32,24 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use photonoxide::job;
-use photonoxide::run::{Job, Run, Stop};
+use photonoxide::run::{Job, Run, Stop, StopReason};
 
 const USAGE: &str = "usage:
   photonoxide
       open the studio, to run a job from jobs/ or reopen a run from runs/
   photonoxide run <job.toml|.json|.yaml> [--out <dir>] [--headless] [--linger <seconds>]
+                  [--timeout <minutes>]
       run a job; the studio window shows it live and closes by itself when it's done
       (--headless: no window; --out: where run directories go, default runs/;
-       --linger: how long the window stays after the run, default 5 s)
+       --linger: how long the window stays after the run, default 5 s;
+       --timeout: a hard limit, the shorter of it and the job's own applying).
       [--workers <n>] [--worker <host:port>]... [--token <token>] [--task-timeout <seconds>]
       farm the sweep's points: to n workers started here, and to workers listening
       elsewhere (their token: --token or PHOTONOXIDE_FARM_TOKEN); the same record, gathered
       in order; a point past --task-timeout fails, and its worker is dropped
+      It prints the run's directory, which holds results.json at the end
+      (docs/runs.md); it exits 0 finished, 1 failed, 2 usage, 3 stopped by its
+      timeout, 4 stopped on request (the window closed early)
   photonoxide worker [--listen <address>] [--token <token>] [--slots <n>] [--once]
       serve coordinators' sweeps and jobs, one coordinator at a time, on 127.0.0.1:7878
       by default (an address beyond this machine needs a token); --slots: tasks at once,
@@ -148,6 +153,7 @@ fn run(args: &[String]) -> ExitCode {
     let mut out = PathBuf::from("runs");
     let mut headless = false;
     let mut linger = Duration::from_secs(5);
+    let mut timeout: Option<Duration> = None;
     let mut farming = farm::Options::default();
     let mut it = args.iter();
     while let Some(a) = it.next() {
@@ -164,6 +170,12 @@ fn run(args: &[String]) -> ExitCode {
             },
             "--linger" => match it.next().and_then(|s| s.parse::<f64>().ok()) {
                 Some(s) if s.is_finite() && s >= 0.0 => linger = Duration::from_secs_f64(s),
+                _ => return usage(),
+            },
+            "--timeout" => match it.next().and_then(|s| s.parse::<f64>().ok()) {
+                Some(m) if m.is_finite() && m > 0.0 => {
+                    timeout = Some(Duration::from_secs_f64(m * 60.0));
+                }
                 _ => return usage(),
             },
             _ if job_path.is_none() && !a.starts_with("--") => job_path = Some(PathBuf::from(a)),
@@ -186,7 +198,8 @@ fn run(args: &[String]) -> ExitCode {
     };
     let dir = record.dir().to_path_buf();
     println!("{}", dir.display());
-    let stop = Stop::new(job.timeout());
+    // the shorter of the job's own limit and the command line's
+    let stop = Stop::new(job.timeout()).within(timeout);
     // the sweep's points on workers, here or on other machines: the same record, gathered in
     // order as the points complete
     let workers = if !job::farms(&job) {
@@ -214,10 +227,13 @@ fn run(args: &[String]) -> ExitCode {
         let (job, stop) = (job.clone(), stop.clone());
         std::thread::spawn(move || {
             let result = crate::optimize::execute(&job, &mut record, &stop);
+            // why it stopped, if it did, as the run ended: the window closing afterwards asks
+            // for a stop too
+            let stopped = stop.reason();
             // the local workers end with the run
             drop(workers);
             let _ = done.send(());
-            result
+            result.map(|()| stopped)
         })
     };
     if !headless {
@@ -237,9 +253,25 @@ fn run(args: &[String]) -> ExitCode {
         stop.request();
     }
     match worker.join() {
-        Ok(Ok(())) => ExitCode::SUCCESS,
+        Ok(Ok(stopped)) => ended(stopped),
         Ok(Err(e)) => fail(e),
         Err(_) => fail("the job panicked"),
+    }
+}
+
+/// The exit code of a run that ended without an error: 0 finished, 3 stopped by its timeout, 4
+/// stopped on request (docs/runs.md).
+fn ended(stopped: Option<StopReason>) -> ExitCode {
+    match stopped {
+        None => ExitCode::SUCCESS,
+        Some(StopReason::Timeout) => {
+            eprintln!("stopped: the run reached its timeout");
+            ExitCode::from(3)
+        }
+        Some(StopReason::Requested) => {
+            eprintln!("stopped: the run was stopped before it finished");
+            ExitCode::from(4)
+        }
     }
 }
 

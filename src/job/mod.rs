@@ -486,6 +486,7 @@ mod leaky_tests;
 pub mod optimize;
 mod optimize_checks;
 mod params;
+pub mod results;
 mod shapes;
 mod statics;
 #[cfg(test)]
@@ -1246,6 +1247,15 @@ pub enum Event {
         /// held rectangle gives, what leaves through each side, the balance's imbalance, and a
         /// capacitance matrix or the contacts' Joule power.
         values: Vec<StaticValue>,
+    },
+    /// The run failed, recorded before its error is returned: what went wrong. A run's record
+    /// ends with this or [`Event::Finished`]; one that ends with neither was cut short (the
+    /// program was killed).
+    Failed {
+        /// The error, as photonoxide states it.
+        error: String,
+        /// How long the run had gone, seconds.
+        seconds: f64,
     },
 }
 
@@ -2956,7 +2966,9 @@ fn reason(stop: &Stop) -> Option<String> {
     })
 }
 
-/// Runs `job` into `run`, recording its [`Event`]s, and stops early when `stop` says so.
+/// Runs `job` into `run`, recording its [`Event`]s, and stops early when `stop` says so. A run
+/// that fails records an [`Event::Failed`] with the error before returning it, and a run with a
+/// directory gets its `results.json` ([`results`]) however it ends.
 ///
 /// # Errors
 ///
@@ -2964,6 +2976,32 @@ fn reason(stop: &Stop) -> Option<String> {
 /// task itself (an invalid shape, a wavelength a material has no data for), and
 /// [`Error::Io`] if the record can't be written.
 pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+    let outcome = execute_job(job, run, stop);
+    conclude(run, outcome)
+}
+
+/// Ends `run`'s record however its task ended: an [`Event::Failed`] with the error if
+/// `outcome` is one, then the run's `results.json` ([`results`]) if it has a directory. For
+/// whatever runs a task without [`execute`] (the program's optimizations).
+///
+/// # Errors
+///
+/// `outcome`'s error, else [`Error::Io`] if the results can't be written.
+pub fn conclude(run: &mut Run, outcome: Result<()>) -> Result<()> {
+    if let Err(e) = &outcome {
+        let seconds = run.elapsed().as_secs_f64();
+        // (a record that can't be written can't take this either: the error is the task's)
+        let _ = run.record(&Event::Failed {
+            error: e.to_string(),
+            seconds,
+        });
+    }
+    let written = results::write_for(run);
+    outcome.and(written)
+}
+
+/// The task of `job`, whichever it is: a chip's, a device's, or a kind's.
+fn execute_job(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     if job.circuit().is_some() {
         return chip::execute(job, run, stop);
     }
@@ -4133,6 +4171,105 @@ segments = [
             "{ straight = \"1 um\" }",
             "{ straight = \"1 um\", straight_um = 1 }",
             "not both",
+        );
+    }
+
+    #[test]
+    fn results_json_holds_the_s_parameters_of_a_direct_call_bit_for_bit() {
+        let root = temp("results-fdfd");
+        let job = Job::parse(FDFD).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let r = results::Results::read(run.dir()).unwrap();
+        assert_eq!(
+            (r.schema, r.outcome.as_str(), r.kind.as_str()),
+            (1, "finished", "fdfd")
+        );
+        assert_eq!(r.job, "strip-fdfd");
+        assert!(r.error.is_none() && r.stopped.is_none() && r.seconds.is_some());
+        assert!(
+            !r.grids.is_empty(),
+            "the solver's grid is recorded beside the numbers"
+        );
+        let s = r.s_parameters.as_ref().unwrap();
+        assert_eq!(s.s.shape, [2, 2, 2]);
+        assert_eq!(s.effective_indices.shape, [2, 2]);
+        // the library's own call, on the same job: the same bits
+        let direct = fdfd_s_parameters(&job, None).unwrap();
+        assert_eq!(s.ports, direct.ports);
+        assert_eq!(s.wavelengths_um, direct.wavelengths_um);
+        let values = s.s.values(run.dir()).unwrap();
+        let expected: Vec<f64> = direct
+            .s
+            .iter()
+            .flatten()
+            .flatten()
+            .flat_map(|z| [z.re, z.im])
+            .collect();
+        assert_eq!(values, expected);
+        let indices = s.effective_indices.values(run.dir()).unwrap();
+        let expected: Vec<f64> = direct.effective_indices.iter().flatten().copied().collect();
+        assert_eq!(indices, expected);
+    }
+
+    #[test]
+    fn results_json_holds_each_modes_numbers_as_recorded() {
+        let root = temp("results-modes");
+        let job = Job::parse(MODES).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let events: Vec<Event> = replay(run.dir()).unwrap();
+        let r = results::Results::read(run.dir()).unwrap();
+        let recorded: Vec<([f64; 2], f64)> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::Mode {
+                    effective_index,
+                    te_fraction,
+                    ..
+                } => Some((*effective_index, *te_fraction)),
+                _ => None,
+            })
+            .collect();
+        assert!(!recorded.is_empty());
+        let held: Vec<([f64; 2], f64)> = r
+            .modes
+            .iter()
+            .map(|m| (m.effective_index, m.te_fraction))
+            .collect();
+        assert_eq!(held, recorded);
+        assert_eq!(r.outcome, "finished");
+        assert!(r.grids.iter().any(|g| g.step_um > 0.0 && g.unknowns > 0));
+    }
+
+    #[test]
+    fn a_failed_run_records_its_error_and_its_results_say_so() {
+        let root = temp("results-failed");
+        let job =
+            Job::parse(&JOB.replace("kind = \"structure\"", "kind = \"no-such-kind\"")).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        let e = execute(&job, &mut run, &Stop::new(None))
+            .unwrap_err()
+            .to_string();
+        let events: Vec<Event> = replay(run.dir()).unwrap();
+        let Some(Event::Failed { error, .. }) = events.last() else {
+            panic!("{events:?}")
+        };
+        assert_eq!(*error, e);
+        let r = results::Results::read(run.dir()).unwrap();
+        assert_eq!(r.outcome, "failed");
+        assert_eq!(r.error.as_deref(), Some(e.as_str()));
+        // and one stopped says why
+        let root = temp("results-stopped");
+        let job = Job::parse(JOB).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        let stop = Stop::new(None);
+        stop.request();
+        execute(&job, &mut run, &stop).unwrap();
+        let r = results::Results::read(run.dir()).unwrap();
+        assert_eq!(
+            (r.outcome.as_str(), r.stopped.as_deref()),
+            ("stopped", Some("requested"))
         );
     }
 
@@ -5376,14 +5513,18 @@ points = 2
             let job = Job::parse(text).unwrap();
             let checked = check(&job).unwrap_err().to_string();
             assert!(checked.contains(want), "{checked}");
-            // the run says the same, before recording anything
+            // the run says the same, before recording anything but its failure
             let root = temp(&format!("direct-refused-{k}"));
             let mut run = Run::create(&root.0, &job).unwrap();
             let ran = execute(&job, &mut run, &Stop::new(None))
                 .unwrap_err()
                 .to_string();
             assert_eq!(ran, checked);
-            assert!(replay::<Event>(run.dir()).unwrap().is_empty());
+            let events = replay::<Event>(run.dir()).unwrap();
+            assert!(
+                matches!(&events[..], [Event::Failed { error, .. }] if *error == ran),
+                "{events:?}"
+            );
         }
         // auto on any job is no choice at all
         check(&Job::parse(&with(MODES, "auto")).unwrap()).unwrap();
