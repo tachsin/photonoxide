@@ -772,8 +772,8 @@ pub(crate) fn layered(
 pub(crate) fn task_stack(t: &Table) -> Result<LayerStack> {
     let at = "[task.stack]";
     known(t, at, &["substrate", "cladding", "layer"])?;
-    let medium = |key: &str| -> Result<MaterialSpec> {
-        MaterialSpec::from_value(
+    let medium = |key: &str| -> Result<Material> {
+        task_medium(
             t.get(key)
                 .ok_or_else(|| parse(format!("{at} needs a {key}, e.g. {key} = \"sio2\"")))?,
             &format!("{at} {key}"),
@@ -783,7 +783,7 @@ pub(crate) fn task_stack(t: &Table) -> Result<LayerStack> {
         Some(Value::Array(a)) if !a.is_empty() => a
             .iter()
             .enumerate()
-            .map(|(k, l)| LayerSpec::from_value(l, &format!("[[task.stack.layer]] {}", k + 1)))
+            .map(|(k, l)| task_layer(l, &format!("[[task.stack.layer]] {}", k + 1)))
             .collect::<Result<Vec<_>>>()?,
         _ => {
             return Err(parse(format!(
@@ -791,7 +791,62 @@ pub(crate) fn task_stack(t: &Table) -> Result<LayerStack> {
             )));
         }
     };
-    layered(&medium("substrate")?, &layers, &medium("cladding")?)
+    LayerStack::new(medium("substrate")?, layers, medium("cladding")?)
+}
+
+/// A layer of a task's `[task.stack]`, as [`LayerSpec::from_value`] reads a device's, its media
+/// as [`task_medium`] reads them.
+fn task_layer(v: &Value, at: &str) -> Result<Layer> {
+    let Value::Table(t) = v else {
+        return Err(parse(format!("{at} must be a table")));
+    };
+    known(t, at, &["name", "thickness_um", "material", "background"])?;
+    let medium = |key: &str| -> Result<Material> {
+        task_medium(
+            t.get(key)
+                .ok_or_else(|| parse(format!("{at} needs a {key}")))?,
+            &format!("{at} {key}"),
+        )
+    };
+    Ok(Layer {
+        name: string(t, at, "name")?.ok_or_else(|| parse(format!("{at} needs a name")))?,
+        thickness: Length::um(
+            number(t, at, "thickness_um")?
+                .ok_or_else(|| parse(format!("{at} needs a thickness_um")))?,
+        ),
+        material: medium("material")?,
+        background: medium("background")?,
+    })
+}
+
+/// A medium of a task's `[task.stack]`: a catalogue entry, as [`MaterialSpec::from_value`] reads
+/// it, or a number, a fixed real refractive index of at least 1, the same at every wavelength:
+/// a benchmark's medium, such as Bienstman et al.'s silicon of 3.5, or air.
+fn task_medium(v: &Value, at: &str) -> Result<Material> {
+    #[allow(clippy::cast_precision_loss)]
+    let index = match v {
+        Value::Float(x) => *x,
+        Value::Integer(i) => *i as f64,
+        other => return MaterialSpec::from_value(other, at)?.material(),
+    };
+    if !(index.is_finite() && index >= 1.0) {
+        return Err(parse(format!(
+            "{at}: a fixed refractive index must be a number of at least 1, got {index}"
+        )));
+    }
+    Material::new(
+        format!("n = {index}"),
+        crate::material::Model::Constant(num_complex::Complex64::new(index, 0.0)),
+        crate::units::Wavelength::um(f64::MIN_POSITIVE)?,
+        crate::units::Wavelength::um(f64::MAX)?,
+        crate::material::Provenance {
+            reference: "given by the job".into(),
+            doi: String::new(),
+            data: String::new(),
+            temperature: None,
+            notes: "a fixed refractive index, the same at every wavelength".into(),
+        },
+    )
 }
 
 impl LayerSpec {

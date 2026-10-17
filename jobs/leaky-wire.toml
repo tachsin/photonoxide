@@ -1,0 +1,44 @@
+# Bienstman et al.'s leaky silicon wire: 500 x 220 nm of silicon (3.5) on 1 um of oxide (1.45)
+# over a silicon substrate, air above, at 1.55 um. Its light leaks through the oxide into the
+# substrate, whose index is above the mode's: a PML in the substrate absorbs it, and the mode is
+# leaky, its loss in dB/cm. Their consensus is 2.412372 + 2.9135e-8 i; on this 10 nm grid the job
+# gives 2.4187 + 2.757e-8 i, and on 5 nm 2.4164 + 2.805e-8 i (the core's corners converge slowly).
+#   photonoxide run jobs/leaky-wire.toml
+name = "leaky-wire"
+timeout_minutes = 10
+
+[task]
+kind = "modes"
+wavelength_um = 1.55
+layer = "Si"
+propagation = "x"          # the modes travel along x, cut at x = 0 (cut_x_um)
+y_um = [-1.0, 1.0]         # the window across the guide
+z_um = [-1.6, 2.0]         # 1.6 um of the substrate, its last 1 um the PML
+step_nm = 10.0
+modes = 2
+modes_near = 2.4           # the count nearest this index: the substrate's own modes lie above it
+
+[task.stack]
+substrate = 3.5            # fixed indices, the benchmark's
+cladding = 1.0
+
+[[task.stack.layer]]
+name = "BOX"
+thickness_um = 1.0
+material = 1.45
+background = 1.45
+
+[[task.stack.layer]]
+name = "Si"
+thickness_um = 0.22
+material = 3.5
+background = 1.0
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, 0.0]
+size_um = [10.0, 0.5]      # 500 nm wide, along x
+
+[task.pml]
+thickness_um = [0.0, 0.0, 1.0, 0.0]   # across the guide low and high, below and above
+strength = 3.0

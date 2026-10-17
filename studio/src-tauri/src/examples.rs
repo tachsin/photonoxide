@@ -342,6 +342,10 @@ pub fn jobs() -> Vec<JobExample> {
             include_str!("../../../jobs/strip-guided-modes.toml"),
         ),
         (
+            "leaky-wire.toml",
+            include_str!("../../../jobs/leaky-wire.toml"),
+        ),
+        (
             "strip-and-ring.toml",
             include_str!("../../../jobs/strip-and-ring.toml"),
         ),

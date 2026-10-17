@@ -1,7 +1,7 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
 import { api, type AppState, type Info, type JobFormat, type Settings } from "./api";
-import type { ChipEvent, CompactFit, CompactPlan, ChipPoint, ChipStudy, DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, StaticField, StaticResult, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
+import type { ChipEvent, CompactFit, CompactPlan, ChipPoint, ChipStudy, DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, ModeLoss, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, StaticField, StaticResult, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import { template, type Kind } from "./job";
 import type { Looks } from "./layers";
 import { themeName } from "./themes";
@@ -183,6 +183,8 @@ export const run = $state({
   modes: [] as Mode[],
   /** The modes' signed fields, by the mode's label; an older run has none. */
   modeFields: {} as Record<string, ModeField>,
+  /** A run with a PML: each mode's kind and loss, by its point ("own" for the job's own) and label. */
+  modeLosses: {} as Record<string, ModeLoss>,
   sweep: null as { parameter: string; points: SweepPoint[] } | null,
   /** What the sweep steps through, as the run announced it; an older run has none. */
   plan: null as Sweep | null,
@@ -271,6 +273,12 @@ export function shownModes(): { modes: Mode[]; fields: Record<string, ModeField>
   };
 }
 
+/** A shown mode's kind and loss, recorded by a run with a PML; undefined for a run without one. */
+export function shownLoss(m: Mode): ModeLoss | undefined {
+  const point = run.point !== null && run.sweepModes[run.point] ? run.point : "own";
+  return run.modeLosses[`${point}:${m.label}`];
+}
+
 /** The structure shown: the scene, with a width sweep point's shapes when one is picked. */
 export function shownScene(): Scene | null {
   const shapes = run.point === null ? undefined : run.sweepShapes[run.point];
@@ -331,6 +339,9 @@ function take(e: Event) {
       break;
     case "mode_field":
       run.modeFields[e.label] = e;
+      break;
+    case "mode_loss":
+      run.modeLosses[`${e.point ?? "own"}:${e.label}`] = e;
       break;
     case "sweep_point":
       run.sweep ??= { parameter: e.parameter, points: [] };
@@ -440,6 +451,7 @@ function reset(info: Info) {
     pictures: [],
     modes: [],
     modeFields: {},
+    modeLosses: {},
     sweep: null,
     sweepModes: {},
     sweepShapes: {},

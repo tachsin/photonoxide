@@ -11,8 +11,8 @@
   import Tip from "../components/Tip.svelte";
   import UnitChip from "../components/UnitChip.svelte";
   import { api, duration, KINDS } from "../lib/api";
-  import { app, followSweep, go, perPoint as hasPerPoint, pickPoint, run, shownField, shownModes, shownScene, sweepAxis, themeBackdrop, toast } from "../lib/app.svelte";
-  import { modeKind } from "../lib/events";
+  import { app, followSweep, go, perPoint as hasPerPoint, pickPoint, run, shownField, shownLoss, shownModes, shownScene, sweepAxis, themeBackdrop, toast } from "../lib/app.svelte";
+  import { lossText, modeKind } from "../lib/events";
   import { fieldName, frameIntensity, timeText } from "../lib/fdtd";
   import { SOLVERS } from "../lib/methods";
   import { effectiveLook, outside, rows, type Looks } from "../lib/layers";
@@ -311,7 +311,8 @@
           <p class="text-xs faint">drawn on the layer's top face, from zero (black) to its peak (pale yellow){run.point !== null ? ", each point's own" : ""}</p>
         {:else if current}
           {@const m = current}
-          <p class="font-medium">{m.label} · {modeKind(m)} · <span class="num">n_eff {m.effective_index[0].toFixed(6)}</span></p>
+          {@const loss = shownLoss(m)}
+          <p class="font-medium">{m.label} · {modeKind(m)} · <span class="num">n_eff {m.effective_index[0].toFixed(6)}</span>{#if loss} · {loss.kind}, <span class="num">{lossText(loss.loss_db_per_cm)}</span> dB/cm{/if}</p>
           {#if run.point !== null}<p class="text-xs text-primary">at {pointText}{live && run.following ? ", the one just solved" : ""}</p>{/if}
           <p class="text-xs faint">|E|² on the cut at {run.along} = {lenUnit(m.cut_y_um, 3, true)}, at λ = {lenUnit(m.wavelength_um)}</p>
           {#if facts && run.wave}
@@ -586,12 +587,14 @@
         <h3 class="panel-title mb-2 flex items-center gap-1.5"><Waves size={13} /> Modes{#if run.point !== null}<span class="font-normal normal-case tracking-normal text-primary">· point {run.point + 1}</span>{/if}</h3>
         <div class="space-y-1">
           {#each modes as m, k (k)}
+            {@const loss = shownLoss(m)}
             <button
               class="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors {k === run.selected ? 'border-primary/40 bg-primary/8' : 'border-transparent hover:bg-base-content/4'}"
               onclick={() => (run.selected = k)}
             >
               <span class="flex-1 font-medium">{m.label}</span>
               <span class="text-xs faint">{modeKind(m)}</span>
+              {#if loss}<span class="text-xs faint" title="{loss.kind}: its loss in dB/cm on this grid and PML">{loss.kind === "leaky" ? `leaky, ${lossText(loss.loss_db_per_cm)} dB/cm` : "guided"}</span>{/if}
               <span class="text-xs num">{m.effective_index[0].toFixed(5)}</span>
             </button>
           {/each}

@@ -24,6 +24,8 @@ validation:
   - device/wire-ng-dwivedi
   - mode/leaky-wire-bienstman
   - mode/leaky-wire-bienstman-loss
+  - job/leaky-wire-bienstman
+  - job/leaky-wire-bienstman-loss
   - device/rib-hadley
   - device/rib-eim
   - device/rib-wide-slab
@@ -566,6 +568,14 @@ assumes that order and cancels the leading error, landing $8 \times 10^{-5}$ fro
 the real part and 0.25 % in the loss:
 
 ::validation mode/leaky-wire-bienstman mode/leaky-wire-bienstman-loss
+
+A modes job solves the same wire: `jobs/leaky-wire.toml` gives its stack fixed indices, puts 1 µm
+of PML in the substrate with `[task.pml]`, and aims its count at the wire with `modes_near`, since
+the modes nearest the substrate's index are the PML's own. Each mode it keeps is named guided or
+leaky, with its loss in dB/cm. On its uniform 5 nm grid the job is off by what the solver's own
+5 nm grid gives before extrapolation, $+4.0 \times 10^{-3}$ in the real part and 0.963 of the loss:
+
+::validation job/leaky-wire-bienstman job/leaky-wire-bienstman-loss
 
 The leakage falls about exponentially with the oxide's thickness $h$: the field decays across
 the oxide as $e^{-\gamma y}$, $\gamma = k\sqrt{n_\text{eff}^2 - n_2^2} = 7.8$ /µm for this wire, so

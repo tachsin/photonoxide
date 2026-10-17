@@ -97,6 +97,33 @@ and then `modes` finds a leaky mode with its loss, as the leaky-wire benchmark b
 PML's own modes come too, their loss large. Neither is a guided mode, so `guided_modes` leaves
 both out; with PMLs, ask `modes` for them.
 
+### With a PML, in a modes job
+
+A `"modes"` job with a `[task.pml]` (a thickness for each edge, across the guide at its low and
+high end, below and above, and a strength) solves its count, or every mode above `modes_above`,
+in the open window, and keeps and names them:
+
+- **guided:** $\operatorname{Re} n_\text{eff}$ above the highest index of the media around the
+  guides, the rule above;
+- **leaky:** below it but above the lowest of those media: evanescent in at least one of them,
+  its light leaking into the others;
+- **left out:** the PML's own modes, more than half of their $\lvert E \rvert^2$ inside the PML,
+  where their fields grow (on Bienstman's wire 0.84 to 0.93, against below 0.012 for the leaky
+  modes of a strip on a thin oxide); and modes below every medium around the guides, which
+  radiate into all of them, the window's radiation rather than a mode the guides hold.
+
+Each kept mode is recorded with its kind and its loss in dB/cm, $20 \log_{10}(e)\thinspace k_0
+\operatorname{Im} n_\text{eff}$, which the run's solver details state with the grid and the
+PML. Where the media around the guides hold the highest index (a substrate), the modes nearest
+it are the PML's own, so a count is aimed at the guide with `modes_near`, as
+`jobs/leaky-wire.toml` does. A PML belongs where light leaks: on a guided mode's evanescent tail
+it changes $n_\text{eff}$ a little and gives it a small loss of either sign (a strip in oxide, its
+PML 0.6 µm from the core: under 2e-6 in $n_\text{eff}$, $\lvert \operatorname{Im} n_\text{eff}
+\rvert$ under 6e-6). A job without a `[task.pml]` runs as before, to the bit. The validation
+report's `job/` cases check it: a film leaking into its substrate against the exact leaky mode,
+second order in the grid and insensitive to the PML, and Bienstman's wire to its published index
+and loss on a 5 nm grid.
+
 ## Accuracy
 
 - **Interfaces:** second order, in both orientations. A slab turned on its side converges onto

@@ -1,10 +1,10 @@
 <script lang="ts">
   // The run in 2D: fields, S-parameters, permittivity pictures, modes and sweeps.
-  import { run, shownField, shownModes, shownScene, sweepAxis } from "../lib/app.svelte";
+  import { run, shownField, shownLoss, shownModes, shownScene, sweepAxis } from "../lib/app.svelte";
   import { cutOutline, topOutline } from "../lib/outline";
   import { api } from "../lib/api";
   import { range } from "../lib/colours";
-  import { modeKind } from "../lib/events";
+  import { lossText, modeKind } from "../lib/events";
   import type { Series } from "../lib/plot";
   import { len } from "../lib/units";
   import FdtdPlayer from "./FdtdPlayer.svelte";
@@ -251,16 +251,19 @@
       <div class="grid gap-4 lg:grid-cols-2">
         {#each modes as m, k (k)}
           {@const lossy = Math.abs(m.effective_index[1]) > 1e-12 * m.effective_index[0]}
+          {@const loss = shownLoss(m)}
           <article class="panel p-4">
             <div class="mb-2 flex items-center gap-2">
               <h4 class="font-semibold">{m.label}</h4>
               <span class="badge badge-soft badge-sm {m.te_fraction > 0.5 ? 'badge-primary' : 'badge-secondary'}">{modeKind(m)}</span>
+              {#if loss}<span class="badge badge-soft badge-sm {loss.kind === 'leaky' ? 'badge-warning' : 'badge-success'}" title={loss.kind === "leaky" ? "Below the highest index of the media around the guides: its light leaks into them, through the PML" : "Above every medium around the guides; its loss is the PML's small effect on its tail"}>{loss.kind}</span>{/if}
               <span class="flex-1"></span>
               <span class="text-xs faint num">TE fraction {m.te_fraction.toFixed(3)}</span>
             </div>
             <p class="mb-3 text-sm num">
               n_eff = {m.effective_index[0].toFixed(6)}{lossy ? ` + ${m.effective_index[1].toExponential(3)}i` : ""}
               <span class="faint">at {len(m.wavelength_um)} <UnitChip /></span>
+              {#if loss}<br />loss {lossText(loss.loss_db_per_cm)} dB/cm <span class="faint">on this grid and PML (the Solver panel has both)</span>{/if}
             </p>
             <RasterView raster={m.intensity} kind="intensity" axes={[run.along === "x" ? "y" : "x", "z"]} maxHeight={260} outline={cut(m)} />
           </article>

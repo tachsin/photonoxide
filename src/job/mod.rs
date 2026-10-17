@@ -127,7 +127,8 @@
 //! a `substrate`, a `cladding` and `[[task.stack.layer]]`s bottom to top, each with its `name`,
 //! `thickness_um` (or `thickness`, an expression), `material` and `background` (catalogue ids,
 //! or tables with a `model`, `temperature` and `composition`), as a device's `[device.stack]`
-//! has them. A shape takes `etch = { depth = "150 nm", sidewall = "80 deg" }` (or `depth_um`,
+//! has them; or, for a benchmark's media, a number: a fixed real refractive index of at least 1,
+//! the same at every wavelength (`substrate = 3.5`, `cladding = 1.0` for air). A shape takes `etch = { depth = "150 nm", sidewall = "80 deg" }` (or `depth_um`,
 //! `sidewall_deg`): a partial etch leaves its layer's material below its floor, a sidewall below
 //! 90° leans the shape's walls out going down ([`crate::stack::Etch`]). Every kind of job reads
 //! them; a 2D job's etches are on its own layer. docs/methods/stacks.md has the method.
@@ -247,7 +248,28 @@
 //!   guided mode, and a sweep's points may then have different numbers of them; a threshold
 //!   below it gives the window's own modes too. A job may give one or
 //!   the other; a threshold must be positive and below the highest index the cross-section
-//!   holds at the job's wavelength and a wavelength sweep's ends.
+//!   holds at the job's wavelength and a wavelength sweep's ends. A count may be aimed with
+//!   `modes_near`: the count nearest that effective index instead of the highest index.
+//!
+//!   **Leaky modes.** With a `[task.pml]`, perfectly matched layers inside the window's edges
+//!   ([`crate::mode::vector::Pml`]: `thickness_um`, µm, across the guide at its low and high
+//!   end, below and above, 0 for none, at least 4 cells of the step; `strength`, 3 by default),
+//!   the window is open where they are, and its leaky modes are kept with their loss: a guide on
+//!   a thin oxide over a silicon substrate, or a rib whose TM mode leaks into its slab. Of the
+//!   modes solved, a count or every one above `modes_above`, each is kept and named
+//!   `"guided"` (n_eff above the highest index of the media around the guides, the rule above) or
+//!   `"leaky"` (below it, down to the lowest index of those media), and recorded with an
+//!   [`Event::ModeLoss`] after its pictures: its kind and its loss in dB/cm, from its Im n_eff on
+//!   the run's grid and PML, which the [`Event::Solver`] states. Left out are the PML's own modes,
+//!   more than half of their |E|² inside the PML, where their fields grow, and modes below the
+//!   lowest index of the media around the guides, which radiate into all of them: the window's
+//!   radiation, not a mode the guides hold. Where a medium around the guides has the highest
+//!   index (a substrate), the modes nearest it are the PML's own: aim the count at the guide
+//!   with `modes_near`. Put a PML only where the light leaks, where the guided field has died
+//!   out: on a guided mode's evanescent tail a PML changes its n_eff a little and gives it a
+//!   small loss, of either sign. The layers must leave the guide's layer and a shape at the cut
+//!   between them. A job without a `[task.pml]` runs exactly as before, to the bit, and records
+//!   no loss. `jobs/leaky-wire.toml` is Bienstman et al.'s leaky wire.
 //!
 //!   Light travels along x in every kind of job: a modes job with `propagation = "x"` cuts the
 //!   stack and shapes at x = `cut_x_um` (0 by default) over the window `y_um` across the guide,
@@ -275,11 +297,16 @@
 //! step_nm = 20.0
 //! modes = 2                  # how many (1 to 50), from the highest effective index
 //! # modes_above = 1.444      # or every mode with n_eff above this, no count (not both)
+//! # modes_near = 2.4         # or the count nearest this n_eff, not the highest index
 //!
 //! [[task.rect]]
 //! layer = "Si"
 //! center_um = [0.0, 0.0]
 //! size_um = [10.0, 0.5]      # 500 nm wide, along x
+//!
+//! # [task.pml]               # leaky modes: absorbing layers inside the window's edges
+//! # thickness_um = [0.0, 0.0, 1.0, 0.0]   # across the guide low and high, below and above
+//! # strength = 3.0
 //!
 //! [task.sweep]
 //! parameter = "wavelength"   # "width": rect `rect`'s size across the guide; or a parameter
@@ -453,6 +480,9 @@ mod fit;
 mod fit_checks;
 #[cfg(test)]
 mod fit_tests;
+mod leaky_checks;
+#[cfg(test)]
+mod leaky_tests;
 pub mod optimize;
 mod optimize_checks;
 mod params;
@@ -504,6 +534,11 @@ pub(crate) fn fit_cases() -> Vec<crate::validation::Case> {
 /// The validation cases of devices' studies ([`study_from_device`]).
 pub(crate) fn study_cases() -> Vec<crate::validation::Case> {
     study_checks::cases()
+}
+
+/// The validation cases of modes jobs' leaky modes, with a PML (`[task.pml]`).
+pub(crate) fn leaky_cases() -> Vec<crate::validation::Case> {
+    leaky_checks::cases()
 }
 
 /// The memory a sweep's points in flight may take in all, by their estimate: what bounds them
@@ -797,6 +832,25 @@ pub enum Event {
         measure: String,
         /// Its value: smaller is better.
         error: f64,
+    },
+    /// What kind of mode a modes job with a PML (`[task.pml]`) found, and its loss: recorded
+    /// right after the mode's [`Event::ModeField`], or at a sweep's point right after its
+    /// [`Event::SweepMode`]. A job without a PML records none: its window is closed, and every
+    /// mode it keeps is guided.
+    ModeLoss {
+        /// The sweep point's index, from 0, or `None` for the job's own configuration.
+        point: Option<usize>,
+        /// The mode's label, as its [`Event::Mode`] or [`Event::SweepMode`] has it, e.g.
+        /// `"mode 1 of 2"`.
+        label: String,
+        /// `"guided"`, its Re n_eff above the highest index of the media around the guides
+        /// ([`crate::mode::vector::VectorMode::is_guided`]), or `"leaky"`, below it: its light
+        /// leaks into those media, through the PML's edges.
+        kind: String,
+        /// The loss of its power along the guide, dB/cm, from its Im n_eff
+        /// ([`crate::mode::dispersion::loss_db_per_cm`]) on the run's grid and PML, which the
+        /// run's [`Event::Solver`] states. A guided mode's is the PML's small effect on it.
+        loss_db_per_cm: f64,
     },
     /// A picture of an FDTD run's field at one moment, seen from above on the plane the run's
     /// view names, over the part of the window its [`Event::Scene`] shows: the field averaged
@@ -2153,8 +2207,53 @@ impl ModesTask {
         .unwrap_or(0.0))
     }
 
+    /// What [`ModesTask::validate`] refuses of a `[task.pml]`: thicknesses that aren't numbers,
+    /// are negative or are all 0, a layer thinner than [`PML_CELLS`] cells of the step, a strength
+    /// that isn't positive, and layers across the guide that meet. Their heights against the
+    /// window's and the guide's are [`modes_pml`]'s, which knows the stack.
+    fn check_pml(&self, pml: &PmlSpec) -> Result<()> {
+        let names = ["low across", "high across", "below", "above"];
+        for (name, t) in names.iter().zip(pml.thickness_um) {
+            if !(t.is_finite() && t >= 0.0) {
+                return Err(task_error(format!(
+                    "[task.pml] thickness_um {name} must be a number of at least 0, got {t}"
+                )));
+            }
+            let step = self.step_nm / 1000.0;
+            if t > 0.0 && t < PML_CELLS * step {
+                return Err(task_error(format!(
+                    "[task.pml] thickness_um {name} is {t} um, fewer than {PML_CELLS} cells of \
+                     the step ({} nm): so thin a layer reflects; make it thicker or 0 for none",
+                    self.step_nm
+                )));
+            }
+        }
+        if pml.thickness_um.iter().all(|&t| t == 0.0) {
+            return Err(task_error(
+                "[task.pml] has every thickness_um 0, which opens no edge: give the edges the \
+                 light leaks through a thickness, or leave [task.pml] out",
+            ));
+        }
+        let strength = pml.strength();
+        if !(strength.is_finite() && strength > 0.0) {
+            return Err(task_error(format!(
+                "[task.pml] strength must be a positive number, got {strength}"
+            )));
+        }
+        let across = self.across()?;
+        let [low, high, _, _] = pml.thickness_um;
+        if low + high >= across[1] - across[0] {
+            return Err(task_error(format!(
+                "[task.pml] thickness_um across the guide, {low} and {high} um, fill the window \
+                 across, {} um: leave room for the guide",
+                across[1] - across[0]
+            )));
+        }
+        Ok(())
+    }
+
     /// What [`check`] and the run both refuse before solving anything: the propagation, the
-    /// windows, the step, the cut, the number of modes and the sweep.
+    /// windows, the step, the cut, the number of modes, the PML and the sweep.
     fn validate(&self) -> Result<()> {
         // (none is refused below)
         if let Some(modes) = self.modes
@@ -2217,6 +2316,19 @@ impl ModesTask {
                 )));
             }
         }
+        if let Some(near) = self.modes_near {
+            if let Some(above) = self.modes_above {
+                return Err(task_error(format!(
+                    "modes_near = {near} is for a count, and modes_above = {above} takes every \
+                     mode above it: give one or the other"
+                )));
+            }
+            if !(near.is_finite() && near > 0.0) {
+                return Err(task_error(format!(
+                    "modes_near must be a positive effective index, got {near}"
+                )));
+            }
+        }
         check_step(self.step_nm)?;
         check_cells(
             match along {
@@ -2228,6 +2340,9 @@ impl ModesTask {
         )?;
         if let Some(z) = self.z_um {
             check_cells("z_um", z, self.step_nm)?;
+        }
+        if let Some(pml) = &self.pml {
+            self.check_pml(pml)?;
         }
         let Some(sweep) = &self.sweep else {
             return Ok(());
@@ -2469,6 +2584,11 @@ struct ModesTask {
     modes: Option<usize>,
     /// Every mode with n_eff above this, instead of a count.
     modes_above: Option<f64>,
+    /// The count nearest this effective index, instead of the highest index's.
+    modes_near: Option<f64>,
+    /// Perfectly matched layers inside the window's edges: the window is open, and its leaky
+    /// modes are kept with their loss.
+    pml: Option<PmlSpec>,
     #[serde(default)]
     rect: Vec<RectSpec>,
     #[serde(default)]
@@ -2479,6 +2599,57 @@ struct ModesTask {
     /// The names of `[task.parameters]`, which a sweep may step through: set after reading.
     #[serde(skip)]
     parameters: Vec<String>,
+}
+
+/// A modes job's `[task.pml]`: perfectly matched layers inside its window's edges
+/// ([`crate::mode::vector::Pml`]), as the façade's cross-section has them.
+#[derive(Clone, Copy, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PmlSpec {
+    /// Each layer's thickness, µm, 0 for none: across the guide at its low and high end (the
+    /// pictures' left and right), below and above.
+    thickness_um: [f64; 4],
+    /// The stretching's strength α, s = 1 + iα at the window's edge: 3 by default.
+    strength: Option<f64>,
+}
+
+/// The PML's strength when `[task.pml]` gives none: Chew et al.'s stretching absorbs well at
+/// 3–10 over a layer about a wavelength thick (docs/methods/pml.md).
+const PML_STRENGTH: f64 = 3.0;
+
+/// The fewest cells of the step a modes job's PML may be: a thinner one reflects.
+const PML_CELLS: f64 = 4.0;
+
+impl PmlSpec {
+    fn strength(&self) -> f64 {
+        self.strength.unwrap_or(PML_STRENGTH)
+    }
+
+    /// The library's PML in the frame the cross-section is solved in: across the guide is its
+    /// x, from low to high (the frame keeps the job's order), and up its y.
+    fn pml(&self) -> crate::mode::vector::Pml {
+        let [west, east, south, north] = self.thickness_um;
+        crate::mode::vector::Pml {
+            west,
+            east,
+            south,
+            north,
+            strength: self.strength(),
+        }
+    }
+
+    /// What the solver details say of it.
+    fn describe(&self) -> String {
+        let [low, high, below, above] = self.thickness_um;
+        format!(
+            "{low}, {high}, {below} and {above} um inside the window's edges (across the guide \
+             low and high, below and above; 0 is none, the field zero beyond that edge), \
+             strength {}: the coordinate stretched by s = 1 + i {} (u/d)^2 at depth u into a \
+             layer d thick (Chew, Jin and Michielssen 1997)",
+            self.strength(),
+            self.strength()
+        )
+    }
 }
 
 /// The axis a modes job's modes travel along.
@@ -2936,6 +3107,7 @@ fn check_inner(job: &Job) -> Result<()> {
             let s = draw(stack, &task.rect, &task.circle, &task.ring)?;
             let z = modes_z(&task, &s)?;
             modes_guide(&task, &s, z)?;
+            modes_pml(&task, &s, z)?;
             if let Some(sw) = task.sweep.iter().find(|sw| sw.parameter == "wavelength") {
                 wavelengths.extend([sw.from, sw.to]);
             }
@@ -2956,9 +3128,11 @@ fn check_inner(job: &Job) -> Result<()> {
                 for end in [sw.from, sw.to] {
                     let at = modes_task(job, Some((&sw.parameter, end)))?;
                     let stack = named_stack(&at.stack, at.core_nm, at.bottom_oxide_um)?;
-                    draw(stack, &at.rect, &at.circle, &at.ring).map_err(|e| {
-                        task_error(format!("at the sweep's {} = {end}: {e}", sw.parameter))
-                    })?;
+                    draw(stack, &at.rect, &at.circle, &at.ring)
+                        .and_then(|swept| modes_pml(&task, &swept, z))
+                        .map_err(|e| {
+                            task_error(format!("at the sweep's {} = {end}: {e}", sw.parameter))
+                        })?;
                 }
             }
             (s, task.layer, task.wavelength_um)
@@ -3107,6 +3281,97 @@ fn modes_guide(task: &ModesTask, s: &Structure, z: [f64; 2]) -> Result<()> {
     Ok(())
 }
 
+/// What a modes job's `[task.pml]` needs of its window: layers below and above that leave room
+/// between them, and that stay clear of its layer, and a shape meeting the cut between the
+/// layers across the guide. A PML over the guide would absorb its modes. A guide may run into
+/// a layer across it, as a rib's slab does: the slab's light leaks into the layer.
+fn modes_pml(task: &ModesTask, s: &Structure, z: [f64; 2]) -> Result<()> {
+    let Some(pml) = &task.pml else {
+        return Ok(());
+    };
+    let [low, high, below, above] = pml.thickness_um;
+    if below + above >= z[1] - z[0] {
+        return Err(task_error(format!(
+            "[task.pml] thickness_um below and above, {below} and {above} um, fill the window's \
+             height, {} um: leave room for the guide",
+            z[1] - z[0]
+        )));
+    }
+    let (_, bottom, top) = s
+        .stack()
+        .layer(&task.layer)
+        .ok_or_else(|| task_error(format!("the stack has no layer {}", task.layer)))?;
+    let (bottom, top) = (bottom.to_um(), top.to_um());
+    if below > 0.0 && z[0] + below > bottom {
+        return Err(task_error(format!(
+            "[task.pml] below reaches z = {} um, above the bottom of the layer {} ({bottom} um): \
+             it would absorb the guide; make it thinner or the window deeper",
+            z[0] + below,
+            task.layer
+        )));
+    }
+    if above > 0.0 && z[1] - above < top {
+        return Err(task_error(format!(
+            "[task.pml] above reaches down to z = {} um, below the top of the layer {} ({top} \
+             um): it would absorb the guide; make it thinner or the window taller",
+            z[1] - above,
+            task.layer
+        )));
+    }
+    let (along, across, cut) = (task.along()?, task.across()?, task.cut()?);
+    let open = [across[0] + low, across[1] - high];
+    let step = task.step_nm / 4000.0;
+    let count = ((open[1] - open[0]) / step).ceil() as usize;
+    let meets = (0..=count).any(|k| {
+        let a = (open[0] + k as f64 * step).min(open[1]);
+        let p = match along {
+            Along::X => Point::um(cut, a),
+            Along::Y => Point::um(a, cut),
+        };
+        s.shapes(&task.layer).iter().any(|shape| shape.contains(p))
+    });
+    if !meets {
+        return Err(task_error(format!(
+            "[task.pml] across the guide leaves {} = {} to {} um open, and no shape of the layer \
+             {} meets the cut there: the layers would absorb the guide",
+            along.across(),
+            open[0],
+            open[1],
+            task.layer
+        )));
+    }
+    Ok(())
+}
+
+/// The share of a mode's |E|² (over the cells' areas) inside the PML of `cs`: near 1 for the
+/// PML's own modes, whose fields grow into the layers, and small for a guided or leaky mode,
+/// which the layers only absorb.
+fn pml_share(fields: &crate::mode::fields::Fields, cs: &crate::mode::vector::CrossSection) -> f64 {
+    let pml = cs.pml();
+    let (x, y) = (cs.x(), cs.y());
+    let open_x = [x[0] + pml.west, x[x.len() - 1] - pml.east];
+    let open_y = [y[0] + pml.south, y[y.len() - 1] - pml.north];
+    let (mut total, mut inside) = (0.0, 0.0);
+    for i in 0..x.len() - 1 {
+        let xc = 0.5 * (x[i] + x[i + 1]);
+        for j in 0..y.len() - 1 {
+            let yc = 0.5 * (y[j] + y[j + 1]);
+            let e: f64 = fields.e(i, j).iter().map(|v| v.norm_sqr()).sum::<f64>()
+                * (x[i + 1] - x[i])
+                * (y[j + 1] - y[j]);
+            total += e;
+            if xc < open_x[0] || xc > open_x[1] || yc < open_y[0] || yc > open_y[1] {
+                inside += e;
+            }
+        }
+    }
+    if total > 0.0 { inside / total } else { 0.0 }
+}
+
+/// The most of a mode's |E|² the PML may hold for the mode to be the guide's (guided or leaky)
+/// and not the PML's own.
+const PML_SHARE: f64 = 0.5;
+
 /// The highest index the cross-section of a modes job holds at `wavelength_um`, from the
 /// materials its window reaches: the substrate below the stack, each layer's surroundings, its
 /// material where a shape meets the cut (sampled as [`modes_guide`] does), and the cladding
@@ -3163,27 +3428,45 @@ fn window_edge_highest(
     z: [f64; 2],
     wavelength_um: f64,
 ) -> Result<f64> {
+    Ok(window_media(s, z, wavelength_um)?
+        .into_iter()
+        .fold(0.0f64, f64::max))
+}
+
+/// The lowest index of the media [`window_edge_highest`] reads. A mode of an open window
+/// (a PML) below it is below every medium around the guides, and so radiates into all of them:
+/// it is the window's discretized radiation, not a mode the guides hold. Above it, a mode is
+/// evanescent in at least one of them, and a mode not above the highest leaks into the others.
+fn window_edge_lowest(s: &Structure, z: [f64; 2], wavelength_um: f64) -> Result<f64> {
+    let media = window_media(s, z, wavelength_um)?;
+    Ok(media.iter().copied().reduce(f64::min).unwrap_or(0.0))
+}
+
+/// The indices of the media a modes job's window reaches around its guides at `wavelength_um`,
+/// bottom to top: the substrate and the cladding where the window reaches them, and the
+/// backgrounds of its layers.
+fn window_media(s: &Structure, z: [f64; 2], wavelength_um: f64) -> Result<Vec<f64>> {
     let w = Wavelength::um(wavelength_um)?;
     let index = |m: &crate::material::Material| -> Result<f64> {
         Ok(m.permittivity(w)?.re.max(0.0).sqrt())
     };
     let stack = s.stack();
-    let mut highest = 0.0f64;
+    let mut media = Vec::new();
     if z[0] < 0.0 {
-        highest = highest.max(index(stack.substrate())?);
+        media.push(index(stack.substrate())?);
     }
     let mut bottom = 0.0;
     for layer in stack.layers() {
         let top = bottom + layer.thickness.to_um();
         if z[1] > bottom && z[0] < top {
-            highest = highest.max(index(&layer.background)?);
+            media.push(index(&layer.background)?);
         }
         bottom = top;
     }
     if z[1] > bottom {
-        highest = highest.max(index(stack.cladding())?);
+        media.push(index(stack.cladding())?);
     }
-    Ok(highest)
+    Ok(media)
 }
 
 /// A modes job's `modes_above` must be below the highest index its cross-section holds at each
@@ -3314,30 +3597,69 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         at.extend([sw.from, sw.to]);
     }
     check_threshold(&task, &s, z, &at)?;
-    // the modes of a cross-section: a count from the highest index, or every one above a
-    // threshold; `None` when stopped. Of a count, only the guided ones are kept: a mode not
-    // above the window's edges' index is the closed window's, not the guide's
+    modes_pml(&task, &s, z)?;
+    // the window is open where it has a PML: its leaky modes are kept
+    let open = task.pml.is_some();
+    // the modes of a cross-section: a count from the highest index (or `modes_near`), or every
+    // one above a threshold; `None` when stopped. In a closed window, of a count only the
+    // guided ones are kept: a mode not above the window's edges' index is the closed window's,
+    // not the guide's. In an open one every mode is kept but the PML's own, most of their
+    // field inside it
     let solve = |cs: &crate::mode::vector::CrossSection,
                  w: Wavelength|
      -> Result<Option<Vec<crate::mode::vector::VectorMode>>> {
         let stopped = || stop.reason().is_some();
-        match task.modes_above {
-            Some(above) => Ok(crate::mode::vector::modes_above_until(
+        let found = match task.modes_above {
+            Some(above) => crate::mode::vector::modes_above_until(
                 cs,
                 w,
                 above,
                 &crate::mode::region::Search::default(),
                 stopped,
             )?
-            .map(|found| found.modes)),
+            .map(|found| found.modes),
             None => {
-                let edge = window_edge_highest(&task, &s, z, w.to_um())?;
-                Ok(
-                    crate::mode::vector::modes_until(cs, w, count, None, stopped)?
-                        .map(|modes| modes.into_iter().filter(|m| m.is_guided(edge)).collect()),
-                )
+                let found =
+                    crate::mode::vector::modes_until(cs, w, count, task.modes_near, stopped)?;
+                if !open {
+                    let edge = window_edge_highest(&task, &s, z, w.to_um())?;
+                    return Ok(found
+                        .map(|modes| modes.into_iter().filter(|m| m.is_guided(edge)).collect()));
+                }
+                found
+            }
+        };
+        if !open {
+            return Ok(found);
+        }
+        let Some(found) = found else {
+            return Ok(None);
+        };
+        let lowest = window_edge_lowest(&s, z, w.to_um())?;
+        let mut kept = Vec::with_capacity(found.len());
+        for m in found {
+            if m.effective_index().re > lowest && pml_share(&m.fields(cs)?, cs) <= PML_SHARE {
+                kept.push(m);
             }
         }
+        Ok(Some(kept))
+    };
+    // a mode's kind and loss in an open window, recorded after its pictures
+    let loss = |point: Option<usize>,
+                label: &str,
+                m: &crate::mode::vector::VectorMode,
+                w: Wavelength|
+     -> Result<Option<Event>> {
+        if !open {
+            return Ok(None);
+        }
+        let edge = window_edge_highest(&task, &s, z, w.to_um())?;
+        Ok(Some(Event::ModeLoss {
+            point,
+            label: label.to_owned(),
+            kind: if m.is_guided(edge) { "guided" } else { "leaky" }.into(),
+            loss_db_per_cm: crate::mode::dispersion::loss_db_per_cm(m.effective_index(), w),
+        }))
     };
     run.record(&modes_scene(&task, &s)?)?;
     if task.propagation.is_some() {
@@ -3362,7 +3684,12 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             lam,
         )?,
     })?;
-    let cs = cross_section(
+    // the cross-section with its PML, if the job has one
+    let opened = |cs: crate::mode::vector::CrossSection| match &task.pml {
+        Some(pml) => cs.with_pml(pml.pml()),
+        None => Ok(cs),
+    };
+    let cs = opened(cross_section(
         &fs,
         &frame.rect,
         &frame.circle,
@@ -3372,48 +3699,72 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         z,
         step,
         lam,
-    )?;
+    )?)?;
+    let edge = window_edge_highest(&task, &s, z, lam.to_um())?;
+    // what an open window keeps of the modes it solves, and how it names them
+    let kept = || -> Result<String> {
+        Ok(format!(
+            "guided above {edge:.4}, the highest index of the media around the guides, and \
+             leaky from there down to {:.4}, the lowest, each with its loss; left out are the \
+             PML's own modes (more than half of their |E|^2 inside the PML, where their fields \
+             grow) and those below the lowest index, which radiate into every medium around \
+             the guides: the window's radiation, not a mode the guides hold",
+            window_edge_lowest(&s, z, lam.to_um())?
+        ))
+    };
+    let asked = match (task.modes_above, open) {
+        (Some(above), false) => format!("every one with n_eff above {above}"),
+        (Some(above), true) => format!("every one with Re n_eff above {above}: {}", kept()?),
+        (None, false) => format!(
+            "{count}, the guided ones kept: n_eff above {edge:.4}, the highest index of \
+             the media around the guides (the window has no absorbing layers, so a mode below \
+             it is the window's own)"
+        ),
+        (None, true) => format!("{count}: {}", kept()?),
+    };
+    let mut details = vec![
+        ["modes asked for".into(), asked],
+        [
+            "eigen-solver".into(),
+            match (task.modes_above.is_some(), task.modes_near) {
+                (true, _) => "contour integrals (FEAST) over n_eff from the threshold to the \
+                              highest index, 16 points, each a multifrontal LU; an eigenpair \
+                              is accepted at a residual of 1e-10"
+                    .into(),
+                (false, None) => "shift-and-invert Arnoldi about the highest index with \
+                                  Krylov-Schur restarts, sparse LU of the shifted matrix; an \
+                                  eigenpair is accepted at a residual of 1e-9"
+                    .into(),
+                (false, Some(near)) => format!(
+                    "shift-and-invert Arnoldi about n_eff = {near} with Krylov-Schur \
+                     restarts, sparse LU of the shifted matrix; an eigenpair is accepted at a \
+                     residual of 1e-9"
+                ),
+            },
+        ],
+        [
+            "nodes".into(),
+            "on every shape's edge and layer interface, cells of about the step between \
+             them"
+                .into(),
+        ],
+    ];
+    if let Some(pml) = &task.pml {
+        details.push(["PML".into(), pml.describe()]);
+        details.push([
+            "loss".into(),
+            "of the power along the guide, 20 log10(e) k0 Im n_eff in dB/cm, from n_eff on \
+             this grid with this PML: a finer grid and a thicker PML (or another strength) \
+             say how far it has converged"
+                .into(),
+        ]);
+    }
     run.record(&Event::Solver {
         module: "mode::vector".into(),
         cells: [cs.x().len() - 1, cs.y().len() - 1],
         step_um: step,
         unknowns: cs.unknowns(),
-        details: vec![
-            match task.modes_above {
-                Some(above) => [
-                    "modes asked for".into(),
-                    format!("every one with n_eff above {above}"),
-                ],
-                None => [
-                    "modes asked for".into(),
-                    format!(
-                        "{count}, the guided ones kept: n_eff above {:.4}, the highest index of \
-                         the media around the guides (the window has no absorbing layers, so a mode below \
-                         it is the window's own)",
-                        window_edge_highest(&task, &s, z, lam.to_um())?
-                    ),
-                ],
-            },
-            [
-                "eigen-solver".into(),
-                if task.modes_above.is_some() {
-                    "contour integrals (FEAST) over n_eff from the threshold to the highest \
-                     index, 16 points, each a multifrontal LU; an eigenpair is accepted at a \
-                     residual of 1e-10"
-                } else {
-                    "shift-and-invert Arnoldi about the highest index with Krylov-Schur \
-                     restarts, sparse LU of the shifted matrix; an eigenpair is accepted at a \
-                     residual of 1e-9"
-                }
-                .into(),
-            ],
-            [
-                "nodes".into(),
-                "on every shape's edge and layer interface, cells of about the step between \
-                 them"
-                    .into(),
-            ],
-        ],
+        details,
     })?;
     // the solve itself heeds the stop and the time limit, at each of its steps
     let Some(found) = solve(&cs, lam)? else {
@@ -3438,11 +3789,14 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         })?;
         let (component, values) = signed_field(&fields, &cs, across, z, step, along.across());
         run.record(&Event::ModeField {
-            label,
+            label: label.clone(),
             wavelength_um: lam.to_um(),
             component,
             values,
         })?;
+        if let Some(event) = loss(None, &label, m, lam)? {
+            run.record(&event)?;
+        }
     }
     for (k, m) in sorted.iter().enumerate() {
         run.record(&Event::SolveError {
@@ -3515,6 +3869,8 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                     )));
                 };
                 let swept = draw(stack()?, &rects, circles, rings)?;
+                // a parameter may move the guide under a PML
+                modes_pml(&task, &swept, z)?;
                 let swept_frame = Frame::new(along, &rects, circles, rings, cut);
                 let swept_fs = swept_frame.draw(stack()?)?;
                 let picture = swept_fs.side_view(
@@ -3541,6 +3897,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 )
             }
         };
+        let cs = opened(cs)?;
         let Some(mut found) = solve(&cs, w)? else {
             return Ok(None);
         };
@@ -3589,10 +3946,12 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             let (component, field) =
                 signed_field(&fields, &cs, across, z, 2.0 * step, along.across());
             let n = m.effective_index();
+            let label = format!("mode {} of {}", rank + 1, found.len());
+            let kind = loss(Some(k), &label, m, w)?;
             events.push(Event::SweepMode {
                 point: k,
                 value,
-                label: format!("mode {} of {}", rank + 1, found.len()),
+                label,
                 wavelength_um: w.to_um(),
                 effective_index: [n.re, n.im],
                 te_fraction: m.te_fraction(),
@@ -3601,6 +3960,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 field: coarse(field),
                 cut_y_um: cut,
             });
+            events.extend(kind);
         }
         for (rank, m) in found.iter().enumerate() {
             events.push(Event::SolveError {

@@ -103,6 +103,27 @@ export interface ModeField {
   values: Raster;
 }
 
+/**
+ * What kind of mode a modes run with a PML found, and its loss: recorded right after its
+ * ModeField, or at a sweep's point after its SweepMode (same label). A run without a PML has none.
+ */
+export interface ModeLoss {
+  type: "mode_loss";
+  /** The sweep point's index, or null for the job's own configuration. */
+  point: number | null;
+  label: string;
+  /** "guided" (above every medium around the guides) or "leaky" (its light leaks into them). */
+  kind: string;
+  /** The loss of its power along the guide, dB/cm, on the run's grid and PML. */
+  loss_db_per_cm: number;
+}
+
+/** A loss in dB/cm as the views show it: three digits, in powers of ten when small or large. */
+export function lossText(db: number): string {
+  const a = Math.abs(db);
+  return a !== 0 && (a < 0.01 || a >= 1e4) ? db.toExponential(2) : db.toPrecision(3);
+}
+
 export interface SweepPoint {
   type: "sweep_point";
   parameter: string;
@@ -560,6 +581,7 @@ export type Event =
   | Permittivity
   | Mode
   | ModeField
+  | ModeLoss
   | SweepPoint
   | SweepShapes
   | SweepPermittivity

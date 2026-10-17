@@ -1731,6 +1731,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::mode::region::checks::cases());
     // and the shift-and-invert solver's restarts, many modes, and every guided mode
     cases.extend(crate::eigen::checks::cases());
+    // and modes jobs' leaky modes, with a PML, Bienstman et al.'s wire through one
+    cases.extend(crate::job::leaky_cases());
     // and the stacks' etches and sidewalls, as the mode solver reads them
     cases.extend(crate::stack::checks::cases());
     // and the averaging from the fill, and FDFD reading it, with Farjadpour et al.'s crystal

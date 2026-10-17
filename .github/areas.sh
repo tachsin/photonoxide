@@ -104,7 +104,7 @@ area statics \
 area job \
   "src/job/* src/run.rs src/farm.rs src/farm/* jobs/*" \
   "material mode sparse fdfd fdtd circuit device generator statics" \
-  "job:: run:: farm::" "generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
+  "job:: run:: farm::" "job/ generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
 
 # the component generators: shapes on layers with named ports, which the devices draw their
 # geometry with and jobs place; their cases compare the devices' geometry with what it was

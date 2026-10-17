@@ -14,6 +14,11 @@ validation:
   - mode/pml-soi-leakage-te
   - mode/pml-soi-leakage-tm
   - mode/pml-leaky-chilwell
+  - job/leaky-film-loss
+  - job/leaky-film-grid-order
+  - job/leaky-film-pml
+  - job/leaky-wire-bienstman
+  - job/leaky-wire-bienstman-loss
 examples:
   - leaky_waves
 ---
@@ -58,3 +63,26 @@ open boundary.
   a PML in the substrate, m = 4–7 within 4e-5 at 2.5 nm. m = 8 sits just above the cover's index:
   in the cover its field decays slowly with its phase running towards the guide, which a PML
   can't absorb, so the cover is closed by a zero wall and m = 8 is within 2e-4.
+
+## In a modes job
+
+A `"modes"` job takes a PML as `[task.pml]`: `thickness_um`, four thicknesses in µm (across the
+guide at its low and high end, below and above; 0 for none, otherwise at least 4 cells of the
+step), and `strength`, α, 3 by default. Its window is then open there, and its leaky modes are
+kept, each named guided or leaky and recorded with its loss in dB/cm; the PML's own modes are
+left out ([what a count returns](vector.md)). `job::check` refuses layers that are negative,
+all 0, too thin, that fill the window, or that reach the guide's layer or every shape at the cut.
+
+- **Exact substrate leakage, through a job:** 220 nm of silicon (3.473) on 0.5 µm of oxide
+  (1.444) over silicon, across a job's whole window, with 1 µm of PML in the substrate. The
+  film is uniform across, so the job's mode is the film's times the window's lowest standing
+  wave, which is taken out exactly. The loss is within 2.7 %, 0.68 %, 0.17 % and 0.042 % of the
+  exact one at 20, 10, 5 and 2.5 nm: second order. A PML of 0.5 µm changes it by 1.8e-4, of
+  1.5 µm by 2.9e-6, strength 10 by 2.8e-5.
+- **Bienstman et al.'s leaky wire, through a job** (`jobs/leaky-wire.toml`, fixed indices in a
+  `[task.stack]`, a window of 2 × 3.6 µm): on uniform grids of 20, 10 and 5 nm,
+  $\operatorname{Re} n_\text{eff}$ is 8.8e-3, 6.4e-3 and 4.0e-3 above their 2.412372 and the loss
+  0.94, 0.95 and 0.963 of their 2.9135e-8: the core's corners converge slowly, as on the
+  library's graded grids (+4.0e-3 and 0.97 at 5 nm, before extrapolation).
+- **The same guided modes with and without it:** a 500 × 220 nm strip in oxide, its window
+  4.4 × 2.6 µm, a PML 0.6 µm thick on every edge: both modes the same within 2e-6.
