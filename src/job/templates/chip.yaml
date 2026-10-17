@@ -1,0 +1,28 @@
+# A chip of two instances: an all-pass ring of a coupler and a strip 10 um in radius losing
+# 3 dB/cm, the spectrum at its through port: dips where the ring resonates.
+#   photonoxide run chip.yaml
+name: new-chip
+timeout_minutes: 2
+
+circuit:
+  instance:
+    - name: coupler
+      component: coupler
+      values: { coupling: 0.05 }
+    - name: ring
+      device:
+        kind: waveguide
+        fidelity: analytic
+        parameters: { R: "10", length: "2*pi*R", loss: "3" }
+  connections:
+    - [coupler.o3, ring.o1]
+    - [ring.o2, coupler.o2]
+  port:
+    - { name: in, at: coupler.o1 }
+    - { name: through, at: coupler.o4 }
+
+task:
+  kind: spectrum
+  from_um: 1.54
+  to_um: 1.56
+  points: 201

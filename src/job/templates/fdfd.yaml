@@ -1,0 +1,33 @@
+# A straight 500 nm silicon guide between two ports by 2D FDFD with the effective index method:
+# its S-parameters and its field. A 2D result is an estimate, not the device's 3D performance.
+#   photonoxide run fdfd.yaml
+name: new-fdfd
+timeout_minutes: 10
+
+task:
+  kind: fdfd
+  stack: soi_220
+  wavelength_um: 1.55
+  layer: Si
+  polarization: te
+  x_um: [-2.0, 2.0]
+  y_um: [-1.5, 1.5]
+  step_nm: 20.0
+
+  rect:
+    - layer: Si
+      center_um: [0.0, 0.0]
+      size_um: [6.0, 0.5]
+
+  # a port is a column across a guide, its mode launched and measured there
+  port:
+    - x_um: -1.0
+      side: left
+    - x_um: 1.0
+      side: right
+
+  # sweep:
+  #   parameter: wavelength
+  #   from: 1.5
+  #   to: 1.6
+  #   points: 11

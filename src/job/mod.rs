@@ -494,6 +494,7 @@ mod study;
 mod study_checks;
 #[cfg(test)]
 mod study_tests;
+mod templates;
 
 pub use chip::{
     COMPONENTS, ChipDesign, ChipInstance, ChipPart, ChipPort, InstanceModel, spectrum_from_chip,
@@ -510,6 +511,7 @@ pub use optimize::{
 };
 pub use statics::StaticValue;
 pub use study::{Corner, Study, SweepAxis, study_from_device};
+pub use templates::{TEMPLATES, Template, template};
 
 /// The validation cases of components in jobs ([`crate::generator`] in `[[task.component]]`).
 pub(crate) fn component_cases() -> Vec<crate::validation::Case> {

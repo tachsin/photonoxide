@@ -1,0 +1,44 @@
+# A straight 500 nm silicon guide by 2D FDTD with the effective index method: a pulse from its TE
+# mode, its transmission over the band, and the field as the pulse goes through. A 2D result is
+# an estimate, not the device's 3D performance.
+#   photonoxide run fdtd.yaml
+name: new-fdtd
+timeout_minutes: 10
+
+task:
+  kind: fdtd
+  stack: soi_220
+  wavelength_um: 1.55
+  layer: Si
+  polarization: te
+  x_um: [-2.5, 2.5]
+  y_um: [-1.5, 1.5]
+  step_nm: 25.0
+
+  spectrum:                # the band the monitors measure
+    from_um: 1.5
+    to_um: 1.6
+    points: 11
+
+  rect:
+    - layer: Si
+      center_um: [0.0, 0.0]
+      size_um: [6.0, 0.5]
+
+  source:
+    - type: mode           # the guide's TE mode, towards +x
+      normal: x
+      at_um: -1.5
+      direction: "+"
+
+  monitor:
+    - type: mode
+      name: output
+      normal: x
+      at_um: 1.5
+    - type: field
+      wavelengths_um: [1.55]
+
+  stop:
+    until: decay           # until the field has left the window
+    fraction: 1.0e-6

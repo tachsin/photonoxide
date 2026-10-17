@@ -1,0 +1,23 @@
+# A directional coupler's study: its gap swept from 150 to 450 nm by its analytic model, with the
+# band at each gap.
+#   photonoxide run sweep.yaml
+name: new-sweep
+timeout_minutes: 5
+
+device:
+  kind: directional coupler
+  fidelity: analytic
+  parameters:
+    length: "15"
+
+task:
+  kind: sweep
+  from_um: 1.5
+  to_um: 1.6
+  points: 11
+
+  axis:                    # one axis, or two for a map
+    - parameter: gap
+      from: 0.15
+      to: 0.45
+      points: 11

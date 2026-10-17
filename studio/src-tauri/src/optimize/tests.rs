@@ -329,3 +329,16 @@ fn the_chip_fit_returns_the_ring_its_spectra_were_made_from() {
         );
     }
 }
+
+/// `photonoxide new optimize`'s job runs as it is, and splits the coupler evenly.
+#[test]
+fn the_optimize_template_runs_to_an_even_split() {
+    let t = job::template("optimize").expect("the template");
+    let j = Job::parse_as(t.text, photonoxide::run::Format::Yaml).expect("a job");
+    let e = events(&j);
+    let (x, stop) = optimum(&e);
+    // even at the band's worst wavelength, not at 1.55 um: near L_x/2 (18.573 against 18.576 um
+    // here), not on it
+    let off = (x[0] - three_db()).abs() / three_db();
+    assert!(off < 1e-3, "{} against {} ({stop})", x[0], three_db());
+}
