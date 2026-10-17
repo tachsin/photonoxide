@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/tachsin/photonoxide/compare/v0.5.4...v0.6.0) - 2026-10-17
+
+### <!-- 0 -->Added
+
+- *(thermal, electro)* the static solver on a cross-section: heat, electrostatics and current with its Joule heat, on graded grids ([#423](https://github.com/tachsin/photonoxide/pull/423))
+- *(fdtd, studio)* run_until_decayed stops when the fields grow; kept shapes in the Custom device's top view, a static run in the window, the chip's port names ([#425](https://github.com/tachsin/photonoxide/pull/425))
+- *(studio)* chip jobs that reach the circuit examples' closed forms through the chip's optimize task (part of #244) ([#427](https://github.com/tachsin/photonoxide/pull/427))
+- *(job)* leaky modes in modes jobs, with a PML, each with its loss ([#429](https://github.com/tachsin/photonoxide/pull/429))
+
+### <!-- 2 -->Performance
+
+- *(fdfd)* [**breaking**] a multigrid without the finest matrix, its smoother from the stencil and its coarse levels rediscretized ([#351](https://github.com/tachsin/photonoxide/pull/351))
+
+### <!-- 4 -->Documentation
+
+- 0.5.4 is released ([#408](https://github.com/tachsin/photonoxide/pull/408))
+- *(fdtd)* Liu and Poon's mode converter, splitter-rotator and ring at 15 cells, and the crossing with the coupling tensor ([#436](https://github.com/tachsin/photonoxide/pull/436))
+
 ## [0.5.4](https://github.com/tachsin/photonoxide/compare/v0.5.3...v0.5.4) - 2026-10-16
 
 ### <!-- 0 -->Added
