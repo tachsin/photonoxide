@@ -297,6 +297,26 @@ What came after 0.5.3: geometry for any device, the devices on pages of their ow
 - [x] **Backends:** any BLAS and LAPACK's interface measured, AMD AOCL and Arm PL as providers, the fronts' dense kernels benchmarked against PARDISO (#382); the GPU's iterative solves on every case and problem, cuSPARSE's products chosen to repeat, and AmgX examined (#356).
 - [x] **The project:** the Academy's slab waveguide lesson (#358); every crate in the workspace has photonoxide's version, the studio and native included (#385); on Linux the `.deb` or `.rpm` first, each release saying which file to take (#380); the optional backends as badges in the README (#379); a pull request that changes the library checked against the latest release's public API (#355), and one with an AI attribution line refused (#361); Wang et al.'s Bragg gratings cited by their online year, 2010 (#370); new majors of the Libraries workflow's actions (#378).
 
+### 0.5.5: Writing jobs and taking results away
+
+A problem is set up by writing a file, not a program. Its results are taken away whole, in files any tool reads.
+
+- [ ] **The job editor** (#430): the job's text on the left, the design on the right drawn as the run will draw it and updated as you type; tabs for open jobs, and Reference, Problems and Preview beside them.
+  - A popover at the cursor (Ctrl+Space, or its button) with what fits there: the fields a kind needs to run, apart from the optional ones, each with its type, unit, default, range and docs; in an expression its functions, units and the parameters in scope with their values; in a value the stacks, layers, materials, devices and their parameters, sources and monitors.
+  - Hover docs with the method's page, and `job::check`'s errors at their line and column as you type.
+  - One JSON Schema generated from the job types drives it, and any other editor through a `$schema` line; a test fails when the schema and the types disagree.
+  - Templates: `photonoxide new <kind>` and the editor's New, each a short commented job that passes `job::check` and runs.
+  - YAML first, then TOML and JSON in the same editor from the same schema.
+- [ ] **Every example as a job too** (#430): each example a job can describe has its job file, opened in YAML, TOML or JSON, and a test that it gives the example's numbers to the bit; Open as a job on each example's page. The examples a job can't describe yet are listed, each with what the format lacks.
+- [ ] **YAML the recommended format** (#430): `jobs/` and the docs YAML first, and the studio and `device_job` writing YAML; TOML and JSON read as now, and the same job checked equal in all three. Proposed with it, for tachsin's decision: units in values (`1.55 um`, `20 nm`) beside the `_um` keys, one line per shape, and anchors or `extends:` to reuse a stack, a source or a window.
+- [ ] **Exporting results** (#431), chosen in a job's `export:`, in the studio's Export dialog on a finished run or by `photonoxide export`:
+  - modes' n_eff, group index, loss and complex E and H, power normalized; FDFD's and FDTD's complex fields at chosen wavelengths and monitors, and FDTD's frames; the permittivity; spectra, S-parameters, resonances, sweeps and studies as tables; the static solver's temperature, potential, field, current and Joule heat; the whole window or a box, every n-th cell;
+  - every file with its grid (nodes or centres, each component's Yee offset), units, normalization, the job as it ran, the version and the run;
+  - NPZ, compressed MAT (v5), VTK XML and CSV, besides Touchstone, all written in pure Rust; deflate at a chosen level, f64 or f32 (the file says when it was downcast), and the size estimated before writing; HDF5 later, through `photonoxide-native` loading the user's own library at run time, if tachsin agrees;
+  - the façade's `export` and the arrays with their grids, for Python and MATLAB;
+  - heavy arrays in a binary file beside `events.jsonl` rather than in it, replay still bit for bit.
+- [ ] **Masks in:** a GDS file's layers read into a structure job, read only; writing layouts stays 0.9's.
+
 ### 0.6: Thermal and electro-optic devices
 
 The first active devices. One solver for static problems on the waveguide's cross-section serves heat, electrode fields and RF lines.
@@ -305,10 +325,12 @@ The first active devices. One solver for static problems on the waveguide's cros
 - [ ] **Thermo-optic phase shifters:**
   - temperature to index by dn/dT, with provenance (Komma 2012; Frey 2006), and thin-film silicon's conductivity (Ju & Goodson 1999);
   - Pπ, the time constant, and the crosstalk between neighbours;
+  - the chain in one job (#432): a heater's power, the heat solve's ΔT, Δn by dn/dT in each material, the mode solve's n_eff, and Pπ;
   - dynamic thermal compact models for circuits (Coenen 2022), and crosstalk correction posed for genoxide (Gurses 2022).
 - [ ] **Pockels modulation:**
   - the electro-optic tensor rotated into the waveguide's frame (x-cut and z-cut), and the index change by perturbation theory (Johnson 2002), checked against a full re-solve of the mode;
   - one Vπ·L definition, derived and documented, since papers normalize the overlap differently;
+  - the chain in one job (#432): the electrodes' voltage, the field solve, Δn by the rotated r tensor, the mode solve, and Vπ·L; a crystal's orientation given as Euler angles in the job, and biaxial crystals in the catalogue;
   - lithium niobate first (tensors: Jazbinšek & Zgonik 2002; dispersion: Zelmon 1997), then barium titanate (a domain-averaged coefficient with provenance and its spread, 200 to over 900 pm/V; Abel 2018) and lithium tantalate (Wang 2024).
 - [ ] **Travelling-wave electrodes:**
   - quasi-TEM RF index, impedance and loss: conductors by Wheeler 1942 and Holloway & Kuester 1995, dielectrics by their loss tangent;
@@ -391,6 +413,20 @@ The plan, with its survey, sources and scope, is [docs/plans/quantum.md](docs/pl
 - [ ] **Studio:** a quantum view on the Chip page (a circuit's unitary, input photons, output statistics), a pair-source designer, a Gaussian view, a loss-budget waterfall.
 - [ ] **Academy:** Hong–Ou–Mandel interference, programmable interferometers, photon pairs and purity, boson sampling and permanents, squeezed light, from KLM to fusion, GKP and cluster states.
 - [ ] **Validation:** each item analytic (HOM visibility, permanents of known matrices, squeezed-vacuum statistics), a published result (Peruzzo 2010, Paesani 2020, Vernon 2017, Vaidya 2020, Nehra 2022, Silverstone 2013, Arcari 2014, Pernice 2012) and a convergence test, as the plan details.
+
+### 0.6.3: Eigenmode expansion and the mode solver's tools
+
+Device-scale propagation without FDTD, and what a designer asks of a mode, each to a stated accuracy (#432).
+
+- [ ] **Eigenmode expansion,** moved forward from 0.12, with PML (Bienstman 2001):
+  - straights, tapers with their steps placed adaptively, bends and periodic sections, cascaded by S-matrices; sections from a device's geometry or a job's shapes, and from GDS once it is read;
+  - a basis of plane waves for a fibre's or a beam's input, and angled facets;
+  - S over wavelength from a few solves, interpolated, with its error stated;
+  - validation: a step between two slabs against the mode-matching closed form, a published taper and MMI, convergence in the number of modes and steps, and FDTD on tapers.
+- [ ] **Convergence to a tolerance:** the mode solver, FDFD and eigenmode expansion refining their grid until n_eff or S changes by less than the tolerance given, with Richardson extrapolation where the order is known; the run records each grid and its value.
+- [ ] **Adaptive sweeps:** wavelengths placed where the response changes, by AAA rational approximation with an error estimate (Nakatsukasa 2018); modes tracked across a sweep by their overlaps, so crossings and anticrossings are followed, not re-sorted by index.
+- [ ] **A mode's quantities:** the effective area for Kerr in high-index guides (Afshar & Monro 2009), the confinement in each region or shape, orthogonality and normalization between a run's modes, and the coupling to a Gaussian beam or a fibre's mode at an offset and an angle; the same beam as a source and monitor in FDFD and FDTD.
+- [ ] **Sidewall-roughness loss** from the mode, where now the waveguide's is typed in: Payne & Lacey 1994's slab model as the analytic check, the volume-current method on the full-vector mode (Barwicz & Haus 2005) reproduced from its figures, the roughness's σ and correlation length in the job, with a convergence test.
 
 ### 0.7: Inverse design
 - [ ] **Quantum objectives** with gradients (purity, heralding, HOM visibility, a unitary's fidelity), from the circuit adjoint and the minors' permanents ([docs/plans/quantum.md](docs/plans/quantum.md), Q4).
@@ -523,7 +559,7 @@ What a designer needs to take a design to a process of their choice. photonoxide
 ### 0.12: Semi-analytic methods
 - [x] **Transfer matrix method:** thin films and Bragg stacks. *(Done in 0.3: `Multilayer::reflection`, Chilwell & Hodgkinson's Eqs. 13–16, against Fresnel and the quarter-wave mirror's closed form to 1e-12.)*
 - [ ] **RCWA:** the stable formulation (Moharam 1995) with Li's factorization rules (Li 1996); compared against S4 (Liu 2012).
-- [ ] **Eigenmode expansion,** with PML (Bienstman 2001).
+- [ ] **Eigenmode expansion,** with PML (Bienstman 2001). *(Moved forward to 0.6.3, #432.)*
 - [ ] **Beam propagation method:** wide-angle, Padé (Hadley 1992).
 - [ ] **Validation:** Bragg mirrors analytically, gratings against published results, and EME against FDTD on tapers.
 
@@ -564,6 +600,7 @@ The waveguide and resonator processes, phase matching, photon pairs and Kerr com
 ### Throughout
 - **Studio:** every new solver gets its live view the same release, and the workspace grows a step per milestone:
   - 0.4: jobs built in the window, the component library and the chip view;
+  - 0.5.5: the job editor, its text beside the design, and the Export dialog;
   - 0.5: live field propagation;
   - 0.6: temperature and electrode-field views;
   - 0.7: the optimization dashboard;
@@ -677,6 +714,10 @@ Every reference below was checked against its DOI. The performance work's refere
 - L. Li, J. Opt. Soc. Am. A 13, 1870 (1996). [10.1364/JOSAA.13.001870](https://doi.org/10.1364/JOSAA.13.001870)
 - V. Liu, S. Fan, Comput. Phys. Commun. 183, 2233 (2012), S4. [10.1016/j.cpc.2012.04.026](https://doi.org/10.1016/j.cpc.2012.04.026)
 - P. Bienstman, R. Baets, Opt. Quantum Electron. 33, 327 (2001). [10.1023/A:1010882531238](https://doi.org/10.1023/A:1010882531238)
+- Y. Nakatsukasa, O. Sète, L. N. Trefethen, SIAM J. Sci. Comput. 40, A1494 (2018), the AAA algorithm. [10.1137/16M1106122](https://doi.org/10.1137/16M1106122)
+- S. Afshar V., T. M. Monro, Opt. Express 17, 2298 (2009), effective area in high-index guides. [10.1364/OE.17.002298](https://doi.org/10.1364/OE.17.002298)
+- F. P. Payne, J. P. R. Lacey, Opt. Quantum Electron. 26, 977 (1994), scattering loss from roughness. [10.1007/BF00708339](https://doi.org/10.1007/BF00708339)
+- T. Barwicz, H. A. Haus, J. Lightwave Technol. 23, 2719 (2005), sidewall roughness by the volume-current method. [10.1109/JLT.2005.850816](https://doi.org/10.1109/JLT.2005.850816)
 - G. R. Hadley, Opt. Lett. 17, 1426 (1992). [10.1364/OL.17.001426](https://doi.org/10.1364/OL.17.001426)
 - G. Mie, Ann. Phys. 330, 377 (1908). [10.1002/andp.19083300302](https://doi.org/10.1002/andp.19083300302)
 
