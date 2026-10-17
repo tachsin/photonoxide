@@ -171,10 +171,43 @@ formula, the window's ±200 µm box included: ±100 µm gives 4.3e-4, ±400 µm 
 | `static/coplanar-wen`, `static/coplanar-edges-order` | a coplanar waveguide by conformal mapping | graded from 4 and 1 nm | 4.8e-4 at 1 nm, order 0.82 in the edge's step |
 | `static/joule-resistor`, `static/joule-balance` | a bar's Joule heat $V^2\sigma t/L$, and all of it through the substrate | graded, 10 to 100 nm | 4e-16, 6e-13 |
 | `static/soi-heater-balance` | a heater over the 220 nm SOI stack's strip: the balance | graded, 20 nm to 1 µm | 6e-13 |
+| `static/jacques-tin-heater` | published: Jacques et al. 2019's TiN heater, its Pπ (23.9 mW simulated) | graded, 20 to 500 nm; the mode at 10 nm | 25.4 mW, the variants 24.5 to 26.3 |
 
-Each case's numbers are in the validation report (docs/validation.md). The published result for
-the static solver (a heater's cross-section) waits for a choice on #412; the heaters' Pπ and time
-constants come with dn/dT and the transient in #413 to #415.
+Each case's numbers are in the validation report (docs/validation.md).
+
+### Jacques et al. 2019's TiN heater
+
+The published case (#412's decision 2, option (a)): M. Jacques, A. Samani, E. El-Fiky, D. Patel,
+Z. Xing, D. V. Plant, "Optimization of thermo-optic phase-shifter design and mitigation of
+thermal crosstalk on the SOI platform", Opt. Express 27, 10456 (2019),
+doi:10.1364/OE.27.010456. Its Section 2.2 simulates (Lumerical DEVICE, FEM) the cross-section of
+a 320 µm phase shifter and gives its Pπ, 23.9 mW for the 2.0 µm wide TiN heater.
+
+- **What the paper gives,** used as it is: a 500 × 220 nm silicon strip on 2 µm of buried oxide,
+  an oxide cladding, a TiN heater 2.0 µm wide located 2 µm above the strip; Table 3's
+  conductivities (the 220 nm film 90, the substrate 148, TiN 28, oxide 1.38 W/(m·K)) and
+  indices at 1550 nm (silicon 3.476, oxide 1.55); a region 40 µm wide and 18 µm high whose
+  bottom, in the substrate, is held at the ambient, with 10 W/(m²·K) of convection between the
+  oxide and the air above it; silicon's dn/dT, 1.8 × 10⁻⁴ K⁻¹; Eqs. 4 and 5, a π shift when
+  2π L Δn_eff / λ = π.
+- **What it doesn't, varied:** the TiN's thickness is "withheld" (Table 3), taken as 100 or 200
+  nm; "2 µm above the Si strip" and Fig. 4's H_clad = 2 µm are read both as from the strip's top
+  and from the buried oxide's; the oxide over the heater is taken as 1 µm, and the region's
+  sides as insulated.
+- **From temperature to Pπ** as the paper does: its temperature monitor covers the strip, and
+  only the strip's index changes ("justify neglecting the thermo-optic effect in the
+  cladding"). Here: the strip's mean rise per watt per metre from the static solver, times
+  ∂n_eff/∂n_Si (1.033, a central difference of the full-vector mode solver at 10 nm), times
+  dn/dT, gives Δn_eff per W/m, and Pπ = λ/(2L) ÷ that × L.
+
+The four variants give 24.5, 25.0, 25.8 and 26.3 mW (the strip rises 0.162 K per W/m in the
+first); the report shows their midpoint, 25.4 mW, 6 % above the paper's 23.9 mW, within the 10 %
+the unstated dimensions and the two solvers' meshes allow. The heat solve moves by 0.1 % on a
+grid twice as fine. The oxide's index enters only through the mode: with 1.444 in place of Table
+3's 1.55, ∂n_eff/∂n_Si is 1.065 and the variants give 23.8 to 25.5 mW. This is a 2D number: Pπ
+per unit length of a straight phase shifter, times 320 µm, not a device's measured performance
+(the paper measured 29.2 to 31.5 mW for its 7.5 µm heater). The time constant (10.2 µs) is
+#413's, and the dn/dT and Pπ as photonoxide's own models are #414's and #415's.
 
 ## As a job
 

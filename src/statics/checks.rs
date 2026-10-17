@@ -322,6 +322,113 @@ pub(crate) fn soi_heater() -> (f64, f64) {
     (t.imbalance(), t.mean(&guide).expect("the strip's cells"))
 }
 
+/// Jacques et al. 2019's TiN heater (Opt. Express 27, 10456, doi:10.1364/OE.27.010456): the
+/// paper's cross-section and Table 3's conductivities, its simulated Pπ of 23.9 mW for a 320 µm
+/// phase shifter at 1550 nm.
+///
+/// - **The stack** (Section 2.2, Fig. 1, Table 3): a 500 × 220 nm silicon strip (k = 90
+///   W/(m·K), the 220 nm film's) on a 2 µm buried oxide over the silicon substrate (148), in an
+///   oxide cladding (1.38); a TiN heater (28) 2.0 µm wide, 2 µm above the strip. The region is
+///   40 µm wide and 18 µm high, its bottom (in the substrate) held at the ambient, a film of 10
+///   W/(m²·K) to the air above the oxide.
+/// - **What the paper doesn't give,** varied here: the TiN's thickness ("withheld" in Table 3),
+///   taken as 100 or 200 nm, and whether its 2 µm are from the strip's top or from the buried
+///   oxide's (Fig. 4's H_clad); the oxide above the heater as 1 µm; the sides insulated.
+/// - **Into Pπ** as the paper does (its Eqs. 4 and 5): the strip's mean rise per watt, the
+///   effective index's change per change of silicon's index (photonoxide's full-vector mode
+///   solver, the strip in the paper's indices, silicon 3.476 and oxide 1.55 from Table 3),
+///   and silicon's dn/dT, 1.8 × 10⁻⁴ K⁻¹ (the paper's). Pπ = λ/(2 L) ÷ (∂n_eff/∂n_Si · dn/dT ·
+///   ΔT/P′) × L, with L = 320 µm.
+///
+/// Returns Pπ (mW) for each of the four variants, the strip's rise per W/m (K) of the first,
+/// and ∂n_eff/∂n_Si.
+pub(crate) fn jacques_tin_heater() -> (Vec<f64>, f64, f64) {
+    jacques_tin_heater_on(&Grading::new(0.5, 0.02, 1.2).expect("a grading"), 1.55)
+}
+
+/// [`jacques_tin_heater`] on `grading`, the cladding's index `cladding` in the mode solve.
+pub(crate) fn jacques_tin_heater_on(grading: &Grading, cladding: f64) -> (Vec<f64>, f64, f64) {
+    let (strip_w, strip_h, box_h) = (0.5, 0.22, 2.0);
+    let (window_w, window_h) = (40.0, 18.0);
+    let wavelength_um = 1.55;
+    let length_um = 320.0;
+    let dn_dt = 1.8e-4;
+    let slope = strip_index_slope(strip_w, strip_h, 3.476, cladding, wavelength_um);
+    let mut rises = Vec::new();
+    for (tin, from_strip_top) in [(0.1, true), (0.2, true), (0.1, false), (0.2, false)] {
+        // y = 0 at the buried oxide's top
+        let tin_bottom = if from_strip_top { strip_h + 2.0 } else { 2.0 };
+        let top = tin_bottom + tin + 1.0;
+        let bottom = top - window_h;
+        let mut section = Section::new("SiO2");
+        section
+            .layer(bottom, -box_h, "substrate")
+            .expect("the substrate");
+        let strip = rect([-0.5 * strip_w, 0.5 * strip_w], [0.0, strip_h]);
+        let heater = rect([-1.0, 1.0], [tin_bottom, tin_bottom + tin]);
+        section.draw(strip.clone(), "Si");
+        section.draw(heater.clone(), "TiN");
+        let mut features = section.features().clone();
+        features.shape(&strip).shape(&heater);
+        let grid = Grid::fitted(
+            [-0.5 * window_w, 0.5 * window_w],
+            [bottom, top],
+            grading,
+            &features,
+        )
+        .expect("a grid");
+        let mut heat = Heat::new(section, grid);
+        heat.conductivity("SiO2", Tensor::isotropic(1.38))
+            .conductivity("substrate", Tensor::isotropic(148.0))
+            .conductivity("Si", Tensor::isotropic(90.0))
+            .conductivity("TiN", Tensor::isotropic(28.0))
+            .boundary(Side::Bottom, Boundary::Fixed(0.0))
+            .boundary(
+                Side::Top,
+                Boundary::Convective {
+                    coefficient: 10.0,
+                    ambient: 0.0,
+                },
+            )
+            .heater(heater, 1.0);
+        let t = heat.solve().expect("a solve");
+        rises.push(t.mean(&strip).expect("the strip's cells"));
+    }
+    // a π shift: Δn_eff = λ / (2 L), from P′ (W/m) giving Δn_eff = slope · dn/dT · rise · P′
+    let pi = |rise: f64| {
+        let watts_per_metre = wavelength_um / (2.0 * length_um) / (slope * dn_dt * rise);
+        watts_per_metre * length_um * 1e-6 * 1e3
+    };
+    (rises.iter().map(|&r| pi(r)).collect(), rises[0], slope)
+}
+
+/// ∂n_eff/∂n_core of a strip's fundamental TE-like mode at `wavelength_um`, by a central
+/// difference of photonoxide's full-vector mode solver (10 nm grid, a 2.1 × 1.5 µm window, the
+/// strip's edges on its nodes).
+fn strip_index_slope(width: f64, height: f64, core: f64, cladding: f64, wavelength_um: f64) -> f64 {
+    let wavelength = crate::units::Wavelength::um(wavelength_um).expect("a wavelength");
+    let n_eff = |n: f64| {
+        let (h, hw, hh) = (0.01, 1.05, 0.75);
+        let cs = crate::mode::vector::CrossSection::uniform(
+            (-hw, hw, (2.0 * hw / h).round() as usize),
+            (-hh, hh, (2.0 * hh / h).round() as usize),
+            |x, y| {
+                let inside = x.abs() < 0.5 * width && y.abs() < 0.5 * height;
+                let n = if inside { n } else { cladding };
+                crate::mode::vector::Permittivity::isotropic(num_complex::Complex64::new(
+                    n * n,
+                    0.0,
+                ))
+            },
+        )
+        .expect("a cross-section");
+        let modes = crate::mode::vector::modes(&cs, wavelength, 1, None).expect("a mode");
+        modes[0].effective_index().re
+    };
+    let d = 1e-3;
+    (n_eff(core + d) - n_eff(core - d)) / (2.0 * d)
+}
+
 /// The cases.
 pub(crate) fn cases() -> Vec<Case> {
     vec![
@@ -519,6 +626,27 @@ pub(crate) fn cases() -> Vec<Case> {
                     expected: 0.0,
                     tolerance: 1e-12,
                     error: e,
+                }
+            },
+        },
+        Case {
+            id: "static/jacques-tin-heater",
+            title: r"Static solver, heat, published: Jacques et al.'s TiN heater (2.0 µm wide, 2 µm above a 500 × 220 nm silicon strip on 2 µm of buried oxide, Table 3's conductivities: Si film 90, substrate 148, TiN 28, oxide 1.38 W/(m·K); a 40 × 18 µm region, its bottom held, 10 W/(m²·K) to the air), on a grid graded from 20 nm to 500 nm (0.1 % from a grid twice as fine); the strip's mean rise per watt, into Pπ for 320 µm at 1550 nm through ∂n_eff/∂n_Si from the full-vector mode solver (10 nm grid) and the paper's dn/dT of 1.8e-4/K. The paper withholds the TiN's thickness and leaves open whether its 2 µm are from the strip's top or the oxide's: the four variants (100 or 200 nm, either reading) give 24.5 to 26.3 mW, their midpoint shown (mW)",
+            tier: Tier::Published,
+            source: r"M. Jacques et al., Opt. Express 27, 10456 (2019), doi:10.1364/OE.27.010456: the simulated Pπ of the 2.0 µm TiN design, 23.9 mW (Section 2.2, Fig. 1(e)); 10 % for what the paper doesn't state",
+            run: || {
+                let (pi, _, _) = jacques_tin_heater();
+                let (low, high) = pi
+                    .iter()
+                    .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), &p| {
+                        (a.min(p), b.max(p))
+                    });
+                let measured = 0.5 * (low + high);
+                Outcome {
+                    measured,
+                    expected: 23.9,
+                    tolerance: 0.1 * 23.9,
+                    error: (measured - 23.9).abs(),
                 }
             },
         },
