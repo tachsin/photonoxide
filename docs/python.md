@@ -176,7 +176,11 @@ library as a Rust program would. Both steps are tested:
   published values: the book's slab (`mode/slab-te-book`, 2.84482 against Chrostowski and
   Hochberg's 2.845), a ring's free spectral range against Bogaerts et al.'s Eq. 9
   (`circuit/ring-fsr-bogaerts`, 9.08149 nm), an MZI against its transfer matrices, silicon
-  against Li's table.
+  against Li's table;
+- [`python/examples`](../python/examples) has Python versions of a few of the Rust examples
+  (silicon's index, the book's slab and strip, a ring's free spectral range), each checked
+  against its paper as the Rust ones are; those with a Rust twin print what it prints, line
+  for line (`python/tests/test_examples.py`).
 
 The bits are the same for the same build on the same machine; another CPU or another build of
 photonoxide can differ in the last bits, as it can in Rust.
