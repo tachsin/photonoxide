@@ -346,10 +346,6 @@ pub fn jobs() -> Vec<JobExample> {
             include_str!("../../../jobs/leaky-wire.toml"),
         ),
         (
-            "tin-heater-transient.toml",
-            include_str!("../../../jobs/tin-heater-transient.toml"),
-        ),
-        (
             "strip-and-ring.toml",
             include_str!("../../../jobs/strip-and-ring.toml"),
         ),
