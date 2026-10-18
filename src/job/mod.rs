@@ -1262,6 +1262,14 @@ pub enum Event {
         /// How long the run had gone, seconds.
         seconds: f64,
     },
+    /// A step of a static job's transient: each probe's mean at its time, recorded as the steps
+    /// go (about 2000 of them in a run, the first at t = 0).
+    StaticStep {
+        /// The time, µs.
+        time_us: f64,
+        /// Each probe's mean, as `"mean over guide"` in K.
+        means: Vec<StaticValue>,
+    },
 }
 
 /// A port of a [`Event::Ports`]: where a component's guide ends, by its name.

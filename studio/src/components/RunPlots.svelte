@@ -32,6 +32,16 @@
     }));
   });
 
+  /** A static job's transient, one series per probe: (time in µs, its mean in K). */
+  const transient = $derived.by((): Series[] => {
+    const first = run.staticSteps[0];
+    if (!first) return [];
+    return first.means.map((m, k) => ({
+      label: m.name.replace(/^mean over /, ""),
+      points: run.staticSteps.map((s): [number, number] => [s.time_us, s.means[k]?.value ?? NaN]),
+    }));
+  });
+
   /** A sweep's series, one per mode by rank: (value, Re n_eff). */
   const sweep = $derived.by((): Series[] => {
     const points = run.sweep?.points ?? [];
@@ -84,7 +94,7 @@
 </script>
 
 <div class="mx-auto max-w-6xl space-y-6 p-6">
-  {#if !run.pictures.length && !run.modes.length && !run.sweep && !run.fields.length && !run.sparams.length && !run.frames.length && !Object.keys(run.spectra).length && !run.device && !run.study && !run.optimization && !run.statics.length && !run.staticResult}
+  {#if !run.pictures.length && !run.modes.length && !run.sweep && !run.fields.length && !run.sparams.length && !run.frames.length && !Object.keys(run.spectra).length && !run.device && !run.study && !run.optimization && !run.statics.length && !run.staticResult && !run.staticSteps.length}
     <div class="grid h-64 place-items-center text-sm faint">
       {run.finished ? "This run recorded nothing to plot." : "Waiting for the first results…"}
     </div>
@@ -108,6 +118,19 @@
   {/if}
 
   <FdtdSpectra />
+
+  {#if run.staticSteps.length}
+    <!-- a static job's transient: each probe's mean temperature as the steps go -->
+    <section class="panel p-5">
+      <h3 class="mb-1 font-semibold">Temperature in time <span class="font-normal faint">· each probe's mean, K</span></h3>
+      <p class="mb-3 text-xs faint">from the heaters' turn-on or turn-off at t = 0{run.finished ? "" : ", as the steps go"}</p>
+      {#if transient.length}
+        <Plot series={transient} xLabel="time (µs)" yLabel="mean (K)" markers={false} name="{run.job?.job ?? 'run'}-transient" />
+      {:else}
+        <p class="text-sm faint">The job has no probe to follow: give it a [[task.probe]].</p>
+      {/if}
+    </section>
+  {/if}
 
   {#each run.statics as s, k (k)}
     {@const [lo, hi] = range(s.raster)}

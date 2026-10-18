@@ -8,7 +8,7 @@ use super::{
 };
 use crate::electro::{Conductor, Current, EPSILON_0, Electrostatic};
 use crate::geometry::{Point, Shape};
-use crate::thermal::Heat;
+use crate::thermal::{Heat, Scheme, Stepping};
 use crate::units::Length;
 use crate::validation::{Case, Outcome, Tier};
 
@@ -95,6 +95,146 @@ pub(crate) fn heated_slab(cells: usize) -> f64 {
             (t.value(0, j) - exact).abs()
         })
         .fold(0.0, f64::max)
+}
+
+/// Oxide's heat capacity per volume, J/(m³·K): Jacques et al.'s Table 3 (doi:10.1364/OE.27.010456),
+/// 2203 kg/m³ and 709 J/(kg·K) at 300 K.
+const OXIDE_RHO_CP: f64 = 2203.0 * 709.0;
+
+/// Silicon's, J/(m³·K): the same table's 2330 kg/m³ and 711 J/(kg·K).
+const SILICON_RHO_CP: f64 = 2330.0 * 711.0;
+
+/// The heated slab of [`heated_slab`] (oxide, 2 µm, 1 W/m over its 1 µm wide column, both faces
+/// at 0 K) turned on at t = 0 from 0 K, on `cells` rows, `steps` steps of `scheme` to
+/// `until` seconds. Returns the mean's largest error over the record against the series
+/// [`slab_series_mean`], relative to its steady value, the last mean (K), and the largest error
+/// of the last field's cells against [`slab_series`], relative to the steady peak.
+pub(crate) fn slab_transient(cells: usize, scheme: Scheme, steps: usize, until: f64) -> [f64; 3] {
+    let (k, length, width, power) = (1.4, 2.0, 1.0, 1.0);
+    let grid = Grid::new(
+        Axis::uniform(0.0, width, 1).expect("an axis"),
+        Axis::uniform(0.0, length, cells).expect("an axis"),
+    );
+    let mut heat = Heat::new(Section::new("oxide"), grid);
+    heat.conductivity("oxide", Tensor::isotropic(k))
+        .heat_capacity("oxide", OXIDE_RHO_CP)
+        .boundary(Side::Bottom, Boundary::Fixed(0.0))
+        .boundary(Side::Top, Boundary::Fixed(0.0))
+        .heater(rect([0.0, width], [0.0, length]), power);
+    let stepping = Stepping {
+        step_s: until / steps as f64,
+        steps,
+        scheme,
+    };
+    let slab = rect([0.0, width], [0.0, length]);
+    let history = heat
+        .transient(&stepping, 0.0, &|_| 1.0, std::slice::from_ref(&slab))
+        .expect("a transient");
+    let q = power / (width * length * 1e-12);
+    let (d, alpha) = (length * 1e-6, k / OXIDE_RHO_CP);
+    let steady = q * d * d / (12.0 * k);
+    let mean_error = history
+        .times_s
+        .iter()
+        .zip(&history.watched[0])
+        .map(|(&t, &m)| (m - slab_series_mean(q, k, d, alpha, t)).abs() / steady)
+        .fold(0.0, f64::max);
+    let last = history.watched[0].last().copied().expect("a record");
+    let peak = q * d * d / (8.0 * k);
+    let g = history.last.grid();
+    let field_error = (0..cells)
+        .map(|j| {
+            let y = g.y().centre(j) * 1e-6;
+            (history.last.value(0, j) - slab_series(q, k, d, alpha, y, until)).abs() / peak
+        })
+        .fold(0.0, f64::max);
+    [mean_error, last, field_error]
+}
+
+/// A slab 0 < y < d heated at `q` W/m³ from 0 K at t = 0, its faces held at 0 K, conductivity
+/// `k` and diffusivity `alpha`: T(y, t) = q y (d − y)/2k − Σ_odd 4qd²/(k n³π³) sin(nπy/d)
+/// e^{−n²π²αt/d²} (H. S. Carslaw, J. C. Jaeger, Conduction of Heat in Solids, 2nd ed., Oxford
+/// 1959, Section 3.14), its odd terms to n = 4001.
+fn slab_series(q: f64, k: f64, d: f64, alpha: f64, y: f64, t: f64) -> f64 {
+    let mut sum = q * y * (d - y) / (2.0 * k);
+    for n in (1..=4001).step_by(2) {
+        let n = f64::from(n);
+        sum -= 4.0 * q * d * d / (k * (n * PI).powi(3))
+            * (n * PI * y / d).sin()
+            * (-(n * PI / d).powi(2) * alpha * t).exp();
+    }
+    sum
+}
+
+/// The same slab's mean over its thickness: qd²/12k − Σ_odd 8qd²/(k n⁴π⁴) e^{−n²π²αt/d²}.
+fn slab_series_mean(q: f64, k: f64, d: f64, alpha: f64, t: f64) -> f64 {
+    let mut sum = q * d * d / (12.0 * k);
+    for n in (1..=4001).step_by(2) {
+        let n = f64::from(n);
+        sum -= 8.0 * q * d * d / (k * (n * PI).powi(4)) * (-(n * PI / d).powi(2) * alpha * t).exp();
+    }
+    sum
+}
+
+/// The order in time of `scheme` on the slab of [`slab_transient`] (80 rows, to 0.5 µs): from
+/// the last mean on 25, 50 and 100 steps, log₂ of the ratio of successive differences.
+pub(crate) fn slab_time_order(scheme: Scheme) -> f64 {
+    let at = |steps| slab_transient(80, scheme, steps, 0.5e-6)[1];
+    let (a, b, c) = (at(25), at(50), at(100));
+    order((a - b).abs(), (b - c).abs(), 2.0)
+}
+
+/// A lumped thermal RC: silicon 0.22 µm thick (148 W/(m·K), Table 3's ρc_p) heated uniformly on 2
+/// µm of oxide (1.38 W/(m·K)) whose heat capacity is set to 1 J/(m³·K), so the silicon's alone
+/// counts, over a sink at 0 K at the oxide's bottom, the top insulated, on a grid graded from 10
+/// to 100 nm. Returns the silicon's 1/e rise time from a turn-on with BDF2 (steps of τ/400 to
+/// 3τ) and its −3 dB frequency, against τ = (d_ox/k_ox)(ρc_p,Si t_Si) and 1/(2πτ), relative
+/// errors, and τ (s).
+pub(crate) fn lumped_rc() -> (f64, f64, f64) {
+    let (k_ox, d_ox, t_si) = (1.38, 2.0, 0.22);
+    let mut section = Section::new("oxide");
+    section
+        .layer(d_ox, d_ox + t_si, "silicon")
+        .expect("a layer");
+    let grid = Grid::fitted(
+        [0.0, 1.0],
+        [0.0, d_ox + t_si],
+        &Grading::new(0.1, 0.01, 1.3).expect("a grading"),
+        section.features(),
+    )
+    .expect("a grid");
+    let silicon = rect([0.0, 1.0], [d_ox, d_ox + t_si]);
+    let mut heat = Heat::new(section, grid);
+    heat.conductivity("oxide", Tensor::isotropic(k_ox))
+        .conductivity("silicon", Tensor::isotropic(148.0))
+        .heat_capacity("oxide", 1.0)
+        .heat_capacity("silicon", SILICON_RHO_CP)
+        .boundary(Side::Bottom, Boundary::Fixed(0.0))
+        .heater(silicon.clone(), 1.0);
+    let tau = (d_ox * 1e-6 / k_ox) * (SILICON_RHO_CP * t_si * 1e-6);
+    let steady = heat
+        .solve()
+        .expect("a solve")
+        .mean(&silicon)
+        .expect("the silicon");
+    let stepping = Stepping {
+        step_s: tau / 400.0,
+        steps: 1200,
+        scheme: Scheme::Bdf2,
+    };
+    let history = heat
+        .transient(&stepping, 0.0, &|_| 1.0, std::slice::from_ref(&silicon))
+        .expect("a transient");
+    let rise = history
+        .crossing(0, 0.0, steady, 1.0 - (-1.0f64).exp())
+        .expect("a rise");
+    let cutoff = heat.cutoff(&silicon).expect("a cutoff");
+    let exact_cutoff = 1.0 / (2.0 * PI * tau);
+    (
+        (rise - tau).abs() / tau,
+        (cutoff - exact_cutoff).abs() / exact_cutoff,
+        tau,
+    )
 }
 
 /// A parallel-plate capacitor 1 µm wide with two dielectrics between its plates (0.15 µm of
@@ -348,49 +488,13 @@ pub(crate) fn jacques_tin_heater() -> (Vec<f64>, f64, f64) {
 
 /// [`jacques_tin_heater`] on `grading`, the cladding's index `cladding` in the mode solve.
 pub(crate) fn jacques_tin_heater_on(grading: &Grading, cladding: f64) -> (Vec<f64>, f64, f64) {
-    let (strip_w, strip_h, box_h) = (0.5, 0.22, 2.0);
-    let (window_w, window_h) = (40.0, 18.0);
     let wavelength_um = 1.55;
     let length_um = 320.0;
     let dn_dt = 1.8e-4;
-    let slope = strip_index_slope(strip_w, strip_h, 3.476, cladding, wavelength_um);
+    let slope = strip_index_slope(0.5, 0.22, 3.476, cladding, wavelength_um);
     let mut rises = Vec::new();
-    for (tin, from_strip_top) in [(0.1, true), (0.2, true), (0.1, false), (0.2, false)] {
-        // y = 0 at the buried oxide's top
-        let tin_bottom = if from_strip_top { strip_h + 2.0 } else { 2.0 };
-        let top = tin_bottom + tin + 1.0;
-        let bottom = top - window_h;
-        let mut section = Section::new("SiO2");
-        section
-            .layer(bottom, -box_h, "substrate")
-            .expect("the substrate");
-        let strip = rect([-0.5 * strip_w, 0.5 * strip_w], [0.0, strip_h]);
-        let heater = rect([-1.0, 1.0], [tin_bottom, tin_bottom + tin]);
-        section.draw(strip.clone(), "Si");
-        section.draw(heater.clone(), "TiN");
-        let mut features = section.features().clone();
-        features.shape(&strip).shape(&heater);
-        let grid = Grid::fitted(
-            [-0.5 * window_w, 0.5 * window_w],
-            [bottom, top],
-            grading,
-            &features,
-        )
-        .expect("a grid");
-        let mut heat = Heat::new(section, grid);
-        heat.conductivity("SiO2", Tensor::isotropic(1.38))
-            .conductivity("substrate", Tensor::isotropic(148.0))
-            .conductivity("Si", Tensor::isotropic(90.0))
-            .conductivity("TiN", Tensor::isotropic(28.0))
-            .boundary(Side::Bottom, Boundary::Fixed(0.0))
-            .boundary(
-                Side::Top,
-                Boundary::Convective {
-                    coefficient: 10.0,
-                    ambient: 0.0,
-                },
-            )
-            .heater(heater, 1.0);
+    for (tin, from_strip_top) in JACQUES_VARIANTS {
+        let (heat, strip) = jacques_section(tin, from_strip_top, grading);
         let t = heat.solve().expect("a solve");
         rises.push(t.mean(&strip).expect("the strip's cells"));
     }
@@ -400,6 +504,86 @@ pub(crate) fn jacques_tin_heater_on(grading: &Grading, cladding: f64) -> (Vec<f6
         watts_per_metre * length_um * 1e-6 * 1e3
     };
     (rises.iter().map(|&r| pi(r)).collect(), rises[0], slope)
+}
+
+/// The variants of what Jacques et al. don't state: the TiN's thickness (µm), and whether its 2
+/// µm are from the strip's top (or the buried oxide's).
+const JACQUES_VARIANTS: [(f64, bool); 4] = [(0.1, true), (0.2, true), (0.1, false), (0.2, false)];
+
+/// Jacques et al.'s TiN heater cross-section of [`jacques_tin_heater`], one variant, on
+/// `grading`, the heater at 1 W/m, with Table 3's heat capacities (Si 2330 kg/m³ and 711
+/// J/(kg·K), TiN 5240 and 598, oxide 2203 and 709); and the strip.
+fn jacques_section(tin: f64, from_strip_top: bool, grading: &Grading) -> (Heat, Shape) {
+    let (strip_w, strip_h, box_h) = (0.5, 0.22, 2.0);
+    let (window_w, window_h) = (40.0, 18.0);
+    // y = 0 at the buried oxide's top
+    let tin_bottom = if from_strip_top { strip_h + 2.0 } else { 2.0 };
+    let top = tin_bottom + tin + 1.0;
+    let bottom = top - window_h;
+    let mut section = Section::new("SiO2");
+    section
+        .layer(bottom, -box_h, "substrate")
+        .expect("the substrate");
+    let strip = rect([-0.5 * strip_w, 0.5 * strip_w], [0.0, strip_h]);
+    let heater = rect([-1.0, 1.0], [tin_bottom, tin_bottom + tin]);
+    section.draw(strip.clone(), "Si");
+    section.draw(heater.clone(), "TiN");
+    let mut features = section.features().clone();
+    features.shape(&strip).shape(&heater);
+    let grid = Grid::fitted(
+        [-0.5 * window_w, 0.5 * window_w],
+        [bottom, top],
+        grading,
+        &features,
+    )
+    .expect("a grid");
+    let mut heat = Heat::new(section, grid);
+    heat.conductivity("SiO2", Tensor::isotropic(1.38))
+        .conductivity("substrate", Tensor::isotropic(148.0))
+        .conductivity("Si", Tensor::isotropic(90.0))
+        .conductivity("TiN", Tensor::isotropic(28.0))
+        .heat_capacity("SiO2", OXIDE_RHO_CP)
+        .heat_capacity("substrate", SILICON_RHO_CP)
+        .heat_capacity("Si", SILICON_RHO_CP)
+        .heat_capacity("TiN", 5240.0 * 598.0)
+        .boundary(Side::Bottom, Boundary::Fixed(0.0))
+        .boundary(
+            Side::Top,
+            Boundary::Convective {
+                coefficient: 10.0,
+                ambient: 0.0,
+            },
+        )
+        .heater(heater, 1.0);
+    (heat, strip)
+}
+
+/// Jacques et al.'s TiN heater of [`jacques_tin_heater`] in time: turned on from the ambient,
+/// the strip's mean temperature recorded, steps of `step_s` by BDF2 to 20 µs, on `grading`.
+/// Returns each of the four variants' 1/e rise time (s), against the paper's simulated ~10.2 µs
+/// (Section 2.2, Fig. 1(c)). The fall from the steady state is the same: the problem is linear,
+/// so a turn-off's history is the steady state less a turn-on's.
+pub(crate) fn jacques_tin_heater_times(grading: &Grading, step_s: f64) -> Vec<f64> {
+    let stepping = Stepping {
+        step_s,
+        steps: (20e-6 / step_s).round() as usize,
+        scheme: Scheme::Bdf2,
+    };
+    JACQUES_VARIANTS
+        .iter()
+        .map(|&(tin, from_strip_top)| {
+            let (heat, strip) = jacques_section(tin, from_strip_top, grading);
+            let steady = heat
+                .solve()
+                .expect("a solve")
+                .mean(&strip)
+                .expect("the strip");
+            heat.transient(&stepping, 0.0, &|_| 1.0, std::slice::from_ref(&strip))
+                .expect("a turn-on")
+                .crossing(0, 0.0, steady, 1.0 - (-1.0f64).exp())
+                .expect("a rise")
+        })
+        .collect()
 }
 
 /// ∂n_eff/∂n_core of a strip's fundamental TE-like mode at `wavelength_um`, by a central
@@ -490,6 +674,97 @@ pub(crate) fn cases() -> Vec<Case> {
                     measured: e,
                     expected: 0.0,
                     tolerance: 2e-4,
+                    error: e,
+                }
+            },
+        },
+        Case {
+            id: "static/transient-slab",
+            title: r"Static solver, heat in time: the same 2 µm oxide slab ($\rho c_p$ = 1.56 MJ/(m³·K), Jacques et al.'s Table 3) turned on from 0 K, on 80 rows of 25 nm, 400 Crank–Nicolson steps of 1.25 ns to 0.5 µs (its slowest time $d^2/\pi^2\alpha$ is 0.45 µs); the mean temperature at every step against the series solution, relative to its steady value (largest shown)",
+            tier: Tier::Analytic,
+            source: r"$\bar T(t) = \frac{qd^2}{12k} - \sum_{n\ \mathrm{odd}} \frac{8qd^2}{k n^4\pi^4} e^{-n^2\pi^2\alpha t/d^2}$, from H. S. Carslaw, J. C. Jaeger, Conduction of Heat in Solids, 2nd ed. (Oxford, 1959), Section 3.14; the error is the grid's, as the steady slab's",
+            run: || {
+                let e = slab_transient(80, Scheme::CrankNicolson, 400, 0.5e-6)[0];
+                Outcome {
+                    measured: e,
+                    expected: 0.0,
+                    tolerance: 3e-4,
+                    error: e,
+                }
+            },
+        },
+        Case {
+            id: "static/transient-slab-order-time-cn",
+            title: r"Static solver, heat in time: the same slab on 80 rows, its mean at 0.5 µs with 25, 50 and 100 Crank–Nicolson steps, the first as two backward-Euler half steps; the order in the time step from the successive differences (shown)",
+            tier: Tier::Analytic,
+            source: r"Crank–Nicolson is second order; Rannacher's start (Numer. Math. 43, 309 (1984), doi:10.1007/BF01390130) damps the step's start without losing it",
+            run: || {
+                let p = slab_time_order(Scheme::CrankNicolson);
+                Outcome {
+                    measured: p,
+                    expected: 2.0,
+                    tolerance: 0.1,
+                    error: (p - 2.0).abs(),
+                }
+            },
+        },
+        Case {
+            id: "static/transient-slab-order-time-bdf2",
+            title: r"Static solver, heat in time: the same, by BDF2 from a backward-Euler first step; the order in the time step (shown)",
+            tier: Tier::Analytic,
+            source: r"the second-order backward differentiation formula; one first-order step costs a constant, not the order",
+            run: || {
+                let p = slab_time_order(Scheme::Bdf2);
+                Outcome {
+                    measured: p,
+                    expected: 2.0,
+                    tolerance: 0.1,
+                    error: (p - 2.0).abs(),
+                }
+            },
+        },
+        Case {
+            id: "static/transient-slab-order-grid",
+            title: r"Static solver, heat in time: the same slab at 0.5 µs on 40 and 80 rows, 4000 Crank–Nicolson steps of 0.125 ns; the order in the grid of every cell's largest error against the series $T(y, t)$ (shown)",
+            tier: Tier::Analytic,
+            source: r"$T(y,t) = \frac{q y (d-y)}{2k} - \sum_{n\ \mathrm{odd}} \frac{4qd^2}{k n^3\pi^3} \sin\frac{n\pi y}{d} e^{-n^2\pi^2\alpha t/d^2}$; cell-centred finite volumes, second order in space as in the steady state",
+            run: || {
+                let at = |rows| slab_transient(rows, Scheme::CrankNicolson, 4000, 0.5e-6)[2];
+                let p = order(at(40), at(80), 2.0);
+                Outcome {
+                    measured: p,
+                    expected: 2.0,
+                    tolerance: 0.05,
+                    error: (p - 2.0).abs(),
+                }
+            },
+        },
+        Case {
+            id: "static/transient-rc-step",
+            title: r"Static solver, heat in time: 0.22 µm of silicon (148 W/(m·K), $\rho c_p$ = 1.66 MJ/(m³·K)) heated on 2 µm of oxide (1.38 W/(m·K), its heat capacity set to 1 J/(m³·K)) over a sink, on a grid graded from 10 to 100 nm, BDF2 steps of τ/400; the silicon's 1/e rise time against the lumped $\tau = (d_\mathrm{ox}/k_\mathrm{ox})\,\rho c_{p,\mathrm{Si}}\, t_\mathrm{Si}$ = 0.528 µs (relative error shown)",
+            tier: Tier::Analytic,
+            source: r"a lumped thermal RC, exact as the silicon's own resistance (Biot number $t_\mathrm{Si}k_\mathrm{ox}/d_\mathrm{ox}k_\mathrm{Si}$ ≈ 1e-3) and the oxide's capacity vanish: $T(t) = T_\infty(1 - e^{-t/\tau})$",
+            run: || {
+                let (e, _, _) = lumped_rc();
+                Outcome {
+                    measured: e,
+                    expected: 0.0,
+                    tolerance: 1e-3,
+                    error: e,
+                }
+            },
+        },
+        Case {
+            id: "static/transient-rc-cutoff",
+            title: r"Static solver, heat in time: the same RC; the frequency where the silicon's small-signal response to the heater's power falls to $1/\sqrt 2$, from $(K + i\omega M)\hat T = \hat Q$, against $1/2\pi\tau$ = 301 kHz (relative error shown)",
+            tier: Tier::Analytic,
+            source: r"a single pole: $\hat T/\hat T_0 = 1/(1 + i\omega\tau)$",
+            run: || {
+                let (_, e, _) = lumped_rc();
+                Outcome {
+                    measured: e,
+                    expected: 0.0,
+                    tolerance: 1e-3,
                     error: e,
                 }
             },
@@ -647,6 +922,30 @@ pub(crate) fn cases() -> Vec<Case> {
                     expected: 23.9,
                     tolerance: 0.1 * 23.9,
                     error: (measured - 23.9).abs(),
+                }
+            },
+        },
+        Case {
+            id: "static/jacques-tin-heater-time",
+            title: r"Static solver, heat in time, published: the same TiN heater with Table 3's heat capacities (Si 2330 kg/m³ and 711 J/(kg·K), TiN 5240 and 598, oxide 2203 and 709), turned on from the ambient, on the same grid (0.1 % from one twice as fine), BDF2 steps of 0.2 µs (3e-5 from steps half as long); the strip's mean 1/e rise time (the fall's is the same, the problem being linear). The four variants give 8.75 to 10.17 µs, their midpoint shown (µs)",
+            tier: Tier::Published,
+            source: r"M. Jacques et al., Opt. Express 27, 10456 (2019), doi:10.1364/OE.27.010456: the TiN design's simulated limiting 1/e time constant, ~10.2 µs (Section 2.2, Fig. 1(c)); 10 % for what the paper doesn't state",
+            run: || {
+                let times = jacques_tin_heater_times(
+                    &Grading::new(0.5, 0.02, 1.2).expect("a grading"),
+                    0.2e-6,
+                );
+                let (low, high) = times
+                    .iter()
+                    .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), &t| {
+                        (a.min(t), b.max(t))
+                    });
+                let measured = 0.5 * (low + high) * 1e6;
+                Outcome {
+                    measured,
+                    expected: 10.2,
+                    tolerance: 0.1 * 10.2,
+                    error: (measured - 10.2).abs(),
                 }
             },
         },

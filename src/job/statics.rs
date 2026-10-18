@@ -24,6 +24,15 @@
 //! draw a named `medium` over the cut (a heater's metal); `[[task.probe]]` rectangles name the
 //! means the run records.
 //!
+//! **In time** (heat only): `[task.transient]` turns the heaters on at t = 0 from the steady
+//! state without them (`turn = "on"`, the default), or off from the steady state with them
+//! (`"off"`), and steps `duration_us` by `step_ns`, implicitly: `scheme = "crank-nicolson"` (the
+//! default, the more accurate of the two at the same step on the slab's series solution) or
+//! `"bdf2"` ([`crate::thermal::Scheme`]). `[task.heat_capacity]` gives each medium's ρc_p in
+//! J/(m³·K). The run records each probe's mean as the steps go ([`Event::StaticStep`]), the
+//! last field, and each probe's 1/e and 10–90 % times and the −3 dB frequency of its
+//! small-signal response to the heaters' power.
+//!
 //! ```toml
 //! name = "heater"
 //! timeout_minutes = 5
@@ -65,6 +74,16 @@
 //! name = "guide"
 //! y_um = [-0.25, 0.25]
 //! z_um = [2.0, 2.22]
+//!
+//! # in time: with these, the heater's turn-on
+//! [task.heat_capacity]
+//! Si = 1.657e6
+//! SiO2 = 1.562e6
+//! TiN = 3.134e6
+//!
+//! [task.transient]
+//! step_ns = 200.0
+//! duration_us = 40.0
 //! ```
 //!
 //! The run records an [`Event::StaticField`] per field (the temperature or the potential, and a
@@ -87,11 +106,17 @@ use crate::electro::{Conductor, Current, Electrostatic};
 use crate::geometry::{Point, Shape};
 use crate::run::{Job, Run, Stop};
 use crate::statics::{Boundary, Cut, Features, Field, Grading, Grid, Section, Side, Tensor};
-use crate::thermal::Heat;
+use crate::thermal::{Heat, Scheme, Stepping};
 use crate::units::Length;
 
 /// The most cells a static job's grid may have.
 const MOST_CELLS: usize = 4_000_000;
+
+/// The most time steps a transient may take.
+const MOST_STEPS: usize = 100_000;
+
+/// About how many of a transient's steps a run records.
+const RECORDED_STEPS: usize = 2000;
 
 /// The most pixels a recorded field has along a side.
 const PIXELS: usize = 400;
@@ -207,6 +232,68 @@ impl Area {
     }
 }
 
+/// `[task.transient]`.
+#[derive(Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct TransientSpec {
+    step_ns: f64,
+    duration_us: f64,
+    scheme: Option<String>,
+    turn: Option<String>,
+}
+
+/// A transient as a run takes it: its steps, and whether the heaters turn on (or off).
+struct Transient {
+    stepping: Stepping,
+    on: bool,
+}
+
+impl TransientSpec {
+    fn transient(&self) -> Result<Transient> {
+        let (step, duration) = (self.step_ns, self.duration_us);
+        if !(step.is_finite() && step > 0.0 && duration.is_finite() && duration > 0.0) {
+            return Err(task_error(format!(
+                "[task.transient] needs a positive step_ns and duration_us, got {step} and \
+                 {duration}"
+            )));
+        }
+        let steps = (duration * 1e3 / step).round().max(1.0);
+        if steps > MOST_STEPS as f64 {
+            return Err(task_error(format!(
+                "[task.transient] would take {steps} steps, more than {MOST_STEPS}: take a longer \
+                 step_ns or a shorter duration_us"
+            )));
+        }
+        let scheme = match self.scheme.as_deref() {
+            None | Some("crank-nicolson") => Scheme::CrankNicolson,
+            Some("bdf2") => Scheme::Bdf2,
+            Some(other) => {
+                return Err(task_error(format!(
+                    "[task.transient] scheme = \"{other}\": a scheme is \"crank-nicolson\" or \
+                     \"bdf2\""
+                )));
+            }
+        };
+        let on = match self.turn.as_deref() {
+            None | Some("on") => true,
+            Some("off") => false,
+            Some(other) => {
+                return Err(task_error(format!(
+                    "[task.transient] turn = \"{other}\": the heaters turn \"on\" or \"off\""
+                )));
+            }
+        };
+        Ok(Transient {
+            stepping: Stepping {
+                step_s: step * 1e-9,
+                steps: steps as usize,
+                scheme,
+            },
+            on,
+        })
+    }
+}
+
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(super) struct StaticTask {
@@ -245,6 +332,9 @@ pub(super) struct StaticTask {
     #[serde(default)]
     permittivity: BTreeMap<String, CoefficientSpec>,
     #[serde(default)]
+    heat_capacity: BTreeMap<String, f64>,
+    transient: Option<TransientSpec>,
+    #[serde(default)]
     boundary: BoundarySpec,
     #[serde(default)]
     region: Vec<Area>,
@@ -271,6 +361,7 @@ struct Setup {
     current: Option<Current>,
     probes: Vec<(String, Shape)>,
     held: Vec<String>,
+    transient: Option<Transient>,
 }
 
 fn sides(spec: &BoundarySpec) -> Result<Vec<(Side, Boundary)>> {
@@ -393,6 +484,7 @@ fn setup(job: &Job) -> Result<Setup> {
         current: None,
         probes,
         held: Vec::new(),
+        transient: None,
     };
     let heat = |section: &Section| -> Result<Heat> {
         let mut heat = Heat::new(section.clone(), grid.clone());
@@ -426,10 +518,34 @@ fn setup(job: &Job) -> Result<Setup> {
              or the task a [[task.sink]] or [[task.conductor]]",
         ));
     }
+    if task.transient.is_some() && task.physics != "heat" {
+        return Err(task_error(
+            "[task.transient] is for physics = \"heat\": a transient of the temperature",
+        ));
+    }
     match task.physics.as_str() {
         "heat" => {
             setup.held = (1..=task.sink.len()).map(|k| format!("sink {k}")).collect();
-            setup.heat = Some(heat(&section)?);
+            let mut h = heat(&section)?;
+            if let Some(spec) = &task.transient {
+                setup.transient = Some(spec.transient()?);
+                for m in section.media() {
+                    let c = task.heat_capacity.get(m).copied().ok_or_else(|| {
+                        task_error(format!(
+                            "[task.heat_capacity] has no value for the medium {m} (the section \
+                             holds {}), which a transient needs",
+                            section.media().join(", ")
+                        ))
+                    })?;
+                    if !(c.is_finite() && c > 0.0) {
+                        return Err(task_error(format!(
+                            "[task.heat_capacity] {m} must be positive and finite"
+                        )));
+                    }
+                    h.heat_capacity(m, c);
+                }
+            }
+            setup.heat = Some(h);
         }
         "electrostatic" => {
             let mut e = Electrostatic::new(section.clone(), grid.clone());
@@ -564,6 +680,69 @@ fn summary(
     Ok(())
 }
 
+/// A heat job's transient: each probe's mean recorded as the steps go, the last field, and
+/// each probe's 1/e and 10–90 % times and −3 dB frequency.
+fn in_time(
+    setup: &Setup,
+    heat: &Heat,
+    transient: &Transient,
+    run: &mut Run,
+    stop: &Stop,
+    values: &mut Vec<StaticValue>,
+) -> Result<()> {
+    let (from, to) = if transient.on { (0.0, 1.0) } else { (1.0, 0.0) };
+    let shapes: Vec<Shape> = setup.probes.iter().map(|(_, s)| s.clone()).collect();
+    let means =
+        |field: &Field| -> Result<Vec<f64>> { shapes.iter().map(|s| field.mean(s)).collect() };
+    let ends = means(&heat.steady_at(to)?)?;
+    let stepping = &transient.stepping;
+    let every = stepping.steps.div_ceil(RECORDED_STEPS).max(1);
+    let step_event = |time_s: f64, means: &[f64]| Event::StaticStep {
+        time_us: time_s * 1e6,
+        means: setup
+            .probes
+            .iter()
+            .zip(means)
+            .map(|((name, _), m)| value(format!("mean over {name}"), *m, "K"))
+            .collect(),
+    };
+    run.record(&step_event(0.0, &means(&heat.steady_at(from)?)?))?;
+    let history = heat.transient_observed(stepping, from, &|_| to, &shapes, &mut |step| {
+        if step.index % every == 0 || step.index == stepping.steps {
+            run.record(&step_event(step.time_s, &step.means))?;
+        }
+        Ok(stop.reason().is_none())
+    })?;
+    let last = history.times_s.last().copied().unwrap_or(0.0);
+    run.record(&Event::StaticField {
+        label: format!("temperature at {} us", (last * 1e9).round() / 1e3),
+        unit: "K".into(),
+        axes: ["y".to_owned(), "z".to_owned()],
+        raster: setup.picture(&history.last),
+    })?;
+    values.push(value("time step", stepping.step_s, "s"));
+    values.push(value("steps", (history.times_s.len() - 1) as f64, ""));
+    let e = 1.0 - (-1.0f64).exp();
+    for (k, (name, shape)) in setup.probes.iter().enumerate() {
+        let start = history.watched[k][0];
+        if let Some(t) = history.crossing(k, start, ends[k], e) {
+            values.push(value(format!("1/e time of {name}"), t, "s"));
+        }
+        if let (Some(a), Some(b)) = (
+            history.crossing(k, start, ends[k], 0.1),
+            history.crossing(k, start, ends[k], 0.9),
+        ) {
+            values.push(value(format!("10-90 % time of {name}"), b - a, "s"));
+        }
+        if stop.reason().is_none()
+            && let Ok(f) = heat.cutoff(shape)
+        {
+            values.push(value(format!("-3 dB frequency of {name}"), f, "Hz"));
+        }
+    }
+    Ok(())
+}
+
 /// Runs a static job into `run`.
 pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let setup = setup(job)?;
@@ -641,6 +820,9 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             }
         }
         values.extend(heat_values);
+        if let Some(transient) = &setup.transient {
+            in_time(&setup, &h, transient, run, stop, &mut values)?;
+        }
     }
     run.record(&Event::StaticResult {
         physics: setup.physics.clone(),

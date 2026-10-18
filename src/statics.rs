@@ -910,6 +910,53 @@ impl Section {
         }
         Ok(out)
     }
+
+    /// Each cell's volume mean of a scalar its media have, by their shares: a heat capacity
+    /// per volume, which adds as the media's volumes do (no direction to average along).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] if a medium has none (`what` names it), or one that isn't
+    /// finite and positive.
+    pub(crate) fn means(
+        &self,
+        grid: &Grid,
+        value: impl Fn(&str) -> Option<f64>,
+        what: &str,
+    ) -> Result<Vec<f64>> {
+        let mut table = Vec::with_capacity(self.media.len());
+        for m in &self.media {
+            table.push(match value(m) {
+                Some(v) if v.is_finite() && v > 0.0 => Some(v),
+                Some(v) => {
+                    return Err(invalid(format!(
+                        "the medium {m}'s {what} must be finite and positive, got {v}"
+                    )));
+                }
+                None => None,
+            });
+        }
+        let (nx, ny) = (grid.x.cells(), grid.y.cells());
+        let mut out = Vec::with_capacity(nx * ny);
+        for j in 0..ny {
+            for i in 0..nx {
+                let shares = self.shares(grid.bounds(i, j));
+                let (mut sum, mut total) = (0.0, 0.0);
+                for &(k, f) in &shares.parts {
+                    let v = table.get(k).copied().flatten().ok_or_else(|| {
+                        invalid(format!(
+                            "the medium {} has no {what}",
+                            self.media.get(k).map_or("?", String::as_str)
+                        ))
+                    })?;
+                    sum += v * f;
+                    total += f;
+                }
+                out.push(if total > 0.0 { sum / total } else { 0.0 });
+            }
+        }
+        Ok(out)
+    }
 }
 
 /// A cell's coefficient from its media's (with their shares) and the interface's normal: per
@@ -1042,6 +1089,9 @@ pub(crate) struct Discrete {
     holds: usize,
     /// the faces between free cells: (a, b, conductance), each once
     faces: Vec<(usize, usize, f64)>,
+    /// the free cells' ordering and symbolic factorization, for this operator and any shift of
+    /// its diagonal ([`Discrete::shifted`])
+    analysis: Option<Arc<Analysis>>,
     factors: Option<Multifrontal>,
 }
 
@@ -1266,6 +1316,7 @@ impl Discrete {
             inflows,
             holds: problem.holds.len(),
             faces,
+            analysis: None,
             factors: None,
         };
         if unknowns > 0 {
@@ -1274,7 +1325,8 @@ impl Discrete {
         Ok(d)
     }
 
-    fn factorize(&mut self) -> Result<()> {
+    /// The free cells' operator K, its diagonal plus `shift` where one is given.
+    fn matrix(&self, shift: Option<&[c64]>) -> Result<SparseColMat<usize, c64>> {
         let n = self.unknowns;
         let mut diagonal = vec![0.0f64; n];
         for &(u, g, _) in &self.links {
@@ -1288,10 +1340,16 @@ impl Discrete {
             triplets.push(Triplet::new(b, a, c64::new(-g, 0.0)));
         }
         for (u, &d) in diagonal.iter().enumerate() {
-            triplets.push(Triplet::new(u, u, c64::new(d, 0.0)));
+            let s = shift.map_or(c64::new(0.0, 0.0), |s| s[u]);
+            triplets.push(Triplet::new(u, u, c64::new(d, 0.0) + s));
         }
-        let a = SparseColMat::<usize, c64>::try_new_from_triplets(n, n, &triplets)
-            .map_err(|e| invalid(format!("the matrix can't be assembled: {e:?}")))?;
+        SparseColMat::<usize, c64>::try_new_from_triplets(n, n, &triplets)
+            .map_err(|e| invalid(format!("the matrix can't be assembled: {e:?}")))
+    }
+
+    fn factorize(&mut self) -> Result<()> {
+        let n = self.unknowns;
+        let a = self.matrix(None)?;
         let nx = self.grid.x.cells();
         let mut positions = vec![[0.0; 3]; n];
         for (c, place) in self.cell.iter().enumerate() {
@@ -1303,8 +1361,117 @@ impl Discrete {
             Some(an) => an,
             None => Analysis::new(a.as_ref(), Some(&positions))?,
         };
-        self.factors = Some(Multifrontal::new(Arc::new(analysis), a.as_ref())?);
+        let analysis = Arc::new(analysis);
+        self.factors = Some(Multifrontal::new(analysis.clone(), a.as_ref())?);
+        self.analysis = Some(analysis);
         Ok(())
+    }
+
+    /// The free unknowns.
+    pub(crate) fn unknowns(&self) -> usize {
+        self.unknowns
+    }
+
+    /// Each free unknown's cell, in the unknowns' order.
+    pub(crate) fn free_cells(&self) -> Vec<usize> {
+        let mut of = vec![0usize; self.unknowns];
+        for (c, place) in self.cell.iter().enumerate() {
+            if let Place::Free(u) = *place {
+                of[u] = c;
+            }
+        }
+        of
+    }
+
+    /// K + diag(`shift`) factorized on this problem's own analysis (its ordering and symbolic
+    /// factorization): complex symmetric, for an implicit time step (a real shift) or a
+    /// frequency (an imaginary one). `None` without free cells.
+    ///
+    /// # Errors
+    ///
+    /// The factorization's, for a shift that makes it singular.
+    pub(crate) fn shifted(&self, shift: &[c64]) -> Result<Option<Multifrontal>> {
+        let Some(analysis) = &self.analysis else {
+            return Ok(None);
+        };
+        let a = self.matrix(Some(shift))?;
+        Ok(Some(Multifrontal::new(analysis.clone(), a.as_ref())?))
+    }
+
+    /// K x over the free unknowns.
+    pub(crate) fn apply(&self, x: &[f64]) -> Vec<f64> {
+        let mut y = vec![0.0; self.unknowns];
+        for &(u, g, _) in &self.links {
+            y[u] += g * x[u];
+        }
+        for &(a, b, g) in &self.faces {
+            let d = g * (x[a] - x[b]);
+            y[a] += d;
+            y[b] -= d;
+        }
+        y
+    }
+
+    /// The free unknowns' right-hand side for held regions at `values` and the cells'
+    /// `sources`, and the sources' total; with `level` false, the sources alone (no held
+    /// region's, side's or flux's part: a fluctuation about a steady state).
+    pub(crate) fn load(&self, values: &[f64], sources: &[f64], level: bool) -> (Vec<f64>, f64) {
+        let value = |t: Target| -> f64 {
+            match t {
+                Target::Hold(k) => values[k],
+                Target::Side(_, v) => v,
+            }
+        };
+        let mut b = vec![0.0; self.unknowns];
+        let mut total = 0.0;
+        for (c, place) in self.cell.iter().enumerate() {
+            if let Place::Free(u) = *place
+                && let Some(&s) = sources.get(c)
+            {
+                b[u] += s;
+                total += s;
+            }
+        }
+        if level {
+            for &(u, q, _) in &self.inflows {
+                b[u] += q;
+            }
+            for &(u, g, t) in &self.links {
+                b[u] += g * value(t);
+            }
+        }
+        (b, total)
+    }
+
+    /// The field whose free cells hold `free`, its held regions at `values`, `source` its
+    /// sources' total.
+    pub(crate) fn field(&self, free: &[f64], values: &[f64], source: f64) -> Field {
+        let mut cells = vec![0.0; self.cell.len()];
+        for (c, place) in self.cell.iter().enumerate() {
+            cells[c] = match *place {
+                Place::Free(u) => free[u],
+                Place::Held(k) => values[k],
+            };
+        }
+        let mut held = vec![0.0; self.holds];
+        let mut outflow = [0.0; 4];
+        for &(u, g, t) in &self.links {
+            match t {
+                Target::Hold(k) => held[k] += g * (values[k] - free[u]),
+                Target::Side(s, v) => outflow[s] += g * (free[u] - v),
+            }
+        }
+        for &(_, q, s) in &self.inflows {
+            outflow[s] -= q;
+        }
+        Field {
+            grid: self.grid.clone(),
+            values: cells,
+            levels: values.to_vec(),
+            held,
+            outflow,
+            source,
+        }
     }
 
     /// The field for the held regions at `values` and the cells' `sources` (per unit length;

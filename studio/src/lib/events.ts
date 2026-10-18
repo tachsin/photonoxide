@@ -558,6 +558,15 @@ export interface StaticResult {
   values: StaticValue[];
 }
 
+/** A step of a static job's transient (photonoxide::job::Event::StaticStep): each probe's mean at its time. */
+export interface StaticStep {
+  type: "static_step";
+  /** The time, µs. */
+  time_us: number;
+  /** Each probe's mean, as "mean over guide" in K. */
+  means: StaticValue[];
+}
+
 export type Event =
   | { type: "started"; job: string; kind: string }
   | ChipEvent
@@ -595,6 +604,7 @@ export type Event =
   | SParameters
   | StaticField
   | StaticResult
+  | StaticStep
   | { type: "finished"; stopped: string | null; seconds: number }
   | { type: "failed"; error: string; seconds: number };
 

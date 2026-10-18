@@ -154,6 +154,60 @@ z_um = [2.0, 2.22]
 potential_v = 1.0
 "#;
 
+/// The heater's turn-on in a smaller window: the SOI strip under a TiN heater, Jacques et al.'s
+/// heat capacities.
+const TURN_ON: &str = r#"
+name = "turn-on"
+timeout_minutes = 5
+
+[task]
+kind = "static"
+physics = "heat"
+stack = "soi_220"
+y_um = [-8.0, 8.0]
+z_um = [-4.0, 5.0]
+step_nm = 1000.0
+fine_nm = 50.0
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, 0.0]
+size_um = [10.0, 0.5]
+
+[task.thermal_conductivity]
+Si = 148.0
+SiO2 = 1.4
+TiN = 28.0
+
+[task.heat_capacity]
+Si = 1.657e6
+SiO2 = 1.562e6
+TiN = 3.134e6
+
+[task.transient]
+step_ns = 100.0
+duration_us = 30.0
+
+[task.boundary]
+bottom = { fixed = 0.0 }
+top = { convective = 10.0, ambient = 0.0 }
+
+[[task.region]]
+y_um = [-1.0, 1.0]
+z_um = [4.22, 4.34]
+medium = "TiN"
+
+[[task.heater]]
+y_um = [-1.0, 1.0]
+z_um = [4.22, 4.34]
+power_w_per_m = 10.0
+
+[[task.probe]]
+name = "guide"
+y_um = [-0.25, 0.25]
+z_um = [2.0, 2.22]
+"#;
+
 fn events(tag: &str, text: &str) -> Vec<Event> {
     let root = temp(tag);
     let job = Job::parse(text).unwrap();
@@ -228,6 +282,115 @@ fn a_heat_job_gives_the_same_bits_on_one_thread_and_many() {
             .collect()
     };
     assert_eq!(strip(run(1)), strip(run(8)));
+}
+
+fn steps(events: &[Event]) -> Vec<(f64, f64)> {
+    events
+        .iter()
+        .filter_map(|e| match e {
+            Event::StaticStep { time_us, means } => Some((*time_us, means[0].value)),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_transient_records_its_steps_and_times() {
+    let ev = events("turn-on", TURN_ON);
+    let s = steps(&ev);
+    // t = 0 and every one of the 300 steps
+    assert_eq!(s.len(), 301);
+    assert_eq!(s[0], (0.0, 0.0));
+    assert!((s[300].0 - 30.0).abs() < 1e-9, "{:?}", s[300]);
+    assert!(s.windows(2).all(|w| w[1].1 > w[0].1), "a turn-on rises");
+    assert!(
+        ev.iter().any(
+            |e| matches!(e, Event::StaticField { label, .. } if label == "temperature at 30 us")
+        )
+    );
+    let (_, _, _, values) = result(&ev);
+    let steady = named(&values, "mean over guide");
+    assert!(
+        s[300].1 < steady && s[300].1 > 0.9 * steady,
+        "{} {steady}",
+        s[300].1
+    );
+    let tau = named(&values, "1/e time of guide");
+    let rise = named(&values, "10-90 % time of guide");
+    let f = named(&values, "-3 dB frequency of guide");
+    assert!(tau > 1e-6 && tau < 20e-6, "{tau}");
+    // a single pole's 10-90 % time is ln 9 τ, and its -3 dB frequency 1/2πτ: near those
+    assert!(
+        (rise / tau - 9f64.ln()).abs() < 0.5 * 9f64.ln(),
+        "{rise} {tau}"
+    );
+    let pole = 2.0 * std::f64::consts::PI * f * tau;
+    assert!(pole > 0.3 && pole < 3.0, "{pole}");
+    assert_eq!(named(&values, "steps"), 300.0);
+    assert!((named(&values, "time step") - 1e-7).abs() < 1e-20);
+}
+
+#[test]
+fn a_turn_off_falls_as_the_turn_on_rises() {
+    let on = events("on", TURN_ON);
+    let off = events(
+        "off",
+        &TURN_ON.replace("duration_us = 30.0", "duration_us = 30.0\nturn = \"off\""),
+    );
+    let steady = named(&result(&on).3, "mean over guide");
+    for ((t, a), (u, b)) in steps(&on).into_iter().zip(steps(&off)) {
+        assert_eq!(t, u);
+        assert!((a + b - steady).abs() < 1e-9 * steady, "{t}: {a} + {b}");
+    }
+    let (a, b) = (
+        named(&result(&on).3, "1/e time of guide"),
+        named(&result(&off).3, "1/e time of guide"),
+    );
+    assert!((a - b).abs() < 1e-9 * a, "{a} {b}");
+}
+
+#[test]
+fn a_transient_gives_the_same_bits_on_one_thread_and_many() {
+    let short = TURN_ON.replace("duration_us = 30.0", "duration_us = 3.0");
+    let run = |threads: usize| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| events(&format!("transient-bits{threads}"), &short))
+    };
+    let strip = |ev: Vec<Event>| -> Vec<Event> {
+        ev.into_iter()
+            .filter(|e| !matches!(e, Event::Finished { .. }))
+            .collect()
+    };
+    assert_eq!(strip(run(1)), strip(run(8)));
+}
+
+#[test]
+fn a_transient_names_what_it_lacks() {
+    let refused = |text: String| check(&Job::parse(&text).unwrap()).unwrap_err().to_string();
+    let e = refused(TURN_ON.replace("TiN = 3.134e6\n", ""));
+    assert!(
+        e.contains("[task.heat_capacity] has no value for the medium TiN"),
+        "{e}"
+    );
+    let e = refused(TURN_ON.replace("step_ns = 100.0", "step_ns = 0.0"));
+    assert!(e.contains("positive step_ns"), "{e}");
+    let e = refused(TURN_ON.replace("step_ns = 100.0", "step_ns = 0.01"));
+    assert!(e.contains("more than 100000"), "{e}");
+    let e = refused(TURN_ON.replace(
+        "duration_us = 30.0",
+        "duration_us = 30.0\nscheme = \"euler\"",
+    ));
+    assert!(e.contains("\"crank-nicolson\" or \"bdf2\""), "{e}");
+    let e = refused(TURN_ON.replace("duration_us = 30.0", "duration_us = 30.0\nturn = \"up\""));
+    assert!(e.contains("\"on\" or \"off\""), "{e}");
+    let e = refused(ELECTRODES.replace(
+        "[task.boundary]",
+        "[task.transient]\nstep_ns = 1.0\nduration_us = 1.0\n\n[task.boundary]",
+    ));
+    assert!(e.contains("is for physics = \"heat\""), "{e}");
 }
 
 #[test]

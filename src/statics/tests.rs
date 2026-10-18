@@ -1,5 +1,9 @@
 use super::checks::{self, order_of};
 use super::*;
+use crate::geometry::{Point, Shape};
+use crate::thermal::{Scheme, Stepping};
+use crate::units::Length;
+use num_complex::Complex64 as c64;
 
 #[test]
 #[ignore = "prints the cases' numbers"]
@@ -128,6 +132,8 @@ fn the_same_bits_on_one_thread_and_many() {
                 checks::soi_heater(),
                 checks::coaxial(96),
                 checks::coplanar_graded(0.008, 50.0, 1.15, 5.0),
+                checks::slab_transient(40, Scheme::Bdf2, 50, 0.5e-6),
+                checks::slab_transient(40, Scheme::CrankNicolson, 50, 0.5e-6),
             )
         });
     let many = rayon::ThreadPoolBuilder::new()
@@ -139,12 +145,155 @@ fn the_same_bits_on_one_thread_and_many() {
                 checks::soi_heater(),
                 checks::coaxial(96),
                 checks::coplanar_graded(0.008, 50.0, 1.15, 5.0),
+                checks::slab_transient(40, Scheme::Bdf2, 50, 0.5e-6),
+                checks::slab_transient(40, Scheme::CrankNicolson, 50, 0.5e-6),
             )
         });
     assert_eq!(one.0.0.to_bits(), many.0.0.to_bits());
+    for (a, b) in one.3.iter().chain(&one.4).zip(many.3.iter().chain(&many.4)) {
+        assert_eq!(a.to_bits(), b.to_bits());
+    }
     assert_eq!(one.0.1.to_bits(), many.0.1.to_bits());
     assert_eq!(one.1.to_bits(), many.1.to_bits());
     assert_eq!(one.2.0.to_bits(), many.2.0.to_bits());
+}
+
+/// A column of two media, 1 µm wide, 0 K at the bottom, a heater in the upper one.
+fn column() -> (crate::thermal::Heat, Shape) {
+    let mut section = Section::new("a");
+    section.layer(1.0, 2.0, "b").unwrap();
+    let grid = Grid::new(
+        Axis::uniform(0.0, 1.0, 2).unwrap(),
+        Axis::uniform(0.0, 2.0, 16).unwrap(),
+    );
+    let upper = Shape::rect(Point::um(0.5, 1.5), Length::um(1.0), Length::um(1.0)).unwrap();
+    let mut heat = crate::thermal::Heat::new(section, grid);
+    heat.conductivity("a", Tensor::isotropic(1.4))
+        .conductivity("b", Tensor::isotropic(20.0))
+        .heat_capacity("a", 1.6e6)
+        .heat_capacity("b", 1.7e6)
+        .boundary(Side::Bottom, Boundary::Fixed(0.0))
+        .heater(upper.clone(), 1.0);
+    (heat, upper)
+}
+
+#[test]
+fn a_turn_off_is_the_steady_state_less_a_turn_on() {
+    let (heat, upper) = column();
+    let steady = heat.solve().unwrap().mean(&upper).unwrap();
+    for scheme in [Scheme::Bdf2, Scheme::CrankNicolson] {
+        let stepping = Stepping {
+            step_s: 1e-7,
+            steps: 40,
+            scheme,
+        };
+        let watch = std::slice::from_ref(&upper);
+        let on = heat.transient(&stepping, 0.0, &|_| 1.0, watch).unwrap();
+        let off = heat.transient(&stepping, 1.0, &|_| 0.0, watch).unwrap();
+        assert_eq!(on.times_s.len(), 41);
+        assert_eq!(on.watched[0][0], 0.0);
+        assert!((off.watched[0][0] - steady).abs() < 1e-12 * steady);
+        for (a, b) in on.watched[0].iter().zip(&off.watched[0]) {
+            assert!(
+                (a + b - steady).abs() < 1e-10 * steady,
+                "{scheme:?}: {a} + {b}"
+            );
+        }
+        // the rise and the fall cross 1/e at the same time
+        let e = 1.0 - (-1.0f64).exp();
+        let (rise, fall) = (
+            on.crossing(0, 0.0, steady, e).unwrap(),
+            off.crossing(0, steady, 0.0, e).unwrap(),
+        );
+        assert!((rise - fall).abs() < 1e-9 * rise, "{rise} {fall}");
+        // held at its drive, a transient stays at its steady state
+        let held = heat.transient(&stepping, 1.0, &|_| 1.0, watch).unwrap();
+        for v in &held.watched[0] {
+            assert!((v - steady).abs() < 1e-10 * steady);
+        }
+        assert!((held.last.imbalance()).abs() < 1e-9);
+    }
+}
+
+#[test]
+fn a_response_is_one_at_zero_frequency_and_falls() {
+    let (heat, upper) = column();
+    let dc = heat.response(0.0, &upper).unwrap();
+    assert!((dc - c64::new(1.0, 0.0)).norm() < 1e-12);
+    let cutoff = heat.cutoff(&upper).unwrap();
+    let at = heat.response(cutoff, &upper).unwrap();
+    assert!(
+        (at.norm() - std::f64::consts::FRAC_1_SQRT_2).abs() < 1e-5,
+        "{at}"
+    );
+    // lagging: the temperature follows the power late
+    assert!(at.im < 0.0, "{at}");
+    assert!(heat.response(10.0 * cutoff, &upper).unwrap().norm() < 0.2);
+}
+
+#[test]
+fn a_transient_names_what_it_lacks() {
+    let (heat, upper) = column();
+    let watch = std::slice::from_ref(&upper);
+    let bad = Stepping {
+        step_s: 0.0,
+        steps: 4,
+        scheme: Scheme::Bdf2,
+    };
+    let e = heat
+        .transient(&bad, 0.0, &|_| 1.0, watch)
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("positive step"), "{e}");
+    let good = Stepping {
+        step_s: 1e-8,
+        ..bad
+    };
+    let e = heat
+        .transient(&good, 0.0, &|_| f64::NAN, watch)
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("drive must be finite"), "{e}");
+    let outside = Shape::rect(Point::um(9.0, 9.0), Length::um(1.0), Length::um(1.0)).unwrap();
+    let e = heat
+        .transient(&good, 0.0, &|_| 1.0, std::slice::from_ref(&outside))
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("covers no cell"), "{e}");
+    let e = heat.response(-1.0, &upper).unwrap_err().to_string();
+    assert!(e.contains("non-negative"), "{e}");
+    let mut section = Section::new("a");
+    section.layer(1.0, 2.0, "b").unwrap();
+    let mut lacking = crate::thermal::Heat::new(section, heat.grid().clone());
+    lacking
+        .conductivity("a", Tensor::isotropic(1.0))
+        .conductivity("b", Tensor::isotropic(1.0))
+        .heat_capacity("a", 1e6)
+        .boundary(Side::Bottom, Boundary::Fixed(0.0));
+    let e = lacking
+        .transient(&good, 0.0, &|_| 1.0, watch)
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("the medium b has no heat capacity"), "{e}");
+}
+
+#[test]
+fn a_crossing_interpolates_between_steps() {
+    let history = crate::thermal::History {
+        times_s: vec![0.0, 1.0, 2.0, 3.0],
+        watched: vec![vec![0.0, 0.2, 0.6, 0.9]],
+        last: column().0.solve().unwrap(),
+    };
+    assert!((history.crossing(0, 0.0, 1.0, 0.5).unwrap() - 1.75).abs() < 1e-12);
+    assert_eq!(history.crossing(0, 0.0, 1.0, 0.0), Some(0.0));
+    assert_eq!(history.crossing(0, 0.0, 1.0, 0.95), None);
+    assert_eq!(history.crossing(1, 0.0, 1.0, 0.5), None);
+    // falling
+    let falling = crate::thermal::History {
+        watched: vec![vec![1.0, 0.8, 0.4, 0.1]],
+        ..history
+    };
+    assert!((falling.crossing(0, 1.0, 0.0, 0.5).unwrap() - 1.75).abs() < 1e-12);
 }
 
 #[test]

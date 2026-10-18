@@ -1,7 +1,7 @@
 ---
 title: "The static solver: heat, electrostatics and current on a cross-section"
 module: "thermal, electro"
-summary: "−∇·(c∇u) = s on a waveguide's cross-section, per unit length along it: heat conduction (k, a heater's W/m), electrostatics (ε₀ε_r, a conductor's C/m) and current continuity (σ, and its Joule heat). Cell-centred finite volumes on a graded tensor-product grid fitted to the stack's interfaces and the shapes' edges, the faces' coefficients in series, conductors met where their surfaces cross the lines between centres, solved by photonoxide's multifrontal L D Lᵀ. Exact to round-off for layered media, second order on the analytic cases (2.00 on a heated slab, 2.03 on a coaxial line, 1.90 on a line source by images), about first order in the edge's step at a thin electrode's r^(−1/2) singularity (0.82 on a coplanar waveguide), where grading toward the edges makes finite differences enough."
+summary: "−∇·(c∇u) = s on a waveguide's cross-section, per unit length along it: heat conduction (k, a heater's W/m), electrostatics (ε₀ε_r, a conductor's C/m) and current continuity (σ, and its Joule heat). Cell-centred finite volumes on a graded tensor-product grid fitted to the stack's interfaces and the shapes' edges, the faces' coefficients in series, conductors met where their surfaces cross the lines between centres, solved by photonoxide's multifrontal L D Lᵀ. Exact to round-off for layered media, second order on the analytic cases (2.00 on a heated slab, 2.03 on a coaxial line, 1.90 on a line source by images), about first order in the edge's step at a thin electrode's r^(−1/2) singularity (0.82 on a coplanar waveguide), where grading toward the edges makes finite differences enough. Heat in time, ρc_p ∂T/∂t = ∇·(k∇T) + Q, by Crank–Nicolson with Rannacher's start or BDF2 on the same grid, each matrix factorized once: second order in the step (2.00 and 2.03 on a slab's series solution) and in the grid (1.98), a lumped RC's 1/e time and −3 dB frequency to 4e-4, and a heater's time constant from the cross-section that gives its Pπ."
 order: 25
 papers:
   - cite: "S. V. Patankar, Numerical Heat Transfer and Fluid Flow, Hemisphere (1980); CRC Press reissue (2018), Section 4.2-3 (the interface conductivity: resistances in series)"
@@ -18,6 +18,14 @@ papers:
     doi: 10.1049/el:19840120
   - cite: "A. George, SIAM J. Numer. Anal. 10, 345 (1973) (nested dissection, the solve's order)"
     doi: 10.1137/0710032
+  - cite: "J. Crank, P. Nicolson, Proc. Camb. Phil. Soc. 43, 50 (1947) (the trapezoidal rule in time for heat conduction)"
+    doi: 10.1017/S0305004100023197
+  - cite: "R. Rannacher, Numer. Math. 43, 309 (1984) (backward-Euler steps at the start damp Crank–Nicolson's response to rough data, keeping its order)"
+    doi: 10.1007/BF01390130
+  - cite: "E. Hairer, G. Wanner, Solving Ordinary Differential Equations II, Springer (1996), Section V.1 (BDF2: A- and L-stable)"
+    doi: 10.1007/978-3-642-05221-7
+  - cite: "M. Jacques et al., Opt. Express 27, 10456 (2019) (the TiN heater's Pπ and time constant, simulated)"
+    doi: 10.1364/OE.27.010456
 validation:
   - static/two-layer-temperature
   - static/two-layer-flux
@@ -33,6 +41,14 @@ validation:
   - static/joule-resistor
   - static/joule-balance
   - static/soi-heater-balance
+  - static/jacques-tin-heater
+  - static/transient-slab
+  - static/transient-slab-order-time-cn
+  - static/transient-slab-order-time-bdf2
+  - static/transient-slab-order-grid
+  - static/transient-rc-step
+  - static/transient-rc-cutoff
+  - static/jacques-tin-heater-time
 ---
 
 One solver serves the static problems of 0.6 (ROADMAP's "Static solver", issue #412): the
@@ -141,6 +157,35 @@ is a 2D one of up to a few hundred thousand cells, which the direct solver facto
 or so; an iterative solve isn't needed at these sizes, and #351's multigrid is on Shin and Fan's
 operator and its own grids, not this one.
 
+## In time
+
+Heat also has a transient (#413): $\rho c_p\,\partial T/\partial t = \nabla\cdot(k\nabla T) + Q$.
+Integrated over each cell, the scheme above gives $M\,\dot T + K T = b(t)$: $K$ the free cells'
+matrix, $b$ the sources and what the held regions and sides put in, and $M$ diagonal, each cell's
+heat capacity per unit length (its media's $\rho c_p$ by volume, `Heat::heat_capacity`, times its
+area). Two implicit schemes step it (`thermal::Scheme`), both unconditionally stable and second order,
+both factorizing $K + aM/\Delta t$ once for the run on the steady problem's own ordering and symbolic
+factorization:
+
+- **Crank–Nicolson**, $(2M/\Delta t + K)\,T^{n+1} = (2M/\Delta t - K)\,T^n + b^n + b^{n+1}$, its
+  first step taken as two backward-Euler half steps on the same matrix (Rannacher's start), which
+  damps the oscillation a heater's sudden turn-on would otherwise leave in the fine cells.
+- **BDF2**, $(\tfrac32 M/\Delta t + K)\,T^{n+1} = M(2T^n - \tfrac12 T^{n-1})/\Delta t + b^{n+1}$,
+  its first step by backward Euler: L-stable, so a drive's later jumps are damped too.
+
+Measured on a heated oxide slab against its series solution (Carslaw and Jaeger's), Crank–Nicolson's
+error at a given step is about half BDF2's (to 0.5 µs, the slab's slowest time being 0.45 µs: 9.1e-4
+and 1.75e-3 of the steady mean in 25 steps, 3.1e-4 and 6.1e-4 in 50, down to the grid's own 1.8e-4
+at 80 rows), so a job takes it unless told otherwise. `Heat::transient` starts from the steady
+state with the heaters' power times a factor (0 for a turn-on, 1 for a turn-off), drives them
+with any $f(t)$, and records each watched shape's mean; `History::crossing` reads its 1/e and
+10–90 % times.
+
+**The small-signal response** at a frequency $f$ is $(K + i2\pi f M)\,\hat T = \hat Q$, factorized
+on the same analysis (complex symmetric), the held regions and sides holding the fluctuation at
+zero. `Heat::response` gives the watched mean's $\hat T(f)/\hat T(0)$ and `Heat::cutoff` the
+frequency where its magnitude is $1/\sqrt 2$, by bisection in $\log f$.
+
 ## Electrode edges
 
 At the edge of a thin electrode the potential goes as $r^{1/2}$ and the field as $r^{-1/2}$. On a
@@ -172,6 +217,11 @@ formula, the window's ±200 µm box included: ±100 µm gives 4.3e-4, ±400 µm 
 | `static/joule-resistor`, `static/joule-balance` | a bar's Joule heat $V^2\sigma t/L$, and all of it through the substrate | graded, 10 to 100 nm | 4e-16, 6e-13 |
 | `static/soi-heater-balance` | a heater over the 220 nm SOI stack's strip: the balance | graded, 20 nm to 1 µm | 6e-13 |
 | `static/jacques-tin-heater` | published: Jacques et al. 2019's TiN heater, its Pπ (23.9 mW simulated) | graded, 20 to 500 nm; the mode at 10 nm | 25.4 mW, the variants 24.5 to 26.3 |
+| `static/transient-slab` | the slab turned on: its mean at every step against the series solution | 80 rows of 25 nm, 400 steps of 1.25 ns | 1.8e-4 of the steady mean |
+| `static/transient-slab-order-time-cn`, `-bdf2` | the order in the step, from 25, 50 and 100 steps | 80 rows | 2.00 and 2.03 |
+| `static/transient-slab-order-grid` | the order in the grid of the field at 0.5 µs against the series | 40 and 80 rows, 4000 steps | 1.98 |
+| `static/transient-rc-step`, `static/transient-rc-cutoff` | silicon on oxide as a lumped RC: the 1/e time against $\tau$ and the −3 dB frequency against $1/2\pi\tau$ | graded, 10 to 100 nm; steps of τ/400 | 3.7e-4 and 3.7e-4 |
+| `static/jacques-tin-heater-time` | published: the same TiN heater's 1/e time constant (~10.2 µs simulated) | as its Pπ; steps of 0.2 µs | 9.46 µs, the variants 8.75 to 10.17 |
 
 Each case's numbers are in the validation report (docs/validation.md).
 
@@ -207,7 +257,17 @@ grid twice as fine. The oxide's index enters only through the mode: with 1.444 i
 3's 1.55, ∂n_eff/∂n_Si is 1.065 and the variants give 23.8 to 25.5 mW. This is a 2D number: Pπ
 per unit length of a straight phase shifter, times 320 µm, not a device's measured performance
 (the paper measured 29.2 to 31.5 mW for its 7.5 µm heater). The time constant (10.2 µs) is
-#413's, and the dn/dT and Pπ as photonoxide's own models are #414's and #415's.
+below, and the dn/dT and Pπ as photonoxide's own models are #414's and #415's.
+
+**Its time constant.** With Table 3's densities and specific heats (silicon 2330 kg/m³ and 711
+J/(kg·K), TiN 5240 and 598, oxide 2203 and 709), the heater turned on from the ambient, the
+strip's mean crosses 1 − 1/e of its rise at 9.70, 10.17, 8.75 and 9.20 µs in the four variants:
+their midpoint, 9.46 µs, is 7 % under the paper's ~10.2 µs (its Fig. 1(c), the probe at the
+waveguide's centre), within the same 10 %. The thicker TiN and the heater 2 µm above the strip's
+top are slower, as more heat capacity sits farther from the strip. The fall from the steady state
+crosses at the same times, the problem being linear (the paper: "the rise and fall times are
+similar"). Steps half as long move the times by 3e-5 of themselves, and a grid twice as fine by
+0.1 %. A 2D number again: the time constant of a straight section's cross-section.
 
 ## As a job
 
@@ -219,3 +279,10 @@ region's): the catalogue has no thermal or static data yet, which 0.6's P3 (#414
 provenance. The run records the field on pixels of about the finest step, the grid and the numbers
 (probes' means, held regions, sides, the imbalance, a capacitance matrix or a Joule power), and
 replays to the bit.
+
+A heat job's `[task.transient]` (`step_ns`, `duration_us`, `scheme`, `turn = "on"` or `"off"`),
+with `[task.heat_capacity]` for every medium, steps the heaters' turn-on or turn-off after the
+steady solve: the run records each probe's mean as the steps go (`Event::StaticStep`, about 2000 of
+them, which the studio plots live), the last field, the time step and each probe's 1/e time,
+10–90 % time and −3 dB frequency. The job's own `timeout_minutes` is the hard limit; a stopped run
+ends its steps where it is.
