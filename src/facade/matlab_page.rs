@@ -296,6 +296,24 @@ fn every_facade_function_has_its_wrapper_on_the_page() {
 }
 
 #[test]
+fn the_feature_tables_matlab_links_are_on_the_page() {
+    // docs/features.md links each MATLAB cell's functions to their entries here
+    let page = page();
+    let table = std::fs::read_to_string(root().join("docs/features.md")).expect("the table");
+    let mut links = 0;
+    for (at, _) in table.match_indices("(matlab.md#photonoxide") {
+        let rest = &table[at + "(matlab.md#photonoxide".len()..];
+        let name = &rest[..rest.find(')').expect("a closed link")];
+        assert!(
+            page.contains(&format!("## photonoxide.{name}\n")),
+            "docs/features.md links to photonoxide.{name}, which docs/matlab.md hasn't"
+        );
+        links += 1;
+    }
+    assert!(links >= 20, "{links} links");
+}
+
+#[test]
 fn a_wrapper_reads_its_call_help_and_arguments() {
     let w = parse(
         "function s = thing(a, b, options)\n\
