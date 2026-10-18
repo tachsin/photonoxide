@@ -133,10 +133,11 @@ area compact \
   "circuit job" \
   "compact::" "compact/" "compact_mzi_ye"
 
-# with the table of what works in Rust, Python and MATLAB, which its tests read; its devices are
-# the library's (src/device)
+# with the table of what works in Rust, Python and MATLAB and the MATLAB wrappers' reference
+# (written from the .m files' help), which its tests read; its devices are the library's
+# (src/device)
 area facade \
-  "src/facade.rs src/facade/* docs/features.md" \
+  "src/facade.rs src/facade/* docs/features.md docs/matlab.md python/photonoxide/matlab/*" \
   "material mode job circuit compact device" \
   "facade::" "" ""
 

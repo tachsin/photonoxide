@@ -540,7 +540,7 @@ fn the_conformance_cases_are_computed_and_name_their_calls() {
 
 /// The façade's functions, read from its source: every `pub fn` at the start of a line (not a
 /// method), but `conformance`, which lists calls of the others.
-fn facade_functions() -> Vec<&'static str> {
+pub(super) fn facade_functions() -> Vec<&'static str> {
     let sources = [
         include_str!("../facade.rs"),
         include_str!("circuit.rs"),

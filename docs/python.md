@@ -211,7 +211,8 @@ plot(s.wavelength_um, abs(s.s(:, 3, 1)).^2)    % from in1 to out1
 The wrappers: `photonoxide.version`, `materials`, `refractive_index`, `group_index`,
 `slab_modes`, `vector_modes`, `run_job`, `fdfd_s_parameters`, `circuit_spectrum`,
 `read_touchstone`, `write_touchstone`, `devices`, `device_spectrum`, `device_derived`,
-`device_geometry` and `device_job`, each with its help (`help photonoxide.vector_modes`).
+`device_geometry` and `device_job`, each with its help (`help photonoxide.vector_modes`);
+[docs/matlab.md](matlab.md) is their reference, written from that help.
 They take MATLAB's arrays and name-value arguments and return MATLAB arrays and structs:
 
 - arrays keep the Python package's shapes and indexing, so a field is `ny`-by-`nx` and

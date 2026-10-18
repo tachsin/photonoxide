@@ -42,6 +42,8 @@ mod circuit;
 mod conformance;
 mod device;
 #[cfg(test)]
+mod matlab_page;
+#[cfg(test)]
 mod tests;
 
 use std::path::{Path, PathBuf};
