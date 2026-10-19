@@ -1768,33 +1768,6 @@ mod tests {
         assert!(how.iterations == 0 && x == zero);
     }
 
-    #[test]
-    fn gmres_is_the_same_bit_for_bit_on_any_number_of_threads() {
-        // more values than one chunk of its sums, so the chunks are in play
-        let (a, b) = gmres_case(3 * CHUNK + 17);
-        let ilu = Ilu0::new(&a).unwrap();
-        let stop = Stopping {
-            tolerance: 1e-10,
-            max_iterations: 200,
-        };
-        let run = |threads: usize| {
-            rayon::ThreadPoolBuilder::new()
-                .num_threads(threads)
-                .build()
-                .unwrap()
-                .install(|| gmres_preconditioned(&a, &ilu, &b, stop, 20).unwrap().0)
-        };
-        let one = run(1);
-        for threads in [2, 4, 5, 20] {
-            let many = run(threads);
-            let same = one
-                .iter()
-                .zip(&many)
-                .all(|(p, q)| p.re.to_bits() == q.re.to_bits() && p.im.to_bits() == q.im.to_bits());
-            assert!(same, "{threads} threads differ from one");
-        }
-    }
-
     /// A complex symmetric matrix (not Hermitian): a shifted Laplacian on a ring with a complex
     /// diagonal and a few long-range symmetric couplings, n × n.
     fn complex_symmetric(n: usize) -> Vec<(usize, usize, c64)> {
@@ -1889,11 +1862,15 @@ mod tests {
     }
 
     #[test]
-    fn qmr_is_the_same_bit_for_bit_on_any_number_of_threads() {
-        // plain and preconditioned, on more values than one chunk of its sums, with its history
-        // as well as its solution
+    fn krylov_solvers_are_the_same_bit_for_bit_on_any_number_of_threads() {
+        // GMRES with ILU(0), and QMR plain and preconditioned, on more values than one chunk of
+        // their sums, so the chunks are in play; QMR with its history as well as its solution
         let (a, b) = gmres_case(3 * CHUNK + 17);
         let ilu = Ilu0::new(&a).unwrap();
+        let stop_gmres = Stopping {
+            tolerance: 1e-10,
+            max_iterations: 200,
+        };
         let stop = Stopping {
             tolerance: 1e-10,
             max_iterations: 400,
@@ -1915,10 +1892,14 @@ mod tests {
                     let (x, how) = qmr(&a, &b, stop).unwrap();
                     let (y, how_y) = qmr_preconditioned(&a, &ilu, &b, stop).unwrap();
                     let (z, how_z) = qmr_symmetric(&symmetric, &b, stop).unwrap();
+                    let g = gmres_preconditioned(&a, &ilu, &b, stop_gmres, 20)
+                        .unwrap()
+                        .0;
                     (
                         (bits(&x), how.history),
                         (bits(&y), how_y.history),
                         (bits(&z), how_z.history),
+                        bits(&g),
                     )
                 })
         };

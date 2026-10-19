@@ -599,7 +599,9 @@ mod tests {
     }
 
     #[test]
-    fn the_product_is_the_assembled_matrixs_to_rounding() {
+    fn the_free_products_are_the_assembled_matrixs_to_rounding() {
+        // the curl-curl product and its transpose, and Shin and Fan's and its transpose, on
+        // every case's problem, built once
         for (name, boundaries) in cases() {
             let (lattice, eps, matrix, v) = problem(boundaries);
             let free = MatrixFree::new(&lattice, &eps);
@@ -612,14 +614,7 @@ mod tests {
             assert_eq!(out, a, "{name}");
             free.apply_into(&v, &mut out);
             assert_eq!(out, a, "{name}");
-        }
-    }
-
-    #[test]
-    fn the_transposed_product_is_the_assembled_matrixs_to_rounding() {
-        for (name, boundaries) in cases() {
-            let (lattice, eps, matrix, v) = problem(boundaries);
-            let free = MatrixFree::new(&lattice, &eps);
+            // the transposed product
             let (a, b) = (free.apply_transpose(&v), matrix.apply_transpose(&v));
             assert!(off(&a, &b) < 1e-12, "{name}: {}", off(&a, &b));
             let mut out = vec![c64::new(0.0, 0.0); v.len()];
@@ -630,6 +625,18 @@ mod tests {
             let dot = |p: &[c64], q: &[c64]| p.iter().zip(q).map(|(x, y)| x * y).sum::<c64>();
             let (left, right) = (dot(&v, &free.apply(&w)), dot(&a, &w));
             assert!((left - right).norm() < 1e-11 * left.norm(), "{name}");
+            // Shin and Fan's product and its transpose, unshifted and shifted as the multigrid
+            // shifts it
+            for shift in [0.0, 0.5] {
+                let matrix = shin_fan_matrix(&lattice, &eps, shift);
+                let free = MatrixFree::shin_fan(&lattice, &eps, shift);
+                let (a, b) = (free.apply(&v), matrix.apply(&v));
+                assert!(off(&a, &b) < 1e-13, "{name}, {shift}: {}", off(&a, &b));
+                let (a, b) = (free.apply_transpose(&v), matrix.apply_transpose(&v));
+                assert!(off(&a, &b) < 1e-12, "{name}, {shift}: {}", off(&a, &b));
+                // no diagonal makes it symmetric
+                assert!(free.symmetrized().is_none());
+            }
         }
     }
 
@@ -696,23 +703,6 @@ mod tests {
                 .map(|t| (t.row, t.col, t.val)),
         );
         super::super::multigrid::shifted(lattice, eps, &matrix, shift)
-    }
-
-    #[test]
-    fn shin_and_fans_product_and_its_transpose_are_the_assembled_matrixs_to_rounding() {
-        for (name, boundaries) in cases() {
-            let (lattice, eps, _, v) = problem(boundaries);
-            for shift in [0.0, 0.5] {
-                let matrix = shin_fan_matrix(&lattice, &eps, shift);
-                let free = MatrixFree::shin_fan(&lattice, &eps, shift);
-                let (a, b) = (free.apply(&v), matrix.apply(&v));
-                assert!(off(&a, &b) < 1e-13, "{name}, {shift}: {}", off(&a, &b));
-                let (a, b) = (free.apply_transpose(&v), matrix.apply_transpose(&v));
-                assert!(off(&a, &b) < 1e-12, "{name}, {shift}: {}", off(&a, &b));
-                // no diagonal makes it symmetric
-                assert!(free.symmetrized().is_none());
-            }
-        }
     }
 
     #[test]

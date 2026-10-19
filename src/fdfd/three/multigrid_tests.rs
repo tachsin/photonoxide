@@ -451,10 +451,12 @@ fn each_coarse_operator_is_pt_a_p() {
 }
 
 #[test]
-fn the_transposed_cycle_is_the_cycles_transpose() {
-    // QMR needs M⁻ᵀ: uᵀ (M⁻¹ v) = vᵀ (M⁻ᵀ u) for any u and v, whatever the cycle
+fn every_transposed_cycle_is_the_cycles_transpose() {
+    // QMR needs M⁻ᵀ: uᵀ (M⁻¹ v) = vᵀ (M⁻ᵀ u) for any u and v, whatever the cycle, with the
+    // finest matrix stored and without it
     let (grid, eps, current) = small(12, true);
     let (lattice, eps, matrix, _) = system(grid, eps, Boundaries3d::stretched_pml(3), &current);
+    assert_eq!(matrix.size(), grid.unknowns());
     let (u, v) = (sequence(matrix.size(), 1), sequence(matrix.size(), 2));
     for (shape, pre, post) in [
         (CycleShape::V, 0, 1),
@@ -470,6 +472,30 @@ fn the_transposed_cycle_is_the_cycles_transpose() {
             (forward - backward).norm() < 1e-10 * forward.norm(),
             "{shape:?}({pre}, {post}): {forward} against {backward}"
         );
+    }
+    // without the finest matrix: the stencil hierarchies, Galerkin and rediscretized
+    for coarse in [Coarse::Galerkin, Coarse::Rediscretized] {
+        for shape in [CycleShape::V, CycleShape::F] {
+            let h = from_stencil(
+                &lattice,
+                &eps,
+                Multigrid {
+                    coarse,
+                    jacobi: Jacobi {
+                        omega: 0.8,
+                        pre: 2,
+                        post: 1,
+                    },
+                    ..options(shape, 1, 1)
+                },
+            );
+            let forward = bilinear(&u, &h.solve(&v));
+            let backward = bilinear(&v, &h.solve_transpose(&u));
+            assert!(
+                (forward - backward).norm() < 1e-10 * forward.norm(),
+                "{coarse:?} {shape:?}: {forward} against {backward}"
+            );
+        }
     }
 }
 
@@ -513,9 +539,11 @@ fn the_cycle_reduces_the_residual_of_its_own_operator() {
 }
 
 #[test]
-fn the_cycle_is_the_same_bit_for_bit_on_any_number_of_threads() {
+fn every_cycle_is_the_same_bit_for_bit_on_any_number_of_threads() {
+    // the cycle with the finest matrix stored (None), on 2, 4, 5 and 20 threads, and without
+    // it, its coarse levels Galerkin and rediscretized, on 2, 5 and 20
     let (grid, eps, current) = small(14, true);
-    let run = |threads: usize| -> Vec<c64> {
+    let run = |threads: usize, coarse: Option<Coarse>| -> Vec<c64> {
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(threads)
             .build()
@@ -523,21 +551,39 @@ fn the_cycle_is_the_same_bit_for_bit_on_any_number_of_threads() {
         pool.install(|| {
             let (lattice, eps, matrix, b) =
                 system(grid, eps, Boundaries3d::stretched_pml(3), &current);
-            let operator = shifted(&lattice, &eps, &matrix, 0.5);
-            let h = Hierarchy::new(&lattice, &eps, operator, options(CycleShape::F, 1, 1)).unwrap();
+            let h = match coarse {
+                None => {
+                    let operator = shifted(&lattice, &eps, &matrix, 0.5);
+                    Hierarchy::new(&lattice, &eps, operator, options(CycleShape::F, 1, 1)).unwrap()
+                }
+                Some(coarse) => from_stencil(
+                    &lattice,
+                    &eps,
+                    Multigrid {
+                        coarse,
+                        ..options(CycleShape::F, 1, 1)
+                    },
+                ),
+            };
             let mut out = h.solve(&b);
             out.extend(h.solve_transpose(&b));
             out
         })
     };
-    let one = run(1);
-    for threads in [2, 4, 5, 20] {
-        let many = run(threads);
-        let same = one
-            .iter()
-            .zip(&many)
-            .all(|(p, q)| p.re.to_bits() == q.re.to_bits() && p.im.to_bits() == q.im.to_bits());
-        assert!(same, "{threads} threads differ from one");
+    for (coarse, threads) in [
+        (None, &[2, 4, 5, 20][..]),
+        (Some(Coarse::Galerkin), &[2, 5, 20][..]),
+        (Some(Coarse::Rediscretized), &[2, 5, 20][..]),
+    ] {
+        let one = run(1, coarse);
+        for &threads in threads {
+            let many = run(threads, coarse);
+            let same = one
+                .iter()
+                .zip(&many)
+                .all(|(p, q)| p.re.to_bits() == q.re.to_bits() && p.im.to_bits() == q.im.to_bits());
+            assert!(same, "{coarse:?}: {threads} threads differ from one");
+        }
     }
 }
 
@@ -589,74 +635,6 @@ fn without_the_finest_matrix_the_galerkin_levels_are_the_stored_matrixs_to_the_b
     );
     let d: Vec<c64> = a.iter().zip(&b).map(|(p, q)| p - q).collect();
     assert!(norm(&d) < 1e-13 * norm(&a));
-}
-
-#[test]
-fn without_the_finest_matrix_the_transposed_cycle_is_the_cycles_transpose() {
-    let (grid, eps, current) = small(12, true);
-    let (lattice, eps, _, _) = system(grid, eps, Boundaries3d::stretched_pml(3), &current);
-    let (u, v) = (sequence(grid.unknowns(), 1), sequence(grid.unknowns(), 2));
-    for coarse in [Coarse::Galerkin, Coarse::Rediscretized] {
-        for shape in [CycleShape::V, CycleShape::F] {
-            let h = from_stencil(
-                &lattice,
-                &eps,
-                Multigrid {
-                    coarse,
-                    jacobi: Jacobi {
-                        omega: 0.8,
-                        pre: 2,
-                        post: 1,
-                    },
-                    ..options(shape, 1, 1)
-                },
-            );
-            let forward = bilinear(&u, &h.solve(&v));
-            let backward = bilinear(&v, &h.solve_transpose(&u));
-            assert!(
-                (forward - backward).norm() < 1e-10 * forward.norm(),
-                "{coarse:?} {shape:?}: {forward} against {backward}"
-            );
-        }
-    }
-}
-
-#[test]
-fn without_the_finest_matrix_the_cycle_is_the_same_bit_for_bit_on_any_number_of_threads() {
-    let (grid, eps, current) = small(14, true);
-    for coarse in [Coarse::Galerkin, Coarse::Rediscretized] {
-        let run = |threads: usize| -> Vec<c64> {
-            let pool = rayon::ThreadPoolBuilder::new()
-                .num_threads(threads)
-                .build()
-                .unwrap();
-            pool.install(|| {
-                let (lattice, eps, _, b) =
-                    system(grid, eps, Boundaries3d::stretched_pml(3), &current);
-                let h = from_stencil(
-                    &lattice,
-                    &eps,
-                    Multigrid {
-                        coarse,
-                        ..options(CycleShape::F, 1, 1)
-                    },
-                );
-                let mut out = h.solve(&b);
-                out.extend(h.solve_transpose(&b));
-                out
-            })
-        };
-        let one = run(1);
-        for threads in [2, 5, 20] {
-            assert!(
-                one.iter()
-                    .zip(&run(threads))
-                    .all(|(p, q)| p.re.to_bits() == q.re.to_bits()
-                        && p.im.to_bits() == q.im.to_bits()),
-                "{coarse:?}: {threads} threads differ from one"
-            );
-        }
-    }
 }
 
 #[test]

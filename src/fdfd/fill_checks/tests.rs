@@ -102,17 +102,3 @@ fn reference() {
         println!("{pol:?} {w:?} extrapolated {rich:.12}");
     }
 }
-
-/// The report's rows of the averaging's cases, to append to docs/validation.md:
-/// `cargo test --release --lib fdfd::fill_checks::tests::rows -- --ignored --nocapture`.
-#[test]
-#[ignore]
-fn rows() {
-    for case in crate::validation::cases() {
-        if case.id.starts_with("averaging/") || case.id.contains("/fill-") {
-            let (row, passed) = crate::validation::row(&case);
-            assert!(passed, "{row}");
-            print!("ROW{row}");
-        }
-    }
-}
