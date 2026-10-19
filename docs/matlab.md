@@ -91,6 +91,7 @@ Options: values, fidelity, stack and compact, as photonoxide.device_spectrum tak
 | `values` (name-value) | scalar | struct | `struct()` |
 | `fidelity` (name-value) | scalar | string | `""` |
 | `stack` (name-value) | scalar | string | `""` |
+| `compact` (name-value) | scalar | string | `""` |
 
 ## photonoxide.device_geometry
 
@@ -135,6 +136,7 @@ kind's by default); format ("json", "toml" or "yaml"), the text to save as a job
 | `values` (name-value) | scalar | struct | `struct()` |
 | `fidelity` (name-value) | scalar | string | `""` |
 | `stack` (name-value) | scalar | string | `""` |
+| `compact` (name-value) | scalar | string | `""` |
 | `name` (name-value) | scalar | string | `""` |
 | `format` (name-value) | scalar | string | `"json"` |
 
