@@ -278,13 +278,17 @@ mod tests {
     }
 
     fn read_f64(data: &[u8]) -> Vec<f64> {
-        data.chunks_exact(8)
-            .map(|c| f64::from_le_bytes(c.try_into().unwrap()))
+        data.as_chunks::<8>()
+            .0
+            .iter()
+            .map(|c| f64::from_le_bytes(*c))
             .collect()
     }
 
     fn read_c64(data: &[u8]) -> Vec<c64> {
-        data.chunks_exact(16)
+        data.as_chunks::<16>()
+            .0
+            .iter()
             .map(|c| {
                 c64::new(
                     f64::from_le_bytes(c[0..8].try_into().unwrap()),
