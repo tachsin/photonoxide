@@ -914,7 +914,9 @@ mod tests {
             "See the method.\n\nThen"
         );
         let text = schema_text();
-        assert!(!text.contains("\"format\""), "a format is left");
+        // schemars' keyword has a string value ("double"); a field named `format`, as
+        // `[task.export]`'s, is a property whose value is a schema
+        assert!(!text.contains("\"format\": \""), "a format is left");
         assert!(!text.contains("[`"), "a link is left");
     }
 }

@@ -2048,6 +2048,30 @@
       },
       "type": "object"
     },
+    "ExportSpec": {
+      "additionalProperties": false,
+      "description": "A modes job's `[task.export]`: each solved mode's complex fields as an `.npz` (`mode-<k of n>.npz`), a summary table of every mode as `modes.csv`, or both, written into the run's directory (`crate::export`).",
+      "properties": {
+        "format": {
+          "description": "`\"npz\"` (the fields), `\"csv\"` (the summary table) or `\"both\"`.",
+          "type": "string"
+        },
+        "level": {
+          "description": "Deflate's level, 0 (store) to 9 (smallest); 6 by default. The csv is never compressed.",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "precision": {
+          "description": "`\"f32\"` or `\"f64\"` (the default): the npz's fields' precision.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "format"
+      ],
+      "type": "object"
+    },
     "Expression": {
       "description": "An expression of numbers with units and the task's parameters (docs/methods/expressions.md), e.g. \"500 nm\", \"w/2 + gap\", \"10 deg\".",
       "type": "string"
@@ -2647,6 +2671,10 @@
         "cut_y_um": {
           "description": "Along y: where the cross-section is cut.",
           "type": "number"
+        },
+        "export": {
+          "$ref": "#/$defs/ExportSpec",
+          "description": "Writes each mode's complex fields, and a summary table of every mode, into the run's directory (issue #431; not a sweep's points, which stay pictures only)."
         },
         "kind": {
           "type": "string"

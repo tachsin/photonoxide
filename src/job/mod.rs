@@ -2687,7 +2687,7 @@ impl PmlSpec {
 /// A modes job's `[task.export]`: each solved mode's complex fields as an `.npz`
 /// (`mode-<k of n>.npz`), a summary table of every mode as `modes.csv`, or both, written into
 /// the run's directory ([`crate::export`]).
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ExportSpec {
     /// `"npz"` (the fields), `"csv"` (the summary table) or `"both"`.
