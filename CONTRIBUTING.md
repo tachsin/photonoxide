@@ -20,7 +20,7 @@ photonoxide is pre-1.0: ideas, use cases and validation cases are as welcome as 
 
   Add `!` after the type for a breaking change, e.g. `feat!: rename Structure::draw to Structure::add`, and explain the migration in the PR description. A public API change that breaks 0.x semver needs the `!` (or the `breaking` label): CI's semver check fails without it, since release-plz would otherwise make the next release a minor one (0.5 to 0.6) where a patch was meant. A new field on a public struct users build with a literal is such a break; a type of its own marked `#[non_exhaustive]`, taken by a new method, isn't.
 - **No AI attribution, anywhere.** Commits, PR and issue descriptions, comments and files carry no attribution to AI tools: no `Co-Authored-By` trailers naming an assistant, no "Generated with …" lines.
-- **Before pushing, run:** `cargo fmt`, `cargo clippy --all-targets --all-features -- -D warnings`, `cargo test --all-features`; or everything the release PR runs, `bash .github/full-suite.sh`.
+- **Before pushing, run:** `just lint test` (rustfmt, clippy, the docs, the unit tests); or everything the release PR runs, `just suite` (`bash .github/full-suite.sh`). `just` lists every recipe.
 
 ## What CI runs
 

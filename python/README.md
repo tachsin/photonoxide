@@ -19,7 +19,8 @@ package brings a part of it to Python, and through Python to MATLAB:
   the studio's for the same design.
 
 ```sh
-pip install photonoxide
+uv add photonoxide          # with uv, in a uv project
+uv pip install photonoxide  # or into the active environment; pip install photonoxide works too
 ```
 
 Wheels for CPython 3.10 and later on Linux, macOS and Windows; nothing else to install.

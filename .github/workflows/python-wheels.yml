@@ -104,7 +104,7 @@ jobs:
           target: ${{ matrix.platform.target }}
           manylinux: ${{ matrix.platform.manylinux }}
           working-directory: python
-          args: --release --locked --out dist
+          args: --profile dist --locked --out dist
       # free-threaded CPython: PyO3 makes a version-specific wheel for it despite the abi3
       # feature. On Linux, the manylinux and musllinux containers have it.
       - uses: actions/setup-python@v7
@@ -116,7 +116,7 @@ jobs:
           target: ${{ matrix.platform.target }}
           manylinux: ${{ matrix.platform.manylinux }}
           working-directory: python
-          args: --release --locked --out dist -i python3.14t
+          args: --profile dist --locked --out dist -i python3.14t
       # the lowest supported Python: an abi3 wheel works on every version from it
       - uses: actions/setup-python@v7
         if: matrix.platform.test

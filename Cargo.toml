@@ -92,3 +92,17 @@ opt-level = 3
 
 [profile.dev.package.photonoxide]
 opt-level = 3
+
+# What the Python wheels are built with (`--profile dist`, `just build-dist`): link-time
+# optimization across crates and one codegen unit, for faster code at the cost of a slower build.
+# Plain `--release` (CI, the tests, the examples) keeps Cargo's defaults, so its builds stay quick.
+[profile.dist]
+inherits = "release"
+lto = "thin"
+codegen-units = 1
+
+# The fastest code for one machine: fat LTO, built with `RUSTFLAGS="-C target-cpu=native"`
+# (`just build-fastest`). Such a binary runs only on CPUs with the same instruction sets.
+[profile.fastest]
+inherits = "dist"
+lto = "fat"

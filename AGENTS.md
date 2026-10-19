@@ -36,6 +36,9 @@ Python and MATLAB); next is 0.6, thermal and electro-optic devices, with 0.5.5 (
 
 ## Commands
 
+The [justfile](justfile) has these as recipes (`just` lists them), the same on Linux, macOS and
+Windows. uv is the Python tool, not bare pip.
+
 ```sh
 cargo test                                              # unit tests
 cargo clippy --all-targets --all-features -- -D warnings
@@ -47,7 +50,7 @@ cargo run -p photonoxide-native --release --example validate -- mumps   # the va
 cargo test --release --features gpu --lib fdtd::gpu      # FDTD on the GPU against the CPU (skips without a GPU)
 cargo test --release --features gpu --test gpu_report -- --ignored   # docs/validation-gpu.md, before each release
 cargo clippy -p photonoxide-python --all-targets -- -D warnings   # the Python package's Rust (not in the default members)
-cd python && maturin develop --release && cd tests && python -m pytest   # the Python package, in a virtual environment
+just python-test                                       # the Python package: python/.venv by uv, maturin develop, pytest
 PHOTONOXIDE_VALIDATION_CASES="circuit/ components/" cargo test --release --test validation_report -- --ignored   # some cases' rows
 bash .github/full-suite.sh                              # the full suite here, as the release PR runs it (--fast: no release build)
 git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh   # what CI runs for a branch

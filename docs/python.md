@@ -20,23 +20,27 @@ package following every change ([the plan](plans/bindings.md), #271).
 
 ## Install
 
-```sh
-pip install photonoxide
-```
-
-Wheels for CPython 3.10 and later (one abi3 wheel per platform, and one for free-threaded
-3.14t) on Linux (x86_64 and ARM64, glibc and musl), macOS (Apple silicon and Intel) and Windows
-(x64). Nothing else is needed: the wheel holds photonoxide, compiled, and NumPy is its one
-dependency. *(The package reaches PyPI with the first release after its publishing is set up;
-until then, build it from the repository.)*
-
-From the repository, with Rust installed:
+With [uv](https://docs.astral.sh/uv/):
 
 ```sh
-pip install ./python          # builds the package with maturin, in release mode
+uv add photonoxide          # in a uv project
+uv pip install photonoxide  # or into the active environment
 ```
 
-or, while working on it, `maturin develop --release` in `python/` (in a virtual environment).
+`pip install photonoxide` works too. Wheels for CPython 3.10 and later (one abi3 wheel per
+platform, and one for free-threaded 3.14t) on Linux (x86_64 and ARM64, glibc and musl), macOS
+(Apple silicon and Intel) and Windows (x64). Nothing else is needed: the wheel holds photonoxide,
+compiled, and NumPy is its one dependency.
+
+From the repository, with Rust and uv installed:
+
+```sh
+uv pip install ./python       # builds the package with maturin
+just python-test              # or, while working on it: python/.venv, maturin develop, pytest
+```
+
+`just python-test` makes `python/.venv` with uv, builds the package into it with
+`maturin develop --release`, and runs its tests ([justfile](../justfile)).
 
 ## A first example
 

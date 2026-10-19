@@ -105,22 +105,32 @@ every page and command.
 
 ## Install
 
+**Rust:**
+
 ```sh
 cargo add photonoxide
 ```
 
-Pure Rust, with no C, Fortran or Python dependencies. The program is on each
-[release](https://github.com/tachsin/photonoxide/releases) for Linux (x86_64 and ARM64), Windows
-and macOS, and updates itself ([downloads](studio/README.md#downloads)): from the releases, or on
-the Nightly channel by building main's latest code on your machine ([channels](studio/README.md#channels)).
+Pure Rust, with no C, Fortran or Python dependencies.
 
-**Python and MATLAB:** the `photonoxide` package ([`python/`](python), `pip install ./python`;
-on PyPI once its publishing is set up) and MATLAB through it: [docs/python.md](docs/python.md).
+**Python** 3.10 or later, wheels for Linux, macOS and Windows, with [uv](https://docs.astral.sh/uv/):
+
+```sh
+uv add photonoxide          # in a uv project
+uv pip install photonoxide  # or into the active environment
+```
+
+`pip install photonoxide` works too. MATLAB uses the Python package:
+[docs/python.md](docs/python.md#matlab).
+
+**The studio:** the `photonoxide` program for Linux (x86_64 and ARM64), Windows and macOS is on
+each [release](https://github.com/tachsin/photonoxide/releases), and updates itself
+([downloads](studio/README.md#downloads), [channels](studio/README.md#channels)).
 
 ## A first example
 
 220 nm of silicon in oxide at 1550 nm, each material with its published dispersion, and the
-slab's modes solved exactly:
+slab's modes solved exactly. In Rust:
 
 ```rust
 use photonoxide::material::{silica, silicon};
@@ -142,12 +152,69 @@ fn main() -> photonoxide::Result<()> {
 }
 ```
 
-It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`. Each of the
+In Python:
+
+```python
+import photonoxide as phox
+
+si = phox.refractive_index("si", wavelength_um=1.55).real    # Li 1980
+ox = phox.refractive_index("sio2", wavelength_um=1.55).real  # Malitson 1965
+for polarization in ("te", "tm"):
+    for mode in phox.slab_modes(below=ox, core=si, above=ox, thickness_um=0.22,
+                                polarization=polarization, wavelength_um=1.55):
+        print(f"{polarization.upper()}{mode.order}: n_eff = {mode.effective_index:.4f}")
+```
+
+Both print `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`. Each of the
 [examples](examples/README.md) reproduces one paper's numbers and fails when it disagrees:
 
 ```sh
-cargo run --release --example strip_waveguide
+cargo run --release --example strip_waveguide   # or: just example strip_waveguide
 ```
+
+## Building from source
+
+You need:
+
+- **Rust**, the latest stable through [rustup](https://rustup.rs) (`rustup update`), 1.95 at
+  least. Each Rust release brings its own LLVM, so a newer toolchain is also a newer code
+  generator.
+- **[just](https://just.systems)** for the commands below. It is optional: each recipe in the
+  [justfile](justfile) is one plain command.
+- **For the studio:** Node.js and pnpm, and on Linux WebKitGTK and Tauri's other
+  [prerequisites](https://v2.tauri.app/start/prerequisites/) ([studio/README.md](studio/README.md#building)).
+- **For the Python package:** [uv](https://docs.astral.sh/uv/).
+
+```sh
+git clone https://github.com/tachsin/photonoxide
+cd photonoxide
+just build         # the library, in release mode
+just test          # the unit tests
+just studio        # the program, target/release/photonoxide
+just python-test   # the Python package in python/.venv, and its tests
+just               # every recipe
+```
+
+The workspace has three optimized profiles:
+
+| Profile | Settings | Used for |
+|---|---|---|
+| `release` | Cargo's defaults: `opt-level = 3`, LTO within each crate only, 16 codegen units | CI, the tests and examples, the program |
+| `dist` | `release`, with `lto = "thin"` and `codegen-units = 1` | the Python wheels; `just build-dist` |
+| `fastest` | `dist`, with `lto = "fat"` | `just build-fastest` |
+
+LTO across crates lets LLVM optimize photonoxide together with faer, which does its sparse LU,
+and one codegen unit lets it see each crate whole. Both make the build slower. For the fastest code
+on your own machine, also compile for its CPU:
+
+```sh
+just build-fastest
+# without just:  RUSTFLAGS="-C target-cpu=native" cargo build --profile fastest
+# in PowerShell: $env:RUSTFLAGS = "-C target-cpu=native"; cargo build --profile fastest
+```
+
+That build uses every instruction set the CPU has (AVX2, AVX-512, …), so it runs only on CPUs
+that have them.
 
 ## Validation
 
