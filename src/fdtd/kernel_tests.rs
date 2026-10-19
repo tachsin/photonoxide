@@ -53,7 +53,8 @@ fn stir(s: &mut Simulation) {
 }
 
 #[test]
-fn the_kernel_is_the_plain_loops_bits_with_cpmls_walls_and_periodic_sides() {
+fn the_kernel_is_the_plain_loops_bits_on_every_boundary_and_medium() {
+    // the boundaries: CPMLs, walls, periodic sides, 2D and rows of one value
     let g = grid([13, 11, 9], 0.05);
     let eps = |x: f64, y: f64, _: f64| if x > 0.05 && y < 0.1 { 4.0 } else { 1.0 };
     // CPMLs everywhere, with κ and α
@@ -103,10 +104,7 @@ fn the_kernel_is_the_plain_loops_bits_with_cpmls_walls_and_periodic_sides() {
     let mut s = Simulation::new(g1, eps, boundaries, 0.9).unwrap();
     stir(&mut s);
     same_bits(s, 40, "rows of one value");
-}
-
-#[test]
-fn the_kernel_is_the_plain_loops_bits_with_bloch_dispersive_and_tensor_media() {
+    // the media: a Bloch phase, a Drude medium and a smoothed tensor
     let g = grid([12, 10, 8], 0.05);
     // a Bloch phase: complex fields
     let boundaries = Boundaries {

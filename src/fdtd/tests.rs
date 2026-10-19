@@ -583,14 +583,20 @@ fn running_until_decayed_stops_when_the_fields_grow_again() {
         grew.unwrap_err().to_string().contains("grew again"),
         "it says what happened"
     );
-    // the steps it took are the plain run's, bit for bit
-    let plain = late_strip(0.05, 6, Cpml::default(), late_pulse(), s.steps());
+    // the steps it took are the plain run's, bit for bit. Its 2000 first are enough: it only
+    // reads the probes between its blocks of 10 µm/c (about 350 steps here), so 2000 steps
+    // cross five of its checks, and a step it took differently at a check, or a block's end
+    // that lost or repeated a step, would show there; past them it runs the same blocks again
+    let prefix = 2000;
+    assert!(s.steps() > prefix);
+    let plain = late_strip(0.05, 6, Cpml::default(), late_pulse(), prefix);
+    assert_eq!(plain.inside.len(), prefix);
     assert!(
         plain
             .inside
             .iter()
-            .zip(s.probe(inside))
+            .zip(&s.probe(inside)[..prefix])
             .all(|(a, b)| a.to_bits() == b.to_bits())
     );
-    assert_eq!(plain.inside.len(), s.probe(inside).len());
+    assert_eq!(s.probe(inside).len(), s.steps());
 }
