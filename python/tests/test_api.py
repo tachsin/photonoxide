@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import photonoxide as po
+import photonoxide as phox
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = Path(__file__).resolve().parents[1]
@@ -28,7 +28,7 @@ def test_the_books_slab_modes() -> None:
     # 1550 nm against L. Chrostowski, M. Hochberg, Silicon Photonics Design (2015),
     # doi:10.1017/CBO9781316084168, Section 3.2.2: 2.845 and 2.051, to 5e-4
     for polarization, book, report in (("te", 2.845, "2.84482"), ("tm", 2.051, "2.05110")):
-        modes = po.slab_modes(
+        modes = phox.slab_modes(
             below=1.444,
             core=3.473,
             above=1.444,
@@ -49,7 +49,7 @@ def test_the_ring_free_spectral_range() -> None:
     length = 2 * math.pi * 10.0
 
     def through(wavelength_um: np.ndarray) -> np.ndarray:
-        s = po.circuit_spectrum(
+        s = phox.circuit_spectrum(
             instances={
                 "c": {"kind": "coupler", "coupling": 0.1},
                 "ring": {
@@ -101,7 +101,7 @@ def test_silicon_is_lis_table() -> None:
     # material/silicon-li-table: Li's Table 1 (H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980),
     # doi:10.1063/1.555624, 293 K) through a natural spline, which passes through its points, to
     # 1e-12: 3.4799, 3.4757 and 3.4719 at 1.50, 1.55 and 1.60 um
-    n = po.refractive_index("si", wavelength_um=np.array([1.5, 1.55, 1.6]))
+    n = phox.refractive_index("si", wavelength_um=np.array([1.5, 1.55, 1.6]))
     assert np.all(n.imag == 0.0)
     assert np.max(np.abs(n.real - [3.4799, 3.4757, 3.4719])) <= 1e-12
 
@@ -112,7 +112,7 @@ def test_the_mzi_against_its_transfer_matrices() -> None:
     w = np.linspace(1.54, 1.56, 41)
     for kappa2 in (0.5, 0.3):
         arm = dict(kind="waveguide", n_eff=2.4, n_g=4.2, wavelength_um=1.55, loss=3.0)
-        s = po.circuit_spectrum(
+        s = phox.circuit_spectrum(
             instances={
                 "split": {"kind": "coupler", "coupling": kappa2},
                 "upper": {**arm, "length": 100.0},
@@ -146,14 +146,14 @@ def test_the_mzi_against_its_transfer_matrices() -> None:
 
 
 def test_one_wavelength_or_an_array_of_any_shape() -> None:
-    one = po.refractive_index("sio2", wavelength_um=1.55)
+    one = phox.refractive_index("sio2", wavelength_um=1.55)
     assert isinstance(one, complex)
     grid = np.linspace(1.3, 1.6, 6).reshape(2, 3)
-    n = po.refractive_index("sio2", wavelength_um=grid)
+    n = phox.refractive_index("sio2", wavelength_um=grid)
     assert n.shape == (2, 3) and n.dtype == np.complex128
-    assert n[1, 2] == po.refractive_index("sio2", wavelength_um=1.6)
-    ng = po.group_index("sio2", wavelength_um=[1.31, 1.55])
-    assert ng.shape == (2,) and isinstance(po.group_index("sio2", wavelength_um=1.55), float)
+    assert n[1, 2] == phox.refractive_index("sio2", wavelength_um=1.6)
+    ng = phox.group_index("sio2", wavelength_um=[1.31, 1.55])
+    assert ng.shape == (2,) and isinstance(phox.group_index("sio2", wavelength_um=1.55), float)
 
 
 def test_fields_are_c_order_with_their_coordinates() -> None:
@@ -163,7 +163,7 @@ def test_fields_are_c_order_with_their_coordinates() -> None:
     y = np.arange(0, 13) * 0.0625
     eps = np.full((12, 20), 2.085)
     eps[:2, :5] = 12.0
-    (mode,) = po.vector_modes(
+    (mode,) = phox.vector_modes(
         x_um=x,
         y_um=y,
         permittivity=eps,
@@ -179,7 +179,7 @@ def test_fields_are_c_order_with_their_coordinates() -> None:
 
 
 def test_s_matrices_are_wavelength_then_ports() -> None:
-    s = po.circuit_spectrum(
+    s = phox.circuit_spectrum(
         instances={"t": {"kind": "fixed", "ports": ["a", "b"], "s": [[[0, 0], [0.6, 0.8]], [[0.6, -0.8], [0, 0]]]}},
         ports={"in": "t.a", "out": "t.b"},
         wavelength_um=[1.5, 1.55, 1.6],
@@ -194,13 +194,13 @@ def test_a_touchstone_round_trip(tmp_path: Path) -> None:
     s = np.zeros((5, 2, 2), dtype=complex)
     s[:, 1, 0] = s[:, 0, 1] = np.exp(1j * np.linspace(0, 1, 5))
     file = tmp_path / "device.s2p"
-    po.write_touchstone(file, po.Spectrum(ports=["a", "b"], wavelength_um=w, s=s), convention="engineering")
-    back = po.read_touchstone(file, convention="engineering")
+    phox.write_touchstone(file, phox.Spectrum(ports=["a", "b"], wavelength_um=w, s=s), convention="engineering")
+    back = phox.read_touchstone(file, convention="engineering")
     # in the file's order, decreasing wavelength; the values exactly, the wavelengths c/f
     assert back.ports == ["o1", "o2"]
     assert np.array_equal(back.s, s[::-1])
     assert np.allclose(back.wavelength_um, w[::-1], rtol=1e-15)
-    physics = po.read_touchstone(file, convention="physics")
+    physics = phox.read_touchstone(file, convention="physics")
     assert np.array_equal(physics.s, np.conj(back.s))
 
 
@@ -215,8 +215,8 @@ def test_a_job_file_runs_and_its_record_comes_back(tmp_path: Path) -> None:
         '[[task.rect]]\nlayer = "Si"\ncenter_um = [0.0, 0.0]\nsize_um = [10.0, 0.5]\n',
         encoding="utf-8",
     )
-    po.check_job(job)
-    run = po.run_job(job, runs_dir=tmp_path / "runs")
+    phox.check_job(job)
+    run = phox.run_job(job, runs_dir=tmp_path / "runs")
     assert run.dir.parent == tmp_path / "runs" and (run.dir / "events.jsonl").is_file()
     assert run.events[0]["type"] == "started" and run.events[-1]["type"] == "finished"
     assert run.stopped is None
@@ -240,7 +240,7 @@ def test_a_job_as_data_gives_its_s_parameters() -> None:
             "port": [{"x_um": -1.5, "side": "left"}, {"x_um": 1.5, "side": "right"}],
         },
     }
-    s = po.fdfd_s_parameters(job, wavelength_um=np.array([1.5, 1.55]))
+    s = phox.fdfd_s_parameters(job, wavelength_um=np.array([1.5, 1.55]))
     assert s.s.shape == (2, 2, 2) and s.effective_index.shape == (2, 2)
     assert s.cell_um == (0.05, 0.05) and s.polarization == "te"
     # a straight guide passes its mode whole
@@ -249,7 +249,7 @@ def test_a_job_as_data_gives_its_s_parameters() -> None:
 
 def test_a_job_stops_at_its_timeout(tmp_path: Path) -> None:
     ring = ROOT / "jobs" / "ring-fdfd.toml"
-    run = po.run_job(ring, runs_dir=tmp_path, timeout_s=0.5)
+    run = phox.run_job(ring, runs_dir=tmp_path, timeout_s=0.5)
     assert run.stopped == "timeout"
     assert run.events[-1]["type"] == "finished" and run.events[-1]["stopped"] == "timeout"
 
@@ -260,7 +260,7 @@ def test_a_mode_solve_stops_at_its_timeout() -> None:
     eps = np.full((n, n), 2.085)
     eps[180:220, 150:250] = 12.0
     with pytest.raises(TimeoutError):
-        po.vector_modes(x_um=x, y_um=x, permittivity=eps, wavelength_um=1.55, count=40, timeout_s=0.05)
+        phox.vector_modes(x_um=x, y_um=x, permittivity=eps, wavelength_um=1.55, count=40, timeout_s=0.05)
 
 
 def test_ctrl_c_stops_a_mode_solve() -> None:
@@ -273,7 +273,7 @@ def test_ctrl_c_stops_a_mode_solve() -> None:
     threading.Timer(0.3, _thread.interrupt_main).start()
     start = time.monotonic()
     with pytest.raises(KeyboardInterrupt):
-        po.vector_modes(x_um=x, y_um=x, permittivity=eps, wavelength_um=1.55, count=60, timeout_s=None)
+        phox.vector_modes(x_um=x, y_um=x, permittivity=eps, wavelength_um=1.55, count=60, timeout_s=None)
     assert time.monotonic() - start < 30.0
 
 
@@ -281,25 +281,25 @@ def test_ctrl_c_stops_a_mode_solve() -> None:
 
 
 def test_errors_are_photonoxides_with_their_fields() -> None:
-    with pytest.raises(po.errors.OutsideValidity) as e:
-        po.refractive_index("si", wavelength_um=0.5)
-    assert isinstance(e.value, ValueError) and isinstance(e.value, po.errors.Error)
+    with pytest.raises(phox.errors.OutsideValidity) as e:
+        phox.refractive_index("si", wavelength_um=0.5)
+    assert isinstance(e.value, ValueError) and isinstance(e.value, phox.errors.Error)
     assert (e.value.material, e.value.wavelength_um, e.value.shortest_um) == ("Si", 0.5, 1.2)
     assert str(e.value) == "Si is only valid from 1.2 to 14 um, not at 0.5 um"
-    with pytest.raises(po.errors.InvalidValue) as e:
-        po.refractive_index("si", wavelength_um=-1.0)
+    with pytest.raises(phox.errors.InvalidValue) as e:
+        phox.refractive_index("si", wavelength_um=-1.0)
     assert e.value.what == "wavelength"
-    with pytest.raises(po.errors.InvalidValue, match="ordinary and extraordinary"):
-        po.refractive_index("linbo3", wavelength_um=1.55)
-    with pytest.raises(po.errors.IoError) as e:
-        po.read_touchstone("no-such-file.s2p", convention="physics")
+    with pytest.raises(phox.errors.InvalidValue, match="ordinary and extraordinary"):
+        phox.refractive_index("linbo3", wavelength_um=1.55)
+    with pytest.raises(phox.errors.IoError) as e:
+        phox.read_touchstone("no-such-file.s2p", convention="physics")
     assert isinstance(e.value, OSError) and e.value.path == "no-such-file.s2p"
-    with pytest.raises(po.errors.NetlistError):
-        po.circuit_spectrum(
+    with pytest.raises(phox.errors.NetlistError):
+        phox.circuit_spectrum(
             instances={"c": {"kind": "coupler"}}, ports={"x": "c.o9"}, wavelength_um=1.55
         )
-    with pytest.raises(po.errors.ParseError):
-        po.check_job({"name": "x", "task": {"kind": "modes", "nonsense": 1}})
+    with pytest.raises(phox.errors.ParseError):
+        phox.check_job({"name": "x", "task": {"kind": "modes", "nonsense": 1}})
 
 
 # --- the package ----------------------------------------------------------------------------
@@ -307,12 +307,12 @@ def test_errors_are_photonoxides_with_their_fields() -> None:
 
 def test_versions() -> None:
     # the package's version is the crate's, or a post-release of it
-    assert re.fullmatch(r"\d+\.\d+\.\d+(\.post\d+)?", po.__version__)
-    assert po.__version__.split(".post")[0] == po.core_version
+    assert re.fullmatch(r"\d+\.\d+\.\d+(\.post\d+)?", phox.__version__)
+    assert phox.__version__.split(".post")[0] == phox.core_version
 
 
 def test_the_catalogue_has_its_sources() -> None:
-    si = next(m for m in po.materials() if m.id == "si")
+    si = next(m for m in phox.materials() if m.id == "si")
     assert si.models[0].default and si.models[0].range_um == (1.2, 14.0)
     assert "doi:10.1063/1.555624" in si.models[0].sources[0]
 
@@ -322,13 +322,13 @@ def test_the_readme_and_the_module_example_run(capsys: pytest.CaptureFixture[str
     (block,) = re.findall(r"```python\n(.*?)```", readme, re.DOTALL)
     exec(compile(block, "README.md", "exec"), {})
     assert capsys.readouterr().out == "TE0: n_eff = 2.8475\nTM0: n_eff = 2.0531\n"
-    example = inspect.cleandoc(po.__doc__ or "").split("::\n")[1].split("\n\nIt prints")[0]
+    example = inspect.cleandoc(phox.__doc__ or "").split("::\n")[1].split("\n\nIt prints")[0]
     exec(compile(inspect.cleandoc(example), "photonoxide.__doc__", "exec"), {})
     assert capsys.readouterr().out == "TE0: n_eff = 2.8475\nTM0: n_eff = 2.0531\n"
 
 
 def test_the_circuit_example_runs() -> None:
-    doc = inspect.getdoc(po.circuit_spectrum) or ""
+    doc = inspect.getdoc(phox.circuit_spectrum) or ""
     example = doc.split("::\n")[1].split("\n\nEach instance")[0]
     namespace: dict[str, object] = {}
     exec(compile(inspect.cleandoc(example), "circuit_spectrum.__doc__", "exec"), namespace)
@@ -358,9 +358,9 @@ def test_the_python_page_runs(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_the_devices_are_the_studios() -> None:
-    kinds = [d.kind for d in po.devices()]
+    kinds = [d.kind for d in phox.devices()]
     assert kinds[:3] == ["waveguide", "bend", "directional coupler"] and len(kinds) == 11
-    coupler = po.devices()[2]
+    coupler = phox.devices()[2]
     gap = next(p for p in coupler.parameters if p.name == "gap")
     assert (gap.unit, gap.default) == ("µm", 0.2) and gap.min < gap.default < gap.max
     assert coupler.ports == ["o1", "o2", "o3", "o4"]
@@ -372,14 +372,14 @@ def test_a_device_sweep_is_each_designs_spectrum() -> None:
     w = np.linspace(1.5, 1.6, 21)
     across = []
     for gap in (0.15, 0.2, 0.3):
-        dc = po.device_spectrum("directional coupler", values={"gap": gap}, wavelength_um=w)
+        dc = phox.device_spectrum("directional coupler", values={"gap": gap}, wavelength_um=w)
         assert dc.s.shape == (21, 4, 4) and dc.ports == ["o1", "o2", "o3", "o4"]
         assert dc.fidelity == "analytic" and dc.grid
         # lossless up to the guide's 2.7 dB/cm, reciprocal
         assert np.allclose(dc.s, np.swapaxes(dc.s, 1, 2))
         across.append(np.abs(dc.s[10, 2, 0]) ** 2)
         # one wavelength gives the same numbers as the sweep's
-        one = po.device_spectrum("directional coupler", values={"gap": gap}, wavelength_um=w[10])
+        one = phox.device_spectrum("directional coupler", values={"gap": gap}, wavelength_um=w[10])
         assert np.array_equal(one.s[0], dc.s[10])
     # the default length is the 3 dB length at 200 nm, so half crosses there
     assert abs(across[1] - 0.5) < 0.01
@@ -388,15 +388,15 @@ def test_a_device_sweep_is_each_designs_spectrum() -> None:
 
 
 def test_a_waveguides_figures_name_their_fidelity_and_grid() -> None:
-    figures = {f.symbol: f for f in po.device_derived("waveguide", values={"width": 0.45})}
+    figures = {f.symbol: f for f in phox.device_derived("waveguide", values={"width": 0.45})}
     n = figures["n_eff"]
     assert n.fidelity == "analytic" and "grid" in n.grid and 2.2 < n.value < 2.5
-    rib = po.device_derived("rib waveguide")
+    rib = phox.device_derived("rib waveguide")
     assert all(f.fidelity == "2D" for f in rib)
 
 
 def test_a_devices_geometry_has_its_polygons_and_ports() -> None:
-    g = po.device_geometry("all-pass ring", values={"radius": 5.0})
+    g = phox.device_geometry("all-pass ring", values={"radius": 5.0})
     si = next(layer for layer in g.layers if layer.name == "Si")
     ring = next(p for p in si.polygons if p.holes)
     # the ring's outline, counterclockwise, within 1 nm of its 5.25 µm outer radius
@@ -407,35 +407,35 @@ def test_a_devices_geometry_has_its_polygons_and_ports() -> None:
 
 
 def test_a_device_job_runs_to_the_same_numbers(tmp_path: Path) -> None:
-    job = po.device_job("all-pass ring", values={"radius": 5.0})
+    job = phox.device_job("all-pass ring", values={"radius": 5.0})
     assert job["device"]["kind"] == "all-pass ring" and job["task"]["kind"] == "spectrum"
-    assert "[device]" in po.device_job("all-pass ring", values={"radius": 5.0}, format="toml")
-    run = po.run_job(job, runs_dir=tmp_path)
+    assert "[device]" in phox.device_job("all-pass ring", values={"radius": 5.0}, format="toml")
+    run = phox.run_job(job, runs_dir=tmp_path)
     s = [e for e in run.events if e["type"] == "s_parameters"]
     w = [e["wavelength_um"] for e in s]
-    direct = po.device_spectrum("all-pass ring", values={"radius": 5.0}, wavelength_um=w)
+    direct = phox.device_spectrum("all-pass ring", values={"radius": 5.0}, wavelength_um=w)
     recorded = np.array([[[complex(*v) for v in row] for row in e["s"]] for e in s])
     assert np.array_equal(recorded, direct.s)
 
 
 def test_a_design_that_isnt_one_raises() -> None:
-    with pytest.raises(po.errors.InvalidValue, match="no parameter gap"):
-        po.device_spectrum("waveguide", values={"gap": 0.2}, wavelength_um=1.55)
+    with pytest.raises(phox.errors.InvalidValue, match="no parameter gap"):
+        phox.device_spectrum("waveguide", values={"gap": 0.2}, wavelength_um=1.55)
     with pytest.raises(ValueError, match="width"):
-        po.device_derived("waveguide", values={"width": 50.0})
+        phox.device_derived("waveguide", values={"width": 50.0})
     with pytest.raises(ValueError, match="2D"):
-        po.device_derived("waveguide", fidelity="2D")
+        phox.device_derived("waveguide", fidelity="2D")
 
 
 def test_a_netlist_names_devices_with_their_design() -> None:
     w = np.linspace(1.5, 1.6, 11)
     ports = {f"o{k}": f"dc.o{k}" for k in range(1, 5)}
     design = {"kind": "directional coupler", "parameters": {"gap": 0.3}}
-    s = po.circuit_spectrum(instances={"dc": {"device": design}}, ports=ports, wavelength_um=w)
-    assert np.array_equal(s.s, po.device_spectrum("directional coupler", values={"gap": 0.3}, wavelength_um=w).s)
+    s = phox.circuit_spectrum(instances={"dc": {"device": design}}, ports=ports, wavelength_um=w)
+    assert np.array_equal(s.s, phox.device_spectrum("directional coupler", values={"gap": 0.3}, wavelength_um=w).s)
     # an expression, as a job's [device] table takes it, gives the same design
     design = {"kind": "directional coupler", "parameters": {"gap": "300 nm"}}
-    again = po.circuit_spectrum(instances={"dc": {"device": design}}, ports=ports, wavelength_um=w)
+    again = phox.circuit_spectrum(instances={"dc": {"device": design}}, ports=ports, wavelength_um=w)
     assert np.array_equal(again.s, s.s)
 
 
@@ -447,11 +447,11 @@ def test_a_compact_model_fitted_by_a_job_is_a_fidelity(tmp_path: Path) -> None:
                  "poles": 8, "degree": 2,
                  "axis": [{"parameter": "gap", "from": 0.15, "to": 0.25, "points": 4}]},
     }
-    model = po.run_job(fit, runs_dir=tmp_path).dir / "compact.json"
+    model = phox.run_job(fit, runs_dir=tmp_path).dir / "compact.json"
     w = np.linspace(1.545, 1.555, 5)
-    compact = po.device_spectrum("all-pass ring", values={"gap": 0.21}, fidelity="compact",
+    compact = phox.device_spectrum("all-pass ring", values={"gap": 0.21}, fidelity="compact",
                                  compact=model, wavelength_um=w)
-    exact = po.device_spectrum("all-pass ring", values={"gap": 0.21}, wavelength_um=w)
+    exact = phox.device_spectrum("all-pass ring", values={"gap": 0.21}, wavelength_um=w)
     assert compact.fidelity == "compact" and np.abs(compact.s - exact.s).max() < 1e-3
     # the same model through MATLAB's side
     from photonoxide import matlab

@@ -25,12 +25,12 @@ pip install photonoxide
 Wheels for CPython 3.10 and later on Linux, macOS and Windows; nothing else to install.
 
 ```python
-import photonoxide as po
+import photonoxide as phox
 
-si = po.refractive_index("si", wavelength_um=1.55).real    # Li 1980
-ox = po.refractive_index("sio2", wavelength_um=1.55).real  # Malitson 1965
+si = phox.refractive_index("si", wavelength_um=1.55).real    # Li 1980
+ox = phox.refractive_index("sio2", wavelength_um=1.55).real  # Malitson 1965
 for polarization in ("te", "tm"):
-    for mode in po.slab_modes(below=ox, core=si, above=ox, thickness_um=0.22,
+    for mode in phox.slab_modes(below=ox, core=si, above=ox, thickness_um=0.22,
                               polarization=polarization, wavelength_um=1.55):
         print(f"{polarization.upper()}{mode.order}: n_eff = {mode.effective_index:.4f}")
 ```

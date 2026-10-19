@@ -18,7 +18,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-import photonoxide as po
+import photonoxide as phox
 from photonoxide import matlab
 
 WRAPPERS = Path(matlab.path()) / "+photonoxide"
@@ -62,17 +62,17 @@ def test_indices_come_back_in_matlabs_order_to_the_bit() -> None:
     w = np.array([[1.31, 1.45], [1.55, 2.0]])
     r = matlab.refractive_index("si", matlab_list(w))
     n = rebuilt(r).reshape(w.shape, order="F")
-    assert np.array_equal(n, po.refractive_index("si", wavelength_um=w))
+    assert np.array_equal(n, phox.refractive_index("si", wavelength_um=w))
     r = matlab.refractive_index("linbo3", array("d", [1.55]), axis="extraordinary")
-    assert rebuilt(r)[0, 0] == po.refractive_index("linbo3", wavelength_um=1.55, axis="extraordinary")
+    assert rebuilt(r)[0, 0] == phox.refractive_index("linbo3", wavelength_um=1.55, axis="extraordinary")
     ng = rebuilt(matlab.group_index("sio2", [1.55]))
-    assert ng[0, 0] == po.group_index("sio2", wavelength_um=1.55)
+    assert ng[0, 0] == phox.group_index("sio2", wavelength_um=1.55)
 
 
 def test_slab_modes_come_back_as_columns() -> None:
     x = [0.0, 0.05, 0.11]
     r = matlab.slab_modes(1.444, 3.473, 1.444, 1.0, "te", 1.55, x)
-    modes = po.slab_modes(below=1.444, core=3.473, above=1.444, thickness_um=1.0, polarization="te", wavelength_um=1.55, x_um=x)
+    modes = phox.slab_modes(below=1.444, core=3.473, above=1.444, thickness_um=1.0, polarization="te", wavelength_um=1.55, x_um=x)
     assert list(r["effective_index"]) == [m.effective_index for m in modes]
     assert list(r["order"]) == [float(m.order) for m in modes]
     field = rebuilt(r["field"])
@@ -101,7 +101,7 @@ def test_a_cross_section_goes_and_comes_back_in_matlabs_order() -> None:
         0.0,
         600.0,
     )
-    (mode,) = po.vector_modes(
+    (mode,) = phox.vector_modes(
         x_um=x,
         y_um=y,
         permittivity=eps,
@@ -134,7 +134,7 @@ def test_a_circuit_from_matlabs_json() -> None:
     w = [1.54, 1.55, 1.56]
     r = matlab.circuit_spectrum(netlist, w)
     data = json.loads(netlist)
-    ours = po.circuit_spectrum(**data, wavelength_um=w)
+    ours = phox.circuit_spectrum(**data, wavelength_um=w)
     assert r["ports"] == ours.ports
     s = rebuilt(r["s"])
     assert s.shape == (3, 4, 4) and np.array_equal(s, ours.s)
@@ -168,7 +168,7 @@ def test_jobs_as_paths_or_matlabs_json(tmp_path: Path) -> None:
         },
     }
     r = matlab.fdfd_s_parameters(json.dumps(job), [1.55])
-    ours = po.fdfd_s_parameters(job, wavelength_um=1.55)
+    ours = phox.fdfd_s_parameters(job, wavelength_um=1.55)
     assert np.array_equal(rebuilt(r["s"]), ours.s)
     assert np.array_equal(rebuilt(r["effective_index"]), ours.effective_index)
     # an empty list of wavelengths, as pylist([]) gives: the job's own
@@ -179,7 +179,7 @@ def test_jobs_as_paths_or_matlabs_json(tmp_path: Path) -> None:
 
 
 def test_errors_carry_matlabs_identifier() -> None:
-    with pytest.raises(po.errors.OutsideValidity) as e:
+    with pytest.raises(phox.errors.OutsideValidity) as e:
         matlab.refractive_index("si", [0.5])
     message = str(e.value)
     # what call.m reads: photonoxide:<kind>: and photonoxide's message
@@ -187,43 +187,43 @@ def test_errors_carry_matlabs_identifier() -> None:
     assert found and found.group(1) == "OutsideValidity"
     assert found.group(2) == "Si is only valid from 1.2 to 14 um, not at 0.5 um"
     assert e.value.material == "Si"
-    with pytest.raises(po.errors.InvalidValue, match=r"^photonoxide:InvalidValue: "):
+    with pytest.raises(phox.errors.InvalidValue, match=r"^photonoxide:InvalidValue: "):
         matlab.refractive_index("si", [1.55], axis="sideways")
 
 
 def test_the_catalogue_as_columns() -> None:
     m = matlab.materials()
-    ours = po.materials()
+    ours = phox.materials()
     assert m["id"] == [x.id for x in ours]
     ranges = rebuilt(m["range_um"])
     assert ranges.shape == (2, len(ours))
     si = m["id"].index("si")
     assert tuple(ranges[:, si]) == (1.2, 14.0) and m["axes"][si] == "isotropic"
-    assert matlab.version() == {"package": po.__version__, "core": po.core_version}
+    assert matlab.version() == {"package": phox.__version__, "core": phox.core_version}
 
 
 def test_devices_come_back_as_matlabs_json() -> None:
     ours = json.loads(matlab.devices())
-    assert [d["kind"] for d in ours] == [d.kind for d in po.devices()]
+    assert [d["kind"] for d in ours] == [d.kind for d in phox.devices()]
     assert ours[2]["parameters"][4]["name"] == "gap"
     # a design as jsonencode writes a struct of its values, and none as "{}" or "[]"
     w = [1.54, 1.55, 1.56]
     r = matlab.device_spectrum("directional coupler", json.dumps({"gap": 0.25}), "analytic", w)
-    dc = po.device_spectrum("directional coupler", values={"gap": 0.25}, fidelity="analytic", wavelength_um=w)
+    dc = phox.device_spectrum("directional coupler", values={"gap": 0.25}, fidelity="analytic", wavelength_um=w)
     s = rebuilt(r["s"])
     assert s.shape == (3, 4, 4) and np.array_equal(s, dc.s)
     assert r["ports"] == dc.ports and r["fidelity"] == "analytic" and r["grid"] == dc.grid
     assert list(r["validity_um"]) == list(dc.validity_um or ())
     ring = matlab.device_spectrum("all-pass ring", "{}", "", [1.55], "")
-    assert np.array_equal(rebuilt(ring["s"]), po.device_spectrum("all-pass ring", wavelength_um=[1.55]).s)
+    assert np.array_equal(rebuilt(ring["s"]), phox.device_spectrum("all-pass ring", wavelength_um=[1.55]).s)
     figures = json.loads(matlab.device_derived("waveguide", json.dumps({"width": 0.45}), ""))
     n = next(f for f in figures if f["symbol"] == "n_eff")["value"]
-    assert n == next(f.value for f in po.device_derived("waveguide", values={"width": 0.45}) if f.symbol == "n_eff")
+    assert n == next(f.value for f in phox.device_derived("waveguide", values={"width": 0.45}) if f.symbol == "n_eff")
 
 
 def test_a_devices_geometry_and_job_for_matlab() -> None:
     g = json.loads(matlab.device_geometry("all-pass ring", "[]"))
-    ours = po.device_geometry("all-pass ring")
+    ours = phox.device_geometry("all-pass ring")
     si = [layer for layer in g["layers"] if layer["name"] == "Si"][0]
     ring = [p for p in si["polygons"] if p["holes"]][0]
     # each outline n rows of (x, y), as jsondecode makes an n-by-2 matrix of it
@@ -231,7 +231,7 @@ def test_a_devices_geometry_and_job_for_matlab() -> None:
     assert np.array_equal(np.array(ring["outer"]), expected.outer)
     assert g["ports"][0]["position_um"] == list(ours.ports[0].position_um)
     text = matlab.device_job("waveguide", "{}", "", "", "", "json")
-    assert json.loads(text) == po.device_job("waveguide")
+    assert json.loads(text) == phox.device_job("waveguide")
     assert matlab.device_job("waveguide", "{}", "", "", "strip", "toml").startswith("name = \"strip\"")
 
 
@@ -244,5 +244,5 @@ def test_a_netlist_of_devices_from_matlabs_json() -> None:
         }
     )
     r = matlab.circuit_spectrum(netlist, [1.55, 1.56])
-    ours = po.device_spectrum("all-pass ring", values={"radius": 5.0}, wavelength_um=[1.55, 1.56])
+    ours = phox.device_spectrum("all-pass ring", values={"radius": 5.0}, wavelength_um=[1.55, 1.56])
     assert np.array_equal(rebuilt(r["s"]), ours.s)

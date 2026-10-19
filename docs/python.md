@@ -44,12 +44,12 @@ or, while working on it, `maturin develop --release` in `python/` (in a virtual 
 slab's modes solved exactly, as the [README](../README.md)'s first example does in Rust:
 
 ```python
-import photonoxide as po
+import photonoxide as phox
 
-si = po.refractive_index("si", wavelength_um=1.55).real    # Li 1980
-ox = po.refractive_index("sio2", wavelength_um=1.55).real  # Malitson 1965
+si = phox.refractive_index("si", wavelength_um=1.55).real    # Li 1980
+ox = phox.refractive_index("sio2", wavelength_um=1.55).real  # Malitson 1965
 for polarization in ("te", "tm"):
-    for mode in po.slab_modes(below=ox, core=si, above=ox, thickness_um=0.22,
+    for mode in phox.slab_modes(below=ox, core=si, above=ox, thickness_um=0.22,
                               polarization=polarization, wavelength_um=1.55):
         print(f"{polarization.upper()}{mode.order}: n_eff = {mode.effective_index:.4f}")
 ```
@@ -94,7 +94,7 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`, as the Rust example d
 | `device_spectrum(kind, values=, fidelity=, stack=, wavelength_um=)`, `device_derived(kind, ...)` | a design's S-parameters and figures at a fidelity, each with its model's grid | [`device`](methods/devices.md) |
 | `device_geometry(kind, values=, stack=)`, `device_job(kind, ..., format=)` | a design's stack, polygons and ports; the job that computes it | [`device`](methods/devices.md) |
 
-Each function's docstring has the details; `help(po.circuit_spectrum)` lists the kinds of
+Each function's docstring has the details; `help(phox.circuit_spectrum)` lists the kinds of
 component a netlist can hold and their settings. A job is a path to a job file (TOML, JSON or
 YAML) or the job as a dict, so every kind of job, FDTD included, runs from Python.
 [docs/features.md](features.md) has, for every method of the library, whether it works in Rust,
@@ -105,14 +105,14 @@ in oxide, mirror walls through its centre for the TE-like modes, on a 25 nm grid
 
 ```python
 import numpy as np
-import photonoxide as po
+import photonoxide as phox
 
 x = np.arange(0, 41) * 0.025                 # nodes, µm: x from the strip's centre
 y = np.arange(0, 33) * 0.0275                # y from its centre
 xc, yc = 0.5 * (x[1:] + x[:-1]), 0.5 * (y[1:] + y[:-1])
-si = po.refractive_index("si", wavelength_um=1.55).real ** 2
+si = phox.refractive_index("si", wavelength_um=1.55).real ** 2
 eps = np.where((xc[None, :] < 0.25) & (yc[:, None] < 0.11), si, 1.444**2)   # (ny, nx)
-(te,) = po.vector_modes(x_um=x, y_um=y, permittivity=eps, wavelength_um=1.55,
+(te,) = phox.vector_modes(x_um=x, y_um=y, permittivity=eps, wavelength_um=1.55,
                         boundaries=("electric", "zero", "magnetic", "zero"))
 print(te.effective_index.real, te.te_fraction, te.ex.shape)
 ```
@@ -124,7 +124,7 @@ an estimate, not a device's performance in 3D, and it carries its grid (`cell_um
 
 The devices are the components of the studio's Components page: a strip or rib waveguide, a
 bend, a directional coupler, rings, MMIs, a Y-branch and MZIs, each with its parameters, its
-models from a closed form to 3D FDFD, and its ports (`po.devices()` lists them). A design is a
+models from a closed form to 3D FDFD, and its ports (`phox.devices()` lists them). A design is a
 device's kind, its parameters' values (those not given at their defaults), a fidelity (its
 cheapest when not given), a stack (220 nm SOI by default, or `"soi"` or `"nitride"`), and for
 the compact fidelity the file of a compact model fitted to the device's runs (`compact=`, the
@@ -137,13 +137,13 @@ solver):
 
 ```python
 import numpy as np
-import photonoxide as po
+import photonoxide as phox
 
 w = np.linspace(1.5, 1.6, 101)
 for gap in (0.15, 0.2, 0.25, 0.3):
     design = dict(values={"gap": gap, "length": 10.0}, fidelity="analytic")
-    figures = {f.symbol: f.value for f in po.device_derived("directional coupler", **design)}
-    dc = po.device_spectrum("directional coupler", **design, wavelength_um=w)
+    figures = {f.symbol: f.value for f in phox.device_derived("directional coupler", **design)}
+    dc = phox.device_spectrum("directional coupler", **design, wavelength_um=w)
     across = np.abs(dc.s[:, 2, 0]) ** 2   # from o1, lower left, into o3, upper right
     print(f"gap {gap:.2f} um: L_x {figures['L_x']:.1f} um, across {across[50]:.3f} at 1.55 um")
 print(dc.fidelity, "|", dc.grid)
@@ -242,7 +242,7 @@ runs the wrappers by hand; the MATLAB releases checked will be listed here.
 
 The package's version is the crate's it wraps (`photonoxide` 0.5.1 on PyPI is the crate 0.5.1):
 both come from `[workspace.package]` in the root `Cargo.toml`, which a release bumps, so they
-can't drift. `po.__version__` is the package's and `po.core_version` the crate's. A fix to the
+can't drift. `phox.__version__` is the package's and `phox.core_version` the crate's. A fix to the
 package alone, between releases, is a PEP 440 post-release, `0.5.1.post1`: set
 `version = "0.5.1.post1"` under `[project]` in `python/pyproject.toml` (and take `"version"`
 out of its `dynamic`), merge, and publish by hand (below); the next release takes the static

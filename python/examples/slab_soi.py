@@ -10,13 +10,13 @@ doi:10.1017/CBO9781316084168, Section 3.2.2: silicon 3.473, oxide 1.444, effecti
 
 from __future__ import annotations
 
-import photonoxide as po
+import photonoxide as phox
 from _checks import Checks
 
 print("220 nm of 3.473 in 1.444 at 1550 nm (Chrostowski & Hochberg, Section 3.2.2), exact: no grid")
 checks = Checks()
 for polarization, printed in (("te", 2.845), ("tm", 2.051)):
-    modes = po.slab_modes(
+    modes = phox.slab_modes(
         below=1.444,
         core=3.473,
         above=1.444,

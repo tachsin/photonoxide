@@ -18,7 +18,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-import photonoxide as po
+import photonoxide as phox
 from photonoxide import _photonoxide
 
 
@@ -81,11 +81,11 @@ def call(case: dict[str, Any]) -> Any:
     if function == "write_touchstone":
         # its result is the file's text
         s = args.pop("spectrum")
-        spectrum = po.Spectrum(
+        spectrum = phox.Spectrum(
             ports=s["ports"], wavelength_um=np.asarray(s["wavelength_um"]), s=complexes(s["s"])
         )
         path = args.pop("path")
-        po.write_touchstone(path, spectrum, **args)
+        phox.write_touchstone(path, spectrum, **args)
         return Path(path).read_text(encoding="utf-8")
     return getattr(po, function)(**args)
 
@@ -101,7 +101,7 @@ def test_every_case_gives_rusts_result_to_the_bit(cases: list[dict[str, Any]]) -
 def test_the_cases_call_every_function_of_the_package(cases: list[dict[str, Any]]) -> None:
     called = {case["function"] for case in cases}
     functions = {
-        name for name in po.__all__ if callable(getattr(po, name)) and name[0].islower()
+        name for name in phox.__all__ if callable(getattr(po, name)) and name[0].islower()
     }
     assert called == functions
 

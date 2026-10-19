@@ -10,13 +10,13 @@ printed to 4 decimals; Li gives its uncertainty as ±2e-4.
 
 from __future__ import annotations
 
-import photonoxide as po
+import photonoxide as phox
 from _checks import Checks, display
 
 print("Si (Li 1980, Table 1, 293 K), no grid")
 checks = Checks()
 # (wavelength in µm, Li's printed index)
 for um, printed in ((1.30, 3.5016), (1.55, 3.4757), (2.00, 3.4510), (5.00, 3.4195), (10.0, 3.4150)):
-    n = po.refractive_index("si", wavelength_um=um).real
+    n = phox.refractive_index("si", wavelength_um=um).real
     checks.compare(f"n at {display(um)} µm", float(n), printed, 5e-5)
 checks.finish()

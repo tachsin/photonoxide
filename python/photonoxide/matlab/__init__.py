@@ -28,7 +28,7 @@ from typing import Any, Callable, TypeVar
 
 import numpy as np
 
-import photonoxide as _po
+import photonoxide as _phox
 
 __all__ = [
     "path",
@@ -61,7 +61,7 @@ def _identified(function: F) -> F:
     def call(*args: Any, **kwargs: Any) -> Any:
         try:
             return function(*args, **kwargs)
-        except _po.errors.Error as e:
+        except _phox.errors.Error as e:
             raise type(e)(f"photonoxide:{type(e).__name__}: {e}", **_fields(e)) from e
         except TimeoutError as e:
             raise TimeoutError(f"photonoxide:Timeout: {e}") from e
@@ -112,14 +112,14 @@ def path() -> str:
 
 def version() -> dict[str, str]:
     """The package's version and photonoxide's (the crate it was built with)."""
-    return {"package": _po.__version__, "core": _po.core_version}
+    return {"package": _phox.__version__, "core": _phox.core_version}
 
 
 @_identified
 def materials() -> dict[str, Any]:
     """The catalogue's materials as columns: ``id``, ``name``, ``formula``, and each one's
     default model's ``model`` (its id), ``axes`` (joined by commas) and ``range_um`` (2 × n)."""
-    ms = _po.materials()
+    ms = _phox.materials()
     default = [next(m for m in x.models if m.default) for x in ms]
     return {
         "id": [m.id for m in ms],
@@ -150,7 +150,7 @@ def refractive_index(
     composition: Any = None,
 ) -> dict[str, Any]:
     """:func:`photonoxide.refractive_index` at a list of wavelengths, flat."""
-    n = _po.refractive_index(
+    n = _phox.refractive_index(
         str(material),
         wavelength_um=_vector(wavelength_um),
         **_index_options(model, axis, temperature_k, composition),
@@ -168,7 +168,7 @@ def group_index(
     composition: Any = None,
 ) -> dict[str, Any]:
     """:func:`photonoxide.group_index` at a list of wavelengths, flat."""
-    n = _po.group_index(
+    n = _phox.group_index(
         str(material),
         wavelength_um=_vector(wavelength_um),
         **_index_options(model, axis, temperature_k, composition),
@@ -189,7 +189,7 @@ def slab_modes(
     """:func:`photonoxide.slab_modes`: the modes' ``order`` and ``effective_index`` as lists,
     and their fields at ``x_um`` as a matrix, a column per mode."""
     x = _vector([] if x_um is None else x_um)
-    modes = _po.slab_modes(
+    modes = _phox.slab_modes(
         below=float(below),
         core=float(core),
         above=float(above),
@@ -234,7 +234,7 @@ def vector_modes(
             f"the permittivity needs ny × nx = {ny} × {nx} values, got {re.size} and {im.size}"
         )
     eps = (re + 1j * im).reshape((ny, nx), order="F")
-    modes = _po.vector_modes(
+    modes = _phox.vector_modes(
         x_um=x,
         y_um=y,
         permittivity=eps,
@@ -269,7 +269,7 @@ def _job(job: str) -> Any:
 def run_job(job: str, runs_dir: str = "runs", timeout_s: Any = 3600.0) -> dict[str, Any]:
     """:func:`photonoxide.run_job`: the run's ``dir``, its ``events`` as JSON text each (for
     MATLAB's ``jsondecode``) and ``stopped`` (empty when it finished)."""
-    run = _po.run_job(
+    run = _phox.run_job(
         _job(job),
         runs_dir=str(runs_dir),
         timeout_s=_option(None if timeout_s is None else float(timeout_s)),
@@ -286,7 +286,7 @@ def fdfd_s_parameters(job: str, wavelength_um: Any = None) -> dict[str, Any]:
     """:func:`photonoxide.fdfd_s_parameters`: ``s`` flat with its shape, ``nλ × n × n``, and
     ``effective_index``, ``nλ × n``."""
     w = None if wavelength_um is None or len(_vector(wavelength_um)) == 0 else _vector(wavelength_um)
-    s = _po.fdfd_s_parameters(_job(job), wavelength_um=w)
+    s = _phox.fdfd_s_parameters(_job(job), wavelength_um=w)
     return {
         "ports": list(s.ports),
         "wavelength_um": array("d", s.wavelength_um.tolist()),
@@ -297,7 +297,7 @@ def fdfd_s_parameters(job: str, wavelength_um: Any = None) -> dict[str, Any]:
     }
 
 
-def _spectrum(s: _po.Spectrum) -> dict[str, Any]:
+def _spectrum(s: _phox.Spectrum) -> dict[str, Any]:
     return {
         "ports": list(s.ports),
         "wavelength_um": array("d", np.asarray(s.wavelength_um).tolist()),
@@ -311,7 +311,7 @@ def circuit_spectrum(netlist: str, wavelength_um: Any) -> dict[str, Any]:
     struct with ``instances``, ``connections`` and ``ports``): ``s`` flat, ``nλ × n × n``."""
     data = json.loads(str(netlist))
     return _spectrum(
-        _po.circuit_spectrum(
+        _phox.circuit_spectrum(
             instances=data["instances"],
             connections=data.get("connections", []),
             ports=data["ports"],
@@ -323,7 +323,7 @@ def circuit_spectrum(netlist: str, wavelength_um: Any) -> dict[str, Any]:
 @_identified
 def read_touchstone(file: str, convention: str) -> dict[str, Any]:
     """:func:`photonoxide.read_touchstone`: ``s`` flat, ``nλ × n × n``."""
-    return _spectrum(_po.read_touchstone(str(file), convention=str(convention)))
+    return _spectrum(_phox.read_touchstone(str(file), convention=str(convention)))
 
 
 @_identified
@@ -343,9 +343,9 @@ def write_touchstone(
     n = len(names)
     s = (_vector(s_re) + 1j * _vector(s_im)).reshape((w.size, n, n), order="F")
     digits = _option(None if significant_digits is None else float(significant_digits))
-    _po.write_touchstone(
+    _phox.write_touchstone(
         os.fspath(file),
-        _po.Spectrum(ports=names, wavelength_um=w, s=s),
+        _phox.Spectrum(ports=names, wavelength_um=w, s=s),
         convention=str(convention),
         significant_digits=None if digits is None else int(digits),
     )
@@ -374,7 +374,7 @@ def _design(values: Any) -> dict[str, float]:
 def devices() -> str:
     """:func:`photonoxide.devices` as JSON text, for ``jsondecode``: a struct array, each
     device's parameters and models struct arrays."""
-    return json.dumps(_plain(_po.devices()))
+    return json.dumps(_plain(_phox.devices()))
 
 
 @_identified
@@ -383,7 +383,7 @@ def device_spectrum(
 ) -> dict[str, Any]:
     """:func:`photonoxide.device_spectrum`, the values as JSON text: ``s`` flat, ``nλ × n × n``,
     and ``validity_um`` empty when the model isn't limited."""
-    s = _po.device_spectrum(
+    s = _phox.device_spectrum(
         str(kind),
         values=_design(values),
         fidelity=_option(fidelity),
@@ -408,7 +408,7 @@ def device_derived(
 ) -> str:
     """:func:`photonoxide.device_derived` as JSON text, for ``jsondecode``: a struct array of
     the figures."""
-    figures = _po.device_derived(
+    figures = _phox.device_derived(
         str(kind),
         values=_design(values),
         fidelity=_option(fidelity),
@@ -423,7 +423,7 @@ def device_geometry(kind: str, values: Any, stack: Any = None) -> str:
     """:func:`photonoxide.device_geometry` as JSON text, for ``jsondecode``: each polygon's
     outline n-by-2."""
     return json.dumps(
-        _plain(_po.device_geometry(str(kind), values=_design(values), stack=_option(stack)))
+        _plain(_phox.device_geometry(str(kind), values=_design(values), stack=_option(stack)))
     )
 
 
@@ -439,7 +439,7 @@ def device_job(
 ) -> str:
     """:func:`photonoxide.device_job`, the job file's text in ``format`` (JSON by default, which
     the ``run_job`` wrapper takes as it is)."""
-    return _po.device_job(
+    return _phox.device_job(
         str(kind),
         values=_design(values),
         fidelity=_option(fidelity),

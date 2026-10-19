@@ -5,11 +5,11 @@ exception it resembles, so ``except ValueError`` catches an invalid value as it 
 else. The error's fields are attributes: an :class:`OutsideValidity` has the ``material``, the
 ``wavelength_um`` asked for and the range, ``shortest_um`` to ``longest_um``::
 
-    import photonoxide as po
+    import photonoxide as phox
 
     try:
-        po.refractive_index("si", wavelength_um=0.5)
-    except po.errors.OutsideValidity as e:
+        phox.refractive_index("si", wavelength_um=0.5)
+    except phox.errors.OutsideValidity as e:
         print(e.material, e.shortest_um, e.longest_um)
 
 A long call stopped by its ``timeout_s`` raises the built-in :class:`TimeoutError`, and one

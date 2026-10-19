@@ -16,7 +16,7 @@ import math
 
 import numpy as np
 
-import photonoxide as po
+import photonoxide as phox
 from _checks import Checks
 
 LENGTH = 2 * math.pi * 10.0  # µm
@@ -25,7 +25,7 @@ N_G = 4.2
 
 def through(wavelength_um: np.ndarray) -> np.ndarray:
     """The through port's power at ``wavelength_um``."""
-    s = po.circuit_spectrum(
+    s = phox.circuit_spectrum(
         instances={
             "c": {"kind": "coupler", "coupling": 0.1},
             "ring": {

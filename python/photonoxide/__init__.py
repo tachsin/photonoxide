@@ -5,12 +5,12 @@
 220 nm of silicon in oxide at 1550 nm, each material with its published dispersion, and the
 slab's modes solved exactly::
 
-    import photonoxide as po
+    import photonoxide as phox
 
-    si = po.refractive_index("si", wavelength_um=1.55).real    # Li 1980
-    ox = po.refractive_index("sio2", wavelength_um=1.55).real  # Malitson 1965
+    si = phox.refractive_index("si", wavelength_um=1.55).real    # Li 1980
+    ox = phox.refractive_index("sio2", wavelength_um=1.55).real  # Malitson 1965
     for polarization in ("te", "tm"):
-        for mode in po.slab_modes(below=ox, core=si, above=ox, thickness_um=0.22,
+        for mode in phox.slab_modes(below=ox, core=si, above=ox, thickness_um=0.22,
                                   polarization=polarization, wavelength_um=1.55):
             print(f"{polarization.upper()}{mode.order}: n_eff = {mode.effective_index:.4f}")
 
@@ -455,10 +455,10 @@ def circuit_spectrum(
     ``ports``, each name to the instance's port it exposes, in the matrices' order::
 
         import numpy as np
-        import photonoxide as po
+        import photonoxide as phox
 
         arm = dict(kind="waveguide", n_eff=2.44506, n_g=4.172901, wavelength_um=1.55)
-        mzi = po.circuit_spectrum(
+        mzi = phox.circuit_spectrum(
             instances={
                 "split": {"kind": "coupler", "coupling": 0.5},
                 "upper": {**arm, "length": 150.0},
@@ -792,11 +792,11 @@ def device_spectrum(
     its folder)::
 
         import numpy as np
-        import photonoxide as po
+        import photonoxide as phox
 
         w = np.linspace(1.5, 1.6, 201)
         for gap in (0.15, 0.2, 0.25):
-            dc = po.device_spectrum("directional coupler", values={"gap": gap, "length": 10.0},
+            dc = phox.device_spectrum("directional coupler", values={"gap": gap, "length": 10.0},
                                     fidelity="analytic", wavelength_um=w)
             cross = np.abs(dc.s[:, 2, 0]) ** 2
 

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import numpy as np
 
-import photonoxide as po
+import photonoxide as phox
 from _checks import Checks
 
 print("500 x 220 nm strip of 3.473 in 1.444 at 1550 nm (Chrostowski & Hochberg, Fig. 3.14)")
@@ -30,7 +30,7 @@ for step_nm in (20, 10, 5):
     y = np.arange(round(0.75 / h) + 1) * h
     xc, yc = 0.5 * (x[1:] + x[:-1]), 0.5 * (y[1:] + y[:-1])
     eps = np.where((xc[None, :] < 0.25) & (yc[:, None] < 0.11), 3.473**2, 1.444**2)
-    (te,) = po.vector_modes(
+    (te,) = phox.vector_modes(
         x_um=x,
         y_um=y,
         permittivity=eps,

@@ -312,20 +312,20 @@ the binding's own code can be safe Rust: `#[pyfunction]`, `#[pyclass]` and conve
 
 ```python
 import numpy as np
-import photonoxide as po
+import photonoxide as phox
 
-si = po.material("silicon")                       # Li 1980, with its provenance
+si = phox.material("silicon")                       # Li 1980, with its provenance
 n = si.refractive_index(wavelength_um=np.linspace(1.5, 1.6, 11))   # complex128 array
 
-slab = po.Slab(below=1.444, core=3.473, above=1.444, thickness_nm=220)
+slab = phox.Slab(below=1.444, core=3.473, above=1.444, thickness_nm=220)
 modes = slab.modes("te", wavelength_um=1.55)      # [SlabMode(order=0, effective_index=2.8448...)]
 
-result = po.run("jobs/strip-modes.toml", timeout_minutes=10)   # or a dict: the job as data
+result = phox.run("jobs/strip-modes.toml", timeout_minutes=10)   # or a dict: the job as data
 result.modes[0].effective_index, result.modes[0].field.x_um    # numpy arrays with their grid
 
-circuit = po.Netlist({"dc1": po.DirectionalCoupler(...), ...}, connections=[...])
+circuit = phox.Netlist({"dc1": phox.DirectionalCoupler(...), ...}, connections=[...])
 spectrum = circuit.spectrum(wavelength_um=np.linspace(1.5, 1.6, 401))   # S as (nλ, n, n)
-po.Touchstone.read("device.s4p").spectrum()
+phox.Touchstone.read("device.s4p").spectrum()
 ```
 
 - Units in keyword names, as job files have them (decision 3).
@@ -333,7 +333,7 @@ po.Touchstone.read("device.s4p").spectrum()
   user doesn't write the loop.
 - Results as small classes with numpy arrays and their grids, with type stubs (`.pyi`) for
   editors, as genoxide's package ships.
-- `po.run(job)` runs a job in-process through `job::execute` (no program needed) and returns
+- `phox.run(job)` runs a job in-process through `job::execute` (no program needed) and returns
   the same results as `results.json`, with `timeout_minutes` and Ctrl+C handled as above.
 
 **A first release would expose:** materials and the catalogue (index, group index, ranges,
@@ -549,7 +549,7 @@ The options as they were weighed:
 
 3. **The Python API's style.**
    - Units: (a) keyword names with the unit (`wavelength_um=1.55`, `thickness_nm=220`), as job
-     files have them; (b) unit objects mirroring Rust (`po.Wavelength.um(1.55)`); (c) accepting a
+     files have them; (b) unit objects mirroring Rust (`phox.Wavelength.um(1.55)`); (c) accepting a
      units library's quantities. *Recommended: (a),* the same names in a job file, in Python and in
      MATLAB's name-value arguments, and arrays of wavelengths without wrapping each one.
    - Shape: (a) Pythonic functions and small result classes over the façade, vectorized over
@@ -565,7 +565,7 @@ The options as they were weighed:
 
 5. **Versioning.** (a) The package's version is the crate's it wraps (`photonoxide` 0.5.1 on PyPI
    wraps the crate 0.5.1), with binding-only fixes as PEP 440 post-releases (`0.5.1.post1`), and
-   `po.__version__` beside `po.core_version`; (b) the binding's own version, with the crate's in
+   `phox.__version__` beside `phox.core_version`; (b) the binding's own version, with the crate's in
    its metadata; (c) only the minor follows the crate. photonoxide's patch versions are milestones
    (0.4.1 to 0.4.3, 0.5.1), so (c) would hide real changes. *Recommended: (a),* with the binding's
    `Cargo.toml` pinning the crate exactly (`photonoxide = "=0.5.1"`), and not every crate release
