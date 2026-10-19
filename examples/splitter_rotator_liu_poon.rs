@@ -42,24 +42,35 @@
 //! At 5 cells (845 × 124 × 49 cells of 89.2 nm, 9825 steps): the upper port's TE₀ 0.642, its TM₀
 //! −22.0 dB (at 6 cells, 0.711 and −34.4 dB).
 //!
-//! Measured at 15 cells (`--resolution 15`, 2026-10-17), the upper port at 1540 to 1560 nm:
+//! Measured at 15 and 20 cells (`--resolution 15`, 2026-10-17; `--resolution 20`, 2026-10-19),
+//! the upper port at 1540 to 1560 nm:
 //!
-//! | Cells a wavelength | Grid | TE₀ at 1540, 1545, 1550, 1555, 1560 nm | TM₀ (crosstalk) at 1550 nm |
+//! | Cells a wavelength | Grid | TE₀ at 1540, 1545, 1550, 1555, 1560 nm | TM₀ (crosstalk) at 1540, 1545, 1550, 1555, 1560 nm |
 //! |---|---|---|---|
-//! | 15 | 2487 × 323 × 99 cells of 29.7 nm | 0.95071, 0.95623, 0.95919, 0.95969, 0.95791 | −40.06 dB |
+//! | 15 | 2487 × 323 × 99 cells of 29.7 nm | 0.95071, 0.95623, 0.95919, 0.95969, 0.95791 | −53.3, −44.7, −40.06, −37.0, −34.8 dB |
+//! | 20 | 3307 × 423 × 124 cells of 22.3 nm | 0.94528, 0.95575, 0.96369, 0.96896, 0.97152 | −44.66, −50.44, −64.53, −46.85, −41.00 dB |
 //!
-//! The crosstalk is within the codes' settled span. The TE₀, 0.95919, is 0.0042 above the highest
-//! of the codes' settled values (Lumerical's 0.955 at 25 cells) and 0.0011 beyond the check's
-//! tolerance: at 15 cells the check fails. The paper's codes still move by 0.013 from 20 to 25
-//! cells (Lumerical 0.942 to 0.955), and on the crossing our values moved more than the codes'
-//! from 15 to 20 cells (a uniform grid with the diagonal smoothing, against their non-uniform
-//! conformal and subpixel meshes); 1 µm of cladding along z where the paper has 2, and the
-//! materials taken at 1550 nm, may count too. The run at 20 cells, which the paper needs for
-//! Tidy3D, decides it (issue #256).
+//! The TE₀ check fails at both: 0.95919 and 0.96369 against the codes' settled 0.942 to 0.955.
+//! The crosstalk is within the codes' span at 15 cells and far below it at 20, where its null
+//! falls on 1550 nm. The device's response slides along the band with the grid:
 //!
-//! The run: 79.5 million cells, 23 540 steps to 400 µm/c (decayed), 3 h 2 min of stepping on 20
-//! threads of a Core Ultra 7 265K shared with other work (172 million cell-updates/s), 2 min of
-//! smoothing and 2 of mode solves.
+//! - **15 cells:** TE₀ peaks near 1550 to 1555 nm and the crosstalk is lowest at or below 1540
+//!   nm. That's close to Lumerical on a uniform 22 nm mesh (the paper's Fig. 22: 0.956 at the peak
+//!   near 1550 nm, the crosstalk lowest near 1540 nm).
+//! - **20 cells:** about 10 nm further on. That's close to Lumerical at 20 cells with the 50 nm
+//!   pulse (Fig. 21(b) and (d), its non-uniform mesh changed by the bandwidth: 0.967 at 1565 nm,
+//!   a null of −57 dB at 1560 nm). With the 20 nm pulse the same code peaks at 0.943 near 1545 nm.
+//!
+//! So a check at 1550 nm sits on the response's slope, which moves by 10 to 15 nm with the mesh in
+//! Lumerical as here. Across the band our TE₀ peaks at 0.960 (15 cells) and at least 0.972 (20),
+//! the codes' at 0.943 to 0.967. A run at 25 cells would show whether ours settles (issue #256).
+//!
+//! The runs on 20 threads of a Core Ultra 7 265K, shared with other work:
+//!
+//! - **15 cells:** 79.5 million cells, 23 540 steps to 400 µm/c (decayed), 3 h 2 min of stepping
+//!   (172 million cell-updates/s), 2 min of smoothing and 2 of mode solves.
+//! - **20 cells:** 173.5 million cells, 31 400 steps to 400 µm/c (decayed), 5 h 40 min of stepping
+//!   (267 million cell-updates/s), 2 min of smoothing and 2 of mode solves.
 //!
 //! ```sh
 //! cargo run --release --example splitter_rotator_liu_poon              # 5 cells a wavelength

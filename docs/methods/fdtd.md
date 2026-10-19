@@ -1120,25 +1120,66 @@ At 15 cells a wavelength (issue #256), against the codes' settled values:
 | mode converter | TE₀ crosstalk | −37.94 dB | −37.2 / −38.1 / −36.9 | −35.4 / −35.3 / −35.6 | within |
 | splitter-rotator | upper TE₀ | 0.95919 | 0.945 / 0.942 / 0.955 | 0.901 / 0.948 / 0.950 | 0.0042 above, 0.0011 past the check |
 | splitter-rotator | TM₀ crosstalk | −40.06 dB | −49.1 / −36.8 / −41.1 | −32.4 / −35.4 / −42.6 | within |
-| ring | lowest resonance | 1540.45 nm | 1547.73 / 1545.57 / 1545.67 | 1545.77 / 1545.07 / 1544.96 | 4.9 nm short |
-| ring | FWHM, Q | 0.168 nm, 9182 | 0.86, 1798 / 0.90, 1716 / 0.88, 1755 | 0.90, 1716 / 0.88, 1754 / 0.90, 1715 | a fifth, five times |
+| ring | resonance, the paper's reading | 1548.15 nm | 1547.73 / 1545.57 / 1545.67 | 1545.77 / 1545.07 / 1544.96 | 2.5 nm long |
+| ring | FWHM, Q, the paper's reading over 1920 µm/c | 0.921 nm, 1681 | 0.86, 1798 / 0.90, 1716 / 0.88, 1755 | 0.90, 1716 / 0.88, 1754 / 0.90, 1715 | 2 to 5 % off, past the checks |
 
 (The mode converter's values in brackets are with a 50 nm pulse.) The mode converter is within the
 codes' spread, its spectrum smooth over 1540 to 1560 nm (0.463 to 0.449) where the paper's vary
-by ±0.1 within a few nanometres. The splitter-rotator works on the paper's grid, its TE₀ 0.4 %
-above both codes' settled values: on the crossing our values moved more than the codes' from 15
-to 20 cells, and the codes themselves still move by 0.013 from 20 to 25, so the run at 20 cells
-decides whether this is the grid's.
+by ±0.1 within a few nanometres.
 
-The ring's Q, 6560 to 9180 over the band, is the ring's own, from its field's decay, and it
-hardly changes from 6 cells (about 8000) to 15 (the gap 6.7 cells). The paper's width is the
-through port's dip, from a record that ends at 1920 µm/c in both codes; a ring that loses only
-what it couples out has no dip in steady state, so the dip read is the energy left in the ring
-when the record ends. A one-mode model of the ring puts a true Q of 8000 read through a record of
-1920 µm/c at a dip 0.73 nm wide, an apparent Q of 2100, near the paper's 1715 to 1840 at every
-resolution. The like-for-like check, the through port over the paper's record, is #256's next
-step; the resonance 4.9 nm short (or 2.8 nm long, if the paper's line is our next) is more than
-the silicon indices' spread (0.85 nm) explains, and stays open with it.
+**The splitter-rotator** works on the paper's grids, but its response slides along the band with
+the grid. Its upper port, 1540 to 1560 nm:
+
+| Here | TE₀ at 1540, 1545, 1550, 1555, 1560 nm | TM₀ crosstalk at 1540, 1550, 1560 nm |
+|---|---|---|
+| 15 cells (29.7 nm) | 0.95071, 0.95623, 0.95919, 0.95969, 0.95791 | −53.3, −40.06, −34.8 dB |
+| 20 cells (22.3 nm) | 0.94528, 0.95575, 0.96369, 0.96896, 0.97152 | −44.66, −64.53, −41.00 dB |
+
+- **At 15 cells** TE₀ peaks near 1550 to 1555 nm and the crosstalk is lowest at or below 1540 nm.
+  That's close to Lumerical on a uniform 22 nm mesh (the paper's Fig. 22: 0.956 at its peak near
+  1550 nm, its crosstalk lowest near 1540 nm).
+- **At 20 cells** the whole spectrum has moved about 10 nm to longer wavelengths: TE₀ still rises
+  at 1560 nm and the crosstalk's null is at 1550 nm. That's close to Lumerical at 20 cells with
+  the 50 nm pulse (Fig. 21(b) and (d), its non-uniform mesh changed by the bandwidth: 0.967 at
+  1565 nm, a null of −57 dB at 1560 nm), shifted.
+- **The checks:** with the 20 nm pulse the same code peaks at 0.943 near 1545 nm. So this device
+  slides by 10 to 15 nm with the mesh in Lumerical as here, and the check at 1550 nm sits on its
+  slope. Both checks fail at 20 cells (TE₀ 0.96369 against 0.942 to 0.955), as the TE₀ did at
+  15. Across the band our TE₀ peaks at 0.960 and at least 0.972, the codes' at 0.943 to 0.967.
+- **Open:** a run at 25 cells would show whether ours settles.
+
+**The ring**, issue #256, has been checked three ways: by the mode solvers, against other
+papers, and like for like.
+
+- **Two quantities.** The paper's FWHM and Q are the through port's dip, read by its code
+  (`find_FWHM.py` in its repository) from runs that stop at a fixed 1920 µm/c, 30 crossings of
+  the cell. This ring loses almost nothing: its Euler bends' radiation is below what the mode
+  solver resolves at their 7.06 µm minimum radius. A lossless all-pass ring has no dip in steady
+  state, so the dip in a spectrum taken over 1920 µm/c, while the ring still holds about half its
+  energy, is the record's.
+- **The ring's own Q is about 8500.** The straight pair's supermodes (5 nm grid) give κ² = 0.140
+  through the 4 µm straight and the Euler bends' widening gap. Bogaerts et al. 2011's equations
+  (doi:10.1002/lpor.201100017) then give FWHM 0.181 nm and Q 8540. Bahadori et al.'s supermodes
+  (J. Lightwave Technol. 36, 2767 (2018), doi:10.1109/JLT.2018.2821359, Table I; their coupling
+  model checked against 3D FDTD) give κ² = 0.117 and Q 10 400. Our harmonic inversion gives 7400
+  to 9200 over the band. The paper's 0.88 nm would need κ² = 0.52, or 1.6 dB lost a round trip
+  at critical coupling.
+- **Read like for like, the gap closes.** The example now reads our through port the paper's way
+  over the same record: 0.921 nm and Q 1681 at 15 cells, against the codes' 0.88 to 0.90 nm and
+  1715 to 1755. Over 1000 and 1500 µm/c the same reading gives 2.12 and 1.14 nm while the ring
+  stays the same, and the spectrum's look (dips to 0.05, the rest about 0.8 of the maximum,
+  ripples 1.4 nm apart) is the paper's. So the paper's FWHM and Q are not this ring's linewidth
+  and loaded Q: they are set by its 1920 µm/c record, the same in both codes, which is why they
+  barely change with the resolution. Our Q, about five times theirs, is the ring's. The two
+  disagreed because they measured different things, not because either solver is wrong.
+- **The resonance.** Hadley's equations (2.5 nm, extrapolated: n_eff 2.450691 at 1.545 µm) with
+  the bends' and the coupler's shifts put order 120 at 1546.40 nm with dispersive materials:
+  1545.65 nm with Tidy3D's silicon, 1546.68 nm with Lumerical's. The codes' line is that order,
+  0.6 to 1.1 nm short of it. Ours is 1548.15 nm at 15 cells. The uniform grid makes the strip's
+  n_eff long: FDTD of the bus alone gives 2.45669 at 15 cells and 2.45441 at 20, against
+  2.45069, about +2.3 and +1.4 nm on a resonance. Before #443 the example compared our order 121
+  (1540.45 nm, inside the band only because of that shift) with the codes' order 120: the
+  "4.9 nm short" was two different lines.
 
 Run times on 20 threads of a Core Ultra 7 265K, against the paper's at the same resolution
 (Tidy3D in the cloud; Lumerical on an AMD 3960X and on its cloud GPUs):
@@ -1153,7 +1194,9 @@ Run times on 20 threads of a Core Ultra 7 265K, against the paper's at the same 
 | MMI, 20 | 69.3 million, 23 550 | 96 min, 3 min (shared) | 63 s | 2182 s / 72 s |
 | mode converter, 15 | 91.0 million, 24 717 | 147 min, 1 min (shared) | — | — |
 | splitter-rotator, 15 | 79.5 million, 23 540 | 182 min, 2 min (shared) | — | — |
-| ring, 15 | 90.8 million, 58 848 | 191 min, under 1 min | — | — |
+| ring, 15, to 1000 µm/c | 90.8 million, 58 848 | 191 min, under 1 min | — | — |
+| ring, 15, to 1920 µm/c (the paper's) | 90.8 million, 112 988 | 386 min, 1 min (shared at times) | 1104 s | 16 815 s / 476 s |
+| splitter-rotator, 20 | 173.5 million, 31 400 | 340 min, 2 min (shared) | — | — |
 | crossing, 15, tensor | 14.1 million, 14 124 | 23 min, 3 min (shared) | — | — |
 | crossing, 20, tensor | 30.4 million, 18 840 | 63 min, 6 min (shared) | — | — |
 
