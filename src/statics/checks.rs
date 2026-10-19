@@ -741,7 +741,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "static/transient-rc-step",
-            title: r"Static solver, heat in time: 0.22 µm of silicon (148 W/(m·K), $\rho c_p$ = 1.66 MJ/(m³·K)) heated on 2 µm of oxide (1.38 W/(m·K), its heat capacity set to 1 J/(m³·K)) over a sink, on a grid graded from 10 to 100 nm, BDF2 steps of τ/400; the silicon's 1/e rise time against the lumped $\tau = (d_\mathrm{ox}/k_\mathrm{ox})\,\rho c_{p,\mathrm{Si}}\, t_\mathrm{Si}$ = 0.528 µs (relative error shown)",
+            title: r"Static solver, heat in time: 0.22 µm of silicon (148 W/(m·K), $\rho c_p$ = 1.66 MJ/(m³·K)) heated on 2 µm of oxide (1.38 W/(m·K), its heat capacity set to 1 J/(m³·K)) over a sink, on a grid graded from 10 to 100 nm, BDF2 steps of τ/400; the silicon's 1/e rise time against the lumped $\tau = (d_\mathrm{ox}/k_\mathrm{ox}) \rho c_{p,\mathrm{Si}} t_\mathrm{Si}$ = 0.528 µs (relative error shown)",
             tier: Tier::Analytic,
             source: r"a lumped thermal RC, exact as the silicon's own resistance (Biot number $t_\mathrm{Si}k_\mathrm{ox}/d_\mathrm{ox}k_\mathrm{Si}$ ≈ 1e-3) and the oxide's capacity vanish: $T(t) = T_\infty(1 - e^{-t/\tau})$",
             run: || {
