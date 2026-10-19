@@ -4777,6 +4777,13 @@
         "growth": {
           "type": "number"
         },
+        "heat_capacity": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "default": {},
+          "type": "object"
+        },
         "heater": {
           "items": {
             "$ref": "#/$defs/Area"
@@ -4862,6 +4869,9 @@
             "$ref": "#/$defs/CoefficientSpec"
           },
           "type": "object"
+        },
+        "transient": {
+          "$ref": "#/$defs/TransientSpec"
         },
         "y_um": {
           "items": {
@@ -5182,6 +5192,29 @@
         "from",
         "to",
         "points"
+      ],
+      "type": "object"
+    },
+    "TransientSpec": {
+      "additionalProperties": false,
+      "description": "`[task.transient]`.",
+      "properties": {
+        "duration_us": {
+          "type": "number"
+        },
+        "scheme": {
+          "type": "string"
+        },
+        "step_ns": {
+          "type": "number"
+        },
+        "turn": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_ns",
+        "duration_us"
       ],
       "type": "object"
     },
