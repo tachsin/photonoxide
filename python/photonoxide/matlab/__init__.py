@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import functools
 import json
+import math
 import os
 from array import array
 from pathlib import Path
@@ -44,6 +45,7 @@ __all__ = [
     "read_touchstone",
     "write_touchstone",
     "devices",
+    "stacks",
     "device_spectrum",
     "device_derived",
     "device_geometry",
@@ -378,11 +380,33 @@ def devices() -> str:
 
 
 @_identified
+def stacks() -> str:
+    """:func:`photonoxide.stacks` as JSON text, for ``jsondecode``: a struct array, each stack's
+    layers a struct array."""
+    return json.dumps(_plain(_phox.stacks()))
+
+
+def _timeout(timeout_s: Any) -> float | None:
+    """A timeout as MATLAB gives it: seconds, or Inf (or NaN, or empty) for none."""
+    t = _option(timeout_s)
+    if t is None:
+        return None
+    t = float(t)
+    return None if math.isinf(t) else t
+
+
+@_identified
 def device_spectrum(
-    kind: str, values: Any, fidelity: Any, wavelength_um: Any, stack: Any = None, compact: Any = None
+    kind: str,
+    values: Any,
+    fidelity: Any,
+    wavelength_um: Any,
+    stack: Any = None,
+    compact: Any = None,
+    timeout_s: Any = None,
 ) -> dict[str, Any]:
     """:func:`photonoxide.device_spectrum`, the values as JSON text: ``s`` flat, ``nλ × n × n``,
-    and ``validity_um`` empty when the model isn't limited."""
+    and ``validity_um`` empty when the model isn't limited. ``timeout_s`` Inf is none."""
     s = _phox.device_spectrum(
         str(kind),
         values=_design(values),
@@ -390,6 +414,7 @@ def device_spectrum(
         stack=_option(stack),
         compact=_option(compact),
         wavelength_um=_vector(wavelength_um),
+        timeout_s=_timeout(timeout_s),
     )
     return {
         "ports": list(s.ports),

@@ -6,10 +6,11 @@ use serde_json::{Value, json};
 
 use super::{
     CrossSection, DeviceDesign, DeviceFigure, DeviceGeometry, DeviceInfo, DeviceSpectrum,
-    IndexModelInfo, IndexOptions, JobSource, MaterialInfo, SParameters, SlabMode, Spectrum, Stop,
-    VectorMode, check_job, circuit_spectrum, device_derived, device_geometry, device_job,
-    device_spectrum, devices, fdfd_s_parameters, group_index, materials, read_touchstone,
-    refractive_index, run_job, slab_modes, vector_modes, write_touchstone,
+    IndexModelInfo, IndexOptions, JobSource, MaterialInfo, SParameters, SlabMode, Spectrum,
+    StackInfo, Stop, VectorMode, check_job, circuit_spectrum, device_derived, device_geometry,
+    device_job, device_spectrum, device_spectrum_until, devices, fdfd_s_parameters, group_index,
+    materials, read_touchstone, refractive_index, run_job, slab_modes, stacks, vector_modes,
+    write_touchstone,
 };
 use crate::Complex64 as c64;
 use crate::{Error, Result};
@@ -26,6 +27,10 @@ use crate::{Error, Result};
 ///   `hy` and `hz`; a pair is a list; nothing is `null`;
 /// - a run's events are their JSON objects.
 ///
+/// `function` is the function as the bindings name it, which is the façade's but for one: the
+/// bindings reach [`device_spectrum_until`] as `device_spectrum` with a `timeout_s` (seconds),
+/// the [`Stop`]'s deadline.
+///
 /// `ignore` names the members whose values change from one call to the next (a run's folder,
 /// its duration), to leave out of a comparison wherever they are.
 #[derive(Clone, Debug, PartialEq)]
@@ -33,7 +38,7 @@ use crate::{Error, Result};
 pub struct Case {
     /// The case's name, e.g. `"slab_modes/book-te"`.
     pub name: String,
-    /// The façade's function, e.g. `"slab_modes"`.
+    /// The function, as the bindings name it, e.g. `"slab_modes"`.
     pub function: String,
     /// The keyword arguments, a JSON object.
     pub args: String,
@@ -182,6 +187,22 @@ fn device_spectrum_(s: &DeviceSpectrum) -> Value {
         "grid": s.grid,
         "source": s.source,
         "validity_um": s.validity_um.map(|(a, b)| [a, b]),
+    })
+}
+
+fn stack(s: &StackInfo) -> Value {
+    json!({
+        "name": s.name,
+        "about": s.about,
+        "substrate": s.substrate,
+        "layers": s.layers.iter().map(|l| json!({
+            "name": l.name,
+            "thickness_um": l.thickness_um,
+            "material": l.material,
+            "background": l.background,
+        })).collect::<Vec<_>>(),
+        "cladding": s.cladding,
+        "core": s.core,
     })
 }
 
@@ -567,6 +588,14 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
         &Value::Array(devices()?.iter().map(device_info).collect()),
         &[],
     ));
+    // the catalogue's stacks, and designs on them by name
+    cases.push(case(
+        "stacks/catalogue",
+        "stacks",
+        &json!({}),
+        &Value::Array(stacks().iter().map(stack).collect()),
+        &[],
+    ));
     let w: Vec<f64> = (0..11).map(|k| 1.54 + 0.002 * f64::from(k)).collect();
     for (name, kind, values, fidelity) in [
         (
@@ -589,6 +618,43 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
             &[],
         ));
     }
+    // a design on another of the catalogue's stacks, by its name
+    for (name, kind, values, fidelity, on) in [
+        (
+            "mmi-2d-soi",
+            "MMI 1x2",
+            &[("length", 7.5)][..],
+            Some("2D"),
+            "soi",
+        ),
+        ("mmi-2d-nitride", "MMI 1x2", &[][..], Some("2D"), "nitride"),
+    ] {
+        let (mut d, args) = design(kind, values, fidelity);
+        d.stack = Some(on.into());
+        cases.push(case(
+            &format!("device_spectrum/{name}"),
+            "device_spectrum",
+            &with(args, &[("stack", json!(on)), ("wavelength_um", json!(w))]),
+            &device_spectrum_(&device_spectrum(&d, &w)?),
+            &[],
+        ));
+    }
+    // with a timeout: device_spectrum_until, its solve on a thread of its own, which the
+    // bindings call with a Stop at timeout_s; the same numbers, to the bit
+    let (d, args) = design("MMI 1x2", &[("length", 7.5)], Some("2D"));
+    let timeout_s = 600.0;
+    let stop = Stop::new(Some(std::time::Duration::from_secs_f64(timeout_s)));
+    let stopped = || Error::invalid("device_spectrum_until", "stopped before its timeout");
+    cases.push(case(
+        "device_spectrum/mmi-2d-timeout",
+        "device_spectrum",
+        &with(
+            args,
+            &[("wavelength_um", json!(w)), ("timeout_s", json!(timeout_s))],
+        ),
+        &device_spectrum_(&device_spectrum_until(&d, &w, &stop)?.ok_or_else(stopped)?),
+        &[],
+    ));
     // the compact fidelity: a model fitted to the ring's analytic runs over its gap, by a "fit"
     // job run here, its file named by the design
     let fit = json!({
@@ -652,6 +718,15 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
             &[],
         ));
     }
+    let (mut d, args) = design("waveguide", &[("width", 1.0), ("thickness", 0.4)], None);
+    d.stack = Some("nitride".into());
+    cases.push(case(
+        "device_geometry/waveguide-nitride",
+        "device_geometry",
+        &with(args, &[("stack", json!("nitride"))]),
+        &geometry(&device_geometry(&d)?),
+        &[],
+    ));
     let (d, args) = design("directional coupler", &[("gap", 0.25)], Some("analytic"));
     cases.push(case(
         "device_job/coupler-toml",

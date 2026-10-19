@@ -246,3 +246,22 @@ def test_a_netlist_of_devices_from_matlabs_json() -> None:
     r = matlab.circuit_spectrum(netlist, [1.55, 1.56])
     ours = phox.device_spectrum("all-pass ring", values={"radius": 5.0}, wavelength_um=[1.55, 1.56])
     assert np.array_equal(rebuilt(r["s"]), ours.s)
+
+
+def test_the_stacks_as_matlabs_json() -> None:
+    ours = json.loads(matlab.stacks())
+    stacks = phox.stacks()
+    assert [s["name"] for s in ours] == [s.name for s in stacks]
+    assert ours[0]["layers"][1] == {"name": "Si", "thickness_um": 0.22, "material": "si", "background": "sio2"}
+    assert ours[2]["core"] == stacks[2].core
+
+
+def test_a_devices_spectrum_with_matlabs_timeout() -> None:
+    w = [1.55, 1.56]
+    ours = phox.device_spectrum("MMI 1x2", fidelity="2D", stack="nitride", wavelength_um=w)
+    # Inf, as the wrapper's default, is no timeout; a number is one
+    for timeout in (float("inf"), 600.0):
+        r = matlab.device_spectrum("MMI 1x2", "{}", "2D", w, "nitride", "", timeout)
+        assert np.array_equal(rebuilt(r["s"]), ours.s)
+    with pytest.raises(TimeoutError, match=r"^photonoxide:Timeout: "):
+        matlab.device_spectrum("MMI 1x2", "{}", "2D", w, "", "", 1e-9)

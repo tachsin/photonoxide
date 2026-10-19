@@ -509,7 +509,16 @@ fn the_conformance_cases_are_computed_and_name_their_calls() {
     let functions: std::collections::BTreeSet<&str> =
         cases.iter().map(|c| c.function.as_str()).collect();
     for f in facade_functions() {
-        assert!(functions.contains(f), "no case calls {f}");
+        match THROUGH.iter().find(|&&(g, _, _)| g == f) {
+            // reached through another binding function's argument: a case passes it
+            Some(&(_, binding, argument)) => assert!(
+                cases.iter().any(|c| c.function == binding
+                    && serde_json::from_str::<serde_json::Value>(&c.args).unwrap()[argument]
+                        .is_number()),
+                "no case calls {binding} with {argument}, which calls {f}"
+            ),
+            None => assert!(functions.contains(f), "no case calls {f}"),
+        }
     }
     for c in &cases {
         let args: serde_json::Value = serde_json::from_str(&c.args).unwrap();
@@ -538,6 +547,12 @@ fn the_conformance_cases_are_computed_and_name_their_calls() {
     }
 }
 
+/// The façade's functions the bindings reach through another's argument, not by a function of
+/// their own: (the façade's function, the bindings' function, its argument).
+/// [`device_spectrum_until`] is `device_spectrum` with a `timeout_s`, the [`Stop`]'s deadline.
+pub(super) const THROUGH: [(&str, &str, &str); 1] =
+    [("device_spectrum_until", "device_spectrum", "timeout_s")];
+
 /// The façade's functions, read from its source: every `pub fn` at the start of a line (not a
 /// method), but `conformance`, which lists calls of the others.
 pub(super) fn facade_functions() -> Vec<&'static str> {
@@ -564,7 +579,7 @@ fn every_facade_function_is_in_the_feature_table() {
     // so to the Python package) goes in its table, by name
     let table = include_str!("../../docs/features.md");
     let functions = facade_functions();
-    assert_eq!(functions.len(), 16, "{functions:?}");
+    assert_eq!(functions.len(), 18, "{functions:?}");
     for f in functions {
         assert!(
             table.contains(&format!("`{f}`")),
@@ -935,4 +950,116 @@ fn a_compact_model_is_the_designs_compact_fidelity() {
     d.fidelity = Some("compact".into());
     d.compact = None;
     assert!(device_derived(&d).unwrap_err().to_string().contains("fit"));
+}
+
+#[test]
+fn a_device_spectrum_until_its_stop_is_device_spectrums_to_the_bit() {
+    let w = [1.54, 1.55, 1.56];
+    for (kind, values, fidelity) in [
+        ("directional coupler", &[("gap", 0.25)][..], "analytic"),
+        ("MMI 1x2", &[("length", 7.5)][..], "2D"),
+    ] {
+        let mut d = design(kind, values);
+        d.fidelity = Some(fidelity.into());
+        let direct = device_spectrum(&d, &w).unwrap();
+        let stop = Stop::new(Some(std::time::Duration::from_secs(600)));
+        let until = device_spectrum_until(&d, &w, &stop).unwrap().unwrap();
+        assert_eq!(until.ports, direct.ports);
+        assert_eq!(
+            (
+                &until.fidelity,
+                &until.grid,
+                &until.source,
+                until.validity_um
+            ),
+            (
+                &direct.fidelity,
+                &direct.grid,
+                &direct.source,
+                direct.validity_um
+            )
+        );
+        assert_eq!(
+            until.s.iter().map(|&z| bits(z)).collect::<Vec<_>>(),
+            direct.s.iter().map(|&z| bits(z)).collect::<Vec<_>>(),
+            "{kind}"
+        );
+    }
+}
+
+#[test]
+fn a_device_spectrum_stops_on_request_and_at_its_deadline() {
+    let mut d = design("MMI 1x2", &[]);
+    d.fidelity = Some("2D".into());
+    let w = [1.55];
+    let stop = Stop::new(None);
+    stop.request();
+    assert_eq!(device_spectrum_until(&d, &w, &stop).unwrap(), None);
+    let past = Stop::new(Some(std::time::Duration::ZERO));
+    assert_eq!(device_spectrum_until(&d, &w, &past).unwrap(), None);
+    // a design's errors come first, stopped or not
+    let mut bad = design("MMI 1x2", &[("length", -1.0)]);
+    bad.fidelity = Some("2D".into());
+    assert!(device_spectrum_until(&bad, &w, &stop).is_err());
+    assert!(device_spectrum_until(&d, &[0.0], &stop).is_err());
+}
+
+#[test]
+fn the_stacks_are_the_catalogues_and_a_design_takes_each_by_name() {
+    use crate::device::{LayerSpec, MaterialSpec, PRESETS, StackSpec};
+    let all = stacks();
+    assert_eq!(
+        all.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(),
+        PRESETS
+    );
+    for s in &all {
+        assert!(!s.about.is_empty(), "{}", s.name);
+        // the layers listed build the preset's own stack, to the bit
+        let m = |id: &str| MaterialSpec::id(id);
+        let layers = StackSpec::Layers {
+            substrate: m(&s.substrate),
+            layers: s
+                .layers
+                .iter()
+                .map(|l| LayerSpec {
+                    name: l.name.clone(),
+                    thickness_um: l.thickness_um,
+                    material: m(&l.material),
+                    background: m(&l.background),
+                })
+                .collect(),
+            cladding: m(&s.cladding),
+            core: s.core.clone(),
+        };
+        assert_eq!(
+            layers.build().unwrap(),
+            StackSpec::preset(&s.name).build().unwrap()
+        );
+        // each of its materials is the catalogue's, which refractive_index takes
+        for id in s
+            .layers
+            .iter()
+            .flat_map(|l| [&l.material, &l.background])
+            .chain([&s.substrate, &s.cladding])
+        {
+            assert!(
+                refractive_index(id, &[1.55], &IndexOptions::default()).is_ok(),
+                "{id}"
+            );
+        }
+        // and a design names it: its geometry's core layer is the stack's
+        let mut d = design("waveguide", &[]);
+        d.stack = Some(s.name.clone());
+        let g = device_geometry(&d).unwrap();
+        assert!(
+            g.layers
+                .iter()
+                .any(|l| l.name == s.core && !l.polygons.is_empty()),
+            "{}",
+            s.name
+        );
+    }
+    let mut d = design("waveguide", &[]);
+    d.stack = Some("gaas".into());
+    assert!(device_geometry(&d).is_err());
 }

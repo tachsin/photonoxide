@@ -283,6 +283,11 @@ fn every_facade_function_has_its_wrapper_on_the_page() {
     const NOT_IN_MATLAB: [&str; 1] = ["check_job"];
     let page = page();
     for f in super::tests::facade_functions() {
+        // one reached through another's argument is on that one's entry
+        let f = super::tests::THROUGH
+            .iter()
+            .find(|&&(g, _, _)| g == f)
+            .map_or(f, |&(_, binding, _)| binding);
         let on_page = page.contains(&format!("## photonoxide.{f}\n"));
         assert_eq!(
             on_page,

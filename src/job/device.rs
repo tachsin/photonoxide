@@ -30,8 +30,7 @@
 //! # model_2d = "fdfd"    # an MMI's 2D model by FDFD in place of its guided modes
 //! ```
 
-use std::sync::mpsc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -40,7 +39,7 @@ use toml::{Table, Value};
 use super::{Event, ScenePort, reason, task_error};
 use crate::circuit::Fidelity;
 use crate::device::spec::Grids;
-use crate::device::{Built, Design, Device, Spec};
+use crate::device::{Design, Device, Spec};
 use crate::generator;
 use crate::geometry::{Point, Polygon, Shape};
 use crate::run::{Job, Run, Stop};
@@ -639,41 +638,6 @@ pub(super) fn fidelity_name(f: Fidelity) -> &'static str {
     }
 }
 
-/// The device's component at its values and fidelity, built on a thread of its own so that a
-/// stop ends the run at once (the solve already started is let go, its result discarded);
-/// `None` when the stop came first.
-fn built(
-    device: Box<dyn Device>,
-    design: &Design,
-    f: Fidelity,
-    stop: &Stop,
-) -> Result<Option<Built>> {
-    if stop.reason().is_some() {
-        return Ok(None);
-    }
-    let values = design.values().clone();
-    let (tx, rx) = mpsc::channel();
-    std::thread::Builder::new()
-        .name("photonoxide device solve".into())
-        .spawn(move || {
-            let _ = tx.send(device.component(&values, f));
-        })
-        .map_err(|e| Error::invalid("device", format!("can't start the solve: {e}")))?;
-    loop {
-        match rx.recv_timeout(Duration::from_millis(50)) {
-            Ok(result) => return result.map(Some),
-            Err(mpsc::RecvTimeoutError::Timeout) => {
-                if stop.reason().is_some() {
-                    return Ok(None);
-                }
-            }
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                return Err(Error::invalid("device", "the solve ended without a result"));
-            }
-        }
-    }
-}
-
 /// Runs a `"spectrum"` job: the scene and ports, then the device's model at its fidelity (its
 /// method, source, figures and the time the solve took), then its S-parameters at each
 /// wavelength of the band.
@@ -693,7 +657,8 @@ pub(super) fn run_spectrum(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> 
         .ok_or_else(|| task_error(format!("a {} has no {f} model", p.spec.kind)))?;
     let kind = p.device.kind().to_owned();
     let started = Instant::now();
-    let Some(built) = built(p.device, &p.design, f, stop)? else {
+    // on a thread of its own, so that a stop ends the run at once
+    let Some(built) = crate::device::component_until(p.device, p.design.values(), f, stop)? else {
         return Ok(());
     };
     let seconds = started.elapsed().as_secs_f64();

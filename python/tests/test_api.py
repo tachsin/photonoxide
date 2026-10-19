@@ -458,3 +458,46 @@ def test_a_compact_model_fitted_by_a_job_is_a_fidelity(tmp_path: Path) -> None:
     r = matlab.device_spectrum("all-pass ring", '{"gap": 0.21}', "compact", list(w), "", str(model))
     s = np.asarray(r["s"]["re"]) + 1j * np.asarray(r["s"]["im"])
     assert np.array_equal(s.reshape([int(n) for n in r["s"]["shape"]], order="F"), compact.s)
+
+
+def test_the_stacks_are_named_by_the_device_functions() -> None:
+    stacks = phox.stacks()
+    assert [s.name for s in stacks] == ["soi_220", "soi", "nitride"]
+    soi = stacks[0]
+    assert (soi.substrate, soi.cladding, soi.core) == ("si", "sio2", "Si")
+    assert [(layer.name, layer.thickness_um, layer.material) for layer in soi.layers] == [
+        ("BOX", 2.0, "sio2"),
+        ("Si", 0.22, "si"),
+    ]
+    assert stacks[2].core == "SiN" and stacks[2].layers[1].material == "si3n4"
+    for stack in stacks:
+        # every material a catalogue's, and every stack a design's by its name
+        for layer in stack.layers:
+            phox.refractive_index(layer.material, wavelength_um=1.55)
+        g = phox.device_geometry("waveguide", stack=stack.name)
+        assert any(layer.name == stack.core and layer.polygons for layer in g.layers)
+    with pytest.raises(phox.errors.InvalidValue, match="soi_220, soi or nitride"):
+        phox.device_geometry("waveguide", stack="gaas")
+
+
+def test_a_device_spectrum_stops_at_its_timeout() -> None:
+    # a timeout already past when the call looks: nothing is solved
+    with pytest.raises(TimeoutError):
+        phox.device_spectrum("MMI 1x2", fidelity="2D", wavelength_um=1.55, timeout_s=1e-9)
+    with pytest.raises(ValueError, match="timeout_s"):
+        phox.device_spectrum("MMI 1x2", fidelity="2D", wavelength_um=1.55, timeout_s=-1.0)
+    # one not reached: the same numbers as without
+    w = np.linspace(1.54, 1.56, 5)
+    timed = phox.device_spectrum("MMI 1x2", fidelity="2D", wavelength_um=w, timeout_s=600.0)
+    plain = phox.device_spectrum("MMI 1x2", fidelity="2D", wavelength_um=w)
+    assert np.array_equal(timed.s, plain.s) and timed.grid == plain.grid
+
+
+def test_ctrl_c_stops_a_devices_solve() -> None:
+    # a directional coupler's 3D supermodes take about ten seconds; Ctrl+C (as interrupt_main
+    # sends it) after 0.3 s ends the call at once, the solve let go
+    threading.Timer(0.3, _thread.interrupt_main).start()
+    start = time.monotonic()
+    with pytest.raises(KeyboardInterrupt):
+        phox.device_spectrum("directional coupler", fidelity="3D", wavelength_um=1.55)
+    assert time.monotonic() - start < 3.0

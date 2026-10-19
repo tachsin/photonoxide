@@ -29,8 +29,8 @@ photonoxide's e^(−iωt) convention.
 **Errors** are photonoxide's, with its messages, as the classes of :mod:`photonoxide.errors`,
 each also a built-in (an invalid value is a ``ValueError``).
 
-**Long calls** (:func:`vector_modes`, :func:`run_job`) take ``timeout_s`` and raise
-``TimeoutError`` past it; Ctrl+C stops them too. Every call releases the GIL while Rust works.
+**Long calls** (:func:`vector_modes`, :func:`run_job`, :func:`device_spectrum`) take
+``timeout_s`` and raise ``TimeoutError`` past it; Ctrl+C stops them too. Every call releases the GIL while Rust works.
 
 **The same numbers as Rust.** Each function calls photonoxide's façade, which calls the library
 as a Rust program would; the package's tests check its results against the library's to the bit.
@@ -76,6 +76,8 @@ __all__ = [
     "read_touchstone",
     "write_touchstone",
     "Device",
+    "Stack",
+    "StackLayer",
     "DeviceParameter",
     "DeviceModel",
     "StatedError",
@@ -87,6 +89,7 @@ __all__ = [
     "DevicePolygon",
     "DevicePort",
     "devices",
+    "stacks",
     "device_spectrum",
     "device_derived",
     "device_geometry",
@@ -635,6 +638,42 @@ class Device:
 
 
 @dataclass(frozen=True)
+class StackLayer:
+    """A layer of a stack of the catalogue."""
+
+    #: Its name, e.g. ``"BOX"``.
+    name: str
+    #: Its thickness, µm; the core's is the stack's own until a device sets it to its
+    #: ``thickness``.
+    thickness_um: float
+    #: What the shapes drawn on it are made of: the catalogue's id (see :func:`materials`),
+    #: e.g. ``"si"``.
+    material: str
+    #: What fills it elsewhere, the catalogue's id.
+    background: str
+
+
+@dataclass(frozen=True)
+class Stack:
+    """A stack of the catalogue, by the name the device functions take as ``stack``: its layers
+    of the materials catalogue's, bottom to top, between a substrate and a cladding."""
+
+    #: Its name, e.g. ``"soi_220"``.
+    name: str
+    #: What it is, in a sentence or two.
+    about: str
+    #: The material below the layers, the catalogue's id, e.g. ``"si"``.
+    substrate: str
+    #: The layers, bottom to top.
+    layers: list[StackLayer]
+    #: The material above them, the catalogue's id.
+    cladding: str
+    #: The layer a device draws its guides on, e.g. ``"Si"``: its thickness is the device's
+    #: ``thickness`` parameter.
+    core: str
+
+
+@dataclass(frozen=True)
 class DeviceSpectrum:
     """A device's S-parameters over wavelength, with the model they come from. A 2D result is
     an estimate, not the device's performance."""
@@ -774,6 +813,24 @@ def devices() -> list[Device]:
     ]
 
 
+def stacks() -> list[Stack]:
+    """The stacks of photonoxide's catalogue, each by the name the device functions take as
+    ``stack``: ``"soi_220"`` (220 nm of silicon on 2 µm of oxide, the default), ``"soi"`` and
+    ``"nitride"``, each with its layers of the materials catalogue's (their ids, which
+    :func:`refractive_index` takes) and the core layer a device draws its guides on::
+
+        import photonoxide as phox
+
+        for stack in phox.stacks():
+            mmi = phox.device_spectrum("MMI 1x2", stack=stack.name, fidelity="2D",
+                                       wavelength_um=1.55)
+    """
+    return [
+        Stack(**{**s, "layers": [StackLayer(**layer) for layer in s["layers"]]})
+        for s in _native.stacks()
+    ]
+
+
 def device_spectrum(
     kind: str,
     *,
@@ -782,12 +839,13 @@ def device_spectrum(
     stack: str | None = None,
     compact: str | os.PathLike[str] | None = None,
     wavelength_um: Any,
+    timeout_s: float | None = None,
 ) -> DeviceSpectrum:
     """The S-parameters at ``wavelength_um`` (one or an array) of a device of the library (its
     ``kind``, see :func:`devices`), with its parameters at ``values`` (in their units; those not
     given at their defaults), computed at ``fidelity`` (``"analytic"``, ``"2D"``, ``"3D"``, ...
-    as the device has them; its cheapest when ``None``) on ``stack`` (``"soi_220"``, the
-    default, ``"soi"`` or ``"nitride"``). ``fidelity="compact"`` takes a compact model fitted to the
+    as the device has them; its cheapest when ``None``) on ``stack``, one of :func:`stacks` by
+    name (``"soi_220"``, the default, ``"soi"`` or ``"nitride"``). ``fidelity="compact"`` takes a compact model fitted to the
     device's runs, its file ``compact`` (the ``compact.json`` that a ``"fit"`` job's run writes in
     its folder)::
 
@@ -802,11 +860,23 @@ def device_spectrum(
 
     These are the numbers a component's page in the photonoxide studio shows for the same
     design, to the bit. A solver-backed fidelity solves once (a mode solve, or 2D or 3D FDFD:
-    seconds to minutes, not stopped by Ctrl+C until the solve ends) and every wavelength comes
-    from that model. A 2D result is an estimate, not the device's performance.
+    seconds to minutes) and every wavelength comes from that model. A 2D result is an estimate,
+    not the device's performance.
+
+    The call stops after ``timeout_s`` seconds (``None``: never) with ``TimeoutError``, and on
+    Ctrl+C with ``KeyboardInterrupt``, at once: the solve already started is let go, its result
+    discarded, and runs on to its end on a thread of its own.
     """
     w, _ = _wavelengths(wavelength_um)
-    s = _native.device_spectrum(kind, _values(values), fidelity, stack, _path(compact), w)
+    s = _native.device_spectrum(
+        kind,
+        _values(values),
+        fidelity,
+        stack,
+        _path(compact),
+        w,
+        None if timeout_s is None else float(timeout_s),
+    )
     validity = s["validity_um"]
     return DeviceSpectrum(**{**s, "validity_um": None if validity is None else tuple(validity)})
 

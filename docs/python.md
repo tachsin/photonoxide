@@ -73,8 +73,10 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`, as the Rust example d
   also the built-in it resembles: `InvalidValue` and `OutsideValidity` are `ValueError`s,
   `IoError` an `OSError`, and their fields are attributes (`e.material`, `e.shortest_um`). A
   wavelength outside a material's data is an error: photonoxide doesn't extrapolate.
-- **Long calls stop.** `vector_modes` (600 s by default) and `run_job` (3600 s, and the job's
-  own `timeout_minutes`) take `timeout_s`; Ctrl+C stops them too, once the work has stopped.
+- **Long calls stop.** `vector_modes` (600 s by default), `run_job` (3600 s, and the job's
+  own `timeout_minutes`) and `device_spectrum` (no limit by default) take `timeout_s`; Ctrl+C
+  stops them too, once the work has stopped. A device's solve is let go at once, its result
+  discarded, and runs on to its end on a thread of its own.
   Every call releases the GIL while Rust works, and photonoxide's threads never touch Python.
 
 ## What it does
@@ -91,7 +93,8 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`, as the Rust example d
 | `circuit_spectrum(instances=, connections=, ports=, wavelength_um=)` | a circuit's S-matrices from a netlist given as data | [`circuit`](methods/circuits.md) |
 | `read_touchstone(path, convention=)`, `write_touchstone(path, spectrum, convention=)` | Touchstone files, the time convention always named | [`compact::touchstone`](methods/compact.md) |
 | `devices()` | the library's devices: each one's parameters (unit, default, range), models and ports | [`device`](methods/devices.md) |
-| `device_spectrum(kind, values=, fidelity=, stack=, wavelength_um=)`, `device_derived(kind, ...)` | a design's S-parameters and figures at a fidelity, each with its model's grid | [`device`](methods/devices.md) |
+| `stacks()` | the catalogue's stacks, which the device functions take by name as `stack=`: each one's layers of the catalogue's materials and its core layer | [`device::PRESETS`](methods/devices.md) |
+| `device_spectrum(kind, values=, fidelity=, stack=, wavelength_um=, timeout_s=)`, `device_derived(kind, ...)` | a design's S-parameters and figures at a fidelity, each with its model's grid | [`device`](methods/devices.md) |
 | `device_geometry(kind, values=, stack=)`, `device_job(kind, ..., format=)` | a design's stack, polygons and ports; the job that computes it | [`device`](methods/devices.md) |
 
 Each function's docstring has the details; `help(phox.circuit_spectrum)` lists the kinds of
@@ -126,7 +129,8 @@ The devices are the components of the studio's Components page: a strip or rib w
 bend, a directional coupler, rings, MMIs, a Y-branch and MZIs, each with its parameters, its
 models from a closed form to 3D FDFD, and its ports (`phox.devices()` lists them). A design is a
 device's kind, its parameters' values (those not given at their defaults), a fidelity (its
-cheapest when not given), a stack (220 nm SOI by default, or `"soi"` or `"nitride"`), and for
+cheapest when not given), a stack of the catalogue's by name (220 nm SOI by default, or
+`"soi"` or `"nitride"`; `phox.stacks()` lists them with their layers), and for
 the compact fidelity the file of a compact model fitted to the device's runs (`compact=`, the
 `compact.json` a `"fit"` job's run writes in its folder). For
 the same design, `device_spectrum` and `device_derived` give the numbers the device's page in
@@ -214,8 +218,8 @@ plot(s.wavelength_um, abs(s.s(:, 3, 1)).^2)    % from in1 to out1
 
 The wrappers: `photonoxide.version`, `materials`, `refractive_index`, `group_index`,
 `slab_modes`, `vector_modes`, `run_job`, `fdfd_s_parameters`, `circuit_spectrum`,
-`read_touchstone`, `write_touchstone`, `devices`, `device_spectrum`, `device_derived`,
-`device_geometry` and `device_job`, each with its help (`help photonoxide.vector_modes`);
+`read_touchstone`, `write_touchstone`, `devices`, `stacks`, `device_spectrum`,
+`device_derived`, `device_geometry` and `device_job`, each with its help (`help photonoxide.vector_modes`);
 [docs/matlab.md](matlab.md) is their reference, written from that help.
 They take MATLAB's arrays and name-value arguments and return MATLAB arrays and structs:
 

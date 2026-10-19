@@ -655,6 +655,48 @@ pub fn library() -> Vec<Box<dyn Device>> {
     ]
 }
 
+/// The device's component at `values` and `fidelity` ([`Device::component`]), built on a thread
+/// of its own so that `stop` ends the wait at once: the solve already started is let go, its
+/// result discarded, as the solvers take no stop of their own. `None` when the stop came first.
+/// The component is the one [`Device::component`] gives, to the bit.
+///
+/// # Errors
+///
+/// [`Device::component`]'s, and [`Error::InvalidValue`] if the thread can't be started.
+pub(crate) fn component_until(
+    device: Box<dyn Device>,
+    values: &Values,
+    fidelity: Fidelity,
+    stop: &crate::run::Stop,
+) -> Result<Option<Built>> {
+    use std::sync::mpsc;
+    use std::time::Duration;
+    if stop.reason().is_some() {
+        return Ok(None);
+    }
+    let values = values.clone();
+    let (tx, rx) = mpsc::channel();
+    std::thread::Builder::new()
+        .name("photonoxide device solve".into())
+        .spawn(move || {
+            let _ = tx.send(device.component(&values, fidelity));
+        })
+        .map_err(|e| Error::invalid("device", format!("can't start the solve: {e}")))?;
+    loop {
+        match rx.recv_timeout(Duration::from_millis(50)) {
+            Ok(result) => return result.map(Some),
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                if stop.reason().is_some() {
+                    return Ok(None);
+                }
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                return Err(Error::invalid("device", "the solve ended without a result"));
+            }
+        }
+    }
+}
+
 /// A device's geometry: its generator's `drawing` ([`crate::generator`]) drawn on `structure`,
 /// and its ports.
 ///

@@ -16,9 +16,11 @@
 //! - circuits from a netlist given as data, [`circuit_spectrum`];
 //! - Touchstone files: [`read_touchstone`], [`write_touchstone`];
 //! - devices, the components that know their geometry ([`crate::device`]): the library's,
-//!   [`devices`], and a design's S-parameters, figures, geometry and job, [`device_spectrum`],
-//!   [`device_derived`], [`device_geometry`], [`device_job`], the numbers a component's page in
-//!   the studio shows for the same design.
+//!   [`devices`], the catalogue's stacks a design names, [`stacks`], and a design's
+//!   S-parameters, figures, geometry and job, [`device_spectrum`] (and
+//!   [`device_spectrum_until`], which a [`Stop`] stops), [`device_derived`],
+//!   [`device_geometry`], [`device_job`], the numbers a component's page in the studio shows for
+//!   the same design.
 //!
 //! Its conventions:
 //!
@@ -64,8 +66,9 @@ pub use circuit::circuit_spectrum;
 pub use conformance::{Case, conformance};
 pub use device::{
     DeviceDesign, DeviceFigure, DeviceGeometry, DeviceInfo, DeviceModel, DeviceParameter,
-    DevicePolygon, DevicePort, DeviceSpectrum, GeometryLayer, StatedError, ValidityRange,
-    device_derived, device_geometry, device_job, device_spectrum, devices,
+    DevicePolygon, DevicePort, DeviceSpectrum, GeometryLayer, StackInfo, StackLayer, StatedError,
+    ValidityRange, device_derived, device_geometry, device_job, device_spectrum,
+    device_spectrum_until, devices, stacks,
 };
 
 /// A material of the catalogue ([`crate::material::catalogue`]), with its index models.

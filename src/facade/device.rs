@@ -1,5 +1,6 @@
 //! Devices: the components that know their geometry ([`crate::device`]), as plain data:
-//! [`devices`], [`device_spectrum`], [`device_derived`], [`device_geometry`] and [`device_job`].
+//! [`devices`], [`stacks`], [`device_spectrum`] (and [`device_spectrum_until`], which a
+//! [`Stop`] stops), [`device_derived`], [`device_geometry`] and [`device_job`].
 
 use std::path::PathBuf;
 
@@ -10,7 +11,7 @@ use crate::run::Format;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
-use super::Spectrum;
+use super::{Spectrum, Stop};
 
 /// A device of the library ([`crate::device::library`]): what it is, its parameters, its models
 /// and its ports.
@@ -102,8 +103,9 @@ pub struct DeviceDesign {
     pub values: Vec<(String, f64)>,
     /// `"analytic"`, `"2D"`, `"3D"`, ... as the device has them; its cheapest when `None`.
     pub fidelity: Option<String>,
-    /// Its stack, a preset: `"soi_220"` (the default, when `None`), `"soi"` or `"nitride"`, the
-    /// core as thick as the device's `thickness` and 2 µm of oxide under it.
+    /// Its stack, by the name of one of the catalogue's ([`stacks`]): `"soi_220"` (the default,
+    /// when `None`), `"soi"` or `"nitride"`, the core as thick as the device's `thickness` and
+    /// 2 µm of oxide under it.
     pub stack: Option<String>,
     /// The file of a compact model fitted to the device's runs (`compact.json`, which a run of a
     /// `"fit"` job writes in its folder, [`crate::job::fit_from_device`]): the design then has the
@@ -240,6 +242,95 @@ fn model(m: &device::Method) -> DeviceModel {
     }
 }
 
+/// A stack of the catalogue, by the name a [`DeviceDesign`] takes: its layers of the materials
+/// catalogue's, bottom to top, between a substrate and a cladding.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct StackInfo {
+    /// Its name, what [`DeviceDesign::stack`] takes, e.g. `"soi_220"`.
+    pub name: String,
+    /// What it is, in a sentence or two.
+    pub about: String,
+    /// The material below the layers: the catalogue's id ([`super::materials`]), e.g. `"si"`.
+    pub substrate: String,
+    /// The layers, bottom to top.
+    pub layers: Vec<StackLayer>,
+    /// The material above them, the catalogue's id.
+    pub cladding: String,
+    /// The layer a device draws its guides on, e.g. `"Si"`: its thickness is the device's
+    /// `thickness` parameter.
+    pub core: String,
+}
+
+/// A layer of a [`StackInfo`].
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct StackLayer {
+    /// Its name, e.g. `"BOX"`.
+    pub name: String,
+    /// Its thickness, µm; the core's is the stack's own until a device sets it to its
+    /// `thickness`.
+    pub thickness_um: f64,
+    /// What the shapes drawn on it are made of, the catalogue's id, e.g. `"si"`.
+    pub material: String,
+    /// What fills it elsewhere, the catalogue's id.
+    pub background: String,
+}
+
+/// What a stack of the catalogue is.
+fn stack_about(name: &str) -> &'static str {
+    match name {
+        "soi_220" => {
+            "220 nm of silicon on 2 µm of buried oxide, clad in oxide: the standard silicon \
+             photonics platform (L. Chrostowski, M. Hochberg, Silicon Photonics Design, \
+             doi:10.1017/CBO9781316084168)."
+        }
+        "soi" => {
+            "Silicon on 2 µm of buried oxide, clad in oxide: silicon-on-insulator with the \
+             silicon as thick as the device's thickness."
+        }
+        "nitride" => {
+            "Silicon nitride on 2 µm of oxide over a silicon substrate, clad in oxide: the \
+             nitride as thick as the device's thickness."
+        }
+        _ => "",
+    }
+}
+
+/// The stacks of the catalogue ([`crate::device::PRESETS`]): `"soi_220"`, `"soi"` and
+/// `"nitride"`, each by the name a [`DeviceDesign`] takes, with its layers of the materials
+/// catalogue's (Li's silicon, Malitson's silica, Luke's nitride), which are the stack the
+/// devices are drawn on, to the bit.
+pub fn stacks() -> Vec<StackInfo> {
+    crate::device::PRESETS
+        .iter()
+        .filter_map(|&name| match StackSpec::preset(name).layers() {
+            StackSpec::Layers {
+                substrate,
+                layers,
+                cladding,
+                core,
+            } => Some(StackInfo {
+                name: name.to_owned(),
+                about: stack_about(name).to_owned(),
+                substrate: substrate.id,
+                layers: layers
+                    .into_iter()
+                    .map(|l| StackLayer {
+                        name: l.name,
+                        thickness_um: l.thickness_um,
+                        material: l.material.id,
+                        background: l.background.id,
+                    })
+                    .collect(),
+                cladding: cladding.id,
+                core,
+            }),
+            StackSpec::Preset { .. } => None,
+        })
+        .collect()
+}
+
 /// A device's S-parameters over wavelength, with the model they come from.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
@@ -275,13 +366,41 @@ pub struct DeviceSpectrum {
 /// or a wavelength that isn't positive and finite; the solver's errors at a solver-backed
 /// fidelity.
 pub fn device_spectrum(design: &DeviceDesign, wavelength_um: &[f64]) -> Result<DeviceSpectrum> {
-    let wavelengths = wavelength_um
-        .iter()
-        .map(|&w| Wavelength::um(w))
-        .collect::<Result<Vec<_>>>()?;
+    let wavelengths = wavelengths(wavelength_um)?;
     let (spec, device, d) = design.build()?;
     let built = device.component(d.values(), spec.fidelity)?;
-    let s = crate::circuit::Spectrum::of(built.component.as_ref(), &wavelengths, &built.values)?;
+    spectrum_of(&built, &wavelengths)
+}
+
+/// [`device_spectrum`], stopped by `stop`: its deadline, or a request (which a binding makes on
+/// Ctrl+C). `None` when it stopped the call. The solve runs on a thread of its own and the call
+/// waits for it while watching `stop`; a stop ends the wait at once, and the solve already
+/// started is let go, its result discarded, since the solvers take no stop of their own (a job's
+/// `"spectrum"` task stops so too). The numbers are [`device_spectrum`]'s, to the bit.
+///
+/// # Errors
+///
+/// As [`device_spectrum`].
+pub fn device_spectrum_until(
+    design: &DeviceDesign,
+    wavelength_um: &[f64],
+    stop: &Stop,
+) -> Result<Option<DeviceSpectrum>> {
+    let wavelengths = wavelengths(wavelength_um)?;
+    let (spec, device, d) = design.build()?;
+    let Some(built) = device::component_until(device, d.values(), spec.fidelity, stop)? else {
+        return Ok(None);
+    };
+    spectrum_of(&built, &wavelengths).map(Some)
+}
+
+fn wavelengths(wavelength_um: &[f64]) -> Result<Vec<Wavelength>> {
+    wavelength_um.iter().map(|&w| Wavelength::um(w)).collect()
+}
+
+/// A built component's S-parameters at `wavelengths`, with its model's provenance.
+fn spectrum_of(built: &device::Built, wavelengths: &[Wavelength]) -> Result<DeviceSpectrum> {
+    let s = crate::circuit::Spectrum::of(built.component.as_ref(), wavelengths, &built.values)?;
     let p = built.component.provenance();
     let Spectrum {
         ports,

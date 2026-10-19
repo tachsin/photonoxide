@@ -28,6 +28,7 @@ The wrappers take MATLAB's arrays, structs and name-value arguments and return M
 | [`photonoxide.refractive_index`](#photonoxiderefractive_index) | The refractive index n + i*kappa of a material of photonoxide's catalogue. |
 | [`photonoxide.run_job`](#photonoxiderun_job) | Runs a photonoxide job, as photonoxide run --headless does. |
 | [`photonoxide.slab_modes`](#photonoxideslab_modes) | The guided modes of a three-layer slab, solved exactly. |
+| [`photonoxide.stacks`](#photonoxidestacks) | The stacks of photonoxide's catalogue, by the name the device functions take. |
 | [`photonoxide.vector_modes`](#photonoxidevector_modes) | Full-vector modes of a waveguide's cross-section, with their fields. |
 | [`photonoxide.version`](#photonoxideversion) | The photonoxide package's version, and photonoxide's: v.package and v.core. |
 | [`photonoxide.write_touchstone`](#photonoxidewrite_touchstone) | Writes S-matrices to a Touchstone file. |
@@ -151,9 +152,10 @@ wavelength_um (micrometres), by its cheapest model.
 
 Options: values, a struct of its parameters' values in their units, e.g.
 struct("gap", 0.25, "length", 10) (those not given at their defaults); fidelity
-("analytic", "2D", "3D", ... as the device has them); stack ("soi_220", "soi" or
-"nitride"); compact, the file of a compact model fitted to its runs (the compact.json a "fit"
-job writes), for fidelity "compact".
+("analytic", "2D", "3D", ... as the device has them); stack, one of photonoxide.stacks by
+name ("soi_220", "soi" or "nitride"); compact, the file of a compact model fitted to its
+runs (the compact.json a "fit" job writes), for fidelity "compact"; timeout_s (Inf: none;
+past it, the error photonoxide:Timeout, the solve let go).
 
 s.ports are the device's ports, s.wavelength_um the wavelengths, s.s the S-matrices,
 nl-by-n-by-n: s.s(k, q, p) from port p into port q at the k-th wavelength; s.fidelity,
@@ -168,6 +170,8 @@ photonoxide studio shows for the same design.
 | `values` (name-value) | scalar | struct | `struct()` |
 | `fidelity` (name-value) | scalar | string | `""` |
 | `stack` (name-value) | scalar | string | `""` |
+| `compact` (name-value) | scalar | string | `""` |
+| `timeout_s` (name-value) | scalar | double | `Inf` |
 
 ## photonoxide.devices
 
@@ -336,6 +340,20 @@ bottom; E_y for TE, H_y for TM, unnormalized), a column per mode.
 | `polarization` | scalar | string | required |
 | `wavelength_um` | scalar | double | required |
 | `x_um` | any | double | `[]` |
+
+## photonoxide.stacks
+
+The stacks of photonoxide's catalogue, by the name the device functions take.
+
+```matlab
+s = photonoxide.stacks()
+```
+
+s = photonoxide.stacks() is a struct array, one element per stack: s(k).name (what the
+device functions take as stack, e.g. "soi_220"), s(k).about, s(k).substrate, s(k).layers (a
+struct array, bottom to top: name, thickness_um, material, background), s(k).cladding and
+s(k).core, the layer a device draws its guides on, as thick as the device's thickness. The
+materials are the catalogue's ids, which photonoxide.refractive_index takes.
 
 ## photonoxide.vector_modes
 

@@ -74,6 +74,7 @@ def write_touchstone(
     significant_digits: int | None,
 ) -> None: ...
 def devices() -> list[dict[str, Any]]: ...
+def stacks() -> list[dict[str, Any]]: ...
 def device_spectrum(
     kind: str,
     values: list[tuple[str, float]],
@@ -81,6 +82,7 @@ def device_spectrum(
     stack: str | None,
     compact: str | None,
     wavelength_um: npt.NDArray[np.float64],
+    timeout_s: float | None,
 ) -> dict[str, Any]: ...
 def device_derived(
     kind: str,

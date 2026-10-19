@@ -4,7 +4,7 @@
 //! classes; this module is not for users.
 //!
 //! Every call releases the GIL while Rust works. The long ones (the vector mode solver, a job's
-//! run) work on a thread of their own while the calling thread checks for Ctrl+C, which Python
+//! run, a device's spectrum) work on a thread of their own while the calling thread checks for Ctrl+C, which Python
 //! handles only there: Ctrl+C then asks the work to stop, waits for it, and raises
 //! `KeyboardInterrupt`.
 //!
@@ -501,9 +501,37 @@ fn devices(py: Python<'_>) -> PyResult<Bound<'_, PyList>> {
     Ok(list)
 }
 
-/// A device's S-parameters at its fidelity, a dict with S as an `(nλ, n, n)` array.
+/// The catalogue's stacks, each a dict, its layers dicts.
 #[pyfunction]
-#[pyo3(signature = (kind, values, fidelity, stack, compact, wavelength_um))]
+fn stacks(py: Python<'_>) -> PyResult<Bound<'_, PyList>> {
+    let list = PyList::empty(py);
+    for s in facade::stacks() {
+        let layers = PyList::empty(py);
+        for l in &s.layers {
+            let item = PyDict::new(py);
+            item.set_item("name", &l.name)?;
+            item.set_item("thickness_um", l.thickness_um)?;
+            item.set_item("material", &l.material)?;
+            item.set_item("background", &l.background)?;
+            layers.append(item)?;
+        }
+        let item = PyDict::new(py);
+        item.set_item("name", &s.name)?;
+        item.set_item("about", &s.about)?;
+        item.set_item("substrate", &s.substrate)?;
+        item.set_item("layers", layers)?;
+        item.set_item("cladding", &s.cladding)?;
+        item.set_item("core", &s.core)?;
+        list.append(item)?;
+    }
+    Ok(list)
+}
+
+/// A device's S-parameters at its fidelity, a dict with S as an `(nλ, n, n)` array, stopped at
+/// `timeout_s` or on Ctrl+C ([`facade::device_spectrum_until`]).
+#[pyfunction]
+#[pyo3(signature = (kind, values, fidelity, stack, compact, wavelength_um, timeout_s))]
+#[allow(clippy::too_many_arguments)] // the design's fields, one for one, and the call's
 fn device_spectrum<'py>(
     py: Python<'py>,
     kind: &str,
@@ -512,10 +540,19 @@ fn device_spectrum<'py>(
     stack: Option<String>,
     compact: Option<PathBuf>,
     wavelength_um: PyReadonlyArray1<'py, f64>,
+    timeout_s: Option<f64>,
 ) -> PyResult<Bound<'py, PyDict>> {
     let w = vector(&wavelength_um);
     let d = design(kind, values, fidelity, stack, compact);
-    let s = py.detach(|| facade::device_spectrum(&d, &w)).fail(py)?;
+    let stop = stop_after(timeout_s)?;
+    let s = interruptible(py, &stop, || facade::device_spectrum_until(&d, &w, &stop))?
+        .fail(py)?
+        .ok_or_else(|| {
+            PyTimeoutError::new_err(format!(
+                "the device's solve stopped at its timeout, {} s",
+                timeout_s.unwrap_or(f64::NAN)
+            ))
+        })?;
     let (k, n) = (s.wavelength_um.len(), s.ports.len());
     let out = PyDict::new(py);
     out.set_item("ports", s.ports)?;
@@ -666,6 +703,7 @@ fn _photonoxide(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(read_touchstone, module)?)?;
     module.add_function(wrap_pyfunction!(write_touchstone, module)?)?;
     module.add_function(wrap_pyfunction!(devices, module)?)?;
+    module.add_function(wrap_pyfunction!(stacks, module)?)?;
     module.add_function(wrap_pyfunction!(device_spectrum, module)?)?;
     module.add_function(wrap_pyfunction!(device_derived, module)?)?;
     module.add_function(wrap_pyfunction!(device_geometry, module)?)?;
