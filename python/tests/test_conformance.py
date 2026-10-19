@@ -87,7 +87,7 @@ def call(case: dict[str, Any]) -> Any:
         path = args.pop("path")
         phox.write_touchstone(path, spectrum, **args)
         return Path(path).read_text(encoding="utf-8")
-    return getattr(po, function)(**args)
+    return getattr(phox, function)(**args)
 
 
 def test_every_case_gives_rusts_result_to_the_bit(cases: list[dict[str, Any]]) -> None:
@@ -101,7 +101,7 @@ def test_every_case_gives_rusts_result_to_the_bit(cases: list[dict[str, Any]]) -
 def test_the_cases_call_every_function_of_the_package(cases: list[dict[str, Any]]) -> None:
     called = {case["function"] for case in cases}
     functions = {
-        name for name in phox.__all__ if callable(getattr(po, name)) and name[0].islower()
+        name for name in phox.__all__ if callable(getattr(phox, name)) and name[0].islower()
     }
     assert called == functions
 
