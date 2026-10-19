@@ -58,6 +58,21 @@ def test_the_wrappers_are_shipped_and_call_what_the_module_has() -> None:
         assert (WRAPPERS / "private" / f"{helper}.m").is_file()
 
 
+def test_every_option_a_wrapper_reads_is_in_its_arguments_block() -> None:
+    # MATLAB refuses options.<name> when the arguments block doesn't declare it, which only a
+    # run in MATLAB would show: device_derived and device_job read options.compact without
+    # declaring it until #291's write-ups (device_spectrum until #446)
+    for file in sorted(WRAPPERS.glob("*.m")):
+        code = "\n".join(
+            line
+            for line in file.read_text(encoding="utf-8").splitlines()
+            if not line.lstrip().startswith("%")
+        )
+        declared = set(re.findall(r"^\s*options\.(\w+) \(", code, re.MULTILINE))
+        read = set(re.findall(r"options\.(\w+)", code))
+        assert read <= declared, f"{file.name} reads options {sorted(read - declared)} it doesn't declare"
+
+
 def test_indices_come_back_in_matlabs_order_to_the_bit() -> None:
     w = np.array([[1.31, 1.45], [1.55, 2.0]])
     r = matlab.refractive_index("si", matlab_list(w))

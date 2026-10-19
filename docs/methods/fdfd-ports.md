@@ -127,6 +127,24 @@ reciprocal, $\max |S_{qp} - S_{pq}|$; the viewer's Solver panel charts them. `jo
 is a 1×2 splitter. These are 2D estimates by the effective index method, not a device's 3D
 performance.
 
+From Python and MATLAB, `fdfd_s_parameters` gives such a job's S-matrices, `Solver2d::s_matrix`'s
+at each of the job's wavelengths (or those it is given), without a run's folder; the job is a
+file's path, or the job as data:
+
+```python
+import numpy as np
+import photonoxide as phox
+
+s = phox.fdfd_s_parameters("jobs/mmi-fdfd.toml")   # 11 wavelengths, 20 nm cells
+split = np.abs(s.s[:, 1:, 0]) ** 2                 # from port 1 into ports 2 and 3
+# s.ports, s.wavelength_um, s.effective_index (each port mode's), s.cell_um, s.polarization
+```
+
+```matlab
+s = photonoxide.fdfd_s_parameters("jobs/mmi-fdfd.toml");
+split = abs(s.s(:, 2:3, 1)).^2;
+```
+
 ## Limits
 
 - One mode per port is the common case. Several modes per port work the same way, with each a

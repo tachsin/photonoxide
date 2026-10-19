@@ -82,7 +82,8 @@ façade's conformance cases to the bit. A function added to the façade gets its
 [docs/features.md](docs/features.md), the table of what works in Rust, Python and MATLAB (a test
 checks every façade function is named there). CI lints the binding crate on every code change, and
 builds and tests the wheels (`.github/workflows/python-wheels.yml`) only on PRs that touch
-`python/`, the façade, `jobs/`, `docs/python.md` or the manifests, and weekly.
+`python/`, the façade, `jobs/`, `docs/python.md`, the method write-ups with Python calls (which
+`python/tests/test_methods.py` runs) or the manifests, and weekly.
 
 The `photonoxide` program is the studio, a Tauri app in `studio/` (Rust in `studio/src-tauri`,
 the window in Svelte 5, TypeScript, Tailwind CSS with daisyUI, and three.js in `studio/src`;

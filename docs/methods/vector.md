@@ -92,6 +92,40 @@ layers' backgrounds, and the substrate and cladding its window reaches, the same
 built-in jobs' cross-sections (a test checks it). `modes_above` with the surrounding index as
 its threshold gives every guided mode, however many.
 
+In Python and MATLAB, `vector_modes` takes the cross-section as arrays, the grid's nodes and
+each cell's permittivity, and returns the guided modes with their [fields](fields.md). The
+book's strip (below) on a 10 nm grid, its quarter between an electric wall on the vertical
+mirror plane and a magnetic one on the horizontal, asked for six modes:
+
+```python
+import numpy as np
+import photonoxide as phox
+
+h = 0.01                                 # µm
+x = np.arange(106) * h                   # nodes from the strip's centre, 1.05 µm across
+y = np.arange(76) * h                    # and 0.75 µm up
+xc, yc = (x[1:] + x[:-1]) / 2, (y[1:] + y[:-1]) / 2
+eps = np.where((xc[None, :] < 0.25) & (yc[:, None] < 0.11), 3.473**2, 1.444**2)
+modes = phox.vector_modes(x_um=x, y_um=y, permittivity=eps, wavelength_um=1.55, count=6,
+                          boundaries=("electric", "zero", "magnetic", "zero"))
+for m in modes:
+    print(f"n_eff {m.effective_index.real:.6f}, TE fraction {m.te_fraction:.3f}")
+```
+
+```matlab
+h = 0.01;
+x = (0:105) * h;  y = (0:75) * h;
+[xc, yc] = meshgrid((x(1:end-1) + x(2:end)) / 2, (y(1:end-1) + y(2:end)) / 2);
+eps = 1.444^2 * ones(size(xc));
+eps(xc < 0.25 & yc < 0.11) = 3.473^2;
+modes = photonoxide.vector_modes(x, y, eps, 1.55, count=6, ...
+                                 boundaries=["electric" "zero" "magnetic" "zero"]);
+```
+
+It prints one mode, `n_eff 2.445713, TE fraction 0.975`, the 10 nm value under
+[Accuracy](#accuracy): of the six solved, only the fundamental TE-like mode is guided with these
+walls, and the other five, the window's own, are left out.
+
 Leaky modes need an open window: a [PML](pml.md) inside the edges absorbs what reaches them,
 and then `modes` finds a leaky mode with its loss, as the leaky-wire benchmark below does. The
 PML's own modes come too, their loss large. Neither is a guided mode, so `guided_modes` leaves

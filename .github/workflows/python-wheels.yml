@@ -23,6 +23,13 @@ on:
       - "src/facade.rs"
       - "src/facade/**"
       - "docs/python.md"
+      # the write-ups whose Python calls python/tests/test_methods.py runs
+      - "docs/methods/circuits.md"
+      - "docs/methods/compact.md"
+      - "docs/methods/devices.md"
+      - "docs/methods/fdfd-ports.md"
+      - "docs/methods/vector.md"
+      - "docs/methods/fields.md"
       - "Cargo.toml"
       - "Cargo.lock"
       - "jobs/**"

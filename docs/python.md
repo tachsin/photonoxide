@@ -188,7 +188,13 @@ library as a Rust program would. Both steps are tested:
 - [`python/examples`](../python/examples) has Python versions of a few of the Rust examples
   (silicon's index, the book's slab and strip, a ring's free spectral range), each checked
   against its paper as the Rust ones are; those with a Rust twin print what it prints, line
-  for line (`python/tests/test_examples.py`).
+  for line (`python/tests/test_examples.py`);
+- the method write-ups (`docs/methods`) that show a call the package has give the Python call
+  (and MATLAB's) beside it: [circuits](methods/circuits.md), [Touchstone
+  files](methods/compact.md#touchstone-files), [devices](methods/devices.md), [an FDFD job's
+  ports](methods/fdfd-ports.md#in-the-studio) and [full-vector modes](methods/vector.md) with
+  their [fields](methods/fields.md). Their Python blocks run in the package's tests
+  (`python/tests/test_methods.py`).
 
 The bits are the same for the same build on the same machine; another CPU or another build of
 photonoxide can differ in the last bits, as it can in Rust.
@@ -240,8 +246,8 @@ The `.m` files are a few lines each: every conversion is in the package's Python
 **What is tested, and what isn't.** The conversions are tested in Python
 (`python/tests/test_matlab.py`): each function is called as the wrappers call it, and what comes
 back, rebuilt as the wrappers rebuild it, is checked against the Python package's results to the
-bit; the tests also check that the wrappers ship in the wheel and call the module's functions by
-their names. MATLAB itself isn't run: MathWorks' GitHub action doesn't license MATLAB's external
+bit; the tests also check that the wrappers ship in the wheel, call the module's functions by
+their names, and declare every option they read. MATLAB itself isn't run: MathWorks' GitHub action doesn't license MATLAB's external
 language interfaces, Python's among them, on public projects, and GNU Octave has no `py.`
 interface of its own. **MATLAB support is untested in MATLAB** until someone with a licence
 runs the wrappers by hand; the MATLAB releases checked will be listed here.

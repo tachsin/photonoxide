@@ -11,6 +11,7 @@ arguments
     options.values (1,1) struct = struct()
     options.fidelity (1,1) string = ""
     options.stack (1,1) string = ""
+    options.compact (1,1) string = ""
     options.name (1,1) string = ""
     options.format (1,1) string = "json"
 end
