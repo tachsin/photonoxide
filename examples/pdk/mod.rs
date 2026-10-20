@@ -704,10 +704,16 @@ pub fn run(setup: &Setup, extra: &mut dyn FnMut(&mut Simulation) -> Result<()>) 
     extra(&mut sim)?;
     let moded = clock.elapsed().as_secs_f64();
     let clock = Instant::now();
+    // its progress on stderr every few minutes, named after the example and the resolution
+    let label = format!(
+        "{}, {:.1} cells a wavelength",
+        example_name(),
+        1.55 / (silicon(1.55) * h)
+    );
     let decayed = if decay {
-        sim.run_until_decayed(&probes, 1e-6, 20.0, limit)?
+        super::common::run_until_decayed(&mut sim, &probes, 1e-6, 20.0, limit, &label)?
     } else {
-        sim.run_until(limit);
+        super::common::run_until(&mut sim, limit, &label);
         false
     };
     let stepped = clock.elapsed().as_secs_f64();
@@ -871,6 +877,21 @@ pub fn report_cost(name: &str, m: &Measured) {
         m.grid.cells() as f64 * m.steps as f64 / m.seconds[2] / 1e6,
         rayon_threads(),
     );
+}
+
+/// The example running: its program's name without cargo's hash (`ring_liu_poon`), or
+/// `photonoxide` when the studio runs it.
+fn example_name() -> String {
+    let program = std::env::args().next().unwrap_or_default();
+    let stem = std::path::Path::new(&program)
+        .file_stem()
+        .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+    match stem.rsplit_once('-') {
+        Some((name, hash)) if hash.len() == 16 && hash.chars().all(|c| c.is_ascii_hexdigit()) => {
+            name.to_string()
+        }
+        _ => stem,
+    }
 }
 
 fn rayon_threads() -> usize {

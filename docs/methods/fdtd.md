@@ -867,6 +867,12 @@ it goes, so a run needs no stored history:
   rises, where it used to run to its limit
   (`fdtd::tests::running_until_decayed_stops_when_the_fields_grow_again`). A fixed time is
   `run_until`.
+- **Progress:** `run_until_reporting` and `run_until_decayed_reporting` do the same a given
+  number of steps at a time, calling back after each stretch. The blocks, the checks, the steps
+  and the fields are the same bits (`fdtd::tests::running_in_stretches_that_report_gives_the_same_bits`).
+  The examples' long runs use them to print a line on stderr every few minutes
+  (`examples/common`): the steps done of the total, the time taken and left, and the
+  cell-updates/s.
 
 ## Resonances
 

@@ -1072,6 +1072,29 @@ impl Simulation {
         self.run(count);
     }
 
+    /// As [`Simulation::run_until`], `every` steps at a time (at least one), calling `progress`
+    /// with the simulation after each stretch, so that a long run can say how far it has got.
+    /// The fields are the same bits as [`Simulation::run_until`]'s: [`Simulation::run`] gives
+    /// the same bits however the steps are split.
+    pub fn run_until_reporting(
+        &mut self,
+        time: f64,
+        every: usize,
+        progress: &mut dyn FnMut(&Simulation),
+    ) {
+        let mut count = 0;
+        while ((self.steps + count) as f64 * self.dt) < time {
+            count += 1;
+        }
+        let every = every.max(1);
+        while count > 0 {
+            let n = count.min(every);
+            self.run(n);
+            count -= n;
+            progress(self);
+        }
+    }
+
     /// The tiles the kernel steps this problem by, `temporal`ly (several steps at a time) or
     /// one step at a time, if it can: not with the plain loops, a Bloch phase, a tensor
     /// permittivity or a plane wave, whose updates read the whole grid between H̃'s and E's;

@@ -15,6 +15,11 @@ After changing an example, regenerate its output:
 cargo run --release --quiet --example <name> > examples/output/<name>.txt
 ```
 
+The long 3D FDTD runs (the `*_liu_poon` examples, `l3_akahane`) print their progress to stderr
+every 5 minutes, which leaves the output above unchanged. Each line gives the steps done of the
+total, the share, the time taken and left, when the run should end (UTC) and the
+cell-updates/s. `PHOTONOXIDE_PROGRESS=<seconds>` sets how often, and 0 turns it off.
+
 | Example | What it computes | Checked against | Tolerance |
 |---|---|---|---|
 | [`silicon_index`](silicon_index.rs) | Silicon's refractive index, 1.3–10 µm | H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980), [doi:10.1063/1.555624](https://doi.org/10.1063/1.555624), Table 1 (293 K) | 5e-5 (4 printed decimals) |

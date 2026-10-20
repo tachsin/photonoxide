@@ -763,6 +763,30 @@ impl Simulation {
         interval: f64,
         limit: f64,
     ) -> Result<bool> {
+        self.run_until_decayed_reporting(probes, fraction, interval, limit, usize::MAX, &mut |_| {})
+    }
+
+    /// As [`Simulation::run_until_decayed`], each block stepped `every` steps at a time with
+    /// `progress` called after each stretch ([`Simulation::run_until_reporting`]), so that a
+    /// long run can say how far it has got. The blocks, the checks between them, the steps and
+    /// the fields are the same bits.
+    ///
+    /// # Errors
+    ///
+    /// As [`Simulation::run_until_decayed`].
+    ///
+    /// # Panics
+    ///
+    /// If a probe doesn't exist.
+    pub fn run_until_decayed_reporting(
+        &mut self,
+        probes: &[usize],
+        fraction: f64,
+        interval: f64,
+        limit: f64,
+        every: usize,
+        progress: &mut dyn FnMut(&Simulation),
+    ) -> Result<bool> {
         if probes.is_empty()
             || !(fraction > 0.0 && fraction < 1.0)
             || !(interval.is_finite() && interval > 0.0)
@@ -789,7 +813,7 @@ impl Simulation {
         while self.time() < limit {
             let from = self.probe(probes[0]).len();
             let began = self.time();
-            self.run_until((began + interval).min(limit));
+            self.run_until_reporting((began + interval).min(limit), every, progress);
             let sizes: Vec<(f64, f64)> = probes.iter().map(|&n| size(self, n, from)).collect();
             let decayed = sizes
                 .iter()

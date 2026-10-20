@@ -204,7 +204,11 @@ fn resonance(shift: f64, cells: usize, record: f64) -> photonoxide::Result<(f64,
     })?;
     let probe = sim.add_probe(Field::E, Axis::Y, at(0.13 * A, 0.07 * A))?;
     let over = delay + 6.0 * width;
-    sim.run_until(over + record);
+    common::run_until(
+        &mut sim,
+        over + record,
+        &format!("l3_akahane, {cells} cells a lattice constant, end holes moved {shift}a"),
+    );
     let dt = sim.dt();
     // the record after the pulse, about four samples a period
     let every = ((0.25 / centre / dt).floor() as usize).max(1);

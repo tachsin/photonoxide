@@ -600,3 +600,36 @@ fn running_until_decayed_stops_when_the_fields_grow_again() {
     );
     assert_eq!(s.probe(inside).len(), s.steps());
 }
+
+#[test]
+fn running_in_stretches_that_report_gives_the_same_bits() {
+    // the strip of running_until_decayed_stops_when_the_fields_grow_again, run until decayed
+    // plainly and 37 steps at a time with a report after each stretch: the same blocks, the
+    // same stop (its late growth), the same steps and the same bits, and a report every 37
+    // steps; then the same to a fixed time
+    let (mut plain, _, p) = late_strip_simulation(0.05, 6, Cpml::default(), late_pulse());
+    let (mut split, _, q) = late_strip_simulation(0.05, 6, Cpml::default(), late_pulse());
+    let a = plain.run_until_decayed(&[p], 1e-30, 10.0, 2000.0);
+    let (mut reports, mut last) = (0, 0);
+    let b = split.run_until_decayed_reporting(&[q], 1e-30, 10.0, 2000.0, 37, &mut |s| {
+        assert!(s.steps() > last && s.steps() - last <= 37);
+        last = s.steps();
+        reports += 1;
+    });
+    assert_eq!(format!("{a:?}"), format!("{b:?}"));
+    assert_eq!(plain.steps(), split.steps());
+    assert_eq!(last, split.steps());
+    assert!(reports >= split.steps() / 37, "{reports}");
+    let bits =
+        |s: &Simulation, n: usize| s.probe(n).iter().map(|v| v.to_bits()).collect::<Vec<_>>();
+    assert_eq!(bits(&plain, p), bits(&split, q));
+
+    let (mut plain, _, p) = late_strip_simulation(0.05, 6, Cpml::default(), late_pulse());
+    let (mut split, _, q) = late_strip_simulation(0.05, 6, Cpml::default(), late_pulse());
+    plain.run_until(60.0);
+    let mut reports = 0;
+    split.run_until_reporting(60.0, 50, &mut |_| reports += 1);
+    assert_eq!(plain.steps(), split.steps());
+    assert_eq!(reports, plain.steps().div_ceil(50));
+    assert_eq!(bits(&plain, p), bits(&split, q));
+}
