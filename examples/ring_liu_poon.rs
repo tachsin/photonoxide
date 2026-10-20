@@ -81,28 +81,42 @@
 //! about +2.3 nm and +1.4 nm on a resonance.
 //!
 //! Measured at 15 cells (`--resolution 15`, 2026-10-18; 1101 × 833 × 99 cells of 29.7 nm, the
-//! gap 6.7 cells; 112 988 steps to 1920 µm/c):
+//! gap 6.7 cells; 112 988 steps to 1920 µm/c) and 20 (`--resolution 20`, 2026-10-20; 1460 × 1103
+//! × 124 cells of 22.3 nm, the gap 9.0 cells; 150 650 steps):
 //!
-//! | Read | Resonance | FWHM | Q | Down to |
+//! | Read | Resonance, 15 / 20 cells | FWHM | Q | Down to |
 //! |---|---|---|---|---|
-//! | the paper's way, over 1000 µm/c | 1548.15 nm | 2.122 nm | 730 | 0.314 |
-//! | the paper's way, over 1500 µm/c | 1548.15 nm | 1.141 nm | 1357 | 0.099 |
-//! | **the paper's way, over 1920 µm/c** | **1548.15 nm** | **0.921 nm** | **1681** | 0.045 |
-//! | the ring's own (harmonic inversion, dispersive) | 1548.14 nm | 0.19 to 0.21 nm | 7380 to 7960 | |
+//! | the paper's way, over 1000 µm/c | 1548.15 / 1546.85 nm | 2.122 / 2.122 nm | 730 / 729 | 0.314 / 0.331 |
+//! | the paper's way, over 1500 µm/c | 1548.15 / 1546.85 nm | 1.141 / 1.121 nm | 1357 / 1380 | 0.099 / 0.114 |
+//! | **the paper's way, over 1920 µm/c** | **1548.15 / 1546.85 nm** | **0.921 / 0.921 nm** | **1681 / 1680** | 0.045 / 0.056 |
+//! | the ring's own (harmonic inversion, dispersive) | 1548.14 / 1546.84 nm | 0.19 to 0.21 / 0.186 nm | 7380 to 7960 / 8311 | |
 //! | the codes at 20 and 25 cells | 1544.96 to 1545.67 nm | 0.88 to 0.90 nm | 1715 to 1755 | |
 //!
-//! The width and Q read over the paper's record come within 2 to 5 % of the codes' (the codes
-//! differ from each other by 2 %), where the ring's own Q is 4.5 times theirs; the width follows
-//! the record's length, 2.1, 1.1 and 0.92 nm over 1000, 1500 and 1920 µm/c. Away from the dips
-//! the spectrum is 0.79 of its maximum on average and ripples about 1.4 nm apart, as the paper's
-//! Figs. 26(d) and 27 do. All three checks still fail at 15 cells: the width by 0.018 nm, Q by
-//! 31 and the resonance by 2.5 nm, the grid's (above). The other resonances by harmonic
-//! inversion: 1532.82, 1540.45, 1555.93 and 1563.78 nm, Q 6740 to 9060; the free spectral range
-//! 7.44 nm. At 1550 nm the probes' ratio, 0.8732, is 0.85 % above the mode monitor's 0.8658.
+//! The width and Q read over the paper's record come within 2 to 5 % of the codes' at both grids
+//! and don't move between them (the codes differ from each other by 2 %), where the ring's own Q
+//! is about 4.5 times theirs. The width follows the record's length: 2.1, 1.1 and 0.92 nm over
+//! 1000, 1500 and 1920 µm/c. Away from the dips the spectrum is about 0.8 of its maximum on average
+//! and ripples about 1.4 nm apart, as the paper's Figs. 26(d) and 27 do.
 //!
-//! The run: 90.8 million cells, 6 h 26 min of stepping on 20 threads of a Core Ultra 7 265K (443
-//! million cell-updates/s, other work on the machine at times), 54 s of smoothing, 71 s of mode
-//! solves.
+//! All three checks still fail: the width by 0.018 nm and Q by 31 at both grids, the resonance by
+//! 2.5 nm at 15 cells and 1.2 nm at 20. The resonance moves 1.30 nm from 15 to 20 cells; taken as
+//! h², it would settle near 1545.2 nm, inside the codes' span and 1.2 nm below the mode solver's
+//! 1546.44 nm (above). A run at 25 cells would tell which is closer.
+//!
+//! The other resonances by harmonic inversion (dispersive Q):
+//! - 15 cells: 1532.82, 1540.45, 1555.93 and 1563.78 nm, Q 6740 to 9060; the free spectral range
+//!   7.44 nm.
+//! - 20 cells: 1531.48, 1539.13, 1554.64, 1562.51 and 1570.45 nm, Q 9668, 8303, 7523, 7157 and
+//!   6557; the free spectral range 7.46 nm.
+//!
+//! At 1550 nm the probes' ratio is 0.8732 against the mode monitor's 0.8658 at 15 cells, and
+//! 0.89829 against 0.89558 at 20.
+//!
+//! The runs on 20 threads of a Core Ultra 7 265K, other work on the machine at times:
+//! - **15 cells:** 90.8 million cells, 6 h 26 min of stepping (443 million cell-updates/s), 54 s of
+//!   smoothing, 71 s of mode solves.
+//! - **20 cells:** 199.7 million cells, 26.4 h of stepping (316 million cell-updates/s), 162 s of
+//!   smoothing, 84 s of mode solves.
 //!
 //! Silicon's index sets λ₀: the paper's Palik silicon is 3.4738 at 1550 nm in Tidy3D's fit and
 //! about 3.4764 in Lumerical's data, ours 3.4757. A difference of 0.0026 moves λ₀ by about 1.0

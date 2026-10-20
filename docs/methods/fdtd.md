@@ -1165,8 +1165,8 @@ papers, and like for like.
   to 9200 over the band. The paper's 0.88 nm would need κ² = 0.52, or 1.6 dB lost a round trip
   at critical coupling.
 - **Read like for like, the gap closes.** The example now reads our through port the paper's way
-  over the same record: 0.921 nm and Q 1681 at 15 cells, against the codes' 0.88 to 0.90 nm and
-  1715 to 1755. Over 1000 and 1500 µm/c the same reading gives 2.12 and 1.14 nm while the ring
+  over the same record: 0.921 nm and Q 1681 at 15 cells, and 0.921 nm and Q 1680 at 20 (22.3 nm),
+  against the codes' 0.88 to 0.90 nm and 1715 to 1755. The ring's own Q at 20 cells is 8311. Over 1000 and 1500 µm/c the same reading gives 2.12 and 1.14 nm while the ring
   stays the same, and the spectrum's look (dips to 0.05, the rest about 0.8 of the maximum,
   ripples 1.4 nm apart) is the paper's. So the paper's FWHM and Q are not this ring's linewidth
   and loaded Q: they are set by its 1920 µm/c record, the same in both codes, which is why they
@@ -1175,11 +1175,15 @@ papers, and like for like.
 - **The resonance.** Hadley's equations (2.5 nm, extrapolated: n_eff 2.450691 at 1.545 µm) with
   the bends' and the coupler's shifts put order 120 at 1546.40 nm with dispersive materials:
   1545.65 nm with Tidy3D's silicon, 1546.68 nm with Lumerical's. The codes' line is that order,
-  0.6 to 1.1 nm short of it. Ours is 1548.15 nm at 15 cells. The uniform grid makes the strip's
-  n_eff long: FDTD of the bus alone gives 2.45669 at 15 cells and 2.45441 at 20, against
-  2.45069, about +2.3 and +1.4 nm on a resonance. Before #443 the example compared our order 121
-  (1540.45 nm, inside the band only because of that shift) with the codes' order 120: the
-  "4.9 nm short" was two different lines.
+  0.6 to 1.1 nm short of it.
+- **Our resonance converges towards the codes'.** It is 1548.15 nm at 15 cells and 1546.85 nm at
+  20. The uniform grid makes the strip's n_eff long: FDTD of the bus alone gives 2.45669 at 15
+  cells and 2.45441 at 20, against 2.45069, about +2.3 and +1.4 nm on a resonance. Taking the
+  1.30 nm move as h², the line would settle near 1545.2 nm, inside the codes' span and 1.2 nm
+  below the mode solver's 1546.44 nm. A run at 25 cells would tell which is closer.
+- **The old "4.9 nm short" was two different lines.** Before #443 the example compared our order
+  121 (1540.45 nm at 15 cells, inside the band only because of the grid's shift) with the codes'
+  order 120.
 
 Run times on 20 threads of a Core Ultra 7 265K, against the paper's at the same resolution
 (Tidy3D in the cloud; Lumerical on an AMD 3960X and on its cloud GPUs):
@@ -1197,6 +1201,7 @@ Run times on 20 threads of a Core Ultra 7 265K, against the paper's at the same 
 | ring, 15, to 1000 µm/c | 90.8 million, 58 848 | 191 min, under 1 min | — | — |
 | ring, 15, to 1920 µm/c (the paper's) | 90.8 million, 112 988 | 386 min, 1 min (shared at times) | 1104 s | 16 815 s / 476 s |
 | splitter-rotator, 20 | 173.5 million, 31 400 | 340 min, 2 min (shared) | — | — |
+| ring, 20, to 1920 µm/c | 199.7 million, 150 650 | 26.4 h, 1 min (shared) | 2594 s | 44 530 s / 732 s |
 | crossing, 15, tensor | 14.1 million, 14 124 | 23 min, 3 min (shared) | — | — |
 | crossing, 20, tensor | 30.4 million, 18 840 | 63 min, 6 min (shared) | — | — |
 
