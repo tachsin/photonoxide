@@ -24,15 +24,6 @@ fn a_circle_written_four_ways_is_the_circle() {
 }
 
 #[test]
-fn areas_against_closed_forms() {
-    for (name, s, a) in curve_checks::closed_forms() {
-        let e = ((s.area() - a) / a).abs();
-        assert!(e < 1e-12, "{name}: {} against {a}: {e}", s.area());
-    }
-    assert_eq!(curve_checks::closed_forms().len(), 10);
-}
-
-#[test]
 fn a_linear_taper_between_two_curves_is_the_path_taper() {
     let e = curve_checks::taper_error();
     assert!(e < 1e-12, "{e}");

@@ -875,7 +875,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn soi_220_is_220_nm_of_silicon_on_2_um_of_oxide() {
+    fn the_presets_are_their_cores_on_their_buried_oxides() {
+        // SOI: 220 nm of silicon on 2 µm of oxide
         let stack = LayerStack::soi_220();
         let (si, bottom, top) = stack.layer("Si").unwrap();
         assert_eq!(si.material.name(), "Si");
@@ -890,6 +891,11 @@ mod tests {
             stack,
             LayerStack::soi(Length::nm(220.0), Length::um(2.0)).unwrap()
         );
+        // nitride: its core on the buried oxide asked for
+        let stack = LayerStack::nitride(Length::nm(300.0), Length::um(3.0)).unwrap();
+        let (sin, bottom, _) = stack.layer("SiN").unwrap();
+        assert_eq!(sin.material.name(), "Si3N4");
+        assert!((bottom.to_um() - 3.0).abs() < 1e-12);
     }
 
     #[test]
@@ -944,13 +950,5 @@ mod tests {
             )
             .is_err()
         );
-    }
-
-    #[test]
-    fn a_nitride_stack_has_a_nitride_core() {
-        let stack = LayerStack::nitride(Length::nm(300.0), Length::um(3.0)).unwrap();
-        let (sin, bottom, _) = stack.layer("SiN").unwrap();
-        assert_eq!(sin.material.name(), "Si3N4");
-        assert!((bottom.to_um() - 3.0).abs() < 1e-12);
     }
 }

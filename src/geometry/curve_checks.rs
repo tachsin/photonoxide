@@ -757,18 +757,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "writes the cases' rows of the report to PHOTONOXIDE_CURVE_ROWS"]
-    fn rows() {
-        let rows: String = cases()
-            .iter()
-            .map(|c| crate::validation::row(c).0)
-            .collect();
-        if let Some(out) = std::env::var_os("PHOTONOXIDE_CURVE_ROWS") {
-            std::fs::write(out, rows).expect("the rows are written");
-        }
-    }
-
-    #[test]
     #[ignore = "prints the cases' values; cargo test --release --lib curve_checks -- --ignored --nocapture"]
     fn print() {
         for case in cases() {

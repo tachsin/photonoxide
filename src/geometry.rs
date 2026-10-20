@@ -860,8 +860,8 @@ mod tests {
     }
 
     #[test]
-    fn containment_follows_the_shape() {
-        // an L shape: the notch at the top right is outside
+    fn the_primitives_contain_measure_and_bound_what_they_should() {
+        // an L-shaped polygon: the notch at the top right is outside
         let l = Polygon::new(vec![
             Point::um(0.0, 0.0),
             Point::um(2.0, 0.0),
@@ -878,10 +878,7 @@ mod tests {
         assert_eq!(l.area(), 3.0);
         let b = l.bounds();
         assert_eq!((b.min, b.max), (Point::um(0.0, 0.0), Point::um(2.0, 2.0)));
-    }
-
-    #[test]
-    fn rectangles_and_circles() {
+        // a rectangle and a circle
         let r = Shape::rect(Point::um(1.0, 0.0), Length::um(2.0), Length::nm(500.0)).unwrap();
         assert!(r.contains(Point::um(1.9, 0.2)));
         assert!(!r.contains(Point::um(1.9, 0.3)));
@@ -892,11 +889,8 @@ mod tests {
         assert!((c.area() - std::f64::consts::PI).abs() < 1e-15);
         assert!(Shape::rect(Point::um(0.0, 0.0), Length::um(-1.0), Length::um(1.0)).is_err());
         assert!(Shape::circle(Point::um(0.0, 0.0), Length::ZERO).is_err());
-    }
-
-    #[test]
-    fn a_ring_is_the_band_about_its_radius() {
-        // a 500 nm waveguide whose centre line has a 2 um radius: from 1.75 to 2.25 um
+        // a ring is the band about its radius: a 500 nm waveguide whose centre line has a 2 um
+        // radius, from 1.75 to 2.25 um
         let r = Shape::ring(Point::um(1.0, -1.0), Length::um(2.0), Length::nm(500.0)).unwrap();
         assert!(r.contains(Point::um(3.0, -1.0)));
         assert!(r.contains(Point::um(1.0, 1.2)));

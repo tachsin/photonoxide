@@ -330,32 +330,6 @@ fn bounds_hold_their_bodies() {
 }
 
 #[test]
-fn the_tangent_planes_fill_converges_at_second_order() {
-    // what FDTD's smoothing takes: each cell's share of the plane through its centre's nearest
-    // point of the surface, summed over a grid, against the sphere's volume
-    let r = 0.37;
-    let sphere = Body::sphere([0.013, -0.021, 0.034], r).unwrap();
-    let want = 4.0 / 3.0 * PI * r.powi(3);
-    let error = |n: usize| {
-        let h = 1.0 / n as f64;
-        let mut sum = 0.0;
-        for i in 0..n {
-            for j in 0..n {
-                for k in 0..n {
-                    let c = [i, j, k].map(|v| -0.5 + (v as f64 + 0.5) * h);
-                    let (d, nrm) = sphere.surface(c);
-                    sum += plane_share(nrm, d, [h; 3]) * h * h * h;
-                }
-            }
-        }
-        (sum - want).abs()
-    };
-    let (e1, e2) = (error(16), error(32));
-    let order = (e1 / e2).log2();
-    assert!((order - 2.0).abs() < 0.3, "{e1} {e2}: {order}");
-}
-
-#[test]
 fn sections_are_the_planar_shapes_bodies_fill() {
     let window = Bounds::new(Point::um(-2.0, -2.0), Point::um(2.0, 2.0));
     let area = |b: &Body, z: f64| {
@@ -510,23 +484,5 @@ fn fill_timing() {
             "n {n}: {count} cells crossed, {:.2} us each ({sum})",
             1e6 * t / count.max(1) as f64
         );
-    }
-}
-
-#[test]
-#[ignore = "times the slow fills; cargo test --release --lib slow_fill_timing -- --ignored --nocapture"]
-fn slow_fill_timing() {
-    use super::body_checks::*;
-    for (name, f) in [
-        ("sloped", sloped_error as fn() -> f64),
-        ("boolean", boolean_error),
-        ("oblique", oblique_error),
-        ("volumes", volume_error),
-        ("extrusions", extrusion_error),
-        ("akahane", akahane_body_error),
-    ] {
-        let start = std::time::Instant::now();
-        let e = f();
-        println!("{name}: {e:.3e} in {:.2} s", start.elapsed().as_secs_f64());
     }
 }

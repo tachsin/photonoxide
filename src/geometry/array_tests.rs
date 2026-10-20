@@ -67,21 +67,30 @@ fn akahanes_l3_cavity() {
     assert!(e < 1e-12, "{e}");
 }
 
+/// An n × n hexagonal lattice of holes of radius 0.12 µm, 0.42 µm apart: rows along x, the
+/// holes' centres from 0 to 0.42 (n − ½) µm along x and to 0.42 (n − 1) √3/2 µm along y.
+fn holes(n: i64) -> Array {
+    let l = Lattice::hexagonal(um(0.42), [0, n - 1], [0, n - 1]).unwrap();
+    Array::of(&l, &circle(0.0, 0.0, 0.12)).unwrap()
+}
+
 /// A 100 × 100 hexagonal lattice of holes: 10⁴ elements.
 fn big() -> Array {
-    let l = Lattice::hexagonal(um(0.42), [0, 99], [0, 99]).unwrap();
-    Array::of(&l, &circle(0.0, 0.0, 0.12)).unwrap()
+    holes(100)
 }
 
 #[test]
 fn a_point_or_a_cell_tests_only_the_elements_near_it() {
-    let a = big();
-    assert_eq!(a.len(), 10_000);
+    // 50 × 50 holes in 21 × 18 µm: the bounds below are the index's, the same for any number of
+    // elements, and 2500 is still far more than any of them, so a query that scanned the
+    // lattice fails them here as it would on 10⁴; the time went on the slab less 10⁴ disks
+    let a = holes(50);
+    assert_eq!(a.len(), 2500);
     assert!(a.is_separate());
     // a hole's centre, a point between holes, a point outside the lattice
     for p in [
-        Point::um(0.42 * 50.0, 0.0),
-        Point::um(0.42 * 50.25, 0.42 * 3f64.sqrt() * 10.25),
+        Point::um(0.42 * 25.0, 0.0),
+        Point::um(0.42 * 25.25, 0.42 * 3f64.sqrt() * 10.25),
         Point::um(-3.0, 5.0),
     ] {
         let n = tests_of(|| {
@@ -103,31 +112,33 @@ fn a_point_or_a_cell_tests_only_the_elements_near_it() {
         assert!(n <= most, "fill of {side} um tested {n}");
     }
     // a slab less the lattice: its polygons' rings are found through their own index
-    let slab = rect(-1.0, -1.0, 43.0, 37.0)
+    let slab = rect(-1.0, -1.0, 22.0, 19.0)
         .difference(&Shape::Array(a.clone()))
         .unwrap();
-    let p = Point::um(20.0, 20.0);
+    let p = Point::um(10.0, 10.0);
     let n = tests_of(|| {
         slab.contains(p);
     });
     assert!(n <= 4, "the slab's inside test tested {n}");
-    let cell = Bounds::new(Point::um(20.0, 20.0), Point::um(20.2, 20.2));
+    let cell = Bounds::new(Point::um(10.0, 10.0), Point::um(10.2, 10.2));
     let n = tests_of(|| {
         slab.fill(cell);
     });
     assert!(n <= 8, "the slab's fill tested {n}");
-    let holes = 10_000.0 * PI * 0.12 * 0.12;
-    assert!(((slab.area() - (44.0 * 38.0 - holes)) / slab.area()).abs() < 1e-9);
+    let holes = 2500.0 * PI * 0.12 * 0.12;
+    assert!(((slab.area() - (23.0 * 20.0 - holes)) / slab.area()).abs() < 1e-9);
 }
 
 #[test]
 fn material_at_through_a_structure_reads_the_lattice() {
     use crate::stack::{LayerStack, Structure};
+    // 20 × 20 holes in 8.3 × 7 µm: three points are read, and the index's bound on the
+    // elements tested doesn't depend on how many there are
     let mut s = Structure::new(LayerStack::soi_220());
-    let holes = Shape::Array(big());
+    let lattice = Shape::Array(holes(20));
     s.draw(
         "Si",
-        rect(-1.0, -1.0, 43.0, 37.0).difference(&holes).unwrap(),
+        rect(-1.0, -1.0, 9.0, 8.0).difference(&lattice).unwrap(),
     )
     .unwrap();
     let z = Length::um(2.11);

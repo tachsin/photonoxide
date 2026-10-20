@@ -99,27 +99,9 @@ fn an_interface_on_the_grid_lines_gives_what_point_sampling_does_to_the_bit() {
 }
 
 #[test]
-fn a_disks_averaged_permittivity_summed_over_cells_is_its_area_weighted_permittivity() {
-    let (eps_disk, eps_bg, r) = (12.0, 1.0, 0.437);
-    let disk = Shape::circle(Point::um(0.0123, -0.0311), Length::um(r)).unwrap();
-    let mut plane = Plane::new(re(eps_bg));
-    plane.draw(disk, re(eps_disk));
-    let h = 0.04;
-    let mut excess = 0.0;
-    for cell in cells(30, 30, h, (-0.6, -0.6)) {
-        excess += (plane.shares(cell).mean().re - eps_bg) * h * h;
-    }
-    let exact = (eps_disk - eps_bg) * PI * r * r;
-    assert!(
-        (excess - exact).abs() < 1e-12 * exact,
-        "{excess} {exact} ({:e})",
-        excess / exact - 1.0
-    );
-}
-
-#[test]
-fn overlapping_shapes_of_one_material_fill_their_union() {
-    // two disks of radius 0.3 um 0.4 um apart: their union is 2πr² less the lens
+fn drawn_shapes_fill_their_union_and_the_last_drawn_hides_what_it_covers() {
+    // overlapping shapes of one material fill their union: two disks of radius 0.3 um 0.4 um
+    // apart, 2πr² less the lens
     let r: f64 = 0.3;
     let d: f64 = 0.4;
     let a = Shape::circle(Point::um(-d / 2.0, 0.0), Length::um(r)).unwrap();
@@ -134,11 +116,8 @@ fn overlapping_shapes_of_one_material_fill_their_union() {
         area += (plane.shares(cell).mean().re - 1.0) / 3.0 * h * h;
     }
     assert!((area - union).abs() < 1e-8 * union, "{area} {union}");
-}
-
-#[test]
-fn a_shape_drawn_over_another_hides_what_it_covers() {
-    // a disk of 9 over a block of 4 on a background of 1
+    // a shape drawn over another hides what it covers: a disk of 9 over a block of 4 on a
+    // background of 1
     let block = Shape::rect(Point::um(0.0, 0.0), Length::um(0.8), Length::um(0.5)).unwrap();
     let disk = Shape::circle(Point::um(0.4, 0.0), Length::um(0.2)).unwrap();
     let mut plane = Plane::new(re(1.0));

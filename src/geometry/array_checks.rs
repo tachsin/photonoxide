@@ -660,39 +660,3 @@ pub(crate) fn cases() -> Vec<Case> {
         },
     ]
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    #[ignore = "writes the cases' rows of the report to PHOTONOXIDE_ARRAY_ROWS"]
-    fn rows() {
-        let rows: String = cases()
-            .iter()
-            .map(|c| crate::validation::row(c).0)
-            .collect();
-        if let Some(out) = std::env::var_os("PHOTONOXIDE_ARRAY_ROWS") {
-            std::fs::write(out, rows).expect("the rows are written");
-        }
-    }
-
-    #[test]
-    #[ignore = "prints the cases' values; cargo test --release --lib array_checks -- --ignored --nocapture"]
-    fn print() {
-        for case in cases() {
-            let start = std::time::Instant::now();
-            let o = (case.run)();
-            println!(
-                "{}: measured {:.6e} expected {} error {:.3e} tolerance {} {} ({:.2} s)",
-                case.id,
-                o.measured,
-                o.expected,
-                o.error,
-                o.tolerance,
-                o.passed(),
-                start.elapsed().as_secs_f64()
-            );
-        }
-    }
-}
