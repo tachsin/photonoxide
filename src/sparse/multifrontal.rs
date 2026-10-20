@@ -1196,31 +1196,6 @@ mod tests {
     }
 
     #[test]
-    fn the_factors_are_the_same_bits_on_any_number_of_threads() {
-        let (a, positions) = laplacian(120, 90);
-        let n = a.ncols();
-        let b: Vec<c64> = (0..n).map(|i| c64::new((i % 5) as f64, -1.0)).collect();
-        let analysis = Arc::new(Analysis::new(a.as_ref(), Some(&positions)).unwrap());
-        let run = |threads: usize| {
-            rayon::ThreadPoolBuilder::new()
-                .num_threads(threads)
-                .build()
-                .unwrap()
-                .install(|| {
-                    let lu = Multifrontal::new(analysis.clone(), a.as_ref()).unwrap();
-                    lu.solve(&b)
-                        .iter()
-                        .map(|z| (z.re.to_bits(), z.im.to_bits()))
-                        .collect::<Vec<_>>()
-                })
-        };
-        let one = run(1);
-        for threads in [2, 4, 5, 20] {
-            assert!(run(threads) == one, "{threads} threads differ from one");
-        }
-    }
-
-    #[test]
     fn a_zero_pivot_is_perturbed_and_counted() {
         // a singular 2 × 2 block, [[1, 1], [1, 1]]: no permutation of its rows helps, and its
         // second pivot is zero
@@ -1324,31 +1299,44 @@ mod tests {
     }
 
     #[test]
-    fn l_d_lt_is_the_same_bits_on_any_number_of_threads() {
-        let (a, positions) = symmetric_laplacian(120, 90);
-        let n = a.ncols();
-        let b: Vec<c64> = (0..n).map(|i| c64::new((i % 5) as f64, -1.0)).collect();
-        let analysis = Arc::new(
-            Analysis::new_symmetric(a.as_ref(), Some(&positions))
-                .unwrap()
-                .unwrap(),
-        );
-        let run = |threads: usize| {
-            rayon::ThreadPoolBuilder::new()
-                .num_threads(threads)
-                .build()
-                .unwrap()
-                .install(|| {
-                    let lu = Multifrontal::new(analysis.clone(), a.as_ref()).unwrap();
-                    lu.solve(&b)
-                        .iter()
-                        .map(|z| (z.re.to_bits(), z.im.to_bits()))
-                        .collect::<Vec<_>>()
-                })
-        };
-        let one = run(1);
-        for threads in [2, 4, 5, 20] {
-            assert!(run(threads) == one, "{threads} threads differ from one");
+    fn the_factors_are_the_same_bits_on_any_number_of_threads() {
+        // L U of the Laplacian, and L D Lᵀ of its complex symmetric form
+        for symmetric in [false, true] {
+            let (a, positions) = if symmetric {
+                symmetric_laplacian(120, 90)
+            } else {
+                laplacian(120, 90)
+            };
+            let n = a.ncols();
+            let b: Vec<c64> = (0..n).map(|i| c64::new((i % 5) as f64, -1.0)).collect();
+            let analysis = Arc::new(if symmetric {
+                Analysis::new_symmetric(a.as_ref(), Some(&positions))
+                    .unwrap()
+                    .unwrap()
+            } else {
+                Analysis::new(a.as_ref(), Some(&positions)).unwrap()
+            });
+            assert_eq!(analysis.symmetric(), symmetric);
+            let run = |threads: usize| {
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(threads)
+                    .build()
+                    .unwrap()
+                    .install(|| {
+                        let lu = Multifrontal::new(analysis.clone(), a.as_ref()).unwrap();
+                        lu.solve(&b)
+                            .iter()
+                            .map(|z| (z.re.to_bits(), z.im.to_bits()))
+                            .collect::<Vec<_>>()
+                    })
+            };
+            let one = run(1);
+            for threads in [2, 4, 5, 20] {
+                assert!(
+                    run(threads) == one,
+                    "symmetric {symmetric}: {threads} threads differ from one"
+                );
+            }
         }
     }
 }

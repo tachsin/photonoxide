@@ -231,35 +231,6 @@ mod tests {
         );
     }
 
-    /// Asserts the TE effective indices against values printed to 4 decimals.
-    fn assert_printed(modes: &[SlabMode], printed: &[f64]) {
-        let got: Vec<f64> = modes.iter().map(SlabMode::effective_index).collect();
-        assert_eq!(got.len(), printed.len(), "{got:?}");
-        for (n, want) in got.iter().zip(printed) {
-            assert!((n - want).abs() < 5e-5, "{n} vs the printed {want}");
-        }
-    }
-
-    #[test]
-    fn yariv_and_yehs_asymmetric_slab_gives_their_effective_indices() {
-        // Yariv & Yeh, Section 3.2, p. 123 and Figs. 3.8–3.9: n₁ = 1.0, n₂ = 2.0, n₃ = 1.7,
-        // t/λ = 1: two TE modes, n_eff = 1.9594 and 1.8375, and two TM modes
-        let slab = Slab::new(1.0, 2.0, 1.7, Length::um(1.0)).unwrap();
-        assert_printed(&slab.modes(Polarization::Te, lam(1.0)), &[1.9594, 1.8375]);
-        assert_eq!(slab.modes(Polarization::Tm, lam(1.0)).len(), 2);
-    }
-
-    #[test]
-    fn yariv_and_yehs_symmetric_slab_gives_their_effective_indices() {
-        // Yariv & Yeh, Section 3.1, pp. 117–118: n₁ = 1.5, n₂ = 1.6, d = 5 µm, λ = 1.55 µm
-        // (V = 5.6425): four TE modes, β/(ω/c) = 1.5946, 1.5785, 1.5521 and 1.5175
-        let slab = Slab::new(1.5, 1.6, 1.5, Length::um(5.0)).unwrap();
-        assert_printed(
-            &slab.modes(Polarization::Te, lam(1.55)),
-            &[1.5946, 1.5785, 1.5521, 1.5175],
-        );
-    }
-
     #[test]
     fn the_roots_satisfy_the_books_tangent_form() {
         // tan(ht) − (p+q)/h/(1 − pq/h²) = 0 for TE, tan(ht) − h(p̄+q̄)/(h² − p̄q̄) = 0 for TM

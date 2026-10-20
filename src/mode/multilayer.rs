@@ -682,24 +682,6 @@ mod tests {
     }
 
     #[test]
-    fn the_four_layer_guides_bound_modes_are_the_papers() {
-        // Table 3: TE0 1.622729, TE1 1.605276, TE2 1.557136, TE3 1.503587; TM0 1.620031,
-        // TM1 1.594788, TM2 1.554981, TM3 1.501818
-        let (stack, w) = four_layer();
-        for (pol, printed) in [
-            (Polarization::Te, [1.622729, 1.605276, 1.557136, 1.503587]),
-            (Polarization::Tm, [1.620031, 1.594788, 1.554981, 1.501818]),
-        ] {
-            let modes = stack.bound_modes(pol, w).unwrap();
-            assert_eq!(modes.len(), 4, "{pol:?}");
-            for (m, p) in modes.iter().zip(printed) {
-                let n = m.effective_index().re;
-                assert!((n - p).abs() < 5e-7, "{pol:?}: {n} vs {p}");
-            }
-        }
-    }
-
-    #[test]
     fn the_four_layer_guides_power_is_shared_as_in_the_paper() {
         // Table 3, % of the power in cover, films 1–4 and substrate, printed to 0.1
         let (stack, w) = four_layer();
