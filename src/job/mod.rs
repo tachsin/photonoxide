@@ -6439,11 +6439,8 @@ field_um = 1.58",
                 assert_eq!(events_on(threads, text, tag), one, "{tag} on {threads}");
             }
         }
-    }
-
-    #[test]
-    fn fdfd_s_parameters_are_the_same_on_any_number_of_threads() {
-        let job = Job::parse(&FDFD.replace("points = 2", "points = 5")).unwrap();
+        // and the FDFD sweep's S-parameters called directly, outside a run
+        let job = Job::parse(&fdfd).unwrap();
         let on = |threads| {
             rayon::ThreadPoolBuilder::new()
                 .num_threads(threads)

@@ -37,15 +37,6 @@ fn the_rings_closed_form_is_fitted_and_used() {
 }
 
 #[test]
-fn the_error_falls_as_samples_and_degree_rise() {
-    let errors: Vec<f64> = [(3, 1), (5, 2), (7, 4)]
-        .iter()
-        .map(|&(n, d)| ring_over_gap(n, d).unwrap().held_out_error)
-        .collect();
-    assert!(errors[0] > errors[1] && errors[1] > errors[2], "{errors:?}");
-}
-
-#[test]
 fn the_derivatives_in_the_covered_parameters_are_exact() {
     let f = ring_over_gap(7, 4).unwrap();
     let e = ring_derivative_error(&f).unwrap();

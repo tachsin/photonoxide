@@ -3144,7 +3144,9 @@ time_um = 10.0
         // outside both, the stack: the strip below, the cladding above
         assert_eq!(eps(0.0, 0.0, 2.11), si);
         assert!(eps(0.0, 0.6, 2.6) < 2.2);
+        // it runs, on the stack and its bodies, showing its frames
         let events = run_job(text, "bodies-3d");
+        assert!(events.iter().any(|e| matches!(e, Event::FdtdFrame { .. })));
         let (_, out) = last_spectrum(&events, "out");
         assert!(out[0].is_finite() && out[0] > 0.0, "{out:?}");
         // a graded medium that isn't positive inside the window is refused, naming the body
@@ -3156,44 +3158,6 @@ time_um = 10.0
             e.contains("[[task.body]] #2") && e.contains("positive"),
             "{e}"
         );
-    }
-
-    #[test]
-    fn a_3d_job_runs_on_the_stack() {
-        let text = r#"
-name = "strip-3d"
-[task]
-kind = "fdtd"
-stack = "soi_220"
-wavelength_um = 1.55
-layer = "Si"
-dimensions = 3
-x_um = [-1.2, 1.2]
-y_um = [-1.0, 1.0]
-z_um = [1.3, 2.9]
-step_nm = 80.0
-pml_cells = 4
-[[task.rect]]
-layer = "Si"
-center_um = [0.0, 0.0]
-size_um = [4.0, 0.5]
-[[task.source]]
-type = "mode"
-normal = "x"
-at_um = -0.4
-[[task.monitor]]
-type = "mode"
-name = "out"
-normal = "x"
-at_um = -0.1
-[task.stop]
-until = "time"
-time_um = 20.0
-"#;
-        let events = run_job(text, "3d");
-        assert!(events.iter().any(|e| matches!(e, Event::FdtdFrame { .. })));
-        let (_, out) = last_spectrum(&events, "out");
-        assert!(out[0].is_finite() && out[0] > 0.0, "{out:?}");
     }
 
     /// A guide cut by a 0.3 µm gap, 2D TE on 40 nm cells with absorbers of 20, as an `"fdtd"`

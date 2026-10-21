@@ -436,43 +436,53 @@ fn a_current_job_heats_with_its_joule_power() {
 }
 
 #[test]
-fn check_names_a_medium_without_a_coefficient() {
-    let job = Job::parse(&HEATER.replace("SiO2 = 1.4\n", "")).unwrap();
-    let e = check(&job).unwrap_err().to_string();
-    assert!(e.contains("no value for the medium SiO2"), "{e}");
-}
-
-#[test]
-fn check_refuses_an_unknown_physics_and_side() {
-    let job = Job::parse(&HEATER.replace("physics = \"heat\"", "physics = \"magnetic\"")).unwrap();
-    let e = check(&job).unwrap_err().to_string();
-    assert!(
-        e.contains("\"heat\", \"electrostatic\" or \"current\""),
-        "{e}"
-    );
-    let job = Job::parse(&HEATER.replace("bottom = { fixed = 0.0 }", "bottom = \"cold\"")).unwrap();
-    let e = check(&job).unwrap_err().to_string();
-    assert!(e.contains("insulated"), "{e}");
-}
-
-#[test]
-fn check_refuses_a_grid_too_fine() {
-    let job = Job::parse(&HEATER.replace(
-        "fine_nm = 20.0",
-        "fine_nm = 1.0
+fn what_a_static_job_refuses() {
+    // each an edit of HEATER that check refuses, and the words its refusal must hold
+    let nothing_holds = HEATER
+        .replace(
+            "bottom = { fixed = 0.0 }
+",
+            "",
+        )
+        .replace(
+            "top = { convective = 10.0, ambient = 0.0 }
+",
+            "",
+        );
+    for (text, says) in [
+        // a medium without a coefficient is named
+        (
+            HEATER.replace(
+                "SiO2 = 1.4
+",
+                "",
+            ),
+            "no value for the medium SiO2",
+        ),
+        // an unknown physics, and an unknown side condition
+        (
+            HEATER.replace("physics = \"heat\"", "physics = \"magnetic\""),
+            "\"heat\", \"electrostatic\" or \"current\"",
+        ),
+        (
+            HEATER.replace("bottom = { fixed = 0.0 }", "bottom = \"cold\""),
+            "insulated",
+        ),
+        // a grid too fine
+        (
+            HEATER.replace(
+                "fine_nm = 20.0",
+                "fine_nm = 1.0
 growth = 1.0",
-    ))
-    .unwrap();
-    let e = check(&job).unwrap_err().to_string();
-    assert!(e.contains("cells"), "{e}");
-}
-
-#[test]
-fn check_refuses_a_job_that_holds_nothing() {
-    let text = HEATER
-        .replace("bottom = { fixed = 0.0 }\n", "")
-        .replace("top = { convective = 10.0, ambient = 0.0 }\n", "");
-    let job = Job::parse(&text).unwrap();
-    let e = check(&job).unwrap_err().to_string();
-    assert!(e.contains("nothing holds"), "{e}");
+            ),
+            "cells",
+        ),
+        // nothing holding the level
+        (nothing_holds, "nothing holds"),
+    ] {
+        assert_ne!(text, HEATER, "{says}");
+        let job = Job::parse(&text).unwrap();
+        let e = check(&job).unwrap_err().to_string();
+        assert!(e.contains(says), "{says}: {e}");
+    }
 }

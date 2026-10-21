@@ -1714,8 +1714,20 @@ mod tests {
         for id in super::super::export::IDS {
             assert!(ids.contains(id), "{id}");
         }
-        for problem in super::super::problems() {
+        let problems = super::super::problems();
+        for (i, problem) in problems.iter().enumerate() {
             assert!(ids.contains(problem.id), "{}", problem.id);
+            // each problem's own id holds a family before a slash, is titled, and is its own
+            assert!(
+                problem.id.contains('/') && !problem.title.is_empty(),
+                "{}",
+                problem.id
+            );
+            assert!(
+                problems[..i].iter().all(|q| q.id != problem.id),
+                "{} twice",
+                problem.id
+            );
         }
         // every family is there, each entry's id begins with its family's name or is an older
         // one, and no record is without its grid
@@ -1858,10 +1870,10 @@ mod tests {
             "modes/hadley-box-64",
             "modes/hadley-corner-64",
             "circuit/mzi-101",
+            // the dense family at its smallest size only: its 256 entries run the same code on
+            // larger matrices, and the record's check is the same at any size
             "dense/lu-32",
             "dense/product-32",
-            "dense/lu-256",
-            "dense/product-256",
         ] {
             let e = entry(id).unwrap();
             assert_eq!(e.tier, Tier::Quick, "{id}");

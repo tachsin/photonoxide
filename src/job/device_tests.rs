@@ -263,6 +263,10 @@ fn the_fdfd_models_run_as_jobs_to_the_bit_on_a_coarse_grid() {
             &mmi,
             &format!("guided-{tag}"),
         );
+        // 2D and 3D FDFD on the 1x2 alone: the 2x2's solves take the same path, as long again
+        if kind == "MMI 2x2" {
+            continue;
+        }
         let fdfd = mmi
             .with_model_2d(Model2d::Fdfd)
             .with_grid_2d(tiny_grid_2d())

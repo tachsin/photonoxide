@@ -939,15 +939,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ids_are_unique_and_titled() {
-        let all = problems();
-        for (i, p) in all.iter().enumerate() {
-            assert!(p.id.contains('/') && !p.title.is_empty(), "{}", p.id);
-            assert!(all[..i].iter().all(|q| q.id != p.id), "{} twice", p.id);
-        }
-    }
-
-    #[test]
     fn a_measurement_adds_its_phases_up() {
         let m = Measurement {
             grid: "1 cell".into(),
