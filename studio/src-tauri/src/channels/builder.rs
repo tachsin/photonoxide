@@ -497,6 +497,23 @@ pub fn unpack(archive: &Path, to: &Path, sha: &str) -> Result<usize, String> {
     Ok(files)
 }
 
+/// Removes `dir`, trying again for up to 10 s while a file in it is still held: a build
+/// cancelled just before left its processes killed, and Windows lets go of a killed process's
+/// files only some time after it is gone (a rebuild right after a cancel failed with "being used
+/// by another process" when the machine was busy).
+fn remove_dir_patiently(dir: &Path) -> std::io::Result<()> {
+    let mut tries = 0;
+    loop {
+        match std::fs::remove_dir_all(dir) {
+            Err(_) if tries < 100 && dir.exists() => {
+                tries += 1;
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            done => return done,
+        }
+    }
+}
+
 fn stopped(cancel: &AtomicBool, deadline: Instant, timeout: Duration) -> Result<(), String> {
     if cancel.load(Ordering::SeqCst) {
         return Err("cancelled".into());
@@ -677,7 +694,7 @@ fn build(
     say("unpack", "Unpacking the source".into());
     let source = dirs.source();
     if source.exists() {
-        std::fs::remove_dir_all(&source)
+        remove_dir_patiently(&source)
             .map_err(|e| format!("can't empty {}: {e}", source.display()))?;
     }
     let files = unpack(&archive, &source, sha)?;
@@ -1212,7 +1229,10 @@ mod tests {
         assert_eq!(read_json::<Ready>(&dirs.ready_file()), Some(first.clone()));
         assert!(first.artifact.is_file());
         // one that succeeds replaces it, and only then is the old one removed
-        let second = again(&dirs, &dir, "ok").ready.unwrap();
+        let rebuilt = again(&dirs, &dir, "ok");
+        let second = rebuilt
+            .ready
+            .unwrap_or_else(|| panic!("the rebuild failed: {:?}", rebuilt.error));
         assert_ne!(second.artifact, first.artifact);
         assert_eq!(read_json::<Ready>(&dirs.ready_file()), Some(second.clone()));
         assert!(second.artifact.is_file());
@@ -1313,7 +1333,8 @@ mod tests {
         assert!(asked.elapsed() < Duration::from_secs(20));
         let _ = std::fs::remove_dir_all(&dir);
 
-        let (build, _, dir) = start("build-timeout", "hang", Duration::from_secs(3));
+        // a hard timeout of 1 s: what is checked is that it fires and says so, not how long
+        let (build, _, dir) = start("build-timeout", "hang", Duration::from_secs(1));
         let p = follow(&build, &mut |_| {});
         assert_eq!(p.phase, "failed");
         assert!(p.error.unwrap().contains("took longer than"), "timeout");

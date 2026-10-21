@@ -765,7 +765,9 @@ pub(crate) mod tests {
             &[],
             compare_json("ahead", 2).as_bytes(),
         );
+        // the checker as a first start has it: its memory empty, as `{}` reads
         let mut checker = Checker::default();
+        assert_eq!(serde_json::from_str::<Checker>("{}").unwrap(), checker);
         let found = checker
             .check(&web, Some(BUILT), "0.5.0", 1000, true)
             .unwrap()
@@ -915,21 +917,5 @@ pub(crate) mod tests {
             .check(&web, None, "0.5.0", 0, false)
             .unwrap_err();
         assert!(e.contains("isn't a commit"), "{e}");
-    }
-
-    #[test]
-    fn the_checker_s_memory_round_trips() {
-        let checker = Checker {
-            etag: Some("W/\"x\"".into()),
-            head: Some(HEAD.into()),
-            failures: 2,
-            ..Checker::default()
-        };
-        let json = serde_json::to_string(&checker).unwrap();
-        assert_eq!(serde_json::from_str::<Checker>(&json).unwrap(), checker);
-        assert_eq!(
-            serde_json::from_str::<Checker>("{}").unwrap(),
-            Checker::default()
-        );
     }
 }

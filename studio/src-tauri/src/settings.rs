@@ -107,10 +107,7 @@ mod tests {
         std::fs::write(&file, r#"{"theme":"nord"}"#).unwrap();
         assert_eq!(Settings::load(&file).theme, "nord");
         let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn the_length_unit_defaults_to_micrometres_and_round_trips() {
+        // the length unit defaults to micrometres and round-trips
         assert_eq!(Settings::default().length_unit, "um");
         // a settings file from before the unit existed loads with µm, keeping the rest
         let old: Settings = serde_json::from_str(r#"{"theme":"light","view":"2d"}"#).unwrap();

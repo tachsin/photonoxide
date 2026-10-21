@@ -2883,7 +2883,7 @@ mod tests {
     /// The all-pass ring the chart draws is photonoxide's AllPassRing: the radius in µm makes a
     /// round trip of 2πR µm, the loss is in dB/cm, x is in µm and the window in nm.
     #[test]
-    fn ring_spectrum_is_the_all_pass_ring() {
+    fn ring_spectrum_is_the_all_pass_ring_and_with_a_drop_the_add_drop_ring() {
         let (radius, coupling, loss, ng) = (12.0, 0.08, 4.0, 4.0);
         let data = evaluate(
             "ring-spectrum",
@@ -2953,10 +2953,8 @@ mod tests {
             .map(|p| p[1])
             .fold(f64::INFINITY, f64::min);
         assert!(lowest - on < 1e-3 * (1.0 - on), "{lowest} against {on}");
-    }
-
-    #[test]
-    fn ring_spectrum_with_a_drop_is_the_add_drop_ring() {
+        // with a drop port, at the chart's defaults but for the drop and the coupling: the
+        // add-drop ring
         let data = evaluate("ring-spectrum", &with(&[("drop", 0.05), ("coupling", 0.1)])).unwrap();
         let ring = AddDropRing::new(
             Dispersion::new(Wavelength::um(1.55).unwrap(), 2.4, 4.2).with_loss(3.0),
