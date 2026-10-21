@@ -204,10 +204,7 @@ fn netlists_refuse_what_cant_be_built() {
     looped.add("x", one()).unwrap();
     looped.connect("x.a", "x.b").unwrap();
     looped.validate().unwrap();
-}
-
-#[test]
-fn parameters_are_checked_against_their_ranges() {
+    // parameters are checked against their ranges
     let mut n = Netlist::new();
     n.add("ps", Arc::new(Tunable::new(Polarization::Te)))
         .unwrap();
@@ -230,10 +227,7 @@ fn parameters_are_checked_against_their_ranges() {
         netlist_error(n.set("qs", "phase", 1.0)),
         NetlistError::UnknownInstance(_)
     ));
-}
-
-#[test]
-fn components_with_bad_names_or_defaults_are_refused() {
+    // components with a port named twice, a bad parameter name or a default out of its range
     let mut n = Netlist::new();
     let mut twice = Tunable::new(Polarization::Te);
     twice.ports[1].name = "a".into();

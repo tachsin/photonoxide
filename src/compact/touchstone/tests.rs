@@ -22,49 +22,65 @@ fn close(a: c64, b: c64, tol: f64) -> bool {
     (a - b).norm() <= tol * b.norm().max(1.0)
 }
 
-// Rev. 1.1, Section 3, Example 1
 #[test]
-fn a_one_port_file_with_a_single_frequency() {
-    let t = parse(
-        "!1-port S-parameter file, single frequency point\n# MHz S MA R 50\n!freq magS11 angS11\n2.000 0.894 -12.136\n",
-    );
-    assert_eq!(t.version, Version::One);
-    assert_eq!(
-        (t.ports(), t.unit, t.parameter, t.format),
-        (1, FrequencyUnit::MHz, Parameter::S, Format::MagnitudeAngle)
-    );
-    assert_eq!(t.reference, vec![50.0]);
-    assert_eq!(t.frequencies_hz, vec![2e6]);
-    assert!(close(t.matrices[0][0][0], polar(0.894, -12.136), 1e-15));
-}
-
-// Rev. 1.1, Example 2: Z-parameters normalized to 75 ohms
-#[test]
-fn a_one_port_z_file_over_five_frequencies() {
-    let t = parse(
-        "# MHz Z MA R 75\n100 0.99 -4\n200 0.80 -22\n300 0.707 -45\n400 0.40 -62\n500 0.01 -89\n",
-    );
-    assert_eq!(t.parameter, Parameter::Z);
-    assert_eq!(t.reference, vec![75.0]);
-    assert_eq!(t.frequencies_hz, vec![1e8, 2e8, 3e8, 4e8, 5e8]);
-    assert!(close(t.matrices[4][0][0], polar(0.01, -89.0), 1e-15));
-    // only S-parameters become S-matrices
-    let e = t.spectrum(Convention::Physics).unwrap_err().to_string();
-    assert!(e.contains("S-parameters"), "{e}");
-}
-
-// Rev. 1.1, Example 3, and Version 2.0 Example 12 (whose "[Version 2.0]" is a misprint)
-#[test]
-fn a_two_port_h_file() {
-    let t = parse(
-        "!2-port H-parameter file, single frequency point\n# KHz H MA R 1\n! freq magH11 angH11 magH21 angH21 magH12 angH12 magH22 angH22\n2 .95 -26 3.57 157 .04 76 .66 -14\n",
-    );
-    assert_eq!((t.parameter, t.unit), (Parameter::H, FrequencyUnit::KHz));
-    // N11 N21 N12 N22
-    assert!(close(t.matrices[0][1][0], polar(3.57, 157.0), 1e-15));
-    assert!(close(t.matrices[0][0][1], polar(0.04, 76.0), 1e-15));
-    // H-parameters are for 2 ports only
-    fails_at("# KHz H MA R 1\n2 .95 -26\n", None, 1);
+fn the_specifications_examples_parse_to_their_numbers() {
+    // Rev. 1.1, Section 3, Example 1
+    {
+        let t = parse(
+            "!1-port S-parameter file, single frequency point\n# MHz S MA R 50\n!freq magS11 angS11\n2.000 0.894 -12.136\n",
+        );
+        assert_eq!(t.version, Version::One);
+        assert_eq!(
+            (t.ports(), t.unit, t.parameter, t.format),
+            (1, FrequencyUnit::MHz, Parameter::S, Format::MagnitudeAngle)
+        );
+        assert_eq!(t.reference, vec![50.0]);
+        assert_eq!(t.frequencies_hz, vec![2e6]);
+        assert!(close(t.matrices[0][0][0], polar(0.894, -12.136), 1e-15));
+    }
+    // Rev. 1.1, Example 2: Z-parameters normalized to 75 ohms
+    {
+        let t = parse(
+            "# MHz Z MA R 75\n100 0.99 -4\n200 0.80 -22\n300 0.707 -45\n400 0.40 -62\n500 0.01 -89\n",
+        );
+        assert_eq!(t.parameter, Parameter::Z);
+        assert_eq!(t.reference, vec![75.0]);
+        assert_eq!(t.frequencies_hz, vec![1e8, 2e8, 3e8, 4e8, 5e8]);
+        assert!(close(t.matrices[4][0][0], polar(0.01, -89.0), 1e-15));
+        // only S-parameters become S-matrices
+        let e = t.spectrum(Convention::Physics).unwrap_err().to_string();
+        assert!(e.contains("S-parameters"), "{e}");
+    }
+    // Rev. 1.1, Example 3, and Version 2.0 Example 12 (whose "[Version 2.0]" is a misprint)
+    {
+        let t = parse(
+            "!2-port H-parameter file, single frequency point\n# KHz H MA R 1\n! freq magH11 angH11 magH21 angH21 magH12 angH12 magH22 angH22\n2 .95 -26 3.57 157 .04 76 .66 -14\n",
+        );
+        assert_eq!((t.parameter, t.unit), (Parameter::H, FrequencyUnit::KHz));
+        // N11 N21 N12 N22
+        assert!(close(t.matrices[0][1][0], polar(3.57, 157.0), 1e-15));
+        assert!(close(t.matrices[0][0][1], polar(0.04, 76.0), 1e-15));
+        // H-parameters are for 2 ports only
+        fails_at("# KHz H MA R 1\n2 .95 -26\n", None, 1);
+    }
+    // Rev. 1.1, Example 4 (below)
+    {
+        let t = parse(EXAMPLE_4);
+        assert_eq!((t.ports(), t.format), (2, Format::RealImaginary));
+        assert_eq!(t.frequencies_hz, vec![1e9, 2e9, 10e9]);
+        assert_eq!(t.matrices[1][1][0], c64::new(-0.0096, -0.0298));
+        assert_eq!(t.matrices[2][1][1], c64::new(0.3419, 0.3336));
+        assert_eq!(t.noise_frequencies, 0);
+    }
+    // Version 2.0, Example 7: a 1-port Z file with [Reference]
+    {
+        let t = parse(
+            "!1-port Z-parameter file, multiple frequency points\n[Version] 2.0\n\n# MHz Z MA\n\n[Number of Ports] 1\n\n[Number of Frequencies] 5\n\n[Reference] 20.0\n\n[Network Data]\n\n!freq magZ11 angZ11\n\n100 74.25 -4\n\n200 60          -22\n\n300 53.025 -45\n\n400 30          -62\n\n500 0.75 -89\n",
+        );
+        assert_eq!((t.parameter, t.ports()), (Parameter::Z, 1));
+        assert_eq!(t.reference, vec![20.0]);
+        assert!(close(t.matrices[1][0][0], polar(60.0, -22.0), 1e-15));
+    }
 }
 
 // Rev. 1.1, Example 4 (Version 2.0, Example 13)
@@ -75,16 +91,6 @@ const EXAMPLE_4: &str = "!2-port S-parameter file, three frequency points
 2.0000 0.3517 -0.3054 -0.0096 -0.0298 -0.0096 -0.0298 0.3517 -0.3054
 10.000 0.3419 0.3336 -0.0134 0.0379 -0.0134 0.0379 0.3419 0.3336
 ";
-
-#[test]
-fn a_two_port_s_file_in_real_and_imaginary_parts() {
-    let t = parse(EXAMPLE_4);
-    assert_eq!((t.ports(), t.format), (2, Format::RealImaginary));
-    assert_eq!(t.frequencies_hz, vec![1e9, 2e9, 10e9]);
-    assert_eq!(t.matrices[1][1][0], c64::new(-0.0096, -0.0298));
-    assert_eq!(t.matrices[2][1][1], c64::new(0.3419, 0.3336));
-    assert_eq!(t.noise_frequencies, 0);
-}
 
 // Rev. 1.1, Example 5 (Version 2.0, Example 14): a 4-port, a row per line
 const EXAMPLE_5: &str = "! 4-port S-parameter data, taken at three frequency points
@@ -276,6 +282,69 @@ fn errors_name_the_line() {
     fails_at("# GHz S RI\n[Number of Ports] 1\n1 1 0\n", None, 2);
     // a layout no number of ports fits
     fails_at("# GHz S RI\n1 1 0 2 0\n", None, 2);
+    // and in Version 2.0 files
+    // mixed-mode data (Example 16) isn't supported
+    let e = fails_at(
+        "[Version] 2.0\n# MHz Y RI R 50\n[Number of Ports] 6\n[Number of Frequencies] 1\n[Mixed-Mode Order] D2,3 D6,5 C2,3 C6,5 S4 S1\n[Network Data]\n",
+        None,
+        5,
+    );
+    assert!(e.contains("mixed-mode"), "{e}");
+    // the version
+    fails_at("[Version] 3.0\n#\n", None, 1);
+    // [Number of Ports] first after the option line
+    fails_at(
+        "[Version] 2.0\n# GHz S RI\n[Number of Frequencies] 1\n[Number of Ports] 1\n",
+        None,
+        3,
+    );
+    // [Number of Frequencies] is required
+    let e = Touchstone::parse(
+        "[Version] 2.0\n# GHz S RI\n[Number of Ports] 1\n[Network Data]\n1 1 0\n",
+        None,
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains("[Number of Frequencies]"), "{e}");
+    // more data than declared
+    fails_at(
+        "[Version] 2.0\n# GHz S RI\n[Number of Ports] 1\n[Number of Frequencies] 1\n[Network Data]\n1 1 0\n2 1 0\n",
+        None,
+        7,
+    );
+    // less
+    let e = Touchstone::parse("[Version] 2.0\n# GHz S RI\n[Number of Ports] 1\n[Number of Frequencies] 3\n[Network Data]\n1 1 0\n2 1 0\n[End]\n", None).unwrap_err().to_string();
+    assert!(e.contains("stops after 2"), "{e}");
+    // a frequency in the middle of a line
+    fails_at(
+        "[Version] 2.0\n# GHz S RI\n[Number of Ports] 1\n[Number of Frequencies] 2\n[Network Data]\n1 1 0 2 1 0\n",
+        None,
+        6,
+    );
+    // an unknown keyword
+    let e = fails_at(
+        "[Version] 2.0\n# GHz S RI\n[Number of Ports] 1\n[Colour] red\n",
+        None,
+        4,
+    );
+    assert!(e.contains("Colour"), "{e}");
+    // a [Reference] short of a port
+    fails_at(
+        "[Version] 2.0\n# GHz S RI\n[Number of Ports] 2\n[Reference] 50\n[Two-Port Data Order] 12_21\n",
+        None,
+        4,
+    );
+    // the extension's ports must agree
+    fails_at(
+        "[Version] 2.0\n# GHz S RI\n[Number of Ports] 1\n",
+        Some(2),
+        3,
+    );
+    // information is skipped
+    let t = parse(
+        "[Version] 2.0\n# GHz S RI\n[Number of Ports] 1\n[Begin Information]\nanything\n[End Information]\n[Number of Frequencies] 1\n[Network Data]\n1 0.5 0\n",
+    );
+    assert_eq!(t.matrices[0][0][0], c64::new(0.5, 0.0));
 }
 
 // Version 2.0, Example 5 (with Example 4's [Reference] on a line of its own)
@@ -403,83 +472,6 @@ fn version_two_two_ports_with_noise() {
         8,
     );
     assert!(e.contains("2 ports"), "{e}");
-}
-
-// Version 2.0, Example 7: a 1-port Z file with [Reference]
-#[test]
-fn version_two_one_port() {
-    let t = parse(
-        "!1-port Z-parameter file, multiple frequency points\n[Version] 2.0\n\n# MHz Z MA\n\n[Number of Ports] 1\n\n[Number of Frequencies] 5\n\n[Reference] 20.0\n\n[Network Data]\n\n!freq magZ11 angZ11\n\n100 74.25 -4\n\n200 60          -22\n\n300 53.025 -45\n\n400 30          -62\n\n500 0.75 -89\n",
-    );
-    assert_eq!((t.parameter, t.ports()), (Parameter::Z, 1));
-    assert_eq!(t.reference, vec![20.0]);
-    assert!(close(t.matrices[1][0][0], polar(60.0, -22.0), 1e-15));
-}
-
-#[test]
-fn version_two_errors_name_the_line() {
-    // mixed-mode data (Example 16) isn't supported
-    let e = fails_at(
-        "[Version] 2.0\n# MHz Y RI R 50\n[Number of Ports] 6\n[Number of Frequencies] 1\n[Mixed-Mode Order] D2,3 D6,5 C2,3 C6,5 S4 S1\n[Network Data]\n",
-        None,
-        5,
-    );
-    assert!(e.contains("mixed-mode"), "{e}");
-    // the version
-    fails_at("[Version] 3.0\n#\n", None, 1);
-    // [Number of Ports] first after the option line
-    fails_at(
-        "[Version] 2.0\n# GHz S RI\n[Number of Frequencies] 1\n[Number of Ports] 1\n",
-        None,
-        3,
-    );
-    // [Number of Frequencies] is required
-    let e = Touchstone::parse(
-        "[Version] 2.0\n# GHz S RI\n[Number of Ports] 1\n[Network Data]\n1 1 0\n",
-        None,
-    )
-    .unwrap_err()
-    .to_string();
-    assert!(e.contains("[Number of Frequencies]"), "{e}");
-    // more data than declared
-    fails_at(
-        "[Version] 2.0\n# GHz S RI\n[Number of Ports] 1\n[Number of Frequencies] 1\n[Network Data]\n1 1 0\n2 1 0\n",
-        None,
-        7,
-    );
-    // less
-    let e = Touchstone::parse("[Version] 2.0\n# GHz S RI\n[Number of Ports] 1\n[Number of Frequencies] 3\n[Network Data]\n1 1 0\n2 1 0\n[End]\n", None).unwrap_err().to_string();
-    assert!(e.contains("stops after 2"), "{e}");
-    // a frequency in the middle of a line
-    fails_at(
-        "[Version] 2.0\n# GHz S RI\n[Number of Ports] 1\n[Number of Frequencies] 2\n[Network Data]\n1 1 0 2 1 0\n",
-        None,
-        6,
-    );
-    // an unknown keyword
-    let e = fails_at(
-        "[Version] 2.0\n# GHz S RI\n[Number of Ports] 1\n[Colour] red\n",
-        None,
-        4,
-    );
-    assert!(e.contains("Colour"), "{e}");
-    // a [Reference] short of a port
-    fails_at(
-        "[Version] 2.0\n# GHz S RI\n[Number of Ports] 2\n[Reference] 50\n[Two-Port Data Order] 12_21\n",
-        None,
-        4,
-    );
-    // the extension's ports must agree
-    fails_at(
-        "[Version] 2.0\n# GHz S RI\n[Number of Ports] 1\n",
-        Some(2),
-        3,
-    );
-    // information is skipped
-    let t = parse(
-        "[Version] 2.0\n# GHz S RI\n[Number of Ports] 1\n[Begin Information]\nanything\n[End Information]\n[Number of Frequencies] 1\n[Network Data]\n1 0.5 0\n",
-    );
-    assert_eq!(t.matrices[0][0][0], c64::new(0.5, 0.0));
 }
 
 /// A deterministic pseudo-random number in [−1, 1).

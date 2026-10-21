@@ -540,6 +540,12 @@ fn the_analytic_fit_holds_only_where_it_was_made() {
         .component(&Values::defaults(&nitride), A)
         .unwrap_err();
     assert!(error.to_string().contains("solve the modes"), "{error}");
+    // and on nitride by a spec's stack, through derived(): the same refusal, saying to solve
+    let mut spec = Spec::new("waveguide");
+    spec.stack = StackSpec::preset("nitride");
+    let (device, design) = spec.build().unwrap();
+    let e = device.derived(design.values(), A).unwrap_err().to_string();
+    assert!(e.contains("silicon") && e.contains("3D"), "{e}");
     // a stated guide holds wherever it is stated
     let stated = StripWaveguide::new().with_guide(Dispersion::new(um(1.55), 2.4, 4.3));
     let values = Values::new(&stated, &[("width", 0.65)]).unwrap();
@@ -800,15 +806,6 @@ fn a_spec_refuses_what_isnt_a_design() {
     assert!(built(&layers("Si", "si")).is_ok());
     assert!(built(&layers("core", "si")).is_err());
     assert!(built(&layers("Si", "linbo3")).is_err());
-}
-
-#[test]
-fn on_nitride_the_analytic_fits_refuse_and_say_to_solve() {
-    let mut spec = Spec::new("waveguide");
-    spec.stack = StackSpec::preset("nitride");
-    let (device, design) = spec.build().unwrap();
-    let e = device.derived(design.values(), A).unwrap_err().to_string();
-    assert!(e.contains("silicon") && e.contains("3D"), "{e}");
 }
 
 /// The fidelity a spec names.

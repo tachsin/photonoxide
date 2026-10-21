@@ -858,25 +858,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "solves in 3D: the validation report runs these"]
-    fn every_case_passes() {
-        let prefix = std::env::var("CASES").unwrap_or_default();
-        for case in cases().iter().filter(|c| c.id.contains(&prefix)) {
-            let start = std::time::Instant::now();
-            let o = (case.run)();
-            println!(
-                "{}: measured {:e}, expected {}, tolerance {:e}, {} ({:.1} s)",
-                case.id,
-                o.measured,
-                o.expected,
-                o.tolerance,
-                if o.passed() { "pass" } else { "FAIL" },
-                start.elapsed().as_secs_f64()
-            );
-        }
-    }
-
-    #[test]
     fn the_cheap_cases_pass() {
         for o in [
             library_components(),

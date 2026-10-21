@@ -92,23 +92,17 @@ fn a_uniform_grading_is_uniform() {
 }
 
 #[test]
-fn nothing_holding_the_level_is_refused() {
+fn a_solve_refuses_nothing_holding_the_level_and_names_a_medium_without_a_coefficient() {
     let grid = Grid::new(
         Axis::uniform(0.0, 1.0, 4).unwrap(),
         Axis::uniform(0.0, 1.0, 4).unwrap(),
     );
-    let mut heat = crate::thermal::Heat::new(Section::new("a"), grid);
+    // no side holds the temperature
+    let mut heat = crate::thermal::Heat::new(Section::new("a"), grid.clone());
     heat.conductivity("a", Tensor::isotropic(1.0));
     let e = heat.solve().unwrap_err().to_string();
     assert!(e.contains("nothing holds"), "{e}");
-}
-
-#[test]
-fn a_medium_without_a_coefficient_is_named() {
-    let grid = Grid::new(
-        Axis::uniform(0.0, 1.0, 4).unwrap(),
-        Axis::uniform(0.0, 1.0, 4).unwrap(),
-    );
+    // a layer of a medium given no conductivity
     let mut section = Section::new("a");
     section.layer(0.5, 1.0, "b").unwrap();
     let mut heat = crate::thermal::Heat::new(section, grid);
@@ -369,24 +363,4 @@ fn elliptic_k_matches_its_values() {
     // K(0) = π/2, K(1/√2) = Γ(1/4)² / (4√π) = 1.854074677301372
     assert!((elliptic_k(0.0) - std::f64::consts::FRAC_PI_2).abs() < 1e-15);
     assert!((elliptic_k(std::f64::consts::FRAC_1_SQRT_2) - 1.854_074_677_301_372).abs() < 1e-14);
-}
-
-#[test]
-#[ignore = "writes the static cases' rows of the report to $PHOTONOXIDE_STATIC_ROWS"]
-fn write_the_rows() {
-    let Some(out) = std::env::var_os("PHOTONOXIDE_STATIC_ROWS") else {
-        return;
-    };
-    let mut rows = String::new();
-    for case in checks::cases() {
-        let start = std::time::Instant::now();
-        let (row, passed) = crate::validation::row(&case);
-        eprintln!(
-            "{:6.2} s {} {passed}",
-            start.elapsed().as_secs_f64(),
-            case.id
-        );
-        rows.push_str(&row);
-    }
-    std::fs::write(out, rows).unwrap();
 }

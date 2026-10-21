@@ -586,7 +586,6 @@ pub(crate) fn straight(averaging: Averaging) -> [f64; 3] {
             .expect("a port's mode")
             .effective_index;
         let ahead = crate::portable::exp_c(c64::new(0.0, lam.wavenumber() * n * 2.0));
-        println!("DBG three {three} {a:?} s {:?}", s);
         worst[0] = worst[0].max(s[(0, 0)].norm_sqr()).max(s[(1, 1)].norm_sqr());
         worst[1] = worst[1].max((s[(1, 0)] - s[(0, 1)]).norm());
         worst[2] = worst[2].max((s[(1, 0)] - ahead).norm());
