@@ -255,7 +255,7 @@ fn silicon() -> Entry {
             wavelength: (1.2, 14.0),
             temperature: None,
             composition: None,
-            accuracy: "±2e-4 (Li's stated uncertainty)".into(),
+            accuracy: "±2e-3 (Li's stated uncertainty; the fourth decimal is printed for smoothness)".into(),
             sources: vec![src("li-1980", "Table 1, 293 K")],
             default: true,
             notes: "293 K; 35 recommended values".into(),

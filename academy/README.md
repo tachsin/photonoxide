@@ -9,6 +9,7 @@ moving a slider shows the physics the library computes, the code the
 
 | Lesson | Level | Diagram | Charts |
 |---|---|---|---|
+| [Silicon, silica and dispersion](material-dispersion.md) | introductory | `dispersion` | `material-oscillator`, `material-cauchy`, `material-index`, `material-gvd` |
 | [The ring resonator](ring-resonator.md) | introductory | `ring` | `ring-spectrum`, `ring-extinction`, `ring-coupling`, `ring-q-length`, `ring-identify` |
 | [Bragg gratings and mirrors](bragg-gratings.md) | intermediate | `bragg` | `bragg-reflectance`, `bragg-bandwidth` |
 | [The Mach–Zehnder interferometer](mach-zehnder.md) | introductory | `mzi` | `mzi-spectrum`, `mzi-extinction` |
@@ -22,7 +23,6 @@ it is filling them in. The library lists them in this order, the order to read t
 
 | Lesson coming soon | Topic | Level | Examples |
 |---|---|---|---|
-| [Silicon, silica and dispersion](material-dispersion.md) | Materials | introductory | `silicon_index`, `silica_index` |
 | [Leaky and bent guides, and multilayers](leaky-and-bent-guides.md) | Waveguides | advanced | `multilayer_chilwell`, `leaky_waves`, `bend_loss` |
 | [Grating couplers](grating-couplers.md) | Gratings and filters | intermediate | |
 | [Multimode interference and self-imaging](mmi.md) | Multimode and polarization devices | intermediate | `mmi_liu_poon` |
@@ -186,6 +186,7 @@ shows first.
 
 | Diagram | What it draws | 3D view |
 |---|---|---|
+| `dispersion` | a charge $-e$ of mass $m$ on a spring of resonance $\omega_0$ and damping $\gamma$, driven by the field $E_0 e^{-i\omega t}$, its displacement $x(t)$ and dipole $p = -ex$; beside it a sketch of a glass's $n(\omega)$ and $\kappa(\omega)$, an infrared resonance $\omega_\text{IR}$ of the lattice and an ultraviolet one $\omega_\text{UV}$ of the electrons, and the transparent window between them | none |
 | `ring` | a ring and its bus from above: $R$, $w$, $g$, the coupler's $r_1$ and $k_1$, the round trip's $a e^{i\phi}$, the fields $a_1$, $b_1$, $a_2$, $b_2$, the input and through ports, and a faint second bus with its $r_2$, $k_2$, drop and add | `ring-fdfd.toml` |
 | `bragg` | a quarter-wave stack in section: $N$ pairs of $n_H$ and $n_L$, $d_H$, $d_L$ and $\Lambda$, the cover $n_0$ and substrate $n_s$, the incident, reflected ($r$) and transmitted ($t$) waves; and a waveguide grating from above, its period $\Lambda$ and length $L = N\Lambda$ | `bragg-grating.toml` |
 | `coupler` | a directional coupler from above: two strips of width $w$ a gap $g$ apart over a length $L$, brought in and out by S-bends, $z$ along the coupled section, $P_\text{cross}(z) = \sin^2\kappa z$, $\kappa = \pi\Delta n/\lambda$ and $L_c = \lambda/2\Delta n$, the input and second input, the through ($\cos^2\kappa L$) and cross ($\sin^2\kappa L$) ports; beneath, the field across the pair of the even ($n_\text{even}$) and odd ($n_\text{odd}$) supermodes | `coupler-supermodes.toml` |
@@ -220,6 +221,10 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `coupler-gap` | `wavelength` µm (1.55) | `mode::vector::modes` at 19 gaps from 100 to 1000 nm, $L_c = \lambda/2\Delta n$, on a logarithmic scale |
 | `coupler-spectrum` | `gap` nm (200), `length` $L/L_c$ at 1.55 µm (0.5) | `DirectionalCoupler::from_modes` (the supermodes tracked from 1.50 to 1.60 µm) and `s_matrix` |
 | `coupler-mismatch` | `width` $w_2$ nm (480), `gap` nm (200) | `mode::vector::modes` for an unequal pair and each strip alone on one grid, `Fields::cross` for the overlaps; coupled-mode theory's $\kappa^2/(\kappa^2 + \delta^2)\sin^2 Sz$ beside it |
+| `material-oscillator` | `strength` Δε (1), `damping` γ/ω₀ (0.05), `background` ε∞ (1) | `material::Model::Lorentz`, `Material::refractive_index`: $n$ and $\kappa$ against $\omega/\omega_0$ |
+| `material-cauchy` | `fit_to` µm (0.7) | `material::silica` (Malitson's `Model::Sellmeier`) and `Model::Cauchy` fitted to it by least squares from 0.4 µm |
+| `material-index` | `material` (1 Malitson's silica, 2 Li's silicon, 3 Luke's nitride, 4 Leviton and Frey's silica at 295 K), `wavelength` µm (1.55) | `material::silica`, `silicon`, `silicon_nitride`, `material::catalogue`; `Material::refractive_index`, `Material::group_index`, `Material::provenance` |
+| `material-gvd` | `material` (1 silica, 2 silicon), `wavelength` µm (1.55) | `mode::dispersion::dispersion` on the indices of `material::silica` and `material::silicon`, 2 nm apart from 1.2 to 2.5 µm |
 | `slab-fields` | `thickness` nm (220), `wavelength` µm (1.55), `cover` $n_1$ (1.444) | `Slab::modes`, `SlabMode::field`: each guided mode's $E_y$ (TE) or $E_x$ (TM) across silicon (3.473) on oxide (1.444) |
 | `slab-bv` | `core` $n_2$ (3.473), `cover` $n_1$ (1.444) | `Slab::modes` at 300 values of $V$, as $b$; the cutoffs $m\pi + \arctan(r\sqrt a)$ |
 | `slab-neff` | `core` $n_2$ (3.473), `cover` $n_1$ (1.444), `wavelength` µm (1.55) | `Slab::modes` at 300 thicknesses, each mode from its cutoff |
@@ -233,6 +238,7 @@ code; the window only draws what it returns, and asks again as a slider moves.
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
 to them. A chart may draw its y axis on a logarithmic scale (`y_log`), and give curves that belong
 together one colour (`colour`, as the slab's charts give a TE and a TM mode of one order). The
+material charts (`charts/material.rs`) evaluate the catalogue's models, exactly, in milliseconds. The
 slab's charts are exact and take tens of milliseconds, so they redraw as a slider moves. The coupler's charts solve
 modes, a tenth of a second to a second each; their solves are cached, so moving a slider that
 changes no geometry redraws at once. The strip's charts (`charts/strip.rs`) solve the strip

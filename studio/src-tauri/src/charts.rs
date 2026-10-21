@@ -25,6 +25,7 @@ use photonoxide::units::{Length, Wavelength};
 use serde::Serialize;
 
 mod coupler;
+mod material;
 mod slab;
 mod strip;
 
@@ -640,6 +641,108 @@ pub fn specs() -> Vec<ChartSpec> {
             ],
         },
         ChartSpec {
+            id: "material-oscillator",
+            title: "One bound charge's resonance",
+            about: "A medium of identical charges bound by springs and driven by the light's field: its refractive index n and extinction κ against frequency, in units of the resonance's. Below the resonance n rises towards it; across it the medium absorbs and n falls; above it n dips below 1.",
+            computed_by: "material::Model::Lorentz, Material::refractive_index",
+            params: vec![
+                param(
+                    "strength",
+                    "Strength $\\Delta\\varepsilon$",
+                    "",
+                    (0.05, 5.0, 1.0),
+                    0.01,
+                    false,
+                    "How much the oscillators add to the permittivity at low frequency: the density of charges times their charge squared over their mass, over ε₀ω₀².",
+                ),
+                param(
+                    "damping",
+                    "Damping $\\gamma / \\omega_0$",
+                    "",
+                    (0.005, 0.5, 0.05),
+                    0.001,
+                    true,
+                    "The friction on each charge, as a rate in units of the resonance frequency: the width of the absorption line.",
+                ),
+                param(
+                    "background",
+                    "Background $\\varepsilon_\\infty$",
+                    "",
+                    (1.0, 4.0, 1.0),
+                    0.01,
+                    false,
+                    "The permittivity the other, higher resonances leave at these frequencies; 1 for a single oscillator in vacuum.",
+                ),
+            ],
+        },
+        ChartSpec {
+            id: "material-cauchy",
+            title: "A Cauchy formula against Malitson's silica",
+            about: "Cauchy's formula n = A₀ + A₁/λ² + A₂/λ⁴ fitted to fused silica's index over a band from 0.4 µm, against Malitson's three-term Sellmeier formula over the whole range he measured: the fit holds inside its band and drifts beyond it.",
+            computed_by: "material::Model::Cauchy and material::silica (Model::Sellmeier), a least-squares fit of the Cauchy coefficients",
+            params: vec![param(
+                "fit_to",
+                "Fitted up to",
+                "um",
+                (0.6, 3.0, 0.7),
+                0.01,
+                false,
+                "The longest wavelength the Cauchy formula is fitted to; it is fitted from 0.4 µm.",
+            )],
+        },
+        ChartSpec {
+            id: "material-index",
+            title: "A material's index and group index",
+            about: "The refractive index n and the group index n_g of a material of photonoxide's catalogue, over the whole range of wavelengths its model is valid for: 1 Malitson's fused silica, 2 Li's silicon, 3 Luke's silicon nitride, 4 Leviton and Frey's fused silica at 295 K.",
+            computed_by: "material::silica, silicon and silicon_nitride, material::catalogue (Leviton and Frey's model), Material::refractive_index and Material::group_index",
+            params: vec![
+                param(
+                    "material",
+                    "Material",
+                    "",
+                    (1.0, 4.0, 1.0),
+                    1.0,
+                    false,
+                    "1 fused silica (Malitson 1965), 2 silicon (Li 1980), 3 silicon nitride (Luke et al. 2015), 4 fused silica at 295 K, in vacuum (Leviton and Frey 2006).",
+                ),
+                param(
+                    "wavelength",
+                    "Wavelength $\\lambda$",
+                    "um",
+                    (0.2, 14.0, 1.55),
+                    0.01,
+                    false,
+                    "The wavelength at which the figures are given; outside the model's range there is no index.",
+                ),
+            ],
+        },
+        ChartSpec {
+            id: "material-gvd",
+            title: "Group-velocity dispersion of silica and silicon",
+            about: "The dispersion parameter D, how much the group delay changes with the wavelength, of fused silica or of silicon from 1.2 to 2.5 µm: positive is anomalous, negative normal. The figures give both.",
+            computed_by: "mode::dispersion::dispersion on the indices of material::silica and material::silicon",
+            params: vec![
+                param(
+                    "material",
+                    "Material",
+                    "",
+                    (1.0, 2.0, 1.0),
+                    1.0,
+                    false,
+                    "1 fused silica (Malitson 1965), 2 silicon (Li 1980).",
+                ),
+                param(
+                    "wavelength",
+                    "Wavelength $\\lambda$",
+                    "um",
+                    (1.25, 2.45, 1.55),
+                    0.01,
+                    false,
+                    "The wavelength at which the figures are given.",
+                ),
+            ],
+        },
+        ChartSpec {
             id: "slab-bv",
             title: "The b–V diagram",
             about: "Every guided mode of a film on oxide, in Kogelnik and Ramaswamy's normalized frequency V and index b: TE solid, TM dashed, the same colour for the same order. A mode is born at b = 0, its cutoff, and approaches b = 1 as the film thickens.",
@@ -1016,6 +1119,12 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
         "coupler-gap" => coupler::gap_chart(at("wavelength")),
         "coupler-spectrum" => coupler::spectrum(at("gap") * 1e-3, at("length")),
         "coupler-mismatch" => coupler::mismatch(at("width"), at("gap")),
+        "material-oscillator" => {
+            material::oscillator_chart(at("strength"), at("damping"), at("background"))
+        }
+        "material-cauchy" => material::cauchy(at("fit_to")),
+        "material-index" => material::index(at("material") as usize, at("wavelength")),
+        "material-gvd" => material::gvd(at("material") as usize, at("wavelength")),
         "slab-bv" => slab::bv(at("core"), at("cover")),
         "slab-fields" => slab::fields(at("thickness"), at("wavelength"), at("cover")),
         "slab-neff" => slab::neff(at("core"), at("cover"), at("wavelength")),

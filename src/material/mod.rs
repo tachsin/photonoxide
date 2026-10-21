@@ -578,8 +578,9 @@ pub fn vacuum() -> Material {
 /// H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980),
 /// [doi:10.1063/1.555624](https://doi.org/10.1063/1.555624), Table 1, the 293 K column. The
 /// values were taken from the refractiveindex.info database's `main/Si/nk/Li-293K.yml` (CC0)
-/// and checked against the paper: all 35 agree. Li gives their uncertainty as ±2 × 10⁻⁴ and
-/// prints a fourth decimal only for a smooth table, so differences below that mean nothing.
+/// and checked against the paper: all 35 agree. Li gives their uncertainty as ±2 × 10⁻³ (his
+/// Section 3.1 and Table 1's note) and prints the fourth decimal only for a smooth table: they
+/// come from his dispersion equation, Eq. (22), fitted to three selected data sets.
 /// (The database's reference gives the year as 1993; the paper is Vol. 9, No. 3, 1980.)
 pub fn silicon() -> Material {
     const DATA: [(f64, f64); 35] = [
@@ -636,7 +637,7 @@ pub fn silicon() -> Material {
             doi: "10.1063/1.555624".into(),
             data: format!("{CC0}: main/Si/nk/Li-293K.yml"),
             temperature: Some(293.0),
-            notes: "crystalline silicon; Table 1, 293 K, checked against the paper; uncertainty ±2e-4 (Li)".into(),
+            notes: "crystalline silicon; Table 1, 293 K, checked against the paper; uncertainty ±2e-3 (Li)".into(),
         },
     }
 }

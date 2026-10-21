@@ -45,7 +45,8 @@ loss is a positive imaginary permittivity.
 ## Built-in materials
 
 - **Silicon**, 293 K, 1.2–14 µm: Li's recommended values (Table 1), through a natural cubic
-  spline. All 35 values were checked against the paper. Li's uncertainty is ±2 × 10⁻⁴.
+  spline. All 35 values were checked against the paper. Li's uncertainty is ±2 × 10⁻³; he
+  prints a fourth decimal for a smooth table.
 - **Silica**, 20 °C, 0.21–3.71 µm: Malitson's three-term Sellmeier formula (Eq. 1), which
   interpolates his 60 measured wavelengths to five decimals.
 - **Silicon nitride** (LPCVD), 0.31–5.5 µm: Luke et al.'s two-term Sellmeier formula.

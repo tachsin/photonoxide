@@ -3,7 +3,7 @@ examples/silicon_index.rs, printing what it prints.
 
 H. H. Li, "Refractive index of silicon and germanium and its wavelength and temperature
 derivatives", J. Phys. Chem. Ref. Data 9, 561 (1980), doi:10.1063/1.555624, Table 1 (293 K),
-printed to 4 decimals; Li gives its uncertainty as ±2e-4.
+printed to 4 decimals; Li gives its uncertainty as ±2e-3.
 
     python python/examples/silicon_index.py
 """

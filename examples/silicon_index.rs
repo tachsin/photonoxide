@@ -3,7 +3,7 @@
 //! H. H. Li, "Refractive index of silicon and germanium and its wavelength and temperature
 //! derivatives", J. Phys. Chem. Ref. Data 9, 561 (1980),
 //! [doi:10.1063/1.555624](https://doi.org/10.1063/1.555624), Table 1 (293 K), printed to 4
-//! decimals; Li gives its uncertainty as ±2 × 10⁻⁴.
+//! decimals; Li gives its uncertainty as ±2 × 10⁻³.
 //!
 //! ```sh
 //! cargo run --release --example silicon_index

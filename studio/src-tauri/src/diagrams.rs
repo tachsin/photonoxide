@@ -22,6 +22,23 @@ pub struct DiagramSpec {
 pub fn specs() -> Vec<DiagramSpec> {
     vec![
         DiagramSpec {
+            id: "dispersion",
+            title: "A bound charge, and a glass's index against frequency",
+            caption: "At the left, the model behind every dispersion formula: a charge $-e$ of \
+                      mass $m$, held to its ion by a spring of resonance frequency $\\omega_0$ \
+                      and slowed at the rate $\\gamma$, driven along $x$ by the light's field \
+                      $E_0 e^{-i\\omega t}$. Its displacement $x(t)$ makes a dipole $p = -ex$, \
+                      and many such dipoles make the medium's polarization. At the right, a \
+                      sketch of the refractive index $n$ (solid) and the extinction $\\kappa$ \
+                      (dashed) of a glass against the frequency $\\omega$: a resonance of the \
+                      lattice in the infrared, $\\omega_\\text{IR}$, and one of the electrons in \
+                      the ultraviolet, $\\omega_\\text{UV}$, each an absorption line across \
+                      which $n$ falls; between them a transparent window where $\\kappa$ is \
+                      small and $n$ rises with $\\omega$. Not to scale.",
+            job: None,
+            caption_3d: "",
+        },
+        DiagramSpec {
             id: "ring",
             title: "A ring resonator, seen from above",
             caption: "A ring of radius $R$ and waveguide width $w$, a gap $g$ from the bus. At the \
