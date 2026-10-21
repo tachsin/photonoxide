@@ -48,7 +48,7 @@
     change((chip) => {
       const i = chip.instance.find((x) => x.name === inst.name);
       if (!i?.device) return;
-      i.device.parameters = { ...(i.device.parameters ?? {}), [name]: e };
+      i.device.parameters = { ...i.device.parameters, [name]: e };
     });
   }
 

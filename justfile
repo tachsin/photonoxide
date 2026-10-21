@@ -126,6 +126,11 @@ studio-dev: studio-install
 studio-check: studio-install
     pnpm build
 
+# lint the studio's TypeScript, and its Svelte files' script blocks, with oxlint (fails on warnings)
+[working-directory: 'studio']
+studio-lint: studio-install
+    pnpm lint
+
 # time the benchmark problems: just bench "1,20"
 bench threads="1":
     cargo run -p photonoxide-studio --release -- bench --threads {{threads}}

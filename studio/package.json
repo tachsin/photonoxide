@@ -5,10 +5,11 @@
   "packageManager": "pnpm@12.4.1",
   "scripts": {
     "dev": "vite",
-    "build": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && vite build",
+    "build": "oxlint --deny-warnings && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && vite build",
     "tauri": "tauri",
     "app:build": "tauri build",
-    "check": "svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "lint": "oxlint --deny-warnings"
   },
   "dependencies": {
     "@codemirror/language": "^6.13.1",
@@ -35,6 +36,7 @@
     "@tauri-apps/cli": "^2.12.3",
     "@types/three": "^0.186.0",
     "daisyui": "^5.7.50",
+    "oxlint": "^1.89.0",
     "svelte-check": "^4.7.6",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",

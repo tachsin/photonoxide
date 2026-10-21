@@ -90,8 +90,8 @@
   }
 
   // ---- corners: a width bias, the thickness, two temperatures ----
-  const widths = $derived(steppable.filter((p) => p.unit === "µm" && /width$/.test(p.name)).map((p) => p.name));
-  const gaps = $derived(steppable.filter((p) => p.unit === "µm" && /^gap/.test(p.name)).map((p) => p.name));
+  const widths = $derived(steppable.filter((p) => p.unit === "µm" && p.name.endsWith("width")).map((p) => p.name));
+  const gaps = $derived(steppable.filter((p) => p.unit === "µm" && p.name.startsWith("gap")).map((p) => p.name));
   const hasThickness = $derived(steppable.some((p) => p.name === "thickness"));
   const analytic = $derived(rung.fidelity === "analytic");
   /** The corners the form makes. */

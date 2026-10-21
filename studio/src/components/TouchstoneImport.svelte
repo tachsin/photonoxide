@@ -6,7 +6,7 @@
   import { finishImport, library } from "../lib/chip.svelte";
   import MathText from "./MathText.svelte";
 
-  const name = $derived(library.importing?.path.split(/[\/]/).pop() ?? "");
+  const name = $derived(library.importing?.path.split(/[\\/]/).pop() ?? "");
 </script>
 
 <dialog class="modal" class:modal-open={!!library.importing}>

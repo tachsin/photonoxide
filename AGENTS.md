@@ -87,7 +87,7 @@ builds and tests the wheels (`.github/workflows/python-wheels.yml`) only on PRs 
 
 The `photonoxide` program is the studio, a Tauri app in `studio/` (Rust in `studio/src-tauri`,
 the window in Svelte 5, TypeScript, Tailwind CSS with daisyUI, and three.js in `studio/src`;
-`pnpm build` there type-checks it with svelte-check and fails on warnings). Build it with the Tauri CLI, never with
+`pnpm build` there lints it with oxlint, type-checks it with svelte-check, and fails on warnings). Build it with the Tauri CLI, never with
 plain `cargo build`, which leaves the window pointing at the dev server:
 
 ```sh
