@@ -446,6 +446,29 @@ impl Fill<'_> {
             ),
         })
     }
+
+    /// The cell's permittivity tensor in the chip's frame at `wavelength`
+    /// ([`Material::tensor`]): a uniform cell's material's, a wall's [`mean`] of its two
+    /// materials' element by element. An isotropic cell's is [`Fill::permittivity`] times the
+    /// identity, to the bit.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::OutsideValidity`] if a material has no data at `wavelength`.
+    pub fn tensor(&self, wavelength: Wavelength) -> Result<[[num_complex::Complex64; 3]; 3]> {
+        Ok(match *self {
+            Fill::Uniform(m) => m.tensor(wavelength)?,
+            Fill::Wall {
+                inside,
+                outside,
+                fraction,
+                ..
+            } => {
+                let (a, b) = (inside.tensor(wavelength)?, outside.tensor(wavelength)?);
+                std::array::from_fn(|i| std::array::from_fn(|j| mean(a[i][j], b[i][j], fraction)))
+            }
+        })
+    }
 }
 
 /// The permittivity of a cell `fraction` of which is `inside` and the rest `outside`: their

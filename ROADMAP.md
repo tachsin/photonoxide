@@ -330,7 +330,7 @@ The first active devices. One solver for static problems on the waveguide's cros
 - [ ] **Pockels modulation:**
   - the electro-optic tensor rotated into the waveguide's frame (x-cut and z-cut), and the index change by perturbation theory (Johnson 2002), checked against a full re-solve of the mode;
   - one Vπ·L definition, derived and documented, since papers normalize the overlap differently;
-  - the chain in one job (#432): the electrodes' voltage, the field solve, Δn by the rotated r tensor, the mode solve, and Vπ·L; a crystal's orientation given as Euler angles in the job, and biaxial crystals in the catalogue;
+  - the chain in one job (#432): the electrodes' voltage, the field solve, Δn by the rotated r tensor, the mode solve, and Vπ·L; a crystal's orientation given as Euler angles in the job, and biaxial crystals in the catalogue. *(Orientation done: a `[task.stack]` crystal's `orientation` (x-, y- or z-cut with the axis along the chip's x, or z-x-z Euler angles), its permittivity tensor turned into the modes job's cross-section, checked against the slab's closed forms for x-cut and z-cut (to 1.1e-5 at 5 nm, second order); the biaxial types (`OpticalClass::Biaxial`, `Axis::X`/`Y`/`Z`). Left: a biaxial crystal's data (KTP, Kato & Takaoka 2002), a published TFLN mode index, and the orientation in FDFD and FDTD.)*
   - lithium niobate first (tensors: Jazbinšek & Zgonik 2002; dispersion: Zelmon 1997), then barium titanate (a domain-averaged coefficient with provenance and its spread, 200 to over 900 pm/V; Abel 2018) and lithium tantalate (Wang 2024).
 - [ ] **Travelling-wave electrodes:**
   - quasi-TEM RF index, impedance and loss: conductors by Wheeler 1942 and Holloway & Kuester 1995, dielectrics by their loss tangent;

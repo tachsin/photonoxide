@@ -120,7 +120,10 @@ impl JsonSchema for Layers {
             "type": "object",
             "description": "A stack of your own (docs/methods/stacks.md): a substrate, a \
                 cladding and layers of the materials catalogue's, bottom to top, each with its \
-                thickness (thickness_um, or thickness as an expression).",
+                thickness (thickness_um, or thickness as an expression). In a modes or structure \
+                job a crystal's table may give its orientation (docs/methods/catalogue.md): \
+                \"x-cut\", \"y-cut\", \"z-cut\", { cut, along_x }, or { euler_deg = [phi, theta, \
+                psi] } (z-x-z, degrees).",
         })
     }
 }

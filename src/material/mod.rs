@@ -27,11 +27,13 @@ use num_complex::Complex64;
 use crate::units::{Frequency, Wavelength, refractive_index};
 
 pub mod catalogue;
+mod crystal;
 mod graded;
 pub(crate) mod graded_checks;
 mod refractiveindex;
 
 use crate::{Error, Result};
+pub use crystal::{CrystalAxis, Orientation};
 pub use graded::{Graded, GradedKind};
 pub use refractiveindex::from_refractiveindex_info;
 
@@ -146,6 +148,19 @@ pub enum Model {
         ed: f64,
         /// The direct gap E_Γ, in eV.
         gap: f64,
+    },
+    /// An anisotropic crystal turned onto the chip: the models of its three principal indices
+    /// (along the crystal's x, y and z) and its [`Orientation`]. Its tensor in the chip's frame
+    /// is [`Material::tensor`], which the full-vector mode solver takes. As one number its
+    /// permittivity is the mean of the three principal ones, a third of the tensor's trace,
+    /// which no turn changes: what a picture of the structure shows. A solver that takes one
+    /// number per cell would get that mean, so a job refuses an oriented crystal where its
+    /// solver takes no tensor.
+    Oriented {
+        /// The models along the crystal's x, y and z.
+        principal: Box<[Model; 3]>,
+        /// How the crystal's axes lie on the chip.
+        orientation: Orientation,
     },
 }
 
@@ -383,6 +398,13 @@ impl Model {
                 let n = self.index(lam);
                 n * n
             }
+            Model::Oriented { principal, .. } => {
+                principal
+                    .iter()
+                    .map(|m| m.permittivity(lam))
+                    .sum::<Complex64>()
+                    / 3.0
+            }
         }
     }
 
@@ -510,6 +532,102 @@ impl Material {
     /// [`Error::OutsideValidity`] outside the material's range.
     pub fn permittivity(&self, wavelength: Wavelength) -> Result<Complex64> {
         Ok(self.model.permittivity(self.check(wavelength)?))
+    }
+
+    /// An anisotropic crystal's material turned onto the chip ([`Model::Oriented`]): its
+    /// principal materials along the crystal's x, y and z, each isotropic, and `orientation`.
+    /// It is valid where all three are, and its provenance is the first one's, its notes saying
+    /// how it is turned.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] when a principal material is itself oriented, or the three have
+    /// no wavelength in common.
+    pub fn oriented(
+        name: impl Into<String>,
+        principal: [Material; 3],
+        orientation: Orientation,
+    ) -> Result<Material> {
+        let name = name.into();
+        if principal.iter().any(Material::is_anisotropic) {
+            return Err(Error::invalid(
+                "material",
+                format!("{name}: a principal material must be isotropic"),
+            ));
+        }
+        let mut range = principal[0].range;
+        for m in &principal[1..] {
+            if m.range.0 > range.0 {
+                range.0 = m.range.0;
+            }
+            if m.range.1 < range.1 {
+                range.1 = m.range.1;
+            }
+        }
+        let (shortest, longest) = range;
+        let mut provenance = principal[0].provenance.clone();
+        provenance.notes = if provenance.notes.is_empty() {
+            format!("oriented: {orientation}")
+        } else {
+            format!("{}; oriented: {orientation}", provenance.notes)
+        };
+        let [x, y, z] = principal;
+        Material::new(
+            name,
+            Model::Oriented {
+                principal: Box::new([x.model, y.model, z.model]),
+                orientation,
+            },
+            shortest,
+            longest,
+            provenance,
+        )
+    }
+
+    /// Whether the material is an oriented crystal ([`Model::Oriented`]).
+    pub fn is_anisotropic(&self) -> bool {
+        matches!(self.model, Model::Oriented { .. })
+    }
+
+    /// An oriented crystal's orientation, `None` for an isotropic material.
+    pub fn orientation(&self) -> Option<Orientation> {
+        match &self.model {
+            Model::Oriented { orientation, .. } => Some(*orientation),
+            _ => None,
+        }
+    }
+
+    /// The principal permittivities, along the crystal's x, y and z; an isotropic material's
+    /// three the same.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::OutsideValidity`] outside the material's range.
+    pub fn principal_permittivity(&self, wavelength: Wavelength) -> Result<[Complex64; 3]> {
+        let lam = self.check(wavelength)?;
+        Ok(match &self.model {
+            Model::Oriented { principal, .. } => principal.each_ref().map(|m| m.permittivity(lam)),
+            model => [model.permittivity(lam); 3],
+        })
+    }
+
+    /// The relative permittivity tensor in the chip's frame (x, y in the wafer's plane, z up):
+    /// an oriented crystal's M diag(ε_x, ε_y, ε_z) Mᵀ ([`Orientation::matrix`]), an isotropic
+    /// material's ε times the identity.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::OutsideValidity`] outside the material's range.
+    pub fn tensor(&self, wavelength: Wavelength) -> Result<[[Complex64; 3]; 3]> {
+        let principal = self.principal_permittivity(wavelength)?;
+        Ok(match &self.model {
+            Model::Oriented { orientation, .. } => orientation.rotate(principal),
+            _ => {
+                let zero = Complex64::new(0.0, 0.0);
+                let e = principal[0];
+                [[e, zero, zero], [zero, e, zero], [zero, zero, e]]
+            }
+        })
     }
 
     /// The complex refractive index n + iκ at a vacuum wavelength, κ ≥ 0.

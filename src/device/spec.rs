@@ -818,11 +818,38 @@ fn task_layer(v: &Value, at: &str) -> Result<Layer> {
 /// A medium of a task's `[task.stack]`: a catalogue entry, as [`MaterialSpec::from_value`] reads
 /// it, or a number, a fixed real refractive index of at least 1, the same at every wavelength:
 /// a benchmark's medium, such as Bienstman et al.'s silicon of 3.5, or air.
+///
+/// A catalogue crystal's table may give its `orientation` ([`crate::material::Orientation`]:
+/// `"x-cut"`, a `cut` and `along_x`, or `euler_deg`): the medium is then the crystal turned onto
+/// the chip, its tensor in the chip's frame ([`Material::oriented`]).
 fn task_medium(v: &Value, at: &str) -> Result<Material> {
     #[allow(clippy::cast_precision_loss)]
     let index = match v {
         Value::Float(x) => *x,
         Value::Integer(i) => *i as f64,
+        Value::Table(t) if t.contains_key("orientation") => {
+            let orientation = crate::material::Orientation::from_value(
+                &t["orientation"],
+                &format!("{at}, orientation"),
+            )?;
+            let mut rest = t.clone();
+            rest.remove("orientation");
+            let spec = MaterialSpec::from_value(&Value::Table(rest), at)?;
+            let entry = catalogue::entry(&spec.id).ok_or_else(|| {
+                Error::invalid(
+                    "material",
+                    format!("no material \"{}\" in the catalogue", spec.id),
+                )
+            })?;
+            return entry.oriented(
+                spec.model.as_deref(),
+                Conditions {
+                    temperature: spec.temperature,
+                    composition: spec.composition,
+                },
+                orientation,
+            );
+        }
         other => return MaterialSpec::from_value(other, at)?.material(),
     };
     if !(index.is_finite() && index >= 1.0) {
@@ -925,8 +952,10 @@ impl MaterialSpec {
             return Err(Error::invalid(
                 "material",
                 format!(
-                    "{}'s {} is anisotropic: a device's layers take isotropic materials",
-                    self.id, model.id
+                    "{}'s {} is anisotropic: a device's layers and a body take isotropic \
+                     materials; a modes or structure job's [task.stack] takes it with its \
+                     orientation, e.g. {{ id = \"{}\", orientation = \"x-cut\" }}",
+                    self.id, model.id, self.id
                 ),
             ));
         }

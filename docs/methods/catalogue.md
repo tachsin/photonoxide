@@ -262,6 +262,63 @@ congruent Table 1 is printed the right way round.
   wavelengths from 409 to 1580 nm, with their fit in the tensor's notes. $r_{51}$ and the clamped
   tensor of doped crystals weren't found measured.
 
+## Orientation
+
+An anisotropic crystal's permittivity is diagonal in its principal axes, the crystal's x, y and z:
+$\mathrm{diag}(n_x^2, n_y^2, n_z^2)$. A uniaxial entry's is $\mathrm{diag}(n_o^2, n_o^2, n_e^2)$,
+its optic axis z (the c axis); a biaxial entry (`OpticalClass::Biaxial`, its models giving
+`Axis::X`, `Axis::Y` and `Axis::Z`) has $n_x < n_y < n_z$, as Roberts names them.
+`Entry::principal` gives the three materials, and `Entry::oriented` turns them onto the chip
+(`Material::oriented`, `material::Orientation`).
+
+An orientation's matrix $M$ takes a vector's crystal components to its chip components (chip x
+and y in the wafer's plane, z up), and the tensor in the chip's frame is
+$\varepsilon = M\,\mathrm{diag}(\varepsilon_x, \varepsilon_y, \varepsilon_z)\,M^\mathsf{T}$
+(`Material::tensor`).
+
+- **A cut** names the crystal axis normal to the wafer and the one along the chip's x; the chip's
+  y is then z × x, so the frame stays right-handed. An x-cut has the crystal's y along the chip's
+  x by default (its c axis along the chip's y: a guide along x is "x-cut, y-propagating", its TE
+  mode polarized along c); a y-cut and a z-cut the crystal's x.
+- **Euler angles** are proper z-x-z angles $(\varphi, \theta, \psi)$ in degrees, as Goldstein,
+  Poole and Safko define them (Classical Mechanics, 3rd ed., 2002, Sec. 4.4; a book, without a
+  DOI): $M = R_z(\varphi)\,R_x(\theta)\,R_z(\psi)$, each $R$ the active rotation about that
+  axis; their $A$, from the space (chip) frame to the body (crystal) frame, is $M^\mathsf{T}$.
+  All zero is the identity, a z-cut; $(0°, 90°, 90°)$ is an x-cut.
+
+In a job, a crystal in a modes or structure job's `[task.stack]` takes an `orientation`:
+
+```toml
+[[task.stack.layer]]
+name = "LN"
+thickness_um = 0.6
+material = { id = "linbo3", orientation = "x-cut" }   # or { cut = "x", along_x = "z" },
+background = "sio2"                                   # or { euler_deg = [0, 90, 90] }
+```
+
+The modes job's cross-section takes the tensor in its own axes (across the guide, up, along it).
+The full-vector solver's equations (Fallahkhair, Li and Murphy 2008) hold for a tensor with its z
+a principal axis, so `job::check` refuses an orientation that puts no principal axis along the
+guide; a tilt within the cross-section (an $\varepsilon_{xy}$) is taken. It also refuses an angle
+that isn't a number or is beyond ±360°, and an oriented crystal in an FDFD, FDTD or static job,
+whose solvers take one permittivity per cell. As one number (a picture's), an oriented crystal's
+permittivity is the mean of its principal ones, a third of the trace, which no turn changes.
+
+Checked: every cut and Euler angle is a proper rotation, zero angles exactly the identity; a turned
+biaxial tensor keeps its trace, principal minors and determinant (its eigenvalues are the
+principal values) to 1e-12; Euler $(0°, 90°, 90°)$ is the x-cut's tensor. A 600 nm slab of
+$n_o = 2.21$, $n_e = 2.14$ in silica at 1550 nm, guided along x: the x-cut's TE mode is the
+isotropic slab of $n_e$ (1.970741) and its TM the one of $n_o$ (1.956465); the z-cut's TE is the
+$n_o$ slab's (2.039088) and its TM the uniaxial slab's closed form (1.901142). The full-vector
+solver meets each at second order, within 1.1e-5 on a 5 nm grid. A 1 µm × 600 nm LiNbO₃ strip
+(Zelmon's congruent model) in silica on a 25 nm grid: the x-cut's TE-like mode 1.85965 and the
+z-cut's 1.92533; the same x-cut strip along y, its c axis turned across, has the same indices to
+1e-10. No published TFLN mode index with its full geometry has been reproduced yet.
+
+No biaxial crystal is in the catalogue yet. KTP from Kato and Takaoka (Appl. Opt. 41, 5040
+(2002), [doi:10.1364/AO.41.005040](https://doi.org/10.1364/AO.41.005040)) is the first wanted,
+read from the paper itself, which isn't in hand.
+
 ## Validation
 
 - Leviton & Frey's Table 4 (208 values, 0.4–2.6 µm, 30–300 K) from their Table 3: within 4.9e-6

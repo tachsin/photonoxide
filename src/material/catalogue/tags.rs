@@ -247,6 +247,14 @@ fn optical(crystal: &Crystal) -> Tag {
             ),
             NYE,
         ),
+        OpticalClass::Biaxial { axes } => tag(
+            "optical",
+            "biaxial",
+            format!(
+                "Two optic axes and three principal indices $n_x < n_y < n_z$ along the principal dielectric axes x, y and z ({axes}): light polarized along each sees its own."
+            ),
+            ROBERTS,
+        ),
     }
 }
 
@@ -288,6 +296,10 @@ impl Entry {
                     CrystalSystem::Cubic => ("cubic", "three equal, orthogonal axes and four threefold axes along the cube's diagonals"),
                     CrystalSystem::Hexagonal => ("hexagonal", "one sixfold axis, the $c$ axis"),
                     CrystalSystem::Trigonal => ("trigonal", "one threefold axis, the $c$ axis"),
+                    CrystalSystem::Tetragonal => ("tetragonal", "one fourfold axis, the $c$ axis"),
+                    CrystalSystem::Orthorhombic => ("orthorhombic", "three unequal, orthogonal axes, each a twofold axis or normal to a mirror plane"),
+                    CrystalSystem::Monoclinic => ("monoclinic", "one twofold axis or mirror plane, the $b$ axis"),
+                    CrystalSystem::Triclinic => ("triclinic", "no axis or plane of symmetry"),
                     _ => ("crystalline", ""),
                 };
                 tag(

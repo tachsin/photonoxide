@@ -63,6 +63,14 @@ pub enum CrystalSystem {
     Hexagonal,
     /// Trigonal.
     Trigonal,
+    /// Tetragonal.
+    Tetragonal,
+    /// Orthorhombic: three unequal, orthogonal axes (a biaxial crystal, such as KTP or LBO).
+    Orthorhombic,
+    /// Monoclinic.
+    Monoclinic,
+    /// Triclinic.
+    Triclinic,
 }
 
 /// How the material's index depends on the polarization.
@@ -78,6 +86,15 @@ pub enum OpticalClass {
         positive: bool,
         /// Which crystal axis the optic axis is, e.g. `"z (the c axis)"`.
         optic_axis: String,
+    },
+    /// Two optic axes: three principal indices n_x < n_y < n_z along the principal dielectric
+    /// axes x, y and z, named as D. A. Roberts proposes (IEEE J. Quantum Electron. 28, 2057
+    /// (1992), doi:10.1109/3.159516). Its index models give [`Axis::X`], [`Axis::Y`] and
+    /// [`Axis::Z`].
+    Biaxial {
+        /// How the principal axes x, y, z lie on the crystallographic a, b, c, e.g.
+        /// `"x, y, z along a, b, c"`.
+        axes: String,
     },
 }
 
@@ -163,6 +180,12 @@ pub enum Axis {
     Ordinary,
     /// n_e, for light polarized along the optic axis.
     Extraordinary,
+    /// A biaxial crystal's n_x, for light polarized along its principal axis x.
+    X,
+    /// A biaxial crystal's n_y.
+    Y,
+    /// A biaxial crystal's n_z.
+    Z,
 }
 
 /// A table of coefficients as the paper prints it: strings, digit for digit.
@@ -386,6 +409,82 @@ impl Entry {
     /// A reference by its key.
     pub fn reference(&self, key: &str) -> Option<&Reference> {
         self.references.iter().find(|r| r.key == key)
+    }
+
+    /// The model `model` (the default when `None`) at `conditions`, as the crystal's principal
+    /// materials along its x, y and z: a uniaxial crystal's (its optic axis z) n_o, n_o, n_e, a
+    /// biaxial one's n_x, n_y, n_z.
+    ///
+    /// # Errors
+    ///
+    /// [`crate::Error::InvalidValue`] for an unknown model, an isotropic entry (it has no axes
+    /// to turn), a model that doesn't give every principal index, an optic axis other than z,
+    /// and conditions outside the model's range.
+    pub fn principal(&self, model: Option<&str>, conditions: Conditions) -> Result<[Material; 3]> {
+        let invalid = |reason: String| crate::Error::invalid("material", reason);
+        let m = match model {
+            None => self.default_model(),
+            Some(id) => self.index.iter().find(|i| i.id == id),
+        }
+        .ok_or_else(|| {
+            invalid(format!(
+                "{} has no index model {}",
+                self.id,
+                model.unwrap_or("")
+            ))
+        })?;
+        let materials = m.materials(conditions)?;
+        let find = |axis: Axis| {
+            m.axes
+                .iter()
+                .position(|a| *a == axis)
+                .map(|k| materials[k].clone())
+                .ok_or_else(|| {
+                    invalid(format!(
+                        "{}'s {} doesn't give its {} index",
+                        self.id,
+                        m.id,
+                        format!("{axis:?}").to_lowercase()
+                    ))
+                })
+        };
+        match &self.crystal.optical {
+            OpticalClass::Isotropic => Err(invalid(format!(
+                "{} is isotropic: it has no crystal axes to orient",
+                self.id
+            ))),
+            OpticalClass::Uniaxial { optic_axis, .. } => {
+                if !optic_axis.starts_with('z') {
+                    return Err(invalid(format!(
+                        "{}'s optic axis is {optic_axis}, not z",
+                        self.id
+                    )));
+                }
+                let o = find(Axis::Ordinary)?;
+                Ok([o.clone(), o, find(Axis::Extraordinary)?])
+            }
+            OpticalClass::Biaxial { .. } => Ok([find(Axis::X)?, find(Axis::Y)?, find(Axis::Z)?]),
+        }
+    }
+
+    /// The model `model` (the default when `None`) at `conditions`, turned onto the chip as
+    /// `orientation` says: a [`Material::oriented`] of its [`Entry::principal`] materials.
+    ///
+    /// # Errors
+    ///
+    /// Those of [`Entry::principal`] and [`Material::oriented`].
+    pub fn oriented(
+        &self,
+        model: Option<&str>,
+        conditions: Conditions,
+        orientation: super::Orientation,
+    ) -> Result<Material> {
+        let principal = self.principal(model, conditions)?;
+        Material::oriented(
+            format!("{} ({orientation})", self.formula),
+            principal,
+            orientation,
+        )
     }
 }
 

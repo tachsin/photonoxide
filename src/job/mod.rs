@@ -133,6 +133,18 @@
 //! 90° leans the shape's walls out going down ([`crate::stack::Etch`]). Every kind of job reads
 //! them; a 2D job's etches are on its own layer. docs/methods/stacks.md has the method.
 //!
+//! **Oriented crystals.** In a modes or structure job, a catalogue crystal's table may give its
+//! `orientation` ([`crate::material::Orientation`]): `"x-cut"`, `"y-cut"` or `"z-cut"`; a
+//! `cut` and the crystal axis `along_x`, the chip's x (`{ cut = "x", along_x = "z" }`); or proper
+//! z-x-z Euler angles in degrees (`{ euler_deg = [0, 90, 90] }`). A modes job's cross-section then
+//! takes the crystal's tensor turned into the chip's frame and the job's
+//! ([`crate::material::Material::tensor`]); [`check`] refuses an angle that isn't a number or is
+//! beyond ±360°, an orientation whose tensor couples the guide's axis to the cross-section (no
+//! principal axis along the guide), and an oriented crystal in a job whose solver takes one
+//! permittivity per cell (FDFD, FDTD, static). `material = { id = "linbo3", orientation =
+//! "x-cut" }` puts lithium niobate's c axis along the chip's y: a guide along x has its TE-like
+//! mode polarized along c, and sees n_e.
+//!
 //! ```toml
 //! [task.stack]
 //! substrate = "si"
@@ -460,7 +472,7 @@ use serde::{Deserialize, Serialize};
 use crate::geometry::{Point, Shape};
 use crate::raster::Raster;
 use crate::run::{Job, Run, Stop, StopReason};
-use crate::stack::{LayerStack, Structure};
+use crate::stack::{Fill, LayerStack, Structure};
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
@@ -2442,8 +2454,47 @@ fn check_etches_2d(s: &Structure, layer: &str) -> Result<()> {
 }
 
 /// A task's stack: a named one, `soi_220`, or `soi` / `nitride` with their core and bottom
-/// oxide; or a `[task.stack]` table of layers ([`crate::device::spec::task_stack`]).
+/// oxide; or a `[task.stack]` table of layers ([`crate::device::spec::task_stack`]), whose
+/// crystals may be oriented ([`crate::material::Orientation`]) only in a job whose solver takes
+/// their tensor: a modes job, or a structure job, which draws them ([`TENSOR_JOBS`]).
 fn named_stack(
+    stack: &StackField,
+    core_nm: Option<f64>,
+    bottom_oxide_um: Option<f64>,
+) -> Result<LayerStack> {
+    let stack = named_stack_of(stack, core_nm, bottom_oxide_um)?;
+    let mut media = vec![
+        ("the substrate", stack.substrate()),
+        ("the cladding", stack.cladding()),
+    ];
+    for l in stack.layers() {
+        media.push((l.name.as_str(), &l.material));
+        media.push((l.name.as_str(), &l.background));
+    }
+    if let Some((place, m)) = media.into_iter().find(|(_, m)| m.is_anisotropic()) {
+        return Err(task_error(format!(
+            "[task.stack]: {place}'s {} is an oriented crystal, whose tensor only a {TENSOR_JOBS} \
+             job takes; this job's solver takes one permittivity per cell: give an isotropic \
+             material",
+            m.name()
+        )));
+    }
+    Ok(stack)
+}
+
+/// The jobs whose stacks may hold oriented crystals.
+const TENSOR_JOBS: &str = "modes or structure";
+
+/// [`named_stack`] with its crystals oriented, for a modes or a structure job.
+fn tensor_stack(
+    stack: &StackField,
+    core_nm: Option<f64>,
+    bottom_oxide_um: Option<f64>,
+) -> Result<LayerStack> {
+    named_stack_of(stack, core_nm, bottom_oxide_um)
+}
+
+fn named_stack_of(
     stack: &StackField,
     core_nm: Option<f64>,
     bottom_oxide_um: Option<f64>,
@@ -2567,7 +2618,7 @@ impl StructureTask {
     fn structure(&self) -> Result<Structure> {
         draw_paths(
             draw(
-                named_stack(&self.stack, self.core_nm, self.bottom_oxide_um)?,
+                tensor_stack(&self.stack, self.core_nm, self.bottom_oxide_um)?,
                 &self.rect,
                 &self.circle,
                 &self.ring,
@@ -2853,6 +2904,7 @@ fn cross_section(
     z: [f64; 2],
     step: f64,
     wavelength: Wavelength,
+    along: Along,
 ) -> Result<crate::mode::vector::CrossSection> {
     // every material the cut can meet must know this wavelength
     check_materials(s.stack(), &[wavelength.to_um()])?;
@@ -2928,19 +2980,73 @@ fn cross_section(
         for j in 0..zs.len() - 1 {
             let zc = 0.5 * (zs[j] + zs[j + 1]);
             // the material at the centre, or a sloped wall's share of the cell
-            let eps = s
-                .cut_cell(
-                    Point::um(xc, cut_y),
-                    zc,
-                    [1.0, 0.0],
-                    [xs[i + 1] - xs[i], zs[j + 1] - zs[j]],
+            let fill = s.cut_cell(
+                Point::um(xc, cut_y),
+                zc,
+                [1.0, 0.0],
+                [xs[i + 1] - xs[i], zs[j + 1] - zs[j]],
+            );
+            let anisotropic = match fill {
+                Fill::Uniform(m) => m.is_anisotropic(),
+                Fill::Wall {
+                    inside, outside, ..
+                } => inside.is_anisotropic() || outside.is_anisotropic(),
+            };
+            cells.push(if anisotropic {
+                cell_tensor(fill.tensor(wavelength)?, along)?
+            } else {
+                // an isotropic cell as it always was, to the bit
+                crate::mode::vector::Permittivity::isotropic(
+                    fill.permittivity(wavelength)
+                        .unwrap_or(num_complex::Complex64::new(f64::NAN, 0.0)),
                 )
-                .permittivity(wavelength)
-                .unwrap_or(num_complex::Complex64::new(f64::NAN, 0.0));
-            cells.push(crate::mode::vector::Permittivity::isotropic(eps));
+            });
         }
     }
     crate::mode::vector::CrossSection::new(xs, zs, cells)
+}
+
+/// A tensor `t` in the chip's frame as the full-vector solver takes it, in the cross-section's
+/// axes of a modes job along `along`: x across the guide, y up (the chip's z), z along it. Along
+/// y the axes are the chip's x, z and y; along x the job is turned a quarter turn clockwise
+/// ([`Frame`]), so across is the chip's y and along is its −x.
+fn cell_tensor(
+    t: [[num_complex::Complex64; 3]; 3],
+    along: Along,
+) -> Result<crate::mode::vector::Permittivity> {
+    // the chip's axes (and signs) that the cross-section's x, y and z are
+    let axes: [(usize, f64); 3] = match along {
+        Along::Y => [(0, 1.0), (2, 1.0), (1, 1.0)],
+        Along::X => [(1, 1.0), (2, 1.0), (0, -1.0)],
+    };
+    let turned = std::array::from_fn(|a| {
+        std::array::from_fn(|b| {
+            let ((i, si), (j, sj)) = (axes[a], axes[b]);
+            t[i][j] * (si * sj)
+        })
+    });
+    crate::mode::vector::Permittivity::from_tensor(turned).map_err(|e| match e {
+        Error::InvalidValue { reason, .. } => task_error(format!(
+            "an oriented crystal along {}: {reason}; orient it so one of its principal axes \
+             lies along the guide",
+            along.name()
+        )),
+        other => other,
+    })
+}
+
+/// A modes job's oriented crystals must have a principal axis along its guide, or the
+/// full-vector solver can't take their tensors: what [`check`] and the run both refuse.
+fn check_tensors(stack: &LayerStack, along: Along, wavelength_um: f64) -> Result<()> {
+    let w = Wavelength::um(wavelength_um)?;
+    let mut media = vec![stack.substrate(), stack.cladding()];
+    for l in stack.layers() {
+        media.extend([&l.material, &l.background]);
+    }
+    for m in media.into_iter().filter(|m| m.is_anisotropic()) {
+        cell_tensor(m.tensor(w)?, along)?;
+    }
+    Ok(())
 }
 
 /// `value(i, j)` of the cross-section's cells as a picture of about `step` per pixel over
@@ -3225,7 +3331,7 @@ fn check_inner(job: &Job) -> Result<()> {
         "modes" => {
             let task = modes_task(job, None)?;
             task.validate()?;
-            let stack = named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
+            let stack = tensor_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
             let s = draw(stack, &task.rect, &task.circle, &task.ring)?;
             let z = modes_z(&task, &s)?;
             modes_guide(&task, &s, z)?;
@@ -3241,6 +3347,9 @@ fn check_inner(job: &Job) -> Result<()> {
             let mut at = vec![task.wavelength_um];
             at.extend(&wavelengths);
             check_threshold(&task, &s, z, &at)?;
+            for &w in &at {
+                check_tensors(s.stack(), task.along()?, w)?;
+            }
             // a parameter's sweep: its shapes at both ends must be shapes
             if let Some(sw) = task
                 .sweep
@@ -3249,7 +3358,7 @@ fn check_inner(job: &Job) -> Result<()> {
             {
                 for end in [sw.from, sw.to] {
                     let at = modes_task(job, Some((&sw.parameter, end)))?;
-                    let stack = named_stack(&at.stack, at.core_nm, at.bottom_oxide_um)?;
+                    let stack = tensor_stack(&at.stack, at.core_nm, at.bottom_oxide_um)?;
                     draw(stack, &at.rect, &at.circle, &at.ring)
                         .and_then(|swept| modes_pml(&task, &swept, z))
                         .map_err(|e| {
@@ -3500,8 +3609,9 @@ const PML_SHARE: f64 = 0.5;
 /// above. No mode's effective index is above it.
 fn window_highest(task: &ModesTask, s: &Structure, z: [f64; 2], wavelength_um: f64) -> Result<f64> {
     let w = Wavelength::um(wavelength_um)?;
+    // an oriented crystal's highest principal index
     let index = |m: &crate::material::Material| -> Result<f64> {
-        Ok(m.permittivity(w)?.re.max(0.0).sqrt())
+        Ok(principal_indices(m, w)?.into_iter().fold(0.0, f64::max))
     };
     let stack = s.stack();
     let (along, across, cut) = (task.along()?, task.across()?, task.cut()?);
@@ -3569,26 +3679,40 @@ fn window_edge_lowest(s: &Structure, z: [f64; 2], wavelength_um: f64) -> Result<
 /// backgrounds of its layers.
 fn window_media(s: &Structure, z: [f64; 2], wavelength_um: f64) -> Result<Vec<f64>> {
     let w = Wavelength::um(wavelength_um)?;
-    let index = |m: &crate::material::Material| -> Result<f64> {
-        Ok(m.permittivity(w)?.re.max(0.0).sqrt())
+    // an oriented crystal's lowest and highest principal indices, an isotropic medium's one
+    let index = |m: &crate::material::Material| -> Result<Vec<f64>> {
+        let n = principal_indices(m, w)?;
+        let low = n.into_iter().fold(f64::INFINITY, f64::min);
+        let high = n.into_iter().fold(0.0, f64::max);
+        Ok(if low == high {
+            vec![high]
+        } else {
+            vec![low, high]
+        })
     };
     let stack = s.stack();
     let mut media = Vec::new();
     if z[0] < 0.0 {
-        media.push(index(stack.substrate())?);
+        media.extend(index(stack.substrate())?);
     }
     let mut bottom = 0.0;
     for layer in stack.layers() {
         let top = bottom + layer.thickness.to_um();
         if z[1] > bottom && z[0] < top {
-            media.push(index(&layer.background)?);
+            media.extend(index(&layer.background)?);
         }
         bottom = top;
     }
     if z[1] > bottom {
-        media.push(index(stack.cladding())?);
+        media.extend(index(stack.cladding())?);
     }
     Ok(media)
+}
+
+/// A medium's principal refractive indices (real parts) at `w`: an isotropic one's three the
+/// same, as its permittivity gives them.
+fn principal_indices(m: &crate::material::Material, w: Wavelength) -> Result<[f64; 3]> {
+    Ok(m.principal_permittivity(w)?.map(|e| e.re.max(0.0).sqrt()))
 }
 
 /// A modes job's `modes_above` must be below the highest index its cross-section holds at each
@@ -3682,7 +3806,7 @@ pub fn preview(job: &Job) -> Result<Event> {
         }
         Some("modes") => {
             let task = modes_task(job, None)?;
-            let stack = named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
+            let stack = tensor_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
             modes_scene(&task, &draw(stack, &task.rect, &task.circle, &task.ring)?)
         }
         Some("fdtd") => fdtd::preview(job),
@@ -3738,7 +3862,7 @@ fn export_mode(
 fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let task = modes_task(job, None)?;
     task.validate()?;
-    let stack = || named_stack(&task.stack, task.core_nm, task.bottom_oxide_um);
+    let stack = || tensor_stack(&task.stack, task.core_nm, task.bottom_oxide_um);
     // (validated: at least 1 and at most MOST_MODES)
     let count = task.modes.unwrap_or(2);
     let lam = Wavelength::um(task.wavelength_um)?;
@@ -3857,6 +3981,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         z,
         step,
         lam,
+        along,
     )?)?;
     let edge = window_edge_highest(&task, &s, z, lam.to_um())?;
     // what an open window keeps of the modes it solves, and how it names them
@@ -4012,6 +4137,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                         z,
                         step,
                         w,
+                        along,
                     )?,
                     w,
                 )
@@ -4066,6 +4192,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                         z,
                         step,
                         lam,
+                        along,
                     )?,
                     lam,
                 )
@@ -4155,6 +4282,8 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
 #[cfg(test)]
 mod averaging_tests;
 
+#[cfg(test)]
+mod crystal_tests;
 #[cfg(test)]
 mod etch_tests;
 
@@ -4729,7 +4858,7 @@ size_um = [10.0, 0.5]
         ] {
             let job = Job::parse(&std::fs::read_to_string(dir.join(name)).unwrap()).unwrap();
             let task = modes_task(&job, None).unwrap();
-            let stack = || named_stack(&task.stack, task.core_nm, task.bottom_oxide_um).unwrap();
+            let stack = || tensor_stack(&task.stack, task.core_nm, task.bottom_oxide_um).unwrap();
             let s = draw(stack(), &task.rect, &task.circle, &task.ring).unwrap();
             let z = modes_z(&task, &s).unwrap();
             let (along, across, cut) = (
@@ -4750,6 +4879,7 @@ size_um = [10.0, 0.5]
                 z,
                 task.step_nm / 1000.0,
                 lam,
+                task.along().unwrap(),
             )
             .unwrap();
             let job_index = window_edge_highest(&task, &s, z, task.wavelength_um).unwrap();
@@ -5260,6 +5390,7 @@ width_um = 0.3
             [-1.0, 1.22],
             0.02,
             Wavelength::um(1.55).unwrap(),
+            Along::Y,
         )
         .unwrap();
         let has = |nodes: &[f64], v: f64| nodes.iter().any(|&n| (n - v).abs() < 1e-12);

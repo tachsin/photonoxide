@@ -70,6 +70,50 @@ impl Permittivity {
         }
     }
 
+    /// A full 3 × 3 tensor `t` in the cross-section's axes (x, y across it, z along the guide),
+    /// as the solver takes it: its transverse block and ε_zz. The solver's equations (Fallahkhair
+    /// et al.'s) hold for a tensor whose z is a principal axis, so ε_xz, ε_yz, ε_zx and ε_zy
+    /// must vanish: a crystal turned so that none of its principal axes lies along the guide
+    /// mixes the longitudinal field into the transverse one, which this formulation leaves out.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] when an element coupling z to x or y exceeds 1e-12 of the
+    /// tensor's largest element, or an element isn't finite.
+    pub fn from_tensor(t: [[c64; 3]; 3]) -> Result<Permittivity> {
+        let scale = t.iter().flatten().fold(0.0f64, |m, e| m.max(e.norm()));
+        if !t
+            .iter()
+            .flatten()
+            .all(|e| e.re.is_finite() && e.im.is_finite())
+        {
+            return Err(Error::invalid(
+                "permittivity",
+                format!("a tensor's elements must be numbers, got {t:?}"),
+            ));
+        }
+        let coupling = [t[0][2], t[1][2], t[2][0], t[2][1]]
+            .iter()
+            .fold(0.0f64, |m, e| m.max(e.norm()));
+        if coupling > 1e-12 * scale {
+            return Err(Error::invalid(
+                "permittivity",
+                format!(
+                    "the tensor couples the guide's axis to the cross-section (largest such \
+                     element {coupling:.3e} of {scale:.3e}): the full-vector solver takes a \
+                     tensor with a principal axis along the guide"
+                ),
+            ));
+        }
+        Ok(Permittivity {
+            xx: t[0][0],
+            xy: t[0][1],
+            yx: t[1][0],
+            yy: t[1][1],
+            zz: t[2][2],
+        })
+    }
+
     /// The tensor with x and y exchanged (Eq. (36)).
     fn transposed(self) -> Permittivity {
         Permittivity {
