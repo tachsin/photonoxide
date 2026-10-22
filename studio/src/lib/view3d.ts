@@ -689,12 +689,17 @@ export function drawAxes(svg: SVGSVGElement, camera: THREE.Camera, names: readon
   // the chip's axes, and a crystal's (dashed, in violets) when its frame is shown
   const arrows: { dir: THREE.Vector3; colour: string; name: string; dashed: boolean }[] = [0, 1, 2].map((k) => ({ dir: new THREE.Vector3(...[0, 1, 2].map((i) => (i === k ? 1 : 0))), colour: AXIS_COLOURS[k], name: names[k], dashed: false }));
   if (crystal) arrows.push(...crystal.axes.map((a, k) => ({ dir: new THREE.Vector3(...a), colour: CRYSTAL_COLOURS[k], name: crystalAxis(k), dashed: true })));
+  const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
   svg.innerHTML = arrows
     .sort((a, b) => a.dir.dot(back) - b.dir.dot(back))
     .map(({ dir, colour, name, dashed }) => {
       const [dx, dy] = [dir.dot(right) * length, -dir.dot(up) * length];
-      return `<line x1="0" y1="0" x2="${dx}" y2="${dy}" stroke="${colour}" stroke-width="${dashed ? 2 : 2.5}" stroke-linecap="round"${dashed ? ' stroke-dasharray="4 3"' : ""}/>
+      const drawn = `<line x1="0" y1="0" x2="${dx}" y2="${dy}" stroke="${colour}" stroke-width="${dashed ? 2 : 2.5}" stroke-linecap="round"${dashed ? ' stroke-dasharray="4 3"' : ""}/>
           <text x="${dx * 1.35}" y="${dy * 1.35}" fill="${colour}" text-anchor="middle" dominant-baseline="central"${dashed ? ' font-style="italic"' : ""}>${name}</text>`;
+      // a crystal's axis says, under the pointer, whose it is and how the job orients it
+      return dashed && crystal?.label
+        ? `<g pointer-events="all"><title>${escape(`${crystal.label}: its ${name} axis`)}</title><line x1="0" y1="0" x2="${dx * 1.35}" y2="${dy * 1.35}" stroke="transparent" stroke-width="10" pointer-events="stroke"/>${drawn}</g>`
+        : drawn;
     })
     .join("");
 }
@@ -702,6 +707,8 @@ export function drawAxes(svg: SVGSVGElement, camera: THREE.Camera, names: readon
 /** A crystal's x, y and z as directions in the chip's frame, for the gizmo and the triads. */
 export interface CrystalAxes {
   axes: [number, number, number][];
+  /** The crystal and its orientation, for the axes' tooltips: "LiNbO₃, x-cut, its y along the chip's x". */
+  label?: string;
 }
 
 /**

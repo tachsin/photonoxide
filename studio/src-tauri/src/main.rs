@@ -20,6 +20,7 @@ mod form;
 mod frames;
 mod libraries;
 mod materials;
+mod media;
 #[cfg(test)]
 mod navigation;
 mod optimize;

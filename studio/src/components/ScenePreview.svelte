@@ -104,7 +104,7 @@
   $effect(() => {
     const shown = frame === "crystal" ? crystalFrame(crystals) : null;
     // the chip's axes as they are, and in a crystal's frame its own beside them, dashed
-    view?.setAxes(axes && gizmo ? gizmo : null, axisNames(frame === "crystal" ? "chip" : frame, section), shown ? { axes: shown.oriented.axes } : null);
+    view?.setAxes(axes && gizmo ? gizmo : null, axisNames(frame === "crystal" ? "chip" : frame, section), shown ? { axes: shown.oriented.axes, label: `${shown.crystal.formula}, ${shown.oriented.label}` } : null);
     // a crystal's frame looks along its c axis, its z
     view?.lookAlong(frame === "section" && section ? section.along : shown ? shown.oriented.axes[2] : null);
   });

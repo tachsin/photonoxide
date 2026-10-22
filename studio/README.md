@@ -74,7 +74,12 @@ in a drawer opened from the status bar.
     opens it in a sidebar: each value with the schema's docs and the values it may take (the
     stack's layers, the presets, the catalogue's materials, the generators). A value changed
     there is written into the text, the rest of it as it was; undo and redo take back both.
-    Putting the cursor in an entry picks it too.
+    Putting the cursor in an entry picks it too. The 3D and Top views beside the form open the
+    same sidebar over the design, editing the same job, the form's changes and the sidebar's one
+    history. Under a shape's or a layer's values are its media: the catalogue's index at the
+    job's wavelength, the range it holds for, its temperature and its source; a crystal's
+    orientation (x-, y- or z-cut, the axis along the chip's x, or Euler angles) is set there, and
+    its axes follow in both views.
   - The form: the kind; the name, time limit and description; the stack and the layer; the
     task's **named parameters** (`[task.parameters]`), each a number or an expression; the
     window and grid; the shapes; an FDFD job's ports; an FDTD job's sources, monitors, spectrum,

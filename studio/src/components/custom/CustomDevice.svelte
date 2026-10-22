@@ -8,9 +8,11 @@
   // by functions, bodies, a stack of layers, a port found by name, a solver table) is kept as the
   // file has it, and said so; the task's parameters and a sweep of any of them are the form's.
   // Checked by the library as it changes, saved to the workspace's jobs/, run from here. A new
-  // job is YAML. Beside its text, a click on a structure in the design (a shape, a layer, a port)
-  // selects its entry in the text and opens it in a sidebar, whose values are written back into
-  // the text (drawn.rs finds which entry draws which shape; lib/jobedit.ts the text's spans).
+  // job is YAML. A click on a structure in the design (a shape, a layer, a port), beside the text
+  // or in the 3D and Top views beside the form, opens its entry in a sidebar (and selects it in
+  // the text), whose values, media and crystal orientation are written back into the text
+  // (drawn.rs finds which entry draws which shape, media.rs the stack's media; lib/jobedit.ts
+  // the text's spans). Outside "As text", the form's changes and the sidebar's are one history.
   import { Box, CircleAlert, CircleCheck, Code, Eye, LoaderCircle, Play, Plus, Save, Shapes, Trash2 } from "@lucide/svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
   import { onDestroy, untrack } from "svelte";
@@ -32,7 +34,7 @@
   import ScenePreview from "../ScenePreview.svelte";
   import TomlEditor from "../TomlEditor.svelte";
   import EntryPanel from "./EntryPanel.svelte";
-  import { drawerOf, entryAt, entrySpan, itemPaths, layerPath, samePath, type Drawing, type Span } from "../../lib/jobedit";
+  import { drawerOf, entryAt, entrySpan, itemPaths, layerPath, samePath, type Drawing, type Medium, type Span } from "../../lib/jobedit";
   import type { Path } from "../../lib/jobschema";
 
   let model = $state<JobModel>(template("modes"));
@@ -125,6 +127,7 @@
       .then((t) => (f === "toml" ? t : api.convertJob(t, "toml", f)))
       .then((x) => {
         if (baseline === key && format === f) {
+          remember(text, x);
           text = x;
           validate();
         }
@@ -174,6 +177,8 @@
     saved = t;
     selection = null;
     picked = null;
+    past = [];
+    future = [];
     validate();
   }
 
@@ -384,13 +389,27 @@
   );
 
   const isSel = (kind: "rect" | "circle" | "ring" | "port", index: number) => selection?.kind === kind && selection.index === index;
-  // ---- click-to-edit, beside the text ----
+  // ---- click-to-edit, beside the text and in the form's 3D and Top views ----
   let editor = $state<TomlEditor>();
   /** What each entry of the text draws, of its last valid version, and the stack's layers. */
   let drawing = $state<Drawing | null>(null);
+  /** The media of the stack of the last valid version, with their indices and sources (media.rs). */
+  let media = $state<Medium[]>([]);
+  $effect(() => {
+    const t = shown;
+    if (!t) return;
+    let live = true;
+    api
+      .jobMedia(t, "toml")
+      .then((m) => {
+        if (live) media = m;
+      })
+      .catch(() => {});
+    return () => (live = false);
+  });
   $effect(() => {
     const [t, f] = [shown, format];
-    if (!t || right !== "toml") return;
+    if (!t) return;
     let live = true;
     api
       .jobDrawing(
@@ -408,16 +427,28 @@
   /** What the picked entry draws, outlined in both views. */
   const marked = $derived<Shape[]>(picked && drawing ? drawing.entries.filter((e) => samePath(e.path, picked!)).flatMap((e) => e.shapes) : []);
 
+  /** A layer picked in the 3D view, by name: a preset's has no entry of its own. */
+  let pickedSlab = $state<string | null>(null);
+  /** The layer the picked entry is about: the picked shape's, or the layer's picked in 3D. */
+  const pickedLayer = $derived.by(() => {
+    const p = picked;
+    if (!p) return null;
+    const shape = drawing?.entries.find((e) => samePath(e.path, p))?.shapes[0];
+    return shape ? { name: shape.layer, shape: true } : pickedSlab ? { name: pickedSlab, shape: false } : null;
+  });
+
   /** Picks the entry at `p` (none: nothing), and selects it in the text. */
-  function pick(p: Path | null) {
+  function pick(p: Path | null, slab: string | null = null) {
     picked = p;
+    pickedSlab = slab;
     const span = p && entrySpan(text, format, p);
     if (span) editor?.select(span);
   }
   /** A click in the 3D view: the entry that draws the shape, or the layer's in the stack. */
   function picked3d(what: { shape: Shape } | { layer: string } | null) {
     if (!what) return pick(null);
-    pick("shape" in what ? (drawerOf(drawing, what.shape)?.path ?? null) : layerPath(text, format, what.layer));
+    if ("shape" in what) return pick(drawerOf(drawing, what.shape)?.path ?? null);
+    pick(layerPath(text, format, what.layer), what.layer);
   }
   /** A click from above on the form's shapes, ports, sources and monitors. */
   function pickedTop(s: Selection) {
@@ -432,11 +463,43 @@
   function cursorAt(pos: number) {
     const paths = [...(drawing?.entries.map((e) => e.path) ?? []), ...itemPaths(text, format)];
     const p = entryAt(text, format, pos, paths);
-    if (!(p && picked && samePath(p, picked))) picked = p;
+    if (!(p && picked && samePath(p, picked))) {
+      picked = p;
+      pickedSlab = null;
+    }
+  }
+
+  // Outside "As text" the text has no editor of its own: the form's changes and the sidebar's
+  // are one history here, which the sidebar's undo and redo step through.
+  let past: string[] = [];
+  let future: string[] = [];
+  /** The text goes from `before` to `after` by the form or the sidebar, outside "As text": a step to undo. */
+  function remember(before: string, after: string) {
+    if (right === "toml" || before === after || !before) return;
+    past.push(before);
+    if (past.length > 200) past.shift();
+    future = [];
   }
   /** The sidebar changed a value: written over the old one, as a step undo takes back. */
   function write(span: Span, insert: string) {
-    editor?.replace(span, insert);
+    if (right === "toml") return editor?.replace(span, insert);
+    const t = text.slice(0, span.from) + insert + text.slice(span.to);
+    remember(text, t);
+    edited(t);
+  }
+  function undo() {
+    if (right === "toml") return editor?.undoChange();
+    const t = past.pop();
+    if (t === undefined) return;
+    future.push(text);
+    edited(t);
+  }
+  function redo() {
+    if (right === "toml") return editor?.redoChange();
+    const t = future.pop();
+    if (t === undefined) return;
+    past.push(text);
+    edited(t);
   }
 
   /** The parameters a modes job's sweep can step through: the wavelength, a rectangle's width, or a named one. */
@@ -501,17 +564,7 @@
       </div>
       {#if picked}
         <div class="flex max-h-[50%] min-h-0 shrink-0 flex-col border-t border-base-content/8">
-          <EntryPanel
-            {text}
-            {format}
-            path={picked}
-            model={check?.model}
-            layers={drawing?.layers ?? []}
-            onwrite={write}
-            onundo={() => editor?.undoChange()}
-            onredo={() => editor?.redoChange()}
-            onclose={() => (picked = null)}
-          />
+          {@render sidebar(picked)}
         </div>
       {/if}
       <div class="flex shrink-0 items-center gap-2 border-t border-base-content/8 px-3 py-2">
@@ -982,6 +1035,24 @@
   {/if}
 {/snippet}
 
+{#snippet sidebar(p: Path)}
+  <EntryPanel
+    {text}
+    {format}
+    path={p}
+    model={check?.model}
+    layers={drawing?.layers ?? []}
+    {media}
+    layer={pickedLayer}
+    {crystals}
+    onwrite={write}
+    onundo={undo}
+    onredo={redo}
+    onclose={() => (picked = null)}
+    onpick={(q) => pick(q)}
+  />
+{/snippet}
+
 {#snippet problem()}
   {#if check && !check.ok && check.error}
     <div class="rounded-lg border border-error/30 bg-error/8 px-3 py-2 text-xs text-error selectable">{check.error}</div>
@@ -994,7 +1065,21 @@
       {#if right === "toml"}
         <GeometryPreview {model} kept={keptShapes} height={Math.max(140, h - (stacked ? 64 : 80))} onselect={pickedTop} onpickshape={(s) => pick(drawerOf(drawing, s)?.path ?? null)} {marked} {frame} {section} oriented={oriented?.oriented ?? null} />
       {:else}
-        <GeometryPreview {model} kept={keptShapes} height={Math.max(140, h - (stacked ? 64 : 80))} selected={selection} onselect={(s) => (selection = s)} {frame} {section} oriented={oriented?.oriented ?? null} />
+        <GeometryPreview
+          {model}
+          kept={keptShapes}
+          height={Math.max(140, h - (stacked ? 64 : 80))}
+          selected={selection}
+          onselect={(s) => {
+            selection = s;
+            pickedTop(s);
+          }}
+          onpickshape={(s) => pick(drawerOf(drawing, s)?.path ?? null)}
+          {marked}
+          {frame}
+          {section}
+          oriented={oriented?.oriented ?? null}
+        />
       {/if}
       <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 px-1 text-xs faint">
         <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-primary/65"></span>silicon</span>
@@ -1015,7 +1100,7 @@
   {:else}
     <div class="relative h-full">
       {#if shown}
-        <ScenePreview text={shown} height={Math.max(160, h)} turnable axes {frame} onpick={right === "toml" ? picked3d : undefined} marked={right === "toml" ? marked : []} />
+        <ScenePreview text={shown} height={Math.max(160, h)} turnable axes {frame} onpick={picked3d} {marked} />
         {#if check && !check.ok}
           <div class="absolute inset-x-3 top-3 rounded-lg border border-warning/30 bg-base-100/85 px-3 py-1.5 text-xs backdrop-blur">The job isn't valid now: this is its last valid version.</div>
         {/if}
@@ -1035,7 +1120,15 @@
 {#snippet view()}
   <div class="min-h-0 flex-1 overflow-hidden" bind:clientHeight={viewHeight}>
     {#if right !== "toml"}
-      {@render picture(right, viewHeight)}
+      <div class="relative h-full">
+        {@render picture(right, viewHeight)}
+        {#if picked}
+          <!-- the sidebar over the design, editing the same job's text -->
+          <div class="absolute top-3 right-3 bottom-3 flex w-[min(22rem,calc(100%-1.5rem))] min-h-0 flex-col overflow-hidden rounded-xl border border-base-content/10 bg-base-100/95 shadow-lg backdrop-blur">
+            {@render sidebar(picked)}
+          </div>
+        {/if}
+      </div>
     {:else}
       <div class="flex h-full min-h-0 flex-col p-3">
         <div class="mb-2 flex flex-wrap items-center gap-2">
@@ -1085,6 +1178,6 @@
       <span class="hidden text-[11px] faint xl:inline">{frameCaption(frame, section, crystals)}</span>
     {/if}
     <span class="flex-1"></span>
-    <span class="hidden text-[11px] faint lg:inline">{right === "3d" ? `as its run will draw it, over its window${model.kind === "modes" ? ", behind the cut" : ""}` : right === "preview" ? "click a shape to edit it" : "Ctrl+Space: the keys and values that fit; hover a key for its docs"}</span>
+    <span class="hidden text-[11px] faint lg:inline">{right === "3d" ? `as its run will draw it, over its window${model.kind === "modes" ? ", behind the cut" : ""}; click a structure to edit it` : right === "preview" ? "click a structure to edit it" : "Ctrl+Space: the keys and values that fit; hover a key for its docs"}</span>
   </div>
 {/snippet}

@@ -235,3 +235,106 @@ export function offered(field: Field, from: { layers: string[]; stacks: string[]
   if (key === "type" && field.path.includes("component")) return GENERATORS;
   return from.values;
 }
+
+/** A medium of a job's stack, as media.rs gives it: a layer's material or background, the substrate or the cladding, with the catalogue's index at the job's wavelength, its range and its source. */
+export interface Medium {
+  /** The layer it is in; none for the substrate and the cladding. */
+  layer: string | null;
+  role: "material" | "background" | "substrate" | "cladding";
+  /** Where the text names it; none for a preset's. */
+  path: Path | null;
+  id: string | null;
+  name: string;
+  model: string;
+  anisotropic: boolean;
+  wavelength_um: number;
+  /** Its indices at the wavelength, one per axis ("isotropic", "ordinary", "extraordinary", "x", …); none outside its range. */
+  index: { axis: string; n: number; k: number }[];
+  range_um: [number, number] | null;
+  temperature_k: number | null;
+  reference: string;
+  doi: string;
+  data: string;
+  notes: string;
+}
+
+/**
+ * The media an entry picked is about: a stack's layer's own (or the substrate's, the
+ * cladding's), every one for the stack itself, and for a shape its layer's material; a layer
+ * picked in the 3D view, by its name, its material and background.
+ */
+export function mediaOf(path: Path, media: Medium[], layer: { name: string; shape: boolean } | null): Medium[] {
+  if (path[0] === "task" && path[1] === "stack" && path.length > 2) return media.filter((m) => m.path && under(m.path, path));
+  if (layer) {
+    const name = layer.name;
+    if (name === "substrate" || name === "cladding") return media.filter((m) => m.role === name);
+    return media.filter((m) => m.layer === name && (!layer.shape || m.role === "material"));
+  }
+  return path[0] === "task" && path[1] === "stack" ? media : [];
+}
+
+/** A crystal's orientation as a job gives it (#468): a cut, with the crystal axis along the chip's x when it says, or z-x-z Euler angles in degrees; none when it gives none. */
+export type Orientation = { cut: "x" | "y" | "z"; along_x: "x" | "y" | "z" | null } | { euler: [number, number, number] } | null;
+
+/** The orientation the text gives the medium at `path`. */
+export function orientationOf(text: string, format: JobFormat, path: Path): Orientation {
+  const span = entrySpan(text, format, [...path, "orientation"]);
+  if (!span) return null;
+  const s = text.slice(span.from, span.to);
+  const shortcut = /([xyz])-cut/.exec(s);
+  if (shortcut) return { cut: shortcut[1] as "x", along_x: null };
+  const euler = /euler_deg\W*\[([^\]]*)\]/.exec(s);
+  if (euler) {
+    const v = euler[1].split(",").map((x) => Number(x.trim()));
+    if (v.length === 3 && v.every(Number.isFinite)) return { euler: v as [number, number, number] };
+  }
+  const cut = /\bcut["']?\s*[:=]\s*["']?([xyz])\b/.exec(s);
+  const along = /along_x["']?\s*[:=]\s*["']?([xyz])\b/.exec(s);
+  return cut ? { cut: cut[1] as "x", along_x: (along?.[1] as "x" | undefined) ?? null } : null;
+}
+
+/** `key =` in TOML, `key:` in YAML, `"key":` in JSON. */
+const keyed = (key: string, format: JobFormat) => (format === "toml" ? `${key} =` : format === "yaml" ? `${key}:` : `"${key}":`);
+/** A string as the format writes it: bare in YAML where it reads as one. */
+const str = (v: string, format: JobFormat) => writtenValue(v, "", format);
+
+/** An orientation as the format writes it. */
+export function orientationText(o: NonNullable<Orientation>, format: JobFormat): string {
+  if ("euler" in o) return `{ ${keyed("euler_deg", format)} [${o.euler.join(", ")}] }`;
+  if (!o.along_x) return str(`${o.cut}-cut`, format);
+  return `{ ${keyed("cut", format)} ${str(o.cut, format)}, ${keyed("along_x", format)} ${str(o.along_x, format)} }`;
+}
+
+/**
+ * The change to the text that gives the medium at `path` the orientation `o` (none: takes it
+ * away): its `orientation` written over, added to the medium's table, or the medium's name made
+ * a table with it. Null where the text has the medium as a block of its own lines with no
+ * orientation to write over: edited in the text.
+ */
+export function orientationEdit(text: string, format: JobFormat, path: Path, o: Orientation): { span: Span; insert: string } | null {
+  const entries = outline(text, format);
+  const me = entries.find((e) => samePath(e.path, path));
+  if (!me) return null;
+  const whole = valueSpan(text, format, me);
+  const oe = entries.find((e) => samePath(e.path, [...path, "orientation"]));
+  const old = oe && valueSpan(text, format, oe);
+  const value = o && orientationText(o, format);
+  if (oe && old) {
+    if (value) return { span: old, insert: value };
+    if (!whole) return null;
+    // the key and its value out of the table, with the comma before it (or, first, after it)
+    const start = oe.from - (/["']/.test(text[oe.from - 1]) ? 1 : 0);
+    let i = start - 1;
+    while (i > 0 && /\s/.test(text[i])) i--;
+    if (text[i] === ",") return { span: { from: i, to: old.to }, insert: "" };
+    return { span: { from: start, to: old.to + (/^\s*,\s*/.exec(text.slice(old.to))?.[0].length ?? 0) }, insert: "" };
+  }
+  if (!value || !whole) return null;
+  const raw = text.slice(whole.from, whole.to);
+  if (raw.startsWith("{")) {
+    let i = whole.to - 2;
+    while (i > whole.from && /\s/.test(text[i])) i--;
+    return { span: { from: i + 1, to: i + 1 }, insert: `, ${keyed("orientation", format)} ${value}` };
+  }
+  return { span: whole, insert: `{ ${keyed("id", format)} ${str(shownValue(raw), format)}, ${keyed("orientation", format)} ${value} }` };
+}
