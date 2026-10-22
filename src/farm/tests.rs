@@ -492,8 +492,9 @@ impl crate::run::Points for Timed {
 }
 
 /// A thread that waits on a channel a tick at a time, as the farm's threads do at a stop, and
-/// notes each wait that ended later than its tick: the time this machine kept a thread waiting
-/// so from running, which the farm's threads can't have had either.
+/// notes each wait that ended more than a tick later than it should (a timer's coarseness is
+/// less): the time this machine kept a thread waiting so from running, which the farm's threads
+/// can't have had either.
 struct Yardstick {
     stalls: Arc<Mutex<Vec<(Instant, Instant)>>>,
     quit: std::sync::mpsc::Sender<()>,
@@ -508,7 +509,7 @@ impl Yardstick {
         let noted = Arc::clone(&stalls);
         let thread = std::thread::spawn(move || {
             loop {
-                let due = Instant::now() + coordinator::TICK;
+                let due = Instant::now() + 2 * coordinator::TICK;
                 if !matches!(
                     wait.recv_timeout(coordinator::TICK),
                     Err(RecvTimeoutError::Timeout)
