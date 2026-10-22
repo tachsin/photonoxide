@@ -73,6 +73,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             run_text,
             stop_run,
             check_job,
+            job_schema,
             save_job,
             convert_job,
             read_job,
@@ -793,6 +794,13 @@ fn check_job(text: String, format: Format) -> JobCheck {
         error,
         model,
     }
+}
+
+/// The job file's JSON Schema ([`job::schema_text`]), for the editor's completions and the docs
+/// it shows beside a key.
+#[tauri::command]
+fn job_schema() -> serde_json::Value {
+    serde_json::from_str(&job::schema_text()).unwrap_or_default()
 }
 
 /// `path` inside `dir` (after resolving both), or an error.

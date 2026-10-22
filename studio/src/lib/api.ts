@@ -143,6 +143,8 @@ export const api = {
   runText: (text: string, format: JobFormat = "toml") => invoke<Info>("run_text", { text, format }),
   stopRun: (dir: string) => invoke<void>("stop_run", { dir }),
   checkJob: (text: string, format: JobFormat = "toml") => invoke<JobCheck>("check_job", { text, format }),
+  /** The job file's JSON Schema, for the editor's completions and the docs beside a key. */
+  jobSchema: () => invoke<Record<string, unknown>>("job_schema"),
   saveJob: (text: string, format: JobFormat, replace: boolean) => invoke<string>("save_job", { text, format, replace }),
   /** The same job written in another format; a TOML or YAML file's opening comment goes along. */
   convertJob: (text: string, from: JobFormat, to: JobFormat) => invoke<string>("convert_job", { text, from, to }),

@@ -40,6 +40,9 @@
   let checking = $state(false);
   let selection = $state<Selection>(null);
   let right = $state<"preview" | "3d" | "toml">("3d");
+  /** Beside the text, the design: in 3D or from above. */
+  let design = $state<"3d" | "preview">("3d");
+  let designHeight = $state(0);
   /** The text the 3D preview shows: the last one that checked out, so it doesn't rebuild on every key. */
   let shown = $state("");
   /** The frame the views are in, and the shown job's cross-section that the cross-section's frame is (frames.rs): none for a job that isn't cut. */
@@ -422,6 +425,21 @@
     </section>
 
     <!-- the form, or the runs compared -->
+    {#if right === "toml"}
+    <!-- the text on the left, the design it describes on the right -->
+    <aside class="flex min-h-0 min-w-0 flex-col">
+      <div class="min-h-0 flex-1 overflow-hidden" bind:clientHeight={designHeight}>
+        {@render drawing(design, designHeight)}
+      </div>
+      <div class="flex shrink-0 items-center gap-2 border-t border-base-content/8 px-3 py-2">
+        <div class="join" role="group" aria-label="What the design shows">
+          <button class="btn btn-xs join-item gap-1 {design === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (design = "3d")} title="The structure as the run will draw it"><Box size={12} /> 3D</button>
+          <button class="btn btn-xs join-item gap-1 {design === 'preview' ? 'btn-primary btn-soft' : ''}" onclick={() => (design = "preview")} title="Seen from above"><Eye size={12} /> Top</button>
+        </div>
+        <span class="text-[11px] faint">{design === "3d" ? "as its run will draw it, from its last valid text" : "from above, as the text has it"}</span>
+      </div>
+    </aside>
+    {:else}
     <aside class="@container min-h-0 min-w-0 space-y-6 overflow-x-hidden overflow-y-auto px-5 py-4">
       <div class="join w-full" role="tablist" aria-label="The job, or its runs compared">
         <button role="tab" class="btn btn-sm join-item flex-1 {panel === 'job' ? 'btn-primary btn-soft' : ''}" onclick={() => (panel = "job")}>Job</button>
@@ -867,6 +885,7 @@
       {/if}
       {/if}
     </aside>
+    {/if}
   </div>
 </div>
 
@@ -886,44 +905,50 @@
   {/if}
 {/snippet}
 
+{#snippet drawing(kind: "3d" | "preview", h: number)}
+  {#if kind === "preview"}
+    <div class="h-full overflow-y-auto p-4">
+      <GeometryPreview {model} kept={keptShapes} height={Math.max(140, h - (stacked ? 64 : 80))} selected={selection} onselect={(s) => (selection = s)} {frame} {section} />
+      <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 px-1 text-xs faint">
+        <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-primary/65"></span>silicon</span>
+        <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-secondary/70"></span>nitride</span>
+        {#if model.kind === "fdfd"}
+          <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-success"></span>ports</span>
+          <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm border border-warning/50 bg-warning/20"></span>PML</span>
+        {/if}
+        {#if model.kind === "fdtd"}
+          <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-warning"></span>sources</span>
+          <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-info"></span>monitors</span>
+          <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm border border-warning/50 bg-warning/20"></span>CPML</span>
+        {/if}
+        {#if model.kind === "modes" || section}<span class="flex items-center gap-1.5"><span class="h-0.5 w-3 bg-accent"></span>cross-section, its across axis</span>{/if}
+        <span>seen from above, x to the right, y up</span>
+      </div>
+    </div>
+  {:else}
+    <div class="relative h-full">
+      {#if shown}
+        <ScenePreview text={shown} height={Math.max(160, h)} turnable axes {frame} />
+        {#if check && !check.ok}
+          <div class="absolute inset-x-3 top-3 rounded-lg border border-warning/30 bg-base-100/85 px-3 py-1.5 text-xs backdrop-blur">The job isn't valid now: this is its last valid version.</div>
+        {/if}
+      {:else}
+        <div class="grid h-full place-items-center p-6 text-center">
+          <div class="flex flex-col items-center gap-3 text-sm faint">
+            <Box size={22} />
+            <span>The 3D view appears once the job is valid{check && !check.ok ? (right === "toml" ? "; it isn't yet (see the text)" : "; it isn't yet (see the form)") : ""}.</span>
+            <button class="btn btn-sm gap-1.5" onclick={() => (right === "toml" ? (design = "preview") : (right = "preview"))}><Eye size={14} /> Top view</button>
+          </div>
+        </div>
+      {/if}
+    </div>
+  {/if}
+{/snippet}
+
 {#snippet view()}
   <div class="min-h-0 flex-1 overflow-hidden" bind:clientHeight={viewHeight}>
-    {#if right === "preview"}
-      <div class="h-full overflow-y-auto p-4">
-        <GeometryPreview {model} kept={keptShapes} height={Math.max(140, viewHeight - (stacked ? 64 : 80))} selected={selection} onselect={(s) => (selection = s)} {frame} {section} />
-        <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 px-1 text-xs faint">
-          <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-primary/65"></span>silicon</span>
-          <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-secondary/70"></span>nitride</span>
-          {#if model.kind === "fdfd"}
-            <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-success"></span>ports</span>
-            <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm border border-warning/50 bg-warning/20"></span>PML</span>
-          {/if}
-          {#if model.kind === "fdtd"}
-            <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-warning"></span>sources</span>
-            <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-info"></span>monitors</span>
-            <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm border border-warning/50 bg-warning/20"></span>CPML</span>
-          {/if}
-          {#if model.kind === "modes" || section}<span class="flex items-center gap-1.5"><span class="h-0.5 w-3 bg-accent"></span>cross-section, its across axis</span>{/if}
-          <span>seen from above, x to the right, y up</span>
-        </div>
-      </div>
-    {:else if right === "3d"}
-      <div class="relative h-full">
-        {#if shown}
-          <ScenePreview text={shown} height={Math.max(160, viewHeight)} turnable axes {frame} />
-          {#if check && !check.ok}
-            <div class="absolute inset-x-3 top-3 rounded-lg border border-warning/30 bg-base-100/85 px-3 py-1.5 text-xs backdrop-blur">The job isn't valid now: this is its last valid version.</div>
-          {/if}
-        {:else}
-          <div class="grid h-full place-items-center p-6 text-center">
-            <div class="flex flex-col items-center gap-3 text-sm faint">
-              <Box size={22} />
-              <span>The 3D view appears once the job is valid{check && !check.ok ? "; it isn't yet (see the form)" : ""}.</span>
-              <button class="btn btn-sm gap-1.5" onclick={() => (right = "preview")}><Eye size={14} /> Top view</button>
-            </div>
-          </div>
-        {/if}
-      </div>
+    {#if right !== "toml"}
+      {@render drawing(right, viewHeight)}
     {:else}
       <div class="flex h-full min-h-0 flex-col p-3">
         <div class="mb-2 flex flex-wrap items-center gap-2">
@@ -935,8 +960,9 @@
           {#if format === "json"}<span class="text-[11px] faint">JSON has no comments: the description isn't kept.</span>{/if}
         </div>
         <div class="min-h-0 flex-1 overflow-hidden rounded-xl border border-base-content/8 bg-base-300/50 py-2">
-          <TomlEditor value={text} onchange={edited} {format} />
+          <TomlEditor value={text} onchange={edited} {format} assist model={check?.model} problem={check && !check.ok ? check.error : null} />
         </div>
+        <div class="mt-2 shrink-0">{@render problem()}</div>
       </div>
     {/if}
   </div>
@@ -966,6 +992,6 @@
       <span class="hidden text-[11px] faint xl:inline">{frameCaption(frame, section)}</span>
     {/if}
     <span class="flex-1"></span>
-    <span class="hidden text-[11px] faint lg:inline">{right === "3d" ? `as its run will draw it, over its window${model.kind === "modes" ? ", behind the cut" : ""}` : right === "preview" ? "click a shape to edit it" : "edits here update the form; what it doesn't show is kept"}</span>
+    <span class="hidden text-[11px] faint lg:inline">{right === "3d" ? `as its run will draw it, over its window${model.kind === "modes" ? ", behind the cut" : ""}` : right === "preview" ? "click a shape to edit it" : "Ctrl+Space: the keys and values that fit; hover a key for its docs"}</span>
   </div>
 {/snippet}
