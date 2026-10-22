@@ -310,3 +310,87 @@ fn an_s_matrix_of_nans_is_an_error() {
     assert!(e.contains("every value must be finite"), "{e}");
     assert!(SMatrix::from_rows(vec![vec![c64::new(0.5, f64::INFINITY)]]).is_err());
 }
+
+/// An ideal 2-port labelled with `fidelity`, standing for a result computed at it.
+#[derive(Debug)]
+struct Labelled {
+    fidelity: Fidelity,
+    ports: Vec<Port>,
+}
+
+impl Labelled {
+    fn new(fidelity: Fidelity) -> Arc<dyn Component> {
+        Arc::new(Labelled {
+            fidelity,
+            ports: vec![Port::new("a"), Port::new("b")],
+        })
+    }
+}
+
+impl Component for Labelled {
+    fn kind(&self) -> &str {
+        "labelled"
+    }
+    fn ports(&self) -> &[Port] {
+        &self.ports
+    }
+    fn parameters(&self) -> &[Parameter] {
+        &[]
+    }
+    fn s_matrix(&self, _: Wavelength, _: &[f64]) -> Result<SMatrix> {
+        let one = c64::new(1.0, 0.0);
+        Ok(SMatrix::from_fn(
+            2,
+            |q, p| if q == p { zero() } else { one },
+        ))
+    }
+    fn provenance(&self) -> Provenance {
+        Provenance {
+            fidelity: self.fidelity,
+            source: format!("a {} result", self.fidelity),
+            error: None,
+            validity: None,
+        }
+    }
+}
+
+/// ROADMAP's pitfall: 2D effective-index designs at 97% measured 46–70% in 3D. A 2D result is
+/// labelled 2D, and a circuit holding one is labelled by it however many of its parts are 3D,
+/// nested in another circuit too: a chain is no better than its coarsest model.
+#[test]
+fn a_circuit_with_a_2d_part_is_labelled_2d() {
+    use Fidelity::{Measured, ThreeD, TwoD};
+    let chain = |fidelities: &[Fidelity]| {
+        let mut n = Netlist::new();
+        for (k, &fidelity) in fidelities.iter().enumerate() {
+            n.add(&format!("p{k}"), Labelled::new(fidelity)).unwrap();
+            if k > 0 {
+                n.connect(&format!("p{}.b", k - 1), &format!("p{k}.a"))
+                    .unwrap();
+            }
+        }
+        n.expose("in", "p0.a").unwrap();
+        n.expose("out", &format!("p{}.b", fidelities.len() - 1))
+            .unwrap();
+        n.compile().unwrap()
+    };
+    assert_eq!(chain(&[ThreeD, ThreeD]).provenance().fidelity, ThreeD);
+    for parts in [
+        &[TwoD][..],
+        &[ThreeD, TwoD, ThreeD],
+        &[TwoD, Measured],
+        &[Measured, ThreeD, TwoD],
+    ] {
+        assert_eq!(chain(parts).provenance().fidelity, TwoD, "{parts:?}");
+    }
+    assert_eq!(TwoD.to_string(), "2D");
+    let mut outer = Netlist::new();
+    outer
+        .add("inner", Arc::new(chain(&[ThreeD, TwoD])))
+        .unwrap();
+    outer.add("y", Labelled::new(ThreeD)).unwrap();
+    outer.connect("inner.out", "y.a").unwrap();
+    outer.expose("in", "inner.in").unwrap();
+    outer.expose("out", "y.b").unwrap();
+    assert_eq!(outer.compile().unwrap().provenance().fidelity, TwoD);
+}

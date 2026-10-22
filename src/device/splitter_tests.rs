@@ -392,3 +392,53 @@ fn a_strip_and_its_leads_leave_no_seam_with_the_fill() {
         );
     }
 }
+
+/// ROADMAP's pitfall: 125 nm pixels capped a design at 0.85 however it was binarized. A design
+/// is its parameters and the exact shapes they draw, set apart from the grid that solves it. On
+/// a grid four times finer than its own, an MMI's and a Y-branch's design are the same shapes to
+/// the bit, solved on about four times the cells along each axis; and the job that re-checks a
+/// design on the finer grid carries the same design, only its task's grid changed.
+#[test]
+fn a_design_is_set_apart_from_its_grid_and_rechecked_on_a_finer_one() {
+    use super::spec::Grids;
+    use crate::job::{Compute, from_device};
+    for kind in ["MMI 1x2", "MMI 2x2", "Y-branch"] {
+        let mut spec = Spec::new(kind);
+        spec.fidelity = Fidelity::TwoD;
+        let fdfd_2d = kind.starts_with("MMI");
+        let own_step = if fdfd_2d {
+            StripMmi::one_by_two().grids().0.step
+        } else {
+            StripYBranch::new().grids().0.step
+        };
+        let own = Grids {
+            fdfd_2d,
+            ..Grids::default()
+        };
+        let finer = Grids {
+            step: Some(own_step / 4.0),
+            ..own
+        };
+        let (_, design) = spec.build().unwrap();
+        let values = design.values();
+        let shapes = |grids: &Grids| spec.device_with(grids).unwrap().geometry(values).unwrap();
+        assert_eq!(shapes(&own), shapes(&finer), "{kind}");
+        let (nx, ny, _) = spec.fdfd_size(&own).unwrap().unwrap();
+        let (fx, fy, _) = spec.fdfd_size(&finer).unwrap().unwrap();
+        assert!(
+            fx > 3 * nx && fy > 3 * ny,
+            "{kind}: {nx} x {ny}, then {fx} x {fy}"
+        );
+        let job = |step_nm| {
+            let compute = Compute {
+                step_nm,
+                fdfd_2d,
+                ..Compute::model()
+            };
+            from_device("recheck", &spec, &compute).unwrap()
+        };
+        let (coarse, fine) = (job(None), job(Some(own_step * 250.0)));
+        assert_eq!(coarse.device(), fine.device(), "{kind}");
+        assert_ne!(coarse.task(), fine.task(), "{kind}");
+    }
+}

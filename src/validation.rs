@@ -4819,17 +4819,8 @@ fn fdtd_adjoint_backward_mode() -> Outcome {
 mod tests {
     use super::*;
 
-    #[test]
-    #[cfg_attr(
-        debug_assertions,
-        ignore = "runs the full-vector solves; CI's validation job runs every case in release"
-    )]
-    fn every_case_passes() {
-        for case in cases() {
-            let o = (case.run)();
-            assert!(o.passed(), "{}: {o:?}", case.id);
-        }
-    }
+    // that every case passes, and that the report has a row for each, is
+    // tests/validation_report.rs's, which CI's validation job runs in release
 
     #[test]
     fn case_ids_are_unique_and_no_case_text_breaks_the_markdown_table() {
@@ -4878,17 +4869,6 @@ mod tests {
         assert!((mean - 10.5).abs() < 0.05, "{mean}");
         // wavelengths increase, within the material's range
         assert!(MALITSON_TABLE_I.windows(2).all(|w| w[1].0 > w[0].0));
-    }
-
-    #[test]
-    #[cfg_attr(
-        debug_assertions,
-        ignore = "runs the full-vector solves; CI's validation job runs every case in release"
-    )]
-    fn the_report_has_a_row_per_case() {
-        let (text, all) = report();
-        assert!(all);
-        assert_eq!(text.matches("| pass |").count(), cases().len());
     }
 
     #[test]

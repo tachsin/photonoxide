@@ -34,6 +34,8 @@ use crate::units::Frequency;
 pub struct Dft {
     frequencies: Vec<Frequency>,
     series: Vec<Series>,
+    /// Room for a step's phases, one per frequency, so that recording allocates nothing.
+    phases: Vec<c64>,
 }
 
 /// One component's transforms over a box of its values.
@@ -83,6 +85,7 @@ impl Dft {
         Dft {
             frequencies: frequencies.to_vec(),
             series,
+            phases: vec![c64::new(0.0, 0.0); frequencies.len()],
         }
     }
 
@@ -138,8 +141,8 @@ impl Dft {
             };
             let real = &fields[which][s.component.index()];
             let imag = imaginary.map(|i| &i[which][s.component.index()]);
-            let phases = phases(&self.frequencies, t, dt);
-            accumulate(s, &phases, |k, j, i| {
+            phases(&mut self.phases, &self.frequencies, t, dt);
+            accumulate(s, &self.phases, |k, j, i| {
                 let r = k * plane + j * grid.nx + i;
                 match imag {
                     Some(im) => c64::new(real[r], im[r]),
@@ -158,24 +161,23 @@ impl Dft {
                 Field::E => te,
                 Field::H => th,
             };
-            let phases = phases(&self.frequencies, t, dt);
+            phases(&mut self.phases, &self.frequencies, t, dt);
             let (mine, rest) = captured.split_at(s.volume());
             *captured = rest;
             let [x, y, z] = s.ranges.clone();
             let (x0, y0, z0, nx, ny) = (x.start, y.start, z.start, x.len(), y.len());
-            accumulate(s, &phases, |k, j, i| {
+            accumulate(s, &self.phases, |k, j, i| {
                 c64::new(mine[((k - z0) * ny + (j - y0)) * nx + (i - x0)], 0.0)
             });
         }
     }
 }
 
-/// e^(iωt) Δt at each of `frequencies`.
-fn phases(frequencies: &[Frequency], t: f64, dt: f64) -> Vec<c64> {
-    frequencies
-        .iter()
-        .map(|f| c64::new(0.0, f.angular() * t).exp() * dt)
-        .collect()
+/// e^(iωt) Δt at each of `frequencies`, into `out`.
+fn phases(out: &mut [c64], frequencies: &[Frequency], t: f64, dt: f64) {
+    for (p, f) in out.iter_mut().zip(frequencies) {
+        *p = c64::new(0.0, f.angular() * t).exp() * dt;
+    }
 }
 
 /// Adds each value of `s`'s box, `value(k, j, i)`, times the step's `phases` to its transforms.

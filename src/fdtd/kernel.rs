@@ -544,11 +544,11 @@ pub(crate) fn update_slabs<T: Real>(
         let local_plane = count[0] * count[1];
         let f = &source[rows.differentiated];
         let cb = &cb[rows.component];
-        // ψ's planes and the field's planes they update, together: each row's ψ, then the field
-        target[rows.component]
+        // ψ's planes and the field's planes they update, together: each row's ψ, then the field.
+        // The planes are sliced out before they are shared: rayon's `skip` spawns a job on the
+        // heap to drop what it skips, an allocation at every step (tests/no_allocation.rs)
+        target[rows.component][from[2] * plane..(from[2] + count[2]) * plane]
             .par_chunks_mut(plane)
-            .skip(from[2])
-            .take(count[2])
             .zip(psi.par_chunks_mut(local_plane))
             .enumerate()
             .for_each(|(lk, (values, psi))| {

@@ -73,8 +73,10 @@ area mode \
   "mode:: eigen:: a_small_study_" "mode/" \
   "slab_soi slab_yariv_yeh bend_loss effective_index_method group_index leaky_waves leaky_wire_benchmark marcatili multilayer_chilwell optimize_bragg hadley_corners strip_waveguide directional_coupler mzi_dwivedi"
 
+# with the allocations counted in FDFD's iterations and FDTD's time steps (tests/no_allocation.rs,
+# its tests named fdfd:: and fdtd::, which runs with every test, as tests/method_study.rs does)
 area fdfd \
-  "src/fdfd/* src/backend/iterative.rs" \
+  "src/fdfd/* src/backend/iterative.rs tests/no_allocation.rs" \
   "mode sparse" \
   "fdfd:: backend::iterative::" "fdfd/ fdfd3d/" \
   "bump_oskooi cpml_roden_gedney lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
