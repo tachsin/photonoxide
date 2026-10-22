@@ -8,36 +8,34 @@ timeout_minutes: 10
 task:
   kind: fdtd
   stack: soi_220
-  wavelength_um: 1.55
+  wavelength: 1.55 um
   layer: Si
   polarization: te
-  x_um: [-2.5, 2.5]
-  y_um: [-1.5, 1.5]
-  step_nm: 25.0
+  x: [-2.5 um, 2.5 um]
+  y: [-1.5 um, 1.5 um]
+  step: 25 nm
 
   spectrum:                # the band the monitors measure
-    from_um: 1.5
-    to_um: 1.6
+    from: 1.5 um
+    to: 1.6 um
     points: 11
 
-  rect:
-    - layer: Si
-      center_um: [0.0, 0.0]
-      size_um: [6.0, 0.5]
+  shapes:
+    - rect: { layer: Si, center_um: [0.0, 0.0], size_um: [6.0, 0.5] }
 
   source:
     - type: mode           # the guide's TE mode, towards +x
       normal: x
-      at_um: -1.5
+      at: -1.5 um
       direction: "+"
 
   monitor:
     - type: mode
       name: output
       normal: x
-      at_um: 1.5
+      at: 1.5 um
     - type: field
-      wavelengths_um: [1.55]
+      wavelengths: [1.55 um]
 
   stop:
     until: decay           # until the field has left the window

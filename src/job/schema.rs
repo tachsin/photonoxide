@@ -125,13 +125,22 @@ impl JsonSchema for Layers {
     }
 }
 
-/// The job file's schema, as `docs/job.schema.json` holds it.
+/// The job file's schema, as `docs/job.schema.json` holds it: the structs' keys, the resolver's
+/// forms, and the shorter forms beside the keys they stand for ([`super::short`]).
 ///
 /// # Panics
 ///
 /// Only if the library's own job types don't make the schema it expects of them (a struct
 /// renamed, a resolver's table naming a field its struct lacks): a bug its tests catch.
 pub fn schema() -> Value {
+    let mut s = base();
+    unit_forms(&mut s);
+    s
+}
+
+/// [`schema`] without the bare keys that hold a value with its unit: the keys the structs read,
+/// which [`super::short`] reads those forms off.
+pub(crate) fn base() -> Value {
     let mut g = SchemaSettings::draft2020_12().into_generator();
     let job = g.subschema_for::<crate::run::JobFile>();
     let solver = kinds(
@@ -595,11 +604,158 @@ fn resolved_tasks(defs: &mut Map<String, Value>) {
                     "required": ["name", "shapes"],
                     "properties": {
                         "name": { "type": "string" },
-                        "shapes": { "type": "array", "items": { "$ref": "#/$defs/ShapeSpec" } }
+                        "shapes": {
+                            "type": "array",
+                            "items": { "anyOf": [{ "$ref": "#/$defs/ShapeSpec" }, { "$ref": "#/$defs/TypedLine" }] }
+                        }
                     }
                 }
             }),
         );
+        if p.contains_key("rect") {
+            p.insert(
+                "shapes".into(),
+                json!({
+                    "type": "array",
+                    "description": "Shapes one to a line, each its type and its fields: \
+                        - rect: { layer: Si, center_um: [0, 0], size_um: [6, 0.5] }. A rect, \
+                        circle, ring or path is one of [[task.rect]], [[task.circle]], \
+                        [[task.ring]] or [[task.path]]; any other type a [[task.shape]] of it.",
+                    "items": { "$ref": "#/$defs/ShapeLine" }
+                }),
+            );
+        }
+    }
+    // a shape's line: its type the key, its fields the value
+    let mut fields = defs["ShapeSpec"].clone();
+    if let Some(Value::Array(required)) = fields.get_mut("required") {
+        required.retain(|k| k != "type");
+    }
+    if let Some(Value::Object(p)) = fields.get_mut("properties") {
+        p.remove("type");
+    }
+    defs.insert("ShapeFields".into(), fields);
+    let line = |named: Value| {
+        json!({
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 1,
+            "properties": named,
+            "additionalProperties": { "$ref": "#/$defs/ShapeFields" }
+        })
+    };
+    defs.insert("TypedLine".into(), line(json!({})));
+    defs.insert(
+        "ShapeLine".into(),
+        line(json!({
+            "rect": { "$ref": "#/$defs/RectSpec" },
+            "circle": { "$ref": "#/$defs/CircleSpec" },
+            "ring": { "$ref": "#/$defs/RingSpec" },
+            "path": { "$ref": "#/$defs/PathSpec" }
+        })),
+    );
+}
+
+/// Each key with a unit's ending (`_um`, `_nm`, `_rad`, `_deg`) taken bare too, with its unit in
+/// its value, in every table that hasn't the bare name already ([`super::short`]).
+fn unit_forms(v: &mut Value) {
+    match v {
+        Value::Object(o) => {
+            for x in o.values_mut() {
+                unit_forms(x);
+            }
+            let Some(Value::Object(p)) = o.get("properties") else {
+                return;
+            };
+            let mut added = Vec::new();
+            for (key, s) in p {
+                for (unit, want) in super::short::UNITS {
+                    if let Some(bare) = key.strip_suffix(&format!("_{unit}"))
+                        && !p.contains_key(bare)
+                    {
+                        let mut form = or_expression(s);
+                        let example = match unit {
+                            "um" => "1.55 um",
+                            "nm" => "20 nm",
+                            "rad" => "0.5 rad",
+                            _ => "90 deg",
+                        };
+                        form["description"] = json!(format!(
+                            "{}With its unit in the value, in place of {key}: {}, e.g. \"{example}\".",
+                            s.get("description")
+                                .and_then(Value::as_str)
+                                .map(|d| format!("{d} "))
+                                .unwrap_or_default(),
+                            wanted(want).split(',').next().unwrap_or_default()
+                        ));
+                        added.push((bare.to_owned(), key.clone(), form));
+                    }
+                }
+            }
+            if added.is_empty() {
+                return;
+            }
+            for (bare, key, form) in added {
+                o["properties"][&bare] = form;
+                let required = o
+                    .get_mut("required")
+                    .and_then(Value::as_array_mut)
+                    .map(|r| {
+                        let had = r.iter().any(|x| x == &key);
+                        r.retain(|x| x != &key);
+                        had
+                    })
+                    .unwrap_or(false);
+                let all = o
+                    .entry("allOf")
+                    .or_insert_with(|| json!([]))
+                    .as_array_mut()
+                    .expect("allOf is a list");
+                // where a choice needs the key (it, or a port that places it), the bare form
+                // does as well; and what can't go with the key can't go with it
+                let swap = |needs: &[Value]| -> Vec<Value> {
+                    needs
+                        .iter()
+                        .map(|k| if k == &key { json!(bare) } else { k.clone() })
+                        .collect()
+                };
+                let excluded: Vec<Value> = all
+                    .iter()
+                    .filter_map(|rule| match rule.pointer("/not/required") {
+                        Some(Value::Array(needs))
+                            if needs.len() == 2 && needs.iter().any(|k| k == &key) =>
+                        {
+                            Some(json!({ "not": { "required": swap(needs) } }))
+                        }
+                        _ => None,
+                    })
+                    .collect();
+                all.extend(excluded);
+                for rule in all.iter_mut() {
+                    let Some(Value::Array(choices)) = rule.get_mut("anyOf") else {
+                        continue;
+                    };
+                    let mut more = Vec::new();
+                    for choice in choices.iter() {
+                        if let Some(Value::Array(needs)) = choice.get("required")
+                            && needs.iter().any(|k| k == &key)
+                        {
+                            more.push(json!({ "required": swap(needs) }));
+                        }
+                    }
+                    choices.extend(more);
+                }
+                all.push(json!({ "not": { "required": [bare, key] } }));
+                if required {
+                    all.push(json!({ "anyOf": [{ "required": [key] }, { "required": [bare] }] }));
+                }
+            }
+            if o.get("required") == Some(&json!([])) {
+                o.remove("required");
+            }
+        }
+        Value::Array(a) => a.iter_mut().for_each(unit_forms),
+        _ => {}
     }
 }
 
@@ -730,7 +886,7 @@ fn circuit_table() -> Value {
 }
 
 #[cfg(test)]
-mod tests_support {
+pub(crate) mod tests_support {
     pub(super) use serde_json::Value;
 
     pub(super) use super::*;
@@ -761,7 +917,7 @@ mod tests_support {
     }
 
     /// Whether the schema takes `job`, and why not.
-    pub(super) fn takes(job: &Value) -> Result<(), String> {
+    pub(crate) fn takes(job: &Value) -> Result<(), String> {
         let (schemas, index) = compiled();
         schemas.validate(job, index).map_err(|e| format!("{e:#}"))
     }

@@ -163,12 +163,31 @@ impl Job {
             what: "job".into(),
             reason,
         };
-        let file: JobFile = match format {
+        let mut file: JobFile = match format {
             Format::Toml => toml::from_str(text).map_err(|e| parse(e.to_string()))?,
             Format::Json => serde_json::from_str(text).map_err(|e| parse(e.to_string()))?,
             Format::Yaml => serde_saphyr::from_str_with_options(text, yaml_options())
                 .map_err(|e| parse(e.to_string()))?,
         };
+        // the shorter forms (units in values, shapes one to a line) as the keys they stand for
+        let mut tables = toml::Table::new();
+        tables.insert("task".into(), std::mem::take(&mut file.task).into());
+        for (key, table) in [
+            ("device", file.device.take()),
+            ("circuit", file.circuit.take()),
+        ] {
+            if let Some(t) = table {
+                tables.insert(key.into(), t.into());
+            }
+        }
+        crate::job::short::read(&mut tables).map_err(parse)?;
+        let mut table = |key: &str| match tables.remove(key) {
+            Some(toml::Value::Table(t)) => Some(t),
+            _ => None,
+        };
+        file.task = table("task").unwrap_or_default();
+        file.device = table("device");
+        file.circuit = table("circuit");
         let valid = |c: char| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.');
         if file.name.is_empty() || !file.name.chars().all(valid) {
             return Err(Error::invalid(
@@ -315,7 +334,23 @@ impl Job {
             Format::Json => serde_json::to_string_pretty(&file)
                 .map(|s| s + "\n")
                 .map_err(|e| write(e.to_string())),
-            Format::Yaml => serde_saphyr::to_string(&file).map_err(|e| write(e.to_string())),
+            Format::Yaml => {
+                let solver = file
+                    .solver
+                    .as_ref()
+                    .map(toml::Value::try_from)
+                    .transpose()
+                    .map_err(|e| write(e.to_string()))?;
+                crate::job::short::yaml(&[
+                    ("name", Some(file.name.into())),
+                    ("timeout_minutes", file.timeout_minutes.map(Into::into)),
+                    ("solver", solver),
+                    ("device", file.device.map(Into::into)),
+                    ("circuit", file.circuit.map(Into::into)),
+                    ("task", Some(file.task.into())),
+                ])
+                .map_err(write)
+            }
         }
     }
 }

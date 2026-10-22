@@ -239,6 +239,37 @@ JSON has no comments, so a JSON job has no description. YAML is read as YAML 1.2
 `on` and `off` are strings, as `1:30` is, and only `true` and `false` are booleans. A run keeps
 its job as it was given (`job.toml`, `job.json` or `job.yaml`).
 
+**Shorter forms.** YAML is the format the program writes, and these are read beside the keys
+they stand for, in every format, as the same job to the bit:
+
+- **Units in the value.** A key ending in its unit (`wavelength_um`, `step_nm`, `x_um`,
+  `angle_deg`) may drop it and carry the unit in its value: `wavelength: 1.55 um`, `step: 20 nm`,
+  `x: [-4 um, 4 um]`. Any unit of the dimension does (`wavelength: 1550 nm`), and so does an
+  expression of numbers with units (`step: 10 nm + 10 nm`). A plain number there is refused
+  unless it is zero: a number is never read in a unit it doesn't name. Where a table has the bare
+  key already, as a sweep's `from` and `to` or a rectangle's `center`, the key is that table's own.
+- **One line per shape.** `shapes:` lists them, each its type and its fields:
+  `- rect: { layer: Si, center_um: [-3, 0], size_um: [6, 0.5] }`. A `rect`, `circle`, `ring` or
+  `path` is one of the task's rectangles, circles, rings or paths, and any other type (`polygon`,
+  `array`, `reference`, ...) a `[[task.shape]]` of it. A cell's `shapes` take the same lines.
+- **Anchors.** YAML's anchors, aliases and merge keys reuse a table within a file: a shape's
+  fields given once, `- rect: &guide { ... }`, and taken again, `- rect: { <<: *guide,
+  center_um: [0, 2] }`; a stack, a source or a monitor's window the same way.
+
+```yaml
+name: strip
+task:
+  kind: modes
+  stack: soi_220
+  wavelength: 1.55 um
+  layer: Si
+  propagation: x
+  y: [-1.2 um, 1.2 um]
+  step: 20 nm
+  shapes:
+    - rect: { layer: Si, center_um: [0, 0], size_um: [10, 0.5] }
+```
+
 **Completions and checks in your editor.** [`docs/job.schema.json`](job.schema.json) is the job
 file's JSON Schema. It is derived from the structs the library reads each task into, so it has
 every kind's fields, which of them a kind needs, their types and their docs. It also has the

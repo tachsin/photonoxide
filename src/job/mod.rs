@@ -490,6 +490,9 @@ mod params;
 pub mod results;
 pub(crate) mod schema;
 mod shapes;
+pub(crate) mod short;
+#[cfg(test)]
+mod short_tests;
 mod statics;
 #[cfg(test)]
 mod statics_tests;
@@ -6016,7 +6019,7 @@ points = 2
                 JOB.replace("stack = \"soi_220\"", "stack = \"soi\""),
                 "core_nm",
             ),
-            (JOB.replace("step_nm", "step"), "step"),
+            (JOB.replace("step_nm", "stepsize"), "stepsize"),
             (
                 JOB.replace("layer = \"Si\"\ncenter", "layer = \"M1\"\ncenter"),
                 "M1",

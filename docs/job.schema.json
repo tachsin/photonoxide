@@ -33,6 +33,52 @@
     },
     "Area": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "y",
+              "y_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "y_um"
+              ]
+            },
+            {
+              "required": [
+                "y"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "z",
+              "z_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "z_um"
+              ]
+            },
+            {
+              "required": [
+                "z"
+              ]
+            }
+          ]
+        }
+      ],
       "description": "A rectangle in the section's plane: y across, z up, µm.",
       "properties": {
         "medium": {
@@ -50,9 +96,41 @@
         "temperature": {
           "type": "number"
         },
+        "y": {
+          "description": "With its unit in the value, in place of y_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
         "y_um": {
           "items": {
             "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "z": {
+          "description": "With its unit in the value, in place of z_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
           },
           "maxItems": 2,
           "minItems": 2,
@@ -67,10 +145,6 @@
           "type": "array"
         }
       },
-      "required": [
-        "y_um",
-        "z_um"
-      ],
       "type": "object"
     },
     "AxisTask": {
@@ -144,6 +218,52 @@
     },
     "ChipTask": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "from",
+              "from_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "from_um"
+              ]
+            },
+            {
+              "required": [
+                "from"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "to",
+              "to_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "to_um"
+              ]
+            },
+            {
+              "required": [
+                "to"
+              ]
+            }
+          ]
+        }
+      ],
       "description": "A chip's `\"spectrum\"`, `\"sweep\"` or `\"corners\"` task.",
       "properties": {
         "axis": {
@@ -159,6 +279,17 @@
           },
           "type": "array"
         },
+        "from": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of from_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "from_um": {
           "type": "number"
         },
@@ -169,14 +300,23 @@
           "minimum": 0,
           "type": "integer"
         },
+        "to": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of to_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "to_um": {
           "type": "number"
         }
       },
       "required": [
-        "kind",
-        "from_um",
-        "to_um"
+        "kind"
       ],
       "type": "object"
     },
@@ -2078,10 +2218,135 @@
     },
     "FdfdTask": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "bottom_oxide",
+              "bottom_oxide_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "core",
+              "core_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "field",
+              "field_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "step",
+              "step_nm"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "step_nm"
+              ]
+            },
+            {
+              "required": [
+                "step"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "wavelength",
+              "wavelength_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "wavelength_um"
+              ]
+            },
+            {
+              "required": [
+                "wavelength"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "x",
+              "x_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "x_um"
+              ]
+            },
+            {
+              "required": [
+                "x"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "y",
+              "y_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "y_um"
+              ]
+            },
+            {
+              "required": [
+                "y"
+              ]
+            }
+          ]
+        }
+      ],
       "properties": {
         "averaging": {
           "description": "How the plane's cells are averaged (`crate::averaging::Averaging`): `\"samples\"` (the default), `\"point\"`, `\"mean\"`, `\"diagonal\"` or `\"tensor\"`.",
           "type": "string"
+        },
+        "bottom_oxide": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of bottom_oxide_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "bottom_oxide_um": {
           "type": "number"
@@ -2096,7 +2361,14 @@
               },
               "shapes": {
                 "items": {
-                  "$ref": "#/$defs/ShapeSpec"
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/ShapeSpec"
+                    },
+                    {
+                      "$ref": "#/$defs/TypedLine"
+                    }
+                  ]
                 },
                 "type": "array"
               }
@@ -2122,8 +2394,30 @@
           },
           "type": "array"
         },
+        "core": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of core_nm: a length with its unit, e.g. \"20 nm\"."
+        },
         "core_nm": {
           "type": "number"
+        },
+        "field": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The field is recorded at the swept wavelength nearest this (µm): the first by default. With its unit in the value, in place of field_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "field_um": {
           "description": "The field is recorded at the swept wavelength nearest this (µm): the first by default.",
@@ -2188,8 +2482,26 @@
           },
           "type": "array"
         },
+        "shapes": {
+          "description": "Shapes one to a line, each its type and its fields: - rect: { layer: Si, center_um: [0, 0], size_um: [6, 0.5] }. A rect, circle, ring or path is one of [[task.rect]], [[task.circle]], [[task.ring]] or [[task.path]]; any other type a [[task.shape]] of it.",
+          "items": {
+            "$ref": "#/$defs/ShapeLine"
+          },
+          "type": "array"
+        },
         "stack": {
           "$ref": "#/$defs/StackField"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of step_nm: a length with its unit, e.g. \"20 nm\"."
         },
         "step_nm": {
           "type": "number"
@@ -2197,12 +2509,55 @@
         "sweep": {
           "$ref": "#/$defs/WavelengthSweep"
         },
+        "wavelength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of wavelength_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "wavelength_um": {
           "type": "number"
+        },
+        "x": {
+          "description": "With its unit in the value, in place of x_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
         },
         "x_um": {
           "items": {
             "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y": {
+          "description": "With its unit in the value, in place of y_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
           },
           "maxItems": 2,
           "minItems": 2,
@@ -2220,11 +2575,7 @@
       "required": [
         "kind",
         "stack",
-        "wavelength_um",
-        "layer",
-        "x_um",
-        "y_um",
-        "step_nm"
+        "layer"
       ],
       "type": "object"
     },
@@ -2254,6 +2605,120 @@
     },
     "FdtdTask": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "bottom_oxide",
+              "bottom_oxide_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "core",
+              "core_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "step",
+              "step_nm"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "step_nm"
+              ]
+            },
+            {
+              "required": [
+                "step"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "wavelength",
+              "wavelength_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "wavelength_um"
+              ]
+            },
+            {
+              "required": [
+                "wavelength"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "x",
+              "x_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "x_um"
+              ]
+            },
+            {
+              "required": [
+                "x"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "y",
+              "y_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "y_um"
+              ]
+            },
+            {
+              "required": [
+                "y"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "z",
+              "z_um"
+            ]
+          }
+        }
+      ],
       "properties": {
         "body": {
           "default": [],
@@ -2262,6 +2727,17 @@
             "$ref": "#/$defs/Body"
           },
           "type": "array"
+        },
+        "bottom_oxide": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of bottom_oxide_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "bottom_oxide_um": {
           "type": "number"
@@ -2279,7 +2755,14 @@
               },
               "shapes": {
                 "items": {
-                  "$ref": "#/$defs/ShapeSpec"
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/ShapeSpec"
+                    },
+                    {
+                      "$ref": "#/$defs/TypedLine"
+                    }
+                  ]
                 },
                 "type": "array"
               }
@@ -2304,6 +2787,17 @@
             "$ref": "#/$defs/Component"
           },
           "type": "array"
+        },
+        "core": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of core_nm: a length with its unit, e.g. \"20 nm\"."
         },
         "core_nm": {
           "type": "number"
@@ -2375,6 +2869,13 @@
           },
           "type": "array"
         },
+        "shapes": {
+          "description": "Shapes one to a line, each its type and its fields: - rect: { layer: Si, center_um: [0, 0], size_um: [6, 0.5] }. A rect, circle, ring or path is one of [[task.rect]], [[task.circle]], [[task.ring]] or [[task.path]]; any other type a [[task.shape]] of it.",
+          "items": {
+            "$ref": "#/$defs/ShapeLine"
+          },
+          "type": "array"
+        },
         "source": {
           "items": {
             "$ref": "#/$defs/ItemSpec"
@@ -2388,6 +2889,17 @@
           "$ref": "#/$defs/StackField",
           "description": "The stack; a job's `[device]` gives its own instead."
         },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of step_nm: a length with its unit, e.g. \"20 nm\"."
+        },
         "step_nm": {
           "type": "number"
         },
@@ -2397,8 +2909,35 @@
         "view": {
           "$ref": "#/$defs/ViewSpec"
         },
+        "wavelength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of wavelength_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "wavelength_um": {
           "type": "number"
+        },
+        "x": {
+          "description": "With its unit in the value, in place of x_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
         },
         "x_um": {
           "items": {
@@ -2408,9 +2947,41 @@
           "minItems": 2,
           "type": "array"
         },
+        "y": {
+          "description": "With its unit in the value, in place of y_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
         "y_um": {
           "items": {
             "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "z": {
+          "description": "With its unit in the value, in place of z_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
           },
           "maxItems": 2,
           "minItems": 2,
@@ -2427,16 +2998,54 @@
       },
       "required": [
         "kind",
-        "wavelength_um",
-        "layer",
-        "x_um",
-        "y_um",
-        "step_nm"
+        "layer"
       ],
       "type": "object"
     },
     "FitTask": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "from",
+              "from_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "margin",
+              "margin_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "step",
+              "step_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "step_z",
+              "step_z_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "to",
+              "to_um"
+            ]
+          }
+        }
+      ],
       "description": "A `\"fit\"` task.",
       "properties": {
         "axis": {
@@ -2453,6 +3062,17 @@
           "minimum": 0,
           "type": "integer"
         },
+        "from": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of from_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "from_um": {
           "type": "number"
         },
@@ -2465,6 +3085,17 @@
         },
         "kind": {
           "type": "string"
+        },
+        "margin": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of margin_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "margin_um": {
           "type": "number"
@@ -2495,11 +3126,44 @@
           "minimum": 0,
           "type": "integer"
         },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of step_nm: a length with its unit, e.g. \"20 nm\"."
+        },
         "step_nm": {
           "type": "number"
         },
+        "step_z": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of step_z_nm: a length with its unit, e.g. \"20 nm\"."
+        },
         "step_z_nm": {
           "type": "number"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of to_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "to_um": {
           "type": "number"
@@ -2536,15 +3200,139 @@
               "direction"
             ]
           }
+        },
+        {
+          "not": {
+            "required": [
+              "angle",
+              "angle_deg"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "port",
+              "at"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "at",
+              "at_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "center",
+              "center_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "focus",
+              "focus_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "position",
+              "position_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "waist",
+              "waist_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "wavelengths",
+              "wavelengths_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "x",
+              "x_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "y",
+              "y_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "z",
+              "z_um"
+            ]
+          }
         }
       ],
       "description": "A source or a monitor, as the job gives it: its type and the fields that type reads.",
       "properties": {
+        "angle": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of angle_deg: an angle with its unit, e.g. \"90 deg\"."
+        },
         "angle_deg": {
           "type": "number"
         },
+        "at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of at_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "at_um": {
           "type": "number"
+        },
+        "center": {
+          "description": "With its unit in the value, in place of center_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "type": "array"
         },
         "center_um": {
           "items": {
@@ -2557,6 +3345,17 @@
         },
         "direction": {
           "type": "string"
+        },
+        "focus": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of focus_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "focus_um": {
           "type": "number"
@@ -2574,6 +3373,20 @@
           "description": "A component's port, \"name.port\", that places it: in place of normal, at_um, direction.",
           "type": "string"
         },
+        "position": {
+          "description": "With its unit in the value, in place of position_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "type": "array"
+        },
         "position_um": {
           "items": {
             "type": "number"
@@ -2583,13 +3396,54 @@
         "type": {
           "type": "string"
         },
+        "waist": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of waist_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "waist_um": {
           "type": "number"
+        },
+        "wavelengths": {
+          "description": "With its unit in the value, in place of wavelengths_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "type": "array"
         },
         "wavelengths_um": {
           "items": {
             "type": "number"
           },
+          "type": "array"
+        },
+        "x": {
+          "description": "With its unit in the value, in place of x_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
           "type": "array"
         },
         "x_um": {
@@ -2600,9 +3454,41 @@
           "minItems": 2,
           "type": "array"
         },
+        "y": {
+          "description": "With its unit in the value, in place of y_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
         "y_um": {
           "items": {
             "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "z": {
+          "description": "With its unit in the value, in place of z_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
           },
           "maxItems": 2,
           "minItems": 2,
@@ -2628,7 +3514,120 @@
     },
     "ModesTask": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "bottom_oxide",
+              "bottom_oxide_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "core",
+              "core_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "cut_x",
+              "cut_x_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "cut_y",
+              "cut_y_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "step",
+              "step_nm"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "step_nm"
+              ]
+            },
+            {
+              "required": [
+                "step"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "wavelength",
+              "wavelength_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "wavelength_um"
+              ]
+            },
+            {
+              "required": [
+                "wavelength"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "x",
+              "x_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "y",
+              "y_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "z",
+              "z_um"
+            ]
+          }
+        }
+      ],
       "properties": {
+        "bottom_oxide": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of bottom_oxide_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "bottom_oxide_um": {
           "type": "number"
         },
@@ -2642,7 +3641,14 @@
               },
               "shapes": {
                 "items": {
-                  "$ref": "#/$defs/ShapeSpec"
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/ShapeSpec"
+                    },
+                    {
+                      "$ref": "#/$defs/TypedLine"
+                    }
+                  ]
                 },
                 "type": "array"
               }
@@ -2661,12 +3667,45 @@
           },
           "type": "array"
         },
+        "core": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of core_nm: a length with its unit, e.g. \"20 nm\"."
+        },
         "core_nm": {
           "type": "number"
+        },
+        "cut_x": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Along x: where the cross-section is cut. With its unit in the value, in place of cut_x_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "cut_x_um": {
           "description": "Along x: where the cross-section is cut.",
           "type": "number"
+        },
+        "cut_y": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Along y: where the cross-section is cut. With its unit in the value, in place of cut_y_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "cut_y_um": {
           "description": "Along y: where the cross-section is cut.",
@@ -2728,8 +3767,26 @@
           },
           "type": "array"
         },
+        "shapes": {
+          "description": "Shapes one to a line, each its type and its fields: - rect: { layer: Si, center_um: [0, 0], size_um: [6, 0.5] }. A rect, circle, ring or path is one of [[task.rect]], [[task.circle]], [[task.ring]] or [[task.path]]; any other type a [[task.shape]] of it.",
+          "items": {
+            "$ref": "#/$defs/ShapeLine"
+          },
+          "type": "array"
+        },
         "stack": {
           "$ref": "#/$defs/StackField"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of step_nm: a length with its unit, e.g. \"20 nm\"."
         },
         "step_nm": {
           "type": "number"
@@ -2737,8 +3794,35 @@
         "sweep": {
           "$ref": "#/$defs/SweepSpec"
         },
+        "wavelength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of wavelength_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "wavelength_um": {
           "type": "number"
+        },
+        "x": {
+          "description": "Along y: the window across the guide. With its unit in the value, in place of x_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
         },
         "x_um": {
           "description": "Along y: the window across the guide.",
@@ -2749,10 +3833,42 @@
           "minItems": 2,
           "type": "array"
         },
+        "y": {
+          "description": "Along x: the window across the guide. With its unit in the value, in place of y_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
         "y_um": {
           "description": "Along x: the window across the guide.",
           "items": {
             "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "z": {
+          "description": "With its unit in the value, in place of z_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
           },
           "maxItems": 2,
           "minItems": 2,
@@ -2770,14 +3886,54 @@
       "required": [
         "kind",
         "stack",
-        "wavelength_um",
-        "layer",
-        "step_nm"
+        "layer"
       ],
       "type": "object"
     },
     "OptimizeTask": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "from",
+              "from_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "margin",
+              "margin_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "step",
+              "step_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "step_z",
+              "step_z_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "to",
+              "to_um"
+            ]
+          }
+        }
+      ],
       "description": "An `\"optimize\"` task.",
       "properties": {
         "constraint": {
@@ -2797,6 +3953,17 @@
           "minimum": 0,
           "type": "integer"
         },
+        "from": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of from_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "from_um": {
           "type": "number"
         },
@@ -2805,6 +3972,17 @@
         },
         "learning_rate": {
           "type": "number"
+        },
+        "margin": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of margin_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "margin_um": {
           "type": "number"
@@ -2845,11 +4023,44 @@
           "minimum": 0,
           "type": "integer"
         },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of step_nm: a length with its unit, e.g. \"20 nm\"."
+        },
         "step_nm": {
           "type": "number"
         },
+        "step_z": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of step_z_nm: a length with its unit, e.g. \"20 nm\"."
+        },
         "step_z_nm": {
           "type": "number"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of to_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "to_um": {
           "type": "number"
@@ -3098,11 +4309,51 @@
     },
     "PmlSpec": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "thickness",
+              "thickness_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "thickness_um"
+              ]
+            },
+            {
+              "required": [
+                "thickness"
+              ]
+            }
+          ]
+        }
+      ],
       "description": "A modes job's `[task.pml]`: perfectly matched layers inside its window's edges (`crate::mode::vector::Pml`), as the façade's cross-section has them.",
       "properties": {
         "strength": {
           "description": "The stretching's strength α, s = 1 + iα at the window's edge: 3 by default.",
           "type": "number"
+        },
+        "thickness": {
+          "description": "Each layer's thickness, µm, 0 for none: across the guide at its low and high end (the pictures' left and right), below and above. With its unit in the value, in place of thickness_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "type": "array"
         },
         "thickness_um": {
           "description": "Each layer's thickness, µm, 0 for none: across the guide at its low and high end (the pictures' left and right), below and above.",
@@ -3114,9 +4365,6 @@
           "type": "array"
         }
       },
-      "required": [
-        "thickness_um"
-      ],
       "type": "object"
     },
     "PortSpec": {
@@ -3150,8 +4398,38 @@
               "required": [
                 "port"
               ]
+            },
+            {
+              "required": [
+                "x",
+                "side"
+              ]
             }
           ]
+        },
+        {
+          "not": {
+            "required": [
+              "port",
+              "x"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "x",
+              "x_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "y",
+              "y_um"
+            ]
+          }
         }
       ],
       "properties": {
@@ -3163,9 +4441,36 @@
           "description": "`\"left\"` (light goes in towards +x) or `\"right\"`.",
           "type": "string"
         },
+        "x": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "Where the port's column is, µm. With its unit in the value, in place of x_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "x_um": {
           "description": "Where the port's column is, µm.",
           "type": "number"
+        },
+        "y": {
+          "description": "The port's window along y, µm: one guide of several; the whole column by default. With its unit in the value, in place of y_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
         },
         "y_um": {
           "description": "The port's window along y, µm: one guide of several; the whole column by default.",
@@ -3177,7 +4482,6 @@
           "type": "array"
         }
       },
-      "required": [],
       "type": "object"
     },
     "RectSpec": {
@@ -3700,6 +5004,827 @@
               "$ref": "#/$defs/Expression"
             }
           ]
+        }
+      },
+      "type": "object"
+    },
+    "ShapeFields": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "origin",
+              "origin_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "angle",
+              "angle_rad"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "inner",
+              "inner_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "start_angle",
+              "start_angle_rad"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "center",
+              "center_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "x",
+              "x_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "y",
+              "y_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "corner",
+              "corner_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "pixel",
+              "pixel_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "size",
+              "size_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "width",
+              "width_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "start",
+              "start_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "heading",
+              "heading_rad"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "distance",
+              "distance_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "convex",
+              "convex_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "concave",
+              "concave_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "points",
+              "points_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "pitch",
+              "pitch_um"
+            ]
+          }
+        }
+      ],
+      "description": "A `[[task.shape]]`, or a shape in another's `of`. See the module.",
+      "properties": {
+        "angle": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of angle_rad: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "angle_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "cell": {
+          "type": "string"
+        },
+        "cells": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "center": {
+          "description": "As expressions in place of center_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "center_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "concave": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of concave_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "concave_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "convex": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of convex_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "convex_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "corner": {
+          "description": "As expressions in place of corner_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "corner_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "count": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "curve": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "distance": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of distance_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "distance_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "element": {
+          "$ref": "#/$defs/ShapeSpec"
+        },
+        "etch": {
+          "$ref": "#/$defs/EtchSpec"
+        },
+        "heading": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of heading_rad: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "heading_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "i": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "inner": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of inner_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "inner_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "inside": {
+          "type": "string"
+        },
+        "j": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "join": {
+          "type": "string"
+        },
+        "lattice": {
+          "type": "string"
+        },
+        "layer": {
+          "default": "",
+          "type": "string"
+        },
+        "lower": {
+          "type": "string"
+        },
+        "miter_limit": {
+          "type": "number"
+        },
+        "of": {
+          "items": {
+            "$ref": "#/$defs/ShapeSpec"
+          },
+          "type": "array"
+        },
+        "origin": {
+          "description": "As expressions in place of origin_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "origin_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "pitch": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/Expression"
+                }
+              ]
+            },
+            {
+              "description": "As expressions in place of pitch_um: a length with its unit, e.g. \"500 nm\".",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Expression"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          ],
+          "description": "As expressions in place of pitch_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "pitch_um": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/Expression"
+                }
+              ]
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Expression"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          ]
+        },
+        "pixel": {
+          "description": "As expressions in place of pixel_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "pixel_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "place": {
+          "items": {
+            "$ref": "#/$defs/PlaceSpec"
+          },
+          "type": "array"
+        },
+        "points": {
+          "description": "As expressions in place of points_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/Expression"
+                }
+              ]
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "points_um": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/Expression"
+                }
+              ]
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "radius": {
+          "type": "string"
+        },
+        "radius_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "remove": {
+          "items": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "resize": {
+          "items": {
+            "$ref": "#/$defs/ResizeSpec"
+          },
+          "type": "array"
+        },
+        "rings": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "segments": {
+          "items": {
+            "$ref": "#/$defs/SegmentSpec"
+          },
+          "type": "array"
+        },
+        "shift": {
+          "items": {
+            "$ref": "#/$defs/ShiftSpec"
+          },
+          "type": "array"
+        },
+        "size": {
+          "description": "As expressions in place of size_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "size_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "start": {
+          "description": "As expressions in place of start_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "start_angle": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of start_angle_rad: an angle with its unit, e.g. \"90 deg\"."
+        },
+        "start_angle_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "start_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "upper": {
+          "type": "string"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "As expressions in place of width_um: a length with its unit, e.g. \"500 nm\"."
+        },
+        "width_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ]
+        },
+        "x": {
+          "description": "As expressions in place of x_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "x_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y": {
+          "description": "As expressions in place of y_um: a length with its unit, e.g. \"500 nm\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y_um": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "ShapeLine": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ShapeFields"
+      },
+      "maxProperties": 1,
+      "minProperties": 1,
+      "properties": {
+        "circle": {
+          "$ref": "#/$defs/CircleSpec"
+        },
+        "path": {
+          "$ref": "#/$defs/PathSpec"
+        },
+        "rect": {
+          "$ref": "#/$defs/RectSpec"
+        },
+        "ring": {
+          "$ref": "#/$defs/RingSpec"
         }
       },
       "type": "object"
@@ -4638,7 +6763,64 @@
     },
     "SpectrumSpec": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "from",
+              "from_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "from_um"
+              ]
+            },
+            {
+              "required": [
+                "from"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "to",
+              "to_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "to_um"
+              ]
+            },
+            {
+              "required": [
+                "to"
+              ]
+            }
+          ]
+        }
+      ],
       "properties": {
+        "from": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of from_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "from_um": {
           "type": "number"
         },
@@ -4646,26 +6828,99 @@
           "minimum": 0,
           "type": "integer"
         },
+        "to": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of to_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "to_um": {
           "type": "number"
         }
       },
       "required": [
-        "from_um",
-        "to_um",
         "points"
       ],
       "type": "object"
     },
     "SpectrumTask": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "from",
+              "from_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "margin",
+              "margin_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "step",
+              "step_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "step_z",
+              "step_z_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "to",
+              "to_um"
+            ]
+          }
+        }
+      ],
       "description": "A `\"spectrum\"` task: the band and the grids.",
       "properties": {
+        "from": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of from_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "from_um": {
           "type": "number"
         },
         "kind": {
           "type": "string"
+        },
+        "margin": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of margin_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "margin_um": {
           "type": "number"
@@ -4685,11 +6940,44 @@
           "minimum": 0,
           "type": "integer"
         },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of step_nm: a length with its unit, e.g. \"20 nm\"."
+        },
         "step_nm": {
           "type": "number"
         },
+        "step_z": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of step_z_nm: a length with its unit, e.g. \"20 nm\"."
+        },
         "step_z_nm": {
           "type": "number"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of to_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "to_um": {
           "type": "number"
@@ -4731,6 +7019,106 @@
     },
     "StaticTask": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "bottom_oxide",
+              "bottom_oxide_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "core",
+              "core_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "cut_x",
+              "cut_x_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "fine",
+              "fine_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "step",
+              "step_nm"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "step_nm"
+              ]
+            },
+            {
+              "required": [
+                "step"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "y",
+              "y_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "y_um"
+              ]
+            },
+            {
+              "required": [
+                "y"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "z",
+              "z_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "z_um"
+              ]
+            },
+            {
+              "required": [
+                "z"
+              ]
+            }
+          ]
+        }
+      ],
       "properties": {
         "body": {
           "default": [],
@@ -4738,6 +7126,17 @@
             "$ref": "#/$defs/Body"
           },
           "type": "array"
+        },
+        "bottom_oxide": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of bottom_oxide_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "bottom_oxide_um": {
           "type": "number"
@@ -4755,7 +7154,14 @@
               },
               "shapes": {
                 "items": {
-                  "$ref": "#/$defs/ShapeSpec"
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/ShapeSpec"
+                    },
+                    {
+                      "$ref": "#/$defs/TypedLine"
+                    }
+                  ]
                 },
                 "type": "array"
               }
@@ -4787,8 +7193,30 @@
           },
           "type": "array"
         },
+        "core": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of core_nm: a length with its unit, e.g. \"20 nm\"."
+        },
         "core_nm": {
           "type": "number"
+        },
+        "cut_x": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of cut_x_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "cut_x_um": {
           "type": "number"
@@ -4798,6 +7226,17 @@
             "$ref": "#/$defs/CoefficientSpec"
           },
           "type": "object"
+        },
+        "fine": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of fine_nm: a length with its unit, e.g. \"20 nm\"."
         },
         "fine_nm": {
           "type": "number"
@@ -4880,6 +7319,13 @@
           },
           "type": "array"
         },
+        "shapes": {
+          "description": "Shapes one to a line, each its type and its fields: - rect: { layer: Si, center_um: [0, 0], size_um: [6, 0.5] }. A rect, circle, ring or path is one of [[task.rect]], [[task.circle]], [[task.ring]] or [[task.path]]; any other type a [[task.shape]] of it.",
+          "items": {
+            "$ref": "#/$defs/ShapeLine"
+          },
+          "type": "array"
+        },
         "sink": {
           "items": {
             "$ref": "#/$defs/Area"
@@ -4888,6 +7334,17 @@
         },
         "stack": {
           "$ref": "#/$defs/StackField"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of step_nm: a length with its unit, e.g. \"20 nm\"."
         },
         "step_nm": {
           "type": "number"
@@ -4901,9 +7358,41 @@
         "transient": {
           "$ref": "#/$defs/TransientSpec"
         },
+        "y": {
+          "description": "With its unit in the value, in place of y_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
         "y_um": {
           "items": {
             "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "z": {
+          "description": "With its unit in the value, in place of z_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
           },
           "maxItems": 2,
           "minItems": 2,
@@ -4921,23 +7410,60 @@
       "required": [
         "kind",
         "physics",
-        "stack",
-        "y_um",
-        "z_um",
-        "step_nm"
+        "stack"
       ],
       "type": "object"
     },
     "StopSpec": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "limit",
+              "limit_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "time",
+              "time_um"
+            ]
+          }
+        }
+      ],
       "properties": {
         "fraction": {
           "description": "For `\"decay\"`: the share of its peak |field|² the monitors' points must stay below over a whole check.",
           "type": "number"
         },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "For `\"decay\"`: the longest the run may go on, µm/c. With its unit in the value, in place of limit_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "limit_um": {
           "description": "For `\"decay\"`: the longest the run may go on, µm/c.",
           "type": "number"
+        },
+        "time": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "For `\"time\"`: how long, µm/c. With its unit in the value, in place of time_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "time_um": {
           "description": "For `\"time\"`: how long, µm/c.",
@@ -4952,6 +7478,128 @@
     },
     "StructureTask": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "bottom_oxide",
+              "bottom_oxide_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "core",
+              "core_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "side_y",
+              "side_y_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "step",
+              "step_nm"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "step_nm"
+              ]
+            },
+            {
+              "required": [
+                "step"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "wavelength",
+              "wavelength_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "wavelength_um"
+              ]
+            },
+            {
+              "required": [
+                "wavelength"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "x",
+              "x_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "x_um"
+              ]
+            },
+            {
+              "required": [
+                "x"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "y",
+              "y_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "y_um"
+              ]
+            },
+            {
+              "required": [
+                "y"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "z",
+              "z_um"
+            ]
+          }
+        }
+      ],
       "properties": {
         "body": {
           "default": [],
@@ -4959,6 +7607,17 @@
             "$ref": "#/$defs/Body"
           },
           "type": "array"
+        },
+        "bottom_oxide": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of bottom_oxide_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "bottom_oxide_um": {
           "type": "number"
@@ -4973,7 +7632,14 @@
               },
               "shapes": {
                 "items": {
-                  "$ref": "#/$defs/ShapeSpec"
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/ShapeSpec"
+                    },
+                    {
+                      "$ref": "#/$defs/TypedLine"
+                    }
+                  ]
                 },
                 "type": "array"
               }
@@ -4998,6 +7664,17 @@
             "$ref": "#/$defs/Component"
           },
           "type": "array"
+        },
+        "core": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of core_nm: a length with its unit, e.g. \"20 nm\"."
         },
         "core_nm": {
           "type": "number"
@@ -5046,17 +7723,73 @@
           },
           "type": "array"
         },
+        "shapes": {
+          "description": "Shapes one to a line, each its type and its fields: - rect: { layer: Si, center_um: [0, 0], size_um: [6, 0.5] }. A rect, circle, ring or path is one of [[task.rect]], [[task.circle]], [[task.ring]] or [[task.path]]; any other type a [[task.shape]] of it.",
+          "items": {
+            "$ref": "#/$defs/ShapeLine"
+          },
+          "type": "array"
+        },
+        "side_y": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of side_y_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "side_y_um": {
           "type": "number"
         },
         "stack": {
           "$ref": "#/$defs/StackField"
         },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of step_nm: a length with its unit, e.g. \"20 nm\"."
+        },
         "step_nm": {
           "type": "number"
         },
+        "wavelength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of wavelength_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "wavelength_um": {
           "type": "number"
+        },
+        "x": {
+          "description": "With its unit in the value, in place of x_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
         },
         "x_um": {
           "items": {
@@ -5066,9 +7799,41 @@
           "minItems": 2,
           "type": "array"
         },
+        "y": {
+          "description": "With its unit in the value, in place of y_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
         "y_um": {
           "items": {
             "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "z": {
+          "description": "With its unit in the value, in place of z_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
           },
           "maxItems": 2,
           "minItems": 2,
@@ -5086,16 +7851,54 @@
       "required": [
         "kind",
         "stack",
-        "wavelength_um",
-        "layer",
-        "x_um",
-        "y_um",
-        "step_nm"
+        "layer"
       ],
       "type": "object"
     },
     "StudyTask": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "from",
+              "from_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "margin",
+              "margin_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "step",
+              "step_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "step_z",
+              "step_z_nm"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "to",
+              "to_um"
+            ]
+          }
+        }
+      ],
       "description": "A `\"sweep\"` or `\"corners\"` task: the band, the grids, and the axes or corners.",
       "properties": {
         "axis": {
@@ -5111,11 +7914,33 @@
           },
           "type": "array"
         },
+        "from": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of from_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "from_um": {
           "type": "number"
         },
         "kind": {
           "type": "string"
+        },
+        "margin": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of margin_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "margin_um": {
           "type": "number"
@@ -5135,11 +7960,44 @@
           "minimum": 0,
           "type": "integer"
         },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of step_nm: a length with its unit, e.g. \"20 nm\"."
+        },
         "step_nm": {
           "type": "number"
         },
+        "step_z": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of step_z_nm: a length with its unit, e.g. \"20 nm\"."
+        },
         "step_z_nm": {
           "type": "number"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "With its unit in the value, in place of to_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "to_um": {
           "type": "number"
@@ -5246,6 +8104,15 @@
       ],
       "type": "object"
     },
+    "TypedLine": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ShapeFields"
+      },
+      "maxProperties": 1,
+      "minProperties": 1,
+      "properties": {},
+      "type": "object"
+    },
     "VariableTask": {
       "additionalProperties": false,
       "description": "A `[[task.variable]]`.",
@@ -5269,7 +8136,36 @@
     },
     "ViewSpec": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "every",
+              "every_um"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "z",
+              "z_um"
+            ]
+          }
+        }
+      ],
       "properties": {
+        "every": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "A frame every this much time, µm/c. With its unit in the value, in place of every_um: a length with its unit, e.g. \"1.55 um\"."
+        },
         "every_um": {
           "description": "A frame every this much time, µm/c.",
           "type": "number"
@@ -5277,6 +8173,17 @@
         "field": {
           "description": "The field the frames show: a component, `\"|E|^2\"` or `\"|H|^2\"`.",
           "type": "string"
+        },
+        "z": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "3D: the height of the plane seen from above, µm. With its unit in the value, in place of z_um: a length with its unit, e.g. \"1.55 um\"."
         },
         "z_um": {
           "description": "3D: the height of the plane seen from above, µm.",

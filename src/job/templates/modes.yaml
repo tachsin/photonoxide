@@ -6,17 +6,15 @@ timeout_minutes: 10
 task:
   kind: modes
   stack: soi_220           # a preset stack: soi_220, or layers of your own
-  wavelength_um: 1.55
+  wavelength: 1.55 um      # a length with its unit, or wavelength_um: 1.55
   layer: Si                # the stack's layer the shapes are drawn in
   propagation: x           # the modes travel along x; the cross-section is cut across it
-  y_um: [-1.2, 1.2]        # the window across the guide
-  step_nm: 20.0            # the grid's step
+  y: [-1.2 um, 1.2 um]     # the window across the guide
+  step: 20 nm              # the grid's step
   modes: 2                 # how many, highest effective index first
 
-  rect:
-    - layer: Si
-      center_um: [0.0, 0.0]
-      size_um: [10.0, 0.5] # 10 um long, 500 nm wide
+  shapes:                  # one to a line: 10 um long, 500 nm wide
+    - rect: { layer: Si, center_um: [0.0, 0.0], size_um: [10.0, 0.5] }
 
   # a sweep, if you want one: of the wavelength, a rectangle's width, or a parameter
   # sweep:

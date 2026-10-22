@@ -7,25 +7,18 @@ timeout_minutes: 2
 task:
   kind: structure
   stack: soi_220
-  wavelength_um: 1.55      # the permittivity is the materials' at this wavelength
+  wavelength: 1.55 um      # the permittivity is the materials' at this wavelength
   layer: Si
-  x_um: [-4.0, 4.0]        # the window seen from above
-  y_um: [-2.5, 2.5]
-  step_nm: 20.0
+  x: [-4 um, 4 um]         # the window seen from above
+  y: [-2.5 um, 2.5 um]
+  step: 20 nm
 
   # lengths may be expressions with units, from parameters of your own
   parameters:
     gap: 200 nm
     radius: 1.5 um
 
-  # the bus
-  rect:
-    - layer: Si
-      center: [0 um, "0.6 um - radius - 250 nm - gap - 250 nm"] # 0.2 um below the ring
-      size: [8 um, 500 nm]
-
-  ring:
-    - layer: Si
-      center_um: [0.0, 0.6]
-      radius: radius
-      width: 500 nm
+  # the bus, 0.2 um below the ring, and the ring: one shape to a line
+  shapes:
+    - rect: { layer: Si, center: [0 um, "0.6 um - radius - 250 nm - gap - 250 nm"], size: [8 um, 500 nm] }
+    - ring: { layer: Si, center_um: [0.0, 0.6], radius: radius, width: 500 nm }
