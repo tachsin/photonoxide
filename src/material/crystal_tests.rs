@@ -89,9 +89,9 @@ fn a_turned_tensors_eigenvalues_are_the_principal_ones() {
         assert!((mi - minors).norm() < 1e-12, "{o}");
         assert!((de - det).norm() < 1e-12, "{o}");
         // and symmetric
-        for i in 0..3 {
-            for j in 0..3 {
-                assert!((t[i][j] - t[j][i]).norm() < 1e-15, "{o}");
+        for (i, row) in t.iter().enumerate() {
+            for (j, e) in row.iter().enumerate() {
+                assert!((e - t[j][i]).norm() < 1e-15, "{o}");
             }
         }
     }
