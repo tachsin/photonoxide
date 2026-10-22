@@ -68,7 +68,13 @@ in a drawer opened from the status bar.
   - **3D**, as its run will draw it (a modes job's whole, with its cut drawn where the
     cross-section is taken); **Top**, the rectangles, disks, rings, ports, sources (orange),
     monitors (blue), the PML and the cut from above, a click on one editing it; and **As text**,
-    the job in TOML, JSON or YAML, edits there updating the form.
+    the job in YAML (a new job's), TOML or JSON, edits there updating the form, with its design
+    beside it. A click on a structure there, in 3D or from above (any shape, components, paths
+    and bodies too, a layer, a port, a source or a monitor), selects its entry in the text and
+    opens it in a sidebar: each value with the schema's docs and the values it may take (the
+    stack's layers, the presets, the catalogue's materials, the generators). A value changed
+    there is written into the text, the rest of it as it was; undo and redo take back both.
+    Putting the cursor in an entry picks it too.
   - The form: the kind; the name, time limit and description; the stack and the layer; the
     task's **named parameters** (`[task.parameters]`), each a number or an expression; the
     window and grid; the shapes; an FDFD job's ports; an FDTD job's sources, monitors, spectrum,

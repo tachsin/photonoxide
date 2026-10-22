@@ -6,6 +6,7 @@ import type { Academy, ChartData } from "./academy.svelte";
 import type { Event, Raster, Scene, ScenePort, Shape } from "./events";
 import type { Crystal, Section } from "./frames";
 import type { JobModel } from "./job";
+import type { Drawing } from "./jobedit";
 import type { BenchData, BenchRequest, CatalogueEntry, Planned } from "./bench.svelte";
 import type { LibraryReport } from "./libraries.svelte";
 import type { BuildInfo } from "./nightly.svelte";
@@ -155,6 +156,8 @@ export const api = {
   formText: (form: JobModel) => invoke<string>("form_text", { form }),
   /** The shapes of a job the form doesn't hold (rectangles placed by expressions, components, paths…), seen from above as the library draws them. */
   formKeptShapes: (text: string, format: JobFormat = "toml") => invoke<Shape[]>("form_kept_shapes", { text, format }),
+  /** What each entry of a job's text draws, where the text has it, and the stack's layers (drawn.rs): a structure picked in the design finds its entry. */
+  jobDrawing: (text: string, format: JobFormat) => invoke<Drawing>("job_drawing", { text, format }),
   deleteJob: (path: string) => invoke<void>("delete_job", { path }),
   deleteRun: (dir: string) => invoke<void>("delete_run", { dir }),
   runEvents: (dir: string) => invoke<Event[]>("run_events", { dir }),

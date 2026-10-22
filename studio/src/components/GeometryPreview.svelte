@@ -4,7 +4,8 @@
   // cut's across axis drawn on it; the cursor's place reads in the chip's frame and the one
   // shown. The shapes the form
   // doesn't hold (rectangles placed by expressions, components, paths…) come as `kept`, drawn by
-  // the library as the 3D view draws them; they can't be picked here, only edited in the text.
+  // the library as the 3D view draws them; with `onpickshape` a click on one says which (the
+  // job's text finds its entry), and `marked` shapes are outlined as picked.
   // Its axes, in the corner, are named in `frame`: the chip's x and y, or a cut job's along and
   // across the guide (`section`, frames.rs), z out of the page; or a crystal's axes along the chip's
   // (`oriented`).
@@ -26,6 +27,8 @@
     frame = "chip",
     section = null,
     oriented = null,
+    onpickshape,
+    marked = [],
   }: {
     model: JobModel;
     kept?: Shape[];
@@ -37,6 +40,10 @@
     section?: Section | null;
     /** The crystal the crystal frame is: the crystal axis along each chip axis names it there. */
     oriented?: Oriented | null;
+    /** A click on a kept shape. */
+    onpickshape?: (s: Shape) => void;
+    /** Shapes outlined as picked. */
+    marked?: Shape[];
   } = $props();
 
   const names = $derived(axisNames(frame, section, oriented));
@@ -132,7 +139,19 @@
         />
       {/if}
       {#each kept as s, k (k)}
-        <path d={outline(s.outline)} fill-rule="evenodd" class={fill(s.layer)} stroke-width="1" />
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <path
+          d={outline(s.outline)}
+          fill-rule="evenodd"
+          class="{fill(s.layer)} {onpickshape ? 'cursor-pointer' : ''}"
+          stroke-width="1"
+          onclick={onpickshape
+            ? (e) => {
+                e.stopPropagation();
+                onpickshape(s);
+              }
+            : undefined}
+        />
       {/each}
       {#each model.rect as r, k (k)}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -169,6 +188,9 @@
           stroke-width={selected?.kind === "ring" && selected.index === k ? 2.5 : 1}
           onclick={(e) => pick(e, { kind: "ring", index: k })}
         />
+      {/each}
+      {#each marked as s, k (k)}
+        <path d={outline(s.outline)} fill-rule="evenodd" fill="none" class="pointer-events-none stroke-accent" stroke-width="2.5" />
       {/each}
       {#if cut}
         {@const c = cut.at}

@@ -79,6 +79,11 @@ export function rings(outline: Point[]): { boundary: Point[]; holes: Point[][] }
 /** The edges' colours, for the theme. */
 const EDGE = new THREE.LineBasicMaterial({ color: "#d4d9e1", transparent: true, opacity: 0.7 });
 const FAINT_EDGE = new THREE.LineBasicMaterial({ color: "#8b95a5", transparent: true, opacity: 0.35 });
+/** A picked shape's edges: the cut's amber, which reads on both backdrops. */
+const PICKED_EDGE = new THREE.LineBasicMaterial({ color: "#e0a43a", linewidth: 2 });
+
+/** What a solid of `structure` is, for a click on it: a shape of the scene (its index there) or a layer's slab (its name, "substrate" and "cladding" included). */
+export type Picked = { shape: number } | { layer: string };
 
 export function edgeColours(dark: boolean) {
   EDGE.color.set(dark ? "#d4d9e1" : "#3c4656");
@@ -114,7 +119,8 @@ export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Look
   // the clear media in a fixed order, bottom to top, after every solid: the order of
   // see-through faces then doesn't flip as the camera turns
   let clear = 10;
-  const add = (geometry: THREE.BufferGeometry, eps: number, edges: THREE.LineBasicMaterial, look?: Look) => {
+  // each solid and its edges know what they are (`Picked`), for a click on them
+  const add = (geometry: THREE.BufferGeometry, eps: number, edges: THREE.LineBasicMaterial, look: Look | undefined, what: Picked) => {
     const base = mediumLook(eps);
     const colour = look?.colour ?? base?.colour;
     if (colour) {
@@ -122,29 +128,31 @@ export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Look
       const opacity = look?.opacity ?? (solid ? 1 : CLEAR_OPACITY);
       const mesh = new THREE.Mesh(geometry, solidMaterial(colour, solid, opacity));
       mesh.renderOrder = solid ? 0 : clear++;
+      mesh.userData.picked = what;
       group.add(mesh);
     }
     const lines = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 25), edges);
     lines.renderOrder = 100;
+    lines.userData.picked = what;
     group.add(lines);
   };
   // a medium over the whole window, from za to zb (clipped to the window's height)
-  const slab = (eps: number, za: number, zb: number, look?: Look) => {
+  const slab = (name: string, eps: number, za: number, zb: number, look?: Look) => {
     const [a, b] = [Math.max(za, z0), Math.min(zb, z1)];
     if (b <= a || !(mediumLook(eps) || look?.colour)) return;
     const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, b - a);
     g.translate((x0 + x1) / 2, (y0 + y1) / 2, (a + b) / 2);
-    add(g, eps, FAINT_EDGE, look);
+    add(g, eps, FAINT_EDGE, look, { layer: name });
   };
   const top = s.layers.length ? s.layers[s.layers.length - 1].z_um[1] : 0;
-  if (!hidden.has("substrate")) slab(s.substrate.eps, -Infinity, 0, looks.substrate);
+  if (!hidden.has("substrate")) slab("substrate", s.substrate.eps, -Infinity, 0, looks.substrate);
   for (const layer of s.layers) {
     if (hidden.has(layer.name)) continue;
-    const shapes = s.shapes.filter((sh) => sh.layer === layer.name);
-    slab(layer.background.eps, layer.z_um[0], layer.z_um[1], shapes.length ? undefined : looks[layer.name]);
+    const shapes = s.shapes.map((shape, index) => ({ shape, index })).filter(({ shape }) => shape.layer === layer.name);
+    slab(layer.name, layer.background.eps, layer.z_um[0], layer.z_um[1], shapes.length ? undefined : looks[layer.name]);
     const [a, b] = [Math.max(layer.z_um[0], z0), Math.min(layer.z_um[1], z1)];
     if (b <= a) continue;
-    for (const shape of shapes) {
+    for (const { shape, index } of shapes) {
       const { boundary, holes } = rings(shape.outline);
       const p = clip(boundary, x, y);
       if (!p.length) continue;
@@ -155,10 +163,10 @@ export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Look
       }
       const g = new THREE.ExtrudeGeometry(outline, { depth: b - a, bevelEnabled: false, curveSegments: 1 });
       g.translate(0, 0, a);
-      add(g, layer.material.eps, EDGE, looks[layer.name]);
+      add(g, layer.material.eps, EDGE, looks[layer.name], { shape: index });
     }
   }
-  if (!hidden.has("cladding")) slab(s.cladding.eps, top, Infinity, looks.cladding);
+  if (!hidden.has("cladding")) slab("cladding", s.cladding.eps, top, Infinity, looks.cladding);
   // the window
   const frame = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
   frame.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
@@ -244,7 +252,7 @@ export function dispose(group: THREE.Object3D) {
     if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
       o.geometry.dispose();
       const m = o.material as THREE.Material;
-      if (m !== EDGE && m !== FAINT_EDGE) m.dispose();
+      if (m !== EDGE && m !== FAINT_EDGE && m !== PICKED_EDGE) m.dispose();
     }
   });
 }
@@ -773,6 +781,10 @@ export class Preview3D {
   private crystal: CrystalAxes | null = null;
   /** Whether the turn is held, the camera looking along a guide (`lookAlong`). */
   private held = false;
+  /** Called with what a click (a press and a release without a drag) falls on: a shape before the layers' slabs around it; null for nothing. */
+  onpick: ((what: Picked | null) => void) | null = null;
+  /** Which of the scene's shapes are drawn as picked, by their index. */
+  private marked: (index: number) => boolean = () => false;
 
   constructor(
     private container: HTMLElement,
@@ -784,6 +796,7 @@ export class Preview3D {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(this.renderer.domElement);
     if (turnable) this.turnByDragging(this.renderer.domElement);
+    this.pickByClicking(this.renderer.domElement);
     this.scene.add(new THREE.HemisphereLight("#e4ecf7", "#2a2e35", 1.6), this.light, this.light.target, this.structure);
     this.camera.up.set(0, 0, 1);
     this.setDark(dark);
@@ -828,6 +841,42 @@ export class Preview3D {
     canvas.addEventListener("pointercancel", end);
   }
 
+  /** A click on `canvas` (moved less than a few pixels between press and release) tells `onpick` what it fell on. */
+  private pickByClicking(canvas: HTMLCanvasElement) {
+    let down: { x: number; y: number } | null = null;
+    canvas.addEventListener("pointerdown", (e) => (down = { x: e.clientX, y: e.clientY }));
+    canvas.addEventListener("pointerup", (e) => {
+      const was = down;
+      down = null;
+      if (!this.onpick || !was || Math.hypot(e.clientX - was.x, e.clientY - was.y) > 4) return;
+      const r = canvas.getBoundingClientRect();
+      const ray = new THREE.Raycaster();
+      ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, 1 - ((e.clientY - r.top) / r.height) * 2), this.camera);
+      const hits = ray.intersectObjects(this.structure.children, true).filter((h) => h.object instanceof THREE.Mesh && h.object.userData.picked);
+      const what = (h: THREE.Intersection) => h.object.userData.picked as Picked;
+      const hit = hits.find((h) => "shape" in what(h)) ?? hits[0];
+      this.onpick(hit ? what(hit) : null);
+    });
+  }
+
+  /** Draws the scene's shapes that `marked` says by their index as picked: their edges in amber, their faces lit. */
+  mark(marked: (index: number) => boolean) {
+    this.marked = marked;
+    this.structure.traverse((o) => {
+      const p = o.userData.picked as Picked | undefined;
+      if (!p || !("shape" in p)) return;
+      const on = marked(p.shape);
+      if (o instanceof THREE.LineSegments) {
+        o.userData.edge ??= o.material;
+        o.material = on ? PICKED_EDGE : o.userData.edge;
+      } else if (o instanceof THREE.Mesh && o.material instanceof THREE.MeshStandardMaterial) {
+        o.material.emissive.set(on ? "#e0a43a" : "#000000");
+        o.material.emissiveIntensity = on ? 0.45 : 1;
+      }
+    });
+    this.draw();
+  }
+
   /**
    * Shows `s`, in place of what was shown. With `cut` (a modes job's, at the x or y, `normal`,
    * where the scene's window ends), the window reaches as far in front of the cut as behind it,
@@ -849,6 +898,7 @@ export class Preview3D {
     if (cut !== undefined) this.structure.add(cutPlane(s, cut, normal));
     if (options.ports?.length) this.structure.add(portMarkers(s, options.ports));
     if (options.crystals?.length) this.structure.add(crystalTriads(s, x, y, options.crystals));
+    this.mark(this.marked);
     const box = new THREE.Box3(new THREE.Vector3(x[0], y[0], s.z_um[0]), new THREE.Vector3(x[1], y[1], s.z_um[1]));
     box.getCenter(this.centre);
     box.getSize(this.size);

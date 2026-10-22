@@ -4,15 +4,18 @@
 
   // the job file's schema, asked of the program once
   let schemaAsked: Promise<Schema | null> | null = null;
-  const loadSchema = () => (schemaAsked ??= api.jobSchema().catch(() => null));
+  export const loadSchema = () => (schemaAsked ??= api.jobSchema().catch(() => null));
 </script>
 
 <script lang="ts">
   // The job's text, editable: CodeMirror with TOML, JSON or YAML colouring that follows the theme.
   // With `assist`, the job file's schema helps: the keys that fit at the cursor and the values a
   // key takes (Ctrl+Space), each with its docs; a key's docs on hover; and `problem`, the check's
-  // error, underlined where it points.
+  // error, underlined where it points. Its owner can select a span (a structure picked in the
+  // design), write over one (the entry's sidebar) as a step undo takes back, and undo and redo;
+  // `oncursor` hears where the user puts the cursor.
   import type { Completion, CompletionContext, CompletionResult } from "@codemirror/autocomplete";
+  import { redo, undo } from "@codemirror/commands";
   import { StreamLanguage, syntaxHighlighting, HighlightStyle } from "@codemirror/language";
   import { json } from "@codemirror/legacy-modes/mode/javascript";
   import { toml } from "@codemirror/legacy-modes/mode/toml";
@@ -34,9 +37,12 @@
     assist = false,
     model = null,
     problem = null,
+    oncursor,
   }: {
     value: string;
     onchange: (text: string) => void;
+    /** The user put the cursor at this offset (a click, a key that moves it). */
+    oncursor?: (pos: number) => void;
     format?: JobFormat;
     /** The schema's completions, hover docs and the problem in place. */
     assist?: boolean;
@@ -52,6 +58,24 @@
   const language = new Compartment();
   const modes = { toml, json, yaml };
   const languageOf = (f: JobFormat) => StreamLanguage.define(modes[f]);
+
+  /** Selects `span` and scrolls it to the middle of the view. */
+  export function select(span: { from: number; to: number }) {
+    if (!view) return;
+    const end = view.state.doc.length;
+    const [from, to] = [Math.min(span.from, end), Math.min(span.to, end)];
+    view.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: "center" }) });
+  }
+
+  /** Writes `insert` over `span`: one step, which undo takes back. */
+  export function replace(span: { from: number; to: number }, insert: string) {
+    view?.dispatch({ changes: { from: span.from, to: span.to, insert }, userEvent: "input.sidebar" });
+  }
+
+  /** Undoes the last change, the text's or the sidebar's; whether there was one. */
+  export const undoChange = () => (view ? undo(view) : false);
+  /** Redoes the last change undone. */
+  export const redoChange = () => (view ? redo(view) : false);
 
   // the last model that read, so a key half typed still finds its table
   let known: unknown = null;
@@ -196,6 +220,7 @@
           hover,
           EditorView.updateListener.of((u) => {
             if (u.docChanged) onchange(u.state.doc.toString());
+            if (oncursor && u.selectionSet && u.transactions.some((t) => t.isUserEvent("select"))) oncursor(u.state.selection.main.head);
           }),
         ],
       }),

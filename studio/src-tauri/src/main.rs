@@ -13,6 +13,7 @@ mod circuits;
 mod dependencies;
 mod devices;
 mod diagrams;
+mod drawn;
 mod examples;
 mod farm;
 mod form;

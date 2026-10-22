@@ -4,12 +4,14 @@
   // around it, with the cut drawn where the cross-section is taken. With `axes`, its axes in the
   // corner, named in `frame`; a cross-section's frame turns the camera to look along the guide, and
   // a crystal's along its c axis. Each crystal the job orients has its triad on the shapes it fills.
+  // With `onpick`, a click on a shape or a layer's slab says which; `marked` shapes are drawn picked.
   import { Box } from "@lucide/svelte";
 
   import { api } from "../lib/api";
   import { app } from "../lib/app.svelte";
-  import type { Scene, ScenePort } from "../lib/events";
+  import type { Scene, ScenePort, Shape } from "../lib/events";
   import { axisNames, crystalFrame, type Crystal, type Frame, type Oriented, type Section } from "../lib/frames";
+  import { sameShape } from "../lib/jobedit";
   import { Preview3D } from "../lib/view3d";
 
   let {
@@ -18,7 +20,19 @@
     turnable = false,
     axes = false,
     frame = "chip",
-  }: { text: string; height?: number; turnable?: boolean; axes?: boolean; frame?: Frame } = $props();
+    onpick,
+    marked = [],
+  }: {
+    text: string;
+    height?: number;
+    turnable?: boolean;
+    axes?: boolean;
+    frame?: Frame;
+    /** A click on the structure: the shape it fell on, or the layer's slab (its name, "substrate" and "cladding" too); null for nothing. */
+    onpick?: (what: { shape: Shape } | { layer: string } | null) => void;
+    /** The shapes drawn as picked. */
+    marked?: Shape[];
+  } = $props();
 
   let host: HTMLDivElement;
   let gizmo = $state<SVGSVGElement>();
@@ -31,6 +45,8 @@
   /** The crystals the job uses, with how it orients them (frames.rs). */
   let crystals = $state<Crystal[]>([]);
   let view = $state.raw<Preview3D | null>(null);
+  /** The scene on show. */
+  let scene = $state.raw<Scene | null>(null);
 
   type Built = { scene: Scene; ports: ScenePort[]; section: Section | null; crystals: Crystal[] };
   /** Scenes already built, with their components' named ports and their cuts, by job text: the cards share them across pages. */
@@ -67,6 +83,7 @@
         if (gone) return;
         view ??= new Preview3D(host, app.dark, turnable);
         const triads = built.crystals.flatMap((c: Crystal) => c.oriented.map((o: Oriented) => ({ layer: o.layer, role: o.role, axes: o.axes })));
+        scene = built.scene;
         view.setScene(built.scene, { ...cutOf(built.scene, built.section), ports: built.ports, crystals: triads });
         section = built.section;
         crystals = built.crystals;
@@ -92,6 +109,17 @@
     view?.lookAlong(frame === "section" && section ? section.along : shown ? shown.oriented.axes[2] : null);
   });
   $effect(() => view?.setDark(app.dark));
+  $effect(() => {
+    const v = view;
+    const pick = onpick;
+    if (!v) return;
+    v.onpick = pick ? (what) => pick(what && "shape" in what ? (scene ? { shape: scene.shapes[what.shape] } : null) : what) : null;
+  });
+  $effect(() => {
+    const s = scene;
+    const m = marked;
+    view?.mark((k) => !!s && m.some((x) => sameShape(x, s.shapes[k])));
+  });
   $effect(() => () => {
     view?.destroy();
     view = null;

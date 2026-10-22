@@ -7,10 +7,13 @@
   // (studio/src-tauri/src/form.rs): what the form doesn't show (components, paths, shapes defined
   // by functions, bodies, a stack of layers, a port found by name, a solver table) is kept as the
   // file has it, and said so; the task's parameters and a sweep of any of them are the form's.
-  // Checked by the library as it changes, saved to the workspace's jobs/, run from here.
+  // Checked by the library as it changes, saved to the workspace's jobs/, run from here. A new
+  // job is YAML. Beside its text, a click on a structure in the design (a shape, a layer, a port)
+  // selects its entry in the text and opens it in a sidebar, whose values are written back into
+  // the text (drawn.rs finds which entry draws which shape; lib/jobedit.ts the text's spans).
   import { Box, CircleAlert, CircleCheck, Code, Eye, LoaderCircle, Play, Plus, Save, Shapes, Trash2 } from "@lucide/svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
-  import { onDestroy } from "svelte";
+  import { onDestroy, untrack } from "svelte";
 
   import { ago, api, duration, formatOf, KINDS, type JobCheck, type JobFormat, type RunItem } from "../../lib/api";
   import { customCompare } from "../../lib/device.svelte";
@@ -28,12 +31,15 @@
   import OptField from "../OptField.svelte";
   import ScenePreview from "../ScenePreview.svelte";
   import TomlEditor from "../TomlEditor.svelte";
+  import EntryPanel from "./EntryPanel.svelte";
+  import { drawerOf, entryAt, entrySpan, itemPaths, layerPath, samePath, type Drawing, type Span } from "../../lib/jobedit";
+  import type { Path } from "../../lib/jobschema";
 
   let model = $state<JobModel>(template("modes"));
   let text = $state("");
   /** The format `text` is written in, and its file saved in: the form's TOML, converted by the
    * library for the others, so every float comes back to the last bit. */
-  let format = $state<JobFormat>("toml");
+  let format = $state<JobFormat>("yaml");
   let path = $state<string | null>(null);
   let saved = $state("");
   let check = $state<JobCheck | null>(null);
@@ -82,12 +88,16 @@
   if (draft && !app.jobOpen) {
     load(draft.text, draft.path, true, draft.format).then(() => (saved = draft.saved));
   } else if (!app.jobOpen) {
-    api
-      .formText(template("modes"))
+    fresh("modes")
       .then((t) => {
-        if (!text) load(t, null, true);
+        if (!text) load(t, null, true, "yaml");
       })
       .catch(() => {});
+  }
+
+  /** A new job of `kind`, in YAML: the form's template, converted by the library. */
+  async function fresh(kind: Kind): Promise<string> {
+    return api.convertJob(await api.formText(template(kind)), "toml", "yaml");
   }
 
   onDestroy(() => {
@@ -163,6 +173,7 @@
     path = p;
     saved = t;
     selection = null;
+    picked = null;
     validate();
   }
 
@@ -270,7 +281,7 @@
       await api.deleteJob(path);
       app.workspaceVersion++;
       saved = text;
-      await load(await api.formText(template(model.kind)), null, true);
+      await load(await fresh(model.kind), null, true, "yaml");
       toast("Deleted the job", "success", undefined, 2500);
     } catch (e) {
       toast(String(e), "error");
@@ -373,6 +384,61 @@
   );
 
   const isSel = (kind: "rect" | "circle" | "ring" | "port", index: number) => selection?.kind === kind && selection.index === index;
+  // ---- click-to-edit, beside the text ----
+  let editor = $state<TomlEditor>();
+  /** What each entry of the text draws, of its last valid version, and the stack's layers. */
+  let drawing = $state<Drawing | null>(null);
+  $effect(() => {
+    const [t, f] = [shown, format];
+    if (!t || right !== "toml") return;
+    let live = true;
+    api
+      .jobDrawing(
+        untrack(() => text),
+        f,
+      )
+      .then((d) => {
+        if (live) drawing = d;
+      })
+      .catch(() => {});
+    return () => (live = false);
+  });
+  /** The entry picked, by its path in the text. */
+  let picked = $state<Path | null>(null);
+  /** What the picked entry draws, outlined in both views. */
+  const marked = $derived<Shape[]>(picked && drawing ? drawing.entries.filter((e) => samePath(e.path, picked!)).flatMap((e) => e.shapes) : []);
+
+  /** Picks the entry at `p` (none: nothing), and selects it in the text. */
+  function pick(p: Path | null) {
+    picked = p;
+    const span = p && entrySpan(text, format, p);
+    if (span) editor?.select(span);
+  }
+  /** A click in the 3D view: the entry that draws the shape, or the layer's in the stack. */
+  function picked3d(what: { shape: Shape } | { layer: string } | null) {
+    if (!what) return pick(null);
+    pick("shape" in what ? (drawerOf(drawing, what.shape)?.path ?? null) : layerPath(text, format, what.layer));
+  }
+  /** A click from above on the form's shapes, ports, sources and monitors. */
+  function pickedTop(s: Selection) {
+    if (!s) return pick(null);
+    if (s.kind === "rect" || s.kind === "circle" || s.kind === "ring") {
+      const e = drawing?.entries.find((e) => e.list === s.kind && e.index === s.index);
+      return pick(e?.path ?? ["task", s.kind, s.index]);
+    }
+    pick(["task", s.kind, s.index]);
+  }
+  /** The cursor put in the text: the entry it is in, picked without moving the cursor. */
+  function cursorAt(pos: number) {
+    const paths = [...(drawing?.entries.map((e) => e.path) ?? []), ...itemPaths(text, format)];
+    const p = entryAt(text, format, pos, paths);
+    if (!(p && picked && samePath(p, picked))) picked = p;
+  }
+  /** The sidebar changed a value: written over the old one, as a step undo takes back. */
+  function write(span: Span, insert: string) {
+    editor?.replace(span, insert);
+  }
+
   /** The parameters a modes job's sweep can step through: the wavelength, a rectangle's width, or a named one. */
   const sweepable = $derived(model.kind === "modes" ? ["wavelength", "width", ...model.parameters.map(([n]) => n)] : ["wavelength"]);
 </script>
@@ -431,14 +497,29 @@
     <!-- the text on the left, the design it describes on the right -->
     <aside class="flex min-h-0 min-w-0 flex-col">
       <div class="min-h-0 flex-1 overflow-hidden" bind:clientHeight={designHeight}>
-        {@render drawing(design, designHeight)}
+        {@render picture(design, designHeight)}
       </div>
+      {#if picked}
+        <div class="flex max-h-[50%] min-h-0 shrink-0 flex-col border-t border-base-content/8">
+          <EntryPanel
+            {text}
+            {format}
+            path={picked}
+            model={check?.model}
+            layers={drawing?.layers ?? []}
+            onwrite={write}
+            onundo={() => editor?.undoChange()}
+            onredo={() => editor?.redoChange()}
+            onclose={() => (picked = null)}
+          />
+        </div>
+      {/if}
       <div class="flex shrink-0 items-center gap-2 border-t border-base-content/8 px-3 py-2">
         <div class="join" role="group" aria-label="What the design shows">
           <button class="btn btn-xs join-item gap-1 {design === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (design = "3d")} title="The structure as the run will draw it"><Box size={12} /> 3D</button>
           <button class="btn btn-xs join-item gap-1 {design === 'preview' ? 'btn-primary btn-soft' : ''}" onclick={() => (design = "preview")} title="Seen from above"><Eye size={12} /> Top</button>
         </div>
-        <span class="text-[11px] faint">{design === "3d" ? "as its run will draw it, from its last valid text" : "from above, as the text has it"}</span>
+        <span class="text-[11px] faint">{design === "3d" ? "as its run will draw it, from its last valid text" : "from above, as the text has it"}; click a structure to edit it</span>
       </div>
     </aside>
     {:else}
@@ -907,10 +988,14 @@
   {/if}
 {/snippet}
 
-{#snippet drawing(kind: "3d" | "preview", h: number)}
+{#snippet picture(kind: "3d" | "preview", h: number)}
   {#if kind === "preview"}
     <div class="h-full overflow-y-auto p-4">
-      <GeometryPreview {model} kept={keptShapes} height={Math.max(140, h - (stacked ? 64 : 80))} selected={selection} onselect={(s) => (selection = s)} {frame} {section} oriented={oriented?.oriented ?? null} />
+      {#if right === "toml"}
+        <GeometryPreview {model} kept={keptShapes} height={Math.max(140, h - (stacked ? 64 : 80))} onselect={pickedTop} onpickshape={(s) => pick(drawerOf(drawing, s)?.path ?? null)} {marked} {frame} {section} oriented={oriented?.oriented ?? null} />
+      {:else}
+        <GeometryPreview {model} kept={keptShapes} height={Math.max(140, h - (stacked ? 64 : 80))} selected={selection} onselect={(s) => (selection = s)} {frame} {section} oriented={oriented?.oriented ?? null} />
+      {/if}
       <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 px-1 text-xs faint">
         <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-primary/65"></span>silicon</span>
         <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-secondary/70"></span>nitride</span>
@@ -930,7 +1015,7 @@
   {:else}
     <div class="relative h-full">
       {#if shown}
-        <ScenePreview text={shown} height={Math.max(160, h)} turnable axes {frame} />
+        <ScenePreview text={shown} height={Math.max(160, h)} turnable axes {frame} onpick={right === "toml" ? picked3d : undefined} marked={right === "toml" ? marked : []} />
         {#if check && !check.ok}
           <div class="absolute inset-x-3 top-3 rounded-lg border border-warning/30 bg-base-100/85 px-3 py-1.5 text-xs backdrop-blur">The job isn't valid now: this is its last valid version.</div>
         {/if}
@@ -950,19 +1035,19 @@
 {#snippet view()}
   <div class="min-h-0 flex-1 overflow-hidden" bind:clientHeight={viewHeight}>
     {#if right !== "toml"}
-      {@render drawing(right, viewHeight)}
+      {@render picture(right, viewHeight)}
     {:else}
       <div class="flex h-full min-h-0 flex-col p-3">
         <div class="mb-2 flex flex-wrap items-center gap-2">
           <div class="join" role="group" aria-label="The job's format">
-            {#each ["toml", "json", "yaml"] as const as f (f)}
+            {#each ["yaml", "toml", "json"] as const as f (f)}
               <button class="btn join-item btn-xs {format === f ? 'btn-primary btn-soft' : ''}" onclick={() => setFormat(f)} title="The same job in {f.toUpperCase()}, saved as jobs/{model.name}.{f}">{f.toUpperCase()}</button>
             {/each}
           </div>
           {#if format === "json"}<span class="text-[11px] faint">JSON has no comments: the description isn't kept.</span>{/if}
         </div>
         <div class="min-h-0 flex-1 overflow-hidden rounded-xl border border-base-content/8 bg-base-300/50 py-2">
-          <TomlEditor value={text} onchange={edited} {format} assist model={check?.model} problem={check && !check.ok ? check.error : null} />
+          <TomlEditor bind:this={editor} value={text} onchange={edited} oncursor={cursorAt} {format} assist model={check?.model} problem={check && !check.ok ? check.error : null} />
         </div>
         <div class="mt-2 shrink-0">{@render problem()}</div>
       </div>
