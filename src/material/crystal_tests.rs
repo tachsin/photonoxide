@@ -1,42 +1,15 @@
 //! A crystal's orientation: the rotation, the tensor it turns, and the slab modes it gives.
 
+use super::checks::{cut_slab_error, cut_slab_exact, cuts, eulers, turned_tensor_error};
 use super::*;
+use crate::material::Material;
 use crate::material::catalogue::{self, Conditions};
-use crate::material::{Material, Model, Provenance};
 use crate::mode::Polarization;
 use crate::mode::slab::Slab;
-use crate::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity, modes};
 use crate::units::{Length, Wavelength};
 
 fn c(x: f64) -> Complex64 {
     Complex64::new(x, 0.0)
-}
-
-/// The cuts, each crystal axis normal to the wafer with each of the others along x.
-fn cuts() -> Vec<Orientation> {
-    use CrystalAxis::{X, Y, Z};
-    let mut all = Vec::new();
-    for normal in [X, Y, Z] {
-        for along in [X, Y, Z] {
-            if along != normal {
-                all.push(Orientation::cut(normal, Some(along)).unwrap());
-            }
-        }
-    }
-    all
-}
-
-/// Euler angles spread over the sphere, none of them special.
-fn eulers() -> Vec<Orientation> {
-    [
-        (17.0, 33.0, 71.0),
-        (-120.0, 95.0, 10.0),
-        (300.0, -45.0, 200.0),
-        (5.0, 179.0, -359.0),
-    ]
-    .iter()
-    .map(|&(a, b, g)| Orientation::euler_deg(a, b, g).unwrap())
-    .collect()
 }
 
 #[test]
@@ -71,30 +44,9 @@ fn every_orientation_is_a_proper_rotation_and_zero_angles_are_the_identity() {
 fn a_turned_tensors_eigenvalues_are_the_principal_ones() {
     // a biaxial tensor turned every way: its characteristic polynomial's coefficients (the
     // trace, the sum of the principal 2 × 2 minors, the determinant) are the principal values',
-    // so its eigenvalues are n_x², n_y², n_z²
-    let p = [c(1.74f64.powi(2)), c(1.75f64.powi(2)), c(1.84f64.powi(2))];
-    let trace = p[0] + p[1] + p[2];
-    let minors = p[0] * p[1] + p[1] * p[2] + p[2] * p[0];
-    let det = p[0] * p[1] * p[2];
-    for o in cuts().into_iter().chain(eulers()) {
-        let t = o.rotate(p);
-        let tr = t[0][0] + t[1][1] + t[2][2];
-        let mi = t[0][0] * t[1][1] - t[0][1] * t[1][0] + t[1][1] * t[2][2] - t[1][2] * t[2][1]
-            + t[0][0] * t[2][2]
-            - t[0][2] * t[2][0];
-        let de = t[0][0] * (t[1][1] * t[2][2] - t[1][2] * t[2][1])
-            - t[0][1] * (t[1][0] * t[2][2] - t[1][2] * t[2][0])
-            + t[0][2] * (t[1][0] * t[2][1] - t[1][1] * t[2][0]);
-        assert!((tr - trace).norm() < 1e-13, "{o}");
-        assert!((mi - minors).norm() < 1e-12, "{o}");
-        assert!((de - det).norm() < 1e-12, "{o}");
-        // and symmetric
-        for (i, row) in t.iter().enumerate() {
-            for (j, e) in row.iter().enumerate() {
-                assert!((e - t[j][i]).norm() < 1e-15, "{o}");
-            }
-        }
-    }
+    // so its eigenvalues are n_x², n_y², n_z²; and it stays symmetric
+    let e = turned_tensor_error();
+    assert!(e < 1e-13, "{e}");
 }
 
 #[test]
@@ -208,52 +160,6 @@ fn an_orientation_is_read_from_a_job_and_bad_ones_refused() {
     }
 }
 
-/// A material of one fixed index, for the slabs.
-fn constant(n: f64) -> Material {
-    Material::new(
-        format!("n = {n}"),
-        Model::Constant(c(n)),
-        Wavelength::um(0.4).unwrap(),
-        Wavelength::um(5.0).unwrap(),
-        Provenance {
-            reference: "a test".into(),
-            doi: String::new(),
-            data: String::new(),
-            temperature: None,
-            notes: String::new(),
-        },
-    )
-    .unwrap()
-}
-
-/// The fundamental TM mode of a symmetric slab `d` µm thick whose core's permittivity is
-/// `up` normal to it and `along` along the guide (the field's E_y and E_z see them), in a
-/// cladding of `clad`: H_x'' = ε_along (β²/ε_up − k₀²) H_x in the core, with H_x and H_x'/ε
-/// continuous, so the even mode has (κ/ε_along) tan(κd/2) = γ/ε_clad with
-/// κ² = ε_along (k₀² − β²/ε_up) and γ² = β² − ε_clad k₀². Solved by bisection in κd/2.
-fn uniaxial_tm(up: f64, along: f64, clad: f64, d: f64, lam: f64) -> f64 {
-    let k0 = std::f64::consts::TAU / lam;
-    let beta2 = |u: f64| {
-        let kappa = 2.0 * u / d;
-        up * (k0 * k0 - kappa * kappa / along)
-    };
-    let f = |u: f64| {
-        let kappa = 2.0 * u / d;
-        let gamma = (beta2(u) - clad * k0 * k0).max(0.0).sqrt();
-        kappa / along * u.tan() - gamma / clad
-    };
-    let (mut lo, mut hi) = (1e-12, std::f64::consts::FRAC_PI_2 - 1e-12);
-    for _ in 0..200 {
-        let mid = 0.5 * (lo + hi);
-        if f(mid) < 0.0 {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
-    }
-    beta2(0.5 * (lo + hi)).sqrt() / k0
-}
-
 #[test]
 fn x_cut_and_z_cut_slabs_have_their_modes_exactly_at_second_order() {
     // a 600 nm slab of a negative uniaxial crystal (n_o 2.21, n_e 2.14, about lithium
@@ -263,72 +169,33 @@ fn x_cut_and_z_cut_slabs_have_their_modes_exactly_at_second_order() {
     // it): the swap, exact against the slab's closed forms. Exact n_eff: x-cut TE 1.970741, TM
     // 1.956465; z-cut TE 2.039088, TM 1.901142; the errors at 5 nm -9.8e-6, -6.4e-6, -1.1e-5
     // and -5.6e-6, each a quarter of 10 nm's (order 2.00)
-    let (no, ne, clad, d, lam) = (2.21, 2.14, 1.444, 0.6, 1.55);
-    let w = Wavelength::um(lam).unwrap();
-    let principal = || [constant(no), constant(no), constant(ne)];
-    let iso = |n: f64, pol| {
-        Slab::new(clad, n, clad, Length::um(d))
-            .unwrap()
-            .modes(pol, w)[0]
-            .effective_index()
-    };
-    let cases = [
-        (CrystalAxis::X, Polarization::Te, iso(ne, Polarization::Te)),
-        (CrystalAxis::X, Polarization::Tm, iso(no, Polarization::Tm)),
-        (CrystalAxis::Z, Polarization::Te, iso(no, Polarization::Te)),
-        (
-            CrystalAxis::Z,
-            Polarization::Tm,
-            uniaxial_tm(ne * ne, no * no, clad * clad, d, lam),
-        ),
-    ];
-    // the z-cut's TM is between the isotropic slabs of n_o and n_e
-    assert!(cases[3].2 > iso(ne, Polarization::Tm) && cases[3].2 < iso(no, Polarization::Tm));
-    for (cut, pol, exact) in cases {
-        let crystal =
-            Material::oriented("crystal", principal(), Orientation::cut(cut, None).unwrap())
-                .unwrap();
-        let t = crystal.tensor(w).unwrap();
-        // chip (y, z, x) as the cross-section's (x, y, z)
-        let axes = [1, 2, 0];
-        let core = Permittivity::from_tensor(std::array::from_fn(|a| {
-            std::array::from_fn(|b| t[axes[a]][axes[b]])
-        }))
-        .unwrap();
-        let cladding = Permittivity::from_tensor(std::array::from_fn(|a| {
-            std::array::from_fn(|b| if a == b { c(clad * clad) } else { c(0.0) })
-        }))
-        .unwrap();
-        // TE (E along the walls' plane, across): H tangential to the walls; TM: H normal
-        let wall = match pol {
-            Polarization::Te => Boundary::ElectricWall,
-            Polarization::Tm => Boundary::MagneticWall,
-        };
-        let errors: Vec<f64> = [0.01f64, 0.005]
-            .iter()
-            .map(|&h| {
-                let n = (4.02 / h).round() as usize;
-                let cs = CrossSection::uniform((0.0, 0.08, 4), (-2.01, 2.01, n), |_, y| {
-                    if y.abs() < d / 2.0 { core } else { cladding }
-                })
-                .unwrap()
-                .with_boundaries(Boundaries {
-                    west: wall,
-                    east: wall,
-                    ..Default::default()
-                })
-                .unwrap();
-                modes(&cs, w, 1, Some(exact)).unwrap()[0]
-                    .effective_index()
-                    .re
-                    - exact
-            })
-            .collect();
-        let order = (errors[0] / errors[1]).abs().log2();
-        assert!(
-            (order - 2.0).abs() < 0.15,
-            "{cut:?} {pol:?}: order {order}, {errors:?}"
-        );
-        assert!(errors[1].abs() < 1e-4, "{cut:?} {pol:?}: {errors:?}");
+    let (_, ne, clad, d, lam) = super::checks::SLAB;
+    let iso_tm = Slab::new(clad, ne, clad, Length::um(d))
+        .unwrap()
+        .modes(Polarization::Tm, Wavelength::um(lam).unwrap())[0]
+        .effective_index();
+    // the swap: the x-cut's TE is the n_e slab's, below the z-cut's TE (n_o); the z-cut's TM is
+    // between the isotropic slabs of n_e and n_o
+    let x_te = cut_slab_exact(CrystalAxis::X, Polarization::Te);
+    let z_te = cut_slab_exact(CrystalAxis::Z, Polarization::Te);
+    let z_tm = cut_slab_exact(CrystalAxis::Z, Polarization::Tm);
+    let x_tm = cut_slab_exact(CrystalAxis::X, Polarization::Tm);
+    assert!(
+        x_te < z_te && z_tm > iso_tm && z_tm < x_tm,
+        "{x_te} {z_te} {z_tm} {x_tm}"
+    );
+    for cut in [CrystalAxis::X, CrystalAxis::Z] {
+        for pol in [Polarization::Te, Polarization::Tm] {
+            let errors: Vec<f64> = [0.01, 0.005]
+                .iter()
+                .map(|&h| cut_slab_error(cut, pol, h))
+                .collect();
+            let order = (errors[0] / errors[1]).abs().log2();
+            assert!(
+                (order - 2.0).abs() < 0.15,
+                "{cut:?} {pol:?}: order {order}, {errors:?}"
+            );
+            assert!(errors[1].abs() < 1e-4, "{cut:?} {pol:?}: {errors:?}");
+        }
     }
 }

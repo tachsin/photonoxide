@@ -313,7 +313,9 @@ $n_o$ slab's (2.039088) and its TM the uniaxial slab's closed form (1.901142). T
 solver meets each at second order, within 1.1e-5 on a 5 nm grid. A 1 µm × 600 nm LiNbO₃ strip
 (Zelmon's congruent model) in silica on a 25 nm grid: the x-cut's TE-like mode 1.85965 and the
 z-cut's 1.92533; the same x-cut strip along y, its c axis turned across, has the same indices to
-1e-10. No published TFLN mode index with its full geometry has been reproduced yet.
+1e-10. The validation report's `material/crystal-*` cases run the turned tensor and the four
+slabs at 2.5 nm, each within 3e-6 of its closed form. No published TFLN mode index with its full
+geometry has been reproduced yet.
 
 No biaxial crystal is in the catalogue yet. KTP from Kato and Takaoka (Appl. Opt. 41, 5040
 (2002), [doi:10.1364/AO.41.005040](https://doi.org/10.1364/AO.41.005040)) is the first wanted,

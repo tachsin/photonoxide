@@ -305,6 +305,41 @@ pub fn cases() -> Vec<Case> {
             run: catalogue::ferrini_table_knots,
         },
         Case {
+            id: "material/crystal-turned-tensor",
+            title: r"A biaxial tensor ($n$ 1.74, 1.75, 1.84) turned by every cut and four Euler angles keeps its trace, principal minors and determinant, so its eigenvalues are the principal ones, and stays symmetric (largest relative change shown)",
+            tier: Tier::Analytic,
+            source: r"a rotation's similarity transform: $M\thinspace\mathrm{diag}(\varepsilon_x, \varepsilon_y, \varepsilon_z)\thinspace M^\mathsf{T}$ with $M M^\mathsf{T} = I$ has the eigenvalues $\varepsilon_x, \varepsilon_y, \varepsilon_z$",
+            run: crystal_turned_tensor,
+        },
+        Case {
+            id: "material/crystal-x-cut-slab-te",
+            title: r"A 600 nm x-cut uniaxial slab ($n_o$ 2.21, $n_e$ 2.14) in silica at 1550 nm, guided along the chip's x, its turned tensor in the full-vector solver at a 2.5 nm mesh: TE sees $n_e$",
+            tier: Tier::Analytic,
+            source: r"the exact slab of $n_e$ (mode::slab); the scheme converges at second order, tested at 10 and 5 nm",
+            run: crystal_x_cut_te,
+        },
+        Case {
+            id: "material/crystal-x-cut-slab-tm",
+            title: r"The same x-cut slab: TM sees $n_o$",
+            tier: Tier::Analytic,
+            source: r"the exact slab of $n_o$ (mode::slab); the scheme converges at second order, tested at 10 and 5 nm",
+            run: crystal_x_cut_tm,
+        },
+        Case {
+            id: "material/crystal-z-cut-slab-te",
+            title: r"The same slab z-cut: TE sees $n_o$",
+            tier: Tier::Analytic,
+            source: r"the exact slab of $n_o$ (mode::slab); the scheme converges at second order, tested at 10 and 5 nm",
+            run: crystal_z_cut_te,
+        },
+        Case {
+            id: "material/crystal-z-cut-slab-tm",
+            title: r"The same z-cut slab: TM sees $n_e$ normal to the slab and $n_o$ along it, between the isotropic slabs of the two",
+            tier: Tier::Analytic,
+            source: r"the uniaxial slab's TM closed form: $(\kappa/\varepsilon_o) \tan(\kappa d/2) = \gamma/\varepsilon_{\mathrm{clad}}$, $\kappa^2 = \varepsilon_o (k_0^2 - \beta^2/\varepsilon_e)$; second order, tested at 10 and 5 nm",
+            run: crystal_z_cut_tm,
+        },
+        Case {
             id: "mode/slab-te-book",
             title: "The TE mode of 220 nm of silicon (3.473) in oxide (1.444) at 1550 nm (effective index shown)",
             tier: Tier::Published,
@@ -3814,6 +3849,47 @@ fn silica_measured() -> Outcome {
         tolerance: 1e-4,
         error: worst,
     }
+}
+
+fn crystal_turned_tensor() -> Outcome {
+    let error = material::crystal::checks::turned_tensor_error();
+    Outcome {
+        measured: error,
+        expected: 0.0,
+        // rounding only: about 1e-15
+        tolerance: 1e-13,
+        error,
+    }
+}
+
+/// The cut slab's fundamental mode at a 2.5 nm mesh, against its exact effective index.
+fn crystal_cut_slab(cut: material::CrystalAxis, polarization: Polarization) -> Outcome {
+    use material::crystal::checks::{cut_slab_error, cut_slab_exact};
+    let expected = cut_slab_exact(cut, polarization);
+    let error = cut_slab_error(cut, polarization, 0.0025);
+    Outcome {
+        measured: expected + error,
+        expected,
+        // second order: 2.5 nm leaves under 3e-6
+        tolerance: 1e-5,
+        error: error.abs(),
+    }
+}
+
+fn crystal_x_cut_te() -> Outcome {
+    crystal_cut_slab(material::CrystalAxis::X, Polarization::Te)
+}
+
+fn crystal_x_cut_tm() -> Outcome {
+    crystal_cut_slab(material::CrystalAxis::X, Polarization::Tm)
+}
+
+fn crystal_z_cut_te() -> Outcome {
+    crystal_cut_slab(material::CrystalAxis::Z, Polarization::Te)
+}
+
+fn crystal_z_cut_tm() -> Outcome {
+    crystal_cut_slab(material::CrystalAxis::Z, Polarization::Tm)
 }
 
 /// The fundamental slab mode of the book's example, against its printed effective index.
