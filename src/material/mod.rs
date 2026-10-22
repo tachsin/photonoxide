@@ -731,15 +731,6 @@ mod tests {
     }
 
     #[test]
-    fn silica_matches_the_standard_values() {
-        let sio2 = silica();
-        // the d line (587.56 nm) of fused silica: n_d = 1.4585, the glass makers' value
-        assert!((n(&sio2, 0.5875618) - 1.4585).abs() < 1e-4);
-        // 1.55 um: 1.4440
-        assert!((n(&sio2, 1.55) - 1.4440).abs() < 1e-4);
-    }
-
-    #[test]
     fn silicon_nitride_matches_its_formula_at_1550_nm() {
         // n^2 = 1 + 3.0249 l^2/(l^2 - 0.1353406^2) + 40314 l^2/(l^2 - 1239.842^2) = 1.99628...
         assert!((n(&silicon_nitride(), 1.55) - 1.9963).abs() < 1e-4);

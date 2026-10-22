@@ -246,49 +246,8 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "writes the cases' rows of the report to PHOTONOXIDE_GRADED_ROWS"]
-    fn rows() {
-        let rows: String = cases()
-            .iter()
-            .map(|c| crate::validation::row(c).0)
-            .collect();
-        if let Some(out) = std::env::var_os("PHOTONOXIDE_GRADED_ROWS") {
-            std::fs::write(out, rows).expect("the rows are written");
-        }
-    }
-
-    #[test]
     fn the_mode_solver_reads_a_parabolic_medium() {
         let e = mode_error(2000);
         assert!(e < 1e-6, "{e}");
-    }
-
-    #[test]
-    #[ignore = "prints the cases' values; cargo test --release --lib graded_checks -- --ignored --nocapture"]
-    fn print() {
-        for h in [0.05, 0.025, 0.0125] {
-            println!(
-                "fdtd h {h}: {:?} against {:?}",
-                fdtd_solved(h),
-                fdtd_exact(3)
-            );
-        }
-        for n in [1000, 2000, 4000] {
-            println!("mode {n}: {:?} against {:?}", mode_solved(n), mode_exact(4));
-        }
-        for case in cases() {
-            let start = std::time::Instant::now();
-            let o = (case.run)();
-            println!(
-                "{}: measured {:.6e} expected {} error {:.3e} tolerance {} {} ({:.2} s)",
-                case.id,
-                o.measured,
-                o.expected,
-                o.error,
-                o.tolerance,
-                o.passed(),
-                start.elapsed().as_secs_f64()
-            );
-        }
     }
 }

@@ -13,7 +13,6 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
 
 use num_complex::Complex64 as c64;
 use photonoxide::backend::dense::{Block, BlockMut, DenseKernels, Faer, Product, with_kernels};
@@ -584,47 +583,6 @@ fn it_solves_fdfd_systems_to_their_checks() {
             let theirs = e.run(&Choice::Named(name.clone())).unwrap();
             let error = theirs.accuracy.as_ref().unwrap().error;
             assert!(error <= e.tolerance(), "{id} with {name}: {error:e}");
-        }
-    }
-}
-
-/// The product's and the LU's rates, each library's beside faer's, on one thread and on
-/// rayon's: printed, not judged (a shared machine's rates say little).
-#[test]
-fn the_kernels_rates_are_printed() {
-    let n = 1024;
-    let mut random = Random(7);
-    let (a, b) = (random.matrix(n, n), random.matrix(n, n));
-    let mut all: Vec<(String, Arc<dyn DenseKernels>)> = vec![("faer".into(), Arc::new(Faer))];
-    for library in libraries() {
-        all.push((library.kernels().name, library));
-    }
-    for (name, kernels) in all {
-        for threaded in [false, true] {
-            let mut c = vec![c64::new(0.0, 0.0); n * n];
-            let clock = Instant::now();
-            kernels.multiply(
-                BlockMut::of(&mut c, n, n),
-                Block::of(&a, n, n),
-                Block::of(&b, n, n),
-                Product::default(),
-                c64::new(1.0, 0.0),
-                threaded,
-            );
-            let product = clock.elapsed().as_secs_f64();
-            let mut f = a.clone();
-            let clock = Instant::now();
-            let _ = kernels.lu(BlockMut::of(&mut f, n, n), threaded);
-            let lu = clock.elapsed().as_secs_f64();
-            // a complex multiply-add is 8 real operations: n³ of them, and n³/3 for the LU
-            let flops = 8.0 * (n as f64).powi(3);
-            println!(
-                "{name}, n {n}, {} ({} of rayon's): product {:.1} Gflop/s, LU {:.1} Gflop/s",
-                if threaded { "threaded" } else { "one thread" },
-                rayon::current_num_threads(),
-                flops / product / 1e9,
-                flops / 3.0 / lu / 1e9
-            );
         }
     }
 }

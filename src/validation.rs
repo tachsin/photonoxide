@@ -4832,13 +4832,17 @@ mod tests {
     }
 
     #[test]
-    fn no_case_text_breaks_the_markdown_table() {
+    fn case_ids_are_unique_and_no_case_text_breaks_the_markdown_table() {
         for case in cases() {
             assert!(
                 !case.title.contains('|') && !case.source.contains('|'),
                 "{}",
                 case.id
             );
+        }
+        let ids: Vec<&str> = cases().iter().map(|c| c.id).collect();
+        for (i, id) in ids.iter().enumerate() {
+            assert!(!ids[..i].contains(id), "{id}");
         }
     }
 
@@ -4874,14 +4878,6 @@ mod tests {
         assert!((mean - 10.5).abs() < 0.05, "{mean}");
         // wavelengths increase, within the material's range
         assert!(MALITSON_TABLE_I.windows(2).all(|w| w[1].0 > w[0].0));
-    }
-
-    #[test]
-    fn case_ids_are_unique() {
-        let ids: Vec<&str> = cases().iter().map(|c| c.id).collect();
-        for (i, id) in ids.iter().enumerate() {
-            assert!(!ids[..i].contains(id), "{id}");
-        }
     }
 
     #[test]

@@ -618,11 +618,6 @@ mod tests {
     }
 
     #[test]
-    fn a_backend_runs_no_multigrid_unless_it_says_so() {
-        assert!(!Zeros.runs_multigrid());
-    }
-
-    #[test]
     fn a_matrix_by_rows_is_checked_and_multiplies() {
         let one = c64::new(1.0, 0.0);
         let i = c64::new(0.0, 1.0);

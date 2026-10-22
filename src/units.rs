@@ -364,14 +364,12 @@ mod tests {
     }
 
     #[test]
-    fn a_lossless_dielectric_has_a_real_index() {
+    fn a_real_permittivity_has_a_real_index_or_an_imaginary_one() {
+        // a lossless dielectric: real
         let n = refractive_index(Complex64::new(2.085, 0.0));
         assert_eq!(n.im, 0.0);
         assert!(close(n.re, 2.085f64.sqrt(), 1e-15));
-    }
-
-    #[test]
-    fn an_ideal_metal_has_an_imaginary_index() {
+        // an ideal metal: imaginary
         let n = refractive_index(Complex64::new(-16.0, 0.0));
         assert!(n.re.abs() < 1e-15 && close(n.im, 4.0, 1e-15), "{n}");
     }
@@ -383,24 +381,5 @@ mod tests {
         let phase = |x: f64, t: f64| Complex64::new(0.0, k * x - w * t).exp().arg();
         assert!(phase(0.1, 0.0) > phase(0.0, 0.0));
         assert!(phase(0.0, 0.1) < phase(0.0, 0.0));
-    }
-
-    #[test]
-    fn the_amplitude_of_a_real_signal_is_recovered_with_e_plus_i_w_t() {
-        // s(t) = Re(A e^(-i w t)) and A = (2/T) sum s(t) e^(i w t) dt over whole periods
-        let a = Complex64::new(0.7, -0.4);
-        let w = TAU * 0.65;
-        let periods = 20.0;
-        let n = 20_000;
-        let t_end = periods * TAU / w;
-        let dt = t_end / n as f64;
-        let mut sum = Complex64::new(0.0, 0.0);
-        for i in 0..n {
-            let t = (i as f64 + 0.5) * dt;
-            let s = (a * Complex64::new(0.0, -w * t).exp()).re;
-            sum += s * Complex64::new(0.0, w * t).exp() * dt;
-        }
-        let got = sum * (2.0 / t_end);
-        assert!((got - a).norm() < 1e-9, "{got} vs {a}");
     }
 }

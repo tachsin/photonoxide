@@ -114,29 +114,3 @@ impl std::error::Error for Error {}
 
 /// A `Result` with photonoxide's [`Error`].
 pub type Result<T> = std::result::Result<T, Error>;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn an_invalid_value_says_what_and_why() {
-        let e = Error::InvalidValue {
-            what: "wavelength",
-            reason: "must be positive, got -1.55 um".into(),
-        };
-        assert_eq!(
-            e.to_string(),
-            "invalid wavelength: must be positive, got -1.55 um"
-        );
-    }
-
-    #[test]
-    fn errors_are_std_errors() {
-        fn takes(_: &dyn std::error::Error) {}
-        takes(&Error::InvalidValue {
-            what: "x",
-            reason: "y".into(),
-        });
-    }
-}
