@@ -349,7 +349,7 @@
         </label>
       </div>
       <p class="mt-1 text-[11px] faint">
-        {analytic ? "Temperatures need a 2D or 3D model: the analytic fits don't solve the materials. " : ""}A temperature sets every material of the stack whose model takes one; Li's silicon and Malitson's silica (the presets') take none, and silicon's dn/dT comes with the thermal devices.
+        {analytic ? "Temperatures need a 2D or 3D model: the analytic fits don't solve the materials. " : ""}A temperature sets every material of the stack whose model takes one: the presets' silicon (Li's table moved by his Eq. (22), Frey et al.'s below 250 K; 20 to 750 K) and silica (Malitson's moved by Leviton &amp; Frey's dn/dT; 30 to 400 K).
       </p>
       <div class="join mt-2" role="group" aria-label="How the corners combine">
         <button class="btn btn-xs join-item {st.corners.combine === 'each' && !st.corners.fixed ? 'btn-primary btn-soft' : ''}" onclick={() => ((st.corners.combine = "each"), (st.corners.fixed = null))}>one at a time</button>

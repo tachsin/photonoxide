@@ -67,6 +67,18 @@ uncertainty of about 1e-4. It is the absolute (vacuum) index; at 1.55 µm and 29
 Li's table stays the default. In Python, `refractive_index("si", wavelength_um=1.55,
 model="frey-2006", temperature_k=295)`; [the catalogue](catalogue.md) has its validation.
 
+## Temperature
+
+The catalogue's default silicon and silica take a temperature and move by their thermo-optic
+coefficients $dn/dT$; at their own temperatures (293 K, 20 °C) they are the materials above, bit
+for bit. Silicon moves by Li's own $n(\lambda, T)$, his Eq. (22), 250–750 K, and below 250 K by
+Frey et al.'s formula, to 20 K; silica by Leviton & Frey's change of index, 30–300 K, held at
+their $dn/dT$ at 300 K up to 400 K. At 1.55 µm and 293 K silicon's $dn/dT$ is 1.82e-4 per K and
+silica's 8.4e-6. `IndexModel::thermo_optic` gives $dn/dT$; [the catalogue](catalogue.md) says
+how the models join and has their validation against the papers' tables. A device's temperature
+corner sets every material that takes a temperature, so an SOI design's corners move its silicon
+and its silica.
+
 ## Validation
 
 - Silicon passes through Li's table at all 35 wavelengths (to 1e-12: the spline is exact at its

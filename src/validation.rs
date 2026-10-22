@@ -18,6 +18,7 @@ use num_complex::Complex64;
 
 use crate::circuit::components::checks as components;
 use crate::material::catalogue::checks as catalogue;
+use crate::material::catalogue::thermo_checks;
 use crate::material::{self, Model, Table};
 use crate::mode::Polarization;
 use crate::mode::slab::Slab;
@@ -156,6 +157,48 @@ pub fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: "D. B. Leviton, B. J. Frey, Proc. SPIE 6273, 62732K (2006), doi:10.1117/12.672853, Table 4, printed to 5 decimals",
             run: catalogue::leviton_table,
+        },
+        Case {
+            id: "material/silica-leviton-dndt",
+            title: r"Fused silica's $dn/dT$ (the default model's, Leviton & Frey's formula) against their measured Table 6: 16 wavelengths from 0.4 to 2.6 µm at 8 temperatures from 100 to 300 K, within 1e-6 per K, which would move a strip's $dn_\mathrm{eff}/dT$ by about 1e-7 per K (largest deviation shown, 1e-6 per K)",
+            tier: Tier::Published,
+            source: "D. B. Leviton, B. J. Frey, Proc. SPIE 6273, 62732K (2006), doi:10.1117/12.672853, Table 6, measured, printed to 3 figures",
+            run: thermo_checks::leviton_dndt,
+        },
+        Case {
+            id: "material/silicon-li-table-1",
+            title: r"Silicon's $n(\lambda, T)$ by Li's Eq. (22), his Table 1 at 293 K moved to each temperature, reproduces Table 1: 7 wavelengths from 1.2 to 14 µm at 14 temperatures from 100 to 750 K, within three units of the fourth decimal, which Li prints for smoothness; the expansion's constants read as fractions, not the percent printed (largest deviation shown)",
+            tier: Tier::Published,
+            source: "H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980), doi:10.1063/1.555624, Eq. (22) and p. 568's ΔL/L₂₉₃; Table 1",
+            run: thermo_checks::li_table_1,
+        },
+        Case {
+            id: "material/silicon-li-table-2",
+            title: r"Silicon's $dn/dT$ by Eq. (22)'s derivative (the default model's from 250 K) reproduces Li's Table 2: 7 wavelengths from 1.2 to 14 µm at 14 temperatures from 100 to 750 K, within five units of the third decimal (largest deviation shown, 1e-4 per K)",
+            tier: Tier::Published,
+            source: "H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980), doi:10.1063/1.555624, Table 2 (±0.15e-4 per K)",
+            run: thermo_checks::li_table_2,
+        },
+        Case {
+            id: "material/silicon-li-dndt-order",
+            title: r"Central differences of Li's Eq. (22), 1 and 0.5 K wide, approach its $dn/dT$ in closed form at second order, at 1.55 µm and 400 K (order shown)",
+            tier: Tier::Analytic,
+            source: "a central difference's error is $h^2 n'''/6$",
+            run: thermo_checks::li_dndt_order,
+        },
+        Case {
+            id: "material/silicon-frey-dndt",
+            title: r"Silicon's $dn/dT$ from Frey et al.'s formula against their measured Table 4: 13 wavelengths from 1.1 to 5.5 µm at 11 temperatures from 30 to 250 K, within the formula's residual in $n$ (1e-4) over Table 4's 10 K steps; at 295 K, the end of its range, it falls up to 0.24e-4 below (largest deviation shown, 1e-4 per K)",
+            tier: Tier::Published,
+            source: "B. J. Frey, D. B. Leviton, T. J. Madison, Proc. SPIE 6273, 62732J (2006), doi:10.1117/12.672850, Table 4, measured, printed to 3 figures",
+            run: thermo_checks::frey_dndt,
+        },
+        Case {
+            id: "material/silicon-li-frey-dndt",
+            title: r"Where the two silicon models join: the default model's $dn/dT$ (Li's Eq. (22) from 250 K) against Frey et al.'s measured Table 4 at 250 and 295 K, 12 wavelengths from 1.2 to 5.5 µm, within Li's ±0.15e-4 per K (largest deviation shown, 1e-4 per K)",
+            tier: Tier::Published,
+            source: "H. H. Li, doi:10.1063/1.555624, Eq. (22) and Table 2's ±0.15e-4; B. J. Frey et al., doi:10.1117/12.672850, Table 4",
+            run: thermo_checks::li_dndt_join,
         },
         Case {
             id: "material/linbo3-zelmon-633",

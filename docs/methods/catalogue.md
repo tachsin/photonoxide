@@ -4,6 +4,8 @@ module: material::catalogue
 summary: "Each material's index models, crystal, χ⁽²⁾ and Pockels tensors, every number from its paper: silica, silicon, nitride, GaAs and AlGaAs, InGaP, InP, AlN, and lithium niobate in bulk, MgO-doped and as thin film."
 order: 2.5
 papers:
+  - cite: "H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980)"
+    doi: 10.1063/1.555624
   - cite: "D. B. Leviton, B. J. Frey, Proc. SPIE 6273, 62732K (2006)"
     doi: 10.1117/12.672853
   - cite: "B. J. Frey, D. B. Leviton, T. J. Madison, Proc. SPIE 6273, 62732J (2006)"
@@ -66,7 +68,13 @@ papers:
     doi: 10.1038/nphoton.2017.14
 validation:
   - material/silica-leviton-table
+  - material/silica-leviton-dndt
+  - material/silicon-li-table-1
+  - material/silicon-li-table-2
+  - material/silicon-li-dndt-order
   - material/silicon-frey-table
+  - material/silicon-frey-dndt
+  - material/silicon-li-frey-dndt
   - material/silicon-frey-li
   - material/silicon-frey-smooth-d
   - material/linbo3-zelmon-633
@@ -150,10 +158,10 @@ every value a tensor gives is an element its tag names.
 
 | Material | Model | Equation | Range |
 |---|---|---|---|
-| SiO₂ | Malitson 1965 (default) | three-term Sellmeier | 0.21–3.71 µm, 20 °C |
+| SiO₂ | Malitson 1965 (default) | three-term Sellmeier; away from 20 °C moved by Leviton & Frey's change of index | 0.21–3.71 µm at 20 °C; 0.4–2.6 µm from 30 to 400 K (above 300 K extrapolated) |
 | SiO₂ | Leviton & Frey 2006 | Sellmeier with quartic $S_i(T)$, $\lambda_i(T)$ (Table 3) | 0.4–2.6 µm, 30–300 K, Corning 7980, vacuum index |
 | Si₃N₄ | Luke et al. 2015 | two-term Sellmeier | 0.31–5.504 µm |
-| Si | Li 1980 (default) | Table 1, natural spline | 1.2–14 µm, 293 K |
+| Si | Li 1980 (default) | Table 1, natural spline; away from 293 K moved by Li's Eq. (22), below 250 K by Frey et al.'s formula | 1.2–14 µm, 250–750 K; 1.2–5 µm, 20–250 K |
 | Si | Frey et al. 2006 | Sellmeier with quartic $S_i(T)$, $\lambda_i(T)$ (Table 5) | 1.1–5.6 µm, 20–300 K, vacuum index |
 | GaAs | Skauli et al. 2003 (default) | the Pikhtin form, Eq. (12), Table II | 0.97–17 µm, 21–95 °C |
 | GaAs, AlₓGa₁₋ₓAs | Gehrsitz et al. 2000 (default for AlGaAs) | Eqs. (11)–(13), (16), Tables II and IV | 30 meV below the direct gap (and above 0.47 µm) to 3 µm; 0 ≤ x ≤ 1; 103–313 K |
@@ -173,6 +181,32 @@ Two models are new forms in `Model`: `Model::Pikhtin` (Skauli's Eq. (12), photon
 and `Model::Afromowitz`. Gehrsitz's oscillators $C/(E_i^2 - E^2)$, with $E = 1/\lambda$ in
 µm⁻¹, are Sellmeier terms $(C/E_i^2)\,\lambda^2/(\lambda^2 - 1/E_i^2)$; Jundt's and Gayer's form is
 the refractiveindex.info formula 4.
+
+**Temperature in the defaults.** Silicon's and silica's default models take a temperature, so a
+stack of them does too (a device's temperature corners). Each stays its room-temperature model,
+bit for bit, at its own temperature (293 K, 20 °C) and moves by its dn/dT away from it:
+
+- **Silicon:** Li's Table 1 (293 K) at each of its 35 points moved by Li's own $n(\lambda, T)$,
+  his Eq. (22) (1.2–14 µm, 100–750 K), from which he computed his Tables 1 and 2 at fourteen
+  temperatures. Eq. (22) prints the constants of $\Delta L/L_{293}$ as −0.021 and −0.071: the
+  percent of the thermal-expansion tables they come from, beside coefficients of $T$ already
+  divided by 100. As printed $\Delta L/L_{293}$ is not zero at 293 K and Eq. (22) misses Table 1
+  by 0.015; read as −2.1e-4 and −7.1e-4 it gives both tables (below). Below 250 K the points move
+  on by Frey et al.'s formula (to 20 K, up to 5 µm, inside its 1.1–5.6 µm): their measured
+  $dn/dT$ (their Table 4) follows their formula within 0.08e-4 per K from 30 to 250 K, and Li's
+  within 0.10e-4 at 250 and 295 K; their formula falls 0.06e-4 to 0.24e-4 per K below their
+  measurements at 295 K, the end of its range, and Li's rises above them below 200 K (0.36e-4 at
+  100 K and 1.55 µm). Above 300 K, where Frey et al. stop, only Li's Eq. (22) reaches.
+  `IndexModel::thermo_optic` gives $dn/dT$: Eq. (22)'s derivative in closed form from 250 K up.
+- **Silica:** Malitson's formula (20 °C) moved by Leviton & Frey's change of index from 20 °C
+  (their Table 3, 0.4–2.6 µm, 30–300 K), and from 300 to 400 K by their $dn/dT$ at 300 K held,
+  an extrapolation: their Fig. 3 has it still rising at 300 K, so it is likely low above. At
+  1.55 µm and 295 K it is 8.4e-6 per K, below Malitson's 10e-6 to 12e-6 per K (20 to 30 °C, his
+  Sec. V). Silica holds a strip's field at a tenth of silicon's weight or less, so its
+  $dn/dT$ moves a guide's by under one percent.
+
+Every other model with a temperature (Frey's, Leviton & Frey's, Gehrsitz's, Skauli's, Jundt's,
+Gayer's) gives its $dn/dT$ by central differences 0.5 K wide of its own $n(\lambda, T)$.
 
 **GaAs** has two models. Skauli et al.'s is the default: measured on GaAs itself from 0.97 to
 17 µm and checked by quasi-phase matching, to ±0.2% in $n$ and 0.2% in a difference of indices.
@@ -266,6 +300,13 @@ congruent Table 1 is printed the right way round.
 
 - Leviton & Frey's Table 4 (208 values, 0.4–2.6 µm, 30–300 K) from their Table 3: within 4.9e-6
   of the printed five decimals.
+- Li's Eq. (22), Table 1 at 293 K moved, reproduces his Table 1 (98 values, 1.2–14 µm,
+  100–750 K) within 2.3e-4 of the printed four decimals, and its derivative his Table 2's
+  $dn/dT$ within 0.004e-4 per K; central differences approach the closed form at order 2.0.
+- Frey et al.'s formula gives their measured $dn/dT$ (Table 4, 30–250 K) within 0.078e-4 per K;
+  the default silicon's (Li's from 250 K) is within 0.10e-4 per K of it at 250 and 295 K, inside
+  Li's ±0.15e-4. Leviton & Frey's formula gives their measured $dn/dT$ of silica (Table 6,
+  100–300 K) within 0.86e-6 per K.
 - Frey et al.'s silicon Table 2 (156 values, 1.1–5.5 µm, 30–295 K) from their Table 5: within
   6.9e-6 of the printed five decimals. At 293 K and 1.50, 1.55 and 1.60 µm their index is within
   1.94e-3 of Li's table brought to vacuum (×1.00027), inside the two papers' uncertainties summed

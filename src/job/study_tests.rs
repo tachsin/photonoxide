@@ -295,32 +295,9 @@ fn corners_are_the_runs_of_their_offset_designs() {
 
 #[test]
 fn a_corners_temperature_sets_every_material_that_takes_one() {
-    // Leviton & Frey's silica takes a temperature: the cladding and the oxide under the strip
-    let silica = MaterialSpec {
-        model: Some("leviton-frey-2006".into()),
-        ..MaterialSpec::id("sio2")
-    };
-    let mut s = spec("waveguide", Fidelity::ThreeD, &[]);
-    s.stack = StackSpec::Layers {
-        substrate: MaterialSpec::id("si"),
-        layers: vec![
-            LayerSpec {
-                name: "BOX".into(),
-                thickness_um: 2.0,
-                material: silica.clone(),
-                background: silica.clone(),
-            },
-            LayerSpec {
-                name: "Si".into(),
-                thickness_um: 0.22,
-                material: MaterialSpec::id("si"),
-                background: silica.clone(),
-            },
-        ],
-        cladding: silica,
-        core: "Si".into(),
-    };
-    let study = Study::Corners(vec![Corner::new("cold", &[]).at_temperature(100.0)]);
+    // SOI as its preset: Li's silicon and Malitson's silica, both moved by their dn/dT
+    let s = spec("waveguide", Fidelity::ThreeD, &[]);
+    let study = Study::Corners(vec![Corner::new("hot", &[]).at_temperature(340.0)]);
     let designs = study.designs(&s).unwrap();
     let StackSpec::Layers {
         cladding,
@@ -331,27 +308,54 @@ fn a_corners_temperature_sets_every_material_that_takes_one() {
     else {
         panic!("layers");
     };
-    assert_eq!(cladding.temperature, Some(100.0));
-    assert_eq!(layers[0].material.temperature, Some(100.0));
-    // Li's silicon takes none
-    assert_eq!(substrate.temperature, None);
-    assert_eq!(layers[1].material.temperature, None);
+    assert_eq!(cladding.temperature, Some(340.0));
+    assert_eq!(substrate.temperature, Some(340.0));
+    assert!(
+        layers
+            .iter()
+            .all(|l| l.material.temperature == Some(340.0)
+                && l.background.temperature == Some(340.0))
+    );
     let compute = Compute {
         step_nm: Some(50.0),
         margin_um: Some(0.5),
         band: Some((1.55, 1.55, 1)),
         ..Compute::model()
     };
-    let job = study_from_device("cold", &s, &compute, &study).unwrap();
-    let events = run_of(&job, "cold");
-    each_point_is_its_designs_run(&events, &designs, &compute, "cold");
+    let job = study_from_device("hot", &s, &compute, &study).unwrap();
+    let events = run_of(&job, "hot");
+    each_point_is_its_designs_run(&events, &designs, &compute, "hot");
     let n = |p: &Event| match p {
         Event::DevicePoint { figures, .. } => figures[0].value,
         _ => unreachable!(),
     };
     let p = points(&events);
-    // silica's index falls as it cools (dn/dT about +1e-5 per K), and the mode's with it
-    assert!(n(&p[1]) < n(&p[0]), "{} {}", n(&p[1]), n(&p[0]));
+    // silicon's index rises by about 1.9e-4 per K, and the mode's with it: about 47 K × 1.9e-4
+    // times the share of the mode in silicon
+    let rise = n(&p[1]) - n(&p[0]);
+    assert!(rise > 3e-3 && rise < 1e-2, "{} {}", n(&p[1]), n(&p[0]));
+}
+
+#[test]
+fn a_corners_temperature_is_refused_when_no_material_takes_one() {
+    let nitride = MaterialSpec::id("si3n4");
+    let mut s = spec("waveguide", Fidelity::ThreeD, &[]);
+    s.stack = StackSpec::Layers {
+        substrate: nitride.clone(),
+        layers: vec![LayerSpec {
+            name: "core".into(),
+            thickness_um: 0.22,
+            material: nitride.clone(),
+            background: nitride.clone(),
+        }],
+        cladding: nitride,
+        core: "core".into(),
+    };
+    let e = Study::Corners(vec![Corner::new("hot", &[]).at_temperature(340.0)])
+        .designs(&s)
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("takes a temperature"), "{e}");
 }
 
 #[test]
@@ -443,24 +447,11 @@ fn the_check_refuses_what_isnt_a_study() {
         ]),
         "two corners",
     );
-    // a temperature at the analytic fidelity, and on SOI, whose materials take none
+    // a temperature at the analytic fidelity
     refused(
         Study::Corners(vec![Corner::new("hot", &[]).at_temperature(340.0)]),
         "analytic",
     );
-    let three = Spec {
-        fidelity: Fidelity::ThreeD,
-        ..s.clone()
-    };
-    let e = study_from_device(
-        "hot",
-        &three,
-        &band(),
-        &Study::Corners(vec![Corner::new("hot", &[]).at_temperature(340.0)]),
-    )
-    .unwrap_err()
-    .to_string();
-    assert!(e.contains("takes a temperature"), "{e}");
     // by FDTD
     let e = study_from_device(
         "fdtd",

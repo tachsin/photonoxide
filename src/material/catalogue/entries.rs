@@ -4,6 +4,7 @@ use super::coming;
 use super::models::{self, ZelmonColumn};
 use super::references::references;
 use super::symmetry::cells;
+use super::thermo;
 use super::{
     Axis, Category, Clamping, CoefficientTable, Constant, Crystal, CrystalSystem, Entry,
     IndexModel, OpticalClass, Parameter, Source, Tensor, TensorKind,
@@ -152,16 +153,20 @@ fn silica() -> Entry {
                     sellmeier_rows,
                 )],
                 wavelength: (0.21, 3.71),
-                temperature: None,
+                temperature: temperature(thermo::SILICA_T.0, thermo::SILICA_T.1, thermo::MALITSON_T0),
                 composition: None,
-                accuracy: "interpolates the 60 measured wavelengths to 1.05e-5 on average (five decimals)".into(),
-                sources: vec![src("malitson-1965", "Eq. (1), Table I")],
+                accuracy: "interpolates the 60 measured wavelengths to 1.05e-5 on average (five decimals); away from 20 °C, Leviton & Frey's dn/dT, ±2e-8 per K between samples".into(),
+                dndt: Some(|lam, t, _| thermo::malitson_dndt(lam, t)),
+                sources: vec![
+                    src("malitson-1965", "Eq. (1), Table I"),
+                    src("leviton-frey-2006", "Table 3: the change of index with temperature"),
+                ],
                 default: true,
                 notes: format!(
-                    "20 °C (Provenance: {} K); the index relative to air",
+                    "20 °C (Provenance: {} K); the index relative to air. At another temperature Malitson's index moves by Leviton & Frey's change from 20 °C (their Table 3, 30 to 300 K), on their wavelengths, 0.4 to 2.6 µm; from 300 to 400 K by their dn/dT at 300 K held, an extrapolation (their Fig. 3 has it still rising at 300 K, so likely low above). Malitson's own dn/dT from 20 to 30 °C (his Sec. V and Fig. 3: 10e-6 per K through the visible, rising to 12e-6 at 2 µm) is above Leviton & Frey's 8.4e-6 at 1.55 µm for Corning 7980",
                     malitson.provenance().temperature.unwrap_or_default()
                 ),
-                eval: |_, _| Ok(vec![material::silica()]),
+                eval: |t, _| one(thermo::malitson_silica(t)),
             },
             IndexModel {
                 id: "leviton-frey-2006".into(),
@@ -178,6 +183,7 @@ fn silica() -> Entry {
                 temperature: temperature(models::LEVITON_T.0, models::LEVITON_T.1, 295.0),
                 composition: None,
                 accuracy: "the measurements' uncertainty: 0.7e-5 to 1.8e-5 (Table 1); the fit's residuals below 2e-6 rms".into(),
+                dndt: None,
                 sources: vec![src("leviton-frey-2006", "Table 3 (Table 4 tabulates it)")],
                 default: false,
                 notes: "cryogenic to room temperature; agrees with Malitson's formula (corrected to vacuum) to better than 1e-5 below 2 µm, per the paper".into(),
@@ -214,6 +220,7 @@ fn silicon_nitride() -> Entry {
             temperature: None,
             composition: None,
             accuracy: "a fit to ellipsometry from 193 nm to 33 µm; the paper states no uncertainty".into(),
+            dndt: None,
             sources: vec![src("luke-2015", "Eq. (1)")],
             default: true,
             notes: "a 340 nm film annealed at 1200 °C, on thermal oxide; no temperature stated".into(),
@@ -258,17 +265,33 @@ fn silicon() -> Entry {
             id: "li-1980".into(),
             name: "Li 1980".into(),
             axes: vec![Axis::Isotropic],
-            equation: r"n(\lambda) = \text{Table 1 (293 K), through a natural cubic spline}".into(),
-            symbols: r"$\lambda$ in µm".into(),
-            coefficients: vec![],
+            equation: r"n(\lambda, T) = n_{\text{Table 1}}(\lambda, 293\,\text{K}) + n_{22}(\lambda, T) - n_{22}(\lambda, 293\,\text{K}), \quad n_{22}^2 = \varepsilon(T) + \frac{L(T)}{\lambda^2}\left(A_0 + A_1 T + A_2 T^2\right), \quad L(T) = e^{-3\Delta L(T)/L_{293}}".into(),
+            symbols: r"$\lambda$ in µm, $T$ in K; Table 1's 35 points at 293 K moved by Eq. (22), through a natural cubic spline".into(),
+            coefficients: vec![table(
+                "Eq. (22) and p. 568",
+                &["", "$T^0$", "$T^1$", "$T^2$", "$T^3$"],
+                thermo::LI_PRINTED
+                    .iter()
+                    .map(|(label, terms)| {
+                        let mut r = vec![(*label).to_owned()];
+                        r.extend(terms.iter().map(|s| (*s).to_owned()));
+                        r
+                    })
+                    .collect(),
+            )],
             wavelength: (1.2, 14.0),
-            temperature: None,
+            temperature: temperature(thermo::SILICON_T.0, thermo::SILICON_T.1, thermo::LI_T0),
             composition: None,
-            accuracy: "±2e-3 (Li's stated uncertainty; the fourth decimal is printed for smoothness)".into(),
-            sources: vec![src("li-1980", "Table 1, 293 K")],
+            accuracy: "±2e-3 (Li's stated uncertainty; the fourth decimal is printed for smoothness); dn/dT ±0.15e-4 per K (Table 2)".into(),
+            dndt: Some(|lam, t, _| thermo::li_dndt(lam, t)),
+            sources: vec![
+                src("li-1980", "Table 1, 293 K"),
+                src("li-1980", "Eq. (22), p. 567; ΔL/L₂₉₃, p. 568; Tables 1 and 2"),
+                src("frey-2006", "Table 5, below 250 K; Table 4"),
+            ],
             default: true,
-            notes: "293 K; 35 recommended values".into(),
-            eval: |_, _| Ok(vec![material::silicon()]),
+            notes: "293 K; 35 recommended values. From 250 to 750 K each moves by Li's Eq. (22), from which he computed his Tables 1 and 2 (Eq. (22) gives them to 2.3e-4 and 0.004e-4 per K); from 20 to 250 K on from there by Frey et al.'s formula, up to 5 µm: their measured dn/dT (Table 4) follows it within 0.08e-4 per K to 250 K, and Li's within 0.10e-4 at 250 and 295 K, while their formula falls 0.06e-4 to 0.24e-4 below it at 295 K and Li's rises above it below 200 K. Eq. (22) prints the constants of ΔL/L₂₉₃ as −0.021 and −0.071, the percent of the expansion tables they come from; as fractions (−2.1e-4, −7.1e-4) ΔL/L₂₉₃ is zero at 293 K, as printed it would miss Table 1 by 0.015".into(),
+            eval: |t, _| one(thermo::li_silicon(t)),
         },
         IndexModel {
             id: "frey-2006".into(),
@@ -285,6 +308,7 @@ fn silicon() -> Entry {
             temperature: temperature(models::FREY_SI_T.0, models::FREY_SI_T.1, 295.0),
             composition: None,
             accuracy: "the measurements' uncertainty: 4.5e-5 to 1.4e-4 (Table 1, 8.7e-5 at 1.5 µm and 295 K); the fit's average absolute residual 1e-4 (Table 5)".into(),
+            dndt: None,
             sources: vec![src("frey-2006", "Table 5 (Table 2 tabulates it)")],
             default: false,
             notes: "a smooth formula, so its second derivative (the dispersion D) is smooth, where Li's rounded table splined is not; absolute index, about 1e-3 above an index in air; 2e-3 to 5e-3 above Li's table at 293 K, more than the two stated uncertainties below 1.5 µm, a spread among silicon samples the paper discusses".into(),
@@ -401,6 +425,7 @@ fn gehrsitz_model(fixed_gaas: bool) -> IndexModel {
             default: 0.3,
         }),
         accuracy: "against the measured data at 23 °C (Table IV): σ ≤ 2.5e-3 and Δn_max ≤ 9.5e-3, except x = 0.427 (σ 9.9e-3), which the paper attributes to a systematic error of that sample; the measurements themselves: Δn = 5e-4 (grating coupling, 0.73–0.83 µm), < 4e-3 (transmission, 0.5–2 µm), < 8e-3 beyond 2 µm".into(),
+        dndt: None,
         sources: vec![
             src("gehrsitz-2000", "Eqs. (11)–(13), (16); Tables II and IV"),
         ],
@@ -439,6 +464,7 @@ fn skauli_model() -> IndexModel {
         temperature: temperature(models::SKAULI_T.0, models::SKAULI_T.1, models::SKAULI_T0),
         composition: None,
         accuracy: "n to ±0.2% (a systematic error of the sample's thickness, the same at every wavelength); differences of indices to 0.2% of themselves (uncorrelated errors ≤ ±0.007% in n); dn/dT to ±1.4%, d²n/dT² to ±15%".into(),
+        dndt: None,
         sources: vec![src("skauli-2003", "Eq. (12), Table II")],
         default: true,
         notes: "measured from 22 to 95 °C (FTIR and interferometry); the paper also checks the fits against QPM data at 21 °C (Table I), which this range admits. Toward the band gap both fits leave Palik's data, so the range stops at 0.97 µm, the shortest measured. The default for GaAs: measured on GaAs itself across its transparency and checked by QPM; Gehrsitz et al.'s model at x = 0 reaches the gap and 103 K".into(),
@@ -601,6 +627,7 @@ fn afromowitz_model() -> IndexModel {
             default: 0.3,
         }),
         accuracy: "within 0.004 of GaAs data from 0.895 to 1.7 µm; of AlAs within 0.004 to 1.5 eV and 0.014 to 2 eV; compared with alloy data up to x = 0.38".into(),
+        dndt: None,
         sources: vec![src("afromowitz-1974", "Eqs. (7)–(12), appendix")],
         default: false,
         notes: "room temperature. The range starts 0.039 eV below the gap (where GaAs was checked, 0.895 µm) but not above 2 eV (where AlAs was), and ends at 1.7 µm. An older model kept for comparison; Gehrsitz et al. is the default. Adachi (1985, Eqs. (73)–(78), p. R24) gives a further model, fitted to Casey et al.'s indices for x ≤ 0.38 and Fern & Onton's AlAs; it states no range or accuracy, so it isn't one of the models here".into(),
@@ -738,6 +765,7 @@ fn jundt_model() -> IndexModel {
         temperature: temperature(models::JUNDT_T.0, models::JUNDT_T.1, 297.65),
         composition: None,
         accuracy: "no index accuracy stated; fitted (χ² = 89 for 192 points) to index data normalized to 20 °C (uncertainty 2.4e-4) and to PPLN OPO tuning, 'accurate for temperatures between room temperature and 250 °C and wavelengths from 0.4 to 5 µm'".into(),
+        dndt: None,
         sources: vec![src("jundt-1997", "Eqs. (4)–(5), Table 2")],
         default: false,
         notes: "the extraordinary index only; congruent composition (48.38 mol% Li₂O); a₄ was held at 100 µm². T in °C in f, which uses 273.16 as the paper writes it".into(),
@@ -847,6 +875,7 @@ fn lithium_niobate() -> Entry {
                 temperature: None,
                 composition: None,
                 accuracy: "the fit is within 2e-4 of every measured index; the measurements' standard deviation is below 2e-4".into(),
+                dndt: None,
                 sources: vec![src("zelmon-1997", "Table 1 and the equation of Section 3")],
                 default: true,
                 notes: "21 °C; minimum deviation on prisms".into(),
@@ -991,6 +1020,7 @@ fn gayer_model(extraordinary: bool) -> IndexModel {
         temperature: temperature(t.0, t.1, 297.65),
         composition: None,
         accuracy: "no absolute accuracy stated; against Paul et al.'s n_e below 1.7e-4 (1.05–4 µm, 20–200 °C) and against Zelmon et al. (columns exchanged) below 3.1e-4 for n_e (0.5–3 µm) and 2.2e-4 for n_o".into(),
+        dndt: None,
         sources: vec![src("gayer-2008", "Eqs. (2)–(3); Table 1 of the 2010 erratum")],
         default: false,
         notes: notes.into(),
@@ -1026,6 +1056,7 @@ fn lithium_niobate_mgo() -> Entry {
                 temperature: None,
                 composition: None,
                 accuracy: "the fit is within 2e-4 of every measured index".into(),
+                dndt: None,
                 sources: vec![
                     src("zelmon-1997", "Table 2, Fig. 2"),
                     src("gayer-2008", "Sec. 4.3.1 (the exchanged columns)"),
@@ -1127,6 +1158,7 @@ fn ingap() -> Entry {
             default: 0.0,
         }),
         accuracy: "no number stated ('sufficient agreement' with the measured points); n from reflectance minima of 0.4–1.2 µm layers on GaAs".into(),
+        dndt: None,
         sources: vec![src("tanaka-1986", "Eqs. (2)–(4); p. 986")],
         default: true,
         notes: "MBE layers at room temperature (300 K), measured from 0.6 to 1.3 eV (0.95–2.07 µm), the range here. Ueno et al. (1997) and the InGaP-photonics papers use this model for n at 1.55 µm; Ahler et al. (2026) find their bonded films need their own ellipsometry".into(),
@@ -1201,6 +1233,7 @@ fn pettit_turner_model(kelvin: f64) -> IndexModel {
         accuracy:
             "the fit is within 0.007 of the measured indices; the measurements reproduce to ±0.0003"
                 .into(),
+        dndt: None,
         sources: vec![src("pettit-turner-1965", "Eq. (1), Table I")],
         default: kelvin == 298.0,
         notes: format!(
@@ -1489,6 +1522,7 @@ fn rigler_2015_model(polarity: usize) -> IndexModel {
         temperature: None,
         composition: None,
         accuracy: "0.6%, the paper's estimate for its ellipsometric dispersions (and their spread against Blanc, Özgür and Shokhovets)".into(),
+        dndt: None,
         sources: vec![src("rigler-2015", "Eq. (10), Table I")],
         default: polarity == 0,
         notes: format!(
@@ -1540,6 +1574,7 @@ fn rigler_2013_model(sample: u8) -> IndexModel {
         temperature: None,
         composition: None,
         accuracy: "standard uncertainty 0.1% where three or more modes were measured, 0.4% from two; the Al fraction to ±0.025 (Table I and text)".into(),
+        dndt: None,
         sources: vec![src("rigler-2013", "Eqs. (6)–(7), Table II")],
         default: sample == 1,
         notes: if ae.is_finite() {
@@ -1636,6 +1671,7 @@ fn ferrini_sellmeier_model() -> IndexModel {
         temperature: None,
         composition: None,
         accuracy: "no number stated for n; reflectance accurate to 0.005 (far infrared) and 0.5% (0.4–6 eV); the Sellmeier and the interband (PSM) fit are 'quasi coincident' from 0.05 to 1.8 eV".into(),
+        dndt: None,
         sources: vec![src("ferrini-2002", "Eq. (5), Table 2")],
         default: false,
         notes: "undoped, highly disordered In₀.₄₉Ga₀.₅₁P (3.23 µm, MOVPE on GaAs), room temperature; fitted to the reflectance fringes where k = 0, from about 0.05 to 1.8 eV (0.69–24.8 µm). Doped samples (Table 2) differ by up to 0.4 in A. Against Tanaka et al. in their common range (0.95–2.07 µm) it is lower by 0.6% at 1.55 µm and 1.9% at 0.95 µm".into(),
@@ -1670,6 +1706,7 @@ fn ferrini_table_model() -> IndexModel {
         temperature: None,
         composition: None,
         accuracy: "ellipsometry and reflectance; their n and k agree within 5% over the ellipsometric range (Sec. 3.3); the table's ε₁ = n² − k² and ε₂ = 2nk hold to its last digit".into(),
+        dndt: None,
         sources: vec![src("ferrini-2002", "Table 3")],
         default: false,
         notes: "undoped In₀.₄₉Ga₀.₅₁P (EPI 61) at room temperature, 1.9 to 5.5 eV (0.225–0.653 µm), lossy: the interband region".into(),

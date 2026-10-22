@@ -22,6 +22,7 @@ use serde::Serialize;
 
 use super::Material;
 use crate::Result;
+use crate::units::Wavelength;
 
 pub(crate) mod checks;
 mod coming;
@@ -32,6 +33,8 @@ mod symmetry;
 mod tags;
 #[cfg(test)]
 mod tests;
+pub(crate) mod thermo;
+pub(crate) mod thermo_checks;
 
 pub use coming::Coming;
 pub use symmetry::{Pattern, pattern};
@@ -176,6 +179,9 @@ pub struct CoefficientTable {
     pub rows: Vec<Vec<String>>,
 }
 
+/// dn/dT in closed form: λ (µm), T (K) and the composition to one value per axis, per K.
+type Slope = fn(f64, f64, f64) -> Result<Vec<f64>>;
+
 /// A refractive-index model of a material, from one paper.
 #[derive(Clone, Debug, Serialize)]
 pub struct IndexModel {
@@ -208,6 +214,9 @@ pub struct IndexModel {
     pub notes: String,
     #[serde(skip)]
     eval: fn(f64, f64) -> Result<Vec<Material>>,
+    /// dn/dT in closed form (λ in µm, T, the composition), when the model has one.
+    #[serde(skip)]
+    dndt: Option<Slope>,
 }
 
 impl IndexModel {
@@ -227,6 +236,35 @@ impl IndexModel {
             .or(self.composition.as_ref().map(|p| p.default))
             .unwrap_or(f64::NAN);
         (self.eval)(t, x)
+    }
+
+    /// The thermo-optic coefficients dn/dT, per kelvin, of the model's materials at a
+    /// wavelength and conditions, one per [`IndexModel::axes`]: the derivative of the model's
+    /// own n(λ, T), in closed form where the paper gives the model as a formula in T (Li's
+    /// Eq. (22)), otherwise by central differences 0.5 K wide (one-sided within 0.5 K of the
+    /// range's ends).
+    ///
+    /// # Errors
+    ///
+    /// [`crate::Error::InvalidValue`] for a model that takes no temperature, or a condition or
+    /// wavelength outside the model's range.
+    pub fn thermo_optic(&self, wavelength: Wavelength, conditions: Conditions) -> Result<Vec<f64>> {
+        let Some(p) = &self.temperature else {
+            return Err(crate::Error::invalid(
+                "temperature",
+                format!("the model {} takes no temperature", self.id),
+            ));
+        };
+        let t = conditions.temperature.unwrap_or(p.default);
+        let x = conditions
+            .composition
+            .or(self.composition.as_ref().map(|p| p.default))
+            .unwrap_or(f64::NAN);
+        let lam = wavelength.to_um();
+        match self.dndt {
+            Some(f) => f(lam, t, x),
+            None => thermo::by_differences(|t| (self.eval)(t, x), (p.min, p.max), lam, t),
+        }
     }
 }
 
