@@ -111,10 +111,11 @@ validate-backend backend:
 studio-install:
     pnpm install
 
-# build the photonoxide program, target/release/photonoxide (never plain cargo build: the window would point at the dev server)
+# build the photonoxide program as released, with the dist profile: target/dist/photonoxide
+# (never plain cargo build: the window would point at the dev server)
 [working-directory: 'studio']
 studio: studio-install
-    pnpm tauri build
+    pnpm tauri build -- --profile dist
 
 # the studio with live reload, for working on it
 [working-directory: 'studio']

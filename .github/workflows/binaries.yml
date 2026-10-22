@@ -144,15 +144,21 @@ jobs:
           # which at a release's tag is the tag's, so this agrees; it stays for the releases made
           # before that (up to v0.5.3), whose tauri.conf.json says 0.2.0, rebuilt by hand
           config="{\"bundle\":$bundle,\"version\":\"${TAG#v}\"}"
-          pnpm tauri build --bundles "${{ matrix.bundles }}" --config "$config" ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
+          # the dist profile (thin LTO, one codegen unit), into target/dist; a tag from before it
+          # (up to v0.5.4) has no such profile and builds with release, into target/release
+          profile=release
+          cargo_args=()
+          if grep -q '^\[profile\.dist\]' ../Cargo.toml; then profile=dist; cargo_args=(-- --profile dist); fi
+          echo "PROFILE=$profile" >> "$GITHUB_ENV"
+          pnpm tauri build --bundles "${{ matrix.bundles }}" --config "$config" ${{ matrix.target && format('--target {0}', matrix.target) || '' }} "${cargo_args[@]}"
       - name: Collect
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
           base="photonoxide-${TAG#v}"
-          release=target/release
-          if [ -n "${{ matrix.target }}" ]; then release="target/${{ matrix.target }}/release"; fi
-          bundle="$release/bundle"
+          built="target/$PROFILE"
+          if [ -n "${{ matrix.target }}" ]; then built="target/${{ matrix.target }}/$PROFILE"; fi
+          bundle="$built/bundle"
           mkdir -p out
           case "${{ runner.os }}" in
             Linux)
@@ -188,7 +194,7 @@ jobs:
         shell: pwsh
         run: |
           # the program Tauri signed in place before putting it in the installer, and the installer
-          Get-ChildItem target/release/photonoxide.exe, out/*-setup.exe | Get-AuthenticodeSignature | ForEach-Object {
+          Get-ChildItem "target/$env:PROFILE/photonoxide.exe", out/*-setup.exe | Get-AuthenticodeSignature | ForEach-Object {
             if ($_.Status -ne 'Valid') { throw "$($_.Path): $($_.Status)" }
             "$($_.Path): signed by $($_.SignerCertificate.Subject)"
           }

@@ -190,7 +190,7 @@ git clone https://github.com/tachsin/photonoxide
 cd photonoxide
 just build         # the library, in release mode
 just test          # the unit tests
-just studio        # the program, target/release/photonoxide
+just studio        # the program as released, target/dist/photonoxide
 just python-test   # the Python package in python/.venv, and its tests
 just               # every recipe
 ```
@@ -199,8 +199,8 @@ The workspace has three optimized profiles:
 
 | Profile | Settings | Used for |
 |---|---|---|
-| `release` | Cargo's defaults: `opt-level = 3`, LTO within each crate only, 16 codegen units | CI, the tests and examples, the program |
-| `dist` | `release`, with `lto = "thin"` and `codegen-units = 1` | the Python wheels; `just build-dist` |
+| `release` | Cargo's defaults: `opt-level = 3`, LTO within each crate only, 16 codegen units | CI, the tests and examples, a plain `pnpm tauri build`, the nightly builds |
+| `dist` | `release`, with `lto = "thin"` and `codegen-units = 1` | the released program and the Python wheels; `just studio`, `just build-dist` |
 | `fastest` | `dist`, with `lto = "fat"` | `just build-fastest` |
 
 LTO across crates lets LLVM optimize photonoxide together with faer, which does its sparse LU,

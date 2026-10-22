@@ -663,7 +663,11 @@ WebKitGTK on Linux (`libwebkit2gtk-4.1-dev` and Tauri's other
 cd studio
 pnpm install
 pnpm tauri build        # writes target/release/photonoxide(.exe) at the repository's root
+pnpm tauri build -- --profile dist   # as released (thin LTO, one codegen unit): target/dist
 ```
+
+The released binaries are built with the `dist` profile (`just studio`), slower to build; its
+bundles land under `target/dist/bundle`.
 
 Build with the Tauri CLI, never with plain `cargo build`. Plain cargo leaves out the bundled
 window, so the window points at a dev server that isn't running. `pnpm tauri dev` serves the
