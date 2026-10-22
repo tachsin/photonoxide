@@ -96,6 +96,11 @@ area statics \
   "sparse" \
   "statics:: thermal:: electro::" "static/" ""
 
+# a change of temperature in a full-vector mode, by first-order perturbation and by re-solve
+# (src/mode/thermo.rs, in the mode area too); its cases take the catalogue's dn/dT and a heat
+# solve's field
+area thermo   "src/mode/thermo.rs src/mode/thermo_checks.rs"   "mode material statics"   "mode::thermo" "thermo/" ""
+
 # jobs, their runs and replay, and farming them out; the job files in jobs/ are read by the
 # library's tests and validation cases, by the studio's and by the Python package's; a job's
 # [device] table is read, checked and drawn by the devices, and studied (its sweeps and corners,

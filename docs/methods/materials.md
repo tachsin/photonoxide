@@ -77,7 +77,9 @@ their $dn/dT$ at 300 K up to 400 K. At 1.55 µm and 293 K silicon's $dn/dT$ is 1
 silica's 8.4e-6. `IndexModel::thermo_optic` gives $dn/dT$; [the catalogue](catalogue.md) says
 how the models join and has their validation against the papers' tables. A device's temperature
 corner sets every material that takes a temperature, so an SOI design's corners move its silicon
-and its silica.
+and its silica. A temperature field, uniform or a heat solve's, moves a mode by first-order
+perturbation or a re-solve ([fields](fields.md#a-change-of-permittivity-perturbation-and-re-solve)):
+a silicon wire's $dn_\mathrm{eff}/dT$ against Dwivedi et al.'s measurements is there.
 
 ## Validation
 

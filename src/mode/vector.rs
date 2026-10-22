@@ -526,6 +526,43 @@ impl CrossSection {
         &self.y
     }
 
+    /// The permittivity of each cell, cell (i, j) at `i * (y.len() − 1) + j`, as
+    /// [`CrossSection::new`] takes them.
+    pub fn cells(&self) -> &[Permittivity] {
+        &self.cells
+    }
+
+    /// The same cross-section (grid, walls and PML) with each cell's permittivity changed by
+    /// `delta`, one per cell in the order of [`CrossSection::cells`].
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for the wrong number of changes or a permittivity that isn't
+    /// finite.
+    pub fn perturbed(&self, delta: &[Permittivity]) -> Result<CrossSection> {
+        if delta.len() != self.cells.len() {
+            return Err(Error::invalid(
+                "delta",
+                format!("{} changes for {} cells", delta.len(), self.cells.len()),
+            ));
+        }
+        let cells = self
+            .cells
+            .iter()
+            .zip(delta)
+            .map(|(a, d)| Permittivity {
+                xx: a.xx + d.xx,
+                xy: a.xy + d.xy,
+                yx: a.yx + d.yx,
+                yy: a.yy + d.yy,
+                zz: a.zz + d.zz,
+            })
+            .collect();
+        CrossSection::new(self.x.clone(), self.y.clone(), cells)?
+            .with_boundaries(self.boundaries)?
+            .with_pml(self.pml)
+    }
+
     /// The cell (i, j), clamped to the grid: outside the window the edge cells continue.
     pub(crate) fn cell(&self, i: isize, j: isize) -> Permittivity {
         let (nx, ny) = (self.x.len() - 1, self.y.len() - 1);
@@ -959,6 +996,21 @@ impl VectorMode {
     /// [`Error::InvalidValue`] unless `cs` is the cross-section the mode was found on (the same
     /// grid).
     pub fn fields(&self, cs: &CrossSection) -> Result<crate::mode::fields::Fields> {
+        self.fields_sided(cs, false)
+    }
+
+    /// As [`VectorMode::fields`]; with `sided`, ∂_x E_z and ∂_y E_z in a cell beside a change of
+    /// material are taken one-sided, from the neighbour of the same material, so E's normal
+    /// component keeps its jump at the interface (ε E_⊥ continuous) instead of a central
+    /// difference across it spreading the jump over the two cells beside it. A cell between two
+    /// others of other materials keeps the central difference. An integral of |E|² over a
+    /// material, as first-order perturbation takes, then converges at second order in the grid,
+    /// not first.
+    pub(crate) fn fields_sided(
+        &self,
+        cs: &CrossSection,
+        sided: bool,
+    ) -> Result<crate::mode::fields::Fields> {
         if cs.x != self.x || cs.y != self.y {
             return Err(Error::invalid(
                 "fields",
@@ -1010,7 +1062,22 @@ impl VectorMode {
             if len < 2 {
                 return c64::new(0.0, 0.0);
             }
-            let (lo, hi) = (idx.saturating_sub(1), (idx + 1).min(len - 1));
+            let (mut lo, mut hi) = (idx.saturating_sub(1), (idx + 1).min(len - 1));
+            if sided {
+                let cell = |m: usize| {
+                    if along_x {
+                        cs.cell(m as isize, b as isize)
+                    } else {
+                        cs.cell(a as isize, m as isize)
+                    }
+                };
+                let (below, above) = (cell(lo) == cell(idx), cell(hi) == cell(idx));
+                if below && !above {
+                    hi = idx;
+                } else if above && !below {
+                    lo = idx;
+                }
+            }
             let (vlo, vhi) = if along_x {
                 (ez[lo * cy + b], ez[hi * cy + b])
             } else {

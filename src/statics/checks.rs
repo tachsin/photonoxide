@@ -506,6 +506,16 @@ pub(crate) fn jacques_tin_heater_on(grading: &Grading, cladding: f64) -> (Vec<f6
     (rises.iter().map(|&r| pi(r)).collect(), rises[0], slope)
 }
 
+/// The first variant of [`jacques_tin_heater`]'s cross-section (100 nm of TiN whose 2 µm are
+/// from the strip's top), its heater at 1 W/m: the temperature rise over the ambient (K; x = 0 at
+/// the strip's centre, y = 0 at the buried oxide's top), and the strip.
+pub(crate) fn jacques_rise() -> (super::Field, Shape) {
+    let (tin, from_strip_top) = JACQUES_VARIANTS[0];
+    let grading = Grading::new(0.5, 0.02, 1.2).expect("a grading");
+    let (heat, strip) = jacques_section(tin, from_strip_top, &grading);
+    (heat.solve().expect("a solve"), strip)
+}
+
 /// The variants of what Jacques et al. don't state: the TiN's thickness (µm), and whether its 2
 /// µm are from the strip's top (or the buried oxide's).
 const JACQUES_VARIANTS: [(f64, bool); 4] = [(0.1, true), (0.2, true), (0.1, false), (0.2, false)];

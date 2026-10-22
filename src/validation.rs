@@ -1839,6 +1839,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::fdfd::fill_checks::cases());
     // and the static solver's: heat, electrostatics and current on a cross-section
     cases.extend(crate::statics::checks::cases());
+    // and a temperature in the modes: dn/dT by perturbation and by re-solve, a heat solve's field
+    cases.extend(crate::mode::thermo_checks::cases());
     cases
 }
 

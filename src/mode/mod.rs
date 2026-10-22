@@ -16,6 +16,8 @@
 //!   and no guess, by contour integrals.
 //! - [`slab_fd`]: any planar profile (graded, lossy, leaky) by 1D finite differences.
 //! - [`slab`]: the modes of a three-layer slab, exactly (TE and TM).
+//! - [`thermo`]: a change of the cross-section, such as a temperature's, in a full-vector
+//!   mode, by first-order perturbation and by re-solve.
 //! - [`vector`]: the full-vector modes of any cross-section, by finite differences.
 
 pub mod bend;
@@ -28,6 +30,8 @@ pub mod multilayer;
 pub mod region;
 pub mod slab;
 pub mod slab_fd;
+pub mod thermo;
+pub(crate) mod thermo_checks;
 pub mod vector;
 
 /// The polarization of a slab mode.
