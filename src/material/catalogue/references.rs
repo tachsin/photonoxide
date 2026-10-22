@@ -12,6 +12,13 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "",
     ),
     (
+        "frey-2006",
+        "B. J. Frey, D. B. Leviton, T. J. Madison, Proc. SPIE 6273, 62732J (2006)",
+        "Temperature-dependent refractive index of silicon and germanium",
+        "10.1117/12.672850",
+        "https://arxiv.org/abs/physics/0606168",
+    ),
+    (
         "malitson-1965",
         "I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965)",
         "Interspecimen comparison of the refractive index of fused silica",

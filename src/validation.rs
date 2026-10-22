@@ -116,6 +116,27 @@ pub fn cases() -> Vec<Case> {
             run: silicon_table,
         },
         Case {
+            id: "material/silicon-frey-table",
+            title: r"Silicon's $n(\lambda, T)$ from Frey et al.'s Table 5 reproduces their Table 2: 13 wavelengths from 1.1 to 5.5 µm at 12 temperatures from 30 to 295 K (largest deviation shown)",
+            tier: Tier::Published,
+            source: "B. J. Frey, D. B. Leviton, T. J. Madison, Proc. SPIE 6273, 62732J (2006), doi:10.1117/12.672850, Table 2, printed to 5 decimals",
+            run: catalogue::frey_table,
+        },
+        Case {
+            id: "material/silicon-frey-li",
+            title: r"Silicon at 293 K near 1.55 µm: Frey et al.'s absolute index against Li's table brought from air to vacuum (×1.00027), at 1.50, 1.55 and 1.60 µm, within the two stated uncertainties summed (largest difference shown)",
+            tier: Tier::Published,
+            source: "H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980), doi:10.1063/1.555624, Table 1 (±2e-3); Frey et al., doi:10.1117/12.672850, Table 1 (8.67e-5); the index of air as D. B. Leviton, B. J. Frey, doi:10.1117/12.672853, Sec. 2, take it",
+            run: catalogue::frey_li,
+        },
+        Case {
+            id: "material/silicon-frey-smooth-d",
+            title: r"Silicon's dispersion $D = -(\lambda/c)\thinspace d^2n/d\lambda^2$ from Frey et al.'s formula at 295 K, every 10 nm from 1.25 to 2.45 µm, has no reversal of its slope (reversals shown; Li's splined table has them)",
+            tier: Tier::Analytic,
+            source: "a Sellmeier sum is smooth away from its resonances, which lie outside 1.1 to 5.6 µm here",
+            run: catalogue::frey_smooth,
+        },
+        Case {
             id: "material/silica-malitson-formula",
             title: "Silica's index equals Malitson's computed index at his 60 wavelengths (largest deviation shown)",
             tier: Tier::Published,

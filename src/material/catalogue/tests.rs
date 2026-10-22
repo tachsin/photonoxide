@@ -215,9 +215,14 @@ fn the_printed_coefficients_are_the_ones_evaluated() {
             .parse()
             .unwrap_or_else(|_| panic!("{s}"))
     };
-    for (row, printed) in models::LEVITON.iter().zip(models::LEVITON_PRINTED) {
-        for (v, p) in row.iter().zip(printed) {
-            assert_eq!(*v, parse(p));
+    for (table, printed) in [
+        (models::LEVITON, models::LEVITON_PRINTED),
+        (models::FREY_SI, models::FREY_SI_PRINTED),
+    ] {
+        for (row, printed) in table.iter().zip(printed) {
+            for (v, p) in row.iter().zip(printed) {
+                assert_eq!(*v, parse(p));
+            }
         }
     }
     for (columns, printed) in [
@@ -308,6 +313,9 @@ fn every_catalogue_check_passes() {
             "leviton",
             checks::leviton_table as fn() -> crate::validation::Outcome,
         ),
+        ("frey_table", checks::frey_table),
+        ("frey_li", checks::frey_li),
+        ("frey_smooth", checks::frey_smooth),
         ("zelmon_opo", checks::zelmon_opo),
         ("zelmon_633", checks::zelmon_633),
         ("jundt_opo", checks::jundt_opo),
@@ -684,4 +692,27 @@ fn algaas_d14_is_ulsigs_printed_value() {
         } if u == 11.0
     ));
     assert_eq!(t.wavelength, Some(1.94));
+}
+
+#[test]
+fn frey_silicon_is_smooth_where_li_zig_zags() {
+    // the check that passes Frey's formula fails Li's rounded table, splined: it sees the zig-zag
+    let li = checks::dispersion_samples(&crate::material::silicon());
+    assert!(checks::reversals(&li) > 10, "{}", checks::reversals(&li));
+    let si = entry("si").unwrap();
+    let frey = si.index[1]
+        .materials(Conditions::default())
+        .unwrap()
+        .remove(0);
+    let d = checks::dispersion_samples(&frey);
+    assert_eq!(checks::reversals(&d), 0);
+    // about −860 ps/(nm km) at 1.55 µm (sample 30): normal dispersion
+    assert!((-900.0..-820.0).contains(&d[30]), "{}", d[30]);
+    // Li's stays the default; Frey's refuses a temperature outside 20 to 300 K
+    assert_eq!(si.default_model().unwrap().id, "li-1980");
+    let hot = Conditions {
+        temperature: Some(350.0),
+        composition: None,
+    };
+    assert!(si.index[1].materials(hot).is_err());
 }

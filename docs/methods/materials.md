@@ -53,6 +53,20 @@ loss is a positive imaginary permittivity.
 
 Any material of the refractiveindex.info database (CC0) can be loaded with its provenance.
 
+## A smooth silicon
+
+Li's table is rounded to four decimals, so the spline through it has a second derivative that is
+straight between knots and jumps at them: silicon's group-velocity dispersion
+$D = -(\lambda/c)\,d^2n/d\lambda^2$ zig-zags. For $D$, or for a temperature other than 293 K,
+the catalogue's silicon has a second model, `frey-2006`: Frey, Leviton and Madison's
+temperature-dependent Sellmeier formula (Proc. SPIE 6273, 62732J, 2006,
+doi:[10.1117/12.672850](https://doi.org/10.1117/12.672850), Table 5), fitted to their
+minimum-deviation measurements of two prisms from 1.1 to 5.6 µm and 20 to 300 K, with an
+uncertainty of about 1e-4. It is the absolute (vacuum) index; at 1.55 µm and 293 K it is
+3.4784, 2.7e-3 above Li's 3.4757 (in air), and its $D$ is about −860 ps/(nm·km), smooth.
+Li's table stays the default. In Python, `refractive_index("si", wavelength_um=1.55,
+model="frey-2006", temperature_k=295)`; [the catalogue](catalogue.md) has its validation.
+
 ## Validation
 
 - Silicon passes through Li's table at all 35 wavelengths (to 1e-12: the spline is exact at its

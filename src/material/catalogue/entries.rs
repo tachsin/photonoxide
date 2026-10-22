@@ -230,6 +230,15 @@ fn silicon_nitride() -> Entry {
 }
 
 fn silicon() -> Entry {
+    let frey_rows = ["constant", "$T$", "$T^2$", "$T^3$", "$T^4$"]
+        .iter()
+        .zip(models::FREY_SI_PRINTED)
+        .map(|(label, row)| {
+            let mut r = vec![(*label).to_owned()];
+            r.extend(row.iter().map(|s| (*s).to_owned()));
+            r
+        })
+        .collect();
     Entry {
         id: "si".into(),
         name: "Silicon".into(),
@@ -260,11 +269,31 @@ fn silicon() -> Entry {
             default: true,
             notes: "293 K; 35 recommended values".into(),
             eval: |_, _| Ok(vec![material::silicon()]),
+        },
+        IndexModel {
+            id: "frey-2006".into(),
+            name: "Frey et al. 2006".into(),
+            axes: vec![Axis::Isotropic],
+            equation: r"n^2(\lambda, T) - 1 = \sum_{i=1}^{3} \frac{S_i(T)\,\lambda^2}{\lambda^2 - \lambda_i^2(T)}, \quad S_i(T) = \sum_{j=0}^{4} S_{ij}\,T^j, \quad \lambda_i(T) = \sum_{j=0}^{4} \lambda_{ij}\,T^j".into(),
+            symbols: r"$\lambda$ in µm, $T$ in K; the absolute (vacuum) index".into(),
+            coefficients: vec![table(
+                "Table 5, silicon",
+                &["term", "$S_1$", "$S_2$", "$S_3$", r"$\lambda_1$", r"$\lambda_2$", r"$\lambda_3$"],
+                frey_rows,
+            )],
+            wavelength: models::FREY_SI_LAMBDA,
+            temperature: temperature(models::FREY_SI_T.0, models::FREY_SI_T.1, 295.0),
+            composition: None,
+            accuracy: "the measurements' uncertainty: 4.5e-5 to 1.4e-4 (Table 1, 8.7e-5 at 1.5 µm and 295 K); the fit's average absolute residual 1e-4 (Table 5)".into(),
+            sources: vec![src("frey-2006", "Table 5 (Table 2 tabulates it)")],
+            default: false,
+            notes: "a smooth formula, so its second derivative (the dispersion D) is smooth, where Li's rounded table splined is not; absolute index, about 1e-3 above an index in air; 2e-3 to 5e-3 above Li's table at 293 K, more than the two stated uncertainties below 1.5 µm, a spread among silicon samples the paper discusses".into(),
+            eval: |t, _| one(models::frey_silicon(t)),
         }],
         tensors: centrosymmetric("m-3m", "the diamond structure has a centre of inversion: the bulk χ⁽²⁾ and r vanish in the electric-dipole approximation (the symmetry tag has what remains: surfaces, strain gradients, a static field)"),
         constants: vec![],
         missing: vec![],
-        references: references(&["li-1980"]),
+        references: references(&["li-1980", "frey-2006"]),
     }
 }
 

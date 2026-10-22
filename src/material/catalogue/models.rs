@@ -155,6 +155,134 @@ pub(crate) fn leviton_frey(temperature: f64) -> Result<Material> {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Silicon: Frey, Leviton & Madison 2006, Table 5
+// ---------------------------------------------------------------------------------------------
+
+/// Frey, Leviton & Madison's Table 5: rows are the T⁰ … T⁴ terms, columns S₁, S₂, S₃, λ₁, λ₂,
+/// λ₃ (µm).
+pub(crate) const FREY_SI: [[f64; 6]; 5] = [
+    [
+        10.4907,
+        -1346.61,
+        4.42827E+07,
+        0.299713,
+        -3.51710E+03,
+        1.71400E+06,
+    ],
+    [
+        -2.08020E-04,
+        29.1664,
+        -1.76213E+06,
+        -1.14234E-05,
+        42.3892,
+        -1.44984E+05,
+    ],
+    [
+        4.21694E-06,
+        -0.278724,
+        -7.61575E+04,
+        1.67134E-07,
+        -0.357957,
+        -6.90744E+03,
+    ],
+    [
+        -5.82298E-09,
+        1.05939E-03,
+        678.414,
+        -2.51049E-10,
+        1.17504E-03,
+        -39.3699,
+    ],
+    [
+        3.44688E-12,
+        -1.35089E-06,
+        103.243,
+        2.32484E-14,
+        -1.13212E-06,
+        23.5770,
+    ],
+];
+
+/// The same table as printed.
+pub(crate) const FREY_SI_PRINTED: [[&str; 6]; 5] = [
+    [
+        "10.4907",
+        "-1346.61",
+        "4.42827E+07",
+        "0.299713",
+        "-3.51710E+03",
+        "1.71400E+06",
+    ],
+    [
+        "-2.08020E-04",
+        "29.1664",
+        "-1.76213E+06",
+        "-1.14234E-05",
+        "42.3892",
+        "-1.44984E+05",
+    ],
+    [
+        "4.21694E-06",
+        "-0.278724",
+        "-7.61575E+04",
+        "1.67134E-07",
+        "-0.357957",
+        "-6.90744E+03",
+    ],
+    [
+        "-5.82298E-09",
+        "1.05939E-03",
+        "678.414",
+        "-2.51049E-10",
+        "1.17504E-03",
+        "-39.3699",
+    ],
+    [
+        "3.44688E-12",
+        "-1.35089E-06",
+        "103.243",
+        "2.32484E-14",
+        "-1.13212E-06",
+        "23.5770",
+    ],
+];
+
+/// Frey et al.'s validity: 20 K ≤ T ≤ 300 K, 1.1 µm ≤ λ ≤ 5.6 µm (Table 5's heading).
+pub(crate) const FREY_SI_T: (f64, f64) = (20.0, 300.0);
+pub(crate) const FREY_SI_LAMBDA: (f64, f64) = (1.1, 5.6);
+
+/// Silicon at a temperature (kelvin), from Frey, Leviton & Madison's temperature-dependent
+/// Sellmeier model: n²(λ, T) − 1 = Σᵢ Sᵢ(T) λ² / (λ² − λᵢ(T)²), Sᵢ and λᵢ quartic in T.
+pub(crate) fn frey_silicon(temperature: f64) -> Result<Material> {
+    check_range("temperature", temperature, FREY_SI_T.0, FREY_SI_T.1)?;
+    let poly = |col: usize| {
+        FREY_SI
+            .iter()
+            .rev()
+            .fold(0.0, |acc, row| acc * temperature + row[col])
+    };
+    let terms = (0..3)
+        .map(|i| SellmeierTerm {
+            b: poly(i),
+            c: poly(i + 3).abs(),
+        })
+        .collect();
+    Material::new(
+        "Si (Frey 2006)",
+        Model::Sellmeier { a: 1.0, terms },
+        um(FREY_SI_LAMBDA.0)?,
+        um(FREY_SI_LAMBDA.1)?,
+        Provenance {
+            reference: "B. J. Frey, D. B. Leviton, T. J. Madison, Proc. SPIE 6273, 62732J (2006)".into(),
+            doi: "10.1117/12.672850".into(),
+            data: "our own transcription of Table 5 (arXiv:physics/0606168), checked against Table 2".into(),
+            temperature: Some(temperature),
+            notes: "crystalline silicon (optical grade, two prisms from one boule); absolute (vacuum) index, measured by minimum deviation in CHARMS; uncertainty about 1e-4 (Table 1), the fit's average residual 1e-4".into(),
+        },
+    )
+}
+
+// ---------------------------------------------------------------------------------------------
 // Lithium niobate: Zelmon, Small & Jundt 1997, Tables 1 and 2
 // ---------------------------------------------------------------------------------------------
 

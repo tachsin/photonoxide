@@ -166,6 +166,89 @@ pub(crate) fn leviton_table() -> Outcome {
     deviation(largest(errors), 6e-6)
 }
 
+/// Frey, Leviton & Madison's Table 2: n of silicon at 13 wavelengths (µm) and these temperatures
+/// (K), computed by the authors from their Table 5 and printed to five decimals.
+pub(crate) const FREY_TABLE_2_T: [f64; 12] = [
+    30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 150.0, 200.0, 250.0, 295.0,
+];
+#[rustfmt::skip]
+pub(crate) const FREY_TABLE_2: [(f64, [f64; 12]); 13] = [
+    (1.1, [3.51113, 3.51123, 3.51146, 3.51181, 3.51229, 3.51288, 3.51358, 3.51439, 3.51979, 3.52703, 3.53555, 3.54394]),
+    (1.2, [3.49071, 3.49080, 3.49103, 3.49137, 3.49183, 3.49241, 3.49309, 3.49387, 3.49910, 3.50610, 3.51437, 3.52253]),
+    (1.3, [3.47508, 3.47518, 3.47540, 3.47574, 3.47619, 3.47675, 3.47741, 3.47817, 3.48327, 3.49011, 3.49818, 3.50616]),
+    (1.4, [3.46285, 3.46295, 3.46317, 3.46350, 3.46394, 3.46449, 3.46514, 3.46589, 3.47089, 3.47759, 3.48551, 3.49335]),
+    (1.5, [3.45309, 3.45319, 3.45340, 3.45373, 3.45417, 3.45471, 3.45535, 3.45609, 3.46100, 3.46760, 3.47540, 3.48314]),
+    (2.0, [3.42478, 3.42488, 3.42508, 3.42540, 3.42582, 3.42633, 3.42695, 3.42765, 3.43234, 3.43863, 3.44609, 3.45352]),
+    (2.5, [3.41196, 3.41206, 3.41226, 3.41257, 3.41298, 3.41348, 3.41408, 3.41477, 3.41936, 3.42552, 3.43283, 3.44011]),
+    (3.0, [3.40509, 3.40518, 3.40538, 3.40569, 3.40609, 3.40659, 3.40718, 3.40786, 3.41240, 3.41849, 3.42572, 3.43293]),
+    (3.5, [3.40100, 3.40109, 3.40128, 3.40158, 3.40198, 3.40248, 3.40307, 3.40374, 3.40826, 3.41430, 3.42148, 3.42864]),
+    (4.0, [3.39837, 3.39846, 3.39866, 3.39895, 3.39935, 3.39984, 3.40042, 3.40110, 3.40560, 3.41162, 3.41877, 3.42589]),
+    (4.5, [3.39661, 3.39669, 3.39688, 3.39718, 3.39757, 3.39806, 3.39864, 3.39931, 3.40381, 3.40982, 3.41694, 3.42404]),
+    (5.0, [3.39537, 3.39546, 3.39564, 3.39593, 3.39632, 3.39681, 3.39739, 3.39806, 3.40256, 3.40855, 3.41566, 3.42274]),
+    (5.5, [3.39449, 3.39457, 3.39475, 3.39504, 3.39542, 3.39591, 3.39649, 3.39716, 3.40166, 3.40765, 3.41474, 3.42180]),
+];
+
+/// Frey et al.'s Table 2 from their Table 5: the largest difference over all 156 entries, within
+/// one unit of the fifth decimal (the entries sit 0 to 7e-6 below the formula: cut, not rounded).
+pub(crate) fn frey_table() -> Outcome {
+    let errors = FREY_TABLE_2_T.iter().enumerate().flat_map(|(j, &t)| {
+        let m = models::frey_silicon(t).ok();
+        FREY_TABLE_2
+            .iter()
+            .map(move |(lam, row)| m.as_ref().map_or(f64::NAN, |m| (n(m, *lam) - row[j]).abs()))
+            .collect::<Vec<_>>()
+    });
+    deviation(largest(errors), 1e-5)
+}
+
+/// The index of air at room temperature that Leviton & Frey take to bring an index in air to
+/// vacuum (Proc. SPIE 6273, 62732K, Sec. 2).
+pub(crate) const AIR: f64 = 1.00027;
+
+/// Frey et al. at 293 K against Li's table (293 K, in air: Li brings vacuum data to air) times
+/// [`AIR`], at Li's three points around 1.55 µm: the largest difference, within the two stated
+/// uncertainties summed (Li's ±2e-3, Frey's 8.67e-5 at 1.5 µm and 295 K, Table 1).
+pub(crate) fn frey_li() -> Outcome {
+    let li = crate::material::silicon();
+    let frey = models::frey_silicon(293.0).ok();
+    let errors = [1.50, 1.55, 1.60].iter().map(|&lam| {
+        frey.as_ref()
+            .map_or(f64::NAN, |f| (n(f, lam) - AIR * n(&li, lam)).abs())
+    });
+    deviation(largest(errors), 2e-3 + 8.67e-5)
+}
+
+/// The dispersion parameter D = −(λ/c) d²n/dλ², ps/(nm km), of `material` from 1.25 to 2.45 µm
+/// every 10 nm, by three-point differences 2 nm wide (exact on a parabola).
+pub(crate) fn dispersion_samples(material: &Material) -> Vec<f64> {
+    let c = crate::units::SPEED_OF_LIGHT;
+    let h = 2e-3;
+    (0..=120)
+        .map(|k| {
+            let lam = 1.25 + 0.01 * f64::from(k);
+            let d2 =
+                (n(material, lam + h) - 2.0 * n(material, lam) + n(material, lam - h)) / (h * h);
+            // λ in µm and d²n/dλ² in µm⁻²: D = −λ d²n/dλ² × 1e12 / c in ps/(nm km)
+            -lam * d2 * 1e12 / c
+        })
+        .collect()
+}
+
+/// How many times the slope of D reverses between neighbouring samples: 0 for a smooth,
+/// monotonic D; a spline through a rounded table zig-zags.
+pub(crate) fn reversals(d: &[f64]) -> usize {
+    let slopes: Vec<f64> = d.windows(2).map(|w| w[1] - w[0]).collect();
+    slopes.windows(2).filter(|s| s[0] * s[1] < 0.0).count()
+}
+
+/// Silicon's D from Frey et al.'s formula at 295 K, 1.25 to 2.45 µm: no reversal of its slope.
+pub(crate) fn frey_smooth() -> Outcome {
+    let measured =
+        models::frey_silicon(295.0).map_or(f64::NAN, |m| reversals(&dispersion_samples(&m)) as f64);
+    // a count: below one is none
+    deviation(measured, 0.5)
+}
+
 /// The idler of an OPO pumped at `pump` (µm) in a periodically poled crystal of period
 /// `period` (µm), all waves extraordinary (d33): the root of
 /// n_p/λ_p − n_s/λ_s − n_i/λ_i − 1/Λ = 0 between degeneracy and `longest`, by bisection.

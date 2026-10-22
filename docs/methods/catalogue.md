@@ -6,6 +6,8 @@ order: 2.5
 papers:
   - cite: "D. B. Leviton, B. J. Frey, Proc. SPIE 6273, 62732K (2006)"
     doi: 10.1117/12.672853
+  - cite: "B. J. Frey, D. B. Leviton, T. J. Madison, Proc. SPIE 6273, 62732J (2006)"
+    doi: 10.1117/12.672850
   - cite: "D. E. Zelmon, D. L. Small, D. Jundt, J. Opt. Soc. Am. B 14, 3319 (1997)"
     doi: 10.1364/JOSAB.14.003319
   - cite: "D. H. Jundt, Opt. Lett. 22, 1553 (1997)"
@@ -64,6 +66,9 @@ papers:
     doi: 10.1038/nphoton.2017.14
 validation:
   - material/silica-leviton-table
+  - material/silicon-frey-table
+  - material/silicon-frey-li
+  - material/silicon-frey-smooth-d
   - material/linbo3-zelmon-633
   - material/linbo3-zelmon-opo
   - material/linbo3-jundt-opo
@@ -148,7 +153,8 @@ every value a tensor gives is an element its tag names.
 | SiO₂ | Malitson 1965 (default) | three-term Sellmeier | 0.21–3.71 µm, 20 °C |
 | SiO₂ | Leviton & Frey 2006 | Sellmeier with quartic $S_i(T)$, $\lambda_i(T)$ (Table 3) | 0.4–2.6 µm, 30–300 K, Corning 7980, vacuum index |
 | Si₃N₄ | Luke et al. 2015 | two-term Sellmeier | 0.31–5.504 µm |
-| Si | Li 1980 | Table 1, natural spline | 1.2–14 µm, 293 K |
+| Si | Li 1980 (default) | Table 1, natural spline | 1.2–14 µm, 293 K |
+| Si | Frey et al. 2006 | Sellmeier with quartic $S_i(T)$, $\lambda_i(T)$ (Table 5) | 1.1–5.6 µm, 20–300 K, vacuum index |
 | GaAs | Skauli et al. 2003 (default) | the Pikhtin form, Eq. (12), Table II | 0.97–17 µm, 21–95 °C |
 | GaAs, AlₓGa₁₋ₓAs | Gehrsitz et al. 2000 (default for AlGaAs) | Eqs. (11)–(13), (16), Tables II and IV | 30 meV below the direct gap (and above 0.47 µm) to 3 µm; 0 ≤ x ≤ 1; 103–313 K |
 | AlₓGa₁₋ₓAs | Afromowitz 1974 | modified single oscillator, Eqs. (7)–(12) | 0.039 eV below the gap (and below 2 eV) to 1.7 µm, room temperature |
@@ -260,6 +266,10 @@ congruent Table 1 is printed the right way round.
 
 - Leviton & Frey's Table 4 (208 values, 0.4–2.6 µm, 30–300 K) from their Table 3: within 4.9e-6
   of the printed five decimals.
+- Frey et al.'s silicon Table 2 (156 values, 1.1–5.5 µm, 30–295 K) from their Table 5: within
+  6.9e-6 of the printed five decimals. At 293 K and 1.50, 1.55 and 1.60 µm their index is within
+  1.94e-3 of Li's table brought to vacuum (×1.00027), inside the two papers' uncertainties summed
+  (2.09e-3); its $D$ from 1.25 to 2.45 µm at 295 K never reverses its slope.
 - Zelmon's congruent $n_o$, $n_e$ at 633 nm against the values Jazbinšek & Zgonik give their
   tensors at: within 3e-5. Zelmon's $n_e$ puts the idler of Myers' 1.064 µm-pumped PPLN OPO at
   a 30 µm grating at 3.354 µm, as the paper's Fig. 3 predicts (3.35). Jundt's $n_e(\lambda, T)$
