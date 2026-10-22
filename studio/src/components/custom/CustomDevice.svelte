@@ -19,6 +19,7 @@
   import Overlay, { type OverlayItem } from "../Overlay.svelte";
   import { app, startRun, toast } from "../../lib/app.svelte";
   import { modelOf } from "../../lib/catalog.svelte";
+  import { frameCaption, type Frame, type Section } from "../../lib/frames";
   import { along, cells, holds, layerSpan, numberOf, previewWindow, STACKS, template, turn, type JobModel, type Kind, type Num } from "../../lib/job";
   import { lenUnit } from "../../lib/units";
   import FdtdItems from "../FdtdItems.svelte";
@@ -41,6 +42,21 @@
   let right = $state<"preview" | "3d" | "toml">("3d");
   /** The text the 3D preview shows: the last one that checked out, so it doesn't rebuild on every key. */
   let shown = $state("");
+  /** The frame the views are in, and the shown job's cross-section that the cross-section's frame is (frames.rs): none for a job that isn't cut. */
+  let frame = $state<Frame>("chip");
+  let section = $state<Section | null>(null);
+  $effect(() => {
+    const t = shown;
+    let gone = false;
+    (t ? api.jobSection(t).catch(() => null) : Promise.resolve(null)).then((s) => {
+      if (gone) return;
+      section = s;
+      if (!s) frame = "chip";
+    });
+    return () => {
+      gone = true;
+    };
+  });
   /** The page's width: narrower than about 1000 px, the form goes under the view. */
   let width = $state(0);
   const stacked = $derived(width > 0 && width < 1000);
@@ -871,7 +887,7 @@
   <div class="min-h-0 flex-1 overflow-hidden" bind:clientHeight={viewHeight}>
     {#if right === "preview"}
       <div class="h-full overflow-y-auto p-4">
-        <GeometryPreview {model} kept={keptShapes} height={Math.max(140, viewHeight - (stacked ? 64 : 80))} selected={selection} onselect={(s) => (selection = s)} />
+        <GeometryPreview {model} kept={keptShapes} height={Math.max(140, viewHeight - (stacked ? 64 : 80))} selected={selection} onselect={(s) => (selection = s)} {frame} {section} />
         <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 px-1 text-xs faint">
           <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-primary/65"></span>silicon</span>
           <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-secondary/70"></span>nitride</span>
@@ -885,13 +901,13 @@
             <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm border border-warning/50 bg-warning/20"></span>CPML</span>
           {/if}
           {#if model.kind === "modes"}<span class="flex items-center gap-1.5"><span class="h-0.5 w-3 bg-accent"></span>cross-section</span>{/if}
-          <span>seen from above, x across, y up</span>
+          <span>seen from above, x to the right, y up</span>
         </div>
       </div>
     {:else if right === "3d"}
       <div class="relative h-full">
         {#if shown}
-          <ScenePreview text={shown} height={Math.max(160, viewHeight)} />
+          <ScenePreview text={shown} height={Math.max(160, viewHeight)} turnable axes {frame} />
           {#if check && !check.ok}
             <div class="absolute inset-x-3 top-3 rounded-lg border border-warning/30 bg-base-100/85 px-3 py-1.5 text-xs backdrop-blur">The job isn't valid now: this is its last valid version.</div>
           {/if}
@@ -927,6 +943,18 @@
       <button class="btn btn-xs join-item gap-1 {right === 'preview' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "preview")} title="Seen from above: click a shape to edit it"><Eye size={12} /> Top</button>
       <button class="btn btn-xs join-item gap-1 {right === 'toml' ? 'btn-primary btn-soft' : ''}" onclick={() => (right = "toml")} title="The job's text"><Code size={12} /> As text</button>
     </div>
+    {#if right !== "toml"}
+      <div class="join" role="group" aria-label="The frame the axes are named in">
+        <button class="btn btn-xs join-item {frame === 'chip' ? 'btn-primary btn-soft' : ''}" onclick={() => (frame = "chip")} title="The chip's frame: x and y in the plane, z up">Chip</button>
+        <button
+          class="btn btn-xs join-item {frame === 'section' ? 'btn-primary btn-soft' : ''}"
+          disabled={!section}
+          onclick={() => (frame = "section")}
+          title={section ? `The cross-section's frame: across the guide (the chip's ${section.across}) and z up; the 3D view looks along the guide` : "Only a modes job is cut"}>Cross-section</button
+        >
+      </div>
+      <span class="hidden text-[11px] faint xl:inline">{frameCaption(frame, section)}</span>
+    {/if}
     <span class="flex-1"></span>
     <span class="hidden text-[11px] faint lg:inline">{right === "3d" ? `as its run will draw it, over its window${model.kind === "modes" ? ", behind the cut" : ""}` : right === "preview" ? "click a shape to edit it" : "edits here update the form; what it doesn't show is kept"}</span>
   </div>

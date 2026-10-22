@@ -8,6 +8,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 import { intensityColour, mediumLook, pixels } from "./colours";
 import type { Mode, ModeField, Raster, Scene, ScenePort } from "./events";
+import { AXIS_COLOURS } from "./frames";
 import { CLEAR_OPACITY, type Look, type Looks } from "./layers";
 
 /**
@@ -650,22 +651,29 @@ export class View3D {
 
   /** The axes as the camera sees them. */
   private drawGizmo() {
-    const e = this.camera.matrixWorld.elements;
-    const right = [e[0], e[1], e[2]];
-    const up = [e[4], e[5], e[6]];
-    const axes: [string, string][] = [
-      ["x", "#e0574b"],
-      ["y", "#4fb35f"],
-      ["z", "#4f86e8"],
-    ];
-    this.gizmo.innerHTML = axes
-      .map(([name, colour], k) => {
-        const [dx, dy] = [right[k] * 30, -up[k] * 30];
-        return `<line x1="0" y1="0" x2="${dx}" y2="${dy}" stroke="${colour}" stroke-width="2.5" stroke-linecap="round"/>
-          <text x="${dx * 1.3}" y="${dy * 1.3}" fill="${colour}" text-anchor="middle" dominant-baseline="central">${name}</text>`;
-      })
-      .join("");
+    drawAxes(this.gizmo, this.camera);
   }
+}
+
+/**
+ * The chip's x, y and z as `camera` sees them, drawn into `svg` (its viewBox centred on 0) as
+ * arrows `length` long, each in its colour and called by its name in `names` (a frame's, the
+ * cross-section's "across" and "along"). The nearer arrows are drawn last, over the others.
+ */
+export function drawAxes(svg: SVGSVGElement, camera: THREE.Camera, names: readonly string[] = ["x", "y", "z"], length = 30) {
+  const e = camera.matrixWorld.elements;
+  const right = [e[0], e[1], e[2]];
+  const up = [e[4], e[5], e[6]];
+  const back = [e[8], e[9], e[10]];
+  svg.innerHTML = [0, 1, 2]
+    .sort((a, b) => back[a] - back[b])
+    .map((k) => {
+      const [dx, dy] = [right[k] * length, -up[k] * length];
+      const colour = AXIS_COLOURS[k];
+      return `<line x1="0" y1="0" x2="${dx}" y2="${dy}" stroke="${colour}" stroke-width="2.5" stroke-linecap="round"/>
+          <text x="${dx * 1.35}" y="${dy * 1.35}" fill="${colour}" text-anchor="middle" dominant-baseline="central">${names[k]}</text>`;
+    })
+    .join("");
 }
 
 /**
@@ -691,6 +699,11 @@ export class Preview3D {
   private last = 0;
   private observer: IntersectionObserver;
   private resizer: ResizeObserver;
+  /** Where the axes are drawn, and what x, y and z are called there (the frame's names). */
+  private axes: SVGSVGElement | null = null;
+  private names: readonly string[] = ["x", "y", "z"];
+  /** Whether the turn is held, the camera looking along a guide (`lookAlong`). */
+  private held = false;
 
   constructor(
     private container: HTMLElement,
@@ -750,15 +763,17 @@ export class Preview3D {
    * Shows `s`, in place of what was shown. With `cut` (a modes job's, at the x or y, `normal`,
    * where the scene's window ends), the window reaches as far in front of the cut as behind it,
    * and the cut is drawn as a plane, so the device shows whole and the cross-section's place on it.
+   * With `within` (a static job's cut, in the middle of its window), the window stays as it is.
    */
-  setScene(s: Scene, options: { cut?: number; normal?: "x" | "y"; ports?: ScenePort[] } = {}) {
+  setScene(s: Scene, options: { cut?: number; normal?: "x" | "y"; within?: boolean; ports?: ScenePort[] } = {}) {
     for (const child of this.structure.children.slice()) {
       this.structure.remove(child);
       dispose(child);
     }
     const cut = options.cut;
     const normal = options.normal ?? "y";
-    const about = (w: [number, number]): [number, number] => (cut === undefined ? w : [cut - (w[1] - w[0]), cut + (w[1] - w[0])]);
+    const about = (w: [number, number]): [number, number] =>
+      cut === undefined || options.within ? w : [cut - (w[1] - w[0]), cut + (w[1] - w[0])];
     const x = normal === "x" ? about(s.x_um) : s.x_um;
     const y = normal === "y" ? about(s.y_um) : s.y_um;
     this.structure.add(structure(s, new Set(), {}, x, y));
@@ -774,6 +789,31 @@ export class Preview3D {
   setDark(dark: boolean) {
     edgeColours(dark);
     this.draw();
+  }
+
+  /** Draws the axes into `svg` (none: not drawn), each called by its name in `names`: x, y and z in the chip's frame, "across" and "along" in a cross-section's. */
+  setAxes(svg: SVGSVGElement | null, names: readonly string[] = ["x", "y", "z"]) {
+    this.axes = svg;
+    this.names = names;
+    if (svg) this.draw();
+  }
+
+  /**
+   * Turns the camera to look along the chip's `axis`, low over the chip, and holds it there (a
+   * drag still turns it): a cross-section's frame, the light going away from the viewer. With
+   * none, it goes back to turning by itself, seen from above at a slant.
+   */
+  lookAlong(axis: "x" | "y" | null) {
+    // already turning: leave the turn where a drag put it
+    if (axis === null && !this.held) return;
+    this.held = axis !== null;
+    if (axis) {
+      this.yaw = axis === "x" ? Math.PI : -Math.PI / 2;
+      this.pitch = 0.12;
+    } else this.pitch = 0.5;
+    this.fit();
+    this.draw();
+    if (!this.held) this.start();
   }
 
   private resize() {
@@ -807,7 +847,7 @@ export class Preview3D {
     this.last = performance.now();
     const step = (t: number) => {
       this.frameId = 0;
-      if (!this.visible || document.hidden) return;
+      if (!this.visible || document.hidden || this.held) return;
       // a turn in about 40 s
       if (!this.dragged) this.yaw += ((t - this.last) / 1000) * ((2 * Math.PI) / 40);
       this.last = t;
@@ -823,6 +863,7 @@ export class Preview3D {
     this.light.position.copy(this.camera.position).add(new THREE.Vector3(0, 0, this.distance * 0.6));
     this.light.target.position.copy(this.centre);
     this.renderer.render(this.scene, this.camera);
+    if (this.axes) drawAxes(this.axes, this.camera, this.names, 24);
   }
 
   destroy() {

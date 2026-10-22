@@ -89,6 +89,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             method_docs,
             preview_scene,
             preview_ports,
+            crate::frames::job_section,
             save_text,
             crate::academy::academy,
             crate::academy::academy_chart,

@@ -3,7 +3,10 @@
   // and their windows, the PML, and where a modes job cuts its cross-section. The shapes the form
   // doesn't hold (rectangles placed by expressions, components, paths…) come as `kept`, drawn by
   // the library as the 3D view draws them; they can't be picked here, only edited in the text.
+  // Its axes, in the corner, are named in `frame`: the chip's x and y, or a cut job's along and
+  // across the guide (`section`, frames.rs), z out of the page.
   import type { Shape } from "../lib/events";
+  import { AXIS_COLOURS, axisNames, type Frame, type Section } from "../lib/frames";
   import { along, cutAt, previewWindow, type JobModel } from "../lib/job";
   import { label, ticks } from "../lib/plot";
   import { shown, stored, unitText } from "../lib/units";
@@ -17,6 +20,8 @@
     height = 360,
     selected = null,
     onselect,
+    frame = "chip",
+    section = null,
   }: {
     model: JobModel;
     kept?: Shape[];
@@ -24,7 +29,13 @@
     height?: number;
     selected?: Selection;
     onselect?: (s: Selection) => void;
+    frame?: Frame;
+    section?: Section | null;
   } = $props();
+
+  const names = $derived(axisNames(frame, section));
+  /** An axis's title: the chip's name, and the frame's after it when that differs. */
+  const title = (k: 0 | 1) => (names[k] === "xyz"[k] ? "" : `: ${names[k]}`);
 
   let width = $state(400);
   const win = $derived(previewWindow(model));
@@ -204,11 +215,24 @@
         <line x1={X(win.x[0]) - 4} x2={X(win.x[0])} y1={Y(stored(t))} y2={Y(stored(t))} class="stroke-base-content/40" />
         <text x={X(win.x[0]) - 7} y={Y(stored(t))} text-anchor="end" dominant-baseline="central" class="fill-base-content/50 text-[10.5px]">{label(t)}</text>
       {/each}
-      <text x={X(win.x[1])} y={Y(win.y[0]) + 32} text-anchor="end" class="fill-base-content/45 text-[10.5px]">x ({unitText()})</text>
+      <text x={X(win.x[1])} y={Y(win.y[0]) + 32} text-anchor="end" class="fill-base-content/45 text-[10.5px]">x ({unitText()}){title(0)}</text>
       {#if light}
         <!-- which way the light goes -->
         <text x={X(win.x[0])} y={Y(win.y[0]) + 32} class="fill-base-content/60 text-[10.5px] font-medium">light {light === "x" ? "→ along x" : "↑ along y"}</text>
       {/if}
+    {/if}
+    {#if !compact && w > 90 && h > 70}
+      <!-- the axes: x to the right, y up, z out of the page; named in the frame shown -->
+      {@const [ax, ay] = [X(win.x[0]) + 14, Y(win.y[0]) - 14]}
+      <g class="pointer-events-none text-[10.5px] font-semibold" role="img" aria-label="the axes: {names[0]} to the right, {names[1]} up, {names[2]} out of the page">
+        <line x1={ax} y1={ay} x2={ax + 24} y2={ay} stroke={AXIS_COLOURS[0]} stroke-width="2.5" stroke-linecap="round" />
+        <text x={ax + 28} y={ay} dominant-baseline="central" fill={AXIS_COLOURS[0]}>{names[0]}</text>
+        <line x1={ax} y1={ay} x2={ax} y2={ay - 24} stroke={AXIS_COLOURS[1]} stroke-width="2.5" stroke-linecap="round" />
+        <text x={ax + 6} y={ay - 26} dominant-baseline="central" fill={AXIS_COLOURS[1]}>{names[1]}</text>
+        <circle cx={ax} cy={ay} r="4" fill="none" stroke={AXIS_COLOURS[2]} stroke-width="1.5" />
+        <circle cx={ax} cy={ay} r="1.3" fill={AXIS_COLOURS[2]} />
+        <text x={ax + 6} y={ay - 8} dominant-baseline="central" fill={AXIS_COLOURS[2]}>{names[2]}</text>
+      </g>
     {/if}
   </svg>
 </div>

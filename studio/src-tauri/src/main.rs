@@ -16,6 +16,7 @@ mod diagrams;
 mod examples;
 mod farm;
 mod form;
+mod frames;
 mod libraries;
 mod materials;
 #[cfg(test)]
