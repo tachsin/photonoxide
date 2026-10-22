@@ -319,7 +319,7 @@ struct Labelled {
 }
 
 impl Labelled {
-    fn new(fidelity: Fidelity) -> Arc<dyn Component> {
+    fn of(fidelity: Fidelity) -> Arc<dyn Component> {
         Arc::new(Labelled {
             fidelity,
             ports: vec![Port::new("a"), Port::new("b")],
@@ -363,7 +363,7 @@ fn a_circuit_with_a_2d_part_is_labelled_2d() {
     let chain = |fidelities: &[Fidelity]| {
         let mut n = Netlist::new();
         for (k, &fidelity) in fidelities.iter().enumerate() {
-            n.add(&format!("p{k}"), Labelled::new(fidelity)).unwrap();
+            n.add(&format!("p{k}"), Labelled::of(fidelity)).unwrap();
             if k > 0 {
                 n.connect(&format!("p{}.b", k - 1), &format!("p{k}.a"))
                     .unwrap();
@@ -388,7 +388,7 @@ fn a_circuit_with_a_2d_part_is_labelled_2d() {
     outer
         .add("inner", Arc::new(chain(&[ThreeD, TwoD])))
         .unwrap();
-    outer.add("y", Labelled::new(ThreeD)).unwrap();
+    outer.add("y", Labelled::of(ThreeD)).unwrap();
     outer.connect("inner.out", "y.a").unwrap();
     outer.expose("in", "inner.in").unwrap();
     outer.expose("out", "y.b").unwrap();
