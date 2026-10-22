@@ -126,7 +126,7 @@ impl JsonSchema for Layers {
 }
 
 /// The job file's schema, as `docs/job.schema.json` holds it: the structs' keys, the resolver's
-/// forms, and the shorter forms beside the keys they stand for ([`super::short`]).
+/// forms, and the shorter forms beside the keys they stand for (the module `job::short`).
 ///
 /// # Panics
 ///
