@@ -495,15 +495,43 @@ fn zero(ls: &[f64], d: &[f64]) -> Option<f64> {
         .map(|k| ls[k - 1] + (ls[k] - ls[k - 1]) * d[k - 1] / (d[k - 1] - d[k]))
 }
 
-/// The group-velocity dispersion of silica (`which` 1) or silicon (2) against wavelength, and
-/// both at `at` µm.
+/// The temperature at which the dispersion chart takes Frey et al.'s silicon, K: their room
+/// temperature, the warmest they measured near it.
+pub const FREY_T: f64 = 295.0;
+
+/// Silicon from Frey, Leviton and Madison's temperature-dependent Sellmeier formula (the
+/// catalogue's `frey-2006`) at `FREY_T`: smooth, so its second derivative is too.
+pub fn silicon_frey() -> photonoxide::Result<Material> {
+    let entry = catalogue::entry("si")
+        .ok_or_else(|| super::invalid("material", "no silicon in the catalogue"))?;
+    let model = entry
+        .index
+        .iter()
+        .find(|m| m.id == "frey-2006")
+        .ok_or_else(|| super::invalid("material", "no Frey et al. model"))?;
+    Ok(model
+        .materials(Conditions {
+            temperature: Some(FREY_T),
+            composition: None,
+        })?
+        .remove(0))
+}
+
+/// The dispersion chart's curve labels for silicon: Frey et al.'s formula and Li's table.
+pub const SI_FREY: &str = "silicon, Frey et al. 2006 formula, 295 K (valid 1.1–5.6 µm, 20–300 K)";
+pub const SI_LI: &str = "silicon, Li 1980 table splined, 293 K (valid 1.2–14 µm)";
+
+/// The group-velocity dispersion of silica (`which` 1) or silicon (2, Frey et al.'s smooth
+/// formula with Li's table beside it) against wavelength, and each at `at` µm.
 pub fn gvd(which: usize, at: f64) -> photonoxide::Result<ChartData> {
     // 2 nm samples: three-point differences of a smooth formula, exact on a parabola
     let ls = span(GVD_FROM, GVD_TO, 651);
     let sio2 = silica();
     let si = material::silicon();
+    let frey = silicon_frey()?;
     let d_sio2 = gvd_of(&sio2, &ls)?;
     let d_si = gvd_of(&si, &ls)?;
+    let d_frey = gvd_of(&frey, &ls)?;
     let pick = |d: &[f64]| -> Vec<[f64; 2]> {
         // the ends' one-sided differences are left out
         ls.iter()
@@ -535,10 +563,17 @@ pub fn gvd(which: usize, at: f64) -> photonoxide::Result<ChartData> {
         ),
         figure(
             &format!("silicon's $D$ at {} µm", sig(at, 4)),
-            at_d(&si)?,
+            at_d(&frey)?,
             4,
             "ps/(nm km)",
-            "Li's table, splined; negative: normal",
+            "Frey et al.'s formula, 295 K; negative: normal",
+        ),
+        figure(
+            &format!("from Li's table at {} µm", sig(at, 4)),
+            at_d(&si)?,
+            3,
+            "ps/(nm km)",
+            "splined, 293 K",
         ),
         match zero_sio2 {
             Some(l) => figure("silica's zero dispersion", l, 5, "µm", "$D = 0$"),
@@ -551,7 +586,7 @@ pub fn gvd(which: usize, at: f64) -> photonoxide::Result<ChartData> {
             },
         },
         figure(
-            "silicon's $D$ at 1.50, 1.55, 1.60 µm",
+            "Li's table's $D$ at 1.50, 1.55, 1.60 µm",
             rounding[1],
             3,
             "ps/(nm km)",
@@ -571,18 +606,27 @@ pub fn gvd(which: usize, at: f64) -> photonoxide::Result<ChartData> {
         y_log: false,
         y_range: None,
         // one material at a time: silica's D is tens of ps/(nm km), silicon's hundreds
-        series: vec![
-            if which == 1 {
-                curve("fused silica (Malitson)", pick(&d_sio2), false, 0)
-            } else {
-                curve("silicon (Li's table, splined)", pick(&d_si), false, 1)
-            },
-            curve("D = 0", vec![[GVD_FROM, 0.0], [GVD_TO, 0.0]], true, GREY),
-        ],
+        series: if which == 1 {
+            vec![
+                curve(
+                    "fused silica, Malitson 1965 formula, 20 °C (valid 0.21–3.71 µm)",
+                    pick(&d_sio2),
+                    false,
+                    0,
+                ),
+                curve("D = 0", vec![[GVD_FROM, 0.0], [GVD_TO, 0.0]], true, GREY),
+            ]
+        } else {
+            vec![
+                curve(SI_FREY, pick(&d_frey), false, 1),
+                curve(SI_LI, pick(&d_si), true, 2),
+                curve("D = 0", vec![[GVD_FROM, 0.0], [GVD_TO, 0.0]], true, GREY),
+            ]
+        },
         marker: Some(at),
         figures,
         note: format!(
-            "No grid: D = −(λ/c) d²n/dλ² from three-point differences of each material's index at samples 2 nm apart, from {GVD_FROM} to {GVD_TO} µm. Silica's index is Malitson's smooth formula; silicon's is a natural cubic spline through Li's table, rounded to four decimals, whose second derivative is a straight line between knots."
+            "No grid: D = −(λ/c) d²n/dλ² from three-point differences of each material's index at samples 2 nm apart, from {GVD_FROM} to {GVD_TO} µm. Silica's index is Malitson's smooth formula (doi:10.1364/JOSA.55.001205). Silicon's solid curve is Frey, Leviton and Madison's temperature-dependent Sellmeier formula at {FREY_T} K, the absolute index, smooth (doi:10.1117/12.672850); the dashed one is a natural cubic spline through Li's table at 293 K, rounded to four decimals, whose second derivative is a straight line between knots, so its D zig-zags (doi:10.1063/1.555624)."
         ),
     })
 }
@@ -806,14 +850,59 @@ mod tests {
         let expect = -l * d2 / 299_792_458.0 * 1e12;
         close(at_d_at(&parabola, l).unwrap(), expect, 1e-2 * expect.abs());
         let data = gvd(1, 1.55).unwrap();
-        assert_eq!(
-            gvd(2, 1.55).unwrap().series[0].label,
-            "silicon (Li's table, splined)"
-        );
+        let si = gvd(2, 1.55).unwrap();
+        assert_eq!(si.series[0].label, SI_FREY);
+        assert!(!si.series[0].dashed);
+        assert_eq!(si.series[1].label, SI_LI);
+        assert!(si.series[1].dashed);
         let z = fig(&data, "silica's zero dispersion");
         assert!((1.26..1.29).contains(&z), "{z}");
         let d = fig(&data, "silica's $D$");
         assert!(d > 15.0 && d < 30.0, "{d}");
         assert!(fig(&data, "silicon's $D$ at 1.55") < 0.0);
+    }
+
+    /// Silicon's default curve is the library's D (`mode::dispersion::dispersion`) on Frey et
+    /// al.'s formula at 295 K, and smooth: its second difference along the curve is a small
+    /// part of D, where Li's splined table jumps by hundreds of ps/(nm km) at its knots. The
+    /// lesson quotes about −860 ps/(nm km) at 1.55 µm.
+    #[test]
+    fn silicons_d_is_freys_and_smooth() {
+        let frey = silicon_frey().unwrap();
+        let data = gvd(2, 1.55).unwrap();
+        let curve = series(&data, SI_FREY);
+        for p in curve.iter().step_by(29) {
+            let ws: Vec<Wavelength> = [p[0] - 0.002, p[0], p[0] + 0.002]
+                .iter()
+                .map(|&x| wavelength(x).unwrap())
+                .collect();
+            let ns: Vec<f64> = ws
+                .iter()
+                .map(|&w| frey.refractive_index(w).unwrap().re)
+                .collect();
+            // the chart's neighbours are its own samples, 2 nm apart to rounding
+            close(
+                p[1],
+                dispersion::dispersion(&ws, &ns).unwrap()[1],
+                1e-7 * p[1].abs(),
+            );
+        }
+        let d = fig(&data, "silicon's $D$ at 1.55");
+        close(d, at_d_at(&frey, 1.55).unwrap(), 0.0);
+        close(d, -862.1, 0.05);
+        close(
+            fig(&data, "from Li's table at 1.55"),
+            at_d_at(&material::silicon(), 1.55).unwrap(),
+            0.0,
+        );
+        let jump = |c: &[[f64; 2]]| {
+            c.windows(3)
+                .map(|w| (w[0][1] - 2.0 * w[1][1] + w[2][1]).abs())
+                .fold(0.0, f64::max)
+        };
+        let smooth = jump(curve);
+        assert!(smooth < 1.0, "{smooth}");
+        let li = jump(series(&data, SI_LI));
+        assert!(li > 10.0 * smooth, "{li} against {smooth}");
     }
 }

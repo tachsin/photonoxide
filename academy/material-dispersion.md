@@ -328,8 +328,11 @@ Malitson's formula):
 
 ::chart material-gvd{material=1}
 
-Silicon's $D$ is negative, several hundred ps/(nm km), but how negative, Li's table can't tell:
-the curve zig-zags, $-717$, $-945$ and $-447$ ps/(nm km) at 1.50, 1.55 and 1.60 µm.
+Silicon's $D$ is negative, several hundred ps/(nm km). At 1.55 µm it is $-862$ ps/(nm km), from
+[Frey, Leviton and Madison's](https://doi.org/10.1117/12.672850) temperature-dependent Sellmeier
+formula at 295 K (their Table 5, valid from 1.1 to 5.6 µm and 20 to 300 K): the solid curve.
+The dashed curve is Li's table, splined, and it zig-zags: $-717$, $-945$ and $-447$ ps/(nm km)
+at 1.50, 1.55 and 1.60 µm, where Frey et al.'s formula gives $-958$, $-862$ and $-779$.
 
 ::chart material-gvd{material=2}
 
@@ -355,7 +358,7 @@ their Eq. 3.6. $n_g$ needs the first derivative of the index, $D$ the second. ph
 `mode::dispersion::dispersion`, three-point differences of the index 2 nm apart
 ([dispersion](../docs/methods/dispersion.md)).
 
-### Why silicon's curve zig-zags {theory}
+### Why Li's table zig-zags {theory}
 
 The spline's curvature is a straight line between two of Li's values, so $D$ from it is a broken
 line with corners at the values, 0.05 µm apart near 1.55 µm. The values are rounded to
@@ -366,8 +369,8 @@ derivative, is held far better, to about $2 \times 5 \times 10^{-5}/h = 2 \times
 $dn/d\lambda$ and $3 \times 10^{-3}$ in $n_g$. From Frey et al.'s measured slopes, $-0.11583$ per µm
 at 1.4 µm and $-0.09229$ at 1.5 µm at 295 K (their Table 3), the difference gives
 $d^2n/d\lambda^2 \approx 0.235$ per µm² and $D \approx -1140$ ps/(nm km) near 1.45 µm, where the
-spline gives $-996$. A table fixes $n$ and $n_g$; for $D$ a smooth formula fitted to the
-measurements is needed, which the catalogue doesn't yet have for silicon.
+spline gives $-996$ and their formula $-1069$. A table fixes $n$ and $n_g$; $D$ needs a smooth
+formula fitted to the measurements, as Frey et al.'s is, and the chart draws silicon from it.
 
 **Try it.** Where is silica's $D$ largest in the chart's window, and what does that mean for a
 pulse?

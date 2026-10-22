@@ -719,8 +719,8 @@ pub fn specs() -> Vec<ChartSpec> {
         ChartSpec {
             id: "material-gvd",
             title: "Group-velocity dispersion of silica and silicon",
-            about: "The dispersion parameter D, how much the group delay changes with the wavelength, of fused silica or of silicon from 1.2 to 2.5 µm: positive is anomalous, negative normal. The figures give both.",
-            computed_by: "mode::dispersion::dispersion on the indices of material::silica and material::silicon",
+            about: "The dispersion parameter D, how much the group delay changes with the wavelength, of fused silica or of silicon from 1.2 to 2.5 µm: positive is anomalous, negative normal. Silicon's solid curve is Frey et al.'s smooth formula at 295 K, its dashed one Li's rounded table splined, which zig-zags. The figures give each.",
+            computed_by: "mode::dispersion::dispersion on the indices of material::silica, the catalogue's silicon frey-2006 at 295 K and material::silicon",
             params: vec![
                 param(
                     "material",
@@ -729,7 +729,7 @@ pub fn specs() -> Vec<ChartSpec> {
                     (1.0, 2.0, 1.0),
                     1.0,
                     false,
-                    "1 fused silica (Malitson 1965), 2 silicon (Li 1980).",
+                    "1 fused silica (Malitson 1965), 2 silicon (Frey et al. 2006 at 295 K, with Li 1980's table).",
                 ),
                 param(
                     "wavelength",

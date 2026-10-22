@@ -224,7 +224,7 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `material-oscillator` | `strength` Δε (1), `damping` γ/ω₀ (0.05), `background` ε∞ (1) | `material::Model::Lorentz`, `Material::refractive_index`: $n$ and $\kappa$ against $\omega/\omega_0$ |
 | `material-cauchy` | `fit_to` µm (0.7) | `material::silica` (Malitson's `Model::Sellmeier`) and `Model::Cauchy` fitted to it by least squares from 0.4 µm |
 | `material-index` | `material` (1 Malitson's silica, 2 Li's silicon, 3 Luke's nitride, 4 Leviton and Frey's silica at 295 K), `wavelength` µm (1.55) | `material::silica`, `silicon`, `silicon_nitride`, `material::catalogue`; `Material::refractive_index`, `Material::group_index`, `Material::provenance` |
-| `material-gvd` | `material` (1 silica, 2 silicon), `wavelength` µm (1.55) | `mode::dispersion::dispersion` on the indices of `material::silica` and `material::silicon`, 2 nm apart from 1.2 to 2.5 µm |
+| `material-gvd` | `material` (1 silica, 2 silicon), `wavelength` µm (1.55) | `mode::dispersion::dispersion` on the indices of `material::silica`, the catalogue's silicon `frey-2006` at 295 K and `material::silicon` (Li's table), 2 nm apart from 1.2 to 2.5 µm |
 | `slab-fields` | `thickness` nm (220), `wavelength` µm (1.55), `cover` $n_1$ (1.444) | `Slab::modes`, `SlabMode::field`: each guided mode's $E_y$ (TE) or $E_x$ (TM) across silicon (3.473) on oxide (1.444) |
 | `slab-bv` | `core` $n_2$ (3.473), `cover` $n_1$ (1.444) | `Slab::modes` at 300 values of $V$, as $b$; the cutoffs $m\pi + \arctan(r\sqrt a)$ |
 | `slab-neff` | `core` $n_2$ (3.473), `cover` $n_1$ (1.444), `wavelength` µm (1.55) | `Slab::modes` at 300 thicknesses, each mode from its cutoff |
