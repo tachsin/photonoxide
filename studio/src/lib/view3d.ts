@@ -8,7 +8,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 import { intensityColour, mediumLook, pixels } from "./colours";
 import type { Mode, ModeField, Raster, Scene, ScenePort } from "./events";
-import { AXIS_COLOURS } from "./frames";
+import { AXIS_COLOURS, CRYSTAL_COLOURS, crystalAxis } from "./frames";
 import { CLEAR_OPACITY, type Look, type Looks } from "./layers";
 
 /**
@@ -673,20 +673,74 @@ export class View3D {
  * arrows `length` long, each in its colour and called by its name in `names` (a frame's, the
  * cross-section's "across" and "along"). The nearer arrows are drawn last, over the others.
  */
-export function drawAxes(svg: SVGSVGElement, camera: THREE.Camera, names: readonly string[] = ["x", "y", "z"], length = 30) {
+export function drawAxes(svg: SVGSVGElement, camera: THREE.Camera, names: readonly string[] = ["x", "y", "z"], length = 30, crystal: CrystalAxes | null = null) {
   const e = camera.matrixWorld.elements;
-  const right = [e[0], e[1], e[2]];
-  const up = [e[4], e[5], e[6]];
-  const back = [e[8], e[9], e[10]];
-  svg.innerHTML = [0, 1, 2]
-    .sort((a, b) => back[a] - back[b])
-    .map((k) => {
-      const [dx, dy] = [right[k] * length, -up[k] * length];
-      const colour = AXIS_COLOURS[k];
-      return `<line x1="0" y1="0" x2="${dx}" y2="${dy}" stroke="${colour}" stroke-width="2.5" stroke-linecap="round"/>
-          <text x="${dx * 1.35}" y="${dy * 1.35}" fill="${colour}" text-anchor="middle" dominant-baseline="central">${names[k]}</text>`;
+  const right = new THREE.Vector3(e[0], e[1], e[2]);
+  const up = new THREE.Vector3(e[4], e[5], e[6]);
+  const back = new THREE.Vector3(e[8], e[9], e[10]);
+  // the chip's axes, and a crystal's (dashed, in violets) when its frame is shown
+  const arrows: { dir: THREE.Vector3; colour: string; name: string; dashed: boolean }[] = [0, 1, 2].map((k) => ({ dir: new THREE.Vector3(...[0, 1, 2].map((i) => (i === k ? 1 : 0))), colour: AXIS_COLOURS[k], name: names[k], dashed: false }));
+  if (crystal) arrows.push(...crystal.axes.map((a, k) => ({ dir: new THREE.Vector3(...a), colour: CRYSTAL_COLOURS[k], name: crystalAxis(k), dashed: true })));
+  svg.innerHTML = arrows
+    .sort((a, b) => a.dir.dot(back) - b.dir.dot(back))
+    .map(({ dir, colour, name, dashed }) => {
+      const [dx, dy] = [dir.dot(right) * length, -dir.dot(up) * length];
+      return `<line x1="0" y1="0" x2="${dx}" y2="${dy}" stroke="${colour}" stroke-width="${dashed ? 2 : 2.5}" stroke-linecap="round"${dashed ? ' stroke-dasharray="4 3"' : ""}/>
+          <text x="${dx * 1.35}" y="${dy * 1.35}" fill="${colour}" text-anchor="middle" dominant-baseline="central"${dashed ? ' font-style="italic"' : ""}>${name}</text>`;
     })
     .join("");
+}
+
+/** A crystal's x, y and z as directions in the chip's frame, for the gizmo and the triads. */
+export interface CrystalAxes {
+  axes: [number, number, number][];
+}
+
+/**
+ * A small triad of a crystal's axes at each place it fills: on each shape of its layer when it
+ * is the layer's material, at a corner of the window in the layer (or the substrate or cladding)
+ * otherwise. Dashed violets, apart from the chip's axes.
+ */
+function crystalTriads(s: Scene, x: [number, number], y: [number, number], uses: TriadUse[]): THREE.Group {
+  const group = new THREE.Group();
+  const size = 0.12 * Math.min(x[1] - x[0], y[1] - y[0], 4 * (s.z_um[1] - s.z_um[0]));
+  for (const use of uses) {
+    const layer = use.layer ? s.layers.find((l) => l.name === use.layer) : undefined;
+    // a layer's top, the substrate's top, or a little above the stack in the cladding
+    const z = layer ? layer.z_um[1] : use.role === "substrate" ? (s.layers[0]?.z_um[0] ?? 0) : (s.layers.at(-1)?.z_um[1] ?? 0) + size / 2;
+    const at: [number, number][] = [];
+    if (layer && use.role === "material") {
+      for (const shape of s.shapes.filter((sh) => sh.layer === layer.name).slice(0, 12)) {
+        const n = shape.outline.length || 1;
+        const cx = shape.outline.reduce((a, p) => a + p[0], 0) / n;
+        const cy = shape.outline.reduce((a, p) => a + p[1], 0) / n;
+        if (cx >= x[0] && cx <= x[1] && cy >= y[0] && cy <= y[1]) at.push([cx, cy]);
+      }
+    }
+    if (!at.length) at.push([x[0] + 0.15 * (x[1] - x[0]), y[0] + 0.15 * (y[1] - y[0])]);
+    for (const [px, py] of at) {
+      const origin = new THREE.Vector3(px, py, z + 0.02);
+      use.axes.forEach((a, k) => {
+        const g = new THREE.BufferGeometry().setFromPoints([origin, origin.clone().addScaledVector(new THREE.Vector3(...a), size)]);
+        const line = new THREE.Line(g, new THREE.LineDashedMaterial({ color: CRYSTAL_COLOURS[k], dashSize: size / 6, gapSize: size / 10, depthTest: false }));
+        line.computeLineDistances();
+        line.renderOrder = 103;
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(size / 14, size / 5, 10), new THREE.MeshBasicMaterial({ color: CRYSTAL_COLOURS[k], depthTest: false }));
+        tip.position.copy(origin).addScaledVector(new THREE.Vector3(...a), size);
+        tip.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...a).normalize());
+        tip.renderOrder = 103;
+        group.add(line, tip);
+      });
+    }
+  }
+  return group;
+}
+
+/** Where a job orients a crystal, for its triads: the layer it fills (none for the substrate or cladding), how, and its axes on the chip. */
+export interface TriadUse {
+  layer: string | null;
+  role: string;
+  axes: [number, number, number][];
 }
 
 /**
@@ -715,6 +769,8 @@ export class Preview3D {
   /** Where the axes are drawn, and what x, y and z are called there (the frame's names). */
   private axes: SVGSVGElement | null = null;
   private names: readonly string[] = ["x", "y", "z"];
+  /** A crystal's axes, drawn beside the chip's in its frame. */
+  private crystal: CrystalAxes | null = null;
   /** Whether the turn is held, the camera looking along a guide (`lookAlong`). */
   private held = false;
 
@@ -778,7 +834,7 @@ export class Preview3D {
    * and the cut is drawn as a plane, so the device shows whole and the cross-section's place on it.
    * With `within` (a static job's cut, in the middle of its window), the window stays as it is.
    */
-  setScene(s: Scene, options: { cut?: number; normal?: "x" | "y"; within?: boolean; ports?: ScenePort[] } = {}) {
+  setScene(s: Scene, options: { cut?: number; normal?: "x" | "y"; within?: boolean; ports?: ScenePort[]; crystals?: TriadUse[] } = {}) {
     for (const child of this.structure.children.slice()) {
       this.structure.remove(child);
       dispose(child);
@@ -792,6 +848,7 @@ export class Preview3D {
     this.structure.add(structure(s, new Set(), {}, x, y));
     if (cut !== undefined) this.structure.add(cutPlane(s, cut, normal));
     if (options.ports?.length) this.structure.add(portMarkers(s, options.ports));
+    if (options.crystals?.length) this.structure.add(crystalTriads(s, x, y, options.crystals));
     const box = new THREE.Box3(new THREE.Vector3(x[0], y[0], s.z_um[0]), new THREE.Vector3(x[1], y[1], s.z_um[1]));
     box.getCenter(this.centre);
     box.getSize(this.size);
@@ -804,23 +861,32 @@ export class Preview3D {
     this.draw();
   }
 
-  /** Draws the axes into `svg` (none: not drawn), each called by its name in `names`: x, y and z in the chip's frame, "across" and "along" in a cross-section's. */
-  setAxes(svg: SVGSVGElement | null, names: readonly string[] = ["x", "y", "z"]) {
+  /** Draws the axes into `svg` (none: not drawn), each called by its name in `names`: x, y and z in the chip's frame, "across" and "along" in a cross-section's; and a crystal's axes beside them, dashed, in its frame. */
+  setAxes(svg: SVGSVGElement | null, names: readonly string[] = ["x", "y", "z"], crystal: CrystalAxes | null = null) {
     this.axes = svg;
     this.names = names;
+    this.crystal = crystal;
     if (svg) this.draw();
   }
 
   /**
    * Turns the camera to look along the chip's `axis`, low over the chip, and holds it there (a
-   * drag still turns it): a cross-section's frame, the light going away from the viewer. With
-   * none, it goes back to turning by itself, seen from above at a slant.
+   * drag still turns it): a cross-section's frame, the light going away from the viewer. Given
+   * as a direction (a crystal's c axis, in the chip's frame), it looks along that line from
+   * above the chip, as steeply as the view allows. With none, it goes back to turning by itself,
+   * seen from above at a slant.
    */
-  lookAlong(axis: "x" | "y" | null) {
+  lookAlong(axis: "x" | "y" | [number, number, number] | null) {
     // already turning: leave the turn where a drag put it
     if (axis === null && !this.held) return;
     this.held = axis !== null;
-    if (axis) {
+    if (Array.isArray(axis)) {
+      // the camera sits back along the line, on the side above the chip
+      let from = new THREE.Vector3(...axis).normalize().negate();
+      if (from.z < 0) from = from.negate();
+      this.pitch = Math.min(1.45, Math.max(0.12, Math.asin(Math.min(1, from.z))));
+      if (Math.hypot(from.x, from.y) > 1e-6) this.yaw = Math.atan2(from.y, from.x);
+    } else if (axis) {
       this.yaw = axis === "x" ? Math.PI : -Math.PI / 2;
       this.pitch = 0.12;
     } else this.pitch = 0.5;
@@ -876,7 +942,7 @@ export class Preview3D {
     this.light.position.copy(this.camera.position).add(new THREE.Vector3(0, 0, this.distance * 0.6));
     this.light.target.position.copy(this.centre);
     this.renderer.render(this.scene, this.camera);
-    if (this.axes) drawAxes(this.axes, this.camera, this.names, 24);
+    if (this.axes) drawAxes(this.axes, this.camera, this.names, 24, this.crystal);
   }
 
   destroy() {

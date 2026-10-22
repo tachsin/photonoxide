@@ -6,9 +6,10 @@
   // doesn't hold (rectangles placed by expressions, components, paths…) come as `kept`, drawn by
   // the library as the 3D view draws them; they can't be picked here, only edited in the text.
   // Its axes, in the corner, are named in `frame`: the chip's x and y, or a cut job's along and
-  // across the guide (`section`, frames.rs), z out of the page.
+  // across the guide (`section`, frames.rs), z out of the page; or a crystal's axes along the chip's
+  // (`oriented`).
   import type { Shape } from "../lib/events";
-  import { AXIS_COLOURS, axisNames, inSection, type Frame, type Section } from "../lib/frames";
+  import { AXIS_COLOURS, axisNames, inSection, type Frame, type Oriented, type Section } from "../lib/frames";
   import { along, cutAt, previewWindow, type JobModel } from "../lib/job";
   import { label, ticks } from "../lib/plot";
   import { shown, stored, unitText } from "../lib/units";
@@ -24,6 +25,7 @@
     onselect,
     frame = "chip",
     section = null,
+    oriented = null,
   }: {
     model: JobModel;
     kept?: Shape[];
@@ -33,9 +35,11 @@
     onselect?: (s: Selection) => void;
     frame?: Frame;
     section?: Section | null;
+    /** The crystal the crystal frame is: the crystal axis along each chip axis names it there. */
+    oriented?: Oriented | null;
   } = $props();
 
-  const names = $derived(axisNames(frame, section));
+  const names = $derived(axisNames(frame, section, oriented));
   /** An axis's title: the chip's name, and the frame's after it when that differs. */
   const title = (k: 0 | 1) => (names[k] === "xyz"[k] ? "" : `: ${names[k]}`);
 
@@ -79,11 +83,15 @@
     const digits = Math.min(6, Math.max(0, Math.ceil(-Math.log10(Math.abs(shown(1 / scale)) || 1))));
     return shown(v).toFixed(digits);
   };
-  /** Where the cursor is, in the chip's frame and, in the cross-section's, there too. */
+  /** Where the cursor is, in the chip's frame and, in the cross-section's or a crystal's, there too (a crystal's at z = 0: each of its axes' components, Mᵀ (x, y, 0)). */
   const readout = $derived.by(() => {
     if (!cursor) return "";
     const [x, y] = cursor;
     const chip = `chip: x ${at(x)}, y ${at(y)} ${unitText()}`;
+    if (frame === "crystal" && oriented) {
+      const c = oriented.axes.map((a) => a[0] * x + a[1] * y);
+      return `${chip} · crystal, at z = 0: X ${at(c[0])}, Y ${at(c[1])}, Z ${at(c[2])}`;
+    }
     const s = inSection(frame, section, x, y);
     return s ? `${chip} · cross-section: across ${at(s.across)}, along ${at(s.along)} past the cut` : chip;
   });

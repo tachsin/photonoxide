@@ -19,7 +19,7 @@
   import Overlay, { type OverlayItem } from "../Overlay.svelte";
   import { app, startRun, toast } from "../../lib/app.svelte";
   import { modelOf } from "../../lib/catalog.svelte";
-  import { crystalNote, frameCaption, type Crystal, type Frame, type Section } from "../../lib/frames";
+  import { crystalFrame, crystalNote, frameCaption, type Crystal, type Frame, type Section } from "../../lib/frames";
   import { along, cells, holds, layerSpan, numberOf, previewWindow, STACKS, template, turn, type JobModel, type Kind, type Num } from "../../lib/job";
   import { lenUnit } from "../../lib/units";
   import FdtdItems from "../FdtdItems.svelte";
@@ -48,8 +48,9 @@
   /** The frame the views are in, and the shown job's cross-section that the cross-section's frame is (frames.rs): none for a job that isn't cut. */
   let frame = $state<Frame>("chip");
   let section = $state<Section | null>(null);
-  /** The anisotropic materials the shown job uses: their crystal frame waits on an orientation in the job (frames.rs). */
+  /** The anisotropic materials the shown job uses and how it orients them (frames.rs): the crystal frame is the first one oriented. */
   let crystals = $state<Crystal[]>([]);
+  const oriented = $derived(crystalFrame(crystals));
   $effect(() => {
     const t = shown;
     let gone = false;
@@ -57,7 +58,8 @@
       if (gone) return;
       section = s;
       crystals = c;
-      if (!s) frame = "chip";
+      if (!s && frame === "section") frame = "chip";
+      if (!crystalFrame(c) && frame === "crystal") frame = "chip";
     });
     return () => {
       gone = true;
@@ -908,7 +910,7 @@
 {#snippet drawing(kind: "3d" | "preview", h: number)}
   {#if kind === "preview"}
     <div class="h-full overflow-y-auto p-4">
-      <GeometryPreview {model} kept={keptShapes} height={Math.max(140, h - (stacked ? 64 : 80))} selected={selection} onselect={(s) => (selection = s)} {frame} {section} />
+      <GeometryPreview {model} kept={keptShapes} height={Math.max(140, h - (stacked ? 64 : 80))} selected={selection} onselect={(s) => (selection = s)} {frame} {section} oriented={oriented?.oriented ?? null} />
       <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 px-1 text-xs faint">
         <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-primary/65"></span>silicon</span>
         <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-secondary/70"></span>nitride</span>
@@ -981,15 +983,21 @@
           onclick={() => (frame = "section")}
           title={section ? `The cross-section's frame: across the guide (the chip's ${section.across}) and z up; the 3D view looks along the guide` : "Only a modes or static job is cut"}>Cross-section</button
         >
-        <!-- the crystal's frame needs the crystal's orientation in the job, which none gives yet (#432) -->
-        <button class="btn btn-xs join-item" disabled title={crystalNote(crystals)}>Crystal</button>
+        <button
+          class="btn btn-xs join-item {frame === 'crystal' ? 'btn-primary btn-soft' : ''}"
+          disabled={!oriented}
+          onclick={() => (frame = "crystal")}
+          title={oriented
+            ? `${oriented.crystal.formula}'s frame (${oriented.oriented.label}): the chip's axes named by the crystal axis along each; the 3D view draws the crystal's axes on what it fills and looks along its c axis`
+            : crystalNote(crystals)}>Crystal</button
+        >
       </div>
       {#if crystals.length}
         <span class="badge badge-xs badge-outline border-[#b07fd6] text-[#b07fd6]" title={crystalNote(crystals)}>
-          {crystals.map((c) => c.formula).join(", ")}: uniaxial, its cut not given
+          {crystals.map((c) => `${c.formula}: ${c.oriented.length ? c.oriented.map((o) => (o.label.startsWith("Euler") ? o.label : o.label.split(",")[0])).join(", ") : "its cut not given"}`).join("; ")}
         </span>
       {/if}
-      <span class="hidden text-[11px] faint xl:inline">{frameCaption(frame, section)}</span>
+      <span class="hidden text-[11px] faint xl:inline">{frameCaption(frame, section, crystals)}</span>
     {/if}
     <span class="flex-1"></span>
     <span class="hidden text-[11px] faint lg:inline">{right === "3d" ? `as its run will draw it, over its window${model.kind === "modes" ? ", behind the cut" : ""}` : right === "preview" ? "click a shape to edit it" : "Ctrl+Space: the keys and values that fit; hover a key for its docs"}</span>

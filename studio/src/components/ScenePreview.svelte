@@ -2,13 +2,14 @@
   // A job's structure in 3D, turning slowly (and by a drag, when turnable): what its run will
   // draw, before it runs. A modes job's is shown in front of its cut too, and a static job's
   // around it, with the cut drawn where the cross-section is taken. With `axes`, its axes in the
-  // corner, named in `frame`; a cross-section's frame turns the camera to look along the guide.
+  // corner, named in `frame`; a cross-section's frame turns the camera to look along the guide, and
+  // a crystal's along its c axis. Each crystal the job orients has its triad on the shapes it fills.
   import { Box } from "@lucide/svelte";
 
   import { api } from "../lib/api";
   import { app } from "../lib/app.svelte";
   import type { Scene, ScenePort } from "../lib/events";
-  import { axisNames, type Frame, type Section } from "../lib/frames";
+  import { axisNames, crystalFrame, type Crystal, type Frame, type Oriented, type Section } from "../lib/frames";
   import { Preview3D } from "../lib/view3d";
 
   let {
@@ -27,9 +28,11 @@
   let shown = $state(false);
   /** The cross-section the job is cut on, in the chip's frame (frames.rs); none for a job that isn't cut. */
   let section = $state<Section | null>(null);
+  /** The crystals the job uses, with how it orients them (frames.rs). */
+  let crystals = $state<Crystal[]>([]);
   let view = $state.raw<Preview3D | null>(null);
 
-  type Built = { scene: Scene; ports: ScenePort[]; section: Section | null };
+  type Built = { scene: Scene; ports: ScenePort[]; section: Section | null; crystals: Crystal[] };
   /** Scenes already built, with their components' named ports and their cuts, by job text: the cards share them across pages. */
   const cache = (globalThis as { __scenes?: Map<string, Built> }).__scenes ??= new Map();
 
@@ -39,7 +42,8 @@
       api.previewScene(t),
       /\[\[task\.component\]\]|\[device\]/.test(t) ? api.previewPorts(t).catch(() => []) : Promise.resolve([]),
       api.jobSection(t).catch(() => null),
-    ]).then(([scene, ports, section]) => ({ scene, ports, section }));
+      api.jobCrystals(t).catch(() => []),
+    ]).then(([scene, ports, section, crystals]) => ({ scene, ports, section, crystals }));
 
   /**
    * Where the scene's cut is drawn: a modes job's scene ends at its cut (photonoxide::job::preview),
@@ -62,8 +66,10 @@
         cache.set(t, built);
         if (gone) return;
         view ??= new Preview3D(host, app.dark, turnable);
-        view.setScene(built.scene, { ...cutOf(built.scene, built.section), ports: built.ports });
+        const triads = built.crystals.flatMap((c: Crystal) => c.oriented.map((o: Oriented) => ({ layer: o.layer, role: o.role, axes: o.axes })));
+        view.setScene(built.scene, { ...cutOf(built.scene, built.section), ports: built.ports, crystals: triads });
         section = built.section;
+        crystals = built.crystals;
         shown = true;
         loading = false;
       })
@@ -79,8 +85,11 @@
   });
 
   $effect(() => {
-    view?.setAxes(axes && gizmo ? gizmo : null, axisNames(frame, section));
-    view?.lookAlong(frame === "section" && section ? section.along : null);
+    const shown = frame === "crystal" ? crystalFrame(crystals) : null;
+    // the chip's axes as they are, and in a crystal's frame its own beside them, dashed
+    view?.setAxes(axes && gizmo ? gizmo : null, axisNames(frame === "crystal" ? "chip" : frame, section), shown ? { axes: shown.oriented.axes } : null);
+    // a crystal's frame looks along its c axis, its z
+    view?.lookAlong(frame === "section" && section ? section.along : shown ? shown.oriented.axes[2] : null);
   });
   $effect(() => view?.setDark(app.dark));
   $effect(() => () => {
