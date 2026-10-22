@@ -575,9 +575,14 @@ fn run(
             .collect();
         lock(shared).say(format!("$ {} {}", step.program.display(), shown.join(" ")));
     }
+    // a build cancelled before this step starts no process (one started only to be killed was
+    // killed while it was starting its own)
+    stopped(cancel, deadline, timeout)?;
     let mut child = command
         .spawn()
         .map_err(|e| format!("can't start {}: {e}", step.program.display()))?;
+    #[cfg(windows)]
+    let job = job::Job::of(&child);
     let pipes = [
         child
             .stdout
@@ -620,11 +625,112 @@ fn run(
             Err(e) => return Err(format!("{}: {e}", step.what)),
         }
         if let Err(e) = stopped(cancel, deadline, timeout) {
+            #[cfg(windows)]
+            if let Some(job) = &job {
+                job.end(Duration::from_secs(10));
+            }
             crate::tasks::kill_tree(&mut child);
             let _ = child.wait();
             return Err(e);
         }
         std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// A step's processes on Windows, in a job object of their own. A process started by one in a
+/// job is in it from its start, so ending the job ends pnpm, node, cargo and rustc together,
+/// and a child being started at that moment too. `taskkill /T` walks the tree by parent and
+/// misses such a child: a cancel just after a step started left its `ping` running for its
+/// whole minute, holding the source folder, which the next build then couldn't empty.
+#[cfg(windows)]
+mod job {
+    use std::ffi::c_void;
+    use std::os::windows::io::AsRawHandle;
+    use std::process::Child;
+    use std::time::{Duration, Instant};
+
+    unsafe extern "system" {
+        fn CreateJobObjectW(attributes: *mut c_void, name: *const u16) -> *mut c_void;
+        fn AssignProcessToJobObject(job: *mut c_void, process: *mut c_void) -> i32;
+        fn TerminateJobObject(job: *mut c_void, exit_code: u32) -> i32;
+        fn QueryInformationJobObject(
+            job: *mut c_void,
+            class: i32,
+            info: *mut c_void,
+            length: u32,
+            returned: *mut u32,
+        ) -> i32;
+        fn CloseHandle(handle: *mut c_void) -> i32;
+    }
+
+    /// `JobObjectBasicAccountingInformation`, and its struct.
+    const BASIC_ACCOUNTING: i32 = 1;
+    #[repr(C)]
+    #[derive(Default)]
+    struct Accounting {
+        _total_user_time: i64,
+        _total_kernel_time: i64,
+        _this_period_total_user_time: i64,
+        _this_period_total_kernel_time: i64,
+        _total_page_fault_count: u32,
+        _total_processes: u32,
+        active_processes: u32,
+        _total_terminated_processes: u32,
+    }
+
+    pub struct Job(*mut c_void);
+
+    impl Job {
+        /// A job holding `child` (and whatever it starts from now on), if Windows gives one.
+        pub fn of(child: &Child) -> Option<Job> {
+            // SAFETY: plain Win32 calls on a handle this function owns, closed if not kept;
+            // the child's handle is valid while `child` is
+            unsafe {
+                let job = CreateJobObjectW(std::ptr::null_mut(), std::ptr::null());
+                if job.is_null() {
+                    return None;
+                }
+                if AssignProcessToJobObject(job, child.as_raw_handle().cast()) == 0 {
+                    CloseHandle(job);
+                    return None;
+                }
+                Some(Job(job))
+            }
+        }
+
+        /// Ends every process in the job, and waits up to `within` for them all to be gone.
+        pub fn end(&self, within: Duration) {
+            // SAFETY: the job's handle is valid until the job is dropped
+            unsafe { TerminateJobObject(self.0, 1) };
+            let until = Instant::now() + within;
+            while self.active() > 0 && Instant::now() < until {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+        }
+
+        /// How many of its processes are still running (0 if Windows won't say).
+        fn active(&self) -> u32 {
+            let mut info = Accounting::default();
+            let size = u32::try_from(std::mem::size_of::<Accounting>()).unwrap_or(0);
+            // SAFETY: `info` is the struct this class asks for, `size` its size
+            let ok = unsafe {
+                QueryInformationJobObject(
+                    self.0,
+                    BASIC_ACCOUNTING,
+                    (&raw mut info).cast(),
+                    size,
+                    std::ptr::null_mut(),
+                )
+            };
+            if ok == 0 { 0 } else { info.active_processes }
+        }
+    }
+
+    impl Drop for Job {
+        fn drop(&mut self) {
+            // SAFETY: the handle is the job's own, closed once
+            unsafe { CloseHandle(self.0) };
+        }
     }
 }
 

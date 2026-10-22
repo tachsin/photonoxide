@@ -491,16 +491,71 @@ impl crate::run::Points for Timed {
     }
 }
 
+/// A thread that waits on a channel a tick at a time, as the farm's threads do at a stop, and
+/// notes each wait that ended later than its tick: the time this machine kept a thread waiting
+/// so from running, which the farm's threads can't have had either.
+struct Yardstick {
+    stalls: Arc<Mutex<Vec<(Instant, Instant)>>>,
+    quit: std::sync::mpsc::Sender<()>,
+    thread: std::thread::JoinHandle<()>,
+}
+
+impl Yardstick {
+    fn start() -> Yardstick {
+        use std::sync::mpsc::RecvTimeoutError;
+        let stalls = Arc::new(Mutex::new(Vec::new()));
+        let (quit, wait) = std::sync::mpsc::channel::<()>();
+        let noted = Arc::clone(&stalls);
+        let thread = std::thread::spawn(move || {
+            loop {
+                let due = Instant::now() + coordinator::TICK;
+                if !matches!(
+                    wait.recv_timeout(coordinator::TICK),
+                    Err(RecvTimeoutError::Timeout)
+                ) {
+                    return;
+                }
+                let woke = Instant::now();
+                if woke > due {
+                    noted.lock().unwrap().push((due, woke));
+                }
+            }
+        });
+        Yardstick {
+            stalls,
+            quit,
+            thread,
+        }
+    }
+
+    /// How long, within `from..to`, the yardstick's thread was kept from running past its ticks.
+    fn stalled(&self, from: Instant, to: Instant) -> Duration {
+        self.stalls
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|&(due, woke)| woke.min(to).saturating_duration_since(due.max(from)))
+            .sum()
+    }
+
+    fn stop(self) {
+        let _ = self.quit.send(());
+        let _ = self.thread.join();
+    }
+}
+
 /// The job run with its sweep farmed and a stop at `deadline`: its result, its record, how long
-/// the farm went on past the deadline, and whether the run's sweep began before it. The farm's
-/// time is its sweep's past the deadline (past its start, if the run's own setup ran past the
-/// deadline) and its letting the workers go; the run's own steps, here on the coordinator,
+/// the farm went on past the deadline, how much of that the machine kept a thread that waits as
+/// the farm's do from running ([`Yardstick`]), and whether the run's sweep began before it. The
+/// farm's time is its sweep's past the deadline (past its start, if the run's own setup ran past
+/// the deadline) and its letting the workers go; the run's own steps, here on the coordinator,
 /// aren't the farm's.
 fn farmed_until(
     text: &str,
     farm: &Farm,
     deadline: Duration,
-) -> (crate::Result<()>, Vec<String>, Duration, bool) {
+) -> (crate::Result<()>, Vec<String>, Duration, Duration, bool) {
+    let yardstick = Yardstick::start();
     let root = TempDir::new("until");
     let job = Job::parse(text).unwrap();
     let mut run = Run::create(&root.0, &job).unwrap();
@@ -519,12 +574,25 @@ fn farmed_until(
     // a sweep the run never came to lets its workers go when the run drops it
     let dropped = Instant::now();
     drop(run);
-    let mut late = dropped.elapsed();
+    let gone = Instant::now();
+    let mut late = gone - dropped;
     let span = *span.lock().unwrap();
+    let mut stalled = yardstick.stalled(dropped, gone);
     if let Some((began, ended)) = span {
-        late += ended.saturating_duration_since(began.max(at));
+        let from = began.max(at);
+        late += ended.saturating_duration_since(from);
+        if ended > from {
+            stalled += yardstick.stalled(from, ended);
+        }
     }
-    (done, lines, late, span.is_some_and(|(began, _)| began < at))
+    yardstick.stop();
+    (
+        done,
+        lines,
+        late,
+        stalled,
+        span.is_some_and(|(began, _)| began < at),
+    )
 }
 
 #[test]
@@ -544,16 +612,21 @@ fn a_farm_stops_at_its_deadline_with_the_points_done_recorded_in_order() {
     // deadline (the run's own steps end at a stop as in a run alone, between its solve's steps,
     // one of which, an LU factorization, other work on rayon's threads can hold up for
     // seconds), and a try that finished must have recorded the whole sweep. A farm that
-    // ignored its deadline goes on past it, or finishes every try, and fails the fifth.
+    // ignored its deadline goes on past it, or finishes every try, and fails the fifth. "Soon"
+    // is 2 s of the farm's own: every wait of its threads at a stop is a tick of 50 ms, so the
+    // time a thread waiting the same way was kept from running then, which the farm's threads
+    // can't have had either, isn't counted (on a machine loaded with other work, a try was
+    // measured 5.7 s late).
     let mut deadline = whole / 3;
     let mut finished = 0;
     for attempt in 1..=10 {
-        let (done, lines, late, in_sweep) = farmed_until(&text, &farm, deadline);
+        let (done, lines, late, stalled, in_sweep) = farmed_until(&text, &farm, deadline);
         done.unwrap();
         // it stopped soon after its deadline, not when the workers were done
         assert!(
-            late < Duration::from_secs(2),
-            "try {attempt}: the farm went on {late:?} past its deadline of {deadline:?}",
+            late.saturating_sub(stalled) < Duration::from_secs(2),
+            "try {attempt}: the farm went on {late:?} past its deadline of {deadline:?}, \
+             {stalled:?} of it kept from running",
         );
         // the points done, in order
         let (last, before) = lines.split_last().unwrap();
@@ -737,13 +810,14 @@ fn a_worker_refuses_what_isnt_a_hello_and_an_overlong_one() {
 fn a_worker_refuses_a_connection_that_says_nothing_within_the_handshake() {
     // (a worker serves one coordinator at a time: one that never says hello would keep it for
     // ever, as it did on Windows, where the hello's time was set on another handle of the
-    // socket than the one read)
+    // socket than the one read). Timed from before the connection: the worker's handshake
+    // starts when it accepts it, which can be before `connect` returns here.
     let address = workers(1, 1).remove(0);
+    let started = Instant::now();
     let stream = TcpStream::connect(&address).unwrap();
     stream
         .set_read_timeout(Some(HANDSHAKE + Duration::from_secs(10)))
         .unwrap();
-    let started = Instant::now();
     match protocol::Reader::new(stream).wait().unwrap() {
         protocol::Message::Refused { reason } => assert!(reason.contains("no message"), "{reason}"),
         other => panic!("{other:?}"),

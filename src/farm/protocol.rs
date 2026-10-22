@@ -2,7 +2,7 @@
 
 use std::io::{ErrorKind, Read, Write};
 use std::net::TcpStream;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
@@ -151,5 +151,22 @@ impl Reader {
     pub(crate) fn wait(&mut self) -> Result<Message, String> {
         self.next()?
             .ok_or_else(|| "no message within the time allowed".to_owned())
+    }
+
+    /// The next message, waiting for it until `deadline` by the clock, and an error after. A
+    /// read's own timeout can end a little before its time (on Windows, by up to a tick of the
+    /// system's timer, against [`Instant`]), so the reads go on, each for the time left, until
+    /// the deadline has passed: a peer is never refused before its time.
+    pub(crate) fn wait_until(&mut self, deadline: Instant) -> Result<Message, String> {
+        loop {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return Err("no message within the time allowed".to_owned());
+            }
+            self.set_timeout(Some(left)).map_err(|e| e.to_string())?;
+            if let Some(message) = self.next()? {
+                return Ok(message);
+            }
+        }
     }
 }

@@ -17,7 +17,7 @@ use crate::run::{Format, Job, PointFn, Points, Run, Stop};
 use crate::{Error, Result};
 
 /// How often a waiting coordinator looks at its stop, its workers and their tasks' times.
-const TICK: Duration = Duration::from_millis(50);
+pub(super) const TICK: Duration = Duration::from_millis(50);
 
 /// How a farm hands out its tasks.
 #[derive(Clone, Debug)]

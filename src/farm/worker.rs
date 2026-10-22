@@ -5,7 +5,7 @@ use std::net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use super::protocol::{self, Message, PROTOCOL, Reader};
 use super::{HANDSHAKE, VERSION, farm_error, same_token};
@@ -131,9 +131,8 @@ fn serve(stream: TcpStream, peer: String, options: &ServeOptions) -> Served {
         }
     };
     // the hello, within the handshake's time
-    let _ = reader.set_timeout(Some(HANDSHAKE));
     reader.limit(protocol::LONGEST_HELLO);
-    let hello = reader.wait();
+    let hello = reader.wait_until(Instant::now() + HANDSHAKE);
     reader.limit(protocol::LONGEST);
     let _ = reader.set_timeout(None);
     let refused = match hello {
