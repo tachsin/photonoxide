@@ -167,7 +167,7 @@ export function structure(s: Scene, hidden: Set<string> = new Set(), looks: Look
   return group;
 }
 
-/** The cut a modes job takes its cross-section on: a translucent plane at x or y (`normal`) = `at` across the window, its edge outlined. */
+/** The cut a modes or static job takes its cross-section on: a translucent plane at x or y (`normal`) = `at` across the window, its edge outlined, its across and z axes drawn on it. */
 function cutPlane(s: Scene, at: number, normal: "x" | "y"): THREE.Group {
   const group = new THREE.Group();
   const [a0, a1] = normal === "x" ? s.y_um : s.x_um;
@@ -185,6 +185,19 @@ function cutPlane(s: Scene, at: number, normal: "x" | "y"): THREE.Group {
   const edge = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: CUT, transparent: true, opacity: 0.9 }));
   edge.renderOrder = 101;
   group.add(plane, edge);
+  // the cross-section's axes on it, from its lower corner: across (the chip's y for a cut at x,
+  // x for one at y) and z, each in the chip's colour for that axis, as the gizmo draws them
+  const length = 0.3 * Math.min(a1 - a0, z1 - z0);
+  const corner = normal === "x" ? new THREE.Vector3(at, a0, z0) : new THREE.Vector3(a0, at, z0);
+  const across = normal === "x" ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+  for (const [dir, colour] of [
+    [across, AXIS_COLOURS[normal === "x" ? 1 : 0]],
+    [new THREE.Vector3(0, 0, 1), AXIS_COLOURS[2]],
+  ] as const) {
+    const arrow = new THREE.ArrowHelper(dir, corner, length, colour, 0.25 * length, 0.12 * length);
+    arrow.renderOrder = 102;
+    group.add(arrow);
+  }
   return group;
 }
 

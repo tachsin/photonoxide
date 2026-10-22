@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type { Academy, ChartData } from "./academy.svelte";
 import type { Event, Raster, Scene, ScenePort, Shape } from "./events";
-import type { Section } from "./frames";
+import type { Crystal, Section } from "./frames";
 import type { JobModel } from "./job";
 import type { BenchData, BenchRequest, CatalogueEntry, Planned } from "./bench.svelte";
 import type { LibraryReport } from "./libraries.svelte";
@@ -170,6 +170,8 @@ export const api = {
   previewPorts: (text: string) => invoke<ScenePort[]>("preview_ports", { text }),
   /** The cross-section a job is cut on, in the chip's frame (frames.rs); null for a job that isn't cut. */
   jobSection: (text: string) => invoke<Section | null>("job_section", { text }),
+  /** The catalogue's anisotropic materials a job uses, and where (frames.rs). */
+  jobCrystals: (text: string) => invoke<Crystal[]>("job_crystals", { text }),
   saveText: (path: string, text: string) => invoke<void>("save_text", { path, text }),
   materials: () => invoke<MaterialEntry[]>("materials"),
   materialCurves: (id: string, modelId: string, temperature: number | null, composition: number | null, points: number) =>

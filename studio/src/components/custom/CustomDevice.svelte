@@ -19,7 +19,7 @@
   import Overlay, { type OverlayItem } from "../Overlay.svelte";
   import { app, startRun, toast } from "../../lib/app.svelte";
   import { modelOf } from "../../lib/catalog.svelte";
-  import { frameCaption, type Frame, type Section } from "../../lib/frames";
+  import { crystalNote, frameCaption, type Crystal, type Frame, type Section } from "../../lib/frames";
   import { along, cells, holds, layerSpan, numberOf, previewWindow, STACKS, template, turn, type JobModel, type Kind, type Num } from "../../lib/job";
   import { lenUnit } from "../../lib/units";
   import FdtdItems from "../FdtdItems.svelte";
@@ -45,12 +45,15 @@
   /** The frame the views are in, and the shown job's cross-section that the cross-section's frame is (frames.rs): none for a job that isn't cut. */
   let frame = $state<Frame>("chip");
   let section = $state<Section | null>(null);
+  /** The anisotropic materials the shown job uses: their crystal frame waits on an orientation in the job (frames.rs). */
+  let crystals = $state<Crystal[]>([]);
   $effect(() => {
     const t = shown;
     let gone = false;
-    (t ? api.jobSection(t).catch(() => null) : Promise.resolve(null)).then((s) => {
+    Promise.all([t ? api.jobSection(t).catch(() => null) : null, t ? api.jobCrystals(t).catch(() => []) : []]).then(([s, c]) => {
       if (gone) return;
       section = s;
+      crystals = c;
       if (!s) frame = "chip";
     });
     return () => {
@@ -900,7 +903,7 @@
             <span class="flex items-center gap-1.5"><span class="h-2.5 w-0.5 bg-info"></span>monitors</span>
             <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm border border-warning/50 bg-warning/20"></span>CPML</span>
           {/if}
-          {#if model.kind === "modes"}<span class="flex items-center gap-1.5"><span class="h-0.5 w-3 bg-accent"></span>cross-section</span>{/if}
+          {#if model.kind === "modes" || section}<span class="flex items-center gap-1.5"><span class="h-0.5 w-3 bg-accent"></span>cross-section, its across axis</span>{/if}
           <span>seen from above, x to the right, y up</span>
         </div>
       </div>
@@ -950,9 +953,16 @@
           class="btn btn-xs join-item {frame === 'section' ? 'btn-primary btn-soft' : ''}"
           disabled={!section}
           onclick={() => (frame = "section")}
-          title={section ? `The cross-section's frame: across the guide (the chip's ${section.across}) and z up; the 3D view looks along the guide` : "Only a modes job is cut"}>Cross-section</button
+          title={section ? `The cross-section's frame: across the guide (the chip's ${section.across}) and z up; the 3D view looks along the guide` : "Only a modes or static job is cut"}>Cross-section</button
         >
+        <!-- the crystal's frame needs the crystal's orientation in the job, which none gives yet (#432) -->
+        <button class="btn btn-xs join-item" disabled title={crystalNote(crystals)}>Crystal</button>
       </div>
+      {#if crystals.length}
+        <span class="badge badge-xs badge-outline border-[#b07fd6] text-[#b07fd6]" title={crystalNote(crystals)}>
+          {crystals.map((c) => c.formula).join(", ")}: uniaxial, its cut not given
+        </span>
+      {/if}
       <span class="hidden text-[11px] faint xl:inline">{frameCaption(frame, section)}</span>
     {/if}
     <span class="flex-1"></span>
