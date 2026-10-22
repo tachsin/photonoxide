@@ -101,8 +101,10 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`, as the Rust example d
 | `device_spectrum(kind, values=, fidelity=, stack=, wavelength_um=, timeout_s=)`, `device_derived(kind, ...)` | a design's S-parameters and figures at a fidelity, each with its model's grid | [`device`](methods/devices.md) |
 | `device_geometry(kind, values=, stack=)`, `device_job(kind, ..., format=)` | a design's stack, polygons and ports; the job that computes it | [`device`](methods/devices.md) |
 
-Each function's docstring has the details; `help(phox.circuit_spectrum)` lists the kinds of
-component a netlist can hold and their settings. A job is a path to a job file (TOML, JSON or
+Each function's docstring has the details, and the
+[API reference](https://tachsin.github.io/photonoxide/) has them all, generated from the
+package's docstrings and type stubs at each release; `help(phox.circuit_spectrum)` lists the
+kinds of component a netlist can hold and their settings. A job is a path to a job file (TOML, JSON or
 YAML) or the job as a dict, so every kind of job, FDTD included, runs from Python.
 [docs/features.md](features.md) has, for every method of the library, whether it works in Rust,
 Python and MATLAB.
@@ -293,3 +295,16 @@ with `publish`: every platform's wheels and the sdist are built, tested and uplo
 variable is set, a release publishes no package and fails nothing. To publish by hand (a
 post-release, or a release made before the setup): *Actions* → *Python wheels* → *Run
 workflow*, on `main` or a tag, with *publish* ticked.
+
+**The API reference** ([tachsin.github.io/photonoxide](https://tachsin.github.io/photonoxide/))
+is made by [pdoc](https://pdoc.dev) in every run of `python-wheels.yml`, from the docstrings and
+type stubs of the Linux wheel it built, and kept as the run's `python-reference` artifact. A run
+with `publish` puts it on GitHub Pages with the package, once Pages is set up, also once:
+
+1. In *Settings* → *Pages*, under *Build and deployment*, set *Source* to *GitHub Actions*.
+2. In *Settings* → *Environments* → `github-pages` → *Deployment branches and tags*, add the
+   tag rule `v*` (Pages allows only `main` at first, and a release runs at its tag).
+3. Add the repository variable `PYTHON_REFERENCE_PAGES` with the value `true`.
+
+To make it here: `just python-reference`, into `target/python-reference` (pdoc's version is
+the package's `docs` extra).

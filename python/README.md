@@ -41,7 +41,9 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`.
 Units are in the names (`wavelength_um`, `thickness_um`), as photonoxide's job files have them;
 arrays are NumPy's, in C order, with their coordinates; errors are photonoxide's, with its
 messages. The package's version is the Rust crate's it was built from. The guide, with MATLAB's
-use: [docs/python.md](https://github.com/tachsin/photonoxide/blob/main/docs/python.md).
+use: [docs/python.md](https://github.com/tachsin/photonoxide/blob/main/docs/python.md). Every
+function and class, from the package's docstrings and type stubs: the
+[API reference](https://tachsin.github.io/photonoxide/).
 
 ## License
 

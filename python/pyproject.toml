@@ -40,6 +40,9 @@ Changelog = "https://github.com/tachsin/photonoxide/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
+# the API reference's generator (docs/python.md, "Publishing"), pinned so the reference changes
+# only with the package
+docs = ["pdoc==16.0.0"]
 
 [tool.maturin]
 module-name = "photonoxide._photonoxide"

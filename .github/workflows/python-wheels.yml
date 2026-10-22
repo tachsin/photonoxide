@@ -9,13 +9,16 @@ name: Python wheels
 #   3.14t. (CI lints the binding crate on every code change; issue #315.)
 # - Every Monday when code changed that week (the Weekly workflow), and on a pull request
 #   labelled `full-ci` (the Full CI workflow): every platform and the sdist.
-# - By hand (workflow_dispatch): every platform and the sdist; with `publish`, to PyPI too. The
-#   release workflow (release-plz.yml) starts it so, at the new release's tag, once PyPI is set
-#   up (the PYPI_PUBLISH variable); a post-release (0.5.1.post1, docs/python.md) is started by
-#   hand.
+# - By hand (workflow_dispatch): every platform and the sdist; with `publish`, to PyPI too, and
+#   the API reference to GitHub Pages. The release workflow (release-plz.yml) starts it so, at
+#   the new release's tag, once PyPI is set up (the PYPI_PUBLISH variable); a post-release
+#   (0.5.1.post1, docs/python.md) is started by hand.
+# - Every run: the API reference, made by pdoc from the docstrings and type stubs of the Linux
+#   wheel it built, as the artifact `python-reference`; published only with the package.
 #
 # PyPI trusts this workflow file and the `pypi` environment (trusted publishing: no token is
-# stored). Setting that up on pypi.org is done once, by hand: docs/python.md, "Publishing".
+# stored). Setting that up on pypi.org is done once, by hand: docs/python.md, "Publishing"; so
+# is GitHub Pages for the reference (the PYTHON_REFERENCE_PAGES variable), in the same section.
 on:
   pull_request:
     paths:
@@ -38,7 +41,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: "publish the wheels and the sdist to PyPI"
+        description: "publish the wheels and the sdist to PyPI, and the API reference to GitHub Pages"
         required: false
         default: false
         type: boolean
@@ -149,6 +152,55 @@ jobs:
         with:
           name: wheels-${{ matrix.platform.id }}
           path: python/dist
+
+  # the API reference, as docs.rs makes Rust's: pdoc reads the docstrings and type stubs of the
+  # Linux wheel just built, so the reference can't drift from the package
+  reference:
+    name: API reference
+    needs: wheels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: wheels-linux-x86_64
+          path: python/dist
+      - uses: astral-sh/setup-uv@v10.2.0
+      # pdoc's version is the package's `docs` extra (python/pyproject.toml); run outside python/,
+      # so the package imported is the installed wheel
+      - name: Generate
+        run: |
+          uv venv -p 3.12 "$RUNNER_TEMP/venv"
+          export VIRTUAL_ENV="$RUNNER_TEMP/venv"
+          wheel=$(ls python/dist/*-abi3-*.whl)
+          uv pip install "photonoxide[docs] @ file://$PWD/$wheel"
+          cd "$RUNNER_TEMP"
+          "$VIRTUAL_ENV/bin/pdoc" photonoxide photonoxide.matlab --docformat restructuredtext \
+            --footer-text "photonoxide $("$VIRTUAL_ENV/bin/python" -c 'import photonoxide; print(photonoxide.__version__)')" \
+            -o "$GITHUB_WORKSPACE/reference"
+          test -f "$GITHUB_WORKSPACE/reference/photonoxide.html"
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          name: python-reference
+          path: reference
+
+  # the reference to GitHub Pages, with the package, once Pages is set up (the
+  # PYTHON_REFERENCE_PAGES variable; docs/python.md, "Publishing")
+  pages:
+    name: Publish the API reference
+    needs: [reference, pypi]
+    if: github.event_name == 'workflow_dispatch' && inputs.publish && vars.PYTHON_REFERENCE_PAGES == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5
+        with:
+          artifact_name: python-reference
 
   sdist:
     name: Source distribution

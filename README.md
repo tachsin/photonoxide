@@ -120,8 +120,9 @@ uv add photonoxide          # in a uv project
 uv pip install photonoxide  # or into the active environment
 ```
 
-`pip install photonoxide` works too. MATLAB uses the Python package:
-[docs/python.md](docs/python.md#matlab).
+`pip install photonoxide` works too: the guide is [docs/python.md](docs/python.md), the
+[API reference](https://tachsin.github.io/photonoxide/) has every function. MATLAB uses the
+Python package: [docs/python.md](docs/python.md#matlab).
 
 **The studio:** the `photonoxide` program for Linux (x86_64 and ARM64), Windows and macOS is on
 each [release](https://github.com/tachsin/photonoxide/releases), and updates itself

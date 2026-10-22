@@ -60,9 +60,11 @@ jobs:
     name: Python wheels
     needs: changed
     if: needs.changed.outputs.code == 'true'
+    # what its jobs ask for: id-token for PyPI's, pages for the reference's (both skipped here)
     permissions:
       contents: read
       id-token: write
+      pages: write
     uses: ./.github/workflows/python-wheels.yml
 
   systems:
