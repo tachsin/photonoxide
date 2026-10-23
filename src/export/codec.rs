@@ -6,8 +6,13 @@
 //! the user's own libzstd and registers a [`Compressor`] by its name, and an export that asks
 //! for `"zstd"` uses it, or fails saying why it isn't there ([`compressor`]). The same
 //! registry's shape as the solvers' ([`crate::backend`]).
+//!
+//! HDF5 is a file format of its own, whose library is written in C too: a [`Container`]
+//! holds the arrays an `.npz` would, `photonoxide-native` registers the user's own libhdf5 as
+//! `"hdf5"`, and `[task.export] container = "hdf5"` asks for it ([`container`]).
 
 use std::collections::BTreeMap;
+use std::path::Path;
 use std::sync::{Arc, OnceLock, RwLock};
 
 use crate::Result;
@@ -100,6 +105,90 @@ pub fn listed() -> Vec<(String, std::result::Result<String, String>)> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// An array a [`Container`] writes: its name, its shape (C order, the last index fastest), and
+/// its values as little-endian bytes, `f32` or `f64`, a complex value as its real part then its
+/// imaginary part.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub struct Array<'a> {
+    /// Its name, e.g. `"Ex"`.
+    pub name: &'a str,
+    /// Its shape; empty for a scalar.
+    pub shape: &'a [usize],
+    /// Whether its values are complex.
+    pub complex: bool,
+    /// The width of its numbers.
+    pub precision: crate::export::Precision,
+    /// Its values' bytes.
+    pub data: &'a [u8],
+}
+
+/// A file format of an external library's, holding the exported arrays in place of an `.npz`:
+/// HDF5's, from the user's own libhdf5.
+pub trait Container: Send + Sync {
+    /// Its name, as a job's `[task.export] container` gives it: `"hdf5"`.
+    fn name(&self) -> &str;
+
+    /// The library's version.
+    fn version(&self) -> String;
+
+    /// Whether the same arrays give the same file's bytes on every run.
+    fn deterministic(&self) -> bool;
+
+    /// Its files' extension, e.g. `"h5"`.
+    fn extension(&self) -> &str;
+
+    /// Writes `arrays` and `meta` (the text of an `.npz`'s `meta.json`) as `path`, compressed at
+    /// deflate's `level` (0 for none), and returns the file's size.
+    ///
+    /// # Errors
+    ///
+    /// The library's own, as photonoxide's errors.
+    fn write(&self, path: &Path, arrays: &[Array<'_>], meta: &str, level: u8) -> Result<u64>;
+}
+
+type Containers = RwLock<BTreeMap<String, std::result::Result<Arc<dyn Container>, String>>>;
+
+fn containers() -> &'static Containers {
+    static CONTAINERS: OnceLock<Containers> = OnceLock::new();
+    CONTAINERS.get_or_init(|| RwLock::new(BTreeMap::new()))
+}
+
+/// Offers `container` to exports under its name.
+pub fn register_container(container: Arc<dyn Container>) {
+    let name = container.name().to_owned();
+    if let Ok(mut r) = containers().write() {
+        r.insert(name, Ok(container));
+    }
+}
+
+/// Records that the container `name` isn't available here, and why.
+pub fn register_container_unavailable(name: &str, reason: impl Into<String>) {
+    if let Ok(mut r) = containers().write() {
+        r.insert(name.to_owned(), Err(reason.into()));
+    }
+}
+
+/// The container `name`, or why there is none.
+///
+/// # Errors
+///
+/// The reason, as text.
+pub fn container(name: &str) -> std::result::Result<Arc<dyn Container>, String> {
+    let r = containers()
+        .read()
+        .map_err(|_| "the containers' registry is poisoned".to_owned())?;
+    match r.get(name) {
+        Some(Ok(c)) => Ok(Arc::clone(c)),
+        Some(Err(reason)) => Err(format!("{name} isn't available here: {reason}")),
+        None => Err(format!(
+            "{name} isn't available here: it is loaded from the user's own library by \
+             photonoxide-native, which the photonoxide program does at its start and this \
+             program didn't (docs/libraries.md)"
+        )),
+    }
 }
 
 #[cfg(test)]

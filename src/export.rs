@@ -149,14 +149,28 @@ fn io_error(path: &Path, e: std::io::Error) -> Error {
     }
 }
 
+/// An array an [`Npz`] holds for a container: its name, shape, kind and raw bytes.
+struct Held {
+    name: String,
+    shape: Vec<usize>,
+    complex: bool,
+    precision: Precision,
+    data: Vec<u8>,
+}
+
 /// An `.npz` being written: arrays added one by one, each deflated at the level it was made
-/// with, then [`Npz::write`] puts it on disk.
+/// with, then [`Npz::write`] puts it on disk. Made with a container ([`Npz::contained`]), the
+/// same arrays go into the container's file instead (HDF5's).
 pub struct Npz {
     zip: zip::ZipWriter<Vec<u8>>,
     precision: Precision,
     level: u8,
     /// An external library's compressor and its level, in place of deflate.
     codec: Option<(std::sync::Arc<dyn codec::Compressor>, i32)>,
+    /// An external library's file format, in place of the `.npz`, and the arrays for it.
+    container: Option<std::sync::Arc<dyn codec::Container>>,
+    held: Vec<Held>,
+    meta: String,
     error: Option<std::io::Error>,
 }
 
@@ -169,6 +183,9 @@ impl Npz {
             precision,
             level: level.min(9),
             codec: None,
+            container: None,
+            held: Vec::new(),
+            meta: String::new(),
             error: None,
         }
     }
@@ -187,12 +204,33 @@ impl Npz {
         }
     }
 
+    /// The same arrays and `meta.json`'s text, written by `container` (HDF5's, from
+    /// [`codec::container`]) as its own file, deflated by it at `level` (0 for none). Its file
+    /// takes the container's extension in place of `.npz`.
+    pub fn contained(
+        precision: Precision,
+        container: std::sync::Arc<dyn codec::Container>,
+        level: u8,
+    ) -> Npz {
+        Npz {
+            container: Some(container),
+            ..Npz::new(precision, level)
+        }
+    }
+
     /// How its members are compressed, for `meta.json`.
     fn compression(&self) -> String {
-        match &self.codec {
-            Some((c, level)) => format!("{} {}, level {level}", c.name(), c.version()),
-            None if self.level == 0 => "stored".into(),
-            None => format!("deflate, level {}", self.level),
+        match (&self.codec, &self.container) {
+            (Some((c, level)), _) => format!("{} {}, level {level}", c.name(), c.version()),
+            (None, Some(c)) if self.level > 0 => format!(
+                "{} {}, its deflate filter at level {}",
+                c.name(),
+                c.version(),
+                self.level
+            ),
+            (None, Some(c)) => format!("{} {}, not compressed", c.name(), c.version()),
+            (None, None) if self.level == 0 => "stored".into(),
+            (None, None) => format!("deflate, level {}", self.level),
         }
     }
 
@@ -212,6 +250,31 @@ impl Npz {
         }
     }
 
+    /// An array's `.npy` bytes into the archive, or its raw bytes (the header left off) for
+    /// the container.
+    fn array(
+        &mut self,
+        name: &str,
+        shape: &[usize],
+        complex: bool,
+        precision: Precision,
+        npy: &[u8],
+    ) {
+        if self.container.is_none() {
+            self.put(&format!("{name}.npy"), npy);
+            return;
+        }
+        // the header's length, after the magic string and the version (NEP 1, version 1.0)
+        let header = 10 + usize::from(u16::from_le_bytes([npy[8], npy[9]]));
+        self.held.push(Held {
+            name: name.to_owned(),
+            shape: shape.to_vec(),
+            complex,
+            precision,
+            data: npy[header..].to_vec(),
+        });
+    }
+
     /// A real field `name` (`.npy` added), `values` in C order for `shape`, at the archive's
     /// precision.
     ///
@@ -220,7 +283,7 @@ impl Npz {
     /// If `values.len()` isn't `shape`'s product.
     pub fn field(&mut self, name: &str, shape: &[usize], values: &[f64]) {
         let bytes = npy::real(shape, self.precision, values);
-        self.put(&format!("{name}.npy"), &bytes);
+        self.array(name, shape, false, self.precision, &bytes);
     }
 
     /// A complex field `name`, `values` in C order for `shape`, at the archive's precision.
@@ -230,7 +293,7 @@ impl Npz {
     /// If `values.len()` isn't `shape`'s product.
     pub fn complex_field(&mut self, name: &str, shape: &[usize], values: &[c64]) {
         let bytes = npy::complex(shape, self.precision, values);
-        self.put(&format!("{name}.npy"), &bytes);
+        self.array(name, shape, true, self.precision, &bytes);
     }
 
     /// A real array `name` always in `f64`, whatever the archive's precision: the grid and the
@@ -241,7 +304,7 @@ impl Npz {
     /// If `values.len()` isn't `shape`'s product.
     pub fn exact(&mut self, name: &str, shape: &[usize], values: &[f64]) {
         let bytes = npy::real(shape, Precision::F64, values);
-        self.put(&format!("{name}.npy"), &bytes);
+        self.array(name, shape, false, Precision::F64, &bytes);
     }
 
     /// A complex array `name` always in `f64` (`complex128`).
@@ -251,23 +314,43 @@ impl Npz {
     /// If `values.len()` isn't `shape`'s product.
     pub fn exact_complex(&mut self, name: &str, shape: &[usize], values: &[c64]) {
         let bytes = npy::complex(shape, Precision::F64, values);
-        self.put(&format!("{name}.npy"), &bytes);
+        self.array(name, shape, true, Precision::F64, &bytes);
     }
 
     /// `meta.json`: `meta`'s provenance, the precision, and what the arrays are.
     pub fn meta(&mut self, meta: &Meta, described: &Described<'_>) {
         let text = meta_json(meta, self.precision, described, &self.compression());
-        self.put("meta.json", text.as_bytes());
+        if self.container.is_some() {
+            self.meta = text;
+        } else {
+            self.put("meta.json", text.as_bytes());
+        }
     }
 
-    /// Writes the archive as `path`, returning its size in bytes.
+    /// Writes the archive as `path` (with the container's extension, for a container's file),
+    /// returning its size in bytes.
     ///
     /// # Errors
     ///
-    /// [`Error::Io`] if `path` can't be written.
+    /// [`Error::Io`] if `path` can't be written, and a container's own.
     pub fn write(self, path: &Path) -> Result<u64> {
         if let Some(e) = self.error {
             return Err(io_error(path, e));
+        }
+        if let Some(container) = &self.container {
+            let arrays: Vec<codec::Array<'_>> = self
+                .held
+                .iter()
+                .map(|h| codec::Array {
+                    name: &h.name,
+                    shape: &h.shape,
+                    complex: h.complex,
+                    precision: h.precision,
+                    data: &h.data,
+                })
+                .collect();
+            let path = path.with_extension(container.extension());
+            return container.write(&path, &arrays, &self.meta, self.level);
         }
         let bytes = self.zip.finish().map_err(|e| io_error(path, e))?;
         std::fs::write(path, &bytes).map_err(|e| io_error(path, e))?;
@@ -694,6 +777,93 @@ mod tests {
                 let back: Vec<u8> = payload.iter().rev().copied().collect();
                 assert_eq!(&back, data, "{name}");
             }
+        }
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A container of an external library's, here one of the test's own that keeps what it is
+    /// given: the same arrays as the stored `.npz`'s, each its `.npy`'s data without the header,
+    /// with its shape and kind, `meta.json`'s text beside them, and the container's extension.
+    #[test]
+    fn a_container_gets_the_npzs_arrays_raw_with_their_shapes() {
+        type Kept = Vec<(String, Vec<usize>, bool, Precision, Vec<u8>)>;
+        struct Keep(std::sync::Mutex<(Kept, String, std::path::PathBuf)>);
+        impl codec::Container for Keep {
+            fn name(&self) -> &str {
+                "keep"
+            }
+            fn version(&self) -> String {
+                "1".into()
+            }
+            fn deterministic(&self) -> bool {
+                true
+            }
+            fn extension(&self) -> &str {
+                "kept"
+            }
+            fn write(
+                &self,
+                path: &Path,
+                arrays: &[codec::Array<'_>],
+                meta: &str,
+                _: u8,
+            ) -> Result<u64> {
+                let mut k = self.0.lock().unwrap();
+                k.0 = arrays
+                    .iter()
+                    .map(|a| {
+                        let shape = a.shape.to_vec();
+                        (
+                            a.name.to_owned(),
+                            shape,
+                            a.complex,
+                            a.precision,
+                            a.data.to_vec(),
+                        )
+                    })
+                    .collect();
+                k.1 = meta.to_owned();
+                k.2 = path.to_path_buf();
+                Ok(0)
+            }
+        }
+        let (m, fields, w) = test_mode();
+        let dir = std::env::temp_dir().join(format!(
+            "photonoxide-export-container-{:?}",
+            std::thread::current().id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let meta = Meta::new("container", "");
+        let stored = dir.join("stored.npz");
+        let npz = Npz::new(Precision::F32, 0);
+        write_mode_into(npz, &stored, &m, &fields, w, &meta, &|_| true).unwrap();
+        let keep = std::sync::Arc::new(Keep(std::sync::Mutex::default()));
+        let npz = Npz::contained(Precision::F32, keep.clone(), 4);
+        write_mode_into(npz, &dir.join("kept.npz"), &m, &fields, w, &meta, &|_| true).unwrap();
+        let (arrays, text, path) = &*keep.0.lock().unwrap();
+        assert_eq!(path, &dir.join("kept.kept"));
+        assert!(
+            text.contains("keep 1, its deflate filter at level 4"),
+            "{text}"
+        );
+        let plain = members(&std::fs::read(&stored).unwrap());
+        assert_eq!(plain.len(), arrays.len() + 1, "the arrays and meta.json");
+        for (name, shape, complex, precision, data) in arrays {
+            let npy = &plain
+                .iter()
+                .find(|(n, ..)| *n == format!("{name}.npy"))
+                .unwrap()
+                .2;
+            let (descr, npy_shape, npy_data) = parse_npy(npy);
+            assert_eq!(&npy_shape, shape, "{name}");
+            assert_eq!(&npy_data, data, "{name}");
+            let expected = match (complex, precision) {
+                (false, Precision::F64) => "<f8",
+                (true, Precision::F64) => "<c16",
+                (false, Precision::F32) => "<f4",
+                (true, Precision::F32) => "<c8",
+            };
+            assert_eq!(descr, expected, "{name}");
         }
         std::fs::remove_dir_all(&dir).ok();
     }

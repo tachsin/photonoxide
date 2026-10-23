@@ -30,6 +30,7 @@ mod cudss;
 mod discovery;
 mod gpu_multigrid;
 mod gpu_qmr;
+pub mod hdf5;
 pub mod intel;
 mod library;
 pub mod mumps;
@@ -44,6 +45,7 @@ pub use blas::Blas;
 pub use cudss::Cudss;
 pub use discovery::{Candidate, Discovery, Source, Spec, Status, discover, versioned};
 pub use gpu_qmr::GpuQmr;
+pub use hdf5::Hdf5;
 pub use library::{Library, load};
 pub use mumps::Mumps;
 pub use pardiso::Pardiso;
@@ -89,6 +91,7 @@ impl std::fmt::Display for Probe {
 /// loaded and its version read, no smoke test of a solver), so a run calls it before its job.
 pub fn register_exporters() {
     zstd::register();
+    hdf5::register();
 }
 
 /// Every library photonoxide knows how to look for, as found on this machine. Each backend
@@ -161,6 +164,7 @@ pub fn register_all() -> Vec<Probe> {
     // the exported files' compressor
     register_exporters();
     probes.push(zstd::probe());
+    probes.push(hdf5::probe());
     // the other BLAS and LAPACK libraries that can be on this system (Accelerate's with its
     // sparse solvers)
     for provider in blas::Provider::ALL {
