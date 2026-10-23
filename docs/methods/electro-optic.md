@@ -113,8 +113,10 @@ Lithium niobate's in the catalogue:
 
 The 633 nm coefficients overstate the effect at 1550 nm: with r^T and ε^T the two published
 cross-sections below give 1.56 and 2.02 V·cm. Below about 1 MHz thin-film lithium niobate's
-response relaxes and drifts (J. Holzgrafe et al. 2024), which isn't modelled: these numbers are
-for fields above that, and a DC measurement is compared with them within its own spread.
+response relaxes (J. Holzgrafe et al. 2024, who measure it from 1 mHz to 1 MHz: on timescales of
+milliseconds in cladded films, and enhanced from 1 to 20 kHz in their devices, which can confound a
+measured Vπ), which isn't modelled: these numbers are for fields above that, and a DC
+measurement is compared with them within its own spread.
 
 ## Validation
 
@@ -130,6 +132,9 @@ for fields above that, and a DC measurement is compared with them within its own
 | `pockels/overlap-gamma` | the papers' Γ form scaled by n_eff/n_e against the perturbation | 10 nm | Γ = 0.51, 0.8% |
 | `pockels/wang-2018` | published: Wang et al. 2018, 1.8 V·cm (DC) | both 40, 20, 10 nm, gated at 0.5% | 1.84 V·cm |
 | `pockels/zhang-2022` | published: Zhang et al. 2022, 2.3 V·cm (DC) | as above | 2.37 V·cm |
+| `pockels/bto-angle` | barium titanate's 4mm tensor turned in the plane, 0 to 90°: r_eff against r₃₃ sin³φ + (r₁₃ + 2r₄₂) cos²φ sin φ | — | ≤ 1e-12 |
+| `pockels/bto-deng` | published: Deng et al. 2026's r₄₂ = 358 pm/V at 45°, against their measured 253 pm/V | — | 253.1 pm/V |
+| `pockels/bto-eltes` | published: Eltes et al. 2019's one-arm Vπ·L from their r_eff, n, Γ and gap, against 0.23 V·cm | — | 0.2324 V·cm |
 
 Each case's numbers are in the validation report (docs/validation.md).
 
@@ -144,11 +149,10 @@ insulated; its grid is graded from 10 nm at the rib's and the electrodes' corner
 growing by 8% to 100 nm, each cell's permittivity the mean of 16 samples; the metal is left out of
 the optics.
 
-- **Wang et al. 2018** (Opt. Express): a 700 nm film etched 400 nm to a rib 900 nm wide on top, a
-  3.5 µm gap, a silica cladding; a 2 mm push–pull Mach–Zehnder's DC Vπ of 9 V, 1.8 V·cm. The paper
-  doesn't give the sidewall (70° taken; 60 to 90° spans ±0.04 V·cm), the electrodes' thickness
-  (0.3 µm; 0.1 to 1 µm spans ±0.06), the buried oxide (2 µm; 4.7 µm gives 1.825) or the cladding
-  (1.5 µm; 0.8 to 3 µm gives 1.830 to 1.863). 1.842 V·cm.
+- **Wang et al. 2018** (Opt. Express, its Section 2): a 700 nm film on 2 µm of silica etched
+  400 nm to a rib 900 nm wide on top, a 3.5 µm gap between electrodes of 15 nm of Ti and 300 nm of
+  Au, 1.5 µm of silica over them; a 2 mm push–pull Mach–Zehnder's DC Vπ of 9 V, 1.8 V·cm. The
+  paper doesn't give the sidewall (70° taken; 60 to 90° spans ±0.04 V·cm). 1.839 V·cm.
 - **Zhang et al. 2022:** a 600 nm film etched 300 nm to a rib 1.2 µm wide on top, 2 µm of thermal
   oxide on silicon, a 5 µm gap beside a 20 µm signal electrode 0.83 µm thick, 0.6 µm of PECVD
   oxide (ε 5.5, as their model has it) and air; 2.3 V·cm at DC, 2.67 V·cm at 1 GHz through the
@@ -158,6 +162,27 @@ Each tolerance is r₃₃'s ±0.9 pm/V carried through (±3.3%), the spans of wh
 give, and its two digits. Wang et al. 2018's Nature modulator (doi:10.1038/s41586-018-0551-y:
 2.2 and 2.3 V·cm) gives its electrodes only as "spacing < 2.5 µm between metal and waveguide
 edge", so it isn't a case.
+
+Kharel et al. 2021 (Optica 8, 357, doi:10.1364/OPTICA.416155; its erratum, Optica 8, 1218,
+corrects only Fig. 4(a)'s axis) simulate regular electrodes on silicon in Table 1: 2.1, 2.6 and
+3.7 V·cm at gaps of 5, 7 and 10 µm. With their fabricated rib (2 µm wide, 350 nm of a 600 nm film
+etched, 800 nm of gold through 1 µm of oxide, a 30 µm signal; the sidewall at 70°) photonoxide
+gives 2.43 V·cm at 5 µm with the film's r₃₃ and 2.10 with the bulk's 31.2 pm/V, but 3.70 and 5.82
+V·cm at 7 and 10 µm: Vπ·L grows faster than the gap here and slower there. Not understood yet
+(their field comes from a 3D RF simulation; the rib in their Table may not be the fabricated one),
+so it isn't a case.
+
+### Barium titanate
+
+The catalogue's films ([catalogue.md](catalogue.md)): Abel et al. 2018's tensor on silicon
+(r₄₂ = 923 ± 215, r₃₃ = 342 ± 93 pm/V at 1550 nm, r₁₃ unresolved), Deng et al. 2026's r₄₂ = 358
+pm/V on LSAT, and Chelladurai et al. 2025's against frequency (r₃₃ = 125 pm/V and
+½(r₁₃ + 2r₄₂) = 481 pm/V at 100 MHz, 191 at 330 GHz), with the index at 1550 nm as constants
+(2.26, Chelladurai et al.; 2.29, Eltes et al.): the spread is the films', from their growth, their
+domains and the field's frequency. The entry has no index model yet (no film's dispersion is
+tabulated in the papers read), so it is not yet a stack's material; its cases check the tensor's
+turn in the plane against the projection the papers use, and the one-arm Vπ·L against Eltes et
+al.'s own numbers.
 
 ## As a job
 
@@ -210,5 +235,9 @@ gives 1.863 on the same grids, its cells sampled its own way).
 
 ## Not yet
 
-- Barium titanate and lithium tantalate in the catalogue, with their spread, and their cases.
+- Barium titanate's index against wavelength, so that a film of it can be a stack's material, and
+  a cross-section's Vπ·L (Eltes et al. 2019; Deng et al. 2026).
+- Lithium tantalate: the papers in hand give its r₃₃ = 30.5 pm/V and ε₃₃ = 43 only in passing
+  (C. Wang et al., Nature 629, 784 (2024), doi:10.1038/s41586-024-07369-1, without a source), and
+  no index model; it comes with a primary measurement of its tensor and its dispersion.
 - The response in frequency: the travelling-wave electrodes (#418).

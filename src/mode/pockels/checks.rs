@@ -478,7 +478,8 @@ pub(crate) fn modulation(
 }
 
 /// Wang et al. 2018's cross-section (Opt. Express 26, 1547): a 700 nm x-cut film etched 400 nm
-/// to a rib 900 nm wide on top, a 3.5 µm gap, silica over it.
+/// to a rib 900 nm wide on top on 2 µm of silica, a 3.5 µm gap between electrodes of 15 nm of Ti
+/// and 300 nm of Au, 1.5 µm of silica over them (its Section 2).
 pub(crate) fn wang_2018(angle_deg: f64) -> Tfln {
     Tfln {
         film: 0.7,
@@ -488,7 +489,7 @@ pub(crate) fn wang_2018(angle_deg: f64) -> Tfln {
         gap: 3.5,
         signal: 5.0,
         ground: 15.0,
-        metal: 0.3,
+        metal: 0.315,
         buried: 2.0,
         clad: 1.5,
         clad_eps: OXIDE_EPS,
@@ -745,7 +746,7 @@ fn published(tfln: &Tfln) -> f64 {
 
 /// Wang et al. 2018 (Opt. Express): their 2 mm push–pull Mach–Zehnder's Vπ of 9 V, 1.8 V·cm.
 fn wang_2018_vpi_l() -> Outcome {
-    outcome(published(&wang_2018(ANGLE)), 1.8, 0.21)
+    outcome(published(&wang_2018(ANGLE)), 1.8, 0.15)
 }
 
 /// Zhang et al. 2022: 2.3 V·cm at DC.
@@ -781,6 +782,88 @@ pub(crate) fn overlap_gamma() -> (f64, f64) {
 
 fn overlap_gamma_case() -> Outcome {
     outcome(overlap_gamma().0, 0.0, 0.02)
+}
+
+// ---------------------------------------------------------------------------------------------
+// Barium titanate
+// ---------------------------------------------------------------------------------------------
+
+/// The catalogue's barium titanate tensor labelled `label`.
+fn batio3_tensor(label: &str) -> Tensor {
+    entry("batio3")
+        .expect(OK)
+        .tensors
+        .into_iter()
+        .find(|t| t.label == label)
+        .expect("a tensor of the catalogue")
+}
+
+/// A tetragonal (4mm) tensor with r₁₃, r₃₃ and r₄₂ = r₅₁ (pm/V).
+fn tetragonal(r13: f64, r33: f64, r42: f64) -> Pockels {
+    let mut v = [[0.0; 3]; 6];
+    v[0][2] = r13;
+    v[1][2] = r13;
+    v[2][2] = r33;
+    v[3][1] = r42;
+    v[4][0] = r42;
+    Pockels::from_voigt(v).expect(OK)
+}
+
+/// The effective coefficient r_xxx (pm/V) of `r` in a film whose c axis lies in the plane at
+/// `degrees` from the chip's x (the Euler angles (φ, 90°, 0): c along (sin φ, −cos φ, 0), so x
+/// is at φ from the in-plane a axis), the field and the light both along x.
+fn in_plane(r: &Pockels, degrees: f64) -> f64 {
+    let o = Orientation::euler_deg(degrees, 90.0, 0.0).expect(OK);
+    r.rotated(&o).element(0, 0, 0) * 1e12
+}
+
+/// Abel et al.'s tensor (r₁₃ taken as 0, which they don't resolve) turned in the plane from 0 to
+/// 90° by 15°: r_xxx against r₃₃ sin³φ + (r₁₃ + 2r₄₂) cos²φ sin φ, the largest difference over
+/// the largest value.
+fn bto_angle() -> Outcome {
+    let t = batio3_tensor("thin film on SOI, 1550 nm");
+    let (r33, r42) = (t.value(3, 3).expect(OK), t.value(4, 2).expect(OK));
+    let r = tetragonal(0.0, r33, r42);
+    let (mut worst, mut largest) = (0.0f64, 0.0f64);
+    for k in 0..=6 {
+        let phi = (15.0 * f64::from(k)).to_radians();
+        let (s, c) = phi.sin_cos();
+        let expected = r33 * s.powi(3) + 2.0 * r42 * c * c * s;
+        worst = worst.max((in_plane(&r, 15.0 * f64::from(k)) - expected).abs());
+        largest = largest.max(expected.abs());
+    }
+    outcome(worst / largest, 0.0, 1e-12)
+}
+
+/// Deng et al.'s r₄₂ alone at 45° from the c axis: the effective coefficient along <110> they
+/// measured, r₄₂/√2.
+fn bto_deng() -> Outcome {
+    let r42 = batio3_tensor("thin film on LSAT, 1550 nm")
+        .value(5, 1)
+        .expect(OK);
+    let r = tetragonal(0.0, 0.0, r42);
+    outcome((in_plane(&r, 45.0) * 10.0).round() / 10.0, 253.0, 1.0)
+}
+
+/// Eltes et al.'s single-arm Vπ·L (V·cm) from their own r_eff, index, gap and overlap, through
+/// dn_eff/dV = ½ n³ r_eff Γ / g.
+fn bto_eltes() -> Outcome {
+    // Eltes et al.'s own constants in the entry
+    let constant = |symbol: &str| {
+        entry("batio3")
+            .expect(OK)
+            .constants
+            .into_iter()
+            .find(|c| c.symbol == symbol && c.source.reference == "eltes-2019")
+            .expect("a constant of the catalogue")
+            .value
+    };
+    let (r, n) = (constant(r"r_\mathrm{eff}"), constant("n"));
+    let (gap, overlap) = (2.6e-6, 0.38);
+    let per_volt = 0.5 * n.powi(3) * r * 1e-12 * overlap / gap;
+    let vpi_l =
+        100.0 * half_wave_voltage_length(per_volt, wavelength(), Drive::SingleArm).expect(OK);
+    outcome((vpi_l * 1e4).round() / 1e4, 0.23, 0.005)
 }
 
 /// The cases.
@@ -858,9 +941,9 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "pockels/wang-2018",
-            title: r"Wang et al. 2018's x-cut thin-film modulator, a 700 nm film etched 400 nm to a rib 900 nm wide on top, a 3.5 µm gap, under silica: push–pull $V_\pi L$ (V·cm, a cross-section's, per unit length) at 1.55 µm from the static solve and the TE₀ mode's first-order perturbation, the thin film's $r_{33}$ = 26.9 pm/V with the bulk's other clamped elements and $\varepsilon^S$; both grids refined together to 10 nm and gated at 0.5% (shown). Not given by the paper, taken here: the sidewall at 70°, 0.3 µm electrodes, 2 µm of buried oxide, 1.5 µm of cladding",
+            title: r"Wang et al. 2018's x-cut thin-film modulator, a 700 nm film etched 400 nm to a rib 900 nm wide on top on 2 µm of silica, a 3.5 µm gap between electrodes of 15 nm of Ti and 300 nm of Au, 1.5 µm of silica over them: push–pull $V_\pi L$ (V·cm, a cross-section's, per unit length) at 1.55 µm from the static solve and the TE₀ mode's first-order perturbation, the thin film's $r_{33}$ = 26.9 pm/V with the bulk's other clamped elements and $\varepsilon^S$; both grids refined together to 10 nm and gated at 0.5% (shown). The sidewall, which the paper doesn't give, at 70°",
             tier: Tier::Published,
-            source: r"C. Wang et al., Opt. Express 26, 1547 (2018), doi:10.1364/OE.26.001547: a 2 mm push–pull Mach–Zehnder's DC $V_\pi$ of 9 V, 1.8 V·cm. The tolerance: $r_{33}$'s ±0.9 pm/V (D. Chelladurai et al. 2025), the sidewall from 60 to 90° (±0.04 V·cm), the electrodes from 0.1 to 1 µm thick (±0.06), the paper's two digits; a DC measurement, where lithium niobate's relaxation below about 1 MHz (J. Holzgrafe et al., Opt. Express 32, 3619 (2024), doi:10.1364/OE.507536) isn't modelled",
+            source: r"C. Wang et al., Opt. Express 26, 1547 (2018), doi:10.1364/OE.26.001547: a 2 mm push–pull Mach–Zehnder's DC $V_\pi$ of 9 V, 1.8 V·cm. The tolerance: $r_{33}$'s ±0.9 pm/V (D. Chelladurai et al. 2025), the sidewall from 60 to 90° (±0.04 V·cm), the paper's two digits; a DC measurement, where lithium niobate's relaxation below about 1 MHz (J. Holzgrafe et al., Opt. Express 32, 3619 (2024), doi:10.1364/OE.507536) isn't modelled",
             run: wang_2018_vpi_l,
         },
         Case {
@@ -869,6 +952,27 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: r"Y. Zhang et al., Photon. Res. 10, 2380 (2022), doi:10.1364/PRJ.468518: 2.3 V·cm at DC (2.67 at 1 GHz, through the line's impedance). The tolerance: $r_{33}$'s ±0.9 pm/V, the sidewall from 60 to 90° (±0.03 V·cm), the paper's two digits; DC, as above",
             run: zhang_2022_vpi_l,
+        },
+        Case {
+            id: "pockels/bto-angle",
+            title: r"Barium titanate (4mm), Abel et al.'s $r_{42}$ = 923 and $r_{33}$ = 342 pm/V ($r_{13}$ taken as 0) in a film with its c axis in the plane, turned by Euler angles $(\varphi, 90°, 0)$ from 0 to 90° by 15°: the effective coefficient for the field and the light along $x$ from the rotated tensor against $r_{33}\sin^3\varphi + (r_{13} + 2r_{42})\cos^2\varphi\sin\varphi$ (the largest difference over the largest value shown)",
+            tier: Tier::Analytic,
+            source: r"the projection $r_\mathrm{eff} = \sum_{ijk} u_i u_j u_k r_{ijk}$, the form of D. Chelladurai et al., Nat. Mater. 24, 868 (2025), doi:10.1038/s41563-025-02158-1, Eq. (4); S. Abel et al., Nat. Mater. 18, 42 (2019), doi:10.1038/s41563-018-0208-0, p. 44, for the tensor",
+            run: bto_angle,
+        },
+        Case {
+            id: "pockels/bto-deng",
+            title: r"Deng et al.'s barium titanate on LSAT, $r_{42}$ = 358 pm/V alone, the field and the light along <110>, 45° from the c axis: the effective coefficient from the rotated tensor (pm/V, shown)",
+            tier: Tier::Published,
+            source: r"C. Deng et al., Light Sci. Appl. 15, 21 (2026), doi:10.1038/s41377-025-02081-9: $r_c$ = 253 pm/V measured along <110>, of which their 358 pm/V is the projection; the tolerance their last digit",
+            run: bto_deng,
+        },
+        Case {
+            id: "pockels/bto-eltes",
+            title: r"Eltes et al.'s barium titanate modulator in a silicon photonics back end: $V_\pi L$ on one arm (V·cm, shown) from their $r_\mathrm{eff}$ = 380 pm/V, $n$ = 2.29, $\Gamma$ = 0.38 and a 2.6 µm gap through $dn_\mathrm{eff}/dV = \tfrac12 n^3 r_\mathrm{eff}\Gamma/g$ and the one-arm $V_\pi L = \lambda/(2\thinspace dn_\mathrm{eff}/dV)$",
+            tier: Tier::Published,
+            source: r"F. Eltes et al., J. Lightwave Technol. 37, 1456 (2019), doi:10.1109/JLT.2019.2893500, Section IV: a DC $V_\pi L$ of 0.23 V·cm from a voltage on one arm, its Eq. (1) giving $r_\mathrm{eff}$; the tolerance their two digits",
+            run: bto_eltes,
         },
     ]
 }

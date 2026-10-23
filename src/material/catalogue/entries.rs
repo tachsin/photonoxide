@@ -86,6 +86,7 @@ pub(super) fn all() -> Vec<Entry> {
         algan(),
         lithium_niobate(),
         lithium_niobate_mgo(),
+        barium_titanate(),
     ]
 }
 
@@ -1729,5 +1730,149 @@ fn ferrini_table_model() -> IndexModel {
         default: false,
         notes: "undoped In₀.₄₉Ga₀.₅₁P (EPI 61) at room temperature, 1.9 to 5.5 eV (0.225–0.653 µm), lossy: the interband region".into(),
         eval: |_, _| one(models::ferrini_table()),
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Barium titanate
+// ---------------------------------------------------------------------------------------------
+
+/// A barium titanate film's constant at 1550 nm.
+fn bto_constant(
+    symbol: &str,
+    name: &str,
+    value: f64,
+    uncertainty: Option<f64>,
+    unit: &str,
+    conditions: &str,
+    source: Source,
+) -> Constant {
+    Constant {
+        symbol: symbol.into(),
+        name: name.into(),
+        value,
+        uncertainty,
+        unit: unit.into(),
+        conditions: conditions.into(),
+        source,
+    }
+}
+
+fn barium_titanate() -> Entry {
+    let abel = Tensor {
+        kind: TensorKind::ElectroOptic,
+        label: "thin film on SOI, 1550 nm".into(),
+        point_group: "4mm".into(),
+        cells: cells(
+            TensorKind::ElectroOptic,
+            "4mm",
+            &[(3, 3, 342.0, Some(93.0)), (5, 1, 923.0, Some(215.0))],
+        ),
+        wavelength: Some(1.55),
+        clamping: Clamping::Clamped,
+        convention: R_CONVENTION.into(),
+        source: Some(src(
+            "abel-2018",
+            "p. 44 (r42 = 923 ± 215, r33 = 342 ± 93 pm/V; Supplementary Notes 5 and 6)",
+        )),
+        notes: "an epitaxial film on SrTiO₃-buffered silicon-on-insulator (225 nm in the photonic devices' simulation), fitted to the angular and polarization dependence of ring resonators' shifts at radio frequencies (analysed at 1 GHz; the response flat to 30 GHz); domain-averaged; r13 not resolved".into(),
+    };
+    let deng = Tensor {
+        kind: TensorKind::ElectroOptic,
+        label: "thin film on LSAT, 1550 nm".into(),
+        point_group: "4mm".into(),
+        cells: cells(TensorKind::ElectroOptic, "4mm", &[(5, 1, 358.0, None)]),
+        wavelength: Some(1.55),
+        clamping: Clamping::Unclamped,
+        convention: R_CONVENTION.into(),
+        source: Some(src(
+            "deng-2026",
+            "main text (r_c = 253 pm/V along <110>, r42 = 358 pm/V by their Supplementary Note 4)",
+        )),
+        notes: "a self-buffered epitaxial film on LSAT, by a Sénarmont measurement under an AC field: the effective r_c = 253 pm/V with the field along <110> (34 pm/V along <100>) taken as r42's projection, r42 = √2 r_c, the other elements neglected; a lower bound (\"exceeding 358 pm/V\")".into(),
+    };
+    let chelladurai = Tensor {
+        kind: TensorKind::ElectroOptic,
+        label: "thin film, 100 MHz, 1550 nm".into(),
+        point_group: "4mm".into(),
+        cells: cells(TensorKind::ElectroOptic, "4mm", &[(3, 3, 125.0, None)]),
+        wavelength: Some(1.55),
+        clamping: Clamping::Unclamped,
+        convention: R_CONVENTION.into(),
+        source: Some(src(
+            "chelladurai-2025",
+            "main text and Fig. 4(b) (r33 = 125 pm/V at 100 MHz)",
+        )),
+        notes: "r33 falls through a dispersion step at a few hundred megahertz (a Debye model: f₀ = 565 MHz, β = 0.06, 75 and 60 pm/V on either side); the film's other elements are resolved only as ½(r13 + 2r42) (see the constants)".into(),
+    };
+    Entry {
+        id: "batio3".into(),
+        name: "Barium titanate (thin film)".into(),
+        formula: "BaTiO₃".into(),
+        category: Category::NonlinearCrystal,
+        summary: "A ferroelectric perovskite whose thin films on silicon and oxide substrates have the largest Pockels coefficients of the integrated platforms; they vary with the film's growth, its domains and the field's frequency, r₄₂ from about 200 to over 900 pm/V.".into(),
+        crystal: Crystal {
+            system: CrystalSystem::Tetragonal,
+            point_group: "4mm".into(),
+            space_group: Some("P4mm (No. 99)".into()),
+            structure: "perovskite".into(),
+            optical: OpticalClass::Uniaxial {
+                positive: false,
+                optic_axis: "z (the c axis)".into(),
+            },
+            centrosymmetric: false,
+            notes: "tetragonal between about 5 °C and its Curie temperature near 120 °C in bulk (200 °C in Deng et al.'s films); films hold domains with c along each in-plane axis, so measured coefficients are domain averages".into(),
+        },
+        index: Vec::new(),
+        tensors: vec![abel, deng, chelladurai],
+        constants: vec![
+            bto_constant(
+                "n",
+                "the film's optical index at 1550 nm",
+                2.26,
+                None,
+                "",
+                "1550 nm",
+                src("chelladurai-2025", "Methods, Miller's rule (n₀ = 2.26)"),
+            ),
+            bto_constant(
+                "n",
+                "the film's optical index at 1550 nm, by ellipsometry on similar films",
+                2.29,
+                None,
+                "",
+                "1550 nm",
+                src("eltes-2019", "Section IV, after Eq. (1)"),
+            ),
+            bto_constant(
+                r"\tfrac12(r_{13} + 2r_{42})",
+                "the combination an in-plane angle sweep resolves, at 100 MHz",
+                481.0,
+                None,
+                "pm/V",
+                "thin film, 1550 nm, 100 MHz; from their Miller's-rule fit (δ = 0.327 ± 0.002 pm/V)",
+                src("chelladurai-2025", "main text, Fig. 4(b)"),
+            ),
+            bto_constant(
+                r"\tfrac12(r_{13} + 2r_{42})",
+                "the same at 330 GHz",
+                191.0,
+                None,
+                "pm/V",
+                "thin film, 1550 nm, 330 GHz",
+                src("chelladurai-2025", "main text, Fig. 4(b)"),
+            ),
+            bto_constant(
+                r"r_\mathrm{eff}",
+                "the effective coefficient a modulator's Vπ·L gives, the field and the light along [110]",
+                380.0,
+                None,
+                "pm/V",
+                "a 170 nm film bonded in a silicon photonics back end, DC; r_eff = λg/(n³ΓVπL) with g = 2.6 µm, n = 2.29, Γ = 0.38, VπL = 0.23 V·cm",
+                src("eltes-2019", "Section IV, Eq. (1)"),
+            ),
+        ],
+        missing: coming::missing("batio3"),
+        references: references(&["abel-2018", "chelladurai-2025", "deng-2026", "eltes-2019"]),
     }
 }

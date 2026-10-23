@@ -2,8 +2,8 @@
 //!
 //! The patterns are the standard ones (J. F. Nye, *Physical Properties of Crystals*, Oxford
 //! (1957); R. W. Boyd, *Nonlinear Optics*), in the axes the catalogue's sources use: for 3m the
-//! mirror plane is perpendicular to x₁ (so d₂₂ and r₂₂ are allowed), for 6mm and 3m the
-//! threefold or sixfold axis is x₃. No Kleinman symmetry is assumed: d₁₅ and d₃₁ are separate
+//! mirror plane is perpendicular to x₁ (so d₂₂ and r₂₂ are allowed), for 6mm, 4mm and 3m the
+//! sixfold, fourfold or threefold axis is x₃. No Kleinman symmetry is assumed: d₁₅ and d₃₁ are separate
 //! elements, equal only when Kleinman's condition holds, which a source must say.
 
 use serde::Serialize;
@@ -53,7 +53,7 @@ pub fn pattern(kind: TensorKind, point_group: &str) -> Option<Vec<Vec<Pattern>>>
             [I, s(3, 1, 1), I, Z, Z, Z],
         ],
         // d15, d24 = d15; d31, d32 = d31, d33
-        "6mm" => vec![
+        "6mm" | "4mm" => vec![
             [Z, Z, Z, Z, I, Z],
             [Z, Z, Z, s(1, 5, 1), Z, Z],
             [I, s(3, 1, 1), I, Z, Z, Z],
@@ -84,7 +84,7 @@ pub fn pattern(kind: TensorKind, point_group: &str) -> Option<Vec<Vec<Pattern>>>
                     [s(2, 2, -1), Z, Z],
                 ],
                 // r13, r23 = r13, r33, r42 = r51, r51
-                "6mm" => vec![
+                "6mm" | "4mm" => vec![
                     [Z, Z, I],
                     [Z, Z, s(1, 3, 1)],
                     [Z, Z, I],

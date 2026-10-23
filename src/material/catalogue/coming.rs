@@ -131,6 +131,24 @@ const ITEMS: &[Item] = &[
         open: false,
         detail: r"In hand: nothing. No measurement of AlGaN's Pockels tensor was found (OpenAlex, October 2026); AlN's is in its own entry.",
     },
+    Item {
+        entry: "batio3",
+        property: "n(λ), n_o and n_e",
+        source: "",
+        citation: "",
+        doi: "",
+        open: false,
+        detail: r"Shipped: one index at 1550 nm, 2.26 (Chelladurai et al. 2025) and 2.29 (Eltes et al. 2019, ellipsometry on similar films), as constants. In hand: Abel et al. (2018) take ellipsometry data in their Supplementary Note 1, which isn't in hand; no film's dispersion or birefringence is tabulated in the papers read, so the entry has no index model.",
+    },
+    Item {
+        entry: "batio3",
+        property: "r₁₃ apart from r₄₂",
+        source: "",
+        citation: "",
+        doi: "",
+        open: false,
+        detail: r"Shipped: $r_{42}$ and $r_{33}$ (Abel et al. 2018), $r_{42}$ (Deng et al. 2026), $r_{33}$ and $\tfrac12(r_{13} + 2r_{42})$ against frequency (Chelladurai et al. 2025). In hand: Abel et al. find no reliable $r_{13}$ (the TM devices' response too small at $\varphi = 0$); Chelladurai et al. resolve only the combination, $2r_{42} \gg r_{13}$.",
+    },
 ];
 
 /// The items of an entry.

@@ -326,6 +326,27 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "10.6028/NBS.NSRDS.8",
         "https://nvlpubs.nist.gov/nistpubs/Legacy/NSRDS/nbsnsrds8.pdf",
     ),
+    (
+        "abel-2018",
+        "S. Abel, F. Eltes, J. Ortmann, A. Messner, P. Castera, T. Wagner, D. Urbonas, A. Rosa, A. Gutierrez, D. Tulli, P. Ma, B. Baeuerle, A. Josten, W. Heni, D. Caimi, L. Czornomaz, A. Demkov, J. Leuthold, P. Sanchis, J. Fompeyrine, Nat. Mater. 18, 42 (2019)",
+        "Large Pockels effect in micro- and nanostructured barium titanate integrated on silicon",
+        "10.1038/s41563-018-0208-0",
+        "",
+    ),
+    (
+        "eltes-2019",
+        "F. Eltes, C. Mai, D. Caimi, M. Kroh, Y. Popoff, G. Winzer, D. Petousi, S. Lischke, J. Ortmann, L. Czornomaz, L. Zimmermann, J. Fompeyrine, S. Abel, J. Lightwave Technol. 37, 1456 (2019)",
+        "A BaTiO3-based electro-optic Pockels modulator monolithically integrated on an advanced silicon photonics platform",
+        "10.1109/JLT.2019.2893500",
+        "https://arxiv.org/abs/1911.02317",
+    ),
+    (
+        "deng-2026",
+        "C. Deng et al., Light Sci. Appl. 15, 21 (2026)",
+        "Self-buffered epitaxy of barium titanate on oxide insulators enables high-performance electro-optic modulators",
+        "10.1038/s41377-025-02081-9",
+        "https://doi.org/10.1038/s41377-025-02081-9",
+    ),
 ];
 
 /// The papers with these keys.

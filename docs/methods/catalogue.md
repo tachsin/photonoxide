@@ -165,7 +165,7 @@ media a job gives no value ([static](static.md#as-a-job)).
 The point group is written in both notations, Hermann–Mauguin with overbars and Schoenflies:
 silicon $m\bar 3m$ ($O_h$), space group $Fd\bar 3m$; GaAs, AlGaAs, InGaP and InP $\bar 4 3m$
 ($T_d$), $F\bar 4 3m$; lithium niobate $3m$ ($C_{3v}$), $R3c$; AlN and AlGaN $6mm$ ($C_{6v}$),
-$P6_3mc$; the glasses the limiting group $\infty\infty m$ ($K_h$), on average (J. F. Nye,
+$P6_3mc$; barium titanate $4mm$ ($C_{4v}$), $P4mm$; the glasses the limiting group $\infty\infty m$ ($K_h$), on average (J. F. Nye,
 *Physical Properties of Crystals*, Oxford, 1957; the International Tables, Vol. A).
 
 **Centrosymmetric (inversion centre)** states a consequence and its limits. Under the inversion
@@ -286,7 +286,16 @@ congruent Table 1 is printed the right way round.
   25 °C), the unclamped $r^T$ their Table 4's fitted values. The thin film (x-cut LNOI) has
   $r_{33} = 26.9$ pm/V and $\tfrac12(r_{13} + 2r_{42}) = 15.0$ pm/V at 1550 nm, flat from 100 MHz
   to 330 GHz (Chelladurai et al.); the paper attributes the difference from bulk's 31 pm/V to
-  the wavelength.
+  the wavelength. Its static permittivities: $\varepsilon^S$ = 45.5 and 26.2, and the unclamped
+  $\varepsilon^T$ = 84.48 and 27.78 (Jazbinšek & Zgonik's Table 1 fit), perpendicular to c and along it.
+- **Barium titanate (thin film):** the films' coefficients, each with its film and frequency, as
+  the spread a design must carry: Abel et al. 2018 on silicon, $r_{42} = 923 \pm 215$ and
+  $r_{33} = 342 \pm 93$ pm/V at 1550 nm ($r_{13}$ unresolved); Deng et al. 2026 on LSAT,
+  $r_{42} = 358$ pm/V, the projection of the measured $r_c = 253$ pm/V along ⟨110⟩; Chelladurai
+  et al. 2025, $r_{33} = 125$ pm/V and $\tfrac12(r_{13} + 2r_{42}) = 481$ pm/V at 100 MHz, 191 at
+  330 GHz; Eltes et al. 2019's effective 380 pm/V from a modulator. The index at 1550 nm is a
+  constant (2.26, 2.29): no film's dispersion is in hand, so the entry has no index model yet.
+  4mm's pattern is 6mm's ($r_{13} = r_{23}$, $r_{33}$, $r_{42} = r_{51}$).
 - **GaAs:** $d_{14} = 119$ pm/V at 1.533 µm and 170 at 1.064 µm (Shoji, Table 11); Skauli et al.
   (2002) measure $d_{14}/d_{33}(\mathrm{LiNbO_3}) = 5.01 \pm 0.3$ at 4.1 µm. $r_{41}^S = -1.54$ and
   $-1.50$ pm/V at 1.32 and 1.52 µm (Berseth et al., with their sign convention), and the

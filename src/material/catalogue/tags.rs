@@ -68,6 +68,11 @@ fn point_group_symbols(hm: &str) -> Option<(&'static str, &'static str, &'static
             r"C_{6v}",
             "a sixfold axis ($z$, the $c$ axis) and mirror planes containing it: 12 operations, without the inversion",
         ),
+        "4mm" => (
+            r"4mm",
+            r"C_{4v}",
+            "a fourfold axis ($z$, the $c$ axis) and mirror planes containing it: 8 operations, without the inversion",
+        ),
         "∞∞m" => (
             r"\infty\infty m",
             r"K_h",
@@ -196,6 +201,8 @@ fn symmetry(crystal: &Crystal) -> Tag {
     };
     let axes = if pg == "3m" {
         " The axes: $z$ along the threefold axis, $x$ perpendicular to a mirror plane, as the catalogue's sources use them (Roberts 1992); Kleinman's symmetry, when a source shows it holds, adds $d_{15} = d_{31}$, which the catalogue doesn't assume."
+    } else if pg == "4mm" {
+        " The axes: $z$ along the fourfold axis; the same pattern as 6mm's. Kleinman's symmetry, when it holds, adds $d_{15} = d_{31}$, which the catalogue doesn't assume."
     } else if pg == "6mm" {
         " The axes: $z$ along the sixfold axis. Kleinman's symmetry, when it holds, adds $d_{15} = d_{31}$, which the catalogue doesn't assume."
     } else {

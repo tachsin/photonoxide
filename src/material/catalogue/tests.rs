@@ -181,7 +181,12 @@ fn the_point_groups_patterns_are_the_textbook_ones() {
         }
     ); // d21 = -d22
     assert_eq!(d[0][0], Z);
-    assert!(pattern(TensorKind::SecondOrder, "4mm").is_none());
+    // 4mm has 6mm's patterns
+    assert_eq!(
+        pattern(TensorKind::ElectroOptic, "4mm"),
+        pattern(TensorKind::ElectroOptic, "6mm")
+    );
+    assert!(pattern(TensorKind::SecondOrder, "422").is_none());
 }
 
 #[test]
