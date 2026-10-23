@@ -219,6 +219,10 @@ pub(super) struct FdtdTask {
     monitor: Vec<ItemSpec>,
     stop: Option<StopSpec>,
     view: Option<ViewSpec>,
+    /// What the run writes beside its record: the tables, and the field monitors' transforms
+    /// as npz files when asked ([`crate::export`]).
+    #[allow(dead_code)] // read by super::export_of, checked by serde
+    export: Option<super::ExportSpec>,
 }
 
 /// A spectrum's series: its values at the spectrum's wavelengths.
@@ -2199,6 +2203,67 @@ fn mode_index(setup: &Setup, s: usize) -> usize {
         .count()
 }
 
+/// A field monitor's transforms as an npz ([`crate::export::Npz`]): `x_um`, `y_um` (the grid's
+/// nodes across the whole window, its PMLs included), `z_um` (the plane's), `wavelength_um`,
+/// and each component of E and H the run computes and `export` keeps, `(wavelengths, ny, nx)`.
+fn export_dft(
+    path: &std::path::Path,
+    meta: &crate::export::Meta,
+    export: &super::ExportSpec,
+    sim: &Simulation,
+    n: usize,
+    wavelengths_um: &[f64],
+    k: usize,
+) -> Result<u64> {
+    let g = sim.grid();
+    let dft = sim.dft(n);
+    let (nx, ny) = (g.nx, g.ny);
+    let x: Vec<f64> = (0..nx).map(|i| g.x0 + i as f64 * g.dx).collect();
+    let y: Vec<f64> = (0..ny).map(|j| g.y0 + j as f64 * g.dy).collect();
+    let mut npz = export.npz_file();
+    npz.exact("x_um", &[nx], &x);
+    npz.exact("y_um", &[ny], &y);
+    npz.exact("z_um", &[], &[g.z0 + k as f64 * g.dz]);
+    npz.exact("wavelength_um", &[wavelengths_um.len()], wavelengths_um);
+    for (field, letter) in [(Field::E, "E"), (Field::H, "H")] {
+        for c in Axis::ALL {
+            let name = format!("{letter}{}", axis_name(c));
+            // a 2D run records only its polarization's components
+            if !export.keeps(&name) || dft.value(field, c, (0, 0, k), 0).is_none() {
+                continue;
+            }
+            let values: Vec<c64> = (0..wavelengths_um.len())
+                .flat_map(|f| {
+                    (0..ny).flat_map(move |j| {
+                        (0..nx).map(move |i| {
+                            dft.value(field, c, (i, j, k), f)
+                                .unwrap_or(c64::new(0.0, 0.0))
+                        })
+                    })
+                })
+                .collect();
+            npz.complex_field(&name, &[wavelengths_um.len(), ny, nx], &values);
+        }
+    }
+    npz.meta(
+        meta,
+        &crate::export::Described {
+            grid: "Yee's grid (crate::fdfd::Grid3d): x_um and y_um are the cells' corners, the \
+                   whole window, its PMLs included, and z_um the plane's; each component sits \
+                   half a cell from them as Yee places it: Ex at (i + 1/2, j, k), Ey at \
+                   (i, j + 1/2, k), Ez at (i, j, k + 1/2), Hx at (i, j + 1/2, k + 1/2), Hy at \
+                   (i + 1/2, j, k + 1/2), Hz at (i + 1/2, j + 1/2, k), in cells; each field \
+                   (wavelength, ny, nx)",
+            units: "um for lengths, um/c for times; E as the solver has it, H as H~ = Z0 H (Z0 \
+                    the free space impedance): E and H~ in the same units",
+            normalization: "none: the running transform sum_n F(t_n) exp(i w t_n) dt of the \
+                            run's own fields (crate::fdtd::monitors), not divided by the \
+                            source's spectrum",
+        },
+    );
+    npz.write(path)
+}
+
 pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let mut setup = Setup::new(job)?;
     run.record(&setup.scene()?)?;
@@ -2515,6 +2580,19 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     // what the run measured
     for e in spectra(&sim, &setup, &monitors, true) {
         run.record(&e)?;
+    }
+    // the field monitors' transforms as npz files, when [task.export] asks for them
+    let export = super::export_of(job)?;
+    if export.npz() && !run.dir().as_os_str().is_empty() {
+        let meta = crate::export::Meta::of(job, run);
+        let fields = monitors.added.iter().filter_map(|a| match a {
+            Added::Field { n, wavelengths_um } => Some((*n, wavelengths_um)),
+            _ => None,
+        });
+        for (k, (n, wavelengths_um)) in fields.enumerate() {
+            let path = run.dir().join(format!("field-{}.npz", k + 1));
+            export_dft(&path, &meta, &export, &sim, n, wavelengths_um, setup.view_k)?;
+        }
     }
     for a in &monitors.added {
         match a {
@@ -2944,6 +3022,69 @@ time_um = 160.0
                 assert!(s.values.iter().all(|v| v.is_finite()), "{s:?}");
             }
         }
+    }
+
+    /// `[task.export]` writes the field monitor's transforms as `field-1.npz`: its |E|² over
+    /// the pictured cells, scaled as the [`Event::Field`] scales it, is that picture to the
+    /// bit; and the spectra go to `spectra.csv`.
+    #[test]
+    fn an_fdtd_export_is_the_field_monitors_own_transform_to_the_bit() {
+        let text = format!(
+            "{}\n[task.export]\nformat = \"both\"\n",
+            SMALL.replace("time_um = 160.0", "time_um = 20.0")
+        );
+        let job = Job::parse(&text).unwrap();
+        let root =
+            std::env::temp_dir().join(format!("photonoxide-fdtd-export-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let mut run = Run::create(&root, &job).unwrap();
+        super::super::execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let events: Vec<Event> = crate::run::replay(run.dir()).unwrap();
+        let (arrays, meta) = crate::export::read::npz(&run.dir().join("field-1.npz"));
+        assert!(meta.contains("Yee"), "{meta}");
+        assert!(run.dir().join("spectra.csv").exists());
+        let _ = std::fs::remove_dir_all(&root);
+
+        let x = arrays["x_um"].f64s();
+        let y = arrays["y_um"].f64s();
+        assert_eq!(arrays["wavelength_um"].f64s(), [1.55]);
+        let e: Vec<Option<Vec<c64>>> = ["Ex", "Ey", "Ez"]
+            .iter()
+            .map(|n| arrays.get(*n).map(|a| a.c64s()))
+            .collect();
+        assert!(e.iter().any(Option::is_some), "{:?}", arrays.keys());
+        for a in arrays.values().filter(|a| a.descr == "<c16") {
+            assert_eq!(a.shape, [1, y.len(), x.len()]);
+        }
+        let Some(Event::Field { intensity, .. }) =
+            events.iter().find(|e| matches!(e, Event::Field { .. }))
+        else {
+            panic!("no field")
+        };
+        let mx = x
+            .iter()
+            .position(|&c| (c - intensity.x0).abs() < 1e-9)
+            .unwrap();
+        let my = y
+            .iter()
+            .position(|&c| (c - intensity.y0).abs() < 1e-9)
+            .unwrap();
+        let values: Vec<f64> = (0..intensity.ny)
+            .flat_map(|j| (0..intensity.nx).map(move |i| (i, j)))
+            .map(|(i, j)| {
+                let at = (my + j) * x.len() + mx + i;
+                e.iter()
+                    .map(|c| c.as_ref().map_or(0.0, |c| c[at].norm_sqr()))
+                    .sum()
+            })
+            .collect();
+        let peak = values
+            .iter()
+            .copied()
+            .fold(0.0, f64::max)
+            .max(f64::MIN_POSITIVE);
+        let scaled: Vec<f32> = values.iter().map(|v| (v / peak) as f32).collect();
+        assert_eq!(scaled, intensity.values);
     }
 
     #[test]

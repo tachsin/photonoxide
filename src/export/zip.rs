@@ -85,12 +85,12 @@ impl<W: Write> ZipWriter<W> {
         Ok(())
     }
 
-    /// Writes the central directory and the end record, and flushes `out`.
+    /// Writes the central directory and the end record, flushes `out` and gives it back.
     ///
     /// # Errors
     ///
     /// [`io::Error`] if `out` can't be written.
-    pub(super) fn finish(mut self) -> io::Result<()> {
+    pub(super) fn finish(mut self) -> io::Result<W> {
         let directory_start = self.offset;
         let mut directory = Vec::new();
         for e in &self.entries {
@@ -126,7 +126,8 @@ impl<W: Write> ZipWriter<W> {
         end.extend_from_slice(&directory_start.to_le_bytes());
         end.extend_from_slice(&0u16.to_le_bytes()); // comment length
         self.out.write_all(&end)?;
-        self.out.flush()
+        self.out.flush()?;
+        Ok(self.out)
     }
 }
 

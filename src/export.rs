@@ -1,33 +1,31 @@
 //! Exporting a run's results, so they can be taken anywhere, not just drawn (issue #431).
 //!
-//! A `"modes"` job's `[task.export]` writes, into the run's directory, each solved mode's
-//! complex fields as an `.npz` (`mode-<k of n>.npz`) and a CSV summary of every mode
-//! (`modes.csv`). FDFD, FDTD and the static solvers' fields, and MAT (MATLAB) and VTK XML
-//! writers, are left for later PRs under the same issue; `events.jsonl`'s own pictures
-//! ([`crate::job::Event::Mode`], [`crate::job::Event::ModeField`]) stay as they are (`f32`,
-//! scaled to a peak of 1, no phase): this is the fields themselves.
+//! `events.jsonl`'s own pictures ([`crate::job::Event::Mode`], [`crate::job::Event::Field`],
+//! [`crate::job::Event::StaticField`]) stay as they are (`f32`, scaled to a peak of 1, no
+//! phase): this module writes the numbers themselves, into the run's directory.
+//!
+//! - **Tables** ([`tables`]): the small numbers, as CSV, each number the shortest decimal that
+//!   reads back to the same bits: the modes' effective indices, a sweep's, the S-parameters,
+//!   FDTD's spectra and resonances, a study's points, an optimization's history, a static job's
+//!   numbers and its transient. A run writes every table it has by default, whether its job
+//!   asks or not ([`tables::write_tables`]).
+//! - **Fields** ([`Npz`]): the complex fields on their grid, as NumPy's `.npz`, only when the
+//!   job's `[task.export]` asks: a mode's E and H ([`write_mode_npz`]), FDFD's field along z,
+//!   FDTD's field monitors' transforms of E and H, a static job's temperature and potential.
 //!
 //! **The `.npz`.** NumPy's own format: a ZIP (written from PKWARE's *APPNOTE*) of `.npy` arrays
-//! (NEP 1), deflated at a selectable level, store (level 0) to smallest (9). Its arrays:
+//! (NEP 1), deflated at a selectable level, store (level 0) to smallest (9). Beside the arrays,
+//! `meta.json`, a plain JSON member (`numpy.load`'s `NpzFile` only reads members that end in
+//! `.npy`, so it is never mistaken for one): photonoxide's version, the job and its text as it
+//! ran, the run's id, the precision written, and the grid, units and normalization of the
+//! arrays.
 //!
-//! - `x_um`, `y_um`: the cells' centres, as [`crate::mode::fields::Fields`] has them (not the
-//!   solver's own nodes);
-//! - `wavelength_um`, `effective_index` (complex), `te_fraction`, `power` (half the real part of
-//!   ∫ E×H*·ẑ, [`Fields::power`]'s units): always `f64`, small enough that downcasting them
-//!   would only lose precision for nothing;
-//! - `Ex`, `Ey`, `Ez`, `Hx`, `Hy`, `Hz`: each `(ny, nx)` in C order, cell (i, j) at row j, column
-//!   i, as [`crate::facade::vector_modes`] lays its own fields out; `f32` or `f64`, the
-//!   solver's own units (E in units of Z₀ times H's: [`crate::mode::fields`]), not scaled to
-//!   unit power;
-//! - `meta.json`, a plain JSON member beside the arrays: `numpy.load`'s `NpzFile` only reads
-//!   members that end in `.npy`, so it is never mistaken for one, and names photonoxide's
-//!   version, the precision written, and the job and run.
-//!
-//! Nothing here reads a `.npy` or `.npz` file back: `write_mode_npz`'s own tests do, with the
-//! `zip` crate (a dev-dependency only) unpacking the archive and a small reader of this module's
-//! own checking the array bytes against the mode's fields, to the bit.
+//! Nothing here reads a `.npy` or `.npz` file back: the tests do, with the `zip` crate (a
+//! dev-dependency only) unpacking the archive and a small reader of their own checking the
+//! array bytes against the solver's own values, to the bit.
 
 mod npy;
+pub mod tables;
 mod zip;
 
 use std::path::Path;
@@ -51,13 +49,58 @@ pub enum Precision {
 }
 
 /// What an exported file names about where it came from.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
+#[non_exhaustive]
 pub struct Meta {
     /// The job's name.
     pub job: String,
     /// The run's id: its directory's name (`Run::dir`'s file name), empty for a run kept only in
     /// memory.
     pub run_id: String,
+    /// The job's text as it ran (its `job.toml`, `job.json` or `job.yaml`), empty if unknown.
+    pub job_text: String,
+}
+
+impl Meta {
+    /// A file's provenance: its job's name and its run's id.
+    pub fn new(job: impl Into<String>, run_id: impl Into<String>) -> Meta {
+        Meta {
+            job: job.into(),
+            run_id: run_id.into(),
+            job_text: String::new(),
+        }
+    }
+
+    /// With the job's text as it ran.
+    #[must_use]
+    pub fn with_job_text(mut self, text: impl Into<String>) -> Meta {
+        self.job_text = text.into();
+        self
+    }
+
+    /// `job` as `run` runs it.
+    pub(crate) fn of(job: &crate::run::Job, run: &crate::run::Run) -> Meta {
+        Meta::new(
+            job.name(),
+            run.dir()
+                .file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default(),
+        )
+        .with_job_text(job.text())
+    }
+}
+
+/// What an `.npz`'s arrays are: their grid, their units and their normalization, for its
+/// `meta.json`.
+#[derive(Clone, Copy, Debug)]
+pub struct Described<'a> {
+    /// Where each array's values sit.
+    pub grid: &'a str,
+    /// Their units.
+    pub units: &'a str,
+    /// What they are scaled to, if anything.
+    pub normalization: &'a str,
 }
 
 /// `meta.json`'s fields.
@@ -67,11 +110,13 @@ struct MetaFile<'a> {
     job: &'a str,
     run_id: &'a str,
     precision: &'static str,
-    grid: &'static str,
-    units: &'static str,
+    grid: &'a str,
+    units: &'a str,
+    normalization: &'a str,
+    job_text: &'a str,
 }
 
-fn meta_json(meta: &Meta, precision: Precision) -> String {
+fn meta_json(meta: &Meta, precision: Precision, described: &Described<'_>) -> String {
     let file = MetaFile {
         photonoxide: env!("CARGO_PKG_VERSION"),
         job: &meta.job,
@@ -80,10 +125,10 @@ fn meta_json(meta: &Meta, precision: Precision) -> String {
             Precision::F64 => "f64",
             Precision::F32 => "f32, downcast from f64",
         },
-        grid: "x_um and y_um name each cell's centre (crate::mode::fields::Fields), not the \
-               solver's own nodes",
-        units: "E in units of Z0 (free space impedance) times H, the solver's own, not scaled \
-                to unit power; power is in units of Z0 |H|^2 um^2 (Fields::power)",
+        grid: described.grid,
+        units: described.units,
+        normalization: described.normalization,
+        job_text: &meta.job_text,
     };
     // every field is a plain string: this cannot fail
     serde_json::to_string_pretty(&file).expect("meta.json always serializes")
@@ -95,6 +140,101 @@ fn io_error(path: &Path, e: std::io::Error) -> Error {
         reason: e.to_string(),
     }
 }
+
+/// An `.npz` being written: arrays added one by one, each deflated at the level it was made
+/// with, then [`Npz::write`] puts it on disk.
+pub struct Npz {
+    zip: zip::ZipWriter<Vec<u8>>,
+    precision: Precision,
+    level: u8,
+    error: Option<std::io::Error>,
+}
+
+impl Npz {
+    /// An empty archive whose fields are written at `precision`, deflated at `level` (0 stores
+    /// them, 1 to 9 deflate; above 9 is 9).
+    pub fn new(precision: Precision, level: u8) -> Npz {
+        Npz {
+            zip: zip::ZipWriter::new(Vec::new()),
+            precision,
+            level: level.min(9),
+            error: None,
+        }
+    }
+
+    fn put(&mut self, name: &str, data: &[u8]) {
+        if self.error.is_none()
+            && let Err(e) = self.zip.add(name, data, self.level)
+        {
+            self.error = Some(e);
+        }
+    }
+
+    /// A real field `name` (`.npy` added), `values` in C order for `shape`, at the archive's
+    /// precision.
+    ///
+    /// # Panics
+    ///
+    /// If `values.len()` isn't `shape`'s product.
+    pub fn field(&mut self, name: &str, shape: &[usize], values: &[f64]) {
+        let bytes = npy::real(shape, self.precision, values);
+        self.put(&format!("{name}.npy"), &bytes);
+    }
+
+    /// A complex field `name`, `values` in C order for `shape`, at the archive's precision.
+    ///
+    /// # Panics
+    ///
+    /// If `values.len()` isn't `shape`'s product.
+    pub fn complex_field(&mut self, name: &str, shape: &[usize], values: &[c64]) {
+        let bytes = npy::complex(shape, self.precision, values);
+        self.put(&format!("{name}.npy"), &bytes);
+    }
+
+    /// A real array `name` always in `f64`, whatever the archive's precision: the grid and the
+    /// small numbers, which downcasting would only lose precision for nothing.
+    ///
+    /// # Panics
+    ///
+    /// If `values.len()` isn't `shape`'s product.
+    pub fn exact(&mut self, name: &str, shape: &[usize], values: &[f64]) {
+        let bytes = npy::real(shape, Precision::F64, values);
+        self.put(&format!("{name}.npy"), &bytes);
+    }
+
+    /// A complex array `name` always in `f64` (`complex128`).
+    ///
+    /// # Panics
+    ///
+    /// If `values.len()` isn't `shape`'s product.
+    pub fn exact_complex(&mut self, name: &str, shape: &[usize], values: &[c64]) {
+        let bytes = npy::complex(shape, Precision::F64, values);
+        self.put(&format!("{name}.npy"), &bytes);
+    }
+
+    /// `meta.json`: `meta`'s provenance, the precision, and what the arrays are.
+    pub fn meta(&mut self, meta: &Meta, described: &Described<'_>) {
+        let text = meta_json(meta, self.precision, described);
+        self.put("meta.json", text.as_bytes());
+    }
+
+    /// Writes the archive as `path`, returning its size in bytes.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Io`] if `path` can't be written.
+    pub fn write(self, path: &Path) -> Result<u64> {
+        if let Some(e) = self.error {
+            return Err(io_error(path, e));
+        }
+        let bytes = self.zip.finish().map_err(|e| io_error(path, e))?;
+        std::fs::write(path, &bytes).map_err(|e| io_error(path, e))?;
+        Ok(bytes.len() as u64)
+    }
+}
+
+/// The six components of E and H, as the files name them.
+pub const COMPONENTS: [&str; 6] = ["Ex", "Ey", "Ez", "Hx", "Hy", "Hz"];
 
 /// `fields`' component `c` (0 for x, 1 for y, 2 for z) of `e` or `h`, at every cell in C order
 /// (row j = y, column i = x), as [`crate::facade::vector_modes`] lays its own arrays out.
@@ -112,11 +252,14 @@ fn component(fields: &Fields, c: usize, h: bool) -> Vec<c64> {
         .collect()
 }
 
-/// A guided or leaky mode's complex fields, written as `path`, an `.npz`.
+/// A guided or leaky mode's complex fields, written as `path`, an `.npz`: the components `keep`
+/// keeps of [`COMPONENTS`], each `(ny, nx)`, with `x_um`, `y_um` (the cells' centres),
+/// `wavelength_um`, `effective_index`, `te_fraction` and `power`. Returns the file's size.
 ///
 /// # Errors
 ///
 /// [`Error::Io`] if `path` can't be written.
+#[allow(clippy::too_many_arguments)]
 pub fn write_mode_npz(
     path: &Path,
     mode: &VectorMode,
@@ -125,110 +268,137 @@ pub fn write_mode_npz(
     meta: &Meta,
     precision: Precision,
     level: u8,
+    keep: &dyn Fn(&str) -> bool,
 ) -> Result<u64> {
     let (nx, ny) = (fields.x().len(), fields.y().len());
-    let mut buf = Vec::new();
-    {
-        let mut writer = zip::ZipWriter::new(&mut buf);
-        let mut put = |name: &str, data: &[u8]| -> Result<()> {
-            writer.add(name, data, level).map_err(|e| io_error(path, e))
-        };
-        put("x_um.npy", &npy::real(&[nx], precision, fields.x()))?;
-        put("y_um.npy", &npy::real(&[ny], precision, fields.y()))?;
-        put(
-            "wavelength_um.npy",
-            &npy::real(&[], Precision::F64, &[wavelength.to_um()]),
-        )?;
-        put(
-            "effective_index.npy",
-            &npy::complex(&[], Precision::F64, &[mode.effective_index()]),
-        )?;
-        put(
-            "te_fraction.npy",
-            &npy::real(&[], Precision::F64, &[mode.te_fraction()]),
-        )?;
-        put(
-            "power.npy",
-            &npy::real(&[], Precision::F64, &[fields.power()]),
-        )?;
-        for (name, c) in [("Ex", 0), ("Ey", 1), ("Ez", 2)] {
-            put(
-                &format!("{name}.npy"),
-                &npy::complex(&[ny, nx], precision, &component(fields, c, false)),
-            )?;
+    let mut npz = Npz::new(precision, level);
+    npz.exact("x_um", &[nx], fields.x());
+    npz.exact("y_um", &[ny], fields.y());
+    npz.exact("wavelength_um", &[], &[wavelength.to_um()]);
+    npz.exact_complex("effective_index", &[], &[mode.effective_index()]);
+    npz.exact("te_fraction", &[], &[mode.te_fraction()]);
+    npz.exact("power", &[], &[fields.power()]);
+    for (k, name) in COMPONENTS.iter().enumerate() {
+        if keep(name) {
+            npz.complex_field(name, &[ny, nx], &component(fields, k % 3, k >= 3));
         }
-        for (name, c) in [("Hx", 0), ("Hy", 1), ("Hz", 2)] {
-            put(
-                &format!("{name}.npy"),
-                &npy::complex(&[ny, nx], precision, &component(fields, c, true)),
-            )?;
-        }
-        put("meta.json", meta_json(meta, precision).as_bytes())?;
-        writer.finish().map_err(|e| io_error(path, e))?;
     }
-    std::fs::write(path, &buf).map_err(|e| io_error(path, e))?;
-    Ok(buf.len() as u64)
+    npz.meta(
+        meta,
+        &Described {
+            grid: "x_um and y_um name each cell's centre (crate::mode::fields::Fields), not the \
+                   solver's own nodes; each field (ny, nx), row j at y_um[j], column i at x_um[i]",
+            units: "um for lengths; E in units of Z0 (free space impedance) times H, the \
+                    solver's own; power in units of Z0 |H|^2 um^2 (Fields::power)",
+            normalization: "none: the solver's own amplitude, not scaled to unit power (divide \
+                            by sqrt(power) for unit power)",
+        },
+    );
+    npz.write(path)
 }
 
 /// An upper bound on [`write_mode_npz`]'s file size before writing it, for a grid of `nx` by
-/// `ny` cells at `precision`: every array's bytes (deflate only shrinks them further) plus each
-/// `.npy`'s header and the zip's own overhead.
+/// `ny` cells at `precision`, all six components kept: every array's bytes (deflate only
+/// shrinks them further) plus each `.npy`'s header and the zip's own overhead.
 pub fn estimate_mode_npz_bytes(nx: usize, ny: usize, precision: Precision) -> u64 {
     let item = match precision {
         Precision::F32 => 4u64,
         Precision::F64 => 8,
     };
     let cells = (nx * ny) as u64;
-    let real_bytes = |elements: u64| elements * item;
-    let complex_bytes = |elements: u64| elements * item * 2;
     // x_um, y_um, Ex, Ey, Ez, Hx, Hy, Hz, wavelength_um, effective_index, te_fraction, power,
     // meta.json: 13 entries, each a `.npy` header (at most 128 bytes for these small, fixed
     // dicts) plus a local and a central directory record (about 90 bytes and the name)
     const ENTRIES: u64 = 13;
     const OVERHEAD_PER_ENTRY: u64 = 128 + 128;
-    let data = real_bytes(nx as u64)
-        + real_bytes(ny as u64)
-        + 6 * complex_bytes(cells)
+    let data = 8 * (nx as u64 + ny as u64) // the grid, always f64
+        + 6 * cells * item * 2
         + 4 * 32 // wavelength_um, effective_index, te_fraction, power: small f64 scalars
-        + 1024; // meta.json, generously
+        + 4096; // meta.json, generously, without the job's text
     data + ENTRIES * OVERHEAD_PER_ENTRY
 }
 
-/// A `"modes"` job's mode, one line of [`write_modes_csv`]'s table.
-pub struct ModeRow {
-    /// What it is, e.g. `"mode 1 of 2"`.
-    pub label: String,
-    /// The vacuum wavelength, µm.
-    pub wavelength_um: f64,
-    /// The effective index.
-    pub effective_index: c64,
-    /// Its loss along the guide, dB/cm ([`crate::mode::dispersion::loss_db_per_cm`]).
-    pub loss_db_per_cm: f64,
-    /// The share of the transverse magnetic field in H_y.
-    pub te_fraction: f64,
-}
+/// A reader of the `.npz` files for the tests: the `zip` crate (a dev-dependency) unpacks the
+/// archive, and each `.npy` is parsed here.
+#[cfg(test)]
+pub(crate) mod read {
+    use std::collections::BTreeMap;
+    use std::io::Read as _;
 
-/// `rows` as `path`, a CSV with a header line and one line a row, each number at full `f64`
-/// precision (17 significant digits: lossless, reading back to the same bits).
-///
-/// # Errors
-///
-/// [`Error::Io`] if `path` can't be written.
-pub fn write_modes_csv(path: &Path, rows: &[ModeRow]) -> Result<()> {
-    let mut text =
-        String::from("label,wavelength_um,n_eff_re,n_eff_im,loss_db_per_cm,te_fraction\n");
-    for r in rows {
-        text.push_str(&format!(
-            "{},{:.17e},{:.17e},{:.17e},{:.17e},{:.17e}\n",
-            r.label,
-            r.wavelength_um,
-            r.effective_index.re,
-            r.effective_index.im,
-            r.loss_db_per_cm,
-            r.te_fraction
-        ));
+    use num_complex::Complex64 as c64;
+
+    /// An array read back: its `descr`, its shape and its raw little-endian bytes.
+    #[derive(Debug)]
+    pub(crate) struct Array {
+        pub(crate) descr: String,
+        pub(crate) shape: Vec<usize>,
+        pub(crate) data: Vec<u8>,
     }
-    std::fs::write(path, text).map_err(|e| io_error(path, e))
+
+    impl Array {
+        pub(crate) fn f64s(&self) -> Vec<f64> {
+            assert_eq!(self.descr, "<f8");
+            let (words, _) = self.data.as_chunks::<8>();
+            words.iter().map(|w| f64::from_le_bytes(*w)).collect()
+        }
+
+        pub(crate) fn c64s(&self) -> Vec<c64> {
+            assert_eq!(self.descr, "<c16");
+            self.f64s_raw()
+                .chunks(2)
+                .map(|z| c64::new(z[0], z[1]))
+                .collect()
+        }
+
+        fn f64s_raw(&self) -> Vec<f64> {
+            let (words, _) = self.data.as_chunks::<8>();
+            words.iter().map(|w| f64::from_le_bytes(*w)).collect()
+        }
+    }
+
+    /// Every member of the `.npz` at `path`: its arrays by name (`.npy` left off), and
+    /// `meta.json`'s text.
+    pub(crate) fn npz(path: &std::path::Path) -> (BTreeMap<String, Array>, String) {
+        let file = std::fs::File::open(path).unwrap_or_else(|e| panic!("{path:?}: {e}"));
+        let mut archive = ::zip::ZipArchive::new(file).unwrap();
+        let mut arrays = BTreeMap::new();
+        let mut meta = String::new();
+        for k in 0..archive.len() {
+            let mut entry = archive.by_index(k).unwrap();
+            let name = entry.name().to_owned();
+            let mut bytes = Vec::new();
+            entry.read_to_end(&mut bytes).unwrap();
+            if name == "meta.json" {
+                meta = String::from_utf8(bytes).unwrap();
+                continue;
+            }
+            assert_eq!(&bytes[..6], b"\x93NUMPY");
+            let len = u16::from_le_bytes([bytes[8], bytes[9]]) as usize;
+            let header = std::str::from_utf8(&bytes[10..10 + len]).unwrap();
+            let descr = header.split("'descr': '").nth(1).unwrap();
+            let descr = descr.split('\'').next().unwrap().to_owned();
+            let shape = header.split("'shape': (").nth(1).unwrap();
+            let shape = shape
+                .split(')')
+                .next()
+                .unwrap()
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(|s| s.parse().unwrap())
+                .collect();
+            let name = name.strip_suffix(".npy").unwrap().to_owned();
+            arrays.insert(
+                name,
+                Array {
+                    descr,
+                    shape,
+                    data: bytes[10 + len..].to_vec(),
+                },
+            );
+        }
+        (arrays, meta)
+    }
 }
 
 #[cfg(test)]
@@ -309,11 +479,8 @@ mod tests {
         ));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("mode.npz");
-        let meta = Meta {
-            job: "export-test".into(),
-            run_id: "run-1".into(),
-        };
-        write_mode_npz(&path, &m, &fields, w, &meta, Precision::F64, 6).unwrap();
+        let meta = Meta::new("export-test", "run-1").with_job_text("name = \"export-test\"");
+        write_mode_npz(&path, &m, &fields, w, &meta, Precision::F64, 6, &|_| true).unwrap();
 
         let file = std::fs::File::open(&path).unwrap();
         let mut archive = ::zip::ZipArchive::new(file).unwrap();
@@ -356,6 +523,7 @@ mod tests {
         let text = std::str::from_utf8(&meta_bytes).unwrap();
         assert!(text.contains("\"job\": \"export-test\""));
         assert!(text.contains("\"precision\": \"f64\""));
+        assert!(text.contains("\"job_text\": \"name = \\\"export-test\\\"\""));
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -369,12 +537,11 @@ mod tests {
         ));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("mode.npz");
-        let meta = Meta {
-            job: "export-test".into(),
-            run_id: String::new(),
-        };
-        let full = write_mode_npz(&path, &m, &fields, w, &meta, Precision::F64, 0).unwrap();
-        let half = write_mode_npz(&path, &m, &fields, w, &meta, Precision::F32, 0).unwrap();
+        let meta = Meta::new("export-test", "");
+        let full =
+            write_mode_npz(&path, &m, &fields, w, &meta, Precision::F64, 0, &|_| true).unwrap();
+        let half =
+            write_mode_npz(&path, &m, &fields, w, &meta, Precision::F32, 0, &|_| true).unwrap();
         assert!(half < full, "{half} should be smaller than {full}");
 
         let file = std::fs::File::open(&path).unwrap();
@@ -384,45 +551,6 @@ mod tests {
         entry.read_to_end(&mut data).unwrap();
         let (descr, _, _) = parse_npy(&data);
         assert_eq!(descr, "<c8");
-
-        std::fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn csv_round_trips_to_the_bit() {
-        let (m, _fields, w) = test_mode();
-        let dir = std::env::temp_dir().join(format!(
-            "photonoxide-export-test-csv-{:?}",
-            std::thread::current().id()
-        ));
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("modes.csv");
-        let loss = crate::mode::dispersion::loss_db_per_cm(m.effective_index(), w);
-        write_modes_csv(
-            &path,
-            &[ModeRow {
-                label: "mode 1 of 1".into(),
-                wavelength_um: w.to_um(),
-                effective_index: m.effective_index(),
-                loss_db_per_cm: loss,
-                te_fraction: m.te_fraction(),
-            }],
-        )
-        .unwrap();
-        let text = std::fs::read_to_string(&path).unwrap();
-        let mut lines = text.lines();
-        assert_eq!(
-            lines.next().unwrap(),
-            "label,wavelength_um,n_eff_re,n_eff_im,loss_db_per_cm,te_fraction"
-        );
-        let row = lines.next().unwrap();
-        let fields: Vec<&str> = row.split(',').collect();
-        assert_eq!(fields[0], "mode 1 of 1");
-        assert_eq!(fields[1].parse::<f64>().unwrap(), w.to_um());
-        assert_eq!(fields[2].parse::<f64>().unwrap(), m.effective_index().re);
-        assert_eq!(fields[3].parse::<f64>().unwrap(), m.effective_index().im);
-        assert_eq!(fields[4].parse::<f64>().unwrap(), loss);
-        assert_eq!(fields[5].parse::<f64>().unwrap(), m.te_fraction());
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -438,12 +566,10 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("mode.npz");
         let (m, _, w) = test_mode();
-        let meta = Meta {
-            job: "x".into(),
-            run_id: String::new(),
-        };
+        let meta = Meta::new("x", "");
         // level 0 (store): no compression, so the real file can't be larger than the estimate
-        let written = write_mode_npz(&path, &m, &fields, w, &meta, Precision::F64, 0).unwrap();
+        let written =
+            write_mode_npz(&path, &m, &fields, w, &meta, Precision::F64, 0, &|_| true).unwrap();
         let estimated = estimate_mode_npz_bytes(nx, ny, Precision::F64);
         assert!(
             written <= estimated,

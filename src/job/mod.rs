@@ -2414,6 +2414,7 @@ impl ModesTask {
         }
         if let Some(export) = &self.export {
             export.validate()?;
+            export.check_fields("a modes job", &crate::export::COMPONENTS)?;
         }
         if let Some(c) = &self.convergence {
             c.validate(self)?;
@@ -2833,26 +2834,85 @@ impl ConvergenceSpec {
     }
 }
 
-/// A modes job's `[task.export]`: each solved mode's complex fields as an `.npz`
-/// (`mode-<k of n>.npz`), a summary table of every mode as `modes.csv`, or both, written into
-/// the run's directory ([`crate::export`]).
-#[derive(Clone, Deserialize, JsonSchema)]
+/// A job's `[task.export]`: what its run writes into its directory beside `events.jsonl`
+/// ([`crate::export`]). A job without one writes every table its run has, as CSV, and no
+/// fields.
+#[derive(Clone, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ExportSpec {
-    /// `"npz"` (the fields), `"csv"` (the summary table) or `"both"`.
-    format: String,
-    /// `"f32"` or `"f64"` (the default): the npz's fields' precision.
+    /// `"csv"` (the tables), `"npz"` (the fields), `"both"` or `"none"`: `"both"` when
+    /// `fields` is given, `"csv"` otherwise.
+    format: Option<String>,
+    /// Which tables, by name: `"modes"`, `"sweep"`, `"s_parameters"`, `"spectra"`,
+    /// `"resonances"`, `"study"`, `"history"`, `"static"`, `"transient"`; every one the run has
+    /// by default.
+    tables: Option<Vec<String>>,
+    /// Which fields: `"Ex"`, `"Ey"`, `"Ez"`, `"Hx"`, `"Hy"`, `"Hz"`, `"temperature"`,
+    /// `"potential"`; every one the kind computes by default.
+    fields: Option<Vec<String>>,
+    /// `"f32"` or `"f64"` (the default): the npz's fields' precision (the grids and the small
+    /// numbers stay `f64`).
     precision: Option<String>,
     /// Deflate's level, 0 (store) to 9 (smallest); 6 by default. The csv is never compressed.
     level: Option<u8>,
 }
 
+/// The fields a `[task.export]` may name.
+const EXPORT_FIELDS: [&str; 8] = [
+    "Ex",
+    "Ey",
+    "Ez",
+    "Hx",
+    "Hy",
+    "Hz",
+    "temperature",
+    "potential",
+];
+
 impl ExportSpec {
     fn validate(&self) -> Result<()> {
-        if !matches!(self.format.as_str(), "npz" | "csv" | "both") {
+        if !matches!(self.format(), "npz" | "csv" | "both" | "none") {
             return Err(task_error(format!(
-                "[task.export] format must be \"npz\", \"csv\" or \"both\", got \"{}\"",
-                self.format
+                "[task.export] format must be \"npz\", \"csv\", \"both\" or \"none\", got \"{}\"",
+                self.format()
+            )));
+        }
+        if let Some(t) = self
+            .tables
+            .iter()
+            .flatten()
+            .find(|t| crate::export::tables::Table::parse(t).is_none())
+        {
+            return Err(task_error(format!(
+                "[task.export] has no table \"{t}\": the tables are {}",
+                crate::export::tables::Table::ALL
+                    .map(|t| t.name())
+                    .join(", ")
+            )));
+        }
+        if let Some(f) = self
+            .fields
+            .iter()
+            .flatten()
+            .find(|f| !EXPORT_FIELDS.contains(&f.as_str()))
+        {
+            return Err(task_error(format!(
+                "[task.export] has no field \"{f}\": the fields are {}",
+                EXPORT_FIELDS.join(", ")
+            )));
+        }
+        if self.fields.is_some() && !self.npz() {
+            return Err(task_error(format!(
+                "[task.export] fields are written as npz, and format = \"{}\" writes none: \
+                 make it \"npz\" or \"both\"",
+                self.format()
+            )));
+        }
+        if self.tables.is_some() && !self.csv() {
+            return Err(task_error(format!(
+                "[task.export] tables are written as csv, and format = \"{}\" writes none: \
+                 make it \"csv\" or \"both\"",
+                self.format()
             )));
         }
         if let Some(p) = &self.precision
@@ -2872,12 +2932,65 @@ impl ExportSpec {
         Ok(())
     }
 
+    /// The format, as given or by default.
+    fn format(&self) -> &str {
+        match (&self.format, &self.fields) {
+            (Some(f), _) => f,
+            (None, Some(_)) => "both",
+            (None, None) => "csv",
+        }
+    }
+
     fn npz(&self) -> bool {
-        matches!(self.format.as_str(), "npz" | "both")
+        matches!(self.format(), "npz" | "both")
     }
 
     fn csv(&self) -> bool {
-        matches!(self.format.as_str(), "csv" | "both")
+        matches!(self.format(), "csv" | "both")
+    }
+
+    /// The tables to write: `None` for none, `Some(None)` for every one the run has.
+    fn tables(&self) -> Option<Option<Vec<crate::export::tables::Table>>> {
+        self.csv().then(|| {
+            self.tables.as_ref().map(|t| {
+                t.iter()
+                    .filter_map(|t| crate::export::tables::Table::parse(t))
+                    .collect()
+            })
+        })
+    }
+
+    /// Whether the field `name` is written: the npz is, and `fields` names it or is absent.
+    fn keeps(&self, name: &str) -> bool {
+        self.npz()
+            && self
+                .fields
+                .as_ref()
+                .is_none_or(|f| f.iter().any(|f| f == name))
+    }
+
+    /// Refuses fields `has` doesn't hold, the fields a job of `what` computes.
+    fn check_fields(&self, what: &str, has: &[&str]) -> Result<()> {
+        if !self.npz() {
+            return Ok(());
+        }
+        if has.is_empty() {
+            return Err(task_error(format!(
+                "[task.export]: {what} has no fields to write: format = \"csv\" for its tables"
+            )));
+        }
+        if let Some(f) = self
+            .fields
+            .iter()
+            .flatten()
+            .find(|f| !has.contains(&f.as_str()))
+        {
+            return Err(task_error(format!(
+                "[task.export]: {what} has no field \"{f}\": it has {}",
+                has.join(", ")
+            )));
+        }
+        Ok(())
     }
 
     fn precision(&self) -> crate::export::Precision {
@@ -2890,6 +3003,75 @@ impl ExportSpec {
     fn level(&self) -> u8 {
         self.level.unwrap_or(6)
     }
+
+    /// An `.npz` at this export's precision and level.
+    fn npz_file(&self) -> crate::export::Npz {
+        crate::export::Npz::new(self.precision(), self.level())
+    }
+}
+
+/// `job`'s `[task.export]`, checked, or the default (every table, no fields) when it has none.
+fn export_of(job: &Job) -> Result<ExportSpec> {
+    let Some(value) = job.task().get("export") else {
+        return Ok(ExportSpec::default());
+    };
+    let spec: ExportSpec = value
+        .clone()
+        .try_into()
+        .map_err(|e: toml::de::Error| task_error(format!("[task.export]: {}", e.message())))?;
+    spec.validate()?;
+    Ok(spec)
+}
+
+/// The `[task.export]` of the job in the run directory `dir` (its `job.toml`, `job.json` or
+/// `job.yaml`), or the default when it has none or none can be read.
+fn export_in(dir: &std::path::Path) -> ExportSpec {
+    ["toml", "json", "yaml"]
+        .iter()
+        .map(|ext| dir.join(format!("job.{ext}")))
+        .find(|p| p.exists())
+        .and_then(|p| Job::load(&p).ok())
+        .and_then(|job| export_of(&job).ok())
+        .unwrap_or_default()
+}
+
+/// What a job computes that `[task.export]` may write as fields, and what to call it in an
+/// error: none for a structure, a device's study, fit or optimization, or a chip.
+fn export_fields(job: &Job) -> Result<(&'static str, &'static [&'static str])> {
+    const EH: &[&str] = &["Ex", "Ey", "Ez", "Hx", "Hy", "Hz"];
+    if job.circuit().is_some() {
+        return Ok(("a chip", &[]));
+    }
+    let kind = if job.device().is_some() {
+        device::task_kind(job)?.unwrap_or_default()
+    } else {
+        job.task()
+            .get("kind")
+            .and_then(|k| k.as_str())
+            .unwrap_or_default()
+            .to_owned()
+    };
+    Ok(match kind.as_str() {
+        "modes" => ("a modes job", EH),
+        // the field along z: H for TE (the default), E for TM
+        "fdfd" => match job.task().get("polarization").and_then(|p| p.as_str()) {
+            Some("tm") => ("an fdfd job in TM", &["Ez"]),
+            _ => ("an fdfd job in TE", &["Hz"]),
+        },
+        "fdtd" => ("an fdtd job", EH),
+        "static" => ("a static job", &["temperature", "potential"]),
+        "structure" => ("a structure job", &[]),
+        _ if job.device().is_some() => ("this device's task", &[]),
+        _ => ("this job", &[]),
+    })
+}
+
+/// Checks `job`'s `[task.export]`: its own fields, and that the fields it asks for are ones the
+/// job computes.
+fn check_export(job: &Job) -> Result<()> {
+    let export = export_of(job)?;
+    let (what, has) = export_fields(job)?;
+    export.check_fields(what, has)
 }
 
 /// The axis a modes job's modes travel along.
@@ -3287,6 +3469,7 @@ pub fn conclude(run: &mut Run, outcome: Result<()>) -> Result<()> {
 
 /// The task of `job`, whichever it is: a chip's, a device's, or a kind's.
 fn execute_job(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
+    check_export(job)?;
     if job.circuit().is_some() {
         return chip::execute(job, run, stop);
     }
@@ -3357,7 +3540,8 @@ fn execute_task(job: &Job, run: &mut Run, stop: &Stop, kind: &str) -> Result<()>
 ///
 /// The errors [`execute`] would return for those, before recording anything.
 pub fn check(job: &Job) -> Result<()> {
-    check_inner(job)
+    check_inner(job)?;
+    check_export(job)
 }
 
 /// The job's direct solver: one that is registered and available, and asked of a job that has
@@ -3933,23 +4117,16 @@ fn export_mode(
     if !export.npz() || run.dir().as_os_str().is_empty() {
         return Ok(());
     }
-    let meta = crate::export::Meta {
-        job: job.name().to_owned(),
-        run_id: run
-            .dir()
-            .file_name()
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_default(),
-    };
     let path = run.dir().join(format!("{}.npz", label.replace(' ', "-")));
     crate::export::write_mode_npz(
         &path,
         m,
         fields,
         wavelength,
-        &meta,
+        &crate::export::Meta::of(job, run),
         export.precision(),
         export.level(),
+        &|name| export.keeps(name),
     )?;
     Ok(())
 }
@@ -4150,7 +4327,6 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     };
     let mut sorted: Vec<_> = found.iter().collect();
     sorted.sort_by(|a, b| b.effective_index().re.total_cmp(&a.effective_index().re));
-    let mut csv_rows = Vec::new();
     for (k, m) in sorted.iter().enumerate() {
         if stop.reason().is_some() {
             return Ok(());
@@ -4178,19 +4354,7 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         }
         if let Some(export) = &task.export {
             export_mode(export, job, run, &label, m, &fields, lam)?;
-            if export.csv() {
-                csv_rows.push(crate::export::ModeRow {
-                    label: label.clone(),
-                    wavelength_um: lam.to_um(),
-                    effective_index: n,
-                    loss_db_per_cm: crate::mode::dispersion::loss_db_per_cm(n, lam),
-                    te_fraction: m.te_fraction(),
-                });
-            }
         }
-    }
-    if task.export.as_ref().is_some_and(ExportSpec::csv) && !run.dir().as_os_str().is_empty() {
-        crate::export::write_modes_csv(&run.dir().join("modes.csv"), &csv_rows)?;
     }
     for (k, m) in sorted.iter().enumerate() {
         run.record(&Event::SolveError {
@@ -5009,6 +5173,144 @@ size_um = [0.5, 10.0]
         assert!(bad("format = \"hdf5\"").contains("format must be"));
         assert!(bad("format = \"npz\"\nprecision = \"f16\"").contains("precision must be"));
         assert!(bad("format = \"npz\"\nlevel = 10").contains("level must be at most 9"));
+        assert!(bad("fields = [\"Bx\"]").contains("has no field \"Bx\""));
+        assert!(bad("tables = [\"fields\"]").contains("has no table \"fields\""));
+        assert!(bad("fields = [\"temperature\"]").contains("a modes job has no field"));
+        assert!(bad("format = \"csv\"\nfields = [\"Ex\"]").contains("written as npz"));
+        assert!(bad("format = \"npz\"\ntables = [\"modes\"]").contains("written as csv"));
+        // an fdfd job in TE solves H along z, and its tables are all a device's study has
+        let fdfd = format!("{FDFD}\n[task.export]\nfields = [\"Ez\"]\n");
+        let e = check(&Job::parse(&fdfd).unwrap()).unwrap_err().to_string();
+        assert!(e.contains("an fdfd job in TE has no field \"Ez\""), "{e}");
+        let structure = format!("{JOB}\n[task.export]\nformat = \"csv\"\n");
+        assert!(check(&Job::parse(&structure).unwrap()).is_err());
+    }
+
+    /// With no `[task.export]` a run writes its tables and no fields; asking for one field
+    /// writes it alone, beside the tables.
+    #[test]
+    fn a_run_writes_its_tables_by_default_and_fields_only_when_asked() {
+        let npz_in = |run: &Run| -> Vec<String> {
+            std::fs::read_dir(run.dir())
+                .unwrap()
+                .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+                .filter(|n| n.ends_with(".npz"))
+                .collect()
+        };
+        let root = temp("export-default");
+        let job = Job::parse(MODES).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        assert!(run.dir().join("modes.csv").exists());
+        assert!(npz_in(&run).is_empty(), "{:?}", npz_in(&run));
+
+        let text = format!("{MODES}\n[task.export]\nfields = [\"Ey\"]\nprecision = \"f32\"\n");
+        let job = Job::parse(&text).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        assert!(run.dir().join("modes.csv").exists());
+        let (arrays, meta) = crate::export::read::npz(&run.dir().join("mode-1-of-2.npz"));
+        let names: Vec<_> = arrays.keys().map(String::as_str).collect();
+        assert_eq!(
+            names,
+            [
+                "Ey",
+                "effective_index",
+                "power",
+                "te_fraction",
+                "wavelength_um",
+                "x_um",
+                "y_um"
+            ]
+        );
+        assert_eq!(arrays["Ey"].descr, "<c8");
+        assert_eq!(arrays["x_um"].descr, "<f8");
+        assert!(meta.contains("f32, downcast from f64"), "{meta}");
+        assert!(meta.contains("[task.export]"), "the job's text: {meta}");
+
+        // format = "none": nothing beside the record
+        let text = format!("{MODES}\n[task.export]\nformat = \"none\"\n");
+        let job = Job::parse(&text).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        assert!(!run.dir().join("modes.csv").exists());
+        assert!(npz_in(&run).is_empty());
+    }
+
+    /// An fdfd job's `field.npz` is the run's own field: its |H_z|² over the pictured cells,
+    /// scaled as the [`Event::Field`] scales it, is that picture to the bit; and
+    /// `s_parameters.csv` is every [`Event::SParameters`]'s numbers to the bit.
+    #[test]
+    fn an_fdfd_export_is_the_runs_own_field_and_s_parameters_to_the_bit() {
+        let root = temp("fdfd-export");
+        let text = format!("{FDFD}\n[task.export]\nformat = \"both\"\n");
+        let job = Job::parse(&text).unwrap();
+        let mut run = Run::create(&root.0, &job).unwrap();
+        execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let events: Vec<Event> = found(&run);
+        let (arrays, meta) = crate::export::read::npz(&run.dir().join("field.npz"));
+        assert!(meta.contains("unit amplitude"), "{meta}");
+        let x = arrays["x_um"].f64s();
+        let y = arrays["y_um"].f64s();
+        let hz = arrays["Hz"].c64s();
+        assert_eq!(arrays["Hz"].shape, [y.len(), x.len()]);
+        assert!(!arrays.contains_key("Ez"));
+        let Some(Event::Field {
+            intensity,
+            wavelength_um,
+            ..
+        }) = events.iter().find(|e| matches!(e, Event::Field { .. }))
+        else {
+            panic!("no field: {events:?}")
+        };
+        assert_eq!(arrays["wavelength_um"].f64s(), [*wavelength_um]);
+        // the picture's first column and row: the cell whose left edge is its edge
+        let dx = x[1] - x[0];
+        let mx = x
+            .iter()
+            .position(|&c| (c - 0.5 * dx - intensity.x0).abs() < 1e-9)
+            .unwrap();
+        let my = y
+            .iter()
+            .position(|&c| (c - 0.5 * dx - intensity.y0).abs() < 1e-9)
+            .unwrap();
+        let values: Vec<f64> = (0..intensity.ny)
+            .flat_map(|j| (0..intensity.nx).map(move |i| (i, j)))
+            .map(|(i, j)| hz[(my + j) * x.len() + mx + i].norm_sqr())
+            .collect();
+        let peak = values.iter().copied().fold(0.0, f64::max);
+        let scaled: Vec<f32> = values.iter().map(|v| (v / peak) as f32).collect();
+        assert_eq!(scaled, intensity.values);
+
+        let csv = std::fs::read_to_string(run.dir().join("s_parameters.csv")).unwrap();
+        let rows: Vec<Vec<String>> = csv
+            .lines()
+            .skip(1)
+            .map(crate::export::tables::fields)
+            .collect();
+        let mut expected = Vec::new();
+        for e in &events {
+            if let Event::SParameters {
+                wavelength_um,
+                ports,
+                s,
+                ..
+            } = e
+            {
+                for (q, row) in s.iter().enumerate() {
+                    for (p, z) in row.iter().enumerate() {
+                        expected.push((*wavelength_um, ports[q].clone(), ports[p].clone(), *z));
+                    }
+                }
+            }
+        }
+        assert_eq!(rows.len(), expected.len());
+        for (row, (w, to, from, z)) in rows.iter().zip(&expected) {
+            assert_eq!(row[0].parse::<f64>().unwrap().to_bits(), w.to_bits());
+            assert_eq!((&row[1], &row[2]), (to, from));
+            assert_eq!(row[3].parse::<f64>().unwrap().to_bits(), z[0].to_bits());
+            assert_eq!(row[4].parse::<f64>().unwrap().to_bits(), z[1].to_bits());
+        }
     }
 
     /// MODES, its modes travelling along x: the same strip turned a quarter turn.

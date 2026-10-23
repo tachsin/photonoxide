@@ -123,11 +123,11 @@ area convergence \
   "mode" \
   "convergence::" "" "hadley_corners"
 
-# exporting a run's results (issue #431): a modes job's own fields, written as `.npz` and csv;
-# used by the job area, which wires `[task.export]` into the modes job
+# exporting a run's results (issue #431): every run's tables as csv, from its record, and the
+# fields as `.npz`; used by the job area, which wires `[task.export]` into every kind
 area export \
   "src/export.rs src/export/*" \
-  "mode" \
+  "mode job" \
   "export::" "" ""
 
 # the component generators: shapes on layers with named ports, which the devices draw their

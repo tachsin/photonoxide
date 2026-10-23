@@ -596,6 +596,9 @@ pub(super) struct StudyTask {
     axis: Vec<SweepAxis>,
     #[serde(default)]
     corner: Vec<CornerTask>,
+    /// What the run writes beside its record: its tables as CSV ([`crate::export`]).
+    #[allow(dead_code)] // read by super::export_of, checked by serde
+    export: Option<super::ExportSpec>,
 }
 
 /// A `[[task.corner]]`.

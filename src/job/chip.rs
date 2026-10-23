@@ -827,6 +827,9 @@ pub(super) struct ChipTask {
     axis: Vec<SweepAxis>,
     #[serde(default)]
     corner: Vec<super::study::CornerTask>,
+    /// What the run writes beside its record: its tables as CSV ([`crate::export`]).
+    #[allow(dead_code)] // read by super::export_of, checked by serde
+    export: Option<super::ExportSpec>,
 }
 
 /// The wavelengths `from_um` to `to_um`, `points` of them (`default` when not given).

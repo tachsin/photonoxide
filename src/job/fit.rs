@@ -88,6 +88,9 @@ pub(super) struct FitTask {
     interpolation: Option<String>,
     #[serde(default)]
     axis: Vec<AxisTask>,
+    /// What the run writes beside its record: its tables as CSV ([`crate::export`]).
+    #[allow(dead_code)] // read by super::export_of, checked by serde
+    export: Option<super::ExportSpec>,
 }
 
 impl FitTask {

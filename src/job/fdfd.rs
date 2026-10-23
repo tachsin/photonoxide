@@ -85,6 +85,10 @@ pub(super) struct FdfdTask {
     #[serde(default)]
     port: Vec<PortSpec>,
     sweep: Option<WavelengthSweep>,
+    /// What the run writes beside its record: the tables, and the field at `field_um` as an
+    /// npz when asked ([`crate::export`]).
+    #[allow(dead_code)] // read by super::export_of, checked by serde
+    export: Option<super::ExportSpec>,
 }
 
 impl FdfdTask {
@@ -895,6 +899,55 @@ fn coarse(values: &[f64], grid: &Grid, block: usize) -> Raster {
     }
 }
 
+/// The field from port 1 at one wavelength as an npz ([`crate::export::Npz`]): `x_um`, `y_um`
+/// (the cells' centres, the whole window, its PMLs included), `wavelength_um`, and the field
+/// along z, `component` (`"Hz"` for TE, `"Ez"` for TM), `(ny, nx)`.
+#[allow(clippy::too_many_arguments)]
+fn export_field(
+    path: &std::path::Path,
+    meta: &crate::export::Meta,
+    export: &super::ExportSpec,
+    grid: &Grid,
+    field: &crate::fdfd::Field2d,
+    component: &str,
+    wavelength_um: f64,
+    pml_cells: usize,
+) -> Result<u64> {
+    let (nx, ny) = (grid.nx, grid.ny);
+    let x: Vec<f64> = (0..nx)
+        .map(|i| grid.x0 + (i as f64 + 0.5) * grid.dx)
+        .collect();
+    let y: Vec<f64> = (0..ny)
+        .map(|j| grid.y0 + (j as f64 + 0.5) * grid.dy)
+        .collect();
+    let values: Vec<c64> = (0..ny)
+        .flat_map(|j| (0..nx).map(move |i| (i, j)))
+        .map(|(i, j)| field.at(i, j))
+        .collect();
+    let mut npz = export.npz_file();
+    npz.exact("x_um", &[nx], &x);
+    npz.exact("y_um", &[ny], &y);
+    npz.exact("wavelength_um", &[], &[wavelength_um]);
+    npz.complex_field(component, &[ny, nx], &values);
+    let grid_text = format!(
+        "x_um and y_um name each cell's centre, where the field along z sits \
+         (crate::fdfd::Grid); the whole window, its PMLs ({pml_cells} cells on each side) \
+         included; the field (ny, nx), row j at y_um[j], column i at x_um[i]"
+    );
+    npz.meta(
+        meta,
+        &crate::export::Described {
+            grid: &grid_text,
+            units: "um for lengths; Ez as the solver has it, Hz as H~z = Z0 Hz (Z0 the free \
+                    space impedance): E and H~ in the same units",
+            normalization: "the total field port 1's mode launches at unit amplitude \
+                            (crate::fdfd::ports), from its guide's end of the window: the \
+                            S-parameters' own source",
+        },
+    );
+    npz.write(path)
+}
+
 pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let mut device = Device::new(job)?;
     // decided once for the run: the record and every solve take the same backend
@@ -980,6 +1033,18 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         .collect(),
     })?;
     let pml_cells = task.pml_cells.unwrap_or(20);
+    // the field at field_um as an npz, when [task.export] asks for it
+    let export = super::export_of(job)?;
+    let component = match device.kind {
+        crate::mode::Polarization::Te => "Hz",
+        crate::mode::Polarization::Tm => "Ez",
+    };
+    let npz = (export.keeps(component) && !run.dir().as_os_str().is_empty()).then(|| {
+        (
+            run.dir().join("field.npz"),
+            crate::export::Meta::of(job, run),
+        )
+    });
     // the pictures show the window without its PMLs
     let (inner, [mx, my]) = pictured(&device.grid, pml_cells);
     let block = match &task.sweep {
@@ -1033,6 +1098,20 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             let source = current.mode_source(launched.as_ref().unwrap_or(&first.mode), direction);
             let field = current.solve_system(&source)?;
             residual = Some(current.residual(&field, &source)?);
+            if step == field_step
+                && let Some((path, meta)) = &npz
+            {
+                export_field(
+                    path,
+                    meta,
+                    &export,
+                    &device.grid,
+                    &field,
+                    component,
+                    w.to_um(),
+                    pml_cells,
+                )?;
+            }
             let values: Vec<f64> = (0..inner.ny)
                 .flat_map(|j| (0..inner.nx).map(move |i| (i, j)))
                 .map(|(i, j)| field.at(mx + i, my + j).norm_sqr())

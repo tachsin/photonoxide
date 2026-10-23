@@ -537,3 +537,39 @@ growth = 1.0",
         assert!(e.contains(says), "{says}: {e}");
     }
 }
+
+/// `[task.export]` writes the temperature as `static.npz`, the solver's own values on its graded
+/// grid: their largest is the run's own "largest" to the bit, and `static.csv` holds the run's
+/// numbers to the bit.
+#[test]
+fn a_static_export_writes_the_temperature_and_the_numbers_to_the_bit() {
+    let dir = temp("export");
+    let job = Job::parse(&format!("{HEATER}\n[task.export]\nformat = \"both\"\n")).unwrap();
+    let mut run = Run::create(&dir.0, &job).unwrap();
+    execute(&job, &mut run, &Stop::new(None)).unwrap();
+    let ev: Vec<Event> = replay(run.dir()).unwrap();
+    let (_, _, _, values) = result(&ev);
+    let (arrays, meta) = crate::export::read::npz(&run.dir().join("static.npz"));
+    assert!(meta.contains("graded"), "{meta}");
+    assert!(!arrays.contains_key("potential"));
+    let (y, z) = (arrays["y_um"].f64s(), arrays["z_um"].f64s());
+    assert_eq!(arrays["y_nodes_um"].f64s().len(), y.len() + 1);
+    assert_eq!(arrays["z_nodes_um"].f64s().len(), z.len() + 1);
+    let t = arrays["temperature"].f64s();
+    assert_eq!(arrays["temperature"].shape, [z.len(), y.len()]);
+    let largest = t.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let recorded = values.iter().find(|v| v.name == "largest").unwrap().value;
+    assert_eq!(largest.to_bits(), recorded.to_bits());
+
+    let csv = std::fs::read_to_string(run.dir().join("static.csv")).unwrap();
+    let rows: Vec<Vec<&str>> = csv
+        .lines()
+        .skip(1)
+        .map(|l| l.split(',').collect())
+        .collect();
+    assert_eq!(rows.len(), values.len());
+    for (row, v) in rows.iter().zip(&values) {
+        assert_eq!(row[1], v.name);
+        assert_eq!(row[2].parse::<f64>().unwrap().to_bits(), v.value.to_bits());
+    }
+}

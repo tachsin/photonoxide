@@ -353,6 +353,47 @@ pub(super) struct StaticTask {
     conductor: Vec<Area>,
     #[serde(default)]
     probe: Vec<Area>,
+    /// What the run writes beside its record: the tables, and the temperature and the
+    /// potential on the grid as an npz when asked ([`crate::export`]).
+    #[allow(dead_code)] // read by super::export_of, checked by serde
+    export: Option<super::ExportSpec>,
+}
+
+/// The fields of a static job as an npz ([`crate::export::Npz`]): `y_um`, `z_um` (the cells'
+/// centres), `y_nodes_um`, `z_nodes_um` (their edges, the grid graded), and each of `fields`
+/// that `export` keeps, `(nz, ny)` in its unit.
+fn export_fields(
+    path: &std::path::Path,
+    meta: &crate::export::Meta,
+    export: &super::ExportSpec,
+    grid: &Grid,
+    fields: &[(&str, &Field)],
+) -> Result<u64> {
+    let (x, y) = (grid.x(), grid.y());
+    let centres =
+        |a: &crate::statics::Axis| -> Vec<f64> { (0..a.cells()).map(|i| a.centre(i)).collect() };
+    let mut npz = export.npz_file();
+    npz.exact("y_um", &[x.cells()], &centres(x));
+    npz.exact("z_um", &[y.cells()], &centres(y));
+    npz.exact("y_nodes_um", &[x.nodes().len()], x.nodes());
+    npz.exact("z_nodes_um", &[y.nodes().len()], y.nodes());
+    for (name, field) in fields {
+        if export.keeps(name) {
+            npz.field(name, &[y.cells(), x.cells()], field.values());
+        }
+    }
+    npz.meta(
+        meta,
+        &crate::export::Described {
+            grid: "the cross-section across the guide (y) and up (z), graded: y_um and z_um \
+                   name each cell's centre, where the values sit (crate::statics::Field), \
+                   y_nodes_um and z_nodes_um its edges; each field (nz, ny), row j at z_um[j], \
+                   column i at y_um[i]",
+            units: "um for lengths; temperature in K, potential in V",
+            normalization: "none: the solver's own values, held regions at their own",
+        },
+    );
+    npz.write(path)
 }
 
 /// What a static job sets up: the section, its grid and the physics' problems.
@@ -936,8 +977,14 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let (smallest_y, largest_y) = setup.grid.y().steps();
     let mut values = Vec::new();
     let axes = ["y".to_owned(), "z".to_owned()];
+    // the fields solved, for [task.export]
+    let export = super::export_of(job)?;
+    let mut solved: Vec<(&str, Field)> = Vec::new();
     if let Some(e) = &setup.electrostatic {
         let field = e.solve()?;
+        if export.npz() {
+            solved.push(("potential", field.clone()));
+        }
         run.record(&Event::StaticField {
             label: "potential".into(),
             unit: "V".into(),
@@ -963,6 +1010,9 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let mut joule = None;
     if let Some(c) = &setup.current {
         let flow = c.solve()?;
+        if export.npz() {
+            solved.push(("potential", flow.field().clone()));
+        }
         run.record(&Event::StaticField {
             label: "potential".into(),
             unit: "V".into(),
@@ -987,6 +1037,9 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             h.joule(flow)?;
         }
         let field = h.solve()?;
+        if export.npz() {
+            solved.push(("temperature", field.clone()));
+        }
         run.record(&Event::StaticField {
             label: "temperature".into(),
             unit: "K".into(),
@@ -1007,6 +1060,16 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         if let Some(transient) = &setup.transient {
             in_time(&setup, &h, transient, run, stop, &mut values)?;
         }
+    }
+    if export.npz() && !solved.is_empty() && !run.dir().as_os_str().is_empty() {
+        let fields: Vec<(&str, &Field)> = solved.iter().map(|(n, f)| (*n, f)).collect();
+        export_fields(
+            &run.dir().join("static.npz"),
+            &crate::export::Meta::of(job, run),
+            &export,
+            &setup.grid,
+            &fields,
+        )?;
     }
     run.record(&Event::StaticResult {
         physics: setup.physics.clone(),

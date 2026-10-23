@@ -491,3 +491,61 @@ fn a_study_farms_and_a_spectrum_doesnt() {
     assert!(farms(&study_from_device("s", &s, &band(), &study).unwrap()));
     assert!(!farms(&from_device("s", &s, &band()).unwrap()));
 }
+
+/// A study's run writes `study.csv` by default: a row each point's S-matrix element at each
+/// wavelength, after the device's parameters, every number its [`Event::DevicePoint`]'s to the
+/// bit.
+#[test]
+fn a_study_writes_its_points_as_a_table_to_the_bit() {
+    let s = spec("all-pass ring", Fidelity::Analytic, &[]);
+    let study = Study::Sweep(vec![SweepAxis::new("radius", 5.0, 20.0, 3)]);
+    let job = study_from_device("ring-table", &s, &band(), &study).unwrap();
+    let root = temp("table");
+    let mut run = Run::create(&root.0, &job).unwrap();
+    execute(&job, &mut run, &Stop::new(None)).unwrap();
+    let events: Vec<Event> = replay(run.dir()).unwrap();
+    let csv = std::fs::read_to_string(run.dir().join("study.csv")).unwrap();
+    let mut lines = csv.lines().map(crate::export::tables::fields);
+    let header = lines.next().unwrap();
+    let Some(Event::DeviceStudy {
+        parameters,
+        wavelengths_um,
+        ports,
+        ..
+    }) = events
+        .iter()
+        .find(|e| matches!(e, Event::DeviceStudy { .. }))
+    else {
+        panic!("no study")
+    };
+    assert_eq!(header[2..2 + parameters.len()], parameters[..]);
+    let rows: Vec<Vec<String>> = lines.collect();
+    let n = 2 + parameters.len() + 1;
+    let mut k = 0;
+    for e in &events {
+        let Event::DevicePoint {
+            point, values, s, ..
+        } = e
+        else {
+            continue;
+        };
+        for (w, m) in wavelengths_um.iter().zip(s) {
+            for (q, row) in m.iter().enumerate() {
+                for (p, z) in row.iter().enumerate() {
+                    let r = &rows[k];
+                    k += 1;
+                    assert_eq!(r[0], point.to_string());
+                    for (c, v) in values.iter().enumerate() {
+                        assert_eq!(r[2 + c].parse::<f64>().unwrap().to_bits(), v.to_bits());
+                    }
+                    assert_eq!(r[n].parse::<f64>().unwrap().to_bits(), w.to_bits());
+                    assert_eq!((&r[n + 1], &r[n + 2]), (&ports[q], &ports[p]));
+                    assert_eq!(r[n + 3].parse::<f64>().unwrap().to_bits(), z[0].to_bits());
+                    assert_eq!(r[n + 4].parse::<f64>().unwrap().to_bits(), z[1].to_bits());
+                }
+            }
+        }
+    }
+    assert_eq!(k, rows.len());
+    assert!(k > 0);
+}

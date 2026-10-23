@@ -279,6 +279,10 @@
           },
           "type": "array"
         },
+        "export": {
+          "$ref": "#/$defs/ExportSpec",
+          "description": "What the run writes beside its record: its tables as CSV (`crate::export`)."
+        },
         "from": {
           "anyOf": [
             {
@@ -2244,10 +2248,17 @@
     },
     "ExportSpec": {
       "additionalProperties": false,
-      "description": "A modes job's `[task.export]`: each solved mode's complex fields as an `.npz` (`mode-<k of n>.npz`), a summary table of every mode as `modes.csv`, or both, written into the run's directory (`crate::export`).",
+      "description": "A job's `[task.export]`: what its run writes into its directory beside `events.jsonl` (`crate::export`). A job without one writes every table its run has, as CSV, and no fields.",
       "properties": {
+        "fields": {
+          "description": "Which fields: `\"Ex\"`, `\"Ey\"`, `\"Ez\"`, `\"Hx\"`, `\"Hy\"`, `\"Hz\"`, `\"temperature\"`, `\"potential\"`; every one the kind computes by default.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "format": {
-          "description": "`\"npz\"` (the fields), `\"csv\"` (the summary table) or `\"both\"`.",
+          "description": "`\"csv\"` (the tables), `\"npz\"` (the fields), `\"both\"` or `\"none\"`: `\"both\"` when `fields` is given, `\"csv\"` otherwise.",
           "type": "string"
         },
         "level": {
@@ -2257,13 +2268,17 @@
           "type": "integer"
         },
         "precision": {
-          "description": "`\"f32\"` or `\"f64\"` (the default): the npz's fields' precision.",
+          "description": "`\"f32\"` or `\"f64\"` (the default): the npz's fields' precision (the grids and the small numbers stay `f64`).",
           "type": "string"
+        },
+        "tables": {
+          "description": "Which tables, by name: `\"modes\"`, `\"sweep\"`, `\"s_parameters\"`, `\"spectra\"`, `\"resonances\"`, `\"study\"`, `\"history\"`, `\"static\"`, `\"transient\"`; every one the run has by default.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
-      "required": [
-        "format"
-      ],
       "type": "object"
     },
     "Expression": {
@@ -2461,6 +2476,10 @@
         },
         "core_nm": {
           "type": "number"
+        },
+        "export": {
+          "$ref": "#/$defs/ExportSpec",
+          "description": "What the run writes beside its record: the tables, and the field at `field_um` as an npz when asked (`crate::export`)."
         },
         "field": {
           "anyOf": [
@@ -2865,6 +2884,10 @@
           "minimum": 0,
           "type": "integer"
         },
+        "export": {
+          "$ref": "#/$defs/ExportSpec",
+          "description": "What the run writes beside its record: the tables, and the field monitors' transforms as npz files when asked (`crate::export`)."
+        },
         "kind": {
           "type": "string"
         },
@@ -3115,6 +3138,10 @@
         "degree": {
           "minimum": 0,
           "type": "integer"
+        },
+        "export": {
+          "$ref": "#/$defs/ExportSpec",
+          "description": "What the run writes beside its record: its tables as CSV (`crate::export`)."
         },
         "from": {
           "anyOf": [
@@ -4013,6 +4040,10 @@
         "evaluations": {
           "minimum": 0,
           "type": "integer"
+        },
+        "export": {
+          "$ref": "#/$defs/ExportSpec",
+          "description": "What the run writes beside its record: its tables as CSV (`crate::export`)."
         },
         "from": {
           "anyOf": [
@@ -6955,6 +6986,10 @@
       ],
       "description": "A `\"spectrum\"` task: the band and the grids.",
       "properties": {
+        "export": {
+          "$ref": "#/$defs/ExportSpec",
+          "description": "What the run writes beside its record: its tables as CSV (`crate::export`)."
+        },
         "from": {
           "anyOf": [
             {
@@ -7287,6 +7322,10 @@
             "$ref": "#/$defs/CoefficientSpec"
           },
           "type": "object"
+        },
+        "export": {
+          "$ref": "#/$defs/ExportSpec",
+          "description": "What the run writes beside its record: the tables, and the temperature and the potential on the grid as an npz when asked (`crate::export`)."
         },
         "fine": {
           "anyOf": [
@@ -7978,6 +8017,10 @@
             "$ref": "#/$defs/CornerTask"
           },
           "type": "array"
+        },
+        "export": {
+          "$ref": "#/$defs/ExportSpec",
+          "description": "What the run writes beside its record: its tables as CSV (`crate::export`)."
         },
         "from": {
           "anyOf": [

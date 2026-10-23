@@ -464,6 +464,9 @@ pub(super) struct SpectrumTask {
     samples: Option<usize>,
     pml_cells: Option<usize>,
     model_2d: Option<String>,
+    /// What the run writes beside its record: its tables as CSV ([`crate::export`]).
+    #[allow(dead_code)] // read by super::export_of, checked by serde
+    export: Option<super::ExportSpec>,
 }
 
 /// A `"spectrum"` job read and checked: the design, the device on its grids, the wavelengths.

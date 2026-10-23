@@ -30,6 +30,8 @@ A stopped run's folder holds what was done before it stopped.
 | `events.jsonl` | the record, one JSON event a line, written as the run goes: what the studio's views show |
 | `results.json` | the run's numbers, written when it ends however it ends: what a script reads |
 | `*.f64`, `*.c128` | `results.json`'s large arrays, as raw numbers |
+| `*.csv` | the run's tables, written when it ends: n_eff, S-parameters, spectra, a study's points, an optimization's history, a static job's numbers ([export](methods/export.md)) |
+| `*.npz` | the fields, as NumPy's arrays, when the job's `[task.export]` asks for them ([export](methods/export.md)) |
 
 ## `results.json`
 

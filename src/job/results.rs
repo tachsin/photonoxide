@@ -566,8 +566,26 @@ impl Results {
     }
 }
 
-/// Writes `run`'s `results.json` from its record, if it has a directory. A line that isn't
-/// one of [`Event`]'s (a line cut off mid-write) is passed over.
+/// The events of the run directory `dir`'s `events.jsonl`. A line that isn't one of
+/// [`Event`]'s (a line cut off mid-write) is passed over.
+///
+/// # Errors
+///
+/// [`Error::Io`] if the record can't be read.
+pub(crate) fn events_in(dir: &Path) -> Result<Vec<Event>> {
+    let path = dir.join("events.jsonl");
+    let text = std::fs::read_to_string(&path).map_err(|e| Error::Io {
+        path: path.display().to_string(),
+        reason: e.to_string(),
+    })?;
+    Ok(text
+        .lines()
+        .filter_map(|line| serde_json::from_str(line).ok())
+        .collect())
+}
+
+/// Writes `run`'s `results.json` from its record, if it has a directory, and the tables its
+/// job's `[task.export]` asks for ([`crate::export::tables`]): every one it has by default.
 ///
 /// # Errors
 ///
@@ -577,16 +595,12 @@ pub(crate) fn write_for(run: &Run) -> Result<()> {
     if dir.as_os_str().is_empty() {
         return Ok(());
     }
-    let path = dir.join("events.jsonl");
-    let text = std::fs::read_to_string(&path).map_err(|e| Error::Io {
-        path: path.display().to_string(),
-        reason: e.to_string(),
-    })?;
-    let events: Vec<Event> = text
-        .lines()
-        .filter_map(|line| serde_json::from_str(line).ok())
-        .collect();
-    Results::collect(&events).write(dir)
+    let events = events_in(dir)?;
+    Results::collect(&events).write(dir)?;
+    if let Some(which) = super::export_in(dir).tables() {
+        crate::export::tables::write_tables_of(dir, &events, which.as_deref())?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
