@@ -139,6 +139,20 @@ pub struct Mode {
     pub cut_um: f64,
 }
 
+/// A mode's effective index with its grid's check ([`crate::convergence`]): the grid study a
+/// modes job's `[task.convergence]` made, or [`crate::convergence::Verdict::Unchecked`] for a
+/// mode solved on one grid.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct GridCheck {
+    /// The mode's label, as in [`Results::modes`].
+    pub label: String,
+    /// Its wavelength, µm.
+    pub wavelength_um: f64,
+    /// Its Re n_eff, its grid, the study and the verdict.
+    pub check: crate::convergence::Convergence,
+}
+
 /// A point of a sweep.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SweepPoint {
@@ -234,6 +248,11 @@ pub struct Results {
     pub grids: Vec<Grid>,
     /// The modes it found.
     pub modes: Vec<Mode>,
+    /// Each mode's effective index with its grid's check, in the modes' order: converged, not
+    /// converged or unchecked (grid convergence gates every reported number: ROADMAP's
+    /// pitfalls).
+    #[serde(default)]
+    pub convergence: Vec<GridCheck>,
     /// Its sweep, if it had one.
     pub sweep: Option<Sweep>,
     /// Its S-parameters, if it computed any.
@@ -258,6 +277,7 @@ impl Results {
             seconds: None,
             grids: Vec::new(),
             modes: Vec::new(),
+            convergence: Vec::new(),
             sweep: None,
             s_parameters: None,
             spectra: Vec::new(),
@@ -265,6 +285,10 @@ impl Results {
         };
         // the S-parameters' rows as they come: (wavelength, ports, indices, s)
         let mut s_rows: Vec<SRow<'_>> = Vec::new();
+        // each mode's grid (the solver's before it), and the grid studies recorded
+        let mut step = f64::NAN;
+        let mut mode_steps = Vec::new();
+        let mut checked: Vec<GridCheck> = Vec::new();
         for event in events {
             match event {
                 Event::Started { job, kind } => {
@@ -277,13 +301,16 @@ impl Results {
                     step_um,
                     unknowns,
                     details,
-                } => r.grids.push(Grid {
-                    module: module.clone(),
-                    cells: *cells,
-                    step_um: *step_um,
-                    unknowns: *unknowns,
-                    details: details.clone(),
-                }),
+                } => {
+                    step = *step_um;
+                    r.grids.push(Grid {
+                        module: module.clone(),
+                        cells: *cells,
+                        step_um: *step_um,
+                        unknowns: *unknowns,
+                        details: details.clone(),
+                    });
+                }
                 Event::Mode {
                     label,
                     wavelength_um,
@@ -291,12 +318,24 @@ impl Results {
                     te_fraction,
                     cut_y_um,
                     ..
-                } => r.modes.push(Mode {
+                } => {
+                    mode_steps.push(step);
+                    r.modes.push(Mode {
+                        label: label.clone(),
+                        wavelength_um: *wavelength_um,
+                        effective_index: *effective_index,
+                        te_fraction: *te_fraction,
+                        cut_um: *cut_y_um,
+                    });
+                }
+                Event::GridConvergence {
+                    label,
+                    wavelength_um,
+                    check,
+                } => checked.push(GridCheck {
                     label: label.clone(),
                     wavelength_um: *wavelength_um,
-                    effective_index: *effective_index,
-                    te_fraction: *te_fraction,
-                    cut_um: *cut_y_um,
+                    check: check.clone(),
                 }),
                 Event::Sweep { parameter, .. } => {
                     r.sweep.get_or_insert_with(|| Sweep {
@@ -393,6 +432,27 @@ impl Results {
                 _ => {}
             }
         }
+        // every mode's index with its check: the study recorded, or none
+        r.convergence = r
+            .modes
+            .iter()
+            .zip(&mode_steps)
+            .map(|(m, &h)| {
+                checked
+                    .iter()
+                    .find(|c| c.label == m.label && c.wavelength_um == m.wavelength_um)
+                    .cloned()
+                    .unwrap_or_else(|| GridCheck {
+                        label: m.label.clone(),
+                        wavelength_um: m.wavelength_um,
+                        check: crate::convergence::Convergence::unchecked(
+                            &format!("Re n_eff of {}", m.label),
+                            h,
+                            m.effective_index[0],
+                        ),
+                    })
+            })
+            .collect();
         if let Some((_, ports, _, _)) = s_rows.first() {
             let ports: Vec<String> = ports.to_vec();
             let p = ports.len();

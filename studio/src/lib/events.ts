@@ -118,6 +118,27 @@ export interface ModeLoss {
   loss_db_per_cm: number;
 }
 
+/** A mode's Re n_eff with its grid study: the run's grid's value, coarser grids' and the verdict. */
+export interface GridConvergence {
+  type: "grid_convergence";
+  label: string;
+  wavelength_um: number;
+  check: {
+    quantity: string;
+    value: number;
+    step_um: number;
+    steps_um: number[];
+    values: number[];
+    tolerance: number | null;
+    /** The estimated error; null on one grid or where the grids don't converge. */
+    error: number | null;
+    order: number | null;
+    limit: number | null;
+    verdict: "converged" | "not_converged" | "unchecked";
+    reason: string;
+  };
+}
+
 /** A loss in dB/cm as the views show it: three digits, in powers of ten when small or large. */
 export function lossText(db: number): string {
   const a = Math.abs(db);
@@ -604,6 +625,7 @@ export type Event =
   | Mode
   | ModeField
   | ModeLoss
+  | GridConvergence
   | SweepPoint
   | SweepShapes
   | SweepPermittivity

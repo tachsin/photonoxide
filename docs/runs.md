@@ -45,6 +45,7 @@ A stopped run's folder holds what was done before it stopped.
   "seconds": 0.151,
   "grids": [{ "module": "fdfd", "cells": [70, 70], "step_um": 0.04, "unknowns": 4900, "details": [["PML", "20 cells on each side, inside the window"]] }],
   "modes": [],
+  "convergence": [],
   "sweep": null,
   "s_parameters": {
     "ports": ["1 (left, x = -0.4 um)", "2 (right, x = 0.4 um)"],
@@ -68,6 +69,7 @@ A stopped run's folder holds what was done before it stopped.
 | `seconds` | how long it ran; `null` if it was cut off |
 | `grids` | each grid a solver ran on: `module`, `cells` along its two axes, `step_um`, `unknowns`, and what else it says (`details`, pairs of strings) |
 | `modes` | each mode found: `label`, `wavelength_um`, `effective_index` ([real, imaginary]), `te_fraction` (near 1 for TE-like), `cut_um` (where along the guide its cross-section was cut) |
+| `convergence` | each mode's `label`, `wavelength_um` and `check`: its Re n_eff (`value`) on its grid (`step_um`), the grid study (`steps_um`, coarsest first, and `values`), the `tolerance`, the estimated `error`, the observed `order` and Richardson's `limit` where three grids give them, the `verdict` (`converged`, `not_converged`, or `unchecked` for a mode solved on one grid) and its `reason`. A modes job's `[task.convergence]` makes the study (docs/methods/convergence.md); without it every mode is `unchecked` |
 | `sweep` | a sweep's `parameter` (`wavelength`, `width` or a parameter's name) and its `points`, in order, each with its `value` (µm for the wavelength, a width or a length; radians for an angle), `wavelength_um`, `effective_indices` (highest first, [real, imaginary] each) and `te_fractions` |
 | `s_parameters` | a 2D FDFD run's `ports`, its `wavelengths_um`, each port mode's `effective_indices` (shape [wavelengths, ports]) and the power-normalized S-matrix `s` (shape [wavelengths, ports, ports]: `s[k][q][p]` is from port p into port q at wavelength k) |
 | `spectra` | each FDTD monitor's spectrum as it stood at the end: `monitor`, `kind`, `quantity`, `wavelengths_um`, the series' `labels`, their `values` (shape [series, wavelengths]) and `time_um` (how far the run had gone, µm of c t) |

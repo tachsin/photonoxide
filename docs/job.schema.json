@@ -586,6 +586,29 @@
       ],
       "type": "object"
     },
+    "ConvergenceSpec": {
+      "additionalProperties": false,
+      "description": "A modes job's `[task.convergence]`: the grid study behind each mode's effective index. The modes are solved again on grids each twice as coarse, and the task's grid's Re n_eff, the number reported, is checked by `crate::convergence::Study::check`.",
+      "properties": {
+        "grids": {
+          "description": "How many grids, the task's among them: 2 (a first-order estimate) or 3 (Richardson's, the default).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "require": {
+          "description": "Fail the run when a mode's grid hasn't converged (by default its record says so and the run goes on).",
+          "type": "boolean"
+        },
+        "tolerance": {
+          "description": "The tolerance on each Re n_eff's estimated error.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tolerance"
+      ],
+      "type": "object"
+    },
     "CornerTask": {
       "additionalProperties": false,
       "description": "A `[[task.corner]]`.",
@@ -3697,6 +3720,10 @@
             "$ref": "#/$defs/CircleSpec"
           },
           "type": "array"
+        },
+        "convergence": {
+          "$ref": "#/$defs/ConvergenceSpec",
+          "description": "The modes' grid checked: each effective index solved again on coarser grids, and its error estimated against a tolerance (`crate::convergence`)."
         },
         "core": {
           "anyOf": [

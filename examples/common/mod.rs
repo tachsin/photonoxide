@@ -52,6 +52,27 @@ impl Checks {
         );
     }
 
+    /// Checks the grid a reported number was computed on ([`photonoxide::convergence`]): its
+    /// grid study's estimate of its error within the study's tolerance. Fails on an unconverged
+    /// grid and on a number from one grid, which has no check.
+    pub fn converged(&mut self, what: &str, c: &photonoxide::convergence::Convergence) {
+        let estimate = c
+            .error
+            .map_or_else(|| "none".to_owned(), |e| format!("{e:.1e}"));
+        let order = c
+            .order
+            .map_or_else(String::new, |p| format!(", order {p:.2}"));
+        self.row(
+            c.converged(),
+            format!(
+                "  {what:<34} {:>12.6}   on {} grids, error {estimate}{order} ≤ {:e}",
+                c.value,
+                c.values.len(),
+                c.tolerance.unwrap_or(f64::NAN)
+            ),
+        );
+    }
+
     fn row(&mut self, ok: bool, text: String) {
         self.total += 1;
         if !ok {

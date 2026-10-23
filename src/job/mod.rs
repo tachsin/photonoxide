@@ -1302,6 +1302,16 @@ pub enum Event {
         /// The evaluations before it.
         evaluations: usize,
     },
+    /// A reported number's grid study ([`crate::convergence`]): a mode's Re n_eff on the run's
+    /// grid and on coarser ones, its estimated error and whether it is within the tolerance.
+    GridConvergence {
+        /// The mode's label, as its [`Event::Mode`] has it, e.g. `"mode 1 of 2"`.
+        label: String,
+        /// Its wavelength, µm.
+        wavelength_um: f64,
+        /// The study and its verdict; its value is the run's grid's.
+        check: crate::convergence::Convergence,
+    },
 }
 
 /// A port of a [`Event::Ports`]: where a component's guide ends, by its name.
@@ -2405,6 +2415,9 @@ impl ModesTask {
         if let Some(export) = &self.export {
             export.validate()?;
         }
+        if let Some(c) = &self.convergence {
+            c.validate(self)?;
+        }
         let Some(sweep) = &self.sweep else {
             return Ok(());
         };
@@ -2698,6 +2711,9 @@ struct ModesTask {
     /// Writes each mode's complex fields, and a summary table of every mode, into the run's
     /// directory (issue #431; not a sweep's points, which stay pictures only).
     export: Option<ExportSpec>,
+    /// The modes' grid checked: each effective index solved again on coarser grids, and its
+    /// error estimated against a tolerance ([`crate::convergence`]).
+    convergence: Option<ConvergenceSpec>,
     sweep: Option<SweepSpec>,
     /// The names of `[task.parameters]`, which a sweep may step through: set after reading.
     #[serde(skip)]
@@ -2752,6 +2768,68 @@ impl PmlSpec {
             self.strength(),
             self.strength()
         )
+    }
+}
+
+/// A modes job's `[task.convergence]`: the grid study behind each mode's effective index. The
+/// modes are solved again on grids each twice as coarse, and the task's grid's Re n_eff, the
+/// number reported, is checked by [`crate::convergence::Study::check`].
+#[derive(Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct ConvergenceSpec {
+    /// The tolerance on each Re n_eff's estimated error.
+    tolerance: f64,
+    /// How many grids, the task's among them: 2 (a first-order estimate) or 3 (Richardson's,
+    /// the default).
+    grids: Option<usize>,
+    /// Fail the run when a mode's grid hasn't converged (by default its record says so and the
+    /// run goes on).
+    require: Option<bool>,
+}
+
+impl ConvergenceSpec {
+    fn grids(&self) -> usize {
+        self.grids.unwrap_or(3)
+    }
+
+    /// The tolerance, the grids, and the coarsest grid's cells in the windows and the PML.
+    fn validate(&self, task: &ModesTask) -> Result<()> {
+        if !(self.tolerance.is_finite() && self.tolerance > 0.0) {
+            return Err(task_error(format!(
+                "[task.convergence] tolerance must be above 0, got {}",
+                self.tolerance
+            )));
+        }
+        if !matches!(self.grids(), 2 | 3) {
+            return Err(task_error(format!(
+                "[task.convergence] grids is 2 or 3 (the task's and coarser ones), got {}",
+                self.grids()
+            )));
+        }
+        if task.sweep.is_some() {
+            return Err(task_error(
+                "[task.convergence] checks the modes at the task's wavelength, not a sweep's \
+                 points: give one or the other",
+            ));
+        }
+        let coarsest = task.step_nm * f64::from(1u32 << (self.grids() - 1));
+        let name = |what: &str| format!("the coarsest grid's (step {coarsest} nm) {what}");
+        check_cells(&name("window across the guide"), task.across()?, coarsest)?;
+        if let Some(z) = task.z_um {
+            check_cells(&name("z_um"), z, coarsest)?;
+        }
+        if let Some(pml) = &task.pml
+            && let Some(&t) = pml
+                .thickness_um
+                .iter()
+                .find(|&&t| t > 0.0 && t < PML_CELLS * coarsest / 1000.0)
+        {
+            return Err(task_error(format!(
+                "[task.convergence]: a PML {t} um thick is fewer than {PML_CELLS} cells of the \
+                 coarsest grid's {coarsest} nm: take fewer grids or a thicker PML"
+            )));
+        }
+        Ok(())
     }
 }
 
@@ -4122,6 +4200,72 @@ fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             error: m.residual(&cs)?,
         })?;
     }
+    // the grid study: each mode's Re n_eff on grids twice, then four times, as coarse, the
+    // run's grid's checked by it; a mode a coarser grid doesn't find hasn't converged
+    if let Some(spec) = &task.convergence {
+        let reported: Vec<f64> = sorted.iter().map(|m| m.effective_index().re).collect();
+        let mut coarse: Vec<(f64, Vec<f64>)> = Vec::new();
+        for g in (1..spec.grids()).rev() {
+            let h = step * f64::from(1u32 << g);
+            let cs = opened(cross_section(
+                &fs,
+                &frame.rect,
+                &frame.circle,
+                &frame.ring,
+                frame.cut,
+                across,
+                z,
+                h,
+                lam,
+                along,
+            )?)?;
+            let Some(found) = solve(&cs, lam)? else {
+                return Ok(());
+            };
+            let mut n: Vec<f64> = found.iter().map(|m| m.effective_index().re).collect();
+            n.sort_by(|a, b| b.total_cmp(a));
+            coarse.push((h, n));
+        }
+        let mut unconverged = Vec::new();
+        for (k, &n) in reported.iter().enumerate() {
+            let label = format!("mode {} of {}", k + 1, sorted.len());
+            let quantity = format!("Re n_eff of {label}");
+            let mut study = crate::convergence::Study::new(&quantity);
+            let mut missing = None;
+            for (h, values) in &coarse {
+                match values.get(k) {
+                    Some(&v) => study = study.on(*h, v)?,
+                    None => missing = Some(*h),
+                }
+            }
+            let mut check = study.on(step, n)?.check(spec.tolerance)?;
+            if let Some(h) = missing {
+                check.verdict = crate::convergence::Verdict::NotConverged;
+                check.error = None;
+                check.reason = format!(
+                    "not converged: the {h} um grid finds {} modes, not this one",
+                    coarse.iter().find(|c| c.0 == h).map_or(0, |c| c.1.len())
+                );
+            }
+            if !check.converged() {
+                unconverged.push(format!("{label}: {}", check.reason));
+            }
+            run.record(&Event::GridConvergence {
+                label,
+                wavelength_um: lam.to_um(),
+                check,
+            })?;
+        }
+        if spec.require == Some(true) && !unconverged.is_empty() {
+            return Err(Error::invalid(
+                "grid convergence",
+                format!(
+                    "[task.convergence] requires every mode's grid to converge: {}",
+                    unconverged.join("; ")
+                ),
+            ));
+        }
+    }
     // (validated above: at least 2 points, finite and distinct ends, a known parameter)
     let Some(sweep) = &task.sweep else {
         return Ok(());
@@ -4522,6 +4666,72 @@ segments = [
         assert_eq!(held, recorded);
         assert_eq!(r.outcome, "finished");
         assert!(r.grids.iter().any(|g| g.step_um > 0.0 && g.unknowns > 0));
+        // solved on one grid: each index is flagged unchecked, with its grid
+        assert_eq!(r.convergence.len(), r.modes.len());
+        for (c, m) in r.convergence.iter().zip(&r.modes) {
+            assert_eq!(c.check.verdict, crate::convergence::Verdict::Unchecked);
+            assert_eq!(
+                (c.check.value, c.check.step_um),
+                (m.effective_index[0], 0.025)
+            );
+        }
+    }
+
+    /// ROADMAP's pitfall, "a result quoted on one grid changed by 0.07 on the next", ruled
+    /// out for a modes job's indices: with `[task.convergence]` each is solved on the 50 and
+    /// 100 nm grids beside the run's 25 nm, and results.json says whether it has converged; an
+    /// index on an unconverged grid is caught, and refused where the task requires it.
+    #[test]
+    fn a_modes_jobs_index_on_an_unconverged_grid_is_caught() {
+        let one = MODES.replace("modes = 2", "modes = 1");
+        let checked = |tolerance: &str, require: bool| {
+            let text = format!(
+                "{one}\n[task.convergence]\ntolerance = {tolerance}\n{}",
+                if require { "require = true\n" } else { "" }
+            );
+            let job = Job::parse(&text).unwrap();
+            let root = temp(&format!("results-convergence-{tolerance}-{require}"));
+            let mut run = Run::create(&root.0, &job).unwrap();
+            let outcome = execute(&job, &mut run, &Stop::new(None));
+            (outcome, results::Results::read(run.dir()).unwrap(), root)
+        };
+        // the 25 nm grid's index moves by about 1e-3 from 50 nm: not within 1e-6
+        let (outcome, r, _root) = checked("1e-6", false);
+        outcome.unwrap();
+        let c = &r.convergence[0].check;
+        assert_eq!(
+            c.verdict,
+            crate::convergence::Verdict::NotConverged,
+            "{c:?}"
+        );
+        assert_eq!(c.steps_um, [0.1, 0.05, 0.025]);
+        assert_eq!(c.value, r.modes[0].effective_index[0]);
+        assert!(c.error.is_some_and(|e| e > 1e-6), "{c:?}");
+        assert!(c.gated().is_err());
+        // within 0.05 it has
+        let (outcome, r, _root) = checked("0.05", false);
+        outcome.unwrap();
+        let c = &r.convergence[0].check;
+        assert!(c.converged(), "{c:?}");
+        assert_eq!(c.gated().unwrap(), r.modes[0].effective_index[0]);
+        // required, the unconverged run fails and says why
+        let (outcome, r, _root) = checked("1e-6", true);
+        let e = outcome.unwrap_err().to_string();
+        assert!(e.contains("requires every mode's grid to converge"), "{e}");
+        assert_eq!(r.outcome, "failed");
+        // and what it refuses
+        for (table, says) in [
+            ("tolerance = 0.0", "above 0"),
+            ("tolerance = 1e-4\ngrids = 4", "2 or 3"),
+            (
+                "tolerance = 1e-4\ngrids = 3\n[task.pml]\nthickness_um = [0.25, 0.25, 0.0, 0.0]",
+                "PML",
+            ),
+        ] {
+            let job = Job::parse(&format!("{one}\n[task.convergence]\n{table}\n")).unwrap();
+            let e = check(&job).unwrap_err().to_string();
+            assert!(e.contains(says), "{e} lacks {says}");
+        }
     }
 
     #[test]

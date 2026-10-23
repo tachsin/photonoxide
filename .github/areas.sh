@@ -112,8 +112,16 @@ area thermo   "src/mode/thermo.rs src/mode/thermo_checks.rs"   "mode material st
 # holds the jobs as TOML, as they were before they were YAML, which the tests read and compare
 area job \
   "src/job/* src/run.rs src/farm.rs src/farm/* jobs/* tests/jobs-toml/* docs/job.schema.json" \
-  "material mode sparse fdfd fdtd circuit device generator statics export" \
+  "material mode sparse fdfd fdtd circuit device generator statics export convergence" \
   "job:: run:: farm::" "job/ generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
+
+# grid convergence, the gate a reported number passes (its grid study, by mode::vector's
+# Richardson extrapolation): a modes job's [task.convergence] and results.json take it, and the
+# examples' Checks (hadley_corners)
+area convergence \
+  "src/convergence.rs" \
+  "mode" \
+  "convergence::" "" "hadley_corners"
 
 # exporting a run's results (issue #431): a modes job's own fields, written as `.npz` and csv;
 # used by the job area, which wires `[task.export]` into the modes job

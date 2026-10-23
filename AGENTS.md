@@ -28,7 +28,9 @@ Python and MATLAB); next is 0.6, thermal and electro-optic devices, with 0.5.5 (
 - `backend`: the solver backends, photonoxide's own and the external libraries' (through
   `photonoxide-native`);
 - `job`, `run`: job files (a device computed at a fidelity or by FDTD: `job::from_device`), run
-  records and replay; `validation`: the report's cases; `bench`: the benchmark problems.
+  records and replay; `validation`: the report's cases; `bench`: the benchmark problems;
+  `convergence`: the gate a grid solve's reported number passes (its grid study, a modes job's
+  `[task.convergence]`, results.json's `convergence`, the examples' `Checks::converged`).
 - `facade`: what the bindings wrap, plain types only: materials, slab and full-vector modes, jobs
   and their runs, an FDFD job's S-parameters, circuits from a netlist given as data, Touchstone
   files; and `facade::conformance()`, calls with their results for the bindings' tests. A

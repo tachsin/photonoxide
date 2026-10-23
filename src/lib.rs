@@ -28,6 +28,8 @@
 //! - [`run`] and [`job`]: jobs as TOML, JSON or YAML files, and runs recorded as events that
 //!   replay exactly; the studio, the `photonoxide` program attached to each release, runs and
 //!   shows them.
+//! - [`convergence`]: the gate a number from a grid solve passes before it is reported: its
+//!   grid and a grid study's estimate of its error, Richardson's where three grids allow.
 //! - [`bench`](mod@bench): fixed problems that time the solvers at a stated accuracy, which
 //!   `photonoxide bench` runs.
 //! - [`parallel`]: independent problems (a sweep's points) side by side, collected in order.
@@ -53,6 +55,7 @@ pub mod backend;
 pub mod bench;
 pub mod circuit;
 pub mod compact;
+pub mod convergence;
 pub mod device;
 mod eigen;
 pub mod electro;

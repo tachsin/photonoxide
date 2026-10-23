@@ -33,6 +33,7 @@ mod common;
 use std::process::ExitCode;
 
 use faer::c64;
+use photonoxide::convergence;
 use photonoxide::mode::hadley;
 use photonoxide::mode::vector::{self, Boundaries, Boundary, CrossSection, Permittivity};
 use photonoxide::units::Wavelength;
@@ -97,8 +98,21 @@ pub fn main() -> ExitCode {
         println!("Fig. {fig}: {kind}, eps {eps} and 1, 1 x 1 um quarter domain; relative errors");
         println!("  grid                    standard scheme            Hadley's equations");
         let (mut standard, mut high) = (f64::NAN, f64::NAN);
+        // each scheme's grid study: the reported 7.8 nm number is gated by its error estimate
+        let mut studies = [
+            convergence::Study::new("standard"),
+            convergence::Study::new("Hadley's"),
+        ];
         for (g, &n) in grids.iter().enumerate() {
             (standard, high) = solved[f * grids.len() + g];
+            studies = studies.map(|s| {
+                let v = if s.quantity == "standard" {
+                    standard
+                } else {
+                    high
+                };
+                s.on(1.0 / n as f64, v).expect("a finer grid")
+            });
             println!(
                 "  {n:>3} x {n:<3} ({:>6.2} nm):  {standard:.9} {:+.2e}   {high:.9} {:+.2e}",
                 1000.0 / n as f64,
@@ -118,6 +132,13 @@ pub fn main() -> ExitCode {
             exact,
             1e-6,
         );
+        // the same tolerances on the grids' own estimates: the grid has converged
+        for (s, tolerance) in studies.iter().zip([5e-5, 1e-6]) {
+            checks.converged(
+                &format!("Fig. {fig}, {}, its grids", s.quantity),
+                &s.check(tolerance).expect("a tolerance"),
+            );
+        }
     }
     checks.finish()
 }
