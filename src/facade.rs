@@ -868,5 +868,5 @@ pub fn export_run(
                 .collect::<Result<_>>()
         })
         .transpose()?;
-    crate::export::tables::write_tables(run_dir, out_dir.unwrap_or(run_dir), which.as_deref())
+    crate::export::tables::write_tables_into(run_dir, out_dir.unwrap_or(run_dir), which.as_deref())
 }
