@@ -53,6 +53,7 @@ pub use crate::statics::{
 };
 pub use shifter::{Drive, Efficiency, Guide, Optics, PhaseShifter, Timing};
 
+pub(crate) mod crosstalk_checks;
 mod shifter;
 pub(crate) mod shifter_checks;
 #[cfg(test)]

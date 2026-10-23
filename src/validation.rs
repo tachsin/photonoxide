@@ -1943,6 +1943,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::mode::pockels::checks::cases());
     // and the thermo-optic phase shifter: P_pi, its time and crosstalk, Jacques et al.'s heaters
     cases.extend(crate::thermal::shifter_checks::cases());
+    // and its crosstalk against measured neighbours, and Harris et al.'s doped heater
+    cases.extend(crate::thermal::crosstalk_checks::cases());
     cases
 }
 

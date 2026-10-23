@@ -19,9 +19,9 @@ use crate::mode::vector::{Boundaries, Boundary as Wall, CrossSection, Permittivi
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
-const OK: &str = "a valid problem";
+pub(crate) const OK: &str = "a valid problem";
 
-fn rect(x: [f64; 2], y: [f64; 2]) -> Shape {
+pub(crate) fn rect(x: [f64; 2], y: [f64; 2]) -> Shape {
     Shape::rect(
         Point::um(0.5 * (x[0] + x[1]), 0.5 * (y[0] + y[1])),
         Length::um(x[1] - x[0]),
@@ -30,11 +30,11 @@ fn rect(x: [f64; 2], y: [f64; 2]) -> Shape {
     .expect(OK)
 }
 
-fn wavelength() -> Wavelength {
+pub(crate) fn wavelength() -> Wavelength {
     Wavelength::um(1.55).expect(OK)
 }
 
-fn outcome(measured: f64, expected: f64, tolerance: f64) -> Outcome {
+pub(crate) fn outcome(measured: f64, expected: f64, tolerance: f64) -> Outcome {
     Outcome {
         measured,
         expected,
@@ -188,7 +188,7 @@ fn line_source(r: f64) -> f64 {
 
 /// Jacques et al.'s Table 3 (doi:10.1364/OE.27.010456) at 300 K: thermal conductivities,
 /// W/(m·K), and heat capacities per volume, J/(m³·K) (density times specific heat).
-mod table3 {
+pub(crate) mod table3 {
     pub const K_SUBSTRATE: f64 = 148.0;
     pub const K_WG: f64 = 90.0;
     pub const K_SLAB: f64 = 55.0;
@@ -385,7 +385,7 @@ fn midpoint(values: &[f64]) -> f64 {
 
 /// `value(r)` on the grids r = 1 and 2, gated by their convergence to `tolerance` of the finer
 /// one: the finer one's value, or NaN (the case fails) if the gate refuses it.
-fn gated(quantity: &str, value: impl Fn(f64) -> f64, tolerance: f64) -> f64 {
+pub(crate) fn gated(quantity: &str, value: impl Fn(f64) -> f64, tolerance: f64) -> f64 {
     let (coarse, fine) = (value(1.0), value(2.0));
     Study::new(quantity)
         .on(0.02, coarse)
