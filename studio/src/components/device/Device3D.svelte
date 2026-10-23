@@ -12,7 +12,7 @@
 
   $effect(() => {
     const s = scene;
-    view ??= new Preview3D(host, app.dark, true);
+    view ??= new Preview3D(host, app.dark, true, true);
     view.setScene(s);
   });
   $effect(() => view?.setDark(app.dark));

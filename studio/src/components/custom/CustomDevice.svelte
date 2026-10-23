@@ -1225,7 +1225,7 @@
   {:else}
     <div class="relative h-full">
       {#if shown}
-        <ScenePreview text={shown} height={Math.max(160, h)} turnable axes {frame} onpick={picked3d} {marked} />
+        <ScenePreview text={shown} height={Math.max(160, h)} turnable own axes {frame} onpick={picked3d} {marked} />
         {#if check && !check.ok}
           <div class="absolute inset-x-3 top-3 rounded-lg border border-warning/30 bg-base-100/85 px-3 py-1.5 text-xs backdrop-blur">The job isn't valid now: this is its last valid version.</div>
         {/if}

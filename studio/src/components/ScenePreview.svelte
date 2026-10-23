@@ -22,6 +22,7 @@
     frame = "chip",
     onpick,
     marked = [],
+    own = false,
   }: {
     text: string;
     height?: number;
@@ -32,6 +33,8 @@
     onpick?: (what: { shape: Shape } | { layer: string } | null) => void;
     /** The shapes drawn as picked. */
     marked?: Shape[];
+    /** A WebGL context of its own, for a page's main view; cards share one (view3d.ts, sharedRenderer). */
+    own?: boolean;
   } = $props();
 
   let host: HTMLDivElement;
@@ -81,7 +84,7 @@
       .then((built) => {
         cache.set(t, built);
         if (gone) return;
-        view ??= new Preview3D(host, app.dark, turnable);
+        view ??= new Preview3D(host, app.dark, turnable, own);
         const triads = built.crystals.flatMap((c: Crystal) => c.oriented.map((o: Oriented) => ({ layer: o.layer, role: o.role, axes: o.axes })));
         scene = built.scene;
         view.setScene(built.scene, { ...cutOf(built.scene, built.section), ports: built.ports, crystals: triads });

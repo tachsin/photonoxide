@@ -759,12 +759,64 @@ export interface TriadUse {
 }
 
 /**
+ * The one WebGL context the cards' previews share. Chromium (and so the window's WebView2) keeps
+ * about 16 contexts alive and drops the oldest past that, its canvas going white: a page of cards
+ * with a context each crossed it. A preview renders through this one into a corner of its canvas,
+ * and copies that corner into a 2D canvas of its own. The canvas only grows, to the largest card.
+ */
+let shared: { renderer: THREE.WebGLRenderer; width: number; height: number } | null = null;
+/** How each preview on a page is drawn again, when the shared context comes back. */
+const redraws = new Set<() => void>();
+
+/**
+ * The shared renderer, made at the first card. A lost context (the GPU reset, the driver
+ * updated) is asked back, by three.js, and every card drawn again when it comes; when it doesn't
+ * come within a few seconds a new context takes its place. Meanwhile each card keeps its last frame.
+ */
+function sharedRenderer() {
+  if (shared) return shared;
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(1);
+  renderer.setScissorTest(true);
+  renderer.setClearColor(0x000000, 0);
+  const made = { renderer, width: 0, height: 0 };
+  const canvas = renderer.domElement;
+  let replace = 0;
+  canvas.addEventListener("webglcontextlost", () => {
+    replace = window.setTimeout(() => {
+      if (shared !== made) return;
+      renderer.dispose();
+      shared = null;
+      for (const redraw of redraws) redraw();
+    }, 3000);
+  });
+  // three.js's own listener, added first, has set up the context again by now
+  canvas.addEventListener("webglcontextrestored", () => {
+    clearTimeout(replace);
+    for (const redraw of redraws) redraw();
+  });
+  shared = made;
+  return made;
+}
+
+/**
  * A job's structure turning slowly on a card. It draws only while on screen and while the window
- * is visible, and lets go of its WebGL context when destroyed. A new scene (`setScene`) replaces
- * the structure and keeps the turn where it is.
+ * is visible. A card renders through the context every card shares (`sharedRenderer`) into a 2D
+ * canvas of its own; an `own` view (a page's main one) has a WebGL context of its own, let go of
+ * when destroyed. A new scene (`setScene`) replaces the structure and keeps the turn where it is.
  */
 export class Preview3D {
-  private renderer: THREE.WebGLRenderer;
+  /** Its own renderer, for an `own` view; null for a card, which draws through the shared one. */
+  private renderer: THREE.WebGLRenderer | null = null;
+  /** What it draws on: its own renderer's canvas, or a card's 2D canvas. */
+  private canvas: HTMLCanvasElement;
+  private context2d: CanvasRenderingContext2D | null = null;
+  /** Whether a card has something to draw that it hasn't, while it was out of view. */
+  private stale = true;
+  private redrawn = () => {
+    this.stale = true;
+    if (this.visible) this.draw();
+  };
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
   private light = new THREE.DirectionalLight("#ffffff", 2.2);
@@ -798,18 +850,30 @@ export class Preview3D {
     dark: boolean,
     /** Whether a drag turns it (round, and up and down), where it otherwise only turns by itself. */
     turnable = false,
+    /** Whether it has a WebGL context of its own (a page's main view), where a card shares one. */
+    own = false,
   ) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    container.appendChild(this.renderer.domElement);
-    if (turnable) this.turnByDragging(this.renderer.domElement);
-    this.pickByClicking(this.renderer.domElement);
+    if (own) {
+      this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      this.canvas = this.renderer.domElement;
+    } else {
+      this.canvas = document.createElement("canvas");
+      this.canvas.style.display = "block";
+      this.context2d = this.canvas.getContext("2d");
+      redraws.add(this.redrawn);
+    }
+    container.appendChild(this.canvas);
+    if (turnable) this.turnByDragging(this.canvas);
+    this.pickByClicking(this.canvas);
     this.scene.add(new THREE.HemisphereLight("#e4ecf7", "#2a2e35", 1.6), this.light, this.light.target, this.structure);
     this.camera.up.set(0, 0, 1);
     this.setDark(dark);
     this.observer = new IntersectionObserver(([e]) => {
       this.visible = e.isIntersecting;
-      if (this.visible) this.start();
+      if (!this.visible) return;
+      if (this.stale) this.draw();
+      this.start();
     });
     this.observer.observe(container);
     this.resizer = new ResizeObserver(() => this.resize());
@@ -955,7 +1019,15 @@ export class Preview3D {
   private resize() {
     const { clientWidth: w, clientHeight: h } = this.container;
     if (w === 0 || h === 0) return;
-    this.renderer.setSize(w, h);
+    if (this.renderer) this.renderer.setSize(w, h);
+    else {
+      // a card's canvas in the screen's pixels, up to two to each CSS pixel
+      const ratio = Math.min(window.devicePixelRatio, 2);
+      this.canvas.width = Math.round(w * ratio);
+      this.canvas.height = Math.round(h * ratio);
+      this.canvas.style.width = `${w}px`;
+      this.canvas.style.height = `${h}px`;
+    }
     this.camera.aspect = w / h;
     this.fit();
     this.draw();
@@ -994,12 +1066,41 @@ export class Preview3D {
   }
 
   private draw() {
+    // a card out of view isn't drawn: it is when it comes into view
+    if (!this.renderer && !this.visible) {
+      this.stale = true;
+      return;
+    }
     this.camera.position.copy(this.centre).addScaledVector(lookFrom(this.yaw, this.pitch), this.distance);
     this.camera.lookAt(this.centre);
     this.light.position.copy(this.camera.position).add(new THREE.Vector3(0, 0, this.distance * 0.6));
     this.light.target.position.copy(this.centre);
-    this.renderer.render(this.scene, this.camera);
+    if (this.renderer) this.renderer.render(this.scene, this.camera);
+    else this.stale = !this.drawShared();
     if (this.axes) drawAxes(this.axes, this.camera, this.names, 24, this.crystal);
+  }
+
+  /**
+   * Renders a card through the shared context, into its canvas's top-left corner (WebGL counts
+   * from the bottom), and copies that onto the card. False when it couldn't: the context lost,
+   * the card keeping its last frame until the context comes back.
+   */
+  private drawShared(): boolean {
+    const { width: w, height: h } = this.canvas;
+    if (!w || !h || !this.context2d) return false;
+    const s = sharedRenderer();
+    if (s.width < w || s.height < h) {
+      s.width = Math.max(s.width, w);
+      s.height = Math.max(s.height, h);
+      s.renderer.setSize(s.width, s.height, false);
+    }
+    if (s.renderer.getContext().isContextLost()) return false;
+    s.renderer.setViewport(0, s.height - h, w, h);
+    s.renderer.setScissor(0, s.height - h, w, h);
+    s.renderer.render(this.scene, this.camera);
+    this.context2d.clearRect(0, 0, w, h);
+    this.context2d.drawImage(s.renderer.domElement, 0, 0, w, h, 0, 0, w, h);
+    return true;
   }
 
   destroy() {
@@ -1007,9 +1108,12 @@ export class Preview3D {
     document.removeEventListener("visibilitychange", this.wake);
     this.observer.disconnect();
     this.resizer.disconnect();
+    redraws.delete(this.redrawn);
     dispose(this.scene);
-    this.renderer.dispose();
-    this.renderer.forceContextLoss();
-    this.renderer.domElement.remove();
+    if (this.renderer) {
+      this.renderer.dispose();
+      this.renderer.forceContextLoss();
+    }
+    this.canvas.remove();
   }
 }
