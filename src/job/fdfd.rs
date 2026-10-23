@@ -14,7 +14,7 @@ use serde::Deserialize;
 
 use super::{
     CircleSpec, Event, PathSpec, RectSpec, RingSpec, check_cells, check_finite, check_materials,
-    check_step, check_sweep, check_window, draw, draw_paths, named_stack, scene, task_error,
+    check_step, check_sweep, check_window, diagonal_stack, draw, draw_paths, scene, task_error,
 };
 use crate::averaging::Averaging;
 use crate::fdfd::{Boundaries, Direction, Grid, Polarization, Port, Side, Solver2d};
@@ -151,23 +151,33 @@ fn effective_index(
     s: &Structure,
     p: Point,
     layer: (Length, Length),
-    kind: crate::mode::Polarization,
+    (kind, axis): (crate::mode::Polarization, usize),
     wavelength: Wavelength,
 ) -> Result<f64> {
-    slab_index(|z| s.material_at(p, z), layer, kind, wavelength)
+    slab_index(|z| s.material_at(p, z), layer, (kind, axis), wavelength)
+}
+
+/// A material's index for the field along the chip's `axis` (0, 1 or 2: x, y or z), from its
+/// tensor's diagonal entry there ([`crate::material::Material::diagonal_permittivity`]; checked
+/// diagonal before): an isotropic material's own index, to the bit.
+pub(super) fn index_along(
+    m: &crate::material::Material,
+    axis: usize,
+    wavelength: Wavelength,
+) -> Result<f64> {
+    Ok(refractive_index(m.tensor(wavelength)?[axis][axis]).re)
 }
 
 /// [`effective_index`] of the column whose material at each height z is `material(z)`: the
-/// layer's, between what lies just below and above it.
+/// layer's, between what lies just below and above it, each medium's index for E along the
+/// chip's `axis` ([`index_along`]): for TE, the in-plane E's.
 pub(super) fn slab_index<'a>(
     material: impl Fn(Length) -> &'a crate::material::Material,
     (bottom, top): (Length, Length),
-    kind: crate::mode::Polarization,
+    (kind, axis): (crate::mode::Polarization, usize),
     wavelength: Wavelength,
 ) -> Result<f64> {
-    let n = |z: Length| -> Result<f64> {
-        Ok(refractive_index(material(z).permittivity(wavelength)?).re)
-    };
+    let n = |z: Length| -> Result<f64> { index_along(material(z), axis, wavelength) };
     let tiny = Length::nm(1e-3);
     let (below, core, above) = (n(bottom - tiny)?, n((bottom + top) * 0.5)?, n(top + tiny)?);
     if core <= below.max(above) {
@@ -201,7 +211,7 @@ const ETCHED_LAYERS: usize = 6;
 pub(super) fn etched_plane(
     s: &Structure,
     name: &str,
-    kind: crate::mode::Polarization,
+    (kind, axis): (crate::mode::Polarization, usize),
     wavelength: Wavelength,
 ) -> Result<Box<dyn Fn(f64, f64) -> f64 + Send + Sync>> {
     let stack = s.stack().clone();
@@ -240,9 +250,7 @@ pub(super) fn etched_plane(
     }
     heights.sort_by(f64::total_cmp);
     heights.dedup();
-    let n = |m: &crate::material::Material| -> Result<f64> {
-        Ok(refractive_index(m.permittivity(wavelength)?).re)
-    };
+    let n = |m: &crate::material::Material| index_along(m, axis, wavelength);
     let (material, background) = (n(&layers[k].material)?, n(&layers[k].background)?);
     // the others' bits: layer i's at bit i (the etched layer's never set)
     let others: Vec<usize> = (0..layers.len()).filter(|&i| i != k).collect();
@@ -383,9 +391,9 @@ pub(crate) fn fill_plane(
              column's index change across it (use averaging = \"samples\")"
         )));
     }
-    let n = |m: &crate::material::Material| -> Result<f64> {
-        Ok(refractive_index(m.permittivity(wavelength)?).re)
-    };
+    // one plane for both of E's components: each medium's ε_xx, which an fdfd job with a
+    // crystal whose ε_yy differs refuses to average from the fill ([`in_plane`])
+    let n = |m: &crate::material::Material| index_along(m, 0, wavelength);
     let below = n(if k == 0 {
         stack.substrate()
     } else {
@@ -433,11 +441,113 @@ pub(crate) fn plane(
     kind: crate::mode::Polarization,
     wavelength: Wavelength,
 ) -> Result<Box<dyn Fn(f64, f64) -> c64 + Send + Sync>> {
+    plane_along(s, grid, name, layer, (kind, 0), wavelength)
+}
+
+/// [`plane`] of each medium's index for E along the chip's `axis` ([`index_along`]).
+fn plane_along(
+    s: &Structure,
+    grid: &Grid,
+    name: &str,
+    layer: (Length, Length),
+    (kind, axis): (crate::mode::Polarization, usize),
+    wavelength: Wavelength,
+) -> Result<Box<dyn Fn(f64, f64) -> c64 + Send + Sync>> {
     if s.stack().layers().iter().any(|l| !s.is_plain(&l.name)) {
-        let eps = etched_plane(s, name, kind, wavelength)?;
+        let eps = etched_plane(s, name, (kind, axis), wavelength)?;
         return Ok(Box::new(move |x, y| c64::new(eps(x, y), 0.0)));
     }
-    Ok(Box::new(plain_plane(s, grid, layer, kind, wavelength)?))
+    Ok(Box::new(plain_plane(
+        s,
+        grid,
+        layer,
+        (kind, axis),
+        wavelength,
+    )?))
+}
+
+/// How a 2D job's plane takes its stack's oriented crystals: one plane for every component of
+/// E, or E_x's and E_y's apart.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum InPlane {
+    /// One plane, of each medium's ε_xx: every medium the same along x and y (an isotropic
+    /// one, or a crystal whose ε_xx is its ε_yy, as a z-cut uniaxial one's).
+    One,
+    /// TE with a crystal whose ε_xx and ε_yy differ (an x- or y-cut): E_x's plane is the slab
+    /// TE mode's of each medium's ε_xx, E_y's of its ε_yy.
+    Two,
+}
+
+/// How a 2D job's plane takes the oriented crystals of `stack` (each one's tensor diagonal,
+/// [`super::diagonal_stack`]) in `kind` at `wavelengths_um`: the slab's TE mode has E in the
+/// plane, normal to its travel, and sees only that component's ε, so each in-plane component
+/// takes its own effective index ([`InPlane`]). Its TM mode sees ε_zz and the in-plane ε along
+/// its travel, which a 2D plane doesn't know and the slab's solver, isotropic, doesn't take: a
+/// TM job's stack must be isotropic.
+///
+/// # Errors
+///
+/// [`Error::Parse`] for an oriented crystal in a TM job.
+pub(super) fn in_plane(
+    stack: &crate::stack::LayerStack,
+    kind: crate::mode::Polarization,
+    wavelengths_um: &[f64],
+) -> Result<InPlane> {
+    let crystals: Vec<(&str, &crate::material::Material)> = super::stack_media(stack)
+        .into_iter()
+        .filter(|(_, m)| m.is_anisotropic())
+        .collect();
+    let Some((place, m)) = crystals.first() else {
+        return Ok(InPlane::One);
+    };
+    if kind == crate::mode::Polarization::Tm {
+        return Err(task_error(format!(
+            "{place}'s {} is an oriented crystal: a 2D TM job's plane is the slab's TM mode, \
+             which sees the crystal's ε_zz and its ε along the unknown direction of travel, and \
+             the slab's solver is isotropic; take polarization = \"te\" (each of E's in-plane \
+             components its own effective index) or a 3D job",
+            m.name()
+        )));
+    }
+    for (_, m) in &crystals {
+        for &w in wavelengths_um {
+            let Ok(w) = Wavelength::um(w) else { continue };
+            // (a wavelength without data is the materials' check's to report)
+            if let Ok(d) = m.diagonal_permittivity(w)
+                && d[0] != d[1]
+            {
+                return Ok(InPlane::Two);
+            }
+        }
+    }
+    Ok(InPlane::One)
+}
+
+/// A plane's (ε_x, ε_y, ε_z) at each point.
+type Diagonal = Box<dyn Fn(f64, f64) -> [c64; 3] + Send + Sync>;
+
+/// The in-plane permittivity's diagonal (ε_x, ε_y, ε_z), as [`Solver2d::diagonal`] takes it:
+/// [`plane`] for all three, or with [`InPlane::Two`] E_x's from each medium's ε_xx and E_y's
+/// from its ε_yy (and E_z, which TE doesn't have, E_x's).
+pub(super) fn planes(
+    s: &Structure,
+    grid: &Grid,
+    name: &str,
+    layer: (Length, Length),
+    (kind, in_plane): (crate::mode::Polarization, InPlane),
+    wavelength: Wavelength,
+) -> Result<Diagonal> {
+    let x = plane_along(s, grid, name, layer, (kind, 0), wavelength)?;
+    Ok(match in_plane {
+        InPlane::One => Box::new(move |a, b| [x(a, b); 3]),
+        InPlane::Two => {
+            let y = plane_along(s, grid, name, layer, (kind, 1), wavelength)?;
+            Box::new(move |a, b| {
+                let e = x(a, b);
+                [e, y(a, b), e]
+            })
+        }
+    })
 }
 
 /// [`plane`] of a structure whose layer is plain: as it always was.
@@ -445,7 +555,7 @@ fn plain_plane(
     s: &Structure,
     grid: &Grid,
     layer: (Length, Length),
-    kind: crate::mode::Polarization,
+    (kind, axis): (crate::mode::Polarization, usize),
     wavelength: Wavelength,
 ) -> Result<impl Fn(f64, f64) -> c64 + Send + Sync + use<>> {
     let s = s.clone();
@@ -462,7 +572,7 @@ fn plain_plane(
             let p = Point::um(grid.x(i), grid.y(j));
             let k = key(&s, p);
             if !table.iter().any(|(t, _)| *t == k) {
-                let n = effective_index(&s, p, layer, kind, wavelength)?;
+                let n = effective_index(&s, p, layer, (kind, axis), wavelength)?;
                 table.push((k, n));
             }
         }
@@ -536,7 +646,12 @@ pub(super) fn preview(job: &Job) -> Result<Event> {
     let task: FdfdTask = super::params::task(job)?;
     let s = draw_paths(
         draw(
-            named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
+            diagonal_stack(
+                &task.stack,
+                task.core_nm,
+                task.bottom_oxide_um,
+                &ends(&task),
+            )?,
             &task.rect,
             &task.circle,
             &task.ring,
@@ -575,6 +690,15 @@ fn direct_solver(device: &mut Device) -> Result<String> {
     Ok(format!("{} {} (auto: {reason})", c.name, c.version))
 }
 
+/// The task's wavelength and its sweep's ends, µm: where its materials are checked.
+fn ends(task: &FdfdTask) -> Vec<f64> {
+    let mut wavelengths = vec![task.wavelength_um];
+    if let Some(sw) = &task.sweep {
+        wavelengths.extend([sw.from, sw.to]);
+    }
+    wavelengths
+}
+
 /// [`super::check`] for an `"fdfd"` job.
 pub(super) fn check(job: &Job) -> Result<()> {
     // the task, the structure, the layer, the polarization, that there are ports, and the grid
@@ -586,11 +710,7 @@ pub(super) fn check(job: &Job) -> Result<()> {
     for p in &task.port {
         place(&device.grid, &device.boundaries, p)?;
     }
-    let mut wavelengths = vec![task.wavelength_um];
-    if let Some(sw) = &task.sweep {
-        wavelengths.extend([sw.from, sw.to]);
-    }
-    check_materials(device.structure.stack(), &wavelengths)?;
+    check_materials(device.structure.stack(), &ends(task))?;
     // a structure the fill's plane can't be made of
     if device.averaging != Averaging::Samples {
         fill_plane(
@@ -621,6 +741,8 @@ struct Device {
     frozen: Option<Wavelength>,
     /// How the plane's cells are averaged: the task's `averaging`.
     averaging: Averaging,
+    /// How the plane takes the stack's oriented crystals.
+    in_plane: InPlane,
 }
 
 impl Device {
@@ -631,7 +753,12 @@ impl Device {
         task.validate()?;
         let structure = draw_paths(
             draw(
-                named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
+                diagonal_stack(
+                    &task.stack,
+                    task.core_nm,
+                    task.bottom_oxide_um,
+                    &ends(&task),
+                )?,
                 &task.rect,
                 &task.circle,
                 &task.ring,
@@ -664,7 +791,15 @@ impl Device {
             None => Averaging::Samples,
             Some(name) => Averaging::parse(name).map_err(|e| task_error(e.to_string()))?,
         };
+        let in_plane = in_plane(structure.stack(), kind, &ends(&task))?;
+        if in_plane == InPlane::Two && averaging != Averaging::Samples {
+            return Err(task_error(
+                "averaging from the fill takes one plane for both of E's components, and an \
+                 oriented crystal here has ε_xx ≠ ε_yy: use averaging = \"samples\"",
+            ));
+        }
         Ok(Device {
+            in_plane,
             averaging,
             task,
             structure,
@@ -741,16 +876,16 @@ impl Device {
 
     /// The problem at `wavelength` with the plane sampled, as it always was.
     fn sampled(&self, wavelength: Wavelength, first: Option<&Solver2d>) -> Result<Solver2d> {
-        let eps = plane(
+        let eps = planes(
             &self.structure,
             &self.grid,
             &self.task.layer,
             self.layer,
-            self.kind,
+            (self.kind, self.in_plane),
             self.frozen.unwrap_or(wavelength),
         )?;
         let solver = match first {
-            None => Solver2d::new_on(
+            None => Solver2d::diagonal_on(
                 self.grid,
                 self.polarization,
                 wavelength,
@@ -758,7 +893,7 @@ impl Device {
                 self.boundaries,
                 &self.direct,
             )?,
-            Some(first) => first.reuse(wavelength, eps)?,
+            Some(first) => first.reuse_diagonal(wavelength, eps)?,
         };
         Ok(solver)
     }

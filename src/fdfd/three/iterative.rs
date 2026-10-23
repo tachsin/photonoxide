@@ -163,6 +163,28 @@ impl IterativeSolver3d {
         formulation: Formulation,
     ) -> Result<IterativeSolver3d> {
         let (lattice, eps) = Solver3d::setup(grid, wavelength, eps, boundaries)?;
+        Ok(Self::assembled(lattice, eps, formulation))
+    }
+
+    /// [`IterativeSolver3d::new`] with a diagonal permittivity tensor, `eps(x, y, z)` = (ε_xx,
+    /// ε_yy, ε_zz) in the grid's axes, as [`Solver3d::diagonal_on`] takes it.
+    ///
+    /// # Errors
+    ///
+    /// As [`IterativeSolver3d::new`].
+    pub fn diagonal(
+        grid: Grid3d,
+        wavelength: Wavelength,
+        eps: impl Fn(f64, f64, f64) -> [c64; 3],
+        boundaries: Boundaries3d,
+        formulation: Formulation,
+    ) -> Result<IterativeSolver3d> {
+        let (lattice, eps) = Solver3d::setup_diagonal(grid, wavelength, eps, boundaries)?;
+        Ok(Self::assembled(lattice, eps, formulation))
+    }
+
+    fn assembled(lattice: Lattice, eps: Vec<c64>, formulation: Formulation) -> IterativeSolver3d {
+        let grid = lattice.grid;
         let mut matrix = Sparse::new(
             grid.unknowns(),
             lattice
@@ -180,7 +202,7 @@ impl IterativeSolver3d {
             matrix = b;
             similarity = Some(s);
         }
-        Ok(IterativeSolver3d {
+        IterativeSolver3d {
             lattice,
             eps,
             formulation,
@@ -192,7 +214,7 @@ impl IterativeSolver3d {
             auto: true,
             block: false,
             id: next_id(),
-        })
+        }
     }
 
     /// [`IterativeSolver3d::new`] for QMR on the curl-curl operator ([`Formulation::CurlCurl`])

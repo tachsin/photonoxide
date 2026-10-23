@@ -692,6 +692,36 @@ impl Solver3d {
         )
     }
 
+    /// The problem with a diagonal permittivity tensor, `eps(x, y, z)` = (ε_xx, ε_yy, ε_zz) in
+    /// the grid's axes, each component of E averaged over its cell from its own entry as
+    /// [`Solver3d::new`] averages ε: an anisotropic medium whose principal axes are the grid's,
+    /// such as a cut crystal ([`crate::material::Material::diagonal_permittivity`]). The same
+    /// three values everywhere is [`Solver3d::new`], to the bit.
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver3d::new_on`].
+    pub fn diagonal_on(
+        grid: Grid3d,
+        wavelength: Wavelength,
+        eps: impl Fn(f64, f64, f64) -> [c64; 3],
+        boundaries: Boundaries3d,
+        direct: &Choice,
+    ) -> Result<Solver3d> {
+        let bloch = |e: Edges| matches!(e, Edges::Bloch { .. });
+        let problem = crate::backend::auto::Problem {
+            family: "fdfd3d",
+            form: if bloch(boundaries.x) || bloch(boundaries.y) || bloch(boundaries.z) {
+                crate::backend::Form::General
+            } else {
+                crate::backend::Form::Symmetric
+            },
+            unknowns: grid.unknowns(),
+        };
+        let (lattice, eps) = Self::setup_diagonal(grid, wavelength, eps, boundaries)?;
+        Self::assembled(lattice, eps, Plan::for_problem(direct, problem)?)
+    }
+
     fn build(
         grid: Grid3d,
         wavelength: Wavelength,
@@ -700,6 +730,10 @@ impl Solver3d {
         analysis: Plan,
     ) -> Result<Solver3d> {
         let (lattice, eps) = Self::setup(grid, wavelength, eps, boundaries)?;
+        Self::assembled(lattice, eps, analysis)
+    }
+
+    fn assembled(lattice: Lattice, eps: Vec<c64>, analysis: Plan) -> Result<Solver3d> {
         let entries = lattice.assemble(&eps);
         let lu = factorize(&lattice.grid, &entries, analysis)?;
         Ok(Solver3d {
@@ -750,16 +784,30 @@ impl Solver3d {
         eps: impl Fn(f64, f64, f64) -> c64,
         boundaries: Boundaries3d,
     ) -> Result<(Lattice, Vec<c64>)> {
+        Self::setup_diagonal(grid, wavelength, |x, y, z| [eps(x, y, z); 3], boundaries)
+    }
+
+    /// [`Solver3d::setup`] with a diagonal permittivity tensor, `eps(x, y, z)` = (ε_xx, ε_yy,
+    /// ε_zz) in the grid's axes: each component of E averaged over its cell from its own entry.
+    /// The same three values everywhere is [`Solver3d::setup`], to the bit.
+    pub(crate) fn setup_diagonal(
+        grid: Grid3d,
+        wavelength: Wavelength,
+        eps: impl Fn(f64, f64, f64) -> [c64; 3],
+        boundaries: Boundaries3d,
+    ) -> Result<(Lattice, Vec<c64>)> {
         grid.check()?;
         boundaries.check(&grid)?;
         let k0 = 2.0 * std::f64::consts::PI / wavelength.to_um();
         let lattice = Lattice::new(grid, boundaries, k0);
         let h = [grid.dx, grid.dy, grid.dz];
         let samples = 8;
+        let eps = &eps;
         let eps = (0..grid.unknowns())
             .map(|r| {
                 let (c, [i, j, k]) = grid.at(r);
-                averaged(&eps, grid.e_position(c, (i, j, k)), h, c, samples)
+                let part = |x: f64, y: f64, z: f64| eps(x, y, z)[c.index()];
+                averaged(&part, grid.e_position(c, (i, j, k)), h, c, samples)
             })
             .collect();
         Ok((lattice, eps))

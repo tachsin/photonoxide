@@ -355,6 +355,78 @@ impl Solver2d {
         )
     }
 
+    /// The problem with a diagonal permittivity tensor, `eps(x, y)` = (ε_xx, ε_yy, ε_zz) in the
+    /// grid's axes (z out of the plane): with E along z, E_z sees ε_zz; with H along z, E_x sees
+    /// ε_xx and E_y sees ε_yy, each averaged over its own cell as [`Solver2d::new`] averages ε.
+    /// An anisotropic medium whose principal axes are the grid's, such as a cut crystal
+    /// ([`crate::material::Material::diagonal_permittivity`]); the same three values everywhere
+    /// is [`Solver2d::new`], to the bit. Ports' modes are the scheme's own, so they see the
+    /// tensor too.
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver2d::new`].
+    pub fn diagonal(
+        grid: Grid,
+        polarization: Polarization,
+        wavelength: Wavelength,
+        eps: impl Fn(f64, f64) -> [c64; 3],
+        boundaries: Boundaries,
+    ) -> Result<Solver2d> {
+        Self::diagonal_on(
+            grid,
+            polarization,
+            wavelength,
+            eps,
+            boundaries,
+            &Choice::Auto,
+        )
+    }
+
+    /// [`Solver2d::diagonal`] with the direct solver of `direct`, as [`Solver2d::new_on`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver2d::new_on`].
+    pub fn diagonal_on(
+        grid: Grid,
+        polarization: Polarization,
+        wavelength: Wavelength,
+        eps: impl Fn(f64, f64) -> [c64; 3],
+        boundaries: Boundaries,
+        direct: &Choice,
+    ) -> Result<Solver2d> {
+        Self::build_diagonal(
+            grid,
+            polarization,
+            wavelength,
+            eps,
+            boundaries,
+            Plan::for_problem(direct, problem_2d(grid, &boundaries))?,
+        )
+    }
+
+    /// [`Solver2d::reuse`] with a diagonal permittivity tensor, as [`Solver2d::diagonal`] takes
+    /// it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver2d::new`].
+    pub fn reuse_diagonal(
+        &self,
+        wavelength: Wavelength,
+        eps: impl Fn(f64, f64) -> [c64; 3],
+    ) -> Result<Solver2d> {
+        Self::build_diagonal(
+            self.grid,
+            self.polarization,
+            wavelength,
+            eps,
+            self.boundaries,
+            self.plan_for_reuse(),
+        )
+    }
+
     fn build(
         grid: Grid,
         polarization: Polarization,
@@ -363,30 +435,52 @@ impl Solver2d {
         boundaries: Boundaries,
         symbolic: Plan,
     ) -> Result<Solver2d> {
+        Self::build_diagonal(
+            grid,
+            polarization,
+            wavelength,
+            |x, y| [eps(x, y); 3],
+            boundaries,
+            symbolic,
+        )
+    }
+
+    fn build_diagonal(
+        grid: Grid,
+        polarization: Polarization,
+        wavelength: Wavelength,
+        eps: impl Fn(f64, f64) -> [c64; 3],
+        boundaries: Boundaries,
+        symbolic: Plan,
+    ) -> Result<Solver2d> {
         check(grid, &boundaries)?;
         let k0 = 2.0 * std::f64::consts::PI / wavelength.to_um();
         let (nx, ny, h) = (grid.nx, grid.ny, (grid.dx, grid.dy));
         let samples = 8;
+        let eps = &eps;
+        let part = |c: usize| move |x: f64, y: f64| eps(x, y)[c];
         let (mut eps_z, mut eps_y, mut eps_x) = (Vec::new(), Vec::new(), Vec::new());
         match polarization {
             Polarization::Ez => {
+                let e = part(2);
                 for j in 0..ny {
                     for i in 0..nx {
-                        eps_z.push(averaged(&eps, (grid.x(i), grid.y(j)), h, 2, samples));
+                        eps_z.push(averaged(&e, (grid.x(i), grid.y(j)), h, 2, samples));
                     }
                 }
             }
             Polarization::Hz => {
+                let (ex, ey) = (part(0), part(1));
                 for j in 0..ny {
                     for i in 0..=nx {
                         let x = grid.x0 + i as f64 * grid.dx;
-                        eps_y.push(averaged(&eps, (x, grid.y(j)), h, 1, samples));
+                        eps_y.push(averaged(&ey, (x, grid.y(j)), h, 1, samples));
                     }
                 }
                 for j in 0..=ny {
                     for i in 0..nx {
                         let y = grid.y0 + j as f64 * grid.dy;
-                        eps_x.push(averaged(&eps, (grid.x(i), y), h, 0, samples));
+                        eps_x.push(averaged(&ex, (grid.x(i), y), h, 0, samples));
                     }
                 }
             }
@@ -930,6 +1024,9 @@ impl Field2d {
 
 mod adjoint;
 pub(crate) mod checks;
+pub(crate) mod crystal_checks;
+#[cfg(test)]
+mod crystal_tests;
 pub(crate) mod direct;
 mod fill;
 pub(crate) mod fill_checks;

@@ -242,7 +242,7 @@ side = "left""#,
     .unwrap();
     let lam = Wavelength::um(1.55).unwrap();
     let te = crate::mode::Polarization::Te;
-    let eps = fdfd::etched_plane(&s, "Si", te, lam).unwrap();
+    let eps = fdfd::etched_plane(&s, "Si", (te, 0), lam).unwrap();
     let si = crate::material::silicon();
     let (core, ox) = (
         si.refractive_index(lam).unwrap().re,

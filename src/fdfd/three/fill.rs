@@ -60,50 +60,68 @@ pub(crate) fn structure_values(
         }
         for (_, medium) in structure.bodies() {
             if let crate::stack::Medium::Material(m) = medium {
-                m.permittivity(wavelength)?;
+                m.diagonal_permittivity(wavelength)?;
             }
         }
     }
     let fills = Fills::new(structure);
     let materials = fills.materials();
-    let eps: Vec<c64> = materials
+    // each material's (ε_xx, ε_yy, ε_zz): an oriented crystal's diagonal tensor, each
+    // component of E its own entry (one that couples them is refused)
+    let diagonals: Vec<[c64; 3]> = materials
         .iter()
-        .map(|m| m.permittivity(wavelength))
+        .map(|m| m.diagonal_permittivity(wavelength))
         .collect::<Result<_>>()?;
+    let parts: [Vec<c64>; 3] = std::array::from_fn(|c| diagonals.iter().map(|d| d[c]).collect());
     let index_of = |m: &Material| {
         materials
             .iter()
             .position(|n| std::ptr::eq(*n, m))
             .expect("every material of the structure is listed")
     };
-    let at = |x: f64, y: f64, z: f64| {
+    let at = |c: usize, x: f64, y: f64, z: f64| {
+        let (p, z) = (Point::um(x, y), Length::um(z));
         if bodies {
             // every medium's data at the wavelength was checked above
-            return structure
-                .permittivity_at(Point::um(x, y), Length::um(z), wavelength)
-                .unwrap_or(c64::new(f64::NAN, 0.0));
+            let nan = c64::new(f64::NAN, 0.0);
+            return match structure.body_at(p, z) {
+                Some(crate::stack::Medium::Material(m)) => {
+                    m.diagonal_permittivity(wavelength).map_or(nan, |d| d[c])
+                }
+                Some(medium) => medium
+                    .permittivity([x, y, z.to_um()], wavelength)
+                    .unwrap_or(nan),
+                None => parts[c][index_of(structure.material_at(p, z))],
+            };
         }
-        eps[index_of(structure.material_at(Point::um(x, y), Length::um(z)))]
+        parts[c][index_of(structure.material_at(p, z))]
     };
     let h = [grid.dx, grid.dy, grid.dz];
     let value = |r: usize| -> c64 {
         let (c, [i, j, k]) = grid.at(r);
         let p = grid.e_position(c, (i, j, k));
+        let at = |x: f64, y: f64, z: f64| at(c.index(), x, y, z);
         match averaging {
             Averaging::Point => at(p[0], p[1], p[2]),
             a if a.reads_fill() => {
                 let lo = [p[0] - h[0] / 2.0, p[1] - h[1] / 2.0, p[2] - h[2] / 2.0];
                 let hi = [p[0] + h[0] / 2.0, p[1] + h[1] / 2.0, p[2] + h[2] / 2.0];
                 let slices = fills.slices(lo, hi);
-                combine(&slices, &eps, c.index(), a, |(z0, z1), along| {
-                    let centre = [p[0], p[1], 0.5 * (z0 + z1)];
-                    let size = [h[0], h[1], z1 - z0];
-                    if a == Averaging::Mean {
-                        sampled_mean(&at, centre, size)
-                    } else {
-                        averaged(&at, centre, size, Axis::ALL[along], 8)
-                    }
-                })
+                combine(
+                    &slices,
+                    &parts[c.index()],
+                    c.index(),
+                    a,
+                    |(z0, z1), along| {
+                        let centre = [p[0], p[1], 0.5 * (z0 + z1)];
+                        let size = [h[0], h[1], z1 - z0];
+                        if a == Averaging::Mean {
+                            sampled_mean(&at, centre, size)
+                        } else {
+                            averaged(&at, centre, size, Axis::ALL[along], 8)
+                        }
+                    },
+                )
             }
             _ => averaged(&at, p, h, c, 8),
         }

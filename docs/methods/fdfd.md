@@ -93,6 +93,17 @@ own flux. It obeys a discrete Poynting theorem exactly, so in a lossless region 
 it is the same through every row to round-off, interfaces included. Reflectance and
 transmittance are ratios of these fluxes.
 
+## Oriented crystals
+
+`Solver2d::diagonal` (and `Solver3d::diagonal_on`, `IterativeSolver3d::diagonal`, and
+`Solver3d::from_structure` for a stack's crystals) takes a diagonal tensor (ε_xx, ε_yy, ε_zz):
+E_z sees ε_zz, E_x ε_xx and E_y ε_yy, each averaged over its own cell as ε is; the ports' modes
+are the scheme's, so they see it too. A tensor that couples E's components is refused
+(docs/methods/catalogue.md, "In FDFD and FDTD", which also has the `"fdfd"` job's TE planes).
+Checked: the cut slabs' port modes against the closed forms (`fdfd/crystal-*-slab-*`, within
+4.0e-5 at 2.5 nm, second order) and the mirrored problems in 2D and 3D (`fdfd/crystal-turned`,
+`fdfd/crystal-turned-3d`).
+
 ## Validation
 
 **A plane wave on a slab.** 220 nm of silicon (3.476) on oxide (1.444), under air, at 1.55 µm,

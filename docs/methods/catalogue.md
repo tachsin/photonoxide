@@ -386,8 +386,8 @@ The modes job's cross-section takes the tensor in its own axes (across the guide
 The full-vector solver's equations (Fallahkhair, Li and Murphy 2008) hold for a tensor with its z
 a principal axis, so `job::check` refuses an orientation that puts no principal axis along the
 guide; a tilt within the cross-section (an $\varepsilon_{xy}$) is taken. It also refuses an angle
-that isn't a number or is beyond ±360°, and an oriented crystal in an FDFD, FDTD or static job,
-whose solvers take one permittivity per cell. As one number (a picture's), an oriented crystal's
+that isn't a number or is beyond ±360°, and an oriented crystal in a static job, whose solver
+takes one permittivity per cell. As one number (a picture's), an oriented crystal's
 permittivity is the mean of its principal ones, a third of the trace, which no turn changes.
 
 Checked: every cut and Euler angle is a proper rotation, zero angles exactly the identity; a turned
@@ -402,6 +402,41 @@ z-cut's 1.92533; the same x-cut strip along y, its c axis turned across, has the
 1e-10. The validation report's `material/crystal-*` cases run the turned tensor and the four
 slabs at 2.5 nm, each within 3e-6 of its closed form. No published TFLN mode index with its full
 geometry has been reproduced yet.
+
+### In FDFD and FDTD
+
+FDFD and FDTD put each component of E on its own point of Yee's grid, so they take a tensor
+whose principal axes are the grid's: its diagonal, ε_xx for E_x, ε_yy for E_y, ε_zz for E_z
+(`Material::diagonal_permittivity`). Every cut keeps the tensor diagonal in the chip's frame, as
+do Euler angles in quarter turns and a uniaxial crystal turned about its optic axis; an
+orientation whose tensor couples E's components (an off-diagonal entry beyond 1e-12 of the
+diagonal) is refused, with that reason. `Solver2d::diagonal`, `Solver3d::diagonal_on`,
+`IterativeSolver3d::diagonal` and `fdtd::Simulation::diagonal` take (ε_xx, ε_yy, ε_zz) at each
+point and average each component over its own cell as the scalar problems average ε; the same
+three values everywhere is the scalar problem to the bit. `Solver3d::from_structure` takes an
+oriented crystal in a stack the same way. A ports' mode is the scheme's own, so it sees the tensor
+too. FDTD's update stays scalar, so its Courant limit and stability are a scalar medium's; a tensor
+that couples the components is `fdtd::smoothing::Structure`'s, through `Coupling::Triplets`
+(stable at any contrast; `Coupling::Nodes` is refused where it isn't positive definite, #209).
+
+In jobs: an `"fdtd"` job in 3D gives each component its entry, its bodies' crystals too, and
+solves its mode sources and monitors with the tensor; a plane wave or a beam must start in an
+isotropic medium. A 2D job (`"fdfd"`, or `"fdtd"` in 2D) is the layer's plane by the effective
+index method. Its TE plane has E in the plane, and the slab's TE mode sees only the ε of the
+component it is polarized along, so E_x's effective index is the slab's of each medium's ε_xx
+and E_y's of its ε_yy (one plane when every medium has ε_xx = ε_yy, as a z-cut); averaging from
+the fill takes one plane, so it refuses a crystal with ε_xx ≠ ε_yy. The slab's TM mode sees
+ε_zz and the in-plane ε along an unknown direction of travel, and the slab's solver is
+isotropic: a 2D TM job refuses an oriented crystal.
+
+Checked (`fdfd/crystal-*`, `fdtd/crystal-turned`): the four slabs above as 2D FDFD port modes on
+the slab's vertical cross-section, at 2.5 nm within 3.4e-5 to 4.0e-5 of their closed forms, at
+second order (z-cut TM: 5.4e-4, 1.4e-4, 3.4e-5 at 10, 5 and 2.5 nm, order 2.000); and an x-cut
+crystal beside a source in 2D FDFD, 3D FDFD from a stack and 3D FDTD, against the problem
+mirrored across x = y with the crystal turned a quarter turn about z: the same field, mirrored,
+to 2.8e-15, 7.5e-15 and 2.7e-16 of its largest. In an `"fdfd"` job a 1 µm LiNbO₃ rib, 300 nm in
+oxide, on a 40 nm grid: the x-cut's TE port index 1.6928 (E_y on the c axis, n_e), the z-cut's
+1.7448 (n_o). A published TFLN result with its full geometry in FDFD or FDTD isn't reproduced yet.
 
 No biaxial crystal is in the catalogue yet. KTP from Kato and Takaoka (Appl. Opt. 41, 5040
 (2002), [doi:10.1364/AO.41.005040](https://doi.org/10.1364/AO.41.005040)) is the first wanted,

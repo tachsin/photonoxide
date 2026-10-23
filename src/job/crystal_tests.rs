@@ -142,7 +142,7 @@ fn a_job_refuses_a_bad_orientation_and_a_crystal_its_solver_cant_take() {
     ))
     .unwrap();
     check(&job).unwrap();
-    // FDFD, FDTD and static jobs take one permittivity per cell: their stacks refuse it
+    // a static job takes one permittivity per cell: its stack refuses it
     let table: toml::Table = toml::from_str(
         r#"
 substrate = "sio2"
@@ -164,4 +164,177 @@ background = "sio2"
         "{e}"
     );
     assert!(tensor_stack(&StackField::Layers(table), None, None).is_ok());
+}
+
+/// A straight lithium niobate rib, 300 nm of film in oxide, its film `film`, in an
+/// `"fdfd"` job of `polarization`, `extra` added to the task.
+fn fdfd_guide(film: &str, polarization: &str, extra: &str) -> String {
+    format!(
+        r#"
+name = "tfln-fdfd"
+
+[task]
+kind = "fdfd"
+wavelength_um = 1.55
+layer = "LN"
+x_um = [-1.4, 1.4]
+y_um = [-1.4, 1.4]
+step_nm = 40.0
+polarization = "{polarization}"
+{extra}
+
+[task.stack]
+substrate = "sio2"
+cladding = "sio2"
+
+[[task.stack.layer]]
+name = "LN"
+thickness_um = 0.3
+material = {film}
+background = "sio2"
+
+[[task.rect]]
+layer = "LN"
+center_um = [0.0, 0.0]
+size_um = [4.0, 1.0]
+
+[[task.port]]
+x_um = -0.4
+side = "left"
+
+[[task.port]]
+x_um = 0.4
+side = "right"
+"#
+    )
+}
+
+#[test]
+fn an_fdfd_jobs_te_plane_takes_a_cut_crystals_in_plane_indices() {
+    let index = |film: &str| {
+        let job = Job::parse(&fdfd_guide(film, "te", "")).unwrap();
+        check(&job).unwrap();
+        let s = fdfd_s_parameters(&job, None).unwrap();
+        // a straight guide: all through, nothing back
+        assert!(s.s[0][1][0].norm() > 0.99 && s.s[0][0][0].norm() < 0.01);
+        s.effective_indices[0][0]
+    };
+    // along x, TE's E is along the chip's y: an x-cut's c axis (n_e), a z-cut's n_o
+    let x_cut = index(r#"{ id = "linbo3", orientation = "x-cut" }"#);
+    let z_cut = index(r#"{ id = "linbo3", orientation = "z-cut" }"#);
+    // the x-cut turned a quarter turn about z, its c axis along x: E_y, the mode's own, sees n_o
+    // as the z-cut's; E_x, along the guide where the walls bend the field, n_e
+    let turned = index(r#"{ id = "linbo3", orientation = { cut = "x", along_x = "z" } }"#);
+    assert!(x_cut < z_cut - 0.02, "{x_cut} {z_cut}");
+    assert!(
+        (turned - z_cut).abs() < 0.01 && turned > x_cut + 0.04,
+        "{turned} {z_cut}"
+    );
+}
+
+#[test]
+fn fdfd_and_fdtd_jobs_refuse_what_their_planes_and_grids_cant_take() {
+    let refused = |text: &str, words: &str| {
+        let e = check(&Job::parse(text).unwrap()).unwrap_err().to_string();
+        assert!(e.contains(words), "{e}");
+    };
+    // a tensor that couples E's components
+    refused(
+        &fdfd_guide(
+            r#"{ id = "linbo3", orientation = { euler_deg = [30, 40, 50] } }"#,
+            "te",
+            "",
+        ),
+        "couples E's components",
+    );
+    // TM: the slab's TM mode sees ε_zz and the in-plane ε along an unknown direction
+    refused(
+        &fdfd_guide(r#"{ id = "linbo3", orientation = "z-cut" }"#, "tm", ""),
+        "2D TM job",
+    );
+    // averaging from the fill takes one plane, which an x-cut's ε_xx ≠ ε_yy doesn't have
+    refused(
+        &fdfd_guide(
+            r#"{ id = "linbo3", orientation = "x-cut" }"#,
+            "te",
+            r#"averaging = "diagonal""#,
+        ),
+        "ε_xx ≠ ε_yy",
+    );
+    // a z-cut is the same along x and y: one plane, averaged from the fill
+    check(
+        &Job::parse(&fdfd_guide(
+            r#"{ id = "linbo3", orientation = "z-cut" }"#,
+            "te",
+            r#"averaging = "diagonal""#,
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    // Euler angles in quarter turns keep the tensor diagonal
+    check(
+        &Job::parse(&fdfd_guide(
+            r#"{ id = "linbo3", orientation = { euler_deg = [90, 90, 90] } }"#,
+            "te",
+            "",
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    // an fdtd job: the same refusal of a coupling tensor, in 3D
+    let fdtd = |film: &str| {
+        format!(
+            r#"
+name = "tfln-fdtd"
+[task]
+kind = "fdtd"
+wavelength_um = 1.55
+layer = "LN"
+dimensions = 3
+x_um = [-1.2, 1.2]
+y_um = [-1.0, 1.0]
+z_um = [-0.6, 0.9]
+step_nm = 80.0
+pml_cells = 4
+[task.stack]
+substrate = "sio2"
+cladding = "sio2"
+[[task.stack.layer]]
+name = "LN"
+thickness_um = 0.3
+material = {film}
+background = "sio2"
+[[task.rect]]
+layer = "LN"
+center_um = [0.0, 0.0]
+size_um = [4.0, 1.0]
+[[task.source]]
+type = "mode"
+normal = "x"
+at_um = -0.4
+[[task.monitor]]
+type = "mode"
+name = "out"
+normal = "x"
+at_um = 0.0
+[task.stop]
+until = "time"
+time_um = 6.0
+"#
+        )
+    };
+    refused(
+        &fdtd(r#"{ id = "linbo3", orientation = { euler_deg = [30, 40, 50] } }"#),
+        "couples E's components",
+    );
+    // an x-cut film runs, its port modes solved with the tensor
+    let job = Job::parse(&fdtd(r#"{ id = "linbo3", orientation = "x-cut" }"#)).unwrap();
+    check(&job).unwrap();
+    let dir = std::env::temp_dir().join(format!("photonoxide-crystal-fdtd-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let mut run = Run::create(&dir, &job).unwrap();
+    execute(&job, &mut run, &Stop::new(None)).unwrap();
+    let events: Vec<Event> = replay(run.dir()).unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(events.iter().any(|e| matches!(e, Event::FdtdFrame { .. })));
 }

@@ -133,16 +133,18 @@
 //! 90° leans the shape's walls out going down ([`crate::stack::Etch`]). Every kind of job reads
 //! them; a 2D job's etches are on its own layer. docs/methods/stacks.md has the method.
 //!
-//! **Oriented crystals.** In a modes or structure job, a catalogue crystal's table may give its
-//! `orientation` ([`crate::material::Orientation`]): `"x-cut"`, `"y-cut"` or `"z-cut"`; a
+//! **Oriented crystals.** In a modes, structure, fdfd or fdtd job, a catalogue crystal's table may
+//! give its `orientation` ([`crate::material::Orientation`]): `"x-cut"`, `"y-cut"` or `"z-cut"`; a
 //! `cut` and the crystal axis `along_x`, the chip's x (`{ cut = "x", along_x = "z" }`); or proper
 //! z-x-z Euler angles in degrees (`{ euler_deg = [0, 90, 90] }`). A modes job's cross-section then
 //! takes the crystal's tensor turned into the chip's frame and the job's
 //! ([`crate::material::Material::tensor`]); [`check`] refuses an angle that isn't a number or is
 //! beyond ±360°, an orientation whose tensor couples the guide's axis to the cross-section (no
-//! principal axis along the guide), and an oriented crystal in a job whose solver takes one
-//! permittivity per cell (FDFD, FDTD, static). `material = { id = "linbo3", orientation =
-//! "x-cut" }` puts lithium niobate's c axis along the chip's y: a guide along x has its TE-like
+//! principal axis along the guide), an oriented crystal in a static job (one permittivity per
+//! cell), and in an FDFD or FDTD job one whose tensor couples E's components (each component there
+//! takes its own diagonal entry; a 2D job's TE plane E_x's and E_y's effective indices apart, and a
+//! 2D TM job no crystal: docs/methods/catalogue.md, "In FDFD and FDTD"). `material = { id =
+//! "linbo3", orientation = "x-cut" }` puts lithium niobate's c axis along the chip's y: a guide along x has its TE-like
 //! mode polarized along c, and sees n_e.
 //!
 //! ```toml
@@ -2486,22 +2488,18 @@ fn check_etches_2d(s: &Structure, layer: &str) -> Result<()> {
 /// A task's stack: a named one, `soi_220`, or `soi` / `nitride` with their core and bottom
 /// oxide; or a `[task.stack]` table of layers ([`crate::device::spec::task_stack`]), whose
 /// crystals may be oriented ([`crate::material::Orientation`]) only in a job whose solver takes
-/// their tensor: a modes job, or a structure job, which draws them ([`TENSOR_JOBS`]).
+/// them ([`TENSOR_JOBS`]): this one refuses them, for a static job; [`tensor_stack`] and
+/// [`diagonal_stack`] take them.
 fn named_stack(
     stack: &StackField,
     core_nm: Option<f64>,
     bottom_oxide_um: Option<f64>,
 ) -> Result<LayerStack> {
     let stack = named_stack_of(stack, core_nm, bottom_oxide_um)?;
-    let mut media = vec![
-        ("the substrate", stack.substrate()),
-        ("the cladding", stack.cladding()),
-    ];
-    for l in stack.layers() {
-        media.push((l.name.as_str(), &l.material));
-        media.push((l.name.as_str(), &l.background));
-    }
-    if let Some((place, m)) = media.into_iter().find(|(_, m)| m.is_anisotropic()) {
+    if let Some((place, m)) = stack_media(&stack)
+        .into_iter()
+        .find(|(_, m)| m.is_anisotropic())
+    {
         return Err(task_error(format!(
             "[task.stack]: {place}'s {} is an oriented crystal, whose tensor only a {TENSOR_JOBS} \
              job takes; this job's solver takes one permittivity per cell: give an isotropic \
@@ -2513,7 +2511,53 @@ fn named_stack(
 }
 
 /// The jobs whose stacks may hold oriented crystals.
-const TENSOR_JOBS: &str = "modes or structure";
+const TENSOR_JOBS: &str = "modes, structure, fdfd or fdtd";
+
+/// [`named_stack`] for an FDFD or FDTD job, whose oriented crystals each give E's components
+/// their own permittivity, the diagonal of the tensor in the chip's frame
+/// ([`crate::material::Material::diagonal_permittivity`]): an orientation whose tensor couples
+/// them is refused, at each of `wavelengths_um`.
+fn diagonal_stack(
+    stack: &StackField,
+    core_nm: Option<f64>,
+    bottom_oxide_um: Option<f64>,
+    wavelengths_um: &[f64],
+) -> Result<LayerStack> {
+    let stack = named_stack_of(stack, core_nm, bottom_oxide_um)?;
+    for (place, m) in stack_media(&stack) {
+        if !m.is_anisotropic() {
+            continue;
+        }
+        for &w in wavelengths_um {
+            let Ok(w) = Wavelength::um(w) else { continue };
+            // (a wavelength without data is the materials' check's to report)
+            if let Err(Error::InvalidValue { .. }) = m.diagonal_permittivity(w) {
+                return Err(task_error(format!(
+                    "[task.stack]: {place}'s {} is oriented so that its tensor couples E's \
+                         components (its principal axes aren't along the chip's x, y and z); an \
+                         fdfd or fdtd job gives each component of E its own permittivity, the \
+                         tensor's diagonal: orient it by a cut, or by Euler angles in quarter \
+                         turns",
+                    m.name()
+                )));
+            }
+        }
+    }
+    Ok(stack)
+}
+
+/// A stack's media and where each is: the substrate, the cladding, each layer's two.
+fn stack_media(stack: &LayerStack) -> Vec<(&str, &crate::material::Material)> {
+    let mut media = vec![
+        ("the substrate", stack.substrate()),
+        ("the cladding", stack.cladding()),
+    ];
+    for l in stack.layers() {
+        media.push((l.name.as_str(), &l.material));
+        media.push((l.name.as_str(), &l.background));
+    }
+    media
+}
 
 /// [`named_stack`] with its crystals oriented, for a modes or a structure job.
 fn tensor_stack(

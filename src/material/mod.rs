@@ -630,6 +630,35 @@ impl Material {
         })
     }
 
+    /// The diagonal of [`Material::tensor`], (ε_xx, ε_yy, ε_zz) in the chip's frame, for a
+    /// solver that gives each component of E one permittivity (FDFD, FDTD): an isotropic
+    /// material's ε three times, and an oriented crystal's where its principal axes lie along
+    /// the chip's x, y and z (any cut, or Euler angles in quarter turns), or where its tensor is
+    /// diagonal all the same (a uniaxial crystal turned about its optic axis).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::OutsideValidity`] outside the material's range, and [`Error::InvalidValue`] for
+    /// a tensor with an off-diagonal entry beyond 1e-12 of its largest diagonal one, which
+    /// couples E's components.
+    pub fn diagonal_permittivity(&self, wavelength: Wavelength) -> Result<[Complex64; 3]> {
+        let t = self.tensor(wavelength)?;
+        let scale = (0..3).fold(0.0f64, |m, i| m.max(t[i][i].norm()));
+        let coupled = (0..3).any(|i| (0..3).any(|j| i != j && t[i][j].norm() > 1e-12 * scale));
+        if coupled {
+            return Err(Error::invalid(
+                "material",
+                format!(
+                    "{}'s tensor in the chip's frame couples E's components (its principal axes \
+                     aren't along the chip's x, y and z): orient it by a cut, or by Euler angles \
+                     in quarter turns",
+                    self.name
+                ),
+            ));
+        }
+        Ok([t[0][0], t[1][1], t[2][2]])
+    }
+
     /// The complex refractive index n + iκ at a vacuum wavelength, κ ≥ 0.
     ///
     /// # Errors

@@ -1551,6 +1551,18 @@ Before the rows were shared, a 2D grid, one plane thick, stepped on one thread: 
 217 500 cells at 31 million cell-updates a second on 20 threads of a Core Ultra 7 265K, and
 140 million after.
 
+## Oriented crystals
+
+`Simulation::diagonal` takes a diagonal tensor (ε_xx, ε_yy, ε_zz) at each point, each component
+of E averaged over its own cell from its own entry: a cut crystal, whose principal axes are the
+grid's. Nothing couples E's components, so the update, the Courant limit and the stability are a
+scalar medium's; the same three values everywhere is `Simulation::new` to the bit. A crystal
+turned off the grid's axes couples them and is `smoothing::Structure`'s, with
+`Coupling::Triplets`. An `"fdtd"` job takes a stack's oriented crystals this way and refuses an
+orientation that couples the components (docs/methods/catalogue.md, "In FDFD and FDTD").
+Checked: `fdtd/crystal-turned`, an x-cut crystal beside a pulse against the problem mirrored
+across x = y with the crystal turned a quarter turn, the same field to 2.7e-16.
+
 ## Validation
 
 | Case | What | Measured |

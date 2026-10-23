@@ -514,25 +514,32 @@ impl Simulation {
         })
     }
 
-    /// [`Simulation::new`] with the permittivity's samples taken on rayon's threads, each value's
-    /// average alone, so the same bits on any number of threads: for a permittivity that takes
-    /// a while to evaluate at each of a value's 512 samples, as a job's layer stack does.
+    /// The problem with a diagonal permittivity tensor, `eps(x, y, z)` = (ε_xx, ε_yy, ε_zz) in
+    /// the grid's axes (real, µm): each component of E averaged over its cell from its own
+    /// entry, as [`Simulation::new`] averages ε, so that nothing couples E's components and the
+    /// update stays scalar, its Courant limit and stability a scalar medium's. An anisotropic
+    /// medium whose principal axes are the grid's, such as a cut crystal
+    /// ([`crate::material::Material::diagonal_permittivity`]); one whose axes aren't is
+    /// [`Simulation::smoothed`]'s, with a tensor. The samples are taken on rayon's threads, each
+    /// value's average alone, so the same bits on any number of threads; the same three values
+    /// everywhere is [`Simulation::new`], to the bit.
     ///
     /// # Errors
     ///
     /// As [`Simulation::new`].
-    pub(crate) fn new_parallel(
+    pub fn diagonal(
         grid: Grid3d,
-        eps: impl Fn(f64, f64, f64) -> f64 + Sync,
+        eps: impl Fn(f64, f64, f64) -> [f64; 3] + Sync,
         boundaries: Boundaries,
         courant: f64,
     ) -> Result<Simulation> {
         Simulation::with_permittivity(grid, boundaries, courant, |grid| {
             let ok = |v: f64| v.is_finite() && v > 0.0;
             let h = [grid.dx, grid.dy, grid.dz];
-            let complex = |x: f64, y: f64, z: f64| c64::new(eps(x, y, z), 0.0);
             let mut eps_e: [Vec<f64>; 3] = [Vec::new(), Vec::new(), Vec::new()];
             for component in Axis::ALL {
+                let complex =
+                    |x: f64, y: f64, z: f64| c64::new(eps(x, y, z)[component.index()], 0.0);
                 let values: Vec<f64> = (0..grid.cells())
                     .into_par_iter()
                     .map(|r| {
@@ -1507,6 +1514,9 @@ pub(crate) mod agreement_checks;
 mod bloch;
 pub(crate) mod bloch_checks;
 pub(crate) mod checks;
+pub(crate) mod crystal_checks;
+#[cfg(test)]
+mod crystal_tests;
 mod harmonic;
 #[cfg(test)]
 mod harmonic_tests;

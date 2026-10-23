@@ -18,9 +18,10 @@ use num_complex::Complex64 as c64;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use super::fdfd::{InPlane, in_plane};
 use super::{
     CircleSpec, Event, PathSpec, RectSpec, RingSpec, check_cells, check_materials, check_step,
-    check_window, draw, draw_paths, named_stack, scene, task_error,
+    check_window, diagonal_stack, draw, draw_paths, scene, task_error,
 };
 use crate::fdfd::{
     Axis, Boundaries3d, Direction, Edges, Formulation, Grid3d, IterativeSolver3d, PortMode3d,
@@ -370,6 +371,8 @@ struct Setup {
     /// The layer's bottom and top.
     layer: (Length, Length),
     three: bool,
+    /// 2D: how the plane takes the stack's oriented crystals; 3D: unused.
+    in_plane: InPlane,
     /// 2D: the slab's TE mode (H along z); TM otherwise. 3D: unused.
     te: bool,
     grid: Grid3d,
@@ -440,12 +443,13 @@ impl Setup {
             Some(s) => s,
             None => draw_paths(
                 draw(
-                    named_stack(
+                    diagonal_stack(
                         task.stack
                             .as_ref()
                             .ok_or_else(|| task_error("needs a stack, e.g. stack = \"soi_220\""))?,
                         task.core_nm,
                         task.bottom_oxide_um,
+                        &[task.wavelength_um],
                     )?,
                     &task.rect,
                     &task.circle,
@@ -463,9 +467,26 @@ impl Setup {
             ));
         }
         let structure = super::bodies::place(structure, &task.body)?;
-        if !three {
-            super::check_etches_2d(&structure, &task.layer)?;
+        // a body's crystal, as the stack's: E's components each the tensor's diagonal entry
+        for (k, (_, medium)) in structure.bodies().iter().enumerate() {
+            if let crate::stack::Medium::Material(m) = medium
+                && let Ok(w) = Wavelength::um(task.wavelength_um)
+                && let Err(Error::InvalidValue { reason, .. }) = m.diagonal_permittivity(w)
+            {
+                return Err(task_error(format!("[[task.body]] #{}: {reason}", k + 1)));
+            }
         }
+        let in_plane = if three {
+            InPlane::One
+        } else {
+            super::check_etches_2d(&structure, &task.layer)?;
+            let kind = if te {
+                crate::mode::Polarization::Te
+            } else {
+                crate::mode::Polarization::Tm
+            };
+            in_plane(structure.stack(), kind, &[task.wavelength_um])?
+        };
         let (_, bottom, top) = structure
             .stack()
             .layer(&task.layer)
@@ -624,6 +645,7 @@ impl Setup {
             structure,
             layer: (bottom, top),
             three,
+            in_plane,
             te,
             grid,
             boundaries,
@@ -1333,9 +1355,10 @@ impl Setup {
             })
             .collect();
         if self.three {
-            let real = |m: &Material| -> Result<f64> {
-                let e = m.permittivity(lam)?;
-                if e.im.abs() > 1e-9 * e.re.abs() {
+            // each medium's (ε_xx, ε_yy, ε_zz): an oriented crystal's diagonal tensor
+            let real = |m: &Material| -> Result<[f64; 3]> {
+                let d = m.diagonal_permittivity(lam)?;
+                if let Some(e) = d.iter().find(|e| e.im.abs() > 1e-9 * e.re.abs()) {
                     return Err(task_error(format!(
                         "{} is lossy at {} um (eps = {e}): an fdtd job's materials must be \
                          lossless",
@@ -1343,7 +1366,7 @@ impl Setup {
                         lam.to_um()
                     )));
                 }
-                Ok(e.re)
+                Ok(d.map(|e| e.re))
             };
             // each layer's two materials, and the substrate and cladding
             let mut table = Vec::with_capacity(layers);
@@ -1372,7 +1395,7 @@ impl Setup {
                     if body.contains([x, y, z]) {
                         return match eps {
                             Ok(v) => *v,
-                            Err(g) => g.permittivity_at([x, y, z]),
+                            Err(g) => [g.permittivity_at([x, y, z]); 3],
                         };
                     }
                 }
@@ -1406,24 +1429,42 @@ impl Setup {
                 crate::mode::Polarization::Tm
             };
             let name = self.task.layer.clone();
-            let eps = super::fdfd::etched_plane(&self.structure, &name, kind, lam)?;
-            Ok(Box::new(move |x: f64, y: f64, _: f64| eps(x, y)))
+            let x = super::fdfd::etched_plane(&self.structure, &name, (kind, 0), lam)?;
+            if self.in_plane == InPlane::One {
+                return Ok(Box::new(move |a: f64, b: f64, _: f64| [x(a, b); 3]));
+            }
+            let y = super::fdfd::etched_plane(&self.structure, &name, (kind, 1), lam)?;
+            Ok(Box::new(move |a: f64, b: f64, _: f64| {
+                let e = x(a, b);
+                [e, y(a, b), e]
+            }))
         } else {
             let kind = if self.te {
                 crate::mode::Polarization::Te
             } else {
                 crate::mode::Polarization::Tm
             };
-            // the slab's index for each set of layers with a shape over a point
-            let mut table = Vec::with_capacity(1 << layers);
-            for mask in 0..1usize << layers {
-                let n = super::fdfd::slab_index(
-                    |z| column(&stack, &tops, mask, z.to_um()),
-                    self.layer,
-                    kind,
-                    lam,
-                )?;
-                table.push(n * n);
+            // the slab's index for each set of layers with a shape over a point, for E_x and
+            // (with a crystal whose ε_xx ≠ ε_yy) E_y; E_z, which TE doesn't have, takes E_x's
+            let axes: &[usize] = match self.in_plane {
+                InPlane::One => &[0],
+                InPlane::Two => &[0, 1],
+            };
+            let mut table = vec![[0.0; 3]; 1 << layers];
+            for (mask, entry) in table.iter_mut().enumerate() {
+                for &axis in axes {
+                    let n = super::fdfd::slab_index(
+                        |z| column(&stack, &tops, mask, z.to_um()),
+                        self.layer,
+                        (kind, axis),
+                        lam,
+                    )?;
+                    entry[axis] = n * n;
+                }
+                if axes.len() == 1 {
+                    entry[1] = entry[0];
+                }
+                entry[2] = entry[0];
             }
             Ok(Box::new(move |x: f64, y: f64, _: f64| {
                 let p = Point::um(x, y);
@@ -1539,8 +1580,20 @@ impl Setup {
     }
 }
 
-/// A job's permittivity, ε(x, y, z), real.
-type Permittivity = Box<dyn Fn(f64, f64, f64) -> f64 + Sync>;
+/// A job's permittivity, (ε_xx, ε_yy, ε_zz)(x, y, z), real: E's components each their own.
+type Permittivity = Box<dyn Fn(f64, f64, f64) -> [f64; 3] + Sync>;
+
+/// The one ε of a source's background `eps`, which must be isotropic: a plane wave's and a
+/// beam's are launched as in an isotropic medium.
+fn isotropic(eps: [f64; 3], what: &str) -> Result<f64> {
+    if eps[1] != eps[0] || eps[2] != eps[0] {
+        return Err(task_error(format!(
+            "{what} is launched in an isotropic background, and here it is an oriented crystal \
+             (ε = {eps:?} along x, y and z): start it outside the crystal"
+        )));
+    }
+    Ok(eps[0])
+}
 
 /// The material at height `z` (µm) of a column of `stack` where the layers in `mask` have a
 /// shape: the substrate below the stack, the cladding above it, and within a layer its
@@ -1792,7 +1845,7 @@ pub(super) fn preview(job: &Job) -> Result<Event> {
 #[allow(clippy::too_many_arguments)]
 fn port_mode(
     sim: &Simulation,
-    eps: &(dyn Fn(f64, f64, f64) -> f64 + Sync),
+    eps: &(dyn Fn(f64, f64, f64) -> [f64; 3] + Sync),
     boundaries: &Boundaries,
     axis: Axis,
     plane: usize,
@@ -1831,10 +1884,10 @@ fn port_mode(
         Axis::Z => fdfd.z = Edges::Pml { low: 0, high: 0 },
     }
     let wavelength = sim.fdfd_wavelength(frequency)?;
-    let solver = IterativeSolver3d::new(
+    let solver = IterativeSolver3d::diagonal(
         cut,
         wavelength,
-        |x, y, z| c64::new(eps(x, y, z), 0.0),
+        |x, y, z| eps(x, y, z).map(|e| c64::new(e, 0.0)),
         fdfd,
         Formulation::CurlCurl,
     )?;
@@ -2205,7 +2258,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     super::record_ports(job, run)?;
     let g = setup.grid;
     let eps = setup.permittivity()?;
-    let mut sim = Simulation::new_parallel(g, &eps, setup.boundaries, setup.courant)?;
+    let mut sim = Simulation::diagonal(g, &eps, setup.boundaries, setup.courant)?;
     let dt = sim.dt();
     let waveform = setup.waveform();
     let frequencies: Vec<Frequency> = setup
@@ -2264,7 +2317,8 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             SourcePlan::Dipole(d) => sim.add_dipole(*d).map_err(at(what))?,
             SourcePlan::PlaneWave(p) => {
                 let corner = g.e_position(Axis::X, p.low);
-                p.eps = eps(corner[0], corner[1], corner[2]);
+                p.eps = isotropic(eps(corner[0], corner[1], corner[2]), "a plane wave")
+                    .map_err(at(what.clone()))?;
                 sim.add_plane_wave(*p).map_err(at(what))?;
             }
             SourcePlan::Beam(b) => {
@@ -2273,7 +2327,8 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 centre[b.axis.index()] = g.node(b.axis, b.plane);
                 centre[bb.index()] = b.centre.0;
                 centre[cc.index()] = b.centre.1;
-                b.eps = eps(centre[0], centre[1], centre[2]);
+                b.eps = isotropic(eps(centre[0], centre[1], centre[2]), "a beam")
+                    .map_err(at(what.clone()))?;
                 sim.add_beam(b, waveform).map_err(at(what))?;
             }
         }
@@ -2371,7 +2426,9 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         for k in [0usize, g.cells() / 3, g.cells() / 2, 2 * g.cells() / 3] {
             let (i, j, kk) = (k % g.nx, (k / g.nx) % g.ny, k / (g.nx * g.ny));
             let p = g.e_position(Axis::X, (i, j, kk));
-            slowest = slowest.max(eps(p[0], p[1], p[2]).sqrt());
+            slowest = eps(p[0], p[1], p[2])
+                .iter()
+                .fold(slowest, |s, e| s.max(e.sqrt()));
         }
         let longest = [Axis::X, Axis::Y, Axis::Z]
             .iter()
@@ -3134,7 +3191,12 @@ time_um = 10.0
         let job = Job::parse(text).unwrap();
         crate::job::check(&job).unwrap();
         let setup = Setup::new(&job).unwrap();
-        let eps = setup.permittivity().unwrap();
+        let diagonal = setup.permittivity().unwrap();
+        let eps = |x: f64, y: f64, z: f64| {
+            let d = diagonal(x, y, z);
+            assert!(d[1] == d[0] && d[2] == d[0], "isotropic: {d:?}");
+            d[0]
+        };
         let si = crate::material::silicon()
             .permittivity(Wavelength::um(1.55).unwrap())
             .unwrap()

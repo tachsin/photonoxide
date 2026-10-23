@@ -692,6 +692,55 @@ pub fn cases() -> Vec<Case> {
             run: fdfd_port_mode_tm,
         },
         Case {
+            id: "fdfd/crystal-x-cut-slab-te",
+            title: r"2D FDFD with a cut crystal's diagonal tensor: the 600 nm x-cut uniaxial slab of `material/crystal-x-cut-slab-te` ($n_o$ 2.21, $n_e$ 2.14, in silica at 1550 nm, guided along the chip's x), on its vertical cross-section with $E$ along $z$ (the chip's y), the port mode on a 2.5 nm grid: TE sees $n_e$ (effective index shown)",
+            tier: Tier::Analytic,
+            source: r"the exact slab of $n_e$ (mode::slab); the scheme is second order (`fdfd/crystal-slab-order`)",
+            run: fdfd_crystal_x_cut_te,
+        },
+        Case {
+            id: "fdfd/crystal-x-cut-slab-tm",
+            title: r"The same x-cut slab with $H$ along $z$: TM sees $n_o$, $E_x$ and $E_y$ each their own entry of the tensor (shown)",
+            tier: Tier::Analytic,
+            source: r"the exact slab of $n_o$ (mode::slab)",
+            run: fdfd_crystal_x_cut_tm,
+        },
+        Case {
+            id: "fdfd/crystal-z-cut-slab-te",
+            title: r"The same slab z-cut, $E$ along $z$: TE sees $n_o$ (shown)",
+            tier: Tier::Analytic,
+            source: r"the exact slab of $n_o$ (mode::slab)",
+            run: fdfd_crystal_z_cut_te,
+        },
+        Case {
+            id: "fdfd/crystal-z-cut-slab-tm",
+            title: r"The same z-cut slab, $H$ along $z$: TM sees $n_e$ normal to the slab ($E_y$) and $n_o$ along it ($E_x$) (shown)",
+            tier: Tier::Analytic,
+            source: r"the uniaxial slab's TM closed form, as `material/crystal-z-cut-slab-tm` takes it",
+            run: fdfd_crystal_z_cut_tm,
+        },
+        Case {
+            id: "fdfd/crystal-slab-order",
+            title: r"The z-cut slab's TM port mode on grids of 10, 5 and 2.5 nm: the order of convergence of its error from 5 to 2.5 nm (shown)",
+            tier: Tier::Analytic,
+            source: r"second order, the scheme's; the errors 5.4e-4, 1.4e-4 and 3.4e-5 (the other three slabs' alike, 3.7e-5 to 4.0e-5 at 2.5 nm)",
+            run: fdfd_crystal_slab_order,
+        },
+        Case {
+            id: "fdfd/crystal-turned",
+            title: r"2D FDFD, $H$ along $z$: a line source beside an off-centre block of the x-cut crystal ($\varepsilon_{xx} = n_o^2$, $\varepsilon_{yy} = n_e^2$) in silica, 3 µm square of 20 nm cells; and the problem mirrored across $x = y$, which turns the tensor as a quarter turn about $z$ does (the crystal x-cut with its c axis along the chip's x): the largest difference between $H(i, j)$ and the mirrored problem's $H(j, i)$, relative to the largest (shown)",
+            tier: Tier::Analytic,
+            source: r"the mirror maps the grid, the source and the tensor onto themselves; rounding only",
+            run: fdfd_crystal_turned,
+        },
+        Case {
+            id: "fdfd/crystal-turned-3d",
+            title: r"3D FDFD from a stack: a point current along $x$ beside a block of 300 nm x-cut lithium niobate (the catalogue's) on silica in vacuum, a 2 µm cube of 50 nm cells; and the problem mirrored across $x = y$, the crystal turned a quarter turn about $z$: the largest difference between $E$ and the mirrored problem's, component by component, relative to the largest (shown)",
+            tier: Tier::Analytic,
+            source: r"the mirror maps the grid, the source and each component's entry of the tensor onto themselves; rounding only",
+            run: fdfd_crystal_turned_3d,
+        },
+        Case {
             id: "fdfd/straight-guide",
             title: r"2D FDFD ports: a straight silicon slab between two ports 1.4 µm apart, both polarizations, 20 nm grid: largest of the magnitudes of $S_{11}$ and $S_{22}$ and of the errors of $S_{21}$ and $S_{12}$ against $\exp(i\beta L)$ (shown)",
             tier: Tier::Analytic,
@@ -1390,6 +1439,13 @@ pub fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: r"Bauer, Werner and Cary (2011), Fig. 8: second order; measured 1.98, the RMS error 1.2e-3 at 48 cells",
             run: fdtd_smoothing_crystal_order,
+        },
+        Case {
+            id: "fdtd/crystal-turned",
+            title: r"3D FDTD with a cut crystal's diagonal tensor (`Simulation::diagonal`): a pulse from a point source along $x$ beside an off-centre block of the x-cut crystal of `fdfd/crystal-turned` in silica, a cube of 32 cells of 40 nm, 400 steps at a Courant number of 0.9; and the problem mirrored across $x = y$, the crystal turned a quarter turn about $z$: the largest difference between $E$ and the mirrored problem's, component by component, relative to the largest (shown)",
+            tier: Tier::Analytic,
+            source: r"the mirror maps the grid, the source and each component's entry of the tensor onto themselves; rounding only",
+            run: fdtd_crystal_turned,
         },
         Case {
             id: "fdtd/monitor-transforms",
@@ -3642,6 +3698,82 @@ fn fdfd_port_mode(polarization: crate::fdfd::Polarization) -> Outcome {
         expected: exact,
         tolerance: 2e-4,
         error: (got - exact).abs(),
+    }
+}
+
+/// The cut slab's port mode in 2D FDFD on a 2.5 nm grid, against its exact effective index.
+fn fdfd_crystal_slab(cut: material::CrystalAxis, kind: Polarization) -> Outcome {
+    let (got, exact) = crate::fdfd::crystal_checks::slab_index(cut, kind, 0.0025);
+    Outcome {
+        measured: got,
+        expected: exact,
+        // second order, as `fdfd/port-mode-te`: 3.4e-5 to 4.0e-5 at 2.5 nm
+        tolerance: 2e-4,
+        error: (got - exact).abs(),
+    }
+}
+
+fn fdfd_crystal_x_cut_te() -> Outcome {
+    fdfd_crystal_slab(material::CrystalAxis::X, Polarization::Te)
+}
+
+fn fdfd_crystal_x_cut_tm() -> Outcome {
+    fdfd_crystal_slab(material::CrystalAxis::X, Polarization::Tm)
+}
+
+fn fdfd_crystal_z_cut_te() -> Outcome {
+    fdfd_crystal_slab(material::CrystalAxis::Z, Polarization::Te)
+}
+
+fn fdfd_crystal_z_cut_tm() -> Outcome {
+    fdfd_crystal_slab(material::CrystalAxis::Z, Polarization::Tm)
+}
+
+fn fdfd_crystal_slab_order() -> Outcome {
+    let (_, orders) = crate::fdfd::crystal_checks::slab_errors(
+        material::CrystalAxis::Z,
+        Polarization::Tm,
+        &[0.01, 0.005, 0.0025],
+    );
+    let measured = orders[1];
+    Outcome {
+        measured,
+        expected: 2.0,
+        tolerance: 0.2,
+        error: (measured - 2.0).abs(),
+    }
+}
+
+fn fdfd_crystal_turned() -> Outcome {
+    let error = crate::fdfd::crystal_checks::turned_2d();
+    Outcome {
+        measured: error,
+        expected: 0.0,
+        // rounding in two factorizations of the same matrix, its rows reordered: 2.8e-15
+        tolerance: 1e-12,
+        error,
+    }
+}
+
+fn fdfd_crystal_turned_3d() -> Outcome {
+    let error = crate::fdfd::crystal_checks::turned_3d();
+    Outcome {
+        measured: error,
+        expected: 0.0,
+        // rounding: 7.5e-15
+        tolerance: 1e-12,
+        error,
+    }
+}
+
+fn fdtd_crystal_turned() -> Outcome {
+    let error = crate::fdtd::crystal_checks::turned(400);
+    Outcome {
+        measured: error,
+        expected: 0.0,
+        // rounding: 2.7e-16
+        tolerance: 1e-13,
+        error,
     }
 }
 
