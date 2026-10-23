@@ -27,6 +27,7 @@ pub mod fields;
 pub mod hadley;
 pub mod marcatili;
 pub mod multilayer;
+pub mod pockels;
 pub mod region;
 pub mod slab;
 pub mod slab_fd;

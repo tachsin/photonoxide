@@ -1940,6 +1940,7 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::statics::checks::cases());
     // and a temperature in the modes: dn/dT by perturbation and by re-solve, a heat solve's field
     cases.extend(crate::mode::thermo_checks::cases());
+    cases.extend(crate::mode::pockels::checks::cases());
     cases
 }
 

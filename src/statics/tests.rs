@@ -364,3 +364,54 @@ fn elliptic_k_matches_its_values() {
     assert!((elliptic_k(0.0) - std::f64::consts::FRAC_PI_2).abs() < 1e-15);
     assert!((elliptic_k(std::f64::consts::FRAC_1_SQRT_2) - 1.854_074_677_301_372).abs() < 1e-14);
 }
+
+#[test]
+fn a_layered_capacitors_field_is_each_layers_own() {
+    use crate::electro::{Conductor, Electrostatic};
+    // plates at y = -1 and 1 µm, silica below y = 0 and a crystal of 28 above, 2 V across
+    let mut section = Section::new("oxide");
+    section.layer(0.0, 1.0, "crystal").unwrap();
+    let features = section.features().clone();
+    let grid = Grid::fitted(
+        [-1.0, 1.0],
+        [-1.0, 1.0],
+        &Grading::uniform(0.1).unwrap(),
+        &features,
+    )
+    .unwrap();
+    let mut problem = Electrostatic::new(section, grid);
+    problem
+        .permittivity("oxide", Tensor::isotropic(3.9))
+        .permittivity("crystal", Tensor::diagonal(5.0, 28.0))
+        .boundary(Side::Bottom, Boundary::Fixed(0.0))
+        .boundary(Side::Top, Boundary::Fixed(2.0));
+    let phi = problem.solve().unwrap();
+    let e = problem.electric_field(&phi).unwrap();
+    // D = V / Σ t/ε, each layer's E = −D/ε (the potential rising upward)
+    let d = 2.0 / ((1.0 / 3.9 + 1.0 / 28.0) * 1e-6);
+    for (y, eps) in [(-0.95, 3.9), (-0.05, 3.9), (0.05, 28.0), (0.95, 28.0)] {
+        let [ex, ey] = e.at(0.3, y);
+        assert!((ey / (-d / eps) - 1.0).abs() < 1e-12, "{y}: {ey}");
+        assert!(ex.abs() < 1e-9 * d / eps);
+    }
+    // a central difference across the interface mixes the two layers
+    let j = e.grid().y().cells() / 2;
+    let mixed = phi.gradient(5, j)[1];
+    assert!((mixed / (d / 28.0) - 1.0).abs() > 0.1);
+    // a conductor's inside has no field, and a field from another grid is refused
+    let mut held = problem.clone();
+    let plate = Shape::rect(Point::um(0.0, -0.5), Length::um(4.0), Length::um(0.2)).unwrap();
+    held.conductor(Conductor::shape(plate, 1.0));
+    let phi_held = held.solve().unwrap();
+    let inside = held.electric_field(&phi_held).unwrap().at(0.0, -0.5);
+    assert_eq!(inside, [0.0, 0.0]);
+    let other = Grid::new(
+        Axis::uniform(-1.0, 1.0, 3).unwrap(),
+        Axis::uniform(-1.0, 1.0, 3).unwrap(),
+    );
+    let mut elsewhere = Electrostatic::new(Section::new("oxide"), other);
+    elsewhere
+        .permittivity("oxide", Tensor::isotropic(3.9))
+        .boundary(Side::Bottom, Boundary::Fixed(0.0));
+    assert!(elsewhere.electric_field(&phi).is_err());
+}

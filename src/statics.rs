@@ -228,7 +228,7 @@ impl Axis {
     }
 
     /// The cell holding `v` (the nearest end cell outside the axis).
-    fn cell_of(&self, v: f64) -> usize {
+    pub(crate) fn cell_of(&self, v: f64) -> usize {
         self.nodes
             .partition_point(|&n| n <= v)
             .clamp(1, self.nodes.len() - 1)
@@ -1089,6 +1089,10 @@ pub(crate) struct Discrete {
     holds: usize,
     /// the faces between free cells: (a, b, conductance), each once
     faces: Vec<(usize, usize, f64)>,
+    /// the face of its cell each link crosses (0 west, 1 east, 2 south, 3 north)
+    link_faces: Vec<u8>,
+    /// each cell's coefficient across and up
+    coefficients: Vec<[f64; 2]>,
     /// the free cells' ordering and symbolic factorization, for this operator and any shift of
     /// its diagonal ([`Discrete::shifted`])
     analysis: Option<Arc<Analysis>>,
@@ -1129,6 +1133,15 @@ fn reach(shape: &Shape, from: [f64; 2], to: [f64; 2]) -> Option<f64> {
 impl Discrete {
     /// Assembles and factorizes `problem`.
     pub(crate) fn new(problem: &Problem<'_>) -> Result<Discrete> {
+        Discrete::build(problem, true)
+    }
+
+    /// Assembles `problem` without factorizing it: its fluxes for a field already solved.
+    pub(crate) fn assembled(problem: &Problem<'_>) -> Result<Discrete> {
+        Discrete::build(problem, false)
+    }
+
+    fn build(problem: &Problem<'_>, factorize: bool) -> Result<Discrete> {
         let grid = problem.grid;
         let (nx, ny) = (grid.x.cells(), grid.y.cells());
         for (side, b) in Side::ALL.iter().zip(&problem.sides) {
@@ -1185,6 +1198,7 @@ impl Discrete {
         let mut links = Vec::new();
         let mut inflows = Vec::new();
         let mut faces = Vec::new();
+        let mut link_faces = Vec::new();
         let coef = &problem.coefficients;
         let centre = |i: usize, j: usize| [grid.x.centre(i), grid.y.centre(j)];
         for j in 0..ny {
@@ -1236,8 +1250,10 @@ impl Discrete {
                 } in around
                 {
                     let own = coef[c][axis];
+                    let before = links.len();
                     if let Some(k) = strip {
                         links.push((u, length * own / half, Target::Hold(k)));
+                        link_faces.push(side as u8);
                         continue;
                     }
                     match neighbour {
@@ -1297,6 +1313,8 @@ impl Discrete {
                             }
                         }
                     }
+                    link_faces.resize(links.len(), side as u8);
+                    debug_assert!(links.len() <= before + 1);
                 }
             }
         }
@@ -1316,13 +1334,74 @@ impl Discrete {
             inflows,
             holds: problem.holds.len(),
             faces,
+            link_faces,
+            coefficients: problem.coefficients.clone(),
             analysis: None,
             factors: None,
         };
-        if unknowns > 0 {
+        if unknowns > 0 && factorize {
             d.factorize()?;
         }
         Ok(d)
+    }
+
+    /// The flux density −c∇u at each cell's centre (across and up; zero in held cells), from
+    /// the fluxes through its faces: across, the mean of what crosses its west and east faces
+    /// per unit of their length, and up likewise. Each face's flux is the scheme's own (the
+    /// coefficients in series, a conductor met where it lies), so the normal component is
+    /// continuous across an interface on the grid's lines, as D·n is, and the field
+    /// −∇u = (flux density) / c is each medium's own on its side: a central difference of u
+    /// across the interface would mix the two.
+    pub(crate) fn flux_density(&self, field: &Field) -> Vec<[f64; 2]> {
+        let (nx, ny) = (self.grid.x.cells(), self.grid.y.cells());
+        let of = self.free_cells();
+        // each cell's outflow through its west, east, south and north faces, per unit length
+        let mut out = vec![[0.0f64; 4]; self.cell.len()];
+        for &(a, b, g) in &self.faces {
+            let (ca, cb) = (of[a].min(of[b]), of[a].max(of[b]));
+            let q = g * (field.values[ca] - field.values[cb]);
+            // cb is ca's east neighbour or its north one
+            if cb == ca + 1 && ca % nx + 1 < nx && cb / nx == ca / nx {
+                out[ca][1] += q;
+                out[cb][0] -= q;
+            } else {
+                out[ca][3] += q;
+                out[cb][2] -= q;
+            }
+        }
+        for (&(u, g, t), &f) in self.links.iter().zip(&self.link_faces) {
+            let c = of[u];
+            let other = match t {
+                Target::Hold(k) => field.levels[k],
+                Target::Side(_, v) => v,
+            };
+            out[c][f as usize] += g * (field.values[c] - other);
+        }
+        for &(u, q, s) in &self.inflows {
+            out[of[u]][s] -= q;
+        }
+        let mut density = vec![[0.0; 2]; self.cell.len()];
+        for j in 0..ny {
+            for i in 0..nx {
+                let c = j * nx + i;
+                if let Place::Free(_) = self.cell[c] {
+                    let (hx, hy) = (self.grid.x.width(i) * 1e-6, self.grid.y.width(j) * 1e-6);
+                    let o = out[c];
+                    density[c] = [(o[1] - o[0]) / (2.0 * hy), (o[3] - o[2]) / (2.0 * hx)];
+                }
+            }
+        }
+        density
+    }
+
+    /// Each cell's coefficient, across and up.
+    pub(crate) fn coefficients(&self) -> &[[f64; 2]] {
+        &self.coefficients
+    }
+
+    /// Whether cell `c` is held by a region.
+    pub(crate) fn is_held(&self, c: usize) -> bool {
+        matches!(self.cell[c], Place::Held(_))
     }
 
     /// The free cells' operator K, its diagonal plus `shift` where one is given.

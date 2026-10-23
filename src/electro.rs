@@ -170,6 +170,10 @@ impl Electrostatic {
     }
 
     fn discrete(&self) -> Result<Discrete> {
+        self.problem(Discrete::new)
+    }
+
+    fn problem(&self, build: impl Fn(&Problem<'_>) -> Result<Discrete>) -> Result<Discrete> {
         for c in &self.conductors {
             c.check()?;
         }
@@ -181,12 +185,47 @@ impl Electrostatic {
             },
             "permittivity",
         )?;
-        Discrete::new(&Problem {
+        build(&Problem {
             grid: &self.grid,
             coefficients,
             sides: self.sides,
             holds: self.conductors.iter().map(|c| c.hold.clone()).collect(),
             profile: None,
+        })
+    }
+
+    /// The electric field E = −∇φ of `field` (this problem's solution) at each cell's centre,
+    /// V/m: the displacement through each face, ε₀ε_r (φ_P − φ_N) over the distance with the
+    /// media in series as the scheme has it, averaged over the cell's two faces along each axis
+    /// and divided by the cell's own ε₀ε_r. D·n is continuous across an interface on the grid's
+    /// lines, so E on each side of it is that medium's own (in a high-permittivity crystal, the
+    /// smaller): a central difference of φ across it ([`Field::gradient`]) would mix the two.
+    /// E is zero inside a conductor.
+    ///
+    /// # Errors
+    ///
+    /// As [`Electrostatic::solve`], and [`Error::InvalidValue`] for a field on another grid.
+    pub fn electric_field(&self, field: &Field) -> Result<ElectricField> {
+        if field.grid() != &self.grid {
+            return Err(Error::invalid(
+                "field",
+                "the potential was solved on another grid",
+            ));
+        }
+        let discrete = self.problem(Discrete::assembled)?;
+        let d = discrete.flux_density(field);
+        let coefficients = discrete.coefficients().to_vec();
+        let values = d
+            .iter()
+            .zip(&coefficients)
+            .map(|(d, c)| [d[0] / c[0], d[1] / c[1]])
+            .collect();
+        let held = (0..d.len()).map(|c| discrete.is_held(c)).collect();
+        Ok(ElectricField {
+            grid: self.grid.clone(),
+            values,
+            coefficients,
+            held,
         })
     }
 
@@ -237,6 +276,69 @@ impl Electrostatic {
         Ok((0..n)
             .map(|i| (0..n).map(|j| columns[j][i]).collect())
             .collect())
+    }
+}
+
+/// An electrostatic solution's field E at the cells' centres, V/m ([`Electrostatic::electric_field`]).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ElectricField {
+    grid: Grid,
+    values: Vec<[f64; 2]>,
+    coefficients: Vec<[f64; 2]>,
+    held: Vec<bool>,
+}
+
+impl ElectricField {
+    /// The grid.
+    pub fn grid(&self) -> &Grid {
+        &self.grid
+    }
+
+    /// Cell (i, j)'s field, V/m, across and up.
+    pub fn value(&self, i: usize, j: usize) -> [f64; 2] {
+        self.values[j * self.grid.x().cells() + i]
+    }
+
+    /// The field at (x, y), µm, V/m: bilinear between the four nearest cells' centres when they
+    /// are all of the medium of the cell holding the point (the same coefficients, none inside
+    /// a conductor), and that cell's own value otherwise, so an interface's two sides are never
+    /// mixed. Beyond the outermost centres, the edge cells'.
+    pub fn at(&self, x: f64, y: f64) -> [f64; 2] {
+        let (gx, gy) = (self.grid.x(), self.grid.y());
+        let nx = gx.cells();
+        let own = gy.cell_of(y) * nx + gx.cell_of(x);
+        let locate = |a: &Axis, v: f64| -> (usize, usize, f64) {
+            let n = a.cells();
+            if n == 1 || v <= a.centre(0) {
+                return (0, 0, 0.0);
+            }
+            if v >= a.centre(n - 1) {
+                return (n - 1, n - 1, 0.0);
+            }
+            let mut i = a.cell_of(v);
+            if v < a.centre(i) {
+                i -= 1;
+            }
+            (
+                i,
+                i + 1,
+                (v - a.centre(i)) / (a.centre(i + 1) - a.centre(i)),
+            )
+        };
+        let (i0, i1, s) = locate(gx, x);
+        let (j0, j1, t) = locate(gy, y);
+        let corners = [j0 * nx + i0, j0 * nx + i1, j1 * nx + i0, j1 * nx + i1];
+        let alike = corners
+            .iter()
+            .all(|&c| !self.held[c] && self.coefficients[c] == self.coefficients[own]);
+        if !alike {
+            return self.values[own];
+        }
+        let v = |c: usize, k: usize| self.values[c][k];
+        std::array::from_fn(|k| {
+            (1.0 - t) * ((1.0 - s) * v(corners[0], k) + s * v(corners[1], k))
+                + t * ((1.0 - s) * v(corners[2], k) + s * v(corners[3], k))
+        })
     }
 }
 

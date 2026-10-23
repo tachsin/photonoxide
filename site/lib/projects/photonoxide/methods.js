@@ -61,8 +61,8 @@ export const CATEGORIES = [
   {
     id: "static",
     title: "Heat and static fields",
-    blurb: "Temperature, potential and current on a waveguide's cross-section: one static solver for heaters, electrodes and their Joule heat, exact for layered media and second order elsewhere.",
-    groups: [{ title: null, slugs: ["static"] }],
+    blurb: "Temperature, potential and current on a waveguide's cross-section: one static solver for heaters, electrodes and their Joule heat, exact for layered media and second order elsewhere; and the Pockels effect it drives in a mode, to Vπ·L.",
+    groups: [{ title: null, slugs: ["static", "electro-optic"] }],
   },
   {
     id: "circuits",
@@ -111,6 +111,7 @@ export const ALGORITHMS = [
   { name: "Multigrid, shifted Laplacian", does: "the 3D iterative solves' preconditioner", methods: ["fdfd-3d", "multigrid-stencil"] },
   { name: "Multimode self-imaging", does: "an MMI's image lengths from its beat length, as geometry inputs", methods: ["generators"] },
   { name: "Nonlinear inverse iteration", does: "an eigenproblem whose matrix depends on its eigenvalue", methods: ["hadley"] },
+  { name: "Perturbation theory, first order", does: "a mode's index change from a change of permittivity, a temperature's or an electrode field's", methods: ["fields", "electro-optic"] },
   { name: "Polygon overlay on an integer grid", does: "union, intersection, difference and xor of polygons, exact on shared edges", methods: ["booleans"] },
   { name: "QMR, complex symmetric", does: "3D FDFD by iteration, with or without the matrix", methods: ["fdfd-3d"] },
   { name: "Richardson extrapolation", does: "the grid's error removed from three grids", methods: ["vector"] },

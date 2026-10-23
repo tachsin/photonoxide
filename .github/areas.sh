@@ -101,6 +101,11 @@ area statics \
 # solve's field
 area thermo   "src/mode/thermo.rs src/mode/thermo_checks.rs"   "mode material statics"   "mode::thermo" "thermo/" ""
 
+# the Pockels effect in a full-vector mode (src/mode/pockels.rs, in the mode area too): the
+# catalogue's electro-optic tensor turned into the guide's frame, the static solver's field, the
+# perturbation (thermo's) and Vpi L; its cases read the catalogue's lithium niobate
+area pockels  "src/mode/pockels.rs src/mode/pockels/*"   "mode material statics thermo"   "mode::pockels" "pockels/" ""
+
 # jobs, their runs and replay, and farming them out; the job files in jobs/ are read by the
 # library's tests and validation cases, by the studio's and by the Python package's; a job's
 # [device] table is read, checked and drawn by the devices, and studied (its sweeps and corners,
