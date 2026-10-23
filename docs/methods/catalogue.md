@@ -372,12 +372,14 @@ $\varepsilon = M\,\mathrm{diag}(\varepsilon_x, \varepsilon_y, \varepsilon_z)\,M^
 
 In a job, a crystal in a modes or structure job's `[task.stack]` takes an `orientation`:
 
-```toml
-[[task.stack.layer]]
-name = "LN"
-thickness_um = 0.6
-material = { id = "linbo3", orientation = "x-cut" }   # or { cut = "x", along_x = "z" },
-background = "sio2"                                   # or { euler_deg = [0, 90, 90] }
+```yaml
+task:
+  stack:
+    layer:
+      - name: LN
+        thickness_um: 0.6
+        material: { id: linbo3, orientation: x-cut }  # or { cut = "x", along_x = "z" },
+        background: sio2                              # or { euler_deg = [0, 90, 90] }
 ```
 
 The modes job's cross-section takes the tensor in its own axes (across the guide, up, along it).

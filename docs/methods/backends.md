@@ -67,12 +67,12 @@ A `Choice` is `auto` (what this machine's measurements say: see "What auto choos
   wavelength keeps its backend.
 - **In a job file,** for an `fdfd` job:
 
-  ```toml
-  [solver]
-  direct = "photonoxide"   # auto (the default), photonoxide, or a backend's name
+  ```yaml
+  solver:
+    direct: photonoxide   # auto (the default), photonoxide, or a backend's name
   ```
 
-  the same in JSON and YAML. `job::check` and the run refuse, in the same words, a name nothing
+  the same in TOML (`[solver]`) and JSON. `job::check` and the run refuse, in the same words, a name nothing
   is registered under, a backend that isn't available (with its reason), and the setting on a
   job without a direct solve.
 - **In the record:** the run's `Solver` event names the backend that solved and its version,

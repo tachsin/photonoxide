@@ -5,7 +5,7 @@ and MATLAB through that package ([docs/python.md](python.md)). This table says, 
 and method, where it can be used today.
 
 - ✅ available, and tested in that language
-- ◐ part of it, as the note says; "a job" means through a job file (TOML, JSON or YAML, or a
+- ◐ part of it, as the note says; "a job" means through a job file (YAML, TOML or JSON, or a
   dict in Python), which `run_job` runs as the `photonoxide` program does, returning the run's
   events
 - — not yet

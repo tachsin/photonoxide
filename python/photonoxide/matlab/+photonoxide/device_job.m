@@ -5,7 +5,7 @@ function text = device_job(kind, options)
 %   the photonoxide studio writes it. photonoxide.run_job(text) runs it.
 %
 %   Options: values, fidelity, stack and compact, as photonoxide.device_spectrum takes them; name (the
-%   kind's by default); format ("json", "toml" or "yaml"), the text to save as a job file.
+%   kind's by default); format ("json", "yaml" or "toml"), the text to save as a job file.
 arguments
     kind (1,1) string
     options.values (1,1) struct = struct()

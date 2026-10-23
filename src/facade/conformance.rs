@@ -729,13 +729,13 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
     ));
     let (d, args) = design("directional coupler", &[("gap", 0.25)], Some("analytic"));
     cases.push(case(
-        "device_job/coupler-toml",
+        "device_job/coupler-yaml",
         "device_job",
         &with(
             args.clone(),
-            &[("name", json!("narrow-coupler")), ("format", json!("toml"))],
+            &[("name", json!("narrow-coupler")), ("format", json!("yaml"))],
         ),
-        &Value::String(device_job(&d, "narrow-coupler", "toml")?),
+        &Value::String(device_job(&d, "narrow-coupler", "yaml")?),
         &[],
     ));
     // without a format, the job as data: the object its JSON is

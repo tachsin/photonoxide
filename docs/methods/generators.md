@@ -160,24 +160,25 @@ of the task's parameters with its unit (or a number in a `_um` or `_deg` key), a
 place: `origin`, `rotate` and `mirror`, or `connect = ["o1", "ring.through"]` to put one of its
 ports on an earlier component's.
 
-```toml
-[[task.component]]
-type = "ring"
-name = "ring"
-width = "w"
-radius = "5 um"
-gap = "gap"
-drop_gap = "gap"
+```yaml
+task:
+  component:
+    - type: ring
+      name: ring
+      width: w
+      radius: "5 um"
+      gap: gap
+      drop_gap: gap
 
-[[task.component]]
-type = "straight"
-name = "lead"
-width = "w"
-length = "3 um"
-connect = ["o1", "ring.through"]
+    - type: straight
+      name: lead
+      width: w
+      length: "3 um"
+      connect: [o1, ring.through]
 
-[[task.port]]          # an fdfd job's port at the ring's input
-port = "ring.in"
+  port:
+    # an fdfd job's port at the ring's input
+    - port: ring.in
 ```
 
 A port found by name stands for the fields it replaces: an FDFD port's column at the port's x, its

@@ -479,19 +479,20 @@ A device's design is a job file with a `[device]` table in place of a task (`dev
 the device by its kind, its stack, its parameters' expressions, and the fidelity it is computed
 at.
 
-```toml
-name = "narrow-coupler"
+```yaml
+name: narrow-coupler
 
-[device]
-kind = "directional coupler"   # waveguide, bend, directional coupler, all-pass ring, add-drop ring,
-                               # rib waveguide, MMI 1x2, MMI 2x2, Y-branch, MZI, Y-branch MZI
-fidelity = "analytic"          # analytic, 2D or 3D, as the device has them; its cheapest by default
-stack = "soi_220"              # soi_220 (the default), soi or nitride
+device:
+  kind: directional coupler    # waveguide, bend, directional coupler, all-pass ring, add-drop ring,
+  # rib waveguide, MMI 1x2, MMI 2x2, Y-branch, MZI, Y-branch MZI
+  fidelity: analytic           # analytic, 2D or 3D, as the device has them; its cheapest by default
+  stack: soi_220               # soi_220 (the default), soi or nitride
 
-[device.parameters]            # expressions; the device's parameters left out take their defaults
-w = "450 nm"
-width = "w"
-gap = "w/2.5"
+  parameters:
+    # expressions; the device's parameters left out take their defaults
+    w: "450 nm"
+    width: w
+    gap: "w/2.5"
 ```
 
 A stack is a preset, `"soi"` and `"nitride"` with 2 µm of oxide under the core or
@@ -499,23 +500,23 @@ A stack is a preset, `"soi"` and `"nitride"` with 2 µm of oxide under the core 
 [materials catalogue](catalogue.md)'s, bottom to top, each material an id (its default model at
 its default conditions) or `{ id = "si", model = "li-1980", temperature = 300 }`:
 
-```toml
-[device.stack]
-core = "Si"                    # the layer the guides are drawn on: its thickness is the device's
-substrate = "si"
-cladding = "sio2"
+```yaml
+device:
+  stack:
+    core: Si                   # the layer the guides are drawn on: its thickness is the device's
+    substrate: si
+    cladding: sio2
 
-[[device.stack.layer]]
-name = "BOX"
-thickness_um = 2.0
-material = "sio2"
-background = "sio2"
+    layer:
+      - name: BOX
+        thickness_um: 2.0
+        material: sio2
+        background: sio2
 
-[[device.stack.layer]]
-name = "Si"
-thickness_um = 0.22
-material = "si"
-background = "sio2"
+      - name: Si
+        thickness_um: 0.22
+        material: si
+        background: sio2
 ```
 
 The presets are those materials' (Li's silicon, Malitson's silica, Luke's nitride), so a preset
@@ -545,24 +546,24 @@ Beside the `[device]` table, a `[task]` says how the job computes the device, an
   a mode monitor at each, on 40 nm cells in 2D (the effective index method's plane, labelled
   2D) or 50 nm in 3D. No device's fidelity is FDTD; it is a check on the others.
 
-```toml
-name = "mmi-3d"
-timeout_minutes = 30.0
+```yaml
+name: mmi-3d
+timeout_minutes: 30.0
 
-[device]
-kind = "MMI 1x2"
-fidelity = "3D"
+device:
+  kind: MMI 1x2
+  fidelity: "3D"
 
-[task]
-kind = "spectrum"
-from_um = 1.5        # the band: the device's own, its wavelength ± span/2, by default
-to_um = 1.6
-points = 101
-step_nm = 80.0       # each left out is the device's own: the cells in the chip's plane (an
-step_z_nm = 40.0     # FDFD's, or a cross-section's mesh step); 3D FDFD's cells' height; the
-margin_um = 0.6      # cladding beside the guides; the wavelengths an FDFD samples and its PML
-samples = 3          # cells; an MMI's 2D model by FDFD in place of its guided modes
-pml_cells = 12
+task:
+  kind: spectrum
+  from_um: 1.5       # the band: the device's own, its wavelength ± span/2, by default
+  to_um: 1.6
+  points: 101
+  step_nm: 80.0      # each left out is the device's own: the cells in the chip's plane (an
+  step_z_nm: 40.0    # FDFD's, or a cross-section's mesh step); 3D FDFD's cells' height; the
+  margin_um: 0.6     # cladding beside the guides; the wavelengths an FDFD samples and its PML
+  samples: 3         # cells; an MMI's 2D model by FDFD in place of its guided modes
+  pml_cells: 12
 # model_2d = "fdfd"
 ```
 
@@ -572,7 +573,7 @@ From Python and MATLAB, `device_job` writes the job `job::from_device` writes fo
 
 ```python
 job = phox.device_job("directional coupler", values={"gap": 0.25}, fidelity="analytic",
-                      name="narrow-coupler")   # a dict; format="toml" gives the file's text
+                      name="narrow-coupler")   # a dict; format="yaml" gives the file's text
 run = phox.run_job(job)                        # run.dir, which photonoxide view replays
 ```
 
@@ -606,38 +607,36 @@ the design's fidelity, on the task's grids. `job::study_from_device(name, &spec,
   added to its parameters' nominal values (a width bias, a thickness) and its materials at a
   temperature (`temperature_k`), every material of the stack whose index model takes one.
 
-```toml
-[task]
-kind = "sweep"
-from_um = 1.53             # the band at each point
-to_um = 1.57
-points = 5
-# step_nm, step_z_nm, margin_um, samples, pml_cells, model_2d: the grids, as a spectrum's
+```yaml
+task:
+  kind: sweep
+  from_um: 1.53            # the band at each point
+  to_um: 1.57
+  points: 5
+  # step_nm, step_z_nm, margin_um, samples, pml_cells, model_2d: the grids, as a spectrum's
 
-[[task.axis]]
-parameter = "gap"
-from = 0.15
-to = 0.3
-points = 4
+  axis:
+    - parameter: gap
+      from: 0.15
+      to: 0.3
+      points: 4
 
-[[task.axis]]
-parameter = "length"
-from = 5.0
-to = 20.0
-points = 3
+    - parameter: length
+      from: 5.0
+      to: 20.0
+      points: 3
 ```
 
-```toml
-[task]
-kind = "corners"
+```yaml
+task:
+  kind: corners
 
-[[task.corner]]
-name = "wide, thin"
-offsets = { width = 0.01, thickness = -0.005 }
+  corner:
+    - name: "wide, thin"
+      offsets: { width: 0.01, thickness: -0.005 }
 
-[[task.corner]]
-name = "cold"
-temperature_k = 200.0
+    - name: cold
+      temperature_k: 200.0
 ```
 
 Each point is the design with its values written as plain numbers in place of the parameters'
@@ -675,28 +674,29 @@ polynomial (or piecewise linear) in the parameters it covers.
 `job::fit_from_device(name, &spec, &Compute, &FitPlan)` writes the job that fits it, `kind =
 "fit"`, at the design's fidelity, its source:
 
-```toml
-[device]
-kind = "all-pass ring"
-fidelity = "analytic"     # the source: analytic, 2D or 3D, as the device has them
+```yaml
+device:
+  kind: all-pass ring
+  fidelity: analytic      # the source: analytic, 2D or 3D, as the device has them
 
-[task]
-kind = "fit"
-from_um = 1.54            # the band, the device's own at 101 points by default
-to_um = 1.56
-points = 41
-sampling = "grid"         # or "latin hypercube", with count (and seed, 1 by default)
-held_out = 6              # samples kept out of the fit (8 by default)
-poles = 12                # the model's basis poles (12 by default)
-degree = 4                # a polynomial in the parameters (2 by default), or
-                          # interpolation = "piecewise linear" (on a grid)
-# step_nm, step_z_nm, margin_um, samples, pml_cells, model_2d: the grids, as a spectrum's
+task:
+  kind: fit
+  from_um: 1.54           # the band, the device's own at 101 points by default
+  to_um: 1.56
+  points: 41
+  sampling: grid          # or "latin hypercube", with count (and seed, 1 by default)
+  held_out: 6             # samples kept out of the fit (8 by default)
+  poles: 12               # the model's basis poles (12 by default)
+  degree: 4               # a polynomial in the parameters (2 by default), or
+  # interpolation = "piecewise linear" (on a grid)
+  # step_nm, step_z_nm, margin_um, samples, pml_cells, model_2d: the grids, as a spectrum's
 
-[[task.axis]]             # one to four of the device's own parameters
-parameter = "gap"
-from = 0.15
-to = 0.25
-points = 7                # a grid's
+  axis:
+    # one to four of the device's own parameters
+    - parameter: gap
+      from: 0.15
+      to: 0.25
+      points: 7           # a grid's
 ```
 
 **Samples.** On a grid, every combination of each axis's points, evenly spaced. On a Latin

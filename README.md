@@ -75,7 +75,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   [![Apple Accelerate: sparse, BLAS](https://img.shields.io/badge/Apple_Accelerate-sparse%2C_BLAS-555)](docs/libraries.md#accelerate)
   [![AMD AOCL: BLAS](https://img.shields.io/badge/AMD_AOCL-BLAS-555)](docs/libraries.md#amd-aocl)
   [![Arm Performance Libraries: BLAS](https://img.shields.io/badge/Arm_Performance_Libraries-BLAS-555)](docs/libraries.md#arm-performance-libraries)
-- **Jobs and runs:** TOML, JSON or YAML job files, checked before they run; every run is recorded
+- **Jobs and runs:** YAML, TOML or JSON job files, checked before they run; every run is recorded
   and replays exactly.
 
 [Getting started](docs/getting-started.md) · [API](https://docs.rs/photonoxide) ·
@@ -89,7 +89,7 @@ side by side, its runs, sweeps and corners; the Custom device for any other stru
 replayed (modes, fields, spectra, FDTD as the field propagates); the Academy's lessons with live
 charts; the materials catalogue; chips; the validation report; and the external
 solvers this machine has. The same program runs a job from the command line
-(`photonoxide run job.toml`, `--headless` for batches). [studio/README.md](studio/README.md) has
+(`photonoxide run job.yaml`, `--headless` for batches). [studio/README.md](studio/README.md) has
 every page and command.
 
 <table>

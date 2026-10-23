@@ -12,11 +12,12 @@ normalization). `photonoxide::export` writes the fields themselves.
 
 ## What a `"modes"` job's `[task.export]` writes
 
-```toml
-[task.export]
-format = "both"       # "npz" (the fields), "csv" (the summary table), or "both"
-precision = "f32"     # "f32" or "f64" (the default): the npz's fields' width
-level = 6              # deflate's level, 0 (store) to 9 (smallest); 6 by default
+```yaml
+task:
+  export:
+    format: both      # "npz" (the fields), "csv" (the summary table), or "both"
+    precision: f32    # "f32" or "f64" (the default): the npz's fields' width
+    level: 6           # deflate's level, 0 (store) to 9 (smallest); 6 by default
 ```
 
 Into the run's directory, beside `events.jsonl`:

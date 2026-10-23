@@ -163,30 +163,28 @@ and `"round"`, their operands in `of` as inline tables of any shape type (the sh
 functions and masks, `"rect"`, `"circle"`, `"ring"`, `"polygon"`, `"path"`, and these again),
 every value an expression:
 
-```toml
-[[task.shape]]
-type = "difference"
-layer = "Si"
-of = [
-  { type = "rect", center = [0, 0], size = ["10 um", "w"] },
-  { type = "circle", center = ["2 um", 0], radius = "150 nm" },
-]
-etch = { depth = "70 nm", sidewall = "80 deg" }
+```yaml
+task:
+  shape:
+    - type: difference
+      layer: Si
+      of:
+        - { type: rect, center: [0, 0], size: ["10 um", w] }
+        - { type: circle, center: ["2 um", 0], radius: "150 nm" }
+      etch: { depth: "70 nm", sidewall: "80 deg" }
 
-[[task.shape]]
-type = "offset"
-layer = "Si"
-distance = "-10 nm"         # a process bias
-join = "miter"
-miter_limit = 2
-of = [{ type = "polygon", points = [[0, 0], ["2 um", 0], ["1 um", "1 um"]] }]
+    - type: offset
+      layer: Si
+      distance: "-10 nm"    # a process bias
+      join: miter
+      miter_limit: 2
+      of: [{ type: polygon, points: [[0, 0], ["2 um", 0], ["1 um", "1 um"]] }]
 
-[[task.shape]]
-type = "round"
-layer = "Si"
-convex = "100 nm"
-concave = "60 nm"
-of = [{ type = "path", start = [0, "3 um"], width = "w", segments = [{ straight = "2 um" }] }]
+    - type: round
+      layer: Si
+      convex: "100 nm"
+      concave: "60 nm"
+      of: [{ type: path, start: [0, "3 um"], width: w, segments: [{ straight: "2 um" }] }]
 ```
 
 A union, intersection or xor takes all of `of` in turn, a difference the first less the others,

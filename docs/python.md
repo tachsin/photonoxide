@@ -104,8 +104,8 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`, as the Rust example d
 Each function's docstring has the details, and the
 [API reference](https://tachsin.github.io/photonoxide/) has them all, generated from the
 package's docstrings and type stubs at each release; `help(phox.circuit_spectrum)` lists the
-kinds of component a netlist can hold and their settings. A job is a path to a job file (TOML, JSON or
-YAML) or the job as a dict, so every kind of job, FDTD included, runs from Python.
+kinds of component a netlist can hold and their settings. A job is a path to a job file (YAML, TOML or
+JSON) or the job as a dict, so every kind of job, FDTD included, runs from Python.
 [docs/features.md](features.md) has, for every method of the library, whether it works in Rust,
 Python and MATLAB.
 

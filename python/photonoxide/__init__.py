@@ -101,7 +101,7 @@ try:
 except metadata.PackageNotFoundError:  # built in place, not installed
     __version__ = core_version
 
-#: A job: the path of a job file (TOML, JSON or YAML, by its extension), or the job as data, a
+#: A job: the path of a job file (YAML, TOML or JSON, by its extension), or the job as data, a
 #: dict with a job file's fields (``name``, ``timeout_minutes``, ``task``, ...).
 Job = Union[str, "os.PathLike[str]", Mapping[str, Any]]
 
@@ -936,12 +936,12 @@ def device_job(
     format: str | None = None,
 ) -> Any:
     """The job that computes a device's design (see :func:`device_spectrum`), as a component's
-    Simulate tab in the studio writes it: a ``[device]`` table holding the design and a
+    Simulate tab in the studio writes it: a ``device`` table holding the design and a
     ``"spectrum"`` task over the device's own band. Named ``name`` (the kind's, by default).
 
     Without a ``format``, the job as data, a dict, which :func:`run_job` and :func:`check_job`
-    take; with ``format`` (``"toml"``, ``"json"`` or ``"yaml"``), the job file's text, to save
-    and run with ``photonoxide run`` or open in the studio. Its run records what
+    take; with ``format`` (``"yaml"``, the format we recommend, ``"toml"`` or ``"json"``), the
+    job file's text, to save and run with ``photonoxide run`` or open in the studio. Its run records what
     :func:`device_spectrum` gives, to the bit."""
     job_name = name if name is not None else str(kind).lower().replace(" ", "-")
     if format is None:

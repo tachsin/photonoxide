@@ -110,28 +110,28 @@ thickness a number in µm (`thickness_um`) or an expression of the task's parame
 (`thickness = "t"`), each material a catalogue id or a table with its model, temperature and
 composition, as a device's `[device.stack]` has them. A shape takes an `etch`:
 
-```toml
-[task.stack]
-substrate = "si"
-cladding = "sio2"
+```yaml
+task:
+  stack:
+    substrate: si
+    cladding: sio2
 
-[[task.stack.layer]]
-name = "BOX"
-thickness = "2 um"
-material = "sio2"
-background = "sio2"
+    layer:
+      - name: BOX
+        thickness: "2 um"
+        material: sio2
+        background: sio2
 
-[[task.stack.layer]]
-name = "Si"
-thickness = "220 nm"
-material = { id = "si", model = "li-1980" }
-background = "sio2"
+      - name: Si
+        thickness: "220 nm"
+        material: { id: si, model: li-1980 }
+        background: sio2
 
-[[task.rect]]
-layer = "Si"
-center_um = [0.0, 0.0]
-size = ["10 um", "500 nm"]
-etch = { depth = "150 nm", sidewall = "80 deg" }   # or depth_um, sidewall_deg
+  rect:
+    - layer: Si
+      center_um: [0.0, 0.0]
+      size: ["10 um", "500 nm"]
+      etch: { depth: "150 nm", sidewall: "80 deg" }  # or depth_um, sidewall_deg
 ```
 
 (`layer` was already a task's key, the layer the job looks at, so the stack's layers sit under

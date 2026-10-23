@@ -240,19 +240,19 @@ area, so the fills of a grid sum to it to $10^{-14}$.
 **Jobs.** `[[task.path]]` draws a path in `"structure"`, `"fdfd"` and `"fdtd"` jobs, its values
 expressions with units, checked by `job::check` and drawn by `job::preview`:
 
-```toml
-[[task.path]]
-layer = "Si"
-start = ["-1 um", 0]       # or start_um; (0, 0) by default
-heading = "0 deg"          # or heading_rad; 0 by default
-width = "w"                # or width_um
-segments = [
-  { straight = "1 um" },                              # or straight_um
-  { euler = "90 deg", radius = "5 um", p = 0.2 },     # p = 1 by default
-  { arc = "45 deg", radius = "3 um" },
-  { straight = "2 um", width = "w + 100 nm" },        # tapers to its end's width
-  { sine = "4 um", offset = "-1 um" },
-]
+```yaml
+task:
+  path:
+    - layer: Si
+      start: ["-1 um", 0]  # or start_um; (0, 0) by default
+      heading: "0 deg"     # or heading_rad; 0 by default
+      width: w             # or width_um
+      segments:
+        - { straight: "1 um" }  # or straight_um
+        - { euler: "90 deg", radius: "5 um", p: 0.2 }  # p = 1 by default
+        - { arc: "45 deg", radius: "3 um" }
+        - { straight: "2 um", width: "w + 100 nm" }  # tapers to its end's width
+        - { sine: "4 um", offset: "-1 um" }
 ```
 
 An angle needs its unit (`"90"` is refused: `"90 deg"` or a number in an `_rad` key).
@@ -368,39 +368,36 @@ $\rho > 0$, which holds both. A mask with no pixel at ½ or more draws nothing a
 as every shape takes. Places and sizes are expressions with units (or `_um` numbers); the
 definitions are expressions of the coordinates they are given and of `[task.parameters]`:
 
-```toml
-[[task.shape]]
-type = "between"            # y_low(x) <= y <= y_high(x)
-layer = "Si"
-x = [0, "2 um"]
-lower = "-(w/2 + 0.1*x)"
-upper = "w/2 + 0.1*x"
+```yaml
+task:
+  shape:
+    - type: between         # y_low(x) <= y <= y_high(x)
+      layer: Si
+      x: [0, "2 um"]
+      lower: "-(w/2 + 0.1*x)"
+      upper: "w/2 + 0.1*x"
 
-[[task.shape]]
-type = "polar"              # r <= rho(t), t the polar angle
-layer = "Si"
-center = ["6 um", 0]
-radius = "r0*(1 + 0.43*cos(t))"
+    - type: polar           # r <= rho(t), t the polar angle
+      layer: Si
+      center: ["6 um", 0]
+      radius: "r0*(1 + 0.43*cos(t))"
 
-[[task.shape]]
-type = "parametric"         # the inside of (x(t), y(t)), t from 0 to 1
-layer = "Si"
-curve = ["1.3 um*cos(2*pi*t)", "0.6 um*sin(2*pi*t)"]
+    - type: parametric      # the inside of (x(t), y(t)), t from 0 to 1
+      layer: Si
+      curve: ["1.3 um*cos(2*pi*t)", "0.6 um*sin(2*pi*t)"]
 
-[[task.shape]]
-type = "implicit"           # f(x, y) <= 0 in the window x by y
-layer = "Si"
-inside = "(x/2um)^4 + (y/1um)^4 - 1"
-x = ["-3 um", "3 um"]
-y = ["-2 um", "2 um"]
-cells = 256                 # optional
+    - type: implicit        # f(x, y) <= 0 in the window x by y
+      layer: Si
+      inside: "(x/2um)^4 + (y/1um)^4 - 1"
+      x: ["-3 um", "3 um"]
+      y: ["-2 um", "2 um"]
+      cells: 256            # optional
 
-[[task.shape]]
-type = "mask"
-layer = "Si"
-corner = ["-1 um", "2 um"]  # the lower left corner
-pixel = ["100 nm", "100 nm"]
-rows = [[0, 1, 1], [1, 0.5, 0]]   # the top row first
+    - type: mask
+      layer: Si
+      corner: ["-1 um", "2 um"]  # the lower left corner
+      pixel: ["100 nm", "100 nm"]
+      rows: [[0, 1, 1], [1, 0.5, 0]]  # the top row first
 ```
 
 `job::check` refuses what the library refuses, naming the table, its type and the field

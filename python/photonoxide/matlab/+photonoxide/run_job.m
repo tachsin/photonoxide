@@ -1,6 +1,6 @@
 function run = run_job(job, options)
 %RUN_JOB  Runs a photonoxide job, as photonoxide run --headless does.
-%   run = photonoxide.run_job(job) runs job, a job file's path (TOML, JSON or YAML) or a struct
+%   run = photonoxide.run_job(job) runs job, a job file's path (YAML, TOML or JSON) or a struct
 %   with a job file's fields (name, timeout_minutes, task), into a new folder under "runs", and
 %   returns run.dir (the folder, which the photonoxide program replays), run.events (a cell
 %   array, each event a struct with its type, as jsondecode reads it) and run.stopped

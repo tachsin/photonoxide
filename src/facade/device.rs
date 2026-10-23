@@ -605,8 +605,8 @@ pub fn device_geometry(design: &DeviceDesign) -> Result<DeviceGeometry> {
     })
 }
 
-/// The job file that computes `design`, named `name`, as text in `format` (`"toml"`, `"json"`
-/// or `"yaml"`): a `[device]` table holding the design and a `"spectrum"` task over the
+/// The job file that computes `design`, named `name`, as text in `format` (`"yaml"`, the format
+/// we recommend, `"toml"` or `"json"`): a `device` table holding the design and a `"spectrum"` task over the
 /// device's own band at its fidelity ([`crate::job::from_device`]), as a component's Simulate
 /// tab writes it. [`super::run_job`] runs it; its run records what [`device_spectrum`] gives,
 /// to the bit.

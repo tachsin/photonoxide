@@ -176,30 +176,28 @@ second-order error), converging at order 1.98.
 `"structure"` jobs and 3D `"fdtd"` jobs take `[[task.body]]` tables, each placed over the
 stack, its shapes and the bodies before it (`stack::Structure::place`):
 
-```toml
-[task.parameters]
-r = "300 nm"
+```yaml
+task:
+  parameters:
+    r: "300 nm"
 
-[[task.body]]
-type = "sphere"               # "ellipsoid" (semi_axes, angle about z), "box" (center, size),
-center = [0, 0, "2.5 um"]     # "cylinder" (base, top, radius), "cone" (base, top, radii)
-radius = "r"
-material = "si"               # a catalogue id or table, as a layer's
+  body:
+    - type: sphere            # "ellipsoid" (semi_axes, angle about z), "box" (center, size),
+      center: [0, 0, "2.5 um"]  # "cylinder" (base, top, radius), "cone" (base, top, radii)
+      radius: r
+      material: si            # a catalogue id or table, as a layer's
 
-[[task.body]]
-type = "extrusion"            # a shape between two heights, its walls at a sidewall angle
-z = ["2.22 um", "2.52 um"]
-sidewall = "80 deg"           # 90 deg when not given
-of = [{ type = "circle", center = ["2 um", 0], radius = "1 um" }]
-index = "1.5 + 0.1*exp(-((x - 2um)/1um)^2 - (y/1um)^2)"   # a graded medium
+    - type: extrusion         # a shape between two heights, its walls at a sidewall angle
+      z: ["2.22 um", "2.52 um"]
+      sidewall: "80 deg"      # 90 deg when not given
+      of: [{ type: circle, center: ["2 um", 0], radius: "1 um" }]
+      index: "1.5 + 0.1*exp(-((x - 2um)/1um)^2 - (y/1um)^2)"  # a graded medium
 
-[[task.body]]
-type = "difference"           # also union, intersection, xor: of two bodies or more
-permittivity = 4
-of = [
-  { type = "box", center = [0, "3 um", "2.5 um"], size = ["2 um", "0.8 um", "0.4 um"] },
-  { type = "cylinder", base = [0, "3 um", 2], top = [0, "3 um", 3], radius = "0.2 um" },
-]
+    - type: difference        # also union, intersection, xor: of two bodies or more
+      permittivity: 4
+      of:
+        - { type: box, center: [0, "3 um", "2.5 um"], size: ["2 um", "0.8 um", "0.4 um"] }
+        - { type: cylinder, base: [0, "3 um", 2], top: [0, "3 um", 3], radius: "0.2 um" }
 ```
 
 - A body's places and sizes are expressions with units of the task's parameters (or numbers in

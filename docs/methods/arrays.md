@@ -106,47 +106,46 @@ hierarchy, as 0.9's layout's cells will be, the two meeting there.
 `[[task.shape]]` takes `type = "array"` and `type = "reference"` in `"structure"`, `"fdfd"` and
 `"fdtd"` jobs:
 
-```toml
-[task.parameters]
-a = "420 nm"
+```yaml
+task:
+  parameters:
+    a: "420 nm"
 
-[[task.shape]]                # a slab less a hole lattice with an L3 cavity
-type = "difference"
-layer = "Si"
-of = [
-  { type = "rect", center = [0, 0], size = ["7 um", "4 um"] },
-  { type = "array", lattice = "hexagonal", pitch = "a", i = [-7, 7], j = [-4, 4],
-    element = { type = "circle", radius = "0.29*a" },
-    remove = [[-1, 0], [0, 0], [1, 0]],
-    shift = [{ at = [-2, 0], by = ["-0.15*a", 0] }, { at = [2, 0], by = ["0.15*a", 0] }] },
-]
+  shape:
+    # a slab less a hole lattice with an L3 cavity
+    - type: difference
+      layer: Si
+      of:
+        - { type: rect, center: [0, 0], size: ["7 um", "4 um"] }
+        - { type: array, lattice: hexagonal, pitch: a, i: [-7, 7], j: [-4, 4],
+            element: { type: circle, radius: "0.29*a" },
+            remove: [[-1, 0], [0, 0], [1, 0]],
+            shift: [{ at: [-2, 0], by: ["-0.15*a", 0] }, { at: [2, 0], by: ["0.15*a", 0] }] }
 
-[[task.shape]]                # a metalens's pillars, rings of 1, 6, 12 and 18
-type = "array"
-layer = "Si"
-lattice = "polar"
-pitch = "0.5 um"              # the rings' spacing; inner, start_angle optional
-rings = 4
-count = "max(1, 6*j)"         # sites on ring j
-origin = ["10 um", 0]         # where site (0, 0) goes; angle turns the lattice about it
-element = { type = "circle", radius = "60 nm + 0.01*sqrt(x^2 + y^2)" }
+    # a metalens's pillars, rings of 1, 6, 12 and 18
+    - type: array
+      layer: Si
+      lattice: polar
+      pitch: "0.5 um"         # the rings' spacing; inner, start_angle optional
+      rings: 4
+      count: "max(1, 6*j)"    # sites on ring j
+      origin: ["10 um", 0]    # where site (0, 0) goes; angle turns the lattice about it
+      element: { type: circle, radius: "60 nm + 0.01*sqrt(x^2 + y^2)" }
 
-[[task.cell]]
-name = "pair"
-shapes = [
-  { type = "circle", center = [0, 0], radius = "100 nm" },
-  { type = "rect", center = ["0.5 um", 0], size = ["300 nm", "200 nm"] },
-]
+    # the cell below, placed three times
+    - type: reference
+      layer: Si
+      cell: pair
+      place:
+        - { translate: ["6 um", "6 um"] }
+        - { translate: ["8 um", "6 um"], rotate: "90 deg" }
+        - { translate: ["10 um", "6 um"], mirror: "y", scale: 2 }
 
-[[task.shape]]
-type = "reference"
-layer = "Si"
-cell = "pair"
-place = [
-  { translate = ["6 um", "6 um"] },
-  { translate = ["8 um", "6 um"], rotate = "90 deg" },
-  { translate = ["10 um", "6 um"], mirror = "y", scale = 2 },
-]
+  cell:
+    - name: pair
+      shapes:
+        - { type: circle, center: [0, 0], radius: "100 nm" }
+        - { type: rect, center: ["0.5 um", 0], size: ["300 nm", "200 nm"] }
 ```
 
 - `lattice` is `"rectangular"` (`pitch` one value or `[x, y]`, `i`, `j`), `"hexagonal"`

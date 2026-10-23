@@ -93,36 +93,37 @@ at the step that decided it.
 
 A `[device]` job's `[task]` of kind `"optimize"` (`photonoxide::job`'s `optimize.rs`):
 
-```toml
-name = "coupler-3db"
-timeout_minutes = 2       # required: an optimization always has a hard limit
+```yaml
+name: coupler-3db
+timeout_minutes: 2        # required: an optimization always has a hard limit
 
-[device]
-kind = "directional coupler"
-fidelity = "analytic"
+device:
+  kind: directional coupler
+  fidelity: analytic
 
-[task]
-kind = "optimize"
-method = "lbfgsb"         # genoxide's: lbfgsb, adam, mma, gcmma, nelder-mead, cmaes, de,
-seed = 1                  #   pso, nsga2, sms-emoa
-evaluations = 200         # the budget: the optimizer's evaluations
-from_um = 1.53            # the band: the design's own wavelength alone when left out
-to_um = 1.57
-points = 5
-reduce = "worst"          # or "average"
+task:
+  kind: optimize
+  method: lbfgsb          # genoxide's: lbfgsb, adam, mma, gcmma, nelder-mead, cmaes, de,
+  seed: 1                 #   pso, nsga2, sms-emoa
+  evaluations: 200        # the budget: the optimizer's evaluations
+  from_um: 1.53           # the band: the design's own wavelength alone when left out
+  to_um: 1.57
+  points: 5
+  reduce: worst           # or "average"
 
-[[task.variable]]
-parameter = "length"
-from = 2.0
-to = 30.0
+  variable:
+    - parameter: length
+      from: 2.0
+      to: 30.0
 
-[[task.objective]]
-name = "split"            # declared, or: expression = "T_o3_o1", goal = "maximize"
-target = 0.5
+  objective:
+    - name: split         # declared, or: expression = "T_o3_o1", goal = "maximize"
+      target: 0.5
 
-[[task.constraint]]       # (not with lbfgsb or adam, which ignore constraints)
-name = "excess_loss"      # declared, or: expression = "gap", at_least = 0.12
-at_most = 0.2
+  constraint:
+    # (not with lbfgsb or adam, which ignore constraints)
+    - name: excess_loss   # declared, or: expression = "gap", at_least = 0.12
+      at_most: 0.2
 ```
 
 | Method | genoxide's | Uses | Constraints | Objectives | Paper |
@@ -163,17 +164,18 @@ A `[task.continuation]` runs the optimization in stages, a parameter set to each
 in turn: a projection's sharpness β, a smoothing's, a penalty's weight (Wang, Lazarov & Sigmund
 2010, doi:10.1007/s00158-010-0602-y).
 
-```toml
-[task.continuation]
-parameter = "beta"        # one the design names, or a new name the expressions use
-values = [1, 4, 16, 64, 256]
-generations = 100         # each stage's budget; without it a stage ends when the method converges
-keep = "state"            # the default; "point" starts the optimizer's state again at each stage
+```yaml
+task:
+  continuation:
+    parameter: beta       # one the design names, or a new name the expressions use
+    values: [1, 4, 16, 64, 256]
+    generations: 100      # each stage's budget; without it a stage ends when the method converges
+    keep: state           # the default; "point" starts the optimizer's state again at each stage
 
-[[task.objective]]
-expression = "tanh(beta*(T_o3_o1/(T_o3_o1 + T_o4_o1) - 0.5))/beta"
-goal = "target"
-target = 0.0
+  objective:
+    - expression: "tanh(beta*(T_o3_o1/(T_o3_o1 + T_o4_o1) - 0.5))/beta"
+      goal: target
+      target: 0.0
 ```
 
 The program runs the method inside genoxide's `Continuation`, which keeps its state from one

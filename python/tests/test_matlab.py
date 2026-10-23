@@ -247,7 +247,7 @@ def test_a_devices_geometry_and_job_for_matlab() -> None:
     assert g["ports"][0]["position_um"] == list(ours.ports[0].position_um)
     text = matlab.device_job("waveguide", "{}", "", "", "", "json")
     assert json.loads(text) == phox.device_job("waveguide")
-    assert matlab.device_job("waveguide", "{}", "", "", "strip", "toml").startswith("name = \"strip\"")
+    assert matlab.device_job("waveguide", "{}", "", "", "strip", "yaml").startswith("name: strip")
 
 
 def test_a_netlist_of_devices_from_matlabs_json() -> None:

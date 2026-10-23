@@ -204,9 +204,20 @@ photonoxide new fdtd ring.yaml       # a pulse through a guide by 2D FDTD, to ch
 photonoxide run new-modes.yaml
 ```
 
-A job file is TOML, JSON or YAML, by its extension (`.toml`, `.json`, `.yaml` or `.yml`), the
-same fields in each; the Custom device switches between them. The same job three ways
-(shortened: a modes job needs its stack, window and shapes too, as in `jobs/strip-modes.yaml`):
+A job file is YAML, TOML or JSON, by its extension (`.yaml` or `.yml`, `.toml`, `.json`), the
+same fields in each; the Custom device switches between them. YAML is the one we recommend: the
+built-in jobs, the templates and the studio's new jobs are YAML, and TOML and JSON are read as
+well. The same job three ways (shortened: a modes job needs its stack, window and shapes too, as
+in `jobs/strip-modes.yaml`):
+
+```yaml
+# A strip's modes at 1.55 um.
+name: strip
+timeout_minutes: 10
+task:
+  kind: modes
+  wavelength_um: 1.55
+```
 
 ```toml
 # A strip's modes at 1.55 um.
@@ -226,18 +237,9 @@ wavelength_um = 1.55
 }
 ```
 
-```yaml
-# A strip's modes at 1.55 um.
-name: strip
-timeout_minutes: 10
-task:
-  kind: modes
-  wavelength_um: 1.55
-```
-
 JSON has no comments, so a JSON job has no description. YAML is read as YAML 1.2: `no`, `yes`,
 `on` and `off` are strings, as `1:30` is, and only `true` and `false` are booleans. A run keeps
-its job as it was given (`job.toml`, `job.json` or `job.yaml`).
+its job as it was given (`job.yaml`, `job.toml` or `job.json`).
 
 **Shorter forms.** YAML is the format the program writes, and these are read beside the keys
 they stand for, in every format, as the same job to the bit:

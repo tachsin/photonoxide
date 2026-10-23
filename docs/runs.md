@@ -25,7 +25,7 @@ A stopped run's folder holds what was done before it stopped.
 
 | File | What it holds |
 |---|---|
-| `job.toml`, `job.json` or `job.yaml` | the job, as it was given |
+| `job.yaml`, `job.toml` or `job.json` | the job, as it was given |
 | `meta.json` | what ran it: `photonoxide` (the version), `job` (its name), `started` (UTC, `2026-10-01T12:00:00Z`), `threads` (the machine's) |
 | `events.jsonl` | the record, one JSON event a line, written as the run goes: what the studio's views show |
 | `results.json` | the run's numbers, written when it ends however it ends: what a script reads |

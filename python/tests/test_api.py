@@ -409,6 +409,7 @@ def test_a_devices_geometry_has_its_polygons_and_ports() -> None:
 def test_a_device_job_runs_to_the_same_numbers(tmp_path: Path) -> None:
     job = phox.device_job("all-pass ring", values={"radius": 5.0})
     assert job["device"]["kind"] == "all-pass ring" and job["task"]["kind"] == "spectrum"
+    assert "\ndevice:\n" in phox.device_job("all-pass ring", values={"radius": 5.0}, format="yaml")
     assert "[device]" in phox.device_job("all-pass ring", values={"radius": 5.0}, format="toml")
     run = phox.run_job(job, runs_dir=tmp_path)
     s = [e for e in run.events if e["type"] == "s_parameters"]

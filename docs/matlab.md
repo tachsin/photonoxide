@@ -128,7 +128,7 @@ at its defaults by its cheapest model over its own band, as the device's Simulat
 the photonoxide studio writes it. photonoxide.run_job(text) runs it.
 
 Options: values, fidelity, stack and compact, as photonoxide.device_spectrum takes them; name (the
-kind's by default); format ("json", "toml" or "yaml"), the text to save as a job file.
+kind's by default); format ("json", "yaml" or "toml"), the text to save as a job file.
 
 | Argument | Size | Class | Default |
 |---|---|---|---|
@@ -302,7 +302,7 @@ Runs a photonoxide job, as photonoxide run --headless does.
 run = photonoxide.run_job(job, options)
 ```
 
-run = photonoxide.run_job(job) runs job, a job file's path (TOML, JSON or YAML) or a struct
+run = photonoxide.run_job(job) runs job, a job file's path (YAML, TOML or JSON) or a struct
 with a job file's fields (name, timeout_minutes, task), into a new folder under "runs", and
 returns run.dir (the folder, which the photonoxide program replays), run.events (a cell
 array, each event a struct with its type, as jsondecode reads it) and run.stopped
