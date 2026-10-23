@@ -1059,7 +1059,7 @@ fn export_field(
         .flat_map(|j| (0..nx).map(move |i| (i, j)))
         .map(|(i, j)| field.at(i, j))
         .collect();
-    let mut npz = export.npz_file();
+    let mut npz = export.npz_file()?;
     npz.exact("x_um", &[nx], &x);
     npz.exact("y_um", &[ny], &y);
     npz.exact("wavelength_um", &[], &[wavelength_um]);

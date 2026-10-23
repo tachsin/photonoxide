@@ -15,6 +15,8 @@
 //!   A library's errors become photonoxide's [`Error`](photonoxide::Error). An abort inside a
 //!   library can't be caught in-process, so the benchmark runs backends in a child process.
 //!
+//! Beside the solvers, libzstd compresses exported files ([`zstd`], [`register_exporters`]).
+//!
 //! The libraries known so far are NVIDIA's ([`nvidia`]) and Intel's oneMKL ([`intel`]); their
 //! backends, and the others', are each one's own issue (#175 to #190).
 
@@ -35,6 +37,7 @@ pub mod nvidia;
 mod pardiso;
 mod smoke;
 pub mod superlu;
+pub mod zstd;
 
 pub use accelerate::Accelerate;
 pub use blas::Blas;
@@ -46,6 +49,7 @@ pub use mumps::Mumps;
 pub use pardiso::Pardiso;
 pub use smoke::{TOLERANCE, offer, offer_iterative, smoke_test, smoke_test_iterative};
 pub use superlu::SuperLu;
+pub use zstd::Zstd;
 
 /// What was found of one library.
 #[derive(Clone, Debug)]
@@ -78,6 +82,13 @@ impl std::fmt::Display for Probe {
         }
         Ok(())
     }
+}
+
+/// The libraries the exported files can use, found and offered to photonoxide's export
+/// ([`photonoxide::export::codec`]): libzstd, as Zstandard's compressor. Cheap (a library
+/// loaded and its version read, no smoke test of a solver), so a run calls it before its job.
+pub fn register_exporters() {
+    zstd::register();
 }
 
 /// Every library photonoxide knows how to look for, as found on this machine. Each backend
@@ -147,6 +158,9 @@ pub fn register_all() -> Vec<Probe> {
     probes.push(blas::probe(blas::Provider::Mkl));
     probes.push(mumps::probe());
     probes.push(superlu::probe());
+    // the exported files' compressor
+    register_exporters();
+    probes.push(zstd::probe());
     // the other BLAS and LAPACK libraries that can be on this system (Accelerate's with its
     // sparse solvers)
     for provider in blas::Provider::ALL {

@@ -2273,7 +2273,7 @@ fn export_dft(
     let (nx, ny) = (g.nx, g.ny);
     let x: Vec<f64> = (0..nx).map(|i| g.x0 + i as f64 * g.dx).collect();
     let y: Vec<f64> = (0..ny).map(|j| g.y0 + j as f64 * g.dy).collect();
-    let mut npz = export.npz_file();
+    let mut npz = export.npz_file()?;
     npz.exact("x_um", &[nx], &x);
     npz.exact("y_um", &[ny], &y);
     npz.exact("z_um", &[], &[g.z0 + k as f64 * g.dz]);

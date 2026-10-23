@@ -406,7 +406,7 @@ fn export_fields(
     let (x, y) = (grid.x(), grid.y());
     let centres =
         |a: &crate::statics::Axis| -> Vec<f64> { (0..a.cells()).map(|i| a.centre(i)).collect() };
-    let mut npz = export.npz_file();
+    let mut npz = export.npz_file()?;
     npz.exact("y_um", &[x.cells()], &centres(x));
     npz.exact("z_um", &[y.cells()], &centres(y));
     npz.exact("y_nodes_um", &[x.nodes().len()], x.nodes());

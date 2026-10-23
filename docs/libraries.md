@@ -20,6 +20,7 @@ This page is written by `photonoxide libraries --write docs/libraries.md` from t
 | [OpenBLAS](#openblas) | `photonoxide-openblas` | conda-forge ✓, pip | conda-forge ✓, apt ✓, pip | conda-forge ✓, pip |
 | [AMD AOCL](#amd-aocl) | `photonoxide-aocl` | see below | see below | see below |
 | [Arm Performance Libraries](#arm-performance-libraries) | `photonoxide-armpl` | winget | see below | brew |
+| [Zstandard](#zstandard) | — | conda-forge | conda-forge, apt | conda-forge, brew |
 | [AMD AOCL-Sparse](#amd-aocl-sparse) | none yet (#189) | see below | see below | see below |
 
 ✓: run on a clean machine and found. A manager without it is listed by its package index alone.
@@ -363,6 +364,43 @@ Arm's BLAS and LAPACK, tuned for Arm processors, as the dense kernels of photono
   Not run on a clean machine.
 
 - **linux:** Arm's .deb or .rpm, from its page, for AArch64: into /opt/arm, where photonoxide looks, or set ARMPL_DIR or PHOTONOXIDE_ARMPL.
+
+### Zstandard
+
+Zstandard's compression (Collet and Kucherawy, RFC 8878), the reference library libzstd, release 1.4 or later: a job's [task.export] compression = "zstd" compresses its exported .npz files with it, each member one frame (ZIP method 93, which Python's zipfile and so NumPy read from Python 3.14). Deflate, photonoxide's own, stays the default and needs nothing. The same frames from the same library on every run.
+
+- **Licence:** [BSD-3-Clause or GPL-2.0, at your choice](https://github.com/facebook/zstd/blob/dev/LICENSE). You accept it by installing.
+- **The vendor's download:** <https://github.com/facebook/zstd/releases>
+
+- **conda-forge** (Windows, Linux, macOS):
+
+  ```sh
+  conda install -c conda-forge zstd
+  ```
+
+  Into the active conda environment: start photonoxide from it. Many environments have it already, as a dependency.
+
+  Not run on a clean machine.
+
+- **apt** (Linux):
+
+  ```sh
+  sudo apt-get install libzstd1
+  ```
+
+  Debian's and Ubuntu's package, on most systems already: 1.5.5 on Ubuntu 24.04, 1.4.8 on 22.04.
+
+  Not run on a clean machine.
+
+- **brew** (macOS):
+
+  ```sh
+  brew install zstd
+  ```
+
+  Into Homebrew's lib folder (/opt/homebrew/lib, /usr/local/lib on Intel), where photonoxide looks.
+
+  Not run on a clean machine.
 
 ## The libraries without a backend yet
 

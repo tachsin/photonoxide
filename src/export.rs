@@ -24,6 +24,7 @@
 //! dev-dependency only) unpacking the archive and a small reader of their own checking the
 //! array bytes against the solver's own values, to the bit.
 
+pub mod codec;
 mod npy;
 pub mod tables;
 mod zip;
@@ -114,10 +115,17 @@ struct MetaFile<'a> {
     units: &'a str,
     normalization: &'a str,
     job_text: &'a str,
+    compression: &'a str,
 }
 
-fn meta_json(meta: &Meta, precision: Precision, described: &Described<'_>) -> String {
+fn meta_json(
+    meta: &Meta,
+    precision: Precision,
+    described: &Described<'_>,
+    compression: &str,
+) -> String {
     let file = MetaFile {
+        compression,
         photonoxide: env!("CARGO_PKG_VERSION"),
         job: &meta.job,
         run_id: &meta.run_id,
@@ -147,6 +155,8 @@ pub struct Npz {
     zip: zip::ZipWriter<Vec<u8>>,
     precision: Precision,
     level: u8,
+    /// An external library's compressor and its level, in place of deflate.
+    codec: Option<(std::sync::Arc<dyn codec::Compressor>, i32)>,
     error: Option<std::io::Error>,
 }
 
@@ -158,14 +168,46 @@ impl Npz {
             zip: zip::ZipWriter::new(Vec::new()),
             precision,
             level: level.min(9),
+            codec: None,
             error: None,
         }
     }
 
+    /// An empty archive whose members `compressor` compresses at `level` (Zstandard's, from
+    /// [`codec::compressor`]), stored as its ZIP method: a reader needs that method, as
+    /// Python's `zipfile` has Zstandard's from Python 3.14.
+    pub fn compressed(
+        precision: Precision,
+        compressor: std::sync::Arc<dyn codec::Compressor>,
+        level: i32,
+    ) -> Npz {
+        Npz {
+            codec: Some((compressor, level)),
+            ..Npz::new(precision, 0)
+        }
+    }
+
+    /// How its members are compressed, for `meta.json`.
+    fn compression(&self) -> String {
+        match &self.codec {
+            Some((c, level)) => format!("{} {}, level {level}", c.name(), c.version()),
+            None if self.level == 0 => "stored".into(),
+            None => format!("deflate, level {}", self.level),
+        }
+    }
+
     fn put(&mut self, name: &str, data: &[u8]) {
-        if self.error.is_none()
-            && let Err(e) = self.zip.add(name, data, self.level)
-        {
+        if self.error.is_some() {
+            return;
+        }
+        let added = match &self.codec {
+            Some((c, level)) => match c.compress(data, *level) {
+                Ok(payload) => self.zip.add_compressed(name, data, c.zip_method(), payload),
+                Err(e) => Err(std::io::Error::other(e.to_string())),
+            },
+            None => self.zip.add(name, data, self.level),
+        };
+        if let Err(e) = added {
             self.error = Some(e);
         }
     }
@@ -214,7 +256,7 @@ impl Npz {
 
     /// `meta.json`: `meta`'s provenance, the precision, and what the arrays are.
     pub fn meta(&mut self, meta: &Meta, described: &Described<'_>) {
-        let text = meta_json(meta, self.precision, described);
+        let text = meta_json(meta, self.precision, described, &self.compression());
         self.put("meta.json", text.as_bytes());
     }
 
@@ -270,8 +312,26 @@ pub fn write_mode_npz(
     level: u8,
     keep: &dyn Fn(&str) -> bool,
 ) -> Result<u64> {
+    let npz = Npz::new(precision, level);
+    write_mode_into(npz, path, mode, fields, wavelength, meta, keep)
+}
+
+/// [`write_mode_npz`] into `npz`, an archive made with its precision and compression
+/// ([`Npz::new`], [`Npz::compressed`]).
+///
+/// # Errors
+///
+/// [`Error::Io`] if `path` can't be written.
+pub fn write_mode_into(
+    mut npz: Npz,
+    path: &Path,
+    mode: &VectorMode,
+    fields: &Fields,
+    wavelength: Wavelength,
+    meta: &Meta,
+    keep: &dyn Fn(&str) -> bool,
+) -> Result<u64> {
     let (nx, ny) = (fields.x().len(), fields.y().len());
-    let mut npz = Npz::new(precision, level);
     npz.exact("x_um", &[nx], fields.x());
     npz.exact("y_um", &[ny], fields.y());
     npz.exact("wavelength_um", &[], &[wavelength.to_um()]);
@@ -552,6 +612,89 @@ mod tests {
         let (descr, _, _) = parse_npy(&data);
         assert_eq!(descr, "<c8");
 
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// The members of a ZIP as its local headers have them: each one's name, method and
+    /// payload, walked from the start (this writer's archives have no data descriptors).
+    fn members(bytes: &[u8]) -> Vec<(String, u16, Vec<u8>)> {
+        let u16_at = |k: usize| u16::from_le_bytes([bytes[k], bytes[k + 1]]);
+        let u32_at = |k: usize| u32::from_le_bytes(bytes[k..k + 4].try_into().unwrap());
+        let mut out = Vec::new();
+        let mut k = 0;
+        while u32_at(k) == 0x0403_4b50 {
+            let method = u16_at(k + 8);
+            let size = u32_at(k + 18) as usize;
+            let name_len = u16_at(k + 26) as usize;
+            let extra = u16_at(k + 28) as usize;
+            let name = String::from_utf8(bytes[k + 30..k + 30 + name_len].to_vec()).unwrap();
+            let start = k + 30 + name_len + extra;
+            out.push((name, method, bytes[start..start + size].to_vec()));
+            k = start + size;
+        }
+        out
+    }
+
+    /// An external library's compressor, here one of the test's own that reverses the bytes:
+    /// each member stored as its method, its payload the compressor's, of the same `.npy` bytes
+    /// the stored archive holds; `meta.json` names it.
+    #[test]
+    fn a_compressor_of_a_library_writes_each_member_by_its_own_method() {
+        struct Reverse;
+        impl codec::Compressor for Reverse {
+            fn name(&self) -> &str {
+                "reverse"
+            }
+            fn version(&self) -> String {
+                "0.1".into()
+            }
+            fn deterministic(&self) -> bool {
+                true
+            }
+            fn levels(&self) -> (i32, i32) {
+                (1, 1)
+            }
+            fn default_level(&self) -> i32 {
+                1
+            }
+            fn compress(&self, data: &[u8], _: i32) -> Result<Vec<u8>> {
+                Ok(data.iter().rev().copied().collect())
+            }
+            fn zip_method(&self) -> u16 {
+                93
+            }
+        }
+        let (m, fields, w) = test_mode();
+        let dir = std::env::temp_dir().join(format!(
+            "photonoxide-export-codec-{:?}",
+            std::thread::current().id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let meta = Meta::new("codec", "");
+        let (stored, reversed) = (dir.join("stored.npz"), dir.join("reversed.npz"));
+        let npz = Npz::new(Precision::F64, 0);
+        write_mode_into(npz, &stored, &m, &fields, w, &meta, &|_| true).unwrap();
+        let npz = Npz::compressed(Precision::F64, std::sync::Arc::new(Reverse), 1);
+        write_mode_into(npz, &reversed, &m, &fields, w, &meta, &|_| true).unwrap();
+        let plain = members(&std::fs::read(&stored).unwrap());
+        let coded = members(&std::fs::read(&reversed).unwrap());
+        assert_eq!(plain.len(), coded.len());
+        for ((name, method, data), (coded_name, coded_method, payload)) in plain.iter().zip(&coded)
+        {
+            assert_eq!((name, *method), (coded_name, 0));
+            assert_eq!(*coded_method, 93, "{name}");
+            if name == "meta.json" {
+                let text: String =
+                    String::from_utf8(payload.iter().rev().copied().collect()).unwrap();
+                assert!(
+                    text.contains("\"compression\": \"reverse 0.1, level 1\""),
+                    "{text}"
+                );
+            } else {
+                let back: Vec<u8> = payload.iter().rev().copied().collect();
+                assert_eq!(&back, data, "{name}");
+            }
+        }
         std::fs::remove_dir_all(&dir).ok();
     }
 

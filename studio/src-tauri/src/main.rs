@@ -116,6 +116,13 @@ const USAGE: &str = "usage:
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // a job's check and its run may ask for Zstandard: the user's libzstd, when it is here
+    if matches!(
+        args.first().map(String::as_str),
+        None | Some("run" | "worker")
+    ) {
+        optimize::exporters();
+    }
     match args.first().map(String::as_str) {
         None => open(),
         Some("run") => run(&args[1..]),

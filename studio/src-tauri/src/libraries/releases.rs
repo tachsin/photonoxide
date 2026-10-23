@@ -291,6 +291,18 @@ pub const SOURCES: &[Source] = &[
         baseline: Baseline::Stated(ACCELERATE_CHECKED),
         notes: MACOS_NOTES,
     },
+    Source {
+        library: "Zstandard",
+        origin: Origin::GitHub("facebook/zstd"),
+        baseline: any(&["zstd", "libzstd1"]),
+        notes: Notes::GitHubTag("facebook/zstd"),
+    },
+    Source {
+        library: "Zstandard",
+        origin: Origin::Conda("zstd"),
+        baseline: guide("conda-forge", &["zstd"]),
+        notes: Notes::GitHubTag("facebook/zstd"),
+    },
 ];
 
 /// The releases photonoxide-native accepts of a library.
@@ -383,6 +395,10 @@ pub fn range(library: &str) -> Option<Range> {
         "Accelerate" => Range {
             accepts: Accepts::From("15.5"),
             why: "macOS with complex LU (and L D Lᵀ from 26)",
+        },
+        "Zstandard" => Range {
+            accepts: Accepts::From("1.4"),
+            why: "libzstd.so.1 and its likes, from the release whose levels run to 22",
         },
         _ => return None,
     })

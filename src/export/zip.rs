@@ -21,7 +21,13 @@ struct Entry {
     compressed_size: u32,
     uncompressed_size: u32,
     offset: u32,
-    deflated: bool,
+    method: u16,
+}
+
+/// The *APPNOTE* version a reader needs for ZIP method `method` (4.4.3): 2.0 for stored and
+/// deflated, 6.3 for Zstandard.
+fn version_needed(method: u16) -> u16 {
+    if method == 93 { 63 } else { 20 }
 }
 
 /// Builds a ZIP archive into `out`, one file at a time.
@@ -47,21 +53,34 @@ impl<W: Write> ZipWriter<W> {
     ///
     /// [`io::Error`] if `out` can't be written.
     pub(super) fn add(&mut self, name: &str, data: &[u8], level: u8) -> io::Result<()> {
+        if level == 0 {
+            return self.add_compressed(name, data, 0, data.to_vec());
+        }
+        let mut enc = DeflateEncoder::new(Vec::new(), Compression::new(u32::from(level)));
+        enc.write_all(data)?;
+        let payload = enc.finish()?;
+        self.add_compressed(name, data, 8, payload)
+    }
+
+    /// Adds `data` under `name` as `payload`, `data` compressed by ZIP method `method` (0
+    /// stored, 8 deflate, 93 Zstandard: *APPNOTE* 4.4.5); the checksum and sizes are `data`'s.
+    ///
+    /// # Errors
+    ///
+    /// [`io::Error`] if `out` can't be written.
+    pub(super) fn add_compressed(
+        &mut self,
+        name: &str,
+        data: &[u8],
+        method: u16,
+        payload: Vec<u8>,
+    ) -> io::Result<()> {
         let crc32 = crc32fast::hash(data);
-        let deflated = level > 0;
-        let payload = if deflated {
-            let mut enc = DeflateEncoder::new(Vec::new(), Compression::new(u32::from(level)));
-            enc.write_all(data)?;
-            enc.finish()?
-        } else {
-            data.to_vec()
-        };
         let name_bytes = name.as_bytes();
         let mut header = Vec::with_capacity(30 + name_bytes.len());
         header.extend_from_slice(&LOCAL_HEADER_SIGNATURE.to_le_bytes());
-        header.extend_from_slice(&20u16.to_le_bytes()); // version needed to extract
+        header.extend_from_slice(&version_needed(method).to_le_bytes());
         header.extend_from_slice(&0u16.to_le_bytes()); // flags
-        let method: u16 = if deflated { 8 } else { 0 };
         header.extend_from_slice(&method.to_le_bytes());
         header.extend_from_slice(&0u16.to_le_bytes()); // mod time
         header.extend_from_slice(&DOS_DATE.to_le_bytes());
@@ -79,7 +98,7 @@ impl<W: Write> ZipWriter<W> {
             compressed_size: payload.len() as u32,
             uncompressed_size: data.len() as u32,
             offset: self.offset,
-            deflated,
+            method,
         });
         self.offset += header.len() as u32 + payload.len() as u32;
         Ok(())
@@ -96,11 +115,10 @@ impl<W: Write> ZipWriter<W> {
         for e in &self.entries {
             let name_bytes = e.name.as_bytes();
             directory.extend_from_slice(&CENTRAL_HEADER_SIGNATURE.to_le_bytes());
-            directory.extend_from_slice(&20u16.to_le_bytes()); // version made by
-            directory.extend_from_slice(&20u16.to_le_bytes()); // version needed
+            directory.extend_from_slice(&version_needed(e.method).to_le_bytes()); // made by
+            directory.extend_from_slice(&version_needed(e.method).to_le_bytes()); // needed
             directory.extend_from_slice(&0u16.to_le_bytes()); // flags
-            let method: u16 = if e.deflated { 8 } else { 0 };
-            directory.extend_from_slice(&method.to_le_bytes());
+            directory.extend_from_slice(&e.method.to_le_bytes());
             directory.extend_from_slice(&0u16.to_le_bytes()); // mod time
             directory.extend_from_slice(&DOS_DATE.to_le_bytes());
             directory.extend_from_slice(&e.crc32.to_le_bytes());

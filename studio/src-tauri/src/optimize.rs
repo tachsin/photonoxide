@@ -31,6 +31,13 @@ use photonoxide::job::{self, Evaluation, Problem, Recorder};
 use photonoxide::run::{Job, Run, Stop};
 use rayon::prelude::*;
 
+/// Offers the exported files' compressor, the user's own libzstd when it is found, before a job
+/// is checked or run: once a process ([`photonoxide_native::register_exporters`]).
+pub fn exporters() {
+    static EXPORTERS: std::sync::Once = std::sync::Once::new();
+    EXPORTERS.call_once(photonoxide_native::register_exporters);
+}
+
 /// Runs `job` into `run`: an optimization by genoxide's method here, any other job as the
 /// library runs it.
 ///
@@ -38,6 +45,7 @@ use rayon::prelude::*;
 ///
 /// What the job refuses, or the run's errors.
 pub fn execute(job: &Job, run: &mut Run, stop: &Stop) -> photonoxide::Result<()> {
+    exporters();
     if job::optimizes(job) {
         // its failure recorded and its results written, as job::execute does for the rest
         let outcome = optimize(job, run, stop);

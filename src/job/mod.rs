@@ -2879,8 +2879,12 @@ struct ExportSpec {
     /// `"f32"` or `"f64"` (the default): the npz's fields' precision (the grids and the small
     /// numbers stay `f64`).
     precision: Option<String>,
-    /// Deflate's level, 0 (store) to 9 (smallest); 6 by default. The csv is never compressed.
+    /// The compression level: deflate's 0 (store) to 9 (smallest), 6 by default; Zstandard's
+    /// 1 to 22, 3 by default. The csv is never compressed.
     level: Option<u8>,
+    /// The npz's compression: `"deflate"` (the default, photonoxide's own) or `"zstd"`
+    /// (Zstandard, from the user's own libzstd, loaded at run time: docs/libraries.md).
+    compression: Option<String>,
 }
 
 /// The fields a `[task.export]` may name.
@@ -2948,12 +2952,34 @@ impl ExportSpec {
                 "[task.export] precision must be \"f32\" or \"f64\", got \"{p}\""
             )));
         }
-        if let Some(level) = self.level
-            && level > 9
-        {
-            return Err(task_error(format!(
-                "[task.export] level must be at most 9, got {level}"
-            )));
+        match self.compression.as_deref() {
+            None | Some("deflate") => {
+                if let Some(level) = self.level
+                    && level > 9
+                {
+                    return Err(task_error(format!(
+                        "[task.export] level must be at most 9, got {level}"
+                    )));
+                }
+            }
+            Some("zstd") => {
+                if let Some(level) = self.level
+                    && !(1..=22).contains(&level)
+                {
+                    return Err(task_error(format!(
+                        "[task.export] zstd's level must be 1 to 22, got {level}"
+                    )));
+                }
+                if self.npz() {
+                    crate::export::codec::compressor("zstd")
+                        .map_err(|e| task_error(format!("[task.export] compression: {e}")))?;
+                }
+            }
+            Some(other) => {
+                return Err(task_error(format!(
+                    "[task.export] compression must be \"deflate\" or \"zstd\", got \"{other}\""
+                )));
+            }
         }
         Ok(())
     }
@@ -3030,9 +3056,19 @@ impl ExportSpec {
         self.level.unwrap_or(6)
     }
 
-    /// An `.npz` at this export's precision and level.
-    fn npz_file(&self) -> crate::export::Npz {
-        crate::export::Npz::new(self.precision(), self.level())
+    /// An `.npz` at this export's precision, compression and level.
+    fn npz_file(&self) -> Result<crate::export::Npz> {
+        if self.compression.as_deref() == Some("zstd") {
+            let zstd = crate::export::codec::compressor("zstd")
+                .map_err(|e| task_error(format!("[task.export] compression: {e}")))?;
+            let level = self.level.map_or(zstd.default_level(), i32::from);
+            return Ok(crate::export::Npz::compressed(
+                self.precision(),
+                zstd,
+                level,
+            ));
+        }
+        Ok(crate::export::Npz::new(self.precision(), self.level()))
     }
 }
 
@@ -4144,14 +4180,13 @@ fn export_mode(
         return Ok(());
     }
     let path = run.dir().join(format!("{}.npz", label.replace(' ', "-")));
-    crate::export::write_mode_npz(
+    crate::export::write_mode_into(
+        export.npz_file()?,
         &path,
         m,
         fields,
         wavelength,
         &crate::export::Meta::of(job, run),
-        export.precision(),
-        export.level(),
         &|name| export.keeps(name),
     )?;
     Ok(())
@@ -5200,6 +5235,11 @@ size_um = [0.5, 10.0]
         assert!(bad("format = \"npz\"\nprecision = \"f16\"").contains("precision must be"));
         assert!(bad("format = \"npz\"\nlevel = 10").contains("level must be at most 9"));
         assert!(bad("fields = [\"Bx\"]").contains("has no field \"Bx\""));
+        assert!(bad("compression = \"lz4\"").contains("compression must be"));
+        assert!(bad("compression = \"zstd\"\nlevel = 23").contains("1 to 22"));
+        // no program here loaded libzstd: the check says so, rather than a run failing late
+        let e = bad("format = \"npz\"\ncompression = \"zstd\"");
+        assert!(e.contains("zstd isn't available"), "{e}");
         assert!(bad("tables = [\"fields\"]").contains("has no table \"fields\""));
         assert!(bad("fields = [\"temperature\"]").contains("a modes job has no field"));
         assert!(bad("format = \"csv\"\nfields = [\"Ex\"]").contains("written as npz"));
