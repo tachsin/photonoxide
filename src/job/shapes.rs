@@ -8,39 +8,36 @@
 //! and the task's parameters, and its places and sizes are expressions with units or `_um`
 //! numbers, as every shape's are:
 //!
-//! ```toml
-//! [[task.shape]]
-//! type = "between"            # y_low(x) <= y <= y_high(x)
-//! layer = "Si"
-//! x = [0, "2 um"]
-//! lower = "-(0.25 um + 0.1*x)"
-//! upper = "0.25 um + 0.1*x"
+//! ```yaml
+//! task:
+//!   shape:
+//!     - type: between             # y_low(x) <= y <= y_high(x)
+//!       layer: Si
+//!       x: [0, 2 um]
+//!       lower: "-(0.25 um + 0.1*x)"
+//!       upper: "0.25 um + 0.1*x"
 //!
-//! [[task.shape]]
-//! type = "polar"              # r <= rho(t), t the polar angle
-//! layer = "Si"
-//! center = ["5 um", 0]
-//! radius = "2 um*(1 + 0.43*cos(t))"
+//!     - type: polar               # r <= rho(t), t the polar angle
+//!       layer: Si
+//!       center: [5 um, 0]
+//!       radius: "2 um*(1 + 0.43*cos(t))"
 //!
-//! [[task.shape]]
-//! type = "parametric"         # inside (x(t), y(t)), t from 0 to 1
-//! layer = "Si"
-//! curve = ["1.3 um*cos(2*pi*t)", "0.6 um*sin(2*pi*t)"]
+//!     - type: parametric          # inside (x(t), y(t)), t from 0 to 1
+//!       layer: Si
+//!       curve: ["1.3 um*cos(2*pi*t)", "0.6 um*sin(2*pi*t)"]
 //!
-//! [[task.shape]]
-//! type = "implicit"           # f(x, y) <= 0 inside the window x by y
-//! layer = "Si"
-//! inside = "(x/2um)^4 + (y/1um)^4 - 1"
-//! x = ["-3 um", "3 um"]
-//! y = ["-2 um", "2 um"]
-//! cells = 256                 # the sampling grid along the window's longer side (optional)
+//!     - type: implicit            # f(x, y) <= 0 inside the window x by y
+//!       layer: Si
+//!       inside: "(x/2um)^4 + (y/1um)^4 - 1"
+//!       x: [-3 um, 3 um]
+//!       y: [-2 um, 2 um]
+//!       cells: 256                # the sampling grid along the window's longer side (optional)
 //!
-//! [[task.shape]]
-//! type = "mask"               # fill values from 0 to 1, the top row first
-//! layer = "Si"
-//! corner = ["-1 um", "-1 um"] # the lower left corner
-//! pixel = ["50 nm", "50 nm"]
-//! rows = [[0, 1, 1], [1, 0.5, 0]]
+//!     - type: mask                # fill values from 0 to 1, the top row first
+//!       layer: Si
+//!       corner: [-1 um, -1 um]    # the lower left corner
+//!       pixel: [50 nm, 50 nm]
+//!       rows: [[0, 1, 1], [1, 0.5, 0]]
 //! ```
 //!
 //! **Booleans, offsets and corner rounding.** `type = "union"`, `"intersection"`,
@@ -55,21 +52,20 @@
 //! `"path"` (`start`, `heading`, `width`, `segments`, as `[[task.path]]`); so does
 //! `[[task.shape]]` itself. The result takes an `etch` as any shape does.
 //!
-//! ```toml
-//! [[task.shape]]
-//! type = "difference"         # a ring's bus cut where a heater's via lands
-//! layer = "Si"
-//! of = [
-//!   { type = "rect", center = [0, 0], size = ["10 um", "500 nm"] },
-//!   { type = "circle", center = ["2 um", 0], radius = "150 nm" },
-//! ]
+//! ```yaml
+//! task:
+//!   shape:
+//!     - type: difference          # a ring's bus cut where a heater's via lands
+//!       layer: Si
+//!       of:
+//!         - { type: rect, center: [0, 0], size: [10 um, 500 nm] }
+//!         - { type: circle, center: [2 um, 0], radius: 150 nm }
 //!
-//! [[task.shape]]
-//! type = "offset"             # a cladding clearance 1 um about a disk
-//! layer = "Si"
-//! distance = "1 um"
-//! join = "round"
-//! of = [{ type = "circle", center = ["5 um", 0], radius = "2 um" }]
+//!     - type: offset              # a cladding clearance 1 um about a disk
+//!       layer: Si
+//!       distance: 1 um
+//!       join: round
+//!       of: [{ type: circle, center: [5 um, 0], radius: 2 um }]
 //! ```
 //!
 //! **Arrays and references** ([`crate::geometry::Array`], [`crate::geometry::Lattice`],
@@ -86,17 +82,18 @@
 //! (`"x"` or `"y"`), scaled, rotated about the cell's origin, then moved. A cell's shapes may be
 //! arrays and references again; one that places itself, and a cell placed nowhere, are refused.
 //!
-//! ```toml
-//! [[task.shape]]
-//! type = "array"              # an L3 cavity's hole lattice
-//! layer = "Si"
-//! lattice = "hexagonal"
-//! pitch = "420 nm"
-//! i = [-7, 7]
-//! j = [-4, 4]
-//! element = { type = "circle", radius = "0.29*420 nm" }
-//! remove = [[-1, 0], [0, 0], [1, 0]]
-//! shift = [{ at = [-2, 0], by = ["-63 nm", 0] }, { at = [2, 0], by = ["63 nm", 0] }]
+//! ```yaml
+//! task:
+//!   shape:
+//!     - type: array               # an L3 cavity's hole lattice
+//!       layer: Si
+//!       lattice: hexagonal
+//!       pitch: 420 nm
+//!       i: [-7, 7]
+//!       j: [-4, 4]
+//!       element: { type: circle, radius: "0.29*420 nm" }
+//!       remove: [[-1, 0], [0, 0], [1, 0]]
+//!       shift: [{ at: [-2, 0], by: [-63 nm, 0] }, { at: [2, 0], by: [63 nm, 0] }]
 //! ```
 //!
 //! Each takes an `etch` as the other shapes do. The resolver ([`super::params`]) puts the task's

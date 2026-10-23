@@ -9,7 +9,7 @@ program runs jobs headless, replays runs, runs the built-in examples and checks 
 
 ```sh
 photonoxide                      # the studio
-photonoxide run <job.toml> [--out <dir>] [--headless] [--linger <seconds>]
+photonoxide run <job.yaml> [--out <dir>] [--headless] [--linger <seconds>]
                  [--workers <n>] [--worker <host:port>]... [--token <token>] [--task-timeout <seconds>]
 photonoxide worker [--listen <address>] [--token <token>] [--slots <n>] [--once]
 photonoxide view <run directory>
@@ -465,7 +465,7 @@ name = "arm"
 kind = "waveguide"
 x = 100
 y = 0
-device = { job = "jobs/arm.toml", parameters = { length = "150" } }   # jobs/arm.toml's design, 150 µm long
+device = { job = "jobs/arm.yaml", parameters = { length = "150" } }   # jobs/arm.yaml's design, 150 µm long
 ```
 
 A chip's study or optimization is a job of its own (`photonoxide::job::ChipDesign`, a job's

@@ -1,44 +1,39 @@
 //! A chip of devices: a job's `[circuit]` table, its instances each a device's design at its
 //! fidelity or one of the circuit's own components, computed, studied and optimized together.
 //!
-//! ```toml
-//! name = "mzi-of-devices"
-//! timeout_minutes = 5
+//! ```yaml
+//! name: mzi-of-devices
+//! timeout_minutes: 5
 //!
-//! [circuit]
-//! connections = [["split.o3", "upper.o1"], ["upper.o2", "combine.o2"],
-//!                ["split.o4", "lower.o1"], ["lower.o2", "combine.o1"]]
+//! circuit:
+//!   connections: [[split.o3, upper.o1], [upper.o2, combine.o2],
+//!                 [split.o4, lower.o1], [lower.o2, combine.o1]]
 //!
-//! [[circuit.instance]]
-//! name = "split"
-//! device = { kind = "directional coupler", fidelity = "analytic" }   # a [device] table
+//!   instance:
+//!     - name: split
+//!       device: { kind: directional coupler, fidelity: analytic }   # a device: table
 //!
-//! [[circuit.instance]]
-//! name = "upper"
-//! device = { kind = "waveguide", parameters = { length = "150 um" } }
+//!     - name: upper
+//!       device: { kind: waveguide, parameters: { length: 150 um } }
 //!
-//! [[circuit.instance]]
-//! name = "lower"
-//! device = { kind = "waveguide", parameters = { length = "100 um" } }
+//!     - name: lower
+//!       device: { kind: waveguide, parameters: { length: 100 um } }
 //!
-//! [[circuit.instance]]
-//! name = "combine"
-//! component = "coupler"          # the circuit's own: coupler, phase-shifter or terminator
-//! values = { coupling = 0.5 }    # its parameters' values; a device's own component's too
+//!     - name: combine
+//!       component: coupler           # the circuit's own: coupler, phase-shifter or terminator
+//!       values: { coupling: 0.5 }    # its parameters' values; a device's own component's too
 //!
-//! [[circuit.port]]
-//! name = "in"
-//! at = "split.o1"
+//!   port:                          # every port neither connected nor exposed is refused
+//!     - { name: in, at: split.o1 }
+//!     - { name: in2, at: split.o2 }
+//!     - { name: out, at: combine.o4 }
+//!     - { name: out2, at: combine.o3 }
 //!
-//! [[circuit.port]]
-//! name = "out"
-//! at = "combine.o4"
-//!
-//! [task]
-//! kind = "spectrum"              # or "sweep", "corners", "optimize"
-//! from_um = 1.5
-//! to_um = 1.6
-//! points = 501
+//! task:
+//!   kind: spectrum                   # or sweep, corners, optimize
+//!   from_um: 1.5
+//!   to_um: 1.6
+//!   points: 501
 //! ```
 //!
 //! **Instances.** A `device` is a [`Spec`]: its kind, stack, parameters' expressions and fidelity,

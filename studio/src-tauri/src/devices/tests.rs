@@ -310,7 +310,7 @@ fn a_design_round_trips_through_the_form_and_the_file() {
     .unwrap();
     assert!(text.starts_with("# A narrower coupler.\n# Its gap follows w.\n"));
     assert!(
-        text.contains("[device]") && text.contains("gap = \"w/2.5\""),
+        text.contains("device:") && text.contains("gap: w/2.5"),
         "{text}"
     );
     let (back, name, about) = read_text(&text).unwrap();
@@ -547,7 +547,7 @@ fn every_devices_job_and_study_is_made_checked_and_read_back_into_the_form() {
                 text.starts_with(&format!("# The {} by ", d.kind())),
                 "{text}"
             );
-            assert!(text.contains("photonoxide run jobs/page-job.toml"));
+            assert!(text.contains("photonoxide run jobs/page-job.yaml"));
             let form = read_job_form(&text);
             assert_eq!(form.error, None, "{}: {text}", d.kind());
             assert!(form.beyond.is_empty(), "{}: {:?}", d.kind(), form.beyond);
@@ -646,11 +646,11 @@ fn as_text_an_edit_the_form_holds_moves_it_and_one_it_cant_is_kept_and_named() {
     };
     let text = job_text_of(&spec, &compute, "w").unwrap();
     // the band edited: the form follows
-    let form = read_job_form(&text.replace("points = 11", "points = 21"));
+    let form = read_job_form(&text.replace("points: 11", "points: 21"));
     assert!(form.beyond.is_empty() && form.error.is_none(), "{form:?}");
     assert_eq!(form.compute.unwrap().band, Some((1.5, 1.6, 21)));
     // a parameter's expression edited: the design follows
-    let form = read_job_form(&text.replace("\"450 nm\"", "\"480 nm\""));
+    let form = read_job_form(&text.replace("width: 450 nm", "width: 480 nm"));
     assert!(
         form.spec
             .unwrap()
@@ -669,6 +669,11 @@ fn as_text_an_edit_the_form_holds_moves_it_and_one_it_cant_is_kept_and_named() {
         "w-fdtd",
     )
     .unwrap();
+    // the job in TOML, its tables added at its end; the form reads either
+    let fdtd = photonoxide::run::Job::parse_as(&fdtd, photonoxide::run::Format::Yaml)
+        .unwrap()
+        .to_text(photonoxide::run::Format::Toml)
+        .unwrap();
     let stopped = format!("{fdtd}\n[task.stop]\nuntil = \"time\"\ntime_um = 100.0\n");
     let form = read_job_form(&stopped);
     assert_eq!(form.error, None);
@@ -682,7 +687,7 @@ fn as_text_an_edit_the_form_holds_moves_it_and_one_it_cant_is_kept_and_named() {
             .is_some()
     );
     assert!(
-        read_job_form(&text.replace("points = 11", "points = 0"))
+        read_job_form(&text.replace("points: 11", "points: 0"))
             .error
             .is_some()
     );
@@ -721,14 +726,24 @@ fn a_saved_job_that_computes_the_design_reopens_with_its_text() {
     let text = job_text_of(&spec, &ComputeIn::default(), "guide-run").unwrap();
     let dir = std::env::temp_dir().join(format!("photonoxide-device-job-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("guide-run.toml");
+    let path = dir.join("guide-run.yaml");
     std::fs::write(&path, &text).unwrap();
     let saved = read_device(path.display().to_string()).unwrap();
     assert_eq!(saved.job.as_deref(), Some(text.as_str()));
     assert_eq!(saved.spec, spec);
     // a design alone has none
-    std::fs::write(&path, saved_text(&spec, "guide", "").unwrap()).unwrap();
+    let design_text = saved_text(&spec, "guide", "").unwrap();
+    std::fs::write(&path, &design_text).unwrap();
     assert_eq!(read_device(path.display().to_string()).unwrap().job, None);
+    // one saved in TOML before the studio wrote YAML reads as it did
+    let old = dir.join("guide.toml");
+    let toml = photonoxide::run::Job::parse_as(&design_text, photonoxide::run::Format::Yaml)
+        .unwrap()
+        .to_text(photonoxide::run::Format::Toml)
+        .unwrap();
+    std::fs::write(&old, toml).unwrap();
+    let back = read_device(old.display().to_string()).unwrap();
+    assert_eq!((back.spec, back.job), (spec, None));
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -817,7 +832,7 @@ fn a_compact_model_is_fitted_from_the_page_and_kept_next_to_its_design() {
         text.starts_with("# A compact model of the all-pass ring over gap"),
         "{text}"
     );
-    let job = Job::parse(&text).unwrap();
+    let job = Job::parse_as(&text, photonoxide::run::Format::Yaml).unwrap();
     let mut run = Run::in_memory();
     execute(&job, &mut run, &Stop::new(None)).unwrap();
     let fitted = run
@@ -852,7 +867,7 @@ fn a_compact_model_is_fitted_from_the_page_and_kept_next_to_its_design() {
     assert_eq!(kept.compact.as_deref(), Some("ring.compact.json"));
     assert!(jobs.join("ring.compact.json").exists());
     let saved = saved_text_in(&kept, "ring", "", Some(&jobs)).unwrap();
-    assert!(saved.contains("compact = \"ring.compact.json\""), "{saved}");
+    assert!(saved.contains("compact: ring.compact.json"), "{saved}");
     // read back, found from the design's folder, and computed at its compact fidelity
     let (spec, _, _) = read_text(&saved).unwrap();
     let spec = compact::found_from(spec, &jobs);

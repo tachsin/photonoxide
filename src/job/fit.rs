@@ -11,29 +11,29 @@
 //! `compact.json` ([`crate::device::Fitted`]), which a design names to have the compact
 //! fidelity.
 //!
-//! ```toml
-//! name = "ring-compact"
+//! ```yaml
+//! name: ring-compact
 //!
-//! [device]
-//! kind = "all-pass ring"
-//! fidelity = "analytic"     # the source: the runs the model is fitted to
+//! device:
+//!   kind: all-pass ring
+//!   fidelity: analytic        # the source: the runs the model is fitted to
 //!
-//! [task]
-//! kind = "fit"
-//! from_um = 1.54            # the band, the device's own at 101 points by default
-//! to_um = 1.56
-//! points = 81
-//! sampling = "grid"         # or "latin hypercube", with count and seed
-//! held_out = 8              # samples kept out of the fit, on a Latin hypercube of their own
-//! poles = 12
-//! degree = 2                # a polynomial in the parameters; or interpolation = "piecewise linear"
-//! # step_nm, step_z_nm, margin_um, samples, pml_cells, model_2d: the grids, as a spectrum's
+//! task:
+//!   kind: fit
+//!   from_um: 1.54             # the band, the device's own at 101 points by default
+//!   to_um: 1.56
+//!   points: 81
+//!   sampling: grid            # or latin hypercube, with count and seed
+//!   held_out: 8               # samples kept out of the fit, on a Latin hypercube of their own
+//!   poles: 12
+//!   degree: 2                 # a polynomial in the parameters; or interpolation: piecewise linear
+//!   # step_nm, step_z_nm, margin_um, samples, pml_cells, model_2d: the grids, as a spectrum's
 //!
-//! [[task.axis]]             # one to four of the device's parameters
-//! parameter = "gap"
-//! from = 0.15
-//! to = 0.25
-//! points = 5                # a grid's; a Latin hypercube takes count
+//!   axis:                     # one to four of the device's parameters
+//!     - parameter: gap
+//!       from: 0.15
+//!       to: 0.25
+//!       points: 5             # a grid's; a Latin hypercube takes count
 //! ```
 
 use schemars::JsonSchema;

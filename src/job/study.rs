@@ -16,38 +16,37 @@
 //! indices and its S-parameters over the band. A point the model refuses (a fit outside its
 //! range, a solve that fails) records why, and the study goes on.
 //!
-//! ```toml
-//! name = "coupler-gap"
+//! ```yaml
+//! name: coupler-gap
 //!
-//! [device]
-//! kind = "directional coupler"
-//! fidelity = "analytic"
+//! device:
+//!   kind: directional coupler
+//!   fidelity: analytic
 //!
-//! [task]
-//! kind = "sweep"
-//! from_um = 1.5            # the band at each point: the device's own (its wavelength ±
-//! to_um = 1.6              # span/2) at 21 points by default
-//! points = 21
-//! # step_nm, step_z_nm, margin_um, samples, pml_cells, model_2d: the grids, as a spectrum's
+//! task:
+//!   kind: sweep
+//!   from_um: 1.5             # the band at each point: the device's own (its wavelength ±
+//!   to_um: 1.6               # span/2) at 21 points by default
+//!   points: 21
+//!   # step_nm, step_z_nm, margin_um, samples, pml_cells, model_2d: the grids, as a spectrum's
 //!
-//! [[task.axis]]            # one or two
-//! parameter = "gap"        # in its unit: µm for a length, degrees for an angle
-//! from = 0.1
-//! to = 0.4
-//! points = 7
+//!   axis:                    # one or two
+//!     - parameter: gap       # in its unit: µm for a length, degrees for an angle
+//!       from: 0.1
+//!       to: 0.4
+//!       points: 7
 //! ```
 //!
-//! ```toml
-//! [task]
-//! kind = "corners"         # the nominal design first, then each corner
+//! ```yaml
+//! task:
+//!   kind: corners            # the nominal design first, then each corner
 //!
-//! [[task.corner]]
-//! name = "wide, thick"
-//! offsets = { width = 0.01, thickness = 0.005 }   # added to the nominal values, in their units
+//!   corner:
+//!     - name: wide, thick
+//!       offsets: { width: 0.01, thickness: 0.005 }   # added to the nominal values, in their units
 //!
-//! [[task.corner]]
-//! name = "hot"
-//! temperature_k = 340.0    # every material of the stack whose model takes a temperature
+//!     - name: hot
+//!       temperature_k: 340.0   # every material of the stack whose model takes a temperature
 //! ```
 
 use schemars::JsonSchema;

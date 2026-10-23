@@ -124,16 +124,16 @@ pub struct Job {
 impl Job {
     /// A job from the text of a TOML job file:
     ///
-    /// ```toml
-    /// name = "strip-modes"     # letters, digits, '-', '_' and '.'
-    /// timeout_minutes = 30     # optional: a hard limit on the run
+    /// ```yaml
+    /// name: strip-modes        # letters, digits, '-', '_' and '.'
+    /// timeout_minutes: 30      # optional: a hard limit on the run
     ///
-    /// [solver]                 # optional
-    /// direct = "photonoxide"   # the direct solver: auto (the default), photonoxide, or a
+    /// solver:                  # optional
+    ///   direct: photonoxide    # the direct solver: auto (the default), photonoxide, or a
     ///                          # backend's name (see crate::backend)
     ///
-    /// [task]                   # read by the solver that runs the job
-    /// width_um = 0.5
+    /// task:                    # read by the solver that runs the job
+    ///   width_um: 0.5
     /// ```
     ///
     /// or, in place of a task, a `[device]` table: one of [`crate::device`]'s devices with its

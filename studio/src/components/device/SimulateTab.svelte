@@ -9,7 +9,7 @@
   import { Code, Eye, FileText, History, Play, RotateCcw, Save, Square, TriangleAlert } from "@lucide/svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
 
-  import { ago, api, duration, type DeviceInfo, type DeviceSpec, type JobForm, type RunItem } from "../../lib/api";
+  import { ago, api, duration, formatOfText, type DeviceInfo, type DeviceSpec, type JobForm, type RunItem } from "../../lib/api";
   import { app, run, startRunHere, toast } from "../../lib/app.svelte";
   import { sci } from "../../lib/bench.svelte";
   import { keep, pending, rungOf, rungs, shownRun, type Draft } from "../../lib/device.svelte";
@@ -168,11 +168,11 @@
     try {
       let path: string;
       try {
-        path = await api.saveJob(text, "toml", false);
+        path = await api.saveJob(text, "yaml", false);
       } catch (e) {
         if (!String(e).startsWith("exists:")) throw e;
-        if (!(await ask(`jobs/${jobName}.toml exists. Replace it?`, { title: "Replace the job?", kind: "warning" }))) return;
-        path = await api.saveJob(text, "toml", true);
+        if (!(await ask(`jobs/${jobName}.yaml exists. Replace it?`, { title: "Replace the job?", kind: "warning" }))) return;
+        path = await api.saveJob(text, "yaml", true);
       }
       app.workspaceVersion++;
       toast(`Saved ${path.split(/[\\/]/).pop()} to jobs/: photonoxide run runs it, and it reopens here`, "success");
@@ -311,14 +311,14 @@
   <div class="flex flex-wrap gap-2">
     <button class="btn btn-primary btn-sm gap-1.5" disabled={!text || !!problem || !!otherDevice} onclick={start} title="Run the job: checked by the library, recorded in runs/, shown here live"><Play size={14} /> Run {how}</button>
     <button class="btn btn-sm gap-1.5 {asText ? 'btn-active' : ''}" onclick={() => (asText = !asText)} title="The job file, editable"><Code size={14} /> As text</button>
-    <button class="btn btn-ghost btn-sm gap-1.5" disabled={!text} onclick={save} title="Save the job to the workspace's jobs/ as {jobName}.toml"><Save size={14} /> Save job</button>
+    <button class="btn btn-ghost btn-sm gap-1.5" disabled={!text} onclick={save} title="Save the job to the workspace's jobs/ as {jobName}.yaml"><Save size={14} /> Save job</button>
   </div>
 
   {#if asText}
     <section class="overflow-hidden rounded-xl border border-base-content/10">
       <div class="flex flex-wrap items-center gap-2 border-b border-base-content/8 px-3 py-2">
         <FileText size={14} class="faint" />
-        <span class="min-w-0 truncate text-sm font-medium">jobs/{jobName}.toml</span>
+        <span class="min-w-0 truncate text-sm font-medium">jobs/{jobName}.yaml</span>
         <span class="text-[11px] faint">{draft.text === null ? "as the form writes it: type to edit" : "edited: the run uses this text"}</span>
         <span class="flex-1"></span>
         {#if draft.text !== null}<button class="btn btn-ghost btn-xs gap-1" onclick={backToForm} title="Drop the edits: the form writes the text again"><RotateCcw size={12} /> Back to the form</button>{/if}
@@ -330,7 +330,7 @@
       {/if}
       {#if text}
         <div class="h-[24rem]">
-          <TomlEditor value={text} onchange={edited} />
+          <TomlEditor value={text} format={formatOfText(text)} onchange={edited} />
         </div>
       {:else}
         <p class="px-3 py-6 text-center text-xs faint">{problem ? "No job: the form's settings make none (above)." : "Making the job…"}</p>

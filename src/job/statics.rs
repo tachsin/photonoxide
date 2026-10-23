@@ -37,57 +37,43 @@
 //! last field, and each probe's 1/e and 10–90 % times and the −3 dB frequency of its
 //! small-signal response to the heaters' power.
 //!
-//! ```toml
-//! name = "heater"
-//! timeout_minutes = 5
+//! ```yaml
+//! name: heater
+//! timeout_minutes: 5
 //!
-//! [task]
-//! kind = "static"
-//! physics = "heat"
-//! stack = "soi_220"
-//! y_um = [-20.0, 20.0]
-//! z_um = [-10.0, 6.0]
-//! step_nm = 1000.0
-//! fine_nm = 20.0
+//! task:
+//!   kind: static
+//!   physics: heat
+//!   stack: soi_220
+//!   y_um: [-20.0, 20.0]
+//!   z_um: [-10.0, 6.0]
+//!   step_nm: 1000.0
+//!   fine_nm: 20.0
 //!
-//! [[task.rect]]
-//! layer = "Si"
-//! center_um = [0.0, 0.0]
-//! size_um = [10.0, 0.5]
+//!   rect:
+//!     - { layer: Si, center_um: [0.0, 0.0], size_um: [10.0, 0.5] }
 //!
-//! [task.thermal_conductivity]
-//! Si = 148.0
-//! SiO2 = 1.4
-//! TiN = 28.0
+//!   thermal_conductivity: { Si: 148.0, SiO2: 1.4, TiN: 28.0 }
 //!
-//! [task.boundary]
-//! bottom = { fixed = 0.0 }
-//! top = { convective = 10.0, ambient = 0.0 }
+//!   boundary:
+//!     bottom: { fixed: 0.0 }
+//!     top: { convective: 10.0, ambient: 0.0 }
 //!
-//! [[task.region]]
-//! y_um = [-1.0, 1.0]
-//! z_um = [4.22, 4.34]
-//! medium = "TiN"
+//!   region:
+//!     - { y_um: [-1.0, 1.0], z_um: [4.22, 4.34], medium: TiN }
 //!
-//! [[task.heater]]
-//! y_um = [-1.0, 1.0]
-//! z_um = [4.22, 4.34]
-//! power_w_per_m = 10.0
+//!   heater:
+//!     - { y_um: [-1.0, 1.0], z_um: [4.22, 4.34], power_w_per_m: 10.0 }
 //!
-//! [[task.probe]]
-//! name = "guide"
-//! y_um = [-0.25, 0.25]
-//! z_um = [2.0, 2.22]
+//!   probe:
+//!     - { name: guide, y_um: [-0.25, 0.25], z_um: [2.0, 2.22] }
 //!
-//! # in time: with these, the heater's turn-on
-//! [task.heat_capacity]
-//! Si = 1.657e6
-//! SiO2 = 1.562e6
-//! TiN = 3.134e6
+//!   # in time: with these, the heater's turn-on
+//!   heat_capacity: { Si: 1.657e6, SiO2: 1.562e6, TiN: 3.134e6 }
 //!
-//! [task.transient]
-//! step_ns = 200.0
-//! duration_us = 40.0
+//!   transient:
+//!     step_ns: 200.0
+//!     duration_us: 40.0
 //! ```
 //!
 //! The run records an [`Event::StaticField`] per field (the temperature or the potential, and a

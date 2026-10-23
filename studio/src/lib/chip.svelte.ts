@@ -378,7 +378,7 @@ export async function openInstanceDevice(inst: Placed) {
     if (!d) throw new Error(`no device ${r.spec.kind}`);
     const draft = draftOf(d);
     draft.spec = JSON.parse(JSON.stringify(r.spec));
-    draft.name = r.job ? (r.job.split(/[\\/]/).pop() ?? "").replace(/\.toml$/, "") : null;
+    draft.name = r.job ? (r.job.split(/[\\/]/).pop() ?? "").replace(/\.(toml|ya?ml|json)$/, "") : null;
     draft.path = null;
     draft.saved = key(r.spec, d);
     draft.tab = "design";
@@ -416,7 +416,7 @@ export async function returnToChip(how: "apply" | "variant" | "back") {
         const path = await api.saveDevice(spec, file, `A variant of ${name}'s design, from the chip ${chipLink.chip}`, false);
         app.workspaceVersion++;
         device = { job: `jobs/${path.split(/[\\/]/).pop()}` };
-        toast(`Saved jobs/${file}.toml; ${name} now names it`, "success", undefined, 3000);
+        toast(`Saved jobs/${file}.yaml; ${name} now names it`, "success", undefined, 3000);
       } else if (chipLink.job) {
         device = { job: chipLink.job, ...(spec.fidelity !== start.fidelity ? { fidelity: spec.fidelity } : {}), parameters: changed(start, spec) };
       } else device = await api.chipDeviceRef(spec);

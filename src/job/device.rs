@@ -10,24 +10,24 @@
 //!   its shapes; its sources and monitors find the device's ports by name (`port = "o1"`), and
 //!   each port's guide runs straight on through the window's edge.
 //!
-//! ```toml
-//! name = "mmi-3d"
+//! ```yaml
+//! name: mmi-3d
 //!
-//! [device]
-//! kind = "MMI 1x2"
-//! fidelity = "3D"
+//! device:
+//!   kind: MMI 1x2
+//!   fidelity: 3D
 //!
-//! [task]
-//! kind = "spectrum"
-//! from_um = 1.5          # the band, the device's own (its wavelength ± span/2) by default
-//! to_um = 1.6
-//! points = 101
-//! step_nm = 80.0         # the grid: the cells in the chip's plane (an FDFD's, or a mode
-//! step_z_nm = 40.0       # solve's mesh step); 3D FDFD's cells' height; the cladding kept
-//! margin_um = 0.5        # beside the guides; the wavelengths an FDFD samples and its PML
-//! samples = 3            # cells. Each left out is the device's own.
-//! pml_cells = 12
-//! # model_2d = "fdfd"    # an MMI's 2D model by FDFD in place of its guided modes
+//! task:
+//!   kind: spectrum
+//!   from_um: 1.5           # the band, the device's own (its wavelength ± span/2) by default
+//!   to_um: 1.6
+//!   points: 101
+//!   step_nm: 250.0         # the grid: the cells in the chip's plane (an FDFD's, or a mode
+//!   step_z_nm: 110.0       # solve's mesh step); 3D FDFD's cells' height; the cladding kept
+//!   margin_um: 0.5         # beside the guides; the wavelengths an FDFD samples and its PML
+//!   samples: 3             # cells. Each left out is the device's own.
+//!   pml_cells: 12
+//!   # model_2d: fdfd       # an MMI's 2D model by FDFD in place of its guided modes
 //! ```
 
 use std::time::Instant;

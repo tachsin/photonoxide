@@ -5,23 +5,23 @@
 //! each an expression of the task's parameters with its unit (`"500 nm"`, `"w + gap"`, `"90
 //! deg"`), or a number in a `_um` (length) or `_deg` (angle) key:
 //!
-//! ```toml
-//! [[task.component]]
-//! type = "ring"
-//! name = "ring"               # its ports are ring.in, ring.through (ring.add, ring.drop)
-//! layer = "Si"                # the task's layer by default
-//! width = "w"
-//! radius = "5 um"
-//! gap = "gap"
-//! origin = ["0 um", "0 um"]   # where its frame's origin goes (optional)
-//! rotate = "90 deg"           # turned about it (optional); mirror = true reflects it first
+//! ```yaml
+//! task:
+//!   component:
+//!     - type: ring
+//!       name: ring                # its ports are ring.in, ring.through (ring.add, ring.drop)
+//!       layer: Si                 # the task's layer by default
+//!       width: w
+//!       radius: 5 um
+//!       gap: gap
+//!       origin: [0 um, 0 um]      # where its frame's origin goes (optional)
+//!       rotate: 90 deg            # turned about it (optional); mirror: true reflects it first
 //!
-//! [[task.component]]
-//! type = "straight"
-//! name = "lead"
-//! width = "w"
-//! length = "3 um"
-//! connect = ["o1", "ring.through"]   # its o1 put on ring.through, facing it
+//!     - type: straight
+//!       name: lead
+//!       width: w
+//!       length: 3 um
+//!       connect: [o1, ring.through]   # its o1 put on ring.through, facing it
 //! ```
 //!
 //! The types and their fields (lengths but where said; `?` optional):

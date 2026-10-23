@@ -259,7 +259,7 @@
       draft.path = path;
       draft.fromJob = false;
       // its compact model is now the one kept next to it
-      if (draft.spec.compact) draft.spec = { ...draft.spec, compact: path.replace(/\.toml$/, ".compact.json") };
+      if (draft.spec.compact) draft.spec = { ...draft.spec, compact: path.replace(/\.(toml|ya?ml|json)$/, ".compact.json") };
       draft.about = saving.about;
       draft.saved = key(draft.spec, info);
       saving = null;
@@ -269,9 +269,9 @@
       const m = String(e);
       if (m.startsWith("exists:") && saving) {
         saving.busy = false;
-        saving.problem = `jobs/${name}.toml exists.`;
+        saving.problem = `jobs/${name}.yaml exists.`;
         const computes = draft.fromJob && name === draft.name ? " It is a job that computes the design (it has a task): the design alone replaces it." : "";
-        if (await ask(`jobs/${name}.toml exists.${computes} Replace it?`, { title: "Replace the design?", kind: "warning" })) await save(true);
+        if (await ask(`jobs/${name}.yaml exists.${computes} Replace it?`, { title: "Replace the design?", kind: "warning" })) await save(true);
         return;
       }
       if (saving) {

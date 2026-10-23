@@ -14,17 +14,18 @@
 //! bare `0` needs none), and its `_um` keys numbers in µm as they always have, or expressions,
 //! read in µm when they have no unit. A numeric `_um` key reads exactly as before.
 //!
-//! ```toml
-//! [task.parameters]
-//! w = "500 nm"
-//! gap = "w/2.5"
-//! radius = "5 um"
+//! ```yaml
+//! task:
+//!   parameters:
+//!     w: 500 nm
+//!     gap: w/2.5
+//!     radius: 5 um
 //!
-//! [[task.ring]]
-//! layer = "Si"
-//! center = [0, "radius + w + gap"]
-//! radius = "radius"
-//! width = "w"
+//!   ring:
+//!     - layer: Si
+//!       center: [0, radius + w + gap]
+//!       radius: radius
+//!       width: w
 //! ```
 //!
 //! **Paths.** `"structure"`, `"fdfd"` and `"fdtd"` jobs draw paths ([`crate::geometry::Path`]):
@@ -36,17 +37,17 @@
 //! segment that isn't exactly one kind, an angle without its unit, a bend that doesn't exist and
 //! a width over twice the radius of curvature, naming the path and segment.
 //!
-//! ```toml
-//! [[task.path]]
-//! layer = "Si"
-//! start = ["-1 um", 0]
-//! width = "w"
-//! segments = [
-//!   { straight = "1 um" },
-//!   { euler = "90 deg", radius = "5 um", p = 0.2 },
-//!   { straight = "2 um", width = "w + 100 nm" },
-//!   { sine = "4 um", offset = "-1 um" },
-//! ]
+//! ```yaml
+//! task:
+//!   path:
+//!     - layer: Si
+//!       start: [-1 um, 0]
+//!       width: w
+//!       segments:
+//!         - { straight: 1 um }
+//!         - { euler: 90 deg, radius: 5 um, p: 0.2 }
+//!         - { straight: 2 um, width: w + 100 nm }
+//!         - { sine: 4 um, offset: -1 um }
 //! ```
 //!
 //! **Shapes defined by functions, and masks.** `[[task.shape]]` draws, in the same jobs, a region
@@ -58,13 +59,14 @@
 //! what [`crate::geometry`] refuses (crossing curves, a curve that doesn't close or crosses
 //! itself, f with no zero set in its window), naming the table and type. See `shapes.rs`.
 //!
-//! ```toml
-//! [[task.shape]]
-//! type = "implicit"
-//! layer = "Si"
-//! inside = "(x/2um)^4 + (y/1um)^4 - 1"
-//! x = ["-3 um", "3 um"]
-//! y = ["-2 um", "2 um"]
+//! ```yaml
+//! task:
+//!   shape:
+//!     - type: implicit
+//!       layer: Si
+//!       inside: "(x/2um)^4 + (y/1um)^4 - 1"
+//!       x: [-3 um, 3 um]
+//!       y: [-2 um, 2 um]
 //! ```
 //!
 //! **Arrays and references.** `type = "array"` draws an `element` at every site of a
@@ -86,16 +88,13 @@
 //! which a run records after its scene ([`Event::Ports`]). See `components.rs` and
 //! docs/methods/generators.md.
 //!
-//! ```toml
-//! [[task.component]]
-//! type = "ring"
-//! name = "ring"
-//! width = "500 nm"
-//! radius = "5 um"
-//! gap = "200 nm"
+//! ```yaml
+//! task:
+//!   component:
+//!     - { type: ring, name: ring, width: 500 nm, radius: 5 um, gap: 200 nm }
 //!
-//! [[task.port]]
-//! port = "ring.in"
+//!   port:
+//!     - port: ring.in
 //! ```
 //!
 //! A modes job's sweep can step through any parameter, `parameter = "gap"`, from `from` to `to`
@@ -115,12 +114,10 @@
 //! refuses, and a graded medium that isn't positive over the window; [`preview`] draws each body
 //! as bands of its sections. See `bodies.rs` and docs/methods/bodies.md.
 //!
-//! ```toml
-//! [[task.body]]
-//! type = "sphere"
-//! center = [0, 0, "2.5 um"]
-//! radius = "300 nm"
-//! material = "si"
+//! ```yaml
+//! task:
+//!   body:
+//!     - { type: sphere, center: [0, 0, 2.5 um], radius: 300 nm, material: si }
 //! ```
 //!
 //! **Custom stacks and etches.** A task's `stack` is a preset's name or a `[task.stack]` table:
@@ -145,28 +142,20 @@
 //! "x-cut" }` puts lithium niobate's c axis along the chip's y: a guide along x has its TE-like
 //! mode polarized along c, and sees n_e.
 //!
-//! ```toml
-//! [task.stack]
-//! substrate = "si"
-//! cladding = "sio2"
+//! ```yaml
+//! task:
+//!   stack:
+//!     substrate: si
+//!     cladding: sio2
+//!     layer:
+//!       - { name: BOX, thickness: 2 um, material: sio2, background: sio2 }
+//!       - { name: Si, thickness: 220 nm, material: si, background: sio2 }
 //!
-//! [[task.stack.layer]]
-//! name = "BOX"
-//! thickness = "2 um"
-//! material = "sio2"
-//! background = "sio2"
-//!
-//! [[task.stack.layer]]
-//! name = "Si"
-//! thickness = "220 nm"
-//! material = "si"
-//! background = "sio2"
-//!
-//! [[task.rect]]
-//! layer = "Si"
-//! center_um = [0.0, 0.0]
-//! size = ["10 um", "500 nm"]
-//! etch = { depth = "150 nm", sidewall = "80 deg" }
+//!   rect:
+//!     - layer: Si
+//!       center_um: [0.0, 0.0]
+//!       size: [10 um, 500 nm]
+//!       etch: { depth: 150 nm, sidewall: 80 deg }
 //! ```
 //!
 //! **A device's design.** A job may hold a `[device]` table in place of a task: one of
@@ -214,34 +203,30 @@
 //! - `"structure"`: a layer stack with shapes drawn on it, recorded as pictures of its
 //!   permittivity, seen from above and on a vertical cut.
 //!
-//! ```toml
-//! name = "strip"
-//! timeout_minutes = 5
+//! ```yaml
+//! name: strip
+//! timeout_minutes: 5
 //!
-//! [task]
-//! kind = "structure"
-//! stack = "soi_220"          # or "soi" / "nitride" with core_nm and bottom_oxide_um
-//! wavelength_um = 1.55
-//! layer = "Si"               # the layer seen from above
-//! x_um = [-3.0, 3.0]
-//! y_um = [-2.0, 2.0]
-//! step_nm = 20.0
+//! task:
+//!   kind: structure
+//!   stack: soi_220           # or soi / nitride with core_nm and bottom_oxide_um
+//!   wavelength_um: 1.55
+//!   layer: Si                # the layer seen from above
+//!   x_um: [-3.0, 3.0]
+//!   y_um: [-2.0, 2.0]
+//!   step_nm: 20.0
 //!
-//! [[task.rect]]
-//! layer = "Si"
-//! center_um = [0.0, 0.0]
-//! size_um = [6.0, 0.5]
+//!   rect:
+//!     - { layer: Si, center_um: [0.0, 0.0], size_um: [6.0, 0.5] }
 //!
-//! [[task.circle]]
-//! layer = "Si"
-//! center_um = [1.5, 1.2]
-//! radius_um = 0.4
+//!   circle:
+//!     - { layer: Si, center_um: [1.5, 1.2], radius_um: 0.4 }
 //!
-//! [[task.ring]]              # a ring resonator's waveguide
-//! layer = "Si"
-//! center_um = [-1.5, 0.9]
-//! radius_um = 0.8            # to the waveguide's centre line
-//! width_um = 0.4
+//!   ring:                    # a ring resonator's waveguide
+//!     - layer: Si
+//!       center_um: [-1.5, 0.9]
+//!       radius_um: 0.8       # to the waveguide's centre line
+//!       width_um: 0.4
 //! ```
 //!
 //! - `"modes"`: the guided modes of a waveguide's cross-section, by the full-vector solver
@@ -294,37 +279,37 @@
 //!   y. A job that names its `propagation` records an [`Event::Cut`] after its scene, naming
 //!   the cut's plane.
 //!
-//! ```toml
-//! name = "strip-modes"
-//! timeout_minutes = 10
+//! ```yaml
+//! name: strip-modes
+//! timeout_minutes: 10
 //!
-//! [task]
-//! kind = "modes"
-//! stack = "soi_220"
-//! wavelength_um = 1.55
-//! layer = "Si"               # the window's height defaults to 1 µm around it
-//! propagation = "x"          # the modes travel along x; "y" (the default) for an older job
-//! y_um = [-1.2, 1.2]         # the window across the guide (x_um for "y")
-//! cut_x_um = 0.0             # where the cross-section is cut (cut_y_um for "y")
-//! step_nm = 20.0
-//! modes = 2                  # how many (1 to 50), from the highest effective index
-//! # modes_above = 1.444      # or every mode with n_eff above this, no count (not both)
-//! # modes_near = 2.4         # or the count nearest this n_eff, not the highest index
+//! task:
+//!   kind: modes
+//!   stack: soi_220
+//!   wavelength_um: 1.55
+//!   layer: Si                # the window's height defaults to 1 µm around it
+//!   propagation: x           # the modes travel along x; y (the default) for an older job
+//!   y_um: [-1.2, 1.2]        # the window across the guide (x_um for y)
+//!   cut_x_um: 0.0            # where the cross-section is cut (cut_y_um for y)
+//!   step_nm: 20.0
+//!   modes: 2                 # how many (1 to 50), from the highest effective index
+//!   # modes_above: 1.444     # or every mode with n_eff above this, no count (not both)
+//!   # modes_near: 2.4        # or the count nearest this n_eff, not the highest index
 //!
-//! [[task.rect]]
-//! layer = "Si"
-//! center_um = [0.0, 0.0]
-//! size_um = [10.0, 0.5]      # 500 nm wide, along x
+//!   rect:
+//!     - layer: Si
+//!       center_um: [0.0, 0.0]
+//!       size_um: [10.0, 0.5] # 500 nm wide, along x
 //!
-//! # [task.pml]               # leaky modes: absorbing layers inside the window's edges
-//! # thickness_um = [0.0, 0.0, 1.0, 0.0]   # across the guide low and high, below and above
-//! # strength = 3.0
+//!   # pml:                   # leaky modes: absorbing layers inside the window's edges
+//!   #   thickness_um: [0.0, 0.0, 1.0, 0.0]   # across the guide low and high, below and above
+//!   #   strength: 3.0
 //!
-//! [task.sweep]
-//! parameter = "wavelength"   # "width": rect `rect`'s size across the guide; or a parameter
-//! from = 1.5
-//! to = 1.6
-//! points = 11
+//!   sweep:
+//!     parameter: wavelength  # width: rect `rect`'s size across the guide; or a parameter
+//!     from: 1.5
+//!     to: 1.6
+//!     points: 11
 //! ```
 //!
 //! - `"fdfd"`: a device on one layer, seen from above, by 2D FDFD ([`crate::fdfd`]) with
@@ -333,40 +318,37 @@
 //!   as the S-parameters at each wavelength, and the field from the first port at the first.
 //!   The ports are columns normal to x, so the light travels along x.
 //!
-//! ```toml
-//! name = "mmi"
-//! timeout_minutes = 20
+//! ```yaml
+//! name: mmi
+//! timeout_minutes: 20
 //!
-//! [task]
-//! kind = "fdfd"
-//! stack = "soi_220"
-//! wavelength_um = 1.55
-//! layer = "Si"
-//! polarization = "te"        # the slab's TE mode, H along z in the 2D problem; or "tm"
-//! x_um = [-2.0, 12.5]        # PMLs (pml_cells, 20 by default) inside the window
-//! field_um = 1.55            # the field is recorded at the swept wavelength nearest this
-//! y_um = [-3.0, 3.0]
-//! step_nm = 20.0
+//! task:
+//!   kind: fdfd
+//!   stack: soi_220
+//!   wavelength_um: 1.55
+//!   layer: Si
+//!   polarization: te         # the slab's TE mode, H along z in the 2D problem; or tm
+//!   x_um: [-2.0, 12.5]       # PMLs (pml_cells, 20 by default) inside the window
+//!   field_um: 1.55           # the field is recorded at the swept wavelength nearest this
+//!   y_um: [-3.0, 3.0]
+//!   step_nm: 20.0
 //!
-//! [[task.rect]]
-//! layer = "Si"
-//! center_um = [4.275, 0.0]
-//! size_um = [8.55, 3.0]
+//!   rect:
+//!     - { layer: Si, center_um: [4.275, 0.0], size_um: [8.55, 3.0] }
 //!
-//! [[task.port]]
-//! x_um = -1.0
-//! side = "left"              # light comes in towards +x
+//!   port:
+//!     - x_um: -1.0
+//!       side: left           # light comes in towards +x
 //!
-//! [[task.port]]
-//! x_um = 11.0
-//! side = "right"
-//! y_um = [0.0, 3.0]          # one guide of several: the port's window
+//!     - x_um: 11.0
+//!       side: right
+//!       y_um: [0.0, 3.0]     # one guide of several: the port's window
 //!
-//! [task.sweep]
-//! parameter = "wavelength"
-//! from = 1.5
-//! to = 1.6
-//! points = 11
+//!   sweep:
+//!     parameter: wavelength
+//!     from: 1.5
+//!     to: 1.6
+//!     points: 11
 //! ```
 //!
 //! - `"fdtd"`: a structure stepped in time by FDTD ([`crate::fdtd`]): in 2D (`dimensions = 2`,
@@ -402,62 +384,59 @@
 //!   grow again, a wave of too coarse a grid amplified in a CPML, and records a solve error
 //!   that says so (docs/methods/fdtd.md, "Late growth").
 //!
-//! ```toml
-//! name = "mmi-fdtd"
-//! timeout_minutes = 20
+//! ```yaml
+//! name: mmi-fdtd
+//! timeout_minutes: 20
 //!
-//! [task]
-//! kind = "fdtd"
-//! stack = "soi_220"
-//! wavelength_um = 1.55       # the pulse's carrier, and the materials' wavelength
-//! layer = "Si"
-//! dimensions = 2             # 2: the layer's plane by the effective index method; 3: the stack
-//! polarization = "te"        # 2D: "te" (H along z, E in the plane) or "tm" (E along z)
-//! x_um = [-2.0, 12.5]
-//! y_um = [-3.0, 3.0]
-//! step_nm = 20.0
-//! courant = 0.9              # the time step, C/sqrt(sum of 1/step^2), 0 < C <= 1
-//! pml_cells = 20             # each CPML's cells, inside the window
+//! task:
+//!   kind: fdtd
+//!   stack: soi_220
+//!   wavelength_um: 1.55      # the pulse's carrier, and the materials' wavelength
+//!   layer: Si
+//!   dimensions: 2            # 2: the layer's plane by the effective index method; 3: the stack
+//!   polarization: te         # 2D: te (H along z, E in the plane) or tm (E along z)
+//!   x_um: [-2.0, 12.5]
+//!   y_um: [-3.0, 3.0]
+//!   step_nm: 20.0
+//!   courant: 0.9             # the time step, C/sqrt(sum of 1/step^2), 0 < C <= 1
+//!   pml_cells: 20            # each CPML's cells, inside the window
 //!
-//! [task.boundaries]          # "cpml" (the default), "wall" or "periodic" along each axis
-//! x = "cpml"
-//! y = "cpml"
+//!   boundaries:              # cpml (the default), wall or periodic along each axis
+//!     x: cpml
+//!     y: cpml
 //!
-//! [task.spectrum]            # the wavelengths the monitors report
-//! from_um = 1.5
-//! to_um = 1.6
-//! points = 11
+//!   spectrum:                # the wavelengths the monitors report
+//!     from_um: 1.5
+//!     to_um: 1.6
+//!     points: 11
 //!
-//! [[task.rect]]
-//! layer = "Si"
-//! center_um = [4.275, 0.0]
-//! size_um = [8.55, 3.0]
+//!   rect:
+//!     - { layer: Si, center_um: [4.275, 0.0], size_um: [8.55, 3.0] }
 //!
-//! [[task.source]]
-//! type = "mode"
-//! normal = "x"
-//! at_um = -1.0
-//! direction = "+"            # towards +x
+//!   source:
+//!     - type: mode
+//!       normal: x
+//!       at_um: -1.0
+//!       direction: "+"       # towards +x
 //!
-//! [[task.monitor]]
-//! type = "mode"
-//! name = "upper output"
-//! normal = "x"
-//! at_um = 11.0
-//! y_um = [0.0, 3.0]          # one guide of two: its window across
+//!   monitor:
+//!     - type: mode
+//!       name: upper output
+//!       normal: x
+//!       at_um: 11.0
+//!       y_um: [0.0, 3.0]     # one guide of two: its window across
 //!
-//! [[task.monitor]]
-//! type = "resonance"
-//! position_um = [4.0, 0.5]
-//! component = "Hz"
+//!     - type: resonance
+//!       position_um: [4.0, 0.5]
+//!       component: Hz
 //!
-//! [task.stop]
-//! until = "decay"            # or "time", with time_um
-//! fraction = 1e-10
-//! limit_um = 2000.0
+//!   stop:
+//!     until: decay           # or time, with time_um
+//!     fraction: 1e-10
+//!     limit_um: 2000.0
 //!
-//! [task.view]                # the field the frames show
-//! field = "Hz"               # a component, "|E|^2" or "|H|^2"
+//!   view:                    # the field the frames show
+//!     field: Hz              # a component, "|E|^2" or "|H|^2"
 //! ```
 //!
 //! - `"static"`: heat conduction, electrostatics or current continuity on the cross-section at

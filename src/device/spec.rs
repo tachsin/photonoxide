@@ -1,51 +1,50 @@
 //! A device's design as a job file holds it: the `[device]` table.
 //!
-//! ```toml
-//! name = "narrow-coupler"
+//! ```yaml
+//! name: narrow-coupler
 //!
-//! [device]
-//! kind = "directional coupler"   # a device of device::library(), by its kind
-//! fidelity = "analytic"          # analytic, 2D or 3D, as the device has them; its cheapest by default
-//! stack = "soi_220"              # soi_220 (the default), soi or nitride; or a table, below
+//! device:
+//!   kind: directional coupler      # a device of device::library(), by its kind
+//!   fidelity: analytic             # analytic, 2D or 3D, as the device has them; its cheapest by default
+//!   stack: soi_220                 # soi_220 (the default), soi or nitride; or a table, below
 //!
-//! [device.parameters]            # expressions (crate::expr); any left out take their defaults
-//! w = "450 nm"
-//! width = "w"
-//! gap = "w/2.5"
+//!   parameters:                    # expressions (crate::expr); any left out take their defaults
+//!     w: 450 nm
+//!     width: w
+//!     gap: w/2.5
 //! ```
 //!
 //! A design with a compact model fitted to its runs ([`super::compact`]) names its file, next to
 //! the job's (a relative path is from the job file's folder, [`crate::run::Job::dir`]), and
 //! may then be computed at the compact fidelity:
 //!
-//! ```toml
-//! [device]
-//! kind = "all-pass ring"
-//! fidelity = "compact"
-//! compact = "ring.compact.json"
+//! ```yaml
+//! device:
+//!   kind: all-pass ring
+//!   fidelity: compact
+//!   compact: ring.compact.json
 //! ```
 //!
-//! A stack is a preset, `stack = "soi"` (2 µm of oxide under the core) or
-//! `stack = { preset = "nitride", bottom_oxide_um = 3 }`, or layers of the materials
+//! A stack is a preset, `stack: soi` (2 µm of oxide under the core) or
+//! `stack: { preset: nitride, bottom_oxide_um: 3 }`, or layers of the materials
 //! catalogue's ([`crate::material::catalogue`]), bottom to top, the guides drawn on `core`:
 //!
-//! ```toml
-//! [device.stack]
-//! core = "Si"
-//! substrate = "si"               # a catalogue id: its default model at its default conditions
-//! cladding = "sio2"
+//! ```yaml
+//! device:
+//!   stack:
+//!     core: Si
+//!     substrate: si                # a catalogue id: its default model at its default conditions
+//!     cladding: sio2
+//!     layer:
+//!       - name: BOX
+//!         thickness_um: 2.0
+//!         material: sio2
+//!         background: sio2
 //!
-//! [[device.stack.layer]]
-//! name = "BOX"
-//! thickness_um = 2.0
-//! material = "sio2"
-//! background = "sio2"
-//!
-//! [[device.stack.layer]]
-//! name = "Si"
-//! thickness_um = 0.22           # the device's `thickness` parameter sets the core's
-//! material = { id = "si", model = "li-1980" }   # a model, temperature (K) and composition
-//! background = "sio2"
+//!       - name: Si
+//!         thickness_um: 0.22       # the device's `thickness` parameter sets the core's
+//!         material: { id: si, model: li-1980 }   # a model, temperature (K) and composition
+//!         background: sio2
 //! ```
 
 use toml::{Table, Value};

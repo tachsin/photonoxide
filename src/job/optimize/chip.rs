@@ -1,28 +1,28 @@
 //! A chip optimized: a job's `[circuit]` with a `[task]` of kind `"optimize"`.
 //!
-//! ```toml
-//! [task]
-//! kind = "optimize"
-//! method = "lbfgsb"
-//! seed = 1
-//! evaluations = 200
-//! from_um = 1.5499          # the band each quantity is taken over
-//! to_um = 1.5501
-//! points = 21
+//! ```yaml
+//! task:
+//!   kind: optimize
+//!   method: lbfgsb
+//!   seed: 1
+//!   evaluations: 200
+//!   from_um: 1.5499           # the band each quantity is taken over
+//!   to_um: 1.5501
+//!   points: 21
 //!
-//! [[task.variable]]
-//! parameter = "ring1.radius"  # instance.parameter: a design's, or a component's value
-//! from = 9.9
-//! to = 10.1
+//!   variable:
+//!     - parameter: ring1.radius   # instance.parameter: a design's, or a component's value
+//!       from: 9.9
+//!       to: 10.1
 //!
-//! [[task.objective]]
-//! expression = "-10*log10(T_drop_in)"   # of the chip's outputs: T_q_p between its ports, lambda
-//! goal = "minimize"
+//!   objective:
+//!     - expression: "-10*log10(T_drop_in)"   # of the chip's outputs: T_q_p between its ports, lambda
+//!       goal: minimize
 //!
-//! [[task.constraint]]
-//! instance = "c1"           # a device instance's own constraint, on its own outputs
-//! name = "gap"
-//! at_least = 0.15
+//!   constraint:
+//!     - instance: c1          # a device instance's own constraint, on its own outputs
+//!       name: gap
+//!       at_least: 0.15
 //! ```
 //!
 //! **The chip's outputs** are `T_q_p`, |S_qp|² between its external ports q and p, and `lambda`;

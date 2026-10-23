@@ -217,11 +217,11 @@
     try {
       let path: string;
       try {
-        path = await api.saveJob(text, "toml", false);
+        path = await api.saveJob(text, "yaml", false);
       } catch (e) {
         if (!String(e).startsWith("exists:")) throw e;
-        if (!(await ask(`jobs/${jobName}.toml exists. Replace it?`, { title: "Replace the job?", kind: "warning" }))) return;
-        path = await api.saveJob(text, "toml", true);
+        if (!(await ask(`jobs/${jobName}.yaml exists. Replace it?`, { title: "Replace the job?", kind: "warning" }))) return;
+        path = await api.saveJob(text, "yaml", true);
       }
       app.workspaceVersion++;
       toast(`Saved ${path.split(/[\\/]/).pop()}: photonoxide run runs it, --workers farms its points`, "success");
@@ -389,11 +389,11 @@
     <div class="flex flex-wrap items-center gap-2">
       <button class="btn btn-primary btn-sm gap-1.5" disabled={!text || !!problem || going} onclick={start} title="Run the study: checked by the library, recorded in runs/ point by point, shown here as it goes"><Play size={14} /> Run {pointCount} points</button>
       <button class="btn btn-sm gap-1.5 {asText ? 'btn-active' : ''}" onclick={() => (asText = !asText)} title="The job file"><Code size={14} /> As text</button>
-      <button class="btn btn-ghost btn-sm gap-1.5" disabled={!text} onclick={save} title="Save the job to the workspace's jobs/ as {jobName}.toml: photonoxide run runs it, headless or farmed to workers"><Save size={14} /> Save job</button>
+      <button class="btn btn-ghost btn-sm gap-1.5" disabled={!text} onclick={save} title="Save the job to the workspace's jobs/ as {jobName}.yaml: photonoxide run runs it, headless or farmed to workers"><Save size={14} /> Save job</button>
     </div>
     {#if asText && text}
       <pre class="max-h-72 overflow-auto rounded-lg border border-base-content/10 bg-base-200/50 p-3 text-[11px] leading-snug selectable">{text}</pre>
-      <p class="text-[11px] faint">Saved, <span class="num">photonoxide run jobs/{jobName}.toml --workers 4</span> farms its points to four workers here (or <span class="num">--worker host:7878</span> to other machines): the same record, bit for bit.</p>
+      <p class="text-[11px] faint">Saved, <span class="num">photonoxide run jobs/{jobName}.yaml --workers 4</span> farms its points to four workers here (or <span class="num">--worker host:7878</span> to other machines): the same record, bit for bit.</p>
     {/if}
 
     {#if record}

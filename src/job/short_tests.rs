@@ -405,3 +405,55 @@ fn a_float_with_its_unit_reads_back_to_the_bit() {
         }
     }
 }
+
+/// The job files the API docs show (`src/job`, `run.rs`, the device's `spec.rs`), YAML since
+/// #430: each block reads as a job, a whole job's (one with its name) as the schema takes it and
+/// as `check` passes it; none is TOML any more.
+#[test]
+fn the_api_docs_job_files_are_yaml_that_reads() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut files = vec![root.join("src/run.rs"), root.join("src/device/spec.rs")];
+    for dir in ["src/job", "src/job/optimize"] {
+        for entry in std::fs::read_dir(root.join(dir)).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().is_some_and(|e| e == "rs") {
+                files.push(path);
+            }
+        }
+    }
+    let mut blocks = 0;
+    for path in files {
+        let text = std::fs::read_to_string(&path)
+            .unwrap()
+            .replace("\r\n", "\n");
+        let docs: Vec<&str> = text
+            .lines()
+            .map(str::trim_start)
+            .filter_map(|l| l.strip_prefix("//!").or_else(|| l.strip_prefix("///")))
+            .map(|l| l.strip_prefix(' ').unwrap_or(l))
+            .collect();
+        let at = path.display();
+        assert!(!docs.contains(&"```toml"), "{at}: a TOML block in the docs");
+        let mut lines = docs.iter();
+        while lines.any(|l| *l == "```yaml") {
+            let block: Vec<&str> = lines
+                .by_ref()
+                .take_while(|l| **l != "```")
+                .copied()
+                .collect();
+            let mut yaml = block.join("\n");
+            let whole = block.iter().any(|l| l.starts_with("name:"));
+            if !whole {
+                yaml = format!("name: doc\n{yaml}");
+            }
+            let job =
+                Job::parse_as(&yaml, Format::Yaml).unwrap_or_else(|e| panic!("{at}: {e}\n{yaml}"));
+            if whole && job.task().contains_key("kind") {
+                takes(&raw(&yaml)).unwrap_or_else(|e| panic!("{at}: {e}\n{yaml}"));
+                super::check(&job).unwrap_or_else(|e| panic!("{at}: {e}\n{yaml}"));
+            }
+            blocks += 1;
+        }
+    }
+    assert!(blocks >= 25, "{blocks} blocks");
+}

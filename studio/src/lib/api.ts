@@ -768,7 +768,7 @@ export interface Placed {
 
 /**
  * An instance's device design, as a chip file holds it: a job's [device] table inline (kind,
- * fidelity, stack, parameters), or a job file in the workspace (`job = "jobs/ring.toml"`) whose
+ * fidelity, stack, parameters), or a job file in the workspace (`job = "jobs/ring.yaml"`) whose
  * design its fidelity and parameters, when given, change.
  */
 export interface DeviceRef {

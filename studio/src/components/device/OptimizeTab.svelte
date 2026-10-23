@@ -233,11 +233,11 @@
     try {
       let path: string;
       try {
-        path = await api.saveJob(text, "toml", false);
+        path = await api.saveJob(text, "yaml", false);
       } catch (e) {
         if (!String(e).startsWith("exists:")) throw e;
-        if (!(await ask(`jobs/${jobName}.toml exists. Replace it?`, { title: "Replace the job?", kind: "warning" }))) return;
-        path = await api.saveJob(text, "toml", true);
+        if (!(await ask(`jobs/${jobName}.yaml exists. Replace it?`, { title: "Replace the job?", kind: "warning" }))) return;
+        path = await api.saveJob(text, "yaml", true);
       }
       app.workspaceVersion++;
       toast(`Saved ${path.split(/[\\/]/).pop()}: photonoxide run runs it live in the window`, "success");
@@ -256,9 +256,9 @@
     try {
       await api.saveDevice({ ...s, fidelity: draft.spec.fidelity }, name, `Evaluation ${index} of ${jobName}`, false);
       app.workspaceVersion++;
-      toast(`Kept as jobs/${name}.toml, beside the design`, "success");
+      toast(`Kept as jobs/${name}.yaml, beside the design`, "success");
     } catch (e) {
-      toast(String(e).startsWith("exists:") ? `jobs/${name}.toml exists already` : String(e), "error");
+      toast(String(e).startsWith("exists:") ? `jobs/${name}.yaml exists already` : String(e), "error");
     }
   }
 
@@ -472,7 +472,7 @@
   <div class="flex flex-wrap items-center gap-2">
     <button class="btn btn-primary btn-sm gap-1.5" disabled={!text || !!problem || going} onclick={start} title="Run the optimization: checked by the library, recorded in runs/ evaluation by evaluation, shown here as it goes"><Play size={14} /> Optimize</button>
     <button class="btn btn-sm gap-1.5 {asText ? 'btn-active' : ''}" onclick={() => (asText = !asText)} title="The job file"><Code size={14} /> As text</button>
-    <button class="btn btn-ghost btn-sm gap-1.5" disabled={!text} onclick={save} title="Save the job to the workspace's jobs/ as {jobName}.toml: photonoxide run runs it live in the window"><Save size={14} /> Save job</button>
+    <button class="btn btn-ghost btn-sm gap-1.5" disabled={!text} onclick={save} title="Save the job to the workspace's jobs/ as {jobName}.yaml: photonoxide run runs it live in the window"><Save size={14} /> Save job</button>
   </div>
   {#if asText && text}
     <pre class="max-h-72 overflow-auto rounded-lg border border-base-content/10 bg-base-200/50 p-3 text-[11px] leading-snug selectable">{text}</pre>

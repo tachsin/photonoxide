@@ -418,7 +418,12 @@ fn job_text(spec: &Spec, name: &str, about: &str) -> Result<String, String> {
     let mut file = toml::Table::new();
     file.insert("name".into(), toml::Value::String(name.to_owned()));
     file.insert("device".into(), toml::Value::Table(spec.to_table()));
-    let body = toml::to_string(&file).map_err(|e| e.to_string())?;
+    // written in YAML, the job's every float to the last bit; a design computes nothing, and
+    // has no task
+    let body = Job::parse(&toml::to_string(&file).map_err(|e| e.to_string())?)
+        .and_then(|j| j.to_text(Format::Yaml))
+        .map_err(|e| e.to_string())?
+        .replace("\ntask: {}\n", "\n");
     let comment: String = about
         .lines()
         .map(str::trim)
@@ -685,7 +690,7 @@ pub fn geometry(spec_in: &SpecIn) -> GeometryView {
         Err(e) => view.problem = Some(text(e)),
     }
     match job_text(&spec, "design", "")
-        .and_then(|t| Job::parse(&t).map_err(text))
+        .and_then(|t| Job::parse_as(&t, Format::Yaml).map_err(text))
         .and_then(|j| job::preview(&j).map_err(text))
     {
         Ok(scene) => view.scene = Some(scene),
@@ -1012,9 +1017,9 @@ pub fn job_text_of(spec: &SpecIn, compute: &ComputeIn, name: &str) -> Result<Str
             }
         ),
     };
-    let body = j.to_text(Format::Toml).map_err(text)?;
+    let body = j.to_text(Format::Yaml).map_err(text)?;
     Ok(format!(
-        "# The {} {how}.\n#   photonoxide run jobs/{name}.toml\n{body}",
+        "# The {} {how}.\n#   photonoxide run jobs/{name}.yaml\n{body}",
         spec.kind
     ))
 }
@@ -1165,9 +1170,9 @@ pub fn study_text_of(
         ),
         _ => format!("at {} corners and its nominal design", study.corners.len()),
     };
-    let body = j.to_text(Format::Toml).map_err(text)?;
+    let body = j.to_text(Format::Yaml).map_err(text)?;
     Ok(format!(
-        "# The {} {what}, by its {} model at each point.\n#   photonoxide run jobs/{name}.toml \
+        "# The {} {what}, by its {} model at each point.\n#   photonoxide run jobs/{name}.yaml \
          [--headless] [--workers 4]\n{body}",
         spec.kind, spec.fidelity
     ))
@@ -1542,7 +1547,7 @@ fn saved_text_in(
     dir: Option<&std::path::Path>,
 ) -> Result<String, String> {
     let text = job_text(&spec.spec()?, name, about)?;
-    let mut job = Job::parse(&text).map_err(text_of)?;
+    let mut job = Job::parse_as(&text, Format::Yaml).map_err(text_of)?;
     if let Some(dir) = dir {
         job = job.in_dir(dir);
     }
@@ -1574,8 +1579,9 @@ pub fn read_text(text: &str) -> Result<(SpecIn, String, String), String> {
     Ok((SpecIn::of(&spec), job.name().to_owned(), about))
 }
 
-/// Saves `spec` as `jobs/<name>.toml` in the workspace; refuses to replace another file
-/// unless `replace`.
+/// Saves `spec` as `jobs/<name>.yaml` in the workspace; refuses to replace another file
+/// unless `replace`. A design saved before in TOML, `jobs/<name>.toml`, is that other file: on
+/// `replace` the YAML takes its place.
 #[tauri::command]
 pub fn save_device(
     state: tauri::State<'_, Studio>,
@@ -1588,14 +1594,19 @@ pub fn save_device(
     saved_text(&spec, &name, &about)?;
     let dir = state.workspace().join("jobs");
     std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    let path = dir.join(format!("{name}.toml"));
-    if path.exists() && !replace {
-        return Err(format!("exists: {}", path.display()));
+    let path = dir.join(format!("{name}.yaml"));
+    let old = dir.join(format!("{name}.toml"));
+    match [&path, &old].into_iter().find(|p| p.exists()) {
+        Some(there) if !replace => return Err(format!("exists: {}", there.display())),
+        _ => {}
     }
     // its compact model kept next to it, as <name>.compact.json
     let kept = compact::kept_beside(&spec, &dir, &name)?;
     let text = saved_text_in(&kept, &name, &about, Some(&dir))?;
     std::fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))?;
+    if old.exists() {
+        std::fs::remove_file(&old).map_err(|e| format!("{}: {e}", old.display()))?;
+    }
     Ok(path.display().to_string())
 }
 

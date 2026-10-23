@@ -20,7 +20,7 @@ use crate::devices::{SpecIn, StudyIn};
 use crate::studio::Studio;
 
 /// An instance's device design, as a chip file holds it: a job's `[device]` table inline (its
-/// kind, fidelity, stack and parameters), or `job = "jobs/<name>.toml"`, a design of the
+/// kind, fidelity, stack and parameters), or `job = "jobs/<name>.yaml"`, a design of the
 /// workspace, whose fidelity and parameters those given here change.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

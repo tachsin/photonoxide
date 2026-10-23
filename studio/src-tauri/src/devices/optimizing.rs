@@ -311,10 +311,10 @@ pub fn optimize_text_of(
         .map(|v| v.parameter.as_str())
         .collect::<Vec<_>>()
         .join(", ");
-    let body = j.to_text(Format::Toml).map_err(text)?;
+    let body = j.to_text(Format::Yaml).map_err(text)?;
     Ok(format!(
         "# The {} optimized for {what} over {over}, by its {} model and genoxide's {}.\n#   \
-         photonoxide run jobs/{name}.toml   (live in the studio's window; --headless for batches)\n{body}",
+         photonoxide run jobs/{name}.yaml   (live in the studio's window; --headless for batches)\n{body}",
         spec.kind, spec.fidelity, optimize.method
     ))
 }

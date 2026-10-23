@@ -102,10 +102,10 @@ pub fn fit_text_of(
     c.fdtd = None;
     let plan = fit.plan()?;
     let j = job::fit_from_device(name, &s, &c, &plan).map_err(text)?;
-    let body = j.to_text(Format::Toml).map_err(text)?;
+    let body = j.to_text(Format::Yaml).map_err(text)?;
     Ok(format!(
         "# A compact model of the {} over {}, fitted to its {} model's runs.\n#   photonoxide run \
-         jobs/{name}.toml [--headless] [--workers 4]; the model is the run's compact.json\n{body}",
+         jobs/{name}.yaml [--headless] [--workers 4]; the model is the run's compact.json\n{body}",
         spec.kind,
         fit.axes
             .iter()
@@ -185,7 +185,7 @@ pub fn compact_info(path: String) -> Result<CompactInfo, String> {
     Ok(info_of(&p, &f))
 }
 
-/// The design `spec`, its compact model's file copied next to the design `jobs/<name>.toml` in
+/// The design `spec`, its compact model's file copied next to the design `jobs/<name>.yaml` in
 /// `dir` (as `<name>.compact.json`) and named by that relative path; the design as it is when it
 /// names none, or already names that file.
 ///

@@ -5,27 +5,25 @@
 //! A body's `type` says which; its places and sizes are expressions with units of the task's
 //! parameters (or numbers in µm in their `_um` keys), its angles expressions with their unit:
 //!
-//! ```toml
-//! [[task.body]]
-//! type = "sphere"               # also "ellipsoid" (semi_axes, angle about z), "box" (center,
-//! center = [0, 0, "1.11 um"]    # size), "cylinder" (base, top, radius), "cone" (base, top,
-//! radius = "300 nm"             # radii at each)
-//! material = "si"               # a catalogue id or table, as a layer's
+//! ```yaml
+//! task:
+//!   body:
+//!     - type: sphere                # also ellipsoid (semi_axes, angle about z), box (center,
+//!       center: [0, 0, 1.11 um]     # size), cylinder (base, top, radius), cone (base, top,
+//!       radius: 300 nm              # radii at each)
+//!       material: si                # a catalogue id or table, as a layer's
 //!
-//! [[task.body]]
-//! type = "extrusion"            # a shape between two heights, its walls at a sidewall angle
-//! z = [0, "220 nm"]
-//! sidewall = "80 deg"           # 90 deg (vertical) when not given
-//! of = [{ type = "circle", center = [0, 0], radius = "1 um" }]
-//! index = "1.45 + 0.05*exp(-(x/2um)^2 - (z/0.5um)^2)"   # a graded medium: n(x, y, z)
+//!     - type: extrusion             # a shape between two heights, its walls at a sidewall angle
+//!       z: [0, 220 nm]
+//!       sidewall: 80 deg            # 90 deg (vertical) when not given
+//!       of: [{ type: circle, center: [0, 0], radius: 1 um }]
+//!       index: "1.45 + 0.05*exp(-(x/2um)^2 - (z/0.5um)^2)"   # a graded medium: n(x, y, z)
 //!
-//! [[task.body]]
-//! type = "difference"           # also "union", "intersection", "xor": of two bodies or more,
-//! material = "sio2"             # the first less the others; theirs have no medium of their own
-//! of = [
-//!   { type = "box", center = [0, 0, 0], size = ["4 um", "4 um", "1 um"] },
-//!   { type = "cylinder", base = [0, 0, "-1 um"], top = [0, 0, "1 um"], radius = "0.5 um" },
-//! ]
+//!     - type: difference            # also union, intersection, xor: of two bodies or more,
+//!       material: sio2              # the first less the others; theirs have no medium of their own
+//!       of:
+//!         - { type: box, center: [0, 0, 0], size: [4 um, 4 um, 1 um] }
+//!         - { type: cylinder, base: [0, 0, -1 um], top: [0, 0, 1 um], radius: 0.5 um }
 //! ```
 //!
 //! A body's medium is `material`, or `index` (n) or `permittivity` (ε): an expression of x, y

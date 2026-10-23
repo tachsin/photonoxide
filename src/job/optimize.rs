@@ -5,48 +5,48 @@
 //! taken over, and the **method**: one of genoxide's ([`METHODS`]), with its seed and budget.
 //! The job's `timeout_minutes` is required: an optimization always has a hard limit (AGENTS.md).
 //!
-//! ```toml
-//! name = "coupler-3db"
-//! timeout_minutes = 2
+//! ```yaml
+//! name: coupler-3db
+//! timeout_minutes: 2
 //!
-//! [device]
-//! kind = "directional coupler"
-//! fidelity = "analytic"
+//! device:
+//!   kind: directional coupler
+//!   fidelity: analytic
 //!
-//! [task]
-//! kind = "optimize"
-//! method = "lbfgsb"        # genoxide's: lbfgsb, adam, mma, gcmma, nelder-mead, cmaes, de,
-//! seed = 1                 #   pso, nsga2, sms-emoa
-//! evaluations = 200        # the budget: the optimizer's evaluations
-//! from_um = 1.53           # the band each quantity is taken over: the design's own wavelength
-//! to_um = 1.57             #   alone when left out
-//! points = 5
-//! reduce = "worst"         # over the band and the corners: "worst" (the default) or "average"
-//! # population, learning_rate: a population method's size, Adam's rate
-//! # step_nm, step_z_nm, margin_um, samples, pml_cells, model_2d: the grids, as a spectrum's
+//! task:
+//!   kind: optimize
+//!   method: mma             # genoxide's: lbfgsb, adam, mma, gcmma, nelder-mead, cmaes, de,
+//!   seed: 1                 #   pso, nsga2, sms-emoa
+//!   evaluations: 200        # the budget: the optimizer's evaluations
+//!   from_um: 1.53           # the band each quantity is taken over: the design's own wavelength
+//!   to_um: 1.57             #   alone when left out
+//!   points: 5
+//!   reduce: worst           # over the band and the corners: worst (the default) or average
+//!   # population, learning_rate: a population method's size, Adam's rate
+//!   # step_nm, step_z_nm, margin_um, samples, pml_cells, model_2d: the grids, as a spectrum's
 //!
-//! [[task.variable]]
-//! parameter = "length"     # the device's, or one its design names; in its unit
-//! from = 2.0
-//! to = 20.0
+//!   variable:
+//!     - parameter: length   # the device's, or one its design names; in its unit
+//!       from: 2.0
+//!       to: 20.0
 //!
-//! [[task.objective]]
-//! name = "split"           # one the device declares (Device::objectives), or
-//! target = 0.5             # expression = "T_o3_o1", goal = "maximize"
+//!   objective:
+//!     - name: split         # one the device declares (Device::objectives), or
+//!       target: 0.5         # expression: T_o3_o1, goal: maximize
 //!
-//! [[task.constraint]]
-//! name = "excess_loss"     # one the device declares (Device::constraints), or
-//! at_most = 0.2            # expression = "gap", at_least = 0.12
+//!   constraint:
+//!     - name: excess_loss   # one the device declares (Device::constraints), or
+//!       at_most: 0.2        # expression: gap, at_least: 0.12
 //!
-//! [[task.corner]]          # as a corners study's: each quantity is taken at the nominal
-//! name = "wide"            #   design and at every corner
-//! offsets = { width = 0.01 }
+//!   corner:                 # as a corners study's: each quantity is taken at the nominal
+//!     - name: wide          #   design and at every corner
+//!       offsets: { width: 0.01 }
 //!
-//! [task.continuation]      # the run in stages, a parameter sharpened between them
-//! parameter = "beta"       # one the design names, or a new name the expressions use
-//! values = [1, 4, 16, 64]  # its value at each stage
-//! generations = 100        # each stage's budget (a stage ends at convergence without one)
-//! keep = "state"           # the optimizer's state goes on (the default); "point" resets it
+//!   continuation:           # the run in stages, a parameter sharpened between them
+//!     parameter: beta       # one the design names, or a new name the expressions use
+//!     values: [1, 4, 16, 64]   # its value at each stage
+//!     generations: 100      # each stage's budget (a stage ends at convergence without one)
+//!     keep: state           # the optimizer's state goes on (the default); point resets it
 //! ```
 //!
 //! **Continuation** ([`Schedule`]): the run in stages, the parameter set to each stage's value
