@@ -11,6 +11,15 @@ import { themeName } from "./themes";
  * view, reached from what it shows (a run, Home's Continue, `photonoxide run` and `view`). A job
  * of any kind opens in the Custom device, on the Components page (`openCustom`).
  */
+/** A job open in the Custom device's tabs: its text, file, format and the text last saved. */
+export interface OpenJob {
+  text: string;
+  path: string | null;
+  format: JobFormat;
+  saved: string;
+  name: string;
+}
+
 export type Page = "home" | "components" | "chip" | "academy" | "materials" | "validation" | "libraries" | "benchmarks" | "settings" | "viewer";
 
 export const app = $state({
@@ -28,7 +37,7 @@ export const app = $state({
   /** A job for the Custom device to open, its text and the file it came from, set by whoever sends the user there. */
   jobOpen: null as { text: string; path: string | null } | null,
   /** The Custom device's job as it was left, saved or not, so a run and the way back to it lose nothing. */
-  customDraft: null as { text: string; path: string | null; format: JobFormat; saved: string } | null,
+  customDraft: null as { text: string; path: string | null; format: JobFormat; saved: string; tabs?: OpenJob[]; active?: number } | null,
   /** A published result for Validation's Published results tab to open, by its example's name. */
   focus: null as string | null,
   /** Validation's tab: its cases, or the published results of examples/ reproduced. */

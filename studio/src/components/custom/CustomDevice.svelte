@@ -13,7 +13,9 @@
   // the text), whose values, media and crystal orientation are written back into the text
   // (drawn.rs finds which entry draws which shape, media.rs the stack's media; lib/jobedit.ts
   // the text's spans). Outside "As text", the form's changes and the sidebar's are one history.
-  import { Box, CircleAlert, CircleCheck, Code, Eye, LoaderCircle, Play, Plus, Save, Shapes, Trash2 } from "@lucide/svelte";
+  // Each job opened has a tab of its own; beside the text, the design, the schema's Reference for
+  // the whole job, and its Problems (the library check's and the schema's), each a click from its place.
+  import { Box, CircleAlert, CircleCheck, Code, Eye, LoaderCircle, Play, Plus, Save, Shapes, Trash2, X } from "@lucide/svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
   import { onDestroy, untrack } from "svelte";
 
@@ -22,7 +24,7 @@
   import type { Event, Shape } from "../../lib/events";
   import { overlaidOf } from "../../lib/study";
   import Overlay, { type OverlayItem } from "../Overlay.svelte";
-  import { app, startRun, toast } from "../../lib/app.svelte";
+  import { app, startRun, toast, type OpenJob } from "../../lib/app.svelte";
   import { modelOf } from "../../lib/catalog.svelte";
   import { crystalFrame, crystalNote, frameCaption, type Crystal, type Frame, type Section } from "../../lib/frames";
   import { along, cells, holds, layerSpan, numberOf, previewWindow, STACKS, template, turn, type JobModel, type Kind, type Num } from "../../lib/job";
@@ -33,10 +35,11 @@
   import OptField from "../OptField.svelte";
   import ScenePreview from "../ScenePreview.svelte";
   import MethodDocDialog from "../MethodDocDialog.svelte";
-  import TomlEditor from "../TomlEditor.svelte";
+  import TomlEditor, { loadSchema } from "../TomlEditor.svelte";
   import EntryPanel from "./EntryPanel.svelte";
+  import JobReference from "./JobReference.svelte";
   import { drawerOf, entryAt, entrySpan, itemPaths, layerPath, samePath, type Drawing, type Medium, type Span } from "../../lib/jobedit";
-  import type { Path } from "../../lib/jobschema";
+  import { entryOf, locate, schemaProblems, type Path, type Schema } from "../../lib/jobschema";
 
   let model = $state<JobModel>(template("modes"));
   let text = $state("");
@@ -88,6 +91,9 @@
   // until someone asks for another
   const draft = app.customDraft;
   app.customDraft = null;
+  /** The jobs open, one to a tab: the active one's own state is the page's, written back to its tab when another is shown. */
+  let tabs = $state<OpenJob[]>(draft?.tabs ?? []);
+  let active = $state(draft?.active ?? 0);
   if (draft && !app.jobOpen) {
     load(draft.text, draft.path, true, draft.format).then(() => (saved = draft.saved));
   } else if (!app.jobOpen) {
@@ -104,8 +110,45 @@
   }
 
   onDestroy(() => {
-    if (text) app.customDraft = { text, path, format, saved };
+    if (!text) return;
+    stash();
+    app.customDraft = { text, path, format, saved, tabs: $state.snapshot(tabs), active };
   });
+
+  /** The active job's state, written back to its tab. */
+  function stash() {
+    if (!text) return;
+    tabs[active] = { text, path, format, saved, name: model.name };
+  }
+  /** Shows the job of tab `i`, the active one's kept in its own. */
+  async function showTab(i: number) {
+    if (i === active || !tabs[i]) return;
+    stash();
+    const t = tabs[i];
+    active = i;
+    await open(t.text, t.path, t.format);
+    saved = t.saved;
+  }
+  /** Closes tab `i`, asking first when its job has changes not saved. */
+  async function closeTab(i: number) {
+    if (i === active) stash();
+    const t = tabs[i];
+    if (!t) return;
+    if (t.text !== t.saved && !(await ask(`Discard the changes to ${t.name}?`, { title: "Unsaved changes", kind: "warning" }))) return;
+    tabs.splice(i, 1);
+    if (!tabs.length) {
+      active = 0;
+      await load(await fresh("modes"), null, true, "yaml");
+      return;
+    }
+    if (i < active) active--;
+    else if (i === active) {
+      active = Math.min(i, tabs.length - 1);
+      const n = tabs[active];
+      await open(n.text, n.path, n.format);
+      saved = n.saved;
+    }
+  }
 
   // whoever sent the user here asked for a job to be opened
   $effect(() => {
@@ -161,14 +204,38 @@
     }, 250);
   }
 
+  /**
+   * Opens a job: in a tab of its own, beside the others (a quiet load, and a new job no one has
+   * changed or saved, take the active tab's place); a file already open shows its tab.
+   */
   async function load(t: string, p: string | null, quiet = false, f: JobFormat = p ? formatOf(p) : "toml") {
-    if (!quiet && dirty && !(await ask("Discard the changes to this job?", { title: "Unsaved changes", kind: "warning" }))) return;
+    const same = p ? tabs.findIndex((x, i) => (i === active ? path : x.path) === p) : -1;
+    if (same >= 0 && !quiet) return showTab(same);
+    // the page's first job, a quiet load, and a new job no one has changed or saved take the active tab's place
+    const replace = quiet || (text ? !dirty && !path : !tabs.length);
+    if (!replace) {
+      stash();
+      tabs.push({ text: t, path: p, format: f, saved: t, name: "" });
+      const before = active;
+      active = tabs.length - 1;
+      // a job that doesn't read leaves the page as it was
+      if (!(await open(t, p, f))) {
+        tabs.pop();
+        active = before;
+      }
+      return;
+    }
+    if (await open(t, p, f)) stash();
+  }
+
+  /** Puts the job `t` on the page, the form read from it; whether it read. */
+  async function open(t: string, p: string | null, f: JobFormat): Promise<boolean> {
     let m: JobModel;
     try {
       m = await modelOf(t, f);
     } catch (e) {
       toast(`Couldn't open the job: ${e}`, "error");
-      return;
+      return false;
     }
     baseline = JSON.stringify(m);
     format = f;
@@ -181,6 +248,7 @@
     past = [];
     future = [];
     validate();
+    return true;
   }
 
   /** The text was edited: the form follows, when it reads as a job. */
@@ -394,6 +462,26 @@
   let editor = $state<TomlEditor>();
   /** The method page a key's hover opened. */
   let methodPage = $state<string | null>(null);
+  /** Beside the text: the design, the schema's docs for the whole job, or its problems. */
+  let side = $state<"preview" | "reference" | "problems">("preview");
+  let schema = $state<Schema | null>(null);
+  loadSchema().then((s) => (schema = s));
+  /** Every problem of the text: the library check's (it stops at its first) and the schema's, each where it is. */
+  const problems = $derived.by(() => {
+    const out: { message: string; source: "check" | "schema"; from: number; to: number; line: number }[] = [];
+    const put = (message: string, source: "check" | "schema", at: { from: number; to: number } | null) => {
+      const from = at?.from ?? 0;
+      out.push({ message, source, from, to: at?.to ?? from, line: at ? text.slice(0, from).split("\n").length : 0 });
+    };
+    if (check && !check.ok && check.error) put(check.error, "check", locate(text, format, check.error));
+    if (schema && check?.model) for (const p of schemaProblems(schema, check.model)) put(p.message, "schema", entryOf(text, format, p.path));
+    return out;
+  });
+  /** Shows the key at `p` in the text. */
+  function jump(p: Path) {
+    const e = entryOf(text, format, p);
+    if (e) editor?.select(e);
+  }
   /** What each entry of the text draws, of its last valid version, and the stack's layers. */
   let drawing = $state<Drawing | null>(null);
   /** The media of the stack of the last valid version, with their indices and sources (media.rs). */
@@ -562,14 +650,47 @@
     {#if right === "toml"}
     <!-- the text on the left, the design it describes on the right -->
     <aside class="flex min-h-0 min-w-0 flex-col">
+      <div class="flex shrink-0 items-center gap-1 border-b border-base-content/8 px-3 py-1.5" role="tablist" aria-label="Beside the text">
+        {#each [["preview", "Preview"], ["reference", "Reference"], ["problems", "Problems"]] as const as [s, label] (s)}
+          <button role="tab" aria-selected={side === s} class="btn btn-ghost btn-xs gap-1.5 {side === s ? 'btn-active' : ''}" onclick={() => (side = s)}>
+            {label}
+            {#if s === "problems" && problems.length}<span class="badge badge-xs badge-error">{problems.length}</span>{/if}
+          </button>
+        {/each}
+      </div>
+      {#if side === "reference"}
+        <div class="min-h-0 flex-1 overflow-hidden"><JobReference {schema} model={check?.model ?? null} onjump={jump} /></div>
+      {:else if side === "problems"}
+        <div class="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+          {#if checking && !check}
+            <p class="text-xs faint">Checking.</p>
+          {:else if !problems.length}
+            <p class="flex items-center gap-1.5 text-xs text-success"><CircleCheck size={13} /> No problems: the library's check passes, and the schema finds nothing.</p>
+          {:else}
+            <ul class="space-y-1.5">
+              {#each problems as p, k (k)}
+                <li>
+                  <button class="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-base-content/5" onclick={() => editor?.select(p)} title="Show it in the text">
+                    <CircleAlert size={13} class="mt-0.5 shrink-0 text-error" />
+                    <span class="min-w-0 flex-1 selectable">{p.message}</span>
+                    <span class="shrink-0 text-[10.5px] faint">{p.source === "check" ? "the check" : "the schema"}{p.line ? `, line ${p.line}` : ""}</span>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+      {:else}
       <div class="min-h-0 flex-1 overflow-hidden" bind:clientHeight={designHeight}>
         {@render picture(design, designHeight)}
       </div>
+      {/if}
       {#if picked}
         <div class="flex max-h-[50%] min-h-0 shrink-0 flex-col border-t border-base-content/8">
           {@render sidebar(picked)}
         </div>
       {/if}
+      {#if side === "preview"}
       <div class="flex shrink-0 items-center gap-2 border-t border-base-content/8 px-3 py-2">
         <div class="join" role="group" aria-label="What the design shows">
           <button class="btn btn-xs join-item gap-1 {design === '3d' ? 'btn-primary btn-soft' : ''}" onclick={() => (design = "3d")} title="The structure as the run will draw it"><Box size={12} /> 3D</button>
@@ -577,6 +698,7 @@
         </div>
         <span class="text-[11px] faint">{design === "3d" ? "as its run will draw it, from its last valid text" : "from above, as the text has it"}; click a structure to edit it</span>
       </div>
+      {/if}
     </aside>
     {:else}
     <aside class="@container min-h-0 min-w-0 space-y-6 overflow-x-hidden overflow-y-auto px-5 py-4">
@@ -1134,6 +1256,20 @@
       </div>
     {:else}
       <div class="flex h-full min-h-0 flex-col p-3">
+        <!-- the jobs open, one to a tab -->
+        <div class="mb-2 flex min-w-0 items-end gap-0.5 overflow-x-auto border-b border-base-content/8" role="tablist" aria-label="The jobs open">
+          {#each tabs as t, i (i)}
+            {@const name = (i === active ? model.name : t.name) || "untitled"}
+            {@const changed = i === active ? dirty : t.text !== t.saved}
+            <div class="group flex shrink-0 items-center rounded-t-lg border border-b-0 {i === active ? 'border-base-content/12 bg-base-300/50' : 'border-transparent'}">
+              <button role="tab" aria-selected={i === active} class="max-w-48 truncate py-1 pr-1 pl-2.5 font-mono text-xs {i === active ? '' : 'faint hover:text-base-content'}" title={(i === active ? path : t.path) ?? "Not saved yet"} onclick={() => showTab(i)}>
+                {name}{changed ? " •" : ""}
+              </button>
+              <button class="btn btn-ghost btn-xs btn-square h-5 min-h-0 w-5 opacity-50 group-hover:opacity-100" aria-label="Close {name}" title="Close" onclick={() => closeTab(i)}><X size={11} /></button>
+            </div>
+          {/each}
+          <button class="btn btn-ghost btn-xs btn-square mb-0.5 ml-1" aria-label="A new job" title="A new job, in a tab of its own" onclick={async () => load(await fresh(model.kind), null, false, "yaml")}><Plus size={13} /></button>
+        </div>
         <div class="mb-2 flex flex-wrap items-center gap-2">
           <div class="join" role="group" aria-label="The job's format">
             {#each ["yaml", "toml", "json"] as const as f (f)}

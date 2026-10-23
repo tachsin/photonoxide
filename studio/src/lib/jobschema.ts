@@ -317,6 +317,72 @@ export function docAt(root: Schema, model: unknown, path: Path): Doc | null {
   return fieldDoc(root, props, last, path.reduce<unknown>((v, k) => at(v, k), model));
 }
 
+// ---- the schema's problems
+
+/** A problem the schema finds in a job: where, and what. */
+export interface SchemaProblem {
+  path: Path;
+  message: string;
+}
+
+const UNIT_KEY = /_(um|nm|deg|rad)$/;
+/** Whether a table has `name`, as itself, its unit key's (`step_nm`) or its bare one (`step`). */
+const has = (o: Record<string, unknown>, name: string) =>
+  name in o || Object.keys(UNITS).some((u) => `${name}_${u}` in o) || (UNIT_KEY.test(name) && name.replace(UNIT_KEY, "") in o);
+
+/** The path as the text writes it: `task.rect[2].layer`. */
+export const pathName = (p: Path) => p.map((k, i) => (typeof k === "number" ? `[${k + 1}]` : `${i ? "." : ""}${k}`)).join("") || "the job";
+
+/**
+ * What the schema finds wrong in the job `model` (the file as JSON), all of it at once: a key
+ * no table of its kind takes, and a key a table needs that it hasn't (one of the ways, when the
+ * schema gives several). The library's check stops at its first error; this goes on.
+ */
+export function schemaProblems(root: Schema, model: unknown): SchemaProblem[] {
+  const out: SchemaProblem[] = [];
+  const walk = (path: Path, value: unknown, depth: number) => {
+    if (!value || typeof value !== "object" || depth > 12) return;
+    if (Array.isArray(value)) {
+      value.forEach((v, i) => walk([...path, i], v, depth + 1));
+      return;
+    }
+    const obj = value as Record<string, unknown>;
+    const bound: Schema[] = [];
+    const schemas = schemasAt(root, model, path, bound);
+    if (!schemas.length) return;
+    const props = propsOf(schemas);
+    const closed = schemas.some((s) => s.additionalProperties === false) && !schemas.some((s) => s.additionalProperties && s.additionalProperties !== false);
+    const named = closed && props.size > 0;
+    for (const k of Object.keys(obj)) {
+      if (named && !props.has(k)) out.push({ path: [...path, k], message: `${pathName(path)} doesn't take \`${k}\`` });
+    }
+    const needed = new Set(bound.flatMap((s) => (Array.isArray(s.required) ? (s.required as string[]) : [])));
+    for (const n of needed) if (!has(obj, n)) out.push({ path, message: `${pathName(path)} needs \`${n}\`` });
+    for (const s of bound) {
+      const alts = (s.anyOf as unknown[]) ?? [];
+      const ways = alts.map((b) => deref(root, b)).filter((b) => Array.isArray(b.required) && Object.keys(b).every((k) => k === "required" || k === "description"));
+      if (!ways.length || ways.length !== alts.length) continue;
+      const keys = ways.map((w) => w.required as string[]);
+      if (!keys.some((r) => r.every((k) => has(obj, k))))
+        out.push({ path, message: `${pathName(path)} needs ${keys.map((r) => r.map((k) => `\`${k}\``).join(" and ")).join(" or ")}` });
+    }
+    for (const k of Object.keys(obj)) if (props.has(k)) walk([...path, k], obj[k], depth + 1);
+  };
+  walk([], model, 0);
+  return out;
+}
+
+/** The entry of the text a problem at `path` is at: its key, or the nearest key above it. */
+export function entryOf(text: string, format: JobFormat, path: Path): Entry | null {
+  const entries = outline(text, format);
+  for (let n = path.length; n > 0; n--) {
+    const want = JSON.stringify(path.slice(0, n));
+    const e = entries.find((e) => JSON.stringify(e.path) === want);
+    if (e) return e;
+  }
+  return null;
+}
+
 // ---- expressions and method pages
 
 /** Whether the value of the key at `path` is an expression: the schema says so, or it is a parameter. */

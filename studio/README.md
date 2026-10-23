@@ -73,7 +73,11 @@ in a drawer opened from the status bar.
     their docs; in a value, the stack's layers, the presets, the catalogue's materials, the
     generators and the schema's values; in an expression, its functions, units, constants and
     coordinates and the parameters in scope, each with its value. Hovering a key shows its docs
-    and a link to its method's page. A click on a structure there, in 3D or from above (any shape, components, paths
+    and a link to its method's page. Each job opened gets a tab of its own above the text, its
+    changes kept while another is shown. Beside the text, three tabs: **Preview**, the design;
+    **Reference**, the schema's docs for the whole job of its kind, a table at a time, with a
+    filter; and **Problems**, the library check's error and every problem the schema finds (a key
+    no table takes, a key one needs), each a click from its place in the text. A click on a structure there, in 3D or from above (any shape, components, paths
     and bodies too, a layer, a port, a source or a monitor), selects its entry in the text and
     opens it in a sidebar: each value with the schema's docs and the values it may take (the
     stack's layers, the presets, the catalogue's materials, the generators). A value changed
