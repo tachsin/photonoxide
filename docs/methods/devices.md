@@ -232,7 +232,8 @@ and `loss`.
 
 The 3D model's n_eff converges at second order by Hadley's equations (1.92 from 12.5 × 10 to
 3.125 × 2.5 nm); the standard scheme, which the strip's corners hold to about first order and
-less on practical grids (2.447067, 2.445713 and 2.444396 at 20, 10 and 5 nm: `strip_waveguide`),
+less on practical grids (2.445713, 2.444396 and 2.443506 at 10, 5 and 2.5 nm, where Hadley's
+give 2.442212, 2.442178 and 2.442168: `strip_waveguide --full`),
 is there for windows Hadley's equations can't take.
 
 ## Bend

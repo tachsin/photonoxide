@@ -1031,7 +1031,7 @@ mod tests {
         }
         let names: Vec<String> = g.iter().map(Guided::name).collect();
         assert_eq!(&names[..2], ["TE₀", "TM₀"]);
-        // strip_waveguide: 2.447067 on 20 nm cells with 3.473 and 1.444; Li's silicon is
+        // the standard scheme: 2.447067 on 20 nm cells with 3.473 and 1.444; Li's silicon is
         // 3.4757 at 1.55 µm, which raises it by about 0.003
         assert!(
             (g[0].effective_index - 2.4499).abs() < 2e-3,

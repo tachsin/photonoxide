@@ -68,16 +68,18 @@ and the reason.
   this way, both schemes against their papers' tolerances (5e-5 and 1e-6), on its five grids.
   Richardson gives orders from 1.5 to 2.6, and the standard scheme's oscillating box (Fig. 4)
   gives the larger of its last two changes, 3.5e-5.
+  `strip_waveguide` gates its TE-like index at 1e-4. With the standard scheme, its 20, 10 and
+  5 nm indices change by 1.35e-3 and then 1.32e-3, so q = 1.03, the observed order is 0.04 and
+  Richardson's estimate is 0.05: the strip's convex corners. So the example quotes Hadley's
+  equations, on the quarter of its window at 10 and 5 nm (error 3.4e-5 on two grids), and with
+  `--full` at 2.5 nm too (2.442168, order 1.84, error 3.7e-6). The standard scheme's indices are
+  printed beside them, with their study's verdict, not converged.
 
 ## Scope
 
 The gate covers the numbers listed above. It does not cover the rest yet: a sweep's points, FDFD's
 S-parameters, FDTD's spectra, a device's figures, and the other examples' numbers. Each of those
-quotes its grid but is not gated. `strip_waveguide` is the clearest case. Its 20, 10 and 5 nm
-indices change by 1.35e-3 and then 1.32e-3, so q = 1.03 and the observed order is 0.04.
-Richardson's estimate is 0.05, so the gate would flag its 5 nm number at the example's 3e-3
-tolerance. The strip's convex corners converge at about first order only on finer grids (2.4435
-at 2.5 nm), so that example needs a finer grid before it is gated. ROADMAP's 0.6 "Convergence to
+quotes its grid but is not gated. ROADMAP's 0.6 "Convergence to
 a tolerance" (the mode solver, FDFD and eigenmode expansion refining their grid until the
 tolerance) is the next step.
 

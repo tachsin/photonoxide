@@ -217,14 +217,20 @@ top and bottom faces, the faces $E_y$ crosses.
 Chrostowski and Hochberg solve the 500 × 220 nm strip of silicon (3.473) in oxide (1.444) at
 1550 nm with Lumerical MODE on a 20 nm conformal mesh and find $n_\text{eff} = 2.443$ for its
 TE-like mode (Fig. 3.14). [strip_waveguide](../examples/strip_waveguide.rs) solves the same
-cross-section with photonoxide's full-vector solver in their 2.1 × 1.5 µm window, at three grids:
+cross-section with photonoxide's full-vector solver on the quarter of their 2.1 × 1.5 µm window,
+on halving grids, by both of its schemes:
 
 ::example strip_waveguide
 
-The three grids give 2.447067, 2.445713 and 2.444396, and a 2.5 nm grid 2.443506
+The standard scheme gives 2.447067, 2.445713, 2.444396 and 2.443506 at 20, 10, 5 and 2.5 nm
 ([the full-vector solver](../docs/methods/vector.md)): the halvings move the index by
 $1.35 \times 10^{-3}$, $1.32 \times 10^{-3}$ and $0.89 \times 10^{-3}$, where a second-order scheme's
-steps would shrink fourfold each time. That slow approach is the corners' doing (Section 6).
+steps would shrink fourfold each time. That slow approach is the corners' doing (Section 6), and
+the [grid study](../docs/methods/convergence.md) doesn't pass it at $10^{-4}$. Hadley's equations
+give 2.442212, 2.442178 and 2.442168 at 10, 5 and 2.5 nm, at order 1.84. Richardson's estimate
+of the 2.5 nm value's error is $3.7 \times 10^{-6}$, and the limit is 2.442165, $8.4 \times 10^{-4}$
+under the book's 2.443 and within its $10^{-3}$. The example quotes Hadley's index and gates it
+by its grids (2.5 nm with `--full`).
 The validation report holds the 5 nm value against the book's, and the same strip solved through
 the strip waveguide device:
 
@@ -303,7 +309,7 @@ the book's 2.489 from the same two steps (Section 3.2.5):
 
 ::validation mode/eim-strip-book
 
-The full-vector index is 2.4444 on a 5 nm grid: the method is 1.8 % high. The chart below draws
+The full-vector index converges to 2.4422 (Section 2): the method is 1.9 % high. The chart below draws
 the method's index against the width beside the full-vector one, from Hadley's equations on the
 device's cross-section. The method is high at every width, and its error grows as the strip
 narrows: +1.9 % at 500 nm, +10.6 % at 300 nm, +0.2 % at 1000 nm (220 nm thick, 1550 nm, the
