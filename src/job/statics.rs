@@ -392,7 +392,6 @@ struct Shifter {
     /// Where each medium's optics came from, for the record.
     record: Vec<StaticValue>,
 }
-}
 
 /// The fields of a static job as an npz ([`crate::export::Npz`]): `y_um`, `z_um` (the cells'
 /// centres), `y_nodes_um`, `z_nodes_um` (their edges, the grid graded), and each of `fields`
