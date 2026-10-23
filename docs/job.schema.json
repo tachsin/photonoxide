@@ -2494,6 +2494,10 @@
           "description": "The npz's compression: `\"deflate\"` (the default, photonoxide's own) or `\"zstd\"` (Zstandard, from the user's own libzstd, loaded at run time: docs/libraries.md).",
           "type": "string"
         },
+        "container": {
+          "description": "The fields' file: `\"npz\"` (the default, NumPy's, photonoxide's own) or `\"hdf5\"` (an `.h5` of the same arrays, from the user's own libhdf5, loaded at run time).",
+          "type": "string"
+        },
         "fields": {
           "description": "Which fields: `\"Ex\"`, `\"Ey\"`, `\"Ez\"`, `\"Hx\"`, `\"Hy\"`, `\"Hz\"`, `\"temperature\"`, `\"potential\"`; every one the kind computes by default.",
           "items": {

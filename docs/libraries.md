@@ -20,6 +20,7 @@ This page is written by `photonoxide libraries --write docs/libraries.md` from t
 | [OpenBLAS](#openblas) | `photonoxide-openblas` | conda-forge ✓, pip | conda-forge ✓, apt ✓, pip | conda-forge ✓, pip |
 | [AMD AOCL](#amd-aocl) | `photonoxide-aocl` | see below | see below | see below |
 | [Arm Performance Libraries](#arm-performance-libraries) | `photonoxide-armpl` | winget | see below | brew |
+| [HDF5](#hdf5) | — | conda-forge | conda-forge ✓, apt ✓ | conda-forge ✓, brew |
 | [Zstandard](#zstandard) | — | conda-forge | conda-forge ✓, apt ✓ | conda-forge ✓, brew |
 | [AMD AOCL-Sparse](#amd-aocl-sparse) | none yet (#189) | see below | see below | see below |
 
@@ -364,6 +365,45 @@ Arm's BLAS and LAPACK, tuned for Arm processors, as the dense kernels of photono
   Not run on a clean machine.
 
 - **linux:** Arm's .deb or .rpm, from its page, for AArch64: into /opt/arm, where photonoxide looks, or set ARMPL_DIR or PHOTONOXIDE_ARMPL.
+
+### HDF5
+
+The HDF Group's Hierarchical Data Format 5, the library libhdf5, release 1.10 or later: a job's [task.export] container = "hdf5" writes its exported fields as .h5 files with it, one dataset an array, complex ones as h5py's {r, i} compound, the file's meta.json text as the root's attribute meta, deflated by libhdf5's own filter. NumPy's .npz, photonoxide's own, stays the default and needs nothing. The same file from the same arrays and library on every run (no modification times are kept).
+
+- **Licence:** [BSD-3-Clause](https://github.com/HDFGroup/hdf5/blob/develop/LICENSE). You accept it by installing.
+- **The vendor's download:** <https://www.hdfgroup.org/download-hdf5/>
+
+- **conda-forge** (Windows, Linux, macOS):
+
+  ```sh
+  conda install -c conda-forge hdf5
+  ```
+
+  Into the active conda environment: start photonoxide from it.
+
+  - Checked on Linux (ubuntu-24.04), 2026-10-23: installed hdf5 2.2.0; found HDF5 2.2.0, and its tests: an exported .h5 read back to the arrays of photonoxide's own .npz, and the same file twice.
+  - Checked on macOS (macos-latest (Apple silicon)), 2026-10-23: installed hdf5 2.2.0; found HDF5 2.2.0, and its tests: an exported .h5 read back to the arrays of photonoxide's own .npz, and the same file twice.
+
+- **apt** (Linux):
+
+  ```sh
+  sudo apt-get install libhdf5-dev
+  ```
+
+  Debian's and Ubuntu's serial build, older than conda-forge's: libhdf5.so in /usr/lib/x86_64-linux-gnu/hdf5/serial, where photonoxide looks.
+
+  - Checked on Linux (ubuntu-24.04), 2026-10-23: installed libhdf5-dev 1.10.10; found HDF5 1.10.10, and its tests: an exported .h5 read back to the arrays of photonoxide's own .npz, and the same file twice.
+  - Checked on Linux (ubuntu-22.04), 2026-10-23: installed libhdf5-dev 1.10.7; found HDF5 1.10.7, and its tests: an exported .h5 read back to the arrays of photonoxide's own .npz, and the same file twice.
+
+- **brew** (macOS):
+
+  ```sh
+  brew install hdf5
+  ```
+
+  Into Homebrew's lib folder (/opt/homebrew/lib, /usr/local/lib on Intel), where photonoxide looks.
+
+  Not run on a clean machine.
 
 ### Zstandard
 

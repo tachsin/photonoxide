@@ -83,7 +83,7 @@ const UBUNTU: &str = "ubuntu-24.04";
 const UBUNTU_22: &str = "ubuntu-22.04";
 const WINDOWS: &str = "windows-2025-vs2026";
 const MACOS: &str = "macos-latest (Apple silicon)";
-/// The day Zstandard's installs were checked.
+/// The day Zstandard's and HDF5's installs were checked.
 const ZSTD_DAY: &str = "2026-10-23";
 
 /// What to know about a library before installing it.
@@ -744,15 +744,45 @@ pub const GUIDES: &[Guide] = &[
                 command: "conda install -c conda-forge hdf5",
                 systems: &["windows", "linux", "macos"],
                 note: "Into the active conda environment: start photonoxide from it.",
-                checked: &[],
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: ZSTD_DAY,
+                        installed: "hdf5 2.2.0",
+                        found: "HDF5 2.2.0, and its tests: an exported .h5 read back to the arrays of photonoxide's own .npz, and the same file twice",
+                    },
+                    Checked {
+                        system: "macos",
+                        image: MACOS,
+                        date: ZSTD_DAY,
+                        installed: "hdf5 2.2.0",
+                        found: "HDF5 2.2.0, and its tests: an exported .h5 read back to the arrays of photonoxide's own .npz, and the same file twice",
+                    },
+                ],
             },
             Install {
                 id: "apt",
                 manager: "apt",
                 command: "sudo apt-get install libhdf5-dev",
                 systems: &["linux"],
-                note: "Debian's and Ubuntu's serial build, older than conda-forge's: libhdf5_serial.so in /usr/lib/x86_64-linux-gnu/hdf5/serial, where photonoxide looks.",
-                checked: &[],
+                note: "Debian's and Ubuntu's serial build, older than conda-forge's: libhdf5.so in /usr/lib/x86_64-linux-gnu/hdf5/serial, where photonoxide looks.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: ZSTD_DAY,
+                        installed: "libhdf5-dev 1.10.10",
+                        found: "HDF5 1.10.10, and its tests: an exported .h5 read back to the arrays of photonoxide's own .npz, and the same file twice",
+                    },
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU_22,
+                        date: ZSTD_DAY,
+                        installed: "libhdf5-dev 1.10.7",
+                        found: "HDF5 1.10.7, and its tests: an exported .h5 read back to the arrays of photonoxide's own .npz, and the same file twice",
+                    },
+                ],
             },
             Install {
                 id: "brew",

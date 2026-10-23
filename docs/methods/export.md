@@ -148,6 +148,33 @@ task:
   job both ways and read each zstd member back through libzstd: the bytes of the stored file,
   photonoxide's own path, every one. They skip, saying so, where libzstd isn't found.
 
+## HDF5
+
+NumPy's `.npz` is photonoxide's own and the default. For tools that read HDF5 (h5py, MATLAB's
+`h5read`, ParaView, HDFView), `container = "hdf5"` writes each `.npz` as an `.h5` instead, with
+**the user's own libhdf5** (release 1.10 or later), loaded at run time by `photonoxide-native`
+([installing it](../libraries.md#hdf5)); libhdf5 is written in C, which photonoxide never
+links.
+
+```yaml
+task:
+  export:
+    fields: [Ex, Ey, Hz]
+    container: hdf5     # "npz" (the default) or "hdf5"
+    level: 6            # libhdf5's deflate filter, 0 for none
+```
+
+- One dataset an array, by the `.npz`'s names, in the same C order and shape; `f64` or `f32` as
+  IEEE little-endian; a complex array as the compound `{r, i}`, which h5py reads as complex.
+- `meta.json`'s text is the root's string attribute `meta`.
+- Deflated by libhdf5's own filter, each array one chunk. Zstandard isn't taken here (HDF5's
+  is a plugin of its own).
+- No modification times are kept, so the same arrays from the same library give the same
+  file.
+- `photonoxide-native`'s tests (`cargo test -p photonoxide-native --test hdf5`) run a modes
+  job both ways and read every array of the `.h5` back through libhdf5: the shape and the bytes
+  of the stored `.npz`'s, every one. They skip, saying so, where libhdf5 isn't found.
+
 ## A finished run
 
 A run's tables can be written again, or ones its job didn't ask for, from its record:
@@ -165,6 +192,4 @@ longer has, so a job asks for them in `[task.export]`.
 ## Left for later
 
 Issue [#431](https://github.com/tachsin/photonoxide/issues/431) asks for more: MAT and VTK XML
-writers, HDF5 through `photonoxide-native` (the user's own libhdf5 loaded
-at run time, never linked; deflate stays the pure-Rust default), and the heavy arrays moved out
-of `events.jsonl`. This page grows with them.
+writers, and the heavy arrays moved out of `events.jsonl`. This page grows with them.
