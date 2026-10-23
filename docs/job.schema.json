@@ -7104,6 +7104,11 @@
           "description": "Media's refractive indices, by name, in place of the catalogue's.",
           "type": "object"
         },
+        "poles": {
+          "description": "With a `[task.transient]`: a dynamic thermal compact model of this many poles (1 to 12), fitted to every drive's step response of every guide's phase.",
+          "minimum": 0,
+          "type": "integer"
+        },
         "step": {
           "anyOf": [
             {

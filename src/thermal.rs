@@ -51,9 +51,14 @@ use crate::{Error, Result};
 pub use crate::statics::{
     Axis, Boundary, Cut, Features, Field, Grading, Grid, MAX_CELLS, Section, Side, Tensor,
 };
-pub use shifter::{Drive, Efficiency, Guide, Optics, PhaseShifter, Timing};
+pub use rc::{Cauer, Fitted, Foster, RcFit, RcModel};
+pub use shifter::{Drive, Efficiency, Guide, Optics, PhaseShifter, StepResponses, Timing};
 
 pub(crate) mod crosstalk_checks;
+mod rc;
+pub(crate) mod rc_checks;
+#[cfg(test)]
+mod rc_tests;
 mod shifter;
 pub(crate) mod shifter_checks;
 #[cfg(test)]

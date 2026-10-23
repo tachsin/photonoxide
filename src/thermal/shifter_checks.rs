@@ -343,7 +343,7 @@ pub(crate) fn jacques(heater: Heater, grading: &Grading, optical: f64) -> PhaseS
 
 /// The heat's grading of Jacques et al.'s cases: 20 nm at the shapes' corners to 0.5 µm,
 /// growing by 1.2; refined by `r`.
-fn jacques_grading(r: f64) -> Grading {
+pub(crate) fn jacques_grading(r: f64) -> Grading {
     finer(0.5, 0.02, 1.2, r)
 }
 

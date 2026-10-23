@@ -57,6 +57,10 @@
 
 pub mod adjoint;
 pub mod components;
+mod heated;
+pub(crate) mod heated_checks;
+#[cfg(test)]
+mod heated_tests;
 pub(crate) mod ideal;
 mod netlist;
 pub mod objective;
@@ -65,6 +69,7 @@ mod solve;
 #[cfg(test)]
 mod tests;
 
+pub use heated::{Heated, HeatedTransient, Modulation};
 pub use netlist::{Instance, Netlist, NetlistError, PortRef};
 pub use solve::Circuit;
 

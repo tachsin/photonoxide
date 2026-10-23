@@ -701,6 +701,40 @@ fn a_phase_shifter_job_names_what_it_lacks() {
 }
 
 #[test]
+fn a_phase_shifter_job_fits_a_thermal_compact_model() {
+    let text = SHIFTER.replace("step_nm = 40.0\n", "step_nm = 40.0\npoles = 4\n");
+    let ev = events("shifter-rc", &text);
+    let (_, _, _, values) = result(&ev);
+    let e1 = named(&values, "thermal model error, 1 poles");
+    let e4 = named(&values, "thermal model error, 4 poles");
+    assert!(e4 < 0.2 * e1 && e4 < 0.02, "{e1} then {e4}");
+    let mut steady = 0.0;
+    for k in 1..=4 {
+        assert!(named(&values, &format!("thermal model time constant {k}")) > 0.0);
+        steady += named(
+            &values,
+            &format!("thermal model residue {k} of left by left"),
+        );
+    }
+    // the model's steady phase is the run's own, 2π s/λ per W
+    let s = named(&values, "dn_eff/dP of left by left");
+    let own = 2.0 * std::f64::consts::PI * s / 1.55e-6;
+    assert!((steady / own - 1.0).abs() < 1e-9, "{steady} against {own}");
+    let no_transient = text.replace(
+        "[task.transient]\nstep_ns = 200.0\nduration_us = 60.0\n",
+        "",
+    );
+    let e = check(&Job::parse(&no_transient).unwrap())
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("give a [task.transient]"), "{e}");
+    let e = check(&Job::parse(&text.replace("poles = 4", "poles = 20")).unwrap())
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("1 to 12 poles"), "{e}");
+}
+
+#[test]
 fn a_phase_shifter_job_gives_the_same_bits_on_one_thread_and_many() {
     let run = |threads: usize| {
         rayon::ThreadPoolBuilder::new()

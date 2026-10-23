@@ -2023,6 +2023,9 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::thermal::shifter_checks::cases());
     // and its crosstalk against measured neighbours, and Harris et al.'s doped heater
     cases.extend(crate::thermal::crosstalk_checks::cases());
+    // and the heaters' dynamic thermal compact models, and a circuit heated through them
+    cases.extend(crate::thermal::rc_checks::cases());
+    cases.extend(crate::circuit::heated_checks::cases());
     cases
 }
 

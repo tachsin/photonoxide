@@ -25,6 +25,8 @@
 //! phase in time is the weighted sum of the temperature in time, so its time constant is the
 //! mode's, not one point's.
 
+use num_complex::Complex64 as c64;
+
 use crate::electro::Flow;
 use crate::geometry::Shape;
 use crate::mode::thermo::index_change_density;
@@ -539,6 +541,69 @@ impl PhaseShifter {
     pub fn cutoff(&self, drive: usize, guide: usize) -> Result<f64> {
         self.driven(drive).cutoff_weighted(&self.weights[guide])
     }
+
+    /// Guide `guide`'s phase's small-signal response to drive `drive`'s power at
+    /// `frequency_hz`, over its steady response (1 at 0 Hz): (K + iωM) T̂ = Q̂ on the heat's
+    /// grid, read by the guide's weights.
+    ///
+    /// # Errors
+    ///
+    /// As [`Heat::response`].
+    pub fn response(&self, drive: usize, guide: usize, frequency_hz: f64) -> Result<c64> {
+        self.driven(drive).responder(&self.weights[guide])?(frequency_hz)
+    }
+
+    /// Every drive's step response, turned on from the background: each guide's phase per W
+    /// of the drive's power (rad/W, over any length of a straight section: 2π s P/λ), at every
+    /// time of `stepping` from 0, and its steady value. What [`super::RcModel::fit`] takes.
+    /// The drives step in parallel, the same bits on any number of threads.
+    ///
+    /// # Errors
+    ///
+    /// As [`PhaseShifter::step`] and [`PhaseShifter::efficiency`].
+    pub fn step_responses(&self, stepping: &Stepping) -> Result<StepResponses> {
+        use rayon::prelude::*;
+        let histories = (0..self.drives.len())
+            .into_par_iter()
+            .map(|j| self.step(j, stepping, true))
+            .collect::<Result<Vec<_>>>()?;
+        let per =
+            |i: usize| 2.0 * std::f64::consts::PI / (self.guides[i].wavelength.to_um() * 1e-6);
+        let steps = histories
+            .iter()
+            .zip(&self.drives)
+            .map(|(h, d)| {
+                h.watched
+                    .iter()
+                    .enumerate()
+                    .map(|(i, w)| w.iter().map(|v| (v - w[0]) * per(i) / d.power()).collect())
+                    .collect()
+            })
+            .collect();
+        let slopes = self.efficiency()?.slopes;
+        let steady = slopes
+            .iter()
+            .enumerate()
+            .map(|(i, row)| row.iter().map(|s| s * per(i)).collect())
+            .collect();
+        Ok(StepResponses {
+            times_s: histories[0].times_s.clone(),
+            steps,
+            steady,
+        })
+    }
+}
+
+/// Every drive's step response of every guide's phase ([`PhaseShifter::step_responses`]).
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct StepResponses {
+    /// The times, seconds, from 0.
+    pub times_s: Vec<f64>,
+    /// `steps[drive][guide][time]`: the guide's phase per W of the drive, rad/W, 0 at 0.
+    pub steps: Vec<Vec<Vec<f64>>>,
+    /// `steady[guide][drive]`: its steady value, rad/W.
+    pub steady: Vec<Vec<f64>>,
 }
 
 /// A step response's times.

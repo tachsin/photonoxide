@@ -107,8 +107,9 @@ area thermo   "src/mode/thermo.rs src/mode/thermo_checks.rs"   "mode material st
 area pockels  "src/mode/pockels.rs src/mode/pockels/*"   "mode material statics thermo"   "mode::pockels" "pockels/" ""
 
 # the thermo-optic phase shifter (src/thermal/*): a heat solve's rise in a guide's mode, by its
-# perturbation's weights, into P_pi, the time constant and the crosstalk between neighbours
-area shifter  "src/thermal/*"   "mode material statics thermo"   "thermal::shifter" "shifter/" ""
+# perturbation's weights, into P_pi, the time constant and the crosstalk between neighbours; and
+# the dynamic thermal compact models fitted to its step responses (src/thermal/rc*)
+area shifter  "src/thermal/*"   "mode material statics thermo"   "thermal::shifter thermal::rc" "shifter/ thermal-rc/" ""
 
 # jobs, their runs and replay, and farming them out; the job files in jobs/ are read by the
 # library's tests and validation cases, by the studio's and by the Python package's; a job's
@@ -146,10 +147,11 @@ area generator \
   "circuit device" \
   "generator::" "generator/" ""
 
-# a component sampled from an fdfd job's S-parameters runs the job
+# a component sampled from an fdfd job's S-parameters runs the job; a heated circuit's phases
+# come from the shifter's thermal compact models (src/circuit/heated*)
 area circuit \
   "src/circuit/*" \
-  "material mode job" \
+  "material mode job shifter" \
   "circuit::" "circuit/ components/" \
   "circuit_fit circuit_ring_critical circuit_splitter optimize_ring_flat optimize_mzi_lattice optimize_ring_pareto optimize_mesh ring_q_factor directional_coupler mzi_dwivedi"
 

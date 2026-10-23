@@ -47,7 +47,11 @@
 //! run records each guide's n_eff and dn_eff/dT, each guide's ∂n_eff/∂P′ by each drive (m/W),
 //! each drive's P_π on its own guide (W, a 2D number: any length of a straight section) and its
 //! crosstalk on the others (the share of its own phase), and with `[task.transient]` each
-//! drive's phase's 1/e and 10–90 % times, −3 dB frequency and P_π times its 1/e time.
+//! drive's phase's 1/e and 10–90 % times, −3 dB frequency and P_π times its 1/e time. With
+//! `poles` too, a dynamic thermal compact model of that many poles is fitted to every drive's
+//! step response of every guide's phase ([`crate::thermal::RcModel`], Coenen et al. 2022): the
+//! run records each fit's error from 1 pole up, and the model's time constants and residues
+//! (rad/W), what [`crate::circuit::Heated`] takes.
 //!
 //! ```yaml
 //! name: heater
@@ -379,6 +383,9 @@ struct ShifterSpec {
     /// Media's dn/dT (1/K), by name, in place of the catalogue's.
     #[serde(default)]
     dn_dt: BTreeMap<String, f64>,
+    /// With a `[task.transient]`: a dynamic thermal compact model of this many poles (1 to
+    /// 12), fitted to every drive's step response of every guide's phase.
+    poles: Option<usize>,
 }
 
 /// A rectangle of the section, y and z, µm.
@@ -391,6 +398,8 @@ struct Shifter {
     heaters: Vec<(String, Shape, f64)>,
     /// Where each medium's optics came from, for the record.
     record: Vec<StaticValue>,
+    /// The thermal compact model's poles, if one is asked for.
+    poles: Option<usize>,
 }
 
 /// The fields of a static job as an npz ([`crate::export::Npz`]): `y_um`, `z_um` (the cells'
@@ -1027,11 +1036,25 @@ fn shifter(task: &StaticTask, spec: &ShifterSpec, section: &Section) -> Result<S
              Joule heat)",
         ));
     }
+    if let Some(n) = spec.poles {
+        if !(1..=12).contains(&n) {
+            return Err(task_error(format!(
+                "[task.shifter] poles = {n}: a thermal compact model has 1 to 12 poles"
+            )));
+        }
+        if task.transient.is_none() {
+            return Err(task_error(
+                "[task.shifter] poles fits a thermal compact model to the drives' step \
+                 responses: give a [task.transient] to take them",
+            ));
+        }
+    }
     Ok(Shifter {
         optics,
         guides,
         heaters,
         record,
+        poles: spec.poles,
     })
 }
 
@@ -1274,6 +1297,60 @@ fn phase_shifter(
                     format!("phase -3 dB frequency of {g} by {}", d.name()),
                     f,
                     "Hz",
+                ));
+            }
+        }
+        if let Some(n) = shifter.poles
+            && stop.reason().is_none()
+        {
+            thermal_model(&ps, &transient.stepping, n, values)?;
+        }
+    }
+    Ok(())
+}
+
+/// A `[task.shifter]`'s thermal compact model of `poles` poles, fitted to every drive's step
+/// response of every guide's phase ([`crate::thermal::RcModel::fits`]): the error of each fit
+/// from 1 pole to `poles`, and the last fit's time constants and residues (rad/W).
+fn thermal_model(
+    ps: &crate::thermal::PhaseShifter,
+    stepping: &Stepping,
+    poles: usize,
+    values: &mut Vec<StaticValue>,
+) -> Result<()> {
+    use crate::thermal::{RcFit, RcModel};
+    let r = ps.step_responses(stepping)?;
+    let fits = RcModel::fits(&r.times_s, &r.steps, Some(&r.steady), &RcFit::new(poles))?;
+    for (k, f) in fits.iter().enumerate() {
+        values.push(value(
+            format!("thermal model error, {} poles", k + 1),
+            f.error,
+            "",
+        ));
+    }
+    let model = &fits.last().expect("a fit per pole").model;
+    for (k, (t, r)) in model
+        .time_constants_s()
+        .iter()
+        .zip(model.residues())
+        .enumerate()
+    {
+        values.push(value(
+            format!("thermal model time constant {}", k + 1),
+            *t,
+            "s",
+        ));
+        for (i, g) in ps.guides().iter().enumerate() {
+            for (j, d) in ps.drives().iter().enumerate() {
+                values.push(value(
+                    format!(
+                        "thermal model residue {} of {} by {}",
+                        k + 1,
+                        g.name(),
+                        d.name()
+                    ),
+                    r[i][j],
+                    "rad/W",
                 ));
             }
         }
