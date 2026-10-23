@@ -13,6 +13,7 @@
 //! doi:10.1364/OME.506019, from the refractiveindex.info database, CC0), whose crystalline film
 //! is a different one: 6.46 + 0.92i at 1550 nm against Delaney's 7.91 + 1.03i.
 
+use num_complex::Complex64 as c64;
 use serde::Serialize;
 
 use super::entries::{amorphous, src, strings, table};
@@ -154,8 +155,10 @@ pub struct PhaseChange {
     pub crystallization: Option<Constant>,
     /// The melting temperature, K.
     pub melting: Option<Constant>,
-    /// The thermal conductivity, W/(m·K).
-    pub conductivity: Option<Constant>,
+    /// The amorphous state's thermal conductivity, W/(m·K).
+    pub amorphous_conductivity: Option<Constant>,
+    /// The crystalline state's thermal conductivity, W/(m·K).
+    pub crystalline_conductivity: Option<Constant>,
     /// The specific heat capacity c_p, J/(kg·K).
     pub specific_heat: Option<Constant>,
     /// The density ρ, kg/m³.
@@ -179,6 +182,61 @@ impl PhaseChange {
             State::Crystalline => &self.crystalline,
         }
     }
+
+    /// A state's thermal conductivity, W/(m·K), when known.
+    pub fn conductivity(&self, state: State) -> Option<&Constant> {
+        match state {
+            State::Amorphous => self.amorphous_conductivity.as_ref(),
+            State::Crystalline => self.crystalline_conductivity.as_ref(),
+        }
+    }
+
+    /// The state whose entry id is `id`, if it is one of this material's.
+    pub fn state_of(&self, id: &str) -> Option<State> {
+        if id == self.amorphous {
+            Some(State::Amorphous)
+        } else if id == self.crystalline {
+            Some(State::Crystalline)
+        } else {
+            None
+        }
+    }
+}
+
+/// A partly crystallized film's index at `wavelength`: the linear effective medium of its two
+/// states' permittivities, ε = (1 − f) ε_a + f ε_c, with f the crystallized fraction of its
+/// volume, as J. A. Frantz et al. fit GST's intermediate states (Opt. Mater. Express 13, 3631
+/// (2023), doi:10.1364/OME.506019, Section 4.2: the result insensitive to the choice of medium,
+/// Bruggeman's or the linear one).
+///
+/// # Errors
+///
+/// [`crate::Error::InvalidValue`] for a fraction outside [0, 1], or a wavelength outside either
+/// material's range.
+pub fn partly_crystalline(
+    amorphous: &Material,
+    crystalline: &Material,
+    fraction: f64,
+    wavelength: Wavelength,
+) -> Result<c64> {
+    if !(0.0..=1.0).contains(&fraction) {
+        return Err(crate::Error::invalid(
+            "crystallized fraction",
+            format!("must be between 0 and 1, got {fraction}"),
+        ));
+    }
+    let (a, c) = (
+        amorphous.permittivity(wavelength)?,
+        crystalline.permittivity(wavelength)?,
+    );
+    Ok(((1.0 - fraction) * a + fraction * c).sqrt())
+}
+
+/// Delaney et al.'s figure of merit (their Eq. (1)): the phase a waveguide's change of
+/// effective index between the states gives per dB of its loss, 2π Δn_eff / (λ α), rad/dB,
+/// with α the loss in dB/µm in the lossier state.
+pub fn figure_of_merit(delta_n_eff: f64, loss_db_per_um: f64, wavelength: Wavelength) -> f64 {
+    std::f64::consts::TAU * delta_n_eff / (wavelength.to_um() * loss_db_per_um)
 }
 
 /// Every phase-change material of the catalogue.
@@ -262,6 +320,19 @@ pub(crate) fn sb2se3_density() -> f64 {
 const DELANEY_LOCATION: &str = "the data set's 3_ellipsometry (the paper's Fig. 3)";
 
 fn sb2se3() -> PhaseChange {
+    let lawson_kappa = |state: &str| {
+        constant(
+            r"\kappa",
+            "thermal conductivity",
+            1.0,
+            None,
+            "W/(m·K)",
+            &format!(
+                "{state}: the value Lawson et al.'s model takes for both states; its source, Li et al. 2019 (their ref. 42), measured zone-melted Sb₂Te₃₋ₓSeₓ up to x = 2.4 (0.8 to 0.93 W/(m·K) by its Fig. 6), not Sb₂Se₃ itself"
+            ),
+            ("lawson-2022", "Section 4.1"),
+        )
+    };
     PhaseChange {
         id: "sb2se3".into(),
         name: "Antimony selenide".into(),
@@ -274,11 +345,8 @@ fn sb2se3() -> PhaseChange {
             473.15,
             Some(25.0),
             "K",
-            "a sputtered film annealed in steps of 25 °C: amorphous after 175 °C, crystalline after 200 °C (n at 1551 nm 3.340 then 4.250); Lawson et al.'s model takes 473 K",
-            (
-                "delaney-2020-data",
-                "S1_ellipsometry/anneal_tests_all.txt (Supporting Fig. S1)",
-            ),
+            "200 °C, a sputtered film annealed for 5 min in steps of 25 °C: amorphous after 175 °C, crystalline after 200 °C (n at 1551 nm 3.340 then 4.250, the data set's S1_ellipsometry); Lawson et al.'s model takes 473 K; Černošková et al.'s evaporated film by DSC at 10 °C/min: crystal growth from 161 °C, its peak at 197 °C",
+            ("delaney-2020", "Section 3 and Supporting Fig. S1"),
         )),
         melting: Some(constant(
             "T_m",
@@ -286,26 +354,22 @@ fn sb2se3() -> PhaseChange {
             884.0,
             None,
             "K",
-            "the value Lawson et al.'s photothermal model takes (880 K in its text)",
+            "the value Lawson et al.'s photothermal model takes (880 K in its text), without a source",
             ("lawson-2022", "Fig. 2's caption"),
         )),
-        conductivity: Some(constant(
-            r"\kappa",
-            "thermal conductivity",
-            1.0,
-            None,
-            "W/(m·K)",
-            "the value Lawson et al.'s model takes, from Li et al. 2019's zone-melted Sb₂(Te,Se)₃ (their ref. 42), both states",
-            ("lawson-2022", "Section 4.1"),
-        )),
+        amorphous_conductivity: Some(lawson_kappa("amorphous")),
+        crystalline_conductivity: Some(lawson_kappa("crystalline")),
         specific_heat: Some(constant(
             "c_p",
             "specific heat capacity",
-            150.0,
+            507.0,
             None,
             "J/(kg·K)",
-            "0.15 J/(g·K), the value Lawson et al.'s model takes from Černošková et al. 2014's amorphous film (their ref. 43); Dulong and Petit's 15R/M is 260 J/(kg·K), our own arithmetic",
-            ("lawson-2022", "Section 4.1"),
+            "a 900 nm evaporated amorphous film by StepScan DSC: 0.507 J/(g·K) at 105 °C rising to 0.574 at 260 °C, with no drop through crystallization (the amorphous film's c_p close to the crystal's). Lawson et al.'s model takes 0.15 J/(g·K), this paper's estimate of the c_p change at a glass transition, not c_p",
+            (
+                "cernoskova-2014",
+                "Section 'Results and discussion', Fig. 4",
+            ),
         )),
         density: Some(constant(
             r"\rho",
@@ -324,6 +388,7 @@ fn sb2se3() -> PhaseChange {
             "delaney-2020",
             "delaney-2020-data",
             "lawson-2022",
+            "cernoskova-2014",
             "efthimiopoulos-2013",
         ]),
     }
@@ -342,45 +407,71 @@ fn sb2s3() -> PhaseChange {
             543.15,
             Some(10.0),
             "K",
-            "a sputtered film annealed in steps of 10 °C: amorphous to 250 °C, partly crystalline after 260 °C (n at 1551 nm 2.987, a fifth of the way), crystalline after 270 °C (3.371)",
-            (
-                "delaney-2020-data",
-                "S1_ellipsometry/anneal_tests_all.txt (Supporting Fig. S1)",
-            ),
+            "270 °C, a sputtered film annealed in steps of 10 °C: amorphous to 250 °C, partly crystalline after 260 °C (n at 1551 nm 2.987, a fifth of the way), crystalline after 270 °C (3.371; the data set's S1_ellipsometry)",
+            ("delaney-2020", "Section 3 and Supporting Fig. S1"),
         )),
         melting: None,
-        conductivity: None,
+        amorphous_conductivity: None,
+        crystalline_conductivity: None,
         specific_heat: None,
         density: None,
-        missing: vec![
-            missing("T_m", "from the paper's text, not yet in hand, coming"),
-            missing("κ, c_p, ρ", "a measured source to be chosen, coming"),
-        ],
+        missing: vec![missing(
+            "T_m, κ, c_p, ρ",
+            "a measured source to be chosen, coming",
+        )],
         references: references(&["delaney-2020", "delaney-2020-data"]),
     }
 }
 
 fn gst() -> PhaseChange {
+    let lyeo = |value: f64, state: &str| {
+        constant(
+            r"\kappa",
+            "thermal conductivity",
+            value,
+            None,
+            "W/(m·K)",
+            state,
+            (
+                "lyeo-2006",
+                "Fig. 1 and its text (time-domain thermoreflectance at 27 °C)",
+            ),
+        )
+    };
     PhaseChange {
         id: "gst".into(),
         name: "Germanium antimony telluride (GST-225)".into(),
         formula: "Ge₂Sb₂Te₅".into(),
         amorphous: "gst-amorphous".into(),
         crystalline: "gst-crystalline".into(),
-        crystallization: None,
+        crystallization: Some(constant(
+            "T_c",
+            "crystallization temperature",
+            423.15,
+            None,
+            "K",
+            "about 150 °C, amorphous to rock salt (Fm-3m), a sputtered film heated at 1.6 K/min, by its resistance; rock salt to hexagonal at about 350 °C; a ZnS–SiO₂ cap raises the first",
+            ("friedrich-2000", "Fig. 1 and its text"),
+        )),
         melting: None,
-        conductivity: None,
+        amorphous_conductivity: Some(lyeo(0.19, "amorphous, a sputtered film as deposited")),
+        crystalline_conductivity: Some(lyeo(
+            0.57,
+            "the cubic (rock-salt) phase, annealed 20 min at 180 °C; 1.58 W/(m·K) for the hexagonal (360 °C)",
+        )),
         specific_heat: None,
         density: None,
-        missing: vec![
-            missing(
-                "T_c",
-                "from Friedrich et al. 2000 (doi:10.1063/1.373041), coming",
-            ),
-            missing("κ", "from Lyeo et al. 2006 (doi:10.1063/1.2359354), coming"),
-            missing("T_m, c_p, ρ", "a measured source to be chosen, coming"),
-        ],
-        references: references(&["delaney-2020", "delaney-2020-data", "frantz-2023"]),
+        missing: vec![missing(
+            "T_m, c_p, ρ",
+            "a measured source to be chosen, coming",
+        )],
+        references: references(&[
+            "delaney-2020",
+            "delaney-2020-data",
+            "frantz-2023",
+            "friedrich-2000",
+            "lyeo-2006",
+        ]),
     }
 }
 
@@ -748,7 +839,7 @@ pub(super) fn entries() -> Vec<Entry> {
                 SB2SE3_A,
                 DELANEY_RANGE,
                 "within 8.2e-5 of the data's 198 points from 1.0 to 1.69 µm; the paper's ellipsometric uncertainty not yet read",
-                "room temperature; k = 0 in the data from 1.0 µm",
+                "a 40 nm sputtered film under 200 nm of ZnS:SiO₂ (the Experimental Section), room temperature; k = 0 in the data from 1.0 µm",
                 |_, _| Ok(vec![sb2se3_amorphous()?]),
             )],
             delaney,
@@ -769,7 +860,7 @@ pub(super) fn entries() -> Vec<Entry> {
                 SB2SE3_C,
                 DELANEY_SB2SE3_C_RANGE,
                 "n within 1.5e-5 of the data's 143 points from 1.2 to 1.69 µm; k the data's at ten wavelengths, splined",
-                "room temperature; the data's k is 2.1e-4 at 1551 nm, above the abstract's k < 1e-5",
+                "a 40 nm sputtered film under 200 nm of ZnS:SiO₂ (the Experimental Section), room temperature; the data's k is 2.1e-4 at 1551 nm, above the abstract's k < 1e-5",
                 |_, _| Ok(vec![sb2se3_crystalline()?]),
             )],
             delaney,
@@ -784,7 +875,7 @@ pub(super) fn entries() -> Vec<Entry> {
                 SB2S3_A,
                 DELANEY_RANGE,
                 "within 7.9e-6 of the data's 198 points from 1.0 to 1.69 µm; the paper's ellipsometric uncertainty not yet read",
-                "room temperature; k = 0 in the data over the range",
+                "a 40 nm sputtered film under 200 nm of ZnS:SiO₂ (the Experimental Section), room temperature; k = 0 in the data over the range",
                 |_, _| Ok(vec![sb2s3_amorphous()?]),
             )],
             delaney,
@@ -805,7 +896,7 @@ pub(super) fn entries() -> Vec<Entry> {
                 SB2S3_C,
                 DELANEY_RANGE,
                 "within 4.7e-5 of the data's 198 points from 1.0 to 1.69 µm; the paper's ellipsometric uncertainty not yet read",
-                "room temperature; k = 0 in the data over the range",
+                "a 40 nm sputtered film under 200 nm of ZnS:SiO₂ (the Experimental Section), room temperature; k = 0 in the data over the range",
                 |_, _| Ok(vec![sb2s3_crystalline()?]),
             )],
             delaney,
@@ -820,7 +911,7 @@ pub(super) fn entries() -> Vec<Entry> {
                 lorentz_model(
                     GST_A,
                     "within 1.4e-3 in n and 2.3e-3 in k of the data's 198 points from 1.0 to 1.69 µm",
-                    "room temperature",
+                    "the paper's own sputtered film, room temperature",
                     |_, _| Ok(vec![gst_amorphous()?]),
                 ),
                 frantz_model(&FRANTZ_A, |_, _| Ok(vec![frantz_amorphous()?])),
@@ -837,13 +928,13 @@ pub(super) fn entries() -> Vec<Entry> {
                 "m-3m",
                 "Fm-3m (No. 225)",
                 "rock salt (metastable)",
-                "a polycrystalline film, taken as the metastable rock-salt phase; neither data set states the phase or the anneal",
+                "a polycrystalline film in the metastable rock-salt phase: Frantz et al.'s is face-centred cubic (their abstract), Delaney's states none",
             ),
             vec![
                 lorentz_model(
                     GST_C,
                     "within 1.7e-3 in n and 2.5e-3 in k of the data's 198 points from 1.0 to 1.69 µm",
-                    "room temperature",
+                    "the paper's own sputtered film, room temperature",
                     |_, _| Ok(vec![gst_crystalline()?]),
                 ),
                 frantz_model(&FRANTZ_C, |_, _| Ok(vec![frantz_crystalline()?])),

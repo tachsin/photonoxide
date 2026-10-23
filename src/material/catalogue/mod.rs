@@ -52,7 +52,9 @@ pub(crate) mod thermo_checks;
 
 pub use coming::Coming;
 pub use conductivity::{Conductivity, ConductivityModel, conductivities, conductivity};
-pub use phase_change::{PhaseChange, State, phase_change, phase_changes};
+pub use phase_change::{
+    PhaseChange, State, figure_of_merit, partly_crystalline, phase_change, phase_changes,
+};
 pub use symmetry::{Pattern, pattern};
 pub use tags::Tag;
 

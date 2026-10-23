@@ -217,6 +217,121 @@ pub(crate) fn slab_order() -> Outcome {
     outcome(order, 2.0, 0.2)
 }
 
+/// Delaney et al.'s Table 1 at 1060, 1310 and 1550 nm: (state, [n at each]), crystalline
+/// Sb₂Se₃ from 1310 nm (its fit starts at 1.2 µm). k is 0 at these for all but crystalline
+/// Sb₂Se₃ (0.010 and 0.001 at 1060 and 1310 nm).
+type Row = (&'static str, &'static [(f64, f64)]);
+pub(crate) const TABLE_1: [Row; 4] = [
+    (
+        "sb2s3-amorphous",
+        &[(1.06, 2.829), (1.31, 2.767), (1.55, 2.712)],
+    ),
+    (
+        "sb2s3-crystalline",
+        &[(1.06, 3.413), (1.31, 3.343), (1.55, 3.308)],
+    ),
+    (
+        "sb2se3-amorphous",
+        &[(1.06, 3.372), (1.31, 3.305), (1.55, 3.285)],
+    ),
+    ("sb2se3-crystalline", &[(1.31, 4.121), (1.55, 4.050)]),
+];
+
+fn state_material(id: &str) -> Result<Material> {
+    match id {
+        "sb2s3-amorphous" => phase_change::sb2s3_amorphous(),
+        "sb2s3-crystalline" => phase_change::sb2s3_crystalline(),
+        "sb2se3-amorphous" => phase_change::sb2se3_amorphous(),
+        _ => phase_change::sb2se3_crystalline(),
+    }
+}
+
+/// The deviations of the fits from Table 1's printed n, each with its state and wavelength.
+pub(crate) fn table_1_deviations() -> Vec<(&'static str, f64, f64)> {
+    TABLE_1
+        .iter()
+        .flat_map(|(id, rows)| {
+            let m = state_material(id);
+            rows.iter()
+                .map(move |&(um, n)| (*id, um, index(&m, um).re - n))
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+/// The fits against Table 1, its three decimals: the largest deviation but amorphous Sb₂S₃'s
+/// at 1550 nm, which the table prints 0.0065 below the data set's own.
+pub(crate) fn table_1() -> Outcome {
+    let worst = table_1_deviations()
+        .into_iter()
+        .filter(|&(id, um, _)| !(id == "sb2s3-amorphous" && um == 1.55))
+        .map(|(_, _, d)| d.abs())
+        .fold(0.0, f64::max);
+    outcome(worst, 0.0, 5e-4)
+}
+
+/// Delaney et al.'s insertion loss (dB) against the length of the PCM on the waveguide (0 to
+/// 800 µm in steps of 100), crystalline Sb₂Se₃ and Sb₂S₃: the data set's 6_SWG_losses (Fig. 7a,
+/// b), the means over their devices.
+pub(crate) const LOSS_SB2SE3_C: [f64; 9] = [
+    10.1274724,
+    12.36525157,
+    11.65707187,
+    14.69465876,
+    13.843549,
+    14.98606453,
+    14.97194983,
+    16.76093294,
+    19.50388553,
+];
+pub(crate) const LOSS_SB2S3_C: [f64; 9] = [
+    13.40484233,
+    13.81751537,
+    15.13217838,
+    27.14754392,
+    26.64229666,
+    29.93527523,
+    34.61874844,
+    29.06067737,
+    34.72640488,
+];
+
+/// The slope (dB/µm) of the least-squares line through losses at 0, 100, … 800 µm.
+pub(crate) fn slope(losses: &[f64; 9]) -> f64 {
+    let x: Vec<f64> = (0..9).map(|i| 100.0 * i as f64).collect();
+    let (mx, my) = (
+        x.iter().sum::<f64>() / 9.0,
+        losses.iter().sum::<f64>() / 9.0,
+    );
+    let sxy: f64 = x.iter().zip(losses).map(|(a, b)| (a - mx) * (b - my)).sum();
+    let sxx: f64 = x.iter().map(|a| (a - mx) * (a - mx)).sum();
+    sxy / sxx
+}
+
+/// The crystalline films' propagation loss, the slopes of lines through the data set's
+/// losses, against the paper's 0.01 (Sb₂Se₃) and 0.028 dB/µm (Sb₂S₃): the larger relative
+/// deviation.
+pub(crate) fn losses() -> Outcome {
+    let d = (slope(&LOSS_SB2SE3_C) / 0.01 - 1.0)
+        .abs()
+        .max((slope(&LOSS_SB2S3_C) / 0.028 - 1.0).abs());
+    outcome(d, 0.0, 0.05)
+}
+
+/// Delaney et al.'s figure of merit, Eq. (1), from their Δn_eff (0.0717 for Sb₂Se₃, 0.0356 for
+/// Sb₂S₃, a 25 nm film on a 500 nm silicon rib) and the slopes of [`losses`], against their
+/// 29.0 and 5.15 rad/dB: the larger relative deviation.
+pub(crate) fn figures_of_merit() -> Outcome {
+    let Ok(lam) = Wavelength::um(1.55) else {
+        return outcome(f64::NAN, 0.0, 0.05);
+    };
+    let fom = |dn, loss: &[f64; 9]| phase_change::figure_of_merit(dn, slope(loss), lam);
+    let d = (fom(0.0717, &LOSS_SB2SE3_C) / 29.0 - 1.0)
+        .abs()
+        .max((fom(0.0356, &LOSS_SB2S3_C) / 5.15 - 1.0).abs());
+    outcome(d, 0.0, 0.05)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,6 +347,9 @@ mod tests {
             ("sb2s3 tc", sb2s3_crystallization()),
             ("slab", slab_closed_form()),
             ("order", slab_order()),
+            ("table 1", table_1()),
+            ("losses", losses()),
+            ("fom", figures_of_merit()),
         ] {
             assert!(o.error <= o.tolerance, "{name}: {o:?}");
         }
@@ -240,6 +358,29 @@ mod tests {
             (se - 0.7644).abs() < 1e-3 && (s - 0.5897).abs() < 1e-3,
             "{se} {s}"
         );
+        // the one Table 1 value the data set doesn't give
+        let odd = table_1_deviations()
+            .into_iter()
+            .find(|&(id, um, _)| id == "sb2s3-amorphous" && um == 1.55)
+            .unwrap();
+        assert!((odd.2 - 0.0065).abs() < 5e-4, "{odd:?}");
+        assert!((slope(&LOSS_SB2SE3_C) - 0.0096).abs() < 1e-4);
+        assert!((slope(&LOSS_SB2S3_C) - 0.0288).abs() < 1e-4);
+    }
+
+    #[test]
+    fn a_partly_crystalline_film_lies_between_its_states() {
+        let (a, c) = (
+            phase_change::gst_amorphous().unwrap(),
+            phase_change::gst_crystalline().unwrap(),
+        );
+        let lam = Wavelength::um(1.55).unwrap();
+        let at = |f| phase_change::partly_crystalline(&a, &c, f, lam).unwrap();
+        assert!((at(0.0) - a.refractive_index(lam).unwrap()).norm() < 1e-12);
+        assert!((at(1.0) - c.refractive_index(lam).unwrap()).norm() < 1e-12);
+        let half = at(0.5);
+        assert!(half.re > at(0.0).re && half.re < at(1.0).re);
+        assert!(phase_change::partly_crystalline(&a, &c, 1.5, lam).is_err());
     }
 
     #[test]
@@ -251,13 +392,14 @@ mod tests {
         );
         // ρ c_p from Efthimiopoulos' volume and Lawson's c_p
         assert!((se.density.as_ref().unwrap().value - 5849.0).abs() < 1.0);
-        assert!((se.heat_capacity().unwrap() - 0.8773e6).abs() < 1e3);
+        assert!((se.heat_capacity().unwrap() - 2.9654e6).abs() < 1e3);
         for p in phase_change::phase_changes() {
             let keys: Vec<&str> = p.references.iter().map(|r| r.key.as_str()).collect();
             for c in [
                 &p.crystallization,
                 &p.melting,
-                &p.conductivity,
+                &p.amorphous_conductivity,
+                &p.crystalline_conductivity,
                 &p.specific_heat,
                 &p.density,
             ]
@@ -278,6 +420,17 @@ mod tests {
             }
         }
         assert!(phase_change::phase_change("gst").unwrap().melting.is_none());
+        let gst = phase_change::phase_change("gst").unwrap();
+        assert_eq!(
+            gst.conductivity(super::super::State::Crystalline)
+                .unwrap()
+                .value,
+            0.57
+        );
+        assert_eq!(
+            gst.state_of("gst-amorphous"),
+            Some(super::super::State::Amorphous)
+        );
     }
 
     #[test]

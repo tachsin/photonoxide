@@ -33,6 +33,27 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "https://www.nature.com/articles/srep02665",
     ),
     (
+        "cernoskova-2014",
+        "E. Černošková, R. Todorov, Z. Černošek, J. Holubová, L. Beneš, J. Therm. Anal. Calorim. 118, 105 (2014)",
+        "Thermal properties and the structure of amorphous Sb2Se3 thin film",
+        "10.1007/s10973-014-4000-3",
+        "",
+    ),
+    (
+        "lyeo-2006",
+        "H.-K. Lyeo, D. G. Cahill, B.-S. Lee, J. R. Abelson, M.-H. Kwon, K.-B. Kim, S. G. Bishop, B. Cheong, Appl. Phys. Lett. 89, 151904 (2006)",
+        "Thermal conductivity of phase-change material Ge2Sb2Te5",
+        "10.1063/1.2359354",
+        "",
+    ),
+    (
+        "friedrich-2000",
+        "I. Friedrich, V. Weidenhof, W. Njoroge, P. Franz, M. Wuttig, J. Appl. Phys. 87, 4130 (2000)",
+        "Structural transformations of Ge2Sb2Te5 films studied by electrical resistance measurements",
+        "10.1063/1.373041",
+        "",
+    ),
+    (
         "frantz-2023",
         "J. A. Frantz, J. D. Myers, A. Clabeau, R. Y. Bekele, N. Hong, M. A. Vincenti, M. Gandolfi, J. S. Sanghera, Opt. Mater. Express 13, 3631 (2023)",
         "Optical constants of germanium antimony telluride (GST) in amorphous, crystalline, and intermediate states",
