@@ -835,7 +835,7 @@ fn bto_angle() -> Outcome {
     outcome(worst / largest, 0.0, 1e-12)
 }
 
-/// Deng et al.'s r₄₂ alone at 45° from the c axis: the effective coefficient along <110> they
+/// Deng et al.'s r₄₂ alone at 45° from the c axis: the effective coefficient along ⟨110⟩ they
 /// measured, r₄₂/√2.
 fn bto_deng() -> Outcome {
     let r42 = batio3_tensor("thin film on LSAT, 1550 nm")
@@ -864,6 +864,50 @@ fn bto_eltes() -> Outcome {
     let vpi_l =
         100.0 * half_wave_voltage_length(per_volt, wavelength(), Drive::SingleArm).expect(OK);
     outcome((vpi_l * 1e4).round() / 1e4, 0.23, 0.005)
+}
+
+/// Lithium tantalate x-cut, Casson et al.'s unclamped r₁₃ and r₃₃ at 1558 nm (r₂₂ and r₅₁, which
+/// they don't measure, as 0: with the field along c they don't enter) and their indices there, a
+/// uniform field of 0.1 V/µm across a guide along the chip's x along c: each transverse index's
+/// change from the turned tensor against −½ n³ r E, the larger relative difference.
+fn litao3_x_cut() -> Outcome {
+    let e = entry("litao3").expect(OK);
+    let t = e
+        .tensors
+        .iter()
+        .find(|t| t.label == "bulk, unclamped, 1558 nm")
+        .expect("a tensor of the catalogue");
+    let (r13, r33) = (t.value(1, 3).expect(OK), t.value(3, 3).expect(OK));
+    let n = |symbol: &str| {
+        e.constants
+            .iter()
+            .find(|c| c.symbol == symbol)
+            .expect("a constant of the catalogue")
+            .value
+    };
+    let (no, ne) = (n("n_o"), n("n_e"));
+    let mut v = [[0.0; 3]; 6];
+    v[0][2] = r13;
+    v[1][2] = r13;
+    v[2][2] = r33;
+    let o = Orientation::cut(CrystalAxis::X, Some(CrystalAxis::Y)).expect(OK);
+    let c = |x: f64| c64::new(x, 0.0);
+    let eps = Along::X.tensor(o.rotate([c(no * no), c(no * no), c(ne * ne)]));
+    let r = Pockels::from_voigt(v)
+        .expect(OK)
+        .rotated(&o)
+        .in_section(Along::X);
+    // the field along the chip's y, across the guide: the crystal's c
+    let field = 1e5;
+    let d = r.permittivity_change(eps, [field, 0.0, 0.0]);
+    let mut worst = 0.0f64;
+    for (a, coefficient) in [(0, r33), (1, r13)] {
+        let n = eps[a][a].re.sqrt();
+        let moved = (eps[a][a] + d[a][a]).re.sqrt() - n;
+        let expected = -0.5 * n.powi(3) * coefficient * 1e-12 * field;
+        worst = worst.max((moved / expected - 1.0).abs());
+    }
+    outcome(worst, 0.0, 1e-4)
 }
 
 /// The cases.
@@ -962,9 +1006,9 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "pockels/bto-deng",
-            title: r"Deng et al.'s barium titanate on LSAT, $r_{42}$ = 358 pm/V alone, the field and the light along <110>, 45° from the c axis: the effective coefficient from the rotated tensor (pm/V, shown)",
+            title: r"Deng et al.'s barium titanate on LSAT, $r_{42}$ = 358 pm/V alone, the field and the light along ⟨110⟩, 45° from the c axis: the effective coefficient from the rotated tensor (pm/V, shown)",
             tier: Tier::Published,
-            source: r"C. Deng et al., Light Sci. Appl. 15, 21 (2026), doi:10.1038/s41377-025-02081-9: $r_c$ = 253 pm/V measured along <110>, of which their 358 pm/V is the projection; the tolerance their last digit",
+            source: r"C. Deng et al., Light Sci. Appl. 15, 21 (2026), doi:10.1038/s41377-025-02081-9: $r_c$ = 253 pm/V measured along ⟨110⟩, of which their 358 pm/V is the projection; the tolerance their last digit",
             run: bto_deng,
         },
         Case {
@@ -973,6 +1017,13 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: r"F. Eltes et al., J. Lightwave Technol. 37, 1456 (2019), doi:10.1109/JLT.2019.2893500, Section IV: a DC $V_\pi L$ of 0.23 V·cm from a voltage on one arm, its Eq. (1) giving $r_\mathrm{eff}$; the tolerance their two digits",
             run: bto_eltes,
+        },
+        Case {
+            id: "pockels/litao3-x-cut",
+            title: r"A uniform field of 0.1 V/µm in x-cut lithium tantalate along c, across a guide along the chip's x (Casson et al.'s unclamped $r_{13}$ = 6.92 and $r_{33}$ = 27.4 pm/V and their indices at 1558 nm): each transverse index's change from the turned tensor against $-\tfrac12 n^3 r E$ (the larger relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"the index ellipsoid to first order in $E$; J. L. Casson et al., J. Opt. Soc. Am. B 21, 1948 (2004), doi:10.1364/JOSAB.21.001948, Table 2, for the coefficients",
+            run: litao3_x_cut,
         },
     ]
 }

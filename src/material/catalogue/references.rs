@@ -341,6 +341,13 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "https://arxiv.org/abs/1911.02317",
     ),
     (
+        "casson-2004",
+        "J. L. Casson, K. T. Gahagan, D. A. Scrymgeour, R. K. Jain, J. M. Robinson, V. Gopalan, R. K. Sander, J. Opt. Soc. Am. B 21, 1948 (2004)",
+        "Electro-optic coefficients of lithium tantalate at near-infrared wavelengths",
+        "10.1364/JOSAB.21.001948",
+        "",
+    ),
+    (
         "deng-2026",
         "C. Deng et al., Light Sci. Appl. 15, 21 (2026)",
         "Self-buffered epitaxy of barium titanate on oxide insulators enables high-performance electro-optic modulators",

@@ -135,6 +135,7 @@ measurement is compared with them within its own spread.
 | `pockels/bto-angle` | barium titanate's 4mm tensor turned in the plane, 0 to 90°: r_eff against r₃₃ sin³φ + (r₁₃ + 2r₄₂) cos²φ sin φ | — | ≤ 1e-12 |
 | `pockels/bto-deng` | published: Deng et al. 2026's r₄₂ = 358 pm/V at 45°, against their measured 253 pm/V | — | 253.1 pm/V |
 | `pockels/bto-eltes` | published: Eltes et al. 2019's one-arm Vπ·L from their r_eff, n, Γ and gap, against 0.23 V·cm | — | 0.2324 V·cm |
+| `pockels/litao3-x-cut` | a uniform field in x-cut lithium tantalate along c (Casson et al. 2004's r₁₃, r₃₃ and indices at 1558 nm) against −½ n³ r E | — | ≤ 1e-4 |
 
 Each case's numbers are in the validation report (docs/validation.md).
 
@@ -183,6 +184,14 @@ domains and the field's frequency. The entry has no index model yet (no film's d
 tabulated in the papers read), so it is not yet a stack's material; its cases check the tensor's
 turn in the plane against the projection the papers use, and the one-arm Vπ·L against Eltes et
 al.'s own numbers.
+
+### Lithium tantalate
+
+Casson et al. 2004 (J. Opt. Soc. Am. B 21, 1948, doi:10.1364/JOSAB.21.001948, Table 2) measure the
+unclamped r₁₃ and r₃₃ from 632.8 to 1558 nm by the deflection of a beam in a domain-patterned
+crystal: 6.92 ± 0.07 and 27.4 ± 0.3 pm/V at 1558 nm, with the indices there (n_e = 2.1224, n_o =
+2.1186: positive and a tenth of lithium niobate's birefringence). They are the catalogue's
+`litao3`; r₂₂ and r₅₁ aren't measured, and the entry has no index model yet.
 
 ## As a job
 
@@ -237,7 +246,7 @@ gives 1.863 on the same grids, its cells sampled its own way).
 
 - Barium titanate's index against wavelength, so that a film of it can be a stack's material, and
   a cross-section's Vπ·L (Eltes et al. 2019; Deng et al. 2026).
-- Lithium tantalate: the papers in hand give its r₃₃ = 30.5 pm/V and ε₃₃ = 43 only in passing
-  (C. Wang et al., Nature 629, 784 (2024), doi:10.1038/s41586-024-07369-1, without a source), and
-  no index model; it comes with a primary measurement of its tensor and its dispersion.
+- Lithium tantalate's index against wavelength (Nakamura et al. 2002's Sellmeier fit, not in hand),
+  its r₂₂ and r₅₁, its static permittivity, and a thin-film modulator's Vπ·L (C. Wang et al.,
+  Nature 629, 784 (2024), doi:10.1038/s41586-024-07369-1).
 - The response in frequency: the travelling-wave electrodes (#418).

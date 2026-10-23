@@ -165,7 +165,7 @@ media a job gives no value ([static](static.md#as-a-job)).
 The point group is written in both notations, Hermann–Mauguin with overbars and Schoenflies:
 silicon $m\bar 3m$ ($O_h$), space group $Fd\bar 3m$; GaAs, AlGaAs, InGaP and InP $\bar 4 3m$
 ($T_d$), $F\bar 4 3m$; lithium niobate $3m$ ($C_{3v}$), $R3c$; AlN and AlGaN $6mm$ ($C_{6v}$),
-$P6_3mc$; barium titanate $4mm$ ($C_{4v}$), $P4mm$; the glasses the limiting group $\infty\infty m$ ($K_h$), on average (J. F. Nye,
+$P6_3mc$; barium titanate $4mm$ ($C_{4v}$), $P4mm$; lithium tantalate $3m$, $R3c$; the glasses the limiting group $\infty\infty m$ ($K_h$), on average (J. F. Nye,
 *Physical Properties of Crystals*, Oxford, 1957; the International Tables, Vol. A).
 
 **Centrosymmetric (inversion centre)** states a consequence and its limits. Under the inversion
@@ -296,6 +296,10 @@ congruent Table 1 is printed the right way round.
   330 GHz; Eltes et al. 2019's effective 380 pm/V from a modulator. The index at 1550 nm is a
   constant (2.26, 2.29): no film's dispersion is in hand, so the entry has no index model yet.
   4mm's pattern is 6mm's ($r_{13} = r_{23}$, $r_{33}$, $r_{42} = r_{51}$).
+- **Lithium tantalate:** Casson et al. 2004's unclamped $r_{13}$ and $r_{33}$ at 632.8, 980, 1330
+  and 1558 nm (Table 2; 6.92 ± 0.07 and 27.4 ± 0.3 pm/V at 1558 nm), from the deflection per volt
+  of a domain-patterned crystal scaled from the literature's 632.8 nm values, with the indices they
+  use as constants; $r_{22}$ and $r_{51}$ unmeasured, and no index model yet.
 - **GaAs:** $d_{14} = 119$ pm/V at 1.533 µm and 170 at 1.064 µm (Shoji, Table 11); Skauli et al.
   (2002) measure $d_{14}/d_{33}(\mathrm{LiNbO_3}) = 5.01 \pm 0.3$ at 4.1 µm. $r_{41}^S = -1.54$ and
   $-1.50$ pm/V at 1.32 and 1.52 µm (Berseth et al., with their sign convention), and the

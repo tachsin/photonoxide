@@ -87,6 +87,7 @@ pub(super) fn all() -> Vec<Entry> {
         lithium_niobate(),
         lithium_niobate_mgo(),
         barium_titanate(),
+        lithium_tantalate(),
     ]
 }
 
@@ -1787,9 +1788,9 @@ fn barium_titanate() -> Entry {
         convention: R_CONVENTION.into(),
         source: Some(src(
             "deng-2026",
-            "main text (r_c = 253 pm/V along <110>, r42 = 358 pm/V by their Supplementary Note 4)",
+            "main text (r_c = 253 pm/V along ⟨110⟩, r42 = 358 pm/V by their Supplementary Note 4)",
         )),
-        notes: "a self-buffered epitaxial film on LSAT, by a Sénarmont measurement under an AC field: the effective r_c = 253 pm/V with the field along <110> (34 pm/V along <100>) taken as r42's projection, r42 = √2 r_c, the other elements neglected; a lower bound (\"exceeding 358 pm/V\")".into(),
+        notes: "a self-buffered epitaxial film on LSAT, by a Sénarmont measurement under an AC field: the effective r_c = 253 pm/V with the field along ⟨110⟩ (34 pm/V along ⟨100⟩) taken as r42's projection, r42 = √2 r_c, the other elements neglected; a lower bound (\"exceeding 358 pm/V\")".into(),
     };
     let chelladurai = Tensor {
         kind: TensorKind::ElectroOptic,
@@ -1874,5 +1875,70 @@ fn barium_titanate() -> Entry {
         ],
         missing: coming::missing("batio3"),
         references: references(&["abel-2018", "chelladurai-2025", "deng-2026", "eltes-2019"]),
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Lithium tantalate
+// ---------------------------------------------------------------------------------------------
+
+/// Casson et al.'s unclamped r₁₃ and r₃₃ (pm/V) at one wavelength (µm) of their Table 2.
+fn casson_r(wavelength: f64, r13: (f64, f64), r33: (f64, f64)) -> Tensor {
+    Tensor {
+        kind: TensorKind::ElectroOptic,
+        label: format!("bulk, unclamped, {} nm", (wavelength * 1e4_f64).round() / 10.0),
+        point_group: "3m".into(),
+        cells: cells(
+            TensorKind::ElectroOptic,
+            "3m",
+            &[(1, 3, r13.0, Some(r13.1)), (3, 3, r33.0, Some(r33.1))],
+        ),
+        wavelength: Some(wavelength),
+        clamping: Clamping::Unclamped,
+        convention: R_CONVENTION.into(),
+        source: Some(src("casson-2004", "Table 2")),
+        notes: "a 286 µm single-domain crystal with horn-shaped domains patterned in it, by the deflection of a beam per volt, scaled from the 632.8 nm values (r33 there taken from the literature, Onuki et al. 1972) by the deflections and the curvature-adjusted indices; r22 and r51 not measured (only r_j3 with the field along z)".into(),
+    }
+}
+
+fn lithium_tantalate() -> Entry {
+    let index = |symbol: &str, name: &str, value: f64| {
+        Constant {
+        symbol: symbol.into(),
+        name: name.into(),
+        value,
+        uncertainty: None,
+        unit: String::new(),
+        conditions: "1558 nm; the curvature-adjusted index Casson et al. use, from Gervais & Fonseca's handbook chapter".into(),
+        source: src("casson-2004", "Table 2"),
+    }
+    };
+    Entry {
+        id: "litao3".into(),
+        name: "Lithium tantalate".into(),
+        formula: "LiTaO₃".into(),
+        category: Category::NonlinearCrystal,
+        summary: "A ferroelectric crystal like lithium niobate, with a much smaller (and positive) birefringence and a similar Pockels effect, made in volume as wafers for RF filters and now as thin film (LTOI).".into(),
+        crystal: Crystal {
+            notes: "uniaxial positive: n_e slightly above n_o (Casson et al.'s Table 2: 2.1224 and 2.1186 at 1558 nm), unlike lithium niobate".into(),
+            optical: OpticalClass::Uniaxial {
+                positive: true,
+                optic_axis: "z (the c axis)".into(),
+            },
+            ..trigonal_3m()
+        },
+        index: Vec::new(),
+        tensors: vec![
+            casson_r(1.558, (6.92, 0.07), (27.4, 0.3)),
+            casson_r(1.33, (6.55, 0.07), (27.7, 0.3)),
+            casson_r(0.98, (6.96, 0.07), (29.6, 0.3)),
+            casson_r(0.6328, (7.62, 0.08), (30.5, 0.3)),
+        ],
+        constants: vec![
+            index("n_e", "extraordinary index", 2.1224),
+            index("n_o", "ordinary index", 2.1186),
+        ],
+        missing: coming::missing("litao3"),
+        references: references(&["casson-2004"]),
     }
 }
