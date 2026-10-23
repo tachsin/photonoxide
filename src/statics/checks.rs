@@ -70,6 +70,50 @@ pub(crate) fn two_layers() -> (f64, f64) {
     (worst, flux_error)
 }
 
+/// A layer of every conductivity model in the catalogue, in series between 0 K below and 1 K
+/// above, each 1 µm thick and its k the model's at 300 K (the silicon film's at 0.22 µm, and as
+/// thick), on a graded grid with a line at each interface. Returns the relative error of the
+/// flux through each side against 1/Σ dᵢ/kᵢ.
+pub(crate) fn catalogue_series() -> f64 {
+    use crate::material::catalogue::conductivities;
+    let mut layers = Vec::new();
+    for c in conductivities() {
+        for m in &c.models {
+            let (k, d) = match &m.thickness {
+                Some(_) => (m.conductivity(Some(300.0), Some(0.22)), 0.22),
+                None => (m.conductivity(Some(300.0), None), 1.0),
+            };
+            layers.push((
+                format!("{} {}", c.id, m.id),
+                k.expect("300 K is in range"),
+                d,
+            ));
+        }
+    }
+    let mut section = Section::new(layers[0].0.clone());
+    let mut top = layers[0].2;
+    for (name, _, d) in &layers[1..] {
+        section.layer(top, top + d, name).expect("a layer");
+        top += d;
+    }
+    let grid = Grid::fitted(
+        [0.0, 1.0],
+        [0.0, top],
+        &Grading::new(0.25, 0.01, 1.3).expect("a grading"),
+        section.features(),
+    )
+    .expect("a grid");
+    let mut heat = Heat::new(section, grid);
+    for (name, k, _) in &layers {
+        heat.conductivity(name, Tensor::isotropic(*k));
+    }
+    heat.boundary(Side::Bottom, Boundary::Fixed(0.0))
+        .boundary(Side::Top, Boundary::Fixed(1.0));
+    let t = heat.solve().expect("a solve");
+    let flux = 1.0 / layers.iter().map(|(_, k, d)| d / k).sum::<f64>();
+    ((t.outflow(Side::Bottom) - flux).abs()).max((t.outflow(Side::Top) + flux).abs()) / flux
+}
+
 /// A slab of oxide (1.4 W/(m·K), 2 µm) heated uniformly (1 W/m over its 1 µm wide column) with
 /// both faces at 0 K, on `cells` equal rows: the largest error at the cells' centres against
 /// T = q y (L − y) / 2k (K).
@@ -483,18 +527,46 @@ pub(crate) fn soi_heater() -> (f64, f64) {
 /// Returns Pπ (mW) for each of the four variants, the strip's rise per W/m (K) of the first,
 /// and ∂n_eff/∂n_Si.
 pub(crate) fn jacques_tin_heater() -> (Vec<f64>, f64, f64) {
-    jacques_tin_heater_on(&Grading::new(0.5, 0.02, 1.2).expect("a grading"), 1.55)
+    jacques_tin_heater_on(
+        &Grading::new(0.5, 0.02, 1.2).expect("a grading"),
+        1.55,
+        TABLE_3,
+    )
 }
 
-/// [`jacques_tin_heater`] on `grading`, the cladding's index `cladding` in the mode solve.
-pub(crate) fn jacques_tin_heater_on(grading: &Grading, cladding: f64) -> (Vec<f64>, f64, f64) {
+/// Jacques et al.'s Table 3 conductivities, W/(m·K): the 220 nm silicon film, the substrate,
+/// the oxide and the TiN.
+pub(crate) const TABLE_3: [f64; 4] = [90.0, 148.0, 1.38, 28.0];
+
+/// The catalogue's conductivities for the same at 300 K: Ju & Goodson's film at 220 nm, Ho et
+/// al.'s bulk silicon and Powell et al.'s fused silica; the TiN's Table 3's, the catalogue
+/// having none.
+pub(crate) fn catalogue_conductivities() -> [f64; 4] {
+    let k = |id: &str, model: &str, d: Option<f64>| {
+        crate::material::catalogue::conductivity_checks::k(id, model, 300.0, d)
+    };
+    [
+        k("si", "ju-goodson-1999", Some(0.22)),
+        k("si", "ho-1972", None),
+        k("sio2", "powell-1966", None),
+        TABLE_3[3],
+    ]
+}
+
+/// [`jacques_tin_heater`] on `grading`, the cladding's index `cladding` in the mode solve, the
+/// conductivities `k` (as [`TABLE_3`]).
+pub(crate) fn jacques_tin_heater_on(
+    grading: &Grading,
+    cladding: f64,
+    k: [f64; 4],
+) -> (Vec<f64>, f64, f64) {
     let wavelength_um = 1.55;
     let length_um = 320.0;
     let dn_dt = 1.8e-4;
     let slope = strip_index_slope(0.5, 0.22, 3.476, cladding, wavelength_um);
     let mut rises = Vec::new();
     for (tin, from_strip_top) in JACQUES_VARIANTS {
-        let (heat, strip) = jacques_section(tin, from_strip_top, grading);
+        let (heat, strip) = jacques_section(tin, from_strip_top, grading, k);
         let t = heat.solve().expect("a solve");
         rises.push(t.mean(&strip).expect("the strip's cells"));
     }
@@ -512,7 +584,7 @@ pub(crate) fn jacques_tin_heater_on(grading: &Grading, cladding: f64) -> (Vec<f6
 pub(crate) fn jacques_rise() -> (super::Field, Shape) {
     let (tin, from_strip_top) = JACQUES_VARIANTS[0];
     let grading = Grading::new(0.5, 0.02, 1.2).expect("a grading");
-    let (heat, strip) = jacques_section(tin, from_strip_top, &grading);
+    let (heat, strip) = jacques_section(tin, from_strip_top, &grading, TABLE_3);
     (heat.solve().expect("a solve"), strip)
 }
 
@@ -523,7 +595,12 @@ const JACQUES_VARIANTS: [(f64, bool); 4] = [(0.1, true), (0.2, true), (0.1, fals
 /// Jacques et al.'s TiN heater cross-section of [`jacques_tin_heater`], one variant, on
 /// `grading`, the heater at 1 W/m, with Table 3's heat capacities (Si 2330 kg/m³ and 711
 /// J/(kg·K), TiN 5240 and 598, oxide 2203 and 709); and the strip.
-fn jacques_section(tin: f64, from_strip_top: bool, grading: &Grading) -> (Heat, Shape) {
+fn jacques_section(
+    tin: f64,
+    from_strip_top: bool,
+    grading: &Grading,
+    k: [f64; 4],
+) -> (Heat, Shape) {
     let (strip_w, strip_h, box_h) = (0.5, 0.22, 2.0);
     let (window_w, window_h) = (40.0, 18.0);
     // y = 0 at the buried oxide's top
@@ -548,10 +625,10 @@ fn jacques_section(tin: f64, from_strip_top: bool, grading: &Grading) -> (Heat, 
     )
     .expect("a grid");
     let mut heat = Heat::new(section, grid);
-    heat.conductivity("SiO2", Tensor::isotropic(1.38))
-        .conductivity("substrate", Tensor::isotropic(148.0))
-        .conductivity("Si", Tensor::isotropic(90.0))
-        .conductivity("TiN", Tensor::isotropic(28.0))
+    heat.conductivity("SiO2", Tensor::isotropic(k[2]))
+        .conductivity("substrate", Tensor::isotropic(k[1]))
+        .conductivity("Si", Tensor::isotropic(k[0]))
+        .conductivity("TiN", Tensor::isotropic(k[3]))
         .heat_capacity("SiO2", OXIDE_RHO_CP)
         .heat_capacity("substrate", SILICON_RHO_CP)
         .heat_capacity("Si", SILICON_RHO_CP)
@@ -582,7 +659,7 @@ pub(crate) fn jacques_tin_heater_times(grading: &Grading, step_s: f64) -> Vec<f6
     JACQUES_VARIANTS
         .iter()
         .map(|&(tin, from_strip_top)| {
-            let (heat, strip) = jacques_section(tin, from_strip_top, grading);
+            let (heat, strip) = jacques_section(tin, from_strip_top, grading, TABLE_3);
             let steady = heat
                 .solve()
                 .expect("a solve")
@@ -956,6 +1033,53 @@ pub(crate) fn cases() -> Vec<Case> {
                     expected: 10.2,
                     tolerance: 0.1 * 10.2,
                     error: (measured - 10.2).abs(),
+                }
+            },
+        },
+        Case {
+            id: "static/jacques-tin-heater-catalogue",
+            title: r"Static solver, heat, published: the same TiN heater with the catalogue's conductivities at 300 K in place of Table 3's: Ju & Goodson's 220 nm film (90.67 W/(m·K), Table 3's 90), Ho et al.'s bulk silicon (148.0) and Powell et al.'s fused silica (1.380) for the substrate and the oxide, the TiN's 28 still Table 3's (the catalogue has no TiN). Pπ, the four variants' midpoint, is within 1e-5 of Table 3's (1.1e-6 above it: the oxide, the same in both, carries the heat, and the film's 0.7 % barely moves the strip's rise), or the case fails (mW)",
+            tier: Tier::Published,
+            source: r"M. Jacques et al., Opt. Express 27, 10456 (2019), doi:10.1364/OE.27.010456: the simulated Pπ of the 2.0 µm TiN design, 23.9 mW (Section 2.2, Fig. 1(e)); 10 % for what the paper doesn't state",
+            run: || {
+                let mid = |pi: Vec<f64>| {
+                    let (low, high) = pi
+                        .iter()
+                        .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), &p| {
+                            (a.min(p), b.max(p))
+                        });
+                    0.5 * (low + high)
+                };
+                let grading = Grading::new(0.5, 0.02, 1.2).expect("a grading");
+                let table = mid(jacques_tin_heater_on(&grading, 1.55, TABLE_3).0);
+                let catalogue =
+                    mid(jacques_tin_heater_on(&grading, 1.55, catalogue_conductivities()).0);
+                // the two within 1e-5 of each other, or the case fails
+                let measured = if (catalogue / table - 1.0).abs() < 1e-5 {
+                    catalogue
+                } else {
+                    f64::NAN
+                };
+                Outcome {
+                    measured,
+                    expected: 23.9,
+                    tolerance: 0.1 * 23.9,
+                    error: (measured - 23.9).abs(),
+                }
+            },
+        },
+        Case {
+            id: "static/catalogue-series",
+            title: r"Static solver, heat: a layer of each of the catalogue's conductivity models at 300 K in series (bulk silicon by Ho et al. and by Kremer et al., a 220 nm silicon film, fused silica, tungsten, titanium, platinum; 1 µm each, the film 0.22), 0 K below and 1 K above, on a grid graded from 10 to 250 nm; the flux against $1/\sum_i d_i/k_i$ (relative error shown)",
+            tier: Tier::Analytic,
+            source: r"conduction through layers in series: their resistances $d_i/k_i$ add, which the scheme's harmonic interface conductivity gives exactly",
+            run: || {
+                let e = catalogue_series();
+                Outcome {
+                    measured: e,
+                    expected: 0.0,
+                    tolerance: 1e-12,
+                    error: e,
                 }
             },
         },

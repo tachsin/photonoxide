@@ -17,6 +17,11 @@
 //! Every value comes from its primary paper, read from the paper itself. A property without a
 //! number yet is listed with the paper it will come from ([`Entry::coming`]) instead of being
 //! filled from a secondary source. [`Entry::tags`] states what the crystal's symmetry allows.
+//!
+//! Beside the indices, thermal conductivities ([`Conductivity`], [`Entry::conductivity`]): bulk
+//! and thin-film silicon, fused silica and the heater metals tungsten, titanium and platinum,
+//! each model with its paper, temperature range and, for a film, thickness. The static solver
+//! ([`crate::thermal`]) takes them for a job's media it isn't given a value for.
 
 use serde::Serialize;
 
@@ -26,6 +31,8 @@ use crate::units::Wavelength;
 
 pub(crate) mod checks;
 mod coming;
+pub(crate) mod conductivity;
+pub(crate) mod conductivity_checks;
 mod entries;
 mod models;
 mod references;
@@ -37,6 +44,7 @@ pub(crate) mod thermo;
 pub(crate) mod thermo_checks;
 
 pub use coming::Coming;
+pub use conductivity::{Conductivity, ConductivityModel, conductivities, conductivity};
 pub use symmetry::{Pattern, pattern};
 pub use tags::Tag;
 
@@ -442,6 +450,12 @@ impl Entry {
     /// The default index model, if the entry has one.
     pub fn default_model(&self) -> Option<&IndexModel> {
         self.index.iter().find(|m| m.default).or(self.index.first())
+    }
+
+    /// The material's thermal conductivity, beside its index, when the catalogue has one
+    /// ([`conductivity`]).
+    pub fn conductivity(&self) -> Option<Conductivity> {
+        conductivity(&self.id)
     }
 
     /// A reference by its key.

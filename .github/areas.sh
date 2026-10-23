@@ -93,7 +93,7 @@ area fdtd \
 # sparse's multifrontal solver. Its job kind (src/job/statics.rs) is the job area's.
 area statics \
   "src/statics.rs src/statics/* src/thermal.rs src/electro.rs" \
-  "sparse" \
+  "sparse material" \
   "statics:: thermal:: electro::" "static/" ""
 
 # a change of temperature in a full-vector mode, by first-order perturbation and by re-solve

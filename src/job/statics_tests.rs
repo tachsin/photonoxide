@@ -436,6 +436,46 @@ fn a_current_job_heats_with_its_joule_power() {
 }
 
 #[test]
+fn a_heat_job_takes_the_catalogue_s_conductivities_for_the_media_it_doesnt_give() {
+    let catalogued = HEATER.replace(
+        "Si = 148.0
+SiO2 = 1.4
+",
+        "",
+    );
+    assert_ne!(catalogued, HEATER);
+    let (_, _, _, values) = result(&events("catalogue", &catalogued));
+    // the 220 nm layer a film, the substrate apart from it in bulk, the oxide fused silica's
+    let film = named(
+        &values,
+        "thermal conductivity of Si (Ju & Goodson 1999, 220 nm film)",
+    );
+    assert!((film - 90.666).abs() < 1e-3, "{film}");
+    let substrate = named(
+        &values,
+        "thermal conductivity of Si (substrate) (Ho, Powell & Liley 1972)",
+    );
+    assert!((substrate - 148.0).abs() < 1e-12, "{substrate}");
+    let oxide = named(
+        &values,
+        "thermal conductivity of SiO2 (Powell, Ho & Liley 1966)",
+    );
+    assert!((oxide - 1.38).abs() < 1e-12, "{oxide}");
+    assert!(named(&values, "imbalance") < 1e-12);
+    // the guide a little warmer than with the bulk's 148 and 1.4 everywhere: the oxide's 1.38
+    let given = named(&result(&events("given", HEATER)).3, "mean over guide");
+    let guide = named(&values, "mean over guide");
+    assert!(guide > given && guide < 1.03 * given, "{guide} {given}");
+    // a job's own value is the one taken, and the run lists only what the catalogue gave
+    assert!(
+        !result(&events("given-only", HEATER))
+            .3
+            .iter()
+            .any(|v| v.name.starts_with("thermal conductivity"))
+    );
+}
+
+#[test]
 fn what_a_static_job_refuses() {
     // each an edit of HEATER that check refuses, and the words its refusal must hold
     let nothing_holds = HEATER
@@ -450,14 +490,25 @@ fn what_a_static_job_refuses() {
             "",
         );
     for (text, says) in [
-        // a medium without a coefficient is named
+        // a medium without a coefficient, which the catalogue hasn't either, is named
         (
             HEATER.replace(
-                "SiO2 = 1.4
+                "TiN = 28.0
 ",
                 "",
             ),
-            "no value for the medium SiO2",
+            "no value for the medium TiN",
+        ),
+        // the catalogue's film of silicon is at 300 K only
+        (
+            HEATER
+                .replace(
+                    "Si = 148.0
+",
+                    "",
+                )
+                .replace("fine_nm = 20.0", "fine_nm = 20.0\ntemperature_k = 350.0"),
+            "at temperature 300 K only",
         ),
         // an unknown physics, and an unknown side condition
         (

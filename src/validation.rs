@@ -18,6 +18,7 @@ use num_complex::Complex64;
 
 use crate::circuit::components::checks as components;
 use crate::material::catalogue::checks as catalogue;
+use crate::material::catalogue::conductivity_checks;
 use crate::material::catalogue::thermo_checks;
 use crate::material::{self, Model, Table};
 use crate::mode::Polarization;
@@ -199,6 +200,48 @@ pub fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: "H. H. Li, doi:10.1063/1.555624, Eq. (22) and Table 2's ±0.15e-4; B. J. Frey et al., doi:10.1117/12.672850, Table 4",
             run: thermo_checks::li_dndt_join,
+        },
+        Case {
+            id: "material/conductivity-tables",
+            title: r"Thermal conductivity tables between their rows: Ho et al.'s silicon, tungsten, titanium and platinum at 223.2 to 973.2 K and Powell et al.'s fused quartz at 273 K, against the catalogue's power law in $T$ between the rows at whole hundreds of kelvin (and 250 K), 55 rows (largest relative deviation shown)",
+            tier: Tier::Published,
+            source: "C. Y. Ho, R. W. Powell, P. E. Liley, J. Phys. Chem. Ref. Data 1, 279 (1972), doi:10.1063/1.3253100, the recommended values (pp. 379, 394, 407, 408; ±3 to ±10 %); R. W. Powell, C. Y. Ho, P. E. Liley, NSRDS-NBS 8 (1966), doi:10.6028/NBS.NSRDS.8, Table 14 (±4 %)",
+            run: conductivity_checks::tables_between,
+        },
+        Case {
+            id: "material/silicon-kremer-ho",
+            title: r"Bulk silicon's thermal conductivity at 300 K: Kremer et al.'s fit to natural silicon, $1/\kappa = 1.60 \times 10^{-5} T + 2.37 \times 10^{-8} T^2$ (144.2 W/(m·K)), below Ho et al.'s recommended 148 by the 3 % the paper finds below the standard values (fraction shown)",
+            tier: Tier::Published,
+            source: "R. K. Kremer et al., Solid State Commun. 131, 499 (2004), doi:10.1016/j.ssc.2004.06.022: \"about 3 % smaller than the standard values\" at room temperature; ±1 %",
+            run: conductivity_checks::kremer_below_ho,
+        },
+        Case {
+            id: "material/silicon-film-ju-goodson",
+            title: r"Silicon films' conductivity along them at 300 K: Sondheimer's reduction for diffuse surfaces with Ju & Goodson's effective mean free path of 0.3 µm, on Ho et al.'s 148 W/(m·K), against their measured films of 143, 154, 240 and 247 nm (Fig. 2, read off the plot; ±15 % error bars), within 10 %; it falls 24 and 26 % below their 78 and 85 nm films (largest relative deviation from 140 nm shown)",
+            tier: Tier::Published,
+            source: "Y. S. Ju, K. E. Goodson, Appl. Phys. Lett. 74, 3005 (1999), doi:10.1063/1.123994, Fig. 2 and p. 3007",
+            run: conductivity_checks::ju_goodson_films,
+        },
+        Case {
+            id: "material/silicon-film-220",
+            title: r"A 220 nm silicon film's conductivity from the film model, against the 90 W/(m·K) Jacques et al. take from Asheghi et al.'s measured SOI layers (W/(m·K) shown)",
+            tier: Tier::Published,
+            source: "M. Jacques et al., Opt. Express 27, 10456 (2019), doi:10.1364/OE.27.010456, Table 3 (their ref. 32: M. Asheghi et al., J. Heat Transfer 120, 30 (1998)); 5 %",
+            run: conductivity_checks::film_220,
+        },
+        Case {
+            id: "material/silicon-film-sondheimer-limits",
+            title: r"Sondheimer's reduction in closed form, $1 - \frac{3}{2\delta}(\frac14 - E_3(\delta) + E_5(\delta))$, against its thick-film limit $1 - 3/(8\delta)$ at $\delta = 100$ and its thin-film limit $\frac{3\delta}{4}(\ln\frac1\delta + 1 - \gamma) + \frac{\delta^2}{2}$ at $\delta = 10^{-3}$ (larger relative deviation shown)",
+            tier: Tier::Analytic,
+            source: r"the exponential integrals' expansions: $E_n(\delta)$ is $e^{-\delta}$ small for large $\delta$, and its series about 0 gives the thin film's terms to order $\delta^3 \ln \delta$",
+            run: conductivity_checks::sondheimer_limits,
+        },
+        Case {
+            id: "material/silicon-film-sondheimer-order",
+            title: r"Sondheimer's integral for a 220 nm film by the midpoint rule on 64 and 128 points approaches the closed form at second order (order shown)",
+            tier: Tier::Analytic,
+            source: r"the midpoint rule's error is $\frac{h^2}{24} \int_0^1 f''$ to leading order, its integrand smooth on $[0, 1]$",
+            run: conductivity_checks::sondheimer_order,
         },
         Case {
             id: "material/linbo3-zelmon-633",

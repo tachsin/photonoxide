@@ -9,8 +9,12 @@
 //!
 //! - `physics = "heat"`: `[task.thermal_conductivity]` gives each medium's k in W/(m·K), by its
 //!   name (a catalogue material's, as `Si` and `SiO2` in the presets, or a region's); a number,
-//!   or `[across, up]`. `[[task.heater]]` rectangles give W/m, `[[task.sink]]` rectangles hold a
-//!   temperature.
+//!   or `[across, up]`. A medium it doesn't name takes the catalogue's conductivity
+//!   ([`crate::material::catalogue::conductivity`]: Si, SiO2, W, Ti, Pt) at `temperature_k`
+//!   (300 K by default): a stack layer's material with a film model (silicon) the film's at
+//!   that layer's thickness, and a substrate of the same material, drawn apart as
+//!   `"Si (substrate)"`, the bulk's. The run records each value it took and where from.
+//!   `[[task.heater]]` rectangles give W/m, `[[task.sink]]` rectangles hold a temperature.
 //! - `physics = "electrostatic"`: `[task.permittivity]` the relative static permittivities;
 //!   `[[task.conductor]]` rectangles held at a potential (V), whose capacitance matrix (F/m) the
 //!   run records.
@@ -327,6 +331,9 @@ pub(super) struct StaticTask {
     body: Vec<toml::Table>,
     #[serde(default)]
     thermal_conductivity: BTreeMap<String, CoefficientSpec>,
+    /// The temperature (K) at which a medium [task.thermal_conductivity] gives no value takes
+    /// the catalogue's conductivity; 300 K by default.
+    temperature_k: Option<f64>,
     #[serde(default)]
     electrical_conductivity: BTreeMap<String, CoefficientSpec>,
     #[serde(default)]
@@ -362,6 +369,124 @@ struct Setup {
     probes: Vec<(String, Shape)>,
     held: Vec<String>,
     transient: Option<Transient>,
+    /// The conductivities the catalogue gave, for the record.
+    catalogued: Vec<StaticValue>,
+}
+
+/// The name a substrate takes in a heat problem when its material is also a film's, whose
+/// conductivity differs: the material's name and this.
+const SUBSTRATE: &str = " (substrate)";
+
+/// The conductivities the catalogue gives a heat problem's media that
+/// `[task.thermal_conductivity]` doesn't: each medium's, W/(m·K), with the model it comes from;
+/// and the substrate's material, when the substrate is to be drawn as a medium of its own
+/// ([`SUBSTRATE`]) because that material is also a film's.
+struct Catalogued {
+    values: Vec<(String, f64, String)>,
+    substrate: Option<String>,
+}
+
+/// [`Catalogued`] for the media `media` of a cut of `structure`. A medium that is the material
+/// of a stack's layer, and has a film model in the catalogue (silicon), takes the film's
+/// conductivity at that layer's thickness; its substrate, when of the same material, the bulk's.
+fn catalogued(
+    task: &StaticTask,
+    structure: &crate::stack::Structure,
+    media: &[String],
+) -> Result<Catalogued> {
+    use crate::material::catalogue;
+    let kelvin = task.temperature_k.unwrap_or(300.0);
+    if !(kelvin.is_finite() && kelvin > 0.0) {
+        return Err(task_error(format!(
+            "temperature_k must be above 0 K, got {kelvin}"
+        )));
+    }
+    let stack = structure.stack();
+    let mut out = Catalogued {
+        values: Vec::new(),
+        substrate: None,
+    };
+    let model_error = |m: &str, e: crate::Error| {
+        task_error(format!(
+            "[task.thermal_conductivity] has no value for the medium {m}, and the catalogue's \
+             can't be taken: {e}"
+        ))
+    };
+    for m in media {
+        if task.thermal_conductivity.contains_key(m) {
+            continue;
+        }
+        let Some(c) = catalogue::conductivity(m) else {
+            let known: Vec<String> = catalogue::conductivities()
+                .into_iter()
+                .map(|c| c.formula.replace('₂', "2"))
+                .collect();
+            return Err(task_error(format!(
+                "[task.thermal_conductivity] has no value for the medium {m} (the section holds \
+                 {}), and the catalogue has no conductivity for it (it has {})",
+                media.join(", "),
+                known.join(", ")
+            )));
+        };
+        let bulk = c.default_model();
+        let films: Vec<f64> = stack
+            .layers()
+            .iter()
+            .filter(|l| l.material.name() == m)
+            .map(|l| l.thickness.to_um())
+            .collect();
+        let Some((film, &d)) = c.film().zip(films.first()) else {
+            let k = bulk
+                .conductivity(Some(kelvin), None)
+                .map_err(|e| model_error(m, e))?;
+            out.values.push((m.clone(), k, bulk.name.clone()));
+            continue;
+        };
+        let ambiguous = |why: &str| {
+            task_error(format!(
+                "[task.thermal_conductivity] has no value for the medium {m}, whose conductivity \
+                 the catalogue gives for a film by its thickness, and {why}: give {m} a value"
+            ))
+        };
+        if films.iter().any(|t| (t - d).abs() > 1e-9) {
+            return Err(ambiguous(
+                "the stack has layers of it of different thicknesses",
+            ));
+        }
+        let elsewhere = stack.cladding().name() == m
+            || stack.layers().iter().any(|l| l.background.name() == m)
+            || structure
+                .bodies()
+                .iter()
+                .any(|(_, b)| matches!(b, crate::stack::Medium::Material(b) if b.name() == m));
+        if elsewhere {
+            return Err(ambiguous("it also fills the stack in bulk"));
+        }
+        if stack.substrate().name() == m {
+            if !structure.bodies().is_empty() {
+                return Err(ambiguous(
+                    "it is the substrate too, which a structure with bodies can't draw apart",
+                ));
+            }
+            let substrate = format!("{m}{SUBSTRATE}");
+            if !task.thermal_conductivity.contains_key(&substrate) {
+                let k = bulk
+                    .conductivity(Some(kelvin), None)
+                    .map_err(|e| model_error(&substrate, e))?;
+                out.values.push((substrate, k, bulk.name.clone()));
+            }
+            out.substrate = Some(m.clone());
+        }
+        let k = film
+            .conductivity(Some(kelvin), Some(d))
+            .map_err(|e| model_error(m, e))?;
+        out.values.push((
+            m.clone(),
+            k,
+            format!("{}, {} nm film", film.name, (d * 1e4).round() / 10.0),
+        ));
+    }
+    Ok(out)
 }
 
 fn sides(spec: &BoundarySpec) -> Result<Vec<(Side, Boundary)>> {
@@ -392,15 +517,20 @@ fn coefficients(
                 section.media().join(", ")
             ))
         })?;
-        let t = t.tensor();
-        if !(t.xx.is_finite() && t.yy.is_finite() && t.xx > 0.0 && t.yy > 0.0) {
-            return Err(task_error(format!(
-                "[task.{what}] {m} must be positive and finite"
-            )));
-        }
-        out.push((m.clone(), t));
+        out.push((m.clone(), checked(m, t, what)?));
     }
     Ok(out)
+}
+
+/// The coefficient `spec` gives the medium `m`, positive and finite.
+fn checked(m: &str, spec: &CoefficientSpec, what: &str) -> Result<Tensor> {
+    let t = spec.tensor();
+    if !(t.xx.is_finite() && t.yy.is_finite() && t.xx > 0.0 && t.yy > 0.0) {
+        return Err(task_error(format!(
+            "[task.{what}] {m} must be positive and finite"
+        )));
+    }
+    Ok(t)
 }
 
 fn setup(job: &Job) -> Result<Setup> {
@@ -429,18 +559,23 @@ fn setup(job: &Job) -> Result<Setup> {
     if !cut.is_finite() {
         return Err(task_error("cut_x_um must be a number"));
     }
-    let mut section =
+    let cut_section =
         Section::cut(&structure, Cut::X(cut)).map_err(|e| task_error(e.to_string()))?;
+    let regions = |section: &mut Section| -> Result<()> {
+        for (k, r) in task.region.iter().enumerate() {
+            let shape = r.shape("region", k)?;
+            let medium = r
+                .medium
+                .as_deref()
+                .ok_or_else(|| task_error(format!("[[task.region]] #{} needs a medium", k + 1)))?;
+            section.draw(shape, medium);
+        }
+        Ok(())
+    };
+    let mut section = cut_section.clone();
     let mut features = Features::new();
     features.extend(section.features());
-    for (k, r) in task.region.iter().enumerate() {
-        let shape = r.shape("region", k)?;
-        let medium = r
-            .medium
-            .as_deref()
-            .ok_or_else(|| task_error(format!("[[task.region]] #{} needs a medium", k + 1)))?;
-        section.draw(shape, medium);
-    }
+    regions(&mut section)?;
     features.extend(section.features());
     for (what, list) in [
         ("heater", &task.heater),
@@ -485,12 +620,48 @@ fn setup(job: &Job) -> Result<Setup> {
         probes,
         held: Vec::new(),
         transient: None,
+        catalogued: Vec::new(),
     };
-    let heat = |section: &Section| -> Result<Heat> {
-        let mut heat = Heat::new(section.clone(), grid.clone());
-        for (m, t) in coefficients(section, &task.thermal_conductivity, "thermal_conductivity")? {
-            heat.conductivity(&m, t);
+    // the heat problem's section, its media's conductivities (the job's, else the catalogue's)
+    // and what the catalogue gave
+    let heat = || -> Result<(Heat, Section, Vec<StaticValue>)> {
+        let found = catalogued(&task, &structure, section.media())?;
+        let heat_section = match &found.substrate {
+            None => section.clone(),
+            Some(m) => {
+                // the substrate apart from the film of the same material, under the regions
+                let mut s = cut_section.clone();
+                s.layer(task.z_um[0].min(0.0) - 1.0, 0.0, &format!("{m}{SUBSTRATE}"))?;
+                regions(&mut s)?;
+                s
+            }
+        };
+        let mut heat = Heat::new(heat_section.clone(), grid.clone());
+        for m in heat_section.media() {
+            let t = match task.thermal_conductivity.get(m) {
+                Some(spec) => checked(m, spec, "thermal_conductivity")?,
+                None => {
+                    let (_, k, _) = found
+                        .values
+                        .iter()
+                        .find(|(n, _, _)| n == m)
+                        .expect("catalogued gives every medium the job doesn't");
+                    Tensor::isotropic(*k)
+                }
+            };
+            heat.conductivity(m, t);
         }
+        let record = found
+            .values
+            .iter()
+            .map(|(m, k, from)| {
+                value(
+                    format!("thermal conductivity of {m} ({from})"),
+                    *k,
+                    "W/(m*K)",
+                )
+            })
+            .collect();
         for &(side, b) in &boundaries {
             heat.boundary(side, b);
         }
@@ -502,7 +673,7 @@ fn setup(job: &Job) -> Result<Setup> {
             let t = s.need("sink", k, "temperature", s.temperature)?;
             heat.sink(s.shape("sink", k)?, t);
         }
-        Ok(heat)
+        Ok((heat, heat_section, record))
     };
     // something must hold the solution's level: a fixed or convective side, or a held rectangle
     let held_side = boundaries
@@ -526,17 +697,27 @@ fn setup(job: &Job) -> Result<Setup> {
     match task.physics.as_str() {
         "heat" => {
             setup.held = (1..=task.sink.len()).map(|k| format!("sink {k}")).collect();
-            let mut h = heat(&section)?;
+            let (mut h, heat_section, record) = heat()?;
+            setup.catalogued = record;
             if let Some(spec) = &task.transient {
                 setup.transient = Some(spec.transient()?);
-                for m in section.media() {
-                    let c = task.heat_capacity.get(m).copied().ok_or_else(|| {
-                        task_error(format!(
-                            "[task.heat_capacity] has no value for the medium {m} (the section \
-                             holds {}), which a transient needs",
-                            section.media().join(", ")
-                        ))
-                    })?;
+                for m in heat_section.media() {
+                    // a substrate drawn apart takes its material's, unless given its own
+                    let c = task
+                        .heat_capacity
+                        .get(m)
+                        .or_else(|| {
+                            m.strip_suffix(SUBSTRATE)
+                                .and_then(|n| task.heat_capacity.get(n))
+                        })
+                        .copied()
+                        .ok_or_else(|| {
+                            task_error(format!(
+                                "[task.heat_capacity] has no value for the medium {m} (the \
+                                 section holds {}), which a transient needs",
+                                heat_section.media().join(", ")
+                            ))
+                        })?;
                     if !(c.is_finite() && c > 0.0) {
                         return Err(task_error(format!(
                             "[task.heat_capacity] {m} must be positive and finite"
@@ -592,7 +773,9 @@ fn setup(job: &Job) -> Result<Setup> {
                 .collect();
             setup.current = Some(c);
             if !task.thermal_conductivity.is_empty() {
-                setup.heat = Some(heat(&section)?);
+                let (h, _, record) = heat()?;
+                setup.heat = Some(h);
+                setup.catalogued = record;
             }
         }
         other => {
@@ -820,6 +1003,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             }
         }
         values.extend(heat_values);
+        values.extend(setup.catalogued.iter().cloned());
         if let Some(transient) = &setup.transient {
             in_time(&setup, &h, transient, run, stop, &mut values)?;
         }

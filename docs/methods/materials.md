@@ -81,6 +81,15 @@ and its silica. A temperature field, uniform or a heat solve's, moves a mode by 
 perturbation or a re-solve ([fields](fields.md#a-change-of-permittivity-perturbation-and-re-solve)):
 a silicon wire's $dn_\mathrm{eff}/dT$ against Dwivedi et al.'s measurements is there.
 
+## Thermal conductivity
+
+Beside each index the catalogue keeps the material's thermal conductivity, with the same
+provenance (source, validity range, temperature): bulk silicon (Ho, Powell & Liley 1972, 148
+W/(m·K) at 300 K; Kremer et al. 2004), a silicon film by its thickness (Ju & Goodson 1999, 90.7
+W/(m·K) at 220 nm), fused silica (Powell, Ho & Liley 1966, 1.38) and the heater metals W, Ti and
+Pt. A heat job's media take them unless the job gives a value
+([the catalogue](catalogue.md#thermal-conductivities)).
+
 ## Validation
 
 - Silicon passes through Li's table at all 35 wavelengths (to 1e-12: the spline is exact at its

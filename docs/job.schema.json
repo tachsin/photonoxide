@@ -7349,6 +7349,10 @@
         "step_nm": {
           "type": "number"
         },
+        "temperature_k": {
+          "description": "The temperature (K) at which a medium [task.thermal_conductivity] gives no value takes the catalogue's conductivity; 300 K by default.",
+          "type": "number"
+        },
         "thermal_conductivity": {
           "additionalProperties": {
             "$ref": "#/$defs/CoefficientSpec"

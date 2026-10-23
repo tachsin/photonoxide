@@ -49,6 +49,8 @@ validation:
   - static/transient-rc-step
   - static/transient-rc-cutoff
   - static/jacques-tin-heater-time
+  - static/jacques-tin-heater-catalogue
+  - static/catalogue-series
 ---
 
 One solver serves the static problems of 0.6 (ROADMAP's "Static solver", issue #412): the
@@ -275,8 +277,14 @@ similar"). Steps half as long move the times by 3e-5 of themselves, and a grid t
 `cut_x_um` over the window `y_um` × `z_um`, fits the grid (`step_nm`, `fine_nm`, `growth`), and
 solves `physics = "heat"`, `"electrostatic"` or `"current"` (with its Joule heat when a thermal
 conductivity is given). Each medium's coefficient comes from the job by name (`Si`, `SiO2`, or a
-region's): the catalogue has no thermal or static data yet, which 0.6's P3 (#414) brings with its
-provenance. The run records the field on pixels of about the finest step, the grid and the numbers
+region's). A heat job's medium without a value takes the catalogue's thermal conductivity
+([catalogue](catalogue.md#thermal-conductivities): Si, SiO2, W, Ti, Pt) at `temperature_k`, 300 K
+by default: a stack layer's silicon the film's at that layer's thickness (90.7 W/(m·K) for 220
+nm), its substrate, drawn apart as `Si (substrate)`, the bulk's (148), the oxide fused silica's
+(1.38). A job's own value always wins, and the run records each value the catalogue gave with
+its model. Jacques et al.'s heater with the catalogue's values in place of Table 3's gives the
+same Pπ to 1.1e-6 (`static/jacques-tin-heater-catalogue`); a layer of each model in series
+conducts as its closed form says (`static/catalogue-series`). The run records the field on pixels of about the finest step, the grid and the numbers
 (probes' means, held regions, sides, the imbalance, a capacitance matrix or a Joule power), and
 replays to the bit.
 

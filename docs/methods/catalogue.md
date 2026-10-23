@@ -58,6 +58,14 @@ papers:
     doi: 10.1063/1.4800554
   - cite: "R. Ferrini et al., Eur. Phys. J. B 27, 449 (2002)"
     doi: 10.1140/epjb/e2002-00177-x
+  - cite: "C. Y. Ho, R. W. Powell, P. E. Liley, J. Phys. Chem. Ref. Data 1, 279 (1972)"
+    doi: 10.1063/1.3253100
+  - cite: "R. K. Kremer et al., Solid State Commun. 131, 499 (2004)"
+    doi: 10.1016/j.ssc.2004.06.022
+  - cite: "Y. S. Ju, K. E. Goodson, Appl. Phys. Lett. 74, 3005 (1999)"
+    doi: 10.1063/1.123994
+  - cite: "R. W. Powell, C. Y. Ho, P. E. Liley, NSRDS-NBS 8 (1966)"
+    doi: 10.6028/NBS.NSRDS.8
   - cite: "E. Z. Ulsig et al., Opt. Express 32, 36986 (2024)"
     doi: 10.1364/OE.523615
   - cite: "International Tables for Crystallography, Vol. A (2016)"
@@ -98,6 +106,12 @@ validation:
   - material/aln-rigler-maie
   - material/ingap-ferrini-table-consistency
   - material/ingap-ferrini-table-knots
+  - material/conductivity-tables
+  - material/silicon-kremer-ho
+  - material/silicon-film-ju-goodson
+  - material/silicon-film-220
+  - material/silicon-film-sondheimer-limits
+  - material/silicon-film-sondheimer-order
 ---
 
 `material::catalogue` lists materials with everything a design needs about them, each number
@@ -109,6 +123,42 @@ the paper it will come from (`Entry::coming`), rather than filled from a compila
 also has tags (`Entry::tags`): what the crystal is and what its symmetry allows, each a statement
 with its physics, caveats and sources. The studio's Materials page shows it all, the tags and what
 is coming as hover cards.
+
+## Thermal conductivities
+
+Beside the indices, `catalogue::conductivities()` has each material's thermal conductivity
+(`Entry::conductivity`, or `catalogue::conductivity("Si")` by id or formula), every model with its
+paper, temperature range, stated accuracy and, for a film, thickness; `ConductivityModel::
+conductivity(T, d)` refuses a value outside them. The static solver's heat jobs take them for the
+media a job gives no value ([static](static.md#as-a-job)).
+
+| Material | Model | Range | At 300 K, W/(m·K) | Source |
+|---|---|---|---|---|
+| Si, bulk (default) | recommended values | 200–1000 K (±5 % from 300 K; below, typical values) | 148 | Ho, Powell & Liley 1972, p. 394 |
+| Si, bulk | $1/\kappa = 1.60 \times 10^{-5} T + 2.37 \times 10^{-8} T^2$ | 220–320 K | 144.2 | Kremer et al. 2004, natural Si |
+| Si, film | Sondheimer's reduction, $\Lambda = 0.3$ µm, on the bulk's 148 | 300 K; 74 nm–10 µm | 90.7 at 220 nm | Ju & Goodson 1999 |
+| SiO₂ | recommended values, clear fused quartz | 100–900 K (±4 % to 500 K) | 1.38 | Powell, Ho & Liley 1966, Table 14 |
+| W | recommended values | 200–1000 K (±3 %) | 174 | Ho et al. 1972, p. 408 |
+| Ti | recommended values, polycrystalline | 200–1000 K (±10 %) | 21.9 | Ho et al. 1972, p. 407 |
+| Pt | recommended values | 200–1000 K (±3 %) | 71.6 | Ho et al. 1972, p. 379 |
+
+- **Tables.** Between the rows at whole hundreds of kelvin (and 250 K) $k$ is a power law of $T$,
+  $k_i (T/T_i)^{\ln(k_{i+1}/k_i)/\ln(T_{i+1}/T_i)}$; the tables' rows between them (223.2 …
+  973.2 K) check it. The metals' are the pure, annealed metals': a deposited film, with its grain
+  boundaries and impurities, conducts less.
+- **Films.** A monocrystalline film conducts less along it than bulk, its phonons scattered at
+  its surfaces. Ju & Goodson measured SOI films of 74 to 240 nm at 300 K and found the effective
+  mean free path of the phonons that carry the heat near 0.3 µm: the thickness at which
+  Sondheimer's reduction for diffuse surfaces, $1 - \frac{3}{2\delta}\int_1^\infty (t^{-3} -
+  t^{-5})(1 - e^{-\delta t})\,dt$ with $\delta = d/\Lambda$, matches their data. In closed form it
+  is $1 - \frac{3}{2\delta}(\frac14 - E_3(\delta) + E_5(\delta))$, the $E_n$ exponential
+  integrals ($E_1$ by its series below 1 and a continued fraction above, the rest by
+  recurrence). The model gives the conductivity along the film and takes it for across too, where
+  it is lower still; at 300 K only, as the paper measured.
+- **Not here yet.** TiN, whose films' conductivity depends on how they are made (Jacques et al.'s
+  Table 3 takes 28 W/(m·K) from a handbook): a heater job gives it. Glassbrenner & Slack 1964
+  (doi:10.1103/PhysRev.134.A1058), silicon from 3 K to the melting point, isn't open; Ho et al.'s
+  recommended values, a review of the measurements, stand in for it.
 
 ## Tags
 
@@ -393,3 +443,12 @@ read from the paper itself, which isn't in hand.
   independent multi-angle ellipsometry to 5.6e-3 (each ±0.01).
 - InGaP: Ferrini's Table 3 is self-consistent ($\varepsilon_1 = n^2 - k^2$, $\varepsilon_2 = 2nk$
   to 5.7e-3), and the catalogue passes through it.
+- Thermal conductivities: the power law between the tables' rows gives their 55 rows in between
+  (Ho et al.'s Si, W, Ti and Pt, Powell et al.'s fused quartz) within 0.81 %, inside the tables'
+  ±3 to ±10 %. Kremer et al.'s natural silicon is 2.5 % below Ho et al.'s at 300 K, as the paper
+  finds about 3 % below the standard values. The film model is within 10.2 % of Ju & Goodson's
+  measured 143 to 247 nm films (read off their Fig. 2, ±15 % error bars), and 24 to 26 % below
+  their 78 and 85 nm films, which the paper's own longitudinal-phonon curve also falls below; at
+  220 nm it gives 90.7 W/(m·K), against the 90 Jacques et al. take from Asheghi et al.'s
+  measurements. Sondheimer's closed form meets its thick- and thin-film limits within 1e-5, and
+  the midpoint rule on its integral approaches it at order 2.00.

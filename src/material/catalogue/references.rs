@@ -298,6 +298,34 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "10.1140/epjb/e2002-00177-x",
         "",
     ),
+    (
+        "ho-powell-liley-1972",
+        "C. Y. Ho, R. W. Powell, P. E. Liley, J. Phys. Chem. Ref. Data 1, 279 (1972)",
+        "Thermal conductivity of the elements",
+        "10.1063/1.3253100",
+        "https://srd.nist.gov/jpcrdreprint/1.3253100.pdf",
+    ),
+    (
+        "kremer-2004",
+        "R. K. Kremer, K. Graf, M. Cardona, G. G. Devyatykh, A. V. Gusev, A. M. Gibin, A. V. Inyushkin, A. N. Taldenkov, H.-J. Pohl, Solid State Commun. 131, 499 (2004)",
+        "Thermal conductivity of isotopically enriched 28Si: revisited",
+        "10.1016/j.ssc.2004.06.022",
+        "https://arxiv.org/abs/cond-mat/0407060",
+    ),
+    (
+        "ju-goodson-1999",
+        "Y. S. Ju, K. E. Goodson, Appl. Phys. Lett. 74, 3005 (1999)",
+        "Phonon scattering in silicon films with thickness of order 100 nm",
+        "10.1063/1.123994",
+        "",
+    ),
+    (
+        "powell-ho-liley-1966",
+        "R. W. Powell, C. Y. Ho, P. E. Liley, NSRDS-NBS 8, National Bureau of Standards (1966)",
+        "Thermal conductivity of selected materials",
+        "10.6028/NBS.NSRDS.8",
+        "https://nvlpubs.nist.gov/nistpubs/Legacy/NSRDS/nbsnsrds8.pdf",
+    ),
 ];
 
 /// The papers with these keys.
