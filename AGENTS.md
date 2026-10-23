@@ -55,6 +55,7 @@ cargo clippy -p photonoxide-python --all-targets -- -D warnings   # the Python p
 just python-test                                       # the Python package: python/.venv by uv, maturin develop, pytest
 PHOTONOXIDE_VALIDATION_CASES="circuit/ components/" cargo test --release --test validation_report -- --ignored   # some cases' rows
 bash .github/full-suite.sh                              # the full suite here, as the release PR runs it (--fast: no release build)
+bash .github/codebase-report.sh                         # the codebase report: size by area and the download against the last release, as CI posts it on the release PR
 git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh   # what CI runs for a branch
 cargo semver-checks check-release -p photonoxide --baseline-rev origin/main   # a branch's own breaks (CI's Semver job on a PR)
 cargo semver-checks check-release -p photonoxide        # the public API against the latest release (the release PR's check)

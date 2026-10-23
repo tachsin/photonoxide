@@ -228,6 +228,8 @@ ignored() {
     .github/dependabot.yml | .github/ISSUE_TEMPLATE/* | .github/scripts/*) return 0 ;;
     # the full suite on your own machine, the hooks that start it, and the justfile's recipes
     .github/full-suite.sh | .github/hooks/* | justfile) return 0 ;;
+    # the codebase report on the release PR, which its own workflow runs
+    .github/codebase-report.sh | .github/workflows/codebase-report.yml) return 0 ;;
     # this workflow and the map run everything; the others run as themselves
     .github/workflows/ci.yml | .github/areas.sh) return 1 ;;
     .github/workflows/*) return 0 ;;

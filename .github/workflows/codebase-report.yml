@@ -1,0 +1,87 @@
+name: Codebase report
+
+# The codebase's size by area against the last release, and what the program's download is made
+# of (.github/codebase-report.sh), as one comment on release-plz's open release PR, updated after
+# every merge to main. Nothing is posted while no release PR is open.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+# the latest merge's report replaces the one before
+concurrency:
+  group: codebase-report
+  cancel-in-progress: true
+
+jobs:
+  report:
+    name: Codebase report
+    if: ${{ github.repository_owner == 'tachsin' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: The release PR
+        id: pr
+        run: |
+          n=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --json number,headRefName \
+            --jq '[.[] | select(.headRefName | startswith("release-plz-"))][0].number // empty')
+          echo "number=$n" >>"$GITHUB_OUTPUT"
+          if [ -z "$n" ]; then echo "No release PR is open: nothing to post."; fi
+      - if: steps.pr.outputs.number != ''
+        uses: actions/checkout@v7
+        with:
+          # the history and tags, to compare with the last release
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      # the window's front end, built again only when the studio's own files change
+      - if: steps.pr.outputs.number != ''
+        id: dist
+        uses: actions/cache@v6
+        with:
+          path: studio/dist
+          key: codebase-report-dist-${{ hashFiles('studio/src/**', 'studio/index.html', 'studio/package.json', 'studio/pnpm-lock.yaml', 'studio/vite.config.ts', 'studio/svelte.config.js', 'studio/tsconfig.json') }}
+      - if: steps.pr.outputs.number != '' && steps.dist.outputs.cache-hit != 'true'
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: studio/package.json
+      - if: steps.pr.outputs.number != '' && steps.dist.outputs.cache-hit != 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: studio/pnpm-lock.yaml
+      - if: steps.pr.outputs.number != '' && steps.dist.outputs.cache-hit != 'true'
+        name: The front end
+        working-directory: studio
+        # vite's build alone: CI's studio job lints and type-checks it
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec vite build
+      # cargo package only, for the crate's size
+      - if: steps.pr.outputs.number != ''
+        uses: dtolnay/rust-toolchain@stable
+      - if: steps.pr.outputs.number != ''
+        uses: Swatinem/rust-cache@v2
+      - if: steps.pr.outputs.number != ''
+        name: The report
+        run: bash .github/codebase-report.sh | tee "$RUNNER_TEMP/codebase-report.md" >>"$GITHUB_STEP_SUMMARY"
+      - if: steps.pr.outputs.number != ''
+        name: The comment on the release PR
+        env:
+          PR: ${{ steps.pr.outputs.number }}
+        run: |
+          id=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+            --jq '.[] | select(.body | startswith("<!-- codebase-report -->")) | .id' | head -n 1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F "body=@$RUNNER_TEMP/codebase-report.md" --jq .html_url
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F "body=@$RUNNER_TEMP/codebase-report.md" --jq .html_url
+          fi

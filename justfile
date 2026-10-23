@@ -173,6 +173,11 @@ suite:
 suite-fast:
     bash .github/full-suite.sh --fast
 
+# the codebase report against the last release, in Markdown, as CI posts it on the release PR
+# (needs bash; run `pnpm exec vite build` in studio/ first to measure the front end)
+codebase-report:
+    bash .github/codebase-report.sh
+
 # run the full suite after every merge and rebase, and the lints before every push
 hooks:
     git config core.hooksPath .github/hooks
