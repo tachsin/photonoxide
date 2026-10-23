@@ -101,7 +101,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "correction/gurses-cutoff",
             title: r"Crosstalk correction, published: Gurses et al.'s reduced shifter (Fig. 18: the heater $R/2$ to the ambient and $2R$ to the waveguide, the waveguide $R/2$ with $C_W$) at their extracted $G = 1/R$ = 62.8 µW/K and $C_W$ = 440 pJ/K, its compact model from the heater to the waveguide by its modes; the −3 dB frequency (kHz)",
             tier: Tier::Published,
-            source: r"V. Gurses et al., IEEE J. Sel. Top. Quantum Electron. 28(6), 1 (2022), doi:10.1109/JSTQE.2022.3189965, Section II.C: 56.8 kHz measured, from which they extract $C_W$; 5% for their Eq. (33), which leaves out the heater node's own divider ($C_W = 2.5\,G\tau$ where the network gives $2.4\,G\tau$)",
+            source: r"V. Gurses et al., IEEE J. Sel. Top. Quantum Electron. 28(6), 1 (2022), doi:10.1109/JSTQE.2022.3189965, Section II.C: 56.8 kHz measured, from which they extract $C_W$; 5% for their Eq. (33), which leaves out the heater node's own divider ($C_W = 2.5\thinspace G\tau$ where the network gives $2.4\thinspace G\tau$)",
             run: || {
                 let m = row(1, gurses::G_SS).model(&[0], &[1]).expect(OK);
                 outcome(
