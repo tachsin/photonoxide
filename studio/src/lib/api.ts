@@ -126,6 +126,14 @@ export interface JobCheck {
   model: Record<string, unknown> | null;
 }
 
+/** What an expression may use: the language's words and the parameters in scope, as the library evaluates them. */
+export interface ExpressionScope {
+  words: { name: string; kind: "function" | "unit" | "constant" | "coordinate"; usage: string; doc: string }[];
+  /** Each value in µm for a length, radians for an angle; null when the table doesn't evaluate. */
+  parameters: { name: string; text: string; value: number | null; dimension: string }[];
+  error: string | null;
+}
+
 export interface Progress {
   lines: string[];
   code: number | null;
@@ -146,6 +154,8 @@ export const api = {
   checkJob: (text: string, format: JobFormat = "toml") => invoke<JobCheck>("check_job", { text, format }),
   /** The job file's JSON Schema, for the editor's completions and the docs beside a key. */
   jobSchema: () => invoke<Record<string, unknown>>("job_schema"),
+  /** The expression language's words, and the parameters `definitions` with their values (expressions.rs). */
+  expressionScope: (definitions: [string, string][]) => invoke<ExpressionScope>("expression_scope", { definitions }),
   saveJob: (text: string, format: JobFormat, replace: boolean) => invoke<string>("save_job", { text, format, replace }),
   /** The same job written in another format; a TOML or YAML file's opening comment goes along. */
   convertJob: (text: string, from: JobFormat, to: JobFormat) => invoke<string>("convert_job", { text, from, to }),

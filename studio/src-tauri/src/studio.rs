@@ -74,6 +74,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             stop_run,
             check_job,
             job_schema,
+            crate::expressions::expression_scope,
             save_job,
             convert_job,
             read_job,

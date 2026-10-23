@@ -1,16 +1,31 @@
 <script module lang="ts">
-  import { api } from "../lib/api";
+  import { api, type ExpressionScope } from "../lib/api";
   import type { Schema } from "../lib/jobschema";
 
   // the job file's schema, asked of the program once
   let schemaAsked: Promise<Schema | null> | null = null;
   export const loadSchema = () => (schemaAsked ??= api.jobSchema().catch(() => null));
+
+  // the catalogue's materials' ids, asked of the program once
+  let materialsAsked: Promise<string[]> | null = null;
+  export const loadMaterials = () => (materialsAsked ??= api.materials().then((m) => m.map((x) => x.id)).catch(() => []));
+
+  // the expression language's words and the parameters' values, for the last parameters asked
+  let scopeAsked: { key: string; scope: Promise<ExpressionScope | null> } | null = null;
+  function loadScope(definitions: [string, string][]): Promise<ExpressionScope | null> {
+    const key = JSON.stringify(definitions);
+    if (scopeAsked?.key !== key) scopeAsked = { key, scope: api.expressionScope(definitions).catch(() => null) };
+    return scopeAsked.scope;
+  }
 </script>
 
 <script lang="ts">
   // The job's text, editable: CodeMirror with TOML, JSON or YAML colouring that follows the theme.
   // With `assist`, the job file's schema helps: the keys that fit at the cursor and the values a
-  // key takes (Ctrl+Space), each with its docs; a key's docs on hover; and `problem`, the check's
+  // key takes (Ctrl+Space), each with its docs: in an expression, its functions, units, constants
+  // and coordinates and the parameters in scope with their values; in a value, the stack's layers,
+  // the stacks, the catalogue's materials and the components, as the sidebar offers them. A key's
+  // docs on hover, with its method page (docs/methods) for `onmethod`; and `problem`, the check's
   // error, underlined where it points. Its owner can select a span (a structure picked in the
   // design), write over one (the entry's sidebar) as a step undo takes back, and undo and redo;
   // `oncursor` hears where the user puts the cursor.
@@ -28,7 +43,9 @@
   import { onMount } from "svelte";
 
   import type { JobFormat } from "../lib/api";
-  import { docAt, fieldsAt, locate, outline, type Doc } from "../lib/jobschema";
+  import { STACKS } from "../lib/job";
+  import { offered } from "../lib/jobedit";
+  import { docAt, fieldsAt, isExpression, locate, methodOf, outline, parametersAt, type Doc } from "../lib/jobschema";
 
   let {
     value,
@@ -37,8 +54,14 @@
     assist = false,
     model = null,
     problem = null,
+    layers = [],
     oncursor,
+    onmethod,
   }: {
+    /** The stack's layers' names, offered for a `layer`. */
+    layers?: string[];
+    /** Opens a method's page (docs/methods/<file>), from a key's hover. */
+    onmethod?: (file: string) => void;
     value: string;
     onchange: (text: string) => void;
     /** The user put the cursor at this offset (a click, a key that moves it). */
@@ -55,6 +78,7 @@
   let host: HTMLDivElement;
   let view: EditorView | null = null;
   let schema: Schema | null = null;
+  let materials: string[] = [];
   const language = new Compartment();
   const modes = { toml, json, yaml };
   const languageOf = (f: JobFormat) => StreamLanguage.define(modes[f]);
@@ -146,7 +170,7 @@
   const MARK = "zzcursor";
 
   /** The keys that fit at the cursor, or the values its key takes. */
-  function complete(ctx: CompletionContext): CompletionResult | null {
+  function complete(ctx: CompletionContext): CompletionResult | null | Promise<CompletionResult | null> {
     if (!assist || !schema) return null;
     const word = ctx.matchBefore(/[\w$-]*/);
     if (!word || (word.from === word.to && !ctx.explicit)) return null;
@@ -186,16 +210,77 @@
     const key = entries[entries.length - 1];
     if (!key) return null;
     const doc = docAt(schema, known, key.path);
-    if (!doc?.values.length) return null;
+    const name = String(key.path[key.path.length - 1]);
+    if (isExpression(doc, key.path)) return expression(ctx, key.path);
+    const values = offered({ path: key.path }, { layers, stacks: Object.keys(STACKS), materials, values: doc?.values ?? [] });
+    if (!values.length) return null;
     const q = format === "yaml" || quoted ? "" : '"';
     return {
       from: word.from,
-      options: doc.values.map((v) => ({ label: v, type: "enum", apply: `${q}${v}${q}`, info: () => docView(String(key.path[key.path.length - 1]), doc) })),
+      options: values.map((v) => ({ label: v, type: "enum", apply: `${q}${v}${q}`, info: doc ? () => docView(name, doc) : undefined })),
       validFor: /^[\w$-]*$/,
     };
   }
 
-  /** A key's docs, on hover. */
+  /** A value's words: the functions, units, constants and coordinates, and the parameters in scope with their values. */
+  async function expression(ctx: CompletionContext, path: (string | number)[]): Promise<CompletionResult | null> {
+    const word = ctx.matchBefore(/[A-Za-z_µ]\w*/);
+    if (!word && !ctx.explicit) return null;
+    const from = word?.from ?? ctx.pos;
+    const scope = await loadScope(parametersAt(known, path));
+    if (!scope) return null;
+    // after a number, its unit first
+    const afterNumber = /\d\s*$/.test(ctx.state.sliceDoc(Math.max(0, from - 12), from));
+    const SECTIONS = { parameter: "Parameters", function: "Functions", unit: "Units", constant: "Constants and coordinates", coordinate: "Constants and coordinates" };
+    const rank = (kind: keyof typeof SECTIONS) => (kind === "unit" ? (afterNumber ? -1 : 2) : kind === "parameter" ? 0 : kind === "function" ? 1 : 3);
+    const section = (kind: keyof typeof SECTIONS) => ({ name: SECTIONS[kind], rank: rank(kind) });
+    const options: Completion[] = [
+      ...scope.parameters.map((p) => ({
+        label: p.name,
+        type: "variable",
+        detail: valueText(p.value, p.dimension),
+        section: section("parameter"),
+        info: () => textView(p.name, [p.text, p.dimension && `${p.dimension}, ${valueText(p.value, p.dimension)}`, p.value === null ? (scope.error ?? "") : ""]),
+      })),
+      ...scope.words.map((w) => ({
+        label: w.name,
+        type: w.kind === "function" ? "function" : w.kind === "unit" ? "keyword" : "constant",
+        detail: w.kind === "function" ? w.usage.slice(w.name.length) : w.kind,
+        section: section(w.kind),
+        apply: w.kind === "function" ? `${w.name}(` : w.name,
+        info: () => textView(w.usage, [w.doc]),
+      })),
+    ];
+    return { from, options, validFor: /^[A-Za-z_µ]?\w*$/ };
+  }
+
+  /** A value in its unit: µm for a length, radians (and degrees) for an angle. */
+  function valueText(v: number | null, dimension: string): string {
+    if (v === null) return "doesn't evaluate";
+    const n = (x: number) => String(Number(x.toPrecision(6)));
+    if (dimension === "a length") return `${n(v)} µm`;
+    if (dimension === "an angle") return `${n(v)} rad (${n((v * 180) / Math.PI)}°)`;
+    return n(v);
+  }
+
+  /** A word's docs: its head in mono, its lines under it. */
+  function textView(head: string, lines: string[]): HTMLElement {
+    const box = document.createElement("div");
+    box.style.cssText = "max-width: 26rem; padding: 6px 8px; font-size: 12px; line-height: 1.45";
+    const h = document.createElement("div");
+    h.style.cssText = "font-family: var(--font-mono); font-weight: 600";
+    h.textContent = head;
+    box.append(h);
+    for (const l of lines.filter(Boolean)) {
+      const d = document.createElement("div");
+      d.style.marginTop = "3px";
+      d.textContent = l;
+      box.append(d);
+    }
+    return box;
+  }
+
+  /** A key's docs, on hover, with its method page. */
   const hover = hoverTooltip((v, pos) => {
     if (!assist || !schema) return null;
     const e = outline(v.state.doc.toString(), format).find((e) => e.from <= pos && pos <= e.to);
@@ -203,7 +288,24 @@
     const doc = docAt(schema, known, e.path);
     if (!doc || (!doc.description && !doc.type)) return null;
     const name = String(e.path[e.path.length - 1]);
-    return { pos: e.from, end: e.to, above: true, create: () => ({ dom: docView(name, doc) }) };
+    const page = onmethod ? methodOf(doc, e.path, known) : null;
+    return {
+      pos: e.from,
+      end: e.to,
+      above: true,
+      create: () => {
+        const dom = docView(name, doc);
+        if (page) {
+          const link = document.createElement("button");
+          link.style.cssText = "margin-top: 4px; font-size: 11px; color: var(--color-primary); cursor: pointer";
+          link.textContent = `docs/methods/${page}`;
+          link.title = "The method's page: its equations, papers and validation";
+          link.onclick = () => onmethod?.(page);
+          dom.append(link);
+        }
+        return { dom };
+      },
+    };
   });
 
   onMount(() => {
@@ -225,10 +327,14 @@
         ],
       }),
     });
-    if (assist)
+    if (assist) {
       void loadSchema().then((s) => {
         schema = s;
       });
+      void loadMaterials().then((m) => {
+        materials = m;
+      });
+    }
     return () => view?.destroy();
   });
 

@@ -32,6 +32,7 @@
   import NumField from "../NumField.svelte";
   import OptField from "../OptField.svelte";
   import ScenePreview from "../ScenePreview.svelte";
+  import MethodDocDialog from "../MethodDocDialog.svelte";
   import TomlEditor from "../TomlEditor.svelte";
   import EntryPanel from "./EntryPanel.svelte";
   import { drawerOf, entryAt, entrySpan, itemPaths, layerPath, samePath, type Drawing, type Medium, type Span } from "../../lib/jobedit";
@@ -391,6 +392,8 @@
   const isSel = (kind: "rect" | "circle" | "ring" | "port", index: number) => selection?.kind === kind && selection.index === index;
   // ---- click-to-edit, beside the text and in the form's 3D and Top views ----
   let editor = $state<TomlEditor>();
+  /** The method page a key's hover opened. */
+  let methodPage = $state<string | null>(null);
   /** What each entry of the text draws, of its last valid version, and the stack's layers. */
   let drawing = $state<Drawing | null>(null);
   /** The media of the stack of the last valid version, with their indices and sources (media.rs). */
@@ -1140,9 +1143,10 @@
           {#if format === "json"}<span class="text-[11px] faint">JSON has no comments: the description isn't kept.</span>{/if}
         </div>
         <div class="min-h-0 flex-1 overflow-hidden rounded-xl border border-base-content/8 bg-base-300/50 py-2">
-          <TomlEditor bind:this={editor} value={text} onchange={edited} oncursor={cursorAt} {format} assist model={check?.model} problem={check && !check.ok ? check.error : null} />
+          <TomlEditor bind:this={editor} value={text} onchange={edited} oncursor={cursorAt} {format} assist model={check?.model} problem={check && !check.ok ? check.error : null} layers={drawing?.layers ?? []} onmethod={(f) => (methodPage = f)} />
         </div>
         <div class="mt-2 shrink-0">{@render problem()}</div>
+        <MethodDocDialog file={methodPage} onclose={() => (methodPage = null)} />
       </div>
     {/if}
   </div>
@@ -1178,6 +1182,6 @@
       <span class="hidden text-[11px] faint xl:inline">{frameCaption(frame, section, crystals)}</span>
     {/if}
     <span class="flex-1"></span>
-    <span class="hidden text-[11px] faint lg:inline">{right === "3d" ? `as its run will draw it, over its window${model.kind === "modes" ? ", behind the cut" : ""}; click a structure to edit it` : right === "preview" ? "click a structure to edit it" : "Ctrl+Space: the keys and values that fit; hover a key for its docs"}</span>
+    <span class="hidden text-[11px] faint lg:inline">{right === "3d" ? `as its run will draw it, over its window${model.kind === "modes" ? ", behind the cut" : ""}; click a structure to edit it` : right === "preview" ? "click a structure to edit it" : "Ctrl+Space: the keys and values that fit, an expression's functions, units and parameters; hover a key for its docs and method"}</span>
   </div>
 {/snippet}

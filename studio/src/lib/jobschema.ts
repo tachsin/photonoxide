@@ -317,6 +317,84 @@ export function docAt(root: Schema, model: unknown, path: Path): Doc | null {
   return fieldDoc(root, props, last, path.reduce<unknown>((v, k) => at(v, k), model));
 }
 
+// ---- expressions and method pages
+
+/** Whether the value of the key at `path` is an expression: the schema says so, or it is a parameter. */
+export function isExpression(doc: Doc | null, path: Path): boolean {
+  return (doc?.type.includes("expression") ?? false) || path[path.length - 2] === "parameters";
+}
+
+/** The parameters an expression at `path` may use, as (name, definition): the nearest table above it with `parameters`, else the task's or the device's; a parameter's own name left out. */
+export function parametersAt(model: unknown, path: Path): [string, string][] {
+  const defs = (table: unknown, own: unknown): [string, string][] =>
+    table && typeof table === "object" && !Array.isArray(table)
+      ? Object.entries(table as Record<string, unknown>)
+          .filter(([k, v]) => k !== own && (typeof v === "string" || typeof v === "number"))
+          .map(([k, v]) => [k, String(v)])
+      : [];
+  for (let n = path.length - 1; n >= 0; n--) {
+    const table = at(path.slice(0, n).reduce<unknown>((v, k) => at(v, k), model), "parameters");
+    if (table !== undefined) return defs(table, path[n] === "parameters" ? path[n + 1] : null);
+  }
+  return [...defs(at(at(model, "task"), "parameters"), null), ...defs(at(at(model, "device"), "parameters"), null)];
+}
+
+/** The method page of a subject, by its key's name. */
+const PAGES: Record<string, string> = {
+  parameters: "expressions.md",
+  stack: "stacks.md",
+  layers: "stacks.md",
+  material: "catalogue.md",
+  background: "catalogue.md",
+  substrate: "catalogue.md",
+  cladding: "catalogue.md",
+  device: "devices.md",
+  component: "generators.md",
+  circuit: "circuits.md",
+  shapes: "geometry.md",
+  shape: "geometry.md",
+  rect: "geometry.md",
+  circle: "geometry.md",
+  ring: "geometry.md",
+  polygon: "geometry.md",
+  path: "geometry.md",
+  boolean: "booleans.md",
+  bodies: "bodies.md",
+  body: "bodies.md",
+  array: "arrays.md",
+  pml: "pml.md",
+  port: "fdfd-ports.md",
+  solver: "backends.md",
+  backend: "backends.md",
+  optimize: "optimization.md",
+  fit: "compact.md",
+  export: "export.md",
+  averaging: "averaging.md",
+};
+
+/** The page of a kind of task, its solver's. */
+const KIND_PAGES: Record<string, string> = {
+  modes: "vector.md",
+  fdfd: "fdfd.md",
+  fdtd: "fdtd.md",
+  device: "devices.md",
+  static: "static.md",
+  chip: "circuits.md",
+  structure: "geometry.md",
+};
+
+/** The method page (docs/methods/<file>) of the key at `path`: the one its docs name, its own subject's or the nearest above it, else its task's solver's. */
+export function methodOf(doc: Doc | null, path: Path, model: unknown): string | null {
+  const named = /docs\/methods\/([\w-]+\.md)/.exec(doc?.description ?? "")?.[1];
+  if (named) return named;
+  for (let n = path.length - 1; n >= 0; n--) {
+    const k = path[n];
+    if (typeof k === "string" && PAGES[k]) return PAGES[k];
+  }
+  const kind = at(at(model, path[0] ?? "task"), "kind");
+  return typeof kind === "string" ? (KIND_PAGES[kind] ?? null) : null;
+}
+
 // ---- errors in place
 
 /** Where an error's message points in the text: the line and column it names, or the key its path ends in. */

@@ -69,7 +69,11 @@ in a drawer opened from the status bar.
     cross-section is taken); **Top**, the rectangles, disks, rings, ports, sources (orange),
     monitors (blue), the PML and the cut from above, a click on one editing it; and **As text**,
     the job in YAML (a new job's), TOML or JSON, edits there updating the form, with its design
-    beside it. A click on a structure there, in 3D or from above (any shape, components, paths
+    beside it. Ctrl+Space offers what fits at the cursor: the keys, the needed ones first, with
+    their docs; in a value, the stack's layers, the presets, the catalogue's materials, the
+    generators and the schema's values; in an expression, its functions, units, constants and
+    coordinates and the parameters in scope, each with its value. Hovering a key shows its docs
+    and a link to its method's page. A click on a structure there, in 3D or from above (any shape, components, paths
     and bodies too, a layer, a port, a source or a monitor), selects its entry in the text and
     opens it in a sidebar: each value with the schema's docs and the values it may take (the
     stack's layers, the presets, the catalogue's materials, the generators). A value changed

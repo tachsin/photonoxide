@@ -227,7 +227,7 @@ export const GENERATORS = [
 ];
 
 /** What a value may be, to offer: the stack's layers for a layer, the presets for a stack, the catalogue's materials for a material, the generators for a component's type, or the schema's own. */
-export function offered(field: Field, from: { layers: string[]; stacks: string[]; materials: string[]; values: string[] }): string[] {
+export function offered(field: Pick<Field, "path">, from: { layers: string[]; stacks: string[]; materials: string[]; values: string[] }): string[] {
   const key = String(field.path[field.path.length - 1]);
   if (key === "layer") return from.layers;
   if (key === "stack") return from.stacks;

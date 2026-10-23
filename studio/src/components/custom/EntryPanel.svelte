@@ -1,11 +1,3 @@
-<script module lang="ts">
-  import { api } from "../../lib/api";
-
-  // the catalogue's materials' ids, asked of the program once
-  let materialsAsked: Promise<string[]> | null = null;
-  const loadMaterials = () => (materialsAsked ??= api.materials().then((m) => m.map((x) => x.id)).catch(() => []));
-</script>
-
 <script lang="ts">
   // The entry picked in the design (a shape, a layer, a port, a source or a monitor), its values
   // one to a line: each with the schema's docs (its type, unit, default and range) and the values
@@ -38,7 +30,7 @@
     type Span,
   } from "../../lib/jobedit";
   import { docAt, type Path, type Schema } from "../../lib/jobschema";
-  import { loadSchema } from "../TomlEditor.svelte";
+  import { loadMaterials, loadSchema } from "../TomlEditor.svelte";
 
   let {
     text,

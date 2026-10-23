@@ -15,6 +15,7 @@ mod devices;
 mod diagrams;
 mod drawn;
 mod examples;
+mod expressions;
 mod farm;
 mod form;
 mod frames;
