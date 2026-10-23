@@ -6288,7 +6288,7 @@ points = 2
         let mut count = 0;
         for entry in std::fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
-            if path.extension().is_some_and(|x| x == "toml") {
+            if path.extension().is_some_and(|x| x == "yaml") {
                 check(&Job::load(&path).unwrap()).unwrap_or_else(|e| panic!("{path:?}: {e}"));
                 count += 1;
             }

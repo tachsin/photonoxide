@@ -964,7 +964,7 @@ mod tests {
         let mut count = 0;
         for entry in fs::read_dir(&dir).unwrap() {
             let path = entry.unwrap().path();
-            if Format::from_path(&path) != Some(Format::Toml) {
+            if Format::from_path(&path).is_none() {
                 continue;
             }
             let job = Job::load(&path).unwrap();
