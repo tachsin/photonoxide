@@ -502,6 +502,58 @@ fn fixed_and_measured_components_come_from_data() {
     assert!(Spectrum::new(vec!["a".into()], vec![1.55], vec![]).is_err());
 }
 
+/// A run's tables, as data and as files: the effective indices its events recorded, to the bit,
+/// and the CSV `export_run` writes the one the run wrote itself.
+#[test]
+fn a_runs_tables_are_its_events_numbers_to_the_bit() {
+    let scratch = Scratch::new();
+    let job = JobSource::Text {
+        text: conformance::modes_job().to_string(),
+        format: "json".into(),
+    };
+    let run = run_job(&job, &scratch.0.join("runs"), &Stop::new(None)).unwrap();
+    let indices: Vec<[f64; 2]> = run
+        .events
+        .iter()
+        .map(|e| serde_json::from_str::<serde_json::Value>(e).unwrap())
+        .filter(|e| e["type"] == "mode")
+        .map(|e| {
+            let n = &e["effective_index"];
+            [n[0].as_f64().unwrap(), n[1].as_f64().unwrap()]
+        })
+        .collect();
+    assert!(!indices.is_empty());
+    let tables = run_tables(&run.dir).unwrap();
+    let modes = tables.iter().find(|t| t.name == "modes").unwrap();
+    assert_eq!(modes.file, "modes.csv");
+    let column = |name: &str| {
+        modes
+            .columns
+            .iter()
+            .find(|c| c.name == name)
+            .unwrap()
+            .numbers
+            .clone()
+            .unwrap()
+    };
+    let (re, im) = (column("n_eff_re"), column("n_eff_im"));
+    for (k, n) in indices.iter().enumerate() {
+        assert_eq!(re[k].to_bits(), n[0].to_bits());
+        assert_eq!(im[k].to_bits(), n[1].to_bits());
+    }
+    let label = modes.columns.iter().find(|c| c.name == "label").unwrap();
+    assert!(label.numbers.is_none() && label.texts.is_some());
+
+    let out = scratch.0.join("out");
+    let written = export_run(&run.dir, None, Some(&out)).unwrap();
+    assert!(written.contains(&out.join("modes.csv")));
+    assert_eq!(
+        std::fs::read_to_string(out.join("modes.csv")).unwrap(),
+        std::fs::read_to_string(run.dir.join("modes.csv")).unwrap()
+    );
+    assert!(export_run(&run.dir, Some(&["fields".to_owned()]), None).is_err());
+}
+
 #[test]
 fn the_conformance_cases_are_computed_and_name_their_calls() {
     let scratch = Scratch::new();
@@ -579,7 +631,7 @@ fn every_facade_function_is_in_the_feature_table() {
     // so to the Python package) goes in its table, by name
     let table = include_str!("../../docs/features.md");
     let functions = facade_functions();
-    assert_eq!(functions.len(), 18, "{functions:?}");
+    assert_eq!(functions.len(), 20, "{functions:?}");
     for f in functions {
         assert!(
             table.contains(&format!("`{f}`")),

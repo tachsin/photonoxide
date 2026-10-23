@@ -18,6 +18,7 @@ PAGES = {
     "circuits": None,
     "compact": "circuits",
     "devices": None,
+    "export": None,
     "fdfd-ports": None,
     "vector": None,
     "fields": "vector",

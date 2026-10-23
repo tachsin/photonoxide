@@ -74,11 +74,32 @@ and their normalization.
 Every field is in C order, the last index fastest: row $j$ at `y_um[j]`, column $i$ at
 `x_um[i]`.
 
-```py
+From Python, with the `photonoxide` package ([python](../python.md)): a run's tables as
+columns, and its fields as NumPy reads them.
+
+```python
 import numpy as np
-f = np.load("runs/<run>/mode-1-of-2.npz")
-ey = f["Ey"] / np.sqrt(f["power"])     # unit power
+import photonoxide as phox
+
+job = {
+    "name": "strip",
+    "task": {
+        "kind": "modes", "stack": "soi_220", "wavelength_um": 1.55, "layer": "Si",
+        "propagation": "x", "y_um": [-1.0, 1.0], "step_nm": 50.0, "modes": 1,
+        "rect": [{"layer": "Si", "center_um": [0.0, 0.0], "size_um": [10.0, 0.5]}],
+        "export": {"fields": ["Ey", "Hz"], "precision": "f32"},
+    },
+}
+run = phox.run_job(job, runs_dir="runs")
+modes = phox.run_tables(run.dir)["modes"]          # also run.dir / "modes.csv"
+f = np.load(run.dir / "mode-1-of-1.npz")
+ey = f["Ey"] / np.sqrt(f["power"])                 # unit power
+assert ey.shape == (len(f["y_um"]), len(f["x_um"]))
+assert f["effective_index"].real == modes["n_eff_re"][0]
 ```
+
+MATLAB has `photonoxide.run_tables` (each table a MATLAB `table`) and `photonoxide.export_run`
+([matlab](../matlab.md)).
 
 ## Tests
 
@@ -97,10 +118,23 @@ dev-dependency only) as a real reader and a small `.npy` parser of their own, to
 The ZIP is a minimal writer of the module's own (PKWARE's *APPNOTE*), deflating with `flate2`'s
 pure-Rust backend: nothing written in C is linked.
 
+## A finished run
+
+A run's tables can be written again, or ones its job didn't ask for, from its record:
+
+```sh
+photonoxide export runs/<run> --list                         # the tables it has, its files
+photonoxide export runs/<run> --tables modes,s_parameters --to out/
+```
+
+The studio's run view has the same as its **Export…** dialog: the tables and the run's `.npz`
+files by checkbox, with their sizes, written into the run's folder or saved into one of yours.
+Its fields can't be made afterwards: a field is the solver's state, which a finished run no
+longer has, so a job asks for them in `[task.export]`.
+
 ## Left for later
 
-Issue [#431](https://github.com/tachsin/photonoxide/issues/431) asks for more: `photonoxide
-export` on a finished run and the studio's Export dialog, the façade's `export` for Python and
-MATLAB, MAT and VTK XML writers, HDF5 and zstd through `photonoxide-native` (the user's own
-libhdf5 and libzstd loaded at run time, never linked; deflate stays the pure-Rust default), and
-the heavy arrays moved out of `events.jsonl`. This page grows with them.
+Issue [#431](https://github.com/tachsin/photonoxide/issues/431) asks for more: MAT and VTK XML
+writers, HDF5 and zstd through `photonoxide-native` (the user's own libhdf5 and libzstd loaded
+at run time, never linked; deflate stays the pure-Rust default), and the heavy arrays moved out
+of `events.jsonl`. This page grows with them.

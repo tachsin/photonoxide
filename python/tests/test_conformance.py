@@ -87,6 +87,10 @@ def call(case: dict[str, Any]) -> Any:
         path = args.pop("path")
         phox.write_touchstone(path, spectrum, **args)
         return Path(path).read_text(encoding="utf-8")
+    if function == "export_run":
+        # its result is each file's text, by its name
+        paths = phox.export_run(**args)
+        return {p.name: p.read_text(encoding="utf-8") for p in paths}
     return getattr(phox, function)(**args)
 
 

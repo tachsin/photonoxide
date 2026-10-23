@@ -13,6 +13,8 @@
 //!   [`vector_modes`], with their fields;
 //! - jobs: [`check_job`], [`run_job`] (a run's record, as the studio's), and an `"fdfd"` job's
 //!   S-parameters, [`fdfd_s_parameters`];
+//! - a run's tables, its numbers column by column, [`run_tables`], and written as CSV,
+//!   [`export_run`] ([`crate::export`]);
 //! - circuits from a netlist given as data, [`circuit_spectrum`];
 //! - Touchstone files: [`read_touchstone`], [`write_touchstone`];
 //! - devices, the components that know their geometry ([`crate::device`]): the library's,
@@ -758,4 +760,113 @@ pub fn write_touchstone(
     let convention = parse_convention(convention)?;
     let precision = significant_digits.map_or(Precision::RoundTrip, Precision::Significant);
     Touchstone::from_spectrum(&spectrum.to_library()?, convention)?.write_file(path, precision)
+}
+
+/// A column of a run's table: its numbers, or its text where it holds any that isn't one.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct RunColumn {
+    /// Its name, as the CSV's header has it, e.g. `"n_eff_re"`.
+    pub name: String,
+    /// Its values as numbers, NaN where the table has none, when every value is a number or
+    /// empty; `None` for a column of text.
+    pub numbers: Option<Vec<f64>>,
+    /// Its values as text, when it is a column of text (a label, a port, a monitor).
+    pub texts: Option<Vec<String>>,
+}
+
+/// A table of a run ([`crate::export::tables`]): what its CSV file holds, column by column.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct RunTable {
+    /// Its name: `"modes"`, `"sweep"`, `"s_parameters"`, `"spectra"`, `"resonances"`,
+    /// `"study"`, `"history"`, `"static"` or `"transient"`.
+    pub name: String,
+    /// Its file's name in the run's folder, e.g. `"modes.csv"`.
+    pub file: String,
+    /// Its columns, in the file's order, each as long as the table.
+    pub columns: Vec<RunColumn>,
+}
+
+/// The tables of the run in `run_dir`, from its record, each number the one its event
+/// recorded, to the bit: what [`export_run`] writes, without a file.
+///
+/// # Errors
+///
+/// [`Error::Io`] if the run's `events.jsonl` can't be read.
+pub fn run_tables(run_dir: &Path) -> Result<Vec<RunTable>> {
+    Ok(crate::export::tables::of_run(run_dir)?
+        .into_iter()
+        .map(|t| {
+            let columns = t
+                .header
+                .iter()
+                .enumerate()
+                .map(|(k, name)| {
+                    let values: Vec<&str> = t
+                        .rows
+                        .iter()
+                        .map(|r| r.get(k).map_or("", String::as_str))
+                        .collect();
+                    let numbers: Option<Vec<f64>> = values
+                        .iter()
+                        .map(|v| {
+                            if v.is_empty() {
+                                Some(f64::NAN)
+                            } else {
+                                v.parse().ok()
+                            }
+                        })
+                        .collect();
+                    RunColumn {
+                        name: name.clone(),
+                        texts: numbers
+                            .is_none()
+                            .then(|| values.iter().map(|v| (*v).to_owned()).collect()),
+                        numbers,
+                    }
+                })
+                .collect();
+            RunTable {
+                name: t.table.name().to_owned(),
+                file: t.table.file(),
+                columns,
+            }
+        })
+        .collect())
+}
+
+/// Writes the tables of the run in `run_dir` as CSV files into `out_dir` (the run's own folder
+/// when `None`): those named in `tables` (every one it has when `None`), and returns the
+/// files written. A run's fields are written when it runs, by its job's `[task.export]`.
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] for a table that isn't one of [`RunTable::name`]'s; [`Error::Io`]
+/// if the record can't be read or a file written.
+pub fn export_run(
+    run_dir: &Path,
+    tables: Option<&[String]>,
+    out_dir: Option<&Path>,
+) -> Result<Vec<PathBuf>> {
+    use crate::export::tables::Table;
+    let which: Option<Vec<Table>> = tables
+        .map(|names| {
+            names
+                .iter()
+                .map(|n| {
+                    Table::parse(n).ok_or_else(|| {
+                        Error::invalid(
+                            "table",
+                            format!(
+                                "\"{n}\" isn't one: the tables are {}",
+                                Table::ALL.map(Table::name).join(", ")
+                            ),
+                        )
+                    })
+                })
+                .collect::<Result<_>>()
+        })
+        .transpose()?;
+    crate::export::tables::write_tables(run_dir, out_dir.unwrap_or(run_dir), which.as_deref())
 }

@@ -1,12 +1,13 @@
 <script lang="ts">
   // The viewer: the run the window follows, in 3D (its layers as solids, the field painted on
   // its plane) or 2D (pictures and plots), with its details at the side.
-  import { Box, ChartLine, ChevronLeft, ChevronRight, CirclePause, Cpu, FolderOpen, Info, Layers, Pause, Play, RotateCcw, Square, Waves } from "@lucide/svelte";
+  import { Box, ChartLine, ChevronLeft, ChevronRight, CirclePause, Cpu, Download, FolderOpen, Info, Layers, Pause, Play, RotateCcw, Square, Waves } from "@lucide/svelte";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
 
   import LayerDialog from "../components/LayerDialog.svelte";
   import RunPlots from "../components/RunPlots.svelte";
+  import ExportDialog from "../components/ExportDialog.svelte";
   import SolverDialog from "../components/SolverDialog.svelte";
   import Tip from "../components/Tip.svelte";
   import UnitChip from "../components/UnitChip.svelte";
@@ -194,6 +195,8 @@
   let details = $state<string | null>(null);
   /** Whether the account of how the run was solved is open. */
   let solving = $state(false);
+  /** Whether the Export dialog is open. */
+  let exporting = $state(false);
   /** The largest numerical error the run recorded, if it recorded any. */
   const worstError = $derived(run.errors.length ? Math.max(...run.errors.map((e) => e.error)) : null);
   /** The field the 3D view paints, and where. */
@@ -368,6 +371,9 @@
       </dl>
       {#if run.info?.dir}
         <button class="btn btn-ghost btn-xs mt-2 -ml-2 gap-1" onclick={() => run.info?.dir && revealItemInDir(run.info.dir)}><FolderOpen size={12} /> {run.info.name}</button>
+        {#if run.finished}
+          <button class="btn btn-ghost btn-xs -ml-2 gap-1" onclick={() => (exporting = true)} title="The run's tables as CSV and its fields as .npz, chosen, into its folder or one of yours"><Download size={12} /> Export…</button>
+        {/if}
       {/if}
     </section>
 
@@ -629,3 +635,6 @@
 
 <LayerDialog name={details} onclose={() => (details = null)} />
 <SolverDialog open={solving} onclose={() => (solving = false)} />
+{#if run.info?.dir}
+  <ExportDialog open={exporting} dir={run.info.dir} onclose={() => (exporting = false)} />
+{/if}

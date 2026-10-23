@@ -192,6 +192,16 @@ def test_jobs_as_paths_or_matlabs_json(tmp_path: Path) -> None:
     assert run["stopped"] == ""
     assert json.loads(run["events"][0])["type"] == "started"
 
+    # its tables as jsondecode reads them, the S-parameters' numbers to the bit
+    tables = json.loads(matlab.run_tables(run["dir"]))
+    columns = {c["name"]: c["values"] for c in tables["s_parameters"]["columns"]}
+    ours = phox.run_tables(run["dir"])["s_parameters"]
+    assert [float(v).hex() for v in columns["s_re"]] == [v.hex() for v in ours["s_re"]]
+    assert columns["to"] == ours["to"]
+    # an empty list of tables, as MATLAB's string.empty gives: every one
+    files = matlab.export_run(run["dir"], [], str(tmp_path / "out"))
+    assert [Path(f).name for f in files] == ["s_parameters.csv"]
+
 
 def test_errors_carry_matlabs_identifier() -> None:
     with pytest.raises(phox.errors.OutsideValidity) as e:

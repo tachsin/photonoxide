@@ -97,5 +97,6 @@ same designs give the same numbers in Rust, Python and MATLAB.
 |---|---|---|---|---|
 | Jobs: structure, modes, FDFD and FDTD, checked and run | ✅ | ✅ `check_job`, `run_job` | ◐ † [`run_job`](matlab.md#photonoxiderun_job) | [runs](getting-started.md#runs-and-the-studio) |
 | Run records and replay | ✅ | ◐ the events of a run it makes | ◐ † the same | [runs](getting-started.md#runs-and-the-studio) |
+| A run's tables (n_eff, S-parameters, spectra, studies, histories, static numbers) as data and as CSV; its fields as NumPy's `.npz` when its job asks | ✅ | ✅ `run_tables`, `export_run`; the `.npz` files by `numpy.load` | ✅ † [`run_tables`](matlab.md#photonoxiderun_tables) (MATLAB tables), [`export_run`](matlab.md#photonoxideexport_run) | [export](methods/export.md) |
 | External solvers: PARDISO, MUMPS, SuperLU, Accelerate, cuDSS, Krylov on NVIDIA GPUs, `auto` | ✅ | — | — | [backends](methods/backends.md) |
 | The studio, the `photonoxide` program | ✅ | ◐ it replays the runs `run_job` writes (`photonoxide view`) | ◐ † the same: [`run_job`](matlab.md#photonoxiderun_job) | [studio](../studio/README.md) |

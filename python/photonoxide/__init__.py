@@ -75,6 +75,8 @@ __all__ = [
     "circuit_spectrum",
     "read_touchstone",
     "write_touchstone",
+    "run_tables",
+    "export_run",
     "Device",
     "Stack",
     "StackLayer",
@@ -554,6 +556,36 @@ def write_touchstone(
         convention,
         None if significant_digits is None else int(significant_digits),
     )
+
+
+# --- a run's results ------------------------------------------------------------------------
+
+
+def run_tables(run_dir: str | os.PathLike[str]) -> dict[str, dict[str, Any]]:
+    """The tables of the run in ``run_dir``, from its record: each table's name (``"modes"``,
+    ``"s_parameters"``, ``"spectra"``, ``"study"``, ``"history"``, ``"static"``, ...) to its
+    columns in order, each a float array (NaN where the table has no number) or a list of text.
+    Every number is the one the run recorded, to the bit: the same as its CSV file's, which
+    :func:`export_run` writes. ``pandas.DataFrame(tables["modes"])`` makes one a data frame."""
+    return _native.run_tables(os.fspath(run_dir))
+
+
+def export_run(
+    run_dir: str | os.PathLike[str],
+    *,
+    tables: list[str] | None = None,
+    out_dir: str | os.PathLike[str] | None = None,
+) -> list[Path]:
+    """Writes the tables of the run in ``run_dir`` as CSV files into ``out_dir`` (the run's own
+    folder when ``None``): those named in ``tables``, every one it has when ``None``. Returns the
+    files written. A run writes its tables itself when it ends; its fields (``.npz``) are
+    written then too, when its job's ``[task.export]`` asks for them."""
+    paths = _native.export_run(
+        os.fspath(run_dir),
+        None if tables is None else [str(t) for t in tables],
+        None if out_dir is None else os.fspath(out_dir),
+    )
+    return [Path(p) for p in paths]
 
 
 # --- devices --------------------------------------------------------------------------------

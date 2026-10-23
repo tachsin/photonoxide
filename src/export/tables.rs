@@ -516,16 +516,30 @@ fn history(events: &[Event]) -> Csv {
     table
 }
 
-/// Writes into `dir` the tables its `events.jsonl` holds, those of `which` (every one when
-/// `None`), and returns the files written. A line that isn't one of [`Event`]'s (a line cut
-/// off mid-write) is passed over.
+/// The tables the run in `dir` holds, from its `events.jsonl`: what [`write_tables`] would
+/// write. A line that isn't one of [`Event`]'s (a line cut off mid-write) is passed over.
+///
+/// # Errors
+///
+/// [`Error::Io`] if the record can't be read.
+pub fn of_run(dir: &Path) -> Result<Vec<Csv>> {
+    Ok(tables(&crate::job::results::events_in(dir)?))
+}
+
+/// Writes into `out` the tables the run in `dir` holds, those of `which` (every one when
+/// `None`), and returns the files written: a finished run's tables again, or ones its job
+/// didn't ask for, from its record ([`of_run`]). `out` is made if it isn't there.
 ///
 /// # Errors
 ///
 /// [`Error::Io`] if the record can't be read or a table written.
-pub fn write_tables(dir: &Path, which: Option<&[Table]>) -> Result<Vec<PathBuf>> {
+pub fn write_tables(dir: &Path, out: &Path, which: Option<&[Table]>) -> Result<Vec<PathBuf>> {
     let events = crate::job::results::events_in(dir)?;
-    write_tables_of(dir, &events, which)
+    std::fs::create_dir_all(out).map_err(|e| Error::Io {
+        path: out.display().to_string(),
+        reason: e.to_string(),
+    })?;
+    write_tables_of(out, &events, which)
 }
 
 /// [`write_tables`] for `events` already read.

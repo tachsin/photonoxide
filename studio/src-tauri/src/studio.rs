@@ -81,6 +81,8 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             delete_job,
             delete_run,
             run_events,
+            export_list,
+            export_write,
             group_index,
             start_example,
             start_validation,
@@ -994,6 +996,106 @@ fn preview_ports(text: String) -> Result<Vec<job::ScenePort>, String> {
     job::preview_ports(&job).map_err(|e| e.to_string())
 }
 
+/// A table a run can export ([`photonoxide::export::tables`]), for the Export dialog.
+#[derive(Clone, Debug, Serialize)]
+pub struct ExportTable {
+    /// Its name, e.g. `"s_parameters"`.
+    pub name: String,
+    /// Its file, e.g. `"s_parameters.csv"`.
+    pub file: String,
+    /// Its rows.
+    pub rows: usize,
+    /// Its file's size, bytes.
+    pub bytes: usize,
+}
+
+/// A file of a run's results beside its record: a table (`.csv`) or fields (`.npz`).
+#[derive(Clone, Debug, Serialize)]
+pub struct ExportFile {
+    /// Its name in the run's folder.
+    pub name: String,
+    /// Its size, bytes.
+    pub bytes: u64,
+}
+
+/// What the run in a folder can export, and what it has written.
+#[derive(Clone, Debug, Serialize)]
+pub struct RunExports {
+    /// The tables its record holds.
+    pub tables: Vec<ExportTable>,
+    /// The `.csv` and `.npz` files in its folder, by name.
+    pub files: Vec<ExportFile>,
+}
+
+/// The tables the run in `dir` holds and the result files in its folder.
+pub fn run_exports(dir: &Path) -> Result<RunExports, String> {
+    let tables = photonoxide::export::tables::of_run(dir)
+        .map_err(|e| e.to_string())?
+        .iter()
+        .map(|t| ExportTable {
+            name: t.table.name().to_owned(),
+            file: t.table.file(),
+            rows: t.rows.len(),
+            bytes: t.text().len(),
+        })
+        .collect();
+    let mut files: Vec<ExportFile> = std::fs::read_dir(dir)
+        .map_err(|e| format!("{}: {e}", dir.display()))?
+        .filter_map(|e| e.ok())
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            let kept = name.ends_with(".csv") || name.ends_with(".npz");
+            kept.then(|| ExportFile {
+                name,
+                bytes: e.metadata().map(|m| m.len()).unwrap_or(0),
+            })
+        })
+        .collect();
+    files.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(RunExports { tables, files })
+}
+
+/// The Export dialog's list: [`run_exports`].
+#[tauri::command]
+fn export_list(dir: String) -> Result<RunExports, String> {
+    run_exports(Path::new(&dir))
+}
+
+/// Writes the tables `tables` of the run in `dir` into its folder, and copies the files
+/// `files` of its folder (and the tables just written) into `to` when it is given: the Export
+/// dialog's "Write" and "Save to a folder". The paths written.
+#[tauri::command]
+fn export_write(
+    dir: String,
+    tables: Vec<String>,
+    files: Vec<String>,
+    to: Option<String>,
+) -> Result<Vec<String>, String> {
+    let run = Path::new(&dir);
+    let out = to.as_deref().map(Path::new);
+    let mut written: Vec<String> = Vec::new();
+    if !tables.is_empty() {
+        for p in
+            photonoxide::facade::export_run(run, Some(&tables), out).map_err(|e| e.to_string())?
+        {
+            written.push(p.display().to_string());
+        }
+    }
+    if let Some(out) = out {
+        for name in &files {
+            // a name of the folder's own, never a path out of it
+            if Path::new(name).file_name() != Some(std::ffi::OsStr::new(name)) {
+                return Err(format!("{name} isn't a file of the run's folder"));
+            }
+            let target = out.join(name);
+            std::fs::copy(run.join(name), &target)
+                .map_err(|e| format!("{}: {e}", target.display()))?;
+            written.push(target.display().to_string());
+        }
+    }
+    Ok(written)
+}
+
 /// Every event of the run in `dir`, for comparing runs.
 #[tauri::command]
 fn run_events(dir: String) -> Result<Vec<Event>, String> {
@@ -1209,6 +1311,50 @@ mod tests {
         assert_eq!(record.events.len(), 2);
         assert!(matches!(record.events[1], Event::Finished { .. }));
         assert!(record.problem.is_some());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The Export dialog's list and writes: a modes run's table, written into a folder of the
+    /// user's with its field file, and no name that leaves the run's folder.
+    #[test]
+    fn the_export_dialog_lists_writes_and_copies_a_runs_results() {
+        let dir = scratch("export");
+        let job = Job::parse(
+            "name = \"strip\"\n[task]\nkind = \"modes\"\nstack = \"soi_220\"\n\
+             wavelength_um = 1.55\nlayer = \"Si\"\npropagation = \"x\"\ny_um = [-1.0, 1.0]\n\
+             step_nm = 50.0\nmodes = 1\n[[task.rect]]\nlayer = \"Si\"\n\
+             center_um = [0.0, 0.0]\nsize_um = [10.0, 0.5]\n[task.export]\n\
+             format = \"both\"\nlevel = 1\n",
+        )
+        .unwrap();
+        let mut run = Run::create(&dir, &job).unwrap();
+        job::execute(&job, &mut run, &Stop::new(None)).unwrap();
+        let run_dir = run.dir().display().to_string();
+        let exports = export_list(run_dir.clone()).unwrap();
+        assert_eq!(exports.tables.len(), 1);
+        assert_eq!(exports.tables[0].file, "modes.csv");
+        let names: Vec<_> = exports.files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, ["mode-1-of-1.npz", "modes.csv"]);
+        let out = dir.join("out");
+        std::fs::create_dir_all(&out).unwrap();
+        let written = export_write(
+            run_dir.clone(),
+            vec!["modes".into()],
+            vec!["mode-1-of-1.npz".into()],
+            Some(out.display().to_string()),
+        )
+        .unwrap();
+        assert_eq!(written.len(), 2);
+        assert!(out.join("modes.csv").is_file() && out.join("mode-1-of-1.npz").is_file());
+        assert!(
+            export_write(
+                run_dir,
+                vec![],
+                vec!["../job.toml".into()],
+                Some(out.display().to_string())
+            )
+            .is_err()
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

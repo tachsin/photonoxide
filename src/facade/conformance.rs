@@ -8,9 +8,9 @@ use super::{
     CrossSection, DeviceDesign, DeviceFigure, DeviceGeometry, DeviceInfo, DeviceSpectrum,
     IndexModelInfo, IndexOptions, JobSource, MaterialInfo, SParameters, SlabMode, Spectrum,
     StackInfo, Stop, VectorMode, check_job, circuit_spectrum, device_derived, device_geometry,
-    device_job, device_spectrum, device_spectrum_until, devices, fdfd_s_parameters, group_index,
-    materials, read_touchstone, refractive_index, run_job, slab_modes, stacks, vector_modes,
-    write_touchstone,
+    device_job, device_spectrum, device_spectrum_until, devices, export_run, fdfd_s_parameters,
+    group_index, materials, read_touchstone, refractive_index, run_job, run_tables, slab_modes,
+    stacks, vector_modes, write_touchstone,
 };
 use crate::Complex64 as c64;
 use crate::{Error, Result};
@@ -275,7 +275,7 @@ fn with(mut args: Value, more: &[(&str, Value)]) -> Value {
 }
 
 /// A small modes job, as data: a 500 × 220 nm strip's fundamental mode on a 40 nm grid.
-fn modes_job() -> Value {
+pub(super) fn modes_job() -> Value {
     json!({
         "name": "conformance-modes",
         "timeout_minutes": 5,
@@ -519,6 +519,57 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
         &json!({"job": modes, "runs_dir": runs.display().to_string()}),
         &json!({"dir": run.dir.display().to_string(), "events": events, "stopped": run.stopped}),
         &["dir", "seconds"],
+    ));
+    // the run's tables, as data and as the files written
+    let tables: serde_json::Map<String, Value> = run_tables(&run.dir)?
+        .into_iter()
+        .map(|t| {
+            let columns: serde_json::Map<String, Value> = t
+                .columns
+                .into_iter()
+                .map(|c| {
+                    (
+                        c.name,
+                        json!(c.numbers.map_or_else(|| json!(c.texts), |n| json!(n))),
+                    )
+                })
+                .collect();
+            (t.name, Value::Object(columns))
+        })
+        .collect();
+    cases.push(case(
+        "run_tables/modes",
+        "run_tables",
+        &json!({"run_dir": run.dir.display().to_string()}),
+        &Value::Object(tables),
+        &[],
+    ));
+    let written = export_run(
+        &run.dir,
+        Some(&["modes".to_owned()]),
+        Some(&scratch.join("exported-by-rust")),
+    )?;
+    let files: serde_json::Map<String, Value> = written
+        .iter()
+        .map(|p| {
+            let text = std::fs::read_to_string(p).map_err(|e| Error::Io {
+                path: p.display().to_string(),
+                reason: e.to_string(),
+            })?;
+            let name = p
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            Ok((name, Value::String(text)))
+        })
+        .collect::<Result<_>>()?;
+    cases.push(case(
+        "export_run/modes",
+        "export_run",
+        &json!({"run_dir": run.dir.display().to_string(), "tables": ["modes"],
+                "out_dir": scratch.join("exported-by-binding").display().to_string()}),
+        &Value::Object(files),
+        &[],
     ));
     let fdfd = fdfd_job();
     let w = [1.5, 1.55];

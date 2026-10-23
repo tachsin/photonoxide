@@ -69,6 +69,11 @@ const USAGE: &str = "usage:
       --write saves it, --check fails unless <file> holds exactly this schema
   photonoxide view <run directory>
       replay a finished run in the studio
+  photonoxide export <run directory> [--tables <name,...>] [--to <dir>] [--list]
+      write a run's tables as CSV (every one it has by default) into its directory, or into
+      --to: modes, sweep, s_parameters, spectra, resonances, study, history, static,
+      transient; --list lists the tables it has and the files beside its record. Its fields
+      (.npz) are written as it runs, when its job's [task.export] asks for them
   photonoxide example <name>
       run one of the built-in examples, each a published result reproduced
       (`photonoxide example --list` lists them)
@@ -117,6 +122,7 @@ fn main() -> ExitCode {
         Some("new") => new(&args[1..]),
         Some("schema") => schema(&args[1..]),
         Some("view") => view(&args[1..]),
+        Some("export") => export(&args[1..]),
         Some("worker") => farm::worker(&args[1..]),
         Some("validate") => validate(&args[1..]),
         Some("example") => example(&args[1..]),
@@ -300,6 +306,55 @@ fn view(args: &[String]) -> ExitCode {
     match studio::show(Some(dir), None) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => fail(e),
+    }
+}
+
+fn export(args: &[String]) -> ExitCode {
+    let Some((dir, rest)) = args.split_first() else {
+        return usage();
+    };
+    let dir = Path::new(dir);
+    if !dir.join("events.jsonl").is_file() {
+        return fail(format!("{} has no events.jsonl", dir.display()));
+    }
+    let (mut tables, mut to, mut list) = (None, None, false);
+    let mut rest = rest.iter();
+    while let Some(flag) = rest.next() {
+        match (flag.as_str(), rest.clone().next()) {
+            ("--list", _) => list = true,
+            ("--tables", Some(names)) => {
+                tables = Some(names.split(',').map(str::to_owned).collect::<Vec<_>>());
+                rest.next();
+            }
+            ("--to", Some(path)) => {
+                to = Some(PathBuf::from(path));
+                rest.next();
+            }
+            _ => return usage(),
+        }
+    }
+    if list {
+        return match studio::run_exports(dir) {
+            Ok(exports) => {
+                for t in &exports.tables {
+                    println!("{:<14} {:>6} rows  {}", t.name, t.rows, t.file);
+                }
+                for f in &exports.files {
+                    println!("{:<14} {:>10} bytes", f.name, f.bytes);
+                }
+                ExitCode::SUCCESS
+            }
+            Err(e) => fail(e),
+        };
+    }
+    match photonoxide::facade::export_run(dir, tables.as_deref(), to.as_deref()) {
+        Ok(written) => {
+            for path in written {
+                println!("{}", path.display());
+            }
+            ExitCode::SUCCESS
+        }
+        Err(e) => fail(e.to_string()),
     }
 }
 

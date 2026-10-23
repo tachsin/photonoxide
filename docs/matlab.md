@@ -21,12 +21,14 @@ The wrappers take MATLAB's arrays, structs and name-value arguments and return M
 | [`photonoxide.device_job`](#photonoxidedevice_job) | The job file that computes a device's design. |
 | [`photonoxide.device_spectrum`](#photonoxidedevice_spectrum) | A device's S-parameters at a fidelity. |
 | [`photonoxide.devices`](#photonoxidedevices) | The devices of photonoxide's library. |
+| [`photonoxide.export_run`](#photonoxideexport_run) | Writes a photonoxide run's tables as CSV files. |
 | [`photonoxide.fdfd_s_parameters`](#photonoxidefdfd_s_parameters) | The S-parameters of an "fdfd" job's device by 2D FDFD. |
 | [`photonoxide.group_index`](#photonoxidegroup_index) | The bulk group index n - lambda dn/dlambda of a material of photonoxide's catalogue. |
 | [`photonoxide.materials`](#photonoxidematerials) | The materials of photonoxide's catalogue. |
 | [`photonoxide.read_touchstone`](#photonoxideread_touchstone) | The S-parameters of a Touchstone file. |
 | [`photonoxide.refractive_index`](#photonoxiderefractive_index) | The refractive index n + i*kappa of a material of photonoxide's catalogue. |
 | [`photonoxide.run_job`](#photonoxiderun_job) | Runs a photonoxide job, as photonoxide run --headless does. |
+| [`photonoxide.run_tables`](#photonoxiderun_tables) | The tables of a photonoxide run, from its record. |
 | [`photonoxide.slab_modes`](#photonoxideslab_modes) | The guided modes of a three-layer slab, solved exactly. |
 | [`photonoxide.stacks`](#photonoxidestacks) | The stacks of photonoxide's catalogue, by the name the device functions take. |
 | [`photonoxide.vector_modes`](#photonoxidevector_modes) | Full-vector modes of a waveguide's cross-section, with their fields. |
@@ -188,6 +190,28 @@ device functions take, e.g. "directional coupler"), d(k).about, d(k).parameters 
 array: name, unit, default, min, max), d(k).fidelities (its models, cheapest first:
 fidelity, name, write_up, papers, error, validity) and d(k).ports.
 
+## photonoxide.export_run
+
+Writes a photonoxide run's tables as CSV files.
+
+```matlab
+files = photonoxide.export_run(run_dir, options)
+```
+
+files = photonoxide.export_run(run_dir) writes every table the run in run_dir has (its
+n_eff, S-parameters, spectra, study, history, static numbers) as CSV files into the run's
+own folder, and returns the files written, a string array. A run writes them itself when
+it ends; this writes them again, or into another folder.
+
+Options: tables, the names of those to write ("modes", "s_parameters", ...; all of them
+when empty), and out_dir, the folder to write into (the run's own when empty).
+
+| Argument | Size | Class | Default |
+|---|---|---|---|
+| `run_dir` | scalar | string | required |
+| `tables` (name-value) | 1-by-: | string | `string.empty` |
+| `out_dir` (name-value) | scalar | string | `""` |
+
 ## photonoxide.fdfd_s_parameters
 
 The S-parameters of an "fdfd" job's device by 2D FDFD.
@@ -316,6 +340,25 @@ timeout_minutes, whichever comes first.
 | `job` | any | any | required |
 | `runs_dir` (name-value) | scalar | string | `"runs"` |
 | `timeout_s` (name-value) | scalar | double | `3600` |
+
+## photonoxide.run_tables
+
+The tables of a photonoxide run, from its record.
+
+```matlab
+t = photonoxide.run_tables(run_dir)
+```
+
+t = photonoxide.run_tables(run_dir) reads the run in run_dir (run.dir of
+photonoxide.run_job) and returns a struct of its tables: t.modes, t.sweep,
+t.s_parameters, t.spectra, t.resonances, t.study, t.history, t.static, t.transient, those
+the run has. Each is a MATLAB table whose variables are its CSV file's columns: numbers as
+doubles (NaN where the table has none), text as strings. Every number is the one the run
+recorded, to the bit.
+
+| Argument | Size | Class | Default |
+|---|---|---|---|
+| `run_dir` | scalar | string | required |
 
 ## photonoxide.slab_modes
 

@@ -44,6 +44,8 @@ __all__ = [
     "circuit_spectrum",
     "read_touchstone",
     "write_touchstone",
+    "run_tables",
+    "export_run",
     "devices",
     "stacks",
     "device_spectrum",
@@ -351,6 +353,35 @@ def write_touchstone(
         convention=str(convention),
         significant_digits=None if digits is None else int(digits),
     )
+
+
+@_identified
+def run_tables(run_dir: str) -> str:
+    """:func:`photonoxide.run_tables` as JSON text, for MATLAB's ``jsondecode``: each table's
+    ``columns``, each with its ``name`` and its ``values`` (null where the table has no number,
+    which ``jsondecode`` reads as NaN)."""
+
+    def values(v: Any) -> list[Any]:
+        if isinstance(v, np.ndarray):
+            return [None if math.isnan(x) else float(x) for x in v.tolist()]
+        return [str(x) for x in v]
+
+    tables = _phox.run_tables(str(run_dir))
+    return json.dumps(
+        {
+            name: {"columns": [{"name": c, "values": values(v)} for c, v in columns.items()]}
+            for name, columns in tables.items()
+        }
+    )
+
+
+@_identified
+def export_run(run_dir: str, tables: Any = None, out_dir: Any = None) -> list[str]:
+    """:func:`photonoxide.export_run`: the files written. An empty ``tables`` is every one the
+    run has, an empty ``out_dir`` the run's own folder."""
+    names = None if tables is None or len(tables) == 0 else [str(t) for t in tables]
+    out = _option(None if out_dir is None else str(out_dir))
+    return [str(p) for p in _phox.export_run(str(run_dir), tables=names, out_dir=out)]
 
 
 def _plain(x: Any) -> Any:

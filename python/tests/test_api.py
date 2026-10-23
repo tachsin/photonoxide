@@ -223,6 +223,24 @@ def test_a_job_file_runs_and_its_record_comes_back(tmp_path: Path) -> None:
     mode = next(e for e in run.events if e["type"] == "mode")
     assert 2.0 < mode["effective_index"][0] < 2.6
 
+    # its tables: the run wrote modes.csv itself, and its numbers are the events' to the bit
+    tables = phox.run_tables(run.dir)
+    modes = tables["modes"]
+    assert list(modes) == [
+        "label", "wavelength_um", "n_eff_re", "n_eff_im", "loss_db_per_cm", "te_fraction"
+    ]
+    assert modes["label"] == ["mode 1 of 1"]
+    assert modes["n_eff_re"][0].hex() == float(mode["effective_index"][0]).hex()
+    assert (run.dir / "modes.csv").is_file()
+    written = phox.export_run(run.dir, tables=["modes"], out_dir=tmp_path / "out")
+    assert written == [tmp_path / "out" / "modes.csv"]
+    assert written[0].read_text() == (run.dir / "modes.csv").read_text()
+    # numpy reads the file back to the same bits
+    read = np.genfromtxt(written[0], delimiter=",", names=True, dtype=None, encoding="utf-8")
+    assert float(read["n_eff_re"]).hex() == float(mode["effective_index"][0]).hex()
+    with pytest.raises(ValueError, match="isn't one"):
+        phox.export_run(run.dir, tables=["fields"])
+
 
 def test_a_job_as_data_gives_its_s_parameters() -> None:
     job = {

@@ -429,6 +429,38 @@ fn write_touchstone<'py>(
         .fail(py)
 }
 
+/// The tables of a run: a dict of each table's name to a dict of its columns, in order, each a
+/// float array (NaN where the table has no number) or a list of text.
+#[pyfunction]
+fn run_tables(py: Python<'_>, run_dir: PathBuf) -> PyResult<Bound<'_, PyDict>> {
+    let tables = py.detach(|| facade::run_tables(&run_dir)).fail(py)?;
+    let out = PyDict::new(py);
+    for t in tables {
+        let columns = PyDict::new(py);
+        for c in t.columns {
+            match (c.numbers, c.texts) {
+                (Some(numbers), _) => columns.set_item(c.name, PyArray1::from_vec(py, numbers))?,
+                (None, texts) => columns.set_item(c.name, texts.unwrap_or_default())?,
+            }
+        }
+        out.set_item(t.name, columns)?;
+    }
+    Ok(out)
+}
+
+/// Writes a run's tables as CSV files: the paths written.
+#[pyfunction]
+#[pyo3(signature = (run_dir, tables, out_dir))]
+fn export_run(
+    py: Python<'_>,
+    run_dir: PathBuf,
+    tables: Option<Vec<String>>,
+    out_dir: Option<PathBuf>,
+) -> PyResult<Vec<PathBuf>> {
+    py.detach(|| facade::export_run(&run_dir, tables.as_deref(), out_dir.as_deref()))
+        .fail(py)
+}
+
 /// A device's design from the package's arguments.
 fn design(
     kind: &str,
@@ -702,6 +734,8 @@ fn _photonoxide(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(circuit_spectrum, module)?)?;
     module.add_function(wrap_pyfunction!(read_touchstone, module)?)?;
     module.add_function(wrap_pyfunction!(write_touchstone, module)?)?;
+    module.add_function(wrap_pyfunction!(run_tables, module)?)?;
+    module.add_function(wrap_pyfunction!(export_run, module)?)?;
     module.add_function(wrap_pyfunction!(devices, module)?)?;
     module.add_function(wrap_pyfunction!(stacks, module)?)?;
     module.add_function(wrap_pyfunction!(device_spectrum, module)?)?;
