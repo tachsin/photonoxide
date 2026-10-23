@@ -16,6 +16,7 @@ moving a slider shows the physics the library computes, the code the
 | [The directional coupler and splitters](directional-coupler.md) | intermediate | `coupler` | `coupler-power`, `coupler-supermodes`, `coupler-gap`, `coupler-spectrum`, `coupler-mismatch` |
 | [The slab waveguide](slab-waveguide.md) | introductory | `slab` | `slab-fields`, `slab-bv`, `slab-neff`, `slab-confinement` |
 | [The strip waveguide and its cross-section](strip-waveguide.md) | intermediate | `strip` | `strip-fields`, `strip-neff`, `strip-models`, `strip-corners`, `strip-group-index` |
+| [Leaky and bent guides, and multilayers](leaky-and-bent-guides.md) | advanced | `leaky` | `leaky-field`, `leaky-substrate`, `bend-loss` |
 
 The whole curriculum is laid out: every lesson still to be written is here too, **coming soon**,
 with its numbered subsections, what each will answer and the examples each will use, so writing
@@ -23,7 +24,6 @@ it is filling them in. The library lists them in this order, the order to read t
 
 | Lesson coming soon | Topic | Level | Examples |
 |---|---|---|---|
-| [Leaky and bent guides, and multilayers](leaky-and-bent-guides.md) | Waveguides | advanced | `multilayer_chilwell`, `leaky_waves`, `bend_loss` |
 | [Grating couplers](grating-couplers.md) | Gratings and filters | intermediate | |
 | [Multimode interference and self-imaging](mmi.md) | Multimode and polarization devices | intermediate | `mmi_liu_poon` |
 | [Crossings, mode converters and the polarization splitter-rotator](crossings-and-converters.md) | Multimode and polarization devices | advanced | `crossing_liu_poon`, `mode_converter_liu_poon`, `splitter_rotator_liu_poon` |
@@ -193,6 +193,7 @@ shows first.
 | `mzi` | a Mach–Zehnder interferometer from above: the splitter's $r_1$, $k_1$ and the combiner's $r_2$, $k_2$, arms of $L$ and $L + \Delta L$ (the longer drawn longer) with their fields $a_l e^{i\phi_l}$ and $a_u e^{i\phi_u}$, a phase shifter $\varphi$, the phase difference $\Delta\phi$, the input and the bar and cross outputs | `mzi-mmi.yaml` |
 | `slab` | a slab in section: the film $n_2$ of thickness $d$ between the cover $n_1$ and the substrate $n_3$, a ray zig-zagging along $z$ at $\theta \gt \theta_c = \arcsin(n_3/n_2)$ and a steeper one lost, and a guided mode's $E_y(x)$ across the slab, $\cos(hx - \phi_3)$ in the film and the tails $e^{px}$ and $e^{-q(x - d)}$ | `slab-soi.yaml` |
 | `strip` | a strip in section: the core $n_1$, $w$ wide and $t$ thick, in the cladding $n_2$ on a buried oxide $h$ thick over the substrate, $x$, $y$ and $z$; the TE-like mode's field with its main $E_x$, the four corners and Marcatili's four corner regions; and the effective index method's two slabs, across $t$ giving $N$ and across $w$ giving $n_\text{eff}$ | `strip-modes.yaml` |
+| `leaky` | a planar guide in section, the cover $n_c$, films $n_1 \ldots n_J$ and a substrate $n_s$ above $\operatorname{Re} n_\text{eff}$, the mode along $z$ shedding a plane wave into the substrate at $\theta$, weaker downstream, and its field $\lvert\psi(x)\rvert$ growing into the substrate as $e^{ik\alpha_s x}$; and a guide $n_1$ in $n_2$ bent at $R$ about $O$, its radial phase fronts, $e^{i\nu\varphi}$ with $\nu = kn_\text{eff}R$, and the radius $\rho_r = R\thinspace n_\text{eff}/n_2$ beyond which it radiates | none |
 
 Each diagram is an entry in `studio/src-tauri/src/diagrams.rs` (its title, its captions, and its
 job if it has one) and an SVG drawn by a component in `studio/src/components/diagrams/`, named
@@ -234,6 +235,9 @@ code; the window only draws what it returns, and asks again as a slider moves.
 | `strip-models` | `thickness` nm (220), `wavelength` µm (1.55), `width` nm (500) | `mode::hadley::modes` on `StripWaveguide::cross_section` (20 nm cells), `Ridge::mode`, `Rectangle::mode` and `closed_form`, and the device's analytic fit, at 16 widths from 250 to 1000 nm |
 | `strip-corners` | `width` nm (500), `thickness` nm (220) | `mode::vector::modes` and `mode::hadley::modes` on `StripWaveguide::cross_section` at 11 grids from 40 to 10 nm, Richardson's extrapolation of Hadley's at its fitted order |
 | `strip-group-index` | `thickness` nm (220), `wavelength` µm (1.55), `width` nm (500) | `StripWaveguide::dispersion` at its 3D fidelity (20 nm cells) at 13 widths from 300 to 900 nm, the effective index method's $n_g$, `Material::group_index` |
+| `leaky-field` | `order` $m$ (4) | `Multilayer::bound_modes` and `modes_in` on Chilwell and Hodgkinson's four-layer guide, `MultilayerMode::field`: $\lvert E_y\rvert$ and $\operatorname{Re} E_y$ of a TE bound mode ($m \le 3$) or leaky wave ($m \ge 4$) |
+| `leaky-substrate` | `oxide` $h$ µm (1), `wavelength` µm (1.55) | `Multilayer::mode_near` from `Slab::modes`: 220 nm of silicon under oxide on $h$ of oxide over silicon, at 57 thicknesses from 0.1 to 1.5 µm, TE and TM; the estimate $e^{-2\gamma h}$ |
+| `bend-loss` | `core` $n_1$ (1.6), `cladding` $n_2$ (1.5), `thickness` µm (1), `wavelength` µm (1), `radius` µm (40) | `SlabBend::fundamental` and `mode_near` at 41 radii from Marcuse's $U = 3$ to 30, E normal to and in the bend plane; `marcuse_loss`, `bend_loss_db` |
 
 The ranges are in `charts.rs` (the coupler's in `charts/coupler.rs`), and the window's sliders keep
 to them. A chart may draw its y axis on a logarithmic scale (`y_log`), and give curves that belong
@@ -244,6 +248,8 @@ modes, a tenth of a second to a second each; their solves are cached, so moving 
 changes no geometry redraws at once. The strip's charts (`charts/strip.rs`) solve the strip
 waveguide device's own cross-section, so a lesson and the device's page can't disagree: one to
 five seconds for a sweep, cached likewise, their width marker moving along the sweep's own widths.
+The leaky and bent guides' charts (`charts/leaky.rs`) are exact, transfer matrices and the
+bent slab's radial shooting, and take milliseconds.
 A chart may draw pictures of a field over a cross-section in place of curves (`maps`), side by
 side with one colour scale, as `strip-fields` does.
 

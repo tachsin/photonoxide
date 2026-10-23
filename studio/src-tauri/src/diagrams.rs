@@ -39,6 +39,26 @@ pub fn specs() -> Vec<DiagramSpec> {
             caption_3d: "",
         },
         DiagramSpec {
+            id: "leaky",
+            title: "A leaky multilayer, and a bend from above",
+            caption: "At the left, a planar guide in section: a cover $n_c$, films $n_1 \\ldots \
+                      n_J$, and a substrate $n_s$ whose index is above the mode's \
+                      $\\operatorname{Re} n_\\text{eff}$. The mode travels along $z$ as \
+                      $e^{ikn_\\text{eff}z}$ and sheds a plane wave into the substrate at an \
+                      angle $\\theta$ from the faces' normal, weaker further along as the mode \
+                      loses power, so $\\operatorname{Im} n_\\text{eff} \\gt 0$. Its field \
+                      $\\lvert\\psi(x)\\rvert$ decays into the cover and grows into the \
+                      substrate as $e^{ik\\alpha_s x}$. At the right, a guide of index $n_1$ in a \
+                      cladding $n_2$, bent at a radius $R$ about $O$, seen from above: the mode \
+                      goes round as $e^{i\\nu\\varphi}$ with $\\nu = kn_\\text{eff}R$, so its \
+                      phase fronts are radial and turn together, faster the further out. At \
+                      $\\rho_r = R\\thinspace n_\\text{eff}/n_2$ (dashed) they would have to \
+                      outrun light in the cladding, and from there the field radiates, forwards \
+                      and outwards. Not to scale.",
+            job: None,
+            caption_3d: "",
+        },
+        DiagramSpec {
             id: "ring",
             title: "A ring resonator, seen from above",
             caption: "A ring of radius $R$ and waveguide width $w$, a gap $g$ from the bus. At the \

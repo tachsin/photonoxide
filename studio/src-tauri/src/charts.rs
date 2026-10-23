@@ -25,6 +25,7 @@ use photonoxide::units::{Length, Wavelength};
 use serde::Serialize;
 
 mod coupler;
+mod leaky;
 mod material;
 mod slab;
 mod strip;
@@ -850,6 +851,100 @@ pub fn specs() -> Vec<ChartSpec> {
                 strip_width((300.0, 900.0, 500.0), 50.0),
             ],
         },
+        ChartSpec {
+            id: "leaky-field",
+            title: "A bound mode and a leaky wave of a four-layer guide",
+            about: "Chilwell and Hodgkinson's four-layer guide, one TE mode's field across it: a bound mode (m = 0 to 3) decays into the cover and the substrate; a leaky wave (m = 4 to 8), its effective index below the substrate's, grows into the substrate, where it is a plane wave leaving the guide.",
+            computed_by: "mode::multilayer::Multilayer::bound_modes and modes_in, MultilayerMode::field (Chilwell and Hodgkinson's Eqs. 26 and 34)",
+            params: vec![param(
+                "order",
+                "Mode order $m$",
+                "",
+                (0.0, 8.0, 4.0),
+                1.0,
+                false,
+                "Which TE mode: 0 to 3 are the bound modes, 4 to 8 the leaky waves of the paper's Table 2.",
+            )],
+        },
+        ChartSpec {
+            id: "leaky-substrate",
+            title: "Leakage through the buried oxide",
+            about: "220 nm of silicon under oxide, on a buried oxide h thick over the silicon substrate: the loss of its TE and TM modes into the substrate against h, on a logarithmic scale, and the estimate e^(−2γh) from the field's decay across the oxide.",
+            computed_by: "mode::multilayer::Multilayer::mode_near (the complex root of Chilwell and Hodgkinson's Eq. 26), from mode::slab::Slab's mode of the film on oxide",
+            params: vec![
+                param(
+                    "oxide",
+                    "Buried oxide $h$",
+                    "um",
+                    (0.1, 1.5, 1.0),
+                    0.05,
+                    false,
+                    "The buried oxide's thickness between the film and the substrate.",
+                ),
+                param(
+                    "wavelength",
+                    "Wavelength $\\lambda$",
+                    "um",
+                    (1.2, 1.7, 1.55),
+                    0.01,
+                    false,
+                    "The vacuum wavelength; the indices are held fixed.",
+                ),
+            ],
+        },
+        ChartSpec {
+            id: "bend-loss",
+            title: "A bent slab's radiation loss against its radius",
+            about: "A symmetric slab bent at a radius R: its fundamental mode's radiation loss per 90° on a logarithmic scale, exactly for E normal to the bend plane and in it, and Marcuse's formula for E normal to it. The figures give both at the marked radius, and where the radiation starts.",
+            computed_by: "mode::bend::SlabBend::fundamental and mode_near (Marcuse's Eq. 10 with nothing approximated), mode::bend::marcuse_loss (his Eqs. 32–33), mode::dispersion::bend_loss_db",
+            params: vec![
+                param(
+                    "core",
+                    "Core $n_1$",
+                    "",
+                    (1.01, 4.0, 1.6),
+                    0.005,
+                    false,
+                    "The slab's index.",
+                ),
+                param(
+                    "cladding",
+                    "Cladding $n_2$",
+                    "",
+                    (1.0, 3.6, 1.5),
+                    0.005,
+                    false,
+                    "The index on both sides; below the core's.",
+                ),
+                param(
+                    "thickness",
+                    "Thickness $t$",
+                    "um",
+                    (0.1, 5.0, 1.0),
+                    0.01,
+                    false,
+                    "The slab's thickness, across the bend.",
+                ),
+                param(
+                    "wavelength",
+                    "Wavelength $\\lambda$",
+                    "um",
+                    (0.4, 2.0, 1.0),
+                    0.01,
+                    false,
+                    "The vacuum wavelength.",
+                ),
+                param(
+                    "radius",
+                    "Radius $R$",
+                    "um",
+                    (0.5, 2000.0, 40.0),
+                    0.1,
+                    true,
+                    "The bend's radius, to the slab's centre, at which the figures are given.",
+                ),
+            ],
+        },
     ]
 }
 
@@ -1141,6 +1236,17 @@ pub fn evaluate(id: &str, given: &BTreeMap<String, f64>) -> Result<ChartData, St
         "strip-models" => strip::models(at("thickness"), at("wavelength"), at("width")),
         "strip-corners" => strip::corners(at("width"), at("thickness")),
         "strip-group-index" => strip::group_index(at("thickness"), at("wavelength"), at("width")),
+        "leaky-field" => leaky::field(at("order") as usize),
+        "leaky-substrate" => leaky::substrate(at("oxide"), at("wavelength")),
+        "bend-loss" => leaky::bend_loss(
+            leaky::BentSlab {
+                core: at("core"),
+                cladding: at("cladding"),
+                t: at("thickness"),
+                l: at("wavelength"),
+            },
+            at("radius"),
+        ),
         _ => return Err(format!("chart {id} has no function")),
     };
     result.map_err(|e| format!("{id}: {e}"))
