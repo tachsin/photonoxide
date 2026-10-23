@@ -20,7 +20,7 @@ This page is written by `photonoxide libraries --write docs/libraries.md` from t
 | [OpenBLAS](#openblas) | `photonoxide-openblas` | conda-forge ✓, pip | conda-forge ✓, apt ✓, pip | conda-forge ✓, pip |
 | [AMD AOCL](#amd-aocl) | `photonoxide-aocl` | see below | see below | see below |
 | [Arm Performance Libraries](#arm-performance-libraries) | `photonoxide-armpl` | winget | see below | brew |
-| [Zstandard](#zstandard) | — | conda-forge | conda-forge, apt | conda-forge, brew |
+| [Zstandard](#zstandard) | — | conda-forge | conda-forge ✓, apt ✓ | conda-forge ✓, brew |
 | [AMD AOCL-Sparse](#amd-aocl-sparse) | none yet (#189) | see below | see below | see below |
 
 ✓: run on a clean machine and found. A manager without it is listed by its package index alone.
@@ -380,7 +380,8 @@ Zstandard's compression (Collet and Kucherawy, RFC 8878), the reference library 
 
   Into the active conda environment: start photonoxide from it. Many environments have it already, as a dependency.
 
-  Not run on a clean machine.
+  - Checked on Linux (ubuntu-24.04), 2026-10-23: installed zstd 1.5.7; found Zstandard 1.5.7, and its tests: an exported .npz read back to the bytes of photonoxide's own.
+  - Checked on macOS (macos-latest (Apple silicon)), 2026-10-23: installed zstd 1.5.7; found Zstandard 1.5.7, and its tests: an exported .npz read back to the bytes of photonoxide's own.
 
 - **apt** (Linux):
 
@@ -390,7 +391,8 @@ Zstandard's compression (Collet and Kucherawy, RFC 8878), the reference library 
 
   Debian's and Ubuntu's package, on most systems already: 1.5.5 on Ubuntu 24.04, 1.4.8 on 22.04.
 
-  Not run on a clean machine.
+  - Checked on Linux (ubuntu-24.04), 2026-10-23: installed libzstd1 1.5.5; found Zstandard 1.5.5, and its tests: an exported .npz read back to the bytes of photonoxide's own.
+  - Checked on Linux (ubuntu-22.04), 2026-10-23: installed libzstd1 1.4.8; found Zstandard 1.4.8, and its tests: an exported .npz read back to the bytes of photonoxide's own.
 
 - **brew** (macOS):
 

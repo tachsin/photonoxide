@@ -83,6 +83,8 @@ const UBUNTU: &str = "ubuntu-24.04";
 const UBUNTU_22: &str = "ubuntu-22.04";
 const WINDOWS: &str = "windows-2025-vs2026";
 const MACOS: &str = "macos-latest (Apple silicon)";
+/// The day Zstandard's installs were checked.
+const ZSTD_DAY: &str = "2026-10-23";
 
 /// What to know about a library before installing it.
 #[derive(Clone, Copy, Debug, Serialize)]
@@ -742,7 +744,22 @@ pub const GUIDES: &[Guide] = &[
                 command: "conda install -c conda-forge zstd",
                 systems: &["windows", "linux", "macos"],
                 note: "Into the active conda environment: start photonoxide from it. Many environments have it already, as a dependency.",
-                checked: &[],
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: ZSTD_DAY,
+                        installed: "zstd 1.5.7",
+                        found: "Zstandard 1.5.7, and its tests: an exported .npz read back to the bytes of photonoxide's own",
+                    },
+                    Checked {
+                        system: "macos",
+                        image: MACOS,
+                        date: ZSTD_DAY,
+                        installed: "zstd 1.5.7",
+                        found: "Zstandard 1.5.7, and its tests: an exported .npz read back to the bytes of photonoxide's own",
+                    },
+                ],
             },
             Install {
                 id: "apt",
@@ -750,7 +767,22 @@ pub const GUIDES: &[Guide] = &[
                 command: "sudo apt-get install libzstd1",
                 systems: &["linux"],
                 note: "Debian's and Ubuntu's package, on most systems already: 1.5.5 on Ubuntu 24.04, 1.4.8 on 22.04.",
-                checked: &[],
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: ZSTD_DAY,
+                        installed: "libzstd1 1.5.5",
+                        found: "Zstandard 1.5.5, and its tests: an exported .npz read back to the bytes of photonoxide's own",
+                    },
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU_22,
+                        date: ZSTD_DAY,
+                        installed: "libzstd1 1.4.8",
+                        found: "Zstandard 1.4.8, and its tests: an exported .npz read back to the bytes of photonoxide's own",
+                    },
+                ],
             },
             Install {
                 id: "brew",
@@ -1419,12 +1451,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
-    fn tmp_write_libraries_page() {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/libraries.md");
-        std::fs::write(path, markdown()).unwrap();
-    }
-
     #[test]
     fn the_install_guides_page_is_the_one_the_program_writes() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/libraries.md");

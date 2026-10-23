@@ -118,6 +118,36 @@ dev-dependency only) as a real reader and a small `.npy` parser of their own, to
 The ZIP is a minimal writer of the module's own (PKWARE's *APPNOTE*), deflating with `flate2`'s
 pure-Rust backend: nothing written in C is linked.
 
+## Zstandard
+
+Deflate is photonoxide's own and the default, so every export works with nothing installed.
+Zstandard (Collet and Kucherawy, RFC 8878, doi:10.17487/RFC8878) compresses better and
+faster, but its main implementation is written in C, which photonoxide never links: with
+`compression = "zstd"` the run uses **the user's own libzstd**, found and loaded at run time by
+`photonoxide-native` ([installing it](../libraries.md#zstandard)).
+
+```yaml
+task:
+  export:
+    fields: [Ex, Ey, Hz]
+    compression: zstd   # "deflate" (the default) or "zstd"
+    level: 9            # zstd's 1 to 22, 3 by default
+```
+
+- Each member of the `.npz` is one Zstandard frame, stored as ZIP method 93. Python's
+  `zipfile`, and so `numpy.load`, reads it from Python 3.14; checked with NumPy 2.5.4 there, its
+  arrays the same bytes as the deflate file's. Older Pythons don't, so deflate stays the
+  choice for files to share.
+- `meta.json` names the compression and the library's version.
+- The same frames from the same library on every run: its one-shot, single-threaded
+  compression depends on nothing but the input and the level.
+- The check refuses `"zstd"` where libzstd isn't found, saying why, rather than failing the
+  run at its end. The `photonoxide` program looks for it as it starts a job; the Python
+  package doesn't load external libraries, so its runs take deflate.
+- `photonoxide-native`'s tests (`cargo test -p photonoxide-native --test zstd`) run a modes
+  job both ways and read each zstd member back through libzstd: the bytes of the stored file,
+  photonoxide's own path, every one. They skip, saying so, where libzstd isn't found.
+
 ## A finished run
 
 A run's tables can be written again, or ones its job didn't ask for, from its record:
@@ -135,6 +165,6 @@ longer has, so a job asks for them in `[task.export]`.
 ## Left for later
 
 Issue [#431](https://github.com/tachsin/photonoxide/issues/431) asks for more: MAT and VTK XML
-writers, HDF5 and zstd through `photonoxide-native` (the user's own libhdf5 and libzstd loaded
+writers, HDF5 through `photonoxide-native` (the user's own libhdf5 loaded
 at run time, never linked; deflate stays the pure-Rust default), and the heavy arrays moved out
 of `events.jsonl`. This page grows with them.

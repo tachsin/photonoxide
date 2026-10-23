@@ -2490,6 +2490,10 @@
       "additionalProperties": false,
       "description": "A job's `[task.export]`: what its run writes into its directory beside `events.jsonl` (`crate::export`). A job without one writes every table its run has, as CSV, and no fields.",
       "properties": {
+        "compression": {
+          "description": "The npz's compression: `\"deflate\"` (the default, photonoxide's own) or `\"zstd\"` (Zstandard, from the user's own libzstd, loaded at run time: docs/libraries.md).",
+          "type": "string"
+        },
         "fields": {
           "description": "Which fields: `\"Ex\"`, `\"Ey\"`, `\"Ez\"`, `\"Hx\"`, `\"Hy\"`, `\"Hz\"`, `\"temperature\"`, `\"potential\"`; every one the kind computes by default.",
           "items": {
@@ -2502,7 +2506,7 @@
           "type": "string"
         },
         "level": {
-          "description": "Deflate's level, 0 (store) to 9 (smallest); 6 by default. The csv is never compressed.",
+          "description": "The compression level: deflate's 0 (store) to 9 (smallest), 6 by default; Zstandard's 1 to 22, 3 by default. The csv is never compressed.",
           "maximum": 255,
           "minimum": 0,
           "type": "integer"
