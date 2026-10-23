@@ -1451,7 +1451,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn the_install_guides_page_is_the_one_the_program_writes() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/libraries.md");
         let written = std::fs::read_to_string(path).unwrap().replace("\r\n", "\n");
