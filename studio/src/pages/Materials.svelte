@@ -54,6 +54,7 @@
     ["dielectric", "Dielectrics"],
     ["semiconductor", "Semiconductors"],
     ["nonlinear-crystal", "Nonlinear crystals"],
+    ["phase-change", "Phase-change materials"],
   ];
 
   const shown = $derived(

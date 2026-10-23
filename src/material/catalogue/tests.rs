@@ -56,7 +56,8 @@ fn every_model_evaluates_at_its_defaults_and_ends_of_its_ranges() {
                 let (lo, hi) = mat.range();
                 for lam in [lo, hi] {
                     let index = mat.refractive_index(lam).unwrap();
-                    assert!(index.re > 1.0 && index.re < 5.0, "{}: {index}", m.id);
+                    // crystalline GST reaches 7.97 at 1.31 µm
+                    assert!(index.re > 1.0 && index.re < 8.5, "{}: {index}", m.id);
                     assert!(mat.group_index(lam).unwrap().is_finite(), "{}", m.id);
                 }
                 assert!(mat.provenance().doi.starts_with("10."), "{}", m.id);

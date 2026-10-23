@@ -22,6 +22,11 @@
 //! and thin-film silicon, fused silica and the heater metals tungsten, titanium and platinum,
 //! each model with its paper, temperature range and, for a film, thickness. The static solver
 //! ([`crate::thermal`]) takes them for a job's media it isn't given a value for.
+//!
+//! Phase-change materials (Sb₂Se₃, Sb₂S₃, GST): each state an entry of its own
+//! ([`Category::PhaseChange`], e.g. `sb2se3-amorphous` and `sb2se3-crystalline`), the pair in a
+//! [`PhaseChange`] with the temperatures that switch it and its thermal properties
+//! ([`phase_change`]).
 
 use serde::Serialize;
 
@@ -35,6 +40,8 @@ pub(crate) mod conductivity;
 pub(crate) mod conductivity_checks;
 mod entries;
 mod models;
+pub(crate) mod phase_change;
+pub(crate) mod phase_change_checks;
 mod references;
 mod symmetry;
 mod tags;
@@ -45,6 +52,7 @@ pub(crate) mod thermo_checks;
 
 pub use coming::Coming;
 pub use conductivity::{Conductivity, ConductivityModel, conductivities, conductivity};
+pub use phase_change::{PhaseChange, State, phase_change, phase_changes};
 pub use symmetry::{Pattern, pattern};
 pub use tags::Tag;
 
@@ -59,6 +67,9 @@ pub enum Category {
     Semiconductor,
     /// A non-centrosymmetric crystal used for its χ⁽²⁾ or Pockels effect.
     NonlinearCrystal,
+    /// One state of a phase-change material: amorphous or crystalline, each its own entry
+    /// ([`PhaseChange`] has the pair and what switches them).
+    PhaseChange,
 }
 
 /// The crystal system, or none for an amorphous material.

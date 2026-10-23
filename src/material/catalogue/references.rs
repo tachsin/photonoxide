@@ -5,6 +5,41 @@ use super::Reference;
 /// (key, citation, title, DOI, open-access copy).
 const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
     (
+        "delaney-2020",
+        "M. Delaney, I. Zeimpekis, D. Lawson, D. W. Hewak, O. L. Muskens, Adv. Funct. Mater. 30, 2002447 (2020)",
+        "A new family of ultralow loss reversible phase-change materials for photonic integrated circuits: Sb2S3 and Sb2Se3",
+        "10.1002/adfm.202002447",
+        "https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adfm.202002447",
+    ),
+    (
+        "delaney-2020-data",
+        "M. Delaney, I. Zeimpekis, D. Lawson, D. Hewak, O. Muskens, University of Southampton (2020), data set (CC BY 4.0)",
+        "Dataset for A new family of ultra-low loss reversible phase change materials for photonic integrated circuits: Sb2S3 and Sb2Se3",
+        "10.5258/SOTON/D1247",
+        "https://eprints.soton.ac.uk/id/eprint/442332",
+    ),
+    (
+        "lawson-2022",
+        "D. Lawson, D. W. Hewak, O. L. Muskens, I. Zeimpekis, J. Opt. 24, 064013 (2022)",
+        "Time-resolved reversible optical switching of the ultralow-loss phase change material Sb2Se3",
+        "10.1088/2040-8986/ac5ece",
+        "https://arxiv.org/abs/2111.13182",
+    ),
+    (
+        "efthimiopoulos-2013",
+        "I. Efthimiopoulos, J. Zhang, M. Kucway, C. Park, R. C. Ewing, Y. Wang, Sci. Rep. 3, 2665 (2013)",
+        "Sb2Se3 under pressure",
+        "10.1038/srep02665",
+        "https://www.nature.com/articles/srep02665",
+    ),
+    (
+        "frantz-2023",
+        "J. A. Frantz, J. D. Myers, A. Clabeau, R. Y. Bekele, N. Hong, M. A. Vincenti, M. Gandolfi, J. S. Sanghera, Opt. Mater. Express 13, 3631 (2023)",
+        "Optical constants of germanium antimony telluride (GST) in amorphous, crystalline, and intermediate states",
+        "10.1364/OME.506019",
+        "https://doi.org/10.1364/OME.506019",
+    ),
+    (
         "li-1980",
         "H. H. Li, J. Phys. Chem. Ref. Data 9, 561 (1980)",
         "Refractive index of silicon and germanium and its wavelength and temperature derivatives",

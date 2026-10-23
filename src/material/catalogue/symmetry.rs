@@ -36,10 +36,10 @@ const fn s(row: u8, col: u8, sign: i8) -> Pattern {
 }
 
 /// The pattern of d (3 × 6) or r (6 × 3) for a point group, or `None` for a point group the
-/// catalogue doesn't use. Centrosymmetric groups (`"m-3m"`, `"∞∞m"`) give all zeros.
+/// catalogue doesn't use. Centrosymmetric groups (`"m-3m"`, `"mmm"`, `"∞∞m"`) give all zeros.
 pub fn pattern(kind: TensorKind, point_group: &str) -> Option<Vec<Vec<Pattern>>> {
     let d: Vec<[Pattern; 6]> = match point_group {
-        "m-3m" | "∞∞m" => vec![[Z; 6]; 3],
+        "m-3m" | "mmm" | "∞∞m" => vec![[Z; 6]; 3],
         // d14 = d25 = d36
         "-43m" => vec![
             [Z, Z, Z, I, Z, Z],
@@ -64,7 +64,7 @@ pub fn pattern(kind: TensorKind, point_group: &str) -> Option<Vec<Vec<Pattern>>>
         TensorKind::SecondOrder => d.into_iter().map(|row| row.to_vec()).collect(),
         TensorKind::ElectroOptic => {
             let r: Vec<[Pattern; 3]> = match point_group {
-                "m-3m" | "∞∞m" => vec![[Z; 3]; 6],
+                "m-3m" | "mmm" | "∞∞m" => vec![[Z; 3]; 6],
                 // r41 = r52 = r63
                 "-43m" => vec![
                     [Z, Z, Z],

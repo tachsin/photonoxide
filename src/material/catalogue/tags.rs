@@ -73,6 +73,11 @@ fn point_group_symbols(hm: &str) -> Option<(&'static str, &'static str, &'static
             r"C_{4v}",
             "a fourfold axis ($z$, the $c$ axis) and mirror planes containing it: 8 operations, without the inversion",
         ),
+        "mmm" => (
+            r"mmm",
+            r"D_{2h}",
+            "three perpendicular twofold axes, each normal to a mirror plane: 8 operations, among them the inversion",
+        ),
         "∞∞m" => (
             r"\infty\infty m",
             r"K_h",
@@ -288,6 +293,12 @@ impl Entry {
                 "category",
                 "nonlinear crystal",
                 "A non-centrosymmetric dielectric crystal used for its $\\chi^{(2)}$ and Pockels effect.",
+                "",
+            ),
+            Category::PhaseChange => tag(
+                "category",
+                "phase-change material",
+                "One state of a material that a heat pulse switches between amorphous and crystalline, and that keeps either without power: each state is its own entry.",
                 "",
             ),
         }];

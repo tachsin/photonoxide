@@ -19,11 +19,11 @@ pub(super) fn src(reference: &str, location: &str) -> Source {
     }
 }
 
-fn strings(items: &[&str]) -> Vec<String> {
+pub(super) fn strings(items: &[&str]) -> Vec<String> {
     items.iter().map(|s| (*s).to_owned()).collect()
 }
 
-fn table(caption: &str, columns: &[&str], rows: Vec<Vec<String>>) -> CoefficientTable {
+pub(super) fn table(caption: &str, columns: &[&str], rows: Vec<Vec<String>>) -> CoefficientTable {
     CoefficientTable {
         caption: caption.into(),
         columns: strings(columns),
@@ -74,7 +74,7 @@ fn centrosymmetric(point_group: &str, why: &str) -> Vec<Tensor> {
 }
 
 pub(super) fn all() -> Vec<Entry> {
-    vec![
+    let mut all = vec![
         silica(),
         silicon_nitride(),
         silicon(),
@@ -88,14 +88,16 @@ pub(super) fn all() -> Vec<Entry> {
         lithium_niobate_mgo(),
         barium_titanate(),
         lithium_tantalate(),
-    ]
+    ];
+    all.extend(super::phase_change::entries());
+    all
 }
 
 // ---------------------------------------------------------------------------------------------
 // Dielectrics
 // ---------------------------------------------------------------------------------------------
 
-fn amorphous(notes: &str) -> Crystal {
+pub(super) fn amorphous(notes: &str) -> Crystal {
     Crystal {
         system: CrystalSystem::Amorphous,
         point_group: "∞∞m".into(),

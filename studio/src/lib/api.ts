@@ -392,7 +392,7 @@ export interface MaterialEntry {
   id: string;
   name: string;
   formula: string;
-  category: "dielectric" | "semiconductor" | "nonlinear-crystal";
+  category: "dielectric" | "semiconductor" | "nonlinear-crystal" | "phase-change";
   summary: string;
   crystal: {
     system: string;

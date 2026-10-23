@@ -90,6 +90,13 @@ W/(m·K) at 220 nm), fused silica (Powell, Ho & Liley 1966, 1.38) and the heater
 Pt. A heat job's media take them unless the job gives a value
 ([the catalogue](catalogue.md#thermal-conductivities)).
 
+## Phase-change materials
+
+Sb₂Se₃, Sb₂S₃ and GST are in the catalogue in both states, amorphous and crystalline, each its own
+entry: our fits to Delaney et al. 2020's ellipsometry over 1.0 to 1.69 µm, with the temperatures
+that switch them and their thermal properties where a source gives them
+([the catalogue](catalogue.md#phase-change-materials)).
+
 ## Validation
 
 - Silicon passes through Li's table at all 35 wavelengths (to 1e-12: the spline is exact at its
