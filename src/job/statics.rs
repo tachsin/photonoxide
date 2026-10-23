@@ -39,6 +39,18 @@
 //! last field, and each probe's 1/e and 10–90 % times and the −3 dB frequency of its
 //! small-signal response to the heaters' power.
 //!
+//! **A pulse:** `pulse_ns` in `[task.transient]` turns the heaters on at t = 0 for that long, a
+//! whole number of steps, then off to `duration_us` ([`crate::thermal::Heat::pulse`]; BDF2
+//! unless the scheme is given, which takes the heat exactly to the pulse's end). The run
+//! records each probe's hottest and coldest cell at their highest (the cells at least half
+//! inside it), and for each `[[task.switching]]` (`probe`, and `material`, a phase-change
+//! material of the catalogue: `sb2se3`, …) its crystallization and melting temperatures and
+//! what the pulse does to the film there ([`crate::thermal::Switch`]: `"film after the pulse:
+//! amorphized"`, …). The temperatures are absolute, so the job holds its sides or sinks at the
+//! ambient (293.15 K, say). A medium named by a phase-change state's catalogue id
+//! (`sb2se3-crystalline`) takes the catalogue's conductivity and ρc_p unless the job gives
+//! them. jobs/pcm-switching.yaml amorphizes 25 nm of Sb₂Se₃ on a silicon strip.
+//!
 //! **A phase shifter** (heat, or a current's Joule heat): `[task.shifter]` (`wavelength_um`,
 //! `step_nm` of the optical grid, and `index` and `dn_dt` tables by medium in place of the
 //! catalogue's, whose default models give the rest at `temperature_k`) with `[[task.guide]]`
@@ -112,7 +124,7 @@ use crate::electro::{Conductor, Current, Electrostatic};
 use crate::geometry::{Point, Shape};
 use crate::run::{Job, Run, Stop};
 use crate::statics::{Boundary, Cut, Features, Field, Grading, Grid, Section, Side, Tensor};
-use crate::thermal::{Heat, Scheme, Stepping};
+use crate::thermal::{Heat, Scheme, Stepping, Switch};
 use crate::units::Length;
 
 /// The most cells a static job's grid may have.
@@ -246,12 +258,40 @@ struct TransientSpec {
     duration_us: f64,
     scheme: Option<String>,
     turn: Option<String>,
+    /// The heaters on from t = 0 for this long, then off: a pulse, a whole number of steps.
+    pulse_ns: Option<f64>,
 }
 
-/// A transient as a run takes it: its steps, and whether the heaters turn on (or off).
+/// A transient as a run takes it: its steps, whether the heaters turn on (or off), and a
+/// pulse's length (s).
 struct Transient {
     stepping: Stepping,
     on: bool,
+    pulse_s: Option<f64>,
+}
+
+/// `[[task.switching]]`: a probe over a phase-change film and the material's id (`sb2se3`),
+/// whose crystallization and melting temperatures the pulse's are set against.
+#[derive(Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct SwitchingSpec {
+    probe: String,
+    material: String,
+}
+
+/// The phase-change material and state whose catalogue entry id is `medium`.
+fn phase_state(
+    medium: &str,
+) -> Option<(
+    crate::material::catalogue::PhaseChange,
+    crate::material::catalogue::State,
+)> {
+    crate::material::catalogue::phase_changes()
+        .into_iter()
+        .find_map(|p| {
+            let s = p.state_of(medium)?;
+            Some((p, s))
+        })
 }
 
 impl TransientSpec {
@@ -271,6 +311,8 @@ impl TransientSpec {
             )));
         }
         let scheme = match self.scheme.as_deref() {
+            // a pulse by BDF2 unless asked: its peak at the pulse's end to second order
+            None if self.pulse_ns.is_some() => Scheme::Bdf2,
             None | Some("crank-nicolson") => Scheme::CrankNicolson,
             Some("bdf2") => Scheme::Bdf2,
             Some(other) => {
@@ -289,6 +331,27 @@ impl TransientSpec {
                 )));
             }
         };
+        let pulse_s = match self.pulse_ns {
+            None => None,
+            Some(p) => {
+                let k = p / step;
+                if !(p.is_finite() && p > 0.0)
+                    || (k - k.round()).abs() > 1e-6 * k.max(1.0)
+                    || k.round() >= steps
+                {
+                    return Err(task_error(format!(
+                        "[task.transient] pulse_ns = {p} must be a whole number of steps of \
+                         {step} ns, shorter than duration_us"
+                    )));
+                }
+                if !on {
+                    return Err(task_error(
+                        "[task.transient] a pulse turns the heaters on, then off: leave turn out",
+                    ));
+                }
+                Some(p * 1e-9)
+            }
+        };
         Ok(Transient {
             stepping: Stepping {
                 step_s: step * 1e-9,
@@ -296,6 +359,7 @@ impl TransientSpec {
                 scheme,
             },
             on,
+            pulse_s,
         })
     }
 }
@@ -343,6 +407,8 @@ pub(super) struct StaticTask {
     #[serde(default)]
     heat_capacity: BTreeMap<String, f64>,
     transient: Option<TransientSpec>,
+    #[serde(default)]
+    switching: Vec<SwitchingSpec>,
     #[serde(default)]
     boundary: BoundarySpec,
     #[serde(default)]
@@ -453,6 +519,8 @@ struct Setup {
     probes: Vec<(String, Shape)>,
     held: Vec<String>,
     transient: Option<Transient>,
+    /// Each [[task.switching]]: its probe's index, the material's id, T_c and T_m (K).
+    switching: Vec<(usize, String, f64, f64)>,
     /// The conductivities the catalogue gave, for the record.
     catalogued: Vec<StaticValue>,
     /// The electro-optic chain, with what it takes from the task.
@@ -501,6 +569,21 @@ fn catalogued(
     };
     for m in media {
         if task.thermal_conductivity.contains_key(m) {
+            continue;
+        }
+        // a phase-change state named by its entry id, e.g. sb2se3-crystalline
+        if let Some((p, state)) = phase_state(m) {
+            let k = p.conductivity(state).ok_or_else(|| {
+                task_error(format!(
+                    "[task.thermal_conductivity] has no value for the medium {m}, and the \
+                     catalogue has no conductivity for it yet: give it one"
+                ))
+            })?;
+            out.values.push((
+                m.clone(),
+                k.value,
+                format!("{}, {}", p.formula, k.source.reference),
+            ));
             continue;
         }
         let Some(c) = catalogue::conductivity(m) else {
@@ -736,6 +819,7 @@ fn setup_scaled(job: &Job, scale: f64) -> Result<Setup> {
         probes,
         held: Vec::new(),
         transient: None,
+        switching: Vec::new(),
         catalogued: Vec::new(),
         electro_optic: None,
         shifter: None,
@@ -812,23 +896,88 @@ fn setup_scaled(job: &Job, scale: f64) -> Result<Setup> {
             "[task.transient] is for physics = \"heat\": a transient of the temperature",
         ));
     }
+    if !task.switching.is_empty() && task.transient.is_none() {
+        return Err(task_error(
+            "[[task.switching]] sets a pulse's temperatures against a film's: give the task a \
+             [task.transient] with a pulse_ns",
+        ));
+    }
     match task.physics.as_str() {
         "heat" => {
             setup.held = (1..=task.sink.len()).map(|k| format!("sink {k}")).collect();
             let (mut h, heat_section, record) = heat()?;
             setup.catalogued = record;
             if let Some(spec) = &task.transient {
-                setup.transient = Some(spec.transient()?);
+                let transient = spec.transient()?;
+                if transient.pulse_s.is_some() && task.shifter.is_some() {
+                    return Err(task_error(
+                        "[task.transient] pulse_ns is for a pulse's temperatures, not a \
+                         [task.shifter]'s phase",
+                    ));
+                }
+                if !task.switching.is_empty() && transient.pulse_s.is_none() {
+                    return Err(task_error(
+                        "[[task.switching]] sets a pulse's temperatures against a film's: give \
+                         [task.transient] a pulse_ns",
+                    ));
+                }
+                for (k, s) in task.switching.iter().enumerate() {
+                    let probe = setup
+                        .probes
+                        .iter()
+                        .position(|(n, _)| *n == s.probe)
+                        .ok_or_else(|| {
+                            task_error(format!(
+                                "[[task.switching]] #{} names the probe {:?}, which no \
+                                 [[task.probe]] is",
+                                k + 1,
+                                s.probe
+                            ))
+                        })?;
+                    let p =
+                        crate::material::catalogue::phase_change(&s.material).ok_or_else(|| {
+                            task_error(format!(
+                                "[[task.switching]] #{} names {:?}: a phase-change material is \
+                                 sb2se3, sb2s3 or gst",
+                                k + 1,
+                                s.material
+                            ))
+                        })?;
+                    let (Some(tc), Some(tm)) = (&p.crystallization, &p.melting) else {
+                        return Err(task_error(format!(
+                            "[[task.switching]] #{}: the catalogue has no crystallization and \
+                             melting temperatures for {} yet",
+                            k + 1,
+                            p.id
+                        )));
+                    };
+                    setup
+                        .switching
+                        .push((probe, p.id.clone(), tc.value, tm.value));
+                }
+                setup.transient = Some(transient);
                 for m in heat_section.media() {
                     // a substrate drawn apart takes its material's, unless given its own
-                    let c = task
+                    // and a phase-change state the catalogue's ρc_p
+                    let given = task
                         .heat_capacity
                         .get(m)
                         .or_else(|| {
                             m.strip_suffix(SUBSTRATE)
                                 .and_then(|n| task.heat_capacity.get(n))
                         })
-                        .copied()
+                        .copied();
+                    let c = given
+                        .or_else(|| {
+                            let (p, _) = phase_state(m)?;
+                            let c = p.heat_capacity()?;
+                            setup.catalogued.push(value(
+                                format!("heat capacity of {m} ({}, catalogue)", p.formula),
+                                c,
+                                "J/(m^3*K)",
+                            ));
+                            Some(c)
+                        })
                         .ok_or_else(|| {
                             task_error(format!(
                                 "[task.heat_capacity] has no value for the medium {m} (the \
@@ -1143,6 +1292,9 @@ fn in_time(
     stop: &Stop,
     values: &mut Vec<StaticValue>,
 ) -> Result<()> {
+    if let Some(pulse_s) = transient.pulse_s {
+        return in_pulse(setup, heat, transient, pulse_s, run, stop, values);
+    }
     let (from, to) = if transient.on { (0.0, 1.0) } else { (1.0, 0.0) };
     let shapes: Vec<Shape> = setup.probes.iter().map(|(_, s)| s.clone()).collect();
     let means =
@@ -1192,6 +1344,83 @@ fn in_time(
         {
             values.push(value(format!("-3 dB frequency of {name}"), f, "Hz"));
         }
+    }
+    Ok(())
+}
+
+/// A heat job's pulse ([`Heat::pulse`]): each probe's mean recorded as the steps go, the last
+/// field, each probe's hottest and coldest cell at their highest, and what the pulse does to
+/// each `[[task.switching]]` film.
+fn in_pulse(
+    setup: &Setup,
+    heat: &Heat,
+    transient: &Transient,
+    pulse_s: f64,
+    run: &mut Run,
+    stop: &Stop,
+    values: &mut Vec<StaticValue>,
+) -> Result<()> {
+    let shapes: Vec<Shape> = setup.probes.iter().map(|(_, s)| s.clone()).collect();
+    let stepping = &transient.stepping;
+    let every = stepping.steps.div_ceil(RECORDED_STEPS).max(1);
+    let step_event = |time_s: f64, means: &[f64]| Event::StaticStep {
+        time_us: time_s * 1e6,
+        means: setup
+            .probes
+            .iter()
+            .zip(means)
+            .map(|((name, _), m)| value(format!("mean over {name}"), *m, "K"))
+            .collect(),
+    };
+    let start = heat.steady_at(0.0)?;
+    let first: Vec<f64> = shapes
+        .iter()
+        .map(|s| start.mean(s))
+        .collect::<Result<_>>()?;
+    run.record(&step_event(0.0, &first))?;
+    let pulse = heat.pulse_observed(stepping, pulse_s, &shapes, &mut |step| {
+        if step.index % every == 0 || step.index == stepping.steps {
+            run.record(&step_event(step.time_s, &step.means))?;
+        }
+        Ok(stop.reason().is_none())
+    })?;
+    let last = pulse.history.times_s.last().copied().unwrap_or(0.0);
+    run.record(&Event::StaticField {
+        label: format!("temperature at {} us", (last * 1e9).round() / 1e3),
+        unit: "K".into(),
+        axes: ["y".to_owned(), "z".to_owned()],
+        raster: setup.picture(&pulse.history.last),
+    })?;
+    values.push(value("time step", stepping.step_s, "s"));
+    values.push(value("steps", (pulse.history.times_s.len() - 1) as f64, ""));
+    values.push(value("pulse", pulse_s, "s"));
+    for (k, (name, _)) in setup.probes.iter().enumerate() {
+        values.push(value(
+            format!("highest of {name}'s hottest cell"),
+            pulse.hottest[k],
+            "K",
+        ));
+        values.push(value(
+            format!("highest of {name}'s coldest cell"),
+            pulse.coldest[k],
+            "K",
+        ));
+        values.push(value(
+            format!("time of {name}'s coldest cell's highest"),
+            pulse.coldest_at_s[k],
+            "s",
+        ));
+    }
+    for (k, material, tc, tm) in &setup.switching {
+        let name = &setup.probes[*k].0;
+        values.push(value(format!("T_c of {material}"), *tc, "K"));
+        values.push(value(format!("T_m of {material}"), *tm, "K"));
+        let switch = Switch::of(pulse.coldest[*k], pulse.hottest[*k], *tc, *tm);
+        values.push(value(
+            format!("{name} after the pulse: {}", switch.name()),
+            1.0,
+            "",
+        ));
     }
     Ok(())
 }

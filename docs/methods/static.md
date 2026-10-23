@@ -188,6 +188,51 @@ on the same analysis (complex symmetric), the held regions and sides holding the
 zero. `Heat::response` gives the watched mean's $\hat T(f)/\hat T(0)$ and `Heat::cutoff` the
 frequency where its magnitude is $1/\sqrt 2$, by bisection in $\log f$.
 
+## A pulse, and switching a phase-change film
+
+`Heat::pulse` starts from the steady state without the heaters, turns them on for a whole
+number of steps and then off, and records each watched shape's hottest and coldest cell at their
+highest (the cells at least half inside it). A source that jumps costs any scheme an order where
+it jumps, so the pulse's end is placed on a step. BDF2 takes the heat exactly to that instant,
+which is where a film heated from below peaks, so its peak is second order. Crank–Nicolson takes
+the mean of on and off there, so its trapezoid gives the pulse's energy exactly, and what follows
+is second order. Two cases check this on the heated slab against Carslaw and Jaeger's series. The
+first, `static/pulse-slab-peak`, compares the hottest and coldest cells at the pulse's end (by
+BDF2) and finds them within 5e-4 of the steady peak. The second, `static/pulse-slab-after`,
+compares the mean a pulse's length later (by Crank–Nicolson) with a step response less the delayed
+one, and finds it within 5e-5 of the steady mean.
+
+`thermal::Switch::of` sets a phase-change film's two highest temperatures against the
+crystallization and melting temperatures of the catalogue (`catalogue::phase_change`):
+
+- *amorphized* when the coldest cell melts, if the film is then quenched faster than it
+  recrystallizes;
+- *partly melted* when only the hottest cell melts;
+- *crystallized* when every cell passes $T_c$ and none melts;
+- *partly crystallized* when only some cells pass $T_c$;
+- *unchanged* otherwise.
+
+The crystallization's kinetics aren't modelled. A crystallizing pulse must hold the film above
+$T_c$ for long enough: milliseconds for Sb₂Se₃ by Lawson et al. 2022, under a laser. A
+threshold needs no latent heat, since a film only starts to absorb it once it reaches $T_m$.
+
+jobs/pcm-switching.yaml is our own cell, not a published device. It has 25 nm of crystalline
+Sb₂Se₃ on a 500 × 220 nm silicon strip that heats it (a doped-silicon heater, 7.5 mW/µm for
+100 ns), in oxide on the SOI stack, with the substrate held at 293.15 K 2 µm below the buried
+oxide. Validation case `static/pcm-cell-convergence` takes the film's coldest cell at its highest
+on grids graded from 5, 2.5 and 1.25 nm, in steps of 0.5 ns (the steps converge: at 2.5 nm, 0.02 K
+from 0.5 to 0.25 ns):
+
+| Finest cell | Cells | Coldest (K) | Hottest (K) |
+|---|---|---|---|
+| 5 nm | 8 856 | 906.23 | 1049.24 |
+| 2.5 nm | 12 400 | 900.60 | 1053.24 |
+| 1.25 nm | 16 541 | 898.59 | 1055.27 |
+
+Richardson's estimate of the finest value's error is 1.1 K. The whole film therefore reaches
+898.6 ± 1.1 K, above Sb₂Se₃'s 884 K, and the pulse amorphizes it. These are 2D numbers, per unit
+length of a cell that is uniform along the guide.
+
 ## Electrode edges
 
 At the edge of a thin electrode the potential goes as $r^{1/2}$ and the field as $r^{-1/2}$. On a

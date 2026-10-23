@@ -407,6 +407,10 @@ pub fn jobs() -> Vec<JobExample> {
         ),
         ("slab-soi.yaml", include_str!("../../../jobs/slab-soi.yaml")),
         (
+            "pcm-switching.yaml",
+            include_str!("../../../jobs/pcm-switching.yaml"),
+        ),
+        (
             "coupler-gap-sweep.yaml",
             include_str!("../../../jobs/coupler-gap-sweep.yaml"),
         ),

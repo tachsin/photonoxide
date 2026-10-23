@@ -1,5 +1,6 @@
 //! Heat conduction on a waveguide's cross-section: −∇·(k∇T) = Q, steady, and in time,
-//! ρc_p ∂T/∂t = ∇·(k∇T) + Q ([`Heat::transient`], [`Heat::response`]), per unit length along
+//! ρc_p ∂T/∂t = ∇·(k∇T) + Q ([`Heat::transient`], [`Heat::response`], a pulse by
+//! [`Heat::pulse`] and what it does to a phase-change film by [`Switch`]), per unit length along
 //! the guide.
 //!
 //! A [`Heat`] problem is a [`Section`] (what fills the cross-section: shapes drawn with media,
@@ -170,6 +171,71 @@ impl History {
                 self.times_s[k] + s * (self.times_s[k + 1] - self.times_s[k])
             })
         })
+    }
+}
+
+/// A heat pulse's record ([`Heat::pulse`]): each watched shape's hottest and coldest cell at
+/// their highest.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct Pulse {
+    /// The transient's record: each watched shape's mean at each time, and the last field.
+    pub history: History,
+    /// Each watched shape's hottest cell's highest temperature.
+    pub hottest: Vec<f64>,
+    /// Each watched shape's coldest cell's highest temperature: the most the whole shape
+    /// reaches at once.
+    pub coldest: Vec<f64>,
+    /// When each shape's coldest cell is at its highest, seconds.
+    pub coldest_at_s: Vec<f64>,
+}
+
+/// What a pulse does to a phase-change film, from its coldest and hottest cells' highest
+/// temperatures against its crystallization and melting temperatures ([`Switch::of`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Switch {
+    /// No cell reaches the crystallization temperature.
+    Unchanged,
+    /// Some cells, not all, pass the crystallization temperature; none melts.
+    PartlyCrystallized,
+    /// Every cell passes the crystallization temperature and none melts: the film crystallizes
+    /// if held there long enough (the kinetics aren't modelled).
+    Crystallized,
+    /// Some cells melt, not all.
+    PartlyMelted,
+    /// Every cell melts: the film is amorphized if it is quenched faster than it
+    /// recrystallizes.
+    Amorphized,
+}
+
+impl Switch {
+    /// From a film's coldest and hottest cells' highest temperatures and its crystallization
+    /// and melting temperatures, all in one unit.
+    pub fn of(coldest: f64, hottest: f64, crystallization: f64, melting: f64) -> Switch {
+        if coldest >= melting {
+            Switch::Amorphized
+        } else if hottest >= melting {
+            Switch::PartlyMelted
+        } else if coldest >= crystallization {
+            Switch::Crystallized
+        } else if hottest >= crystallization {
+            Switch::PartlyCrystallized
+        } else {
+            Switch::Unchanged
+        }
+    }
+
+    /// Its name: `"unchanged"`, `"partly crystallized"`, `"crystallized"`, `"partly melted"`
+    /// or `"amorphized"`.
+    pub fn name(self) -> &'static str {
+        match self {
+            Switch::Unchanged => "unchanged",
+            Switch::PartlyCrystallized => "partly crystallized",
+            Switch::Crystallized => "crystallized",
+            Switch::PartlyMelted => "partly melted",
+            Switch::Amorphized => "amorphized",
+        }
     }
 }
 
@@ -465,6 +531,100 @@ impl Heat {
         })
     }
 
+    /// The temperature through a pulse: from the steady state without the heaters, their power
+    /// on from t = 0 for `duration_s`, a whole number of `stepping`'s steps, then off to the
+    /// record's end, recording each shape of `watch`'s mean and the highest temperature of its
+    /// hottest and of its coldest cell (the cells at least half inside it). At the pulse's end
+    /// Crank–Nicolson's drive takes the mean of on and off, so that its trapezoid gives the
+    /// pulse's energy exactly; BDF2's takes it on, as its step to that instant is.
+    ///
+    /// # Errors
+    ///
+    /// As [`Heat::transient`], and [`Error::InvalidValue`] for a duration that isn't a whole
+    /// number of steps, at least one and fewer than the record's, or a watched shape over no
+    /// cell by half.
+    pub fn pulse(&self, stepping: &Stepping, duration_s: f64, watch: &[Shape]) -> Result<Pulse> {
+        self.pulse_observed(stepping, duration_s, watch, &mut |_| Ok(true))
+    }
+
+    /// [`Heat::pulse`], `observe` given each step as [`Heat::transient_observed`] gives it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Heat::pulse`], and `observe`'s own.
+    pub fn pulse_observed(
+        &self,
+        stepping: &Stepping,
+        duration_s: f64,
+        watch: &[Shape],
+        observe: &mut dyn FnMut(&Step<'_>) -> Result<bool>,
+    ) -> Result<Pulse> {
+        let dt = stepping.step_s;
+        let steps = duration_s / dt;
+        let end = steps.round();
+        if !(duration_s.is_finite() && duration_s > 0.0 && dt > 0.0)
+            || (steps - end).abs() > 1e-6 * end.max(1.0)
+            || end < 1.0
+            || end as usize >= stepping.steps
+        {
+            return Err(Error::invalid(
+                "static problem",
+                format!(
+                    "a pulse lasts a whole number of steps, at least one and fewer than the \
+                     record's {}: {duration_s} s in steps of {dt} s",
+                    stepping.steps
+                ),
+            ));
+        }
+        let edge = match stepping.scheme {
+            Scheme::CrankNicolson => 0.5,
+            Scheme::Bdf2 => 1.0,
+        };
+        let drive = move |t: f64| {
+            let k = t / dt;
+            if (k - end).abs() < 1e-9 {
+                edge
+            } else if k < end {
+                1.0
+            } else {
+                0.0
+            }
+        };
+        let cells: Vec<Vec<usize>> = watch
+            .iter()
+            .map(|s| whole_cells(&self.grid, s))
+            .collect::<Result<_>>()?;
+        let start = self.steady_at(0.0)?;
+        let mut hottest = vec![f64::NEG_INFINITY; watch.len()];
+        let mut coldest = vec![f64::NEG_INFINITY; watch.len()];
+        let mut at = vec![0.0; watch.len()];
+        let mut update = |values: &[f64], time: f64| {
+            for (k, c) in cells.iter().enumerate() {
+                let (lo, hi) = c
+                    .iter()
+                    .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &i| {
+                        (lo.min(values[i]), hi.max(values[i]))
+                    });
+                hottest[k] = hottest[k].max(hi);
+                if lo > coldest[k] {
+                    coldest[k] = lo;
+                    at[k] = time;
+                }
+            }
+        };
+        update(start.values(), 0.0);
+        let history = self.transient_observed(stepping, 0.0, &drive, watch, &mut |step| {
+            update(step.field().values(), step.time_s);
+            observe(step)
+        })?;
+        Ok(Pulse {
+            history,
+            hottest,
+            coldest,
+            coldest_at_s: at,
+        })
+    }
+
     /// The small-signal response at `frequency_hz` of `watch`'s mean temperature to the
     /// heaters' power, against its steady response: T̂(f) / T̂(0), from (K + i2πf M) T̂ = Q̂ on the
     /// same grid (the held regions and sides holding the fluctuation at 0). Its magnitude is
@@ -641,6 +801,24 @@ struct Assembled {
 /// A shifted operator asked for where no cell is free (which the callers rule out first).
 fn no_free_cells() -> Error {
     Error::invalid("static problem", "no cell is free to step or respond")
+}
+
+/// The cells at least half of whose area `shape` covers.
+fn whole_cells(grid: &Grid, shape: &Shape) -> Result<Vec<usize>> {
+    let nx = grid.x().cells();
+    let cells: Vec<usize> = grid
+        .overlap(shape)
+        .into_iter()
+        .filter(|&(c, a)| a >= 0.5 * grid.x().width(c % nx) * grid.y().width(c / nx))
+        .map(|(c, _)| c)
+        .collect();
+    if cells.is_empty() {
+        return Err(Error::invalid(
+            "static problem",
+            "a watched shape covers no cell of the grid by half",
+        ));
+    }
+    Ok(cells)
 }
 
 /// A watched shape's mean, from the free cells' values: each cell's share of its area, the

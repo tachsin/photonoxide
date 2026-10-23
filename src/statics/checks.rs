@@ -1098,11 +1098,220 @@ pub(crate) fn cases() -> Vec<Case> {
                 }
             },
         },
+        Case {
+            id: "static/pulse-slab-peak",
+            title: r"Static solver, heat in time: the heated slab of static/slab-transient-mean (oxide, 2 µm, 1 W/m over its 1 µm column, both faces 0 K) under a 0.2 µs pulse, 80 rows, BDF2 in 100 steps of the pulse: the hottest and the coldest cell's highest temperatures, at the pulse's end, against the series there (larger error relative to the steady peak shown)",
+            tier: Tier::Analytic,
+            source: r"Carslaw and Jaeger's series (Section 3.14), every point's temperature rising while heated and falling after, as the profile is concave; BDF2 takes the heat exactly to the pulse's end",
+            run: || {
+                let e = slab_pulse(80, 100, Scheme::Bdf2)[0];
+                Outcome {
+                    measured: e,
+                    expected: 0.0,
+                    tolerance: 1e-3,
+                    error: e,
+                }
+            },
+        },
+        Case {
+            id: "static/pulse-slab-after",
+            title: r"Static solver, heat in time: the same slab's mean a pulse's length after the pulse, by Crank–Nicolson (the drive the mean of on and off at the pulse's end), against the step response less the step response delayed by the pulse (relative error shown)",
+            tier: Tier::Analytic,
+            source: r"linearity: a pulse of length $\tau$ is a step at 0 less a step at $\tau$, each by the series; the trapezoid then gives the pulse's energy exactly",
+            run: || {
+                let e = slab_pulse(80, 100, Scheme::CrankNicolson)[1];
+                Outcome {
+                    measured: e,
+                    expected: 0.0,
+                    tolerance: 2e-4,
+                    error: e,
+                }
+            },
+        },
+        Case {
+            id: "static/pcm-cell-convergence",
+            title: r"Static solver, heat in time: jobs/pcm-switching.yaml's cell, a 25 nm Sb₂Se₃ film (the catalogue's κ, $c_p$ and $\rho$) on a 500 × 220 nm silicon strip heated by 7.5 mW/µm for 100 ns, in oxide on silicon at 293.15 K, BDF2 in steps of 0.5 ns: the film's coldest cell's highest temperature on grids graded from 5, 2.5 and 1.25 nm at their finest, the grid study's estimated error of the finest (K shown)",
+            tier: Tier::Analytic,
+            source: r"the grid-convergence gate (crate::convergence): Richardson's estimate from the three values at their observed order, within 2 K, against the film's margin above its melting temperature (884 K) of about 15 K",
+            run: || {
+                let c = pcm_cell_study();
+                Outcome {
+                    measured: c.0,
+                    expected: 0.0,
+                    tolerance: 2.0,
+                    error: c.0,
+                }
+            },
+        },
     ]
+}
+
+/// The heated slab of [`slab_transient`] (80 rows by default) under a pulse of 0.2 µs, in
+/// `per_pulse` steps of it to twice its length by `scheme`. Returns the larger error of the
+/// hottest and coldest cells' highest temperatures against the series at the pulse's end,
+/// relative to the steady peak, and the mean's error at twice the pulse's length against the
+/// step response less the delayed one, relative to the steady mean.
+pub(crate) fn slab_pulse(cells: usize, per_pulse: usize, scheme: Scheme) -> [f64; 2] {
+    let (k, length, width, power, tau) = (1.4, 2.0, 1.0, 1.0, 0.2e-6);
+    let grid = Grid::new(
+        Axis::uniform(0.0, width, 1).expect("an axis"),
+        Axis::uniform(0.0, length, cells).expect("an axis"),
+    );
+    let mut heat = Heat::new(Section::new("oxide"), grid);
+    heat.conductivity("oxide", Tensor::isotropic(k))
+        .heat_capacity("oxide", OXIDE_RHO_CP)
+        .boundary(Side::Bottom, Boundary::Fixed(0.0))
+        .boundary(Side::Top, Boundary::Fixed(0.0))
+        .heater(rect([0.0, width], [0.0, length]), power);
+    let stepping = Stepping::new(tau / per_pulse as f64, 2 * per_pulse, scheme);
+    let slab = rect([0.0, width], [0.0, length]);
+    let pulse = heat
+        .pulse(&stepping, tau, std::slice::from_ref(&slab))
+        .expect("a pulse");
+    let q = power / (width * length * 1e-12);
+    let (d, alpha) = (length * 1e-6, k / OXIDE_RHO_CP);
+    let h = length / cells as f64;
+    let at = |j: usize| slab_series(q, k, d, alpha, (j as f64 + 0.5) * h * 1e-6, tau);
+    let (hot, cold) = (at(cells / 2), at(0));
+    let peak = q * d * d / (8.0 * k);
+    let peaks = ((pulse.hottest[0] - hot).abs() / peak).max((pulse.coldest[0] - cold).abs() / peak);
+    let steady = q * d * d / (12.0 * k);
+    let after = slab_series_mean(q, k, d, alpha, 2.0 * tau) - slab_series_mean(q, k, d, alpha, tau);
+    let last = pulse.history.watched[0].last().copied().unwrap_or(f64::NAN);
+    [peaks, (last - after).abs() / steady]
+}
+
+/// The heat capacities per volume of Jacques et al.'s Table 3 the PCM cell takes, J/(m³·K).
+const PCM_CELL_RHO_CP: [(&str, f64); 2] = [("Si", SILICON_RHO_CP), ("SiO2", OXIDE_RHO_CP)];
+
+/// A phase-change cell: 25 nm of crystalline Sb₂Se₃ on a 500 × 220 nm silicon strip that heats
+/// it (`power` W/m for `pulse_s`), on 2 µm of oxide over 2 µm of silicon substrate held at 293.15 K
+/// at its bottom, oxide above to an insulated top 3 µm up, 10 µm each side (conductivities at
+/// 300 K); the film's κ, c_p and
+/// ρ the catalogue's, the strip's κ the catalogue's 220 nm film, the substrate's and the
+/// oxide's their bulk ones. The grid is graded from `fine_um` to 0.5 µm by 1.2, the steps
+/// `step_s` by BDF2 to three pulses' length. Returns the film's coldest and hottest cells'
+/// highest temperatures (K) and the grid's cells.
+pub(crate) fn pcm_cell(fine_um: f64, step_s: f64, power: f64, pulse_s: f64) -> (f64, f64, usize) {
+    use crate::material::catalogue::{self, State};
+    let p = catalogue::phase_change("sb2se3").expect("Sb2Se3");
+    let kappa = p.conductivity(State::Crystalline).expect("a κ").value;
+    let rho_cp = p.heat_capacity().expect("a ρc_p");
+    let k = |id: &str, model: &str, d| {
+        crate::material::catalogue::conductivity_checks::k(id, model, 300.0, d)
+    };
+    let film = rect([-0.25, 0.25], [2.22, 2.245]);
+    let strip = rect([-0.25, 0.25], [2.0, 2.22]);
+    let mut section = Section::new("SiO2");
+    section
+        .layer(-2.0, 0.0, "Si (substrate)")
+        .expect("a layer")
+        .draw(strip.clone(), "Si")
+        .draw(film.clone(), "sb2se3-crystalline");
+    let grid = Grid::fitted(
+        [-10.0, 10.0],
+        [-2.0, 5.22],
+        &Grading::new(0.5, fine_um, 1.2).expect("a grading"),
+        section.features(),
+    )
+    .expect("a grid");
+    let cells = grid.cells();
+    let mut heat = Heat::new(section, grid);
+    heat.conductivity("SiO2", Tensor::isotropic(k("sio2", "powell-1966", None)))
+        .conductivity(
+            "Si (substrate)",
+            Tensor::isotropic(k("si", "ho-1972", None)),
+        )
+        .conductivity(
+            "Si",
+            Tensor::isotropic(k("si", "ju-goodson-1999", Some(0.22))),
+        )
+        .conductivity("sb2se3-crystalline", Tensor::isotropic(kappa))
+        .heat_capacity("Si (substrate)", SILICON_RHO_CP)
+        .heat_capacity("sb2se3-crystalline", rho_cp)
+        .boundary(Side::Bottom, Boundary::Fixed(293.15))
+        .heater(strip, power);
+    for (m, c) in PCM_CELL_RHO_CP {
+        heat.heat_capacity(m, c);
+    }
+    let per = (pulse_s / step_s).round() as usize;
+    let stepping = Stepping::new(step_s, 3 * per, Scheme::Bdf2);
+    let pulse = heat
+        .pulse(&stepping, pulse_s, std::slice::from_ref(&film))
+        .expect("a pulse");
+    (pulse.coldest[0], pulse.hottest[0], cells)
+}
+
+/// jobs/pcm-switching.yaml's heater, W/m.
+pub(crate) const PCM_CELL_POWER: f64 = 7500.0;
+
+/// The PCM cell's grid study ([`pcm_cell`] at [`PCM_CELL_POWER`] for 100 ns, as
+/// jobs/pcm-switching.yaml has it): the film's coldest cell's highest temperature on grids from
+/// 5, 2.5 and 1.25 nm, in steps of 0.5 ns (the steps converged: at 2.5 nm and 2 mW/µm, 0.02 K
+/// from 0.5 to 0.25 ns). Returns the study's estimated error (K) and the finest value (K).
+pub(crate) fn pcm_cell_study() -> (f64, f64) {
+    let mut study = crate::convergence::Study::new("the Sb2Se3 film's coldest highest (K)");
+    for fine in [0.005, 0.0025, 0.00125] {
+        let (cold, _, _) = pcm_cell(fine, 0.5e-9, PCM_CELL_POWER, 100e-9);
+        study = study.on(fine, cold).expect("a grid");
+    }
+    match study.check(2.0) {
+        Ok(c) => (c.error.unwrap_or(f64::INFINITY), c.value),
+        Err(_) => (f64::INFINITY, f64::NAN),
+    }
 }
 
 /// The order of a problem's error, for the tests: `f` at n and 2n.
 #[cfg(test)]
 pub(crate) fn order_of(f: impl Fn(usize) -> f64, n: usize) -> f64 {
     order(f(n), f(2 * n), 2.0)
+}
+
+#[cfg(test)]
+mod pulse_tests {
+    use super::*;
+    use crate::thermal::Switch;
+
+    #[test]
+    fn a_switch_reads_the_film_against_its_thresholds() {
+        let (tc, tm) = (473.15, 884.0);
+        assert_eq!(Switch::of(300.0, 400.0, tc, tm), Switch::Unchanged);
+        assert_eq!(Switch::of(400.0, 500.0, tc, tm), Switch::PartlyCrystallized);
+        assert_eq!(Switch::of(500.0, 800.0, tc, tm), Switch::Crystallized);
+        assert_eq!(Switch::of(800.0, 900.0, tc, tm), Switch::PartlyMelted);
+        assert_eq!(Switch::of(890.0, 1000.0, tc, tm), Switch::Amorphized);
+        // the cell on a coarse grid: the whole film melts
+        let (cold, hot, _) = pcm_cell(0.005, 2e-9, PCM_CELL_POWER, 100e-9);
+        assert_eq!(Switch::of(cold, hot, tc, tm), Switch::Amorphized);
+    }
+
+    #[test]
+    fn a_pulse_lasts_a_whole_number_of_steps_inside_its_record() {
+        let grid = Grid::new(
+            Axis::uniform(0.0, 1.0, 1).unwrap(),
+            Axis::uniform(0.0, 1.0, 4).unwrap(),
+        );
+        let mut heat = Heat::new(Section::new("oxide"), grid);
+        heat.conductivity("oxide", Tensor::isotropic(1.4))
+            .heat_capacity("oxide", OXIDE_RHO_CP)
+            .boundary(Side::Bottom, Boundary::Fixed(0.0))
+            .heater(rect([0.0, 1.0], [0.0, 1.0]), 1.0);
+        let all = rect([0.0, 1.0], [0.0, 1.0]);
+        let stepping = Stepping::new(1e-9, 10, Scheme::Bdf2);
+        for bad in [1.5e-9, 10e-9, 0.0, f64::NAN] {
+            let e = heat
+                .pulse(&stepping, bad, std::slice::from_ref(&all))
+                .unwrap_err();
+            assert!(
+                e.to_string().contains("whole number of steps"),
+                "{bad}: {e}"
+            );
+        }
+        let p = heat
+            .pulse(&stepping, 3e-9, std::slice::from_ref(&all))
+            .unwrap();
+        assert!(p.hottest[0] >= p.coldest[0] && p.coldest[0] > 0.0);
+        // the cell by the sink, heated from above, peaks after the pulse
+        assert!(p.coldest_at_s[0] >= 3e-9 - 1e-15 && p.coldest_at_s[0] <= 10e-9 + 1e-15);
+    }
 }
