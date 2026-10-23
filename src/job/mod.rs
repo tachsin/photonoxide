@@ -1161,23 +1161,6 @@ pub enum Event {
         /// Why the model gave nothing there.
         error: Option<String>,
     },
-    /// A stage of an optimization's continuation begins: its parameter's value, and what the
-    /// optimizer kept from the last stage. Its first evaluation is the last stage's point again,
-    /// on the new value; the best so far is of this stage's evaluations.
-    Stage {
-        /// The stage, from 0.
-        stage: usize,
-        /// The stages.
-        stages: usize,
-        /// The parameter.
-        parameter: String,
-        /// Its value at this stage.
-        value: f64,
-        /// `"state"` or `"point"`: what the optimizer keeps from one stage to the next.
-        keep: String,
-        /// The evaluations before it.
-        evaluations: usize,
-    },
     /// The Pareto front of an optimization of two objectives after a generation: its
     /// non-dominated feasible evaluations, and the hypervolume they dominate up to a reference
     /// point fixed at the first front.
@@ -1301,6 +1284,23 @@ pub enum Event {
         time_us: f64,
         /// Each probe's mean, as `"mean over guide"` in K.
         means: Vec<StaticValue>,
+    },
+    /// A stage of an optimization's continuation begins: its parameter's value, and what the
+    /// optimizer kept from the last stage. Its first evaluation is the last stage's point again,
+    /// on the new value; the best so far is of this stage's evaluations.
+    Stage {
+        /// The stage, from 0.
+        stage: usize,
+        /// The stages.
+        stages: usize,
+        /// The parameter.
+        parameter: String,
+        /// Its value at this stage.
+        value: f64,
+        /// `"state"` or `"point"`: what the optimizer keeps from one stage to the next.
+        keep: String,
+        /// The evaluations before it.
+        evaluations: usize,
     },
 }
 
