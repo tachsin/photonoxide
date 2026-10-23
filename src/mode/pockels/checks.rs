@@ -851,7 +851,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "pockels/overlap-gamma",
-            title: r"Wang et al. 2018's cross-section on 10 nm grids: the papers' overlap $\Gamma = (g/V)\int_\mathrm{LN} E_x |E|^2 / \int |E|^2$ (0.51 here) in their $V_\pi L = \lambda g / (2 n_e^3 r_{33} \Gamma)$, scaled by $n_\mathrm{eff}/n_e$, against the perturbation's $V_\pi L$ (relative difference shown): their form normalizes the mode by $\int |E|^2$, not by its power, so unscaled it is 10% high; what is left is $E$'s other components and $r_{13}$",
+            title: r"Wang et al. 2018's cross-section on 10 nm grids: the papers' overlap $\Gamma = (g/V)\int_\mathrm{LN} E_x \lvert E\rvert^2 / \int \lvert E\rvert^2$ (0.51 here) in their $V_\pi L = \lambda g / (2 n_e^3 r_{33} \Gamma)$, scaled by $n_\mathrm{eff}/n_e$, against the perturbation's $V_\pi L$ (relative difference shown): their form normalizes the mode by $\int \lvert E\rvert^2$, not by its power, so unscaled it is 10% high; what is left is $E$'s other components and $r_{13}$",
             tier: Tier::Analytic,
             source: r"first-order perturbation; the overlap as C. Wang et al., Opt. Express 26, 1547 (2018), doi:10.1364/OE.26.001547, and D. Zhu et al., Adv. Opt. Photon. 13, 242 (2021), doi:10.1364/AOP.411024, use it",
             run: overlap_gamma_case,
