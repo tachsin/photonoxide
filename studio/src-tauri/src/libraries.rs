@@ -392,7 +392,7 @@ pub const GUIDES: &[Guide] = &[
             Install {
                 id: "conda",
                 manager: "conda-forge",
-                command: "conda install -c conda-forge libcudss",
+                command: "conda install -c conda-forge libcudss=0.8",
                 systems: &["windows", "linux"],
                 note: "Into the active conda environment: start photonoxide from it.",
                 checked: &[
@@ -415,9 +415,9 @@ pub const GUIDES: &[Guide] = &[
             Install {
                 id: "pip",
                 manager: "pip",
-                command: "pip install nvidia-cudss-cu13",
+                command: "pip install \"nvidia-cudss-cu13==0.8.*\"",
                 systems: &["windows", "linux"],
-                note: "The CUDA 13 build (nvidia-cudss-cu12 for CUDA 12), found in site-packages/nvidia.",
+                note: "The CUDA 13 build (nvidia-cudss-cu12 for CUDA 12), found in site-packages/nvidia. Release 0.8: the next release's wheel (site-packages/nvidia/cu13, libcudss.so.1) isn't loaded yet.",
                 checked: &[
                     Checked {
                         system: "linux",

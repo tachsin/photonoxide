@@ -51,8 +51,9 @@ jobs:
           # libraries photonoxide has a backend for: found, and the backend offered
           - { os: ubuntu-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: .*\(from the conda environment\)', backend: '^backend photonoxide-mkl \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=mkl' }
           - { os: windows-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: .*\(from the conda environment\)', backend: '^backend photonoxide-mkl \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=mkl' }
-          - { os: ubuntu-latest, package: libcudss, found: '^cuDSS [0-9.]+: .*\(from the conda environment\)' }
-          - { os: windows-latest, package: libcudss, found: '^cuDSS [0-9.]+: .*\(from the conda environment\)' }
+          # cuDSS 0.8, the release photonoxide-native knows (the next one's libcudss.so.1 isn't yet)
+          - { os: ubuntu-latest, package: libcudss=0.8, found: '^cuDSS [0-9.]+: .*\(from the conda environment\)' }
+          - { os: windows-latest, package: libcudss=0.8, found: '^cuDSS [0-9.]+: .*\(from the conda environment\)' }
           - { os: ubuntu-latest, package: cuda-cudart libcusparse, found: '^cuSPARSE [0-9.]+: .*\(from the conda environment\)' }
           - { os: windows-latest, package: cuda-cudart libcusparse, found: '^cuSPARSE [0-9.]+: .*\(from the conda environment\)' }
           - { os: ubuntu-latest, package: mumps-seq, found: '^MUMPS 5\.[0-9.]+: .*\(from the conda environment\)', backend: '^backend mumps \(direct\): .* available', test: mumps, require: 'PHOTONOXIDE_REQUIRE_MUMPS=1' }
@@ -70,13 +71,29 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: conda-incubator/setup-miniconda@v4
+        # on Windows its `conda init --all` fails since 2026-10 ("Operation failed", conda.exe
+        # "needs sudo"): micromamba installs the same conda-forge packages there
+        if: runner.os != 'Windows'
         with:
           miniforge-version: latest
           activate-environment: libraries
+      - uses: mamba-org/setup-micromamba@v2
+        if: runner.os == 'Windows'
+        with:
+          environment-name: libraries
+          create-args: ${{ matrix.package }}
+          condarc: |
+            channels:
+              - conda-forge
+          init-shell: bash
       - name: Install
         run: |
-          time conda install -y -c conda-forge ${{ matrix.package }}
-          conda list | grep -i -E "mkl|mumps|superlu|openblas|cudss|cuda|cusparse|tbb|openmp" || true
+          if [ "$RUNNER_OS" = Windows ]; then
+            micromamba list | grep -i -E "mkl|mumps|superlu|openblas|cudss|cuda|cusparse|tbb|openmp" || true
+          else
+            time conda install -y -c conda-forge ${{ matrix.package }}
+            conda list | grep -i -E "mkl|mumps|superlu|openblas|cudss|cuda|cusparse|tbb|openmp" || true
+          fi
           du -sh "$CONDA_PREFIX" || true
       - name: Where it landed
         run: |
@@ -111,8 +128,8 @@ jobs:
           - { os: windows-latest, package: mkl, found: '^oneMKL 20[0-9]+\.[0-9]+: ', backend: '^backend pardiso \(direct\): .* available' }
           - { os: ubuntu-latest, package: nvidia-cuda-runtime nvidia-cusparse, found: '^cuSPARSE [0-9.]+: .*\(from a Python wheel\)' }
           - { os: windows-latest, package: nvidia-cuda-runtime nvidia-cusparse, found: '^cuSPARSE [0-9.]+: .*\(from a Python wheel\)' }
-          - { os: ubuntu-latest, package: nvidia-cudss-cu13, found: '^cuDSS [0-9.]+: .*\(from a Python wheel\)' }
-          - { os: windows-latest, package: nvidia-cudss-cu13, found: '^cuDSS [0-9.]+: .*\(from a Python wheel\)' }
+          - { os: ubuntu-latest, package: 'nvidia-cudss-cu13==0.8.*', found: '^cuDSS [0-9.]+: .*\(from a Python wheel\)' }
+          - { os: windows-latest, package: 'nvidia-cudss-cu13==0.8.*', found: '^cuDSS [0-9.]+: .*\(from a Python wheel\)' }
           - { os: ubuntu-latest, package: scipy-openblas32, found: '^OpenBLAS [0-9.]+: .*\(from a Python wheel\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
           - { os: windows-latest, package: scipy-openblas32, found: '^OpenBLAS [0-9.]+: .*\(from a Python wheel\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
           - { os: macos-latest, package: scipy-openblas32, found: '^OpenBLAS [0-9.]+: .*\(from a Python wheel\)', backend: '^backend photonoxide-openblas \(direct\): .* available', test: blas, require: 'PHOTONOXIDE_REQUIRE_BLAS=openblas' }
