@@ -815,7 +815,7 @@ fn a_pulse_and_its_switching_name_what_they_lack() {
             "shorter than duration_us",
         ),
         (
-            Box::new(|t| t.replace("    pulse_ns: 100.0\n", "")),
+            Box::new(|t| t.replace("    pulse_ns: 100.0", "")),
             "give [task.transient] a pulse_ns",
         ),
         (
