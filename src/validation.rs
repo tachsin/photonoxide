@@ -267,7 +267,7 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "material/pcm-delaney-lossless",
-            title: r"Phase-change materials: the largest $k$ at 1550 nm of amorphous Sb₂Se₃ and both states of Sb₂S₃ in the fits to Delaney et al.'s data, against the abstract's $k < 10^{-5}$ (shown); crystalline Sb₂Se₃'s data gives $2.1 \times 10^{-4}$",
+            title: r"Phase-change materials: the largest $k$ at 1550 nm of amorphous Sb₂Se₃ and both states of Sb₂S₃ in the fits to Delaney et al.'s data, against the abstract's $k \lt 10^{-5}$ (shown); crystalline Sb₂Se₃'s data gives $2.1 \times 10^{-4}$",
             tier: Tier::Published,
             source: "M. Delaney et al., Adv. Funct. Mater. 30, 2002447 (2020), doi:10.1002/adfm.202002447, the abstract; the data set's 3_ellipsometry",
             run: phase_change_checks::lossless,
