@@ -67,6 +67,48 @@ pub fn index_change(mode: &VectorMode, cs: &CrossSection, delta: &[Permittivity]
     Ok(overlap / (4.0 * f.power()))
 }
 
+/// [`index_change`] cell by cell: each cell's share of the change, the real part of its term
+/// E*·Δε·E dA over 4 times the power, in the order of [`CrossSection::cells`]; their sum is
+/// [`index_change`]'s real part, to round-off. With `delta` a change per kelvin, the shares are
+/// how much a rise of 1 K in each cell alone moves the index: the weights a temperature field
+/// is summed with ([`crate::thermal::Guide`]).
+///
+/// # Errors
+///
+/// As [`index_change`].
+pub fn index_change_density(
+    mode: &VectorMode,
+    cs: &CrossSection,
+    delta: &[Permittivity],
+) -> Result<Vec<f64>> {
+    if delta.len() != cs.cells().len() {
+        return Err(Error::invalid(
+            "delta",
+            format!("{} changes for {} cells", delta.len(), cs.cells().len()),
+        ));
+    }
+    let f = mode.fields_sided(cs, true)?;
+    let (nx, ny) = (f.x().len(), f.y().len());
+    let scale = 1.0 / (4.0 * f.power());
+    let mut out = vec![0.0; nx * ny];
+    for i in 0..nx {
+        let dx = cs.x()[i + 1] - cs.x()[i];
+        for j in 0..ny {
+            let dy = cs.y()[j + 1] - cs.y()[j];
+            let d = delta[i * ny + j];
+            let e = f.e(i, j);
+            let de = [
+                d.xx * e[0] + d.xy * e[1],
+                d.yx * e[0] + d.yy * e[1],
+                d.zz * e[2],
+            ];
+            let term = e[0].conj() * de[0] + e[1].conj() * de[1] + e[2].conj() * de[2];
+            out[i * ny + j] = term.re * dx * dy * scale;
+        }
+    }
+    Ok(out)
+}
+
 /// The same change by a re-solve: the mode of `cs` perturbed by `delta` nearest to `mode`'s
 /// effective index moved by [`index_change`], less `mode`'s, at `wavelength` (the one `mode` was
 /// found at).

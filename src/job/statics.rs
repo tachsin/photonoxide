@@ -39,6 +39,16 @@
 //! last field, and each probe's 1/e and 10–90 % times and the −3 dB frequency of its
 //! small-signal response to the heaters' power.
 //!
+//! **A phase shifter** (heat, or a current's Joule heat): `[task.shifter]` (`wavelength_um`,
+//! `step_nm` of the optical grid, and `index` and `dn_dt` tables by medium in place of the
+//! catalogue's, whose default models give the rest at `temperature_k`) with `[[task.guide]]`
+//! rectangles, each a guide's mode window ([`crate::thermal::PhaseShifter`]). Each heater is a
+//! drive (a current's Joule heat the one drive), the k-th heater's own guide the k-th guide. The
+//! run records each guide's n_eff and dn_eff/dT, each guide's ∂n_eff/∂P′ by each drive (m/W),
+//! each drive's P_π on its own guide (W, a 2D number: any length of a straight section) and its
+//! crosstalk on the others (the share of its own phase), and with `[task.transient]` each
+//! drive's phase's 1/e and 10–90 % times, −3 dB frequency and P_π times its 1/e time.
+//!
 //! ```yaml
 //! name: heater
 //! timeout_minutes: 5
@@ -348,6 +358,40 @@ pub(super) struct StaticTask {
     /// potential on the grid as an npz when asked ([`crate::export`]).
     #[allow(dead_code)] // read by super::export_of, checked by serde
     export: Option<super::ExportSpec>,
+    /// `[task.shifter]`: the heaters as a thermo-optic phase shifter's drives.
+    shifter: Option<ShifterSpec>,
+    #[serde(default)]
+    guide: Vec<Area>,
+}
+
+/// `[task.shifter]`: the optics of the guides `[[task.guide]]` draws (each a window around a
+/// waveguide in the section), the heaters (or a current's Joule heat) as what drives them.
+#[derive(Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct ShifterSpec {
+    /// The wavelength, µm.
+    wavelength_um: f64,
+    /// The optical grid's step, nm.
+    step_nm: f64,
+    /// Media's refractive indices, by name, in place of the catalogue's.
+    #[serde(default)]
+    index: BTreeMap<String, f64>,
+    /// Media's dn/dT (1/K), by name, in place of the catalogue's.
+    #[serde(default)]
+    dn_dt: BTreeMap<String, f64>,
+}
+
+/// A rectangle of the section, y and z, µm.
+type Window = ([f64; 2], [f64; 2]);
+
+/// A phase shifter as a run takes it: its optics, the guides' windows and names, the drives.
+struct Shifter {
+    optics: crate::thermal::Optics,
+    guides: Vec<(String, Window)>,
+    heaters: Vec<(String, Shape, f64)>,
+    /// Where each medium's optics came from, for the record.
+    record: Vec<StaticValue>,
+}
 }
 
 /// The fields of a static job as an npz ([`crate::export::Npz`]): `y_um`, `z_um` (the cells'
@@ -405,6 +449,7 @@ struct Setup {
     catalogued: Vec<StaticValue>,
     /// The electro-optic chain, with what it takes from the task.
     electro_optic: Option<super::pockels::Chain>,
+    shifter: Option<Shifter>,
 }
 
 /// The name a substrate takes in a heat problem when its material is also a film's, whose
@@ -644,6 +689,7 @@ fn setup_scaled(job: &Job, scale: f64) -> Result<Setup> {
         ("sink", &task.sink),
         ("conductor", &task.conductor),
         ("probe", &task.probe),
+        ("guide", &task.guide),
     ] {
         for (k, a) in list.iter().enumerate() {
             features.shape(&a.shape(what, k)?);
@@ -684,6 +730,7 @@ fn setup_scaled(job: &Job, scale: f64) -> Result<Setup> {
         transient: None,
         catalogued: Vec::new(),
         electro_optic: None,
+        shifter: None,
     };
     // the heat problem's section, its media's conductivities (the job's, else the catalogue's)
     // and what the catalogue gave
@@ -850,7 +897,7 @@ fn setup_scaled(job: &Job, scale: f64) -> Result<Setup> {
                 .map(|k| format!("contact {k}"))
                 .collect();
             setup.current = Some(c);
-            if !task.thermal_conductivity.is_empty() {
+            if !task.thermal_conductivity.is_empty() || task.shifter.is_some() {
                 let (h, _, record) = heat()?;
                 setup.heat = Some(h);
                 setup.catalogued = record;
@@ -863,7 +910,130 @@ fn setup_scaled(job: &Job, scale: f64) -> Result<Setup> {
             )));
         }
     }
+    if let Some(spec) = &task.shifter {
+        setup.shifter = Some(shifter(&task, spec, &section)?);
+    } else if !task.guide.is_empty() {
+        return Err(task_error(
+            "[[task.guide]] draws a phase shifter's guides: give it a [task.shifter]",
+        ));
+    }
     Ok(setup)
+}
+
+/// The catalogue's index and dn/dT of medium `m` at `kelvin` and `wavelength`, from its entry's
+/// default model, with the model's id; `None` if it has none, or none that takes a temperature.
+fn catalogue_optics(
+    m: &str,
+    kelvin: f64,
+    wavelength: crate::units::Wavelength,
+) -> Option<(f64, f64, String)> {
+    use crate::material::catalogue;
+    let id: String = m
+        .strip_suffix(SUBSTRATE)
+        .unwrap_or(m)
+        .chars()
+        .map(|c| match c {
+            '₀'..='₉' => char::from(b'0' + (c as u32 - '₀' as u32) as u8),
+            c => c,
+        })
+        .collect::<String>()
+        .to_lowercase();
+    let entry = catalogue::entry(&id)?;
+    let model = entry.default_model()?;
+    let conditions = catalogue::Conditions {
+        temperature: Some(kelvin),
+        composition: None,
+    };
+    let n = model
+        .materials(conditions)
+        .ok()?
+        .first()?
+        .refractive_index(wavelength)
+        .ok()?
+        .re;
+    let d = *model.thermo_optic(wavelength, conditions).ok()?.first()?;
+    Some((n, d, model.id.clone()))
+}
+
+/// The phase shifter of `[task.shifter]` on `section`: each medium's optics from the task, else
+/// the catalogue's at `temperature_k`; the guides' windows; the heaters as drives.
+fn shifter(task: &StaticTask, spec: &ShifterSpec, section: &Section) -> Result<Shifter> {
+    if task.physics == "electrostatic" {
+        return Err(task_error(
+            "[task.shifter] is for physics = \"heat\" or \"current\": a heater's phase",
+        ));
+    }
+    let (w, step) = (spec.wavelength_um, spec.step_nm);
+    let wavelength = crate::units::Wavelength::um(w)
+        .map_err(|e| task_error(format!("[task.shifter] wavelength_um = {w}: {e}")))?;
+    let mut optics = crate::thermal::Optics::new(wavelength, step * 1e-3)
+        .map_err(|e| task_error(format!("[task.shifter] step_nm = {step}: {e}")))?;
+    if task.guide.is_empty() {
+        return Err(task_error(
+            "[task.shifter] needs a guide: draw one with [[task.guide]] (y_um and z_um around the \
+             waveguide, its mode's window)",
+        ));
+    }
+    let kelvin = task.temperature_k.unwrap_or(300.0);
+    let mut record = Vec::new();
+    // a heat problem may draw the substrate apart: its optics are its material's
+    let mut media: Vec<String> = section.media().to_vec();
+    let apart: Vec<String> = media.iter().map(|m| format!("{m}{SUBSTRATE}")).collect();
+    media.extend(apart);
+    for m in &media {
+        let given = (spec.index.get(m), spec.dn_dt.get(m));
+        let found = match given {
+            (Some(&n), Some(&d)) => Some((n, d, None)),
+            _ => catalogue_optics(m, kelvin, wavelength).map(|(n, d, model)| {
+                (
+                    given.0.copied().unwrap_or(n),
+                    given.1.copied().unwrap_or(d),
+                    Some(model),
+                )
+            }),
+        };
+        let Some((n, d, model)) = found else {
+            continue;
+        };
+        if !(n.is_finite() && n >= 1.0 && d.is_finite()) {
+            return Err(task_error(format!(
+                "[task.shifter] {m}'s index must be at least 1 and its dn/dT finite, got {n} and \
+                 {d}"
+            )));
+        }
+        optics.medium(m, n, d);
+        if let Some(model) = model.filter(|_| !m.ends_with(SUBSTRATE)) {
+            record.push(value(format!("index of {m} ({model})"), n, ""));
+            record.push(value(format!("dn/dT of {m} ({model})"), d, "1/K"));
+        }
+    }
+    let mut guides = Vec::new();
+    for (k, g) in task.guide.iter().enumerate() {
+        let name = g.name.clone().unwrap_or_else(|| format!("guide {}", k + 1));
+        g.shape("guide", k)?;
+        guides.push((name, (g.y_um, g.z_um)));
+    }
+    let mut heaters = Vec::new();
+    for (k, h) in task.heater.iter().enumerate() {
+        let name = h
+            .name
+            .clone()
+            .unwrap_or_else(|| format!("heater {}", k + 1));
+        let p = h.need("heater", k, "power_w_per_m", h.power_w_per_m)?;
+        heaters.push((name, h.shape("heater", k)?, p));
+    }
+    if task.physics == "heat" && heaters.is_empty() {
+        return Err(task_error(
+            "[task.shifter] needs a [[task.heater]] to drive it (or physics = \"current\", its \
+             Joule heat)",
+        ));
+    }
+    Ok(Shifter {
+        optics,
+        guides,
+        heaters,
+        record,
+    })
 }
 
 /// Checks a static job without solving it: its task, the stack and shapes, the grid's size,
@@ -1004,6 +1174,114 @@ fn in_time(
     Ok(())
 }
 
+/// A `[task.shifter]`'s numbers: each guide's effective index and dn_eff/dT, each guide's
+/// ∂n_eff/∂P′ by each drive (the heaters, or a current's Joule heat), each drive's P_π on its
+/// own guide (the k-th heater's is the k-th guide) and its crosstalk on the others; with a
+/// `[task.transient]`, each drive's phase's 1/e and 10–90 % times and −3 dB frequency on its own
+/// guide, and P_π times the 1/e time.
+fn phase_shifter(
+    setup: &Setup,
+    shifter: &Shifter,
+    heat: Heat,
+    flow: Option<&crate::electro::Flow>,
+    stop: &Stop,
+    values: &mut Vec<StaticValue>,
+) -> Result<()> {
+    use crate::thermal::{Drive, Guide, PhaseShifter};
+    let drives: Vec<Drive> = match flow {
+        Some(flow) => vec![Drive::joule("Joule heat", flow)],
+        None => shifter
+            .heaters
+            .iter()
+            .map(|(name, shape, p)| Drive::heater(name, shape.clone(), *p))
+            .collect(),
+    };
+    let mut guides = Vec::new();
+    for (name, window) in &shifter.guides {
+        guides.push(
+            Guide::new(name, heat.section(), *window, &shifter.optics).map_err(|e| {
+                task_error(format!(
+                    "[[task.guide]] {name}: {e} (give [task.shifter] index and dn_dt for a \
+                     medium the catalogue has no temperature model of)"
+                ))
+            })?,
+        );
+    }
+    let ps = PhaseShifter::new(heat, drives, guides)?;
+    let e = ps.efficiency()?;
+    values.extend(shifter.record.iter().cloned());
+    for g in ps.guides() {
+        values.push(value(
+            format!("n_eff of {}", g.name()),
+            g.effective_index(),
+            "",
+        ));
+        values.push(value(
+            format!("dn_eff/dT of {}", g.name()),
+            g.thermo_optic(),
+            "1/K",
+        ));
+    }
+    let (guides, drives) = (ps.guides(), ps.drives());
+    for (i, g) in guides.iter().enumerate() {
+        for (j, d) in drives.iter().enumerate() {
+            values.push(value(
+                format!("dn_eff/dP of {} by {}", g.name(), d.name()),
+                e.slopes[i][j],
+                "m/W",
+            ));
+        }
+    }
+    for (j, d) in drives.iter().enumerate().take(guides.len()) {
+        values.push(value(
+            format!("P_pi of {} on {}", d.name(), guides[j].name()),
+            e.p_pi(j, j),
+            "W",
+        ));
+        for (i, g) in guides.iter().enumerate() {
+            if i != j {
+                values.push(value(
+                    format!("crosstalk of {} on {}", d.name(), g.name()),
+                    e.crosstalk(i, j, j),
+                    "",
+                ));
+            }
+        }
+    }
+    if let Some(transient) = &setup.transient {
+        for (j, d) in drives.iter().enumerate().take(guides.len()) {
+            if stop.reason().is_some() {
+                break;
+            }
+            let g = guides[j].name();
+            let t = ps.times(j, j, &transient.stepping, transient.on)?;
+            values.push(value(
+                format!("phase 1/e time of {g} by {}", d.name()),
+                t.one_over_e_s,
+                "s",
+            ));
+            values.push(value(
+                format!("phase 10-90 % time of {g} by {}", d.name()),
+                t.ten_ninety_s,
+                "s",
+            ));
+            values.push(value(
+                format!("P_pi * 1/e time of {}", d.name()),
+                e.p_pi(j, j) * t.one_over_e_s,
+                "W*s",
+            ));
+            if let Ok(f) = ps.cutoff(j, j) {
+                values.push(value(
+                    format!("phase -3 dB frequency of {g} by {}", d.name()),
+                    f,
+                    "Hz",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Runs a static job into `run`.
 pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     let setup = setup(job)?;
@@ -1081,6 +1359,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         && stop.reason().is_none()
     {
         let mut h = h.clone();
+        let plain = h.clone();
         if let Some(flow) = &joule {
             h.joule(flow)?;
         }
@@ -1107,6 +1386,11 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         values.extend(setup.catalogued.iter().cloned());
         if let Some(transient) = &setup.transient {
             in_time(&setup, &h, transient, run, stop, &mut values)?;
+        }
+        if let Some(shifter) = &setup.shifter
+            && stop.reason().is_none()
+        {
+            phase_shifter(&setup, shifter, plain, joule.as_ref(), stop, &mut values)?;
         }
     }
     if export.npz() && !solved.is_empty() && !run.dir().as_os_str().is_empty() {

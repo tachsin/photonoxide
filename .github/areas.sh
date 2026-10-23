@@ -106,6 +106,10 @@ area thermo   "src/mode/thermo.rs src/mode/thermo_checks.rs"   "mode material st
 # perturbation (thermo's) and Vpi L; its cases read the catalogue's lithium niobate
 area pockels  "src/mode/pockels.rs src/mode/pockels/*"   "mode material statics thermo"   "mode::pockels" "pockels/" ""
 
+# the thermo-optic phase shifter (src/thermal/*): a heat solve's rise in a guide's mode, by its
+# perturbation's weights, into P_pi, the time constant and the crosstalk between neighbours
+area shifter  "src/thermal/*"   "mode material statics thermo"   "thermal::shifter" "shifter/" ""
+
 # jobs, their runs and replay, and farming them out; the job files in jobs/ are read by the
 # library's tests and validation cases, by the studio's and by the Python package's; a job's
 # [device] table is read, checked and drawn by the devices, and studied (its sweeps and corners,
@@ -117,7 +121,7 @@ area pockels  "src/mode/pockels.rs src/mode/pockels/*"   "mode material statics 
 # holds the jobs as TOML, as they were before they were YAML, which the tests read and compare
 area job \
   "src/job/* src/run.rs src/farm.rs src/farm/* jobs/* tests/jobs-toml/* docs/job.schema.json" \
-  "material mode sparse fdfd fdtd circuit device generator statics export convergence" \
+  "material mode sparse fdfd fdtd circuit device generator statics shifter export convergence" \
   "job:: run:: farm::" "job/ generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
 
 # grid convergence, the gate a reported number passes (its grid study, by mode::vector's

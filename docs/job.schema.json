@@ -7038,6 +7038,105 @@
       ],
       "type": "object"
     },
+    "ShifterSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "step",
+              "step_nm"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "step_nm"
+              ]
+            },
+            {
+              "required": [
+                "step"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "wavelength",
+              "wavelength_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "wavelength_um"
+              ]
+            },
+            {
+              "required": [
+                "wavelength"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "`[task.shifter]`: the optics of the guides `[[task.guide]]` draws (each a window around a waveguide in the section), the heaters (or a current's Joule heat) as what drives them.",
+      "properties": {
+        "dn_dt": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "default": {},
+          "description": "Media's dn/dT (1/K), by name, in place of the catalogue's.",
+          "type": "object"
+        },
+        "index": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "default": {},
+          "description": "Media's refractive indices, by name, in place of the catalogue's.",
+          "type": "object"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The optical grid's step, nm. With its unit in the value, in place of step_nm: a length with its unit, e.g. \"20 nm\"."
+        },
+        "step_nm": {
+          "description": "The optical grid's step, nm.",
+          "type": "number"
+        },
+        "wavelength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The wavelength, µm. With its unit in the value, in place of wavelength_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "wavelength_um": {
+          "description": "The wavelength, µm.",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
     "SideSpec": {
       "anyOf": [
         {
@@ -7588,6 +7687,12 @@
         "growth": {
           "type": "number"
         },
+        "guide": {
+          "items": {
+            "$ref": "#/$defs/Area"
+          },
+          "type": "array"
+        },
         "heat_capacity": {
           "additionalProperties": {
             "type": "number"
@@ -7669,6 +7774,10 @@
             "$ref": "#/$defs/ShapeLine"
           },
           "type": "array"
+        },
+        "shifter": {
+          "$ref": "#/$defs/ShifterSpec",
+          "description": "`[task.shifter]`: the heaters as a thermo-optic phase shifter's drives."
         },
         "sink": {
           "items": {

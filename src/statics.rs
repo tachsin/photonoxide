@@ -481,6 +481,35 @@ impl Grid {
         }
         out
     }
+
+    /// The cells and weights [`Field::at`] interpolates (x, y) from (µm): bilinear between the
+    /// four nearest cells' centres, the nearest edge cells' beyond the outermost centres.
+    pub(crate) fn bilinear(&self, x: f64, y: f64) -> [(usize, f64); 4] {
+        let locate = |a: &Axis, v: f64| -> (usize, usize, f64) {
+            let n = a.cells();
+            if n == 1 || v <= a.centre(0) {
+                return (0, 0, 0.0);
+            }
+            if v >= a.centre(n - 1) {
+                return (n - 1, n - 1, 0.0);
+            }
+            let mut i = a.cell_of(v);
+            if v < a.centre(i) {
+                i -= 1;
+            }
+            let t = (v - a.centre(i)) / (a.centre(i + 1) - a.centre(i));
+            (i, i + 1, t)
+        };
+        let (i0, i1, s) = locate(&self.x, x);
+        let (j0, j1, t) = locate(&self.y, y);
+        let nx = self.x.cells();
+        [
+            (j0 * nx + i0, (1.0 - t) * (1.0 - s)),
+            (j0 * nx + i1, (1.0 - t) * s),
+            (j1 * nx + i0, t * (1.0 - s)),
+            (j1 * nx + i1, t * s),
+        ]
+    }
 }
 
 /// A medium's coefficient in the cross-section's frame: diagonal, `xx` across and `yy` up (a
@@ -1666,6 +1695,27 @@ impl Field {
     /// The grid.
     pub fn grid(&self) -> &Grid {
         &self.grid
+    }
+
+    /// (`self` − `other`) / `by`, every part of it: a rise above a background per unit of
+    /// what drives it (the problem being linear). Both on the same grid, which the caller
+    /// ensures.
+    pub(crate) fn above(&self, other: &Field, by: f64) -> Field {
+        let d = |a: &[f64], b: &[f64]| -> Vec<f64> {
+            a.iter().zip(b).map(|(a, b)| (a - b) / by).collect()
+        };
+        let mut outflow = [0.0; 4];
+        for (k, o) in outflow.iter_mut().enumerate() {
+            *o = (self.outflow[k] - other.outflow[k]) / by;
+        }
+        Field {
+            grid: self.grid.clone(),
+            values: d(&self.values, &other.values),
+            levels: d(&self.levels, &other.levels),
+            held: d(&self.held, &other.held),
+            outflow,
+            source: (self.source - other.source) / by,
+        }
     }
 
     /// The values at the cells' centres, row by row from the bottom (cell (i, j) at

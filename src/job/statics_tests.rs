@@ -573,3 +573,141 @@ fn a_static_export_writes_the_temperature_and_the_numbers_to_the_bit() {
         assert_eq!(row[2].parse::<f64>().unwrap().to_bits(), v.value.to_bits());
     }
 }
+
+/// Two SOI strips 6 µm apart, a TiN heater 2 µm above each, as a phase shifter: the catalogue's
+/// indices and dn/dT, the heaters' turn-on in time.
+const SHIFTER: &str = r#"
+name = "shifter"
+timeout_minutes = 5
+
+[task]
+kind = "static"
+physics = "heat"
+stack = "soi_220"
+y_um = [-12.0, 12.0]
+z_um = [-4.0, 5.0]
+step_nm = 1000.0
+fine_nm = 50.0
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, -3.0]
+size_um = [10.0, 0.5]
+
+[[task.rect]]
+layer = "Si"
+center_um = [0.0, 3.0]
+size_um = [10.0, 0.5]
+
+[task.thermal_conductivity]
+Si = 148.0
+SiO2 = 1.4
+TiN = 28.0
+
+[task.heat_capacity]
+Si = 1.657e6
+SiO2 = 1.562e6
+TiN = 3.134e6
+
+[task.transient]
+step_ns = 200.0
+duration_us = 60.0
+
+[task.boundary]
+bottom = { fixed = 0.0 }
+top = { convective = 10.0, ambient = 0.0 }
+
+[[task.region]]
+y_um = [-4.0, -2.0]
+z_um = [4.22, 4.34]
+medium = "TiN"
+
+[[task.region]]
+y_um = [2.0, 4.0]
+z_um = [4.22, 4.34]
+medium = "TiN"
+
+[[task.heater]]
+name = "left"
+y_um = [-4.0, -2.0]
+z_um = [4.22, 4.34]
+power_w_per_m = 10.0
+
+[[task.heater]]
+name = "right"
+y_um = [2.0, 4.0]
+z_um = [4.22, 4.34]
+power_w_per_m = 10.0
+
+[task.shifter]
+wavelength_um = 1.55
+step_nm = 40.0
+
+[[task.guide]]
+name = "left"
+y_um = [-4.0, -2.0]
+z_um = [1.2, 3.0]
+
+[[task.guide]]
+name = "right"
+y_um = [2.0, 4.0]
+z_um = [1.2, 3.0]
+"#;
+
+#[test]
+fn a_phase_shifter_job_records_p_pi_crosstalk_and_times() {
+    let ev = events("shifter", SHIFTER);
+    let (_, _, _, values) = result(&ev);
+    let p = named(&values, "P_pi of left on left");
+    // a 2D number, W, for a TiN heater 2 µm above a strip: tens of mW
+    assert!(p > 0.01 && p < 0.05, "{p}");
+    assert!((named(&values, "P_pi of right on right") / p - 1.0).abs() < 1e-3);
+    let x = named(&values, "crosstalk of left on right");
+    assert!(x > 0.0 && x < 0.5, "{x}");
+    assert!((named(&values, "crosstalk of right on left") / x - 1.0).abs() < 1e-2);
+    let n = named(&values, "n_eff of left");
+    assert!(n > 2.0 && n < 3.0, "{n}");
+    assert!(named(&values, "dn_eff/dT of left") > 1e-4);
+    // the catalogue's silicon at 300 K gave its index and dn/dT
+    assert!(
+        values
+            .iter()
+            .any(|v| v.name.starts_with("dn/dT of Si (") && v.value > 1.5e-4)
+    );
+    let tau = named(&values, "phase 1/e time of left by left");
+    assert!(tau > 1e-6 && tau < 3e-5, "{tau}");
+    assert!(named(&values, "phase 10-90 % time of left by left") > tau);
+    assert!((named(&values, "P_pi * 1/e time of left") / (p * tau) - 1.0).abs() < 1e-12);
+    assert!(named(&values, "phase -3 dB frequency of left by left") > 1e3);
+}
+
+#[test]
+fn a_phase_shifter_job_names_what_it_lacks() {
+    let no_guides = SHIFTER.split("[[task.guide]]").next().unwrap().to_owned();
+    let no_shifter = SHIFTER.replace("[task.shifter]\nwavelength_um = 1.55\nstep_nm = 40.0\n", "");
+    for (text, says) in [
+        (no_guides, "needs a guide"),
+        (no_shifter, "give it a [task.shifter]"),
+        (
+            SHIFTER.replace("wavelength_um = 1.55", "wavelength_um = -1.0"),
+            "wavelength_um",
+        ),
+    ] {
+        assert_ne!(text, SHIFTER, "{says}");
+        let job = Job::parse(&text).unwrap();
+        let e = check(&job).unwrap_err().to_string();
+        assert!(e.contains(says), "{says}: {e}");
+    }
+}
+
+#[test]
+fn a_phase_shifter_job_gives_the_same_bits_on_one_thread_and_many() {
+    let run = |threads: usize| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| result(&events(&format!("shifter-bits{threads}"), SHIFTER)).3)
+    };
+    assert_eq!(run(1), run(8));
+}

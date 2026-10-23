@@ -1941,6 +1941,8 @@ pub fn cases() -> Vec<Case> {
     // and a temperature in the modes: dn/dT by perturbation and by re-solve, a heat solve's field
     cases.extend(crate::mode::thermo_checks::cases());
     cases.extend(crate::mode::pockels::checks::cases());
+    // and the thermo-optic phase shifter: P_pi, its time and crosstalk, Jacques et al.'s heaters
+    cases.extend(crate::thermal::shifter_checks::cases());
     cases
 }
 

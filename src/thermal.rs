@@ -51,6 +51,12 @@ use crate::{Error, Result};
 pub use crate::statics::{
     Axis, Boundary, Cut, Features, Field, Grading, Grid, MAX_CELLS, Section, Side, Tensor,
 };
+pub use shifter::{Drive, Efficiency, Guide, Optics, PhaseShifter, Timing};
+
+mod shifter;
+pub(crate) mod shifter_checks;
+#[cfg(test)]
+mod shifter_tests;
 
 /// A heat-conduction problem on a cross-section, steady or in time. See the module's docs.
 #[derive(Clone, Debug)]
@@ -63,6 +69,9 @@ pub struct Heat {
     heaters: Vec<(Shape, f64)>,
     extra: Option<Vec<f64>>,
     capacity: Vec<(String, f64)>,
+    /// Heaters given cell by cell (W/m in each), which follow the heaters' factor as they do:
+    /// a phase shifter's drive of a current's Joule heat ([`shifter`]).
+    driven: Vec<Vec<f64>>,
 }
 
 /// How [`Heat::transient`] steps in time. Both are implicit, unconditionally stable and second
@@ -170,6 +179,7 @@ impl Heat {
             heaters: Vec::new(),
             extra: None,
             capacity: Vec::new(),
+            driven: Vec::new(),
         }
     }
 
@@ -307,6 +317,23 @@ impl Heat {
         watch: &[Shape],
         observe: &mut dyn FnMut(&Step<'_>) -> Result<bool>,
     ) -> Result<History> {
+        let parts = watch
+            .iter()
+            .map(|s| shape_parts(&self.grid, s))
+            .collect::<Result<Vec<_>>>()?;
+        self.transient_weighted(stepping, start, drive, &parts, observe)
+    }
+
+    /// [`Heat::transient_observed`], each watch a weighted sum of cells' temperatures,
+    /// (cell, weight) in the grid's order of cells, in place of a shape's mean.
+    pub(crate) fn transient_weighted(
+        &self,
+        stepping: &Stepping,
+        start: f64,
+        drive: &dyn Fn(f64) -> f64,
+        watch: &[Vec<(usize, f64)>],
+        observe: &mut dyn FnMut(&Step<'_>) -> Result<bool>,
+    ) -> Result<History> {
         let dt = stepping.step_s;
         if !(dt.is_finite() && dt > 0.0) || stepping.steps == 0 || !start.is_finite() {
             return Err(Error::invalid(
@@ -326,7 +353,7 @@ impl Heat {
         let mass = self.mass(&discrete)?;
         let watches = watch
             .iter()
-            .map(|s| Watch::new(&self.grid, &discrete, &values, s))
+            .map(|p| Watch::new(&self.grid, &discrete, &values, p))
             .collect::<Result<Vec<_>>>()?;
         let sources = |factor: f64| -> Vec<f64> {
             base.iter()
@@ -442,11 +469,12 @@ impl Heat {
     /// As [`Heat::transient`], and [`Error::InvalidValue`] for a frequency that isn't finite and
     /// non-negative, or no heater (nothing to respond to).
     pub fn response(&self, frequency_hz: f64, watch: &Shape) -> Result<c64> {
-        self.responder(watch)?(frequency_hz)
+        self.responder(&shape_parts(&self.grid, watch)?)?(frequency_hz)
     }
 
-    /// [`Heat::response`] at any frequency, the problem assembled once.
-    fn responder(&self, watch: &Shape) -> Result<impl Fn(f64) -> Result<c64>> {
+    /// [`Heat::response`] at any frequency, the problem assembled once, of a weighted sum of
+    /// cells' temperatures (as [`Heat::transient_weighted`]'s).
+    pub(crate) fn responder(&self, watch: &[(usize, f64)]) -> Result<impl Fn(f64) -> Result<c64>> {
         let Assembled {
             discrete,
             heat,
@@ -490,6 +518,11 @@ impl Heat {
     /// As [`Heat::response`], and [`Error::InvalidValue`] if the response doesn't fall to 1/√2
     /// in that range.
     pub fn cutoff(&self, watch: &Shape) -> Result<f64> {
+        self.cutoff_weighted(&shape_parts(&self.grid, watch)?)
+    }
+
+    /// [`Heat::cutoff`] of a weighted sum of cells' temperatures.
+    pub(crate) fn cutoff_weighted(&self, watch: &[(usize, f64)]) -> Result<f64> {
         let half = std::f64::consts::FRAC_1_SQRT_2;
         let response = self.responder(watch)?;
         let below = |f: f64| -> Result<bool> { Ok(response(f)?.norm() < half) };
@@ -550,6 +583,17 @@ impl Heat {
             }
             spread(&self.grid, shape, *power, &mut heat)?;
         }
+        for cells in &self.driven {
+            if cells.len() != heat.len() {
+                return Err(Error::invalid(
+                    "static problem",
+                    "a heater given cell by cell is on another grid",
+                ));
+            }
+            for (h, q) in heat.iter_mut().zip(cells) {
+                *h += q;
+            }
+        }
         let values: Vec<f64> = self.sinks.iter().map(|s| s.1).collect();
         Ok(Assembled {
             discrete,
@@ -601,14 +645,34 @@ struct Watch {
     held: f64,
 }
 
+/// A shape's mean as weights: each cell it covers, its share of the shape's area.
+fn shape_parts(grid: &Grid, shape: &Shape) -> Result<Vec<(usize, f64)>> {
+    let parts = grid.overlap(shape);
+    let area: f64 = parts.iter().map(|p| p.1).sum();
+    if area <= 0.0 {
+        return Err(Error::invalid(
+            "static problem",
+            "a watched shape covers no cell of the grid",
+        ));
+    }
+    Ok(parts.into_iter().map(|(c, a)| (c, a / area)).collect())
+}
+
 impl Watch {
-    fn new(grid: &Grid, discrete: &Discrete, values: &[f64], shape: &Shape) -> Result<Watch> {
-        let parts = grid.overlap(shape);
-        let area: f64 = parts.iter().map(|p| p.1).sum();
-        if area <= 0.0 {
+    /// The sum of `parts`' cells' values, each times its weight.
+    fn new(
+        grid: &Grid,
+        discrete: &Discrete,
+        values: &[f64],
+        parts: &[(usize, f64)],
+    ) -> Result<Watch> {
+        if parts
+            .iter()
+            .any(|&(c, w)| c >= grid.cells() || !w.is_finite())
+        {
             return Err(Error::invalid(
                 "static problem",
-                "a watched shape covers no cell of the grid",
+                "a watch's cells must be the grid's, its weights finite",
             ));
         }
         let free_cells = discrete.free_cells();
@@ -619,10 +683,10 @@ impl Watch {
         // a held cell's value is its sink's, which a field at zero sources gives
         let zero = discrete.field(&vec![0.0; free_cells.len()], values, 0.0);
         let (mut free, mut held) = (Vec::new(), 0.0);
-        for (c, a) in parts {
+        for &(c, w) in parts {
             match unknown[c] {
-                Some(u) => free.push((u, a / area)),
-                None => held += zero.values()[c] * a / area,
+                Some(u) => free.push((u, w)),
+                None => held += zero.values()[c] * w,
             }
         }
         Ok(Watch { free, held })
