@@ -112,7 +112,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "circuit/heated-mzi-modulation",
-            title: r"Heated circuit, analytic: the same MZI at quadrature, its cross power's small-signal response to the upper heater's power at 1, 10, 30 and 100 kHz, the arms' $Z(i\omega)$ the 6-pole model's and $\partial|S|^2/\partial\varphi$ the circuit adjoint's, against the heat solver's small-signal response of both arms, $(K + i\omega M)\hat T = \hat Q$; the largest difference over the steady response (shown)",
+            title: r"Heated circuit, analytic: the same MZI at quadrature, its cross power's small-signal response to the upper heater's power at 1, 10, 30 and 100 kHz, the arms' $Z(i\omega)$ the 6-pole model's and $\partial\lvert S\rvert^2/\partial\varphi$ the circuit adjoint's, against the heat solver's small-signal response of both arms, $(K + i\omega M)\hat T = \hat Q$; the largest difference over the steady response (shown)",
             tier: Tier::Analytic,
             source: r"the heat equation in frequency on the same grid; 1e-2 for the transient's 0.2 µs steps the model is fitted to",
             run: || outcome(modulation_difference(), 0.0, 1e-2),

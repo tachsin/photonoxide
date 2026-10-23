@@ -248,7 +248,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "thermal-rc/coenen-200khz",
-            title: r"Thermal compact model, published: the undercut ring's Foster network's response to its heater's power at 200 kHz, against its steady response (dB, $20\log_{10}|Z(f)/Z(0)|$)",
+            title: r"Thermal compact model, published: the undercut ring's Foster network's response to its heater's power at 200 kHz, against its steady response (dB, $20\log_{10}\lvert Z(f)/Z(0)\rvert$)",
             tier: Tier::Published,
             source: r"D. Coenen et al., doi:10.1109/TCPMT.2022.3195699, Section III.A: 'a drive frequency of 200 kHz corresponds with a response of -30 dB' (Fig. 13, the circuit's, the coupling's included); 2 dB for the reading",
             run: || {
