@@ -216,8 +216,8 @@ pub(crate) fn ring_linewidth() -> Outcome {
     exact(worst, 1e-3)
 }
 
-/// The 2D FDFD ring of `jobs/ring-fdfd.toml`.
-const RING_JOB: &str = include_str!("../../../jobs/ring-fdfd.toml");
+/// The 2D FDFD ring of `jobs/ring-fdfd.yaml`.
+const RING_JOB: &str = include_str!("../../../jobs/ring-fdfd.yaml");
 
 /// A resonance of the FDFD ring near `start` (µm). An all-pass ring's 1/(1 − T) is
 /// A − B cos(φ − φ₀) exactly (the denominator of Bogaerts's Eq. 2 over its numerator, which is
@@ -272,7 +272,7 @@ fn ring_bend(w: Wavelength) -> crate::Result<SlabBend> {
 /// The FDFD ring's free spectral range (nm), from two neighbouring resonances, and Bogaerts's
 /// Eq. 9 at their midpoint with the exact bent slab's group index.
 pub(crate) fn ring_fsr_fdfd_measure() -> (f64, f64) {
-    let job = Job::parse(RING_JOB).expect("the ring's job parses");
+    let job = Job::parse_as(RING_JOB, crate::run::Format::Yaml).expect("the ring's job parses");
     // where the exact bent slab resonates, Re ν = m: a start for the search
     let (bend, _) =
         Dispersion::from_bent_slab(ring_bend, Polarization::Tm, um(1.544), 0.01).expect(OK);
@@ -516,12 +516,12 @@ fn soi() -> Planar {
     }
 }
 
-/// The 1 × 2 MMI of `jobs/mmi-fdfd.toml`.
-const MMI_JOB: &str = include_str!("../../../jobs/mmi-fdfd.toml");
+/// The 1 × 2 MMI of `jobs/mmi-fdfd.yaml`.
+const MMI_JOB: &str = include_str!("../../../jobs/mmi-fdfd.yaml");
 
 /// The 1 × 2 MMI's two output powers at 1.55 µm, by guided-mode propagation and by 2D FDFD.
 pub(crate) fn mmi_fdfd_measure() -> ([f64; 2], [f64; 2]) {
-    let job = Job::parse(MMI_JOB).expect("the MMI's job parses");
+    let job = Job::parse_as(MMI_JOB, crate::run::Format::Yaml).expect("the MMI's job parses");
     let sp = fdfd_s_parameters(&job, Some(&[1.55])).expect("the MMI's job solves");
     let fdfd = [sp.s[0][1][0].norm_sqr(), sp.s[0][2][0].norm_sqr()];
     let m = Mmi::new(MmiKind::OneByTwo, soi(), 3.0, 0.5, um(1.55)).expect(OK);

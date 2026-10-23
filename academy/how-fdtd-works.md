@@ -6,7 +6,7 @@ level: intermediate
 status: coming
 prerequisites: [slab-waveguide]
 examples: [cpml_roden_gedney, pml_oskooi, tfsf_square_cylinder, subpixel_holes, bump_oskooi, lorentz_okoniewski]
-jobs: [mmi-fdtd.toml, ring-fdtd.toml]
+jobs: [mmi-fdtd.yaml, ring-fdtd.yaml]
 methods: [fdtd.md, pml.md]
 ---
 

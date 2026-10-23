@@ -1,0 +1,27 @@
+# A directional coupler's study: its gap swept from 150 to 450 nm by its analytic model (two
+# 500 x 220 nm silicon strips in oxide, 15 µm long), with 21 wavelengths from 1.5 to 1.6 um at
+# each gap. The cross-over length grows more than tenfold over the sweep, and the power across
+# at the coupler's length makes a map of the gap and the wavelength. Opened, it shows on the
+# coupler's Study tab, where the same sweep runs at 3D as well.
+#   photonoxide run jobs/coupler-gap-sweep.yaml [--headless] [--workers 4]
+name: coupler-gap-sweep
+timeout_minutes: 5
+
+device:
+  kind: directional coupler
+  fidelity: analytic
+
+  parameters:
+    length: "15"
+
+task:
+  kind: sweep
+  from_um: 1.5
+  to_um: 1.6
+  points: 21
+
+  axis:
+    - parameter: gap
+      from: 0.15
+      to: 0.45
+      points: 31

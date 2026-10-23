@@ -1533,7 +1533,7 @@ carrier:
   `a_gaps_transmission_and_reflection_are_fdfds`): the transmitted power within 1.3e-4 of FDFD's
   at 1.55 µm and 2.4e-3 at 1.6 µm (3 % from the carrier), the reflected within 1.5e-5 and
   4.4e-4;
-- the built-in `jobs/mmi-fdtd.toml`, the 1 × 2 MMI of `jobs/mmi-fdfd.toml` on its 20 nm grid
+- the built-in `jobs/mmi-fdtd.yaml`, the 1 × 2 MMI of `jobs/mmi-fdfd.yaml` on its 20 nm grid
   with absorbers of 20 (the test `the_mmi_job_reproduces_the_fdfd_jobs_s_parameters`, run on
   demand): each output's power within 4.3e-4 of FDFD's at 1.55 µm and 1.1e-3 at 1.6 µm, the
   reflection within 2.5e-4, over 1.5 to 1.6 µm.

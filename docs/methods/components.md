@@ -181,7 +181,7 @@ What the model leaves out is the light the guided modes don't carry: the radiati
 junctions excite, which here is lost power, and the faces' reflections. Narrow access guides
 excite the high modes too, whose $\beta$ are far from Soldano's parabola: a 3 µm 2 × 2 coupler
 fed by 0.5 µm guides balances best at $0.44 L_\pi$, not $0.5 L_\pi$. Against 2D FDFD of the
-same 1 × 2 splitter (`jobs/mmi-fdfd.toml`, 3 × 8.55 µm, 20 nm grid) each output's power is
+same 1 × 2 splitter (`jobs/mmi-fdfd.yaml`, 3 × 8.55 µm, 20 nm grid) each output's power is
 0.398 against 0.381, the FDFD reflecting 0.2 % back; away from the image, at 7.5 µm, the FDFD
 reflects 12 % and the model is no estimate.
 
@@ -228,7 +228,7 @@ The `ring_q_factor` example reproduces their Fig. 5: at critical coupling, 2.7 d
 bends' and couplers' 0.075 or 0.11 dB, the loaded Q peaks at 9.35 mm (all-pass, "approximately
 10 mm") and 12.7 mm (add-drop, "almost 13 mm"), the peaks in the ratio 1.042 (theirs 1.42/1.36).
 
-`jobs/ring-fdfd.toml`, an all-pass ring of 2 µm radius by 2D FDFD (25 nm grid), resonates at
+`jobs/ring-fdfd.yaml`, an all-pass ring of 2 µm radius by 2D FDFD (25 nm grid), resonates at
 1.52060 and 1.56730 µm, 46.70 nm apart; Eq. 9 with the group index of the exact bent slab of
 the same plane (4.04 at the midpoint) says 46.95 nm. Both resonances sit 2.3 nm above the bent
 slab's own, $\operatorname{Re}\nu = m$: the bus's coupling pulls them, and the 25 nm grid's

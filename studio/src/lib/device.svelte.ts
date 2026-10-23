@@ -400,7 +400,7 @@ export async function openDesign(path: string) {
  * say), as a design not saved yet: true when it did, false for a job without a device.
  */
 export async function openDeviceText(text: string): Promise<boolean> {
-  if (!/^\s*\[device\]/m.test(text)) return false;
+  if (!/^\s*\[device\]|^device:/m.test(text)) return false;
   await loadDevices();
   try {
     const form = await api.deviceJobRead(text);

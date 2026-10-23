@@ -442,7 +442,7 @@ pub fn job_text(chip: &Chip, task: &ChipTaskIn, root: &Path) -> Result<String, S
 ///
 /// A message for a job that isn't a chip's, or a chip the library can't build.
 pub fn chip_of_job(text: &str) -> Result<Chip, String> {
-    let job = Job::parse(text).map_err(|e| e.to_string())?;
+    let job = crate::studio::parse_job(text).map_err(|e| e.to_string())?;
     let table = job.circuit().ok_or_else(|| {
         format!(
             "{} isn't a chip's job: it has no [circuit] table",

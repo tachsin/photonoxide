@@ -328,24 +328,24 @@ pub fn problems() -> Vec<Problem> {
         },
         Problem {
             id: "job/strip-modes",
-            title: "The built-in job jobs/strip-modes.toml, run headless: a strip's modes by the \
+            title: "The built-in job jobs/strip-modes.yaml, run headless: a strip's modes by the \
                     full-vector solver, and a sweep of 11 wavelengths",
             heavy: false,
-            run: |timed| built_in_job(include_str!("../jobs/strip-modes.toml"), timed),
+            run: |timed| built_in_job(include_str!("../jobs/strip-modes.yaml"), timed),
         },
         Problem {
             id: "job/mmi-fdfd",
-            title: "The built-in job jobs/mmi-fdfd.toml, run headless: a 1 × 2 MMI's S-parameters \
+            title: "The built-in job jobs/mmi-fdfd.yaml, run headless: a 1 × 2 MMI's S-parameters \
                     by 2D FDFD over a sweep of 11 wavelengths",
             heavy: false,
-            run: |timed| built_in_job(include_str!("../jobs/mmi-fdfd.toml"), timed),
+            run: |timed| built_in_job(include_str!("../jobs/mmi-fdfd.yaml"), timed),
         },
         Problem {
             id: "job/ring-fdfd",
-            title: "The built-in job jobs/ring-fdfd.toml, run headless: an all-pass ring's \
+            title: "The built-in job jobs/ring-fdfd.yaml, run headless: an all-pass ring's \
                     spectrum by 2D FDFD, a sweep of 201 wavelengths",
             heavy: true,
-            run: |timed| built_in_job(include_str!("../jobs/ring-fdfd.toml"), timed),
+            run: |timed| built_in_job(include_str!("../jobs/ring-fdfd.yaml"), timed),
         },
         Problem {
             id: "fdfd3d/diel-ilu",
@@ -879,7 +879,7 @@ fn strip_ports_3d_with(
 fn built_in_job(text: &str, timed_done: &mut dyn FnMut()) -> Result<Measurement> {
     use crate::job::{Event, execute};
     use crate::run::{Job, Run, Stop, replay};
-    let job = Job::parse(text)?;
+    let job = Job::parse_as(text, crate::run::Format::Yaml)?;
     let root = std::env::temp_dir().join(format!(
         "photonoxide-bench-{}-{}",
         std::process::id(),

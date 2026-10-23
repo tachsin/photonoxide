@@ -321,7 +321,7 @@ fn links(md: &str) -> Vec<String> {
 /// A job file shipped with the program, from jobs/.
 #[derive(Serialize, Clone)]
 pub struct JobExample {
-    /// Its file name, e.g. `"strip-modes.toml"`.
+    /// Its file name, e.g. `"strip-modes.yaml"`.
     pub file: String,
     pub text: String,
 }
@@ -330,70 +330,70 @@ pub struct JobExample {
 pub fn jobs() -> Vec<JobExample> {
     [
         (
-            "strip-modes.toml",
-            include_str!("../../../jobs/strip-modes.toml"),
+            "strip-modes.yaml",
+            include_str!("../../../jobs/strip-modes.yaml"),
         ),
         (
-            "strip-width-sweep.toml",
-            include_str!("../../../jobs/strip-width-sweep.toml"),
+            "strip-width-sweep.yaml",
+            include_str!("../../../jobs/strip-width-sweep.yaml"),
         ),
         (
-            "strip-guided-modes.toml",
-            include_str!("../../../jobs/strip-guided-modes.toml"),
+            "strip-guided-modes.yaml",
+            include_str!("../../../jobs/strip-guided-modes.yaml"),
         ),
         (
-            "leaky-wire.toml",
-            include_str!("../../../jobs/leaky-wire.toml"),
+            "leaky-wire.yaml",
+            include_str!("../../../jobs/leaky-wire.yaml"),
         ),
         (
-            "strip-and-ring.toml",
-            include_str!("../../../jobs/strip-and-ring.toml"),
+            "strip-and-ring.yaml",
+            include_str!("../../../jobs/strip-and-ring.yaml"),
         ),
-        ("mmi-fdfd.toml", include_str!("../../../jobs/mmi-fdfd.toml")),
+        ("mmi-fdfd.yaml", include_str!("../../../jobs/mmi-fdfd.yaml")),
         (
-            "ring-fdfd.toml",
-            include_str!("../../../jobs/ring-fdfd.toml"),
+            "ring-fdfd.yaml",
+            include_str!("../../../jobs/ring-fdfd.yaml"),
         ),
-        ("mmi-fdtd.toml", include_str!("../../../jobs/mmi-fdtd.toml")),
+        ("mmi-fdtd.yaml", include_str!("../../../jobs/mmi-fdtd.yaml")),
         (
-            "ring-fdtd.toml",
-            include_str!("../../../jobs/ring-fdtd.toml"),
-        ),
-        (
-            "bragg-grating.toml",
-            include_str!("../../../jobs/bragg-grating.toml"),
-        ),
-        ("mzi-mmi.toml", include_str!("../../../jobs/mzi-mmi.toml")),
-        (
-            "coupler-supermodes.toml",
-            include_str!("../../../jobs/coupler-supermodes.toml"),
-        ),
-        ("slab-soi.toml", include_str!("../../../jobs/slab-soi.toml")),
-        (
-            "coupler-gap-sweep.toml",
-            include_str!("../../../jobs/coupler-gap-sweep.toml"),
+            "ring-fdtd.yaml",
+            include_str!("../../../jobs/ring-fdtd.yaml"),
         ),
         (
-            "coupler-3db-optimize.toml",
-            include_str!("../../../jobs/coupler-3db-optimize.toml"),
+            "bragg-grating.yaml",
+            include_str!("../../../jobs/bragg-grating.yaml"),
+        ),
+        ("mzi-mmi.yaml", include_str!("../../../jobs/mzi-mmi.yaml")),
+        (
+            "coupler-supermodes.yaml",
+            include_str!("../../../jobs/coupler-supermodes.yaml"),
+        ),
+        ("slab-soi.yaml", include_str!("../../../jobs/slab-soi.yaml")),
+        (
+            "coupler-gap-sweep.yaml",
+            include_str!("../../../jobs/coupler-gap-sweep.yaml"),
         ),
         (
-            "ring-pareto.toml",
-            include_str!("../../../jobs/ring-pareto.toml"),
+            "coupler-3db-optimize.yaml",
+            include_str!("../../../jobs/coupler-3db-optimize.yaml"),
         ),
         (
-            "chip-little-rings.toml",
-            include_str!("../../../jobs/chip-little-rings.toml"),
+            "ring-pareto.yaml",
+            include_str!("../../../jobs/ring-pareto.yaml"),
         ),
         (
-            "chip-splitter.toml",
-            include_str!("../../../jobs/chip-splitter.toml"),
+            "chip-little-rings.yaml",
+            include_str!("../../../jobs/chip-little-rings.yaml"),
         ),
         (
-            "chip-ring-critical.toml",
-            include_str!("../../../jobs/chip-ring-critical.toml"),
+            "chip-splitter.yaml",
+            include_str!("../../../jobs/chip-splitter.yaml"),
         ),
-        ("chip-fit.toml", include_str!("../../../jobs/chip-fit.toml")),
+        (
+            "chip-ring-critical.yaml",
+            include_str!("../../../jobs/chip-ring-critical.yaml"),
+        ),
+        ("chip-fit.yaml", include_str!("../../../jobs/chip-fit.yaml")),
     ]
     .into_iter()
     .map(|(file, text)| JobExample {
@@ -461,11 +461,11 @@ mod tests {
         built.sort();
         assert_eq!(
             built,
-            names_in("../../jobs", "toml"),
+            names_in("../../jobs", "yaml"),
             "add the new job to jobs()"
         );
         for j in jobs() {
-            let job = photonoxide::run::Job::parse(&j.text).unwrap();
+            let job = crate::studio::parse_job(&j.text).unwrap();
             photonoxide::job::check(&job).unwrap();
         }
     }

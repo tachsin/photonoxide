@@ -1,0 +1,70 @@
+# An add-drop ring fitted to its through and drop spectra on a chip, as Bogaerts et al. 2011 extract
+# coupling and loss from measured spectra (Laser Photonics Rev. 6, 47, doi:10.1002/lpor.201100017,
+# Section 3.3). The spectra are their Eqs. 5 and 6 for κ₁² = 0.08, κ₂² = 0.05, 20 dB/cm and
+# R = 10 µm on the 500 x 220 nm strip's analytic model (n_eff 2.44506, n_g 4.172901 at 1.55 µm,
+# first order in λ), written out in the objective with a = 10^(−αL/20) and φ = 2π n_eff(λ) L/λ,
+# L = 2πR. The fit starts from κ₁² = 0.12, κ₂² = 0.03, 10 dB/cm, R = 10.002 µm and must return
+# the ring the spectra were made from. examples/circuit_fit.rs fits the same ring outside a job.
+name: chip-fit
+timeout_minutes: 2
+
+circuit:
+  connections: []
+
+  # the ring's couplings are its own values, κ² of each bus; its radius and loss are the design's
+  instance:
+    - name: ring
+      device: { kind: add-drop ring, fidelity: analytic, parameters: { radius: "10.002", loss: "10" } }
+      values: { coupling: 0.12, coupling_drop: 0.03 }
+
+  port:
+    - name: in
+      at: ring.in
+
+    - name: through
+      at: ring.through
+
+    - name: add
+      at: ring.add
+
+    - name: drop
+      at: ring.drop
+
+task:
+  kind: optimize
+  method: lbfgsb
+  seed: 1
+  evaluations: 2000
+  from_um: 1.548
+  to_um: 1.556
+  points: 81
+  reduce: average
+
+  variable:
+    - parameter: ring.coupling
+      from: 0.01
+      to: 0.3
+
+    - parameter: ring.coupling_drop
+      from: 0.01
+      to: 0.3
+
+    - parameter: ring.loss
+      from: 0.0
+      to: 50.0
+
+    - parameter: ring.radius
+      from: 9.99
+      to: 10.01
+
+  # 1e6 × ((|S_through|² − T)² + (|S_drop|² − D)²), T and D Eqs. 5 and 6 with r₁ = √0.92,
+  # r₂ = √0.95, a = 10^(−20 dB/cm × 1e-4 × 20π µm / 20). The 1e6 is so that the fit runs to its
+  # last digits: L-BFGS-B stops when a step lowers the cost by less than 2.2e-9 of the cost or of 1,
+  # whichever is larger, and the misfit falls far below 1 (unscaled, it stops with κ₁² 2e-4 off).
+  objective:
+    - expression: |
+        1e6*(T_through_in - (0.95*(10^(-0.002*pi))^2 - 2*sqrt(0.92*0.95)*10^(-0.002*pi)*cos(2*pi*(20*pi)*(2.44506 + (2.44506 - 4.172901)*(lambda - 1.55)/1.55)/lambda) + 0.92)
+          / (1 - 2*sqrt(0.92*0.95)*10^(-0.002*pi)*cos(2*pi*(20*pi)*(2.44506 + (2.44506 - 4.172901)*(lambda - 1.55)/1.55)/lambda) + 0.92*0.95*(10^(-0.002*pi))^2))^2
+        + 1e6*(T_drop_in - 0.08*0.05*10^(-0.002*pi)
+          / (1 - 2*sqrt(0.92*0.95)*10^(-0.002*pi)*cos(2*pi*(20*pi)*(2.44506 + (2.44506 - 4.172901)*(lambda - 1.55)/1.55)/lambda) + 0.92*0.95*(10^(-0.002*pi))^2))^2
+      goal: minimize

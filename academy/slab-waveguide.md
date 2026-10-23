@@ -6,7 +6,7 @@ level: introductory
 minutes: 40
 prerequisites: [material-dispersion]
 examples: [slab_yariv_yeh, slab_soi, multilayer_chilwell]
-jobs: [slab-soi.toml]
+jobs: [slab-soi.yaml]
 methods: [slab.md, multilayer.md, slab-fd.md, vector.md]
 validation:
   - mode/slab-te-book
@@ -102,7 +102,7 @@ papers:
 The slab in section, in the symbols the equations below use: a film of index $n_2$ and thickness
 $d$ between a cover $n_1$ and a substrate $n_3$, a ray travelling along it at an angle $\theta$, a
 steeper ray that escapes, and a guided mode's field across the three layers. The 3D view is the
-silicon film of `jobs/slab-soi.toml`, an SOI wafer before anything is etched.
+silicon film of `jobs/slab-soi.yaml`, an SOI wafer before anything is etched.
 
 ::diagram slab
 

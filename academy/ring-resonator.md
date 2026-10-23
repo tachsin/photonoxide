@@ -6,7 +6,7 @@ level: introductory
 minutes: 50
 prerequisites: []
 examples: [circuit_ring_critical, ring_q_factor, circuit_fit]
-jobs: [ring-fdfd.toml]
+jobs: [ring-fdfd.yaml]
 circuits: [ring-all-pass.toml, ring-add-drop.toml]
 methods: [components.md, circuits.md, circuit-adjoint.md, compact.md]
 validation:
@@ -114,7 +114,7 @@ papers:
 
 The device from above, labelled with the symbols the equations below use: the bus, the ring of
 radius $R$, the coupler with its $r$ and $k$, the round trip's $a e^{i\phi}$, and the ports. The
-3D view is the ring of `jobs/ring-fdfd.toml` as photonoxide's geometry builds it.
+3D view is the ring of `jobs/ring-fdfd.yaml` as photonoxide's geometry builds it.
 
 ::diagram ring
 
@@ -560,7 +560,7 @@ over-coupled; the power curves still coincide, and the fit of the field still re
 - **A netlist.** The same ring as a coupler and a waveguide, the coupler's output fed back to its
   input, solved as a circuit ([circuits](../docs/methods/circuits.md)); the Chip page opens it from
   `circuits/ring-all-pass.toml`. Its adjoint gives the gradients the examples optimize with.
-- **A field solve.** `jobs/ring-fdfd.toml` solves a 2 µm ring and its bus by 2D finite
+- **A field solve.** `jobs/ring-fdfd.yaml` solves a 2 µm ring and its bus by 2D finite
   differences in the frequency domain, from the effective index method: an estimate of the
   spectrum's shape, not the device's 3D performance.
 - **A compact model.** Any of these spectra, or a measured one in a Touchstone file, fitted by

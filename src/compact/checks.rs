@@ -190,7 +190,7 @@ impl Ring {
     }
 }
 
-/// The ring-fdfd job (jobs/ring-fdfd.toml: an all-pass ring of 2 µm radius on 220 nm SOI by
+/// The ring-fdfd job (jobs/ring-fdfd.yaml: an all-pass ring of 2 µm radius on 220 nm SOI by
 /// 2D FDFD with the effective index method) at a coarse 40 nm grid and 51 wavelengths from 1.50
 /// to 1.60 µm, run once per process: its 2-port spectrum.
 pub(crate) fn fdfd_ring() -> &'static crate::circuit::Spectrum {
@@ -208,10 +208,10 @@ pub(crate) fn fdfd_ring_spectrum(
     use crate::job::{Event, execute};
     use crate::run::{Job, Run, Stop, replay};
     use crate::units::Wavelength;
-    let text = include_str!("../../jobs/ring-fdfd.toml")
-        .replace("step_nm = 25.0", &format!("step_nm = {step_nm}"))
-        .replace("points = 201", &format!("points = {points}"));
-    let job = Job::parse(&text)?;
+    let text = include_str!("../../jobs/ring-fdfd.yaml")
+        .replace("step_nm: 25.0", &format!("step_nm: {step_nm}"))
+        .replace("points: 201", &format!("points: {points}"));
+    let job = Job::parse_as(&text, crate::run::Format::Yaml)?;
     let root = std::env::temp_dir().join(format!(
         "photonoxide-compact-{}-{}",
         std::process::id(),
@@ -749,7 +749,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "compact/fdfd-ring-held-out",
-            title: r"A 2D FDFD spectrum (jobs/ring-fdfd.toml: an all-pass ring of 2 µm radius on 220 nm SOI by the effective index method, $H$ along $z$, at a 40 nm grid, 51 wavelengths from 1.50 to 1.60 µm), its 2-port S fitted with 12 poles on the 26 even-numbered wavelengths: largest $\lvert\Delta S_{qp}\rvert$ at the 25 between them (shown)",
+            title: r"A 2D FDFD spectrum (jobs/ring-fdfd.yaml: an all-pass ring of 2 µm radius on 220 nm SOI by the effective index method, $H$ along $z$, at a 40 nm grid, 51 wavelengths from 1.50 to 1.60 µm), its 2-port S fitted with 12 poles on the 26 even-numbered wavelengths: largest $\lvert\Delta S_{qp}\rvert$ at the 25 between them (shown)",
             tier: Tier::Analytic,
             source: "the solver's own S at the wavelengths left out, 4.5e-5 here; at its own wavelengths the fit is within 8.5e-7, and fitted to all 51 within 6.6e-7: on 25, 40 and 50 nm grids alike the solver's spectrum fits no closer than about 2e-7",
             run: fdfd_ring_held_out_case,

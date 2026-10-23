@@ -225,7 +225,7 @@ export async function showChip(chip: Chip = emptyChip(), path: string | null = n
  * template's, say), its devices inline: true when it did, false for a job of another kind.
  */
 export async function openChipText(text: string): Promise<boolean> {
-  if (!/^\s*\[circuit\]/m.test(text)) return false;
+  if (!/^\s*\[circuit\]|^circuit:/m.test(text)) return false;
   try {
     await showChip(await api.chipOfJobText(text));
   } catch (e) {

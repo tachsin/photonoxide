@@ -662,7 +662,7 @@ pub(crate) fn catalog() -> Catalog {
         jobs: examples::jobs()
             .into_iter()
             .filter_map(|j| {
-                let job = Job::parse(&j.text).ok()?;
+                let job = parse_job(&j.text).ok()?;
                 Some(JobExample {
                     name: job.name().to_owned(),
                     kind: kind_of(&job),
@@ -796,6 +796,42 @@ fn check_job(text: String, format: Format) -> JobCheck {
         ok: error.is_none(),
         error,
         model,
+    }
+}
+
+/// The format a job's text is written in, by its first line that isn't a comment: TOML for a
+/// table's header or a `key = value`, JSON for an object, YAML otherwise. The built-in jobs are
+/// YAML (#430) and the studio's own forms write TOML, and both reach the same commands.
+pub(crate) fn job_format(text: &str) -> Format {
+    let first = text
+        .lines()
+        .map(str::trim)
+        .find(|l| !l.is_empty() && !l.starts_with('#'));
+    let toml_key = |l: &str| {
+        l.split_once('=').is_some_and(|(k, _)| {
+            let k = k.trim();
+            !k.is_empty()
+                && k.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "_-.\"' ".contains(c))
+        })
+    };
+    match first {
+        Some(l) if l.starts_with('{') => Format::Json,
+        Some(l) if l.starts_with('[') || toml_key(l) => Format::Toml,
+        _ => Format::Yaml,
+    }
+}
+
+/// A job from its text, in the format it is written in ([`job_format`]).
+pub(crate) fn parse_job(text: &str) -> photonoxide::Result<Job> {
+    Job::parse_as(text, job_format(text))
+}
+
+/// A job's text as its top-level table, in the format it is written in; empty when it doesn't read.
+pub(crate) fn job_table(text: &str) -> toml::Table {
+    match job_format(text) {
+        Format::Toml => toml::from_str(text).unwrap_or_default(),
+        Format::Json | Format::Yaml => serde_saphyr::from_str(text).unwrap_or_default(),
     }
 }
 
@@ -946,7 +982,7 @@ fn save_text(path: String, text: String) -> Result<(), String> {
 /// The scene the job in `text` records first, for the studio to draw before it runs.
 #[tauri::command]
 fn preview_scene(text: String) -> Result<Event, String> {
-    let job = Job::parse(&text).map_err(|e| e.to_string())?;
+    let job = parse_job(&text).map_err(|e| e.to_string())?;
     job::preview(&job).map_err(|e| e.to_string())
 }
 
@@ -954,7 +990,7 @@ fn preview_scene(text: String) -> Result<Event, String> {
 /// the studio to mark on its scene.
 #[tauri::command]
 fn preview_ports(text: String) -> Result<Vec<job::ScenePort>, String> {
-    let job = Job::parse(&text).map_err(|e| e.to_string())?;
+    let job = parse_job(&text).map_err(|e| e.to_string())?;
     job::preview_ports(&job).map_err(|e| e.to_string())
 }
 
@@ -1204,7 +1240,7 @@ mod tests {
     #[test]
     fn a_job_converts_between_formats_and_keeps_its_description_but_in_json() {
         let toml = std::fs::read_to_string(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../jobs/strip-modes.toml"),
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/jobs-toml/strip-modes.toml"),
         )
         .unwrap();
         let yaml = convert_job(toml.clone(), Format::Toml, Format::Yaml).unwrap();

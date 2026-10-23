@@ -79,7 +79,7 @@ pub fn section(job: &Job) -> Option<Section> {
 /// that isn't cut.
 #[tauri::command]
 pub fn job_section(text: String) -> Result<Option<Section>, String> {
-    let job = Job::parse(&text).map_err(|e| e.to_string())?;
+    let job = crate::studio::parse_job(&text).map_err(|e| e.to_string())?;
     Ok(section(&job))
 }
 
@@ -258,7 +258,7 @@ fn add(id: &str, place: String, found: &mut Vec<Crystal>) {
 /// The anisotropic materials the job in `text` uses, for the design view's crystal frame.
 #[tauri::command]
 pub fn job_crystals(text: String) -> Result<Vec<Crystal>, String> {
-    let job = Job::parse(&text).map_err(|e| e.to_string())?;
+    let job = crate::studio::parse_job(&text).map_err(|e| e.to_string())?;
     Ok(crystals(&job))
 }
 
@@ -304,7 +304,7 @@ mod tests {
 
     #[test]
     fn the_built_in_modes_jobs_name_their_propagation() {
-        let text = include_str!("../../../jobs/strip-modes.toml");
+        let text = include_str!("../../../jobs/strip-modes.yaml");
         let s = job_section(text.to_owned()).unwrap().unwrap();
         assert_eq!(s.across, "y");
     }
@@ -345,7 +345,7 @@ material = "si"
         );
         // silicon and silica are isotropic, and so is every preset
         assert!(crystals(&job("kind = \"modes\"\nstack = \"soi_220\"")).is_empty());
-        let text = include_str!("../../../jobs/strip-modes.toml");
+        let text = include_str!("../../../jobs/strip-modes.yaml");
         assert!(job_crystals(text.to_owned()).unwrap().is_empty());
         // none of these is oriented
         assert!(found.iter().all(|c| c.oriented.is_empty()));

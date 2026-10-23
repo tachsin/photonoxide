@@ -5,7 +5,7 @@ topic: Numerical methods
 level: advanced
 status: coming
 prerequisites: [how-fdtd-works]
-jobs: [ring-fdfd.toml, ring-fdtd.toml, mmi-fdfd.toml, mmi-fdtd.toml]
+jobs: [ring-fdfd.yaml, ring-fdtd.yaml, mmi-fdfd.yaml, mmi-fdtd.yaml]
 methods: [fdfd.md, fdfd-3d.md, fdfd-ports.md, block-qmr.md, recycling.md, fdfd-adjoint.md, fdtd-adjoint.md, backends.md]
 ---
 

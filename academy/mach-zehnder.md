@@ -6,7 +6,7 @@ level: introductory
 minutes: 30
 prerequisites: []
 examples: [mzi_dwivedi, circuit_splitter]
-jobs: [mzi-mmi.toml]
+jobs: [mzi-mmi.yaml]
 circuits: [mzi.toml]
 methods: [components.md, circuits.md, circuit-adjoint.md]
 validation:
@@ -128,7 +128,7 @@ papers:
 ---
 
 A splitter, two arms and a combiner, seen from above, in the symbols of the equations below. The
-3D view is `jobs/mzi-mmi.toml`: two 1 × 2 MMIs joined by arms whose centre lines differ by 6 µm.
+3D view is `jobs/mzi-mmi.yaml`: two 1 × 2 MMIs joined by arms whose centre lines differ by 6 µm.
 
 ::diagram mzi
 
@@ -398,7 +398,7 @@ The interferometer is a circuit of closed-form components with exact derivatives
 The first chart solves that netlist, with a phase shifter on the upper arm, at every wavelength;
 the second evaluates the closed form. The Chip page opens the same interferometer from
 `circuits/mzi.toml`, and [the circuit adjoint](../docs/methods/circuit-adjoint.md) gives the
-gradient of any output with respect to every coupler, length and phase. `jobs/mzi-mmi.toml` is a
+gradient of any output with respect to every coupler, length and phase. `jobs/mzi-mmi.yaml` is a
 structure job: it draws the interferometer and solves nothing. The netlist matches the closed
 form, conserves power without loss, and its gradients match finite differences, for one
 interferometer and for a 4 × 4 mesh of six:

@@ -50,8 +50,8 @@ pub fn specs() -> Vec<DiagramSpec> {
                       faint upper bus makes it an add-drop ring, $r_2$ and $k_2$ its coupler. \
                       The charts' input and drop couplings, $\\kappa_1^2$ and $\\kappa_2^2$, are \
                       $k_1^2$ and $k_2^2$. Not to scale: the gap and the width are drawn wide.",
-            job: Some("ring-fdfd.toml"),
-            caption_3d: "The ring of jobs/ring-fdfd.toml as photonoxide's geometry builds it: a \
+            job: Some("ring-fdfd.yaml"),
+            caption_3d: "The ring of jobs/ring-fdfd.yaml as photonoxide's geometry builds it: a \
                          500 nm silicon wire 220 nm thick on oxide, bent into a ring of 2 µm \
                          radius 100 nm from its bus. Drag to turn it.",
         },
@@ -65,8 +65,8 @@ pub fn specs() -> Vec<DiagramSpec> {
                       transmitted. Below, the same idea in a waveguide seen from above: its width \
                       steps between wide and narrow sections, whose effective indices take the \
                       place of $n_H$ and $n_L$, over a length $L = N\\Lambda$. Not to scale.",
-            job: Some("bragg-grating.toml"),
-            caption_3d: "The waveguide grating of jobs/bragg-grating.toml as photonoxide's \
+            job: Some("bragg-grating.yaml"),
+            caption_3d: "The waveguide grating of jobs/bragg-grating.yaml as photonoxide's \
                          geometry builds it: a silicon strip 220 nm thick on oxide whose width \
                          steps between 600 and 400 nm, ten periods of 320 nm, deeper steps than \
                          a filter's so that they show. Drag to turn it.",
@@ -85,8 +85,8 @@ pub fn specs() -> Vec<DiagramSpec> {
                       cross output the other. A Y-branch or a 1 × 2 MMI in place of a coupler \
                       splits evenly, and as a combiner has one output. Not to scale: the \
                       arms are drawn short.",
-            job: Some("mzi-mmi.toml"),
-            caption_3d: "The interferometer of jobs/mzi-mmi.toml as photonoxide's geometry \
+            job: Some("mzi-mmi.yaml"),
+            caption_3d: "The interferometer of jobs/mzi-mmi.yaml as photonoxide's geometry \
                          builds it: 500 nm silicon wires 220 nm thick on oxide, between two \
                          1 × 2 MMIs 3 µm wide and 8.55 µm long, built as Dwivedi et al.'s were. \
                          The upper arm is 6 µm longer; its corners are square to keep the \
@@ -105,8 +105,8 @@ pub fn specs() -> Vec<DiagramSpec> {
                       leaves by the through port and $\\sin^2 \\kappa L$ by the cross port, \
                       $\\kappa = \\pi\\Delta n / \\lambda$. Not to scale: the width and the gap \
                       are drawn wide and the length short.",
-            job: Some("coupler-supermodes.toml"),
-            caption_3d: "The coupled section of jobs/coupler-supermodes.toml as photonoxide's \
+            job: Some("coupler-supermodes.yaml"),
+            caption_3d: "The coupled section of jobs/coupler-supermodes.yaml as photonoxide's \
                          geometry builds it: two silicon strips 500 nm wide and 220 nm thick on \
                          oxide, 200 nm apart, 10 µm of them. Run, the job solves their two \
                          supermodes as the gap goes from 100 to 400 nm. Drag to turn it.",
@@ -123,8 +123,8 @@ pub fn specs() -> Vec<DiagramSpec> {
                       $x$ up from the substrate's face: a cosine $\\cos(hx - \\phi_3)$ in the \
                       film, and tails $e^{px}$ in the substrate and $e^{-q(x - d)}$ in the \
                       cover, shorter where the index is lower. Not to scale.",
-            job: Some("slab-soi.toml"),
-            caption_3d: "The film of jobs/slab-soi.toml as photonoxide's geometry builds it: \
+            job: Some("slab-soi.yaml"),
+            caption_3d: "The film of jobs/slab-soi.yaml as photonoxide's geometry builds it: \
                          220 nm of silicon on the buried oxide of an SOI wafer, under an oxide \
                          cladding, unetched, so that across it the structure is a slab. Drag to \
                          turn it.",
@@ -142,8 +142,8 @@ pub fn specs() -> Vec<DiagramSpec> {
                       index method: a slab across the thickness gives an index $N$, and a slab \
                       of index $N$ and width $w$ in the cladding gives the mode's $n_\\text{eff}$. \
                       Not to scale.",
-            job: Some("strip-modes.toml"),
-            caption_3d: "The strip of jobs/strip-modes.toml as photonoxide's geometry builds it: \
+            job: Some("strip-modes.yaml"),
+            caption_3d: "The strip of jobs/strip-modes.yaml as photonoxide's geometry builds it: \
                          a silicon strip 500 nm wide and 220 nm thick on the buried oxide of an \
                          SOI wafer, under an oxide cladding. Run, the job solves its modes and \
                          their indices from 1.5 to 1.6 µm. Drag to turn it.",

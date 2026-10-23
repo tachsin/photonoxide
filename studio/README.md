@@ -98,7 +98,7 @@ in a drawer opened from the status bar.
     stack of layers (`[task.stack]`), a port found by a component's name, a shape whose place
     is an expression, a `[solver]` table. The program reads a job into the form and writes it
     back (`form.rs`), so every job of `jobs/` comes back from the form as the same job, and
-    `coupler-supermodes.toml` keeps its expressions and its `gap` sweep through an edit.
+    `coupler-supermodes.yaml` keeps its expressions and its `gap` sweep through an edit.
   - Light travels along x in every kind, and the top view says so. Changing a job's kind keeps
     its device: the rectangle that is a guide in an FDFD job is the same guide in a modes job,
     cut at an x. An older modes job, its modes along y, opens and runs as before; "Light along"
@@ -240,7 +240,7 @@ in a drawer opened from the status bar.
       - A long study runs in the background with its progress, time and **Stop** (the points done
         stay); **Save job** puts it in `jobs/`, where `photonoxide run <job> --workers 4` farms
         its points to workers (docs/farming.md) with the same record. The studies of the device
-        are listed, each shown again on a click. `jobs/coupler-gap-sweep.toml` is one, built in.
+        are listed, each shown again on a click. `jobs/coupler-gap-sweep.yaml` is one, built in.
     - **Optimize:** the design optimized by one of genoxide's methods, as a job
       (`photonoxide::job::optimize_from_device`; docs/methods/optimization.md) checked by the
       library and recorded in `runs/` evaluation by evaluation, replayable bit for bit.
@@ -265,8 +265,8 @@ in a drawer opened from the status bar.
         the start. **Apply** takes it into Design; **Keep as a variant** saves it to `jobs/`
         beside the design. Each exact derivative is checked against fourth-order differences at
         the start, and the record says how each came out. The device's optimizations are listed
-        below, each shown again on a click; `jobs/coupler-3db-optimize.toml` and
-        `jobs/ring-pareto.toml` are built in. A saved job runs with `photonoxide run`, live in
+        below, each shown again on a click; `jobs/coupler-3db-optimize.yaml` and
+        `jobs/ring-pareto.yaml` are built in. A saved job runs with `photonoxide run`, live in
         the window, which closes when it is done.
     - **Every number names its model and grid.** At the analytic fidelity the figures and the
       S-parameters follow every change (60 ms after it). A 2D or 3D model is a solve: its button
@@ -313,7 +313,7 @@ in a drawer opened from the status bar.
     method, seed, budget and hard limit. Exact derivatives where a device gives them (the
     circuit adjoint through its derivatives, each checked against differences), central
     differences elsewhere. It runs live, as a device's Optimize tab does; **Apply** takes an
-    evaluation's values into the instances. `photonoxide run jobs/chip-little-rings.toml`
+    evaluation's values into the instances. `photonoxide run jobs/chip-little-rings.yaml`
     runs one in the run view. Built-in chip jobs: `chip-little-rings` (Little's maximally flat
     rings from devices), and three that reach the circuit examples' closed forms on the chip:
     `chip-splitter` (an MZI's phase to a 30:70 split, θ = 2 arcsin √0.3), `chip-ring-critical`

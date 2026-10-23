@@ -78,8 +78,8 @@ What `photonoxide bench` measured on one machine: the fixed problems of `photono
 - `fdtd3d/guide-f32`: FDTD's kernel in f32: the same guide, against f64
 - `fdtd3d/guide-whole-f64`: FDTD's kernel in f64 on the same guide, the whole grid every step, without the tiles: what blocking gains
 - `fdtd3d/guide-whole-f32`: FDTD's kernel in f32 on the same guide, the whole grid every step, against f64
-- `job/strip-modes`: The built-in job jobs/strip-modes.toml, run headless: a strip's modes by the full-vector solver, and a sweep of 11 wavelengths
-- `job/mmi-fdfd`: The built-in job jobs/mmi-fdfd.toml, run headless: a 1 × 2 MMI's S-parameters by 2D FDFD over a sweep of 11 wavelengths
+- `job/strip-modes`: The built-in job jobs/strip-modes.yaml, run headless: a strip's modes by the full-vector solver, and a sweep of 11 wavelengths
+- `job/mmi-fdfd`: The built-in job jobs/mmi-fdfd.yaml, run headless: a 1 × 2 MMI's S-parameters by 2D FDFD over a sweep of 11 wavelengths
 - `example/strip_waveguide`: TE-like mode of a 500 × 220 nm silicon strip at 1550 nm, full-vector, at 20, 10 and 5 nm grids (examples/strip_waveguide.rs)
 - `example/hadley_corners`: Four waveguides with dielectric corners (boxes and impinged corners, ε = 2.25 and 8), full-vector with mirror walls, at 8 to 128 cells a side: the standard scheme (about first order at the corners) against Hadley's high-accuracy equations (about second order) (examples/hadley_corners.rs)
 - `example/group_index`: The group index of 220 nm silicon strips, 400–600 nm wide, at 1.55 µm, with the book's dispersive silicon; the TE-like mode tracked over wavelength, on a quarter domain (examples/group_index.rs)

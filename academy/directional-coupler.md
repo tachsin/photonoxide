@@ -6,7 +6,7 @@ level: intermediate
 minutes: 40
 prerequisites: [strip-waveguide]
 examples: [directional_coupler, coupler_liu_poon, circuit_splitter]
-jobs: [coupler-supermodes.toml]
+jobs: [coupler-supermodes.yaml]
 circuits: [splitter-1x4.toml]
 methods: [components.md, vector.md, walls.md, fields.md, fdtd.md, circuits.md, circuit-adjoint.md]
 validation:
@@ -118,7 +118,7 @@ papers:
 The coupler from above, in the symbols the equations below use: two strips of width $w$ a gap
 $g$ apart over a length $L$, the input, through and cross ports, and beneath, the field across
 the pair of its two supermodes. The 3D view is the coupled section of
-`jobs/coupler-supermodes.toml`, which solves those supermodes as the gap closes.
+`jobs/coupler-supermodes.yaml`, which solves those supermodes as the gap closes.
 
 ::diagram coupler
 
@@ -469,7 +469,7 @@ multimode-interference splitter does the same by self-imaging
   (`DirectionalCoupler::from_modes`), tracked over a band to give their dispersion. Only the
   coupled section is modelled: no bends and no reflection.
 - **The supermodes**: [the full-vector mode solver](../docs/methods/vector.md) on a quarter of
-  the cross-section, with [mirror walls](../docs/methods/walls.md); `jobs/coupler-supermodes.toml`
+  the cross-section, with [mirror walls](../docs/methods/walls.md); `jobs/coupler-supermodes.yaml`
   solves them over gaps from 100 to 400 nm on a uniform 10 nm grid, and its strips are the 3D
   view of the diagram.
 - **The charts**: each solves its supermodes as asked, on the graded grid of Section 2, and the

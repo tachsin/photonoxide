@@ -24,8 +24,9 @@ fn same(a: &Value, b: &Value) -> bool {
 }
 
 /// The repository's job files, by name.
+/// The built-in jobs as their TOML (tests/jobs-toml), the same jobs to the bit as the YAML.
 fn jobs() -> Vec<(String, String)> {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../jobs");
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/jobs-toml");
     let mut all: Vec<(String, String)> = std::fs::read_dir(&dir)
         .unwrap()
         .flatten()

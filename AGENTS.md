@@ -93,8 +93,8 @@ plain `cargo build`, which leaves the window pointing at the dev server:
 ```sh
 cd studio && pnpm install && pnpm tauri build           # target/release/photonoxide(.exe)
 target/release/photonoxide                                # the studio: examples, components, runs, validation
-target/release/photonoxide run jobs/strip-and-ring.toml   # a job, live in the studio window
-target/release/photonoxide run jobs/strip-modes.toml      # a strip's modes and a wavelength sweep, live
+target/release/photonoxide run jobs/strip-and-ring.yaml   # a job, live in the studio window
+target/release/photonoxide run jobs/strip-modes.yaml      # a strip's modes and a wavelength sweep, live
 target/release/photonoxide run <job.toml> --headless      # the same run without a window
 target/release/photonoxide new modes                      # a job to start from, in YAML (--list: every kind)
 target/release/photonoxide schema --write docs/job.schema.json   # the job file's JSON Schema, which a test checks is current

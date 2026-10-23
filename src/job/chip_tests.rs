@@ -207,7 +207,7 @@ fn a_chips_optimization_records_its_problem() {
 /// still checked and used.
 #[test]
 fn a_sharp_resonances_exact_derivative_is_checked_at_a_finer_step() {
-    let text = include_str!("../../jobs/chip-little-rings.toml");
+    let text = include_str!("../../tests/jobs-toml/chip-little-rings.toml");
     let a = text.find("[[task.variable]]").unwrap();
     let b = text.find("[[task.objective]]").unwrap();
     let t = format!(

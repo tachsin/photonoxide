@@ -239,7 +239,7 @@ fn built_in(file: &str) -> Job {
         .find(|j| j.file == file)
         .expect("a built-in job")
         .text;
-    Job::parse(&text).expect("a job")
+    crate::studio::parse_job(&text).expect("a job")
 }
 
 /// A chip job's optimum: its variables, after checking its record is the same bits on 1 and 4
@@ -250,7 +250,7 @@ fn chip_optimum(file: &str) -> Vec<f64> {
     assert_eq!(one, lines(&job, Some(4)), "{file}: 1 and 4 threads");
     let root = std::env::temp_dir().join(format!(
         "photonoxide-{}-{}",
-        file.trim_end_matches(".toml"),
+        file.trim_end_matches(".yaml"),
         std::process::id()
     ));
     let mut run = Run::create(&root, &job).expect("a run directory");
@@ -290,7 +290,7 @@ fn strip() -> photonoxide::circuit::components::Dispersion {
 #[test]
 fn the_chip_splitter_reaches_clements_closed_form() {
     // the bar port carries sin²(θ/2): 0.3 at θ = 2 arcsin √0.3
-    let x = chip_optimum("chip-splitter.toml");
+    let x = chip_optimum("chip-splitter.yaml");
     let theta = 2.0 * 0.3f64.sqrt().asin();
     assert!((x[0] - theta).abs() < 1e-6, "θ {} against {theta}", x[0]);
 }
@@ -298,7 +298,7 @@ fn the_chip_splitter_reaches_clements_closed_form() {
 #[test]
 fn the_chip_ring_reaches_critical_coupling_on_resonance() {
     let n = strip().effective_index;
-    let x = chip_optimum("chip-ring-critical.toml");
+    let x = chip_optimum("chip-ring-critical.yaml");
     // the resonance nearest the start (R = 9.985 µm), R = m λ/(2π n_eff), and κ² = 1 − a² with
     // a = 10^(−αL/20) (Bogaerts et al. 2011, Eqs. 3 and 2)
     let tau = std::f64::consts::TAU;
@@ -316,7 +316,7 @@ fn the_chip_fit_returns_the_ring_its_spectra_were_made_from() {
     // the objective writes the strip's n_eff and n_g out: they must be its model's
     let d = strip();
     assert_eq!((d.effective_index, d.group_index), (2.44506, 4.172901));
-    let x = chip_optimum("chip-fit.toml");
+    let x = chip_optimum("chip-fit.yaml");
     // κ₁², κ₂², the loss (dB/cm), the radius (µm)
     let truth = [0.08, 0.05, 20.0, 10.0];
     let tolerance = [1e-8, 1e-8, 1e-5, 1e-9];

@@ -1,0 +1,74 @@
+# Little et al. 1997's maximally flat filter of two rings, co-designed from devices on a chip: the
+# rings' coupler's gap and each ring's radius (R = R0 + u x 1e-6 um) fitted until the drop port is the
+# Butterworth shape 1/(1 + (dlambda/w)^4) over the band. examples/optimize_chip_rings.rs runs it with
+# genoxide's L-BFGS-B and checks the rings' coupling against Little's Table I (0.250).
+name: chip-little-rings
+timeout_minutes: 10
+
+circuit:
+  connections: [
+      [c0.o3, a1.o1], [a1.o2, c1.o2], [c1.o3, b1.o1], [b1.o2, c0.o2],
+      [c1.o4, a2.o1], [a2.o2, c2.o2], [c2.o3, b2.o1], [b2.o2, c1.o1],
+    ]
+
+  instance:
+    - name: c0
+      device: { kind: directional coupler, fidelity: analytic, parameters: { gap: "0.2", length: "0.7480617180125627", loss: "0" } }
+
+    - name: c1
+      device: { kind: directional coupler, fidelity: analytic, parameters: { gap: "0.42", length: "0.1", loss: "0" } }
+
+    - name: c2
+      device: { kind: directional coupler, fidelity: analytic, parameters: { gap: "0.2", length: "0.7480617180125627", loss: "0" } }
+
+    - name: a1
+      device: { kind: bend, fidelity: analytic, parameters: { angle: "180", loss: "0", radius: "10.0" } }
+
+    - name: b1
+      device: { kind: bend, fidelity: analytic, parameters: { angle: "180", loss: "0", radius: "9.908712728092505 + u*1e-6", u: "20.0" } }
+
+    - name: a2
+      device: { kind: bend, fidelity: analytic, parameters: { angle: "180", loss: "0", radius: "10.0" } }
+
+    - name: b2
+      device: { kind: bend, fidelity: analytic, parameters: { angle: "180", loss: "0", radius: "9.908712728092505 + u*1e-6", u: "-15.0" } }
+
+  port:
+    - name: in
+      at: c0.o1
+
+    - name: through
+      at: c0.o4
+
+    - name: add
+      at: c2.o1
+
+    - name: drop
+      at: c2.o4
+
+task:
+  kind: optimize
+  method: lbfgsb
+  seed: 1
+  evaluations: 3000
+  from_um: 1.549995663648045
+  to_um: 1.5500043363519551
+  points: 61
+  reduce: average
+
+  variable:
+    - parameter: c1.gap
+      from: 0.3
+      to: 0.5
+
+    - parameter: b1.u
+      from: -200.0
+      to: 200.0
+
+    - parameter: b2.u
+      from: -200.0
+      to: 200.0
+
+  objective:
+    - expression: "(T_drop_in - 1/(1 + ((lambda - 1.55)/1.0220879576863298e-6)^4))^2"
+      goal: minimize

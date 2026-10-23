@@ -19,7 +19,7 @@
   import { ask } from "@tauri-apps/plugin-dialog";
   import { onDestroy, untrack } from "svelte";
 
-  import { ago, api, duration, formatOf, KINDS, type JobCheck, type JobFormat, type RunItem } from "../../lib/api";
+  import { ago, api, duration, formatOf, formatOfText, KINDS, type JobCheck, type JobFormat, type RunItem } from "../../lib/api";
   import { customCompare } from "../../lib/device.svelte";
   import type { Event, Shape } from "../../lib/events";
   import { overlaidOf } from "../../lib/study";
@@ -208,7 +208,7 @@
    * Opens a job: in a tab of its own, beside the others (a quiet load, and a new job no one has
    * changed or saved, take the active tab's place); a file already open shows its tab.
    */
-  async function load(t: string, p: string | null, quiet = false, f: JobFormat = p ? formatOf(p) : "toml") {
+  async function load(t: string, p: string | null, quiet = false, f: JobFormat = p ? formatOf(p) : formatOfText(t)) {
     const same = p ? tabs.findIndex((x, i) => (i === active ? path : x.path) === p) : -1;
     if (same >= 0 && !quiet) return showTab(same);
     // the page's first job, a quiet load, and a new job no one has changed or saved take the active tab's place

@@ -563,7 +563,7 @@ const SCENES = {
     );
     // how fast it goes on this machine: the time-lapse fills about LAPSE seconds of the GIF
     const solved = () => js(`return Number(__rec.find("h3", "S-parameters")?.textContent.match(/(\\d+) wavelength/)?.[1] ?? 0);`);
-    const total = Number(/\[task\.sweep\][^[]*points\s*=\s*(\d+)/.exec(fs.readFileSync(path.join(repo, "jobs", "ring-fdfd.toml"), "utf8"))[1]);
+    const total = Number(/\n  sweep:\n(?:    .*\n)*?    points:\s*(\d+)/.exec(fs.readFileSync(path.join(repo, "jobs", "ring-fdfd.yaml"), "utf8").replace(/\r\n/g, "\n"))[1]);
     const t0 = Date.now();
     const n0 = await solved();
     await sleep(6000);

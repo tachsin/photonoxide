@@ -144,7 +144,7 @@ resonances sampled at 401 wavelengths, 12 complex poles fit it to 8e-12 at 1001 
 The four poles in the band are recovered to 1e-11 of their real parts, which are the
 resonances' half-widths. The other 8 poles stand for the resonances outside the band.
 
-**A solver's spectrum.** The ring-fdfd job (`jobs/ring-fdfd.toml`: a 2 µm ring on 220 nm SOI
+**A solver's spectrum.** The ring-fdfd job (`jobs/ring-fdfd.yaml`: a 2 µm ring on 220 nm SOI
 by 2D FDFD with the effective index method) is run at a coarse 40 nm grid, at 51 wavelengths
 from 1.50 to 1.60 µm, about 25 s. Its 2-port S, fitted with 12 complex poles on the 26
 even-numbered wavelengths, predicts the 25 between them to 4.5e-5. It fits its own wavelengths

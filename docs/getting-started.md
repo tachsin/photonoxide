@@ -180,17 +180,17 @@ catalogue and the validation report (the [studio's README](https://github.com/ta
 every page). From a terminal:
 
 ```sh
-photonoxide run jobs/strip-and-ring.toml        # a ring resonator's structure
-photonoxide run jobs/strip-modes.toml           # a strip's modes, and a sweep over wavelength
-photonoxide run jobs/strip-width-sweep.toml     # ... or over its width
-photonoxide run jobs/mmi-fdfd.toml              # a 1x2 splitter by 2D FDFD: its S-parameters
-photonoxide run jobs/ring-fdfd.toml             # an all-pass ring's spectrum by 2D FDFD
-photonoxide run jobs/mmi-fdtd.toml              # the splitter by 2D FDTD: its field live, its spectra
-photonoxide run jobs/ring-fdtd.toml             # the ring by 2D FDTD: its spectrum and its resonances' Q
-photonoxide run jobs/bragg-grating.toml         # a Bragg grating in a silicon strip: its structure
-photonoxide run jobs/mzi-mmi.toml               # a Mach-Zehnder interferometer of two 1x2 MMIs: its structure
-photonoxide run jobs/coupler-supermodes.toml    # a coupler's two strips: their supermodes against the gap
-photonoxide run jobs/slab-soi.toml              # a slab: 220 nm of silicon on oxide, unetched: its structure
+photonoxide run jobs/strip-and-ring.yaml        # a ring resonator's structure
+photonoxide run jobs/strip-modes.yaml           # a strip's modes, and a sweep over wavelength
+photonoxide run jobs/strip-width-sweep.yaml     # ... or over its width
+photonoxide run jobs/mmi-fdfd.yaml              # a 1x2 splitter by 2D FDFD: its S-parameters
+photonoxide run jobs/ring-fdfd.yaml             # an all-pass ring's spectrum by 2D FDFD
+photonoxide run jobs/mmi-fdtd.yaml              # the splitter by 2D FDTD: its field live, its spectra
+photonoxide run jobs/ring-fdtd.yaml             # the ring by 2D FDTD: its spectrum and its resonances' Q
+photonoxide run jobs/bragg-grating.yaml         # a Bragg grating in a silicon strip: its structure
+photonoxide run jobs/mzi-mmi.yaml               # a Mach-Zehnder interferometer of two 1x2 MMIs: its structure
+photonoxide run jobs/coupler-supermodes.yaml    # a coupler's two strips: their supermodes against the gap
+photonoxide run jobs/slab-soi.yaml              # a slab: 220 nm of silicon on oxide, unetched: its structure
 ```
 
 A new job starts from a template: `photonoxide new <kind>` writes a short one that runs as it
@@ -206,7 +206,7 @@ photonoxide run new-modes.yaml
 
 A job file is TOML, JSON or YAML, by its extension (`.toml`, `.json`, `.yaml` or `.yml`), the
 same fields in each; the Custom device switches between them. The same job three ways
-(shortened: a modes job needs its stack, window and shapes too, as in `jobs/strip-modes.toml`):
+(shortened: a modes job needs its stack, window and shapes too, as in `jobs/strip-modes.yaml`):
 
 ```toml
 # A strip's modes at 1.55 um.

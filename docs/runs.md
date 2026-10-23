@@ -3,7 +3,7 @@
 What `photonoxide run <job> [--headless]` leaves behind, for a script in any language to read.
 
 ```sh
-photonoxide run jobs/strip-modes.toml --headless --timeout 30
+photonoxide run jobs/strip-modes.yaml --headless --timeout 30
 ```
 
 prints the run's folder on its first line of output (`runs/20261014-120000-strip-modes/`; `--out

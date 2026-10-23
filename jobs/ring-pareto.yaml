@@ -1,0 +1,43 @@
+# An all-pass ring's trade-off between its loaded Q and the depth of its dip, by genoxide's
+# NSGA-II: its gap from 100 to 500 nm and its radius from 5 to 30 µm (analytic model: 500 x
+# 220 nm strips in oxide, 20 dB/cm), both made large, its free spectral range at least 4 nm. The
+# dip is deepest at critical coupling, where the bus takes what a round trip loses, and the Q is
+# then half its intrinsic one; coupled more weakly the Q rises and the dip fills. The run grows
+# the Pareto front of the two, and its hypervolume, as it goes. Opened, it shows on the ring's
+# Optimize tab.
+#   photonoxide run jobs/ring-pareto.yaml   (live in the window; --headless for batches)
+name: ring-pareto
+timeout_minutes: 5
+
+device:
+  kind: all-pass ring
+  fidelity: analytic
+
+  parameters:
+    loss: "20"
+
+task:
+  kind: optimize
+  method: nsga2
+  seed: 1
+  evaluations: 1200
+  population: 40
+
+  variable:
+    - parameter: gap
+      from: 0.1
+      to: 0.5
+
+    - parameter: radius
+      from: 5.0
+      to: 30.0
+
+  objective:
+    - name: Q
+      goal: maximize
+
+    - name: extinction
+
+  constraint:
+    - name: FSR
+      at_least: 4.0

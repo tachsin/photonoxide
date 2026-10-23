@@ -123,7 +123,7 @@ wave along the whole guide; S stays referred to the ports' own columns. The 3D v
 S-matrix and |S_q1|² against wavelength. Both follow a running sweep, showing each wavelength's
 field as it is solved. The run also records, at each wavelength, the field's linear residual
 $\lVert b - A u\rVert / \lVert b\rVert$ (`Solver2d::residual`) and how far the S-matrix is from
-reciprocal, $\max |S_{qp} - S_{pq}|$; the viewer's Solver panel charts them. `jobs/mmi-fdfd.toml`
+reciprocal, $\max |S_{qp} - S_{pq}|$; the viewer's Solver panel charts them. `jobs/mmi-fdfd.yaml`
 is a 1×2 splitter. These are 2D estimates by the effective index method, not a device's 3D
 performance.
 
@@ -135,13 +135,13 @@ file's path, or the job as data:
 import numpy as np
 import photonoxide as phox
 
-s = phox.fdfd_s_parameters("jobs/mmi-fdfd.toml")   # 11 wavelengths, 20 nm cells
+s = phox.fdfd_s_parameters("jobs/mmi-fdfd.yaml")   # 11 wavelengths, 20 nm cells
 split = np.abs(s.s[:, 1:, 0]) ** 2                 # from port 1 into ports 2 and 3
 # s.ports, s.wavelength_um, s.effective_index (each port mode's), s.cell_um, s.polarization
 ```
 
 ```matlab
-s = photonoxide.fdfd_s_parameters("jobs/mmi-fdfd.toml");
+s = photonoxide.fdfd_s_parameters("jobs/mmi-fdfd.yaml");
 split = abs(s.s(:, 2:3, 1)).^2;
 ```
 

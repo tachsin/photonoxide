@@ -1,7 +1,7 @@
 A maximally flat filter of two rings of devices on a chip (Little et al. 1997, Table I): lossless 500 x 220 nm strips, analytic, the circuit solve, exact: no grid
   the buses' couplers 200 nm apart, 0.7481 µm long for κ_b² = 1e-3; the rings' coupler 0.1 µm long; each ring a bend of 10 µm and one of R = 9.908713 µm + u × 1e-6 µm
   variables: the rings' coupler's gap, u₁ and u₂, by central differences; fitted to 1/(1 + (δ/δ_c)⁴) at 61 wavelengths, δ_c = κ_b²/√2 = 1.0221 pm, by L-BFGS-B
-  jobs/chip-little-rings.toml is this job            1   paper 1                 ok
+  jobs/chip-little-rings.yaml is this job            1   paper 1                 ok
   the best of 3 starts: misfit 4e-9, the rings' gap 0.44536 µm
   μ₁²/μ⁴ = κ₁²/κ_b⁴                      0.250023   paper 0.25       ± 5e-4      ok
   the rings' radii alike, |R₁ − R₂| (nm)     0.000000   symmetry 0.000000   ± 1e-6 ok

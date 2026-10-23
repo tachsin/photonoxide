@@ -120,6 +120,14 @@ export function formatOf(path: string): JobFormat {
   return ext === "json" ? "json" : ext === "yaml" || ext === "yml" ? "yaml" : "toml";
 }
 
+/** The format a job's text is written in, by its first line that isn't a comment, as the program tells (studio.rs `job_format`): TOML for a header or a `key = value`, JSON for an object, YAML otherwise. */
+export function formatOfText(text: string): JobFormat {
+  const first = text.split("\n").map((l) => l.trim()).find((l) => l && !l.startsWith("#")) ?? "";
+  if (first.startsWith("{")) return "json";
+  const key = first.split("=")[0].trim();
+  return first.startsWith("[") || (first.includes("=") && key !== "" && /^[A-Za-z0-9_\-."' ]+$/.test(key)) ? "toml" : "yaml";
+}
+
 export interface JobCheck {
   ok: boolean;
   error: string | null;
@@ -149,9 +157,9 @@ export const api = {
   catalog: () => invoke<Catalog>("catalog"),
   openRun: (dir: string) => invoke<Info>("open_run", { dir }),
   runJob: (path: string) => invoke<Info>("run_job", { path }),
-  runText: (text: string, format: JobFormat = "toml") => invoke<Info>("run_text", { text, format }),
+  runText: (text: string, format: JobFormat = formatOfText(text)) => invoke<Info>("run_text", { text, format }),
   stopRun: (dir: string) => invoke<void>("stop_run", { dir }),
-  checkJob: (text: string, format: JobFormat = "toml") => invoke<JobCheck>("check_job", { text, format }),
+  checkJob: (text: string, format: JobFormat = formatOfText(text)) => invoke<JobCheck>("check_job", { text, format }),
   /** The job file's JSON Schema, for the editor's completions and the docs beside a key. */
   jobSchema: () => invoke<Record<string, unknown>>("job_schema"),
   /** The expression language's words, and the parameters `definitions` with their values (expressions.rs). */
@@ -161,11 +169,11 @@ export const api = {
   convertJob: (text: string, from: JobFormat, to: JobFormat) => invoke<string>("convert_job", { text, from, to }),
   readJob: (path: string) => invoke<string>("read_job", { path }),
   /** A job's text, in `format`, as the Custom device's form holds it; what the form doesn't show is kept (form.rs). */
-  jobForm: (text: string, format: JobFormat = "toml") => invoke<JobModel>("job_form", { text, format }),
+  jobForm: (text: string, format: JobFormat = formatOfText(text)) => invoke<JobModel>("job_form", { text, format }),
   /** The job file the form holds, in TOML: its fields, then what it kept as the file had it. */
   formText: (form: JobModel) => invoke<string>("form_text", { form }),
   /** The shapes of a job the form doesn't hold (rectangles placed by expressions, components, paths…), seen from above as the library draws them. */
-  formKeptShapes: (text: string, format: JobFormat = "toml") => invoke<Shape[]>("form_kept_shapes", { text, format }),
+  formKeptShapes: (text: string, format: JobFormat = formatOfText(text)) => invoke<Shape[]>("form_kept_shapes", { text, format }),
   /** What each entry of a job's text draws, where the text has it, and the stack's layers (drawn.rs): a structure picked in the design finds its entry. */
   jobDrawing: (text: string, format: JobFormat) => invoke<Drawing>("job_drawing", { text, format }),
   /** The media of a job's stack, with the catalogue's index at its wavelength, range and sources (media.rs). */

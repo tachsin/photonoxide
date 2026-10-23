@@ -1,6 +1,6 @@
 // What ships inside the program, loaded once: the examples and the built-in jobs.
 
-import { api, type Catalog, type JobExample, type JobFormat } from "./api";
+import { api, formatOfText, type Catalog, type JobExample, type JobFormat } from "./api";
 import type { JobModel } from "./job";
 
 export const catalog = $state({
@@ -25,7 +25,7 @@ export function loadCatalog(): Promise<void> {
 }
 
 /** A job's text, in `format`, as the Custom device's form holds it (the program reads it). */
-export function modelOf(text: string, format: JobFormat = "toml"): Promise<JobModel> {
+export function modelOf(text: string, format: JobFormat = formatOfText(text)): Promise<JobModel> {
   return api.jobForm(text, format);
 }
 

@@ -10,8 +10,8 @@ Rust, nothing to install, and the same bits as a run in one process.
 On this machine, the run starts its own workers and stops them when it ends:
 
 ```sh
-photonoxide run jobs/mmi-fdfd.toml --workers 4             # four workers, the threads shared among them
-photonoxide run jobs/mmi-fdfd.toml --workers 4 --headless  # the same without a window
+photonoxide run jobs/mmi-fdfd.yaml --workers 4             # four workers, the threads shared among them
+photonoxide run jobs/mmi-fdfd.yaml --workers 4 --headless  # the same without a window
 ```
 
 On other machines, start a worker on each and give the run their addresses:
@@ -21,7 +21,7 @@ On other machines, start a worker on each and give the run their addresses:
 photonoxide worker --listen 0.0.0.0:7878 --token <token> [--slots 4]
 
 # on yours
-photonoxide run jobs/mmi-fdfd.toml --worker host1:7878 --worker host2:7878 --token <token>
+photonoxide run jobs/mmi-fdfd.yaml --worker host1:7878 --worker host2:7878 --token <token>
 ```
 
 Local and remote workers mix: `--workers 2 --worker host1:7878`. A worker serves one
@@ -145,7 +145,7 @@ process.
 
 ## Measured
 
-The built-in MMI job (`jobs/mmi-fdfd.toml`) as a 2D FDFD wavelength sweep of 40 points from 1.5
+The built-in MMI job (`jobs/mmi-fdfd.yaml`) as a 2D FDFD wavelength sweep of 40 points from 1.5
 to 1.6 µm, on its 20 nm grid: 725 × 300 cells (217 500 unknowns), photonoxide's own direct
 solver named, run headless with the release build on an Intel Core Ultra 7 265K (20 threads,
 Windows 11). The machine was shared with other work while it ran, so the times moved by up to 30%

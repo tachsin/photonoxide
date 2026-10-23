@@ -6,7 +6,7 @@ level: intermediate
 status: coming
 prerequisites: [directional-coupler]
 examples: [mmi_liu_poon]
-jobs: [mmi-fdfd.toml, mmi-fdtd.toml]
+jobs: [mmi-fdfd.yaml, mmi-fdtd.yaml]
 methods: [fdfd.md, fdfd-ports.md, fdtd.md]
 ---
 

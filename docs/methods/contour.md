@@ -54,7 +54,7 @@ an error: no mode lies there.
 
 In a job file, a modes job takes `modes_above = 1.444` instead of `modes = 2` (not both), and the
 studio's Custom device has the field; each point of a sweep then has as many modes as it guides
-(`jobs/strip-guided-modes.toml`, a strip widening from 0.3 to 1.5 µm). `job::check` refuses a
+(`jobs/strip-guided-modes.yaml`, a strip widening from 0.3 to 1.5 µm). `job::check` refuses a
 threshold that isn't positive or isn't below the highest index the cross-section's window holds
 at the job's wavelength and a wavelength sweep's ends, in the run's own words, and the search
 heeds the job's stop and time limit before each batch of points.

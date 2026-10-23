@@ -1,0 +1,26 @@
+# How a 220 nm silicon strip's two highest-index modes change as it widens from 300 to 800 nm,
+# at 1.55 um: the second is TM-like until about 700 nm, then the second TE-like mode overtakes it.
+#   photonoxide run jobs/strip-width-sweep.yaml
+name: strip-width-sweep
+timeout_minutes: 10
+
+task:
+  kind: modes
+  stack: soi_220
+  wavelength_um: 1.55
+  layer: Si
+  propagation: x           # the modes travel along x, cut at x = 0 (cut_x_um)
+  y_um: [-1.4, 1.4]        # the window across the guide
+  step_nm: 20.0
+  modes: 2
+
+  rect:
+    - layer: Si
+      center_um: [0.0, 0.0]
+      size_um: [10.0, 0.5]
+
+  sweep:
+    parameter: width       # the rect's size across the guide: along y
+    from: 0.3
+    to: 0.8
+    points: 11

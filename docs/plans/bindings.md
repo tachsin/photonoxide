@@ -320,7 +320,7 @@ n = si.refractive_index(wavelength_um=np.linspace(1.5, 1.6, 11))   # complex128 
 slab = phox.Slab(below=1.444, core=3.473, above=1.444, thickness_nm=220)
 modes = slab.modes("te", wavelength_um=1.55)      # [SlabMode(order=0, effective_index=2.8448...)]
 
-result = phox.run("jobs/strip-modes.toml", timeout_minutes=10)   # or a dict: the job as data
+result = phox.run("jobs/strip-modes.yaml", timeout_minutes=10)   # or a dict: the job as data
 result.modes[0].effective_index, result.modes[0].field.x_um    # numpy arrays with their grid
 
 circuit = phox.Netlist({"dc1": phox.DirectionalCoupler(...), ...}, connections=[...])

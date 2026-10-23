@@ -251,7 +251,7 @@ same objectives for `Circuit::gradient`: `power_db`, and `worst` and `average` o
 of any one-matrix objective; the validation case `chip/adjoint` checks the job's gradient of a
 worst loss in dB against them.
 
-**A co-design.** `examples/optimize_chip_rings.rs` runs the chip job `jobs/chip-little-rings.toml`:
+**A co-design.** `examples/optimize_chip_rings.rs` runs the chip job `jobs/chip-little-rings.yaml`:
 two rings, each two lossless half-circle bends between directional couplers (analytic), the rings'
 coupler's gap and each ring's radius fitted by L-BFGS-B until the drop port is the Butterworth
 shape over ±3κ_b² of round-trip phase. The rings' coupling comes out κ₁²/κ_b⁴ = 0.250023 at
@@ -268,9 +268,9 @@ strip's analytic model.
 
 | Job | What | Closed form | Found |
 |---|---|---|---|
-| `jobs/chip-splitter.toml` | an MZI's phase to 30% in the bar port (Clements et al. 2016, Eq. 1) | θ = 2 arcsin √0.3 = 1.15927948 rad | 1.15927946 rad, 8 evaluations |
-| `jobs/chip-ring-critical.toml` | a ring's κ² and radius, its through port dark at 1.55 µm, 3 dB/cm (Bogaerts et al. 2011, Eqs. 2, 3, 12) | R = mλ/(2π n_eff) = 9.988436283 µm (m = 99), κ² = 1 − a² = 0.004325868 | to 2e-12, 45 evaluations |
-| `jobs/chip-fit.toml` | an add-drop ring's κ₁², κ₂², loss and radius fitted to its through and drop spectra (Eqs. 5 and 6) at 81 wavelengths | 0.08, 0.05, 20 dB/cm, 10 µm | to 1.2e-9, 7e-10, 2.6e-7 dB/cm and 5e-14 µm, 32 evaluations |
+| `jobs/chip-splitter.yaml` | an MZI's phase to 30% in the bar port (Clements et al. 2016, Eq. 1) | θ = 2 arcsin √0.3 = 1.15927948 rad | 1.15927946 rad, 8 evaluations |
+| `jobs/chip-ring-critical.yaml` | a ring's κ² and radius, its through port dark at 1.55 µm, 3 dB/cm (Bogaerts et al. 2011, Eqs. 2, 3, 12) | R = mλ/(2π n_eff) = 9.988436283 µm (m = 99), κ² = 1 − a² = 0.004325868 | to 2e-12, 45 evaluations |
+| `jobs/chip-fit.yaml` | an add-drop ring's κ₁², κ₂², loss and radius fitted to its through and drop spectra (Eqs. 5 and 6) at 81 wavelengths | 0.08, 0.05, 20 dB/cm, 10 µm | to 1.2e-9, 7e-10, 2.6e-7 dB/cm and 5e-14 µm, 32 evaluations |
 
 The ring's n_eff is the 500 × 220 nm strip's analytic model's (2.44506), not the example's stated
 2.4, and the fit's spectra are written out in its objective on that model's dispersion. The fit's

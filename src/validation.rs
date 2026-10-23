@@ -1729,7 +1729,7 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "components/ring-fsr-fdfd",
-            title: r"Components: the free spectral range of jobs/ring-fdfd.toml's all-pass ring (radius 2 µm, 2D FDFD by the effective index method, 25 nm grid), from its two resonances near 1.52 and 1.567 µm (nm shown)",
+            title: r"Components: the free spectral range of jobs/ring-fdfd.yaml's all-pass ring (radius 2 µm, 2D FDFD by the effective index method, 25 nm grid), from its two resonances near 1.52 and 1.567 µm (nm shown)",
             tier: Tier::Published,
             source: r"W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue), doi:10.1002/lpor.201100017, Eq. 9, $\lambda^2 / (n_g L)$ at the resonances' midpoint, $n_g$ of the exact bent slab of the same plane (radial shooting, Marcuse 1971, doi:10.1002/j.1538-7305.1971.tb02620.x); the tolerance is the 25 nm grid's",
             run: components::ring_fsr_fdfd,
@@ -1792,7 +1792,7 @@ pub fn cases() -> Vec<Case> {
         },
         Case {
             id: "components/mmi-fdfd",
-            title: r"Components: the 1 x 2 MMI of jobs/mmi-fdfd.toml (3 x 8.55 µm, 0.5 µm guides) at 1.55 µm by guided-mode propagation against 2D FDFD of the same plane (20 nm grid): the power in each output (the first shown)",
+            title: r"Components: the 1 x 2 MMI of jobs/mmi-fdfd.yaml (3 x 8.55 µm, 0.5 µm guides) at 1.55 µm by guided-mode propagation against 2D FDFD of the same plane (20 nm grid): the power in each output (the first shown)",
             tier: Tier::Analytic,
             source: r"L. B. Soldano, E. C. M. Pennings (1995), doi:10.1109/50.372474, Eqs. 8 to 12 with the exact slab modes, against the FDFD solver; what the guided modes leave out (radiation modes, the faces' reflections) sets the tolerance",
             run: components::mmi_fdfd,

@@ -3082,10 +3082,10 @@ time_um = 160.0
         }
         super::super::check(&Job::parse(SMALL).unwrap()).unwrap();
         for text in [
-            include_str!("../../jobs/mmi-fdtd.toml"),
-            include_str!("../../jobs/ring-fdtd.toml"),
+            include_str!("../../jobs/mmi-fdtd.yaml"),
+            include_str!("../../jobs/ring-fdtd.yaml"),
         ] {
-            super::super::check(&Job::parse(text).unwrap()).unwrap();
+            super::super::check(&Job::parse_as(text, crate::run::Format::Yaml).unwrap()).unwrap();
         }
     }
 
@@ -3278,7 +3278,7 @@ side = "right"
     #[test]
     #[ignore]
     fn the_mmi_job_reproduces_the_fdfd_jobs_s_parameters() {
-        let text = include_str!("../../jobs/mmi-fdtd.toml");
+        let text = include_str!("../../tests/jobs-toml/mmi-fdtd.toml");
         let started = Instant::now();
         let events = run_job(text, "mmi");
         let (wavelengths, upper) = last_spectrum(&events, "upper output");
@@ -3295,7 +3295,7 @@ side = "right"
             })
             .collect();
         println!("fdtd in {:.1} s", started.elapsed().as_secs_f64());
-        let fdfd = Job::parse(include_str!("../../jobs/mmi-fdfd.toml")).unwrap();
+        let fdfd = Job::parse(include_str!("../../tests/jobs-toml/mmi-fdfd.toml")).unwrap();
         let s = super::super::fdfd::fdfd_s_parameters_frozen(&fdfd, &tilde, 1.55).unwrap();
         let (mut worst, mut back): (f64, f64) = (0.0, 0.0);
         for k in 0..wavelengths.len() {

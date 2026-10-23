@@ -1,6 +1,6 @@
 //! What the validation report checks a modes job's leaky modes on (a `[task.pml]`, #373): a
 //! film leaking into its substrate against the exact leaky mode, its convergence in the grid and
-//! its insensitivity to the PML, and Bienstman et al.'s leaky wire, `jobs/leaky-wire.toml`,
+//! its insensitivity to the PML, and Bienstman et al.'s leaky wire, `jobs/leaky-wire.yaml`,
 //! against their published index and loss.
 
 use num_complex::Complex64 as c64;
@@ -52,7 +52,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "job/leaky-wire-bienstman",
-            title: r"Bienstman et al.'s leaky SOI wire through a modes job, `jobs/leaky-wire.toml` ($500 \times 220$ nm Si 3.5 on 1 µm SiO₂ 1.45 on Si, air above, 1.55 µm; a 1 µm PML of strength 3 in the substrate; a window of 2 × 3.6 µm), on a uniform 5 nm grid: $\operatorname{Re} n_\text{eff}$ (shown)",
+            title: r"Bienstman et al.'s leaky SOI wire through a modes job, `jobs/leaky-wire.yaml` ($500 \times 220$ nm Si 3.5 on 1 µm SiO₂ 1.45 on Si, air above, 1.55 µm; a 1 µm PML of strength 3 in the substrate; a window of 2 × 3.6 µm), on a uniform 5 nm grid: $\operatorname{Re} n_\text{eff}$ (shown)",
             tier: Tier::Published,
             source: "P. Bienstman et al., Opt. Quantum Electron. 38, 731 (2006), doi:10.1007/s11082-006-9025-9, Table 6: 2.412372; the tolerance is the 5 nm grid's error, +4.0e-3 here and on the library's graded 5 nm grid alike (mode/leaky-wire-bienstman extrapolates from finer ones): the core's corners converge slowly, +8.8e-3 and +6.4e-3 at 20 and 10 nm",
             run: wire_re,
@@ -68,8 +68,8 @@ pub(crate) fn cases() -> Vec<Case> {
 }
 
 /// The events of `text`'s run, in memory.
-fn events_of(text: &str) -> Vec<Event> {
-    let job = Job::parse(text).expect(OK);
+fn events_of(text: &str, format: crate::run::Format) -> Vec<Event> {
+    let job = Job::parse_as(text, format).expect(OK);
     super::check(&job).expect(OK);
     let mut run = Run::in_memory();
     execute(&job, &mut run, &Stop::new(None)).expect(OK);
@@ -134,7 +134,10 @@ strength = {strength}
 /// across taken out, n_film² = n² + λ_x/k₀², λ_x the zero walls' lowest eigenvalue on the job's
 /// uniform cells across (`None` if the job found no mode).
 pub(super) fn film_index(step_nm: f64, pml_um: f64, strength: f64) -> Option<c64> {
-    let events = events_of(&film_job(step_nm, pml_um, strength));
+    let events = events_of(
+        &film_job(step_nm, pml_um, strength),
+        crate::run::Format::Toml,
+    );
     let cells = events.iter().find_map(|e| match e {
         Event::Solver { cells, .. } => Some(cells[0]),
         _ => None,
@@ -214,11 +217,11 @@ fn film_pml() -> Outcome {
     }
 }
 
-/// `jobs/leaky-wire.toml` on a grid of `step_nm`: its leaky mode's effective index.
+/// `jobs/leaky-wire.yaml` on a grid of `step_nm`: its leaky mode's effective index.
 pub(super) fn wire(step_nm: f64) -> c64 {
-    let text = include_str!("../../jobs/leaky-wire.toml")
-        .replace("step_nm = 10.0", &format!("step_nm = {step_nm:.1}"));
-    events_of(&text)
+    let text = include_str!("../../jobs/leaky-wire.yaml")
+        .replace("step_nm: 10.0", &format!("step_nm: {step_nm:.1}"));
+    events_of(&text, crate::run::Format::Yaml)
         .iter()
         .find_map(|e| match e {
             Event::Mode {

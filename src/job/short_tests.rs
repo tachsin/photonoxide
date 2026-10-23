@@ -70,6 +70,42 @@ fn every_built_in_job_is_the_same_job_in_the_shorter_forms() {
     }
 }
 
+/// The built-in jobs are YAML (#430), each the job its TOML was, to the bit: `tests/jobs-toml`
+/// holds the files as they were, and TOML is still read. The schema takes each file as written.
+#[test]
+fn every_built_in_job_is_its_old_toml_to_the_bit() {
+    let old = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/jobs-toml");
+    let jobs = built_in();
+    for (name, job) in &jobs {
+        let stem = name
+            .strip_suffix(".yaml")
+            .unwrap_or_else(|| panic!("{name}: the built-in jobs are YAML"));
+        // as git keeps it: a checkout with CRLF would put them in a multi-line string
+        let toml = std::fs::read_to_string(old.join(format!("{stem}.toml"))).unwrap();
+        let toml = Job::parse(&toml.replace("\r\n", "\n")).unwrap();
+        assert_eq!(content(job), content(&toml), "{name}");
+        // floats by their shortest round trip: the same text is the same bits
+        assert_eq!(
+            format!("{:?}", content(job)),
+            format!("{:?}", content(&toml)),
+            "{name}"
+        );
+        assert_eq!(
+            job.to_text(Format::Json).unwrap(),
+            toml.to_text(Format::Json).unwrap(),
+            "{name}"
+        );
+        let text = std::fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("jobs")
+                .join(name),
+        )
+        .unwrap();
+        takes(&raw(&text)).unwrap_or_else(|e| panic!("{name}: {e}"));
+    }
+    assert_eq!(jobs.len(), std::fs::read_dir(&old).unwrap().count());
+}
+
 /// A modes job of a 500 nm strip, with `task` in its task (two spaces in) and `shapes` as its
 /// shapes.
 fn modes(task: &str, shapes: &str) -> String {

@@ -248,7 +248,7 @@ def test_a_job_as_data_gives_its_s_parameters() -> None:
 
 
 def test_a_job_stops_at_its_timeout(tmp_path: Path) -> None:
-    ring = ROOT / "jobs" / "ring-fdfd.toml"
+    ring = ROOT / "jobs" / "ring-fdfd.yaml"
     run = phox.run_job(ring, runs_dir=tmp_path, timeout_s=0.5)
     assert run.stopped == "timeout"
     assert run.events[-1]["type"] == "finished" and run.events[-1]["stopped"] == "timeout"

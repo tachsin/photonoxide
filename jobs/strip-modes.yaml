@@ -1,0 +1,26 @@
+# The modes of a 500 x 220 nm silicon strip along x, and their effective and group indices from
+# 1.5 to 1.6 um, live in the studio.
+#   photonoxide run jobs/strip-modes.yaml
+name: strip-modes
+timeout_minutes: 10
+
+task:
+  kind: modes
+  stack: soi_220
+  wavelength_um: 1.55
+  layer: Si
+  propagation: x           # the modes travel along x, cut at x = 0 (cut_x_um)
+  y_um: [-1.2, 1.2]        # the window across the guide
+  step_nm: 20.0
+  modes: 2
+
+  rect:
+    - layer: Si
+      center_um: [0.0, 0.0]
+      size_um: [10.0, 0.5]
+
+  sweep:
+    parameter: wavelength
+    from: 1.5
+    to: 1.6
+    points: 11

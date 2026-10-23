@@ -79,7 +79,7 @@ all 0, too thin, that fill the window, or that reach the guide's layer or every 
   wave, which is taken out exactly. The loss is within 2.7 %, 0.68 %, 0.17 % and 0.042 % of the
   exact one at 20, 10, 5 and 2.5 nm: second order. A PML of 0.5 µm changes it by 1.8e-4, of
   1.5 µm by 2.9e-6, strength 10 by 2.8e-5.
-- **Bienstman et al.'s leaky wire, through a job** (`jobs/leaky-wire.toml`, fixed indices in a
+- **Bienstman et al.'s leaky wire, through a job** (`jobs/leaky-wire.yaml`, fixed indices in a
   `[task.stack]`, a window of 2 × 3.6 µm): on uniform grids of 20, 10 and 5 nm,
   $\operatorname{Re} n_\text{eff}$ is 8.8e-3, 6.4e-3 and 4.0e-3 above their 2.412372 and the loss
   0.94, 0.95 and 0.963 of their 2.9135e-8: the core's corners converge slowly, as on the

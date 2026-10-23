@@ -94,10 +94,10 @@ fn detail(events: &[Event], name: &str) -> Option<String> {
     })
 }
 
-/// `jobs/strip-modes.toml` without its sweep, two modes, in a window wide enough (4.4 by 2.6 µm)
+/// `jobs/strip-modes.yaml` (as its TOML, `tests/jobs-toml`) without its sweep, two modes, in a window wide enough (4.4 by 2.6 µm)
 /// that a PML 0.6 µm thick lies where its guided modes' fields have died out.
 fn strip() -> String {
-    include_str!("../../jobs/strip-modes.toml")
+    include_str!("../../tests/jobs-toml/strip-modes.toml")
         .replace("\r\n", "\n")
         .split("[task.sweep]")
         .next()
@@ -192,8 +192,8 @@ fn a_leaky_film_records_its_loss_after_its_pictures() {
 fn the_pmls_own_modes_are_left_out() {
     // the wire's substrate holds the highest index: nearest it, every mode solved is the PML's
     // own, most of its field inside it, and none is kept
-    let text =
-        include_str!("../../jobs/leaky-wire.toml").replace("step_nm = 10.0", "step_nm = 20.0");
+    let text = include_str!("../../tests/jobs-toml/leaky-wire.toml")
+        .replace("step_nm = 10.0", "step_nm = 20.0");
     let high = events(&text.replace("modes_near = 2.4 ", "# "));
     assert!(indices(&high).is_empty(), "{:?}", indices(&high));
     assert!(losses(&high).is_empty());
@@ -324,7 +324,7 @@ fn check_refuses_a_pml_that_doesnt_fit() {
 
 #[test]
 fn a_task_stack_takes_fixed_indices() {
-    let text = include_str!("../../jobs/leaky-wire.toml");
+    let text = include_str!("../../tests/jobs-toml/leaky-wire.toml");
     let job = Job::parse(text).unwrap();
     let task = modes_task(&job, None).unwrap();
     let stack = named_stack(&task.stack, task.core_nm, task.bottom_oxide_um).unwrap();

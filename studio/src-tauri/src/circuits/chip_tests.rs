@@ -204,7 +204,7 @@ fn the_panels_jobs_check_and_apply_takes_an_optimum_in() {
 
 #[test]
 fn a_chips_job_opens_on_the_chip_page() {
-    let text = include_str!("../../../../jobs/chip-little-rings.toml");
+    let text = include_str!("../../../../jobs/chip-little-rings.yaml");
     let chip = chip_of_job(text).unwrap();
     assert_eq!(chip.instances.len(), 7);
     assert!(chip.instances.iter().all(|i| i.device.is_some()));
@@ -212,7 +212,7 @@ fn a_chips_job_opens_on_the_chip_page() {
     assert!(problems.is_empty(), "{problems:?}");
     // its spectrum, the job's chip's
     let d = design(&chip, root()).unwrap();
-    let job = Job::parse(text).unwrap();
+    let job = crate::studio::parse_job(text).unwrap();
     let own = photonoxide::job::ChipDesign::from_table(job.circuit().unwrap()).unwrap();
     let at = photonoxide::units::Wavelength::um(1.55).unwrap();
     assert_eq!(
@@ -225,7 +225,7 @@ fn a_chips_job_opens_on_the_chip_page() {
 fn every_chip_job_opens_on_the_chip_page_as_its_own_chip() {
     let at = photonoxide::units::Wavelength::um(1.55).unwrap();
     for j in crate::examples::jobs() {
-        let job = Job::parse(&j.text).unwrap();
+        let job = crate::studio::parse_job(&j.text).unwrap();
         let Some(table) = job.circuit() else {
             continue;
         };

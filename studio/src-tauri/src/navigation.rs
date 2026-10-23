@@ -207,7 +207,7 @@ fn every_job_has_a_home() {
         .map(|j| j["file"].as_str().unwrap().to_owned())
         .collect();
     listed.sort();
-    assert_eq!(listed, files("jobs", "toml"), "the catalog's jobs");
+    assert_eq!(listed, files("jobs", "yaml"), "the catalog's jobs");
     // each a template on Home, with Run and Open
     let home = "pages/Home.svelte";
     holds(home, "Start from a template", "the templates");

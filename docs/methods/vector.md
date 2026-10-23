@@ -150,7 +150,7 @@ Each kept mode is recorded with its kind and its loss in dB/cm, $20 \log_{10}(e)
 \operatorname{Im} n_\text{eff}$, which the run's solver details state with the grid and the
 PML. Where the media around the guides hold the highest index (a substrate), the modes nearest
 it are the PML's own, so a count is aimed at the guide with `modes_near`, as
-`jobs/leaky-wire.toml` does. A PML belongs where light leaks: on a guided mode's evanescent tail
+`jobs/leaky-wire.yaml` does. A PML belongs where light leaks: on a guided mode's evanescent tail
 it changes $n_\text{eff}$ a little and gives it a small loss of either sign (a strip in oxide, its
 PML 0.6 µm from the core: under 2e-6 in $n_\text{eff}$, $\lvert \operatorname{Im} n_\text{eff}
 \rvert$ under 6e-6). A job without a `[task.pml]` runs as before, to the bit. The validation

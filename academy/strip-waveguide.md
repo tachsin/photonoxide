@@ -6,7 +6,7 @@ level: intermediate
 minutes: 45
 prerequisites: [slab-waveguide]
 examples: [strip_waveguide, effective_index_method, marcatili, hadley_corners, group_index, mzi_dwivedi, leaky_wire_benchmark, rib_hadley]
-jobs: [strip-modes.toml, strip-width-sweep.toml, strip-guided-modes.toml]
+jobs: [strip-modes.yaml, strip-width-sweep.yaml, strip-guided-modes.yaml]
 methods: [vector.md, eim.md, marcatili.md, hadley.md, dispersion.md, devices.md, eigen.md, walls.md, pml.md]
 validation:
   - mode/strip-book
@@ -149,7 +149,7 @@ The strip in section, in the symbols the equations below use: a silicon core of 
 wide and $t$ thick, in oxide of index $n_2$ on the buried oxide of an SOI wafer; the TE-like
 mode's field around it; the four corners and the regions beside them that Marcatili's
 approximation leaves out; and, at the right, the effective index method's two slabs. The 3D view
-is the strip of `jobs/strip-modes.toml`.
+is the strip of `jobs/strip-modes.yaml`.
 
 ::diagram strip
 
@@ -258,7 +258,7 @@ Three features of the chart follow from the strip's shape:
 - **Neither fundamental mode has a cutoff in width,** as a symmetric slab's fundamental modes
   have none: as the strip narrows, TE₀ and TM₀ spread into the oxide and approach its index.
 - **The second mode changes.** Up to about 660 nm the second mode is TM₀; wider, TE₁ overtakes
-  it, as `jobs/strip-width-sweep.toml` shows when run. The two have different symmetries, so
+  it, as `jobs/strip-width-sweep.yaml` shows when run. The two have different symmetries, so
   they cross without coupling in a strip with the same oxide above and below.
 
 ### How the solve is divided {theory}
@@ -569,7 +569,7 @@ the real part and 0.25 % in the loss:
 
 ::validation mode/leaky-wire-bienstman mode/leaky-wire-bienstman-loss
 
-A modes job solves the same wire: `jobs/leaky-wire.toml` gives its stack fixed indices, puts 1 µm
+A modes job solves the same wire: `jobs/leaky-wire.yaml` gives its stack fixed indices, puts 1 µm
 of PML in the substrate with `[task.pml]`, and aims its count at the wire with `modes_near`, since
 the modes nearest the substrate's index are the PML's own. Each mode it keeps is named guided or
 leaky, with its loss in dB/cm. On its uniform 5 nm grid the job is off by what the solver's own

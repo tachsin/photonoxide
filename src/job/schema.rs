@@ -1032,8 +1032,8 @@ mod tests {
             );
         }
         // and the schema takes it, on a job it takes
-        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs/strip-modes.toml");
-        let mut json = as_json(&std::fs::read_to_string(path).unwrap(), Format::Toml);
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs/strip-modes.yaml");
+        let mut json = as_json(&std::fs::read_to_string(path).unwrap(), Format::Yaml);
         json["$schema"] = Value::String(SCHEMA_URL.into());
         takes(&json).unwrap();
         let again = Job::parse_as(&json.to_string(), Format::Json).unwrap();

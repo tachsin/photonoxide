@@ -281,7 +281,7 @@
 //!   out: on a guided mode's evanescent tail a PML changes its n_eff a little and gives it a
 //!   small loss, of either sign. The layers must leave the guide's layer and a shape at the cut
 //!   between them. A job without a `[task.pml]` runs exactly as before, to the bit, and records
-//!   no loss. `jobs/leaky-wire.toml` is Bienstman et al.'s leaky wire.
+//!   no loss. `jobs/leaky-wire.yaml` is Bienstman et al.'s leaky wire.
 //!
 //!   Light travels along x in every kind of job: a modes job with `propagation = "x"` cuts the
 //!   stack and shapes at x = `cut_x_um` (0 by default) over the window `y_um` across the guide,
@@ -4868,12 +4868,12 @@ size_um = [10.0, 0.5]
     fn the_modes_jobs_media_are_their_cross_sections_edges() {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
         for name in [
-            "strip-modes.toml",
-            "strip-guided-modes.toml",
-            "strip-width-sweep.toml",
-            "coupler-supermodes.toml",
+            "strip-modes.yaml",
+            "strip-guided-modes.yaml",
+            "strip-width-sweep.yaml",
+            "coupler-supermodes.yaml",
         ] {
-            let job = Job::parse(&std::fs::read_to_string(dir.join(name)).unwrap()).unwrap();
+            let job = Job::load(&dir.join(name)).unwrap();
             let task = modes_task(&job, None).unwrap();
             let stack = || tensor_stack(&task.stack, task.core_nm, task.bottom_oxide_um).unwrap();
             let s = draw(stack(), &task.rect, &task.circle, &task.ring).unwrap();
@@ -5093,10 +5093,10 @@ width_um = 0.3
 
     #[test]
     fn the_strip_jobs_along_x_find_what_they_found_along_y() {
-        // jobs/strip-modes.toml and jobs/strip-width-sweep.toml as they were before light
+        // jobs/strip-modes.yaml and jobs/strip-width-sweep.yaml (their TOML, tests/jobs-toml) as they were before light
         // travelled along x, and their effective indices then (0.4.0, this machine's last
         // digits aside): the jobs along x find the same
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/jobs-toml");
         let file = |name: &str| std::fs::read_to_string(dir.join(name)).unwrap();
         let older = |text: &str| {
             text.replace("propagation = \"x\"", "")

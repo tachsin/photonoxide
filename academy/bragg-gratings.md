@@ -6,7 +6,7 @@ level: intermediate
 minutes: 35
 prerequisites: []
 examples: [multilayer_chilwell]
-jobs: [bragg-grating.toml]
+jobs: [bragg-grating.yaml]
 methods: [multilayer.md]
 validation:
   - mode/multilayer-bragg

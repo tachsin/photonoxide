@@ -1,0 +1,25 @@
+# A slab waveguide: 220 nm of silicon on 2 um of buried oxide under an oxide cladding, the SOI
+# wafer's film before anything is etched, as pictures of its permittivity. The silicon fills the
+# window, so across it the structure is a film between two claddings, the slab whose TE and TM
+# modes Chrostowski and Hochberg find in Section 3.2.2 of Silicon Photonics Design (2015). Nothing
+# is solved; the Academy's lesson on the slab waveguide shows it in 3D, and its charts solve the
+# slab's modes exactly.
+#   photonoxide run jobs/slab-soi.yaml
+name: slab-soi
+timeout_minutes: 2
+
+task:
+  kind: structure
+  stack: soi_220
+  wavelength_um: 1.55
+  layer: Si
+  x_um: [-2.0, 2.0]
+  y_um: [-1.5, 1.5]
+  z_um: [1.5, 2.72]        # 0.5 um below the silicon (2.0 to 2.22 um) and above it
+  step_nm: 20.0
+
+  # the film, unetched across the whole window
+  rect:
+    - layer: Si
+      center_um: [0.0, 0.0]
+      size_um: [4.0, 3.0]

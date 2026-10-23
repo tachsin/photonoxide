@@ -1234,7 +1234,7 @@ pub fn read_job_form(text: &str) -> JobForm {
         study: None,
         optimize: None,
     };
-    let job = match Job::parse(text) {
+    let job = match crate::studio::parse_job(text) {
         Ok(j) => j,
         Err(e) => {
             form.error = Some(text_of(e));
@@ -1256,7 +1256,7 @@ pub fn read_job_form(text: &str) -> JobForm {
             return form;
         }
     };
-    let file: toml::Table = toml::from_str(text).unwrap_or_default();
+    let file = crate::studio::job_table(text);
     let timeout = file
         .get("timeout_minutes")
         .and_then(|v| v.as_float().or_else(|| v.as_integer().map(|i| i as f64)));
@@ -1560,7 +1560,7 @@ fn text_of(e: photonoxide::Error) -> String {
 ///
 /// A message for a job that isn't a device's.
 pub fn read_text(text: &str) -> Result<(SpecIn, String, String), String> {
-    let job = Job::parse(text).map_err(text_of)?;
+    let job = crate::studio::parse_job(text).map_err(text_of)?;
     let table = job
         .device()
         .ok_or_else(|| format!("{} isn't a device's design", job.name()))?;
@@ -1610,7 +1610,7 @@ pub fn read_device(path: String) -> Result<Saved, String> {
         Some(dir) => compact::found_from(spec, dir),
         None => spec,
     };
-    let computes = Job::parse(&text).is_ok_and(|j| !j.task().is_empty());
+    let computes = crate::studio::parse_job(&text).is_ok_and(|j| !j.task().is_empty());
     Ok(Saved {
         spec,
         name,
