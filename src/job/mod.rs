@@ -480,6 +480,9 @@ mod leaky_tests;
 pub mod optimize;
 mod optimize_checks;
 mod params;
+mod pockels;
+#[cfg(test)]
+mod pockels_tests;
 pub mod results;
 pub(crate) mod schema;
 mod shapes;
@@ -1860,7 +1863,7 @@ struct RectSpec {
     etch: Option<EtchSpec>,
 }
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct CircleSpec {
     layer: String,
@@ -1870,7 +1873,7 @@ struct CircleSpec {
 }
 
 /// A ring: its centre line's radius and its waveguide's width ([`Shape::ring`]).
-#[derive(Deserialize, JsonSchema)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct RingSpec {
     layer: String,

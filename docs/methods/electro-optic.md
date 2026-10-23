@@ -159,8 +159,56 @@ give, and its two digits. Wang et al. 2018's Nature modulator (doi:10.1038/s4158
 2.2 and 2.3 V·cm) gives its electrodes only as "spacing < 2.5 µm between metal and waveguide
 edge", so it isn't a case.
 
+## As a job
+
+An `"electrostatic"` static job ([static.md](static.md)) with an `electro_optic` table runs the
+chain: its stack holds the oriented crystal, its `conductor` rectangles are the electrodes at
+their potentials, and the light travels along x, the mode solved on the cut x = `cut_x_um` over
+the table's own window and step. The crystal's static permittivity is the catalogue's ε^S
+(`static_permittivity: unclamped` for ε^T) turned by its orientation, unless
+`[task.permittivity]` names it. The run records the mode's n_eff, dn_eff/dV by perturbation and
+by re-solve, and Vπ·L per volt of the conductors' span, with the mode's grid;
+`convergence: { tolerance: 0.01 }` (V·cm) checks Vπ·L on both grids twice and four times as
+coarse, as a modes job's `[task.convergence]` checks its indices.
+
+```yaml
+task:
+  kind: static
+  physics: electrostatic
+  y_um: [-16.75, 6.75]      # the ground electrode's far edge to the signal's centre line
+  z_um: [-20.0, 23.8]
+  step_nm: 1000.0
+  fine_nm: 20.0
+  growth: 1.15
+  stack:
+    substrate: si
+    cladding: sio2
+    layer:
+      - { name: BOX, thickness_um: 2.0, material: sio2, background: sio2 }
+      - { name: LN, thickness_um: 0.7, material: { id: linbo3, orientation: x-cut }, background: sio2 }
+  rect:
+    - { layer: LN, center_um: [0.0, 0.0], size_um: [10.0, 0.9], etch: { depth_um: 0.4, sidewall_deg: 70.0 } }
+  permittivity: { Si: 11.7, SiO2: 3.9 }
+  conductor:
+    - { y_um: [-17.75, -1.75], z_um: [2.3, 2.6], potential_v: 0.0 }
+    - { y_um: [1.75, 7.75], z_um: [2.3, 2.6], potential_v: 1.0 }
+  electro_optic:
+    layer: LN
+    entry: linbo3
+    tensor: "thin film (x-cut LNOI), clamped, 1550 nm"
+    complete_from: "bulk, clamped, 633 nm"
+    wavelength_um: 1.55
+    y_um: [-3.0, 3.0]
+    z_um: [0.5, 4.0]
+    step_nm: 20.0
+    convergence: { tolerance: 0.02 }
+```
+
+This is Wang et al. 2018's cross-section under oxide throughout: 1.874 V·cm push–pull at 20 nm,
+the re-solve within 0.05% (the job's tests; the library's case with 3 µm of oxide over the slab
+gives 1.863 on the same grids, its cells sampled its own way).
+
 ## Not yet
 
-- The chain in one job: the electrodes, the field solve, Δn and Vπ·L from a job file.
 - Barium titanate and lithium tantalate in the catalogue, with their spread, and their cases.
 - The response in frequency: the travelling-wave electrodes (#418).

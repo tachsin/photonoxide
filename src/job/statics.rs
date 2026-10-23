@@ -17,7 +17,9 @@
 //!   `[[task.heater]]` rectangles give W/m, `[[task.sink]]` rectangles hold a temperature.
 //! - `physics = "electrostatic"`: `[task.permittivity]` the relative static permittivities;
 //!   `[[task.conductor]]` rectangles held at a potential (V), whose capacitance matrix (F/m) the
-//!   run records.
+//!   run records. With `[task.electro_optic]` the stack may hold an oriented crystal, and the
+//!   run takes the field into a mode of the same cut by the Pockels effect and records
+//!   dn_eff/dV and Vπ·L ([`super::pockels`], docs/methods/electro-optic.md).
 //! - `physics = "current"`: `[task.electrical_conductivity]` in S/m, the `[[task.conductor]]`
 //!   rectangles its contacts; with a `[task.thermal_conductivity]` too, the Joule heat is then
 //!   conducted as a heat problem on the same grid.
@@ -339,6 +341,9 @@ pub(super) struct StaticTask {
     conductor: Vec<Area>,
     #[serde(default)]
     probe: Vec<Area>,
+    /// The Pockels effect the electrostatic field makes in a mode, and Vπ·L
+    /// ([`super::pockels`]).
+    electro_optic: Option<super::pockels::ElectroOpticSpec>,
     /// What the run writes beside its record: the tables, and the temperature and the
     /// potential on the grid as an npz when asked ([`crate::export`]).
     #[allow(dead_code)] // read by super::export_of, checked by serde
@@ -398,6 +403,8 @@ struct Setup {
     transient: Option<Transient>,
     /// The conductivities the catalogue gave, for the record.
     catalogued: Vec<StaticValue>,
+    /// The electro-optic chain, with what it takes from the task.
+    electro_optic: Option<super::pockels::Chain>,
 }
 
 /// The name a substrate takes in a heat problem when its material is also a film's, whose
@@ -561,6 +568,12 @@ fn checked(m: &str, spec: &CoefficientSpec, what: &str) -> Result<Tensor> {
 }
 
 fn setup(job: &Job) -> Result<Setup> {
+    setup_scaled(job, 1.0)
+}
+
+/// The job's setup on a grid whose steps are `scale` times the task's (a grid study's coarser
+/// grids).
+fn setup_scaled(job: &Job, scale: f64) -> Result<Setup> {
     let task: StaticTask = super::params::task(job)?;
     super::check_window("y_um", task.y_um)?;
     super::check_window("z_um", task.z_um)?;
@@ -572,9 +585,31 @@ fn setup(job: &Job) -> Result<Setup> {
         )));
     }
     let growth = task.growth.unwrap_or(1.2);
-    let grading = Grading::new(task.step_nm * 1e-3, fine * 1e-3, growth)
+    let grading = Grading::new(task.step_nm * 1e-3 * scale, fine * 1e-3 * scale, growth)
         .map_err(|e| task_error(e.to_string()))?;
-    let stack = named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?;
+    // a crystal's tensor is taken by the electro-optic chain only
+    let stack = match &task.electro_optic {
+        None => named_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?,
+        Some(_) => {
+            if task.physics != "electrostatic" {
+                return Err(task_error(
+                    "electro_optic is for physics = \"electrostatic\": the field of the \
+                     conductors in a crystal",
+                ));
+            }
+            if !(task.path.is_empty()
+                && task.shape.is_empty()
+                && task.component.is_empty()
+                && task.body.is_empty())
+            {
+                return Err(task_error(
+                    "electro_optic takes the shapes a modes job does: rect, circle and ring",
+                ));
+            }
+            super::tensor_stack(&task.stack, task.core_nm, task.bottom_oxide_um)?
+        }
+    };
+    let chain_stack = stack.clone();
     let structure = draw_paths(
         draw(stack, &task.rect, &task.circle, &task.ring)?,
         &task.path,
@@ -648,6 +683,7 @@ fn setup(job: &Job) -> Result<Setup> {
         held: Vec::new(),
         transient: None,
         catalogued: Vec::new(),
+        electro_optic: None,
     };
     // the heat problem's section, its media's conductivities (the job's, else the catalogue's)
     // and what the catalogue gave
@@ -757,7 +793,22 @@ fn setup(job: &Job) -> Result<Setup> {
         }
         "electrostatic" => {
             let mut e = Electrostatic::new(section.clone(), grid.clone());
-            for (m, t) in coefficients(&section, &task.permittivity, "permittivity")? {
+            let mut permittivity = task.permittivity.clone();
+            if let Some(spec) = &task.electro_optic {
+                let (crystal, eps) = super::pockels::check(spec, &chain_stack)?;
+                permittivity
+                    .entry(crystal)
+                    .or_insert(CoefficientSpec::Diagonal(eps));
+                setup.electro_optic = Some(super::pockels::Chain {
+                    spec: spec.clone(),
+                    stack: chain_stack.clone(),
+                    rect: task.rect.clone(),
+                    circle: task.circle.clone(),
+                    ring: task.ring.clone(),
+                    cut,
+                });
+            }
+            for (m, t) in coefficients(&section, &permittivity, "permittivity")? {
                 e.permittivity(&m, t);
             }
             for &(side, b) in &boundaries {
@@ -990,6 +1041,17 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 for (j, v) in row.iter().enumerate() {
                     values.push(value(format!("C[{}][{}]", i + 1, j + 1), *v, "F/m"));
                 }
+            }
+        }
+        if let Some(chain) = &setup.electro_optic {
+            let coarser = |k: u32| -> Result<Electrostatic> {
+                setup_scaled(job, f64::from(1u32 << k))?
+                    .electrostatic
+                    .ok_or_else(|| task_error("an electrostatic job has an electrostatic problem"))
+            };
+            match super::pockels::run(chain, e, coarser, run, stop)? {
+                Some(more) => values.extend(more),
+                None => return Ok(()),
             }
         }
     }

@@ -2179,6 +2179,246 @@
       ],
       "type": "object"
     },
+    "ElectroOpticConvergence": {
+      "additionalProperties": false,
+      "description": "`electro_optic.convergence`.",
+      "properties": {
+        "grids": {
+          "description": "How many grids, the task's among them: 2 or 3 (the default).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "require": {
+          "description": "Fail the run when Vπ·L's grid hasn't converged.",
+          "type": "boolean"
+        },
+        "tolerance": {
+          "description": "The tolerance on Vπ·L's estimated error, V·cm.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tolerance"
+      ],
+      "type": "object"
+    },
+    "ElectroOpticSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "step",
+              "step_nm"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "step_nm"
+              ]
+            },
+            {
+              "required": [
+                "step"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "wavelength",
+              "wavelength_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "wavelength_um"
+              ]
+            },
+            {
+              "required": [
+                "wavelength"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "y",
+              "y_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "y_um"
+              ]
+            },
+            {
+              "required": [
+                "y"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "z",
+              "z_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "z_um"
+              ]
+            },
+            {
+              "required": [
+                "z"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "`electro_optic`: see the module's docs.",
+      "properties": {
+        "complete_from": {
+          "description": "The label of a tensor that gives the elements `tensor` leaves unknown.",
+          "type": "string"
+        },
+        "convergence": {
+          "$ref": "#/$defs/ElectroOpticConvergence",
+          "description": "The grid study of Vπ·L."
+        },
+        "drive": {
+          "description": "`\"push-pull\"` (the default) or `\"single-arm\"`.",
+          "type": "string"
+        },
+        "entry": {
+          "description": "The catalogue entry whose tensor it takes, e.g. `\"linbo3\"`.",
+          "type": "string"
+        },
+        "layer": {
+          "description": "The stack layer the crystal is, its material an oriented catalogue crystal.",
+          "type": "string"
+        },
+        "polarization": {
+          "description": "`\"te\"` (the default) or `\"tm\"`: of the two highest modes, the one more TE (or TM).",
+          "type": "string"
+        },
+        "resolve": {
+          "description": "Whether to solve the perturbed cross-section again (true by default).",
+          "type": "boolean"
+        },
+        "static_permittivity": {
+          "description": "`\"clamped\"` (ε^S, the default) or `\"unclamped\"` (ε^T): the crystal's static permittivity when `[task.permittivity]` doesn't give it.",
+          "type": "string"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The mode's step, nm. With its unit in the value, in place of step_nm: a length with its unit, e.g. \"20 nm\"."
+        },
+        "step_nm": {
+          "description": "The mode's step, nm.",
+          "type": "number"
+        },
+        "tensor": {
+          "description": "The tensor's label in the entry, e.g. `\"thin film (x-cut LNOI), clamped, 1550 nm\"`.",
+          "type": "string"
+        },
+        "wavelength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The light's wavelength, µm. With its unit in the value, in place of wavelength_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "wavelength_um": {
+          "description": "The light's wavelength, µm.",
+          "type": "number"
+        },
+        "y": {
+          "description": "The mode's window across (y) and up (z), µm. With its unit in the value, in place of y_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "y_um": {
+          "description": "The mode's window across (y) and up (z), µm.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "z": {
+          "description": "With its unit in the value, in place of z_um: a length with its unit, e.g. \"1.55 um\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "z_um": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "layer",
+        "entry",
+        "tensor"
+      ],
+      "type": "object"
+    },
     "EtchSpec": {
       "additionalProperties": false,
       "allOf": [
@@ -7322,6 +7562,10 @@
             "$ref": "#/$defs/CoefficientSpec"
           },
           "type": "object"
+        },
+        "electro_optic": {
+          "$ref": "#/$defs/ElectroOpticSpec",
+          "description": "The Pockels effect the electrostatic field makes in a mode, and Vπ·L (`super::pockels`)."
         },
         "export": {
           "$ref": "#/$defs/ExportSpec",
