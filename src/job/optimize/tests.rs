@@ -286,6 +286,82 @@ fn what_an_optimize_task_refuses() {
     assert!(e.to_string().contains("photonoxide run"), "{e}");
 }
 
+/// A coupler's split through a projection sharpened by a continuation over `beta`.
+const PROJECTED: &str = "method = \"adam\"\nseed = 1\nevaluations = 100\n\n[task.continuation]\nparameter = \"beta\"\nvalues = [1.0, 8.0, 64.0]\n\n[[task.variable]]\nparameter = \"length\"\nfrom = 2.0\nto = 30.0\n\n[[task.objective]]\nexpression = \"tanh(beta*(T_o3_o1/(T_o3_o1 + T_o4_o1) - 0.5))/beta\"\ngoal = \"target\"\ntarget = 0.0\n";
+
+#[test]
+fn a_continuation_sets_its_parameter_stage_by_stage() {
+    let dc = "directional coupler";
+    let p = Problem::of(&job_of(dc, "analytic", PROJECTED)).unwrap();
+    let s = p.continuation().expect("a continuation");
+    assert_eq!(
+        (s.parameter.as_str(), s.keep, s.generations),
+        ("beta", Keep::State, None)
+    );
+    assert_eq!(p.stage(), 0);
+    // the same split behind every stage's value: tanh(β(s − 1/2))/β
+    // (near the 3 dB length, where tanh(64(s − 1/2)) is still away from ±1)
+    let x = [18.0];
+    let mut split = Vec::new();
+    for (k, beta) in [1.0, 8.0, 64.0].into_iter().enumerate() {
+        p.set_stage(k).unwrap();
+        assert_eq!(p.stage_value(), Some(beta));
+        let v = p.evaluate(&x, false).values[0];
+        split.push((v * beta).atanh() / beta);
+    }
+    assert!(split[0].abs() > 1e-3, "{split:?}");
+    assert!(
+        (split[1] - split[0]).abs() < 1e-10 && (split[2] - split[0]).abs() < 1e-10,
+        "{split:?}"
+    );
+    assert!(p.set_stage(3).is_err());
+    // a parameter of the device's is written into the design at each stage
+    let gap = PROJECTED
+        .replace("\"beta\"", "\"gap\"")
+        .replace("[1.0, 8.0, 64.0]", "[0.3, 0.25]")
+        .replace("beta", "1");
+    let p = Problem::of(&job_of(dc, "analytic", &gap)).unwrap();
+    let gap_at = |p: &Problem| {
+        let spec = p.design_at(&[12.0]).unwrap();
+        spec.parameters
+            .iter()
+            .find(|(n, _)| n == "gap")
+            .unwrap()
+            .1
+            .clone()
+    };
+    assert_eq!(gap_at(&p), "0.3");
+    p.set_stage(1).unwrap();
+    assert_eq!(gap_at(&p), "0.25");
+    // and what it refuses
+    let refused = |task: &str, says: &str| {
+        let e = crate::job::check(&job_of(dc, "analytic", task)).unwrap_err();
+        assert!(e.to_string().contains(says), "{e} lacks {says}");
+    };
+    refused(&PROJECTED.replace("\"adam\"", "\"de\""), "doesn't go on");
+    refused(
+        &PROJECTED.replace("[1.0, 8.0, 64.0]", "[1.0]"),
+        "2 to 64 stages",
+    );
+    refused(
+        &PROJECTED.replace("\"beta\"", "\"length\""),
+        "is a variable",
+    );
+    refused(
+        &PROJECTED.replace("\"beta\"", "\"lambda\""),
+        "an output's name",
+    );
+    refused(
+        &PROJECTED.replace("values =", "keep = \"all\"\nvalues ="),
+        "\"state\" (the default) or \"point\"",
+    );
+    refused(
+        &PROJECTED.replace("values =", "generations = 0\nvalues ="),
+        "at least 1 generation",
+    );
+    refused(&gap.replace("[0.3, 0.25]", "[0.3, 1e-6]"), "range");
+}
+
 #[test]
 fn a_job_written_from_a_design_reads_back_the_same() {
     let spec = Spec::new("all-pass ring");

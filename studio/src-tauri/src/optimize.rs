@@ -9,9 +9,17 @@
 //! rayon's threads and recorded in the optimizer's order, so the record is the same, to the bit,
 //! on any number of threads. The run stops at the budget, the optimizer's own end, the job's hard
 //! limit or a Stop, whichever comes first, and its record says which.
+//!
+//! A task with a continuation (`[task.continuation]`) runs its method inside genoxide's
+//! `Continuation`, which keeps the method's state from one stage to the next (L-BFGS-B built to
+//! keep its curvature pairs) unless the task asks for `keep = "point"`. genoxide's stage closure
+//! names the stage; the fitness sets it on the problem, and records it, before the stage's first
+//! evaluation.
 
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
+use genoxide::algorithm::continuation::{self, Continuation, Continue};
 use genoxide::engine::{BatchExtras, FitnessFunction, Provided};
 use genoxide::multi::MultiFitnessFunction;
 use genoxide::prelude::{
@@ -56,6 +64,9 @@ struct Fitness<'a, 'r> {
     /// Each variable's lower bound and span: x = from + u span.
     from: Vec<f64>,
     span: Vec<f64>,
+    /// The continuation's stage genoxide has gone on to, set on the problem before the next
+    /// evaluation.
+    stage: Arc<AtomicUsize>,
 }
 
 impl Fitness<'_, '_> {
@@ -74,6 +85,23 @@ impl Fitness<'_, '_> {
     fn evaluate_all(&self, us: &[&Reals], gradient: bool) -> Vec<Option<Evaluation>> {
         if self.stop.reason().is_some() {
             return vec![None; us.len()];
+        }
+        let stage = self.stage.load(Ordering::Acquire);
+        if self.problem.continuation().is_some() && stage != self.problem.stage() {
+            let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            let State {
+                run,
+                recorder,
+                failed,
+            } = &mut *state;
+            if let Err(err) = self
+                .problem
+                .set_stage(stage)
+                .and_then(|()| recorder.stage(self.problem, run))
+                && failed.is_none()
+            {
+                *failed = Some(err);
+            }
         }
         let points: Vec<Vec<f64>> = us.iter().map(|u| self.x(u)).collect();
         let evaluations: Vec<Evaluation> = points
@@ -254,6 +282,7 @@ fn optimize(job: &Job, run: &mut Run, stop: &Stop) -> photonoxide::Result<()> {
         stop,
         from,
         span,
+        stage: Arc::new(AtomicUsize::new(0)),
     };
     let reason = drive(&problem, &fitness, u0, stop);
     let State {
@@ -307,10 +336,11 @@ fn drive(
         "lbfgsb" => {
             let a = Lbfgsb::builder(real)
                 .initial_genome(u0)
+                .keep_pairs(true)
                 .minimize()
                 .seed(seed)
                 .build()?;
-            run_single(a, fitness, problem, stop)
+            run_continued(a, fitness, problem, stop)
         }
         "adam" => {
             let a = FirstOrder::builder(real)
@@ -319,7 +349,7 @@ fn drive(
                 .minimize()
                 .seed(seed)
                 .build()?;
-            run_single(a, fitness, problem, stop)
+            run_continued(a, fitness, problem, stop)
         }
         "mma" => {
             let a = Mma::builder(real)
@@ -327,7 +357,7 @@ fn drive(
                 .minimize()
                 .seed(seed)
                 .build()?;
-            run_single(a, fitness, problem, stop)
+            run_continued(a, fitness, problem, stop)
         }
         "gcmma" => {
             let a = Mma::builder(real)
@@ -336,7 +366,7 @@ fn drive(
                 .minimize()
                 .seed(seed)
                 .build()?;
-            run_single(a, fitness, problem, stop)
+            run_continued(a, fitness, problem, stop)
         }
         "nelder-mead" => {
             let a = NelderMead::builder(real)
@@ -344,14 +374,14 @@ fn drive(
                 .minimize()
                 .seed(seed)
                 .build()?;
-            run_single(a, fitness, problem, stop)
+            run_continued(a, fitness, problem, stop)
         }
         "cmaes" => {
             let mut b = Cmaes::builder(real).initial_mean(u0).minimize().seed(seed);
             if let Some(p) = population {
                 b = b.population_size(p);
             }
-            run_single(b.build()?, fitness, problem, stop)
+            run_continued(b.build()?, fitness, problem, stop)
         }
         "de" => {
             let a = De::builder(real)
@@ -406,6 +436,35 @@ fn run_single<A: Algorithm<Genome = Reals>>(
         .stop_when(stops(problem, stop))
         .run()?;
     Ok(outcome.stop_reason())
+}
+
+/// Runs a method that can go on across stages: inside genoxide's `Continuation` when the task
+/// has one, its state kept from one stage to the next as the task says; by itself otherwise.
+fn run_continued<A: Continue<Genome = Reals> + 'static>(
+    algorithm: A,
+    fitness: &Fitness<'_, '_>,
+    problem: &Problem,
+    stop: &Stop,
+) -> genoxide::Result<StopReason> {
+    let Some(schedule) = problem.continuation() else {
+        return run_single(algorithm, fitness, problem, stop);
+    };
+    let keep = match schedule.keep {
+        job::Keep::Point => continuation::Keep::Point,
+        _ => continuation::Keep::State,
+    };
+    let stage = Arc::clone(&fitness.stage);
+    let mut builder = Continuation::builder(algorithm)
+        .stages(schedule.values.len())
+        .keep(keep)
+        .on_stage(move |k, _| {
+            stage.store(k, Ordering::Release);
+            Ok(())
+        });
+    if let Some(g) = schedule.generations {
+        builder = builder.generations(g);
+    }
+    run_single(builder.build()?, fitness, problem, stop)
 }
 
 fn run_multi<A: genoxide::multi::MultiObjectiveAlgorithm<2, Genome = Reals>>(

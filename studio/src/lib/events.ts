@@ -462,6 +462,18 @@ export interface Evaluation {
   error: string | null;
 }
 
+/** A continuation's stage begins: its parameter's value, and what the optimizer kept. */
+export interface Stage {
+  type: "stage";
+  stage: number;
+  stages: number;
+  parameter: string;
+  value: number;
+  keep: "state" | "point";
+  /** The evaluations before it. */
+  evaluations: number;
+}
+
 /** A Pareto front after a generation: its non-dominated feasible evaluations and their hypervolume. */
 export interface Front {
   type: "front";
@@ -574,6 +586,7 @@ export type Event =
   | ChipPoint
   | Optimization
   | Evaluation
+  | Stage
   | Front
   | Optimum
   | DeviceModel

@@ -157,6 +157,45 @@ program works in the variables scaled to [0, 1] by their bounds (each gradient s
 span), evaluates a generation's points side by side on rayon's threads and records them in the
 optimizer's order, and stops at the budget, the optimizer's own end, the hard limit or Stop.
 
+## Continuation
+
+A `[task.continuation]` runs the optimization in stages, a parameter set to each stage's value
+in turn: a projection's sharpness β, a smoothing's, a penalty's weight (Wang, Lazarov & Sigmund
+2010, doi:10.1007/s00158-010-0602-y).
+
+```toml
+[task.continuation]
+parameter = "beta"        # one the design names, or a new name the expressions use
+values = [1, 4, 16, 64, 256]
+generations = 100         # each stage's budget; without it a stage ends when the method converges
+keep = "state"            # the default; "point" starts the optimizer's state again at each stage
+
+[[task.objective]]
+expression = "tanh(beta*(T_o3_o1/(T_o3_o1 + T_o4_o1) - 0.5))/beta"
+goal = "target"
+target = 0.0
+```
+
+The program runs the method inside genoxide's `Continuation`, which keeps its state from one
+stage to the next: Adam's moments and step count, L-BFGS-B's curvature pairs (built with
+`keep_pairs`), MMA's and GCMMA's asymptotes, a Nelder-Mead simplex, a CMA-ES distribution. The
+other methods (de, pso, nsga2, sms-emoa) have no such state in genoxide, and `job::check` refuses
+a continuation for them. Each stage begins with the last stage's point evaluated again on the new
+value. A device parameter (or one the design names) is written into the design at each stage; a
+new name is a plain number the objectives' and constraints' expressions use. The task's
+`evaluations` bound the whole run.
+
+**Why the state is kept.** Resetting Adam's state between projection stages destroyed designs
+at high β (ROADMAP's pitfalls). After a reset, Adam's first step is its whole learning rate
+whatever the gradient (its bias correction makes m̂/√v̂ = ±1), and that step throws a converged
+design out of a sharpened optimum onto the projection's plateau, where the gradient vanishes.
+The program's test `a_continuation_keeps_adams_state_across_its_stages` runs the coupler above
+both ways (Adam, learning rate 0.05, lengths 2 to 30 µm, the analytic model at 1.55 µm: exact, no
+grid). Kept, each stage starts at the last stage's point, the step after it is under a
+twentieth of a reset's, and the run ends within 10⁻⁴ µm of L_x/2 at β = 256. Reset, each stage's
+first step is the learning rate's 1.4 µm to 10⁻³, and at β = 64 it throws the design onto the
+plateau, where it stays more than 1 µm off.
+
 ## The record
 
 `job::Recorder` writes the run's events:
@@ -169,6 +208,8 @@ optimizer's order, and stops at the budget, the optimizer's own end, the hard li
   and value, each constraint's g, the violation, the first gradient's norm in the variables
   scaled to their ranges, the best so far (feasible first, then the lowest cost) and the models
   built;
+- with a continuation, a `Stage` as each stage begins: its parameter's value, what the optimizer
+  keeps and the evaluations before it; the best so far is then of that stage's evaluations;
 - for two objectives, a `Front` after each generation: the non-dominated feasible evaluations
   and their hypervolume up to a reference point fixed at the first front (the largest costs then,
   a tenth of their range beyond);

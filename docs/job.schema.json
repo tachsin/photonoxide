@@ -555,6 +555,37 @@
       ],
       "type": "object"
     },
+    "ContinuationTask": {
+      "additionalProperties": false,
+      "description": "A `[task.continuation]`.",
+      "properties": {
+        "generations": {
+          "description": "Each stage's budget of generations; a stage ends when the method converges without one.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "keep": {
+          "description": "\"state\" (the default: the optimizer's state goes on) or \"point\" (it starts again).",
+          "type": "string"
+        },
+        "parameter": {
+          "description": "The parameter each stage sets: one the design names, or a new name the expressions use.",
+          "type": "string"
+        },
+        "values": {
+          "description": "Its value at each stage, 2 to 64 of them.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "parameter",
+        "values"
+      ],
+      "type": "object"
+    },
     "CornerTask": {
       "additionalProperties": false,
       "description": "A `[[task.corner]]`.",
@@ -3942,6 +3973,9 @@
             "$ref": "#/$defs/Bound"
           },
           "type": "array"
+        },
+        "continuation": {
+          "$ref": "#/$defs/ContinuationTask"
         },
         "corner": {
           "items": {

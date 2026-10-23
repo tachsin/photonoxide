@@ -451,6 +451,8 @@ pub(super) fn of(job: &Job) -> Result<Problem> {
         constraints,
         exact: vec![false; n],
         timeout_minutes,
+        continuation: None,
+        stage: Default::default(),
         target: Target::Chip(Box::new(ChipTarget {
             chip,
             resolved,
@@ -730,6 +732,8 @@ pub(super) fn point(p: &Problem, t: &ChipTarget, x: &[f64], wanted: &[usize]) ->
                                     .map_or(f64::NAN, |g| g.value),
                                 Source::Parameter(k) => d.design.values().as_slice()[*k],
                                 Source::Lambda => w,
+                                // a chip's task takes no continuation
+                                Source::Stage => f64::NAN,
                             };
                         }
                         v
@@ -814,7 +818,7 @@ pub(super) fn point(p: &Problem, t: &ChipTarget, x: &[f64], wanted: &[usize]) ->
                                     Source::Parameter(kk) => {
                                         sens[i].get(*kk).copied().unwrap_or(0.0)
                                     }
-                                    Source::Lambda => 0.0,
+                                    Source::Lambda | Source::Stage => 0.0,
                                 };
                             }
                         }

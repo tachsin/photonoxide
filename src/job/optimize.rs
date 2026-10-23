@@ -41,7 +41,22 @@
 //! [[task.corner]]          # as a corners study's: each quantity is taken at the nominal
 //! name = "wide"            #   design and at every corner
 //! offsets = { width = 0.01 }
+//!
+//! [task.continuation]      # the run in stages, a parameter sharpened between them
+//! parameter = "beta"       # one the design names, or a new name the expressions use
+//! values = [1, 4, 16, 64]  # its value at each stage
+//! generations = 100        # each stage's budget (a stage ends at convergence without one)
+//! keep = "state"           # the optimizer's state goes on (the default); "point" resets it
 //! ```
+//!
+//! **Continuation** ([`Schedule`]): the run in stages, the parameter set to each stage's value
+//! in turn, the optimizer going on from the last stage's point through genoxide's
+//! `Continuation` with its state kept: Adam's moments and step count, L-BFGS-B's curvature pairs,
+//! MMA's asymptotes, a Nelder-Mead simplex, a CMA-ES distribution. Resetting it between
+//! projection stages destroyed designs at high β (ROADMAP's pitfalls): a reset Adam's first
+//! step is its whole learning rate, whatever the gradient, and throws a converged design out of
+//! a sharpened optimum. Each stage begins with an [`Event::Stage`] and the last stage's point
+//! evaluated again on the new value.
 //!
 //! **The problem.** [`Problem`] reads and checks the task, and evaluates the objectives' costs
 //! and the constraints' values at any point of the variables, with their derivatives
@@ -66,6 +81,8 @@
 //! with two objectives (the non-dominated evaluations and their hypervolume); and
 //! [`Recorder::finish`] the [`Event::Optimum`]. The same seed gives the same record, to the
 //! bit, on any number of threads.
+
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use rayon::prelude::*;
 use schemars::JsonSchema;
@@ -104,6 +121,10 @@ pub struct Method {
     pub population: Option<usize>,
     /// Whether it draws random numbers (its seed matters).
     pub random: bool,
+    /// Whether it goes on across a continuation's stages with its state kept (genoxide's
+    /// `Continue`): Adam's moments, L-BFGS-B's curvature pairs, MMA's asymptotes, a Nelder-Mead
+    /// simplex, a CMA-ES distribution ([`Schedule`]).
+    pub continues: bool,
     /// What it is, in a sentence.
     pub about: &'static str,
     /// The paper it implements, with its DOI.
@@ -120,6 +141,7 @@ pub const METHODS: &[Method] = &[
         objectives: 1,
         population: None,
         random: false,
+        continues: true,
         about: "a quasi-Newton method within the variables' bounds, on the gradient",
         paper: "R. H. Byrd, P. Lu, J. Nocedal, C. Zhu, SIAM J. Sci. Comput. 16, 1190 (1995), \
                 doi:10.1137/0916069",
@@ -132,6 +154,7 @@ pub const METHODS: &[Method] = &[
         objectives: 1,
         population: None,
         random: false,
+        continues: true,
         about: "first-order steps scaled by running moments of the gradient",
         paper: "D. P. Kingma, J. Ba, ICLR 2015, arXiv:1412.6980",
     },
@@ -143,6 +166,7 @@ pub const METHODS: &[Method] = &[
         objectives: 1,
         population: None,
         random: false,
+        continues: true,
         about: "the method of moving asymptotes, on the gradient and the constraints' Jacobian: \
                 fast, without a proof of convergence from any start",
         paper: "K. Svanberg, Int. J. Numer. Methods Eng. 24, 359 (1987), \
@@ -156,6 +180,7 @@ pub const METHODS: &[Method] = &[
         objectives: 1,
         population: None,
         random: false,
+        continues: true,
         about: "the globally convergent method of moving asymptotes: a point is taken only once \
                 its approximations are conservative, so each is better than the last",
         paper: "K. Svanberg, SIAM J. Optim. 12, 555 (2002), doi:10.1137/S1052623499362822",
@@ -168,6 +193,7 @@ pub const METHODS: &[Method] = &[
         objectives: 1,
         population: None,
         random: false,
+        continues: true,
         about: "a simplex of points, reflected, expanded and shrunk on the values alone",
         paper: "J. A. Nelder, R. Mead, Comput. J. 7, 308 (1965), doi:10.1093/comjnl/7.4.308",
     },
@@ -179,6 +205,7 @@ pub const METHODS: &[Method] = &[
         objectives: 1,
         population: Some(0),
         random: true,
+        continues: true,
         about: "an evolution strategy that adapts its search distribution's covariance",
         paper: "N. Hansen, A. Ostermeier, Evol. Comput. 9, 159 (2001), \
                 doi:10.1162/106365601750190398",
@@ -191,6 +218,7 @@ pub const METHODS: &[Method] = &[
         objectives: 1,
         population: Some(20),
         random: true,
+        continues: false,
         about: "a population moved by the differences between its members",
         paper: "R. Storn, K. Price, J. Glob. Optim. 11, 341 (1997), doi:10.1023/A:1008202821328",
     },
@@ -202,6 +230,7 @@ pub const METHODS: &[Method] = &[
         objectives: 1,
         population: Some(20),
         random: true,
+        continues: false,
         about: "a swarm drawn to each particle's best and the swarm's",
         paper: "J. Kennedy, R. Eberhart, Proc. ICNN'95 4, 1942 (1995), \
                 doi:10.1109/ICNN.1995.488968",
@@ -214,6 +243,7 @@ pub const METHODS: &[Method] = &[
         objectives: 2,
         population: Some(40),
         random: true,
+        continues: false,
         about: "a genetic algorithm sorted into non-dominated fronts: a Pareto front of two \
                 objectives",
         paper: "K. Deb, A. Pratap, S. Agarwal, T. Meyarivan, IEEE Trans. Evol. Comput. 6, 182 \
@@ -227,6 +257,7 @@ pub const METHODS: &[Method] = &[
         objectives: 2,
         population: Some(40),
         random: true,
+        continues: false,
         about: "a steady-state search that keeps the front's largest hypervolume",
         paper: "N. Beume, B. Naujoks, M. Emmerich, Eur. J. Oper. Res. 181, 1653 (2007), \
                 doi:10.1016/j.ejor.2006.08.008",
@@ -272,7 +303,70 @@ const CHECK_STEP: f64 = 1e-5;
 /// relative, with a floor of 1e-10 of the quantity's size.
 const CHECK_TOLERANCE: f64 = 1e-6;
 
+/// The most stages a continuation takes.
+const MAX_STAGES: usize = 64;
+
 // ---- the task as data ----
+
+/// What the optimizer keeps when a continuation goes on to its next stage.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum Keep {
+    /// Its state (the default): Adam's moments and step count, L-BFGS-B's curvature pairs,
+    /// MMA's asymptotes, a Nelder-Mead simplex, a CMA-ES distribution.
+    #[default]
+    State,
+    /// Only the point: the state starts again, as at the start of a run. The pitfall a
+    /// continuation's kept state rules out (ROADMAP's table); there to compare with.
+    Point,
+}
+
+impl Keep {
+    /// Its name in a job: `"state"` or `"point"`.
+    pub fn name(self) -> &'static str {
+        match self {
+            Keep::State => "state",
+            Keep::Point => "point",
+        }
+    }
+}
+
+/// A continuation's schedule (`[task.continuation]`): the run in stages, a parameter of the
+/// problem set to each stage's value in turn (a projection's β, a smoothing's sharpness, a
+/// penalty's weight), the optimizer going on from the last stage's point with its state kept.
+///
+/// The parameter is one the design names (the device's, or another of its `[device.parameters]`),
+/// written into the design at each stage, or a new name; either way the objectives' and
+/// constraints' expressions may use it, as a plain number. It is never a variable.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct Schedule {
+    /// The parameter, e.g. `"beta"`.
+    pub parameter: String,
+    /// Its value at each stage, in its unit (µm for a length the design names, degrees for an
+    /// angle).
+    pub values: Vec<f64>,
+    /// Each stage's budget of the optimizer's generations; `None`: a stage ends when the
+    /// method has converged. The task's evaluations bound the whole run.
+    pub generations: Option<u64>,
+    /// What the optimizer keeps from one stage to the next.
+    pub keep: Keep,
+}
+
+/// A `[task.continuation]`.
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct ContinuationTask {
+    /// The parameter each stage sets: one the design names, or a new name the expressions use.
+    parameter: String,
+    /// Its value at each stage, 2 to 64 of them.
+    values: Vec<f64>,
+    /// Each stage's budget of generations; a stage ends when the method converges without one.
+    generations: Option<u64>,
+    /// "state" (the default: the optimizer's state goes on) or "point" (it starts again).
+    keep: Option<String>,
+}
 
 /// A variable of an optimization: a parameter of the design between two bounds.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -684,6 +778,7 @@ pub(super) struct OptimizeTask {
     samples: Option<usize>,
     pml_cells: Option<usize>,
     model_2d: Option<String>,
+    continuation: Option<ContinuationTask>,
     #[serde(default)]
     variable: Vec<VariableTask>,
     #[serde(default)]
@@ -774,6 +869,10 @@ pub struct Problem {
     /// Per variable: its derivatives exact, once checked ([`Problem::check_gradients`]).
     exact: Vec<bool>,
     timeout_minutes: f64,
+    /// A continuation's schedule, and whether its parameter is written into the design.
+    continuation: Option<(Schedule, bool)>,
+    /// The continuation's current stage, from 0 ([`Problem::set_stage`]).
+    stage: AtomicUsize,
 }
 
 /// What an optimization designs: a device, or a chip of devices.
@@ -979,6 +1078,96 @@ fn settings(
     })
 }
 
+/// A `[task.continuation]` read and checked, its parameter added to the expressions' `names`
+/// (a device parameter is there already); with whether the design takes it.
+fn schedule_of(
+    c: &ContinuationTask,
+    method: &Method,
+    named: &Named<'_>,
+    names: &mut Names,
+    variables: &[Variable],
+) -> Result<(Schedule, bool)> {
+    let p = c.parameter.as_str();
+    if !method.continues {
+        return Err(task_error(format!(
+            "{} doesn't go on across a continuation's stages in genoxide: continue with {}",
+            method.title,
+            METHODS
+                .iter()
+                .filter(|m| m.continues)
+                .map(|m| m.name)
+                .collect::<Vec<_>>()
+                .join(", ")
+        )));
+    }
+    if !(2..=MAX_STAGES).contains(&c.values.len()) {
+        return Err(task_error(format!(
+            "a continuation takes 2 to {MAX_STAGES} stages (values), got {}",
+            c.values.len()
+        )));
+    }
+    if let Some(v) = c.values.iter().find(|v| !v.is_finite()) {
+        return Err(task_error(format!(
+            "a continuation's values must be numbers, got {v}"
+        )));
+    }
+    if variables.iter().any(|v| v.parameter == p) {
+        return Err(task_error(format!(
+            "the continuation's parameter {p} is a variable: a continuation sets a parameter \
+             the optimizer doesn't move"
+        )));
+    }
+    if c.generations == Some(0) {
+        return Err(task_error(
+            "a continuation's stage takes at least 1 generation",
+        ));
+    }
+    let keep = match c.keep.as_deref() {
+        None | Some("state") => Keep::State,
+        Some("point") => Keep::Point,
+        Some(k) => {
+            return Err(task_error(format!(
+                "a continuation keeps \"state\" (the default) or \"point\", got \"{k}\""
+            )));
+        }
+    };
+    let in_design = named.check(p).is_ok();
+    if named.is_device(p) {
+        if let Some(d) = named.device.parameters().iter().find(|d| d.name == p)
+            && let Some(v) = c.values.iter().find(|v| !(d.min..=d.max).contains(*v))
+        {
+            return Err(task_error(format!(
+                "the continuation's {p} takes {} to {} {}: a {}'s range, not {v}",
+                d.min,
+                d.max,
+                d.unit,
+                named.device.kind()
+            )));
+        }
+    } else if names.outputs.iter().any(|o| o.name == p) {
+        return Err(task_error(format!(
+            "the continuation's parameter {p} is an output's name: name it otherwise"
+        )));
+    } else {
+        names.add(
+            p,
+            Source::Stage,
+            "",
+            "the continuation's parameter at its stage",
+            false,
+        );
+    }
+    Ok((
+        Schedule {
+            parameter: p.to_owned(),
+            values: c.values.clone(),
+            generations: c.generations,
+            keep,
+        },
+        in_design,
+    ))
+}
+
 /// The variables' derivatives' names, as the record keeps them.
 fn derivative_name(method: &Method, exact: bool) -> &'static str {
     match (method.gradient, exact) {
@@ -1147,7 +1336,11 @@ impl Problem {
         // the quantities, on the cheapest model's outputs
         let cheapest = device.fidelities()[0].fidelity;
         let built = device.component(design.values(), cheapest).ok();
-        let names = Names::of(device.as_ref(), design.values(), built.as_ref())?;
+        let mut names = Names::of(device.as_ref(), design.values(), built.as_ref())?;
+        let continuation = match &task.continuation {
+            None => None,
+            Some(c) => Some(schedule_of(c, method, &named, &mut names, &variables)?),
+        };
         let declared = device.objectives();
         let declared_constraints = device.constraints();
         if task.objective.is_empty() || task.objective.len() > method.objectives {
@@ -1365,6 +1558,8 @@ impl Problem {
             constraints,
             exact: vec![false; n],
             timeout_minutes,
+            continuation,
+            stage: AtomicUsize::new(0),
         })
     }
 
@@ -1419,6 +1614,39 @@ impl Problem {
         self.timeout_minutes
     }
 
+    /// The continuation's schedule (`[task.continuation]`), if the task has one.
+    pub fn continuation(&self) -> Option<&Schedule> {
+        self.continuation.as_ref().map(|(s, _)| s)
+    }
+
+    /// The continuation's current stage, from 0 (0 without one).
+    pub fn stage(&self) -> usize {
+        self.stage.load(Ordering::Acquire)
+    }
+
+    /// The continuation's parameter's value at the current stage; `None` without one.
+    pub fn stage_value(&self) -> Option<f64> {
+        self.continuation().map(|s| s.values[self.stage()])
+    }
+
+    /// Goes on to the continuation's stage `stage`: every evaluation from now on is of its
+    /// value of the parameter. Set between generations, never while one is evaluated.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] without a continuation, or for a stage past its last.
+    pub fn set_stage(&self, stage: usize) -> Result<()> {
+        let count = self.continuation().map_or(0, |s| s.values.len());
+        if stage >= count {
+            return Err(Error::invalid(
+                "optimize",
+                format!("stage {stage} of a continuation of {count} stages"),
+            ));
+        }
+        self.stage.store(stage, Ordering::Release);
+        Ok(())
+    }
+
     /// The design at `x`: the job's, the variables written as plain numbers in place of their
     /// expressions (a length's in µm, an angle's in degrees) — what Apply takes into the design.
     ///
@@ -1451,6 +1679,10 @@ impl Problem {
         let mut spec = own.clone();
         for (v, &value) in self.variables.iter().zip(x) {
             set(&mut spec, &v.parameter, named.literal(&v.parameter, value));
+        }
+        if let Some((s, true)) = &self.continuation {
+            let value = s.values[self.stage()];
+            set(&mut spec, &s.parameter, named.literal(&s.parameter, value));
         }
         Ok(spec)
     }
@@ -1882,6 +2114,7 @@ impl Problem {
                 Source::Figure(f) => built.figure(f).map_or(f64::NAN, |g| g.value),
                 Source::Parameter(k) => values[*k],
                 Source::Lambda => lambda,
+                Source::Stage => self.stage_value().unwrap_or(f64::NAN),
             };
         }
         slots
@@ -1904,7 +2137,7 @@ impl Problem {
                 }
                 Source::Figure(_) => f64::NAN,
                 Source::Parameter(k) => sensitivities[*k],
-                Source::Lambda => 0.0,
+                Source::Lambda | Source::Stage => 0.0,
             };
         }
         duals
@@ -2135,6 +2368,8 @@ pub struct Recorder {
     /// The ranges of the variables, for the gradient's norm in them.
     spans: Vec<f64>,
     objectives: usize,
+    /// The continuation's stage last recorded.
+    stage: Option<usize>,
 }
 
 impl Recorder {
@@ -2210,7 +2445,7 @@ impl Recorder {
             parameters,
             checks,
         })?;
-        Ok(Recorder {
+        let mut recorder = Recorder {
             count: 0,
             solves: 0,
             best: None,
@@ -2220,6 +2455,37 @@ impl Recorder {
             reference: None,
             spans: problem.variables.iter().map(|v| v.to - v.from).collect(),
             objectives: problem.objectives.len(),
+            stage: None,
+        };
+        recorder.stage(problem, run)?;
+        Ok(recorder)
+    }
+
+    /// Records [`Event::Stage`] when the problem's continuation has gone on to a stage not yet
+    /// recorded ([`Problem::set_stage`]), and starts the best so far again: an earlier stage's
+    /// costs are of another function. Nothing without a continuation; [`Recorder::begin`]
+    /// records the first stage.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Io`] if the record can't be written.
+    pub fn stage(&mut self, problem: &Problem, run: &mut Run) -> Result<()> {
+        let Some(s) = problem.continuation() else {
+            return Ok(());
+        };
+        let stage = problem.stage();
+        if self.stage == Some(stage) {
+            return Ok(());
+        }
+        self.stage = Some(stage);
+        self.best = None;
+        run.record(&Event::Stage {
+            stage,
+            stages: s.values.len(),
+            parameter: s.parameter.clone(),
+            value: s.values[stage],
+            keep: s.keep.name().to_owned(),
+            evaluations: self.count,
         })
     }
 

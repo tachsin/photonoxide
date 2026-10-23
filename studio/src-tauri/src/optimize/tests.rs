@@ -342,3 +342,123 @@ fn the_optimize_template_runs_to_an_even_split() {
     let off = (x[0] - three_db()).abs() / three_db();
     assert!(off < 1e-3, "{} against {} ({stop})", x[0], three_db());
 }
+
+/// A continuation's coupler: the split's distance from 1/2 through a projection that sharpens
+/// stage by stage, tanh(β(s − 1/2)) brought to 0 by Adam (ROADMAP's pitfall: resetting Adam's
+/// state between projection stages destroyed designs at high β).
+fn projected(keep: &str) -> Vec<Event> {
+    let task = format!(
+        "method = \"adam\"\nevaluations = 1000\nseed = 1\n\n[task.continuation]\nparameter = \"beta\"\nvalues = [1.0, 4.0, 16.0, 64.0, 256.0]\ngenerations = 100\nkeep = \"{keep}\"\n\n[[task.variable]]\nparameter = \"length\"\nfrom = 2.0\nto = 30.0\n\n[[task.objective]]\nexpression = \"tanh(beta*(T_o3_o1/(T_o3_o1 + T_o4_o1) - 0.5))/beta\"\ngoal = \"target\"\ntarget = 0.0\n"
+    );
+    events(&job("[device.parameters]\nlength = \"8.0\"\n", &task))
+}
+
+/// The lengths evaluated, in order, and the evaluations before each stage.
+fn stages_of(e: &[Event]) -> (Vec<f64>, Vec<usize>) {
+    let mut x = Vec::new();
+    let mut before = Vec::new();
+    for ev in e {
+        match ev {
+            Event::Evaluation { x: at, .. } => x.push(at[0]),
+            Event::Stage {
+                stage,
+                stages,
+                parameter,
+                value,
+                evaluations,
+                ..
+            } => {
+                assert_eq!(
+                    (*stage, *stages, parameter.as_str()),
+                    (before.len(), 5, "beta")
+                );
+                assert_eq!(*value, [1.0, 4.0, 16.0, 64.0, 256.0][*stage]);
+                before.push(*evaluations);
+            }
+            _ => {}
+        }
+    }
+    (x, before)
+}
+
+/// ROADMAP's pitfall, "resetting Adam's state between projection stages destroyed designs at
+/// high β", ruled out: the optimizer's state goes on across a continuation's stages. Kept, the
+/// run goes on from each stage's point by small steps (Adam's moments remember the gradient)
+/// and ends on the 3 dB length at β = 256, where the basin is 0.1 µm wide; reset, each stage's
+/// first step is Adam's whole learning rate (1.4 µm here), which at β = 64 throws the design onto
+/// the projection's plateau, where the gradient vanishes and the design stays.
+#[test]
+fn a_continuation_keeps_adams_state_across_its_stages() {
+    let l3 = three_db();
+    let span = 28.0;
+    let lr = 0.05;
+    let kept = projected("state");
+    let reset = projected("point");
+    for (e, keep) in [(&kept, "state"), (&reset, "point")] {
+        let (x, before) = stages_of(e);
+        assert_eq!(before.len(), 5, "{keep}: every stage recorded");
+        assert_eq!(before[0], 0);
+        for &b in &before[1..] {
+            // each stage begins at the last stage's point, evaluated again on its β
+            assert_eq!(x[b], x[b - 1], "{keep}: stage after {b}");
+            let Some(&next) = x.get(b + 1) else { continue };
+            let step = (next - x[b]).abs();
+            if keep == "state" {
+                // a twentieth of a reset's at most
+                assert!(
+                    step < 0.05 * lr * span,
+                    "kept: a step of {step} µm after {b}"
+                );
+            } else if next != x[b] {
+                // a reset Adam's first step: its learning rate, whatever the gradient
+                assert!(
+                    (step - lr * span).abs() < 1e-3 * lr * span,
+                    "reset: a step of {step} µm after {b}"
+                );
+            }
+        }
+    }
+    let (x, stop) = optimum(&kept);
+    assert!(
+        (x[0] - l3).abs() < 1e-4,
+        "kept: {} against {l3} ({stop})",
+        x[0]
+    );
+    let (x, stop) = optimum(&reset);
+    assert!(
+        (x[0] - l3).abs() > 1.0,
+        "reset: {} against {l3} ({stop})",
+        x[0]
+    );
+}
+
+/// Every method that goes on across stages runs a continuation through, its state kept, to the
+/// 3 dB length.
+#[test]
+fn every_continuing_method_runs_a_continuation_through() {
+    let l3 = three_db();
+    for m in photonoxide::job::optimize::METHODS
+        .iter()
+        .filter(|m| m.continues)
+    {
+        let task = format!(
+            "method = \"{}\"\nevaluations = 2000\nseed = 1\n\n[task.continuation]\nparameter = \"beta\"\nvalues = [1.0, 8.0, 64.0]\ngenerations = 200\n\n[[task.variable]]\nparameter = \"length\"\nfrom = 2.0\nto = 30.0\n\n[[task.objective]]\nexpression = \"tanh(beta*(T_o3_o1/(T_o3_o1 + T_o4_o1) - 0.5))/beta\"\ngoal = \"target\"\ntarget = 0.0\n",
+            m.name
+        );
+        let e = events(&job("[device.parameters]\nlength = \"8.0\"\n", &task));
+        let stages = e
+            .iter()
+            .filter(|e| matches!(e, Event::Stage { .. }))
+            .count();
+        let (x, stop) = optimum(&e);
+        assert_eq!(stages, 3, "{}", m.name);
+        // within the last stage's basin (0.4 µm wide at β = 64), where each method's own
+        // tolerance stops it
+        assert!(
+            (x[0] - l3).abs() < 0.1,
+            "{}: {} against {l3} ({stop})",
+            m.name,
+            x[0]
+        );
+    }
+}

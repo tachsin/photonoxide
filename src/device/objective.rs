@@ -688,6 +688,8 @@ pub(crate) enum Source {
     Parameter(usize),
     /// The wavelength, µm.
     Lambda,
+    /// An optimization's continuation parameter at its current stage.
+    Stage,
 }
 
 /// The names an objective's expression may use at a design, each with where its value comes
