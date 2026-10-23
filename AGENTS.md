@@ -56,7 +56,8 @@ just python-test                                       # the Python package: pyt
 PHOTONOXIDE_VALIDATION_CASES="circuit/ components/" cargo test --release --test validation_report -- --ignored   # some cases' rows
 bash .github/full-suite.sh                              # the full suite here, as the release PR runs it (--fast: no release build)
 git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh   # what CI runs for a branch
-cargo semver-checks check-release -p photonoxide        # the public API against the latest release (CI's Semver job)
+cargo semver-checks check-release -p photonoxide --baseline-rev origin/main   # a branch's own breaks (CI's Semver job on a PR)
+cargo semver-checks check-release -p photonoxide        # the public API against the latest release (the release PR's check)
 ```
 
 CI runs in tiers (issue #315). **Tier 1**, every PR and push to main: on Linux, lint, MSRV, and the
@@ -65,7 +66,8 @@ of the areas that use them, as the area map [.github/areas.sh](.github/areas.sh)
 in no area (the library's root, units, geometry, the manifests) runs everything, and files nothing
 reads (most Markdown, the site, the other workflows) run only the docs' links. A new area, module
 or test-read file gets its line in the map. A PR that changes the library (`src/`, the root
-`Cargo.toml`) also runs the Semver job, cargo-semver-checks against the latest release on
+`Cargo.toml`) also runs the Semver job, cargo-semver-checks against the PR's base on main, so a
+PR answers for its own breaks only; the release PR is checked against the latest release on
 crates.io. **Tier 2**, the release PR, a PR labelled `full-ci`, and
 a change to `ci.yml`, `Cargo.toml` or `Cargo.lock`: every test on Linux, Windows and macOS (and on
 one thread), every example on the three systems, the 3D devices, the whole validation report. **Tier

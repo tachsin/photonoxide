@@ -56,8 +56,12 @@ clippy:
 docs $RUSTDOCFLAGS="-D warnings":
     cargo doc --no-deps --all-features
 
-# the public API against the latest release, as CI's Semver job checks it
+# this branch's own breaks of the public API, against main, as CI's Semver job checks a PR
 semver:
+    cargo semver-checks check-release -p photonoxide --baseline-rev origin/main
+
+# the public API against the latest release, as the release PR is checked
+semver-release:
     cargo semver-checks check-release -p photonoxide
 
 # --- Validation and examples ---

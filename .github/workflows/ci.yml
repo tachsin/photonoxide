@@ -396,11 +396,14 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --all-targets --all-features
 
-  # The library's public API against the latest release on crates.io's (cargo-semver-checks, the
-  # check release-plz runs before it picks the next version). A change a user's code could break
-  # on, a public struct's new field say, fails it, unless the pull request says it breaks: a `!`
-  # in its title (`fix(fdfd)!: ...`, as Conventional Commits mark it) or the `breaking` label.
-  # Release-plz then raises the minor version, 0.5 to 0.6, where a patch was meant.
+  # The library's public API, by cargo-semver-checks. A pull request is checked against its base
+  # on main, so it answers for its own breaks only, not for those main already has since the
+  # last release. The release PR (release-plz's branch), and a run that isn't a pull request, are
+  # checked against the latest release on crates.io, the check release-plz runs before it picks
+  # the next version. A change a user's code could break on, a public struct's new field say,
+  # fails it, unless the pull request says it breaks: a `!` in its title (`fix(fdfd)!: ...`, as
+  # Conventional Commits mark it) or the `breaking` label. Release-plz then raises the minor
+  # version, 0.5 to 0.6, where a patch was meant.
   semver:
     name: Semver
     needs: changes
@@ -411,11 +414,16 @@ jobs:
       pull-requests: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          # the base commit, which the check builds as its baseline
+          fetch-depth: 0
       - id: check
         continue-on-error: true
         uses: obi1kenobi/cargo-semver-checks-action@v2.9
         with:
           package: photonoxide
+          # empty (the latest release) for the release PR and for runs that aren't pull requests
+          baseline-rev: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release-plz-') && github.event.pull_request.base.sha || '' }}
       # the title and labels as they are now, not as the run's event had them, so that a rerun
       # after marking the pull request breaking passes
       - name: A break needs the pull request to say so
@@ -432,7 +440,7 @@ jobs:
             echo "::notice::The public API breaks semver (above), and the pull request says so: the next release raises the minor version."
             exit 0
           fi
-          echo "::error::The public API breaks semver against the latest release (the lints above): users' code that compiles against it may not compile against this. Keep the old API working (a field added to a public struct breaks every literal of it: put new settings in a type of their own marked #[non_exhaustive], with a new method taking it), or, if the break is meant, put a ! in the pull request's title (fix(area)!: ...) or add the breaking label, then rerun this job: release-plz will then raise the minor version."
+          echo "::error::The public API breaks semver against the pull request's base (or, on the release PR, the latest release; the lints above): users' code that compiles against it may not compile against this. Keep the old API working (a field added to a public struct breaks every literal of it: put new settings in a type of their own marked #[non_exhaustive], with a new method taking it), or, if the break is meant, put a ! in the pull request's title (fix(area)!: ...) or add the breaking label, then rerun this job: release-plz will then raise the minor version."
           exit 1
 
   # a push to the release PR (lines added to its changelog by hand) is checked again
