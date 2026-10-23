@@ -52,10 +52,17 @@ use crate::{Error, Result};
 pub use crate::statics::{
     Axis, Boundary, Cut, Features, Field, Grading, Grid, MAX_CELLS, Section, Side, Tensor,
 };
+pub use correction::Correction;
+pub use network::Network;
 pub use rc::{Cauer, Fitted, Foster, RcFit, RcModel};
 pub use shifter::{Drive, Efficiency, Guide, Optics, PhaseShifter, StepResponses, Timing};
 
+mod correction;
+pub(crate) mod correction_checks;
+#[cfg(test)]
+mod correction_tests;
 pub(crate) mod crosstalk_checks;
+mod network;
 mod rc;
 pub(crate) mod rc_checks;
 #[cfg(test)]

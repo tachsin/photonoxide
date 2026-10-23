@@ -628,7 +628,7 @@ pub(crate) fn solve(mut m: Vec<Vec<f64>>, mut b: Vec<f64>) -> Vec<f64> {
 /// The eigenvalues and eigenvectors (columns) of the symmetric part of a small square matrix,
 /// by cyclic Jacobi rotations.
 #[allow(clippy::needless_range_loop)] // the rotations read best by index
-fn eigen(a: &[Vec<f64>]) -> (Vec<f64>, Vec<Vec<f64>>) {
+pub(crate) fn eigen(a: &[Vec<f64>]) -> (Vec<f64>, Vec<Vec<f64>>) {
     let n = a.len();
     let mut m: Vec<Vec<f64>> = (0..n)
         .map(|i| (0..n).map(|j| 0.5 * (a[i][j] + a[j][i])).collect())

@@ -1,0 +1,22 @@
+# Gurses et al. 2022's heater array, its crosstalk corrected by genoxide's L-BFGS-B on the phase
+# error's exact gradient: 9 shifters in a row as their Eq. 13 takes them, each heater's own
+# P_pi 10.6 mW (their test structure's) and its first neighbour's 30.94 mW (their tuned
+# coupling, 13.2 uW/K, through their Fig. 19's pair), every shifter wanted at pi. Each heater
+# alone at its own P_pi leaves the inner shifters 2.15 rad over; the optimum is their
+# P = C^-1 Phi, 5.30 to 8.79 mW.
+#   photonoxide run jobs/crosstalk-correction.yaml   (live in the window; --headless for batches)
+name: crosstalk-correction
+timeout_minutes: 1
+
+task:
+  kind: optimize
+  method: lbfgsb
+  seed: 1
+  evaluations: 200
+
+  crosstalk:
+    count: 9
+    p_pi_mw: 10.6
+    neighbour_p_pi_mw: [30.94]
+    target_rad: [3.14159265, 3.14159265, 3.14159265, 3.14159265, 3.14159265, 3.14159265, 3.14159265, 3.14159265, 3.14159265]
+    max_power_mw: 30.0

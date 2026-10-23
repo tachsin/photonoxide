@@ -442,3 +442,76 @@ fn a_record_names_the_best_and_the_front() {
     assert_eq!(*index, Some(3));
     assert!(parameters.iter().any(|(n, e)| n == "length" && e == "18.0"));
 }
+
+#[test]
+#[allow(clippy::approx_constant)] // the job file's targets, 3.14159265
+fn lbfgsb_corrects_gurses_et_al_s_array_to_their_inverse() {
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs/crosstalk-correction.yaml");
+    let job = Job::parse_as(
+        &std::fs::read_to_string(path).unwrap(),
+        crate::run::Format::Yaml,
+    )
+    .unwrap();
+    assert!(optimizes(&job));
+    crate::job::check(&job).unwrap();
+    let mut problem = Problem::of(&job).unwrap();
+    let checks = problem.check_gradients().unwrap();
+    assert!(checks.iter().all(|c| c.agrees), "{checks:?}");
+    assert!(problem.derivatives().iter().all(|d| *d == "exact"));
+    let (x, evaluations) = lbfgsb(&problem);
+    let c = crate::thermal::Correction::row(9, 10.6e-3, &[30.94e-3], vec![3.14159265; 9]).unwrap();
+    let inverse = c.inverse().unwrap();
+    for (a, b) in x.iter().zip(&inverse) {
+        assert!(
+            (a * 1e-3 - b).abs() < 1e-6 * b,
+            "{a} mW against {} mW",
+            b * 1e3
+        );
+    }
+    assert!(evaluations < 200, "{evaluations}");
+    // a crosstalk task runs in the program, as a device's does
+    let e = crate::job::execute(&job, &mut Run::in_memory(), &Stop::new(None)).unwrap_err();
+    assert!(e.to_string().contains("genoxide's"), "{e}");
+    // the record's start, and a point's parameters
+    let mut run = Run::in_memory();
+    let recorder = Recorder::begin(&problem, &job, &mut run, checks).unwrap();
+    assert_eq!(recorder.count(), 0);
+    let at = problem.parameters_at(&x).unwrap();
+    assert_eq!(at.len(), 9);
+    assert!(problem.design_at(&x).is_err() && problem.chip_at(&x).is_err());
+}
+
+#[test]
+fn a_crosstalk_task_names_what_it_lacks() {
+    let job = |crosstalk: &str| {
+        Job::parse(&format!(
+            "name = \"t\"\ntimeout_minutes = 1\n\n[task]\nkind = \"optimize\"\nmethod = \"lbfgsb\"\nseed = 1\nevaluations = 10\n\n[task.crosstalk]\n{crosstalk}"
+        ))
+        .unwrap()
+    };
+    let good = "phase_per_watt = [[300.0, 50.0], [50.0, 300.0]]\ntarget_rad = [1.0, 2.0]\nmax_power_mw = 20.0\n";
+    crate::job::check(&job(good)).unwrap();
+    for (text, says) in [
+        (
+            good.replace("max_power_mw = 20.0", "max_power_mw = -1.0"),
+            "max_power_mw",
+        ),
+        (
+            good.replace("target_rad = [1.0, 2.0]", "target_rad = [1.0]"),
+            "targets",
+        ),
+        (format!("{good}count = 3\n"), "one of them"),
+        (
+            good.replace("phase_per_watt", "phase_per_wat"),
+            "unknown field",
+        ),
+    ] {
+        let e = crate::job::check(&job(&text)).unwrap_err().to_string();
+        assert!(e.contains(says), "{says}: {e}");
+    }
+    let plain =
+        Job::parse("name = \"t\"\ntimeout_minutes = 1\n[task]\nkind = \"optimize\"\n").unwrap();
+    let e = crate::job::check(&plain).unwrap_err().to_string();
+    assert!(e.contains("[task.crosstalk]"), "{e}");
+}

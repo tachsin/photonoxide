@@ -2026,6 +2026,8 @@ pub fn cases() -> Vec<Case> {
     // and the heaters' dynamic thermal compact models, and a circuit heated through them
     cases.extend(crate::thermal::rc_checks::cases());
     cases.extend(crate::circuit::heated_checks::cases());
+    // and their crosstalk corrected: Gurses et al.'s networks and array
+    cases.extend(crate::thermal::correction_checks::cases());
     cases
 }
 

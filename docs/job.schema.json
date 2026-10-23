@@ -636,6 +636,166 @@
       ],
       "type": "object"
     },
+    "CrosstalkSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "bias",
+              "bias_rad"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "target",
+              "target_rad"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "target_rad"
+              ]
+            },
+            {
+              "required": [
+                "target"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "`[task.crosstalk]`: a heater array's steady response and the phases wanted of it.",
+      "properties": {
+        "bias": {
+          "default": [],
+          "description": "Each shifter's phase with no power, rad (0 by default). With its unit in the value, in place of bias_rad: an angle with its unit, e.g. \"0.5 rad\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "bias_rad": {
+          "default": [],
+          "description": "Each shifter's phase with no power, rad (0 by default).",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "count": {
+          "description": "Gurses et al.'s row: how many shifters.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_power_mw": {
+          "description": "What each heater stands, mW: every power's upper bound.",
+          "type": "number"
+        },
+        "neighbour_p_pi_mw": {
+          "default": [],
+          "description": "Gurses et al.'s row: the power for π on the n-th neighbour, mW, n = 1, 2, …",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "p_pi_mw": {
+          "description": "Gurses et al.'s row: each heater's power for π on its own shifter, mW.",
+          "type": "number"
+        },
+        "phase_per_watt": {
+          "description": "The steady response, rad/W: `phase_per_watt[i][j]`, shifter i's phase per W of heater j (a static job's thermal model's residues summed, or its dn_eff/dP times 2π/λ).",
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "target": {
+          "description": "Each shifter's wanted phase, rad. With its unit in the value, in place of target_rad: an angle with its unit, e.g. \"0.5 rad\".",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Expression"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "target_rad": {
+          "description": "Each shifter's wanted phase, rad.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "max_power_mw"
+      ],
+      "type": "object"
+    },
+    "CrosstalkTask": {
+      "additionalProperties": false,
+      "description": "A crosstalk correction's `\"optimize\"` task.",
+      "properties": {
+        "crosstalk": {
+          "$ref": "#/$defs/CrosstalkSpec",
+          "description": "The heater array."
+        },
+        "evaluations": {
+          "description": "The budget: the optimizer's evaluations.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "kind": {
+          "description": "`\"optimize\"`.",
+          "type": "string"
+        },
+        "learning_rate": {
+          "description": "Adam's learning rate.",
+          "type": "number"
+        },
+        "method": {
+          "description": "genoxide's method: lbfgsb, adam, mma, gcmma, nelder-mead, cmaes, de, pso.",
+          "type": "string"
+        },
+        "population": {
+          "description": "A population method's size.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "seed": {
+          "description": "The optimizer's seed.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "method",
+        "crosstalk"
+      ],
+      "type": "object"
+    },
     "Device": {
       "additionalProperties": false,
       "allOf": [
@@ -9040,6 +9200,21 @@
                 "then": {
                   "$ref": "#/$defs/StaticTask"
                 }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "optimize"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "$ref": "#/$defs/CrosstalkTask"
+                }
               }
             ],
             "properties": {
@@ -9050,7 +9225,8 @@
                   "modes",
                   "fdfd",
                   "fdtd",
-                  "static"
+                  "static",
+                  "optimize"
                 ]
               }
             },

@@ -154,6 +154,10 @@ pub(crate) fn base() -> Value {
             ("fdfd", task::<super::fdfd::FdfdTask>),
             ("fdtd", task::<super::fdtd::FdtdTask>),
             ("static", task::<super::statics::StaticTask>),
+            (
+                "optimize",
+                task::<super::optimize::crosstalk::CrosstalkTask>,
+            ),
         ],
     );
     // a device's task may be empty, or left out: the design at its fidelity, its own model

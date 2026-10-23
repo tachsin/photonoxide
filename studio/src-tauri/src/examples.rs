@@ -419,6 +419,10 @@ pub fn jobs() -> Vec<JobExample> {
             include_str!("../../../jobs/coupler-3db-optimize.yaml"),
         ),
         (
+            "crosstalk-correction.yaml",
+            include_str!("../../../jobs/crosstalk-correction.yaml"),
+        ),
+        (
             "ring-pareto.yaml",
             include_str!("../../../jobs/ring-pareto.yaml"),
         ),

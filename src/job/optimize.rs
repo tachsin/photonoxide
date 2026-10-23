@@ -886,6 +886,8 @@ enum Target {
     Device { spec: Spec, grids: Grids },
     /// A job's `[circuit]`.
     Chip(Box<chip::ChipTarget>),
+    /// A heater array's `[task.crosstalk]`.
+    Crosstalk(Box<crosstalk::CrosstalkTarget>),
 }
 
 /// What a point of the variables gives: each objective's cost and value, each constraint's
@@ -1183,7 +1185,7 @@ fn derivative_name(method: &Method, exact: bool) -> &'static str {
 /// Whether `job` optimizes its device (a `[device]` with a task of kind `"optimize"`): a job
 /// the `photonoxide` program runs, its optimizer genoxide's.
 pub fn optimizes(job: &Job) -> bool {
-    (job.device().is_some() || job.circuit().is_some())
+    (job.device().is_some() || job.circuit().is_some() || crosstalk::corrects(job))
         && job.task().get("kind").and_then(Value::as_str) == Some("optimize")
 }
 
@@ -1202,6 +1204,9 @@ impl Problem {
     pub fn of(job: &Job) -> Result<Problem> {
         if job.circuit().is_some() {
             return chip::of(job);
+        }
+        if crosstalk::corrects(job) {
+            return crosstalk::of(job);
         }
         let spec = spec_of(job)?;
         let task: OptimizeTask = job
@@ -1670,7 +1675,7 @@ impl Problem {
         let Target::Device { spec: own, .. } = &self.target else {
             return Err(Error::invalid(
                 "optimize",
-                "a chip's optimization designs a chip (Problem::chip_at), not a device",
+                "only a device's optimization designs a device",
             ));
         };
         let (device, design) = own.build()?;
@@ -1701,6 +1706,7 @@ impl Problem {
         match &self.target {
             Target::Device { .. } => Ok(self.design_at(x)?.parameters),
             Target::Chip(t) => chip::parameters_at(self, t, x),
+            Target::Crosstalk(_) => Ok(crosstalk::parameters_at(self, x)),
         }
     }
 
@@ -1713,9 +1719,9 @@ impl Problem {
     pub fn chip_at(&self, x: &[f64]) -> Result<super::ChipDesign> {
         match &self.target {
             Target::Chip(t) => chip::chip_at(t, x),
-            Target::Device { .. } => Err(Error::invalid(
+            Target::Device { .. } | Target::Crosstalk(_) => Err(Error::invalid(
                 "optimize",
-                "a device's optimization designs a device (Problem::design_at), not a chip",
+                "only a chip's optimization designs a chip",
             )),
         }
     }
@@ -2044,6 +2050,7 @@ impl Problem {
         let (fidelity, grids) = match &self.target {
             Target::Device { spec, grids } => (spec.fidelity, grids),
             Target::Chip(t) => return chip::point(self, t, x, wanted),
+            Target::Crosstalk(t) => return crosstalk::point(self, t, x, wanted),
         };
         let designs = self.designs(x)?;
         let mut solves = 0;
@@ -2413,6 +2420,7 @@ impl Recorder {
                 )
             }
             Target::Chip(t) => chip::begin(problem, t, job, run)?,
+            Target::Crosstalk(t) => crosstalk::begin(problem, t, job, run)?,
         };
         let derivatives = problem.derivatives();
         run.record(&Event::Optimization {
@@ -2666,6 +2674,7 @@ pub fn design_of(job: &Job, x: &[f64]) -> Result<Spec> {
 
 mod chip;
 pub use chip::optimize_from_chip;
+pub(super) mod crosstalk;
 
 #[cfg(test)]
 mod tests;

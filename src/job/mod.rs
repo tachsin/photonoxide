@@ -3572,6 +3572,14 @@ fn execute_task(job: &Job, run: &mut Run, stop: &Stop, kind: &str) -> Result<()>
         kind: kind.clone(),
     })?;
     match kind.as_str() {
+        "optimize" => {
+            check(job)?;
+            return Err(task_error(
+                "an \"optimize\" job's optimizer is genoxide's, which the photonoxide program \
+                 runs: photonoxide run <job> (the studio window shows it live); the library \
+                 supplies its objectives and records it (photonoxide::job::Problem, Recorder)",
+            ));
+        }
         "structure" => structure(job, run, stop)?,
         "modes" => modes(job, run, stop)?,
         "fdfd" => fdfd::run(job, run, stop)?,
@@ -3712,6 +3720,13 @@ fn check_inner(job: &Job) -> Result<()> {
         "fdfd" => return fdfd::check(job),
         "fdtd" => return fdtd::check(job),
         "static" => return statics::check(job),
+        "optimize" if optimize::crosstalk::corrects(job) => return optimize::check(job),
+        "optimize" => {
+            return Err(task_error(
+                "an \"optimize\" task optimizes a [device], a [circuit], or a heater array's \
+                 [task.crosstalk]",
+            ));
+        }
         other => return Err(task_error(format!("unknown kind \"{other}\""))),
     };
     s.stack()
