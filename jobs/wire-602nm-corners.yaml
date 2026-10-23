@@ -1,0 +1,32 @@
+# Dwivedi et al.'s 602 x 211 nm silicon wire in silica (J. Lightwave Technol. 33, 4471 (2015),
+# doi:10.1109/JLT.2015.2476603, Table I: the SEM's cross-section of the wire drawn 600 x 215 nm):
+# the waveguide device's 3D model at 1.55 um over 1.52 to 1.58 um, its TE-like mode by Hadley's
+# equations on a quarter domain, and the fabrication corners of their Eq. 5, the width +-20 nm and
+# the thickness +-5 nm. Its figures n_eff and n_g at each. examples/mzi_dwivedi.rs predicts the
+# wire's indices from the same model before it reads them from its interferometers' spectra, and a
+# test checks that this job's figures are its numbers, to the bit.
+#   photonoxide run jobs/wire-602nm-corners.yaml
+name: wire-602nm-corners
+timeout_minutes: 10
+
+device:
+  kind: waveguide
+  fidelity: 3D
+  parameters:
+    width: "0.602"
+    thickness: "0.211"
+    wavelength: "1.55"
+    span: "0.06"
+
+task:
+  kind: corners
+
+  corner:
+    - name: 20 nm wider
+      offsets: { width: 0.02 }
+    - name: 20 nm narrower
+      offsets: { width: -0.02 }
+    - name: 5 nm thicker
+      offsets: { thickness: 0.005 }
+    - name: 5 nm thinner
+      offsets: { thickness: -0.005 }

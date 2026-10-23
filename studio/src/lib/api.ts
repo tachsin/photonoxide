@@ -96,6 +96,10 @@ export interface Example {
   tolerance: string;
   recorded: string;
   seconds: number;
+  /** The job files of jobs/ that compute its numbers, to the bit; none when the format can't describe it yet. */
+  jobs: string[];
+  /** What those jobs give of it, or what the job format lacks to describe it. */
+  as_job: string;
 }
 
 export interface JobExample {

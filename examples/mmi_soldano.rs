@@ -30,12 +30,31 @@ use std::process::ExitCode;
 
 use photonoxide::circuit::Fidelity;
 use photonoxide::circuit::components::MmiKind;
-use photonoxide::device::{Device, StripMmi, Values};
+use photonoxide::device::{Built, Device, StripMmi, Values};
 use photonoxide::generator::{Mmi, SelfImaging};
 use photonoxide::material;
 use photonoxide::mode::Polarization;
 use photonoxide::mode::slab::Slab;
 use photonoxide::units::{Length, Wavelength};
+
+/// The sections: each width and its access guides' width, µm.
+pub const SECTIONS: [(f64, f64); 3] = [(3.0, 0.8), (6.0, 1.5), (12.0, 1.5)];
+
+/// The MMI `device` with a section `width` µm wide and access and port guides `access` µm wide:
+/// its values, and its 2D model there. jobs/mmi-1x2-self-imaging.yaml and
+/// jobs/mmi-2x2-self-imaging.yaml compute the same designs, to the bit.
+pub fn model(device: &StripMmi, width: f64, access: f64) -> photonoxide::Result<(Values, Built)> {
+    let v = Values::new(
+        device,
+        &[
+            ("width", width),
+            ("access_width", access),
+            ("port_width", access),
+        ],
+    )?;
+    let b = device.component(&v, Fidelity::TwoD)?;
+    Ok((v, b))
+}
 
 pub fn main() -> photonoxide::Result<ExitCode> {
     let lam = Wavelength::um(1.55)?;
@@ -63,18 +82,9 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                 "33"
             }
         );
-        for (width, access) in [(3.0, 0.8), (6.0, 1.5), (12.0, 1.5)] {
-            let v = Values::new(
-                &device,
-                &[
-                    ("width", width),
-                    ("access_width", access),
-                    ("port_width", access),
-                ],
-            )?;
-            let figure =
-                |b: &photonoxide::device::Built, s: &str| b.figure(s).map_or(f64::NAN, |f| f.value);
-            let b = device.component(&v, Fidelity::TwoD)?;
+        for (width, access) in SECTIONS {
+            let figure = |b: &Built, s: &str| b.figure(s).map_or(f64::NAN, |f| f.value);
+            let (v, b) = model(&device, width, access)?;
             let beat = figure(&b, "L_pi");
             let image = figure(&b, "L_image");
             let paper_beat = Mmi::beat_length(Length::um(width), nr, nc, Length::um(1.55), true);

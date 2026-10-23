@@ -31,13 +31,21 @@ use std::process::ExitCode;
 
 use photonoxide::Complex64 as c64;
 use photonoxide::circuit::Fidelity;
-use photonoxide::device::{Device, StripBend, Values};
+use photonoxide::device::{Built, Device, StripBend, Values};
 use photonoxide::mode::Polarization;
 use photonoxide::mode::bend::{SlabBend, marcuse_loss};
 use photonoxide::mode::dispersion::bend_loss_db;
 use photonoxide::mode::slab::Slab;
 use photonoxide::mode::vector::{self, Boundaries, Boundary, CrossSection, Permittivity, Pml};
 use photonoxide::units::{Length, Wavelength};
+
+/// The bend device, a 500 × 220 nm strip on 220 nm SOI bent at 2 µm and lossless, at
+/// `fidelity`. jobs/bend-2um-2d.yaml and jobs/bend-2um-3d.yaml compute the same, to the bit.
+pub fn bend_device(fidelity: Fidelity) -> photonoxide::Result<Built> {
+    let bend = StripBend::new();
+    let values = Values::new(&bend, &[("radius", 2.0), ("loss", 0.0)])?;
+    bend.component(&values, fidelity)
+}
 
 pub fn main() -> photonoxide::Result<ExitCode> {
     let mut checks = common::Checks::default();
@@ -124,11 +132,9 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     // the whole strip through photonoxide's bend device: its 2D model, the exact bent slab of
     // the strip seen from above (the effective index method's 2.84 in 1.444), and its 3D one,
     // the straight strip by Hadley's equations plus the conformal map's shift
-    let bend = StripBend::new();
-    let values = Values::new(&bend, &[("radius", 2.0), ("loss", 0.0)])?;
     println!("the bend device: a 500 x 220 nm strip on 220 nm SOI bent at 2 um, at 1.55 um");
     for fidelity in [Fidelity::TwoD, Fidelity::ThreeD] {
-        let built = bend.component(&values, fidelity)?;
+        let built = bend_device(fidelity)?;
         let figure = |s: &str| built.figure(s).map_or(f64::NAN, |f| f.value);
         println!(
             "  {fidelity}: n_eff {:.5} along the arc, radiation {:.2e} dB per 90 deg ({})",

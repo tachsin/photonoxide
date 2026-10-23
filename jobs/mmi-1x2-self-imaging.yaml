@@ -1,0 +1,29 @@
+# The 1x2 MMI's self-imaging lengths beside Soldano and Pennings's closed forms (J. Lightwave
+# Technol. 13, 615 (1995), doi:10.1109/50.372474, Section III): the device's 2D model on 220 nm
+# SOI (the plane seen from above by the effective index method, the section's exact slab modes: no
+# grid), for sections 3, 6 and 12 um wide. Its figures L_pi, the beat length of the two lowest
+# modes, and L_image, the first two-fold image, which a splitter fed in its middle forms at
+# 3 L_pi / 8 (symmetric interference, their Eq. 37 with N = 2). The nominal design is the 3 um
+# section with 0.8 um guides, and each corner widens it; the 6 and 12 um sections take 1.5 um
+# guides. examples/mmi_soldano.rs computes the same designs, and a test checks that this job's
+# figures are its numbers, to the bit.
+#   photonoxide run jobs/mmi-1x2-self-imaging.yaml
+name: mmi-1x2-self-imaging
+timeout_minutes: 5
+
+device:
+  kind: MMI 1x2
+  fidelity: 2D
+  parameters:
+    width: "3"
+    access_width: "0.8"
+    port_width: "0.8"
+
+task:
+  kind: corners
+
+  corner:
+    - name: 6 um wide
+      offsets: { width: 3.0, access_width: 0.7, port_width: 0.7 }
+    - name: 12 um wide
+      offsets: { width: 9.0, access_width: 0.7, port_width: 0.7 }

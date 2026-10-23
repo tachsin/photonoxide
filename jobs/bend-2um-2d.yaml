@@ -1,0 +1,18 @@
+# A 500 x 220 nm silicon strip on 220 nm SOI bent at a radius of 2 um, at 1.55 um, by the bend
+# device's 2D model: an exact bent slab by the effective index method, no grid. Its figures n_eff,
+# along the arc, and radiation_90, the radiation loss per 90 degrees in dB, the guide itself
+# lossless. examples/bend_loss.rs prints the same device's figures after its exact bent slabs and
+# Marcuse's formula, and a test checks that this job's are its numbers, to the bit.
+#   photonoxide run jobs/bend-2um-2d.yaml
+name: bend-2um-2d
+timeout_minutes: 5
+
+device:
+  kind: bend
+  fidelity: 2D
+  parameters:
+    radius: "2"
+    loss: "0"
+
+task:
+  kind: spectrum

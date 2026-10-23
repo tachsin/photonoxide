@@ -65,12 +65,84 @@ cell-updates/s. `PHOTONOXIDE_PROGRESS=<seconds>` sets how often, and 0 turns it 
 | [`y_junction_zhang`](y_junction_zhang.rs) | Zhang et al.'s Y-junction through the Y-branch device: its drawn spline outline at the 13 points, and its 2D model's insertion loss (2D FDFD by the effective index method at 20 and 10 nm, 1550 nm; a 2D estimate) | Y. Zhang et al., Opt. Express 21, 1310 (2013), [doi:10.1364/OE.21.001310](https://doi.org/10.1364/OE.21.001310), Table 1, and Section 2.1's 2D design: "sub-0.2 dB" | the outline to 1e-12 µm; the 2D loss below 0.2 dB |
 | [`compact_mzi_ye`](compact_mzi_ye.rs) | An MZI's S-parameters (ideal 50/50 couplers, arms of 150 and 100 µm, n_eff 2.35, n_g 4.3, 200 dB/m) fitted by vector fitting with real poles and conjugate pairs over 187.5–200 THz and over 193.72 THz ± 150 GHz: the fewest poles whose error at the frequencies left out of the fit is below −60 dB | Y. Ye et al., Photonics Res. 6, 560 (2018), [doi:10.1364/PRJ.6.000560](https://doi.org/10.1364/PRJ.6.000560), Section 6.A: 67 and 8 poles for "less than −60 dB" | 1 pole over the wide band (a real model's poles come in pairs here: 66 found); the narrow band's 8 exactly |
 
+## As jobs
+
+An example a job file can describe has its job in [`jobs/`](../jobs), and a test
+(`studio/src-tauri/src/examples.rs`) runs each and checks that it gives the example's numbers, to
+the bit: the same library calls on the same inputs. The studio opens it from the example's page
+(**Open as a job**). Most examples aren't jobs yet, and the table says why: what the job format
+lacks to describe them. In short, it has
+
+- no job kind for a slab, a multilayer, a bent slab or a closed form (Marcatili's, the effective
+  index method, Marcuse's), nor one that reports a material's index;
+- no studies over grids (convergence, Richardson's extrapolation) beyond a device's corners and
+  sweeps of its parameters;
+- in a modes job, no walls on the window's sides, no choice of Hadley's equations, one grid of
+  its own; in a device's design, no mesh window, scheme or symmetry, and only the catalogue's
+  materials;
+- in an FDTD job, no subpixel smoothing, no conductors, lossy or dispersive media, no continuous
+  wave and no CPML but the default's;
+- in a chip, no guide of a stated index, no instances built in a loop, and no searches (peaks, a
+  line's fit, golden section) over its spectra;
+- in an optimization, none of the optimizer's own settings: several starts, stopping rules,
+  bounds as they are rather than scaled.
+
+The list shrinks as the format grows. A row's jobs are its whole computation only where the third
+column says so.
+
+| Example | Jobs | What the jobs give, or what the format lacks |
+|---|---|---|
+| `silicon_index` | | No job reports a material's index: a structure job's pictures are the permittivity at one wavelength, in single precision |
+| `silica_index` | | No job reports a material's index, as for silicon |
+| `slab_soi` | | No job kind solves a slab exactly: a modes job is the full-vector solver on a grid. `jobs/slab-soi.yaml` draws the film and solves nothing |
+| `slab_yariv_yeh` | | No job kind solves a slab exactly |
+| `bend_loss` | `bend-2um-2d.yaml`, `bend-2um-3d.yaml` | The bend device's n_eff and radiation per 90° at 2D and 3D, which it prints. Not what it checks: no job kind solves a bent slab, Marcuse's formula or a conformally mapped cross-section |
+| `effective_index_method` | | No job kind runs the effective index method on given indices, and a device's stack takes the catalogue's materials only |
+| `group_index` | | A modes job has no mirror walls, no mode followed over the wavelength and no group index; the book's Lorentz silicon isn't in the catalogue |
+| `leaky_wire_benchmark` | | A convergence study: three graded grids and Richardson's extrapolation, behind a wall. `jobs/leaky-wire.yaml` is the same guide on one uniform grid |
+| `marcatili` | | A closed form against the exact solution: no job kind runs Marcatili's method, and a modes job has no mirror walls |
+| `multilayer_chilwell` | | No job kind runs the transfer matrices of a planar multilayer |
+| `leaky_waves` | | A modes job can't put walls on its window's sides, and grids the stack its own way, not on the example's uniform grid |
+| `hadley_corners` | | A modes job has neither mirror walls nor Hadley's high-accuracy equations |
+| `strip_waveguide` | | A device's stack takes the catalogue's materials only, not the book's 3.473 and 1.444, and a job can't set the device's mesh window, scheme or symmetry |
+| `circuit_splitter` | | The optimizer's own stopping rules and bounds aren't an optimize job's settings, and it runs two methods. `jobs/chip-splitter.yaml` is the same circuit, tuned as the studio tunes it |
+| `circuit_ring_critical` | | A guide of a stated n_eff and n_g, which a chip's waveguide (a device's model) can't take; the optimizer's stopping rules |
+| `circuit_fit` | | A guide of a stated index, a ring built of a coupler and two half-guides, wavelengths a band doesn't step, and CMA-ES's initial step. `jobs/chip-fit.yaml` fits the same ring as the studio fits |
+| `optimize_bragg` | | A thin-film stack by transfer matrices isn't a device, and differential evolution's own settings aren't a job's |
+| `optimize_ring_flat` | | Chips of 2 to 6 rings built in a loop, tied variables, many starts and a polish |
+| `optimize_mzi_lattice` | | A response over the arms' phase, not the wavelength, a misfit up to a global phase, and many seeded starts |
+| `optimize_ring_pareto` | | A guide of a stated index, two methods' fronts and a polish by constraints. `jobs/ring-pareto.yaml` is another problem: an all-pass ring's Q against its dip |
+| `optimize_chip_rings` | | Three starts, bounds as they are and its own tolerances. Its chip is `jobs/chip-little-rings.yaml`, which it checks, but the studio's run of that job scales the variables and takes the first start |
+| `optimize_mesh` | | Meshes of N(N − 1)/2 MZIs built in a loop, random unitaries as targets and a unitary's misfit as the objective |
+| `directional_coupler` | | The book's Lorentz silicon and 1.444 oxide aren't the catalogue's, and a job can't set the device's mesh window. `jobs/coupler-supermodes.yaml` solves supermodes on a grid of its own |
+| `ring_q_factor` | | A guide of a stated index, and searches by golden section and bisection for the best length and the resonance's width |
+| `mzi_dwivedi` | `wire-470nm-corners.yaml`, `wire-602nm-corners.yaml`, `wire-805nm-corners.yaml` | Each wire's 3D n_eff and n_g and their Eq. 5 corners, which it prints. Not the indices it checks, read from its interferometers' spectra by their peaks and a line's fit; and an ideal splitter isn't a chip's component |
+| `cpml_roden_gedney` | | A conducting plate in lossy soil, and a CPML's own σ, κ and α |
+| `tfsf_square_cylinder` | | A perfect conductor, a continuous wave, and a reference by the moment method computed in code |
+| `lorentz_okoniewski` | | A dispersive Lorentz medium on a one-dimensional grid: an FDTD job takes its materials at the carrier, lossless |
+| `subpixel_holes` | | A convergence study over resolutions and smoothings, with currents spread over many points and a matrix pencil |
+| `pml_oskooi` | | A study over the PML's thickness and grading order |
+| `bump_oskooi` | | A convergence study with subpixel smoothing, the scattering the difference of two runs |
+| `l3_akahane` | | Subpixel smoothing, silicon taken at 1.57 µm rather than the carrier, and a current with its own pulse |
+| `coupler_liu_poon` | | The PDK's own 3D setup: subpixel smoothing, FDFD mode solves at the ports and its own decay rule |
+| `crossing_liu_poon` | | The PDK's own 3D setup, as for the coupler |
+| `mmi_liu_poon` | | The PDK's own 3D setup, as for the coupler |
+| `mode_converter_liu_poon` | | The PDK's own 3D setup, as for the coupler |
+| `splitter_rotator_liu_poon` | | The PDK's own 3D setup, as for the coupler |
+| `ring_liu_poon` | | A free spectral range from a dispersive mode solve on a quarter domain and a path length; the 3D run is the PDK's own setup |
+| `rib_hadley` | | A stack of fixed indices isn't a device's, and a job can't set the device's mesh window, Hadley's scheme or the symmetry |
+| `mmi_soldano` | `mmi-1x2-self-imaging.yaml`, `mmi-2x2-self-imaging.yaml` | Its whole check: every self-imaging length, and the beat lengths it prints, for the three sections of each MMI. Not the outputs it prints at each device's own image, a length a job would have to write out |
+| `y_junction_zhang` | | Its outline found by bisection on the shape, and an FDFD whose cells are sampled, where a job keeps the device's own averaging |
+| `compact_mzi_ye` | | A study of how many poles vector fitting needs isn't a job kind, and its guide is of a stated index |
+
 **Adding an example:**
 
 - One file per published result. Its doc comment names the paper (with its DOI), the table, figure or page, and how many digits it prints.
 - Compare with `common::Checks`, against the paper's numbers as printed. Set the tolerance from the printed digits, or from the paper's stated accuracy.
 - Print the grid for every computed number ("exact: no grid" for closed forms).
 - Add a row to the table above, and its output to `output/`.
+- Add its row to As jobs: its job files, built into the studio and checked to the bit against
+  the example, or what the job format lacks to describe it.
 - Print nothing that changes between runs (timings, for instance): the output is compared.
 - Make `main` public and add the example to `examples!` in `studio/src-tauri/src/examples.rs`: the
   program has every example built in (`photonoxide example <name>`), and the studio runs them.

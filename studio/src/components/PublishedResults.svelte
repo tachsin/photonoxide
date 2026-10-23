@@ -2,13 +2,13 @@
   // Validation's Published results tab: every example of examples/, each reproducing a paper's
   // numbers, with its paper and DOIs, its tolerance, what the release recorded, and a run on
   // this machine that checks every line against the paper as it prints.
-  import { BookMarked, CircleCheck, CircleX, ExternalLink, Play, Search, Square, Timer } from "@lucide/svelte";
+  import { BookMarked, CircleCheck, CircleX, ExternalLink, FileCode, Play, Search, Square, SquarePen, Timer } from "@lucide/svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { tick } from "svelte";
 
   import { api, duration, type Example } from "../lib/api";
-  import { app, toast } from "../lib/app.svelte";
-  import { catalog, loadCatalog } from "../lib/catalog.svelte";
+  import { app, openCustom, toast } from "../lib/app.svelte";
+  import { catalog, jobExample, loadCatalog } from "../lib/catalog.svelte";
   import { startTask, stopTask, tasks } from "../lib/tasks.svelte";
   import Tip from "./Tip.svelte";
 
@@ -49,6 +49,13 @@
       if (t.code === 0) toast(`${title(e.name)}: all within the paper's tolerance.`, "success");
       else toast(`${title(e.name)}: some values are outside tolerance; see the output.`, "warning");
     });
+  }
+
+  /** An example's job, opened in the job editor. */
+  function openJob(file: string) {
+    const job = jobExample(file);
+    if (!job) return toast(`${file} isn't built into this program`, "error");
+    openCustom(job.text);
   }
 
   function tone(line: string): string {
@@ -129,6 +136,22 @@
             <div><p class="panel-title mb-0.5">Takes</p><p class="flex items-center gap-1.5 muted"><Timer size={14} /> about {duration(current.seconds)}</p></div>
           </div>
         </div>
+
+        {#if current.as_job}
+          <div class="panel p-4">
+            <p class="panel-title mb-1.5 flex items-center gap-1.5"><FileCode size={13} /> As a job</p>
+            {#if current.jobs.length}
+              <p class="text-sm leading-relaxed">{current.as_job}. Each job gives the example's numbers to the bit.</p>
+              <div class="mt-2 flex flex-wrap gap-2">
+                {#each current.jobs as file (file)}
+                  <button class="btn btn-outline btn-sm gap-1.5" onclick={() => openJob(file)} title="Opens jobs/{file} in the job editor"><SquarePen size={14} /> Open as a job: {file}</button>
+                {/each}
+              </div>
+            {:else}
+              <p class="text-sm leading-relaxed muted">Not a job yet: {current.as_job}.</p>
+            {/if}
+          </div>
+        {/if}
 
         <div class="panel overflow-hidden">
           <div class="flex items-center gap-3 border-b border-base-content/8 px-4 py-2.5">

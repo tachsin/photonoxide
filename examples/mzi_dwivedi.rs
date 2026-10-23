@@ -62,8 +62,10 @@ const CENTRE: f64 = 1.55;
 /// waveguide device on 220 nm-class SOI, `width` × `thickness` µm, its 3D model, which solves a
 /// quarter of the cross-section (x, y ≥ 0, an electric wall at x = 0 and a magnetic wall at
 /// y = 0 keeping the TE-like modes) on a uniform grid of about 10 nm whose lines fall on the
-/// core's faces, 1 µm of oxide beyond them, by Hadley's equations.
-fn wire(width: f64, thickness: f64) -> photonoxide::Result<(Dispersion, String)> {
+/// core's faces, 1 µm of oxide beyond them, by Hadley's equations. jobs/wire-470nm-corners.yaml,
+/// jobs/wire-602nm-corners.yaml and jobs/wire-805nm-corners.yaml compute the SEM's wires and
+/// their Eq. 5 corners the same way, to the bit.
+pub fn wire(width: f64, thickness: f64) -> photonoxide::Result<(Dispersion, String)> {
     let device = StripWaveguide::new();
     let values = Values::new(
         &device,

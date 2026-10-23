@@ -121,6 +121,11 @@ pub struct Example {
     pub recorded: String,
     /// How long it takes, roughly, in a release build (seconds).
     pub seconds: f64,
+    /// The job files of jobs/ that compute its numbers, to the bit (examples/README.md, "As
+    /// jobs"); none when the job format can't describe it yet.
+    pub jobs: Vec<String>,
+    /// What those jobs give of it, or what the job format lacks to describe it.
+    pub as_job: String,
 }
 
 /// Each example's title and its source in a few words.
@@ -280,9 +285,41 @@ pub fn list() -> Vec<Example> {
                 tolerance: plain(cell(3)),
                 recorded: recorded(name).replace("\r\n", "\n"),
                 seconds: seconds(name),
+                jobs: as_job(name).map(|r| r.0).unwrap_or_default(),
+                as_job: as_job(name).map(|r| r.1).unwrap_or_default(),
             }
         })
         .collect()
+}
+
+/// The example `name`'s row of the README's "As jobs" table: the job files that compute its
+/// numbers, and what they give of it or what the format lacks.
+fn as_job(name: &str) -> Option<(Vec<String>, String)> {
+    let section = README.split("\n## As jobs").nth(1)?;
+    let section = section.split("\n## ").next().unwrap_or(section);
+    section
+        .lines()
+        .filter(|l| l.starts_with("| `"))
+        // split at every bar: a row without jobs has an empty cell, " | | "
+        .map(|l| {
+            l.trim_matches('|')
+                .split('|')
+                .map(str::trim)
+                .collect::<Vec<_>>()
+        })
+        .find(|r| r[0] == format!("`{name}`"))
+        .map(|r| {
+            let jobs = r
+                .get(1)
+                .map(|c| {
+                    c.split(", ")
+                        .map(|j| j.trim_matches('`').to_owned())
+                        .filter(|j| !j.is_empty())
+                        .collect()
+                })
+                .unwrap_or_default();
+            (jobs, plain(r.get(2).copied().unwrap_or("")))
+        })
 }
 
 /// Markdown made plain: `[text](url)` as text, without `*`, `_` emphasis or backticks.
@@ -394,6 +431,34 @@ pub fn jobs() -> Vec<JobExample> {
             include_str!("../../../jobs/chip-ring-critical.yaml"),
         ),
         ("chip-fit.yaml", include_str!("../../../jobs/chip-fit.yaml")),
+        (
+            "mmi-1x2-self-imaging.yaml",
+            include_str!("../../../jobs/mmi-1x2-self-imaging.yaml"),
+        ),
+        (
+            "mmi-2x2-self-imaging.yaml",
+            include_str!("../../../jobs/mmi-2x2-self-imaging.yaml"),
+        ),
+        (
+            "bend-2um-2d.yaml",
+            include_str!("../../../jobs/bend-2um-2d.yaml"),
+        ),
+        (
+            "bend-2um-3d.yaml",
+            include_str!("../../../jobs/bend-2um-3d.yaml"),
+        ),
+        (
+            "wire-470nm-corners.yaml",
+            include_str!("../../../jobs/wire-470nm-corners.yaml"),
+        ),
+        (
+            "wire-602nm-corners.yaml",
+            include_str!("../../../jobs/wire-602nm-corners.yaml"),
+        ),
+        (
+            "wire-805nm-corners.yaml",
+            include_str!("../../../jobs/wire-805nm-corners.yaml"),
+        ),
     ]
     .into_iter()
     .map(|(file, text)| JobExample {
@@ -467,6 +532,135 @@ mod tests {
         for j in jobs() {
             let job = crate::studio::parse_job(&j.text).unwrap();
             photonoxide::job::check(&job).unwrap();
+        }
+    }
+
+    #[test]
+    fn every_example_says_whether_a_job_describes_it() {
+        let built: Vec<String> = jobs().into_iter().map(|j| j.file).collect();
+        let mut described = 0;
+        for e in list() {
+            assert!(
+                !e.as_job.is_empty(),
+                "{}: no row in examples/README.md's As jobs",
+                e.name
+            );
+            for j in &e.jobs {
+                assert!(built.contains(j), "{}: {j} isn't built in", e.name);
+            }
+            described += usize::from(!e.jobs.is_empty());
+        }
+        assert_eq!(described, 3);
+    }
+
+    use photonoxide::job::{DeviceFigure, Event};
+    use photonoxide::run::{Run, Stop};
+
+    /// The events of the built-in job `file`'s run.
+    fn run_of(file: &str) -> Vec<Event> {
+        let text = jobs().into_iter().find(|j| j.file == file).unwrap().text;
+        let job = crate::studio::parse_job(&text).unwrap();
+        let mut run = Run::in_memory();
+        photonoxide::job::execute(&job, &mut run, &Stop::new(None)).unwrap();
+        run.lines()
+            .iter()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect()
+    }
+
+    /// The figures of each point of a study's run, in order.
+    fn points(events: &[Event]) -> Vec<Vec<DeviceFigure>> {
+        events
+            .iter()
+            .filter_map(|e| match e {
+                Event::DevicePoint { error, figures, .. } => {
+                    assert_eq!(error, &None);
+                    Some(figures.clone())
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The figures of a spectrum job's run.
+    fn model(events: &[Event]) -> Vec<DeviceFigure> {
+        events
+            .iter()
+            .find_map(|e| match e {
+                Event::DeviceModel { figures, .. } => Some(figures.clone()),
+                _ => None,
+            })
+            .unwrap()
+    }
+
+    /// Every figure of a job's the device's own, to the bit: symbol, value and grid.
+    fn same(file: &str, job: &[DeviceFigure], built: &photonoxide::device::Built) {
+        assert_eq!(job.len(), built.figures.len(), "{file}");
+        for (j, b) in job.iter().zip(&built.figures) {
+            assert_eq!(j.symbol, b.symbol, "{file}");
+            assert_eq!(j.value.to_bits(), b.value.to_bits(), "{file}: {}", j.symbol);
+            assert_eq!(j.grid, b.grid, "{file}: {}", j.symbol);
+        }
+    }
+
+    /// The figure `symbol` of a job's figures.
+    fn figure(figures: &[DeviceFigure], symbol: &str) -> f64 {
+        figures.iter().find(|f| f.symbol == symbol).unwrap().value
+    }
+
+    #[test]
+    fn the_mmi_jobs_give_mmi_soldanos_numbers_to_the_bit() {
+        use photonoxide::device::StripMmi;
+        for (file, device) in [
+            ("mmi-1x2-self-imaging.yaml", StripMmi::one_by_two()),
+            ("mmi-2x2-self-imaging.yaml", StripMmi::two_by_two()),
+        ] {
+            let points = points(&run_of(file));
+            assert_eq!(points.len(), mmi_soldano::SECTIONS.len(), "{file}");
+            for (point, (width, access)) in points.iter().zip(mmi_soldano::SECTIONS) {
+                let (_, built) = mmi_soldano::model(&device, width, access).unwrap();
+                same(file, point, &built);
+            }
+        }
+    }
+
+    #[test]
+    fn the_bend_jobs_give_bend_losss_numbers_to_the_bit() {
+        use photonoxide::circuit::Fidelity;
+        for (file, fidelity) in [
+            ("bend-2um-2d.yaml", Fidelity::TwoD),
+            ("bend-2um-3d.yaml", Fidelity::ThreeD),
+        ] {
+            let built = bend_loss::bend_device(fidelity).unwrap();
+            same(file, &model(&run_of(file)), &built);
+        }
+    }
+
+    #[test]
+    fn the_wire_jobs_give_mzi_dwivedis_numbers_to_the_bit() {
+        let t = 0.211;
+        for (file, w) in [
+            ("wire-470nm-corners.yaml", 0.470),
+            ("wire-602nm-corners.yaml", 0.602),
+            ("wire-805nm-corners.yaml", 0.805),
+        ] {
+            let points = points(&run_of(file));
+            // the nominal wire, then the corners of the example's Eq. 5
+            let designs = [
+                (w, t),
+                (w + 0.02, t),
+                (w - 0.02, t),
+                (w, t + 0.005),
+                (w, t - 0.005),
+            ];
+            assert_eq!(points.len(), designs.len(), "{file}");
+            for (point, (width, thickness)) in points.iter().zip(designs) {
+                let (wire, _) = mzi_dwivedi::wire(width, thickness).unwrap();
+                let (n, ng) = (figure(point, "n_eff"), figure(point, "n_g"));
+                let at = format!("{file}: {width} x {thickness}");
+                assert_eq!(n.to_bits(), wire.effective_index.to_bits(), "{at}");
+                assert_eq!(ng.to_bits(), wire.group_index.to_bits(), "{at}");
+            }
         }
     }
 
