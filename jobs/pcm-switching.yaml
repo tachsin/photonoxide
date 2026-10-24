@@ -1,7 +1,7 @@
 # A phase-change cell switched by a heat pulse: 25 nm of crystalline Sb2Se3 on a 500 x 220 nm
-# silicon strip, the strip itself the heater (a doped-silicon heater, 7.5 mW/um for 100 ns), in
+# silicon strip, the strip itself the heater (a doped-silicon heater, 8 mW/um for 100 ns), in
 # oxide on the 220 nm SOI stack, the substrate held at 293.15 K 2 um below the buried oxide. The
-# film's conductivity and heat capacity are the catalogue's (Lawson et al. 2022, Cernoskova et al.
+# film's conductivity and heat capacity are the catalogue's (Aryana et al. 2023, Cernoskova et al.
 # 2014, Efthimiopoulos et al. 2013), and its crystallization and melting temperatures (Delaney et
 # al. 2020, Lawson et al. 2022) are what [[task.switching]] sets the film's temperatures against.
 # The run records the film's hottest and coldest cells at their highest and what the pulse does
@@ -31,7 +31,7 @@ task:
     bottom: { fixed: 293.15 }
 
   heater:
-    - { y_um: [-0.25, 0.25], z_um: [2.0, 2.22], power_w_per_m: 7500.0 }
+    - { y_um: [-0.25, 0.25], z_um: [2.0, 2.22], power_w_per_m: 8000.0 }
 
   probe:
     - { name: film, y_um: [-0.25, 0.25], z_um: [2.22, 2.245] }

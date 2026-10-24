@@ -769,9 +769,9 @@ fn a_pulse_amorphizes_the_phase_change_film_and_says_so() {
     let values = pcm_values("pcm-pulse", &|t| t);
     let cold = named(&values, "highest of film's coldest cell");
     let hot = named(&values, "highest of film's hottest cell");
-    // static/pcm-cell-convergence's cell on this grid, in steps of 0.5 ns: 906.2 and 1049.2 K
+    // static/pcm-cell-convergence's cell on this grid, in steps of 2 ns: 931.3 and 1106.7 K
     assert!(
-        (cold - 906.2).abs() < 1.5 && (hot - 1049.2).abs() < 1.5,
+        (cold - 931.3).abs() < 1.5 && (hot - 1106.7).abs() < 1.5,
         "{cold} {hot}"
     );
     assert_eq!(named(&values, "T_m of sb2se3"), 884.0);
@@ -781,9 +781,9 @@ fn a_pulse_amorphizes_the_phase_change_film_and_says_so() {
     assert_eq!(
         named(
             &values,
-            "thermal conductivity of sb2se3-crystalline (Sb₂Se₃, lawson-2022)"
+            "thermal conductivity of sb2se3-crystalline (Sb₂Se₃, aryana-2023)"
         ),
-        1.0
+        0.72
     );
     assert!(
         values
@@ -792,7 +792,7 @@ fn a_pulse_amorphizes_the_phase_change_film_and_says_so() {
     );
     // a weaker pulse leaves the whole film below its melting temperature
     let values = pcm_values("pcm-weak", &|t| {
-        t.replace("power_w_per_m: 7500.0", "power_w_per_m: 4000.0")
+        t.replace("power_w_per_m: 8000.0", "power_w_per_m: 4000.0")
     });
     assert!(
         values

@@ -222,13 +222,17 @@ abstract's k < 10⁻⁵. The films were 40 nm, sputtered and capped with 200 nm 
 
 The paper's figure of merit (its Eq. (1)), `catalogue::figure_of_merit`, is the
 phase per dB of loss, $2\pi\Delta n_\mathrm{eff}/(\lambda\alpha)$, with α the loss in the lossier
-(crystalline) state. On a 500 nm silicon rib with a 25 nm film, α is the slope of the insertion
+(crystalline) state. On a 220 nm SOI rib 500 nm wide with a 25 nm film, α is the slope of the insertion
 loss against the film's length (Fig. 7a, b): a line through the data set's means gives 0.0096
 (Sb₂Se₃) and 0.0288 dB/µm (Sb₂S₃), the paper's 0.01 and 0.028; with its $\Delta n_\mathrm{eff}$ of
 0.0717 and 0.0356 the figure is 30.3 and 5.01 rad/dB, its 29.0 and 5.15. The paper doesn't give
-the rib's etch depth, how far the film covers it, or the polarization, so its $\Delta
-n_\mathrm{eff}$ isn't recomputed here: on the rib geometries tried, the full-vector solver's
-falls short of it by a fifth or more.
+the rib's etch depth, how far the film covers it, or the polarization, and its data set doesn't
+either (its Supporting Information, which may, isn't in hand), so its $\Delta n_\mathrm{eff}$
+isn't a case. With these fits, the full-vector solver (5 nm cells) gives in TE, for etches of 70,
+120, 150 nm and the full 220 nm, 0.019 to 0.032 (Sb₂S₃) and 0.035 to 0.057 (Sb₂Se₃) with the film
+on the rib alone, and 0.035 to 0.038 and 0.059 to 0.062 with it over the slab too, against 0.0356
+and 0.0717; in TM the two materials move apart further. No etch, coverage and polarization tried
+gives both: the one that fits Sb₂S₃ leaves Sb₂Se₃ 13 to 18% short.
 
 A partly crystallized film is the linear effective medium of its two states' permittivities,
 `partly_crystalline(amorphous, crystalline, f, λ)`, as Frantz et al. fit GST's intermediate
@@ -240,15 +244,20 @@ states (their Section 4.2).
 |---|---|---|---|
 | $T_c$ | 473 K: 200 °C (Delaney, Section 3; its anneals amorphous after 175 °C, crystalline after 200 °C); Lawson et al. 2022's model takes 473 K | 543 K: 270 °C (Delaney, Section 3; partly crystalline after 260 °C) | 423 K: about 150 °C to rock salt at 1.6 K/min, 350 °C to hexagonal (Friedrich et al. 2000) |
 | $T_m$ | 884 K, the value Lawson et al.'s model takes | coming | coming |
-| $\kappa$ | 1 W/(m·K) both states, Lawson et al.'s model's | coming | 0.19 amorphous, 0.57 rock salt (1.58 hexagonal), W/(m·K) at 27 °C (Lyeo et al. 2006) |
+| $\kappa$ | 0.22 amorphous, 0.72 crystalline, W/(m·K) at room temperature (Aryana et al. 2023, TDTR; 0.36 hot, 220 to 320 °C) | 0.21 amorphous, 0.74 crystalline (Aryana et al. 2023; 0.45 at 250 to 320 °C) | 0.19 amorphous, 0.57 rock salt (1.58 hexagonal), W/(m·K) at 27 °C (Lyeo et al. 2006); Aryana et al.: 0.20 and 1.02 |
 | $c_p$ | 507 J/(kg·K) at 105 °C, rising to 574 at 260 °C (Černošková et al. 2014, an amorphous film by DSC) | coming | coming |
 | $\rho$ | 5849 kg/m³, from Efthimiopoulos et al. 2013's volume per formula unit, 136.4 Å³ | coming | coming |
 
 Lawson et al.'s model takes $c_p$ = 0.15 J/(g·K) from Černošková et al., but that is the paper's
 estimate of the change of $c_p$ at a glass transition; its measured $c_p$ is 0.507 to 0.574
 J/(g·K), which the catalogue takes. Their κ of 1 W/(m·K) cites Li et al. 2019, whose
-zone-melted alloys reach only Sb₂Te₀.₆Se₂.₄ (0.8 to 0.93 W/(m·K)); a measurement of Sb₂Se₃ films
-is still to be found. A film crystallizes when held above $T_c$ long enough (milliseconds for
+zone-melted alloys reach only Sb₂Te₀.₆Se₂.₄ (0.8 to 0.93 W/(m·K)). The catalogue's κ are K. Aryana
+et al.'s (Opt. Mater. Express 13, 3277 (2023), doi:10.1364/OME.503178): time-domain
+thermoreflectance on RF-sputtered films of nominally 300 nm under a Pt/Ti transducer, effective
+values with the interfaces in them, the crystalline ones measured back at room temperature after
+heating to 320 °C. Their Table 1's $c_p$ and $\rho$ for Sb₂S₃ and GST are cited, not measured;
+the primary papers (Njoroge et al. 2002 and Kalb et al. 2003 for GST, Gurevich et al. 2002 for
+Sb₂S₃) are still to be read, so those stay coming. A film crystallizes when held above $T_c$ long enough (milliseconds for
 Sb₂Se₃ by Lawson et al.; the kinetics aren't modelled) and is amorphized when it melts and is
 quenched; latent heat doesn't change when a film first reaches $T_m$, so the switching
 thresholds need none.

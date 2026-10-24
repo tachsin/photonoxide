@@ -216,8 +216,8 @@ The crystallization's kinetics aren't modelled. A crystallizing pulse must hold 
 $T_c$ for long enough: milliseconds for Sb₂Se₃ by Lawson et al. 2022, under a laser. A
 threshold needs no latent heat, since a film only starts to absorb it once it reaches $T_m$.
 
-jobs/pcm-switching.yaml is our own cell, not a published device. It has 25 nm of crystalline
-Sb₂Se₃ on a 500 × 220 nm silicon strip that heats it (a doped-silicon heater, 7.5 mW/µm for
+jobs/pcm-switching.yaml is our own cell, not a published device (its pulse raised from 7.5 to 8 mW/µm when the film's conductivity became Aryana et al.'s measured 0.72 W/(m·K), which left the coldest cell at 885 K, within its grid error of the melting point). It has 25 nm of crystalline
+Sb₂Se₃ on a 500 × 220 nm silicon strip that heats it (a doped-silicon heater, 8 mW/µm for
 100 ns), in oxide on the SOI stack, with the substrate held at 293.15 K 2 µm below the buried
 oxide. Validation case `static/pcm-cell-convergence` takes the film's coldest cell at its highest
 on grids graded from 5, 2.5 and 1.25 nm, in steps of 0.5 ns (the steps converge: at 2.5 nm, 0.02 K
@@ -225,12 +225,12 @@ from 0.5 to 0.25 ns):
 
 | Finest cell | Cells | Coldest (K) | Hottest (K) |
 |---|---|---|---|
-| 5 nm | 8 856 | 906.23 | 1049.24 |
-| 2.5 nm | 12 400 | 900.60 | 1053.24 |
-| 1.25 nm | 16 541 | 898.59 | 1055.27 |
+| 5 nm | 8 856 | 932.11 | 1106.70 |
+| 2.5 nm | 12 400 | 926.60 | 1112.61 |
+| 1.25 nm | 16 541 | 924.58 | 1115.59 |
 
-Richardson's estimate of the finest value's error is 1.1 K. The whole film therefore reaches
-898.6 ± 1.1 K, above Sb₂Se₃'s 884 K, and the pulse amorphizes it. These are 2D numbers, per unit
+Richardson's estimate of the finest value's error is 1.2 K. The whole film therefore reaches
+924.6 ± 1.2 K, above Sb₂Se₃'s 884 K, and the pulse amorphizes it. These are 2D numbers, per unit
 length of a cell that is uniform along the guide.
 
 ## Electrode edges

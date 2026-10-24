@@ -319,20 +319,24 @@ pub(crate) fn sb2se3_density() -> f64 {
 
 const DELANEY_LOCATION: &str = "the data set's 3_ellipsometry (the paper's Fig. 3)";
 
+/// A thermal conductivity Aryana et al. measured by time-domain thermoreflectance at room
+/// temperature on an RF-sputtered film of nominally 300 nm under a Pt/Ti transducer: an
+/// effective value, the interfaces included (the intrinsic one may be slightly higher, theirs).
+fn aryana_kappa(value: f64, state: &str) -> Constant {
+    constant(
+        r"\kappa",
+        "thermal conductivity",
+        value,
+        None,
+        "W/(m·K)",
+        &format!(
+            "{state}; time-domain thermoreflectance at room temperature on an RF-sputtered film of nominally 300 nm under a Pt/Ti transducer, an effective value with its interfaces"
+        ),
+        ("aryana-2023", "Section 4, Fig. 4(c) and Table 1"),
+    )
+}
+
 fn sb2se3() -> PhaseChange {
-    let lawson_kappa = |state: &str| {
-        constant(
-            r"\kappa",
-            "thermal conductivity",
-            1.0,
-            None,
-            "W/(m·K)",
-            &format!(
-                "{state}: the value Lawson et al.'s model takes for both states; its source, Li et al. 2019 (their ref. 42), measured zone-melted Sb₂Te₃₋ₓSeₓ up to x = 2.4 (0.8 to 0.93 W/(m·K) by its Fig. 6), not Sb₂Se₃ itself"
-            ),
-            ("lawson-2022", "Section 4.1"),
-        )
-    };
     PhaseChange {
         id: "sb2se3".into(),
         name: "Antimony selenide".into(),
@@ -357,8 +361,14 @@ fn sb2se3() -> PhaseChange {
             "the value Lawson et al.'s photothermal model takes (880 K in its text), without a source",
             ("lawson-2022", "Fig. 2's caption"),
         )),
-        amorphous_conductivity: Some(lawson_kappa("amorphous")),
-        crystalline_conductivity: Some(lawson_kappa("crystalline")),
+        amorphous_conductivity: Some(aryana_kappa(
+            0.22,
+            "amorphous, as deposited (346 nm); Lawson et al.'s model takes 1 W/(m·K) for both states from Li et al. 2019, a measurement on zone-melted Sb₂Te₃₋ₓSeₓ, not Sb₂Se₃",
+        )),
+        crystalline_conductivity: Some(aryana_kappa(
+            0.72,
+            "crystalline (312 nm), back at room temperature after heating to 320 °C; 0.36 W/(m·K) while hot, from 220 to 320 °C",
+        )),
         specific_heat: Some(constant(
             "c_p",
             "specific heat capacity",
@@ -390,6 +400,7 @@ fn sb2se3() -> PhaseChange {
             "lawson-2022",
             "cernoskova-2014",
             "efthimiopoulos-2013",
+            "aryana-2023",
         ]),
     }
 }
@@ -411,15 +422,18 @@ fn sb2s3() -> PhaseChange {
             ("delaney-2020", "Section 3 and Supporting Fig. S1"),
         )),
         melting: None,
-        amorphous_conductivity: None,
-        crystalline_conductivity: None,
+        amorphous_conductivity: Some(aryana_kappa(0.21, "amorphous, as deposited (275 nm)")),
+        crystalline_conductivity: Some(aryana_kappa(
+            0.74,
+            "crystalline (241 nm), back at room temperature after heating to 320 °C; 0.45 W/(m·K) at 250 to 320 °C",
+        )),
         specific_heat: None,
         density: None,
         missing: vec![missing(
-            "T_m, κ, c_p, ρ",
-            "a measured source to be chosen, coming",
+            "T_m, c_p, ρ",
+            "c_p from Gurevich et al. 2002 (Aryana et al. 2023 cite 368 J/(kg·K)); T_m and ρ from a measured source still to be chosen, coming",
         )],
-        references: references(&["delaney-2020", "delaney-2020-data"]),
+        references: references(&["delaney-2020", "delaney-2020-data", "aryana-2023"]),
     }
 }
 
@@ -457,13 +471,13 @@ fn gst() -> PhaseChange {
         amorphous_conductivity: Some(lyeo(0.19, "amorphous, a sputtered film as deposited")),
         crystalline_conductivity: Some(lyeo(
             0.57,
-            "the cubic (rock-salt) phase, annealed 20 min at 180 °C; 1.58 W/(m·K) for the hexagonal (360 °C)",
+            "the cubic (rock-salt) phase, annealed 20 min at 180 °C; 1.58 W/(m·K) for the hexagonal (360 °C); Aryana et al. 2023 measure 0.20 amorphous and 1.02 after 320 °C (TDTR, 300 nm films)",
         )),
         specific_heat: None,
         density: None,
         missing: vec![missing(
             "T_m, c_p, ρ",
-            "a measured source to be chosen, coming",
+            "T_m and c_p from Kalb, Spaepen & Wuttig 2003 (DSC), ρ from Njoroge, Wöltgens & Wuttig 2002, coming",
         )],
         references: references(&[
             "delaney-2020",
@@ -471,6 +485,7 @@ fn gst() -> PhaseChange {
             "frantz-2023",
             "friedrich-2000",
             "lyeo-2006",
+            "aryana-2023",
         ]),
     }
 }

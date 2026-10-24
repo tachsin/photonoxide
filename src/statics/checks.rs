@@ -1130,9 +1130,9 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "static/pcm-cell-convergence",
-            title: r"Static solver, heat in time: jobs/pcm-switching.yaml's cell, a 25 nm Sb₂Se₃ film (the catalogue's κ, $c_p$ and $\rho$) on a 500 × 220 nm silicon strip heated by 7.5 mW/µm for 100 ns, in oxide on silicon at 293.15 K, BDF2 in steps of 0.5 ns: the film's coldest cell's highest temperature on grids graded from 5, 2.5 and 1.25 nm at their finest, the grid study's estimated error of the finest (K shown)",
+            title: r"Static solver, heat in time: jobs/pcm-switching.yaml's cell, a 25 nm Sb₂Se₃ film (the catalogue's κ, $c_p$ and $\rho$) on a 500 × 220 nm silicon strip heated by 8 mW/µm for 100 ns, in oxide on silicon at 293.15 K, BDF2 in steps of 0.5 ns: the film's coldest cell's highest temperature on grids graded from 5, 2.5 and 1.25 nm at their finest, the grid study's estimated error of the finest (K shown)",
             tier: Tier::Analytic,
-            source: r"the grid-convergence gate (crate::convergence): Richardson's estimate from the three values at their observed order, within 2 K, against the film's margin above its melting temperature (884 K) of about 15 K",
+            source: r"the grid-convergence gate (crate::convergence): Richardson's estimate from the three values at their observed order, within 2 K, against the film's margin above its melting temperature (884 K) of about 40 K",
             run: || {
                 let c = pcm_cell_study();
                 Outcome {
@@ -1243,7 +1243,7 @@ pub(crate) fn pcm_cell(fine_um: f64, step_s: f64, power: f64, pulse_s: f64) -> (
 }
 
 /// jobs/pcm-switching.yaml's heater, W/m.
-pub(crate) const PCM_CELL_POWER: f64 = 7500.0;
+pub(crate) const PCM_CELL_POWER: f64 = 8000.0;
 
 /// The PCM cell's grid study ([`pcm_cell`] at [`PCM_CELL_POWER`] for 100 ns, as
 /// jobs/pcm-switching.yaml has it): the film's coldest cell's highest temperature on grids from

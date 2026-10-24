@@ -47,6 +47,13 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "",
     ),
     (
+        "aryana-2023",
+        "K. Aryana, H. J. Kim, M. R. Islam, N. Hong, C.-C. Popescu, S. Makarem, T. Gu, J. Hu, P. E. Hopkins, Opt. Mater. Express 13, 3277 (2023)",
+        "Optical and thermal properties of Ge2Sb2Te5, Sb2Se3, and Sb2S3 for reconfigurable photonic devices",
+        "10.1364/OME.503178",
+        "https://doi.org/10.1364/OME.503178",
+    ),
+    (
         "friedrich-2000",
         "I. Friedrich, V. Weidenhof, W. Njoroge, P. Franz, M. Wuttig, J. Appl. Phys. 87, 4130 (2000)",
         "Structural transformations of Ge2Sb2Te5 films studied by electrical resistance measurements",
