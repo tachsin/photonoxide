@@ -2151,6 +2151,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::circuit::heated_checks::cases());
     // and their crosstalk corrected: Gurses et al.'s networks and array
     cases.extend(crate::thermal::correction_checks::cases());
+    // and the thermo-optic phase shifters as devices, at analytic, 2D and measured fidelity
+    cases.extend(crate::device::thermo_checks::cases());
     cases
 }
 

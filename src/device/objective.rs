@@ -514,6 +514,49 @@ pub(super) fn objectives_of(kind: &str) -> Vec<Objective> {
                 "the largest power through over the smallest across the band, in dB",
             ),
         ],
+        "thermo-optic phase shifter" | "doped thermo-optic phase shifter" => vec![
+            objective(
+                "power for a π shift",
+                "P_pi",
+                "mW",
+                "P_pi",
+                Minimize,
+                None,
+                None,
+                "the heater's power a π shift takes: its efficiency, the same for any length",
+            ),
+            objective(
+                "time constant",
+                "tau",
+                "µs",
+                "tau",
+                Minimize,
+                None,
+                None,
+                "the phase's 1/e time, turned on",
+            ),
+            objective(
+                "power and speed",
+                "FOM",
+                "mW µs",
+                "P_pi*tau",
+                Minimize,
+                None,
+                None,
+                "Jacques et al.'s figure of merit P_π τ (their Eq. 3): efficiency and speed \
+                 traded against each other",
+            ),
+            objective(
+                "crosstalk",
+                "crosstalk",
+                "",
+                "X",
+                Minimize,
+                None,
+                None,
+                "the share of the guide's phase the neighbour at the pitch takes",
+            ),
+        ],
         _ => Vec::new(),
     }
 }
@@ -673,6 +716,48 @@ pub(super) fn constraints_of(kind: &str) -> Vec<Constraint> {
         ],
         "MZI" => vec![smallest_width(), smallest_gap("gap")],
         "Y-branch MZI" => vec![smallest_width()],
+        "thermo-optic phase shifter" | "doped thermo-optic phase shifter" => vec![
+            constraint(
+                "power for a π shift",
+                "P_pi",
+                "mW",
+                "P_pi",
+                AtMost,
+                30.0,
+                "a π shift for no more than the driver gives",
+            ),
+            constraint(
+                "time constant",
+                "tau",
+                "µs",
+                "tau",
+                AtMost,
+                10.0,
+                "the phase within 1 − 1/e of its step in no more than this",
+            ),
+            constraint(
+                "crosstalk",
+                "crosstalk",
+                "",
+                "X",
+                AtMost,
+                0.1,
+                "the neighbour at the pitch takes no more than this share of the phase",
+            ),
+            constraint(
+                "smallest heater",
+                "heater_width",
+                "µm",
+                "heater_width",
+                AtLeast,
+                if kind == "thermo-optic phase shifter" {
+                    2.0
+                } else {
+                    1.0
+                },
+                "a foundry's narrowest heater (Jacques et al.'s: 2.0 µm of TiN, 1.0 µm of N++)",
+            ),
+        ],
         _ => Vec::new(),
     }
 }

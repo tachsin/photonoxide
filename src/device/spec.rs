@@ -58,7 +58,7 @@ use crate::{Error, Result};
 
 use super::{
     Cells, Design, Device, FdfdGrid, Mesh, Model2d, RibWaveguide, StripBend, StripCoupler,
-    StripMmi, StripMzi, StripRing, StripWaveguide, StripYBranch,
+    StripMmi, StripMzi, StripRing, StripWaveguide, StripYBranch, ThermoShifter,
 };
 use crate::circuit::components::MmiKind;
 
@@ -68,7 +68,8 @@ use crate::circuit::components::MmiKind;
 pub struct Spec {
     /// The device, by its kind ([`Device::kind`]): `"waveguide"`, `"bend"`,
     /// `"directional coupler"`, `"all-pass ring"`, `"add-drop ring"`, `"rib waveguide"`,
-    /// `"MMI 1x2"`, `"MMI 2x2"`, `"Y-branch"`, `"MZI"` or `"Y-branch MZI"`.
+    /// `"MMI 1x2"`, `"MMI 2x2"`, `"Y-branch"`, `"MZI"`, `"Y-branch MZI"`,
+    /// `"thermo-optic phase shifter"` or `"doped thermo-optic phase shifter"`.
     pub kind: String,
     /// The fidelity it is computed at.
     pub fidelity: Fidelity,
@@ -284,13 +285,16 @@ impl Spec {
             "Y-branch" => Box::new(StripYBranch::on(stack, &core)?),
             "MZI" => Box::new(StripMzi::on(stack, &core, false)?),
             "Y-branch MZI" => Box::new(StripMzi::on(stack, &core, true)?),
+            "thermo-optic phase shifter" => Box::new(ThermoShifter::on(stack, &core, false)?),
+            "doped thermo-optic phase shifter" => Box::new(ThermoShifter::on(stack, &core, true)?),
             other => {
                 return Err(Error::invalid(
                     "device",
                     format!(
                         "no device \"{other}\": waveguide, bend, directional coupler, all-pass \
-                         ring, add-drop ring, rib waveguide, MMI 1x2, MMI 2x2, Y-branch, MZI or \
-                         Y-branch MZI"
+                         ring, add-drop ring, rib waveguide, MMI 1x2, MMI 2x2, Y-branch, MZI, \
+                         Y-branch MZI, thermo-optic phase shifter or doped thermo-optic phase \
+                         shifter"
                     ),
                 ));
             }
@@ -381,6 +385,13 @@ impl Grids {
         if solves == "none" && *self != Grids::default() {
             return refuse("grid", "its parts solve on their own grids");
         }
+        if solves == "static" && *self != Grids::default() {
+            return refuse(
+                "grid",
+                "its heat and mode solves are on its own graded grids, which a validation \
+                 case refines",
+            );
+        }
         if solves == "modes" {
             if self.step_z.is_some() {
                 return refuse(
@@ -444,6 +455,7 @@ impl Spec {
             "MMI 1x2" | "MMI 2x2" => "mmi",
             "Y-branch" => "fdfd",
             "MZI" | "Y-branch MZI" => "none",
+            "thermo-optic phase shifter" | "doped thermo-optic phase shifter" => "static",
             _ => "modes",
         };
         grids.check(kind, solves)?;

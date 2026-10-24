@@ -200,3 +200,12 @@ k-th guide. The run records each guide's n_eff and dn_eff/dT, every guide's ∂n
 drive, each drive's P_π on its own guide (W) and its crosstalk on the others; with a
 `[task.transient]`, each drive's phase's 1/e and 10–90 % times, −3 dB frequency, and P_π times
 its 1/e time. It replays to the bit, the same bits on any number of threads.
+
+## As a device
+
+The two heaters of Jacques et al. are devices too, `device::ThermoShifter` ([devices](devices.md#thermo-optic-phase-shifters)):
+the cross-sections above with their geometry as parameters (the heater's width, its height
+or buffer, the guide's width and thickness, a neighbour's pitch), a closed-form analytic model,
+this chain as their 2D model (to the bit, at the papers' designs), and the measured devices,
+each fidelity against the next one up; a component whose phase follows the heater's power, a
+page in the studio, and the device calls from Python and MATLAB.

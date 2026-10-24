@@ -31,7 +31,10 @@
 //! The first devices are a silicon strip's: the [`StripWaveguide`], the [`StripBend`], the
 //! [`StripCoupler`] (a directional coupler) and the [`StripRing`] (all-pass and add-drop).
 //! [`library`] has them at their defaults, which are the studio's library's components bit
-//! for bit.
+//! for bit. The first active devices are the thermo-optic phase shifters ([`ThermoShifter`]): a
+//! metal heater over a strip and doped heaters beside a rib, their phase following the heater's
+//! power at analytic, 2D and measured fidelity, the measured one a measured device's file
+//! ([`Measurement`]).
 //!
 //! **Fidelities and grids.** Every figure names its model and its grid: an analytic figure
 //! comes from a closed form, or a fit to the full-vector solver whose grid it states; a 2D
@@ -47,6 +50,7 @@
 //! docs/methods/devices.md describes the abstraction and each device's models, with their
 //! papers and the validation of each.
 
+mod active;
 mod bend;
 pub mod compact;
 mod coupler;
@@ -60,6 +64,8 @@ mod ring;
 mod section;
 mod solve;
 pub(crate) mod spec;
+mod thermo;
+mod thermo_closed;
 mod waveguide;
 mod ybranch;
 
@@ -69,7 +75,11 @@ pub(crate) mod splitter_checks;
 mod splitter_tests;
 #[cfg(test)]
 mod tests;
+pub(crate) mod thermo_checks;
+#[cfg(test)]
+mod thermo_tests;
 
+pub use active::Measurement;
 pub use bend::StripBend;
 pub use compact::{FitAxis, FitPlan, Fitted, Sampling};
 pub use coupler::StripCoupler;
@@ -81,6 +91,7 @@ pub use ring::StripRing;
 pub use section::{Cells, Mesh, Scheme, Symmetry};
 pub use solve::FdfdGrid;
 pub use spec::{LayerSpec, MaterialSpec, PRESETS, Spec, StackSpec, fidelity};
+pub use thermo::ThermoShifter;
 pub use waveguide::StripWaveguide;
 pub use ybranch::StripYBranch;
 
@@ -638,7 +649,8 @@ pub fn derivative(
 
 /// The devices at their defaults, on 220 nm SOI: the strip waveguide, bend, directional
 /// coupler, the all-pass and add-drop rings, the rib waveguide, the 1 × 2 and 2 × 2 MMIs, the
-/// Y-branch, and the MZIs of directional couplers and of Y-branches.
+/// Y-branch, the MZIs of directional couplers and of Y-branches, and the thermo-optic phase
+/// shifters of a metal heater and of doped heaters.
 pub fn library() -> Vec<Box<dyn Device>> {
     vec![
         Box::new(StripWaveguide::new()),
@@ -652,6 +664,8 @@ pub fn library() -> Vec<Box<dyn Device>> {
         Box::new(StripYBranch::new()),
         Box::new(StripMzi::couplers()),
         Box::new(StripMzi::y_branches()),
+        Box::new(ThermoShifter::metal()),
+        Box::new(ThermoShifter::doped()),
     ]
 }
 

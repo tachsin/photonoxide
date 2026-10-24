@@ -2272,6 +2272,312 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "thermo-optic phase shifter"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "A metal heater over a silicon strip: the phase it adds follows its power, P_π for a π shift, with its time constant, bandwidth and crosstalk on a neighbour.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "cover": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "cover µm: 1 by default, from 0 to 10."
+                  },
+                  "heater_thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "heater_thickness µm: 0.1 by default, from 0.01 to 2."
+                  },
+                  "heater_width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "heater_width µm: 7.5 by default, from 0.2 to 50."
+                  },
+                  "height": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "height µm: 2 by default, from 0.1 to 10."
+                  },
+                  "length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "length µm: 320 by default, from 1 to 100000."
+                  },
+                  "loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "loss dB/cm: 0 by default, from 0 to 1000."
+                  },
+                  "pitch": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "pitch µm: 5 by default, from 1 to 500."
+                  },
+                  "power": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "power mW: 0 by default, from 0 to 1000."
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "span µm: 0.1 by default, from 0.004 to 0.1."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.1 to 1."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 1.5 to 1.6."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 0.5 by default, from 0.2 to 3."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "doped thermo-optic phase shifter"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "description": "Doped silicon heaters in the slab beside a rib: the phase they add follows their power, P_π for a π shift, with its time constant, bandwidth and crosstalk on a neighbour.",
+            "properties": {
+              "parameters": {
+                "properties": {
+                  "buffer": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "buffer µm: 0.8 by default, from 0 to 10."
+                  },
+                  "cladding": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "cladding µm: 3.32 by default, from 0.2 to 20."
+                  },
+                  "heater_width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "heater_width µm: 1 by default, from 0.1 to 20."
+                  },
+                  "length": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "length µm: 320 by default, from 1 to 100000."
+                  },
+                  "loss": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "loss dB/cm: 0 by default, from 0 to 1000."
+                  },
+                  "pitch": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "pitch µm: 5 by default, from 1 to 500."
+                  },
+                  "power": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "power mW: 0 by default, from 0 to 1000."
+                  },
+                  "slab": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "slab µm: 0.09 by default, from 0.01 to 0.5."
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "span µm: 0.1 by default, from 0.004 to 0.1."
+                  },
+                  "thickness": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "thickness µm: 0.22 by default, from 0.1 to 1."
+                  },
+                  "wavelength": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "wavelength µm: 1.55 by default, from 1.5 to 1.6."
+                  },
+                  "width": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "$ref": "#/$defs/Expression"
+                      }
+                    ],
+                    "description": "width µm: 0.5 by default, from 0.2 to 3."
+                  }
+                }
+              }
+            }
+          }
         }
       ],
       "description": "A device of the library (docs/methods/devices.md), computed at a fidelity, studied, fitted or optimized by the task.",
@@ -2305,7 +2611,9 @@
             "MMI 2x2",
             "Y-branch",
             "MZI",
-            "Y-branch MZI"
+            "Y-branch MZI",
+            "thermo-optic phase shifter",
+            "doped thermo-optic phase shifter"
           ]
         },
         "parameters": {
