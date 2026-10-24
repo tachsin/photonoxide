@@ -243,9 +243,11 @@ phase per dB of loss, $2\pi\Delta n_\mathrm{eff}/(\lambda\alpha)$, with α the l
 loss against the film's length (Fig. 7a, b): a line through the data set's means gives 0.0096
 (Sb₂Se₃) and 0.0288 dB/µm (Sb₂S₃), the paper's 0.01 and 0.028; with its $\Delta n_\mathrm{eff}$ of
 0.0717 and 0.0356 the figure is 30.3 and 5.01 rad/dB, its 29.0 and 5.15. The paper doesn't give
-the rib's etch depth, how far the film covers it, or the polarization, and its data set doesn't
-either (its Supporting Information, which may, isn't in hand), so its $\Delta n_\mathrm{eff}$
-isn't a case. With these fits, the full-vector solver (5 nm cells) gives in TE, for etches of 70,
+the rib's etch depth, how far the film covers it, or the polarization, and neither its data set
+nor its Supporting Information does (read in full: Section S3 says only that the simulated guide
+is 220 nm SOI with a 25 nm patch and a SiO₂ cap, and its Table S1 gives the modes' overlaps with
+the uncoated guide, 0.995 and 0.987 for Sb₂S₃, 0.978 and 0.968 for Sb₂Se₃, 0.956 and 0.342 for
+GST, amorphous and crystalline), so its $\Delta n_\mathrm{eff}$ stays not a case. With these fits, the full-vector solver (5 nm cells) gives in TE, for etches of 70,
 120, 150 nm and the full 220 nm, 0.019 to 0.032 (Sb₂S₃) and 0.035 to 0.057 (Sb₂Se₃) with the film
 on the rib alone, and 0.035 to 0.038 and 0.059 to 0.062 with it over the slab too, against 0.0356
 and 0.0717; in TM the two materials move apart further. No etch, coverage and polarization tried
@@ -260,10 +262,10 @@ states (their Section 4.2).
 | | Sb₂Se₃ | Sb₂S₃ | GST |
 |---|---|---|---|
 | $T_c$ | 473 K: 200 °C (Delaney, Section 3; its anneals amorphous after 175 °C, crystalline after 200 °C); Lawson et al. 2022's model takes 473 K | 543 K: 270 °C (Delaney, Section 3; partly crystalline after 260 °C) | 423 K: about 150 °C to rock salt at 1.6 K/min, 350 °C to hexagonal (Friedrich et al. 2000) |
-| $T_m$ | 884 K, the value Lawson et al.'s model takes | coming | coming |
+| $T_m$ | 884 K, the value Lawson et al.'s model takes | 823 ± 5 K by DTA of synthetic stibnite (Gurevich et al. 2002; the literature's 819–832.5 K) | 894 K: 621 °C, the melting peak by DSC at 5 K/min, solidus 610 °C, liquidus 638 °C (Kalb et al. 2003); Zhao et al. 2022: 627 ± 15 °C |
 | $\kappa$ | 0.22 amorphous, 0.72 crystalline, W/(m·K) at room temperature (Aryana et al. 2023, TDTR; 0.36 hot, 220 to 320 °C) | 0.21 amorphous, 0.74 crystalline (Aryana et al. 2023; 0.45 at 250 to 320 °C) | 0.19 amorphous, 0.57 rock salt (1.58 hexagonal), W/(m·K) at 27 °C (Lyeo et al. 2006); Aryana et al.: 0.20 and 1.02 |
-| $c_p$ | 507 J/(kg·K) at 105 °C, rising to 574 at 260 °C (Černošková et al. 2014, an amorphous film by DSC) | coming | coming |
-| $\rho$ | 5849 kg/m³, from Efthimiopoulos et al. 2013's volume per formula unit, 136.4 Å³ | coming | coming |
+| $c_p$ | 507 J/(kg·K) at 105 °C, rising to 574 at 260 °C (Černošková et al. 2014, an amorphous film by DSC), both states | 351.9 J/(kg·K) at 298.15 K, crystalline: 119.54 ± 0.06 J/(mol·K) by adiabatic calorimetry (Gurevich et al. 2002), 359 to 393 J/(kg·K) from 338 to 823 K | 238.4 amorphous, 197.9 crystalline, J/(kg·K) at 100 °C: 27.2 ± 3.3 J/(mol·K) per mole of atoms and a 17 ± 5 % drop on crystallization, by nanocalorimetry of 10–40 nm films (Zhao et al. 2022) |
+| $\rho$ | 5849 kg/m³, from Efthimiopoulos et al. 2013's volume per formula unit, 136.4 Å³; both states | 4663 kg/m³, the crystal's cell as Gurevich et al. print it; the amorphous film's coming | 5870 amorphous, 6270 rock salt (6390 hexagonal), ± 20 kg/m³, by x-ray reflectivity (Njoroge et al. 2002) |
 
 Lawson et al.'s model takes $c_p$ = 0.15 J/(g·K) from Černošková et al., but that is the paper's
 estimate of the change of $c_p$ at a glass transition; its measured $c_p$ is 0.507 to 0.574
@@ -273,8 +275,45 @@ et al.'s (Opt. Mater. Express 13, 3277 (2023), doi:10.1364/OME.503178): time-dom
 thermoreflectance on RF-sputtered films of nominally 300 nm under a Pt/Ti transducer, effective
 values with the interfaces in them, the crystalline ones measured back at room temperature after
 heating to 320 °C. Their Table 1's $c_p$ and $\rho$ for Sb₂S₃ and GST are cited, not measured;
-the primary papers (Njoroge et al. 2002 and Kalb et al. 2003 for GST, Gurevich et al. 2002 for
-Sb₂S₃) are still to be read, so those stay coming. A film crystallizes when held above $T_c$ long enough (milliseconds for
+the catalogue takes them from the primary papers, read in full:
+
+- **GST's melting:** J. Kalb, F. Spaepen, M. Wuttig, J. Appl. Phys. 93, 2389 (2003),
+  doi:10.1063/1.1540227, DSC of sputtered films about 7 µm thick: solidus 610 °C, melting peak
+  621 °C, liquidus 638 °C at 5 K/min (Table I), heat of fusion 14.7 ± 0.7 kJ/mol and entropy of
+  fusion 16.5 ± 0.9 J/(mol·K) (Table II; 14.7 kJ/mol over 894.15 K gives 16.44,
+  `material/pcm-gst-kalb-fusion`). Its $c_p$ is AgInSbTe's only. J. Zhao et al., Adv. Mater.
+  Interfaces 9, 2200429 (2022), doi:10.1002/admi.202200429, find 627 ± 15 °C and 16.7 ± 3.4 kJ/mol
+  by nanocalorimetry of 10 to 40 nm films (`material/pcm-gst-zhao-melting`).
+- **GST's heat capacity:** Zhao et al.'s, the slope of the films' $C_p$ at 100 °C against their
+  thickness, 27.2 ± 3.3 J/(mol·K) per mole of atoms in the amorphous state, 17 ± 5 % less after
+  crystallization; over GST's mean atomic mass (114.09 g/mol) 238.4 and 197.9 J/(kg·K). K. Aryana
+  et al., Nat. Commun. 12, 774 (2021), doi:10.1038/s41467-020-20661-8, the other paper Aryana et
+  al. 2023 cite for it, assumes 1.3 and 1.4 MJ/(m³·K) (amorphous and hexagonal) and measures none.
+- **GST's densities:** W. K. Njoroge, H.-W. Wöltgens, M. Wuttig, J. Vac. Sci. Technol. A 20, 230
+  (2002), doi:10.1116/1.1430249, x-ray reflectivity of Ge₂Sb₂.₀₄Te₄.₇₄ films: 5.87, 6.27 and 6.39 ±
+  0.02 g/cm³ amorphous, NaCl-type and hexagonal, changes of 6.8 and 8.8 % (from the three, 6.81 and
+  8.86 %: `material/pcm-gst-njoroge-change`); from the stoichiometry and the lattice parameters,
+  6.016 and 6.000 Å, the crystal's 6426 and 6478 kg/m³, their XRD densities 6.43–6.48
+  (`material/pcm-gst-njoroge-xrd`).
+- **Sb₂S₃:** V. M. Gurevich et al., Geokhimiya 2002 (2), 194 (Geochem. Int. 40, 164; no DOI found),
+  adiabatic calorimetry of synthetic polycrystalline stibnite from 20.92 to 337.61 K, smoothed by
+  their Eq. (1), $C_p = n[\gamma T + 0.846D(\theta_1) + 0.760D(\theta_2) + 0.800D(\theta_3) +
+  0.200E(\theta_E)]$ with $n = 5$ and Table 5's γ = 0.002359 J/(mol·K²), θ = 130, 273, 423, 448 K:
+  evaluated here it reproduces Table 2 within 0.24 % (at 10 K; within 3e-4 from 20 K up:
+  `material/pcm-sb2s3-gurevich-low`), and their Eq. (7) for 338 to 823 K Table 3 within 0.04
+  J/(mol·K) (`material/pcm-sb2s3-gurevich-high`), the two meeting at 338 K within 0.004. The melting
+  point of their sample, 823 ± 5 K by DTA; the crystal's density 4663 kg/m³ from the cell they
+  print (Pbnm, 11.20 × 11.28 × 3.83 Å, Z = 4), against the 4640 Aryana et al. take
+  (`material/pcm-sb2s3-gurevich-density`). Aryana et al.'s 368 J/(kg·K) is Gurevich et al.'s
+  value at 430 K, not room temperature's. M. Kassem et al., J. Mater. Chem. C 11, 4654 (2023),
+  doi:10.1039/d3tc00081h, print neither the glass's density nor its melting point (they mark it on
+  their figures).
+
+So every material has $T_c$, $T_m$, κ of both states, $c_p$ and ρ, what a switching pulse needs;
+GST's states differ in ρ and $c_p$ (`PhaseChange::density_of`, `specific_heat_of`,
+`heat_capacity_of`: ρc_p 1.40 MJ/(m³·K) amorphous, 1.24 crystalline), and where a state has no
+value of its own it takes the crystal's: Sb₂Se₃'s and Sb₂S₃'s amorphous densities are coming. A
+film crystallizes when held above $T_c$ long enough (milliseconds for
 Sb₂Se₃ by Lawson et al.; the kinetics aren't modelled) and is amorphized when it melts and is
 quenched; latent heat doesn't change when a film first reaches $T_m$, so the switching
 thresholds need none.

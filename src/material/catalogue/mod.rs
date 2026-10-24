@@ -43,6 +43,7 @@ pub(crate) mod ferroelectric;
 mod models;
 pub(crate) mod phase_change;
 pub(crate) mod phase_change_checks;
+pub(crate) mod phase_change_thermal;
 mod references;
 mod symmetry;
 mod tags;

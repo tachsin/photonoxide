@@ -975,8 +975,8 @@ fn setup_scaled(job: &Job, scale: f64) -> Result<Setup> {
                         .copied();
                     let c = given
                         .or_else(|| {
-                            let (p, _) = phase_state(m)?;
-                            let c = p.heat_capacity()?;
+                            let (p, state) = phase_state(m)?;
+                            let c = p.heat_capacity_of(state)?;
                             setup.catalogued.push(value(
                                 format!("heat capacity of {m} ({}, catalogue)", p.formula),
                                 c,

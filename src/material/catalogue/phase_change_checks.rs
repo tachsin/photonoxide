@@ -419,8 +419,47 @@ mod tests {
                 assert_eq!(e.category, super::super::Category::PhaseChange);
             }
         }
-        assert!(phase_change::phase_change("gst").unwrap().melting.is_none());
         let gst = phase_change::phase_change("gst").unwrap();
+        assert_eq!(gst.melting.as_ref().unwrap().value, 894.15);
+        assert!(gst.missing.is_empty());
+        for p in phase_change::phase_changes() {
+            // every material now has what a switching pulse needs, in both states
+            for state in [
+                super::super::State::Amorphous,
+                super::super::State::Crystalline,
+            ] {
+                assert!(p.heat_capacity_of(state).is_some(), "{}", p.id);
+                assert!(p.conductivity(state).is_some(), "{}", p.id);
+            }
+            assert!(
+                p.crystallization.is_some() && p.melting.is_some(),
+                "{}",
+                p.id
+            );
+            for c in [&p.amorphous_specific_heat, &p.amorphous_density]
+                .into_iter()
+                .flatten()
+            {
+                let keys: Vec<&str> = p.references.iter().map(|r| r.key.as_str()).collect();
+                assert!(keys.contains(&c.source.reference.as_str()), "{}", p.id);
+            }
+        }
+        // GST's states differ in ρ and c_p; Sb₂Se₃'s amorphous state takes the crystal's
+        let a = gst
+            .heat_capacity_of(super::super::State::Amorphous)
+            .unwrap();
+        let c = gst
+            .heat_capacity_of(super::super::State::Crystalline)
+            .unwrap();
+        assert!(
+            (a / (5870.0 * 238.415) - 1.0).abs() < 1e-4 && a > c,
+            "{a} {c}"
+        );
+        let se = phase_change::phase_change("sb2se3").unwrap();
+        assert_eq!(
+            se.heat_capacity_of(super::super::State::Amorphous),
+            se.heat_capacity()
+        );
         assert_eq!(
             gst.conductivity(super::super::State::Crystalline)
                 .unwrap()

@@ -159,10 +159,17 @@ pub struct PhaseChange {
     pub amorphous_conductivity: Option<Constant>,
     /// The crystalline state's thermal conductivity, W/(m·K).
     pub crystalline_conductivity: Option<Constant>,
-    /// The specific heat capacity c_p, J/(kg·K).
+    /// The specific heat capacity c_p, J/(kg·K): the crystalline state's, or the one value both
+    /// states take when the source gives one (its conditions say which).
     pub specific_heat: Option<Constant>,
-    /// The density ρ, kg/m³.
+    /// The density ρ, kg/m³: the crystalline state's, or the one value both states take.
     pub density: Option<Constant>,
+    /// The amorphous state's c_p, J/(kg·K), where a source measures it apart from
+    /// [`PhaseChange::specific_heat`].
+    pub amorphous_specific_heat: Option<Constant>,
+    /// The amorphous state's density, kg/m³, where a source measures it apart from
+    /// [`PhaseChange::density`] (an amorphous film is less dense: GST's by 6.4%).
+    pub amorphous_density: Option<Constant>,
     /// What has no source yet.
     pub missing: Vec<Missing>,
     /// Every paper it cites.
@@ -170,9 +177,38 @@ pub struct PhaseChange {
 }
 
 impl PhaseChange {
-    /// The heat capacity per volume ρc_p, J/(m³·K), when both are known.
+    /// The heat capacity per volume ρc_p, J/(m³·K), when both are known: of
+    /// [`PhaseChange::density`] and [`PhaseChange::specific_heat`], the crystalline state's (or
+    /// both states').
     pub fn heat_capacity(&self) -> Option<f64> {
         Some(self.density.as_ref()?.value * self.specific_heat.as_ref()?.value)
+    }
+
+    /// A state's density: the amorphous state's own where it is measured, otherwise
+    /// [`PhaseChange::density`].
+    pub fn density_of(&self, state: State) -> Option<&Constant> {
+        match state {
+            State::Amorphous => self.amorphous_density.as_ref().or(self.density.as_ref()),
+            State::Crystalline => self.density.as_ref(),
+        }
+    }
+
+    /// A state's specific heat c_p: the amorphous state's own where it is measured, otherwise
+    /// [`PhaseChange::specific_heat`].
+    pub fn specific_heat_of(&self, state: State) -> Option<&Constant> {
+        match state {
+            State::Amorphous => self
+                .amorphous_specific_heat
+                .as_ref()
+                .or(self.specific_heat.as_ref()),
+            State::Crystalline => self.specific_heat.as_ref(),
+        }
+    }
+
+    /// A state's heat capacity per volume ρc_p, J/(m³·K), from [`PhaseChange::density_of`] and
+    /// [`PhaseChange::specific_heat_of`], when both are known.
+    pub fn heat_capacity_of(&self, state: State) -> Option<f64> {
+        Some(self.density_of(state)?.value * self.specific_heat_of(state)?.value)
     }
 
     /// The entry id of a state.
@@ -313,8 +349,52 @@ pub(crate) fn crystallized_at(anneals: &[(f64, f64)]) -> f64 {
 /// al.'s zero-pressure volume per formula unit, 136.4 Å³.
 pub(crate) fn sb2se3_density() -> f64 {
     // Sb 121.760 and Se 78.971 g/mol (IUPAC's standard atomic weights)
-    let molar_kg = (2.0 * 121.760 + 3.0 * 78.971) * 1e-3;
-    molar_kg / (6.022_140_76e23 * 136.4e-30)
+    let molar_kg = (2.0 * SB + 3.0 * 78.971) * 1e-3;
+    molar_kg / (AVOGADRO * 136.4e-30)
+}
+
+/// IUPAC's standard atomic weights (g/mol) of Ge, Sb and Te, and Avogadro's number.
+const GE: f64 = 72.630;
+const SB: f64 = 121.760;
+const TE: f64 = 127.60;
+const AVOGADRO: f64 = 6.022_140_76e23;
+
+/// Gurevich et al.'s molar mass of Sb₂S₃, g/mol, and the orthorhombic cell they print (Pbnm, a,
+/// b, c in Å, four formula units).
+pub(crate) const GUREVICH_MOLAR: f64 = 339.68;
+pub(crate) const GUREVICH_CELL: [f64; 3] = [11.20, 11.28, 3.83];
+
+/// Sb₂S₃'s crystal density, kg/m³: four formula units of Gurevich et al.'s molar mass in their
+/// cell.
+pub(crate) fn sb2s3_density() -> f64 {
+    let [a, b, c] = GUREVICH_CELL;
+    4.0 * GUREVICH_MOLAR * 1e-3 / (AVOGADRO * a * b * c * 1e-30)
+}
+
+/// Gurevich et al.'s C_p(298.15 K) of crystalline Sb₂S₃, J/(mol·K), and its uncertainty.
+pub(crate) const GUREVICH_CP_298: (f64, f64) = (119.54, 0.06);
+
+/// Zhao et al.'s specific heat of amorphous GST at 100 °C, J/(mol-atom·K), with its uncertainty,
+/// and the drop on crystallization, 17 ± 5 %.
+pub(crate) const ZHAO_CP: (f64, f64) = (27.2, 3.3);
+pub(crate) const ZHAO_DROP: (f64, f64) = (0.17, 0.05);
+
+/// Ge₂Sb₂Te₅'s mean atomic mass, kg per mole of atoms.
+pub(crate) fn gst_atomic_mass() -> f64 {
+    (2.0 * GE + 2.0 * SB + 5.0 * TE) / 9.0 * 1e-3
+}
+
+/// Njoroge et al.'s densities by x-ray reflectivity, kg/m³: amorphous, NaCl-type (fcc),
+/// hexagonal, each ± 20.
+pub(crate) const NJOROGE_DENSITY: [f64; 3] = [5870.0, 6270.0, 6390.0];
+
+/// The density of an fcc Ge₂Sb₂.₀₄Te₄.₇₄ crystal (kg/m³) of lattice parameter `a` (Å), as
+/// Njoroge et al. find it from their film's stoichiometry: Te on the 4 anion sites of the cell,
+/// Ge and Sb in proportion on the cation sites (the rest vacancies).
+pub(crate) fn njoroge_xrd_density(a: f64) -> f64 {
+    let per_te = 4.0 / 4.74;
+    let mass = per_te * (2.0 * GE + 2.04 * SB + 4.74 * TE) * 1e-3;
+    mass / (AVOGADRO * (a * 1e-10).powi(3))
 }
 
 const DELANEY_LOCATION: &str = "the data set's 3_ellipsometry (the paper's Fig. 3)";
@@ -393,6 +473,8 @@ fn sb2se3() -> PhaseChange {
                 "Results, the zero-pressure volume per formula unit",
             ),
         )),
+        amorphous_specific_heat: None,
+        amorphous_density: None,
         missing: vec![],
         references: references(&[
             "delaney-2020",
@@ -421,19 +503,54 @@ fn sb2s3() -> PhaseChange {
             "270 °C, a sputtered film annealed in steps of 10 °C: amorphous to 250 °C, partly crystalline after 260 °C (n at 1551 nm 2.987, a fifth of the way), crystalline after 270 °C (3.371; the data set's S1_ellipsometry)",
             ("delaney-2020", "Section 3 and Supporting Fig. S1"),
         )),
-        melting: None,
+        melting: Some(constant(
+            "T_m",
+            "melting temperature",
+            823.0,
+            Some(5.0),
+            "K",
+            "synthetic polycrystalline stibnite by differential thermal analysis, its one thermal event; the literature's 819 to 832.5 K (their refs. 10–14). Kassem et al. 2023 mark the bulk glass's melting on their figures without printing a number",
+            ("gurevich-2002", "Section 1"),
+        )),
         amorphous_conductivity: Some(aryana_kappa(0.21, "amorphous, as deposited (275 nm)")),
         crystalline_conductivity: Some(aryana_kappa(
             0.74,
             "crystalline (241 nm), back at room temperature after heating to 320 °C; 0.45 W/(m·K) at 250 to 320 °C",
         )),
-        specific_heat: None,
-        density: None,
+        specific_heat: Some(constant(
+            "c_p",
+            "specific heat capacity",
+            GUREVICH_CP_298.0 / (GUREVICH_MOLAR * 1e-3),
+            Some(GUREVICH_CP_298.1 / (GUREVICH_MOLAR * 1e-3)),
+            "J/(kg·K)",
+            "crystalline (stibnite, a synthetic polycrystalline powder) at 298.15 K by adiabatic calorimetry: 119.54 ± 0.06 J/(mol·K) over M = 339.68 g/mol. It rises to 121.9 J/(mol·K) at 338 K and 133.5 at the melting point, 823 K (their Eq. (7), Table 3: 359 to 393 J/(kg·K)); Aryana et al. 2023's 368 J/(kg·K) is Table 3's value at 430 K. The amorphous film's isn't measured",
+            (
+                "gurevich-2002",
+                "Section 2, Tables 2 and 3, Eqs. (1) and (7)",
+            ),
+        )),
+        density: Some(constant(
+            r"\rho",
+            "density",
+            sb2s3_density(),
+            None,
+            "kg/m³",
+            "the orthorhombic crystal (Pbnm, a = 11.20, b = 11.28, c = 3.83 Å, four formula units) as Gurevich et al. print it from their ref. 15, with their M = 339.68 g/mol; an amorphous film is less dense",
+            ("gurevich-2002", "Section 1, the cell"),
+        )),
+        amorphous_specific_heat: None,
+        amorphous_density: None,
         missing: vec![missing(
-            "T_m, c_p, ρ",
-            "c_p from Gurevich et al. 2002 (Aryana et al. 2023 cite 368 J/(kg·K)); T_m and ρ from a measured source still to be chosen, coming",
+            "the amorphous state's ρ and c_p",
+            "Kassem et al. 2023 match their glass's simulation to its measured density without printing it; Aryana et al. 2023's 4150 kg/m³ cites Popescu's book, not read, coming",
         )],
-        references: references(&["delaney-2020", "delaney-2020-data", "aryana-2023"]),
+        references: references(&[
+            "delaney-2020",
+            "delaney-2020-data",
+            "aryana-2023",
+            "gurevich-2002",
+            "kassem-2023",
+        ]),
     }
 }
 
@@ -467,18 +584,57 @@ fn gst() -> PhaseChange {
             "about 150 °C, amorphous to rock salt (Fm-3m), a sputtered film heated at 1.6 K/min, by its resistance; rock salt to hexagonal at about 350 °C; a ZnS–SiO₂ cap raises the first",
             ("friedrich-2000", "Fig. 1 and its text"),
         )),
-        melting: None,
+        melting: Some(constant(
+            "T_m",
+            "melting temperature",
+            621.0 + 273.15,
+            None,
+            "K",
+            "621 °C, the melting peak of a sputtered film (about 7 µm, peeled off) by DSC at 5 K/min; solidus 610 °C, liquidus 638 °C (melting over a range: off-eutectic); heat of fusion 14.7 ± 0.7 kJ/mol, entropy of fusion 16.5 ± 0.9 J/(mol·K). Zhao et al. 2022's nanocalorimetry of 10 to 40 nm films: 627 ± 15 °C, 16.7 ± 3.4 kJ/mol",
+            ("kalb-2003", "Tables I and II, Fig. 3(b)"),
+        )),
         amorphous_conductivity: Some(lyeo(0.19, "amorphous, a sputtered film as deposited")),
         crystalline_conductivity: Some(lyeo(
             0.57,
             "the cubic (rock-salt) phase, annealed 20 min at 180 °C; 1.58 W/(m·K) for the hexagonal (360 °C); Aryana et al. 2023 measure 0.20 amorphous and 1.02 after 320 °C (TDTR, 300 nm films)",
         )),
-        specific_heat: None,
-        density: None,
-        missing: vec![missing(
-            "T_m, c_p, ρ",
-            "T_m and c_p from Kalb, Spaepen & Wuttig 2003 (DSC), ρ from Njoroge, Wöltgens & Wuttig 2002, coming",
-        )],
+        specific_heat: Some(constant(
+            "c_p",
+            "specific heat capacity",
+            ZHAO_CP.0 * (1.0 - ZHAO_DROP.0) / gst_atomic_mass(),
+            None,
+            "J/(kg·K)",
+            "crystalline, at 100 °C: the amorphous film's 27.2 ± 3.3 J/(mol·K) per mole of atoms less the 17 ± 5 % drop on crystallization (the rescan of the crystallized film), over GST's mean atomic mass, 114.09 g/mol; nanocalorimetry of 10 to 40 nm sputtered films under 3 nm of SiOx, from the slope of C_p against the thickness. Aryana et al. 2023's 221/223 J/(kg·K) cite this paper and Aryana et al. 2021 (their refs. 43–44); the latter assumes 1.3 and 1.4 MJ/(m³·K) for amorphous and hexagonal GST (from Zalden et al. 2014) and measures none",
+            ("zhao-2022", "Section 2, Figs. 2(b) and 3(a)"),
+        )),
+        density: Some(constant(
+            r"\rho",
+            "density",
+            NJOROGE_DENSITY[1],
+            Some(20.0),
+            "kg/m³",
+            "the NaCl-type (rock-salt, fcc) phase, Ge₂Sb₂.₀₄Te₄.₇₄ films sputtered at room temperature and annealed 10 min at 150 °C, by x-ray reflectivity (6.27 ± 0.02 g/cm³ from about 130 °C); the hexagonal phase, from about 280 °C, 6390 ± 20; the XRD densities of the stoichiometry and lattice 6430 to 6480 (nearly void-free films)",
+            ("njoroge-2002", "Results and Discussion, Fig. 5"),
+        )),
+        amorphous_specific_heat: Some(constant(
+            "c_p",
+            "specific heat capacity, amorphous",
+            ZHAO_CP.0 / gst_atomic_mass(),
+            Some(ZHAO_CP.1 / gst_atomic_mass()),
+            "J/(kg·K)",
+            "the as-deposited amorphous film at 100 °C, 27.2 ± 3.3 J/(mol·K) per mole of atoms by nanocalorimetry, over GST's mean atomic mass; 'consistent with conventional DSC on bulk samples'",
+            ("zhao-2022", "Section 2, Fig. 3(a)"),
+        )),
+        amorphous_density: Some(constant(
+            r"\rho",
+            "density, amorphous",
+            NJOROGE_DENSITY[0],
+            Some(20.0),
+            "kg/m³",
+            "as deposited, by x-ray reflectivity, constant to 120 °C (5.87 ± 0.02 g/cm³): 6.8 ± 0.2 % below the NaCl-type phase, the film 6.5 % thicker",
+            ("njoroge-2002", "Results and Discussion, Fig. 5"),
+        )),
+        missing: vec![],
         references: references(&[
             "delaney-2020",
             "delaney-2020-data",
@@ -486,6 +642,9 @@ fn gst() -> PhaseChange {
             "friedrich-2000",
             "lyeo-2006",
             "aryana-2023",
+            "kalb-2003",
+            "zhao-2022",
+            "njoroge-2002",
         ]),
     }
 }

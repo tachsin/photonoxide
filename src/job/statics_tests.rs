@@ -806,7 +806,7 @@ fn a_pulse_amorphizes_the_phase_change_film_and_says_so() {
 #[test]
 fn a_pulse_and_its_switching_name_what_they_lack() {
     type Edit = Box<dyn Fn(String) -> String>;
-    let cases: [(Edit, &str); 7] = [
+    let cases: [(Edit, &str); 6] = [
         (
             Box::new(|t| t.replace("pulse_ns: 100.0", "pulse_ns: 101.0")),
             "whole number of steps",
@@ -828,10 +828,6 @@ fn a_pulse_and_its_switching_name_what_they_lack() {
             "sb2se3, sb2s3 or gst",
         ),
         (
-            Box::new(|t| t.replace("material: sb2se3 }", "material: sb2s3 }")),
-            "no crystallization and melting temperatures for sb2s3",
-        ),
-        (
             Box::new(|t| t.replace("pulse_ns: 100.0", "pulse_ns: 100.0\n    turn: \"off\"")),
             "leave turn out",
         ),
@@ -839,5 +835,11 @@ fn a_pulse_and_its_switching_name_what_they_lack() {
     for (edit, words) in cases {
         let e = check(&pcm_job(&*edit)).unwrap_err().to_string();
         assert!(e.contains(words), "{words}: {e}");
+    }
+    // every catalogued material has its switching temperatures now
+    for id in ["sb2s3", "gst"] {
+        let job =
+            pcm_job(&|t: String| t.replace("material: sb2se3 }", &format!("material: {id} }}")));
+        assert!(check(&job).is_ok(), "{id}");
     }
 }

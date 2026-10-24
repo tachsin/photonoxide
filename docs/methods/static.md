@@ -212,6 +212,11 @@ crystallization and melting temperatures of the catalogue (`catalogue::phase_cha
 - *partly crystallized* when only some cells pass $T_c$;
 - *unchanged* otherwise.
 
+All three materials have both temperatures (Sb₂S₃'s T_m by Gurevich et al. 2002, GST's by Kalb
+et al. 2003; docs/methods/catalogue.md), and a transient's phase-change medium takes its state's
+own ρc_p where the catalogue has one (`PhaseChange::heat_capacity_of`: GST's two states differ),
+the crystal's otherwise.
+
 The crystallization's kinetics aren't modelled. A crystallizing pulse must hold the film above
 $T_c$ for long enough: milliseconds for Sb₂Se₃ by Lawson et al. 2022, under a laser. A
 threshold needs no latent heat, since a film only starts to absorb it once it reaches $T_m$.
