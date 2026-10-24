@@ -431,7 +431,7 @@ pub fn cases() -> Vec<Case> {
             id: "material/litao3-bond-fit",
             title: r"Lithium tantalate: photonoxide's two-term Sellmeier fits ($n_o$, $n_e$) against the 22 rows of Bond's table from 0.45 to 4.0 µm at room temperature (largest difference shown)",
             tier: Tier::Analytic,
-            source: "W. L. Bond, J. Appl. Phys. 36, 1674 (1965), doi:10.1063/1.1703106, the table as the refractiveindex.info database transcribes it (CC0); four decimals",
+            source: "W. L. Bond, J. Appl. Phys. 36, 1674 (1965), doi:10.1063/1.1703106, Table IV as the refractiveindex.info database transcribes it (CC0), checked against the paper: four decimals, the same 44 numbers but the printed n_e of 2.0299 at 3.00 µm, a misprint for the database's 2.0799",
             run: ferroelectric::litao3_bond_fit,
         },
         Case {
@@ -440,6 +440,34 @@ pub fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: "J. L. Casson et al., J. Opt. Soc. Am. B 21, 1948 (2004), doi:10.1364/JOSAB.21.001948, Table 2 (the curvature-adjusted indices, from F. Gervais and V. Fonseca's handbook chapter): an independent print of the indices",
             run: ferroelectric::litao3_casson,
+        },
+        Case {
+            id: "material/litao3-abedin-bond",
+            title: r"Lithium tantalate (Abedin & Ito, $n(\lambda, T)$): their Eq. (1) at 25 °C, Table I's constants, against Bond's 22 rows: the standard deviations of $n_o$ and $n_e$ (2.12455e-4 and 3.54671e-4) against the paper's 2.1247e-4 and 3.547e-4 (larger difference shown)",
+            tier: Tier::Published,
+            source: "K. S. Abedin, H. Ito, J. Appl. Phys. 80, 6561 (1996), doi:10.1063/1.363679, Table I and Fig. 2's caption; W. L. Bond's Table IV (doi:10.1063/1.1703106), its 3.00 µm n_e corrected as the paper's own standard deviation shows they did",
+            run: ferroelectric::litao3_abedin_bond,
+        },
+        Case {
+            id: "material/litao3-abedin-refit",
+            title: r"Lithium tantalate: Abedin & Ito's fit redone from Bond's table by their procedure ($A_3$ where the variance of $n^2$ is least, Fig. 1; $A_1$, $A_2$, $A_4$ by linear least squares, Eqs. (3)–(7)) against their Table I (largest relative deviation of the eight constants shown; $A_3$ 0.198758 and 0.203426 µm against 0.19876 and 0.20344)",
+            tier: Tier::Published,
+            source: "K. S. Abedin, H. Ito, J. Appl. Phys. 80, 6561 (1996), doi:10.1063/1.363679, Eqs. (2)–(7), Fig. 1 and Table I",
+            run: ferroelectric::litao3_abedin_refit,
+        },
+        Case {
+            id: "material/litao3-abedin-points",
+            title: r"Lithium tantalate: Abedin & Ito's Eq. (1) with Tables I and II against Fig. 3's 92 points ($n_o$ and $n_e$ at 468 and 644 nm, 25 to 300 °C): the four standard deviations (3.92, 1.35, 5.49 and 4.82e-4) against the paper's 3.5, 1.4, 5.4 and 5.2e-4 (largest difference shown)",
+            tier: Tier::Published,
+            source: "K. S. Abedin, H. Ito, J. Appl. Phys. 80, 6561 (1996), doi:10.1063/1.363679, Fig. 3: the points (their interpolation of Iwasaki et al. 1968) read off the figure's bitmap against its ticks, 1.2e-4 (panel (a)) and 1.5e-4 (panel (b)) per pixel",
+            run: ferroelectric::litao3_abedin_points,
+        },
+        Case {
+            id: "material/litao3-abedin-curves",
+            title: r"Lithium tantalate: Abedin & Ito's Eq. (1) against Fig. 3's own dashed curves at 100, 150, 200, 250 and 290 °C, $n_o$ and $n_e$ at 468 and 644 nm (largest difference shown)",
+            tier: Tier::Published,
+            source: "K. S. Abedin, H. Ito, J. Appl. Phys. 80, 6561 (1996), doi:10.1063/1.363679, Fig. 3: the dashes read off the figure's bitmap, 1.2e-4 to 1.5e-4 per pixel",
+            run: ferroelectric::litao3_abedin_curves,
         },
         Case {
             id: "material/batio3-abel-films",

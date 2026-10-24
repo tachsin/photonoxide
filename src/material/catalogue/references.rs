@@ -452,6 +452,13 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "10.1063/1.1703106",
         "",
     ),
+    (
+        "abedin-ito-1996",
+        "K. S. Abedin, H. Ito, J. Appl. Phys. 80, 6561 (1996)",
+        "Temperature-dependent dispersion relation of ferroelectric lithium tantalate",
+        "10.1063/1.363679",
+        "",
+    ),
 ];
 
 /// The papers with these keys.

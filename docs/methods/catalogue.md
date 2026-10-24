@@ -328,7 +328,8 @@ every value a tensor gives is an element its tag names.
 | LiNbO₃, congruent | Jundt 1997 | $n_e(\lambda, T)$, Eqs. (4)–(5), Table 2 | 0.4–5 µm, 20–250 °C |
 | LiNbO₃, 5% MgO | Zelmon et al. 1997 (default) | Table 2, columns exchanged (below) | 0.4–5.0 µm, 21 °C |
 | LiNbO₃, 5% MgO | Gayer et al. 2008 | Eqs. (2)–(3), Table 1 of the 2010 erratum | $n_e$ 0.5–4 µm, 20–200 °C; $n_o$ 0.5–1.62 µm, 20–100 °C |
-| LiTaO₃ | Bond 1965 (our fit) | two-term Sellmeier for $n_o$ and $n_e$, fitted to Bond's table (refractiveindex.info, CC0) | 0.45–4.0 µm, room temperature, within 6.7e-4 of the table |
+| LiTaO₃ | Bond 1965 (our fit, default) | two-term Sellmeier for $n_o$ and $n_e$, fitted to Bond's Table IV (refractiveindex.info, CC0, checked against the paper) | 0.45–4.0 µm, room temperature, within 6.7e-4 of the table |
+| LiTaO₃ | Abedin & Ito 1996 | $n_{o,e}(\lambda, T)$, Eq. (1), Tables I and II | 0.4–4.0 µm, 25–300 °C (the temperature terms fitted at 468 and 644 nm) |
 | BaTiO₃ (thin film) | Abel et al. 2018, at 1550 nm | constant $n_o = ar n + \Delta n/2$, $n_e = ar n - \Delta n/2$; $ar n$ = 2.286, $\Delta n$ = 0.03 (Supplementary Note 6) | 1.50–1.60 µm |
 
 Two models are new forms in `Model`: `Model::Pikhtin` (Skauli's Eq. (12), photon energies in eV)
@@ -438,12 +439,29 @@ congruent Table 1 is printed the right way round.
   and 1558 nm (Table 2; 6.92 ± 0.07 and 27.4 ± 0.3 pm/V at 1558 nm), from the deflection per volt
   of a domain-patterned crystal scaled from the literature's 632.8 nm values, with the indices they
   use as constants; $r_{22}$ and $r_{51}$ unmeasured. Its index model is our two-term Sellmeier fit
-  to W. L. Bond's table (J. Appl. Phys. 36, 1674 (1965), 0.45 to 4.0 µm at room temperature) as
-  the refractiveindex.info database transcribes it (CC0): within 3.3e-4 ($n_o$) and 6.7e-4
-  ($n_e$, whose tabulated steps are irregular from 1.6 to 2.0 µm) of its 22 rows, and within
-  5.0e-4 of the indices Casson et al. print from Gervais & Fonseca's handbook chapter at 632.8 to
-  1558 nm, an independent print of the measurements. Bond's paper itself (closed) is still to be
-  read; its temperature dependence (Abedin & Ito 1996) is coming.
+  to W. L. Bond's Table IV (J. Appl. Phys. 36, 1674 (1965), 0.45 to 4.0 µm at room temperature,
+  minimum deviation on prisms of crystals grown by A. Ballman) as the refractiveindex.info
+  database transcribes it (CC0): within 3.3e-4 ($n_o$) and 6.7e-4 ($n_e$, whose tabulated steps
+  are irregular from 1.6 to 2.0 µm) of its 22 rows, and within 5.0e-4 of the indices Casson et
+  al. print from Gervais & Fonseca's handbook chapter at 632.8 to 1558 nm, an independent print
+  of the measurements. Read against the paper, the transcription has all 44 numbers as printed
+  but $n_e$ at 3.00 µm, which the paper prints 2.0299: a misprint ($n_e - n_o$ would be −0.046
+  there and +0.004 to +0.005 at every other row) for the database's 2.0799, which Abedin & Ito
+  used too (with 2.0299 their Eq. (2)'s standard deviation would be 1e-2, not their 3.5e-4).
+  The temperature model is K. S. Abedin and H. Ito's (J. Appl. Phys. 80, 6561 (1996),
+  doi:10.1063/1.363679), $n^2 = A_1 + (A_2 + B_1F)/(\lambda^2 - (A_3 + B_2F)^2) + B_3F +
+  A_4\lambda^2$ with $F = (T - 25)(T + 571)$ in °C, 0.4 to 4.0 µm and 25 to 300 °C: the $A_i$
+  fitted to Bond's table at 25 °C, the $B_i$ to Iwasaki et al.'s indices at 468 and 644 nm.
+  Redone here: the standard deviations against Bond's rows, 2.12455e-4 and 3.54671e-4 against
+  Fig. 2's 2.1247e-4 and 3.547e-4; their fit (A₃ where the variance of $n^2$ is least, the
+  others by linear least squares), A₃ = 0.198758 and 0.203426 µm against Table I's 0.19876 and
+  0.20344, all eight constants within 6.7e-5; against Fig. 3's points, read off its bitmap
+  against the axes' ticks (1.2e-4 and 1.5e-4 per pixel), standard deviations of 3.92, 1.35, 5.49
+  and 4.82e-4 against the printed 3.5, 1.4, 5.4 and 5.2e-4; and within 1.2e-4 of its dashed
+  curves from 100 to 290 °C. Its temperature terms rest on the two visible wavelengths: at 1550
+  nm they give $dn_o/dT = +8.0 \times 10^{-6}$ and $dn_e/dT = -2.7 \times 10^{-6}$ per K (25 to
+  300 °C), where at 468 nm $n_e$ rises by 8e-5 per K. No paper in hand measures the infrared
+  dn/dT to check it, so it stays coming; Bond's fit is the default at room temperature.
 - **GaAs:** $d_{14} = 119$ pm/V at 1.533 µm and 170 at 1.064 µm (Shoji, Table 11); Skauli et al.
   (2002) measure $d_{14}/d_{33}(\mathrm{LiNbO_3}) = 5.01 \pm 0.3$ at 4.1 µm. $r_{41}^S = -1.54$ and
   $-1.50$ pm/V at 1.32 and 1.52 µm (Berseth et al., with their sign convention), and the
@@ -634,7 +652,12 @@ read from the paper itself, which isn't in hand.
 - Gayer's 5% MgO indices against Zelmon's Table 2 (columns exchanged) at 21 °C: within 4.4e-4.
   The paper reports 3.1e-4 for $n_e$ and 2.2e-4 for $n_o$; we find 3.3e-4 and 4.4e-4.
 - Lithium tantalate: our fits within 6.7e-4 of Bond's 22 rows (`material/litao3-bond-fit`) and
-  within 5.0e-4 of Casson et al.'s eight indices (`material/litao3-casson`). Barium titanate: Abel
+  within 5.0e-4 of Casson et al.'s eight indices (`material/litao3-casson`); Abedin & Ito's
+  $n(\lambda, T)$ reproduces their Fig. 2's standard deviations to 3e-8
+  (`material/litao3-abedin-bond`), their Table I refitted within 6.7e-5
+  (`material/litao3-abedin-refit`), Fig. 3's standard deviations within 4.4e-5
+  (`material/litao3-abedin-points`) and its curves within 1.2e-4 (`material/litao3-abedin-curves`).
+  Barium titanate: Abel
   et al.'s film index at 1550 nm within 0.026 of the other films' 2.26 and 2.29
   (`material/batio3-abel-films`).
 - Gehrsitz: Eq. (11) reproduces Table II's $E_0^2$ of GaAs at three temperatures (5e-7), the
