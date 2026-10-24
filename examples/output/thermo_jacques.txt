@@ -1,0 +1,26 @@
+Jacques et al. 2019's heaters through photonoxide's thermo-optic phase shifter devices, at 1550 nm, 320 um long
+
+doped thermo-optic phase shifter:
+  analytic  P_pi  27.607 mW   tau   6.06 us   f_3dB  19.99 kHz
+            (exact: no grid)
+  2D        P_pi  26.078 mW   tau   4.24 us   f_3dB  23.55 kHz
+            (heat on 192 × 75 cells graded from 20.000 nm to 0.500 um (growth 1.200) over 40 × 18 um; mode on 10.000 nm cells)
+  measured  P_pi  22.800 mW   tau   2.20 us   f_3dB  85.00 kHz
+            (measured: Section 3.1 and Fig. 8, the MZI's arms 200 um apart, the widest pitch measured (23.3 mW at 50 um; Fig. 7's fits 23.2 +- 0.7, 22.7 +- 1.1 and 22.1 +- 1.4 mW))
+  2D P_pi on grids 1 and 1/2, mW        26.089246   on 2 grids, error 1.1e-2 ≤ 2.61e-1 ok
+  2D P_pi, mW (simulated)               26.089246   paper 25.5       ± 2.5500000000000003e0 ok
+  2D P_pi, mW (measured)                26.089246   paper 22.8       ± 3.42e0    ok
+  analytic P_pi, mW                     27.606579   2D 26.078324  ± 3.912e0      ok
+
+thermo-optic phase shifter:
+  analytic  P_pi  29.851 mW   tau  11.15 us   f_3dB  15.22 kHz
+            (exact: no grid)
+  2D        P_pi  33.360 mW   tau  11.34 us   f_3dB  14.86 kHz
+            (heat on 174 × 99 cells graded from 20.000 nm to 0.500 um (growth 1.200) over 40 × 18 um; mode on 10.000 nm cells)
+  measured  P_pi  29.200 mW   tau   7.20 us   f_3dB  33.00 kHz
+            (measured: Section 3.1 and Fig. 8, the MZI's arms 200 um apart, the widest pitch measured (31.5 mW at 50 um))
+  2D P_pi on grids 1 and 1/2, mW        33.358791   on 2 grids, error 1.7e-3 ≤ 3.34e-1 ok
+  2D P_pi, mW (simulated)               33.358791   paper 32.2       ± 3.2200000000000006e0 ok
+  2D P_pi, mW (measured)                33.358791   paper 29.2       ± 4.38e0    ok
+  analytic P_pi, mW                     29.850921   2D 33.360489  ± 5.004e0      ok
+all 8 within tolerance of the paper

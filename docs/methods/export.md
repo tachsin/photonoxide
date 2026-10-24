@@ -34,8 +34,8 @@ $E_z$; a device's study, fit or optimization and a chip have tables only).
 ## The tables
 
 One file a table, a header line then one line a row, in long form: one value a row with its
-coordinates beside it, so any size of table reads into pandas, MATLAB's `readtable` or a
-spreadsheet as it is. Each number is the shortest decimal that reads back to the same `f64`
+coordinates beside it, so any size of table reads into pandas, any language's CSV reader or
+a spreadsheet as it is. Each number is the shortest decimal that reads back to the same `f64`
 (lossless); a text with a comma or a quote is quoted (RFC 4180); an empty field is a number
 the record doesn't have.
 
@@ -98,13 +98,11 @@ assert ey.shape == (len(f["y_um"]), len(f["x_um"]))
 assert f["effective_index"].real == modes["n_eff_re"][0]
 ```
 
-MATLAB has `photonoxide.run_tables` (each table a MATLAB `table`) and `photonoxide.export_run`
-([matlab](../matlab.md)).
-
 ## Tests
 
-Nothing in photonoxide reads a `.npz` back: the tests do, with the `zip` crate (a
-dev-dependency only) as a real reader and a small `.npy` parser of their own, to the bit:
+photonoxide reads a `.npz` back only to write it again (below); the tests read every one, with
+the `zip` crate (a dev-dependency only) as a real reader and a small `.npy` parser of their own,
+to the bit:
 
 - a mode's `.npz` against the solver's own `Fields` and `VectorMode`;
 - an fdfd job's `field.npz`: its $\lvert H_z\rvert^2$ over the pictured cells, scaled as the
@@ -150,8 +148,8 @@ task:
 
 ## HDF5
 
-NumPy's `.npz` is photonoxide's own and the default. For tools that read HDF5 (h5py, MATLAB's
-`h5read`, ParaView, HDFView), `container = "hdf5"` writes each `.npz` as an `.h5` instead, with
+NumPy's `.npz` is photonoxide's own and the default. For tools that read HDF5 (h5py, Julia's
+HDF5.jl, ParaView, HDFView), `container = "hdf5"` writes each `.npz` as an `.h5` instead, with
 **the user's own libhdf5** (release 1.10 or later), loaded at run time by `photonoxide-native`
 ([installing it](../libraries.md#hdf5)); libhdf5 is written in C, which photonoxide never
 links.
@@ -189,7 +187,104 @@ files by checkbox, with their sizes, written into the run's folder or saved into
 Its fields can't be made afterwards: a field is the solver's state, which a finished run no
 longer has, so a job asks for them in `[task.export]`.
 
-## Left for later
+In Python, `export_run` writes a run's tables again; here the strip's of
+[The fields](#the-fields):
 
-Issue [#431](https://github.com/tachsin/photonoxide/issues/431) asks for more: MAT and VTK XML
-writers, and the heavy arrays moved out of `events.jsonl`. This page grows with them.
+```python
+files = phox.export_run(run.dir, tables=["modes"], out_dir="tables")
+assert [f.name for f in files] == ["modes.csv"]
+assert files[0].read_bytes() == (run.dir / "modes.csv").read_bytes()   # what the run wrote
+```
+
+### Its fields at another precision and level
+
+The fields a run wrote can be written again, into another folder, at another precision and
+deflate level, each file's size estimated before writing:
+
+```sh
+photonoxide export runs/<run> --list --precision f32 --level 9   # each file's size, and written again so
+photonoxide export runs/<run> --fields all --precision f32 --level 9 --to out/
+```
+
+```text
+field-1.npz            20125593 bytes  written again: about 9694361 bytes at f32, level 9
+```
+
+The Export dialog has the precision and the level beside its fields, each file's size now and
+written again (`19.2 MB → ≈ 9.2 MB`) as the choice changes, and the total; Python has
+`estimate_fields` and `export_fields`:
+
+```python
+stored = phox.estimate_fields(run.dir, precision="f32", level=0)
+written = phox.export_fields(run.dir, "stored", precision="f32", level=0)
+for f, path in zip(stored, written):
+    assert f.exact and f.estimate == path.stat().st_size          # stored: to the byte
+for f in phox.estimate_fields(run.dir, precision="f32", level=9):
+    print(f.file, f.bytes, "→", f.estimate, "" if f.exact else "(about)")
+```
+
+- The arrays are read from the `.npz` the run wrote and written by the same writer, in the same
+  order. The grid and the small numbers (no or one dimension) stay `f64`; the fields (two
+  dimensions or more) are downcast to `f32` when asked, and `meta.json` says so and names the
+  new compression. A file already `f32` stays `f32`: nothing brings its digits back.
+- Written again at its own precision and level, a file is the same file, byte for byte.
+- **The estimate.** Stored (level 0), the size is known before writing to the byte: each
+  member's `.npy` and the ZIP's own records. Deflated, a member up to 1 MiB is deflated in
+  memory as the writer would, so the size is exact too, and it says so; a larger member (a 3D
+  run's monitor) is estimated from eight slices of 64 KiB spread over it, each deflated at the
+  level asked, their ratio taken for the whole, and marked `≈` (`about` on the command line).
+- The tests write each kind's file again (a mode, an fdfd field, an fdtd monitor, a static
+  temperature) at both precisions and levels 0, 1, 6 and 9: each estimate is the written size
+  to the byte where it says it is exact, and within 2 % where it is sliced.
+- `jobs/mmi-fdtd.yaml`'s field monitor (20.1 MB in `f64`, on its 20 nm grid) written again:
+  the estimate 0.9 % under at `f64` and level 6 (19 948 345 bytes for 20 125 593 written),
+  1.0 % under at level 1, 0.1 % over at `f32` and level 6 or 9 (9 694 361 for 9 684 081);
+  stored, 20 893 269 bytes, to the byte.
+- An `.h5`, or an `.npz` compressed with Zstandard (which photonoxide reads only through
+  libzstd), is copied as it is.
+
+## The run's arrays
+
+`events.jsonl`'s pictures are large: a mode's or a field's `Raster` is one `f32` a cell, and
+an FDTD run records up to 500 frames. Written into each line, they made most of the record,
+and every line had to be read and parsed to open a run. Each long value of a line now goes into
+**`events.bin`** beside it, and the line keeps where it is ([`run::arrays`]):
+
+- a flat array of 256 numbers or more, as `<f4` when every number is an `f32`'s shortest
+  decimal, as `<f8` when it is an `f64`'s; a base64 string of 1024 characters or more (an
+  FDTD frame's pixels), as its bytes, `|u1`;
+- each is a NumPy `.npy` (NEP 1, one dimension), one after another, and its place in the line
+  holds `{"$npy":<offset>}`, the byte where it starts;
+- a value is moved only when writing it back gives the very text the line had, which is checked
+  as it is moved. A replayed run (`photonoxide view`, the studio's replay, `results.json`, the
+  tables) reads each line as the run recorded it, to the last byte, and so every float to the
+  last bit;
+- the array is written before the line that names it, so the studio following a run live
+  finds it;
+- a run recorded before, with its arrays in its lines, replays as it always did.
+
+| Job | `events.jsonl` before | `events.jsonl` now | `events.bin` |
+|---|---:|---:|---:|
+| `jobs/strip-modes.yaml` (its modes, and a sweep of 11 wavelengths) | 1.59 MB | 16.7 kB | 0.86 MB |
+| `jobs/ring-fdfd.yaml` (a sweep of 201 wavelengths, each one's field) | 16.8 MB | 178 kB | 13.8 MB |
+| `jobs/ring-fdtd.yaml` (its frames) | 8.75 MB | 1.45 MB | 5.52 MB |
+
+The studio's list of runs reads each record, now a hundredth of what it was for a sweep; a
+replay reads the arrays back with its lines.
+
+From Python, a picture of the run above, read from the record as NumPy reads it; the run's
+`events` (as the façade gives them) have it in place again, to the bit:
+
+```python
+import json
+
+lines = (run.dir / "events.jsonl").read_text(encoding="utf-8").splitlines()
+k = next(k for k, line in enumerate(lines) if '{"$npy":' in line)
+event = json.loads(lines[k])
+key = next(name for name, v in event.items() if isinstance(v, dict) and isinstance(v.get("values"), dict))
+with open(run.dir / "events.bin", "rb") as f:
+    f.seek(event[key]["values"]["$npy"])
+    values = np.load(f)                               # float32, a cell each, row by row
+assert values.shape == (event[key]["nx"] * event[key]["ny"],)
+assert np.array_equal(values, np.array(run.events[k][key]["values"], dtype=np.float32))
+```

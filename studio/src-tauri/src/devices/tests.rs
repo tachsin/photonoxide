@@ -116,7 +116,7 @@ fn every_device_in_the_library_opens() {
 
 #[test]
 fn the_geometry_and_figures_are_the_librarys_for_the_same_values() {
-    let cases: [(&str, &[(&str, &str)]); 11] = [
+    let cases: [(&str, &[(&str, &str)]); 13] = [
         ("waveguide", &[("width", "0.45"), ("length", "25")]),
         ("bend", &[("radius", "7.5 um"), ("angle", "60 deg")]),
         (
@@ -144,6 +144,14 @@ fn the_geometry_and_figures_are_the_librarys_for_the_same_values() {
         ("Y-branch", &[("w7", "1.35 um"), ("separation", "2.5")]),
         ("MZI", &[("upper", "120"), ("phase", "45 deg")]),
         ("Y-branch MZI", &[("lower", "80"), ("excess_loss", "0.2")]),
+        (
+            "thermo-optic phase shifter",
+            &[("heater_width", "3 um"), ("power", "10")],
+        ),
+        (
+            "doped thermo-optic phase shifter",
+            &[("buffer", "600 nm"), ("power", "5")],
+        ),
     ];
     for (kind, parameters) in cases {
         let spec = cheapest(kind, parameters);

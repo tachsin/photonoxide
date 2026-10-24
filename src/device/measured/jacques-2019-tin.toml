@@ -1,0 +1,33 @@
+# Jacques et al. 2019's fabricated TiN shifter, as they measured it: the thermo-optic phase
+# shifter's measured fidelity (photonoxide::device::Measurement). Read 2026-10-24 from the paper.
+kind = "thermo-optic phase shifter"
+source = "M. Jacques, A. Samani, E. El-Fiky, D. Patel, Z. Xing, D. V. Plant, Opt. Express 27, 10456 (2019), doi:10.1364/OE.27.010456: the fabricated TiN heater (Section 2.3, Fig. 4: 7.5 um wide, 2 um above the 500 x 220 nm strip on 2 um of buried oxide, 320 um long), measured in a tunable MZI (Section 3)"
+
+# what the paper gives of the design; the TiN's thickness and the oxide over it it withholds
+[design]
+width = 0.5
+thickness = 0.22
+heater_width = 7.5
+height = 2.0
+length = 320.0
+
+[[figure]]
+symbol = "P_pi"
+name = "power for a π shift"
+value = 29.2
+unit = "mW"
+where = "Section 3.1 and Fig. 8, the MZI's arms 200 um apart, the widest pitch measured (31.5 mW at 50 um)"
+
+[[figure]]
+symbol = "tau"
+name = "1/e time, the limiting one"
+value = 7.2
+unit = "µs"
+where = "Section 3.2 and Fig. 10(b), the fall (the rise 3.7 us)"
+
+[[figure]]
+symbol = "f_3dB"
+name = "−3 dB frequency"
+value = 33.0
+unit = "kHz"
+where = "Section 3.2 and Fig. 10(a)"

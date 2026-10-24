@@ -28,6 +28,7 @@ A stopped run's folder holds what was done before it stopped.
 | `job.yaml`, `job.toml` or `job.json` | the job, as it was given |
 | `meta.json` | what ran it: `photonoxide` (the version), `job` (its name), `started` (UTC, `2026-10-01T12:00:00Z`), `threads` (the machine's) |
 | `events.jsonl` | the record, one JSON event a line, written as the run goes: what the studio's views show |
+| `events.bin` | the record's long arrays (its pictures, an FDTD run's frames), NumPy `.npy` arrays one after another, each line referring to its own by where it starts |
 | `results.json` | the run's numbers, written when it ends however it ends: what a script reads |
 | `*.f64`, `*.c128` | `results.json`'s large arrays, as raw numbers |
 | `*.csv` | the run's tables, written when it ends: n_eff, S-parameters, spectra, a study's points, an optimization's history, a static job's numbers ([export](methods/export.md)) |
@@ -80,6 +81,14 @@ A stopped run's folder holds what was done before it stopped.
 Every number is the one photonoxide computed, written so that it reads back to the same bits:
 the S-matrix is bit for bit what the library's `job::fdfd_s_parameters` gives for the same job.
 
+Its JSON Schema (draft 2020-12) is [docs/results.schema.json](results.schema.json), which
+`photonoxide schema --results` prints: derived from the library's own types, so it can't drift
+from what a run writes (a test checks the committed file, and checks real runs' `results.json`
+against it). A language's types can be generated from it
+([docs/languages.md](languages.md#types-generated-from-the-schema)). It names the values a field
+takes where they are fixed (`dtype`, `outcome`, `stopped`, the verdicts) and allows fields it
+doesn't name: a later photonoxide adds fields without raising `schema`.
+
 ### Arrays
 
 An array is an object:
@@ -111,25 +120,8 @@ s = array(results["s_parameters"]["s"])   # s[k, q, p]
 transmission = abs(s[:, 1, 0]) ** 2
 ```
 
-MATLAB:
-
-```matlab
-run = "runs/20261014-120000-strip-fdfd";
-results = jsondecode(fileread(fullfile(run, "results.json")));
-a = results.s_parameters.s;
-if isfield(a, "data")
-    values = a.data(:);
-else
-    f = fopen(fullfile(run, a.file), "r", "ieee-le");
-    values = fread(f, Inf, "double");
-    fclose(f);
-end
-if a.dtype == "complex128"
-    values = complex(values(1:2:end), values(2:2:end));
-end
-% C order: reverse the shape for MATLAB's column order, then the indices
-s = permute(reshape(values, flip(a.shape')), numel(a.shape):-1:1);   % s(k, q, p)
-```
+Other languages read it the same way: [docs/languages.md](languages.md) has the shell, R,
+JavaScript, TypeScript and Go.
 
 ## `events.jsonl`
 
@@ -139,3 +131,10 @@ since new ones are added. The record starts with `started` and ends with `finish
 last line may be cut off mid-write. The events' pictures are for the studio's views: `f32`,
 normalized to a peak of 1. For the numbers, read `results.json`. The events are documented
 field by field in the library's `job::Event`.
+
+A long array of an event (256 numbers or more, or a base64 string of 1024 characters or more)
+is in `events.bin`, and the line has `{"$npy": <offset>}` in its place: the byte where its
+`.npy` starts (`f.seek(offset); numpy.load(f)`). The library's `run::replay` and
+`run::replay_lines` put each one back, the line then the very text the run recorded
+([export](methods/export.md#the-runs-arrays)). Runs recorded before have their arrays in their
+lines.

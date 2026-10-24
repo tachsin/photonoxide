@@ -20,19 +20,28 @@
 //! ran, the run's id, the precision written, and the grid, units and normalization of the
 //! arrays.
 //!
-//! Nothing here reads a `.npy` or `.npz` file back: the tests do, with the `zip` crate (a
-//! dev-dependency only) unpacking the archive and a small reader of their own checking the
+//! **Written again** ([`rewrite()`], [`estimate()`]): a finished run's `.npz` read back from the
+//! writer's own members (stored or deflated) and written again at another precision and level,
+//! its size estimated before writing. Otherwise the tests read the files, with the `zip` crate
+//! (a dev-dependency only) unpacking the archive and a small reader of their own checking the
 //! array bytes against the solver's own values, to the bit.
 
 pub mod codec;
-mod npy;
+pub(crate) mod npy;
+mod rewrite;
 pub mod tables;
 mod zip;
+
+#[cfg(test)]
+pub(crate) use rewrite::assert_estimates;
+pub use rewrite::{Estimate, estimate, rewrite};
 
 use std::path::Path;
 
 use num_complex::Complex64 as c64;
-use serde::Serialize;
+use std::borrow::Cow;
+
+use serde::{Deserialize, Serialize};
 
 use crate::mode::fields::Fields;
 use crate::mode::vector::VectorMode;
@@ -104,18 +113,36 @@ pub struct Described<'a> {
     pub normalization: &'a str,
 }
 
-/// `meta.json`'s fields.
-#[derive(Serialize)]
+/// `meta.json`'s fields, in their order; read back by [`rewrite()`], which writes it again.
+#[derive(Serialize, Deserialize)]
 struct MetaFile<'a> {
-    photonoxide: &'a str,
-    job: &'a str,
-    run_id: &'a str,
-    precision: &'static str,
-    grid: &'a str,
-    units: &'a str,
-    normalization: &'a str,
-    job_text: &'a str,
-    compression: &'a str,
+    photonoxide: Cow<'a, str>,
+    job: Cow<'a, str>,
+    run_id: Cow<'a, str>,
+    precision: Cow<'a, str>,
+    grid: Cow<'a, str>,
+    units: Cow<'a, str>,
+    normalization: Cow<'a, str>,
+    job_text: Cow<'a, str>,
+    /// Left out by the files written before it was (#495).
+    #[serde(default)]
+    compression: Cow<'a, str>,
+}
+
+impl MetaFile<'_> {
+    /// Its text, as every `.npz` has it.
+    fn text(&self) -> String {
+        // every field is a plain string: this cannot fail
+        serde_json::to_string_pretty(self).expect("meta.json always serializes")
+    }
+}
+
+/// What `meta.json` says of fields written at `precision`.
+fn precision_text(precision: Precision) -> &'static str {
+    match precision {
+        Precision::F64 => "f64",
+        Precision::F32 => "f32, downcast from f64",
+    }
 }
 
 fn meta_json(
@@ -124,22 +151,18 @@ fn meta_json(
     described: &Described<'_>,
     compression: &str,
 ) -> String {
-    let file = MetaFile {
-        compression,
-        photonoxide: env!("CARGO_PKG_VERSION"),
-        job: &meta.job,
-        run_id: &meta.run_id,
-        precision: match precision {
-            Precision::F64 => "f64",
-            Precision::F32 => "f32, downcast from f64",
-        },
-        grid: described.grid,
-        units: described.units,
-        normalization: described.normalization,
-        job_text: &meta.job_text,
-    };
-    // every field is a plain string: this cannot fail
-    serde_json::to_string_pretty(&file).expect("meta.json always serializes")
+    MetaFile {
+        compression: compression.into(),
+        photonoxide: env!("CARGO_PKG_VERSION").into(),
+        job: meta.job.as_str().into(),
+        run_id: meta.run_id.as_str().into(),
+        precision: precision_text(precision).into(),
+        grid: described.grid.into(),
+        units: described.units.into(),
+        normalization: described.normalization.into(),
+        job_text: meta.job_text.as_str().into(),
+    }
+    .text()
 }
 
 fn io_error(path: &Path, e: std::io::Error) -> Error {

@@ -477,6 +477,9 @@ mod fit_tests;
 mod leaky_checks;
 #[cfg(test)]
 mod leaky_tests;
+mod line;
+#[cfg(test)]
+mod line_tests;
 pub mod optimize;
 mod optimize_checks;
 mod params;
@@ -4759,6 +4762,17 @@ size_um = [2.0, 0.5]
         TempDir(dir)
     }
 
+    /// The `results.json` a run wrote, checked against its schema (`docs/results.schema.json`)
+    /// as it was written, then read.
+    fn results_of(dir: &std::path::Path) -> results::Results {
+        let text = std::fs::read_to_string(dir.join("results.json")).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&text).unwrap();
+        if let Some(e) = results::invalid_by_schema(&json) {
+            panic!("results.json isn't valid by its schema: {e}\n{text}");
+        }
+        results::Results::read(dir).unwrap()
+    }
+
     #[test]
     fn a_structure_job_records_a_top_and_a_side_view() {
         let root = temp("views");
@@ -4878,7 +4892,7 @@ segments = [
         let job = Job::parse(FDFD).unwrap();
         let mut run = Run::create(&root.0, &job).unwrap();
         execute(&job, &mut run, &Stop::new(None)).unwrap();
-        let r = results::Results::read(run.dir()).unwrap();
+        let r = results_of(run.dir());
         assert_eq!(
             (r.schema, r.outcome.as_str(), r.kind.as_str()),
             (1, "finished", "fdfd")
@@ -4917,7 +4931,7 @@ segments = [
         let mut run = Run::create(&root.0, &job).unwrap();
         execute(&job, &mut run, &Stop::new(None)).unwrap();
         let events: Vec<Event> = replay(run.dir()).unwrap();
-        let r = results::Results::read(run.dir()).unwrap();
+        let r = results_of(run.dir());
         let recorded: Vec<([f64; 2], f64)> = events
             .iter()
             .filter_map(|e| match e {
@@ -4965,7 +4979,7 @@ segments = [
             let root = temp(&format!("results-convergence-{tolerance}-{require}"));
             let mut run = Run::create(&root.0, &job).unwrap();
             let outcome = execute(&job, &mut run, &Stop::new(None));
-            (outcome, results::Results::read(run.dir()).unwrap(), root)
+            (outcome, results_of(run.dir()), root)
         };
         // the 25 nm grid's index moves by about 1e-3 from 50 nm: not within 1e-6
         let (outcome, r, _root) = checked("1e-6", false);
@@ -5020,7 +5034,7 @@ segments = [
             panic!("{events:?}")
         };
         assert_eq!(*error, e);
-        let r = results::Results::read(run.dir()).unwrap();
+        let r = results_of(run.dir());
         assert_eq!(r.outcome, "failed");
         assert_eq!(r.error.as_deref(), Some(e.as_str()));
         // and one stopped says why
@@ -5030,7 +5044,7 @@ segments = [
         let stop = Stop::new(None);
         stop.request();
         execute(&job, &mut run, &stop).unwrap();
-        let r = results::Results::read(run.dir()).unwrap();
+        let r = results_of(run.dir());
         assert_eq!(
             (r.outcome.as_str(), r.stopped.as_deref()),
             ("stopped", Some("requested"))
@@ -5303,6 +5317,43 @@ size_um = [0.5, 10.0]
         assert!(check(&Job::parse(&structure).unwrap()).is_err());
     }
 
+    /// A run's pictures go into `events.bin`, and its record read back is the record the same
+    /// job writes in memory, line for line and byte for byte (the `finished` event's seconds
+    /// aside): a modes job's mode pictures, an fdfd job's field.
+    #[test]
+    fn a_runs_pictures_go_beside_its_record_and_replay_to_the_bit() {
+        let root = temp("arrays");
+        for text in [MODES, FDFD] {
+            let job = Job::parse(text).unwrap();
+            let mut run = Run::create(&root.0, &job).unwrap();
+            execute(&job, &mut run, &Stop::new(None)).unwrap();
+            let mut memory = Run::in_memory();
+            execute(&job, &mut memory, &Stop::new(None)).unwrap();
+            let dir = run.dir();
+            assert!(dir.join(crate::run::arrays::FILE).is_file(), "{dir:?}");
+            let lines = crate::run::replay_lines(dir).unwrap();
+            let unfinished = |l: &&String| !l.starts_with("{\"type\":\"finished\"");
+            let ours: Vec<&String> = lines.iter().filter(unfinished).collect();
+            let theirs: Vec<&String> = memory.lines().iter().filter(unfinished).collect();
+            assert_eq!(ours, theirs);
+            let record = std::fs::read_to_string(dir.join("events.jsonl")).unwrap();
+            let inline: usize = lines.iter().map(|l| l.len() + 1).sum();
+            assert!(record.len() * 2 < inline, "{} of {inline}", record.len());
+            let replayed: Vec<Event> = replay(dir).unwrap();
+            let live: Vec<Event> = memory
+                .lines()
+                .iter()
+                .map(|l| serde_json::from_str(l).unwrap())
+                .collect();
+            assert_eq!(replayed.len(), live.len());
+            for (a, b) in replayed.iter().zip(&live) {
+                if !matches!(a, Event::Finished { .. }) {
+                    assert_eq!(a, b);
+                }
+            }
+        }
+    }
+
     /// With no `[task.export]` a run writes its tables and no fields; asking for one field
     /// writes it alone, beside the tables.
     #[test]
@@ -5344,6 +5395,8 @@ size_um = [0.5, 10.0]
         assert_eq!(arrays["x_um"].descr, "<f8");
         assert!(meta.contains("f32, downcast from f64"), "{meta}");
         assert!(meta.contains("[task.export]"), "the job's text: {meta}");
+        // its size estimated before it is written again, at each precision and level
+        crate::export::assert_estimates(&run.dir().join("mode-1-of-2.npz"));
 
         // format = "none": nothing beside the record
         let text = format!("{MODES}\n[task.export]\nformat = \"none\"\n");
@@ -5367,6 +5420,7 @@ size_um = [0.5, 10.0]
         let events: Vec<Event> = found(&run);
         let (arrays, meta) = crate::export::read::npz(&run.dir().join("field.npz"));
         assert!(meta.contains("unit amplitude"), "{meta}");
+        crate::export::assert_estimates(&run.dir().join("field.npz"));
         let x = arrays["x_um"].f64s();
         let y = arrays["y_um"].f64s();
         let hz = arrays["Hz"].c64s();

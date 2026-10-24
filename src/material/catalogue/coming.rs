@@ -133,12 +133,12 @@ const ITEMS: &[Item] = &[
     },
     Item {
         entry: "litao3",
-        property: "n(λ), n_o and n_e",
-        source: "Nakamura et al. 2002",
-        citation: "M. Nakamura, S. Higuchi, S. Takekawa, K. Terabe, Y. Furukawa, K. Kitamura, Jpn. J. Appl. Phys. 41, L465 (2002)",
-        doi: "10.1143/JJAP.41.L465",
+        property: "dn/dT in the infrared, measured",
+        source: "",
+        citation: "",
+        doi: "",
         open: false,
-        detail: r"Shipped: the indices at 1558 nm that Casson et al. (2004, Table 2) use, as constants. In hand: Casson et al. cite Gervais & Fonseca's handbook chapter for the indices and Nakamura et al.'s Sellmeier fit (near-stoichiometric crystals) as the recent one; neither is in hand, so the entry has no index model.",
+        detail: r"Shipped: Abedin & Ito's $n(\lambda, T)$ (1996), whose temperature terms are fitted at 468 and 644 nm only; extrapolated to 1550 nm it gives $dn_o/dT = +8.0 \times 10^{-6}$ and $dn_e/dT = -2.7 \times 10^{-6}$ per K (25–300 °C). In hand: no paper measures lithium tantalate's index against temperature in the infrared (Bond 1965 and Casson et al. 2004 are at room temperature). Nakamura et al. (Jpn. J. Appl. Phys. 41, L465 (2002), doi:10.1143/JJAP.41.L465), whom Casson et al. cite, fit near-stoichiometric crystals.",
     },
     Item {
         entry: "litao3",
@@ -151,12 +151,12 @@ const ITEMS: &[Item] = &[
     },
     Item {
         entry: "batio3",
-        property: "n(λ), n_o and n_e",
+        property: "n(λ), the film's dispersion",
         source: "",
         citation: "",
         doi: "",
         open: false,
-        detail: r"Shipped: one index at 1550 nm, 2.26 (Chelladurai et al. 2025) and 2.29 (Eltes et al. 2019, ellipsometry on similar films), as constants. In hand: Abel et al. (2018) take ellipsometry data in their Supplementary Note 1, which isn't in hand; no film's dispersion or birefringence is tabulated in the papers read, so the entry has no index model.",
+        detail: r"Shipped: Abel et al.'s film at 1550 nm (their Supplementary Note 6: the mean index 2.286 by ellipsometry, the birefringence 0.03 extrapolated from the bulk crystal's), constant from 1.50 to 1.60 µm; beside it 2.26 (Chelladurai et al. 2025) and 2.29 (Eltes et al. 2019), as constants. In hand: no film's dispersion is tabulated in the papers read (Abel et al. fit a Cauchy model without printing it; Fazlioglu-Yalcin et al., Adv. Mater. Interfaces 10, 2300018 (2023), give a film's index at 632 and 1550 nm only).",
     },
     Item {
         entry: "batio3",

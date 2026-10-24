@@ -69,12 +69,14 @@ model="frey-2006", temperature_k=295)`; [the catalogue](catalogue.md) has its va
 
 ## Temperature
 
-The catalogue's default silicon and silica take a temperature and move by their thermo-optic
-coefficients $dn/dT$; at their own temperatures (293 K, 20 °C) they are the materials above, bit
-for bit. Silicon moves by Li's own $n(\lambda, T)$, his Eq. (22), 250–750 K, and below 250 K by
-Frey et al.'s formula, to 20 K; silica by Leviton & Frey's change of index, 30–300 K, held at
-their $dn/dT$ at 300 K up to 400 K. At 1.55 µm and 293 K silicon's $dn/dT$ is 1.82e-4 per K and
-silica's 8.4e-6. `IndexModel::thermo_optic` gives $dn/dT$; [the catalogue](catalogue.md) says
+The catalogue's default silicon, silica and silicon nitride take a temperature and move by their
+thermo-optic coefficients $dn/dT$; at their own temperatures (293 K, 20 °C, 295 K) they are the
+materials above, bit for bit. Silicon moves by Li's own $n(\lambda, T)$, his Eq. (22), 250–750 K,
+below 250 K by Frey et al.'s formula, to 40 K, and below 40 K by Komma et al.'s measured $dn/dT$
+at 1550 nm, to 5 K; silica by Leviton & Frey's change of index, 30–300 K, held at their $dn/dT$
+at 300 K up to 400 K; the nitride by Arbabi & Goddard's 2.45e-5 per K from 270 to 400 K and
+below by Elshaari et al.'s cryogenic measurement, to 19.4 K. At 1.55 µm and 293 K silicon's
+$dn/dT$ is 1.82e-4 per K and silica's 8.4e-6. `IndexModel::thermo_optic` gives $dn/dT$; [the catalogue](catalogue.md) says
 how the models join and has their validation against the papers' tables. A device's temperature
 corner sets every material that takes a temperature, so an SOI design's corners move its silicon
 and its silica. A temperature field, uniform or a heat solve's, moves a mode by first-order
@@ -85,7 +87,8 @@ a silicon wire's $dn_\mathrm{eff}/dT$ against Dwivedi et al.'s measurements is t
 
 Beside each index the catalogue keeps the material's thermal conductivity, with the same
 provenance (source, validity range, temperature): bulk silicon (Ho, Powell & Liley 1972, 148
-W/(m·K) at 300 K; Kremer et al. 2004), a silicon film by its thickness (Ju & Goodson 1999, 90.7
+W/(m·K) at 300 K; Kremer et al. 2004; Glassbrenner & Slack 1964, 50 K to the melting point), a
+silicon film by its thickness (Ju & Goodson 1999, 90.7
 W/(m·K) at 220 nm), fused silica (Powell, Ho & Liley 1966, 1.38) and the heater metals W, Ti and
 Pt. A heat job's media take them unless the job gives a value
 ([the catalogue](catalogue.md#thermal-conductivities)).

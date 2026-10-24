@@ -7,7 +7,7 @@
 [photonoxide](https://github.com/tachsin/photonoxide) is a photonics library in Rust whose every
 method is checked against an analytic solution or a published result, in a
 [validation report](https://github.com/tachsin/photonoxide/blob/main/docs/validation.md). This
-package brings a part of it to Python, and through Python to MATLAB:
+package brings a part of it to Python:
 
 - the materials catalogue: indices with their source, validity range and conditions;
 - waveguide modes: the exact slab, and full-vector modes of a cross-section with their fields;
@@ -40,8 +40,8 @@ It prints `TE0: n_eff = 2.8475` and `TM0: n_eff = 2.0531`.
 
 Units are in the names (`wavelength_um`, `thickness_um`), as photonoxide's job files have them;
 arrays are NumPy's, in C order, with their coordinates; errors are photonoxide's, with its
-messages. The package's version is the Rust crate's it was built from. The guide, with MATLAB's
-use: [docs/python.md](https://github.com/tachsin/photonoxide/blob/main/docs/python.md). Every
+messages. The package's version is the Rust crate's it was built from. The guide:
+[docs/python.md](https://github.com/tachsin/photonoxide/blob/main/docs/python.md). Every
 function and class, from the package's docstrings and type stubs: the
 [API reference](https://tachsin.github.io/photonoxide/).
 

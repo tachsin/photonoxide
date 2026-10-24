@@ -47,6 +47,13 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "",
     ),
     (
+        "aryana-2023",
+        "K. Aryana, H. J. Kim, M. R. Islam, N. Hong, C.-C. Popescu, S. Makarem, T. Gu, J. Hu, P. E. Hopkins, Opt. Mater. Express 13, 3277 (2023)",
+        "Optical and thermal properties of Ge2Sb2Te5, Sb2Se3, and Sb2S3 for reconfigurable photonic devices",
+        "10.1364/OME.503178",
+        "https://doi.org/10.1364/OME.503178",
+    ),
+    (
         "friedrich-2000",
         "I. Friedrich, V. Weidenhof, W. Njoroge, P. Franz, M. Wuttig, J. Appl. Phys. 87, 4130 (2000)",
         "Structural transformations of Ge2Sb2Te5 films studied by electrical resistance measurements",
@@ -75,6 +82,13 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "https://arxiv.org/abs/physics/0606168",
     ),
     (
+        "komma-2012",
+        "J. Komma, C. Schwarz, G. Hofmann, D. Heinert, R. Nawrodt, Appl. Phys. Lett. 101, 041905 (2012)",
+        "Thermo-optic coefficient of silicon at 1550 nm and cryogenic temperatures",
+        "10.1063/1.4738989",
+        "https://doi.org/10.1063/1.4738989",
+    ),
+    (
         "malitson-1965",
         "I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965)",
         "Interspecimen comparison of the refractive index of fused silica",
@@ -94,6 +108,20 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "Broadband mid-infrared frequency comb generation in a Si3N4 microresonator",
         "10.1364/OL.40.004823",
         "",
+    ),
+    (
+        "arbabi-goddard-2013",
+        "A. Arbabi, L. L. Goddard, Opt. Lett. 38, 3878 (2013)",
+        "Measurements of the refractive indices and thermo-optic coefficients of Si3N4 and SiOx using microring resonances",
+        "10.1364/OL.38.003878",
+        "",
+    ),
+    (
+        "elshaari-2016",
+        "A. W. Elshaari, I. E. Zadeh, K. D. Jöns, V. Zwiller, IEEE Photonics J. 8, 2701009 (2016)",
+        "Thermo-optic characterization of silicon nitride resonators for cryogenic photonic circuits",
+        "10.1109/JPHOT.2016.2561622",
+        "https://doi.org/10.1109/JPHOT.2016.2561622",
     ),
     (
         "zelmon-1997",
@@ -362,6 +390,13 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "https://srd.nist.gov/jpcrdreprint/1.3253100.pdf",
     ),
     (
+        "glassbrenner-slack-1964",
+        "C. J. Glassbrenner, G. A. Slack, Phys. Rev. 134, A1058 (1964)",
+        "Thermal conductivity of silicon and germanium from 3°K to the melting point",
+        "10.1103/PhysRev.134.A1058",
+        "",
+    ),
+    (
         "kremer-2004",
         "R. K. Kremer, K. Graf, M. Cardona, G. G. Devyatykh, A. V. Gusev, A. M. Gibin, A. V. Inyushkin, A. N. Taldenkov, H.-J. Pohl, Solid State Commun. 131, 499 (2004)",
         "Thermal conductivity of isotopically enriched 28Si: revisited",
@@ -409,6 +444,20 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "Self-buffered epitaxy of barium titanate on oxide insulators enables high-performance electro-optic modulators",
         "10.1038/s41377-025-02081-9",
         "https://doi.org/10.1038/s41377-025-02081-9",
+    ),
+    (
+        "bond-1965",
+        "W. L. Bond, J. Appl. Phys. 36, 1674 (1965)",
+        "Measurement of the refractive indices of several crystals",
+        "10.1063/1.1703106",
+        "",
+    ),
+    (
+        "abedin-ito-1996",
+        "K. S. Abedin, H. Ito, J. Appl. Phys. 80, 6561 (1996)",
+        "Temperature-dependent dispersion relation of ferroelectric lithium tantalate",
+        "10.1063/1.363679",
+        "",
     ),
 ];
 

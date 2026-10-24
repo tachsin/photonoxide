@@ -12,6 +12,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
+import zlib
 from pathlib import Path
 from typing import Any
 
@@ -91,6 +92,10 @@ def call(case: dict[str, Any]) -> Any:
         # its result is each file's text, by its name
         paths = phox.export_run(**args)
         return {p.name: p.read_text(encoding="utf-8") for p in paths}
+    if function == "export_fields":
+        # its result is each file's size and CRC-32, by its name
+        paths = phox.export_fields(**args)
+        return {p.name: [p.stat().st_size, zlib.crc32(p.read_bytes())] for p in paths}
     return getattr(phox, function)(**args)
 
 

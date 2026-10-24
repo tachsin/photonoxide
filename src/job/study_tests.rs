@@ -56,10 +56,10 @@ fn lines_on(job: &Job, threads: usize, tag: &str) -> Vec<String> {
         .unwrap()
         .install(|| execute(job, &mut run, &Stop::new(None)))
         .unwrap();
-    let text = std::fs::read_to_string(run.dir().join("events.jsonl")).unwrap();
-    text.lines()
+    crate::run::replay_lines(run.dir())
+        .unwrap()
+        .into_iter()
         .filter(|l| !l.starts_with("{\"type\":\"finished\""))
-        .map(str::to_owned)
         .collect()
 }
 
@@ -228,11 +228,10 @@ fn a_sweep_of_solves_finishes_and_agrees_on_one_thread_and_on_as_many_as_its_poi
     let root = temp("solves-global");
     let mut run = Run::create(&root.0, &job).unwrap();
     execute(&job, &mut run, &Stop::new(None)).unwrap();
-    let global: Vec<String> = std::fs::read_to_string(run.dir().join("events.jsonl"))
+    let global: Vec<String> = crate::run::replay_lines(run.dir())
         .unwrap()
-        .lines()
+        .into_iter()
         .filter(|l| !l.starts_with("{\"type\":\"finished\""))
-        .map(str::to_owned)
         .collect();
     assert_eq!(global, one);
     let points = one
@@ -338,17 +337,18 @@ fn a_corners_temperature_sets_every_material_that_takes_one() {
 
 #[test]
 fn a_corners_temperature_is_refused_when_no_material_takes_one() {
-    let nitride = MaterialSpec::id("si3n4");
+    // Pettit & Turner's InP is given at 298 and 77 K only
+    let inp = MaterialSpec::id("inp");
     let mut s = spec("waveguide", Fidelity::ThreeD, &[]);
     s.stack = StackSpec::Layers {
-        substrate: nitride.clone(),
+        substrate: inp.clone(),
         layers: vec![LayerSpec {
             name: "core".into(),
             thickness_um: 0.22,
-            material: nitride.clone(),
-            background: nitride.clone(),
+            material: inp.clone(),
+            background: inp.clone(),
         }],
-        cladding: nitride,
+        cladding: inp,
         core: "core".into(),
     };
     let e = Study::Corners(vec![Corner::new("hot", &[]).at_temperature(340.0)])

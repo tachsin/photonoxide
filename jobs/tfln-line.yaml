@@ -1,0 +1,69 @@
+# A thin-film lithium niobate modulator's travelling-wave electrode: Zhang et al. 2022's line
+# (Photon. Res. 10, 2380, doi:10.1364/PRJ.468518), half of it beside its mirror. A 20 um copper
+# signal (to y = 10 um), a 5 um gap with the rib in it (600 nm of x-cut film etched 300 nm, 1.2 um
+# wide on top, the sidewall at 70 degrees: not given), a ground 100 um wide (not given), 0.83 um of
+# metal on the slab, 0.6 um of PECVD oxide (their model's epsilon of 5.5) over the slab and air
+# above, 2 um of thermal oxide on 500 um of silicon. The PECVD oxide is drawn as regions beside and
+# over the rib, so two slivers at the rib's walls keep the thermal oxide's 3.9.
+#
+# The run records the electrode field's Vpi L (electro_optic: push-pull, the film's r33), and the
+# line (line): its capacitances, its quasi-static index and impedance, each medium's share of the
+# energy, and at each frequency its RF index, impedance and loss (Holloway and Kuester's conductor
+# loss with copper at 5.8e7 S/m, the dielectrics' by Zhang et al.'s loss tangents), and a 5.8 mm
+# modulator's electro-optic response referred to 1 GHz with its 3 and 6 dB bandwidths. Quasi-TEM,
+# valid to about 100 GHz; the grid study checks the index, the impedance and the loss at 300 GHz
+# on grids twice and four times as coarse. 2D numbers, per unit length of a straight line.
+#   photonoxide run jobs/tfln-line.yaml
+name: tfln-line
+timeout_minutes: 10
+
+task:
+  kind: static
+  physics: electrostatic
+  y_um: [0.0, 400.0]
+  z_um: [-500.0, 300.0]
+  step_nm: 20000.0
+  fine_nm: 4.0
+  growth: 1.15
+
+  stack:
+    substrate: si
+    cladding: 1.0
+    layer:
+      - { name: BOX, thickness_um: 2.0, material: sio2, background: sio2 }
+      - { name: LN, thickness_um: 0.6, material: { id: linbo3, orientation: x-cut }, background: 1.0 }
+
+  rect:
+    - { layer: LN, center_um: [0.0, 12.5], size_um: [10.0, 1.2], etch: { depth_um: 0.3, sidewall_deg: 70.0 } }
+
+  region:
+    - { y_um: [0.0, 11.79], z_um: [2.3, 2.9], medium: PECVD }
+    - { y_um: [13.21, 400.0], z_um: [2.3, 2.9], medium: PECVD }
+    - { y_um: [11.79, 13.21], z_um: [2.6, 2.9], medium: PECVD }
+
+  permittivity: { Si: 11.7, SiO2: 3.9, PECVD: 5.5, "n = 1": 1.0 }
+
+  conductor:
+    - { y_um: [-1.0, 10.0], z_um: [2.3, 3.13], potential_v: 1.0 }
+    - { y_um: [15.0, 115.0], z_um: [2.3, 3.13], potential_v: 0.0 }
+
+  electro_optic:
+    layer: LN
+    entry: linbo3
+    tensor: "thin film (x-cut LNOI), clamped, 1550 nm"
+    complete_from: "bulk, clamped, 633 nm"
+    wavelength_um: 1.55
+    y_um: [10.5, 14.5]
+    z_um: [0.5, 3.5]
+    step_nm: 20.0
+
+  line:
+    signal: 1
+    mirrored: true
+    conductivity_s_per_m: 5.8e7
+    loss_tangent: { Si: 0.013, "LiNbO₃ (x-cut, its y along the chip's x)": 0.008, PECVD: 0.006, SiO2: 0.006 }
+    frequencies_ghz: [10.0, 50.0, 100.0, 200.0, 300.0]
+    response:
+      length_mm: 5.8
+      group_index: 2.26
+    convergence: { tolerance: 0.01 }

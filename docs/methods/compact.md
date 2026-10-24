@@ -419,7 +419,7 @@ other: a delay $\tau$ is $e^{-j\omega\tau}$ in one and $e^{+i\omega\tau}$ in the
 `from_spectrum` and `spectrum` take the file's convention as an argument, `Convention::Physics`
 or `Convention::Engineering`, and conjugate as needed. Nothing guesses it.
 
-From Python and MATLAB, `write_touchstone` writes a spectrum (as `circuit_spectrum` and
+From Python, `write_touchstone` writes a spectrum (as `circuit_spectrum` and
 `read_touchstone` return it) as Version 2.0, real and imaginary parts, and `read_touchstone`
 reads Version 1 or 2.0; both take the file's convention by name, `"physics"` or
 `"engineering"`. With `mzi`, the interferometer solved in [circuits](circuits.md):
@@ -428,11 +428,6 @@ reads Version 1 or 2.0; both take the file's convention by name, `"physics"` or
 phox.write_touchstone("mzi.s4p", mzi, convention="engineering")
 back = phox.read_touchstone("mzi.s4p", convention="engineering")
 # back.wavelength_um decreasing (increasing frequency), its ports o1 to o4
-```
-
-```matlab
-photonoxide.write_touchstone("mzi.s4p", mzi, "engineering");
-back = photonoxide.read_touchstone("mzi.s4p", "engineering");
 ```
 
 ### The measured fidelity

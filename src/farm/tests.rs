@@ -63,13 +63,9 @@ fn farm_of(addresses: &[String], options: FarmOptions) -> Farm {
     farm
 }
 
-/// The lines of a run's `events.jsonl`.
+/// The lines of a run's `events.jsonl`, each array of `events.bin` in its place again.
 fn lines_of(run: &Run) -> Vec<String> {
-    std::fs::read_to_string(run.dir().join("events.jsonl"))
-        .unwrap()
-        .lines()
-        .map(str::to_owned)
-        .collect()
+    crate::run::replay_lines(run.dir()).unwrap()
 }
 
 /// The job run in this process, its result and its record.

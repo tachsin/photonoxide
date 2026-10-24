@@ -10,6 +10,12 @@ papers:
     doi: 10.1117/12.672853
   - cite: "B. J. Frey, D. B. Leviton, T. J. Madison, Proc. SPIE 6273, 62732J (2006)"
     doi: 10.1117/12.672850
+  - cite: "J. Komma, C. Schwarz, G. Hofmann, D. Heinert, R. Nawrodt, Appl. Phys. Lett. 101, 041905 (2012)"
+    doi: 10.1063/1.4738989
+  - cite: "A. Arbabi, L. L. Goddard, Opt. Lett. 38, 3878 (2013)"
+    doi: 10.1364/OL.38.003878
+  - cite: "A. W. Elshaari, I. E. Zadeh, K. D. Jöns, V. Zwiller, IEEE Photonics J. 8, 2701009 (2016)"
+    doi: 10.1109/JPHOT.2016.2561622
   - cite: "D. E. Zelmon, D. L. Small, D. Jundt, J. Opt. Soc. Am. B 14, 3319 (1997)"
     doi: 10.1364/JOSAB.14.003319
   - cite: "D. H. Jundt, Opt. Lett. 22, 1553 (1997)"
@@ -62,6 +68,8 @@ papers:
     doi: 10.1063/1.3253100
   - cite: "R. K. Kremer et al., Solid State Commun. 131, 499 (2004)"
     doi: 10.1016/j.ssc.2004.06.022
+  - cite: "C. J. Glassbrenner, G. A. Slack, Phys. Rev. 134, A1058 (1964)"
+    doi: 10.1103/PhysRev.134.A1058
   - cite: "Y. S. Ju, K. E. Goodson, Appl. Phys. Lett. 74, 3005 (1999)"
     doi: 10.1063/1.123994
   - cite: "R. W. Powell, C. Y. Ho, P. E. Liley, NSRDS-NBS 8 (1966)"
@@ -83,6 +91,14 @@ validation:
   - material/silicon-frey-table
   - material/silicon-frey-dndt
   - material/silicon-li-frey-dndt
+  - material/silicon-komma-reading
+  - material/silicon-komma-frey-dndt
+  - material/silicon-komma-room
+  - material/silicon-dndt-positive
+  - material/silicon-nitride-elshaari-reading
+  - material/silicon-nitride-elshaari-between
+  - material/silicon-nitride-room
+  - material/silicon-nitride-arbabi-table-2
   - material/silicon-frey-li
   - material/silicon-frey-smooth-d
   - material/linbo3-zelmon-633
@@ -108,6 +124,8 @@ validation:
   - material/ingap-ferrini-table-knots
   - material/conductivity-tables
   - material/silicon-kremer-ho
+  - material/silicon-glassbrenner-table
+  - material/silicon-glassbrenner-ho
   - material/silicon-film-ju-goodson
   - material/silicon-film-220
   - material/silicon-film-sondheimer-limits
@@ -124,6 +142,23 @@ also has tags (`Entry::tags`): what the crystal is and what its symmetry allows,
 with its physics, caveats and sources. The studio's Materials page shows it all, the tags and what
 is coming as hover cards.
 
+Python has the indices: `materials` lists the catalogue's materials with their index
+models, each model's range and sources, and `refractive_index` and `group_index` evaluate one at
+vacuum wavelengths, the default model unless `model` names another. The tensors are Rust's only
+([features](../features.md)). Silicon's default is Li's (1980) at 293 K, his Table 1 at 1.55 µm:
+
+```python
+import photonoxide as phox
+
+si = next(m for m in phox.materials() if m.id == "si")
+default = next(model for model in si.models if model.default)
+lo, hi = default.range_um                            # where it is valid; outside, an error
+n = phox.refractive_index("si", wavelength_um=1.55)   # n + iκ, a complex number for one wavelength
+assert round(n.real, 4) == 3.4757                    # Li 1980, Table 1, 293 K
+ng = phox.group_index("si", wavelength_um=[1.5, 1.55, 1.6])
+assert ng.shape == (3,) and all(ng > n.real)         # normal dispersion: n_g above n
+```
+
 ## Thermal conductivities
 
 Beside the indices, `catalogue::conductivities()` has each material's thermal conductivity
@@ -136,6 +171,7 @@ media a job gives no value ([static](static.md#as-a-job)).
 |---|---|---|---|---|
 | Si, bulk (default) | recommended values | 200–1000 K (±5 % from 300 K; below, typical values) | 148 | Ho, Powell & Liley 1972, p. 394 |
 | Si, bulk | $1/\kappa = 1.60 \times 10^{-5} T + 2.37 \times 10^{-8} T^2$ | 220–320 K | 144.2 | Kremer et al. 2004, natural Si |
+| Si, bulk | measured single crystals | 50–1681 K (±5 %) | 156 | Glassbrenner & Slack 1964, Table I |
 | Si, film | Sondheimer's reduction, $\Lambda = 0.3$ µm, on the bulk's 148 | 300 K; 74 nm–10 µm | 90.7 at 220 nm | Ju & Goodson 1999 |
 | SiO₂ | recommended values, clear fused quartz | 100–900 K (±4 % to 500 K) | 1.38 | Powell, Ho & Liley 1966, Table 14 |
 | W | recommended values | 200–1000 K (±3 %) | 174 | Ho et al. 1972, p. 408 |
@@ -155,10 +191,16 @@ media a job gives no value ([static](static.md#as-a-job)).
   integrals ($E_1$ by its series below 1 and a continued fraction above, the rest by
   recurrence). The model gives the conductivity along the film and takes it for across too, where
   it is lower still; at 300 K only, as the paper measured.
+- **Two bulk silicons over the whole range.** Glassbrenner & Slack measured high-purity single
+  crystals from 3 K to the melting point, in two apparatus neither adjusted to the other (±5 %,
+  ±2 % between two points on one sample); their Table I gives silicon from 50 to 1681 K (below,
+  its K depends on the sample's size). They lie 5.4 to 6.2 % above Ho et al.'s recommended values
+  from 300 to 400 K, within the two papers' ±5 % each, and within 1 % at 900 and 1000 K; above
+  1000 K, where Ho et al.'s table stops, electrons and holes carry part of the heat, 40 % at the
+  melting point. Ho et al.'s stays the default; Glassbrenner & Slack's reaches cryogenic heaters
+  and anneals.
 - **Not here yet.** TiN, whose films' conductivity depends on how they are made (Jacques et al.'s
-  Table 3 takes 28 W/(m·K) from a handbook): a heater job gives it. Glassbrenner & Slack 1964
-  (doi:10.1103/PhysRev.134.A1058), silicon from 3 K to the melting point, isn't open; Ho et al.'s
-  recommended values, a review of the measurements, stand in for it.
+  Table 3 takes 28 W/(m·K) from a handbook): a heater job gives it.
 
 ## Phase-change materials
 
@@ -197,13 +239,17 @@ abstract's k < 10⁻⁵. The films were 40 nm, sputtered and capped with 200 nm 
 
 The paper's figure of merit (its Eq. (1)), `catalogue::figure_of_merit`, is the
 phase per dB of loss, $2\pi\Delta n_\mathrm{eff}/(\lambda\alpha)$, with α the loss in the lossier
-(crystalline) state. On a 500 nm silicon rib with a 25 nm film, α is the slope of the insertion
+(crystalline) state. On a 220 nm SOI rib 500 nm wide with a 25 nm film, α is the slope of the insertion
 loss against the film's length (Fig. 7a, b): a line through the data set's means gives 0.0096
 (Sb₂Se₃) and 0.0288 dB/µm (Sb₂S₃), the paper's 0.01 and 0.028; with its $\Delta n_\mathrm{eff}$ of
 0.0717 and 0.0356 the figure is 30.3 and 5.01 rad/dB, its 29.0 and 5.15. The paper doesn't give
-the rib's etch depth, how far the film covers it, or the polarization, so its $\Delta
-n_\mathrm{eff}$ isn't recomputed here: on the rib geometries tried, the full-vector solver's
-falls short of it by a fifth or more.
+the rib's etch depth, how far the film covers it, or the polarization, and its data set doesn't
+either (its Supporting Information, which may, isn't in hand), so its $\Delta n_\mathrm{eff}$
+isn't a case. With these fits, the full-vector solver (5 nm cells) gives in TE, for etches of 70,
+120, 150 nm and the full 220 nm, 0.019 to 0.032 (Sb₂S₃) and 0.035 to 0.057 (Sb₂Se₃) with the film
+on the rib alone, and 0.035 to 0.038 and 0.059 to 0.062 with it over the slab too, against 0.0356
+and 0.0717; in TM the two materials move apart further. No etch, coverage and polarization tried
+gives both: the one that fits Sb₂S₃ leaves Sb₂Se₃ 13 to 18% short.
 
 A partly crystallized film is the linear effective medium of its two states' permittivities,
 `partly_crystalline(amorphous, crystalline, f, λ)`, as Frantz et al. fit GST's intermediate
@@ -215,15 +261,20 @@ states (their Section 4.2).
 |---|---|---|---|
 | $T_c$ | 473 K: 200 °C (Delaney, Section 3; its anneals amorphous after 175 °C, crystalline after 200 °C); Lawson et al. 2022's model takes 473 K | 543 K: 270 °C (Delaney, Section 3; partly crystalline after 260 °C) | 423 K: about 150 °C to rock salt at 1.6 K/min, 350 °C to hexagonal (Friedrich et al. 2000) |
 | $T_m$ | 884 K, the value Lawson et al.'s model takes | coming | coming |
-| $\kappa$ | 1 W/(m·K) both states, Lawson et al.'s model's | coming | 0.19 amorphous, 0.57 rock salt (1.58 hexagonal), W/(m·K) at 27 °C (Lyeo et al. 2006) |
+| $\kappa$ | 0.22 amorphous, 0.72 crystalline, W/(m·K) at room temperature (Aryana et al. 2023, TDTR; 0.36 hot, 220 to 320 °C) | 0.21 amorphous, 0.74 crystalline (Aryana et al. 2023; 0.45 at 250 to 320 °C) | 0.19 amorphous, 0.57 rock salt (1.58 hexagonal), W/(m·K) at 27 °C (Lyeo et al. 2006); Aryana et al.: 0.20 and 1.02 |
 | $c_p$ | 507 J/(kg·K) at 105 °C, rising to 574 at 260 °C (Černošková et al. 2014, an amorphous film by DSC) | coming | coming |
 | $\rho$ | 5849 kg/m³, from Efthimiopoulos et al. 2013's volume per formula unit, 136.4 Å³ | coming | coming |
 
 Lawson et al.'s model takes $c_p$ = 0.15 J/(g·K) from Černošková et al., but that is the paper's
 estimate of the change of $c_p$ at a glass transition; its measured $c_p$ is 0.507 to 0.574
 J/(g·K), which the catalogue takes. Their κ of 1 W/(m·K) cites Li et al. 2019, whose
-zone-melted alloys reach only Sb₂Te₀.₆Se₂.₄ (0.8 to 0.93 W/(m·K)); a measurement of Sb₂Se₃ films
-is still to be found. A film crystallizes when held above $T_c$ long enough (milliseconds for
+zone-melted alloys reach only Sb₂Te₀.₆Se₂.₄ (0.8 to 0.93 W/(m·K)). The catalogue's κ are K. Aryana
+et al.'s (Opt. Mater. Express 13, 3277 (2023), doi:10.1364/OME.503178): time-domain
+thermoreflectance on RF-sputtered films of nominally 300 nm under a Pt/Ti transducer, effective
+values with the interfaces in them, the crystalline ones measured back at room temperature after
+heating to 320 °C. Their Table 1's $c_p$ and $\rho$ for Sb₂S₃ and GST are cited, not measured;
+the primary papers (Njoroge et al. 2002 and Kalb et al. 2003 for GST, Gurevich et al. 2002 for
+Sb₂S₃) are still to be read, so those stay coming. A film crystallizes when held above $T_c$ long enough (milliseconds for
 Sb₂Se₃ by Lawson et al.; the kinetics aren't modelled) and is amorphized when it melts and is
 quenched; latent heat doesn't change when a film first reaches $T_m$, so the switching
 thresholds need none.
@@ -278,8 +329,8 @@ every value a tensor gives is an element its tag names.
 |---|---|---|---|
 | SiO₂ | Malitson 1965 (default) | three-term Sellmeier; away from 20 °C moved by Leviton & Frey's change of index | 0.21–3.71 µm at 20 °C; 0.4–2.6 µm from 30 to 400 K (above 300 K extrapolated) |
 | SiO₂ | Leviton & Frey 2006 | Sellmeier with quartic $S_i(T)$, $\lambda_i(T)$ (Table 3) | 0.4–2.6 µm, 30–300 K, Corning 7980, vacuum index |
-| Si₃N₄ | Luke et al. 2015 | two-term Sellmeier | 0.31–5.504 µm |
-| Si | Li 1980 (default) | Table 1, natural spline; away from 293 K moved by Li's Eq. (22), below 250 K by Frey et al.'s formula | 1.2–14 µm, 250–750 K; 1.2–5 µm, 20–250 K |
+| Si₃N₄ | Luke et al. 2015 | two-term Sellmeier; away from 295 K moved by Arbabi & Goddard's $dn/dT$, below 270 K by Elshaari et al.'s | 0.31–5.504 µm, 19.4–400 K (above 305 K extrapolated) |
+| Si | Li 1980 (default) | Table 1, natural spline; away from 293 K moved by Li's Eq. (22), below 250 K by Frey et al.'s formula, below 40 K by Komma et al.'s $dn/dT$ | 1.2–14 µm, 250–750 K; 1.2–5 µm, 5–250 K |
 | Si | Frey et al. 2006 | Sellmeier with quartic $S_i(T)$, $\lambda_i(T)$ (Table 5) | 1.1–5.6 µm, 20–300 K, vacuum index |
 | GaAs | Skauli et al. 2003 (default) | the Pikhtin form, Eq. (12), Table II | 0.97–17 µm, 21–95 °C |
 | GaAs, AlₓGa₁₋ₓAs | Gehrsitz et al. 2000 (default for AlGaAs) | Eqs. (11)–(13), (16), Tables II and IV | 30 meV below the direct gap (and above 0.47 µm) to 3 µm; 0 ≤ x ≤ 1; 103–313 K |
@@ -294,15 +345,19 @@ every value a tensor gives is an element its tag names.
 | LiNbO₃, congruent | Jundt 1997 | $n_e(\lambda, T)$, Eqs. (4)–(5), Table 2 | 0.4–5 µm, 20–250 °C |
 | LiNbO₃, 5% MgO | Zelmon et al. 1997 (default) | Table 2, columns exchanged (below) | 0.4–5.0 µm, 21 °C |
 | LiNbO₃, 5% MgO | Gayer et al. 2008 | Eqs. (2)–(3), Table 1 of the 2010 erratum | $n_e$ 0.5–4 µm, 20–200 °C; $n_o$ 0.5–1.62 µm, 20–100 °C |
+| LiTaO₃ | Bond 1965 (our fit, default) | two-term Sellmeier for $n_o$ and $n_e$, fitted to Bond's Table IV (refractiveindex.info, CC0, checked against the paper) | 0.45–4.0 µm, room temperature, within 6.7e-4 of the table |
+| LiTaO₃ | Abedin & Ito 1996 | $n_{o,e}(\lambda, T)$, Eq. (1), Tables I and II | 0.4–4.0 µm, 25–300 °C (the temperature terms fitted at 468 and 644 nm) |
+| BaTiO₃ (thin film) | Abel et al. 2018, at 1550 nm | constant $n_o = ar n + \Delta n/2$, $n_e = ar n - \Delta n/2$; $ar n$ = 2.286, $\Delta n$ = 0.03 (Supplementary Note 6) | 1.50–1.60 µm |
 
 Two models are new forms in `Model`: `Model::Pikhtin` (Skauli's Eq. (12), photon energies in eV)
 and `Model::Afromowitz`. Gehrsitz's oscillators $C/(E_i^2 - E^2)$, with $E = 1/\lambda$ in
 µm⁻¹, are Sellmeier terms $(C/E_i^2)\,\lambda^2/(\lambda^2 - 1/E_i^2)$; Jundt's and Gayer's form is
 the refractiveindex.info formula 4.
 
-**Temperature in the defaults.** Silicon's and silica's default models take a temperature, so a
-stack of them does too (a device's temperature corners). Each stays its room-temperature model,
-bit for bit, at its own temperature (293 K, 20 °C) and moves by its dn/dT away from it:
+**Temperature in the defaults.** Silicon's, silica's and silicon nitride's default models take a
+temperature, so a stack of them does too (a device's temperature corners). Each stays its
+room-temperature model, bit for bit, at its own temperature (293 K, 20 °C, 295 K) and moves by its
+dn/dT away from it:
 
 - **Silicon:** Li's Table 1 (293 K) at each of its 35 points moved by Li's own $n(\lambda, T)$,
   his Eq. (22) (1.2–14 µm, 100–750 K), from which he computed his Tables 1 and 2 at fourteen
@@ -316,6 +371,33 @@ bit for bit, at its own temperature (293 K, 20 °C) and moves by its dn/dT away 
   measurements at 295 K, the end of its range, and Li's rises above them below 200 K (0.36e-4 at
   100 K and 1.55 µm). Above 300 K, where Frey et al. stop, only Li's Eq. (22) reaches.
   `IndexModel::thermo_optic` gives $dn/dT$: Eq. (22)'s derivative in closed form from 250 K up.
+- **Silicon below 40 K:** Komma et al. 2012 measured $dn/dT$ at 1550 nm from 5 to 300 K on a
+  boron-doped (10¹⁶ cm⁻³) etalon. The paper prints no table: the catalogue reads the eight points
+  of Fig. 4's inset (5 to 40 K) off the figure, which the PDF holds as vector paths, each point's
+  centre against the axes' ticks; the crosses the same figure plots from Frey et al.'s Table 4 come
+  back within 0.37 % of the printed table read the same way. Frey et al.'s formula meets Komma et
+  al.'s point at 40 K (1.556e-5 against 1.56e-5 per K), but below its $dn/dT$ falls under their own
+  measurement (3.5e-6 against 5.86e-6 per K at 30 K and 1.5 µm) and turns negative below 27 K,
+  while Komma et al.'s falls smoothly to 1e-8 per K at 5 K. So from 40 K down the default silicon
+  moves by Komma et al.'s $dn/dT$, a power law in $T$ between the points, integrated in closed
+  form: 1.5e-4 from 5 to 40 K, the same at every wavelength (measured at 1550 nm only; Frey et
+  al.'s Table 4 at 30 K spreads ±15 % from 1.1 to 5.5 µm). Above 40 K Komma et al.'s curve lies
+  within 11 % of Frey et al.'s measurements (3 to 11 % below from 50 to 100 K) and gives 1.8e-4
+  per K at 300 K, Li's 1.84e-4 within his ±0.15e-4.
+- **Silicon nitride:** Luke et al.'s formula states no temperature and is taken at 295 K. Arbabi &
+  Goddard 2013 measured stoichiometric LPCVD Si₃N₄, the kind of film Luke et al.'s is, at 1550 nm on
+  two rings from about 18 to 32 °C: $(2.45 \pm 0.09) \times 10^{-5}$ per K (their Table 2's two
+  rings, Eqs. (2) solved and weighted, reproduce it). Elshaari et al. 2016 measured PECVD SiN
+  (unannealed, 850 to 880 nm) from 18 to 300 K: $(2.51 \pm 0.08) \times 10^{-5}$ at room
+  temperature, falling more than tenfold by 18 K. The default takes Arbabi & Goddard's from 270
+  to 400 K (above 305 K an extrapolation, as a heater needs) and Elshaari et al.'s 30 points of
+  Fig. 4(a) below, read off the figure as Komma et al.'s are; the two meet at 267 K, and at the
+  join, 270 K, differ by 0.5 %. Elshaari et al.'s Eq. (3), the quartic fitted to those points,
+  lies 2 to 9 % above them from 60 to 300 K as printed (2.80e-5 at 300 K against the text's
+  2.51e-5), while their Eq. (4) for the oxide lies on Fig. 4(b)'s points within 0.65 % from
+  40 K: the points are taken, not Eq. (3). The index falls 3.5e-3 from 295 K to 19.4 K, the same
+  at every wavelength; the moved formula is tabulated at steps of $0.0078\,\lambda^2$ µm (at most
+  20 nm), which a spline follows within 1e-6.
 - **Silica:** Malitson's formula (20 °C) moved by Leviton & Frey's change of index from 20 °C
   (their Table 3, 0.4–2.6 µm, 30–300 K), and from 300 to 400 K by their $dn/dT$ at 300 K held,
   an extrapolation: their Fig. 3 has it still rising at 300 K, so it is likely low above. At
@@ -361,13 +443,42 @@ congruent Table 1 is printed the right way round.
   $r_{33} = 342 \pm 93$ pm/V at 1550 nm ($r_{13}$ unresolved); Deng et al. 2026 on LSAT,
   $r_{42} = 358$ pm/V, the projection of the measured $r_c = 253$ pm/V along ⟨110⟩; Chelladurai
   et al. 2025, $r_{33} = 125$ pm/V and $\tfrac12(r_{13} + 2r_{42}) = 481$ pm/V at 100 MHz, 191 at
-  330 GHz; Eltes et al. 2019's effective 380 pm/V from a modulator. The index at 1550 nm is a
-  constant (2.26, 2.29): no film's dispersion is in hand, so the entry has no index model yet.
-  4mm's pattern is 6mm's ($r_{13} = r_{23}$, $r_{33}$, $r_{42} = r_{51}$).
+  330 GHz; Eltes et al. 2019's effective 380 pm/V from a modulator. Its index model is Abel et
+  al.'s film at 1550 nm (their Supplementary Note 6): the mean index 2.286 by ellipsometry with a
+  Cauchy model, split by a birefringence of 0.03 that they extrapolate from the bulk crystal's
+  Sellmeier equations (the film is too thin, and its domains too mixed, to measure it), so
+  $n_o$ = 2.301 and $n_e$ = 2.271, constant from 1.50 to 1.60 µm: no film's dispersion is
+  tabulated in the papers read (Fazlioglu-Yalcin et al. 2023 give a film's index at 632 and
+  1550 nm only, 2.28 to 2.33 for their stoichiometric films). The other films' indices at 1550 nm
+  stay as constants (2.26, Chelladurai et al.; 2.29, Eltes et al.): the films' spread, within
+  0.026 of Abel et al.'s. 4mm's pattern is 6mm's ($r_{13} = r_{23}$, $r_{33}$, $r_{42} = r_{51}$).
 - **Lithium tantalate:** Casson et al. 2004's unclamped $r_{13}$ and $r_{33}$ at 632.8, 980, 1330
   and 1558 nm (Table 2; 6.92 ± 0.07 and 27.4 ± 0.3 pm/V at 1558 nm), from the deflection per volt
   of a domain-patterned crystal scaled from the literature's 632.8 nm values, with the indices they
-  use as constants; $r_{22}$ and $r_{51}$ unmeasured, and no index model yet.
+  use as constants; $r_{22}$ and $r_{51}$ unmeasured. Its index model is our two-term Sellmeier fit
+  to W. L. Bond's Table IV (J. Appl. Phys. 36, 1674 (1965), 0.45 to 4.0 µm at room temperature,
+  minimum deviation on prisms of crystals grown by A. Ballman) as the refractiveindex.info
+  database transcribes it (CC0): within 3.3e-4 ($n_o$) and 6.7e-4 ($n_e$, whose tabulated steps
+  are irregular from 1.6 to 2.0 µm) of its 22 rows, and within 5.0e-4 of the indices Casson et
+  al. print from Gervais & Fonseca's handbook chapter at 632.8 to 1558 nm, an independent print
+  of the measurements. Read against the paper, the transcription has all 44 numbers as printed
+  but $n_e$ at 3.00 µm, which the paper prints 2.0299: a misprint ($n_e - n_o$ would be −0.046
+  there and +0.004 to +0.005 at every other row) for the database's 2.0799, which Abedin & Ito
+  used too (with 2.0299 their Eq. (2)'s standard deviation would be 1e-2, not their 3.5e-4).
+  The temperature model is K. S. Abedin and H. Ito's (J. Appl. Phys. 80, 6561 (1996),
+  doi:10.1063/1.363679), $n^2 = A_1 + (A_2 + B_1F)/(\lambda^2 - (A_3 + B_2F)^2) + B_3F +
+  A_4\lambda^2$ with $F = (T - 25)(T + 571)$ in °C, 0.4 to 4.0 µm and 25 to 300 °C: the $A_i$
+  fitted to Bond's table at 25 °C, the $B_i$ to Iwasaki et al.'s indices at 468 and 644 nm.
+  Redone here: the standard deviations against Bond's rows, 2.12455e-4 and 3.54671e-4 against
+  Fig. 2's 2.1247e-4 and 3.547e-4; their fit (A₃ where the variance of $n^2$ is least, the
+  others by linear least squares), A₃ = 0.198758 and 0.203426 µm against Table I's 0.19876 and
+  0.20344, all eight constants within 6.7e-5; against Fig. 3's points, read off its bitmap
+  against the axes' ticks (1.2e-4 and 1.5e-4 per pixel), standard deviations of 3.92, 1.35, 5.49
+  and 4.82e-4 against the printed 3.5, 1.4, 5.4 and 5.2e-4; and within 1.2e-4 of its dashed
+  curves from 100 to 290 °C. Its temperature terms rest on the two visible wavelengths: at 1550
+  nm they give $dn_o/dT = +8.0 \times 10^{-6}$ and $dn_e/dT = -2.7 \times 10^{-6}$ per K (25 to
+  300 °C), where at 468 nm $n_e$ rises by 8e-5 per K. No paper in hand measures the infrared
+  dn/dT to check it, so it stays coming; Bond's fit is the default at room temperature.
 - **GaAs:** $d_{14} = 119$ pm/V at 1.533 µm and 170 at 1.064 µm (Shoji, Table 11); Skauli et al.
   (2002) measure $d_{14}/d_{33}(\mathrm{LiNbO_3}) = 5.01 \pm 0.3$ at 4.1 µm. $r_{41}^S = -1.54$ and
   $-1.50$ pm/V at 1.32 and 1.52 µm (Berseth et al., with their sign convention), and the
@@ -534,6 +645,18 @@ read from the paper itself, which isn't in hand.
   the default silicon's (Li's from 250 K) is within 0.10e-4 per K of it at 250 and 295 K, inside
   Li's ±0.15e-4. Leviton & Frey's formula gives their measured $dn/dT$ of silica (Table 6,
   100–300 K) within 0.86e-6 per K.
+- Komma et al.'s Fig. 4 as read: its crosses within 0.37 % of Frey et al.'s Table 4 at 1.5 µm. At
+  the 40 K join Frey et al.'s formula is 0.043e-6 per K from Komma et al.'s point, inside their
+  last error bar (±2.6e-6); at 300 K the default's 1.838e-4 per K is 0.038e-4 from their 1.8e-4.
+  The default silicon's $dn/dT$ at 1.55 µm is positive at every kelvin from 5 to 750 K.
+- Silicon nitride: Arbabi & Goddard's Table 2 gives their computed and combined $dn/dT$ within
+  0.007e-5 per K; Elshaari et al.'s Fig. 4(b) as read is within 0.65 % of their Eq. (4) from
+  40 K, and each inner point of Fig. 4(a) within 0.83 % of the power law of its neighbours; at
+  295 K the default's 2.45e-5 is 0.06e-5 from Elshaari et al.'s 2.51e-5, inside the two
+  uncertainties summed (0.17e-5).
+- Glassbrenner & Slack's Table I: each inner row within 2.5 % of the power law of its neighbours
+  (the table's ±5 %); against Ho et al. from 300 to 1000 K, 6.2 % at most (400 K), inside the two
+  ±5 % summed.
 - Frey et al.'s silicon Table 2 (156 values, 1.1–5.5 µm, 30–295 K) from their Table 5: within
   6.9e-6 of the printed five decimals. At 293 K and 1.50, 1.55 and 1.60 µm their index is within
   1.94e-3 of Li's table brought to vacuum (×1.00027), inside the two papers' uncertainties summed
@@ -545,6 +668,15 @@ read from the paper itself, which isn't in hand.
 - Shoji's $d_{33}$ with Zelmon's $n_e$ gives his Miller's $\Delta_{33}$ (Table 12) to 0.5%.
 - Gayer's 5% MgO indices against Zelmon's Table 2 (columns exchanged) at 21 °C: within 4.4e-4.
   The paper reports 3.1e-4 for $n_e$ and 2.2e-4 for $n_o$; we find 3.3e-4 and 4.4e-4.
+- Lithium tantalate: our fits within 6.7e-4 of Bond's 22 rows (`material/litao3-bond-fit`) and
+  within 5.0e-4 of Casson et al.'s eight indices (`material/litao3-casson`); Abedin & Ito's
+  $n(\lambda, T)$ reproduces their Fig. 2's standard deviations to 3e-8
+  (`material/litao3-abedin-bond`), their Table I refitted within 6.7e-5
+  (`material/litao3-abedin-refit`), Fig. 3's standard deviations within 4.4e-5
+  (`material/litao3-abedin-points`) and its curves within 1.2e-4 (`material/litao3-abedin-curves`).
+  Barium titanate: Abel
+  et al.'s film index at 1550 nm within 0.026 of the other films' 2.26 and 2.29
+  (`material/batio3-abel-films`).
 - Gehrsitz: Eq. (11) reproduces Table II's $E_0^2$ of GaAs at three temperatures (5e-7), the
   temperature forms its $n_\infty^2$ (5e-5); the analytic Table IV agrees with every sample's own
   fit (Table III) from 0.73 to 0.83 µm within 0.79 of the two fits' $\Delta n_\mathrm{max}$; and

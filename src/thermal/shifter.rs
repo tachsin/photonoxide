@@ -209,6 +209,21 @@ impl Guide {
         })
     }
 
+    /// The same guide moved `dx` µm across, named `name`: a neighbour of the same cross-section
+    /// (its mode's weights moved with it), a probe of the temperature there, its own media not
+    /// drawn in the heat problem.
+    pub fn moved(&self, name: &str, dx: f64) -> Guide {
+        Guide {
+            name: name.to_owned(),
+            cells: self
+                .cells
+                .iter()
+                .map(|&([x, y], w)| ([x + dx, y], w))
+                .collect(),
+            ..self.clone()
+        }
+    }
+
     /// The guide's name.
     pub fn name(&self) -> &str {
         &self.name

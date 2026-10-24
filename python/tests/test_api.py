@@ -242,6 +242,32 @@ def test_a_job_file_runs_and_its_record_comes_back(tmp_path: Path) -> None:
         phox.export_run(run.dir, tables=["fields"])
 
 
+def test_a_runs_fields_are_estimated_then_written_again(tmp_path: Path) -> None:
+    job = {
+        "name": "strip-fields",
+        "task": {
+            "kind": "modes", "stack": "soi_220", "wavelength_um": 1.55, "layer": "Si",
+            "propagation": "x", "y_um": [-1.0, 1.0], "step_nm": 50.0, "modes": 1,
+            "rect": [{"layer": "Si", "center_um": [0.0, 0.0], "size_um": [10.0, 0.5]}],
+            "export": {"fields": ["Ey", "Hz"]},
+        },
+    }
+    run = phox.run_job(job, runs_dir=tmp_path / "runs")
+    [f] = phox.estimate_fields(run.dir, precision="f32", level=9)
+    assert f.file == "mode-1-of-1.npz" and f.rewritable and f.exact and f.precision == "f32"
+    assert f.bytes == (run.dir / f.file).stat().st_size
+    [written] = phox.export_fields(run.dir, tmp_path / "out", precision="f32", level=9)
+    assert written == tmp_path / "out" / f.file
+    assert written.stat().st_size == f.estimate < f.bytes
+    # numpy reads it: the fields the f32s of the run's own, the grid its f64s
+    full, half = np.load(run.dir / f.file), np.load(written)
+    assert half["Ey"].dtype == np.complex64 and half["x_um"].dtype == np.float64
+    assert np.array_equal(half["Ey"], full["Ey"].astype(np.complex64))
+    assert np.array_equal(half["x_um"], full["x_um"])
+    with pytest.raises(ValueError, match="own folder"):
+        phox.export_fields(run.dir, run.dir)
+
+
 def test_a_job_as_data_gives_its_s_parameters() -> None:
     job = {
         "name": "straight",
@@ -377,7 +403,8 @@ def test_the_python_page_runs(capsys: pytest.CaptureFixture[str]) -> None:
 
 def test_the_devices_are_the_studios() -> None:
     kinds = [d.kind for d in phox.devices()]
-    assert kinds[:3] == ["waveguide", "bend", "directional coupler"] and len(kinds) == 11
+    assert kinds[:3] == ["waveguide", "bend", "directional coupler"] and len(kinds) == 13
+    assert kinds[11:] == ["thermo-optic phase shifter", "doped thermo-optic phase shifter"]
     coupler = phox.devices()[2]
     gap = next(p for p in coupler.parameters if p.name == "gap")
     assert (gap.unit, gap.default) == ("µm", 0.2) and gap.min < gap.default < gap.max
@@ -472,11 +499,6 @@ def test_a_compact_model_fitted_by_a_job_is_a_fidelity(tmp_path: Path) -> None:
                                  compact=model, wavelength_um=w)
     exact = phox.device_spectrum("all-pass ring", values={"gap": 0.21}, wavelength_um=w)
     assert compact.fidelity == "compact" and np.abs(compact.s - exact.s).max() < 1e-3
-    # the same model through MATLAB's side
-    from photonoxide import matlab
-    r = matlab.device_spectrum("all-pass ring", '{"gap": 0.21}', "compact", list(w), "", str(model))
-    s = np.asarray(r["s"]["re"]) + 1j * np.asarray(r["s"]["im"])
-    assert np.array_equal(s.reshape([int(n) for n in r["s"]["shape"]], order="F"), compact.s)
 
 
 def test_the_stacks_are_named_by_the_device_functions() -> None:

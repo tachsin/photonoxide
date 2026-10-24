@@ -424,6 +424,9 @@ pub(super) struct StaticTask {
     /// The Pockels effect the electrostatic field makes in a mode, and Vπ·L
     /// ([`super::pockels`]).
     electro_optic: Option<super::pockels::ElectroOpticSpec>,
+    /// The conductors as a travelling-wave electrode: its index, impedance and loss, and a
+    /// modulator's response through it ([`super::line`]).
+    line: Option<super::line::LineSpec>,
     /// What the run writes beside its record: the tables, and the temperature and the
     /// potential on the grid as an npz when asked ([`crate::export`]).
     #[allow(dead_code)] // read by super::export_of, checked by serde
@@ -525,6 +528,8 @@ struct Setup {
     catalogued: Vec<StaticValue>,
     /// The electro-optic chain, with what it takes from the task.
     electro_optic: Option<super::pockels::Chain>,
+    /// The line, with its metal.
+    line: Option<(super::line::LineSpec, crate::electro::line::Metal)>,
     shifter: Option<Shifter>,
 }
 
@@ -822,6 +827,7 @@ fn setup_scaled(job: &Job, scale: f64) -> Result<Setup> {
         switching: Vec::new(),
         catalogued: Vec::new(),
         electro_optic: None,
+        line: None,
         shifter: None,
     };
     // the heat problem's section, its media's conductivities (the job's, else the catalogue's)
@@ -1025,6 +1031,16 @@ fn setup_scaled(job: &Job, scale: f64) -> Result<Setup> {
             setup.held = (1..=task.conductor.len())
                 .map(|k| format!("conductor {k}"))
                 .collect();
+            if let Some(spec) = &task.line {
+                let heights: Vec<f64> = task
+                    .conductor
+                    .iter()
+                    .map(|c| c.z_um[1] - c.z_um[0])
+                    .collect();
+                let metal =
+                    super::line::check(spec, task.conductor.len(), &heights, section.media())?;
+                setup.line = Some((spec.clone(), metal));
+            }
             setup.electrostatic = Some(e);
         }
         "current" => {
@@ -1072,6 +1088,11 @@ fn setup_scaled(job: &Job, scale: f64) -> Result<Setup> {
     } else if !task.guide.is_empty() {
         return Err(task_error(
             "[[task.guide]] draws a phase shifter's guides: give it a [task.shifter]",
+        ));
+    }
+    if task.line.is_some() && setup.line.is_none() {
+        return Err(task_error(
+            "line is for physics = \"electrostatic\": the conductors' line",
         ));
     }
     Ok(setup)
@@ -1633,6 +1654,19 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                     .ok_or_else(|| task_error("an electrostatic job has an electrostatic problem"))
             };
             match super::pockels::run(chain, e, coarser, run, stop)? {
+                Some(more) => values.extend(more),
+                None => return Ok(()),
+            }
+        }
+        if let Some((spec, metal)) = &setup.line
+            && stop.reason().is_none()
+        {
+            let coarser = |k: u32| -> Result<Electrostatic> {
+                setup_scaled(job, f64::from(1u32 << k))?
+                    .electrostatic
+                    .ok_or_else(|| task_error("an electrostatic job has an electrostatic problem"))
+            };
+            match super::line::run(spec, metal, e, coarser, run, stop)? {
                 Some(more) => values.extend(more),
                 None => return Ok(()),
             }

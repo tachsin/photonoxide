@@ -212,6 +212,188 @@ pub(crate) fn leviton_dndt() -> Outcome {
     deviation(largest(errors), 1.0)
 }
 
+// ---------------------------------------------------------------------------------------------
+// Silicon below 40 K: Komma et al. 2012
+// ---------------------------------------------------------------------------------------------
+
+/// Frey et al.'s measured dn/dT at 1.5 µm as Komma et al.'s Fig. 4 plots it beside their own
+/// points (its crosses), read off the figure as the points are ([`thermo::KOMMA_FIG_4`]): Frey
+/// et al.'s temperatures (K) and the values read, per K, from the main plot and (30, 40 and
+/// 50 K) the inset.
+#[rustfmt::skip]
+pub(crate) const KOMMA_FIG_4_FREY: [(f64, f64); 15] = [
+    (30.0, 5.879e-6), (40.0, 1.616e-5), (50.0, 2.647e-5), (60.0, 3.658e-5), (70.0, 4.700e-5),
+    (80.0, 5.708e-5), (90.0, 6.764e-5), (100.0, 7.761e-5), (150.0, 1.192e-4), (200.0, 1.424e-4),
+    (250.0, 1.660e-4), (295.0, 1.874e-4),
+    (30.0, 5.855e-6), (40.0, 1.609e-5), (50.0, 2.641e-5),
+];
+
+/// Komma et al.'s error bar at 35 K, the last the figure draws: its half-width, per K (the bar
+/// runs from 7.74e-6 to 1.289e-5 about the point's 1.05e-5).
+pub(crate) const KOMMA_BAR_35: f64 = 2.57e-6;
+
+/// Our reading of Komma et al.'s Fig. 4, checked on what it plots from a table: its crosses,
+/// Frey et al.'s Table 4 at 1.5 µm, read with the axes the points are read with, against the
+/// table as printed. The largest relative deviation, within 1 %.
+pub(crate) fn komma_frey_reading() -> Outcome {
+    let row = FREY_TABLE_4
+        .iter()
+        .find(|(lam, _)| *lam == 1.5)
+        .map(|(_, row)| row);
+    let worst = KOMMA_FIG_4_FREY
+        .iter()
+        .map(|&(t, read)| {
+            let printed = row.and_then(|row| {
+                FREY_TABLE_2_T
+                    .iter()
+                    .position(|&tt| tt == t)
+                    .map(|j| row[j])
+            });
+            printed.map_or(f64::NAN, |p| (read / p - 1.0).abs())
+        })
+        .fold(
+            0.0,
+            |a: f64, e| if e.is_nan() { f64::NAN } else { a.max(e) },
+        );
+    deviation(worst, 0.01)
+}
+
+/// Where the default silicon passes from Komma et al.'s dn/dT to Frey et al.'s formula, 40 K at
+/// 1.55 µm: the formula's against Komma et al.'s point, in units of 1e-6 per K, within the
+/// half-width of Komma et al.'s last error bar.
+pub(crate) fn komma_join() -> Outcome {
+    let t = thermo::COLD_JOIN_T;
+    let komma = thermo::KOMMA_FIG_4
+        .iter()
+        .find(|(tt, _)| *tt == t)
+        .map_or(f64::NAN, |(_, d)| *d);
+    outcome(
+        dndt("si", "frey-2006", 1.55, t) * 1e6,
+        komma * 1e6,
+        KOMMA_BAR_35 * 1e6,
+    )
+}
+
+/// The default silicon's dn/dT at 1.55 µm and 300 K (Li's Eq. (22)) against the 1.8e-4 per K
+/// Komma et al. measured there (their abstract), in units of 1e-4 per K, within Li's ±0.15e-4.
+pub(crate) fn komma_room() -> Outcome {
+    outcome(dndt("si", "li-1980", 1.55, 300.0) * 1e4, 1.8, 0.15)
+}
+
+/// The default silicon's dn/dT at 1.55 µm at every kelvin from 5 to 750 K: how many are not
+/// positive (none; Frey et al.'s formula alone turns negative below 27 K).
+pub(crate) fn silicon_dndt_positive() -> Outcome {
+    let (lo, hi) = thermo::SILICON_T;
+    let count = (lo as usize..=hi as usize)
+        .map(|t| dndt("si", "li-1980", 1.55, t as f64))
+        .filter(|d| d.is_nan() || *d <= 0.0)
+        .count();
+    outcome(count as f64, 0.0, 0.0)
+}
+
+// ---------------------------------------------------------------------------------------------
+// Silicon nitride: Arbabi & Goddard 2013, Elshaari et al. 2016
+// ---------------------------------------------------------------------------------------------
+
+/// Elshaari et al.'s Eq. (3), dn/dT of their PECVD SiN as printed: the coefficients of T⁰ … T⁴.
+/// Not taken (it lies above the figure's points); a test keeps the comparison.
+#[cfg(test)]
+pub(crate) const ELSHAARI_EQ_3: [f64; 5] = [3.211e-7, -1.990e-8, 8.856e-10, -1.375e-12, -1.105e-15];
+/// Elshaari et al.'s Eq. (4), dn/dT of their PECVD oxide as printed.
+pub(crate) const ELSHAARI_EQ_4: [f64; 5] = [-1.167e-7, 1.727e-8, 1.861e-10, -5.781e-13, 4.221e-16];
+
+/// Elshaari et al.'s Fig. 4(b), the oxide's dn/dT from 40 K, read off the figure as Fig. 4(a)'s
+/// points are ([`thermo::ELSHAARI_FIG_4A`]): T (K) and dn/dT (per K) to four figures.
+#[rustfmt::skip]
+pub(crate) const ELSHAARI_FIG_4B: [(f64, f64); 25] = [
+    (40.65, 8.607e-7), (45.32, 1.000e-6), (50.08, 1.145e-6), (55.15, 1.310e-6), (59.90, 1.461e-6),
+    (68.17, 1.749e-6), (76.43, 2.047e-6), (84.61, 2.343e-6), (92.64, 2.651e-6), (100.36, 2.945e-6),
+    (110.81, 3.358e-6), (120.00, 3.730e-6), (130.06, 4.127e-6), (140.12, 4.533e-6), (149.94, 4.923e-6),
+    (164.91, 5.509e-6), (178.70, 6.050e-6), (192.35, 6.546e-6), (209.26, 7.163e-6), (223.61, 7.634e-6),
+    (239.12, 8.137e-6), (252.14, 8.511e-6), (269.68, 8.969e-6), (283.79, 9.313e-6), (298.99, 9.596e-6),
+];
+
+fn quartic(c: &[f64; 5], t: f64) -> f64 {
+    c.iter().rev().fold(0.0, |acc, ci| acc * t + ci)
+}
+
+/// Our reading of Elshaari et al.'s Fig. 4, checked where the paper gives the curve in closed
+/// form: Fig. 4(b)'s points, read with that figure's axes as Fig. 4(a)'s are, against their
+/// Eq. (4) from 40 to 300 K. The largest relative deviation, within 1 %.
+pub(crate) fn elshaari_reading() -> Outcome {
+    let worst = ELSHAARI_FIG_4B
+        .iter()
+        .map(|&(t, read)| (read / quartic(&ELSHAARI_EQ_4, t) - 1.0).abs())
+        .fold(0.0, f64::max);
+    deviation(worst, 0.01)
+}
+
+/// Elshaari et al.'s points of Fig. 4(a) between their neighbours: each inner point against the
+/// power law in T of the two about it, the largest relative deviation, within the ±0.08e-5 of
+/// their 2.51e-5 at room temperature (3.2 %).
+pub(crate) fn elshaari_between() -> Outcome {
+    let p = &thermo::ELSHAARI_FIG_4A;
+    let worst = p
+        .windows(3)
+        .map(|w| (thermo::between_rows(&[w[0], w[2]], w[1].0) / w[1].1 - 1.0).abs())
+        .fold(0.0, f64::max);
+    deviation(worst, 0.08 / 2.51)
+}
+
+/// Where the two nitrides meet: the default's dn/dT at 295 K (Arbabi & Goddard's LPCVD Si₃N₄),
+/// in units of 1e-5 per K, against the 2.51 ± 0.08 Elshaari et al. measured on their PECVD SiN
+/// at room temperature, within the two uncertainties summed (±0.09 and ±0.08).
+pub(crate) fn nitride_room() -> Outcome {
+    outcome(dndt("si3n4", "luke-2015", 1.55, 295.0) * 1e5, 2.51, 0.17)
+}
+
+/// Arbabi & Goddard's Table 2: per ring, the simulated sensitivities ∂λ/∂n (nm per RIU) of the
+/// TE and TM resonances to the core and the cladding, and the measured shifts dλ/dT (pm per K)
+/// with their uncertainties, as printed: (TE core, TE clad, TM core, TM clad, dλ_TE/dT ±,
+/// dλ_TM/dT ±).
+pub(crate) const ARBABI_TABLE_2: [[f64; 8]; 2] = [
+    [555.0, 316.0, 361.0, 578.0, 16.81, 0.39, 14.55, 0.32],
+    [591.0, 265.0, 386.0, 545.0, 16.47, 0.5, 13.99, 0.68],
+];
+/// Table 2's computed dn/dT of Si₃N₄ and SiO₂ for rings one and two, with their uncertainties,
+/// and Eqs. (3a) and (3b), the two combined: (Si₃N₄, ±, SiO₂, ±), in units of 1e-5 per K.
+pub(crate) const ARBABI_COMPUTED: [[f64; 4]; 3] = [
+    [2.48, 0.12, 0.97, 0.11],
+    [2.39, 0.15, 0.87, 0.20],
+    [2.45, 0.09, 0.95, 0.10],
+];
+
+/// Arbabi & Goddard's Eqs. (2) solved with Table 2's sensitivities and measured shifts, ring by
+/// ring, and the two rings combined by inverse-variance weights (Table 2's uncertainties): the
+/// six dn/dT of Table 2 and Eqs. (3), and the two combined uncertainties, against the printed
+/// values, in units of 1e-5 per K. The largest deviation, within a unit of the printed second
+/// decimal.
+pub(crate) fn arbabi_table_2() -> Outcome {
+    let mut errors = vec![];
+    for (ring, computed) in ARBABI_TABLE_2.iter().zip(ARBABI_COMPUTED) {
+        let [a, b, c, d, te, _, tm, _] = *ring;
+        let det = a * d - b * c;
+        // dλ/dT in pm per K over ∂λ/∂n in nm per RIU: 1e-3 per K, so 100 in units of 1e-5
+        let core = (te * d - b * tm) / det * 100.0;
+        let clad = (a * tm - c * te) / det * 100.0;
+        errors.push((core - computed[0]).abs());
+        errors.push((clad - computed[2]).abs());
+    }
+    let combine = |k: usize| {
+        let (sum, weight) = ARBABI_COMPUTED[..2].iter().fold((0.0, 0.0), |(s, w), r| {
+            let v = 1.0 / (r[k + 1] * r[k + 1]);
+            (s + v * r[k], w + v)
+        });
+        (sum / weight, 1.0 / weight.sqrt())
+    };
+    for k in [0, 2] {
+        let (value, sigma) = combine(k);
+        errors.push((value - ARBABI_COMPUTED[2][k]).abs());
+        errors.push((sigma - ARBABI_COMPUTED[2][k + 1]).abs());
+    }
+    deviation(largest(errors.into_iter()), 0.01)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,6 +408,14 @@ mod tests {
             ("frey_dndt", frey_dndt()),
             ("li_dndt_join", li_dndt_join()),
             ("leviton_dndt", leviton_dndt()),
+            ("komma_frey_reading", komma_frey_reading()),
+            ("komma_join", komma_join()),
+            ("komma_room", komma_room()),
+            ("silicon_dndt_positive", silicon_dndt_positive()),
+            ("elshaari_reading", elshaari_reading()),
+            ("elshaari_between", elshaari_between()),
+            ("nitride_room", nitride_room()),
+            ("arbabi_table_2", arbabi_table_2()),
         ] {
             println!("{name}: {o:?}");
             assert!(o.passed(), "{name}: {o:?}");
@@ -277,6 +467,104 @@ mod tests {
         assert!(dndt("sio2", "malitson-1965", 1.55, 350.0) == slope);
         assert!(thermo::malitson_silica(401.0).is_err());
         assert!(thermo::li_silicon(751.0).is_err());
-        assert!(thermo::li_silicon(19.0).is_err());
+        assert!(thermo::li_silicon(4.9).is_err());
+    }
+
+    #[test]
+    fn the_default_silicon_below_40_k_moves_by_komma_et_al_s_dn_dt() {
+        let si = |t| n(&thermo::li_silicon(t).unwrap(), 1.55);
+        let j = thermo::COLD_JOIN_T;
+        assert!((si(j) - si(j - 1e-6)).abs() < 1e-9);
+        // its change of index is Komma et al.'s dn/dT integrated, at every wavelength
+        let rise = thermo::between_rows_integral(&thermo::KOMMA_FIG_4, 5.0, j);
+        assert!((si(j) - si(5.0) - rise).abs() < 1e-12, "{rise}");
+        assert!(rise > 1.4e-4 && rise < 1.6e-4, "{rise}");
+        let at3 = |t| n(&thermo::li_silicon(t).unwrap(), 3.0);
+        assert!((at3(j) - at3(5.0) - rise).abs() < 1e-12);
+        // dn/dT a degree apart from the change of index, and at the points themselves
+        let d = (si(20.5) - si(19.5)) / 1.0;
+        assert!(
+            (d / dndt("si", "li-1980", 1.55, 20.0) - 1.0).abs() < 0.02,
+            "{d}"
+        );
+        for (t, k) in thermo::KOMMA_FIG_4.iter().filter(|(t, _)| *t < j) {
+            assert!(
+                (dndt("si", "li-1980", 1.55, *t) / k - 1.0).abs() < 1e-12,
+                "{t}"
+            );
+        }
+        // the integral of the power law against the midpoint rule on 10⁴ points
+        let (a, b) = (7.0, 33.0);
+        let m = 10_000;
+        let h = (b - a) / m as f64;
+        let quadrature: f64 = (0..m)
+            .map(|i| thermo::between_rows(&thermo::KOMMA_FIG_4, a + (i as f64 + 0.5) * h) * h)
+            .sum();
+        let exact = thermo::between_rows_integral(&thermo::KOMMA_FIG_4, a, b);
+        assert!(
+            (quadrature / exact - 1.0).abs() < 1e-6,
+            "{quadrature} {exact}"
+        );
+        // Frey et al.'s formula alone turns negative below 27 K
+        assert!(dndt("si", "frey-2006", 1.55, 25.0) < 0.0);
+        assert!(dndt("si", "frey-2006", 1.55, 28.0) > 0.0);
+    }
+
+    #[test]
+    fn the_nitride_moves_by_its_dn_dt_and_is_luke_et_al_s_bit_for_bit_at_295_k() {
+        let at = |m: Material| m.refractive_index(Wavelength::um(1.55).unwrap()).unwrap();
+        let t0 = thermo::NITRIDE_T0;
+        assert_eq!(
+            at(thermo::luke_nitride(t0).unwrap()),
+            at(crate::material::silicon_nitride())
+        );
+        let luke = crate::material::silicon_nitride();
+        // the spline through the table against Luke et al.'s formula plus the shift, between
+        // its points: finely in the UV, where the formula bends most, coarsely beyond
+        let probes: Vec<f64> = (0..414)
+            .map(|i| 0.3102 + 0.0007 * i as f64)
+            .chain((0..377).map(|i| 0.6 + 0.013 * i as f64))
+            .collect();
+        for t in [19.4, 100.0, 270.0, 350.0, 400.0] {
+            let m = thermo::luke_nitride(t).unwrap();
+            let shift = thermo::nitride_shift(t);
+            let worst = probes
+                .iter()
+                .map(|&lam| (n(&m, lam) - n(&luke, lam) - shift).abs())
+                .fold(0.0, f64::max);
+            assert!(worst < 1e-6, "{t}: {worst}");
+        }
+        // dn/dT continuous where Elshaari et al.'s meets Arbabi & Goddard's, within 0.5 %
+        let j = thermo::NITRIDE_JOIN_T;
+        let below = thermo::nitride_dndt(j - 1e-9);
+        assert!((below / thermo::ARBABI_DNDT - 1.0).abs() < 0.006, "{below}");
+        // the shift continuous there, and its slope the dn/dT
+        assert!((thermo::nitride_shift(j) - thermo::nitride_shift(j - 1e-9)).abs() < 1e-12);
+        let d = |t: f64| thermo::nitride_shift(t + 0.5) - thermo::nitride_shift(t - 0.5);
+        for t in [30.0, 150.0, 260.0, 330.0] {
+            assert!(
+                (d(t) / dndt("si3n4", "luke-2015", 1.55, t) - 1.0).abs() < 2e-3,
+                "{t}"
+            );
+        }
+        // 3.5e-3 below room temperature's at Elshaari et al.'s coldest
+        let cold = thermo::nitride_shift(thermo::NITRIDE_T.0);
+        assert!((cold + 3.5e-3).abs() < 5e-5, "{cold}");
+        assert!(thermo::luke_nitride(19.3).is_err());
+        assert!(thermo::luke_nitride(400.5).is_err());
+    }
+
+    #[test]
+    fn elshaari_et_al_s_eq_3_as_printed_lies_above_their_points() {
+        // 2 to 9 % above Fig. 4(a)'s points from 60 to 300 K; 2.80e-5 at 300 K against the
+        // text's 2.51e-5
+        let p = &thermo::ELSHAARI_FIG_4A;
+        for &(t, k) in p.iter().filter(|(t, _)| *t >= 60.0) {
+            let r = quartic(&ELSHAARI_EQ_3, t) / k;
+            assert!(r > 1.015 && r < 1.095, "{t}: {r}");
+        }
+        assert!((quartic(&ELSHAARI_EQ_3, 300.0) - 2.80e-5).abs() < 0.005e-5);
+        // and Eq. (4) is the text's 0.96e-5 for the oxide at 300 K
+        assert!((quartic(&ELSHAARI_EQ_4, 300.0) - 0.96e-5).abs() < 0.005e-5);
     }
 }

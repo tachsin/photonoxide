@@ -1,9 +1,9 @@
 //! The validation cases of the catalogue's thermal conductivities: the tables between their
-//! rows, the two bulk silicons against each other, the films against Ju & Goodson's
-//! measurements, and Sondheimer's reduction against its limits and a quadrature.
+//! rows, the bulk silicons against each other, the films against Ju & Goodson's measurements,
+//! and Sondheimer's reduction against its limits and a quadrature.
 
 use super::conductivity::{
-    HO_PT, HO_PT_BETWEEN, HO_SI, HO_SI_BETWEEN, HO_TI, HO_TI_BETWEEN, HO_W, HO_W_BETWEEN,
+    GS_SI, HO_PT, HO_PT_BETWEEN, HO_SI, HO_SI_BETWEEN, HO_TI, HO_TI_BETWEEN, HO_W, HO_W_BETWEEN,
     JU_GOODSON_PATH_UM, POWELL_SIO2, POWELL_SIO2_BETWEEN, conductivity, power_law, sondheimer,
 };
 use crate::validation::Outcome;
@@ -113,6 +113,31 @@ pub(crate) fn sondheimer_midpoint_error(n: usize) -> f64 {
         .sum::<f64>()
         * h;
     ((1.0 - 1.5 / delta * integral) - sondheimer(delta)).abs()
+}
+
+/// Glassbrenner & Slack's Table I between its rows: each inner row against the power law in T
+/// of the two about it, the largest relative deviation, within the table's ±5 %. Between
+/// neighbouring rows, at half the spacing, the catalogue's power law errs less.
+pub(crate) fn glassbrenner_between() -> Outcome {
+    let worst = GS_SI
+        .windows(3)
+        .map(|w| (power_law(&[w[0], w[2]], w[1].0) / (100.0 * w[1].1) - 1.0).abs())
+        .fold(0.0, f64::max);
+    outcome(worst, 0.0, 0.05)
+}
+
+/// The two bulk silicons where both state ±5 %: Glassbrenner & Slack's measured crystals against
+/// Ho et al.'s recommended values at Ho et al.'s rows from 300 to 1000 K, the largest relative
+/// difference, within the two accuracies summed.
+pub(crate) fn glassbrenner_ho() -> Outcome {
+    let worst = HO_SI
+        .iter()
+        .filter(|(t, _)| *t >= 300.0)
+        .map(|&(t, _)| {
+            (k("si", "glassbrenner-slack-1964", t, None) / k("si", "ho-1972", t, None) - 1.0).abs()
+        })
+        .fold(0.0, f64::max);
+    outcome(worst, 0.0, 0.10)
 }
 
 /// The midpoint rule's order on 64 and 128 points, which the closed form makes 2.

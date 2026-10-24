@@ -2,7 +2,7 @@
 //!
 //! Each table is one file in the run's directory, a header line then one line a row, in long
 //! form (one value a row, its coordinates beside it), so a table of any size reads into
-//! pandas, MATLAB's `readtable` or a spreadsheet as it is. Each number is written as the
+//! pandas, any language's CSV reader or a spreadsheet as it is. Each number is written as the
 //! shortest decimal that reads back to the same `f64` (Rust's `{:?}`): lossless, and smaller
 //! than 17 fixed digits. A text field with a comma, a quote or a line break is quoted, its
 //! quotes doubled (RFC 4180). An empty field is a number the record doesn't have.

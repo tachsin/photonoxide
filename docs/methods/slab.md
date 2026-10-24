@@ -47,6 +47,24 @@ book's (3.2-3) and (3.2-10): a cosine and sine in the core, exponentials outside
 Yariv and Yeh put the core at $-t \lt x \lt 0$; photonoxide's x is their −x, with the same $n_1$,
 $n_2$, $n_3$, $p$ and $q$.
 
+In Python, `slab_modes` takes the three indices, the core's thickness, the
+polarization and the wavelength, and returns the guided modes, fundamental first, each with its
+field at the points `x_um` asks for (0 at the core's bottom). Chrostowski and Hochberg's slab of
+the validation below:
+
+```python
+import numpy as np
+import photonoxide as phox
+
+x = np.linspace(-0.5, 0.72, 245)                     # µm, the core from 0 to 0.22
+for polarization, book in (("te", 2.844816), ("tm", 2.051101)):
+    modes = phox.slab_modes(below=1.444, core=3.473, above=1.444, thickness_um=0.22,
+                            polarization=polarization, wavelength_um=1.55, x_um=x)
+    assert len(modes) == 1                           # one guided mode of each at 1550 nm
+    assert round(modes[0].effective_index, 6) == book
+    assert modes[0].field.shape == x.shape           # E_y for TE, H_y for TM
+```
+
 ## Validation
 
 - **Chrostowski and Hochberg**, Section 3.2.2: 220 nm of silicon (3.473) in oxide (1.444) at

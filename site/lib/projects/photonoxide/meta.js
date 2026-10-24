@@ -28,6 +28,8 @@ export const EXAMPLES_PATH = "/projects/photonoxide/examples";
 export const VALIDATION_PATH = "/projects/photonoxide/validation";
 export const ROADMAP_PATH = "/projects/photonoxide/roadmap";
 export const DOCS_PATH = "/projects/photonoxide/docs";
+export const PYTHON_DOCS_PATH = "/projects/photonoxide/docs/python";
+export const LANGUAGES_DOCS_PATH = "/projects/photonoxide/docs/languages";
 
 export const PHOTONOXIDE_DESCRIPTION =
   "photonoxide is a photonics library for Rust: materials with provenance, mode solvers, 2D and 3D FDFD and FDTD on the CPU and GPU, components and circuits with their adjoint, and compact models, with a studio to build jobs and chips and watch every run live. Every method is validated against analytic solutions and published results. Active devices, inverse design and layout export are planned.";
@@ -46,6 +48,7 @@ export const PHOTONOXIDE_LINKS = {
   references: `${BLOB}ROADMAP.md#references`,
   genoxide: "/projects/genoxide",
   crates: "https://crates.io/crates/photonoxide",
+  pypi: "https://pypi.org/project/photonoxide/",
   docsRs: "https://docs.rs/photonoxide",
   examplesDir: `https://github.com/${PHOTONOXIDE_REPO}/tree/${PHOTONOXIDE_BRANCH}/examples`,
   methodsDir: `https://github.com/${PHOTONOXIDE_REPO}/tree/${PHOTONOXIDE_BRANCH}/docs/methods`,
@@ -133,7 +136,7 @@ export const PHOTONOXIDE_HIGHLIGHTS = [
   {
     icon: "rust",
     title: "Rust first",
-    body: "Pure Rust from the linear algebra up, spectra solved in parallel on the CPU. External solvers are optional, loaded at run time; Python and MATLAB packages wrap a small, stable façade.",
+    body: "Pure Rust from the linear algebra up, spectra solved in parallel on the CPU. External solvers are optional, loaded at run time; a Python package wraps a small, stable façade, and any language runs the program on a job file.",
   },
   {
     icon: "active",

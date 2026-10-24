@@ -30,6 +30,21 @@ material of what is drawn and the material elsewhere (its background), between a
 a cladding; and the shapes on each layer with the etch that cut them. The named stacks
 (`soi_220`, `soi`, `nitride`) are presets of it, the same bits as always.
 
+Python lists the presets with `stacks`, each by the name the device functions take as
+`stack`, its layers bottom to top with the catalogue's material ids, and the core layer a device
+draws its guides on:
+
+```python
+import photonoxide as phox
+
+soi = next(s for s in phox.stacks() if s.name == "soi_220")
+assert [(l.name, l.thickness_um, l.material) for l in soi.layers] == [
+    ("BOX", 2.0, "sio2"),
+    ("Si", 0.22, "si"),
+]
+assert (soi.substrate, soi.cladding, soi.core) == ("si", "sio2", "Si")
+```
+
 ## Etches
 
 A shape is drawn with an `Etch` (`Structure::draw_etched`):

@@ -136,6 +136,8 @@ measurement is compared with them within its own spread.
 | `pockels/bto-deng` | published: Deng et al. 2026's r₄₂ = 358 pm/V at 45°, against their measured 253 pm/V | — | 253.1 pm/V |
 | `pockels/bto-eltes` | published: Eltes et al. 2019's one-arm Vπ·L from their r_eff, n, Γ and gap, against 0.23 V·cm | — | 0.2324 V·cm |
 | `pockels/litao3-x-cut` | a uniform field in x-cut lithium tantalate along c (Casson et al. 2004's r₁₃, r₃₃ and indices at 1558 nm) against −½ n³ r E | — | ≤ 1e-4 |
+| `pockels/bto-abel-response` | published: Abel et al. 2018's barium titanate guide, a single domain at 45°: $\lvert dn_\mathrm{eff}/dV\rvert$ against their 3.4e-4 per volt | 40, 20, 10 nm, gated at 0.5% | 3.395e-4 |
+| `pockels/bto-abel` | published: its Vπ·L through their net domain population, against 0.45 V·cm | as above | 0.453 V·cm |
 
 Each case's numbers are in the validation report (docs/validation.md).
 
@@ -166,12 +168,35 @@ edge", so it isn't a case.
 
 Kharel et al. 2021 (Optica 8, 357, doi:10.1364/OPTICA.416155; its erratum, Optica 8, 1218,
 corrects only Fig. 4(a)'s axis) simulate regular electrodes on silicon in Table 1: 2.1, 2.6 and
-3.7 V·cm at gaps of 5, 7 and 10 µm. With their fabricated rib (2 µm wide, 350 nm of a 600 nm film
-etched, 800 nm of gold through 1 µm of oxide, a 30 µm signal; the sidewall at 70°) photonoxide
-gives 2.43 V·cm at 5 µm with the film's r₃₃ and 2.10 with the bulk's 31.2 pm/V, but 3.70 and 5.82
-V·cm at 7 and 10 µm: Vπ·L grows faster than the gap here and slower there. Not understood yet
-(their field comes from a 3D RF simulation; the rib in their Table may not be the fabricated one),
-so it isn't a case.
+3.7 V·cm at gaps of 5, 7 and 10 µm, from HFSS's field overlapped with Lumerical's mode. Their
+numbers don't follow from one cross-section, and so aren't a case. Their fabricated rib, for the
+measurements, is 2 µm wide, with 350 nm of a 600 nm film etched, 800 nm of gold in 1 µm of oxide
+and a 30 µm signal; the sidewall here is taken at 70°. With the film's $r_{33}$, photonoxide gives
+2.43, 3.70 and 5.79 V·cm on that rib (20 nm grids), 2.10 at 5 µm with the bulk's 31.2 pm/V.
+Per µm of gap that is 0.486, 0.528 and 0.579 V·cm, rising with the gap. Theirs is 0.42, 0.37 and
+0.37, falling, and their 4.3 µm segmented design's 1.7 V·cm is 0.40 per µm, below their 5 µm
+rows'.
+
+Vπ·L/g rising with g is what a fixed cross-section's electrostatics gives. At a fixed voltage the
+field at the guide falls faster than 1/g: the film, the slab between the electrodes and the
+electrodes' own thickness don't grow with the gap, and each holds the field near V/g in a narrow
+gap, but less so in a wide one. The field at the rib's centre, times g/V, falls from 0.63 at 5 µm
+to 0.53 at 10 µm. The rise doesn't depend on any one assumption here. Over 5 to 10 µm,
+Vπ·L/g grows by 19% as computed, and stays within 11% to 19% when any one of these is changed:
+
+- the silicon substrate replaced by oxide: 11%;
+- a buried oxide 4.7 µm thick instead of 2: 15%;
+- the electrodes 3 µm thick, or 50 nm: 14% and 16%;
+- lithium niobate's static permittivity isotropic at 28 or 44, its two axes swapped, or 1: 18%,
+  17%, 16% and 16%.
+
+A Vπ·L/g that falls from 5 to 7 µm and is then flat is the rib's mode overlap Γ rising with the
+gap. That needs a cross-section that changes between rows (a rib or a mode that widens with the
+gap, say), and Table 1 doesn't give one; nor does it give the rib it simulated. Their Table's
+Vπ·L column also stays at 2.1 V·cm at 5 µm across substrates and electrode designs (silicon,
+quartz, segmented), so the 5 µm number may be a common reference rather than three solves. We
+can't reproduce the trend without those details. Their measured 1.35 V at 20 mm (2.7 V·cm,
+segmented, on quartz) is a device's.
 
 ### Barium titanate
 
@@ -180,10 +205,27 @@ The catalogue's films ([catalogue.md](catalogue.md)): Abel et al. 2018's tensor 
 pm/V on LSAT, and Chelladurai et al. 2025's against frequency (r₃₃ = 125 pm/V and
 ½(r₁₃ + 2r₄₂) = 481 pm/V at 100 MHz, 191 at 330 GHz), with the index at 1550 nm as constants
 (2.26, Chelladurai et al.; 2.29, Eltes et al.): the spread is the films', from their growth, their
-domains and the field's frequency. The entry has no index model yet (no film's dispersion is
-tabulated in the papers read), so it is not yet a stack's material; its cases check the tensor's
-turn in the plane against the projection the papers use, and the one-arm Vπ·L against Eltes et
-al.'s own numbers.
+domains and the field's frequency. Its index model is Abel et al.'s film at 1550 nm (Supplementary
+Note 6: $\bar n$ = 2.286, $\Delta n$ = 0.03), constant from 1.50 to 1.60 µm. Its cases check the
+tensor's turn in the plane against the projection the papers use, the one-arm Vπ·L against Eltes
+et al.'s own numbers, and Abel et al.'s guide:
+
+- **Abel et al. 2018** (Nat. Mater. 18, 42, doi:10.1038/s41563-018-0208-0, Methods and
+  Supplementary Notes 6 and 8): a 100 nm silicon strip 750 nm wide on 225 nm of barium titanate
+  on silica, clad in silica (the Methods say air; the supplement's simulation and the devices
+  have silica). The TE mode at 1550 nm carries 41% of its power in the film (their 39%). Abel et
+  al. take the field in the film as uniform, $E = V/g$ across the guide with the electrodes'
+  gap $g$ = 4.75 µm, and their single domain has its c axis in the plane at 45° from it, with
+  $r_{42}$ = 923, $r_{33}$ = 341 and $r_{13}$ = −56 pm/V. The mode sees the film's in-plane
+  average, $(\varepsilon_o + \varepsilon_e)/2$ across and along and $\varepsilon_o$ up: the single
+  domain's tensor without its coupling of the guide's axis to the cross-section, which the
+  full-vector solver doesn't take and which enters the TE mode at second order. The domain's
+  $\Delta\varepsilon = -\varepsilon\Delta\eta\varepsilon$ is applied by first-order perturbation.
+  $\lvert dn_\mathrm{eff}/dV\rvert$ = 3.446e-4, 3.404e-4 and 3.395e-4 per volt on 40, 20 and
+  10 nm cells, against their 3.4e-4 (FDTD, 33 nm cells). Through their net domain population
+  $\xi = 2(0.376 - 0.124) = 0.504$ (Note 8), $V_\pi L = \lambda/(2R\xi)$ = 0.453 V·cm against
+  their 0.45. A cross-section's, per unit length, for a uniform field as theirs; the electrodes'
+  own field isn't solved, since Abel et al. don't give their thickness or cladding.
 
 ### Lithium tantalate
 
@@ -191,7 +233,9 @@ Casson et al. 2004 (J. Opt. Soc. Am. B 21, 1948, doi:10.1364/JOSAB.21.001948, Ta
 unclamped r₁₃ and r₃₃ from 632.8 to 1558 nm by the deflection of a beam in a domain-patterned
 crystal: 6.92 ± 0.07 and 27.4 ± 0.3 pm/V at 1558 nm, with the indices there (n_e = 2.1224, n_o =
 2.1186: positive and a tenth of lithium niobate's birefringence). They are the catalogue's
-`litao3`; r₂₂ and r₅₁ aren't measured, and the entry has no index model yet.
+`litao3`; r₂₂ and r₅₁ aren't measured. Its index model is our fit to Bond's table (1965, 0.45 to
+4.0 µm at room temperature, within 6.7e-4 of it; [catalogue.md](catalogue.md)), so a lithium
+tantalate film can be a stack's material.
 
 ## As a job
 
