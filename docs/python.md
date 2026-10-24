@@ -1,13 +1,13 @@
-# photonoxide in Python and MATLAB
+# photonoxide in Python
 
 The `photonoxide` package for Python wraps a part of the library: the materials catalogue,
 the exact slab's and the full-vector solver's modes, jobs (run as the program runs them) and
 an FDFD job's S-parameters, circuits from a netlist given as data, Touchstone files, and the
-devices of a component's page in the studio, with the same parameters, models and numbers. MATLAB
-reaches the same functions through the package. The package lives in this repository, in
-[`python/`](../python), and wraps the library's façade, `photonoxide::facade`: a small module of
-plain types, so that the rest of the library's API can change between milestones without the
-package following every change ([the plan](plans/bindings.md), #271).
+devices of a component's page in the studio, with the same parameters, models and numbers. The
+package lives in this repository, in [`python/`](../python), and wraps the library's façade,
+`photonoxide::facade`: a small module of plain types, so that the rest of the library's API can
+change between milestones without the package following every change ([the plan](plans/bindings.md),
+#271).
 
 - [Install](#install)
 - [A first example](#a-first-example)
@@ -15,7 +15,7 @@ package following every change ([the plan](plans/bindings.md), #271).
 - [What it does](#what-it-does)
 - [Devices](#devices)
 - [The same numbers as Rust](#the-same-numbers-as-rust)
-- [MATLAB](#matlab)
+- [Other languages](#other-languages)
 - [Versions and releases](#versions-and-releases)
 
 ## Install
@@ -107,8 +107,8 @@ Each function's docstring has the details, and the
 package's docstrings and type stubs at each release; `help(phox.circuit_spectrum)` lists the
 kinds of component a netlist can hold and their settings. A job is a path to a job file (YAML, TOML or
 JSON) or the job as a dict, so every kind of job, FDTD included, runs from Python.
-[docs/features.md](features.md) has, for every method of the library, whether it works in Rust,
-Python and MATLAB.
+[docs/features.md](features.md) has, for every method of the library, whether it works in Rust
+and Python.
 
 A strip's modes, from a cross-section built with NumPy (a quarter of a 500 × 220 nm silicon strip
 in oxide, mirror walls through its centre for the TE-like modes, on a 25 nm grid):
@@ -193,67 +193,22 @@ library as a Rust program would. Both steps are tested:
   against its paper as the Rust ones are; those with a Rust twin print what it prints, line
   for line (`python/tests/test_examples.py`);
 - the method write-ups (`docs/methods`) that show a call the package has give the Python call
-  (and MATLAB's) beside it: [circuits](methods/circuits.md), [Touchstone
+  beside it: [the catalogue](methods/catalogue.md), [the slab](methods/slab.md),
+  [stacks](methods/stacks.md), [circuits](methods/circuits.md), [Touchstone
   files](methods/compact.md#touchstone-files), [devices](methods/devices.md), [an FDFD job's
-  ports](methods/fdfd-ports.md#in-the-studio) and [full-vector modes](methods/vector.md) with
-  their [fields](methods/fields.md). Their Python blocks run in the package's tests
+  ports](methods/fdfd-ports.md#in-the-studio), [full-vector modes](methods/vector.md) with
+  their [fields](methods/fields.md), and [a run's exports](methods/export.md). Their Python blocks run in the package's tests
   (`python/tests/test_methods.py`).
 
 The bits are the same for the same build on the same machine; another CPU or another build of
 photonoxide can differ in the last bits, as it can in Rust.
 
-## MATLAB
+## Other languages
 
-MATLAB calls the package through its Python interface (`py.`), from R2022b, the first release
-that supports Python 3.10. The `.m` wrappers ship in the wheel, in a `+photonoxide` package
-folder; one install gives both.
-
-```matlab
-pyenv(Version="/path/to/python");             % a Python with photonoxide installed, once
-addpath(string(py.photonoxide.matlab.path()));
-
-n = photonoxide.refractive_index("si", [1.31 1.55]);
-m = photonoxide.slab_modes(1.444, 3.473, 1.444, 0.22, "te", 1.55);
-m.effective_index                              % 2.8448...
-
-netlist.instances.split = struct("kind", "coupler", "coupling", 0.5);
-netlist.instances.upper = struct("kind", "waveguide", "n_eff", 2.44506, "n_g", 4.172901, ...
-                                 "wavelength_um", 1.55, "length", 150);
-netlist.instances.lower = struct("kind", "waveguide", "n_eff", 2.44506, "n_g", 4.172901, ...
-                                 "wavelength_um", 1.55, "length", 100);
-netlist.instances.combine = struct("kind", "coupler", "coupling", 0.5);
-netlist.connections = {{"split.o3", "upper.o1"}, {"split.o4", "lower.o1"}, ...
-                       {"upper.o2", "combine.o2"}, {"lower.o2", "combine.o1"}};
-netlist.ports = struct("in1", "split.o2", "in2", "split.o1", "out1", "combine.o3", "out2", "combine.o4");
-s = photonoxide.circuit_spectrum(netlist, linspace(1.5, 1.6, 1001));
-plot(s.wavelength_um, abs(s.s(:, 3, 1)).^2)    % from in1 to out1
-```
-
-The wrappers: `photonoxide.version`, `materials`, `refractive_index`, `group_index`,
-`slab_modes`, `vector_modes`, `run_job`, `fdfd_s_parameters`, `circuit_spectrum`,
-`read_touchstone`, `write_touchstone`, `run_tables`, `export_run`, `estimate_fields`, `export_fields`, `devices`, `stacks`, `device_spectrum`,
-`device_derived`, `device_geometry` and `device_job`, each with its help (`help photonoxide.vector_modes`);
-[docs/matlab.md](matlab.md) is their reference, written from that help.
-They take MATLAB's arrays and name-value arguments and return MATLAB arrays and structs:
-
-- arrays keep the Python package's shapes and indexing, so a field is `ny`-by-`nx` and
-  `ex(j, i)` is the point `(x_um(i), y_um(j))`; S-matrices are `nλ`-by-`n`-by-`n`,
-  `s.s(k, q, p)` from port p into port q;
-- a job or a netlist can be a struct, which the wrappers pass on as `jsonencode` writes it;
-- photonoxide's errors are MATLAB errors with the identifiers `photonoxide:InvalidValue`,
-  `photonoxide:OutsideValidity`, `photonoxide:Timeout` and so on, and photonoxide's messages.
-
-The `.m` files are a few lines each: every conversion is in the package's Python module
-`photonoxide.matlab`, which passes arrays flat in MATLAB's column-major order with their shapes.
-
-**What is tested, and what isn't.** The conversions are tested in Python
-(`python/tests/test_matlab.py`): each function is called as the wrappers call it, and what comes
-back, rebuilt as the wrappers rebuild it, is checked against the Python package's results to the
-bit; the tests also check that the wrappers ship in the wheel, call the module's functions by
-their names, and declare every option they read. MATLAB itself isn't run: MathWorks' GitHub action doesn't license MATLAB's external
-language interfaces, Python's among them, on public projects, and GNU Octave has no `py.`
-interface of its own. **MATLAB support is untested in MATLAB** until someone with a licence
-runs the wrappers by hand; the MATLAB releases checked will be listed here.
+Python is the one language with a package. Any other runs the `photonoxide` program on a job
+file and reads the run's folder: `results.json`, its CSV tables and its fields, every number
+written so it reads back to the same bits. [docs/languages.md](languages.md) shows it in the
+shell, R, JavaScript and Go.
 
 ## Versions and releases
 

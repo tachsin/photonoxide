@@ -79,7 +79,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   and replays exactly.
 
 [Getting started](docs/getting-started.md) · [API](https://docs.rs/photonoxide) ·
-[Examples](examples/README.md) · [What works in Rust, Python and MATLAB](docs/features.md)
+[Examples](examples/README.md) · [What works in Rust and Python](docs/features.md) · [From any language](docs/languages.md)
 
 ## The studio
 
@@ -121,8 +121,8 @@ uv pip install photonoxide  # or into the active environment
 ```
 
 `pip install photonoxide` works too: the guide is [docs/python.md](docs/python.md), the
-[API reference](https://tachsin.github.io/photonoxide/) has every function. MATLAB uses the
-Python package: [docs/python.md](docs/python.md#matlab).
+[API reference](https://tachsin.github.io/photonoxide/) has every function. Any other language runs the
+`photonoxide` program on a job file and reads its results: [docs/languages.md](docs/languages.md).
 
 **The studio:** the `photonoxide` program for Linux (x86_64 and ARM64), Windows and macOS is on
 each [release](https://github.com/tachsin/photonoxide/releases), and updates itself
@@ -234,7 +234,7 @@ or the committed report isn't the one the code writes. CI checks every example's
 | 0.5.1 Channels and backends | Nightly built from main, MUMPS, SuperLU and Accelerate, the backend chosen from benchmarks, every mode in a region | ✅ released |
 | 0.5.2 Many solves at once | Ports as a block, recycling across sweeps, more contour-integral mode solvers, farming across processes | ✅ released |
 | 0.5.3 QMR without the matrix | QMR without its matrix where the matrix wouldn't fit, MUMPS 5.9 | ✅ released |
-| 0.5.4 Geometry and devices | Geometry for any device; the device library on pages of its own, with its models, runs, sweeps, corners and optimization; compact models; the chip built from devices; devices in Python and MATLAB | ✅ released |
+| 0.5.4 Geometry and devices | Geometry for any device; the device library on pages of its own, with its models, runs, sweeps, corners and optimization; compact models; the chip built from devices; devices in Python | ✅ released |
 | 0.5.5 Writing jobs and taking results away | The job editor (the text beside the design, a popover of fields and expressions, a schema), YAML first, every example as a job too, exports of modes and fields in compressed files, GDS read into jobs | planned |
 | 0.6 Thermal and electro-optic | Heat, thermo-optic phase shifters, Pockels modulators, travelling-wave electrodes | 🚧 next |
 | 0.6.1 Nonlinear integrated optics | Transparency windows, phase matching, SHG, SFG, DFG, SPDC and FWM in waveguides, Kerr combs | planned |

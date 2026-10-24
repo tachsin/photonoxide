@@ -498,11 +498,6 @@ def test_a_compact_model_fitted_by_a_job_is_a_fidelity(tmp_path: Path) -> None:
                                  compact=model, wavelength_um=w)
     exact = phox.device_spectrum("all-pass ring", values={"gap": 0.21}, wavelength_um=w)
     assert compact.fidelity == "compact" and np.abs(compact.s - exact.s).max() < 1e-3
-    # the same model through MATLAB's side
-    from photonoxide import matlab
-    r = matlab.device_spectrum("all-pass ring", '{"gap": 0.21}', "compact", list(w), "", str(model))
-    s = np.asarray(r["s"]["re"]) + 1j * np.asarray(r["s"]["im"])
-    assert np.array_equal(s.reshape([int(n) for n in r["s"]["shape"]], order="F"), compact.s)
 
 
 def test_the_stacks_are_named_by_the_device_functions() -> None:

@@ -20,7 +20,8 @@
 //! `shape` and its `unit`, in C order (the last index fastest), and either its `data` (a flat
 //! list, a complex value as its real part followed by its imaginary part) or, above
 //! [`INLINE`] values, the `file` beside `results.json` that holds the same values as raw
-//! little-endian doubles, which `numpy.fromfile` and MATLAB's `fread` read without a library.
+//! little-endian doubles, which `numpy.fromfile`, or any language's reader of raw doubles,
+//! reads without a library.
 //! `docs/runs.md` describes it all.
 
 use std::path::Path;

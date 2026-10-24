@@ -1,22 +1,25 @@
-# Python and MATLAB bindings: a plan
+# Python bindings, and every other language through the program: a plan
 
 *A plan, 2026-10-09. Decided 2026-10-10 (#271): the bindings live in this repository, as a
 workspace crate `python/`; for the rest, the recommendations below. The decisions are in
 [section 5](#5-decisions); the rest of the page is the plan as it was weighed.*
 
-I want Python and MATLAB users to be able to use photonoxide some day. Today the rules
+*Revised 2026-10-24: Python is the one language with a package; every other runs the `photonoxide` program on a job file and reads its run's folder (layer 0,
+[docs/languages.md](../languages.md)). [Decision 4](#5-decisions) says why.*
+
+I want Python users, and users of every other language, to be able to use photonoxide some day. Today the rules
 say otherwise: AGENTS.md has "No Python anywhere: no bindings, no helper scripts, no reference
 implementations", ROADMAP.md's principle 6 has "no Python bindings", and its "Not planned" list
 has "Python bindings: photonoxide is Rust only". This page asks what bindings would take, from the
 code as it is on main (0.5.0), and proposes a way that changes those rules as little as possible.
 It has six parts:
 
-1. [What's worth binding](#1-whats-worth-binding): the entry points a Python or MATLAB user would
-   call first, and what stays internal.
+1. [What's worth binding](#1-whats-worth-binding): the entry points a Python user would call
+   first, and what stays internal.
 2. [What makes binding hard here](#2-what-makes-binding-hard-here): closures, traits, borrowed
    views, units, arrays, long runs, errors and determinism, each with where it is in the code.
-3. [Three layers, cheapest first](#3-three-layers-cheapest-first): no binding at all (job files
-   and run records), Python, and MATLAB.
+3. [Two layers, cheapest first](#3-two-layers-cheapest-first): no binding at all (job files and
+   run records), for every language, and Python.
 4. [Phases](#4-phases): what each delivers, how it is validated, and what it costs to keep.
 5. [Decisions](#5-decisions).
 6. [Facts checked](#6-facts-checked): versions, names and licences, with dates.
@@ -27,7 +30,7 @@ It has six parts:
 - Versions, names and licences were checked on 2026-10-09 (section 6).
 - Other projects are described by what they do. Nothing is copied from another project's
   bindings.
-- The page adds no Python, C or MATLAB code to the repository: its snippets show shapes of APIs,
+- The page adds no Python or C code to the repository: its snippets show shapes of APIs,
   not code to run.
 
 ## Summary
@@ -48,11 +51,11 @@ It has six parts:
 3. **Python by PyO3 and maturin,** with abi3 wheels for CPython 3.10 and later on Linux, macOS and
    Windows, published to PyPI by trusted publishing. genoxide already does exactly this (its
    `python/` crate, section 6), so the tooling and the release workflow are known.
-4. **MATLAB through the Python package,** with thin `.m` wrappers: MATLAB R2022b or later calls
-   it through its Python interface (`py.`). No C interface and no MEX gateway: both need a second
-   hand-written API and `unsafe` code, and MEX needs MATLAB to build.
+4. **Every other language through the program** (layer 0): a job file in, the run's folder out.
+   No C interface: it would need a second hand-written API and `unsafe` code. *Decided
+   2026-10-24: no language besides Python gets a package of its own.*
 5. **Where the code lives is the first decision.** Recommended: the bindings in repositories of
-   their own (`photonoxide-python`, with the MATLAB wrappers inside it), depending on the
+   their own (`photonoxide-python`), depending on the
    published crate; this repository stays Rust only and gains the façade and one sentence in
    AGENTS.md. The alternative, a workspace crate here as genoxide has, keeps versions in step for
    free but brings Python into this repository and wheel builds into its CI. Both are weighed in
@@ -62,7 +65,7 @@ It has six parts:
 
 ### The entry points a user would call first
 
-In the order a Python or MATLAB user would meet them:
+In the order a Python user would meet them:
 
 | Task | Entry point | Where |
 |---|---|---|
@@ -86,7 +89,7 @@ In the order a Python or MATLAB user would meet them:
 The last row matters most for bindings. A job file is already a complete, closure-free
 description of a structure and a simulation, in micrometres, with the check
 (`job::check`) refusing what the run would refuse. A binding that accepts a job (a file, or a
-Python dict or MATLAB struct turned into JSON) reaches modes, FDFD and FDTD without binding the
+Python dict turned into JSON) reaches modes, FDFD and FDTD without binding the
 solvers' constructors at all.
 
 ### What stays internal
@@ -160,7 +163,7 @@ Few in user-facing signatures: `run::replay<E>` (`src/run.rs:385`), `parallel::m
 ### Units and plain numbers
 
 `Length`, `Wavelength` and `Frequency` are newtypes over `f64` (`src/units.rs:39`, `:141`, `:213`):
-ROADMAP's principle 7, "units are types". Python and MATLAB users pass floats and arrays. The job
+ROADMAP's principle 7, "units are types". Python users pass floats and arrays. The job
 files already solved this: every number's name carries its unit (`wavelength_um`, `step_nm`,
 `size_um`), and the façade can do the same, converting to the types and returning their errors
 (a wavelength that isn't positive is `Error::InvalidValue`, never a silent NaN). Keyword names
@@ -178,9 +181,7 @@ saying so. See [decision 3](#5-decisions).
   `(ny, nx)` (`array[j, i]`), which is numpy's natural indexing and what `Raster` already uses
   (`src/raster.rs:14`), and say so once.
 - numpy has `complex128`, the same layout as `Complex64`; rust-numpy converts `Vec<Complex64>`
-  into a numpy array that owns the memory, without a copy. MATLAB's conversion of a numpy array
-  (`double(p)`) copies it; MATLAB is column-major, so the wrappers keep numpy's shape and the
-  documentation says that `a(j, i)` is the point (x_i, y_j).
+  into a numpy array that owns the memory, without a copy.
 - AGENTS.md: "never quote a number without its grid". Every array the façade returns comes with
   its coordinates (`x_um`, `y_um`, and `z_um` in 3D), as `Raster` carries its edges.
 
@@ -214,8 +215,7 @@ saying so. See [decision 3](#5-decisions).
 `OutsideValidity` (with the material, the wavelength and the range), `Io`, `Parse`, `Netlist` and
 `Gpu`. In Python, one exception class per variant under a base `photonoxide.Error`, each also
 deriving from the built-in it resembles (`ValueError` for `InvalidValue`, `OSError` for `Io`),
-with the variant's fields as attributes; an unknown future variant maps to the base class. In
-MATLAB, the wrappers rethrow with identifiers such as `photonoxide:OutsideValidity`. photonoxide
+with the variant's fields as attributes; an unknown future variant maps to the base class. photonoxide
 reports invalid input as an `Error`, never a panic (`src/error.rs:7`); a panic that still happens
 becomes Python's `PanicException`, not a crash.
 
@@ -240,7 +240,7 @@ Rust.
   depend on it until it is published. The backends are chosen by name, as a string, so binding
   them is cheap once they are reachable; they come in a late phase.
 
-## 3. Three layers, cheapest first
+## 3. Two layers, cheapest first
 
 ### Layer 0: no binding at all
 
@@ -257,8 +257,7 @@ Rust.
   intensity raster), `sweep_point`, `s_parameters` (`s[q][p]` from port p into port q, each
   `[re, im]`, `src/job/mod.rs:401`), `fdtd_spectrum`, `fdtd_resonances`, `finished`, and more.
 
-Python reads that with `json` and a loop; MATLAB with `fileread` and `jsondecode` (R2016b and
-later). Scalars are exact: serde_json writes floats so that they read back to the same bits.
+Python reads that with `json` and a loop, as any language with a JSON reader can. Scalars are exact: serde_json writes floats so that they read back to the same bits.
 `run::replay` (`src/run.rs:385`) is the Rust reader, and skips a last line cut off mid-write.
 
 **What's missing for scripts.**
@@ -278,7 +277,7 @@ later). Scalars are exact: serde_json writes floats so that they read back to th
 5. **A timeout from the command line.** Only the job's `timeout_minutes` sets one; a script that
    runs someone else's job can't impose its own.
 6. **A documented format.** The events are documented in rustdoc only. A page describing the run
-   folder, with the units of every field, is what a Python or MATLAB user would read.
+   folder, with the units of every field, is what a user of any language would read.
 
 **The proposal (phase 0, Rust only, in this repository):**
 
@@ -287,8 +286,9 @@ later). Scalars are exact: serde_json writes floats so that they read back to th
   grid; S-matrices per wavelength; spectra; resonances), each array with its shape, its unit and
   its grid. Arrays above a size threshold go to a raw little-endian file beside it (`f64`, or
   `complex128` as interleaved pairs), named in the JSON with its dtype, shape and order, which
-  `numpy.fromfile` and MATLAB's `fread` read with no reader library. (NumPy's `.npy` format is the
-  alternative: one call in Python, but MATLAB has no reader for it.)
+  `numpy.fromfile`, or any language's reader of raw doubles, reads with no reader library.
+  (NumPy's `.npy` format is the alternative: one call in Python, but most other languages have
+  no reader for it.)
 - A `failed` event with the error's text, written before `execute` returns its error.
 - `--timeout <minutes>` on `photonoxide run`, the shorter of it and the job's applying; exit codes
   documented: 0 finished, 1 failed, 2 usage, and a distinct one (e.g. 3) for stopped by its
@@ -363,47 +363,12 @@ genoxide's, with faer and the solvers).
 **Docs.** A getting-started page in Python, the API reference from the stubs, and each function's
 page linking the Rust item and its method write-up in `docs/methods/`, where the paper is cited.
 
-### Layer 2: MATLAB
+### Every other language: layer 0
 
-Three routes:
-
-| | Through the Python package (`py.`) | A C interface (cdylib) with `loadlibrary`/`calllib` | A MEX gateway |
-|---|---|---|---|
-| What's written | `.m` wrappers that call the Python package and turn results into MATLAB arrays and structs | a C ABI over the façade (`extern "C"`, raw pointers, `unsafe`), a header (cbindgen), `.m` wrappers | a `mexFunction` (C or C++, or Rust linked against MATLAB's `libmx`/`libmex`) and `.m` wrappers |
-| Built with | nothing new: the Python wheels | a cdylib per platform | MATLAB's headers and libraries, per platform; MATLAB needed to build |
-| The user needs | MATLAB R2022b or later (the first release that supports Python 3.10), Python, `pip install photonoxide` | a supported C compiler and Perl, which `loadlibrary` requires to parse the header; MathWorks recommends a published C/C++ interface instead since R2022a | the MEX file for their platform and MATLAB release |
-| `unsafe` / C | none beyond PyO3's | a C ABI crate with `unsafe` | C or C++ code, or Rust linking MATLAB's C libraries at build time |
-| Complex arrays | MATLAB converts complex arrays to numpy `complex128` and back with `double(...)`, copying | pointers to interleaved complex data | MATLAB's interleaved complex API (R2018a and later) |
-| Long runs | the Python package's timeout and stop; MATLAB's Ctrl+C reaches Python only partly (to check) | the C ABI must expose stop and timeout | the MEX gateway must expose stop and timeout too |
-| Cost to keep | the `.m` layer only | a second hand-written API, kept in step with the façade | the same, plus MATLAB's versions |
-
-**Recommended: through the Python package.** It reuses everything layer 1 builds and tests, needs
-no compiler on the user's machine, and its MATLAB part is thin. The `.m` files can ship inside the
-Python wheel (as package data), with `photonoxide.matlab_path()` returning their folder for
-MATLAB's `addpath`: one install, one version, and nothing built for MATLAB. MATLAB's
-`pyenv(ExecutionMode="OutOfProcess")` runs Python in a separate process, which also keeps
-MATLAB's own libraries and photonoxide's apart.
-
-**Licences.** MATLAB is proprietary; the wrappers are photonoxide's own code, MIT OR Apache-2.0,
-and call only documented MATLAB functions. Nothing of MATLAB is redistributed.
-
-**Testing without a MATLAB licence.** This is the weak point, and it should be said plainly in the
-MATLAB page:
-
-- MathWorks' `setup-matlab` GitHub action licenses MATLAB automatically for public projects, but
-  its README says that public projects and batch licensing "do not support external language
-  interfaces, including MATLAB Engine APIs for Python". MathWorks lists calling Python from MATLAB
-  among its external language interfaces, so the `py.` route most likely can't be tested on
-  GitHub's runners (to confirm with MathWorks). A self-hosted runner with a regular licence can.
-- GNU Octave has no `py.` interface of its own; the Pythonic package (GPL-3.0, early, version 0.0.x)
-  adds one, aiming at MATLAB's syntax. Run as an external program in CI, as AGENTS.md allows for
-  GPL programs, it could smoke-test the wrappers where it is compatible; whether it handles numpy's
-  complex arrays is to check. Octave can't stand in for MATLAB.
-- So: the logic lives in Python and is tested there; the `.m` wrappers are kept thin enough to
-  review by eye; Octave smoke-tests them where it can; and someone with a MATLAB licence runs the
-  MATLAB tests by hand before each release, and the docs list the MATLAB releases checked. If the
-  I have no licence, MATLAB support is "untested in MATLAB" until a contributor with one checks
-  it, and the docs say so.
+No other language gets a binding of its own. A package per language is a second API to keep in
+step with the façade, tested in that language's own CI, and released with it; the program already
+reads a job and writes its run's folder for any language that can start a process and read JSON
+or CSV. [docs/languages.md](../languages.md) shows it in the shell, R, JavaScript and Go.
 
 ## 4. Phases
 
@@ -450,13 +415,16 @@ direct calls, bit for bit).
   seven builds per release, as genoxide's); a scheduled job building against photonoxide's main
   branch, so a façade change is noticed before it is released.
 
-### Phase 3: MATLAB (with the Python package)
+### Phase 3: every other language, through the program
 
-- **Delivers:** `.m` wrappers for phase 2's functions, results as MATLAB arrays and structs,
-  errors with `photonoxide:` identifiers, a MATLAB getting-started page.
-- **Validated by:** the Python tests (the logic), an Octave smoke test where Pythonic works, and a
-  manual run in MATLAB before each release, recorded with the MATLAB release used.
-- **Costs:** small while the wrappers stay thin; the manual check is the recurring cost.
+- **Delivers:** [docs/languages.md](../languages.md): a job written, run with
+  `photonoxide run --headless`, and its `results.json` and CSV tables read, in the shell, R,
+  JavaScript and Go.
+- **Validated by:** each example run against the program when it changes, checking what a run
+  promises: `results.json` and the CSV tables the same bits, and the physics a job gives (a
+  lossless straight guide's power and reciprocity).
+- **Costs:** none beyond layer 0's: `results.json`'s schema and the CSV tables are promises
+  already.
 
 ### Phase 4: later, each when asked for
 
@@ -492,17 +460,16 @@ Every milestone until 1.0 may change the API. What keeps the bindings cheap:
    expand to it). ROADMAP's principle 6 says the same, and its "Not planned" line is gone. The
    wheels are built only when `python/` or the library changes, so the rest of CI costs what it
    did.
-2. **Which layer first:** the façade first, then the Python package and MATLAB's wrappers over it.
+2. **Which layer first:** the façade first, then the Python package over it.
    Phase 0 followed (`results.json`, the `failed` event, `--timeout` and the exit codes,
    [docs/runs.md](../runs.md)); what it leaves for later is in its section below.
 3. **The API's style:** as recommended. Units in keyword names as job files have them
    (`wavelength_um=1.55`); Pythonic functions and small result classes, vectorized over
    wavelength where Rust loops; NumPy arrays in C order, `array[j, i]` at (x_i, y_j), with their
    coordinates.
-4. **MATLAB:** through the Python package (MATLAB's `py.`, R2022b or later), thin `.m` wrappers
-   shipped in the wheel. GitHub's runners can't run MATLAB's Python interface, so MATLAB support is
-   untested in MATLAB until someone with a licence checks it by hand, and the MATLAB section of
-   the Python page says so.
+4. **Every other language:** layer 0, the program on a job file and its run's folder
+   ([docs/languages.md](../languages.md)); no package besides Python's. *Decided 2026-10-24,
+   replacing wrappers over the Python package for one language.*
 5. **Versioning:** as recommended: the package's version is the crate's, binding-only fixes are
    PEP 440 post-releases (`0.5.1.post1`), and `__version__` sits beside `core_version`. In the
    workspace the binding depends on the crate by path, so the versions can't drift.
@@ -514,8 +481,8 @@ The options as they were weighed:
 1. **AGENTS.md's rule and where the bindings live.** AGENTS.md says "No Python anywhere: no
    bindings, no helper scripts, no reference implementations", and the library keeps
    `#![forbid(unsafe_code)]`. The options:
-   - **(a) Separate repositories** (`tachsin/photonoxide-python`, the MATLAB wrappers inside it or
-     in `tachsin/photonoxide-matlab`), depending on the published crate. This repository stays
+   - **(a) Separate repositories** (`tachsin/photonoxide-python`), depending on the published
+     crate. This repository stays
      Rust only; AGENTS.md keeps its rule and gains one sentence: "Bindings to other languages are
      separate projects in their own repositories; this repository stays Rust only." ROADMAP's
      principle 6 and its "Not planned" line change to point at them. *For:* the rule holds here,
@@ -550,19 +517,14 @@ The options as they were weighed:
 3. **The Python API's style.**
    - Units: (a) keyword names with the unit (`wavelength_um=1.55`, `thickness_nm=220`), as job
      files have them; (b) unit objects mirroring Rust (`phox.Wavelength.um(1.55)`); (c) accepting a
-     units library's quantities. *Recommended: (a),* the same names in a job file, in Python and in
-     MATLAB's name-value arguments, and arrays of wavelengths without wrapping each one.
+     units library's quantities. *Recommended: (a),* the same names in a job file and in Python, and arrays of wavelengths without wrapping each one.
    - Shape: (a) Pythonic functions and small result classes over the façade, vectorized over
      wavelength; (b) Rust's types mirrored one for one. *Recommended: (a).*
    - Arrays: C order, `array[j, i]` at (x_i, y_j), always with their coordinates. *Recommended:
      yes.*
 
-4. **The MATLAB route.** (a) Through the Python package, `.m` files shipped in the wheel; (b) a C
-   ABI with `loadlibrary`; (c) a MEX gateway. *Recommended: (a).* And: is MATLAB support stated as
-   "checked by hand in MATLAB release X before each release" (needs someone with a licence) or as
-   "tested in Octave only, untested in MATLAB" until one is found? *Recommended:* say which, on
-   the MATLAB page; I say whether a licence is at hand.
-
+4. **Other languages.** (a) A package each, over the Python package or a C ABI; (b) the program
+   for every language (layer 0). *Decided: (b),* on 2026-10-24.
 5. **Versioning.** (a) The package's version is the crate's it wraps (`photonoxide` 0.5.1 on PyPI
    wraps the crate 0.5.1), with binding-only fixes as PEP 440 post-releases (`0.5.1.post1`), and
    `phox.__version__` beside `phox.core_version`; (b) the binding's own version, with the crate's in
@@ -572,13 +534,12 @@ The options as they were weighed:
    followed by a binding release.
 
 6. **Names.** `photonoxide` is free on PyPI (the JSON API and the simple index both answer 404,
-   2026-10-09) and on conda-forge (404 at anaconda.org's API); the GitHub repositories
-   `tachsin/photonoxide-python` and `tachsin/photonoxide-matlab` don't exist. The options: (a)
+   2026-10-09) and on conda-forge (404 at anaconda.org's API); the GitHub repository
+   `tachsin/photonoxide-python` doesn't exist. The options: (a)
    `photonoxide` on PyPI, imported as `photonoxide`, as genoxide is `genoxide` on both; (b) a
    different PyPI name (`photonoxide-py`). PyPI discourages registering a name with an empty
-   placeholder, so the name is taken by the first real release. *Recommended: (a),* the
-   repository `tachsin/photonoxide-python`, MATLAB's wrappers inside it, and a File Exchange entry
-   pointing at it once MATLAB support is checked.
+   placeholder, so the name is taken by the first real release. *Recommended: (a),* and the
+   repository `tachsin/photonoxide-python`.
 
 7. **The README's line.** README.md says "There are no Python bindings." *Recommended:* keep it
    true until a binding is released, then link the binding from the README's install section.
@@ -590,7 +551,7 @@ On 2026-10-09:
 - **PyPI:** `https://pypi.org/pypi/photonoxide/json` and `https://pypi.org/simple/photonoxide/`
   answer 404: the name is free. `genoxide` 0.13.1 is on PyPI, owned by tachsin.
 - **conda-forge:** `https://api.anaconda.org/package/conda-forge/photonoxide` answers 404.
-- **GitHub:** `tachsin/photonoxide-python` and `tachsin/photonoxide-matlab` answer 404.
+- **GitHub:** `tachsin/photonoxide-python` answers 404.
 - **PyO3** 0.29.3 (2026-09-30, MIT OR Apache-2.0, minimum Rust 1.83, below photonoxide's 1.95);
   **rust-numpy** (`numpy` on crates.io) 0.29.0 (2026-06-13, BSD-2-Clause); **maturin** 1.15.0
   (MIT OR Apache-2.0).
@@ -600,13 +561,3 @@ On 2026-10-09:
   files; a `python-wheels.yml` workflow building seven platforms plus free-threaded 3.14t, run on
   pull requests that touch `python/**`, `src/**`, `Cargo.toml` or `Cargo.lock`; PyPI by trusted
   publishing after release-plz releases the crate.
-- **MATLAB and Python** (MathWorks' compatibility table): Python 3.10 is supported from R2022b;
-  R2025b supports 3.9 to 3.12, R2026a 3.9 to 3.13.
-- **MATLAB's `loadlibrary`** (MathWorks' reference page): "You must have a supported C compiler
-  and Perl must be available"; since R2022a MathWorks recommends publishing a MATLAB interface to
-  the library instead.
-- **MATLAB in GitHub Actions** (`matlab-actions/setup-matlab`'s README): public projects are
-  licensed automatically, except transformation products; "public projects and batch licensing
-  do not support external language interfaces, including MATLAB Engine APIs for Python".
-- **Octave's Pythonic package** (`gnu-octave/octave-pythonic`): a `py.` interface for Octave,
-  GPL-3.0, early (0.0.x).

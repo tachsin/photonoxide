@@ -36,7 +36,7 @@ The validated photonics toolkit for Rust: simulation, inverse design and layout 
    - The window starts the job by itself, exits when it's done, and honours a hard timeout.
 6. **Pure Rust.**
    - No C, Fortran or Python dependencies.
-   - Python and MATLAB reach the library through bindings in `python/`, over a small façade of plain types; Python lives there only, with its tests ([the plan](docs/plans/bindings.md)).
+   - Python reaches the library through bindings in `python/`, over a small façade of plain types; Python lives there only, with its tests ([the plan](docs/plans/bindings.md)). Every other language runs the `photonoxide` program on a job file and reads its run's folder ([docs/languages.md](docs/languages.md)).
    - Linear algebra is faer, parallelism is rayon, the GPU is wgpu (f64 through Vulkan), and processes talk through a communicator in pure Rust (in-process and TCP).
    - One exception, written only when a cluster needs it: an optional `mpi` feature, off by default, documented as the one C dependency. No CUDA.
    - PETSc, SLEPc, MKL/PARDISO and MUMPS are inspiration and benchmarks: their methods are implemented from their papers, specific to our solvers, and the libraries themselves run only as external programs on exported problems, never linked.
@@ -313,7 +313,7 @@ A problem is set up by writing a file, not a program. Its results are taken away
   - modes' n_eff, group index, loss and complex E and H, power normalized; FDFD's and FDTD's complex fields at chosen wavelengths and monitors, and FDTD's frames; the permittivity; spectra, S-parameters, resonances, sweeps and studies as tables; the static solver's temperature, potential, field, current and Joule heat; the whole window or a box, every n-th cell;
   - every file with its grid (nodes or centres, each component's Yee offset), units, normalization, the job as it ran, the version and the run;
   - NPZ and CSV, besides Touchstone, written in pure Rust; deflate at a chosen level, f64 or f32 (the file says when it was downcast), and the size estimated before writing, a finished run's fields written again so; zstd and HDF5 through `photonoxide-native`, loading the user's own libzstd and libhdf5 at run time. MAT and VTK XML aren't needed for now (tachsin, 2026-10-24): an issue of their own if they ever are;
-  - the façade's `export` and the arrays with their grids, for Python and MATLAB;
+  - the façade's `export` and the arrays with their grids, for Python;
   - heavy arrays in `events.bin`, NumPy arrays beside `events.jsonl` rather than in it, replay still bit for bit.
 - [ ] **Masks in:** a GDS file's layers read into a structure job, read only; writing layouts stays 0.9's.
 
@@ -629,10 +629,10 @@ The waveguide and resonator processes, phase matching, photon pairs and Kerr com
   - [x] Install guides per library and platform, verified (#184).
   - [x] The benchmark: a catalogue of problems at many sizes (#179) and a runner over every backend with a results database (#180).
   - [x] The studio: a Libraries page with guided installs (#181), a Benchmarks page (#182), and `auto` from the measurements (#183).
-- **Python and MATLAB** ([the plan](docs/plans/bindings.md), #271): bindings in `python/`, in step with the crate's versions.
+- **Python, and any language through the program** ([the plan](docs/plans/bindings.md), #271): bindings in `python/`, in step with the crate's versions; other languages run the `photonoxide` program.
   - [x] A façade: a small module of plain types (numbers named with their units, arrays with their grids), so a change elsewhere in the API stops there. *(`photonoxide::facade`: the catalogue's materials and indices, slab and full-vector modes with their fields, jobs run and checked, an FDFD job's S-parameters, circuits from a netlist given as data (its instances by kind, or devices with their design), Touchstone files, and the devices: the library's, and a design's S-parameters, figures, geometry and job (#347); each the library's own calls to the bit, and `facade::conformance()`, calls with their results, for the bindings to check theirs against.)*
   - [x] The `photonoxide` package for Python (PyO3, abi3 wheels for CPython 3.10 and later), tested against the library's own results bit for bit and against the validation report's numbers, published to PyPI with each release. *(`python/`, [docs/python.md](docs/python.md): the façade's functions with NumPy arrays, result classes and type stubs, photonoxide's errors as exception classes, the GIL released and Ctrl+C and timeouts stopping long calls; every conformance case to the bit, the book's slab, a ring's free spectral range, an MZI and Li's silicon through Python; wheels for 7 platforms and free-threaded 3.14t, tested on 3 on every PR that touches them. Publishing waits for PyPI's trusted publisher to be set up, docs/python.md.)*
-  - [ ] MATLAB through the Python package (R2022b and later), thin `.m` wrappers in the wheel. *(In, untested in MATLAB itself: the wrappers in `+photonoxide`, every conversion in `photonoxide.matlab` and tested in Python to the bit; done once someone with a licence has run them, and the releases checked are listed.)*
+  - [x] Any other language through the `photonoxide` program: a job file in, its run's folder out (`results.json`, the CSV tables, the fields), [docs/languages.md](docs/languages.md) with the shell, R, JavaScript and Go, each run against the program. *(The MATLAB wrappers that shipped in 0.5.4 were removed after it (tachsin, 2026-10-24): a language gets no package of its own besides Python's, and MATLAB, like any other, runs the program.)*
 - **Docs:** a theory page per method.
 
 ### 1.0: Stable

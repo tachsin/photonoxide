@@ -1,10 +1,10 @@
 //! A small, stable façade over the library, for bindings to other languages: the `photonoxide`
-//! package for Python (`python/` in the repository) wraps it one function for one, and MATLAB
-//! reaches it through that package.
+//! package for Python (`python/` in the repository) wraps it one function for one. Other languages
+//! run the `photonoxide` program and read its run's files (`docs/languages.md`).
 //!
 //! The rest of the API can change between milestones until 1.0. The façade changes only on
 //! purpose: a change elsewhere is absorbed here, in the same pull request, so that the bindings
-//! don't follow every change of the library. It covers the calls a Python or MATLAB user meets
+//! don't follow every change of the library. It covers the calls a Python user meets
 //! first ([the plan](https://github.com/tachsin/photonoxide/blob/main/docs/plans/bindings.md)):
 //!
 //! - materials of the catalogue and their indices: [`materials`], [`refractive_index`],
@@ -46,8 +46,6 @@
 mod circuit;
 mod conformance;
 mod device;
-#[cfg(test)]
-mod matlab_page;
 #[cfg(test)]
 mod tests;
 

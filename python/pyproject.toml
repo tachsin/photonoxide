@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "photonoxide"
-description = "Validated photonics from Rust, for Python and MATLAB: materials with provenance, waveguide modes, jobs and 2D FDFD S-parameters, circuits and Touchstone files, devices"
+description = "Validated photonics from Rust, for Python: materials with provenance, waveguide modes, jobs and 2D FDFD S-parameters, circuits and Touchstone files, devices"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 license-files = ["licenses/LICENSE-MIT", "licenses/LICENSE-APACHE"]
@@ -19,7 +19,6 @@ keywords = [
     "s-parameters",
     "touchstone",
     "electromagnetics",
-    "matlab",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

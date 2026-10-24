@@ -645,7 +645,7 @@ pub(super) const THROUGH: [(&str, &str, &str); 1] =
 
 /// The façade's functions, read from its source: every `pub fn` at the start of a line (not a
 /// method), but `conformance`, which lists calls of the others.
-pub(super) fn facade_functions() -> Vec<&'static str> {
+fn facade_functions() -> Vec<&'static str> {
     let sources = [
         include_str!("../facade.rs"),
         include_str!("circuit.rs"),
@@ -665,7 +665,7 @@ pub(super) fn facade_functions() -> Vec<&'static str> {
 
 #[test]
 fn every_facade_function_is_in_the_feature_table() {
-    // docs/features.md says what Python and MATLAB reach: a function added to the façade (and
+    // docs/features.md says what Python reaches: a function added to the façade (and
     // so to the Python package) goes in its table, by name
     let table = include_str!("../../docs/features.md");
     let functions = facade_functions();

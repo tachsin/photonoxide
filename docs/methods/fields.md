@@ -43,17 +43,12 @@ interface that is 20 % wrong on a 10 nm grid. Faraday's law gives the large tran
 straight from H, and derivatives enter only through $E_z$, which is small and, being tangential
 to every interface, continuous across them.
 
-In Python and MATLAB, each mode `vector_modes` returns ([the call](vector.md#what-a-count-returns-guided-modes-and-the-windows-own)) carries these six
+In Python, each mode `vector_modes` returns ([the call](vector.md#what-a-count-returns-guided-modes-and-the-windows-own)) carries these six
 components at the cells' centres, each `(ny, nx)`, with the centres' coordinates:
 
 ```python
 m = modes[0]
 m.ex, m.ey, m.ez, m.hx, m.hy, m.hz   # m.ex[j, i] is E_x at (m.x_um[i], m.y_um[j])
-```
-
-```matlab
-m = modes(1);
-m.ex                                  % m.ex(j, i) is E_x at (m.x_um(i), m.y_um(j))
 ```
 
 ## Power and coupling

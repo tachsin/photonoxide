@@ -112,25 +112,8 @@ s = array(results["s_parameters"]["s"])   # s[k, q, p]
 transmission = abs(s[:, 1, 0]) ** 2
 ```
 
-MATLAB:
-
-```matlab
-run = "runs/20261014-120000-strip-fdfd";
-results = jsondecode(fileread(fullfile(run, "results.json")));
-a = results.s_parameters.s;
-if isfield(a, "data")
-    values = a.data(:);
-else
-    f = fopen(fullfile(run, a.file), "r", "ieee-le");
-    values = fread(f, Inf, "double");
-    fclose(f);
-end
-if a.dtype == "complex128"
-    values = complex(values(1:2:end), values(2:2:end));
-end
-% C order: reverse the shape for MATLAB's column order, then the indices
-s = permute(reshape(values, flip(a.shape')), numel(a.shape):-1:1);   % s(k, q, p)
-```
+Other languages read it the same way: [docs/languages.md](languages.md) has the shell, R,
+JavaScript and Go.
 
 ## `events.jsonl`
 

@@ -5,7 +5,7 @@ the `photonoxide` program (the studio). [ROADMAP.md](ROADMAP.md) is the plan and
 what is done; [CHANGELOG.md](CHANGELOG.md) has what each release changed. 0.1 to 0.5 and their
 patches are released, the latest 0.5.4 (geometry for any device, the devices on pages of their
 own with their studies and optimization, compact models, the chip built from devices, devices in
-Python and MATLAB); next is 0.6, thermal and electro-optic devices, with 0.5.5 (the job editor and exports) beside it. The library's modules, each with a write-up in
+Python); next is 0.6, thermal and electro-optic devices, with 0.5.5 (the job editor and exports) beside it. The library's modules, each with a write-up in
 `docs/methods/`:
 
 - `units`, `material` (with `material::catalogue`), `geometry` (the kernel: regions, transforms,
@@ -81,11 +81,13 @@ that changes Rust code or a manifest, on the commit being pushed, and refuse the
 fails. A lint that passed on a commit, in the hook or the full suite, isn't run again on it.
 
 The Python package ([docs/python.md](docs/python.md)) wraps `photonoxide::facade` only. A change to
-the façade's functions or results changes `python/` (the native module, the Python functions,
-their stubs and the MATLAB wrappers) in the same PR; its tests compare each function with the
+the façade's functions or results changes `python/` (the native module, the Python functions
+and their stubs) in the same PR; its tests compare each function with the
 façade's conformance cases to the bit. A function added to the façade gets its row in
-[docs/features.md](docs/features.md), the table of what works in Rust, Python and MATLAB (a test
-checks every façade function is named there). CI lints the binding crate on every code change, and
+[docs/features.md](docs/features.md), the table of what works in Rust and Python (a test
+checks every façade function is named there). Every other language runs the `photonoxide`
+program on a job file and reads its run's folder ([docs/languages.md](docs/languages.md)): no
+other language gets a package of its own. CI lints the binding crate on every code change, and
 builds and tests the wheels (`.github/workflows/python-wheels.yml`) only on PRs that touch
 `python/`, the façade, `jobs/`, `docs/python.md`, the method write-ups with Python calls (which
 `python/tests/test_methods.py` runs) or the manifests, and weekly.
@@ -120,8 +122,8 @@ checks their rows (and the report's head and list of cases); the release PR chec
 ## Rules
 
 - **Rust only, but for the Python bindings** ([docs/plans/bindings.md](docs/plans/bindings.md), #271).
-  - Python only in `python/`: the bindings (the `photonoxide` package for Python, with its
-    MATLAB wrappers) and their tests. No Python helper scripts, no reference implementations,
+  - Python only in `python/`: the bindings (the `photonoxide` package for Python) and their
+    tests. No Python helper scripts, no reference implementations,
     nothing else in Python, anywhere else.
   - The library stays Rust only. The bindings wrap its façade, a small module of plain types, not
     the rest of the API.

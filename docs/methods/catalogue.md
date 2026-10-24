@@ -142,7 +142,7 @@ also has tags (`Entry::tags`): what the crystal is and what its symmetry allows,
 with its physics, caveats and sources. The studio's Materials page shows it all, the tags and what
 is coming as hover cards.
 
-Python and MATLAB have the indices: `materials` lists the catalogue's materials with their index
+Python has the indices: `materials` lists the catalogue's materials with their index
 models, each model's range and sources, and `refractive_index` and `group_index` evaluate one at
 vacuum wavelengths, the default model unless `model` names another. The tensors are Rust's only
 ([features](../features.md)). Silicon's default is Li's (1980) at 293 K, his Table 1 at 1.55 µm:
@@ -157,13 +157,6 @@ n = phox.refractive_index("si", wavelength_um=1.55)   # n + iκ, a complex numbe
 assert round(n.real, 4) == 3.4757                    # Li 1980, Table 1, 293 K
 ng = phox.group_index("si", wavelength_um=[1.5, 1.55, 1.6])
 assert ng.shape == (3,) and all(ng > n.real)         # normal dispersion: n_g above n
-```
-
-```matlab
-m = photonoxide.materials();
-m.range_um(:, m.id == "si")                          % the default model's range, µm
-n = photonoxide.refractive_index("si", 1.55)         % 3.4757: Li 1980, Table 1, 293 K
-ng = photonoxide.group_index("si", [1.5 1.55 1.6])
 ```
 
 ## Thermal conductivities
