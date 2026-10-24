@@ -421,18 +421,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      # the registry and git checkouts: the compiled crates are sccache's, shared across the jobs
-      # and the systems, so the two caches don't hold the same things twice (#507)
+      # the studio keeps its target/ in rust-cache: through sccache its Tauri build was slower,
+      # 17, 27 and 19 min on Linux, Windows and macOS against 12, 27 and 15 (#507)
       - uses: Swatinem/rust-cache@v2
-        with:
-          cache-targets: false
-      # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
-      - uses: mozilla-actions/sccache-action@v0.0.11
-      - name: Compile through sccache
-        shell: bash
-        run: |
-          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
       - run: pnpm install --frozen-lockfile
       # type-checks the web view and builds it
       - run: pnpm build
