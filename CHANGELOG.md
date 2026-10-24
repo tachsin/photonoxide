@@ -6,6 +6,97 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/tachsin/photonoxide/compare/v0.5.4...v0.6.0) - 2026-10-24
+
+### <!-- 0 -->Added
+
+- *(thermal, electro)* the static solver on a cross-section: heat, electrostatics and current with its Joule heat, on graded grids ([#423](https://github.com/tachsin/photonoxide/pull/423))
+- *(fdtd, studio)* run_until_decayed stops when the fields grow; kept shapes in the Custom device's top view, a static run in the window, the chip's port names ([#425](https://github.com/tachsin/photonoxide/pull/425))
+- *(studio)* chip jobs that reach the circuit examples' closed forms through the chip's optimize task (part of #244) ([#427](https://github.com/tachsin/photonoxide/pull/427))
+- *(job)* leaky modes in modes jobs, with a PML, each with its loss ([#429](https://github.com/tachsin/photonoxide/pull/429))
+- *(job)* photonoxide new <kind>, a job to start from in YAML (part of #430) ([#434](https://github.com/tachsin/photonoxide/pull/434))
+- *(job)* results.json in every run folder, a failed event, and the run command's timeout and exit codes ([#439](https://github.com/tachsin/photonoxide/pull/439))
+- *(examples)* the ring checked like for like, the through port read over the paper's record as its code reads it (part of #256) ([#443](https://github.com/tachsin/photonoxide/pull/443))
+- *(job)* the job file's JSON Schema, derived from the structs the tasks are read into (part of #430) ([#437](https://github.com/tachsin/photonoxide/pull/437))
+- *(thermal)* transient heat on the cross-section, and a heater's time constant ([#413](https://github.com/tachsin/photonoxide/pull/413)) ([#440](https://github.com/tachsin/photonoxide/pull/440))
+- *(facade)* a Stop for device_spectrum, and the catalogue's stacks by name ([#446](https://github.com/tachsin/photonoxide/pull/446))
+- *(export)* a modes job's complex fields and summary table, as npz and csv (part of #431) ([#442](https://github.com/tachsin/photonoxide/pull/442))
+- *(examples)* long FDTD runs print their progress to stderr every few minutes ([#453](https://github.com/tachsin/photonoxide/pull/453))
+- *(studio)* the Academy's material dispersion lesson, from the driven oscillator to silicon's dispersion ([#457](https://github.com/tachsin/photonoxide/pull/457))
+- *(material)* silicon from Frey, Leviton and Madison 2006, a smooth temperature-dependent Sellmeier ([#462](https://github.com/tachsin/photonoxide/pull/462))
+- *(job)* units in values, shapes one to a line and YAML anchors, beside today's keys ([#467](https://github.com/tachsin/photonoxide/pull/467))
+- *(material)* silicon and silica take a temperature, by Li's Eq. (22), Frey's and Leviton & Frey's dn/dT, and SOI's temperature corners run ([#466](https://github.com/tachsin/photonoxide/pull/466))
+- *(material)* a crystal's orientation in a job, its tensor in the modes solver, and the types for biaxial crystals ([#468](https://github.com/tachsin/photonoxide/pull/468))
+- *(mode)* a temperature field in a mode, by first-order perturbation and by re-solve ([#471](https://github.com/tachsin/photonoxide/pull/471))
+- *(job)* an optimization's continuation, the optimizer's state kept across its stages ([#477](https://github.com/tachsin/photonoxide/pull/477))
+- *(material, thermal)* thermal conductivities in the catalogue beside the indices, which heat jobs take (part of #414) ([#479](https://github.com/tachsin/photonoxide/pull/479))
+- the built-in jobs in YAML, each the job its TOML was to the bit, the TOML still read (part of #430) ([#480](https://github.com/tachsin/photonoxide/pull/480))
+- [**breaking**] grid convergence gates a reported number: a modes job's [task.convergence], results.json's checks and the examples' Checks::converged ([#481](https://github.com/tachsin/photonoxide/pull/481))
+- *(studio)* the examples a job can describe as jobs, checked to the bit, and the rest with what the format lacks (part of #430) ([#484](https://github.com/tachsin/photonoxide/pull/484))
+- *(studio)* device, study, fit and optimize jobs written in YAML, and the API docs' jobs in YAML (part of #430) ([#486](https://github.com/tachsin/photonoxide/pull/486))
+- *(fdfd, fdtd)* a cut crystal's tensor in FDFD and FDTD, each component of E its own entry (part of #432) ([#487](https://github.com/tachsin/photonoxide/pull/487))
+- *(export)* every job kind's tables by default, and its fields when asked (part of #431) ([#489](https://github.com/tachsin/photonoxide/pull/489))
+- *(mode, electro)* the Pockels effect in a mode, Δn by perturbation and one Vπ·L, on lithium niobate (part of #417) ([#491](https://github.com/tachsin/photonoxide/pull/491))
+- *(export)* a finished run's tables from photonoxide export, the studio's Export dialog, and Python and MATLAB (part of #431) ([#493](https://github.com/tachsin/photonoxide/pull/493))
+- *(job)* Vπ·L from a job, a static job's electro_optic table from the electrodes' field to the mode (part of #417) ([#494](https://github.com/tachsin/photonoxide/pull/494))
+- *(thermal)* the thermo-optic phase shifter: Pπ, its time and crosstalk through the chain, Jacques et al.'s two heaters reproduced (part of #415) ([#492](https://github.com/tachsin/photonoxide/pull/492))
+- *(material, mode)* barium titanate and lithium tantalate in the catalogue with their spread and cases (part of #417) ([#496](https://github.com/tachsin/photonoxide/pull/496))
+- *(thermal)* the phase shifter's crosstalk against Jacques et al.'s neighbours and a deep trench, and Harris et al.'s doped heater bounded in 2D (closes #415) ([#497](https://github.com/tachsin/photonoxide/pull/497))
+- *(material)* phase-change materials, Sb₂Se₃, Sb₂S₃ and GST in both states, Delaney 2020 reproduced (part of #419) ([#498](https://github.com/tachsin/photonoxide/pull/498))
+- *(thermal)* dynamic thermal compact models fitted to a phase shifter's step responses, Coenen et al.'s Foster and Cauer networks, and a circuit heated through them (part of #416) ([#501](https://github.com/tachsin/photonoxide/pull/501))
+- *(export)* Zstandard for the exported fields, the user's own libzstd loaded at run time (part of #431) ([#495](https://github.com/tachsin/photonoxide/pull/495))
+- *(thermal, job)* a heat pulse's peak in a phase-change film and what it switches (part of #419) ([#505](https://github.com/tachsin/photonoxide/pull/505))
+- *(thermal)* crosstalk correction posed for genoxide, Gurses et al.'s lumped networks and corrected array (closes #416) ([#506](https://github.com/tachsin/photonoxide/pull/506))
+- *(export)* HDF5 files of the exported fields, the user's own libhdf5 loaded at run time (part of #431) ([#499](https://github.com/tachsin/photonoxide/pull/499))
+- *(export, run)* a run's fields written again with their size estimated first, and heavy arrays beside events.jsonl in events.bin (closes #431) ([#513](https://github.com/tachsin/photonoxide/pull/513))
+- *(material)* silicon to 5 K by Komma 2012, silicon nitride's dn/dT by Arbabi & Goddard 2013 and Elshaari 2016, and Glassbrenner & Slack 1964's silicon conductivity (part of #411) ([#512](https://github.com/tachsin/photonoxide/pull/512))
+- *(material, mode)* lithium tantalate's and barium titanate's index models, Abel et al.'s BTO guide's Vπ·L (part of #411) ([#514](https://github.com/tachsin/photonoxide/pull/514))
+- *(material)* Sb₂Se₃'s and Sb₂S₃'s thermal conductivities measured, Aryana et al. 2023 (part of #411) ([#515](https://github.com/tachsin/photonoxide/pull/515))
+- *(electro, job)* travelling-wave electrodes, the quasi-TEM line, its losses and the EO response (part of #418) ([#511](https://github.com/tachsin/photonoxide/pull/511))
+- *(material)* lithium tantalate's n(λ, T) by Abedin & Ito 1996, and Bond 1965's table checked against the paper (part of #411) ([#516](https://github.com/tachsin/photonoxide/pull/516))
+- *(device)* the thermo-optic phase shifters as devices, a metal heater and doped heaters at analytic, 2D and measured fidelity, Jacques et al. 2019 through them (part of #420) ([#517](https://github.com/tachsin/photonoxide/pull/517))
+- *(python)* [**breaking**] no MATLAB wrappers; every other language through the program, with a guide and the site's Python and any-language pages (part of #291) ([#518](https://github.com/tachsin/photonoxide/pull/518))
+- *(electro, job)* segmented electrodes, each period's ABCD cascade and its Bloch wave, Shin et al.'s loaded line, Kharel et al.'s quartz rows (part of #418) ([#520](https://github.com/tachsin/photonoxide/pull/520))
+- *(job)* results.json's JSON Schema, derived from its types, and types generated from it in any language ([#519](https://github.com/tachsin/photonoxide/pull/519))
+- *(studio)* the Academy's strip waveguide lesson, from hybrid modes to the device's fidelities ([#410](https://github.com/tachsin/photonoxide/pull/410))
+- *(studio)* the axes in the design views, and a frame switch between the chip's and the cross-section's ([#461](https://github.com/tachsin/photonoxide/pull/461))
+- *(studio)* the cut and its across axis in every design view, a cursor readout in both frames, and the crystals a job uses for the crystal frame ([#465](https://github.com/tachsin/photonoxide/pull/465))
+- *(studio)* the job's text beside its design, the schema's keys and docs at the cursor, and the check's error where it points (part of #430) ([#469](https://github.com/tachsin/photonoxide/pull/469))
+- *(studio)* the crystal frame: the chip's axes named by the crystal's, its axes on what it fills, and the 3D view along its c axis ([#470](https://github.com/tachsin/photonoxide/pull/470))
+- *(studio)* click a structure beside the job's text to select its entry and edit it in a sidebar (part of #430) ([#472](https://github.com/tachsin/photonoxide/pull/472))
+- *(studio)* the dispersion lesson's D from Frey's smooth silicon ([#473](https://github.com/tachsin/photonoxide/pull/473))
+- *(studio)* the sidebar in the form's 3D and Top views, a medium's index, range and source in it, and a crystal's orientation set there (closes #435) ([#474](https://github.com/tachsin/photonoxide/pull/474))
+- *(studio)* an expression's functions, units and parameters with their values, and the sidebar's values, in the editor's popover; a key's method page on hover (part of #430) ([#476](https://github.com/tachsin/photonoxide/pull/476))
+- *(studio)* the job editor's tabs for open jobs, and beside the text a Reference of the whole job and every problem, each a click from its place (part of #430) ([#478](https://github.com/tachsin/photonoxide/pull/478))
+- *(academy)* the leaky and bent guides lesson, its diagram and three exact charts (part of #228) ([#483](https://github.com/tachsin/photonoxide/pull/483))
+
+### <!-- 1 -->Fixed
+
+- three tests steady under load: a worker's handshake by the clock, a cancelled build's processes ended as a job, the farm's deadline on a yardstick ([#475](https://github.com/tachsin/photonoxide/pull/475))
+- *(examples)* strip_waveguide quotes Hadley's index, gated by its grids ([#485](https://github.com/tachsin/photonoxide/pull/485))
+- *(studio)* a nightly's version is main's, with the date and commit as build metadata ([#428](https://github.com/tachsin/photonoxide/pull/428))
+- *(studio)* one WebGL context for every preview, so many cards don't go white ([#490](https://github.com/tachsin/photonoxide/pull/490))
+- *(studio)* a finished FDFD sweep shows the field its job asks for, not its last point ([#503](https://github.com/tachsin/photonoxide/pull/503))
+
+### <!-- 2 -->Performance
+
+- *(fdfd)* [**breaking**] a multigrid without the finest matrix, its smoother from the stencil and its coarse levels rediscretized ([#351](https://github.com/tachsin/photonoxide/pull/351))
+- *(studio)* KaTeX's fonts as woff2 alone, 0.8 MiB less in every installer ([#504](https://github.com/tachsin/photonoxide/pull/504))
+
+### <!-- 4 -->Documentation
+
+- 0.5.4 is released ([#408](https://github.com/tachsin/photonoxide/pull/408))
+- *(fdtd)* Liu and Poon's mode converter, splitter-rotator and ring at 15 cells, and the crossing with the coupling tensor ([#436](https://github.com/tachsin/photonoxide/pull/436))
+- *(roadmap)* 0.5.5 the job editor and exports, 0.6.3 eigenmode expansion and the mode solver's tools ([#433](https://github.com/tachsin/photonoxide/pull/433))
+- *(python)* the MATLAB wrappers' reference, and Python examples against their papers (part of #291) ([#441](https://github.com/tachsin/photonoxide/pull/441))
+- *(python)* import photonoxide as phox ([#444](https://github.com/tachsin/photonoxide/pull/444))
+- Rust and Python first examples, install with uv, building from source with its profiles, and a justfile ([#447](https://github.com/tachsin/photonoxide/pull/447))
+- *(methods)* the Python and MATLAB calls beside the Rust ones (part of #291) ([#448](https://github.com/tachsin/photonoxide/pull/448))
+- *(fdtd)* Liu and Poon's ring like for like at 15 and 20 cells, and the splitter-rotator at 20 (part of #256) ([#452](https://github.com/tachsin/photonoxide/pull/452))
+- *(python)* a hosted API reference, made by pdoc in CI from the package's docstrings and stubs ([#463](https://github.com/tachsin/photonoxide/pull/463))
+- YAML first in the docs and the bindings, and the façade's device_job case in YAML (part of #430) ([#482](https://github.com/tachsin/photonoxide/pull/482))
+- *(academy)* the leaky lesson checked against Tamir and Oliner's two papers (part of #228) ([#510](https://github.com/tachsin/photonoxide/pull/510))
+
 ## [0.5.4](https://github.com/tachsin/photonoxide/compare/v0.5.3...v0.5.4) - 2026-10-16
 
 ### <!-- 0 -->Added
