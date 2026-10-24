@@ -319,6 +319,8 @@ every value a tensor gives is an element its tag names.
 | LiNbO₃, congruent | Jundt 1997 | $n_e(\lambda, T)$, Eqs. (4)–(5), Table 2 | 0.4–5 µm, 20–250 °C |
 | LiNbO₃, 5% MgO | Zelmon et al. 1997 (default) | Table 2, columns exchanged (below) | 0.4–5.0 µm, 21 °C |
 | LiNbO₃, 5% MgO | Gayer et al. 2008 | Eqs. (2)–(3), Table 1 of the 2010 erratum | $n_e$ 0.5–4 µm, 20–200 °C; $n_o$ 0.5–1.62 µm, 20–100 °C |
+| LiTaO₃ | Bond 1965 (our fit) | two-term Sellmeier for $n_o$ and $n_e$, fitted to Bond's table (refractiveindex.info, CC0) | 0.45–4.0 µm, room temperature, within 6.7e-4 of the table |
+| BaTiO₃ (thin film) | Abel et al. 2018, at 1550 nm | constant $n_o = ar n + \Delta n/2$, $n_e = ar n - \Delta n/2$; $ar n$ = 2.286, $\Delta n$ = 0.03 (Supplementary Note 6) | 1.50–1.60 µm |
 
 Two models are new forms in `Model`: `Model::Pikhtin` (Skauli's Eq. (12), photon energies in eV)
 and `Model::Afromowitz`. Gehrsitz's oscillators $C/(E_i^2 - E^2)$, with $E = 1/\lambda$ in
@@ -414,13 +416,25 @@ congruent Table 1 is printed the right way round.
   $r_{33} = 342 \pm 93$ pm/V at 1550 nm ($r_{13}$ unresolved); Deng et al. 2026 on LSAT,
   $r_{42} = 358$ pm/V, the projection of the measured $r_c = 253$ pm/V along ⟨110⟩; Chelladurai
   et al. 2025, $r_{33} = 125$ pm/V and $\tfrac12(r_{13} + 2r_{42}) = 481$ pm/V at 100 MHz, 191 at
-  330 GHz; Eltes et al. 2019's effective 380 pm/V from a modulator. The index at 1550 nm is a
-  constant (2.26, 2.29): no film's dispersion is in hand, so the entry has no index model yet.
-  4mm's pattern is 6mm's ($r_{13} = r_{23}$, $r_{33}$, $r_{42} = r_{51}$).
+  330 GHz; Eltes et al. 2019's effective 380 pm/V from a modulator. Its index model is Abel et
+  al.'s film at 1550 nm (their Supplementary Note 6): the mean index 2.286 by ellipsometry with a
+  Cauchy model, split by a birefringence of 0.03 that they extrapolate from the bulk crystal's
+  Sellmeier equations (the film is too thin, and its domains too mixed, to measure it), so
+  $n_o$ = 2.301 and $n_e$ = 2.271, constant from 1.50 to 1.60 µm: no film's dispersion is
+  tabulated in the papers read (Fazlioglu-Yalcin et al. 2023 give a film's index at 632 and
+  1550 nm only, 2.28 to 2.33 for their stoichiometric films). The other films' indices at 1550 nm
+  stay as constants (2.26, Chelladurai et al.; 2.29, Eltes et al.): the films' spread, within
+  0.026 of Abel et al.'s. 4mm's pattern is 6mm's ($r_{13} = r_{23}$, $r_{33}$, $r_{42} = r_{51}$).
 - **Lithium tantalate:** Casson et al. 2004's unclamped $r_{13}$ and $r_{33}$ at 632.8, 980, 1330
   and 1558 nm (Table 2; 6.92 ± 0.07 and 27.4 ± 0.3 pm/V at 1558 nm), from the deflection per volt
   of a domain-patterned crystal scaled from the literature's 632.8 nm values, with the indices they
-  use as constants; $r_{22}$ and $r_{51}$ unmeasured, and no index model yet.
+  use as constants; $r_{22}$ and $r_{51}$ unmeasured. Its index model is our two-term Sellmeier fit
+  to W. L. Bond's table (J. Appl. Phys. 36, 1674 (1965), 0.45 to 4.0 µm at room temperature) as
+  the refractiveindex.info database transcribes it (CC0): within 3.3e-4 ($n_o$) and 6.7e-4
+  ($n_e$, whose tabulated steps are irregular from 1.6 to 2.0 µm) of its 22 rows, and within
+  5.0e-4 of the indices Casson et al. print from Gervais & Fonseca's handbook chapter at 632.8 to
+  1558 nm, an independent print of the measurements. Bond's paper itself (closed) is still to be
+  read; its temperature dependence (Abedin & Ito 1996) is coming.
 - **GaAs:** $d_{14} = 119$ pm/V at 1.533 µm and 170 at 1.064 µm (Shoji, Table 11); Skauli et al.
   (2002) measure $d_{14}/d_{33}(\mathrm{LiNbO_3}) = 5.01 \pm 0.3$ at 4.1 µm. $r_{41}^S = -1.54$ and
   $-1.50$ pm/V at 1.32 and 1.52 µm (Berseth et al., with their sign convention), and the
@@ -610,6 +624,10 @@ read from the paper itself, which isn't in hand.
 - Shoji's $d_{33}$ with Zelmon's $n_e$ gives his Miller's $\Delta_{33}$ (Table 12) to 0.5%.
 - Gayer's 5% MgO indices against Zelmon's Table 2 (columns exchanged) at 21 °C: within 4.4e-4.
   The paper reports 3.1e-4 for $n_e$ and 2.2e-4 for $n_o$; we find 3.3e-4 and 4.4e-4.
+- Lithium tantalate: our fits within 6.7e-4 of Bond's 22 rows (`material/litao3-bond-fit`) and
+  within 5.0e-4 of Casson et al.'s eight indices (`material/litao3-casson`). Barium titanate: Abel
+  et al.'s film index at 1550 nm within 0.026 of the other films' 2.26 and 2.29
+  (`material/batio3-abel-films`).
 - Gehrsitz: Eq. (11) reproduces Table II's $E_0^2$ of GaAs at three temperatures (5e-7), the
   temperature forms its $n_\infty^2$ (5e-5); the analytic Table IV agrees with every sample's own
   fit (Table III) from 0.73 to 0.83 µm within 0.79 of the two fits' $\Delta n_\mathrm{max}$; and

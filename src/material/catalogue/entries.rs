@@ -1862,7 +1862,7 @@ fn barium_titanate() -> Entry {
             centrosymmetric: false,
             notes: "tetragonal between about 5 °C and its Curie temperature near 120 °C in bulk (200 °C in Deng et al.'s films); films hold domains with c along each in-plane axis, so measured coefficients are domain averages".into(),
         },
-        index: Vec::new(),
+        index: vec![super::ferroelectric::batio3_model()],
         tensors: vec![abel, deng, chelladurai],
         constants: vec![
             bto_constant(
@@ -1965,7 +1965,7 @@ fn lithium_tantalate() -> Entry {
             },
             ..trigonal_3m()
         },
-        index: Vec::new(),
+        index: vec![super::ferroelectric::litao3_model()],
         tensors: vec![
             casson_r(1.558, (6.92, 0.07), (27.4, 0.3)),
             casson_r(1.33, (6.55, 0.07), (27.7, 0.3)),
@@ -1977,6 +1977,6 @@ fn lithium_tantalate() -> Entry {
             index("n_o", "ordinary index", 2.1186),
         ],
         missing: coming::missing("litao3"),
-        references: references(&["casson-2004"]),
+        references: references(&["bond-1965", "casson-2004"]),
     }
 }

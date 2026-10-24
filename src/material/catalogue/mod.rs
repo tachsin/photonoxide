@@ -39,6 +39,7 @@ mod coming;
 pub(crate) mod conductivity;
 pub(crate) mod conductivity_checks;
 mod entries;
+pub(crate) mod ferroelectric;
 mod models;
 pub(crate) mod phase_change;
 pub(crate) mod phase_change_checks;

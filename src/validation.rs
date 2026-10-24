@@ -19,6 +19,7 @@ use num_complex::Complex64;
 use crate::circuit::components::checks as components;
 use crate::material::catalogue::checks as catalogue;
 use crate::material::catalogue::conductivity_checks;
+use crate::material::catalogue::ferroelectric;
 use crate::material::catalogue::phase_change_checks;
 use crate::material::catalogue::thermo_checks;
 use crate::material::{self, Model, Table};
@@ -425,6 +426,27 @@ pub fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: r"O. Gayer et al., Appl. Phys. B 91, 343 (2008), doi:10.1007/s00340-008-2998-2, Sec. 4.3.1: within 3.1e-4 ($n_e$) and 2.2e-4 ($n_o$); the tolerance adds Zelmon's own 2e-4",
             run: catalogue::gayer_zelmon,
+        },
+        Case {
+            id: "material/litao3-bond-fit",
+            title: r"Lithium tantalate: photonoxide's two-term Sellmeier fits ($n_o$, $n_e$) against the 22 rows of Bond's table from 0.45 to 4.0 µm at room temperature (largest difference shown)",
+            tier: Tier::Analytic,
+            source: "W. L. Bond, J. Appl. Phys. 36, 1674 (1965), doi:10.1063/1.1703106, the table as the refractiveindex.info database transcribes it (CC0); four decimals",
+            run: ferroelectric::litao3_bond_fit,
+        },
+        Case {
+            id: "material/litao3-casson",
+            title: r"Lithium tantalate: the same fits at 632.8, 980, 1330 and 1558 nm against the indices Casson et al. use (largest difference shown)",
+            tier: Tier::Published,
+            source: "J. L. Casson et al., J. Opt. Soc. Am. B 21, 1948 (2004), doi:10.1364/JOSAB.21.001948, Table 2 (the curvature-adjusted indices, from F. Gervais and V. Fonseca's handbook chapter): an independent print of the indices",
+            run: ferroelectric::litao3_casson,
+        },
+        Case {
+            id: "material/batio3-abel-films",
+            title: r"Barium titanate: Abel et al.'s film index at 1550 nm (the mean of $n_o$ and $n_e$, 2.286) against the other films' there, 2.29 (Eltes et al. 2019) and 2.26 (Chelladurai et al. 2025, Deng et al. 2026): the largest difference shown, the films' spread",
+            tier: Tier::Published,
+            source: "S. Abel et al., Nat. Mater. 18, 42 (2019), doi:10.1038/s41563-018-0208-0, Supplementary Note 6; F. Eltes et al., J. Lightwave Technol. 37, 1456 (2019), doi:10.1109/JLT.2019.2893500, Section IV; D. Chelladurai et al., Nat. Mater. 24, 868 (2025), doi:10.1038/s41563-025-02158-1, Methods; C. Deng et al., Light Sci. Appl. 15, 21 (2026), doi:10.1038/s41377-025-02081-9",
+            run: ferroelectric::batio3_films,
         },
         Case {
             id: "material/gaas-gehrsitz-gap",
@@ -2089,6 +2111,7 @@ pub fn cases() -> Vec<Case> {
     // and a temperature in the modes: dn/dT by perturbation and by re-solve, a heat solve's field
     cases.extend(crate::mode::thermo_checks::cases());
     cases.extend(crate::mode::pockels::checks::cases());
+    cases.extend(crate::mode::pockels::bto::cases());
     // and the thermo-optic phase shifter: P_pi, its time and crosstalk, Jacques et al.'s heaters
     cases.extend(crate::thermal::shifter_checks::cases());
     // and its crosstalk against measured neighbours, and Harris et al.'s doped heater

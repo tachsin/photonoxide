@@ -438,6 +438,13 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "10.1038/s41377-025-02081-9",
         "https://doi.org/10.1038/s41377-025-02081-9",
     ),
+    (
+        "bond-1965",
+        "W. L. Bond, J. Appl. Phys. 36, 1674 (1965)",
+        "Measurement of the refractive indices of several crystals",
+        "10.1063/1.1703106",
+        "",
+    ),
 ];
 
 /// The papers with these keys.
