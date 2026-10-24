@@ -208,4 +208,4 @@ the cross-sections above with their geometry as parameters (the heater's width, 
 or buffer, the guide's width and thickness, a neighbour's pitch), a closed-form analytic model,
 this chain as their 2D model (to the bit, at the papers' designs), and the measured devices,
 each fidelity against the next one up; a component whose phase follows the heater's power, a
-page in the studio, and the device calls from Python and MATLAB.
+page in the studio, and the device calls from Python.

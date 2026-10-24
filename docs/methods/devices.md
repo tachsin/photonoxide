@@ -568,10 +568,6 @@ heater = phox.device_derived("thermo-optic phase shifter", values={"power": 12.5
 print({f.symbol: (round(f.value, 4), f.unit) for f in heater})   # P_pi, tau, f_3dB, X, ...
 ```
 
-```matlab
-f = photonoxide.device_derived("doped thermo-optic phase shifter", values=struct("power", 12.5));
-```
-
 ## Saved as a job
 
 A device's design is a job file with a `[device]` table in place of a task (`device::Spec`):
