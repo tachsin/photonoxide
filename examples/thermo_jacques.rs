@@ -49,6 +49,12 @@ fn p_pi(d: &ThermoShifter, r: f64) -> photonoxide::Result<f64> {
         * 1e3)
 }
 
+/// A tolerance taken from a computed value, to three decimals: what the output prints the same
+/// on every system (a value's last bits differ between their maths libraries).
+fn printed(tolerance: f64) -> f64 {
+    (tolerance * 1e3).round() / 1e3
+}
+
 pub fn main() -> photonoxide::Result<ExitCode> {
     let mut checks = common::Checks::default();
     println!(
@@ -81,7 +87,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         let c = Study::new("P_pi (mW)")
             .on(0.02, coarse)?
             .on(0.01, fine)?
-            .check(0.01 * fine)?;
+            .check(printed(0.01 * fine))?;
         checks.converged("2D P_pi on grids 1 and 1/2, mW", &c);
         checks.compare("2D P_pi, mW (simulated)", fine, simulated, 0.1 * simulated);
         checks.compare("2D P_pi, mW (measured)", fine, measured, 0.15 * measured);
@@ -90,7 +96,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             figures[0],
             "2D",
             figures[1],
-            0.15 * figures[1],
+            printed(0.15 * figures[1]),
         );
     }
     Ok(checks.finish())
