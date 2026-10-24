@@ -231,7 +231,18 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      # the registry and git checkouts: the compiled crates are sccache's, shared across the jobs
+      # and the systems, so the two caches don't hold the same things twice (#507)
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+      # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
+      - uses: mozilla-actions/sccache-action@v0.0.11
+      - name: Compile through sccache
+        shell: bash
+        run: |
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo fmt --check -p photonoxide-native -p photonoxide-native-testlib
@@ -263,7 +274,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
+      # the registry and git checkouts: the compiled crates are sccache's, shared across the jobs
+      # and the systems, so the two caches don't hold the same things twice (#507)
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+      # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
+      - uses: mozilla-actions/sccache-action@v0.0.11
+      - name: Compile through sccache
+        shell: bash
+        run: |
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
       # the library's test binary alone: its few doc tests would build the library once more (two
       # minutes), so they run with every test
       - name: The changed areas' unit tests
@@ -308,7 +330,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
+      # the registry and git checkouts: the compiled crates are sccache's, shared across the jobs
+      # and the systems, so the two caches don't hold the same things twice (#507)
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+      # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
+      - uses: mozilla-actions/sccache-action@v0.0.11
+      - name: Compile through sccache
+        shell: bash
+        run: |
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
       - name: Validation cases, each row against docs/validation.md
         if: env.CASES != ''
         run: cargo test --release --test validation_report -- --ignored --nocapture
@@ -388,7 +421,18 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      # the registry and git checkouts: the compiled crates are sccache's, shared across the jobs
+      # and the systems, so the two caches don't hold the same things twice (#507)
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+      # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
+      - uses: mozilla-actions/sccache-action@v0.0.11
+      - name: Compile through sccache
+        shell: bash
+        run: |
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
       - run: pnpm install --frozen-lockfile
       # type-checks the web view and builds it
       - run: pnpm build
@@ -404,7 +448,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.95
+      # the registry and git checkouts: the compiled crates are sccache's, shared across the jobs
+      # and the systems, so the two caches don't hold the same things twice (#507)
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+      # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
+      - uses: mozilla-actions/sccache-action@v0.0.11
+      - name: Compile through sccache
+        shell: bash
+        run: |
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
       - run: cargo check --all-targets --all-features
 
   # The library's public API, by cargo-semver-checks. A pull request is checked against its base
