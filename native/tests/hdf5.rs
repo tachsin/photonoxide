@@ -139,7 +139,10 @@ fn the_same_arrays_give_the_same_file() {
         npz.write(&path).unwrap();
         std::fs::read(path.with_extension("h5")).unwrap()
     };
-    let (a, b) = (write("a.npz"), write("b.npz"));
+    // a second apart: a file that kept its objects' times would differ
+    let a = write("a.npz");
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    let b = write("b.npz");
     assert_eq!(a, b, "the same arrays gave different files");
     let (shape, data) = h
         .read(&dir.join("a.h5"), "Ez", Precision::F64, true)

@@ -137,6 +137,7 @@ struct Api {
     f32_le: Hid,
     c_s1: Hid,
     dataset_create: Hid,
+    file_create: Hid,
 }
 
 /// libhdf5, loaded.
@@ -270,6 +271,7 @@ impl Hdf5 {
                 f32_le: global(&library, "H5T_IEEE_F32LE_g")?,
                 c_s1: global(&library, "H5T_C_S1_g")?,
                 dataset_create: global(&library, "H5P_CLS_DATASET_CREATE_ID_g")?,
+                file_create: global(&library, "H5P_CLS_FILE_CREATE_ID_g")?,
             }
         };
         // its errors are photonoxide's, not a stack printed on stderr
@@ -419,9 +421,21 @@ impl Container for Hdf5 {
         // SAFETY: H5open takes nothing
         status(unsafe { (api.open)() }, "H5open")?;
         let file_name = c_text(&path.display().to_string())?;
+        // the root group keeps no times either: its creation list is the file's
+        let fcpl = opened(
+            // SAFETY: a file creation list, to close
+            unsafe { (api.pcreate)(api.file_create) },
+            api.pclose,
+            "H5Pcreate",
+        )?;
+        status(
+            // SAFETY: setting a property of the open list
+            unsafe { (api.pset_track_times)(fcpl.id, 0) },
+            "H5Pset_obj_track_times",
+        )?;
         let file = opened(
-            // SAFETY: a NUL-terminated path, created or truncated
-            unsafe { (api.fcreate)(file_name.as_ptr(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT) },
+            // SAFETY: a NUL-terminated path, created or truncated, with the list above
+            unsafe { (api.fcreate)(file_name.as_ptr(), H5F_ACC_TRUNC, fcpl.id, H5P_DEFAULT) },
             api.fclose,
             "H5Fcreate",
         )?;
