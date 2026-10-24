@@ -407,12 +407,20 @@ pub fn jobs() -> Vec<JobExample> {
         ),
         ("slab-soi.yaml", include_str!("../../../jobs/slab-soi.yaml")),
         (
+            "pcm-switching.yaml",
+            include_str!("../../../jobs/pcm-switching.yaml"),
+        ),
+        (
             "coupler-gap-sweep.yaml",
             include_str!("../../../jobs/coupler-gap-sweep.yaml"),
         ),
         (
             "coupler-3db-optimize.yaml",
             include_str!("../../../jobs/coupler-3db-optimize.yaml"),
+        ),
+        (
+            "crosstalk-correction.yaml",
+            include_str!("../../../jobs/crosstalk-correction.yaml"),
         ),
         (
             "ring-pareto.yaml",

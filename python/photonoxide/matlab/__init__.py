@@ -122,16 +122,19 @@ def version() -> dict[str, str]:
 @_identified
 def materials() -> dict[str, Any]:
     """The catalogue's materials as columns: ``id``, ``name``, ``formula``, and each one's
-    default model's ``model`` (its id), ``axes`` (joined by commas) and ``range_um`` (2 × n)."""
+    default model's ``model`` (its id), ``axes`` (joined by commas) and ``range_um`` (2 × n). A
+    material with no index model (barium titanate's tensors, say) has an empty ``model`` and
+    ``axes`` and a range of NaNs."""
     ms = _phox.materials()
-    default = [next(m for m in x.models if m.default) for x in ms]
+    default = [next((m for m in x.models if m.default), None) for x in ms]
+    nan = (float("nan"), float("nan"))
     return {
         "id": [m.id for m in ms],
         "name": [m.name for m in ms],
         "formula": [m.formula for m in ms],
-        "model": [d.id for d in default],
-        "axes": [",".join(d.axes) for d in default],
-        "range_um": _flat(np.array([d.range_um for d in default]).T),
+        "model": [d.id if d else "" for d in default],
+        "axes": [",".join(d.axes) if d else "" for d in default],
+        "range_um": _flat(np.array([d.range_um if d else nan for d in default]).T),
     }
 
 

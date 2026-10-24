@@ -1,0 +1,48 @@
+# A phase-change cell switched by a heat pulse: 25 nm of crystalline Sb2Se3 on a 500 x 220 nm
+# silicon strip, the strip itself the heater (a doped-silicon heater, 7.5 mW/um for 100 ns), in
+# oxide on the 220 nm SOI stack, the substrate held at 293.15 K 2 um below the buried oxide. The
+# film's conductivity and heat capacity are the catalogue's (Lawson et al. 2022, Cernoskova et al.
+# 2014, Efthimiopoulos et al. 2013), and its crystallization and melting temperatures (Delaney et
+# al. 2020, Lawson et al. 2022) are what [[task.switching]] sets the film's temperatures against.
+# The run records the film's hottest and coldest cells at their highest and what the pulse does
+# to it: the whole film above 884 K, amorphized if quenched faster than it recrystallizes. A 2D
+# number, per unit length of the cell; validation case static/pcm-cell-convergence checks the
+# film's peak on grids from 5 to 1.25 nm.
+#   photonoxide run jobs/pcm-switching.yaml
+name: pcm-switching
+timeout_minutes: 10
+
+task:
+  kind: static
+  physics: heat
+  stack: soi_220
+  y_um: [-10.0, 10.0]
+  z_um: [-2.0, 5.22]
+  step_nm: 500.0
+  fine_nm: 1.25
+
+  rect:
+    - { layer: Si, center_um: [0.0, 0.0], size_um: [10.0, 0.5] }
+
+  region:
+    - { y_um: [-0.25, 0.25], z_um: [2.22, 2.245], medium: sb2se3-crystalline }
+
+  boundary:
+    bottom: { fixed: 293.15 }
+
+  heater:
+    - { y_um: [-0.25, 0.25], z_um: [2.0, 2.22], power_w_per_m: 7500.0 }
+
+  probe:
+    - { name: film, y_um: [-0.25, 0.25], z_um: [2.22, 2.245] }
+
+  # Jacques et al.'s Table 3 (doi:10.1364/OE.27.010456): 2330 and 2203 kg/m3, 711 and 709 J/(kg K)
+  heat_capacity: { Si: 1.657e6, SiO2: 1.562e6 }
+
+  transient:
+    step_ns: 0.5
+    duration_us: 0.3
+    pulse_ns: 100.0
+
+  switching:
+    - { probe: film, material: sb2se3 }

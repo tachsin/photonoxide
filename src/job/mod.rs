@@ -2885,6 +2885,9 @@ struct ExportSpec {
     /// The npz's compression: `"deflate"` (the default, photonoxide's own) or `"zstd"`
     /// (Zstandard, from the user's own libzstd, loaded at run time: docs/libraries.md).
     compression: Option<String>,
+    /// The fields' file: `"npz"` (the default, NumPy's, photonoxide's own) or `"hdf5"` (an
+    /// `.h5` of the same arrays, from the user's own libhdf5, loaded at run time).
+    container: Option<String>,
 }
 
 /// The fields a `[task.export]` may name.
@@ -2981,6 +2984,26 @@ impl ExportSpec {
                 )));
             }
         }
+        match self.container.as_deref() {
+            None | Some("npz") => {}
+            Some("hdf5") => {
+                if self.compression.as_deref() == Some("zstd") {
+                    return Err(task_error(
+                        "[task.export]: an HDF5 file takes libhdf5's own deflate, not zstd \
+                         (its filter is a plugin of its own): leave compression out",
+                    ));
+                }
+                if self.npz() {
+                    crate::export::codec::container("hdf5")
+                        .map_err(|e| task_error(format!("[task.export] container: {e}")))?;
+                }
+            }
+            Some(other) => {
+                return Err(task_error(format!(
+                    "[task.export] container must be \"npz\" or \"hdf5\", got \"{other}\""
+                )));
+            }
+        }
         Ok(())
     }
 
@@ -3058,6 +3081,15 @@ impl ExportSpec {
 
     /// An `.npz` at this export's precision, compression and level.
     fn npz_file(&self) -> Result<crate::export::Npz> {
+        if self.container.as_deref() == Some("hdf5") {
+            let hdf5 = crate::export::codec::container("hdf5")
+                .map_err(|e| task_error(format!("[task.export] container: {e}")))?;
+            return Ok(crate::export::Npz::contained(
+                self.precision(),
+                hdf5,
+                self.level(),
+            ));
+        }
         if self.compression.as_deref() == Some("zstd") {
             let zstd = crate::export::codec::compressor("zstd")
                 .map_err(|e| task_error(format!("[task.export] compression: {e}")))?;
@@ -3572,6 +3604,14 @@ fn execute_task(job: &Job, run: &mut Run, stop: &Stop, kind: &str) -> Result<()>
         kind: kind.clone(),
     })?;
     match kind.as_str() {
+        "optimize" => {
+            check(job)?;
+            return Err(task_error(
+                "an \"optimize\" job's optimizer is genoxide's, which the photonoxide program \
+                 runs: photonoxide run <job> (the studio window shows it live); the library \
+                 supplies its objectives and records it (photonoxide::job::Problem, Recorder)",
+            ));
+        }
         "structure" => structure(job, run, stop)?,
         "modes" => modes(job, run, stop)?,
         "fdfd" => fdfd::run(job, run, stop)?,
@@ -3712,6 +3752,13 @@ fn check_inner(job: &Job) -> Result<()> {
         "fdfd" => return fdfd::check(job),
         "fdtd" => return fdtd::check(job),
         "static" => return statics::check(job),
+        "optimize" if optimize::crosstalk::corrects(job) => return optimize::check(job),
+        "optimize" => {
+            return Err(task_error(
+                "an \"optimize\" task optimizes a [device], a [circuit], or a heater array's \
+                 [task.crosstalk]",
+            ));
+        }
         other => return Err(task_error(format!("unknown kind \"{other}\""))),
     };
     s.stack()
@@ -5240,6 +5287,10 @@ size_um = [0.5, 10.0]
         // no program here loaded libzstd: the check says so, rather than a run failing late
         let e = bad("format = \"npz\"\ncompression = \"zstd\"");
         assert!(e.contains("zstd isn't available"), "{e}");
+        assert!(bad("container = \"zarr\"").contains("container must be"));
+        assert!(bad("container = \"hdf5\"\ncompression = \"zstd\"").contains("libhdf5's own"));
+        let e = bad("format = \"npz\"\ncontainer = \"hdf5\"");
+        assert!(e.contains("hdf5 isn't available"), "{e}");
         assert!(bad("tables = [\"fields\"]").contains("has no table \"fields\""));
         assert!(bad("fields = [\"temperature\"]").contains("a modes job has no field"));
         assert!(bad("format = \"csv\"\nfields = [\"Ex\"]").contains("written as npz"));

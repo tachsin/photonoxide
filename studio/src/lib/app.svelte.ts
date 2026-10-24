@@ -452,6 +452,13 @@ function take(e: Event) {
       break;
     case "finished":
       run.finished = { stopped: e.stopped, seconds: e.seconds };
+      // a sweep followed to its end settles on the field the job asks for (its field_um: a
+      // resonance, say), not on its last point
+      if (run.following) {
+        const own = run.fields[0];
+        const at = own && Object.values(run.sweepFields).find((f) => f.wavelength_um === own.wavelength_um);
+        if (at) run.point = at.point;
+      }
       break;
     case "failed":
       // ended, with the error the record gives

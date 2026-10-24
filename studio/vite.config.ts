@@ -39,9 +39,27 @@ function lessonMath(): Plugin {
   };
 }
 
+/**
+ * KaTeX's fonts as .woff2 alone. Its stylesheet also lists a .woff and a .ttf copy of each of its
+ * 20 fonts, for browsers without WOFF2; every webview the studio runs in (WebView2, WKWebView,
+ * WebKitGTK) reads WOFF2, so the copies are only 0.8 MiB carried in every installer.
+ */
+function katexWoff2(): Plugin {
+  return {
+    name: "katex-woff2",
+    enforce: "pre",
+    transform(code, id) {
+      if (!/katex(\.min)?\.css$/.test(id.split("?")[0])) return;
+      const out = code.replace(/,\s*url\([^)]*\.(woff|ttf)\)\s*format\("(woff|truetype)"\)/g, "");
+      if (out.includes(".ttf") || /\.woff\)/.test(out)) this.error("KaTeX's stylesheet still names a .woff or .ttf font");
+      return { code: out, map: null };
+    },
+  };
+}
+
 // the studio's web view: served on a fixed port for `tauri dev`, built to dist/ for the app
 export default defineConfig({
-  plugins: [lessonMath(), tailwindcss(), svelte()],
+  plugins: [katexWoff2(), lessonMath(), tailwindcss(), svelte()],
   clearScreen: false,
   server: { port: 1430, strictPort: true },
   build: {

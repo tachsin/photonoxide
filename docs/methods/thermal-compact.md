@@ -1,13 +1,15 @@
 ---
-title: "Thermal compact models: heaters in a circuit, in time and frequency"
-module: "thermal::RcModel, circuit::Heated"
-summary: "A phase shifter's step responses (P4's transients, every drive on every guide) fitted by a sum of first-order terms on poles every pair shares, Z_ij(s) = Σ R_k,ij/(1 + sτ_k), the poles by variable projection: stable by construction, and passive where the outputs are the heaters' own temperatures. Each pair is a Foster network, turned into its Cauer ladder by a continued fraction. A circuit's phase shifters take their phases from the model, exactly in time for powers held over each step and in frequency through the circuit adjoint. A known sum of exponentials comes back to 6e-11; Coenen et al. 2022's Foster networks give their Cauer ladders within 1.1 %, -28.6 dB at 200 kHz (their -30) and a 37.7 µs time constant (their 40); on Jacques et al.'s N++ heater the error falls from 0.15 to 1.9e-5 as poles are added to 8, and an MZI of two such arms follows the heat solver within 3e-4 in time and 4.5e-3 in frequency."
+title: "Thermal compact models: heaters in a circuit, and their crosstalk corrected"
+module: "thermal::RcModel, thermal::Network, thermal::Correction, circuit::Heated"
+summary: "A phase shifter's step responses (P4's transients, every drive on every guide) fitted by a sum of first-order terms on poles every pair shares, Z_ij(s) = Σ R_k,ij/(1 + sτ_k), the poles by variable projection: stable by construction, and passive where the outputs are the heaters' own temperatures. Each pair is a Foster network, turned into its Cauer ladder by a continued fraction. A circuit's phase shifters take their phases from the model, exactly in time for powers held over each step and in frequency through the circuit adjoint. A known sum of exponentials comes back to 6e-11; Coenen et al. 2022's Foster networks give their Cauer ladders within 1.1 %, -28.6 dB at 200 kHz (their -30) and a 37.7 µs time constant (their 40); on Jacques et al.'s N++ heater the error falls from 0.15 to 1.9e-5 as poles are added to 8, and an MZI of two such arms follows the heat solver within 3e-4 in time and 4.5e-3 in frequency. Crosstalk correction is posed for genoxide (Gurses et al. 2022): the phase error Σ(1 − cos(φ − φ*)) of the heaters' powers with its exact gradient, an optimize job of its own; Gurses et al.'s lumped networks give their neighbour's 62.6 mW to 0.14 % and their bandwidth to 4 %, and genoxide's L-BFGS-B takes their array to their P = C⁻¹Φ."
 order: 25.55
 papers:
   - cite: "D. Coenen, H. Oprins, P. De Heyn, J. Van Campenhout, I. De Wolf, IEEE Trans. Compon. Packag. Manuf. Technol. 12, 1350 (2022) (dynamic compact RC models of a ring filter array, Foster and Cauer)"
     doi: 10.1109/TCPMT.2022.3195699
   - cite: "M. Jacques, A. Samani, E. El-Fiky, D. Patel, Z. Xing, D. V. Plant, Opt. Express 27, 10456 (2019) (the N++ heater the models are fitted to)"
     doi: 10.1364/OE.27.010456
+  - cite: "V. Gurses, R. Fatemi, A. Khachaturian, A. Hajimiri, IEEE J. Sel. Top. Quantum Electron. 28(6), 1 (2022) (a 288-element heater array, its lumped thermal model and crosstalk correction)"
+    doi: 10.1109/JSTQE.2022.3189965
 ---
 
 # Thermal compact models
@@ -132,3 +134,75 @@ response to the heater's modulation at 1, 10, 30 and 100 kHz differs from the he
 small-signal response by 4.5e-3 of the steady response. These numbers are on one grid: they
 measure the model against the solve it is fitted to, which is the model's error; the solve's
 own against finer grids is P4's (`shifter/jacques-npp-time`).
+
+## Lumped networks
+
+`thermal::Network` is a network drawn by hand: nodes with heat capacities (J/K, 0 for a node of
+no mass), conductances between them and to the ambient (W/K), C dT/dt = −G T + P. Its nodes of no
+mass are eliminated (their temperatures follow the others' at once), and the rest give its exact
+compact model by their modes: C^(−1/2) G C^(−1/2) = V Λ Vᵀ, each a pole τ_k = 1/λ_k with residues
+u_k u_kᵀ/λ_k, u_k = C^(−1/2) v_k. Between the same nodes the residues are positive semidefinite:
+a network of resistors and capacitors is passive, and so is its model. An output at a node of no
+mass is refused, since it would answer at once and no pole does.
+
+## Crosstalk correction, posed for genoxide
+
+V. Gurses et al., "Large-scale crosstalk-corrected thermo-optic phase shifter arrays in silicon
+photonics", IEEE J. Sel. Top. Quantum Electron. 28(6), 1 (2022), doi:10.1109/JSTQE.2022.3189965,
+set each heater of an array so that its shifter takes the wanted phase whatever its neighbours
+do: with the steady response C (rad/W, their Eq. 13), φ = φ₀ + C P, and P = C⁻¹(φ* − φ₀).
+`thermal::Correction` poses it as an optimization, which an inverse can't be once the powers are
+bounded: none below 0, none above what a heater stands, and a phase wanted only to a whole turn.
+The objective is
+
+F(P) = Σ_i (1 − cos(φ_i − φ*_i)),  ∂F/∂P_j = Σ_i sin(φ_i − φ*_i) C_ij,
+
+zero exactly where every phase is its target to a whole turn, smooth, its gradient exact. The
+response C is a compact model's steady one (`Correction::of_model`, a static job's thermal model),
+a matrix given, or Gurses et al.'s row (`Correction::row`: C_ii = π/P_π, C_i,i±n = π/P_π^(n)).
+`Correction::inverse` is their algorithm, `Correction::uncorrected` each heater set for its own
+shifter alone, where an optimization starts.
+
+**As a job.** An `"optimize"` task with a `[task.crosstalk]` and no `[device]` or `[circuit]`
+(`phase_per_watt` or `count`, `p_pi_mw` and `neighbour_p_pi_mw`; `target_rad`, `bias_rad`,
+`max_power_mw`) takes the heaters' powers `P1`, `P2`, … (mW) as its variables between 0 and the
+maximum, and the phase error as its objective with its exact gradient, checked against
+differences before it is used. genoxide's methods run it in the `photonoxide` program, as a
+device's optimization; `jobs/crosstalk-correction.yaml` is Gurses et al.'s array.
+
+**What genoxide needs.** Nothing new: L-BFGS-B takes the bounds and the gradient, and reaches
+Gurses et al.'s inverse to 1e-6 of each power. A bounded nonlinear least-squares method
+(Gauss–Newton or Levenberg–Marquardt with bounds, on the residuals sin and 1 − cos and their
+Jacobian) would suit this problem better and would be a general one; it isn't needed here.
+
+| Case | What | Result |
+|---|---|---|
+| `correction/gurses-cutoff` | published: Gurses et al.'s reduced shifter (Fig. 18) at their G = 62.8 µW/K and C_W = 440 pJ/K, as a network; its −3 dB frequency against the 56.8 kHz they extracted these from | 54.5 kHz |
+| `correction/gurses-neighbour` | published: two shifters coupled as their Fig. 19 at G_SS = 4.57 µW/K; the neighbour's power for π (their 62.6 mW measured) | 62.69 mW |
+| `correction/gurses-array` | published: their array as Eq. 13 takes it (9 in a row, first-order crosstalk at their tuned 13.2 µW/K), each at π, set by P = C⁻¹Φ | phases exact (≤ 1e-12 rad) |
+| `correction/gradient` | analytic: the objective's gradient against central differences | 4.1e-10 |
+
+**Gurses et al.'s networks.** Their Fig. 18 reduces a shifter to a heater node of no mass (R/2 to
+the ambient, 2R to the waveguide) and the waveguide (R/2 to the ambient, with C_W), R = 1/G: the
+waveguide rises by P R/12 (their Eq. 31) with one pole, τ = 5RC_W/12, so f₃dB = 12G/(10πC_W) =
+54.5 kHz at their G and C_W. They extracted C_W from 56.8 kHz by their Eq. 35, C_W = 2.5 Gτ,
+which follows from Eq. 33's divider without the heater node's own (the network gives 2.4 Gτ):
+4 % between the two. Their Fig. 19 couples two shifters by R_X = 2R + 1/G_SS from each node of
+one to each of the other's; solved as a network it is their Eq. 36 to 1e-12, and at their G_SS =
+4.57 µW/K the neighbour's power for π is 62.69 mW, their 62.6 measured. (Eq. 38's approximation,
+G_SS ≈ 4G²ΔT_π/P_π^(1), would give 3.5 µW/K; Eq. 36 is what they solved.)
+
+**Their array.** For the 32 × 9 array they tune G_SS to 13.2 µW/K, which through Fig. 19's pair
+puts the neighbour's π at 30.94 mW. With every shifter wanted at π, each heater at its own 10.6
+mW leaves the inner shifters 2.15 rad over; their P = C⁻¹Φ (5.30 to 8.79 mW) makes every phase
+exact, which is their Fig. 15's cancellation; genoxide's L-BFGS-B reaches it from the uncorrected
+powers on the exact gradient. Their figure's MZI curves aren't reproduced: the array's drive (the
+pulses' amplitudes and the reference shifter's neighbours) isn't given in numbers.
+
+**First order isn't the array.** Eq. 13 keeps only the first neighbours, each from a pair alone.
+The same nine shifters joined as one network (each pair as Fig. 19) respond otherwise: a
+shifter's own response falls from π/P_π = 296 to 210 rad/W (its heat shared with both neighbours),
+the second neighbours take 9.4 rad/W, and the first-order setting leaves every phase 0.41 to 0.67
+rad short; corrected on the network's own response, the powers are 7.1 to 9.7 mW. A correction is
+as good as its response matrix, which is why the response here comes from the array's own
+compact model where there is one.

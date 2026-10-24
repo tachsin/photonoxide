@@ -35,7 +35,13 @@ papers:
     doi: 10.1049/piee.1963.0044
     year: 1963
     role: origin
-    note: "Waves guided along an open interface with complex propagation constants classified: the surface waves that are bound, and the leaky waves whose fields grow away from the interface and carry power off it, with the region of space where such a field describes the radiation."
+    note: "Every wave a plane interface guides, as a pole of a source's field: surface waves, forward and backward, and complex waves, proper or improper. An improper wave grows away from the interface, isn't a mode, and is present only in a wedge between the interface and a ray from the source at its angle θc, along which it gives its power to the radiation; they called leaky every complex wave that does so, proper or not."
+  - cite: "T. Tamir, A. A. Oliner, Proc. IEE 110, 325 (1963)"
+    title: "Guided complex waves. Part 2: Relation to radiation patterns"
+    doi: 10.1049/piee.1963.0045
+    year: 1963
+    role: milestone
+    note: "The radiation pattern of a complex wave, from a Kirchhoff–Huygens integral of its field along the interface: a wave launched one way gives one oblique peak, close to its angle while it decays slowly and nearer the normal, and broader, as it decays faster."
   - cite: "E. A. J. Marcatili, Bell Syst. Tech. J. 48, 2103 (1969)"
     title: "Bends in Optical Dielectric Guides"
     doi: 10.1002/j.1538-7305.1969.tb01167.x
@@ -153,7 +159,7 @@ A plane wave in a medium of index $n$ has the wavenumber $kn$, so along $z$ its 
 at most at $kn$. A mode whose $n'$ lies below the substrate's index $n_s$ is slower along $z$ than
 light in the substrate can be, so in
 the substrate it matches a plane wave travelling at an angle $\theta$ from the faces' normal, with
-$n_s \sin\theta = n'$, and that wave carries power away from the guide. The power it carries off
+$n_s \sin\theta \approx n'$ while $n''$ is small, and that wave carries power away from the guide. The power it carries off
 is drawn from the mode, which therefore decays along $z$: $n'' \gt 0$.
 
 The chart draws a mode of [Chilwell and Hodgkinson's (1984)](https://doi.org/10.1364/JOSAA.1.000742)
@@ -181,14 +187,30 @@ depth $x$ left the guide a distance $x\tan\theta$ upstream, $\tan\theta = n'/\op
 where the mode was stronger by $e^{kn''x\tan\theta}$, and $kn''\tan\theta = -k\operatorname{Im}\alpha_s$.
 For TE₄ that is $9.929 \times 0.007156 \times \tan 77.0° = 0.308$ per µm, the chart's figure.
 
+[Tamir and Oliner (1963)](https://doi.org/10.1049/piee.1963.0044) say the same of any wave guided
+along an open interface. $k\alpha_s$ is the wavenumber across the interface, and a field that dies
+away from it needs a positive imaginary part, their radiation condition (Part 1, Eq. 3a): a root
+with $\operatorname{Im}\alpha_s \lt 0$, as every leaky wave here has, is **improper**. In a
+lossless medium it is a plane wave whose planes of equal amplitude are normal to its planes of
+equal phase, so it runs along $\theta$ undiminished (their Section 3.2.2), which is the rays'
+argument above; their angle $\xi_p$ is this $\theta$.
+
 Such a field can't be normalized, so a leaky wave isn't one of the guide's modes in the strict
-sense: those are the bound modes and a continuum of radiation modes.
-[Tamir and Oliner (1963)](https://doi.org/10.1049/piee.1963.0044) classified these complex waves
-at an open interface, and [Hu and Menyuk (2009)](https://doi.org/10.1364/AOP.1.000058) show on the
-slab where a leaky wave describes the field: near the guide, over the length on which it was
-launched, where it stands with one complex index for a band of the radiation continuum. A
-substrate leak, a bend and a rib's leakage into its slab are of that kind, and photonoxide's
-solvers find leaky waves as roots and eigenvalues, as they find bound modes.
+sense: those are the bound modes and a continuum of radiation modes. Tamir and Oliner's Section 3.5
+puts it so: an improper wave is part of the continuous spectrum, never a mode by itself, and is
+present in a source's field only inside a wedge between the interface and a ray from the source at
+their angle $\theta_c$, beyond $\theta$ and nearer the interface. Inside the wedge the field decays
+along every radius, so its growth with depth ends at that ray, along which it gives its power to
+the radiation (their Section 4). They called **leaky** every complex wave that radiates so, proper
+or improper. [Part 2](https://doi.org/10.1049/piee.1963.0045) finds the radiation pattern from the
+wave's field along the interface: a wave launched one way, as down a guide fed at one end, gives
+a single peak a little nearer the normal than $\theta$ (its Eqs. 29 and 44), close to $\theta$
+while the wave decays slowly (Eq. 43), and broader the faster it decays (Eqs. 30–31).
+[Hu and Menyuk (2009)](https://doi.org/10.1364/AOP.1.000058) show on the slab where a leaky wave
+describes the field: near the guide, over the length on which it was launched, where it stands
+with one complex index for a band of the radiation continuum. A substrate leak, a bend and a rib's
+leakage into its slab are of that kind, and photonoxide's solvers find leaky waves as roots and
+eigenvalues, as they find bound modes.
 
 **Try it.** Set the order to 8, then to 3. How do the field in the substrate and the angle change?
 
@@ -522,8 +544,12 @@ neither, so its radiation is a lower bound on a fabricated bend's loss.
 
 ## 8. History and current research {research}
 
-[Tamir and Oliner (1963)](https://doi.org/10.1049/piee.1963.0044) gave leaky waves their theory,
-complex waves at an open interface whose fields grow away from it. Integrated optics met
+Leaky waves were first studied in microwave antennas that radiate along their length.
+[Tamir and Oliner (1963)](https://doi.org/10.1049/piee.1963.0044) classified every wave a plane
+interface guides, surface waves and complex waves, proper and improper; showed that an improper
+wave, growing away from the interface, is present only in a wedge beside it and gives its power to
+the radiation along the wedge's edge; and in [Part 2](https://doi.org/10.1049/piee.1963.0045)
+found the peak that power makes in the radiation pattern. Integrated optics met
 radiating guides at once: in 1969
 [Marcatili](https://doi.org/10.1002/j.1538-7305.1969.tb01167.x) gave the radiation loss of a bent
 rectangular guide in closed form, and [Marcuse (1971)](https://doi.org/10.1002/j.1538-7305.1971.tb02620.x)

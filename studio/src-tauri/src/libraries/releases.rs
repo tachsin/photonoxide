@@ -292,6 +292,18 @@ pub const SOURCES: &[Source] = &[
         notes: MACOS_NOTES,
     },
     Source {
+        library: "HDF5",
+        origin: Origin::GitHub("HDFGroup/hdf5"),
+        baseline: any(&["hdf5", "libhdf5-dev"]),
+        notes: Notes::GitHubTag("HDFGroup/hdf5"),
+    },
+    Source {
+        library: "HDF5",
+        origin: Origin::Conda("hdf5"),
+        baseline: guide("conda-forge", &["hdf5"]),
+        notes: Notes::GitHubTag("HDFGroup/hdf5"),
+    },
+    Source {
         library: "Zstandard",
         origin: Origin::GitHub("facebook/zstd"),
         baseline: any(&["zstd", "libzstd1"]),
@@ -395,6 +407,10 @@ pub fn range(library: &str) -> Option<Range> {
         "Accelerate" => Range {
             accepts: Accepts::From("15.5"),
             why: "macOS with complex LU (and L D Lᵀ from 26)",
+        },
+        "HDF5" => Range {
+            accepts: Accepts::From("1.10"),
+            why: "from the release whose identifiers are 64-bit",
         },
         "Zstandard" => Range {
             accepts: Accepts::From("1.4"),

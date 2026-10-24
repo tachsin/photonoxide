@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 
 use photonoxide::backend::{self, Listed, Threads};
 use photonoxide_native::{
-    Candidate, Discovery, Spec, Status, accelerate, blas, intel, mumps, nvidia, superlu, zstd,
+    Candidate, Discovery, Spec, Status, accelerate, blas, hdf5, intel, mumps, nvidia, superlu, zstd,
 };
 use serde::Serialize;
 
@@ -83,7 +83,7 @@ const UBUNTU: &str = "ubuntu-24.04";
 const UBUNTU_22: &str = "ubuntu-22.04";
 const WINDOWS: &str = "windows-2025-vs2026";
 const MACOS: &str = "macos-latest (Apple silicon)";
-/// The day Zstandard's installs were checked.
+/// The day Zstandard's and HDF5's installs were checked.
 const ZSTD_DAY: &str = "2026-10-23";
 
 /// What to know about a library before installing it.
@@ -729,6 +729,74 @@ pub const GUIDES: &[Guide] = &[
         built_in: false,
     },
     Guide {
+        library: "HDF5",
+        about: "The HDF Group's Hierarchical Data Format 5, the library libhdf5, release 1.10 or later: a job's [task.export] container = \"hdf5\" writes its exported fields as .h5 files with it, one dataset an array, complex ones as h5py's {r, i} compound, the file's meta.json text as the root's attribute meta, deflated by libhdf5's own filter. NumPy's .npz, photonoxide's own, stays the default and needs nothing. The same file from the same arrays and library on every run (no modification times are kept).",
+        provides: &["the exported files' HDF5"],
+        backends: &[],
+        needs: &[],
+        licence: "BSD-3-Clause",
+        licence_url: "https://github.com/HDFGroup/hdf5/blob/develop/LICENSE",
+        download: "https://www.hdfgroup.org/download-hdf5/",
+        installs: &[
+            Install {
+                id: "conda-forge",
+                manager: "conda-forge",
+                command: "conda install -c conda-forge hdf5",
+                systems: &["windows", "linux", "macos"],
+                note: "Into the active conda environment: start photonoxide from it.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: ZSTD_DAY,
+                        installed: "hdf5 2.2.0",
+                        found: "HDF5 2.2.0, and its tests: an exported .h5 read back to the arrays of photonoxide's own .npz, and the same file twice",
+                    },
+                    Checked {
+                        system: "macos",
+                        image: MACOS,
+                        date: ZSTD_DAY,
+                        installed: "hdf5 2.2.0",
+                        found: "HDF5 2.2.0, and its tests: an exported .h5 read back to the arrays of photonoxide's own .npz, and the same file twice",
+                    },
+                ],
+            },
+            Install {
+                id: "apt",
+                manager: "apt",
+                command: "sudo apt-get install libhdf5-dev",
+                systems: &["linux"],
+                note: "Debian's and Ubuntu's serial build, older than conda-forge's: libhdf5.so in /usr/lib/x86_64-linux-gnu/hdf5/serial, where photonoxide looks.",
+                checked: &[
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU,
+                        date: ZSTD_DAY,
+                        installed: "libhdf5-dev 1.10.10",
+                        found: "HDF5 1.10.10, and its tests: an exported .h5 read back to the arrays of photonoxide's own .npz, and the same file twice",
+                    },
+                    Checked {
+                        system: "linux",
+                        image: UBUNTU_22,
+                        date: ZSTD_DAY,
+                        installed: "libhdf5-dev 1.10.7",
+                        found: "HDF5 1.10.7, and its tests: an exported .h5 read back to the arrays of photonoxide's own .npz, and the same file twice",
+                    },
+                ],
+            },
+            Install {
+                id: "brew",
+                manager: "brew",
+                command: "brew install hdf5",
+                systems: &["macos"],
+                note: "Into Homebrew's lib folder (/opt/homebrew/lib, /usr/local/lib on Intel), where photonoxide looks.",
+                checked: &[],
+            },
+        ],
+        unsupported: &[],
+        built_in: false,
+    },
+    Guide {
         library: "Zstandard",
         about: "Zstandard's compression (Collet and Kucherawy, RFC 8878), the reference library libzstd, release 1.4 or later: a job's [task.export] compression = \"zstd\" compresses its exported .npz files with it, each member one frame (ZIP method 93, which Python's zipfile and so NumPy read from Python 3.14). Deflate, photonoxide's own, stays the default and needs nothing. The same frames from the same library on every run.",
         provides: &["the exported files' compression"],
@@ -834,6 +902,7 @@ fn spec(library: &str) -> Option<&'static Spec> {
         &blas::AOCL,
         &blas::ARMPL,
         &zstd::ZSTD,
+        &hdf5::HDF5,
     ]
     .into_iter()
     .find(|s| s.name == library)

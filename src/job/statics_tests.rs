@@ -745,3 +745,98 @@ fn a_phase_shifter_job_gives_the_same_bits_on_one_thread_and_many() {
     };
     assert_eq!(run(1), run(8));
 }
+
+/// jobs/pcm-switching.yaml on a coarser grid (5 nm at its finest, steps of 2 ns), for speed.
+fn pcm_job(edit: &dyn Fn(String) -> String) -> Job {
+    let text = include_str!("../../jobs/pcm-switching.yaml")
+        .replace("fine_nm: 1.25", "fine_nm: 5.0")
+        .replace("step_ns: 0.5", "step_ns: 2.0");
+    Job::parse_as(&edit(text), crate::run::Format::Yaml).unwrap()
+}
+
+fn pcm_values(tag: &str, edit: &dyn Fn(String) -> String) -> Vec<StaticValue> {
+    let job = pcm_job(edit);
+    check(&job).unwrap();
+    let root = temp(tag);
+    let mut run = Run::create(&root.0, &job).unwrap();
+    execute(&job, &mut run, &Stop::new(None)).unwrap();
+    result(&replay(run.dir()).unwrap()).3
+}
+
+#[test]
+fn a_pulse_amorphizes_the_phase_change_film_and_says_so() {
+    let values = pcm_values("pcm-pulse", &|t| t);
+    let cold = named(&values, "highest of film's coldest cell");
+    let hot = named(&values, "highest of film's hottest cell");
+    // static/pcm-cell-convergence's cell on this grid, in steps of 0.5 ns: 906.2 and 1049.2 K
+    assert!(
+        (cold - 906.2).abs() < 1.5 && (hot - 1049.2).abs() < 1.5,
+        "{cold} {hot}"
+    );
+    assert_eq!(named(&values, "T_m of sb2se3"), 884.0);
+    assert_eq!(named(&values, "film after the pulse: amorphized"), 1.0);
+    assert!((named(&values, "pulse") - 1e-7).abs() < 1e-20);
+    // the film's κ and ρc_p are the catalogue's
+    assert_eq!(
+        named(
+            &values,
+            "thermal conductivity of sb2se3-crystalline (Sb₂Se₃, lawson-2022)"
+        ),
+        1.0
+    );
+    assert!(
+        values
+            .iter()
+            .any(|v| v.name.starts_with("heat capacity of sb2se3-crystalline"))
+    );
+    // a weaker pulse leaves the whole film below its melting temperature
+    let values = pcm_values("pcm-weak", &|t| {
+        t.replace("power_w_per_m: 7500.0", "power_w_per_m: 4000.0")
+    });
+    assert!(
+        values
+            .iter()
+            .any(|v| v.name.starts_with("film after the pulse: ")
+                && v.name.ends_with("crystallized")),
+        "{values:?}"
+    );
+}
+
+#[test]
+fn a_pulse_and_its_switching_name_what_they_lack() {
+    type Edit = Box<dyn Fn(String) -> String>;
+    let cases: [(Edit, &str); 7] = [
+        (
+            Box::new(|t| t.replace("pulse_ns: 100.0", "pulse_ns: 101.0")),
+            "whole number of steps",
+        ),
+        (
+            Box::new(|t| t.replace("pulse_ns: 100.0", "pulse_ns: 400.0")),
+            "shorter than duration_us",
+        ),
+        (
+            Box::new(|t| t.replace("    pulse_ns: 100.0", "")),
+            "give [task.transient] a pulse_ns",
+        ),
+        (
+            Box::new(|t| t.replace("probe: film, material", "probe: guide, material")),
+            "which no [[task.probe]] is",
+        ),
+        (
+            Box::new(|t| t.replace("material: sb2se3 }", "material: glass }")),
+            "sb2se3, sb2s3 or gst",
+        ),
+        (
+            Box::new(|t| t.replace("material: sb2se3 }", "material: sb2s3 }")),
+            "no crystallization and melting temperatures for sb2s3",
+        ),
+        (
+            Box::new(|t| t.replace("pulse_ns: 100.0", "pulse_ns: 100.0\n    turn: \"off\"")),
+            "leave turn out",
+        ),
+    ];
+    for (edit, words) in cases {
+        let e = check(&pcm_job(&*edit)).unwrap_err().to_string();
+        assert!(e.contains(words), "{words}: {e}");
+    }
+}
