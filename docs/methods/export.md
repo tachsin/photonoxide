@@ -190,6 +190,19 @@ files by checkbox, with their sizes, written into the run's folder or saved into
 Its fields can't be made afterwards: a field is the solver's state, which a finished run no
 longer has, so a job asks for them in `[task.export]`.
 
+In Python and MATLAB, `export_run` writes a run's tables again; here the strip's of
+[The fields](#the-fields):
+
+```python
+files = phox.export_run(run.dir, tables=["modes"], out_dir="tables")
+assert [f.name for f in files] == ["modes.csv"]
+assert files[0].read_bytes() == (run.dir / "modes.csv").read_bytes()   # what the run wrote
+```
+
+```matlab
+files = photonoxide.export_run(run.dir, tables="modes", out_dir="tables");
+```
+
 ### Its fields at another precision and level
 
 The fields a run wrote can be written again, into another folder, at another precision and
@@ -206,7 +219,21 @@ field-1.npz            20125593 bytes  written again: about 9694361 bytes at f32
 
 The Export dialog has the precision and the level beside its fields, each file's size now and
 written again (`19.2 MB → ≈ 9.2 MB`) as the choice changes, and the total; Python and MATLAB have
-`estimate_fields` and `export_fields`.
+`estimate_fields` and `export_fields`:
+
+```python
+stored = phox.estimate_fields(run.dir, precision="f32", level=0)
+written = phox.export_fields(run.dir, "stored", precision="f32", level=0)
+for f, path in zip(stored, written):
+    assert f.exact and f.estimate == path.stat().st_size          # stored: to the byte
+for f in phox.estimate_fields(run.dir, precision="f32", level=9):
+    print(f.file, f.bytes, "→", f.estimate, "" if f.exact else "(about)")
+```
+
+```matlab
+f = photonoxide.estimate_fields(run.dir, precision="f32", level=9);
+files = photonoxide.export_fields(run.dir, "out", precision="f32", level=9);
+```
 
 - The arrays are read from the `.npz` the run wrote and written by the same writer, in the same
   order. The grid and the small numbers (no or one dimension) stay `f64`; the fields (two

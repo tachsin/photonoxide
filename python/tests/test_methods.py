@@ -15,11 +15,14 @@ ROOT = Path(__file__).resolve().parents[2]
 METHODS = ROOT / "docs" / "methods"
 # each page with Python calls, and the page whose names it uses, if any
 PAGES = {
+    "catalogue": None,
     "circuits": None,
     "compact": "circuits",
     "devices": None,
     "export": None,
     "fdfd-ports": None,
+    "slab": None,
+    "stacks": None,
     "vector": None,
     "fields": "vector",
 }
