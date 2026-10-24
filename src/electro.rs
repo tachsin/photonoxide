@@ -39,6 +39,11 @@
 
 use crate::geometry::Shape;
 use crate::statics::{Discrete, Hold, Problem, spread};
+
+pub mod line;
+pub(crate) mod line_checks;
+#[cfg(test)]
+mod line_tests;
 use crate::thermal::side_index;
 use crate::{Error, Result};
 
@@ -78,6 +83,30 @@ impl Conductor {
     /// Its potential, V.
     pub fn potential(&self) -> f64 {
         self.potential
+    }
+
+    /// The same conductor at `volts`.
+    pub(crate) fn at(&self, volts: f64) -> Conductor {
+        Conductor {
+            hold: self.hold.clone(),
+            potential: volts,
+        }
+    }
+
+    /// Whether it is a strip of zero thickness.
+    pub(crate) fn is_strip(&self) -> bool {
+        matches!(self.hold, Hold::Strip { .. })
+    }
+
+    /// Its span across (µm) and its lowest y: a strip's own, a shape's bounds'.
+    pub(crate) fn footprint(&self) -> ([f64; 2], f64) {
+        match &self.hold {
+            Hold::Strip { x, y } => (*x, *y),
+            Hold::Shape(s) => {
+                let b = s.bounds();
+                ([b.min.x.to_um(), b.max.x.to_um()], b.min.y.to_um())
+            }
+        }
     }
 
     fn check(&self) -> Result<()> {
@@ -249,6 +278,66 @@ impl Electrostatic {
         }
         let values: Vec<f64> = self.conductors.iter().map(|c| c.potential).collect();
         discrete.solve(&values, &sources)
+    }
+
+    /// Each medium's share of `field`'s electric energy (this problem's solution), by
+    /// [`Section::media`]'s order: ε_i ∂W/∂ε_i over W, the discrete energy's own derivative
+    /// (each face's energy split between its two half cells by their resistances; a cell two
+    /// media share splits its part by their areas). With the conductors at fixed potentials
+    /// this is ε_i ∂C/∂ε_i / C, the filling factor that weighs medium i's loss tangent in a
+    /// line's dielectric loss ([`line`](mod@line)). The shares sum to 1.
+    ///
+    /// # Errors
+    ///
+    /// As [`Electrostatic::solve`], [`Error::InvalidValue`] for a field on another grid or
+    /// without energy.
+    pub fn energy_shares(&self, field: &Field) -> Result<Vec<(String, f64)>> {
+        if field.grid() != &self.grid {
+            return Err(Error::invalid(
+                "field",
+                "the potential was solved on another grid",
+            ));
+        }
+        let discrete = self.problem(Discrete::assembled)?;
+        let cells = discrete.energies(field);
+        let parts = self.section.parts(&self.grid);
+        let media = self.section.media();
+        let mut shares = vec![0.0; media.len()];
+        for (w, p) in cells.iter().zip(&parts) {
+            for &(k, f) in p {
+                shares[k] += w * f;
+            }
+        }
+        let total: f64 = shares.iter().sum();
+        if !(total.is_finite() && total > 0.0) {
+            return Err(Error::invalid(
+                "field",
+                "the field has no energy: no conductor or side is at another potential",
+            ));
+        }
+        Ok(media
+            .iter()
+            .zip(shares)
+            .map(|(m, s)| (m.clone(), s / total))
+            .collect())
+    }
+
+    /// The pieces of the conductors' surfaces `field` (this problem's solution) charges.
+    pub(crate) fn patches(&self, field: &Field) -> Result<Vec<crate::statics::Patch>> {
+        let discrete = self.problem(Discrete::assembled)?;
+        Ok(discrete.surface(field))
+    }
+
+    /// The same problem in vacuum: every medium at ε_r = 1.
+    pub(crate) fn vacuum(&self) -> Electrostatic {
+        let mut v = self.clone();
+        v.permittivity = self
+            .section
+            .media()
+            .iter()
+            .map(|m| (m.clone(), Tensor::isotropic(1.0)))
+            .collect();
+        v
     }
 
     /// The capacitance matrix, F/m: entry (i, j) is conductor i's charge with conductor j at

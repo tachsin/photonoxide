@@ -106,6 +106,11 @@ area thermo   "src/mode/thermo.rs src/mode/thermo_checks.rs"   "mode material st
 # perturbation (thermo's) and Vpi L; its cases read the catalogue's lithium niobate
 area pockels  "src/mode/pockels.rs src/mode/pockels/*"   "mode material statics thermo"   "mode::pockels" "pockels/" ""
 
+# travelling-wave electrodes (src/electro/*): a line's quasi-TEM index, impedance and losses from
+# the static solver's capacitances and charge, and a modulator's electro-optic response; its
+# cases take lithium niobate's static permittivity from the pockels cases
+area line     "src/electro/*"   "statics material mode pockels"   "electro::line" "line/" ""
+
 # the thermo-optic phase shifter (src/thermal/*): a heat solve's rise in a guide's mode, by its
 # perturbation's weights, into P_pi, the time constant and the crosstalk between neighbours; and
 # the dynamic thermal compact models fitted to its step responses (src/thermal/rc*)
@@ -122,7 +127,7 @@ area shifter  "src/thermal/*"   "mode material statics thermo"   "thermal::shift
 # holds the jobs as TOML, as they were before they were YAML, which the tests read and compare
 area job \
   "src/job/* src/run.rs src/run/* src/farm.rs src/farm/* jobs/* tests/jobs-toml/* docs/job.schema.json" \
-  "material mode sparse fdfd fdtd circuit device generator statics shifter export convergence" \
+  "material mode sparse fdfd fdtd circuit device generator statics shifter line export convergence" \
   "job:: run:: farm::" "job/ generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
 
 # grid convergence, the gate a reported number passes (its grid study, by mode::vector's

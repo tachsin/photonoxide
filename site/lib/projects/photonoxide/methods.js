@@ -61,8 +61,8 @@ export const CATEGORIES = [
   {
     id: "static",
     title: "Heat and static fields",
-    blurb: "Temperature, potential and current on a waveguide's cross-section: one static solver for heaters, electrodes and their Joule heat, exact for layered media and second order elsewhere; the thermo-optic phase shifter on it, its Pπ, time constant and crosstalk, and its compact models in a circuit; and the Pockels effect it drives in a mode, to Vπ·L.",
-    groups: [{ title: null, slugs: ["static", "phase-shifter", "thermal-compact", "electro-optic"] }],
+    blurb: "Temperature, potential and current on a waveguide's cross-section: one static solver for heaters, electrodes and their Joule heat, exact for layered media and second order elsewhere; the thermo-optic phase shifter on it, its Pπ, time constant and crosstalk, and its compact models in a circuit; the Pockels effect it drives in a mode, to Vπ·L; and the travelling-wave electrode that carries it, its RF index, impedance, losses and the modulator's response.",
+    groups: [{ title: null, slugs: ["static", "phase-shifter", "thermal-compact", "electro-optic", "travelling-wave"] }],
   },
   {
     id: "circuits",

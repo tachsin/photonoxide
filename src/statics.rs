@@ -986,6 +986,25 @@ impl Section {
         }
         Ok(out)
     }
+
+    /// Each cell's media on `grid`: (the medium's index in [`Section::media`], its share of
+    /// the cell), the shares summing to 1.
+    pub(crate) fn parts(&self, grid: &Grid) -> Vec<Vec<(usize, f64)>> {
+        let (nx, ny) = (grid.x.cells(), grid.y.cells());
+        let mut out = Vec::with_capacity(nx * ny);
+        for j in 0..ny {
+            for i in 0..nx {
+                let shares = self.shares(grid.bounds(i, j));
+                let total: f64 = shares.parts.iter().map(|p| p.1).sum();
+                out.push(if total > 0.0 {
+                    shares.parts.iter().map(|&(k, f)| (k, f / total)).collect()
+                } else {
+                    Vec::new()
+                });
+            }
+        }
+        out
+    }
 }
 
 /// A cell's coefficient from its media's (with their shares) and the interface's normal: per
@@ -1118,6 +1137,8 @@ pub(crate) struct Discrete {
     holds: usize,
     /// the faces between free cells: (a, b, conductance), each once
     faces: Vec<(usize, usize, f64)>,
+    /// each face's share of its resistance on a's side, (d_a/c_a) / (d_a/c_a + d_b/c_b)
+    splits: Vec<f64>,
     /// the face of its cell each link crosses (0 west, 1 east, 2 south, 3 north)
     link_faces: Vec<u8>,
     /// each cell's coefficient across and up
@@ -1227,6 +1248,7 @@ impl Discrete {
         let mut links = Vec::new();
         let mut inflows = Vec::new();
         let mut faces = Vec::new();
+        let mut splits = Vec::new();
         let mut link_faces = Vec::new();
         let coef = &problem.coefficients;
         let centre = |i: usize, j: usize| [grid.x.centre(i), grid.y.centre(j)];
@@ -1321,8 +1343,10 @@ impl Discrete {
                                             } else {
                                                 grid.y.width(b)
                                             };
-                                        let g = length / (half / own + far / coef[n][axis]);
+                                        let (near, beyond) = (half / own, far / coef[n][axis]);
+                                        let g = length / (near + beyond);
                                         faces.push((u, v, g));
+                                        splits.push(near / (near + beyond));
                                     }
                                 }
                                 Place::Held(k) => {
@@ -1363,6 +1387,7 @@ impl Discrete {
             inflows,
             holds: problem.holds.len(),
             faces,
+            splits,
             link_faces,
             coefficients: problem.coefficients.clone(),
             analysis: None,
@@ -1676,6 +1701,83 @@ impl Discrete {
         }
         out
     }
+
+    /// Each cell's part of the discrete energy Σ g Δu² of `field`: a face between free cells
+    /// split between its two half cells in proportion to their resistances d/c, a face to a
+    /// held region or a fixed side all in its free cell. A cell's part is c ∂(Σ g Δu²)/∂c at
+    /// fixed u, so a medium's parts summed are its coefficient's share of the energy: for
+    /// electrostatics, ε_i ∂C/∂ε_i / C, the filling factor a loss tangent weighs.
+    pub(crate) fn energies(&self, field: &Field) -> Vec<f64> {
+        let mut out = vec![0.0; self.cell.len()];
+        let of = self.free_cells();
+        for (&(a, b, g), &s) in self.faces.iter().zip(&self.splits) {
+            let (ca, cb) = (of[a], of[b]);
+            let d = field.values[ca] - field.values[cb];
+            let p = g * d * d;
+            out[ca] += s * p;
+            out[cb] += (1.0 - s) * p;
+        }
+        for &(u, g, t) in &self.links {
+            let c = of[u];
+            let other = match t {
+                Target::Hold(k) => field.levels[k],
+                Target::Side(_, v) => v,
+            };
+            let d = field.values[c] - other;
+            out[c] += g * d * d;
+        }
+        out
+    }
+
+    /// What each held region takes through each face of a free cell it meets in `field`: the
+    /// region, the point where the face's line meets it (µm: the face's centre, or a shape's
+    /// boundary between the centres), the face's length (µm) and the flux (C/m, W/m or A/m)
+    /// into the window from the region through it.
+    pub(crate) fn surface(&self, field: &Field) -> Vec<Patch> {
+        let nx = self.grid.x.cells();
+        let of = self.free_cells();
+        let mut out = Vec::new();
+        for (&(u, g, t), &f) in self.links.iter().zip(&self.link_faces) {
+            let Target::Hold(k) = t else { continue };
+            let c = of[u];
+            let (i, j) = (c % nx, c / nx);
+            let (xc, yc) = (self.grid.x.centre(i), self.grid.y.centre(j));
+            let (hx, hy) = (self.grid.x.width(i), self.grid.y.width(j));
+            // the distance from the centre to the region, from the conductance L c / d
+            let (length, own) = if f < 2 {
+                (hy, self.coefficients[c][0])
+            } else {
+                (hx, self.coefficients[c][1])
+            };
+            let d = length * own / g;
+            let at = match f {
+                0 => [xc - d, yc],
+                1 => [xc + d, yc],
+                2 => [xc, yc - d],
+                _ => [xc, yc + d],
+            };
+            out.push(Patch {
+                hold: k,
+                at,
+                length,
+                flux: g * (field.levels[k] - field.values[c]),
+            });
+        }
+        out
+    }
+}
+
+/// A piece of a held region's surface ([`Discrete::surface`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Patch {
+    /// The region.
+    pub hold: usize,
+    /// Where the face's line meets it, µm.
+    pub at: [f64; 2],
+    /// The face's length, µm.
+    pub length: f64,
+    /// The flux into the window through it.
+    pub flux: f64,
 }
 
 /// A solution on a cross-section: the value at each cell's centre (held cells at their

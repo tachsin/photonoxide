@@ -477,6 +477,9 @@ mod fit_tests;
 mod leaky_checks;
 #[cfg(test)]
 mod leaky_tests;
+mod line;
+#[cfg(test)]
+mod line_tests;
 pub mod optimize;
 mod optimize_checks;
 mod params;

@@ -4001,6 +4001,107 @@
       "description": "A stack of your own (docs/methods/stacks.md): a substrate, a cladding and layers of the materials catalogue's, bottom to top, each with its thickness (thickness_um, or thickness as an expression). In a modes or structure job a crystal's table may give its orientation (docs/methods/catalogue.md): \"x-cut\", \"y-cut\", \"z-cut\", { cut, along_x }, or { euler_deg = [phi, theta, psi] } (z-x-z, degrees).",
       "type": "object"
     },
+    "LineConvergence": {
+      "additionalProperties": false,
+      "description": "`line.convergence`.",
+      "properties": {
+        "grids": {
+          "description": "How many grids, the task's among them: 2 or 3 (the default).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "require": {
+          "description": "Fail the run when a number's grid hasn't converged.",
+          "type": "boolean"
+        },
+        "tolerance": {
+          "description": "The tolerance on each number's estimated relative error.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tolerance"
+      ],
+      "type": "object"
+    },
+    "LineSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "thickness",
+              "thickness_um"
+            ]
+          }
+        }
+      ],
+      "description": "`line`: see the module's docs.",
+      "properties": {
+        "conductivity_s_per_m": {
+          "description": "The metal's conductivity, S/m.",
+          "type": "number"
+        },
+        "convergence": {
+          "$ref": "#/$defs/LineConvergence",
+          "description": "The grid study."
+        },
+        "edge": {
+          "description": "`\"square\"` (the default) or `\"bevelled\"` (45°) edges.",
+          "type": "string"
+        },
+        "frequencies_ghz": {
+          "description": "The frequencies, GHz.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "loss_tangent": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "default": {},
+          "description": "Each medium's loss tangent, by name.",
+          "type": "object"
+        },
+        "mirrored": {
+          "default": false,
+          "description": "Whether the window holds half the line, mirrored in its left side.",
+          "type": "boolean"
+        },
+        "response": {
+          "$ref": "#/$defs/ResponseSpec",
+          "description": "The electro-optic response of a modulator driven through the line."
+        },
+        "signal": {
+          "description": "The signal's conductor, counted from 1.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The metal's thickness, µm (by default the signal rectangle's height). With its unit in the value, in place of thickness_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "thickness_um": {
+          "description": "The metal's thickness, µm (by default the signal rectangle's height).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "signal",
+        "conductivity_s_per_m",
+        "frequencies_ghz"
+      ],
+      "type": "object"
+    },
     "ModesTask": {
       "additionalProperties": false,
       "allOf": [
@@ -5126,6 +5227,41 @@
       "required": [
         "at",
         "by"
+      ],
+      "type": "object"
+    },
+    "ResponseSpec": {
+      "additionalProperties": false,
+      "description": "`line.response`.",
+      "properties": {
+        "group_index": {
+          "description": "The light's group index.",
+          "type": "number"
+        },
+        "length_mm": {
+          "description": "The electrode's length, mm.",
+          "type": "number"
+        },
+        "load_ohm": {
+          "description": "The load's resistance, Ω (50 by default).",
+          "type": "number"
+        },
+        "reference_ghz": {
+          "description": "The frequency the response is referred to, GHz (1 by default).",
+          "type": "number"
+        },
+        "source_ohm": {
+          "description": "The source's resistance, Ω (50 by default).",
+          "type": "number"
+        },
+        "up_to_ghz": {
+          "description": "The highest frequency the bandwidths are looked for to, GHz (400 by default).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "length_mm",
+        "group_index"
       ],
       "type": "object"
     },
@@ -7881,6 +8017,10 @@
         },
         "kind": {
           "type": "string"
+        },
+        "line": {
+          "$ref": "#/$defs/LineSpec",
+          "description": "The conductors as a travelling-wave electrode: its index, impedance and loss, and a modulator's response through it (`super::line`)."
         },
         "parameters": {
           "additionalProperties": {
