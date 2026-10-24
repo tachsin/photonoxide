@@ -338,17 +338,18 @@ fn a_corners_temperature_sets_every_material_that_takes_one() {
 
 #[test]
 fn a_corners_temperature_is_refused_when_no_material_takes_one() {
-    let nitride = MaterialSpec::id("si3n4");
+    // Pettit & Turner's InP is given at 298 and 77 K only
+    let inp = MaterialSpec::id("inp");
     let mut s = spec("waveguide", Fidelity::ThreeD, &[]);
     s.stack = StackSpec::Layers {
-        substrate: nitride.clone(),
+        substrate: inp.clone(),
         layers: vec![LayerSpec {
             name: "core".into(),
             thickness_um: 0.22,
-            material: nitride.clone(),
-            background: nitride.clone(),
+            material: inp.clone(),
+            background: inp.clone(),
         }],
-        cladding: nitride,
+        cladding: inp,
         core: "core".into(),
     };
     let e = Study::Corners(vec![Corner::new("hot", &[]).at_temperature(340.0)])

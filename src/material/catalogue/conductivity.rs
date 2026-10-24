@@ -4,7 +4,8 @@
 //! - Silicon in bulk: Ho, Powell & Liley's recommended values (J. Phys. Chem. Ref. Data 1, 279
 //!   (1972), doi:10.1063/1.3253100), 200 to 1000 K, the default; and Kremer et al.'s fit to
 //!   natural silicon (Solid State Commun. 131, 499 (2004), doi:10.1016/j.ssc.2004.06.022),
-//!   220 to 320 K.
+//!   220 to 320 K; and Glassbrenner & Slack's measured single crystals (Phys. Rev. 134, A1058
+//!   (1964), doi:10.1103/PhysRev.134.A1058, Table I), 50 K to the melting point, 1681 K.
 //! - Silicon films: Ju & Goodson's effective mean free path of 0.3 µm at 300 K (Appl. Phys. Lett.
 //!   74, 3005 (1999), doi:10.1063/1.123994) in Sondheimer's reduction of a film's conductivity
 //!   along it, on Ho et al.'s bulk value.
@@ -204,6 +205,46 @@ pub(crate) const HO_SI_BETWEEN: [(f64, f64); 11] = [
     (773.2, 0.442),
     (873.2, 0.374),
     (973.2, 0.323),
+];
+/// Glassbrenner & Slack's representative values for high-purity single-crystal silicon, their
+/// Table I, W/(cm·K), 50 to 1681 K (the melting point). Below 50 K the table leaves silicon out,
+/// where its K depends on the sample's size.
+pub(crate) const GS_SI: [(f64, f64); 26] = [
+    (50.0, 26.0),
+    (60.0, 21.0),
+    (70.0, 17.0),
+    (80.0, 13.9),
+    (90.0, 11.4),
+    (100.0, 9.5),
+    (125.0, 6.0),
+    (150.0, 4.20),
+    (175.0, 3.25),
+    (200.0, 2.66),
+    (250.0, 1.95),
+    (300.0, 1.56),
+    (400.0, 1.05),
+    (500.0, 0.80),
+    (600.0, 0.64),
+    (700.0, 0.52),
+    (800.0, 0.43),
+    (900.0, 0.356),
+    (1000.0, 0.310),
+    (1100.0, 0.280),
+    (1200.0, 0.261),
+    (1300.0, 0.248),
+    (1400.0, 0.237),
+    (1500.0, 0.227),
+    (1600.0, 0.219),
+    (1681.0, 0.216),
+];
+/// The same column as printed: a macron over the last digit (U+0304 after it) where the table
+/// puts its bar, "rather uncertain".
+#[rustfmt::skip]
+pub(crate) const GS_SI_PRINTED: [&str; 26] = [
+    "26.", "21.", "17.0", "13.9", "11.4", "9.5", "6.0", "4.20\u{304}", "3.25\u{304}",
+    "2.66\u{304}", "1.95", "1.56", "1.05", "0.80", "0.64", "0.52", "0.43", "0.356\u{304}",
+    "0.310\u{304}", "0.280\u{304}", "0.261\u{304}", "0.248\u{304}", "0.237\u{304}",
+    "0.227\u{304}", "0.219\u{304}", "0.216\u{304}",
 ];
 /// Tungsten's, W/(cm·K). The first digit of the rows from 123.2 to 250 K is faint on the scan
 /// and read as 1, as the rows about them have it.
@@ -445,6 +486,10 @@ fn ho_si(t: f64, _: f64) -> f64 {
     power_law(&HO_SI, t)
 }
 
+fn glassbrenner_slack(t: f64, _: f64) -> f64 {
+    power_law(&GS_SI, t)
+}
+
 fn ju_goodson(_: f64, d: f64) -> f64 {
     power_law(&HO_SI, 300.0) * sondheimer(d / JU_GOODSON_PATH_UM)
 }
@@ -489,6 +534,39 @@ fn silicon() -> Conductivity {
                 eval: kremer,
             },
             ConductivityModel {
+                id: "glassbrenner-slack-1964".into(),
+                name: "Glassbrenner & Slack 1964".into(),
+                equation: POWER_LAW.into(),
+                symbols: r"$T_i$, $k_i$: the table's rows, between which $k$ is a power law of $T$"
+                    .into(),
+                coefficients: vec![CoefficientTable {
+                    caption: "Table I, silicon, 50–1681 K (a bar over the last digit: rather \
+                              uncertain)"
+                        .into(),
+                    columns: vec!["$T$ (K)".into(), r"$k$ (W cm$^{-1}$ K$^{-1}$)".into()],
+                    rows: GS_SI
+                        .iter()
+                        .zip(GS_SI_PRINTED)
+                        .map(|((t, _), k)| vec![format!("{t}"), k.into()])
+                        .collect(),
+                }],
+                temperature: temperature(50.0, 1681.0, 300.0),
+                thickness: None,
+                accuracy: "±5 % (Table I); two points on one sample ±2 % relative (Results); the \
+                           rows with a bar \"rather uncertain\""
+                    .into(),
+                sources: vec![src("glassbrenner-slack-1964", "Table I and Results")],
+                default: false,
+                notes: "high-purity single crystals, measured from 4.3 to 304 K in a longitudinal \
+                        and from 418 to 1577 K in a radial heat-flow apparatus, neither adjusted to \
+                        the other; 156 W/(m·K) at 300 K, 5.4 % above Ho et al.'s. Down to 50 K \
+                        and up to the melting point, where Ho et al.'s stop at 200 and 1000 K; \
+                        above 1000 K electrons and holes carry part of the heat, 40 % at the \
+                        melting point"
+                    .into(),
+                eval: glassbrenner_slack,
+            },
+            ConductivityModel {
                 id: "ju-goodson-1999".into(),
                 name: "Ju & Goodson 1999".into(),
                 equation: r"k(d) = k_\mathrm{bulk} \left[ 1 - \frac{3}{2\delta} \left( \tfrac14 - E_3(\delta) + E_5(\delta) \right) \right], \quad \delta = d / \Lambda".into(),
@@ -522,7 +600,12 @@ fn silicon() -> Conductivity {
                 eval: ju_goodson,
             },
         ],
-        references: references(&["ho-powell-liley-1972", "kremer-2004", "ju-goodson-1999"]),
+        references: references(&[
+            "ho-powell-liley-1972",
+            "kremer-2004",
+            "glassbrenner-slack-1964",
+            "ju-goodson-1999",
+        ]),
     }
 }
 

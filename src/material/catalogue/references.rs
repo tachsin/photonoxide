@@ -75,6 +75,13 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "https://arxiv.org/abs/physics/0606168",
     ),
     (
+        "komma-2012",
+        "J. Komma, C. Schwarz, G. Hofmann, D. Heinert, R. Nawrodt, Appl. Phys. Lett. 101, 041905 (2012)",
+        "Thermo-optic coefficient of silicon at 1550 nm and cryogenic temperatures",
+        "10.1063/1.4738989",
+        "https://doi.org/10.1063/1.4738989",
+    ),
+    (
         "malitson-1965",
         "I. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965)",
         "Interspecimen comparison of the refractive index of fused silica",
@@ -94,6 +101,20 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "Broadband mid-infrared frequency comb generation in a Si3N4 microresonator",
         "10.1364/OL.40.004823",
         "",
+    ),
+    (
+        "arbabi-goddard-2013",
+        "A. Arbabi, L. L. Goddard, Opt. Lett. 38, 3878 (2013)",
+        "Measurements of the refractive indices and thermo-optic coefficients of Si3N4 and SiOx using microring resonances",
+        "10.1364/OL.38.003878",
+        "",
+    ),
+    (
+        "elshaari-2016",
+        "A. W. Elshaari, I. E. Zadeh, K. D. Jöns, V. Zwiller, IEEE Photonics J. 8, 2701009 (2016)",
+        "Thermo-optic characterization of silicon nitride resonators for cryogenic photonic circuits",
+        "10.1109/JPHOT.2016.2561622",
+        "https://doi.org/10.1109/JPHOT.2016.2561622",
     ),
     (
         "zelmon-1997",
@@ -360,6 +381,13 @@ const PAPERS: &[(&str, &str, &str, &str, &str)] = &[
         "Thermal conductivity of the elements",
         "10.1063/1.3253100",
         "https://srd.nist.gov/jpcrdreprint/1.3253100.pdf",
+    ),
+    (
+        "glassbrenner-slack-1964",
+        "C. J. Glassbrenner, G. A. Slack, Phys. Rev. 134, A1058 (1964)",
+        "Thermal conductivity of silicon and germanium from 3°K to the melting point",
+        "10.1103/PhysRev.134.A1058",
+        "",
     ),
     (
         "kremer-2004",

@@ -10,6 +10,12 @@ papers:
     doi: 10.1117/12.672853
   - cite: "B. J. Frey, D. B. Leviton, T. J. Madison, Proc. SPIE 6273, 62732J (2006)"
     doi: 10.1117/12.672850
+  - cite: "J. Komma, C. Schwarz, G. Hofmann, D. Heinert, R. Nawrodt, Appl. Phys. Lett. 101, 041905 (2012)"
+    doi: 10.1063/1.4738989
+  - cite: "A. Arbabi, L. L. Goddard, Opt. Lett. 38, 3878 (2013)"
+    doi: 10.1364/OL.38.003878
+  - cite: "A. W. Elshaari, I. E. Zadeh, K. D. Jöns, V. Zwiller, IEEE Photonics J. 8, 2701009 (2016)"
+    doi: 10.1109/JPHOT.2016.2561622
   - cite: "D. E. Zelmon, D. L. Small, D. Jundt, J. Opt. Soc. Am. B 14, 3319 (1997)"
     doi: 10.1364/JOSAB.14.003319
   - cite: "D. H. Jundt, Opt. Lett. 22, 1553 (1997)"
@@ -62,6 +68,8 @@ papers:
     doi: 10.1063/1.3253100
   - cite: "R. K. Kremer et al., Solid State Commun. 131, 499 (2004)"
     doi: 10.1016/j.ssc.2004.06.022
+  - cite: "C. J. Glassbrenner, G. A. Slack, Phys. Rev. 134, A1058 (1964)"
+    doi: 10.1103/PhysRev.134.A1058
   - cite: "Y. S. Ju, K. E. Goodson, Appl. Phys. Lett. 74, 3005 (1999)"
     doi: 10.1063/1.123994
   - cite: "R. W. Powell, C. Y. Ho, P. E. Liley, NSRDS-NBS 8 (1966)"
@@ -83,6 +91,14 @@ validation:
   - material/silicon-frey-table
   - material/silicon-frey-dndt
   - material/silicon-li-frey-dndt
+  - material/silicon-komma-reading
+  - material/silicon-komma-frey-dndt
+  - material/silicon-komma-room
+  - material/silicon-dndt-positive
+  - material/silicon-nitride-elshaari-reading
+  - material/silicon-nitride-elshaari-between
+  - material/silicon-nitride-room
+  - material/silicon-nitride-arbabi-table-2
   - material/silicon-frey-li
   - material/silicon-frey-smooth-d
   - material/linbo3-zelmon-633
@@ -108,6 +124,8 @@ validation:
   - material/ingap-ferrini-table-knots
   - material/conductivity-tables
   - material/silicon-kremer-ho
+  - material/silicon-glassbrenner-table
+  - material/silicon-glassbrenner-ho
   - material/silicon-film-ju-goodson
   - material/silicon-film-220
   - material/silicon-film-sondheimer-limits
@@ -136,6 +154,7 @@ media a job gives no value ([static](static.md#as-a-job)).
 |---|---|---|---|---|
 | Si, bulk (default) | recommended values | 200–1000 K (±5 % from 300 K; below, typical values) | 148 | Ho, Powell & Liley 1972, p. 394 |
 | Si, bulk | $1/\kappa = 1.60 \times 10^{-5} T + 2.37 \times 10^{-8} T^2$ | 220–320 K | 144.2 | Kremer et al. 2004, natural Si |
+| Si, bulk | measured single crystals | 50–1681 K (±5 %) | 156 | Glassbrenner & Slack 1964, Table I |
 | Si, film | Sondheimer's reduction, $\Lambda = 0.3$ µm, on the bulk's 148 | 300 K; 74 nm–10 µm | 90.7 at 220 nm | Ju & Goodson 1999 |
 | SiO₂ | recommended values, clear fused quartz | 100–900 K (±4 % to 500 K) | 1.38 | Powell, Ho & Liley 1966, Table 14 |
 | W | recommended values | 200–1000 K (±3 %) | 174 | Ho et al. 1972, p. 408 |
@@ -155,10 +174,16 @@ media a job gives no value ([static](static.md#as-a-job)).
   integrals ($E_1$ by its series below 1 and a continued fraction above, the rest by
   recurrence). The model gives the conductivity along the film and takes it for across too, where
   it is lower still; at 300 K only, as the paper measured.
+- **Two bulk silicons over the whole range.** Glassbrenner & Slack measured high-purity single
+  crystals from 3 K to the melting point, in two apparatus neither adjusted to the other (±5 %,
+  ±2 % between two points on one sample); their Table I gives silicon from 50 to 1681 K (below,
+  its K depends on the sample's size). They lie 5.4 to 6.2 % above Ho et al.'s recommended values
+  from 300 to 400 K, within the two papers' ±5 % each, and within 1 % at 900 and 1000 K; above
+  1000 K, where Ho et al.'s table stops, electrons and holes carry part of the heat, 40 % at the
+  melting point. Ho et al.'s stays the default; Glassbrenner & Slack's reaches cryogenic heaters
+  and anneals.
 - **Not here yet.** TiN, whose films' conductivity depends on how they are made (Jacques et al.'s
-  Table 3 takes 28 W/(m·K) from a handbook): a heater job gives it. Glassbrenner & Slack 1964
-  (doi:10.1103/PhysRev.134.A1058), silicon from 3 K to the melting point, isn't open; Ho et al.'s
-  recommended values, a review of the measurements, stand in for it.
+  Table 3 takes 28 W/(m·K) from a handbook): a heater job gives it.
 
 ## Phase-change materials
 
@@ -278,8 +303,8 @@ every value a tensor gives is an element its tag names.
 |---|---|---|---|
 | SiO₂ | Malitson 1965 (default) | three-term Sellmeier; away from 20 °C moved by Leviton & Frey's change of index | 0.21–3.71 µm at 20 °C; 0.4–2.6 µm from 30 to 400 K (above 300 K extrapolated) |
 | SiO₂ | Leviton & Frey 2006 | Sellmeier with quartic $S_i(T)$, $\lambda_i(T)$ (Table 3) | 0.4–2.6 µm, 30–300 K, Corning 7980, vacuum index |
-| Si₃N₄ | Luke et al. 2015 | two-term Sellmeier | 0.31–5.504 µm |
-| Si | Li 1980 (default) | Table 1, natural spline; away from 293 K moved by Li's Eq. (22), below 250 K by Frey et al.'s formula | 1.2–14 µm, 250–750 K; 1.2–5 µm, 20–250 K |
+| Si₃N₄ | Luke et al. 2015 | two-term Sellmeier; away from 295 K moved by Arbabi & Goddard's $dn/dT$, below 270 K by Elshaari et al.'s | 0.31–5.504 µm, 19.4–400 K (above 305 K extrapolated) |
+| Si | Li 1980 (default) | Table 1, natural spline; away from 293 K moved by Li's Eq. (22), below 250 K by Frey et al.'s formula, below 40 K by Komma et al.'s $dn/dT$ | 1.2–14 µm, 250–750 K; 1.2–5 µm, 5–250 K |
 | Si | Frey et al. 2006 | Sellmeier with quartic $S_i(T)$, $\lambda_i(T)$ (Table 5) | 1.1–5.6 µm, 20–300 K, vacuum index |
 | GaAs | Skauli et al. 2003 (default) | the Pikhtin form, Eq. (12), Table II | 0.97–17 µm, 21–95 °C |
 | GaAs, AlₓGa₁₋ₓAs | Gehrsitz et al. 2000 (default for AlGaAs) | Eqs. (11)–(13), (16), Tables II and IV | 30 meV below the direct gap (and above 0.47 µm) to 3 µm; 0 ≤ x ≤ 1; 103–313 K |
@@ -300,9 +325,10 @@ and `Model::Afromowitz`. Gehrsitz's oscillators $C/(E_i^2 - E^2)$, with $E = 1/\
 µm⁻¹, are Sellmeier terms $(C/E_i^2)\,\lambda^2/(\lambda^2 - 1/E_i^2)$; Jundt's and Gayer's form is
 the refractiveindex.info formula 4.
 
-**Temperature in the defaults.** Silicon's and silica's default models take a temperature, so a
-stack of them does too (a device's temperature corners). Each stays its room-temperature model,
-bit for bit, at its own temperature (293 K, 20 °C) and moves by its dn/dT away from it:
+**Temperature in the defaults.** Silicon's, silica's and silicon nitride's default models take a
+temperature, so a stack of them does too (a device's temperature corners). Each stays its
+room-temperature model, bit for bit, at its own temperature (293 K, 20 °C, 295 K) and moves by its
+dn/dT away from it:
 
 - **Silicon:** Li's Table 1 (293 K) at each of its 35 points moved by Li's own $n(\lambda, T)$,
   his Eq. (22) (1.2–14 µm, 100–750 K), from which he computed his Tables 1 and 2 at fourteen
@@ -316,6 +342,33 @@ bit for bit, at its own temperature (293 K, 20 °C) and moves by its dn/dT away 
   measurements at 295 K, the end of its range, and Li's rises above them below 200 K (0.36e-4 at
   100 K and 1.55 µm). Above 300 K, where Frey et al. stop, only Li's Eq. (22) reaches.
   `IndexModel::thermo_optic` gives $dn/dT$: Eq. (22)'s derivative in closed form from 250 K up.
+- **Silicon below 40 K:** Komma et al. 2012 measured $dn/dT$ at 1550 nm from 5 to 300 K on a
+  boron-doped (10¹⁶ cm⁻³) etalon. The paper prints no table: the catalogue reads the eight points
+  of Fig. 4's inset (5 to 40 K) off the figure, which the PDF holds as vector paths, each point's
+  centre against the axes' ticks; the crosses the same figure plots from Frey et al.'s Table 4 come
+  back within 0.37 % of the printed table read the same way. Frey et al.'s formula meets Komma et
+  al.'s point at 40 K (1.556e-5 against 1.56e-5 per K), but below its $dn/dT$ falls under their own
+  measurement (3.5e-6 against 5.86e-6 per K at 30 K and 1.5 µm) and turns negative below 27 K,
+  while Komma et al.'s falls smoothly to 1e-8 per K at 5 K. So from 40 K down the default silicon
+  moves by Komma et al.'s $dn/dT$, a power law in $T$ between the points, integrated in closed
+  form: 1.5e-4 from 5 to 40 K, the same at every wavelength (measured at 1550 nm only; Frey et
+  al.'s Table 4 at 30 K spreads ±15 % from 1.1 to 5.5 µm). Above 40 K Komma et al.'s curve lies
+  within 11 % of Frey et al.'s measurements (3 to 11 % below from 50 to 100 K) and gives 1.8e-4
+  per K at 300 K, Li's 1.84e-4 within his ±0.15e-4.
+- **Silicon nitride:** Luke et al.'s formula states no temperature and is taken at 295 K. Arbabi &
+  Goddard 2013 measured stoichiometric LPCVD Si₃N₄, the kind of film Luke et al.'s is, at 1550 nm on
+  two rings from about 18 to 32 °C: $(2.45 \pm 0.09) \times 10^{-5}$ per K (their Table 2's two
+  rings, Eqs. (2) solved and weighted, reproduce it). Elshaari et al. 2016 measured PECVD SiN
+  (unannealed, 850 to 880 nm) from 18 to 300 K: $(2.51 \pm 0.08) \times 10^{-5}$ at room
+  temperature, falling more than tenfold by 18 K. The default takes Arbabi & Goddard's from 270
+  to 400 K (above 305 K an extrapolation, as a heater needs) and Elshaari et al.'s 30 points of
+  Fig. 4(a) below, read off the figure as Komma et al.'s are; the two meet at 267 K, and at the
+  join, 270 K, differ by 0.5 %. Elshaari et al.'s Eq. (3), the quartic fitted to those points,
+  lies 2 to 9 % above them from 60 to 300 K as printed (2.80e-5 at 300 K against the text's
+  2.51e-5), while their Eq. (4) for the oxide lies on Fig. 4(b)'s points within 0.65 % from
+  40 K: the points are taken, not Eq. (3). The index falls 3.5e-3 from 295 K to 19.4 K, the same
+  at every wavelength; the moved formula is tabulated at steps of $0.0078\,\lambda^2$ µm (at most
+  20 nm), which a spline follows within 1e-6.
 - **Silica:** Malitson's formula (20 °C) moved by Leviton & Frey's change of index from 20 °C
   (their Table 3, 0.4–2.6 µm, 30–300 K), and from 300 to 400 K by their $dn/dT$ at 300 K held,
   an extrapolation: their Fig. 3 has it still rising at 300 K, so it is likely low above. At
@@ -534,6 +587,18 @@ read from the paper itself, which isn't in hand.
   the default silicon's (Li's from 250 K) is within 0.10e-4 per K of it at 250 and 295 K, inside
   Li's ±0.15e-4. Leviton & Frey's formula gives their measured $dn/dT$ of silica (Table 6,
   100–300 K) within 0.86e-6 per K.
+- Komma et al.'s Fig. 4 as read: its crosses within 0.37 % of Frey et al.'s Table 4 at 1.5 µm. At
+  the 40 K join Frey et al.'s formula is 0.043e-6 per K from Komma et al.'s point, inside their
+  last error bar (±2.6e-6); at 300 K the default's 1.838e-4 per K is 0.038e-4 from their 1.8e-4.
+  The default silicon's $dn/dT$ at 1.55 µm is positive at every kelvin from 5 to 750 K.
+- Silicon nitride: Arbabi & Goddard's Table 2 gives their computed and combined $dn/dT$ within
+  0.007e-5 per K; Elshaari et al.'s Fig. 4(b) as read is within 0.65 % of their Eq. (4) from
+  40 K, and each inner point of Fig. 4(a) within 0.83 % of the power law of its neighbours; at
+  295 K the default's 2.45e-5 is 0.06e-5 from Elshaari et al.'s 2.51e-5, inside the two
+  uncertainties summed (0.17e-5).
+- Glassbrenner & Slack's Table I: each inner row within 2.5 % of the power law of its neighbours
+  (the table's ±5 %); against Ho et al. from 300 to 1000 K, 6.2 % at most (400 K), inside the two
+  ±5 % summed.
 - Frey et al.'s silicon Table 2 (156 values, 1.1–5.5 µm, 30–295 K) from their Table 5: within
   6.9e-6 of the printed five decimals. At 293 K and 1.50, 1.55 and 1.60 µm their index is within
   1.94e-3 of Li's table brought to vacuum (×1.00027), inside the two papers' uncertainties summed

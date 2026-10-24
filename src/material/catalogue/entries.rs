@@ -31,6 +31,17 @@ pub(super) fn table(caption: &str, columns: &[&str], rows: Vec<Vec<String>>) -> 
     }
 }
 
+/// Measured dn/dT against T as a table, between whose rows it is a power law of T.
+fn dndt_points(caption: &str, rows: &[(f64, f64)]) -> CoefficientTable {
+    table(
+        caption,
+        &["$T$ (K)", r"$dn/dT$ (K$^{-1}$)"],
+        rows.iter()
+            .map(|(t, d)| vec![format!("{t}"), format!("{d:.2E}")])
+            .collect(),
+    )
+}
+
 fn temperature(min: f64, max: f64, default: f64) -> Option<Parameter> {
     Some(Parameter {
         symbol: "T".into(),
@@ -215,20 +226,38 @@ fn silicon_nitride() -> Entry {
             axes: vec![Axis::Isotropic],
             equation: r"n^2 = 1 + \frac{3.0249\,\lambda^2}{\lambda^2 - 135.3406^2} + \frac{40314\,\lambda^2}{\lambda^2 - 1239842^2}".into(),
             symbols: r"$\lambda$ in nm, as the paper writes it".into(),
-            coefficients: vec![table(
-                "Eq. (1)",
-                &["term", "strength", "resonance (nm)"],
-                vec![strings(&["1", "3.0249", "135.3406"]), strings(&["2", "40314", "1239842"])],
-            )],
+            coefficients: vec![
+                table(
+                    "Eq. (1)",
+                    &["term", "strength", "resonance (nm)"],
+                    vec![strings(&["1", "3.0249", "135.3406"]), strings(&["2", "40314", "1239842"])],
+                ),
+                table(
+                    "Arbabi & Goddard 2013, Eq. (3a): dn/dT of LPCVD Si₃N₄ at 1550 nm, from 270 K",
+                    &[r"$dn/dT$ (K$^{-1}$)", "±"],
+                    vec![strings(&["2.45E-05", "0.09E-05"])],
+                ),
+                dndt_points(
+                    "Elshaari et al. 2016, Fig. 4(a), read off the figure: dn/dT of PECVD SiN below 270 K",
+                    &thermo::ELSHAARI_FIG_4A,
+                ),
+            ],
             wavelength: (0.31, 5.504),
-            temperature: None,
+            temperature: temperature(thermo::NITRIDE_T.0, thermo::NITRIDE_T.1, thermo::NITRIDE_T0),
             composition: None,
-            accuracy: "a fit to ellipsometry from 193 nm to 33 µm; the paper states no uncertainty".into(),
-            dndt: None,
-            sources: vec![src("luke-2015", "Eq. (1)")],
+            accuracy: "a fit to ellipsometry from 193 nm to 33 µm; the paper states no uncertainty. dn/dT: ±0.09e-5 per K near room temperature (Arbabi & Goddard); Elshaari et al.'s error bars below, ±0.08e-5 at room temperature and widest below 50 K".into(),
+            dndt: Some(|lam, t, _| thermo::luke_dndt(lam, t)),
+            sources: vec![
+                src("luke-2015", "Eq. (1)"),
+                src("arbabi-goddard-2013", "Eq. (3a), Table 2: dn/dT from 270 K up"),
+                src("elshaari-2016", "Fig. 4(a), read off the figure: dn/dT below 270 K"),
+            ],
             default: true,
-            notes: "a 340 nm film annealed at 1200 °C, on thermal oxide; no temperature stated".into(),
-            eval: |_, _| Ok(vec![material::silicon_nitride()]),
+            notes: format!(
+                "a 340 nm film annealed at 1200 °C, on thermal oxide; the paper states no temperature, taken as {} K. At another temperature the index moves by Arbabi & Goddard's dn/dT of stoichiometric LPCVD Si₃N₄ at 1550 nm, 2.45e-5 per K (measured from about 291 to 305 K, held from 270 to 400 K: above 305 K an extrapolation), and below 270 K by Elshaari et al.'s measured dn/dT of PECVD SiN, 18 to 300 K (their Fig. 4(a), at 850 to 880 nm), which reaches Arbabi & Goddard's at 267 K: another film, the one measured cold, whose 2.51e-5 at room temperature is Arbabi & Goddard's within 2 %, inside both uncertainties. The same change of index at every wavelength. From 295 K the index falls 3.5e-3 by 19.4 K",
+                thermo::NITRIDE_T0
+            ),
+            eval: |t, _| one(thermo::luke_nitride(t)),
         }],
         tensors: centrosymmetric(
             "∞∞m",
@@ -236,7 +265,7 @@ fn silicon_nitride() -> Entry {
         ),
         constants: vec![],
         missing: vec![],
-        references: references(&["luke-2015"]),
+        references: references(&["luke-2015", "arbabi-goddard-2013", "elshaari-2016"]),
     }
 }
 
@@ -271,18 +300,24 @@ fn silicon() -> Entry {
             axes: vec![Axis::Isotropic],
             equation: r"n(\lambda, T) = n_{\text{Table 1}}(\lambda, 293\,\text{K}) + n_{22}(\lambda, T) - n_{22}(\lambda, 293\,\text{K}), \quad n_{22}^2 = \varepsilon(T) + \frac{L(T)}{\lambda^2}\left(A_0 + A_1 T + A_2 T^2\right), \quad L(T) = e^{-3\Delta L(T)/L_{293}}".into(),
             symbols: r"$\lambda$ in µm, $T$ in K; Table 1's 35 points at 293 K moved by Eq. (22), through a natural cubic spline".into(),
-            coefficients: vec![table(
-                "Eq. (22) and p. 568",
-                &["", "$T^0$", "$T^1$", "$T^2$", "$T^3$"],
-                thermo::LI_PRINTED
-                    .iter()
-                    .map(|(label, terms)| {
-                        let mut r = vec![(*label).to_owned()];
-                        r.extend(terms.iter().map(|s| (*s).to_owned()));
-                        r
-                    })
-                    .collect(),
-            )],
+            coefficients: vec![
+                table(
+                    "Eq. (22) and p. 568",
+                    &["", "$T^0$", "$T^1$", "$T^2$", "$T^3$"],
+                    thermo::LI_PRINTED
+                        .iter()
+                        .map(|(label, terms)| {
+                            let mut r = vec![(*label).to_owned()];
+                            r.extend(terms.iter().map(|s| (*s).to_owned()));
+                            r
+                        })
+                        .collect(),
+                ),
+                dndt_points(
+                    "Komma et al. 2012, Fig. 4's inset, read off the figure: dn/dT at 1550 nm below 40 K",
+                    &thermo::KOMMA_FIG_4,
+                ),
+            ],
             wavelength: (1.2, 14.0),
             temperature: temperature(thermo::SILICON_T.0, thermo::SILICON_T.1, thermo::LI_T0),
             composition: None,
@@ -291,10 +326,11 @@ fn silicon() -> Entry {
             sources: vec![
                 src("li-1980", "Table 1, 293 K"),
                 src("li-1980", "Eq. (22), p. 567; ΔL/L₂₉₃, p. 568; Tables 1 and 2"),
-                src("frey-2006", "Table 5, below 250 K; Table 4"),
+                src("frey-2006", "Table 5, 40 to 250 K; Table 4"),
+                src("komma-2012", "Fig. 4, read off the figure: dn/dT at 1550 nm below 40 K"),
             ],
             default: true,
-            notes: "293 K; 35 recommended values. From 250 to 750 K each moves by Li's Eq. (22), from which he computed his Tables 1 and 2 (Eq. (22) gives them to 2.3e-4 and 0.004e-4 per K); from 20 to 250 K on from there by Frey et al.'s formula, up to 5 µm: their measured dn/dT (Table 4) follows it within 0.08e-4 per K to 250 K, and Li's within 0.10e-4 at 250 and 295 K, while their formula falls 0.06e-4 to 0.24e-4 below it at 295 K and Li's rises above it below 200 K. Eq. (22) prints the constants of ΔL/L₂₉₃ as −0.021 and −0.071, the percent of the expansion tables they come from; as fractions (−2.1e-4, −7.1e-4) ΔL/L₂₉₃ is zero at 293 K, as printed it would miss Table 1 by 0.015".into(),
+            notes: "293 K; 35 recommended values. From 250 to 750 K each moves by Li's Eq. (22), from which he computed his Tables 1 and 2 (Eq. (22) gives them to 2.3e-4 and 0.004e-4 per K); from 40 to 250 K on from there by Frey et al.'s formula, up to 5 µm: their measured dn/dT (Table 4) follows it within 0.08e-4 per K to 250 K, and Li's within 0.10e-4 at 250 and 295 K, while their formula falls 0.06e-4 to 0.24e-4 below it at 295 K and Li's rises above it below 200 K. From 5 to 40 K on by Komma et al.'s measured dn/dT at 1550 nm (their Fig. 4's points, the paper prints no table), the same at every wavelength: Frey et al.'s formula gives Komma et al.'s 1.56e-5 per K at 40 K, but below it falls under their own measurement at 30 K and turns negative below 27 K, where Komma et al.'s falls to 1e-8 at 5 K; their index changes by 1.5e-4 from 5 to 40 K. Above 40 K Komma et al.'s points lie within 11 % of Frey et al.'s measurements (3 to 11 % below from 50 to 100 K) and give 1.8e-4 at 300 K, Li's 1.84e-4 within his ±0.15e-4. Eq. (22) prints the constants of ΔL/L₂₉₃ as −0.021 and −0.071, the percent of the expansion tables they come from; as fractions (−2.1e-4, −7.1e-4) ΔL/L₂₉₃ is zero at 293 K, as printed it would miss Table 1 by 0.015".into(),
             eval: |t, _| one(thermo::li_silicon(t)),
         },
         IndexModel {
@@ -315,13 +351,13 @@ fn silicon() -> Entry {
             dndt: None,
             sources: vec![src("frey-2006", "Table 5 (Table 2 tabulates it)")],
             default: false,
-            notes: "a smooth formula, so its second derivative (the dispersion D) is smooth, where Li's rounded table splined is not; absolute index, about 1e-3 above an index in air; 2e-3 to 5e-3 above Li's table at 293 K, more than the two stated uncertainties below 1.5 µm, a spread among silicon samples the paper discusses".into(),
+            notes: "a smooth formula, so its second derivative (the dispersion D) is smooth, where Li's rounded table splined is not; absolute index, about 1e-3 above an index in air; 2e-3 to 5e-3 above Li's table at 293 K, more than the two stated uncertainties below 1.5 µm, a spread among silicon samples the paper discusses. Its dn/dT holds from 40 K: at 30 K it is 3.5e-6 per K at 1.5 µm against their measured 5.86e-6, and below 27 K it is negative (Komma et al. measured 1.5e-6 per K at 20 K), so the default silicon takes Komma et al.'s below 40 K".into(),
             eval: |t, _| one(models::frey_silicon(t)),
         }],
         tensors: centrosymmetric("m-3m", "the diamond structure has a centre of inversion: the bulk χ⁽²⁾ and r vanish in the electric-dipole approximation (the symmetry tag has what remains: surfaces, strain gradients, a static field)"),
         constants: vec![],
         missing: vec![],
-        references: references(&["li-1980", "frey-2006"]),
+        references: references(&["li-1980", "frey-2006", "komma-2012"]),
     }
 }
 
