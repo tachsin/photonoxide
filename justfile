@@ -108,6 +108,19 @@ libraries:
 validate-backend backend:
     cargo run -p photonoxide-native --release --example validate -- {{backend}}
 
+# --- Other codes, run here only (never in CI): docs/cross-code.md ---
+
+# openEMS against the quasi-TEM line, where openEMS is installed (PHOTONOXIDE_OPENEMS or PATH):
+# writes docs/validation-openems.md
+openems:
+    cargo test --manifest-path crosscode/Cargo.toml --release --test openems -- --ignored --nocapture
+
+# the cross-code harness's own checks: rustfmt, clippy and its unit tests (no openEMS needed)
+crosscode:
+    cargo fmt --manifest-path crosscode/Cargo.toml --check
+    cargo clippy --manifest-path crosscode/Cargo.toml --all-targets -- -D warnings
+    cargo test --manifest-path crosscode/Cargo.toml
+
 # --- The studio ---
 
 # install the studio's front end's packages

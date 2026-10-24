@@ -1,0 +1,17 @@
+# Other codes run as external programs on photonoxide's cases, for comparison: openEMS on the
+# RF line (docs/cross-code.md). Run here only, where openEMS is installed (`just openems`):
+# not part of the photonoxide crate, not built or run by CI, and never published.
+[package]
+name = "photonoxide-crosscode"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+photonoxide = { path = ".." }
+num-complex = "0.4"
+
+# its own workspace: not a member of photonoxide's
+[workspace]

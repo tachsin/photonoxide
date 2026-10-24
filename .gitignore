@@ -1,5 +1,6 @@
 /target
 /assets/brand/target
+/crosscode/target
 /runs
 # the Python package: its native module when built in place, its wheels and pytest's caches
 __pycache__/
