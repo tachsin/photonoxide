@@ -64,8 +64,9 @@ const USAGE: &str = "usage:
       comment on each field, or in TOML or JSON by the file's extension (without the
       comments); new-<kind>.yaml here by default, and never over a file that exists
       (`photonoxide new --list` lists the kinds)
-  photonoxide schema [--write <file> | --check <file>]
-      print the job file's JSON Schema, which editors complete and check jobs with;
+  photonoxide schema [--results] [--write <file> | --check <file>]
+      print the job file's JSON Schema, which editors complete and check jobs with, or
+      with --results results.json's, which any language generates its types from;
       --write saves it, --check fails unless <file> holds exactly this schema
   photonoxide view <run directory>
       replay a finished run in the studio
@@ -489,7 +490,13 @@ fn example(args: &[String]) -> ExitCode {
 }
 
 fn schema(args: &[String]) -> ExitCode {
-    let text = job::schema_text();
+    // the job file's schema, or with --results the one of a run's results.json
+    let (text, args, which) = match args {
+        [first, rest @ ..] if first == "--results" => {
+            (job::results::schema_text(), rest, "--results ")
+        }
+        _ => (job::schema_text(), args, ""),
+    };
     match args {
         [] => print!("{text}"),
         [flag, file] if flag == "--write" => {
@@ -503,7 +510,7 @@ fn schema(args: &[String]) -> ExitCode {
                 .replace("\r\n", "\n");
             if current != text {
                 return fail(format!(
-                    "{file} is out of date: run `photonoxide schema --write {file}`"
+                    "{file} is out of date: run `photonoxide schema {which}--write {file}`"
                 ));
             }
         }

@@ -105,6 +105,7 @@ target/release/photonoxide run jobs/strip-modes.yaml      # a strip's modes and 
 target/release/photonoxide run <job.toml> --headless      # the same run without a window
 target/release/photonoxide new modes                      # a job to start from, in YAML (--list: every kind)
 target/release/photonoxide schema --write docs/job.schema.json   # the job file's JSON Schema, which a test checks is current
+target/release/photonoxide schema --results --write docs/results.schema.json   # results.json's, the same
 target/release/photonoxide view runs/<run>                # replay a finished run
 target/release/photonoxide example slab_soi               # a built-in example (--list lists them)
 cargo run -p photonoxide-studio --release -- validate --write docs/validation.md   # rewrite the report

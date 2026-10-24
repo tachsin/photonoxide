@@ -7,9 +7,11 @@ and 3D FDFD, FDTD, the static solver, devices, sweeps, optimization), any langua
 a process and read JSON or CSV can do it, with the numbers photonoxide computed, to the bit.
 
 - [What the program gives a script](#what-the-program-gives-a-script)
+- [Types generated from the schema](#types-generated-from-the-schema)
 - [The shell](#the-shell)
 - [R](#r)
 - [JavaScript](#javascript)
+- [TypeScript](#typescript)
 - [Go](#go)
 
 ## What the program gives a script
@@ -27,8 +29,9 @@ the downloads); a script calls it as `photonoxide`, on the `PATH` or by its path
   3 stopped by its timeout, 4 stopped on request ([docs/runs.md](runs.md#exit-codes)).
 - **The numbers.** The folder's `results.json` (`"schema": 1`) holds the run's numbers: its grids,
   modes, sweep points, S-parameters, spectra and resonances, each array with its shape and unit
-  ([docs/runs.md](runs.md#resultsjson)). Every number is written so that it reads back to the same
-  `f64`, and every JSON reader that parses into doubles gets it exactly.
+  ([docs/runs.md](runs.md#resultsjson)), and [docs/results.schema.json](results.schema.json) is its
+  JSON Schema, which `photonoxide schema --results` prints. Every number is written so that it
+  reads back to the same `f64`, and every JSON reader that parses into doubles gets it exactly.
 - **The tables.** The same numbers as CSV files (`modes.csv`, `s_parameters.csv`, …), one value
   a row with its coordinates beside it, a text with a comma quoted ([export](methods/export.md)),
   for a language with a CSV reader and no JSON one.
@@ -37,7 +40,29 @@ the downloads); a script calls it as `photonoxide`, on the `PATH` or by its path
 
 Never quote a number without its grid: the grid is in `results.json`'s `grids`, and the job says
 it too. The examples below were run against the program built from main (after 0.5.4) on Linux,
-with jq 1.7, R 4.3, Node.js 22 and Go 1.24; they aren't run by CI.
+with jq 1.7, R 4.3, Node.js 22.22, Go 1.24 and quicktype 26.0.0; they aren't run by CI.
+
+## Types generated from the schema
+
+`results.json`'s schema is derived from the library's own types, and a test checks real runs'
+`results.json` against it, so the types a language generates from it are the ones a run writes.
+[quicktype](https://quicktype.io) generates them for Go, TypeScript, C#, Java, Kotlin, Swift, C++,
+Rust and more; for Go and TypeScript, as the examples below use them:
+
+```sh
+photonoxide schema --results > results.schema.json   # or docs/results.schema.json, for this version
+npx quicktype@26.0.0 --src-lang schema --top-level Results --lang go --package main \
+  -o results.go results.schema.json
+npx quicktype@26.0.0 --src-lang schema --top-level Results --lang typescript --prefer-unions \
+  -o results.ts results.schema.json
+```
+
+The types have the library's names: `Results`, `Mode`, `Grid`, `SParameters`, `Array`, … The
+values a field takes where they are fixed come out as constants or unions (`outcome` is
+`"finished" | "stopped" | "failed" | "incomplete"`, an array's `dtype` `"float64" | "complex128"`),
+and a field a later photonoxide adds is passed over by the generated readers, as the schema allows.
+Generate them again from the schema of the version you run when it changes: its `schema` field
+says when a change could break a reader.
 
 ## The shell
 
@@ -145,21 +170,61 @@ ports: 1 (left, x = -1 um); 2 (right, x = 1 um)
 Run as `node guide.mjs`. The power is conserved to the solver's 2e-9 on this grid, and S21 = S12
 to the last bits.
 
+## TypeScript
+
+The same, typed: `results.ts` generated from the schema ([above](#types-generated-from-the-schema)),
+and `Convert.toResults`, which reads `results.json` and checks it against the types as it reads
+(a field missing, or a value the schema doesn't name, throws). Node.js runs TypeScript as it is
+from 22.18:
+
+```ts
+// node guide.ts, beside results.ts and the guide.json of the JavaScript above
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { Convert, type Array as Values, type Results } from "./results.ts";
+
+// throws if the run fails; its first line is the run's folder
+const run = execFileSync("photonoxide", ["run", "guide.json", "--headless"], { encoding: "utf8" })
+  .split("\n")[0];
+// typed, and checked against the types as it is read: a field missing or of another type throws
+const results: Results = Convert.toResults(readFileSync(join(run, "results.json"), "utf8"));
+if (results.outcome !== "finished" || !results.s_parameters) throw new Error(results.error ?? "");
+
+function values(a: Values): Float64Array {
+  if (a.data) return Float64Array.from(a.data);
+  const bytes = readFileSync(join(run, a.file!));
+  return new Float64Array(bytes.buffer, bytes.byteOffset, bytes.length / 8);
+}
+const { ports, wavelengths_um, s } = results.s_parameters;
+const v = values(s);
+const n = s.shape[1];
+const power = (k: number, q: number, p: number) =>
+  v[2 * ((k * n + q) * n + p)] ** 2 + v[2 * ((k * n + q) * n + p) + 1] ** 2;
+wavelengths_um.forEach((w, k) =>
+  console.log(`${w} um, grid step ${results.grids[0].step_um} um: `
+    + `|S11|^2 + |S21|^2 ${power(k, 0, 0) + power(k, 1, 0)} between ${ports.join(" and ")}`));
+```
+
+```text
+1.55 um, grid step 0.02 um: |S11|^2 + |S21|^2 1.0000000021926054 between 1 (left, x = -1 um) and 2 (right, x = 1 um)
+```
+
 ## Go
 
-Go's standard library only: the same job (`guide.json`, as the JavaScript writes it), its
-`results.json` read with a struct, an array taken inline or from its file, and checked against
-`s_parameters.csv`, to the bit:
+Go's standard library, with `results.go` generated from the schema
+([above](#types-generated-from-the-schema)): the same job (`guide.json`, as the JavaScript writes
+it), its `results.json` read into the generated `Results`, an array taken inline or from its
+file, and checked against `s_parameters.csv`, to the bit:
 
 ```go
-// Go's standard library only: go run . (in a folder with guide.json)
+// results.go is generated from docs/results.schema.json (see above); this is the rest: go run .
 package main
 
 import (
 	"bytes"
 	"encoding/binary"
 	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -168,14 +233,7 @@ import (
 	"strconv"
 )
 
-// Array is results.json's array: inline data, or above 4 096 values a file of doubles.
-type Array struct {
-	Dtype string    `json:"dtype"`
-	Shape []int     `json:"shape"`
-	Data  []float64 `json:"data"`
-	File  *string   `json:"file"`
-}
-
+// values are an array's numbers: inline, or above 4 096 values from its file of doubles.
 func (a Array) values(run string) []float64 {
 	if a.File == nil {
 		return a.Data
@@ -201,31 +259,21 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	var results struct {
-		Schema  int    `json:"schema"`
-		Outcome string `json:"outcome"`
-		Grids   []struct {
-			StepUm float64 `json:"step_um"`
-		} `json:"grids"`
-		SParameters struct {
-			Ports         []string  `json:"ports"`
-			WavelengthsUm []float64 `json:"wavelengths_um"`
-			S             Array     `json:"s"`
-		} `json:"s_parameters"`
-	}
-	if err := json.Unmarshal(text, &results); err != nil {
+	results, err := UnmarshalResults(text)
+	if err != nil {
 		log.Fatal(err)
 	}
-	if results.Schema != 1 || results.Outcome != "finished" {
+	if results.Schema != 1 || results.Outcome != Finished || results.SParameters == nil {
 		log.Fatalf("schema %d, outcome %s", results.Schema, results.Outcome)
 	}
-	s := results.SParameters.S.values(run) // complex128: re, im; shape [wavelengths, ports, ports]
-	n := results.SParameters.S.Shape[1]
+	p := results.SParameters
+	s := p.S.values(run) // complex128: re, im; shape [wavelengths, ports, ports]
+	n := int(p.S.Shape[1])
 	index := map[string]int{} // a port's or a wavelength's place in the array
-	for i, p := range results.SParameters.Ports {
-		index[p] = i
+	for i, port := range p.Ports {
+		index[port] = i
 	}
-	for k, w := range results.SParameters.WavelengthsUm {
+	for k, w := range p.WavelengthsUm {
 		index[strconv.FormatFloat(w, 'g', -1, 64)] = k
 	}
 

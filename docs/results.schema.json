@@ -1,0 +1,649 @@
+{
+  "$defs": {
+    "Array": {
+      "description": "An array of numbers, in C order.",
+      "properties": {
+        "data": {
+          "description": "Its values, if they are here: shape's product of them, twice that for complex.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "dtype": {
+          "description": "`\"float64\"`, or `\"complex128\"` (each value its real part, then its imaginary part).",
+          "enum": [
+            "float64",
+            "complex128"
+          ],
+          "type": "string"
+        },
+        "file": {
+          "description": "The file beside `results.json` that holds them, if they aren't here.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "shape": {
+          "description": "Its shape, the last index fastest.",
+          "items": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "unit": {
+          "description": "What its values are in: `\"um\"`, `\"1\"` for a plain number, or as its field says.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dtype",
+        "shape",
+        "unit"
+      ],
+      "title": "Array",
+      "type": "object"
+    },
+    "Convergence": {
+      "description": "A number with its grid and the check of that grid (`Study::check`).",
+      "properties": {
+        "error": {
+          "description": "Its estimated error; `None` on one grid, or where the grids don't show convergence.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "limit": {
+          "description": "Richardson's extrapolated limit, from the same three grids.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "order": {
+          "description": "The observed order of convergence, from three grids converging monotonically.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "quantity": {
+          "description": "What it is.",
+          "type": "string"
+        },
+        "reason": {
+          "description": "The verdict in words.",
+          "type": "string"
+        },
+        "step_um": {
+          "description": "The finest grid's spacing, µm.",
+          "format": "double",
+          "type": "number"
+        },
+        "steps_um": {
+          "description": "Each grid's spacing, coarsest first.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "tolerance": {
+          "description": "The tolerance on its error; `None` unchecked.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "The number: the finest grid's value.",
+          "format": "double",
+          "type": "number"
+        },
+        "values": {
+          "description": "The quantity on each grid.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "verdict": {
+          "$ref": "#/$defs/Verdict",
+          "description": "The verdict."
+        }
+      },
+      "required": [
+        "quantity",
+        "value",
+        "step_um",
+        "steps_um",
+        "values",
+        "verdict",
+        "reason"
+      ],
+      "title": "Convergence",
+      "type": "object"
+    },
+    "FoundResonance": {
+      "description": "A resonance an FDTD run found by harmonic inversion.",
+      "properties": {
+        "amplitude": {
+          "description": "|amplitude| at the signal's first sample.",
+          "format": "double",
+          "type": "number"
+        },
+        "decay": {
+          "description": "γ, per µm/c: the amplitude goes as e^(−γt).",
+          "format": "double",
+          "type": "number"
+        },
+        "error": {
+          "description": "Harmonic inversion's own error for the term: near round-off for a term the signal holds.",
+          "format": "double",
+          "type": "number"
+        },
+        "frequency": {
+          "description": "Re ω / 2π, c/µm.",
+          "format": "double",
+          "type": "number"
+        },
+        "q": {
+          "description": "The quality factor ω/(2γ).",
+          "format": "double",
+          "type": "number"
+        },
+        "wavelength_um": {
+          "description": "The vacuum wavelength 1/f, µm.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "wavelength_um",
+        "frequency",
+        "q",
+        "decay",
+        "amplitude",
+        "error"
+      ],
+      "title": "FoundResonance",
+      "type": "object"
+    },
+    "Grid": {
+      "description": "A grid a solver ran on, as its `Event::Solver` says.",
+      "properties": {
+        "cells": {
+          "description": "Its cells along its two axes.",
+          "items": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "details": {
+          "description": "What else it says of itself, as names and values.",
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "module": {
+          "description": "The solver, e.g. `\"mode::vector\"`.",
+          "type": "string"
+        },
+        "step_um": {
+          "description": "Its step, µm.",
+          "format": "double",
+          "type": "number"
+        },
+        "unknowns": {
+          "description": "Its unknowns.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "module",
+        "cells",
+        "step_um",
+        "unknowns",
+        "details"
+      ],
+      "title": "Grid",
+      "type": "object"
+    },
+    "GridCheck": {
+      "description": "A mode's effective index with its grid's check (`crate::convergence`): the grid study a\nmodes job's `[task.convergence]` made, or `crate::convergence::Verdict::Unchecked` for a\nmode solved on one grid.",
+      "properties": {
+        "check": {
+          "$ref": "#/$defs/Convergence",
+          "description": "Its Re n_eff, its grid, the study and the verdict."
+        },
+        "label": {
+          "description": "The mode's label, as in `Results::modes`.",
+          "type": "string"
+        },
+        "wavelength_um": {
+          "description": "Its wavelength, µm.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "label",
+        "wavelength_um",
+        "check"
+      ],
+      "title": "GridCheck",
+      "type": "object"
+    },
+    "Mode": {
+      "description": "A mode found.",
+      "properties": {
+        "cut_um": {
+          "description": "Where the cross-section was cut along the guide, µm.",
+          "format": "double",
+          "type": "number"
+        },
+        "effective_index": {
+          "description": "The effective index, real and imaginary parts.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "label": {
+          "description": "What it is, e.g. `\"mode 1 of 2\"`.",
+          "type": "string"
+        },
+        "te_fraction": {
+          "description": "The share of the transverse magnetic field in H_y: near 1 for a TE-like mode.",
+          "format": "double",
+          "type": "number"
+        },
+        "wavelength_um": {
+          "description": "The vacuum wavelength, µm.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "label",
+        "wavelength_um",
+        "effective_index",
+        "te_fraction",
+        "cut_um"
+      ],
+      "title": "Mode",
+      "type": "object"
+    },
+    "Resonances": {
+      "description": "The resonances an FDTD monitor's harmonic inversion found.",
+      "properties": {
+        "component": {
+          "description": "The field's component it records.",
+          "type": "string"
+        },
+        "monitor": {
+          "description": "The monitor's name.",
+          "type": "string"
+        },
+        "position_um": {
+          "description": "Where it is, µm.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "resonances": {
+          "description": "The resonances, as its event lists them.",
+          "items": {
+            "$ref": "#/$defs/FoundResonance"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "monitor",
+        "position_um",
+        "component",
+        "resonances"
+      ],
+      "title": "Resonances",
+      "type": "object"
+    },
+    "SParameters": {
+      "description": "The S-parameters of a 2D FDFD run, at each of its wavelengths.",
+      "properties": {
+        "effective_indices": {
+          "$ref": "#/$defs/Array",
+          "description": "Each port's mode's effective index at each wavelength: shape [wavelengths, ports]."
+        },
+        "ports": {
+          "description": "The ports' names, in order.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "s": {
+          "$ref": "#/$defs/Array",
+          "description": "The power-normalized S-matrix at each wavelength, `s[k][q][p]` from port p into port q:\nshape [wavelengths, ports, ports]."
+        },
+        "wavelengths_um": {
+          "description": "The wavelengths, µm.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "ports",
+        "wavelengths_um",
+        "effective_indices",
+        "s"
+      ],
+      "title": "SParameters",
+      "type": "object"
+    },
+    "Spectrum": {
+      "description": "A spectrum an FDTD monitor recorded, as it stood at the run's end.",
+      "properties": {
+        "kind": {
+          "description": "What kind of monitor, as its event says.",
+          "type": "string"
+        },
+        "labels": {
+          "description": "Each series' label, in the order of `values`' rows.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "monitor": {
+          "description": "The monitor's name.",
+          "type": "string"
+        },
+        "quantity": {
+          "description": "The quantity, as its event says.",
+          "type": "string"
+        },
+        "time_um": {
+          "description": "How far the run had gone when it was taken, µm of c t.",
+          "format": "double",
+          "type": "number"
+        },
+        "values": {
+          "$ref": "#/$defs/Array",
+          "description": "The series: shape [series, wavelengths]."
+        },
+        "wavelengths_um": {
+          "description": "The wavelengths, µm.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "monitor",
+        "kind",
+        "quantity",
+        "wavelengths_um",
+        "labels",
+        "values",
+        "time_um"
+      ],
+      "title": "Spectrum",
+      "type": "object"
+    },
+    "Sweep": {
+      "description": "A sweep's points.",
+      "properties": {
+        "parameter": {
+          "description": "`\"wavelength\"`, `\"width\"` or a parameter's name.",
+          "type": "string"
+        },
+        "points": {
+          "description": "The points, in the order they were solved.",
+          "items": {
+            "$ref": "#/$defs/SweepPoint"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "parameter",
+        "points"
+      ],
+      "title": "Sweep",
+      "type": "object"
+    },
+    "SweepPoint": {
+      "description": "A point of a sweep.",
+      "properties": {
+        "effective_indices": {
+          "description": "The modes' effective indices, highest first, real and imaginary parts.",
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "te_fractions": {
+          "description": "Their TE fractions, in the same order.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "value": {
+          "description": "The parameter's value: µm for the wavelength, a width or a length; radians for an angle.",
+          "format": "double",
+          "type": "number"
+        },
+        "wavelength_um": {
+          "description": "The vacuum wavelength, µm.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value",
+        "wavelength_um",
+        "effective_indices",
+        "te_fractions"
+      ],
+      "title": "SweepPoint",
+      "type": "object"
+    },
+    "Verdict": {
+      "description": "Whether a number's grid has converged.",
+      "oneOf": [
+        {
+          "const": "converged",
+          "description": "Its estimated error is within the tolerance.",
+          "type": "string"
+        },
+        {
+          "const": "not_converged",
+          "description": "Its estimated error is above the tolerance, or the grids don't show convergence.",
+          "type": "string"
+        },
+        {
+          "const": "unchecked",
+          "description": "It was computed on one grid: no check was made.",
+          "type": "string"
+        }
+      ],
+      "title": "Verdict"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/tachsin/photonoxide/main/docs/results.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A run's numbers, as `results.json` holds them.",
+  "properties": {
+    "convergence": {
+      "default": [],
+      "description": "Each mode's effective index with its grid's check, in the modes' order: converged, not\nconverged or unchecked (grid convergence gates every reported number: ROADMAP's\npitfalls).",
+      "items": {
+        "$ref": "#/$defs/GridCheck"
+      },
+      "type": "array"
+    },
+    "error": {
+      "description": "The error, if it failed.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "grids": {
+      "description": "The grids its solvers ran on.",
+      "items": {
+        "$ref": "#/$defs/Grid"
+      },
+      "type": "array"
+    },
+    "job": {
+      "description": "The job's name.",
+      "type": "string"
+    },
+    "kind": {
+      "description": "The task's kind, as the run recorded it: `\"structure\"`, `\"modes\"`, `\"fdfd\"`, `\"fdtd\"`,\n`\"static\"`, `\"device\"`, `\"chip\"`, … (a new kind of job adds its own).",
+      "type": "string"
+    },
+    "modes": {
+      "description": "The modes it found.",
+      "items": {
+        "$ref": "#/$defs/Mode"
+      },
+      "type": "array"
+    },
+    "outcome": {
+      "description": "`\"finished\"`, `\"stopped\"`, `\"failed\"` or `\"incomplete\"`.",
+      "enum": [
+        "finished",
+        "stopped",
+        "failed",
+        "incomplete"
+      ],
+      "type": "string"
+    },
+    "photonoxide": {
+      "description": "The photonoxide that ran it.",
+      "type": "string"
+    },
+    "resonances": {
+      "description": "FDTD's resonances.",
+      "items": {
+        "$ref": "#/$defs/Resonances"
+      },
+      "type": "array"
+    },
+    "s_parameters": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SParameters"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Its S-parameters, if it computed any."
+    },
+    "schema": {
+      "const": 1,
+      "description": "The schema's version, `SCHEMA`: a change that removes or changes a field raises it.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "seconds": {
+      "description": "How long it ran, seconds, if its end was recorded.",
+      "format": "double",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "spectra": {
+      "description": "FDTD's spectra, each as it stood last.",
+      "items": {
+        "$ref": "#/$defs/Spectrum"
+      },
+      "type": "array"
+    },
+    "stopped": {
+      "description": "Why it stopped early, if it did: `\"timeout\"` or `\"requested\"`.",
+      "enum": [
+        "timeout",
+        "requested",
+        null
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sweep": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Sweep"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Its sweep, if it had one."
+    }
+  },
+  "required": [
+    "schema",
+    "photonoxide",
+    "job",
+    "kind",
+    "outcome",
+    "grids",
+    "modes",
+    "spectra",
+    "resonances"
+  ],
+  "title": "photonoxide results.json",
+  "type": "object"
+}

@@ -14,7 +14,7 @@ import {
 } from "@/lib/projects/photonoxide/meta";
 
 const DESCRIPTION =
-  "photonoxide from any language: a job file in, the photonoxide program run headless, and the run's results.json and CSV tables read, with examples in the shell, R, JavaScript and Go.";
+  "photonoxide from any language: a job file in, the photonoxide program run headless, and the run's results.json and CSV tables read, with examples in the shell, R, JavaScript, TypeScript and Go.";
 
 export const metadata = projectsMetadata({
   title: "Any language",

@@ -26,6 +26,7 @@
 
 use std::path::Path;
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::Event;
@@ -40,9 +41,10 @@ pub const SCHEMA: u32 = 1;
 pub const INLINE: usize = 4096;
 
 /// An array of numbers, in C order.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Array {
     /// `"float64"`, or `"complex128"` (each value its real part, then its imaginary part).
+    #[schemars(extend("enum" = ["float64", "complex128"]))]
     pub dtype: String,
     /// Its shape, the last index fastest.
     pub shape: Vec<usize>,
@@ -111,7 +113,7 @@ impl Array {
 }
 
 /// A grid a solver ran on, as its [`Event::Solver`] says.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Grid {
     /// The solver, e.g. `"mode::vector"`.
     pub module: String,
@@ -126,7 +128,7 @@ pub struct Grid {
 }
 
 /// A mode found.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Mode {
     /// What it is, e.g. `"mode 1 of 2"`.
     pub label: String,
@@ -143,7 +145,7 @@ pub struct Mode {
 /// A mode's effective index with its grid's check ([`crate::convergence`]): the grid study a
 /// modes job's `[task.convergence]` made, or [`crate::convergence::Verdict::Unchecked`] for a
 /// mode solved on one grid.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[non_exhaustive]
 pub struct GridCheck {
     /// The mode's label, as in [`Results::modes`].
@@ -155,7 +157,7 @@ pub struct GridCheck {
 }
 
 /// A point of a sweep.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct SweepPoint {
     /// The parameter's value: µm for the wavelength, a width or a length; radians for an angle.
     pub value: f64,
@@ -168,7 +170,7 @@ pub struct SweepPoint {
 }
 
 /// A sweep's points.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Sweep {
     /// `"wavelength"`, `"width"` or a parameter's name.
     pub parameter: String,
@@ -177,7 +179,7 @@ pub struct Sweep {
 }
 
 /// The S-parameters of a 2D FDFD run, at each of its wavelengths.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct SParameters {
     /// The ports' names, in order.
     pub ports: Vec<String>,
@@ -191,7 +193,7 @@ pub struct SParameters {
 }
 
 /// A spectrum an FDTD monitor recorded, as it stood at the run's end.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Spectrum {
     /// The monitor's name.
     pub monitor: String,
@@ -210,7 +212,7 @@ pub struct Spectrum {
 }
 
 /// The resonances an FDTD monitor's harmonic inversion found.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Resonances {
     /// The monitor's name.
     pub monitor: String,
@@ -227,19 +229,23 @@ pub struct Resonances {
 type SRow<'a> = (f64, &'a [String], &'a [f64], &'a Vec<Vec<[f64; 2]>>);
 
 /// A run's numbers, as `results.json` holds them.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Results {
-    /// [`SCHEMA`].
+    /// The schema's version, [`SCHEMA`]: a change that removes or changes a field raises it.
+    #[schemars(extend("const" = SCHEMA))]
     pub schema: u32,
     /// The photonoxide that ran it.
     pub photonoxide: String,
     /// The job's name.
     pub job: String,
-    /// The task's kind: `"structure"`, `"modes"`, `"fdfd"`, `"fdtd"` or `"device"`.
+    /// The task's kind, as the run recorded it: `"structure"`, `"modes"`, `"fdfd"`, `"fdtd"`,
+    /// `"static"`, `"device"`, `"chip"`, … (a new kind of job adds its own).
     pub kind: String,
     /// `"finished"`, `"stopped"`, `"failed"` or `"incomplete"`.
+    #[schemars(extend("enum" = ["finished", "stopped", "failed", "incomplete"]))]
     pub outcome: String,
     /// Why it stopped early, if it did: `"timeout"` or `"requested"`.
+    #[schemars(extend("enum" = ["timeout", "requested", null]))]
     pub stopped: Option<String>,
     /// The error, if it failed.
     pub error: Option<String>,
@@ -609,9 +615,138 @@ pub(crate) fn write_for(run: &Run) -> Result<()> {
     Ok(())
 }
 
+/// Where `results.json`'s published schema is: its `$id`.
+pub const SCHEMA_URL: &str =
+    "https://raw.githubusercontent.com/tachsin/photonoxide/main/docs/results.schema.json";
+
+/// `results.json`'s JSON Schema (draft 2020-12), as `docs/results.schema.json` holds it: derived
+/// from [`Results`] and the types it holds (their fields, types and doc comments), so a reader in
+/// any language can generate its types from it, and it can't drift from what a run writes. It
+/// allows fields it doesn't name: a later photonoxide adds fields without raising [`SCHEMA`].
+pub fn schema() -> serde_json::Value {
+    let root = schemars::generate::SchemaSettings::draft2020_12()
+        .into_generator()
+        .into_root_schema_for::<Results>();
+    let mut value = root.to_value();
+    plain_links(&mut value);
+    if let Some(object) = value.as_object_mut() {
+        // each type titled by its name, which code generators name their types after
+        if let Some(defs) = object
+            .get_mut("$defs")
+            .and_then(serde_json::Value::as_object_mut)
+        {
+            for (name, def) in defs.iter_mut() {
+                if let Some(def) = def.as_object_mut() {
+                    def.entry("title").or_insert_with(|| name.clone().into());
+                }
+            }
+        }
+        object.insert("$id".into(), SCHEMA_URL.into());
+        object.insert("title".into(), "photonoxide results.json".into());
+    }
+    value
+}
+
+/// The descriptions' rustdoc links (`` [`Results::modes`] ``) as the code they name
+/// (`` `Results::modes` ``): a reader in another language sees no link syntax.
+fn plain_links(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(map) => {
+            for (key, v) in map.iter_mut() {
+                match v {
+                    serde_json::Value::String(text) if key == "description" => {
+                        *text = text.replace("[`", "`").replace("`]", "`");
+                    }
+                    _ => plain_links(v),
+                }
+            }
+        }
+        serde_json::Value::Array(items) => items.iter_mut().for_each(plain_links),
+        _ => {}
+    }
+}
+
+/// [`schema`] as `docs/results.schema.json` holds it: indented JSON, ending in a newline.
+pub fn schema_text() -> String {
+    let mut text = serde_json::to_string_pretty(&schema()).unwrap_or_default();
+    text.push('\n');
+    text
+}
+
+/// Why `json`, a `results.json` read as JSON, isn't valid by [`schema`], if it isn't: the tests'
+/// check of what runs write.
+#[cfg(test)]
+pub(crate) fn invalid_by_schema(json: &serde_json::Value) -> Option<String> {
+    let mut schemas = boon::Schemas::new();
+    let mut compiler = boon::Compiler::new();
+    compiler
+        .add_resource(SCHEMA_URL, schema())
+        .expect("the schema is JSON Schema");
+    let index = compiler
+        .compile(SCHEMA_URL, &mut schemas)
+        .unwrap_or_else(|e| panic!("the schema compiles: {e:#}"));
+    schemas
+        .validate(json, index)
+        .err()
+        .map(|e| format!("{e:#}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Whether `results`, as `results.json` holds it, is valid by the schema.
+    fn valid(results: &Results) -> std::result::Result<(), String> {
+        let json = serde_json::to_value(results).expect("results are JSON");
+        invalid_by_schema(&json).map_or(Ok(()), Err)
+    }
+
+    #[test]
+    fn docs_results_schema_json_is_the_schema_the_code_writes() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/results.schema.json");
+        let committed = std::fs::read_to_string(&path)
+            .unwrap_or_default()
+            .replace("\r\n", "\n");
+        assert!(
+            committed == schema_text(),
+            "docs/results.schema.json is out of date: run `cargo run -p photonoxide-studio \
+             --release -- schema --results --write docs/results.schema.json`"
+        );
+    }
+
+    #[test]
+    fn what_a_run_writes_is_valid_by_the_schema_and_what_it_doesnt_isnt() {
+        let failed = Results::collect(&[
+            Event::Started {
+                job: "strip".into(),
+                kind: "modes".into(),
+            },
+            Event::Failed {
+                error: "no mode".into(),
+                seconds: 0.5,
+            },
+        ]);
+        let s = Results::collect(&[s_event(1.5, 0.7), s_event(1.6, 1.0 / 3.0)]);
+        for r in [&failed, &s] {
+            valid(r).unwrap_or_else(|e| panic!("{e}\n{r:?}"));
+        }
+        // the values it names are the only ones it takes
+        let mut other = failed.clone();
+        other.outcome = "done".into();
+        assert!(valid(&other).is_err());
+        let mut other = failed.clone();
+        other.schema = SCHEMA + 1;
+        assert!(valid(&other).is_err());
+        let mut other = s.clone();
+        if let Some(p) = other.s_parameters.as_mut() {
+            p.s.dtype = "complex64".into();
+        }
+        assert!(valid(&other).is_err());
+        // a field a later photonoxide adds is allowed
+        let mut json = serde_json::to_value(&failed).expect("results are JSON");
+        json["added_later"] = serde_json::json!([1, 2]);
+        assert_eq!(invalid_by_schema(&json), None);
+    }
 
     fn temp(tag: &str) -> std::path::PathBuf {
         let dir =
@@ -716,6 +851,7 @@ mod tests {
         assert_eq!(r.spectra[0].time_um, 20.0);
         assert_eq!(r.spectra[0].values.data.as_deref(), Some(&[0.9, 0.45][..]));
         assert_eq!(r.spectra[0].labels, ["T"]);
+        valid(&r).unwrap_or_else(|e| panic!("{e}"));
         let dir = temp("schema");
         let mut other = r;
         other.schema = SCHEMA + 1;

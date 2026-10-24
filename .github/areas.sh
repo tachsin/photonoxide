@@ -123,10 +123,11 @@ area shifter  "src/thermal/*"   "mode material statics thermo"   "thermal::shift
 # the optimize/ cases), and a job's [circuit] table is a chip of devices, computed, studied and
 # optimized (the chip/ cases, and optimize_chip_rings, which reads jobs/); its [[task.component]] tables are
 # the generators', and its cases of them (components with expressions, ports by name) run here;
-# docs/job.schema.json is the schema job::schema writes, which its tests check; tests/jobs-toml
+# docs/job.schema.json and docs/results.schema.json are the schemas job::schema and
+# job::results::schema write, which their tests check; tests/jobs-toml
 # holds the jobs as TOML, as they were before they were YAML, which the tests read and compare
 area job \
-  "src/job/* src/run.rs src/run/* src/farm.rs src/farm/* jobs/* tests/jobs-toml/* docs/job.schema.json" \
+  "src/job/* src/run.rs src/run/* src/farm.rs src/farm/* jobs/* tests/jobs-toml/* docs/job.schema.json docs/results.schema.json" \
   "material mode sparse fdfd fdtd circuit device generator statics shifter line export convergence" \
   "job:: run:: farm::" "job/ generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
 

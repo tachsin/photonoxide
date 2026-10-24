@@ -236,7 +236,7 @@ pub struct SpectrumSeries {
 }
 
 /// A resonance an FDTD run found by harmonic inversion.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct FoundResonance {
     /// The vacuum wavelength 1/f, µm.
     pub wavelength_um: f64,

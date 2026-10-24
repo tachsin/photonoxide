@@ -208,7 +208,7 @@ photonoxide can differ in the last bits, as it can in Rust.
 Python is the one language with a package. Any other runs the `photonoxide` program on a job
 file and reads the run's folder: `results.json`, its CSV tables and its fields, every number
 written so it reads back to the same bits. [docs/languages.md](languages.md) shows it in the
-shell, R, JavaScript and Go.
+shell, R, JavaScript, TypeScript and Go.
 
 ## Versions and releases
 

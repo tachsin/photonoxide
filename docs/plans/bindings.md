@@ -368,7 +368,7 @@ page linking the Rust item and its method write-up in `docs/methods/`, where the
 No other language gets a binding of its own. A package per language is a second API to keep in
 step with the façade, tested in that language's own CI, and released with it; the program already
 reads a job and writes its run's folder for any language that can start a process and read JSON
-or CSV. [docs/languages.md](../languages.md) shows it in the shell, R, JavaScript and Go.
+or CSV. [docs/languages.md](../languages.md) shows it in the shell, R, JavaScript, TypeScript and Go.
 
 ## 4. Phases
 
@@ -419,7 +419,7 @@ direct calls, bit for bit).
 
 - **Delivers:** [docs/languages.md](../languages.md): a job written, run with
   `photonoxide run --headless`, and its `results.json` and CSV tables read, in the shell, R,
-  JavaScript and Go.
+  JavaScript, TypeScript and Go.
 - **Validated by:** each example run against the program when it changes, checking what a run
   promises: `results.json` and the CSV tables the same bits, and the physics a job gives (a
   lossless straight guide's power and reciprocity).
