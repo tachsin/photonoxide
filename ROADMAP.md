@@ -309,12 +309,12 @@ A problem is set up by writing a file, not a program. Its results are taken away
   - YAML first, then TOML and JSON in the same editor from the same schema.
 - [ ] **Every example as a job too** (#430): each example a job can describe has its job file, opened in YAML, TOML or JSON, and a test that it gives the example's numbers to the bit; Open as a job on each example's page. The examples a job can't describe yet are listed, each with what the format lacks.
 - [ ] **YAML the recommended format** (#430): `jobs/` and the docs YAML first, and the studio and `device_job` writing YAML; TOML and JSON read as now, and the same job checked equal in all three. Proposed with it, for tachsin's decision: units in values (`1.55 um`, `20 nm`) beside the `_um` keys, one line per shape, and anchors or `extends:` to reuse a stack, a source or a window.
-- [ ] **Exporting results** (#431), chosen in a job's `export:`, in the studio's Export dialog on a finished run or by `photonoxide export`:
+- [x] **Exporting results** (#431), chosen in a job's `export:`, in the studio's Export dialog on a finished run or by `photonoxide export`:
   - modes' n_eff, group index, loss and complex E and H, power normalized; FDFD's and FDTD's complex fields at chosen wavelengths and monitors, and FDTD's frames; the permittivity; spectra, S-parameters, resonances, sweeps and studies as tables; the static solver's temperature, potential, field, current and Joule heat; the whole window or a box, every n-th cell;
   - every file with its grid (nodes or centres, each component's Yee offset), units, normalization, the job as it ran, the version and the run;
-  - NPZ, compressed MAT (v5), VTK XML and CSV, besides Touchstone, all written in pure Rust; deflate at a chosen level, f64 or f32 (the file says when it was downcast), and the size estimated before writing; HDF5 later, through `photonoxide-native` loading the user's own library at run time, if tachsin agrees;
+  - NPZ and CSV, besides Touchstone, written in pure Rust; deflate at a chosen level, f64 or f32 (the file says when it was downcast), and the size estimated before writing, a finished run's fields written again so; zstd and HDF5 through `photonoxide-native`, loading the user's own libzstd and libhdf5 at run time. MAT and VTK XML aren't needed for now (tachsin, 2026-10-24): an issue of their own if they ever are;
   - the façade's `export` and the arrays with their grids, for Python and MATLAB;
-  - heavy arrays in a binary file beside `events.jsonl` rather than in it, replay still bit for bit.
+  - heavy arrays in `events.bin`, NumPy arrays beside `events.jsonl` rather than in it, replay still bit for bit.
 - [ ] **Masks in:** a GDS file's layers read into a structure job, read only; writing layouts stays 0.9's.
 
 ### 0.6: Thermal and electro-optic devices

@@ -554,6 +554,44 @@ fn a_runs_tables_are_its_events_numbers_to_the_bit() {
     assert!(export_run(&run.dir, Some(&["fields".to_owned()]), None).is_err());
 }
 
+/// A run's field files: each one's size estimated before writing it again at a precision and a
+/// level, the size it then has, to the byte (the mode's few members deflate whole); its fields
+/// the f32s of the run's own, and never written over the run's folder.
+#[test]
+fn a_runs_fields_are_estimated_then_written_again_as_asked() {
+    let scratch = Scratch::new();
+    let job = JobSource::Text {
+        text: conformance::modes_fields_job().to_string(),
+        format: "json".into(),
+    };
+    let run = run_job(&job, &scratch.0.join("runs"), &Stop::new(None)).unwrap();
+    let out = scratch.0.join("fields");
+    for (precision, level) in [("f64", 0), ("f32", 0), ("f32", 9), ("f64", 1)] {
+        let estimated = estimate_fields(&run.dir, precision, level).unwrap();
+        assert_eq!(estimated.len(), 1);
+        let f = &estimated[0];
+        assert_eq!(f.file, "mode-1-of-1.npz");
+        assert!(f.rewritable && f.exact);
+        assert_eq!(f.precision, precision);
+        assert_eq!(
+            f.bytes,
+            std::fs::metadata(run.dir.join(&f.file)).unwrap().len()
+        );
+        let written = export_fields(&run.dir, None, &out, precision, level).unwrap();
+        assert_eq!(written, [out.join(&f.file)]);
+        assert_eq!(std::fs::metadata(&written[0]).unwrap().len(), f.estimate);
+    }
+    // at the run's own precision and level, the same file
+    export_fields(&run.dir, None, &out, "f64", 6).unwrap();
+    assert_eq!(
+        std::fs::read(out.join("mode-1-of-1.npz")).unwrap(),
+        std::fs::read(run.dir.join("mode-1-of-1.npz")).unwrap()
+    );
+    assert!(estimate_fields(&run.dir, "f16", 6).is_err());
+    assert!(export_fields(&run.dir, None, &run.dir, "f32", 6).is_err());
+    assert!(export_fields(&run.dir, Some(&["field.npz".to_owned()]), &out, "f32", 6).is_err());
+}
+
 #[test]
 fn the_conformance_cases_are_computed_and_name_their_calls() {
     let scratch = Scratch::new();
@@ -631,7 +669,7 @@ fn every_facade_function_is_in_the_feature_table() {
     // so to the Python package) goes in its table, by name
     let table = include_str!("../../docs/features.md");
     let functions = facade_functions();
-    assert_eq!(functions.len(), 20, "{functions:?}");
+    assert_eq!(functions.len(), 22, "{functions:?}");
     for f in functions {
         assert!(
             table.contains(&format!("`{f}`")),

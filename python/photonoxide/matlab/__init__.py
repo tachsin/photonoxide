@@ -46,6 +46,8 @@ __all__ = [
     "write_touchstone",
     "run_tables",
     "export_run",
+    "estimate_fields",
+    "export_fields",
     "devices",
     "stacks",
     "device_spectrum",
@@ -385,6 +387,29 @@ def export_run(run_dir: str, tables: Any = None, out_dir: Any = None) -> list[st
     names = None if tables is None or len(tables) == 0 else [str(t) for t in tables]
     out = _option(None if out_dir is None else str(out_dir))
     return [str(p) for p in _phox.export_run(str(run_dir), tables=names, out_dir=out)]
+
+
+@_identified
+def estimate_fields(run_dir: str, precision: str, level: float) -> str:
+    """:func:`photonoxide.estimate_fields` as JSON text, for MATLAB's ``jsondecode``: each file's
+    fields as an object."""
+    files = _phox.estimate_fields(str(run_dir), precision=str(precision), level=int(level))
+    return json.dumps([_plain(f) for f in files])
+
+
+@_identified
+def export_fields(
+    run_dir: str, out_dir: str, files: Any = None, precision: str = "f64", level: float = 6
+) -> list[str]:
+    """:func:`photonoxide.export_fields`: the files written. An empty ``files`` is every one the
+    run has."""
+    names = None if files is None or len(files) == 0 else [str(f) for f in files]
+    return [
+        str(p)
+        for p in _phox.export_fields(
+            str(run_dir), str(out_dir), files=names, precision=str(precision), level=int(level)
+        )
+    ]
 
 
 def _plain(x: Any) -> Any:

@@ -69,11 +69,15 @@ const USAGE: &str = "usage:
       --write saves it, --check fails unless <file> holds exactly this schema
   photonoxide view <run directory>
       replay a finished run in the studio
-  photonoxide export <run directory> [--tables <name,...>] [--to <dir>] [--list]
+  photonoxide export <run directory> [--tables <name,...>] [--fields <file,...|all>]
+                     [--precision f64|f32] [--level <0-9>] [--to <dir>] [--list]
       write a run's tables as CSV (every one it has by default) into its directory, or into
       --to: modes, sweep, s_parameters, spectra, resonances, study, history, static,
-      transient; --list lists the tables it has and the files beside its record. Its fields
-      (.npz) are written as it runs, when its job's [task.export] asks for them
+      transient. Its fields (.npz) are written as it runs, when its job's [task.export] asks
+      for them; --fields writes them again into --to, at --precision (f32: the fields
+      downcast) and deflate --level (0 stores, 9 is smallest; 6 by default). --list lists
+      its tables and files, each field file with its size written again at that precision
+      and level, estimated before writing
   photonoxide example <name>
       run one of the built-in examples, each a published result reproduced
       (`photonoxide example --list` lists them)
@@ -324,13 +328,30 @@ fn export(args: &[String]) -> ExitCode {
     if !dir.join("events.jsonl").is_file() {
         return fail(format!("{} has no events.jsonl", dir.display()));
     }
-    let (mut tables, mut to, mut list) = (None, None, false);
+    let (mut tables, mut fields, mut to, mut list) = (None, None, None, false);
+    let (mut precision, mut level) = ("f64".to_owned(), 6u8);
     let mut rest = rest.iter();
+    let names = |s: &str| s.split(',').map(str::to_owned).collect::<Vec<_>>();
     while let Some(flag) = rest.next() {
         match (flag.as_str(), rest.clone().next()) {
             ("--list", _) => list = true,
-            ("--tables", Some(names)) => {
-                tables = Some(names.split(',').map(str::to_owned).collect::<Vec<_>>());
+            ("--tables", Some(n)) => {
+                tables = Some(names(n));
+                rest.next();
+            }
+            ("--fields", Some(n)) => {
+                fields = Some((n != "all").then(|| names(n)));
+                rest.next();
+            }
+            ("--precision", Some(p)) => {
+                precision = p.clone();
+                rest.next();
+            }
+            ("--level", Some(l)) => {
+                let Ok(l) = l.parse::<u8>() else {
+                    return fail(format!("--level takes 0 to 9, not {l}"));
+                };
+                level = l;
                 rest.next();
             }
             ("--to", Some(path)) => {
@@ -341,28 +362,59 @@ fn export(args: &[String]) -> ExitCode {
         }
     }
     if list {
-        return match studio::run_exports(dir) {
-            Ok(exports) => {
-                for t in &exports.tables {
-                    println!("{:<14} {:>6} rows  {}", t.name, t.rows, t.file);
-                }
-                for f in &exports.files {
-                    println!("{:<14} {:>10} bytes", f.name, f.bytes);
-                }
-                ExitCode::SUCCESS
-            }
-            Err(e) => fail(e),
+        let exports = match studio::run_exports(dir) {
+            Ok(e) => e,
+            Err(e) => return fail(e),
         };
-    }
-    match photonoxide::facade::export_run(dir, tables.as_deref(), to.as_deref()) {
-        Ok(written) => {
-            for path in written {
-                println!("{}", path.display());
-            }
-            ExitCode::SUCCESS
+        let estimated = match photonoxide::facade::estimate_fields(dir, &precision, level) {
+            Ok(f) => f,
+            Err(e) => return fail(e),
+        };
+        for t in &exports.tables {
+            println!("{:<18} {:>6} rows  {}", t.name, t.rows, t.file);
         }
-        Err(e) => fail(e.to_string()),
+        for f in exports.files.iter().filter(|f| f.name.ends_with(".csv")) {
+            println!("{:<18} {:>12} bytes", f.name, f.bytes);
+        }
+        for f in &estimated {
+            let again = if !f.rewritable {
+                "copied as it is".to_owned()
+            } else {
+                format!(
+                    "{} {} bytes at {}, level {level}",
+                    if f.exact { "exactly" } else { "about" },
+                    f.estimate,
+                    f.precision
+                )
+            };
+            println!(
+                "{:<18} {:>12} bytes  written again: {again}",
+                f.file, f.bytes
+            );
+        }
+        return ExitCode::SUCCESS;
     }
+    let mut written = Vec::new();
+    let only_fields = fields.is_some() && tables.is_none();
+    if let Some(files) = fields {
+        let Some(out) = to.as_deref() else {
+            return fail("--fields needs --to: a run's own fields aren't written over");
+        };
+        match photonoxide::facade::export_fields(dir, files.as_deref(), out, &precision, level) {
+            Ok(w) => written.extend(w),
+            Err(e) => return fail(e),
+        }
+    }
+    if !only_fields {
+        match photonoxide::facade::export_run(dir, tables.as_deref(), to.as_deref()) {
+            Ok(w) => written.extend(w),
+            Err(e) => return fail(e),
+        }
+    }
+    for path in written {
+        println!("{}", path.display());
+    }
+    ExitCode::SUCCESS
 }
 
 fn new(args: &[String]) -> ExitCode {

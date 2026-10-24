@@ -578,10 +578,15 @@ pub(crate) fn events_in(dir: &Path) -> Result<Vec<Event>> {
         path: path.display().to_string(),
         reason: e.to_string(),
     })?;
-    Ok(text
-        .lines()
-        .filter_map(|line| serde_json::from_str(line).ok())
-        .collect())
+    // each line's arrays in `events.bin` written back into it (crate::run::arrays)
+    let mut arrays = crate::run::arrays::Arrays::new(dir);
+    let mut events = Vec::new();
+    for line in text.lines() {
+        if let Ok(event) = serde_json::from_str(&arrays.inline(line)?) {
+            events.push(event);
+        }
+    }
+    Ok(events)
 }
 
 /// Writes `run`'s `results.json` from its record, if it has a directory, and the tables its

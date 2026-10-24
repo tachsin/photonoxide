@@ -77,6 +77,9 @@ __all__ = [
     "write_touchstone",
     "run_tables",
     "export_run",
+    "FieldFile",
+    "estimate_fields",
+    "export_fields",
     "Device",
     "Stack",
     "StackLayer",
@@ -584,6 +587,61 @@ def export_run(
         os.fspath(run_dir),
         None if tables is None else [str(t) for t in tables],
         None if out_dir is None else os.fspath(out_dir),
+    )
+    return [Path(p) for p in paths]
+
+
+@dataclass(frozen=True)
+class FieldFile:
+    """A field file of a run (an ``.npz``, or a container's ``.h5``), and its size written
+    again at a precision and a deflate level, estimated before writing it."""
+
+    #: Its name in the run's folder, e.g. ``"mode-1-of-2.npz"``.
+    file: str
+    #: Its size as the run wrote it, bytes.
+    bytes: int
+    #: Its size written again as asked, bytes (``bytes`` for a file copied as it is).
+    estimate: int
+    #: Whether ``estimate`` is the size to the byte, not an estimate from slices of it.
+    exact: bool
+    #: The precision its fields have written again, ``"f64"`` or ``"f32"``; ``"as written"``
+    #: for a file copied as it is.
+    precision: str
+    #: Whether it can be written again: an ``.h5``, or an ``.npz`` compressed with Zstandard,
+    #: is copied as it is.
+    rewritable: bool
+
+
+def estimate_fields(
+    run_dir: str | os.PathLike[str], *, precision: str = "f64", level: int = 6
+) -> list[FieldFile]:
+    """The field files of the run in ``run_dir``, each with its size and its size written again
+    at ``precision`` (``"f64"`` or ``"f32"``) and deflate ``level`` (0 stores, 1 to 9 deflate),
+    estimated before writing: what :func:`export_fields` writes. Stored, the estimate is the
+    size to the byte; deflated, it is for members up to 1 MiB, and from slices of larger ones."""
+    return [
+        FieldFile(**f) for f in _native.estimate_fields(os.fspath(run_dir), precision, int(level))
+    ]
+
+
+def export_fields(
+    run_dir: str | os.PathLike[str],
+    out_dir: str | os.PathLike[str],
+    *,
+    files: list[str] | None = None,
+    precision: str = "f64",
+    level: int = 6,
+) -> list[Path]:
+    """Writes the field files of the run in ``run_dir`` into ``out_dir``, another folder: those
+    named in ``files`` (every one when ``None``), each written again at ``precision`` (the
+    fields downcast to ``"f32"`` if asked, the grid kept ``f64``) and deflate ``level``, its
+    ``meta.json`` saying so. Returns the files written."""
+    paths = _native.export_fields(
+        os.fspath(run_dir),
+        None if files is None else [str(f) for f in files],
+        os.fspath(out_dir),
+        precision,
+        int(level),
     )
     return [Path(p) for p in paths]
 

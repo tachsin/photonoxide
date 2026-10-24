@@ -187,8 +187,11 @@ export const api = {
   runEvents: (dir: string) => invoke<Event[]>("run_events", { dir }),
   /** The tables a run's record holds and the result files in its folder, for the Export dialog. */
   exportList: (dir: string) => invoke<RunExports>("export_list", { dir }),
-  /** Writes the tables chosen (into `to`, or the run's folder) and copies the files chosen into `to`: the paths written. */
-  exportWrite: (dir: string, tables: string[], files: string[], to: string | null) => invoke<string[]>("export_write", { dir, tables, files, to }),
+  /** Each field file of a run with its size written again at `precision` and deflate `level`, estimated before writing. */
+  exportEstimate: (dir: string, precision: string, level: number) => invoke<FieldEstimate[]>("export_estimate", { dir, precision, level }),
+  /** Writes the tables chosen (into `to`, or the run's folder) and the field files chosen into `to`, written again at `precision` and `level`: the paths written. */
+  exportWrite: (dir: string, tables: string[], files: string[], to: string | null, precision: string, level: number) =>
+    invoke<string[]>("export_write", { dir, tables, files, to, precision, level }),
   groupIndex: (wavelengthsUm: number[], n: number[]) => invoke<number[]>("group_index", { wavelengthsUm, n }),
   startExample: (name: string) => invoke<number>("start_example", { name }),
   startValidation: () => invoke<number>("start_validation"),
@@ -742,6 +745,18 @@ export interface DeviceSpectrum {
 export interface RunExports {
   tables: { name: string; file: string; rows: number; bytes: number }[];
   files: { name: string; bytes: number }[];
+}
+
+/** A field file of a run, its size written again estimated before writing (studio.rs's ExportEstimate). */
+export interface FieldEstimate {
+  file: string;
+  bytes: number;
+  estimate: number;
+  /** The size to the byte, not an estimate from slices of the file. */
+  exact: boolean;
+  /** "f64", "f32", or "as written" for a file copied as it is. */
+  precision: string;
+  rewritable: boolean;
 }
 
 export interface SavedDevice {

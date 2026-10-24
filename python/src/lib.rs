@@ -461,6 +461,49 @@ fn export_run(
         .fail(py)
 }
 
+/// A run's field files, each a dict of its name, its size, its size written again at
+/// `precision` and `level` (estimated before writing), whether that is exact, the precision
+/// it would have and whether it can be written again.
+#[pyfunction]
+fn estimate_fields(
+    py: Python<'_>,
+    run_dir: PathBuf,
+    precision: String,
+    level: u8,
+) -> PyResult<Vec<Bound<'_, PyDict>>> {
+    let files = py
+        .detach(|| facade::estimate_fields(&run_dir, &precision, level))
+        .fail(py)?;
+    files
+        .into_iter()
+        .map(|f| {
+            let d = PyDict::new(py);
+            d.set_item("file", f.file)?;
+            d.set_item("bytes", f.bytes)?;
+            d.set_item("estimate", f.estimate)?;
+            d.set_item("exact", f.exact)?;
+            d.set_item("precision", f.precision)?;
+            d.set_item("rewritable", f.rewritable)?;
+            Ok(d)
+        })
+        .collect()
+}
+
+/// Writes a run's field files again into another folder: the paths written.
+#[pyfunction]
+#[pyo3(signature = (run_dir, files, out_dir, precision, level))]
+fn export_fields(
+    py: Python<'_>,
+    run_dir: PathBuf,
+    files: Option<Vec<String>>,
+    out_dir: PathBuf,
+    precision: String,
+    level: u8,
+) -> PyResult<Vec<PathBuf>> {
+    py.detach(|| facade::export_fields(&run_dir, files.as_deref(), &out_dir, &precision, level))
+        .fail(py)
+}
+
 /// A device's design from the package's arguments.
 fn design(
     kind: &str,
@@ -736,6 +779,8 @@ fn _photonoxide(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(write_touchstone, module)?)?;
     module.add_function(wrap_pyfunction!(run_tables, module)?)?;
     module.add_function(wrap_pyfunction!(export_run, module)?)?;
+    module.add_function(wrap_pyfunction!(estimate_fields, module)?)?;
+    module.add_function(wrap_pyfunction!(export_fields, module)?)?;
     module.add_function(wrap_pyfunction!(devices, module)?)?;
     module.add_function(wrap_pyfunction!(stacks, module)?)?;
     module.add_function(wrap_pyfunction!(device_spectrum, module)?)?;

@@ -201,6 +201,9 @@ def test_jobs_as_paths_or_matlabs_json(tmp_path: Path) -> None:
     # an empty list of tables, as MATLAB's string.empty gives: every one
     files = matlab.export_run(run["dir"], [], str(tmp_path / "out"))
     assert [Path(f).name for f in files] == ["s_parameters.csv"]
+    # its field files, none for a job that asks for none: an empty struct array
+    assert json.loads(matlab.estimate_fields(run["dir"], "f32", 9.0)) == []
+    assert matlab.export_fields(run["dir"], str(tmp_path / "fields"), [], "f32", 9.0) == []
 
 
 def test_errors_carry_matlabs_identifier() -> None:

@@ -552,6 +552,7 @@ fn a_static_export_writes_the_temperature_and_the_numbers_to_the_bit() {
     let (arrays, meta) = crate::export::read::npz(&run.dir().join("static.npz"));
     assert!(meta.contains("graded"), "{meta}");
     assert!(!arrays.contains_key("potential"));
+    crate::export::assert_estimates(&run.dir().join("static.npz"));
     let (y, z) = (arrays["y_um"].f64s(), arrays["z_um"].f64s());
     assert_eq!(arrays["y_nodes_um"].f64s().len(), y.len() + 1);
     assert_eq!(arrays["z_nodes_um"].f64s().len(), z.len() + 1);

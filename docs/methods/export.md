@@ -103,8 +103,9 @@ MATLAB has `photonoxide.run_tables` (each table a MATLAB `table`) and `photonoxi
 
 ## Tests
 
-Nothing in photonoxide reads a `.npz` back: the tests do, with the `zip` crate (a
-dev-dependency only) as a real reader and a small `.npy` parser of their own, to the bit:
+photonoxide reads a `.npz` back only to write it again (below); the tests read every one, with
+the `zip` crate (a dev-dependency only) as a real reader and a small `.npy` parser of their own,
+to the bit:
 
 - a mode's `.npz` against the solver's own `Fields` and `VectorMode`;
 - an fdfd job's `field.npz`: its $\lvert H_z\rvert^2$ over the pictured cells, scaled as the
@@ -189,7 +190,80 @@ files by checkbox, with their sizes, written into the run's folder or saved into
 Its fields can't be made afterwards: a field is the solver's state, which a finished run no
 longer has, so a job asks for them in `[task.export]`.
 
-## Left for later
+### Its fields at another precision and level
 
-Issue [#431](https://github.com/tachsin/photonoxide/issues/431) asks for more: MAT and VTK XML
-writers, and the heavy arrays moved out of `events.jsonl`. This page grows with them.
+The fields a run wrote can be written again, into another folder, at another precision and
+deflate level, each file's size estimated before writing:
+
+```sh
+photonoxide export runs/<run> --list --precision f32 --level 9   # each file's size, and written again so
+photonoxide export runs/<run> --fields all --precision f32 --level 9 --to out/
+```
+
+```text
+mode-1-of-1.npz         123406 bytes  written again: exactly 57634 bytes at f32, level 9
+```
+
+The Export dialog has the precision and the level beside its fields, each file's size now and
+written again (`→ 56.3 kB`) as the choice changes, and the total; Python and MATLAB have
+`estimate_fields` and `export_fields`.
+
+- The arrays are read from the `.npz` the run wrote and written by the same writer, in the same
+  order. The grid and the small numbers (no or one dimension) stay `f64`; the fields (two
+  dimensions or more) are downcast to `f32` when asked, and `meta.json` says so and names the
+  new compression. A file already `f32` stays `f32`: nothing brings its digits back.
+- Written again at its own precision and level, a file is the same file, byte for byte.
+- **The estimate.** Stored (level 0), the size is known before writing to the byte: each
+  member's `.npy` and the ZIP's own records. Deflated, a member up to 1 MiB is deflated in
+  memory as the writer would, so the size is exact too, and it says so; a larger member (a 3D
+  run's monitor) is estimated from eight slices of 64 KiB spread over it, each deflated at the
+  level asked, their ratio taken for the whole, and marked `≈` (`about` on the command line).
+- The tests write each kind's file again (a mode, an fdfd field, an fdtd monitor, a static
+  temperature) at both precisions and levels 0, 1, 6 and 9: each estimate is the written size
+  to the byte where it says it is exact, and within 2 % where it is sliced (a 600 × 400
+  complex field: 0.1 % to 0.3 % off).
+- An `.h5`, or an `.npz` compressed with Zstandard (which photonoxide reads only through
+  libzstd), is copied as it is.
+
+## The run's arrays
+
+`events.jsonl`'s pictures are large: a mode's or a field's `Raster` is one `f32` a cell, and
+an FDTD run records up to 500 frames. Written into each line, they made most of the record,
+and every line had to be read and parsed to open a run. Each long value of a line now goes into
+**`events.bin`** beside it, and the line keeps where it is ([`run::arrays`]):
+
+- a flat array of 256 numbers or more, as `<f4` when every number is an `f32`'s shortest
+  decimal, as `<f8` when it is an `f64`'s; a base64 string of 1024 characters or more (an
+  FDTD frame's pixels), as its bytes, `|u1`;
+- each is a NumPy `.npy` (NEP 1, one dimension), one after another, and its place in the line
+  holds `{"$npy": <offset>}`, the byte where it starts;
+- a value is moved only when writing it back gives the very text the line had, which is checked
+  as it is moved. A replayed run (`photonoxide view`, the studio's replay, `results.json`, the
+  tables) reads each line as the run recorded it, to the last byte, and so every float to the
+  last bit;
+- the array is written before the line that names it, so the studio following a run live
+  finds it;
+- a run recorded before, with its arrays in its lines, replays as it always did.
+
+| Job | `events.jsonl` before | now, with `events.bin` |
+|---|---|---|
+| `jobs/ring-fdfd.yaml` | see the PR | |
+| `jobs/strip-modes.yaml` | | |
+| `jobs/ring-fdtd.yaml` | | |
+
+From Python, a picture of the run above, read from the record as NumPy reads it; the run's
+`events` (as the façade gives them) have it in place again, to the bit:
+
+```python
+import json
+
+lines = (run.dir / "events.jsonl").read_text(encoding="utf-8").splitlines()
+k = next(k for k, line in enumerate(lines) if '{"$npy":' in line)
+event = json.loads(lines[k])
+key = next(name for name, v in event.items() if isinstance(v, dict) and isinstance(v.get("values"), dict))
+with open(run.dir / "events.bin", "rb") as f:
+    f.seek(event[key]["values"]["$npy"])
+    values = np.load(f)                               # float32, a cell each, row by row
+assert values.shape == (event[key]["nx"] * event[key]["ny"],)
+assert np.array_equal(values, np.array(run.events[k][key]["values"], dtype=np.float32))
+```

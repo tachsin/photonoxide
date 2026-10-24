@@ -1,7 +1,7 @@
 //! `.npy` array framing (NumPy's own format, *NEP 1*, <https://numpy.org/neps/nep-0001-npy-format.html>):
 //! a magic string, a version, a little-endian header dict, then the raw array bytes in C order.
-//! Writing only: photonoxide never reads `.npy` or `.npz` files back (NumPy and this module's
-//! own tests do).
+//! Writing here; [`super::rewrite()`] and the run's own arrays ([`crate::run::arrays`]) read
+//! their headers back.
 
 use num_complex::Complex64 as c64;
 
@@ -39,6 +39,12 @@ impl Dtype {
 /// The header dict NumPy expects, padded with spaces to a multiple of 64 bytes (magic, version
 /// and header-length bytes included) and ending with `\n`.
 fn header(dtype: Dtype, shape: &[usize]) -> Vec<u8> {
+    header_for(dtype.descr(), shape)
+}
+
+/// [`header`] for any `descr` NumPy reads (`<f4`, `|u1`, ...): the run's own arrays
+/// ([`crate::run::arrays`]) take it too.
+pub(crate) fn header_for(descr: &str, shape: &[usize]) -> Vec<u8> {
     let shape_str = match shape {
         [] => "()".to_owned(),
         [n] => format!("({n},)"),
@@ -50,10 +56,7 @@ fn header(dtype: Dtype, shape: &[usize]) -> Vec<u8> {
                 .join(", ")
         ),
     };
-    let dict = format!(
-        "{{'descr': '{}', 'fortran_order': False, 'shape': {shape_str}, }}",
-        dtype.descr()
-    );
+    let dict = format!("{{'descr': '{descr}', 'fortran_order': False, 'shape': {shape_str}, }}");
     // magic (6) + version (2) + header length (2) + dict + '\n', a multiple of 64
     let prefix = 6 + 2 + 2;
     let pad = (64 - (prefix + dict.len() + 1) % 64) % 64;

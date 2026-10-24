@@ -82,6 +82,7 @@ pub fn show(dir: Option<&Path>, live: Option<Live>) -> Result<(), String> {
             delete_run,
             run_events,
             export_list,
+            export_estimate,
             export_write,
             group_index,
             start_example,
@@ -1061,15 +1062,59 @@ fn export_list(dir: String) -> Result<RunExports, String> {
     run_exports(Path::new(&dir))
 }
 
-/// Writes the tables `tables` of the run in `dir` into its folder, and copies the files
-/// `files` of its folder (and the tables just written) into `to` when it is given: the Export
-/// dialog's "Write" and "Save to a folder". The paths written.
+/// A field file of a run, with its size written again at a precision and a level, estimated
+/// before writing ([`photonoxide::facade::estimate_fields`]).
+#[derive(Clone, Debug, Serialize)]
+pub struct ExportEstimate {
+    /// Its name in the run's folder.
+    pub file: String,
+    /// Its size as the run wrote it, bytes.
+    pub bytes: u64,
+    /// Its size written again, bytes.
+    pub estimate: u64,
+    /// Whether that is the size to the byte.
+    pub exact: bool,
+    /// The precision its fields would have, or "as written".
+    pub precision: String,
+    /// Whether it is written again, not copied as it is.
+    pub rewritable: bool,
+}
+
+/// The Export dialog's estimate: each field file of the run in `dir` written again at
+/// `precision` and deflate `level`, as the choice changes.
+#[tauri::command]
+fn export_estimate(
+    dir: String,
+    precision: String,
+    level: u8,
+) -> Result<Vec<ExportEstimate>, String> {
+    Ok(
+        photonoxide::facade::estimate_fields(Path::new(&dir), &precision, level)
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .map(|f| ExportEstimate {
+                file: f.file,
+                bytes: f.bytes,
+                estimate: f.estimate,
+                exact: f.exact,
+                precision: f.precision,
+                rewritable: f.rewritable,
+            })
+            .collect(),
+    )
+}
+
+/// Writes the tables `tables` of the run in `dir` into its folder, and into `to` when it is
+/// given with the field files `files` of its folder written again at `precision` and deflate
+/// `level`: the Export dialog's "Write" and "Save to a folder". The paths written.
 #[tauri::command]
 fn export_write(
     dir: String,
     tables: Vec<String>,
     files: Vec<String>,
     to: Option<String>,
+    precision: String,
+    level: u8,
 ) -> Result<Vec<String>, String> {
     let run = Path::new(&dir);
     let out = to.as_deref().map(Path::new);
@@ -1081,16 +1126,14 @@ fn export_write(
             written.push(p.display().to_string());
         }
     }
-    if let Some(out) = out {
-        for name in &files {
-            // a name of the folder's own, never a path out of it
-            if Path::new(name).file_name() != Some(std::ffi::OsStr::new(name)) {
-                return Err(format!("{name} isn't a file of the run's folder"));
-            }
-            let target = out.join(name);
-            std::fs::copy(run.join(name), &target)
-                .map_err(|e| format!("{}: {e}", target.display()))?;
-            written.push(target.display().to_string());
+    if let Some(out) = out
+        && !files.is_empty()
+    {
+        // names of the run's own field files, never a path out of its folder
+        for p in photonoxide::facade::export_fields(run, Some(&files), out, &precision, level)
+            .map_err(|e| e.to_string())?
+        {
+            written.push(p.display().to_string());
         }
     }
     Ok(written)
@@ -1260,9 +1303,22 @@ impl Record {
         };
         self.offset += n as u64;
         self.partial.push_str(&text);
+        // the arrays the lines keep in events.bin, written before each line that names them
+        let dir = self.path.parent().unwrap_or(Path::new("."));
+        let mut arrays = photonoxide::run::arrays::Arrays::new(dir);
         while let Some(end) = self.partial.find('\n') {
             let line: String = self.partial.drain(..=end).collect();
-            match serde_json::from_str::<Event>(line.trim_end()) {
+            let line = match arrays.inline(line.trim_end()) {
+                Ok(l) => l.into_owned(),
+                Err(e) => {
+                    self.problem = self
+                        .problem
+                        .take()
+                        .or(Some(format!("a line of the record names an array: {e}")));
+                    continue;
+                }
+            };
+            match serde_json::from_str::<Event>(&line) {
                 Ok(e) => self.events.push(e),
                 Err(e) => {
                     self.problem = self
@@ -1337,21 +1393,33 @@ mod tests {
         assert_eq!(names, ["mode-1-of-1.npz", "modes.csv"]);
         let out = dir.join("out");
         std::fs::create_dir_all(&out).unwrap();
+        let estimated = export_estimate(run_dir.clone(), "f32".into(), 9).unwrap();
+        assert_eq!(estimated.len(), 1);
+        assert!(estimated[0].exact && estimated[0].rewritable);
         let written = export_write(
             run_dir.clone(),
             vec!["modes".into()],
             vec!["mode-1-of-1.npz".into()],
             Some(out.display().to_string()),
+            "f32".into(),
+            9,
         )
         .unwrap();
         assert_eq!(written.len(), 2);
-        assert!(out.join("modes.csv").is_file() && out.join("mode-1-of-1.npz").is_file());
+        assert!(out.join("modes.csv").is_file());
+        // the field file written again as the estimate said, to the byte
+        let size = std::fs::metadata(out.join("mode-1-of-1.npz"))
+            .unwrap()
+            .len();
+        assert_eq!(size, estimated[0].estimate);
         assert!(
             export_write(
                 run_dir,
                 vec![],
                 vec!["../job.toml".into()],
-                Some(out.display().to_string())
+                Some(out.display().to_string()),
+                "f64".into(),
+                6,
             )
             .is_err()
         );

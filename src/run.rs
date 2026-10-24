@@ -5,8 +5,11 @@
 //! run's directory, `<root>/<UTC time>-<name>/`, with a copy of the job as it was given
 //! (`job.toml`, `job.json` or `job.yaml`), what ran it (`meta.json`),
 //! and the record of what happened (`events.jsonl`, one JSON event per line, written as it
-//! happens so a window can follow a run live). [`replay`] reads the events back: a replayed run
-//! is the same run, to the last bit of every float.
+//! happens so a window can follow a run live). An event's long arrays (a picture's values, an
+//! FDTD frame's pixels) go into `events.bin` beside it, NumPy's `.npy` arrays one after another,
+//! and the line refers to each by where it starts ([`arrays`]): the record stays small to read.
+//! [`replay`] reads the events back, each array in its place again: a replayed run is the same
+//! run, to the last bit of every float.
 //!
 //! A [`Stop`] tells a running job to stop, when its deadline passes or when asked (a window
 //! closed, a user cancelled). Every long loop checks it.
@@ -24,6 +27,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::backend::Choice;
 use crate::{Error, Result};
+
+pub mod arrays;
 
 /// The job file's layout, the same in every [`Format`].
 #[derive(Deserialize, Serialize, JsonSchema)]
@@ -399,7 +404,11 @@ pub struct Run {
 /// Where a run's events go.
 #[derive(Debug)]
 enum Sink {
-    File(BufWriter<File>),
+    File {
+        events: BufWriter<File>,
+        /// `events.bin`, opened when the first array goes into it, and its length.
+        arrays: Option<(File, u64)>,
+    },
     Memory(Vec<String>),
     Discard,
 }
@@ -486,7 +495,10 @@ impl Run {
             .map_err(|e| io(&path, &e))?;
         Ok(Run {
             dir,
-            events: Sink::File(BufWriter::new(file)),
+            events: Sink::File {
+                events: BufWriter::new(file),
+                arrays: None,
+            },
             started: Instant::now(),
             digest: FNV_OFFSET,
             points: None,
@@ -600,7 +612,36 @@ impl Run {
             self.digest = (self.digest ^ u64::from(b)).wrapping_mul(FNV_PRIME);
         }
         match &mut self.events {
-            Sink::File(file) => {
+            Sink::File {
+                events: file,
+                arrays,
+            } => {
+                let at = arrays.as_ref().map_or(0, |(_, n)| *n);
+                let split = arrays::split(line, at);
+                let line = match &split {
+                    Some((short, bytes)) => {
+                        // the arrays first, so that a reader of the line finds them
+                        let path = self.dir.join(arrays::FILE);
+                        let (f, n) = match arrays {
+                            Some(open) => open,
+                            None => {
+                                // a new file in the run's new directory: its first byte is 0
+                                let f = OpenOptions::new()
+                                    .create_new(true)
+                                    .append(true)
+                                    .open(&path)
+                                    .map_err(|e| io(&path, &e))?;
+                                arrays.insert((f, 0))
+                            }
+                        };
+                        f.write_all(bytes)
+                            .and_then(|()| f.flush())
+                            .map_err(|e| io(&path, &e))?;
+                        *n += bytes.len() as u64;
+                        short.as_str()
+                    }
+                    None => line,
+                };
                 let path = self.dir.join("events.jsonl");
                 file.write_all(line.as_bytes())
                     .and_then(|()| file.write_all(b"\n"))
@@ -658,36 +699,64 @@ impl Run {
 const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
 const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
 
-/// The events of the run in `dir`, in order. A last line without its newline (a run killed
-/// while writing it) is left out.
+/// The events of the run in `dir`, in order, each array in its place again ([`arrays`]). A last
+/// line without its newline (a run killed while writing it) is left out.
 ///
 /// # Errors
 ///
-/// [`Error::Io`] if `events.jsonl` can't be read, and [`Error::Parse`] for a complete line
-/// that isn't an `E`.
+/// [`Error::Io`] if `events.jsonl` or `events.bin` can't be read, and [`Error::Parse`] for a
+/// complete line that isn't an `E`.
 pub fn replay<E: DeserializeOwned>(dir: &Path) -> Result<Vec<E>> {
+    let path = dir.join("events.jsonl");
+    let mut events = Vec::new();
+    each_line(dir, |number, line| {
+        let event = serde_json::from_str(line).map_err(|e| Error::Parse {
+            what: format!("{} line {number}", path.display()),
+            reason: e.to_string(),
+        })?;
+        events.push(event);
+        Ok(())
+    })?;
+    Ok(events)
+}
+
+/// The lines of the run in `dir`'s record as the run recorded them, each without its newline:
+/// every array `events.bin` holds written back into its line ([`arrays::Arrays::inline`]), the
+/// same bytes [`Run::record`] was given. A last line without its newline (a run killed while
+/// writing it) is left out.
+///
+/// # Errors
+///
+/// [`Error::Io`] if `events.jsonl` or `events.bin` can't be read, and [`Error::Parse`] for a
+/// reference to an array that isn't one.
+pub fn replay_lines(dir: &Path) -> Result<Vec<String>> {
+    let mut lines = Vec::new();
+    each_line(dir, |_, line| {
+        lines.push(line.to_owned());
+        Ok(())
+    })?;
+    Ok(lines)
+}
+
+/// Each complete line of the run in `dir`'s record, numbered from 1, its arrays in it again.
+fn each_line(dir: &Path, mut f: impl FnMut(usize, &str) -> Result<()>) -> Result<()> {
     let path = dir.join("events.jsonl");
     let file = File::open(&path).map_err(|e| io(&path, &e))?;
     let mut reader = BufReader::new(file);
-    let mut events = Vec::new();
+    let mut arrays = arrays::Arrays::new(dir);
     let mut line = String::new();
     let mut number = 0;
     loop {
         line.clear();
         if reader.read_line(&mut line).map_err(|e| io(&path, &e))? == 0 {
-            break;
+            return Ok(());
         }
         number += 1;
-        if !line.ends_with('\n') {
-            break; // cut off mid-write
-        }
-        let event = serde_json::from_str(line.trim_end()).map_err(|e| Error::Parse {
-            what: format!("{} line {number}", path.display()),
-            reason: e.to_string(),
-        })?;
-        events.push(event);
+        let Some(text) = line.strip_suffix('\n') else {
+            return Ok(()); // cut off mid-write
+        };
+        f(number, &arrays.inline(text)?)?;
     }
-    Ok(events)
 }
 
 /// Why a run stopped early.
@@ -903,6 +972,113 @@ mod tests {
         fs::write(&path, "{\"n\":1,\"value\":1.0}\nnot json\n").unwrap();
         let e = replay::<Step>(run.dir()).unwrap_err();
         assert!(e.to_string().contains("line 2"), "{e}");
+    }
+
+    /// An event with a picture in it, as the job's events have them.
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct Picture {
+        label: String,
+        raster: crate::raster::Raster,
+        data: String,
+    }
+
+    fn picture(n: usize, seed: f32) -> Picture {
+        let values: Vec<f32> = (0..n * n)
+            .map(|k| ((k as f32 * 0.013 + seed).sin() / 7.0).powi(2))
+            .collect();
+        let bytes: Vec<u8> = (0..n * n).map(|k| (k * 31 + n) as u8).collect();
+        Picture {
+            label: format!("picture {seed}"),
+            raster: crate::raster::Raster {
+                nx: n,
+                ny: n,
+                x0: -1.0,
+                x1: 1.0,
+                y0: -0.5,
+                y1: 0.5,
+                values,
+            },
+            data: arrays::base64(&bytes),
+        }
+    }
+
+    /// The heavy arrays go into `events.bin`, the record keeps the rest, and a replay gives back
+    /// every line the run was given, byte for byte, and every event to the bit.
+    #[test]
+    fn heavy_arrays_go_beside_the_record_and_replay_to_the_bit() {
+        let root = TempDir::new();
+        let mut run = Run::create(&root.0, &Job::parse(JOB).unwrap()).unwrap();
+        let mut memory = Run::in_memory();
+        let events = [picture(64, 0.0), picture(3, 1.0), picture(120, 2.0)];
+        for e in &events {
+            run.record(&Step { n: 1, value: 0.5 }).unwrap();
+            run.record(e).unwrap();
+            memory.record(&Step { n: 1, value: 0.5 }).unwrap();
+            memory.record(e).unwrap();
+        }
+        assert_eq!(run.digest(), memory.digest());
+        let dir = run.dir().to_path_buf();
+        let record = fs::read_to_string(dir.join("events.jsonl")).unwrap();
+        let inline: usize = memory.lines().iter().map(|l| l.len() + 1).sum();
+        assert!(
+            record.len() * 20 < inline,
+            "{} bytes, inline {inline}",
+            record.len()
+        );
+        // the small picture's arrays stay in its line; the two large ones' are referred to
+        assert_eq!(record.matches("{\"$npy\":").count(), 4, "{record}");
+        assert!(dir.join(arrays::FILE).is_file());
+        assert_eq!(replay_lines(&dir).unwrap(), memory.lines());
+        let back: Vec<serde_json::Value> = replay(&dir).unwrap();
+        let pictures: Vec<Picture> = back
+            .iter()
+            .skip(1)
+            .step_by(2)
+            .map(|v| serde_json::from_value(v.clone()).unwrap())
+            .collect();
+        assert_eq!(pictures.len(), events.len());
+        for (a, b) in pictures.iter().zip(&events) {
+            assert_eq!(a.data, b.data);
+            assert!(
+                a.raster
+                    .values
+                    .iter()
+                    .zip(&b.raster.values)
+                    .all(|(x, y)| x.to_bits() == y.to_bits())
+            );
+            assert_eq!(a, b);
+        }
+        // a line's array is in the file before the line is: a reader of every line finds it
+        let mut reader = arrays::Arrays::new(&dir);
+        for line in record.lines() {
+            reader.inline(line).unwrap();
+        }
+    }
+
+    /// A run recorded before `events.bin`, every array in its line, replays as it did.
+    #[test]
+    fn a_record_with_its_arrays_inline_replays_as_before() {
+        let root = TempDir::new();
+        let run = Run::create(&root.0, &Job::parse(JOB).unwrap()).unwrap();
+        let dir = run.dir().to_path_buf();
+        drop(run);
+        let events = [picture(64, 0.5), picture(80, 1.5)];
+        let text: String = events
+            .iter()
+            .map(|e| serde_json::to_string(e).unwrap() + "\n")
+            .collect();
+        fs::write(dir.join("events.jsonl"), &text).unwrap();
+        assert!(!dir.join(arrays::FILE).exists());
+        let back: Vec<Picture> = replay(&dir).unwrap();
+        assert_eq!(back, events);
+        let lines: Vec<String> = text.lines().map(str::to_owned).collect();
+        assert_eq!(replay_lines(&dir).unwrap(), lines);
+        // and a record that refers to arrays whose file is gone says so
+        let mut run = Run::create(&root.0, &Job::parse(JOB).unwrap()).unwrap();
+        run.record(&events[0]).unwrap();
+        fs::remove_file(run.dir().join(arrays::FILE)).unwrap();
+        let e = replay::<Picture>(run.dir()).unwrap_err();
+        assert!(e.to_string().contains(arrays::FILE), "{e}");
     }
 
     #[test]

@@ -1993,26 +1993,10 @@ fn plane_values(sim: &Simulation, shown: Shown, k: usize) -> Vec<f64> {
     }
 }
 
-/// The base64 of `bytes` (RFC 4648, with padding).
+/// The base64 of `bytes` (RFC 4648, with padding): the run's own, which reads it back when it
+/// keeps a frame's pixels in `events.bin` ([`crate::run::arrays`]).
 fn base64(bytes: &[u8]) -> String {
-    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    for chunk in bytes.chunks(3) {
-        let b = [
-            chunk[0],
-            chunk.get(1).copied().unwrap_or(0),
-            chunk.get(2).copied().unwrap_or(0),
-        ];
-        let n = (u32::from(b[0]) << 16) | (u32::from(b[1]) << 8) | u32::from(b[2]);
-        for (k, shift) in [18, 12, 6, 0].into_iter().enumerate() {
-            if k <= chunk.len() {
-                out.push(TABLE[((n >> shift) & 63) as usize] as char);
-            } else {
-                out.push('=');
-            }
-        }
-    }
-    out
+    crate::run::arrays::base64(bytes)
 }
 
 /// A frame of the field on the pictured part of plane k: averaged over blocks of cells so that
@@ -3100,6 +3084,7 @@ time_um = 160.0
         let (arrays, meta) = crate::export::read::npz(&run.dir().join("field-1.npz"));
         assert!(meta.contains("Yee"), "{meta}");
         assert!(run.dir().join("spectra.csv").exists());
+        crate::export::assert_estimates(&run.dir().join("field-1.npz"));
         let _ = std::fs::remove_dir_all(&root);
 
         let x = arrays["x_um"].f64s();

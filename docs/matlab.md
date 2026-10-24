@@ -21,6 +21,8 @@ The wrappers take MATLAB's arrays, structs and name-value arguments and return M
 | [`photonoxide.device_job`](#photonoxidedevice_job) | The job file that computes a device's design. |
 | [`photonoxide.device_spectrum`](#photonoxidedevice_spectrum) | A device's S-parameters at a fidelity. |
 | [`photonoxide.devices`](#photonoxidedevices) | The devices of photonoxide's library. |
+| [`photonoxide.estimate_fields`](#photonoxideestimate_fields) | The field files of a photonoxide run, their sizes estimated before writing. |
+| [`photonoxide.export_fields`](#photonoxideexport_fields) | Writes a photonoxide run's field files again, into another folder. |
 | [`photonoxide.export_run`](#photonoxideexport_run) | Writes a photonoxide run's tables as CSV files. |
 | [`photonoxide.fdfd_s_parameters`](#photonoxidefdfd_s_parameters) | The S-parameters of an "fdfd" job's device by 2D FDFD. |
 | [`photonoxide.group_index`](#photonoxidegroup_index) | The bulk group index n - lambda dn/dlambda of a material of photonoxide's catalogue. |
@@ -189,6 +191,56 @@ d = photonoxide.devices() is a struct array, one element per device: d(k).kind (
 device functions take, e.g. "directional coupler"), d(k).about, d(k).parameters (a struct
 array: name, unit, default, min, max), d(k).fidelities (its models, cheapest first:
 fidelity, name, write_up, papers, error, validity) and d(k).ports.
+
+## photonoxide.estimate_fields
+
+The field files of a photonoxide run, their sizes estimated before writing.
+
+```matlab
+f = photonoxide.estimate_fields(run_dir, options)
+```
+
+f = photonoxide.estimate_fields(run_dir) lists the field files of the run in run_dir (its
+.npz files, and a container's .h5), a struct array with each one's file, its bytes as the
+run wrote it, its estimate written again as asked, whether that estimate is exact, the
+precision its fields would have and whether it is rewritable (an .h5, or an .npz
+compressed with Zstandard, is copied as it is). Stored, the estimate is the size to the
+byte; deflated, it is for members up to 1 MiB, and from slices of larger ones.
+
+Options: precision, "f64" or "f32" (the fields downcast, the grid kept f64), and level,
+deflate's 0 (stored) to 9 (smallest).
+
+| Argument | Size | Class | Default |
+|---|---|---|---|
+| `run_dir` | scalar | string | required |
+| `precision` (name-value) | scalar | string | `"f64"` |
+| `level` (name-value) | scalar | double | `6` |
+
+## photonoxide.export_fields
+
+Writes a photonoxide run's field files again, into another folder.
+
+```matlab
+files = photonoxide.export_fields(run_dir, out_dir, options)
+```
+
+files = photonoxide.export_fields(run_dir, out_dir) writes every field file of the run in
+run_dir into out_dir, another folder, each written again at the precision and deflate level
+asked, its meta.json saying so, and returns the files written, a string array. An .h5, or
+an .npz compressed with Zstandard, is copied as it is. photonoxide.estimate_fields gives
+their sizes before writing.
+
+Options: files, the names of those to write ("mode-1-of-1.npz", ...; all of them when
+empty); precision, "f64" or "f32" (the fields downcast, the grid kept f64); and level,
+deflate's 0 (stored) to 9 (smallest).
+
+| Argument | Size | Class | Default |
+|---|---|---|---|
+| `run_dir` | scalar | string | required |
+| `out_dir` | scalar | string | required |
+| `files` (name-value) | 1-by-: | string | `string.empty` |
+| `precision` (name-value) | scalar | string | `"f64"` |
+| `level` (name-value) | scalar | double | `6` |
 
 ## photonoxide.export_run
 

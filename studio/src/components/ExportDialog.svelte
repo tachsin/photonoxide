@@ -1,11 +1,13 @@
 <script lang="ts">
   // A finished run's results as files (issue #431): its tables, chosen by checkbox, written as
-  // CSV into its folder or saved with its fields' .npz files into a folder of the user's.
+  // CSV into its folder or saved with its fields' .npz files into a folder of the user's, the
+  // fields written again at the precision and deflate level chosen, each one's size estimated
+  // before writing as the choice changes.
   import { Download, FileSpreadsheet, FolderOpen, X } from "@lucide/svelte";
   import { open as pick } from "@tauri-apps/plugin-dialog";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
 
-  import { api, type RunExports } from "../lib/api";
+  import { api, type FieldEstimate, type RunExports } from "../lib/api";
   import { toast } from "../lib/app.svelte";
 
   let { open, dir, onclose }: { open: boolean; dir: string; onclose: () => void } = $props();
@@ -14,6 +16,11 @@
   let tables = $state<Record<string, boolean>>({});
   let files = $state<Record<string, boolean>>({});
   let busy = $state(false);
+  let precision = $state("f64");
+  let level = $state(6);
+  let estimates = $state<Record<string, FieldEstimate>>({});
+  /** The choice the estimates are for, so that a late answer to an older one is dropped. */
+  let asked = "";
 
   async function load() {
     try {
@@ -30,14 +37,34 @@
     if (open && dir) void load();
   });
 
+  async function estimate(dir: string, precision: string, level: number) {
+    const key = `${dir}|${precision}|${level}`;
+    asked = key;
+    try {
+      const found = await api.exportEstimate(dir, precision, level);
+      if (asked === key) estimates = Object.fromEntries(found.map((e) => [e.file, e]));
+    } catch (e) {
+      if (asked === key) estimates = {};
+      toast(String(e), "error");
+    }
+  }
+
+  $effect(() => {
+    if (open && dir && exports) void estimate(dir, precision, level);
+  });
+
   const chosenTables = $derived(Object.keys(tables).filter((t) => tables[t]));
   const chosenFiles = $derived(Object.keys(files).filter((f) => files[f]));
   const fields = $derived(exports?.files.filter((f) => f.name.endsWith(".npz")) ?? []);
-  /** The bytes the choice writes: each table's text, each field file's size. */
+  /** The bytes a field file takes saved: its estimate written again, or its size until that comes. */
+  const saved = (name: string, bytes: number) => estimates[name]?.estimate ?? bytes;
+  /** The bytes the choice writes: each table's text, each field file's estimated size. */
   const size = $derived(
     (exports?.tables.filter((t) => tables[t.name]).reduce((s, t) => s + t.bytes, 0) ?? 0) +
-      fields.filter((f) => files[f.name]).reduce((s, f) => s + f.bytes, 0),
+      fields.filter((f) => files[f.name]).reduce((s, f) => s + saved(f.name, f.bytes), 0),
   );
+  /** Whether every size in the total is known to the byte. */
+  const exact = $derived(fields.filter((f) => files[f.name]).every((f) => estimates[f.name]?.exact ?? true));
 
   function bytes(n: number): string {
     if (n < 1024) return `${n} B`;
@@ -48,7 +75,7 @@
   async function write(to: string | null) {
     busy = true;
     try {
-      const written = await api.exportWrite(dir, chosenTables, to ? chosenFiles : [], to);
+      const written = await api.exportWrite(dir, chosenTables, to ? chosenFiles : [], to, precision, level);
       toast(`${written.length} file${written.length === 1 ? "" : "s"} written`, "success");
       if (to && written.length) await revealItemInDir(written[0]);
       await load();
@@ -95,17 +122,42 @@
         {#if fields.length === 0}
           <p class="faint">None written. A job's <code>[task.export]</code> writes them as it runs (<code>fields = ["Ex", "Hy"]</code>): a field is the solver's state, which a finished run no longer has.</p>
         {/if}
+        {#if fields.length > 0}
+          <div class="mb-2 flex flex-wrap items-center gap-3 text-xs">
+            <label class="flex items-center gap-2" title="f32 halves the fields, each number downcast; the grid stays f64">
+              <span class="faint">Precision</span>
+              <select class="select select-xs w-36" bind:value={precision}>
+                <option value="f64">f64, as computed</option>
+                <option value="f32">f32, downcast</option>
+              </select>
+            </label>
+            <label class="flex items-center gap-2" title="Deflate, lossless: 0 stores, 9 is smallest">
+              <span class="faint">Level</span>
+              <select class="select select-xs w-28" bind:value={level}>
+                {#each [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as l (l)}
+                  <option value={l}>{l === 0 ? "0, stored" : l === 9 ? "9, smallest" : l}</option>
+                {/each}
+              </select>
+            </label>
+          </div>
+        {/if}
         {#each fields as f (f.name)}
+          {@const e = estimates[f.name]}
           <label class="flex cursor-pointer items-center gap-2 py-1">
             <input type="checkbox" class="checkbox checkbox-sm" bind:checked={files[f.name]} />
             <span class="font-mono">{f.name}</span>
-            <span class="ml-auto num faint">{bytes(f.bytes)}</span>
+            <span
+              class="ml-auto num faint"
+              title={e && !e.rewritable ? "Compressed with Zstandard: copied as it is" : e && !e.exact ? "Estimated from slices of the file" : "Its size written, to the byte"}
+            >
+              {bytes(f.bytes)}{#if e && e.rewritable} → {e.exact ? "" : "≈ "}{bytes(e.estimate)}{#if e.precision !== precision}&nbsp;({e.precision}){/if}{/if}
+            </span>
           </label>
         {/each}
       {/if}
     </div>
     <div class="flex items-center gap-2 border-t border-base-content/8 px-6 py-3">
-      <span class="num text-xs faint">{bytes(size)}</span>
+      <span class="num text-xs faint" title="What the choice writes, estimated before writing">{exact ? "" : "≈ "}{bytes(size)}</span>
       <button class="btn btn-ghost btn-sm ml-auto gap-1" onclick={() => revealItemInDir(dir)}><FolderOpen size={14} /> The run's folder</button>
       <button class="btn btn-ghost btn-sm" disabled={busy || chosenTables.length === 0} onclick={() => write(null)} title="Write the tables chosen into the run's own folder">Write the tables</button>
       <button class="btn btn-primary btn-sm" disabled={busy || chosenTables.length + chosenFiles.length === 0} onclick={saveTo} title="Write the tables and copy the field files chosen into a folder of yours">Save to a folder…</button>

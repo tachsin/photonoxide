@@ -121,7 +121,7 @@ area shifter  "src/thermal/*"   "mode material statics thermo"   "thermal::shift
 # docs/job.schema.json is the schema job::schema writes, which its tests check; tests/jobs-toml
 # holds the jobs as TOML, as they were before they were YAML, which the tests read and compare
 area job \
-  "src/job/* src/run.rs src/farm.rs src/farm/* jobs/* tests/jobs-toml/* docs/job.schema.json" \
+  "src/job/* src/run.rs src/run/* src/farm.rs src/farm/* jobs/* tests/jobs-toml/* docs/job.schema.json" \
   "material mode sparse fdfd fdtd circuit device generator statics shifter export convergence" \
   "job:: run:: farm::" "job/ generator/job- device/study- device/compact- optimize/ chip/" "optimize_chip_rings"
 

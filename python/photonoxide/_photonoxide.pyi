@@ -111,4 +111,14 @@ def export_run(
     tables: list[str] | None,
     out_dir: str | PathLike[str] | None,
 ) -> list[str]: ...
+def estimate_fields(
+    run_dir: str | PathLike[str], precision: str, level: int
+) -> list[dict[str, Any]]: ...
+def export_fields(
+    run_dir: str | PathLike[str],
+    files: list[str] | None,
+    out_dir: str | PathLike[str],
+    precision: str,
+    level: int,
+) -> list[str]: ...
 def _conformance(scratch: str | PathLike[str]) -> list[dict[str, Any]]: ...

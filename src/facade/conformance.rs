@@ -8,9 +8,9 @@ use super::{
     CrossSection, DeviceDesign, DeviceFigure, DeviceGeometry, DeviceInfo, DeviceSpectrum,
     IndexModelInfo, IndexOptions, JobSource, MaterialInfo, SParameters, SlabMode, Spectrum,
     StackInfo, Stop, VectorMode, check_job, circuit_spectrum, device_derived, device_geometry,
-    device_job, device_spectrum, device_spectrum_until, devices, export_run, fdfd_s_parameters,
-    group_index, materials, read_touchstone, refractive_index, run_job, run_tables, slab_modes,
-    stacks, vector_modes, write_touchstone,
+    device_job, device_spectrum, device_spectrum_until, devices, estimate_fields, export_fields,
+    export_run, fdfd_s_parameters, group_index, materials, read_touchstone, refractive_index,
+    run_job, run_tables, slab_modes, stacks, vector_modes, write_touchstone,
 };
 use crate::Complex64 as c64;
 use crate::{Error, Result};
@@ -293,6 +293,14 @@ pub(super) fn modes_job() -> Value {
     })
 }
 
+/// [`modes_job`] with its fields written: the mode's E_y and H_z as an `.npz`.
+pub(super) fn modes_fields_job() -> Value {
+    let mut job = modes_job();
+    job["name"] = json!("conformance-fields");
+    job["task"]["export"] = json!({"fields": ["Ey", "Hz"]});
+    job
+}
+
 /// A small `"fdfd"` job, as data: a straight 500 nm guide between two ports on a 50 nm grid.
 fn fdfd_job() -> Value {
     json!({
@@ -568,6 +576,46 @@ pub fn conformance(scratch: &Path) -> Result<Vec<Case>> {
         "export_run",
         &json!({"run_dir": run.dir.display().to_string(), "tables": ["modes"],
                 "out_dir": scratch.join("exported-by-binding").display().to_string()}),
+        &Value::Object(files),
+        &[],
+    ));
+    // a run's field files: their sizes estimated at f32 and level 9, and written again so
+    let run = run_job(&job(&modes_fields_job()), &runs, &Stop::new(None))?;
+    let estimates: Vec<Value> = estimate_fields(&run.dir, "f32", 9)?
+        .iter()
+        .map(|f| {
+            json!({"file": f.file, "bytes": f.bytes, "estimate": f.estimate, "exact": f.exact,
+                   "precision": f.precision, "rewritable": f.rewritable})
+        })
+        .collect();
+    cases.push(case(
+        "estimate_fields/modes",
+        "estimate_fields",
+        &json!({"run_dir": run.dir.display().to_string(), "precision": "f32", "level": 9}),
+        &Value::Array(estimates),
+        &[],
+    ));
+    let written = export_fields(&run.dir, None, &scratch.join("fields-by-rust"), "f32", 9)?;
+    // each file's size and CRC-32 (zlib's, in Python), by its name
+    let files: serde_json::Map<String, Value> = written
+        .iter()
+        .map(|p| {
+            let bytes = std::fs::read(p).map_err(|e| Error::Io {
+                path: p.display().to_string(),
+                reason: e.to_string(),
+            })?;
+            let name = p
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            Ok((name, json!([bytes.len(), crc32fast::hash(&bytes)])))
+        })
+        .collect::<Result<_>>()?;
+    cases.push(case(
+        "export_fields/modes",
+        "export_fields",
+        &json!({"run_dir": run.dir.display().to_string(), "precision": "f32", "level": 9,
+                "out_dir": scratch.join("fields-by-binding").display().to_string()}),
         &Value::Object(files),
         &[],
     ));

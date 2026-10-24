@@ -28,6 +28,7 @@ A stopped run's folder holds what was done before it stopped.
 | `job.yaml`, `job.toml` or `job.json` | the job, as it was given |
 | `meta.json` | what ran it: `photonoxide` (the version), `job` (its name), `started` (UTC, `2026-10-01T12:00:00Z`), `threads` (the machine's) |
 | `events.jsonl` | the record, one JSON event a line, written as the run goes: what the studio's views show |
+| `events.bin` | the record's long arrays (its pictures, an FDTD run's frames), NumPy `.npy` arrays one after another, each line referring to its own by where it starts |
 | `results.json` | the run's numbers, written when it ends however it ends: what a script reads |
 | `*.f64`, `*.c128` | `results.json`'s large arrays, as raw numbers |
 | `*.csv` | the run's tables, written when it ends: n_eff, S-parameters, spectra, a study's points, an optimization's history, a static job's numbers ([export](methods/export.md)) |
@@ -139,3 +140,10 @@ since new ones are added. The record starts with `started` and ends with `finish
 last line may be cut off mid-write. The events' pictures are for the studio's views: `f32`,
 normalized to a peak of 1. For the numbers, read `results.json`. The events are documented
 field by field in the library's `job::Event`.
+
+A long array of an event (256 numbers or more, or a base64 string of 1024 characters or more)
+is in `events.bin`, and the line has `{"$npy": <offset>}` in its place: the byte where its
+`.npy` starts (`f.seek(offset); numpy.load(f)`). The library's `run::replay` and
+`run::replay_lines` put each one back, the line then the very text the run recorded
+([export](methods/export.md#the-runs-arrays)). Runs recorded before have their arrays in their
+lines.

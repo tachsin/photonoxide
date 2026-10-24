@@ -14,7 +14,8 @@
 //! - jobs: [`check_job`], [`run_job`] (a run's record, as the studio's), and an `"fdfd"` job's
 //!   S-parameters, [`fdfd_s_parameters`];
 //! - a run's tables, its numbers column by column, [`run_tables`], and written as CSV,
-//!   [`export_run`] ([`crate::export`]);
+//!   [`export_run`] ([`crate::export`]); its field files with their sizes estimated at a
+//!   precision and a level, [`estimate_fields`], and written again so, [`export_fields`];
 //! - circuits from a netlist given as data, [`circuit_spectrum`];
 //! - Touchstone files: [`read_touchstone`], [`write_touchstone`];
 //! - devices, the components that know their geometry ([`crate::device`]): the library's,
@@ -869,4 +870,178 @@ pub fn export_run(
         })
         .transpose()?;
     crate::export::tables::write_tables_into(run_dir, out_dir.unwrap_or(run_dir), which.as_deref())
+}
+
+/// A field file of a run (an `.npz`, or a container's `.h5`), and its size written again at a
+/// precision and a deflate level, estimated before writing it ([`crate::export::estimate`]).
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct FieldFile {
+    /// Its name in the run's folder, e.g. `"mode-1-of-2.npz"`.
+    pub file: String,
+    /// Its size as the run wrote it, bytes.
+    pub bytes: u64,
+    /// Its size written again at the precision and level asked, bytes; [`FieldFile::bytes`]
+    /// for a file that is copied as it is.
+    pub estimate: u64,
+    /// Whether [`FieldFile::estimate`] is the size to the byte (stored, or every member small
+    /// enough to deflate whole), not an estimate from slices of it.
+    pub exact: bool,
+    /// The precision its fields have written again, `"f64"` or `"f32"` (an `f32` file stays
+    /// `f32`); `"as written"` for a file copied as it is.
+    pub precision: String,
+    /// Whether it can be written again: an `.npz` of photonoxide's own deflate or stored; an
+    /// `.h5`, or an `.npz` compressed with Zstandard, is copied as it is.
+    pub rewritable: bool,
+}
+
+fn precision_named(precision: &str) -> Result<crate::export::Precision> {
+    match precision {
+        "f64" => Ok(crate::export::Precision::F64),
+        "f32" => Ok(crate::export::Precision::F32),
+        other => Err(Error::invalid(
+            "precision",
+            format!("\"{other}\" isn't one: \"f64\" or \"f32\""),
+        )),
+    }
+}
+
+/// The field files in `run_dir`, by name.
+fn field_files(run_dir: &Path) -> Result<Vec<String>> {
+    let mut names: Vec<String> = std::fs::read_dir(run_dir)
+        .map_err(|e| Error::Io {
+            path: run_dir.display().to_string(),
+            reason: e.to_string(),
+        })?
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.ends_with(".npz") || n.ends_with(".h5"))
+        .collect();
+    names.sort();
+    Ok(names)
+}
+
+fn field_file(run_dir: &Path, name: &str, precision: &str, level: u8) -> Result<FieldFile> {
+    let path = run_dir.join(name);
+    let bytes = std::fs::metadata(&path)
+        .map_err(|e| Error::Io {
+            path: path.display().to_string(),
+            reason: e.to_string(),
+        })?
+        .len();
+    let copied = FieldFile {
+        file: name.to_owned(),
+        bytes,
+        estimate: bytes,
+        exact: true,
+        precision: "as written".into(),
+        rewritable: false,
+    };
+    if !name.ends_with(".npz") {
+        return Ok(copied);
+    }
+    match crate::export::estimate(&path, precision_named(precision)?, level) {
+        Ok(e) => Ok(FieldFile {
+            estimate: e.bytes,
+            exact: e.exact,
+            precision: match e.precision {
+                crate::export::Precision::F64 => "f64",
+                crate::export::Precision::F32 => "f32",
+            }
+            .into(),
+            rewritable: true,
+            ..copied
+        }),
+        // Zstandard's members: photonoxide reads them only through libzstd
+        Err(Error::InvalidValue { .. }) => Ok(copied),
+        Err(e) => Err(e),
+    }
+}
+
+/// The field files of the run in `run_dir` (its `.npz` files, and a container's `.h5`), each
+/// with its size and its size written again at `precision` (`"f64"` or `"f32"`) and deflate
+/// `level` (0 stores, 1 to 9 deflate), estimated before writing: what [`export_fields`] would
+/// write.
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] for a precision that isn't one; [`Error::Io`] if the folder or a
+/// file can't be read; [`Error::Parse`] for an `.npz` photonoxide didn't write.
+pub fn estimate_fields(run_dir: &Path, precision: &str, level: u8) -> Result<Vec<FieldFile>> {
+    precision_named(precision)?;
+    field_files(run_dir)?
+        .iter()
+        .map(|name| field_file(run_dir, name, precision, level))
+        .collect()
+}
+
+/// Writes the field files of the run in `run_dir` into `out_dir` (another folder; made if it
+/// isn't there): those named in `files` (every one when `None`), each written again at
+/// `precision` (`"f64"` or `"f32"`: the fields downcast, the grid kept `f64`) and deflate
+/// `level` (0 stores, 1 to 9 deflate), its `meta.json` saying so; an `.h5`, or an `.npz`
+/// compressed with Zstandard, copied as it is. Returns the files written.
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] for a precision that isn't one, a file that isn't one of the run's
+/// field files, or `out_dir` the run's own folder; [`Error::Io`] if a file can't be read or
+/// written.
+pub fn export_fields(
+    run_dir: &Path,
+    files: Option<&[String]>,
+    out_dir: &Path,
+    precision: &str,
+    level: u8,
+) -> Result<Vec<PathBuf>> {
+    let p = precision_named(precision)?;
+    let io = |path: &Path, e: std::io::Error| Error::Io {
+        path: path.display().to_string(),
+        reason: e.to_string(),
+    };
+    std::fs::create_dir_all(out_dir).map_err(|e| io(out_dir, e))?;
+    let same = std::fs::canonicalize(run_dir).map_err(|e| io(run_dir, e))?
+        == std::fs::canonicalize(out_dir).map_err(|e| io(out_dir, e))?;
+    if same {
+        return Err(Error::invalid(
+            "out_dir",
+            "is the run's own folder: its fields would be written over",
+        ));
+    }
+    let all = field_files(run_dir)?;
+    let chosen: Vec<String> = match files {
+        None => all.clone(),
+        Some(names) => names.to_vec(),
+    };
+    let mut written = Vec::with_capacity(chosen.len());
+    for name in &chosen {
+        if !all.contains(name) {
+            return Err(Error::invalid(
+                "field file",
+                format!(
+                    "\"{name}\" isn't one of the run's: {}",
+                    if all.is_empty() {
+                        "it has none".to_owned()
+                    } else {
+                        all.join(", ")
+                    }
+                ),
+            ));
+        }
+        let (from, to) = (run_dir.join(name), out_dir.join(name));
+        let rewritten = if name.ends_with(".npz") {
+            match crate::export::rewrite(&from, &to, p, level) {
+                Ok(_) => true,
+                // Zstandard's members: photonoxide reads them only through libzstd
+                Err(Error::InvalidValue { .. }) => false,
+                Err(e) => return Err(e),
+            }
+        } else {
+            false
+        };
+        if !rewritten {
+            std::fs::copy(&from, &to).map_err(|e| io(&to, e))?;
+        }
+        written.push(to);
+    }
+    Ok(written)
 }
