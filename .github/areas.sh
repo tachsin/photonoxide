@@ -161,12 +161,13 @@ area circuit \
   "circuit_fit circuit_ring_critical circuit_splitter optimize_ring_flat optimize_mzi_lattice optimize_ring_pareto optimize_mesh ring_q_factor directional_coupler mzi_dwivedi"
 
 # the devices: components that know their geometry, built from the circuit's components on the
-# mode solvers' cross-sections and by FDFD of their own drawings (through the 2D jobs' plane)
+# mode solvers' cross-sections and by FDFD of their own drawings (through the 2D jobs' plane);
+# the thermo-optic phase shifters on the static solver and the shifter's chain (src/thermal)
 area device \
   "src/device.rs src/device/*" \
-  "material mode circuit generator fdfd job compact" \
+  "material mode circuit generator fdfd job compact statics shifter" \
   "device::" "device/" \
-  "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss rib_hadley mmi_soldano y_junction_zhang"
+  "strip_waveguide directional_coupler mzi_dwivedi ring_q_factor bend_loss rib_hadley mmi_soldano y_junction_zhang thermo_jacques"
 
 area compact \
   "src/compact/*" \

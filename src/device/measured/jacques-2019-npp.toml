@@ -1,0 +1,35 @@
+# Jacques et al. 2019's fabricated N++ silicon shifter, as they measured it: the doped
+# thermo-optic phase shifter's measured fidelity (photonoxide::device::Measurement). Read
+# 2026-10-24 from the paper.
+kind = "doped thermo-optic phase shifter"
+source = "M. Jacques, A. Samani, E. El-Fiky, D. Patel, Z. Xing, D. V. Plant, Opt. Express 27, 10456 (2019), doi:10.1364/OE.27.010456: the fabricated N++ silicon heater (Section 2.3, Fig. 4: two strips 1.0 um wide in the 90 nm slab, 0.8 um beyond the 500 x 220 nm rib, 320 um long), measured in a tunable MZI (Section 3)"
+
+# what the paper gives of the design; the cladding over it it doesn't
+[design]
+width = 0.5
+thickness = 0.22
+slab = 0.09
+heater_width = 1.0
+buffer = 0.8
+length = 320.0
+
+[[figure]]
+symbol = "P_pi"
+name = "power for a π shift"
+value = 22.8
+unit = "mW"
+where = "Section 3.1 and Fig. 8, the MZI's arms 200 um apart, the widest pitch measured (23.3 mW at 50 um; Fig. 7's fits 23.2 +- 0.7, 22.7 +- 1.1 and 22.1 +- 1.4 mW)"
+
+[[figure]]
+symbol = "tau"
+name = "1/e time, the limiting one"
+value = 2.2
+unit = "µs"
+where = "Section 3.2 and Fig. 10(b), the rise (the fall 2.0 us)"
+
+[[figure]]
+symbol = "f_3dB"
+name = "−3 dB frequency"
+value = 85.0
+unit = "kHz"
+where = "Section 3.2 and Fig. 10(a)"

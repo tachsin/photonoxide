@@ -23,7 +23,7 @@ use photonoxide::compact::Measured;
 use photonoxide::compact::touchstone::{Convention, Touchstone};
 use photonoxide::device::{
     Device, Mesh, RibWaveguide, Scheme, StripBend, StripCoupler, StripMmi, StripMzi, StripRing,
-    StripWaveguide, StripYBranch, Values,
+    StripWaveguide, StripYBranch, ThermoShifter, Values,
 };
 use photonoxide::material::{self, Material, Model, Provenance};
 use photonoxide::stack::{Layer, LayerStack};
@@ -218,6 +218,14 @@ fn mzi_y_branches() -> Built {
     once!(analytic(&StripMzi::y_branches()))
 }
 
+fn thermo_metal() -> Built {
+    once!(analytic(&ThermoShifter::metal()))
+}
+
+fn thermo_doped() -> Built {
+    once!(analytic(&ThermoShifter::doped()))
+}
+
 fn ring_all_pass() -> Built {
     once!(analytic(&StripRing::all_pass()))
 }
@@ -399,6 +407,26 @@ pub fn entries() -> Vec<Entry> {
             equation: r"S_{21} = \frac{10^{-A/10}}{2} \left(e^{i(\gamma L_u + \varphi)} + e^{i\gamma L_l}\right)",
             glyph: Glyph::Mzi,
             build: mzi_y_branches,
+        },
+        Entry {
+            id: "thermo-optic-shifter",
+            title: "Thermo-optic phase shifter",
+            variant: "metal heater",
+            category: "Active",
+            about: "Jacques et al.'s TiN heater 7.5 µm wide, 2 µm over a 500 × 220 nm strip, 320 µm long: the phase its power adds, P_π by its closed forms (the oxide as a slab, Marcatili's dn_eff/dT).",
+            equation: r"\varphi = \pi \frac{P}{P_\pi},\qquad P_\pi = \frac{\lambda}{2\,\partial n_\mathrm{eff}/\partial P'}",
+            glyph: Glyph::PhaseShifter,
+            build: thermo_metal,
+        },
+        Entry {
+            id: "doped-thermo-optic-shifter",
+            title: "Thermo-optic phase shifter",
+            variant: "doped heaters",
+            category: "Active",
+            about: "Jacques et al.'s N++ silicon heaters, 1 µm strips in the 90 nm slab 0.8 µm beyond a 500 × 220 nm rib, 320 µm long: the phase their power adds, P_π by its closed forms.",
+            equation: r"\varphi = \pi \frac{P}{P_\pi},\qquad P_\pi = \frac{\lambda}{2\,\partial n_\mathrm{eff}/\partial P'}",
+            glyph: Glyph::PhaseShifter,
+            build: thermo_doped,
         },
         Entry {
             id: "terminator",
