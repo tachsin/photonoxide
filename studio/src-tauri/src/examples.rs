@@ -421,6 +421,10 @@ pub fn jobs() -> Vec<JobExample> {
             include_str!("../../../jobs/tfln-line.yaml"),
         ),
         (
+            "tfln-segmented.yaml",
+            include_str!("../../../jobs/tfln-segmented.yaml"),
+        ),
+        (
             "coupler-gap-sweep.yaml",
             include_str!("../../../jobs/coupler-gap-sweep.yaml"),
         ),

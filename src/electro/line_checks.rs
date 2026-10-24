@@ -9,7 +9,7 @@
 //! niobate (c across) on a buried oxide over the silicon substrate, a rib in the gap, the metal
 //! on the slab, an oxide cladding and air above, every side of the window insulated.
 
-use super::line::{DB_PER_NEPER, Drive, Metal, QuasiTem, Wave, falls_to, response};
+use super::line::{DB_PER_NEPER, Drive, Metal, Periodic, QuasiTem, Wave, falls_to, response};
 use super::{Boundary, Conductor, Electrostatic, Features, Grading, Grid, Section, Side, Tensor};
 use crate::geometry::{Point, Polygon, Shape};
 use crate::statics::elliptic_k;
@@ -253,6 +253,19 @@ impl Cpw {
 
     /// The electrostatic problem on a grid graded from `smallest` by 15% a cell to 20 µm.
     pub(crate) fn electrostatic(&self, smallest: f64) -> Electrostatic {
+        self.with_rails(smallest, None, false)
+    }
+
+    /// The same with T-rails `rails` = (h, s) in the gap: the signal's from h to h + s beyond
+    /// its edge, the ground's as far inside its own, both as thick as the metal, the grid
+    /// fitted to them. `loaded`: the rails drawn, as conductors 2 (the signal's) and 3 (the
+    /// ground's); otherwise only the grid has them.
+    pub(crate) fn with_rails(
+        &self,
+        smallest: f64,
+        rails: Option<(f64, f64)>,
+        loaded: bool,
+    ) -> Electrostatic {
         let (perpendicular, along_c) =
             crate::mode::pockels::checks::Coefficients::Clamped.static_permittivity();
         let outer = self.signal + self.gap + self.ground;
@@ -293,6 +306,16 @@ impl Cpw {
         let ground = rect([self.signal + self.gap, outer], y);
         let mut features: Features = section.features().clone();
         features.shape(&signal).shape(&ground).line_x(0.0);
+        let rail_shapes = rails.map(|(h, s)| {
+            let inner = self.signal + self.gap;
+            (
+                rect([self.signal + h, self.signal + h + s], y),
+                rect([inner - h - s, inner - h], y),
+            )
+        });
+        if let Some((a, b)) = &rail_shapes {
+            features.shape(a).shape(b);
+        }
         let grid = Grid::fitted(
             [0.0, right],
             [bottom, top],
@@ -310,6 +333,11 @@ impl Cpw {
             .permittivity("LN", Tensor::diagonal(along_c, perpendicular))
             .conductor(Conductor::shape(signal, 1.0))
             .conductor(Conductor::shape(ground, 0.0));
+        if let (true, Some((a, b))) = (loaded, rail_shapes) {
+            problem
+                .conductor(Conductor::shape(a, 1.0))
+                .conductor(Conductor::shape(b, 0.0));
+        }
         problem
     }
 
@@ -549,7 +577,336 @@ pub(crate) fn zhang_bandwidth(mm: f64, smallest: f64) -> f64 {
         .map_or(f64::INFINITY, |f| f / 1e9)
 }
 
-/// The cases.
+// ---------------------------------------------------------------------------------------------
+// Segmented electrodes
+// ---------------------------------------------------------------------------------------------
+
+/// Quartz's relative permittivity, Kharel et al.'s (their Section 2: "ε_Qz = 4.5").
+pub(crate) const QUARTZ_EPS: f64 = 4.5;
+
+/// A segmented (T-rail) electrode as Kharel et al.'s Fig. 1 draws it (µm): the channel line
+/// `cpw` (its gap g + 2(h + s)), each rail `s` wide across, `h` from its channel (the stem's
+/// length), `r` long along the line, `c` between rails; the stems (t wide along the line, in
+/// the middle of each rail) leave the field where the rail meets its channel's potential, so
+/// a period is the loaded section r long between halves of the channel line's c.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Segmented {
+    /// The channel line.
+    pub cpw: Cpw,
+    /// The rail's distance from its channel.
+    pub h: f64,
+    /// The rail's width across.
+    pub s: f64,
+    /// The rail's length along the line.
+    pub r: f64,
+    /// The gap between rails along the line.
+    pub c: f64,
+}
+
+impl Segmented {
+    /// The channel line and the line loaded by the rails (Shin et al.'s, its inductance the
+    /// channel's), on grids graded from `smallest` fitted to both.
+    pub(crate) fn sections(&self, smallest: f64) -> (QuasiTem, QuasiTem) {
+        let rails = Some((self.h, self.s));
+        let channel =
+            QuasiTem::mirrored(&self.cpw.with_rails(smallest, rails, false), 0).expect(OK);
+        let loaded = channel
+            .loaded(&self.cpw.with_rails(smallest, rails, true), &[0, 2])
+            .expect(OK);
+        (channel, loaded)
+    }
+
+    /// The period of `channel` and `loaded` (its [`Segmented::sections`]), drawn symmetric:
+    /// half the channel line's c, the loaded r, the other half.
+    pub(crate) fn period(&self, channel: &QuasiTem, loaded: &QuasiTem) -> Periodic {
+        Periodic::new(vec![
+            (channel.clone(), 0.5 * self.c),
+            (loaded.clone(), self.r),
+            (channel.clone(), 0.5 * self.c),
+        ])
+        .expect(OK)
+    }
+}
+
+/// Kharel et al.'s line on quartz: their fabricated film (as [`kharel_regular`]) on 2 µm of
+/// oxide over 500 µm of quartz, a signal `ws` wide, the channels `gap` apart, 800 nm of gold.
+pub(crate) fn kharel_quartz(ws: f64, gap: f64) -> Cpw {
+    Cpw {
+        signal: 0.5 * ws,
+        gap,
+        substrate_eps: QUARTZ_EPS,
+        ..kharel_regular(gap)
+    }
+}
+
+/// Kharel et al.'s Table 1 segmented rows on quartz (d, e and f): the signal's width, the
+/// rails' gap g and their distance h from the channels.
+const KHAREL_SEGMENTED: [(f64, f64, f64); 3] =
+    [(100.0, 5.0, 5.0), (50.0, 5.0, 3.0), (100.0, 4.3, 3.0)];
+
+/// Their segmented row `row` (0, 1, 2 for d, e, f): the rails 2 µm wide, 45 µm long, 5 µm
+/// apart along the line.
+pub(crate) fn kharel_segmented(row: usize) -> Segmented {
+    let (ws, g, h) = KHAREL_SEGMENTED[row];
+    let s = 2.0;
+    Segmented {
+        cpw: kharel_quartz(ws, g + 2.0 * (h + s)),
+        h,
+        s,
+        r: 45.0,
+        c: 5.0,
+    }
+}
+
+/// Kharel et al.'s fabricated segmented electrode, (g, h, s, t, r, c, w_s) = (5, 6, 2, 6, 45,
+/// 5, 100) µm (their Fig. 1(e)), on their fabricated film on quartz.
+pub(crate) fn kharel_fabricated() -> Segmented {
+    let (h, s) = (6.0, 2.0);
+    Segmented {
+        cpw: kharel_quartz(100.0, 5.0 + 2.0 * (h + s)),
+        h,
+        s,
+        r: 45.0,
+        c: 5.0,
+    }
+}
+
+/// Kharel et al.'s Table 1 for their segmented rows on quartz (d, e, f): Z (Ω), the RF index
+/// at 50 GHz, and the loss (dB cm⁻¹ GHz⁻½).
+pub(crate) const KHAREL_SEGMENTED_TABLE: [(f64, f64, f64); 3] =
+    [(41.0, 2.26, 0.21), (49.0, 2.27, 0.29), (39.0, 2.25, 0.26)];
+
+/// Kharel et al.'s loss tangent of lithium niobate in their simulation (Section 3, from M.
+/// Lee, Appl. Phys. Lett. 79, 1342 (2001), bulk crystals at 90 to 147 GHz).
+pub(crate) const KHAREL_LN_TANGENT: f64 = 0.004;
+
+/// The Bloch wave's numbers on a segmented line's period on grids graded from `smallest`: at
+/// 50 GHz Re Z_B, n_B and the conductor loss over √(50 GHz), and n_B with every c region
+/// loaded as the rails' (the upper bound of the 2D sections: the rails' ends fringing across
+/// the whole of c); and the total loss (lithium niobate's tan δ 0.004) fitted as k√f from 1 to
+/// 50 GHz by least squares, k in dB cm⁻¹ GHz⁻½, as Kharel et al. fit their measured loss.
+fn segmented_numbers(seg: &Segmented, smallest: f64) -> Vec<f64> {
+    let gold = Metal::new(GOLD, 0.8).expect(OK);
+    let (channel, loaded) = seg.sections(smallest);
+    let p = seg.period(&channel, &loaded);
+    let w = p.bloch(50e9, &gold, &[]).expect(OK);
+    let full = Periodic::new(vec![(loaded, seg.r + seg.c)])
+        .expect(OK)
+        .bloch(50e9, &gold, &[])
+        .expect(OK);
+    let (mut num, mut den) = (0.0, 0.0);
+    for g in 1..=50 {
+        let f = f64::from(g);
+        let a = p
+            .bloch(f * 1e9, &gold, &[("LN", KHAREL_LN_TANGENT)])
+            .expect(OK)
+            .db_per_cm();
+        num += a * f.sqrt();
+        den += f;
+    }
+    vec![
+        w.impedance.re,
+        w.index(),
+        w.conductor * DB_PER_NEPER / 100.0 / 50f64.sqrt(),
+        full.index(),
+        num / den,
+    ]
+}
+
+/// The numbers `at(h)` gives on [`STEPS`], each gated by the grid study at `tolerance`
+/// (relative): the finest grid's, and the largest estimated relative error among them.
+fn gated_by(at: impl Fn(f64) -> Vec<f64>, tolerance: f64) -> (Vec<f64>, f64) {
+    let values: Vec<Vec<f64>> = STEPS.iter().map(|&h| at(h)).collect();
+    let mut worst = 0.0f64;
+    let gated = (0..values[0].len())
+        .map(|k| {
+            let mut study = crate::convergence::Study::new("a line's number");
+            for (h, v) in STEPS.iter().zip(&values) {
+                study = study.on(*h, v[k]).expect(OK);
+            }
+            let v = values[2][k];
+            let check = study.check(tolerance * v.abs()).expect(OK);
+            worst = worst.max(check.error.unwrap_or(f64::INFINITY) / v.abs());
+            check.gated().expect("a converged grid")
+        })
+        .collect();
+    (gated, worst)
+}
+
+/// photonoxide's numbers for Kharel et al.'s segmented rows d, e, f and their fabricated
+/// electrode ([`segmented_numbers`], each gated at 0.5%), and the largest estimated relative
+/// error of row d's.
+pub(crate) fn kharel_segmented_numbers() -> &'static ([[f64; 5]; 4], f64) {
+    static NUMBERS: std::sync::OnceLock<([[f64; 5]; 4], f64)> = std::sync::OnceLock::new();
+    NUMBERS.get_or_init(|| {
+        let lines = [
+            kharel_segmented(0),
+            kharel_segmented(1),
+            kharel_segmented(2),
+            kharel_fabricated(),
+        ];
+        let mut worst = 0.0;
+        let numbers = std::array::from_fn(|k| {
+            let (v, e) = gated_by(|h| segmented_numbers(&lines[k], h), 5e-3);
+            if k == 0 {
+                worst = e;
+            }
+            [v[0], v[1], v[2], v[3], v[4]]
+        });
+        (numbers, worst)
+    })
+}
+
+/// The largest relative difference from Kharel et al.'s segmented rows of column `k` (0: Z,
+/// 1: the index, 2: the loss), with its sign.
+fn kharel_segmented_worst(k: usize) -> f64 {
+    KHAREL_SEGMENTED_TABLE
+        .iter()
+        .zip(&kharel_segmented_numbers().0)
+        .map(|(row, v)| {
+            let theirs = [row.0, row.1, row.2][k];
+            (v[k] - theirs) / theirs
+        })
+        .fold(0.0f64, |m, e| if e.abs() > m.abs() { e } else { m })
+}
+
+/// Kharel et al.'s regular electrode on quartz (Table 1, row c: a 100 µm signal, a 5 µm gap):
+/// the RF index at 50 GHz, gated at 0.5%.
+pub(crate) fn kharel_quartz_index() -> f64 {
+    let gold = Metal::new(GOLD, 0.8).expect(OK);
+    gated(
+        &kharel_quartz(100.0, 5.0),
+        |line| vec![wave(line, 50.0, &gold, &[]).index()],
+        5e-3,
+    )[0]
+}
+
+// ---------------------------------------------------------------------------------------------
+// Periodic lines in closed form
+// ---------------------------------------------------------------------------------------------
+
+/// A lossless line of `z` Ω and index `n`.
+fn ideal(z: f64, n: f64) -> QuasiTem {
+    let c = crate::units::SPEED_OF_LIGHT;
+    QuasiTem::ideal(z * n / c, n / (z * c)).expect(OK)
+}
+
+/// A coplanar waveguide of strips (a = 3, b = 5 µm) on silicon, graded from 10 nm, cut into a
+/// period of 20 and 30 µm: the Bloch wave's γ and Z₀ at 100 GHz on gold 1 µm thick against the
+/// line's own (the larger relative difference).
+pub(crate) fn uniform_period() -> f64 {
+    let (line, _) = coplanar(3.0, 5.0, 11.7, 600.0, 300.0, 0.01, 1.1);
+    let metal = Metal::new(GOLD, 1.0).expect(OK);
+    let p = Periodic::new(vec![(line.clone(), 20.0), (line.clone(), 30.0)]).expect(OK);
+    let w = p.bloch(100e9, &metal, &[("substrate", 0.01)]).expect(OK);
+    let u = line.wave(100e9, &metal, &[("substrate", 0.01)]).expect(OK);
+    ((w.gamma - u.gamma).norm() / u.gamma.norm())
+        .max((w.impedance - u.impedance).norm() / u.impedance.norm())
+}
+
+/// Shin et al.'s unloaded line, L_u = 5.987 nH/cm and C_u = 0.673 pF/cm (their Section V).
+const SHIN_UNLOADED: (f64, f64) = (5.987e-7, 0.673e-10);
+
+/// A period of Shin et al.'s line, 100 µm with a fill factor of 0.9, loaded by `delta_c`
+/// (F/m, each arm's, averaged over the line): 10 µm of the unloaded line, and 90 µm of the same
+/// inductance with C_u + 2ΔC/0.9, symmetric.
+fn shin_period(delta_c: f64) -> Periodic {
+    let (l, c) = SHIN_UNLOADED;
+    let unloaded = QuasiTem::ideal(l, c).expect(OK);
+    let loaded = QuasiTem::ideal(l, c + 2.0 * delta_c / 0.9).expect(OK);
+    Periodic::new(vec![
+        (unloaded.clone(), 5.0),
+        (loaded, 90.0),
+        (unloaded, 5.0),
+    ])
+    .expect(OK)
+}
+
+/// Shin et al.'s loaded line with ΔC = 2.02 pF/cm at the frequency where β_B Λ = 0.01: the
+/// Bloch Z_B and n_B against their Eq. (7), √(L_u/(C_u + 2ΔC)) and c√(L_u(C_u + 2ΔC)) (the
+/// larger relative difference).
+pub(crate) fn shin_limit() -> f64 {
+    let (l, c) = SHIN_UNLOADED;
+    let total = c + 2.0 * 2.02e-10;
+    let (z, n) = (
+        (l / total).sqrt(),
+        crate::units::SPEED_OF_LIGHT * (l * total).sqrt(),
+    );
+    let f = 0.01 * crate::units::SPEED_OF_LIGHT / (2.0 * std::f64::consts::PI * n * 100e-6);
+    let metal = Metal::new(GOLD, 1.0).expect(OK);
+    let w = shin_period(2.02e-10).bloch(f, &metal, &[]).expect(OK);
+    ((w.impedance.re - z) / z)
+        .abs()
+        .max(((w.index() - n) / n).abs())
+        .max(w.impedance.im.abs() / z)
+}
+
+/// Two lossless sections of one index (2.2) and impedances 30 and 60 Ω, 25 µm each: the
+/// frequency where the Bloch wave first stops, against the band edge where each section's
+/// electrical length θ = arccos ∣Γ∣ (Γ = 1/3, the two impedances' reflection), relative error.
+pub(crate) fn band_edge() -> f64 {
+    let n = 2.2;
+    let p = Periodic::new(vec![(ideal(30.0, n), 25.0), (ideal(60.0, n), 25.0)]).expect(OK);
+    let metal = Metal::new(GOLD, 1.0).expect(OK);
+    let travels = |f: f64| p.bloch(f, &metal, &[]).is_ok();
+    let c = crate::units::SPEED_OF_LIGHT;
+    // θ = π/2 at the quarter wave
+    let quarter = c / (4.0 * n * 25e-6);
+    let (mut lo, mut hi) = (0.1 * quarter, quarter);
+    for _ in 0..80 {
+        let mid = 0.5 * (lo + hi);
+        if travels(mid) {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    let exact = quarter * (1.0f64 / 3.0).acos() / std::f64::consts::FRAC_PI_2;
+    (0.5 * (lo + hi) - exact) / exact
+}
+
+/// The same period below its band edge, at θ = 1 rad: cos β_B Λ against
+/// cos²θ − (Z₁/Z₂ + Z₂/Z₁) sin²θ / 2 (absolute error).
+pub(crate) fn two_section_dispersion() -> f64 {
+    let n = 2.2;
+    let p = Periodic::new(vec![(ideal(30.0, n), 25.0), (ideal(60.0, n), 25.0)]).expect(OK);
+    let metal = Metal::new(GOLD, 1.0).expect(OK);
+    let c = crate::units::SPEED_OF_LIGHT;
+    let theta = 1.0f64;
+    let f = theta * c / (2.0 * std::f64::consts::PI * n * 25e-6);
+    let w = p.bloch(f, &metal, &[]).expect(OK);
+    let exact = theta.cos().powi(2) - 0.5 * (0.5 + 2.0) * theta.sin().powi(2);
+    ((w.gamma.im * 50e-6).cos() - exact).abs()
+}
+
+/// Shin et al.'s two T-rail electrodes (Table I: w = 4 and 2 µm, ΔC 2.02 and 1.26 pF/cm by
+/// their Eq. (6)) at 40 GHz, the top of their measurement: the Bloch phase velocity (cm/ns)
+/// and Re Z_B (Ω) of each.
+pub(crate) fn shin_numbers() -> [[f64; 2]; 2] {
+    let metal = Metal::new(GOLD, 1.0).expect(OK);
+    [2.02e-10, 1.26e-10].map(|dc| {
+        let w = shin_period(dc).bloch(40e9, &metal, &[]).expect(OK);
+        [
+            crate::units::SPEED_OF_LIGHT / w.index() * 1e-7,
+            w.impedance.re,
+        ]
+    })
+}
+
+/// Shin et al.'s Table I measured: v_ph (cm/ns) and Z₀ (Ω), each with its uncertainty.
+const SHIN_MEASURED: [[(f64, f64); 2]; 2] = [[(6.0, 0.4), (35.9, 2.5)], [(7.2, 0.6), (43.1, 3.6)]];
+
+/// The larger of the two electrodes' differences from Shin et al.'s measured column `k` (0:
+/// v_ph, 1: Z₀), in units of their uncertainty.
+fn shin_worst(k: usize) -> f64 {
+    shin_numbers()
+        .iter()
+        .zip(&SHIN_MEASURED)
+        .map(|(ours, theirs)| (ours[k] - theirs[k].0) / theirs[k].1)
+        .fold(0.0f64, |m, e| if e.abs() > m.abs() { e } else { m })
+}
+
+// The cases.
 pub(crate) fn cases() -> Vec<Case> {
     vec![
         Case {
@@ -687,6 +1044,90 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Published,
             source: r"Zhang et al. 2022, Fig. 5(a): 7.3 V measured at 250 GHz; the same tolerance, 20%",
             run: || outcome(zhang_rf_vpi(10.8, zhang_numbers()[4]), 7.3, 0.2 * 7.3),
+        },
+        Case {
+            id: "line/periodic-uniform",
+            title: r"Segmented electrodes, the period's ABCD cascade: a coplanar waveguide of strips ($a$ = 3, $b$ = 5 µm) on silicon (tan δ 0.01), graded from 10 nm, cut into a period of 20 and 30 µm; the Bloch wave's $\gamma_B$ and $Z_B$ at 100 GHz on 1 µm of gold against the line's own $\gamma$ and $Z_0$ (the larger relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"a uniform line is periodic with any period: its Bloch wave is the line's wave, $\cosh \gamma_B\Lambda = (A + D)/2$ the product of its sections' matrices (P. Yeh, A. Yariv, C.-S. Hong, J. Opt. Soc. Am. 67, 423 (1977), doi:10.1364/JOSA.67.000423, Eqs. (24)–(27)); round-off",
+            run: || outcome(uniform_period(), 0.0, 1e-10),
+        },
+        Case {
+            id: "line/periodic-dispersion",
+            title: r"Two lossless sections of one index (2.2) and impedances 30 and 60 Ω, 25 µm each, where each is $\theta$ = 1 rad long: $\cos \beta_B\Lambda$ against $\cos^2\theta - \tfrac12 (Z_1/Z_2 + Z_2/Z_1)\sin^2\theta$ (the absolute error shown)",
+            tier: Tier::Analytic,
+            source: r"the half trace of the product of two transmission-line sections' ABCD matrices; Yeh, Yariv and Hong 1977, Eq. (27); round-off",
+            run: || outcome(two_section_dispersion(), 0.0, 1e-12),
+        },
+        Case {
+            id: "line/periodic-band-edge",
+            title: r"The same period's first stop band: the lowest frequency where the Bloch wave stops travelling, by bisection, against where each section is $\theta = \arccos \lvert\Gamma\rvert$ long, $\Gamma$ = 1/3 the two impedances' reflection (relative error shown)",
+            tier: Tier::Analytic,
+            source: r"Yeh, Yariv and Hong 1977, Section II: the band edges are where $\lvert(A + D)/2\rvert$ = 1; for two sections of one length, $\cos^2\theta = (k - 1)/(k + 1)$ with $k = \tfrac12(Z_1/Z_2 + Z_2/Z_1)$, that is $\cos\theta = \lvert\Gamma\rvert$",
+            run: || outcome(band_edge(), 0.0, 1e-9),
+        },
+        Case {
+            id: "line/periodic-shin-limit",
+            title: r"Capacitively loaded lines: Shin et al.'s T-rail electrode as a period of 100 µm, 10 µm of their unloaded line ($L_u$ = 5.987 nH/cm, $C_u$ = 0.673 pF/cm) and 90 µm of it loaded (their fill factor 0.9, $\Delta C$ = 2.02 pF/cm each arm), lossless, at the frequency where $\beta_B\Lambda$ = 0.01: the Bloch $Z_B$ and $n_B$ against their Eq. (7) (the larger relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"J. Shin et al., IEEE Trans. Microw. Theory Tech. 53, 636 (2005), doi:10.1109/TMTT.2004.840735, Eq. (7): $Z_0 = \sqrt{L_u/(C_u + 2\Delta C)}$, $v_\mathrm{ph} = 1/\sqrt{L_u(C_u + 2\Delta C)}$, the long-wave limit of the periodic line, which the Bloch wave meets to second order in $\beta_B\Lambda$: 1e-5",
+            run: || outcome(shin_limit(), 0.0, 1e-5),
+        },
+        Case {
+            id: "line/shin-2005-velocity",
+            title: r"Published: Shin et al.'s two T-rail electrodes on GaAs (Table I: rails $w$ = 4 and 2 µm wide, $\Delta C$ = 2.02 and 1.26 pF/cm by their Eq. (6), on their unloaded line), each a period of 100 µm at a fill factor of 0.9: the Bloch phase velocity at 40 GHz against their measured 6.0 ± 0.4 and 7.2 ± 0.6 cm/ns (the larger difference in units of their uncertainty shown)",
+            tier: Tier::Published,
+            source: r"Shin et al. 2005, Table I (from the measured s-parameters, 10 to 40 GHz) and Section V ($L_u$, $C_u$ by their quasi-static program, the loaded inductance the unloaded's); within their uncertainty: 1",
+            run: || outcome(shin_worst(0), 0.0, 1.0),
+        },
+        Case {
+            id: "line/shin-2005-impedance",
+            title: r"The same electrodes' Bloch impedance $Z_B$ (Ω) at 40 GHz against their measured 35.9 ± 2.5 and 43.1 ± 3.6 Ω (the larger difference in units of their uncertainty shown)",
+            tier: Tier::Published,
+            source: r"Shin et al. 2005, Table I; their Eq. (7) gives 35.6 and 43.3 Ω; within their uncertainty: 1",
+            run: || outcome(shin_worst(1), 0.0, 1.0),
+        },
+        Case {
+            id: "line/kharel-2021-quartz-index",
+            title: r"Published: Kharel et al. 2021's regular electrode on quartz (Table 1, row c: a 100 µm signal, a 5 µm gap, 800 nm of gold on their fabricated film on 2 µm of oxide over 500 µm of quartz, $\varepsilon$ 4.5; the ground 100 µm wide and the sidewall at 70°, not given), quasi-TEM, the static grids graded from 8, 4 and 2 nm and gated at 0.5%: the RF index at 50 GHz (shown) against their 1.85",
+            tier: Tier::Published,
+            source: r"P. Kharel et al., Optica 8, 357 (2021), doi:10.1364/OPTICA.416155, Table 1 (Ansys HFSS, 3D) and Section 2 (quartz's $\varepsilon$ 4.5); its erratum, Optica 8, 1218 (2021), doi:10.1364/OPTICA.440484, corrects only Fig. 4(a). The tolerance as for their lines on silicon: 4%",
+            run: || outcome(kharel_quartz_index(), 1.85, 0.04 * 1.85),
+        },
+        Case {
+            id: "line/kharel-2021-segmented-impedance",
+            title: r"Published: Kharel et al. 2021's segmented electrodes on quartz (Table 1, rows d, e and f: rails 2 µm wide across, 45 µm long and 5 µm apart along the line, $h$ = 5, 3 and 3 µm from 100, 50 and 100 µm signals, the rails' gap $g$ = 5, 5 and 4.3 µm; the row c line otherwise), each period the channel line's 5 µm about the line loaded by the rails' 45 µm (Shin et al.'s, the inductance the channel's), the static grids graded from 8, 4 and 2 nm and gated at 0.5%: the Bloch Re $Z_B$ at 50 GHz against their 41, 49 and 39 Ω (the largest relative difference shown)",
+            tier: Tier::Published,
+            source: r"Kharel et al. 2021, Table 1 and Fig. 1 (HFSS, 3D, 200 µm of electrode). A 2D section can't give the rails' ends fringing across the 5 µm between them: loading those gaps as the rails lowers $Z_B$ by 2%. With the unstated etch and cladding (±3%) and the ground's width (±2.5%): 10%",
+            run: || outcome(kharel_segmented_worst(0), 0.0, 0.10),
+        },
+        Case {
+            id: "line/kharel-2021-segmented-index",
+            title: r"The same lines' Bloch RF index at 50 GHz against their 2.26, 2.27 and 2.25 (the largest relative difference shown)",
+            tier: Tier::Published,
+            source: r"Kharel et al. 2021, Table 1. The 2D sections' fringing bound (the 5 µm between rails loaded as the rails: +2.1%) and the unstated etch and cladding (±2.5%): 5%",
+            run: || outcome(kharel_segmented_worst(1), 0.0, 0.05),
+        },
+        Case {
+            id: "line/kharel-2021-segmented-measured-index",
+            title: r"Published: Kharel et al.'s fabricated segmented electrode on quartz, $(g, h, s, t, r, c, w_s)$ = (5, 6, 2, 6, 45, 5, 100) µm, as above: the Bloch RF index at 50 GHz (shown) against their measured 2.23 ± 0.01",
+            tier: Tier::Published,
+            source: r"Kharel et al. 2021, Fig. 1(e) and Section 3 (measured on a 10 mm electrode, Fig. 2(c)). The 2D sections give a lower bound, the gaps between rails as the channel line, and an upper, those gaps loaded as the rails, 0.047 above it; with their ±0.01: 0.05",
+            run: || outcome(kharel_segmented_numbers().0[3][1], 2.23, 0.05),
+        },
+        Case {
+            id: "line/kharel-2021-segmented-measured-loss",
+            title: r"The same electrode's total loss from 1 to 50 GHz (Holloway and Kuester's conductor loss, gold at 4.1 × 10⁷ S/m, not given; lithium niobate's tan δ 0.004, theirs) fitted as $k\sqrt f$ by least squares: $k$ (dB cm⁻¹ GHz⁻½, shown) against their measured 0.26",
+            tier: Tier::Published,
+            source: r"Kharel et al. 2021, Section 3 and Fig. 2(b): 0.26 dB cm⁻¹ GHz⁻½ measured (their design, Table 1's row d, 0.21). The tolerance: the gold's conductivity (±5%), Holloway and Kuester's own 5–10% (their Section V), and what the 2D sections leave out, the current that charges the rails through the stems: 15%",
+            run: || outcome(kharel_segmented_numbers().0[3][4], 0.26, 0.15 * 0.26),
+        },
+        Case {
+            id: "line/kharel-2021-segmented-grid",
+            title: r"Convergence: Kharel et al.'s segmented row d's Bloch $Z_B$, index, conductor loss and fringing bound at 50 GHz and its fitted loss, on the static grids graded from 8, 4 and 2 nm: the grid study's largest estimated relative error at 2 nm (shown)",
+            tier: Tier::Analytic,
+            source: r"the grid study of docs/methods/convergence.md (Richardson's estimate from the three grids); the gate the published rows pass: 0.5%",
+            run: || outcome(kharel_segmented_numbers().1, 0.0, 5e-3),
         },
     ]
 }

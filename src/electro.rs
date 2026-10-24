@@ -340,6 +340,19 @@ impl Electrostatic {
         v
     }
 
+    /// The same problem without the conductors `drop` (counted from 0), the others in order.
+    pub(crate) fn without_conductors(&self, drop: &[usize]) -> Electrostatic {
+        let mut v = self.clone();
+        v.conductors = self
+            .conductors
+            .iter()
+            .enumerate()
+            .filter(|(k, _)| !drop.contains(k))
+            .map(|(_, c)| c.clone())
+            .collect();
+        v
+    }
+
     /// The capacitance matrix, F/m: entry (i, j) is conductor i's charge with conductor j at
     /// 1 V and every other conductor, and every fixed side, at 0 V (the charges given and the
     /// conductors' own potentials don't enter). The matrix is factorized once.

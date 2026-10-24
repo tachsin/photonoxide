@@ -1,7 +1,7 @@
 ---
 title: "Travelling-wave electrodes: the RF line and the electro-optic response"
 module: "electro::line"
-summary: "A modulator's electrode as a transmission line, from the static solver: C and C₀ give the RF index √(C/C₀) and the impedance 1/(c√(CC₀)); each medium's share of the electric energy weighs its loss tangent; the conductor loss by Holloway and Kuester's method on the strips' current (their Eq. 12 to 1.3e-3 on a coplanar waveguide) or by Wheeler's incremental-inductance rule on the thick metal (2/w on plates to 4e-14; the two within 6% at 300 GHz); the wave's γ and Z₀ with the internal impedance; and the response m(ω) of a modulator driven through the line (Ghione's Eq. 6.31, its sinc and loss limits). Kharel et al. 2021's regular electrodes within 8% in Z, 2% in the index and 9% in the loss; Zhang et al. 2022's line at 2.259 (100 GHz), 41.1 Ω and 15.2 dB/cm (250 GHz) against 2.27, 41.5 Ω and 13 dB/cm. Quasi-TEM, to about 100 GHz."
+summary: "A modulator's electrode as a transmission line, from the static solver: C and C₀ give the RF index √(C/C₀) and the impedance 1/(c√(CC₀)); each medium's share of the electric energy weighs its loss tangent; the conductor loss by Holloway and Kuester's method on the strips' current (their Eq. 12 to 1.3e-3 on a coplanar waveguide) or by Wheeler's incremental-inductance rule on the thick metal (2/w on plates to 4e-14; the two within 6% at 300 GHz); the wave's γ and Z₀ with the internal impedance; and the response m(ω) of a modulator driven through the line (Ghione's Eq. 6.31, its sinc and loss limits). Kharel et al. 2021's regular electrodes within 8% in Z, 2% in the index and 9% in the loss; Zhang et al. 2022's line at 2.259 (100 GHz), 41.1 Ω and 15.2 dB/cm (250 GHz) against 2.27, 41.5 Ω and 13 dB/cm. Segmented electrodes by each period's ABCD matrix, the Bloch wave's index and impedance, the rails' loading as Shin et al.'s loaded line: Shin's T-rail electrodes within 0.14σ of their measured velocity and impedance; Kharel et al.'s segmented rows on quartz within 5.8% in Z and 3.7% in the index, their measured electrode at 2.207 against 2.23 and 0.272 against 0.26 dB cm⁻¹ GHz⁻½. Quasi-TEM, to about 100 GHz."
 order: 25.6
 papers:
   - cite: "C. L. Holloway, E. F. Kuester, IEEE Trans. Microw. Theory Tech. 43, 2695 (1995) (a CPW's conductor loss: the strips' current stopped short of their edges, Eqs. 4, 7–13 and Table I)"
@@ -14,8 +14,14 @@ papers:
     doi: 10.1017/CBO9780511635595
   - cite: "Y. Zhang et al., Photon. Res. 10, 2380 (2022) (a thin-film modulator's line and response measured to 325 GHz, Eq. (1))"
     doi: 10.1364/PRJ.468518
-  - cite: "P. Kharel et al., Optica 8, 357 (2021) (simulated regular and segmented electrodes, Table 1)"
+  - cite: "P. Kharel et al., Optica 8, 357 (2021) (simulated regular and segmented electrodes, Table 1; the fabricated segmented electrode measured, Figs. 1(e) and 2)"
     doi: 10.1364/OPTICA.416155
+  - cite: "P. Kharel et al., Optica 8, 1218 (2021) (the erratum: Fig. 4(a)'s axis)"
+    doi: 10.1364/OPTICA.440484
+  - cite: "J. Shin et al., IEEE Trans. Microw. Theory Tech. 53, 636 (2005) (T-rail electrodes, the capacitively loaded line, Eqs. (6)–(8) and Table I)"
+    doi: 10.1109/TMTT.2004.840735
+  - cite: "P. Yeh, A. Yariv, C.-S. Hong, J. Opt. Soc. Am. 67, 423 (1977) (Bloch waves from a period's unimodular matrix, Eqs. (24)–(27))"
+    doi: 10.1364/JOSA.67.000423
 validation:
   - line/holloway-kuester-current
   - line/holloway-kuester-order
@@ -36,6 +42,18 @@ validation:
   - line/zhang-2022-loss
   - line/zhang-2022-rf-vpi-short
   - line/zhang-2022-rf-vpi-long
+  - line/periodic-uniform
+  - line/periodic-dispersion
+  - line/periodic-band-edge
+  - line/periodic-shin-limit
+  - line/shin-2005-velocity
+  - line/shin-2005-impedance
+  - line/kharel-2021-quartz-index
+  - line/kharel-2021-segmented-impedance
+  - line/kharel-2021-segmented-index
+  - line/kharel-2021-segmented-measured-index
+  - line/kharel-2021-segmented-measured-loss
+  - line/kharel-2021-segmented-grid
 ---
 
 A Pockels modulator's Vπ·L ([electro-optic](electro-optic.md)) is its electrodes' field at DC.
@@ -233,6 +251,117 @@ GHz, above their fit's √f (1.3), and the impedance mismatch's 0.85 dB comes be
 Their Vπ·L of 2.3 V·cm at DC and 2.67 at 1 GHz suggests their 1 GHz reference already holds much
 of that fall. Not understood yet; the full-wave mode comes next.
 
+## Segmented electrodes
+
+A segmented (T-rail) electrode hangs short rails off its channels, each by a narrow stem: on
+Kharel et al.'s, rails 2 µm wide across and 45 µm long every 50 µm, the optical guide in the
+gap g between the two rails. The rails carry the line's charge into the gap but none of its
+current, so the line slows (its capacitance grows), its impedance falls, and the current stays
+on the channels, far from the gap, where it crowds less: the conductor loss falls.
+
+**A period's matrix and its Bloch wave** (`Periodic`). A period of sections, each a uniform line
+of length ℓ, is the product of their ABCD matrices
+$\begin{pmatrix}\cosh\gamma\ell & Z_0\sinh\gamma\ell\\ \sinh\gamma\ell/Z_0 & \cosh\gamma\ell\end{pmatrix}$,
+in order along the line. The product T is unimodular (det T = 1), and a wave that repeats from
+period to period up to a factor is its eigenvector: Yeh, Yariv and Hong's Eqs. (24)–(27),
+
+$$\cosh \gamma_B\Lambda = \tfrac12 (A + D), \qquad Z_B = \frac{B}{e^{\gamma_B\Lambda} - A},$$
+
+the forward root (|e^(γ_B Λ)| ≥ 1, β_B Λ in the first band, n_B = β_B c/ω), Z_B the eigenvector's
+V/I at the period's start (a period drawn symmetric gives it in the middle of an unloaded part).
+Where |½(A + D)| > 1 the wave doesn't travel, a stop band about the Bragg frequency c/(2nΛ), and
+`Periodic::bloch` says so. The losses' split is, to first order, the sections' resistance and
+conductance averaged over the period by length, ⟨R⟩/(2 Re Z_B) and ⟨G⟩ Re Z_B/2.
+
+The checks are exact: a uniform lossy line cut into a period of 20 and 30 µm has the line's own
+γ and Z₀ to 6.9e-16 (`line/periodic-uniform`); two lossless sections of 30 and 60 Ω, θ = 1 rad
+each, give cos β_BΛ = cos²θ − ½(Z₁/Z₂ + Z₂/Z₁) sin²θ to 1.1e-16
+(`line/periodic-dispersion`), and stop where θ = arccos|Γ| = arccos(1/3) to 3.4e-16
+(`line/periodic-band-edge`).
+
+**The loaded line** (`QuasiTem::loaded`). Shin et al.'s Eq. (7): the rails load the line with
+capacitance and leave its inductance the unloaded line's,
+
+$$Z_0 = \sqrt{\frac{L_u}{C_u + 2\Delta C}}, \qquad v_\mathrm{ph} = \frac{1}{\sqrt{L_u(C_u + 2\Delta C)}}.$$
+
+`QuasiTem::loaded` takes the capacitance and the media's energy shares from the cross-section
+through the rails (the rails drawn as conductors at their channels' potentials) and the
+inductance and the current integral from the channels' line. The Bloch wave of a period of the
+two meets Eq. (7), averaged over the period, at long wavelength: 1.4e-6 at β_BΛ = 0.01
+(`line/periodic-shin-limit`). The stems need no section of their own: where a stem joins a rail
+to its channel, the field between them was already nil.
+
+**Shin et al. 2005**'s T-rail electrodes on GaAs, from their own numbers: the unloaded line's
+L_u = 5.987 nH/cm and C_u = 0.673 pF/cm, and ΔC = 2.02 and 1.26 pF/cm by their Eq. (6) for
+rails 4 and 2 µm wide, a period of 100 µm at a fill factor of 0.9 (`QuasiTem::ideal` for each
+section). At 40 GHz, the top of their measurement, the Bloch wave travels at 5.953 and 7.232
+cm/ns against their measured 6.0 ± 0.4 and 7.2 ± 0.6, and Z_B is 35.55 and 43.23 Ω against
+35.9 ± 2.5 and 43.1 ± 3.6 (0.14σ at most, `line/shin-2005-*`; their Eq. (7) gives 35.6 and 43.3).
+This checks the period's cascade on their line, not a solve of their cross-section, which needs
+their epilayer and BCB in detail.
+
+**Kharel et al. 2021** on quartz (ε 4.5, theirs), the static grids graded from 8, 4 and 2 nm,
+each number gated at 0.5% (`line/kharel-2021-segmented-grid`: the largest estimated error
+6.7e-4). The cross-sections as for their lines on silicon (their fabricated film, a rib 2 µm wide
+etched 350 nm into 600 nm of x-cut lithium niobate under 1 µm of oxide, on 2 µm of oxide; 800 nm
+of gold at 4.1 × 10⁷ S/m; grounds 100 µm wide and the sidewall at 70°, not given), the rails in
+the gap: Fig. 1 draws g between the rails, h from each rail to its channel, s the rail's width,
+t the stem's, r the rail's length and c the gap between rails, so the channels are g + 2(h + s)
+apart. A period is half the channels' line for c, the loaded line for r, the other half. At 50
+GHz:
+
+| Line | Re Z_B (Ω) | theirs | n_B | theirs | conductor loss (dB cm⁻¹ GHz⁻½) | theirs |
+|---|---|---|---|---|---|---|
+| row c, regular, w_s = 100, g = 5 µm | 35.77 | 41 | 1.852 | 1.85 | 0.486 | 0.37 |
+| row d, w_s = 100, g = 5, h = 5 | 43.37 | 41 | 2.179 | 2.26 | 0.244 | 0.21 |
+| row e, w_s = 50, g = 5, h = 3 | 47.58 | 49 | 2.185 | 2.27 | 0.336 | 0.29 |
+| row f, w_s = 100, g = 4.3, h = 3 | 40.21 | 39 | 2.168 | 2.25 | 0.288 | 0.26 |
+| fabricated, (g, h, s, t, r, c, w_s) = (5, 6, 2, 6, 45, 5, 100) | 44.08 | — | 2.207 | 2.23 ± 0.01 measured | 0.233 | 0.26 measured (fit) |
+
+(row f's footnote gives g = 5 where its column gives 4.3: the column taken). The channels alone
+are lines of 54.7, 59.3 and 50.0 Ω at an index of 1.73 to 1.75; the rails raise their
+capacitance by 61 to 66% where they are.
+
+What a 2D section can and can't give. Each section's capacitance and current are exact to the
+grid, and the period's cascade is exact. What it can't give is 3D: the rails' ends face each
+other across the 5 µm between them, and their field fringes into it, which the period takes as
+the bare channels' line. Loading those gaps as the rails instead is an upper bound: it raises n_B
+by 1.9 to 2.2% (row d 2.224, the fabricated electrode 2.255) and lowers Z_B by about 2%; the
+truth lies between. Nor does it give the current that charges each rail through its stem (Shin et al.'s R_p),
+which adds loss; or what HFSS's model of their stack holds, which the paper doesn't say (without
+the cladding, the regular line's impedance rises by 3.5% and its index falls by 3.4%; grounds of
+50 or 200 µm move the impedance by +3.3% and −1.5%).
+
+- **The index.** The regular row c is reproduced to 0.1% (`line/kharel-2021-quartz-index`, within
+  4% as their silicon rows), and the fabricated electrode's measured 2.23 ± 0.01 lies inside the
+  2D bounds, 2.207 to 2.255 (`line/kharel-2021-segmented-measured-index`, within 0.05). Against
+  their design rows our lower bound is 3.6 to 3.7% below and the upper 1.6 to 1.9% below
+  (`line/kharel-2021-segmented-index`, within 5%: the bound's 2.1% and the unstated cladding's
+  2.5%); their measured electrode lies 1.3% below row d's 2.26, which they call agreement.
+- **The impedance.** Rows d, e and f within 5.8, −2.9 and 3.1% (`line/kharel-2021-segmented-impedance`,
+  within 10%: the fringing bound's 2%, the cladding's 3.5% and the ground's 3%).
+- **The loss.** Their fabricated electrode's measured loss, fitted as k√f from 1 to 50 GHz as
+  they fit it, against ours fitted the same way (Holloway and Kuester's conductor loss and
+  lithium niobate's tan δ 0.004, theirs): 0.272 against 0.26 dB cm⁻¹ GHz⁻½
+  (`line/kharel-2021-segmented-measured-loss`, within 15%: the gold's conductivity, 5%, and
+  Holloway and Kuester's own 5–10%). Their measured 2 dB/cm at 50 GHz, ours 1.71 (conductor 1.65,
+  dielectric 0.07).
+- **Not reproduced.** Table 1's segmented losses, 0.21, 0.29 and 0.26 dB cm⁻¹ GHz⁻½, lie 11 to
+  16% below ours (0.244, 0.336, 0.288), while their fabricated electrode, close to row d, measured
+  0.26 against row d's 0.21: the design rows sit below both their measurement and our model, so
+  the measurement is the case. And the regular row c: at the index we reproduce, its impedance
+  (35.77 against 41 Ω) says their line holds 13% less capacitance than the stated cross-section,
+  more than the cladding, the etch or the ground's width move it, and its loss is 31% below ours
+  (0.486 against 0.37), where the same method's silicon rows are within 9%. A 7 µm gap would give
+  39.98 Ω and 0.377 at n 1.802; nothing in the paper says it is one, so row c's impedance and loss
+  are left out.
+
+Their modulators' roll-off at 50 GHz against 1 GHz, measured 1.8 dB on 20 mm and 0.8 dB on 10 mm
+(their Fig. 3(b)), is 2.04 and 1.37 dB on the fabricated line (50 Ω ends, the light's group index
+2.25, theirs). Our 44 Ω line between 50 Ω ends makes the response ripple by about ±0.6 dB as the
+line's length in wavelengths grows (its input impedance between 38.9 and 50 Ω), and their own
+curves ripple with the photodiode's response, so one frequency doesn't make a case.
+
 ## As a job
 
 An `"electrostatic"` static job's `line` table (`job::line`): `signal` (its conductor, counted
@@ -248,10 +377,24 @@ dB/cm at 300 GHz, and for 5.8 mm a 3 dB bandwidth of 92 GHz (6 dB: 344 GHz), the
 grid study checks converged at 1%. Its PECVD oxide is drawn as regions, which leave the rib's
 walls a sliver of thermal oxide each.
 
+`segmented` makes it a segmented electrode: the `[[task.conductor]]`s are drawn as the section
+through the rails, the rails at their channels' potentials (so the electro-optic field is the
+one at the guide), and `rail` names which are rails and what each hangs from
+(`{ conductor: 3, of: 1 }`), with `rail_um` and `period_um`. The other conductors are the
+channels' line, which the `line:` entries record; the `segmented line` entries record the loaded
+capacitance, the quasi-static index of Shin et al.'s Eq. (7), and at each frequency n_B, Z_B, the
+losses and the 2D upper bound (the gaps between rails loaded too). The response and the grid
+study take the segmented line. jobs/tfln-segmented.yaml is Kharel et al.'s fabricated electrode
+on quartz: on its own grids (the static one graded from 4 nm, the mode's 20 nm) 2.352 V·cm
+push–pull, n_B 2.205 (the bound 2.252) and Z_B 44.13 Ω at 50 GHz, 1.71 dB/cm there and 2.31 at
+100 GHz, and for 20 mm a 3 dB bandwidth of 82 GHz (6 dB: 145 GHz), the three numbers the grid
+study checks converged at 1%. Their measured Vπ of 1.3 V at 1 GHz on 20 mm is 2.6 V·cm; their
+Fig. 4(a) gives the segmented design 2.3 V·cm.
+
 ## Not yet
 
 - A full-wave 2D RF mode with lossy metal above about 100 GHz, where the skin depth (0.13 µm in
   copper at 250 GHz) and the line's dispersion leave quasi-TEM.
-- Segmented and capacitively loaded electrodes: each period's ABCD matrix, its Bloch impedance and
-  index (Kharel et al. 2021's T-rails; Shin et al. 2005).
+- A segmented electrode's 3D parts: the rails' ends fringing across the gaps between them (the 2D
+  sections bound it), and the current that charges the rails through their stems.
 - Loss tangents in the catalogue, with their sources and frequency ranges.

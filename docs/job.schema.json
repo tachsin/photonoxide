@@ -4382,6 +4382,10 @@
           "$ref": "#/$defs/ResponseSpec",
           "description": "The electro-optic response of a modulator driven through the line."
         },
+        "segmented": {
+          "$ref": "#/$defs/SegmentedSpec",
+          "description": "A segmented (T-rail) electrode: its rails, their length and the period."
+        },
         "signal": {
           "description": "The signal's conductor, counted from 1.",
           "minimum": 0,
@@ -5393,6 +5397,27 @@
       },
       "type": "object"
     },
+    "RailSpec": {
+      "additionalProperties": false,
+      "description": "`line.segmented.rail`: a `[[task.conductor]]` that is a rail, and the conductor it hangs from by its stem, both counted from 1.",
+      "properties": {
+        "conductor": {
+          "description": "The rail's conductor, counted from 1.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "of": {
+          "description": "The conductor it hangs from, counted from 1.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "conductor",
+        "of"
+      ],
+      "type": "object"
+    },
     "RectSpec": {
       "additionalProperties": false,
       "allOf": [
@@ -5950,6 +5975,67 @@
           ]
         }
       },
+      "type": "object"
+    },
+    "SegmentedSpec": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "period",
+              "period_um"
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "period_um"
+              ]
+            },
+            {
+              "required": [
+                "period"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "`line.segmented`.",
+      "properties": {
+        "period": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/Expression"
+            }
+          ],
+          "description": "The period along the line, µm. With its unit in the value, in place of period_um: a length with its unit, e.g. \"1.55 um\"."
+        },
+        "period_um": {
+          "description": "The period along the line, µm.",
+          "type": "number"
+        },
+        "rail": {
+          "description": "The rails, each a rectangle of the section and the conductor it hangs from.",
+          "items": {
+            "$ref": "#/$defs/RailSpec"
+          },
+          "type": "array"
+        },
+        "rail_um": {
+          "description": "Each rail's length along the line, µm.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "rail",
+        "rail_um"
+      ],
       "type": "object"
     },
     "ShapeFields": {
