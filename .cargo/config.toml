@@ -1,0 +1,6 @@
+# Windows links with rust-lld, which comes with Rust, instead of MSVC's link.exe: faster, above
+# all for the optimized debug and test builds (#507). The release workflow's installers keep
+# link.exe (CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER in binaries.yml). Linux has used rust-lld
+# by default since Rust 1.90; macOS keeps Apple's linker.
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
