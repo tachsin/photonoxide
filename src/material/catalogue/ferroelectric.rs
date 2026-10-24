@@ -501,10 +501,11 @@ fn abedin_linear(axis: usize, a3: f64) -> ([f64; 3], f64) {
             .max_by(|&a, &b| m[a][c].abs().total_cmp(&m[b][c].abs()))
             .unwrap_or(c);
         m.swap(c, p);
-        for r in (c + 1)..3 {
-            let k = m[r][c] / m[c][c];
-            for j in c..4 {
-                m[r][j] -= k * m[c][j];
+        let pivot = m[c];
+        for row in m.iter_mut().skip(c + 1) {
+            let k = row[c] / pivot[c];
+            for (x, p) in row.iter_mut().zip(pivot).skip(c) {
+                *x -= k * p;
             }
         }
     }
