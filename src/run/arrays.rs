@@ -391,19 +391,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore]
-    fn measure_tmp() {
-        for d in std::env::var("MEASURE").unwrap().split(';') {
-            let dir = Path::new(d);
-            let lines = crate::run::replay_lines(dir).unwrap();
-            let inline: usize = lines.iter().map(|l| l.len() + 1).sum();
-            let rec = std::fs::metadata(dir.join("events.jsonl")).unwrap().len();
-            let bin = std::fs::metadata(dir.join(FILE)).map(|m| m.len()).unwrap_or(0);
-            println!("MEASURE {d}: inline {inline}, events.jsonl {rec}, events.bin {bin}");
-        }
-    }
-
-    #[test]
     fn base64_reads_back_what_it_writes() {
         assert_eq!(base64(b""), "");
         assert_eq!(base64(b"f"), "Zg==");

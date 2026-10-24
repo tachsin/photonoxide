@@ -201,11 +201,11 @@ photonoxide export runs/<run> --fields all --precision f32 --level 9 --to out/
 ```
 
 ```text
-mode-1-of-1.npz         123406 bytes  written again: exactly 57634 bytes at f32, level 9
+field-1.npz            20125593 bytes  written again: about 9694361 bytes at f32, level 9
 ```
 
 The Export dialog has the precision and the level beside its fields, each file's size now and
-written again (`→ 56.3 kB`) as the choice changes, and the total; Python and MATLAB have
+written again (`19.2 MB → ≈ 9.2 MB`) as the choice changes, and the total; Python and MATLAB have
 `estimate_fields` and `export_fields`.
 
 - The arrays are read from the `.npz` the run wrote and written by the same writer, in the same
@@ -220,8 +220,11 @@ written again (`→ 56.3 kB`) as the choice changes, and the total; Python and M
   level asked, their ratio taken for the whole, and marked `≈` (`about` on the command line).
 - The tests write each kind's file again (a mode, an fdfd field, an fdtd monitor, a static
   temperature) at both precisions and levels 0, 1, 6 and 9: each estimate is the written size
-  to the byte where it says it is exact, and within 2 % where it is sliced (a 600 × 400
-  complex field: 0.1 % to 0.3 % off).
+  to the byte where it says it is exact, and within 2 % where it is sliced.
+- `jobs/mmi-fdtd.yaml`'s field monitor (20.1 MB in `f64`, on its 20 nm grid) written again:
+  the estimate 0.9 % under at `f64` and level 6 (19 948 345 bytes for 20 125 593 written),
+  1.0 % under at level 1, 0.1 % over at `f32` and level 6 or 9 (9 694 361 for 9 684 081);
+  stored, 20 893 269 bytes, to the byte.
 - An `.h5`, or an `.npz` compressed with Zstandard (which photonoxide reads only through
   libzstd), is copied as it is.
 
@@ -236,7 +239,7 @@ and every line had to be read and parsed to open a run. Each long value of a lin
   decimal, as `<f8` when it is an `f64`'s; a base64 string of 1024 characters or more (an
   FDTD frame's pixels), as its bytes, `|u1`;
 - each is a NumPy `.npy` (NEP 1, one dimension), one after another, and its place in the line
-  holds `{"$npy": <offset>}`, the byte where it starts;
+  holds `{"$npy":<offset>}`, the byte where it starts;
 - a value is moved only when writing it back gives the very text the line had, which is checked
   as it is moved. A replayed run (`photonoxide view`, the studio's replay, `results.json`, the
   tables) reads each line as the run recorded it, to the last byte, and so every float to the
@@ -245,11 +248,14 @@ and every line had to be read and parsed to open a run. Each long value of a lin
   finds it;
 - a run recorded before, with its arrays in its lines, replays as it always did.
 
-| Job | `events.jsonl` before | now, with `events.bin` |
-|---|---|---|
-| `jobs/ring-fdfd.yaml` | see the PR | |
-| `jobs/strip-modes.yaml` | | |
-| `jobs/ring-fdtd.yaml` | | |
+| Job | `events.jsonl` before | `events.jsonl` now | `events.bin` |
+|---|---:|---:|---:|
+| `jobs/strip-modes.yaml` (its modes, and a sweep of 11 wavelengths) | 1.59 MB | 16.7 kB | 0.86 MB |
+| `jobs/ring-fdfd.yaml` (a sweep of 201 wavelengths, each one's field) | 16.8 MB | 178 kB | 13.8 MB |
+| `jobs/ring-fdtd.yaml` (its frames) | 8.75 MB | 1.45 MB | 5.52 MB |
+
+The studio's list of runs reads each record, now a hundredth of what it was for a sweep; a
+replay reads the arrays back with its lines.
 
 From Python, a picture of the run above, read from the record as NumPy reads it; the run's
 `events` (as the façade gives them) have it in place again, to the bit:
