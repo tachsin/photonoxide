@@ -23,7 +23,7 @@ default-members = ["."]
 [workspace.package]
 # photonoxide's version, which every crate here has (the program, the native libraries' crate and
 # the Python package take it with version.workspace): release-plz bumps it here
-version = "0.5.4"
+version = "0.6.0"
 
 [dependencies]
 # without faer's `npy` default: nothing here reads .npy files, and it brought pest, whose newer
