@@ -69,8 +69,8 @@ reads (most Markdown, the site, the other workflows) run only the docs' links. A
 or test-read file gets its line in the map. A PR that changes the library (`src/`, the root
 `Cargo.toml`) also runs the Semver job, cargo-semver-checks against the PR's base on main, so a
 PR answers for its own breaks only; the release PR is checked against the latest release on
-crates.io. **Tier 2**, the release PR, a PR labelled `full-ci`, and a change to `ci.yml`,
-`Cargo.toml`, `Cargo.lock` or `.cargo/config.toml`: every test on Linux, Windows and macOS (and on
+crates.io. **Tier 2**, the release PR, a PR labelled `full-ci`, and
+a change to `ci.yml`, `Cargo.toml` or `Cargo.lock`: every test on Linux, Windows and macOS (and on
 one thread), every example on the three systems, the 3D devices, the whole validation report. **Tier
 3**, the Weekly workflow on Mondays when code changed that week: Tier 2, every Python wheel, the
 Systems comparison and the Libraries workflow's installs (those every week); a failure opens the

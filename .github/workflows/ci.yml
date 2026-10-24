@@ -9,10 +9,10 @@ name: CI
 #   or the root Cargo.toml) has its public API checked against the latest release's
 #   (cargo-semver-checks).
 # - Tier 2, the release pull request (release-plz's branch), a pull request labelled `full-ci`
-#   (the Full CI workflow starts it), and a change to this workflow, Cargo.toml, Cargo.lock or
-#   .cargo/config.toml: everything, the tests on Linux, Windows and macOS, single-threaded too,
-#   every example on all three systems, the 3D devices, the whole validation report and the
-#   studio on each system.
+#   (the Full CI workflow starts it), and a change to this workflow or to Cargo.toml or
+#   Cargo.lock: everything, the tests on Linux, Windows and macOS, single-threaded too, every
+#   example on all three systems, the 3D devices, the whole validation report and the studio on
+#   each system.
 # - Tier 3, Mondays (the Weekly workflow, when code changed in the past seven days) and by hand
 #   (Run workflow): Tier 2, and the Weekly workflow adds the Libraries workflow's installs, the
 #   Systems comparison and every Python wheel.
@@ -90,7 +90,7 @@ jobs:
               git diff --name-only "$range" > "$RUNNER_TEMP/changed.txt"
               cat "$RUNNER_TEMP/changed.txt"
               # this workflow and the dependencies change what every system builds and runs
-              if grep -qxE '\.github/workflows/ci\.yml|Cargo\.toml|Cargo\.lock|\.cargo/config\.toml' "$RUNNER_TEMP/changed.txt"; then
+              if grep -qxE '\.github/workflows/ci\.yml|Cargo\.toml|Cargo\.lock' "$RUNNER_TEMP/changed.txt"; then
                 tier=2
               fi
             fi
